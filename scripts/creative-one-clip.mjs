@@ -1,25 +1,11 @@
-// One command, one clip, the whole pipeline.
+// One command, one short proof, the complete Creative Studio pipeline.
 //
-// Everything the studio has been measured on this session stopped at direction: research, story, scenes and
-// shots were produced and nothing was ever generated. That leaves the half of the pipeline that turns a plan
-// into a file completely unexercised, so no amount of direction quality tells you whether the studio can
-// make a video. This runs all of it for one short clip and reports each stage separately, so a failure names
-// the stage that failed instead of the run.
-//
-// Nothing here is a new pipeline. buildCreativePipeline already walks understanding, research, strategy,
-// concept, storyboard, scenes, shots, the production graph, the execution plan and the task set;
-// ProductionQueueRuntime.dispatchAll already dispatches those tasks to real providers, polls them, and ends
-// in CreativeFinalisationRouter for post production. This is the single entry point that was missing, plus
-// the stage-by-stage reporting that makes the result readable.
-//
-//   CREATIVE_CLIP_REQUEST="8 second clip for Churchill when staff welcome a customer in the entrance" \
-//   CREATIVE_CLIP_ORGANIZATION_ID=<uuid> \
-//   CREATIVE_CLIP_SPEND_APPROVED=YES \
-//     node --loader ./scripts/next-alias-loader.mjs scripts/creative-one-clip.mjs
-//
-// Without CREATIVE_CLIP_SPEND_APPROVED it plans and prices and dispatches nothing, because generation is
-// where the money is: reasoning runs about 1.2 THB a call and a video clip has cost between 20 and 45.
+// This command is intentionally resumable. Re-running the same organization/request/duration must continue
+// the same proof instead of creating another mission/project and paying to rediscover the same work.
+// The safe wrapper remains the public entry point and gates all paid reasoning/generation before this file
+// is imported.
 
+import { createHash } from "node:crypto";
 import process from "node:process";
 
 const REQUEST = String(process.env.CREATIVE_CLIP_REQUEST || "").trim();
@@ -28,8 +14,6 @@ const DURATION = Number(process.env.CREATIVE_CLIP_SECONDS || 8);
 const SPEND = String(process.env.CREATIVE_CLIP_SPEND_APPROVED || "").trim().toUpperCase() === "YES";
 const CEILING = Number(process.env.CREATIVE_CLIP_MAXIMUM_THB || 120);
 
-// Research runs on openai/gpt-4.1-mini at 14 and 56 THB per million tokens with a 30 percent markup, which
-// has been costing about 1.2 THB a call, so a research and direction pass sits around 15 to 25.
 const RESEARCH_PROVIDER = String(process.env.CREATIVE_CLIP_RESEARCH_PROVIDER || "openai").trim();
 const RESEARCH_PRICING_ID = String(
   process.env.CREATIVE_CLIP_RESEARCH_PRICING_ID || "156fbd36-5a2d-48b0-b72d-450bab821a11",
@@ -37,7 +21,6 @@ const RESEARCH_PRICING_ID = String(
 const RESEARCH_CEILING = Number(process.env.CREATIVE_CLIP_RESEARCH_MAXIMUM_THB || 30);
 const RESEARCH_MODEL = String(process.env.CREATIVE_CLIP_RESEARCH_MODEL || "gpt-4.1-mini").trim();
 const DIRECTION_CEILING = Number(process.env.CREATIVE_CLIP_DIRECTION_MAXIMUM_THB || 40);
-const COMMAND_IDENTITY = `one-clip:${Date.now()}`;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -47,12 +30,250 @@ function list(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function finite(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function sameDuration(value) {
+  const number = finite(value);
+  return number !== null && Math.abs(number - DURATION) < 0.001;
+}
+
+const commandDigest = createHash("sha256")
+  .update(`${ORGANIZATION}\n${DURATION}\n${REQUEST}`)
+  .digest("hex")
+  .slice(0, 24);
+const COMMAND_IDENTITY = `one-clip:${commandDigest}`;
+
 const stages = [];
 
 function stage(name, status, detail = "") {
   stages.push({ name, status, detail });
   const mark = status === "OK" ? "  ok  " : status === "SKIP" ? " skip " : " FAIL ";
   console.log(`[${mark}] ${name}${detail ? `  ${detail}` : ""}`);
+}
+
+function timestamp(value) {
+  const parsed = Date.parse(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function proofMatches(project = {}) {
+  return (
+    text(project.organization_id) === ORGANIZATION &&
+    text(project.metadata?.creative_request) === REQUEST &&
+    text(project.production_type).toUpperCase() === "VIDEO" &&
+    sameDuration(project.target_duration)
+  );
+}
+
+function approvalMetadata(existingMetadata = {}, organization = {}, selectedAssets = []) {
+  const now = Date.now();
+  const approvedAt = new Date(now - 60_000).toISOString();
+  const expiresAt = new Date(now + 6 * 60 * 60 * 1000).toISOString();
+
+  return {
+    ...existingMetadata,
+    creative_request: REQUEST,
+    one_clip_proof: true,
+    command_identity: COMMAND_IDENTITY,
+    temporal_contract: { duration_seconds: DURATION },
+    organization_name: text(organization.name) || null,
+    organization_legal_name: text(organization.legal_name) || null,
+    organization_industry: text(organization.industry) || null,
+    research_grounding_version: "ORGANIZATION_IDENTITY_V2",
+    selected_asset_ids: selectedAssets.map((asset) => asset.id).filter(Boolean),
+    research_policy: {
+      mode: "ORGANIZATION_FIRST",
+      minimum_external_sources: 1,
+      minimum_primary_sources: 1,
+      minimum_verified_claims: 2,
+      require_market_context: false,
+      require_competitor_analysis: false,
+      require_company_resolution: true,
+      require_audience_evidence: true,
+    },
+    paid_research_approval: {
+      contract: "CREATIVE_RESEARCH_BUDGET_APPROVAL_V2",
+      id: `research-${commandDigest}`,
+      approved: true,
+      status: "APPROVED",
+      provider: RESEARCH_PROVIDER,
+      pricing_id: RESEARCH_PRICING_ID,
+      model: RESEARCH_MODEL,
+      currency: "THB",
+      maximum_customer_price: RESEARCH_CEILING,
+      command_identity: COMMAND_IDENTITY,
+      approved_at: approvedAt,
+      expires_at: expiresAt,
+    },
+    paid_direction_approval: {
+      contract: "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2",
+      id: `direction-${commandDigest}`,
+      approved: true,
+      status: "APPROVED",
+      provider: RESEARCH_PROVIDER,
+      pricing_id: RESEARCH_PRICING_ID,
+      model: RESEARCH_MODEL,
+      currency: "THB",
+      maximum_customer_price: DIRECTION_CEILING,
+      maximum_per_call_customer_price: 6,
+      maximum_calls: 40,
+      spent_customer_price: 0,
+      allowed_operations: ["*"],
+      command_identity: COMMAND_IDENTITY,
+      approved_at: approvedAt,
+      expires_at: expiresAt,
+    },
+    creative_quality_policy: {
+      version: "AVANTIQO_ONE_CLIP_V1",
+      minimum_scene_score: 90,
+      regenerate_below_score: 88,
+      require_brand_fit: true,
+      require_non_ai_feel: true,
+      require_story_progression: true,
+      require_identity_continuity: true,
+      require_product_continuity: false,
+    },
+  };
+}
+
+const STOP_WORDS = new Set([
+  "a", "an", "and", "at", "customer", "for", "in", "of", "on", "the", "to", "when", "with",
+  "second", "seconds", "clip", "video", "make", "create",
+]);
+
+function requestTokens() {
+  return [...new Set(
+    REQUEST.toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(/\s+/)
+      .filter((token) => token.length > 2 && !STOP_WORDS.has(token)),
+  )];
+}
+
+function assetScore(asset = {}, tokens = []) {
+  const analysis = object(asset.analysis);
+  const tags = list(asset.tags || analysis.tags).map((value) => text(value).toLowerCase());
+  const searchable = [
+    asset.name,
+    asset.title,
+    asset.file_name,
+    asset.description,
+    ...tags,
+    ...list(analysis.logos).flatMap((logo) => [logo?.description, logo?.visible_text]),
+  ].map(text).join(" ").toLowerCase();
+
+  let score = 0;
+  for (const token of tokens) {
+    if (searchable.includes(token)) score += 3;
+  }
+  if (tokens.includes("entrance") && tags.includes("entrance")) score += 10;
+  if (text(analysis.status).toUpperCase() === "VERIFIED") score += 3;
+  if (list(analysis.logos).length) score += 2;
+  if (/uploaded to creative studio/i.test(text(asset.description))) score += 2;
+  if (["IMAGE", "VIDEO"].includes(text(asset.asset_type).toUpperCase())) score += 1;
+  return score;
+}
+
+async function loadOrganizationAndAssets(supabaseAdmin) {
+  const { data: organization, error: organizationError } = await supabaseAdmin
+    .from("organizations")
+    .select("id,name,legal_name,industry,address,country,organization_type,status,organization_status")
+    .eq("id", ORGANIZATION)
+    .single();
+  if (organizationError) {
+    throw new Error(`CREATIVE_CLIP_ORGANIZATION_LOOKUP_FAILED:${organizationError.message}`);
+  }
+
+  const { data: assets, error: assetError } = await supabaseAdmin
+    .from("creative_assets")
+    .select("*")
+    .eq("organization_id", ORGANIZATION)
+    .eq("archived", false);
+  if (assetError) {
+    throw new Error(`CREATIVE_CLIP_ASSET_LOOKUP_FAILED:${assetError.message}`);
+  }
+
+  const tokens = requestTokens();
+  const selectedAssets = list(assets)
+    .map((asset) => ({ asset, score: assetScore(asset, tokens) }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 12)
+    .map((entry) => entry.asset);
+
+  return { organization, selectedAssets };
+}
+
+async function ensureProof({ CreativeMissionRuntime, CreativeProjectRuntime, organization, selectedAssets }) {
+  const projects = await CreativeProjectRuntime.list({ organizationId: ORGANIZATION });
+  const reusable = list(projects)
+    .filter(proofMatches)
+    .sort((left, right) =>
+      timestamp(right.updated_at || right.created_at) - timestamp(left.updated_at || left.created_at),
+    )[0] || null;
+
+  if (reusable) {
+    let mission = null;
+    if (reusable.creative_mission_id) {
+      mission = await CreativeMissionRuntime.get(reusable.creative_mission_id).catch(() => null);
+    }
+    if (!mission) {
+      mission = await CreativeMissionRuntime.create({
+        organization_id: ORGANIZATION,
+        name: REQUEST.slice(0, 80),
+        objective: REQUEST,
+        metadata: {
+          creative_request: REQUEST,
+          one_clip_proof: true,
+          command_identity: COMMAND_IDENTITY,
+          duration_mode: "FIXED",
+          temporal_contract: { duration_seconds: DURATION },
+        },
+      });
+    }
+
+    const project = await CreativeProjectRuntime.update(reusable.id, {
+      creative_mission_id: mission.id,
+      objective: REQUEST,
+      production_type: "VIDEO",
+      target_duration: DURATION,
+      metadata: approvalMetadata(reusable.metadata, organization, selectedAssets),
+    });
+
+    return { mission, project, resumed: true };
+  }
+
+  const mission = await CreativeMissionRuntime.create({
+    organization_id: ORGANIZATION,
+    name: REQUEST.slice(0, 80),
+    objective: REQUEST,
+    metadata: {
+      creative_request: REQUEST,
+      one_clip_proof: true,
+      command_identity: COMMAND_IDENTITY,
+      duration_mode: "FIXED",
+      temporal_contract: { duration_seconds: DURATION },
+    },
+  });
+
+  const project = await CreativeProjectRuntime.create({
+    organization_id: ORGANIZATION,
+    creative_mission_id: mission.id,
+    name: REQUEST.slice(0, 80),
+    objective: REQUEST,
+    production_type: "VIDEO",
+    target_duration: DURATION,
+    metadata: approvalMetadata({}, organization, selectedAssets),
+  });
+
+  return { mission, project, resumed: false };
 }
 
 async function main() {
@@ -65,6 +286,7 @@ async function main() {
   console.log(`REQUEST=${REQUEST}`);
   console.log(`ORGANIZATION=${ORGANIZATION}`);
   console.log(`SECONDS=${DURATION}`);
+  console.log(`COMMAND_IDENTITY=${COMMAND_IDENTITY}`);
   console.log(`SPEND_APPROVED=${SPEND ? "YES" : "NO"}`);
   console.log(`CEILING_THB=${CEILING}`);
   console.log("");
@@ -76,6 +298,7 @@ async function main() {
     { ProductionQueueRuntime },
     { availableProductionCapabilities },
     { WalletRuntime },
+    { supabaseAdmin },
   ] = await Promise.all([
     import("@/lib/creative/missions/runtime/CreativeMissionRuntime"),
     import("@/lib/creative/projects/runtime/CreativeProjectRuntime"),
@@ -83,10 +306,9 @@ async function main() {
     import("@/lib/creative/production/queue/runtime/ProductionQueueRuntime"),
     import("@/lib/creative/director/planner/creativeProductionCapabilities"),
     import("@/lib/platform/service-runtime/wallet/runtime/WalletRuntime").catch(() => ({})),
+    import("@/lib/shared/supabase/admin"),
   ]);
 
-  // Capabilities first. A clip needs video generation, and until this session that was a per-organization
-  // flag rather than a platform standard, so it is worth confirming rather than assuming.
   const { capabilities } = await availableProductionCapabilities(ORGANIZATION);
   const ids = new Set(list(capabilities).map((service) => text(service.service_id)));
   const canVideo = ids.has("ai.video.generate");
@@ -97,8 +319,6 @@ async function main() {
   );
   if (!canVideo) throw new Error("CREATIVE_CLIP_VIDEO_CAPABILITY_REQUIRED");
 
-  // Balance, reported rather than enforced here: the wallet refuses a reservation it cannot cover, and
-  // seeing the number before a run is more useful than discovering it mid-dispatch.
   if (WalletRuntime?.getBalance) {
     try {
       const balance = await WalletRuntime.getBalance({ organization_id: ORGANIZATION });
@@ -110,122 +330,45 @@ async function main() {
     stage("wallet", "SKIP", "no balance reader exported");
   }
 
-  const mission = await CreativeMissionRuntime.create({
-    organization_id: ORGANIZATION,
-    name: REQUEST.slice(0, 80),
-    objective: REQUEST,
-    metadata: {
-      creative_request: REQUEST,
-      one_clip_proof: true,
-      duration_mode: "FIXED",
-      temporal_contract: { duration_seconds: DURATION },
-    },
+  const { organization, selectedAssets } = await loadOrganizationAndAssets(supabaseAdmin);
+  stage("organization grounding", text(organization?.name) ? "OK" : "FAIL", text(organization?.name));
+  stage(
+    "asset grounding",
+    selectedAssets.length ? "OK" : "SKIP",
+    `${selectedAssets.length} relevant organization asset(s)`,
+  );
+  for (const asset of selectedAssets.slice(0, 8)) {
+    console.log(`          ${text(asset.asset_type)}  ${text(asset.name || asset.title || asset.file_name).slice(0, 76)}`);
+  }
+
+  const { mission, project, resumed } = await ensureProof({
+    CreativeMissionRuntime,
+    CreativeProjectRuntime,
+    organization,
+    selectedAssets,
   });
   stage("mission", mission?.id ? "OK" : "FAIL", text(mission?.id));
+  stage("project", project?.id ? "OK" : "FAIL", `${text(project?.id)}  ${resumed ? "RESUMED" : "CREATED"}`);
 
-  const project = await CreativeProjectRuntime.create({
-    organization_id: ORGANIZATION,
-    creative_mission_id: mission.id,
-    name: REQUEST.slice(0, 80),
-    objective: REQUEST,
-    production_type: "VIDEO",
-    target_duration: DURATION,
-    metadata: {
-      creative_request: REQUEST,
-      temporal_contract: { duration_seconds: DURATION },
-      // Research scoped to what this brief actually needs, through the per-project hook the policy
-      // resolver checks before its defaults.
-      //
-      // The default policy is EXTERNAL_COMPANY_MARKET and wants four external sources, one primary, five
-      // verified claims and market context. That is right for a campaign strategy and wrong for eight
-      // seconds of staff greeting somebody at a door: the research kept coming back and being rejected with
-      // MARKET_EVIDENCE_REQUIRED for evidence the brief has no use for. The venue's own entrance, staff and
-      // service are the evidence that matters here, and they are the organization's own material.
-      //
-      // This narrows the scope rather than lowering a bar. Company resolution and audience evidence stay
-      // required, because a clip that does not know whose venue it is or who it is for is worthless, and
-      // the confidence floor is untouched.
-      research_policy: {
-        mode: "ORGANIZATION_FIRST",
-        minimum_external_sources: 1,
-        minimum_primary_sources: 1,
-        minimum_verified_claims: 2,
-        require_market_context: false,
-        require_competitor_analysis: false,
-        require_company_resolution: true,
-        require_audience_evidence: true,
-      },
-      // The research approval this pipeline requires: a named provider, the pricing record it is charged
-      // against, a ceiling, and a validity window. Written from the values the run was authorised with
-      // rather than invented, and it expires so it cannot authorise a later run by accident.
-      paid_research_approval: {
-        approved: true,
-        provider: RESEARCH_PROVIDER,
-        pricing_id: RESEARCH_PRICING_ID,
-        maximum_customer_price: RESEARCH_CEILING,
-        approved_at: new Date(Date.now() - 60000).toISOString(),
-        expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-      },
-      // Direction is metered per call as well as in total, so its approval carries a ceiling, a per-call
-      // ceiling, a call count, the operations it covers and a command identity that must match the project.
-      command_identity: COMMAND_IDENTITY,
-      paid_direction_approval: {
-        contract: "CREATIVE_DIRECTION_BUDGET_APPROVAL_V2",
-        id: `one-clip-${Date.now()}`,
-        approved: true,
-        status: "APPROVED",
-        provider: RESEARCH_PROVIDER,
-        pricing_id: RESEARCH_PRICING_ID,
-        // The model is pinned as well, because the approval is re-checked against the live pricing record
-        // and a mismatch is treated as the price having moved under an approval that no longer describes
-        // what it authorised. That is the right instinct: an approval names a price, and a price belongs to
-        // a specific model.
-        model: RESEARCH_MODEL,
-        currency: "THB",
-        maximum_customer_price: DIRECTION_CEILING,
-        maximum_per_call_customer_price: 6,
-        maximum_calls: 40,
-        spent_customer_price: 0,
-        allowed_operations: ["*"],
-        command_identity: COMMAND_IDENTITY,
-        approved_at: new Date(Date.now() - 60000).toISOString(),
-        expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-      },
-      creative_quality_policy: {
-        version: "AVANTIQO_ONE_CLIP_V1",
-        minimum_scene_score: 90,
-        regenerate_below_score: 88,
-        require_brand_fit: true,
-        require_non_ai_feel: true,
-        require_story_progression: true,
-        // One shot of a welcome has a person in it and no product, so identity continuity matters and
-        // product continuity does not. Declaring that is what stops the validator demanding continuity for
-        // a thing the clip does not contain.
-        require_identity_continuity: true,
-        require_product_continuity: false,
-      },
-    },
-  });
-  stage("project", project?.id ? "OK" : "FAIL", text(project?.id));
-
-  // The routed entry point, not the orchestrator underneath it.
-  //
-  // Calling CreativePipelineOrchestrator.buildCreativePipeline directly was my first attempt and it is a
-  // trap: it takes an optional master plan and falls back to CreativeMasterPlanRuntime -- the universal
-  // executor -- when none is supplied, then asserts the plan is temporal. A video therefore got planned by
-  // the still executor and failed temporal shot validation on fields the universal prompt never asks for.
-  // CreativeDirectorRuntime.execute resolves the workflow first, hands the right executor's master plan to
-  // the right pipeline, and carries the production dossier approval boundary that governs spending.
   const routed = await CreativeDirectorRuntime.execute({
     organization_id: ORGANIZATION,
     creative_mission_id: mission.id,
     creative_project_id: project.id,
     mission_id: mission.id,
     project_id: project.id,
+    organization,
+    industry: organization.industry || null,
+    objective: REQUEST,
+    assets: selectedAssets,
     brief: {
       creative_objective: REQUEST,
       duration_seconds: DURATION,
-      metadata: { creative_request: REQUEST },
+      metadata: {
+        creative_request: REQUEST,
+        organization_name: organization.name || null,
+        selected_asset_ids: selectedAssets.map((asset) => asset.id).filter(Boolean),
+        research_grounding_version: "ORGANIZATION_IDENTITY_V2",
+      },
     },
   });
 
@@ -237,22 +380,26 @@ async function main() {
   const pipeline = routed?.pipeline || {};
   const approval = routed?.approval || null;
 
-  stage("research", pipeline.research ? "OK" : "FAIL",
-    text(pipeline.research?.id) || "no research record");
+  stage("research", pipeline.research ? "OK" : "FAIL", text(pipeline.research?.id) || "no research record");
   stage("strategy", pipeline.strategy ? "OK" : "SKIP", text(pipeline.strategy?.id));
   stage("concept", pipeline.concept ? "OK" : "SKIP", text(pipeline.concept?.id));
-  stage("direction", pipeline.master_plan?.plan ? "OK" : "FAIL",
-    `workflow ${text(pipeline.workflow_kind)}`);
+  stage(
+    "direction",
+    pipeline.master_plan?.plan ? "OK" : "FAIL",
+    `workflow ${text(pipeline.workflow_kind)}`,
+  );
 
   const plan = pipeline.master_plan?.plan || {};
   const scenes = list(plan.scenes);
   const shots = scenes.flatMap((scene) => list(scene.shots));
-  stage("scenes and shots", shots.length ? "OK" : "FAIL",
-    `${scenes.length} scene(s), ${shots.length} shot(s)`);
+  stage("scenes and shots", shots.length ? "OK" : "FAIL", `${scenes.length} scene(s), ${shots.length} shot(s)`);
 
   const audioPlanned = JSON.stringify(plan).toLowerCase();
-  stage("sound", /music|sound_design|source_sound/.test(audioPlanned) ? "OK" : "SKIP",
-    /music/.test(audioPlanned) ? "music directed" : "no music in the plan");
+  stage(
+    "sound",
+    /music|sound_design|source_sound/.test(audioPlanned) ? "OK" : "SKIP",
+    /music/.test(audioPlanned) ? "music directed" : "no music in the plan",
+  );
 
   stage("production graph", pipeline.graph?.id ? "OK" : "FAIL", text(pipeline.graph?.id));
   stage("execution plan", pipeline.execution?.id ? "OK" : "FAIL", text(pipeline.execution?.id));
@@ -265,19 +412,16 @@ async function main() {
 
   const dossier = pipeline.execution?.production_dossier || approval || {};
   const estimated = dossier.estimated_cost;
-  stage("production dossier", Object.keys(dossier).length ? "OK" : "SKIP",
-    estimated != null ? `estimate ${estimated} ${dossier.currency || ""}` : "no estimate");
-  if (estimated != null) {
-    console.log(`\nESTIMATED_COST=${estimated} ${dossier.currency || ""}`);
-  }
+  stage(
+    "production dossier",
+    Object.keys(dossier).length ? "OK" : "SKIP",
+    estimated != null ? `estimate ${estimated} ${dossier.currency || ""}` : "no estimate",
+  );
+  if (estimated != null) console.log(`\nESTIMATED_COST=${estimated} ${dossier.currency || ""}`);
 
-  // Dispatch is gated on a persisted production-dossier approval record, by design: the task dispatcher is
-  // wrapped so it refuses to run without one. That record is an authorisation event and this script does not
-  // manufacture one, so the honest end of an unapproved run is here, at a priced dossier.
   if (approval?.required) {
     stage("approval", "SKIP", "production dossier requires an approval record");
-    console.log("\nEvery stage up to production ran. Generation is gated on a dossier approval record,");
-    console.log("which is an authorisation event rather than a flag this script can set.");
+    console.log("\nEvery stage up to production ran. Generation remains gated by the persisted dossier approval boundary.");
     summarise(mission.id, project.id, null);
     return;
   }
@@ -293,29 +437,34 @@ async function main() {
     throw new Error(`CREATIVE_CLIP_ESTIMATE_ABOVE_CEILING:${estimated}`);
   }
 
-  // Dispatch to real providers, poll them, and run post production when the queue settles.
   const dispatch = await ProductionQueueRuntime.dispatchAll(
     { organization_id: ORGANIZATION, creative_project_id: project.id },
     { maxTasks: 24, maxPasses: 60, runPostProduction: true, pollRunning: true },
   );
 
-  stage("dispatch", dispatch.total ? "OK" : "FAIL",
-    `${dispatch.total} dispatched, ${dispatch.poll_total} polled, ${dispatch.passes} pass(es)`);
+  stage(
+    "dispatch",
+    dispatch.total ? "OK" : "FAIL",
+    `${dispatch.total} dispatched, ${dispatch.poll_total} polled, ${dispatch.passes} pass(es)`,
+  );
 
   const queue = dispatch.queue || {};
   console.log(
     `          completed ${list(queue.completed).length}` +
-    `  failed ${list(queue.failed).length}` +
-    `  blocked ${list(queue.blocked).length}` +
-    `  running ${list(queue.running).length}` +
-    `  waiting ${list(queue.waiting).length}`,
+      `  failed ${list(queue.failed).length}` +
+      `  blocked ${list(queue.blocked).length}` +
+      `  running ${list(queue.running).length}` +
+      `  waiting ${list(queue.waiting).length}`,
   );
   for (const task of list(queue.failed).slice(0, 6)) {
     console.log(`          FAILED ${text(task.kind)}: ${text(task.error || task.failure_reason).slice(0, 110)}`);
   }
 
-  stage("post production", dispatch.finalisation ? "OK" : "SKIP",
-    dispatch.finalisation ? "finalisation ran" : "queue did not settle clean");
+  stage(
+    "post production",
+    dispatch.finalisation ? "OK" : "SKIP",
+    dispatch.finalisation ? "finalisation ran" : "queue did not settle clean",
+  );
 
   summarise(mission.id, project.id, dispatch);
 }
@@ -323,11 +472,10 @@ async function main() {
 function summarise(missionId, projectId, dispatch) {
   const failed = stages.filter((entry) => entry.status === "FAIL");
   console.log("\n============================================================");
-  for (const entry of stages) {
-    console.log(`  ${entry.status.padEnd(4)}  ${entry.name}`);
-  }
+  for (const entry of stages) console.log(`  ${entry.status.padEnd(4)}  ${entry.name}`);
   console.log(`\nMISSION=${missionId}`);
   console.log(`PROJECT=${projectId}`);
+  console.log(`COMMAND_IDENTITY=${COMMAND_IDENTITY}`);
   console.log(`STAGES_OK=${stages.filter((entry) => entry.status === "OK").length}`);
   console.log(`STAGES_FAILED=${failed.length}`);
   console.log(`MEDIA_GENERATED=${dispatch?.total ? "YES" : "NO"}`);

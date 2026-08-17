@@ -20,32 +20,6 @@ function requestEntityId(request, body = null) {
   }
 
   const { searchParams } = new URL(request.url);
-
-
-  const access = await requireOrganizationAccess({
-
-    organizationId:
-
-      searchParams.get("organizationId") ||
-
-      searchParams.get("organization_id"),
-
-    request: request,
-
-  });
-
-
-  if (!access.success) {
-
-    return Response.json(
-
-      { success: false, error: access.error },
-
-      { status: access.status || 403 },
-
-    );
-
-  }
   return (
     searchParams.get("entityId") ||
     searchParams.get("entity_id") ||
@@ -59,6 +33,17 @@ function requestEntityId(request, body = null) {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
+    const access = await requireOrganizationAccess({
+      organizationId:
+        searchParams.get("organizationId") ||
+        searchParams.get("organization_id"),
+      request,
+    });
+
+    if (!access.success) {
+      return errorResponse(access.error, access.status || 403);
+    }
+
     const resolved = await resolvePOSRequestApplication({
       request,
       organizationId: access.organizationId,

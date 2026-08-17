@@ -265,7 +265,9 @@ assert.match(autonomousRunSource, /awaiting_approval/);
 assert.match(autonomousRunSource, /superseded/);
 assert.match(autonomousRunSource, /createOperatorAutonomousRun/);
 assert.match(autonomousRunSource, /transitionOperatorAutonomousRun/);
-assert.doesNotMatch(autonomousRunSource, /payload/);
+assert.match(autonomousRunSource, /payload:\s*object\(candidate\.payload\)/);
+assert.match(autonomousRunSource, /payload:\s*object\(action\.payload\)/);
+assert.match(autonomousRunSource, /payload:\s*verifyAfter\.payload/);
 
 assert.match(turnRuntimeSource, /function normalizedPendingVerificationRead/);
 assert.match(turnRuntimeSource, /function runPendingPostActionVerification/);
@@ -403,7 +405,7 @@ console.log("OPERATOR_POST_ACTION_VERIFICATION_GUARD=NO_EFFECT_CLAIM_WITHOUT_FRE
 console.log("OPERATOR_AUTONOMOUS_RUN=BOUNDED_DURABLE_CONTINUATION_STATE");
 console.log("OPERATOR_AUTONOMOUS_RUN_MAX_STEPS=6");
 console.log("OPERATOR_AUTONOMOUS_RUN_STOP_GATES=CONFIRMATION_APPROVAL_VERIFICATION_SUPERSESSION");
-console.log("OPERATOR_AUTONOMOUS_RUN_PAYLOAD_OWNER=PENDING_EXECUTION_ONLY");
+console.log("OPERATOR_AUTONOMOUS_RUN_PAYLOAD_OWNER=BOUNDED_STEP_PAYLOADS_ONLY");
 console.log("OPERATOR_AUTONOMOUS_RUN_STATUS=LOCAL_NONDESTRUCTIVE_INTROSPECTION");
 console.log("OPERATOR_AUTONOMOUS_RUN_STATUS_EVIDENCE=ONLY_CLAIMED_WHEN_READ_STEPS_EXIST");
 console.log("OPERATOR_AUTONOMOUS_RUN_RESUME=STOP_GATE_AWARE");

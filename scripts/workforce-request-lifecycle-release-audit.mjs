@@ -75,7 +75,16 @@ requireText("staff API supports time off", staffApi, 'action === "request_time_o
 requireText("staff API supports shift swaps", staffApi, 'action === "request_shift_swap"');
 requireText("staff target can respond", staffApi, 'action === "respond_shift_swap"');
 requireText("manager API reviews time off", managerApi, 'kind === "time_off"');
-requireText("manager API reviews swaps", managerApi, 'kind === "shift_swap"');
+requireText(
+  "manager API accepts shift-swap review kind",
+  managerApi,
+  '["time_off", "shift_swap"].includes(kind)'
+);
+requireText(
+  "manager API routes swaps to canonical review runtime",
+  managerApi,
+  "reviewShiftSwapRequest"
+);
 requireText("staff page submits time off", staffPage, 'action: "request_time_off"');
 requireText("staff page submits swaps", staffPage, 'action: "request_shift_swap"');
 requireText("staff page accepts incoming swap", staffPage, 'decision: "ACCEPT"');

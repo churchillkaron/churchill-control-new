@@ -152,3 +152,72 @@ test("variance carries the ingredient and unit through for the report", () => {
   assert.equal(rows[0].unit, "kg");
   assert.equal(rows[0].variance, 0);
 });
+
+import { calculatePaymentSummary } from "../lib/pos/payments/calculatePaymentSummary.js";
+
+test("payment summary adds tax and service charge and subtracts discount", () => {
+  const summary = calculatePaymentSummary({
+    subtotal: 1_000,
+    taxPercent: 7,
+    serviceChargePercent: 10,
+    discount: 50,
+  });
+
+  assert.equal(summary.subtotal, 1_000);
+  assert.equal(summary.tax, 70);
+  assert.equal(summary.serviceCharge, 100);
+  assert.equal(summary.discount, 50);
+  assert.equal(summary.total, 1_000 + 70 + 100 - 50);
+});
+
+test("tax is charged on the subtotal alone, not on the service charge", () => {
+  // Pinning this because it is a tax-base decision rather than an arithmetic one, and the convention in
+  // Thailand runs the other way: service charge on the subtotal, then VAT on subtotal plus service charge.
+  //
+  // On 1,000 with 10 percent service and 7 percent VAT this function bills 70 of VAT. Charged on the
+  // service-inclusive base of 1,100 it would be 77. Seven baht a ticket, every ticket, in the venue's
+  // favour on the invoice and against it with the Revenue Department.
+  //
+  // Whether that is right depends on how the service charge is treated for VAT, which is a question for
+  // whoever files the returns rather than something to change from a test. The test states what the code
+  // does today so the decision is visible instead of implicit.
+  const summary = calculatePaymentSummary({
+    subtotal: 1_000,
+    taxPercent: 7,
+    serviceChargePercent: 10,
+  });
+
+  assert.equal(summary.tax, 70);
+  assert.notEqual(summary.tax, 77);
+  assert.equal(summary.total, 1_170);
+});
+
+test("payment summary defaults to 7 percent tax and 5 percent service", () => {
+  const summary = calculatePaymentSummary({ subtotal: 200 });
+
+  // 14.000000000000002, not 14. This function performs no rounding at all, so binary floating point
+  // artefacts reach the caller intact: 200 * (7 / 100) is not exactly 14 in IEEE 754.
+  //
+  // That is the same underlying problem as the 1.005 case in the variance report, from the opposite
+  // direction. There, toFixed rounds and biases halves downward. Here nothing rounds and raw artefacts
+  // escape. Two money paths, two different behaviours, neither of them a stated policy -- which is the
+  // actual finding. A receipt or an invoice built straight from this shows 14.000000000000002 unless
+  // something downstream happens to round it, and whether anything does is not this function's promise.
+  assert.equal(summary.tax, 14.000000000000002);
+  assert.ok(Math.abs(summary.tax - 14) < 1e-9);
+  assert.equal(summary.serviceCharge, 10);
+  assert.ok(Math.abs(summary.total - 224) < 1e-9);
+});
+
+test("a discount larger than the bill produces a negative total rather than clamping", () => {
+  // Worth knowing before a refund flow relies on it: nothing here floors the total at zero.
+  const summary = calculatePaymentSummary({ subtotal: 100, taxPercent: 0, serviceChargePercent: 0, discount: 250 });
+  assert.equal(summary.total, -150);
+});
+
+test("a zero bill stays zero across every component", () => {
+  const summary = calculatePaymentSummary({ subtotal: 0 });
+  assert.equal(summary.tax, 0);
+  assert.equal(summary.serviceCharge, 0);
+  assert.equal(summary.total, 0);
+});

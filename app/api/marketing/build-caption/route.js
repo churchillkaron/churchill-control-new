@@ -1,8 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse }
+import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-from "next/server";
 
 import { businessProfiles }
 from "@/lib/business/config/businessProfiles";

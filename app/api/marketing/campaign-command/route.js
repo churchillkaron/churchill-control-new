@@ -254,6 +254,13 @@ async function createCampaign(input, request) {
 
 function missionPayload(campaign) {
   const content = campaign.campaign_content || {};
+  const source = {
+    source_type: "marketing_campaign",
+    source_reference: `marketing_campaign:${campaign.id}`,
+    source_document_type: "marketing_campaign",
+    source_document_id: campaign.id,
+  };
+
   return {
     organization_id: campaign.organization_id,
     campaign_id: campaign.id,
@@ -263,7 +270,8 @@ function missionPayload(campaign) {
     audience: content.audience || {},
     channels: list(content.channels),
     metadata: {
-      source: "marketing_campaign_command_center",
+      source: "marketing_campaign",
+      ...source,
       campaign_name: campaign.campaign_name,
       offer: content.offer || "",
       call_to_action: content.primary_cta || "",
@@ -271,7 +279,13 @@ function missionPayload(campaign) {
       measurement: list(content.measurement),
       requested_outputs: list(content.channels),
       spend_state: content.spend_state || "planned_not_authorized",
-      creative_solution_source: "DIRECTOR_RESOLVED_FROM_CAMPAIGN_CONTEXT",
+      creative_solution_source: "DIRECTOR_RESOLVED_FROM_CONTEXT",
+      return_contract: {
+        consumer: "marketing",
+        document_type: "marketing_campaign",
+        document_id: campaign.id,
+        organization_id: campaign.organization_id,
+      },
     },
   };
 }
@@ -333,7 +347,9 @@ async function prepareCreative(input, request, execute = false) {
       creative_project_id: projectId,
       objective: campaign.campaign_content?.goal || campaign.campaign_name,
       business_goal: campaign.campaign_content?.goal || campaign.campaign_name,
+      audience: campaign.campaign_content?.audience || {},
       requestedOutputs: list(campaign.campaign_content?.channels),
+      organization: access.organization || {},
       requested_by_user_id: access.userId,
       requested_by_staff_account_id: access.access?.staffAccountId || null,
       execution_access: {
@@ -350,6 +366,7 @@ async function prepareCreative(input, request, execute = false) {
       organization_id: campaign.organization_id,
       campaign_name: campaign.campaign_name,
     },
+    source: missionPayload(campaign).metadata.return_contract,
     mission,
     execution,
     studio_path: `/workspace/${organizationId}/commercial/design/mission/${mission.id}`,

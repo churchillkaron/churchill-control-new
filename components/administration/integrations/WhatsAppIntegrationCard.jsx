@@ -106,6 +106,43 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
     setSnapshot(data);
   }
 
+  async function validateConnection() {
+    if (!organizationId || working) return;
+    setWorking(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetch(
+        `/api/administration/integrations/whatsapp/validate?organizationId=${encodeURIComponent(organizationId)}`,
+        { cache: "no-store" },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "WhatsApp connection validation failed");
+      }
+
+      const validation = data.validation || {};
+      await load();
+
+      if (!validation.healthy) {
+        throw new Error(
+          validation.message || "WhatsApp connection is not healthy in Meta",
+        );
+      }
+
+      setNotice(
+        "WhatsApp connection verified with Meta. Token, phone number, business account, and webhook are healthy.",
+      );
+    } catch (validationError) {
+      setError(
+        validationError?.message || "WhatsApp connection validation failed",
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function recoverIfReady() {
     const current = signupRef.current;
     if (
@@ -438,13 +475,12 @@ export default function WhatsAppIntegrationCard({ organizationId }) {
               ) : null}
               <button
                 type="button"
-                onClick={() =>
-                  load().catch((e) => setError(e?.message || "Refresh failed"))
-                }
-                className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70"
+                onClick={validateConnection}
+                disabled={working}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70 disabled:opacity-50"
               >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Refresh connection
+                <RefreshCw className={`h-3.5 w-3.5 ${working ? "animate-spin" : ""}`} />
+                {working ? "Validating…" : "Refresh connection"}
               </button>
             </div>
           ) : snapshot?.publicConfig?.ready ? (

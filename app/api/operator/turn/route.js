@@ -54,18 +54,6 @@ function boundedConversation(value) {
     .filter((message) => message.content);
 }
 
-function clientAgreementState(body) {
-  if (body.agreementState && typeof body.agreementState === "object") {
-    return body.agreementState;
-  }
-
-  if (body.agreement_state && typeof body.agreement_state === "object") {
-    return body.agreement_state;
-  }
-
-  return {};
-}
-
 function deriveProjectState(previousState, result) {
   const decision = object(result?.decision);
   const execution = object(result?.execution);
@@ -240,10 +228,10 @@ export async function POST(request) {
     const conversation = persistedConversation.length
       ? persistedConversation
       : clientConversation;
-    const agreementState = {
-      ...object(clientAgreementState(body)),
-      ...object(memory.agreementState),
-    };
+    // Authorization-critical Operator state is server-authoritative. Client
+    // agreement_state may be stale or forged and is never merged into execution
+    // state. The persisted conversation record is the only resume source.
+    const agreementState = object(memory.agreementState);
 
     const [result] = await Promise.all([
       runOperatorTurn({

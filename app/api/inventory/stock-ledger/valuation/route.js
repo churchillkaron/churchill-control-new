@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 import { updateStockLedger } from "@/lib/inventory/ledger/capabilities/updateStockLedger";
 
@@ -7,11 +8,21 @@ export async function POST(request) {
     const body =
       await request.json();
 
+    const access = await requireOrganizationAccess({
+      organizationId: access.organizationId,
+      request,
+    });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status || 403 },
+      );
+    }
+
     const valuation =
       await updateStockLedger({
-        organizationId:
-          body.organizationId ||
-          body.organization_id,
+        organizationId: access.organizationId,
         entityId:
           body.entityId ||
           body.entity_id,

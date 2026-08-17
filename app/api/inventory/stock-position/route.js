@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 import {
   supabaseAdmin,
@@ -16,8 +17,45 @@ export async function GET(req) {
     } = new URL(req.url);
 
 
-    const organizationId =
+    let organizationId =
       searchParams.get("organizationId");
+
+
+
+    const access = await requireOrganizationAccess({
+
+
+      organizationId,
+
+
+      request: req,
+
+
+    });
+
+
+
+    if (!access.success) {
+
+
+      return NextResponse.json(
+
+
+        { success: false, error: access.error },
+
+
+        { status: access.status || 403 },
+
+
+      );
+
+
+    }
+
+
+
+    organizationId = access.organizationId;
+
 
     const entityId =
       searchParams.get("entityId") ||

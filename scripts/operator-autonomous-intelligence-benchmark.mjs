@@ -94,6 +94,22 @@ requireAll("EXECUTION_GOVERNANCE", turnSource, [
   "pending_execution",
 ]);
 
+requireAll("GOVERNED_ONE_COMMAND_VOICE", turnSource, [
+  "function voiceCanAutoExecute(capability)",
+  'capability?.auto_execute === true',
+  'capability?.requires_confirmation !== true',
+  'text(capability?.risk).toLowerCase() === "low"',
+  "!voiceCanAutoExecute(capability)",
+]);
+
+requireAll("APPROVAL_RESUME_PERSISTENCE", turnSource, [
+  "const approvalAgreementState = agreementWithPendingConfirmationRun",
+  'status: "awaiting_approval"',
+  'currentStepId: "requested_action"',
+  "agreement_state: governanceState",
+  "resumeFromApproval",
+]);
+
 requireAll("AUTONOMOUS_RUN_RESUME", turnSource, [
   "isAutonomousRunStatusQuery",
   "isAutonomousRunResumeRequest",
@@ -198,7 +214,10 @@ console.log("OPERATOR_AUTONOMOUS_INTELLIGENCE_BENCHMARK=PASS");
 console.log("OPERATOR_ROLE=BUSINESS_PARTNER_AND_SYSTEM_OPERATOR");
 console.log("OPERATOR_REASONING=DISCUSS_RECOMMEND_DECIDE_WITH_CONTEXT");
 console.log("OPERATOR_QUESTION_FLOW=UNDERSTAND_READ_ANSWER");
-console.log("OPERATOR_ACTION_FLOW=READ_REASON_CONFIRM_APPROVE_EXECUTE_VERIFY");
+console.log("OPERATOR_ACTION_FLOW=READ_REASON_GOVERN_EXECUTE_VERIFY");
+console.log("OPERATOR_VOICE_LOW_RISK_AUTO_EXECUTE=REGISTERED_AUTO_EXECUTE_ONLY");
+console.log("OPERATOR_VOICE_SENSITIVE_ACTIONS=CONFIRMATION_REQUIRED");
+console.log("OPERATOR_APPROVAL_PAUSE=EXACT_ACTION_PERSISTED_AND_RESUMABLE");
 console.log("OPERATOR_NAVIGATION=REGISTERED_TARGETS_ONLY");
 console.log("OPERATOR_AUTONOMOUS_RUN=RESUMABLE_STATE_MACHINE");
 console.log("OPERATOR_SYSTEM_FIX=INSPECT_DIAGNOSE_REGISTERED_REPAIR_VERIFY");

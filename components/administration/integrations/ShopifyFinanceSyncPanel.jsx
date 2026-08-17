@@ -37,12 +37,15 @@ export default function ShopifyFinanceSyncPanel({ organizationId }) {
 
   const accounts = useMemo(() => data?.bank_accounts || [], [data]);
   const health = data?.finance?.health || {};
+  const readiness = data?.finance?.prepayment_readiness || { ready: false, missing: [] };
   const metrics = [
     ["Observed", health.observed || 0],
     ["Reconciled", health.reconciled || 0],
     ["Pending", health.pending || 0],
     ["Needs attention", health.blocked || health.failed || 0],
-    ["Payments posted", health.posted_payments || 0],
+    ["Deposits posted", health.posted_prepayments || 0],
+    ["Deposits applied", health.applied_prepayments || 0],
+    ["Deposits refunded", health.refunded_prepayments || 0],
     ["Refunds posted", health.posted_refunds || 0],
   ];
 
@@ -60,7 +63,18 @@ export default function ShopifyFinanceSyncPanel({ organizationId }) {
         }),
       });
       const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || "Unable to save Shopify Finance settings");
+      if (!response.ok || !result.success) {
+        if (result.prepayment_readiness) {
+          setData((current) => current ? {
+            ...current,
+            finance: {
+              ...current.finance,
+              prepayment_readiness: result.prepayment_readiness,
+            },
+          } : current);
+        }
+        throw new Error(result.error || "Unable to save Shopify Finance settings");
+      }
       setData(result);
       setMode(result.finance?.mode || "OBSERVE_ONLY");
       setBankAccountId(result.finance?.settlement_bank_account_id || "");
@@ -79,7 +93,7 @@ export default function ShopifyFinanceSyncPanel({ organizationId }) {
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-300">Shopify → Finance</p>
             <h2 className="mt-2 text-2xl font-semibold">Settlement synchronization</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-white/60">
-              Avantiqo observes Shopify payment, fulfillment, and refund lifecycle events by default. Finance posting activates only after the store is mapped to a legal entity and a real settlement bank account is selected.
+              Avantiqo observes Shopify payments, fulfillment, and refunds by default. When Finance posting is enabled, successful customer cash is first recorded as a prepayment liability and is released into Accounts Receivable only when the related invoice exists.
             </p>
           </div>
           <div className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-xs font-semibold text-white/70">
@@ -96,7 +110,7 @@ export default function ShopifyFinanceSyncPanel({ organizationId }) {
 
         {!loading && data?.store ? (
           <>
-            <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+            <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
               {metrics.map(([label, value]) => (
                 <div key={label} className="rounded-2xl border border-white/10 bg-black/25 p-4">
                   <div className="text-2xl font-semibold text-white">{value}</div>
@@ -136,25 +150,39 @@ export default function ShopifyFinanceSyncPanel({ organizationId }) {
                 </select>
               </label>
 
-              <div className="md:col-span-2 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 text-sm text-white/60 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div>Legal entity: {data.store.entity_id ? "Mapped" : "Mapping required"}</div>
-                  <div>Settlement account: {data.finance?.settlement_bank_account ? "Mapped" : "Not mapped"}</div>
-                  <div className="mt-1 text-xs text-white/40">
-                    Avantiqo posts only successful, non-test Shopify SALE/CAPTURE transactions. Refund records remain observational until Shopify confirms a successful REFUND transaction.
+              <div className="md:col-span-2 rounded-2xl border border-white/10 bg-black/25 p-4 text-sm text-white/60">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div>Legal entity: {data.store.entity_id ? "Mapped" : "Mapping required"}</div>
+                    <div>Settlement account: {data.finance?.settlement_bank_account ? "Mapped" : "Not mapped"}</div>
+                    <div>Prepayment accounting: {readiness.ready ? "Ready" : "Setup required"}</div>
+                    <div className="mt-2 text-xs leading-5 text-white/40">
+                      Successful, non-test Shopify SALE/CAPTURE transactions are recorded as customer prepayments first. Fulfillment never causes a second cash receipt and never changes Inventory. When the invoice exists, the prepayment is reclassified from the configured customer-deposit liability into Accounts Receivable.
+                    </div>
+                    <div className="mt-1 text-xs leading-5 text-white/40">
+                      Shopify refund records remain observational until a successful REFUND transaction confirms money was returned. Unapplied deposit refunds reverse the liability directly; refunds of already-invoiced value use the customer credit lifecycle.
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs text-white/40">
-                    Payments received before full fulfillment stay unposted until a customer invoice exists; Avantiqo does not invent a deposit account or recognize revenue early.
-                  </div>
+                  <button
+                    type="button"
+                    onClick={save}
+                    disabled={saving || !data.store.entity_id}
+                    className="shrink-0 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {saving ? "Saving…" : "Save Finance settings"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={save}
-                  disabled={saving || !data.store.entity_id}
-                  className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {saving ? "Saving…" : "Save Finance settings"}
-                </button>
+
+                {!readiness.ready && Array.isArray(readiness.missing) && readiness.missing.length ? (
+                  <div className="mt-4 rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-4 py-3 text-xs text-amber-100/80">
+                    <div className="font-semibold text-amber-100">Finance setup required before posting can be enabled</div>
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      {readiness.missing.map((item, index) => (
+                        <li key={`${item.code || "setup"}-${index}`}>{item.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             </div>
           </>

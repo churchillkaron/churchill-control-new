@@ -54,7 +54,7 @@
     },
     {
       "path": "/api/marketing/sync-analytics",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 */6 * * * *"
     },
     {
       "path": "/api/internal/marketing/meta-ads/reconcile",

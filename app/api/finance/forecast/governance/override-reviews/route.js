@@ -11,7 +11,7 @@ function statusFor(error) {
   if (message.includes("permission denied")) return 403;
   if (message.includes("not found")) return 404;
   if (
-    /required|invalid|resolved forecast|assign the override review|acknowledge the override review/i.test(
+    /required|invalid|resolved forecast|assign the override review|set a due date for the override review|acknowledge the override review/i.test(
       message
     )
   ) {

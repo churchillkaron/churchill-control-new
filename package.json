@@ -36,6 +36,7 @@
     "audit:operator-domain-actions": "node scripts/operator-domain-actions-audit.mjs",
     "audit:operator-system-management": "node scripts/operator-system-management-audit.mjs",
     "audit:operator-voice-responsiveness": "node scripts/operator-voice-responsiveness-audit.mjs",
+    "benchmark:operator-autonomous-intelligence": "node scripts/operator-autonomous-intelligence-benchmark.mjs",
     "audit:pos-client-contract": "node scripts/pos-client-contract-audit.mjs",
     "audit:operator-caller-context": "node scripts/operator-caller-context-audit.mjs",
     "audit:people-employees": "node scripts/people-employee-directory-release-audit.mjs",

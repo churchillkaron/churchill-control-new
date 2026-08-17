@@ -134,8 +134,23 @@ assert.match(
 );
 assert.match(
   lifecycleSource,
+  /status:\s*"BLOCKED_TRANSACTION_CURRENCY_CONFIGURATION"/,
+  "missing Shopify payment/refund currency must fail closed before Finance posting",
+);
+assert.match(
+  lifecycleSource,
+  /const missingCurrency = candidates\.find\(\(row\) => !text\(row\.currency\)\)/,
+  "successful Shopify posting candidates must provide an explicit transaction currency",
+);
+assert.match(
+  lifecycleSource,
   /status:\s*"BLOCKED_TRANSACTION_CURRENCY_MISMATCH"/,
   "transaction/order currency mismatch must be explicitly blocked",
+);
+assert.match(
+  lifecycleSource,
+  /const transactionCurrency = text\(row\.currency\)\.toUpperCase\(\)/,
+  "transaction currency comparison must not silently fall back to the order currency",
 );
 assert.match(
   lifecycleSource,
@@ -309,6 +324,7 @@ console.log("FINANCE_SHOPIFY_ACCOUNTING_READINESS=BANK_PLUS_THREE_POSTING_RULES"
 console.log("FINANCE_SHOPIFY_READINESS_ERRORS=CONFIGURATION_ONLY");
 console.log("FINANCE_SHOPIFY_CONFIGURATION_DRIFT=BLOCKED_REPLAYABLE");
 console.log("FINANCE_SHOPIFY_MULTICURRENCY=TRANSACTION_ORDER_BANK_ALIGNED");
+console.log("FINANCE_SHOPIFY_TRANSACTION_CURRENCY=MISSING_OR_MISMATCH_FAILS_CLOSED");
 console.log("FINANCE_SHOPIFY_PARTIAL_REFUND=ATOMIC_ALLOCATION_REVERSAL_CREDIT_AND_CASH");
 console.log("FINANCE_SHOPIFY_FINANCE_MODE=READINESS_GUARDED");
 console.log("FINANCE_SHOPIFY_RECONCILIATION=POST_ALLOCATION_BALANCE_GUARDED");

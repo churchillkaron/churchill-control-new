@@ -1,3 +1,4 @@
+// Controlled production trigger for the 90-day Marketing operating plan UI.
 const BUILD_MARKERS = Object.freeze([
   "[vercel-build]",
   "[deploy-production]",

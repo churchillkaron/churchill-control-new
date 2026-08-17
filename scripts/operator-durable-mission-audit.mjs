@@ -96,6 +96,34 @@ requireAll("TURN_MISSION_PERSISTENCE", turnSource, [
   "existingRun.run_id",
 ]);
 
+requireAll("TURN_MISSION_CANCELLATION", turnSource, [
+  'const cancellingMission = pending.resume_kind === "mission"',
+  "? text(activeRun?.current_step_id)",
+  "clearedAgreementState(agreementState)",
+  'status: "cancelled"',
+  'stepStatus: "cancelled"',
+  '"User cancelled the remaining mission"',
+  '"Okay. I cancelled the remaining mission steps. I will not revive them automatically."',
+]);
+
+const missionCancellationIndex = turnSource.indexOf(
+  'const cancellingMission = pending.resume_kind === "mission"',
+);
+const cancellationClearIndex = turnSource.indexOf(
+  "clearedAgreementState(agreementState)",
+  missionCancellationIndex,
+);
+const cancellationTransitionIndex = turnSource.indexOf(
+  'status: "cancelled"',
+  missionCancellationIndex,
+);
+assert.ok(
+  missionCancellationIndex >= 0 &&
+    cancellationClearIndex > missionCancellationIndex &&
+    cancellationTransitionIndex > cancellationClearIndex,
+  "mission cancellation must clear resumable pending state before marking the exact run step cancelled",
+);
+
 requireAll("SERVER_AUTHORITATIVE_STATE", routeSource, [
   "Authorization-critical Operator state is server-authoritative",
   "const agreementState = object(memory.agreementState)",
@@ -117,4 +145,5 @@ console.log("OPERATOR_MISSION_CHECKPOINT=STRICT_ORDERED_PREFIX");
 console.log("OPERATOR_MISSION_CHECKPOINT_VERIFICATION=EXACT_CURRENT_STEP");
 console.log("OPERATOR_MISSION_APPROVAL=EXACT_REQUEST_ID");
 console.log("OPERATOR_MISSION_VERIFICATION=NO_WRITE_REPLAY");
+console.log("OPERATOR_MISSION_CANCELLATION=CLEAR_PENDING_AND_CANCEL_EXACT_STEP");
 console.log("OPERATOR_CLIENT_AGREEMENT_STATE=NON_AUTHORITATIVE");

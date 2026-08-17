@@ -66,8 +66,9 @@ async function loadPendingAttendanceReviews({
 
   const { data, error } = await supabaseAdmin
     .from("staff_shifts")
-    .select("id,staff_id,staff_name,clock_in,shift_source,approval_status")
+    .select("id,staff_id,staff_name,entity_id,clock_in,shift_source,approval_status")
     .eq("organization_id", organizationId)
+    .eq("entity_id", entityId)
     .eq("approval_status", "PENDING")
     .in("staff_id", employmentCohort.staffIds)
     .gte("clock_in", rangeStart.toISOString())

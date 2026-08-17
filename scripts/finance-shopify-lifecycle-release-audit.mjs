@@ -34,11 +34,11 @@ const [
     "utf8",
   ),
   readFile(
-    "supabase/migrations/20260817160000_finance_customer_prepayment_application_reversal.sql",
+    "supabase/migrations/20260817083205_finance_customer_prepayment_application_reversal.sql",
     "utf8",
   ),
   readFile(
-    "supabase/migrations/20260817162000_finance_customer_prepayment_invoice_refund_atomic.sql",
+    "supabase/migrations/20260817083643_finance_customer_prepayment_invoice_refund_atomic.sql",
     "utf8",
   ),
 ]);

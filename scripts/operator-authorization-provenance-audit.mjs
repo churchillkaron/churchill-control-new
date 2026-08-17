@@ -3,9 +3,15 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [governanceSource, turnSource, ubteAuditSource] = await Promise.all([
+const [
+  governanceSource,
+  turnSource,
+  executionEngineSource,
+  ubteAuditSource,
+] = await Promise.all([
   readFile("lib/operator/governance/operatorExecutionGovernance.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
+  readFile("lib/ubte/runtime/ExecutionEngine.js", "utf8"),
   readFile("lib/ubte/runtime/engines/AuditEngine.js", "utf8"),
 ]);
 
@@ -29,15 +35,15 @@ for (const mode of [
 
 assert.ok(
   governanceSource.includes('if (channel === "voice") return "user_confirmed";'),
-  "Voice writes that reach execution must be attributed to explicit confirmation",
+  "Voice writes that reach the Operator audit must be attributed to explicit confirmation",
 );
 assert.ok(
   governanceSource.includes('if (explicitlyAutoExecutable) return "auto_execute";'),
   "Explicit auto-execute capabilities must not be attributed to user confirmation",
 );
 assert.ok(
-  governanceSource.includes('approval?.resumed === true || explicitMode === "approval_resumed"'),
-  "Approval resume must be a first-class provenance mode",
+  governanceSource.includes("approval?.resumed === true && approval?.allowed === true"),
+  "Only an allowed exact approval resume may be attributed as approval_resumed",
 );
 assert.ok(
   governanceSource.includes("authorization_origin_mode: authorization.origin_mode"),
@@ -52,18 +58,48 @@ assert.ok(
   "Mission audit must refuse to invent user confirmation when child contract evidence is absent",
 );
 
+assert.match(
+  executionEngineSource,
+  /function normalizedOperatorRuntimeMetadata/,
+  "UBTE must normalize Operator authorization metadata at the execution boundary",
+);
+assert.ok(
+  executionEngineSource.includes('text(current.source) !== "AVANTIQO_OPERATOR"'),
+  "Runtime provenance normalization must be scoped to Operator executions",
+);
+assert.ok(
+  executionEngineSource.includes('authorizationMode = "read"'),
+  "UBTE runtime metadata must represent read authorization",
+);
+assert.ok(
+  executionEngineSource.includes('authorizationMode = "user_confirmed"'),
+  "UBTE runtime metadata must represent explicit user confirmation",
+);
+assert.ok(
+  executionEngineSource.includes('authorizationMode = "auto_execute"'),
+  "UBTE runtime metadata must represent safe automatic execution",
+);
+assert.ok(
+  executionEngineSource.includes("conversationallyConfirmed: originMode === \"user_confirmed\""),
+  "Legacy conversational confirmation must be overwritten from explicit provenance",
+);
+assert.ok(
+  !executionEngineSource.includes("conversationallyConfirmed: true"),
+  "UBTE execution boundary must never hardcode conversational confirmation true",
+);
 assert.ok(
   !ubteAuditSource.includes("context.metadata"),
   "Generic UBTE audit must not persist unsanitized runtime metadata as authorization evidence",
 );
 
-const legacyRuntimeFlagPresent = turnSource.includes("conversationallyConfirmed: true");
+const legacyTurnFlagPresent = turnSource.includes("conversationallyConfirmed: true");
 
 console.log("OPERATOR_AUTHORIZATION_PROVENANCE_AUDIT=PASS");
 console.log("OPERATOR_AUDIT_AUTHORIZATION=AUTHORITATIVE_DERIVED_PROVENANCE");
+console.log("OPERATOR_RUNTIME_AUTHORIZATION=UBTE_BOUNDARY_NORMALIZED");
 console.log("OPERATOR_AUTHORIZATION_MODES=READ_AUTO_EXECUTE_USER_CONFIRMED_APPROVAL_RESUMED");
-console.log("OPERATOR_APPROVAL_RESUME=PRESERVES_ORIGIN_MODE");
+console.log("OPERATOR_APPROVAL_RESUME=ALLOWED_EXACT_REQUEST_ONLY");
 console.log("OPERATOR_MISSION_UNKNOWN_CONFIRMATION=MISSION_GOVERNED_NOT_INVENTED");
 console.log(
-  `OPERATOR_LEGACY_RUNTIME_CONFIRMATION_FLAG=${legacyRuntimeFlagPresent ? "PRESENT_NON_AUTHORITATIVE" : "REMOVED"}`,
+  `OPERATOR_LEGACY_TURN_FLAG=${legacyTurnFlagPresent ? "PRESENT_BUT_BOUNDARY_OVERRIDDEN" : "REMOVED"}`,
 );

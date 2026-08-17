@@ -85,7 +85,7 @@
     "react-dom": "18.2.0",
     "recharts": "^3.8.1",
     "sharp": "^0.34.5",
-    "socket.io": "^8.0.1",
+    "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "stripe": "^22.2.1",
     "swr": "^2.4.1",

@@ -221,3 +221,65 @@ test("a zero bill stays zero across every component", () => {
   assert.equal(summary.serviceCharge, 0);
   assert.equal(summary.total, 0);
 });
+
+import {
+  createOrganizationWallet,
+  BILLING_POLICIES,
+  WALLET_STATUS,
+} from "../lib/platform/service-runtime/wallet/documents/OrganizationWallet.js";
+
+test("a wallet must declare its currency", () => {
+  // The one invariant this factory enforces, and the right one: a balance without a currency is a number
+  // that cannot be charged, refunded or reconciled.
+  assert.throws(
+    () => createOrganizationWallet({ organization_id: "org", available_balance: 500 }),
+    /ORGANIZATION_WALLET_CURRENCY_REQUIRED/,
+  );
+  assert.equal(createOrganizationWallet({ currency: "thb" }).currency, "THB");
+});
+
+test("a new wallet is prepaid, active and empty by default", () => {
+  // These defaults are the commercial model: nothing is extended on credit unless someone says so.
+  const wallet = createOrganizationWallet({ organization_id: "org", currency: "THB" });
+  assert.equal(wallet.billing_policy, BILLING_POLICIES.PREPAID);
+  assert.equal(wallet.status, WALLET_STATUS.ACTIVE);
+  assert.equal(wallet.available_balance, 0);
+  assert.equal(wallet.reserved_balance, 0);
+  assert.equal(wallet.auto_topup, false);
+});
+
+test("nothing stops a wallet being created with a negative balance", () => {
+  // Pinned as a gap rather than as intended behaviour. A prepaid wallet holding -500 has already spent money
+  // the organization never deposited, and the factory is the last place that could refuse it before it
+  // becomes a row. Whether to floor it at zero or to allow deliberate overdraft belongs with billing_policy
+  // and credit_limit, which exist on the table, so this is a decision rather than an oversight to patch here.
+  const wallet = createOrganizationWallet({ currency: "THB", available_balance: -500 });
+  assert.equal(wallet.available_balance, -500);
+});
+
+test("nothing stops reserved exceeding available", () => {
+  // The reserve/charge/release chain depends on reserved never outrunning available. That invariant lives in
+  // the runtime rather than here, so a document built directly can express a state the runtime would refuse.
+  const wallet = createOrganizationWallet({
+    currency: "THB",
+    available_balance: 10,
+    reserved_balance: 900,
+  });
+  assert.equal(wallet.reserved_balance, 900);
+  assert.ok(wallet.reserved_balance > wallet.available_balance);
+});
+
+test("unparseable balances become NaN rather than being rejected", () => {
+  // Number("abc") is NaN, and NaN survives every arithmetic operation downstream while comparing false
+  // against every threshold -- so a NaN balance passes an "is there enough?" check by failing it silently,
+  // and renders as an empty cell rather than an error. Worth a guard at the boundary that parses input.
+  const wallet = createOrganizationWallet({ currency: "THB", available_balance: "not a number" });
+  assert.ok(Number.isNaN(wallet.available_balance));
+  assert.equal(wallet.available_balance > 0, false);
+  assert.equal(wallet.available_balance <= 0, false);
+});
+
+test("string amounts parse, so values arriving from JSON still work", () => {
+  const wallet = createOrganizationWallet({ currency: "THB", available_balance: "1250.75" });
+  assert.equal(wallet.available_balance, 1250.75);
+});

@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
-    "deploymentEnabled": true
+    "deploymentEnabled": false
   },
   "ignoreCommand": "node scripts/vercel-ignore-build.mjs",
   "functions": {
@@ -54,7 +54,7 @@
     },
     {
       "path": "/api/marketing/sync-analytics",
-      "schedule": "0 */6 * * * *"
+      "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/internal/marketing/meta-ads/reconcile",

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
+import CampaignCommandCenter from "@/components/marketing/CampaignCommandCenter";
 
 export default function CampaignsLayout({ children }) {
   const params = useParams();
@@ -13,7 +14,7 @@ export default function CampaignsLayout({ children }) {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="sticky top-0 z-40 border-b border-white/10 bg-black/90 px-6 py-3 backdrop-blur-xl lg:px-10">
-        <div className="mx-auto flex max-w-[1500px] items-center gap-2">
+        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2">
           <Link
             href={`${base}/whole`}
             className={`rounded-full px-5 py-2 text-sm transition ${
@@ -34,6 +35,7 @@ export default function CampaignsLayout({ children }) {
           >
             By Organization
           </Link>
+          <CampaignCommandCenter />
         </div>
       </div>
       {children}

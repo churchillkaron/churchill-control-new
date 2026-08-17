@@ -8,6 +8,8 @@ import {
   reviewShiftSwapRequest,
   reviewTimeOffRequest,
 } from "@/lib/people/workforce/workforceRequestRuntime";
+import { resolveActiveLegalEntitySelection } from "@/lib/platform/runtime/resolveActiveLegalEntitySelection";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const MANAGE_ROLES = new Set([
   "OWNER",
@@ -37,7 +39,7 @@ function contextError(context) {
   );
 }
 
-async function managementContext(request, organizationId = null) {
+async function managementContext(request, organizationId = null, entityId = null) {
   const context = await resolveAuthenticatedStaffContext({ request, organizationId });
   if (!context.success) return { response: contextError(context) };
 
@@ -55,11 +57,46 @@ async function managementContext(request, organizationId = null) {
     };
   }
 
+  const selection = await resolveActiveLegalEntitySelection({
+    request,
+    organizationId: context.organizationId,
+    entityId,
+  });
+
   return {
     organizationId: context.organizationId,
+    entityId: selection.entity.id,
+    entity: selection.entity,
+    entities: selection.entities,
     manager: context.staff,
     role,
   };
+}
+
+async function assertRequestEntity({ organizationId, entityId, requestId, kind }) {
+  const table =
+    kind === "time_off"
+      ? "staff_time_off_requests"
+      : "staff_shift_swap_requests";
+
+  const { data, error } = await supabaseAdmin
+    .from(table)
+    .select("id,entity_id")
+    .eq("id", String(requestId || "").trim())
+    .eq("organization_id", organizationId)
+    .eq("entity_id", entityId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!data) {
+    const notFound = new Error(
+      "Workforce request was not found for the selected legal entity"
+    );
+    notFound.status = 404;
+    notFound.code = "WORKFORCE_REQUEST_ENTITY_MISMATCH";
+    throw notFound;
+  }
 }
 
 export async function GET(request) {
@@ -67,18 +104,44 @@ export async function GET(request) {
     const url = new URL(request.url);
     const requestedOrganizationId =
       String(url.searchParams.get("organizationId") || "").trim() || null;
-    const context = await managementContext(request, requestedOrganizationId);
+    const requestedEntityId =
+      String(url.searchParams.get("entityId") || "").trim() || null;
+
+    const context = await managementContext(
+      request,
+      requestedOrganizationId,
+      requestedEntityId
+    );
     if (context.response) return context.response;
 
     const queue = await loadWorkforceRequestReviewQueue({
       organizationId: context.organizationId,
     });
 
+    const entityTimeOff = (queue.timeOffRequests || []).filter(
+      (row) => row.entity_id === context.entityId
+    );
+    const entitySwaps = (queue.swapRequests || []).filter(
+      (row) => row.entity_id === context.entityId
+    );
+    const staffIds = new Set([
+      ...entityTimeOff.map((row) => row.staff_id),
+      ...entitySwaps.flatMap((row) => [
+        row.requester_staff_id,
+        row.target_staff_id,
+      ]),
+    ]);
+
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
+      entityId: context.entityId,
+      entity: context.entity,
+      entities: context.entities,
       role: context.role,
-      ...queue,
+      timeOffRequests: entityTimeOff,
+      swapRequests: entitySwaps,
+      staff: (queue.staff || []).filter((row) => staffIds.has(row.id)),
     });
   } catch (error) {
     return NextResponse.json(
@@ -97,10 +160,31 @@ export async function PATCH(request) {
     const body = await request.json();
     const requestedOrganizationId =
       String(body?.organizationId || body?.organization_id || "").trim() || null;
-    const context = await managementContext(request, requestedOrganizationId);
+    const requestedEntityId =
+      String(body?.entityId || body?.entity_id || "").trim() || null;
+
+    const context = await managementContext(
+      request,
+      requestedOrganizationId,
+      requestedEntityId
+    );
     if (context.response) return context.response;
 
     const kind = String(body?.kind || "").trim().toLowerCase();
+    if (!["time_off", "shift_swap"].includes(kind)) {
+      return NextResponse.json(
+        { success: false, error: "kind must be time_off or shift_swap" },
+        { status: 400 }
+      );
+    }
+
+    await assertRequestEntity({
+      organizationId: context.organizationId,
+      entityId: context.entityId,
+      requestId: body?.requestId,
+      kind,
+    });
+
     let reviewed;
 
     if (kind === "time_off") {
@@ -111,7 +195,7 @@ export async function PATCH(request) {
         decision: body?.decision,
         notes: body?.notes,
       });
-    } else if (kind === "shift_swap") {
+    } else {
       reviewed = await reviewShiftSwapRequest({
         organizationId: context.organizationId,
         requestId: body?.requestId,
@@ -119,16 +203,12 @@ export async function PATCH(request) {
         decision: body?.decision,
         notes: body?.notes,
       });
-    } else {
-      return NextResponse.json(
-        { success: false, error: "kind must be time_off or shift_swap" },
-        { status: 400 }
-      );
     }
 
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
+      entityId: context.entityId,
       request: reviewed,
     });
   } catch (error) {

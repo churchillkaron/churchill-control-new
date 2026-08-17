@@ -344,9 +344,10 @@ assert.match(
   turnRuntimeSource,
   /if \(activeRun && isAutonomousRunStatusQuery\(message\)\) \{\s*return runStatusTurn/s,
 );
-assert.match(
-  turnRuntimeSource,
-  /const governanceState = agreementWithRunTransition\(\s*agreementState,/s,
+assert.match(turnRuntimeSource, /function approvalRunTransition/);
+assert.ok(
+  (turnRuntimeSource.match(/const governanceState = approvalRunTransition\(/g) || []).length >= 2,
+  "approval-required execution paths must transition through approvalRunTransition",
 );
 assert.doesNotMatch(
   turnRuntimeSource,

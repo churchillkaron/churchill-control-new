@@ -14,12 +14,16 @@ const [
   reasoningSource,
   turnSource,
   verificationSource,
+  capabilityCatalogSource,
+  readChainSource,
   systemManagementAuditSource,
   fastVoiceAuditSource,
 ] = await Promise.all([
   readFile("lib/operator/runtime/OperatorReasoningRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorVerificationRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorCapabilityCatalog.js", "utf8"),
+  readFile("lib/platform/capabilities/createOperatorReadChainCapability.js", "utf8"),
   readFile("scripts/operator-system-management-audit.mjs", "utf8"),
   readFile("scripts/operator-fast-voice-read-catalog-audit.mjs", "utf8"),
 ]);
@@ -62,6 +66,25 @@ requireAll("READ_AND_ANSWER", reasoningSource, [
   "When a question needs figures, read the data and answer with it",
   "temporal_reference",
   "date_from and date_to",
+]);
+
+requireAll("MULTI_SOURCE_QUESTION_CHAIN", capabilityCatalogSource, [
+  'const OPERATOR_READ_CHAIN_KEY = "platform.operator_read_chain.execute"',
+  '"multi-source"',
+  '"cross-domain"',
+  '"compare"',
+  '"business-health"',
+  "Prefer this bounded read-only chain when one user question needs evidence from two or more registered reads or business areas, then synthesize one answer from the returned evidence.",
+]);
+
+requireAll("MULTI_SOURCE_READ_SAFETY", readChainSource, [
+  "const MAX_STEPS = 4",
+  "const minimum = followUp ? 1 : 2",
+  "OPERATOR_READ_CHAIN_READ_ONLY",
+  "OPERATOR_READ_CHAIN_TRANSACTIONAL_CHILD_BLOCKED",
+  "OPERATOR_READ_CHAIN_CONFIRMATION_CHILD_BLOCKED",
+  "OPERATOR_READ_CHAIN_PERMISSION_REQUIRED",
+  "read_only: true",
 ]);
 
 requireAll("NAVIGATION", turnSource, [
@@ -214,6 +237,8 @@ console.log("OPERATOR_AUTONOMOUS_INTELLIGENCE_BENCHMARK=PASS");
 console.log("OPERATOR_ROLE=BUSINESS_PARTNER_AND_SYSTEM_OPERATOR");
 console.log("OPERATOR_REASONING=DISCUSS_RECOMMEND_DECIDE_WITH_CONTEXT");
 console.log("OPERATOR_QUESTION_FLOW=UNDERSTAND_READ_ANSWER");
+console.log("OPERATOR_MULTI_SOURCE_QUESTION=2_TO_4_REGISTERED_READS_ONE_ANSWER");
+console.log("OPERATOR_MULTI_SOURCE_SAFETY=READ_ONLY_PREFLIGHTED");
 console.log("OPERATOR_ACTION_FLOW=READ_REASON_GOVERN_EXECUTE_VERIFY");
 console.log("OPERATOR_VOICE_LOW_RISK_AUTO_EXECUTE=REGISTERED_AUTO_EXECUTE_ONLY");
 console.log("OPERATOR_VOICE_SENSITIVE_ACTIONS=CONFIRMATION_REQUIRED");

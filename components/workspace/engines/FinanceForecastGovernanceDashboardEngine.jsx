@@ -27,6 +27,7 @@ export default function FinanceForecastGovernanceDashboardEngine({ action, organ
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [mutationKey, setMutationKey] = useState("");
+  const [exportingKey, setExportingKey] = useState("");
   const [error, setError] = useState("");
   const [view, setView] = useState("exceptions");
   const [assignees, setAssignees] = useState([]);
@@ -147,6 +148,39 @@ export default function FinanceForecastGovernanceDashboardEngine({ action, organ
     }
   }
 
+  async function exportAuditPack(versionId = null) {
+    if (!organizationId) return;
+    const exportKey = versionId || "organization";
+
+    try {
+      setExportingKey(exportKey);
+      setError("");
+      const endpoint = new URL("/api/finance/forecast/governance/audit-pack", window.location.origin);
+      endpoint.searchParams.set("organizationId", organizationId);
+      if (versionId) endpoint.searchParams.set("versionId", versionId);
+
+      const response = await fetch(endpoint.toString(), { cache: "no-store" });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || json?.success === false) throw new Error(json?.error || "Forecast governance audit pack export failed");
+
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = versionId
+        ? `forecast-governance-audit-pack-${versionId}.json`
+        : `forecast-governance-audit-pack-${organizationId}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (exportError) {
+      setError(exportError.message || "Forecast governance audit pack export failed");
+    } finally {
+      setExportingKey("");
+    }
+  }
+
   function previewReport() {
     if (!data?.document) return;
     window.dispatchEvent(new CustomEvent("workspace:preview", {
@@ -182,6 +216,7 @@ export default function FinanceForecastGovernanceDashboardEngine({ action, organ
           <div className="flex flex-wrap gap-2">
             <button onClick={load} disabled={busy} className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/65 disabled:opacity-50">Refresh</button>
             <button onClick={previewReport} disabled={!data?.document} className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/65 disabled:opacity-40">Executive Report</button>
+            <button onClick={() => exportAuditPack()} disabled={!organizationId || Boolean(exportingKey)} className="rounded-xl border border-fuchsia-300/20 bg-fuchsia-300/[0.06] px-4 py-2 text-sm text-fuchsia-100/80 disabled:opacity-40">{exportingKey === "organization" ? "Exporting…" : "Audit Pack"}</button>
             <button onClick={onClose} className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-white/60">Close</button>
           </div>
         </div>
@@ -204,14 +239,14 @@ export default function FinanceForecastGovernanceDashboardEngine({ action, organ
             {!rows.length ? <div className="text-sm text-white/40">No records in this governance view.</div> : null}
             {view === "exceptions" ? <div className="space-y-3">{rows.map(row => <div key={row.occurrence_key} className="rounded-xl border border-white/[0.06] bg-black/20 p-4"><div className="flex flex-wrap justify-between gap-3"><div><div className="text-sm text-white/80">{row.entity_name} · {row.title}</div><div className="mt-1 text-xs text-white/40">{row.escalation_level} · {row.status} · {row.assigned_to_name || "Unassigned"}</div></div><div className="text-xs text-white/40">{row.due_date ? `Due ${row.due_date}` : "No due date"}</div></div></div>)}</div> : null}
             {view === "approvals" ? <div className="space-y-3">{rows.map(row => <div key={row.id} className="rounded-xl border border-white/[0.06] bg-black/20 p-4"><div className="flex flex-wrap justify-between gap-3"><div><div className="text-sm text-white/80">v{row.version_number} · {row.scenario_kind}</div><div className="mt-1 text-xs text-white/40">{row.approval_blockers?.length ? `Blocked: ${row.approval_blockers.join(" · ")}` : "Approval-ready"}</div></div><div className={row.approval_blockers?.length ? "text-xs text-amber-200" : "text-xs text-emerald-200"}>{row.approval_blockers?.length ? "POLICY BLOCKED" : "READY"}</div></div></div>)}</div> : null}
-            {view === "overrides" ? <div className="space-y-3">{rows.map(row => <div key={row.id} className="rounded-xl border border-fuchsia-300/15 bg-fuchsia-300/[0.035] p-4"><div className="flex flex-wrap justify-between gap-3"><div><div className="text-sm text-fuchsia-100">v{row.version_number} · {row.scenario_kind}</div><div className="mt-1 text-xs text-white/50">Reason: {row.approval_override_reason || "Recorded in audit evidence"}</div><div className="mt-1 text-xs text-white/40">By {row.approval_override_by || "Recorded actor"} · {dateLabel(row.approval_override_at || row.approved_at)}</div>{row.approval_override_blockers?.length ? <div className="mt-1 text-xs text-amber-100/70">Overridden: {row.approval_override_blockers.join(" · ")}</div> : null}</div><div className="text-xs font-semibold uppercase tracking-[0.14em] text-fuchsia-200">Override</div></div></div>)}</div> : null}
+            {view === "overrides" ? <div className="space-y-3">{rows.map(row => <div key={row.id} className="rounded-xl border border-fuchsia-300/15 bg-fuchsia-300/[0.035] p-4"><div className="flex flex-wrap justify-between gap-3"><div><div className="text-sm text-fuchsia-100">v{row.version_number} · {row.scenario_kind}</div><div className="mt-1 text-xs text-white/50">Reason: {row.approval_override_reason || "Recorded in audit evidence"}</div><div className="mt-1 text-xs text-white/40">By {row.approval_override_by || "Recorded actor"} · {dateLabel(row.approval_override_at || row.approved_at)}</div>{row.approval_override_blockers?.length ? <div className="mt-1 text-xs text-amber-100/70">Overridden: {row.approval_override_blockers.join(" · ")}</div> : null}</div><div className="flex flex-col items-end gap-2"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-fuchsia-200">Override</div><button onClick={() => exportAuditPack(row.id)} disabled={Boolean(exportingKey)} className="rounded-lg border border-fuchsia-300/15 bg-fuchsia-300/[0.05] px-3 py-1.5 text-xs text-fuchsia-100/70 disabled:opacity-40">{exportingKey === row.id ? "Exporting…" : "Export evidence"}</button></div></div></div>)}</div> : null}
             {view === "reviews" ? <div className="space-y-3">{rows.map(row => {
               const review = row.approval_override_review || {};
               const form = formFor(row);
               const resolved = review.status === "RESOLVED";
               const overdue = !resolved && review.due_date && String(review.due_date) < new Date().toISOString().slice(0, 10);
               return <div key={row.id} className="rounded-xl border border-fuchsia-300/15 bg-fuchsia-300/[0.025] p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-sm text-fuchsia-100">v{row.version_number} · {row.scenario_kind}</div><div className="mt-1 text-xs text-white/50">Override: {row.approval_override_reason || "Recorded in audit evidence"}</div><div className="mt-1 text-xs text-white/40">Owner: {review.assigned_to_name || "Unassigned"} · Due: {review.due_date || "Not set"}</div>{resolved ? <div className="mt-2 text-xs text-emerald-200">Resolved by {review.resolved_by_name || "Finance"}: {review.resolution_note || "Resolution recorded"}</div> : null}</div><div className="flex flex-wrap gap-2"><span className="rounded-full border border-white/[0.08] bg-black/20 px-3 py-1 text-xs text-white/60">{reviewStatusLabel(review.status)}</span>{overdue ? <span className="rounded-full border border-red-400/20 bg-red-400/10 px-3 py-1 text-xs text-red-200">Overdue</span> : null}</div></div>
+                <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-sm text-fuchsia-100">v{row.version_number} · {row.scenario_kind}</div><div className="mt-1 text-xs text-white/50">Override: {row.approval_override_reason || "Recorded in audit evidence"}</div><div className="mt-1 text-xs text-white/40">Owner: {review.assigned_to_name || "Unassigned"} · Due: {review.due_date || "Not set"}</div>{resolved ? <div className="mt-2 text-xs text-emerald-200">Resolved by {review.resolved_by_name || "Finance"}: {review.resolution_note || "Resolution recorded"}</div> : null}</div><div className="flex flex-wrap items-center justify-end gap-2"><span className="rounded-full border border-white/[0.08] bg-black/20 px-3 py-1 text-xs text-white/60">{reviewStatusLabel(review.status)}</span>{overdue ? <span className="rounded-full border border-red-400/20 bg-red-400/10 px-3 py-1 text-xs text-red-200">Overdue</span> : null}<button onClick={() => exportAuditPack(row.id)} disabled={Boolean(exportingKey)} className="rounded-full border border-fuchsia-300/15 bg-fuchsia-300/[0.05] px-3 py-1 text-xs text-fuchsia-100/70 disabled:opacity-40">{exportingKey === row.id ? "Exporting…" : "Export evidence"}</button></div></div>
                 {data.can_manage && !resolved ? <div className="mt-4 grid gap-3 border-t border-white/[0.06] pt-4 lg:grid-cols-3"><div className="space-y-2"><select value={form.assignedTo || ""} onChange={event => updateForm(row.id, { assignedTo: event.target.value })} className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2 text-sm text-white"><option value="">Select owner</option>{assignees.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button disabled={!form.assignedTo || Boolean(mutationKey)} onClick={() => mutateReview(row, "ASSIGN")} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white/65 disabled:opacity-40">Assign</button></div><div className="space-y-2"><input type="date" value={form.dueDate || ""} onChange={event => updateForm(row.id, { dueDate: event.target.value })} className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2 text-sm text-white"/><button disabled={Boolean(mutationKey)} onClick={() => mutateReview(row, "SET_DUE_DATE")} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white/65 disabled:opacity-40">Set due date</button></div><div className="space-y-2">{review.status === "OPEN" ? <button disabled={Boolean(mutationKey)} onClick={() => mutateReview(row, "ACKNOWLEDGE")} className="w-full rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-3 py-2 text-sm text-amber-100/75 disabled:opacity-40">Acknowledge</button> : null}<textarea value={form.resolutionNote || ""} onChange={event => updateForm(row.id, { resolutionNote: event.target.value })} placeholder="Review resolution evidence" rows={2} className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/25"/><button disabled={!String(form.resolutionNote || "").trim() || Boolean(mutationKey)} onClick={() => mutateReview(row, "RESOLVE")} className="w-full rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] px-3 py-2 text-sm text-emerald-100/75 disabled:opacity-40">Resolve review</button></div></div> : null}
               </div>;
             })}</div> : null}

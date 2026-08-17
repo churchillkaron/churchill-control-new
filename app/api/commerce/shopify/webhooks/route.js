@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const LIFECYCLE_EVENT_TYPES = {
   "orders/paid": "SHOPIFY_ORDER_PAID_OBSERVED",
+  "order_transactions/create": "SHOPIFY_ORDER_TRANSACTION_OBSERVED",
   "orders/fulfilled": "SHOPIFY_ORDER_FULFILLED_OBSERVED",
   "orders/partially_fulfilled": "SHOPIFY_ORDER_PARTIALLY_FULFILLED_OBSERVED",
   "refunds/create": "SHOPIFY_REFUND_OBSERVED",
@@ -70,11 +71,23 @@ function customerReference(payload) {
 }
 
 function lifecycleIdentity(topic, payload) {
-  if (topic === "refunds/create") {
+  if (
+    topic === "refunds/create" ||
+    topic === "order_transactions/create" ||
+    topic.startsWith("fulfillments/")
+  ) {
     return text(payload?.id) || null;
   }
-  if (topic.startsWith("fulfillments/")) {
-    return text(payload?.id) || null;
+  return text(payload?.id || payload?.order_id) || null;
+}
+
+function lifecycleOrderId(topic, payload) {
+  if (
+    topic === "refunds/create" ||
+    topic === "order_transactions/create" ||
+    topic.startsWith("fulfillments/")
+  ) {
+    return text(payload?.order_id) || null;
   }
   return text(payload?.id || payload?.order_id) || null;
 }
@@ -103,9 +116,12 @@ async function recordLifecycleObservation({
       shop,
       topic,
       external_id: identity,
-      shopify_order_id: text(payload?.order_id || payload?.id) || null,
+      shopify_order_id: lifecycleOrderId(topic, payload),
+      shopify_transaction_id:
+        topic === "order_transactions/create" ? text(payload?.id) || null : null,
       shopify_refund_id: topic === "refunds/create" ? text(payload?.id) || null : null,
-      shopify_fulfillment_id: topic.startsWith("fulfillments/") ? text(payload?.id) || null : null,
+      shopify_fulfillment_id:
+        topic.startsWith("fulfillments/") ? text(payload?.id) || null : null,
       observed_at: triggeredAt || new Date().toISOString(),
       provider_payload: payload,
     },

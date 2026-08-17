@@ -7,12 +7,17 @@ import {
   executeAssignedWorkForStaff,
   listAssignedWorkForStaff,
 } from "@/lib/operations/workforce/StaffAssignedWorkRuntime";
+import {
+  completeExecutionForStaff,
+  getOrCreateExecutionReportForStaff,
+} from "@/lib/service-management/runtime/ServiceExecutionRuntime";
 
 function errorResponse(error) {
   return NextResponse.json(
     {
       success: false,
       error: error?.message || "Unable to update My Day",
+      validationErrors: error?.validationErrors || [],
     },
     { status: error?.status || 500 }
   );
@@ -99,18 +104,49 @@ export async function POST(request) {
       );
     }
 
+    const workOrderId = body.workOrderId || body.work_order_id;
+    const action = String(body.action || "").trim().toLowerCase();
+
+    if (action === "complete") {
+      const result = await completeExecutionForStaff({
+        organizationId: context.organizationId,
+        staffId: context.staff.id,
+        actorId: context.user.id,
+        workOrderId,
+        completionGps: body.location || {},
+        input: body,
+      });
+
+      return NextResponse.json({
+        success: true,
+        ...result,
+      });
+    }
+
     const result = await executeAssignedWorkForStaff({
       organizationId: context.organizationId,
       staffId: context.staff.id,
       actorId: context.user.id,
-      workOrderId: body.workOrderId || body.work_order_id,
-      action: body.action,
+      workOrderId,
+      action,
       location: body.location,
     });
+
+    let executionReport = null;
+    if (action === "start") {
+      const execution = await getOrCreateExecutionReportForStaff({
+        organizationId: context.organizationId,
+        staffId: context.staff.id,
+        workOrderId,
+        startGps: result.gps || body.location || {},
+      });
+      executionReport = execution.report;
+    }
 
     return NextResponse.json({
       success: true,
       ...result,
+      executionReport,
     });
   } catch (error) {
     console.error("STAFF_MY_DAY_POST_ERROR", error);

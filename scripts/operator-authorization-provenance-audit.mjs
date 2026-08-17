@@ -153,6 +153,49 @@ assert.ok(
 );
 
 assert.match(
+  executionEngineSource,
+  /function missionResumeMetadata/,
+  "Durable mission resume must restore authorization provenance before child execution",
+);
+assert.ok(
+  executionEngineSource.includes("resume.authorization_server_authoritative !== true"),
+  "Mission resume must trust persisted authorization origin only when server authoritative",
+);
+assert.ok(
+  executionEngineSource.includes("operatorAuthorizationStepId: stepId"),
+  "Restored mission authorization must be bound to the exact resumed step id",
+);
+assert.ok(
+  executionEngineSource.includes("authorizationStepId === missionStepId"),
+  "Mission child authorization origin must apply only to the matching current step",
+);
+assert.match(
+  executionEngineSource,
+  /async function resolveMissionStepAuthorization/,
+  "Paused mission state must persist exact current-step authorization provenance",
+);
+assert.ok(
+  executionEngineSource.includes("authorization_requirement: requirement"),
+  "Paused mission resume state must persist its current authorization gate",
+);
+assert.ok(
+  executionEngineSource.includes("authorization_origin_mode: originMode"),
+  "Paused mission resume state must persist the current step origin",
+);
+assert.ok(
+  executionEngineSource.includes("authorization_step_id: currentStepId"),
+  "Paused mission resume state must bind provenance to the exact current step",
+);
+assert.ok(
+  executionEngineSource.includes("authorization_server_authoritative: true"),
+  "Paused mission resume provenance must be marked server authoritative",
+);
+assert.ok(
+  executionEngineSource.includes('pauseReason === "verification" ? "read" : originMode'),
+  "Mission verification resume must remain read authorization while preserving parent origin",
+);
+
+assert.match(
   conversationRuntimeSource,
   /async function loadPersistedAgreementState/,
   "Conversation persistence must load previous server-owned agreement state before provenance convergence",
@@ -217,6 +260,8 @@ console.log("OPERATOR_AUDIT_AUTHORIZATION=TRUSTED_RUNTIME_EVIDENCE_WITH_CONSERVA
 console.log("OPERATOR_RUNTIME_AUTHORIZATION=UBTE_BOUNDARY_NORMALIZED");
 console.log("OPERATOR_RUNTIME_EVIDENCE=NON_ENUMERABLE_SERVER_ONLY");
 console.log("OPERATOR_MISSION_CHILD_AUTHORIZATION=MANIFEST_DERIVED_STEP_SPECIFIC_CONFIRMATION_ONLY");
+console.log("OPERATOR_MISSION_RESUME_AUTHORIZATION=SERVER_AUTHORITATIVE_STEP_BOUND_ORIGIN");
+console.log("OPERATOR_MISSION_VERIFICATION_AUTHORIZATION=READ_WITH_PRESERVED_PARENT_ORIGIN");
 console.log("OPERATOR_PENDING_AUTHORIZATION=SERVER_PERSISTED_WITH_REQUIREMENT_AND_ORIGIN");
 console.log("OPERATOR_PENDING_CONFIRMATION=NO_PREMATURE_USER_CONFIRMED_CLAIM");
 console.log("OPERATOR_PENDING_APPROVAL=PRESERVES_OR_UPGRADES_PROVEN_ORIGIN");

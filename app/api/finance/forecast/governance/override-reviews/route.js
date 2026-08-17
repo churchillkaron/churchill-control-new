@@ -10,7 +10,13 @@ function statusFor(error) {
   const message = String(error?.message || "").toLowerCase();
   if (message.includes("permission denied")) return 403;
   if (message.includes("not found")) return 404;
-  if (/required|invalid|resolved forecast/i.test(message)) return 400;
+  if (
+    /required|invalid|resolved forecast|assign the override review|acknowledge the override review/i.test(
+      message
+    )
+  ) {
+    return 400;
+  }
   return error?.status || 500;
 }
 

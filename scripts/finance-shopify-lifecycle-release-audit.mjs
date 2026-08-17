@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
+// Final Shopify Finance lifecycle closure release gate.
 const [
   accountingSource,
   lifecycleSource,

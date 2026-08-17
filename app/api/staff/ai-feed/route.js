@@ -1,4 +1,5 @@
 import { supabaseAdmin }
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 from "@/lib/shared/supabase/admin";
 
 import {
@@ -11,6 +12,28 @@ export async function POST(req) {
 
     const body =
       await req.json();
+
+
+    const access = await requireOrganizationAccess({
+
+      organizationId: body.organizationId || body.organization_id,
+
+      request: req,
+
+    });
+
+
+    if (!access.success) {
+
+      return Response.json(
+
+        { success: false, error: access.error },
+
+        { status: access.status || 403 },
+
+      );
+
+    }
 
     const {
       data: staff,
@@ -53,7 +76,7 @@ export async function POST(req) {
       await ServiceExecutionRuntime.execute({
 
         organization_id:
-          body.organizationId,
+          access.organizationId,
 
         service_id:
           "ai.text.generate",

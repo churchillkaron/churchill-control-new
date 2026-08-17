@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import resolvePOSRequestApplication from "@/lib/operations/commerce/server/resolvePOSRequestApplication";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 function errorResponse(error, status = 500) {
   return Response.json({ success: false, error }, { status });
@@ -9,11 +10,23 @@ function errorResponse(error, status = 500) {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const resolved = await resolvePOSRequestApplication({
-      request,
+
+    const access = await requireOrganizationAccess({
       organizationId:
         searchParams.get("organizationId") ||
         searchParams.get("organization_id"),
+      request: request,
+    });
+
+    if (!access.success) {
+      return Response.json(
+        { success: false, error: access.error },
+        { status: access.status || 403 },
+      );
+    }
+    const resolved = await resolvePOSRequestApplication({
+      request,
+      organizationId: access.organizationId,
       requestedApplicationId:
         searchParams.get("applicationId") ||
         searchParams.get("application_id") ||

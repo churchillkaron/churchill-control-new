@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { CREATE_REPOSITORIES } from "@/lib/workspace/engines/createRepositoryMap";
 
@@ -7,6 +8,28 @@ export async function POST(request){
   try{
 
     const body = await request.json();
+
+
+    const access = await requireOrganizationAccess({
+
+      organizationId: body.organizationId || body.organization_id,
+
+      request: request,
+
+    });
+
+
+    if (!access.success) {
+
+      return NextResponse.json(
+
+        { success: false, error: access.error },
+
+        { status: access.status || 403 },
+
+      );
+
+    }
 
     const repository =
       CREATE_REPOSITORIES[body.module];
@@ -27,7 +50,7 @@ export async function POST(request){
       ...(body.values||{}),
 
       organization_id:
-        body.organization_id,
+        access.organizationId,
 
       created_at:
         new Date().toISOString(),

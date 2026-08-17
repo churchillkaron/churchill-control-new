@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse }
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 from "next/server";
 
 import { businessProfiles }
@@ -26,6 +27,28 @@ export async function POST(
 
     const body =
       await request.json();
+
+
+    const access = await requireOrganizationAccess({
+
+      organizationId: body.organizationId || body.organization_id,
+
+      request: request,
+
+    });
+
+
+    if (!access.success) {
+
+      return NextResponse.json(
+
+        { success: false, error: access.error },
+
+        { status: access.status || 403 },
+
+      );
+
+    }
 
     const {
 
@@ -111,7 +134,7 @@ Return ONLY valid JSON:
       await ServiceExecutionRuntime.execute({
 
         organization_id:
-          body.organizationId,
+          access.organizationId,
 
         service_id:
           "ai.text.generate",

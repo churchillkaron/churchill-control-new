@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { CreativeSearchRuntime } from "@/lib/marketing/ai/intelligence/CreativeSearchRuntime";
 
 export async function POST(request) {
@@ -8,10 +9,22 @@ export async function POST(request) {
     const body =
       await request.json();
 
+    const access = await requireOrganizationAccess({
+      organizationId: body.organizationId || body.organization_id,
+      request: request,
+    });
+
+    if (!access.success) {
+      return NextResponse.json(
+        { success: false, error: access.error },
+        { status: access.status || 403 },
+      );
+    }
+
     const result =
       await CreativeSearchRuntime({
         organizationId:
-          body.organizationId,
+          access.organizationId,
         pageId:
           body.pageId,
         objective:

@@ -104,17 +104,17 @@ export async function POST(request) {
         );
       }
 
-      const { data: existing, error: existingError } = await supabaseAdmin
+      const { data: existingRows, error: existingError } = await supabaseAdmin
         .from("campaign_asset_usage")
         .select("id")
         .eq("campaign_id", campaignId)
         .eq("asset_id", assetId)
         .eq("organization_id", context.access.organizationId)
-        .maybeSingle();
+        .limit(1);
 
       if (existingError) throw existingError;
 
-      if (!existing) {
+      if (!existingRows?.length) {
         const { error: insertError } = await supabaseAdmin
           .from("campaign_asset_usage")
           .insert({

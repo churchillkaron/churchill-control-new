@@ -180,6 +180,11 @@ export async function POST(request) {
 
     const body = await request.json();
     const action = String(body?.action || "").trim().toUpperCase();
+    const { entity } = await resolveActiveLegalEntitySelection({
+      request,
+      organizationId: context.organizationId,
+      entityId: body?.entityId || null,
+    });
 
     if (action === "PREPARE") {
       const payrollMonth = String(body?.payrollMonth || "").trim();
@@ -190,12 +195,6 @@ export async function POST(request) {
         );
       }
 
-      const { entity } = await resolveActiveLegalEntitySelection({
-        request,
-        organizationId: context.organizationId,
-        entityId: body?.entityId || null,
-      });
-
       const result = await preparePayrollPaymentBatch({
         organizationId: context.organizationId,
         entityId: entity.id,
@@ -204,7 +203,7 @@ export async function POST(request) {
         paymentMethod: body?.paymentMethod || "bank_transfer",
       });
 
-      return NextResponse.json({ success: true, result });
+      return NextResponse.json({ success: true, entityId: entity.id, result });
     }
 
     if (action === "RECONCILE") {
@@ -218,6 +217,26 @@ export async function POST(request) {
         );
       }
 
+      const { data: scopedPayment, error: scopedPaymentError } = await supabaseAdmin
+        .from("payroll_payments")
+        .select("id,entity_id")
+        .eq("id", payrollPaymentId)
+        .eq("organization_id", context.organizationId)
+        .eq("entity_id", entity.id)
+        .maybeSingle();
+
+      if (scopedPaymentError) throw scopedPaymentError;
+      if (!scopedPayment) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Payroll payment was not found for the selected legal entity",
+            code: "PAYROLL_PAYMENT_ENTITY_MISMATCH",
+          },
+          { status: 404 }
+        );
+      }
+
       const result = await reconcilePayrollPaymentBatch({
         organizationId: context.organizationId,
         payrollPaymentId,
@@ -225,7 +244,7 @@ export async function POST(request) {
         reconciledBy: context.staff.id,
       });
 
-      return NextResponse.json({ success: true, result });
+      return NextResponse.json({ success: true, entityId: entity.id, result });
     }
 
     return NextResponse.json(

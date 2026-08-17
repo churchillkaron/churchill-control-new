@@ -14,7 +14,7 @@ insert into public.provider_pricing (
 )
 select
   'shopify',
-  null,
+  'commerce.shopify.order.lifecycle.read',
   'commerce.shopify.order.lifecycle.read',
   'request',
   0,

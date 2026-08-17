@@ -64,6 +64,7 @@ export default function CampaignsLayout({ children }) {
   }, [base, capabilities, router, wholeActive]);
 
   const canUseWholeCampaign = capabilities?.canUseWholeCampaign === true;
+  const canCreateCampaign = capabilities?.canCreateCampaign === true;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -100,7 +101,18 @@ export default function CampaignsLayout({ children }) {
               Campaigns
             </Link>
           )}
-          <CampaignCommandCenter capabilities={capabilities} />
+
+          {canCreateCampaign ? (
+            <div
+              className={
+                canUseWholeCampaign
+                  ? "ml-auto"
+                  : "ml-auto [&>div>button:nth-child(2)]:hidden"
+              }
+            >
+              <CampaignCommandCenter />
+            </div>
+          ) : null}
         </div>
       </div>
       {children}

@@ -5,12 +5,14 @@ import { readFile } from "node:fs/promises";
 
 const [
   governanceSource,
+  evidenceSource,
   turnSource,
   executionEngineSource,
   conversationRuntimeSource,
   ubteAuditSource,
 ] = await Promise.all([
   readFile("lib/operator/governance/operatorExecutionGovernance.js", "utf8"),
+  readFile("lib/operator/governance/operatorAuthorizationEvidence.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
   readFile("lib/ubte/runtime/ExecutionEngine.js", "utf8"),
   readFile("lib/operator/runtime/IntelligenceConversationRuntime.js", "utf8"),
@@ -59,19 +61,71 @@ assert.ok(
   governanceSource.includes('if (channel === "mission") return "mission_governed";'),
   "Mission audit must refuse to invent user confirmation when child contract evidence is absent",
 );
+assert.ok(
+  governanceSource.includes("readOperatorAuthorizationEvidence(payload)"),
+  "Operator audit must consume trusted UBTE runtime authorization evidence when present",
+);
+assert.ok(
+  governanceSource.includes("authorization_evidence_source: runtimeEvidence"),
+  "Operator audit must disclose whether provenance came from runtime evidence or conservative fallback",
+);
+
+assert.match(
+  evidenceSource,
+  /export function stampOperatorAuthorizationEvidence/,
+  "UBTE must have a dedicated trusted authorization evidence writer",
+);
+assert.match(
+  evidenceSource,
+  /export function readOperatorAuthorizationEvidence/,
+  "Operator governance must have a dedicated trusted authorization evidence reader",
+);
+assert.ok(
+  evidenceSource.includes("propertyIsEnumerable.call(payload, EVIDENCE_KEY)"),
+  "Authorization evidence must reject enumerable JSON/user/LLM payload properties",
+);
+assert.ok(
+  evidenceSource.includes("enumerable: false"),
+  "Trusted runtime authorization evidence must be non-enumerable and in-memory only",
+);
+assert.ok(
+  evidenceSource.includes("sanitizedOperatorAuditPayload"),
+  "Audit payload serialization must strip the reserved authorization evidence key",
+);
 
 assert.match(
   executionEngineSource,
   /function normalizedOperatorRuntimeMetadata/,
   "UBTE must normalize Operator authorization metadata at the execution boundary",
 );
-assert.ok(
-  executionEngineSource.includes('text(current.source) !== "AVANTIQO_OPERATOR"'),
-  "Runtime provenance normalization must be scoped to Operator executions",
+assert.match(
+  executionEngineSource,
+  /function isOperatorRuntime/,
+  "UBTE must explicitly scope authorization normalization to Operator runtime calls",
 );
 assert.ok(
-  executionEngineSource.includes('authorizationMode = "read"'),
-  "UBTE runtime metadata must represent read authorization",
+  executionEngineSource.includes('source.startsWith("AVANTIQO_OPERATOR_MISSION")'),
+  "UBTE must normalize registered mission child execution as Operator runtime",
+);
+assert.ok(
+  executionEngineSource.includes('text(current.parentCapabilityKey) === OPERATOR_MISSION_KEY'),
+  "Mission child provenance must remain scoped to the registered Operator mission parent",
+);
+assert.ok(
+  executionEngineSource.includes('if (mode === "read")'),
+  "Read capabilities must force read provenance instead of inheriting write authorization",
+);
+assert.ok(
+  executionEngineSource.includes("else if (missionChild)"),
+  "Mission children must derive their own provenance from the child manifest",
+);
+assert.ok(
+  executionEngineSource.includes('current.missionStepConfirmed === true'),
+  "Mission user-confirmed provenance must require step-specific confirmation evidence",
+);
+assert.ok(
+  !executionEngineSource.includes('current.operatorMissionConfirmed === true || current.missionStepConfirmed === true'),
+  "A mission-wide confirmation flag must never authorize every later mission child",
 );
 assert.ok(
   executionEngineSource.includes('authorizationMode = "user_confirmed"'),
@@ -82,8 +136,16 @@ assert.ok(
   "UBTE runtime metadata must represent safe automatic execution",
 );
 assert.ok(
+  executionEngineSource.includes('authorizationMode = "mission_governed"'),
+  "Mission writes without step-specific confirmation evidence must stay conservative",
+);
+assert.ok(
+  executionEngineSource.includes("stampOperatorAuthorizationEvidence(payload"),
+  "UBTE must stamp trusted in-memory authorization evidence before capability execution",
+);
+assert.ok(
   executionEngineSource.includes("conversationallyConfirmed: originMode === \"user_confirmed\""),
-  "Legacy conversational confirmation must be overwritten from explicit provenance",
+  "Legacy conversational confirmation must be overwritten from derived provenance",
 );
 assert.ok(
   !executionEngineSource.includes("conversationallyConfirmed: true"),
@@ -151,8 +213,10 @@ assert.ok(
 const legacyTurnFlagPresent = turnSource.includes("conversationallyConfirmed: true");
 
 console.log("OPERATOR_AUTHORIZATION_PROVENANCE_AUDIT=PASS");
-console.log("OPERATOR_AUDIT_AUTHORIZATION=AUTHORITATIVE_DERIVED_PROVENANCE");
+console.log("OPERATOR_AUDIT_AUTHORIZATION=TRUSTED_RUNTIME_EVIDENCE_WITH_CONSERVATIVE_FALLBACK");
 console.log("OPERATOR_RUNTIME_AUTHORIZATION=UBTE_BOUNDARY_NORMALIZED");
+console.log("OPERATOR_RUNTIME_EVIDENCE=NON_ENUMERABLE_SERVER_ONLY");
+console.log("OPERATOR_MISSION_CHILD_AUTHORIZATION=MANIFEST_DERIVED_STEP_SPECIFIC_CONFIRMATION_ONLY");
 console.log("OPERATOR_PENDING_AUTHORIZATION=SERVER_PERSISTED_WITH_REQUIREMENT_AND_ORIGIN");
 console.log("OPERATOR_PENDING_CONFIRMATION=NO_PREMATURE_USER_CONFIRMED_CLAIM");
 console.log("OPERATOR_PENDING_APPROVAL=PRESERVES_OR_UPGRADES_PROVEN_ORIGIN");

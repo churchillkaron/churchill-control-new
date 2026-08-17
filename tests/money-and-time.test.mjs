@@ -248,6 +248,21 @@ test("a new wallet is prepaid, active and empty by default", () => {
   assert.equal(wallet.auto_topup, false);
 });
 
+// A correction to what the previous commit implied.
+//
+// The three states below are constructible through this factory, and I described them as gaps. They are not
+// risks, because nothing calls this factory: every real wallet operation goes through the Postgres function
+// apply_wallet_transaction, which refuses a negative amount with WALLET_AMOUNT_MUST_BE_POSITIVE, requires an
+// idempotency key, detects conflicting reuse of one, takes an advisory lock and a row lock before touching a
+// balance, checks entity scope and currency configuration, and is granted to service_role alone with execute
+// revoked from public, anon and authenticated.
+//
+// So the money invariants live in the database, atomically, which is where they belong and is why 160
+// observed transactions settled cleanly. These tests describe a JavaScript document definition that is
+// currently unused. They are worth keeping -- if the factory is ever wired into a creation path the
+// assertions become live, and the currency requirement it does enforce is correct -- but they are not
+// evidence about the wallet in production, and I should not have implied they were.
+
 test("nothing stops a wallet being created with a negative balance", () => {
   // Pinned as a gap rather than as intended behaviour. A prepaid wallet holding -500 has already spent money
   // the organization never deposited, and the factory is the last place that could refuse it before it
@@ -269,14 +284,32 @@ test("nothing stops reserved exceeding available", () => {
   assert.ok(wallet.reserved_balance > wallet.available_balance);
 });
 
-test("unparseable balances become NaN rather than being rejected", () => {
-  // Number("abc") is NaN, and NaN survives every arithmetic operation downstream while comparing false
-  // against every threshold -- so a NaN balance passes an "is there enough?" check by failing it silently,
-  // and renders as an empty cell rather than an error. Worth a guard at the boundary that parses input.
-  const wallet = createOrganizationWallet({ currency: "THB", available_balance: "not a number" });
-  assert.ok(Number.isNaN(wallet.available_balance));
-  assert.equal(wallet.available_balance > 0, false);
-  assert.equal(wallet.available_balance <= 0, false);
+test("an unparseable balance is refused rather than stored as NaN", () => {
+  // This was the one gap of the three with no legitimate reading, so it is now guarded rather than pinned.
+  // NaN survives every arithmetic operation downstream and compares false against every threshold, so a NaN
+  // balance passes an "is there enough to reserve?" check by failing it, silently, and renders as a blank
+  // cell rather than an error. Nothing about it looks like a failure until somebody reconciles.
+  assert.throws(
+    () => createOrganizationWallet({ currency: "THB", available_balance: "not a number" }),
+    /ORGANIZATION_WALLET_AMOUNT_INVALID:available_balance/,
+  );
+  assert.throws(
+    () => createOrganizationWallet({ currency: "THB", reserved_balance: {} }),
+    /ORGANIZATION_WALLET_AMOUNT_INVALID:reserved_balance/,
+  );
+  assert.throws(
+    () => createOrganizationWallet({ currency: "THB", auto_topup_amount: "soon" }),
+    /ORGANIZATION_WALLET_AMOUNT_INVALID:auto_topup_amount/,
+  );
+});
+
+test("an absent balance is still zero, so existing callers are unaffected", () => {
+  // The guard has to refuse meaningless input without breaking the ordinary case of a wallet created with no
+  // balance at all, which is how every new organization starts.
+  for (const value of [undefined, null, ""]) {
+    const wallet = createOrganizationWallet({ currency: "THB", available_balance: value });
+    assert.equal(wallet.available_balance, 0);
+  }
 });
 
 test("string amounts parse, so values arriving from JSON still work", () => {

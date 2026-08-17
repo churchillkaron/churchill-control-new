@@ -322,8 +322,33 @@ export async function POST(request) {
       );
     }
 
-    const actorName = context.staff.name || context.staff.email || context.role;
+    const { entity } = await resolveActiveLegalEntitySelection({
+      request,
+      organizationId: context.organizationId,
+      entityId: body?.entityId || null,
+    });
 
+    const { data: scopedRecord, error: scopedRecordError } = await supabaseAdmin
+      .from("payroll_records")
+      .select("id,entity_id")
+      .eq("id", payrollRecordId)
+      .eq("organization_id", context.organizationId)
+      .eq("entity_id", entity.id)
+      .maybeSingle();
+
+    if (scopedRecordError) throw scopedRecordError;
+    if (!scopedRecord) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Payroll record was not found for the selected legal entity",
+          code: "PAYROLL_RECORD_ENTITY_MISMATCH",
+        },
+        { status: 404 }
+      );
+    }
+
+    const actorName = context.staff.name || context.staff.email || context.role;
     let result;
 
     if (action === "APPROVE") {
@@ -450,6 +475,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
+      entityId: entity.id,
       result,
     });
   } catch (error) {

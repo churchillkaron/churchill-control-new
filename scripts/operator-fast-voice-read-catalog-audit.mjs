@@ -38,7 +38,10 @@ assert.match(
 assert.match(reasoningSource, /fast_voice_read_catalog_expansion:\s*true/);
 assert.match(reasoningSource, /function fastVoiceFallbackReason/);
 assert.match(reasoningSource, /return "invalid_response"/);
-assert.match(reasoningSource, /return "unsafe_clarification"/);
+assert.match(
+  reasoningSource,
+  /return fastVoiceSafeClarification\(parsed\) \? null : "unsafe_clarification"/,
+);
 assert.match(reasoningSource, /return "full_catalog_requested"/);
 assert.match(reasoningSource, /return "low_confidence"/);
 assert.match(reasoningSource, /return "missing_capability"/);

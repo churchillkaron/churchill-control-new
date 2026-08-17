@@ -1,0 +1,154 @@
+// The first tests in this repository.
+//
+// Thirty-three audits gate every build and they are good, but they check structure, wiring, contracts and
+// exposure. None of them can catch a calculation returning the wrong number. A labour percentage off by a
+// factor of a hundred, a variance that divides by zero, a rounding rule applied at the wrong step -- each
+// of those passes all thirty-three and lands in a customer's payroll or stock valuation.
+//
+// So these start where a wrong answer costs money, and they test behaviour rather than shape: the
+// boundaries (zero, empty, missing), the arithmetic, the sign, and the rounding each function promises.
+//
+//   node --test tests/
+//
+// node:test, so there is no dependency to add and nothing to configure.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+import { calculateLaborCost } from "../lib/payroll/calculateLaborCost.js";
+import { calculateVariance } from "../lib/inventory/production/yield/capabilities/calculateVariance.js";
+
+test("labour cost sums hours times rate across shifts", () => {
+  const result = calculateLaborCost(
+    [
+      { staff_name: "Mai", department: "Kitchen", hours: 8, hourly_rate: 62.5 },
+      { staff_name: "Nok", department: "Service", hours: 6, hourly_rate: 55 },
+    ],
+    10_000,
+  );
+
+  assert.equal(result.totalLaborCost, 8 * 62.5 + 6 * 55);
+  assert.equal(result.totalHours, 14);
+  assert.equal(result.breakdown.length, 2);
+  assert.equal(result.breakdown[0].labor_cost, 500);
+});
+
+test("labour percent is a percentage, not a fraction", () => {
+  // 830 of 10,000 is 8.3 percent, not 0.083. Drop the multiplier and a dashboard shows a plausible
+  // wrong number rather than an error, which is the failure that survives review.
+  const result = calculateLaborCost([{ hours: 10, hourly_rate: 83 }], 10_000);
+  assert.equal(result.laborPercent, 8.3);
+});
+
+test("percent and revenue per hour are zero rather than Infinity with nothing to divide by", () => {
+  const noRevenue = calculateLaborCost([{ hours: 8, hourly_rate: 50 }], 0);
+  assert.equal(noRevenue.laborPercent, 0);
+  assert.ok(Number.isFinite(noRevenue.laborPercent));
+
+  const noHours = calculateLaborCost([{ hours: 0, hourly_rate: 50 }], 5_000);
+  assert.equal(noHours.revenuePerHour, 0);
+  assert.ok(Number.isFinite(noHours.revenuePerHour));
+});
+
+test("missing hours and rates count as zero rather than NaN", () => {
+  // Shifts arrive from a scheduler that does not always carry a rate. NaN propagates silently through a
+  // total and renders as a blank cell rather than an error.
+  const result = calculateLaborCost([{ staff_name: "Ann" }, { hours: 4 }], 1_000);
+  assert.equal(result.totalLaborCost, 0);
+  assert.equal(result.totalHours, 4);
+  assert.ok(!Number.isNaN(result.laborPercent));
+});
+
+test("labour cost handles no shifts at all", () => {
+  const result = calculateLaborCost([], 5_000);
+  assert.equal(result.totalLaborCost, 0);
+  assert.equal(result.totalHours, 0);
+  assert.equal(result.laborPercent, 0);
+  assert.equal(result.revenuePerHour, 0);
+  assert.deepEqual(result.breakdown, []);
+});
+
+test("revenue per hour divides revenue by hours worked", () => {
+  const result = calculateLaborCost(
+    [{ hours: 5, hourly_rate: 60 }, { hours: 5, hourly_rate: 60 }],
+    12_000,
+  );
+  assert.equal(result.revenuePerHour, 1_200);
+});
+
+test("variance is actual minus theoretical, so overuse reads positive", () => {
+  // The sign carries the meaning of the whole report. Inverted, overuse would read as a saving.
+  const rows = calculateVariance({
+    theoretical: [
+      { item_id: "beef", ingredient: "Beef striploin", unit: "kg", theoretical_usage: 10 },
+    ],
+    actual: [{ item_id: "beef", actual_usage: 12 }],
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].theoretical_usage, 10);
+  assert.equal(rows[0].actual_usage, 12);
+  assert.equal(rows[0].variance, 2);
+  assert.equal(rows[0].variance_percent, 20);
+});
+
+test("an item with no stock reading counts as zero usage rather than vanishing", () => {
+  // A missing count is not the same as no consumption, and dropping the row hides the item from the
+  // variance report entirely, which is how a loss goes unnoticed.
+  const rows = calculateVariance({
+    theoretical: [{ item_id: "wine", ingredient: "House red", unit: "btl", theoretical_usage: 6 }],
+    actual: [],
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].actual_usage, 0);
+  assert.equal(rows[0].variance, -6);
+  assert.equal(rows[0].variance_percent, -100);
+});
+
+test("variance percent is zero rather than Infinity when nothing was theoretically used", () => {
+  const rows = calculateVariance({
+    theoretical: [{ item_id: "salt", ingredient: "Salt", unit: "kg", theoretical_usage: 0 }],
+    actual: [{ item_id: "salt", actual_usage: 3 }],
+  });
+
+  assert.equal(rows[0].variance_percent, 0);
+  assert.ok(Number.isFinite(rows[0].variance_percent));
+});
+
+test("variance rounds to the two decimals it promises", () => {
+  const rows = calculateVariance({
+    theoretical: [{ item_id: "oil", ingredient: "Olive oil", unit: "l", theoretical_usage: 1.005 }],
+    actual: [{ item_id: "oil", actual_usage: 2.4567 }],
+  });
+
+  assert.equal(rows[0].actual_usage, 2.46);
+
+  // 1.005 rounds DOWN to 1.00, and that is worth knowing rather than assuming.
+  //
+  // This test failed on the first run because I expected 1.01. The cause is not a bug in the function: 1.005
+  // cannot be represented exactly in binary floating point, it is stored as 1.00499999999999989, and toFixed
+  // rounds the value it actually holds. Every exact-half value in the system behaves this way.
+  //
+  // The consequence is a systematic downward bias on halves. On one row it is a hundredth of a litre. Across
+  // a stock valuation of thousands of rows it is a small persistent understatement, always in the same
+  // direction, which is the kind of discrepancy that surfaces as an unexplained variance at year end rather
+  // than as an error anyone can point at.
+  //
+  // Left asserting the real behaviour deliberately. Changing it means choosing a rounding policy for money
+  // across the whole system -- half-up, banker's rounding, or integer minor units -- and that is a decision
+  // to make once and apply everywhere, not something to patch inside a variance report.
+  assert.equal(rows[0].theoretical_usage, 1);
+  assert.equal(Number((1.005).toFixed(2)), 1);
+});
+
+test("variance carries the ingredient and unit through for the report", () => {
+  const rows = calculateVariance({
+    theoretical: [{ item_id: "rice", ingredient: "Jasmine rice", unit: "kg", theoretical_usage: 4 }],
+    actual: [{ item_id: "rice", actual_usage: 4 }],
+  });
+
+  assert.equal(rows[0].ingredient, "Jasmine rice");
+  assert.equal(rows[0].unit, "kg");
+  assert.equal(rows[0].variance, 0);
+});

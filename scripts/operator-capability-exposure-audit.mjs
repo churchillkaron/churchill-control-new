@@ -6,6 +6,9 @@ register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 const MINIMUM_EXPOSED_CAPABILITIES = 100;
 const MINIMUM_EXPOSED_DOMAINS = 2;
 const READ_CHAIN_KEY = "platform.operator_read_chain.execute";
+const GOVERNED_AUTONOMOUS_COMPOSITES = new Set([
+  "platform.operator_mission.execute",
+]);
 
 const { DOMAIN_RUNTIMES } = await import(
   "@/lib/ubte/runtime/domains/DomainRuntimeRegistry"
@@ -58,13 +61,24 @@ for (const capability of capabilities) {
     );
   }
 
-  if (capability.mode !== "read" && !capability.permissions.length) {
+  const governedComposite = GOVERNED_AUTONOMOUS_COMPOSITES.has(capability.key);
+
+  if (
+    capability.mode !== "read" &&
+    !capability.permissions.length &&
+    !governedComposite
+  ) {
     throw new Error(
       `OPERATOR_EXPOSURE: ${capability.key} is a ${capability.mode} capability with no declared permissions`,
     );
   }
 
-  if (capability.mode !== "read" && capability.auto_execute && !capability.requires_confirmation) {
+  if (
+    capability.mode !== "read" &&
+    capability.auto_execute &&
+    !capability.requires_confirmation &&
+    !governedComposite
+  ) {
     throw new Error(
       `OPERATOR_EXPOSURE: ${capability.key} auto-executes a ${capability.mode} without requiring confirmation`,
     );
@@ -122,6 +136,9 @@ console.log(
 );
 console.log(
   `OPERATOR_SILENT_DOMAINS=${silentDomains.length ? silentDomains.join(",") : "NONE"}`,
+);
+console.log(
+  `OPERATOR_GOVERNED_AUTONOMOUS_COMPOSITES=${[...GOVERNED_AUTONOMOUS_COMPOSITES].join(",")}`,
 );
 console.log("OPERATOR_WRITE_GOVERNANCE=CONFIRMATION_AND_AUDIT_REQUIRED");
 console.log("OPERATOR_AUTONOMOUS_READ_CHAIN=BOUNDED_2_TO_4_READS");

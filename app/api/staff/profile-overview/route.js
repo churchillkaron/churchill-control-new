@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import resolveAuthenticatedStaffContext from "@/lib/people/runtime/resolveAuthenticatedStaffContext";
+import { loadEmploymentAssignmentsForPeriod } from "@/lib/people/employees/employmentAssignmentService";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   localDateString,
@@ -22,13 +23,8 @@ function compensationConfigured(profile) {
   if (!profile) return false;
 
   const salaryType = String(profile.salary_type || "").trim().toUpperCase();
-  if (salaryType === "MONTHLY") {
-    return Number(profile.monthly_salary || 0) > 0;
-  }
-  if (salaryType === "HOURLY") {
-    return Number(profile.hourly_rate || 0) > 0;
-  }
-
+  if (salaryType === "MONTHLY") return Number(profile.monthly_salary || 0) > 0;
+  if (salaryType === "HOURLY") return Number(profile.hourly_rate || 0) > 0;
   return false;
 }
 
@@ -60,14 +56,10 @@ export async function GET(request) {
       scheduleResult,
       attendanceResult,
       entityResult,
+      employmentAssignments,
     ] = await Promise.all([
       staff.party_id
-        ? supabaseAdmin
-            .from("parties")
-            .select("*")
-            .eq("id", staff.party_id)
-            .eq("organization_id", organizationId)
-            .maybeSingle()
+        ? supabaseAdmin.from("parties").select("*").eq("id", staff.party_id).eq("organization_id", organizationId).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       supabaseAdmin
         .from("employee_compensation_profiles")
@@ -107,16 +99,15 @@ export async function GET(request) {
         .from("legal_entities")
         .select("id,legal_name,display_name,currency,is_default_accounting_entity,is_active")
         .eq("organization_id", organizationId),
+      loadEmploymentAssignmentsForPeriod({
+        organizationId,
+        staffId: staff.id,
+        startDate: businessDate,
+        endDate: businessDate,
+      }),
     ]);
 
-    for (const result of [
-      partyResult,
-      compensationResult,
-      payrollResult,
-      scheduleResult,
-      attendanceResult,
-      entityResult,
-    ]) {
+    for (const result of [partyResult, compensationResult, payrollResult, scheduleResult, attendanceResult, entityResult]) {
       if (result.error) throw result.error;
     }
 
@@ -137,38 +128,38 @@ export async function GET(request) {
       };
     });
 
+    const currentEmployment =
+      (employmentAssignments || []).find(
+        (assignment) =>
+          assignment.staff_account_id === staff.id &&
+          assignment.party_id === staff.party_id &&
+          assignment.effective_from <= businessDate &&
+          (!assignment.effective_to || assignment.effective_to >= businessDate)
+      ) || null;
+
+    const currentEntity = currentEmployment
+      ? entityById.get(currentEmployment.entity_id) || null
+      : null;
+
     const activeProfiles = compensationResult.data || [];
-    const latestPayrollEntityId = payroll[0]?.entity_id || null;
-    const defaultEntity = entities.find(
-      (entity) => entity.is_active !== false && entity.is_default_accounting_entity === true
-    );
-
-    const selectedProfile =
-      activeProfiles.find((profile) => profile.entity_id === latestPayrollEntityId) ||
-      (activeProfiles.length === 1 ? activeProfiles[0] : null) ||
-      activeProfiles.find((profile) => profile.entity_id === defaultEntity?.id) ||
-      activeProfiles[0] ||
-      null;
-
-    const selectedEntity = selectedProfile
-      ? entityById.get(selectedProfile.entity_id) || null
+    const selectedProfile = currentEmployment
+      ? activeProfiles.find(
+          (profile) =>
+            profile.entity_id === currentEmployment.entity_id &&
+            profile.party_id === staff.party_id
+        ) || null
       : null;
 
     const compensation = selectedProfile
       ? {
           ...selectedProfile,
-          currency_code:
-            normalizeCurrency(selectedEntity?.currency) ||
-            normalizeCurrency(selectedProfile.currency),
+          currency_code: normalizeCurrency(currentEntity?.currency) || normalizeCurrency(selectedProfile.currency),
           configured: compensationConfigured(selectedProfile),
-          legal_entity: selectedEntity
+          legal_entity: currentEntity
             ? {
-                id: selectedEntity.id,
-                name:
-                  selectedEntity.display_name ||
-                  selectedEntity.legal_name ||
-                  selectedEntity.id,
-                currency: normalizeCurrency(selectedEntity.currency),
+                id: currentEntity.id,
+                name: currentEntity.display_name || currentEntity.legal_name || currentEntity.id,
+                currency: normalizeCurrency(currentEntity.currency),
               }
             : null,
         }
@@ -183,6 +174,18 @@ export async function GET(request) {
         businessDate,
         staff,
         party: partyResult.data || null,
+        employment: currentEmployment
+          ? {
+              ...currentEmployment,
+              legal_entity: currentEntity
+                ? {
+                    id: currentEntity.id,
+                    name: currentEntity.display_name || currentEntity.legal_name || currentEntity.id,
+                    currency: normalizeCurrency(currentEntity.currency),
+                  }
+                : null,
+            }
+          : null,
         compensation,
         payroll,
         upcomingSchedules: scheduleResult.data || [],
@@ -193,10 +196,7 @@ export async function GET(request) {
     console.error("STAFF_PROFILE_OVERVIEW_ERROR", error);
 
     return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Unable to load staff profile",
-      },
+      { success: false, error: error?.message || "Unable to load staff profile" },
       { status: 500 }
     );
   }

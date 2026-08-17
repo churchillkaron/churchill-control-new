@@ -17,6 +17,15 @@ const FIELD_SERVICE_AREAS = Object.freeze([
     action: "Open Service Plans",
   }),
   Object.freeze({
+    id: "execution-templates",
+    title: "Execution Templates",
+    eyebrow: "Dynamic Protocols",
+    description:
+      "Build versioned technician protocols, inspection fields, measurements, evidence and completion requirements without hardcoding an industry workflow.",
+    route: "/operations/field-service/execution-templates",
+    action: "Build Protocols",
+  }),
+  Object.freeze({
     id: "service-orders",
     title: "Service Orders",
     eyebrow: "Execution Control",

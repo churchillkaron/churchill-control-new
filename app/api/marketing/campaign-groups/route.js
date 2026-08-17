@@ -45,24 +45,34 @@ export const POST = withApiHandler(
     const accessibleOrganizations = new Set();
 
     for (const organizationId of organizationIds) {
-      const access = await requireOrganizationAccess({
-        organizationId,
-        request,
-      });
+      const access = await requireOrganizationAccess({ organizationId, request });
       if (access.success) accessibleOrganizations.add(organizationId);
     }
 
-    const visibleMembers = (members || []).filter((member) =>
-      accessibleOrganizations.has(member.organization_id),
-    );
+    const membersByRawGroup = new Map();
+    for (const member of members || []) {
+      if (!membersByRawGroup.has(member.campaign_group_id)) membersByRawGroup.set(member.campaign_group_id, []);
+      membersByRawGroup.get(member.campaign_group_id).push(member);
+    }
+
+    const fullyAccessibleGroups = groups.filter((group) => {
+      const groupMembers = membersByRawGroup.get(group.id) || [];
+      return groupMembers.length > 0 && groupMembers.every((member) => accessibleOrganizations.has(member.organization_id));
+    });
+
+    if (!fullyAccessibleGroups.length) return { groups: [] };
+
+    const visibleGroupIds = fullyAccessibleGroups.map((group) => group.id);
+    const visibleMembers = (members || []).filter((member) => visibleGroupIds.includes(member.campaign_group_id));
     const campaignIds = visibleMembers.map((member) => member.marketing_campaign_id).filter(Boolean);
+    const visibleOrganizationIds = [...new Set(visibleMembers.map((member) => member.organization_id).filter(Boolean))];
 
     const [campaignResult, organizationResult, assetResult] = await Promise.all([
       campaignIds.length
         ? supabaseAdmin.from("marketing_campaigns").select("*").in("id", campaignIds)
         : Promise.resolve({ data: [], error: null }),
-      organizationIds.length
-        ? supabaseAdmin.from("organizations").select("id,name,organization_type,status").in("id", organizationIds)
+      visibleOrganizationIds.length
+        ? supabaseAdmin.from("organizations").select("id,name,organization_type,status").in("id", visibleOrganizationIds)
         : Promise.resolve({ data: [], error: null }),
       campaignIds.length
         ? supabaseAdmin.from("creative_assets").select("id,campaign_id,organization_id,status,approval_state").in("campaign_id", campaignIds)
@@ -101,14 +111,12 @@ export const POST = withApiHandler(
     }
 
     return {
-      groups: groups
-        .map((group) => ({
-          ...group,
-          members: membersByGroup.get(group.id) || [],
-          total_member_count: (members || []).filter((member) => member.campaign_group_id === group.id).length,
-          accessible_member_count: (membersByGroup.get(group.id) || []).length,
-        }))
-        .filter((group) => group.accessible_member_count > 0),
+      groups: fullyAccessibleGroups.map((group) => ({
+        ...group,
+        members: membersByGroup.get(group.id) || [],
+        total_member_count: (membersByGroup.get(group.id) || []).length,
+        accessible_member_count: (membersByGroup.get(group.id) || []).length,
+      })),
     };
   },
 );

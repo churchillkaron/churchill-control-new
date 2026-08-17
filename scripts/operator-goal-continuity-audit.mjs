@@ -277,7 +277,10 @@ assert.match(turnRuntimeSource, /function agreementWithRunTransition/);
 assert.match(turnRuntimeSource, /function clearPendingAndSupersedeRun/);
 assert.match(turnRuntimeSource, /function completedAgreementState/);
 assert.match(turnRuntimeSource, /status:\s*"superseded"/);
-assert.match(turnRuntimeSource, /status:\s*"awaiting_approval"/);
+assert.match(
+  turnRuntimeSource,
+  /status:\s*terminalFailure\s*\?\s*"blocked"\s*:\s*"awaiting_approval"/,
+);
 assert.match(turnRuntimeSource, /status:\s*"completed"/);
 assert.match(turnRuntimeSource, /function isAutonomousRunStatusQuery/);
 assert.match(turnRuntimeSource, /function isAutonomousRunResumeRequest/);

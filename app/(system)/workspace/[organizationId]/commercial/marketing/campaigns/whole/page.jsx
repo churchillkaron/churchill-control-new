@@ -7,17 +7,25 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
+  Brain,
   Building2,
+  CalendarClock,
   CalendarDays,
   CheckCircle2,
   CircleAlert,
   Database,
+  Gauge,
   ImageIcon,
   Loader2,
   Megaphone,
+  Radio,
   RefreshCw,
+  Repeat2,
+  Route,
   Search,
+  ShieldCheck,
   Sparkles,
+  Target,
   Upload,
   WalletCards,
   X,
@@ -313,6 +321,8 @@ function WholeCampaignDetail({ group, onRefresh }) {
         </div>
       </div>
 
+      <CampaignOperatingPlan group={group} />
+
       <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 lg:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -372,6 +382,213 @@ function WholeCampaignDetail({ group, onRefresh }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function CampaignOperatingPlan({ group }) {
+  const content = group.campaign_content || {};
+  const members = group.members || [];
+  const flow = list(content.primary_flow);
+  const allChannels = [
+    ...new Set(
+      members.flatMap((member) => list(member.campaign?.campaign_content?.channels)),
+    ),
+  ];
+  const allMetrics = [
+    ...new Set(
+      members.flatMap((member) => list(member.campaign?.campaign_content?.measurement)),
+    ),
+  ];
+  const totalCopy = members.reduce(
+    (sum, member) => sum + list(member.campaign?.campaign_content?.copy_variants).length,
+    0,
+  );
+  const totalPillars = members.reduce(
+    (sum, member) =>
+      sum + list(member.campaign?.campaign_content?.creative_direction?.content_pillars).length,
+    0,
+  );
+
+  const phases = [
+    {
+      label: "Days 1–30",
+      title: "Learn & Establish",
+      text: "Build the creative baseline, validate messages and audiences, connect missing channels, and establish conversion tracking before scaling anything.",
+    },
+    {
+      label: "Days 31–60",
+      title: "Optimize & Expand",
+      text: "Use actual response quality to strengthen winning messages, replace weak creative, improve follow-up, and expand only the combinations producing qualified business outcomes.",
+    },
+    {
+      label: "Days 61–90",
+      title: "Scale & Compound",
+      text: "Concentrate effort on proven offers, creative and audiences; add retargeting, review capture and referral loops; document what Avantiqo learned for the next campaign.",
+    },
+  ];
+
+  return (
+    <div className="rounded-[32px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.035] p-6 lg:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div>
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#D6A66A]">
+            <Brain className="h-4 w-4" /> 90-Day Campaign Operating Plan
+          </div>
+          <h3 className="mt-2 text-3xl font-light">Avantiqo Control Layer</h3>
+          <p className="mt-3 max-w-4xl text-sm leading-relaxed text-white/45">
+            Review-only operating plan derived from the current campaign strategy. Nothing below publishes content, starts providers, authorizes spend or changes campaign status.
+          </p>
+        </div>
+        <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-amber-200">
+          Review Only · Not Activated
+        </span>
+      </div>
+
+      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <OperatingStatus icon={Brain} label="Campaign Operator" value="Avantiqo AI" detail="Autonomous · Governed" />
+        <OperatingStatus icon={Sparkles} label="Content & Copy" value="Avantiqo controlled" detail={`${totalCopy} current copy variants`} />
+        <OperatingStatus icon={ImageIcon} label="Creative Production" value="Creative Studio" detail={`${totalPillars} creative pillars available`} />
+        <OperatingStatus icon={ShieldCheck} label="Paid Spend" value="Human authorization" detail="THB 0 authorized" warning />
+      </div>
+
+      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+        {phases.map((phase, index) => (
+          <div key={phase.label} className="rounded-2xl border border-white/10 bg-black/25 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs uppercase tracking-[0.16em] text-[#D6A66A]">Phase {index + 1}</span>
+              <span className="text-xs text-white/30">{phase.label}</span>
+            </div>
+            <div className="mt-3 text-lg text-white/80">{phase.title}</div>
+            <p className="mt-2 text-sm leading-relaxed text-white/45">{phase.text}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <OperatingPanel icon={Target} title="Strategy & Content System">
+          <PlanRow label="Master objective" value={group.objective || "—"} />
+          <PlanRow label="Organization strategies" value={`${members.length} separate campaign strategies`} />
+          <PlanRow label="Copy system" value={`${totalCopy} approved-for-review message variants currently stored`} />
+          <PlanRow label="Creative system" value={`${totalPillars} campaign content pillars feeding Creative Studio`} />
+        </OperatingPanel>
+
+        <OperatingPanel icon={Radio} title="Channel Plan">
+          <TagCloud items={allChannels} empty="No campaign channels configured" />
+          <p className="mt-4 text-xs leading-relaxed text-white/35">
+            Organic and paid execution remain organization-scoped. Connected channels can be prepared, but paid activation still requires its own authorization boundary.
+          </p>
+        </OperatingPanel>
+
+        <OperatingPanel icon={Route} title="Conversion Flow">
+          <FlowRail items={flow.length ? flow : ["Content", "Lead capture", "CRM", "Follow-up", "Conversion"]} />
+          <p className="mt-4 text-xs leading-relaxed text-white/35">
+            Avantiqo should judge marketing by qualified business outcomes, not impressions alone. Each organization keeps its own CTA and conversion destination.
+          </p>
+        </OperatingPanel>
+
+        <OperatingPanel icon={CalendarClock} title="Publishing & Content Calendar">
+          <PlanRow label="Campaign window" value={`${group.start_date || "—"} → ${group.end_date || "—"}`} />
+          <PlanRow label="Calendar state" value="Needs schedule generation" warning />
+          <PlanRow label="Publishing state" value="Not activated" warning />
+          <PlanRow label="Next control" value="Generate channel-by-channel content calendar for review" />
+        </OperatingPanel>
+
+        <OperatingPanel icon={Gauge} title="Optimization Rules">
+          <PlanRow label="Primary rule" value="Optimize for qualified outcomes, not vanity engagement" />
+          <PlanRow label="Creative rule" value="Replace weak concepts; preserve and iterate proven winners" />
+          <PlanRow label="Budget rule" value="Never increase or move paid spend outside authorization policy" />
+          <PlanRow label="Learning rule" value="Feed results back into organization-specific campaign memory" />
+        </OperatingPanel>
+
+        <OperatingPanel icon={Repeat2} title="Measurement & Learning">
+          <TagCloud items={allMetrics} empty="No success metrics configured" />
+          <p className="mt-4 text-xs leading-relaxed text-white/35">
+            The 90-day test should finish with a reusable learning record: which message, creative, audience, channel and follow-up path produced the strongest business result for each organization.
+          </p>
+        </OperatingPanel>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-[#D6A66A]">
+          <ShieldCheck className="h-4 w-4" /> Governance
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <PolicyCell label="Strategy" value="Avantiqo may plan" />
+          <PolicyCell label="Copy & Creative Direction" value="Avantiqo may create" />
+          <PolicyCell label="Publishing" value="Not activated" warning />
+          <PolicyCell label="Paid Spend" value="Explicit authorization required" warning />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OperatingStatus({ icon: Icon, label, value, detail, warning = false }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+      <Icon className={`h-4 w-4 ${warning ? "text-amber-300" : "text-[#D6A66A]"}`} />
+      <div className="mt-3 text-[10px] uppercase tracking-[0.15em] text-white/30">{label}</div>
+      <div className="mt-1 text-sm text-white/75">{value}</div>
+      <div className="mt-1 text-xs text-white/35">{detail}</div>
+    </div>
+  );
+}
+
+function OperatingPanel({ icon: Icon, title, children }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-[#D6A66A]" />
+        <div className="text-sm font-medium text-white/75">{title}</div>
+      </div>
+      <div className="mt-4">{children}</div>
+    </div>
+  );
+}
+
+function PlanRow({ label, value, warning = false }) {
+  return (
+    <div className="flex items-start justify-between gap-5 border-b border-white/[0.06] py-2.5 last:border-0">
+      <span className="text-xs text-white/30">{label}</span>
+      <span className={`max-w-[65%] text-right text-xs leading-relaxed ${warning ? "text-amber-200" : "text-white/60"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function PolicyCell({ label, value, warning = false }) {
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+      <div className="text-[10px] uppercase tracking-[0.13em] text-white/25">{label}</div>
+      <div className={`mt-1 text-xs leading-relaxed ${warning ? "text-amber-200" : "text-white/60"}`}>{value}</div>
+    </div>
+  );
+}
+
+function TagCloud({ items, empty }) {
+  if (!items?.length) return <div className="text-sm text-white/35">{empty}</div>;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item) => (
+        <span key={item} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/50">
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function FlowRail({ items }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {items.map((item, index) => (
+        <div key={`${item}-${index}`} className="flex items-center gap-2">
+          <span className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55">{item}</span>
+          {index < items.length - 1 ? <ArrowRight className="h-3.5 w-3.5 text-[#D6A66A]/60" /> : null}
+        </div>
+      ))}
+    </div>
   );
 }
 

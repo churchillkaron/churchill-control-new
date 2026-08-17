@@ -102,6 +102,11 @@ requireText("reconciliation loads canonical approved time off", reconciliation, 
 requireText("reconciliation freshness includes leave review", reconciliation, "request.reviewed_at");
 requireText("reconciliation credits leave through policy", reconciliation, "ATTENDANCE_CREDIT_POLICY");
 requireText("payroll generator loads canonical approved time off", generator, "loadApprovedTimeOffForEntityRange");
+requireText(
+  "payroll generator scopes approved time off to legal entity",
+  generator,
+  /loadApprovedTimeOffForEntityRange\(\{[\s\S]*?organizationId,[\s\S]*?entityId,[\s\S]*?staffId: member\.id,/
+);
 requireText("payroll generator passes approved time off to reconciliation", generator, "approvedTimeOff: memberApprovedTimeOff");
 requireText("payroll generator keeps configured leave policy", generator, "approved_leave_counts_as_worked");
 

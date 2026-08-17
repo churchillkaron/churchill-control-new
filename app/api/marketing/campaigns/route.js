@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+// Production release marker: marketing campaign workspace.
 import { withApiHandler } from "@/lib/shared/http/withApiHandler";
 import { requireFields } from "@/lib/shared/validation/required";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";

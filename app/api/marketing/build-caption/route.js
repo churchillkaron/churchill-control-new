@@ -3,8 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
-import { businessProfiles }
-from "@/lib/business/config/businessProfiles";
+import { businessProfiles } from "@/lib/business/config/businessProfiles";
 
 import {
   ServiceExecutionRuntime,

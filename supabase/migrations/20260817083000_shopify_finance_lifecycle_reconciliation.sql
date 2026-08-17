@@ -3,6 +3,9 @@ begin;
 insert into public.provider_pricing (
   provider,
   model,
+  input_cost_per_1m,
+  output_cost_per_1m,
+  markup_percent,
   capability,
   unit,
   cost_per_unit,
@@ -15,6 +18,9 @@ insert into public.provider_pricing (
 select
   'shopify',
   'commerce.shopify.order.lifecycle.read',
+  0,
+  0,
+  0,
   'commerce.shopify.order.lifecycle.read',
   'request',
   0,

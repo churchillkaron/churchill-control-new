@@ -32,6 +32,9 @@
     "app/api/internal/inventory/shopify/process/route.js": {
       "maxDuration": 300
     },
+    "app/api/internal/finance/shopify/process/route.js": {
+      "maxDuration": 300
+    },
     "app/api/internal/finance/forecast-exception-escalations/process/route.js": {
       "maxDuration": 300
     }
@@ -95,6 +98,10 @@
     },
     {
       "path": "/api/internal/inventory/shopify/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/finance/shopify/process",
       "schedule": "* * * * *"
     },
     {

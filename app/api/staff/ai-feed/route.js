@@ -1,6 +1,5 @@
-import { supabaseAdmin }
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
-from "@/lib/shared/supabase/admin";
 
 import {
   ServiceExecutionRuntime,

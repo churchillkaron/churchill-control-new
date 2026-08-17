@@ -108,6 +108,26 @@ assert.match(
   /system_automation:\s*true/,
   "provider automation must remain explicitly marked as system automation instead of inventing human actors",
 );
+assert.match(
+  lifecycleSource,
+  /const settledInvoice = invoice \? await refreshInvoice\(invoice\.id\) : null/,
+  "Shopify Finance reconciliation must use a fresh post-allocation invoice snapshot",
+);
+assert.match(
+  lifecycleSource,
+  /if \(invoice\) status = "INVOICE_OPEN"/,
+  "open Shopify invoices must remain explicitly unreconciled",
+);
+assert.match(
+  lifecycleSource,
+  /invoice && blockedRefunds\.length === 0 && invoiceOutstanding <= 0\.005/,
+  "Shopify Finance must not declare RECONCILED while the invoice remains outstanding",
+);
+assert.match(
+  lifecycleSource,
+  /invoice_outstanding_amount:\s*invoiceOutstanding/,
+  "Shopify Finance lifecycle evidence must expose the final invoice outstanding amount",
+);
 
 assert.match(
   configurationRouteSource,
@@ -156,4 +176,5 @@ console.log("FINANCE_SHOPIFY_PROVIDER_EXECUTION=SERVICE_DOMAIN");
 console.log("FINANCE_SHOPIFY_ACCOUNTING_READINESS=BANK_PLUS_FOUR_POSTING_RULES");
 console.log("FINANCE_SHOPIFY_READINESS_ERRORS=CONFIGURATION_ONLY");
 console.log("FINANCE_SHOPIFY_FINANCE_MODE=READINESS_GUARDED");
+console.log("FINANCE_SHOPIFY_RECONCILIATION=POST_ALLOCATION_BALANCE_GUARDED");
 console.log("FINANCE_SHOPIFY_RECONCILIATION_RPC=SERVICE_ROLE_SECURITY_INVOKER");

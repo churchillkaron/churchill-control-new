@@ -12,6 +12,7 @@ const {
 const {
   OPERATOR_AUTONOMOUS_RUN_MAX_STEPS,
   createOperatorAutonomousRun,
+  createOperatorMissionRun,
   transitionOperatorAutonomousRun,
 } = await import("@/lib/operator/contracts/OperatorAutonomousRun");
 
@@ -126,6 +127,92 @@ assert.equal(cancelledRun.current_step_id, null);
 assert.equal(
   cancelledRun.planned_steps.find((step) => step.id === "requested_action")?.status,
   "cancelled",
+);
+
+const missionRun = createOperatorMissionRun({
+  objective: "Check stock, create a purchase order, and verify it",
+  missionState: {
+    run_id: "operator_run_mission_regression",
+    status: "awaiting_approval",
+    current_step_id: "create_purchase_order",
+    completed_step_ids: ["inventory_read"],
+    created_at: "2026-08-17T00:00:00.000Z",
+    steps: [
+      {
+        id: "inventory_read",
+        kind: "read",
+        description: "Check stock",
+        capability_key: "inventory.stock.list",
+        status: "completed",
+        payload: { warehouse_id: "warehouse_1" },
+      },
+      {
+        id: "create_purchase_order",
+        kind: "action",
+        description: "Create purchase order",
+        capability_key: "procurement.purchase_order.create",
+        status: "planned",
+        payload: { supplier_id: "supplier_1", amount: 100 },
+        gate: "approval",
+        approval_request_id: "approval_1",
+        verify_after: {
+          capability_key: "procurement.purchase_order.get",
+          description: "Verify purchase order",
+          payload: { purchase_order_id: "po_1" },
+        },
+      },
+      {
+        id: "verify_purchase_order",
+        kind: "verify",
+        description: "Verify purchase order",
+        capability_key: "procurement.purchase_order.get",
+        status: "planned",
+        payload: { purchase_order_id: "po_1" },
+      },
+    ],
+  },
+});
+assert.equal(missionRun.run_id, "operator_run_mission_regression");
+assert.equal(missionRun.run_kind, "mission");
+assert.equal(missionRun.status, "awaiting_approval");
+assert.equal(missionRun.current_step_id, "create_purchase_order");
+assert.deepEqual(missionRun.completed_steps, ["inventory_read"]);
+assert.equal(missionRun.created_at, "2026-08-17T00:00:00.000Z");
+assert.equal(Object.hasOwn(missionRun, "payload"), false);
+assert.ok(missionRun.planned_steps.length <= OPERATOR_AUTONOMOUS_RUN_MAX_STEPS);
+const missionActionStep = missionRun.planned_steps.find(
+  (step) => step.id === "create_purchase_order",
+);
+assert.equal(missionActionStep?.status, "awaiting_approval");
+assert.equal(missionActionStep?.gate, "approval");
+assert.equal(missionActionStep?.approval_request_id, "approval_1");
+assert.deepEqual(missionActionStep?.payload, {
+  supplier_id: "supplier_1",
+  amount: 100,
+});
+assert.deepEqual(missionActionStep?.verify_after?.payload, {
+  purchase_order_id: "po_1",
+});
+
+const verifyingMissionRun = transitionOperatorAutonomousRun(missionRun, {
+  status: "verifying",
+  currentStepId: "create_purchase_order",
+  stepId: "create_purchase_order",
+  stepStatus: "verifying",
+});
+const verifyingMissionStep = verifyingMissionRun.planned_steps.find(
+  (step) => step.id === "create_purchase_order",
+);
+assert.equal(verifyingMissionRun.run_id, missionRun.run_id);
+assert.equal(verifyingMissionRun.run_kind, "mission");
+assert.equal(verifyingMissionRun.status, "verifying");
+assert.equal(verifyingMissionRun.current_step_id, "create_purchase_order");
+assert.equal(verifyingMissionStep?.status, "verifying");
+assert.equal(verifyingMissionStep?.approval_request_id, "approval_1");
+assert.deepEqual(verifyingMissionStep?.payload, missionActionStep?.payload);
+assert.deepEqual(
+  verifyingMissionStep?.verify_after?.payload,
+  missionActionStep?.verify_after?.payload,
 );
 
 const [
@@ -264,11 +351,19 @@ assert.match(autonomousRunSource, /awaiting_confirmation/);
 assert.match(autonomousRunSource, /awaiting_approval/);
 assert.match(autonomousRunSource, /superseded/);
 assert.match(autonomousRunSource, /createOperatorAutonomousRun/);
+assert.match(autonomousRunSource, /createOperatorMissionRun/);
 assert.match(autonomousRunSource, /transitionOperatorAutonomousRun/);
 assert.match(autonomousRunSource, /payload:\s*object\(candidate\.payload\)/);
 assert.match(autonomousRunSource, /payload:\s*object\(action\.payload\)/);
 assert.match(autonomousRunSource, /payload:\s*verifyAfter\.payload/);
 
+assert.match(turnRuntimeSource, /const OPERATOR_MISSION_KEY = "platform\.operator_mission\.execute"/);
+assert.match(turnRuntimeSource, /function isMissionExecutionResult/);
+assert.match(turnRuntimeSource, /function missionResultAgreementState/);
+assert.match(turnRuntimeSource, /resume_kind:\s*"mission"/);
+assert.match(turnRuntimeSource, /operatorMissionResume:\s*true/);
+assert.match(turnRuntimeSource, /operatorMissionConfirmed:\s*isAffirmative\(message\)/);
+assert.match(turnRuntimeSource, /retry only the registered verification read, not the write/i);
 assert.match(turnRuntimeSource, /function normalizedPendingVerificationRead/);
 assert.match(turnRuntimeSource, /function runPendingPostActionVerification/);
 assert.match(turnRuntimeSource, /item\.mode === "read"/);
@@ -410,6 +505,8 @@ console.log("OPERATOR_AUTONOMOUS_RUN_STATUS=LOCAL_NONDESTRUCTIVE_INTROSPECTION")
 console.log("OPERATOR_AUTONOMOUS_RUN_STATUS_EVIDENCE=ONLY_CLAIMED_WHEN_READ_STEPS_EXIST");
 console.log("OPERATOR_AUTONOMOUS_RUN_RESUME=STOP_GATE_AWARE");
 console.log("OPERATOR_AUTONOMOUS_RUN_RESUME_GUARD=NO_REPLAY_COMPLETED_ACTION");
+console.log("OPERATOR_MISSION_RESUME=EXACT_DURABLE_STATE");
+console.log("OPERATOR_MISSION_VERIFICATION_RESUME=REGISTERED_READ_ONLY_NO_WRITE_REPLAY");
 console.log("OPERATOR_PENDING_VERIFICATION=EXACT_REGISTERED_READ_ONLY");
 console.log("OPERATOR_APPROVAL_RESUME=PENDING_ACTION_PRESERVED");
 console.log("OPERATOR_CONFIRMATION_CONTEXT=ORIGINAL_REQUEST_PRESERVED");

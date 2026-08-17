@@ -8,6 +8,15 @@ import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 
 const FIELD_SERVICE_AREAS = Object.freeze([
   Object.freeze({
+    id: "service-plans",
+    title: "Service Plans",
+    eyebrow: "Recurring Commitments",
+    description:
+      "Define customer service commitments, recurrence, contract windows and industry execution templates before handing each occurrence to Operations.",
+    route: "/operations/field-service/service-plans",
+    action: "Open Service Plans",
+  }),
+  Object.freeze({
     id: "service-orders",
     title: "Service Orders",
     eyebrow: "Execution Control",
@@ -122,7 +131,7 @@ export default function FieldServiceControlPage() {
             {organization?.name || "Field Service Operations"}
           </h1>
           <p className="mt-3 text-sm leading-6 text-white/45">
-            Coordinate live customer service execution from one command workspace. Operations owns service orders, appointment windows, dispatch, assignments, queues and completion evidence; contracts, treatments, chemicals, customers, billing and recurring-service rules remain with their canonical business domains.
+            Coordinate recurring customer commitments and live customer service execution from one command workspace. Service Management owns service plans and recurring-service rules; Operations owns service orders, appointment windows, dispatch, assignments, queues and completion evidence. Industry-specific treatments remain dynamic execution protocols rather than scheduler hardcoding.
           </p>
         </div>
 
@@ -147,7 +156,7 @@ export default function FieldServiceControlPage() {
             </div>
             <div>
               <span className="font-semibold text-white/75">Service domain:</span>{" "}
-              contracts, treatment plans, recurring-service rules, customer commitments and industry-specific protocols.
+              contracts, treatments, treatment plans, recurring-service rules, customer commitments and industry-specific protocols.
             </div>
             <div>
               <span className="font-semibold text-white/75">Supply Chain and Finance:</span>{" "}

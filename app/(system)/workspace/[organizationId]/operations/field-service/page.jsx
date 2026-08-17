@@ -156,7 +156,7 @@ export default function FieldServiceControlPage() {
             </div>
             <div>
               <span className="font-semibold text-white/75">Service domain:</span>{" "}
-              contracts, treatments, treatment plans, recurring-service rules, customer commitments and industry-specific protocols.
+              contracts, treatments, treatment plans, recurring-service rules, customers, customer commitments and industry-specific protocols.
             </div>
             <div>
               <span className="font-semibold text-white/75">Supply Chain and Finance:</span>{" "}

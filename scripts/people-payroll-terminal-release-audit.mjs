@@ -308,13 +308,13 @@ requireMatch(
 );
 requireMatch(
   source.staffProfileApi,
-  /profile\.entity_id === latestPayrollEntityId/,
-  "Staff compensation latest-payroll entity selection"
+  /loadEmploymentAssignmentsForPeriod[\s\S]*currentEmployment[\s\S]*profile\.entity_id === currentEmployment\.entity_id[\s\S]*profile\.party_id === staff\.party_id/,
+  "Staff compensation canonical employment entity selection"
 );
 requireMatch(
   source.staffProfileApi,
-  /is_default_accounting_entity/,
-  "Staff compensation default legal-entity fallback"
+  /currentEntity = currentEmployment[\s\S]*entityById\.get\(currentEmployment\.entity_id\)/,
+  "Staff compensation canonical employment legal-entity mapping"
 );
 requireNoMatch(
   source.staffProfileApi,

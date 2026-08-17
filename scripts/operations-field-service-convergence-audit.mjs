@@ -41,6 +41,15 @@ const operationsResolver =
   "lib/operations/registry/OperationsWorkspaceResolver.js";
 const operationsCatchAll =
   "app/(system)/workspace/[organizationId]/operations/[...operationsRoute]/page.jsx";
+const servicePlanRuntime =
+  "lib/service-management/runtime/ServicePlanRuntime.js";
+const servicePlanRepository =
+  "lib/service-management/repositories/ServicePlanRepository.js";
+const servicePlanScheduler =
+  "lib/service-management/runtime/ServicePlanSchedulerRuntime.js";
+const servicePlanWorker =
+  "app/api/internal/service-management/plans/process/route.js";
+const vercelConfig = "vercel.json";
 
 for (const route of [
   "/operations/work-orders",
@@ -95,6 +104,30 @@ requireText(
   "getOperationsWorkspaceItem(capabilityId)"
 );
 
+requireText(servicePlanRepository, "export async function listDueServicePlans");
+requireText(servicePlanRepository, '.eq("status", "active")');
+requireText(servicePlanRepository, '.lte("next_service_at", dueBefore)');
+requireText(servicePlanScheduler, "processDueServicePlans");
+requireText(servicePlanScheduler, "listDueServicePlans");
+requireText(servicePlanScheduler, "generateNextServiceVisit");
+requireText(servicePlanScheduler, "organization_id: plan.organization_id");
+requireText(servicePlanScheduler, "system_automation: true");
+requireText(servicePlanRuntime, "advancePlanAfterGeneratedOccurrence");
+requireText(servicePlanRuntime, "recovered_plan_cursor: true");
+requireText(servicePlanRuntime, 'capabilityId: "work-orders"');
+requireText(servicePlanRuntime, 'command: "create"');
+requireText(servicePlanWorker, "processDueServicePlans");
+requireText(servicePlanWorker, "process.env.CRON_SECRET");
+requireText(servicePlanWorker, "Bearer ${expected}");
+requireText(servicePlanWorker, "status: 401");
+requireText(
+  vercelConfig,
+  '"path": "/api/internal/service-management/plans/process"'
+);
+requireText(vercelConfig, '"schedule": "*/15 * * * *"');
+requireText(vercelConfig, '"deploymentEnabled": false');
+requireText(vercelConfig, '"ignoreCommand": "node scripts/vercel-ignore-build.mjs"');
+
 const registryContent = read(solutionRegistry);
 
 if (
@@ -122,6 +155,9 @@ if (!process.exitCode) {
   console.log("FIELD_SERVICE_COMMAND_OWNER=OPERATIONS");
   console.log("FIELD_SERVICE_EXECUTION_OWNER=CANONICAL_OPERATIONS_CATALOG");
   console.log("FIELD_SERVICE_BUSINESS_RULES_OWNER=SERVICE_DOMAIN");
+  console.log("FIELD_SERVICE_RECURRING_AUTOMATION=SERVICE_MANAGEMENT_SCHEDULER");
+  console.log("FIELD_SERVICE_REPLAY_RECOVERY=PLAN_CURSOR_RECONCILED");
+  console.log("FIELD_SERVICE_WORKER_AUTH=CRON_SECRET");
   console.log("FIELD_SERVICE_INVENTORY_OWNER=SUPPLY_CHAIN");
   console.log("FIELD_SERVICE_BILLING_OWNER=FINANCE");
 }

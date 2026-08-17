@@ -64,10 +64,61 @@ async function download(expected) {
   await fs.rename(temporaryPath, TARGET_PATH);
 }
 
+// A platform with no pinned binary falls back to whatever ffmpeg the machine already has.
+//
+// Only linux:x64 is pinned, which is what production runs, so on Apple silicon this step threw
+// CREATIVE_MEDIA_FFMPEG_PLATFORM_UNSUPPORTED:darwin:arm64 and took the whole build with it -- prebuild runs
+// this first, so npm run build could not complete locally at all.
+//
+// The fix is deliberately not a second pinned checksum. The value of pinning is that production runs a
+// binary whose hash was decided in advance; a hash I produce by downloading the file myself and hashing
+// whatever arrives verifies nothing except that the download did not corrupt. So production keeps the single
+// verified binary and nothing about that path changes, while a developer machine uses the ffmpeg already
+// installed on it. The runtime resolves its binary from CREATIVE_MEDIA_FFMPEG_PATH, so pointing at the
+// system one is the supported arrangement rather than a workaround.
+async function systemFfmpeg() {
+  const candidates = [
+    process.env.CREATIVE_MEDIA_FFMPEG_PATH,
+    "/opt/homebrew/bin/ffmpeg",
+    "/usr/local/bin/ffmpeg",
+    "/usr/bin/ffmpeg",
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      // Try the next location.
+    }
+  }
+  return null;
+}
+
 async function main() {
   const expected = expectedChecksum();
   if (!expected) {
-    throw new Error(`CREATIVE_MEDIA_FFMPEG_PLATFORM_UNSUPPORTED:${PLATFORM}:${ARCH}`);
+    const fallback = await systemFfmpeg();
+    if (!fallback) {
+      throw new Error(
+        `CREATIVE_MEDIA_FFMPEG_PLATFORM_UNSUPPORTED:${PLATFORM}:${ARCH}` +
+        " -- no pinned binary for this platform and no ffmpeg found on the system." +
+        " Install ffmpeg, or set CREATIVE_MEDIA_FFMPEG_PATH to one.",
+      );
+    }
+    console.log(JSON.stringify({
+      success: true,
+      contract: CONTRACT,
+      platform: PLATFORM,
+      arch: ARCH,
+      source: "SYSTEM_FFMPEG",
+      target: fallback,
+      pinned: false,
+      note:
+        "No pinned binary for this platform, so the system ffmpeg is used. Production runs linux:x64," +
+        " where the pinned checksum-verified binary is still the only one accepted.",
+    }));
+    return;
   }
 
   if (!(await existingValid(expected))) {

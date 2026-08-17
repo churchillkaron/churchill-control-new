@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { getCustomerPrepaymentAccountingReadiness } from "@/lib/finance/accounts-receivable/runtime/customerPrepaymentAccounting";
 
 const MANAGER_ROLES = new Set([
   "OWNER",
@@ -69,7 +70,7 @@ async function loadBankAccounts(organizationId, entityId) {
   if (!entityId) return [];
   const result = await supabaseAdmin
     .from("bank_accounts")
-    .select("id,entity_id,bank_name,account_name,account_number,currency,currency_code,is_default,active")
+    .select("id,entity_id,bank_name,account_name,account_number,currency,currency_code,is_default,active,finance_account_id")
     .eq("organization_id", organizationId)
     .eq("entity_id", entityId)
     .order("is_default", { ascending: false })
@@ -101,6 +102,9 @@ function lifecycleHealth(events) {
     failed: 0,
     posted_payments: 0,
     posted_refunds: 0,
+    posted_prepayments: 0,
+    applied_prepayments: 0,
+    refunded_prepayments: 0,
     last_observed_at: events[0]?.created_at || null,
     last_processed_at: null,
   };
@@ -115,6 +119,9 @@ function lifecycleHealth(events) {
     if (event.last_error) health.failed += 1;
     health.posted_payments += Number(finance.posted_payments || 0);
     health.posted_refunds += Number(finance.posted_refunds || 0);
+    health.posted_prepayments += Number(finance.posted_prepayments || 0);
+    health.applied_prepayments += Number(finance.applied_prepayments || 0);
+    health.refunded_prepayments += Number(finance.refunded_prepayments || 0);
     if (!health.last_processed_at && event.processed_at) health.last_processed_at = event.processed_at;
   }
   return health;
@@ -147,6 +154,29 @@ async function replayEligibleObservations(organizationId, connectionId) {
   return ids.length;
 }
 
+async function prepaymentReadiness(organizationId, entityId, bankAccount) {
+  if (!entityId) {
+    return {
+      ready: false,
+      missing: [{ code: "LEGAL_ENTITY", message: "Map the Shopify store to a legal entity" }],
+    };
+  }
+  if (!bankAccount) {
+    return {
+      ready: false,
+      missing: [{ code: "SETTLEMENT_BANK", message: "Choose a settlement bank account" }],
+    };
+  }
+
+  return getCustomerPrepaymentAccountingReadiness({
+    organizationId,
+    entityId,
+    bankAccountId: bankAccount.id,
+    currencyCode: bankAccount.currency_code || bankAccount.currency,
+    effectiveDate: new Date().toISOString().slice(0, 10),
+  });
+}
+
 async function snapshot(organizationId) {
   const store = await loadStore(organizationId);
   const metadata = object(store?.metadata);
@@ -154,6 +184,12 @@ async function snapshot(organizationId) {
   const events = await loadLifecycleEvents(organizationId, store?.connection_id || null);
   const configuredBankId = text(metadata.shopify_settlement_bank_account_id) || null;
   const configuredBank = accounts.find((row) => row.id === configuredBankId) || null;
+  const readiness = await prepaymentReadiness(
+    organizationId,
+    store?.entity_id || null,
+    configuredBank,
+  );
+
   return {
     store,
     bank_accounts: accounts,
@@ -163,7 +199,8 @@ async function snapshot(organizationId) {
         : "OBSERVE_ONLY",
       settlement_bank_account_id: configuredBankId,
       settlement_bank_account: configuredBank,
-      configured: Boolean(store?.entity_id && configuredBank),
+      configured: Boolean(store?.entity_id && configuredBank && readiness.ready),
+      prepayment_readiness: readiness,
       updated_at: metadata.shopify_finance_sync_updated_at || null,
       updated_by_party_id: metadata.shopify_finance_sync_updated_by_party_id || null,
       health: lifecycleHealth(events),
@@ -219,7 +256,7 @@ export async function POST(request) {
     if (bankAccountId) {
       const result = await supabaseAdmin
         .from("bank_accounts")
-        .select("id,entity_id,bank_name,account_name,account_number,currency,currency_code,active")
+        .select("id,entity_id,bank_name,account_name,account_number,currency,currency_code,active,finance_account_id")
         .eq("id", bankAccountId)
         .eq("organization_id", access.organizationId)
         .eq("entity_id", store.entity_id)
@@ -235,6 +272,24 @@ export async function POST(request) {
     }
     if (mode === "POST_TO_FINANCE" && !bankAccount) {
       return NextResponse.json({ success: false, error: "Choose a settlement bank account before enabling Finance posting" }, { status: 409 });
+    }
+
+    if (mode === "POST_TO_FINANCE") {
+      const readiness = await prepaymentReadiness(
+        access.organizationId,
+        store.entity_id,
+        bankAccount,
+      );
+      if (!readiness.ready) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Customer prepayment accounting is not fully configured for this legal entity",
+            prepayment_readiness: readiness,
+          },
+          { status: 409 },
+        );
+      }
     }
 
     const now = new Date().toISOString();

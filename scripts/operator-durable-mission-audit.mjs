@@ -47,6 +47,26 @@ requireAll("MISSION_GOVERNANCE", missionSource, [
   "CONFIRMATION_REQUIRED",
 ]);
 
+requireAll("MISSION_RESUME_CHECKPOINT_INTEGRITY", missionSource, [
+  "const orderedIds = steps.map((step) => step.id)",
+  "rawCompleted.length !== completed.length",
+  "const expectedCompleted = orderedIds.slice(0, currentIndex)",
+  'return { error: "OPERATOR_MISSION_RESUME_CHECKPOINT_INVALID" }',
+  'return { error: "OPERATOR_MISSION_RESUME_VERIFICATION_INVALID" }',
+  "verificationStepId && verificationStepId !== currentStepId",
+]);
+
+const checkpointValidationIndex = missionSource.indexOf(
+  "const expectedCompleted = orderedIds.slice(0, currentIndex)",
+);
+const missionLoopIndex = missionSource.indexOf("for (\n      let index = preflight.findIndex");
+assert.ok(
+  checkpointValidationIndex >= 0 &&
+    missionLoopIndex >= 0 &&
+    checkpointValidationIndex < missionLoopIndex,
+  "resume checkpoint integrity must be validated before mission execution resumes",
+);
+
 requireAll("MISSION_VERIFICATION_RESUME", missionSource, [
   "verification_pending",
   "if (verificationPending)",
@@ -93,6 +113,8 @@ assert.ok(
 console.log("OPERATOR_DURABLE_MISSION_AUDIT=PASS");
 console.log("OPERATOR_MISSION_STATE=SERVER_PERSISTED_CONVERSATION");
 console.log("OPERATOR_MISSION_RESUME=EXACT_STEP_AND_PAYLOAD");
+console.log("OPERATOR_MISSION_CHECKPOINT=STRICT_ORDERED_PREFIX");
+console.log("OPERATOR_MISSION_CHECKPOINT_VERIFICATION=EXACT_CURRENT_STEP");
 console.log("OPERATOR_MISSION_APPROVAL=EXACT_REQUEST_ID");
 console.log("OPERATOR_MISSION_VERIFICATION=NO_WRITE_REPLAY");
 console.log("OPERATOR_CLIENT_AGREEMENT_STATE=NON_AUTHORITATIVE");

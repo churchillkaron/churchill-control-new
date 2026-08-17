@@ -2,7 +2,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-import { syncDueMetaCommunicationHistory } from "@/lib/commercial/communications/CommunicationMetaInboxCatchupRuntime";
+import {
+  refreshDueMetaMessagingReadiness,
+  syncDueMetaCommunicationHistory,
+} from "@/lib/commercial/communications/CommunicationMetaInboxCatchupRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -22,13 +25,34 @@ export async function GET(request) {
   const recoveryRequested = url.searchParams.get("recovery") === "1";
 
   if (!recoveryRequested) {
-    return Response.json({
-      success: true,
-      mode: "WEBHOOK_FIRST",
-      providerCalls: 0,
-      message:
-        "Meta Messenger and Instagram messaging use real-time webhooks. History synchronization is recovery-only.",
-    });
+    try {
+      const result = await refreshDueMetaMessagingReadiness({
+        connectionLimit: 3,
+      });
+
+      return Response.json(
+        {
+          ...result,
+          mode: "WEBHOOK_FIRST",
+          historyProviderCalls: 0,
+          message:
+            "Meta Messenger and Instagram messaging use real-time webhooks. Readiness is refreshed here; history synchronization remains recovery-only.",
+        },
+        {
+          status: result.success ? 200 : 207,
+        },
+      );
+    } catch (error) {
+      return Response.json(
+        {
+          success: false,
+          mode: "WEBHOOK_FIRST",
+          historyProviderCalls: 0,
+          error: error?.message || "Meta messaging readiness refresh failed",
+        },
+        { status: 500 },
+      );
+    }
   }
 
   try {

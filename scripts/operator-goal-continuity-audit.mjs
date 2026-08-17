@@ -170,7 +170,7 @@ assert.match(reasoningSource, /payload\.steps/);
 assert.match(reasoningSource, /payload\.follow_up/);
 assert.match(reasoningSource, /followUp\.verify_after/);
 assert.match(reasoningSource, /function readChainHasFollowUp/);
-assert.match(reasoningSource, /if \(readChainHasFollowUp\(parsed\)\) return true/);
+assert.match(reasoningSource, /if \(readChainHasFollowUp\(parsed\)\) return "read_chain_follow_up"/);
 assert.match(reasoningSource, /function entityContextClarification/);
 assert.match(reasoningSource, /Which legal entity should I use for this request\?/);
 assert.match(reasoningSource, /entity_scope_guard:\s*true/);

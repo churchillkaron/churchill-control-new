@@ -12,6 +12,21 @@ function statusFor(error) {
   return error?.status || 500;
 }
 
+async function canManage(access) {
+  try {
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.accounting.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
+    return true;
+  } catch (error) {
+    if (String(error?.message || "").toLowerCase().includes("permission denied")) return false;
+    throw error;
+  }
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -41,7 +56,7 @@ export async function GET(request) {
       limit: searchParams.get("limit") || undefined,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, can_manage: await canManage(access) });
   } catch (error) {
     return NextResponse.json(
       {

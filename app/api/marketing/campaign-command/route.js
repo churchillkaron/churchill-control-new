@@ -6,6 +6,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { CreativeMissionRuntime } from "@/lib/creative/missions/runtime/CreativeMissionRuntime";
 import { CreativeDirectorRuntime } from "@/lib/creative/director/runtime/CreativeDirectorRuntime";
+import { marketingCampaignCapabilities } from "@/lib/marketing/security/marketingCampaignAccess";
 
 function text(value, fallback = "") {
   return String(value ?? fallback).trim();
@@ -30,6 +31,12 @@ function errorResponse(error, fallback = "Marketing command failed") {
     },
     { status },
   );
+}
+
+function forbidden(message) {
+  const error = new Error(message);
+  error.status = 403;
+  return error;
 }
 
 async function requireAccess({ organizationId, request, permissions = null }) {
@@ -148,6 +155,15 @@ async function createCampaign(input, request) {
   const ownerOrganizationId = text(input.ownerOrganizationId);
   const ownerAccess = await requireAccess({ organizationId: ownerOrganizationId, request });
   const available = await accessibleOrganizations(ownerAccess, request);
+  const capabilities = marketingCampaignCapabilities({
+    access: ownerAccess,
+    organizationCount: available.length,
+  });
+
+  if (!capabilities.canCreateCampaign) {
+    throw forbidden("Marketing campaign creation permission required");
+  }
+
   const availableById = new Map(available.map((organization) => [organization.id, organization]));
   const requestedIds = [
     ...new Set(list(input.organizationIds).map(String).filter(Boolean)),
@@ -155,12 +171,14 @@ async function createCampaign(input, request) {
 
   if (!requestedIds.length) requestedIds.push(ownerOrganizationId);
 
+  if (requestedIds.length > 1 && !capabilities.canUseWholeCampaign) {
+    throw forbidden("Multi-organization Marketing permission required");
+  }
+
   const organizations = [];
   for (const organizationId of requestedIds) {
     if (!availableById.has(organizationId)) {
-      const error = new Error("One or more selected organizations are not accessible");
-      error.status = 403;
-      throw error;
+      throw forbidden("One or more selected organizations are not accessible");
     }
     await requireAccess({ organizationId, request });
     organizations.push(availableById.get(organizationId));
@@ -383,8 +401,22 @@ export async function POST(request) {
         organizationId: body.ownerOrganizationId,
         request,
       });
-      const organizations = await accessibleOrganizations(access, request);
-      return NextResponse.json({ success: true, data: { organizations } });
+      const allOrganizations = await accessibleOrganizations(access, request);
+      const capabilities = marketingCampaignCapabilities({
+        access,
+        organizationCount: allOrganizations.length,
+      });
+      const organizations = capabilities.canUseWholeCampaign
+        ? allOrganizations
+        : allOrganizations.filter((organization) => organization.id === access.organizationId);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          organizations,
+          capabilities,
+        },
+      });
     }
 
     if (action === "create_campaign") {

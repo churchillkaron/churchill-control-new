@@ -4,6 +4,7 @@ import { withApiHandler } from "@/lib/shared/http/withApiHandler";
 import { requireFields } from "@/lib/shared/validation/required";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { canUseMultiOrganizationMarketing } from "@/lib/marketing/security/marketingCampaignAccess";
 import {
   isCreativeVisualAsset,
   isVideoAsset,
@@ -49,6 +50,12 @@ export const POST = withApiHandler(
     if (!ownerAccess.success) {
       const error = new Error(ownerAccess.error || "Organization access denied");
       error.status = ownerAccess.status || 403;
+      throw error;
+    }
+
+    if (!canUseMultiOrganizationMarketing(ownerAccess)) {
+      const error = new Error("Multi-organization Marketing permission required");
+      error.status = 403;
       throw error;
     }
 

@@ -127,3 +127,5 @@ jobs:
           git add lib/operator/runtime/OperatorReasoningRuntime.js scripts/operator-goal-continuity-v2-audit.mjs .github/workflows/one-time-operator-organizational-brain.yml
           git commit -m "[deploy-production] Wire dynamic Operator organizational brain"
           git push origin HEAD:main
+
+# trigger: 2026-08-18-organizational-brain

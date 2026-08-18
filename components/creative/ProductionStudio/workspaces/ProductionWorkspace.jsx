@@ -6,11 +6,8 @@ import CreativeDirectorCockpit from "../status/CreativeDirectorCockpit";
 import CreativeConceptDirector from "../status/CreativeConceptDirector";
 import CreativeQualityDirector from "../status/CreativeQualityDirector";
 import {
-  creativeVideoQualityDefinition,
   creativeVideoQualityFromProject,
 } from "@/lib/creative/video/runtime/CreativeVideoQualityPreferenceRuntime";
-
-const VIDEO_QUALITY_OPTIONS = ["AUTO", "HD", "FULL_HD", "UHD_4K"];
 
 function assetUrl(asset) {
   return (
@@ -45,6 +42,21 @@ function generationQualityLocked(project = {}) {
     metadata.media_generation_authorized === true;
 }
 
+function configuredQualityOptions(configuration = {}) {
+  const auto = configuration.auto_option || null;
+  const manual = Array.isArray(configuration.resolution_options)
+    ? configuration.resolution_options
+    : [];
+  return [auto, ...manual]
+    .filter((option) => option?.id)
+    .map((option) => ({
+      id: String(option.id),
+      label: option.label || String(option.id),
+      short_label: option.short_label || String(option.id),
+      description: option.description || "",
+    }));
+}
+
 export default function ProductionWorkspace({
   runtime,
 }) {
@@ -60,14 +72,64 @@ export default function ProductionWorkspace({
     [project],
   );
   const [videoQuality, setVideoQuality] = useState(persistedQuality);
+  const [qualityConfiguration, setQualityConfiguration] = useState(null);
   const [qualitySaving, setQualitySaving] = useState(false);
+  const [qualityLoading, setQualityLoading] = useState(false);
   const [qualityError, setQualityError] = useState("");
 
   useEffect(() => {
     setVideoQuality(persistedQuality);
   }, [persistedQuality]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadQualityConfiguration() {
+      if (!project?.id || !runtime.organizationId) {
+        setQualityConfiguration(null);
+        return;
+      }
+
+      setQualityLoading(true);
+      setQualityError("");
+      try {
+        const params = new URLSearchParams({
+          organization_id: runtime.organizationId,
+          creative_project_id: project.id,
+        });
+        const response = await fetch(
+          `/api/creative/projects/video-quality?${params.toString()}`,
+          { cache: "no-store" },
+        );
+        const result = await response.json();
+        if (!response.ok || !result.configuration) {
+          throw new Error(result.error || "Video quality configuration unavailable");
+        }
+        if (!cancelled) {
+          setQualityConfiguration(result.configuration);
+          setVideoQuality(result.selection || persistedQuality);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setQualityConfiguration(null);
+          setQualityError(error?.message || "Video quality configuration unavailable");
+        }
+      } finally {
+        if (!cancelled) setQualityLoading(false);
+      }
+    }
+
+    loadQualityConfiguration();
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.id, runtime.organizationId, persistedQuality]);
+
   const qualityLocked = generationQualityLocked(project || {});
+  const qualityOptions = useMemo(
+    () => configuredQualityOptions(qualityConfiguration || {}),
+    [qualityConfiguration],
+  );
 
   async function selectVideoQuality(nextQuality) {
     if (!project?.id || !runtime.organizationId || qualityLocked || qualitySaving) {
@@ -95,6 +157,9 @@ export default function ProductionWorkspace({
         throw new Error(result.detail || result.error || "Video quality update failed");
       }
       setVideoQuality(result.quality?.preference || nextQuality);
+      if (result.configuration) {
+        setQualityConfiguration(result.configuration);
+      }
       runtime.refresh?.();
     } catch (error) {
       setVideoQuality(previous);
@@ -132,33 +197,32 @@ export default function ProductionWorkspace({
                 Video master quality
               </div>
               <div className="mt-1 text-sm text-white/70">
-                Choose the native generation quality before cost approval.
+                Choose the configured native generation quality before cost approval.
               </div>
               <div className="mt-1 text-xs text-white/35">
-                Auto selects the best supported native quality. This preference only applies when the approved deliverable uses video.
+                Available qualities and Auto priority come from the active provider configuration.
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {VIDEO_QUALITY_OPTIONS.map((quality) => {
-                const definition = creativeVideoQualityDefinition(quality);
-                const active = videoQuality === quality;
+              {qualityOptions.map((option) => {
+                const active = videoQuality === option.id;
                 return (
                   <button
-                    key={quality}
+                    key={option.id}
                     type="button"
                     disabled={qualitySaving || qualityLocked || !project?.id}
-                    onClick={() => selectVideoQuality(quality)}
-                    title={definition.description}
+                    onClick={() => selectVideoQuality(option.id)}
+                    title={option.description}
                     className={`rounded-xl border px-3.5 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
                       active
                         ? "border-[#d5b56d]/45 bg-[#d5b56d]/12 text-[#f0dca8]"
                         : "border-white/10 bg-black/20 text-white/50 hover:border-white/20 hover:text-white/75"
                     }`}
                   >
-                    <div className="text-xs font-semibold">{definition.label}</div>
+                    <div className="text-xs font-semibold">{option.label}</div>
                     <div className="mt-0.5 text-[10px] opacity-60">
-                      {definition.short_label}
+                      {option.short_label}
                     </div>
                   </button>
                 );
@@ -166,6 +230,14 @@ export default function ProductionWorkspace({
             </div>
           </div>
 
+          {qualityLoading ? (
+            <div className="mt-3 text-xs text-white/35">Loading configured quality options…</div>
+          ) : null}
+          {!qualityLoading && !qualityOptions.length && !qualityError ? (
+            <div className="mt-3 text-xs text-amber-200/60">
+              No configured video quality options are available for this organization.
+            </div>
+          ) : null}
           {qualityLocked ? (
             <div className="mt-3 text-xs text-amber-200/60">
               Quality is locked by the current generation authorization. A different quality requires a fresh preflight and approval.

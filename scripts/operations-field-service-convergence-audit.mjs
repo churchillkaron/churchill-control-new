@@ -45,6 +45,10 @@ const servicePlanRuntime =
   "lib/service-management/runtime/ServicePlanRuntime.js";
 const servicePlanRepository =
   "lib/service-management/repositories/ServicePlanRepository.js";
+const servicePlanDocument =
+  "lib/service-management/documents/ServicePlan.js";
+const servicePlanPage =
+  "app/(system)/workspace/[organizationId]/operations/field-service/service-plans/page.jsx";
 const executionTemplateRepository =
   "lib/service-management/repositories/ServiceExecutionTemplateRepository.js";
 const servicePlanScheduler =
@@ -55,6 +59,10 @@ const servicePlanWorker =
   "app/api/internal/service-management/plans/process/route.js";
 const staffAssignedWorkRuntime =
   "lib/operations/workforce/StaffAssignedWorkRuntime.js";
+const preferredAssignmentRuntime =
+  "lib/operations/workforce/ServicePreferredAssignmentRuntime.js";
+const employeeEligibilityService =
+  "lib/people/employees/employeeOperationalEligibilityService.js";
 const staffMyDayApi = "app/api/staff/my-day/route.js";
 const staffEvidenceApi = "app/api/staff/my-day/evidence/route.js";
 const serviceProtocolForm = "components/workforce/ServiceProtocolForm.jsx";
@@ -154,6 +162,15 @@ requireText(servicePlanRuntime, "advancePlanAfterGeneratedOccurrence");
 requireText(servicePlanRuntime, "recovered_plan_cursor: true");
 requireText(servicePlanRuntime, 'capabilityId: "work-orders"');
 requireText(servicePlanRuntime, 'command: "create"');
+requireText(servicePlanRuntime, "assignPreferredServiceTechnician");
+requireText(servicePlanRuntime, "applyPreferredAssignment");
+requireText(servicePlanRuntime, "preferred_staff_id");
+requireText(servicePlanRuntime, "assignment:");
+requireText(servicePlanRuntime, "assigned: Boolean(assignment.assigned)");
+requireText(servicePlanRuntime, 'reason: "no-preferred-technician"');
+requireText(servicePlanDocument, "preferred_staff_id");
+requireText(servicePlanDocument, "preferred_staff_name");
+requireText(servicePlanDocument, "preferredStaffId");
 requireText(servicePlanWorker, "processDueServicePlans");
 requireText(servicePlanWorker, "process.env.CRON_SECRET");
 requireText(servicePlanWorker, "Bearer ${expected}");
@@ -165,6 +182,27 @@ requireText(
 requireText(vercelConfig, '"schedule": "*/15 * * * *"');
 requireText(vercelConfig, '"deploymentEnabled": false');
 requireText(vercelConfig, '"ignoreCommand": "node scripts/vercel-ignore-build.mjs"');
+
+requireText(employeeEligibilityService, "export async function getEmployeeOperationalEligibility");
+requireText(employeeEligibilityService, '.from("staff_accounts")');
+requireText(employeeEligibilityService, '.eq("active_organization_id", organization_id)');
+requireText(employeeEligibilityService, '.from("employee_employment_assignments")');
+requireText(employeeEligibilityService, '.eq("staff_account_id", staff_id)');
+requireText(employeeEligibilityService, 'employmentQuery.eq("entity_id", entity_id)');
+requireText(preferredAssignmentRuntime, "getEmployeeOperationalEligibility");
+requireText(preferredAssignmentRuntime, "assignPreferredServiceTechnician");
+requireText(preferredAssignmentRuntime, 'capabilityId: "work-orders"');
+requireText(preferredAssignmentRuntime, 'command: "assign"');
+requireText(preferredAssignmentRuntime, "assigned_to: staffId");
+requireText(preferredAssignmentRuntime, "service-preferred-assignment:");
+requireText(preferredAssignmentRuntime, "service_assignment");
+requireText(preferredAssignmentRuntime, "if (!eligibility.eligible)");
+requireText(servicePlanPage, 'fetch("/api/people/directory"');
+requireText(servicePlanPage, "Preferred Technician (optional)");
+requireText(servicePlanPage, "preferred_staff_id");
+requireText(servicePlanPage, "preferred_staff_name");
+requireText(servicePlanPage, "Dispatch queue");
+requireText(servicePlanPage, "remains available to Dispatch");
 
 requireText(executionTemplateRepository, "export async function getServiceExecutionTemplate");
 requireText(executionTemplateRepository, '.eq("organization_id", organization_id)');
@@ -255,6 +293,8 @@ if (!process.exitCode) {
   console.log("FIELD_SERVICE_OCCURRENCE_COMPLETION=RECONCILED_FROM_OPERATIONS");
   console.log("FIELD_SERVICE_FOLLOW_UP=GOVERNED_OPERATIONS_WORK_REQUEST");
   console.log("FIELD_SERVICE_CUSTOMER_HISTORY=PARTY_SCOPED_SERVICE_TIMELINE");
+  console.log("FIELD_SERVICE_PREFERRED_TECHNICIAN=PEOPLE_ELIGIBILITY_OPERATIONS_ASSIGNMENT");
+  console.log("FIELD_SERVICE_ASSIGNMENT_FALLBACK=DISPATCH_QUEUE");
   console.log("FIELD_SERVICE_INVENTORY_OWNER=SUPPLY_CHAIN");
   console.log("FIELD_SERVICE_BILLING_OWNER=FINANCE");
 }

@@ -1,0 +1,29 @@
+name: Avantiqo Voice V2 Pack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/avantiqo-voice-v2-pack.yml'
+  workflow_dispatch:
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request narration v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          JSON="$(curl -fsSL 'https://avantiqo.ai/api/internal/avantiqo-investor-video-voice-v2?token=avq-cedar-v2-20260818')"
+          URL="$(printf '%s' "$JSON" | jq -r '.audio_url')"
+          test -n "$URL"
+          test "$URL" != "null"
+          curl -fL "$URL" -o avantiqo-investor-narration-cedar-v2.mp3
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 avantiqo-investor-narration-cedar-v2.mp3
+      - name: Upload narration artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-narration-v2
+          path: avantiqo-investor-narration-cedar-v2.mp3
+          retention-days: 1

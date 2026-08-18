@@ -7,6 +7,9 @@ import {
   CreativeProjectRuntime,
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 import {
+  ShotRuntime,
+} from "@/lib/creative/shots/runtime/ShotRuntime";
+import {
   createCreativeVideoQualityPreference,
   normalizeCreativeVideoQuality,
 } from "@/lib/creative/video/runtime/CreativeVideoQualityPreferenceRuntime";
@@ -32,6 +35,27 @@ function activeGenerationAuthorization(project = {}) {
     approval.media_generation_authorized === true ||
     metadata.production_authorized === true ||
     metadata.media_generation_authorized === true;
+}
+
+async function rebindExistingShots({ organizationId, projectId }) {
+  const shots = await ShotRuntime.list({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+  });
+
+  let rebound = 0;
+  for (const shot of shots) {
+    const capability = text(
+      shot.generation?.capability ||
+      shot.generation?.service ||
+      shot.capability ||
+      shot.service_id,
+    ).toLowerCase();
+    if (!capability.includes("video")) continue;
+    await ShotRuntime.update(shot.id, {});
+    rebound += 1;
+  }
+  return rebound;
 }
 
 export async function POST(request) {
@@ -96,9 +120,15 @@ export async function POST(request) {
       },
     });
 
+    const reboundVideoShots = await rebindExistingShots({
+      organizationId,
+      projectId,
+    });
+
     return NextResponse.json({
       project: updated,
       quality: preference,
+      rebound_video_shots: reboundVideoShots,
       generation_authorized: false,
       publication_authorized: false,
     });

@@ -39,6 +39,7 @@ const reasoningRuntime = read("lib/operator/runtime/OperatorReasoningRuntime.js"
 const acknowledgementRuntime = read("lib/operator/runtime/OperatorVoiceAcknowledgementRuntime.js");
 const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.js");
 const aiServiceCatalog = read("lib/platform/service-runtime/ai/PlatformAIServiceCatalog.js");
+const openaiAdapter = read("lib/platform/service-runtime/providers/openai/OpenAIProvider.js");
 const openaiRuntime = read("lib/platform/service-runtime/providers/openai/OpenAIProviderSanitizedRuntime.js");
 const usageRuntime = read("lib/platform/service-runtime/usage/UsageRuntime.js");
 const serviceExecutionRuntime = read("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js");
@@ -74,10 +75,19 @@ requireAll("REALTIME_STT_SERVICE_CONTRACT", aiServiceCatalog, [
   '"ai.speech.to.text.realtime"',
 ]);
 
-requireAll("REALTIME_STT_OPENAI_GOVERNANCE", openaiRuntime, [
+requireAll("REALTIME_STT_SANITIZATION", openaiRuntime, [
   'case "ai.speech.to.text.realtime"',
   'endpoint_family: "REALTIME_TRANSCRIPTION_SESSION"',
   "ephemeral_credential_only: true",
+  "return BaseOpenAIProvider.execute(localized);",
+]);
+
+if (openaiRuntime.includes('from "openai"') || openaiRuntime.includes("new OpenAI(")) {
+  violations.push("REALTIME_STT_SANITIZED_RUNTIME_OWNS_OPENAI_SDK");
+}
+
+requireAll("REALTIME_STT_OPENAI_ADAPTER", openaiAdapter, [
+  'case "ai.speech.to.text.realtime"',
   'model !== "gpt-realtime-whisper"',
   "client.realtime.clientSecrets.create",
   'type: "transcription"',
@@ -371,6 +381,7 @@ if (violations.length) {
   console.log("VOICE_FAST_REASONING=SINGLE_PASS_LOW_LATENCY");
   console.log("VOICE_PROCESSING_FILLER=DISABLED");
   console.log("VOICE_REALTIME_STT=GOVERNED_EPHEMERAL_SESSION");
+  console.log("VOICE_REALTIME_STT_SDK_BOUNDARY=CANONICAL_OPENAI_ADAPTER");
   console.log("VOICE_REALTIME_STT_BILLING=SERVER_BOUND_FIXED_RESERVATION");
   console.log("VOICE_REALTIME_STT_FAILURE=RESERVATION_RELEASED");
   console.log("VOICE_STRATEGIC_FOLLOW_UP=COMPACT_REASONING");

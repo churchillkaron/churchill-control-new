@@ -91,6 +91,14 @@ function publicConfiguration(configuration = {}) {
   };
 }
 
+function configuredSelection(project = {}, configuration = {}) {
+  return creativeVideoQualityFromProject(project) ||
+    normalizeCreativeVideoQuality(
+      configuration.video_capabilities?.auto_option?.id,
+    ) ||
+    null;
+}
+
 async function rebindExistingShots({ organizationId, projectId }) {
   const shots = await ShotRuntime.list({
     organization_id: organizationId,
@@ -131,7 +139,7 @@ export async function GET(request) {
     }
 
     return NextResponse.json({
-      selection: creativeVideoQualityFromProject(project),
+      selection: configuredSelection(project, configuration),
       locked: activeGenerationAuthorization(project),
       configuration: publicConfiguration(configuration),
     });
@@ -180,7 +188,7 @@ export async function POST(request) {
       );
     }
 
-    const previous = creativeVideoQualityFromProject(project);
+    const previous = configuredSelection(project, configuration);
     const quality = normalizeCreativeVideoQuality(body.quality);
     const preference = createCreativeVideoQualityPreference({
       quality,

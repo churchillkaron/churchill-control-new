@@ -1,0 +1,6 @@
+Release only the governed Creative execution worker duration change from d452a31276aa52c88e6fdad2d7cfc3cce2bffc6e.
+
+Purpose:
+- allow serialized short-form Creative direction calls to finish inside one worker invocation
+- keep maxDuration 800 seconds below the default 900-second execution lease
+- no provider call, approval, job retry, media generation, production graph, production task, or publication is authorized by this marker

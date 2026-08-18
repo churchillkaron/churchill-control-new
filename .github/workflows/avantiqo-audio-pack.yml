@@ -1,0 +1,36 @@
+name: Avantiqo Audio Pack
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/avantiqo-audio-pack-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  pack-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Download investor film audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p avantiqo-audio
+          VOICE_JSON="$(curl --fail --location 'https://avantiqo.ai/api/internal/avantiqo-investor-video-voice-v2?token=avq-cedar-v2-20260818')"
+          VOICE_URL="$(printf '%s' "$VOICE_JSON" | jq -r '.audio_url')"
+          test -n "$VOICE_URL"
+          test "$VOICE_URL" != "null"
+          curl --fail --location "$VOICE_URL" --output avantiqo-audio/voice_v2.mp3
+          curl --fail --location 'https://avantiqo.ai/api/internal/avantiqo-film-transfer-20260818?asset=score' --output avantiqo-audio/score.wav
+          test -s avantiqo-audio/voice_v2.mp3
+          test -s avantiqo-audio/score.wav
+      - name: Upload audio artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-audio-v2
+          path: avantiqo-audio
+          retention-days: 1
+          compression-level: 0

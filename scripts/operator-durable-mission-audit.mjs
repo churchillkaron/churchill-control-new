@@ -21,11 +21,20 @@ function requireAll(label, source, fragments) {
 
 requireAll("MISSION_RUN_CONTRACT", runSource, [
   'const RUN_KINDS = new Set(["single_action", "mission"])',
+  'const TERMINAL_RUN_STATUSES = new Set(["completed", "cancelled", "superseded"])',
   "export function createOperatorMissionRun",
   "payload: object(candidate.payload)",
   'gate: STEP_GATES.has(gate) ? gate : "none"',
   "approval_request_id: text(candidate.approval_request_id) || null",
   "verify_after: verification",
+]);
+
+requireAll("MISSION_SUPERSESSION_INTEGRITY", runSource, [
+  "if (TERMINAL_RUN_STATUSES.has(text(run.status).toLowerCase())) return run",
+  'nextStatus === "superseded" && text(run.current_step_id)',
+  "? text(run.current_step_id)",
+  ": requestedStepId",
+  "const terminal = TERMINAL_RUN_STATUSES.has(resolvedStatus)",
 ]);
 
 requireAll("MISSION_EXECUTION_STATE", missionSource, [
@@ -234,6 +243,7 @@ console.log("OPERATOR_MISSION_RESUME=EXACT_STEP_AND_PAYLOAD");
 console.log("OPERATOR_MISSION_RESUME_SCOPE=ORGANIZATION_ENTITY_PERIOD_PARTY_ACTOR_BOUND");
 console.log("OPERATOR_MISSION_RUN_PROJECTION=EXACT_PENDING_RUN_MATCH_BEFORE_RESUME");
 console.log("OPERATOR_MISSION_RUN_MISMATCH=FAIL_CLOSED_CLEAR_PENDING");
+console.log("OPERATOR_MISSION_SUPERSESSION=EXACT_CURRENT_STEP_TERMINAL_SAFE");
 console.log("OPERATOR_MISSION_CHECKPOINT=STRICT_ORDERED_PREFIX");
 console.log("OPERATOR_MISSION_CHECKPOINT_VERIFICATION=REGISTERED_CURRENT_WRITE_ONLY");
 console.log("OPERATOR_MISSION_RESUME_GATES=CURRENT_STEP_CONTRACT_BOUND");

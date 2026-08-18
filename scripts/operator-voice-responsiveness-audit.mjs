@@ -49,6 +49,18 @@ requireAll("VOICE_BRIDGE", bridge, [
   "if (spoken) return",
 ]);
 
+if (bridge.includes('SpeechSynthesisUtterance("Got it.")')) {
+  violations.push("VOICE_PROCESSING_FILLER_ACKNOWLEDGEMENT_PRESENT");
+}
+
+requireAll("FAST_VOICE_LOW_LATENCY", reasoningRuntime, [
+  "confidence < 0.55",
+  "max_output_tokens: 180",
+  'verbosity: "low"',
+  "no_filler_response: true",
+  'Do not begin with filler acknowledgements such as "Got it"',
+]);
+
 requireAll("FAST_CONVERSATION", fastRuntime, [
   "export function instantConversationReply",
   "BUSINESS_OR_ACTION_PATTERN",
@@ -286,6 +298,8 @@ if (violations.length) {
 } else {
   console.log("OPERATOR_VOICE_RESPONSIVENESS_AUDIT=PASS");
   console.log("VOICE_SIMPLE_REPLY=INSTANT_LOCAL_OR_FAST_MODEL");
+  console.log("VOICE_FAST_REASONING=SINGLE_PASS_LOW_LATENCY");
+  console.log("VOICE_PROCESSING_FILLER=DISABLED");
   console.log("VOICE_STRATEGIC_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_CONTEXTUAL_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_COMPACT_REASONING=GOAL_CONTEXT_RANKED");

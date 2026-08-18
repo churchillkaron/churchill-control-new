@@ -1,0 +1,254 @@
+name: One-time Operator executive source convergence
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/one-time-operator-executive-source.yml
+
+permissions:
+  contents: write
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply and validate source convergence
+        shell: bash
+        run: |
+          set +e
+          python3 - <<'PY' > /tmp/operator-source.log 2>&1
+          from pathlib import Path
+
+          def replace_once(source, old, new, label):
+              if old not in source:
+                  raise RuntimeError(f"missing patch anchor: {label}")
+              return source.replace(old, new, 1)
+
+          reasoning_path = Path("lib/operator/runtime/OperatorReasoningRuntime.js")
+          reasoning = reasoning_path.read_text()
+          reasoning = replace_once(
+              reasoning,
+              'if (!request.executable_capabilities.some((item) => item.key === capabilityKey)) {\n      return "unknown_capability";\n    }\n\n    if (readChainHasFollowUp(parsed)) return "read_chain_follow_up";',
+              'const selectedCapability = request.executable_capabilities.find(\n      (item) => item.key === capabilityKey,\n    );\n    if (!selectedCapability) return "unknown_capability";\n    if (text(selectedCapability.mode).toLowerCase() !== "read") {\n      return "non_read_requires_deep";\n    }\n\n    if (readChainHasFollowUp(parsed)) return "read_chain_follow_up";',
+              "fast non-read escalation",
+          )
+          reasoning = replace_once(
+              reasoning,
+              'const cognition = routeOperatorCognition({ message, source });\n  const useFastVoice = voice && cognition.path !== "deep";',
+              'const cognition = routeOperatorCognition({ message, source, capabilities });\n  const useFastVoice = cognition.path !== "deep";',
+              "all-channel executive brain",
+          )
+          reasoning = replace_once(
+              reasoning,
+              'source: "voice",\n        locale: text(locale) || null,',
+              'source: text(source) || "text",\n        locale: text(locale) || null,',
+              "fast request source",
+          )
+          reasoning = replace_once(
+              reasoning,
+              '- Business questions rarely name the record that answers them. Translate the question into the artefact that holds the answer using your own domain knowledge: totals and income or profit come from the ledger, trial balance or management reporting capabilities rather than from a capability literally called income. Choose the capability an accountant or operator would open.',
+              '- Business questions rarely name the exact registered capability that answers them. Infer the needed evidence from supplied capability metadata, descriptions, aliases, examples, schemas and current context. Never rely on a fixed industry vocabulary.',
+              "remove finance-specific reasoning",
+          )
+          reasoning = replace_once(
+              reasoning,
+              '- High-consequence financial, payroll, legal, destructive or irreversible actions require appropriate confirmation.',
+              '- Respect each supplied capability\'s risk, confirmation, approval, transactional and reversibility metadata. Never downgrade governance based on the business domain.',
+              "dynamic governance wording",
+          )
+          reasoning = reasoning.replace('model: "business-data-reflex-v1"', 'model: "registry-data-reflex-v2"')
+          reasoning_path.write_text(reasoning)
+
+          read_chain_path = Path("lib/platform/capabilities/createOperatorReadChainCapability.js")
+          read_chain = read_chain_path.read_text()
+          start = read_chain.index('const FULL_ACCESS_ROLES = new Set([')
+          end = read_chain.index('const COLLECTION_KEYS = Object.freeze([', start)
+          read_chain = read_chain[:start] + read_chain[end:]
+          start = read_chain.index('const COLLECTION_KEYS = Object.freeze([')
+          end = read_chain.index('\n\nfunction text(value)', start)
+          read_chain = read_chain[:start] + read_chain[end+2:]
+
+          start = read_chain.index('function actorHasFullAccess(context) {')
+          end = read_chain.index('\n\nfunction hasRequiredPermissions', start)
+          read_chain = read_chain[:start] + '''function actorHasFullAccess(context) {
+            const actor = object(context?.actor);
+            const permissions = list(context?.permissions).map(text);
+            return actor.fullAccess === true || actor.full_access === true || permissions.includes("*");
+          }''' + read_chain[end:]
+
+          start = read_chain.index('function inferredMode(')
+          end = read_chain.index('\n\nfunction contextScope', start)
+          read_chain = read_chain[:start] + '''function operatorMode(manifest = {}) {
+            const explicit = text(
+              manifest.operatorMode || manifest.operator_mode || manifest.mode,
+            ).toLowerCase();
+            return ["read", "draft", "write", "approve", "navigate"].includes(explicit)
+              ? explicit
+              : null;
+          }''' + read_chain[end:]
+          read_chain = read_chain.replace('inferredMode(manifest, target)', 'operatorMode(manifest)')
+
+          start = read_chain.index('function collectionOf(value, depth = 0, path = []) {')
+          end = read_chain.index('\n\nfunction rootMetadata', start)
+          read_chain = read_chain[:start] + '''function collectionOf(value, depth = 0, path = []) {
+            if (depth > 4 || value === null || value === undefined) return null;
+            if (Array.isArray(value)) {
+              return { rows: value, path, key: path.length ? path[path.length - 1] : null, container: null };
+            }
+            if (typeof value !== "object") return null;
+            const arrays = Object.entries(value).filter(([, candidate]) => Array.isArray(candidate));
+            if (arrays.length) {
+              const [key, rows] = arrays.sort((a, b) => b[1].length - a[1].length)[0];
+              return { rows, path: [...path, key], key, container: value };
+            }
+            for (const [key, candidate] of Object.entries(value)) {
+              if (!candidate || typeof candidate !== "object") continue;
+              const found = collectionOf(candidate, depth + 1, [...path, key]);
+              if (found) return found;
+            }
+            return null;
+          }''' + read_chain[end:]
+
+          tags_start = read_chain.index('    tags: [')
+          tags_end = read_chain.index('    ],\n    transactional: false,', tags_start)
+          read_chain = read_chain[:tags_start] + '''    tags: [
+              "platform",
+              "operator",
+              "read",
+              "read-chain",
+              "multi-step",
+              "comparison",
+              "diagnosis",
+              "evidence-first",
+              "conditional",
+              "post-action-verification",
+            ],
+''' + read_chain[tags_end + len('    ],\n'):]
+
+          read_chain = replace_once(
+              read_chain,
+              '    const preflight = [];\n    for (const step of normalized.steps) {\n      preflight.push(await preflightStep(step, context));\n    }',
+              '    const preflight = await Promise.all(\n      normalized.steps.map((step) => preflightStep(step, context)),\n    );',
+              "parallel preflight",
+          )
+          results_start = read_chain.index('    const results = [];')
+          failed_start = read_chain.index('    const failedSteps = results.filter', results_start)
+          read_chain = read_chain[:results_start] + '''    const results = await Promise.all(
+              preflight.map(async (entry) => {
+                const { step, target } = entry;
+                try {
+                  const result = await executeUbteCapability({
+                    organizationId: context.organizationId,
+                    domain: target.domain,
+                    capability: target.capability,
+                    action: target.action,
+                    payload: scopedPayload(context, step.payload),
+                    actor: context.actor,
+                    runtime: childRuntime(context, step),
+                  });
+                  return {
+                    id: step.id,
+                    label: step.label,
+                    capability_key: step.capability_key,
+                    status: "completed",
+                    requested_payload: boundedValue(step.payload),
+                    evidence: compactExecutionEvidence(result),
+                  };
+                } catch (error) {
+                  return {
+                    id: step.id,
+                    label: step.label,
+                    capability_key: step.capability_key,
+                    status: "failed",
+                    requested_payload: boundedValue(step.payload),
+                    error: text(error?.message) || "Read failed",
+                  };
+                }
+              }),
+            );
+
+''' + read_chain[failed_start:]
+          read_chain_path.write_text(read_chain)
+
+          verification_path = Path("lib/operator/runtime/OperatorVerificationRuntime.js")
+          verification = verification_path.read_text()
+          start = verification.index('const COLLECTION_KEYS = Object.freeze([')
+          end = verification.index('\n\nfunction scalarMetadata', start)
+          verification = verification[:start] + verification[end+2:]
+          start = verification.index('function collectionOf(value, depth = 0, path = []) {')
+          end = verification.index('\n\nfunction normalizedCollectionEvidence', start)
+          verification = verification[:start] + '''function collectionOf(value, depth = 0, path = []) {
+            if (depth > 4 || value === null || value === undefined) return null;
+            if (Array.isArray(value)) {
+              return { rows: value, path, key: path.length ? path[path.length - 1] : null, container: null };
+            }
+            if (typeof value !== "object") return null;
+            const arrays = Object.entries(value).filter(([, candidate]) => Array.isArray(candidate));
+            if (arrays.length) {
+              const [key, rows] = arrays.sort((a, b) => b[1].length - a[1].length)[0];
+              return { rows, path: [...path, key], key, container: value };
+            }
+            for (const [key, candidate] of Object.entries(value)) {
+              if (!candidate || typeof candidate !== "object") continue;
+              const found = collectionOf(candidate, depth + 1, [...path, key]);
+              if (found) return found;
+            }
+            return null;
+          }''' + verification[end:]
+          verification_path.write_text(verification)
+          PY
+
+          patch_rc=$?
+          if [ "$patch_rc" -eq 0 ]; then
+            {
+              node --check lib/operator/runtime/OperatorReasoningRuntime.js
+              node --check lib/platform/capabilities/createOperatorReadChainCapability.js
+              node --check lib/operator/runtime/OperatorVerificationRuntime.js
+              npm run audit:operator-voice-responsiveness
+              npm run audit:operator-fast-voice-read-catalog
+              npm run audit:operator-goal-continuity
+              npm run audit:operator-exposure
+              git diff --check
+            } >> /tmp/operator-source.log 2>&1
+            verify_rc=$?
+          else
+            verify_rc=$patch_rc
+          fi
+
+          if [ "$verify_rc" -ne 0 ]; then
+            git reset --hard HEAD
+            cp /tmp/operator-source.log OPERATOR_EXECUTIVE_BRAIN_DIAGNOSTIC.txt
+            rm -f .github/workflows/one-time-operator-executive-brain.yml
+            rm -f .github/workflows/one-time-operator-executive-brain-v2.yml
+            rm -f .github/workflows/one-time-operator-executive-brain-final.yml
+            rm -f .github/workflows/one-time-operator-executive-brain-observable.yml
+            rm -f .github/workflows/one-time-operator-executive-source.yml
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add OPERATOR_EXECUTIVE_BRAIN_DIAGNOSTIC.txt .github/workflows/
+            git commit -m "Record Operator executive source diagnostic"
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
+            exit 0
+          fi
+
+          rm -f OPERATOR_EXECUTIVE_BRAIN_DIAGNOSTIC.txt
+          rm -f .github/workflows/one-time-operator-executive-brain.yml
+          rm -f .github/workflows/one-time-operator-executive-brain-v2.yml
+          rm -f .github/workflows/one-time-operator-executive-brain-final.yml
+          rm -f .github/workflows/one-time-operator-executive-brain-observable.yml
+          rm -f .github/workflows/one-time-operator-executive-source.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/operator/runtime/OperatorReasoningRuntime.js lib/platform/capabilities/createOperatorReadChainCapability.js lib/operator/runtime/OperatorVerificationRuntime.js .github/workflows/ OPERATOR_EXECUTIVE_BRAIN_DIAGNOSTIC.txt
+          git commit -m "[deploy-production] Complete Operator fast intelligence convergence"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

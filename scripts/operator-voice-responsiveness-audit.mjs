@@ -42,7 +42,8 @@ const turnRoute = read("app/api/operator/turn/route.js");
 const navigationMatcher = read("lib/operator/runtime/OperatorNavigationMatcher.js");
 const turnRuntime = read("lib/operator/runtime/OperatorTurnRuntime.js");
 const reasoningRuntime = read("lib/operator/runtime/OperatorReasoningRuntime.js");
-const businessReadResolver = read("lib/operator/runtime/OperatorBusinessReadResolver.js");
+const capabilityMatcher = read("lib/operator/runtime/OperatorCapabilityMatcher.js");
+const cognitionRouter = read("lib/operator/runtime/OperatorCognitionRouter.js");
 const businessDataReflex = read("lib/operator/runtime/OperatorBusinessDataReflex.js");
 const capabilityCatalog = read("lib/operator/runtime/OperatorCapabilityCatalog.js");
 const acknowledgementRuntime = read("lib/operator/runtime/OperatorVoiceAcknowledgementRuntime.js");
@@ -136,14 +137,28 @@ requireAll("STRATEGIC_MEMORY_CONVERGENCE", reasoningRuntime, [
   "An assistant-only recommendation is not yet a decision.",
 ]);
 
-requireAll("DYNAMIC_READ_RANKING", businessReadResolver, [
+requireAll("DYNAMIC_CAPABILITY_MATCHING", capabilityMatcher, [
   "function capabilityVocabulary",
   "function schemaVocabulary",
   "capability.operator_aliases",
   "capability.operator_examples",
   "capability.input_schema",
   "capability.output_schema",
-  "export function rankOperatorReadCapabilities",
+  "export function rankOperatorCapabilities",
+]);
+
+requireAll("DYNAMIC_COGNITION_ROUTING", cognitionRouter, [
+  "rankOperatorCapabilities",
+  "REGISTERED_GOVERNED_ACTION",
+  "MULTI_REGISTERED_ACTION",
+  "REGISTERED_ACTION",
+  "FAST_EXECUTIVE_TURN",
+]);
+
+forbidAll("NO_HARDCODED_COGNITION_BUSINESS_OBJECTS", cognitionRouter, [
+  "BUSINESS_OBJECT_PATTERN",
+  "HIGH_CONSEQUENCE_OBJECT_PATTERN",
+  "GOVERNED_WRITE_VERB_PATTERN",
 ]);
 
 requireAll("DYNAMIC_READ_REFLEX", businessDataReflex, [
@@ -341,7 +356,8 @@ if (violations.length) {
   console.log("VOICE_COMPACT_REASONING=GOAL_CONTEXT_RANKED");
   console.log("VOICE_COMPLETED_STEPS=RANKED_AND_NOT_REPEATED");
   console.log("VOICE_STRATEGIC_MEMORY=WORKING_DIRECTION_AND_ACCEPTED_DECISIONS");
-  console.log("VOICE_SEMANTIC_READ_RANKING=BUSINESS_LANGUAGE_HINTED");
+  console.log("VOICE_CAPABILITY_MATCHING=MANIFEST_DRIVEN");
+  console.log("VOICE_COGNITION_ROUTING=REGISTERED_CAPABILITY_DRIVEN");
   console.log("VOICE_FACT_REQUEST=READ_BEFORE_NAVIGATION");
   console.log("VOICE_TEMPORAL_READS=ORGANIZATION_TIMEZONE_GROUNDED");
   console.log("VOICE_OPEN_READ_INPUTS=DATE_FILTER_READY");

@@ -4,5 +4,7 @@ public/
 scripts/
 supabase/
 backups/
+archive/
 archives/
+audit/
 coverage/

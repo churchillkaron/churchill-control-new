@@ -47,6 +47,15 @@ requireAll("MISSION_GOVERNANCE", missionSource, [
   "CONFIRMATION_REQUIRED",
 ]);
 
+requireAll("MISSION_RESUME_SCOPE_INTEGRITY", missionSource, [
+  "function missionScope(context = {})",
+  "function missionScopeMatches(expected, context)",
+  "scope: missionScope(context)",
+  "const resumeScope = object(resume.scope)",
+  "!missionScopeMatches(resumeScope, context)",
+  'return { error: "OPERATOR_MISSION_RESUME_SCOPE_INVALID" }',
+]);
+
 requireAll("MISSION_RESUME_CHECKPOINT_INTEGRITY", missionSource, [
   "const orderedIds = preflight.map((entry) => entry.step.id)",
   "rawCompleted.length !== completed.length",
@@ -63,16 +72,20 @@ requireAll("MISSION_RESUME_CHECKPOINT_INTEGRITY", missionSource, [
   "const resume = normalizeResume(payload, preflight, context)",
 ]);
 
+const scopeValidationIndex = missionSource.indexOf(
+  "const resumeScope = object(resume.scope)",
+);
 const checkpointValidationIndex = missionSource.indexOf(
   "const expectedCompleted = orderedIds.slice(0, currentIndex)",
 );
 const resumeContractIndex = missionSource.indexOf("const currentEntry = preflight[currentIndex]");
 const missionLoopIndex = missionSource.indexOf("for (\n      let index = preflight.findIndex");
 assert.ok(
-  checkpointValidationIndex >= 0 &&
+  scopeValidationIndex >= 0 &&
+    checkpointValidationIndex > scopeValidationIndex &&
     resumeContractIndex > checkpointValidationIndex &&
     missionLoopIndex > resumeContractIndex,
-  "resume checkpoint and current-step contract integrity must be validated before mission execution resumes",
+  "resume scope, checkpoint and current-step contract integrity must be validated before mission execution resumes",
 );
 
 requireAll("MISSION_VERIFICATION_RESUME", missionSource, [
@@ -175,6 +188,7 @@ assert.ok(
 console.log("OPERATOR_DURABLE_MISSION_AUDIT=PASS");
 console.log("OPERATOR_MISSION_STATE=SERVER_PERSISTED_CONVERSATION");
 console.log("OPERATOR_MISSION_RESUME=EXACT_STEP_AND_PAYLOAD");
+console.log("OPERATOR_MISSION_RESUME_SCOPE=ORGANIZATION_ENTITY_PERIOD_BOUND");
 console.log("OPERATOR_MISSION_CHECKPOINT=STRICT_ORDERED_PREFIX");
 console.log("OPERATOR_MISSION_CHECKPOINT_VERIFICATION=REGISTERED_CURRENT_WRITE_ONLY");
 console.log("OPERATOR_MISSION_RESUME_GATES=CURRENT_STEP_CONTRACT_BOUND");

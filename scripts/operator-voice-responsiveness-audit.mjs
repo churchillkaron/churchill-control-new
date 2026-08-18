@@ -30,12 +30,21 @@ function requireAll(label, source, needles) {
   }
 }
 
+function forbidAll(label, source, needles) {
+  for (const needle of needles) {
+    if (source.includes(needle)) violations.push(`${label}:${needle}`);
+  }
+}
+
 const bridge = read("components/operator/LocalHeyAvantiqoWakeBridge.jsx");
 const fastRuntime = read("lib/operator/runtime/OperatorFastConversationRuntime.js");
 const turnRoute = read("app/api/operator/turn/route.js");
 const navigationMatcher = read("lib/operator/runtime/OperatorNavigationMatcher.js");
 const turnRuntime = read("lib/operator/runtime/OperatorTurnRuntime.js");
 const reasoningRuntime = read("lib/operator/runtime/OperatorReasoningRuntime.js");
+const businessReadResolver = read("lib/operator/runtime/OperatorBusinessReadResolver.js");
+const businessDataReflex = read("lib/operator/runtime/OperatorBusinessDataReflex.js");
+const capabilityCatalog = read("lib/operator/runtime/OperatorCapabilityCatalog.js");
 const acknowledgementRuntime = read("lib/operator/runtime/OperatorVoiceAcknowledgementRuntime.js");
 const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.js");
 
@@ -127,13 +136,40 @@ requireAll("STRATEGIC_MEMORY_CONVERGENCE", reasoningRuntime, [
   "An assistant-only recommendation is not yet a decision.",
 ]);
 
-requireAll("SEMANTIC_READ_RANKING", reasoningRuntime, [
+requireAll("DYNAMIC_READ_RANKING", businessReadResolver, [
+  "function capabilityVocabulary",
+  "function schemaVocabulary",
+  "capability.operator_aliases",
+  "capability.operator_examples",
+  "capability.input_schema",
+  "capability.output_schema",
+  "export function rankOperatorReadCapabilities",
+]);
+
+requireAll("DYNAMIC_READ_REFLEX", businessDataReflex, [
+  "resolveOperatorBusinessRead",
+  "resolution.ranked",
+  "Registry-resolved read:",
+  "registry-data-reflex-v2",
+]);
+
+requireAll("MANIFEST_DRIVEN_CAPABILITY_SEMANTICS", capabilityCatalog, [
+  "operator_aliases:",
+  "operator_examples:",
+  "input_schema:",
+  "output_schema:",
+]);
+
+forbidAll("NO_HARDCODED_BUSINESS_SEMANTICS", reasoningRuntime, [
   "BUSINESS_SEMANTIC_HINT_RULES",
-  "what)\\s+(?:did|do|have)\\s+we\\s+(?:make|made|earn|earned)",
   "function semanticTokens",
-  "function rankedCapabilities",
-  "relevanceScore(item, hintTokens) * 0.45",
-  "semantic_capability_ranking: true",
+  "relevanceScore(item, hintTokens)",
+]);
+
+requireAll("REGISTRY_DRIVEN_REASONING_RANKING", reasoningRuntime, [
+  "prioritizeOperatorBusinessReads({",
+  "capabilities: source",
+  "fallback,",
 ]);
 
 requireAll("READ_BEFORE_NAVIGATION", reasoningRuntime, [

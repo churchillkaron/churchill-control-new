@@ -30,6 +30,7 @@ jobs:
             curl --fail --location --retry 30 --retry-delay 10 --retry-all-errors "${BASE}?asset=${asset}" --output "avantiqo-film-assets/live/${asset}.mp4"
           done
           curl --fail --location --retry 30 --retry-delay 10 --retry-all-errors "${BASE}?asset=voice" --output avantiqo-film-assets/voice.mp3
+          curl --fail --location --retry 30 --retry-delay 10 --retry-all-errors "${BASE}?asset=voice_v2" --output avantiqo-film-assets/voice_v2.mp3
 
       - name: Verify media
         shell: bash
@@ -37,14 +38,14 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
-          for file in avantiqo-film-assets/live/*.mp4 avantiqo-film-assets/voice.mp3; do
+          for file in avantiqo-film-assets/live/*.mp4 avantiqo-film-assets/voice.mp3 avantiqo-film-assets/voice_v2.mp3; do
             ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 "$file"
           done
 
       - name: Upload film asset pack
         uses: actions/upload-artifact@v4
         with:
-          name: avantiqo-film-assets-20260818
+          name: avantiqo-film-assets-20260818-v2
           path: avantiqo-film-assets
           if-no-files-found: error
           retention-days: 1

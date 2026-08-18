@@ -57,7 +57,7 @@ assert.match(capabilitySource, /action: "scan"/);
 assert.match(capabilitySource, /operatorMode: "read"/);
 assert.match(capabilitySource, /transactional: false/);
 assert.match(capabilitySource, /risk: "low"/);
-assert.match(capabilitySource, /Recommendation.*never executes/i);
+assert.match(capabilitySource, /may recommend registered actions but never executes/i);
 assert.match(capabilitySource, /context\?\.metadata\?\.partyId/);
 assert.match(platformRuntimeSource, /attention:\s*\{/);
 assert.match(platformRuntimeSource, /createOperatorAttentionCapability/);

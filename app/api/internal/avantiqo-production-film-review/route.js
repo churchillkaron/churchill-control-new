@@ -52,7 +52,7 @@ export async function GET(request) {
 
     if (mode === "chunk") {
       const offset = Math.max(0, Number.parseInt(url.searchParams.get("offset") || "0", 10) || 0);
-      const requestedLength = Math.max(1, Math.min(262144, Number.parseInt(url.searchParams.get("length") || "196608", 10) || 196608));
+      const requestedLength = Math.max(1, Math.min(1048576, Number.parseInt(url.searchParams.get("length") || "1048576", 10) || 1048576));
       const end = Math.min(bytes.length, offset + requestedLength);
       const chunk = bytes.subarray(offset, end);
       return Response.json({

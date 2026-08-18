@@ -11,8 +11,12 @@ import {
 } from "@/lib/creative/shots/runtime/ShotRuntime";
 import {
   createCreativeVideoQualityPreference,
+  creativeVideoQualityFromProject,
   normalizeCreativeVideoQuality,
 } from "@/lib/creative/video/runtime/CreativeVideoQualityPreferenceRuntime";
+import {
+  resolveCreativeVideoProviderConfiguration,
+} from "@/lib/creative/video/runtime/CreativeVideoProviderConfigurationRuntime";
 
 function object(value) {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -37,6 +41,56 @@ function activeGenerationAuthorization(project = {}) {
     metadata.media_generation_authorized === true;
 }
 
+async function projectAndConfiguration({ organizationId, projectId }) {
+  const project = await CreativeProjectRuntime.get(projectId);
+  if (!project || text(project.organization_id) !== organizationId) {
+    return { project: null, configuration: null };
+  }
+
+  const configuration = await resolveCreativeVideoProviderConfiguration({
+    organization_id: organizationId,
+    currency:
+      project.metadata?.currency ||
+      project.metadata?.budget_profile?.currency ||
+      project.budget_profile?.currency ||
+      null,
+    preferred_provider:
+      project.metadata?.video_provider_preference ||
+      project.metadata?.generation_provider_preference ||
+      null,
+  });
+
+  return { project, configuration };
+}
+
+function publicConfiguration(configuration = {}) {
+  const profile = object(configuration.video_capabilities);
+  return {
+    contract: profile.contract || null,
+    provider: configuration.provider || null,
+    model: configuration.model || null,
+    pricing_id: configuration.pricing_id || null,
+    currency: configuration.currency || null,
+    service_id: configuration.service_id || null,
+    capability: configuration.capability || null,
+    auto_option: object(profile.auto_option),
+    resolution_options: Array.isArray(profile.resolution_options)
+      ? profile.resolution_options
+      : [],
+    supported_resolutions: Array.isArray(profile.supported_resolutions)
+      ? profile.supported_resolutions
+      : [],
+    auto_resolution_priority: Array.isArray(profile.auto_resolution_priority)
+      ? profile.auto_resolution_priority
+      : [],
+    supported_aspect_ratios: Array.isArray(profile.supported_aspect_ratios)
+      ? profile.supported_aspect_ratios
+      : [],
+    native_frame_rate: profile.native_frame_rate ?? null,
+    native_audio: profile.native_audio ?? null,
+  };
+}
+
 async function rebindExistingShots({ organizationId, projectId }) {
   const shots = await ShotRuntime.list({
     organization_id: organizationId,
@@ -45,17 +99,49 @@ async function rebindExistingShots({ organizationId, projectId }) {
 
   let rebound = 0;
   for (const shot of shots) {
-    const capability = text(
-      shot.generation?.capability ||
-      shot.generation?.service ||
-      shot.capability ||
-      shot.service_id,
-    ).toLowerCase();
-    if (!capability.includes("video")) continue;
     await ShotRuntime.update(shot.id, {});
     rebound += 1;
   }
   return rebound;
+}
+
+export async function GET(request) {
+  try {
+    const url = new URL(request.url);
+    const organizationId = text(url.searchParams.get("organization_id"));
+    const projectId = text(url.searchParams.get("creative_project_id"));
+
+    if (!organizationId || !projectId) {
+      return NextResponse.json(
+        { error: "organization_id and creative_project_id required" },
+        { status: 400 },
+      );
+    }
+
+    await requireOrganizationAccess({ organization_id: organizationId });
+    const { project, configuration } = await projectAndConfiguration({
+      organizationId,
+      projectId,
+    });
+    if (!project) {
+      return NextResponse.json(
+        { error: "Creative project not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({
+      selection: creativeVideoQualityFromProject(project),
+      locked: activeGenerationAuthorization(project),
+      configuration: publicConfiguration(configuration),
+    });
+  } catch (error) {
+    console.error("creative project video quality GET", error);
+    return NextResponse.json(
+      { error: error?.message || "Failed to resolve video quality configuration" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request) {
@@ -64,23 +150,19 @@ export async function POST(request) {
     const organizationId = text(body.organization_id);
     const projectId = text(body.creative_project_id);
 
-    if (!organizationId) {
+    if (!organizationId || !projectId) {
       return NextResponse.json(
-        { error: "organization_id required" },
-        { status: 400 },
-      );
-    }
-    if (!projectId) {
-      return NextResponse.json(
-        { error: "creative_project_id required" },
+        { error: "organization_id and creative_project_id required" },
         { status: 400 },
       );
     }
 
     await requireOrganizationAccess({ organization_id: organizationId });
-
-    const project = await CreativeProjectRuntime.get(projectId);
-    if (!project || text(project.organization_id) !== organizationId) {
+    const { project, configuration } = await projectAndConfiguration({
+      organizationId,
+      projectId,
+    });
+    if (!project) {
       return NextResponse.json(
         { error: "Creative project not found" },
         { status: 404 },
@@ -98,13 +180,11 @@ export async function POST(request) {
       );
     }
 
-    const previous =
-      project.metadata?.release_quality?.preference ||
-      project.metadata?.video_quality_preference ||
-      "AUTO";
+    const previous = creativeVideoQualityFromProject(project);
     const quality = normalizeCreativeVideoQuality(body.quality);
     const preference = createCreativeVideoQualityPreference({
       quality,
+      provider_capabilities: configuration.video_capabilities,
       previous,
       source: "STUDIO_MANUAL_CONTROL",
     });
@@ -117,10 +197,19 @@ export async function POST(request) {
         video_quality_resolution: preference.resolution,
         video_quality_selection_contract: preference.contract,
         video_quality_requires_fresh_preflight: true,
+        video_quality_provider_configuration: {
+          contract: configuration.video_capabilities?.contract || null,
+          provider: configuration.provider || null,
+          model: configuration.model || null,
+          pricing_id: configuration.pricing_id || null,
+          service_id: configuration.service_id || null,
+          capability: configuration.capability || null,
+          selected_at: new Date().toISOString(),
+        },
       },
     });
 
-    const reboundVideoShots = await rebindExistingShots({
+    const reboundShots = await rebindExistingShots({
       organizationId,
       projectId,
     });
@@ -128,7 +217,8 @@ export async function POST(request) {
     return NextResponse.json({
       project: updated,
       quality: preference,
-      rebound_video_shots: reboundVideoShots,
+      configuration: publicConfiguration(configuration),
+      rebound_shots: reboundShots,
       generation_authorized: false,
       publication_authorized: false,
     });

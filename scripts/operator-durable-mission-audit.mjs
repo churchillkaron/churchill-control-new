@@ -152,6 +152,21 @@ requireAll("TURN_MISSION_PERSISTENCE", turnSource, [
   "existingRun.run_id",
 ]);
 
+requireAll("TURN_MISSION_RUN_PROJECTION_INTEGRITY", turnSource, [
+  "function canonicalMissionValue(value)",
+  "function missionResumeProjectionMatches(pending, run)",
+  "pendingSteps.length !== runSteps.length",
+  "!sameMissionValue(pendingSteps, runSteps)",
+  "currentStepId !== text(run?.current_step_id)",
+  "!sameMissionValue(resumeCompleted, runCompleted)",
+  "approvalRequestId !== text(currentRunStep.approval_request_id)",
+  'text(currentRunStep.gate).toLowerCase() === "confirmation"',
+  'text(currentRunStep.gate).toLowerCase() === "approval"',
+  "sameMissionValue(pendingVerification, registeredVerification)",
+  "invalidMissionRunShapeResumeRequest",
+  'const blocker = "OPERATOR_MISSION_RESUME_RUN_STATE_MISMATCH"',
+]);
+
 requireAll("TURN_MISSION_CANCELLATION", turnSource, [
   'const cancellingMission = pending.resume_kind === "mission"',
   "? text(activeRun?.current_step_id)",
@@ -173,11 +188,30 @@ const cancellationTransitionIndex = turnSource.indexOf(
   'status: "cancelled"',
   missionCancellationIndex,
 );
+const missionProjectionGuardIndex = turnSource.indexOf(
+  'pending?.resume_kind === "mission"',
+);
+const missionProjectionBlockerIndex = turnSource.indexOf(
+  'const blocker = "OPERATOR_MISSION_RESUME_RUN_STATE_MISMATCH"',
+);
+const verificationRetryIndex = turnSource.indexOf(
+  "if (retryVerificationRequested && pending)",
+);
+const pendingExecutionIndex = turnSource.indexOf(
+  "if (pending && (isAffirmative(message) || resumeFromApproval || resumeMission))",
+);
 assert.ok(
   missionCancellationIndex >= 0 &&
     cancellationClearIndex > missionCancellationIndex &&
     cancellationTransitionIndex > cancellationClearIndex,
   "mission cancellation must clear resumable pending state before marking the exact run step cancelled",
+);
+assert.ok(
+  missionProjectionGuardIndex > cancellationTransitionIndex &&
+    missionProjectionBlockerIndex > missionProjectionGuardIndex &&
+    verificationRetryIndex > missionProjectionBlockerIndex &&
+    pendingExecutionIndex > missionProjectionBlockerIndex,
+  "mission pending/run projection mismatch must fail closed after cancellation remains available and before any resume execution path",
 );
 
 requireAll("SERVER_AUTHORITATIVE_STATE", routeSource, [
@@ -198,6 +232,8 @@ console.log("OPERATOR_DURABLE_MISSION_AUDIT=PASS");
 console.log("OPERATOR_MISSION_STATE=SERVER_PERSISTED_CONVERSATION");
 console.log("OPERATOR_MISSION_RESUME=EXACT_STEP_AND_PAYLOAD");
 console.log("OPERATOR_MISSION_RESUME_SCOPE=ORGANIZATION_ENTITY_PERIOD_PARTY_ACTOR_BOUND");
+console.log("OPERATOR_MISSION_RUN_PROJECTION=EXACT_PENDING_RUN_MATCH_BEFORE_RESUME");
+console.log("OPERATOR_MISSION_RUN_MISMATCH=FAIL_CLOSED_CLEAR_PENDING");
 console.log("OPERATOR_MISSION_CHECKPOINT=STRICT_ORDERED_PREFIX");
 console.log("OPERATOR_MISSION_CHECKPOINT_VERIFICATION=REGISTERED_CURRENT_WRITE_ONLY");
 console.log("OPERATOR_MISSION_RESUME_GATES=CURRENT_STEP_CONTRACT_BOUND");

@@ -1,6 +1,6 @@
 -- P0 security convergence: harden platform/internal tables that do not require
--- direct browser mutation. This migration deliberately starts with a small,
--- verified set so RLS can converge without breaking organization workflows.
+-- direct browser mutation. This migration deliberately starts with a verified
+-- server-owned set so RLS can converge without breaking organization workflows.
 
 begin;
 
@@ -17,6 +17,25 @@ revoke all on table public.governance_audit from anon, authenticated;
 -- writable/readable through the public API roles.
 alter table public.provider_pricing enable row level security;
 revoke all on table public.provider_pricing from anon, authenticated;
+
+-- Distributed runtime jobs are inspected and mutated by server infrastructure
+-- through the shared admin client, never directly by a browser session.
+alter table public.distributed_jobs enable row level security;
+revoke all on table public.distributed_jobs from anon, authenticated;
+
+-- Canonical provider/business event bus is persisted and projected by server
+-- runtimes and authenticated API routes through the shared admin client.
+alter table public.event_bus enable row level security;
+revoke all on table public.event_bus from anon, authenticated;
+
+-- Kernel snapshots have no active browser consumer and are platform-internal.
+alter table public.kernel_snapshots enable row level security;
+revoke all on table public.kernel_snapshots from anon, authenticated;
+
+-- Legacy trust traceability is retained only as platform/legacy evidence; no
+-- active browser consumer exists in the current application tree.
+alter table public.trust_traceability enable row level security;
+revoke all on table public.trust_traceability from anon, authenticated;
 
 -- Platform module catalog is intentionally client-readable for workspace/nav
 -- discovery, but must not be publicly mutable.

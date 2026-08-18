@@ -27,7 +27,6 @@ const TURN_TIMEOUT_MS = 15000;
 const SPEECH_TIMEOUT_MS = 12000;
 const ACK_REFRESH_TIMEOUT_MS = 6000;
 const NATIVE_INTERIM_COMMIT_MS = 350;
-const PROCESSING_ACK_DELAY_MS = 250;
 const FAST_BROWSER_SPEECH_MAX_CHARS = 420;
 
 function text(value) {
@@ -109,8 +108,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const recognitionHandledRef = useRef(false);
   const recognitionCommitTimerRef = useRef(null);
   const recognitionInterimRef = useRef("");
-  const processingAckTimerRef = useRef(null);
-  const processingAckUtteranceRef = useRef(null);
   const noiseFloorRef = useRef(0.012);
   const speechOnsetRef = useRef(0);
   const onsetFramesRef = useRef([]);
@@ -184,66 +181,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     followUpTimerRef.current = null;
   }
 
-  function clearProcessingAcknowledgement() {
-    if (processingAckTimerRef.current) {
-      window.clearTimeout(processingAckTimerRef.current);
-      processingAckTimerRef.current = null;
-    }
-
-    const utterance = processingAckUtteranceRef.current;
-    processingAckUtteranceRef.current = null;
-
-    if (utterance && window.speechSynthesis) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {}
-    }
-
-    if (utterance) speakingRef.current = false;
-  }
-
-  function scheduleProcessingAcknowledgement() {
-    if (
-      processingAckTimerRef.current ||
-      processingAckUtteranceRef.current ||
-      !window.speechSynthesis ||
-      typeof SpeechSynthesisUtterance === "undefined"
-    ) {
-      return;
-    }
-
-    processingAckTimerRef.current = window.setTimeout(() => {
-      processingAckTimerRef.current = null;
-      if (!enabledRef.current || processingAckUtteranceRef.current) return;
-
-      const utterance = new SpeechSynthesisUtterance("Got it.");
-      utterance.lang = navigator.language || "en-US";
-      utterance.rate = 1.08;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-      processingAckUtteranceRef.current = utterance;
-      speakingRef.current = true;
-
-      const finish = () => {
-        if (processingAckUtteranceRef.current !== utterance) return;
-        processingAckUtteranceRef.current = null;
-        speakingRef.current = false;
-        lastSoundRef.current = Date.now();
-        if (enabledRef.current) setStatus("working");
-      };
-
-      utterance.onend = finish;
-      utterance.onerror = finish;
-
-      try {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utterance);
-      } catch {
-        finish();
-      }
-    }, PROCESSING_ACK_DELAY_MS);
-  }
-
   function stopRecognition() {
     if (recognitionCommitTimerRef.current) {
       window.clearTimeout(recognitionCommitTimerRef.current);
@@ -309,7 +246,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     commandModeRef.current = false;
     inSpeechRef.current = false;
     clearFollowUpTimer();
-    clearProcessingAcknowledgement();
     stopRecognition();
 
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
@@ -459,7 +395,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
   }
 
   async function speakAnswer(message) {
-    clearProcessingAcknowledgement();
     speakingRef.current = true;
     setVoiceError("");
     stopRecognition();
@@ -485,7 +420,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
   }
 
   async function speakRecovery() {
-    clearProcessingAcknowledgement();
     speakingRef.current = true;
     stopRecognition();
     setStatus("speaking");
@@ -508,7 +442,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     lastWakeRef.current = now;
 
     clearFollowUpTimer();
-    clearProcessingAcknowledgement();
     commandModeRef.current = false;
     stopRecognition();
     speakingRef.current = true;
@@ -565,7 +498,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     stopRecognition();
     setStatus("working");
     setVoiceError("");
-    scheduleProcessingAcknowledgement();
 
     const priorConversation = conversationRef.current.slice(-12);
     conversationRef.current = [
@@ -623,7 +555,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
       if (enabledRef.current) armCommandMode();
     } catch (error) {
-      clearProcessingAcknowledgement();
       const failureDetail = error?.message || "Voice request failed";
       console.error("AVANTIQO_VOICE_COMMAND_ERROR", failureDetail);
       setVoiceError(failureDetail);
@@ -796,17 +727,12 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
       setStatus("understanding");
       setVoiceError("");
-      scheduleProcessingAcknowledgement();
 
       try {
         const transcript = await transcribe(blob);
         if (transcript) await runVoiceCommand(transcript);
-        else {
-          clearProcessingAcknowledgement();
-          setStatus("listening");
-        }
+        else setStatus("listening");
       } catch (error) {
-        clearProcessingAcknowledgement();
         setVoiceError(error?.message || "I couldn't understand that");
         setStatus("listening");
       }

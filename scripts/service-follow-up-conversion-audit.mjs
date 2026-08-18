@@ -26,6 +26,7 @@ function requireText(relativePath, expected) {
 const reconciliation = "lib/service-management/runtime/ServiceCompletionReconciliationRuntime.js";
 const conversion = "lib/operations/workforce/ServiceFollowUpConversionRuntime.js";
 const route = "app/api/operations/work-requests/[id]/convert-service-follow-up/route.js";
+const workCenter = "components/workspace/operations/OperationsRuntimeWorkCenter.jsx";
 
 requireText(reconciliation, 'source_type: "service-follow-up"');
 requireText(reconciliation, "follow_up_work_request_id");
@@ -40,10 +41,18 @@ requireText(conversion, 'command: "create"');
 requireText(conversion, 'source_type: "service-follow-up-work-request"');
 requireText(conversion, "service-follow-up-work-order:");
 requireText(conversion, "idempotent_replay");
+requireText(route, "const resolvedParams = await params;");
 requireText(route, 'capabilityId: "work-orders"');
 requireText(route, 'command: "create"');
 requireText(route, "authorize: true");
 requireText(route, "convertApprovedServiceFollowUpToWorkOrder");
+requireText(workCenter, 'capabilityId === "work-requests"');
+requireText(workCenter, 'selected?.status === "approved"');
+requireText(workCenter, 'selected?.source_domain === "service-management"');
+requireText(workCenter, 'selected?.source_type === "service-follow-up"');
+requireText(workCenter, "convert-service-follow-up");
+requireText(workCenter, "Create Follow-up Work Order");
+requireText(workCenter, "idempotent_replay");
 
 if (!process.exitCode) {
   console.log("SERVICE_FOLLOW_UP_CONVERSION_AUDIT_PASSED");
@@ -51,4 +60,5 @@ if (!process.exitCode) {
   console.log("SERVICE_FOLLOW_UP_EXECUTION_OWNER=OPERATIONS_WORK_ORDER");
   console.log("SERVICE_FOLLOW_UP_CONVERSION=APPROVED_AND_IDEMPOTENT");
   console.log("SERVICE_FOLLOW_UP_ASSIGNMENT=DISPATCH_CONTROLLED");
+  console.log("SERVICE_FOLLOW_UP_MANAGER_ACTION=OPERATIONS_WORK_REQUEST_WORKSPACE");
 }

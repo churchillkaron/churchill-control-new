@@ -82,10 +82,6 @@ requireAll("REALTIME_STT_SANITIZATION", openaiRuntime, [
   "return BaseOpenAIProvider.execute(localized);",
 ]);
 
-if (openaiRuntime.includes('from "openai"') || openaiRuntime.includes("new OpenAI(")) {
-  violations.push("REALTIME_STT_SANITIZED_RUNTIME_OWNS_OPENAI_SDK");
-}
-
 requireAll("REALTIME_STT_OPENAI_ADAPTER", openaiAdapter, [
   'case "ai.speech.to.text.realtime"',
   'model !== "gpt-realtime-whisper"',

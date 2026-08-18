@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Camera, FileUp, Loader2, PenLine, ShieldCheck } from "lucide-react";
 
 function updateNested(value, key, next) {
@@ -71,11 +71,40 @@ export default function ServiceProtocolForm({ job, value = {}, onChange }) {
       if (fieldKey) {
         changeField(fieldKey, data.evidence);
       } else if (targetKey) {
-        const current = Array.isArray(submission.evidence?.[targetKey])
-          ? submission.evidence[targetKey]
-          : [];
-        changeEvidence(targetKey, [...current, data.evidence]);
+        changeEvidence(targetKey, data.evidence);
       }
+    } catch (error) {
+      setUploadError(error?.message || "Evidence upload failed");
+    } finally {
+      setUploadingKey(null);
+    }
+  }
+
+  async function uploadEvidenceList(file, { evidenceType, targetKey }) {
+    if (!file) return;
+    const busyKey = targetKey || evidenceType;
+    setUploadingKey(busyKey);
+    setUploadError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("workOrderId", job.id);
+      formData.append("evidenceType", evidenceType);
+      formData.append("file", file);
+
+      const response = await fetch("/api/staff/my-day/evidence", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Evidence upload failed");
+      }
+
+      const current = Array.isArray(submission.evidence?.[targetKey])
+        ? submission.evidence[targetKey]
+        : [];
+      changeEvidence(targetKey, [...current, data.evidence]);
     } catch (error) {
       setUploadError(error?.message || "Evidence upload failed");
     } finally {
@@ -124,7 +153,7 @@ export default function ServiceProtocolForm({ job, value = {}, onChange }) {
               count={submission.evidence?.before_photos?.length || 0}
               uploading={uploadingKey === "before_photos"}
               onFile={(file) =>
-                uploadEvidence(file, {
+                uploadEvidenceList(file, {
                   evidenceType: "before_photo",
                   targetKey: "before_photos",
                 })
@@ -137,7 +166,7 @@ export default function ServiceProtocolForm({ job, value = {}, onChange }) {
               count={submission.evidence?.after_photos?.length || 0}
               uploading={uploadingKey === "after_photos"}
               onFile={(file) =>
-                uploadEvidence(file, {
+                uploadEvidenceList(file, {
                   evidenceType: "after_photo",
                   targetKey: "after_photos",
                 })
@@ -148,33 +177,33 @@ export default function ServiceProtocolForm({ job, value = {}, onChange }) {
       ) : null}
 
       {requirements.customer_signature ? (
-        <label className="mt-4 block text-xs font-bold text-white/60">
-          Customer signature / acknowledgement
-          <div className="relative">
-            <PenLine className="pointer-events-none absolute left-3 top-5 h-4 w-4 text-white/30" />
-            <input
-              value={submission.evidence?.customer_signature || ""}
-              onChange={(event) => changeEvidence("customer_signature", event.target.value)}
-              placeholder="Customer name or acknowledgement"
-              className={`${inputClass()} pl-10`}
-            />
-          </div>
-        </label>
+        <SignatureCapture
+          label="Customer signature"
+          value={submission.evidence?.customer_signature || null}
+          uploading={uploadingKey === "customer_signature"}
+          onSave={(file) =>
+            uploadEvidence(file, {
+              evidenceType: "customer_signature",
+              targetKey: "customer_signature",
+            })
+          }
+          onClear={() => changeEvidence("customer_signature", null)}
+        />
       ) : null}
 
       {requirements.technician_signature ? (
-        <label className="mt-4 block text-xs font-bold text-white/60">
-          Technician signature / acknowledgement
-          <div className="relative">
-            <PenLine className="pointer-events-none absolute left-3 top-5 h-4 w-4 text-white/30" />
-            <input
-              value={submission.evidence?.technician_signature || ""}
-              onChange={(event) => changeEvidence("technician_signature", event.target.value)}
-              placeholder="Technician name or acknowledgement"
-              className={`${inputClass()} pl-10`}
-            />
-          </div>
-        </label>
+        <SignatureCapture
+          label="Technician signature"
+          value={submission.evidence?.technician_signature || null}
+          uploading={uploadingKey === "technician_signature"}
+          onSave={(file) =>
+            uploadEvidence(file, {
+              evidenceType: "technician_signature",
+              targetKey: "technician_signature",
+            })
+          }
+          onClear={() => changeEvidence("technician_signature", null)}
+        />
       ) : null}
 
       {rules.require_outcome !== false ? (
@@ -209,7 +238,7 @@ export default function ServiceProtocolForm({ job, value = {}, onChange }) {
       {requirements.location_confirmation ? (
         <div className="mt-4 flex items-start gap-2 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.06] px-3 py-3 text-xs text-cyan-100/70">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-          GPS must confirm you are within 250 meters of the stored service location when completing.
+          GPS must confirm the configured service-location rule when completing.
         </div>
       ) : null}
 
@@ -235,6 +264,38 @@ function ProtocolField({ field, value, uploading, onChange, onFile }) {
           className="h-4 w-4"
         />
         {label}
+      </label>
+    );
+  }
+
+  if (field.type === "material") {
+    const quantity = Number(value?.quantity || 0);
+    return (
+      <label className="block rounded-2xl border border-white/10 bg-black/20 p-3 text-xs font-bold text-white/60">
+        <div>{label}</div>
+        <div className="mt-1 text-[10px] font-normal text-white/35">
+          {field.material_name || field.item_name || "Material"}
+          {field.unit ? ` · ${field.unit}` : ""}
+        </div>
+        <input
+          type="number"
+          min="0"
+          step={field.step || "any"}
+          value={quantity || ""}
+          placeholder="Quantity used"
+          onChange={(event) =>
+            onChange({
+              item_id: field.item_id || field.inventory_item_id || null,
+              material_name: field.material_name || field.item_name || field.label || null,
+              unit: field.unit || null,
+              warehouse_id: field.warehouse_id || null,
+              location_id: field.location_id || null,
+              quantity: event.target.value === "" ? 0 : Number(event.target.value),
+            })
+          }
+          className={inputClass()}
+        />
+        {field.help_text ? <div className="mt-1 text-[10px] text-white/30">{field.help_text}</div> : null}
       </label>
     );
   }
@@ -325,5 +386,112 @@ function EvidenceUpload({ label, count, uploading, onFile }) {
         className="mt-3 w-full text-[10px] text-white/35"
       />
     </label>
+  );
+}
+
+function SignatureCapture({ label, value, uploading, onSave, onClear }) {
+  const canvasRef = useRef(null);
+  const drawingRef = useRef(false);
+
+  function point(event) {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const clientX = event.clientX ?? event.touches?.[0]?.clientX;
+    const clientY = event.clientY ?? event.touches?.[0]?.clientY;
+    if (clientX === undefined || clientY === undefined) return null;
+    return {
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top) * (canvas.height / rect.height),
+    };
+  }
+
+  function begin(event) {
+    event.preventDefault();
+    const canvas = canvasRef.current;
+    const p = point(event);
+    if (!canvas || !p) return;
+    const ctx = canvas.getContext("2d");
+    drawingRef.current = true;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+
+  function draw(event) {
+    if (!drawingRef.current) return;
+    event.preventDefault();
+    const canvas = canvasRef.current;
+    const p = point(event);
+    if (!canvas || !p) return;
+    const ctx = canvas.getContext("2d");
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+
+  function end() {
+    drawingRef.current = false;
+  }
+
+  function clearCanvas() {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    onClear();
+  }
+
+  function saveSignature() {
+    const canvas = canvasRef.current;
+    if (!canvas || uploading) return;
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      onSave(new File([blob], `${label.toLowerCase().replace(/\s+/g, "-")}.png`, { type: "image/png" }));
+    }, "image/png");
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3">
+      <div className="flex items-center gap-2 text-xs font-bold text-white/60">
+        <PenLine className="h-4 w-4 text-cyan-300" />
+        {label}
+      </div>
+      {value?.external_url ? (
+        <div className="mt-3 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.06] px-3 py-3 text-xs text-emerald-100">
+          Signature captured ✓
+        </div>
+      ) : (
+        <canvas
+          ref={canvasRef}
+          width={700}
+          height={220}
+          onPointerDown={begin}
+          onPointerMove={draw}
+          onPointerUp={end}
+          onPointerLeave={end}
+          className="mt-3 h-32 w-full touch-none rounded-xl border border-dashed border-white/20 bg-white/[0.03]"
+        />
+      )}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={clearCanvas}
+          className="h-10 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-bold text-white/55"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
+          onClick={saveSignature}
+          disabled={uploading || Boolean(value?.external_url)}
+          className="flex h-10 items-center justify-center gap-2 rounded-xl bg-cyan-500/20 text-xs font-black text-cyan-100 disabled:opacity-40"
+        >
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
+          Save signature
+        </button>
+      </div>
+    </div>
   );
 }

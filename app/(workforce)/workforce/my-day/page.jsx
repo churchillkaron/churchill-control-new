@@ -14,6 +14,7 @@ import {
   Route,
   ShieldCheck,
 } from "lucide-react";
+import ServiceProtocolForm from "@/components/workforce/ServiceProtocolForm";
 import captureDeviceLocation from "@/lib/shared/location/captureDeviceLocation";
 
 function timeLabel(value) {
@@ -80,6 +81,7 @@ export default function MyDayPage() {
   const [error, setError] = useState("");
   const [gpsResult, setGpsResult] = useState(null);
   const [navJobId, setNavJobId] = useState(null);
+  const [protocolSubmissions, setProtocolSubmissions] = useState({});
 
   async function loadMyDay() {
     setLoading(true);
@@ -142,6 +144,10 @@ export default function MyDayPage() {
           workOrderId: job.id,
           action,
           location,
+          completion:
+            action === "complete"
+              ? protocolSubmissions[job.id] || job.completionSubmission || null
+              : null,
         }),
       });
       const data = await response.json();
@@ -155,6 +161,13 @@ export default function MyDayPage() {
         action,
         ...data.gps,
       });
+      if (action === "complete") {
+        setProtocolSubmissions((current) => {
+          const next = { ...current };
+          delete next[job.id];
+          return next;
+        });
+      }
       await loadMyDay();
     } catch (actionError) {
       setError(actionError?.message || "Unable to update job");
@@ -317,6 +330,19 @@ export default function MyDayPage() {
                   </div>
                 ) : null}
 
+                {isInProgress && job.executionProtocol ? (
+                  <ServiceProtocolForm
+                    job={job}
+                    value={protocolSubmissions[job.id] || job.completionSubmission || {}}
+                    onChange={(submission) =>
+                      setProtocolSubmissions((current) => ({
+                        ...current,
+                        [job.id]: submission,
+                      }))
+                    }
+                  />
+                ) : null}
+
                 {!isCompleted ? (
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <div className="relative">
@@ -385,7 +411,7 @@ export default function MyDayPage() {
           <div>
             <div className="text-sm font-black">One simple workday</div>
             <div className="mt-1 text-xs leading-relaxed text-white/40">
-              Start shift on Home, navigate to your assignment, start the job with GPS, complete it with GPS, then continue to the next assignment.
+              Start shift on Home, navigate to your assignment, start the job with GPS, complete the required service protocol and evidence, then continue to the next assignment.
             </div>
           </div>
         </div>

@@ -37,7 +37,7 @@ export async function GET(request) {
         bill_to_organization_id: ORGANIZATION_ID,
         entity_id: ENTITY_ID,
         service_id: "ai.video.generate",
-        provider_id: "runway",
+        provider_id: "gemini",
         input: {
           prompt,
           duration_seconds: 5,
@@ -50,6 +50,7 @@ export async function GET(request) {
           operation: `AVANTIQO_PRODUCTION_FILM_${scene.toUpperCase()}`,
           brand: "Avantiqo",
           source: "avantiqo_production_film_live_shots_20260818",
+          provider_priority: ["gemini", "google-veo", "runway"],
         },
         category: "AI",
       });

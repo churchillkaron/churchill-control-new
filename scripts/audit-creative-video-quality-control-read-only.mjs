@@ -22,6 +22,15 @@ function rejectMatch(value, pattern, label) {
   }
 }
 
+function sectionBetween(value, startMarker, endMarker, label) {
+  const start = value.indexOf(startMarker);
+  const end = value.indexOf(endMarker, start + startMarker.length);
+  if (start < 0 || end < 0 || end <= start) {
+    throw new Error(`CREATIVE_VIDEO_QUALITY_AUDIT_FAILED:${label}`);
+  }
+  return value.slice(start, end);
+}
+
 async function migrationSources() {
   const directory = path.join(ROOT, "supabase/migrations");
   const names = await fs.readdir(directory);
@@ -97,6 +106,13 @@ const genericRuntimeSources = [
   approvalGuard,
 ].join("\n");
 
+const approvalHandler = sectionBetween(
+  workspace,
+  "async function approveGeneration(",
+  "async function startGeneration(",
+  "UI_APPROVAL_HANDLER_BOUNDARY_REQUIRED",
+);
+
 const staticProviderValueLiteral =
   /(["'`])(?:\d{3,4}p|\d+k|\d+:\d+|veo-[^"'`]+|google-veo|ai\.video\.generate)\1/i;
 rejectMatch(
@@ -146,8 +162,8 @@ requireMatch(
   "UI_DISPATCH_API_BOUNDARY",
 );
 rejectMatch(
-  workspace,
-  /approveGeneration[\s\S]{0,1600}startGeneration\(/,
+  approvalHandler,
+  /startGeneration\(|video-generation-dispatch/i,
   "UI_APPROVAL_MUST_NOT_AUTO_DISPATCH",
 );
 

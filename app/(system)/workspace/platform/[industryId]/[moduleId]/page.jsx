@@ -8,8 +8,7 @@ export default function PlatformModulePage() {
   const params = useParams();
   const industryId = params?.industryId;
   const moduleId = params?.moduleId;
-
-  const module = moduleRegistry[moduleId];
+  const platformModule = moduleRegistry[moduleId];
 
   return (
     <main className="min-h-screen bg-[#030712] text-white p-10">
@@ -22,14 +21,17 @@ export default function PlatformModulePage() {
             </span>
           </div>
           <h1 className="text-6xl font-light capitalize tracking-[-0.06em]">
-            {module?.name || moduleId}
+            {platformModule?.name || moduleId}
           </h1>
-          <p className="mt-4 text-white/60">{module?.category}</p>
-          <p className="mt-2 text-white/50">{module?.description}</p>
+          <p className="mt-4 text-white/60">{platformModule?.category}</p>
+          <p className="mt-2 text-white/50">{platformModule?.description}</p>
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {(module?.kpis || []).map(kpi => (
-              <div key={kpi} className="rounded-2xl bg-black/40 p-4 text-center border border-white/10 shadow-lg">
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {(platformModule?.kpis || []).map((kpi) => (
+              <div
+                key={kpi}
+                className="rounded-2xl border border-white/10 bg-black/40 p-4 text-center shadow-lg"
+              >
                 <p className="text-sm text-white/40">{kpi}</p>
                 <p className="mt-2 text-2xl font-semibold">0</p>
               </div>

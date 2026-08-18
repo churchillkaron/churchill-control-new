@@ -1,87 +1,48 @@
 import { NextResponse } from "next/server";
 
-import {
-  createServerSupabase,
-} from "@/lib/shared/supabase/server";
+import { createServerSupabase } from "@/lib/shared/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req) {
-
   try {
+    const supabase = createServerSupabase();
+    const { searchParams } = new URL(req.url);
+    const moduleFilter = searchParams.get("module");
 
-    const supabase =
-      createServerSupabase();
+    let query = supabase
+      .from("ai_intake_submissions")
+      .select("*")
+      .order("created_at", {
+        ascending: false,
+      });
 
-    const { searchParams } =
-      new URL(req.url);
-
-    const module =
-      searchParams.get("module");
-
-    let query =
-      supabase
-        .from(
-          "ai_intake_submissions"
-        )
-        .select("*")
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          }
-        );
-
-    if (
-      module &&
-      module !== "ALL"
-    ) {
-
-      query =
-        query.eq(
-          "ai_module",
-          module
-        );
-
+    if (moduleFilter && moduleFilter !== "ALL") {
+      query = query.eq("ai_module", moduleFilter);
     }
 
-    const {
-      data,
-      error,
-    } = await query;
+    const { data, error } = await query;
 
     if (error) {
       throw error;
     }
 
     return NextResponse.json({
-
       success: true,
-
-      submissions:
-        data || [],
-
+      submissions: data || [],
     });
-
   } catch (error) {
-
-    console.error(
-      "INTAKE LIST ERROR",
-      error
-    );
+    console.error("INTAKE LIST ERROR", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
+        error: error.message,
       },
       {
         status: 500,
-      }
+      },
     );
-
   }
-
 }

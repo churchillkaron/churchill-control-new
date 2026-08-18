@@ -1,0 +1,10 @@
+node_modules/
+.next/
+public/
+scripts/
+supabase/
+backups/
+archive/
+archives/
+audit/
+coverage/

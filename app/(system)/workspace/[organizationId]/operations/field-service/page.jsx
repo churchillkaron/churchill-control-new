@@ -26,6 +26,15 @@ const FIELD_SERVICE_AREAS = Object.freeze([
     action: "Build Protocols",
   }),
   Object.freeze({
+    id: "proof-of-service",
+    title: "Proof of Service",
+    eyebrow: "Customer Report",
+    description:
+      "Review completed customer service as a read-only report of protocol results, signatures, photos and canonical material consumption.",
+    route: "/operations/field-service/proof-of-service",
+    action: "Open Reports",
+  }),
+  Object.freeze({
     id: "service-orders",
     title: "Service Orders",
     eyebrow: "Execution Control",

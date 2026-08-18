@@ -1,0 +1,47 @@
+name: Avantiqo Film Asset Pack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/avantiqo-film-asset-pack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pack-film-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download approved film assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p avantiqo-film-assets/live
+          BASE='https://avantiqo.ai/api/internal/avantiqo-film-transfer-20260818'
+          for asset in field restaurant manager hotel kitchen bar hospital warehouse finance people compliance; do
+            echo "Downloading ${asset}"
+            curl --fail --location --retry 30 --retry-delay 10 --retry-all-errors "${BASE}?asset=${asset}" --output "avantiqo-film-assets/live/${asset}.mp4"
+          done
+          curl --fail --location --retry 30 --retry-delay 10 --retry-all-errors "${BASE}?asset=voice" --output avantiqo-film-assets/voice.mp3
+
+      - name: Verify media
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          for file in avantiqo-film-assets/live/*.mp4 avantiqo-film-assets/voice.mp3; do
+            ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 "$file"
+          done
+
+      - name: Upload film asset pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-film-assets-20260818
+          path: avantiqo-film-assets
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0

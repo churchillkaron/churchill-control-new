@@ -174,11 +174,11 @@ export default function FieldServiceControlPage() {
             </div>
             <div>
               <span className="font-semibold text-white/75">Service domain:</span>{" "}
-              contracts, service plans, recurring-service rules, customer commitments, execution protocols and completed service reports.
+              contracts, service plans, recurring-service rules, customers, customer commitments, execution protocols and completed service reports.
             </div>
             <div>
               <span className="font-semibold text-white/75">Commercial, Supply Chain and Finance:</span>{" "}
-              customer communications, materials, inventory, purchasing, billing, accounting and settlement remain owned by their canonical domains.
+              customer communications, chemicals, materials, inventory, purchasing, billing, accounting and settlement remain owned by their canonical domains.
             </div>
           </div>
         </div>

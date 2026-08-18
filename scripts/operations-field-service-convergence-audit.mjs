@@ -59,6 +59,12 @@ const staffMyDayApi = "app/api/staff/my-day/route.js";
 const staffEvidenceApi = "app/api/staff/my-day/evidence/route.js";
 const serviceProtocolForm = "components/workforce/ServiceProtocolForm.jsx";
 const staffMyDayPage = "app/(workforce)/workforce/my-day/page.jsx";
+const customerServiceHistoryProjection =
+  "lib/commercial/customers/CustomerServiceHistoryProjection.js";
+const customerDetailService =
+  "lib/commercial/customers/CustomerDetailService.js";
+const customerWorkCenter =
+  "components/workspace/commercial/CustomerRuntimeWorkCenter.jsx";
 const vercelConfig = "vercel.json";
 
 for (const route of [
@@ -97,6 +103,7 @@ for (const capabilityId of [
   '"assignments"',
   '"queue-entries"',
   '"completion-evidence"',
+  '"work-requests"',
 ]) {
   requireText(operationsCatalog, capabilityId);
 }
@@ -134,6 +141,15 @@ requireText(serviceCompletionReconciliation, 'status: "completed"');
 requireText(serviceCompletionReconciliation, "completion_evidence_id");
 requireText(serviceCompletionReconciliation, "protocol_submission");
 requireText(serviceCompletionReconciliation, "completed_at: projection.completed_at");
+requireText(serviceCompletionReconciliation, "FOLLOW_UP_OUTCOMES");
+requireText(serviceCompletionReconciliation, '"follow_up"');
+requireText(serviceCompletionReconciliation, '"issue_found"');
+requireText(serviceCompletionReconciliation, 'capabilityId: "work-requests"');
+requireText(serviceCompletionReconciliation, 'command: "create"');
+requireText(serviceCompletionReconciliation, 'source_type: "service-follow-up"');
+requireText(serviceCompletionReconciliation, "service-follow-up:");
+requireText(serviceCompletionReconciliation, "follow_up_work_request_id");
+requireText(serviceCompletionReconciliation, "follow_up_requests");
 requireText(servicePlanRuntime, "advancePlanAfterGeneratedOccurrence");
 requireText(servicePlanRuntime, "recovered_plan_cursor: true");
 requireText(servicePlanRuntime, 'capabilityId: "work-orders"');
@@ -190,6 +206,20 @@ requireText(staffMyDayPage, "job.executionProtocol");
 requireText(staffMyDayPage, "<ServiceProtocolForm");
 requireText(staffMyDayPage, 'action === "complete"');
 
+requireText(customerServiceHistoryProjection, "export async function getCustomerServiceHistory");
+requireText(customerServiceHistoryProjection, '.eq("customer_party_id", partyId)');
+requireText(customerServiceHistoryProjection, '.eq("status", "completed")');
+requireText(customerServiceHistoryProjection, "completion_evidence_id");
+requireText(customerServiceHistoryProjection, "follow_up_work_request_id");
+requireText(customerServiceHistoryProjection, "export function customerServiceTimeline");
+requireText(customerServiceHistoryProjection, 'domain: "Service"');
+requireText(customerServiceHistoryProjection, 'type: "SERVICE_VISIT_COMPLETED"');
+requireText(customerDetailService, "getCustomerServiceHistory");
+requireText(customerDetailService, "customerServiceTimeline(serviceHistory)");
+requireText(customerDetailService, "service_management: serviceHistory");
+requireText(customerWorkCenter, "const timeline = detail?.timeline || []");
+requireText(customerWorkCenter, '<Section title="Customer Timeline">');
+
 const registryContent = read(solutionRegistry);
 
 if (
@@ -223,6 +253,8 @@ if (!process.exitCode) {
   console.log("FIELD_SERVICE_PROTOCOL_EXECUTION=SNAPSHOT_AND_ENFORCE");
   console.log("FIELD_SERVICE_EVIDENCE=CANONICAL_OPERATIONS_COMPLETION_EVIDENCE");
   console.log("FIELD_SERVICE_OCCURRENCE_COMPLETION=RECONCILED_FROM_OPERATIONS");
+  console.log("FIELD_SERVICE_FOLLOW_UP=GOVERNED_OPERATIONS_WORK_REQUEST");
+  console.log("FIELD_SERVICE_CUSTOMER_HISTORY=PARTY_SCOPED_SERVICE_TIMELINE");
   console.log("FIELD_SERVICE_INVENTORY_OWNER=SUPPLY_CHAIN");
   console.log("FIELD_SERVICE_BILLING_OWNER=FINANCE");
 }

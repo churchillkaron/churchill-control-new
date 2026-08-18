@@ -265,7 +265,7 @@ assert.match(reasoningSource, /read_chain_nested_entity_guard:\s*true/);
 assert.match(reasoningSource, /fast_voice_follow_up_fallback:\s*true/);
 assert.match(reasoningSource, /evidence_first_mixed_action:\s*true/);
 assert.match(reasoningSource, /every read step, follow_up action, and follow_up\.verify_after read/);
-assert.match(reasoningSource, /do not construct the follow_up on the fast spoken path/i);
+assert.match(reasoningSource, /do not construct the follow_up on the fast path/i);
 assert.match(reasoningSource, /the user's current request explicitly asks for a downstream business action/i);
 assert.match(reasoningSource, /A recommendation alone is not authorization/i);
 assert.match(reasoningSource, /Read evidence never auto-authorizes a write/i);

@@ -32,6 +32,8 @@ jobs:
         run: npm ci
 
       - name: Lint
+        env:
+          ESLINT_USE_FLAT_CONFIG: "false"
         run: npx eslint --config .eslintrc.cjs app components hooks lib
 
       - name: Test

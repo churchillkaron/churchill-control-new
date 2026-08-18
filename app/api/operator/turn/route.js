@@ -156,6 +156,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  const turnStartedAt = Date.now();
+
   try {
     const body = await request.json();
     const organizationId = readValue(
@@ -182,11 +184,14 @@ export async function POST(request) {
       return errorResponse("Message required", 400);
     }
 
+    const accessStartedAt = Date.now();
     const resolved = await resolvePartyAccess(request, organizationId);
+    const accessMs = Date.now() - accessStartedAt;
     if (resolved.error) return resolved.error;
 
     const { access, partyId } = resolved;
 
+    const contextStartedAt = Date.now();
     const businessContext = await resolveBusinessContext({
       organizationId: access.organizationId,
       entityId: requestedEntityId,
@@ -194,6 +199,7 @@ export async function POST(request) {
       request,
       access,
     });
+    const contextMs = Date.now() - contextStartedAt;
 
     if (!businessContext.success) {
       return errorResponse(
@@ -214,6 +220,7 @@ export async function POST(request) {
       role: access.role || null,
     };
 
+    const memoryStartedAt = Date.now();
     const memory = await loadOrCreateIntelligenceConversation({
       organizationId: businessContext.organizationId,
       partyId,
@@ -222,6 +229,7 @@ export async function POST(request) {
       userId: actor.id,
       conversationKey,
     });
+    const memoryMs = Date.now() - memoryStartedAt;
 
     const clientConversation = boundedConversation(body.conversation);
     const persistedConversation = boundedConversation(memory.recentConversation);
@@ -233,39 +241,52 @@ export async function POST(request) {
     // state. The persisted conversation record is the only resume source.
     const agreementState = object(memory.agreementState);
 
+    let operatorMs = 0;
+    let userTurnPersistMs = 0;
+    const operatorStartedAt = Date.now();
+    const operatorPromise = runOperatorTurn({
+      organizationId: businessContext.organizationId,
+      entityId: businessContext.entityId,
+      periodId: businessContext.periodId,
+      partyId,
+      actor,
+      role: access.role,
+      permissions:
+        businessContext.permissions ||
+        access.permissions ||
+        [],
+      locale:
+        text(body.locale) ||
+        businessContext.locale ||
+        null,
+      timezone: businessContext.timezone || null,
+      message,
+      source,
+      pathname: text(body.pathname) || null,
+      agreementState,
+      projectState: memory.projectState,
+      conversation,
+      callerRequest: request,
+    }).then((value) => {
+      operatorMs = Date.now() - operatorStartedAt;
+      return value;
+    });
+    const userPersistStartedAt = Date.now();
+    const userPersistPromise = persistIntelligenceTurn({
+      organizationId: businessContext.organizationId,
+      conversationId: memory.conversation.id,
+      partyId,
+      role: "user",
+      source,
+      content: message,
+    }).then((value) => {
+      userTurnPersistMs = Date.now() - userPersistStartedAt;
+      return value;
+    });
+
     const [result] = await Promise.all([
-      runOperatorTurn({
-        organizationId: businessContext.organizationId,
-        entityId: businessContext.entityId,
-        periodId: businessContext.periodId,
-        partyId,
-        actor,
-        role: access.role,
-        permissions:
-          businessContext.permissions ||
-          access.permissions ||
-          [],
-        locale:
-          text(body.locale) ||
-          businessContext.locale ||
-          null,
-        timezone: businessContext.timezone || null,
-        message,
-        source,
-        pathname: text(body.pathname) || null,
-        agreementState,
-        projectState: memory.projectState,
-        conversation,
-        callerRequest: request,
-      }),
-      persistIntelligenceTurn({
-        organizationId: businessContext.organizationId,
-        conversationId: memory.conversation.id,
-        partyId,
-        role: "user",
-        source,
-        content: message,
-      }),
+      operatorPromise,
+      userPersistPromise,
     ]);
 
     const responseText =
@@ -285,6 +306,7 @@ export async function POST(request) {
       result,
     );
 
+    const assistantPersistStartedAt = Date.now();
     const persisted = await persistAssistantTurnAndConversationState({
       organizationId: businessContext.organizationId,
       conversationId: memory.conversation.id,
@@ -298,9 +320,35 @@ export async function POST(request) {
       agreementState: nextAgreementState,
       projectState: nextProjectState,
     });
+    const assistantPersistMs = Date.now() - assistantPersistStartedAt;
     const persistedState = object(persisted.conversation);
+    const totalMs = Date.now() - turnStartedAt;
 
-    return Response.json({
+    const latency = {
+      version: 1,
+      access_ms: accessMs,
+      context_ms: contextMs,
+      memory_ms: memoryMs,
+      operator_ms: operatorMs,
+      user_turn_persist_ms: userTurnPersistMs,
+      assistant_persist_ms: assistantPersistMs,
+      total_ms: totalMs,
+    };
+
+    console.info(
+      "OPERATOR_LATENCY_V1",
+      JSON.stringify({
+        ...latency,
+        organization_id: businessContext.organizationId,
+        entity_scoped: Boolean(businessContext.entityId),
+        source,
+        intent: text(result?.decision?.intent) || null,
+        execution_status: text(result?.execution?.status) || null,
+        capability_key: text(result?.execution?.capability?.key) || null,
+      }),
+    );
+
+    const response = Response.json({
       ...result,
       agreement_state: object(persistedState.agreement_state),
       project_state: object(persistedState.project_state),
@@ -319,6 +367,20 @@ export async function POST(request) {
         timezone: businessContext.timezone || null,
       },
     });
+
+    response.headers.set(
+      "Server-Timing",
+      [
+        `access;dur=${accessMs}`,
+        `context;dur=${contextMs}`,
+        `memory;dur=${memoryMs}`,
+        `operator;dur=${operatorMs}`,
+        `persist;dur=${assistantPersistMs}`,
+        `total;dur=${totalMs}`,
+      ].join(", "),
+    );
+
+    return response;
   } catch (error) {
     console.error("OPERATOR_TURN_ERROR", error);
 

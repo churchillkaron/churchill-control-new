@@ -72,14 +72,20 @@ function findTranscript(value, depth = 0) {
   return "";
 }
 
-function errorResponse(error, status = 500) {
+function errorResponse(error, status = 500, code = null) {
   return Response.json(
     {
       success: false,
       error,
+      ...(code ? { code } : {}),
     },
     { status },
   );
+}
+
+function serviceDisabled(error) {
+  const message = text(error?.message).toLowerCase();
+  return message.includes("service ai.speech.to.text is not enabled for organization");
 }
 
 export async function POST(request) {
@@ -199,11 +205,20 @@ export async function POST(request) {
       },
     });
   } catch (error) {
+    if (serviceDisabled(error)) {
+      return errorResponse(
+        "Voice transcription is not enabled for this organization",
+        403,
+        "SERVICE_NOT_ENABLED",
+      );
+    }
+
     console.error("OPERATOR_TRANSCRIPTION_ERROR", error);
 
     return errorResponse(
       error?.message || "Voice transcription failed",
       error?.status || 500,
+      error?.code || null,
     );
   }
 }

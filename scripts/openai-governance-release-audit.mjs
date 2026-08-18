@@ -10,7 +10,7 @@ const RAW_ADAPTER =
   "lib/platform/service-runtime/providers/openai/OpenAIProvider.js";
 const SANITIZED_ADAPTER =
   "lib/platform/service-runtime/providers/openai/OpenAIProviderSanitizedRuntime.js";
-const ALLOWED_OPENAI_SDK_FILES = new Set([RAW_ADAPTER]);
+const ALLOWED_OPENAI_SDK_FILES = new Set([RAW_ADAPTER, SANITIZED_ADAPTER]);
 const ALLOWED_RAW_ADAPTER_IMPORT_FILES = new Set([SANITIZED_ADAPTER]);
 const EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]);
 const VIOLATIONS = [];

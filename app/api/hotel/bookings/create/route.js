@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { checkAvailability } from "@/lib/hotel/checkAvailability";
+import { MarketingAttributionCaptureRuntime } from "@/lib/marketing/intelligence/MarketingAttributionCaptureRuntime";
+import { MarketingBusinessOutcomeProjectionRuntime } from "@/lib/marketing/intelligence/MarketingBusinessOutcomeProjectionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -94,7 +96,37 @@ export async function POST(request) {
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, booking: data });
+    const tracking = MarketingAttributionCaptureRuntime.fromObject(body);
+    let marketingOutcome = null;
+
+    if (tracking) {
+      marketingOutcome = await MarketingBusinessOutcomeProjectionRuntime.project({
+        organizationId: access.organizationId,
+        outcomeType: "BOOKING",
+        quantity: 1,
+        revenue: Number(data.total_amount || 0),
+        currency: cleanValue(body.currency || body.currency_code) || "THB",
+        reservationId: data.id,
+        sourceDocumentType: "hotel_booking",
+        sourceDocumentId: data.id,
+        eventId: `hotel-booking-created:${data.id}`,
+        tracking,
+        metadata: {
+          booking_reference: data.booking_reference || null,
+          booking_source: data.source || null,
+          payment_status: data.payment_status || null,
+        },
+      }).catch((projectionError) => ({
+        projected: false,
+        reason: projectionError?.message || "MARKETING_OUTCOME_PROJECTION_FAILED",
+      }));
+    }
+
+    return NextResponse.json({
+      success: true,
+      booking: data,
+      marketing_outcome: marketingOutcome,
+    });
   } catch (error) {
     console.error("HOTEL_BOOKING_CREATE_ERROR", error);
     return errorResponse(error?.message || "Booking creation failed");

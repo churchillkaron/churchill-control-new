@@ -5,6 +5,10 @@ const reasoningSource = await readFile(
   "lib/operator/runtime/OperatorReasoningRuntime.js",
   "utf8",
 );
+const readResolverSource = await readFile(
+  "lib/operator/runtime/OperatorBusinessReadResolver.js",
+  "utf8",
+);
 
 assert.match(
   reasoningSource,
@@ -77,6 +81,30 @@ assert.doesNotMatch(
   /fast_voice_fallback_reason:\s*(?:message|fastParsed|fastRequest|payload|user_input)/,
 );
 
+assert.match(
+  readResolverSource,
+  /const OPERATOR_READ_CHAIN_KEY = "platform\.operator_read_chain\.execute"/,
+);
+assert.match(readResolverSource, /function diverseReads\(/);
+assert.match(readResolverSource, /const groups = new Map\(\)/);
+assert.match(
+  readResolverSource,
+  /const group = text\(capability\?\.domain\) \|\| "_"/,
+);
+assert.match(readResolverSource, /function readChainCapability\(/);
+assert.match(
+  readResolverSource,
+  /if \(chain\) appendUnique\(selected, seen, \[chain\], boundedLimit\)/,
+);
+assert.match(
+  readResolverSource,
+  /diverseReads\(source, boundedLimit\)/,
+);
+assert.doesNotMatch(
+  readResolverSource,
+  /revenue|profit|inventory|receivable|payable|payroll|customer|supplier|hotel|restaurant/i,
+);
+
 console.log("OPERATOR_FAST_VOICE_READ_CATALOG_AUDIT=PASS");
 console.log("OPERATOR_FAST_VOICE_PRIMARY_CAPABILITIES=12");
 console.log("OPERATOR_FAST_VOICE_READ_SUPPLEMENT=6");
@@ -84,5 +112,7 @@ console.log("OPERATOR_FAST_VOICE_CAPABILITY_CEILING=18");
 console.log("OPERATOR_FAST_VOICE_SUPPLEMENT_MODE=READ_ONLY");
 console.log("OPERATOR_FAST_EXECUTIVE_PATH=ALL_CHANNELS");
 console.log("OPERATOR_FAST_EXECUTIVE_ACTIONS=DEEP_REASONING_FALLBACK");
+console.log("OPERATOR_DYNAMIC_MULTI_READ=READ_CHAIN_PLUS_DOMAIN_DIVERSE_CATALOG");
+console.log("OPERATOR_DYNAMIC_MULTI_READ=NO_FIXED_BUSINESS_VOCABULARY");
 console.log("OPERATOR_FAST_VOICE_FALLBACK_TELEMETRY=REASON_CODE_ONLY");
 console.log("OPERATOR_FAST_VOICE_FALLBACK_PRIVACY=NO_USER_CONTENT_OR_PAYLOAD");

@@ -56,8 +56,7 @@ end
 $$;
 
 create unique index if not exists marketing_attribution_org_idempotency_uidx
-  on public.marketing_attribution (organization_id, idempotency_key)
-  where idempotency_key is not null;
+  on public.marketing_attribution (organization_id, idempotency_key);
 
 create index if not exists marketing_attribution_marketing_campaign_idx
   on public.marketing_attribution (organization_id, marketing_campaign_id, occurred_at desc);

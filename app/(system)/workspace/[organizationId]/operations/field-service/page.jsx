@@ -26,6 +26,15 @@ const FIELD_SERVICE_AREAS = Object.freeze([
     action: "Build Protocols",
   }),
   Object.freeze({
+    id: "service-reports",
+    title: "Service Reports",
+    eyebrow: "Customer Delivery",
+    description:
+      "Review canonical completed-service records, evidence and customer-safe delivery previews before creating governed Communications drafts.",
+    route: "/operations/field-service/service-reports",
+    action: "Open Service Reports",
+  }),
+  Object.freeze({
     id: "service-orders",
     title: "Service Orders",
     eyebrow: "Execution Control",
@@ -140,7 +149,7 @@ export default function FieldServiceControlPage() {
             {organization?.name || "Field Service Operations"}
           </h1>
           <p className="mt-3 text-sm leading-6 text-white/45">
-            Coordinate recurring customer commitments and live customer service execution from one command workspace. Service Management owns service plans and recurring-service rules; Operations owns service orders, appointment windows, dispatch, assignments, queues and completion evidence. Industry-specific treatments remain dynamic execution protocols rather than scheduler hardcoding.
+            Coordinate recurring customer commitments and live customer service execution from one command workspace. Service Management owns service plans, recurring-service rules and completed service reports; Operations owns service orders, appointment windows, dispatch, assignments, queues and completion evidence. Industry-specific treatments remain dynamic execution protocols rather than scheduler hardcoding.
           </p>
         </div>
 
@@ -165,11 +174,11 @@ export default function FieldServiceControlPage() {
             </div>
             <div>
               <span className="font-semibold text-white/75">Service domain:</span>{" "}
-              contracts, treatments, treatment plans, recurring-service rules, customers, customer commitments and industry-specific protocols.
+              contracts, service plans, recurring-service rules, customer commitments, execution protocols and completed service reports.
             </div>
             <div>
-              <span className="font-semibold text-white/75">Supply Chain and Finance:</span>{" "}
-              chemicals, materials, inventory, purchasing, billing, accounting and settlement.
+              <span className="font-semibold text-white/75">Commercial, Supply Chain and Finance:</span>{" "}
+              customer communications, materials, inventory, purchasing, billing, accounting and settlement remain owned by their canonical domains.
             </div>
           </div>
         </div>

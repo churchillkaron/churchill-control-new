@@ -237,6 +237,11 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
     }
   ));
 
+  const canConvertServiceFollowUp = capabilityId === "work-requests"
+    && selected?.status === "approved"
+    && selected?.source_domain === "service-management"
+    && selected?.source_type === "service-follow-up";
+
   async function loadAssignees() {
     if (!organizationId || assigneesLoading || assignees.length > 0) return;
 
@@ -307,6 +312,43 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
       setHistoryRefreshKey((current) => current + 1);
     } catch (commandError) {
       setError(commandError.message || "Operations command failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function convertServiceFollowUp() {
+    if (!selected?.id || !canConvertServiceFollowUp) return;
+
+    setSaving(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetch(
+        `/api/operations/work-requests/${selected.id}/convert-service-follow-up`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(contextPayload),
+        },
+      );
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || "Follow-up work order could not be created.");
+      }
+
+      const workOrderId = json.work_order?.id || null;
+      setNotice(
+        json.idempotent_replay
+          ? `Follow-up work order already exists${workOrderId ? `: ${workOrderId}` : "."}`
+          : `Follow-up work order created${workOrderId ? `: ${workOrderId}` : "."}`,
+      );
+      await load();
+      setHistoryRefreshKey((current) => current + 1);
+    } catch (conversionError) {
+      setError(conversionError.message || "Follow-up work order could not be created.");
     } finally {
       setSaving(false);
     }
@@ -518,7 +560,7 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                   refreshKey={historyRefreshKey}
                 />
 
-                {rowCommands.length ? (
+                {rowCommands.length || canConvertServiceFollowUp ? (
                   <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
                     {rowCommands.map((action) => (
                       <button
@@ -531,6 +573,16 @@ export default function OperationsRuntimeWorkCenter({ capability }) {
                         {action.label || titleCase(action.command)}
                       </button>
                     ))}
+                    {canConvertServiceFollowUp ? (
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={convertServiceFollowUp}
+                        className="rounded-xl border border-[#D6A66A]/35 bg-[#D6A66A]/10 px-3 py-2 text-xs text-[#D6A66A] transition hover:bg-[#D6A66A]/15 disabled:opacity-50"
+                      >
+                        Create Follow-up Work Order
+                      </button>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="border-t border-white/10 pt-4 text-xs text-white/35">

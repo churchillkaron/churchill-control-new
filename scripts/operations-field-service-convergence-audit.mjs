@@ -49,6 +49,8 @@ const executionTemplateRepository =
   "lib/service-management/repositories/ServiceExecutionTemplateRepository.js";
 const servicePlanScheduler =
   "lib/service-management/runtime/ServicePlanSchedulerRuntime.js";
+const serviceCompletionReconciliation =
+  "lib/service-management/runtime/ServiceCompletionReconciliationRuntime.js";
 const servicePlanWorker =
   "app/api/internal/service-management/plans/process/route.js";
 const staffAssignedWorkRuntime =
@@ -115,11 +117,23 @@ requireText(
 requireText(servicePlanRepository, "export async function listDueServicePlans");
 requireText(servicePlanRepository, '.eq("status", "active")');
 requireText(servicePlanRepository, '.lte("next_service_at", dueBefore)');
+requireText(servicePlanRepository, "export async function listGeneratedServiceOccurrences");
+requireText(servicePlanRepository, '.eq("status", "generated")');
+requireText(servicePlanRepository, '.not("work_order_id", "is", null)');
 requireText(servicePlanScheduler, "processDueServicePlans");
 requireText(servicePlanScheduler, "listDueServicePlans");
+requireText(servicePlanScheduler, "reconcileGeneratedServiceOccurrences");
+requireText(servicePlanScheduler, "completed_occurrences_reconciled");
 requireText(servicePlanScheduler, "generateNextServiceVisit");
 requireText(servicePlanScheduler, "organization_id: plan.organization_id");
 requireText(servicePlanScheduler, "system_automation: true");
+requireText(serviceCompletionReconciliation, "reconcileGeneratedServiceOccurrences");
+requireText(serviceCompletionReconciliation, 'capabilityId: "work-orders"');
+requireText(serviceCompletionReconciliation, 'status !== "completed"');
+requireText(serviceCompletionReconciliation, 'status: "completed"');
+requireText(serviceCompletionReconciliation, "completion_evidence_id");
+requireText(serviceCompletionReconciliation, "protocol_submission");
+requireText(serviceCompletionReconciliation, "completed_at: projection.completed_at");
 requireText(servicePlanRuntime, "advancePlanAfterGeneratedOccurrence");
 requireText(servicePlanRuntime, "recovered_plan_cursor: true");
 requireText(servicePlanRuntime, 'capabilityId: "work-orders"');
@@ -153,6 +167,13 @@ requireText(staffAssignedWorkRuntime, "Technician signature is required.");
 requireText(staffAssignedWorkRuntime, "distance > 250");
 requireText(staffAssignedWorkRuntime, "Service outcome is required before completion.");
 requireText(staffAssignedWorkRuntime, 'outcome === "follow_up"');
+requireText(staffAssignedWorkRuntime, 'COMPLETION_EVIDENCE_CAPABILITY_ID = "completion-evidence"');
+requireText(staffAssignedWorkRuntime, "recordStaffCompletionEvidence");
+requireText(staffAssignedWorkRuntime, 'command: "record"');
+requireText(staffAssignedWorkRuntime, 'source_type: "work-order-completion"');
+requireText(staffAssignedWorkRuntime, "staff-completion-evidence:");
+requireText(staffAssignedWorkRuntime, "completion_evidence_id: completionEvidence.id");
+requireText(staffAssignedWorkRuntime, "completionEvidence,");
 requireText(staffMyDayApi, "completion: body.completion || null");
 requireText(staffEvidenceApi, '.eq("organization_id", context.organizationId)');
 requireText(staffEvidenceApi, '.eq("assigned_to", context.staff.id)');
@@ -200,7 +221,8 @@ if (!process.exitCode) {
   console.log("FIELD_SERVICE_REPLAY_RECOVERY=PLAN_CURSOR_RECONCILED");
   console.log("FIELD_SERVICE_WORKER_AUTH=CRON_SECRET");
   console.log("FIELD_SERVICE_PROTOCOL_EXECUTION=SNAPSHOT_AND_ENFORCE");
-  console.log("FIELD_SERVICE_EVIDENCE=ASSIGNED_STAFF_SCOPED");
+  console.log("FIELD_SERVICE_EVIDENCE=CANONICAL_OPERATIONS_COMPLETION_EVIDENCE");
+  console.log("FIELD_SERVICE_OCCURRENCE_COMPLETION=RECONCILED_FROM_OPERATIONS");
   console.log("FIELD_SERVICE_INVENTORY_OWNER=SUPPLY_CHAIN");
   console.log("FIELD_SERVICE_BILLING_OWNER=FINANCE");
 }

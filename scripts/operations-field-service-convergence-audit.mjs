@@ -45,10 +45,18 @@ const servicePlanRuntime =
   "lib/service-management/runtime/ServicePlanRuntime.js";
 const servicePlanRepository =
   "lib/service-management/repositories/ServicePlanRepository.js";
+const executionTemplateRepository =
+  "lib/service-management/repositories/ServiceExecutionTemplateRepository.js";
 const servicePlanScheduler =
   "lib/service-management/runtime/ServicePlanSchedulerRuntime.js";
 const servicePlanWorker =
   "app/api/internal/service-management/plans/process/route.js";
+const staffAssignedWorkRuntime =
+  "lib/operations/workforce/StaffAssignedWorkRuntime.js";
+const staffMyDayApi = "app/api/staff/my-day/route.js";
+const staffEvidenceApi = "app/api/staff/my-day/evidence/route.js";
+const serviceProtocolForm = "components/workforce/ServiceProtocolForm.jsx";
+const staffMyDayPage = "app/(workforce)/workforce/my-day/page.jsx";
 const vercelConfig = "vercel.json";
 
 for (const route of [
@@ -128,6 +136,39 @@ requireText(vercelConfig, '"schedule": "*/15 * * * *"');
 requireText(vercelConfig, '"deploymentEnabled": false');
 requireText(vercelConfig, '"ignoreCommand": "node scripts/vercel-ignore-build.mjs"');
 
+requireText(executionTemplateRepository, "export async function getServiceExecutionTemplate");
+requireText(executionTemplateRepository, '.eq("organization_id", organization_id)');
+requireText(executionTemplateRepository, '.eq("id", id)');
+requireText(servicePlanRuntime, "resolveProtocolSnapshot");
+requireText(servicePlanRuntime, "execution_protocol: protocol");
+requireText(servicePlanRuntime, "snapshotted_at: new Date().toISOString()");
+requireText(servicePlanRuntime, "Service plan execution template was not found in this organization.");
+requireText(staffAssignedWorkRuntime, "validateProtocolCompletion");
+requireText(staffAssignedWorkRuntime, "protocol_submission");
+requireText(staffAssignedWorkRuntime, "Complete required service fields:");
+requireText(staffAssignedWorkRuntime, "At least one before photo is required.");
+requireText(staffAssignedWorkRuntime, "At least one after photo is required.");
+requireText(staffAssignedWorkRuntime, "Customer signature is required.");
+requireText(staffAssignedWorkRuntime, "Technician signature is required.");
+requireText(staffAssignedWorkRuntime, "distance > 250");
+requireText(staffAssignedWorkRuntime, "Service outcome is required before completion.");
+requireText(staffAssignedWorkRuntime, 'outcome === "follow_up"');
+requireText(staffMyDayApi, "completion: body.completion || null");
+requireText(staffEvidenceApi, '.eq("organization_id", context.organizationId)');
+requireText(staffEvidenceApi, '.eq("assigned_to", context.staff.id)');
+requireText(staffEvidenceApi, '.from("uploads")');
+requireText(staffEvidenceApi, '"service-execution-evidence"');
+requireText(serviceProtocolForm, 'fetch("/api/staff/my-day/evidence"');
+requireText(serviceProtocolForm, "protocol.field_schema");
+requireText(serviceProtocolForm, "requirements.before_photos");
+requireText(serviceProtocolForm, "requirements.after_photos");
+requireText(serviceProtocolForm, "requirements.location_confirmation");
+requireText(staffMyDayPage, 'import ServiceProtocolForm from "@/components/workforce/ServiceProtocolForm"');
+requireText(staffMyDayPage, "protocolSubmissions");
+requireText(staffMyDayPage, "job.executionProtocol");
+requireText(staffMyDayPage, "<ServiceProtocolForm");
+requireText(staffMyDayPage, 'action === "complete"');
+
 const registryContent = read(solutionRegistry);
 
 if (
@@ -158,6 +199,8 @@ if (!process.exitCode) {
   console.log("FIELD_SERVICE_RECURRING_AUTOMATION=SERVICE_MANAGEMENT_SCHEDULER");
   console.log("FIELD_SERVICE_REPLAY_RECOVERY=PLAN_CURSOR_RECONCILED");
   console.log("FIELD_SERVICE_WORKER_AUTH=CRON_SECRET");
+  console.log("FIELD_SERVICE_PROTOCOL_EXECUTION=SNAPSHOT_AND_ENFORCE");
+  console.log("FIELD_SERVICE_EVIDENCE=ASSIGNED_STAFF_SCOPED");
   console.log("FIELD_SERVICE_INVENTORY_OWNER=SUPPLY_CHAIN");
   console.log("FIELD_SERVICE_BILLING_OWNER=FINANCE");
 }

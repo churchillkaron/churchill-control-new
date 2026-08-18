@@ -1,0 +1,606 @@
+name: One-time Operator executive brain convergence v2
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/one-time-operator-executive-brain-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Converge dynamic cognition and parallel evidence
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(source, old, new, label):
+              if old not in source:
+                  raise RuntimeError(f"missing patch anchor: {label}")
+              return source.replace(old, new, 1)
+
+          matcher = r'''function text(value) {
+            return String(value ?? "").trim();
+          }
+
+          function list(value) {
+            return Array.isArray(value) ? value : [];
+          }
+
+          function normalized(value) {
+            return text(value)
+              .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .replace(/[^a-z0-9\s]+/g, " ")
+              .replace(/\s+/g, " ")
+              .trim();
+          }
+
+          function tokens(value) {
+            return normalized(value)
+              .split(" ")
+              .map((item) => item.trim())
+              .filter((item) => item.length > 1);
+          }
+
+          function unique(values = []) {
+            return Array.from(new Set(values.map(text).filter(Boolean)));
+          }
+
+          export function schemaVocabulary(schema = {}) {
+            if (!schema || typeof schema !== "object") return [];
+            const properties = schema.properties && typeof schema.properties === "object"
+              ? schema.properties
+              : {};
+            const output = [];
+            for (const [name, definition] of Object.entries(properties)) {
+              output.push(name);
+              if (definition && typeof definition === "object") {
+                output.push(definition.title, definition.description);
+                if (Array.isArray(definition.enum)) output.push(...definition.enum);
+              }
+            }
+            return unique(output);
+          }
+
+          export function capabilityVocabulary(capability = {}) {
+            const primary = unique([
+              capability.key,
+              capability.name,
+              capability.domain,
+              capability.capability,
+              capability.action,
+              capability.document,
+              capability.workspace_id,
+              capability.item_id,
+              ...list(capability.operator_aliases),
+              ...list(capability.aliases),
+            ]);
+            const secondary = unique([
+              capability.description,
+              capability.search_text,
+              capability.group_name,
+              ...list(capability.tags),
+              ...list(capability.operator_examples),
+              ...list(capability.examples),
+              ...schemaVocabulary(capability.input_schema),
+              ...schemaVocabulary(capability.output_schema),
+            ]);
+            return {
+              primary,
+              secondary,
+              primaryTokens: tokens(primary.join(" ")),
+              secondaryTokens: tokens(secondary.join(" ")),
+            };
+          }
+
+          function tokenWeight(token) {
+            return Math.max(1, Math.min(8, token.length - 1));
+          }
+
+          function weightedCoverage(queryTokens, candidateTokens) {
+            if (!queryTokens.length || !candidateTokens.length) return 0;
+            const candidate = new Set(candidateTokens);
+            let total = 0;
+            let matched = 0;
+            for (const token of queryTokens) {
+              const weight = tokenWeight(token);
+              total += weight;
+              if (candidate.has(token)) matched += weight;
+            }
+            return total > 0 ? matched / total : 0;
+          }
+
+          function phraseAffinity(message, phrases = []) {
+            const query = normalized(message);
+            if (!query) return 0;
+            let affinity = 0;
+            for (const phrase of phrases) {
+              const candidate = normalized(phrase);
+              if (!candidate || candidate.length < 3) continue;
+              if (query === candidate) {
+                affinity = Math.max(affinity, 1);
+                continue;
+              }
+              if (query.includes(candidate)) {
+                affinity = Math.max(affinity, Math.min(0.95, candidate.length / query.length + 0.25));
+                continue;
+              }
+              if (candidate.includes(query) && query.length >= 4) {
+                affinity = Math.max(affinity, Math.min(0.8, query.length / candidate.length + 0.15));
+              }
+            }
+            return affinity;
+          }
+
+          function matchesMode(capability, modes) {
+            if (!Array.isArray(modes) || !modes.length) return true;
+            return modes.includes(normalized(capability?.mode));
+          }
+
+          function relevance(capability, message, modes) {
+            if (!matchesMode(capability, modes)) return null;
+            const queryTokens = tokens(message);
+            if (!queryTokens.length) return null;
+            const vocabulary = capabilityVocabulary(capability);
+            const primaryCoverage = weightedCoverage(queryTokens, vocabulary.primaryTokens);
+            const secondaryCoverage = weightedCoverage(queryTokens, vocabulary.secondaryTokens);
+            const queryVocabulary = [...vocabulary.primaryTokens, ...vocabulary.secondaryTokens];
+            const reverseCoverage = weightedCoverage(queryVocabulary, queryTokens);
+            const phrase = phraseAffinity(message, vocabulary.primary);
+            const score = Math.max(
+              0,
+              Math.min(
+                1,
+                primaryCoverage * 0.5 +
+                  secondaryCoverage * 0.2 +
+                  Math.min(1, reverseCoverage * 2) * 0.1 +
+                  phrase * 0.2,
+              ),
+            );
+            if (score <= 0) return null;
+            return {
+              capability,
+              score,
+              primary_coverage: primaryCoverage,
+              secondary_coverage: secondaryCoverage,
+              phrase_affinity: phrase,
+            };
+          }
+
+          export function rankOperatorCapabilities({
+            message,
+            capabilities = [],
+            modes = null,
+            limit = 12,
+          } = {}) {
+            return list(capabilities)
+              .map((capability, index) => ({ index, relevance: relevance(capability, message, modes) }))
+              .filter((entry) => entry.relevance)
+              .sort((a, b) =>
+                b.relevance.score - a.relevance.score ||
+                b.relevance.phrase_affinity - a.relevance.phrase_affinity ||
+                a.index - b.index,
+              )
+              .slice(0, Math.max(1, Math.min(Number(limit) || 12, 48)))
+              .map((entry) => entry.relevance);
+          }
+
+          export function resolveOperatorCapabilityMatch(options = {}) {
+            const ranked = rankOperatorCapabilities(options);
+            if (!ranked.length) return null;
+            const top = ranked[0];
+            const second = ranked[1] || null;
+            const separation = second ? Math.max(0, top.score - second.score) : top.score;
+            return {
+              top,
+              ranked,
+              separation,
+              confidence: Math.max(
+                0,
+                Math.min(0.99, top.score * 0.82 + Math.min(0.3, separation) * 0.6),
+              ),
+            };
+          }
+
+          export default rankOperatorCapabilities;
+          '''
+          Path("lib/operator/runtime/OperatorCapabilityMatcher.js").write_text(matcher)
+
+          resolver = r'''import {
+            rankOperatorCapabilities,
+          } from "./OperatorCapabilityMatcher";
+
+          function text(value) {
+            return String(value ?? "").trim();
+          }
+
+          function list(value) {
+            return Array.isArray(value) ? value : [];
+          }
+
+          export function rankOperatorReadCapabilities({ message, capabilities = [], limit = 12 } = {}) {
+            return rankOperatorCapabilities({ message, capabilities, modes: ["read"], limit });
+          }
+
+          export function resolveOperatorBusinessRead({ message, capabilities = [], limit = 6 } = {}) {
+            const ranked = rankOperatorReadCapabilities({ message, capabilities, limit });
+            if (!ranked.length) return null;
+            const top = ranked[0];
+            const second = ranked[1] || null;
+            const separation = second ? Math.max(0, top.score - second.score) : top.score;
+            const confidence = Math.max(
+              0,
+              Math.min(0.99, top.score * 0.82 + Math.min(0.3, separation) * 0.6),
+            );
+            return {
+              confidence,
+              separation,
+              capability_keys: ranked.map((entry) => text(entry.capability?.key)).filter(Boolean),
+              capabilities: ranked.map((entry) => entry.capability),
+              ranked: ranked.map((entry) => ({
+                capability_key: text(entry.capability?.key),
+                score: entry.score,
+                primary_coverage: entry.primary_coverage,
+                secondary_coverage: entry.secondary_coverage,
+                phrase_affinity: entry.phrase_affinity,
+              })),
+            };
+          }
+
+          export function prioritizeOperatorBusinessReads({
+            message,
+            capabilities = [],
+            fallback = [],
+            limit = 18,
+          } = {}) {
+            const resolution = resolveOperatorBusinessRead({
+              message,
+              capabilities,
+              limit: Math.min(12, Number(limit) || 18),
+            });
+            if (!resolution) return { resolution: null, capabilities: list(fallback).slice(0, limit) };
+            const selected = [];
+            const seen = new Set();
+            for (const capability of [...resolution.capabilities, ...list(fallback)]) {
+              const key = text(capability?.key);
+              if (!key || seen.has(key)) continue;
+              seen.add(key);
+              selected.push(capability);
+              if (selected.length >= limit) break;
+            }
+            return {
+              resolution: {
+                confidence: resolution.confidence,
+                separation: resolution.separation,
+                capability_keys: resolution.capability_keys,
+                ranked: resolution.ranked,
+              },
+              capabilities: selected,
+            };
+          }
+
+          export default resolveOperatorBusinessRead;
+          '''
+          Path("lib/operator/runtime/OperatorBusinessReadResolver.js").write_text(resolver)
+
+          cognition = r'''import {
+            rankOperatorCapabilities,
+          } from "./OperatorCapabilityMatcher";
+
+          function text(value) {
+            return String(value ?? "").trim();
+          }
+
+          function mode(value) {
+            return text(value).toLowerCase();
+          }
+
+          function isAction(entry) {
+            return !["read", "navigate"].includes(mode(entry?.capability?.mode));
+          }
+
+          function isMaterial(entry) {
+            return (
+              Number(entry?.score || 0) >= 0.18 ||
+              Number(entry?.phrase_affinity || 0) >= 0.55 ||
+              Number(entry?.primary_coverage || 0) >= 0.35
+            );
+          }
+
+          export function routeOperatorCognition({ message, source = "text", capabilities = [] } = {}) {
+            const clean = text(message).replace(/\s+/g, " ");
+            if (!clean) return { path: "fast", reason: "LIGHTWEIGHT_TURN" };
+            if (clean.length > 360) return { path: "deep", reason: "COMPLEX_TURN" };
+
+            const ranked = rankOperatorCapabilities({ message: clean, capabilities, limit: 8 });
+            const material = ranked.filter(isMaterial);
+            const actions = material.filter(isAction);
+
+            if (actions.some((entry) =>
+              entry.capability?.requires_confirmation === true ||
+              entry.capability?.transactional === true ||
+              ["high", "critical"].includes(mode(entry.capability?.risk)),
+            )) {
+              return { path: "deep", reason: "REGISTERED_GOVERNED_ACTION" };
+            }
+            if (actions.length > 1) return { path: "deep", reason: "MULTI_REGISTERED_ACTION" };
+            if (actions.length === 1 && Number(actions[0].score || 0) >= 0.3) {
+              return { path: "deep", reason: "REGISTERED_ACTION" };
+            }
+            return {
+              path: "fast",
+              reason: text(source).toLowerCase() === "voice"
+                ? "FAST_EXECUTIVE_VOICE"
+                : "FAST_EXECUTIVE_TURN",
+            };
+          }
+
+          export default routeOperatorCognition;
+          '''
+          Path("lib/operator/runtime/OperatorCognitionRouter.js").write_text(cognition)
+
+          reasoning_path = Path("lib/operator/runtime/OperatorReasoningRuntime.js")
+          reasoning = reasoning_path.read_text()
+          reasoning = replace_once(
+            reasoning,
+            'function voiceRankingContext({ message, projectState = {}, conversation = [] } = {}) {\n  const state = normalizeOperatorProjectState(projectState);\n  const recent = boundedConversation(conversation, "voice").slice(-3);',
+            'function voiceRankingContext({ message, source = "text", projectState = {}, conversation = [] } = {}) {\n  const state = normalizeOperatorProjectState(projectState);\n  const recent = boundedConversation(conversation, source).slice(-3);',
+            "ranking context source",
+          )
+          reasoning = replace_once(reasoning, 'You are Avantiqo Operator handling a live spoken turn.', 'You are Avantiqo Operator handling a fast executive turn.', "fast instruction channel")
+          reasoning = replace_once(reasoning, 'If the user\'s request requires evidence-first reads followed by a downstream business action, do not construct the follow_up on the fast spoken path.', 'If the user\'s request requires evidence-first reads followed by a downstream business action, do not construct the follow_up on the fast path.', "fast action wording")
+          reasoning = replace_once(reasoning, 'Preserve the user\'s language. Keep spoken responses concise.', 'Preserve the user\'s language. Keep responses concise and useful.', "fast response wording")
+          reasoning = replace_once(
+            reasoning,
+            'if (!request.executable_capabilities.some((item) => item.key === capabilityKey)) {\n      return "unknown_capability";\n    }\n\n    if (readChainHasFollowUp(parsed)) return "read_chain_follow_up";',
+            'const selectedCapability = request.executable_capabilities.find(\n      (item) => item.key === capabilityKey,\n    );\n    if (!selectedCapability) return "unknown_capability";\n    if (text(selectedCapability.mode).toLowerCase() !== "read") {\n      return "non_read_requires_deep";\n    }\n\n    if (readChainHasFollowUp(parsed)) return "read_chain_follow_up";',
+            "fast non-read escalation",
+          )
+          reasoning = replace_once(reasoning, 'const cognition = routeOperatorCognition({ message, source });\n  const useFastVoice = voice && cognition.path !== "deep";', 'const cognition = routeOperatorCognition({ message, source, capabilities });\n  const useFastVoice = cognition.path !== "deep";', "all-channel executive brain")
+          reasoning = replace_once(reasoning, 'const rankingContext = voiceRankingContext({\n      message,\n      projectState,\n      conversation,\n    });', 'const rankingContext = voiceRankingContext({\n      message,\n      source,\n      projectState,\n      conversation,\n    });', "fast ranking source")
+          reasoning = replace_once(reasoning, 'source: "voice",\n        locale: text(locale) || null,', 'source: text(source) || "text",\n        locale: text(locale) || null,', "fast request source")
+          reasoning = replace_once(reasoning, 'channel: "voice",\n          latency_class: "realtime",', 'channel: text(source) || "text",\n          latency_class: voice ? "realtime" : "interactive",', "fast telemetry channel")
+          reasoning = replace_once(
+            reasoning,
+            'fallback_from_fast_voice: voice && useFastVoice,\n      ...(voice\n        ? {\n            cognition_path: cognition.path,\n            cognition_reason: cognition.reason,\n            fast_voice_skipped: !useFastVoice,\n          }\n        : {}),\n      ...(voice && fastVoiceFallbackReasonCode\n        ? { fast_voice_fallback_reason: fastVoiceFallbackReasonCode }\n        : {}),',
+            'fallback_from_fast_turn: useFastVoice,\n      cognition_path: cognition.path,\n      cognition_reason: cognition.reason,\n      fast_turn_skipped: !useFastVoice,\n      ...(fastVoiceFallbackReasonCode\n        ? { fast_turn_fallback_reason: fastVoiceFallbackReasonCode }\n        : {}),',
+            "deep fallback telemetry",
+          )
+          reasoning = replace_once(reasoning, '- Business questions rarely name the record that answers them. Translate the question into the artefact that holds the answer using your own domain knowledge: totals and income or profit come from the ledger, trial balance or management reporting capabilities rather than from a capability literally called income. Choose the capability an accountant or operator would open.', '- Business questions rarely name the exact registered capability that answers them. Infer the needed evidence from the supplied capability metadata, descriptions, aliases, examples, schemas and current context. Never rely on a fixed industry vocabulary.', "remove finance example")
+          reasoning = replace_once(reasoning, '- High-consequence financial, payroll, legal, destructive or irreversible actions require appropriate confirmation.', '- Respect each supplied capability\'s risk, confirmation, approval, transactional and reversibility metadata. Never downgrade governance based on the business domain.', "dynamic governance wording")
+          reasoning = reasoning.replace('model: "business-data-reflex-v1"', 'model: "registry-data-reflex-v2"')
+          reasoning_path.write_text(reasoning)
+
+          read_chain_path = Path("lib/platform/capabilities/createOperatorReadChainCapability.js")
+          read_chain = read_chain_path.read_text()
+          start = read_chain.index('const FULL_ACCESS_ROLES = new Set([')
+          end = read_chain.index('const COLLECTION_KEYS = Object.freeze([', start)
+          read_chain = read_chain[:start] + read_chain[end:]
+          start = read_chain.index('const COLLECTION_KEYS = Object.freeze([')
+          end = read_chain.index('\n\nfunction text(value)', start)
+          read_chain = read_chain[:start] + read_chain[end+2:]
+          start = read_chain.index('function actorHasFullAccess(context) {')
+          end = read_chain.index('\n\nfunction hasRequiredPermissions', start)
+          read_chain = read_chain[:start] + '''function actorHasFullAccess(context) {
+            const actor = object(context?.actor);
+            const permissions = list(context?.permissions).map(text);
+            return actor.fullAccess === true || actor.full_access === true || permissions.includes("*");
+          }''' + read_chain[end:]
+          start = read_chain.index('function inferredMode(')
+          end = read_chain.index('\n\nfunction contextScope', start)
+          read_chain = read_chain[:start] + '''function operatorMode(manifest = {}) {
+            const explicit = text(
+              manifest.operatorMode || manifest.operator_mode || manifest.mode,
+            ).toLowerCase();
+            return ["read", "draft", "write", "approve", "navigate"].includes(explicit)
+              ? explicit
+              : null;
+          }''' + read_chain[end:]
+          read_chain = read_chain.replace('inferredMode(manifest, target)', 'operatorMode(manifest)')
+          start = read_chain.index('function collectionOf(value, depth = 0, path = []) {')
+          end = read_chain.index('\n\nfunction rootMetadata', start)
+          read_chain = read_chain[:start] + '''function collectionOf(value, depth = 0, path = []) {
+            if (depth > 4 || value === null || value === undefined) return null;
+            if (Array.isArray(value)) return { rows: value, path, key: path.length ? path[path.length - 1] : null, container: null };
+            if (typeof value !== "object") return null;
+            for (const [key, candidate] of Object.entries(value)) {
+              if (Array.isArray(candidate)) return { rows: candidate, path: [...path, key], key, container: value };
+            }
+            for (const [key, candidate] of Object.entries(value)) {
+              if (!candidate || typeof candidate !== "object") continue;
+              const found = collectionOf(candidate, depth + 1, [...path, key]);
+              if (found) return found;
+            }
+            return null;
+          }''' + read_chain[end:]
+          tags_start = read_chain.index('    tags: [')
+          tags_end = read_chain.index('    ],\n    transactional: false,', tags_start)
+          read_chain = read_chain[:tags_start] + '''    tags: [
+              "platform",
+              "operator",
+              "read",
+              "read-chain",
+              "multi-step",
+              "comparison",
+              "diagnosis",
+              "evidence-first",
+              "conditional",
+              "post-action-verification",
+            ],
+''' + read_chain[tags_end + len('    ],\n'):]
+          read_chain = replace_once(read_chain, '    const preflight = [];\n    for (const step of normalized.steps) {\n      preflight.push(await preflightStep(step, context));\n    }', '    const preflight = await Promise.all(\n      normalized.steps.map((step) => preflightStep(step, context)),\n    );', "parallel preflight")
+          results_start = read_chain.index('    const results = [];')
+          failed_start = read_chain.index('    const failedSteps = results.filter', results_start)
+          read_chain = read_chain[:results_start] + '''    const results = await Promise.all(
+              preflight.map(async (entry) => {
+                const { step, target } = entry;
+                try {
+                  const result = await executeUbteCapability({
+                    organizationId: context.organizationId,
+                    domain: target.domain,
+                    capability: target.capability,
+                    action: target.action,
+                    payload: scopedPayload(context, step.payload),
+                    actor: context.actor,
+                    runtime: childRuntime(context, step),
+                  });
+                  return {
+                    id: step.id,
+                    label: step.label,
+                    capability_key: step.capability_key,
+                    status: "completed",
+                    requested_payload: boundedValue(step.payload),
+                    evidence: compactExecutionEvidence(result),
+                  };
+                } catch (error) {
+                  return {
+                    id: step.id,
+                    label: step.label,
+                    capability_key: step.capability_key,
+                    status: "failed",
+                    requested_payload: boundedValue(step.payload),
+                    error: text(error?.message) || "Read failed",
+                  };
+                }
+              }),
+            );
+
+''' + read_chain[failed_start:]
+          read_chain_path.write_text(read_chain)
+
+          verification_path = Path("lib/operator/runtime/OperatorVerificationRuntime.js")
+          verification = verification_path.read_text()
+          start = verification.index('const COLLECTION_KEYS = Object.freeze([')
+          end = verification.index('\n\nfunction scalarMetadata', start)
+          verification = verification[:start] + verification[end+2:]
+          start = verification.index('function collectionOf(value, depth = 0, path = []) {')
+          end = verification.index('\n\nfunction normalizedCollectionEvidence', start)
+          verification = verification[:start] + '''function collectionOf(value, depth = 0, path = []) {
+            if (depth > 4 || value === null || value === undefined) return null;
+            if (Array.isArray(value)) return { rows: value, path, key: path.length ? path[path.length - 1] : null, container: null };
+            if (typeof value !== "object") return null;
+            for (const [key, candidate] of Object.entries(value)) {
+              if (Array.isArray(candidate)) return { rows: candidate, path: [...path, key], key, container: value };
+            }
+            for (const [key, candidate] of Object.entries(value)) {
+              if (!candidate || typeof candidate !== "object") continue;
+              const found = collectionOf(candidate, depth + 1, [...path, key]);
+              if (found) return found;
+            }
+            return null;
+          }''' + verification[end:]
+          verification_path.write_text(verification)
+
+          audit_path = Path("scripts/operator-voice-responsiveness-audit.mjs")
+          audit = audit_path.read_text()
+          audit = replace_once(audit, 'const businessReadResolver = read("lib/operator/runtime/OperatorBusinessReadResolver.js");', 'const capabilityMatcher = read("lib/operator/runtime/OperatorCapabilityMatcher.js");\nconst businessReadResolver = read("lib/operator/runtime/OperatorBusinessReadResolver.js");\nconst cognitionRouter = read("lib/operator/runtime/OperatorCognitionRouter.js");\nconst readChainRuntime = read("lib/platform/capabilities/createOperatorReadChainCapability.js");\nconst verificationRuntime = read("lib/operator/runtime/OperatorVerificationRuntime.js");', "audit sources")
+          dynamic_start = audit.index('requireAll("DYNAMIC_READ_RANKING"')
+          dynamic_end = audit.index('requireAll("DYNAMIC_READ_REFLEX"', dynamic_start)
+          audit = audit[:dynamic_start] + '''requireAll("DYNAMIC_READ_RANKING", capabilityMatcher, [
+            "function capabilityVocabulary",
+            "function schemaVocabulary",
+            "capability.operator_aliases",
+            "capability.operator_examples",
+            "capability.input_schema",
+            "capability.output_schema",
+            "export function rankOperatorCapabilities",
+          ]);
+
+          ''' + audit[dynamic_end:]
+          marker = 'requireAll("READ_BEFORE_NAVIGATION", reasoningRuntime, ['
+          audit = audit.replace(marker, '''requireAll("DYNAMIC_COGNITION_ROUTING", cognitionRouter, [
+            "rankOperatorCapabilities",
+            "REGISTERED_GOVERNED_ACTION",
+            "FAST_EXECUTIVE_TURN",
+          ]);
+
+          forbidAll("NO_HARDCODED_COGNITION_BUSINESS_OBJECTS", cognitionRouter, [
+            "BUSINESS_OBJECT_PATTERN",
+            "HIGH_CONSEQUENCE_OBJECT_PATTERN",
+            "GOVERNED_WRITE_VERB_PATTERN",
+          ]);
+
+          requireAll("EXECUTIVE_BRAIN_ALL_CHANNELS", reasoningRuntime, [
+            "routeOperatorCognition({ message, source, capabilities })",
+            'const useFastVoice = cognition.path !== "deep";',
+            'return "non_read_requires_deep";',
+            'source: text(source) || "text"',
+          ]);
+
+          requireAll("PARALLEL_DYNAMIC_READ_CHAIN", readChainRuntime, [
+            "Promise.all(",
+            "normalized.steps.map((step) => preflightStep(step, context))",
+            "preflight.map(async (entry) =>",
+            "function operatorMode(manifest = {})",
+          ]);
+
+          forbidAll("NO_HARDCODED_READ_CHAIN_BUSINESS_SHAPES", readChainRuntime, [
+            "FULL_ACCESS_ROLES",
+            "COLLECTION_KEYS",
+            "COLLECTION_WRAPPER_KEYS",
+            "function inferredMode",
+          ]);
+
+          forbidAll("NO_HARDCODED_VERIFICATION_COLLECTION_KEYS", verificationRuntime, [
+            "COLLECTION_KEYS",
+            "COLLECTION_WRAPPER_KEYS",
+          ]);
+
+          forbidAll("NO_FINANCE_SPECIFIC_OPERATOR_REASONING", reasoningRuntime, [
+            "trial balance or management reporting",
+            "High-consequence financial, payroll, legal",
+          ]);
+
+''' + marker, 1)
+          audit_path.write_text(audit)
+
+          fast_path = Path("scripts/operator-fast-voice-read-catalog-audit.mjs")
+          fast_audit = fast_path.read_text()
+          fast_audit = fast_audit.replace('/do not construct the follow_up on the fast spoken path/i,', '/do not construct the follow_up on the fast path/i,')
+          fast_audit = fast_audit.replace('/fast_voice_fallback_reason:\\s*fastVoiceFallbackReasonCode/', '/fast_turn_fallback_reason:\\s*fastVoiceFallbackReasonCode/')
+          fast_audit = fast_audit.replace('/fast_voice_fallback_reason:\\s*(?:message|fastParsed|fastRequest|payload|user_input)/', '/fast_turn_fallback_reason:\\s*(?:message|fastParsed|fastRequest|payload|user_input)/')
+          if 'non_read_requires_deep' not in fast_audit:
+              fast_audit = fast_audit.replace('assert.match(reasoningSource, /return "unknown_capability"/);', 'assert.match(reasoningSource, /return "unknown_capability"/);\nassert.match(reasoningSource, /return "non_read_requires_deep"/);')
+          fast_path.write_text(fast_audit)
+          PY
+
+          node --check lib/operator/runtime/OperatorCapabilityMatcher.js
+          node --check lib/operator/runtime/OperatorBusinessReadResolver.js
+          node --check lib/operator/runtime/OperatorCognitionRouter.js
+          node --check lib/operator/runtime/OperatorReasoningRuntime.js
+          node --check lib/platform/capabilities/createOperatorReadChainCapability.js
+          node --check lib/operator/runtime/OperatorVerificationRuntime.js
+          node --check scripts/operator-voice-responsiveness-audit.mjs
+          node --check scripts/operator-fast-voice-read-catalog-audit.mjs
+          npm run audit:operator-voice-responsiveness
+          npm run audit:operator-fast-voice-read-catalog
+          npm run audit:operator-goal-continuity
+          npm run audit:operator-exposure
+          git diff --check
+
+      - name: Commit convergence and remove temporary workflows
+        shell: bash
+        run: |
+          rm -f .github/workflows/one-time-operator-executive-brain.yml
+          rm -f .github/workflows/one-time-operator-executive-brain-v2.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/operator/runtime/OperatorCapabilityMatcher.js lib/operator/runtime/OperatorBusinessReadResolver.js lib/operator/runtime/OperatorCognitionRouter.js lib/operator/runtime/OperatorReasoningRuntime.js lib/platform/capabilities/createOperatorReadChainCapability.js lib/operator/runtime/OperatorVerificationRuntime.js scripts/operator-voice-responsiveness-audit.mjs scripts/operator-fast-voice-read-catalog-audit.mjs .github/workflows/one-time-operator-executive-brain.yml .github/workflows/one-time-operator-executive-brain-v2.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "[deploy-production] Add dynamic Operator executive brain"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

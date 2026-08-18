@@ -84,6 +84,9 @@ export async function register() {
     await import(
       "@/lib/creative/video/runtime/CreativeVideoPricingContextRuntime"
     );
+    await import(
+      "@/lib/creative/video/runtime/CreativeApprovedVideoResolutionGuardRuntime"
+    );
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {

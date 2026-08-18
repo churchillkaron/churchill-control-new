@@ -45,6 +45,7 @@ const [
   qualityRuntime,
   providerConfigurationRuntime,
   providerRuntime,
+  providerRegistration,
   pricingRuntime,
   shotRuntime,
   approvalGuard,
@@ -56,6 +57,7 @@ const [
   source("lib/creative/video/runtime/CreativeVideoQualityPreferenceRuntime.js"),
   source("lib/creative/video/runtime/CreativeVideoProviderConfigurationRuntime.js"),
   source("lib/platform/service-runtime/providers/gemini/GeminiVeoProviderRuntime.js"),
+  source("lib/platform/service-runtime/providers/gemini/GoogleVeoProviderRegistration.js"),
   source("lib/platform/service-runtime/pricing/PricingRuntime.js"),
   source("lib/creative/shots/runtime/ShotRuntime.js"),
   source("lib/creative/video/runtime/CreativeApprovedVideoResolutionGuardRuntime.js"),
@@ -144,6 +146,27 @@ rejectMatch(
 );
 
 requireMatch(
+  providerRegistration,
+  /capabilities:\s*\[\s*\]/,
+  "PROVIDER_REGISTRATION_TRANSPORT_ONLY_CAPABILITIES",
+);
+for (const operationalKey of [
+  "supported_models",
+  "quality_score",
+  "speed_score",
+  "reliability_score",
+  "precision_controls",
+  "native_audio",
+  "max_reference_images",
+]) {
+  rejectMatch(
+    providerRegistration,
+    new RegExp(`\\b${operationalKey}\\b`),
+    `PROVIDER_REGISTRATION_OPERATIONAL_VALUE_${operationalKey.toUpperCase()}`,
+  );
+}
+
+requireMatch(
   pricingRuntime,
   /cost_per_unit_multiplier_by_resolution/,
   "PRICING_DIMENSION_CONFIGURATION",
@@ -203,6 +226,7 @@ console.log(JSON.stringify({
     "provider_options_not_hardcoded_in_ui_or_generic_runtime",
     "organization_service_provider_discovery",
     "provider_capability_configuration",
+    "provider_registration_transport_only",
     "configured_auto_fallback",
     "configured_dimensions_and_constraints",
     "opaque_resolution_pricing",

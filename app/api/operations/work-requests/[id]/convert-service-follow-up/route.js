@@ -13,6 +13,7 @@ function responseError(error, status = 500) {
 
 export async function POST(request, { params }) {
   try {
+    const resolvedParams = await params;
     const body = await request.json().catch(() => ({}));
     const resolved = await resolveOperationsRequestContext({
       request,
@@ -28,7 +29,7 @@ export async function POST(request, { params }) {
 
     const result = await convertApprovedServiceFollowUpToWorkOrder({
       context: resolved.context,
-      workRequestId: params.id,
+      workRequestId: resolvedParams?.id,
     });
 
     return Response.json({ success: true, ...result });

@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 300;
+// Direction can legitimately contain several serialized governed reasoning calls.
+// Keep the function ceiling below the default 900-second execution lease so the
+// invocation fails before its lease can expire, while giving short-form direction
+// enough time to finish its bounded in-job validation/repair path.
+export const maxDuration = 800;
 
 import crypto from "node:crypto";
 

@@ -42,8 +42,13 @@ async function migrationSources() {
 const [
   workspace,
   route,
+  approvalRoute,
   qualityRuntime,
   providerConfigurationRuntime,
+  preflightRuntime,
+  approvalRuntime,
+  approvedPreflightExecutionRuntime,
+  servicePreflightRuntime,
   providerRuntime,
   providerRegistration,
   pricingRuntime,
@@ -54,8 +59,13 @@ const [
 ] = await Promise.all([
   source("components/creative/ProductionStudio/workspaces/ProductionWorkspace.jsx"),
   source("app/api/creative/projects/video-quality/route.js"),
+  source("app/api/creative/projects/video-generation-approval/route.js"),
   source("lib/creative/video/runtime/CreativeVideoQualityPreferenceRuntime.js"),
   source("lib/creative/video/runtime/CreativeVideoProviderConfigurationRuntime.js"),
+  source("lib/creative/video/runtime/CreativeVideoGenerationPreflightRuntime.js"),
+  source("lib/creative/video/runtime/CreativeVideoGenerationApprovalRuntime.js"),
+  source("lib/creative/video/runtime/CreativeApprovedVideoPreflightExecutionRuntime.js"),
+  source("lib/platform/service-runtime/execution/ServiceExecutionPreflightRuntime.js"),
   source("lib/platform/service-runtime/providers/gemini/GeminiVeoProviderRuntime.js"),
   source("lib/platform/service-runtime/providers/gemini/GoogleVeoProviderRegistration.js"),
   source("lib/platform/service-runtime/pricing/PricingRuntime.js"),
@@ -70,6 +80,8 @@ const genericRuntimeSources = [
   route,
   qualityRuntime,
   providerConfigurationRuntime,
+  preflightRuntime,
+  servicePreflightRuntime,
   pricingRuntime,
   shotRuntime,
   approvalGuard,
@@ -94,6 +106,27 @@ requireMatch(
   "UI_CONFIGURATION_API_BOUNDARY",
 );
 requireMatch(
+  workspace,
+  /\/api\/creative\/projects\/video-generation-approval/,
+  "UI_GENERATION_APPROVAL_API_BOUNDARY",
+);
+requireMatch(
+  workspace,
+  /preflight\.customer_price[\s\S]*preflight\.preflight_sha256/,
+  "UI_EXACT_PREFLIGHT_PRICE_AND_HASH",
+);
+requireMatch(
+  workspace,
+  /Approve generation/,
+  "UI_EXPLICIT_GENERATION_APPROVAL",
+);
+rejectMatch(
+  workspace,
+  /fetch\([^)]*(?:dispatch|generate)[^)]*\)/i,
+  "UI_APPROVAL_MUST_NOT_DISPATCH_GENERATION",
+);
+
+requireMatch(
   route,
   /resolveCreativeVideoProviderConfiguration/,
   "ROUTE_DYNAMIC_PROVIDER_CONFIGURATION",
@@ -103,6 +136,17 @@ requireMatch(
   /configuration\.video_capabilities\?\.auto_option\?\.id/,
   "ROUTE_CONFIGURED_AUTO_FALLBACK",
 );
+requireMatch(
+  route,
+  /ProductionTaskRuntime\.list[\s\S]*media_generation_authorization/,
+  "QUALITY_ROUTE_TASK_AUTHORIZATION_LOCK",
+);
+requireMatch(
+  route,
+  /await generationAuthorizationLocked/,
+  "QUALITY_ROUTE_SERVER_LOCK_ENFORCED",
+);
+
 requireMatch(
   qualityRuntime,
   /profile\.resolution_options[\s\S]*profile\.auto_resolution_priority[\s\S]*profile\.supported_resolutions/,
@@ -122,6 +166,100 @@ requireMatch(
   providerConfigurationRuntime,
   /selection_priority/,
   "PROVIDER_SELECTION_PRIORITY_FROM_CONFIGURATION",
+);
+
+requireMatch(
+  preflightRuntime,
+  /ProductionTaskRuntime\.get[\s\S]*CreativeProjectRuntime\.get/,
+  "PREFLIGHT_TASK_PROJECT_BOUNDARY",
+);
+requireMatch(
+  preflightRuntime,
+  /resolveCreativeVideoProviderConfiguration[\s\S]*resolveCreativeVideoExecutionQuality/,
+  "PREFLIGHT_CONFIGURED_PROVIDER_AND_QUALITY",
+);
+requireMatch(
+  preflightRuntime,
+  /PricingRuntime\.resolveById[\s\S]*pricing_dimensions[\s\S]*resolution/,
+  "PREFLIGHT_EXACT_PRICING_DIMENSIONS",
+);
+requireMatch(
+  preflightRuntime,
+  /preflight_sha256:\s*digest\(preflight\)/,
+  "PREFLIGHT_DETERMINISTIC_HASH",
+);
+rejectMatch(
+  preflightRuntime,
+  /executeProvider|\.dispatch\(/,
+  "PREFLIGHT_MUST_NOT_EXECUTE_PROVIDER",
+);
+
+requireMatch(
+  approvalRoute,
+  /preflight_sha256/,
+  "APPROVAL_ROUTE_REQUIRES_REVIEWED_PREFLIGHT_HASH",
+);
+requireMatch(
+  approvalRoute,
+  /CreativeVideoGenerationApprovalRuntime\.approve/,
+  "APPROVAL_ROUTE_TASK_BOUND_RUNTIME",
+);
+rejectMatch(
+  approvalRoute,
+  /\.dispatch\(|executeProvider|runAIService\.execute/,
+  "APPROVAL_ROUTE_MUST_NOT_EXECUTE_GENERATION",
+);
+
+requireMatch(
+  approvalRuntime,
+  /CREATIVE_VIDEO_PREFLIGHT_STALE_REVIEW_REQUIRED/,
+  "APPROVAL_REJECTS_STALE_PREFLIGHT",
+);
+requireMatch(
+  approvalRuntime,
+  /findCurrentApproval[\s\S]*PRODUCTION_DOSSIER/,
+  "APPROVAL_REQUIRES_CURRENT_DOSSIER_APPROVAL",
+);
+requireMatch(
+  approvalRuntime,
+  /maximum_customer_price:\s*preflight\.customer_price/,
+  "APPROVAL_EXACT_PRICE_GUARD",
+);
+requireMatch(
+  approvalRuntime,
+  /video_generation_preflight:\s*preflight/,
+  "APPROVAL_EMBEDS_EXACT_PREFLIGHT",
+);
+requireMatch(
+  approvalRuntime,
+  /preflight_sha256:\s*preflight\.preflight_sha256/,
+  "APPROVAL_EMBEDS_PREFLIGHT_HASH",
+);
+requireMatch(
+  approvalRuntime,
+  /publication_authorized:\s*false/,
+  "APPROVAL_DOES_NOT_AUTHORIZE_PUBLICATION",
+);
+rejectMatch(
+  approvalRuntime,
+  /\.dispatch\(|executeProvider|runAIService\.execute/,
+  "APPROVAL_RUNTIME_MUST_NOT_EXECUTE_GENERATION",
+);
+
+requireMatch(
+  approvedPreflightExecutionRuntime,
+  /video_generation_preflight[\s\S]*serviceExecutionPreflight/,
+  "EXECUTION_CONSUMES_APPROVED_PREFLIGHT",
+);
+requireMatch(
+  approvedPreflightExecutionRuntime,
+  /provider_id:\s*bound\.preflight\.provider[\s\S]*quantity:\s*bound\.preflight\.quantity/,
+  "EXECUTION_USES_APPROVED_PROVIDER_AND_QUANTITY",
+);
+requireMatch(
+  servicePreflightRuntime,
+  /approved_execution_preflight[\s\S]*pricing_id[\s\S]*customer_price/,
+  "SERVICE_PREFLIGHT_REVALIDATES_APPROVAL",
 );
 
 requireMatch(
@@ -198,6 +336,16 @@ requireMatch(
 );
 requireMatch(
   instrumentation,
+  /CreativeApprovedVideoPreflightExecutionRuntime/,
+  "APPROVED_PREFLIGHT_EXECUTION_INSTALLED",
+);
+requireMatch(
+  instrumentation,
+  /ServiceExecutionApprovedPreflightRuntime/,
+  "SERVICE_APPROVED_PREFLIGHT_INSTALLED",
+);
+requireMatch(
+  instrumentation,
   /CreativeVideoPricingContextRuntime/,
   "PRICING_CONTEXT_INSTALLED",
 );
@@ -219,7 +367,7 @@ for (const key of [
 }
 
 console.log(JSON.stringify({
-  contract: "CREATIVE_VIDEO_QUALITY_CONFIGURATION_AUDIT_V2",
+  contract: "CREATIVE_VIDEO_QUALITY_CONFIGURATION_AUDIT_V3",
   read_only: true,
   passed: true,
   checks: [
@@ -231,6 +379,12 @@ console.log(JSON.stringify({
     "configured_dimensions_and_constraints",
     "opaque_resolution_pricing",
     "shot_quality_binding",
+    "task_bound_preflight",
+    "stale_preflight_rejection",
+    "dossier_approval_dependency",
+    "seal_only_generation_approval",
+    "task_authorization_quality_lock",
+    "approved_service_execution_preflight",
     "approval_resolution_binding",
     "runtime_installation",
     "database_configuration_presence",

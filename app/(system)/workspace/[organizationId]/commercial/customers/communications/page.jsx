@@ -2,13 +2,17 @@
 
 export const dynamic = "force-dynamic";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import CommunicationsWorkspace from "@/components/workspace/commercial/CommunicationsWorkspace";
+import CommunicationDraftReviewBanner from "@/components/workspace/commercial/CommunicationDraftReviewBanner";
 import InstagramMessagingStatusBanner from "@/components/workspace/commercial/InstagramMessagingStatusBanner";
 
 export default function CommunicationsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const organizationId = String(params?.organizationId || "").trim();
+  const conversationId = String(searchParams?.get("conversationId") || "").trim();
+  const messageId = String(searchParams?.get("messageId") || "").trim();
 
   if (!organizationId) {
     return (
@@ -23,6 +27,11 @@ export default function CommunicationsPage() {
   return (
     <>
       <InstagramMessagingStatusBanner organizationId={organizationId} />
+      <CommunicationDraftReviewBanner
+        organizationId={organizationId}
+        conversationId={conversationId}
+        messageId={messageId}
+      />
       <CommunicationsWorkspace organizationId={organizationId} />
     </>
   );

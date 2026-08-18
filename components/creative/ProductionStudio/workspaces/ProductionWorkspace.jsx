@@ -76,12 +76,25 @@ function approvalBlockerLabel(reason) {
       "Production dossier needs human approval first.",
     CREATIVE_VIDEO_EXISTING_AUTHORIZATION_PREFLIGHT_MISMATCH:
       "An older generation authorization no longer matches this preflight.",
+    CREATIVE_VIDEO_AUTHORIZATION_ALREADY_CONSUMED:
+      "Generation authorization has already been consumed by execution.",
   };
   if (labels[reason]) return labels[reason];
   if (String(reason || "").startsWith("CREATIVE_VIDEO_APPROVAL_TASK_STATUS_INVALID:")) {
-    return `Task is not waiting for approval (${String(reason).split(":").pop()}).`;
+    return `Task state: ${String(reason).split(":").pop()}.`;
   }
   return String(reason || "Generation approval is blocked.");
+}
+
+function executionLabel(inspection = {}) {
+  if (inspection.execution_completed) return "Generation completed";
+  if (inspection.execution_failed) return "Generation failed";
+  if (inspection.execution_started || inspection.authorization_consumed) {
+    return inspection.task?.provider_status
+      ? `Generation ${inspection.task.provider_status}`
+      : "Generation started";
+  }
+  return "Generation authorized";
 }
 
 export default function ProductionWorkspace({
@@ -108,6 +121,7 @@ export default function ProductionWorkspace({
   const [generationLoading, setGenerationLoading] = useState(false);
   const [generationError, setGenerationError] = useState("");
   const [approvingTaskId, setApprovingTaskId] = useState(null);
+  const [dispatchingTaskId, setDispatchingTaskId] = useState(null);
   const [approvalRevision, setApprovalRevision] = useState(0);
 
   useEffect(() => {
@@ -288,6 +302,47 @@ export default function ProductionWorkspace({
     }
   }
 
+  async function startGeneration(inspection) {
+    const taskId = inspection?.task?.id;
+    const preflightSha256 = inspection?.preflight?.preflight_sha256;
+    if (
+      !taskId ||
+      !preflightSha256 ||
+      !runtime.organizationId ||
+      inspection?.can_dispatch !== true ||
+      dispatchingTaskId
+    ) {
+      return;
+    }
+
+    setDispatchingTaskId(taskId);
+    setGenerationError("");
+    try {
+      const response = await fetch(
+        "/api/creative/projects/video-generation-dispatch",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            organization_id: runtime.organizationId,
+            task_id: taskId,
+            preflight_sha256: preflightSha256,
+          }),
+        },
+      );
+      const result = await response.json();
+      if (!response.ok || result.generation_started !== true) {
+        throw new Error(result.error || "Generation dispatch failed");
+      }
+      setApprovalRevision((value) => value + 1);
+      runtime.refresh?.();
+    } catch (error) {
+      setGenerationError(error?.message || "Generation dispatch failed");
+    } finally {
+      setDispatchingTaskId(null);
+    }
+  }
+
   return (
     <div className="h-full overflow-auto">
       <CreativeDirectorCockpit runtime={runtime} />
@@ -380,7 +435,7 @@ export default function ProductionWorkspace({
                 Review the exact task-bound generation preflight before authorizing paid production.
               </div>
               <div className="mt-1 text-xs text-white/35">
-                Approval seals provider, model, quality, duration, pricing and the preflight hash. Publication remains unauthorized.
+                Approval seals provider, model, quality, duration and exact pricing. Start generation is a separate explicit action; publication remains unauthorized.
               </div>
             </div>
             {generationLoading ? (
@@ -418,13 +473,31 @@ export default function ProductionWorkspace({
                         <span>{preflight.provider || "Configured provider"}</span>
                         {preflight.model ? <span>{preflight.model}</span> : null}
                         <span>Dossier: {inspection.dossier_approved ? "approved" : "pending"}</span>
+                        {task.status ? <span>Task: {task.status}</span> : null}
                       </div>
                     </div>
 
                     {inspection.approved ? (
-                      <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100/80">
-                        Generation authorized
-                      </div>
+                      inspection.can_dispatch ? (
+                        <button
+                          type="button"
+                          disabled={dispatchingTaskId !== null}
+                          onClick={() => startGeneration(inspection)}
+                          className="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-2.5 text-xs font-semibold text-emerald-100/85 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {dispatchingTaskId === task.id
+                            ? "Starting generation…"
+                            : `Start generation • ${money(preflight.customer_price, preflight.currency)}`}
+                        </button>
+                      ) : (
+                        <div className={`rounded-lg border px-3 py-2 text-xs ${
+                          inspection.execution_failed
+                            ? "border-red-300/20 bg-red-300/10 text-red-100/80"
+                            : "border-emerald-300/20 bg-emerald-300/10 text-emerald-100/80"
+                        }`}>
+                          {executionLabel(inspection)}
+                        </div>
+                      )
                     ) : (
                       <button
                         type="button"
@@ -443,11 +516,17 @@ export default function ProductionWorkspace({
                     )}
                   </div>
 
-                  {blockingReasons.length ? (
+                  {blockingReasons.length && !inspection.authorization_consumed ? (
                     <div className="mt-3 space-y-1 text-xs text-amber-200/60">
                       {blockingReasons.map((reason) => (
                         <div key={reason}>{approvalBlockerLabel(reason)}</div>
                       ))}
+                    </div>
+                  ) : null}
+
+                  {inspection.can_dispatch ? (
+                    <div className="mt-3 text-xs text-emerald-100/45">
+                      Starting generation will consume this authorization, reserve the approved amount through the wallet gate, and call the configured provider once.
                     </div>
                   ) : null}
 
@@ -467,11 +546,6 @@ export default function ProductionWorkspace({
 
           {generationError ? (
             <div className="mt-3 text-xs text-red-200/75">{generationError}</div>
-          ) : null}
-          {generationInspections.some((inspection) => inspection.approved) ? (
-            <div className="mt-3 text-xs text-white/35">
-              Generation is authorized for the sealed task only. This screen does not dispatch generation or authorize publication.
-            </div>
           ) : null}
         </div>
       </div>

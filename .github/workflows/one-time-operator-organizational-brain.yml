@@ -1,0 +1,129 @@
+name: One-time Operator organizational brain wiring
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/one-time-operator-organizational-brain.yml
+
+permissions:
+  contents: write
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Wire organizational context
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/operator/runtime/OperatorReasoningRuntime.js')
+          source = path.read_text()
+
+          old = '''import {\n  resolveOperatorBusinessDataReflex,\n} from "./OperatorBusinessDataReflex";\n'''
+          new = old + '''import {\n  loadOperatorOrganizationalContext,\n  operatorOrganizationalRankingText,\n} from "./OperatorOrganizationalContextRuntime";\n'''
+          if old not in source:
+              raise SystemExit('organizational brain import anchor missing')
+          source = source.replace(old, new, 1)
+
+          old = 'function voiceRankingContext({ message, source = "text", projectState = {}, conversation = [] } = {}) {'
+          new = 'function voiceRankingContext({ message, source = "text", projectState = {}, conversation = [], organizationalContext = null } = {}) {'
+          if old not in source:
+              raise SystemExit('ranking context signature anchor missing')
+          source = source.replace(old, new, 1)
+
+          old = '''    ...recent.map((entry) => entry.content),\n  ]\n'''
+          new = '''    ...recent.map((entry) => entry.content),\n    operatorOrganizationalRankingText(organizationalContext),\n  ]\n'''
+          if old not in source:
+              raise SystemExit('ranking context body anchor missing')
+          source = source.replace(old, new, 1)
+
+          old = '''  const cognition = routeOperatorCognition({ message, source, capabilities });\n'''
+          new = '''  const organizationalContext = await loadOperatorOrganizationalContext({\n    organizationId,\n    partyId,\n    message,\n    projectState,\n  });\n\n  const cognition = routeOperatorCognition({ message, source, capabilities });\n'''
+          if old not in source:
+              raise SystemExit('cognition anchor missing')
+          source = source.replace(old, new, 1)
+
+          old = '''      projectState,\n      conversation,\n    });\n'''
+          new = '''      projectState,\n      conversation,\n      organizationalContext,\n    });\n'''
+          if old not in source:
+              raise SystemExit('fast ranking call anchor missing')
+          source = source.replace(old, new, 1)
+
+          old = '''        current_screen: currentScreen || null,\n      },\n      current_project_state:'''
+          new = '''        current_screen: currentScreen || null,\n        organizational_context: organizationalContext,\n      },\n      current_project_state:'''
+          if source.count(old) < 2:
+              raise SystemExit(f'business context anchors missing: {source.count(old)}')
+          source = source.replace(old, new, 2)
+
+          old = '''Use current_project_state as durable memory of the goal. Use recent_conversation as immediate context.\n'''
+          new = '''Use current_project_state as durable memory of the goal. Use recent_conversation as immediate context.\nUse business_context.organizational_context as compact organization memory. Treat its organization/profile fields as stored organization context, relevant_prior_goals as prior same-user working state, and relevant_verified_history as historical execution evidence. Respect timestamps and never present historical state as current live business data when a registered read can verify it.\n'''
+          if old not in source:
+              raise SystemExit('fast instruction anchor missing')
+          source = source.replace(old, new, 1)
+
+          old = '''- Use current_project_state as the durable memory of the goal you and the user are pursuing.\n'''
+          new = old + '''- Use business_context.organizational_context as compact organization memory. It may contain stored organization identity/profile data, relevant prior same-user goals, and historical execution evidence. Respect timestamps; historical context informs reasoning but never replaces a live registered read when current business state is required.\n'''
+          if old not in source:
+              raise SystemExit('deep instruction anchor missing')
+          source = source.replace(old, new, 1)
+
+          old = '''          completed_step_context: true,\n'''
+          new = '''          completed_step_context: true,\n          organizational_context: true,\n'''
+          if old not in source:
+              raise SystemExit('fast metadata anchor missing')
+          source = source.replace(old, new, 1)
+
+          old = '''      completed_step_context: true,\n'''
+          new = '''      completed_step_context: true,\n      organizational_context: true,\n'''
+          if old not in source:
+              raise SystemExit('deep metadata anchor missing')
+          source = source.replace(old, new, 1)
+
+          path.write_text(source)
+
+          audit = Path('scripts/operator-goal-continuity-v2-audit.mjs')
+          audit_source = audit.read_text()
+          old = '''  readResolverSource,\n] = await Promise.all([\n'''
+          new = '''  readResolverSource,\n  organizationalContextSource,\n] = await Promise.all([\n'''
+          if old not in audit_source:
+              raise SystemExit('audit tuple anchor missing')
+          audit_source = audit_source.replace(old, new, 1)
+
+          old = '''  readFile("lib/operator/runtime/OperatorBusinessReadResolver.js", "utf8"),\n]);\n'''
+          new = '''  readFile("lib/operator/runtime/OperatorBusinessReadResolver.js", "utf8"),\n  readFile("lib/operator/runtime/OperatorOrganizationalContextRuntime.js", "utf8"),\n]);\n'''
+          if old not in audit_source:
+              raise SystemExit('audit source list anchor missing')
+          audit_source = audit_source.replace(old, new, 1)
+
+          marker = '''assert.match(turnRuntimeSource, /original_message:\\s*text\\(originalMessage\\)/);\n\n'''
+          checks = '''assert.match(reasoningSource, /loadOperatorOrganizationalContext/);\nassert.match(reasoningSource, /organizational_context: organizationalContext/);\nassert.match(reasoningSource, /operatorOrganizationalRankingText\\(organizationalContext\\)/);\nassert.match(reasoningSource, /historical context informs reasoning but never replaces a live registered read/i);\nassert.match(organizationalContextSource, /from\\("organizations"\\)/);\nassert.match(organizationalContextSource, /from\\("organization_industries"\\)/);\nassert.match(organizationalContextSource, /from\\("ai_business_profiles"\\)/);\nassert.match(organizationalContextSource, /from\\("intelligence_conversations"\\)/);\nassert.match(organizationalContextSource, /\\.eq\\("party_id", partyId\\)/);\nassert.match(organizationalContextSource, /relevant_prior_goals/);\nassert.match(organizationalContextSource, /relevant_verified_history/);\nassert.doesNotMatch(organizationalContextSource, /restaurant|hotel|construction|healthcare|pest_control|retail/i);\n\n'''
+          if marker not in audit_source:
+              raise SystemExit('audit insertion marker missing')
+          audit_source = audit_source.replace(marker, marker + checks, 1)
+          audit.write_text(audit_source)
+          PY
+      - name: Validate Operator slice
+        run: |
+          node --check lib/operator/runtime/OperatorOrganizationalContextRuntime.js
+          node --check lib/operator/runtime/OperatorReasoningRuntime.js
+          node scripts/operator-goal-continuity-v2-audit.mjs
+          node scripts/operator-fast-voice-read-catalog-audit.mjs
+          git diff --check
+      - name: Remove one-time workflow and commit
+        run: |
+          rm .github/workflows/one-time-operator-organizational-brain.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lib/operator/runtime/OperatorReasoningRuntime.js scripts/operator-goal-continuity-v2-audit.mjs .github/workflows/one-time-operator-organizational-brain.yml
+          git commit -m "[deploy-production] Wire dynamic Operator organizational brain"
+          git push origin HEAD:main

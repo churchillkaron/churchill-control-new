@@ -161,6 +161,46 @@ requireAll("TURN_MISSION_PERSISTENCE", turnSource, [
   "existingRun.run_id",
 ]);
 
+requireAll("TURN_MISSION_PRESTATE_BLOCK_INTEGRITY", turnSource, [
+  'text(result?.mission_mode) === "durable_registered_sequence"',
+  "const hasMissionState =",
+  'result?.mission_state && typeof result.mission_state === "object"',
+  "if (!hasMissionState)",
+  "let next = clearedAgreementState(agreementState)",
+  "if (continuingMission && existingRun)",
+  "const currentStepId = text(existingRun?.current_step_id) || null",
+  'status: "blocked"',
+  "currentStepId,",
+  "stepId: currentStepId",
+  'stepStatus: "failed"',
+  '"OPERATOR_MISSION_BLOCKED_BEFORE_STATE"',
+]);
+
+const missionRecognitionIndex = turnSource.indexOf(
+  'text(result?.mission_mode) === "durable_registered_sequence"',
+);
+const missionStateGuardIndex = turnSource.indexOf("const hasMissionState =");
+const prestateClearIndex = turnSource.indexOf(
+  "let next = clearedAgreementState(agreementState)",
+  missionStateGuardIndex,
+);
+const prestateBlockIndex = turnSource.indexOf(
+  '"OPERATOR_MISSION_BLOCKED_BEFORE_STATE"',
+  missionStateGuardIndex,
+);
+const missionRunCreationIndex = turnSource.indexOf(
+  "const run = createOperatorMissionRun({",
+  missionStateGuardIndex,
+);
+assert.ok(
+  missionRecognitionIndex >= 0 &&
+    missionStateGuardIndex > missionRecognitionIndex &&
+    prestateClearIndex > missionStateGuardIndex &&
+    prestateBlockIndex > prestateClearIndex &&
+    missionRunCreationIndex > prestateBlockIndex,
+  "blocked mission-mode results without mission state must fail closed before mission run creation",
+);
+
 requireAll("TURN_MISSION_RUN_PROJECTION_INTEGRITY", turnSource, [
   "function canonicalMissionValue(value)",
   "function missionResumeProjectionMatches(pending, run)",
@@ -243,6 +283,7 @@ console.log("OPERATOR_MISSION_RESUME=EXACT_STEP_AND_PAYLOAD");
 console.log("OPERATOR_MISSION_RESUME_SCOPE=ORGANIZATION_ENTITY_PERIOD_PARTY_ACTOR_BOUND");
 console.log("OPERATOR_MISSION_RUN_PROJECTION=EXACT_PENDING_RUN_MATCH_BEFORE_RESUME");
 console.log("OPERATOR_MISSION_RUN_MISMATCH=FAIL_CLOSED_CLEAR_PENDING");
+console.log("OPERATOR_MISSION_PRESTATE_BLOCK=FAIL_CLOSED_NO_GENERIC_COMPLETION");
 console.log("OPERATOR_MISSION_SUPERSESSION=EXACT_CURRENT_STEP_TERMINAL_SAFE");
 console.log("OPERATOR_MISSION_CHECKPOINT=STRICT_ORDERED_PREFIX");
 console.log("OPERATOR_MISSION_CHECKPOINT_VERIFICATION=REGISTERED_CURRENT_WRITE_ONLY");

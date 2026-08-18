@@ -98,6 +98,7 @@ const [
   readChainSource,
   capabilityCatalogSource,
   readResolverSource,
+  dataReflexSource,
 ] = await Promise.all([
   readFile("lib/operator/runtime/OperatorReasoningRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorVerificationRuntime.js", "utf8"),
@@ -105,6 +106,7 @@ const [
   readFile("lib/platform/capabilities/createOperatorReadChainCapability.js", "utf8"),
   readFile("lib/operator/runtime/OperatorCapabilityCatalog.js", "utf8"),
   readFile("lib/operator/runtime/OperatorBusinessReadResolver.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorBusinessDataReflex.js", "utf8"),
 ]);
 
 assert.match(
@@ -190,6 +192,18 @@ assert.doesNotMatch(
   /revenue|profit|inventory|receivable|payable|payroll|customer|supplier|hotel|restaurant/i,
 );
 
+assert.match(dataReflexSource, /function schemaIsAutomatic\(capability\)/);
+assert.match(dataReflexSource, /requiredFields\(capability\)\.length === 0/);
+assert.match(dataReflexSource, /payload:\s*\{\}/);
+assert.doesNotMatch(dataReflexSource, /function relativeDatePayload/);
+assert.doesNotMatch(dataReflexSource, /function contextField/);
+assert.doesNotMatch(dataReflexSource, /function zonedDateParts/);
+assert.doesNotMatch(dataReflexSource, /function isoDateShift/);
+assert.doesNotMatch(
+  dataReflexSource,
+  /date_from|date_to|from_date|to_date|start_date|end_date|\btoday\b|\byesterday\b/i,
+);
+
 assert.match(turnRuntimeSource, /createOperatorAutonomousRun/);
 assert.match(turnRuntimeSource, /function runPendingPostActionVerification/);
 assert.match(turnRuntimeSource, /POST_ACTION_VERIFICATION_CAPABILITY_NOT_AVAILABLE/);
@@ -207,4 +221,6 @@ console.log("OPERATOR_READ_EVIDENCE=DYNAMIC_COLLECTION_DISCOVERY");
 console.log("OPERATOR_MULTI_READ=PARALLEL_REGISTERED_CAPABILITIES");
 console.log("OPERATOR_MULTI_READ_CATALOG=DOMAIN_DIVERSE_RUNTIME_SELECTION");
 console.log("OPERATOR_MULTI_READ_VOCABULARY=MANIFEST_DRIVEN");
+console.log("OPERATOR_DATA_REFLEX=INPUT_FREE_REGISTERED_READS_ONLY");
+console.log("OPERATOR_DATA_REFLEX_INPUT_BINDING=SCHEMA_REASONING_NOT_ALIAS_TABLES");
 console.log("OPERATOR_FAST_EXECUTIVE_ACTIONS=DEEP_REASONING_FALLBACK");

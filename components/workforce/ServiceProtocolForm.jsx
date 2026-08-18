@@ -298,7 +298,10 @@ function ProtocolField({ field, value, uploading, onChange, onFile }) {
       <input
         type={type}
         value={value ?? ""}
-        onChange={(event) => onChange(type === "number" ? event.target.valueAsNumber : event.target.value)}
+        onChange={(event) => {
+          const raw = event.target.value;
+          onChange(type === "number" && raw !== "" ? Number(raw) : raw);
+        }}
         className={inputClass()}
       />
       {field.help_text ? <div className="mt-1 text-[10px] text-white/30">{field.help_text}</div> : null}

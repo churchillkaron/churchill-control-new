@@ -79,6 +79,20 @@ test("video preparation resolves exact brand marks before route selection", asyn
   assert.ok(persist > route, "verified preparation must be persisted only after route resolution");
 });
 
+test("video preparation requires current versioned readiness evidence before skip", async () => {
+  const prepare = await fs.readFile(PREPARE, "utf8");
+
+  assert.match(prepare, /CREATIVE_VIDEO_PRODUCTION_READINESS_V2/);
+  assert.match(prepare, /function currentPreparationEvidence\(task = \{\}\)/);
+  assert.match(prepare, /creative_video_production_readiness/);
+  assert.match(prepare, /readiness\.contract === PREPARATION_CONTRACT/);
+  assert.match(prepare, /readiness\.shot_bible_contract === CreativeShotBibleRuntime\.contract/);
+  assert.match(prepare, /readiness\.video_engine_route_contract === CreativeVideoEngineRouter\.contract/);
+  assert.match(prepare, /text\(readiness\.brand_mark_compositing_contract\) === text\(compositing\.contract\)/);
+  assert.match(prepare, /currentPreparationEvidence\(task\)/);
+  assert.match(prepare, /preparation_contract: PREPARATION_CONTRACT/);
+});
+
 test("governed manual video dispatch prepares and verifies readiness before claim", async () => {
   const [prepare, dispatch] = await Promise.all([
     fs.readFile(PREPARE, "utf8"),

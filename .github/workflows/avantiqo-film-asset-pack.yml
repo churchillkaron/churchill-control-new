@@ -30,7 +30,11 @@ jobs:
             curl --fail --location --retry 30 --retry-delay 10 --retry-all-errors "${BASE}?asset=${asset}" --output "avantiqo-film-assets/live/${asset}.mp4"
           done
           curl --fail --location --retry 30 --retry-delay 10 --retry-all-errors "${BASE}?asset=voice" --output avantiqo-film-assets/voice.mp3
-          curl --fail --location --retry 30 --retry-delay 10 --retry-all-errors "${BASE}?asset=voice_v2" --output avantiqo-film-assets/voice_v2.mp3
+          VOICE_JSON="$(curl --fail --location --retry 10 --retry-delay 5 --retry-all-errors 'https://avantiqo.ai/api/internal/avantiqo-investor-video-voice-v2?token=avq-cedar-v2-20260818')"
+          VOICE_URL="$(printf '%s' "$VOICE_JSON" | jq -r '.audio_url')"
+          test -n "$VOICE_URL"
+          test "$VOICE_URL" != "null"
+          curl --fail --location --retry 10 --retry-delay 5 --retry-all-errors "$VOICE_URL" --output avantiqo-film-assets/voice_v2.mp3
           curl --fail --location --retry 30 --retry-delay 10 --retry-all-errors "${BASE}?asset=score" --output avantiqo-film-assets/score.wav
 
       - name: Verify media
@@ -46,7 +50,7 @@ jobs:
       - name: Upload film asset pack
         uses: actions/upload-artifact@v4
         with:
-          name: avantiqo-film-assets-20260818-v2-score
+          name: avantiqo-film-assets-20260818-v2-score-direct
           path: avantiqo-film-assets
           if-no-files-found: error
           retention-days: 1

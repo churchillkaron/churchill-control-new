@@ -10,6 +10,9 @@ import {
   createWakeFeatureFrame,
   scoreWakeCandidate,
 } from "@/lib/operator/voice/localWakeMatcher";
+import {
+  startRealtimeTranscription,
+} from "@/lib/operator/voice/RealtimeTranscriptionClient";
 
 const ENABLED_KEY = "avantiqo.local-wake.enabled";
 const TEMPLATE_KEY = "avantiqo.local-wake.template.v2";
@@ -108,6 +111,8 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const recognitionHandledRef = useRef(false);
   const recognitionCommitTimerRef = useRef(null);
   const recognitionInterimRef = useRef("");
+  const realtimeTranscriptionRef = useRef(null);
+  const realtimeTranscriptionPromiseRef = useRef(null);
   const noiseFloorRef = useRef(0.012);
   const speechOnsetRef = useRef(0);
   const onsetFramesRef = useRef([]);
@@ -181,6 +186,59 @@ export default function LocalHeyAvantiqoWakeBridge() {
     followUpTimerRef.current = null;
   }
 
+  function stopRealtimeTranscription(reason = "REALTIME_TRANSCRIPTION_STOPPED") {
+    const active = realtimeTranscriptionRef.current;
+    const pending = realtimeTranscriptionPromiseRef.current;
+    realtimeTranscriptionRef.current = null;
+    realtimeTranscriptionPromiseRef.current = null;
+
+    active?.cancel?.(reason).catch(() => null);
+    if (!active && pending) {
+      pending
+        .then((session) => session?.cancel?.(reason))
+        .catch(() => null);
+    }
+  }
+
+  function ensureRealtimeTranscription() {
+    if (
+      recognitionActiveRef.current ||
+      realtimeTranscriptionRef.current ||
+      realtimeTranscriptionPromiseRef.current ||
+      !enabledRef.current ||
+      !organizationId ||
+      !audioContextRef.current ||
+      !streamRef.current
+    ) {
+      return realtimeTranscriptionPromiseRef.current;
+    }
+
+    const promise = startRealtimeTranscription({
+      organizationId,
+      entityId,
+      locale: navigator.language || "en-US",
+      audioContext: audioContextRef.current,
+      stream: streamRef.current,
+    })
+      .then((session) => {
+        realtimeTranscriptionPromiseRef.current = null;
+        if (!enabledRef.current || !commandModeRef.current) {
+          session?.cancel?.("REALTIME_TRANSCRIPTION_COMMAND_ENDED").catch(() => null);
+          return null;
+        }
+        realtimeTranscriptionRef.current = session;
+        return session;
+      })
+      .catch((error) => {
+        realtimeTranscriptionPromiseRef.current = null;
+        console.warn("AVANTIQO_REALTIME_STT_UNAVAILABLE", error?.message || error);
+        return null;
+      });
+
+    realtimeTranscriptionPromiseRef.current = promise;
+    return promise;
+  }
+
   function stopRecognition() {
     if (recognitionCommitTimerRef.current) {
       window.clearTimeout(recognitionCommitTimerRef.current);
@@ -204,16 +262,19 @@ export default function LocalHeyAvantiqoWakeBridge() {
     if (!enabledRef.current) return;
 
     clearFollowUpTimer();
+    stopRealtimeTranscription("REALTIME_TRANSCRIPTION_REARMED");
     commandModeRef.current = true;
     setStatus("listening-command");
 
     if (!startNativeRecognition()) {
       recognitionActiveRef.current = false;
+      ensureRealtimeTranscription();
     }
 
     followUpTimerRef.current = window.setTimeout(() => {
       commandModeRef.current = false;
       stopRecognition();
+      stopRealtimeTranscription("REALTIME_TRANSCRIPTION_FOLLOW_UP_TIMEOUT");
       if (enabledRef.current) setStatus("listening");
     }, FOLLOW_UP_WINDOW_MS);
   }
@@ -246,6 +307,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     commandModeRef.current = false;
     inSpeechRef.current = false;
     clearFollowUpTimer();
+    stopRealtimeTranscription("REALTIME_TRANSCRIPTION_VOICE_DISABLED");
     stopRecognition();
 
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
@@ -397,6 +459,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
   async function speakAnswer(message) {
     speakingRef.current = true;
     setVoiceError("");
+    stopRealtimeTranscription("REALTIME_TRANSCRIPTION_ANSWER_STARTED");
     stopRecognition();
 
     try {
@@ -421,6 +484,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
   async function speakRecovery() {
     speakingRef.current = true;
+    stopRealtimeTranscription("REALTIME_TRANSCRIPTION_RECOVERY_STARTED");
     stopRecognition();
     setStatus("speaking");
 
@@ -442,6 +506,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     lastWakeRef.current = now;
 
     clearFollowUpTimer();
+    stopRealtimeTranscription("REALTIME_TRANSCRIPTION_WAKE_ACKNOWLEDGEMENT");
     commandModeRef.current = false;
     stopRecognition();
     speakingRef.current = true;
@@ -626,6 +691,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
           recognitionInterimRef.current = "";
           commandModeRef.current = false;
           clearFollowUpTimer();
+          stopRealtimeTranscription("REALTIME_TRANSCRIPTION_NATIVE_RESULT");
           setStatus("understanding");
 
           try {
@@ -653,6 +719,9 @@ export default function LocalHeyAvantiqoWakeBridge() {
         if (["aborted", "no-speech"].includes(text(event?.error))) return;
 
         console.warn("AVANTIQO_NATIVE_RECOGNITION_ERROR", event?.error);
+        if (enabledRef.current && commandModeRef.current) {
+          ensureRealtimeTranscription();
+        }
       };
 
       recognition.onend = () => {
@@ -689,6 +758,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     }
 
     clearFollowUpTimer();
+    ensureRealtimeTranscription();
 
     const mime = preferredMime();
     const recorder = mime
@@ -717,6 +787,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
       commandModeRef.current = false;
 
       if (!chunks.length) {
+        stopRealtimeTranscription("REALTIME_TRANSCRIPTION_EMPTY_RECORDING");
         setStatus("listening");
         return;
       }
@@ -728,14 +799,32 @@ export default function LocalHeyAvantiqoWakeBridge() {
       setStatus("understanding");
       setVoiceError("");
 
+      const realtimePromise = realtimeTranscriptionRef.current
+        ? Promise.resolve(realtimeTranscriptionRef.current)
+        : realtimeTranscriptionPromiseRef.current;
+      realtimeTranscriptionRef.current = null;
+      realtimeTranscriptionPromiseRef.current = null;
+
+      let transcript = "";
       try {
-        const transcript = await transcribe(blob);
-        if (transcript) await runVoiceCommand(transcript);
-        else setStatus("listening");
+        const realtime = await realtimePromise;
+        transcript = text(await realtime?.commit?.());
       } catch (error) {
-        setVoiceError(error?.message || "I couldn't understand that");
-        setStatus("listening");
+        console.warn("AVANTIQO_REALTIME_STT_FALLBACK", error?.message || error);
       }
+
+      if (!transcript) {
+        try {
+          transcript = await transcribe(blob);
+        } catch (error) {
+          setVoiceError(error?.message || "I couldn't understand that");
+          setStatus("listening");
+          return;
+        }
+      }
+
+      if (transcript) await runVoiceCommand(transcript);
+      else setStatus("listening");
     };
 
     recorder.stop();
@@ -949,6 +1038,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
       enrollmentRef.current = [];
       setEnrollmentCount(0);
       commandModeRef.current = false;
+      stopRealtimeTranscription("REALTIME_TRANSCRIPTION_RELEARN_WAKE");
       stopRecognition();
       setVoiceError("");
       setStatus("enrolling");

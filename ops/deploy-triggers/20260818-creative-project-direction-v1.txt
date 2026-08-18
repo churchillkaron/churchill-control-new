@@ -1,0 +1,9 @@
+Release durable Creative project direction V1.
+
+Scope:
+- add PROJECT_DIRECTION to durable Creative execution jobs
+- require completed validated research and explicit V2 direction budget approval
+- use the temporal master-plan runtime for the exact-duration video direction
+- assert production graph and production task counts do not change
+- maximum_attempts=1; paid failures are terminal
+- media generation and publication remain unauthorized

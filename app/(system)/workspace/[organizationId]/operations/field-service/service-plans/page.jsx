@@ -20,6 +20,7 @@ const EMPTY_FORM = Object.freeze({
   recurrence_interval: "1",
   recurrence_unit: "month",
   execution_template_id: "",
+  preferred_staff_id: "",
   notes: "",
 });
 
@@ -61,6 +62,7 @@ export default function ServicePlansPage() {
   const organizationId = params?.organizationId || organization?.id || "";
 
   const [customers, setCustomers] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [plans, setPlans] = useState([]);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [loading, setLoading] = useState(true);
@@ -74,13 +76,15 @@ export default function ServicePlansPage() {
     setError("");
 
     try {
-      const [customerResponse, planResponse] = await Promise.all([
+      const [customerResponse, planResponse, peopleResponse] = await Promise.all([
         fetch(`/api/commercial/customers?organizationId=${encodeURIComponent(organizationId)}&limit=500`, { cache: "no-store" }),
         fetch(`/api/service-management/plans?organizationId=${encodeURIComponent(organizationId)}&limit=500`, { cache: "no-store" }),
+        fetch("/api/people/directory", { cache: "no-store" }).catch(() => null),
       ]);
-      const [customerJson, planJson] = await Promise.all([
+      const [customerJson, planJson, peopleJson] = await Promise.all([
         customerResponse.json().catch(() => ({})),
         planResponse.json().catch(() => ({})),
+        peopleResponse?.json().catch(() => ({})) || {},
       ]);
 
       if (!customerResponse.ok || !customerJson.success) {
@@ -92,6 +96,19 @@ export default function ServicePlansPage() {
 
       setCustomers(customerJson.rows || customerJson.customers || []);
       setPlans(planJson.rows || []);
+
+      const peopleOrganizationId = peopleJson?.organizationId || null;
+      const activeEntityId = peopleJson?.activeEntityId || null;
+      const availableTechnicians = peopleResponse?.ok
+        && peopleJson?.success
+        && peopleOrganizationId === organizationId
+        ? (peopleJson.employees || []).filter((employee) => (
+            employee.active !== false
+            && employee.employment
+            && (!activeEntityId || employee.employment.entity_id === activeEntityId)
+          ))
+        : [];
+      setTechnicians(availableTechnicians);
     } catch (loadError) {
       setError(loadError.message || "Service Delivery data could not be loaded.");
     } finally {
@@ -132,6 +149,7 @@ export default function ServicePlansPage() {
         throw new Error("Customer, service name and first service date are required.");
       }
 
+      const preferredTechnician = technicians.find((employee) => employee.id === form.preferred_staff_id) || null;
       const response = await fetch("/api/service-management/plans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -143,6 +161,8 @@ export default function ServicePlansPage() {
           service_category: form.service_category || null,
           industry_key: form.industry_key || "generic-service",
           execution_template_id: form.execution_template_id || null,
+          preferred_staff_id: preferredTechnician?.id || null,
+          preferred_staff_name: preferredTechnician?.name || null,
           first_service_at: firstServiceAt,
           contract_start: firstServiceAt,
           contract_end: localInputToIso(form.contract_end),
@@ -186,13 +206,19 @@ export default function ServicePlansPage() {
         throw new Error(json.error || "Next service visit could not be generated.");
       }
 
-      setNotice(
-        json.generated
-          ? "Next service visit generated as a canonical Operations work order."
-          : json.reason === "contract-complete"
-            ? "Contract is complete; no additional visit was generated."
-            : "This occurrence was already generated; no duplicate was created.",
-      );
+      if (json.generated && json.assignment?.assigned) {
+        setNotice(`Next service visit generated and assigned to ${json.assignment.employee?.name || "the preferred technician"}.`);
+      } else if (json.generated && plan.attributes?.service_delivery?.preferred_staff_id) {
+        setNotice(`Next service visit generated. Preferred technician was not eligible (${json.assignment?.reason || "assignment unavailable"}), so the visit remains available to Dispatch.`);
+      } else {
+        setNotice(
+          json.generated
+            ? "Next service visit generated as a canonical Operations work order."
+            : json.reason === "contract-complete"
+              ? "Contract is complete; no additional visit was generated."
+              : "This occurrence was already generated; no duplicate was created.",
+        );
+      }
       await load();
     } catch (generateError) {
       setError(generateError.message || "Next service visit could not be generated.");
@@ -280,6 +306,14 @@ export default function ServicePlansPage() {
 
             <label className="block text-xs text-white/45">Customer Site / Location<input value={form.customer_location_name} onChange={(event) => updateForm("customer_location_name", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white" placeholder="Karon branch, Villa 3, Building A..." /></label>
 
+            <label className="block text-xs text-white/45">Preferred Technician (optional)
+              <select value={form.preferred_staff_id} onChange={(event) => updateForm("preferred_staff_id", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white">
+                <option value="">No preference — Dispatch decides</option>
+                {technicians.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}{employee.position ? ` · ${employee.position}` : ""}</option>)}
+              </select>
+              <span className="mt-2 block text-[11px] leading-5 text-white/30">Operations revalidates active employment for every visit. If the preference is no longer eligible, the visit remains unassigned for Dispatch.</span>
+            </label>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-xs text-white/45">First Service<input type="datetime-local" value={form.first_service_at} onChange={(event) => updateForm("first_service_at", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white" required /></label>
               <label className="block text-xs text-white/45">Contract End<input type="datetime-local" value={form.contract_end} onChange={(event) => updateForm("contract_end", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white" /></label>
@@ -309,18 +343,19 @@ export default function ServicePlansPage() {
 
         <div className="rounded-[26px] border border-white/10 bg-white/[0.025] p-5">
           <div className="flex items-center justify-between gap-3">
-            <div><div className="text-lg font-semibold">Service Delivery Control</div><div className="mt-1 text-xs text-white/35">Plans create demand. Operations owns the actual visit execution.</div></div>
+            <div><div className="text-lg font-semibold">Service Delivery Control</div><div className="mt-1 text-xs text-white/35">Plans create demand. Operations owns the actual visit execution and technician assignment.</div></div>
             <button type="button" onClick={load} disabled={loading || saving} className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-xs text-white/55">Refresh</button>
           </div>
 
           <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
-              <thead><tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/30"><th className="px-3 py-3">Customer / Service</th><th className="px-3 py-3">Industry</th><th className="px-3 py-3">Frequency</th><th className="px-3 py-3">Next Visit</th><th className="px-3 py-3">Status</th><th className="px-3 py-3 text-right">Control</th></tr></thead>
+            <table className="w-full min-w-[1050px] text-left text-sm">
+              <thead><tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/30"><th className="px-3 py-3">Customer / Service</th><th className="px-3 py-3">Industry</th><th className="px-3 py-3">Frequency</th><th className="px-3 py-3">Preferred Technician</th><th className="px-3 py-3">Next Visit</th><th className="px-3 py-3">Status</th><th className="px-3 py-3 text-right">Control</th></tr></thead>
               <tbody>
-                {loading ? <tr><td colSpan="6" className="px-3 py-8 text-center text-white/35">Loading service plans...</td></tr> : null}
-                {!loading && plans.length === 0 ? <tr><td colSpan="6" className="px-3 py-8 text-center text-white/35">No service plans yet. Create the first recurring customer service plan.</td></tr> : null}
+                {loading ? <tr><td colSpan="7" className="px-3 py-8 text-center text-white/35">Loading service plans...</td></tr> : null}
+                {!loading && plans.length === 0 ? <tr><td colSpan="7" className="px-3 py-8 text-center text-white/35">No service plans yet. Create the first recurring customer service plan.</td></tr> : null}
                 {!loading && plans.map((plan) => {
-                  const customerName = plan.attributes?.service_delivery?.customer_name || "Customer";
+                  const delivery = plan.attributes?.service_delivery || {};
+                  const customerName = delivery.customer_name || "Customer";
                   const recurrence = plan.recurrence || {};
                   const recurrenceLabel = recurrence.preset === "custom" ? `Every ${recurrence.interval || 1} ${recurrence.unit || "month"}(s)` : recurrence.preset || "monthly";
                   return (
@@ -328,6 +363,7 @@ export default function ServicePlansPage() {
                       <td className="px-3 py-4"><div className="font-medium text-white">{customerName}</div><div className="mt-1 text-xs text-white/50">{plan.service_name}{plan.customer_location_name ? ` · ${plan.customer_location_name}` : ""}</div></td>
                       <td className="px-3 py-4 text-white/55">{plan.industry_key}</td>
                       <td className="px-3 py-4 capitalize text-white/55">{recurrenceLabel}</td>
+                      <td className="px-3 py-4"><div className="text-white/65">{delivery.preferred_staff_name || "Dispatch queue"}</div>{delivery.preferred_staff_id ? <div className="mt-1 text-[11px] text-white/30">Eligibility checked per visit</div> : null}</td>
                       <td className="px-3 py-4"><div className="text-white/70">{formatDate(plan.next_service_at)}</div>{plan.last_work_order_id ? <div className="mt-1 text-[11px] text-white/30">Last work order: {plan.last_work_order_id.slice(0, 8)}</div> : null}</td>
                       <td className="px-3 py-4"><span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium capitalize ${statusClass(plan.status)}`}>{plan.status}</span></td>
                       <td className="px-3 py-4"><div className="flex justify-end gap-2">

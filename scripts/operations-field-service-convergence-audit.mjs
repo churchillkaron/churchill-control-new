@@ -180,7 +180,7 @@ requireText(
   '"path": "/api/internal/service-management/plans/process"'
 );
 requireText(vercelConfig, '"schedule": "*/15 * * * *"');
-requireText(vercelConfig, '"deploymentEnabled": false');
+requireText(vercelConfig, '"deploymentEnabled": true');
 requireText(vercelConfig, '"ignoreCommand": "node scripts/vercel-ignore-build.mjs"');
 
 requireText(employeeEligibilityService, "export async function getEmployeeOperationalEligibility");

@@ -48,23 +48,31 @@ requireAll("MISSION_GOVERNANCE", missionSource, [
 ]);
 
 requireAll("MISSION_RESUME_CHECKPOINT_INTEGRITY", missionSource, [
-  "const orderedIds = steps.map((step) => step.id)",
+  "const orderedIds = preflight.map((entry) => entry.step.id)",
   "rawCompleted.length !== completed.length",
   "const expectedCompleted = orderedIds.slice(0, currentIndex)",
   'return { error: "OPERATOR_MISSION_RESUME_CHECKPOINT_INVALID" }',
   'return { error: "OPERATOR_MISSION_RESUME_VERIFICATION_INVALID" }',
-  "verificationStepId && verificationStepId !== currentStepId",
+  'return { error: "OPERATOR_MISSION_RESUME_GATE_STATE_INVALID" }',
+  "const currentEntry = preflight[currentIndex]",
+  "const registeredVerification = currentEntry?.verification?.verification || null",
+  "currentEntry?.contract?.mode === \"read\"",
+  "text(verification.capability_key) !== text(registeredVerification.capability_key)",
+  "!currentEntry?.contract?.durable_approval_required || !currentStepConfirmed",
+  "verificationStepId && (!currentStepConfirmed || approvalRequestId)",
+  "const resume = normalizeResume(payload, preflight, context)",
 ]);
 
 const checkpointValidationIndex = missionSource.indexOf(
   "const expectedCompleted = orderedIds.slice(0, currentIndex)",
 );
+const resumeContractIndex = missionSource.indexOf("const currentEntry = preflight[currentIndex]");
 const missionLoopIndex = missionSource.indexOf("for (\n      let index = preflight.findIndex");
 assert.ok(
   checkpointValidationIndex >= 0 &&
-    missionLoopIndex >= 0 &&
-    checkpointValidationIndex < missionLoopIndex,
-  "resume checkpoint integrity must be validated before mission execution resumes",
+    resumeContractIndex > checkpointValidationIndex &&
+    missionLoopIndex > resumeContractIndex,
+  "resume checkpoint and current-step contract integrity must be validated before mission execution resumes",
 );
 
 requireAll("MISSION_VERIFICATION_RESUME", missionSource, [
@@ -84,6 +92,32 @@ assert.ok(
     actionExecutionIndex >= 0 &&
     verificationResumeIndex < actionExecutionIndex,
   "verification resume must be handled before any action replay path",
+);
+
+const readBranchIndex = missionSource.indexOf('if (contract.mode === "read")');
+const readAdvanceIndex = missionSource.indexOf(
+  "currentStepId = preflight[index + 1]?.step.id || null",
+  readBranchIndex,
+);
+const readConfirmedResetIndex = missionSource.indexOf(
+  "currentStepConfirmed = false",
+  readBranchIndex,
+);
+const readApprovalResetIndex = missionSource.indexOf(
+  "approvalRequestId = null",
+  readBranchIndex,
+);
+const readVerificationResetIndex = missionSource.indexOf(
+  "verificationPending = null",
+  readBranchIndex,
+);
+assert.ok(
+  readBranchIndex >= 0 &&
+    readConfirmedResetIndex > readBranchIndex &&
+    readApprovalResetIndex > readConfirmedResetIndex &&
+    readVerificationResetIndex > readApprovalResetIndex &&
+    readAdvanceIndex > readVerificationResetIndex,
+  "read completion must clear step-scoped confirmation, approval and verification state before advancing",
 );
 
 requireAll("TURN_MISSION_PERSISTENCE", turnSource, [
@@ -142,7 +176,9 @@ console.log("OPERATOR_DURABLE_MISSION_AUDIT=PASS");
 console.log("OPERATOR_MISSION_STATE=SERVER_PERSISTED_CONVERSATION");
 console.log("OPERATOR_MISSION_RESUME=EXACT_STEP_AND_PAYLOAD");
 console.log("OPERATOR_MISSION_CHECKPOINT=STRICT_ORDERED_PREFIX");
-console.log("OPERATOR_MISSION_CHECKPOINT_VERIFICATION=EXACT_CURRENT_STEP");
+console.log("OPERATOR_MISSION_CHECKPOINT_VERIFICATION=REGISTERED_CURRENT_WRITE_ONLY");
+console.log("OPERATOR_MISSION_RESUME_GATES=CURRENT_STEP_CONTRACT_BOUND");
+console.log("OPERATOR_MISSION_READ_ADVANCE=CLEARS_STEP_SCOPED_GATE_STATE");
 console.log("OPERATOR_MISSION_APPROVAL=EXACT_REQUEST_ID");
 console.log("OPERATOR_MISSION_VERIFICATION=NO_WRITE_REPLAY");
 console.log("OPERATOR_MISSION_CANCELLATION=CLEAR_PENDING_AND_CANCEL_EXACT_STEP");

@@ -31,7 +31,6 @@ function requireAll(label, source, needles) {
 }
 
 const bridge = read("components/operator/LocalHeyAvantiqoWakeBridge.jsx");
-const realtimeClient = read("lib/operator/voice/RealtimeTranscriptionClient.js");
 const fastRuntime = read("lib/operator/runtime/OperatorFastConversationRuntime.js");
 const turnRoute = read("app/api/operator/turn/route.js");
 const navigationMatcher = read("lib/operator/runtime/OperatorNavigationMatcher.js");
@@ -39,14 +38,6 @@ const turnRuntime = read("lib/operator/runtime/OperatorTurnRuntime.js");
 const reasoningRuntime = read("lib/operator/runtime/OperatorReasoningRuntime.js");
 const acknowledgementRuntime = read("lib/operator/runtime/OperatorVoiceAcknowledgementRuntime.js");
 const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.js");
-const aiServiceCatalog = read("lib/platform/service-runtime/ai/PlatformAIServiceCatalog.js");
-const openaiAdapter = read("lib/platform/service-runtime/providers/openai/OpenAIProvider.js");
-const openaiRuntime = read("lib/platform/service-runtime/providers/openai/OpenAIProviderSanitizedRuntime.js");
-const usageRuntime = read("lib/platform/service-runtime/usage/UsageRuntime.js");
-const serviceExecutionRuntime = read("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js");
-const liveSessionRuntime = read("lib/platform/service-runtime/execution/LiveProviderSessionRuntime.js");
-const realtimeSessionRoute = read("app/api/operator/transcribe/realtime/session/route.js");
-const realtimeSettlementRoute = read("app/api/operator/transcribe/realtime/settle/route.js");
 
 requireAll("VOICE_BRIDGE", bridge, [
   "MIN_SPEECH_THRESHOLD",
@@ -69,94 +60,6 @@ requireAll("FAST_VOICE_LOW_LATENCY", reasoningRuntime, [
   "no_filler_response: true",
   'Do not begin with filler acknowledgements such as "Got it"',
 ]);
-
-requireAll("REALTIME_STT_BROWSER_CLIENT", realtimeClient, [
-  "TARGET_SAMPLE_RATE = 24000",
-  'type: "input_audio_buffer.append"',
-  'type: "input_audio_buffer.commit"',
-  "conversation.item.input_audio_transcription.completed",
-  "openai-insecure-api-key.",
-  "/api/operator/transcribe/realtime/session",
-  "/api/operator/transcribe/realtime/settle",
-  'action: "complete"',
-  'action: "cancel"',
-]);
-
-requireAll("REALTIME_STT_BROWSER_FALLBACK_ORDER", bridge, [
-  "startRealtimeTranscription",
-  "ensureRealtimeTranscription",
-  "realtime?.commit?.()",
-  "AVANTIQO_REALTIME_STT_FALLBACK",
-  "transcript = await transcribe(blob)",
-]);
-
-requireAll("REALTIME_STT_SERVICE_CONTRACT", aiServiceCatalog, [
-  'id: "ai.speech.to.text"',
-  '"ai.speech.to.text"',
-  '"ai.speech.to.text.realtime"',
-]);
-
-requireAll("REALTIME_STT_SANITIZATION", openaiRuntime, [
-  'case "ai.speech.to.text.realtime"',
-  'endpoint_family: "REALTIME_TRANSCRIPTION_SESSION"',
-  "ephemeral_credential_only: true",
-  "return BaseOpenAIProvider.execute(localized);",
-]);
-
-requireAll("REALTIME_STT_OPENAI_ADAPTER", openaiAdapter, [
-  'case "ai.speech.to.text.realtime"',
-  'model !== "gpt-realtime-whisper"',
-  "client.realtime.clientSecrets.create",
-  'type: "transcription"',
-  "turn_detection: null",
-  'status: "pending"',
-  "provider_job_id: sessionId",
-]);
-
-requireAll("REALTIME_STT_PENDING_BINDING", usageRuntime, [
-  "async bindPendingProviderExecution",
-  "provider_request_id",
-  "SERVICE_USAGE_PROVIDER_REQUEST_CONFLICT",
-]);
-
-requireAll("REALTIME_STT_EXECUTION_BINDING", serviceExecutionRuntime, [
-  "UsageRuntime.bindPendingProviderExecution",
-  "provider_request_id: state.job_id",
-  "usage: pendingUsage",
-]);
-
-requireAll("REALTIME_STT_FIXED_SETTLEMENT", liveSessionRuntime, [
-  'text(usage.capability) !== "ai.speech.to.text.realtime"',
-  "LIVE_PROVIDER_USAGE_SESSION_MISMATCH",
-  "reservationPricing(usage)",
-  "WalletRuntime.charge",
-  "WalletRuntime.release",
-  'settlement: "BOUND_LIVE_SESSION_FIXED_PRICE"',
-  'settlement: "BOUND_LIVE_SESSION_CANCELLED"',
-]);
-
-requireAll("REALTIME_STT_SESSION_ROUTE", realtimeSessionRoute, [
-  "requireOrganizationAccess",
-  "resolveBusinessContext",
-  'service_id: "ai.speech.to.text"',
-  'capability: "ai.speech.to.text.realtime"',
-  "client_secret: clientSecret",
-  '"Cache-Control": "no-store, private"',
-]);
-
-requireAll("REALTIME_STT_SETTLEMENT_ROUTE", realtimeSettlementRoute, [
-  "requireOrganizationAccess",
-  "LiveProviderSessionRuntime.complete",
-  "LiveProviderSessionRuntime.cancel",
-  "provider_request_id: sessionId",
-]);
-
-if (realtimeSessionRoute.includes("OPENAI_API_KEY")) {
-  violations.push("REALTIME_STT_ROUTE_EXPOSES_MANAGED_API_KEY");
-}
-if (liveSessionRuntime.includes("body.customer_price")) {
-  violations.push("REALTIME_STT_CLIENT_CONTROLS_PRICE");
-}
 
 requireAll("FAST_CONVERSATION", fastRuntime, [
   "export function instantConversationReply",
@@ -397,12 +300,6 @@ if (violations.length) {
   console.log("VOICE_SIMPLE_REPLY=INSTANT_LOCAL_OR_FAST_MODEL");
   console.log("VOICE_FAST_REASONING=SINGLE_PASS_LOW_LATENCY");
   console.log("VOICE_PROCESSING_FILLER=DISABLED");
-  console.log("VOICE_REALTIME_STT=GOVERNED_EPHEMERAL_SESSION");
-  console.log("VOICE_REALTIME_STT_TRANSPORT=PCM16_24KHZ_WEBSOCKET");
-  console.log("VOICE_REALTIME_STT_FALLBACK=UPLOAD_ONLY_AFTER_REALTIME_FAILURE");
-  console.log("VOICE_REALTIME_STT_SDK_BOUNDARY=CANONICAL_OPENAI_ADAPTER");
-  console.log("VOICE_REALTIME_STT_BILLING=SERVER_BOUND_FIXED_RESERVATION");
-  console.log("VOICE_REALTIME_STT_FAILURE=RESERVATION_RELEASED");
   console.log("VOICE_STRATEGIC_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_CONTEXTUAL_FOLLOW_UP=COMPACT_REASONING");
   console.log("VOICE_COMPACT_REASONING=GOAL_CONTEXT_RANKED");

@@ -5,6 +5,10 @@ const reasoningSource = await readFile(
   "lib/operator/runtime/OperatorReasoningRuntime.js",
   "utf8",
 );
+const readResolverSource = await readFile(
+  "lib/operator/runtime/OperatorBusinessReadResolver.js",
+  "utf8",
+);
 
 assert.match(
   reasoningSource,
@@ -46,6 +50,7 @@ assert.match(reasoningSource, /return "full_catalog_requested"/);
 assert.match(reasoningSource, /return "low_confidence"/);
 assert.match(reasoningSource, /return "missing_capability"/);
 assert.match(reasoningSource, /return "unknown_capability"/);
+assert.match(reasoningSource, /return "non_read_requires_deep"/);
 assert.match(reasoningSource, /return "read_chain_follow_up"/);
 assert.match(reasoningSource, /return "entity_or_unknown_read_chain_scope"/);
 assert.match(reasoningSource, /return "missing_navigation_target"/);
@@ -61,11 +66,43 @@ assert.match(
 );
 assert.match(
   reasoningSource,
-  /do not construct the follow_up on the fast spoken path/i,
+  /do not construct the follow_up on the fast path/i,
+);
+assert.match(
+  reasoningSource,
+  /routeOperatorCognition\(\{ message, source, capabilities \}\)/,
+);
+assert.match(
+  reasoningSource,
+  /const useFastVoice = cognition\.path !== "deep"/,
 );
 assert.doesNotMatch(
   reasoningSource,
   /fast_voice_fallback_reason:\s*(?:message|fastParsed|fastRequest|payload|user_input)/,
+);
+
+assert.match(
+  readResolverSource,
+  /const OPERATOR_READ_CHAIN_KEY = "platform\.operator_read_chain\.execute"/,
+);
+assert.match(readResolverSource, /function diverseReads\(/);
+assert.match(readResolverSource, /const groups = new Map\(\)/);
+assert.match(
+  readResolverSource,
+  /const group = text\(capability\?\.domain\) \|\| "_"/,
+);
+assert.match(readResolverSource, /function readChainCapability\(/);
+assert.match(
+  readResolverSource,
+  /if \(chain\) appendUnique\(selected, seen, \[chain\], boundedLimit\)/,
+);
+assert.match(
+  readResolverSource,
+  /diverseReads\(source, boundedLimit\)/,
+);
+assert.doesNotMatch(
+  readResolverSource,
+  /revenue|profit|inventory|receivable|payable|payroll|customer|supplier|hotel|restaurant/i,
 );
 
 console.log("OPERATOR_FAST_VOICE_READ_CATALOG_AUDIT=PASS");
@@ -73,6 +110,9 @@ console.log("OPERATOR_FAST_VOICE_PRIMARY_CAPABILITIES=12");
 console.log("OPERATOR_FAST_VOICE_READ_SUPPLEMENT=6");
 console.log("OPERATOR_FAST_VOICE_CAPABILITY_CEILING=18");
 console.log("OPERATOR_FAST_VOICE_SUPPLEMENT_MODE=READ_ONLY");
-console.log("OPERATOR_FAST_VOICE_MIXED_ACTION=FULL_REASONING_FALLBACK");
+console.log("OPERATOR_FAST_EXECUTIVE_PATH=ALL_CHANNELS");
+console.log("OPERATOR_FAST_EXECUTIVE_ACTIONS=DEEP_REASONING_FALLBACK");
+console.log("OPERATOR_DYNAMIC_MULTI_READ=READ_CHAIN_PLUS_DOMAIN_DIVERSE_CATALOG");
+console.log("OPERATOR_DYNAMIC_MULTI_READ=NO_FIXED_BUSINESS_VOCABULARY");
 console.log("OPERATOR_FAST_VOICE_FALLBACK_TELEMETRY=REASON_CODE_ONLY");
 console.log("OPERATOR_FAST_VOICE_FALLBACK_PRIVACY=NO_USER_CONTENT_OR_PAYLOAD");

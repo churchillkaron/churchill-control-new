@@ -14,11 +14,13 @@ const page = fs.readFileSync(pagePath, "utf8");
 
 const requiredIntelligenceSignals = [
   "Attributed gross profit per advertising baht",
-  "cost_per_conversion",
-  "lead_to_conversion_rate",
+  "profit_after_media",
+  "profit_on_ad_spend",
+  "media_break_even_covered",
   "SCALE_CANDIDATE",
   "REPAIR_BEFORE_SCALE",
-  "CLOSE_MEASUREMENT_LOOP",
+  "PROVE_GROSS_PROFIT_BEFORE_SCALE",
+  "attributed gross profit exceeds measured media spend",
   "can_move_budget_without_authorization: false",
   "can_increase_spend_without_authorization: false",
   "can_activate_paid_provider_without_authorization: false",
@@ -37,8 +39,20 @@ if (!route.includes("canUseMultiOrganizationMarketing")) {
 if (/ManagedMediaSpendRuntime|GoogleAdsRuntime|MetaProvider|executeProvider|\.insert\(|\.update\(|\.delete\(/.test(route)) {
   throw new Error("Campaign intelligence route must remain read-only and must not execute provider/spend/database mutations");
 }
-if (!page.includes("Moving budget, increasing spend or activating paid providers still requires explicit authorization")) {
-  throw new Error("Ads Intelligence UI must state the spend governance boundary");
+
+const requiredPageSignals = [
+  "Profit After Media",
+  "Profit / Ad Spend",
+  "Gross Profit",
+  "Moving budget, increasing spend or activating paid providers still requires explicit authorization",
+];
+
+for (const signal of requiredPageSignals) {
+  if (!page.includes(signal)) throw new Error(`Ads Intelligence UI missing profit/governance signal: ${signal}`);
+}
+
+if (/provider activation or spend authorization/.test(page) && !page.includes("explicit authorization")) {
+  throw new Error("Ads Intelligence UI must preserve explicit spend authorization language");
 }
 
 console.log("PASS marketing world-class ads agent audit");

@@ -59,6 +59,15 @@ function formatMoney(amount, currencyCode) {
   }
 }
 
+function formatTaxCode(taxCode) {
+  if (!taxCode) return "No tax rule";
+  const label = taxCode.name || taxCode.code || "Tax rule";
+  const rate = Number(taxCode.rate);
+  return Number.isFinite(rate)
+    ? `${label}${taxCode.code && taxCode.name ? ` (${taxCode.code})` : ""} · ${rate}%`
+    : `${label}${taxCode.code && taxCode.name ? ` (${taxCode.code})` : ""}`;
+}
+
 function statusClass(status) {
   if (status === "active") return "border-emerald-400/25 bg-emerald-400/10 text-emerald-200";
   if (status === "paused") return "border-amber-400/25 bg-amber-400/10 text-amber-200";
@@ -82,6 +91,8 @@ export default function ServicePlansPage() {
 
   const [customers, setCustomers] = useState([]);
   const [technicians, setTechnicians] = useState([]);
+  const [taxCodes, setTaxCodes] = useState([]);
+  const [taxCodesAvailable, setTaxCodesAvailable] = useState(true);
   const [plans, setPlans] = useState([]);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [loading, setLoading] = useState(true);
@@ -95,15 +106,17 @@ export default function ServicePlansPage() {
     setError("");
 
     try {
-      const [customerResponse, planResponse, peopleResponse] = await Promise.all([
+      const [customerResponse, planResponse, peopleResponse, taxResponse] = await Promise.all([
         fetch(`/api/commercial/customers?organizationId=${encodeURIComponent(organizationId)}&limit=500`, { cache: "no-store" }),
         fetch(`/api/service-management/plans?organizationId=${encodeURIComponent(organizationId)}&limit=500`, { cache: "no-store" }),
         fetch("/api/people/directory", { cache: "no-store" }).catch(() => null),
+        fetch(`/api/finance/tax-codes?organizationId=${encodeURIComponent(organizationId)}`, { cache: "no-store" }).catch(() => null),
       ]);
-      const [customerJson, planJson, peopleJson] = await Promise.all([
+      const [customerJson, planJson, peopleJson, taxJson] = await Promise.all([
         customerResponse.json().catch(() => ({})),
         planResponse.json().catch(() => ({})),
         peopleResponse?.json().catch(() => ({})) || {},
+        taxResponse?.json().catch(() => ({})) || {},
       ]);
 
       if (!customerResponse.ok || !customerJson.success) {
@@ -128,6 +141,10 @@ export default function ServicePlansPage() {
           ))
         : [];
       setTechnicians(availableTechnicians);
+
+      const canReadTaxCodes = Boolean(taxResponse?.ok && taxJson?.success);
+      setTaxCodesAvailable(canReadTaxCodes);
+      setTaxCodes(canReadTaxCodes ? (taxJson.taxCodes || taxJson.rows || []) : []);
     } catch (loadError) {
       setError(loadError.message || "Service Delivery data could not be loaded.");
     } finally {
@@ -151,6 +168,11 @@ export default function ServicePlansPage() {
       overdue: overdue.length,
     };
   }, [plans]);
+
+  const taxCodeById = useMemo(
+    () => new Map(taxCodes.map((taxCode) => [String(taxCode.id), taxCode])),
+    [taxCodes],
+  );
 
   function updateForm(name, value) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -202,7 +224,7 @@ export default function ServicePlansPage() {
             amount: form.billing_amount === "" ? null : Number(form.billing_amount),
             currency_code: form.billing_currency_code.trim().toUpperCase() || null,
             due_days: Number(form.billing_due_days) || 0,
-            tax_code_id: form.billing_tax_code_id.trim() || null,
+            tax_code_id: form.billing_tax_code_id || null,
           },
           notes: form.notes || null,
         }),
@@ -387,9 +409,18 @@ export default function ServicePlansPage() {
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="block text-xs text-white/45">Payment Due Days<input type="number" min="0" value={form.billing_due_days} onChange={(event) => updateForm("billing_due_days", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white" /></label>
-                    <label className="block text-xs text-white/45">Tax Rule ID<input value={form.billing_tax_code_id} onChange={(event) => updateForm("billing_tax_code_id", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white" placeholder="Optional configured tax rule" /></label>
+                    <label className="block text-xs text-white/45">Tax Rule
+                      <select value={form.billing_tax_code_id} onChange={(event) => updateForm("billing_tax_code_id", event.target.value)} disabled={!taxCodesAvailable} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white disabled:opacity-45">
+                        <option value="">No tax rule</option>
+                        {taxCodes.map((taxCode) => <option key={taxCode.id} value={taxCode.id}>{formatTaxCode(taxCode)}</option>)}
+                      </select>
+                    </label>
                   </div>
-                  <div className="text-[10px] leading-4 text-white/25">Tax is never hardcoded here. If a tax rule is selected, Finance resolves the organization-specific effective tax rule at completion.</div>
+                  <div className="text-[10px] leading-4 text-white/25">
+                    {taxCodesAvailable
+                      ? "Tax rules come from Finance configuration for this organization. The effective rule is revalidated on the service completion date before invoicing."
+                      : "Finance tax rules are unavailable for this user. Billing can still be created without tax; Finance permissions control access to configured tax rules."}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -418,12 +449,13 @@ export default function ServicePlansPage() {
                   const customerName = delivery.customer_name || "Customer";
                   const recurrence = plan.recurrence || {};
                   const recurrenceLabel = recurrence.preset === "custom" ? `Every ${recurrence.interval || 1} ${recurrence.unit || "month"}(s)` : recurrence.preset || "monthly";
+                  const taxCode = billing.tax_code_id ? taxCodeById.get(String(billing.tax_code_id)) : null;
                   return (
                     <tr key={plan.id} className="border-b border-white/[0.06] align-top">
                       <td className="px-3 py-4"><div className="font-medium text-white">{customerName}</div><div className="mt-1 text-xs text-white/50">{plan.service_name}{plan.customer_location_name ? ` · ${plan.customer_location_name}` : ""}</div></td>
                       <td className="px-3 py-4 text-white/55">{plan.industry_key}</td>
                       <td className="px-3 py-4 capitalize text-white/55">{recurrenceLabel}</td>
-                      <td className="px-3 py-4"><div className="capitalize text-white/65">{String(billing.mode || "none").replaceAll("_", " ")}</div>{billing.amount !== null && billing.amount !== undefined ? <div className="mt-1 text-[11px] text-white/35">{formatMoney(billing.amount, billing.currency_code)}</div> : null}</td>
+                      <td className="px-3 py-4"><div className="capitalize text-white/65">{String(billing.mode || "none").replaceAll("_", " ")}</div>{billing.amount !== null && billing.amount !== undefined ? <div className="mt-1 text-[11px] text-white/35">{formatMoney(billing.amount, billing.currency_code)}</div> : null}{billing.tax_code_id ? <div className="mt-1 text-[11px] text-white/30">{taxCode ? formatTaxCode(taxCode) : "Configured Finance tax rule"}</div> : null}</td>
                       <td className="px-3 py-4"><div className="text-white/65">{delivery.preferred_staff_name || "Dispatch queue"}</div>{delivery.preferred_staff_id ? <div className="mt-1 text-[11px] text-white/30">Eligibility checked per visit</div> : null}</td>
                       <td className="px-3 py-4"><div className="text-white/70">{formatDate(plan.next_service_at)}</div>{plan.last_work_order_id ? <div className="mt-1 text-[11px] text-white/30">Last work order: {plan.last_work_order_id.slice(0, 8)}</div> : null}</td>
                       <td className="px-3 py-4"><span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium capitalize ${statusClass(plan.status)}`}>{plan.status}</span></td>

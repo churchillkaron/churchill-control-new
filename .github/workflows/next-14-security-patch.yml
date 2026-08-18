@@ -38,3 +38,5 @@ jobs:
           git add package.json package-lock.json
           git commit -m "Patch Next.js 14 to 14.2.35"
           git push
+
+# Branch-scoped one-shot workflow; remove before merge.

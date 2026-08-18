@@ -78,6 +78,12 @@ export async function register() {
     await import(
       "@/lib/creative/release/runtime/CreativeSingleMediaAuthorizationDispatchRuntime"
     );
+    await import(
+      "@/lib/creative/execution/runtime/CreativeApprovedProductionTaskCostGuardRuntime"
+    );
+    await import(
+      "@/lib/creative/video/runtime/CreativeVideoPricingContextRuntime"
+    );
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {

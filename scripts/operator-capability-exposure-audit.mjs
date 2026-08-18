@@ -8,6 +8,7 @@ const MINIMUM_EXPOSED_CAPABILITIES = 100;
 const MINIMUM_EXPOSED_DOMAINS = 2;
 const READ_CHAIN_KEY = "platform.operator_read_chain.execute";
 const ORGANIZATIONAL_CONTEXT_KEY = "platform.organizational_context.read";
+const ATTENTION_KEY = "platform.attention.scan";
 const GOVERNED_AUTONOMOUS_COMPOSITES = new Set([
   "platform.operator_mission.execute",
 ]);
@@ -180,6 +181,28 @@ if (/buildDefaultBusinessProfile|getOrCreateBusinessProfile/.test(organizational
   );
 }
 
+const attention = capabilities.find(
+  (capability) => capability.key === ATTENTION_KEY,
+);
+if (!attention) {
+  throw new Error(
+    `OPERATOR_EXPOSURE: ${ATTENTION_KEY} is missing, so Operator cannot proactively inspect what deserves attention`,
+  );
+}
+
+if (
+  attention.mode !== "read" ||
+  attention.auto_execute !== true ||
+  attention.requires_confirmation === true ||
+  attention.transactional === true ||
+  attention.risk !== "low" ||
+  attention.context_scope !== "organization"
+) {
+  throw new Error(
+    `OPERATOR_EXPOSURE: ${ATTENTION_KEY} must remain an organization-scoped, low-risk, non-transactional, auto-executing read capability`,
+  );
+}
+
 const registeredDomains = Object.keys(DOMAIN_RUNTIMES || {});
 const silentDomains = registeredDomains.filter((domain) => !byDomain[domain]);
 
@@ -215,3 +238,6 @@ console.log("OPERATOR_ORGANIZATIONAL_BRAIN_SCOPE=ORGANIZATION_PLUS_SAME_PARTY_HI
 console.log("OPERATOR_ORGANIZATIONAL_BRAIN_PROFILE=EXISTING_DATA_ONLY_NO_DEFAULT_GENERATION");
 console.log("OPERATOR_ORGANIZATIONAL_BRAIN_SEMANTICS=DYNAMIC_NO_INDUSTRY_DICTIONARY");
 console.log("OPERATOR_ORGANIZATIONAL_BRAIN_AUDIT_OWNER=OPERATOR_CAPABILITY_EXPOSURE");
+console.log("OPERATOR_ANTICIPATORY_PARTNER=REGISTERED_READ_CAPABILITY");
+
+await import("./operator-anticipatory-partner-audit.mjs");

@@ -34,7 +34,7 @@ jobs:
         run: npm ci
 
       - name: Install pinned lint tooling
-        run: npm install --no-save --no-package-lock eslint@8.57.0 eslint-config-next@14.2.5 @typescript-eslint/parser@7.2.0 @typescript-eslint/eslint-plugin@7.2.0
+        run: npm install --no-save --no-package-lock eslint@8.57.0 eslint-config-next@14.2.5 @typescript-eslint/parser@7.2.0 @typescript-eslint/eslint-plugin@7.2.0 typescript@5.4.5
 
       - name: Lint
         run: npx next lint

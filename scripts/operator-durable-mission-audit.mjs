@@ -189,7 +189,7 @@ const cancellationTransitionIndex = turnSource.indexOf(
   missionCancellationIndex,
 );
 const missionProjectionGuardIndex = turnSource.indexOf(
-  'pending?.resume_kind === "mission"',
+  "!missionResumeProjectionMatches(pending, activeRun)",
 );
 const missionProjectionBlockerIndex = turnSource.indexOf(
   'const blocker = "OPERATOR_MISSION_RESUME_RUN_STATE_MISMATCH"',

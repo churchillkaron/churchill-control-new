@@ -48,6 +48,8 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(true);
+  const [attentionLoading, setAttentionLoading] = useState(false);
+  const [attention, setAttention] = useState(null);
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([greetingMessage()]);
   const [projectState, setProjectState] = useState({});
@@ -74,6 +76,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     if (!organizationId) {
       agreementStateRef.current = {};
       setProjectState({});
+      setAttention(null);
       setMessages([greetingMessage()]);
       setRestoring(false);
       return undefined;
@@ -135,6 +138,45 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
     return () => controller.abort();
   }, [organizationId]);
+
+  useEffect(() => {
+    if (!organizationId || restoring) return undefined;
+
+    const controller = new AbortController();
+
+    async function loadAttention() {
+      setAttentionLoading(true);
+
+      try {
+        const response = await fetch("/api/operator/attention", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          signal: controller.signal,
+          body: JSON.stringify({
+            organizationId,
+            entityId,
+            periodId,
+          }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result?.success === false) {
+          throw new Error(result?.error || "Attention scan failed");
+        }
+
+        setAttention(result?.attention || null);
+      } catch (attentionError) {
+        if (attentionError?.name === "AbortError") return;
+        console.error("AVANTIQO_ATTENTION_LOAD_FAILED", attentionError);
+        setAttention(null);
+      } finally {
+        if (!controller.signal.aborted) setAttentionLoading(false);
+      }
+    }
+
+    loadAttention();
+    return () => controller.abort();
+  }, [organizationId, entityId, periodId, restoring]);
 
   function speakResponse(message) {
     const spoken = text(message);
@@ -247,6 +289,8 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     };
   }, [organizationId, entityId, periodId, pathname, restoring]);
 
+  const attentionItems = Array.isArray(attention?.items) ? attention.items : [];
+
   return (
     <section
       data-avantiqo-home-intelligence="true"
@@ -270,6 +314,76 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       </div>
 
       <div className="mt-6 flex-1 space-y-3 overflow-y-auto pr-1">
+        {attentionLoading ? (
+          <div
+            data-avantiqo-attention-loading="true"
+            className="rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3"
+          >
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/40">
+              <Loader2 size={12} className="animate-spin text-[#D6A66A]" />
+              Checking what deserves attention
+            </div>
+          </div>
+        ) : null}
+
+        {!attentionLoading && attentionItems.length ? (
+          <div
+            data-avantiqo-attention-brief="true"
+            className="rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] px-4 py-4"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]/80">
+                  <Sparkles size={12} />
+                  Needs attention
+                </div>
+                {text(attention?.summary) ? (
+                  <div className="mt-2 text-xs leading-5 text-white/50">
+                    {attention.summary}
+                  </div>
+                ) : null}
+              </div>
+              <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-white/40">
+                Evidence-backed
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {attentionItems.map((item) => (
+                <div
+                  key={`${item.rank}-${item.title}`}
+                  className="rounded-xl border border-white/[0.07] bg-black/20 px-3.5 py-3"
+                >
+                  <div className="text-sm font-light leading-5 text-white/85">
+                    {item.title}
+                  </div>
+                  <div className="mt-1.5 text-xs leading-5 text-white/45">
+                    {item.why_now}
+                  </div>
+                  {text(item?.recommended_next_step) ? (
+                    <button
+                      type="button"
+                      disabled={busy || restoring}
+                      onClick={() =>
+                        sendMessage(
+                          `Help me with this attention item: ${item.title}. ${item.recommended_next_step}`,
+                        )
+                      }
+                      className="mt-2 text-left text-xs text-[#D6A66A]/80 transition hover:text-[#E7C48E] disabled:opacity-40"
+                    >
+                      {item.recommended_next_step}
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 text-[10px] leading-4 text-white/30">
+              Recommendations are not approvals or authorization. Avantiqo still uses normal confirmation and approval governance before any business action.
+            </div>
+          </div>
+        ) : null}
+
         {text(projectState?.objective) ? (
           <div className="rounded-2xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-4 py-3">
             <div className="flex items-center justify-between gap-3">

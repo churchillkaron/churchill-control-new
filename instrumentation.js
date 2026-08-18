@@ -7,6 +7,9 @@ export async function register() {
       "@/lib/platform/service-runtime/execution/ServiceExecutionCostGuardRuntime"
     );
     await import(
+      "@/lib/platform/service-runtime/execution/ServiceExecutionApprovedPreflightRuntime"
+    );
+    await import(
       "@/lib/creative/assets/isolation/runtime/CreativeShotPrimarySourceDispatchGate"
     );
     await import(

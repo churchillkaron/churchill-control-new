@@ -7,6 +7,9 @@ import {
   CreativeProjectRuntime,
 } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
 import {
+  ProductionTaskRuntime,
+} from "@/lib/operations/tasks/runtime/ProductionTaskRuntime";
+import {
   ShotRuntime,
 } from "@/lib/creative/shots/runtime/ShotRuntime";
 import {
@@ -28,7 +31,11 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-function activeGenerationAuthorization(project = {}) {
+function consumed(authorization = {}) {
+  return authorization.consumed === true || Boolean(text(authorization.consumed_at));
+}
+
+function activeProjectGenerationAuthorization(project = {}) {
   const metadata = object(project.metadata);
   const approval = object(
     metadata.paid_generation_approval ||
@@ -39,6 +46,27 @@ function activeGenerationAuthorization(project = {}) {
     approval.media_generation_authorized === true ||
     metadata.production_authorized === true ||
     metadata.media_generation_authorized === true;
+}
+
+function activeTaskGenerationAuthorization(task = {}) {
+  const authorization = object(task.metadata?.media_generation_authorization);
+  return authorization.media_generation_authorized === true &&
+    authorization.publication_authorized !== true &&
+    !consumed(authorization);
+}
+
+async function generationAuthorizationLocked({
+  project,
+  organizationId,
+  projectId,
+}) {
+  if (activeProjectGenerationAuthorization(project)) return true;
+
+  const tasks = await ProductionTaskRuntime.list({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+  });
+  return tasks.some(activeTaskGenerationAuthorization);
 }
 
 async function projectAndConfiguration({ organizationId, projectId }) {
@@ -140,7 +168,11 @@ export async function GET(request) {
 
     return NextResponse.json({
       selection: configuredSelection(project, configuration),
-      locked: activeGenerationAuthorization(project),
+      locked: await generationAuthorizationLocked({
+        project,
+        organizationId,
+        projectId,
+      }),
       configuration: publicConfiguration(configuration),
     });
   } catch (error) {
@@ -177,7 +209,11 @@ export async function POST(request) {
       );
     }
 
-    if (activeGenerationAuthorization(project)) {
+    if (await generationAuthorizationLocked({
+      project,
+      organizationId,
+      projectId,
+    })) {
       return NextResponse.json(
         {
           error: "VIDEO_QUALITY_LOCKED_BY_GENERATION_AUTHORIZATION",

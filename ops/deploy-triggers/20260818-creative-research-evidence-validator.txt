@@ -1,0 +1,4 @@
+Creative research evidence validator release.
+
+Includes commit fbade5c9fa718a3432d0b03c6d395822151b77f5.
+Purpose: accept canonical audience/market evidence_source_ids aliases and verify referenced source IDs exist before research validation passes.

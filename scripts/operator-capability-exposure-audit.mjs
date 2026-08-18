@@ -1,11 +1,13 @@
 import { register } from "node:module";
 import { pathToFileURL } from "node:url";
+import { readFile } from "node:fs/promises";
 
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
 const MINIMUM_EXPOSED_CAPABILITIES = 100;
 const MINIMUM_EXPOSED_DOMAINS = 2;
 const READ_CHAIN_KEY = "platform.operator_read_chain.execute";
+const ORGANIZATIONAL_CONTEXT_KEY = "platform.organizational_context.read";
 const GOVERNED_AUTONOMOUS_COMPOSITES = new Set([
   "platform.operator_mission.execute",
 ]);
@@ -17,7 +19,10 @@ const { listOperatorCapabilities } = await import(
   "@/lib/operator/runtime/OperatorCapabilityCatalog"
 );
 
-const capabilities = await listOperatorCapabilities();
+const [capabilities, organizationalContextSource] = await Promise.all([
+  listOperatorCapabilities(),
+  readFile("lib/operator/runtime/OperatorOrganizationalContextRuntime.js", "utf8"),
+]);
 
 if (!Array.isArray(capabilities) || !capabilities.length) {
   throw new Error(
@@ -113,6 +118,68 @@ if (!readChainFields.includes("steps")) {
   );
 }
 
+const organizationalContext = capabilities.find(
+  (capability) => capability.key === ORGANIZATIONAL_CONTEXT_KEY,
+);
+if (!organizationalContext) {
+  throw new Error(
+    `OPERATOR_EXPOSURE: ${ORGANIZATIONAL_CONTEXT_KEY} is missing, so Operator cannot retrieve dynamic organization memory through the governed capability fabric`,
+  );
+}
+
+if (
+  organizationalContext.mode !== "read" ||
+  organizationalContext.auto_execute !== true ||
+  organizationalContext.requires_confirmation === true ||
+  organizationalContext.transactional === true ||
+  organizationalContext.risk !== "low" ||
+  organizationalContext.context_scope !== "organization"
+) {
+  throw new Error(
+    `OPERATOR_EXPOSURE: ${ORGANIZATIONAL_CONTEXT_KEY} must remain an organization-scoped, low-risk, non-transactional, auto-executing read capability`,
+  );
+}
+
+if (!Array.isArray(organizationalContext.operator_aliases)) {
+  throw new Error(
+    `OPERATOR_EXPOSURE: ${ORGANIZATIONAL_CONTEXT_KEY} must expose manifest-driven Operator aliases`,
+  );
+}
+
+for (const requiredSource of [
+  'from("organizations")',
+  'from("organization_industries")',
+  'from("ai_business_profiles")',
+  'from("intelligence_conversations")',
+  'from("intelligence_turns")',
+  '.eq("organization_id", organizationId)',
+  '.eq("party_id", partyId)',
+  "relevant_prior_goals",
+  "relevant_verified_history",
+]) {
+  if (!organizationalContextSource.includes(requiredSource)) {
+    throw new Error(
+      `OPERATOR_EXPOSURE: organizational brain is missing required dynamic scope contract ${requiredSource}`,
+    );
+  }
+}
+
+if (
+  /restaurant|hotel|construction|healthcare|pest_control|retail|entertainment|accounting_firm/i.test(
+    organizationalContextSource,
+  )
+) {
+  throw new Error(
+    "OPERATOR_EXPOSURE: organizational brain contains hardcoded industry semantics",
+  );
+}
+
+if (/buildDefaultBusinessProfile|getOrCreateBusinessProfile/.test(organizationalContextSource)) {
+  throw new Error(
+    "OPERATOR_EXPOSURE: organizational brain must not generate hardcoded default business profiles",
+  );
+}
+
 const registeredDomains = Object.keys(DOMAIN_RUNTIMES || {});
 const silentDomains = registeredDomains.filter((domain) => !byDomain[domain]);
 
@@ -143,3 +210,7 @@ console.log(
 console.log("OPERATOR_WRITE_GOVERNANCE=CONFIRMATION_AND_AUDIT_REQUIRED");
 console.log("OPERATOR_AUTONOMOUS_READ_CHAIN=BOUNDED_2_TO_4_READS");
 console.log("OPERATOR_AUTONOMOUS_READ_CHAIN_GUARD=READ_ONLY_SCOPE_PERMISSION_PREFLIGHT");
+console.log("OPERATOR_ORGANIZATIONAL_BRAIN=REGISTERED_READ_CAPABILITY");
+console.log("OPERATOR_ORGANIZATIONAL_BRAIN_SCOPE=ORGANIZATION_PLUS_SAME_PARTY_HISTORY");
+console.log("OPERATOR_ORGANIZATIONAL_BRAIN_PROFILE=EXISTING_DATA_ONLY_NO_DEFAULT_GENERATION");
+console.log("OPERATOR_ORGANIZATIONAL_BRAIN_SEMANTICS=DYNAMIC_NO_INDUSTRY_DICTIONARY");

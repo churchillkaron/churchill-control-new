@@ -282,7 +282,7 @@ assert.match(verificationSource, /Never add or change decisions here/);
 assert.match(verificationSource, /Never declare the overall goal completed here/);
 assert.match(verificationSource, /goal_continuity:\s*true/);
 assert.match(verificationSource, /project_state:\s*verifiedProjectState\(projectState, parsed \|\| \{\}\)/);
-assert.match(verificationSource, /COLLECTION_WRAPPER_KEYS/);
+assert.match(verificationSource, /function collectionOf/);
 assert.match(verificationSource, /"data"/);
 assert.match(verificationSource, /function normalizedCollectionEvidence/);
 assert.match(verificationSource, /collection_path/);

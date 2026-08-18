@@ -180,8 +180,13 @@ requireText(
   '"path": "/api/internal/service-management/plans/process"'
 );
 requireText(vercelConfig, '"schedule": "*/15 * * * *"');
-requireText(vercelConfig, '"deploymentEnabled": true');
 requireText(vercelConfig, '"ignoreCommand": "node scripts/vercel-ignore-build.mjs"');
+
+const vercelConfigContent = read(vercelConfig);
+
+if (vercelConfigContent.includes('"deploymentEnabled": false')) {
+  fail("vercel.json globally disables Git deployments and bypasses the controlled build marker policy");
+}
 
 requireText(employeeEligibilityService, "export async function getEmployeeOperationalEligibility");
 requireText(employeeEligibilityService, '.from("staff_accounts")');

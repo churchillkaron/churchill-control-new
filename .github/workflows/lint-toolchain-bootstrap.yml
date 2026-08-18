@@ -39,4 +39,4 @@ jobs:
           git commit -m "Install deterministic blocking lint toolchain"
           git push
 
-# One-shot branch workflow. Remove before merge.
+# One-shot branch workflow. Remove before merge after package-lock regeneration.

@@ -1,8 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "git": {
-    "deploymentEnabled": true
-  },
   "ignoreCommand": "node scripts/vercel-ignore-build.mjs",
   "functions": {
     "app/api/creative/tests/gemini-omni-5s/route.js": {
@@ -17,4 +14,107 @@
     "app/api/internal/commercial/communications/meta-history-sync/route.js": {
       "maxDuration": 300
     },
-    "
+    "app/api/internal/commercial/communications/email-inbox-sync/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/commercial/communications/email-subscriptions/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/commerce/shopify/project-events/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/commerce/shopify/reconcile/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/inventory/shopify/process/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/finance/shopify/process/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/finance/forecast-exception-escalations/process/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/internal/service-management/plans/process/route.js": {
+      "maxDuration": 300
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/creative/execution/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/marketing/process-queue",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/marketing/retry-generation-jobs",
+      "schedule": "*/3 * * * *"
+    },
+    {
+      "path": "/api/marketing/sync-analytics",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/internal/marketing/meta-ads/reconcile",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/internal/marketing/google-ads/reconcile",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/internal/service/billing/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/service/revenue/reconcile",
+      "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/internal/reputation/google-reviews/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/commercial/loyalty/process-events",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/commercial/communications/meta-history-sync",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/internal/commercial/communications/email-inbox-sync",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/commercial/communications/email-subscriptions",
+      "schedule": "17 2 * * *"
+    },
+    {
+      "path": "/api/internal/commerce/shopify/project-events",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/commerce/shopify/reconcile",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/internal/inventory/shopify/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/finance/shopify/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/finance/forecast-exception-escalations/process",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/internal/service-management/plans/process",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

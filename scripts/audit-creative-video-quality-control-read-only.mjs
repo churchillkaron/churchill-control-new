@@ -43,12 +43,17 @@ const [
   workspace,
   route,
   approvalRoute,
+  dispatchRoute,
   qualityRuntime,
   providerConfigurationRuntime,
   preflightRuntime,
   approvalRuntime,
+  dispatchRuntime,
   approvedPreflightExecutionRuntime,
   servicePreflightRuntime,
+  serviceExecutionRuntime,
+  productionTaskRuntime,
+  productionTaskRepository,
   providerRuntime,
   providerRegistration,
   pricingRuntime,
@@ -60,12 +65,17 @@ const [
   source("components/creative/ProductionStudio/workspaces/ProductionWorkspace.jsx"),
   source("app/api/creative/projects/video-quality/route.js"),
   source("app/api/creative/projects/video-generation-approval/route.js"),
+  source("app/api/creative/projects/video-generation-dispatch/route.js"),
   source("lib/creative/video/runtime/CreativeVideoQualityPreferenceRuntime.js"),
   source("lib/creative/video/runtime/CreativeVideoProviderConfigurationRuntime.js"),
   source("lib/creative/video/runtime/CreativeVideoGenerationPreflightRuntime.js"),
   source("lib/creative/video/runtime/CreativeVideoGenerationApprovalRuntime.js"),
+  source("lib/creative/video/runtime/CreativeVideoGenerationDispatchRuntime.js"),
   source("lib/creative/video/runtime/CreativeApprovedVideoPreflightExecutionRuntime.js"),
   source("lib/platform/service-runtime/execution/ServiceExecutionPreflightRuntime.js"),
+  source("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js"),
+  source("lib/operations/tasks/runtime/ProductionTaskRuntime.js"),
+  source("lib/operations/tasks/repositories/ProductionTaskRepository.js"),
   source("lib/platform/service-runtime/providers/gemini/GeminiVeoProviderRuntime.js"),
   source("lib/platform/service-runtime/providers/gemini/GoogleVeoProviderRegistration.js"),
   source("lib/platform/service-runtime/pricing/PricingRuntime.js"),
@@ -120,10 +130,25 @@ requireMatch(
   /Approve generation/,
   "UI_EXPLICIT_GENERATION_APPROVAL",
 );
+requireMatch(
+  workspace,
+  /Start generation/,
+  "UI_EXPLICIT_SEPARATE_GENERATION_START",
+);
+requireMatch(
+  workspace,
+  /inspection\?\.can_dispatch\s*!==\s*true/,
+  "UI_DISPATCH_REQUIRES_SERVER_PERMISSION",
+);
+requireMatch(
+  workspace,
+  /\/api\/creative\/projects\/video-generation-dispatch/,
+  "UI_DISPATCH_API_BOUNDARY",
+);
 rejectMatch(
   workspace,
-  /fetch\([^)]*(?:dispatch|generate)[^)]*\)/i,
-  "UI_APPROVAL_MUST_NOT_DISPATCH_GENERATION",
+  /approveGeneration[\s\S]{0,1600}startGeneration\(/,
+  "UI_APPROVAL_MUST_NOT_AUTO_DISPATCH",
 );
 
 requireMatch(
@@ -250,10 +275,83 @@ requireMatch(
   /publication_authorized:\s*false/,
   "APPROVAL_DOES_NOT_AUTHORIZE_PUBLICATION",
 );
+requireMatch(
+  approvalRuntime,
+  /authorization_consumed/,
+  "APPROVAL_INSPECTION_PRESERVES_CONSUMED_STATE",
+);
 rejectMatch(
   approvalRuntime,
   /\.dispatch\(|executeProvider|runAIService\.execute/,
   "APPROVAL_RUNTIME_MUST_NOT_EXECUTE_GENERATION",
+);
+
+requireMatch(
+  dispatchRoute,
+  /CreativeVideoGenerationDispatchRuntime\.dispatch/,
+  "DISPATCH_ROUTE_CONTROLLED_RUNTIME",
+);
+requireMatch(
+  dispatchRoute,
+  /requiredAnyPermission[\s\S]*creative\.execute[\s\S]*creative\.production\.run/,
+  "DISPATCH_ROUTE_PERMISSION_GUARD",
+);
+requireMatch(
+  dispatchRoute,
+  /preflight_sha256/,
+  "DISPATCH_ROUTE_REQUIRES_REVIEWED_PREFLIGHT_HASH",
+);
+
+requireMatch(
+  dispatchRuntime,
+  /CreativeVideoGenerationPreflightRuntime\.resolve/,
+  "DISPATCH_FRESH_PREFLIGHT_REVALIDATION",
+);
+requireMatch(
+  dispatchRuntime,
+  /PREFLIGHT_DRIFT_REAPPROVAL_REQUIRED/,
+  "DISPATCH_FAILS_ON_PREFLIGHT_DRIFT",
+);
+requireMatch(
+  dispatchRuntime,
+  /ProductionTaskRuntime\.claimForDispatch/,
+  "DISPATCH_ATOMIC_TASK_CLAIM",
+);
+requireMatch(
+  dispatchRuntime,
+  /expected_status:\s*PRODUCTION_TASK_STATUS\.WAITING/,
+  "DISPATCH_ONLY_CLAIMS_WAITING_TASK",
+);
+requireMatch(
+  dispatchRuntime,
+  /consumed:\s*true[\s\S]*consumed_at:/,
+  "DISPATCH_CONSUMES_AUTHORIZATION_BEFORE_EXECUTION",
+);
+requireMatch(
+  dispatchRuntime,
+  /ProductionTaskRuntime\.dispatchClaimed/,
+  "DISPATCH_USES_CLAIMED_ONLY_EXECUTION",
+);
+requireMatch(
+  dispatchRuntime,
+  /publication_authorized:\s*false/,
+  "DISPATCH_DOES_NOT_AUTHORIZE_PUBLICATION",
+);
+
+requireMatch(
+  productionTaskRepository,
+  /claimForDispatch[\s\S]*\.eq\("status",\s*expected_status\)[\s\S]*\.is\("worker_id",\s*null\)/,
+  "TASK_REPOSITORY_COMPARE_AND_SET_DISPATCH_CLAIM",
+);
+requireMatch(
+  productionTaskRuntime,
+  /dispatchClaimed[\s\S]*executeClaimedTask/,
+  "TASK_RUNTIME_CLAIMED_ONLY_EXECUTION",
+);
+rejectMatch(
+  productionTaskRuntime,
+  /durationPricedCapabilities|ai\.video\.generate|ai\.music\.generate|ai\.sfx\.generate/,
+  "TASK_RUNTIME_MUST_NOT_HARDCODE_DURATION_PRICED_CAPABILITIES",
 );
 
 requireMatch(
@@ -270,6 +368,11 @@ requireMatch(
   servicePreflightRuntime,
   /approved_execution_preflight[\s\S]*pricing_id[\s\S]*customer_price/,
   "SERVICE_PREFLIGHT_REVALIDATES_APPROVAL",
+);
+requireMatch(
+  serviceExecutionRuntime,
+  /await walletGate\([\s\S]*await executeProvider\(/,
+  "SERVICE_WALLET_RESERVATION_PRECEDES_PROVIDER_EXECUTION",
 );
 
 requireMatch(
@@ -377,7 +480,7 @@ for (const key of [
 }
 
 console.log(JSON.stringify({
-  contract: "CREATIVE_VIDEO_QUALITY_CONFIGURATION_AUDIT_V3",
+  contract: "CREATIVE_VIDEO_QUALITY_CONFIGURATION_AUDIT_V4",
   read_only: true,
   passed: true,
   checks: [
@@ -393,7 +496,13 @@ console.log(JSON.stringify({
     "stale_preflight_rejection",
     "dossier_approval_dependency",
     "seal_only_generation_approval",
+    "separate_explicit_generation_start",
     "task_authorization_quality_lock",
+    "consumed_authorization_lifecycle",
+    "fresh_preflight_dispatch_revalidation",
+    "atomic_one_shot_dispatch_claim",
+    "claimed_only_task_execution",
+    "wallet_reservation_before_provider_execution",
     "approved_service_execution_preflight",
     "approval_resolution_binding",
     "runtime_installation",

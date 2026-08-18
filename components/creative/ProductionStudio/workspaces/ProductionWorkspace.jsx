@@ -57,6 +57,33 @@ function configuredQualityOptions(configuration = {}) {
     }));
 }
 
+function money(value, currency) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "—";
+  return `${amount.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,
+  })} ${currency || ""}`.trim();
+}
+
+function approvalBlockerLabel(reason) {
+  const labels = {
+    CREATIVE_VIDEO_PRODUCTION_DOSSIER_REQUIRED:
+      "Production dossier is required before generation approval.",
+    CREATIVE_VIDEO_PRODUCTION_DOSSIER_NOT_PASSED:
+      "Production dossier must pass its production gate first.",
+    CREATIVE_VIDEO_PRODUCTION_DOSSIER_APPROVAL_REQUIRED:
+      "Production dossier needs human approval first.",
+    CREATIVE_VIDEO_EXISTING_AUTHORIZATION_PREFLIGHT_MISMATCH:
+      "An older generation authorization no longer matches this preflight.",
+  };
+  if (labels[reason]) return labels[reason];
+  if (String(reason || "").startsWith("CREATIVE_VIDEO_APPROVAL_TASK_STATUS_INVALID:")) {
+    return `Task is not waiting for approval (${String(reason).split(":").pop()}).`;
+  }
+  return String(reason || "Generation approval is blocked.");
+}
+
 export default function ProductionWorkspace({
   runtime,
 }) {
@@ -76,6 +103,12 @@ export default function ProductionWorkspace({
   const [qualitySaving, setQualitySaving] = useState(false);
   const [qualityLoading, setQualityLoading] = useState(false);
   const [qualityError, setQualityError] = useState("");
+  const [qualityServerLocked, setQualityServerLocked] = useState(false);
+  const [generationInspections, setGenerationInspections] = useState([]);
+  const [generationLoading, setGenerationLoading] = useState(false);
+  const [generationError, setGenerationError] = useState("");
+  const [approvingTaskId, setApprovingTaskId] = useState(null);
+  const [approvalRevision, setApprovalRevision] = useState(0);
 
   useEffect(() => {
     setVideoQuality(persistedQuality);
@@ -87,6 +120,7 @@ export default function ProductionWorkspace({
     async function loadQualityConfiguration() {
       if (!project?.id || !runtime.organizationId) {
         setQualityConfiguration(null);
+        setQualityServerLocked(false);
         return;
       }
 
@@ -108,10 +142,12 @@ export default function ProductionWorkspace({
         if (!cancelled) {
           setQualityConfiguration(result.configuration);
           setVideoQuality(result.selection || persistedQuality);
+          setQualityServerLocked(result.locked === true);
         }
       } catch (error) {
         if (!cancelled) {
           setQualityConfiguration(null);
+          setQualityServerLocked(false);
           setQualityError(error?.message || "Video quality configuration unavailable");
         }
       } finally {
@@ -123,9 +159,55 @@ export default function ProductionWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [project?.id, runtime.organizationId, persistedQuality]);
+  }, [project?.id, runtime.organizationId, persistedQuality, approvalRevision]);
 
-  const qualityLocked = generationQualityLocked(project || {});
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadGenerationPreflights() {
+      if (!project?.id || !runtime.organizationId) {
+        setGenerationInspections([]);
+        return;
+      }
+
+      setGenerationLoading(true);
+      setGenerationError("");
+      try {
+        const params = new URLSearchParams({
+          organization_id: runtime.organizationId,
+          creative_project_id: project.id,
+        });
+        const response = await fetch(
+          `/api/creative/projects/video-generation-approval?${params.toString()}`,
+          { cache: "no-store" },
+        );
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Generation preflight unavailable");
+        }
+        if (!cancelled) {
+          setGenerationInspections(
+            Array.isArray(result.inspections) ? result.inspections : [],
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setGenerationInspections([]);
+          setGenerationError(error?.message || "Generation preflight unavailable");
+        }
+      } finally {
+        if (!cancelled) setGenerationLoading(false);
+      }
+    }
+
+    loadGenerationPreflights();
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.id, runtime.organizationId, videoQuality, approvalRevision]);
+
+  const qualityLocked =
+    qualityServerLocked || generationQualityLocked(project || {});
   const qualityOptions = useMemo(
     () => configuredQualityOptions(qualityConfiguration || {}),
     [qualityConfiguration],
@@ -160,12 +242,49 @@ export default function ProductionWorkspace({
       if (result.configuration) {
         setQualityConfiguration(result.configuration);
       }
+      setApprovalRevision((value) => value + 1);
       runtime.refresh?.();
     } catch (error) {
       setVideoQuality(previous);
       setQualityError(error?.message || "Video quality update failed");
     } finally {
       setQualitySaving(false);
+    }
+  }
+
+  async function approveGeneration(inspection) {
+    const taskId = inspection?.task?.id;
+    const preflightSha256 = inspection?.preflight?.preflight_sha256;
+    if (!taskId || !preflightSha256 || !runtime.organizationId || approvingTaskId) {
+      return;
+    }
+
+    setApprovingTaskId(taskId);
+    setGenerationError("");
+    try {
+      const response = await fetch(
+        "/api/creative/projects/video-generation-approval",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            organization_id: runtime.organizationId,
+            task_id: taskId,
+            preflight_sha256: preflightSha256,
+          }),
+        },
+      );
+      const result = await response.json();
+      if (!response.ok || result.approved !== true) {
+        throw new Error(result.error || "Generation approval failed");
+      }
+      setQualityServerLocked(true);
+      setApprovalRevision((value) => value + 1);
+      runtime.refresh?.();
+    } catch (error) {
+      setGenerationError(error?.message || "Generation approval failed");
+    } finally {
+      setApprovingTaskId(null);
     }
   }
 
@@ -248,6 +367,111 @@ export default function ProductionWorkspace({
           ) : null}
           {qualityError ? (
             <div className="mt-3 text-xs text-red-200/75">{qualityError}</div>
+          ) : null}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#d5b56d]/70">
+                Generation approval
+              </div>
+              <div className="mt-1 text-sm text-white/70">
+                Review the exact task-bound generation preflight before authorizing paid production.
+              </div>
+              <div className="mt-1 text-xs text-white/35">
+                Approval seals provider, model, quality, duration, pricing and the preflight hash. Publication remains unauthorized.
+              </div>
+            </div>
+            {generationLoading ? (
+              <div className="text-xs text-white/35">Resolving preflight…</div>
+            ) : null}
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {generationInspections.map((inspection) => {
+              const preflight = inspection.preflight || {};
+              const task = inspection.task || {};
+              const blockingReasons = Array.isArray(inspection.blocking_reasons)
+                ? inspection.blocking_reasons
+                : [];
+              return (
+                <div
+                  key={task.id || preflight.preflight_sha256}
+                  className="rounded-xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-white/85">
+                        {task.title || "Video generation"}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/45">
+                        <span>Quality: {preflight.resolution || "—"}</span>
+                        <span>Format: {preflight.aspect_ratio || "—"}</span>
+                        <span>
+                          Duration: {preflight.duration_seconds ?? preflight.quantity ?? "—"}
+                          {preflight.unit ? ` ${preflight.unit}` : ""}
+                        </span>
+                        <span>Price: {money(preflight.customer_price, preflight.currency)}</span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-white/30">
+                        <span>{preflight.provider || "Configured provider"}</span>
+                        {preflight.model ? <span>{preflight.model}</span> : null}
+                        <span>Dossier: {inspection.dossier_approved ? "approved" : "pending"}</span>
+                      </div>
+                    </div>
+
+                    {inspection.approved ? (
+                      <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100/80">
+                        Generation authorized
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={
+                          inspection.can_approve !== true ||
+                          approvingTaskId !== null ||
+                          !preflight.preflight_sha256
+                        }
+                        onClick={() => approveGeneration(inspection)}
+                        className="rounded-xl border border-[#d5b56d]/35 bg-[#d5b56d]/12 px-4 py-2.5 text-xs font-semibold text-[#f0dca8] transition hover:bg-[#d5b56d]/18 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {approvingTaskId === task.id
+                          ? "Authorizing…"
+                          : `Approve generation • ${money(preflight.customer_price, preflight.currency)}`}
+                      </button>
+                    )}
+                  </div>
+
+                  {blockingReasons.length ? (
+                    <div className="mt-3 space-y-1 text-xs text-amber-200/60">
+                      {blockingReasons.map((reason) => (
+                        <div key={reason}>{approvalBlockerLabel(reason)}</div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-3 break-all text-[10px] text-white/20">
+                    Preflight {preflight.preflight_sha256 || "not available"}
+                  </div>
+                </div>
+              );
+            })}
+
+            {!generationLoading && !generationInspections.length && !generationError ? (
+              <div className="rounded-xl border border-dashed border-white/10 p-4 text-xs text-white/35">
+                No task currently resolves to a complete governed video generation preflight.
+              </div>
+            ) : null}
+          </div>
+
+          {generationError ? (
+            <div className="mt-3 text-xs text-red-200/75">{generationError}</div>
+          ) : null}
+          {generationInspections.some((inspection) => inspection.approved) ? (
+            <div className="mt-3 text-xs text-white/35">
+              Generation is authorized for the sealed task only. This screen does not dispatch generation or authorize publication.
+            </div>
           ) : null}
         </div>
       </div>

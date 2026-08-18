@@ -33,10 +33,21 @@ function publicInspection(inspection = {}) {
       status: task.status || null,
       creative_project_id: task.creative_project_id || null,
       production_graph_id: task.production_graph_id || null,
+      provider_id: task.provider_id || null,
+      provider_job_id: task.output?.provider_job_id || null,
+      provider_status: task.output?.provider_status || null,
     },
     preflight,
     approved: inspection.approved === true,
     can_approve: inspection.can_approve === true,
+    authorization_consumed: inspection.authorization_consumed === true,
+    execution_started: inspection.execution_started === true,
+    execution_completed: inspection.execution_completed === true,
+    execution_failed: inspection.execution_failed === true,
+    can_dispatch:
+      inspection.approved === true &&
+      inspection.authorization_consumed !== true &&
+      String(task.status || "").toUpperCase() === "WAITING",
     stale_authorization: inspection.stale_authorization === true,
     blocking_reasons: Array.isArray(inspection.blocking_reasons)
       ? inspection.blocking_reasons
@@ -189,7 +200,9 @@ export async function POST(request) {
     const message = error?.message || "Failed to approve video generation";
     const status = message.includes("STALE") ||
       message.includes("BLOCKED") ||
-      message.includes("MISMATCH")
+      message.includes("MISMATCH") ||
+      message.includes("CONSUMED") ||
+      message.includes("STATUS_INVALID")
       ? 409
       : 500;
     return NextResponse.json({ error: message }, { status });

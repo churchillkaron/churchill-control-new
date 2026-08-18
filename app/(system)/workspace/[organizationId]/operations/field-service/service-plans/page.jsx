@@ -21,6 +21,11 @@ const EMPTY_FORM = Object.freeze({
   recurrence_unit: "month",
   execution_template_id: "",
   preferred_staff_id: "",
+  billing_mode: "none",
+  billing_amount: "",
+  billing_currency_code: "",
+  billing_due_days: "0",
+  billing_tax_code_id: "",
   notes: "",
 });
 
@@ -38,6 +43,20 @@ function formatDate(value) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function formatMoney(amount, currencyCode) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return "—";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currencyCode || "USD",
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${currencyCode || ""}`.trim();
+  }
 }
 
 function statusClass(status) {
@@ -149,6 +168,12 @@ export default function ServicePlansPage() {
         throw new Error("Customer, service name and first service date are required.");
       }
 
+      if (["per_visit", "recurring"].includes(form.billing_mode)) {
+        if (form.billing_amount === "" || !form.billing_currency_code.trim()) {
+          throw new Error("Billable service plans require amount and currency.");
+        }
+      }
+
       const preferredTechnician = technicians.find((employee) => employee.id === form.preferred_staff_id) || null;
       const response = await fetch("/api/service-management/plans", {
         method: "POST",
@@ -171,6 +196,13 @@ export default function ServicePlansPage() {
             preset: form.recurrence_preset,
             interval: Number(form.recurrence_interval) || 1,
             unit: form.recurrence_unit,
+          },
+          billing: {
+            mode: form.billing_mode,
+            amount: form.billing_amount === "" ? null : Number(form.billing_amount),
+            currency_code: form.billing_currency_code.trim().toUpperCase() || null,
+            due_days: Number(form.billing_due_days) || 0,
+            tax_code_id: form.billing_tax_code_id.trim() || null,
           },
           notes: form.notes || null,
         }),
@@ -262,11 +294,12 @@ export default function ServicePlansPage() {
           <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9BCF53]">Service Management</div>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Service Plans & Recurring Delivery</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-            Define customer service commitments once, then generate controlled field visits into Operations. The recurrence stays independent from individual work-order rescheduling.
+            Define customer service commitments once, including how the service is billed, then generate controlled field visits into Operations.
           </p>
         </div>
         <div className="flex gap-2">
           <Link href={`/workspace/${encodeURIComponent(organizationId)}/operations/field-service`} className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/60">Field Service</Link>
+          <Link href={`/workspace/${encodeURIComponent(organizationId)}/operations/field-service/completed-services`} className="rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-100">Completed Services</Link>
           <Link href={`/workspace/${encodeURIComponent(organizationId)}/operations/work-orders`} className="rounded-xl border border-[#9BCF53]/30 bg-[#9BCF53]/10 px-4 py-2 text-sm text-[#D9F4B7]">Operations Work Orders</Link>
         </div>
       </div>
@@ -281,7 +314,7 @@ export default function ServicePlansPage() {
       {error ? <div className="mt-5 rounded-2xl border border-red-400/25 bg-red-500/10 p-4 text-sm text-red-200">{error}</div> : null}
       {notice ? <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.08] p-4 text-sm text-emerald-100">{notice}</div> : null}
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
+      <div className="mt-6 grid gap-5 xl:grid-cols-[440px_minmax(0,1fr)]">
         <form onSubmit={createPlan} className="rounded-[26px] border border-white/10 bg-white/[0.025] p-5">
           <div className="text-lg font-semibold">Create Service Plan</div>
           <div className="mt-1 text-xs leading-5 text-white/35">Generic for pest control, cleaning, HVAC, pool service, maintenance and other recurring service businesses.</div>
@@ -335,6 +368,32 @@ export default function ServicePlansPage() {
               </div>
             ) : null}
 
+            <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.04] p-4">
+              <div className="text-xs font-semibold text-emerald-100">Billing</div>
+              <div className="mt-1 text-[11px] leading-5 text-white/35">Choose how this service commitment should become revenue. Per-visit billing can create a Finance invoice only after the service is completed.</div>
+              <label className="mt-3 block text-xs text-white/45">Billing Mode
+                <select value={form.billing_mode} onChange={(event) => updateForm("billing_mode", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white">
+                  <option value="none">No billing</option>
+                  <option value="prepaid">Prepaid / already paid</option>
+                  <option value="per_visit">Invoice each completed visit</option>
+                  <option value="recurring">Recurring billing arrangement</option>
+                </select>
+              </label>
+              {["per_visit", "recurring"].includes(form.billing_mode) ? (
+                <div className="mt-3 space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-xs text-white/45">Amount<input type="number" min="0" step="0.01" value={form.billing_amount} onChange={(event) => updateForm("billing_amount", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white" placeholder="1500" required /></label>
+                    <label className="block text-xs text-white/45">Currency<input value={form.billing_currency_code} onChange={(event) => updateForm("billing_currency_code", event.target.value.toUpperCase())} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm uppercase text-white" placeholder="THB" maxLength={3} required /></label>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-xs text-white/45">Payment Due Days<input type="number" min="0" value={form.billing_due_days} onChange={(event) => updateForm("billing_due_days", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white" /></label>
+                    <label className="block text-xs text-white/45">Tax Rule ID<input value={form.billing_tax_code_id} onChange={(event) => updateForm("billing_tax_code_id", event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white" placeholder="Optional configured tax rule" /></label>
+                  </div>
+                  <div className="text-[10px] leading-4 text-white/25">Tax is never hardcoded here. If a tax rule is selected, Finance resolves the organization-specific effective tax rule at completion.</div>
+                </div>
+              ) : null}
+            </div>
+
             <label className="block text-xs text-white/45">Notes<textarea value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white" placeholder="Customer preferences, access instructions, service context..." /></label>
 
             <button type="submit" disabled={saving} className="w-full rounded-xl border border-[#9BCF53]/35 bg-[#9BCF53]/12 px-4 py-3 text-sm font-semibold text-[#D9F4B7] disabled:opacity-40">{saving ? "Saving..." : "Create Service Plan"}</button>
@@ -348,13 +407,14 @@ export default function ServicePlansPage() {
           </div>
 
           <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[1050px] text-left text-sm">
-              <thead><tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/30"><th className="px-3 py-3">Customer / Service</th><th className="px-3 py-3">Industry</th><th className="px-3 py-3">Frequency</th><th className="px-3 py-3">Preferred Technician</th><th className="px-3 py-3">Next Visit</th><th className="px-3 py-3">Status</th><th className="px-3 py-3 text-right">Control</th></tr></thead>
+            <table className="w-full min-w-[1160px] text-left text-sm">
+              <thead><tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/30"><th className="px-3 py-3">Customer / Service</th><th className="px-3 py-3">Industry</th><th className="px-3 py-3">Frequency</th><th className="px-3 py-3">Billing</th><th className="px-3 py-3">Preferred Technician</th><th className="px-3 py-3">Next Visit</th><th className="px-3 py-3">Status</th><th className="px-3 py-3 text-right">Control</th></tr></thead>
               <tbody>
-                {loading ? <tr><td colSpan="7" className="px-3 py-8 text-center text-white/35">Loading service plans...</td></tr> : null}
-                {!loading && plans.length === 0 ? <tr><td colSpan="7" className="px-3 py-8 text-center text-white/35">No service plans yet. Create the first recurring customer service plan.</td></tr> : null}
+                {loading ? <tr><td colSpan="8" className="px-3 py-8 text-center text-white/35">Loading service plans...</td></tr> : null}
+                {!loading && plans.length === 0 ? <tr><td colSpan="8" className="px-3 py-8 text-center text-white/35">No service plans yet. Create the first recurring customer service plan.</td></tr> : null}
                 {!loading && plans.map((plan) => {
                   const delivery = plan.attributes?.service_delivery || {};
+                  const billing = delivery.billing || {};
                   const customerName = delivery.customer_name || "Customer";
                   const recurrence = plan.recurrence || {};
                   const recurrenceLabel = recurrence.preset === "custom" ? `Every ${recurrence.interval || 1} ${recurrence.unit || "month"}(s)` : recurrence.preset || "monthly";
@@ -363,6 +423,7 @@ export default function ServicePlansPage() {
                       <td className="px-3 py-4"><div className="font-medium text-white">{customerName}</div><div className="mt-1 text-xs text-white/50">{plan.service_name}{plan.customer_location_name ? ` · ${plan.customer_location_name}` : ""}</div></td>
                       <td className="px-3 py-4 text-white/55">{plan.industry_key}</td>
                       <td className="px-3 py-4 capitalize text-white/55">{recurrenceLabel}</td>
+                      <td className="px-3 py-4"><div className="capitalize text-white/65">{String(billing.mode || "none").replaceAll("_", " ")}</div>{billing.amount !== null && billing.amount !== undefined ? <div className="mt-1 text-[11px] text-white/35">{formatMoney(billing.amount, billing.currency_code)}</div> : null}</td>
                       <td className="px-3 py-4"><div className="text-white/65">{delivery.preferred_staff_name || "Dispatch queue"}</div>{delivery.preferred_staff_id ? <div className="mt-1 text-[11px] text-white/30">Eligibility checked per visit</div> : null}</td>
                       <td className="px-3 py-4"><div className="text-white/70">{formatDate(plan.next_service_at)}</div>{plan.last_work_order_id ? <div className="mt-1 text-[11px] text-white/30">Last work order: {plan.last_work_order_id.slice(0, 8)}</div> : null}</td>
                       <td className="px-3 py-4"><span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium capitalize ${statusClass(plan.status)}`}>{plan.status}</span></td>

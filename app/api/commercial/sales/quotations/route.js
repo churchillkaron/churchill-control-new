@@ -6,6 +6,7 @@ import {
   listQuotations,
   transitionQuotation,
 } from "@/lib/commercial/quotations/QuotationService";
+import { projectCommercialMarketingOutcome } from "@/lib/commercial/marketing/projectCommercialMarketingOutcome";
 
 function value(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -82,7 +83,21 @@ export async function POST(request) {
       request,
     });
 
-    return Response.json(result, { status: result.duplicate ? 200 : 201 });
+    const marketing_outcome = await projectCommercialMarketingOutcome({
+      organizationId: resolved.access.organizationId,
+      body,
+      result,
+      documentType: "QUOTATION",
+      outcomeType: "QUALIFIED_LEAD",
+      qualified: true,
+      revenue: 0,
+      metadata: { commercial_stage: "QUOTATION_CREATED" },
+    });
+
+    return Response.json(
+      { ...result, marketing_outcome },
+      { status: result.duplicate ? 200 : 201 },
+    );
   } catch (error) {
     return errorResponse(
       error?.message || "Unable to create quotation",
@@ -104,7 +119,23 @@ export async function PATCH(request) {
       request,
     });
 
-    return Response.json(result);
+    const action = String(body.action || "").trim().toUpperCase();
+    let marketing_outcome = null;
+
+    if (action === "ACCEPT") {
+      marketing_outcome = await projectCommercialMarketingOutcome({
+        organizationId: resolved.access.organizationId,
+        body,
+        result,
+        documentType: "QUOTATION",
+        outcomeType: "ACCEPTED_QUOTATION",
+        qualified: true,
+        revenue: 0,
+        metadata: { commercial_stage: "QUOTATION_ACCEPTED" },
+      });
+    }
+
+    return Response.json({ ...result, marketing_outcome });
   } catch (error) {
     return errorResponse(
       error?.message || "Unable to transition quotation",

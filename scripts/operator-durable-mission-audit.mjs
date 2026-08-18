@@ -52,6 +52,15 @@ requireAll("MISSION_RESUME_SCOPE_INTEGRITY", missionSource, [
   "function missionScopeMatches(expected, context)",
   "scope: missionScope(context)",
   "const resumeScope = object(resume.scope)",
+  "organization_id: text(context?.organizationId) || null",
+  "entity_id: text(context?.entityId) || null",
+  "period_id: text(context?.periodId) || null",
+  "party_id: text(context?.metadata?.partyId) || null",
+  "actor_id: text(actor.id || actor.user_id) || null",
+  "text(expected?.party_id) === text(actual.party_id)",
+  "text(expected?.actor_id) === text(actual.actor_id)",
+  "!text(resumeScope.party_id)",
+  "!text(resumeScope.actor_id)",
   "!missionScopeMatches(resumeScope, context)",
   'return { error: "OPERATOR_MISSION_RESUME_SCOPE_INVALID" }',
 ]);
@@ -85,7 +94,7 @@ assert.ok(
     checkpointValidationIndex > scopeValidationIndex &&
     resumeContractIndex > checkpointValidationIndex &&
     missionLoopIndex > resumeContractIndex,
-  "resume scope, checkpoint and current-step contract integrity must be validated before mission execution resumes",
+  "resume scope, identity, checkpoint and current-step contract integrity must be validated before mission execution resumes",
 );
 
 requireAll("MISSION_VERIFICATION_RESUME", missionSource, [
@@ -188,7 +197,7 @@ assert.ok(
 console.log("OPERATOR_DURABLE_MISSION_AUDIT=PASS");
 console.log("OPERATOR_MISSION_STATE=SERVER_PERSISTED_CONVERSATION");
 console.log("OPERATOR_MISSION_RESUME=EXACT_STEP_AND_PAYLOAD");
-console.log("OPERATOR_MISSION_RESUME_SCOPE=ORGANIZATION_ENTITY_PERIOD_BOUND");
+console.log("OPERATOR_MISSION_RESUME_SCOPE=ORGANIZATION_ENTITY_PERIOD_PARTY_ACTOR_BOUND");
 console.log("OPERATOR_MISSION_CHECKPOINT=STRICT_ORDERED_PREFIX");
 console.log("OPERATOR_MISSION_CHECKPOINT_VERIFICATION=REGISTERED_CURRENT_WRITE_ONLY");
 console.log("OPERATOR_MISSION_RESUME_GATES=CURRENT_STEP_CONTRACT_BOUND");

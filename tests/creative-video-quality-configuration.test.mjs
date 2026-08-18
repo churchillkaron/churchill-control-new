@@ -18,6 +18,6 @@ test("Creative video quality remains configuration-driven", () => {
   );
   assert.match(
     result.stdout,
-    /CREATIVE_VIDEO_QUALITY_CONFIGURATION_AUDIT_V2/,
+    /CREATIVE_VIDEO_QUALITY_CONFIGURATION_AUDIT_V3/,
   );
 });

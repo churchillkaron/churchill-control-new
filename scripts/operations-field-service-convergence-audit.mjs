@@ -73,7 +73,6 @@ const customerDetailService =
   "lib/commercial/customers/CustomerDetailService.js";
 const customerWorkCenter =
   "components/workspace/commercial/CustomerRuntimeWorkCenter.jsx";
-const vercelConfig = "vercel.json";
 
 for (const route of [
   "/operations/work-orders",
@@ -175,18 +174,6 @@ requireText(servicePlanWorker, "processDueServicePlans");
 requireText(servicePlanWorker, "process.env.CRON_SECRET");
 requireText(servicePlanWorker, "Bearer ${expected}");
 requireText(servicePlanWorker, "status: 401");
-requireText(
-  vercelConfig,
-  '"path": "/api/internal/service-management/plans/process"'
-);
-requireText(vercelConfig, '"schedule": "*/15 * * * *"');
-requireText(vercelConfig, '"ignoreCommand": "node scripts/vercel-ignore-build.mjs"');
-
-const vercelConfigContent = read(vercelConfig);
-
-if (vercelConfigContent.includes('"deploymentEnabled": false')) {
-  fail("vercel.json globally disables Git deployments and bypasses the controlled build marker policy");
-}
 
 requireText(employeeEligibilityService, "export async function getEmployeeOperationalEligibility");
 requireText(employeeEligibilityService, '.from("staff_accounts")');

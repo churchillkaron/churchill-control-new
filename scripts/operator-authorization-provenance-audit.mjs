@@ -50,6 +50,22 @@ assert.ok(
   "Only an allowed exact approval resume may be attributed as approval_resumed",
 );
 assert.ok(
+  governanceSource.includes("const requesterMatches ="),
+  "Exact Operator approval resume must validate the original requesting actor",
+);
+assert.ok(
+  governanceSource.includes("text(approvalRequest.requested_by) === text(actorId)"),
+  "Operator approval requester binding must compare the stored requester to the current actor",
+);
+assert.ok(
+  governanceSource.includes("!referenceMatches || !workflowMatches || !requesterMatches"),
+  "Operator approval resume must fail closed when scope, workflow, or requester identity mismatches",
+);
+assert.ok(
+  governanceSource.includes("actorId,\n    });"),
+  "Operator approval lookup must receive the authenticated actor id",
+);
+assert.ok(
   governanceSource.includes("authorization_origin_mode: authorization.origin_mode"),
   "Approval resume must preserve original authorization provenance",
 );
@@ -268,7 +284,7 @@ console.log("OPERATOR_PENDING_APPROVAL=PRESERVES_OR_UPGRADES_PROVEN_ORIGIN");
 console.log("OPERATOR_PENDING_VERIFICATION=READ_WITH_PARENT_ORIGIN");
 console.log("OPERATOR_PENDING_STATE_LOAD_FAILURE=FAIL_CLOSED_UNRESOLVED");
 console.log("OPERATOR_AUTHORIZATION_MODES=READ_AUTO_EXECUTE_USER_CONFIRMED_APPROVAL_RESUMED");
-console.log("OPERATOR_APPROVAL_RESUME=ALLOWED_EXACT_REQUEST_ONLY");
+console.log("OPERATOR_APPROVAL_RESUME=ALLOWED_EXACT_REQUEST_SCOPE_WORKFLOW_AND_REQUESTER");
 console.log("OPERATOR_MISSION_UNKNOWN_CONFIRMATION=MISSION_GOVERNED_NOT_INVENTED");
 console.log(
   `OPERATOR_LEGACY_TURN_FLAG=${legacyTurnFlagPresent ? "PRESENT_BUT_BOUNDARY_OVERRIDDEN" : "REMOVED"}`,

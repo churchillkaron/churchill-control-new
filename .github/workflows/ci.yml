@@ -1,18 +1,24 @@
-
 name: Churchill CI
 
 on:
   push:
     branches:
       - main
-
   pull_request:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: churchill-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -22,14 +28,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Lint
-        run: npm run lint || true
+        run: npx next lint
 
-    
+      - name: Test
+        run: npm test
+
       - name: Build application
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
@@ -38,10 +47,8 @@ jobs:
           OPENAI_API_KEY: test
         run: npm run build
 
-
       - name: Verify Supabase migrations folder
-        run: |
-          test -d supabase/migrations
+        run: test -d supabase/migrations
 
       - name: Verify environment files ignored
         run: |
@@ -56,4 +63,3 @@ jobs:
             echo "ERROR: Backups committed"
             exit 1
           fi
-

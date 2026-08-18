@@ -7,6 +7,7 @@ import {
 } from "@/lib/commercial/sales/SalesOrderService";
 import { confirmSalesOrder } from "@/lib/commercial/sales/ConfirmSalesOrderService";
 import { fulfillAndInvoiceSalesOrder } from "@/lib/commercial/sales/FulfillAndInvoiceSalesOrderService";
+import { projectCommercialMarketingOutcome } from "@/lib/commercial/marketing/projectCommercialMarketingOutcome";
 
 function value(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -71,7 +72,22 @@ export async function POST(request) {
       organizationId: resolved.access.organizationId,
       request,
     });
-    return Response.json(result, { status: result.duplicate ? 200 : 201 });
+
+    const marketing_outcome = await projectCommercialMarketingOutcome({
+      organizationId: resolved.access.organizationId,
+      body,
+      result,
+      documentType: "SALES_ORDER",
+      outcomeType: "ORDER_CREATED",
+      qualified: false,
+      revenue: 0,
+      metadata: { commercial_stage: "SALES_ORDER_CREATED" },
+    });
+
+    return Response.json(
+      { ...result, marketing_outcome },
+      { status: result.duplicate ? 200 : 201 },
+    );
   } catch (error) {
     return errorResponse(
       error?.message || "Unable to create sales order draft",
@@ -94,7 +110,17 @@ export async function PATCH(request) {
         organizationId: resolved.access.organizationId,
         request,
       });
-      return Response.json(result);
+      const marketing_outcome = await projectCommercialMarketingOutcome({
+        organizationId: resolved.access.organizationId,
+        body,
+        result,
+        documentType: "SALES_ORDER",
+        outcomeType: "SALE",
+        qualified: true,
+        revenue: 0,
+        metadata: { commercial_stage: "SALES_ORDER_CONFIRMED" },
+      });
+      return Response.json({ ...result, marketing_outcome });
     }
 
     if (action === "FULFILL" || action === "FULFILL_AND_INVOICE") {
@@ -104,7 +130,17 @@ export async function PATCH(request) {
         organizationId: resolved.access.organizationId,
         request,
       });
-      return Response.json(result);
+      const marketing_outcome = await projectCommercialMarketingOutcome({
+        organizationId: resolved.access.organizationId,
+        body,
+        result,
+        documentType: "SALES_ORDER",
+        outcomeType: "FULFILLED_ORDER",
+        qualified: true,
+        revenue: 0,
+        metadata: { commercial_stage: "SALES_ORDER_FULFILLED" },
+      });
+      return Response.json({ ...result, marketing_outcome });
     }
 
     return errorResponse("Unsupported sales order action", 400);

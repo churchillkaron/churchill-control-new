@@ -85,6 +85,9 @@ export async function register() {
       "@/lib/creative/execution/runtime/CreativeApprovedProductionTaskCostGuardRuntime"
     );
     await import(
+      "@/lib/creative/video/runtime/CreativeApprovedVideoPreflightExecutionRuntime"
+    );
+    await import(
       "@/lib/creative/video/runtime/CreativeVideoPricingContextRuntime"
     );
     await import(

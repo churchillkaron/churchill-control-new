@@ -68,7 +68,7 @@
     "benchmark:creative-case": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-world-class-live-benchmark-runner.mjs",
     "creative:one-clip": "node scripts/creative-one-clip-safe.mjs",
     "audit:api-tenant-isolation": "node scripts/api-tenant-isolation-audit.mjs",
-    "test": "node --test tests/",
+    "test": "node --test tests/*.test.mjs",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
   },
   "dependencies": {

@@ -23,10 +23,44 @@ async function uploadPublic(path, bytes, contentType) {
   return data?.publicUrl || null;
 }
 
+async function publicObject(path) {
+  const { data, error } = await supabaseAdmin.storage
+    .from("marketing-assets")
+    .download(path);
+  if (error) throw error;
+  return Buffer.from(await data.arrayBuffer());
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
     if (url.searchParams.get("token") !== TOKEN) return json({ success: false }, 404);
+
+    const download = url.searchParams.get("download");
+    if (download === "voice") {
+      const bytes = await publicObject(PUBLIC_VOICE);
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "Content-Length": String(bytes.length),
+          "Cache-Control": "no-store",
+          "Content-Disposition": 'attachment; filename="avantiqo-investor-narration.mp3"',
+        },
+      });
+    }
+    if (download === "music") {
+      const bytes = await publicObject(PUBLIC_MUSIC);
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          "Content-Type": "audio/wav",
+          "Content-Length": String(bytes.length),
+          "Cache-Control": "no-store",
+          "Content-Disposition": 'attachment; filename="avantiqo-investor-score.wav"',
+        },
+      });
+    }
 
     const { data: voiceBlob, error: voiceError } = await supabaseAdmin.storage
       .from("creative-assets")

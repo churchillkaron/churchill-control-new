@@ -106,6 +106,7 @@ export async function POST(request) {
       workOrderId: body.workOrderId || body.work_order_id,
       action: body.action,
       location: body.location,
+      completion: body.completion || null,
     });
 
     return NextResponse.json({

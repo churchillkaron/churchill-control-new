@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { requirePlatformOperatorWorkspaceAccess } from "@/lib/platform/security/requirePlatformOperatorWorkspaceAccess";
 import { BillingRuntime } from "@/lib/platform/service-runtime/billing/runtime/BillingRuntime";
 import * as BillingRepository from "@/lib/platform/service-runtime/billing/repositories/BillingRepository";
@@ -26,7 +27,10 @@ export async function GET(request) {
 
     if (!organizationId) return errorResponse("organization_id required", 400);
 
-    const access = await requirePlatformOperatorWorkspaceAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
     if (!access.success) return errorResponse(access.error, access.status);
 
     const rows = await BillingRepository.listServiceUsageInvoices({

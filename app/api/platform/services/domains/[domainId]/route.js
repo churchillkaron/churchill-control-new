@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
-import { requirePlatformOperatorWorkspaceAccess } from "@/lib/platform/security/requirePlatformOperatorWorkspaceAccess";
+import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { resolveOrganizationServiceDomainDetails } from "@/lib/platform/service-runtime/services/resolver/ServiceDomainDetailResolver";
 
 function cleanValue(value) {
@@ -27,7 +27,10 @@ export async function GET(request, { params }) {
     if (!organizationId) return errorResponse("organization_id required", 400);
     if (!domainId) return errorResponse("domainId required", 400);
 
-    const access = await requirePlatformOperatorWorkspaceAccess({ organizationId });
+    const access = await requireOrganizationAccess({
+      organizationId,
+      request,
+    });
     if (!access.success) return errorResponse(access.error, access.status);
 
     const rows = await resolveOrganizationServiceDomainDetails({

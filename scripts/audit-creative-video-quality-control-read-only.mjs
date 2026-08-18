@@ -138,7 +138,17 @@ requireMatch(
 );
 requireMatch(
   route,
-  /ProductionTaskRuntime\.list[\s\S]*media_generation_authorization/,
+  /ProductionTaskRuntime\.list/,
+  "QUALITY_ROUTE_TASK_LIST_FOR_AUTHORIZATION_LOCK",
+);
+requireMatch(
+  route,
+  /media_generation_authorization/,
+  "QUALITY_ROUTE_TASK_AUTHORIZATION_EVIDENCE",
+);
+requireMatch(
+  route,
+  /tasks\.some\(activeTaskGenerationAuthorization\)/,
   "QUALITY_ROUTE_TASK_AUTHORIZATION_LOCK",
 );
 requireMatch(

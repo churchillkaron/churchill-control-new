@@ -17,15 +17,6 @@ const FIELD_SERVICE_AREAS = Object.freeze([
     action: "Open Service Plans",
   }),
   Object.freeze({
-    id: "completed-services",
-    title: "Completed Services",
-    eyebrow: "Reports & Billing",
-    description:
-      "Review completed work, evidence, signatures, materials, follow-up requirements and controlled Finance billing readiness in one manager workspace.",
-    route: "/operations/field-service/completed-services",
-    action: "Review Completed Services",
-  }),
-  Object.freeze({
     id: "execution-templates",
     title: "Execution Templates",
     eyebrow: "Dynamic Protocols",
@@ -37,9 +28,9 @@ const FIELD_SERVICE_AREAS = Object.freeze([
   Object.freeze({
     id: "service-reports",
     title: "Service Reports",
-    eyebrow: "Customer Delivery",
+    eyebrow: "Reports · Billing · Customer Delivery",
     description:
-      "Review canonical completed-service records, evidence and customer-safe delivery previews before creating governed Communications drafts.",
+      "Review canonical completed-service records, Finance billing readiness, evidence and customer-safe delivery before governed Communications handoff.",
     route: "/operations/field-service/service-reports",
     action: "Open Service Reports",
   }),

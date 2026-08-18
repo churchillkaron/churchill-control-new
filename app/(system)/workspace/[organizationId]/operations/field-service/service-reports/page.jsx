@@ -17,6 +17,20 @@ function formatDate(value) {
   }).format(date);
 }
 
+function formatMoney(amount, currencyCode) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return "—";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currencyCode || "USD",
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${currencyCode || ""}`.trim();
+  }
+}
+
 function displayValue(value) {
   if (value === null || value === undefined || value === "") return "—";
   if (Array.isArray(value)) return value.map(displayValue).join(", ");
@@ -54,6 +68,14 @@ function conversationLabel(row) {
   return `${participant} · ${channel}`;
 }
 
+function billingStatus(report) {
+  if (report?.billing?.invoice?.invoice_id) return "Invoiced";
+  if (report?.billing?.eligible) return "Ready to invoice";
+  if (report?.billing?.prepaid) return "Prepaid";
+  if (report?.billing?.mode === "none") return "No billing";
+  return String(report?.billing?.blocked_reason || "Review").replaceAll("-", " ");
+}
+
 export default function ServiceReportsPage() {
   const params = useParams();
   const { organization, loading: organizationLoading } = useOrganizationRuntime();
@@ -69,6 +91,7 @@ export default function ServiceReportsPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -180,6 +203,42 @@ export default function ServiceReportsPage() {
     ));
   }, [customerConversations]);
 
+  async function createInvoice() {
+    if (!selectedId || !report?.billing?.eligible) return;
+    setInvoiceSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(
+        `/api/service-management/reports/${encodeURIComponent(selectedId)}/invoice`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ organizationId }),
+        },
+      );
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || "Finance invoice could not be created.");
+      }
+      setNotice(
+        json.idempotent_replay
+          ? "This completed service was already invoiced. The existing Finance invoice was returned."
+          : "Finance invoice created from the completed service.",
+      );
+      const reportResponse = await fetch(
+        `/api/service-management/reports/${encodeURIComponent(selectedId)}?organizationId=${encodeURIComponent(organizationId)}`,
+        { cache: "no-store" },
+      );
+      const reportJson = await reportResponse.json().catch(() => ({}));
+      if (reportResponse.ok && reportJson.success) setReport(reportJson.report || null);
+    } catch (invoiceError) {
+      setError(invoiceError.message || "Finance invoice could not be created.");
+    } finally {
+      setInvoiceSaving(false);
+    }
+  }
+
   async function createCommunicationsDraft() {
     if (!selectedId || !conversationId) return;
     setSaving(true);
@@ -229,14 +288,15 @@ export default function ServiceReportsPage() {
     <section className="mx-auto max-w-[1480px] px-5 py-6 text-white">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9BCF53]">Service Management · Customer Delivery</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9BCF53]">Service Management · Reports · Billing · Customer Delivery</div>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Completed Service Reports</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
-            Review canonical completed-service records and prepare customer delivery. Service Management prepares the report; Commercial Communications owns the saved message and confirmed send.
+            Review canonical completed-service records, Finance billing readiness and customer delivery from one work center. Finance owns invoice creation; Commercial Communications owns the saved customer message and confirmed send.
           </p>
         </div>
         <div className="flex gap-2">
           <Link href={`/workspace/${encodeURIComponent(organizationId)}/operations/field-service`} className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/60">Field Service</Link>
+          <Link href={`/workspace/${encodeURIComponent(organizationId)}/operations/field-service/service-plans`} className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/60">Service Plans</Link>
           <button type="button" onClick={loadBase} disabled={loading} className="rounded-xl border border-[#9BCF53]/30 bg-[#9BCF53]/10 px-4 py-2 text-sm text-[#D9F4B7] disabled:opacity-40">Refresh</button>
         </div>
       </div>
@@ -304,6 +364,23 @@ export default function ServiceReportsPage() {
               </div>
 
               {evidenceItems.length ? <div className="rounded-[22px] border border-white/10 bg-black/15 p-5"><div className="text-sm font-semibold">Completion Evidence</div><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{evidenceItems.map(([item, label], index) => <EvidenceLink key={`${label}-${index}`} item={item} label={label} />)}</div></div> : null}
+
+              <div className="rounded-[22px] border border-emerald-300/15 bg-emerald-300/[0.04] p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold text-emerald-100">Finance billing handoff</div>
+                    <div className="mt-1 text-xs text-white/35">Service Management exposes readiness; Finance remains the invoice and accounting authority.</div>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs capitalize text-white/60">{billingStatus(report)}</span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><div className="text-[10px] uppercase tracking-[0.14em] text-white/30">Mode</div><div className="mt-2 text-sm capitalize text-white/75">{String(report.billing?.mode || "none").replaceAll("_", " ")}</div></div>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><div className="text-[10px] uppercase tracking-[0.14em] text-white/30">Amount</div><div className="mt-2 text-sm text-white/75">{formatMoney(report.billing?.amount, report.billing?.currency_code)}</div></div>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><div className="text-[10px] uppercase tracking-[0.14em] text-white/30">Due</div><div className="mt-2 text-sm text-white/75">{Number(report.billing?.due_days || 0)} day{Number(report.billing?.due_days || 0) === 1 ? "" : "s"}</div></div>
+                </div>
+                {report.billing?.eligible ? <button type="button" onClick={createInvoice} disabled={invoiceSaving} className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2.5 text-sm font-semibold text-emerald-100 disabled:opacity-40">{invoiceSaving ? "Creating Finance invoice…" : "Create Finance Invoice"}</button> : null}
+                {report.billing?.invoice?.invoice_id ? <div className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-400/[0.06] p-4 text-sm text-sky-100">Invoice {report.billing.invoice.invoice_number || report.billing.invoice.invoice_id} already exists for this completed service.</div> : null}
+              </div>
 
               <div className="rounded-[22px] border border-cyan-300/15 bg-cyan-300/[0.04] p-5">
                 <div className="text-sm font-semibold text-cyan-100">Customer message preview</div>

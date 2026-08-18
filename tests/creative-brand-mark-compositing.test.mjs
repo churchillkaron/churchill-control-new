@@ -5,15 +5,17 @@ import fs from "node:fs/promises";
 const SHOT = "lib/creative/shots/documents/Shot.js";
 const BIBLE = "lib/creative/video/runtime/CreativeShotBibleRuntime.js";
 const RESOLVER = "lib/creative/video/runtime/CreativeBrandMarkCompositingRuntime.js";
+const INTELLIGENCE = "lib/creative/assets/intelligence/repositories/CreativeAssetIntelligenceRepository.js";
 const GATE = "lib/creative/assets/intelligence/runtime/CreativeBrandFidelityExecutionGate.js";
 const PREPARE = "lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js";
 const DISPATCH = "lib/creative/video/runtime/CreativeVideoGenerationDispatchRuntime.js";
 
 test("exact brand marks are source-backed deterministic finishing evidence", async () => {
-  const [shot, bible, resolver, gate] = await Promise.all([
+  const [shot, bible, resolver, intelligence, gate] = await Promise.all([
     fs.readFile(SHOT, "utf8"),
     fs.readFile(BIBLE, "utf8"),
     fs.readFile(RESOLVER, "utf8"),
+    fs.readFile(INTELLIGENCE, "utf8"),
     fs.readFile(GATE, "utf8"),
   ]);
 
@@ -26,14 +28,28 @@ test("exact brand marks are source-backed deterministic finishing evidence", asy
   assert.match(bible, /deterministic_finishing_required:\s*true/);
   assert.match(bible, /exact_brand_marks_transport_rendering_allowed:\s*false/);
 
+  assert.match(intelligence, /creative_asset_intelligence/);
+  assert.match(intelligence, /getLatestCompleted/);
+  assert.match(intelligence, /\.eq\("organization_id", organizationId\)/);
+  assert.match(intelligence, /\.eq\("asset_id", assetId\)/);
+  assert.match(intelligence, /\.eq\("status", "COMPLETED"\)/);
+  assert.match(intelligence, /\.order\("updated_at", \{ ascending: false \}\)/);
+  assert.match(intelligence, /\.limit\(1\)/);
+
   assert.match(resolver, /UNIVERSAL_REFERENCE_FIDELITY_V1/);
   assert.match(resolver, /BRAND_MARK/);
   assert.match(resolver, /EXACT_COMPOSITE/);
   assert.match(resolver, /regeneration_prohibited\s*!==\s*true/);
   assert.match(resolver, /CreativeAssetsRuntime\.get/);
+  assert.match(resolver, /CreativeAssetIntelligenceRepository\.getLatestCompleted/);
   assert.match(resolver, /CreativeBrandFidelityRuntime\.classify/);
   assert.match(resolver, /checksum_sha256/);
+  assert.match(resolver, /source_regions:\s*regions/);
   assert.match(resolver, /required_marks:\s*requiredMarks/);
+  assert.match(resolver, /mask_requirements:\s*uniqueText\(plan\.mask_requirements\)/);
+  assert.match(resolver, /compositing_plan:\s*plan/);
+  assert.match(resolver, /post_composition_checks:\s*postChecks/);
+  assert.match(resolver, /source_intelligence_id:\s*selected\.intelligence\.id/);
   assert.match(resolver, /original_pixels_required:\s*true/);
   assert.match(resolver, /generative_brand_mark_rendering_allowed:\s*false/);
   assert.match(resolver, /post_composition_review_required:\s*true/);

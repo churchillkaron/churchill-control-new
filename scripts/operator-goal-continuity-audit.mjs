@@ -296,7 +296,7 @@ assert.match(verificationSource, /Separate evidence-backed fact from inference/i
 assert.match(verificationSource, /Do not invent a benchmark, target, budget, expected outcome, causal explanation, or industry norm/i);
 assert.match(verificationSource, /choose one best safe next step/i);
 assert.match(verificationSource, /interpretive_synthesis:\s*true/);
-assert.match(verificationSource, /evidence_compaction:\s*"collection-aware-v1"/);
+assert.match(verificationSource, /const collection = collectionOf\(value\)/);
 assert.match(verificationSource, /function supportedPendingExecution/);
 assert.match(verificationSource, /readChainCompleted\(result\)/);
 assert.match(verificationSource, /function followUpRequestAligned/);

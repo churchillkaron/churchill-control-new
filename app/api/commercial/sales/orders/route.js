@@ -140,7 +140,37 @@ export async function PATCH(request) {
         revenue: 0,
         metadata: { commercial_stage: "SALES_ORDER_FULFILLED" },
       });
-      return Response.json({ ...result, marketing_outcome });
+
+      const fulfillmentCost = Number(result.finance?.amount || 0);
+      const marketing_cost_outcome = fulfillmentCost > 0
+        ? await projectCommercialMarketingOutcome({
+            organizationId: resolved.access.organizationId,
+            body,
+            result,
+            documentType: "SALES_ORDER",
+            outcomeType: "FULFILLMENT_COGS",
+            qualified: false,
+            quantity: 0,
+            revenue: 0,
+            cost: fulfillmentCost,
+            profit: -fulfillmentCost,
+            currency: result.finance?.currency_code || null,
+            metadata: {
+              commercial_stage: "SALES_ORDER_FULFILLMENT_COGS",
+              finance_cost_source: "INVENTORY_CONSUMPTION",
+              fulfillment_cost: fulfillmentCost,
+            },
+          })
+        : {
+            projected: false,
+            reason: result.finance?.reason || "NO_INVENTORY_COST",
+          };
+
+      return Response.json({
+        ...result,
+        marketing_outcome,
+        marketing_cost_outcome,
+      });
     }
 
     return errorResponse("Unsupported sales order action", 400);

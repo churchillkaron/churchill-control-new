@@ -31,6 +31,7 @@ function requireAll(label, source, needles) {
 }
 
 const bridge = read("components/operator/LocalHeyAvantiqoWakeBridge.jsx");
+const realtimeClient = read("lib/operator/voice/RealtimeTranscriptionClient.js");
 const fastRuntime = read("lib/operator/runtime/OperatorFastConversationRuntime.js");
 const turnRoute = read("app/api/operator/turn/route.js");
 const navigationMatcher = read("lib/operator/runtime/OperatorNavigationMatcher.js");
@@ -67,6 +68,26 @@ requireAll("FAST_VOICE_LOW_LATENCY", reasoningRuntime, [
   'verbosity: "low"',
   "no_filler_response: true",
   'Do not begin with filler acknowledgements such as "Got it"',
+]);
+
+requireAll("REALTIME_STT_BROWSER_CLIENT", realtimeClient, [
+  "TARGET_SAMPLE_RATE = 24000",
+  'type: "input_audio_buffer.append"',
+  'type: "input_audio_buffer.commit"',
+  "conversation.item.input_audio_transcription.completed",
+  "openai-insecure-api-key.",
+  "/api/operator/transcribe/realtime/session",
+  "/api/operator/transcribe/realtime/settle",
+  'action: "complete"',
+  'action: "cancel"',
+]);
+
+requireAll("REALTIME_STT_BROWSER_FALLBACK_ORDER", bridge, [
+  "startRealtimeTranscription",
+  "ensureRealtimeTranscription",
+  "realtime?.commit?.()",
+  "AVANTIQO_REALTIME_STT_FALLBACK",
+  "transcript = await transcribe(blob)",
 ]);
 
 requireAll("REALTIME_STT_SERVICE_CONTRACT", aiServiceCatalog, [
@@ -377,6 +398,8 @@ if (violations.length) {
   console.log("VOICE_FAST_REASONING=SINGLE_PASS_LOW_LATENCY");
   console.log("VOICE_PROCESSING_FILLER=DISABLED");
   console.log("VOICE_REALTIME_STT=GOVERNED_EPHEMERAL_SESSION");
+  console.log("VOICE_REALTIME_STT_TRANSPORT=PCM16_24KHZ_WEBSOCKET");
+  console.log("VOICE_REALTIME_STT_FALLBACK=UPLOAD_ONLY_AFTER_REALTIME_FAILURE");
   console.log("VOICE_REALTIME_STT_SDK_BOUNDARY=CANONICAL_OPENAI_ADAPTER");
   console.log("VOICE_REALTIME_STT_BILLING=SERVER_BOUND_FIXED_RESERVATION");
   console.log("VOICE_REALTIME_STT_FAILURE=RESERVATION_RELEASED");

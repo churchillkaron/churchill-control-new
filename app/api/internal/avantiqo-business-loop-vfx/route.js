@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-import { AvantiqoInvestorFilmBusinessLoopRuntime } from "@/lib/creative/post-production/runtime/AvantiqoInvestorFilmBusinessLoopRuntime";
+import { AvantiqoInvestorFilmBusinessLoopRuntime } from "@/lib/investor-film/AvantiqoInvestorFilmBusinessLoopRuntime";
 
 const TOKEN = "avq-business-loop-vfx-20260819";
 

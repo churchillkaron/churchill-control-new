@@ -32,6 +32,9 @@ const nextConfig = {
       "/api/internal/avantiqo-investor-video-voice-v3": [
         "./.avantiqo/bin/ffmpeg",
       ],
+      "/api/internal/avantiqo-investor-founder-audio-lock": [
+        "./.avantiqo/bin/ffmpeg",
+      ],
     },
   },
 

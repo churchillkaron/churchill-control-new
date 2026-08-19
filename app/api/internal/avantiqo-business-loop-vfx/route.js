@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 import { AvantiqoInvestorFilmBusinessLoopRuntime } from "@/lib/investor-film/AvantiqoInvestorFilmBusinessLoopRuntime";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const TOKEN = "avq-business-loop-vfx-20260819";
 
@@ -34,6 +35,22 @@ export async function GET(request) {
       const signed_url = await AvantiqoInvestorFilmBusinessLoopRuntime.downloadUrl(86400);
       if (!signed_url) return json({ success: false, error: "BUSINESS_LOOP_VFX_NOT_READY" }, 404);
       return json({ success: true, signed_url });
+    }
+
+    if (action === "file") {
+      const { data, error } = await supabaseAdmin.storage
+        .from("creative-assets")
+        .download(AvantiqoInvestorFilmBusinessLoopRuntime.OUTPUT_PATH);
+      if (error) throw error;
+      if (!data) return json({ success: false, error: "BUSINESS_LOOP_VFX_NOT_READY" }, 404);
+      return new Response(data, {
+        status: 200,
+        headers: {
+          "Content-Type": "video/mp4",
+          "Cache-Control": "no-store",
+          "Content-Disposition": "inline; filename=avantiqo-business-loop-vfx-v1.mp4",
+        },
+      });
     }
 
     return json({ success: false, error: "Unsupported action" }, 400);

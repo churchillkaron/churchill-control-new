@@ -30,27 +30,6 @@ function authorized(request) {
   );
 }
 
-function settlementEvidence(body = {}) {
-  return {
-    provider: cleanValue(body.provider),
-    provider_reference: cleanValue(
-      body.provider_reference || body.providerReference,
-    ),
-    amount: body.amount,
-    currency: cleanValue(body.currency),
-    settled_at: cleanValue(body.settled_at || body.settledAt),
-    verification_source: cleanValue(
-      body.verification_source || body.verificationSource,
-    ),
-    metadata:
-      body.metadata &&
-      typeof body.metadata === "object" &&
-      !Array.isArray(body.metadata)
-        ? body.metadata
-        : {},
-  };
-}
-
 export async function POST(request) {
   if (!authorized(request)) {
     return errorResponse("Unauthorized", 401);
@@ -59,9 +38,23 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const paymentId = cleanValue(body.payment_id || body.paymentId);
+    const verificationSource = cleanValue(
+      body.verification_source || body.verificationSource,
+    );
+    const sourceReference = cleanValue(
+      body.source_reference || body.sourceReference,
+    );
 
     if (!paymentId) {
       return errorResponse("payment_id required", 400);
+    }
+
+    if (!verificationSource) {
+      return errorResponse("verification_source required", 400);
+    }
+
+    if (!sourceReference) {
+      return errorResponse("source_reference required", 400);
     }
 
     const existingPayment = await PaymentTransactionRepository.get(paymentId);
@@ -72,7 +65,8 @@ export async function POST(request) {
 
     const payment = await PaymentConfirmationRuntime.confirmPayment({
       paymentId,
-      evidence: settlementEvidence(body),
+      verificationSource,
+      sourceReference,
     });
 
     return NextResponse.json({

@@ -33,34 +33,77 @@ function json(data, status = 200) {
   });
 }
 
-async function copyProviderOutputToScore(result) {
-  const output =
-    result?.output?.raw?.output ||
-    result?.output?.output ||
-    result?.output ||
-    result?.raw?.output ||
-    null;
-  const sourcePath =
-    output?.storage_path ||
-    output?.storagePath ||
-    null;
-  const sourceBucket =
-    output?.storage_bucket ||
-    output?.storageBucket ||
-    BUCKET;
+function providerMedia(result) {
+  const candidates = [
+    result?.output?.raw?.output,
+    result?.output?.output,
+    result?.output?.raw,
+    result?.output,
+    result?.raw?.output,
+    result?.raw,
+    result,
+  ].filter(Boolean);
 
-  if (!sourcePath) return null;
-  if (sourceBucket === BUCKET && sourcePath === SCORE_PATH) {
-    return { bucket: BUCKET, path: SCORE_PATH, reused: true };
+  for (const candidate of candidates) {
+    const storagePath =
+      candidate?.storage_path ||
+      candidate?.storagePath ||
+      candidate?.output?.storage_path ||
+      candidate?.output?.storagePath ||
+      null;
+    const storageBucket =
+      candidate?.storage_bucket ||
+      candidate?.storageBucket ||
+      candidate?.output?.storage_bucket ||
+      candidate?.output?.storageBucket ||
+      BUCKET;
+    const audioUrl =
+      candidate?.audio_url ||
+      candidate?.audio?.url ||
+      candidate?.output?.audio_url ||
+      candidate?.output?.audio?.url ||
+      null;
+
+    if (storagePath || audioUrl) {
+      return { storagePath, storageBucket, audioUrl };
+    }
   }
 
-  const { data, error } = await supabaseAdmin.storage
-    .from(sourceBucket)
-    .download(sourcePath);
-  if (error) throw error;
-  if (!data) throw new Error("INVESTOR_SCORE_DOWNLOAD_EMPTY");
+  return { storagePath: null, storageBucket: BUCKET, audioUrl: null };
+}
 
-  const bytes = Buffer.from(await data.arrayBuffer());
+async function copyProviderOutputToScore(result) {
+  const media = providerMedia(result);
+  let bytes = null;
+
+  if (media.storagePath) {
+    if (media.storageBucket === BUCKET && media.storagePath === SCORE_PATH) {
+      return { bucket: BUCKET, path: SCORE_PATH, reused: true };
+    }
+    const { data, error } = await supabaseAdmin.storage
+      .from(media.storageBucket)
+      .download(media.storagePath);
+    if (error) throw error;
+    if (!data) throw new Error("INVESTOR_SCORE_DOWNLOAD_EMPTY");
+    bytes = Buffer.from(await data.arrayBuffer());
+  } else if (media.audioUrl) {
+    const parsed = new URL(media.audioUrl);
+    const trusted =
+      parsed.protocol === "https:" &&
+      (parsed.hostname.endsWith(".fal.media") ||
+        parsed.hostname === "fal.media" ||
+        parsed.hostname.endsWith(".fal.ai") ||
+        parsed.hostname === "fal.ai");
+    if (!trusted) throw new Error("INVESTOR_SCORE_PROVIDER_URL_UNTRUSTED");
+    const response = await fetch(parsed.toString(), { redirect: "follow" });
+    if (!response.ok) {
+      throw new Error(`INVESTOR_SCORE_PROVIDER_DOWNLOAD_FAILED:${response.status}`);
+    }
+    bytes = Buffer.from(await response.arrayBuffer());
+  }
+
+  if (!bytes?.length) return null;
+
   const { error: uploadError } = await supabaseAdmin.storage
     .from(BUCKET)
     .upload(SCORE_PATH, bytes, {
@@ -114,6 +157,7 @@ export async function GET(request) {
         category: "AI",
       });
 
+      const providerOutput = result?.output?.output || result?.output || {};
       return json({
         success: true,
         pending: result?.pending ?? null,
@@ -125,6 +169,9 @@ export async function GET(request) {
         credential_id: result?.credential_id || null,
         pricing: result?.pricing || null,
         started_at: result?.started_at || null,
+        status_url: providerOutput?.status_url || null,
+        response_url: providerOutput?.response_url || null,
+        cancel_url: providerOutput?.cancel_url || null,
         output: result?.output || null,
       });
     }
@@ -135,6 +182,9 @@ export async function GET(request) {
       const usageId = url.searchParams.get("usage_id");
       const credentialId = url.searchParams.get("credential_id") || null;
       const startedAt = url.searchParams.get("started_at") || null;
+      const statusUrl = url.searchParams.get("status_url") || null;
+      const responseUrl = url.searchParams.get("response_url") || null;
+      const cancelUrl = url.searchParams.get("cancel_url") || null;
 
       if (!providerJobId || !usageId) {
         return json({ success: false, error: "Missing poll parameters" }, 400);
@@ -147,6 +197,11 @@ export async function GET(request) {
         usage_id: usageId,
         credential_id: credentialId,
         started_at: startedAt,
+        provider_status_input: {
+          status_url: statusUrl,
+          response_url: responseUrl,
+          cancel_url: cancelUrl,
+        },
         metadata: {
           module: "CREATIVE",
           operation: "AVANTIQO_INVESTOR_FILM_SCORE_V1_POLL",

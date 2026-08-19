@@ -8,6 +8,10 @@
     "app/api/creative/tests/gemini-omni-5s/route.js": {
       "maxDuration": 800
     },
+    "app/api/internal/avantiqo-investor-film-finished/route.js": {
+      "memory": 3009,
+      "maxDuration": 300
+    },
     "app/api/reviews/sync-google/route.js": {
       "maxDuration": 300
     },

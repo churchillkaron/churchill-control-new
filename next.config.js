@@ -23,6 +23,15 @@ const nextConfig = {
       "/api/internal/avantiqo-investor-film-finished": [
         "./.avantiqo/bin/ffmpeg",
       ],
+      "/api/internal/avantiqo-investor-logo-reveal": [
+        "./.avantiqo/bin/ffmpeg",
+      ],
+      "/api/internal/avantiqo-investor-film-lipsync": [
+        "./.avantiqo/bin/ffmpeg",
+      ],
+      "/api/internal/avantiqo-investor-video-voice-v3": [
+        "./.avantiqo/bin/ffmpeg",
+      ],
     },
   },
 

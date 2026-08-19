@@ -20,7 +20,9 @@ function statusFor(error) {
     message.includes("REQUIRED") ||
     message.includes("INVALID") ||
     message.includes("MISMATCH") ||
-    message.includes("NOT_COMPLETED")
+    message.includes("NOT_COMPLETED") ||
+    message.includes("ALREADY_MATERIALIZED") ||
+    message.includes("ALREADY_RESERVED")
   ) {
     return 400;
   }
@@ -39,13 +41,12 @@ export async function POST(request) {
     const directionJobId = text(
       body.direction_job_id || body.directionJobId,
     );
-    const action = text(
-      body.action || "MATERIALIZE_COMPLETED_DIRECTION",
-    ).toUpperCase();
+    const action = text(body.action).toUpperCase();
 
     if (!organizationId) throw new Error("organization_id required");
     if (!projectId) throw new Error("creative_project_id required");
     if (!directionJobId) throw new Error("direction_job_id required");
+    if (!action) throw new Error("action required");
     if (action !== "MATERIALIZE_COMPLETED_DIRECTION") {
       throw new Error("CREATIVE_PIPELINE_ACTION_INVALID");
     }

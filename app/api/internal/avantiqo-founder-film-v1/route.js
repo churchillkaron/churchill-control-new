@@ -11,7 +11,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const ENTITY_ID = "073dc5f5-b6a8-4cae-8cda-fd7acb21ef50";
 const TOKEN = "avq-founder-film-v1-20260819";
-const SOURCE = "avantiqo_founder_film_identity_locked_v2_20260819";
+const SOURCE = "avantiqo_founder_film_identity_reference_v3_20260819";
 const FOUNDER_ASSET_ID = "052e10e2-432e-4cf9-82bd-65cb5bb7441a";
 const FOUNDER_STORAGE_PATH =
   "33336a72-acb5-474e-856b-8be0269360e2/unassigned/ca19f771-e2ad-4e62-ac50-19ff8efed996-avantiqo-founder-speaking-keyframe.jpg";
@@ -102,7 +102,7 @@ function sceneContract(sceneKey) {
   if (!scene) return null;
 
   const identityInstruction =
-    "The supplied first frame is the approved founder identity and is authoritative. Animate that exact person; do not redesign, reinterpret, beautify, replace, age-shift or create a lookalike. Preserve facial geometry, head shape, beard shape, hairline, skin tone, age, body build and proportions continuously. This is an identity-locked motion plate, not a character-generation task.";
+    "The supplied reference image is the approved founder identity and is authoritative. The subject in the generated motion must be that exact same person, not a similar person or a newly interpreted character. Preserve facial geometry, head shape, beard shape, hairline, skin tone, age, body build and proportions continuously. Treat the reference as identity evidence, not merely style inspiration.";
 
   const motionInstruction =
     "He does not speak in this source generation. Keep lips relaxed and mostly closed with only natural breathing micro-movement. Final Cedar narration and exact lip sync are applied later. Preserve a clear unobstructed mouth and lower face.";
@@ -122,7 +122,7 @@ function sceneContract(sceneKey) {
       visual_quality:
         "world-class photoreal feature-film founder cinematography for a premium global technology investor film",
       identity_preservation:
-        "absolute continuity with the supplied approved first frame; same person in every frame",
+        "absolute continuity with the supplied approved founder reference; same person in every frame",
       mouth_visibility:
         "mouth and lower face unobstructed for the complete shot; lips relaxed because exact Cedar lip sync happens later",
       body_language: scene.performance,
@@ -134,9 +134,11 @@ function sceneContract(sceneKey) {
     },
     shot_bible: {
       precision_control: {
-        opening_frame_asset_id: FOUNDER_ASSET_ID,
-        exact_opening_frame_required: true,
-        multi_reference_control_required: false,
+        reference_asset_ids: [FOUNDER_ASSET_ID],
+        multi_reference_control_required: true,
+      },
+      source: {
+        reference_asset_ids: [FOUNDER_ASSET_ID],
       },
       output: {
         duration_seconds: MOTION_DURATION_SECONDS,
@@ -150,7 +152,7 @@ function sceneContract(sceneKey) {
       resolution: "720p",
     },
     provider_parameters: {
-      first_frame_asset_id: FOUNDER_ASSET_ID,
+      reference_asset_ids: [FOUNDER_ASSET_ID],
       aspect_ratio: "16:9",
       resolution: "720p",
     },
@@ -182,10 +184,10 @@ async function repairFounderReference() {
 }
 
 function safeCreativePath(value) {
-  const path = String(value || "").trim();
-  if (!path.startsWith(`${ORGANIZATION_ID}/`)) return null;
-  if (path.includes("..")) return null;
-  return path;
+  const storagePath = String(value || "").trim();
+  if (!storagePath.startsWith(`${ORGANIZATION_ID}/`)) return null;
+  if (storagePath.includes("..")) return null;
+  return storagePath;
 }
 
 export async function GET(request) {
@@ -208,8 +210,8 @@ export async function GET(request) {
         identity_lock: {
           provider: MOTION_PROVIDER,
           model: MOTION_MODEL,
-          first_frame_asset_id: FOUNDER_ASSET_ID,
-          hard_bound_as_provider_first_frame: true,
+          identity_reference_asset_id: FOUNDER_ASSET_ID,
+          reference_mode: "VEO_REFERENCE_IMAGE_ASSET",
           generic_gemini_generation_disabled_for_founder: true,
           duration_seconds: MOTION_DURATION_SECONDS,
           proof_first_policy: "Generate and visually verify opening before any remaining founder shots.",
@@ -229,9 +231,9 @@ export async function GET(request) {
           ]),
         ),
         production_order: [
-          "Google Veo identity-locked opening proof from approved first frame",
+          "Google Veo opening proof with approved founder identity reference",
           "visual identity verification against approved reference",
-          "only after proof passes: remaining identity-locked founder motion plates",
+          "only after proof passes: remaining founder motion plates using the same reference",
           "complete investor-film edit with continuous Cedar narration",
           "lock master timeline",
           "audio-conditioned lip sync only for verified founder-visible windows",
@@ -287,7 +289,7 @@ export async function GET(request) {
         },
         metadata: {
           module: "CREATIVE",
-          operation: `AVANTIQO_FOUNDER_${sceneKey.toUpperCase()}_IDENTITY_LOCKED_V2`,
+          operation: `AVANTIQO_FOUNDER_${sceneKey.toUpperCase()}_IDENTITY_REFERENCE_V3`,
           brand: "Avantiqo",
           source: SOURCE,
           founder_asset_id: FOUNDER_ASSET_ID,
@@ -295,8 +297,9 @@ export async function GET(request) {
           narration_segment: scene.narration,
           motion_provider: MOTION_PROVIDER,
           motion_model: MOTION_MODEL,
-          first_frame_asset_id: FOUNDER_ASSET_ID,
-          identity_lock_required: true,
+          identity_reference_asset_id: FOUNDER_ASSET_ID,
+          identity_reference_mode: "VEO_REFERENCE_IMAGE_ASSET",
+          identity_verification_required_before_use: true,
           lip_sync_deferred_until_identity_and_master_timeline_lock: true,
           reference_repair: repair,
         },
@@ -305,14 +308,15 @@ export async function GET(request) {
 
       return json({
         success: true,
-        stage: "identity-locked-motion",
+        stage: "identity-reference-motion",
         scene: sceneKey,
         narration_segment: scene.narration,
         identity_lock: {
           provider: MOTION_PROVIDER,
           model: result?.model || MOTION_MODEL,
-          first_frame_asset_id: FOUNDER_ASSET_ID,
-          hard_bound_as_provider_first_frame: true,
+          identity_reference_asset_id: FOUNDER_ASSET_ID,
+          reference_mode: "VEO_REFERENCE_IMAGE_ASSET",
+          identity_verified: false,
         },
         reference_repair: repair,
         pending: result?.pending ?? null,
@@ -351,7 +355,7 @@ export async function GET(request) {
         started_at: startedAt,
         metadata: {
           module: "CREATIVE",
-          operation: `AVANTIQO_FOUNDER_${sceneKey.toUpperCase()}_IDENTITY_LOCKED_V2_POLL`,
+          operation: `AVANTIQO_FOUNDER_${sceneKey.toUpperCase()}_IDENTITY_REFERENCE_V3_POLL`,
           brand: "Avantiqo",
           source: SOURCE,
           founder_asset_id: FOUNDER_ASSET_ID,
@@ -359,21 +363,23 @@ export async function GET(request) {
           narration_segment: scene.narration,
           motion_provider: MOTION_PROVIDER,
           motion_model: MOTION_MODEL,
-          first_frame_asset_id: FOUNDER_ASSET_ID,
-          identity_lock_required: true,
+          identity_reference_asset_id: FOUNDER_ASSET_ID,
+          identity_reference_mode: "VEO_REFERENCE_IMAGE_ASSET",
+          identity_verification_required_before_use: true,
           lip_sync_deferred_until_identity_and_master_timeline_lock: true,
         },
       });
 
       return json({
         success: true,
-        stage: "identity-locked-motion",
+        stage: "identity-reference-motion",
         scene: sceneKey,
         identity_lock: {
           provider: MOTION_PROVIDER,
           model: MOTION_MODEL,
-          first_frame_asset_id: FOUNDER_ASSET_ID,
-          hard_bound_as_provider_first_frame: true,
+          identity_reference_asset_id: FOUNDER_ASSET_ID,
+          reference_mode: "VEO_REFERENCE_IMAGE_ASSET",
+          identity_verified: false,
         },
         result,
       });

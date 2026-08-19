@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+import "@/lib/platform/service-runtime/providers/gemini/GeminiFounderStatusRecoveryPatch.js";
+
 import {
   executeService,
   settlePendingService,
@@ -77,6 +79,18 @@ function safeCreativePath(value) {
   return storagePath;
 }
 
+function interactionIdFrom(result = {}) {
+  return (
+    result?.interaction_id ||
+    result?.interactionId ||
+    result?.output?.interaction_id ||
+    result?.output?.interactionId ||
+    result?.output?.output?.interaction_id ||
+    result?.output?.output?.interactionId ||
+    null
+  );
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -94,6 +108,7 @@ export async function GET(request) {
         identity_policy: "EXPLICIT_PRIMARY_SOURCE_ONLY",
         veo_disabled: true,
         source_audio_policy: "DISCARD_PROVIDER_AUDIO_USE_LOCKED_CEDAR_MASTER",
+        interaction_recovery_enabled: true,
       });
     }
 
@@ -146,6 +161,7 @@ export async function GET(request) {
         pending: result?.pending ?? null,
         provider_job_id: result?.provider_job_id || null,
         provider_status: result?.provider_status || null,
+        interaction_id: interactionIdFrom(result),
         usage_id: result?.usage?.id || null,
         credential_id: result?.credential_id || null,
         started_at: result?.started_at || null,
@@ -160,6 +176,7 @@ export async function GET(request) {
       const usageId = url.searchParams.get("usage_id");
       const credentialId = url.searchParams.get("credential_id") || null;
       const startedAt = url.searchParams.get("started_at") || null;
+      const interactionId = url.searchParams.get("interaction_id") || null;
       if (!providerJobId || !usageId) {
         return json({ success: false, error: "Missing poll parameters" }, 400);
       }
@@ -171,6 +188,10 @@ export async function GET(request) {
         usage_id: usageId,
         credential_id: credentialId,
         started_at: startedAt,
+        provider_status_input: {
+          model: MODEL,
+          interaction_id: interactionId,
+        },
         metadata: {
           module: "CREATIVE",
           operation: "AVANTIQO_FOUNDER_GEMINI_IDENTITY_PROOF_V1_POLL",
@@ -181,6 +202,7 @@ export async function GET(request) {
           identity_reference_mode: "EXPLICIT_PRIMARY_SOURCE_ONLY",
           identity_verification_required_before_use: true,
           source_audio_policy: "DISCARD_PROVIDER_AUDIO_USE_LOCKED_CEDAR_MASTER",
+          interaction_id: interactionId,
         },
         category: "AI",
       });

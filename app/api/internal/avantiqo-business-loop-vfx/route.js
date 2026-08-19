@@ -16,37 +16,33 @@ const TOKEN = "avq-business-loop-vfx-20260819";
 const BUCKET = "creative-assets";
 
 function json(data, status = 200) {
-  return Response.json(data, {
-    status,
-    headers: { "Cache-Control": "no-store" },
-  });
+  return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-function captureRawFrame(ffmpeg, source, second) {
+function renderRawFrame(ffmpeg, source, target, second) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       ffmpeg,
       [
+        "-y",
         "-hide_banner",
         "-loglevel", "error",
         "-ss", String(second),
         "-i", source,
         "-frames:v", "1",
         "-vf", "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720",
+        "-c:v", "rawvideo",
         "-pix_fmt", "rgba",
         "-f", "rawvideo",
-        "pipe:1",
+        target,
       ],
       {
         shell: false,
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: ["ignore", "ignore", "pipe"],
         env: { ...process.env, OMP_NUM_THREADS: "1" },
       },
     );
-
-    const stdout = [];
     const stderr = [];
-    child.stdout.on("data", (chunk) => stdout.push(chunk));
     child.stderr.on("data", (chunk) => stderr.push(chunk));
     child.on("error", reject);
     child.on("close", (code) => {
@@ -54,12 +50,7 @@ function captureRawFrame(ffmpeg, source, second) {
         reject(new Error(Buffer.concat(stderr).toString("utf8").slice(-8000) || `FFMPEG_FRAME_EXIT_${code}`));
         return;
       }
-      const raw = Buffer.concat(stdout);
-      if (raw.length !== 1280 * 720 * 4) {
-        reject(new Error(`FRAME_RGBA_SIZE_MISMATCH:${raw.length}`));
-        return;
-      }
-      resolve(raw);
+      resolve();
     });
   });
 }
@@ -71,6 +62,7 @@ async function createReviewFrame(second) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "avantiqo-vfx-frame-"));
   try {
     const localVideo = path.join(directory, "business-loop.mp4");
+    const rawPath = path.join(directory, "frame.rgba");
     const { data, error } = await supabaseAdmin.storage
       .from(BUCKET)
       .download(AvantiqoInvestorFilmBusinessLoopRuntime.OUTPUT_PATH);
@@ -78,14 +70,14 @@ async function createReviewFrame(second) {
     if (!data) throw new Error("BUSINESS_LOOP_VFX_NOT_READY");
     await fs.writeFile(localVideo, Buffer.from(await data.arrayBuffer()));
 
-    const raw = await captureRawFrame(ffmpeg, localVideo, second);
-    return sharp(raw, {
-      raw: {
-        width: 1280,
-        height: 720,
-        channels: 4,
-      },
-    })
+    await renderRawFrame(ffmpeg, localVideo, rawPath, second);
+    const raw = await fs.readFile(rawPath);
+    const expected = 1280 * 720 * 4;
+    if (raw.length !== expected) {
+      throw new Error(`FRAME_RGBA_SIZE_MISMATCH:${raw.length}:${expected}`);
+    }
+
+    return sharp(raw, { raw: { width: 1280, height: 720, channels: 4 } })
       .resize(960, 540)
       .jpeg({ quality: 88, chromaSubsampling: "4:4:4" })
       .toBuffer();
@@ -135,9 +127,7 @@ export async function GET(request) {
 
     if (action === "frame") {
       const requested = Number(url.searchParams.get("time") || "1.3");
-      const second = Number.isFinite(requested)
-        ? Math.max(0, Math.min(47.9, requested))
-        : 1.3;
+      const second = Number.isFinite(requested) ? Math.max(0, Math.min(47.9, requested)) : 1.3;
       const image = await createReviewFrame(second);
       return new Response(image, {
         status: 200,

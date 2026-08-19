@@ -54,6 +54,31 @@ function boundedConversation(value) {
     .filter((message) => message.content);
 }
 
+function isInsufficientWalletBalance(error) {
+  return text(error?.message || error).includes("INSUFFICIENT_WALLET_BALANCE");
+}
+
+function prepaidBalanceBlockedResult({ agreementState, projectState } = {}) {
+  return {
+    decision: {
+      intent: "service_balance_required",
+      response_text:
+        "This organization's prepaid service balance is empty. Add service credit to continue.",
+      plan: [],
+      agreement_state: object(agreementState),
+      project_state: object(projectState),
+    },
+    execution: {
+      status: "blocked",
+      reason: "INSUFFICIENT_WALLET_BALANCE",
+      capability: null,
+    },
+    provider_evidence: {},
+    navigation: null,
+    agreement_state: object(agreementState),
+  };
+}
+
 function deriveProjectState(previousState, result) {
   const decision = object(result?.decision);
   const execution = object(result?.execution);
@@ -267,10 +292,25 @@ export async function POST(request) {
       projectState: memory.projectState,
       conversation,
       callerRequest: request,
-    }).then((value) => {
-      operatorMs = Date.now() - operatorStartedAt;
-      return value;
-    });
+    })
+      .then((value) => {
+        operatorMs = Date.now() - operatorStartedAt;
+        return value;
+      })
+      .catch((error) => {
+        operatorMs = Date.now() - operatorStartedAt;
+        if (!isInsufficientWalletBalance(error)) throw error;
+
+        console.warn("OPERATOR_SERVICE_BALANCE_REQUIRED", {
+          organizationId: businessContext.organizationId,
+          entityId: businessContext.entityId || null,
+        });
+
+        return prepaidBalanceBlockedResult({
+          agreementState,
+          projectState: memory.projectState,
+        });
+      });
     const userPersistStartedAt = Date.now();
     const userPersistPromise = persistIntelligenceTurn({
       organizationId: businessContext.organizationId,

@@ -19,7 +19,7 @@ function json(data, status = 200) {
   return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-function renderRawFrame(ffmpeg, source, target, second) {
+function renderPpmFrame(ffmpeg, source, target, second) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       ffmpeg,
@@ -27,13 +27,12 @@ function renderRawFrame(ffmpeg, source, target, second) {
         "-y",
         "-hide_banner",
         "-loglevel", "error",
-        "-ss", String(second),
         "-i", source,
+        "-ss", String(second),
         "-frames:v", "1",
         "-vf", "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720",
-        "-c:v", "rawvideo",
-        "-pix_fmt", "rgba",
-        "-f", "rawvideo",
+        "-c:v", "ppm",
+        "-f", "image2",
         target,
       ],
       {
@@ -62,7 +61,7 @@ async function createReviewFrame(second) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "avantiqo-vfx-frame-"));
   try {
     const localVideo = path.join(directory, "business-loop.mp4");
-    const rawPath = path.join(directory, "frame.rgba");
+    const ppmPath = path.join(directory, "frame.ppm");
     const { data, error } = await supabaseAdmin.storage
       .from(BUCKET)
       .download(AvantiqoInvestorFilmBusinessLoopRuntime.OUTPUT_PATH);
@@ -70,14 +69,11 @@ async function createReviewFrame(second) {
     if (!data) throw new Error("BUSINESS_LOOP_VFX_NOT_READY");
     await fs.writeFile(localVideo, Buffer.from(await data.arrayBuffer()));
 
-    await renderRawFrame(ffmpeg, localVideo, rawPath, second);
-    const raw = await fs.readFile(rawPath);
-    const expected = 1280 * 720 * 4;
-    if (raw.length !== expected) {
-      throw new Error(`FRAME_RGBA_SIZE_MISMATCH:${raw.length}:${expected}`);
-    }
+    await renderPpmFrame(ffmpeg, localVideo, ppmPath, second);
+    const stat = await fs.stat(ppmPath).catch(() => null);
+    if (!stat?.size) throw new Error("FRAME_PPM_EMPTY");
 
-    return sharp(raw, { raw: { width: 1280, height: 720, channels: 4 } })
+    return sharp(ppmPath)
       .resize(960, 540)
       .jpeg({ quality: 88, chromaSubsampling: "4:4:4" })
       .toBuffer();

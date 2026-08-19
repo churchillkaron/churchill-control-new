@@ -6,12 +6,15 @@ import {
   executeService,
   settlePendingService,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const ENTITY_ID = "073dc5f5-b6a8-4cae-8cda-fd7acb21ef50";
 const TOKEN = "avq-founder-film-v1-20260819";
 const SOURCE = "avantiqo_founder_film_v1_20260819";
 const FOUNDER_ASSET_ID = "052e10e2-432e-4cf9-82bd-65cb5bb7441a";
+const CREATIVE_BUCKET = "creative-assets";
+const RUNWAY_DATA_URI_LIMIT = 5 * 1024 * 1024;
 
 const NARRATION_SEGMENT =
   "Businesses have software for every department. But most companies still do not have software that understands the whole business.";
@@ -65,7 +68,8 @@ const FOUNDER_OPENING = {
   },
   identity_lock: {
     required: true,
-    subject: "Patric, founder of Avantiqo, exactly as represented by the approved founder reference asset",
+    subject:
+      "Patric, founder of Avantiqo, exactly as represented by the approved founder reference asset",
     identity_profile_id: "avantiqo-founder-patric-v1",
     reference_asset_ids: [FOUNDER_ASSET_ID],
     requested_identity_angle: "FRONT_TO_SLIGHT_THREE_QUARTER",
@@ -86,6 +90,45 @@ function json(data, status = 200) {
     status,
     headers: { "Cache-Control": "no-store" },
   });
+}
+
+async function founderImageDataUri() {
+  const supabase = getServiceSupabase();
+  const { data: asset, error: assetError } = await supabase
+    .from("creative_assets")
+    .select("id,storage_path,mime_type")
+    .eq("organization_id", ORGANIZATION_ID)
+    .eq("id", FOUNDER_ASSET_ID)
+    .single();
+
+  if (assetError) throw assetError;
+  if (!asset?.storage_path) {
+    throw new Error("FOUNDER_REFERENCE_STORAGE_PATH_REQUIRED");
+  }
+
+  const { data: blob, error: downloadError } = await supabase.storage
+    .from(CREATIVE_BUCKET)
+    .download(asset.storage_path);
+
+  if (downloadError) throw downloadError;
+  if (!blob) throw new Error("FOUNDER_REFERENCE_DOWNLOAD_REQUIRED");
+
+  const buffer = Buffer.from(await blob.arrayBuffer());
+  if (!buffer.length) throw new Error("FOUNDER_REFERENCE_IMAGE_EMPTY");
+
+  const mimeType = asset.mime_type || "image/jpeg";
+  const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
+
+  if (Buffer.byteLength(dataUri, "utf8") > RUNWAY_DATA_URI_LIMIT) {
+    throw new Error("FOUNDER_REFERENCE_IMAGE_TOO_LARGE_FOR_RUNWAY");
+  }
+
+  return {
+    dataUri,
+    mimeType,
+    bytes: buffer.length,
+    encodedBytes: Buffer.byteLength(dataUri, "utf8"),
+  };
 }
 
 export async function GET(request) {
@@ -115,6 +158,8 @@ export async function GET(request) {
     }
 
     if (action === "start-motion") {
+      const founderSource = await founderImageDataUri();
+
       const result = await executeService({
         organization_id: ORGANIZATION_ID,
         bill_to_organization_id: ORGANIZATION_ID,
@@ -123,6 +168,18 @@ export async function GET(request) {
         provider_id: "runway",
         input: {
           ...FOUNDER_OPENING,
+          identity_source: founderSource.dataUri,
+          prompt_image: founderSource.dataUri,
+          runway_source_frame_contract: {
+            contract: "RUNWAY_APPROVED_IMAGE_SOURCE_DIRECT_V1",
+            prepared: true,
+            source_media_kind: "image",
+            source_asset_id: FOUNDER_ASSET_ID,
+            source_mime_type: founderSource.mimeType,
+            source_bytes: founderSource.bytes,
+            encoded_bytes: founderSource.encodedBytes,
+            source_url_persisted: false,
+          },
           quantity: 10,
           currency: "THB",
         },
@@ -134,6 +191,7 @@ export async function GET(request) {
           founder_asset_id: FOUNDER_ASSET_ID,
           narration_segment: NARRATION_SEGMENT,
           lip_sync_deferred: true,
+          source_transport: "DIRECT_APPROVED_IMAGE_DATA_URI",
         },
         category: "AI",
       });
@@ -189,7 +247,10 @@ export async function GET(request) {
     return json({ success: false, error: "Unsupported action" }, 400);
   } catch (error) {
     return json(
-      { success: false, error: error?.message || String(error) },
+      {
+        success: false,
+        error: error?.message || String(error),
+      },
       500,
     );
   }

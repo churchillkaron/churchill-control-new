@@ -17,6 +17,9 @@ const nextConfig = {
     optimizePackageImports: [],
     outputFileTracingIncludes: {
       "/api/creative/**": ["./.avantiqo/bin/ffmpeg"],
+      "/api/internal/avantiqo-investor-film-final": [
+        "./.avantiqo/bin/ffmpeg",
+      ],
     },
   },
 

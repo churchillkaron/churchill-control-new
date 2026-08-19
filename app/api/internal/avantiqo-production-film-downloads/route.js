@@ -18,6 +18,7 @@ const ASSETS = Object.freeze({
   people: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/97c0dbc3-5cd0-49f8-8121-1f85831ed2ab-gemini-fpkwe0jb7rex.mp4" },
   compliance: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/a9568908-d7d6-402c-83ff-cf4376c2f9d8-gemini-qztxkgp5yet3.mp4" },
   investor_reveal_v3: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/5a56a041-3f60-47ff-a67b-bb011db8874c-gemini-qwgea6koo5yg.mp4" },
+  founder_motion_v1: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/a6089db7-57fd-47f8-b138-b63e92e40698-gemini-knata2wctqhk.mp4" },
   voice: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/avantiqo-investor-video-20260818/avantiqo-investor-narration-cedar.mp3" },
 });
 

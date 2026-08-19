@@ -9,7 +9,8 @@ import {
   executeService,
   settlePendingService,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
-import { createCreativeAssetFlow } from "@/lib/creative/assets/workflows/createCreativeAssetFlow";
+import { uploadCreativeAsset } from "@/lib/creative/assets/storage/uploadCreativeAsset";
+import { saveCreativeAsset } from "@/lib/creative/assets/repositories/saveCreativeAsset";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
 const supabase = getServiceSupabase();
@@ -48,18 +49,45 @@ async function ensureLogoAsset() {
 
   const sourcePath = path.join(process.cwd(), "public", "branding", "avantiqo-logo.png");
   const buffer = await fs.readFile(sourcePath);
-  const created = await createCreativeAssetFlow({
+
+  const upload = await uploadCreativeAsset({
     organizationId: ORGANIZATION_ID,
     file: {
       buffer,
       name: "avantiqo-logo.png",
       type: "image/png",
     },
-    assetType: "logo",
-    name: LOGO_NAME,
   });
 
-  return created?.asset || null;
+  const asset = await saveCreativeAsset({
+    organizationId: ORGANIZATION_ID,
+    assetType: "logo",
+    name: LOGO_NAME,
+    imageUrl: upload.file_url,
+    aiSuggestedType: "logo",
+    aiGenerated: false,
+    provider: null,
+    score: 100,
+    analysis: {
+      scene_type: "logo",
+      tags: ["Avantiqo", "canonical", "investor-film", "brand-logo"],
+      rights: { status: "ORGANIZATION_OWNED" },
+      consent: { status: "NOT_APPLICABLE" },
+    },
+    metadata: {
+      source: "AVANTIQO_CANONICAL_BRAND_ASSET",
+      storage_bucket: upload.bucket,
+      storage_path: upload.path,
+      signed_url_required: true,
+      mime_type: upload.mime_type,
+      media_kind: upload.media_kind,
+      checksum_sha256: upload.checksum_sha256,
+      canonical_brand_asset: true,
+      investor_film_authoritative_reference: true,
+    },
+  });
+
+  return asset;
 }
 
 function logoFilmContract(assetId) {

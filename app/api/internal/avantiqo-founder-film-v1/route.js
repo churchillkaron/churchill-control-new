@@ -12,6 +12,7 @@ const ENTITY_ID = "073dc5f5-b6a8-4cae-8cda-fd7acb21ef50";
 const TOKEN = "avq-founder-film-v1-20260819";
 const SOURCE = "avantiqo_founder_film_v1_20260819";
 const FOUNDER_ASSET_ID = "052e10e2-432e-4cf9-82bd-65cb5bb7441a";
+const REPAIR_URL = "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-founder-reference-repair?token=avq-founder-repair-20260819";
 
 const NARRATION_SEGMENT =
   "Businesses have software for every department. But most companies still do not have software that understands the whole business.";
@@ -74,6 +75,22 @@ function json(data, status = 200) {
   });
 }
 
+async function repairFounderReference() {
+  const response = await fetch(REPAIR_URL, {
+    method: "GET",
+    cache: "no-store",
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result?.success !== true) {
+    throw new Error(
+      result?.error ||
+      result?.message ||
+      `FOUNDER_REFERENCE_REPAIR_FAILED:${response.status}`,
+    );
+  }
+  return result;
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -93,6 +110,7 @@ export async function GET(request) {
         motion_provider: "gemini",
         fallback_provider: "google-veo",
         production_order: [
+          "repair approved founder source asset",
           "Gemini image-to-video founder motion",
           "exact Cedar narration segment",
           "audio-conditioned lip sync",
@@ -102,7 +120,14 @@ export async function GET(request) {
       });
     }
 
+    if (action === "repair-reference") {
+      const result = await repairFounderReference();
+      return json({ success: true, stage: "reference-repair", result });
+    }
+
     if (action === "start-motion") {
+      const repair = await repairFounderReference();
+
       const result = await executeService({
         organization_id: ORGANIZATION_ID,
         bill_to_organization_id: ORGANIZATION_ID,
@@ -124,6 +149,7 @@ export async function GET(request) {
           motion_provider: "gemini",
           fallback_provider: "google-veo",
           lip_sync_deferred: true,
+          reference_repair: repair,
         },
         category: "AI",
       });
@@ -131,6 +157,7 @@ export async function GET(request) {
       return json({
         success: true,
         stage: "motion",
+        reference_repair: repair,
         pending: result?.pending ?? null,
         provider: result?.provider || null,
         model: result?.model || null,

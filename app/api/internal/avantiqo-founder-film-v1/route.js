@@ -6,17 +6,29 @@ import {
   executeService,
   settlePendingService,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const ENTITY_ID = "073dc5f5-b6a8-4cae-8cda-fd7acb21ef50";
 const TOKEN = "avq-founder-film-v1-20260819";
-const SOURCE = "avantiqo_founder_film_v1_20260819";
+const SOURCE = "avantiqo_founder_film_identity_locked_v2_20260819";
 const FOUNDER_ASSET_ID = "052e10e2-432e-4cf9-82bd-65cb5bb7441a";
+const FOUNDER_STORAGE_PATH =
+  "33336a72-acb5-474e-856b-8be0269360e2/unassigned/ca19f771-e2ad-4e62-ac50-19ff8efed996-avantiqo-founder-speaking-keyframe.jpg";
 const REPAIR_URL = "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-founder-reference-repair?token=avq-founder-repair-20260819";
+const MOTION_PROVIDER = "google-veo";
+const MOTION_MODEL = "veo-3.1-generate-preview";
+const MOTION_DURATION_SECONDS = 8;
 
 const COMMON_NEGATIVES = [
   "no identity drift",
   "no lookalike substitution",
+  "no face reinterpretation",
+  "no change of ethnicity",
+  "no change of age",
+  "no change of beard or facial hair geometry",
+  "no change of head shape",
+  "no change of facial proportions",
   "no exaggerated gesturing",
   "no waving",
   "no pointing at camera",
@@ -28,6 +40,8 @@ const COMMON_NEGATIVES = [
   "no camera shake",
   "no mouth obstruction",
   "no dramatic head turns",
+  "no generated dialogue",
+  "no generated narration",
 ];
 
 const SCENES = Object.freeze({
@@ -37,7 +51,7 @@ const SCENES = Object.freeze({
     narration:
       "Businesses have software for every department. But most companies still do not have software that understands the whole business.",
     performance:
-      "Begin grounded and almost still with direct eye contact. Use natural breathing and tiny head movement. Around 'every department' allow one small controlled open-hand gesture near torso level. Return to stillness. On 'understands the whole business' give a subtle purposeful emphasis, then settle.",
+      "Begin grounded and almost still with direct eye contact. Use natural breathing and tiny head movement. Around the idea of every department allow one small controlled open-hand gesture near torso level. Return to stillness. On the idea of understanding the whole business give a subtle purposeful emphasis, then settle.",
     transition:
       "End neutral and steady so the edit can cut cleanly into fragmented business systems.",
   },
@@ -47,9 +61,9 @@ const SCENES = Object.freeze({
     narration:
       "Avantiqo is an AI-native Business Operating System designed to bring the company into one shared operating context.",
     performance:
-      "Start with direct eye contact and complete stillness for the word Avantiqo. On 'AI-native Business Operating System' use one restrained explanatory hand opening close to the torso, then let the hand settle. On 'one shared operating context' slightly reduce the gesture and hold eye contact with calm conviction.",
+      "Start with direct eye contact and complete stillness for the Avantiqo beat. On the AI-native Business Operating System idea use one restrained explanatory hand opening close to the torso, then let the hand settle. On one shared operating context slightly reduce the gesture and hold eye contact with calm conviction.",
     transition:
-      "After the final word, allow a brief natural breath and a subtle downward eye-line shift that motivates the cut to a separate device plate. Do not invent a device in this shot. The next edit is the authentic Avantiqo screen rising from the real device using the approved real product recording, never generated UI.",
+      "At the end allow a brief natural breath and a subtle downward eye-line shift that motivates the cut to a separate device plate. Do not invent a device in this shot.",
   },
   vertical_expansion: {
     title: "Founder Vertical Expansion",
@@ -57,7 +71,7 @@ const SCENES = Object.freeze({
     narration:
       "The point is not one vertical. The point is that Avantiqo can enter through a painful real-world workflow, solve it deeply, and then expand across the company.",
     performance:
-      "Use a thoughtful founder delivery. First sentence almost motionless. On the second sentence make one measured outward hand movement on 'enter through a painful real-world workflow', then bring the gesture back inward on 'solve it deeply'. Finish with a small widening gesture on 'expand across the company'. Keep all movement below the mouth.",
+      "Use a thoughtful founder delivery. First idea almost motionless. Then make one measured outward hand movement for entering a painful real-world workflow, bring the gesture back inward for solving it deeply, and finish with a small widening gesture for expanding across the company. Keep all movement below the mouth.",
     transition:
       "Hold the final look for a clean cut into cross-industry operations footage.",
   },
@@ -67,7 +81,7 @@ const SCENES = Object.freeze({
     narration:
       "This is already a working product, built from problems experienced while operating real businesses. The platform is multi-company and cross-industry by design.",
     performance:
-      "Deliver the first sentence with quiet confidence rather than triumph. Use a tiny nod on 'working product'. Keep hands mostly still through 'operating real businesses'. For the second sentence use one small open-hand gesture that suggests breadth without becoming promotional. Finish composed and direct.",
+      "Deliver the first idea with quiet confidence rather than triumph. Use a tiny nod for working product. Keep hands mostly still through operating real businesses. For the second idea use one small open-hand gesture that suggests breadth without becoming promotional. Finish composed and direct.",
     transition:
       "Settle into a stable look that can cut into real Avantiqo product proof, company switching and industry workspaces.",
   },
@@ -77,9 +91,9 @@ const SCENES = Object.freeze({
     narration:
       "Avantiqo is building toward a future where the business does not have to explain itself to every new piece of software.",
     performance:
-      "Minimal movement. Direct eye contact. Begin reflective and controlled. Let the sentence build naturally, with only a slight head emphasis on 'the business' and one very small closing hand movement on 'every new piece of software'. No smile at the finish; hold confident calm for the final beat.",
+      "Minimal movement. Direct eye contact. Begin reflective and controlled. Let the idea build naturally, with only a slight head emphasis on the business and one very small closing hand movement near the end. No smile at the finish; hold confident calm for the final beat.",
     transition:
-      "Hold still after the sentence for the cut to the final voice-over lines: The system already understands the company. Avantiqo. One operating system for the intelligent enterprise.",
+      "Hold still after the statement for the cut to the final voice-over and Avantiqo end card.",
   },
 });
 
@@ -87,11 +101,17 @@ function sceneContract(sceneKey) {
   const scene = SCENES[sceneKey];
   if (!scene) return null;
 
+  const identityInstruction =
+    "The supplied first frame is the approved founder identity and is authoritative. Animate that exact person; do not redesign, reinterpret, beautify, replace, age-shift or create a lookalike. Preserve facial geometry, head shape, beard shape, hairline, skin tone, age, body build and proportions continuously. This is an identity-locked motion plate, not a character-generation task.";
+
+  const motionInstruction =
+    "He does not speak in this source generation. Keep lips relaxed and mostly closed with only natural breathing micro-movement. Final Cedar narration and exact lip sync are applied later. Preserve a clear unobstructed mouth and lower face.";
+
   return {
     title: `Avantiqo Investor Film — ${scene.title}`,
     editorial_role: scene.editorial_role,
     description:
-      `Create a ten-second identity-preserving founder performance from the supplied approved founder image. This is Patric, founder of Avantiqo. Preserve facial geometry, head shape, beard, skin tone, age, body build and overall identity faithfully throughout every frame. He is delivering this exact investor-film narration directly to camera: ${scene.narration} Performance direction: ${scene.performance} Editorial transition: ${scene.transition} Keep the mouth and lower face clearly visible for later exact audio-conditioned lip sync. Do not attempt exact phoneme timing in this motion generation. The performance must feel like an experienced founder explaining a real operating system to serious investors, never like an actor selling software. Camera remains stable with only an almost imperceptible premium cinematic push-in. Warm practical lighting, natural skin and realistic body physics. No software UI, no text, no logos and no holograms.`,
+      `${identityInstruction} ${motionInstruction} Create one restrained founder performance whose body language is motivated by this exact intended narration meaning: ${scene.narration} Performance direction: ${scene.performance} Editorial transition: ${scene.transition} The performance must feel like an experienced founder explaining a real operating system to serious investors, never like an actor selling software. Camera remains stable with only an almost imperceptible premium cinematic push-in. Warm practical lighting, natural skin and realistic body physics. No software UI, no text, no logos and no holograms.`,
     intent: {
       story_purpose: scene.editorial_role,
       exact_spoken_meaning: scene.narration,
@@ -102,23 +122,37 @@ function sceneContract(sceneKey) {
       visual_quality:
         "world-class photoreal feature-film founder cinematography for a premium global technology investor film",
       identity_preservation:
-        "preserve the exact approved founder identity from the supplied source image throughout every frame",
+        "absolute continuity with the supplied approved first frame; same person in every frame",
       mouth_visibility:
-        "mouth and lower face unobstructed for the complete shot; no hand crossing the mouth",
+        "mouth and lower face unobstructed for the complete shot; lips relaxed because exact Cedar lip sync happens later",
       body_language: scene.performance,
       camera:
         "stable medium founder frame with an almost imperceptible slow push-in; no reframing jump and no fast movement",
       audio_policy:
-        "motion performance only; final Cedar narration and exact lip sync are applied after the complete film edit is locked",
+        "silent identity-preserving motion plate only; do not generate dialogue or narration",
       negative_constraints: COMMON_NEGATIVES,
     },
+    shot_bible: {
+      precision_control: {
+        opening_frame_asset_id: FOUNDER_ASSET_ID,
+        exact_opening_frame_required: true,
+        multi_reference_control_required: false,
+      },
+      output: {
+        duration_seconds: MOTION_DURATION_SECONDS,
+        aspect_ratio: "16:9",
+        resolution: "720p",
+      },
+    },
     output_spec: {
-      duration_seconds: 10,
+      duration_seconds: MOTION_DURATION_SECONDS,
       aspect_ratio: "16:9",
+      resolution: "720p",
     },
     provider_parameters: {
+      first_frame_asset_id: FOUNDER_ASSET_ID,
       aspect_ratio: "16:9",
-      primary_source_asset_id: FOUNDER_ASSET_ID,
+      resolution: "720p",
     },
     primary_source_asset_id: FOUNDER_ASSET_ID,
   };
@@ -147,6 +181,13 @@ async function repairFounderReference() {
   return result;
 }
 
+function safeCreativePath(value) {
+  const path = String(value || "").trim();
+  if (!path.startsWith(`${ORGANIZATION_ID}/`)) return null;
+  if (path.includes("..")) return null;
+  return path;
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -163,11 +204,18 @@ export async function GET(request) {
         success: true,
         source: SOURCE,
         founder_asset_id: FOUNDER_ASSET_ID,
-        duration_seconds: 10,
-        motion_provider: "gemini",
-        fallback_provider: "google-veo",
+        founder_storage_path: FOUNDER_STORAGE_PATH,
+        identity_lock: {
+          provider: MOTION_PROVIDER,
+          model: MOTION_MODEL,
+          first_frame_asset_id: FOUNDER_ASSET_ID,
+          hard_bound_as_provider_first_frame: true,
+          generic_gemini_generation_disabled_for_founder: true,
+          duration_seconds: MOTION_DURATION_SECONDS,
+          proof_first_policy: "Generate and visually verify opening before any remaining founder shots.",
+        },
         screen_rise_policy:
-          "The signature screen rise is a separate deterministic VFX transition using authentic Avantiqo UI from the approved real product recording. Founder generation must never invent the interface.",
+          "The signature screen rise is a separate deterministic VFX transition using authentic Avantiqo UI. Founder generation must never invent the interface.",
         scenes: Object.fromEntries(
           Object.entries(SCENES).map(([key, item]) => [
             key,
@@ -181,13 +229,13 @@ export async function GET(request) {
           ]),
         ),
         production_order: [
-          "Gemini founder motion performances",
+          "Google Veo identity-locked opening proof from approved first frame",
+          "visual identity verification against approved reference",
+          "only after proof passes: remaining identity-locked founder motion plates",
           "complete investor-film edit with continuous Cedar narration",
-          "authentic Avantiqo screen-rise VFX from real product recording",
           "lock master timeline",
-          "audio-conditioned lip sync only for founder-visible windows",
-          "lip-sync validation",
-          "final master render",
+          "audio-conditioned lip sync only for verified founder-visible windows",
+          "final QC and render",
         ],
       });
     }
@@ -195,6 +243,23 @@ export async function GET(request) {
     if (action === "repair-reference") {
       const result = await repairFounderReference();
       return json({ success: true, stage: "reference-repair", result });
+    }
+
+    if (action === "signed") {
+      const storagePath = safeCreativePath(url.searchParams.get("path"));
+      if (!storagePath) {
+        return json({ success: false, error: "Invalid creative asset path" }, 400);
+      }
+      const { data, error } = await supabaseAdmin.storage
+        .from("creative-assets")
+        .createSignedUrl(storagePath, 3600);
+      if (error) throw error;
+      return json({
+        success: true,
+        path: storagePath,
+        signed_url: data?.signedUrl || null,
+        expires_seconds: 3600,
+      });
     }
 
     if (!scene) {
@@ -210,23 +275,29 @@ export async function GET(request) {
         bill_to_organization_id: ORGANIZATION_ID,
         entity_id: ENTITY_ID,
         service_id: "ai.video.generate",
-        provider_id: "gemini",
+        provider_id: MOTION_PROVIDER,
+        provider_policy: {
+          allowed_providers: [MOTION_PROVIDER],
+          preferred_providers: [MOTION_PROVIDER],
+        },
         input: {
           ...contract,
-          quantity: 10,
+          quantity: MOTION_DURATION_SECONDS,
           currency: "THB",
         },
         metadata: {
           module: "CREATIVE",
-          operation: `AVANTIQO_FOUNDER_${sceneKey.toUpperCase()}_MOTION_V1`,
+          operation: `AVANTIQO_FOUNDER_${sceneKey.toUpperCase()}_IDENTITY_LOCKED_V2`,
           brand: "Avantiqo",
           source: SOURCE,
           founder_asset_id: FOUNDER_ASSET_ID,
           founder_scene: sceneKey,
           narration_segment: scene.narration,
-          motion_provider: "gemini",
-          fallback_provider: "google-veo",
-          lip_sync_deferred_until_master_timeline_lock: true,
+          motion_provider: MOTION_PROVIDER,
+          motion_model: MOTION_MODEL,
+          first_frame_asset_id: FOUNDER_ASSET_ID,
+          identity_lock_required: true,
+          lip_sync_deferred_until_identity_and_master_timeline_lock: true,
           reference_repair: repair,
         },
         category: "AI",
@@ -234,9 +305,15 @@ export async function GET(request) {
 
       return json({
         success: true,
-        stage: "motion",
+        stage: "identity-locked-motion",
         scene: sceneKey,
         narration_segment: scene.narration,
+        identity_lock: {
+          provider: MOTION_PROVIDER,
+          model: result?.model || MOTION_MODEL,
+          first_frame_asset_id: FOUNDER_ASSET_ID,
+          hard_bound_as_provider_first_frame: true,
+        },
         reference_repair: repair,
         pending: result?.pending ?? null,
         provider: result?.provider || null,
@@ -261,6 +338,9 @@ export async function GET(request) {
       if (!provider || !providerJobId || !usageId) {
         return json({ success: false, error: "Missing poll parameters" }, 400);
       }
+      if (provider !== MOTION_PROVIDER) {
+        return json({ success: false, error: "Founder motion must use google-veo" }, 409);
+      }
 
       const result = await settlePendingService({
         organization_id: ORGANIZATION_ID,
@@ -271,17 +351,32 @@ export async function GET(request) {
         started_at: startedAt,
         metadata: {
           module: "CREATIVE",
-          operation: `AVANTIQO_FOUNDER_${sceneKey.toUpperCase()}_MOTION_V1_POLL`,
+          operation: `AVANTIQO_FOUNDER_${sceneKey.toUpperCase()}_IDENTITY_LOCKED_V2_POLL`,
           brand: "Avantiqo",
           source: SOURCE,
           founder_asset_id: FOUNDER_ASSET_ID,
           founder_scene: sceneKey,
           narration_segment: scene.narration,
-          lip_sync_deferred_until_master_timeline_lock: true,
+          motion_provider: MOTION_PROVIDER,
+          motion_model: MOTION_MODEL,
+          first_frame_asset_id: FOUNDER_ASSET_ID,
+          identity_lock_required: true,
+          lip_sync_deferred_until_identity_and_master_timeline_lock: true,
         },
       });
 
-      return json({ success: true, stage: "motion", scene: sceneKey, result });
+      return json({
+        success: true,
+        stage: "identity-locked-motion",
+        scene: sceneKey,
+        identity_lock: {
+          provider: MOTION_PROVIDER,
+          model: MOTION_MODEL,
+          first_frame_asset_id: FOUNDER_ASSET_ID,
+          hard_bound_as_provider_first_frame: true,
+        },
+        result,
+      });
     }
 
     return json({ success: false, error: "Unsupported action" }, 400);

@@ -140,7 +140,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   }, [organizationId]);
 
   useEffect(() => {
-    if (!organizationId || restoring) return undefined;
+    if (!organizationId) return undefined;
 
     const controller = new AbortController();
 
@@ -176,7 +176,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
     loadAttention();
     return () => controller.abort();
-  }, [organizationId, entityId, periodId, restoring]);
+  }, [organizationId, entityId, periodId]);
 
   function speakResponse(message) {
     const spoken = text(message);

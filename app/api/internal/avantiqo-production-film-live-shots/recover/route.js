@@ -19,10 +19,19 @@ function object(value) {
     : {};
 }
 
+function videoCandidate(value) {
+  const content = object(value);
+  return text(content.type).toLowerCase() === "video" && (content.data || content.uri)
+    ? content
+    : null;
+}
+
 function findVideoContent(payload) {
   const root = object(payload);
 
-  if (object(root.output_video).data) return root.output_video;
+  if (object(root.output_video).data || object(root.output_video).uri) {
+    return root.output_video;
+  }
 
   for (const step of Array.isArray(root.steps) ? root.steps : []) {
     const stepObject = object(step);
@@ -32,22 +41,52 @@ function findVideoContent(payload) {
     ];
 
     for (const candidate of candidates) {
-      const content = object(candidate);
-      if (text(content.type).toLowerCase() === "video" && content.data) {
-        return content;
-      }
+      const video = videoCandidate(candidate);
+      if (video) return video;
     }
   }
 
-  const outputs = Array.isArray(root.outputs) ? root.outputs : [];
-  for (const candidate of outputs) {
-    const content = object(candidate);
-    if (text(content.type).toLowerCase() === "video" && content.data) {
-      return content;
-    }
+  for (const candidate of Array.isArray(root.outputs) ? root.outputs : []) {
+    const video = videoCandidate(candidate);
+    if (video) return video;
   }
 
   return null;
+}
+
+function stepTypes(payload) {
+  return (Array.isArray(object(payload).steps) ? object(payload).steps : [])
+    .map((step) => text(object(step).type))
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+async function videoBytes(video, apiKey) {
+  if (video?.data) {
+    return Buffer.from(String(video.data), "base64");
+  }
+
+  const uri = text(video?.uri);
+  if (!uri) return Buffer.alloc(0);
+
+  const response = await fetch(uri, {
+    method: "GET",
+    headers: {
+      "x-goog-api-key": apiKey,
+      Accept: "video/mp4,application/octet-stream,*/*",
+    },
+    cache: "no-store",
+    redirect: "follow",
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(
+      `GEMINI_VIDEO_DOWNLOAD_FAILED:${response.status}:${body.slice(0, 240)}`,
+    );
+  }
+
+  return Buffer.from(await response.arrayBuffer());
 }
 
 export async function GET(request) {
@@ -110,20 +149,23 @@ export async function GET(request) {
     }
 
     const video = findVideoContent(payload);
-    if (!video?.data) {
+    if (!video) {
       return Response.json(
         {
           success: false,
-          pending: true,
-          error: "VIDEO_DATA_NOT_READY",
+          pending: text(payload?.status).toLowerCase() !== "completed",
+          error: "VIDEO_OUTPUT_NOT_AVAILABLE",
+          interaction_status: text(payload?.status) || null,
+          interaction_model: text(payload?.model) || null,
+          step_types: stepTypes(payload),
           interaction_id: interactionId,
           usage_id: usageId,
         },
-        { status: 202 },
+        { status: text(payload?.status).toLowerCase() === "completed" ? 502 : 202 },
       );
     }
 
-    const bytes = Buffer.from(String(video.data), "base64");
+    const bytes = await videoBytes(video, credential.api_key);
     if (!bytes.length) throw new Error("RECOVERED_VIDEO_EMPTY");
 
     const mimeType = text(video.mime_type || video.mimeType) || "video/mp4";
@@ -139,6 +181,8 @@ export async function GET(request) {
     return Response.json({
       success: true,
       recovered: true,
+      recovery_source: video.data ? "inline" : "uri",
+      interaction_status: text(payload?.status) || null,
       interaction_id: interactionId,
       usage_id: usageId,
       file_url: upload.file_url,

@@ -1,0 +1,4 @@
+Avantiqo investor film V3 production trigger.
+Route: /api/internal/avantiqo-investor-film-v3-shots
+Purpose: deploy the governed 10-second missing-shot generator and cinematic Avantiqo UI-rise VFX plate.
+Date: 2026-08-19

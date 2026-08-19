@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+// Production recovery endpoint for the existing Avantiqo investor-film interaction.
 import "@/lib/platform/service-runtime/providers/gemini/ManagedGeminiCredentialRegistration.js";
 import { resolveProviderCredential } from "@/lib/platform/service-runtime/providers/ProviderCredentialRuntime";
 import { uploadCreativeAsset } from "@/lib/creative/assets/storage/uploadCreativeAsset";

@@ -19,6 +19,7 @@ const ASSETS = Object.freeze({
   compliance: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/a9568908-d7d6-402c-83ff-cf4376c2f9d8-gemini-qztxkgp5yet3.mp4" },
   investor_reveal_v3: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/5a56a041-3f60-47ff-a67b-bb011db8874c-gemini-qwgea6koo5yg.mp4" },
   founder_motion_v1: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/a6089db7-57fd-47f8-b138-b63e92e40698-gemini-knata2wctqhk.mp4" },
+  founder_reference: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/ca19f771-e2ad-4e62-ac50-19ff8efed996-avantiqo-founder-speaking-keyframe.jpg" },
   voice: { bucket: "creative-assets", path: "33336a72-acb5-474e-856b-8be0269360e2/avantiqo-investor-video-20260818/avantiqo-investor-narration-cedar.mp3" },
 });
 

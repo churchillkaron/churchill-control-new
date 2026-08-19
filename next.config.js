@@ -20,6 +20,9 @@ const nextConfig = {
       "/api/internal/avantiqo-investor-film-final": [
         "./.avantiqo/bin/ffmpeg",
       ],
+      "/api/internal/avantiqo-investor-film-finished": [
+        "./.avantiqo/bin/ffmpeg",
+      ],
     },
   },
 

@@ -1,0 +1,25 @@
+revoke execute on function public.claim_creative_execution_job(text, text[], integer) from public, anon, authenticated;
+revoke execute on function public.claim_creative_execution_step(uuid, uuid, text, text, text, jsonb, integer) from public, anon, authenticated;
+revoke execute on function public.claim_creative_execution_step_v2(uuid, uuid, uuid, text, text, text, jsonb, integer) from public, anon, authenticated;
+revoke execute on function public.complete_creative_execution_job(uuid, uuid, jsonb, jsonb) from public, anon, authenticated;
+revoke execute on function public.complete_creative_execution_step(uuid, uuid, jsonb, jsonb, integer) from public, anon, authenticated;
+revoke execute on function public.fail_creative_execution_step(uuid, uuid, jsonb) from public, anon, authenticated;
+revoke execute on function public.heartbeat_creative_execution_job(uuid, uuid, jsonb, integer) from public, anon, authenticated;
+revoke execute on function public.mark_creative_execution_step_ambiguous(uuid, uuid, jsonb, jsonb, jsonb, integer) from public, anon, authenticated;
+revoke execute on function public.reconcile_creative_execution_step(uuid, text, jsonb, jsonb, jsonb, integer) from public, anon, authenticated;
+revoke execute on function public.requeue_expired_creative_execution_jobs() from public, anon, authenticated;
+revoke execute on function public.retry_creative_execution_job(uuid, uuid, jsonb, jsonb, integer) from public, anon, authenticated;
+revoke execute on function public.yield_creative_execution_job(uuid, uuid, jsonb, integer) from public, anon, authenticated;
+
+grant execute on function public.claim_creative_execution_job(text, text[], integer) to service_role;
+grant execute on function public.claim_creative_execution_step(uuid, uuid, text, text, text, jsonb, integer) to service_role;
+grant execute on function public.claim_creative_execution_step_v2(uuid, uuid, uuid, text, text, text, jsonb, integer) to service_role;
+grant execute on function public.complete_creative_execution_job(uuid, uuid, jsonb, jsonb) to service_role;
+grant execute on function public.complete_creative_execution_step(uuid, uuid, jsonb, jsonb, integer) to service_role;
+grant execute on function public.fail_creative_execution_step(uuid, uuid, jsonb) to service_role;
+grant execute on function public.heartbeat_creative_execution_job(uuid, uuid, jsonb, integer) to service_role;
+grant execute on function public.mark_creative_execution_step_ambiguous(uuid, uuid, jsonb, jsonb, jsonb, integer) to service_role;
+grant execute on function public.reconcile_creative_execution_step(uuid, text, jsonb, jsonb, jsonb, integer) to service_role;
+grant execute on function public.requeue_expired_creative_execution_jobs() to service_role;
+grant execute on function public.retry_creative_execution_job(uuid, uuid, jsonb, jsonb, integer) to service_role;
+grant execute on function public.yield_creative_execution_job(uuid, uuid, jsonb, integer) to service_role;

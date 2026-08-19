@@ -51,6 +51,14 @@ test("pipeline materialization is bound to one completed governed direction job"
 
   assert.match(
     orchestrator,
-    /const resolvedMaster = master \|\| await CreativeUniversalTemporalDirectionRuntime\.create/,
+    /CREATIVE_GOVERNED_MASTER_REQUIRED_FOR_MATERIALIZATION/,
+  );
+  assert.doesNotMatch(
+    orchestrator,
+    /CreativeUniversalTemporalDirectionRuntime/,
+  );
+  assert.doesNotMatch(
+    orchestrator,
+    /master\s*\|\|\s*await/,
   );
 });

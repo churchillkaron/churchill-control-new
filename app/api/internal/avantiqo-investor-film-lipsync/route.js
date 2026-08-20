@@ -14,18 +14,51 @@ import { FalLipSyncProvider } from "@/lib/platform/service-runtime/providers/fal
 const TOKEN = "avq-investor-lipsync-20260819-v1";
 const BUCKET = "creative-assets";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
-const OUTPUT_DIR = `${ORGANIZATION_ID}/avantiqo-investor-film-20260819/founder-v5`;
-const APPROVED_REFERENCE_PATH = `${ORGANIZATION_ID}/unassigned/ca19f771-e2ad-4e62-ac50-19ff8efed996-avantiqo-founder-speaking-keyframe.jpg`;
-const NARRATION_PATH = `${ORGANIZATION_ID}/avantiqo-investor-video-20260818/avantiqo-investor-narration-cedar.mp3`;
+const OUTPUT_DIR = `${ORGANIZATION_ID}/avantiqo-investor-film-20260820/founder-v6`;
 
+const APPROVED_FOUNDER_MOTION_PATH = `${ORGANIZATION_ID}/unassigned/eaa7edd6-7a62-4ca2-9eac-dfb14059e649-gemini-founder-rgro0za2hzes.mp4`;
+const APPROVED_FOUNDER_MOTION_SHA256 = "78b995566a564e7801f0a240a522ae5a02163680006b857bb091572182b121a1";
+const APPROVED_FOUNDER_REFERENCE_ASSET_ID = "3e1b5197-5279-4713-93ed-0b0defc9581a";
+const APPROVED_FOUNDER_REFERENCE_SHA256 = "40309c0610076b2107e4f2ca50c265187c097756a7bfdecb9e7909e6ca5c795a";
+const REJECTED_LEGACY_FOUNDER_ASSET_ID = "052e10e2-432e-4cf9-82bd-65cb5bb7441a";
+
+const NARRATION_PATH = `${ORGANIZATION_ID}/avantiqo-investor-video-20260818/avantiqo-investor-narration-cedar-v5-founder-locked-229.5s.mp3`;
+const NARRATION_DURATION_SECONDS = 229.5;
+
+// Opening boundaries are deliberately sentence/paragraph sized and will be
+// replaced by exact word-level timestamp boundaries before final release.
 const SEGMENTS = Object.freeze({
-  opening01: { audio_start: 0, audio_end: 9.4, duration: 9.4, zoom: "in" },
-  opening02: { audio_start: 9.4, audio_end: 18.8, duration: 9.4, zoom: "out" },
-  opening03: { audio_start: 18.8, audio_end: 28.2, duration: 9.4, zoom: "in" },
+  opening01: {
+    audio_start: 0,
+    audio_end: 6.8,
+    duration: 6.8,
+    purpose: "I didn't build Avantiqo because I wanted to create another software company.",
+  },
+  opening02: {
+    audio_start: 6.8,
+    audio_end: 23.4,
+    duration: 16.6,
+    purpose: "Founder explains the disconnected-system problem from operating real businesses.",
+  },
+  opening03: {
+    audio_start: 23.4,
+    audio_end: 27.4,
+    duration: 4.0,
+    purpose: "That made one thing obvious.",
+  },
+  opening04: {
+    audio_start: 27.4,
+    audio_end: 34.6,
+    duration: 7.2,
+    purpose: "The business should not have to explain itself to its software. The software should understand the business.",
+  },
 });
 
 function json(data, status = 200) {
-  return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
+  return Response.json(data, {
+    status,
+    headers: { "Cache-Control": "no-store" },
+  });
 }
 
 function run(command, args, timeoutMs = 120000) {
@@ -48,7 +81,12 @@ function run(command, args, timeoutMs = 120000) {
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(Buffer.concat(stderr).toString("utf8").slice(-8000) || `FFMPEG_EXIT_${code}`));
+        reject(
+          new Error(
+            Buffer.concat(stderr).toString("utf8").slice(-8000) ||
+              `FFMPEG_EXIT_${code}`,
+          ),
+        );
         return;
       }
       resolve(true);
@@ -57,7 +95,9 @@ function run(command, args, timeoutMs = 120000) {
 }
 
 async function download(storagePath, localPath) {
-  const { data, error } = await supabaseAdmin.storage.from(BUCKET).download(storagePath);
+  const { data, error } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .download(storagePath);
   if (error) throw error;
   if (!data) throw new Error(`DOWNLOAD_EMPTY:${storagePath}`);
   await fs.writeFile(localPath, Buffer.from(await data.arrayBuffer()));
@@ -65,17 +105,21 @@ async function download(storagePath, localPath) {
 
 async function upload(storagePath, localPath, contentType) {
   const bytes = await fs.readFile(localPath);
-  const { error } = await supabaseAdmin.storage.from(BUCKET).upload(storagePath, bytes, {
-    contentType,
-    upsert: true,
-    cacheControl: "3600",
-  });
+  const { error } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .upload(storagePath, bytes, {
+      contentType,
+      upsert: true,
+      cacheControl: "3600",
+    });
   if (error) throw error;
   return { path: storagePath, bytes: bytes.length };
 }
 
 async function signedUrl(storagePath, seconds = 21600) {
-  const { data, error } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(storagePath, seconds);
+  const { data, error } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .createSignedUrl(storagePath, seconds);
   if (error) throw error;
   return data?.signedUrl || null;
 }
@@ -83,7 +127,9 @@ async function signedUrl(storagePath, seconds = 21600) {
 async function exists(storagePath) {
   const directory = storagePath.split("/").slice(0, -1).join("/");
   const file = storagePath.split("/").at(-1);
-  const { data } = await supabaseAdmin.storage.from(BUCKET).list(directory, { search: file, limit: 10 });
+  const { data } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .list(directory, { search: file, limit: 10 });
   return (data || []).some((row) => row.name === file);
 }
 
@@ -91,48 +137,48 @@ async function prepareSource(key, segment) {
   const ffmpeg = resolveCreativeFfmpegPath();
   if (!ffmpeg) throw new Error("CREATIVE_MEDIA_FFMPEG_NOT_READY");
 
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), `avantiqo-founder-${key}-`));
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), `avantiqo-founder-${key}-`),
+  );
+
   try {
-    const image = path.join(directory, "founder.jpg");
-    const narration = path.join(directory, "narration.mp3");
+    const motion = path.join(directory, "approved-founder-motion.mp4");
+    const narration = path.join(directory, "narration-v5.mp3");
     const source = path.join(directory, "founder-source.mp4");
     const audio = path.join(directory, "founder-audio.wav");
 
     await Promise.all([
-      download(APPROVED_REFERENCE_PATH, image),
+      download(APPROVED_FOUNDER_MOTION_PATH, motion),
       download(NARRATION_PATH, narration),
     ]);
 
-    const frames = Math.max(1, Math.round(segment.duration * 24));
-    const zoom = segment.zoom === "out"
-      ? `1.045-0.045*(on/${frames})`
-      : `1.0+0.045*(on/${frames})`;
-
+    // Loop only the already-approved Gemini identity motion. Never synthesize
+    // a new face here and never fall back to the rejected generated still.
     await run(ffmpeg, [
       "-y",
-      "-loop", "1",
-      "-framerate", "24",
-      "-i", image,
+      "-stream_loop", "-1",
+      "-i", motion,
       "-t", String(segment.duration),
       "-an",
       "-vf", [
-        "scale=1344:756:force_original_aspect_ratio=increase",
+        "scale=1280:720:force_original_aspect_ratio=increase",
         "crop=1280:720",
-        `zoompan=z='${zoom}':d=1:s=1280x720:fps=24`,
-        "eq=contrast=1.035:saturation=0.94:brightness=-0.008",
-        "vignette=PI/8",
+        "fps=24",
         "format=yuv420p",
       ].join(","),
       "-c:v", "libx264",
       "-preset", "veryfast",
       "-crf", "18",
       "-pix_fmt", "yuv420p",
-      "-r", "24",
       "-movflags", "+faststart",
       source,
     ]);
 
-    const audioDuration = Math.max(0.1, segment.audio_end - segment.audio_start);
+    const audioDuration = Math.max(
+      0.1,
+      segment.audio_end - segment.audio_start,
+    );
+
     await run(ffmpeg, [
       "-y",
       "-ss", String(segment.audio_start),
@@ -145,8 +191,9 @@ async function prepareSource(key, segment) {
       audio,
     ]);
 
-    const sourcePath = `${OUTPUT_DIR}/${key}-approved-source.mp4`;
-    const audioPath = `${OUTPUT_DIR}/${key}-cedar.wav`;
+    const sourcePath = `${OUTPUT_DIR}/${key}-approved-gemini-motion-source.mp4`;
+    const audioPath = `${OUTPUT_DIR}/${key}-cedar-v5.wav`;
+
     await upload(sourcePath, source, "video/mp4");
     await upload(audioPath, audio, "audio/wav");
 
@@ -157,28 +204,43 @@ async function prepareSource(key, segment) {
       audio_url: await signedUrl(audioPath),
     };
   } finally {
-    await fs.rm(directory, { recursive: true, force: true }).catch(() => {});
+    await fs
+      .rm(directory, { recursive: true, force: true })
+      .catch(() => {});
   }
 }
 
 async function saveProviderOutput(key, url) {
   const response = await fetch(url, { redirect: "follow" });
-  if (!response.ok) throw new Error(`LIPSYNC_OUTPUT_DOWNLOAD_FAILED:${response.status}`);
+  if (!response.ok) {
+    throw new Error(`LIPSYNC_OUTPUT_DOWNLOAD_FAILED:${response.status}`);
+  }
+
   const bytes = Buffer.from(await response.arrayBuffer());
-  const storagePath = `${OUTPUT_DIR}/${key}-synced-approved-v1.mp4`;
-  const { error } = await supabaseAdmin.storage.from(BUCKET).upload(storagePath, bytes, {
-    contentType: "video/mp4",
-    upsert: true,
-    cacheControl: "3600",
-  });
+  const storagePath = `${OUTPUT_DIR}/${key}-synced-approved-v6.mp4`;
+
+  const { error } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .upload(storagePath, bytes, {
+      contentType: "video/mp4",
+      upsert: true,
+      cacheControl: "3600",
+    });
   if (error) throw error;
-  return { path: storagePath, bytes: bytes.length, signed_url: await signedUrl(storagePath, 86400) };
+
+  return {
+    path: storagePath,
+    bytes: bytes.length,
+    signed_url: await signedUrl(storagePath, 86400),
+  };
 }
 
 export async function GET(request) {
   try {
     const url = new URL(request.url);
-    if (url.searchParams.get("token") !== TOKEN) return json({ success: false }, 404);
+    if (url.searchParams.get("token") !== TOKEN) {
+      return json({ success: false }, 404);
+    }
 
     const action = url.searchParams.get("action") || "status";
     const key = url.searchParams.get("key") || "opening01";
@@ -187,54 +249,103 @@ export async function GET(request) {
     if (action === "status") {
       const outputs = {};
       for (const name of Object.keys(SEGMENTS)) {
-        const outputPath = `${OUTPUT_DIR}/${name}-synced-approved-v1.mp4`;
-        outputs[name] = { ready: await exists(outputPath), output_path: outputPath };
+        const outputPath = `${OUTPUT_DIR}/${name}-synced-approved-v6.mp4`;
+        outputs[name] = {
+          ready: await exists(outputPath),
+          output_path: outputPath,
+          segment: SEGMENTS[name],
+        };
       }
+
       return json({
         success: true,
         lip_sync_enabled: true,
-        identity_source: "APPROVED_REFERENCE_ONLY",
-        approved_reference_path: APPROVED_REFERENCE_PATH,
-        old_gemini_founder_sources_allowed: false,
+        identity_source: "APPROVED_GEMINI_MOTION_ONLY",
+        approved_founder_motion_path: APPROVED_FOUNDER_MOTION_PATH,
+        approved_founder_motion_sha256: APPROVED_FOUNDER_MOTION_SHA256,
+        approved_founder_reference_asset_id: APPROVED_FOUNDER_REFERENCE_ASSET_ID,
+        approved_founder_reference_sha256: APPROVED_FOUNDER_REFERENCE_SHA256,
+        rejected_legacy_founder_asset_id: REJECTED_LEGACY_FOUNDER_ASSET_ID,
+        legacy_founder_allowed: false,
+        narration_path: NARRATION_PATH,
+        narration_duration_seconds: NARRATION_DURATION_SECONDS,
+        timestamp_precision: "PROVISIONAL_SENTENCE_BOUNDARIES_PENDING_WORD_TIMESTAMPS",
         outputs,
       });
     }
 
-    if (!segment) return json({ success: false, error: "UNKNOWN_FOUNDER_SEGMENT" }, 400);
+    if (!segment) {
+      return json(
+        { success: false, error: "UNKNOWN_FOUNDER_SEGMENT" },
+        400,
+      );
+    }
 
     if (action === "start") {
       const prepared = await prepareSource(key, segment);
-      if (!prepared.source_url || !prepared.audio_url) throw new Error("SIGNED_MEDIA_REQUIRED");
+      if (!prepared.source_url || !prepared.audio_url) {
+        throw new Error("SIGNED_MEDIA_REQUIRED");
+      }
+
       const result = await FalLipSyncProvider.submit({
         video_url: prepared.source_url,
         audio_url: prepared.audio_url,
         sync_mode: "cut_off",
       });
+
       let saved = null;
-      if (!result.pending && result.output_url) saved = await saveProviderOutput(key, result.output_url);
+      if (!result.pending && result.output_url) {
+        saved = await saveProviderOutput(key, result.output_url);
+      }
+
       return json({
         success: true,
         key,
-        identity_source: "APPROVED_REFERENCE_ONLY",
+        segment,
+        identity_source: "APPROVED_GEMINI_MOTION_ONLY",
+        narration_source: "LOCKED_CEDAR_V5_229_5_SECONDS",
         request_id: result.request_id,
         pending: result.pending,
         provider: result.model,
-        prepared: { source_path: prepared.source_path, audio_path: prepared.audio_path },
+        prepared: {
+          source_path: prepared.source_path,
+          audio_path: prepared.audio_path,
+        },
         saved,
       });
     }
 
     if (action === "poll") {
       const requestId = url.searchParams.get("request_id");
-      if (!requestId) return json({ success: false, error: "request_id required" }, 400);
+      if (!requestId) {
+        return json({ success: false, error: "request_id required" }, 400);
+      }
+
       const result = await FalLipSyncProvider.poll({ request_id: requestId });
       let saved = null;
-      if (!result.pending && result.output_url) saved = await saveProviderOutput(key, result.output_url);
-      return json({ success: true, key, pending: result.pending, status: result.status, request_id: result.request_id, saved });
+      if (!result.pending && result.output_url) {
+        saved = await saveProviderOutput(key, result.output_url);
+      }
+
+      return json({
+        success: true,
+        key,
+        segment,
+        pending: result.pending,
+        status: result.status,
+        request_id: result.request_id,
+        saved,
+      });
     }
 
     return json({ success: false, error: "Unsupported action" }, 400);
   } catch (error) {
-    return json({ success: false, error: error?.message || String(error) }, 500);
+    return json(
+      {
+        success: false,
+        error: error?.message || String(error),
+      },
+      500,
+    );
   }
 }

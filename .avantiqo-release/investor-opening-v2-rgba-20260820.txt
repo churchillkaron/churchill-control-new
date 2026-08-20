@@ -1,0 +1,4 @@
+AVANTIQO_INVESTOR_OPENING_FINAL_V2
+RGBA spatial glass transport
+no PNG decoder dependency
+no full-screen UI

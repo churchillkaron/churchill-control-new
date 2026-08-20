@@ -46,13 +46,17 @@ const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.
 
 requireAll("VOICE_SINGLE_MIC_PASSIVE", bridge, [
   "Passive SpeechRecognition is intentionally disabled",
-  "Safari/WebKit can",
-  "Passive wake is therefore",
-  "AudioContext + MediaRecorder only.",
+  "SpeechRecognition competes with getUserMedia",
+  "wake is therefore AudioContext + MediaRecorder only.",
   "function startWakeRecognition()",
-  "return false;",
   "Do not call startWakeRecognition() here. Passive wake owns one mic path.",
 ]);
+
+requireRegex(
+  "PASSIVE_WAKE_RECOGNITION_STUB",
+  bridge,
+  /function startWakeRecognition\(\)\s*\{[\s\S]*?return false;\s*\}/,
+);
 
 requireAll("VOICE_SENSITIVE_VAD", bridge, [
   "MIN_SPEECH_THRESHOLD = 0.008",

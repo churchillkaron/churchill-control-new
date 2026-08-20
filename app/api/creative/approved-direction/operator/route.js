@@ -4,6 +4,7 @@ export const maxDuration = 800;
 
 import crypto from "node:crypto";
 import path from "node:path";
+import { spawn } from "node:child_process";
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/lib/creative/assets/storage/CreativePrivateStorageRuntime";
 import {
   CreativeMediaInspectionRuntime,
+  materializeMedia,
 } from "@/lib/creative/media/runtime/CreativeMediaInspectionRuntime";
 import {
   CreativeApprovedDirectionResumeRuntime,
@@ -29,6 +31,11 @@ function object(value) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value
     : {};
+}
+
+function finite(value, fallback = null) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function tokenHash(value) {
@@ -59,6 +66,84 @@ function creativeMediaPolicy() {
       process.env.CREATIVE_MEDIA_FFPROBE_PATH ||
       path.resolve(process.cwd(), ".avantiqo/bin/ffprobe"),
   };
+}
+
+function runProcess(command, args, timeoutMs = 600000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      shell: false,
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    const stderr = [];
+    let timer = null;
+    let settled = false;
+
+    const finish = (error = null) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(Buffer.concat(stderr).toString("utf8"));
+    };
+
+    timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish(new Error("CREATIVE_SCENE_ANALYSIS_TIMEOUT"));
+    }, timeoutMs);
+
+    child.stderr.on("data", (chunk) => stderr.push(chunk));
+    child.on("error", finish);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        finish(new Error(
+          Buffer.concat(stderr).toString("utf8") ||
+          `CREATIVE_SCENE_ANALYSIS_EXIT_${code}`,
+        ));
+        return;
+      }
+      finish();
+    });
+  });
+}
+
+function parseSceneScores(log = "") {
+  const rows = [];
+  const pattern = /pts_time:([0-9.]+)[\s\S]*?lavfi\.scene_score=([0-9.]+)/g;
+  let match;
+  while ((match = pattern.exec(log))) {
+    const time = finite(match[1]);
+    const score = finite(match[2]);
+    if (time === null || score === null) continue;
+    rows.push({
+      time_seconds: Number(time.toFixed(6)),
+      score: Number(score.toFixed(6)),
+    });
+  }
+  return rows.sort((left, right) => left.time_seconds - right.time_seconds);
+}
+
+function buildSceneRanges(boundaries, duration, minimumSeconds = 0) {
+  const points = [0, ...boundaries.map((item) => item.time_seconds), duration]
+    .filter((value) => Number.isFinite(value))
+    .map((value) => Number(Number(value).toFixed(6)));
+  const unique = [...new Set(points)].sort((left, right) => left - right);
+  const ranges = [];
+
+  for (let index = 0; index < unique.length - 1; index += 1) {
+    const start = unique[index];
+    const end = unique[index + 1];
+    const sceneDuration = Number((end - start).toFixed(6));
+    if (sceneDuration <= 0 || sceneDuration < minimumSeconds) continue;
+    const boundary = boundaries.find((item) => item.time_seconds === start);
+    ranges.push({
+      index: ranges.length,
+      start_seconds: start,
+      end_seconds: end,
+      duration_seconds: sceneDuration,
+      cut_score: boundary?.score ?? null,
+    });
+  }
+  return ranges;
 }
 
 async function getProject(projectId, organizationId) {
@@ -104,10 +189,10 @@ async function requireAuthorizedCaller({ request, project, organizationId, token
   throw error;
 }
 
-async function persistInspection(project, inspection) {
+async function persistResumeSection(project, key, values) {
   const metadata = object(project.metadata);
   const resume = object(metadata.approved_direction_resume);
-  const previous = object(resume.source_inspection);
+  const previous = object(resume[key]);
   const { error } = await supabaseAdmin
     .from(TABLE)
     .update({
@@ -115,9 +200,9 @@ async function persistInspection(project, inspection) {
         ...metadata,
         approved_direction_resume: {
           ...resume,
-          source_inspection: {
+          [key]: {
             ...previous,
-            ...inspection,
+            ...values,
           },
         },
       },
@@ -126,6 +211,10 @@ async function persistInspection(project, inspection) {
     .eq("id", project.id)
     .eq("organization_id", project.organization_id);
   if (error) throw error;
+}
+
+async function persistInspection(project, inspection) {
+  return persistResumeSection(project, "source_inspection", inspection);
 }
 
 async function consumeToken(project) {
@@ -151,6 +240,79 @@ async function consumeToken(project) {
     .eq("id", project.id)
     .eq("organization_id", project.organization_id);
   if (error) throw error;
+}
+
+async function analyzeScenes({
+  organizationId,
+  project,
+  role,
+  threshold,
+  minimumSceneSeconds,
+}) {
+  const resume = object(project.metadata?.approved_direction_resume);
+  const sources = object(resume.sources);
+  const bucket = text(resume.source_bucket);
+  const storagePath = text(sources[role]);
+  if (!bucket) throw new Error("APPROVED_DIRECTION_SOURCE_BUCKET_REQUIRED");
+  if (!storagePath) throw new Error(`SOURCE_ROLE_NOT_FOUND:${role}`);
+
+  const policy = creativeMediaPolicy();
+  const inspection = object(resume.source_inspection?.[role]?.technical);
+  let duration = finite(inspection.duration_seconds);
+  if (!duration) {
+    const inspected = await CreativeMediaInspectionRuntime.inspect({
+      url: creativeStorageUri(bucket, storagePath),
+      file_name: storagePath.split("/").pop(),
+      mime_type: mimeForPath(storagePath),
+      organization_id: organizationId,
+      policy,
+    });
+    duration = finite(inspected.technical?.duration_seconds);
+  }
+  if (!duration) throw new Error(`SOURCE_DURATION_REQUIRED:${role}`);
+
+  const materialized = await materializeMedia({
+    url: creativeStorageUri(bucket, storagePath),
+    file_name: storagePath.split("/").pop(),
+    mime_type: mimeForPath(storagePath),
+    organization_id: organizationId,
+    policy,
+  });
+
+  try {
+    const log = await runProcess(
+      policy.ffmpeg_path,
+      [
+        "-hide_banner",
+        "-i",
+        materialized.file_path,
+        "-filter:v",
+        `select='gt(scene,${threshold})',metadata=print`,
+        "-an",
+        "-f",
+        "null",
+        "-",
+      ],
+    );
+    const boundaries = parseSceneScores(log);
+    const ranges = buildSceneRanges(
+      boundaries,
+      duration,
+      minimumSceneSeconds,
+    );
+    return {
+      role,
+      threshold,
+      minimum_scene_seconds: minimumSceneSeconds,
+      duration_seconds: duration,
+      boundary_count: boundaries.length,
+      boundaries,
+      ranges,
+      analyzed_at: new Date().toISOString(),
+    };
+  } finally {
+    await materialized.cleanup();
+  }
 }
 
 export async function GET(request) {
@@ -231,6 +393,53 @@ export async function GET(request) {
           ffmpeg: path.basename(policy.ffmpeg_path),
           ffprobe: path.basename(policy.ffprobe_path),
         },
+        results,
+      });
+    }
+
+    if (action === "scenes") {
+      const requestedRoles = text(url.searchParams.get("roles"))
+        .split(",")
+        .map((value) => text(value))
+        .filter(Boolean);
+      if (!requestedRoles.length) {
+        throw new Error("CREATIVE_SCENE_ANALYSIS_ROLES_REQUIRED");
+      }
+      const threshold = Math.min(
+        1,
+        Math.max(0.05, finite(url.searchParams.get("threshold"), 0.22)),
+      );
+      const minimumSceneSeconds = Math.max(
+        0,
+        finite(url.searchParams.get("minimum_scene_seconds"), 1.25),
+      );
+
+      const results = {};
+      for (const role of requestedRoles) {
+        try {
+          results[role] = await analyzeScenes({
+            organizationId,
+            project,
+            role,
+            threshold,
+            minimumSceneSeconds,
+          });
+        } catch (error) {
+          results[role] = {
+            role,
+            success: false,
+            error: error?.message || String(error),
+          };
+        }
+      }
+
+      await persistResumeSection(project, "scene_analysis", results);
+      return Response.json({
+        success: true,
+        action,
+        authorization_mode: caller.mode,
+        organization_id: organizationId,
+        creative_project_id: projectId,
         results,
       });
     }

@@ -17,17 +17,40 @@ const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const OUTPUT_DIR = `${ORGANIZATION_ID}/avantiqo-investor-film-20260820/founder-v7`;
 const REACT_MODEL = "fal-ai/sync-lipsync/react-1";
 
-const APPROVED_FOUNDER_MOTION_PATH = `${ORGANIZATION_ID}/unassigned/eaa7edd6-7a62-4ca2-9eac-dfb14059e649-gemini-founder-rgro0za2hzes.mp4`;
-const APPROVED_FOUNDER_MOTION_SHA256 = "78b995566a564e7801f0a240a522ae5a02163680006b857bb091572182b121a1";
-const APPROVED_FOUNDER_REFERENCE_ASSET_ID = "3e1b5197-5279-4713-93ed-0b0defc9581a";
-const APPROVED_FOUNDER_REFERENCE_SHA256 = "40309c0610076b2107e4f2ca50c265187c097756a7bfdecb9e7909e6ca5c795a";
-const REJECTED_LEGACY_FOUNDER_ASSET_ID = "052e10e2-432e-4cf9-82bd-65cb5bb7441a";
+const FOUNDER_MOTIONS = Object.freeze({
+  warm_office: {
+    path: `${ORGANIZATION_ID}/unassigned/82f9712f-4335-49b9-9614-bc86c229dc31-gemini-founder-tw5jpynuenno.mp4`,
+    sha256: "b7ebbdfe6061973e95a44e5e8fc1bb45ed7fc9255fe89d7186c81b9bae335310",
+    source_asset_id: "3c69139a-34a7-4c73-b44f-0796c32349b3",
+  },
+  night_office: {
+    path: `${ORGANIZATION_ID}/unassigned/7732d405-ac9c-4f1f-8ef2-f326686e1be9-gemini-founder-tgpc3j2y5p6q.mp4`,
+    sha256: "cc207c1e3a5dba3282f49beec422b0fcde186e5ed20341bf3dcb345a3c3b957f",
+    source_asset_id: "d7f9fb83-68cb-492b-84cc-74f696f4ee4f",
+  },
+  restaurant: {
+    path: `${ORGANIZATION_ID}/unassigned/5ff5480e-6f2c-41cd-bee0-43a481733f00-gemini-founder-9wto9l93a6v4.mp4`,
+    sha256: "187791baa27aabba32711e7b64617438546899d77dbedc769e7c397a184b01f8",
+    source_asset_id: "c75081c0-17ae-49f0-ae3d-c92f4e01cd3d",
+  },
+  portrait: {
+    path: `${ORGANIZATION_ID}/unassigned/368b08eb-a0bc-4622-8f5e-b5d3d2806487-gemini-founder-1n6xamcyspsf.mp4`,
+    sha256: "4edccbaa4baee4762aac8679502d09f1d9949dafa318e7b3f325d138be2e92cd",
+    source_asset_id: "05d760cb-1e57-41a0-a101-7c4ef568517a",
+  },
+  seated_hologram: {
+    path: `${ORGANIZATION_ID}/unassigned/1984c981-0071-484f-8c64-055f926d787b-gemini-founder-shqkv89kt5rb.mp4`,
+    sha256: "762e9c7fc314d168fb4206d5b1fbb72b6418e6178fe9288c1636336293af9a7b",
+    source_asset_id: "95747a81-24cc-41ce-afac-ad0512f9a241",
+  },
+});
 
 const NARRATION_PATH = `${ORGANIZATION_ID}/avantiqo-investor-video-20260818/avantiqo-investor-narration-cedar-v5-founder-locked-229.5s.mp3`;
 const NARRATION_DURATION_SECONDS = 229.5;
 
 const SEGMENTS = Object.freeze({
   "founder-opening-origin": {
+    motion: "warm_office",
     audio_start: 0,
     audio_end: 11.391,
     duration: 11.391,
@@ -35,24 +58,28 @@ const SEGMENTS = Object.freeze({
       "I didn’t build Avantiqo because I wanted to create another software company. I built it because running real businesses showed me the same problem again and again.",
   },
   "founder-opening-obvious": {
+    motion: "night_office",
     audio_start: 28.266,
     audio_end: 30.375,
     duration: 2.109,
     purpose: "That made one thing obvious.",
   },
   "founder-opening-built": {
+    motion: "restaurant",
     audio_start: 37.547,
     audio_end: 40.078,
     duration: 2.531,
     purpose: "That is why I built Avantiqo.",
   },
   "founder-mid-integration": {
+    motion: "seated_hologram",
     audio_start: 136.266,
     audio_end: 140.062,
     duration: 3.796,
     purpose: "And the important part is what happens between them.",
   },
   "founder-mid-ai": {
+    motion: "portrait",
     audio_start: 177.188,
     audio_end: 183.516,
     duration: 6.328,
@@ -60,6 +87,7 @@ const SEGMENTS = Object.freeze({
       "This becomes even more important as AI moves from answering questions to coordinating real work.",
   },
   "founder-close": {
+    motion: "night_office",
     audio_start: 219.375,
     audio_end: 226.125,
     duration: 6.75,
@@ -149,6 +177,9 @@ async function prepareSource(key, segment) {
   const ffmpeg = resolveCreativeFfmpegPath();
   if (!ffmpeg) throw new Error("CREATIVE_MEDIA_FFMPEG_NOT_READY");
 
+  const motionSpec = FOUNDER_MOTIONS[segment.motion];
+  if (!motionSpec) throw new Error(`FOUNDER_MOTION_BINDING_REQUIRED:${key}`);
+
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), `avantiqo-founder-${key}-`),
   );
@@ -160,7 +191,7 @@ async function prepareSource(key, segment) {
     const audio = path.join(directory, "founder-audio.wav");
 
     await Promise.all([
-      download(APPROVED_FOUNDER_MOTION_PATH, motion),
+      download(motionSpec.path, motion),
       download(NARRATION_PATH, narration),
     ]);
 
@@ -203,6 +234,10 @@ async function prepareSource(key, segment) {
     await upload(audioPath, audio, "audio/wav");
 
     return {
+      motion: segment.motion,
+      motion_path: motionSpec.path,
+      motion_sha256: motionSpec.sha256,
+      source_asset_id: motionSpec.source_asset_id,
       source_path: sourcePath,
       source_url: await signedUrl(sourcePath),
       audio_path: audioPath,
@@ -256,6 +291,7 @@ export async function GET(request) {
           ready: await exists(outputPath),
           output_path: outputPath,
           segment: SEGMENTS[name],
+          motion: FOUNDER_MOTIONS[SEGMENTS[name].motion],
         };
       }
 
@@ -265,13 +301,8 @@ export async function GET(request) {
         provider: REACT_MODEL,
         model_mode: "head",
         temperature: 0.65,
-        identity_source: "APPROVED_GEMINI_MOTION_ONLY",
-        approved_founder_motion_path: APPROVED_FOUNDER_MOTION_PATH,
-        approved_founder_motion_sha256: APPROVED_FOUNDER_MOTION_SHA256,
-        approved_founder_reference_asset_id: APPROVED_FOUNDER_REFERENCE_ASSET_ID,
-        approved_founder_reference_sha256: APPROVED_FOUNDER_REFERENCE_SHA256,
-        rejected_legacy_founder_asset_id: REJECTED_LEGACY_FOUNDER_ASSET_ID,
-        legacy_founder_allowed: false,
+        identity_source: "FIVE_VERIFIED_GEMINI_FOUNDER_MOTIONS",
+        founder_motions: FOUNDER_MOTIONS,
         narration_path: NARRATION_PATH,
         narration_duration_seconds: NARRATION_DURATION_SECONDS,
         timestamp_precision: "LOCKED_CEDAR_V5_SEMANTIC_EDIT_BOUNDARIES",
@@ -309,7 +340,7 @@ export async function GET(request) {
         success: true,
         key,
         segment,
-        identity_source: "APPROVED_GEMINI_MOTION_ONLY",
+        identity_source: "FIVE_VERIFIED_GEMINI_FOUNDER_MOTIONS",
         narration_source: "LOCKED_CEDAR_V5_229_5_SECONDS",
         request_id: result.request_id,
         pending: result.pending,
@@ -317,6 +348,10 @@ export async function GET(request) {
         model_mode: "head",
         temperature: 0.65,
         prepared: {
+          motion: prepared.motion,
+          motion_path: prepared.motion_path,
+          motion_sha256: prepared.motion_sha256,
+          source_asset_id: prepared.source_asset_id,
           source_path: prepared.source_path,
           audio_path: prepared.audio_path,
         },

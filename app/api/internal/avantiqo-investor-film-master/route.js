@@ -5,6 +5,9 @@ export const maxDuration = 800;
 import {
   AvantiqoInvestorFilmMasterRuntime,
 } from "@/lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterRuntime";
+import {
+  AvantiqoInvestorFilmFastMasterRuntime,
+} from "@/lib/creative/post-production/runtime/AvantiqoInvestorFilmFastMasterRuntime";
 
 const TOKEN = "avq-investor-film-master-20260820-v1";
 
@@ -35,6 +38,10 @@ export async function GET(request) {
     if (action === "render") {
       const force = url.searchParams.get("force") === "1";
       return json(await AvantiqoInvestorFilmMasterRuntime.render({ force }));
+    }
+
+    if (action === "render-fast") {
+      return json(await AvantiqoInvestorFilmFastMasterRuntime.render());
     }
 
     return json({ success: false, error: "Unsupported action" }, 400);

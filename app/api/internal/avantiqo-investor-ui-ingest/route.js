@@ -4,12 +4,14 @@ export const maxDuration = 180;
 
 import crypto from "node:crypto";
 
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   getAvantiqoInvestorUiIngestionStatus,
   getAvantiqoInvestorUiSlots,
   ingestAvantiqoInvestorUiFrame,
 } from "@/lib/creative/post-production/runtime/AvantiqoInvestorUiIngestionRuntime";
 
+const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const TOKEN_SHA256 = "b01a390b5221135fdc7a68fa22af5404438c020d97cde0339b64bbbb69abd50c";
 const MAX_BOOTSTRAP_BYTES = 300 * 1024;
 const MAX_PACK_BYTES = 600 * 1024;
@@ -66,6 +68,14 @@ function decodeBase64Url(value, maxBytes = MAX_BOOTSTRAP_BYTES) {
   return bytes;
 }
 
+function decodeBase64(value, maxBytes = MAX_BOOTSTRAP_BYTES) {
+  const bytes = Buffer.from(text(value), "base64");
+  if (!bytes.length || bytes.length > maxBytes) {
+    throw new Error("INVESTOR_UI_STAGED_PAYLOAD_INVALID");
+  }
+  return bytes;
+}
+
 function bootstrapFile(bytes, slot) {
   return {
     name: `${slot}.jpg`,
@@ -90,6 +100,78 @@ async function ingestBootstrapItem(item) {
   });
 }
 
+async function ingestStagedRows() {
+  const { data, error } = await supabaseAdmin
+    .from("creative_assets")
+    .select("id, file_name, metadata")
+    .eq("organization_id", ORGANIZATION_ID)
+    .eq("metadata->>investor_ui_staging", "true")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  const rows = Array.isArray(data) ? data : [];
+  if (!rows.length) {
+    return {
+      success: true,
+      staged_ingestion: true,
+      staged_count: 0,
+      ingested_count: 0,
+      results: [],
+    };
+  }
+
+  const allowedSlots = new Set(getAvantiqoInvestorUiSlots().map((slot) => slot.key));
+  const results = [];
+  const completedIds = [];
+
+  for (const row of rows) {
+    const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
+    const slot = text(metadata.ui_slot);
+    if (!allowedSlots.has(slot)) {
+      throw new Error(`INVESTOR_UI_STAGED_SLOT_NOT_ALLOWED:${slot || "missing"}`);
+    }
+    const encoded = text(metadata.bootstrap_base64);
+    if (!encoded) throw new Error(`INVESTOR_UI_STAGED_DATA_REQUIRED:${slot}`);
+    const mime = text(metadata.bootstrap_mime_type || "image/jpeg").toLowerCase();
+    if (mime !== "image/jpeg") {
+      throw new Error(`INVESTOR_UI_STAGED_MIME_NOT_ALLOWED:${slot}`);
+    }
+
+    const bytes = decodeBase64(encoded);
+    const result = await ingestAvantiqoInvestorUiFrame({
+      slot,
+      file: {
+        name: text(row.file_name) || `${slot}.jpg`,
+        type: mime,
+        async arrayBuffer() {
+          return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        },
+      },
+      crop: null,
+      approvedBy: "user",
+    });
+    results.push(result);
+    completedIds.push(row.id);
+  }
+
+  if (completedIds.length) {
+    const { error: deleteError } = await supabaseAdmin
+      .from("creative_assets")
+      .delete()
+      .in("id", completedIds);
+    if (deleteError) throw deleteError;
+  }
+
+  return {
+    success: true,
+    staged_ingestion: true,
+    staged_count: rows.length,
+    ingested_count: results.length,
+    deleted_staging_rows: completedIds.length,
+    results,
+  };
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -110,6 +192,10 @@ export async function GET(request) {
 
     if (action === "status") {
       return json(await getAvantiqoInvestorUiIngestionStatus());
+    }
+
+    if (action === "bootstrap-staged") {
+      return json(await ingestStagedRows());
     }
 
     if (action === "bootstrap") {
@@ -144,7 +230,10 @@ export async function GET(request) {
     return json({ success: false, error: "Unsupported action" }, 400);
   } catch (error) {
     return json(
-      { success: false, error: error?.message || String(error) },
+      {
+        success: false,
+        error: error?.message || String(error),
+      },
       500,
     );
   }
@@ -180,7 +269,10 @@ export async function POST(request) {
     return json(result);
   } catch (error) {
     return json(
-      { success: false, error: error?.message || String(error) },
+      {
+        success: false,
+        error: error?.message || String(error),
+      },
       500,
     );
   }

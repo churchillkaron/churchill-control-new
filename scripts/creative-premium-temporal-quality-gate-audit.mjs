@@ -1,3 +1,4 @@
+// Focused release audit for the shared premium temporal Studio gate.
 import assert from "node:assert/strict";
 
 import {

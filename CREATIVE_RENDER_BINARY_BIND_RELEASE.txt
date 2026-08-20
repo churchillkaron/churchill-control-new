@@ -1,0 +1,2 @@
+Approved-direction render binary binding activation.
+No EDL, narration, score, source, timing or approval-state changes.

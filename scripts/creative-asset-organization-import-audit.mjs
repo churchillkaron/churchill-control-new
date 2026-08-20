@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 // Production activation sentinel for the governed Creative organization import audit.
+// Selected-only import is the active Studio organization-transfer contract.
 import fs from "node:fs/promises";
 
 const path = "app/api/internal/creative/assets/organization-import/route.js";

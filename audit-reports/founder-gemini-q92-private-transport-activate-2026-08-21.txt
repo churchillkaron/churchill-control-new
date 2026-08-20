@@ -1,0 +1,9 @@
+AVANTIQO_FOUNDER_GEMINI_Q92_PRIVATE_TRANSPORT
+provider=gemini
+model=gemini-omni-flash-preview
+duration_seconds_per_take=10
+slots=warm_office,night_office,restaurant,portrait,seated_hologram
+source_mode=user_supplied_private_signed_transport
+identity_preservation=required
+looping_allowed=false
+production_activation=single_final_deploy

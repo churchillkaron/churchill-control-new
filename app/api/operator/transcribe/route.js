@@ -9,6 +9,9 @@ import {
 import {
   ServiceExecutionRuntime,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import {
+  listOperatorNavigationTargets,
+} from "@/lib/operator/runtime/OperatorNavigationCatalog";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -73,6 +76,42 @@ function findTranscript(value, depth = 0) {
   }
 
   return "";
+}
+
+function commandVocabulary(organizationId) {
+  const targets = listOperatorNavigationTargets({ organizationId });
+  const labels = [];
+  const seen = new Set();
+
+  for (const target of targets) {
+    for (const candidate of [
+      target?.name,
+      target?.domain_id,
+      target?.group_name,
+    ]) {
+      const clean = text(candidate);
+      const key = clean.toLowerCase();
+      if (!clean || seen.has(key)) continue;
+      seen.add(key);
+      labels.push(clean);
+      if (labels.length >= 120) break;
+    }
+    if (labels.length >= 120) break;
+  }
+
+  return labels.join(", ").slice(0, 2800);
+}
+
+function commandPrompt(organizationId) {
+  const vocabulary = commandVocabulary(organizationId);
+  if (!vocabulary) return undefined;
+
+  return [
+    "This is a spoken command to the Avantiqo business operating system.",
+    "Preserve navigation phrases such as open, go to, take me to, show me, and navigate to.",
+    "When the speaker names a registered Avantiqo destination and the audio is acoustically close, preserve that registered destination name exactly instead of substituting a similar everyday phrase.",
+    `Registered Avantiqo destinations: ${vocabulary}.`,
+  ].join(" ");
 }
 
 function errorResponse(error, status = 500) {
@@ -169,7 +208,7 @@ export async function POST(request) {
                 "Listen especially for pronunciations or transcriptions resembling Avantiqo, Avanti Q, Avanti Q O, Avanti Go, Avantico, Avantiko, Avanti Quo, or Avanti.",
                 "If that name is spoken, preserve it as Avantiqo in the transcript and preserve any words spoken immediately after it.",
               ].join(" ")
-            : undefined,
+            : commandPrompt(businessContext.organizationId),
       },
       metadata: {
         module: "OPERATOR",

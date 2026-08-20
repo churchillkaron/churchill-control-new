@@ -15,23 +15,23 @@ const TOKEN = "avq-founder-gemini-pack-v1-20260820";
 
 const SLOTS = Object.freeze({
   warm_office: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/warm-office.png`,
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/warm-office.jpg`,
     name: "Founder Original — Warm Office",
   },
   night_office: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/night-office.png`,
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/night-office.jpg`,
     name: "Founder Original — Avantiqo Night Office",
   },
   restaurant: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/restaurant.png`,
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/restaurant.jpg`,
     name: "Founder Original — Restaurant",
   },
   portrait: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/portrait.png`,
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/portrait.jpg`,
     name: "Founder Original — Portrait",
   },
   seated_hologram: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/seated-hologram.png`,
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/seated-hologram.jpg`,
     name: "Founder Original — Seated Hologram",
   },
 });

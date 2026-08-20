@@ -23,40 +23,40 @@ const DURATION_SECONDS = 10;
 
 const SLOTS = Object.freeze({
   warm_office: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/warm-office.png`,
-    sha256: "aa638d4025af404c9db1001d85dae6a0280624c10b47dd80fd3069589a4fbe9c",
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/warm-office.jpg`,
+    sha256: "77ff23afbe347f1052f641d07dae75ba01aead4026447c830848d22e0d3550d8",
     name: "Founder Original — Warm Office",
     description:
       "Original founder frame in a premium warm office. Preserve the exact adult person, clothing, jewelry, facial geometry, skin texture and environment. Create one continuous natural ten-second performance with restrained hand movement, breathing, blinking and subtle head movement. No loops, no repeated gesture cycle, no speaking animation, no generated text or interface.",
     purpose: "founder origin and conviction",
   },
   night_office: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/night-office.png`,
-    sha256: "38ed6574d8433a19b147ce5f667c8e5eda3319f19acb7bc158a5796add8658c5",
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/night-office.jpg`,
+    sha256: "d085b294dc2e261fa75d36373175ee87259f13da54f36b125cadf88639d3503c",
     name: "Founder Original — Avantiqo Night Office",
     description:
       "Original founder frame in a premium Avantiqo night office. Preserve the exact adult person and all real visual details. Create one uninterrupted ten-second performance with calm breathing, one or two blinks, a subtle weight shift and a restrained hand gesture that evolves once and does not repeat. Keep the mouth relaxed for later lip-sync. No loops, no fake text changes, no new props.",
     purpose: "brand authority and strategic expansion",
   },
   restaurant: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/restaurant.png`,
-    sha256: "2650f1b295cf6235561f5b4917b280184b96de25cebe802ce3edf0b369678ca7",
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/restaurant.jpg`,
+    sha256: "327f3b6718cbe8f3578646845447a91f6cf8682cc269a5b647501c85bb4f83ef",
     name: "Founder Original — Restaurant",
     description:
       "Original founder frame inside a real premium restaurant environment. Preserve the exact adult person, identity, clothing, jewelry and background. Create one continuous ten-second natural performance with subtle torso movement, a single evolving hand gesture, breathing, blinking and a small glance before returning to camera. Mouth stays neutral for later lip-sync. Never loop or recycle motion.",
     purpose: "real business founder story",
   },
   portrait: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/portrait.png`,
-    sha256: "3f8d93868aaa2e98ff63ce3f07f10ee3f6c330785fbd68239fff5aeee5e84520",
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/portrait.jpg`,
+    sha256: "6665fb9ee71c3e18d070d9e11f5439640e6fe2eebee916e75cb2fae8963bd94c",
     name: "Founder Original — Portrait",
     description:
       "Original founder portrait with folded arms in a premium business environment. Preserve the exact adult person and photographic realism. Create a continuous ten-second contemplative performance with breathing, realistic blinking, tiny eye movement and one subtle posture adjustment. Keep arms naturally composed and mouth relaxed. No talking animation, no loop, no repeated micro-cycle.",
     purpose: "quiet confidence and governed AI thesis",
   },
   seated_hologram: {
-    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/seated-hologram.png`,
-    sha256: "36aa2d3ec28aca27612f5471f04edca5068cade50f7feadeef1cea53afb1ef42",
+    path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/seated-hologram.jpg`,
+    sha256: "0d57bea3c27980cdb520946b198b10ef1e1e7e400d248609cbb52af5b8dda6ed",
     name: "Founder Original — Seated Hologram",
     description:
       "Original founder seated beside the approved Avantiqo holographic interface. Preserve the exact adult person, laptop, table, environment and the existing hologram design exactly as present in the source frame. Create one continuous ten-second performance with a restrained natural hand interaction toward the laptop or hologram, realistic breathing, blinking and slight head movement. Do not redesign, enlarge, full-screen, replace or regenerate the hologram. No loop and no repeated gesture.",
@@ -128,16 +128,17 @@ async function registerSource(slot) {
     url: storageReference(slot.path),
     storage_path: slot.path,
     technical: {
-      mime_type: "image/png",
+      mime_type: "image/jpeg",
       width: 1672,
       height: 941,
       checksum_sha256: checksum,
       size_bytes: bytes.length,
+      transport_encoding: "JPEG_Q92_FROM_USER_ORIGINAL",
     },
     metadata: {
       founder_original_source: true,
       founder_source_slot: slot.key,
-      source_policy: "USER_SUPPLIED_ORIGINAL",
+      source_policy: "USER_SUPPLIED_ORIGINAL_PRIVATE_TRANSPORT",
       identity_reference: true,
       creative_project_id: PROJECT_ID,
     },

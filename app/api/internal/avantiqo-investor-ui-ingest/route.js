@@ -11,6 +11,7 @@ import {
 } from "@/lib/creative/post-production/runtime/AvantiqoInvestorUiIngestionRuntime";
 
 const TOKEN_SHA256 = "b01a390b5221135fdc7a68fa22af5404438c020d97cde0339b64bbbb69abd50c";
+const MAX_BOOTSTRAP_BYTES = 300 * 1024;
 
 function json(data, status = 200) {
   return Response.json(data, {
@@ -53,6 +54,26 @@ function parseCrop(form) {
   return values;
 }
 
+function decodeBase64Url(value) {
+  const normalized = text(value).replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const bytes = Buffer.from(padded, "base64");
+  if (!bytes.length || bytes.length > MAX_BOOTSTRAP_BYTES) {
+    throw new Error("INVESTOR_UI_BOOTSTRAP_PAYLOAD_INVALID");
+  }
+  return bytes;
+}
+
+function bootstrapFile(bytes, slot) {
+  return {
+    name: `${slot}.jpg`,
+    type: "image/jpeg",
+    async arrayBuffer() {
+      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    },
+  };
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -73,6 +94,21 @@ export async function GET(request) {
 
     if (action === "status") {
       return json(await getAvantiqoInvestorUiIngestionStatus());
+    }
+
+    if (action === "bootstrap") {
+      const slot = text(url.searchParams.get("slot"));
+      const encoded = text(url.searchParams.get("data"));
+      if (!slot) return json({ success: false, error: "slot required" }, 400);
+      if (!encoded) return json({ success: false, error: "data required" }, 400);
+      const bytes = decodeBase64Url(encoded);
+      const result = await ingestAvantiqoInvestorUiFrame({
+        slot,
+        file: bootstrapFile(bytes, slot),
+        crop: null,
+        approvedBy: "user",
+      });
+      return json({ ...result, bootstrap_transfer: true });
     }
 
     return json({ success: false, error: "Unsupported action" }, 400);

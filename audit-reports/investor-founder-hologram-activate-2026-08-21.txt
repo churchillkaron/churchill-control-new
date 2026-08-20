@@ -1,0 +1,9 @@
+AVANTIQO_INVESTOR_FOUNDER_HOLOGRAM_V1
+story_contract=existing_locked_investor_master
+founder_policy=short_speaking_inserts_only
+hologram_policy=overlay_only_during_founder_speech_windows
+product_proof=untouched
+opening_seconds=48.078
+product_proof_seconds=96.188
+final_act_seconds=93.234
+master_seconds=237.5

@@ -1,0 +1,5 @@
+AVANTIQO_FOUNDER_GEMINI_PROMPT_FIX_READY
+source_count=5
+provider=gemini
+model=gemini-omni-flash-preview
+duration_seconds=10

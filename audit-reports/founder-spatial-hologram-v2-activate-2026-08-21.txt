@@ -1,0 +1,6 @@
+AVANTIQO_FOUNDER_SPATIAL_HOLOGRAM_V2
+transport=raw_rgba
+rectangular_ui_card=false
+text_labels=false
+founder_speech_windows_only=true
+product_proof_untouched=true

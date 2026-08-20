@@ -1,0 +1,2 @@
+Creative Studio Sandbox v3 runtime activation.
+Commit purpose: trigger one production deployment after migration to Vercel managed Ubuntu Sandbox images.

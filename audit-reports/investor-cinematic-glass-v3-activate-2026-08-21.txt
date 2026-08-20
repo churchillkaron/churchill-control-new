@@ -1,0 +1,8 @@
+AVANTIQO_INVESTOR_CINEMATIC_GLASS_V3
+founder_source=FOUNDER_V7
+full_screen_screenshot_montage=false
+authentic_ui=crisp_glass_panels
+founder_glass=left_right_spatial_center_face_clear
+story_timing=locked
+product_proof_duration=96.188
+master_duration=237.5

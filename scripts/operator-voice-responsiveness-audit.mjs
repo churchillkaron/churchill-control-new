@@ -53,8 +53,8 @@ const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.
 requireAll("VOICE_BRIDGE", bridge, [
   "MIN_SPEECH_THRESHOLD",
   "NOISE_MULTIPLIER",
-  "SPEECH_ONSET_MS",
-  "NATIVE_INTERIM_COMMIT_MS = 500",
+  "SPEECH_ONSET_MS = 60",
+  "NATIVE_INTERIM_COMMIT_MS = 250",
   "confidence < 0.18",
   "noiseFloorRef.current * NOISE_MULTIPLIER",
   "if (spoken) return",
@@ -64,12 +64,24 @@ requireAll("STRICT_WAKE_WORD", bridge, [
   "function wakePhraseMatch(value)",
   "startWakeRecognition()",
   "if (!wake?.matched) return;",
-  "Acoustic similarity is telemetry only.",
-  "it never wakes Avantiqo",
-  "Semantic transcription is the final authority.",
+  "trustedLocalWake",
+  "verified_semantic",
   "returnToWakeListening()",
   "COMMAND_WINDOW_MS = 10000",
   "Say “Avantiqo”",
+]);
+
+requireAll("IMMEDIATE_LOCAL_WAKE", bridge, [
+  "function trustedLocalWake(template, acoustic)",
+  "function tryImmediateLocalWake(frames, durationMs)",
+  "AVANTIQO_WAKE_LOCAL_IMMEDIATE",
+  "LOCAL_WAKE_PROBE_MS = 70",
+  "LOCAL_WAKE_HIGH_CONFIDENCE_MULTIPLIER = 0.68",
+  "LOCAL_WAKE_HIGH_CONFIDENCE_MAX_SCORE = 0.15",
+  "template?.verified_semantic !== true",
+  "trustedLocalWake(template, acoustic)",
+  "tryImmediateLocalWake(probeFrames, duration)",
+  "tryImmediateLocalWake(frames, duration)",
 ]);
 
 requireAll("HYBRID_WAKE_FALLBACK", bridge, [
@@ -81,21 +93,26 @@ requireAll("HYBRID_WAKE_FALLBACK", bridge, [
   "async function verifyWakeBlob(blob, frames, durationMs)",
   "result.wakeDetected",
   "rememberConfirmedWake(frames, durationMs)",
-  "recognition.continuous = true",
+  "recognition.continuous = false",
   "recognition.maxAlternatives = 5",
 ]);
 
-requireAll("WAKE_SENSITIVITY", bridge, [
+requireAll("WAKE_LATENCY_BOUND", bridge, [
+  "WAKE_SILENCE_MS = 180",
+  "WAKE_TRANSCRIBE_TIMEOUT_MS = 2500",
+  "WAKE_VERIFY_COOLDOWN_MS = 180",
+  "WAKE_RESTART_MS = 80",
   "MIN_WAKE_MS = 250",
   "MIN_WAKE_FRAMES = 4",
-  "WAKE_VERIFY_COOLDOWN_MS = 350",
-  "pendingWakeVerificationRef",
-  "startWakeRecorder();",
-  "recorder.start(50);",
-  "Capture from the first detected speech frame",
-  "frames.length >= MIN_WAKE_FRAMES",
-  "duration >= MIN_WAKE_MS",
-  "pendingWakeVerificationRef.current = { blob, frames, durationMs }",
+  "const silenceLimit = commandModeRef.current ? SILENCE_MS : WAKE_SILENCE_MS",
+]);
+
+requireAll("WAKE_SEMANTIC_ENROLLMENT", bridge, [
+  "normalizeWakeFrames",
+  "persistWakeTemplate",
+  "verified_semantic: true",
+  "Replace them with the pronunciation we just proved was Avantiqo.",
+  "rememberConfirmedWake(confirmedFrames, confirmedDuration)",
 ]);
 
 requireAll("WAKE_SERVER_SEMANTIC_GATE", transcribeRoute, [
@@ -115,9 +132,9 @@ forbidAll("WAKE_NOT_NATIVE_ONLY", bridge, [
   "The spoken wake word must be confirmed by SpeechRecognition in startWakeRecognition().",
 ]);
 
-forbidAll("WAKE_ACOUSTIC_MUST_NOT_VETO", bridge, [
-  "if (template && !acoustic.matched",
-  "if (!acoustic.matched",
+forbidAll("WAKE_LOCAL_MUST_BE_SEMANTICALLY_VERIFIED", bridge, [
+  "template?.verified_semantic !== false",
+  "verified_semantic: false",
 ]);
 
 forbidAll("WAKE_MODE_MUST_NOT_FORCE_BROWSER_LOCALE", bridge, [
@@ -425,12 +442,12 @@ if (violations.length) {
   process.exitCode = 1;
 } else {
   console.log("OPERATOR_VOICE_RESPONSIVENESS_AUDIT=PASS");
-  console.log("VOICE_WAKE=HYBRID_SEMANTIC_AVANTIQO_GATE");
-  console.log("VOICE_WAKE_NATIVE=BROWSER_FAST_PATH_OPTIONAL");
-  console.log("VOICE_WAKE_FALLBACK=FIRST_SYLLABLE_SEMANTIC_VERIFY");
-  console.log("VOICE_WAKE_SENSITIVITY=250MS_NO_ACOUSTIC_VETO");
+  console.log("VOICE_WAKE=SEMANTICALLY_ENROLLED_LOCAL_FIRST");
+  console.log("VOICE_WAKE_NATIVE=SHORT_UTTERANCE_BROWSER_FAST_PATH");
+  console.log("VOICE_WAKE_LOCAL=HIGH_CONFIDENCE_IMMEDIATE");
+  console.log("VOICE_WAKE_FALLBACK=AMBIGUOUS_ONLY_2500MS_BOUND");
+  console.log("VOICE_WAKE_LATENCY=LOCAL_PROBE_70MS_SILENCE_180MS");
   console.log("VOICE_WAKE_LANGUAGE=AUTO_DETECT_WITH_BRAND_VARIANTS");
-  console.log("VOICE_WAKE_REPEATS=LATEST_CANDIDATE_QUEUED");
   console.log("VOICE_POST_RESPONSE=PASSIVE_WAKE_ONLY");
   console.log("VOICE_NAVIGATION=CLIENT_SIDE_REGISTERED_ROUTE_INSTANT_PATH");
   console.log("VOICE_SIMPLE_REPLY=INSTANT_LOCAL_OR_FAST_MODEL");

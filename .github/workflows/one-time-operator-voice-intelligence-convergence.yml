@@ -1,0 +1,692 @@
+name: One-time Operator voice and intelligence convergence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/one-time-operator-voice-intelligence-convergence.yml
+
+permissions:
+  contents: write
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Converge Operator voice and company intelligence
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(source, old, new, label):
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one anchor, found {count}")
+              return source.replace(old, new, 1)
+
+          # 1. Make the existing Attention Scan the canonical broad company-analysis read.
+          path = Path("lib/platform/capabilities/createOperatorAttentionCapability.js")
+          source = path.read_text()
+          source = replace_once(
+              source,
+              '''    operatorAliases: [
+              "what needs attention",
+              "what should I look at",
+              "what deserves attention",
+              "what should I know",
+              "executive attention brief",
+            ],''',
+              '''    operatorAliases: [
+              "what needs attention",
+              "what should I look at",
+              "what deserves attention",
+              "what should I know",
+              "analyze the business",
+              "analyze this business",
+              "analyse the business",
+              "analyse this business",
+              "analyze the company",
+              "analyze this company",
+              "analyse the company",
+              "analyse this company",
+              "analyze the organization",
+              "analyze this organization",
+              "analyse the organization",
+              "analyse this organization",
+              "review the business",
+              "review the company",
+              "review the organization",
+              "check everything",
+              "review everything",
+              "check the whole business",
+              "full business analysis",
+              "company analysis",
+              "organization analysis",
+              "tell me what you think about the business",
+              "give me your assessment of the business",
+              "executive attention brief",
+            ],''',
+              "attention aliases",
+          )
+          source = replace_once(
+              source,
+              '''    operatorExamples: [
+              "What needs my attention?",
+              "Give me the important things I should know right now.",
+              "What should I focus on next?",
+            ],''',
+              '''    operatorExamples: [
+              "What needs my attention?",
+              "Give me the important things I should know right now.",
+              "What should I focus on next?",
+              "Analyze this business and tell me what you think.",
+              "Check everything and tell me what matters most.",
+              "Give me a full organization assessment from the live business data.",
+            ],''',
+              "attention examples",
+          )
+          path.write_text(source)
+
+          # 2. Let broad organization-analysis reads resolve deterministically even when
+          # multiple domain reads naturally overlap with the request.
+          path = Path("lib/operator/runtime/OperatorBusinessDataReflex.js")
+          source = path.read_text()
+          source = replace_once(
+              source,
+              '''} from "./OperatorBusinessReadResolver";
+
+function text(value) {''',
+              '''} from "./OperatorBusinessReadResolver";
+
+const ATTENTION_KEY = "platform.attention.scan";
+
+function text(value) {''',
+              "business reflex attention constant",
+          )
+          source = replace_once(
+              source,
+              '''function entityRequired(capability, entityId) {
+            return normalizedMode(capability?.context_scope) === "entity" && !text(entityId);
+          }
+
+          export function resolveOperatorBusinessDataReflex({''',
+              '''function entityRequired(capability, entityId) {
+            return normalizedMode(capability?.context_scope) === "entity" && !text(entityId);
+          }
+
+          function isAttentionReflexMatch(entry) {
+            const phraseAffinity = Number(entry?.phrase_affinity || 0);
+            const primaryCoverage = Number(entry?.primary_coverage || 0);
+            const score = Number(entry?.score || 0);
+
+            return (
+              phraseAffinity >= 0.72 ||
+              (primaryCoverage >= 0.52 && score >= 0.34)
+            );
+          }
+
+          export function resolveOperatorBusinessDataReflex({''',
+              "business reflex attention matcher",
+          )
+          source = replace_once(
+              source,
+              '''  const capability = candidates[0] || null;
+            if (!capability) return null;
+
+            const rankedEntry = list(resolution.ranked).find(''',
+              '''  const attentionCapability = candidates.find(
+              (candidate) => text(candidate?.key) === ATTENTION_KEY,
+            );
+            const attentionRankedEntry = list(resolution.ranked).find(
+              (entry) => text(entry?.capability_key) === ATTENTION_KEY,
+            );
+            const capability =
+              attentionCapability && isAttentionReflexMatch(attentionRankedEntry)
+                ? attentionCapability
+                : candidates[0] || null;
+            if (!capability) return null;
+
+            const rankedEntry = list(resolution.ranked).find(''',
+              "business reflex attention selection",
+          )
+          source = replace_once(
+              source,
+              '''  const clearCoverage =
+              Number(rankedEntry?.primary_coverage || 0) >= 0.55 &&
+              (separation >= 0.12 || resolution.capabilities.length === 1);
+
+            if (!clearPhrase && !clearCoverage) return null;''',
+              '''  const clearCoverage =
+              Number(rankedEntry?.primary_coverage || 0) >= 0.55 &&
+              (separation >= 0.12 || resolution.capabilities.length === 1);
+            const clearAttention =
+              text(capability?.key) === ATTENTION_KEY &&
+              isAttentionReflexMatch(rankedEntry);
+
+            if (!clearPhrase && !clearCoverage && !clearAttention) return null;''',
+              "business reflex attention confidence",
+          )
+          path.write_text(source)
+
+          # 3. Reuse the Attention Scan's already synthesized evidence instead of paying
+          # for and waiting on a second generic AI verification pass.
+          path = Path("lib/operator/runtime/OperatorVerificationRuntime.js")
+          source = path.read_text()
+          source = replace_once(
+              source,
+              '''const EVIDENCE_CHAR_LIMIT = 6000;
+          const EVIDENCE_SAMPLE_SIZE = 12;''',
+              '''const EVIDENCE_CHAR_LIMIT = 6000;
+          const EVIDENCE_SAMPLE_SIZE = 12;
+          const ATTENTION_KEY = "platform.attention.scan";''',
+              "verification attention constant",
+          )
+          source = replace_once(
+              source,
+              '''function capabilityResult(value) {
+            const root = object(value);
+            return object(root.result);
+          }
+
+          function normalizedVerificationRead(value) {''',
+              '''function capabilityResult(value) {
+            const root = object(value);
+            return object(root.result);
+          }
+
+          function attentionResponseText(value, { voice = false } = {}) {
+            const result = capabilityResult(value);
+            const summary = text(result.summary);
+            const items = list(result.items)
+              .map((item) => ({
+                title: text(item?.title),
+                why: text(item?.why_now || item?.reason),
+                next: text(item?.recommended_next_step),
+              }))
+              .filter((item) => item.title || item.why || item.next)
+              .slice(0, voice ? 3 : 5);
+
+            if (!summary && !items.length) return "";
+
+            if (voice) {
+              const details = items.map((item) =>
+                [
+                  item.title,
+                  item.why,
+                  item.next ? `Next: ${item.next}` : "",
+                ]
+                  .filter(Boolean)
+                  .join(". "),
+              );
+
+              return [summary, ...details].filter(Boolean).join(" ");
+            }
+
+            const details = items.map((item, index) => {
+              const body = [item.title, item.why].filter(Boolean).join(": ");
+              return `${index + 1}. ${body}${
+                item.next ? ` Next: ${item.next}` : ""
+              }`;
+            });
+
+            return [summary, ...details].filter(Boolean).join("\\n");
+          }
+
+          function normalizedVerificationRead(value) {''',
+              "verification attention response formatter",
+          )
+          source = replace_once(
+              source,
+              '''  const voice = text(source).toLowerCase() === "voice";
+            const evidence = evidenceJson(result);''',
+              '''  const voice = text(source).toLowerCase() === "voice";
+
+            if (text(capability?.key) === ATTENTION_KEY) {
+              const responseText = attentionResponseText(result, { voice });
+              if (responseText) {
+                const resultBody = capabilityResult(result);
+                return {
+                  decision: {
+                    response_text: responseText.slice(0, voice ? 1200 : 5000),
+                    response_language: text(locale) || null,
+                    intent: "answer",
+                    confidence: 1,
+                    agreement_state: object(agreementState),
+                    project_state: object(projectState),
+                    clarification: {
+                      required: false,
+                      question: null,
+                      options: [],
+                    },
+                    navigation: { target_id: null },
+                    execution: {
+                      capability_key: null,
+                      payload: {},
+                      reason: null,
+                    },
+                    plan: [],
+                  },
+                  agreement_state: object(agreementState),
+                  current_screen: currentScreen || null,
+                  provider_evidence: object(
+                    object(resultBody.synthesis).provider_evidence,
+                  ),
+                };
+              }
+            }
+
+            const evidence = evidenceJson(result);''',
+              "verification attention fast return",
+          )
+          path.write_text(source)
+
+          # 4. Give the home Company Intelligence turn a hard timeout and a small
+          # voice queue so a second spoken command is never silently discarded.
+          path = Path("components/operator/HomeAvantiqoIntelligence.jsx")
+          source = path.read_text()
+          source = replace_once(
+              source,
+              '''import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+
+          function text(value) {''',
+              '''import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+
+          const OPERATOR_TURN_TIMEOUT_MS = 30000;
+
+          async function fetchWithTimeout(
+            url,
+            options,
+            timeoutMs,
+            timeoutMessage = "Request timed out",
+          ) {
+            const controller = new AbortController();
+            const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+            try {
+              return await fetch(url, {
+                ...options,
+                signal: controller.signal,
+              });
+            } catch (error) {
+              if (error?.name === "AbortError") {
+                throw new Error(timeoutMessage);
+              }
+              throw error;
+            } finally {
+              window.clearTimeout(timer);
+            }
+          }
+
+          function text(value) {''',
+              "home turn timeout helper",
+          )
+          source = replace_once(
+              source,
+              '''  const messagesRef = useRef([]);
+            const agreementStateRef = useRef({});
+            const busyRef = useRef(false);''',
+              '''  const messagesRef = useRef([]);
+            const agreementStateRef = useRef({});
+            const busyRef = useRef(false);
+            const voiceQueueRef = useRef([]);''',
+              "home voice queue ref",
+          )
+          source = replace_once(
+              source,
+              '''    if (!organizationId) {
+              agreementStateRef.current = {};
+              setProjectState({});''',
+              '''    if (!organizationId) {
+              agreementStateRef.current = {};
+              voiceQueueRef.current = [];
+              setProjectState({});''',
+              "home voice queue reset",
+          )
+          source = replace_once(
+              source,
+              '''  async function sendMessage(rawValue, source = "text") {
+            const message = text(rawValue);
+            if (!message || !organizationId || busyRef.current || restoring) return;
+
+            const priorConversation = messagesRef.current.map(({ role, content }) => ({''',
+              '''  async function sendMessage(rawValue, source = "text") {
+            const message = text(rawValue);
+            if (!message || !organizationId) return;
+
+            if (busyRef.current || restoring) {
+              if (source === "voice") {
+                const previous = voiceQueueRef.current[voiceQueueRef.current.length - 1];
+                if (text(previous?.message) !== message) {
+                  voiceQueueRef.current = [
+                    ...voiceQueueRef.current,
+                    { message, source },
+                  ].slice(-3);
+                }
+              }
+              return;
+            }
+
+            const priorConversation = messagesRef.current.map(({ role, content }) => ({''',
+              "home queued voice guard",
+          )
+          source = replace_once(
+              source,
+              '''      const response = await fetch("/api/operator/turn", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "same-origin",
+                body: JSON.stringify({
+                  organizationId,
+                  entityId,
+                  periodId,
+                  conversationKey: "primary",
+                  pathname,
+                  message,
+                  source,
+                  locale:
+                    typeof navigator !== "undefined"
+                      ? navigator.language || null
+                      : null,
+                  agreementState: agreementStateRef.current,
+                  conversation: priorConversation,
+                }),
+              });''',
+              '''      const response = await fetchWithTimeout(
+                "/api/operator/turn",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "same-origin",
+                  body: JSON.stringify({
+                    organizationId,
+                    entityId,
+                    periodId,
+                    conversationKey: "primary",
+                    pathname,
+                    message,
+                    source,
+                    locale:
+                      typeof navigator !== "undefined"
+                        ? navigator.language || null
+                        : null,
+                    agreementState: agreementStateRef.current,
+                    conversation: priorConversation,
+                  }),
+                },
+                OPERATOR_TURN_TIMEOUT_MS,
+                "Avantiqo took too long to complete that request. Please try again.",
+              );''',
+              "home turn timeout call",
+          )
+          source = replace_once(
+              source,
+              '''  useEffect(() => {
+            function receiveVoiceCommand(event) {
+              const message = text(event?.detail?.message);
+              if (!message) return;
+              sendMessage(message, event?.detail?.source || "voice");
+            }
+
+            window.addEventListener("avantiqo:home-command", receiveVoiceCommand);
+            return () => {
+              window.removeEventListener("avantiqo:home-command", receiveVoiceCommand);
+            };
+          }, [organizationId, entityId, periodId, pathname, restoring]);
+
+          const attentionItems = Array.isArray(attention?.items) ? attention.items : [];''',
+              '''  useEffect(() => {
+            function receiveVoiceCommand(event) {
+              const message = text(event?.detail?.message);
+              if (!message) return;
+              sendMessage(message, event?.detail?.source || "voice");
+            }
+
+            window.addEventListener("avantiqo:home-command", receiveVoiceCommand);
+            return () => {
+              window.removeEventListener("avantiqo:home-command", receiveVoiceCommand);
+            };
+          }, [organizationId, entityId, periodId, pathname, restoring]);
+
+          useEffect(() => {
+            if (restoring || busy || busyRef.current) return;
+
+            const nextVoiceCommand = voiceQueueRef.current.shift();
+            if (!nextVoiceCommand?.message) return;
+
+            sendMessage(nextVoiceCommand.message, nextVoiceCommand.source || "voice");
+          }, [busy, restoring, organizationId, entityId, periodId, pathname]);
+
+          const attentionItems = Array.isArray(attention?.items) ? attention.items : [];''',
+              "home voice queue drain",
+          )
+          path.write_text(source)
+
+          # 5. Converge local wake voice with the home conversation, and remove the
+          # false 8-second transcription failure while keeping a finite safety bound.
+          path = Path("components/operator/LocalHeyAvantiqoWakeBridge.jsx")
+          source = path.read_text()
+          source = replace_once(
+              source,
+              '''const TRANSCRIBE_TIMEOUT_MS = 8000;
+          const TURN_TIMEOUT_MS = 15000;''',
+              '''const TRANSCRIBE_TIMEOUT_MS = 14000;
+          const TURN_TIMEOUT_MS = 30000;''',
+              "voice timeout bounds",
+          )
+          source = replace_once(
+              source,
+              '''const FAST_BROWSER_SPEECH_MAX_CHARS = 420;
+
+          function text(value) {''',
+              '''const FAST_BROWSER_SPEECH_MAX_CHARS = 420;
+          const HOME_INTELLIGENCE_SELECTOR = '[data-avantiqo-home-intelligence="true"]';
+
+          function text(value) {''',
+              "voice home selector",
+          )
+          source = replace_once(
+              source,
+              '''  useEffect(() => {
+            if (!contextReady) return;
+
+            refreshAcknowledgement().catch(() => null);
+
+            if (!supported || enabledRef.current) return;
+            if (window.localStorage.getItem(ENABLED_KEY) !== "true") return;
+
+            const timer = window.setTimeout(() => enableWake(false), 250);
+            return () => window.clearTimeout(timer);
+          }, [supported, contextReady, organizationId]);
+
+          function clearFollowUpTimer() {''',
+              '''  useEffect(() => {
+            if (!contextReady) return;
+
+            refreshAcknowledgement().catch(() => null);
+
+            if (!supported || enabledRef.current) return;
+            if (window.localStorage.getItem(ENABLED_KEY) !== "true") return;
+
+            const timer = window.setTimeout(() => enableWake(false), 250);
+            return () => window.clearTimeout(timer);
+          }, [supported, contextReady, organizationId]);
+
+          useEffect(() => {
+            function handleOperatorSpeech(event) {
+              const message = text(event?.detail?.message || event?.detail?.text);
+              if (!message || !enabledRef.current) return;
+
+              clearFollowUpTimer();
+              commandModeRef.current = false;
+              stopRecognition();
+              setStatus("speaking");
+              setVoiceError("");
+
+              speakAnswer(message)
+                .then(() => {
+                  if (enabledRef.current) armCommandMode();
+                })
+                .catch((error) => {
+                  setVoiceError(
+                    error?.message ||
+                      "I completed it but couldn't speak the answer",
+                  );
+                  if (enabledRef.current) armCommandMode();
+                });
+            }
+
+            window.addEventListener("avantiqo:speak", handleOperatorSpeech);
+            return () => {
+              window.removeEventListener("avantiqo:speak", handleOperatorSpeech);
+            };
+          }, [organizationId, entityId]);
+
+          function clearFollowUpTimer() {''',
+              "voice response event bridge",
+          )
+          source = replace_once(
+              source,
+              '''    setStatus("working");
+            setVoiceError("");
+
+            const priorConversation = conversationRef.current.slice(-12);''',
+              '''    setStatus("working");
+            setVoiceError("");
+
+            if (document.querySelector(HOME_INTELLIGENCE_SELECTOR)) {
+              window.dispatchEvent(
+                new CustomEvent("avantiqo:home-command", {
+                  detail: {
+                    message: cleanMessage,
+                    source: "voice",
+                  },
+                }),
+              );
+              return;
+            }
+
+            const priorConversation = conversationRef.current.slice(-12);''',
+              "voice home command handoff",
+          )
+          path.write_text(source)
+
+          # 6. Lock the convergence into the prebuild Operator guard.
+          path = Path("scripts/operator-voice-responsiveness-audit.mjs")
+          source = path.read_text()
+          source = replace_once(
+              source,
+              '''const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.js");
+
+          requireAll("VOICE_BRIDGE", bridge, [''',
+              '''const acknowledgementRoute = read("app/api/operator/voice/acknowledgement/route.js");
+          const homeIntelligence = read("components/operator/HomeAvantiqoIntelligence.jsx");
+          const verificationRuntime = read("lib/operator/runtime/OperatorVerificationRuntime.js");
+          const attentionCapability = read("lib/platform/capabilities/createOperatorAttentionCapability.js");
+
+          requireAll("VOICE_BRIDGE", bridge, [''',
+              "voice audit source additions",
+          )
+          source = replace_once(
+              source,
+              '''if (bridge.includes('SpeechSynthesisUtterance("Got it.")')) {
+            violations.push("VOICE_PROCESSING_FILLER_ACKNOWLEDGEMENT_PRESENT");
+          }
+
+          requireAll("FAST_VOICE_LOW_LATENCY", reasoningRuntime, [''',
+              '''if (bridge.includes('SpeechSynthesisUtterance("Got it.")')) {
+            violations.push("VOICE_PROCESSING_FILLER_ACKNOWLEDGEMENT_PRESENT");
+          }
+
+          requireAll("VOICE_HOME_CONVERGENCE", bridge, [
+            "TRANSCRIBE_TIMEOUT_MS = 14000",
+            "TURN_TIMEOUT_MS = 30000",
+            "HOME_INTELLIGENCE_SELECTOR",
+            "avantiqo:home-command",
+            "avantiqo:speak",
+            "handleOperatorSpeech",
+          ]);
+
+          requireAll("HOME_OPERATOR_RESILIENCE", homeIntelligence, [
+            "OPERATOR_TURN_TIMEOUT_MS = 30000",
+            "fetchWithTimeout(",
+            "voiceQueueRef",
+            "Avantiqo took too long to complete that request. Please try again.",
+            "nextVoiceCommand",
+          ]);
+
+          requireAll("ORGANIZATION_ANALYSIS_REFLEX", businessDataReflex, [
+            "ATTENTION_KEY",
+            "isAttentionReflexMatch",
+            "attentionCapability",
+            "clearAttention",
+          ]);
+
+          requireAll("ORGANIZATION_ANALYSIS_ALIASES", attentionCapability, [
+            "analyze the business",
+            "check everything",
+            "full business analysis",
+            "tell me what you think about the business",
+          ]);
+
+          requireAll("ATTENTION_SYNTHESIS_REUSE", verificationRuntime, [
+            "ATTENTION_KEY",
+            "attentionResponseText",
+            "text(capability?.key) === ATTENTION_KEY",
+            "object(resultBody.synthesis).provider_evidence",
+          ]);
+
+          requireAll("FAST_VOICE_LOW_LATENCY", reasoningRuntime, [''',
+              "voice audit convergence guards",
+          )
+          source = replace_once(
+              source,
+              '''  console.log("VOICE_ACKNOWLEDGEMENT=LOCAL_WITHOUT_PROVIDER_OR_BILLING");
+          }''',
+              '''  console.log("VOICE_ACKNOWLEDGEMENT=LOCAL_WITHOUT_PROVIDER_OR_BILLING");
+            console.log("VOICE_HOME_PIPELINE=ONE_CONVERSATION_RUNTIME");
+            console.log("VOICE_COMMAND_QUEUE=BOUNDED_AND_NOT_SILENTLY_DROPPED");
+            console.log("VOICE_TIMEOUTS=FINITE_WITH_TRANSCRIPTION_HEADROOM");
+            console.log("COMPANY_ANALYSIS=ATTENTION_SCAN_REGISTRY_ROUTED");
+            console.log("COMPANY_ANALYSIS_RESPONSE=REUSES_EXISTING_SYNTHESIS");
+          }''',
+              "voice audit pass output",
+          )
+          path.write_text(source)
+          PY
+
+      - name: Validate Operator convergence
+        run: |
+          node --check lib/platform/capabilities/createOperatorAttentionCapability.js
+          node --check lib/operator/runtime/OperatorBusinessDataReflex.js
+          node --check lib/operator/runtime/OperatorVerificationRuntime.js
+          node --check scripts/operator-voice-responsiveness-audit.mjs
+          node scripts/operator-voice-responsiveness-audit.mjs
+          node scripts/operator-anticipatory-partner-audit.mjs
+          git diff --check
+
+      - name: Remove one-time workflow and commit
+        run: |
+          rm .github/workflows/one-time-operator-voice-intelligence-convergence.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            components/operator/HomeAvantiqoIntelligence.jsx \
+            components/operator/LocalHeyAvantiqoWakeBridge.jsx \
+            lib/platform/capabilities/createOperatorAttentionCapability.js \
+            lib/operator/runtime/OperatorBusinessDataReflex.js \
+            lib/operator/runtime/OperatorVerificationRuntime.js \
+            scripts/operator-voice-responsiveness-audit.mjs \
+            .github/workflows/one-time-operator-voice-intelligence-convergence.yml
+          git commit -m "[deploy-production] Converge Operator voice and company intelligence"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

@@ -6,8 +6,34 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
+const OPERATOR_TURN_TIMEOUT_MS = 30000;
+
 function text(value) {
   return String(value ?? "").trim();
+}
+
+async function fetchWithTimeout(
+  url,
+  options,
+  timeoutMs,
+  timeoutMessage = "Request timed out",
+) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(timeoutMessage);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 function createMessage(role, content, extra = {}) {
@@ -44,6 +70,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const messagesRef = useRef([]);
   const agreementStateRef = useRef({});
   const busyRef = useRef(false);
+  const voiceQueueRef = useRef([]);
 
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -75,6 +102,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   useEffect(() => {
     if (!organizationId) {
       agreementStateRef.current = {};
+      voiceQueueRef.current = [];
       setProjectState({});
       setAttention(null);
       setMessages([greetingMessage()]);
@@ -194,7 +222,20 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
 
   async function sendMessage(rawValue, source = "text") {
     const message = text(rawValue);
-    if (!message || !organizationId || busyRef.current || restoring) return;
+    if (!message || !organizationId) return;
+
+    if (busyRef.current || restoring) {
+      if (source === "voice") {
+        const previous = voiceQueueRef.current[voiceQueueRef.current.length - 1];
+        if (text(previous?.message) !== message) {
+          voiceQueueRef.current = [
+            ...voiceQueueRef.current,
+            { message, source },
+          ].slice(-3);
+        }
+      }
+      return;
+    }
 
     const priorConversation = messagesRef.current.map(({ role, content }) => ({
       role,
@@ -208,26 +249,31 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     busyRef.current = true;
 
     try {
-      const response = await fetch("/api/operator/turn", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          organizationId,
-          entityId,
-          periodId,
-          conversationKey: "primary",
-          pathname,
-          message,
-          source,
-          locale:
-            typeof navigator !== "undefined"
-              ? navigator.language || null
-              : null,
-          agreementState: agreementStateRef.current,
-          conversation: priorConversation,
-        }),
-      });
+      const response = await fetchWithTimeout(
+        "/api/operator/turn",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            organizationId,
+            entityId,
+            periodId,
+            conversationKey: "primary",
+            pathname,
+            message,
+            source,
+            locale:
+              typeof navigator !== "undefined"
+                ? navigator.language || null
+                : null,
+            agreementState: agreementStateRef.current,
+            conversation: priorConversation,
+          }),
+        },
+        OPERATOR_TURN_TIMEOUT_MS,
+        "Avantiqo took too long to complete that request. Please try again.",
+      );
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success === false) {
@@ -288,6 +334,15 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       window.removeEventListener("avantiqo:home-command", receiveVoiceCommand);
     };
   }, [organizationId, entityId, periodId, pathname, restoring]);
+
+  useEffect(() => {
+    if (restoring || busy || busyRef.current) return;
+
+    const nextVoiceCommand = voiceQueueRef.current.shift();
+    if (!nextVoiceCommand?.message) return;
+
+    sendMessage(nextVoiceCommand.message, nextVoiceCommand.source || "voice");
+  }, [busy, restoring, organizationId, entityId, periodId, pathname]);
 
   const attentionItems = Array.isArray(attention?.items) ? attention.items : [];
 

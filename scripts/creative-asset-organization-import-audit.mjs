@@ -13,6 +13,8 @@ const checks = [
   ["one time token hash", 'asset_import_token_sha256'],
   ["source provenance", 'organization_import_source_asset_id'],
   ["destination project scope", 'targetProject.id'],
+  ["selected project assets only", 'project.metadata?.selected_asset_ids'],
+  ["selected id database filter", 'query = query.in("id", selectedAssetIds)'],
   ["storage copy download", '.download(sourceStorage.storagePath)'],
   ["storage copy upload", '.upload(destinationPath, file'],
   ["token consumption", 'delete nextMetadata.asset_import_token_sha256'],

@@ -7,6 +7,11 @@ import {
   renderAvantiqoInvestorProductProof,
   renderAvantiqoInvestorFinalAct,
 } from "@/lib/creative/post-production/runtime/AvantiqoInvestorSemanticSegmentRuntime";
+import {
+  getAvantiqoInvestorFinalActCheckpointStatus,
+  renderAvantiqoInvestorFinalActBeat,
+  finalizeAvantiqoInvestorFinalAct,
+} from "@/lib/creative/post-production/runtime/AvantiqoInvestorFinalActCheckpointRuntime";
 
 const TOKEN = "avq-investor-semantic-segments-20260820-v1";
 
@@ -44,6 +49,21 @@ export async function GET(request) {
 
     if (action === "render-final-act") {
       return json(await renderAvantiqoInvestorFinalAct({ force }));
+    }
+
+    if (action === "final-act-checkpoint-status") {
+      return json(await getAvantiqoInvestorFinalActCheckpointStatus());
+    }
+
+    if (action === "render-final-act-beat") {
+      return json(await renderAvantiqoInvestorFinalActBeat({
+        index: url.searchParams.get("index"),
+        force,
+      }));
+    }
+
+    if (action === "finalize-final-act") {
+      return json(await finalizeAvantiqoInvestorFinalAct({ force }));
     }
 
     return json({ success: false, error: "Unsupported action" }, 400);

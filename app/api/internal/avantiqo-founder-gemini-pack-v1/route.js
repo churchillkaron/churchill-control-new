@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 import crypto from "node:crypto";
+import "@/lib/platform/service-runtime/providers/gemini/GeminiFounderStatusRecoveryPatch.js";
 
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 import {
@@ -26,40 +27,40 @@ const SLOTS = Object.freeze({
     path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/warm-office.jpg`,
     sha256: "77ff23afbe347f1052f641d07dae75ba01aead4026447c830848d22e0d3550d8",
     name: "Founder Original — Warm Office",
-    description:
-      "Original founder frame in a premium warm office. Preserve the exact adult person, clothing, jewelry, facial geometry, skin texture and environment. Create one continuous natural ten-second performance with restrained hand movement, breathing, blinking and subtle head movement. No loops, no repeated gesture cycle, no speaking animation, no generated text or interface.",
+    prompt:
+      "Use the supplied business photograph as the first frame. Create a natural ten-second cinematic shot. Keep the person's appearance, clothing and office setting consistent with the photograph. Add subtle breathing, one or two natural blinks, a small head movement and one restrained hand movement. Keep the camera steady with a very gentle cinematic push. Do not add text, new people, new objects or repeated motion.",
     purpose: "founder origin and conviction",
   },
   night_office: {
     path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/night-office.jpg`,
     sha256: "d085b294dc2e261fa75d36373175ee87259f13da54f36b125cadf88639d3503c",
     name: "Founder Original — Avantiqo Night Office",
-    description:
-      "Original founder frame in a premium Avantiqo night office. Preserve the exact adult person and all real visual details. Create one uninterrupted ten-second performance with calm breathing, one or two blinks, a subtle weight shift and a restrained hand gesture that evolves once and does not repeat. Keep the mouth relaxed for later lip-sync. No loops, no fake text changes, no new props.",
+    prompt:
+      "Use the supplied night-office photograph as the first frame. Create a natural ten-second cinematic shot. Keep the person's appearance, clothing and office setting consistent. Add calm breathing, natural blinking, a slight weight shift and one small hand gesture. Keep the camera steady and premium. Do not add text, new people, new objects or repeated motion.",
     purpose: "brand authority and strategic expansion",
   },
   restaurant: {
     path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/restaurant.jpg`,
     sha256: "327f3b6718cbe8f3578646845447a91f6cf8682cc269a5b647501c85bb4f83ef",
     name: "Founder Original — Restaurant",
-    description:
-      "Original founder frame inside a real premium restaurant environment. Preserve the exact adult person, identity, clothing, jewelry and background. Create one continuous ten-second natural performance with subtle torso movement, a single evolving hand gesture, breathing, blinking and a small glance before returning to camera. Mouth stays neutral for later lip-sync. Never loop or recycle motion.",
+    prompt:
+      "Use the supplied restaurant photograph as the first frame. Create a natural ten-second cinematic shot. Keep the person's appearance, clothing and restaurant environment consistent. Add subtle breathing, blinking, a small glance and one restrained hand movement. Keep the camera smooth and understated. Do not add text, new people, new objects or repeated motion.",
     purpose: "real business founder story",
   },
   portrait: {
     path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/portrait.jpg`,
     sha256: "6665fb9ee71c3e18d070d9e11f5439640e6fe2eebee916e75cb2fae8963bd94c",
     name: "Founder Original — Portrait",
-    description:
-      "Original founder portrait with folded arms in a premium business environment. Preserve the exact adult person and photographic realism. Create a continuous ten-second contemplative performance with breathing, realistic blinking, tiny eye movement and one subtle posture adjustment. Keep arms naturally composed and mouth relaxed. No talking animation, no loop, no repeated micro-cycle.",
+    prompt:
+      "Use the supplied folded-arms business portrait as the first frame. Create a natural ten-second cinematic shot. Keep the person's appearance, clothing and setting consistent. Add calm breathing, natural blinking, tiny eye movement and one subtle posture adjustment while the arms remain comfortably composed. Keep the camera nearly locked. Do not add text, new people, new objects or repeated motion.",
     purpose: "quiet confidence and governed AI thesis",
   },
   seated_hologram: {
     path: `${ORGANIZATION_ID}/${PROJECT_ID}/founder-originals-v1/seated-hologram.jpg`,
     sha256: "0d57bea3c27980cdb520946b198b10ef1e1e7e400d248609cbb52af5b8dda6ed",
     name: "Founder Original — Seated Hologram",
-    description:
-      "Original founder seated beside the approved Avantiqo holographic interface. Preserve the exact adult person, laptop, table, environment and the existing hologram design exactly as present in the source frame. Create one continuous ten-second performance with a restrained natural hand interaction toward the laptop or hologram, realistic breathing, blinking and slight head movement. Do not redesign, enlarge, full-screen, replace or regenerate the hologram. No loop and no repeated gesture.",
+    prompt:
+      "Use the supplied seated business photograph as the first frame. Create a natural ten-second cinematic shot. Keep the person's appearance, laptop, table, room and existing interface display consistent with the photograph. Add subtle breathing, blinking, slight head movement and one small natural hand movement toward the laptop. Keep the camera smooth and restrained. Do not add text, new people, new objects or redesign the existing display.",
     purpose: "spatial intelligence hero moment",
   },
 });
@@ -123,7 +124,7 @@ async function registerSource(slot) {
     status: "IMPORTED",
     title: slot.name,
     name: slot.name,
-    description: slot.description,
+    description: slot.prompt,
     uri: storageReference(slot.path),
     url: storageReference(slot.path),
     storage_path: slot.path,
@@ -168,33 +169,11 @@ async function registerSource(slot) {
 function founderShot(slot, assetId) {
   return {
     title: `${slot.name} — Gemini 10s Motion Take`,
-    description: slot.description,
+    description: slot.prompt,
+    provider_prompt: slot.prompt,
     intent: {
       story_purpose: slot.purpose,
       emotional_tone: "calm, intelligent, grounded, cinematic, premium",
-    },
-    requirements: {
-      identity_preservation: "absolute continuity with the supplied original founder frame",
-      duration_policy: "one continuous ten-second performance",
-      loop_policy: "forbidden",
-      mouth_policy: "relaxed natural mouth; final Cedar speech will be lip-synced later",
-      motion_policy: "one evolving non-repeating performance, no cyclic gesture reuse",
-      negative_constraints: [
-        "identity drift",
-        "lookalike substitution",
-        "face reinterpretation",
-        "beauty filter",
-        "waxy skin",
-        "synthetic spokesperson",
-        "repeated gesture",
-        "looped motion",
-        "jump cut",
-        "talking mouth",
-        "fake teeth",
-        "generated captions",
-        "generated UI",
-        "new logo",
-      ],
     },
     output_spec: {
       duration_seconds: DURATION_SECONDS,

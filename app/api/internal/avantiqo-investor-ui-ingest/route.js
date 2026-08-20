@@ -12,6 +12,8 @@ import {
 
 const TOKEN_SHA256 = "b01a390b5221135fdc7a68fa22af5404438c020d97cde0339b64bbbb69abd50c";
 const MAX_BOOTSTRAP_BYTES = 300 * 1024;
+const MAX_PACK_BYTES = 600 * 1024;
+const MAX_PACK_ITEMS = 6;
 
 function json(data, status = 200) {
   return Response.json(data, {
@@ -54,11 +56,11 @@ function parseCrop(form) {
   return values;
 }
 
-function decodeBase64Url(value) {
+function decodeBase64Url(value, maxBytes = MAX_BOOTSTRAP_BYTES) {
   const normalized = text(value).replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
   const bytes = Buffer.from(padded, "base64");
-  if (!bytes.length || bytes.length > MAX_BOOTSTRAP_BYTES) {
+  if (!bytes.length || bytes.length > maxBytes) {
     throw new Error("INVESTOR_UI_BOOTSTRAP_PAYLOAD_INVALID");
   }
   return bytes;
@@ -72,6 +74,20 @@ function bootstrapFile(bytes, slot) {
       return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     },
   };
+}
+
+async function ingestBootstrapItem(item) {
+  const slot = text(item?.slot);
+  const encoded = text(item?.data);
+  if (!slot) throw new Error("INVESTOR_UI_SLOT_REQUIRED");
+  if (!encoded) throw new Error(`INVESTOR_UI_DATA_REQUIRED:${slot}`);
+  const bytes = decodeBase64Url(encoded);
+  return ingestAvantiqoInvestorUiFrame({
+    slot,
+    file: bootstrapFile(bytes, slot),
+    crop: null,
+    approvedBy: "user",
+  });
 }
 
 export async function GET(request) {
@@ -97,18 +113,32 @@ export async function GET(request) {
     }
 
     if (action === "bootstrap") {
-      const slot = text(url.searchParams.get("slot"));
-      const encoded = text(url.searchParams.get("data"));
-      if (!slot) return json({ success: false, error: "slot required" }, 400);
-      if (!encoded) return json({ success: false, error: "data required" }, 400);
-      const bytes = decodeBase64Url(encoded);
-      const result = await ingestAvantiqoInvestorUiFrame({
-        slot,
-        file: bootstrapFile(bytes, slot),
-        crop: null,
-        approvedBy: "user",
+      const result = await ingestBootstrapItem({
+        slot: url.searchParams.get("slot"),
+        data: url.searchParams.get("data"),
       });
       return json({ ...result, bootstrap_transfer: true });
+    }
+
+    if (action === "bootstrap-pack") {
+      const encoded = text(url.searchParams.get("pack"));
+      if (!encoded) return json({ success: false, error: "pack required" }, 400);
+      const packBytes = decodeBase64Url(encoded, MAX_PACK_BYTES);
+      const pack = JSON.parse(packBytes.toString("utf8"));
+      const items = Array.isArray(pack?.items) ? pack.items : [];
+      if (!items.length || items.length > MAX_PACK_ITEMS) {
+        return json({ success: false, error: "pack items invalid" }, 400);
+      }
+      const results = [];
+      for (const item of items) {
+        results.push(await ingestBootstrapItem(item));
+      }
+      return json({
+        success: true,
+        bootstrap_pack_transfer: true,
+        item_count: results.length,
+        results,
+      });
     }
 
     return json({ success: false, error: "Unsupported action" }, 400);

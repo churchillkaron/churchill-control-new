@@ -6,6 +6,9 @@ import crypto from "node:crypto";
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
+  requireOrganizationAccess,
+} from "@/lib/platform/security/requireOrganizationAccess";
+import {
   creativeStorageUri,
 } from "@/lib/creative/assets/storage/CreativePrivateStorageRuntime";
 import {
@@ -58,26 +61,35 @@ async function getProject(projectId, organizationId) {
   return data;
 }
 
-function authorize(project, suppliedToken) {
+function authorizeOperatorToken(project, suppliedToken) {
   const operator = object(
     project.metadata?.approved_direction_resume?.operator_execution,
   );
-  if (!suppliedToken || !operator.token_sha256) {
-    throw new Error("CREATIVE_OPERATOR_TOKEN_REQUIRED");
-  }
-  if (operator.consumed === true) {
-    throw new Error("CREATIVE_OPERATOR_TOKEN_CONSUMED");
-  }
+  if (!suppliedToken || !operator.token_sha256) return false;
+  if (operator.consumed === true) return false;
   if (
     operator.expires_at &&
     Number.isFinite(Date.parse(operator.expires_at)) &&
     Date.parse(operator.expires_at) <= Date.now()
   ) {
-    throw new Error("CREATIVE_OPERATOR_TOKEN_EXPIRED");
+    return false;
   }
-  if (!safeEqual(tokenHash(suppliedToken), operator.token_sha256)) {
-    throw new Error("CREATIVE_OPERATOR_TOKEN_INVALID");
+  return safeEqual(tokenHash(suppliedToken), operator.token_sha256);
+}
+
+async function requireAuthorizedCaller({ request, project, organizationId, token }) {
+  const access = await requireOrganizationAccess({
+    organizationId,
+    request,
+    requiredPermission: "creative.media.analyse",
+  });
+  if (access.success) return { mode: "ORGANIZATION_SESSION", access };
+  if (authorizeOperatorToken(project, token)) {
+    return { mode: "PROJECT_SCOPED_OPERATOR_TOKEN", access: null };
   }
+  const error = new Error("CREATIVE_APPROVED_DIRECTION_OPERATOR_UNAUTHORIZED");
+  error.status = access.status || 403;
+  throw error;
 }
 
 async function persistInspection(project, inspection) {
@@ -145,7 +157,12 @@ export async function GET(request) {
     }
 
     const project = await getProject(projectId, organizationId);
-    authorize(project, token);
+    const caller = await requireAuthorizedCaller({
+      request,
+      project,
+      organizationId,
+      token,
+    });
 
     if (action === "inspect") {
       const resume = object(project.metadata?.approved_direction_resume);
@@ -194,6 +211,7 @@ export async function GET(request) {
       return Response.json({
         success: true,
         action,
+        authorization_mode: caller.mode,
         organization_id: organizationId,
         creative_project_id: projectId,
         results,
@@ -205,7 +223,12 @@ export async function GET(request) {
         organization_id: organizationId,
         creative_project_id: projectId,
       });
-      return Response.json({ success: true, action, result });
+      return Response.json({
+        success: true,
+        action,
+        authorization_mode: caller.mode,
+        result,
+      });
     }
 
     if (action === "render") {
@@ -219,8 +242,16 @@ export async function GET(request) {
         mode,
         force,
       });
-      await consumeToken(project);
-      return Response.json({ success: true, action, mode, result });
+      if (caller.mode === "PROJECT_SCOPED_OPERATOR_TOKEN") {
+        await consumeToken(project);
+      }
+      return Response.json({
+        success: true,
+        action,
+        authorization_mode: caller.mode,
+        mode,
+        result,
+      });
     }
 
     return Response.json({
@@ -235,6 +266,6 @@ export async function GET(request) {
     return Response.json({
       success: false,
       error: error?.message || String(error),
-    }, { status: 500 });
+    }, { status: error?.status || 500 });
   }
 }

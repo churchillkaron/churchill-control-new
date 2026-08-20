@@ -15,6 +15,7 @@ const TOKEN = "avq-investor-lipsync-20260819-v1";
 const BUCKET = "creative-assets";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const OUTPUT_DIR = `${ORGANIZATION_ID}/avantiqo-investor-film-20260820/founder-v7`;
+const REACT_MODEL = "fal-ai/sync-lipsync/react-1";
 
 const APPROVED_FOUNDER_MOTION_PATH = `${ORGANIZATION_ID}/unassigned/eaa7edd6-7a62-4ca2-9eac-dfb14059e649-gemini-founder-rgro0za2hzes.mp4`;
 const APPROVED_FOUNDER_MOTION_SHA256 = "78b995566a564e7801f0a240a522ae5a02163680006b857bb091572182b121a1";
@@ -94,12 +95,10 @@ function run(command, args, timeoutMs = 120000) {
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code !== 0) {
-        reject(
-          new Error(
-            Buffer.concat(stderr).toString("utf8").slice(-8000) ||
-              `FFMPEG_EXIT_${code}`,
-          ),
-        );
+        reject(new Error(
+          Buffer.concat(stderr).toString("utf8").slice(-8000) ||
+          `FFMPEG_EXIT_${code}`,
+        ));
         return;
       }
       resolve(true);
@@ -263,6 +262,9 @@ export async function GET(request) {
       return json({
         success: true,
         lip_sync_enabled: true,
+        provider: REACT_MODEL,
+        model_mode: "head",
+        temperature: 0.65,
         identity_source: "APPROVED_GEMINI_MOTION_ONLY",
         approved_founder_motion_path: APPROVED_FOUNDER_MOTION_PATH,
         approved_founder_motion_sha256: APPROVED_FOUNDER_MOTION_SHA256,
@@ -292,6 +294,10 @@ export async function GET(request) {
         video_url: prepared.source_url,
         audio_url: prepared.audio_url,
         sync_mode: "cut_off",
+        model: REACT_MODEL,
+        model_mode: "head",
+        prompt: "neutral",
+        temperature: 0.65,
       });
 
       let saved = null;
@@ -308,6 +314,8 @@ export async function GET(request) {
         request_id: result.request_id,
         pending: result.pending,
         provider: result.model,
+        model_mode: "head",
+        temperature: 0.65,
         prepared: {
           source_path: prepared.source_path,
           audio_path: prepared.audio_path,
@@ -322,7 +330,10 @@ export async function GET(request) {
         return json({ success: false, error: "request_id required" }, 400);
       }
 
-      const result = await FalLipSyncProvider.poll({ request_id: requestId });
+      const result = await FalLipSyncProvider.poll({
+        request_id: requestId,
+        model: REACT_MODEL,
+      });
       let saved = null;
       if (!result.pending && result.output_url) {
         saved = await saveProviderOutput(key, result.output_url);
@@ -335,6 +346,7 @@ export async function GET(request) {
         pending: result.pending,
         status: result.status,
         request_id: result.request_id,
+        provider: result.model,
         saved,
       });
     }

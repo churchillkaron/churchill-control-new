@@ -14,7 +14,7 @@ import { FalLipSyncProvider } from "@/lib/platform/service-runtime/providers/fal
 const TOKEN = "avq-investor-lipsync-20260819-v1";
 const BUCKET = "creative-assets";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
-const OUTPUT_DIR = `${ORGANIZATION_ID}/avantiqo-investor-film-20260820/founder-v6`;
+const OUTPUT_DIR = `${ORGANIZATION_ID}/avantiqo-investor-film-20260820/founder-v7`;
 
 const APPROVED_FOUNDER_MOTION_PATH = `${ORGANIZATION_ID}/unassigned/eaa7edd6-7a62-4ca2-9eac-dfb14059e649-gemini-founder-rgro0za2hzes.mp4`;
 const APPROVED_FOUNDER_MOTION_SHA256 = "78b995566a564e7801f0a240a522ae5a02163680006b857bb091572182b121a1";
@@ -25,32 +25,45 @@ const REJECTED_LEGACY_FOUNDER_ASSET_ID = "052e10e2-432e-4cf9-82bd-65cb5bb7441a";
 const NARRATION_PATH = `${ORGANIZATION_ID}/avantiqo-investor-video-20260818/avantiqo-investor-narration-cedar-v5-founder-locked-229.5s.mp3`;
 const NARRATION_DURATION_SECONDS = 229.5;
 
-// Opening boundaries are deliberately sentence/paragraph sized and will be
-// replaced by exact word-level timestamp boundaries before final release.
 const SEGMENTS = Object.freeze({
-  opening01: {
+  "founder-opening-origin": {
     audio_start: 0,
-    audio_end: 6.8,
-    duration: 6.8,
-    purpose: "I didn't build Avantiqo because I wanted to create another software company.",
+    audio_end: 11.391,
+    duration: 11.391,
+    purpose:
+      "I didn’t build Avantiqo because I wanted to create another software company. I built it because running real businesses showed me the same problem again and again.",
   },
-  opening02: {
-    audio_start: 6.8,
-    audio_end: 23.4,
-    duration: 16.6,
-    purpose: "Founder explains the disconnected-system problem from operating real businesses.",
-  },
-  opening03: {
-    audio_start: 23.4,
-    audio_end: 27.4,
-    duration: 4.0,
+  "founder-opening-obvious": {
+    audio_start: 28.266,
+    audio_end: 30.375,
+    duration: 2.109,
     purpose: "That made one thing obvious.",
   },
-  opening04: {
-    audio_start: 27.4,
-    audio_end: 34.6,
-    duration: 7.2,
-    purpose: "The business should not have to explain itself to its software. The software should understand the business.",
+  "founder-opening-built": {
+    audio_start: 37.547,
+    audio_end: 40.078,
+    duration: 2.531,
+    purpose: "That is why I built Avantiqo.",
+  },
+  "founder-mid-integration": {
+    audio_start: 136.266,
+    audio_end: 140.062,
+    duration: 3.796,
+    purpose: "And the important part is what happens between them.",
+  },
+  "founder-mid-ai": {
+    audio_start: 177.188,
+    audio_end: 183.516,
+    duration: 6.328,
+    purpose:
+      "This becomes even more important as AI moves from answering questions to coordinating real work.",
+  },
+  "founder-close": {
+    audio_start: 219.375,
+    audio_end: 226.125,
+    duration: 6.75,
+    purpose:
+      "We are not building another business application. We are building the system businesses will operate through.",
   },
 });
 
@@ -152,8 +165,6 @@ async function prepareSource(key, segment) {
       download(NARRATION_PATH, narration),
     ]);
 
-    // Loop only the already-approved Gemini identity motion. Never synthesize
-    // a new face here and never fall back to the rejected generated still.
     await run(ffmpeg, [
       "-y",
       "-stream_loop", "-1",
@@ -174,16 +185,11 @@ async function prepareSource(key, segment) {
       source,
     ]);
 
-    const audioDuration = Math.max(
-      0.1,
-      segment.audio_end - segment.audio_start,
-    );
-
     await run(ffmpeg, [
       "-y",
       "-ss", String(segment.audio_start),
       "-i", narration,
-      "-t", String(audioDuration),
+      "-t", String(segment.duration),
       "-vn",
       "-ac", "1",
       "-ar", "48000",
@@ -204,9 +210,7 @@ async function prepareSource(key, segment) {
       audio_url: await signedUrl(audioPath),
     };
   } finally {
-    await fs
-      .rm(directory, { recursive: true, force: true })
-      .catch(() => {});
+    await fs.rm(directory, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -217,8 +221,7 @@ async function saveProviderOutput(key, url) {
   }
 
   const bytes = Buffer.from(await response.arrayBuffer());
-  const storagePath = `${OUTPUT_DIR}/${key}-synced-approved-v6.mp4`;
-
+  const storagePath = `${OUTPUT_DIR}/${key}-synced-approved-v7.mp4`;
   const { error } = await supabaseAdmin.storage
     .from(BUCKET)
     .upload(storagePath, bytes, {
@@ -243,13 +246,13 @@ export async function GET(request) {
     }
 
     const action = url.searchParams.get("action") || "status";
-    const key = url.searchParams.get("key") || "opening01";
+    const key = url.searchParams.get("key") || "founder-opening-origin";
     const segment = SEGMENTS[key];
 
     if (action === "status") {
       const outputs = {};
       for (const name of Object.keys(SEGMENTS)) {
-        const outputPath = `${OUTPUT_DIR}/${name}-synced-approved-v6.mp4`;
+        const outputPath = `${OUTPUT_DIR}/${name}-synced-approved-v7.mp4`;
         outputs[name] = {
           ready: await exists(outputPath),
           output_path: outputPath,
@@ -269,16 +272,14 @@ export async function GET(request) {
         legacy_founder_allowed: false,
         narration_path: NARRATION_PATH,
         narration_duration_seconds: NARRATION_DURATION_SECONDS,
-        timestamp_precision: "PROVISIONAL_SENTENCE_BOUNDARIES_PENDING_WORD_TIMESTAMPS",
+        timestamp_precision: "LOCKED_CEDAR_V5_SEMANTIC_EDIT_BOUNDARIES",
+        segments: SEGMENTS,
         outputs,
       });
     }
 
     if (!segment) {
-      return json(
-        { success: false, error: "UNKNOWN_FOUNDER_SEGMENT" },
-        400,
-      );
+      return json({ success: false, error: "UNKNOWN_FOUNDER_SEGMENT" }, 400);
     }
 
     if (action === "start") {

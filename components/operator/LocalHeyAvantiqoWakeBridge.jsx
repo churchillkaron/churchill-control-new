@@ -22,12 +22,12 @@ const MAX_WAKE_MS = 2800;
 const MAX_COMMAND_MS = 15000;
 const WAKE_COOLDOWN_MS = 2200;
 const FOLLOW_UP_WINDOW_MS = 15000;
-const TRANSCRIBE_TIMEOUT_MS = 8000;
-const TURN_TIMEOUT_MS = 15000;
-const SPEECH_TIMEOUT_MS = 12000;
+const TRANSCRIBE_TIMEOUT_MS = 14000;
+const TURN_TIMEOUT_MS = 30000;
 const ACK_REFRESH_TIMEOUT_MS = 6000;
 const NATIVE_INTERIM_COMMIT_MS = 350;
 const FAST_BROWSER_SPEECH_MAX_CHARS = 420;
+const HOME_INTELLIGENCE_SELECTOR = '[data-avantiqo-home-intelligence="true"]';
 
 function text(value) {
   return String(value ?? "").trim();
@@ -56,7 +56,12 @@ function speechRecognitionCtor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
-async function fetchWithTimeout(url, options, timeout, timeoutMessage = "Request timed out") {
+async function fetchWithTimeout(
+  url,
+  options,
+  timeout,
+  timeoutMessage = "Request timed out",
+) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeout);
 
@@ -97,10 +102,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const templateRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
-  const playbackRef = useRef(null);
   const followUpTimerRef = useRef(null);
-  const conversationRef = useRef([]);
-  const agreementStateRef = useRef({});
   const acknowledgementRef = useRef("");
   const acknowledgementRefreshingRef = useRef(false);
   const recognitionRef = useRef(null);
@@ -111,6 +113,8 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const noiseFloorRef = useRef(0.012);
   const speechOnsetRef = useRef(0);
   const onsetFramesRef = useRef([]);
+  const directConversationRef = useRef([]);
+  const directAgreementRef = useRef({});
 
   const [supported, setSupported] = useState(true);
   const [enabled, setEnabled] = useState(false);
@@ -123,7 +127,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     text(businessContext?.organization?.id) ||
     routeOrganizationId(params) ||
     null;
-
   const organizationName = text(businessContext?.organization?.name) || null;
   const entityId =
     text(businessContext?.entity_id) ||
@@ -133,7 +136,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     text(businessContext?.period_id) ||
     text(businessContext?.period?.id) ||
     null;
-
   const contextReady = Boolean(organizationId);
 
   useEffect(() => {
@@ -142,7 +144,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
       typeof MediaRecorder !== "undefined" &&
       (window.AudioContext || window.webkitAudioContext),
     );
-
     setSupported(canUse);
 
     try {
@@ -151,10 +152,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
       );
       templateRef.current =
         Number(storedTemplate?.version) === 2 ? storedTemplate : null;
-
-      acknowledgementRef.current = text(
-        window.localStorage.getItem(ACK_KEY),
-      );
+      acknowledgementRef.current = text(window.localStorage.getItem(ACK_KEY));
     } catch {
       templateRef.current = null;
       acknowledgementRef.current = "";
@@ -167,13 +165,36 @@ export default function LocalHeyAvantiqoWakeBridge() {
     if (!contextReady) return;
 
     refreshAcknowledgement().catch(() => null);
-
     if (!supported || enabledRef.current) return;
     if (window.localStorage.getItem(ENABLED_KEY) !== "true") return;
 
     const timer = window.setTimeout(() => enableWake(false), 250);
     return () => window.clearTimeout(timer);
   }, [supported, contextReady, organizationId]);
+
+  useEffect(() => {
+    function handleOperatorSpeech(event) {
+      const message = text(event?.detail?.message || event?.detail?.text);
+      if (!message || !enabledRef.current) return;
+
+      clearFollowUpTimer();
+      commandModeRef.current = false;
+      stopRecognition();
+      setVoiceError("");
+
+      speakAnswer(message)
+        .then(() => {
+          if (enabledRef.current) armCommandMode();
+        })
+        .catch((error) => {
+          setVoiceError(error?.message || "I completed it but couldn't speak the answer");
+          if (enabledRef.current) armCommandMode();
+        });
+    }
+
+    window.addEventListener("avantiqo:speak", handleOperatorSpeech);
+    return () => window.removeEventListener("avantiqo:speak", handleOperatorSpeech);
+  }, [organizationId, entityId]);
 
   function clearFollowUpTimer() {
     if (!followUpTimerRef.current) return;
@@ -192,30 +213,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
     recognitionRef.current = null;
     recognitionActiveRef.current = false;
     recognitionHandledRef.current = false;
-
     if (!recognition) return;
 
     try {
       recognition.abort();
     } catch {}
-  }
-
-  function armCommandMode() {
-    if (!enabledRef.current) return;
-
-    clearFollowUpTimer();
-    commandModeRef.current = true;
-    setStatus("listening-command");
-
-    if (!startNativeRecognition()) {
-      recognitionActiveRef.current = false;
-    }
-
-    followUpTimerRef.current = window.setTimeout(() => {
-      commandModeRef.current = false;
-      stopRecognition();
-      if (enabledRef.current) setStatus("listening");
-    }, FOLLOW_UP_WINDOW_MS);
   }
 
   function stopRecorder() {
@@ -228,18 +230,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     }
   }
 
-  function stopPlayback() {
-    const playback = playbackRef.current;
-    playbackRef.current = null;
-    if (!playback) return;
-
-    try {
-      playback.pause();
-      playback.removeAttribute("src");
-      playback.load();
-    } catch {}
-  }
-
   function stopAll() {
     enabledRef.current = false;
     speakingRef.current = false;
@@ -250,9 +240,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
-
     stopRecorder();
-    stopPlayback();
 
     for (const track of streamRef.current?.getTracks?.() || []) track.stop();
     streamRef.current = null;
@@ -267,7 +255,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
   async function refreshAcknowledgement() {
     if (!organizationId || acknowledgementRefreshingRef.current) return;
-
     acknowledgementRefreshingRef.current = true;
 
     try {
@@ -294,7 +281,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
       const acknowledgement = text(result?.acknowledgement);
       if (!acknowledgement) return;
-
       acknowledgementRef.current = acknowledgement;
       window.localStorage.setItem(ACK_KEY, acknowledgement);
     } catch (error) {
@@ -310,13 +296,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
       return false;
     }
 
-    return await new Promise((resolve) => {
+    return new Promise((resolve) => {
       let settled = false;
-      let timeoutId = null;
+      let timer = null;
       const finish = (value) => {
         if (settled) return;
         settled = true;
-        if (timeoutId) window.clearTimeout(timeoutId);
+        if (timer) window.clearTimeout(timer);
         resolve(value);
       };
 
@@ -336,98 +322,27 @@ export default function LocalHeyAvantiqoWakeBridge() {
         finish(false);
       }
 
-      const estimatedSpeechMs = Math.max(
+      const duration = Math.max(
         4000,
         Math.min(20000, clean.split(/\s+/).filter(Boolean).length * 520),
       );
-      timeoutId = window.setTimeout(() => finish(false), estimatedSpeechMs);
+      timer = window.setTimeout(() => finish(false), duration);
     });
   }
 
-  async function fetchSpeech(message) {
-    const response = await fetchWithTimeout(
-      "/api/operator/speak",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          organizationId,
-          entityId,
-          text: message,
-          locale: navigator.language || "en-US",
-        }),
-      },
-      SPEECH_TIMEOUT_MS,
-      "Voice generation timed out",
-    );
-
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({}));
-      throw new Error(result?.error || "Voice generation failed");
-    }
-
-    const blob = await response.blob();
-    if (!blob.size) throw new Error("Voice generation returned no audio");
-    return blob;
-  }
-
-  async function playAudioBlob(blob) {
-    const url = URL.createObjectURL(blob);
-
-    try {
-      await new Promise((resolve, reject) => {
-        const audio = new Audio();
-        playbackRef.current = audio;
-        audio.preload = "auto";
-        audio.volume = 1;
-        audio.onplaying = () => setStatus("speaking");
-        audio.onended = resolve;
-        audio.onerror = () => reject(new Error("Safari could not play Avantiqo voice"));
-        audio.src = url;
-        audio.load();
-        audio.play()?.catch?.(reject);
-      });
-    } finally {
-      playbackRef.current = null;
-      URL.revokeObjectURL(url);
-    }
-  }
-
   async function speakAnswer(message) {
-    speakingRef.current = true;
-    setVoiceError("");
-    stopRecognition();
-
-    try {
-      setStatus("speaking");
-      if (text(message).length <= FAST_BROWSER_SPEECH_MAX_CHARS) {
-        const spoken = await speakBrowser(message);
-        if (spoken) return;
-      }
-
-      const blob = await fetchSpeech(message);
-      await playAudioBlob(blob);
-    } catch (error) {
-      const spoken = await speakBrowser(message);
-      if (!spoken) throw error;
-    } finally {
-      speakingRef.current = false;
-      inSpeechRef.current = false;
-      featureFramesRef.current = [];
-      lastSoundRef.current = Date.now();
-    }
-  }
-
-  async function speakRecovery() {
     speakingRef.current = true;
     stopRecognition();
     setStatus("speaking");
 
     try {
-      return await speakBrowser(
-        "I couldn't answer that just now. Please try again.",
-      );
+      if (text(message).length <= FAST_BROWSER_SPEECH_MAX_CHARS) {
+        const spoken = await speakBrowser(message);
+        if (spoken) return;
+      }
+
+      const spoken = await speakBrowser(message);
+      if (!spoken) throw new Error("Browser voice playback failed");
     } finally {
       speakingRef.current = false;
       inSpeechRef.current = false;
@@ -447,10 +362,8 @@ export default function LocalHeyAvantiqoWakeBridge() {
     speakingRef.current = true;
     setVoiceError("");
 
-    const acknowledgement = acknowledgementRef.current || "I'm here.";
-
     try {
-      await speakBrowser(acknowledgement);
+      await speakBrowser(acknowledgementRef.current || "I'm here.");
     } finally {
       speakingRef.current = false;
       inSpeechRef.current = false;
@@ -499,8 +412,20 @@ export default function LocalHeyAvantiqoWakeBridge() {
     setStatus("working");
     setVoiceError("");
 
-    const priorConversation = conversationRef.current.slice(-12);
-    conversationRef.current = [
+    if (document.querySelector(HOME_INTELLIGENCE_SELECTOR)) {
+      window.dispatchEvent(
+        new CustomEvent("avantiqo:home-command", {
+          detail: {
+            message: cleanMessage,
+            source: "voice",
+          },
+        }),
+      );
+      return;
+    }
+
+    const priorConversation = directConversationRef.current.slice(-12);
+    directConversationRef.current = [
       ...priorConversation,
       { role: "user", content: cleanMessage },
     ];
@@ -521,7 +446,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
             message: cleanMessage,
             source: "voice",
             locale: navigator.language || "en-US",
-            agreementState: agreementStateRef.current,
+            agreementState: directAgreementRef.current,
             conversation: priorConversation,
           }),
         },
@@ -536,35 +461,24 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
       const decision = result?.decision || {};
       const answer = text(decision?.response_text) || "Done.";
-
-      agreementStateRef.current =
+      directAgreementRef.current =
         result?.agreement_state ||
         decision?.agreement_state ||
-        agreementStateRef.current;
-
-      conversationRef.current = [
-        ...conversationRef.current,
+        directAgreementRef.current;
+      directConversationRef.current = [
+        ...directConversationRef.current,
         { role: "assistant", content: answer },
       ].slice(-12);
 
       if (result?.navigation?.href) router.push(result.navigation.href);
-
-      await speakAnswer(answer).catch((error) => {
-        setVoiceError(error?.message || "I completed it but couldn't speak the answer");
-      });
-
+      await speakAnswer(answer);
       if (enabledRef.current) armCommandMode();
     } catch (error) {
       const failureDetail = error?.message || "Voice request failed";
       console.error("AVANTIQO_VOICE_COMMAND_ERROR", failureDetail);
       setVoiceError(failureDetail);
-
-      const recoveredByVoice = await speakRecovery().catch(() => false);
-      if (enabledRef.current) {
-        armCommandMode();
-      } else {
-        setStatus(recoveredByVoice ? "off" : "voice-error");
-      }
+      await speakBrowser("I couldn't answer that just now. Please try again.").catch(() => false);
+      if (enabledRef.current) armCommandMode();
     }
   }
 
@@ -579,7 +493,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
       recognitionRef.current = recognition;
       recognitionActiveRef.current = true;
       recognitionHandledRef.current = false;
-
       recognition.lang = navigator.language || "en-US";
       recognition.continuous = false;
       recognition.interimResults = true;
@@ -622,7 +535,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
           recognitionHandledRef.current = true;
           recognitionActiveRef.current = false;
-          recognitionCommitTimerRef.current = null;
           recognitionInterimRef.current = "";
           commandModeRef.current = false;
           clearFollowUpTimer();
@@ -649,16 +561,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
       recognition.onerror = (event) => {
         recognitionActiveRef.current = false;
-
         if (["aborted", "no-speech"].includes(text(event?.error))) return;
-
         console.warn("AVANTIQO_NATIVE_RECOGNITION_ERROR", event?.error);
       };
 
       recognition.onend = () => {
         recognitionActiveRef.current = false;
         recognitionRef.current = null;
-
         if (
           enabledRef.current &&
           commandModeRef.current &&
@@ -679,17 +588,26 @@ export default function LocalHeyAvantiqoWakeBridge() {
     }
   }
 
-  function startCommandRecorder() {
-    if (
-      recognitionActiveRef.current ||
-      !streamRef.current ||
-      recorderRef.current
-    ) {
-      return;
-    }
+  function armCommandMode() {
+    if (!enabledRef.current) return;
 
     clearFollowUpTimer();
+    commandModeRef.current = true;
+    setStatus("listening-command");
 
+    if (!startNativeRecognition()) recognitionActiveRef.current = false;
+
+    followUpTimerRef.current = window.setTimeout(() => {
+      commandModeRef.current = false;
+      stopRecognition();
+      if (enabledRef.current) setStatus("listening");
+    }, FOLLOW_UP_WINDOW_MS);
+  }
+
+  function startCommandRecorder() {
+    if (recognitionActiveRef.current || !streamRef.current || recorderRef.current) return;
+
+    clearFollowUpTimer();
     const mime = preferredMime();
     const recorder = mime
       ? new MediaRecorder(streamRef.current, { mimeType: mime })
@@ -699,7 +617,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     recorder.ondataavailable = (event) => {
       if (event.data?.size) chunksRef.current.push(event.data);
     };
-
     recorderRef.current = recorder;
     recorder.start(100);
   }
@@ -724,17 +641,16 @@ export default function LocalHeyAvantiqoWakeBridge() {
       const blob = new Blob(chunks, {
         type: recorder.mimeType || preferredMime() || "audio/webm",
       });
-
       setStatus("understanding");
       setVoiceError("");
 
       try {
         const transcript = await transcribe(blob);
         if (transcript) await runVoiceCommand(transcript);
-        else setStatus("listening");
+        else if (enabledRef.current) setStatus("listening");
       } catch (error) {
         setVoiceError(error?.message || "I couldn't understand that");
-        setStatus("listening");
+        if (enabledRef.current) armCommandMode();
       }
     };
 
@@ -749,7 +665,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
         ...enrollmentRef.current,
         { frames, duration_ms: durationMs },
       ];
-
       const count = enrollmentRef.current.length;
       setEnrollmentCount(count);
 
@@ -777,16 +692,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
     }
 
     const match = scoreWakeCandidate(frames, template, durationMs);
-    if (!match.matched) return;
-
-    await acknowledge();
+    if (match.matched) await acknowledge();
   }
 
   function monitor() {
     if (!enabledRef.current || !analyserRef.current) return;
 
     const analyser = analyserRef.current;
-
     if (speakingRef.current) {
       frameRef.current = requestAnimationFrame(monitor);
       return;
@@ -919,11 +831,9 @@ export default function LocalHeyAvantiqoWakeBridge() {
       setEnabled(true);
 
       if (persist) window.localStorage.setItem(ENABLED_KEY, "true");
-
       const hasTemplate = Number(templateRef.current?.version) === 2;
       setStatus(hasTemplate ? "listening" : "enrolling");
       monitor();
-
       refreshAcknowledgement().catch(() => null);
     } catch (error) {
       setVoiceError(error?.message || "Microphone access failed");

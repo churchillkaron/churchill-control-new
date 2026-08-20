@@ -9,61 +9,77 @@ import {
   settlePendingService,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import {
+  ensureAvantiqoFounderCanonicalReference,
+  AvantiqoFounderCanonicalReferenceRuntime,
+} from "@/lib/creative/post-production/runtime/AvantiqoFounderCanonicalReferenceRuntime";
 
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const ENTITY_ID = "073dc5f5-b6a8-4cae-8cda-fd7acb21ef50";
 const TOKEN = "avq-founder-gemini-v1-20260819";
-const SOURCE = "avantiqo_founder_gemini_identity_proof_20260819_v1";
-const FOUNDER_ASSET_ID = "052e10e2-432e-4cf9-82bd-65cb5bb7441a";
+const SOURCE = "avantiqo_founder_gemini_identity_proof_20260820_v2";
 const PROVIDER = "gemini";
 const MODEL = "gemini-omni-flash-preview";
 const DURATION_SECONDS = 5;
+const REVIEW_TASK_ID = "avantiqo-founder-canonical-reference-user-approved-20260820";
 
-const SHOT = Object.freeze({
-  title: "Avantiqo Founder — Gemini Identity Proof",
-  description:
-    "Use the supplied source image as authoritative identity evidence and preserve the exact same adult person continuously. Do not reinterpret the face, do not beautify, do not replace with a lookalike, and do not change age, facial geometry, head shape, hairline, beard geometry, eye shape, skin tone, body build, clothing or proportions. Create a premium photoreal founder interview motion plate from this exact source. The person remains almost still, looking toward camera with natural breathing, one natural blink, tiny realistic eye movement and at most a very subtle head micro-adjustment. Keep the mouth relaxed and nearly closed because exact Cedar speech will be lip-synced later. No broad smile, no talking animation, no exaggerated hand gesture, no body turn. Preserve authentic skin texture, pores, wrinkles and facial asymmetry. Avoid waxy skin, plastic smoothing, beauty retouching, artificial teeth, over-sharpening, face morphing or AI-spokesperson aesthetics. Camera is locked with only an almost imperceptible cinematic push-in. Keep the existing premium warm environment and natural depth of field. No generated text, no UI, no logo changes, no holograms, no new objects. The priority is exact identity fidelity and natural photographic realism, not dramatic movement.",
-  intent: {
-    story_purpose: "prove exact founder identity fidelity before any speaking shot is approved",
-    emotional_tone: "calm, intelligent, experienced, grounded, premium",
-  },
-  requirements: {
-    identity_preservation: "absolute continuity with the supplied primary source image",
-    realism: "photographic human realism with natural skin texture and restrained motion",
-    mouth_policy: "minimal relaxed mouth motion; final Cedar speech is added only after identity approval",
-    camera: "locked premium medium founder frame with almost imperceptible push-in",
-    negative_constraints: [
-      "identity drift",
-      "lookalike substitution",
-      "face reinterpretation",
-      "different hair or hairline",
-      "different beard",
-      "different jaw or cheek proportions",
-      "waxy skin",
-      "plastic skin",
-      "beauty filter",
-      "synthetic spokesperson",
-      "exaggerated blinking",
-      "talking mouth",
-      "teeth distortion",
-      "broad smile",
-      "large hand movement",
-      "camera shake",
-      "generated text",
-      "fake UI",
-      "hologram",
-    ],
-  },
-  output_spec: {
-    duration_seconds: DURATION_SECONDS,
-    aspect_ratio: "16:9",
-  },
-  provider_parameters: {
-    aspect_ratio: "16:9",
-    primary_source_asset_id: FOUNDER_ASSET_ID,
-  },
-  primary_source_asset_id: FOUNDER_ASSET_ID,
-});
+function shot(reference) {
+  return Object.freeze({
+    title: "Avantiqo Founder — Canonical Gemini Identity Proof",
+    description:
+      "The supplied image is the authoritative approved founder identity and exact starting visual. Preserve this exact adult person continuously. Do not reinterpret, beautify, replace, age-shift, de-age, change facial geometry, hairline, beard geometry, eye shape, skin tone, body build, clothing, jewelry or proportions. The face must remain recognizably identical to the supplied reference throughout every frame. Create only restrained natural motion: breathing, one realistic blink, tiny eye movement and at most a very small head micro-adjustment. Keep the mouth relaxed and nearly closed because the exact Cedar founder speech will be lip-synced later. No talking animation, no broad smile, no invented teeth, no large gesture, no body turn. Preserve real skin texture, wrinkles, asymmetry and photographic detail. Camera remains effectively locked with only a subtle cinematic push-in. Keep the existing premium dark business environment and shallow depth of field. Do not add text, interfaces, holograms, logos, props or new people. Identity fidelity is the overriding priority.",
+    intent: {
+      story_purpose: "prove exact approved founder identity fidelity before speech",
+      emotional_tone: "calm, intelligent, experienced, grounded, premium",
+    },
+    requirements: {
+      identity_preservation: "absolute continuity with approved canonical founder frame",
+      realism: "photographic human realism, no synthetic spokesperson appearance",
+      mouth_policy: "relaxed nearly closed mouth; lip-sync is deferred",
+      camera: "locked frame with almost imperceptible push-in",
+      negative_constraints: [
+        "identity drift",
+        "lookalike substitution",
+        "face reinterpretation",
+        "different hairline",
+        "different beard",
+        "different jaw",
+        "different cheek proportions",
+        "different eye shape",
+        "waxy skin",
+        "plastic skin",
+        "beauty filter",
+        "synthetic spokesperson",
+        "talking mouth",
+        "fake teeth",
+        "broad smile",
+        "large gesture",
+        "camera shake",
+        "generated text",
+        "fake UI",
+        "hologram",
+      ],
+    },
+    output_spec: {
+      duration_seconds: DURATION_SECONDS,
+      aspect_ratio: "16:9",
+    },
+    image: reference.url,
+    source: reference.url,
+    primary_source_asset_id: reference.asset_id,
+    identity_lock: {
+      approved_keyframe_url: reference.url,
+    },
+    provider_parameters: {
+      aspect_ratio: "16:9",
+      primary_source_asset_id: reference.asset_id,
+      identity_keyframe_approved: true,
+      identity_keyframe_url: reference.url,
+      identity_keyframe_node_id: reference.asset_id,
+      identity_keyframe_review_task_id: REVIEW_TASK_ID,
+    },
+  });
+}
 
 function json(data, status = 200) {
   return Response.json(data, {
@@ -101,13 +117,17 @@ export async function GET(request) {
     const action = url.searchParams.get("action") || "catalog";
 
     if (action === "catalog") {
+      const reference = await ensureAvantiqoFounderCanonicalReference();
       return json({
         success: true,
         provider: PROVIDER,
         model: MODEL,
         duration_seconds: DURATION_SECONDS,
-        founder_asset_id: FOUNDER_ASSET_ID,
-        identity_policy: "EXPLICIT_PRIMARY_SOURCE_ONLY",
+        founder_asset_id: reference.asset_id,
+        founder_reference_sha256: reference.checksum_sha256,
+        founder_reference_source_type: reference.source_type,
+        identity_policy: "VERIFIED_USER_APPROVED_DEPENDENCY_FRAME",
+        old_ai_generated_founder_asset_disabled: true,
         veo_disabled: true,
         source_audio_policy: "DISCARD_PROVIDER_AUDIO_USE_LOCKED_CEDAR_MASTER",
         interaction_recovery_enabled: true,
@@ -131,6 +151,7 @@ export async function GET(request) {
     }
 
     if (action === "start") {
+      const reference = await ensureAvantiqoFounderCanonicalReference();
       const result = await executeService({
         organization_id: ORGANIZATION_ID,
         bill_to_organization_id: ORGANIZATION_ID,
@@ -142,28 +163,30 @@ export async function GET(request) {
           preferred_providers: [PROVIDER],
         },
         input: {
-          ...SHOT,
+          ...shot(reference),
           quantity: DURATION_SECONDS,
           currency: "THB",
         },
         metadata: {
           module: "CREATIVE",
-          operation: "AVANTIQO_FOUNDER_GEMINI_IDENTITY_PROOF_V1",
+          operation: "AVANTIQO_FOUNDER_GEMINI_CANONICAL_IDENTITY_PROOF_V2",
           brand: "Avantiqo",
           source: SOURCE,
-          founder_asset_id: FOUNDER_ASSET_ID,
+          founder_asset_id: reference.asset_id,
+          founder_reference_sha256: reference.checksum_sha256,
           provider_lock: "GEMINI_ONLY_NO_VEO_FALLBACK",
-          identity_reference_mode: "EXPLICIT_PRIMARY_SOURCE_ONLY",
+          identity_reference_mode: "VERIFIED_USER_APPROVED_DEPENDENCY_FRAME",
           identity_verification_required_before_use: true,
           source_audio_policy: "DISCARD_PROVIDER_AUDIO_USE_LOCKED_CEDAR_MASTER",
           lip_sync_deferred_until_identity_approval: true,
+          rejected_legacy_founder_asset_id: "052e10e2-432e-4cf9-82bd-65cb5bb7441a",
         },
         category: "AI",
       });
 
       return json({
         success: true,
-        stage: "gemini-founder-identity-proof",
+        stage: "gemini-founder-canonical-identity-proof-v2",
         provider: result?.provider || PROVIDER,
         model: result?.model || MODEL,
         pending: result?.pending ?? null,
@@ -175,6 +198,7 @@ export async function GET(request) {
         started_at: result?.started_at || null,
         pricing: result?.pricing || null,
         output: result?.output || null,
+        founder_reference: reference,
         identity_verified: false,
       });
     }
@@ -203,12 +227,13 @@ export async function GET(request) {
         },
         metadata: {
           module: "CREATIVE",
-          operation: "AVANTIQO_FOUNDER_GEMINI_IDENTITY_PROOF_V1_POLL",
+          operation: "AVANTIQO_FOUNDER_GEMINI_CANONICAL_IDENTITY_PROOF_V2_POLL",
           brand: "Avantiqo",
           source: SOURCE,
-          founder_asset_id: FOUNDER_ASSET_ID,
+          founder_asset_id: AvantiqoFounderCanonicalReferenceRuntime.asset_id,
+          founder_reference_sha256: AvantiqoFounderCanonicalReferenceRuntime.expected_sha256,
           provider_lock: "GEMINI_ONLY_NO_VEO_FALLBACK",
-          identity_reference_mode: "EXPLICIT_PRIMARY_SOURCE_ONLY",
+          identity_reference_mode: "VERIFIED_USER_APPROVED_DEPENDENCY_FRAME",
           identity_verification_required_before_use: true,
           source_audio_policy: "DISCARD_PROVIDER_AUDIO_USE_LOCKED_CEDAR_MASTER",
           interaction_id: interactionId,
@@ -218,7 +243,7 @@ export async function GET(request) {
 
       return json({
         success: true,
-        stage: "gemini-founder-identity-proof",
+        stage: "gemini-founder-canonical-identity-proof-v2",
         provider: PROVIDER,
         model: MODEL,
         result,

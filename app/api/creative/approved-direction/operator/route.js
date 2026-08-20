@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 export const maxDuration = 800;
 
 import crypto from "node:crypto";
+import path from "node:path";
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
@@ -47,6 +48,17 @@ function mimeForPath(value) {
   if (lower.endsWith(".m4a")) return "audio/mp4";
   if (lower.endsWith(".mov")) return "video/quicktime";
   return "video/mp4";
+}
+
+function creativeMediaPolicy() {
+  return {
+    ffmpeg_path:
+      process.env.CREATIVE_MEDIA_FFMPEG_PATH ||
+      path.resolve(process.cwd(), ".avantiqo/bin/ffmpeg"),
+    ffprobe_path:
+      process.env.CREATIVE_MEDIA_FFPROBE_PATH ||
+      path.resolve(process.cwd(), ".avantiqo/bin/ffprobe"),
+  };
 }
 
 async function getProject(projectId, organizationId) {
@@ -177,6 +189,7 @@ export async function GET(request) {
       const roles = requestedRoles.length
         ? requestedRoles
         : Object.keys(sources);
+      const policy = creativeMediaPolicy();
 
       const results = {};
       for (const role of roles) {
@@ -191,7 +204,7 @@ export async function GET(request) {
             file_name: storagePath.split("/").pop(),
             mime_type: mimeForPath(storagePath),
             organization_id: organizationId,
-            policy: {},
+            policy,
           });
           results[role] = {
             success: true,
@@ -214,6 +227,10 @@ export async function GET(request) {
         authorization_mode: caller.mode,
         organization_id: organizationId,
         creative_project_id: projectId,
+        media_binaries: {
+          ffmpeg: path.basename(policy.ffmpeg_path),
+          ffprobe: path.basename(policy.ffprobe_path),
+        },
         results,
       });
     }

@@ -1,0 +1,3 @@
+AVANTIQO_INVESTOR_FIVE_FOUNDER_LIPSYNC_READY
+source_count=5
+segments=6

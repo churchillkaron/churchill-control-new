@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 const BUCKET = "creative-assets";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const TOKEN_SHA256 = "d726f442fbdfb7b8c652d52fb9a34e6e821834fbe29cafcd9d43fe8927cc2bfc";
+const MAX_CHUNK_BYTES = 192 * 1024;
 const FOUNDER_DIR = `${ORGANIZATION_ID}/avantiqo-investor-film-20260820/founder-v6`;
 const AUDIO_DIR = `${ORGANIZATION_ID}/avantiqo-investor-film-20260820/audio`;
 
@@ -32,6 +33,18 @@ function safeToken(value) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+function asInteger(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+async function loadAsset(asset) {
+  const { data, error } = await supabaseAdmin.storage.from(BUCKET).download(asset.path);
+  if (error) throw error;
+  if (!data) throw new Error("asset empty");
+  return Buffer.from(await data.arrayBuffer());
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -40,12 +53,43 @@ export async function GET(request) {
     const asset = ASSETS[key];
     if (!asset) return Response.json({ success: false, error: "asset not allowed" }, { status: 400 });
 
-    const { data, error } = await supabaseAdmin.storage.from(BUCKET).download(asset.path);
-    if (error) throw error;
-    if (!data) throw new Error("asset empty");
-    const bytes = Buffer.from(await data.arrayBuffer());
-    const filename = asset.path.split("/").at(-1) || "media.bin";
+    const bytes = await loadAsset(asset);
+    const mode = String(url.searchParams.get("mode") || "raw").trim().toLowerCase();
 
+    if (mode === "metadata") {
+      return Response.json({
+        success: true,
+        asset: key,
+        mime_type: asset.type,
+        total_bytes: bytes.length,
+        sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+        max_chunk_bytes: MAX_CHUNK_BYTES,
+      }, { headers: { "Cache-Control": "no-store, private" } });
+    }
+
+    if (mode === "chunk") {
+      const offset = Math.max(0, asInteger(url.searchParams.get("offset"), 0));
+      const requested = Math.max(1, asInteger(url.searchParams.get("length"), MAX_CHUNK_BYTES));
+      const length = Math.min(MAX_CHUNK_BYTES, requested);
+      if (offset >= bytes.length) {
+        return Response.json({ success: true, asset: key, offset, length_bytes: 0, total_bytes: bytes.length, next_offset: null, eof: true, base64: "" }, { headers: { "Cache-Control": "no-store, private" } });
+      }
+      const chunk = bytes.subarray(offset, Math.min(bytes.length, offset + length));
+      const nextOffset = offset + chunk.length < bytes.length ? offset + chunk.length : null;
+      return Response.json({
+        success: true,
+        asset: key,
+        offset,
+        length_bytes: chunk.length,
+        total_bytes: bytes.length,
+        next_offset: nextOffset,
+        eof: nextOffset === null,
+        sha256_chunk: crypto.createHash("sha256").update(chunk).digest("hex"),
+        base64: chunk.toString("base64"),
+      }, { headers: { "Cache-Control": "no-store, private" } });
+    }
+
+    const filename = asset.path.split("/").at(-1) || "media.bin";
     return new Response(bytes, {
       status: 200,
       headers: {

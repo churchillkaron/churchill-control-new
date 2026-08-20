@@ -54,8 +54,8 @@ requireAll("VOICE_BRIDGE", bridge, [
   "MIN_SPEECH_THRESHOLD",
   "NOISE_MULTIPLIER",
   "SPEECH_ONSET_MS",
-  "NATIVE_INTERIM_COMMIT_MS",
-  "confidence < 0.32",
+  "NATIVE_INTERIM_COMMIT_MS = 500",
+  "confidence < 0.18",
   "noiseFloorRef.current * NOISE_MULTIPLIER",
   "if (spoken) return",
 ]);
@@ -64,8 +64,9 @@ requireAll("STRICT_WAKE_WORD", bridge, [
   "function wakePhraseMatch(value)",
   "startWakeRecognition()",
   "if (!wake?.matched) return;",
-  "Acoustic similarity is only a passive pre-filter/telemetry signal now.",
-  "It is never allowed to wake Avantiqo.",
+  "Acoustic similarity is telemetry only.",
+  "it never wakes Avantiqo",
+  "Semantic transcription is the final authority.",
   "returnToWakeListening()",
   "COMMAND_WINDOW_MS = 10000",
   "Say “Avantiqo”",
@@ -84,16 +85,43 @@ requireAll("HYBRID_WAKE_FALLBACK", bridge, [
   "recognition.maxAlternatives = 5",
 ]);
 
+requireAll("WAKE_SENSITIVITY", bridge, [
+  "MIN_WAKE_MS = 250",
+  "MIN_WAKE_FRAMES = 4",
+  "WAKE_VERIFY_COOLDOWN_MS = 350",
+  "pendingWakeVerificationRef",
+  "startWakeRecorder();",
+  "recorder.start(50);",
+  "Capture from the first detected speech frame",
+  "frames.length >= MIN_WAKE_FRAMES",
+  "duration >= MIN_WAKE_MS",
+  "pendingWakeVerificationRef.current = { blob, frames, durationMs }",
+]);
+
 requireAll("WAKE_SERVER_SEMANTIC_GATE", transcribeRoute, [
   'form.get("mode")',
   'mode === "wake"',
   "wakeDetected(transcript)",
   '"WAKE_TRANSCRIPTION"',
   "wake_detected: detected",
+  'mode === "wake"',
+  "? undefined",
+  "any accent or language background",
+  "Avanti Q O",
+  "Avanti Go",
 ]);
 
 forbidAll("WAKE_NOT_NATIVE_ONLY", bridge, [
   "The spoken wake word must be confirmed by SpeechRecognition in startWakeRecognition().",
+]);
+
+forbidAll("WAKE_ACOUSTIC_MUST_NOT_VETO", bridge, [
+  "if (template && !acoustic.matched",
+  "if (!acoustic.matched",
+]);
+
+forbidAll("WAKE_MODE_MUST_NOT_FORCE_BROWSER_LOCALE", bridge, [
+  'form.append("locale", navigator.language || "en-US");\n    form.append("mode", "wake");',
 ]);
 
 requireAll("CLIENT_INSTANT_NAVIGATION", bridge, [
@@ -399,7 +427,10 @@ if (violations.length) {
   console.log("OPERATOR_VOICE_RESPONSIVENESS_AUDIT=PASS");
   console.log("VOICE_WAKE=HYBRID_SEMANTIC_AVANTIQO_GATE");
   console.log("VOICE_WAKE_NATIVE=BROWSER_FAST_PATH_OPTIONAL");
-  console.log("VOICE_WAKE_FALLBACK=RECORDED_CANDIDATE_SEMANTIC_VERIFY");
+  console.log("VOICE_WAKE_FALLBACK=FIRST_SYLLABLE_SEMANTIC_VERIFY");
+  console.log("VOICE_WAKE_SENSITIVITY=250MS_NO_ACOUSTIC_VETO");
+  console.log("VOICE_WAKE_LANGUAGE=AUTO_DETECT_WITH_BRAND_VARIANTS");
+  console.log("VOICE_WAKE_REPEATS=LATEST_CANDIDATE_QUEUED");
   console.log("VOICE_POST_RESPONSE=PASSIVE_WAKE_ONLY");
   console.log("VOICE_NAVIGATION=CLIENT_SIDE_REGISTERED_ROUTE_INSTANT_PATH");
   console.log("VOICE_SIMPLE_REPLY=INSTANT_LOCAL_OR_FAST_MODEL");

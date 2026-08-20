@@ -30,9 +30,12 @@ function wakeDetected(value) {
   const hasName = [
     "avantiqo",
     "avantiq",
+    "avantiqo",
+    "avantiqo",
     "avantico",
     "avantigo",
     "avantiko",
+    "avantiquo",
     "avanti",
   ].some((name) => compact.includes(name));
 
@@ -43,7 +46,7 @@ function wakeDetected(value) {
     ["hey", "hay", "hei", "hi", "hello"].includes(word),
   );
 
-  return hasGreeting || words.length <= 3;
+  return hasGreeting || words.length <= 4;
 }
 
 function findTranscript(value, depth = 0) {
@@ -151,10 +154,21 @@ export async function POST(request) {
         upload_file: audio,
         file_name: audio.name || "avantiqo-voice.wav",
         mime_type: audio.type || "audio/wav",
-        language: locale ? locale.split("-")[0] : undefined,
+        language:
+          mode === "wake"
+            ? undefined
+            : locale
+              ? locale.split("-")[0]
+              : undefined,
         prompt:
           mode === "wake"
-            ? "The speaker may say the wake phrase Hey Avantiqo. Avantiqo is spelled A-v-a-n-t-i-q-o. Preserve the name Avantiqo exactly when it is heard."
+            ? [
+                "This is wake-word detection for the assistant Avantiqo.",
+                "Avantiqo is spelled A-v-a-n-t-i-q-o.",
+                "The speaker can have any accent or language background.",
+                "Listen especially for pronunciations or transcriptions resembling Avantiqo, Avanti Q, Avanti Q O, Avanti Go, Avantico, Avantiko, Avanti Quo, or Avanti.",
+                "If that name is spoken, preserve it as Avantiqo in the transcript and preserve any words spoken immediately after it.",
+              ].join(" ")
             : undefined,
       },
       metadata: {

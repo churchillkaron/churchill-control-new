@@ -68,6 +68,13 @@ function creativeMediaPolicy() {
   };
 }
 
+function bindCreativeMediaBinaries() {
+  const policy = creativeMediaPolicy();
+  process.env.CREATIVE_MEDIA_FFMPEG_PATH = policy.ffmpeg_path;
+  process.env.CREATIVE_MEDIA_FFPROBE_PATH = policy.ffprobe_path;
+  return policy;
+}
+
 function runProcess(command, args, timeoutMs = 600000) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -462,6 +469,7 @@ export async function GET(request) {
         ? "PROOF"
         : "FULL";
       const force = text(url.searchParams.get("force")).toLowerCase() === "true";
+      bindCreativeMediaBinaries();
       const result = await CreativeApprovedDirectionResumeRuntime.render({
         organization_id: organizationId,
         creative_project_id: projectId,

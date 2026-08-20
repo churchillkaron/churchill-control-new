@@ -78,13 +78,19 @@ async function projectById(id) {
 }
 
 async function sourceAssets(project) {
-  const { data, error } = await supabaseAdmin
+  const selectedAssetIds = list(project.metadata?.selected_asset_ids)
+    .map(text)
+    .filter(Boolean);
+  let query = supabaseAdmin
     .from(ASSET_TABLE)
     .select("*")
     .eq("organization_id", project.organization_id)
     .eq("creative_project_id", project.id)
-    .neq("status", "archived")
-    .order("created_at", { ascending: true });
+    .neq("status", "archived");
+  if (selectedAssetIds.length) {
+    query = query.in("id", selectedAssetIds);
+  }
+  const { data, error } = await query.order("created_at", { ascending: true });
   if (error) throw error;
   return data || [];
 }

@@ -1,0 +1,4 @@
+AVANTIQO_FOUNDER_Q92_PRIVATE_TRANSPORT_READY
+route=app/api/internal/avantiqo-founder-gemini-pack-v1/ingest-staged/route.js
+source_count=5
+launch_after_deploy=true

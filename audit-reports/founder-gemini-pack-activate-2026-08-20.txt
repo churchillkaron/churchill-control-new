@@ -1,0 +1,7 @@
+AVANTIQO_FOUNDER_GEMINI_SOURCE_PACK_V1
+provider=gemini
+model=gemini-omni-flash-preview
+duration_seconds_per_take=10
+veo_allowed=false
+looping_allowed=false
+source_mode=user_supplied_original_stills

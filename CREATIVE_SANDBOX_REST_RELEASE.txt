@@ -1,0 +1,2 @@
+Creative Studio Sandbox direct command transport activation.
+Keeps Vercel Sandbox creation, filesystem and snapshots; command execution uses Vercel Sandbox REST/OIDC to avoid Command serialization failure.

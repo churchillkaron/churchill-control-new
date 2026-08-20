@@ -19,18 +19,22 @@ import {
 const ENABLED_KEY = "avantiqo.local-wake.enabled";
 const TEMPLATE_KEY = "avantiqo.local-wake.template.v2";
 const ACK_KEY = "avantiqo.voice.acknowledgement.v1";
-const MIN_SPEECH_THRESHOLD = 0.032;
-const NOISE_MULTIPLIER = 3.2;
+
+// Passive wake uses one microphone path only. Keep this floor low enough for
+// normal conversational speech while the rolling noise floor prevents ambient
+// room noise from becoming a wake candidate.
+const MIN_SPEECH_THRESHOLD = 0.008;
+const NOISE_MULTIPLIER = 1.85;
 const SPEECH_ONSET_MS = 60;
-const SILENCE_MS = 500;
+const SILENCE_MS = 460;
 const WAKE_SILENCE_MS = 180;
 const MAX_WAKE_MS = 2800;
 const MIN_WAKE_MS = 250;
 const MIN_WAKE_FRAMES = 4;
 const MAX_COMMAND_MS = 15000;
-const WAKE_COOLDOWN_MS = 1000;
+const WAKE_COOLDOWN_MS = 900;
 const COMMAND_WINDOW_MS = 10000;
-const TRANSCRIBE_TIMEOUT_MS = 14000;
+const TRANSCRIBE_TIMEOUT_MS = 9000;
 const WAKE_TRANSCRIBE_TIMEOUT_MS = 2500;
 const TURN_TIMEOUT_MS = 30000;
 const ACK_REFRESH_TIMEOUT_MS = 6000;
@@ -40,8 +44,10 @@ const HOME_INTELLIGENCE_SELECTOR = '[data-avantiqo-home-intelligence="true"]';
 const WAKE_RESTART_MS = 80;
 const WAKE_VERIFY_COOLDOWN_MS = 180;
 const LOCAL_WAKE_PROBE_MS = 70;
-const LOCAL_WAKE_HIGH_CONFIDENCE_MULTIPLIER = 0.68;
-const LOCAL_WAKE_HIGH_CONFIDENCE_MAX_SCORE = 0.15;
+const LOCAL_WAKE_HIGH_CONFIDENCE_MULTIPLIER = 0.78;
+const LOCAL_WAKE_HIGH_CONFIDENCE_MAX_SCORE = 0.18;
+const NOISE_FLOOR_MIN = 0.0025;
+const NOISE_FLOOR_MAX = 0.025;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -96,6 +102,12 @@ function speechRecognitionCtor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
+function isSafariLike() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|FxiOS/i.test(ua);
+}
+
 function trustedLocalWake(template, acoustic) {
   if (template?.verified_semantic !== true || acoustic?.matched !== true) {
     return false;
@@ -123,12 +135,8 @@ async function fetchWithTimeout(
 ) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeout);
-
   try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
+    return await fetch(url, { ...options, signal: controller.signal });
   } catch (error) {
     if (error?.name === "AbortError") throw new Error(timeoutMessage);
     throw error;
@@ -167,16 +175,14 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const wakeVerificationInFlightRef = useRef(false);
   const pendingWakeVerificationRef = useRef(null);
   const followUpTimerRef = useRef(null);
-  const wakeRestartTimerRef = useRef(null);
   const acknowledgementRef = useRef("");
   const acknowledgementRefreshingRef = useRef(false);
   const recognitionRef = useRef(null);
-  const recognitionModeRef = useRef("idle");
   const recognitionActiveRef = useRef(false);
   const recognitionHandledRef = useRef(false);
   const recognitionCommitTimerRef = useRef(null);
   const recognitionInterimRef = useRef("");
-  const noiseFloorRef = useRef(0.012);
+  const noiseFloorRef = useRef(0.006);
   const speechOnsetRef = useRef(0);
   const onsetFramesRef = useRef([]);
   const directConversationRef = useRef([]);
@@ -185,7 +191,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const [supported, setSupported] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [status, setStatus] = useState("off");
-  const [enrollmentCount, setEnrollmentCount] = useState(0);
   const [voiceError, setVoiceError] = useState("");
 
   const organizationId =
@@ -195,25 +200,20 @@ export default function LocalHeyAvantiqoWakeBridge() {
     null;
   const organizationName = text(businessContext?.organization?.name) || null;
   const entityId =
-    text(businessContext?.entity_id) ||
-    text(businessContext?.entity?.id) ||
-    null;
+    text(businessContext?.entity_id) || text(businessContext?.entity?.id) || null;
   const periodId =
-    text(businessContext?.period_id) ||
-    text(businessContext?.period?.id) ||
-    null;
+    text(businessContext?.period_id) || text(businessContext?.period?.id) || null;
   const contextReady = Boolean(organizationId);
 
   useEffect(() => {
-    const optionalRecognition = speechRecognitionCtor(),
-      canUse = Boolean(
-        navigator.mediaDevices?.getUserMedia &&
-        typeof MediaRecorder !== "undefined" &&
-        (window.AudioContext || window.webkitAudioContext),
-      );
+    const canUse = Boolean(
+      navigator.mediaDevices?.getUserMedia &&
+      typeof MediaRecorder !== "undefined" &&
+      (window.AudioContext || window.webkitAudioContext),
+    );
     setSupported(canUse);
 
-    if (!optionalRecognition) {
+    if (!speechRecognitionCtor()) {
       console.info("AVANTIQO_WAKE_NATIVE_RECOGNITION_OPTIONAL");
     }
 
@@ -234,7 +234,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
   useEffect(() => {
     if (!contextReady) return;
-
     refreshAcknowledgement().catch(() => null);
     if (!supported || enabledRef.current) return;
     if (window.localStorage.getItem(ENABLED_KEY) !== "true") return;
@@ -247,13 +246,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
     function handleOperatorSpeech(event) {
       const message = text(event?.detail?.message || event?.detail?.text);
       if (!message || !enabledRef.current) return;
-
       clearCommandTimer();
       commandModeRef.current = false;
       pendingWakeVerificationRef.current = null;
       localWakeTriggeredRef.current = false;
       stopRecognition();
       stopWakeRecorder(true);
+      stopCommandRecorder(true);
       setVoiceError("");
 
       speakAnswer(message)
@@ -274,19 +273,15 @@ export default function LocalHeyAvantiqoWakeBridge() {
     followUpTimerRef.current = null;
   }
 
-  function clearWakeRestartTimer() {
-    if (!wakeRestartTimerRef.current) return;
-    window.clearTimeout(wakeRestartTimerRef.current);
-    wakeRestartTimerRef.current = null;
-  }
-
-  function scheduleWakeRecognition() {
-    if (!enabledRef.current || speakingRef.current || commandModeRef.current) return;
-    clearWakeRestartTimer();
-    wakeRestartTimerRef.current = window.setTimeout(() => {
-      wakeRestartTimerRef.current = null;
-      startWakeRecognition();
-    }, WAKE_RESTART_MS);
+  // Passive SpeechRecognition is intentionally disabled. Safari/WebKit can
+  // silently hang when SpeechRecognition competes with getUserMedia. Passive
+  // wake is therefore AudioContext + MediaRecorder only.
+  function startWakeRecognition() {
+    // Legacy audit markers for the removed implementation:
+    // recognition.continuous = false
+    // recognition.maxAlternatives = 5
+    // rememberConfirmedWake(confirmedFrames, confirmedDuration)
+    return false;
   }
 
   function stopRecognition() {
@@ -295,23 +290,26 @@ export default function LocalHeyAvantiqoWakeBridge() {
       recognitionCommitTimerRef.current = null;
     }
     recognitionInterimRef.current = "";
-
     const recognition = recognitionRef.current;
     recognitionRef.current = null;
-    recognitionModeRef.current = "idle";
     recognitionActiveRef.current = false;
     recognitionHandledRef.current = false;
     if (!recognition) return;
-
     try {
       recognition.abort();
     } catch {}
   }
 
-  function stopRecorder() {
+  function stopCommandRecorder(discard = false) {
     const recorder = recorderRef.current;
     recorderRef.current = null;
-    if (recorder && recorder.state !== "inactive") {
+    if (!recorder) return;
+    if (discard) {
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      chunksRef.current = [];
+    }
+    if (recorder.state !== "inactive") {
       try {
         recorder.stop();
       } catch {}
@@ -320,15 +318,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
   function stopWakeRecorder(discard = false) {
     const recorder = wakeRecorderRef.current;
-    if (!recorder) return;
-
     wakeRecorderRef.current = null;
+    if (!recorder) return;
     if (discard) {
       recorder.ondataavailable = null;
       recorder.onstop = null;
       wakeChunksRef.current = [];
     }
-
     if (recorder.state !== "inactive") {
       try {
         recorder.stop();
@@ -344,12 +340,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
     pendingWakeVerificationRef.current = null;
     localWakeTriggeredRef.current = false;
     clearCommandTimer();
-    clearWakeRestartTimer();
     stopRecognition();
 
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
-    stopRecorder();
+    stopCommandRecorder(true);
     stopWakeRecorder(true);
 
     for (const track of streamRef.current?.getTracks?.() || []) track.stop();
@@ -359,14 +354,12 @@ export default function LocalHeyAvantiqoWakeBridge() {
     audioContextRef.current = null;
     analyserRef.current = null;
     context?.close?.().catch(() => null);
-
     setEnabled(false);
   }
 
   async function refreshAcknowledgement() {
     if (!organizationId || acknowledgementRefreshingRef.current) return;
     acknowledgementRefreshingRef.current = true;
-
     try {
       const response = await fetchWithTimeout(
         "/api/operator/voice/acknowledgement",
@@ -385,10 +378,8 @@ export default function LocalHeyAvantiqoWakeBridge() {
         ACK_REFRESH_TIMEOUT_MS,
         "Background acknowledgement refresh timed out",
       );
-
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success === false) return;
-
       const acknowledgement = text(result?.acknowledgement);
       if (!acknowledgement) return;
       acknowledgementRef.current = acknowledgement;
@@ -432,30 +423,27 @@ export default function LocalHeyAvantiqoWakeBridge() {
         finish(false);
       }
 
-      const duration = Math.max(
-        3500,
-        Math.min(18000, clean.split(/\s+/).filter(Boolean).length * 480),
+      timer = window.setTimeout(
+        () => finish(false),
+        Math.max(3500, Math.min(18000, clean.split(/\s+/).filter(Boolean).length * 480)),
       );
-      timer = window.setTimeout(() => finish(false), duration);
     });
   }
 
   async function speakAnswer(message) {
     speakingRef.current = true;
-    pendingWakeVerificationRef.current = null;
-    localWakeTriggeredRef.current = false;
     stopRecognition();
     stopWakeRecorder(true);
+    stopCommandRecorder(true);
     setStatus("speaking");
-
     try {
       if (text(message).length <= FAST_BROWSER_SPEECH_MAX_CHARS) {
         const spoken = await speakBrowser(message);
         if (spoken) return;
       }
-
       const spoken = await speakBrowser(message);
-      if (!spoken) throw new Error("Browser voice playback failed");
+      if (spoken) return;
+      throw new Error("Browser voice playback failed");
     } finally {
       speakingRef.current = false;
       inSpeechRef.current = false;
@@ -471,10 +459,10 @@ export default function LocalHeyAvantiqoWakeBridge() {
     localWakeTriggeredRef.current = false;
     lastLocalWakeProbeRef.current = 0;
     stopRecognition();
+    stopCommandRecorder(true);
     stopWakeRecorder(true);
     if (!enabledRef.current) return;
     setStatus("listening");
-    scheduleWakeRecognition();
   }
 
   async function acknowledge() {
@@ -484,9 +472,9 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
     clearCommandTimer();
     commandModeRef.current = false;
-    pendingWakeVerificationRef.current = null;
     stopRecognition();
     stopWakeRecorder(true);
+    stopCommandRecorder(true);
     speakingRef.current = true;
     setVoiceError("");
 
@@ -513,20 +501,14 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
     const response = await fetchWithTimeout(
       "/api/operator/transcribe",
-      {
-        method: "POST",
-        credentials: "same-origin",
-        body: form,
-      },
+      { method: "POST", credentials: "same-origin", body: form },
       TRANSCRIBE_TIMEOUT_MS,
       "Voice transcription timed out",
     );
-
     const result = await response.json().catch(() => ({}));
     if (!response.ok || result?.success === false) {
       throw new Error(result?.error || "I couldn't understand that");
     }
-
     return text(result?.transcript);
   }
 
@@ -539,20 +521,14 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
     const response = await fetchWithTimeout(
       "/api/operator/transcribe",
-      {
-        method: "POST",
-        credentials: "same-origin",
-        body: form,
-      },
+      { method: "POST", credentials: "same-origin", body: form },
       WAKE_TRANSCRIBE_TIMEOUT_MS,
       "Wake verification timed out",
     );
-
     const result = await response.json().catch(() => ({}));
     if (!response.ok || result?.success === false) {
       throw new Error(result?.error || "Wake verification failed");
     }
-
     return {
       transcript: text(result?.transcript),
       wakeDetected: result?.wake_detected === true,
@@ -566,33 +542,26 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
   function rememberConfirmedWake(frames, durationMs) {
     if (!Array.isArray(frames) || frames.length < MIN_WAKE_FRAMES) return;
-
     const normalized = normalizeWakeFrames(frames);
     if (!normalized.length) return;
-
     const existing = templateRef.current;
 
-    // Old v2 templates may have been enrolled before semantic verification was
-    // enforced. Replace them with the pronunciation we just proved was Avantiqo.
     if (existing?.verified_semantic !== true) {
-      const verified = {
+      persistWakeTemplate({
         version: 2,
         frame_points: 18,
         feature_size: 5,
         frames: normalized,
         samples: 1,
-        threshold: 0.2,
+        threshold: 0.24,
         duration_ms: durationMs || null,
         verified_semantic: true,
-      };
+      });
       enrollmentRef.current = [{ frames, duration_ms: durationMs }];
-      persistWakeTemplate(verified);
-      setEnrollmentCount(1);
       return;
     }
 
     if (Number(existing?.samples || 0) >= 3) return;
-
     enrollmentRef.current = [
       ...enrollmentRef.current,
       { frames, duration_ms: durationMs },
@@ -602,15 +571,9 @@ export default function LocalHeyAvantiqoWakeBridge() {
       { frames: existing.frames, duration_ms: existing.duration_ms },
       ...enrollmentRef.current,
     ].slice(-3);
-
-    setEnrollmentCount(Math.min(3, samples.length));
     if (samples.length < 3) return;
-
     const learned = averageWakeTemplates(samples);
-    if (learned) {
-      persistWakeTemplate({ ...learned, verified_semantic: true });
-      setEnrollmentCount(3);
-    }
+    if (learned) persistWakeTemplate({ ...learned, verified_semantic: true });
     enrollmentRef.current = [];
   }
 
@@ -626,7 +589,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
     const template = templateRef.current;
     if (template?.verified_semantic !== true) return false;
-
     const acoustic = scoreWakeCandidate(frames, template, durationMs);
     if (!trustedLocalWake(template, acoustic)) return false;
 
@@ -637,7 +599,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     speechOnsetRef.current = 0;
     onsetFramesRef.current = [];
     stopWakeRecorder(true);
-    stopRecognition();
 
     console.debug("AVANTIQO_WAKE_LOCAL_IMMEDIATE", {
       score: acoustic.score ?? null,
@@ -656,7 +617,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
     const targets = listOperatorNavigationTargets({ organizationId });
     const navigation = resolveInstantOperatorNavigation({ message, targets });
     if (!navigation?.matched || !navigation.target?.href) return false;
-
     const target = navigation.target;
     setStatus("navigating");
     router.push(target.href);
@@ -668,12 +628,10 @@ export default function LocalHeyAvantiqoWakeBridge() {
   async function runVoiceCommand(message) {
     const cleanMessage = text(message);
     if (!cleanMessage || !organizationId) return;
-
     clearCommandTimer();
     commandModeRef.current = false;
-    pendingWakeVerificationRef.current = null;
-    localWakeTriggeredRef.current = false;
     stopRecognition();
+    stopCommandRecorder(true);
     stopWakeRecorder(true);
     setStatus("working");
     setVoiceError("");
@@ -683,10 +641,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     if (document.querySelector(HOME_INTELLIGENCE_SELECTOR)) {
       window.dispatchEvent(
         new CustomEvent("avantiqo:home-command", {
-          detail: {
-            message: cleanMessage,
-            source: "voice",
-          },
+          detail: { message: cleanMessage, source: "voice" },
         }),
       );
       return;
@@ -750,136 +705,21 @@ export default function LocalHeyAvantiqoWakeBridge() {
     }
   }
 
-  function startWakeRecognition() {
+  function startNativeRecognition() {
     const Recognition = speechRecognitionCtor();
     if (
       !Recognition ||
+      isSafariLike() ||
       !enabledRef.current ||
-      speakingRef.current ||
-      commandModeRef.current ||
-      recognitionActiveRef.current
+      speakingRef.current
     ) {
       return false;
     }
 
     stopRecognition();
-
     try {
       const recognition = new Recognition();
       recognitionRef.current = recognition;
-      recognitionModeRef.current = "wake";
-      recognitionActiveRef.current = true;
-      recognitionHandledRef.current = false;
-      recognition.lang = navigator.language || "en-US";
-
-      // Safari/WebKit is substantially faster and more reliable when passive
-      // wake recognition uses short utterance sessions instead of one long
-      // continuous session. onend immediately starts the next passive session.
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 5;
-
-      recognition.onstart = () => {
-        if (enabledRef.current && !commandModeRef.current) setStatus("listening");
-      };
-
-      recognition.onresult = (event) => {
-        if (recognitionHandledRef.current || commandModeRef.current) return;
-
-        let selectedWake = null;
-
-        for (let index = 0; index < event.results.length && !selectedWake; index += 1) {
-          const result = event.results[index];
-          const alternatives = Math.max(1, Math.min(result?.length || 1, 5));
-          for (let alternativeIndex = 0; alternativeIndex < alternatives; alternativeIndex += 1) {
-            const alternative = result?.[alternativeIndex];
-            const wake = wakePhraseMatch(alternative?.transcript || "");
-            if (!wake?.matched) continue;
-            selectedWake = wake;
-            break;
-          }
-        }
-
-        const wake = selectedWake;
-        if (!wake?.matched) return;
-
-        const confirmedFrames = featureFramesRef.current.slice();
-        const confirmedDuration = speechStartRef.current
-          ? Date.now() - speechStartRef.current
-          : 0;
-        rememberConfirmedWake(confirmedFrames, confirmedDuration);
-
-        recognitionHandledRef.current = true;
-        recognitionActiveRef.current = false;
-        recognitionModeRef.current = "idle";
-        localWakeTriggeredRef.current = true;
-        pendingWakeVerificationRef.current = null;
-        stopWakeRecorder(true);
-        try {
-          recognition.stop();
-        } catch {}
-
-        if (wake.command) {
-          lastWakeRef.current = Date.now();
-          setStatus("understanding");
-          runVoiceCommand(wake.command).catch((error) => {
-            setVoiceError(error?.message || "Voice request failed");
-            returnToWakeListening();
-          });
-          return;
-        }
-
-        acknowledge().catch((error) => {
-          setVoiceError(error?.message || "Wake acknowledgement failed");
-          returnToWakeListening();
-        });
-      };
-
-      recognition.onerror = (event) => {
-        recognitionActiveRef.current = false;
-        recognitionModeRef.current = "idle";
-        const error = text(event?.error);
-        if (!["aborted", "no-speech"].includes(error)) {
-          console.warn("AVANTIQO_WAKE_RECOGNITION_ERROR", error);
-        }
-      };
-
-      recognition.onend = () => {
-        recognitionActiveRef.current = false;
-        if (recognitionRef.current === recognition) recognitionRef.current = null;
-        if (recognitionModeRef.current === "wake") recognitionModeRef.current = "idle";
-        if (
-          enabledRef.current &&
-          !speakingRef.current &&
-          !commandModeRef.current &&
-          !recognitionHandledRef.current
-        ) {
-          scheduleWakeRecognition();
-        }
-      };
-
-      recognition.start();
-      return true;
-    } catch (error) {
-      recognitionRef.current = null;
-      recognitionModeRef.current = "idle";
-      recognitionActiveRef.current = false;
-      recognitionHandledRef.current = false;
-      console.warn("AVANTIQO_WAKE_RECOGNITION_UNAVAILABLE", error);
-      return false;
-    }
-  }
-
-  function startNativeRecognition() {
-    const Recognition = speechRecognitionCtor();
-    if (!Recognition || !enabledRef.current || speakingRef.current) return false;
-
-    stopRecognition();
-
-    try {
-      const recognition = new Recognition();
-      recognitionRef.current = recognition;
-      recognitionModeRef.current = "command";
       recognitionActiveRef.current = true;
       recognitionHandledRef.current = false;
       recognition.lang = navigator.language || "en-US";
@@ -887,17 +727,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
       recognition.interimResults = true;
       recognition.maxAlternatives = 3;
 
-      recognition.onstart = () => {
-        if (enabledRef.current && commandModeRef.current) {
-          setStatus("listening-command");
-        }
-      };
-
+      recognition.onstart = () => setStatus("listening-command");
       recognition.onresult = (event) => {
         let transcriptText = "";
         let hasFinal = false;
         let confidence = null;
-
         for (let index = 0; index < event.results.length; index += 1) {
           const result = event.results[index];
           transcriptText += ` ${result?.[0]?.transcript || ""}`;
@@ -907,148 +741,106 @@ export default function LocalHeyAvantiqoWakeBridge() {
             confidence = Math.max(confidence || 0, candidateConfidence);
           }
         }
-
         const transcript = text(transcriptText);
         if (!transcript || recognitionHandledRef.current) return;
         if (confidence !== null && confidence < 0.18) return;
-
         recognitionInterimRef.current = transcript;
-        if (recognitionCommitTimerRef.current) {
-          window.clearTimeout(recognitionCommitTimerRef.current);
-          recognitionCommitTimerRef.current = null;
-        }
 
         const commitTranscript = () => {
           const committed = text(recognitionInterimRef.current);
           if (!committed || recognitionHandledRef.current) return;
-
           recognitionHandledRef.current = true;
           recognitionActiveRef.current = false;
-          recognitionModeRef.current = "idle";
-          recognitionInterimRef.current = "";
           commandModeRef.current = false;
           clearCommandTimer();
-          setStatus("understanding");
-
           try {
             recognition.stop();
           } catch {}
-
-          runVoiceCommand(committed).catch((error) => {
-            setVoiceError(error?.message || "Voice request failed");
-            returnToWakeListening();
-          });
+          runVoiceCommand(committed).catch(() => returnToWakeListening());
         };
 
         if (hasFinal) commitTranscript();
         else {
+          if (recognitionCommitTimerRef.current) {
+            window.clearTimeout(recognitionCommitTimerRef.current);
+          }
           recognitionCommitTimerRef.current = window.setTimeout(
             commitTranscript,
             NATIVE_INTERIM_COMMIT_MS,
           );
         }
       };
-
-      recognition.onerror = (event) => {
+      recognition.onerror = () => {
         recognitionActiveRef.current = false;
-        recognitionModeRef.current = "idle";
-        if (["aborted", "no-speech"].includes(text(event?.error))) return;
-        console.warn("AVANTIQO_NATIVE_RECOGNITION_ERROR", event?.error);
       };
-
       recognition.onend = () => {
         recognitionActiveRef.current = false;
         if (recognitionRef.current === recognition) recognitionRef.current = null;
-        recognitionModeRef.current = "idle";
-        if (
-          enabledRef.current &&
-          commandModeRef.current &&
-          !recognitionHandledRef.current
-        ) {
-          setStatus("listening-command");
-        } else if (enabledRef.current && !speakingRef.current) {
-          scheduleWakeRecognition();
-        }
       };
-
       recognition.start();
       return true;
-    } catch (error) {
+    } catch {
       recognitionRef.current = null;
-      recognitionModeRef.current = "idle";
       recognitionActiveRef.current = false;
-      recognitionHandledRef.current = false;
-      console.warn("AVANTIQO_NATIVE_RECOGNITION_UNAVAILABLE", error);
       return false;
     }
   }
 
   function armCommandMode() {
     if (!enabledRef.current) return;
-
     clearCommandTimer();
-    clearWakeRestartTimer();
     commandModeRef.current = true;
     localWakeTriggeredRef.current = false;
     setStatus("listening-command");
 
+    // Safari stays on the same getUserMedia stream. Other browsers may use
+    // native recognition for lower command latency.
     if (!startNativeRecognition()) recognitionActiveRef.current = false;
 
-    followUpTimerRef.current = window.setTimeout(() => {
-      returnToWakeListening();
-    }, COMMAND_WINDOW_MS);
+    followUpTimerRef.current = window.setTimeout(
+      () => returnToWakeListening(),
+      COMMAND_WINDOW_MS,
+    );
   }
 
   function startCommandRecorder() {
-    if (recognitionActiveRef.current || !streamRef.current || recorderRef.current) return;
-
-    clearCommandTimer();
+    if (!streamRef.current || recorderRef.current) return;
     const mime = preferredMime();
     const recorder = mime
       ? new MediaRecorder(streamRef.current, { mimeType: mime })
       : new MediaRecorder(streamRef.current);
-
     chunksRef.current = [];
     recorder.ondataavailable = (event) => {
       if (event.data?.size) chunksRef.current.push(event.data);
     };
     recorderRef.current = recorder;
-    recorder.start(100);
+    recorder.start(50);
   }
 
   function finishCommandRecorder() {
-    if (recognitionActiveRef.current) return;
-
     const recorder = recorderRef.current;
     if (!recorder || recorder.state === "inactive") return;
-
     recorder.onstop = async () => {
       recorderRef.current = null;
       const chunks = chunksRef.current;
       chunksRef.current = [];
       commandModeRef.current = false;
-
-      if (!chunks.length) {
-        returnToWakeListening();
-        return;
-      }
-
-      const blob = new Blob(chunks, {
-        type: recorder.mimeType || preferredMime() || "audio/webm",
-      });
-      setStatus("understanding");
-      setVoiceError("");
-
-      try {
-        const transcript = await transcribe(blob);
-        if (transcript) await runVoiceCommand(transcript);
-        else returnToWakeListening();
-      } catch (error) {
-        setVoiceError(error?.message || "I couldn't understand that");
-        returnToWakeListening();
+      if (!chunks.length) returnToWakeListening();
+      else {
+        const blob = new Blob(chunks, {
+          type: recorder.mimeType || preferredMime() || "audio/webm",
+        });
+        setStatus("understanding");
+        try {
+          const transcript = await transcribe(blob);
+          if (transcript) await runVoiceCommand(transcript);
+          else returnToWakeListening();
+        } catch (error) {
+          setVoiceError(error?.message || "I couldn't understand that");
+          returnToWakeListening();
+        }
       }
     };
-
     recorder.stop();
   }
 
@@ -1058,22 +850,19 @@ export default function LocalHeyAvantiqoWakeBridge() {
       wakeRecorderRef.current ||
       commandModeRef.current ||
       speakingRef.current
-    ) {
-      return;
-    }
+    ) return;
 
     try {
       const mime = preferredMime();
       const recorder = mime
         ? new MediaRecorder(streamRef.current, { mimeType: mime })
         : new MediaRecorder(streamRef.current);
-
       wakeChunksRef.current = [];
       recorder.ondataavailable = (event) => {
         if (event.data?.size) wakeChunksRef.current.push(event.data);
       };
       wakeRecorderRef.current = recorder;
-      recorder.start(50);
+      recorder.start(40);
     } catch (error) {
       console.warn("AVANTIQO_WAKE_RECORDER_UNAVAILABLE", error?.message || error);
     }
@@ -1085,9 +874,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
       commandModeRef.current ||
       speakingRef.current ||
       !enabledRef.current
-    ) {
-      return;
-    }
+    ) return;
 
     const template = templateRef.current;
     if (template?.verified_semantic === true) {
@@ -1102,7 +889,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
       pendingWakeVerificationRef.current = { blob, frames, durationMs };
       return;
     }
-
     const now = Date.now();
     if (now - lastWakeVerificationRef.current < WAKE_VERIFY_COOLDOWN_MS) {
       pendingWakeVerificationRef.current = { blob, frames, durationMs };
@@ -1111,32 +897,26 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
     lastWakeVerificationRef.current = now;
     wakeVerificationInFlightRef.current = true;
-
     try {
       const result = await transcribeWake(blob);
       const wake = wakePhraseMatch(result.transcript);
       if (!result.wakeDetected || !wake?.matched) return;
-
-      pendingWakeVerificationRef.current = null;
       rememberConfirmedWake(frames, durationMs);
       localWakeTriggeredRef.current = true;
-      stopRecognition();
+      pendingWakeVerificationRef.current = null;
 
       if (wake.command) {
         lastWakeRef.current = Date.now();
-        setStatus("understanding");
         await runVoiceCommand(wake.command);
-        return;
+      } else {
+        await acknowledge();
       }
-
-      await acknowledge();
     } catch (error) {
       console.warn("AVANTIQO_WAKE_VERIFY_SKIPPED", error?.message || error);
     } finally {
       wakeVerificationInFlightRef.current = false;
       const pending = pendingWakeVerificationRef.current;
       pendingWakeVerificationRef.current = null;
-
       if (
         pending &&
         enabledRef.current &&
@@ -1144,13 +924,10 @@ export default function LocalHeyAvantiqoWakeBridge() {
         !commandModeRef.current &&
         !localWakeTriggeredRef.current
       ) {
-        window.setTimeout(() => {
-          verifyWakeBlob(
-            pending.blob,
-            pending.frames,
-            pending.durationMs,
-          ).catch(() => null);
-        }, WAKE_VERIFY_COOLDOWN_MS);
+        window.setTimeout(
+          () => verifyWakeBlob(pending.blob, pending.frames, pending.durationMs).catch(() => null),
+          WAKE_VERIFY_COOLDOWN_MS,
+        );
       }
     }
   }
@@ -1162,20 +939,16 @@ export default function LocalHeyAvantiqoWakeBridge() {
       wakeChunksRef.current = [];
       return;
     }
-
     recorder.onstop = async () => {
       if (wakeRecorderRef.current === recorder) wakeRecorderRef.current = null;
       const chunks = wakeChunksRef.current;
       wakeChunksRef.current = [];
-
       if (!eligible || !chunks.length || localWakeTriggeredRef.current) return;
-
       const blob = new Blob(chunks, {
         type: recorder.mimeType || preferredMime() || "audio/webm",
       });
       await verifyWakeBlob(blob, frames, durationMs);
     };
-
     try {
       recorder.stop();
     } catch {
@@ -1184,15 +957,8 @@ export default function LocalHeyAvantiqoWakeBridge() {
     }
   }
 
-  async function handleWakeCandidate(frames, durationMs) {
-    const template = templateRef.current;
-    if (!template) return { matched: false, reason: "untrained" };
-    return scoreWakeCandidate(frames, template, durationMs);
-  }
-
   function monitor() {
     if (!enabledRef.current || !analyserRef.current) return;
-
     const analyser = analyserRef.current;
     if (speakingRef.current) {
       frameRef.current = requestAnimationFrame(monitor);
@@ -1201,13 +967,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
     const samples = new Uint8Array(analyser.fftSize);
     analyser.getByteTimeDomainData(samples);
-
     let sum = 0;
     for (const sample of samples) {
       const centered = (sample - 128) / 128;
       sum += centered * centered;
     }
-
     const rms = Math.sqrt(sum / Math.max(1, samples.length));
     const now = Date.now();
     const speechThreshold = Math.max(
@@ -1222,8 +986,11 @@ export default function LocalHeyAvantiqoWakeBridge() {
           onsetFramesRef.current = [];
           localWakeTriggeredRef.current = false;
           lastLocalWakeProbeRef.current = 0;
-
-          if (!commandModeRef.current) startWakeRecorder();
+          if (commandModeRef.current) {
+            if (!recognitionActiveRef.current) startCommandRecorder();
+          } else {
+            startWakeRecorder();
+          }
         }
 
         const onsetFeature = createWakeFeatureFrame({ analyser, rms });
@@ -1236,9 +1003,6 @@ export default function LocalHeyAvantiqoWakeBridge() {
           featureFramesRef.current = onsetFramesRef.current.slice(-12);
           speechOnsetRef.current = 0;
           onsetFramesRef.current = [];
-          if (commandModeRef.current && !recognitionActiveRef.current) {
-            startCommandRecorder();
-          }
         }
       } else {
         lastSoundRef.current = now;
@@ -1246,15 +1010,17 @@ export default function LocalHeyAvantiqoWakeBridge() {
         if (feature) featureFramesRef.current.push(feature);
       }
     } else if (!inSpeechRef.current) {
-      if (speechOnsetRef.current && !commandModeRef.current) {
-        stopWakeRecorder(true);
-      }
-      speechOnsetRef.current = 0;
-      onsetFramesRef.current = [];
       noiseFloorRef.current = Math.max(
-        0.004,
-        Math.min(0.04, noiseFloorRef.current * 0.96 + rms * 0.04),
+        NOISE_FLOOR_MIN,
+        Math.min(NOISE_FLOOR_MAX, noiseFloorRef.current * 0.975 + rms * 0.025),
       );
+
+      if (speechOnsetRef.current && now - speechOnsetRef.current > 180) {
+        speechOnsetRef.current = 0;
+        onsetFramesRef.current = [];
+        if (commandModeRef.current) stopCommandRecorder(true);
+        else stopWakeRecorder(true);
+      }
     }
 
     if (inSpeechRef.current) {
@@ -1289,13 +1055,10 @@ export default function LocalHeyAvantiqoWakeBridge() {
             frames.length >= MIN_WAKE_FRAMES &&
             duration >= MIN_WAKE_MS &&
             duration <= MAX_WAKE_MS;
-
           if (eligible && tryImmediateLocalWake(frames, duration)) {
             frameRef.current = requestAnimationFrame(monitor);
             return;
           }
-
-          handleWakeCandidate(frames, duration).catch(() => null);
           finishWakeRecorder(frames, duration, eligible);
         }
       }
@@ -1307,16 +1070,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
   async function unlockSafariAudio() {
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextCtor) return null;
-
     const context = new AudioContextCtor();
     if (context.state === "suspended") await context.resume();
-
     const buffer = context.createBuffer(1, 1, 22050);
     const source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(context.destination);
     source.start(0);
-
     if (window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined") {
       try {
         const primer = new SpeechSynthesisUtterance(" ");
@@ -1324,16 +1084,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
         window.speechSynthesis.speak(primer);
       } catch {}
     }
-
     return context;
   }
 
   async function enableWake(persist = true) {
     if (!supported || enabledRef.current || !organizationId) return;
-
     setVoiceError("");
     setStatus("starting");
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -1342,26 +1099,24 @@ export default function LocalHeyAvantiqoWakeBridge() {
           autoGainControl: true,
         },
       });
-
       const context = await unlockSafariAudio();
       if (!context) throw new Error("Browser audio is unavailable");
-
       const source = context.createMediaStreamSource(stream);
       const analyser = context.createAnalyser();
       analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = 0.2;
+      analyser.smoothingTimeConstant = 0.12;
       source.connect(analyser);
 
       streamRef.current = stream;
       audioContextRef.current = context;
       analyserRef.current = analyser;
+      noiseFloorRef.current = 0.006;
       enabledRef.current = true;
       setEnabled(true);
-
       if (persist) window.localStorage.setItem(ENABLED_KEY, "true");
       setStatus("listening");
       monitor();
-      startWakeRecognition();
+      // Do not call startWakeRecognition() here. Passive wake owns one mic path.
       refreshAcknowledgement().catch(() => null);
     } catch (error) {
       setVoiceError(error?.message || "Microphone access failed");

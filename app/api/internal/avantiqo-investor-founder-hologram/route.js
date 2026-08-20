@@ -25,9 +25,7 @@ const SEGMENTS = Object.freeze({
     source: `${SEGMENT_DIR}/opening-final-v2.mp4`,
     backup: `${SEGMENT_DIR}/opening-final-v2-base-before-founder-hologram.mp4`,
     duration: 48.078,
-    windows: [
-      { start: 8, end: 19.391, mode: "origin" },
-    ],
+    windows: [{ start: 8, end: 19.391, mode: "origin" }],
   },
   final_act: {
     source: `${SEGMENT_DIR}/final-act-final-v1.mp4`,
@@ -132,36 +130,28 @@ async function signedUrl(storagePath, seconds = 86400) {
   return data?.signedUrl || null;
 }
 
-function panelSpec(mode) {
+function hologramSpec(mode) {
   if (mode === "integration") {
     return {
-      eyebrow: "ONE SHARED OPERATING CONTEXT",
-      title: "BUSINESS FLOW",
-      rows: ["SALE", "FINANCE", "SUPPLY", "PEOPLE"],
-      footer: "ONE EVENT · ONE TRUTH · CONTROLLED EXECUTION",
+      title: "ONE BUSINESS FLOW",
+      labels: ["SALE", "FINANCE", "SUPPLY", "PEOPLE"],
     };
   }
   if (mode === "ai") {
     return {
-      eyebrow: "AVANTIQO INTELLIGENCE",
-      title: "GOVERNED AI",
-      rows: ["CONTEXT", "PERMISSIONS", "WORKFLOWS", "ACCOUNTABILITY"],
-      footer: "UNDERSTAND · RECOMMEND · APPROVE · EXECUTE",
+      title: "AVANTIQO INTELLIGENCE",
+      labels: ["CONTEXT", "DECIDE", "APPROVE", "EXECUTE"],
     };
   }
   if (mode === "close") {
     return {
-      eyebrow: "ONE OPERATING SYSTEM",
-      title: "AVANTIQO",
-      rows: ["FINANCE", "OPERATIONS", "PEOPLE", "CUSTOMERS"],
-      footer: "THE SYSTEM BUSINESSES OPERATE THROUGH",
+      title: "ONE OPERATING SYSTEM",
+      labels: ["FINANCE", "OPERATIONS", "PEOPLE", "CUSTOMERS"],
     };
   }
   return {
-    eyebrow: "THE BUSINESS AS ONE SYSTEM",
     title: "AVANTIQO",
-    rows: ["FINANCE", "OPERATIONS", "PEOPLE", "CUSTOMERS", "SUPPLIERS", "MARKETING"],
-    footer: "REAL BUSINESS CONTEXT · CONNECTED EXECUTION",
+    labels: ["FINANCE", "OPERATIONS", "PEOPLE", "CUSTOMERS", "SUPPLY", "MARKETING"],
   };
 }
 
@@ -174,55 +164,83 @@ function escapeXml(value) {
     .replace(/'/g, "&apos;");
 }
 
-async function makePanel(directory, mode) {
-  const spec = panelSpec(mode);
-  const target = path.join(directory, `hologram-${mode}.png`);
-  const rowCount = spec.rows.length;
-  const cols = rowCount > 4 ? 2 : 1;
-  const rowsPerCol = Math.ceil(rowCount / cols);
-  const rowMarkup = spec.rows.map((label, index) => {
-    const col = cols === 1 ? 0 : Math.floor(index / rowsPerCol);
-    const row = cols === 1 ? index : index % rowsPerCol;
-    const x = 30 + col * 184;
-    const y = 132 + row * 52;
+async function makeHologram(directory, mode) {
+  const spec = hologramSpec(mode);
+  const target = path.join(directory, `hologram-${mode}.rgba`);
+  const points = [
+    [120, 175], [330, 145], [160, 275], [365, 255], [245, 95], [280, 330],
+  ];
+
+  const labels = spec.labels.map((label, index) => {
+    const [x, y] = points[index % points.length];
+    const anchorX = 260;
+    const anchorY = 215;
     return `
       <g>
-        <rect x="${x}" y="${y}" width="166" height="38" rx="12" fill="#07111a" fill-opacity="0.58" stroke="#86e8ff" stroke-opacity="0.38"/>
-        <circle cx="${x + 18}" cy="${y + 19}" r="3.5" fill="#9feeff" fill-opacity="0.94"/>
-        <text x="${x + 32}" y="${y + 24}" font-family="Arial, Helvetica, sans-serif" font-size="11.5" font-weight="700" letter-spacing="1.1" fill="#ecfbff">${escapeXml(label)}</text>
+        <line x1="${anchorX}" y1="${anchorY}" x2="${x}" y2="${y}" stroke="#8eeeff" stroke-width="1" stroke-opacity="0.28"/>
+        <circle cx="${x}" cy="${y}" r="11" fill="#70e8ff" fill-opacity="0.07" stroke="#a8f4ff" stroke-width="1.2" stroke-opacity="0.66"/>
+        <circle cx="${x}" cy="${y}" r="3" fill="#d8fbff" fill-opacity="0.94"/>
+        <text x="${x + 18}" y="${y + 4}" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" letter-spacing="1.05" fill="#d7fbff" fill-opacity="0.86">${escapeXml(label)}</text>
       </g>`;
   }).join("");
 
   const svg = Buffer.from(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="410" height="360">
+    <svg xmlns="http://www.w3.org/2000/svg" width="520" height="430">
       <defs>
-        <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#0e2230" stop-opacity="0.50"/>
-          <stop offset="0.55" stop-color="#071018" stop-opacity="0.42"/>
-          <stop offset="1" stop-color="#112b37" stop-opacity="0.34"/>
+        <radialGradient id="baseGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stop-color="#9af4ff" stop-opacity="0.26"/>
+          <stop offset="0.5" stop-color="#55dff7" stop-opacity="0.11"/>
+          <stop offset="1" stop-color="#55dff7" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="beam" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stop-color="#8cecff" stop-opacity="0.16"/>
+          <stop offset="1" stop-color="#8cecff" stop-opacity="0"/>
         </linearGradient>
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="6" result="blur"/>
+        <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="5" result="blur"/>
           <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
-      <rect x="10" y="10" width="390" height="340" rx="26" fill="url(#glass)" stroke="#91eaff" stroke-width="1.4" stroke-opacity="0.52"/>
-      <rect x="18" y="18" width="374" height="324" rx="21" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+
+      <ellipse cx="260" cy="372" rx="180" ry="28" fill="url(#baseGlow)"/>
+      <ellipse cx="260" cy="365" rx="112" ry="17" fill="none" stroke="#9af4ff" stroke-width="1.2" stroke-opacity="0.36"/>
+      <ellipse cx="260" cy="365" rx="62" ry="9" fill="none" stroke="#c6f9ff" stroke-width="1" stroke-opacity="0.34"/>
+
+      <path d="M178 365 L220 120 L300 120 L342 365 Z" fill="url(#beam)"/>
+      <line x1="215" y1="360" x2="238" y2="118" stroke="#9af4ff" stroke-opacity="0.14"/>
+      <line x1="305" y1="360" x2="282" y2="118" stroke="#9af4ff" stroke-opacity="0.14"/>
+
       <g filter="url(#glow)">
-        <circle cx="52" cy="54" r="17" fill="none" stroke="#9feeff" stroke-width="1.4" stroke-opacity="0.82"/>
-        <path d="M45 64 L52 42 L59 64 L55 64 L52 55 L49 64 Z" fill="#baf4ff" fill-opacity="0.96"/>
+        <circle cx="260" cy="215" r="72" fill="none" stroke="#8cecff" stroke-width="1.3" stroke-opacity="0.24"/>
+        <circle cx="260" cy="215" r="48" fill="none" stroke="#c6f9ff" stroke-width="1" stroke-opacity="0.20"/>
+        <path d="M260 149 L278 207 L340 215 L278 223 L260 281 L242 223 L180 215 L242 207 Z" fill="#8eeeff" fill-opacity="0.035" stroke="#a9f5ff" stroke-opacity="0.18"/>
+        <circle cx="260" cy="215" r="7" fill="#d8fbff" fill-opacity="0.82"/>
       </g>
-      <text x="82" y="48" font-family="Arial, Helvetica, sans-serif" font-size="10.5" font-weight="700" letter-spacing="1.8" fill="#91eaff">${escapeXml(spec.eyebrow)}</text>
-      <text x="82" y="76" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing="0.7" fill="#ffffff">${escapeXml(spec.title)}</text>
-      <line x1="30" y1="106" x2="380" y2="106" stroke="#91eaff" stroke-opacity="0.30"/>
-      ${rowMarkup}
-      <line x1="30" y1="316" x2="380" y2="316" stroke="#91eaff" stroke-opacity="0.24"/>
-      <text x="30" y="338" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="600" letter-spacing="1.0" fill="#d5f8ff" fill-opacity="0.78">${escapeXml(spec.footer)}</text>
+
+      <text x="260" y="70" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" letter-spacing="2.4" fill="#adf5ff" fill-opacity="0.76">${escapeXml(spec.title)}</text>
+      ${labels}
+
+      <g opacity="0.38">
+        <line x1="95" y1="344" x2="425" y2="344" stroke="#91efff" stroke-width="1"/>
+        <line x1="130" y1="354" x2="390" y2="354" stroke="#91efff" stroke-width="1"/>
+        <circle cx="105" cy="120" r="1.8" fill="#d8fbff"/>
+        <circle cx="395" cy="180" r="1.4" fill="#d8fbff"/>
+        <circle cx="150" cy="90" r="1.2" fill="#d8fbff"/>
+        <circle cx="355" cy="105" r="1.8" fill="#d8fbff"/>
+      </g>
     </svg>
   `);
 
-  await sharp(svg).png().toFile(target);
-  return target;
+  const rendered = await sharp(svg)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  await fs.writeFile(target, rendered.data);
+  return {
+    path: target,
+    width: rendered.info.width,
+    height: rendered.info.height,
+  };
 }
 
 async function preserveBase(segment, localBase, refreshBase) {
@@ -253,9 +271,9 @@ async function renderSegment(key, { refreshBase = false } = {}) {
     const output = path.join(directory, "composited.mp4");
     const baseState = await preserveBase(segment, input, refreshBase);
 
-    const panels = [];
+    const holograms = [];
     for (const window of segment.windows) {
-      panels.push(await makePanel(directory, window.mode));
+      holograms.push(await makeHologram(directory, window.mode));
     }
 
     const args = [
@@ -266,8 +284,15 @@ async function renderSegment(key, { refreshBase = false } = {}) {
       "-i", input,
     ];
 
-    for (const panel of panels) {
-      args.push("-loop", "1", "-framerate", String(FPS), "-i", panel);
+    for (const hologram of holograms) {
+      args.push(
+        "-f", "rawvideo",
+        "-pixel_format", "rgba",
+        "-video_size", `${hologram.width}x${hologram.height}`,
+        "-framerate", String(FPS),
+        "-stream_loop", "-1",
+        "-i", hologram.path,
+      );
     }
 
     const filters = [
@@ -275,12 +300,11 @@ async function renderSegment(key, { refreshBase = false } = {}) {
     ];
 
     segment.windows.forEach((window, index) => {
-      const fadeOutStart = Math.max(window.start, window.end - 0.35);
       filters.push(
-        `[${index + 1}:v]format=rgba,fade=t=in:st=${window.start}:d=0.35:alpha=1,fade=t=out:st=${fadeOutStart}:d=0.35:alpha=1[panel${index}]`,
+        `[${index + 1}:v]setpts=PTS-STARTPTS,format=rgba,colorchannelmixer=aa=0.78,scale='iw*(0.96+0.025*sin(t*0.65))':'ih*(0.96+0.025*sin(t*0.65))'[holo${index}]`,
       );
       filters.push(
-        `[base${index}][panel${index}]overlay=x='W-w-52+4*sin(t*0.55)':y='H-h-54+4*cos(t*0.48)':enable='between(t,${window.start},${window.end})':format=auto[base${index + 1}]`,
+        `[base${index}][holo${index}]overlay=x='W-w-18+7*sin(t*0.38)':y='H-h+8+5*cos(t*0.44)':enable='between(t,${window.start},${window.end})':format=auto[base${index + 1}]`,
       );
     });
 
@@ -300,9 +324,12 @@ async function renderSegment(key, { refreshBase = false } = {}) {
 
     await run(ffmpeg, args);
     const stored = await upload(segment.source, output, {
-      founder_hologram: "speech_window_composite",
+      founder_hologram: "spatial_projection_rgba",
       founder_hologram_segment: key,
       founder_hologram_windows: String(segment.windows.length),
+      founder_hologram_transport: "RAW_RGBA_DECODER_FREE",
+      founder_hologram_card_background: "forbidden",
+      founder_hologram_face_occlusion: "forbidden",
     });
 
     return {
@@ -315,7 +342,9 @@ async function renderSegment(key, { refreshBase = false } = {}) {
       bytes: stored.bytes,
       sha256: stored.sha256,
       signed_url: await signedUrl(segment.source),
-      policy: "HOLOGRAM_ONLY_DURING_FOUNDER_SPEECH_WINDOWS",
+      policy: "SPATIAL_HOLOGRAM_ONLY_DURING_FOUNDER_SPEECH_WINDOWS",
+      transport: "RAW_RGBA_DECODER_FREE",
+      rectangular_ui_card: false,
     };
   } finally {
     await fs.rm(directory, { recursive: true, force: true }).catch(() => {});
@@ -346,7 +375,10 @@ export async function GET(request) {
       }
       return json({
         success: true,
-        policy: "HOLOGRAM_ONLY_DURING_FOUNDER_SPEECH_WINDOWS",
+        policy: "SPATIAL_HOLOGRAM_ONLY_DURING_FOUNDER_SPEECH_WINDOWS",
+        transport: "RAW_RGBA_DECODER_FREE",
+        rectangular_ui_card: false,
+        face_occlusion_allowed: false,
         product_proof_untouched: true,
         items,
       });
@@ -360,7 +392,9 @@ export async function GET(request) {
       }
       return json({
         success: true,
-        policy: "HOLOGRAM_ONLY_DURING_FOUNDER_SPEECH_WINDOWS",
+        policy: "SPATIAL_HOLOGRAM_ONLY_DURING_FOUNDER_SPEECH_WINDOWS",
+        rectangular_ui_card: false,
+        face_occlusion_allowed: false,
         product_proof_untouched: true,
         results,
       });

@@ -59,6 +59,30 @@ requireAll("VOICE_BRIDGE", bridge, [
   "if (spoken) return",
 ]);
 
+requireAll("STRICT_WAKE_WORD", bridge, [
+  "function wakePhraseMatch(value)",
+  "startWakeRecognition()",
+  "speechRecognitionCtor(),",
+  "if (!wake?.matched) return;",
+  "Acoustic similarity is only a passive pre-filter/telemetry signal now.",
+  "It is never allowed to wake Avantiqo.",
+  "returnToWakeListening()",
+  "COMMAND_WINDOW_MS = 10000",
+  "Say “Avantiqo”",
+]);
+
+requireAll("CLIENT_INSTANT_NAVIGATION", bridge, [
+  "listOperatorNavigationTargets",
+  "resolveInstantOperatorNavigation",
+  "async function runInstantNavigation(message)",
+  "router.push(target.href);",
+  "if (await runInstantNavigation(cleanMessage)) return;",
+]);
+
+forbidAll("NO_AUTOMATIC_POST_RESPONSE_COMMAND_MODE", bridge, [
+  "if (enabledRef.current) armCommandMode();",
+]);
+
 if (bridge.includes('SpeechSynthesisUtterance("Got it.")')) {
   violations.push("VOICE_PROCESSING_FILLER_ACKNOWLEDGEMENT_PRESENT");
 }
@@ -348,6 +372,9 @@ if (violations.length) {
   process.exitCode = 1;
 } else {
   console.log("OPERATOR_VOICE_RESPONSIVENESS_AUDIT=PASS");
+  console.log("VOICE_WAKE=WORD_GATED_NOT_SOUND_GATED");
+  console.log("VOICE_POST_RESPONSE=PASSIVE_WAKE_ONLY");
+  console.log("VOICE_NAVIGATION=CLIENT_SIDE_REGISTERED_ROUTE_INSTANT_PATH");
   console.log("VOICE_SIMPLE_REPLY=INSTANT_LOCAL_OR_FAST_MODEL");
   console.log("VOICE_FAST_REASONING=SINGLE_PASS_LOW_LATENCY");
   console.log("VOICE_PROCESSING_FILLER=DISABLED");
@@ -364,8 +391,6 @@ if (violations.length) {
   console.log("VOICE_POLITE_NAVIGATION=INSTANT_LOCAL");
   console.log("VOICE_PLAYBACK=BROWSER_FIRST_FOR_SHORT_RESPONSES");
   console.log("VOICE_TRANSCRIPT=INTERIM_COMMIT_ENABLED");
-  console.log("VOICE_WAKE=ADAPTIVE_NOISE_AND_STRICT_MATCH");
   console.log("VOICE_MEMORY=SESSION_STATE_PRESERVED");
-  console.log("VOICE_NAVIGATION=REGISTERED_ROUTE_INSTANT_PATH");
   console.log("VOICE_ACKNOWLEDGEMENT=LOCAL_WITHOUT_PROVIDER_OR_BILLING");
 }

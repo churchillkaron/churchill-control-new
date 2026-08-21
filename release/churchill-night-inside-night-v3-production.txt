@@ -17,5 +17,6 @@ gemini_executor_model=gemini-omni-flash-preview
 physics_plate_architecture=true
 authentic_identity_composite_required=true
 generated_people_allowed=false
+review_links_ready=true
 production_build_authorized=true
 publication_authorized=false

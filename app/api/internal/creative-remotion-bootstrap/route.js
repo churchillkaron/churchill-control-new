@@ -28,7 +28,7 @@ async function loadProject() {
   return data;
 }
 
-async function persistSnapshot(project, snapshotId) {
+async function persistSnapshot(project, snapshotId, browserBinary) {
   const metadata = project.metadata || {};
   const snapshots = metadata.creative_tool_snapshots || {};
   const next = {
@@ -39,6 +39,7 @@ async function persistSnapshot(project, snapshotId) {
       sandbox_contract: CreativeSandboxRuntime.contract,
       ready: true,
       browser_baked: true,
+      browser_binary: browserBinary || null,
       verified_at: new Date().toISOString(),
     },
   };
@@ -64,40 +65,30 @@ async function bootstrapRemotionWithBrowser(project) {
   });
   let snapshotted = false;
   try {
-    await CreativeSandboxRuntime.run({
+    const install = await CreativeSandboxRuntime.run({
       sandbox,
       cmd: "bash",
       args: [
         "-lc",
-        "rm -rf /tmp/avantiqo-remotion && mkdir -p /tmp/avantiqo-remotion && cd /tmp/avantiqo-remotion && npm init -y >/dev/null 2>&1 && npm install --no-audit --no-fund react react-dom remotion @remotion/renderer @remotion/bundler @remotion/cli && ./node_modules/.bin/remotion browser ensure && node -e \"console.log(require('remotion/package.json').version)\"",
+        "set -e; rm -rf /tmp/avantiqo-remotion; mkdir -p /tmp/avantiqo-remotion; cd /tmp/avantiqo-remotion; npm init -y >/dev/null 2>&1; npm install --no-audit --no-fund react react-dom remotion @remotion/renderer @remotion/bundler @remotion/cli; ./node_modules/.bin/remotion browser ensure; BROWSER=$(find node_modules/.remotion -type f \\( -name 'chrome-headless-shell' -o -name 'headless_shell' \\) | head -n 1); test -n \"$BROWSER\"; printf '\nBROWSER_BINARY=%s\n' \"$BROWSER\"; node -e \"console.log('REMOTION_VERSION='+require('remotion/package.json').version)\"",
       ],
       timeout_ms: 780000,
       error_prefix: "CREATIVE_REMOTION_BROWSER_BOOTSTRAP_FAILED",
     });
 
-    const verify = await CreativeSandboxRuntime.run({
-      sandbox,
-      cmd: "bash",
-      args: [
-        "-lc",
-        "cd /tmp/avantiqo-remotion && find node_modules/.remotion -type f \\( -name 'chrome-headless-shell' -o -name 'headless_shell' \\) | head -n 3",
-      ],
-      timeout_ms: 30000,
-      error_prefix: "CREATIVE_REMOTION_BROWSER_VERIFY_FAILED",
-    });
-    if (!String(verify.stdout || "").trim()) {
-      throw new Error("CREATIVE_REMOTION_BROWSER_BINARY_MISSING");
-    }
+    const match = String(install.stdout || "").match(/BROWSER_BINARY=([^\r\n]+)/);
+    const browserBinary = match?.[1]?.trim() || null;
+    if (!browserBinary) throw new Error("CREATIVE_REMOTION_BROWSER_BINARY_MISSING");
 
     const snapshot = await sandbox.snapshot({ expiration: 0 });
     const snapshotId = snapshot?.id || snapshot?.snapshotId || snapshot?.snapshot?.id || null;
     if (!snapshotId) throw new Error("CREATIVE_REMOTION_SNAPSHOT_ID_MISSING");
     snapshotted = true;
-    const persisted = await persistSnapshot(project, snapshotId);
+    const persisted = await persistSnapshot(project, snapshotId, browserBinary);
     return {
       snapshot_id: snapshotId,
       browser_baked: true,
-      browser_binary: String(verify.stdout || "").trim().split("\n")[0],
+      browser_binary: browserBinary,
       persisted,
     };
   } finally {

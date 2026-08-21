@@ -4,39 +4,20 @@ export const maxDuration = 800;
 
 import { NextResponse } from "next/server";
 import { AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1 } from "@/lib/investor-film/AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1";
-
-function authorized(request) {
-  const expected = process.env.AVANTIQO_INVESTOR_INTERNAL_TOKEN || "";
-  if (!expected) return false;
-  const header = request.headers.get("authorization") || "";
-  const bearer = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  const queryToken = new URL(request.url).searchParams.get("token") || "";
-  return bearer === expected || queryToken === expected;
-}
+import { authorizeInvestorV9Render } from "@/lib/investor-film/InvestorV9RenderAuth";
 
 export async function GET(request) {
-  if (!authorized(request)) {
-    return NextResponse.json({ success: false, error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await authorizeInvestorV9Render(request))) return NextResponse.json({ success:false, error:"UNAUTHORIZED" }, { status:401 });
+  const action = new URL(request.url).searchParams.get("action") || "status";
+  if (action === "render") {
+    try { return NextResponse.json(await AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1.render()); }
+    catch (error) { return NextResponse.json({ success:false, contract:AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1.CONTRACT, error:error?.message || "CROSS_DOMAIN_GOVERNANCE_RENDER_FAILED" }, { status:500 }); }
   }
-  const status = await AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1.status();
-  return NextResponse.json({ success: true, ...status });
+  return NextResponse.json({ success:true, ...(await AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1.status()) });
 }
 
 export async function POST(request) {
-  if (!authorized(request)) {
-    return NextResponse.json({ success: false, error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  try {
-    const result = await AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1.render();
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        contract: AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1.CONTRACT,
-        error: error?.message || "CROSS_DOMAIN_GOVERNANCE_RENDER_FAILED",
-      },
-      { status: 500 },
-    );
-  }
+  if (!(await authorizeInvestorV9Render(request))) return NextResponse.json({ success:false, error:"UNAUTHORIZED" }, { status:401 });
+  try { return NextResponse.json(await AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1.render()); }
+  catch (error) { return NextResponse.json({ success:false, contract:AvantiqoInvestorFilmCrossDomainGovernanceRuntimeV1.CONTRACT, error:error?.message || "CROSS_DOMAIN_GOVERNANCE_RENDER_FAILED" }, { status:500 }); }
 }

@@ -69,7 +69,7 @@ async function bootstrapRemotionWithBrowser(project) {
       cmd: "bash",
       args: [
         "-lc",
-        "rm -rf /tmp/avantiqo-remotion && mkdir -p /tmp/avantiqo-remotion && cd /tmp/avantiqo-remotion && npm init -y >/dev/null 2>&1 && npm install --no-audit --no-fund react react-dom remotion @remotion/renderer @remotion/bundler && npx remotion browser ensure && node -e \"console.log(require('remotion/package.json').version)\"",
+        "rm -rf /tmp/avantiqo-remotion && mkdir -p /tmp/avantiqo-remotion && cd /tmp/avantiqo-remotion && npm init -y >/dev/null 2>&1 && npm install --no-audit --no-fund react react-dom remotion @remotion/renderer @remotion/bundler @remotion/cli && ./node_modules/.bin/remotion browser ensure && node -e \"console.log(require('remotion/package.json').version)\"",
       ],
       timeout_ms: 780000,
       error_prefix: "CREATIVE_REMOTION_BROWSER_BOOTSTRAP_FAILED",
@@ -80,7 +80,7 @@ async function bootstrapRemotionWithBrowser(project) {
       cmd: "bash",
       args: [
         "-lc",
-        "cd /tmp/avantiqo-remotion && find node_modules/.remotion -type f -name 'chrome-headless-shell' -o -name 'headless_shell' | head -n 3",
+        "cd /tmp/avantiqo-remotion && find node_modules/.remotion -type f \\( -name 'chrome-headless-shell' -o -name 'headless_shell' \\) | head -n 3",
       ],
       timeout_ms: 30000,
       error_prefix: "CREATIVE_REMOTION_BROWSER_VERIFY_FAILED",

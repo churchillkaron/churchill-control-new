@@ -108,6 +108,19 @@ async function ffprobe(ffprobePath, filePath) {
   return JSON.parse(Buffer.concat(stdout).toString("utf8"));
 }
 
+function videoStream(probe) {
+  return (Array.isArray(probe?.streams) ? probe.streams : []).find((stream) => stream.codec_type === "video") || null;
+}
+
+function assertSpatialUnit1080(probe, label) {
+  const stream = videoStream(probe);
+  if (!stream) throw new Error(`SPATIAL_UNIT_VIDEO_MISSING:${label}`);
+  if (Number(stream.width) !== 1920 || Number(stream.height) !== 1080) {
+    throw new Error(`SPATIAL_UNIT_DIMENSIONS_INVALID:${label}:${stream.width}x${stream.height}`);
+  }
+  return stream;
+}
+
 async function upload(localPath) {
   const bytes = await fs.readFile(localPath);
   const checksum = crypto.createHash("sha256").update(bytes).digest("hex");
@@ -139,25 +152,53 @@ async function render() {
   const scorePath = String(src.score || "").trim();
   if (!logoPath || !narrationPath || !scorePath) throw new Error("SPATIAL_FAST_MASTER_LOCKED_SOURCE_MISSING");
 
-  const visualPaths = [
-    logoPath,
-    ...Array.from({ length: 12 }, (_, index) => `${OUT_ROOT}/units/unit-${String(index + 1).padStart(2, "0")}.mp4`),
-  ];
+  const unitPaths = Array.from(
+    { length: 12 },
+    (_, index) => `${OUT_ROOT}/units/unit-${String(index + 1).padStart(2, "0")}.mp4`,
+  );
 
-  const [visualUrls, narrationUrl, scoreUrl] = await Promise.all([
-    Promise.all(visualPaths.map((value) => signed(value, 7200))),
+  const [logoUrl, unitUrls, narrationUrl, scoreUrl] = await Promise.all([
+    signed(logoPath, 7200),
+    Promise.all(unitPaths.map((value) => signed(value, 7200))),
     signed(narrationPath, 7200),
     signed(scorePath, 7200),
   ]);
 
+  const [firstUnitProbe, lastUnitProbe] = await Promise.all([
+    ffprobe(ffprobePath, unitUrls[0]),
+    ffprobe(ffprobePath, unitUrls[unitUrls.length - 1]),
+  ]);
+  const firstUnitVideo = assertSpatialUnit1080(firstUnitProbe, "unit-01");
+  const lastUnitVideo = assertSpatialUnit1080(lastUnitProbe, "unit-12");
+
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "avantiqo-spatial-fast-master-"));
   try {
+    const normalizedLogo = path.join(directory, "logo-1080p.mp4");
     const concatList = path.join(directory, "visuals.concat.txt");
     const visualOut = path.join(directory, "visuals.mp4");
     const finished = path.join(directory, "spatial-master-v2.mp4");
+
+    await run(ffmpeg, [
+      "-y",
+      "-i", logoUrl,
+      "-t", "8",
+      "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,fps=24",
+      "-an",
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "14",
+      "-pix_fmt", "yuv420p",
+      "-movflags", "+faststart",
+      normalizedLogo,
+    ], 120000);
+
+    const normalizedLogoProbe = await ffprobe(ffprobePath, normalizedLogo);
+    assertSpatialUnit1080(normalizedLogoProbe, "logo-normalized");
+
+    const concatSources = [normalizedLogo, ...unitUrls];
     await fs.writeFile(
       concatList,
-      visualUrls.map((url) => `file '${String(url).replace(/'/g, "'\\''")}'`).join("\n"),
+      concatSources.map((value) => `file '${String(value).replace(/'/g, "'\\''")}'`).join("\n"),
       "utf8",
     );
 
@@ -172,6 +213,9 @@ async function render() {
       "-movflags", "+faststart",
       visualOut,
     ], 240000);
+
+    const visualProbe = await ffprobe(ffprobePath, visualOut);
+    const visualStream = assertSpatialUnit1080(visualProbe, "joined-visuals");
 
     await run(ffmpeg, [
       "-y",
@@ -222,6 +266,7 @@ async function render() {
       bytes: stored.bytes,
       full_screen_ui_ratio: 0,
       fast_stream_copy: true,
+      logo_normalized_to_1080p: true,
       sound: {
         narration: { start_seconds: NARRATION_START, duration_seconds: 229.5, gain: 1 },
         score: { start_seconds: 0, duration_seconds: MASTER, gain: 0.22 },
@@ -237,6 +282,12 @@ async function render() {
         sample_rate: Number(audio.sample_rate || 0) || null,
         channels: Number(audio.channels || 0) || null,
         av_streams_present: true,
+        unit_01_width: Number(firstUnitVideo.width),
+        unit_01_height: Number(firstUnitVideo.height),
+        unit_12_width: Number(lastUnitVideo.width),
+        unit_12_height: Number(lastUnitVideo.height),
+        joined_visual_width: Number(visualStream.width),
+        joined_visual_height: Number(visualStream.height),
       },
       release_review_required: true,
       updated_at: new Date().toISOString(),

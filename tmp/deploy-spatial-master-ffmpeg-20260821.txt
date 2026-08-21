@@ -1,0 +1,1 @@
+Activate bundled FFmpeg binding for Avantiqo spatial investor master v2 final assembly.

@@ -26,6 +26,7 @@ approved_wine_locked=true
 approved_steam_locked=true
 repair_frame_qc_ready=true
 repair_frame_qc_binary_tracing=true
+repair_frame_qc_image_ready=true
 master_render_authorized=false
 production_build_authorized=true
 publication_authorized=false

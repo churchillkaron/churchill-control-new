@@ -1,0 +1,1 @@
+Activate the Studio Remotion browser snapshot bootstrap route so Chromium can be baked into the reusable creative-tool snapshot before spatial-product-twin rendering.

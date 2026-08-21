@@ -1,0 +1,1 @@
+Activate the corrected Studio Remotion snapshot bootstrap with @remotion/cli so Chrome Headless Shell can be baked into the reusable rendering snapshot.

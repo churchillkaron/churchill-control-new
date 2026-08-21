@@ -1,0 +1,8 @@
+Spatial Product Twin Remotion registration fix
+Date: 2026-08-21
+
+Fix:
+- Spatial Product Twin Remotion entry calls registerRoot().
+- Studio execution routes creative.spatial-product-twin.compose through runtime V4.
+- Camera tracking remains on corrected OpenCV virtualenv runtime.
+- Proof design unchanged: live environment + floating luxury glass objects, zero full-screen UI.

@@ -1,0 +1,9 @@
+Spatial Product Twin Studio proof activation
+Date: 2026-08-21
+
+Scope:
+- Register creative.spatial-product-twin.compose
+- Use existing Remotion + OpenCV Studio snapshots
+- Render only live-environment founder footage with floating optical-glass domain/capability objects
+- Hard requirement: full-screen UI ratio = 0
+- Proof before full-film propagation

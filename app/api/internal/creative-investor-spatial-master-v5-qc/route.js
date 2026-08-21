@@ -15,6 +15,7 @@ const BUCKET = "creative-assets";
 const ORG = "33336a72-acb5-474e-856b-8be0269360e2";
 const PROJECT = "37ca49f2-210d-4665-af6b-6b5fa834f750";
 const MASTER_PATH = `${ORG}/${PROJECT}/spatial-master-v5-final/avantiqo-investor-film-spatial-master-v5-ai-hero.mp4`;
+const OUTPUT_PATH = `${ORG}/${PROJECT}/spatial-master-v5-final/review/avantiqo-investor-film-spatial-master-v5-contact-sheet.jpg`;
 const FRAME_TIMES = [1,7.5,9.5,30,65,110,155,200,230];
 
 const json = (data, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store, private" } });
@@ -60,8 +61,21 @@ async function contactSheet(ffmpeg, master, dir) {
   const width = cols*cw + (cols-1)*gap, height = rows*ch + (rows-1)*gap;
   return sharp({ create: { width, height, channels: 3, background: { r: 3, g: 3, b: 7 } } })
     .composite(frames.map((input, i) => ({ input, left: (i%cols)*(cw+gap), top: Math.floor(i/cols)*(ch+gap) })))
-    .jpeg({ quality: 56, mozjpeg: true })
+    .jpeg({ quality: 70, mozjpeg: true })
     .toBuffer();
+}
+
+async function storeSheet(sheet) {
+  const { error } = await supabaseAdmin.storage.from(BUCKET).upload(OUTPUT_PATH, sheet, {
+    contentType: "image/jpeg",
+    upsert: true,
+    cacheControl: "300",
+  });
+  if (error) throw error;
+  const { data, error: signError } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(OUTPUT_PATH, 6 * 60 * 60);
+  if (signError) throw signError;
+  if (!data?.signedUrl) throw new Error("V5_QC_SIGNED_URL_MISSING");
+  return data.signedUrl;
 }
 
 export async function GET(request) {
@@ -75,7 +89,8 @@ export async function GET(request) {
       const master = path.join(dir, "master.mp4");
       await downloadMaster(master);
       const sheet = await contactSheet(ffmpeg, master, dir);
-      return json({ success: true, master_path: MASTER_PATH, frame_times_seconds: FRAME_TIMES, width: 670, height: 382, bytes: sheet.length, jpeg_base64: sheet.toString("base64") });
+      const signedUrl = await storeSheet(sheet);
+      return json({ success: true, master_path: MASTER_PATH, contact_sheet_path: OUTPUT_PATH, frame_times_seconds: FRAME_TIMES, width: 670, height: 382, bytes: sheet.length, signed_url: signedUrl });
     } finally {
       await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
     }

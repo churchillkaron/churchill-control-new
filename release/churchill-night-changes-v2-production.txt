@@ -1,4 +1,6 @@
 CHURCHILL_THE_NIGHT_CHANGES_90S_V2
 release_contract=CHURCHILL_AUTHENTIC_CINEMATIC_MASTER_V2
+provider_contract=VEO_FIRST_LAST_INTERPOLATION_ONLY
+electric_darts_midpoint_locked=true
 production_build_authorized=true
 publication_authorized=false

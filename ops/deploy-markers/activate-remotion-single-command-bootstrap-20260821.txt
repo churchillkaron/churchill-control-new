@@ -1,0 +1,1 @@
+Activate the corrected Studio Remotion snapshot bootstrap that installs and verifies Chrome Headless Shell in one command before snapshotting.

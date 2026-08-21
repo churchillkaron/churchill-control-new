@@ -28,6 +28,8 @@ const nextConfig = {
       "/api/internal/avantiqo-investor-film-lipsync": creativeMediaBinaries,
       "/api/internal/avantiqo-investor-video-voice-v3": creativeMediaBinaries,
       "/api/internal/avantiqo-investor-founder-audio-lock": creativeMediaBinaries,
+      "/api/internal/creative-churchill-night-changes-v3-qc": creativeMediaBinaries,
+      "/api/internal/creative-churchill-night-changes-v3-repair-qc": creativeMediaBinaries,
     },
   },
 

@@ -1,0 +1,15 @@
+CHURCHILL_THE_NIGHT_INSIDE_THE_NIGHT_90S_V3
+canonical_story_version=CHURCHILL_NIGHT_CHANGES_CANONICAL_STORY_V4
+release_contract=CHURCHILL_AUTHENTIC_WORLDCLASS_FILM_V3
+story_locked=true
+provider_fallback_changes_story=false
+mandatory_story_beats=15
+mandatory_vfx_shots=7
+wine_universe_required=true
+ice_time_freeze_required=true
+electric_darts_only=true
+frozen_night_hero_required=true
+exact_3d_logo_required=true
+avantiqo_derivative_proof_film=true
+production_build_authorized=true
+publication_authorized=false

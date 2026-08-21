@@ -12,5 +12,7 @@ frozen_night_hero_required=true
 exact_3d_logo_required=true
 avantiqo_derivative_proof_film=true
 campaign_boundary_corrected=true
+gemini_executor_ready=true
+gemini_executor_model=gemini-omni-flash-preview
 production_build_authorized=true
 publication_authorized=false

@@ -1,0 +1,1 @@
+Activate the V5 investor visual QC endpoint for final perceptual review.

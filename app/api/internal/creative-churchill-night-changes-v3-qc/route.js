@@ -120,6 +120,15 @@ async function shotState(shot) {
   return { project: p, state };
 }
 
+async function signedShotUrl(reference, expiresIn = 21600) {
+  const { data, error } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .createSignedUrl(storagePath(reference), expiresIn);
+  if (error) throw error;
+  if (!data?.signedUrl) throw new Error("CHURCHILL_V3_QC_SIGNED_URL_MISSING");
+  return data.signedUrl;
+}
+
 async function downloadShot(reference, target) {
   const { data, error } = await supabaseAdmin.storage.from(BUCKET).download(storagePath(reference));
   if (error) throw error;
@@ -194,9 +203,10 @@ async function sheet(shot) {
   }
 }
 
-async function status() {
+async function status(requestUrl) {
   const p = await project();
   const states = p.metadata?.churchill_v3_vfx?.shots || {};
+  const base = new URL(requestUrl);
   return {
     success: true,
     creative_project_id: p.id,
@@ -205,6 +215,7 @@ async function status() {
       ready: states[shot]?.status === "COMPLETED" && Boolean(states[shot]?.output_reference),
       duration_seconds: states[shot]?.duration_seconds || null,
       provider_job_id: states[shot]?.provider_job_id || null,
+      review_url: `${base.origin}${base.pathname}?token=${encodeURIComponent(TOKEN)}&action=clip&shot=${encodeURIComponent(shot)}`,
     }])),
     publication_authorized: false,
   };
@@ -215,7 +226,13 @@ export async function GET(request) {
     const url = new URL(request.url);
     if (url.searchParams.get("token") !== TOKEN) return json({ success: false }, 404);
     const action = text(url.searchParams.get("action") || "status").toLowerCase();
-    if (action === "status") return json(await status());
+    if (action === "status") return json(await status(request.url));
+    if (action === "clip") {
+      const shot = text(url.searchParams.get("shot"));
+      const { state } = await shotState(shot);
+      const signedUrl = await signedShotUrl(state.output_reference, 21600);
+      return Response.redirect(signedUrl, 307);
+    }
     if (action === "sheet") {
       const shot = text(url.searchParams.get("shot"));
       const result = await sheet(shot);

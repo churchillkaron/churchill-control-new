@@ -1,0 +1,8 @@
+Spatial Product Twin OpenCV execution fix
+Date: 2026-08-21
+
+Fix:
+- Camera tracking now runs with the OpenCV snapshot virtualenv interpreter.
+- creative.camera.track routes through the corrected camera-track runtime.
+- creative.spatial-product-twin.compose uses the corrected camera tracker.
+- No change to proof story or visual intent.

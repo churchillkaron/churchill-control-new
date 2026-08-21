@@ -39,6 +39,7 @@ async function persistSnapshot(project, snapshotId, browserBinary) {
       sandbox_contract: CreativeSandboxRuntime.contract,
       ready: true,
       browser_baked: true,
+      browser_dependencies_baked: true,
       browser_binary: browserBinary || null,
       verified_at: new Date().toISOString(),
     },
@@ -70,7 +71,7 @@ async function bootstrapRemotionWithBrowser(project) {
       cmd: "bash",
       args: [
         "-lc",
-        "set -e; rm -rf /tmp/avantiqo-remotion; mkdir -p /tmp/avantiqo-remotion; cd /tmp/avantiqo-remotion; npm init -y >/dev/null 2>&1; npm install --no-audit --no-fund react react-dom remotion @remotion/renderer @remotion/bundler @remotion/cli; ./node_modules/.bin/remotion browser ensure; BROWSER=$(find node_modules/.remotion -type f \\( -name 'chrome-headless-shell' -o -name 'headless_shell' \\) | head -n 1); test -n \"$BROWSER\"; printf '\nBROWSER_BINARY=%s\n' \"$BROWSER\"; node -e \"console.log('REMOTION_VERSION='+require('remotion/package.json').version)\"",
+        "set -e; apt-get update >/dev/null; DEBIAN_FRONTEND=noninteractive apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libdbus-1-3 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libatspi2.0-0 libx11-xcb1 libxshmfence1 fonts-liberation >/dev/null; rm -rf /tmp/avantiqo-remotion; mkdir -p /tmp/avantiqo-remotion; cd /tmp/avantiqo-remotion; npm init -y >/dev/null 2>&1; npm install --no-audit --no-fund react react-dom remotion @remotion/renderer @remotion/bundler @remotion/cli; ./node_modules/.bin/remotion browser ensure; BROWSER=$(find node_modules/.remotion -type f \\( -name 'chrome-headless-shell' -o -name 'headless_shell' \\) | head -n 1); test -n \"$BROWSER\"; ldd \"$BROWSER\" | grep 'not found' && exit 21 || true; printf '\nBROWSER_BINARY=%s\n' \"$BROWSER\"; node -e \"console.log('REMOTION_VERSION='+require('remotion/package.json').version)\"",
       ],
       timeout_ms: 780000,
       error_prefix: "CREATIVE_REMOTION_BROWSER_BOOTSTRAP_FAILED",
@@ -88,6 +89,7 @@ async function bootstrapRemotionWithBrowser(project) {
     return {
       snapshot_id: snapshotId,
       browser_baked: true,
+      browser_dependencies_baked: true,
       browser_binary: browserBinary,
       persisted,
     };

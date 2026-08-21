@@ -4,18 +4,10 @@ export const maxDuration = 800;
 
 import { NextResponse } from "next/server";
 import { AvantiqoInvestorFilmBusinessPartnerRuntimeV1 } from "@/lib/investor-film/AvantiqoInvestorFilmBusinessPartnerRuntimeV1";
-
-function authorized(request) {
-  const expected = process.env.AVANTIQO_INVESTOR_INTERNAL_TOKEN || "";
-  if (!expected) return false;
-  const header = request.headers.get("authorization") || "";
-  const bearer = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  const queryToken = new URL(request.url).searchParams.get("token") || "";
-  return bearer === expected || queryToken === expected;
-}
+import { authorizeInvestorV9Render } from "@/lib/investor-film/InvestorV9RenderAuth";
 
 export async function GET(request) {
-  if (!authorized(request)) {
+  if (!(await authorizeInvestorV9Render(request))) {
     return NextResponse.json({ success: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
 
@@ -24,7 +16,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  if (!authorized(request)) {
+  if (!(await authorizeInvestorV9Render(request))) {
     return NextResponse.json({ success: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
 

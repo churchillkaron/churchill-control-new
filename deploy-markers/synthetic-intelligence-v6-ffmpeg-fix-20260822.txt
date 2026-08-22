@@ -1,0 +1,3 @@
+Synthetic Intelligence V6 review render deployment marker.
+Includes FFmpeg duration syntax fix only.
+Review-only path; canonical investor master remains untouched.

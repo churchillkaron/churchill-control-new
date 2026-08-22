@@ -2,14 +2,6 @@ name: Creative Churchill Menu Live Certification
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "lib/creative/design/**"
-      - "lib/creative/assets/fonts/**"
-      - "scripts/creative-design-churchill-menu-live-certification.mjs"
-      - ".github/workflows/creative-churchill-menu-live-certification.yml"
 
 permissions:
   contents: read

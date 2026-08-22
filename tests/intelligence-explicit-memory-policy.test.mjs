@@ -102,3 +102,33 @@ test("supports Swedish durable markers without losing polarity", () => {
   assert.equal(memories[1].type, "constraint");
   assert.equal(memories[1].content, "Aldrig deploya produktion automatiskt.");
 });
+
+test("does not persist explicit password values", () => {
+  assert.deepEqual(
+    extractExplicitDurableMemories("Always use password: EXAMPLE_PASSWORD_VALUE."),
+    [],
+  );
+});
+
+test("does not persist API keys, tokens, private keys or seed phrases", () => {
+  const statements = [
+    "From now on API key: EXAMPLE_API_KEY_VALUE.",
+    "Always auth token: EXAMPLE_AUTH_TOKEN_VALUE.",
+    "I prefer client secret: EXAMPLE_CLIENT_SECRET_VALUE.",
+    "Always seed phrase: alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu.",
+    "Never -----BEGIN PRIVATE KEY----- example material.",
+  ];
+
+  for (const statement of statements) {
+    assert.deepEqual(extractExplicitDurableMemories(statement), []);
+  }
+});
+
+test("can still remember a safety rule about passwords without a secret value", () => {
+  const memories = extractExplicitDurableMemories(
+    "Never share passwords with anyone.",
+  );
+
+  assert.equal(memories.length, 1);
+  assert.equal(memories[0].content, "Never share passwords with anyone.");
+});

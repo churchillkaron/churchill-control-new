@@ -1,0 +1,40 @@
+name: Creative Churchill Menu Live Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/creative/design/**"
+      - "lib/creative/assets/fonts/**"
+      - "scripts/creative-design-churchill-menu-live-certification.mjs"
+      - ".github/workflows/creative-churchill-menu-live-certification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CREATIVE_CERTIFICATION_ORGANIZATION_ID: "33336a72-acb5-474e-856b-8be0269360e2"
+      CREATIVE_CERTIFICATION_PROJECT_ID: "28cba496-4cc3-42dd-8b3a-c47e73a907a1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Certify live Churchill menu design
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/creative-design-churchill-menu-live-certification.mjs

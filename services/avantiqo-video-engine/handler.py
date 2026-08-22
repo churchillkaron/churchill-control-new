@@ -20,6 +20,7 @@ IMPLEMENTED_CAPABILITIES = {
     "ai.video.image_to_video",
     "ai.video.video_to_video",
     "ai.video.edit",
+    "ai.video.inpaint",
 }
 DEFAULT_CERTIFIED_CAPABILITIES = {
     "ai.video.generate",
@@ -33,6 +34,7 @@ V2V_MODEL = os.getenv(
     "Wan-AI/Wan2.1-VACE-14B-diffusers",
 ).strip()
 EDIT_MODEL = os.getenv("AVANTIQO_VIDEO_EDIT_MODEL", V2V_MODEL).strip()
+INPAINT_MODEL = os.getenv("AVANTIQO_VIDEO_INPAINT_MODEL", EDIT_MODEL or V2V_MODEL).strip()
 OUTPUT_DIR = Path(os.getenv("AVANTIQO_VIDEO_OUTPUT_DIR", "/tmp/avantiqo-video"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = os.getenv("AVANTIQO_VIDEO_DEVICE", "cuda")
@@ -120,6 +122,9 @@ def _foundation_model(data: dict[str, Any]) -> str:
     elif capability == "ai.video.edit":
         model_id = EDIT_MODEL
         missing = "AVANTIQO_VIDEO_EDIT_MODEL_REQUIRED"
+    elif capability == "ai.video.inpaint":
+        model_id = INPAINT_MODEL
+        missing = "AVANTIQO_VIDEO_INPAINT_MODEL_REQUIRED"
     else:
         model_id = T2V_MODEL
         missing = "AVANTIQO_VIDEO_T2V_MODEL_REQUIRED"
@@ -207,16 +212,24 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     data["reference_images"] = [
         _public_https_url(value) for value in references if _text(value)
     ]
-    source_videos = data.get("source_videos") or []
-    if not isinstance(source_videos, list) or len(source_videos) > 1:
-        raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_LIMIT_EXCEEDED")
-    data["source_videos"] = [
-        _public_https_url(value) for value in source_videos if _text(value)
-    ]
+
+    source_video = _text(data.get("source_video"))
+    if not source_video:
+        legacy_sources = data.get("source_videos") or []
+        if isinstance(legacy_sources, list) and legacy_sources:
+            source_video = _text(legacy_sources[0])
+    data["source_video"] = _public_https_url(source_video) if source_video else None
+
+    mask_video = _text(data.get("mask_video"))
+    data["mask_video"] = _public_https_url(mask_video) if mask_video else None
+
     if capability == "ai.video.image_to_video" and not data["reference_images"]:
         raise ValueError("AVANTIQO_VIDEO_IMAGE_TO_VIDEO_REFERENCE_REQUIRED")
-    if capability in {"ai.video.video_to_video", "ai.video.edit"} and not data["source_videos"]:
+    if capability in {"ai.video.video_to_video", "ai.video.edit", "ai.video.inpaint"} and not data["source_video"]:
         raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_REQUIRED")
+    if capability == "ai.video.inpaint" and not data["mask_video"]:
+        raise ValueError("AVANTIQO_VIDEO_INPAINT_MASK_VIDEO_REQUIRED")
+
     storage_upload = data.get("storage_upload") or {}
     signed_url = _public_https_url(storage_upload.get("signed_url"), upload=True)
     storage_reference = _text(storage_upload.get("storage_reference"))
@@ -230,13 +243,13 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def _download_video(url: str, job_id: str) -> Path:
-    path = OUTPUT_DIR / f"{job_id}-source.mp4"
+def _download_video(url: str, job_id: str, role: str) -> Path:
+    path = OUTPUT_DIR / f"{job_id}-{role}.mp4"
     with requests.get(url, stream=True, timeout=180) as response:
         response.raise_for_status()
         content_length = int(response.headers.get("content-length") or 0)
         if content_length > 200 * 1024 * 1024:
-            raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_TOO_LARGE")
+            raise ValueError(f"AVANTIQO_VIDEO_{role.upper()}_TOO_LARGE")
         total = 0
         with path.open("wb") as handle:
             for chunk in response.iter_content(chunk_size=1024 * 1024):
@@ -244,20 +257,32 @@ def _download_video(url: str, job_id: str) -> Path:
                     continue
                 total += len(chunk)
                 if total > 200 * 1024 * 1024:
-                    raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_TOO_LARGE")
+                    raise ValueError(f"AVANTIQO_VIDEO_{role.upper()}_TOO_LARGE")
                 handle.write(chunk)
     return path
 
 
-def _vace_video_input(path: Path, width: int, height: int, frames: int) -> list[Image.Image]:
+def _sample_video_frames(
+    path: Path,
+    width: int,
+    height: int,
+    frames: int,
+    *,
+    grayscale: bool = False,
+) -> list[Image.Image]:
     source = iio.imread(path, plugin="FFMPEG")
     if len(source) < 2:
         raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_EMPTY")
     indices = [round(index * (len(source) - 1) / max(1, frames - 1)) for index in range(frames)]
+    mode = "L" if grayscale else "RGB"
     return [
-        Image.fromarray(source[index]).convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
+        Image.fromarray(source[index]).convert(mode).resize((width, height), Image.Resampling.LANCZOS)
         for index in indices
     ]
+
+
+def _binary_mask_frame(frame: Image.Image) -> Image.Image:
+    return frame.convert("L").point(lambda value: 255 if value >= 128 else 0, mode="L")
 
 
 def _upload_video(path: Path, storage_upload: dict[str, Any]) -> None:
@@ -308,15 +333,33 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     }
     references = data.get("reference_images") or []
     source_path = None
+    mask_path = None
+    mask_mode = "NONE"
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     capability = data["capability"]
+
     if capability == "ai.video.image_to_video":
         kwargs["image"] = load_image(references[0])
-    elif capability in {"ai.video.video_to_video", "ai.video.edit"}:
-        source_path = _download_video(data["source_videos"][0], job_id)
-        source_frames = _vace_video_input(source_path, width, height, frames)
+    elif capability in {"ai.video.video_to_video", "ai.video.edit", "ai.video.inpaint"}:
+        source_path = _download_video(data["source_video"], job_id, "source-video")
+        source_frames = _sample_video_frames(source_path, width, height, frames)
         kwargs["video"] = source_frames
-        kwargs["mask"] = [Image.new("L", (width, height), 255) for _ in source_frames]
+
+        if data.get("mask_video"):
+            mask_path = _download_video(data["mask_video"], job_id, "mask-video")
+            mask_frames = _sample_video_frames(
+                mask_path,
+                width,
+                height,
+                frames,
+                grayscale=True,
+            )
+            kwargs["mask"] = [_binary_mask_frame(frame) for frame in mask_frames]
+            mask_mode = "LOCALIZED_WHITE_REGENERATE_BLACK_PRESERVE"
+        else:
+            kwargs["mask"] = [Image.new("L", (width, height), 255) for _ in source_frames]
+            mask_mode = "FULL_FRAME_REGENERATE"
+
         kwargs["negative_prompt"] = _text(
             data.get("negative_instruction")
             or "low quality, blurry, malformed, duplicate anatomy, subtitles, watermark"
@@ -329,6 +372,9 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     finally:
         if source_path:
             source_path.unlink(missing_ok=True)
+        if mask_path:
+            mask_path.unlink(missing_ok=True)
+
     output_path = OUTPUT_DIR / f"{job_id}.mp4"
     export_to_video(video_frames, str(output_path), fps=fps)
     runpod.serverless.progress_update(job, "storing private Avantiqo asset")
@@ -352,7 +398,14 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "width": width,
         "height": height,
         "size_bytes": size_bytes,
-        "source_video_conditioning": capability in {"ai.video.video_to_video", "ai.video.edit"},
+        "source_video_conditioning": capability in {
+            "ai.video.video_to_video",
+            "ai.video.edit",
+            "ai.video.inpaint",
+        },
+        "mask_video_conditioning": bool(data.get("mask_video")),
+        "mask_mode": mask_mode,
+        "localized_editing": mask_mode == "LOCALIZED_WHITE_REGENERATE_BLACK_PRESERVE",
         "certification_execution": data.get("certification_execution") is True,
         "generation_seconds": round(elapsed, 3),
         "quality_profile": _text(data.get("quality_profile")) or "cinema",
@@ -370,6 +423,8 @@ def check_worker():
         raise RuntimeError("AVANTIQO_VIDEO_V2V_MODEL_REQUIRED")
     if not EDIT_MODEL:
         raise RuntimeError("AVANTIQO_VIDEO_EDIT_MODEL_REQUIRED")
+    if not INPAINT_MODEL:
+        raise RuntimeError("AVANTIQO_VIDEO_INPAINT_MODEL_REQUIRED")
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VIDEO_CUDA_REQUIRED")
     if REQUIRE_CACHED_MODEL:
@@ -379,6 +434,8 @@ def check_worker():
             required_models.add(V2V_MODEL)
         if "ai.video.edit" in certified or CERTIFICATION_EXECUTION_ENABLED:
             required_models.add(EDIT_MODEL)
+        if "ai.video.inpaint" in certified or CERTIFICATION_EXECUTION_ENABLED:
+            required_models.add(INPAINT_MODEL)
         for model_id in required_models:
             if not _cached_model_path(model_id):
                 raise RuntimeError(f"AVANTIQO_VIDEO_CACHED_MODEL_REQUIRED:{model_id}")

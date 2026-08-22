@@ -12,6 +12,7 @@ permissions:
   contents: write
   pull-requests: read
 
+# One-shot convergence helper: main is the repository source of truth.
 jobs:
   cleanup:
     runs-on: ubuntu-latest

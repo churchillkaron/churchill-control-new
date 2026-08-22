@@ -2,5 +2,6 @@ AVANTIQO_INTELLIGENCE_DIRECT_PROBE
 Date: 2026-08-22
 Branch: main
 Model: Qwen/Qwen3-30B-A3B-Thinking-2507
-Purpose: diagnostic only; never deploy production. Verify that the currently warm RunPod worker serves the OpenAI-compatible chat-completions route, structured JSON, native function calls, and reasoning privacy.
+Recheck: 2026-08-22T18:30:30+07:00
+Purpose: diagnostic only; never deploy production. Verify worker occupancy and confirm the OpenAI-compatible chat-completions route, structured JSON, native function calls, and reasoning privacy after the native /run cold-start diagnostic.
 No credentials or endpoint identifiers are stored here.

@@ -19,7 +19,7 @@ const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const PROJECT_ID = "da38f668-11a1-4760-a8f2-6adc3effdab5";
 const TOKEN = "churchill-night-changes-v3-editorial-20260822";
 const BUCKET = "creative-assets";
-const VERSION = "CHURCHILL_V3_EDITORIAL_R2_AUTHENTIC_STILLS";
+const VERSION = "CHURCHILL_V3_EDITORIAL_R3_FILTER_SAFE";
 const WIDTH = 1920;
 const HEIGHT = 1080;
 const FPS = 24;
@@ -140,7 +140,7 @@ function completedReference(node) {
 }
 
 function normalizeVideo(label) {
-  return `[${label}:v]fps=${FPS},scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},setsar=1,format=yuv420p`;
+  return `[${label}:v]fps=${FPS},scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},setsar=1,format=yuv420p,`;
 }
 
 async function uploadOutput(p, beat, file, metadata = {}) {

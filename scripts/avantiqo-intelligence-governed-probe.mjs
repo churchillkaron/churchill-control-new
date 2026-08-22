@@ -1,6 +1,12 @@
 import {
   ServiceExecutionRuntime,
 } from "../lib/platform/service-runtime/execution/ServiceExecutionRuntime.js";
+import {
+  resolveProviders,
+} from "../lib/platform/service-runtime/providers/ProviderResolver.js";
+import {
+  getAvantiqoIntelligenceRuntimeConfiguration,
+} from "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js";
 
 const MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
@@ -12,6 +18,14 @@ function parseArguments(value) {
     return null;
   }
 }
+
+const runtimeConfiguration = getAvantiqoIntelligenceRuntimeConfiguration();
+const providerPreflight = await resolveProviders({
+  capability: "ai.reasoning.execute",
+});
+console.log(
+  `AVANTIQO_GOVERNED_PREFLIGHT runtime_ready=${runtimeConfiguration.runtime_ready} engine_enabled=${runtimeConfiguration.engine_enabled} endpoint_configured=${runtimeConfiguration.endpoint_configured} api_key_configured=${runtimeConfiguration.api_key_configured} providers=${providerPreflight.providers.map((item) => item.id).join(",") || "none"} pricing=${providerPreflight.pricing.map((item) => `${item.provider}:${item.model || "none"}:${item.currency || "none"}`).join(",") || "none"} rejected_pricing=${providerPreflight.rejected_pricing.map((item) => `${item.provider}:${item.reason}`).join(",") || "none"}`,
+);
 
 const startedAt = Date.now();
 const result = await ServiceExecutionRuntime.execute({

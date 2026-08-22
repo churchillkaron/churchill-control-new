@@ -8,9 +8,11 @@ const FINAL_BUILD_MARKER = "[deploy-production-final]";
 const FINANCE_AUDIT_MARKER = "[finance-closeout-audit]";
 const INTELLIGENCE_AUDIT_MARKER = "[certify-avantiqo-intelligence]";
 const INTELLIGENCE_DIAGNOSTIC_MARKER = "[diagnose-avantiqo-intelligence]";
+const INTELLIGENCE_DIRECT_PROBE_MARKER = "[probe-avantiqo-intelligence]";
 const INTELLIGENCE_AUDIT_TIMEOUT_MS = 60000;
 const INTELLIGENCE_PROFILE_TIMEOUT_MS = 30000;
 const INTELLIGENCE_DIAGNOSTIC_TIMEOUT_MS = 210000;
+const INTELLIGENCE_DIRECT_PROBE_TIMEOUT_MS = 65000;
 
 const commitMessage = String(
   process.env.VERCEL_GIT_COMMIT_MESSAGE || "",
@@ -20,6 +22,7 @@ const hasFinalBuildMarker = commitMessage.includes(FINAL_BUILD_MARKER);
 const hasFinanceAuditMarker = commitMessage.includes(FINANCE_AUDIT_MARKER);
 const hasIntelligenceAuditMarker = commitMessage.includes(INTELLIGENCE_AUDIT_MARKER);
 const hasIntelligenceDiagnosticMarker = commitMessage.includes(INTELLIGENCE_DIAGNOSTIC_MARKER);
+const hasIntelligenceDirectProbeMarker = commitMessage.includes(INTELLIGENCE_DIRECT_PROBE_MARKER);
 
 console.log(`VERCEL_GIT_COMMIT_MESSAGE=${commitMessage || "(empty)"}`);
 
@@ -72,6 +75,18 @@ if (hasFinanceAuditMarker) {
   }
 
   console.log("FINANCE_CLOSEOUT_AUDIT=PASS");
+}
+
+if (hasIntelligenceDirectProbeMarker) {
+  const directProbePassed = runDiagnostic(
+    "scripts/avantiqo-intelligence-direct-probe.mjs",
+    "AVANTIQO_INTELLIGENCE_DIRECT_PROBE",
+    INTELLIGENCE_DIRECT_PROBE_TIMEOUT_MS,
+  );
+  console.log(
+    `VERCEL_BUILD=SKIP reason=avantiqo-intelligence-direct-probe-only direct_probe_passed=${directProbePassed}`,
+  );
+  process.exit(0);
 }
 
 if (hasIntelligenceDiagnosticMarker) {

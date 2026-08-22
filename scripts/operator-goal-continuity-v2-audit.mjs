@@ -14,6 +14,9 @@ const {
   createOperatorAutonomousRun,
   transitionOperatorAutonomousRun,
 } = await import("@/lib/operator/contracts/OperatorAutonomousRun");
+const {
+  classifyPendingOperatorReply,
+} = await import("@/lib/operator/runtime/OperatorHumanDecisionClassifier");
 
 const established = normalizeOperatorProjectState({
   objective: "Complete the active business objective",
@@ -85,6 +88,23 @@ const cancelled = transitionOperatorAutonomousRun(run, {
   blocker: "User cancelled",
 });
 assert.equal(cancelled.status, "cancelled");
+
+assert.equal(
+  classifyPendingOperatorReply({ message: "yes", pending: true, recommendation: true }),
+  "agree",
+);
+assert.equal(
+  classifyPendingOperatorReply({ message: "do it", pending: true, recommendation: true }),
+  "execute",
+);
+assert.equal(
+  classifyPendingOperatorReply({ message: "yes", pending: true, recommendation: false }),
+  "execute",
+);
+assert.equal(
+  classifyPendingOperatorReply({ message: "no", pending: true, recommendation: true }),
+  "reject",
+);
 
 const [
   reasoningSource,
@@ -193,10 +213,10 @@ assert.match(turnOrchestrationSource, /replyClass === "reject"/);
 assert.match(turnOrchestrationSource, /recommendationEligible/);
 assert.match(turnOrchestrationSource, /payloadSatisfiesRequiredFields/);
 assert.match(turnOrchestrationSource, /recommendation-status-local-v1/);
-assert.match(decisionClassifierSource, /recommendation && AGREEMENT_PATTERN\.test\(clean\)/);
-assert.match(decisionClassifierSource, /return "agree"/);
-assert.match(decisionClassifierSource, /return "execute"/);
-assert.match(decisionClassifierSource, /return "reject"/);
+assert.match(decisionClassifierSource, /if \(recommendation\) \{/);
+assert.match(decisionClassifierSource, /RECOMMENDATION_EXECUTE\.has\(clean\)/);
+assert.match(decisionClassifierSource, /RECOMMENDATION_AGREE\.has\(clean\)/);
+assert.match(decisionClassifierSource, /REJECT\.has\(clean\)/);
 
 console.log("OPERATOR_GOAL_CONTINUITY_AUDIT=PASS");
 console.log("OPERATOR_GOAL_COMPLETION=USER_CONFIRMATION_REQUIRED");

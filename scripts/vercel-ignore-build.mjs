@@ -10,6 +10,7 @@ const INTELLIGENCE_AUDIT_MARKER = "[certify-avantiqo-intelligence]";
 const INTELLIGENCE_DIAGNOSTIC_MARKER = "[diagnose-avantiqo-intelligence]";
 const INTELLIGENCE_DIRECT_PROBE_MARKER = "[probe-avantiqo-intelligence]";
 const INTELLIGENCE_BENCHMARK_MARKER = "[benchmark-avantiqo-intelligence]";
+const INTELLIGENCE_STRATEGY_INSPECTION_MARKER = "[inspect-avantiqo-strategy]";
 const INTELLIGENCE_PURGE_MARKER = "[purge-avantiqo-diagnostic-queue]";
 const INTELLIGENCE_CANCEL_MARKER = "[cancel-avantiqo-diagnostic-requests]";
 const INTELLIGENCE_AUDIT_TIMEOUT_MS = 60000;
@@ -17,6 +18,7 @@ const INTELLIGENCE_PROFILE_TIMEOUT_MS = 30000;
 const INTELLIGENCE_DIAGNOSTIC_TIMEOUT_MS = 210000;
 const INTELLIGENCE_DIRECT_PROBE_TIMEOUT_MS = 65000;
 const INTELLIGENCE_BENCHMARK_TIMEOUT_MS = 240000;
+const INTELLIGENCE_STRATEGY_INSPECTION_TIMEOUT_MS = 150000;
 const INTELLIGENCE_PURGE_TIMEOUT_MS = 30000;
 const INTELLIGENCE_CANCEL_TIMEOUT_MS = 30000;
 
@@ -27,6 +29,7 @@ const hasIntelligenceAuditMarker = commitMessage.includes(INTELLIGENCE_AUDIT_MAR
 const hasIntelligenceDiagnosticMarker = commitMessage.includes(INTELLIGENCE_DIAGNOSTIC_MARKER);
 const hasIntelligenceDirectProbeMarker = commitMessage.includes(INTELLIGENCE_DIRECT_PROBE_MARKER);
 const hasIntelligenceBenchmarkMarker = commitMessage.includes(INTELLIGENCE_BENCHMARK_MARKER);
+const hasIntelligenceStrategyInspectionMarker = commitMessage.includes(INTELLIGENCE_STRATEGY_INSPECTION_MARKER);
 const hasIntelligencePurgeMarker = commitMessage.includes(INTELLIGENCE_PURGE_MARKER);
 const hasIntelligenceCancelMarker = commitMessage.includes(INTELLIGENCE_CANCEL_MARKER);
 console.log(`VERCEL_GIT_COMMIT_MESSAGE=${commitMessage || "(empty)"}`);
@@ -65,6 +68,12 @@ if (hasIntelligenceCancelMarker) {
 if (hasIntelligencePurgeMarker) {
   const passed = runDiagnostic("scripts/avantiqo-intelligence-purge-diagnostic-queue.mjs", "AVANTIQO_INTELLIGENCE_DIAGNOSTIC_QUEUE_CLEANUP", INTELLIGENCE_PURGE_TIMEOUT_MS);
   console.log(`VERCEL_BUILD=SKIP reason=avantiqo-intelligence-purge-only purge_passed=${passed}`);
+  process.exit(0);
+}
+
+if (hasIntelligenceStrategyInspectionMarker) {
+  const passed = runDiagnostic("scripts/avantiqo-intelligence-strategic-inspection.mjs", "AVANTIQO_INTELLIGENCE_STRATEGIC_INSPECTION", INTELLIGENCE_STRATEGY_INSPECTION_TIMEOUT_MS);
+  console.log(`VERCEL_BUILD=SKIP reason=avantiqo-intelligence-strategy-inspection-only inspection_passed=${passed}`);
   process.exit(0);
 }
 

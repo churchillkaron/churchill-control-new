@@ -35,20 +35,55 @@ if (configuration.model !== "Qwen/Qwen3-30B-A3B-Thinking-2507") {
 
 try {
   const probe = await probeAvantiqoIntelligenceRuntime();
+
+  if (probe.health_probe_ok !== true) {
+    fail("ENDPOINT_HEALTH_FAILED", {
+      health_latency_ms: probe.health_latency_ms,
+      health_workers: probe.health_workers,
+      health_jobs: probe.health_jobs,
+    });
+  }
+
+  if (probe.structured_output_ok !== true) {
+    fail("STRUCTURED_OUTPUT_FAILED", {
+      configured_model: probe.configured_model,
+      finish_reason: probe.finish_reason,
+      completion_latency_ms: probe.completion_latency_ms,
+      usage: probe.usage,
+    });
+  }
+
+  if (probe.native_tool_call_ok !== true) {
+    fail("NATIVE_TOOL_CALL_FAILED", {
+      tool_finish_reason: probe.tool_finish_reason,
+      tool_latency_ms: probe.tool_latency_ms,
+      tool_usage: probe.tool_usage,
+    });
+  }
+
+  if (probe.raw_reasoning_persisted !== false) {
+    fail("RAW_REASONING_PERSISTENCE_POLICY_FAILED");
+  }
+
   if (probe.success !== true) {
     fail("RUNTIME_HANDSHAKE_FAILED", {
       configured_model: probe.configured_model,
       model_verified_by_completion: probe.model_verified_by_completion,
       structured_output_ok: probe.structured_output_ok,
+      native_tool_call_ok: probe.native_tool_call_ok,
+      reasoning_transport_detected: probe.reasoning_transport_detected,
       finish_reason: probe.finish_reason,
+      tool_finish_reason: probe.tool_finish_reason,
       completion_latency_ms: probe.completion_latency_ms,
+      tool_latency_ms: probe.tool_latency_ms,
       total_latency_ms: probe.total_latency_ms,
       usage: probe.usage,
+      tool_usage: probe.tool_usage,
     });
   }
 
   console.log(
-    `AVANTIQO_INTELLIGENCE_RELEASE_AUDIT=PASS model=${probe.configured_model} structured_output=${probe.structured_output_ok} latency_ms=${probe.completion_latency_ms} input_tokens=${probe.usage.input_tokens} output_tokens=${probe.usage.output_tokens}`,
+    `AVANTIQO_INTELLIGENCE_RELEASE_AUDIT=PASS model=${probe.configured_model} health=${probe.health_probe_ok} structured_output=${probe.structured_output_ok} native_tool_call=${probe.native_tool_call_ok} reasoning_transport_detected=${probe.reasoning_transport_detected} completion_latency_ms=${probe.completion_latency_ms} tool_latency_ms=${probe.tool_latency_ms} input_tokens=${probe.usage.input_tokens} output_tokens=${probe.usage.output_tokens}`,
   );
 } catch (error) {
   fail("RUNTIME_PROBE_ERROR", {

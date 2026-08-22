@@ -45,7 +45,15 @@ function runAudit(script, label = "RELEASE_AUDIT", timeout = undefined) {
 
 function runDiagnostic(script, label = "RELEASE_DIAGNOSTIC", timeout = undefined) {
   console.log(`${label} script=${script} state=STARTED`);
-  const result = spawnSync(process.execPath, [script], { cwd: process.cwd(), stdio: "inherit", ...(Number.isFinite(Number(timeout)) ? { timeout: Number(timeout) } : {}) });
+  const result = spawnSync(
+    process.execPath,
+    ["--loader", "./scripts/next-alias-loader.mjs", script],
+    {
+      cwd: process.cwd(),
+      stdio: "inherit",
+      ...(Number.isFinite(Number(timeout)) ? { timeout: Number(timeout) } : {}),
+    },
+  );
   const timedOut = Boolean(result.error && result.error.code === "ETIMEDOUT");
   const passed = result.status === 0 && !timedOut;
   console.log(`${label} script=${script} result=${passed ? "PASS" : "UNAVAILABLE"} exit=${result.status ?? "unknown"} timed_out=${timedOut}`);

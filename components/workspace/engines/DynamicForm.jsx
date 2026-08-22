@@ -250,18 +250,74 @@ function FieldRenderer({
         />
       );
 
+    case "dependent-select":
+      return (
+        <DependentSelectField
+          field={field}
+          value={value}
+          values={values}
+          onChange={onChange}
+        />
+      );
+
     default:
       return (
         <PrimitiveField
           field={field}
           value={value}
-          values={values}
           onChange={onChange}
           organizationId={organizationId}
           entityId={entityId}
         />
       );
   }
+}
+
+function DependentSelectField({ field, value, values, onChange }) {
+  const dependencyValue = values?.[field.dependsOn] || "";
+  const options = field.optionsByValue?.[dependencyValue] || [];
+  const allowedValues = useMemo(
+    () => new Set(options.map((option) =>
+      typeof option === "string" ? option : option.value
+    )),
+    [options]
+  );
+
+  useEffect(() => {
+    if (value && !allowedValues.has(value)) {
+      onChange(field.name, "");
+    }
+  }, [allowedValues, field.name, onChange, value]);
+
+  return (
+    <>
+      <label className={LABEL_CLASS}>
+        {field.label}
+        {field.required ? <span className="ml-1 text-orange-400">*</span> : null}
+      </label>
+      <select
+        value={value || ""}
+        disabled={!dependencyValue || field.disabled}
+        required={field.required}
+        onChange={(event) => onChange(field.name, event.target.value)}
+        className={FIELD_CLASS}
+      >
+        <option value="">
+          {dependencyValue ? `Select ${field.label}` : `Select ${field.dependsOnLabel || "policy"} first`}
+        </option>
+        {options.map((option) => {
+          const item = typeof option === "string"
+            ? { value: option, label: option }
+            : option;
+          return (
+            <option key={item.value} value={item.value}>
+              {item.label}
+            </option>
+          );
+        })}
+      </select>
+    </>
+  );
 }
 
 function PrimitiveField({

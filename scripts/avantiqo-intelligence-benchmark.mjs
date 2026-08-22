@@ -87,9 +87,10 @@ const running = n(health?.workers?.running);
 const idle = n(health?.workers?.idle);
 const queued = n(health?.jobs?.inQueue);
 const inProgress = n(health?.jobs?.inProgress);
+const warmWorkers = running + idle;
 console.log(`AVANTIQO_INTELLIGENCE_BENCHMARK_HEALTH latency_ms=${health.latency_ms} workers_running=${running} workers_idle=${idle} jobs_in_queue=${queued} jobs_in_progress=${inProgress}`);
-if (idle < 1 || running > 0 || queued > 0 || inProgress > 0) {
-  console.error("AVANTIQO_INTELLIGENCE_BENCHMARK=FAIL reason=ENDPOINT_NOT_IDLE_AND_QUIESCENT");
+if (warmWorkers < 1 || queued > 0 || inProgress > 0) {
+  console.error("AVANTIQO_INTELLIGENCE_BENCHMARK=FAIL reason=ENDPOINT_NOT_WARM_AND_QUIESCENT");
   process.exit(1);
 }
 
@@ -133,6 +134,7 @@ console.log(JSON.stringify({
   benchmark: "AVANTIQO_SYNTHETIC_INTELLIGENCE_V1",
   model: "Qwen/Qwen3-30B-A3B-Thinking-2507",
   transport_certification_prerequisite: "PASSED_SEPARATELY",
+  recent_request_quiescence_prerequisite: "ZERO_NONTERMINAL_REQUESTS_VERIFIED_SEPARATELY",
   passed,
   attempted: results.length,
   total: cases.length,

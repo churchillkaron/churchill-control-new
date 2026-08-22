@@ -65,18 +65,47 @@ test("owned image model requires exact approved model identity", () => {
   );
 });
 
-test("audio candidate is not falsely certified before matching runtime exists", () => {
-  assert.equal(
-    AVANTIQO_OWNED_MODEL_CATALOG["avantiqo-audio"].candidates[
-      "ACE-Step/Ace-Step1.5"
-    ].runtime_compatible,
-    false,
-  );
-  const result = ownedModelCertification({
+test("ACE-Step is runtime compatible for owned music only", () => {
+  const model = AVANTIQO_OWNED_MODEL_CATALOG["avantiqo-audio"].models[
+    "ACE-Step/Ace-Step1.5"
+  ];
+  assert.equal(model.runtime_compatible, true);
+  assert.deepEqual(model.capabilities, ["ai.music.generate"]);
+  assert.equal(model.ace_step_lm_enabled, false);
+
+  const music = ownedModelCertification({
     provider: provider("avantiqo-audio", "ACE-Step/Ace-Step1.5"),
     capability: "ai.music.generate",
   });
+  const sfx = ownedModelCertification({
+    provider: provider("avantiqo-audio", "ACE-Step/Ace-Step1.5"),
+    capability: "ai.sfx.generate",
+  });
+  assert.equal(music.eligible, true);
+  assert.equal(sfx.eligible, false);
+});
+
+test("market-parity owned pricing cannot route before benchmark economics certification", () => {
+  const result = ownedPricingCertification({
+    provider: "avantiqo-audio",
+    pricing: {
+      id: "pricing-market-parity",
+      provider: "avantiqo-audio",
+      metadata: {
+        pricing_status: "MARKET_PARITY_READY",
+        owned_inference: true,
+        benchmark_certified: false,
+        economics_certified: false,
+        model_license_verified: true,
+        recalibration_required: true,
+      },
+    },
+  });
   assert.equal(result.eligible, false);
+  assert.ok(result.failed_checks.includes("pricing_status"));
+  assert.ok(result.failed_checks.includes("benchmark_certified"));
+  assert.ok(result.failed_checks.includes("economics_certified"));
+  assert.ok(result.failed_checks.includes("recalibration_clear"));
 });
 
 test("provisional owned pricing cannot route to production", () => {

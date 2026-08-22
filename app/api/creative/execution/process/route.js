@@ -12,6 +12,9 @@ import "@/lib/creative/execution/runtime/CreativeServiceExecutionEnvelopeCompati
 import {
   CreativeExecutionJobRuntime,
 } from "@/lib/creative/execution/runtime/CreativeExecutionJobRuntime";
+import {
+  CreativePartnerSchedulerRuntime,
+} from "@/lib/creative/partner/runtime/CreativePartnerSchedulerRuntime";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -50,15 +53,21 @@ async function processRequest(request, body = {}) {
   try {
     const workerId = text(body.worker_id || body.workerId) ||
       `creative-http-worker-${crypto.randomUUID()}`;
-    const result = await CreativeExecutionJobRuntime.processOne({
+    const executionJob = await CreativeExecutionJobRuntime.processOne({
       worker_id: workerId,
       lease_seconds: Number(body.lease_seconds || body.leaseSeconds || 900),
+    });
+    const partnerScheduler = await CreativePartnerSchedulerRuntime.process({
+      limit: Number(body.partner_limit || body.partnerLimit || 4),
     });
 
     return Response.json({
       success: true,
-      ...result,
+      execution_job: executionJob,
+      creative_partner: partnerScheduler,
       production_started: false,
+      provider_selection_exposed: false,
+      raw_reasoning_persisted: false,
     });
   } catch (error) {
     console.error("CREATIVE_EXECUTION_WORKER_FAILED", {

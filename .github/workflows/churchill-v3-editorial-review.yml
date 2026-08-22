@@ -1,0 +1,97 @@
+name: Churchill V3 Editorial Review
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/churchill-v3-editorial-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install media tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
+      - name: Download approved and authentic sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/churchill-v3-editorial review/churchill-v3-editorial
+          QC='https://avantiqo.ai/api/internal/creative-churchill-night-changes-v3-qc?token=churchill-night-changes-v3-qc-20260821&action=clip'
+          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "${QC}&shot=ice_time_freeze" -o /tmp/churchill-v3-editorial/ice.mp4
+          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "${QC}&shot=wine_universe" -o /tmp/churchill-v3-editorial/wine.mp4
+          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors 'https://vfsjqabpkcbiuerhzugk.supabase.co/storage/v1/object/public/creative-assets/33336a72-acb5-474e-856b-8be0269360e2/8f46c5fe-e0ed-418f-a363-37a24df4b566/uploads/c2d8f4b6-4b02-4a92-9450-8415ab62803c/pooltable.jpg' -o /tmp/churchill-v3-editorial/pool.jpg
+          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors 'https://vfsjqabpkcbiuerhzugk.supabase.co/storage/v1/object/public/creative-assets/33336a72-acb5-474e-856b-8be0269360e2/8f46c5fe-e0ed-418f-a363-37a24df4b566/uploads/02a9cb18-55e1-4d13-84a7-0b0b261b20cd/dinner.jpg' -o /tmp/churchill-v3-editorial/dinner.jpg
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 /tmp/churchill-v3-editorial/ice.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 /tmp/churchill-v3-editorial/wine.mp4
+
+      - name: Render Ice to authentic orange pool landing
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffmpeg -y \
+            -i /tmp/churchill-v3-editorial/ice.mp4 \
+            -loop 1 -framerate 24 -t 3 -i /tmp/churchill-v3-editorial/pool.jpg \
+            -filter_complex "[0:v]fps=24,scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1,trim=duration=5.25,setpts=PTS-STARTPTS[ice];[1:v]scale=1920:-2,crop=1920:1080:0:(ih-1080)*0.52,zoompan=z='min(1.0+0.00030*on,1.020)':x='iw/2-(iw/zoom/2)':y='ih*0.52-(ih/zoom/2)':d=1:s=1920x1080:fps=24,setsar=1,trim=duration=2.90,setpts=PTS-STARTPTS[pool];[ice][pool]xfade=transition=fade:duration=0.15:offset=5.10,format=yuv420p[out]" \
+            -map '[out]' -an -t 8 -c:v libx264 -preset medium -crf 15 -r 24 -pix_fmt yuv420p -movflags +faststart \
+            /tmp/churchill-v3-editorial/ice-authentic-pool.mp4
+
+      - name: Render real dinner to wine-loop return
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffmpeg -y \
+            -loop 1 -framerate 24 -t 2.60 -i /tmp/churchill-v3-editorial/dinner.jpg \
+            -i /tmp/churchill-v3-editorial/wine.mp4 \
+            -filter_complex "[0:v]scale=2048:1366,crop=1920:1080:(iw-1920)/2:(ih-1080)/2,zoompan=z='min(1.0+0.00020*on,1.014)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1920x1080:fps=24,setsar=1,trim=duration=2.55,setpts=PTS-STARTPTS[dinner];[1:v]fps=24,scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1,trim=start=0:end=1.65,setpts=PTS-STARTPTS,reverse[wine];[dinner][wine]xfade=transition=fade:duration=0.20:offset=2.35,format=yuv420p[out]" \
+            -map '[out]' -an -t 4 -c:v libx264 -preset medium -crf 15 -r 24 -pix_fmt yuv420p -movflags +faststart \
+            /tmp/churchill-v3-editorial/wine-loop-return.mp4
+
+      - name: Build visual review sheets
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffmpeg -y -i /tmp/churchill-v3-editorial/ice-authentic-pool.mp4 -vf "fps=0.75,scale=480:270,tile=3x2" -frames:v 1 review/churchill-v3-editorial/ice-authentic-pool-contact-sheet.jpg
+          ffmpeg -y -i /tmp/churchill-v3-editorial/wine-loop-return.mp4 -vf "fps=1.5,scale=480:270,tile=3x2" -frames:v 1 review/churchill-v3-editorial/wine-loop-return-contact-sheet.jpg
+          sha256sum /tmp/churchill-v3-editorial/ice-authentic-pool.mp4 /tmp/churchill-v3-editorial/wine-loop-return.mp4 > review/churchill-v3-editorial/review-sha256.txt
+
+      - name: Upload review video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: churchill-v3-editorial-review-20260822
+          path: |
+            /tmp/churchill-v3-editorial/ice-authentic-pool.mp4
+            /tmp/churchill-v3-editorial/wine-loop-return.mp4
+            review/churchill-v3-editorial/*.jpg
+            review/churchill-v3-editorial/review-sha256.txt
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Publish contact sheets to main for visual inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add review/churchill-v3-editorial
+          if git diff --cached --quiet; then
+            echo 'No contact-sheet changes'
+            exit 0
+          fi
+          git commit -m 'Store Churchill V3 editorial review sheets'
+          git push origin HEAD:main

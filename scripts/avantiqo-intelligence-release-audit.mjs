@@ -1,4 +1,5 @@
 import {
+  getAvantiqoIntelligenceEndpointHealth,
   getAvantiqoIntelligenceRuntimeConfiguration,
   probeAvantiqoIntelligenceRuntime,
 } from "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js";
@@ -34,7 +35,12 @@ if (configuration.model !== "Qwen/Qwen3-30B-A3B-Thinking-2507") {
 }
 
 try {
-  const probe = await probeAvantiqoIntelligenceRuntime();
+  const health = await getAvantiqoIntelligenceEndpointHealth();
+  console.log(
+    `AVANTIQO_INTELLIGENCE_HEALTH=PASS latency_ms=${health.latency_ms} workers_running=${Number(health.workers?.running || 0)} workers_idle=${Number(health.workers?.idle || 0)} jobs_in_progress=${Number(health.jobs?.inProgress || 0)} jobs_in_queue=${Number(health.jobs?.inQueue || 0)} jobs_failed=${Number(health.jobs?.failed || 0)}`,
+  );
+
+  const probe = await probeAvantiqoIntelligenceRuntime({ health });
 
   if (probe.health_probe_ok !== true) {
     fail("ENDPOINT_HEALTH_FAILED", {
@@ -50,6 +56,11 @@ try {
       finish_reason: probe.finish_reason,
       completion_latency_ms: probe.completion_latency_ms,
       usage: probe.usage,
+      runpod_worker_requirements: {
+        REASONING_PARSER: "qwen3",
+        ENABLE_AUTO_TOOL_CHOICE: "true",
+        TOOL_CALL_PARSER: "hermes",
+      },
     });
   }
 
@@ -58,6 +69,11 @@ try {
       tool_finish_reason: probe.tool_finish_reason,
       tool_latency_ms: probe.tool_latency_ms,
       tool_usage: probe.tool_usage,
+      runpod_worker_requirements: {
+        REASONING_PARSER: "qwen3",
+        ENABLE_AUTO_TOOL_CHOICE: "true",
+        TOOL_CALL_PARSER: "hermes",
+      },
     });
   }
 
@@ -88,5 +104,10 @@ try {
 } catch (error) {
   fail("RUNTIME_PROBE_ERROR", {
     error: String(error?.message || error).slice(0, 1500),
+    runpod_worker_requirements: {
+      REASONING_PARSER: "qwen3",
+      ENABLE_AUTO_TOOL_CHOICE: "true",
+      TOOL_CALL_PARSER: "hermes",
+    },
   });
 }

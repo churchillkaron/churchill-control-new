@@ -50,6 +50,9 @@
     },
     "app/api/internal/service-management/plans/process/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/operator/autonomous-watch/process/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -136,6 +139,10 @@
     {
       "path": "/api/internal/service-management/plans/process",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/internal/operator/autonomous-watch/process",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

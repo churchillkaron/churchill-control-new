@@ -8,6 +8,7 @@ import { GET as runOpening } from "../avantiqo-synthetic-intelligence-opening-v1
 const TOKEN = "avq-synthetic-intelligence-opening-20260822-v1";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 
+// Production redeploy marker: refresh Vercel environment bindings only.
 const RUNWAY_ENV_CANDIDATES = [
   "RUNWAY_API_KEY",
   "RUNWAYML_API_SECRET",

@@ -1,5 +1,7 @@
 AVANTIQO_INTELLIGENCE_DIAGNOSTIC_REQUEST_CLEANUP
 Date: 2026-08-22
 Branch: main
-Purpose: diagnostic-only cleanup. Inspect recent RunPod requests and cancel only non-terminal requests whose payload matches one of the known Avantiqo certification/benchmark fingerprints. Do not cancel arbitrary endpoint traffic.
+Run: 2026-08-22T18:41:10+07:00
+Safety prerequisite verified immediately before this run: production database contains 0 active provider_pricing rows for provider avantiqo-intelligence, so Service Runtime cannot route customer reasoning traffic to this endpoint.
+Purpose: pre-activation diagnostic cleanup. Cancel every non-terminal recent RunPod request on this owned endpoint to remove client-aborted benchmark/probe executions before the long-ceiling strategic benchmark.
 No credentials or endpoint identifiers are stored here.

@@ -12,6 +12,10 @@ import {
 const expected = new Map([
   ["ai.reasoning.execute", "avantiqo-intelligence"],
   ["ai.text.generate", "avantiqo-intelligence"],
+  ["ai.speech.to.text", "avantiqo-voice"],
+  ["ai.speech.to.text.realtime", "avantiqo-voice"],
+  ["ai.text.to.speech", "avantiqo-voice"],
+  ["ai.voice.generate", "avantiqo-voice"],
   ["ai.image.generate", "avantiqo-image"],
   ["ai.image.inpaint", "avantiqo-image"],
   ["ai.video.generate", "avantiqo-video"],
@@ -40,8 +44,10 @@ test("classifies owned provider families", () => {
   assert.equal(ownedProviderFamily("avantiqo-image"), "image");
   assert.equal(ownedProviderFamily("avantiqo-video"), "cinema");
   assert.equal(ownedProviderFamily("avantiqo-audio"), "audio");
+  assert.equal(ownedProviderFamily("avantiqo-voice"), "voice");
   assert.equal(ownedProviderFamily("avantiqo-code"), "code");
   assert.equal(isAvantiqoOwnedProvider("runway"), false);
+  assert.equal(isAvantiqoOwnedProvider("avantiqo-voice"), true);
   assert.equal(isAvantiqoOwnedProvider("avantiqo-code"), true);
 });
 
@@ -51,6 +57,12 @@ test("places owned provider before external preferences", () => {
       preferred_providers: ["runway", "google-veo", "avantiqo-video"],
     }),
     ["avantiqo-video", "runway", "google-veo"],
+  );
+  assert.deepEqual(
+    ownedFirstProviderPreferences("ai.text.to.speech", {
+      preferred_providers: ["openai", "avantiqo-voice"],
+    }),
+    ["avantiqo-voice", "openai"],
   );
 });
 

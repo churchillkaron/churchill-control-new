@@ -6,18 +6,14 @@ import {
 function text(value) {
   return String(value ?? "").trim();
 }
-
 function n(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
 }
-
 function parseJson(value) {
   try {
     const parsed = JSON.parse(text(value));
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed
-      : null;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -61,7 +57,7 @@ const cases = [
     },
     validate(output) {
       const parsed = parseJson(output?.text);
-      return parsed?.action === "analytics.revenue.read";
+      return Boolean(parsed?.action === "analytics.revenue.read");
     },
   },
   {
@@ -78,16 +74,14 @@ const cases = [
     },
     validate(output) {
       const parsed = parseJson(output?.text);
-      return parsed?.execute === false && text(parsed.required_step);
+      return Boolean(parsed?.execute === false && text(parsed.required_step));
     },
   },
 ];
 
 const health = await getAvantiqoIntelligenceEndpointHealth();
 const warmWorkers = n(health?.workers?.running) + n(health?.workers?.idle);
-console.log(
-  `AVANTIQO_INTELLIGENCE_BENCHMARK_HEALTH latency_ms=${health.latency_ms} workers_running=${n(health?.workers?.running)} workers_idle=${n(health?.workers?.idle)} jobs_in_queue=${n(health?.jobs?.inQueue)} jobs_in_progress=${n(health?.jobs?.inProgress)}`,
-);
+console.log(`AVANTIQO_INTELLIGENCE_BENCHMARK_HEALTH latency_ms=${health.latency_ms} workers_running=${n(health?.workers?.running)} workers_idle=${n(health?.workers?.idle)} jobs_in_queue=${n(health?.jobs?.inQueue)} jobs_in_progress=${n(health?.jobs?.inProgress)}`);
 if (warmWorkers < 1) {
   console.error("AVANTIQO_INTELLIGENCE_BENCHMARK=FAIL reason=NO_WARM_WORKER");
   process.exit(1);
@@ -108,7 +102,7 @@ for (let index = 0; index < cases.length; index += 1) {
       context: { ...benchmarkContext, usage_id: `benchmark-usage-${index + 1}` },
     });
     const latencyMs = Date.now() - startedAt;
-    const passed = item.validate(response?.output || {});
+    const passed = Boolean(item.validate(response?.output || {}));
     const result = {
       id: item.id,
       passed,
@@ -118,26 +112,18 @@ for (let index = 0; index < cases.length; index += 1) {
       finish_reason: response?.output?.finish_reason || null,
     };
     results.push(result);
-    console.log(
-      `AVANTIQO_INTELLIGENCE_BENCHMARK_CASE id=${item.id} state=${passed ? "PASS" : "FAIL"} latency_ms=${latencyMs} input_tokens=${result.input_tokens} output_tokens=${result.output_tokens}`,
-    );
+    console.log(`AVANTIQO_INTELLIGENCE_BENCHMARK_CASE id=${item.id} state=${passed ? "PASS" : "FAIL"} latency_ms=${latencyMs} input_tokens=${result.input_tokens} output_tokens=${result.output_tokens}`);
   } catch (error) {
-    const result = {
-      id: item.id,
-      passed: false,
-      latency_ms: Date.now() - startedAt,
-      error: text(error?.message || error).slice(0, 500),
-    };
+    const result = { id: item.id, passed: false, latency_ms: Date.now() - startedAt, error: text(error?.message || error).slice(0, 500) };
     results.push(result);
     console.log(`AVANTIQO_INTELLIGENCE_BENCHMARK_CASE id=${item.id} state=ERROR latency_ms=${result.latency_ms} error=${result.error}`);
   }
 }
 
-const passed = results.filter((item) => item.passed).length;
+const passed = results.filter((item) => item.passed === true).length;
 const totalLatency = results.reduce((sum, item) => sum + Number(item.latency_ms || 0), 0);
 const totalInputTokens = results.reduce((sum, item) => sum + Number(item.input_tokens || 0), 0);
 const totalOutputTokens = results.reduce((sum, item) => sum + Number(item.output_tokens || 0), 0);
-
 console.log(JSON.stringify({
   benchmark: "AVANTIQO_SYNTHETIC_INTELLIGENCE_V1",
   model: "Qwen/Qwen3-30B-A3B-Thinking-2507",
@@ -151,6 +137,5 @@ console.log(JSON.stringify({
   total_output_tokens: totalOutputTokens,
   results,
 }, null, 2));
-
 if (passed !== results.length) process.exit(1);
 console.log("AVANTIQO_INTELLIGENCE_BENCHMARK=PASS");

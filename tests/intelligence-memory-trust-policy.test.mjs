@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   classifyIntelligenceMemoryTrust,
+  rankTrustedMemories,
   trustedMemoryEnvelope,
 } from "../lib/operator/runtime/IntelligenceMemoryTrustPolicy.js";
 
@@ -62,4 +63,55 @@ test("trusted envelope can never mark memory as authorization", () => {
   });
 
   assert.equal(memory.may_authorize, false);
+});
+
+test("explicit durable user rule outranks newer mutable fact clue", () => {
+  const ranked = rankTrustedMemories([
+    {
+      type: "fact",
+      content: "Production deploy is currently enabled.",
+      confidence: 1,
+      freshness: "recent",
+      relevance: 1,
+      importance: 1,
+      requires_live_read: true,
+    },
+    {
+      type: "constraint",
+      subject: "explicit_user_instruction",
+      content: "Never deploy production unless I explicitly ask.",
+      confidence: 1,
+      freshness: "old",
+      relevance: 0.4,
+      importance: 0.96,
+    },
+  ]);
+
+  assert.equal(ranked[0].trust_class, "explicit_user_continuity");
+  assert.equal(ranked[1].trust_class, "clue_only");
+});
+
+test("stale blocker cannot outrank explicit durable instruction", () => {
+  const ranked = rankTrustedMemories([
+    {
+      type: "blocker",
+      content: "Provider unavailable.",
+      confidence: 1,
+      freshness: "recent",
+      relevance: 1,
+      importance: 0.95,
+    },
+    {
+      type: "preference",
+      subject: "explicit_user_instruction",
+      content: "I prefer: continue from the latest verified state.",
+      confidence: 1,
+      freshness: "established",
+      relevance: 0.5,
+      importance: 0.9,
+    },
+  ]);
+
+  assert.equal(ranked[0].trust_class, "explicit_user_continuity");
+  assert.equal(ranked[1].trust_class, "transient_recheck");
 });

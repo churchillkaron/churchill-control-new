@@ -1,0 +1,10 @@
+{
+  "contract": "AVANTIQO_OWNED_ENGINE_CERTIFICATION_REQUEST_V1",
+  "requested_at": "2026-08-22T22:44:00+07:00",
+  "engines": ["intelligence", "voice", "music", "code"],
+  "purpose": "isolated benchmark and readiness evidence only",
+  "activation_allowed": false,
+  "pricing_activation_allowed": false,
+  "provider_routing_change_allowed": false,
+  "production_deploy_allowed": false
+}

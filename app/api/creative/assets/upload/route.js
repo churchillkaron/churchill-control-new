@@ -24,6 +24,7 @@ function parseObject(value, fallback = {}) {
 
 function statusFor(error) {
   const message = text(error?.message).toUpperCase();
+  if (message.includes("NOT_ENTITLED")) return 403;
   if (
     message.includes("REQUIRED") ||
     message.includes("MISSING") ||
@@ -112,6 +113,8 @@ export async function POST(request) {
       {
         success: false,
         error: error?.message || String(error),
+        service_id: error?.service_id || null,
+        package_id: error?.package_id || null,
       },
       { status: statusFor(error) },
     );

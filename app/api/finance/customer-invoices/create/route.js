@@ -9,7 +9,7 @@ import { createCustomerInvoiceCommand } from "@/lib/finance/accounts-receivable/
 function statusFor(message) {
   const normalized = String(message || "").toLowerCase();
   if (normalized.includes("permission denied")) return 403;
-  if (normalized.includes("required") || normalized.includes("must be") || normalized.includes("idempotency")) return 400;
+  if (normalized.includes("required") || normalized.includes("must be") || normalized.includes("idempotency") || normalized.includes("create-only")) return 400;
   return 500;
 }
 
@@ -34,6 +34,10 @@ export async function POST(request) {
       permissionKey: "finance.receivables.manage",
       fullAccess: access.permissions?.includes("*") === true,
     });
+
+    if (body.id || body.record_id || body.invoice_id) {
+      throw new Error("Customer invoice creation is create-only; existing invoices require an explicit lifecycle action");
+    }
 
     const entityId = String(body.entityId || body.entity_id || "").trim();
     if (!entityId) throw new Error("entity_id required");

@@ -11,6 +11,7 @@ const [
   alertRouteSource,
   settingsRouteSource,
   bridgeSource,
+  controlCenterSource,
   workspaceSource,
   vercelSource,
 ] = await Promise.all([
@@ -23,6 +24,7 @@ const [
   readFile("app/api/operator/autonomous-watch/alert/route.js", "utf8"),
   readFile("app/api/operator/autonomous-watch/settings/route.js", "utf8"),
   readFile("components/operator/AutonomousWatchAlertBridge.jsx", "utf8"),
+  readFile("components/operator/SyntheticIntelligenceControlCenter.jsx", "utf8"),
   readFile("app/(system)/workspace/[organizationId]/page.jsx", "utf8"),
   readFile("vercel.json", "utf8"),
 ]);
@@ -196,7 +198,35 @@ assert.match(bridgeSource, /Discuss/);
 assert.match(bridgeSource, /Seen/);
 assert.match(bridgeSource, /not authorization/i);
 
+assert.match(controlCenterSource, /REFRESH_INTERVAL_MS = 60_000/);
+assert.match(controlCenterSource, /FULL_ACCESS_ROLES/);
+assert.match(controlCenterSource, /data-avantiqo-synthetic-intelligence-control-center="true"/);
+assert.match(controlCenterSource, /\/api\/operator\/autonomous-watch\/settings/);
+assert.match(controlCenterSource, /credentials:\s*"same-origin"/);
+assert.match(controlCenterSource, /cache:\s*"no-store"/);
+assert.match(controlCenterSource, /Autonomous business awareness/);
+assert.match(controlCenterSource, /Last cognition/);
+assert.match(controlCenterSource, /Autonomous spend · 24h/);
+assert.match(controlCenterSource, /Next reasoning estimate/);
+assert.match(controlCenterSource, /Next autonomous check/);
+assert.match(controlCenterSource, /Paid reasoning allowance/);
+assert.match(controlCenterSource, /Wallet after next pass/);
+assert.match(controlCenterSource, /customer_spend_limit/);
+assert.match(controlCenterSource, /paid_reasoning_pass_limit/);
+assert.match(controlCenterSource, /minimum_wallet_balance/);
+assert.match(controlCenterSource, /deep_reasoning_on_change/);
+assert.match(controlCenterSource, /Discuss policy/);
+assert.match(controlCenterSource, /avantiqo:home-command/);
+assert.match(controlCenterSource, /Save autonomy policy/);
+assert.match(controlCenterSource, /canManage/);
+assert.match(controlCenterSource, /Organization owner access required/);
+assert.match(controlCenterSource, /Recommendations never authorize business execution/);
+assert.doesNotMatch(controlCenterSource, /service_role/i);
+assert.doesNotMatch(controlCenterSource, /executeUbteCapability/);
+
 assert.match(workspaceSource, /AutonomousWatchAlertBridge/);
+assert.match(workspaceSource, /SyntheticIntelligenceControlCenter/);
+assert.match(workspaceSource, /role=\{role\}/);
 assert.match(workspaceSource, /organizationId=\{organizationId\}/);
 
 const vercel = JSON.parse(vercelSource);
@@ -217,6 +247,7 @@ console.log("OPERATOR_AUTONOMOUS_WATCH_EVIDENCE=DETERMINISTIC_REGISTERED_READS_Z
 console.log("OPERATOR_AUTONOMOUS_WATCH_COGNITION=ZERO_AI_IF_UNCHANGED_ONE_PAID_PASS_IF_JUSTIFIED");
 console.log("OPERATOR_AUTONOMOUS_WATCH_BUDGET=AUTONOMOUS_USAGE_ONLY_ROLLING_24H_HARD_PRICE_PREFLIGHT");
 console.log("OPERATOR_AUTONOMOUS_WATCH_SETTINGS=AUTHENTICATED_OWNER_GOVERNED");
+console.log("OPERATOR_AUTONOMOUS_WATCH_CONTROL_CENTER=LIVE_OWNER_GOVERNED_EXECUTIVE_UI");
 console.log("OPERATOR_AUTONOMOUS_WATCH_WALLET=READ_ONLY_PRICE_PREFLIGHT_THEN_SERVICE_RUNTIME_RESERVATION");
 console.log("OPERATOR_AUTONOMOUS_WATCH_RUN_LEASE=OPTIMISTIC_SINGLE_OWNER_10_MINUTE_RECOVERY");
 console.log("OPERATOR_AUTONOMOUS_WATCH_CADENCE=ADAPTIVE_WITH_BACKOFF");

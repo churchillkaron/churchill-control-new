@@ -146,6 +146,7 @@ async function imageSample({ capability, model, sourceAssets, instruction, outpu
   const { body, wallMs } = await runSync(endpointId, {
     contract: "AVANTIQO_IMAGE_ENGINE_V1",
     capability,
+    certification_execution: true,
     organization_id: "benchmark-only",
     organization_service_id: "benchmark-only",
     usage_id: `benchmark-${capability}-${seed}`,
@@ -168,6 +169,7 @@ async function imageSample({ capability, model, sourceAssets, instruction, outpu
       text(output.capability) === capability &&
       text(output.foundation_model) === model &&
       text(output.foundation_model_source) === "runpod-cache" &&
+      output.certification_execution === true &&
       Number(output.size_bytes) > 10000 &&
       verifiedBytes > 10000 &&
       output.raw_reasoning_persisted === false,
@@ -177,6 +179,7 @@ async function imageSample({ capability, model, sourceAssets, instruction, outpu
     width: Number(output.width) || null,
     height: Number(output.height) || null,
     preservation_mode: text(output.preservation_mode) || null,
+    certification_execution: output.certification_execution === true,
     storage_reference: upload.storage_reference,
     verified_storage_size_bytes: verifiedBytes,
   };

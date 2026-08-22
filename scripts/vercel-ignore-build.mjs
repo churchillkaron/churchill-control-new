@@ -6,6 +6,8 @@ import { spawnSync } from "node:child_process";
 
 const FINAL_BUILD_MARKER = "[deploy-production-final]";
 const FINANCE_AUDIT_MARKER = "[finance-closeout-audit]";
+const INTELLIGENCE_AUDIT_TIMEOUT_MS = 60000;
+const INTELLIGENCE_PROFILE_TIMEOUT_MS = 30000;
 
 const commitMessage = String(
   process.env.VERCEL_GIT_COMMIT_MESSAGE || "",
@@ -16,28 +18,32 @@ const hasFinanceAuditMarker = commitMessage.includes(FINANCE_AUDIT_MARKER);
 
 console.log(`VERCEL_GIT_COMMIT_MESSAGE=${commitMessage || "(empty)"}`);
 
-function runAudit(script, label = "RELEASE_AUDIT") {
+function runAudit(script, label = "RELEASE_AUDIT", timeout = undefined) {
   console.log(`${label} script=${script} state=STARTED`);
   const audit = spawnSync(process.execPath, [script], {
     cwd: process.cwd(),
     stdio: "inherit",
+    ...(Number.isFinite(Number(timeout)) ? { timeout: Number(timeout) } : {}),
   });
 
-  const passed = audit.status === 0;
+  const timedOut = Boolean(audit.error && audit.error.code === "ETIMEDOUT");
+  const passed = audit.status === 0 && !timedOut;
   console.log(
-    `${label} script=${script} result=${passed ? "PASS" : "FAIL"} exit=${audit.status ?? "unknown"}`,
+    `${label} script=${script} result=${passed ? "PASS" : "FAIL"} exit=${audit.status ?? "unknown"} timed_out=${timedOut}`,
   );
   return passed;
 }
 
-function runDiagnostic(script, label = "RELEASE_DIAGNOSTIC") {
+function runDiagnostic(script, label = "RELEASE_DIAGNOSTIC", timeout = undefined) {
   console.log(`${label} script=${script} state=STARTED`);
   const result = spawnSync(process.execPath, [script], {
     cwd: process.cwd(),
     stdio: "inherit",
+    ...(Number.isFinite(Number(timeout)) ? { timeout: Number(timeout) } : {}),
   });
+  const timedOut = Boolean(result.error && result.error.code === "ETIMEDOUT");
   console.log(
-    `${label} script=${script} result=${result.status === 0 ? "PASS" : "UNAVAILABLE"} exit=${result.status ?? "unknown"}`,
+    `${label} script=${script} result=${result.status === 0 && !timedOut ? "PASS" : "UNAVAILABLE"} exit=${result.status ?? "unknown"} timed_out=${timedOut}`,
   );
 }
 
@@ -70,11 +76,13 @@ if (hasFinalBuildMarker) {
   runDiagnostic(
     "scripts/avantiqo-intelligence-runpod-profile.mjs",
     "AVANTIQO_INTELLIGENCE_PROFILE",
+    INTELLIGENCE_PROFILE_TIMEOUT_MS,
   );
 
   const intelligencePassed = runAudit(
     "scripts/avantiqo-intelligence-release-audit.mjs",
     "AVANTIQO_INTELLIGENCE_AUDIT",
+    INTELLIGENCE_AUDIT_TIMEOUT_MS,
   );
   if (!intelligencePassed) {
     console.log(

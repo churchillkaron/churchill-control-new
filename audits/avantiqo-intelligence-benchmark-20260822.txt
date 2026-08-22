@@ -2,5 +2,7 @@ AVANTIQO_SYNTHETIC_INTELLIGENCE_BENCHMARK
 Date: 2026-08-22
 Branch: main
 Model: Qwen/Qwen3-30B-A3B-Thinking-2507
-Purpose: diagnostic only; never deploy production. Run deterministic business-plan, tool-selection, and governance-reasoning tests against the warm owned runtime and capture latency/token evidence.
+Run: clean warm endpoint, 2026-08-22T18:35:50+07:00
+Prerequisite evidence: 0 running / 1 idle / 0 queued / 0 in-progress immediately before launch. Transport certification already passed separately.
+Purpose: diagnostic only; never deploy production. Run deterministic business-plan, tool-selection, and governance-reasoning tests and capture latency/token evidence.
 No credentials or endpoint identifiers are stored here.

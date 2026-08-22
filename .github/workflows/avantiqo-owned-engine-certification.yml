@@ -1,0 +1,98 @@
+name: Avantiqo Owned Engine Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-owned-engine-certification-request.json
+      - .github/workflows/avantiqo-owned-engine-certification.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-owned-engine-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Prepare evidence directory
+        run: mkdir -p artifacts/owned-engine-certification
+
+      - name: Run Intelligence Voice Music Code certification suite
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID }}
+          RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID }}
+          RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID }}
+          AVANTIQO_VOICE_STT_FOUNDATION_MODEL: ${{ vars.AVANTIQO_VOICE_STT_FOUNDATION_MODEL }}
+          AVANTIQO_VOICE_TTS_FOUNDATION_MODEL: ${{ vars.AVANTIQO_VOICE_TTS_FOUNDATION_MODEL }}
+          RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID }}
+          AVANTIQO_AUDIO_BENCHMARK_UPLOAD_URL: ${{ secrets.AVANTIQO_AUDIO_BENCHMARK_UPLOAD_URL }}
+          AVANTIQO_AUDIO_BENCHMARK_STORAGE_REFERENCE: ${{ secrets.AVANTIQO_AUDIO_BENCHMARK_STORAGE_REFERENCE }}
+          RUNPOD_AVANTIQO_CODE_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID }}
+          AVANTIQO_OWNED_BENCHMARK_ENGINES: intelligence,voice,music,code
+          AVANTIQO_OWNED_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/owned-engine-certification/suite.json
+          AVANTIQO_INTELLIGENCE_CERTIFICATION_OUTPUT: ${{ github.workspace }}/artifacts/owned-engine-certification/intelligence.json
+          AVANTIQO_VOICE_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/owned-engine-certification/voice.json
+          AVANTIQO_AUDIO_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/owned-engine-certification/music.json
+          AVANTIQO_CODE_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/owned-engine-certification/code.json
+        run: node scripts/benchmark-avantiqo-owned-engines.mjs
+
+      - name: Verify no production activation occurred
+        if: always()
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const path = "artifacts/owned-engine-certification/suite.json";
+          let report;
+          try { report = JSON.parse(await readFile(path, "utf8")); }
+          catch { console.log("Suite report missing; benchmark step records failure."); process.exit(0); }
+          const violations = [];
+          if (report.activation_allowed !== false) violations.push("activation_allowed must remain false");
+          if (report.pricing_activation_performed !== false) violations.push("pricing activation must remain false");
+          if (report.provider_selection_changed !== false) violations.push("provider selection must remain unchanged");
+          if (violations.length) { console.error(violations.join("; ")); process.exit(1); }
+          console.log("No-activation guards verified.");
+          NODE
+
+      - name: Publish suite summary
+        if: always()
+        run: |
+          if [ -f artifacts/owned-engine-certification/suite.json ]; then
+            node --input-type=module <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("artifacts/owned-engine-certification/suite.json", "utf8"));
+          console.log("## Avantiqo owned engine certification");
+          for (const engine of report.engines || []) {
+            if (!["intelligence","voice","music","code"].includes(engine.engine)) continue;
+            console.log(`- ${engine.engine}: ${engine.status}; benchmark passed=${engine.benchmark_passed === true}; blockers=${(engine.blockers || []).join(", ") || "none"}`);
+          }
+          console.log(`- Production activation allowed: ${report.activation_allowed === true}`);
+          NODE
+          else
+            echo "## Avantiqo owned engine certification" >> "$GITHUB_STEP_SUMMARY"
+            echo "- No suite report was produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-owned-engine-certification-${{ github.run_id }}
+          path: artifacts/owned-engine-certification/
+          if-no-files-found: warn
+          retention-days: 14

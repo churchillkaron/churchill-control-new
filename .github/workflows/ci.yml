@@ -40,10 +40,7 @@ jobs:
         run: npm test
 
       - name: Audit Finance capability closure
-        run: |
-          npm run audit:finance
-          npm run audit:finance-capabilities
-          FINANCE_SMOKE_STATIC_ONLY=1 node scripts/finance-total-closure-smoke.mjs
+        run: node scripts/finance-closeout-audit.mjs
 
       - name: Build application
         env:

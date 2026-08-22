@@ -234,6 +234,7 @@ export async function POST(request) {
       duration_ms: Date.now() - startedAt,
       transcript_length: transcript.length,
       wake_detected: detected,
+      usage_id: execution?.usage?.id || null,
     });
 
     return Response.json({
@@ -245,11 +246,6 @@ export async function POST(request) {
         execution?.output?.output?.language ||
         execution?.output?.language ||
         null,
-      provider_evidence: {
-        provider: execution?.provider || null,
-        model: execution?.model || null,
-        usage_id: execution?.usage?.id || null,
-      },
     });
   } catch (error) {
     console.error("OPERATOR_TRANSCRIPTION_ERROR", error);

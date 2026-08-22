@@ -20,10 +20,17 @@ const rendererRegistry = read("lib/platform/erp-engine/renderers/RendererRegistr
 const actionContract = read("lib/platform/actions/ActionContract.js");
 const formRegistry = read("lib/platform/forms/FormRegistry.js");
 const financeFormContract = read("lib/platform/forms/FinanceFormContract.js");
+const financeOperationalFormContract = read("lib/platform/forms/FinanceOperationalFormContract.js");
 const dynamicPage = read("app/(system)/workspace/[organizationId]/finance/[...financeRoute]/page.jsx");
 const workspaceRoute = read("app/api/finance/workspaces/[capabilityId]/route.js");
 const workCenter = read("components/workspace/master-data/MasterDataWorkCenter.jsx");
 const runtimeWorkCenter = read("components/workspace/master-data/MasterDataRuntimeWorkCenter.jsx");
+const postingVocabulary = read("lib/finance/general-ledger/FinancePostingRuleVocabulary.js");
+const postingValidation = read("lib/finance/workspaces/FinanceWorkspaceWriteValidation.js");
+const financeGateway = read("lib/finance/runtime/financeGateway.js");
+const reconciliationRoute = read("app/api/finance/reconciliation/run/route.js");
+const depreciationRoute = read("app/api/finance/depreciation/run/route.js");
+const depreciationRuntime = read("lib/finance/fixed-assets/runtime/FixedAssetsApplicationService.js");
 
 function financeSection(source) {
   const start = source.indexOf("finance: {");
@@ -74,8 +81,12 @@ function formExists(id) {
   if (!id) return false;
   const quotedDouble = `"${id}"`;
   const quotedSingle = `'${id}'`;
-  return formRegistry.includes(quotedDouble) || formRegistry.includes(quotedSingle) ||
-    financeFormContract.includes(quotedDouble) || financeFormContract.includes(quotedSingle);
+  return formRegistry.includes(quotedDouble) ||
+    formRegistry.includes(quotedSingle) ||
+    financeFormContract.includes(quotedDouble) ||
+    financeFormContract.includes(quotedSingle) ||
+    financeOperationalFormContract.includes(quotedDouble) ||
+    financeOperationalFormContract.includes(quotedSingle);
 }
 
 console.log("================ AVANTIQO FINANCE CLOSEOUT AUDIT ================");
@@ -106,6 +117,64 @@ check("Finance UI resolves top menu from capability", runtimeWorkCenter.includes
 check("Finance UI validates required form fields", workCenter.includes("missingRequiredFields"));
 check("Finance UI sends idempotency keys", workCenter.includes("idempotency_key"));
 check("Finance registry contains no tenant boundary", !/tenant_id|tenantId/.test(financeRegistry));
+
+check(
+  "Posting Rules UI uses canonical runtime vocabulary",
+  financeOverlay.includes("FINANCE_POSTING_EVENT_OPTIONS") &&
+    financeOverlay.includes("FINANCE_POSTING_SOURCE_OPTIONS")
+);
+check(
+  "Posting Rules validator uses canonical runtime vocabulary",
+  postingValidation.includes("isFinancePostingEventType") &&
+    postingValidation.includes("isFinancePostingSourceModule")
+);
+check(
+  "Finance gateway uses canonical posting vocabulary",
+  financeGateway.includes("isFinancePostingEventType")
+);
+for (const eventType of [
+  "DEPRECIATION_POSTED",
+  "SERVICE_USAGE_BILLED",
+  "PAYROLL_TAX_SETTLEMENT",
+  "PAYROLL_SOCIAL_SECURITY_SETTLEMENT",
+  "PAYROLL_DEDUCTION_SETTLEMENT",
+]) {
+  check(`Posting vocabulary includes ${eventType}`, postingVocabulary.includes(`"${eventType}"`));
+}
+check(
+  "Bank reconciliation primary action uses scoped runtime",
+  policy.includes('endpoint: "/api/finance/reconciliation/run"') &&
+    policy.includes('form: "bank-reconciliation-run"') === false
+    ? financeOverlay.includes('form: "bank-reconciliation-run"')
+    : true
+);
+check(
+  "Scoped bank reconciliation validates bank account entity",
+  reconciliationRoute.includes('.eq("entity_id", entityId)') &&
+    reconciliationRoute.includes("finance_account_id") &&
+    reconciliationRoute.includes("journal_entry_lines")
+);
+check(
+  "Scoped bank reconciliation persists reconciliation result",
+  reconciliationRoute.includes('from("finance_bank_reconciliation_runs")') &&
+    reconciliationRoute.includes("difference_amount")
+);
+check(
+  "Depreciation action has operational form",
+  financeOperationalFormContract.includes('"depreciation-run"') &&
+    financeOverlay.includes('form: "depreciation-run"')
+);
+check(
+  "Depreciation route uses complete fixed-asset runtime",
+  depreciationRoute.includes("runDepreciationCommand")
+);
+check(
+  "Depreciation runtime is scoped and idempotent",
+  depreciationRuntime.includes("organization_id") &&
+    depreciationRuntime.includes("entity_id") &&
+    depreciationRuntime.includes("apply_finance_depreciation_asset") &&
+    depreciationRuntime.includes("DEPRECIATION")
+);
 
 const capabilityRows = [];
 for (const [id, definition] of Object.entries(manifest)) {

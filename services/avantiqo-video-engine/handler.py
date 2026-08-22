@@ -51,6 +51,10 @@ REQUIRE_CACHED_MODEL = os.getenv(
     "AVANTIQO_VIDEO_REQUIRE_CACHED_MODEL",
     "1",
 ).strip().lower() not in {"0", "false", "no", "off"}
+CERTIFICATION_EXECUTION_ENABLED = os.getenv(
+    "AVANTIQO_VIDEO_CERTIFICATION_EXECUTION_ENABLED",
+    "0",
+).strip().lower() in {"1", "true", "yes", "on"}
 _PIPELINES: dict[str, Any] = {}
 
 
@@ -172,10 +176,14 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("AVANTIQO_VIDEO_ENGINE_CONTRACT_INVALID")
     capability = _text(data.get("capability"))
     certified = _configured_capabilities()
+    certification_execution = (
+        data.get("certification_execution") is True and CERTIFICATION_EXECUTION_ENABLED
+    )
     if capability not in IMPLEMENTED_CAPABILITIES:
         raise ValueError(f"AVANTIQO_VIDEO_CAPABILITY_NOT_IMPLEMENTED:{capability or 'MISSING'}")
-    if capability not in certified:
+    if capability not in certified and not certification_execution:
         raise ValueError(f"AVANTIQO_VIDEO_CAPABILITY_NOT_CERTIFIED:{capability or 'MISSING'}")
+    data["certification_execution"] = certification_execution
     instruction = _text(data.get("instruction"))
     if not instruction:
         raise ValueError("AVANTIQO_VIDEO_INSTRUCTION_REQUIRED")
@@ -345,6 +353,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "height": height,
         "size_bytes": size_bytes,
         "source_video_conditioning": capability in {"ai.video.video_to_video", "ai.video.edit"},
+        "certification_execution": data.get("certification_execution") is True,
         "generation_seconds": round(elapsed, 3),
         "quality_profile": _text(data.get("quality_profile")) or "cinema",
         "raw_reasoning_persisted": False,
@@ -366,9 +375,9 @@ def check_worker():
     if REQUIRE_CACHED_MODEL:
         required_models = {T2V_MODEL, I2V_MODEL}
         certified = _configured_capabilities()
-        if "ai.video.video_to_video" in certified:
+        if "ai.video.video_to_video" in certified or CERTIFICATION_EXECUTION_ENABLED:
             required_models.add(V2V_MODEL)
-        if "ai.video.edit" in certified:
+        if "ai.video.edit" in certified or CERTIFICATION_EXECUTION_ENABLED:
             required_models.add(EDIT_MODEL)
         for model_id in required_models:
             if not _cached_model_path(model_id):

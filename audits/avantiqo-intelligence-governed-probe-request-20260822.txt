@@ -3,6 +3,5 @@ Date: 2026-08-22
 Branch: main
 Purpose: certify the full governed ServiceExecutionRuntime path for Avantiqo Synthetic Intelligence after native completion and tool-call transport certification.
 Expected path: organization service -> provider resolution -> pricing -> wallet reservation -> avantiqo-intelligence -> RunPod Qwen -> actual usage settlement -> wallet charge -> billing.
-Production application build must remain skipped; this marker runs the diagnostic gate only.
-Retry 1: previous diagnostic deployment was canceled by newer main commits before the diagnostic could complete.
-Retry 2: diagnostic runner now uses the repository alias/extension loader so the governed ServiceExecutionRuntime imports resolve under standalone Node on Vercel.
+Production application build must remain skipped; this marker runs the governed diagnostic gate only.
+Marker: [probe-governed-avantiqo-intelligence]

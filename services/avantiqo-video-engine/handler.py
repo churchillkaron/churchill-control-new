@@ -1,6 +1,5 @@
 import ipaddress
 import os
-import socket
 import time
 from pathlib import Path
 from typing import Any
@@ -26,6 +25,16 @@ DTYPE = (
     if os.getenv("AVANTIQO_VIDEO_DTYPE", "bfloat16").lower() == "bfloat16"
     else torch.float16
 )
+HF_CACHE_ROOT = Path(
+    os.getenv(
+        "AVANTIQO_VIDEO_HF_CACHE_ROOT",
+        "/runpod-volume/huggingface-cache/hub",
+    )
+)
+REQUIRE_CACHED_MODEL = os.getenv(
+    "AVANTIQO_VIDEO_REQUIRE_CACHED_MODEL",
+    "1",
+).strip().lower() not in {"0", "false", "no", "off"}
 
 _PIPELINES: dict[str, Any] = {}
 
@@ -81,14 +90,45 @@ def _foundation_model(data: dict[str, Any]) -> str:
     return os.getenv("AVANTIQO_VIDEO_T2V_MODEL", DEFAULT_MODEL)
 
 
+def _cached_model_path(model_id: str) -> str | None:
+    if "/" not in model_id:
+        return None
+
+    model_root = HF_CACHE_ROOT / f"models--{model_id.replace('/', '--')}"
+    snapshots_root = model_root / "snapshots"
+    ref_main = model_root / "refs" / "main"
+
+    if ref_main.is_file():
+        revision = ref_main.read_text(encoding="utf-8").strip()
+        candidate = snapshots_root / revision
+        if candidate.is_dir():
+            return str(candidate)
+
+    if snapshots_root.is_dir():
+        candidates = [path for path in snapshots_root.iterdir() if path.is_dir()]
+        if candidates:
+            candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+            return str(candidates[0])
+
+    return None
+
+
 def _pipeline(model_id: str):
     if model_id in _PIPELINES:
         return _PIPELINES[model_id]
 
+    cached_path = _cached_model_path(model_id)
+    if REQUIRE_CACHED_MODEL and not cached_path:
+        raise RuntimeError(
+            f"AVANTIQO_VIDEO_CACHED_MODEL_REQUIRED:{model_id}"
+        )
+
+    model_source = cached_path or model_id
     pipe = DiffusionPipeline.from_pretrained(
-        model_id,
+        model_source,
         torch_dtype=DTYPE,
         device_map="balanced" if DEVICE.startswith("cuda") else None,
+        local_files_only=bool(cached_path),
     )
     if not DEVICE.startswith("cuda"):
         pipe.to(DEVICE)
@@ -228,6 +268,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "engine_contract": ENGINE_CONTRACT,
         "storage_reference": data["storage_upload"]["storage_reference"],
         "foundation_model": model_id,
+        "foundation_model_source": "runpod-cache" if _cached_model_path(model_id) else "huggingface",
         "seed": seed,
         "duration_seconds": duration_seconds,
         "fps": fps,

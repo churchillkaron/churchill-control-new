@@ -12,12 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY requirements.txt ./requirements.txt
 RUN python3 -m pip install --upgrade pip && python3 -m pip install -r requirements.txt
-COPY app.py ./app.py
+COPY handler.py ./handler.py
 
-RUN mkdir -p /data/outputs
-ENV AVANTIQO_VIDEO_OUTPUT_DIR=/data/outputs \
+RUN mkdir -p /tmp/avantiqo-video
+ENV AVANTIQO_VIDEO_OUTPUT_DIR=/tmp/avantiqo-video \
     AVANTIQO_VIDEO_DEVICE=cuda \
     AVANTIQO_VIDEO_FOUNDATION_MODEL=Wan-AI/Wan2.2-TI2V-5B-Diffusers
 
-EXPOSE 8000
-CMD ["python3", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["python3", "-u", "handler.py"]

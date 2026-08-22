@@ -9,15 +9,18 @@ import requests
 import runpod
 import torch
 from diffusers import DiffusionPipeline
+from diffusers.utils import load_image
 
 ENGINE_CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-image-v1"
+IMPLEMENTED_CAPABILITIES = {"ai.image.generate", "ai.image.edit"}
+FOUNDATION_MODEL = os.getenv("AVANTIQO_IMAGE_FOUNDATION_MODEL", "").strip()
+EDIT_MODEL = os.getenv("AVANTIQO_IMAGE_EDIT_MODEL", "Qwen/Qwen-Image-Edit").strip()
 OUTPUT_DIR = Path(os.getenv("AVANTIQO_IMAGE_OUTPUT_DIR", "/tmp/avantiqo-image"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = os.getenv("AVANTIQO_IMAGE_DEVICE", "cuda")
 DTYPE = torch.bfloat16 if os.getenv("AVANTIQO_IMAGE_DTYPE", "bfloat16").lower() == "bfloat16" else torch.float16
-FOUNDATION_MODEL = os.getenv("AVANTIQO_IMAGE_FOUNDATION_MODEL", "").strip()
-_PIPELINE: Any | None = None
+_PIPELINES: dict[str, Any] = {}
 
 
 def _text(value: Any) -> str:
@@ -44,14 +47,21 @@ def _public_https_url(value: Any, *, upload: bool = False) -> str:
     return source
 
 
-def _pipeline():
-    global _PIPELINE
-    if _PIPELINE is not None:
-        return _PIPELINE
+def _foundation_model(capability: str) -> str:
+    if capability == "ai.image.edit":
+        if not EDIT_MODEL:
+            raise RuntimeError("AVANTIQO_IMAGE_EDIT_MODEL_REQUIRED")
+        return EDIT_MODEL
     if not FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_IMAGE_FOUNDATION_MODEL_REQUIRED")
+    return FOUNDATION_MODEL
+
+
+def _pipeline(model_id: str):
+    if model_id in _PIPELINES:
+        return _PIPELINES[model_id]
     pipe = DiffusionPipeline.from_pretrained(
-        FOUNDATION_MODEL,
+        model_id,
         torch_dtype=DTYPE,
         device_map="balanced" if DEVICE.startswith("cuda") else None,
     )
@@ -61,7 +71,7 @@ def _pipeline():
         pipe.enable_attention_slicing()
     if hasattr(pipe, "enable_vae_slicing"):
         pipe.enable_vae_slicing()
-    _PIPELINE = pipe
+    _PIPELINES[model_id] = pipe
     return pipe
 
 
@@ -79,13 +89,24 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     data = job.get("input") or {}
     if data.get("contract") != ENGINE_CONTRACT:
         raise ValueError("AVANTIQO_IMAGE_ENGINE_CONTRACT_INVALID")
-    if data.get("capability") != "ai.image.generate":
-        raise ValueError("AVANTIQO_IMAGE_CAPABILITY_NOT_CERTIFIED")
+    capability = _text(data.get("capability"))
+    if capability not in IMPLEMENTED_CAPABILITIES:
+        raise ValueError(f"AVANTIQO_IMAGE_CAPABILITY_NOT_IMPLEMENTED:{capability or 'MISSING'}")
     instruction = _text(data.get("instruction"))
     if not instruction:
         raise ValueError("AVANTIQO_IMAGE_INSTRUCTION_REQUIRED")
     if len(instruction) > 12000:
         raise ValueError("AVANTIQO_IMAGE_INSTRUCTION_TOO_LONG")
+
+    source_assets = data.get("source_assets") or []
+    if not isinstance(source_assets, list) or len(source_assets) > 12:
+        raise ValueError("AVANTIQO_IMAGE_SOURCE_ASSET_LIMIT_EXCEEDED")
+    data["source_assets"] = [
+        _public_https_url(value) for value in source_assets if _text(value)
+    ]
+    if capability == "ai.image.edit" and not data["source_assets"]:
+        raise ValueError("AVANTIQO_IMAGE_EDIT_SOURCE_REQUIRED")
+
     storage = data.get("storage_upload") or {}
     signed_url = _public_https_url(storage.get("signed_url"), upload=True)
     storage_reference = _text(storage.get("storage_reference"))
@@ -115,8 +136,10 @@ def _upload(path: Path, storage: dict[str, Any]) -> None:
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     data = _validated_input(job)
     started = time.perf_counter()
+    capability = data["capability"]
+    model_id = _foundation_model(capability)
     runpod.serverless.progress_update(job, "loading Avantiqo Image")
-    pipe = _pipeline()
+    pipe = _pipeline(model_id)
     spec = data.get("structured_specification") or {}
     params = spec.get("provider_parameters") or {}
     width, height = _dimensions(spec)
@@ -125,17 +148,28 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("AVANTIQO_IMAGE_SEED_INVALID")
     generator_device = "cuda" if DEVICE.startswith("cuda") else DEVICE
     generator = torch.Generator(device=generator_device).manual_seed(seed)
+    inference_steps = int(params.get("inference_steps") or os.getenv("AVANTIQO_IMAGE_INFERENCE_STEPS", "28"))
 
     runpod.serverless.progress_update(job, "generating image")
-    result = pipe(
-        prompt=data["instruction"],
-        width=width,
-        height=height,
-        num_inference_steps=int(params.get("inference_steps") or os.getenv("AVANTIQO_IMAGE_INFERENCE_STEPS", "28")),
-        guidance_scale=float(params.get("guidance_scale") or os.getenv("AVANTIQO_IMAGE_GUIDANCE_SCALE", "4.0")),
-        generator=generator,
-    )
+    if capability == "ai.image.edit":
+        source_image = load_image(data["source_assets"][0])
+        result = pipe(
+            image=source_image,
+            prompt=data["instruction"],
+            num_inference_steps=inference_steps,
+            generator=generator,
+        )
+    else:
+        result = pipe(
+            prompt=data["instruction"],
+            width=width,
+            height=height,
+            num_inference_steps=inference_steps,
+            guidance_scale=float(params.get("guidance_scale") or os.getenv("AVANTIQO_IMAGE_GUIDANCE_SCALE", "4.0")),
+            generator=generator,
+        )
     image = result.images[0]
+    width, height = image.size
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     path = OUTPUT_DIR / f"{job_id}.png"
     image.save(path, format="PNG")
@@ -149,13 +183,14 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "provider": "avantiqo-image",
         "model": PRODUCT_MODEL,
         "engine_contract": ENGINE_CONTRACT,
-        "capability": data["capability"],
+        "capability": capability,
         "storage_reference": data["storage_upload"]["storage_reference"],
-        "foundation_model": FOUNDATION_MODEL,
+        "foundation_model": model_id,
         "seed": seed,
         "width": width,
         "height": height,
         "size_bytes": size_bytes,
+        "source_asset_count": len(data.get("source_assets") or []),
         "generation_seconds": round(time.perf_counter() - started, 3),
         "raw_reasoning_persisted": False,
     }
@@ -165,6 +200,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 def check_worker():
     if not FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_IMAGE_FOUNDATION_MODEL_REQUIRED")
+    if not EDIT_MODEL:
+        raise RuntimeError("AVANTIQO_IMAGE_EDIT_MODEL_REQUIRED")
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_IMAGE_CUDA_REQUIRED")
 

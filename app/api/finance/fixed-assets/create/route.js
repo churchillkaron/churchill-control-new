@@ -8,7 +8,7 @@ import { createFixedAssetCommand } from "@/lib/finance/fixed-assets/runtime/Fixe
 function statusFor(message) {
   const normalized = String(message || "").toLowerCase();
   if (normalized.includes("permission denied")) return 403;
-  return /required|must|greater|negative|exceed/i.test(message || "") ? 400 : 500;
+  return /required|must|greater|negative|exceed|create-only/i.test(message || "") ? 400 : 500;
 }
 
 export async function POST(request) {
@@ -32,6 +32,10 @@ export async function POST(request) {
       permissionKey: "finance.accounting.manage",
       fullAccess: access.permissions?.includes("*") === true,
     });
+
+    if (body.id || body.record_id || body.asset_id || body.assetId) {
+      throw new Error("Fixed asset creation is create-only; existing assets must use the Edit Asset action");
+    }
 
     const result = await createFixedAssetCommand({
       ...body,

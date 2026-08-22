@@ -1,0 +1,12 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_SAMPLING_VALIDATION_V1",
+  "requested_at": "2026-08-23T01:07:00+07:00",
+  "source_commit": "b696bdd7d35d70104850fef05f334c4b89cabb3e",
+  "model": "Qwen/Qwen3-30B-A3B-Thinking-2507",
+  "sampling_policy": "QWEN3_THINKING_2507_RECOMMENDED",
+  "temperature": 0.6,
+  "top_p": 0.95,
+  "activation_allowed": false,
+  "pricing_activation_allowed": false,
+  "provider_routing_change_allowed": false
+}

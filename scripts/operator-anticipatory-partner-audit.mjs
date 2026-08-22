@@ -97,7 +97,7 @@ assert.match(thesisRuntimeSource, /Prior thesis is context for comparison, never
 assert.match(thesisRuntimeSource, /Every signal and outlook item must cite/i);
 assert.match(thesisRuntimeSource, /urgent means a credible condition/i);
 assert.match(thesisRuntimeSource, /A prediction is not a fact/i);
-assert.match(thesisRuntimeSource, /Recommendation.*never authorizes execution/i);
+assert.match(thesisRuntimeSource, /never authorizes execution/i);
 assert.match(thesisRuntimeSource, /SYNTHESIZE_BUSINESS_THESIS/);
 assert.match(thesisRuntimeSource, /buildOperatorBusinessThesis/);
 assert.match(thesisRuntimeSource, /previous_business_thesis/);

@@ -1,0 +1,6 @@
+AVANTIQO_SYNTHETIC_INTELLIGENCE_STRATEGIC_INSPECTION
+Date: 2026-08-22
+Branch: main
+Model: Qwen/Qwen3-30B-A3B-Thinking-2507
+Purpose: diagnostic only; never deploy production. Re-run the completed deep strategic case with an explicit final JSON schema instruction, then report only sanitized final-output structure/types, latency, token counts, and whether it acknowledges missing guest-count evidence. Raw reasoning is never persisted or logged.
+No credentials or endpoint identifiers are stored here.

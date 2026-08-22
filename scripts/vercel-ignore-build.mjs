@@ -16,8 +16,8 @@ const hasFinanceAuditMarker = commitMessage.includes(FINANCE_AUDIT_MARKER);
 
 console.log(`VERCEL_GIT_COMMIT_MESSAGE=${commitMessage || "(empty)"}`);
 
-if (hasFinanceAuditMarker) {
-  const audit = spawnSync(process.execPath, ["scripts/finance-closeout-audit.mjs"], {
+function runAudit(script) {
+  const audit = spawnSync(process.execPath, [script], {
     cwd: process.cwd(),
     encoding: "utf8",
   });
@@ -25,9 +25,25 @@ if (hasFinanceAuditMarker) {
   if (audit.stdout) process.stdout.write(audit.stdout);
   if (audit.stderr) process.stderr.write(audit.stderr);
 
+  const passed = audit.status === 0;
   console.log(
-    `FINANCE_CLOSEOUT_AUDIT=${audit.status === 0 ? "PASS" : "FAIL"} exit=${audit.status ?? "unknown"}`,
+    `FINANCE_AUDIT script=${script} result=${passed ? "PASS" : "FAIL"} exit=${audit.status ?? "unknown"}`,
   );
+  return passed;
+}
+
+if (hasFinanceAuditMarker) {
+  const closeoutPassed = runAudit("scripts/finance-closeout-audit.mjs");
+  const regressionPassed = closeoutPassed
+    ? runAudit("scripts/finance-closeout-regression-audit.mjs")
+    : false;
+
+  if (!closeoutPassed || !regressionPassed) {
+    console.log("VERCEL_BUILD=SKIP reason=finance-certification-failed");
+    process.exit(0);
+  }
+
+  console.log("FINANCE_CLOSEOUT_AUDIT=PASS");
 }
 
 // Vercel convention:

@@ -91,29 +91,107 @@ Required behavior:
 
 ### Avantiqo Cinema
 
-Role: moving-image generation, transformation, VFX and repair.
+Role: moving-image generation, transformation, VFX, understanding and bounded repair.
 
 Provider family: `avantiqo-video`
 
-Target capabilities:
-- `ai.video.generate`
-- `ai.video.image_to_video`
-- `ai.video.video_to_video`
-- `ai.video.edit`
-- `ai.video.inpaint`
-- `ai.video.extend`
-- `ai.video.upscale`
-- `ai.video.lipsync`
+The three primary creation/translation modes are non-negotiable:
+- TEXT -> VIDEO through `ai.video.generate`
+- IMAGE -> VIDEO through `ai.video.image_to_video`
+- VIDEO -> VIDEO through `ai.video.video_to_video`
+
+Full target capability family:
+- `ai.video.generate` - create a shot from structured direction / text transport instruction
+- `ai.video.image_to_video` - animate one or more approved still/reference frames
+- `ai.video.video_to_video` - transform or regenerate an existing moving shot while preserving selected temporal truth
+- `ai.video.keyframe_to_video` - generate motion constrained by first/last or multiple approved keyframes
+- `ai.video.edit` - bounded semantic/appearance repair of existing footage
+- `ai.video.inpaint` - temporally coherent masked replacement/removal/insertion
+- `ai.video.outpaint` - extend/reframe the visible canvas while preserving original picture truth
+- `ai.video.extend` - continue a shot temporally before or after approved footage
+- `ai.video.motion_transfer` - preserve or transfer approved movement/camera/performance motion to a regenerated result
+- `ai.video.relight` - alter lighting while preserving approved scene/performance geometry where possible
+- `ai.video.restore` - denoise, deartifact, sharpen or recover degraded footage without creative reinvention
+- `ai.video.upscale` - resolution enhancement after creative approval
+- `ai.video.interpolate` - create temporally coherent intermediate frames / controlled frame-rate or slow-motion conversion
+- `ai.video.lipsync` - align approved speech/voice to approved performance footage
+- `ai.video.analyze` - understand shots, temporal regions, continuity anchors, defects and repair candidates
 
 Required behavior:
 - shot-level generation and repair
-- first/last-frame continuity controls
-- identity/product/logo continuity
-- motion preservation when repairing existing footage
-- temporal inpainting/object replacement
+- first/last-frame and multi-keyframe continuity controls
+- identity/product/logo/wardrobe/environment continuity
+- motion/performance preservation when repairing existing footage
+- temporal inpainting and object insertion/removal/replacement
+- bounded region repair instead of whole-shot regeneration whenever possible
+- deterministic/reproducible controls where the selected worker supports them
+- source-time preservation for repair tasks unless the Director explicitly changes timing
+- ability to preserve approved audio when picture-only repair is requested
 - selective regeneration rather than blind full-film regeneration
 
-A supplied one-minute film is treated as a temporal project, decomposed into scenes/shots/regions and classified as KEEP, REPAIR, REGENERATE, COMPOSITE or REASSEMBLE before production.
+#### Cinema job control contract
+
+The capability identifies the worker class. Detailed creative control belongs in the structured job specification rather than being split into dozens of provider services.
+
+The Cinema contract should be able to express, when applicable:
+- `identity_lock`
+- `product_lock`
+- `logo_lock`
+- `wardrobe_lock`
+- `environment_lock`
+- `motion_lock`
+- `performance_lock`
+- `camera_specification`
+- `lighting_specification`
+- `shot_specification`
+- `first_frame`
+- `last_frame`
+- `keyframes`
+- `reference_images`
+- `reference_video`
+- `mask` / temporal masks
+- pose/depth/edge/control guidance where supported
+- `preserve_regions`
+- `repair_regions`
+- source timecode / temporal range
+- target duration and timing lock
+- seed / reproducibility controls
+- aspect ratio / resolution / frame rate
+- quality profile
+
+These controls must be source-faithful. A lock means preserve, not merely "use as inspiration".
+
+#### Existing-film regeneration contract
+
+A supplied film is never treated as one giant generation request.
+
+The Studio must:
+1. ingest the master and preserve the original immutable source
+2. analyze/decompose the film into scenes, shots, audio regions and overlays
+3. identify continuity anchors: people, products, logos, environments, wardrobe, dialogue, timing and approved graphic systems
+4. score each region and classify it as KEEP, REPAIR, REGENERATE, COMPOSITE, REASSEMBLE or RELEASE
+5. execute only the bounded work required
+6. reassemble against the approved timeline
+7. run perceptual, identity, brand, story, audio and technical quality review
+8. repeat bounded repair until release criteria pass or a genuine human decision is required
+
+A supplied one-minute film therefore remains a one-minute project unless the Director intentionally changes the story/timing. Good footage is an asset to preserve, not raw material to destroy.
+
+#### Deterministic finishing plane
+
+Not every film operation should call a generative model. Avantiqo Cinema must also cooperate with deterministic finishing workers for:
+- scene/shot boundary detection and timecode mapping
+- frame/audio extraction
+- trimming and timeline assembly
+- compositing and alpha overlays
+- verified logo/UI/title rendering outside generated pixels
+- subtitle/caption rendering
+- audio mux/demux
+- color management and technical normalization
+- encode/transcode/export profiles
+- delivery validation
+
+These are production workers behind Studio, not separate user-facing tools. Generative AI is used only where it is the right production technique.
 
 ### Avantiqo Audio
 

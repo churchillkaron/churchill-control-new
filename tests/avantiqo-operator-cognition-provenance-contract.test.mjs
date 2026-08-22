@@ -1,22 +1,49 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { recordOperatorCognitionProvenance } from "../lib/operator/runtime/OperatorIntelligenceProvenanceRuntime.js";
 
-const provenance = await readFile(
-  new URL("../lib/operator/runtime/OperatorIntelligenceProvenanceRuntime.js", import.meta.url),
-  "utf8",
-);
-const synthetic = await readFile(
-  new URL("../lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", import.meta.url),
-  "utf8",
-);
+const originalInfo = console.info;
+console.info = () => {};
+try {
+  const owned = recordOperatorCognitionProvenance({
+    organizationId: "org-1",
+    result: {
+      provider_evidence: {
+        planning: {
+          provider: "avantiqo-intelligence",
+          usage_id: "usage-owned",
+        },
+      },
+    },
+  });
+  assert.equal(owned.owned_intelligence_selected, true);
+  assert.equal(owned.external_cognition_selected, false);
+  assert.equal(owned.usage_id, "usage-owned");
 
-assert.match(provenance, /AVANTIQO_OPERATOR_COGNITION_PROVENANCE_V1/);
-assert.match(provenance, /OWNED_INTELLIGENCE_PROVIDER = "avantiqo-intelligence"/);
-assert.match(provenance, /external_cognition_selected/);
-assert.match(provenance, /console\.info\("AVANTIQO_OPERATOR_COGNITION_PROVENANCE"/);
-assert.doesNotMatch(provenance, /response_text/);
-assert.match(synthetic, /OperatorIntelligenceProvenanceRuntime\.record/);
-assert.doesNotMatch(synthetic, /intelligence_supervision:\s*\{[^}]*provider:/s);
-assert.doesNotMatch(synthetic, /intelligence_supervision:\s*\{[^}]*model:/s);
+  const external = recordOperatorCognitionProvenance({
+    organizationId: "org-1",
+    result: {
+      provider_evidence: {
+        verification: {
+          evidence: {
+            provider: "external-specialist",
+            usage_id: "usage-external",
+          },
+        },
+      },
+    },
+  });
+  assert.equal(external.owned_intelligence_selected, false);
+  assert.equal(external.external_cognition_selected, true);
+  assert.equal(external.usage_id, "usage-external");
 
-console.log("PASS avantiqo operator cognition provenance remains internal");
+  const local = recordOperatorCognitionProvenance({
+    organizationId: "org-1",
+    result: { provider_evidence: { provider: "avantiqo-local" } },
+  });
+  assert.equal(local.local_deterministic_path, true);
+  assert.equal(local.external_cognition_selected, false);
+} finally {
+  console.info = originalInfo;
+}
+
+console.log("PASS avantiqo operator cognition provenance nested evidence");

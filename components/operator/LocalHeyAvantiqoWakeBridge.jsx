@@ -10,6 +10,9 @@ import {
   resolveInstantOperatorNavigation,
 } from "@/lib/operator/runtime/OperatorNavigationCatalog";
 import {
+  startRealtimeTranscription,
+} from "@/lib/operator/voice/RealtimeTranscriptionClient";
+import {
   averageWakeTemplates,
   createWakeFeatureFrame,
   normalizeWakeFrames,
@@ -182,6 +185,8 @@ export default function LocalHeyAvantiqoWakeBridge() {
   const recognitionHandledRef = useRef(false);
   const recognitionCommitTimerRef = useRef(null);
   const recognitionInterimRef = useRef("");
+  const realtimeTranscriptionRef = useRef(null);
+  const realtimePreparationRef = useRef(null);
   const noiseFloorRef = useRef(0.006);
   const speechOnsetRef = useRef(0);
   const onsetFramesRef = useRef([]);
@@ -250,6 +255,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
       commandModeRef.current = false;
       pendingWakeVerificationRef.current = null;
       localWakeTriggeredRef.current = false;
+      cancelRealtimeTranscription("OPERATOR_RESPONSE_STARTED");
       stopRecognition();
       stopWakeRecorder(true);
       stopCommandRecorder(true);
@@ -300,6 +306,92 @@ export default function LocalHeyAvantiqoWakeBridge() {
     } catch {}
   }
 
+  function cancelRealtimeTranscription(reason = "REALTIME_COMMAND_CANCELLED") {
+    const controller = realtimeTranscriptionRef.current;
+    realtimeTranscriptionRef.current = null;
+    if (controller) controller.cancel(reason).catch(() => null);
+
+    const preparing = realtimePreparationRef.current;
+    realtimePreparationRef.current = null;
+    if (preparing) {
+      preparing
+        .then((pending) => pending?.cancel?.(reason))
+        .catch(() => null);
+    }
+  }
+
+  async function prepareRealtimeCommandTranscription() {
+    if (
+      !isSafariLike() ||
+      !organizationId ||
+      !streamRef.current ||
+      !audioContextRef.current ||
+      !enabledRef.current
+    ) {
+      return null;
+    }
+
+    if (realtimeTranscriptionRef.current) {
+      return realtimeTranscriptionRef.current;
+    }
+    if (realtimePreparationRef.current) {
+      return realtimePreparationRef.current;
+    }
+
+    const preparation = startRealtimeTranscription({
+      organizationId,
+      entityId,
+      locale: navigator.language || "en-US",
+      audioContext: audioContextRef.current,
+      stream: streamRef.current,
+      deferAudioCapture: true,
+    })
+      .then((controller) => {
+        if (!enabledRef.current) {
+          controller?.cancel?.("VOICE_DISABLED_DURING_REALTIME_PREP").catch(() => null);
+          return null;
+        }
+        realtimeTranscriptionRef.current = controller;
+        if (commandModeRef.current && !speakingRef.current) {
+          controller?.startCapture?.();
+        }
+        return controller;
+      })
+      .catch((error) => {
+        console.warn("AVANTIQO_REALTIME_COMMAND_PREP_SKIPPED", error?.message || error);
+        return null;
+      })
+      .finally(() => {
+        if (realtimePreparationRef.current === preparation) {
+          realtimePreparationRef.current = null;
+        }
+      });
+
+    realtimePreparationRef.current = preparation;
+    return preparation;
+  }
+
+  function activateRealtimeCommandTranscription() {
+    const controller = realtimeTranscriptionRef.current;
+    if (controller) {
+      return controller.startCapture?.() === true;
+    }
+
+    realtimePreparationRef.current
+      ?.then((prepared) => {
+        if (
+          prepared &&
+          commandModeRef.current &&
+          !speakingRef.current &&
+          enabledRef.current
+        ) {
+          prepared.startCapture?.();
+        }
+      })
+      .catch(() => null);
+    return false;
+  }
+
   function stopCommandRecorder(discard = false) {
     const recorder = recorderRef.current;
     recorderRef.current = null;
@@ -340,6 +432,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     pendingWakeVerificationRef.current = null;
     localWakeTriggeredRef.current = false;
     clearCommandTimer();
+    cancelRealtimeTranscription("VOICE_STOPPED");
     stopRecognition();
 
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
@@ -432,6 +525,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
 
   async function speakAnswer(message) {
     speakingRef.current = true;
+    cancelRealtimeTranscription("ANSWER_PLAYBACK_STARTED");
     stopRecognition();
     stopWakeRecorder(true);
     stopCommandRecorder(true);
@@ -458,6 +552,7 @@ export default function LocalHeyAvantiqoWakeBridge() {
     pendingWakeVerificationRef.current = null;
     localWakeTriggeredRef.current = false;
     lastLocalWakeProbeRef.current = 0;
+    cancelRealtimeTranscription("RETURN_TO_PASSIVE_WAKE");
     stopRecognition();
     stopCommandRecorder(true);
     stopWakeRecorder(true);
@@ -477,6 +572,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
     stopCommandRecorder(true);
     speakingRef.current = true;
     setVoiceError("");
+
+    // Safari's realtime transcription session is authenticated and connected
+    // while Avantiqo acknowledges the wake word, but microphone streaming is
+    // deliberately deferred until the acknowledgement finishes. This removes
+    // the old record-upload-transcribe delay without transcribing Avantiqo's
+    // own spoken acknowledgement.
+    prepareRealtimeCommandTranscription().catch(() => null);
 
     try {
       await speakBrowser(acknowledgementRef.current || "I'm here.");
@@ -616,11 +718,26 @@ export default function LocalHeyAvantiqoWakeBridge() {
   async function runInstantNavigation(message) {
     const targets = listOperatorNavigationTargets({ organizationId });
     const navigation = resolveInstantOperatorNavigation({ message, targets });
-    if (!navigation?.matched || !navigation.target?.href) return false;
-    const target = navigation.target;
-    setStatus("navigating");
-    router.push(target.href);
-    await speakBrowser(`Opening ${target.name}.`).catch(() => false);
+    if (!navigation?.explicit_navigation) return false;
+
+    if (navigation.matched && navigation.target?.href) {
+      const target = navigation.target;
+      setStatus("navigating");
+      router.push(target.href);
+      await speakBrowser(`Opening ${target.name}.`).catch(() => false);
+      returnToWakeListening();
+      return true;
+    }
+
+    const alternatives = Array.isArray(navigation.alternatives)
+      ? navigation.alternatives.map((item) => text(item?.name)).filter(Boolean)
+      : [];
+    const response = navigation.ambiguous && alternatives.length
+      ? `I found more than one page for that. Try ${alternatives.slice(0, 3).join(" or ")}.`
+      : `I couldn't safely match ${text(navigation.query) || "that"} to a page. Say the page name again.`;
+
+    setStatus("working");
+    await speakBrowser(response).catch(() => false);
     returnToWakeListening();
     return true;
   }
@@ -793,9 +910,13 @@ export default function LocalHeyAvantiqoWakeBridge() {
     localWakeTriggeredRef.current = false;
     setStatus("listening-command");
 
-    // Safari stays on the same getUserMedia stream. Other browsers may use
-    // native recognition for lower command latency.
-    if (!startNativeRecognition()) recognitionActiveRef.current = false;
+    // Safari stays on the same getUserMedia stream. The governed realtime
+    // transcription session reuses that stream and starts only after the wake
+    // acknowledgement; MediaRecorder remains the fallback if realtime fails.
+    if (!startNativeRecognition()) {
+      recognitionActiveRef.current = false;
+      activateRealtimeCommandTranscription();
+    }
 
     followUpTimerRef.current = window.setTimeout(
       () => returnToWakeListening(),
@@ -825,20 +946,45 @@ export default function LocalHeyAvantiqoWakeBridge() {
       const chunks = chunksRef.current;
       chunksRef.current = [];
       commandModeRef.current = false;
-      if (!chunks.length) returnToWakeListening();
-      else {
-        const blob = new Blob(chunks, {
-          type: recorder.mimeType || preferredMime() || "audio/webm",
-        });
-        setStatus("understanding");
-        try {
-          const transcript = await transcribe(blob);
-          if (transcript) await runVoiceCommand(transcript);
-          else returnToWakeListening();
-        } catch (error) {
-          setVoiceError(error?.message || "I couldn't understand that");
-          returnToWakeListening();
+      const realtime = realtimeTranscriptionRef.current;
+      realtimeTranscriptionRef.current = null;
+
+      if (!chunks.length && !realtime) {
+        returnToWakeListening();
+        return;
+      }
+
+      const blob = chunks.length
+        ? new Blob(chunks, {
+            type: recorder.mimeType || preferredMime() || "audio/webm",
+          })
+        : null;
+
+      setStatus("understanding");
+      try {
+        if (realtime) {
+          try {
+            const realtimeTranscript = text(await realtime.commit());
+            if (realtimeTranscript) {
+              await runVoiceCommand(realtimeTranscript);
+              return;
+            }
+          } catch (error) {
+            console.warn("AVANTIQO_REALTIME_COMMAND_FALLBACK", error?.message || error);
+          }
         }
+
+        if (!blob) {
+          returnToWakeListening();
+          return;
+        }
+
+        const transcript = await transcribe(blob);
+        if (transcript) await runVoiceCommand(transcript);
+        else returnToWakeListening();
+      } catch (error) {
+        setVoiceError(error?.message || "I couldn't understand that");
+        returnToWakeListening();
       }
     };
     recorder.stop();

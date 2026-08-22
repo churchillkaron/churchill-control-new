@@ -9,6 +9,10 @@ const readResolverSource = await readFile(
   "lib/operator/runtime/OperatorBusinessReadResolver.js",
   "utf8",
 );
+const cognitionRouterSource = await readFile(
+  "lib/operator/runtime/OperatorCognitionRouter.js",
+  "utf8",
+);
 
 assert.match(
   reasoningSource,
@@ -82,6 +86,19 @@ assert.doesNotMatch(
 );
 
 assert.match(
+  cognitionRouterSource,
+  /mode\(source\) === "voice"/,
+);
+assert.match(
+  cognitionRouterSource,
+  /path: "deep", reason: "VOICE_REASONING_SINGLE_PASS"/,
+);
+assert.match(
+  cognitionRouterSource,
+  /never a fast model call[\s\S]*followed serially by a deep fallback call/,
+);
+
+assert.match(
   readResolverSource,
   /const OPERATOR_READ_CHAIN_KEY = "platform\.operator_read_chain\.execute"/,
 );
@@ -110,7 +127,8 @@ console.log("OPERATOR_FAST_VOICE_PRIMARY_CAPABILITIES=12");
 console.log("OPERATOR_FAST_VOICE_READ_SUPPLEMENT=6");
 console.log("OPERATOR_FAST_VOICE_CAPABILITY_CEILING=18");
 console.log("OPERATOR_FAST_VOICE_SUPPLEMENT_MODE=READ_ONLY");
-console.log("OPERATOR_FAST_EXECUTIVE_PATH=ALL_CHANNELS");
+console.log("OPERATOR_FAST_EXECUTIVE_PATH=TEXT_ONLY_AFTER_DETERMINISTIC_VOICE_LANES");
+console.log("OPERATOR_VOICE_REASONING=DELIBERATE_SINGLE_PASS_NO_FAST_TO_DEEP_CHAIN");
 console.log("OPERATOR_FAST_EXECUTIVE_ACTIONS=DEEP_REASONING_FALLBACK");
 console.log("OPERATOR_DYNAMIC_MULTI_READ=READ_CHAIN_PLUS_DOMAIN_DIVERSE_CATALOG");
 console.log("OPERATOR_DYNAMIC_MULTI_READ=NO_FIXED_BUSINESS_VOCABULARY");

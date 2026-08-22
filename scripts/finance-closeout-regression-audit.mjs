@@ -45,8 +45,12 @@ check("serializer selected row actions", has(serializer, "contract.rowActions"))
 check("bank import atomic POST", has("app/api/finance/bank-statements/import/route.js", "export async function POST", "create_finance_bank_statement_import", "requireOrganizationAccess"));
 check("bank fake source URL removed", !read(config).includes("source_file_url"));
 
+check(
+  "cash-flow route delegates authenticated Finance permission",
+  has("app/api/finance/cash-flow/route.js", "resolveReportRequestContext") &&
+    has("lib/finance/reporting/runtime/resolveReportRequestContext.js", "requireOrganizationAccess", "checkFinancePermission", 'permissionKey = "finance.accounting.view"')
+);
 for (const file of [
-  "app/api/finance/cash-flow/route.js",
   "app/api/finance/currencies/route.js",
   "app/api/finance/currencies/upsert/route.js",
   "app/api/finance/currencies/toggle/route.js",
@@ -79,7 +83,11 @@ check("tax duplicate/archive blocked", has(mutation, '"tax_codes"'));
 check("vendor tax governed", has("lib/finance/accounts-payable/documents/createVendorInvoice.js", "validateTaxRules", "tax_code_id required when tax_amount is positive", "expectedTax", "tax amount does not match"));
 
 check("VAT exact calculate route", has("app/api/finance/vat-returns/calculate/route.js", 'capabilityId: "vat_returns"', "calculate_finance_vat_return"));
-check("VAT external submit route", has("app/api/finance/vat-returns/mark-submitted/route.js", "mark_finance_vat_return_submitted", "EXTERNAL_REFERENCE_RECORDED"));
+check(
+  "VAT external submit route",
+  has("app/api/finance/vat-returns/mark-submitted/route.js", "mark_finance_vat_return_submitted", 'operation: "write"', "submission_reference") &&
+    has("supabase/migrations/20260822070639_finance_vat_return_execution_convergence.sql", "VAT return must be calculated before it can be marked submitted", "status='SUBMITTED'", "submission_reference")
+);
 check("VAT submit form", has(forms, '"vat-return-mark-submitted"'));
 const vatMigration = "supabase/migrations/20260822073216_finance_vat_output_tax_rule_repair.sql";
 check("VAT line-level VAT-only evidence", has(vatMigration, "cil.tax_amount", "cil.tax_rule_id", "tr.tax_type", "'VAT'"));

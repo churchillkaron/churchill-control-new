@@ -20,6 +20,7 @@ IMPLEMENTED_CAPABILITIES = {
     "ai.image.inpaint",
     "ai.image.outpaint",
 }
+DEFAULT_CERTIFIED_CAPABILITIES = {"ai.image.generate"}
 FOUNDATION_MODEL = os.getenv("AVANTIQO_IMAGE_FOUNDATION_MODEL", "").strip()
 EDIT_MODEL = os.getenv("AVANTIQO_IMAGE_EDIT_MODEL", "Qwen/Qwen-Image-Edit").strip()
 INPAINT_MODEL = os.getenv(
@@ -48,11 +49,26 @@ REQUIRE_CACHED_MODEL = os.getenv(
     "AVANTIQO_IMAGE_REQUIRE_CACHED_MODEL",
     "1",
 ).strip().lower() not in {"0", "false", "no", "off"}
+CERTIFICATION_EXECUTION_ENABLED = os.getenv(
+    "AVANTIQO_IMAGE_CERTIFICATION_EXECUTION_ENABLED",
+    "0",
+).strip().lower() in {"1", "true", "yes", "on"}
 _PIPELINES: dict[str, Any] = {}
 
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _configured_capabilities() -> set[str]:
+    configured = {
+        item.strip()
+        for item in _text(os.getenv("AVANTIQO_IMAGE_CERTIFIED_CAPABILITIES")).split(",")
+        if item.strip()
+    }
+    if not configured:
+        return set(DEFAULT_CERTIFIED_CAPABILITIES)
+    return configured.intersection(IMPLEMENTED_CAPABILITIES)
 
 
 def _public_https_url(value: Any, *, upload: bool = False) -> str:
@@ -93,6 +109,10 @@ def _foundation_model(capability: str) -> str:
     if not FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_IMAGE_FOUNDATION_MODEL_REQUIRED")
     return FOUNDATION_MODEL
+
+
+def _model_for_capability(capability: str) -> str:
+    return _foundation_model(capability)
 
 
 def _cached_model_path(model_id: str) -> str | None:
@@ -164,6 +184,15 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             f"AVANTIQO_IMAGE_CAPABILITY_NOT_IMPLEMENTED:{capability or 'MISSING'}"
         )
+    certification_execution = (
+        data.get("certification_execution") is True and CERTIFICATION_EXECUTION_ENABLED
+    )
+    if capability not in _configured_capabilities() and not certification_execution:
+        raise ValueError(
+            f"AVANTIQO_IMAGE_CAPABILITY_NOT_CERTIFIED:{capability or 'MISSING'}"
+        )
+    data["certification_execution"] = certification_execution
+
     instruction = _text(data.get("instruction"))
     if not instruction:
         raise ValueError("AVANTIQO_IMAGE_INSTRUCTION_REQUIRED")
@@ -368,6 +397,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "preservation_mode": preservation_mode,
         "mask_conditioning_used": capability == "ai.image.inpaint",
         "outpaint_canvas_conditioning_used": capability == "ai.image.outpaint",
+        "certification_execution": data.get("certification_execution") is True,
         "generation_seconds": round(time.perf_counter() - started, 3),
         "raw_reasoning_persisted": False,
     }
@@ -375,19 +405,20 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 @runpod.serverless.register_fitness_check
 def check_worker():
-    models = {
-        "AVANTIQO_IMAGE_FOUNDATION_MODEL_REQUIRED": FOUNDATION_MODEL,
-        "AVANTIQO_IMAGE_EDIT_MODEL_REQUIRED": EDIT_MODEL,
-        "AVANTIQO_IMAGE_INPAINT_MODEL_REQUIRED": INPAINT_MODEL,
-        "AVANTIQO_IMAGE_OUTPAINT_MODEL_REQUIRED": OUTPAINT_MODEL,
-    }
-    for error_code, model_id in models.items():
-        if not model_id:
-            raise RuntimeError(error_code)
+    if not FOUNDATION_MODEL:
+        raise RuntimeError("AVANTIQO_IMAGE_FOUNDATION_MODEL_REQUIRED")
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_IMAGE_CUDA_REQUIRED")
+
+    required_capabilities = _configured_capabilities()
+    if CERTIFICATION_EXECUTION_ENABLED:
+        required_capabilities = set(IMPLEMENTED_CAPABILITIES)
+
+    required_models = {
+        _model_for_capability(capability) for capability in required_capabilities
+    }
     if REQUIRE_CACHED_MODEL:
-        for model_id in set(models.values()):
+        for model_id in required_models:
             if not _cached_model_path(model_id):
                 raise RuntimeError(f"AVANTIQO_IMAGE_CACHED_MODEL_REQUIRED:{model_id}")
 

@@ -1,0 +1,11 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_CERTIFICATION_REQUEST_V1",
+  "requested_at": "2026-08-22T22:24:00+07:00",
+  "purpose": "isolated readiness and measurement only",
+  "provider": "avantiqo-intelligence",
+  "model": "Qwen/Qwen3-30B-A3B-Thinking-2507",
+  "activation_allowed": false,
+  "pricing_activation_allowed": false,
+  "provider_routing_change_allowed": false,
+  "production_deploy_allowed": false
+}

@@ -1,0 +1,104 @@
+name: Avantiqo Intelligence Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-intelligence-certification-request.json
+      - .github/workflows/avantiqo-intelligence-certification.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Prepare evidence directory
+        run: mkdir -p artifacts/intelligence-certification
+
+      - name: Verify certification secrets
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID }}
+        run: |
+          test -n "$RUNPOD_API_KEY" || { echo "RUNPOD_API_KEY secret is missing"; exit 1; }
+          test -n "$RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID" || { echo "RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID secret is missing"; exit 1; }
+
+      - name: Run isolated Avantiqo Intelligence certification
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID }}
+          AVANTIQO_INTELLIGENCE_CERTIFICATION_OUTPUT: ${{ github.workspace }}/artifacts/intelligence-certification/certification.json
+          AVANTIQO_INTELLIGENCE_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/intelligence-certification/benchmark-inner.json
+        run: node scripts/benchmark-avantiqo-intelligence.mjs
+
+      - name: Verify certification cannot activate production routing
+        if: always()
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const path = "artifacts/intelligence-certification/certification.json";
+          let report;
+          try {
+            report = JSON.parse(await readFile(path, "utf8"));
+          } catch {
+            console.log("Certification report not produced; the earlier step already records the failure.");
+            process.exit(0);
+          }
+          const violations = [];
+          if (report.activation_allowed !== false) violations.push("activation_allowed must remain false");
+          if (report.pricing_activation_performed !== false) violations.push("pricing activation must remain false");
+          if (report.provider_selection_changed !== false) violations.push("provider routing must remain unchanged");
+          if (report?.summary?.foreign_requests_touched !== 0) violations.push("foreign requests must never be touched");
+          if (violations.length) {
+            console.error(violations.join("; "));
+            process.exit(1);
+          }
+          console.log("Certification isolation and no-activation guards verified.");
+          NODE
+
+      - name: Publish certification summary
+        if: always()
+        run: |
+          if [ -f artifacts/intelligence-certification/certification.json ]; then
+            node --input-type=module <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("artifacts/intelligence-certification/certification.json", "utf8"));
+          console.log("## Avantiqo Intelligence certification");
+          console.log(`- Passed: ${report?.summary?.passed === true}`);
+          console.log(`- Benchmark passed: ${report?.summary?.benchmark_passed === true}`);
+          console.log(`- Isolation passed: ${report?.summary?.isolation_passed === true}`);
+          console.log(`- Foreign requests touched: ${report?.summary?.foreign_requests_touched ?? "unknown"}`);
+          console.log(`- Activation allowed: ${report?.activation_allowed === true}`);
+          console.log(`- Total latency ms: ${report?.total_latency_ms ?? "unknown"}`);
+          NODE
+          else
+            echo "## Avantiqo Intelligence certification" >> "$GITHUB_STEP_SUMMARY"
+            echo "- No certification report was produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-certification-${{ github.run_id }}
+          path: artifacts/intelligence-certification/
+          if-no-files-found: warn
+          retention-days: 14

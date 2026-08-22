@@ -39,6 +39,12 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Audit Finance capability closure
+        run: |
+          npm run audit:finance
+          npm run audit:finance-capabilities
+          FINANCE_SMOKE_STATIC_ONLY=1 node scripts/finance-total-closure-smoke.mjs
+
       - name: Build application
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321

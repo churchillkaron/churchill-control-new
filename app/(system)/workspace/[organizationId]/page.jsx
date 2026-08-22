@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
 import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 
@@ -32,6 +33,7 @@ export default function OrganizationWorkspacePage() {
   const metrics = runtime?.metrics || {};
   const alerts = runtime?.alerts || [];
   const activity = runtime?.activity || [];
+  const organizationId = organization?.id || null;
 
   if (loading) {
     return (
@@ -43,6 +45,8 @@ export default function OrganizationWorkspacePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      <AutonomousWatchAlertBridge organizationId={organizationId} />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
         <div className="space-y-6">
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
@@ -100,7 +104,7 @@ export default function OrganizationWorkspacePage() {
           </div>
         </div>
 
-        <HomeAvantiqoIntelligence organizationId={organization?.id || null} />
+        <HomeAvantiqoIntelligence organizationId={organizationId} />
       </div>
     </div>
   );

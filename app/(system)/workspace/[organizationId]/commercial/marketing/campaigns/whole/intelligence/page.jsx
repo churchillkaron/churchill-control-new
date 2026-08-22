@@ -81,6 +81,7 @@ export default function AdsIntelligencePage() {
 
   const selected = groups.find((group) => group.id === groupId) || groups[0] || null;
   const currency = selected?.currency_code || "THB";
+  const allocation = data?.capital_allocation_proposal || null;
 
   return (
     <main className="min-h-screen bg-black p-6 text-white lg:p-10">
@@ -138,6 +139,49 @@ export default function AdsIntelligencePage() {
                 <Metric label="Profit After Media" value={money(data.portfolio?.profit_after_media, currency)} />
                 <Metric label="Profit / Ad Spend" value={multiple(data.portfolio?.profit_on_ad_spend)} />
                 <Metric label="Qualified Outcomes" value={String(data.portfolio?.qualified_outcomes || 0)} />
+              </div>
+            </section>
+
+            <section className="rounded-[30px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.025] p-6">
+              <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Next Baht Allocation</div>
+              <h2 className="mt-2 text-3xl font-light">Controlled Scale Proposal</h2>
+              <p className="mt-2 max-w-4xl text-sm text-white/45">
+                {allocation?.allocation_principle}
+              </p>
+
+              <div className="mt-5 space-y-3">
+                {(allocation?.next_baht_priority || []).length ? (
+                  allocation.next_baht_priority.map((item) => (
+                    <div key={item.campaign_id} className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.13em] text-[#D6A66A]">
+                            Priority #{item.rank} · {item.organization_name}
+                          </div>
+                          <div className="mt-1 text-lg text-white/80">{item.campaign_name}</div>
+                          <p className="mt-2 max-w-4xl text-sm text-white/45">{item.rationale}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-right text-xs text-white/40">
+                          <span>Profit / Ad Spend</span><span>{multiple(item.observed_profit_on_ad_spend)}</span>
+                          <span>Profit After Media</span><span>{money(item.observed_profit_after_media, currency)}</span>
+                          <span>Qualified Outcomes</span><span>{item.qualified_outcomes}</span>
+                          <span>Evidence</span><span>{item.evidence_score}/{item.evidence_max}</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-xs text-amber-100/60">
+                        No budget amount is recommended until controlled increment history establishes a marginal-return curve. Explicit authorization remains required.
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/45">
+                    No safe scale candidate yet. Continue measurement and controlled learning before allocating additional media budget.
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-xs text-white/35">
+                Marginal model: {allocation?.marginal_model?.available ? "available" : "not yet available"}. {allocation?.marginal_model?.reason}
               </div>
             </section>
 
@@ -205,7 +249,7 @@ export default function AdsIntelligencePage() {
             </section>
 
             <section className="rounded-[30px] border border-amber-500/20 bg-amber-500/[0.04] p-5 text-sm text-amber-100/70">
-              Governance lock: Avantiqo may analyze, recommend and prepare experiments. Moving budget, increasing spend or activating paid providers still requires explicit authorization.
+              Governance lock: Avantiqo may analyze, rank candidates and prepare controlled scale proposals. Moving budget, recommending an unvalidated budget amount, increasing spend or activating paid providers still requires sufficient marginal evidence and explicit authorization.
             </section>
           </div>
         ) : null}

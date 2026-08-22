@@ -20,7 +20,8 @@ const supabase = getServiceSupabase();
 const TOKEN = "avq-synthetic-intelligence-opening-20260822-v1";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const ENTITY_ID = "073dc5f5-b6a8-4cae-8cda-fd7acb21ef50";
-const PROVIDER = "google-veo";
+const PROVIDER = "veo";
+const MODEL = "fal-ai/veo3.1/fast";
 const DURATION_SECONDS = 8;
 const BUCKET = "creative-assets";
 const APPROVED_LOGO_PATH = `${ORGANIZATION_ID}/unassigned/df1cdd49-68e2-4a77-956e-6c9565c0074d-google-veo-6c9upygjkui2.mp4`;
@@ -39,10 +40,13 @@ function text(value) {
 }
 
 function generationContract() {
+  const description =
+    "Create an eight-second world-class cinematic technology launch film. Begin almost completely black. In the first two seconds, a restrained intelligent presence awakens in darkness through elegant volumetric light, microscopic energy filaments, subtle glass-and-metal reflections and controlled spatial movement. It must feel like a premium global technology brand film, not a game, not cyberpunk, not a dashboard, not a network diagram. From seconds two to five, the intelligence converges in real three-dimensional space with deep perspective, parallax, atmosphere and a slow confident camera move. Between seconds four to six, the exact words SYNTHETIC INTELLIGENCE emerge as the central hero object, physically dimensional and cinematic: polished smoked glass, dark platinum metal, subtle champagne-gold edge reflections, true thickness, bevels, realistic specular highlights, volumetric light, depth and elegant perspective. The spelling must be exactly SYNTHETIC INTELLIGENCE and there must be no other readable words, logos or symbols. Hold the title with authority for a brief moment. From seconds six to eight, the title disintegrates or collapses elegantly into a narrow field of light and darkness so the final frame is clean, dark and calm, ready for a direct cut into an existing Avantiqo logo film. The overall feeling is luxury automotive launch film, prestige cinema title design and next-generation intelligence. Extremely restrained, expensive, sophisticated and believable. No humans. No screens. No Churchill branding. No restaurant imagery. No generic corporate footage. No fake UI. No neon tunnel. No explosive particle storm. No glitch text. No spelling errors. No extra typography. No voice-over.";
+
   return {
+    model: MODEL,
     title: "Avantiqo investor film — Synthetic Intelligence awakening",
-    description:
-      "Create an eight-second world-class cinematic technology launch film. Begin almost completely black. In the first two seconds, a restrained intelligent presence awakens in darkness through elegant volumetric light, microscopic energy filaments, subtle glass-and-metal reflections and controlled spatial movement. It must feel like a premium global technology brand film, not a game, not cyberpunk, not a dashboard, not a network diagram. From seconds two to five, the intelligence converges in real three-dimensional space with deep perspective, parallax, atmosphere and a slow confident camera move. Between seconds four and six, the exact words SYNTHETIC INTELLIGENCE emerge as the central hero object, physically dimensional and cinematic: polished smoked glass, dark platinum metal, subtle champagne-gold edge reflections, true thickness, bevels, realistic specular highlights, volumetric light, depth and elegant perspective. The spelling must be exactly SYNTHETIC INTELLIGENCE and there must be no other readable words, logos or symbols. Hold the title with authority for a brief moment. From seconds six to eight, the title disintegrates or collapses elegantly into a narrow field of light and darkness so the final frame is clean, dark and calm, ready for a direct cut into an existing Avantiqo logo film. The overall feeling is luxury automotive launch film, prestige cinema title design and next-generation intelligence. Extremely restrained, expensive, sophisticated and believable. No humans. No screens. No Churchill branding. No restaurant imagery. No generic corporate footage. No fake UI. No neon tunnel. No explosive particle storm. No glitch text. No spelling errors. No extra typography. No voice-over.",
+    description,
     intent: {
       story_purpose: "announce a new category before the Avantiqo identity reveal",
       emotional_tone: "powerful, intelligent, luxurious, cinematic, restrained",
@@ -71,6 +75,17 @@ function generationContract() {
         "no image slideshow"
       ],
     },
+    generation: {
+      model: MODEL,
+      provider_parameters: {
+        duration: "8s",
+        aspect_ratio: "16:9",
+        resolution: "1080p",
+        generate_audio: false,
+        auto_fix: false,
+        safety_tolerance: "4",
+      },
+    },
     shot_bible: {
       output: {
         duration_seconds: DURATION_SECONDS,
@@ -84,8 +99,12 @@ function generationContract() {
       resolution: "1080p",
     },
     provider_parameters: {
+      duration: "8s",
       aspect_ratio: "16:9",
       resolution: "1080p",
+      generate_audio: false,
+      auto_fix: false,
+      safety_tolerance: "4",
     },
   };
 }
@@ -227,6 +246,7 @@ export async function GET(request) {
       return json({
         success: true,
         provider: PROVIDER,
+        model: MODEL,
         duration_seconds: DURATION_SECONDS,
         approved_logo_path: APPROVED_LOGO_PATH,
         final_path: FINAL_PATH,

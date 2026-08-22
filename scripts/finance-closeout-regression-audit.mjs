@@ -18,6 +18,7 @@ const taxVat = "lib/finance/workspaces/FinanceVatTaxContractConvergence.js";
 const mutation = "lib/finance/workspaces/FinanceWorkspaceMutationPolicy.js";
 const forms = "lib/platform/forms/FinanceOperationalFormContract.js";
 const vercel = "vercel.json";
+const manifest = "lib/finance/runtime/financeCapabilityRuntimeManifest.json";
 const periodLifecycle = "lib/finance/period-close/capabilities/PeriodLifecycle.js";
 
 for (const name of [
@@ -91,11 +92,17 @@ check("filing duplicate/archive blocked", has(mutation, '"vat_returns"', '"statu
 
 check("e-invoice source table exists", exists("supabase/migrations/20260822073122_finance_e_invoicing_settings_convergence.sql"));
 check("e-invoice avoids fake transmission claim", has(taxVat, "does not claim that a government or network transmission connection is active"));
-check("bank integration truthful pending setup", has("app/api/finance/banking-integrations/route.js", "PENDING_SETUP", "AVANTIQO_MANAGED"));
+check("bank integration truthful pending setup", has("app/api/finance/banking-integrations/route.js", "PENDING_SETUP", "AVANTIQO_MANAGED", "credential_reference: null"));
+check("bank integration exact create contract", has(taxVat, 'bankingIntegrations.createEndpoint = "/api/finance/banking-integrations"'));
+check("bank integration sanitized list binding", has(manifest, '"banking_integrations"', '"api": "/api/finance/banking-integrations"'));
+check("government connection governed request", has("app/api/finance/government-connections/route.js", "finance.tax.manage", "PENDING_SETUP", "PENDING_CONFIGURATION", "credential_reference: null"));
+check("government connection sanitized GET", !read("app/api/finance/government-connections/route.js").match(/\.select\([^\n]*credential_reference/));
+check("government connection exact create contract", has(taxVat, 'governmentConnections.createEndpoint = "/api/finance/government-connections"'));
+check("government connection sanitized list binding", has(manifest, '"government_connections"', '"api": "/api/finance/government-connections"'));
 check("canonical registry applies tax/VAT convergence", has("lib/platform/registry/erpRegistry.js", "applyFinanceVatTaxContractConvergence"));
 
 const tenant = /tenant_id|tenantId/;
-for (const file of [taxVat, "lib/finance/tax-codes/repositories/taxCodeRepository.js", "app/api/finance/vat-returns/calculate/route.js", "app/api/finance/vat-returns/mark-submitted/route.js", "app/api/finance/statutory-filings/mark-submitted/route.js", "app/api/finance/bank-statements/import/route.js", "app/api/finance/opening-balances/post/route.js", "app/api/finance/revenue-recognition/recognize/route.js", "app/api/finance/fx-revaluation/execute/route.js"]) {
+for (const file of [taxVat, "lib/finance/tax-codes/repositories/taxCodeRepository.js", "app/api/finance/vat-returns/calculate/route.js", "app/api/finance/vat-returns/mark-submitted/route.js", "app/api/finance/statutory-filings/mark-submitted/route.js", "app/api/finance/government-connections/route.js", "app/api/finance/banking-integrations/route.js", "app/api/finance/bank-statements/import/route.js", "app/api/finance/opening-balances/post/route.js", "app/api/finance/revenue-recognition/recognize/route.js", "app/api/finance/fx-revaluation/execute/route.js"]) {
   check(`no tenant boundary ${file}`, !tenant.test(read(file)));
 }
 

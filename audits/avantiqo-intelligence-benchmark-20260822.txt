@@ -11,3 +11,8 @@ Prerequisites verified immediately before launch:
 Benchmark policy: strategic case gets a 120s ceiling; short governed cases get 45s. Stop after first failure to avoid client-abort request contamination.
 Purpose: diagnostic only; never deploy production.
 No credentials or endpoint identifiers are stored here.
+
+Certification rerun requested: 2026-08-22T21:49:00+07:00
+Certification path: scripts/benchmark-avantiqo-intelligence.mjs
+Isolation policy: refuse pre-existing nonterminal requests; trace benchmark requests; cleanup only benchmark-owned traced requests; never purge unrelated traffic.
+Activation policy: benchmark-only; no pricing activation, provider-routing change, or production release.

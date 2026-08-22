@@ -267,18 +267,28 @@ def _sample_video_frames(
     width: int,
     height: int,
     frames: int,
+    duration_seconds: int,
     *,
     grayscale: bool = False,
 ) -> list[Image.Image]:
-    source = iio.imread(path, plugin="FFMPEG")
-    if len(source) < 2:
-        raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_EMPTY")
-    indices = [round(index * (len(source) - 1) / max(1, frames - 1)) for index in range(frames)]
+    if frames < 2 or duration_seconds <= 0:
+        raise ValueError("AVANTIQO_VIDEO_FRAME_SAMPLING_INVALID")
     mode = "L" if grayscale else "RGB"
-    return [
-        Image.fromarray(source[index]).convert(mode).resize((width, height), Image.Resampling.LANCZOS)
-        for index in indices
-    ]
+    sample_fps = max(1.0, min(30.0, frames / float(duration_seconds)))
+    sampled: list[Image.Image] = []
+    for frame in iio.imiter(path, plugin="FFMPEG", fps=sample_fps):
+        sampled.append(
+            Image.fromarray(frame)
+            .convert(mode)
+            .resize((width, height), Image.Resampling.LANCZOS)
+        )
+        if len(sampled) >= frames:
+            break
+    if len(sampled) < 2:
+        raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_EMPTY")
+    while len(sampled) < frames:
+        sampled.append(sampled[-1].copy())
+    return sampled
 
 
 def _binary_mask_frame(frame: Image.Image) -> Image.Image:
@@ -342,7 +352,13 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         kwargs["image"] = load_image(references[0])
     elif capability in {"ai.video.video_to_video", "ai.video.edit", "ai.video.inpaint"}:
         source_path = _download_video(data["source_video"], job_id, "source-video")
-        source_frames = _sample_video_frames(source_path, width, height, frames)
+        source_frames = _sample_video_frames(
+            source_path,
+            width,
+            height,
+            frames,
+            duration_seconds,
+        )
         kwargs["video"] = source_frames
 
         if data.get("mask_video"):
@@ -352,6 +368,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 width,
                 height,
                 frames,
+                duration_seconds,
                 grayscale=True,
             )
             kwargs["mask"] = [_binary_mask_frame(frame) for frame in mask_frames]
@@ -406,6 +423,11 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "mask_video_conditioning": bool(data.get("mask_video")),
         "mask_mode": mask_mode,
         "localized_editing": mask_mode == "LOCALIZED_WHITE_REGENERATE_BLACK_PRESERVE",
+        "streaming_source_sampling": capability in {
+            "ai.video.video_to_video",
+            "ai.video.edit",
+            "ai.video.inpaint",
+        },
         "certification_execution": data.get("certification_execution") is True,
         "generation_seconds": round(elapsed, 3),
         "quality_profile": _text(data.get("quality_profile")) or "cinema",

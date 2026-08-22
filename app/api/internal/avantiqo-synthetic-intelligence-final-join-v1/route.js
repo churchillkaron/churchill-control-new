@@ -16,7 +16,7 @@ const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const BUCKET = "creative-assets";
 const GOOGLE_OPENING_PATH = `${ORGANIZATION_ID}/avantiqo-investor-film-20260822/google-veo-opening-v1/synthetic-intelligence-google-veo-take-1.mp4`;
 const APPROVED_LOGO_PATH = `${ORGANIZATION_ID}/unassigned/df1cdd49-68e2-4a77-956e-6c9565c0074d-google-veo-6c9upygjkui2.mp4`;
-const FINAL_PATH = `${ORGANIZATION_ID}/avantiqo-investor-film-20260822/google-veo-opening-v1/avantiqo-synthetic-intelligence-plus-logo-original-fx-v3.mp4`;
+const FINAL_PATH = `${ORGANIZATION_ID}/avantiqo-investor-film-20260822/google-veo-opening-v1/avantiqo-synthetic-intelligence-plus-logo-both-original-fx-v4.mp4`;
 
 const OPENING_SECONDS = 8;
 const LOGO_SECONDS = 8;
@@ -79,11 +79,11 @@ async function joinApprovedClips() {
   const ffmpeg = resolveCreativeFfmpegPath();
   if (!ffmpeg) throw new Error("CREATIVE_MEDIA_EDITOR_NOT_READY");
 
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "avantiqo-final-join-v3-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "avantiqo-final-join-v4-"));
   try {
     const opening = path.join(directory, "google-opening.mp4");
     const logo = path.join(directory, "approved-logo.mp4");
-    const final = path.join(directory, "opening-master-original-fx-v3.mp4");
+    const final = path.join(directory, "opening-master-both-original-fx-v4.mp4");
 
     await Promise.all([
       download(GOOGLE_OPENING_PATH, opening),
@@ -94,7 +94,9 @@ async function joinApprovedClips() {
       `[0:v]trim=duration=${OPENING_SECONDS},setpts=PTS-STARTPTS,scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,format=yuv420p[opening]`,
       `[1:v]trim=duration=${LOGO_SECONDS},setpts=PTS-STARTPTS,scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,format=yuv420p[logo]`,
       `[opening][logo]xfade=transition=fadeblack:duration=${TRANSITION_SECONDS}:offset=${TRANSITION_OFFSET},format=yuv420p[v]`,
-      `[1:a]atrim=duration=${LOGO_SECONDS},asetpts=PTS-STARTPTS,adelay=${LOGO_AUDIO_DELAY_MS}|${LOGO_AUDIO_DELAY_MS},apad,atrim=duration=${FINAL_SECONDS}[a]`,
+      `[0:a]atrim=duration=${OPENING_SECONDS},asetpts=PTS-STARTPTS,apad,atrim=duration=${FINAL_SECONDS}[opening_audio]`,
+      `[1:a]atrim=duration=${LOGO_SECONDS},asetpts=PTS-STARTPTS,adelay=${LOGO_AUDIO_DELAY_MS}|${LOGO_AUDIO_DELAY_MS},apad,atrim=duration=${FINAL_SECONDS}[logo_audio]`,
+      `[opening_audio][logo_audio]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,atrim=duration=${FINAL_SECONDS}[a]`,
     ].join(";");
 
     await run(ffmpeg, [
@@ -133,7 +135,9 @@ async function joinApprovedClips() {
         opening_source_path: GOOGLE_OPENING_PATH,
         approved_logo_source_path: APPROVED_LOGO_PATH,
         transition: "0.65s-fade-through-black",
-        audio: "original-approved-logo-sound-effects-only",
+        audio: "both-original-source-audio-tracks",
+        synthetic_original_audio_preserved: "true",
+        logo_original_audio_preserved: "true",
         music_added: "false",
         generated_sound_added: "false",
         generated_visuals_in_join_step: "false",
@@ -152,7 +156,9 @@ async function joinApprovedClips() {
       logo_seconds: LOGO_SECONDS,
       transition_seconds: TRANSITION_SECONDS,
       transition: "fade-through-black",
-      audio: "original-approved-logo-sound-effects-only",
+      audio: "both-original-source-audio-tracks",
+      synthetic_original_audio_preserved: true,
+      logo_original_audio_preserved: true,
       music_added: false,
       generated_sound_added: false,
       opening_provider: "google-veo",
@@ -179,7 +185,9 @@ export async function GET(request) {
         sequence: ["GOOGLE_VEO_SYNTHETIC_INTELLIGENCE", "SMOOTH_FADE_THROUGH_BLACK", "APPROVED_AVANTIQO_LOGO"],
         duration_seconds: FINAL_SECONDS,
         transition_seconds: TRANSITION_SECONDS,
-        audio: "original-approved-logo-sound-effects-only",
+        audio: "both-original-source-audio-tracks",
+        synthetic_original_audio_preserved: true,
+        logo_original_audio_preserved: true,
         music_added: false,
       });
     }

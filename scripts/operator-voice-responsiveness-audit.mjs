@@ -38,7 +38,11 @@ function requireRegex(label, source, regex) {
 }
 
 const bridge = read("components/operator/LocalHeyAvantiqoWakeBridge.jsx");
+const realtimeClient = read("lib/operator/voice/RealtimeTranscriptionClient.js");
+const realtimeSessionRoute = read("app/api/operator/transcribe/realtime/session/route.js");
+const realtimeSettleRoute = read("app/api/operator/transcribe/realtime/settle/route.js");
 const transcribeRoute = read("app/api/operator/transcribe/route.js");
+const navigationMatcher = read("lib/operator/runtime/OperatorNavigationMatcher.js");
 const fastRuntime = read("lib/operator/runtime/OperatorFastConversationRuntime.js");
 const reasoningRuntime = read("lib/operator/runtime/OperatorReasoningRuntime.js");
 const acknowledgementRuntime = read("lib/operator/runtime/OperatorVoiceAcknowledgementRuntime.js");
@@ -117,9 +121,44 @@ requireAll("SAFARI_COMMAND_SINGLE_MIC", bridge, [
   "function isSafariLike()",
   "isSafariLike() ||",
   "Safari stays on the same getUserMedia stream.",
-  "if (!startNativeRecognition()) recognitionActiveRef.current = false;",
+  "if (!startNativeRecognition()) {",
   "function startCommandRecorder()",
   "function finishCommandRecorder()",
+]);
+
+requireAll("SAFARI_REALTIME_COMMAND_LANE", bridge, [
+  "startRealtimeTranscription",
+  "realtimeTranscriptionRef",
+  "realtimePreparationRef",
+  "prepareRealtimeCommandTranscription",
+  "activateRealtimeCommandTranscription",
+  "deferAudioCapture: true",
+  "controller?.startCapture?.()",
+  "const realtimeTranscript = text(await realtime.commit())",
+  "AVANTIQO_REALTIME_COMMAND_FALLBACK",
+]);
+
+requireAll("REALTIME_CLIENT_DEFERRED_CAPTURE", realtimeClient, [
+  "deferAudioCapture = false",
+  "function startAudioCapture()",
+  "startCapture()",
+  "input_audio_buffer.append",
+  "input_audio_buffer.commit",
+  "conversation.item.input_audio_transcription.completed",
+  "keepalive: true",
+]);
+
+requireAll("REALTIME_GOVERNED_SESSION", realtimeSessionRoute, [
+  'service_id: "ai.speech.to.text"',
+  'capability: "ai.speech.to.text.realtime"',
+  'module: "OPERATOR"',
+  'latency_class: "realtime"',
+  "ephemeral_credential: true",
+]);
+
+requireAll("REALTIME_GOVERNED_SETTLEMENT", realtimeSettleRoute, [
+  "usageId",
+  "sessionId",
 ]);
 
 requireRegex(
@@ -144,6 +183,12 @@ requireAll("WAKE_SERVER_SEMANTIC_GATE", transcribeRoute, [
   "Avanti Go",
 ]);
 
+requireAll("COMMAND_NAVIGATION_VOCABULARY", transcribeRoute, [
+  "function commandVocabulary(organizationId)",
+  "function commandPrompt(organizationId)",
+  "Registered Avantiqo destinations",
+]);
+
 requireAll("CLIENT_INSTANT_NAVIGATION", bridge, [
   "listOperatorNavigationTargets",
   "resolveInstantOperatorNavigation",
@@ -152,11 +197,25 @@ requireAll("CLIENT_INSTANT_NAVIGATION", bridge, [
   "if (await runInstantNavigation(cleanMessage)) return;",
 ]);
 
+requireAll("EXPLICIT_NAVIGATION_MUST_NOT_FALL_THROUGH", bridge, [
+  "if (!navigation?.explicit_navigation) return false;",
+  "navigation.matched && navigation.target?.href",
+  "navigation.ambiguous",
+  "I couldn't safely match",
+  "returnToWakeListening();",
+]);
+
+requireAll("NAVIGATION_MATCHER_EXPLICIT_RESULT", navigationMatcher, [
+  "explicit_navigation: true",
+  "unresolved: true",
+  "ambiguous: true",
+]);
+
 forbidAll("NO_AUTOMATIC_POST_RESPONSE_COMMAND_MODE", bridge, [
   "if (enabledRef.current) armCommandMode();",
 ]);
 
-requireAll("VOICE_COMMAND_PATH", bridge, [
+requireAll("VOICE_COMMAND_FALLBACK_PATH", bridge, [
   'form.append("mode", "command");',
   "TRANSCRIBE_TIMEOUT_MS = 9000",
   "async function runVoiceCommand(message)",
@@ -221,6 +280,8 @@ console.log("VOICE_WAKE_PASSIVE=SPEECH_RECOGNITION_DISABLED");
 console.log("VOICE_WAKE_VAD=ADAPTIVE_LOW_THRESHOLD");
 console.log("VOICE_WAKE_LOCAL=SEMANTICALLY_VERIFIED_IMMEDIATE");
 console.log("VOICE_WAKE_FALLBACK=AMBIGUOUS_ONLY_2500MS_BOUND");
-console.log("VOICE_COMMAND_SAFARI=SAME_GETUSERMEDIA_STREAM");
+console.log("VOICE_COMMAND_SAFARI=GOVERNED_REALTIME_SAME_GETUSERMEDIA_STREAM");
+console.log("VOICE_COMMAND_FALLBACK=BATCH_TRANSCRIPTION_ONLY");
 console.log("VOICE_POST_RESPONSE=PASSIVE_WAKE_ONLY");
 console.log("VOICE_NAVIGATION=CLIENT_SIDE_REGISTERED_ROUTE_INSTANT_PATH");
+console.log("VOICE_NAVIGATION_FALLTHROUGH=BLOCKED_FOR_EXPLICIT_NAVIGATION");

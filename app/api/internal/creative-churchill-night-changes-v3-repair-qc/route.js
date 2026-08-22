@@ -21,8 +21,10 @@ const TOKEN = "churchill-night-changes-v3-repair-qc-20260821";
 const BUCKET = "creative-assets";
 const R1_VERSION = "CHURCHILL_V3_REPAIR_R1_AUTHENTIC_GEOMETRY";
 const R2_VERSION = "CHURCHILL_V3_REPAIR_R2_EDITORIAL_ELEGANCE";
+const R2B_VERSION = "CHURCHILL_V3_DART_R2B_EDITORIAL_3S";
 const R1_SHOTS = new Set(["shuffleboard_to_dart", "electric_dart_flight"]);
 const R2_SHOTS = new Set(["shuffleboard_exit_r2", "dart_entry_r2", "dart_midflight_r2", "dart_impact_r2"]);
+const R2B_SHOTS = new Set(["dart_entry_r2b", "dart_midflight_r2b", "dart_impact_r2b"]);
 const FRAME_W = 220;
 const FRAME_H = 124;
 const COLS = 3;
@@ -109,6 +111,18 @@ async function project() {
 
 async function stateFor(shot, version) {
   const p = await project();
+
+  if (version === "r2b") {
+    if (!R2B_SHOTS.has(shot)) throw new Error("CHURCHILL_V3_REPAIR_QC_R2B_SHOT_INVALID");
+    const repairs = p.metadata?.churchill_v3_dart_r2b || {};
+    if (repairs.version !== R2B_VERSION) throw new Error("CHURCHILL_V3_REPAIR_QC_R2B_VERSION_MISMATCH");
+    const state = repairs.generations?.[shot] || null;
+    if (state?.status !== "COMPLETED" || !state?.output_reference) {
+      throw new Error(`CHURCHILL_V3_REPAIR_QC_R2B_NOT_READY:${shot}`);
+    }
+    return { p, state, version: R2B_VERSION };
+  }
+
   if (version === "r2") {
     if (!R2_SHOTS.has(shot)) throw new Error("CHURCHILL_V3_REPAIR_QC_R2_SHOT_INVALID");
     const repairs = p.metadata?.churchill_v3_repairs_r2 || {};
@@ -213,7 +227,8 @@ export async function GET(request) {
     const url = new URL(request.url);
     if (url.searchParams.get("token") !== TOKEN) return json({ success: false }, 404);
     const shot = text(url.searchParams.get("shot"));
-    const version = text(url.searchParams.get("version")).toLowerCase() === "r2" ? "r2" : "r1";
+    const requested = text(url.searchParams.get("version")).toLowerCase();
+    const version = requested === "r2b" ? "r2b" : requested === "r2" ? "r2" : "r1";
     return json(await sheet(shot, version));
   } catch (error) {
     console.error("CHURCHILL_V3_REPAIR_QC_FAILED", { message: error?.message || String(error) });

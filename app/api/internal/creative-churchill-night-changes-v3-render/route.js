@@ -21,7 +21,12 @@ import {
 } from "@/lib/creative/concepts/ChurchillNightChangesStoryContract";
 import {
   evaluateChurchillV3MasterReadiness,
-} from "@/lib/creative/concepts/ChurchillV3MasterReadiness";
+} from "@/app/api/internal/campaign-story-contracts/churchill-v3-master-readiness";
+import {
+  CHURCHILL_V3_AGENCY_EDIT_STANDARD,
+  CHURCHILL_V3_AGENCY_EDIT_STANDARD_VERSION,
+  assertChurchillV3AgencyEditStandard,
+} from "@/app/api/internal/campaign-story-contracts/churchill-v3-agency-edit-standard";
 
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const TOKEN = "churchill-night-changes-v3-render-20260821";
@@ -51,17 +56,6 @@ const SOURCE = Object.freeze({
   score: "4de3ecea-6c1a-4d28-a48d-ae8d246237f5",
 });
 
-const ORIGINAL_VFX_KEYS = Object.freeze([
-  "wine_universe",
-  "steam_into_bar",
-  "ice_time_freeze",
-  "pool_to_shuffleboard",
-  "shuffleboard_to_dart",
-  "electric_dart_flight",
-  "frozen_night_hero",
-]);
-
-// Only user-approved original physics plates may pass directly into the final edit.
 const DIRECT_APPROVED_VFX = new Set([
   "wine_universe",
   "steam_into_bar",
@@ -120,6 +114,7 @@ function run(command, args, timeoutMs = 420000) {
 
 async function project() {
   assertChurchillNightStoryIntegrity();
+  assertChurchillV3AgencyEditStandard();
   const { data: mission, error: missionError } = await supabaseAdmin
     .from("creative_missions")
     .select("id")
@@ -211,6 +206,22 @@ async function renderOne(ffmpeg, input, output, seconds, kind = "video", sourceI
   return output;
 }
 
+async function renderPortraitMotion(ffmpeg, input, output, seconds, sourceIn = 0) {
+  const fadeOut = Math.max(0, seconds - 0.12).toFixed(3);
+  const args = ["-y"];
+  if (sourceIn > 0) args.push("-ss", String(sourceIn));
+  args.push("-stream_loop", "-1", "-i", input);
+  const filter = [
+    `[0:v]fps=${FPS},split=2[bgsrc][fgsrc]`,
+    `[bgsrc]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},gblur=sigma=28,eq=contrast=1.02:saturation=0.88:brightness=-0.035[bg]`,
+    `[fgsrc]scale=-2:1010:force_original_aspect_ratio=decrease,setsar=1[fg]`,
+    `[bg][fg]overlay=(W-w)/2:(H-h)/2,fade=t=in:st=0:d=0.08,fade=t=out:st=${fadeOut}:d=0.12,format=yuv420p[out]`,
+  ].join(";");
+  args.push("-t", String(seconds), "-filter_complex", filter, "-map", "[out]", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-r", String(FPS), "-pix_fmt", "yuv420p", "-movflags", "+faststart", output);
+  await run(ffmpeg, args, 180000);
+  return output;
+}
+
 async function concat(ffmpeg, files, output, seconds) {
   const list = `${output}.txt`;
   await fs.writeFile(list, files.map((file) => `file '${file.replace(/'/g, "'\\''")}'`).join("\n"), "utf8");
@@ -246,7 +257,7 @@ function repairState(p) {
 
 async function mediaOutputs(p) {
   const state = repairState(p);
-  const output = { original: {}, r1: {}, r2: {}, r2b: {} };
+  const output = { original: {}, r1: {}, r2: {}, r2b: {}, editorial: {} };
 
   for (const key of DIRECT_APPROVED_VFX) {
     const reference = completedReference(state.original[key]);
@@ -266,11 +277,17 @@ async function mediaOutputs(p) {
     const reference = completedReference(node);
     if (reference) output.r2b[key] = await signedReference(reference);
   }
+  for (const [key, node] of Object.entries(state.editorial.outputs || {})) {
+    if (node?.approved_for_master === true && node?.visual_review_complete === true && node?.output_reference) {
+      output.editorial[key] = await signedReference(node.output_reference);
+    }
+  }
 
   return { state, output };
 }
 
 function masterReadiness(p) {
+  assertChurchillV3AgencyEditStandard();
   const state = repairState(p);
   const editorial = state.editorial || {};
   return evaluateChurchillV3MasterReadiness({
@@ -303,6 +320,33 @@ function masterReadiness(p) {
   });
 }
 
+async function renderManyRealities({ ffmpeg, assetsById, media, directory, seconds }) {
+  if (!media.r1.shuffleboard_motion) throw new Error("CHURCHILL_V3_MANY_REALITIES_APPROVED_SHUFFLEBOARD_MOTION_REQUIRED");
+  const dining = await assetUrl(assetsById.get(SOURCE.dining_video));
+  const pool = await assetUrl(assetsById.get(SOURCE.pool_video));
+  const stage = await assetUrl(assetsById.get(SOURCE.stage_video));
+  const cuts = [
+    { url: dining, seconds: 0.90, sourceIn: 0.35, portrait: true },
+    { url: pool, seconds: 0.80, sourceIn: 0.15, portrait: true },
+    { url: stage, seconds: 0.75, sourceIn: 0.55, portrait: true },
+    { url: media.r1.shuffleboard_motion, seconds: 0.70, sourceIn: 0, portrait: false },
+    { url: dining, seconds: 0.85, sourceIn: 2.20, portrait: true },
+    { url: pool, seconds: 0.90, sourceIn: 1.65, portrait: true },
+    { url: stage, seconds: 1.10, sourceIn: 2.45, portrait: true },
+  ];
+  const total = cuts.reduce((sum, cut) => sum + cut.seconds, 0);
+  if (Math.abs(total - seconds) > 0.001) throw new Error(`CHURCHILL_V3_MANY_REALITIES_DURATION_INVALID:${total}`);
+  const files = [];
+  for (let index = 0; index < cuts.length; index += 1) {
+    const cut = cuts[index];
+    const file = path.join(directory, `many-realities-motion-${index + 1}.mp4`);
+    if (cut.portrait) await renderPortraitMotion(ffmpeg, cut.url, file, cut.seconds, cut.sourceIn);
+    else await renderOne(ffmpeg, cut.url, file, cut.seconds, "video", cut.sourceIn);
+    files.push(file);
+  }
+  return concat(ffmpeg, files, path.join(directory, "many-realities-authentic-motion.mp4"), seconds);
+}
+
 async function renderBeat({ ffmpeg, beat, assetsById, media, directory }) {
   const output = path.join(directory, `${beat.id}.mp4`);
 
@@ -318,12 +362,12 @@ async function renderBeat({ ffmpeg, beat, assetsById, media, directory }) {
     return concat(ffmpeg, [a, b], output, beat.seconds);
   }
   if (beat.id === "entrance_into_night") {
-    return renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.entrance_video)), output, beat.seconds, "video");
+    return renderPortraitMotion(ffmpeg, await assetUrl(assetsById.get(SOURCE.entrance_video)), output, beat.seconds, 0);
   }
   if (beat.id === "dinner_future_reflections") {
     const motion = path.join(directory, "dinner-motion.mp4");
     const details = path.join(directory, "dinner-details.mp4");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.dining_video)), motion, 4.4, "video");
+    await renderPortraitMotion(ffmpeg, await assetUrl(assetsById.get(SOURCE.dining_video)), motion, 4.4, 0);
     await sequence(
       ffmpeg,
       await Promise.all([SOURCE.food_striploin, SOURCE.food_carpaccio, SOURCE.food_salmon].map((id) => assetUrl(assetsById.get(id)))),
@@ -335,53 +379,44 @@ async function renderBeat({ ffmpeg, beat, assetsById, media, directory }) {
     return concat(ffmpeg, [motion, details], output, beat.seconds);
   }
   if (beat.id === "ice_time_freeze") {
-    throw new Error("CHURCHILL_V3_FINAL_ICE_COMPOSITE_REQUIRED");
+    const approved = media.editorial.ice_time_freeze_authentic_pool_landing;
+    if (!approved) throw new Error("CHURCHILL_V3_FINAL_ICE_COMPOSITE_REQUIRED");
+    return renderOne(ffmpeg, approved, output, beat.seconds, "video");
   }
   if (beat.id === "pool_activation") {
-    const motion = path.join(directory, "pool-motion.mp4");
-    const still = path.join(directory, "pool-still.mp4");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.pool_video)), motion, 4.8, "video");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.pool_still)), still, 1.2, "image");
-    return concat(ffmpeg, [motion, still], output, beat.seconds);
+    return renderPortraitMotion(ffmpeg, await assetUrl(assetsById.get(SOURCE.pool_video)), output, beat.seconds, 0);
   }
   if (beat.id === "pool_to_shuffleboard") {
     if (!media.r1.shuffleboard_motion) throw new Error("CHURCHILL_V3_APPROVED_SHUFFLEBOARD_MOTION_REQUIRED");
     return renderOne(ffmpeg, media.r1.shuffleboard_motion, output, beat.seconds, "video");
   }
   if (beat.id === "shuffleboard_to_dart") {
-    throw new Error("CHURCHILL_V3_FINAL_SHUFFLEBOARD_DART_EDIT_REQUIRED");
+    const approved = media.editorial.shuffleboard_to_dart_editorial_match_cut;
+    if (!approved) throw new Error("CHURCHILL_V3_FINAL_SHUFFLEBOARD_DART_EDIT_REQUIRED");
+    return renderOne(ffmpeg, approved, output, beat.seconds, "video");
   }
   if (beat.id === "electric_dart_flight") {
-    throw new Error("CHURCHILL_V3_FINAL_ELECTRONIC_DART_EDIT_REQUIRED");
+    const approved = media.editorial.electric_dart_flight_authentic_electronic_darts;
+    if (!approved) throw new Error("CHURCHILL_V3_FINAL_ELECTRONIC_DART_EDIT_REQUIRED");
+    return renderOne(ffmpeg, approved, output, beat.seconds, "video");
   }
   if (beat.id === "band_activates_churchill") {
-    const stage = path.join(directory, "band-stage.mp4");
-    const band = path.join(directory, "band-real.mp4");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.stage_video)), stage, 5.4, "video");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.band)), band, 1.6, "image");
-    return concat(ffmpeg, [stage, band], output, beat.seconds);
+    return renderPortraitMotion(ffmpeg, await assetUrl(assetsById.get(SOURCE.stage_video)), output, beat.seconds, 0);
   }
   if (beat.id === "many_realities_same_night") {
-    // Temporary authentic-only edit architecture. No old stylized shuffleboard is allowed.
-    return sequence(
-      ffmpeg,
-      await Promise.all([
-        SOURCE.dinner_social,
-        SOURCE.pool_still,
-        SOURCE.shuffleboard_real,
-        SOURCE.pool_electronic_darts_real,
-        SOURCE.band,
-      ].map((id) => assetUrl(assetsById.get(id)))),
-      beat.seconds,
-      directory,
-      "many-realities-authentic",
-    );
+    const montage = await renderManyRealities({ ffmpeg, assetsById, media, directory, seconds: beat.seconds });
+    await fs.rename(montage, output);
+    return output;
   }
   if (beat.id === "frozen_night_hero") {
-    throw new Error("CHURCHILL_V3_FINAL_FROZEN_HERO_COMPOSITE_REQUIRED");
+    const approved = media.editorial.frozen_night_hero_authentic_composite;
+    if (!approved) throw new Error("CHURCHILL_V3_FINAL_FROZEN_HERO_COMPOSITE_REQUIRED");
+    return renderOne(ffmpeg, approved, output, beat.seconds, "video");
   }
   if (beat.id === "wine_loop_return") {
-    throw new Error("CHURCHILL_V3_FINAL_WINE_LOOP_PAYOFF_REQUIRED");
+    const approved = media.editorial.wine_loop_return_authentic_payoff;
+    if (!approved) throw new Error("CHURCHILL_V3_FINAL_WINE_LOOP_PAYOFF_REQUIRED");
+    return renderOne(ffmpeg, approved, output, beat.seconds, "video");
   }
   if (beat.id === "logo_epilogue") {
     const motion = path.join(directory, "logo-epilogue-motion.mp4");
@@ -391,6 +426,43 @@ async function renderBeat({ ffmpeg, beat, assetsById, media, directory }) {
     return concat(ffmpeg, [motion, exact], output, beat.seconds);
   }
   throw new Error(`CHURCHILL_V3_BEAT_RENDERER_MISSING:${beat.id}`);
+}
+
+async function mixMasterAudio(ffmpeg, visual, assetsById, master) {
+  const scoreUrl = await assetUrl(assetsById.get(SOURCE.score));
+  const entranceUrl = await assetUrl(assetsById.get(SOURCE.entrance_video));
+  const diningUrl = await assetUrl(assetsById.get(SOURCE.dining_video));
+  const poolUrl = await assetUrl(assetsById.get(SOURCE.pool_video));
+  const stageUrl = await assetUrl(assetsById.get(SOURCE.stage_video));
+  const filter = [
+    `[1:a]atrim=0:${MASTER_SECONDS},asetpts=PTS-STARTPTS,aresample=48000,volume=0.32,volume=0.12:enable='between(t,56.2,56.9)',afade=t=in:st=0:d=1.5,afade=t=out:st=86:d=4[score]`,
+    `[2:a]atrim=0:5,asetpts=PTS-STARTPTS,aresample=48000,volume=0.17,adelay=5000|5000[entrance]`,
+    `[3:a]atrim=0:7,asetpts=PTS-STARTPTS,aresample=48000,volume=0.20,adelay=17000|17000[dining]`,
+    `[4:a]atrim=0:6,asetpts=PTS-STARTPTS,aresample=48000,volume=0.24,adelay=36000|36000[pool]`,
+    `[5:a]atrim=0:13,asetpts=PTS-STARTPTS,aresample=48000,volume=0.40,adelay=58000|58000[stage]`,
+    `[score][entrance][dining][pool][stage]amix=inputs=5:duration=longest:dropout_transition=0,alimiter=limit=0.94[aout]`,
+  ].join(";");
+  await run(ffmpeg, [
+    "-y",
+    "-i", visual,
+    "-stream_loop", "-1", "-i", scoreUrl,
+    "-stream_loop", "-1", "-i", entranceUrl,
+    "-stream_loop", "-1", "-i", diningUrl,
+    "-stream_loop", "-1", "-i", poolUrl,
+    "-stream_loop", "-1", "-i", stageUrl,
+    "-filter_complex", filter,
+    "-map", "0:v:0",
+    "-map", "[aout]",
+    "-c:v", "copy",
+    "-c:a", "aac",
+    "-b:a", "256k",
+    "-ar", "48000",
+    "-ac", "2",
+    "-t", String(MASTER_SECONDS),
+    "-movflags", "+faststart",
+    master,
+  ], 180000);
+  return master;
 }
 
 async function probe(ffprobe, input) {
@@ -416,6 +488,7 @@ async function register({ p, target, bytes, checksum, qc }) {
       command_identity: COMMAND_IDENTITY,
       role: "CANONICAL_MASTER_V3",
       canonical_story_version: CHURCHILL_NIGHT_CHANGES_STORY_VERSION,
+      agency_edit_standard_version: CHURCHILL_V3_AGENCY_EDIT_STANDARD_VERSION,
       story_locked: true,
       story_change_authorized: false,
       source_asset_ids: [...new Set(Object.values(SOURCE))],
@@ -433,6 +506,7 @@ async function register({ p, target, bytes, checksum, qc }) {
 
 async function render() {
   assertChurchillNightStoryIntegrity();
+  assertChurchillV3AgencyEditStandard();
   const p = await project();
   const readiness = masterReadiness(p);
   if (!readiness.ready) {
@@ -452,25 +526,7 @@ async function render() {
     const files = [];
     for (const beat of BEATS) files.push(await renderBeat({ ffmpeg, beat, assetsById, media, directory }));
     await concat(ffmpeg, files, visual, MASTER_SECONDS);
-
-    const scoreUrl = await assetUrl(assetsById.get(SOURCE.score));
-    await run(ffmpeg, [
-      "-y",
-      "-i", visual,
-      "-stream_loop", "-1",
-      "-i", scoreUrl,
-      "-filter_complex", `[1:a]atrim=0:${MASTER_SECONDS},asetpts=PTS-STARTPTS,aresample=48000,volume=0.38,afade=t=in:st=0:d=1.5,afade=t=out:st=86:d=4,alimiter=limit=0.95[aout]`,
-      "-map", "0:v:0",
-      "-map", "[aout]",
-      "-c:v", "copy",
-      "-c:a", "aac",
-      "-b:a", "256k",
-      "-ar", "48000",
-      "-ac", "2",
-      "-t", String(MASTER_SECONDS),
-      "-movflags", "+faststart",
-      master,
-    ], 180000);
+    await mixMasterAudio(ffmpeg, visual, assetsById, master);
 
     const mediaInfo = await probe(ffprobe, master);
     const duration = Number(mediaInfo?.format?.duration || 0);
@@ -492,6 +548,7 @@ async function render() {
         organization_id: ORGANIZATION_ID,
         creative_project_id: p.id,
         canonical_story_version: CHURCHILL_NIGHT_CHANGES_STORY_VERSION,
+        agency_edit_standard_version: CHURCHILL_V3_AGENCY_EDIT_STANDARD_VERSION,
         checksum,
       },
     });
@@ -507,8 +564,13 @@ async function render() {
       audio_codec: audio.codec_name || null,
       mandatory_story_beats: BEATS.length,
       story_version: CHURCHILL_NIGHT_CHANGES_STORY_VERSION,
+      agency_edit_standard_version: CHURCHILL_V3_AGENCY_EDIT_STANDARD_VERSION,
       story_integrity_passed: true,
       authenticity_readiness_passed: true,
+      many_realities_motion_only: true,
+      native_ambience_mixed: true,
+      score_only_mix: false,
+      publication_authorized: false,
     };
     const asset = await register({ p, target, bytes: buffer.length, checksum, qc });
     const { data: signed, error: signedError } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(target, 86400);
@@ -522,6 +584,7 @@ async function render() {
       output_path: target,
       duration_seconds: duration,
       canonical_story_version: CHURCHILL_NIGHT_CHANGES_STORY_VERSION,
+      agency_edit_standard_version: CHURCHILL_V3_AGENCY_EDIT_STANDARD_VERSION,
       technical_qc: qc,
       publication_authorized: false,
     };
@@ -537,6 +600,12 @@ async function status() {
   return {
     success: true,
     canonical_story_version: CHURCHILL_NIGHT_CHANGES_STORY_VERSION,
+    agency_edit_standard_version: CHURCHILL_V3_AGENCY_EDIT_STANDARD_VERSION,
+    agency_edit_standard: {
+      quality_standard: CHURCHILL_V3_AGENCY_EDIT_STANDARD.quality_standard,
+      target_feel: CHURCHILL_V3_AGENCY_EDIT_STANDARD.target_feel,
+      release_blockers: CHURCHILL_V3_AGENCY_EDIT_STANDARD.release_blockers,
+    },
     story_integrity_passed: assertChurchillNightStoryIntegrity(),
     duration_seconds: MASTER_SECONDS,
     approved_original_vfx: Object.fromEntries([...DIRECT_APPROVED_VFX].map((key) => [key, {
@@ -549,6 +618,13 @@ async function status() {
       dart_entry_r2b: state.r2b.dart_entry_r2b?.status || "NOT_STARTED",
       dart_midflight_r2b: state.r2b.dart_midflight_r2b?.status || "NOT_STARTED",
       dart_impact_r2b: state.r2b.dart_impact_r2b?.status || "NOT_STARTED",
+    },
+    edit_architecture: {
+      many_realities: "AUTHENTIC_MOTION_MONTAGE",
+      portrait_sources: "CENTERED_PRESERVED_FRAME_WITH_DEFOCUSED_SELF_BACKGROUND",
+      sound: "NATIVE_CHURCHILL_AMBIENCE_PLUS_SCORE",
+      score_only_mix: false,
+      generated_scene_morphs: false,
     },
     readiness,
     master_render_authorized: readiness.ready,

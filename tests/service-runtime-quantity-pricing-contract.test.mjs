@@ -11,15 +11,27 @@ const pricingSource = fs.readFileSync(
   "utf8",
 );
 
-test("service execution resolves reservation pricing with requested quantity", () => {
+test("service execution resolves reservation pricing with canonical quantity", () => {
   assert.match(
     executionSource,
-    /const requestedQuantity = Number\(payload\.quantity \?\? input\.quantity \?\? 1\);/,
+    /const quantity = resolveExecutionQuantity\(\{[\s\S]*?unit: pricingRecord\?\.unit,[\s\S]*?\}\);/,
   );
   assert.match(
     executionSource,
     /PricingRuntime\.resolveRecord\(\{[\s\S]*?usage: \{ quantity \},[\s\S]*?\}\);/,
   );
+});
+
+test("per-second quantities derive from canonical media duration fields", () => {
+  assert.match(executionSource, /normalizedUnit === "second"/);
+  assert.match(executionSource, /payload\.duration_seconds/);
+  assert.match(executionSource, /output\.duration_seconds/);
+  assert.match(executionSource, /generationOutput\.duration_seconds/);
+});
+
+test("per-minute quantities can derive from seconds without treating seconds as minutes", () => {
+  assert.match(executionSource, /normalizedUnit === "minute"/);
+  assert.match(executionSource, /return seconds \? seconds \/ 60 : 1;/);
 });
 
 test("actual token settlement preserves execution quantity", () => {

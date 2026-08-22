@@ -196,7 +196,7 @@ async function renderPortrait(ffmpeg, input, output, sourceSeconds, targetSecond
   const fadeOut = Math.max(0, targetSeconds - 0.15).toFixed(3);
   const filter = [
     `[0:v]fps=${FPS},setpts=${ratio.toFixed(8)}*PTS,split=2[bgsrc][fgsrc]`,
-    `[bgsrc]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},gblur=sigma=34,${commonGrade()},saturation=0.88[bg]`,
+    `[bgsrc]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},gblur=sigma=34,eq=contrast=1.045:saturation=0.88:brightness=-0.012[bg]`,
     `[fgsrc]scale=-2:1010:force_original_aspect_ratio=decrease,setsar=1,${commonGrade()}[fg]`,
     `[bg][fg]overlay=(W-w)/2:(H-h)/2,fade=t=in:st=0:d=0.08,fade=t=out:st=${fadeOut}:d=0.15,format=yuv420p[out]`,
   ].join(";");

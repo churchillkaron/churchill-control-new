@@ -39,6 +39,7 @@ function asInput(value) {
 }
 
 function money(value, currency) {
+  if (value === null || value === undefined || value === "") return "—";
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "—";
   const code = /^[A-Z]{3}$/.test(text(currency).toUpperCase())
@@ -83,12 +84,12 @@ function humanReason(value) {
     LIVE_EVIDENCE_CHANGED: "Live evidence changed enough to justify a semantic reasoning pass.",
     BOOTSTRAP_BUSINESS_THESIS: "The first evidence-backed business thesis was established.",
     CONCURRENT_THESIS_UPDATE: "A newer thesis arrived during the scan, so Avantiqo preserved the newer state.",
-    AUTONOMOUS_COGNITION_DISABLED: "Autonomous cognition is disabled by policy.",
+    AUTONOMOUS_COGNITION_DISABLED: "Paid autonomous cognition is disabled by policy.",
     AUTONOMOUS_COGNITION_PASS_BUDGET_REACHED: "The rolling paid-reasoning allowance has been reached.",
     AUTONOMOUS_COGNITION_SPEND_BUDGET_WOULD_EXCEED: "The next reasoning pass would exceed the rolling spend ceiling.",
     AUTONOMOUS_COGNITION_WALLET_FLOOR_WOULD_BREACH: "The next reasoning pass would breach the wallet reserve floor.",
     AUTONOMOUS_COGNITION_WALLET_INSUFFICIENT_FOR_ESTIMATE: "The wallet cannot currently cover the estimated next reasoning pass.",
-    AUTONOMOUS_COGNITION_DEEP_REASONING_DISABLED: "Evidence monitoring remains active, but paid semantic reasoning is disabled.",
+    AUTONOMOUS_COGNITION_DEEP_REASONING_DISABLED: "Evidence monitoring remains active, but semantic deep reasoning is disabled.",
   };
   return map[reason] || reason.replaceAll("_", " ").toLowerCase();
 }
@@ -124,7 +125,7 @@ function Metric({ label, value, detail, icon: Icon }) {
 
 function Toggle({ checked, onChange, disabled, label, detail }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-black/20 px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-black/20 px-4 py-3">
       <span className="min-w-0">
         <span className="block text-xs text-white/70">{label}</span>
         <span className="mt-0.5 block text-[10px] leading-4 text-white/30">{detail}</span>
@@ -132,6 +133,7 @@ function Toggle({ checked, onChange, disabled, label, detail }) {
       <button
         type="button"
         role="switch"
+        aria-label={label}
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
@@ -147,7 +149,7 @@ function Toggle({ checked, onChange, disabled, label, detail }) {
           }`}
         />
       </button>
-    </label>
+    </div>
   );
 }
 
@@ -229,8 +231,9 @@ export default function SyntheticIntelligenceControlCenter({ organizationId, rol
 
   const settings = payload?.settings || {};
   const budget = payload?.budget_status || {};
+  const configuredBudget = settings?.cognition_budget || {};
   const last = settings?.last_cognition || {};
-  const currency = budget?.currency || settings?.cognition_budget?.currency || "USD";
+  const currency = budget?.currency || configuredBudget?.currency || "USD";
   const spendRatio = ratio(
     budget.customer_spend_rolling_24h,
     budget.customer_spend_limit,
@@ -242,11 +245,12 @@ export default function SyntheticIntelligenceControlCenter({ organizationId, rol
 
   const status = useMemo(() => {
     if (settings.enabled === false) return { label: "Paused", active: false };
-    if (budget.allowed === false && budget.reason === "AUTONOMOUS_COGNITION_DISABLED") {
-      return { label: "Monitoring only", active: true };
+    if (configuredBudget.enabled === false) return { label: "Monitoring only", active: true };
+    if (configuredBudget.deep_reasoning_on_change === false) {
+      return { label: "Deterministic watch", active: true };
     }
     return { label: "Watching", active: true };
-  }, [settings.enabled, budget.allowed, budget.reason]);
+  }, [settings.enabled, configuredBudget.enabled, configuredBudget.deep_reasoning_on_change]);
 
   function updateBudget(key, value) {
     setSaved(false);
@@ -309,6 +313,7 @@ export default function SyntheticIntelligenceControlCenter({ organizationId, rol
     const message = [
       "Review my current Synthetic Intelligence autonomy policy and explain it as my business partner.",
       `Autonomous watch: ${settings.enabled === false ? "paused" : "active"}.`,
+      `Paid autonomous cognition: ${configuredBudget.enabled === false ? "disabled" : "enabled"}.`,
       `Last cognition mode: ${cognitionLabel(last.mode)}.`,
       `Rolling autonomous spend: ${money(budget.customer_spend_rolling_24h, currency)}.`,
       budget.customer_spend_limit !== null && budget.customer_spend_limit !== undefined
@@ -461,7 +466,7 @@ export default function SyntheticIntelligenceControlCenter({ organizationId, rol
 
       {expanded && draft ? (
         <div className="mt-3 rounded-2xl border border-[#D6A66A]/12 bg-black/25 p-4">
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-3">
             <Toggle
               checked={draft.enabled !== false}
               disabled={!canManage || saving}
@@ -473,11 +478,18 @@ export default function SyntheticIntelligenceControlCenter({ organizationId, rol
               detail="Keep checking registered live business evidence without waiting for a question."
             />
             <Toggle
+              checked={draft.cognition_budget.enabled !== false}
+              disabled={!canManage || saving}
+              onChange={(value) => updateBudget("enabled", value)}
+              label="Paid autonomous cognition"
+              detail="Allow autonomous monitoring to spend from the governed AI wallet when deeper reasoning is justified."
+            />
+            <Toggle
               checked={draft.cognition_budget.deep_reasoning_on_change !== false}
               disabled={!canManage || saving}
               onChange={(value) => updateBudget("deep_reasoning_on_change", value)}
-              label="Deep reasoning when evidence changes"
-              detail="Allow one paid semantic thesis pass after deterministic evidence shows a real change."
+              label="Deep reasoning on change"
+              detail="Use semantic thesis reasoning only after deterministic evidence shows a real change."
             />
           </div>
 

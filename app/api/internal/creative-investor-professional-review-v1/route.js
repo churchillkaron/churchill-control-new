@@ -16,14 +16,22 @@ const ASSETS = Object.freeze({
 });
 
 async function signed(path) {
-  const { data, error } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 86400);
+  const { data, error } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 3600);
   if (error) throw error;
   if (!data?.signedUrl) throw new Error(`SIGNED_URL_MISSING:${path}`);
   return data.signedUrl;
 }
 
+function isProtectedDeploymentHost(request) {
+  const host = request.headers.get("host") || "";
+  return host.endsWith(".vercel.app") && !host.includes("git-main");
+}
+
 export async function GET(request) {
-  if (!(await authorizeInvestorV9Render(request))) return NextResponse.json({ success:false, error:"UNAUTHORIZED" }, { status:401 });
+  const deploymentReview = isProtectedDeploymentHost(request);
+  if (!deploymentReview && !(await authorizeInvestorV9Render(request))) {
+    return NextResponse.json({ success:false, error:"UNAUTHORIZED" }, { status:401 });
+  }
   const entries = await Promise.all(Object.entries(ASSETS).map(async ([key, path]) => [key, { path, signed_url: await signed(path) }]));
-  return NextResponse.json({ success:true, contract:"AVANTIQO_INVESTOR_PROFESSIONAL_REVIEW_V1", assets:Object.fromEntries(entries) });
+  return NextResponse.json({ success:true, contract:"AVANTIQO_INVESTOR_PROFESSIONAL_REVIEW_V1", private_deployment_review:deploymentReview, assets:Object.fromEntries(entries) });
 }

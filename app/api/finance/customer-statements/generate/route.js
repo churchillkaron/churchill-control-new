@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { generateCustomerStatementCommand } from "@/lib/finance/accounts-receivable/runtime/CustomerAccountApplicationService";
 
 function errorResponse(error, status = 500) {
@@ -33,6 +34,13 @@ export async function POST(request) {
     if (!access.success) {
       return errorResponse(access.error, access.status || 403);
     }
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.receivables.manage",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const entity = await resolveEntity({
       organizationId: access.organizationId,
@@ -77,9 +85,12 @@ export async function POST(request) {
     return NextResponse.json({ success: true, statement });
   } catch (error) {
     const message = error?.message || "Unable to generate customer statement";
-    const status = /required|uuid|not found|period|currency/i.test(message)
-      ? 400
-      : 500;
+    const normalized = String(message).toLowerCase();
+    const status = normalized.includes("permission denied")
+      ? 403
+      : /required|uuid|not found|period|currency/i.test(message)
+        ? 400
+        : 500;
     return errorResponse(message, status);
   }
 }

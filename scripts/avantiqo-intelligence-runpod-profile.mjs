@@ -33,9 +33,18 @@ async function getJson(url, apiKey) {
       signal: controller.signal,
     });
     const raw = await response.text();
-    const body = raw ? JSON.parse(raw) : {};
+    let body = {};
+    try {
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      body = {};
+    }
     if (!response.ok) {
-      throw new Error(`RUNPOD_PROFILE_REQUEST_FAILED:${response.status}:${text(body?.error || raw).slice(0, 500)}`);
+      const error = new Error(
+        `RUNPOD_PROFILE_REQUEST_FAILED:${response.status}:${text(body?.error || raw).slice(0, 500)}`,
+      );
+      error.status = response.status;
+      throw error;
     }
     return body;
   } finally {
@@ -44,10 +53,27 @@ async function getJson(url, apiKey) {
 }
 
 const { endpointId, apiKey } = requiredEnvironment();
-const endpoint = await getJson(
-  `${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeWorkers=true&includeTemplate=false`,
-  apiKey,
-);
+
+let endpoint;
+try {
+  endpoint = await getJson(
+    `${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeWorkers=true&includeTemplate=false`,
+    apiKey,
+  );
+} catch (error) {
+  if (Number(error?.status) === 401 || Number(error?.status) === 403) {
+    console.log(JSON.stringify({
+      contract: "AVANTIQO_RUNPOD_INTELLIGENCE_PROFILE_V1",
+      management_profile_available: false,
+      inference_credential_present: true,
+      management_scope_status: Number(error.status),
+      reason: "RUNPOD_MANAGEMENT_SCOPE_NOT_GRANTED_TO_INFERENCE_CREDENTIAL",
+      pricing_action: "USE_SEPARATE_MANAGEMENT_CREDENTIAL_OR_VERIFIED_RUNPOD_BILLING_DATA",
+    }, null, 2));
+    process.exit(0);
+  }
+  throw error;
+}
 
 const workers = list(endpoint?.workers).map((worker) => ({
   pod_id_present: Boolean(text(worker?.id)),
@@ -61,6 +87,7 @@ const workers = list(endpoint?.workers).map((worker) => ({
 
 const profile = {
   contract: "AVANTIQO_RUNPOD_INTELLIGENCE_PROFILE_V1",
+  management_profile_available: true,
   endpoint_id_present: Boolean(text(endpoint?.id)),
   endpoint_name: text(endpoint?.name) || null,
   gpu_type_ids: list(endpoint?.gpuTypeIds).map(text).filter(Boolean),

@@ -1,0 +1,33 @@
+name: Creative Font Library Certification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/creative/design/registry/CreativeFontLibraryRegistry.js'
+      - 'lib/creative/design/runtime/CreativePlatformFontAssetRuntime.js'
+      - 'lib/creative/design/runtime/CreativeDesignFontResolverRuntime.js'
+      - 'lib/creative/design/runtime/CreativeDesignFontMaterializationRuntime.js'
+      - 'lib/creative/assets/fonts/CreativeFontAssetInspectionRuntime.js'
+      - 'scripts/creative-font-library-live-certification.mjs'
+      - '.github/workflows/creative-font-library-certification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify-font-library:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Certify 32 licensed families
+        run: node scripts/creative-font-library-live-certification.mjs

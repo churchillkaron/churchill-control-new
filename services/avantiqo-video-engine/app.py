@@ -17,6 +17,7 @@ DEFAULT_MODEL = os.getenv("AVANTIQO_VIDEO_FOUNDATION_MODEL", "Wan-AI/Wan2.2-TI2V
 OUTPUT_DIR = Path(os.getenv("AVANTIQO_VIDEO_OUTPUT_DIR", "/data/outputs"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 TOKEN = os.getenv("AVANTIQO_VIDEO_ENGINE_TOKEN", "").strip()
+PUBLIC_URL = os.getenv("AVANTIQO_VIDEO_PUBLIC_URL", "").strip().rstrip("/")
 DEVICE = os.getenv("AVANTIQO_VIDEO_DEVICE", "cuda")
 DTYPE = torch.bfloat16 if os.getenv("AVANTIQO_VIDEO_DTYPE", "bfloat16") == "bfloat16" else torch.float16
 
@@ -94,6 +95,12 @@ def _set_job(job_id: str, **values: Any) -> None:
         _jobs[job_id] = {**_jobs.get(job_id, {}), **values, "updated_at": time.time()}
 
 
+def _output_url(job_id: str) -> str | None:
+    if not PUBLIC_URL:
+        return None
+    return f"{PUBLIC_URL}/v1/video/outputs/{job_id}.mp4"
+
+
 def _run(job_id: str, request: GenerationRequest) -> None:
     try:
         _set_job(job_id, status="processing", progress=0.05)
@@ -125,7 +132,7 @@ def _run(job_id: str, request: GenerationRequest) -> None:
             status="completed",
             progress=1.0,
             output_path=str(output_path),
-            output_url=f"/v1/video/outputs/{job_id}.mp4",
+            output_url=_output_url(job_id),
             seed=seed,
             foundation_model=model_id,
             frame_count=len(video_frames),
@@ -146,6 +153,7 @@ def health() -> dict[str, Any]:
         "device": DEVICE,
         "cuda_available": torch.cuda.is_available(),
         "cuda_device_count": torch.cuda.device_count(),
+        "public_url_configured": bool(PUBLIC_URL),
     }
 
 
@@ -156,6 +164,8 @@ def create_generation(request: GenerationRequest, authorization: str | None = He
         raise HTTPException(status_code=400, detail="unsupported engine contract")
     if request.resolution.lower() != "720p":
         raise HTTPException(status_code=400, detail="Avantiqo Cinema V1 currently supports 720p native generation")
+    if not PUBLIC_URL:
+        raise HTTPException(status_code=503, detail="public output URL not configured")
 
     job_id = str(uuid.uuid4())
     _set_job(

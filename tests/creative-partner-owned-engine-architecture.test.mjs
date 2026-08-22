@@ -14,11 +14,14 @@ const [
   audioRegistration,
   codeRegistration,
   cinemaProvider,
+  cinemaRegistration,
   cinemaWorker,
   ownedWorker,
   productionTaskDocument,
+  productionTaskRuntime,
   productionMaterializer,
   creativeServiceResolver,
+  ownedCertificationPolicy,
 ] = await Promise.all([
   readFile("lib/creative/reasoning/CreativeReasoningService.js", "utf8"),
   readFile("lib/creative/reasoning/runtime/CreativeReasoningRuntime.js", "utf8"),
@@ -31,11 +34,14 @@ const [
   readFile("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration.js", "utf8"),
   readFile("lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProviderRegistration.js", "utf8"),
   readFile("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProvider.js", "utf8"),
+  readFile("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js", "utf8"),
   readFile("services/avantiqo-video-engine/handler.py", "utf8"),
   readFile("lib/platform/service-runtime/providers/avantiqo-owned/AvantiqoOwnedRunpodWorker.js", "utf8"),
   readFile("lib/operations/tasks/documents/ProductionTask.js", "utf8"),
+  readFile("lib/operations/tasks/runtime/ProductionTaskRuntime.js", "utf8"),
   readFile("lib/creative/execution/runtime/CreativeProductionTaskMaterializationRuntime.js", "utf8"),
   readFile("lib/creative/services/CreativeServiceResolver.js", "utf8"),
+  readFile("lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js", "utf8"),
 ]);
 
 test("Creative reasoning requests capabilities rather than providers", () => {
@@ -82,6 +88,9 @@ test("owned provider registrations remain certification-gated", () => {
   assert.match(imageRegistration, /implemented_capabilities/);
   assert.match(imageRegistration, /runtimeAvailable = Boolean/);
   assert.match(imageRegistration, /foundation_model_configured/);
+  assert.match(cinemaRegistration, /DEFAULT_CERTIFIED_CAPABILITIES/);
+  assert.match(cinemaRegistration, /"ai\.video\.inpaint"/);
+  assert.match(cinemaRegistration, /inpaint_foundation_model_configured/);
 
   for (const source of [audioRegistration, codeRegistration]) {
     assert.match(source, /CERTIFIED_CAPABILITIES/);
@@ -101,15 +110,22 @@ test("owned Image requires cached model families before inference", () => {
 });
 
 test("Cinema validates capability and keeps certification execution fail-closed", () => {
-  assert.match(cinemaProvider, /CERTIFIED_CAPABILITIES/);
-  assert.match(cinemaProvider, /capability,/);
+  assert.match(cinemaProvider, /DEFAULT_CERTIFIED_CAPABILITIES/);
   assert.match(cinemaProvider, /AVANTIQO_VIDEO_IMAGE_TO_VIDEO_REFERENCE_REQUIRED/);
+  assert.match(cinemaProvider, /AVANTIQO_VIDEO_INPAINT_MASK_VIDEO_REQUIRED/);
+  assert.match(cinemaProvider, /source_video/);
+  assert.match(cinemaProvider, /mask_video/);
+  assert.doesNotMatch(cinemaProvider, /selectedAssets/);
   assert.match(cinemaWorker, /DEFAULT_CERTIFIED_CAPABILITIES/);
   assert.match(cinemaWorker, /_configured_capabilities/);
   assert.match(cinemaWorker, /AVANTIQO_VIDEO_CAPABILITY_NOT_CERTIFIED/);
   assert.match(cinemaWorker, /AVANTIQO_VIDEO_CERTIFICATION_EXECUTION_ENABLED/);
-  assert.match(cinemaWorker, /"0"/);
   assert.match(cinemaWorker, /data\.get\("certification_execution"\) is True/);
+  assert.match(cinemaWorker, /ai\.video\.inpaint/);
+  assert.match(cinemaWorker, /LOCALIZED_WHITE_REGENERATE_BLACK_PRESERVE/);
+  assert.match(cinemaWorker, /iio\.imiter/);
+  assert.doesNotMatch(cinemaWorker, /iio\.imread\(path, plugin="FFMPEG"\)/);
+  assert.match(cinemaWorker, /streaming_source_sampling/);
   assert.match(cinemaWorker, /raw_reasoning_persisted/);
 });
 
@@ -120,6 +136,7 @@ test("Studio materialization preserves exact owned media task semantics", () => 
     "OUTPAINT_IMAGE",
     "VIDEO_TO_VIDEO",
     "EDIT_VIDEO",
+    "INPAINT_VIDEO",
   ]) {
     assert.match(productionTaskDocument, new RegExp(`${taskType}: \\"${taskType}\\"`));
     assert.match(productionMaterializer, new RegExp(`PRODUCTION_TASK_TYPES\\.${taskType}`));
@@ -129,11 +146,23 @@ test("Studio materialization preserves exact owned media task semantics", () => 
   assert.match(productionMaterializer, /capability === "ai\.image\.outpaint"/);
   assert.match(productionMaterializer, /capability === "ai\.video\.video_to_video"/);
   assert.match(productionMaterializer, /capability === "ai\.video\.edit"/);
+  assert.match(productionMaterializer, /capability === "ai\.video\.inpaint"/);
   assert.match(creativeServiceResolver, /EDIT_IMAGE:\s*"ai\.image\.edit"/);
   assert.match(creativeServiceResolver, /INPAINT_IMAGE:\s*"ai\.image\.inpaint"/);
   assert.match(creativeServiceResolver, /OUTPAINT_IMAGE:\s*"ai\.image\.outpaint"/);
   assert.match(creativeServiceResolver, /VIDEO_TO_VIDEO:\s*"ai\.video\.video_to_video"/);
   assert.match(creativeServiceResolver, /EDIT_VIDEO:\s*"ai\.video\.edit"/);
+  assert.match(creativeServiceResolver, /INPAINT_VIDEO:\s*"ai\.video\.inpaint"/);
+});
+
+test("Cinema inpainting is duration-metered and VACE model-approved without auto-certification", () => {
+  assert.match(productionTaskRuntime, /"ai\.video\.inpaint"/);
+  assert.match(ownedCertificationPolicy, /"ai\.video\.inpaint"/);
+  assert.match(cinemaRegistration, /DEFAULT_CERTIFIED_CAPABILITIES[\s\S]*"ai\.video\.generate"[\s\S]*"ai\.video\.image_to_video"/);
+  assert.doesNotMatch(
+    cinemaRegistration.match(/const DEFAULT_CERTIFIED_CAPABILITIES[\s\S]*?\];/)?.[0] || "",
+    /ai\.video\.inpaint/,
+  );
 });
 
 test("owned worker transport strips private reasoning fields", () => {

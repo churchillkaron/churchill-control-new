@@ -8,6 +8,7 @@ const FINAL_BUILD_MARKER = "[deploy-production-final]";
 const FINANCE_AUDIT_MARKER = "[finance-closeout-audit]";
 const INTELLIGENCE_AUDIT_MARKER = "[certify-avantiqo-intelligence]";
 const INTELLIGENCE_DIAGNOSTIC_MARKER = "[diagnose-avantiqo-intelligence]";
+const INTELLIGENCE_GOVERNED_PROBE_MARKER = "[probe-governed-avantiqo-intelligence]";
 const INTELLIGENCE_DIRECT_PROBE_MARKER = "[probe-avantiqo-intelligence]";
 const INTELLIGENCE_BENCHMARK_MARKER = "[benchmark-avantiqo-intelligence]";
 const INTELLIGENCE_STRATEGY_INSPECTION_MARKER = "[inspect-avantiqo-strategy]";
@@ -16,6 +17,7 @@ const INTELLIGENCE_CANCEL_MARKER = "[cancel-avantiqo-diagnostic-requests]";
 const INTELLIGENCE_AUDIT_TIMEOUT_MS = 60000;
 const INTELLIGENCE_PROFILE_TIMEOUT_MS = 30000;
 const INTELLIGENCE_DIAGNOSTIC_TIMEOUT_MS = 210000;
+const INTELLIGENCE_GOVERNED_PROBE_TIMEOUT_MS = 120000;
 const INTELLIGENCE_DIRECT_PROBE_TIMEOUT_MS = 65000;
 const INTELLIGENCE_BENCHMARK_TIMEOUT_MS = 240000;
 const INTELLIGENCE_STRATEGY_INSPECTION_TIMEOUT_MS = 150000;
@@ -27,6 +29,7 @@ const hasFinalBuildMarker = commitMessage.includes(FINAL_BUILD_MARKER);
 const hasFinanceAuditMarker = commitMessage.includes(FINANCE_AUDIT_MARKER);
 const hasIntelligenceAuditMarker = commitMessage.includes(INTELLIGENCE_AUDIT_MARKER);
 const hasIntelligenceDiagnosticMarker = commitMessage.includes(INTELLIGENCE_DIAGNOSTIC_MARKER);
+const hasIntelligenceGovernedProbeMarker = commitMessage.includes(INTELLIGENCE_GOVERNED_PROBE_MARKER);
 const hasIntelligenceDirectProbeMarker = commitMessage.includes(INTELLIGENCE_DIRECT_PROBE_MARKER);
 const hasIntelligenceBenchmarkMarker = commitMessage.includes(INTELLIGENCE_BENCHMARK_MARKER);
 const hasIntelligenceStrategyInspectionMarker = commitMessage.includes(INTELLIGENCE_STRATEGY_INSPECTION_MARKER);
@@ -94,6 +97,12 @@ if (hasIntelligenceBenchmarkMarker) {
 if (hasIntelligenceDirectProbeMarker) {
   const passed = runDiagnostic("scripts/avantiqo-intelligence-direct-probe.mjs", "AVANTIQO_INTELLIGENCE_DIRECT_PROBE", INTELLIGENCE_DIRECT_PROBE_TIMEOUT_MS);
   console.log(`VERCEL_BUILD=SKIP reason=avantiqo-intelligence-direct-probe-only direct_probe_passed=${passed}`);
+  process.exit(0);
+}
+
+if (hasIntelligenceGovernedProbeMarker) {
+  const passed = runDiagnostic("scripts/avantiqo-intelligence-governed-probe.mjs", "AVANTIQO_INTELLIGENCE_GOVERNED_SERVICE_RUNTIME", INTELLIGENCE_GOVERNED_PROBE_TIMEOUT_MS);
+  console.log(`VERCEL_BUILD=SKIP reason=avantiqo-intelligence-governed-probe-only governed_probe_passed=${passed}`);
   process.exit(0);
 }
 

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { listFinanceRoles } from "@/lib/finance/security/repositories/FinancePermissionRepository";
 
@@ -38,6 +39,7 @@ function date(value) {
 }
 
 function statusFor(message) {
+  if (/permission denied/i.test(String(message || ""))) return 403;
   return /required|valid|supported|not found|overlap|greater|role|currency|date|scope|active/i.test(
     String(message || "")
   )
@@ -45,12 +47,8 @@ function statusFor(message) {
     : 500;
 }
 
-async function resolveAccess(request, organizationId) {
-  const access = await requireOrganizationAccess({
-    organizationId,
-    request,
-    requiredPermission: "finance.config.manage",
-  });
+async function resolveAccess(request, organizationId, operation = "read") {
+  const access = await requireOrganizationAccess({ organizationId, request });
 
   if (!access.success) {
     return {
@@ -61,12 +59,17 @@ async function resolveAccess(request, organizationId) {
     };
   }
 
+  await requireFinanceWorkspacePermission({
+    capabilityId: "approval_workflows",
+    operation,
+    access,
+  });
+
   return { access };
 }
 
 async function validateEntity(organizationId, entityId) {
   if (!entityId) return null;
-
   const entity = await resolveEntity({ organizationId, entityId });
   if (!entity) throw new Error("Legal Entity not found in this organisation");
   return entity.id;
@@ -109,11 +112,8 @@ async function validateNoOverlap({
     .eq("threshold_amount", thresholdAmount)
     .eq("status", "ACTIVE");
 
-  if (entityId) {
-    query = query.eq("entity_id", entityId);
-  } else {
-    query = query.is("entity_id", null);
-  }
+  if (entityId) query = query.eq("entity_id", entityId);
+  else query = query.is("entity_id", null);
 
   if (recordId) query = query.neq("id", recordId);
 
@@ -217,9 +217,8 @@ function decorate(row) {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const organizationId =
-      searchParams.get("organizationId") || searchParams.get("organization_id");
-    const { access, response } = await resolveAccess(request, organizationId);
+    const organizationId = searchParams.get("organizationId") || searchParams.get("organization_id");
+    const { access, response } = await resolveAccess(request, organizationId, "read");
     if (response) return response;
 
     const { data, error } = await supabaseAdmin
@@ -228,7 +227,6 @@ export async function GET(request) {
       .eq("organization_id", access.organizationId)
       .order("document_type", { ascending: true })
       .order("threshold_amount", { ascending: true });
-
     if (error) throw error;
 
     return NextResponse.json({
@@ -249,24 +247,17 @@ export async function POST(request) {
     const body = await request.json();
     const { access, response } = await resolveAccess(
       request,
-      body.organizationId || body.organization_id
+      body.organizationId || body.organization_id,
+      "write"
     );
     if (response) return response;
 
-    const record = await buildRecord({
-      organizationId: access.organizationId,
-      body,
-    });
-
+    const record = await buildRecord({ organizationId: access.organizationId, body });
     const { data, error } = await supabaseAdmin
       .from("finance_approval_workflows")
-      .insert({
-        ...record,
-        created_by: access.user?.id || null,
-      })
+      .insert({ ...record, created_by: access.user?.id || null })
       .select("*")
       .single();
-
     if (error) throw error;
 
     return NextResponse.json({ success: true, record: decorate(data) });
@@ -283,7 +274,8 @@ export async function PATCH(request) {
     const body = await request.json();
     const { access, response } = await resolveAccess(
       request,
-      body.organizationId || body.organization_id
+      body.organizationId || body.organization_id,
+      "write"
     );
     if (response) return response;
 
@@ -303,7 +295,6 @@ export async function PATCH(request) {
       .eq("id", id)
       .select("*")
       .single();
-
     if (error) throw error;
 
     return NextResponse.json({ success: true, record: decorate(data) });
@@ -320,7 +311,8 @@ export async function DELETE(request) {
     const body = await request.json();
     const { access, response } = await resolveAccess(
       request,
-      body.organizationId || body.organization_id
+      body.organizationId || body.organization_id,
+      "write"
     );
     if (response) return response;
 
@@ -329,15 +321,11 @@ export async function DELETE(request) {
 
     const { data, error } = await supabaseAdmin
       .from("finance_approval_workflows")
-      .update({
-        status: "ARCHIVED",
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: "ARCHIVED", updated_at: new Date().toISOString() })
       .eq("organization_id", access.organizationId)
       .eq("id", id)
       .select("*")
       .single();
-
     if (error) throw error;
 
     return NextResponse.json({

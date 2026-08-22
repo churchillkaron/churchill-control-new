@@ -6,7 +6,9 @@ import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission
 import { calculateDepreciationCommand } from "@/lib/finance/fixed-assets/runtime/FixedAssetsApplicationService";
 
 function statusFor(message) {
-  return String(message || "").toLowerCase().includes("permission denied") ? 403 : 500;
+  const normalized = String(message || "").toLowerCase();
+  if (normalized.includes("permission denied")) return 403;
+  return /required|invalid/i.test(message || "") ? 400 : 500;
 }
 
 export async function GET(request) {
@@ -35,6 +37,10 @@ export async function GET(request) {
 
     const result = await calculateDepreciationCommand({
       organization_id: access.organizationId,
+      entity_id:
+        searchParams.get("entity_id") ||
+        searchParams.get("entityId") ||
+        null,
     });
 
     return NextResponse.json(result);

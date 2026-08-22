@@ -32,7 +32,8 @@ function statusFor(message) {
     normalized.includes("cannot") ||
     normalized.includes("inconsistent") ||
     normalized.includes("duplicate") ||
-    normalized.includes("idempotency")
+    normalized.includes("idempotency") ||
+    normalized.includes("create-only")
   ) {
     return 400;
   }
@@ -71,6 +72,10 @@ export async function POST(request) {
       permissionKey: "finance.payables.manage",
       fullAccess: access.permissions?.includes("*") === true,
     });
+
+    if (body.id || body.record_id || body.vendor_invoice_id) {
+      throw new Error("Vendor bill creation is create-only; existing bills require an explicit lifecycle action");
+    }
 
     const entityId = required(
       body.entityId || body.entity_id,

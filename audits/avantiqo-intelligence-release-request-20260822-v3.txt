@@ -14,6 +14,7 @@ Requirements:
 - deliberative turns route to Thinking brain
 - governed long-term memory active
 - benchmark harness present
+- scoped inference credentials are valid even when RunPod management scope is intentionally absent
 - sanitized RunPod infrastructure profile is diagnostic only and never authorizes release
 
 This file contains no credentials or endpoint identifiers.

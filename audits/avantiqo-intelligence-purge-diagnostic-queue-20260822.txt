@@ -1,5 +1,6 @@
 AVANTIQO_INTELLIGENCE_DIAGNOSTIC_QUEUE_CLEANUP
 Date: 2026-08-22
 Branch: main
-Purpose: diagnostic-only cleanup. This owned provider has no active pricing row yet, so production Service Runtime cannot route customer reasoning traffic to it. Purge only waiting RunPod diagnostic jobs, and refuse cleanup if RunPod reports an in-progress queue job.
+Recheck: 2026-08-22T18:35:25+07:00
+Purpose: diagnostic-only health/quiescence check before reasoning benchmark. This owned provider has no active pricing row yet. Purge only waiting diagnostic jobs, refuse if an in-progress queue job is present, and report running/idle worker state.
 No credentials or endpoint identifiers are stored here.

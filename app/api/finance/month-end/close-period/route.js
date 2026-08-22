@@ -37,16 +37,21 @@ export async function POST(request) {
       fullAccess: access.permissions?.includes("*") === true,
     });
 
+    const entityId = required(body.entityId || body.entity_id, "entity_id");
+    const periodId = required(body.periodId || body.period_id, "period_id");
+    const idempotencyKey =
+      body.idempotency_key ||
+      body.idempotencyKey ||
+      request.headers.get("idempotency-key") ||
+      `month-end-close:${access.organizationId}:${entityId}:${periodId}`;
+
     const result = await runMonthEndCloseCommand({
       organizationId: access.organizationId,
-      entityId: required(body.entityId || body.entity_id, "entity_id"),
-      periodId: required(body.periodId || body.period_id, "period_id"),
+      entityId,
+      periodId,
       requiredSteps: Array.isArray(body.required_steps) ? body.required_steps : undefined,
       closedBy: access.user.id,
-      idempotencyKey: required(
-        body.idempotency_key || body.idempotencyKey || request.headers.get("idempotency-key"),
-        "idempotency_key"
-      ),
+      idempotencyKey,
     });
 
     return NextResponse.json(result);

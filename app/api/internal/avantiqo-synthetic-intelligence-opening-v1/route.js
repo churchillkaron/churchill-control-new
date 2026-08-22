@@ -20,8 +20,8 @@ const supabase = getServiceSupabase();
 const TOKEN = "avq-synthetic-intelligence-opening-20260822-v1";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const ENTITY_ID = "073dc5f5-b6a8-4cae-8cda-fd7acb21ef50";
-const PROVIDER = "gemini";
-const MODEL = "gemini-omni-flash-preview";
+const PROVIDER = "runway";
+const MODEL = "gemini_omni_flash";
 const DURATION_SECONDS = 8;
 const BUCKET = "creative-assets";
 const APPROVED_LOGO_PATH = `${ORGANIZATION_ID}/unassigned/df1cdd49-68e2-4a77-956e-6c9565c0074d-google-veo-6c9upygjkui2.mp4`;
@@ -64,8 +64,9 @@ function generationContract() {
 
   return {
     model: MODEL,
-    title: "Avantiqo investor film — Synthetic Intelligence awakening",
+    prompt: description,
     description,
+    title: "Avantiqo investor film — Synthetic Intelligence awakening",
     intent: {
       story_purpose: "announce a new category before the Avantiqo identity reveal",
       emotional_tone: "powerful, intelligent, luxurious, cinematic, restrained",
@@ -103,6 +104,7 @@ function generationContract() {
         resolution: "720p",
       },
       provider_parameters: {
+        duration: DURATION_SECONDS,
         aspect_ratio: "16:9",
       },
     },
@@ -125,6 +127,7 @@ function generationContract() {
       resolution: "720p",
     },
     provider_parameters: {
+      duration: DURATION_SECONDS,
       aspect_ratio: "16:9",
     },
   };
@@ -240,7 +243,8 @@ async function assemble(generatedPath) {
         organization_id: ORGANIZATION_ID,
         investor_film: "20260822",
         opening_version: "synthetic-intelligence-v1",
-        generator: MODEL,
+        generator: "gemini-omni-flash",
+        gateway: "runway",
         generated_opening_native_resolution: "720p",
         final_review_resolution: "1080p",
         approved_logo_unchanged: "true",
@@ -271,6 +275,8 @@ export async function GET(request) {
         success: true,
         provider: PROVIDER,
         model: MODEL,
+        underlying_generator: "Gemini Omni Flash",
+        gateway: "Runway API",
         duration_seconds: DURATION_SECONDS,
         native_resolution: "720p",
         review_resolution: "1080p",
@@ -303,7 +309,8 @@ export async function GET(request) {
           brand: "Avantiqo",
           source: "avantiqo_synthetic_intelligence_opening_20260822_v1",
           generated_video_only: true,
-          generator: MODEL,
+          generator: "GEMINI_OMNI_FLASH",
+          gateway: "RUNWAY_API",
           churchill_allowed: false,
           approved_logo_unchanged: true,
           publication_authorized: false,
@@ -352,7 +359,8 @@ export async function GET(request) {
           operation: "AVANTIQO_SYNTHETIC_INTELLIGENCE_OPENING_V1_POLL",
           brand: "Avantiqo",
           source: "avantiqo_synthetic_intelligence_opening_20260822_v1",
-          generator: MODEL,
+          generator: "GEMINI_OMNI_FLASH",
+          gateway: "RUNWAY_API",
           publication_authorized: false,
         },
       });

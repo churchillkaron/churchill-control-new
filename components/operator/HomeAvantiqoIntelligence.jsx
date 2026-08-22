@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Send, Sparkles } from "lucide-react";
+import { AlertTriangle, Loader2, Send, Sparkles } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
@@ -60,6 +60,26 @@ function projectStatusLabel(value) {
   if (status === "discussing") return "Shaping the goal";
   if (status === "cancelled") return "Cancelled";
   return "In progress";
+}
+
+function thesisAttentionLabel(value) {
+  const level = text(value).toLowerCase();
+  if (level === "urgent") return "Urgent change";
+  if (level === "important") return "Important change";
+  if (level === "watch") return "Watching";
+  return "Current thesis";
+}
+
+function thesisInterruptionSpeech(thesis) {
+  const reason = text(thesis?.interruption?.reason);
+  const summary = text(thesis?.summary);
+  const nextMove = text(thesis?.recommended_next_move);
+  const parts = [
+    "I need your attention.",
+    reason || summary,
+    nextMove ? `My recommended next move is ${nextMove}` : "",
+  ].filter(Boolean);
+  return parts.join(" ");
 }
 
 export default function HomeAvantiqoIntelligence({ organizationId: organizationIdProp }) {
@@ -192,7 +212,43 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           throw new Error(result?.error || "Attention scan failed");
         }
 
-        setAttention(result?.attention || null);
+        const nextAttention = result?.attention || null;
+        const thesis = nextAttention?.business_thesis || null;
+        setAttention(nextAttention);
+        if (result?.project_state) setProjectState(result.project_state);
+
+        const interruption = thesis?.interruption || {};
+        const dedupeKey = text(interruption?.dedupe_key);
+        if (interruption?.should_interrupt === true && dedupeKey) {
+          const storageKey = `avantiqo:thesis-interruption:${organizationId}:${dedupeKey}`;
+          let alreadyDelivered = false;
+          try {
+            alreadyDelivered = window.sessionStorage.getItem(storageKey) === "1";
+          } catch {
+            alreadyDelivered = false;
+          }
+
+          if (!alreadyDelivered) {
+            try {
+              window.sessionStorage.setItem(storageKey, "1");
+            } catch {
+              // Browser storage is only dedupe assistance, never authority.
+            }
+            const speech = thesisInterruptionSpeech(thesis);
+            if (speech) {
+              window.dispatchEvent(
+                new CustomEvent("avantiqo:speak", {
+                  detail: {
+                    message: speech,
+                    source: "synthetic-intelligence-interruption",
+                    priority: "urgent",
+                    dedupe_key: dedupeKey,
+                  },
+                }),
+              );
+            }
+          }
+        }
       } catch (attentionError) {
         if (attentionError?.name === "AbortError") return;
         console.error("AVANTIQO_ATTENTION_LOAD_FAILED", attentionError);
@@ -345,6 +401,12 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   }, [busy, restoring, organizationId, entityId, periodId, pathname]);
 
   const attentionItems = Array.isArray(attention?.items) ? attention.items : [];
+  const businessThesis = attention?.business_thesis || projectState?.business_thesis || null;
+  const thesisChange = businessThesis?.change || null;
+  const thesisOutlook = Array.isArray(businessThesis?.outlook)
+    ? businessThesis.outlook.slice(0, 2)
+    : [];
+  const thesisUrgent = businessThesis?.interruption?.should_interrupt === true;
 
   return (
     <section
@@ -354,17 +416,17 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       <div>
         <div className="flex items-center gap-2 text-sm uppercase tracking-[0.2em] text-white/40">
           <Sparkles size={14} className="text-[#D6A66A]" />
-          Company Intelligence
+          Synthetic Intelligence
         </div>
 
         <h2 className="mt-4 text-3xl font-light tracking-[-0.04em]">
-          Organization intelligence
+          Your business partner
         </h2>
 
         <p className="mt-3 max-w-xl text-sm leading-6 text-white/50">
-          Talk with Avantiqo about the business, ask for an explanation, open a workspace,
-          prepare work or execute connected capabilities. The conversation and your agreements
-          continue across sessions for this organization.
+          Avantiqo maintains a live evidence-backed view of the business, remembers the goal,
+          challenges assumptions, recommends the strongest next move and executes governed actions
+          when you authorize them.
         </p>
       </div>
 
@@ -376,24 +438,100 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           >
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/40">
               <Loader2 size={12} className="animate-spin text-[#D6A66A]" />
-              Checking what deserves attention
+              Updating the business thesis
             </div>
+          </div>
+        ) : null}
+
+        {!attentionLoading && businessThesis ? (
+          <div
+            data-avantiqo-business-thesis="true"
+            className={
+              thesisUrgent
+                ? "rounded-2xl border border-red-400/30 bg-red-500/[0.07] px-4 py-4"
+                : "rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.05] px-4 py-4"
+            }
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className={
+                  thesisUrgent
+                    ? "flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-red-200/80"
+                    : "flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]/80"
+                }>
+                  {thesisUrgent ? <AlertTriangle size={12} /> : <Sparkles size={12} />}
+                  Business thesis
+                </div>
+                {text(businessThesis?.summary) ? (
+                  <div className="mt-2 text-sm font-light leading-6 text-white/75">
+                    {businessThesis.summary}
+                  </div>
+                ) : null}
+              </div>
+              <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-white/45">
+                {thesisAttentionLabel(businessThesis?.attention_level)}
+              </div>
+            </div>
+
+            {thesisChange?.material && text(thesisChange?.summary) ? (
+              <div className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-3.5 py-3">
+                <div className="text-[9px] uppercase tracking-[0.16em] text-white/35">
+                  What changed
+                </div>
+                <div className="mt-1.5 text-xs leading-5 text-white/55">
+                  {thesisChange.summary}
+                </div>
+              </div>
+            ) : null}
+
+            {thesisOutlook.length ? (
+              <div className="mt-3 space-y-2">
+                {thesisOutlook.map((item, index) => (
+                  <div
+                    key={`${item.horizon}-${index}`}
+                    className="rounded-xl border border-white/[0.06] bg-black/15 px-3.5 py-2.5"
+                  >
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-white/30">
+                      Outlook · {text(item.horizon).replaceAll("_", " ")}
+                    </div>
+                    <div className="mt-1 text-xs leading-5 text-white/50">
+                      {item.prediction}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {text(businessThesis?.recommended_next_move) ? (
+              <button
+                type="button"
+                disabled={busy || restoring}
+                onClick={() =>
+                  sendMessage(
+                    `Discuss your recommended next move with me: ${businessThesis.recommended_next_move}`,
+                  )
+                }
+                className="mt-3 text-left text-xs leading-5 text-[#D6A66A]/85 transition hover:text-[#E7C48E] disabled:opacity-40"
+              >
+                Recommended next move: {businessThesis.recommended_next_move}
+              </button>
+            ) : null}
           </div>
         ) : null}
 
         {!attentionLoading && attentionItems.length ? (
           <div
             data-avantiqo-attention-brief="true"
-            className="rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] px-4 py-4"
+            className="rounded-2xl border border-white/[0.08] bg-black/20 px-4 py-4"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]/80">
-                  <Sparkles size={12} />
-                  Needs attention
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
+                  <Sparkles size={12} className="text-[#D6A66A]" />
+                  Evidence signals
                 </div>
                 {text(attention?.summary) ? (
-                  <div className="mt-2 text-xs leading-5 text-white/50">
+                  <div className="mt-2 text-xs leading-5 text-white/45">
                     {attention.summary}
                   </div>
                 ) : null}

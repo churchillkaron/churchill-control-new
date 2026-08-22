@@ -20,6 +20,14 @@ function percentile(values, fraction) {
   return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * fraction))];
 }
 
+function scoped(value, run, runs, name) {
+  if (runs === 1) return value.replaceAll("{run}", String(run));
+  if (!value.includes("{run}")) {
+    throw new Error(`${name}_RUN_PLACEHOLDER_REQUIRED_FOR_MULTIPLE_RUNS`);
+  }
+  return value.replaceAll("{run}", String(run));
+}
+
 async function runJob(endpointId, payload, apiKey) {
   const started = performance.now();
   const response = await fetch(`${API_BASE}/${endpointId}/runsync`, {
@@ -44,21 +52,24 @@ async function runJob(endpointId, payload, apiKey) {
 
 const apiKey = required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
-const uploadUrl = required("AVANTIQO_AUDIO_BENCHMARK_UPLOAD_URL");
-const storageReference = required("AVANTIQO_AUDIO_BENCHMARK_STORAGE_REFERENCE");
+const uploadUrlTemplate = required("AVANTIQO_AUDIO_BENCHMARK_UPLOAD_URL");
+const storageReferenceTemplate = required("AVANTIQO_AUDIO_BENCHMARK_STORAGE_REFERENCE");
 const foundationModel = text(process.env.AVANTIQO_AUDIO_FOUNDATION_MODEL) || "ACE-Step/Ace-Step1.5";
-const runs = Math.max(1, Math.min(10, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_RUNS || 3)));
+const runs = Math.max(1, Math.min(10, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_RUNS || 1)));
 const duration = Math.max(10, Math.min(60, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS || 12)));
 const observations = [];
 
 for (let index = 0; index < runs; index += 1) {
+  const run = index + 1;
+  const uploadUrl = scoped(uploadUrlTemplate, run, runs, "AVANTIQO_AUDIO_BENCHMARK_UPLOAD_URL");
+  const storageReference = scoped(storageReferenceTemplate, run, runs, "AVANTIQO_AUDIO_BENCHMARK_STORAGE_REFERENCE");
   const { body, wallMs } = await runJob(endpointId, {
     contract: CONTRACT,
     capability: "ai.music.generate",
     foundation_model: foundationModel,
     organization_id: "benchmark-only",
     organization_service_id: "benchmark-only",
-    usage_id: `benchmark-music-${index + 1}`,
+    usage_id: `benchmark-music-${run}`,
     instruction: "Cinematic premium instrumental underscore, restrained percussion, warm strings, modern electronic texture, no vocals.",
     structured_specification: {
       music: {
@@ -81,7 +92,7 @@ for (let index = 0; index < runs; index += 1) {
 
   const output = body.output || {};
   observations.push({
-    run: index + 1,
+    run,
     wall_ms: wallMs,
     worker_generation_seconds: Number(output.generation_seconds) || null,
     duration_seconds: Number(output.duration_seconds) || null,

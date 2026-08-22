@@ -9,10 +9,12 @@ const FINANCE_AUDIT_MARKER = "[finance-closeout-audit]";
 const INTELLIGENCE_AUDIT_MARKER = "[certify-avantiqo-intelligence]";
 const INTELLIGENCE_DIAGNOSTIC_MARKER = "[diagnose-avantiqo-intelligence]";
 const INTELLIGENCE_DIRECT_PROBE_MARKER = "[probe-avantiqo-intelligence]";
+const INTELLIGENCE_BENCHMARK_MARKER = "[benchmark-avantiqo-intelligence]";
 const INTELLIGENCE_AUDIT_TIMEOUT_MS = 60000;
 const INTELLIGENCE_PROFILE_TIMEOUT_MS = 30000;
 const INTELLIGENCE_DIAGNOSTIC_TIMEOUT_MS = 210000;
 const INTELLIGENCE_DIRECT_PROBE_TIMEOUT_MS = 65000;
+const INTELLIGENCE_BENCHMARK_TIMEOUT_MS = 120000;
 
 const commitMessage = String(
   process.env.VERCEL_GIT_COMMIT_MESSAGE || "",
@@ -23,6 +25,7 @@ const hasFinanceAuditMarker = commitMessage.includes(FINANCE_AUDIT_MARKER);
 const hasIntelligenceAuditMarker = commitMessage.includes(INTELLIGENCE_AUDIT_MARKER);
 const hasIntelligenceDiagnosticMarker = commitMessage.includes(INTELLIGENCE_DIAGNOSTIC_MARKER);
 const hasIntelligenceDirectProbeMarker = commitMessage.includes(INTELLIGENCE_DIRECT_PROBE_MARKER);
+const hasIntelligenceBenchmarkMarker = commitMessage.includes(INTELLIGENCE_BENCHMARK_MARKER);
 
 console.log(`VERCEL_GIT_COMMIT_MESSAGE=${commitMessage || "(empty)"}`);
 
@@ -77,6 +80,18 @@ if (hasFinanceAuditMarker) {
   console.log("FINANCE_CLOSEOUT_AUDIT=PASS");
 }
 
+if (hasIntelligenceBenchmarkMarker) {
+  const benchmarkPassed = runDiagnostic(
+    "scripts/avantiqo-intelligence-benchmark.mjs",
+    "AVANTIQO_INTELLIGENCE_BENCHMARK",
+    INTELLIGENCE_BENCHMARK_TIMEOUT_MS,
+  );
+  console.log(
+    `VERCEL_BUILD=SKIP reason=avantiqo-intelligence-benchmark-only benchmark_passed=${benchmarkPassed}`,
+  );
+  process.exit(0);
+}
+
 if (hasIntelligenceDirectProbeMarker) {
   const directProbePassed = runDiagnostic(
     "scripts/avantiqo-intelligence-direct-probe.mjs",
@@ -109,8 +124,6 @@ if (hasIntelligenceAuditMarker) {
     process.exit(0);
   }
 
-  // This diagnostic never authorizes the build. It exposes only sanitized
-  // endpoint/GPU economics and never prints the API key or endpoint ID.
   runDiagnostic(
     "scripts/avantiqo-intelligence-runpod-profile.mjs",
     "AVANTIQO_INTELLIGENCE_PROFILE",
@@ -132,9 +145,6 @@ if (hasIntelligenceAuditMarker) {
   console.log("AVANTIQO_INTELLIGENCE_CERTIFICATION=PASS");
 }
 
-// Vercel convention:
-// exit 0 = cancel/skip this build
-// exit 1 = continue with the build
 if (hasFinalBuildMarker) {
   console.log("VERCEL_BUILD=RUN reason=explicit-final-production-release");
   process.exit(1);

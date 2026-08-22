@@ -39,14 +39,18 @@ export async function GET(req) {
 
     const taxCodes = data.map((t) => ({
       id: t.id,
+      organization_id: t.organization_id,
       code: t.tax_code,
       name: t.tax_name,
+      tax_type: t.tax_type,
       rate: t.tax_rate,
       regime: t.tax_regime,
       standard: t.accounting_standard,
       effective_from: t.effective_from,
       effective_to: t.effective_to,
       is_active: t.is_active,
+      inherited: Boolean(t.inherited),
+      read_only: Boolean(t.read_only),
     }));
 
     return NextResponse.json({

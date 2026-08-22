@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import {
   decorateNumberSequenceRows,
@@ -24,16 +25,15 @@ function required(input, field) {
 
 function responseError(error, fallback) {
   const message = error?.message || fallback;
-  const status = /required|not found|must|supported|already exists|cannot|outside|lower|exceed/i.test(
-    message
-  )
-    ? 400
-    : 500;
-
+  const status = /permission denied/i.test(message)
+    ? 403
+    : /required|not found|must|supported|already exists|cannot|outside|lower|exceed/i.test(message)
+      ? 400
+      : 500;
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function accessFromRequest(request, body = null) {
+async function accessFromRequest(request, body = null, operation = "read") {
   const organizationId = body
     ? body.organizationId || body.organization_id
     : value(new URL(request.url).searchParams, "organizationId", "organization_id");
@@ -47,6 +47,12 @@ async function accessFromRequest(request, body = null) {
       ),
     };
   }
+
+  await requireFinanceWorkspacePermission({
+    capabilityId: "number_sequences",
+    operation,
+    access,
+  });
 
   return { access };
 }
@@ -94,7 +100,7 @@ async function hasAllocatedNumbers(organizationId, sequence) {
 
 export async function GET(request) {
   try {
-    const context = await accessFromRequest(request);
+    const context = await accessFromRequest(request, null, "read");
     if (context.response) return context.response;
 
     const { access } = context;
@@ -109,10 +115,7 @@ export async function GET(request) {
       .limit(250);
 
     if (requestedEntityId) {
-      const entityId = await resolveLegalEntity(
-        access.organizationId,
-        requestedEntityId
-      );
+      const entityId = await resolveLegalEntity(access.organizationId, requestedEntityId);
       query = query.eq("entity_id", entityId);
     }
 
@@ -136,7 +139,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const context = await accessFromRequest(request, body);
+    const context = await accessFromRequest(request, body, "write");
     if (context.response) return context.response;
 
     const { access } = context;
@@ -155,10 +158,7 @@ export async function POST(request) {
       required(payload.entity_id, "entity_id")
     );
 
-    await validateNumberSequenceWrite({
-      organizationId: access.organizationId,
-      payload,
-    });
+    await validateNumberSequenceWrite({ organizationId: access.organizationId, payload });
 
     const { data, error } = await supabaseAdmin
       .from("finance_number_sequences")
@@ -171,7 +171,6 @@ export async function POST(request) {
       })
       .select("*")
       .single();
-
     if (error) throw error;
 
     return NextResponse.json({
@@ -187,39 +186,23 @@ export async function POST(request) {
 export async function PATCH(request) {
   try {
     const body = await request.json();
-    const context = await accessFromRequest(request, body);
+    const context = await accessFromRequest(request, body, "write");
     if (context.response) return context.response;
 
     const { access } = context;
     const id = required(body.id || body.record_id, "id");
-    const editable = [
-      "entity_id",
-      "document_type",
-      "prefix",
-      "suffix",
-      "next_number",
-      "padding",
-      "reset_policy",
-    ];
+    const editable = ["entity_id", "document_type", "prefix", "suffix", "next_number", "padding", "reset_policy"];
     const payload = {};
 
     for (const field of editable) {
-      if (Object.prototype.hasOwnProperty.call(body, field)) {
-        payload[field] = body[field];
-      }
+      if (Object.prototype.hasOwnProperty.call(body, field)) payload[field] = body[field];
     }
 
-    if (Object.keys(payload).length === 0) {
-      throw new Error("No editable fields provided");
-    }
-
+    if (Object.keys(payload).length === 0) throw new Error("No editable fields provided");
     Object.assign(payload, normalizeNumberSequencePayload(payload));
 
     if (payload.entity_id) {
-      payload.entity_id = await resolveLegalEntity(
-        access.organizationId,
-        payload.entity_id
-      );
+      payload.entity_id = await resolveLegalEntity(access.organizationId, payload.entity_id);
     }
 
     await validateNumberSequenceWrite({
@@ -235,7 +218,6 @@ export async function PATCH(request) {
       .eq("id", id)
       .select("*")
       .single();
-
     if (error) throw error;
 
     return NextResponse.json({
@@ -251,7 +233,7 @@ export async function PATCH(request) {
 export async function DELETE(request) {
   try {
     const body = await request.json();
-    const context = await accessFromRequest(request, body);
+    const context = await accessFromRequest(request, body, "write");
     if (context.response) return context.response;
 
     const { access } = context;
@@ -259,9 +241,7 @@ export async function DELETE(request) {
     const existing = await loadExisting(access.organizationId, id);
 
     if (await hasAllocatedNumbers(access.organizationId, existing)) {
-      throw new Error(
-        "An in-use Number Sequence cannot be archived because document numbering must remain continuous"
-      );
+      throw new Error("An in-use Number Sequence cannot be archived because document numbering must remain continuous");
     }
 
     const { data, error } = await supabaseAdmin
@@ -271,7 +251,6 @@ export async function DELETE(request) {
       .eq("id", id)
       .select("*")
       .single();
-
     if (error) throw error;
 
     return NextResponse.json({

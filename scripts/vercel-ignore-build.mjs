@@ -1,11 +1,12 @@
 // Hard production build gate.
 // Ordinary commits to main MUST NOT consume Vercel production build minutes.
 // Only an explicit final-release commit may build production.
-// Finance closeout audit marker executes certification before the final release.
+// Optional certification markers run only the audits they own.
 import { spawnSync } from "node:child_process";
 
 const FINAL_BUILD_MARKER = "[deploy-production-final]";
 const FINANCE_AUDIT_MARKER = "[finance-closeout-audit]";
+const INTELLIGENCE_AUDIT_MARKER = "[certify-avantiqo-intelligence]";
 const INTELLIGENCE_AUDIT_TIMEOUT_MS = 60000;
 const INTELLIGENCE_PROFILE_TIMEOUT_MS = 30000;
 
@@ -15,6 +16,7 @@ const commitMessage = String(
 
 const hasFinalBuildMarker = commitMessage.includes(FINAL_BUILD_MARKER);
 const hasFinanceAuditMarker = commitMessage.includes(FINANCE_AUDIT_MARKER);
+const hasIntelligenceAuditMarker = commitMessage.includes(INTELLIGENCE_AUDIT_MARKER);
 
 console.log(`VERCEL_GIT_COMMIT_MESSAGE=${commitMessage || "(empty)"}`);
 
@@ -67,10 +69,14 @@ if (hasFinanceAuditMarker) {
   console.log("FINANCE_CLOSEOUT_AUDIT=PASS");
 }
 
-// Vercel convention:
-// exit 0 = cancel/skip this build
-// exit 1 = continue with the build
-if (hasFinalBuildMarker) {
+if (hasIntelligenceAuditMarker) {
+  if (!hasFinalBuildMarker) {
+    console.log(
+      "VERCEL_BUILD=SKIP reason=intelligence-certification-requires-final-release-marker",
+    );
+    process.exit(0);
+  }
+
   // This diagnostic never authorizes the build. It exposes only sanitized
   // endpoint/GPU economics and never prints the API key or endpoint ID.
   runDiagnostic(
@@ -91,6 +97,13 @@ if (hasFinalBuildMarker) {
     process.exit(0);
   }
 
+  console.log("AVANTIQO_INTELLIGENCE_CERTIFICATION=PASS");
+}
+
+// Vercel convention:
+// exit 0 = cancel/skip this build
+// exit 1 = continue with the build
+if (hasFinalBuildMarker) {
   console.log("VERCEL_BUILD=RUN reason=explicit-final-production-release");
   process.exit(1);
 }

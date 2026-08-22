@@ -10,6 +10,18 @@ function errorResponse(error, status = 500) {
   return NextResponse.json({ success: false, error }, { status });
 }
 
+function statementIdempotencyKey({ organizationId, entityId, partyId, periodStart, periodEnd, currencyCode }) {
+  return [
+    "customer-statement",
+    organizationId,
+    entityId,
+    partyId,
+    periodStart,
+    periodEnd,
+    String(currencyCode || "").trim().toUpperCase(),
+  ].join(":");
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -31,20 +43,34 @@ export async function POST(request) {
       return errorResponse("Legal entity not found in organisation", 404);
     }
 
+    const partyId = body.partyId || body.party_id;
+    const periodStart = body.periodStart || body.period_start;
+    const periodEnd = body.periodEnd || body.period_end;
+    const currencyCode = body.currencyCode || body.currency_code;
+    const idempotencyKey =
+      body.idempotencyKey ||
+      body.idempotency_key ||
+      request.headers.get("idempotency-key") ||
+      statementIdempotencyKey({
+        organizationId: access.organizationId,
+        entityId: entity.id,
+        partyId,
+        periodStart,
+        periodEnd,
+        currencyCode,
+      });
+
     const statement = await generateCustomerStatementCommand({
       organization_id: access.organizationId,
       entity_id: entity.id,
-      party_id: body.partyId || body.party_id,
+      party_id: partyId,
       statement_id: body.statementId || body.statement_id,
       statement_date: body.statementDate || body.statement_date,
-      period_start: body.periodStart || body.period_start,
-      period_end: body.periodEnd || body.period_end,
-      currency_code: body.currencyCode || body.currency_code,
+      period_start: periodStart,
+      period_end: periodEnd,
+      currency_code: currencyCode,
       generated_by: access.user?.id || null,
-      idempotency_key:
-        body.idempotencyKey ||
-        body.idempotency_key ||
-        request.headers.get("idempotency-key"),
+      idempotency_key: idempotencyKey,
       prefix: body.prefix || "STAT",
     });
 

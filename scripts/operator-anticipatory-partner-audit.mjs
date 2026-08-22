@@ -10,6 +10,7 @@ const [
   thesisContractSource,
   thesisRuntimeSource,
   projectStateSource,
+  organizationalContextSource,
 ] = await Promise.all([
   readFile("lib/operator/runtime/OperatorAnticipatoryRuntime.js", "utf8"),
   readFile("lib/platform/capabilities/createOperatorAttentionCapability.js", "utf8"),
@@ -19,6 +20,7 @@ const [
   readFile("lib/operator/contracts/OperatorBusinessThesis.js", "utf8"),
   readFile("lib/operator/runtime/OperatorBusinessThesisRuntime.js", "utf8"),
   readFile("lib/operator/contracts/OperatorProjectState.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorOrganizationalContextRuntime.js", "utf8"),
 ]);
 
 assert.match(runtimeSource, /listOperatorCapabilities/);
@@ -107,6 +109,18 @@ assert.match(thesisRuntimeSource, /unchangedThesis/);
 assert.match(projectStateSource, /business_thesis/);
 assert.match(projectStateSource, /normalizeOperatorBusinessThesis/);
 
+assert.match(organizationalContextSource, /function thesisSnapshot/);
+assert.match(organizationalContextSource, /evidence_scope:\s*"historical_context_only"/);
+assert.match(organizationalContextSource, /not_live_proof:\s*true/);
+assert.match(organizationalContextSource, /current_business_thesis/);
+assert.match(organizationalContextSource, /business_thesis_is_historical_context:\s*true/);
+assert.match(organizationalContextSource, /business_thesis_is_not_live_proof:\s*true/);
+assert.match(organizationalContextSource, /current_business_claims_require_live_evidence:\s*true/);
+assert.match(organizationalContextSource, /version:\s*2/);
+assert.match(organizationalContextSource, /business_thesis:\s*thesisSnapshot\(state\.business_thesis\)/);
+assert.match(organizationalContextSource, /current_business_thesis:\s*source\.current_business_thesis/);
+assert.doesNotMatch(organizationalContextSource, /business_thesis_is_live_proof:\s*true/);
+
 assert.match(routeSource, /requireOrganizationAccess/);
 assert.match(routeSource, /resolveBusinessContext/);
 assert.match(routeSource, /domain: "platform"/);
@@ -154,6 +168,7 @@ console.log("OPERATOR_BUSINESS_THESIS_OUTLOOK=CONDITIONAL_EVIDENCE_REFERENCED");
 console.log("OPERATOR_BUSINESS_THESIS_UNCHANGED=REUSE_WITHOUT_SECOND_SYNTHESIS");
 console.log("OPERATOR_BUSINESS_THESIS_INTERRUPTION=URGENT_DELTA_ONLY");
 console.log("OPERATOR_BUSINESS_THESIS_INTERRUPTION_UI=SESSION_DEDUPED_SPEECH");
+console.log("OPERATOR_BUSINESS_THESIS_CONTEXT=HISTORICAL_ONLY_NOT_LIVE_PROOF");
 console.log("OPERATOR_ATTENTION_UI=PARALLEL_WITH_CONVERSATION_RESTORE");
 console.log("OPERATOR_ATTENTION_UI=THESIS_PERSISTED_IN_PRIMARY_PROJECT_MEMORY");
 

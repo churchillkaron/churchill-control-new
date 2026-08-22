@@ -19,14 +19,14 @@ const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const PROJECT_ID = "da38f668-11a1-4760-a8f2-6adc3effdab5";
 const TOKEN = "churchill-night-changes-v3-editorial-20260822";
 const BUCKET = "creative-assets";
-const VERSION = "CHURCHILL_V3_EDITORIAL_R1";
+const VERSION = "CHURCHILL_V3_EDITORIAL_R2_AUTHENTIC_STILLS";
 const WIDTH = 1920;
 const HEIGHT = 1080;
 const FPS = 24;
 
 const ASSET = Object.freeze({
-  pool_video_real: "d10ddc3a-386f-403b-9bb4-2cfe40c7c655",
-  dining_video_real: "fb7e06e3-77cb-49f3-9f11-9fa59887b6be",
+  pool_still_real: "797c9d16-5465-4e60-be93-a6c65707f7db",
+  dinner_still_real: "8b4854e6-8c9c-4fc6-a3f5-7eaadc1d8d8b",
 });
 
 function text(value) {
@@ -139,7 +139,7 @@ function completedReference(node) {
   return node?.status === "COMPLETED" && node?.output_reference ? node.output_reference : null;
 }
 
-function normalize(label) {
+function normalizeVideo(label) {
   return `[${label}:v]fps=${FPS},scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},setsar=1,format=yuv420p`;
 }
 
@@ -207,24 +207,27 @@ async function renderIce() {
   const original = p.metadata?.churchill_v3_vfx?.shots?.ice_time_freeze || null;
   const iceReference = completedReference(original);
   if (!iceReference) throw new Error("CHURCHILL_V3_EDITORIAL_APPROVED_ICE_PLATE_REQUIRED");
-  const pool = await asset(ASSET.pool_video_real);
+  const pool = await asset(ASSET.pool_still_real);
   if (pool.ai_generated === true || pool.provider !== "upload") throw new Error("CHURCHILL_V3_EDITORIAL_REAL_POOL_REQUIRED");
 
   const ffmpeg = resolveCreativeFfmpegPath();
   if (!ffmpeg) throw new Error("CHURCHILL_V3_EDITORIAL_FFMPEG_REQUIRED");
   const iceUrl = await signedReference(iceReference);
-  const poolUrl = await assetUrl(ASSET.pool_video_real);
+  const poolUrl = await assetUrl(ASSET.pool_still_real);
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "churchill-v3-ice-editorial-"));
   const output = path.join(dir, "ice-authentic-pool.mp4");
   try {
     const filter = [
-      `${normalize("0")}trim=duration=5.4,setpts=PTS-STARTPTS[ice]`,
-      `${normalize("1")}trim=duration=2.9,setpts=PTS-STARTPTS[pool]`,
-      `[ice][pool]xfade=transition=fade:duration=0.3:offset=5.1,format=yuv420p[out]`,
+      `${normalizeVideo("0")}trim=duration=5.28,setpts=PTS-STARTPTS[ice]`,
+      `[1:v]scale=${WIDTH}:-2,crop=${WIDTH}:${HEIGHT}:0:(ih-${HEIGHT})*0.54,zoompan=z='min(1.0+0.00026*on,1.016)':x='iw/2-(iw/zoom/2)':y='ih*0.54-(ih/zoom/2)':d=1:s=${WIDTH}x${HEIGHT}:fps=${FPS},setsar=1,format=yuv420p,trim=duration=2.84,setpts=PTS-STARTPTS[pool]`,
+      `[ice][pool]xfade=transition=fade:duration=0.12:offset=5.16,format=yuv420p[out]`,
     ].join(";");
     await run(ffmpeg, [
       "-y",
       "-i", iceUrl,
+      "-loop", "1",
+      "-framerate", String(FPS),
+      "-t", "3",
       "-i", poolUrl,
       "-filter_complex", filter,
       "-map", "[out]",
@@ -240,7 +243,9 @@ async function renderIce() {
     ]);
     const result = await uploadOutput(p, "ice_time_freeze_authentic_pool_landing", output, {
       source_ice_reference: iceReference,
-      authentic_pool_asset_id: ASSET.pool_video_real,
+      authentic_pool_asset_id: ASSET.pool_still_real,
+      source_resolution: pool.metadata?.resolution || "1500x2000",
+      editorial_transition: "SHORT_DISSOLVE_TO_REAL_POOL_WITH_SUBTLE_PUSH",
       story_change_authorized: false,
     });
     await patchEditorial(p, "ice_time_freeze_authentic_pool_landing", result);
@@ -255,25 +260,28 @@ async function renderWineLoop() {
   const wine = p.metadata?.churchill_v3_vfx?.shots?.wine_universe || null;
   const wineReference = completedReference(wine);
   if (!wineReference) throw new Error("CHURCHILL_V3_EDITORIAL_APPROVED_WINE_PLATE_REQUIRED");
-  const dining = await asset(ASSET.dining_video_real);
-  if (dining.ai_generated === true || dining.provider !== "upload") throw new Error("CHURCHILL_V3_EDITORIAL_REAL_DINING_REQUIRED");
+  const dinner = await asset(ASSET.dinner_still_real);
+  if (dinner.ai_generated === true || dinner.provider !== "upload") throw new Error("CHURCHILL_V3_EDITORIAL_REAL_DINNER_REQUIRED");
 
   const ffmpeg = resolveCreativeFfmpegPath();
   if (!ffmpeg) throw new Error("CHURCHILL_V3_EDITORIAL_FFMPEG_REQUIRED");
   const wineUrl = await signedReference(wineReference);
-  const diningUrl = await assetUrl(ASSET.dining_video_real);
+  const dinnerUrl = await assetUrl(ASSET.dinner_still_real);
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "churchill-v3-wine-loop-"));
   const output = path.join(dir, "wine-loop-return.mp4");
   try {
     const filter = [
-      `${normalize("0")}trim=start=0:end=1.25,setpts=PTS-STARTPTS,reverse[drop]`,
-      `${normalize("1")}trim=duration=2.95,setpts=PTS-STARTPTS[dinner]`,
-      `[drop][dinner]xfade=transition=fade:duration=0.2:offset=1.05,format=yuv420p[out]`,
+      `[0:v]scale=2048:1366,crop=1920:1080:(iw-1920)/2:(ih-1080)/2,zoompan=z='min(1.0+0.00018*on,1.012)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${WIDTH}x${HEIGHT}:fps=${FPS},setsar=1,format=yuv420p,trim=duration=2.52,setpts=PTS-STARTPTS[dinner]`,
+      `${normalizeVideo("1")}trim=start=0:end=1.68,setpts=PTS-STARTPTS,reverse[wine]`,
+      `[dinner][wine]xfade=transition=fade:duration=0.20:offset=2.32,format=yuv420p[out]`,
     ].join(";");
     await run(ffmpeg, [
       "-y",
+      "-loop", "1",
+      "-framerate", String(FPS),
+      "-t", "2.7",
+      "-i", dinnerUrl,
       "-i", wineUrl,
-      "-i", diningUrl,
       "-filter_complex", filter,
       "-map", "[out]",
       "-an",
@@ -288,7 +296,9 @@ async function renderWineLoop() {
     ]);
     const result = await uploadOutput(p, "wine_loop_return_authentic_payoff", output, {
       approved_wine_reference: wineReference,
-      authentic_dining_asset_id: ASSET.dining_video_real,
+      authentic_dinner_asset_id: ASSET.dinner_still_real,
+      source_resolution: dinner.metadata?.resolution || "2048x1366",
+      editorial_transition: "REAL_DINNER_RETURNS_INTO_WINE_UNIVERSE",
       story_change_authorized: false,
     });
     await patchEditorial(p, "wine_loop_return_authentic_payoff", result);
@@ -305,6 +315,7 @@ async function status() {
     version: VERSION,
     canonical_story_version: CHURCHILL_NIGHT_CHANGES_STORY_VERSION,
     editorial: p.metadata?.churchill_v3_editorial || {},
+    authentic_sources: ASSET,
     actions: {
       render_ice: "ZERO_GENERATION_AUTHENTIC_EDITORIAL_REPAIR",
       render_wine_loop: "ZERO_GENERATION_AUTHENTIC_EDITORIAL_REPAIR",

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import {
   toggleLegalEntityCommand,
 } from "@/lib/finance/legal-entities/runtime/LegalEntityApplicationService";
@@ -36,6 +37,12 @@ export async function POST(request) {
       );
     }
 
+    await requireFinanceWorkspacePermission({
+      capabilityId: "legal_entities",
+      operation: "write",
+      access,
+    });
+
     const result = await toggleLegalEntityCommand({
       organization_id: access.organizationId,
       entity_id: body.entity_id || body.id,
@@ -46,11 +53,11 @@ export async function POST(request) {
     return NextResponse.json(result);
   } catch (error) {
     const message = error?.message || "Legal Entity lifecycle update failed";
-    const status = /required|not found|cannot|close all|deactivate|reassign/i.test(
-      message
-    )
-      ? 400
-      : 500;
+    const status = /permission denied/i.test(message)
+      ? 403
+      : /required|not found|cannot|close all|deactivate|reassign/i.test(message)
+        ? 400
+        : 500;
 
     return NextResponse.json(
       { success: false, error: message },

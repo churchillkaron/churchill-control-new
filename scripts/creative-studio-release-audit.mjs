@@ -29,7 +29,9 @@ function requireAll(label, source, needles) {
 }
 
 const callbackRoute = read("app/api/creative/providers/callback/route.js");
-const providerExecutor = read("lib/platform/service-runtime/providers/ProviderExecutor.js");
+const providerExecutorWrapper = read("lib/platform/service-runtime/providers/ProviderExecutor.js");
+const providerExecutorCore = read("lib/platform/service-runtime/providers/ProviderExecutorCore.js");
+const providerExecutor = `${providerExecutorWrapper}\n${providerExecutorCore}`;
 const completionRuntime = read("lib/creative/providers/runtime/CreativeProviderCompletionRuntime.js");
 const walletRuntime = read("lib/platform/service-runtime/wallet/runtime/WalletRuntime.js");
 const walletMigration = read("supabase/migrations/20260726143000_service_wallet_atomic_settlement.sql");
@@ -49,6 +51,10 @@ requireAll("Creative provider callback authentication", callbackRoute, [
   "timingSafeEqual",
   "Provider does not match production task",
   "Provider job does not match production task",
+]);
+
+requireAll("Provider execution wrapper delegates to governed core", providerExecutorWrapper, [
+  "./ProviderExecutorCore",
 ]);
 
 requireAll("Provider execution and completion contract", providerExecutor, [

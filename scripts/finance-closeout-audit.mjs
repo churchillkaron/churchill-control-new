@@ -189,10 +189,12 @@ check(
 );
 check(
   "Depreciation runtime is scoped and idempotent",
-  depreciationRuntime.includes("organization_id") &&
-    depreciationRuntime.includes("entity_id") &&
+  depreciationRuntime.includes('.eq("organization_id", organizationId)') &&
+    depreciationRuntime.includes('.eq("entity_id", entityId)') &&
     depreciationRuntime.includes("apply_finance_depreciation_asset") &&
-    depreciationRuntime.includes("DEPRECIATION")
+    depreciationRuntime.includes('onConflict: "organization_id,entity_id,book_reference,period_start,period_end"') &&
+    depreciationRuntime.includes("idempotencyKey") &&
+    depreciationRuntime.includes("idempotent: true")
 );
 
 check(

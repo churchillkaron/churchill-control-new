@@ -79,9 +79,13 @@ function read(relativePath) {
   return fs.readFileSync(absolute, "utf8");
 }
 
-const providerExecutor = read(
+const providerExecutorWrapper = read(
   "lib/platform/service-runtime/providers/ProviderExecutor.js",
 );
+const providerExecutorCore = read(
+  "lib/platform/service-runtime/providers/ProviderExecutorCore.js",
+);
+const providerExecutor = `${providerExecutorWrapper}\n${providerExecutorCore}`;
 const sanitizedRuntime = read(SANITIZED_ADAPTER);
 const managedRegistration = read(
   "lib/platform/service-runtime/providers/openai/ManagedOpenAICredentialRegistration.js",
@@ -94,6 +98,10 @@ const managedCredentialMigration = read(
 );
 
 const REQUIRED_CONTRACTS = [
+  [
+    "ProviderExecutor wrapper delegates to governed core",
+    providerExecutorWrapper.includes("./ProviderExecutorCore"),
+  ],
   [
     "ProviderExecutor managed OpenAI registration",
     providerExecutor.includes('./openai/ManagedOpenAICredentialRegistration.js'),

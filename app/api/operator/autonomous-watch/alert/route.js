@@ -1,12 +1,12 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
   loadIntelligenceConversationSnapshot,
-  updateIntelligenceConversationState,
 } from "@/lib/operator/runtime/IntelligenceConversationRuntime";
 import {
   mergeOperatorProjectState,
@@ -158,12 +158,19 @@ export async function POST(request) {
       },
     );
 
-    await updateIntelligenceConversationState({
-      organizationId: resolved.access.organizationId,
-      conversationId: conversation.id,
-      agreementState: object(conversation.agreement_state),
-      projectState: nextProjectState,
-    });
+    const updated = await supabaseAdmin
+      .from("intelligence_conversations")
+      .update({
+        project_state: nextProjectState,
+        updated_at: deliveredAt,
+      })
+      .eq("organization_id", resolved.access.organizationId)
+      .eq("party_id", resolved.partyId)
+      .eq("id", conversation.id)
+      .eq("conversation_key", "primary")
+      .select("id")
+      .single();
+    if (updated.error) throw updated.error;
 
     return Response.json({
       success: true,

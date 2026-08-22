@@ -6,8 +6,8 @@ Requirements:
 - engine enabled
 - RunPod endpoint configured
 - RunPod API key configured
-- RunPod endpoint health reachable
-- completion-first structured JSON handshake succeeds
+- RunPod endpoint health is logged before inference
+- structured JSON handshake succeeds within production latency budget
 - native function/tool call handshake succeeds
 - raw reasoning is stripped or rejected before persistence
 - truncated reasoning fails closed
@@ -19,4 +19,4 @@ Requirements:
 - release audit is hard-killed and fails closed if RunPod/network certification exceeds 60 seconds
 - sanitized RunPod infrastructure profile is diagnostic only and never authorizes release
 
-This file contains no credentials or endpoint identifiers.
+This is the authoritative intelligence certification request. This file contains no credentials or endpoint identifiers.

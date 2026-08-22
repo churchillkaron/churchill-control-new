@@ -1,0 +1,13 @@
+AVANTIQO_INTELLIGENCE_COLDSTART_DIAGNOSTIC
+Date: 2026-08-22
+Branch: main
+Model: Qwen/Qwen3-30B-A3B-Thinking-2507
+
+Purpose:
+- diagnostic only; never deploy production
+- enqueue one native RunPod /run request to force a flex worker to start
+- measure first worker visibility, queue delay, execution time, and total cold start
+- while worker is warm, certify structured JSON and native function/tool calls
+- preserve reasoning privacy and fail closed
+
+No credentials or endpoint identifiers are stored here.

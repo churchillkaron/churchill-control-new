@@ -1,0 +1,6 @@
+AVANTIQO_SYNTHETIC_INTELLIGENCE_BENCHMARK
+Date: 2026-08-22
+Branch: main
+Model: Qwen/Qwen3-30B-A3B-Thinking-2507
+Purpose: diagnostic only; never deploy production. Run deterministic business-plan, tool-selection, and governance-reasoning tests against the warm owned runtime and capture latency/token evidence.
+No credentials or endpoint identifiers are stored here.

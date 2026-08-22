@@ -2,14 +2,17 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
 import { upsertFinanceCostCenter } from "@/lib/finance/cost-centers/CostCenterPolicy";
 import { applyCostCenterConfiguration } from "@/lib/finance/cost-centers/CostCenterConfiguration";
 
 function failure(error) {
   const message = error?.message || "Cost Centre update failed";
-  const status = /required|exists|outside|inactive|different|supported|cycle|owner|department|entity|code|name|cannot change|configuration/i.test(message)
-    ? 400
-    : 500;
+  const status = /permission denied/i.test(message)
+    ? 403
+    : /required|exists|outside|inactive|different|supported|cycle|owner|department|entity|code|name|cannot change|configuration/i.test(message)
+      ? 400
+      : 500;
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
@@ -19,7 +22,6 @@ export async function POST(request) {
     const access = await requireOrganizationAccess({
       organizationId: body.organizationId || body.organization_id,
       request,
-      requiredPermission: "finance.accounting.manage",
     });
 
     if (!access.success) {
@@ -28,6 +30,12 @@ export async function POST(request) {
         { status: access.status }
       );
     }
+
+    await requireFinanceWorkspacePermission({
+      capabilityId: "cost_centers",
+      operation: "write",
+      access,
+    });
 
     const entityId = body.entityId || body.entity_id || null;
     if (!entityId) {

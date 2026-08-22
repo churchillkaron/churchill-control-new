@@ -9,6 +9,7 @@ const [
   repositorySource,
   cronRouteSource,
   alertRouteSource,
+  settingsRouteSource,
   bridgeSource,
   workspaceSource,
   vercelSource,
@@ -20,6 +21,7 @@ const [
   readFile("lib/operator/runtime/OperatorWatchStateRepository.js", "utf8"),
   readFile("app/api/internal/operator/autonomous-watch/process/route.js", "utf8"),
   readFile("app/api/operator/autonomous-watch/alert/route.js", "utf8"),
+  readFile("app/api/operator/autonomous-watch/settings/route.js", "utf8"),
   readFile("components/operator/AutonomousWatchAlertBridge.jsx", "utf8"),
   readFile("app/(system)/workspace/[organizationId]/page.jsx", "utf8"),
   readFile("vercel.json", "utf8"),
@@ -98,6 +100,7 @@ assert.match(cognitionPolicySource, /minimum_wallet_balance/);
 assert.match(cognitionPolicySource, /deep_reasoning_on_change/);
 assert.match(cognitionPolicySource, /metadata\.autonomous_cognition !== true/);
 assert.match(cognitionPolicySource, /SYNTHESIZE_BUSINESS_THESIS/);
+assert.doesNotMatch(cognitionPolicySource, /SYNTHESIZE_ATTENTION/);
 assert.match(cognitionPolicySource, /AUTONOMOUS_COGNITION_SPEND_BUDGET_REACHED/);
 assert.match(cognitionPolicySource, /AUTONOMOUS_COGNITION_PASS_BUDGET_REACHED/);
 assert.match(cognitionPolicySource, /AUTONOMOUS_COGNITION_WALLET_RESERVE_FLOOR/);
@@ -145,6 +148,22 @@ assert.doesNotMatch(alertRouteSource, /last_message_at\s*:/);
 assert.doesNotMatch(alertRouteSource, /service_role/i);
 assert.doesNotMatch(alertRouteSource, /executeUbteCapability/);
 
+assert.match(settingsRouteSource, /requireOrganizationAccess/);
+assert.match(settingsRouteSource, /loadIntelligenceConversationSnapshot/);
+assert.match(settingsRouteSource, /mutateOperatorWatchProjectState/);
+assert.match(settingsRouteSource, /FULL_ACCESS_ROLES/);
+assert.match(settingsRouteSource, /Organization owner access is required/);
+assert.match(settingsRouteSource, /cognition_budget/);
+assert.match(settingsRouteSource, /customer_spend_limit/);
+assert.match(settingsRouteSource, /paid_reasoning_pass_limit/);
+assert.match(settingsRouteSource, /minimum_wallet_balance/);
+assert.match(settingsRouteSource, /deep_reasoning_on_change/);
+assert.match(settingsRouteSource, /evaluateAutonomousCognitionBudget/);
+assert.match(settingsRouteSource, /persistence_attempts/);
+assert.doesNotMatch(settingsRouteSource, /executeUbteCapability/);
+assert.doesNotMatch(settingsRouteSource, /updateIntelligenceConversationState/);
+assert.doesNotMatch(settingsRouteSource, /last_message_at\s*:/);
+
 assert.match(bridgeSource, /POLL_INTERVAL_MS = 30_000/);
 assert.match(bridgeSource, /\/api\/operator\/autonomous-watch\/alert/);
 assert.match(bridgeSource, /avantiqo:speak/);
@@ -175,6 +194,7 @@ console.log("OPERATOR_AUTONOMOUS_WATCH_SCOPE=CURRENT_STAFF_MEMBERSHIP_PERMISSION
 console.log("OPERATOR_AUTONOMOUS_WATCH_EVIDENCE=DETERMINISTIC_REGISTERED_READS_ZERO_AI");
 console.log("OPERATOR_AUTONOMOUS_WATCH_COGNITION=ZERO_AI_IF_UNCHANGED_ONE_PAID_PASS_IF_JUSTIFIED");
 console.log("OPERATOR_AUTONOMOUS_WATCH_BUDGET=AUTONOMOUS_USAGE_ONLY_ROLLING_24H");
+console.log("OPERATOR_AUTONOMOUS_WATCH_SETTINGS=AUTHENTICATED_OWNER_GOVERNED");
 console.log("OPERATOR_AUTONOMOUS_WATCH_WALLET=READ_ONLY_PREFLIGHT_THEN_SERVICE_RUNTIME_RESERVATION");
 console.log("OPERATOR_AUTONOMOUS_WATCH_CADENCE=ADAPTIVE_WITH_BACKOFF");
 console.log("OPERATOR_AUTONOMOUS_WATCH_ALERTS=DURABLE_DEDUPED_ACKNOWLEDGED");

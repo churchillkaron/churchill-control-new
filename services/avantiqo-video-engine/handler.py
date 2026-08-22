@@ -13,6 +13,7 @@ from diffusers.utils import export_to_video, load_image
 
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-cinema-v1"
+CERTIFIED_CAPABILITIES = {"ai.video.generate", "ai.video.image_to_video"}
 DEFAULT_MODEL = os.getenv(
     "AVANTIQO_VIDEO_FOUNDATION_MODEL",
     "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
@@ -84,8 +85,8 @@ def _frame_count(duration_seconds: int, fps: int) -> int:
 
 
 def _foundation_model(data: dict[str, Any]) -> str:
-    references = data.get("reference_images") or []
-    if references:
+    capability = _text(data.get("capability"))
+    if capability == "ai.video.image_to_video":
         return os.getenv("AVANTIQO_VIDEO_I2V_MODEL", DEFAULT_MODEL)
     return os.getenv("AVANTIQO_VIDEO_T2V_MODEL", DEFAULT_MODEL)
 
@@ -119,9 +120,7 @@ def _pipeline(model_id: str):
 
     cached_path = _cached_model_path(model_id)
     if REQUIRE_CACHED_MODEL and not cached_path:
-        raise RuntimeError(
-            f"AVANTIQO_VIDEO_CACHED_MODEL_REQUIRED:{model_id}"
-        )
+        raise RuntimeError(f"AVANTIQO_VIDEO_CACHED_MODEL_REQUIRED:{model_id}")
 
     model_source = cached_path or model_id
     pipe = DiffusionPipeline.from_pretrained(
@@ -144,6 +143,10 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     data = job.get("input") or {}
     if data.get("contract") != ENGINE_CONTRACT:
         raise ValueError("AVANTIQO_VIDEO_ENGINE_CONTRACT_INVALID")
+
+    capability = _text(data.get("capability"))
+    if capability not in CERTIFIED_CAPABILITIES:
+        raise ValueError(f"AVANTIQO_VIDEO_CAPABILITY_NOT_CERTIFIED:{capability or 'MISSING'}")
 
     instruction = _text(data.get("instruction"))
     if not instruction:
@@ -173,6 +176,8 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     data["reference_images"] = [
         _public_https_url(value) for value in references if _text(value)
     ]
+    if capability == "ai.video.image_to_video" and not data["reference_images"]:
+        raise ValueError("AVANTIQO_VIDEO_IMAGE_TO_VIDEO_REFERENCE_REQUIRED")
 
     storage_upload = data.get("storage_upload") or {}
     signed_url = _public_https_url(storage_upload.get("signed_url"), upload=True)
@@ -233,17 +238,13 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "width": width,
         "height": height,
         "num_frames": frames,
-        "num_inference_steps": int(
-            os.getenv("AVANTIQO_VIDEO_INFERENCE_STEPS", "36")
-        ),
-        "guidance_scale": float(
-            os.getenv("AVANTIQO_VIDEO_GUIDANCE_SCALE", "5.0")
-        ),
+        "num_inference_steps": int(os.getenv("AVANTIQO_VIDEO_INFERENCE_STEPS", "36")),
+        "guidance_scale": float(os.getenv("AVANTIQO_VIDEO_GUIDANCE_SCALE", "5.0")),
         "generator": generator,
     }
 
     references = data.get("reference_images") or []
-    if references:
+    if data["capability"] == "ai.video.image_to_video":
         kwargs["image"] = load_image(references[0])
 
     runpod.serverless.progress_update(job, "generating cinematic frames")
@@ -266,6 +267,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "provider": "avantiqo-video",
         "model": _text(data.get("model")) or PRODUCT_MODEL,
         "engine_contract": ENGINE_CONTRACT,
+        "capability": data["capability"],
         "storage_reference": data["storage_upload"]["storage_reference"],
         "foundation_model": model_id,
         "foundation_model_source": "runpod-cache" if _cached_model_path(model_id) else "huggingface",
@@ -278,6 +280,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "size_bytes": size_bytes,
         "generation_seconds": round(elapsed, 3),
         "quality_profile": _text(data.get("quality_profile")) or "cinema",
+        "raw_reasoning_persisted": False,
     }
 
 

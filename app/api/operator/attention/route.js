@@ -7,9 +7,25 @@ import {
 import {
   execute as executeUbteCapability,
 } from "@/lib/ubte/runtime/ExecutionEngine";
+import {
+  loadOrCreateIntelligenceConversation,
+  updateIntelligenceConversationState,
+} from "@/lib/operator/runtime/IntelligenceConversationRuntime";
+import {
+  mergeOperatorProjectState,
+} from "@/lib/operator/contracts/OperatorProjectState";
+import {
+  synthesizeOperatorBusinessThesis,
+} from "@/lib/operator/runtime/OperatorBusinessThesisRuntime";
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
 }
 
 function readValue(source, camelKey, snakeKey) {
@@ -108,6 +124,15 @@ export async function POST(request) {
       role: access.role || null,
     };
 
+    const memory = await loadOrCreateIntelligenceConversation({
+      organizationId: businessContext.organizationId,
+      partyId,
+      entityId: businessContext.entityId,
+      periodId: businessContext.periodId,
+      userId: actor.id,
+      conversationKey: "primary",
+    });
+
     const execution = await executeUbteCapability({
       organizationId: businessContext.organizationId,
       domain: "platform",
@@ -141,24 +166,72 @@ export async function POST(request) {
       },
     });
 
-    const attention = execution?.result || {};
+    const attention = object(execution?.result);
+    const thesisStartedAt = Date.now();
+    const businessThesis = await synthesizeOperatorBusinessThesis({
+      context: {
+        organizationId: businessContext.organizationId,
+        entityId: businessContext.entityId,
+        partyId,
+        metadata: { partyId },
+      },
+      attention,
+      previousThesis: memory.projectState?.business_thesis || null,
+    });
+    const thesisMs = Date.now() - thesisStartedAt;
+
+    const latestMemory = await loadOrCreateIntelligenceConversation({
+      organizationId: businessContext.organizationId,
+      partyId,
+      entityId: businessContext.entityId,
+      periodId: businessContext.periodId,
+      userId: actor.id,
+      conversationKey: "primary",
+    });
+    const nextProjectState = mergeOperatorProjectState(
+      latestMemory.projectState,
+      {
+        ...latestMemory.projectState,
+        business_thesis: businessThesis,
+      },
+      {
+        last_attention_scan_at:
+          text(attention.generated_at) || new Date().toISOString(),
+      },
+    );
+    await updateIntelligenceConversationState({
+      organizationId: businessContext.organizationId,
+      conversationId: latestMemory.conversation.id,
+      agreementState: latestMemory.agreementState,
+      projectState: nextProjectState,
+    });
+
+    const enrichedAttention = {
+      ...attention,
+      business_thesis: businessThesis,
+    };
     const totalMs = Date.now() - startedAt;
 
     console.info(
-      "OPERATOR_ATTENTION_LATENCY_V1",
+      "OPERATOR_ATTENTION_LATENCY_V2",
       JSON.stringify({
         organization_id: businessContext.organizationId,
         entity_scoped: Boolean(businessContext.entityId),
         status: text(attention.status) || null,
         item_count: Array.isArray(attention.items) ? attention.items.length : 0,
+        thesis_attention_level: text(businessThesis?.attention_level) || null,
+        thesis_change_material: businessThesis?.change?.material === true,
+        thesis_interrupt: businessThesis?.interruption?.should_interrupt === true,
         cache_hit: attention.cache_hit === true,
+        thesis_ms: thesisMs,
         total_ms: totalMs,
       }),
     );
 
     const response = Response.json({
       success: true,
-      attention,
+      attention: enrichedAttention,
+      project_state: nextProjectState,
       context: {
         organization_id: businessContext.organizationId,
         entity_id: businessContext.entityId,
@@ -171,7 +244,7 @@ export async function POST(request) {
 
     response.headers.set(
       "Server-Timing",
-      `attention;dur=${totalMs}`,
+      `attention;dur=${totalMs}, thesis;dur=${thesisMs}`,
     );
 
     return response;

@@ -45,6 +45,9 @@
     "app/api/internal/finance/scheduled-reports/process/route.js": {
       "maxDuration": 300
     },
+    "app/api/internal/finance/recurring-journals/process/route.js": {
+      "maxDuration": 300
+    },
     "app/api/internal/service-management/plans/process/route.js": {
       "maxDuration": 300
     }
@@ -125,6 +128,10 @@
     {
       "path": "/api/internal/finance/scheduled-reports/process",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/finance/recurring-journals/process",
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/internal/service-management/plans/process",

@@ -2,8 +2,12 @@ AVANTIQO_SYNTHETIC_INTELLIGENCE_BENCHMARK
 Date: 2026-08-22
 Branch: main
 Model: Qwen/Qwen3-30B-A3B-Thinking-2507
-Rerun: 2026-08-22T18:36:55+07:00
-Evidence from immediately preceding run: the stale native /run job expired during case 1; case 2 then passed in 2233 ms and case 3 passed in 3124 ms. This rerun starts after that stale job has cleared and uses normalized boolean pass values.
-Transport certification already passed separately.
-Purpose: diagnostic only; never deploy production. Run deterministic business-plan, tool-selection, and governance-reasoning tests and capture clean latency/token evidence.
+Final run: 2026-08-22T18:45:45+07:00
+Prerequisites verified immediately before launch:
+- production active provider_pricing rows for avantiqo-intelligence = 0
+- recent RunPod requests = 3 CANCELLED + 2 COMPLETED, 0 non-terminal
+- RunPod health queue = 0, jobs in progress = 0, one warm worker present
+- transport certification already passed separately: structured JSON + native tool calls + reasoning separation
+Benchmark policy: strategic case gets a 120s ceiling; short governed cases get 45s. Stop after first failure to avoid client-abort request contamination.
+Purpose: diagnostic only; never deploy production.
 No credentials or endpoint identifiers are stored here.

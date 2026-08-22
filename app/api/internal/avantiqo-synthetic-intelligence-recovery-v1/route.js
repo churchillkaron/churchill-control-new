@@ -38,6 +38,11 @@ const STALLED = Object.freeze({
     started_at: "2026-08-22T07:54:12.175Z",
     label: "omni-take-3",
   },
+  "7c87d5b2-6f78-4cb4-b74a-5ed2ba0701a2": {
+    usage_id: "c08ccd08-1796-41da-ae94-ba29f807d5ed",
+    started_at: "2026-08-22T08:16:09.435Z",
+    label: "omni-recovery-misroute",
+  },
 });
 
 const supabase = getServiceSupabase();
@@ -225,11 +230,11 @@ export async function GET(request) {
         bill_to_organization_id: ORGANIZATION_ID,
         entity_id: ENTITY_ID,
         service_id: "ai.video.generate",
-        provider_id: PROVIDER,
+        provider_id: null,
         provider_policy: {
           allowed_providers: [PROVIDER],
-          preferred_providers: [PROVIDER],
           preferred_models: [FALLBACK_MODEL],
+          weights: { preference: 100 },
         },
         input: generationContract(take),
         metadata: {

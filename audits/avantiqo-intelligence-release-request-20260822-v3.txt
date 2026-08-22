@@ -1,0 +1,13 @@
+AVANTIQO_SYNTHETIC_INTELLIGENCE_RELEASE_REQUEST_V3
+Date: 2026-08-22
+Branch: main
+Model: Qwen/Qwen3-30B-A3B-Thinking-2507
+Requirements:
+- engine enabled
+- RunPod endpoint configured
+- RunPod API key configured
+- completion-first structured handshake
+- sanitized RunPod infrastructure profile
+- deliberative turns routed to Thinking brain
+- governed long-term memory active
+- benchmark harness present

@@ -31,6 +31,42 @@ for (const message of deepFollowUps) {
   });
 }
 
+for (const message of [
+  "fix it",
+  "do this",
+  "deploy it",
+  "approve it",
+  "pay it",
+  "send it",
+  "publish this",
+  "merge it",
+  "delete this",
+  "fixa det",
+  "betala den",
+]) {
+  test(`routes consequential imperative to deep cognition: ${message}`, () => {
+    const result = routeOperatorCognition({
+      message,
+      source: "text",
+      capabilities: [],
+    });
+
+    assert.equal(result.path, "deep");
+    assert.equal(result.reason, "CONSEQUENTIAL_IMPERATIVE");
+  });
+}
+
+test("routes uncertain high-consequence request to deep cognition", () => {
+  const result = routeOperatorCognition({
+    message: "I think maybe we should release this to production",
+    source: "text",
+    capabilities: [],
+  });
+
+  assert.equal(result.path, "deep");
+  assert.equal(result.reason, "MATERIAL_UNCERTAINTY");
+});
+
 test("keeps lightweight non-strategic turn fast", () => {
   const result = routeOperatorCognition({
     message: "thanks",
@@ -39,6 +75,17 @@ test("keeps lightweight non-strategic turn fast", () => {
   });
 
   assert.equal(result.path, "fast");
+});
+
+test("keeps simple conversational status phrase fast without matching actions", () => {
+  const result = routeOperatorCognition({
+    message: "good morning",
+    source: "text",
+    capabilities: [],
+  });
+
+  assert.equal(result.path, "fast");
+  assert.equal(result.reason, "FAST_EXECUTIVE_TURN");
 });
 
 test("voice model reasoning remains single-pass deep", () => {

@@ -67,6 +67,10 @@ assert.match(capabilitySource, /transactional: false/);
 assert.match(capabilitySource, /risk: "low"/);
 assert.match(capabilitySource, /may recommend registered actions but never executes/i);
 assert.match(capabilitySource, /context\?\.metadata\?\.partyId/);
+assert.match(capabilitySource, /give me the business priorities/i);
+assert.match(capabilitySource, /biggest risks in the business/i);
+assert.match(capabilitySource, /biggest opportunities in the business/i);
+assert.match(capabilitySource, /what would you focus on as the owner/i);
 assert.match(platformRuntimeSource, /attention:\s*\{/);
 assert.match(platformRuntimeSource, /createOperatorAttentionCapability/);
 
@@ -95,5 +99,9 @@ console.log("OPERATOR_ATTENTION_EXECUTION=BOUNDED_PARALLEL_READ_CHAIN");
 console.log("OPERATOR_ATTENTION_CURRENT_STATE=LIVE_EVIDENCE_ONLY");
 console.log("OPERATOR_ATTENTION_RECOMMENDATIONS=NO_AUTOMATIC_WRITE_AUTHORIZATION");
 console.log("OPERATOR_ATTENTION_SEMANTICS=DYNAMIC_NO_FIXED_BUSINESS_VOCABULARY");
+console.log("OPERATOR_ATTENTION_PARTNER_INTENTS=PRIORITIES_RISKS_OPPORTUNITIES_OWNER_FOCUS");
 console.log("OPERATOR_ATTENTION_UI=PARALLEL_WITH_CONVERSATION_RESTORE");
 console.log("OPERATOR_ATTENTION_UI=SEPARATE_FROM_PERSISTED_CONVERSATION");
+
+await import("./operator-business-partner-decision-loop-audit.mjs");
+await import("./operator-service-latency-observability-audit.mjs");

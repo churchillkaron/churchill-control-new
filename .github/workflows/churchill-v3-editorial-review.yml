@@ -32,12 +32,14 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/churchill-v3-editorial review/churchill-v3-editorial
           QC='https://avantiqo.ai/api/internal/creative-churchill-night-changes-v3-qc?token=churchill-night-changes-v3-qc-20260821&action=clip'
+          SOURCE='https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/churchill-source-review?token=churchill-source-review-20260821'
           curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "${QC}&shot=ice_time_freeze" -o /tmp/churchill-v3-editorial/ice.mp4
           curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "${QC}&shot=wine_universe" -o /tmp/churchill-v3-editorial/wine.mp4
-          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors 'https://vfsjqabpkcbiuerhzugk.supabase.co/storage/v1/object/public/creative-assets/33336a72-acb5-474e-856b-8be0269360e2/8f46c5fe-e0ed-418f-a363-37a24df4b566/uploads/c2d8f4b6-4b02-4a92-9450-8415ab62803c/pooltable.jpg' -o /tmp/churchill-v3-editorial/pool.jpg
-          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors 'https://vfsjqabpkcbiuerhzugk.supabase.co/storage/v1/object/public/creative-assets/33336a72-acb5-474e-856b-8be0269360e2/8f46c5fe-e0ed-418f-a363-37a24df4b566/uploads/02a9cb18-55e1-4d13-84a7-0b0b261b20cd/dinner.jpg' -o /tmp/churchill-v3-editorial/dinner.jpg
+          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "${SOURCE}&kind=pool" -o /tmp/churchill-v3-editorial/pool.jpg
+          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "${SOURCE}&kind=dinner" -o /tmp/churchill-v3-editorial/dinner.jpg
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 /tmp/churchill-v3-editorial/ice.mp4
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 /tmp/churchill-v3-editorial/wine.mp4
+          file /tmp/churchill-v3-editorial/pool.jpg /tmp/churchill-v3-editorial/dinner.jpg
 
       - name: Render Ice to authentic orange pool landing
         shell: bash

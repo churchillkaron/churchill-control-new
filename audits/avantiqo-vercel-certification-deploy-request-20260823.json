@@ -1,0 +1,10 @@
+{
+  "contract": "AVANTIQO_VERCEL_CERTIFICATION_DEPLOY_REQUEST_V1",
+  "requested_at": "2026-08-23T00:29:00+07:00",
+  "source_commit": "73123240e7b2a5c67ddb39bc5f0aee594b910bef",
+  "purpose": "deploy Vercel-native owned-engine certification route using existing Vercel runtime environment",
+  "secrets_exported": false,
+  "github_secrets_required": false,
+  "pricing_activation_allowed": false,
+  "provider_routing_change_allowed": false
+}

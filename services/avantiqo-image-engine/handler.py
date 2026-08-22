@@ -38,6 +38,16 @@ DTYPE = (
     if os.getenv("AVANTIQO_IMAGE_DTYPE", "bfloat16").lower() == "bfloat16"
     else torch.float16
 )
+HF_CACHE_ROOT = Path(
+    os.getenv(
+        "AVANTIQO_IMAGE_HF_CACHE_ROOT",
+        "/runpod-volume/huggingface-cache/hub",
+    )
+)
+REQUIRE_CACHED_MODEL = os.getenv(
+    "AVANTIQO_IMAGE_REQUIRE_CACHED_MODEL",
+    "1",
+).strip().lower() not in {"0", "false", "no", "off"}
 _PIPELINES: dict[str, Any] = {}
 
 
@@ -85,13 +95,37 @@ def _foundation_model(capability: str) -> str:
     return FOUNDATION_MODEL
 
 
+def _cached_model_path(model_id: str) -> str | None:
+    if "/" not in model_id:
+        return None
+    model_root = HF_CACHE_ROOT / f"models--{model_id.replace('/', '--')}"
+    snapshots_root = model_root / "snapshots"
+    ref_main = model_root / "refs" / "main"
+    if ref_main.is_file():
+        revision = ref_main.read_text(encoding="utf-8").strip()
+        candidate = snapshots_root / revision
+        if candidate.is_dir():
+            return str(candidate)
+    if snapshots_root.is_dir():
+        candidates = [path for path in snapshots_root.iterdir() if path.is_dir()]
+        if candidates:
+            candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+            return str(candidates[0])
+    return None
+
+
 def _pipeline(model_id: str):
     if model_id in _PIPELINES:
         return _PIPELINES[model_id]
+    cached_path = _cached_model_path(model_id)
+    if REQUIRE_CACHED_MODEL and not cached_path:
+        raise RuntimeError(f"AVANTIQO_IMAGE_CACHED_MODEL_REQUIRED:{model_id}")
+    model_source = cached_path or model_id
     pipe = DiffusionPipeline.from_pretrained(
-        model_id,
+        model_source,
         torch_dtype=DTYPE,
         device_map="balanced" if DEVICE.startswith("cuda") else None,
+        local_files_only=bool(cached_path),
     )
     if not DEVICE.startswith("cuda"):
         pipe.to(DEVICE)
@@ -272,7 +306,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         image = Image.composite(generated, source_image, mask)
         preservation_mode = "POST_COMPOSITE_UNMASKED_PIXELS_EXACT"
     elif capability == "ai.image.outpaint":
-        conditions, preserved_source, source_box, mask = _outpaint_inputs(data, spec)
+        conditions, preserved_source, source_box, _mask = _outpaint_inputs(data, spec)
         control_instruction = (
             "Image 1 is the original image centered on a larger neutral canvas. Image 2 is a "
             "binary expansion mask: white pixels are new canvas that must be generated, black "
@@ -323,6 +357,9 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "capability": capability,
         "storage_reference": data["storage_upload"]["storage_reference"],
         "foundation_model": model_id,
+        "foundation_model_source": (
+            "runpod-cache" if _cached_model_path(model_id) else "huggingface"
+        ),
         "seed": seed,
         "width": width,
         "height": height,
@@ -338,16 +375,21 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 @runpod.serverless.register_fitness_check
 def check_worker():
-    if not FOUNDATION_MODEL:
-        raise RuntimeError("AVANTIQO_IMAGE_FOUNDATION_MODEL_REQUIRED")
-    if not EDIT_MODEL:
-        raise RuntimeError("AVANTIQO_IMAGE_EDIT_MODEL_REQUIRED")
-    if not INPAINT_MODEL:
-        raise RuntimeError("AVANTIQO_IMAGE_INPAINT_MODEL_REQUIRED")
-    if not OUTPAINT_MODEL:
-        raise RuntimeError("AVANTIQO_IMAGE_OUTPAINT_MODEL_REQUIRED")
+    models = {
+        "AVANTIQO_IMAGE_FOUNDATION_MODEL_REQUIRED": FOUNDATION_MODEL,
+        "AVANTIQO_IMAGE_EDIT_MODEL_REQUIRED": EDIT_MODEL,
+        "AVANTIQO_IMAGE_INPAINT_MODEL_REQUIRED": INPAINT_MODEL,
+        "AVANTIQO_IMAGE_OUTPAINT_MODEL_REQUIRED": OUTPAINT_MODEL,
+    }
+    for error_code, model_id in models.items():
+        if not model_id:
+            raise RuntimeError(error_code)
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_IMAGE_CUDA_REQUIRED")
+    if REQUIRE_CACHED_MODEL:
+        for model_id in set(models.values()):
+            if not _cached_model_path(model_id):
+                raise RuntimeError(f"AVANTIQO_IMAGE_CACHED_MODEL_REQUIRED:{model_id}")
 
 
 if __name__ == "__main__":

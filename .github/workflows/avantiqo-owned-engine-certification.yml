@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: avantiqo-owned-engine-certification
@@ -87,6 +88,38 @@ jobs:
             echo "## Avantiqo owned engine certification" >> "$GITHUB_STEP_SUMMARY"
             echo "- No suite report was produced." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Publish sanitized certification evidence to issue 279
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          node --input-type=module <<'NODE' > /tmp/owned-certification-comment.md
+          import { readFile } from "node:fs/promises";
+          const allowed = new Set(["intelligence", "voice", "music", "code"]);
+          let report = null;
+          try {
+            report = JSON.parse(await readFile("artifacts/owned-engine-certification/suite.json", "utf8"));
+          } catch {}
+          console.log(`## Owned engine certification run ${process.env.RUN_ID}`);
+          console.log(`Commit: \`${process.env.RUN_SHA}\``);
+          if (!report) {
+            console.log("- Result: NO_SUITE_REPORT");
+            console.log("- Production activation allowed: false");
+            process.exit(0);
+          }
+          for (const engine of report.engines || []) {
+            if (!allowed.has(engine.engine)) continue;
+            console.log(`- **${engine.engine}**: ${engine.status}; benchmark_passed=${engine.benchmark_passed === true}; blockers=${(engine.blockers || []).join(", ") || "none"}`);
+          }
+          console.log(`- Production activation allowed: ${report.activation_allowed === true}`);
+          console.log(`- Pricing activation performed: ${report.pricing_activation_performed === true}`);
+          console.log(`- Provider selection changed: ${report.provider_selection_changed === true}`);
+          NODE
+          gh issue comment 279 --repo "$GH_REPO" --body-file /tmp/owned-certification-comment.md
 
       - name: Upload certification evidence
         if: always()

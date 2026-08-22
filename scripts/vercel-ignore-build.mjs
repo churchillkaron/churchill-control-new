@@ -1,14 +1,16 @@
 // Hard production build gate.
 // Ordinary commits to main MUST NOT consume Vercel production build minutes.
 // Only an explicit final-release commit may build production.
-// Optional certification markers run only the audits they own.
+// Optional certification/diagnostic markers run only the checks they own.
 import { spawnSync } from "node:child_process";
 
 const FINAL_BUILD_MARKER = "[deploy-production-final]";
 const FINANCE_AUDIT_MARKER = "[finance-closeout-audit]";
 const INTELLIGENCE_AUDIT_MARKER = "[certify-avantiqo-intelligence]";
+const INTELLIGENCE_DIAGNOSTIC_MARKER = "[diagnose-avantiqo-intelligence]";
 const INTELLIGENCE_AUDIT_TIMEOUT_MS = 60000;
 const INTELLIGENCE_PROFILE_TIMEOUT_MS = 30000;
+const INTELLIGENCE_DIAGNOSTIC_TIMEOUT_MS = 210000;
 
 const commitMessage = String(
   process.env.VERCEL_GIT_COMMIT_MESSAGE || "",
@@ -17,6 +19,7 @@ const commitMessage = String(
 const hasFinalBuildMarker = commitMessage.includes(FINAL_BUILD_MARKER);
 const hasFinanceAuditMarker = commitMessage.includes(FINANCE_AUDIT_MARKER);
 const hasIntelligenceAuditMarker = commitMessage.includes(INTELLIGENCE_AUDIT_MARKER);
+const hasIntelligenceDiagnosticMarker = commitMessage.includes(INTELLIGENCE_DIAGNOSTIC_MARKER);
 
 console.log(`VERCEL_GIT_COMMIT_MESSAGE=${commitMessage || "(empty)"}`);
 
@@ -44,9 +47,11 @@ function runDiagnostic(script, label = "RELEASE_DIAGNOSTIC", timeout = undefined
     ...(Number.isFinite(Number(timeout)) ? { timeout: Number(timeout) } : {}),
   });
   const timedOut = Boolean(result.error && result.error.code === "ETIMEDOUT");
+  const passed = result.status === 0 && !timedOut;
   console.log(
-    `${label} script=${script} result=${result.status === 0 && !timedOut ? "PASS" : "UNAVAILABLE"} exit=${result.status ?? "unknown"} timed_out=${timedOut}`,
+    `${label} script=${script} result=${passed ? "PASS" : "UNAVAILABLE"} exit=${result.status ?? "unknown"} timed_out=${timedOut}`,
   );
+  return passed;
 }
 
 if (hasFinanceAuditMarker) {
@@ -67,6 +72,18 @@ if (hasFinanceAuditMarker) {
   }
 
   console.log("FINANCE_CLOSEOUT_AUDIT=PASS");
+}
+
+if (hasIntelligenceDiagnosticMarker) {
+  const diagnosticPassed = runDiagnostic(
+    "scripts/avantiqo-intelligence-coldstart-diagnostic.mjs",
+    "AVANTIQO_INTELLIGENCE_COLDSTART_DIAGNOSTIC",
+    INTELLIGENCE_DIAGNOSTIC_TIMEOUT_MS,
+  );
+  console.log(
+    `VERCEL_BUILD=SKIP reason=avantiqo-intelligence-diagnostic-only diagnostic_passed=${diagnosticPassed}`,
+  );
+  process.exit(0);
 }
 
 if (hasIntelligenceAuditMarker) {

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   crossConversationAmbiguityTurn,
   isCrossConversationContinuationRequest,
+  matchContinuityProjectSelection,
   selectContinuityProjectCandidates,
 } from "../lib/operator/runtime/IntelligenceCrossConversationContinuityRuntime.js";
 
@@ -56,6 +57,29 @@ test("two recently active projects remain ambiguous", () => {
   assert.equal(result.reason, "MULTIPLE_RECENT_ACTIVE_PROJECTS");
 });
 
+test("project selection accepts deterministic number and exact name", () => {
+  const options = [
+    { id: "project-a", label: "Finish Synthetic Intelligence" },
+    { id: "project-b", label: "Finish investor film" },
+  ];
+
+  assert.equal(matchContinuityProjectSelection("1", options)?.id, "project-a");
+  assert.equal(matchContinuityProjectSelection("second", options)?.id, "project-b");
+  assert.equal(
+    matchContinuityProjectSelection("Finish Synthetic Intelligence", options)?.id,
+    "project-a",
+  );
+});
+
+test("project selection refuses ambiguous partial text", () => {
+  const options = [
+    { id: "a", label: "Finish investor film" },
+    { id: "b", label: "Finish investor film subtitles" },
+  ];
+
+  assert.equal(matchContinuityProjectSelection("investor film", options), null);
+});
+
 test("ambiguous project recovery asks instead of guessing", () => {
   const result = crossConversationAmbiguityTurn({
     recovery: {
@@ -78,6 +102,7 @@ test("ambiguous project recovery asks instead of guessing", () => {
   assert.equal(result.decision.intent, "clarify");
   assert.equal(result.decision.clarification.required, true);
   assert.equal(result.decision.clarification.options.length, 2);
+  assert.equal(result.decision.project_continuity_selection_required, true);
   assert.equal(result.project_continuity.authorization_recovered, false);
   assert.equal(result.project_continuity.mutable_business_evidence_recovered, false);
 });

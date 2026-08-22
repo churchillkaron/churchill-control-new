@@ -1,0 +1,5 @@
+Synthetic Intelligence V6 review endpoint and renderer.
+Scope: investor film only.
+Order locked: Synthetic Intelligence first, Communication second, Studio later.
+Review-only render; canonical investor-film master remains untouched.
+No Churchill assets. No Studio assets. No social icons. No radar/network diagram.

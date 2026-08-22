@@ -19,6 +19,9 @@ import {
   CHURCHILL_NIGHT_CHANGES_STORY_VERSION,
   assertChurchillNightStoryIntegrity,
 } from "@/lib/creative/concepts/ChurchillNightChangesStoryContract";
+import {
+  evaluateChurchillV3MasterReadiness,
+} from "@/lib/creative/concepts/ChurchillV3MasterReadiness";
 
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const TOKEN = "churchill-night-changes-v3-render-20260821";
@@ -40,14 +43,15 @@ const SOURCE = Object.freeze({
   food_salmon: "7df53ffb-b0dd-4a25-bc68-8e4225fe782f",
   pool_video: "d10ddc3a-386f-403b-9bb4-2cfe40c7c655",
   pool_still: "797c9d16-5465-4e60-be93-a6c65707f7db",
-  shuffleboard: "23756544-16cd-4d76-9e26-2e11bdde8c23",
+  shuffleboard_real: "4357898f-23fd-418f-af8d-89e3719c0969",
+  pool_electronic_darts_real: "7bc9e891-e3d0-4b03-8b53-95ff255f31c6",
   singer_identity: "370a3030-8656-4b28-934f-6653d5eaf3c8",
   band: "cb027610-625c-4751-99a0-6a41b3597237",
   stage_video: "dcd86649-42f8-4f7a-be91-00c456eb940d",
   score: "4de3ecea-6c1a-4d28-a48d-ae8d246237f5",
 });
 
-const VFX_KEYS = Object.freeze([
+const ORIGINAL_VFX_KEYS = Object.freeze([
   "wine_universe",
   "steam_into_bar",
   "ice_time_freeze",
@@ -55,6 +59,12 @@ const VFX_KEYS = Object.freeze([
   "shuffleboard_to_dart",
   "electric_dart_flight",
   "frozen_night_hero",
+]);
+
+// Only user-approved original physics plates may pass directly into the final edit.
+const DIRECT_APPROVED_VFX = new Set([
+  "wine_universe",
+  "steam_into_bar",
 ]);
 
 const BEATS = Object.freeze(CHURCHILL_NIGHT_CHANGES_STORY.canonical_beats.map((item) => ({
@@ -221,22 +231,84 @@ async function sequence(ffmpeg, urls, seconds, directory, prefix) {
   return concat(ffmpeg, parts, output, seconds);
 }
 
-async function vfxOutputs(p) {
-  const shots = p.metadata?.churchill_v3_vfx?.shots || {};
-  const output = {};
-  for (const key of VFX_KEYS) {
-    const shot = shots[key];
-    if (shot?.status !== "COMPLETED" || !shot?.output_reference) {
-      throw new Error(`CHURCHILL_V3_VFX_NOT_READY:${key}`);
-    }
-    output[key] = await signedReference(shot.output_reference);
-  }
-  return output;
+function completedReference(node) {
+  return node?.status === "COMPLETED" && node?.output_reference ? node.output_reference : null;
 }
 
-async function renderBeat({ ffmpeg, beat, assetsById, vfx, directory }) {
+function repairState(p) {
+  const original = p.metadata?.churchill_v3_vfx?.shots || {};
+  const r1 = p.metadata?.churchill_v3_repairs?.generations || {};
+  const r2 = p.metadata?.churchill_v3_repairs_r2?.generations || {};
+  const r2b = p.metadata?.churchill_v3_dart_r2b?.generations || {};
+  const editorial = p.metadata?.churchill_v3_editorial || {};
+  return { original, r1, r2, r2b, editorial };
+}
+
+async function mediaOutputs(p) {
+  const state = repairState(p);
+  const output = { original: {}, r1: {}, r2: {}, r2b: {} };
+
+  for (const key of DIRECT_APPROVED_VFX) {
+    const reference = completedReference(state.original[key]);
+    if (!reference) throw new Error(`CHURCHILL_V3_APPROVED_VFX_NOT_READY:${key}`);
+    output.original[key] = await signedReference(reference);
+  }
+
+  for (const [key, node] of Object.entries(state.r1)) {
+    const reference = completedReference(node);
+    if (reference) output.r1[key] = await signedReference(reference);
+  }
+  for (const [key, node] of Object.entries(state.r2)) {
+    const reference = completedReference(node);
+    if (reference) output.r2[key] = await signedReference(reference);
+  }
+  for (const [key, node] of Object.entries(state.r2b)) {
+    const reference = completedReference(node);
+    if (reference) output.r2b[key] = await signedReference(reference);
+  }
+
+  return { state, output };
+}
+
+function masterReadiness(p) {
+  const state = repairState(p);
+  const editorial = state.editorial || {};
+  return evaluateChurchillV3MasterReadiness({
+    canonical_story_version: p.metadata?.canonical_story_version,
+    real_shuffleboard_asset_id: SOURCE.shuffleboard_real,
+    real_pool_electronic_darts_asset_id: SOURCE.pool_electronic_darts_real,
+    exact_logo_asset_id: SOURCE.logo_exact,
+    asset_ids: Object.values(SOURCE),
+    approvals: {
+      wine_universe: true,
+      steam_into_bar: true,
+    },
+    repairs: {
+      ice_time_freeze_authentic_pool_landing: editorial.ice_time_freeze_authentic_pool_landing === true,
+      shuffleboard_to_dart_editorial_match_cut: editorial.shuffleboard_to_dart_editorial_match_cut === true,
+      electric_dart_flight_authentic_electronic_darts: editorial.electric_dart_flight_authentic_electronic_darts === true,
+      frozen_night_hero_authentic_composite: editorial.frozen_night_hero_authentic_composite === true,
+      wine_loop_return_authentic_payoff: editorial.wine_loop_return_authentic_payoff === true,
+      sound_design_grammar: editorial.sound_design_grammar === true,
+    },
+    generated_people_present: editorial.generated_people_present === true,
+    traditional_dartboard_present: editorial.traditional_dartboard_present === true,
+    generic_venue_replacement_present: editorial.generic_venue_replacement_present === true,
+    old_r1_dart_final: editorial.old_r1_dart_final === true,
+    old_r1_frozen_hero_final: editorial.old_r1_frozen_hero_final === true,
+    master_duration_seconds: MASTER_SECONDS,
+    visual_review_complete: editorial.visual_review_complete === true,
+    sound_review_complete: editorial.sound_review_complete === true,
+    publication_authorized: false,
+  });
+}
+
+async function renderBeat({ ffmpeg, beat, assetsById, media, directory }) {
   const output = path.join(directory, `${beat.id}.mp4`);
-  if (vfx[beat.id]) return renderOne(ffmpeg, vfx[beat.id], output, beat.seconds, "video");
+
+  if (DIRECT_APPROVED_VFX.has(beat.id)) {
+    return renderOne(ffmpeg, media.original[beat.id], output, beat.seconds, "video");
+  }
 
   if (beat.id === "logo_prologue") {
     const a = path.join(directory, "logo-prologue-motion.mp4");
@@ -250,37 +322,72 @@ async function renderBeat({ ffmpeg, beat, assetsById, vfx, directory }) {
   }
   if (beat.id === "dinner_future_reflections") {
     const motion = path.join(directory, "dinner-motion.mp4");
-    const stills = path.join(directory, "dinner-stills.mp4");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.dining_video)), motion, 3.7, "video");
-    await sequence(ffmpeg, await Promise.all([SOURCE.dinner_social, SOURCE.food_striploin, SOURCE.food_carpaccio, SOURCE.food_salmon].map((id) => assetUrl(assetsById.get(id)))), 3.3, directory, "dinner-details");
-    await fs.rename(path.join(directory, "dinner-details.mp4"), stills);
-    return concat(ffmpeg, [motion, stills], output, beat.seconds);
+    const details = path.join(directory, "dinner-details.mp4");
+    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.dining_video)), motion, 4.4, "video");
+    await sequence(
+      ffmpeg,
+      await Promise.all([SOURCE.food_striploin, SOURCE.food_carpaccio, SOURCE.food_salmon].map((id) => assetUrl(assetsById.get(id)))),
+      2.6,
+      directory,
+      "dinner-detail-sequence",
+    );
+    await fs.rename(path.join(directory, "dinner-detail-sequence.mp4"), details);
+    return concat(ffmpeg, [motion, details], output, beat.seconds);
+  }
+  if (beat.id === "ice_time_freeze") {
+    throw new Error("CHURCHILL_V3_FINAL_ICE_COMPOSITE_REQUIRED");
   }
   if (beat.id === "pool_activation") {
     const motion = path.join(directory, "pool-motion.mp4");
     const still = path.join(directory, "pool-still.mp4");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.pool_video)), motion, 4.0, "video");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.pool_still)), still, 2.0, "image");
+    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.pool_video)), motion, 4.8, "video");
+    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.pool_still)), still, 1.2, "image");
     return concat(ffmpeg, [motion, still], output, beat.seconds);
+  }
+  if (beat.id === "pool_to_shuffleboard") {
+    if (!media.r1.shuffleboard_motion) throw new Error("CHURCHILL_V3_APPROVED_SHUFFLEBOARD_MOTION_REQUIRED");
+    return renderOne(ffmpeg, media.r1.shuffleboard_motion, output, beat.seconds, "video");
+  }
+  if (beat.id === "shuffleboard_to_dart") {
+    throw new Error("CHURCHILL_V3_FINAL_SHUFFLEBOARD_DART_EDIT_REQUIRED");
+  }
+  if (beat.id === "electric_dart_flight") {
+    throw new Error("CHURCHILL_V3_FINAL_ELECTRONIC_DART_EDIT_REQUIRED");
   }
   if (beat.id === "band_activates_churchill") {
     const stage = path.join(directory, "band-stage.mp4");
     const band = path.join(directory, "band-real.mp4");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.stage_video)), stage, 4.0, "video");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.band)), band, 3.0, "image");
+    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.stage_video)), stage, 5.4, "video");
+    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.band)), band, 1.6, "image");
     return concat(ffmpeg, [stage, band], output, beat.seconds);
   }
   if (beat.id === "many_realities_same_night") {
-    return sequence(ffmpeg, await Promise.all([SOURCE.dinner_social, SOURCE.pool_still, SOURCE.shuffleboard, SOURCE.band].map((id) => assetUrl(assetsById.get(id)))), beat.seconds, directory, "many-realities");
+    // Temporary authentic-only edit architecture. No old stylized shuffleboard is allowed.
+    return sequence(
+      ffmpeg,
+      await Promise.all([
+        SOURCE.dinner_social,
+        SOURCE.pool_still,
+        SOURCE.shuffleboard_real,
+        SOURCE.pool_electronic_darts_real,
+        SOURCE.band,
+      ].map((id) => assetUrl(assetsById.get(id)))),
+      beat.seconds,
+      directory,
+      "many-realities-authentic",
+    );
+  }
+  if (beat.id === "frozen_night_hero") {
+    throw new Error("CHURCHILL_V3_FINAL_FROZEN_HERO_COMPOSITE_REQUIRED");
   }
   if (beat.id === "wine_loop_return") {
-    return renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.dinner_social)), output, beat.seconds, "image", 0);
+    throw new Error("CHURCHILL_V3_FINAL_WINE_LOOP_PAYOFF_REQUIRED");
   }
   if (beat.id === "logo_epilogue") {
     const motion = path.join(directory, "logo-epilogue-motion.mp4");
     const exact = path.join(directory, "logo-epilogue-exact.mp4");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.logo_motion_existing)), motion, 4.5, "video");
-    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.logo_exact)), exact, 3.5, "image", 0);
+    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.logo_motion_existing)), motion, 4.0, "video");
+    await renderOne(ffmpeg, await assetUrl(assetsById.get(SOURCE.logo_exact)), exact, 4.0, "image", 0);
     return concat(ffmpeg, [motion, exact], output, beat.seconds);
   }
   throw new Error(`CHURCHILL_V3_BEAT_RENDERER_MISSING:${beat.id}`);
@@ -312,7 +419,7 @@ async function register({ p, target, bytes, checksum, qc }) {
       story_locked: true,
       story_change_authorized: false,
       source_asset_ids: [...new Set(Object.values(SOURCE))],
-      vfx_shots: VFX_KEYS,
+      direct_approved_vfx: [...DIRECT_APPROVED_VFX],
       duration_seconds: MASTER_SECONDS,
       technical_qc: qc,
       checksum,
@@ -327,8 +434,13 @@ async function register({ p, target, bytes, checksum, qc }) {
 async function render() {
   assertChurchillNightStoryIntegrity();
   const p = await project();
+  const readiness = masterReadiness(p);
+  if (!readiness.ready) {
+    throw new Error(`CHURCHILL_V3_MASTER_BLOCKED:${readiness.failures.join("|")}`);
+  }
+
   const assetsById = await assets();
-  const vfx = await vfxOutputs(p);
+  const { output: media } = await mediaOutputs(p);
   const ffmpeg = resolveCreativeFfmpegPath();
   const ffprobe = resolveCreativeFfprobePath();
   if (!ffmpeg || !ffprobe) throw new Error("CHURCHILL_V3_MEDIA_BINARIES_NOT_READY");
@@ -338,7 +450,7 @@ async function render() {
   const master = path.join(directory, "churchill-v3-master.mp4");
   try {
     const files = [];
-    for (const beat of BEATS) files.push(await renderBeat({ ffmpeg, beat, assetsById, vfx, directory }));
+    for (const beat of BEATS) files.push(await renderBeat({ ffmpeg, beat, assetsById, media, directory }));
     await concat(ffmpeg, files, visual, MASTER_SECONDS);
 
     const scoreUrl = await assetUrl(assetsById.get(SOURCE.score));
@@ -360,10 +472,10 @@ async function render() {
       master,
     ], 180000);
 
-    const media = await probe(ffprobe, master);
-    const duration = Number(media?.format?.duration || 0);
-    const video = (media?.streams || []).find((stream) => stream.codec_type === "video");
-    const audio = (media?.streams || []).find((stream) => stream.codec_type === "audio");
+    const mediaInfo = await probe(ffprobe, master);
+    const duration = Number(mediaInfo?.format?.duration || 0);
+    const video = (mediaInfo?.streams || []).find((stream) => stream.codec_type === "video");
+    const audio = (mediaInfo?.streams || []).find((stream) => stream.codec_type === "audio");
     if (!video || !audio) throw new Error("CHURCHILL_V3_AV_REQUIRED");
     if (Number(video.width) !== WIDTH || Number(video.height) !== HEIGHT) throw new Error(`CHURCHILL_V3_DIMENSIONS_INVALID:${video.width}x${video.height}`);
     if ((video.r_frame_rate || video.avg_frame_rate) !== "24/1") throw new Error("CHURCHILL_V3_FPS_INVALID");
@@ -394,9 +506,9 @@ async function render() {
       video_codec: video.codec_name || null,
       audio_codec: audio.codec_name || null,
       mandatory_story_beats: BEATS.length,
-      mandatory_vfx_shots: VFX_KEYS.length,
       story_version: CHURCHILL_NIGHT_CHANGES_STORY_VERSION,
       story_integrity_passed: true,
+      authenticity_readiness_passed: true,
     };
     const asset = await register({ p, target, bytes: buffer.length, checksum, qc });
     const { data: signed, error: signedError } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(target, 86400);
@@ -420,13 +532,26 @@ async function render() {
 
 async function status() {
   const p = await project();
-  const shots = p.metadata?.churchill_v3_vfx?.shots || {};
+  const state = repairState(p);
+  const readiness = masterReadiness(p);
   return {
     success: true,
     canonical_story_version: CHURCHILL_NIGHT_CHANGES_STORY_VERSION,
     story_integrity_passed: assertChurchillNightStoryIntegrity(),
     duration_seconds: MASTER_SECONDS,
-    vfx: Object.fromEntries(VFX_KEYS.map((key) => [key, { status: shots[key]?.status || "NOT_STARTED", ready: shots[key]?.status === "COMPLETED" && Boolean(shots[key]?.output_reference) }])),
+    approved_original_vfx: Object.fromEntries([...DIRECT_APPROVED_VFX].map((key) => [key, {
+      status: state.original[key]?.status || "NOT_STARTED",
+      ready: Boolean(completedReference(state.original[key])),
+    }])),
+    repairs: {
+      shuffleboard_motion: state.r1.shuffleboard_motion?.status || "NOT_STARTED",
+      shuffleboard_exit_r2: state.r2.shuffleboard_exit_r2?.status || "NOT_STARTED",
+      dart_entry_r2b: state.r2b.dart_entry_r2b?.status || "NOT_STARTED",
+      dart_midflight_r2b: state.r2b.dart_midflight_r2b?.status || "NOT_STARTED",
+      dart_impact_r2b: state.r2b.dart_impact_r2b?.status || "NOT_STARTED",
+    },
+    readiness,
+    master_render_authorized: readiness.ready,
     publication_authorized: false,
   };
 }

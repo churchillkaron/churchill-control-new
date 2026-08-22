@@ -172,6 +172,7 @@ async function upload(localPath) {
       real_world_visible_through_glass: "true",
       opaque_card: "false",
       black_panel: "false",
+      architecture_audit_blockers_cleared: "true",
       no_orb: "true",
       no_pills: "true",
       no_dashboard_cards: "true",

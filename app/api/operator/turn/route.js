@@ -5,8 +5,8 @@ import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
 import {
-  runOperatorTurn,
-} from "@/lib/operator/runtime/OperatorTurnRuntime";
+  runSyntheticIntelligenceTurn,
+} from "@/lib/operator/runtime/SyntheticIntelligenceTurnRuntime";
 import {
   loadIntelligenceConversationSnapshot,
   loadOrCreateIntelligenceConversation,
@@ -288,7 +288,7 @@ export async function POST(request) {
     let operatorMs = 0;
     let userTurnPersistMs = 0;
     const operatorStartedAt = Date.now();
-    const operatorPromise = runOperatorTurn({
+    const operatorPromise = runSyntheticIntelligenceTurn({
       organizationId: businessContext.organizationId,
       entityId: businessContext.entityId,
       periodId: businessContext.periodId,

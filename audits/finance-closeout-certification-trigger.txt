@@ -1,2 +1,3 @@
 Finance closeout certification trigger.
 Audit-only marker: runs Finance closeout and regression audits in the Vercel ignore gate, then skips the production build.
+Certification rerun after regression source-path repair.

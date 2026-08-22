@@ -138,7 +138,7 @@ async function renderEntrance(ffmpeg, sourceUrl, output) {
   const filter = [
     `[0:v]split=2[bg0][fg0]`,
     `[bg0]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},gblur=sigma=30,eq=contrast=1.01:saturation=0.72:brightness=-0.075[bg]`,
-    `[fg0]scale=813:${HEIGHT}:force_original_aspect_ratio=decrease,pad=813:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:black,zoompan=z='min(1.0+on*0.00010,1.012)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=813x${HEIGHT}:fps=${FPS},eq=contrast=1.015:saturation=1.0:brightness=-0.005[fg]`,
+    `[fg0]scale=812:${HEIGHT},setsar=1,zoompan=z='min(1.0+on*0.00010,1.012)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=812x${HEIGHT}:fps=${FPS},eq=contrast=1.015:saturation=1.0:brightness=-0.005[fg]`,
     `[bg][fg]overlay=(W-w)/2:0,fade=t=in:st=0:d=0.28,fade=t=out:st=4.70:d=0.30,format=yuv420p[out]`,
   ].join(";");
 

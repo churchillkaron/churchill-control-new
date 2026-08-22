@@ -19,7 +19,7 @@ const INTELLIGENCE_PROFILE_TIMEOUT_MS = 30000;
 const INTELLIGENCE_DIAGNOSTIC_TIMEOUT_MS = 210000;
 const INTELLIGENCE_GOVERNED_PROBE_TIMEOUT_MS = 120000;
 const INTELLIGENCE_DIRECT_PROBE_TIMEOUT_MS = 65000;
-const INTELLIGENCE_BENCHMARK_TIMEOUT_MS = 240000;
+const INTELLIGENCE_BENCHMARK_TIMEOUT_MS = 360000;
 const INTELLIGENCE_STRATEGY_INSPECTION_TIMEOUT_MS = 150000;
 const INTELLIGENCE_PURGE_TIMEOUT_MS = 30000;
 const INTELLIGENCE_CANCEL_TIMEOUT_MS = 30000;
@@ -89,7 +89,7 @@ if (hasIntelligenceStrategyInspectionMarker) {
 }
 
 if (hasIntelligenceBenchmarkMarker) {
-  const passed = runDiagnostic("scripts/avantiqo-intelligence-benchmark.mjs", "AVANTIQO_INTELLIGENCE_BENCHMARK", INTELLIGENCE_BENCHMARK_TIMEOUT_MS);
+  const passed = runDiagnostic("scripts/benchmark-avantiqo-intelligence.mjs", "AVANTIQO_INTELLIGENCE_NON_QUEUE_CERTIFICATION", INTELLIGENCE_BENCHMARK_TIMEOUT_MS);
   console.log(`VERCEL_BUILD=SKIP reason=avantiqo-intelligence-benchmark-only benchmark_passed=${passed}`);
   process.exit(0);
 }

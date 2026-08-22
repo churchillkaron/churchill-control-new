@@ -20,7 +20,7 @@ const PROMPT = `Create a single photoreal 5-second 16:9 luxury hospitality-comme
 SCENE 02: ENTRANCE INTO THE NIGHT.
 This shot follows immediately after Scene 01 THE DROP, where camera travels through a physical red-wine droplet and exits toward one small warm practical opening.
 
-Use the supplied authentic Churchill entrance video as the PRIMARY identity and geometry truth. Use the supplied Churchill entrance photograph only as secondary geometry confirmation. Preserve the real architecture, doorway, red carpet, plants, stanchions, exterior materials, proportions and actual Churchill character. Do NOT redesign or replace the venue.
+Use the supplied authentic Churchill entrance photograph as the PRIMARY generation plate and identity/geometry truth. The production also holds an authentic Churchill entrance video as motion and geometry reference evidence, but do not invent anything not visible in the supplied entrance plate. Preserve the real architecture, doorway, red carpet, plants, stanchions, exterior materials, proportions and actual Churchill character. Do NOT redesign or replace the venue.
 
 TIMING / CAMERA:
 0.00-0.45 sec: begin inside a deep burgundy-black optical field matching the previous wine-drop ending. One warm practical opening grows naturally ahead. No title, no logo overlay.
@@ -83,16 +83,16 @@ async function start() {
     provider_policy: { allowed_providers: [PROVIDER], preferred_providers: [PROVIDER] },
     input: {
       model: MODEL,
-      primary_source_asset_id: ENTRANCE_VIDEO,
-      source: ENTRANCE_VIDEO,
-      selected_assets: [ENTRANCE_VIDEO],
+      primary_source_asset_id: ENTRANCE_IMAGE,
+      source: ENTRANCE_IMAGE,
+      selected_assets: [ENTRANCE_IMAGE],
       prompt: PROMPT,
       provider_prompt: PROMPT,
       media_duration_seconds: 5,
       duration_seconds: 5,
       output_spec: { duration_seconds: 5, aspect_ratio: "16:9" },
       generation: { model: MODEL, output_spec: { duration_seconds: 5, aspect_ratio: "16:9" } },
-      provider_parameters: { aspect_ratio: "16:9", primary_source_asset_id: ENTRANCE_VIDEO },
+      provider_parameters: { aspect_ratio: "16:9", primary_source_asset_id: ENTRANCE_IMAGE },
       creative_project_id: PROJECT_ID,
       creative_mission_id: p.creative_mission_id || null,
       credential_id: cred,
@@ -105,8 +105,9 @@ async function start() {
       version: VERSION,
       creative_project_id: PROJECT_ID,
       scene_key: SCENE_KEY,
-      primary_source_asset_id: ENTRANCE_VIDEO,
-      authentic_reference_asset_ids: [ENTRANCE_VIDEO, ENTRANCE_IMAGE],
+      primary_source_asset_id: ENTRANCE_IMAGE,
+      motion_reference_asset_id: ENTRANCE_VIDEO,
+      authentic_reference_asset_ids: [ENTRANCE_IMAGE, ENTRANCE_VIDEO],
       generated_venue_replacement_allowed: false,
       generated_people_allowed: false,
       signage_rewrite_allowed: false,
@@ -127,8 +128,9 @@ async function start() {
     started_at: result?.started_at || new Date().toISOString(),
     source_duration_seconds: 5,
     final_editorial_duration_seconds: 5,
-    primary_source_asset_id: ENTRANCE_VIDEO,
-    authentic_reference_asset_ids: [ENTRANCE_VIDEO, ENTRANCE_IMAGE],
+    primary_source_asset_id: ENTRANCE_IMAGE,
+    motion_reference_asset_id: ENTRANCE_VIDEO,
+    authentic_reference_asset_ids: [ENTRANCE_IMAGE, ENTRANCE_VIDEO],
     output_reference: result?.pending ? null : (result?.output?.file_url || result?.output?.video_url || result?.output?.url || result?.output?.raw?.output?.storage_reference || null),
     visual_review_complete: false,
     approved_for_master: false,

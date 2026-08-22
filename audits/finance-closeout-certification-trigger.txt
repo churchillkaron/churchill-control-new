@@ -1,3 +1,3 @@
 Finance closeout certification trigger.
-Audit-only marker: runs Finance closeout and regression audits in the Vercel ignore gate, then skips the production build.
-Certification rerun after repairing regression assertions without weakening runtime controls.
+Final release marker: reruns Finance certification and permits the one production build only when both audit suites pass.
+Certified after full 67-capability closure and governed integration convergence.

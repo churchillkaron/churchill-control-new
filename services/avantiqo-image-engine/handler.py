@@ -205,12 +205,29 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     data["source_assets"] = [
         _public_https_url(value) for value in source_assets if _text(value)
     ]
-    if capability in {"ai.image.edit", "ai.image.outpaint"} and not data[
-        "source_assets"
-    ]:
+
+    raw_roles = data.get("source_asset_roles") or {}
+    if not isinstance(raw_roles, dict):
+        raise ValueError("AVANTIQO_IMAGE_SOURCE_ASSET_ROLES_INVALID")
+    roles: dict[str, str] = {}
+    for role in ("source_image", "mask_image"):
+        value = raw_roles.get(role)
+        if _text(value):
+            roles[role] = _public_https_url(value)
+    data["source_asset_roles"] = roles
+
+    source_image = roles.get("source_image") or (
+        data["source_assets"][0] if data["source_assets"] else None
+    )
+    mask_image = roles.get("mask_image") or (
+        data["source_assets"][1] if len(data["source_assets"]) > 1 else None
+    )
+    if capability in {"ai.image.edit", "ai.image.outpaint"} and not source_image:
         raise ValueError("AVANTIQO_IMAGE_SOURCE_REQUIRED")
-    if capability == "ai.image.inpaint" and len(data["source_assets"]) < 2:
+    if capability == "ai.image.inpaint" and (not source_image or not mask_image):
         raise ValueError("AVANTIQO_IMAGE_INPAINT_SOURCE_AND_MASK_REQUIRED")
+    data["resolved_source_image"] = source_image
+    data["resolved_mask_image"] = mask_image
 
     storage = data.get("storage_upload") or {}
     signed_url = _public_https_url(storage.get("signed_url"), upload=True)
@@ -231,8 +248,8 @@ def _binary_mask(mask: Image.Image, size: tuple[int, int]) -> Image.Image:
 
 
 def _inpaint_inputs(data: dict[str, Any]) -> tuple[list[Image.Image], Image.Image, Image.Image]:
-    source = load_image(data["source_assets"][0]).convert("RGB")
-    mask = _binary_mask(load_image(data["source_assets"][1]), source.size)
+    source = load_image(data["resolved_source_image"]).convert("RGB")
+    mask = _binary_mask(load_image(data["resolved_mask_image"]), source.size)
     mask_visual = Image.merge("RGB", (mask, mask, mask))
     return [source, mask_visual], source, mask
 
@@ -241,7 +258,7 @@ def _outpaint_inputs(
     data: dict[str, Any],
     spec: dict[str, Any],
 ) -> tuple[list[Image.Image], Image.Image, tuple[int, int, int, int], Image.Image]:
-    source = load_image(data["source_assets"][0]).convert("RGB")
+    source = load_image(data["resolved_source_image"]).convert("RGB")
     target_width, target_height = _dimensions(spec)
     max_width = max(1, int(target_width * 0.78))
     max_height = max(1, int(target_height * 0.78))
@@ -307,7 +324,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
     runpod.serverless.progress_update(job, "generating image")
     if capability == "ai.image.edit":
-        source_image = load_image(data["source_assets"][0]).convert("RGB")
+        source_image = load_image(data["resolved_source_image"]).convert("RGB")
         result = pipe(
             image=source_image,
             prompt=data["instruction"],
@@ -394,6 +411,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "height": height,
         "size_bytes": size_bytes,
         "source_asset_count": len(data.get("source_assets") or []),
+        "source_asset_roles": sorted((data.get("source_asset_roles") or {}).keys()),
+        "semantic_asset_roles_used": bool(data.get("source_asset_roles")),
         "preservation_mode": preservation_mode,
         "mask_conditioning_used": capability == "ai.image.inpaint",
         "outpaint_canvas_conditioning_used": capability == "ai.image.outpaint",

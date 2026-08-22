@@ -1,7 +1,7 @@
 AVANTIQO_INTELLIGENCE_DIAGNOSTIC_REQUEST_CLEANUP
 Date: 2026-08-22
 Branch: main
-Run: 2026-08-22T18:41:10+07:00
-Safety prerequisite verified immediately before this run: production database contains 0 active provider_pricing rows for provider avantiqo-intelligence, so Service Runtime cannot route customer reasoning traffic to this endpoint.
-Purpose: pre-activation diagnostic cleanup. Cancel every non-terminal recent RunPod request on this owned endpoint to remove client-aborted benchmark/probe executions before the long-ceiling strategic benchmark.
+Run: 2026-08-22T18:45:15+07:00
+Safety prerequisite: production database still has 0 active provider_pricing rows for provider avantiqo-intelligence.
+Purpose: authoritative pre-benchmark request-state check. Inspect recent RunPod requests and cancel any remaining non-terminal diagnostic request. A zero non-terminal result means the worker can be benchmarked even if RunPod health still labels the active worker as running rather than idle.
 No credentials or endpoint identifiers are stored here.

@@ -1,16 +1,6 @@
 name: Creative Font Library Certification
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'lib/creative/design/registry/CreativeFontLibraryRegistry.js'
-      - 'lib/creative/design/runtime/CreativePlatformFontAssetRuntime.js'
-      - 'lib/creative/design/runtime/CreativeDesignFontResolverRuntime.js'
-      - 'lib/creative/design/runtime/CreativeDesignFontMaterializationRuntime.js'
-      - 'lib/creative/assets/fonts/CreativeFontAssetInspectionRuntime.js'
-      - 'scripts/creative-font-library-live-certification.mjs'
-      - '.github/workflows/creative-font-library-certification.yml'
   workflow_dispatch:
 
 permissions:

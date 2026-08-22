@@ -79,6 +79,34 @@ test("honors an explicit provider policy that disables owned reasoning failover"
   assert.equal(result.reason, "OWNED_REASONING_FALLBACK_DISABLED");
 });
 
+test("does not violate an explicit allowlist that pins the owned provider", () => {
+  const result = allowedDecision({
+    providerPolicy: {
+      allowed_providers: [OWNED_REASONING_PROVIDER_ID],
+    },
+  });
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.reason, "NO_ALLOWED_FALLBACK_PROVIDER");
+});
+
+test("allows fallback when an explicit allowlist contains an alternative", () => {
+  const result = allowedDecision({
+    providerPolicy: {
+      allowed_providers: [OWNED_REASONING_PROVIDER_ID, "openai"],
+    },
+  });
+
+  assert.equal(result.allowed, true);
+  assert.deepEqual(result.provider_policy.allowed_providers, [
+    OWNED_REASONING_PROVIDER_ID,
+    "openai",
+  ]);
+  assert.deepEqual(result.provider_policy.blocked_providers, [
+    OWNED_REASONING_PROVIDER_ID,
+  ]);
+});
+
 test("prevents a third provider attempt from a fallback turn", () => {
   const result = allowedDecision({
     metadata: {

@@ -1,6 +1,7 @@
 AVANTIQO_INTELLIGENCE_DIAGNOSTIC_QUEUE_CLEANUP
 Date: 2026-08-22
 Branch: main
-Recheck: 2026-08-22T18:35:25+07:00
-Purpose: diagnostic-only health/quiescence check before reasoning benchmark. This owned provider has no active pricing row yet. Purge only waiting diagnostic jobs, refuse if an in-progress queue job is present, and report running/idle worker state.
+Recheck: 2026-08-22T18:42:40+07:00
+Purpose: diagnostic-only health/quiescence check after canceling all three pre-activation non-terminal diagnostic requests. Confirm worker is warm and queue is empty before the final long-ceiling reasoning benchmark.
+Safety: owned provider still has 0 active production pricing rows.
 No credentials or endpoint identifiers are stored here.

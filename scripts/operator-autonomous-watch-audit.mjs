@@ -6,6 +6,7 @@ const [
   evidenceSource,
   cognitionPolicySource,
   thesisRuntimeSource,
+  predictionSource,
   repositorySource,
   cronRouteSource,
   alertRouteSource,
@@ -19,6 +20,7 @@ const [
   readFile("lib/operator/runtime/OperatorAutonomousEvidenceRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorAutonomousCognitionPolicy.js", "utf8"),
   readFile("lib/operator/runtime/OperatorBusinessThesisRuntime.js", "utf8"),
+  readFile("lib/operator/contracts/OperatorPredictionAccountability.js", "utf8"),
   readFile("lib/operator/runtime/OperatorWatchStateRepository.js", "utf8"),
   readFile("app/api/internal/operator/autonomous-watch/process/route.js", "utf8"),
   readFile("app/api/operator/autonomous-watch/alert/route.js", "utf8"),
@@ -46,6 +48,7 @@ assert.match(runtimeSource, /paid_reasoning_used/);
 assert.match(runtimeSource, /paid_reasoning_count/);
 assert.match(runtimeSource, /deterministic_only_count/);
 assert.match(runtimeSource, /deferredThesis/);
+assert.match(runtimeSource, /prediction_accountability:\s*[^\n]*preview\?\.prediction_accountability/);
 assert.match(runtimeSource, /CONCURRENT_THESIS_UPDATE/);
 assert.match(runtimeSource, /concurrent_semantic_preservation/);
 assert.match(runtimeSource, /claimWatchRun/);
@@ -139,6 +142,31 @@ assert.match(thesisRuntimeSource, /autonomous_watch_version/);
 assert.match(thesisRuntimeSource, /latency_class:\s*autonomousCognition \? "background" : "interactive"/);
 assert.match(thesisRuntimeSource, /SYNTHESIZE_BUSINESS_THESIS/);
 assert.match(thesisRuntimeSource, /ServiceExecutionRuntime\.execute/);
+assert.match(thesisRuntimeSource, /mechanically checked later/i);
+assert.match(thesisRuntimeSource, /Forecast scoring happens deterministically at the horizon/i);
+assert.match(thesisRuntimeSource, /verification_ref|verificationRef/);
+
+assert.match(predictionSource, /HORIZON_MS/);
+assert.match(predictionSource, /normalizeOperatorPredictionVerification/);
+assert.match(predictionSource, /reconcileOperatorPredictionAccountability/);
+assert.match(predictionSource, /operatorPredictionAccountabilitySummary/);
+assert.match(predictionSource, /prediction_id/);
+assert.match(predictionSource, /subject_key/);
+assert.match(predictionSource, /evaluation_due_at/);
+assert.match(predictionSource, /DETERMINISTIC_VERIFICATION_MATCHED_AT_HORIZON/);
+assert.match(predictionSource, /DETERMINISTIC_VERIFICATION_NOT_MET_AT_HORIZON/);
+assert.match(predictionSource, /EVIDENCE_UNAVAILABLE_AT_HORIZON/);
+assert.match(predictionSource, /confirmed/);
+assert.match(predictionSource, /contradicted/);
+assert.match(predictionSource, /inconclusive/);
+assert.match(predictionSource, /superseded/);
+assert.match(predictionSource, /brier_score/);
+assert.match(predictionSource, /calibration_gap/);
+assert.match(predictionSource, /scored_resolved/);
+assert.match(predictionSource, /BLOCKED_PATH_SEGMENTS/);
+assert.doesNotMatch(predictionSource, /ServiceExecutionRuntime/);
+assert.doesNotMatch(predictionSource, /executeUbteCapability/);
+assert.doesNotMatch(predictionSource, /supabaseAdmin/);
 
 assert.match(repositorySource, /MAX_RETRIES = 4/);
 assert.match(repositorySource, /mutateOperatorWatchProjectState/);
@@ -183,6 +211,8 @@ assert.match(settingsRouteSource, /paid_reasoning_pass_limit/);
 assert.match(settingsRouteSource, /minimum_wallet_balance/);
 assert.match(settingsRouteSource, /deep_reasoning_on_change/);
 assert.match(settingsRouteSource, /evaluateAutonomousCognitionBudget/);
+assert.match(settingsRouteSource, /prediction_accountability/);
+assert.match(settingsRouteSource, /operatorPredictionAccountabilitySummary/);
 assert.match(settingsRouteSource, /persistence_attempts/);
 assert.doesNotMatch(settingsRouteSource, /executeUbteCapability/);
 assert.doesNotMatch(settingsRouteSource, /updateIntelligenceConversationState/);
@@ -242,3 +272,6 @@ assert.equal(
 );
 
 console.log("OPERATOR_AUTONOMOUS_WATCH_AUDIT=PASS");
+console.log("OPERATOR_FORECAST_ACCOUNTABILITY=DETERMINISTIC_HORIZON_SCORED");
+console.log("OPERATOR_FORECAST_CALIBRATION=CONFIDENCE_BUCKETS_BRIER_GAP");
+console.log("OPERATOR_FORECAST_SCORING_AI_CALL=ZERO");

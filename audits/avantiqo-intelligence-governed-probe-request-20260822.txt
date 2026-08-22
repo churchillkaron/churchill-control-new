@@ -6,3 +6,4 @@ Expected path: organization service -> provider resolution -> pricing -> wallet 
 Production application build must remain skipped; this marker runs the governed diagnostic gate only.
 Marker: [probe-governed-avantiqo-intelligence]
 Diagnostic revision: provider runtime/pricing preflight instrumentation enabled.
+Retry revision: explicit provider pinning no longer triggers impossible owned-provider fallback; expose the original execution failure directly.

@@ -42,6 +42,9 @@
     "app/api/internal/finance/forecast-exception-escalations/process/route.js": {
       "maxDuration": 300
     },
+    "app/api/internal/finance/scheduled-reports/process/route.js": {
+      "maxDuration": 300
+    },
     "app/api/internal/service-management/plans/process/route.js": {
       "maxDuration": 300
     }
@@ -118,6 +121,10 @@
     {
       "path": "/api/internal/finance/forecast-exception-escalations/process",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/internal/finance/scheduled-reports/process",
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/internal/service-management/plans/process",

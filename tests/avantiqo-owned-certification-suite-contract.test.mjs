@@ -7,15 +7,16 @@ const suite = fs.readFileSync(
   "utf8",
 );
 
-for (const engine of ["image", "cinema", "voice", "music", "code"]) {
+for (const engine of ["intelligence", "image", "cinema", "voice", "music", "code"]) {
   test(`unified suite includes ${engine} benchmark`, () => {
     assert.match(suite, new RegExp(`id:\\s*\\?"${engine}\\?"`));
     assert.match(suite, new RegExp(`benchmark-avantiqo-${engine}\\.mjs`));
   });
 }
 
-test("intelligence remains blocked from generic queue-contaminating benchmark", () => {
-  assert.match(suite, /DEDICATED_NON_QUEUE_CONTAMINATING_CERTIFICATION_PROBE_REQUIRED/);
+test("intelligence uses dedicated non-queue certification contract", () => {
+  assert.match(suite, /AVANTIQO_INTELLIGENCE_NON_QUEUE_CERTIFICATION_V1/);
+  assert.doesNotMatch(suite, /DEDICATED_NON_QUEUE_CONTAMINATING_CERTIFICATION_PROBE_REQUIRED/);
 });
 
 test("suite cannot activate pricing or provider selection", () => {

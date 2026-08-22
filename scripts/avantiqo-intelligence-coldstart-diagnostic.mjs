@@ -2,11 +2,15 @@ import {
   getAvantiqoIntelligenceEndpointHealth,
   probeAvantiqoIntelligenceRuntime,
 } from "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js";
+import {
+  ServiceExecutionRuntime,
+} from "../lib/platform/service-runtime/execution/ServiceExecutionRuntime.js";
 
 const RUNPOD_API_BASE = "https://api.runpod.ai/v2";
 const MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507";
 const MAX_WAIT_MS = 180000;
 const POLL_MS = 2000;
+const GOVERNED_PROBE_ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -58,6 +62,14 @@ async function requestJson(url, { apiKey, method = "GET", body = undefined, time
 
 function statusName(payload = {}) {
   return text(payload?.status || payload?.state).toUpperCase();
+}
+
+function parseArguments(value) {
+  try {
+    return JSON.parse(String(value || "{}"));
+  } catch {
+    return null;
+  }
 }
 
 const { endpointId, apiKey } = environment();
@@ -167,4 +179,78 @@ if (!probe.success) {
   throw new Error("AVANTIQO_WARM_RUNTIME_CERTIFICATION_FAILED");
 }
 
+const governedStartedAt = Date.now();
+const governed = await ServiceExecutionRuntime.execute({
+  organization_id: GOVERNED_PROBE_ORGANIZATION_ID,
+  service_id: "ai.reasoning.execute",
+  provider_id: "avantiqo-intelligence",
+  capability: "ai.reasoning.execute",
+  provider_policy: {
+    allowed_providers: ["avantiqo-intelligence"],
+  },
+  input: {
+    model: MODEL,
+    messages: [
+      {
+        role: "user",
+        content: "Use the avantiqo_governed_probe tool exactly once with status set to ok. Do not invent a result.",
+      },
+    ],
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "avantiqo_governed_probe",
+          description: "Certify the governed Avantiqo service runtime path.",
+          parameters: {
+            type: "object",
+            properties: {
+              status: { type: "string", enum: ["ok"] },
+            },
+            required: ["status"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ],
+    tool_choice: {
+      type: "function",
+      function: { name: "avantiqo_governed_probe" },
+    },
+    temperature: 0,
+    max_output_tokens: 256,
+  },
+  metadata: {
+    module: "PLATFORM",
+    operation: "AVANTIQO_INTELLIGENCE_GOVERNED_PROBE",
+    diagnostic: true,
+  },
+  category: "AI",
+});
+
+const governedToolCalls = Array.isArray(governed?.output?.output?.tool_calls)
+  ? governed.output.output.tool_calls
+  : [];
+const governedCall = governedToolCalls[0] || null;
+const governedArgs = parseArguments(governedCall?.function?.arguments);
+const governedPassed = Boolean(
+  governed?.success === true &&
+  governed?.pending !== true &&
+  governed?.provider === "avantiqo-intelligence" &&
+  governedCall?.function?.name === "avantiqo_governed_probe" &&
+  governedArgs?.status === "ok" &&
+  governed?.usage?.id &&
+  governed?.pricing?.pricing_id &&
+  governed?.wallet_settlement?.remaining_reserved_amount === 0
+);
+
+console.log(
+  `AVANTIQO_GOVERNED_PROBE success=${governedPassed} provider=${governed?.provider || "none"} settlement=${governed?.settlement || "none"} usage_id_present=${Boolean(governed?.usage?.id)} pricing_id_present=${Boolean(governed?.pricing?.pricing_id)} tool_call=${governedCall?.function?.name || "none"} total_latency_ms=${Date.now() - governedStartedAt}`,
+);
+
+if (!governedPassed) {
+  throw new Error("AVANTIQO_INTELLIGENCE_GOVERNED_SERVICE_RUNTIME_PROBE_FAILED");
+}
+
+console.log("AVANTIQO_INTELLIGENCE_GOVERNED_SERVICE_RUNTIME=PASS");
 console.log("AVANTIQO_INTELLIGENCE_COLDSTART_DIAGNOSTIC=PASS");

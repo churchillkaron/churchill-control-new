@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   crossConversationAmbiguityTurn,
   isCrossConversationContinuationRequest,
+  selectContinuityProjectCandidates,
 } from "../lib/operator/runtime/IntelligenceCrossConversationContinuityRuntime.js";
 
 test("recognizes short continuation requests", () => {
@@ -27,6 +28,32 @@ test("does not treat normal new requests as continuation", () => {
     isCrossConversationContinuationRequest("What is revenue today?"),
     false,
   );
+});
+
+test("clearly newer unfinished project wins over stale project", () => {
+  const latest = Date.parse("2026-08-22T10:00:00.000Z");
+  const stale = Date.parse("2026-07-20T10:00:00.000Z");
+  const result = selectContinuityProjectCandidates([
+    { conversation_id: "new", updated_at_ms: latest },
+    { conversation_id: "old", updated_at_ms: stale },
+  ]);
+
+  assert.equal(result.ambiguous, false);
+  assert.equal(result.selected.conversation_id, "new");
+  assert.equal(result.reason, "CLEARLY_NEWER_ACTIVE_PROJECT_RECOVERED");
+});
+
+test("two recently active projects remain ambiguous", () => {
+  const latest = Date.parse("2026-08-22T10:00:00.000Z");
+  const recent = Date.parse("2026-08-18T10:00:00.000Z");
+  const result = selectContinuityProjectCandidates([
+    { conversation_id: "a", updated_at_ms: latest },
+    { conversation_id: "b", updated_at_ms: recent },
+  ]);
+
+  assert.equal(result.ambiguous, true);
+  assert.equal(result.selected, null);
+  assert.equal(result.reason, "MULTIPLE_RECENT_ACTIVE_PROJECTS");
 });
 
 test("ambiguous project recovery asks instead of guessing", () => {

@@ -11,11 +11,21 @@ function fail(message, details = null) {
 
 const configuration = getAvantiqoIntelligenceRuntimeConfiguration();
 
+console.log(
+  `AVANTIQO_INTELLIGENCE_CONFIGURATION engine_enabled=${configuration.engine_enabled} endpoint_configured=${configuration.endpoint_configured} api_key_configured=${configuration.api_key_configured} model=${configuration.model}`,
+);
+
+if (!configuration.engine_enabled) {
+  fail("AVANTIQO_INTELLIGENCE_ENGINE_NOT_ENABLED");
+}
 if (!configuration.endpoint_configured) {
   fail("RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID_MISSING");
 }
 if (!configuration.api_key_configured) {
   fail("RUNPOD_API_KEY_MISSING");
+}
+if (!configuration.runtime_ready) {
+  fail("AVANTIQO_INTELLIGENCE_RUNTIME_NOT_READY");
 }
 if (configuration.model !== "Qwen/Qwen3-30B-A3B-Thinking-2507") {
   fail("UNEXPECTED_INTELLIGENCE_MODEL", {
@@ -28,20 +38,12 @@ try {
   if (probe.success !== true) {
     fail("RUNTIME_HANDSHAKE_FAILED", {
       configured_model: probe.configured_model,
-      model_match: probe.model_match,
-      served_models: probe.served_models,
+      model_verified_by_completion: probe.model_verified_by_completion,
       structured_output_ok: probe.structured_output_ok,
       finish_reason: probe.finish_reason,
       completion_latency_ms: probe.completion_latency_ms,
       total_latency_ms: probe.total_latency_ms,
       usage: probe.usage,
-      models_probe_error: probe.models_probe_error,
-    });
-  }
-  if (probe.model_match === false) {
-    fail("SERVED_MODEL_MISMATCH", {
-      configured_model: probe.configured_model,
-      served_models: probe.served_models,
     });
   }
 

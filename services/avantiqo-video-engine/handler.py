@@ -14,10 +14,7 @@ from diffusers.utils import export_to_video, load_image
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-cinema-v1"
 CERTIFIED_CAPABILITIES = {"ai.video.generate", "ai.video.image_to_video"}
-DEFAULT_MODEL = os.getenv(
-    "AVANTIQO_VIDEO_FOUNDATION_MODEL",
-    "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
-)
+DEFAULT_MODEL = os.getenv("AVANTIQO_VIDEO_FOUNDATION_MODEL", "").strip()
 OUTPUT_DIR = Path(os.getenv("AVANTIQO_VIDEO_OUTPUT_DIR", "/tmp/avantiqo-video"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = os.getenv("AVANTIQO_VIDEO_DEVICE", "cuda")
@@ -87,8 +84,12 @@ def _frame_count(duration_seconds: int, fps: int) -> int:
 def _foundation_model(data: dict[str, Any]) -> str:
     capability = _text(data.get("capability"))
     if capability == "ai.video.image_to_video":
-        return os.getenv("AVANTIQO_VIDEO_I2V_MODEL", DEFAULT_MODEL)
-    return os.getenv("AVANTIQO_VIDEO_T2V_MODEL", DEFAULT_MODEL)
+        model_id = _text(os.getenv("AVANTIQO_VIDEO_I2V_MODEL", DEFAULT_MODEL))
+    else:
+        model_id = _text(os.getenv("AVANTIQO_VIDEO_T2V_MODEL", DEFAULT_MODEL))
+    if not model_id:
+        raise RuntimeError("AVANTIQO_VIDEO_FOUNDATION_MODEL_REQUIRED")
+    return model_id
 
 
 def _cached_model_path(model_id: str) -> str | None:
@@ -286,6 +287,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 @runpod.serverless.register_fitness_check
 def check_cuda_available():
+    if not DEFAULT_MODEL:
+        raise RuntimeError("AVANTIQO_VIDEO_FOUNDATION_MODEL_REQUIRED")
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VIDEO_CUDA_REQUIRED")
 

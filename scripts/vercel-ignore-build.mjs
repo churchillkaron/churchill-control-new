@@ -1,6 +1,7 @@
 // Hard production build gate.
 // Ordinary commits to main MUST NOT consume Vercel production build minutes.
 // Only an explicit final-release commit may build production.
+// Finance closeout audit marker may execute certification without deploying.
 import { spawnSync } from "node:child_process";
 
 const FINAL_BUILD_MARKER = "[deploy-production-final]";

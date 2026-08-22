@@ -101,6 +101,8 @@ assert.match(thesisRuntimeSource, /never authorizes execution/i);
 assert.match(thesisRuntimeSource, /SYNTHESIZE_BUSINESS_THESIS/);
 assert.match(thesisRuntimeSource, /buildOperatorBusinessThesis/);
 assert.match(thesisRuntimeSource, /previous_business_thesis/);
+assert.match(thesisRuntimeSource, /preview\?\.change\?\.evidence_changed === false/);
+assert.match(thesisRuntimeSource, /unchangedThesis/);
 
 assert.match(projectStateSource, /business_thesis/);
 assert.match(projectStateSource, /normalizeOperatorBusinessThesis/);
@@ -121,6 +123,17 @@ assert.doesNotMatch(routeSource, /service_role/i);
 
 assert.match(homeSource, /fetch\("\/api\/operator\/attention"/);
 assert.match(homeSource, /data-avantiqo-attention-brief="true"/);
+assert.match(homeSource, /data-avantiqo-business-thesis="true"/);
+assert.match(homeSource, /Synthetic Intelligence/);
+assert.match(homeSource, /Your business partner/);
+assert.match(homeSource, /What changed/);
+assert.match(homeSource, /Outlook/);
+assert.match(homeSource, /Recommended next move/);
+assert.match(homeSource, /interruption\?\.should_interrupt === true/);
+assert.match(homeSource, /sessionStorage\.getItem\(storageKey\)/);
+assert.match(homeSource, /sessionStorage\.setItem\(storageKey, "1"\)/);
+assert.match(homeSource, /synthetic-intelligence-interruption/);
+assert.match(homeSource, /dedupe_key: dedupeKey/);
 assert.match(homeSource, /Evidence-backed/);
 assert.match(homeSource, /Recommendations are not approvals or authorization/);
 assert.match(homeSource, /sendMessage\(/);
@@ -138,7 +151,9 @@ console.log("OPERATOR_ATTENTION_SEMANTICS=DYNAMIC_NO_FIXED_BUSINESS_VOCABULARY")
 console.log("OPERATOR_ATTENTION_PARTNER_INTENTS=PRIORITIES_RISKS_OPPORTUNITIES_OWNER_FOCUS");
 console.log("OPERATOR_BUSINESS_THESIS=DURABLE_EVIDENCE_GROUNDED_DELTA_MODEL");
 console.log("OPERATOR_BUSINESS_THESIS_OUTLOOK=CONDITIONAL_EVIDENCE_REFERENCED");
+console.log("OPERATOR_BUSINESS_THESIS_UNCHANGED=REUSE_WITHOUT_SECOND_SYNTHESIS");
 console.log("OPERATOR_BUSINESS_THESIS_INTERRUPTION=URGENT_DELTA_ONLY");
+console.log("OPERATOR_BUSINESS_THESIS_INTERRUPTION_UI=SESSION_DEDUPED_SPEECH");
 console.log("OPERATOR_ATTENTION_UI=PARALLEL_WITH_CONVERSATION_RESTORE");
 console.log("OPERATOR_ATTENTION_UI=THESIS_PERSISTED_IN_PRIMARY_PROJECT_MEMORY");
 

@@ -3,12 +3,12 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
-import { postDepreciationToLedgerCommand } from "@/lib/finance/general-ledger/runtime/GeneralLedgerApplicationService";
+import { runDepreciationCommand } from "@/lib/finance/fixed-assets/runtime/FixedAssetsApplicationService";
 
 function statusFor(message) {
   const normalized = String(message || "").toLowerCase();
   if (normalized.includes("permission denied")) return 403;
-  return /required|invalid|period|posting|currency|exchange/i.test(message || "") ? 400 : 500;
+  return /required|invalid|period|posting|currency|exchange|scope|asset|date/i.test(message || "") ? 400 : 500;
 }
 
 export async function POST(request) {
@@ -33,7 +33,7 @@ export async function POST(request) {
       fullAccess: access.permissions?.includes("*") === true,
     });
 
-    const result = await postDepreciationToLedgerCommand({
+    const result = await runDepreciationCommand({
       ...body,
       organizationId: access.organizationId,
       organization_id: access.organizationId,

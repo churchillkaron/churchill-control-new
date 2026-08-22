@@ -10,6 +10,7 @@ const [
   providerResolver,
   providerExecutor,
   imageRegistration,
+  imageWorker,
   audioRegistration,
   codeRegistration,
   cinemaProvider,
@@ -23,6 +24,7 @@ const [
   readFile("lib/platform/service-runtime/providers/ProviderResolver.js", "utf8"),
   readFile("lib/platform/service-runtime/providers/ProviderExecutorCore.js", "utf8"),
   readFile("lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js", "utf8"),
+  readFile("services/avantiqo-image-engine/handler.py", "utf8"),
   readFile("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration.js", "utf8"),
   readFile("lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProviderRegistration.js", "utf8"),
   readFile("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProvider.js", "utf8"),
@@ -69,8 +71,13 @@ test("Service Runtime is the owned-first provider boundary", () => {
   assert.match(providerExecutor, /avantiqo_code/);
 });
 
-test("unfinished owned workers remain certification-gated", () => {
-  for (const source of [imageRegistration, audioRegistration, codeRegistration]) {
+test("owned provider registrations remain certification-gated", () => {
+  assert.match(imageRegistration, /certifiedCapabilities/);
+  assert.match(imageRegistration, /implemented_capabilities/);
+  assert.match(imageRegistration, /runtimeAvailable = Boolean/);
+  assert.match(imageRegistration, /foundation_model_configured/);
+
+  for (const source of [audioRegistration, codeRegistration]) {
     assert.match(source, /CERTIFIED_CAPABILITIES/);
     assert.match(source, /foundationModel/);
     assert.match(source, /runtimeAvailable = Boolean/);
@@ -78,12 +85,25 @@ test("unfinished owned workers remain certification-gated", () => {
   }
 });
 
-test("Cinema validates the exact capability through the worker boundary", () => {
+test("owned Image requires cached model families before inference", () => {
+  assert.match(imageWorker, /AVANTIQO_IMAGE_REQUIRE_CACHED_MODEL/);
+  assert.match(imageWorker, /AVANTIQO_IMAGE_CACHED_MODEL_REQUIRED/);
+  assert.match(imageWorker, /local_files_only=bool\(cached_path\)/);
+  assert.match(imageWorker, /foundation_model_source/);
+  assert.match(imageWorker, /ai\.image\.inpaint/);
+  assert.match(imageWorker, /ai\.image\.outpaint/);
+});
+
+test("Cinema validates capability and keeps certification execution fail-closed", () => {
   assert.match(cinemaProvider, /CERTIFIED_CAPABILITIES/);
   assert.match(cinemaProvider, /capability,/);
   assert.match(cinemaProvider, /AVANTIQO_VIDEO_IMAGE_TO_VIDEO_REFERENCE_REQUIRED/);
-  assert.match(cinemaWorker, /CERTIFIED_CAPABILITIES/);
+  assert.match(cinemaWorker, /DEFAULT_CERTIFIED_CAPABILITIES/);
+  assert.match(cinemaWorker, /_configured_capabilities/);
   assert.match(cinemaWorker, /AVANTIQO_VIDEO_CAPABILITY_NOT_CERTIFIED/);
+  assert.match(cinemaWorker, /AVANTIQO_VIDEO_CERTIFICATION_EXECUTION_ENABLED/);
+  assert.match(cinemaWorker, /"0"/);
+  assert.match(cinemaWorker, /data\.get\("certification_execution"\) is True/);
   assert.match(cinemaWorker, /raw_reasoning_persisted/);
 });
 

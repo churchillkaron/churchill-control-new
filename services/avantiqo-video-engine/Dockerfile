@@ -16,7 +16,6 @@ COPY handler.py ./handler.py
 
 RUN mkdir -p /tmp/avantiqo-video
 ENV AVANTIQO_VIDEO_OUTPUT_DIR=/tmp/avantiqo-video \
-    AVANTIQO_VIDEO_DEVICE=cuda \
-    AVANTIQO_VIDEO_FOUNDATION_MODEL=Wan-AI/Wan2.2-TI2V-5B-Diffusers
+    AVANTIQO_VIDEO_DEVICE=cuda
 
 CMD ["python", "-u", "handler.py"]

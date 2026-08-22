@@ -40,6 +40,8 @@ const releaseReadiness = read("lib/creative/release/runtime/CreativeReleaseReadi
 const finalAudioIntegrity = read("lib/creative/post-production/runtime/CreativeProfessionalFinalAudioIntegrityRuntime.js");
 const openAIGovernanceAudit = read("scripts/openai-governance-release-audit.mjs");
 const executionJobRepository = read("lib/creative/execution/repositories/CreativeExecutionJobRepository.js");
+const stillImageInputRuntime = read("lib/creative/media/runtime/CreativeStillImageInputRuntime.js");
+const mediaBinaryRuntime = read("lib/creative/media/runtime/CreativeMediaBinaryRuntime.js");
 
 requireAll("Creative provider callback authentication", callbackRoute, [
   "CREATIVE_PROVIDER_CALLBACK_SECRET",
@@ -132,6 +134,23 @@ requireAll("Creative execution empty-queue handling", executionJobRepository, [
   "return normalizeClaimedJob(data)",
 ]);
 
+requireAll("Creative universal still-image decode bridge", stillImageInputRuntime, [
+  "CREATIVE_STILL_IMAGE_INPUT_RUNTIME_V1",
+  "sharp",
+  "ensureAlpha",
+  "raw({ depth: \"uchar\" })",
+  "-f", "rawvideo",
+  "-pixel_format", "rgba",
+  "ffmpeg_image_decoder_required: false",
+]);
+
+requireAll("Creative media readiness exposes still-image support", mediaBinaryRuntime, [
+  "creativeStillImageInputReadiness",
+  "still_image_input_ready",
+  "still_image_supported_input_formats",
+  "ffmpeg_image_decoder_required",
+]);
+
 if (violations.length) {
   console.error("CREATIVE_STUDIO_RELEASE_AUDIT=FAIL");
   for (const violation of violations) {
@@ -149,4 +168,6 @@ if (violations.length) {
   console.log("CREATIVE_OPENAI_EXECUTION=AVANTIQO_MANAGED_ONLY");
   console.log("CREATIVE_FINAL_AUDIO=POST_FINISHING_PCM_INTEGRITY_REQUIRED");
   console.log("CREATIVE_RELEASE=QUALITY_RIGHTS_HUMAN_APPROVAL_REQUIRED");
+  console.log("CREATIVE_STILL_IMAGE_INPUT=SHARP_TO_RAW_RGBA");
+  console.log("CREATIVE_FFMPEG_IMAGE_DECODER_DEPENDENCY=REMOVED");
 }

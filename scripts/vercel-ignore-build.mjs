@@ -17,19 +17,28 @@ const hasFinanceAuditMarker = commitMessage.includes(FINANCE_AUDIT_MARKER);
 console.log(`VERCEL_GIT_COMMIT_MESSAGE=${commitMessage || "(empty)"}`);
 
 function runAudit(script, label = "RELEASE_AUDIT") {
+  console.log(`${label} script=${script} state=STARTED`);
   const audit = spawnSync(process.execPath, [script], {
     cwd: process.cwd(),
-    encoding: "utf8",
+    stdio: "inherit",
   });
-
-  if (audit.stdout) process.stdout.write(audit.stdout);
-  if (audit.stderr) process.stderr.write(audit.stderr);
 
   const passed = audit.status === 0;
   console.log(
     `${label} script=${script} result=${passed ? "PASS" : "FAIL"} exit=${audit.status ?? "unknown"}`,
   );
   return passed;
+}
+
+function runDiagnostic(script, label = "RELEASE_DIAGNOSTIC") {
+  console.log(`${label} script=${script} state=STARTED`);
+  const result = spawnSync(process.execPath, [script], {
+    cwd: process.cwd(),
+    stdio: "inherit",
+  });
+  console.log(
+    `${label} script=${script} result=${result.status === 0 ? "PASS" : "UNAVAILABLE"} exit=${result.status ?? "unknown"}`,
+  );
 }
 
 if (hasFinanceAuditMarker) {
@@ -56,6 +65,13 @@ if (hasFinanceAuditMarker) {
 // exit 0 = cancel/skip this build
 // exit 1 = continue with the build
 if (hasFinalBuildMarker) {
+  // This diagnostic never authorizes the build. It exposes only sanitized
+  // endpoint/GPU economics and never prints the API key or endpoint ID.
+  runDiagnostic(
+    "scripts/avantiqo-intelligence-runpod-profile.mjs",
+    "AVANTIQO_INTELLIGENCE_PROFILE",
+  );
+
   const intelligencePassed = runAudit(
     "scripts/avantiqo-intelligence-release-audit.mjs",
     "AVANTIQO_INTELLIGENCE_AUDIT",

@@ -140,7 +140,7 @@ async function start() {
       model: MODEL,
       primary_source_asset_id: ASSETS.dinner,
       source: ASSETS.dinner,
-      selected_assets: SELECTED_ASSETS,
+      selected_assets: [ASSETS.dinner],
       prompt: PROMPT,
       provider_prompt: PROMPT,
       media_duration_seconds: 4,

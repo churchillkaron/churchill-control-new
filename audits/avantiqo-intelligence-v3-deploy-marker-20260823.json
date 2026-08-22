@@ -1,0 +1,8 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_VERCEL_CERTIFICATION_V3_DEPLOY_MARKER_V1",
+  "requested_at": "2026-08-23T00:49:00+07:00",
+  "purpose": "deploy one-shot staged Intelligence certification on latest main",
+  "activation_allowed": false,
+  "pricing_activation_allowed": false,
+  "provider_routing_change_allowed": false
+}

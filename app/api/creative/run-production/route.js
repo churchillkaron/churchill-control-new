@@ -5,7 +5,7 @@ import "@/lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap";
 import "@/lib/creative/quality/runtime/CreativeShotCandidateQualityGateBootstrap";
 
 import { NextResponse } from "next/server";
-import { CreativeDirectorRuntime } from "@/lib/creative/director/runtime/CreativeDirectorRuntime";
+import { CreativePartnerMissionRuntime } from "@/lib/creative/partner/runtime/CreativePartnerMissionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 function text(value) {
@@ -63,7 +63,7 @@ export async function POST(request) {
       return NextResponse.json(access, { status: access.status || 403 });
     }
 
-    const result = await CreativeDirectorRuntime.execute({
+    const result = await CreativePartnerMissionRuntime.advance({
       ...body,
       organization_id: organizationId,
       creative_project_id: creativeProjectId,
@@ -77,7 +77,7 @@ export async function POST(request) {
       organization_id: organizationId,
       creative_project_id: creativeProjectId,
       creative_mission_id: creativeMissionId || null,
-      result,
+      partner: result,
     });
   } catch (error) {
     return NextResponse.json(

@@ -3,7 +3,8 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const TOKEN = "churchill-night-changes-v3-repair-qc-20260821";
-const SHOTS = new Set(["shuffleboard_to_dart", "electric_dart_flight"]);
+const R1_SHOTS = new Set(["shuffleboard_to_dart", "electric_dart_flight"]);
+const R2_SHOTS = new Set(["shuffleboard_exit_r2", "dart_entry_r2", "dart_midflight_r2", "dart_impact_r2"]);
 const WIDTH = 660;
 const HEIGHT = 248;
 
@@ -53,11 +54,14 @@ export async function GET(request) {
     const url = new URL(request.url);
     if (url.searchParams.get("token") !== TOKEN) return json({ success: false }, 404);
     const shot = String(url.searchParams.get("shot") || "").trim();
-    if (!SHOTS.has(shot)) return json({ success: false, error: "Invalid shot" }, 400);
+    const version = String(url.searchParams.get("version") || "r1").trim().toLowerCase() === "r2" ? "r2" : "r1";
+    const allowed = version === "r2" ? R2_SHOTS : R1_SHOTS;
+    if (!allowed.has(shot)) return json({ success: false, error: "Invalid shot" }, 400);
 
     const imageUrl = new URL("/api/internal/creative-churchill-night-changes-v3-repair-qc-image", url.origin);
     imageUrl.searchParams.set("token", TOKEN);
     imageUrl.searchParams.set("shot", shot);
+    imageUrl.searchParams.set("version", version);
     const response = await fetch(imageUrl, { cache: "no-store" });
     if (!response.ok) throw new Error(`QC image failed ${response.status}`);
     const jpeg = Buffer.from(await response.arrayBuffer());
@@ -68,7 +72,7 @@ export async function GET(request) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Length": String(pdf.length),
-        "Content-Disposition": `inline; filename=churchill-${shot}-qc.pdf`,
+        "Content-Disposition": `inline; filename=churchill-${shot}-${version}-qc.pdf`,
         "Cache-Control": "no-store, private",
       },
     });

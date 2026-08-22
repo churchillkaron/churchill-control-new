@@ -19,8 +19,10 @@ const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const COMMAND_IDENTITY = "CHURCHILL_THE_NIGHT_INSIDE_THE_NIGHT_90S_V3";
 const TOKEN = "churchill-night-changes-v3-repair-qc-20260821";
 const BUCKET = "creative-assets";
-const REPAIR_VERSION = "CHURCHILL_V3_REPAIR_R1_AUTHENTIC_GEOMETRY";
-const SHOTS = new Set(["shuffleboard_to_dart", "electric_dart_flight"]);
+const R1_VERSION = "CHURCHILL_V3_REPAIR_R1_AUTHENTIC_GEOMETRY";
+const R2_VERSION = "CHURCHILL_V3_REPAIR_R2_EDITORIAL_ELEGANCE";
+const R1_SHOTS = new Set(["shuffleboard_to_dart", "electric_dart_flight"]);
+const R2_SHOTS = new Set(["shuffleboard_exit_r2", "dart_entry_r2", "dart_midflight_r2", "dart_impact_r2"]);
 const FRAME_W = 220;
 const FRAME_H = 124;
 const COLS = 3;
@@ -105,16 +107,27 @@ async function project() {
   return data;
 }
 
-async function stateFor(shot) {
-  if (!SHOTS.has(shot)) throw new Error("CHURCHILL_V3_REPAIR_QC_SHOT_INVALID");
+async function stateFor(shot, version) {
   const p = await project();
+  if (version === "r2") {
+    if (!R2_SHOTS.has(shot)) throw new Error("CHURCHILL_V3_REPAIR_QC_R2_SHOT_INVALID");
+    const repairs = p.metadata?.churchill_v3_repairs_r2 || {};
+    if (repairs.version !== R2_VERSION) throw new Error("CHURCHILL_V3_REPAIR_QC_R2_VERSION_MISMATCH");
+    const state = repairs.generations?.[shot] || null;
+    if (state?.status !== "COMPLETED" || !state?.output_reference) {
+      throw new Error(`CHURCHILL_V3_REPAIR_QC_R2_NOT_READY:${shot}`);
+    }
+    return { p, state, version: R2_VERSION };
+  }
+
+  if (!R1_SHOTS.has(shot)) throw new Error("CHURCHILL_V3_REPAIR_QC_R1_SHOT_INVALID");
   const repairs = p.metadata?.churchill_v3_repairs || {};
-  if (repairs.version !== REPAIR_VERSION) throw new Error("CHURCHILL_V3_REPAIR_QC_VERSION_MISMATCH");
+  if (repairs.version !== R1_VERSION) throw new Error("CHURCHILL_V3_REPAIR_QC_R1_VERSION_MISMATCH");
   const state = repairs.generations?.[shot] || null;
   if (state?.status !== "COMPLETED" || !state?.output_reference) {
-    throw new Error(`CHURCHILL_V3_REPAIR_QC_NOT_READY:${shot}`);
+    throw new Error(`CHURCHILL_V3_REPAIR_QC_R1_NOT_READY:${shot}`);
   }
-  return { p, state };
+  return { p, state, version: R1_VERSION };
 }
 
 async function download(reference, target) {
@@ -138,11 +151,11 @@ async function frame(ffmpeg, source, target, seconds) {
 
 function labelSvg(label) {
   const safe = label.replace(/[&<>\"]/g, "");
-  return Buffer.from(`<svg width="${FRAME_W}" height="${FRAME_H}" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="5" width="62" height="20" rx="5" fill="rgba(0,0,0,0.72)"/><text x="11" y="19" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="white">${safe}</text></svg>`);
+  return Buffer.from(`<svg width="${FRAME_W}" height="${FRAME_H}" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="5" width="72" height="20" rx="5" fill="rgba(0,0,0,0.72)"/><text x="11" y="19" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="white">${safe}</text></svg>`);
 }
 
-async function sheet(shot) {
-  const { p, state } = await stateFor(shot);
+async function sheet(shot, requestedVersion) {
+  const { p, state, version } = await stateFor(shot, requestedVersion);
   const duration = Number(state.duration_seconds || 0);
   if (!(duration > 0)) throw new Error("CHURCHILL_V3_REPAIR_QC_DURATION_REQUIRED");
   const ffmpeg = resolveCreativeFfmpegPath();
@@ -160,7 +173,7 @@ async function sheet(shot) {
       await frame(ffmpeg, source, raw, seconds);
       const jpeg = await sharp(raw)
         .composite([{ input: labelSvg(`${seconds.toFixed(2)}s`), left: 0, top: 0 }])
-        .jpeg({ quality: 58, mozjpeg: true })
+        .jpeg({ quality: 62, mozjpeg: true })
         .toBuffer();
       frames.push(jpeg);
       timestamps.push(Number(seconds.toFixed(3)));
@@ -175,12 +188,13 @@ async function sheet(shot) {
     }));
     const contact = await sharp({ create: { width, height, channels: 3, background: "#050505" } })
       .composite(composites)
-      .jpeg({ quality: 58, mozjpeg: true })
+      .jpeg({ quality: 62, mozjpeg: true })
       .toBuffer();
 
     return {
       success: true,
       shot,
+      repair_version: version,
       project_id: p.id,
       duration_seconds: duration,
       timestamps,
@@ -199,7 +213,8 @@ export async function GET(request) {
     const url = new URL(request.url);
     if (url.searchParams.get("token") !== TOKEN) return json({ success: false }, 404);
     const shot = text(url.searchParams.get("shot"));
-    return json(await sheet(shot));
+    const version = text(url.searchParams.get("version")).toLowerCase() === "r2" ? "r2" : "r1";
+    return json(await sheet(shot, version));
   } catch (error) {
     console.error("CHURCHILL_V3_REPAIR_QC_FAILED", { message: error?.message || String(error) });
     return json({ success: false, error: error?.message || String(error) }, 500);

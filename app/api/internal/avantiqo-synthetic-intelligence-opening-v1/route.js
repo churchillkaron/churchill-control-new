@@ -20,8 +20,8 @@ const supabase = getServiceSupabase();
 const TOKEN = "avq-synthetic-intelligence-opening-20260822-v1";
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const ENTITY_ID = "073dc5f5-b6a8-4cae-8cda-fd7acb21ef50";
-const PROVIDER = "veo";
-const MODEL = "fal-ai/veo3.1/fast";
+const PROVIDER = "gemini";
+const MODEL = "gemini-omni-flash-preview";
 const DURATION_SECONDS = 8;
 const BUCKET = "creative-assets";
 const APPROVED_LOGO_PATH = `${ORGANIZATION_ID}/unassigned/df1cdd49-68e2-4a77-956e-6c9565c0074d-google-veo-6c9upygjkui2.mp4`;
@@ -39,9 +39,28 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function generatedStoragePath(value = {}) {
+  return text(
+    value?.output?.raw?.output?.storage_path ||
+    value?.output?.raw?.storage_path ||
+    value?.output?.output?.storage_path ||
+    value?.output?.storage_path ||
+    value?.raw?.output?.storage_path ||
+    value?.raw?.storage_path ||
+    value?.storage_path,
+  ) || null;
+}
+
 function generationContract() {
-  const description =
-    "Create an eight-second world-class cinematic technology launch film. Begin almost completely black. In the first two seconds, a restrained intelligent presence awakens in darkness through elegant volumetric light, microscopic energy filaments, subtle glass-and-metal reflections and controlled spatial movement. It must feel like a premium global technology brand film, not a game, not cyberpunk, not a dashboard, not a network diagram. From seconds two to five, the intelligence converges in real three-dimensional space with deep perspective, parallax, atmosphere and a slow confident camera move. Between seconds four to six, the exact words SYNTHETIC INTELLIGENCE emerge as the central hero object, physically dimensional and cinematic: polished smoked glass, dark platinum metal, subtle champagne-gold edge reflections, true thickness, bevels, realistic specular highlights, volumetric light, depth and elegant perspective. The spelling must be exactly SYNTHETIC INTELLIGENCE and there must be no other readable words, logos or symbols. Hold the title with authority for a brief moment. From seconds six to eight, the title disintegrates or collapses elegantly into a narrow field of light and darkness so the final frame is clean, dark and calm, ready for a direct cut into an existing Avantiqo logo film. The overall feeling is luxury automotive launch film, prestige cinema title design and next-generation intelligence. Extremely restrained, expensive, sophisticated and believable. No humans. No screens. No Churchill branding. No restaurant imagery. No generic corporate footage. No fake UI. No neon tunnel. No explosive particle storm. No glitch text. No spelling errors. No extra typography. No voice-over.";
+  const description = [
+    "Create an eight-second world-class cinematic technology launch film announcing a new category called SYNTHETIC INTELLIGENCE.",
+    "0.0-2.0 seconds: begin almost completely black. A restrained intelligent presence awakens through elegant volumetric light, microscopic energy filaments, subtle smoked-glass and dark-metal reflections, and controlled spatial movement. Deep cinematic perspective, real parallax, expensive optics, no generic AI network imagery.",
+    "2.0-4.8 seconds: the intelligence converges in real three-dimensional space as the camera makes a slow confident push. Matter, light and reflective surfaces organize with deliberate purpose, as though cognition is physically forming in front of the lens.",
+    "4.8-6.6 seconds: the exact words SYNTHETIC INTELLIGENCE become the hero object. The lettering must be physically dimensional, not a flat graphic: true thickness, bevels, polished smoked glass, dark platinum metal, extremely restrained champagne-gold edge reflections, realistic specular highlights, volumetric light and strong spatial depth. Keep the exact spelling SYNTHETIC INTELLIGENCE. No other readable words, logos or symbols. Hold long enough to read with authority.",
+    "6.6-8.0 seconds: the dimensional title collapses, dissolves or disassembles elegantly back into a narrow field of light and darkness. End on a clean dark calm frame prepared for a direct cut to the existing Avantiqo logo film.",
+    "Overall feeling: a global luxury technology launch, prestige cinema title design and next-generation intelligence. Sophisticated, believable, restrained, expensive. Avoid visual noise.",
+    "ABSOLUTE NEGATIVES: no humans, no Churchill, no restaurant imagery, no screens, no dashboards, no software UI, no network diagram, no data globe, no cyberpunk neon, no gaming aesthetic, no cheap hologram, no blue sci-fi tunnel, no explosive particle storm, no glitch typography, no additional text, no misspelling, no flat 2D title card, no image slideshow, no voice-over.",
+  ].join("\n\n");
 
   return {
     model: MODEL,
@@ -51,12 +70,13 @@ function generationContract() {
       story_purpose: "announce a new category before the Avantiqo identity reveal",
       emotional_tone: "powerful, intelligent, luxurious, cinematic, restrained",
       title_text: "SYNTHETIC INTELLIGENCE",
+      editorial_transition: "finish in darkness for a hard premium cut into the approved Avantiqo logo film",
     },
     requirements: {
-      visual_quality: "world-class feature-film and luxury technology launch quality",
+      visual_quality: "world-class prestige technology launch film",
       dimensionality: "true 3D/5D spatial depth, material thickness, parallax, reflections and volumetric light",
       camera_language: "slow controlled cinematic push with subtle opposing parallax; no shake",
-      typography: "exactly SYNTHETIC INTELLIGENCE, physically dimensional, centered and premium",
+      typography: "exactly SYNTHETIC INTELLIGENCE, physically dimensional, centered, authoritative and premium",
       palette: "near-black, smoked glass, dark platinum, restrained champagne-gold edge light",
       negative_constraints: [
         "no Churchill",
@@ -77,34 +97,35 @@ function generationContract() {
     },
     generation: {
       model: MODEL,
-      provider_parameters: {
-        duration: "8s",
+      output_spec: {
+        duration_seconds: DURATION_SECONDS,
         aspect_ratio: "16:9",
-        resolution: "1080p",
-        generate_audio: false,
-        auto_fix: false,
-        safety_tolerance: "4",
+        resolution: "720p",
+      },
+      provider_parameters: {
+        aspect_ratio: "16:9",
       },
     },
     shot_bible: {
+      contract: "CREATIVE_SHOT_BIBLE_V1",
       output: {
         duration_seconds: DURATION_SECONDS,
         aspect_ratio: "16:9",
-        resolution: "1080p",
+        resolution: "720p",
+      },
+      quality: {
+        identity_required: false,
+        product_fidelity_required: false,
+        continuity_required: true,
       },
     },
     output_spec: {
       duration_seconds: DURATION_SECONDS,
       aspect_ratio: "16:9",
-      resolution: "1080p",
+      resolution: "720p",
     },
     provider_parameters: {
-      duration: "8s",
       aspect_ratio: "16:9",
-      resolution: "1080p",
-      generate_audio: false,
-      auto_fix: false,
-      safety_tolerance: "4",
     },
   };
 }
@@ -219,6 +240,9 @@ async function assemble(generatedPath) {
         organization_id: ORGANIZATION_ID,
         investor_film: "20260822",
         opening_version: "synthetic-intelligence-v1",
+        generator: MODEL,
+        generated_opening_native_resolution: "720p",
+        final_review_resolution: "1080p",
         approved_logo_unchanged: "true",
       },
     });
@@ -248,6 +272,8 @@ export async function GET(request) {
         provider: PROVIDER,
         model: MODEL,
         duration_seconds: DURATION_SECONDS,
+        native_resolution: "720p",
+        review_resolution: "1080p",
         approved_logo_path: APPROVED_LOGO_PATH,
         final_path: FINAL_PATH,
       });
@@ -264,6 +290,7 @@ export async function GET(request) {
         provider_policy: {
           allowed_providers: [PROVIDER],
           preferred_providers: [PROVIDER],
+          preferred_models: [MODEL],
         },
         input: {
           ...contract,
@@ -276,23 +303,27 @@ export async function GET(request) {
           brand: "Avantiqo",
           source: "avantiqo_synthetic_intelligence_opening_20260822_v1",
           generated_video_only: true,
+          generator: MODEL,
           churchill_allowed: false,
           approved_logo_unchanged: true,
+          publication_authorized: false,
         },
         category: "AI",
       });
 
+      const generatedPath = generatedStoragePath(result?.output || result);
       return json({
         success: true,
         pending: result?.pending ?? null,
         provider: result?.provider || null,
         model: result?.model || null,
-        provider_job_id: result?.provider_job_id || null,
-        provider_status: result?.provider_status || null,
+        provider_job_id: result?.provider_job_id || result?.output?.provider_job_id || null,
+        provider_status: result?.provider_status || result?.output?.status || null,
         usage_id: result?.usage?.id || null,
         credential_id: result?.credential_id || null,
         started_at: result?.started_at || null,
         pricing: result?.pricing || null,
+        generated_path: generatedPath,
         output: result?.output || null,
       });
     }
@@ -313,20 +344,20 @@ export async function GET(request) {
         usage_id: usageId,
         credential_id: credentialId,
         started_at: startedAt,
+        provider_status_input: {
+          model: MODEL,
+        },
         metadata: {
           module: "CREATIVE",
           operation: "AVANTIQO_SYNTHETIC_INTELLIGENCE_OPENING_V1_POLL",
           brand: "Avantiqo",
           source: "avantiqo_synthetic_intelligence_opening_20260822_v1",
+          generator: MODEL,
+          publication_authorized: false,
         },
       });
 
-      const generatedPath = text(
-        result?.output?.raw?.output?.storage_path ||
-        result?.output?.raw?.storage_path ||
-        result?.output?.storage_path,
-      ) || null;
-
+      const generatedPath = generatedStoragePath(result);
       return json({
         success: result?.success !== false,
         pending: result?.pending ?? null,

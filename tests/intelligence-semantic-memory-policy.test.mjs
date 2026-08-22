@@ -6,7 +6,7 @@ import {
   semanticMemoryRelevance,
 } from "../lib/operator/runtime/IntelligenceSemanticMemoryPolicy.js";
 
-test("matches deploy and release as the same operational concept", () => {
+test("matches deploy and release as the same negative operational concept", () => {
   const result = semanticMemorySimilarity({
     query: "Do not release this to production yet",
     content: "Never deploy production unless I explicitly ask.",
@@ -14,7 +14,36 @@ test("matches deploy and release as the same operational concept", () => {
 
   assert.ok(result.score >= 0.2);
   assert.ok(result.concept_score > 0);
+  assert.equal(result.polarity_compatible, true);
   assert.equal(result.mode, "deterministic_sparse");
+});
+
+test("opposite deploy polarity is strongly suppressed", () => {
+  const aligned = semanticMemorySimilarity({
+    query: "do not release to production",
+    content: "Never deploy production unless I explicitly ask.",
+  });
+  const opposite = semanticMemorySimilarity({
+    query: "deploy to production now",
+    content: "Never deploy production unless I explicitly ask.",
+  });
+
+  assert.equal(aligned.polarity_compatible, true);
+  assert.equal(opposite.polarity_compatible, false);
+  assert.equal(opposite.polarity_multiplier, 0.32);
+  assert.ok(opposite.score < aligned.score);
+});
+
+test("vector similarity cannot erase opposite action polarity", () => {
+  const result = semanticMemorySimilarity({
+    query: "deploy to production now",
+    content: "Never deploy production unless I explicitly ask.",
+    vectorScore: 0.99,
+  });
+
+  assert.equal(result.mode, "hybrid_vector");
+  assert.equal(result.polarity_compatible, false);
+  assert.ok(result.score < 0.35);
 });
 
 test("matches resume language to continuation memory", () => {
@@ -50,7 +79,7 @@ test("matches invoice and bill wording", () => {
   assert.ok(result.concept_score > 0);
 });
 
-test("supports Swedish and English concept equivalence", () => {
+test("supports Swedish and English concept equivalence with polarity", () => {
   const result = semanticMemorySimilarity({
     query: "lansera inte till produktion",
     content: "Never deploy production unless I explicitly ask.",
@@ -58,6 +87,7 @@ test("supports Swedish and English concept equivalence", () => {
 
   assert.ok(result.score >= 0.15);
   assert.ok(result.concept_score > 0);
+  assert.equal(result.polarity_compatible, true);
 });
 
 test("unrelated content stays low relevance", () => {

@@ -14,6 +14,10 @@ import {
   persistIntelligenceTurn,
 } from "@/lib/operator/runtime/IntelligenceConversationRuntime";
 import {
+  learnProjectStateMemories,
+  recallIntelligenceMemory,
+} from "@/lib/operator/runtime/IntelligenceMemoryRuntime";
+import {
   mergeOperatorProjectState,
 } from "@/lib/operator/contracts/OperatorProjectState";
 
@@ -256,6 +260,21 @@ export async function POST(request) {
     });
     const memoryMs = Date.now() - memoryStartedAt;
 
+    const longTermMemoryStartedAt = Date.now();
+    let longTermMemory = [];
+    try {
+      longTermMemory = await recallIntelligenceMemory({
+        organizationId: businessContext.organizationId,
+        partyId,
+        entityId: businessContext.entityId,
+        message,
+        projectState: memory.projectState,
+      });
+    } catch (memoryError) {
+      console.error("OPERATOR_LONG_TERM_MEMORY_RECALL_FAILED", memoryError);
+    }
+    const longTermMemoryMs = Date.now() - longTermMemoryStartedAt;
+
     const clientConversation = boundedConversation(body.conversation);
     const persistedConversation = boundedConversation(memory.recentConversation);
     const conversation = persistedConversation.length
@@ -291,6 +310,7 @@ export async function POST(request) {
       agreementState,
       projectState: memory.projectState,
       conversation,
+      longTermMemory,
       callerRequest: request,
     })
       .then((value) => {
@@ -362,21 +382,40 @@ export async function POST(request) {
     });
     const assistantPersistMs = Date.now() - assistantPersistStartedAt;
     const persistedState = object(persisted.conversation);
+
+    const longTermLearnStartedAt = Date.now();
+    let longTermLearned = 0;
+    try {
+      const learned = await learnProjectStateMemories({
+        organizationId: businessContext.organizationId,
+        partyId,
+        entityId: businessContext.entityId,
+        conversationId: memory.conversation.id,
+        previousProjectState: memory.projectState,
+        nextProjectState,
+      });
+      longTermLearned = Number(learned?.learned || 0);
+    } catch (memoryError) {
+      console.error("OPERATOR_LONG_TERM_MEMORY_LEARN_FAILED", memoryError);
+    }
+    const longTermLearnMs = Date.now() - longTermLearnStartedAt;
     const totalMs = Date.now() - turnStartedAt;
 
     const latency = {
-      version: 1,
+      version: 2,
       access_ms: accessMs,
       context_ms: contextMs,
       memory_ms: memoryMs,
+      long_term_memory_ms: longTermMemoryMs,
       operator_ms: operatorMs,
       user_turn_persist_ms: userTurnPersistMs,
       assistant_persist_ms: assistantPersistMs,
+      long_term_learn_ms: longTermLearnMs,
       total_ms: totalMs,
     };
 
     console.info(
-      "OPERATOR_LATENCY_V1",
+      "OPERATOR_LATENCY_V2",
       JSON.stringify({
         ...latency,
         organization_id: businessContext.organizationId,
@@ -385,6 +424,8 @@ export async function POST(request) {
         intent: text(result?.decision?.intent) || null,
         execution_status: text(result?.execution?.status) || null,
         capability_key: text(result?.execution?.capability?.key) || null,
+        long_term_memory_recalled: longTermMemory.length,
+        long_term_memory_learned: longTermLearned,
       }),
     );
 
@@ -414,8 +455,10 @@ export async function POST(request) {
         `access;dur=${accessMs}`,
         `context;dur=${contextMs}`,
         `memory;dur=${memoryMs}`,
+        `ltmemory;dur=${longTermMemoryMs}`,
         `operator;dur=${operatorMs}`,
         `persist;dur=${assistantPersistMs}`,
+        `ltlearn;dur=${longTermLearnMs}`,
         `total;dur=${totalMs}`,
       ].join(", "),
     );

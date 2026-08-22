@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const [
   runtimeSource,
+  repositorySource,
   cronRouteSource,
   alertRouteSource,
   bridgeSource,
@@ -10,6 +11,7 @@ const [
   vercelSource,
 ] = await Promise.all([
   readFile("lib/operator/runtime/OperatorAutonomousWatchRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorWatchStateRepository.js", "utf8"),
   readFile("app/api/internal/operator/autonomous-watch/process/route.js", "utf8"),
   readFile("app/api/operator/autonomous-watch/alert/route.js", "utf8"),
   readFile("components/operator/AutonomousWatchAlertBridge.jsx", "utf8"),
@@ -19,6 +21,7 @@ const [
 
 assert.match(runtimeSource, /scanOperatorAttention/);
 assert.match(runtimeSource, /synthesizeOperatorBusinessThesis/);
+assert.match(runtimeSource, /mutateOperatorWatchProjectState/);
 assert.match(runtimeSource, /forceRefresh:\s*true/);
 assert.match(runtimeSource, /mode:\s*"autonomous_read_only"/);
 assert.match(runtimeSource, /DEFAULT_BATCH_LIMIT = 2/);
@@ -39,8 +42,9 @@ assert.match(runtimeSource, /party_id/);
 assert.match(runtimeSource, /organization_id/);
 assert.match(runtimeSource, /permissionSet/);
 assert.match(runtimeSource, /FULL_ACCESS_ROLES/);
-assert.match(runtimeSource, /project_state:\s*object\(projectState\)/);
-assert.match(runtimeSource, /updated_at:\s*new Date\(\)\.toISOString\(\)/);
+assert.match(runtimeSource, /thesisChangedDuringScan/);
+assert.match(runtimeSource, /rebased_against_live_state/);
+assert.match(runtimeSource, /persistence_attempts/);
 assert.doesNotMatch(runtimeSource, /updateIntelligenceConversationState/);
 assert.doesNotMatch(runtimeSource, /last_message_at\s*:/);
 assert.doesNotMatch(runtimeSource, /permissions:\s*\["\*"\]/);
@@ -48,6 +52,17 @@ assert.doesNotMatch(runtimeSource, /fullAccess:\s*true/);
 assert.doesNotMatch(runtimeSource, /executeUbteCapability/);
 assert.doesNotMatch(runtimeSource, /operator_mission/);
 assert.doesNotMatch(runtimeSource, /pending_execution\s*:/);
+
+assert.match(repositorySource, /MAX_RETRIES = 4/);
+assert.match(repositorySource, /mutateOperatorWatchProjectState/);
+assert.match(repositorySource, /project_state:\s*object\(projectState\)/);
+assert.match(repositorySource, /updated_at:\s*updatedAt/);
+assert.match(repositorySource, /eq\("updated_at", expectedUpdatedAt\)/);
+assert.match(repositorySource, /is\("updated_at", null\)/);
+assert.match(repositorySource, /maybeSingle\(\)/);
+assert.match(repositorySource, /CONCURRENT_UPDATE_RETRY_EXHAUSTED/);
+assert.match(repositorySource, /last_message_at/);
+assert.doesNotMatch(repositorySource, /last_message_at\s*:/);
 
 assert.match(cronRouteSource, /CRON_SECRET/);
 assert.match(cronRouteSource, /authorization/);
@@ -58,12 +73,12 @@ assert.match(cronRouteSource, /Math\.min\([^]*\|\| 2, 4\)/);
 
 assert.match(alertRouteSource, /requireOrganizationAccess/);
 assert.match(alertRouteSource, /loadIntelligenceConversationSnapshot/);
+assert.match(alertRouteSource, /mutateOperatorWatchProjectState/);
 assert.match(alertRouteSource, /conversationKey:\s*"primary"/);
 assert.match(alertRouteSource, /pendingAlert/);
 assert.match(alertRouteSource, /last_delivered_dedupe_key/);
 assert.match(alertRouteSource, /status:\s*"delivered"/);
-assert.match(alertRouteSource, /project_state:\s*nextProjectState/);
-assert.match(alertRouteSource, /updated_at:\s*deliveredAt/);
+assert.match(alertRouteSource, /persistence_attempts/);
 assert.doesNotMatch(alertRouteSource, /updateIntelligenceConversationState/);
 assert.doesNotMatch(alertRouteSource, /last_message_at\s*:/);
 assert.doesNotMatch(alertRouteSource, /service_role/i);
@@ -99,4 +114,5 @@ console.log("OPERATOR_AUTONOMOUS_WATCH_SCOPE=CURRENT_STAFF_MEMBERSHIP_PERMISSION
 console.log("OPERATOR_AUTONOMOUS_WATCH_CADENCE=ADAPTIVE_WITH_BACKOFF");
 console.log("OPERATOR_AUTONOMOUS_WATCH_ALERTS=DURABLE_DEDUPED_ACKNOWLEDGED");
 console.log("OPERATOR_AUTONOMOUS_WATCH_ACTIVITY=SEPARATE_FROM_HUMAN_CONVERSATION");
+console.log("OPERATOR_AUTONOMOUS_WATCH_CONCURRENCY=OPTIMISTIC_REBASE_AND_RETRY");
 console.log("OPERATOR_AUTONOMOUS_WATCH_EXECUTION=NO_BUSINESS_WRITE_AUTHORIZATION");

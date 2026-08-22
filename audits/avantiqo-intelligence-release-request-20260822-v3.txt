@@ -14,7 +14,9 @@ Requirements:
 - deliberative turns route to Thinking brain
 - governed long-term memory active
 - benchmark harness present
+- Qwen3 RunPod worker contract: REASONING_PARSER=qwen3, ENABLE_AUTO_TOOL_CHOICE=true, TOOL_CALL_PARSER=hermes
 - scoped inference credentials are valid even when RunPod management scope is intentionally absent
+- release audit is hard-killed and fails closed if RunPod/network certification exceeds 60 seconds
 - sanitized RunPod infrastructure profile is diagnostic only and never authorizes release
 
 This file contains no credentials or endpoint identifiers.

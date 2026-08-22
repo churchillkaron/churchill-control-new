@@ -5,3 +5,4 @@ Purpose: certify the full governed ServiceExecutionRuntime path for Avantiqo Syn
 Expected path: organization service -> provider resolution -> pricing -> wallet reservation -> avantiqo-intelligence -> RunPod Qwen -> actual usage settlement -> wallet charge -> billing.
 Production application build must remain skipped; this marker runs the governed diagnostic gate only.
 Marker: [probe-governed-avantiqo-intelligence]
+Diagnostic revision: provider runtime/pricing preflight instrumentation enabled.

@@ -18,6 +18,10 @@ import {
   recallIntelligenceMemory,
 } from "@/lib/operator/runtime/IntelligenceMemoryRuntime";
 import {
+  crossConversationAmbiguityTurn,
+  recoverCrossConversationProject,
+} from "@/lib/operator/runtime/IntelligenceCrossConversationContinuityRuntime";
+import {
   mergeOperatorProjectState,
 } from "@/lib/operator/contracts/OperatorProjectState";
 
@@ -260,6 +264,28 @@ export async function POST(request) {
     });
     const memoryMs = Date.now() - memoryStartedAt;
 
+    const continuityStartedAt = Date.now();
+    let continuity = {
+      recovered: false,
+      ambiguous: false,
+      reason: "NOT_CHECKED",
+    };
+    try {
+      continuity = await recoverCrossConversationProject({
+        organizationId: businessContext.organizationId,
+        partyId,
+        message,
+        currentProjectState: memory.projectState,
+      });
+    } catch (continuityError) {
+      console.error("OPERATOR_CROSS_CONVERSATION_CONTINUITY_FAILED", continuityError);
+    }
+    const continuityMs = Date.now() - continuityStartedAt;
+
+    const effectiveProjectState = continuity.recovered === true
+      ? object(continuity.project_state)
+      : object(memory.projectState);
+
     const longTermMemoryStartedAt = Date.now();
     let longTermMemory = [];
     try {
@@ -268,7 +294,7 @@ export async function POST(request) {
         partyId,
         entityId: businessContext.entityId,
         message,
-        projectState: memory.projectState,
+        projectState: effectiveProjectState,
       });
     } catch (memoryError) {
       console.error("OPERATOR_LONG_TERM_MEMORY_RECALL_FAILED", memoryError);
@@ -282,55 +308,67 @@ export async function POST(request) {
       : clientConversation;
     // Authorization-critical Operator state is server-authoritative. Client
     // agreement_state may be stale or forged and is never merged into execution
-    // state. The persisted conversation record is the only resume source.
+    // state. Cross-conversation continuity intentionally recovers project state
+    // only; it never recovers agreement_state, pending confirmations, approvals,
+    // or prior mutable business evidence.
     const agreementState = object(memory.agreementState);
 
     let operatorMs = 0;
     let userTurnPersistMs = 0;
     const operatorStartedAt = Date.now();
-    const operatorPromise = runSyntheticIntelligenceTurn({
-      organizationId: businessContext.organizationId,
-      entityId: businessContext.entityId,
-      periodId: businessContext.periodId,
-      partyId,
-      actor,
-      role: access.role,
-      permissions:
-        businessContext.permissions ||
-        access.permissions ||
-        [],
-      locale:
-        text(body.locale) ||
-        businessContext.locale ||
-        null,
-      timezone: businessContext.timezone || null,
-      message,
-      source,
-      pathname: text(body.pathname) || null,
-      agreementState,
-      projectState: memory.projectState,
-      conversation,
-      longTermMemory,
-      callerRequest: request,
-    })
-      .then((value) => {
-        operatorMs = Date.now() - operatorStartedAt;
-        return value;
-      })
-      .catch((error) => {
-        operatorMs = Date.now() - operatorStartedAt;
-        if (!isInsufficientWalletBalance(error)) throw error;
-
-        console.warn("OPERATOR_SERVICE_BALANCE_REQUIRED", {
+    const operatorPromise = continuity.ambiguous === true
+      ? Promise.resolve(
+          crossConversationAmbiguityTurn({
+            recovery: continuity,
+            agreementState,
+          }),
+        ).then((value) => {
+          operatorMs = Date.now() - operatorStartedAt;
+          return value;
+        })
+      : runSyntheticIntelligenceTurn({
           organizationId: businessContext.organizationId,
-          entityId: businessContext.entityId || null,
-        });
-
-        return prepaidBalanceBlockedResult({
+          entityId: businessContext.entityId,
+          periodId: businessContext.periodId,
+          partyId,
+          actor,
+          role: access.role,
+          permissions:
+            businessContext.permissions ||
+            access.permissions ||
+            [],
+          locale:
+            text(body.locale) ||
+            businessContext.locale ||
+            null,
+          timezone: businessContext.timezone || null,
+          message,
+          source,
+          pathname: text(body.pathname) || null,
           agreementState,
-          projectState: memory.projectState,
-        });
-      });
+          projectState: effectiveProjectState,
+          conversation,
+          longTermMemory,
+          callerRequest: request,
+        })
+          .then((value) => {
+            operatorMs = Date.now() - operatorStartedAt;
+            return value;
+          })
+          .catch((error) => {
+            operatorMs = Date.now() - operatorStartedAt;
+            if (!isInsufficientWalletBalance(error)) throw error;
+
+            console.warn("OPERATOR_SERVICE_BALANCE_REQUIRED", {
+              organizationId: businessContext.organizationId,
+              entityId: businessContext.entityId || null,
+            });
+
+            return prepaidBalanceBlockedResult({
+              agreementState,
+              projectState: effectiveProjectState,
+            });
+          });
     const userPersistStartedAt = Date.now();
     const userPersistPromise = persistIntelligenceTurn({
       organizationId: businessContext.organizationId,
@@ -362,7 +400,7 @@ export async function POST(request) {
         ? returnedAgreementState
         : agreementState;
     const nextProjectState = deriveProjectState(
-      memory.projectState,
+      effectiveProjectState,
       result,
     );
 
@@ -391,7 +429,7 @@ export async function POST(request) {
         partyId,
         entityId: businessContext.entityId,
         conversationId: memory.conversation.id,
-        previousProjectState: memory.projectState,
+        previousProjectState: effectiveProjectState,
         nextProjectState,
       });
       longTermLearned = Number(learned?.learned || 0);
@@ -402,10 +440,11 @@ export async function POST(request) {
     const totalMs = Date.now() - turnStartedAt;
 
     const latency = {
-      version: 2,
+      version: 3,
       access_ms: accessMs,
       context_ms: contextMs,
       memory_ms: memoryMs,
+      continuity_ms: continuityMs,
       long_term_memory_ms: longTermMemoryMs,
       operator_ms: operatorMs,
       user_turn_persist_ms: userTurnPersistMs,
@@ -415,7 +454,7 @@ export async function POST(request) {
     };
 
     console.info(
-      "OPERATOR_LATENCY_V2",
+      "OPERATOR_LATENCY_V3",
       JSON.stringify({
         ...latency,
         organization_id: businessContext.organizationId,
@@ -426,6 +465,10 @@ export async function POST(request) {
         capability_key: text(result?.execution?.capability?.key) || null,
         long_term_memory_recalled: longTermMemory.length,
         long_term_memory_learned: longTermLearned,
+        project_continuity_recovered: continuity.recovered === true,
+        project_continuity_ambiguous: continuity.ambiguous === true,
+        project_continuity_source_conversation_id:
+          continuity.source_conversation_id || null,
       }),
     );
 
@@ -433,6 +476,14 @@ export async function POST(request) {
       ...result,
       agreement_state: object(persistedState.agreement_state),
       project_state: object(persistedState.project_state),
+      project_continuity: {
+        recovered: continuity.recovered === true,
+        ambiguous: continuity.ambiguous === true,
+        reason: continuity.reason || null,
+        source_conversation_id: continuity.source_conversation_id || null,
+        authorization_recovered: false,
+        mutable_business_evidence_recovered: false,
+      },
       conversation: {
         id: persistedState.id,
         key: persistedState.conversation_key,
@@ -455,6 +506,7 @@ export async function POST(request) {
         `access;dur=${accessMs}`,
         `context;dur=${contextMs}`,
         `memory;dur=${memoryMs}`,
+        `continuity;dur=${continuityMs}`,
         `ltmemory;dur=${longTermMemoryMs}`,
         `operator;dur=${operatorMs}`,
         `persist;dur=${assistantPersistMs}`,

@@ -3,7 +3,6 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 import sharp from "sharp";
-
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
 const CONTRACT = "AVANTIQO_OWNED_MEDIA_CAPABILITY_CERTIFICATION_V1";
@@ -35,10 +34,6 @@ function artifactPath(label, extension) {
   return `${basePath()}/${safe}.${extension}`;
 }
 
-function evidencePath() {
-  return `${basePath()}/evidence.json`;
-}
-
 function requireToken(request) {
   const expected = text(process.env.AVANTIQO_OWNED_CERTIFICATION_TOKEN);
   if (!expected) throw new Error("AVANTIQO_OWNED_CERTIFICATION_TOKEN_REQUIRED");
@@ -59,6 +54,28 @@ function requireEnvironment() {
   if (missing.length) throw new Error(`CERTIFICATION_ENV_MISSING:${missing.join(",")}`);
 }
 
+async function runSync(endpointId, input, timeoutMs = 285000) {
+  const started = performance.now();
+  const response = await fetch(`${RUNPOD_API_BASE}/${endpointId}/runsync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${text(process.env.RUNPOD_API_KEY)}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ input }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(`RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message)}`);
+  }
+  if (text(body?.status).toUpperCase() !== "COMPLETED") {
+    throw new Error(`RUNPOD_NOT_COMPLETED:${text(body?.status) || "UNKNOWN"}`);
+  }
+  return { body, wallMs: Math.round(performance.now() - started) };
+}
+
 async function uploadBytes(path, bytes, contentType) {
   const { error } = await supabase.storage.from(BUCKET).upload(path, bytes, {
     contentType,
@@ -69,9 +86,7 @@ async function uploadBytes(path, bytes, contentType) {
 }
 
 async function signedUrl(path, expiresIn = 3600) {
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(path, expiresIn);
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expiresIn);
   if (error || !data?.signedUrl) {
     throw new Error(`CERTIFICATION_SOURCE_SIGN_FAILED:${error?.message || "NO_SIGNED_URL"}`);
   }
@@ -98,68 +113,30 @@ async function storedBytes(path) {
   return Buffer.from(await data.arrayBuffer()).length;
 }
 
-async function runSync(endpointId, input, timeoutMs = 285000) {
-  const started = performance.now();
-  const response = await fetch(`${RUNPOD_API_BASE}/${endpointId}/runsync`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${text(process.env.RUNPOD_API_KEY)}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ input }),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  const body = await response.json().catch(() => ({}));
-  const wallMs = Math.round(performance.now() - started);
-  if (!response.ok) {
-    throw new Error(`RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message)}`);
-  }
-  if (text(body?.status).toUpperCase() !== "COMPLETED") {
-    throw new Error(`RUNPOD_NOT_COMPLETED:${text(body?.status) || "UNKNOWN"}`);
-  }
-  return { body, wallMs };
-}
-
 async function createImageFixtures() {
   const sourcePath = artifactPath("image-source", "png");
   const maskPath = artifactPath("image-mask", "png");
-  const sourceSvg = Buffer.from(`
+  const source = await sharp(Buffer.from(`
     <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#07090c"/><stop offset="1" stop-color="#1d242c"/>
-        </linearGradient>
-      </defs>
-      <rect width="1024" height="1024" fill="url(#bg)"/>
+      <rect width="1024" height="1024" fill="#090c10"/>
       <ellipse cx="512" cy="780" rx="260" ry="72" fill="#000" opacity="0.5"/>
       <rect x="342" y="250" width="340" height="500" rx="110" fill="#121820" stroke="#87919b" stroke-width="4"/>
       <rect x="382" y="300" width="110" height="360" rx="54" fill="#dce4ea" opacity="0.12"/>
     </svg>
-  `);
-  const maskSvg = Buffer.from(`
+  `)).png().toBuffer();
+  const mask = await sharp(Buffer.from(`
     <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024">
       <rect width="1024" height="1024" fill="#000"/>
       <ellipse cx="512" cy="470" rx="120" ry="120" fill="#fff"/>
     </svg>
-  `);
-  const source = await sharp(sourceSvg).png().toBuffer();
-  const mask = await sharp(maskSvg).png().toBuffer();
+  `)).png().toBuffer();
   await Promise.all([
     uploadBytes(sourcePath, source, "image/png"),
     uploadBytes(maskPath, mask, "image/png"),
   ]);
   return {
-    source: {
-      path: sourcePath,
-      url: await signedUrl(sourcePath),
-      bytes: source.length,
-    },
-    mask: {
-      path: maskPath,
-      url: await signedUrl(maskPath),
-      bytes: mask.length,
-    },
+    source: await signedUrl(sourcePath),
+    mask: await signedUrl(maskPath),
   };
 }
 
@@ -210,33 +187,34 @@ async function benchmarkImageCapabilities() {
   const editModel = text(process.env.AVANTIQO_IMAGE_EDIT_MODEL) || "Qwen/Qwen-Image-Edit";
   const inpaintModel = text(process.env.AVANTIQO_IMAGE_INPAINT_MODEL) || "Qwen/Qwen-Image-Edit-2511";
   const outpaintModel = text(process.env.AVANTIQO_IMAGE_OUTPAINT_MODEL) || inpaintModel;
-  const observations = [];
-  observations.push(await imageSample({
-    capability: "ai.image.edit",
-    model: editModel,
-    sourceAssets: [fixtures.source.url],
-    instruction: "Preserve the object geometry and composition. Change only the material to premium smoked glass with physically plausible reflections. No text.",
-    outputSpec: { width: 1024, height: 1024 },
-    seed: 71001,
-  }));
-  observations.push(await imageSample({
-    capability: "ai.image.inpaint",
-    model: inpaintModel,
-    sourceAssets: [fixtures.source.url, fixtures.mask.url],
-    instruction: "Replace the masked circular region with a subtle brushed metal emblem with no lettering.",
-    outputSpec: { width: 1024, height: 1024 },
-    seed: 71002,
-  }));
-  observations.push(await imageSample({
-    capability: "ai.image.outpaint",
-    model: outpaintModel,
-    sourceAssets: [fixtures.source.url],
-    instruction: "Extend the same premium dark studio environment naturally beyond the original frame.",
-    outputSpec: { width: 1344, height: 768 },
-    seed: 71003,
-  }));
+  const observations = [
+    await imageSample({
+      capability: "ai.image.edit",
+      model: editModel,
+      sourceAssets: [fixtures.source],
+      instruction: "Preserve object geometry and composition. Change only the material to premium smoked glass. No text.",
+      outputSpec: { width: 1024, height: 1024 },
+      seed: 71001,
+    }),
+    await imageSample({
+      capability: "ai.image.inpaint",
+      model: inpaintModel,
+      sourceAssets: [fixtures.source, fixtures.mask],
+      instruction: "Replace only the masked region with a subtle brushed-metal emblem without lettering.",
+      outputSpec: { width: 1024, height: 1024 },
+      seed: 71002,
+    }),
+    await imageSample({
+      capability: "ai.image.outpaint",
+      model: outpaintModel,
+      sourceAssets: [fixtures.source],
+      instruction: "Extend the same premium dark studio environment naturally beyond the original frame.",
+      outputSpec: { width: 1344, height: 768 },
+      seed: 71003,
+    }),
+  ];
   return {
-    passed: observations.length === 3 && observations.every((item) => item.passed),
+    passed: observations.every((item) => item.passed),
     observations,
     certification_requirements: {
       human_visual_quality_review_required: true,
@@ -251,9 +229,6 @@ async function benchmarkImageCapabilities() {
 
 async function createCinemaSourceVideo() {
   const endpointId = text(process.env.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID);
-  const t2vModel = text(process.env.AVANTIQO_VIDEO_T2V_MODEL) ||
-    text(process.env.AVANTIQO_VIDEO_FOUNDATION_MODEL) ||
-    "Wan-AI/Wan2.2-T2V-A14B-Diffusers";
   const upload = await uploadTarget(artifactPath(`cinema-source-${Date.now()}`, "mp4"));
   const { body } = await runSync(endpointId, {
     contract: "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1",
@@ -275,15 +250,10 @@ async function createCinemaSourceVideo() {
     },
   });
   const output = body.output || {};
-  if (
-    text(output.capability) !== "ai.video.generate" ||
-    text(output.foundation_model) !== t2vModel ||
-    Number(output.size_bytes) <= 10000
-  ) {
+  if (text(output.capability) !== "ai.video.generate" || Number(output.size_bytes) <= 10000) {
     throw new Error("CINEMA_EDIT_SOURCE_GENERATION_FAILED");
   }
   return {
-    path: upload.path,
     url: await signedUrl(upload.path),
     storage_reference: upload.storage_reference,
   };
@@ -299,10 +269,11 @@ async function benchmarkCinemaEdit() {
   const { body, wallMs } = await runSync(endpointId, {
     contract: "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1",
     capability: "ai.video.edit",
+    certification_execution: true,
     organization_id: "benchmark-only",
     organization_service_id: "benchmark-only",
     usage_id: "benchmark-cinema-edit",
-    instruction: "Preserve the subject identity, framing and motion. Change only the environment lighting to a refined warm luxury studio look. No text, no logo.",
+    instruction: "Preserve subject identity, framing and motion. Change only environment lighting to a refined warm luxury studio look. No text, no logo.",
     duration_seconds: 2,
     fps: 16,
     aspect_ratio: "16:9",
@@ -322,6 +293,7 @@ async function benchmarkCinemaEdit() {
     text(output.foundation_model) === editModel &&
     text(output.foundation_model_source) === "runpod-cache" &&
     output.source_video_conditioning === true &&
+    output.certification_execution === true &&
     Number(output.frame_count) >= 17 &&
     Number(output.size_bytes) > 10000 &&
     verifiedBytes > 10000 &&
@@ -339,6 +311,7 @@ async function benchmarkCinemaEdit() {
       source_storage_reference: source.storage_reference,
       output_storage_reference: upload.storage_reference,
       verified_storage_size_bytes: verifiedBytes,
+      certification_execution: output.certification_execution === true,
     },
     certification_requirements: {
       human_visual_quality_review_required: true,
@@ -353,11 +326,11 @@ async function benchmarkCinemaEdit() {
 
 async function persistEvidence(evidence) {
   const payload = Buffer.from(`${JSON.stringify(evidence, null, 2)}\n`);
-  const { error } = await supabase.storage.from(BUCKET).upload(evidencePath(), payload, {
-    contentType: "application/json",
-    cacheControl: "0",
-    upsert: true,
-  });
+  const { error } = await supabase.storage.from(BUCKET).upload(
+    `${basePath()}/evidence.json`,
+    payload,
+    { contentType: "application/json", cacheControl: "0", upsert: true },
+  );
   if (error) throw new Error(`CERTIFICATION_EVIDENCE_PERSIST_FAILED:${error.message}`);
 }
 

@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -6,12 +6,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv ffmpeg git ca-certificates \
+    ffmpeg git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt ./requirements.txt
-RUN python3 -m pip install --upgrade pip && python3 -m pip install -r requirements.txt
+RUN python -m pip install --upgrade pip && python -m pip install -r requirements.txt
 COPY handler.py ./handler.py
 
 RUN mkdir -p /tmp/avantiqo-video
@@ -19,4 +19,4 @@ ENV AVANTIQO_VIDEO_OUTPUT_DIR=/tmp/avantiqo-video \
     AVANTIQO_VIDEO_DEVICE=cuda \
     AVANTIQO_VIDEO_FOUNDATION_MODEL=Wan-AI/Wan2.2-TI2V-5B-Diffusers
 
-CMD ["python3", "-u", "handler.py"]
+CMD ["python", "-u", "handler.py"]

@@ -91,6 +91,7 @@ const [
   verificationSource,
   turnRuntimeSource,
   turnOrchestrationSource,
+  decisionClassifierSource,
   readChainSource,
   capabilityCatalogSource,
   readResolverSource,
@@ -100,6 +101,7 @@ const [
   readFile("lib/operator/runtime/OperatorVerificationRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntimeCore.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorHumanDecisionClassifier.js", "utf8"),
   readFile("lib/platform/capabilities/createOperatorReadChainCapability.js", "utf8"),
   readFile("lib/operator/runtime/OperatorCapabilityCatalog.js", "utf8"),
   readFile("lib/operator/runtime/OperatorBusinessReadResolver.js", "utf8"),
@@ -183,11 +185,18 @@ assert.match(turnRuntimeSource, /pending\.original_message \|\| message/);
 assert.match(turnRuntimeSource, /original_message:\s*text\(originalMessage\)/);
 assert.match(turnOrchestrationSource, /runOperatorTurnCore/);
 assert.match(turnOrchestrationSource, /agreementWithOperatorRecommendation/);
-assert.match(turnOrchestrationSource, /projectStateWithAcceptedRecommendation/);
-assert.match(turnOrchestrationSource, /AFFIRMATIVE_PENDING_PATTERN/);
+assert.match(turnOrchestrationSource, /projectStateWithRecommendationDecision/);
+assert.match(turnOrchestrationSource, /classifyPendingOperatorReply/);
+assert.match(turnOrchestrationSource, /replyClass === "agree"/);
+assert.match(turnOrchestrationSource, /replyClass === "execute"/);
+assert.match(turnOrchestrationSource, /replyClass === "reject"/);
 assert.match(turnOrchestrationSource, /recommendationEligible/);
 assert.match(turnOrchestrationSource, /payloadSatisfiesRequiredFields/);
 assert.match(turnOrchestrationSource, /recommendation-status-local-v1/);
+assert.match(decisionClassifierSource, /recommendation && AGREEMENT_PATTERN\.test\(clean\)/);
+assert.match(decisionClassifierSource, /return "agree"/);
+assert.match(decisionClassifierSource, /return "execute"/);
+assert.match(decisionClassifierSource, /return "reject"/);
 
 console.log("OPERATOR_GOAL_CONTINUITY_AUDIT=PASS");
 console.log("OPERATOR_GOAL_COMPLETION=USER_CONFIRMATION_REQUIRED");

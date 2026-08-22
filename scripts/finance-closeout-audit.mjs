@@ -31,6 +31,25 @@ const financeGateway = read("lib/finance/runtime/financeGateway.js");
 const reconciliationRoute = read("app/api/finance/reconciliation/run/route.js");
 const depreciationRoute = read("app/api/finance/depreciation/run/route.js");
 const depreciationRuntime = read("lib/finance/fixed-assets/runtime/FixedAssetsApplicationService.js");
+const configurationConvergence = read("lib/finance/workspaces/FinanceConfigurationContractConvergence.js");
+const accountingSettingsRoute = read("app/api/finance/workspaces/accounting_settings/route.js");
+const organizationProfileRoute = read("app/api/finance/workspaces/organization_profile/route.js");
+const numberSequencesRoute = read("app/api/finance/workspaces/number_sequences/route.js");
+const approvalWorkflowsRoute = read("app/api/finance/workspaces/approval_workflows/route.js");
+const reportBuilderRoute = read("app/api/finance/report-builder/run/route.js");
+const scheduledWritePolicy = read("lib/finance/reporting/runtime/ScheduledReportWritePolicy.js");
+const scheduledService = read("lib/finance/reporting/runtime/ScheduledReportService.js");
+const scheduledEndpoint = read("app/api/internal/finance/scheduled-reports/process/route.js");
+const rowActionResolver = read("lib/platform/actions/resolveRowAction.js");
+const fixedAssetUpdateRoute = read("app/api/finance/fixed-assets/update/route.js");
+const fixedAssetCreateRoute = read("app/api/finance/fixed-assets/create/route.js");
+const legalEntityUpdateRoute = read("app/api/finance/legal-entities/update/route.js");
+const legalEntityToggleRoute = read("app/api/finance/legal-entities/toggle/route.js");
+const costCenterUpdateRoute = read("app/api/finance/cost-centers/update/route.js");
+const costCenterToggleRoute = read("app/api/finance/cost-centers/toggle/route.js");
+const bankArchiveRoute = read("app/api/finance/bank-accounts/archive/route.js");
+const customerInvoiceCreateRoute = read("app/api/finance/customer-invoices/create/route.js");
+const vendorInvoiceCreateRoute = read("app/api/finance/vendor-invoices/create/route.js");
 
 function financeSection(source) {
   const start = source.indexOf("finance: {");
@@ -174,6 +193,101 @@ check(
     depreciationRuntime.includes("entity_id") &&
     depreciationRuntime.includes("apply_finance_depreciation_asset") &&
     depreciationRuntime.includes("DEPRECIATION")
+);
+
+check(
+  "Report Builder hides implementation JSON from users",
+  configurationConvergence.includes('type: "hidden"') &&
+    configurationConvergence.includes('name: "definition_json"') &&
+    !configurationConvergence.includes('label: "Report Definition JSON"')
+);
+check(
+  "Report Builder is bound to executable Finance engines",
+  ["profit_loss", "balance_sheet", "cash_flow", "trial_balance"].every(value => configurationConvergence.includes(`value: "${value}"`)) &&
+    reportBuilderRoute.includes("ReportingApplicationService") &&
+    reportBuilderRoute.includes('from("finance_report_runs")')
+);
+check(
+  "Scheduled Reports validate entity template cadence and timezone",
+  scheduledWritePolicy.includes("Legal Entity not found in this organisation") &&
+    scheduledWritePolicy.includes("Report Template must be active") &&
+    scheduledWritePolicy.includes("localDateTimeToUtc")
+);
+check(
+  "Scheduled Reports execute through Finance report runtime",
+  scheduledService.includes("processDueScheduledReports") &&
+    scheduledService.includes("ReportingApplicationService") &&
+    scheduledService.includes('from("finance_report_runs")') &&
+    scheduledService.includes("resolveCurrentPeriod")
+);
+check(
+  "Scheduled Reports preserve local accounting date and month-end cadence",
+  scheduledService.includes("dateTimePartsInZone") &&
+    scheduledService.includes("lastDayOfMonth") &&
+    scheduledService.includes("addLocalMonths")
+);
+check(
+  "Scheduled Reports processor is CRON-secret protected",
+  scheduledEndpoint.includes("CRON_SECRET") &&
+    scheduledEndpoint.includes("Bearer") &&
+    scheduledEndpoint.includes("processDueScheduledReports")
+);
+check(
+  "Accounting Settings exposes governed policy values instead of raw JSON",
+  configurationConvergence.includes('type: "dependent-select"') &&
+    configurationConvergence.includes("ACCOUNTING_POLICY_FORM_VALUE_OPTIONS") &&
+    accountingSettingsRoute.includes('.not("setting_key", "is", null)') &&
+    accountingSettingsRoute.includes("requireFinanceWorkspacePermission")
+);
+check(
+  "Organization Profile form and route are canonical and permissioned",
+  configurationConvergence.includes('name: "registered_address_line1"') &&
+    configurationConvergence.includes('name: "locale"') &&
+    organizationProfileRoute.includes("requireFinanceWorkspacePermission")
+);
+check(
+  "Number Sequences exact route is permissioned",
+  numberSequencesRoute.includes("requireFinanceWorkspacePermission") &&
+    numberSequencesRoute.includes('capabilityId: "number_sequences"')
+);
+check(
+  "Approval Workflows exact route is permissioned",
+  approvalWorkflowsRoute.includes("requireFinanceWorkspacePermission") &&
+    approvalWorkflowsRoute.includes('capabilityId: "approval_workflows"')
+);
+check(
+  "Master-data row actions resolve canonical edit forms",
+  rowActionResolver.includes('"/api/finance/fixed-assets/update": "fixed-asset"') &&
+    rowActionResolver.includes('"/api/finance/legal-entities/update": "legal-entity"') &&
+    rowActionResolver.includes('"/api/finance/cost-centers/update": "cost-center"') &&
+    rowActionResolver.includes('"/api/finance/bank-accounts/upsert": "bank-account"')
+);
+check(
+  "Fixed Asset edit accepts only canonical editable fields",
+  fixedAssetUpdateRoute.includes("EDITABLE_FIELDS") &&
+    fixedAssetUpdateRoute.includes("No editable fixed asset fields provided")
+);
+check(
+  "Legal Entity edit and lifecycle routes use workspace permission",
+  legalEntityUpdateRoute.includes("requireFinanceWorkspacePermission") &&
+    legalEntityToggleRoute.includes("requireFinanceWorkspacePermission")
+);
+check(
+  "Cost Centre edit and lifecycle routes use workspace permission",
+  costCenterUpdateRoute.includes("requireFinanceWorkspacePermission") &&
+    costCenterToggleRoute.includes("requireFinanceWorkspacePermission")
+);
+check(
+  "Bank Account archive is governed and reconciliation-safe",
+  bankArchiveRoute.includes("requireFinanceWorkspacePermission") &&
+    bankArchiveRoute.includes("unreconciled ledger entries") &&
+    rowActionResolver.includes("/api/finance/bank-accounts/archive")
+);
+check(
+  "Immutable Finance create endpoints reject existing record ids",
+  customerInvoiceCreateRoute.includes("create-only") &&
+    vendorInvoiceCreateRoute.includes("create-only") &&
+    fixedAssetCreateRoute.includes("create-only")
 );
 
 const capabilityRows = [];

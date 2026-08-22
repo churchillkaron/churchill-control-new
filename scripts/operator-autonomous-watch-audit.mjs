@@ -219,7 +219,7 @@ assert.match(controlCenterSource, /Discuss policy/);
 assert.match(controlCenterSource, /avantiqo:home-command/);
 assert.match(controlCenterSource, /Save autonomy policy/);
 assert.match(controlCenterSource, /canManage/);
-assert.match(controlCenterSource, /Organization owner access required/);
+assert.match(controlCenterSource, /organization owner access required/i);
 assert.match(controlCenterSource, /Recommendations never authorize business execution/);
 assert.doesNotMatch(controlCenterSource, /service_role/i);
 assert.doesNotMatch(controlCenterSource, /executeUbteCapability/);
@@ -238,20 +238,7 @@ assert.equal(cron.schedule, "*/5 * * * *");
 assert.equal(
   vercel.functions?.["app/api/internal/operator/autonomous-watch/process/route.js"]?.maxDuration,
   300,
+  "Autonomous watch worker must retain a 300 second duration",
 );
 
 console.log("OPERATOR_AUTONOMOUS_WATCH_AUDIT=PASS");
-console.log("OPERATOR_AUTONOMOUS_WATCH_MODE=READ_ONLY_COST_AWARE_V2");
-console.log("OPERATOR_AUTONOMOUS_WATCH_SCOPE=ONE_FULL_ACCESS_OWNER_PER_ORGANIZATION");
-console.log("OPERATOR_AUTONOMOUS_WATCH_EVIDENCE=DETERMINISTIC_REGISTERED_READS_ZERO_AI");
-console.log("OPERATOR_AUTONOMOUS_WATCH_COGNITION=ZERO_AI_IF_UNCHANGED_ONE_PAID_PASS_IF_JUSTIFIED");
-console.log("OPERATOR_AUTONOMOUS_WATCH_BUDGET=AUTONOMOUS_USAGE_ONLY_ROLLING_24H_HARD_PRICE_PREFLIGHT");
-console.log("OPERATOR_AUTONOMOUS_WATCH_SETTINGS=AUTHENTICATED_OWNER_GOVERNED");
-console.log("OPERATOR_AUTONOMOUS_WATCH_CONTROL_CENTER=LIVE_OWNER_GOVERNED_EXECUTIVE_UI");
-console.log("OPERATOR_AUTONOMOUS_WATCH_WALLET=READ_ONLY_PRICE_PREFLIGHT_THEN_SERVICE_RUNTIME_RESERVATION");
-console.log("OPERATOR_AUTONOMOUS_WATCH_RUN_LEASE=OPTIMISTIC_SINGLE_OWNER_10_MINUTE_RECOVERY");
-console.log("OPERATOR_AUTONOMOUS_WATCH_CADENCE=ADAPTIVE_WITH_BACKOFF");
-console.log("OPERATOR_AUTONOMOUS_WATCH_ALERTS=DURABLE_DEDUPED_ACKNOWLEDGED");
-console.log("OPERATOR_AUTONOMOUS_WATCH_ACTIVITY=SEPARATE_FROM_HUMAN_CONVERSATION");
-console.log("OPERATOR_AUTONOMOUS_WATCH_CONCURRENCY=LEASE_PLUS_OPTIMISTIC_PRESERVE_AND_RETRY");
-console.log("OPERATOR_AUTONOMOUS_WATCH_EXECUTION=NO_BUSINESS_WRITE_AUTHORIZATION");

@@ -1,13 +1,15 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
   loadIntelligenceConversationSnapshot,
 } from "@/lib/operator/runtime/IntelligenceConversationRuntime";
+import {
+  mutateOperatorWatchProjectState,
+} from "@/lib/operator/runtime/OperatorWatchStateRepository";
 import {
   mergeOperatorProjectState,
 } from "@/lib/operator/contracts/OperatorProjectState";
@@ -122,60 +124,67 @@ export async function POST(request) {
       return errorResponse("Primary intelligence conversation not found", 404);
     }
 
-    const conversation = resolved.snapshot.conversation;
-    const projectState = object(conversation.project_state);
-    const watch = object(projectState.business_watch);
-    const alert = pendingAlert(projectState);
-    if (!alert || text(alert.dedupe_key, 240) !== dedupeKey) {
-      return Response.json({
-        success: true,
-        acknowledged: false,
-        reason: "ALERT_NOT_PENDING",
-      });
-    }
+    const conversationId = resolved.snapshot.conversation.id;
+    const persisted = await mutateOperatorWatchProjectState({
+      organizationId: resolved.access.organizationId,
+      partyId: resolved.partyId,
+      conversationId,
+      mutate: ({ projectState }) => {
+        const currentProjectState = object(projectState);
+        const watch = object(currentProjectState.business_watch);
+        const alert = pendingAlert(currentProjectState);
+        if (!alert || text(alert.dedupe_key, 240) !== dedupeKey) {
+          return {
+            skip: true,
+            outcome: {
+              acknowledged: false,
+              reason: "ALERT_NOT_PENDING",
+            },
+          };
+        }
 
-    const deliveredAt = new Date().toISOString();
-    const delivered = {
-      ...alert,
-      status: "delivered",
-      delivered_at: deliveredAt,
-    };
-    const history = [
-      ...list(watch.alert_history),
-      delivered,
-    ].slice(-8);
-    const nextProjectState = mergeOperatorProjectState(
-      projectState,
-      projectState,
-      {
-        business_watch: {
-          ...watch,
-          pending_alert: null,
-          last_delivered_dedupe_key: dedupeKey,
-          last_delivered_at: deliveredAt,
-          alert_history: history,
-        },
+        const deliveredAt = new Date().toISOString();
+        const delivered = {
+          ...alert,
+          status: "delivered",
+          delivered_at: deliveredAt,
+        };
+        const history = [
+          ...list(watch.alert_history),
+          delivered,
+        ].slice(-8);
+
+        return {
+          projectState: mergeOperatorProjectState(
+            currentProjectState,
+            currentProjectState,
+            {
+              business_watch: {
+                ...watch,
+                pending_alert: null,
+                last_delivered_dedupe_key: dedupeKey,
+                last_delivered_at: deliveredAt,
+                alert_history: history,
+              },
+            },
+          ),
+          outcome: {
+            acknowledged: true,
+            delivered_at: deliveredAt,
+          },
+        };
       },
-    );
-
-    const updated = await supabaseAdmin
-      .from("intelligence_conversations")
-      .update({
-        project_state: nextProjectState,
-        updated_at: deliveredAt,
-      })
-      .eq("organization_id", resolved.access.organizationId)
-      .eq("party_id", resolved.partyId)
-      .eq("id", conversation.id)
-      .eq("conversation_key", "primary")
-      .select("id")
-      .single();
-    if (updated.error) throw updated.error;
+    });
+    const outcome = object(persisted.outcome);
 
     return Response.json({
       success: true,
-      acknowledged: true,
-      delivered_at: deliveredAt,
+      acknowledged: outcome.acknowledged === true,
+      ...(text(outcome.reason, 120) ? { reason: text(outcome.reason, 120) } : {}),
+      ...(text(outcome.delivered_at, 80)
+        ? { delivered_at: text(outcome.delivered_at, 80) }
+        : {}),
+      persistence_attempts: Number(persisted.attempt || 1),
     });
   } catch (error) {
     console.error("OPERATOR_AUTONOMOUS_WATCH_ALERT_ACK_FAILED", error);

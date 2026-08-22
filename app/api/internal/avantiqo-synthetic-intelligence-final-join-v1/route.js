@@ -16,14 +16,14 @@ const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const BUCKET = "creative-assets";
 const GOOGLE_OPENING_PATH = `${ORGANIZATION_ID}/avantiqo-investor-film-20260822/google-veo-opening-v1/synthetic-intelligence-google-veo-take-1.mp4`;
 const APPROVED_LOGO_PATH = `${ORGANIZATION_ID}/unassigned/df1cdd49-68e2-4a77-956e-6c9565c0074d-google-veo-6c9upygjkui2.mp4`;
-const APPROVED_SCORE_PATH = `${ORGANIZATION_ID}/avantiqo-investor-film-20260820/audio/avantiqo-investor-score-v1-approved.mp3`;
-const FINAL_PATH = `${ORGANIZATION_ID}/avantiqo-investor-film-20260822/google-veo-opening-v1/avantiqo-synthetic-intelligence-plus-logo-smooth-audio-v2.mp4`;
+const FINAL_PATH = `${ORGANIZATION_ID}/avantiqo-investor-film-20260822/google-veo-opening-v1/avantiqo-synthetic-intelligence-plus-logo-original-fx-v3.mp4`;
 
 const OPENING_SECONDS = 8;
 const LOGO_SECONDS = 8;
 const TRANSITION_SECONDS = 0.65;
 const TRANSITION_OFFSET = OPENING_SECONDS - TRANSITION_SECONDS;
 const FINAL_SECONDS = OPENING_SECONDS + LOGO_SECONDS - TRANSITION_SECONDS;
+const LOGO_AUDIO_DELAY_MS = Math.round(TRANSITION_OFFSET * 1000);
 
 const supabase = getServiceSupabase();
 
@@ -79,31 +79,28 @@ async function joinApprovedClips() {
   const ffmpeg = resolveCreativeFfmpegPath();
   if (!ffmpeg) throw new Error("CREATIVE_MEDIA_EDITOR_NOT_READY");
 
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "avantiqo-final-join-v2-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "avantiqo-final-join-v3-"));
   try {
     const opening = path.join(directory, "google-opening.mp4");
     const logo = path.join(directory, "approved-logo.mp4");
-    const score = path.join(directory, "approved-score.mp3");
-    const final = path.join(directory, "opening-master-smooth-audio-v2.mp4");
+    const final = path.join(directory, "opening-master-original-fx-v3.mp4");
 
     await Promise.all([
       download(GOOGLE_OPENING_PATH, opening),
       download(APPROVED_LOGO_PATH, logo),
-      download(APPROVED_SCORE_PATH, score),
     ]);
 
     const filter = [
       `[0:v]trim=duration=${OPENING_SECONDS},setpts=PTS-STARTPTS,scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,format=yuv420p[opening]`,
       `[1:v]trim=duration=${LOGO_SECONDS},setpts=PTS-STARTPTS,scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,format=yuv420p[logo]`,
       `[opening][logo]xfade=transition=fadeblack:duration=${TRANSITION_SECONDS}:offset=${TRANSITION_OFFSET},format=yuv420p[v]`,
-      `[2:a]atrim=start=0:end=${FINAL_SECONDS},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=1.0,afade=t=out:st=${FINAL_SECONDS - 0.8}:d=0.8,loudnorm=I=-15:TP=-1.5:LRA=9[a]`,
+      `[1:a]atrim=duration=${LOGO_SECONDS},asetpts=PTS-STARTPTS,adelay=${LOGO_AUDIO_DELAY_MS}|${LOGO_AUDIO_DELAY_MS},apad,atrim=duration=${FINAL_SECONDS}[a]`,
     ].join(";");
 
     await run(ffmpeg, [
       "-y",
       "-i", opening,
       "-i", logo,
-      "-i", score,
       "-filter_complex", filter,
       "-map", "[v]",
       "-map", "[a]",
@@ -135,10 +132,10 @@ async function joinApprovedClips() {
         opening_source_model: "veo-3.1-generate-preview",
         opening_source_path: GOOGLE_OPENING_PATH,
         approved_logo_source_path: APPROVED_LOGO_PATH,
-        approved_score_source_path: APPROVED_SCORE_PATH,
         transition: "0.65s-fade-through-black",
-        audio: "approved-investor-score",
-        audio_loudness_target: "-15-LUFS",
+        audio: "original-approved-logo-sound-effects-only",
+        music_added: "false",
+        generated_sound_added: "false",
         generated_visuals_in_join_step: "false",
         publication_authorized: "false",
       },
@@ -155,7 +152,9 @@ async function joinApprovedClips() {
       logo_seconds: LOGO_SECONDS,
       transition_seconds: TRANSITION_SECONDS,
       transition: "fade-through-black",
-      audio: "approved-investor-score-v1",
+      audio: "original-approved-logo-sound-effects-only",
+      music_added: false,
+      generated_sound_added: false,
       opening_provider: "google-veo",
       opening_model: "veo-3.1-generate-preview",
       generated_visuals_in_join_step: false,
@@ -176,12 +175,12 @@ export async function GET(request) {
         success: true,
         opening_path: GOOGLE_OPENING_PATH,
         approved_logo_path: APPROVED_LOGO_PATH,
-        approved_score_path: APPROVED_SCORE_PATH,
         final_path: FINAL_PATH,
         sequence: ["GOOGLE_VEO_SYNTHETIC_INTELLIGENCE", "SMOOTH_FADE_THROUGH_BLACK", "APPROVED_AVANTIQO_LOGO"],
         duration_seconds: FINAL_SECONDS,
         transition_seconds: TRANSITION_SECONDS,
-        audio: "approved-investor-score-v1",
+        audio: "original-approved-logo-sound-effects-only",
+        music_added: false,
       });
     }
 

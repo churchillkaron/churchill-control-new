@@ -4,7 +4,8 @@ export const maxDuration = 120;
 
 const TOKEN = "churchill-night-changes-v3-repair-qc-20260821";
 const QC_URL = "https://avantiqo.ai/api/internal/creative-churchill-night-changes-v3-repair-qc";
-const SHOTS = new Set(["shuffleboard_to_dart", "electric_dart_flight"]);
+const R1_SHOTS = new Set(["shuffleboard_to_dart", "electric_dart_flight"]);
+const R2_SHOTS = new Set(["shuffleboard_exit_r2", "dart_entry_r2", "dart_midflight_r2", "dart_impact_r2"]);
 
 function json(data, status = 200) {
   return Response.json(data, { status, headers: { "Cache-Control": "no-store, private" } });
@@ -15,11 +16,14 @@ export async function GET(request) {
     const url = new URL(request.url);
     if (url.searchParams.get("token") !== TOKEN) return json({ success: false }, 404);
     const shot = String(url.searchParams.get("shot") || "").trim();
-    if (!SHOTS.has(shot)) return json({ success: false, error: "Invalid shot" }, 400);
+    const version = String(url.searchParams.get("version") || "r1").trim().toLowerCase() === "r2" ? "r2" : "r1";
+    const allowed = version === "r2" ? R2_SHOTS : R1_SHOTS;
+    if (!allowed.has(shot)) return json({ success: false, error: "Invalid shot" }, 400);
 
     const qc = new URL(QC_URL);
     qc.searchParams.set("token", TOKEN);
     qc.searchParams.set("shot", shot);
+    qc.searchParams.set("version", version);
     const response = await fetch(qc, { cache: "no-store" });
     const payload = await response.json();
     if (!response.ok || !payload?.success || !payload?.jpeg_base64) {
@@ -33,6 +37,7 @@ export async function GET(request) {
         "Content-Length": String(buffer.length),
         "Cache-Control": "no-store, private",
         "X-Churchill-QC-Shot": shot,
+        "X-Churchill-QC-Version": version,
       },
     });
   } catch (error) {

@@ -229,8 +229,10 @@ def check_worker():
         raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_NOT_SUPPORTED:{QUANTIZATION}")
     if QUANTIZATION == "int8" and not DEVICE.startswith("cuda"):
         raise RuntimeError("AVANTIQO_CODE_INT8_REQUIRES_CUDA")
-    if REQUIRE_CACHED_MODEL and not _cached_model_path(FOUNDATION_MODEL):
-        raise RuntimeError(f"AVANTIQO_CODE_CACHED_MODEL_REQUIRED:{FOUNDATION_MODEL}")
+    # Keep the readiness probe limited to container/runtime health. Cached-model
+    # presence remains mandatory in _load_model(), where a controlled request can
+    # return the precise AVANTIQO_CODE_CACHED_MODEL_REQUIRED failure instead of
+    # trapping the worker indefinitely in RunPod's initializing state.
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ const files = {
   providerResolver: "lib/platform/service-runtime/providers/ProviderResolver.js",
   workspace: "lib/code/runtime/CodeWorkspaceSandboxRuntime.js",
   mission: "lib/code/runtime/CodeAIMissionRuntime.js",
+  plannerExecution: "lib/code/runtime/CodeAIPlannerExecutionRuntime.js",
   autonomous: "lib/code/runtime/CodeAIAutonomousRuntime.js",
   attestation: "lib/code/runtime/CodeMissionAttestationRuntime.js",
   githubCommit: "lib/code/runtime/CodeGitHubCommitRuntime.js",
@@ -39,6 +40,7 @@ const [
   providerResolver,
   workspace,
   mission,
+  plannerExecution,
   autonomous,
   attestation,
   githubCommit,
@@ -106,9 +108,24 @@ requireMarkers("MISSION", mission, [
   "successfulVerification",
 ]);
 
+requireMarkers("PLANNER_EXECUTION", plannerExecution, [
+  "AVANTIQO_CODE_AI_PLANNER_EXECUTION_V1",
+  "ServiceExecutionRuntime.execute",
+  "serviceRuntime.settle",
+  "pending_execution",
+  "provider_job_id",
+  "usage_id",
+  "normalizedExecutionInput",
+  "input.instructions || input.instruction",
+  "instructions",
+  "plannerResultText",
+  "CODE_AI_PLANNER_PENDING_ORGANIZATION_MISMATCH",
+]);
+
 requireMarkers("AUTONOMOUS_CONTROLLER", autonomous, [
   "AVANTIQO_CODE_AI_AUTONOMOUS_RUNTIME_V1",
-  "ServiceExecutionRuntime.execute",
+  "executeCodeAIPlannerRequest",
+  "planner_pending",
   "runOperatorWebResearch",
   "executeCodeAIMission",
   "owned_orchestration: true",
@@ -156,6 +173,9 @@ requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
   "executeAutonomousCodeMission",
   "verifyCodeMissionStateAttestation",
   "attestCodeMissionState",
+  "RESTORABLE_MISSION_STATUSES",
+  "resumeStateForExecution",
+  "CODE_AI_AUTONOMOUS_PENDING_RESUME_STATUS_EVIDENCE_REQUIRED",
   "Persistent GitHub commits remain a separate governed capability",
 ]);
 
@@ -195,7 +215,7 @@ if (/git\s+push|vercel\s+deploy|supabase\s+db\s+push/.test(mission + autonomous)
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V2",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V3",
   verified: {
     owned_code_worker: true,
     certified_capability_gate: true,
@@ -206,6 +226,8 @@ console.log(JSON.stringify({
     undeclared_source_mutation_blocked: true,
     concurrent_main_replan_guard: true,
     autonomous_inspect_plan_execute_repair_verify_loop: true,
+    durable_async_owned_planner_execution: true,
+    duplicate_planner_job_on_resume_blocked_by_design: true,
     shared_governed_research_reused: true,
     mission_state_attested: true,
     organization_actor_resume_scope: true,
@@ -213,8 +235,9 @@ console.log(JSON.stringify({
     persistent_commit_permission_separated: true,
     production_side_effects_blocked_from_autonomous_workspace: true,
     live_sandbox_execution_certified: false,
+    live_owned_planner_execution_certified: false,
     live_github_connect_commit_certified: false,
     broader_model_capability_suite_certified: false,
   },
-  note: "Source architecture audit passed only when this script is actually executed. Live Sandbox, live Vercel Connect/GitHub write-back, and broader model benchmarks remain locked until their environment-backed certification runs pass.",
+  note: "Source architecture audit passed only when this script is actually executed. Live Sandbox, live owned planner execution, live Vercel Connect/GitHub write-back, and broader model benchmarks remain locked until their environment-backed certification runs pass.",
 }, null, 2));

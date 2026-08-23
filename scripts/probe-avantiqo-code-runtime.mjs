@@ -7,6 +7,7 @@ const EXPECTED_SERVING_RUNTIME = "vllm";
 const EXPECTED_MULTIPROC_METHOD = "spawn";
 const DEFAULT_READY_TIMEOUT_MS = 10 * 60 * 1000;
 const DEFAULT_JOB_TIMEOUT_MS = 5 * 60 * 1000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const HEALTH_POLL_MS = 5000;
 const JOB_POLL_MS = 1000;
 
@@ -33,6 +34,22 @@ async function responseBody(response) {
   return response.json().catch(() => ({}));
 }
 
+async function fetchWithTimeout(url, options, label, timeoutMs) {
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (error) {
+    const name = text(error?.name);
+    const message = text(error?.message || error);
+    if (name === "TimeoutError" || name === "AbortError") {
+      throw new Error(`${label}_TIMEOUT_AFTER_${timeoutMs}MS`);
+    }
+    throw new Error(`${label}_FAILED:${message}`);
+  }
+}
+
 function workerSnapshot(health) {
   const workers = health?.workers || {};
   return {
@@ -56,6 +73,21 @@ const headers = {
   "Content-Type": "application/json",
   Accept: "application/json",
 };
+const requestTimeoutMs = Math.max(
+  5000,
+  Math.min(
+    60_000,
+    number(process.env.AVANTIQO_CODE_RUNTIME_PROBE_REQUEST_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS),
+  ),
+);
+
+console.log(JSON.stringify({
+  event: "AVANTIQO_CODE_RUNTIME_PROBE_START",
+  endpoint_id: endpointId,
+  generation_performed: false,
+  provider_job_submitted: false,
+  request_timeout_ms: requestTimeoutMs,
+}));
 
 const readyTimeoutMs = Math.max(
   30_000,
@@ -68,9 +100,23 @@ const readyDeadline = Date.now() + readyTimeoutMs;
 let finalHealth = null;
 let finalWorkers = null;
 let readinessMode = null;
+let healthAttempt = 0;
 
 while (Date.now() < readyDeadline) {
-  const healthResponse = await fetch(`${API_BASE}/${endpointId}/health`, { headers });
+  healthAttempt += 1;
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_RUNTIME_PROBE_HEALTH_CHECK",
+    attempt: healthAttempt,
+    generation_performed: false,
+    provider_job_submitted: false,
+  }));
+
+  const healthResponse = await fetchWithTimeout(
+    `${API_BASE}/${endpointId}/health`,
+    { headers },
+    "RUNPOD_HEALTH_REQUEST",
+    requestTimeoutMs,
+  );
   const health = await responseBody(healthResponse);
   if (!healthResponse.ok) {
     throw new Error(`RUNPOD_HEALTH_HTTP_${healthResponse.status}`);
@@ -90,8 +136,6 @@ while (Date.now() < readyDeadline) {
   }
 
   if (workers.initializing === 0) {
-    // A scale-to-zero endpoint has no live worker but is safe to wake with this
-    // metadata-only job. The handler's runtime_probe path never loads the model.
     readinessMode = "SCALED_TO_ZERO";
     break;
   }
@@ -101,6 +145,7 @@ while (Date.now() < readyDeadline) {
     generation_performed: false,
     provider_job_submitted: false,
     workers,
+    seconds_remaining: Math.max(0, Math.ceil((readyDeadline - Date.now()) / 1000)),
   }));
   await delay(HEALTH_POLL_MS);
 }
@@ -111,32 +156,51 @@ if (!readinessMode) {
   );
 }
 
+console.log(JSON.stringify({
+  event: "AVANTIQO_CODE_RUNTIME_PROBE_READY",
+  readiness_mode: readinessMode,
+  workers: finalWorkers,
+  generation_performed: false,
+  provider_job_submitted: false,
+}));
+
 const started = performance.now();
-const submitResponse = await fetch(`${API_BASE}/${endpointId}/run`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    input: {
-      contract: CONTRACT,
-      capability: "ai.code.debug",
-      foundation_model: EXPECTED_FOUNDATION_MODEL,
-      organization_id: "benchmark-only",
-      organization_service_id: "benchmark-only",
-      usage_id: `code-runtime-probe-${Date.now()}`,
-      instruction: "Report the deployed Avantiqo Code runtime metadata only.",
-      structured_specification: {
-        runtime_probe: true,
-        purpose: "DEPLOYED_RUNTIME_METADATA_PROBE",
+const submitResponse = await fetchWithTimeout(
+  `${API_BASE}/${endpointId}/run`,
+  {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      input: {
+        contract: CONTRACT,
+        capability: "ai.code.debug",
+        foundation_model: EXPECTED_FOUNDATION_MODEL,
+        organization_id: "benchmark-only",
+        organization_service_id: "benchmark-only",
+        usage_id: `code-runtime-probe-${Date.now()}`,
+        instruction: "Report the deployed Avantiqo Code runtime metadata only.",
+        structured_specification: {
+          runtime_probe: true,
+          purpose: "DEPLOYED_RUNTIME_METADATA_PROBE",
+        },
       },
-    },
-  }),
-});
+    }),
+  },
+  "RUNPOD_RUNTIME_PROBE_SUBMIT",
+  requestTimeoutMs,
+);
 let body = await responseBody(submitResponse);
 if (!submitResponse.ok) {
   throw new Error(`RUNPOD_SUBMIT_HTTP_${submitResponse.status}:${text(body?.error || body?.message)}`);
 }
 const jobId = text(body?.id);
 if (!jobId) throw new Error("RUNPOD_JOB_ID_REQUIRED");
+console.log(JSON.stringify({
+  event: "AVANTIQO_CODE_RUNTIME_PROBE_SUBMITTED",
+  job_id: jobId,
+  generation_performed: false,
+  provider_job_submitted: true,
+}));
 
 const jobTimeoutMs = Math.max(
   30_000,
@@ -146,14 +210,29 @@ const jobTimeoutMs = Math.max(
   ),
 );
 const deadline = Date.now() + jobTimeoutMs;
+let lastStatus = null;
 while (Date.now() < deadline) {
   const status = text(body?.status).toUpperCase();
   if (status === "COMPLETED") break;
   if (["FAILED", "CANCELLED", "TIMED_OUT"].includes(status)) {
     throw new Error(`RUNPOD_JOB_${status}:${text(body?.error || body?.message)}`);
   }
+  if (status !== lastStatus) {
+    console.log(JSON.stringify({
+      event: "AVANTIQO_CODE_RUNTIME_PROBE_JOB_STATUS",
+      job_id: jobId,
+      status,
+      generation_performed: false,
+    }));
+    lastStatus = status;
+  }
   await delay(JOB_POLL_MS);
-  const response = await fetch(`${API_BASE}/${endpointId}/status/${jobId}`, { headers });
+  const response = await fetchWithTimeout(
+    `${API_BASE}/${endpointId}/status/${jobId}`,
+    { headers },
+    "RUNPOD_RUNTIME_PROBE_STATUS",
+    requestTimeoutMs,
+  );
   body = await responseBody(response);
   if (!response.ok) throw new Error(`RUNPOD_STATUS_HTTP_${response.status}`);
 }
@@ -178,7 +257,7 @@ const passed = Object.values(checks).every(Boolean);
 
 console.log(JSON.stringify({
   success: passed,
-  contract: "AVANTIQO_CODE_RUNTIME_PROBE_V2",
+  contract: "AVANTIQO_CODE_RUNTIME_PROBE_V3",
   readiness_mode: readinessMode,
   initial_health: finalHealth,
   provider_job_submitted: true,

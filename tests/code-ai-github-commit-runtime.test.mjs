@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { commitVerifiedCodeMission } from "../lib/code/runtime/CodeGitHubCommitRuntime.js";
+import { attestCodeMissionState } from "../lib/code/runtime/CodeMissionAttestationRuntime.js";
 
 const BASE = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const TREE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const NEW_TREE = "cccccccccccccccccccccccccccccccccccccccc";
 const COMMIT = "dddddddddddddddddddddddddddddddddddddddd";
+const ATTESTATION_SECRET = "test-code-ai-attestation-secret-that-is-long-enough";
 
 function response(body, status = 200) {
   return {
@@ -15,7 +17,7 @@ function response(body, status = 200) {
   };
 }
 
-function missionState(baseCommit = BASE) {
+function unsignedMissionState(baseCommit = BASE) {
   return {
     contract: "AVANTIQO_CODE_AI_MISSION_V1",
     repository_url: "https://github.com/churchillkaron/churchill-control-new",
@@ -34,10 +36,15 @@ function missionState(baseCommit = BASE) {
 const env = {
   AVANTIQO_CODE_GITHUB_CONNECTOR: "github/avantiqo-code",
   AVANTIQO_CODE_GITHUB_REPOSITORIES: "churchillkaron/churchill-control-new",
+  AVANTIQO_CODE_MISSION_ATTESTATION_SECRET: ATTESTATION_SECRET,
   VERCEL_OIDC_TOKEN: "test-oidc-token",
 };
 
-test("Code AI GitHub commit is atomic, fast-forward only, and post-verified", async () => {
+function missionState(baseCommit = BASE) {
+  return attestCodeMissionState(unsignedMissionState(baseCommit), { env });
+}
+
+test("Code AI GitHub commit is atomic, fast-forward only, attested, and post-verified", async () => {
   const calls = [];
   let refReads = 0;
   const fetch_impl = async (url, options = {}) => {
@@ -98,7 +105,7 @@ test("Code AI GitHub commit is atomic, fast-forward only, and post-verified", as
   assert.ok(calls.some((call) => call.url.includes("github%2Favantiqo-code")));
 });
 
-test("Code AI GitHub commit refuses stale main before creating a tree", async () => {
+test("Code AI GitHub commit refuses stale main before creating a GitHub tree", async () => {
   const moved = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
   let githubWrites = 0;
   const fetch_impl = async (url, options = {}) => {
@@ -124,15 +131,35 @@ test("Code AI GitHub commit refuses stale main before creating a tree", async ()
   assert.equal(githubWrites, 0);
 });
 
-test("Code AI GitHub commit stays inactive without repository allowlist", async () => {
+test("Code AI GitHub commit rejects tampered mission state before network access", async () => {
+  const tampered = missionState();
+  tampered.source_changes[0].content = "malicious replacement\n";
+  let requests = 0;
   await assert.rejects(
     () => commitVerifiedCodeMission({
-      mission_state: missionState(),
-      commit_message: "Blocked without config",
-      env: {
-        AVANTIQO_CODE_GITHUB_CONNECTOR: "github/avantiqo-code",
-        VERCEL_OIDC_TOKEN: "test-oidc-token",
+      mission_state: tampered,
+      commit_message: "Must reject tampering",
+      env,
+      fetch_impl: async () => {
+        requests += 1;
+        throw new Error("network must not be reached");
       },
+    }),
+    /CODE_AI_MISSION_ATTESTATION_INVALID/,
+  );
+  assert.equal(requests, 0);
+});
+
+test("Code AI GitHub commit stays inactive without repository allowlist", async () => {
+  const noAllowlistEnv = {
+    ...env,
+    AVANTIQO_CODE_GITHUB_REPOSITORIES: "",
+  };
+  await assert.rejects(
+    () => commitVerifiedCodeMission({
+      mission_state: attestCodeMissionState(unsignedMissionState(), { env: noAllowlistEnv }),
+      commit_message: "Blocked without config",
+      env: noAllowlistEnv,
       fetch_impl: async () => { throw new Error("network must not be reached"); },
     }),
     /AVANTIQO_CODE_GITHUB_REPOSITORIES_REQUIRED/,

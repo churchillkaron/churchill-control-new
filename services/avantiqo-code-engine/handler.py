@@ -7,13 +7,14 @@ from typing import Any
 
 import runpod
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-code-v1"
 FOUNDATION_MODEL = os.getenv("AVANTIQO_CODE_FOUNDATION_MODEL", "").strip()
 DEVICE = os.getenv("AVANTIQO_CODE_DEVICE", "cuda")
 DTYPE = torch.bfloat16 if os.getenv("AVANTIQO_CODE_DTYPE", "bfloat16").lower() == "bfloat16" else torch.float16
+QUANTIZATION = os.getenv("AVANTIQO_CODE_QUANTIZATION", "none").strip().lower()
 MAX_NEW_TOKENS = int(os.getenv("AVANTIQO_CODE_MAX_NEW_TOKENS", "4096"))
 HF_CACHE_ROOT = Path(
     os.getenv(
@@ -32,6 +33,7 @@ CERTIFIED_CAPABILITIES = {
     "ai.code.review",
     "ai.code.debug",
 }
+SUPPORTED_QUANTIZATION = {"none", "int8"}
 _TOKENIZER: Any | None = None
 _MODEL: Any | None = None
 
@@ -59,6 +61,16 @@ def _cached_model_path(model_id: str) -> str | None:
     return None
 
 
+def _quantization_config() -> BitsAndBytesConfig | None:
+    if QUANTIZATION not in SUPPORTED_QUANTIZATION:
+        raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_NOT_SUPPORTED:{QUANTIZATION}")
+    if QUANTIZATION == "int8":
+        if not DEVICE.startswith("cuda"):
+            raise RuntimeError("AVANTIQO_CODE_INT8_REQUIRES_CUDA")
+        return BitsAndBytesConfig(load_in_8bit=True)
+    return None
+
+
 def _load_model():
     global _TOKENIZER, _MODEL
     if _TOKENIZER is not None and _MODEL is not None:
@@ -76,12 +88,19 @@ def _load_model():
         trust_remote_code=False,
         local_files_only=bool(cached_path),
     )
+    load_kwargs: dict[str, Any] = {
+        "torch_dtype": DTYPE,
+        "device_map": "auto" if DEVICE.startswith("cuda") else None,
+        "trust_remote_code": False,
+        "local_files_only": bool(cached_path),
+    }
+    quantization_config = _quantization_config()
+    if quantization_config is not None:
+        load_kwargs["quantization_config"] = quantization_config
+
     _MODEL = AutoModelForCausalLM.from_pretrained(
         model_source,
-        torch_dtype=DTYPE,
-        device_map="auto" if DEVICE.startswith("cuda") else None,
-        trust_remote_code=False,
-        local_files_only=bool(cached_path),
+        **load_kwargs,
     )
     if not DEVICE.startswith("cuda"):
         _MODEL.to(DEVICE)
@@ -113,16 +132,32 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def _prompt(data: dict[str, Any]) -> str:
+def _serialized_specification(data: dict[str, Any]) -> str:
     specification = data.get("structured_specification") or {}
+    return json.dumps(specification, ensure_ascii=False, separators=(",", ":"))
+
+
+def _prompt(data: dict[str, Any]) -> str:
     return "\n\n".join([
         "You are an Avantiqo Code worker. Execute the bounded capability request below.",
         "Do not expose chain-of-thought, hidden reasoning, scratchpads, or internal deliberation.",
         "Return only the useful work product or concise review/debug result required by the capability.",
         f"Capability: {data['capability']}",
         f"Instruction: {data['instruction']}",
-        f"Structured specification: {json.dumps(specification, ensure_ascii=False, separators=(',', ':'))}",
+        f"Structured specification: {_serialized_specification(data)}",
     ])
+
+
+def _billable_input_tokens(tokenizer: Any, data: dict[str, Any]) -> int:
+    # Customer billing must reflect customer-controlled task content, not Avantiqo's
+    # private runtime wrapper, policy text, chat-template tokens, or generation marker.
+    customer_content = "\n\n".join([
+        _text(data.get("instruction")),
+        _serialized_specification(data),
+    ])
+    encoded = tokenizer(customer_content, add_special_tokens=False)
+    input_ids = encoded.get("input_ids") or []
+    return int(len(input_ids))
 
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
@@ -152,10 +187,11 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             do_sample=False,
             pad_token_id=tokenizer.eos_token_id,
         )
-    prompt_tokens = inputs["input_ids"].shape[-1]
-    completion_tokens = generated.shape[-1] - prompt_tokens
+    runtime_prompt_tokens = int(inputs["input_ids"].shape[-1])
+    billable_input_tokens = _billable_input_tokens(tokenizer, data)
+    completion_tokens = int(generated.shape[-1] - runtime_prompt_tokens)
     decoded = tokenizer.decode(
-        generated[0][prompt_tokens:],
+        generated[0][runtime_prompt_tokens:],
         skip_special_tokens=True,
     )
     result = _strip_reasoning(decoded)
@@ -170,10 +206,13 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "capability": data["capability"],
         "foundation_model": FOUNDATION_MODEL,
         "foundation_model_source": "runpod-cache" if _cached_model_path(FOUNDATION_MODEL) else "huggingface",
+        "quantization": QUANTIZATION,
         "result": result,
         "usage": {
-            "input_tokens": int(prompt_tokens),
-            "output_tokens": int(completion_tokens),
+            "input_tokens": billable_input_tokens,
+            "output_tokens": completion_tokens,
+            "runtime_prompt_tokens": runtime_prompt_tokens,
+            "internal_prompt_tokens": max(0, runtime_prompt_tokens - billable_input_tokens),
         },
         "generation_seconds": round(time.perf_counter() - started, 3),
         "raw_reasoning_persisted": False,
@@ -186,6 +225,10 @@ def check_worker():
         raise RuntimeError("AVANTIQO_CODE_FOUNDATION_MODEL_REQUIRED")
     if DEVICE.startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_CODE_CUDA_REQUIRED")
+    if QUANTIZATION not in SUPPORTED_QUANTIZATION:
+        raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_NOT_SUPPORTED:{QUANTIZATION}")
+    if QUANTIZATION == "int8" and not DEVICE.startswith("cuda"):
+        raise RuntimeError("AVANTIQO_CODE_INT8_REQUIRES_CUDA")
     if REQUIRE_CACHED_MODEL and not _cached_model_path(FOUNDATION_MODEL):
         raise RuntimeError(f"AVANTIQO_CODE_CACHED_MODEL_REQUIRED:{FOUNDATION_MODEL}")
 

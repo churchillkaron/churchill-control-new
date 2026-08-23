@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 const [
   policySource,
   runtimeSource,
+  readinessSource,
   batchSource,
   cronSource,
   settingsSource,
@@ -12,6 +13,7 @@ const [
 ] = await Promise.all([
   readFile("lib/operator/contracts/OperatorProactiveDeliveryPolicy.js", "utf8"),
   readFile("lib/operator/runtime/OperatorProactiveDeliveryRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorProactiveDeliveryReadinessRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorProactiveDeliveryBatchRuntime.js", "utf8"),
   readFile("app/api/internal/operator/autonomous-watch/process/route.js", "utf8"),
   readFile("app/api/operator/autonomous-watch/settings/route.js", "utf8"),
@@ -57,6 +59,32 @@ assert.doesNotMatch(runtimeSource, /ProviderExecutor/);
 assert.doesNotMatch(runtimeSource, /access_token/);
 assert.doesNotMatch(runtimeSource, /service_role/i);
 
+assert.match(readinessSource, /EmailProviderRegistration/);
+assert.match(readinessSource, /OrganizationServiceRuntime/);
+assert.match(readinessSource, /resolveServiceCapabilities/);
+assert.match(readinessSource, /resolveExecutionCapabilities/);
+assert.match(readinessSource, /resolveProvider/);
+assert.match(readinessSource, /allowed_providers:\s*\[providerId\]/);
+assert.match(readinessSource, /PricingRuntime\.resolveRecord/);
+assert.match(readinessSource, /loadProviderRuntime/);
+assert.match(readinessSource, /listActiveByProvider/);
+assert.match(readinessSource, /ORGANIZATION_GOOGLE_MAILBOX/);
+assert.match(readinessSource, /ORGANIZATION_MICROSOFT_MAILBOX/);
+assert.match(readinessSource, /ORGANIZATION_IMAP_SMTP_MAILBOX/);
+assert.match(readinessSource, /ORGANIZATION_WHATSAPP_BUSINESS/);
+assert.match(readinessSource, /ORGANIZATION_LINE_MESSAGING/);
+assert.match(readinessSource, /phone_number_id/);
+assert.match(readinessSource, /channel_id/);
+assert.match(readinessSource, /STATIC_EXECUTION_PREFLIGHT_READY/);
+assert.match(readinessSource, /OPERATOR_PROACTIVE_DELIVERY_STATIC_PREFLIGHT_V1/);
+assert.match(readinessSource, /connectivity_verified:\s*false/);
+assert.match(readinessSource, /external_request_performed:\s*false/);
+assert.doesNotMatch(readinessSource, /ServiceExecutionRuntime/);
+assert.doesNotMatch(readinessSource, /WalletRuntime/);
+assert.doesNotMatch(readinessSource, /UsageRuntime/);
+assert.doesNotMatch(readinessSource, /executeProvider\(/);
+assert.doesNotMatch(readinessSource, /fetch\(/);
+
 assert.match(batchSource, /queueOperatorProactiveDelivery/);
 assert.match(batchSource, /deliverPendingOperatorProactiveAlert/);
 assert.match(batchSource, /pendingInAppAlert/);
@@ -80,9 +108,8 @@ assert.match(cronSource, /maxDuration = 300/);
 assert.match(settingsSource, /normalizeOperatorProactiveDeliveryPolicySource/);
 assert.match(settingsSource, /operatorProactiveDeliveryPublicPolicy/);
 assert.match(settingsSource, /operatorProactiveDeliveryStatus/);
-assert.match(settingsSource, /operatorProactiveDeliveryChannelCatalog/);
-assert.match(settingsSource, /OrganizationServiceRuntime/);
-assert.match(settingsSource, /ready_for_execution/);
+assert.match(settingsSource, /operatorProactiveDeliveryReadiness/);
+assert.match(settingsSource, /proactive_delivery_channels/);
 assert.match(settingsSource, /revealDestinations/);
 assert.match(settingsSource, /delivery_policy/);
 assert.match(settingsSource, /delivery_policy_enabled_at/);
@@ -104,7 +131,13 @@ assert.match(uiSource, /never infers a recipient/i);
 assert.match(uiSource, /Email/);
 assert.match(uiSource, /WhatsApp/);
 assert.match(uiSource, /LINE/);
-assert.match(uiSource, /Connected service ready/);
+assert.match(uiSource, /selectedProviderReadiness/);
+assert.match(uiSource, /Execution preflight ready/);
+assert.match(uiSource, /Provider pricing required/);
+assert.match(uiSource, /Provider credential required/);
+assert.match(uiSource, /Provider credential incomplete/);
+assert.match(uiSource, /provider connectivity is not tested here/i);
+assert.match(uiSource, /Static preflight checks service, provider, pricing, runtime and credential configuration without sending/);
 assert.match(uiSource, /Connected service required/);
 assert.match(uiSource, /Save offline alerts/);
 assert.match(uiSource, /Recommendations never authorize execution/);
@@ -126,3 +159,5 @@ console.log("OPERATOR_PROACTIVE_DELIVERY_PRE_OPT_IN_SEND=BLOCKED");
 console.log("OPERATOR_PROACTIVE_DELIVERY_CHANNELS=EMAIL_WHATSAPP_LINE");
 console.log("OPERATOR_PROACTIVE_DELIVERY_RETRY=LEASE_DEDUPED");
 console.log("OPERATOR_PROACTIVE_DELIVERY_DISABLE=CANCELS_QUEUED_SENDS");
+console.log("OPERATOR_PROACTIVE_DELIVERY_READINESS=STATIC_EXECUTION_PREFLIGHT");
+console.log("OPERATOR_PROACTIVE_DELIVERY_READINESS_EXTERNAL_CALLS=NONE");

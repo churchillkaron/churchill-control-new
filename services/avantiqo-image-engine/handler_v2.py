@@ -106,6 +106,70 @@ def _directory_bytes(path: Path) -> int:
     return total
 
 
+def _model_id_from_cache_root(path: Path) -> str:
+    encoded = path.name.removeprefix("models--")
+    if "--" not in encoded:
+        return encoded
+    owner, repository = encoded.split("--", 1)
+    return f"{owner}/{repository}"
+
+
+def _cache_inventory() -> dict[str, Any]:
+    cache_root = legacy.HF_CACHE_ROOT
+    cache_root.mkdir(parents=True, exist_ok=True)
+    usage = shutil.disk_usage(cache_root)
+    configured_roles = {
+        "generation": legacy.FOUNDATION_MODEL,
+        "edit": legacy.EDIT_MODEL,
+        "inpaint": legacy.INPAINT_MODEL,
+        "outpaint": legacy.OUTPAINT_MODEL,
+        "upscale": UPSCALE_MODEL,
+        "analyze": ANALYZE_MODEL,
+        "quality_target": QUALITY_FOUNDATION_MODEL,
+    }
+    roles_by_model: dict[str, list[str]] = {}
+    for role, model_id in configured_roles.items():
+        if model_id:
+            roles_by_model.setdefault(model_id, []).append(role)
+
+    models = []
+    for model_root in sorted(cache_root.glob("models--*")):
+        if not model_root.is_dir():
+            continue
+        model_id = _model_id_from_cache_root(model_root)
+        blob_bytes = _directory_bytes(model_root / "blobs")
+        snapshot_root = model_root / "snapshots"
+        snapshot_count = 0
+        if snapshot_root.is_dir():
+            try:
+                snapshot_count = sum(1 for child in snapshot_root.iterdir() if child.is_dir())
+            except OSError:
+                snapshot_count = 0
+        models.append(
+            {
+                "model_id": model_id,
+                "blob_bytes": int(blob_bytes),
+                "configured_roles": sorted(roles_by_model.get(model_id, [])),
+                "current_generation_foundation": model_id == legacy.FOUNDATION_MODEL,
+                "quality_target": model_id == QUALITY_FOUNDATION_MODEL,
+                "snapshot_count": snapshot_count,
+            }
+        )
+    models.sort(key=lambda item: item["blob_bytes"], reverse=True)
+    total_model_blob_bytes = sum(item["blob_bytes"] for item in models)
+    return {
+        "cache_root": str(cache_root),
+        "disk_total_bytes": int(usage.total),
+        "disk_used_bytes": int(usage.used),
+        "disk_free_bytes": int(usage.free),
+        "model_blob_bytes": int(total_model_blob_bytes),
+        "non_model_or_overhead_used_bytes": int(max(0, usage.used - total_model_blob_bytes)),
+        "models": models,
+        "read_only": True,
+        "deletion_performed": False,
+    }
+
+
 def _cache_storage_state(target_model: str) -> dict[str, int]:
     cache_root = legacy.HF_CACHE_ROOT
     cache_root.mkdir(parents=True, exist_ok=True)
@@ -173,13 +237,53 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
         }
 
     if storage["disk_free_bytes"] < storage["required_free_bytes"]:
-        raise RuntimeError(
-            "AVANTIQO_IMAGE_CACHE_STORAGE_INSUFFICIENT:"
-            f"free_bytes={storage['disk_free_bytes']}:"
-            f"cached_blob_bytes={storage['cached_blob_bytes']}:"
-            f"estimated_remaining_bytes={storage['estimated_remaining_bytes']}:"
-            f"required_free_bytes={storage['required_free_bytes']}"
+        inventory = _cache_inventory()
+        current_generation = next(
+            (
+                item
+                for item in inventory["models"]
+                if item["current_generation_foundation"]
+            ),
+            None,
         )
+        current_generation_blob_bytes = int(
+            current_generation["blob_bytes"] if current_generation else 0
+        )
+        free_after_generation_reclaim = (
+            storage["disk_free_bytes"] + current_generation_blob_bytes
+        )
+        return {
+            "status": "completed",
+            "provider": "avantiqo-image",
+            "model": legacy.PRODUCT_MODEL,
+            "engine_contract": legacy.ENGINE_CONTRACT,
+            "runtime_revision": QUALITY_RUNTIME_REVISION,
+            "operation": MODEL_CACHE_OPERATION,
+            "target_model": target_model,
+            "foundation_model_source": None,
+            "already_cached": False,
+            "cache_ready": False,
+            "storage_insufficient": True,
+            "cache_transport": transport,
+            "cache_storage": storage,
+            "cache_inventory": inventory,
+            "replacement_analysis": {
+                "current_generation_model": legacy.FOUNDATION_MODEL,
+                "current_generation_blob_bytes": current_generation_blob_bytes,
+                "free_after_current_generation_reclaim_bytes": int(
+                    free_after_generation_reclaim
+                ),
+                "target_required_free_bytes": int(storage["required_free_bytes"]),
+                "replacement_feasible_by_reclaiming_current_generation": (
+                    current_generation_blob_bytes > 0
+                    and free_after_generation_reclaim >= storage["required_free_bytes"]
+                ),
+                "automatic_delete_allowed": False,
+                "deletion_performed": False,
+            },
+            "inference_performed": False,
+            "raw_reasoning_persisted": False,
+        }
 
     runpod.serverless.progress_update(
         job,

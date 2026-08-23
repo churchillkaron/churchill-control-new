@@ -1,0 +1,60 @@
+name: Avantiqo Code Worker Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-worker-release-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-code-worker-release
+  cancel-in-progress: false
+
+jobs:
+  release-code-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Verify Code worker release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-code-engine/Dockerfile.runpod
+          test -f services/avantiqo-code-engine/handler.py
+          grep -F 'FROM vllm/vllm-openai:v0.27.1' services/avantiqo-code-engine/Dockerfile.runpod
+          grep -F 'AVANTIQO_CODE_VLLM_BUILD_CHECK=PASS' services/avantiqo-code-engine/Dockerfile.runpod
+          grep -F 'Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8' services/avantiqo-code-engine/handler.py
+          grep -F 'VLLM_WORKER_MULTIPROC_METHOD' services/avantiqo-code-engine/handler.py
+          echo 'AVANTIQO_CODE_WORKER_RELEASE_PREFLIGHT=PASS'
+
+      - name: Create immutable Code worker release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${RELEASE_SHA:0:12}"
+          tag="avantiqo-code-worker-${short_sha}"
+          if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "AVANTIQO_CODE_WORKER_RELEASE_EXISTS=$tag"
+            exit 0
+          fi
+          gh release create "$tag" \
+            --repo "$GH_REPO" \
+            --target "$RELEASE_SHA" \
+            --title "Avantiqo Code Worker ${short_sha}" \
+            --notes "Avantiqo-owned Code worker release for RunPod. Source-locked Qwen3-Coder 30B A3B FP8 served by vLLM 0.27.1. This release does not deploy the Avantiqo web application or modify production databases."
+          echo "AVANTIQO_CODE_WORKER_RELEASE_CREATED=$tag"
+          echo "AVANTIQO_CODE_WORKER_RELEASE_SHA=$RELEASE_SHA"

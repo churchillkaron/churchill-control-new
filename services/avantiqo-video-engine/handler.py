@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import os
 import time
 from pathlib import Path
@@ -14,10 +15,12 @@ from diffusers.utils import export_to_video, load_image
 from PIL import Image
 
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1"
+CINEMATIC_CONTROL_CONTRACT = "AVANTIQO_CINEMATIC_CONTROL_V1"
 PRODUCT_MODEL = "avantiqo-cinema-v1"
 IMPLEMENTED_CAPABILITIES = {
     "ai.video.generate",
     "ai.video.image_to_video",
+    "ai.video.first_last_frame_to_video",
     "ai.video.video_to_video",
     "ai.video.edit",
     "ai.video.inpaint",
@@ -29,6 +32,7 @@ DEFAULT_CERTIFIED_CAPABILITIES = {
 DEFAULT_MODEL = os.getenv("AVANTIQO_VIDEO_FOUNDATION_MODEL", "").strip()
 T2V_MODEL = os.getenv("AVANTIQO_VIDEO_T2V_MODEL", DEFAULT_MODEL).strip()
 I2V_MODEL = os.getenv("AVANTIQO_VIDEO_I2V_MODEL", DEFAULT_MODEL).strip()
+FIRST_LAST_MODEL = os.getenv("AVANTIQO_VIDEO_FIRST_LAST_MODEL", I2V_MODEL).strip()
 V2V_MODEL = os.getenv(
     "AVANTIQO_VIDEO_V2V_MODEL",
     "Wan-AI/Wan2.1-VACE-14B-diffusers",
@@ -62,6 +66,10 @@ _PIPELINES: dict[str, Any] = {}
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _object(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
 
 
 def _configured_capabilities() -> set[str]:
@@ -116,6 +124,9 @@ def _foundation_model(data: dict[str, Any]) -> str:
     if capability == "ai.video.image_to_video":
         model_id = I2V_MODEL
         missing = "AVANTIQO_VIDEO_I2V_MODEL_REQUIRED"
+    elif capability == "ai.video.first_last_frame_to_video":
+        model_id = FIRST_LAST_MODEL
+        missing = "AVANTIQO_VIDEO_FIRST_LAST_MODEL_REQUIRED"
     elif capability == "ai.video.video_to_video":
         model_id = V2V_MODEL
         missing = "AVANTIQO_VIDEO_V2V_MODEL_REQUIRED"
@@ -175,6 +186,22 @@ def _pipeline(model_id: str):
     return pipe
 
 
+def _validate_control(data: dict[str, Any]) -> None:
+    control = data.get("cinematic_control") or {}
+    if not isinstance(control, dict):
+        raise ValueError("AVANTIQO_VIDEO_CINEMATIC_CONTROL_INVALID")
+    if control and _text(control.get("contract")) != CINEMATIC_CONTROL_CONTRACT:
+        raise ValueError("AVANTIQO_VIDEO_CINEMATIC_CONTROL_CONTRACT_INVALID")
+    data["cinematic_control"] = control
+    identity_lock = control.get("identity_lock") or data.get("identity_lock") or {}
+    if not isinstance(identity_lock, dict):
+        raise ValueError("AVANTIQO_VIDEO_IDENTITY_LOCK_INVALID")
+    approved_keyframe = _text(identity_lock.get("approved_keyframe_url"))
+    if approved_keyframe:
+        identity_lock["approved_keyframe_url"] = _public_https_url(approved_keyframe)
+    data["identity_lock"] = identity_lock
+
+
 def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     data = job.get("input") or {}
     if data.get("contract") != ENGINE_CONTRACT:
@@ -206,12 +233,17 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     resolution = _text(data.get("resolution") or "720p").lower()
     if resolution != "720p":
         raise ValueError("AVANTIQO_VIDEO_RESOLUTION_UNSUPPORTED")
+
     references = data.get("reference_images") or []
     if not isinstance(references, list) or len(references) > 4:
         raise ValueError("AVANTIQO_VIDEO_REFERENCE_LIMIT_EXCEEDED")
     data["reference_images"] = [
         _public_https_url(value) for value in references if _text(value)
     ]
+    first_frame = _text(data.get("first_frame"))
+    last_frame = _text(data.get("last_frame"))
+    data["first_frame"] = _public_https_url(first_frame) if first_frame else None
+    data["last_frame"] = _public_https_url(last_frame) if last_frame else None
 
     source_video = _text(data.get("source_video"))
     if not source_video:
@@ -222,9 +254,12 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
 
     mask_video = _text(data.get("mask_video"))
     data["mask_video"] = _public_https_url(mask_video) if mask_video else None
+    _validate_control(data)
 
-    if capability == "ai.video.image_to_video" and not data["reference_images"]:
+    if capability == "ai.video.image_to_video" and not data["reference_images"] and not _text(data["identity_lock"].get("approved_keyframe_url")):
         raise ValueError("AVANTIQO_VIDEO_IMAGE_TO_VIDEO_REFERENCE_REQUIRED")
+    if capability == "ai.video.first_last_frame_to_video" and not (data["first_frame"] and data["last_frame"]):
+        raise ValueError("AVANTIQO_VIDEO_FIRST_AND_LAST_FRAME_REQUIRED")
     if capability in {"ai.video.video_to_video", "ai.video.edit", "ai.video.inpaint"} and not data["source_video"]:
         raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_REQUIRED")
     if capability == "ai.video.inpaint" and not data["mask_video"]:
@@ -241,6 +276,40 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
         "storage_reference": storage_reference,
     }
     return data
+
+
+def _cinematic_instruction(data: dict[str, Any]) -> str:
+    base = _text(data.get("instruction"))
+    control = _object(data.get("cinematic_control"))
+    if not control:
+        return base
+    bounded = {
+        "camera": _object(control.get("camera")),
+        "continuity": _object(control.get("continuity")),
+        "frame_contract": _object(control.get("frame_contract")),
+        "shot_specification": _object(control.get("shot_specification")),
+        "identity_lock": _object(control.get("identity_lock")),
+        "negative_constraints": control.get("negative_constraints")
+        if isinstance(control.get("negative_constraints"), list)
+        else [],
+    }
+    serialized = json.dumps(bounded, separators=(",", ":"), ensure_ascii=True)
+    if len(serialized) > 6000:
+        serialized = serialized[:6000]
+    return (
+        f"{base}\n\n"
+        "GOVERNED CINEMATIC CONTROL: Treat the following structured continuity, camera, frame and identity constraints as binding. "
+        "Preserve approved identity and source geometry; execute the requested camera move only; reach the specified closing state without temporal drift.\n"
+        f"{serialized}"
+    )
+
+
+def _identity_anchor_url(data: dict[str, Any]) -> str | None:
+    identity_lock = _object(data.get("identity_lock"))
+    if identity_lock.get("required") is not True:
+        return None
+    approved = _text(identity_lock.get("approved_keyframe_url"))
+    return approved or None
 
 
 def _download_video(url: str, job_id: str, role: str) -> Path:
@@ -332,8 +401,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("AVANTIQO_VIDEO_SEED_INVALID")
     generator_device = "cuda" if DEVICE.startswith("cuda") else DEVICE
     generator = torch.Generator(device=generator_device).manual_seed(seed)
+    control = _object(data.get("cinematic_control"))
+    identity_anchor = _identity_anchor_url(data)
     kwargs: dict[str, Any] = {
-        "prompt": data["instruction"],
+        "prompt": _cinematic_instruction(data),
         "width": width,
         "height": height,
         "num_frames": frames,
@@ -349,7 +420,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     capability = data["capability"]
 
     if capability == "ai.video.image_to_video":
-        kwargs["image"] = load_image(references[0])
+        kwargs["image"] = load_image(identity_anchor or references[0])
+    elif capability == "ai.video.first_last_frame_to_video":
+        kwargs["image"] = load_image(data["first_frame"])
+        kwargs["last_image"] = load_image(data["last_frame"])
     elif capability in {"ai.video.video_to_video", "ai.video.edit", "ai.video.inpaint"}:
         source_path = _download_video(data["source_video"], job_id, "source-video")
         source_frames = _sample_video_frames(
@@ -415,6 +489,13 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "width": width,
         "height": height,
         "size_bytes": size_bytes,
+        "first_frame_conditioning": capability == "ai.video.first_last_frame_to_video",
+        "last_frame_conditioning": capability == "ai.video.first_last_frame_to_video",
+        "identity_anchor_conditioning": bool(identity_anchor) and capability == "ai.video.image_to_video",
+        "cinematic_control_contract": _text(control.get("contract")) or None,
+        "camera_control_bound": bool(_object(control.get("camera"))),
+        "continuity_control_bound": bool(_object(control.get("continuity"))),
+        "frame_contract_bound": bool(_object(control.get("frame_contract"))),
         "source_video_conditioning": capability in {
             "ai.video.video_to_video",
             "ai.video.edit",
@@ -441,6 +522,8 @@ def check_worker():
         raise RuntimeError("AVANTIQO_VIDEO_T2V_MODEL_REQUIRED")
     if not I2V_MODEL:
         raise RuntimeError("AVANTIQO_VIDEO_I2V_MODEL_REQUIRED")
+    if not FIRST_LAST_MODEL:
+        raise RuntimeError("AVANTIQO_VIDEO_FIRST_LAST_MODEL_REQUIRED")
     if not V2V_MODEL:
         raise RuntimeError("AVANTIQO_VIDEO_V2V_MODEL_REQUIRED")
     if not EDIT_MODEL:
@@ -452,6 +535,8 @@ def check_worker():
     if REQUIRE_CACHED_MODEL:
         required_models = {T2V_MODEL, I2V_MODEL}
         certified = _configured_capabilities()
+        if "ai.video.first_last_frame_to_video" in certified or CERTIFICATION_EXECUTION_ENABLED:
+            required_models.add(FIRST_LAST_MODEL)
         if "ai.video.video_to_video" in certified or CERTIFICATION_EXECUTION_ENABLED:
             required_models.add(V2V_MODEL)
         if "ai.video.edit" in certified or CERTIFICATION_EXECUTION_ENABLED:

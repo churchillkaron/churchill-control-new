@@ -1,5 +1,6 @@
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
+const DEFAULT_ENDPOINT_NAME = "avantiqo-image-v1";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -124,16 +125,49 @@ function safeHealth(body = {}) {
   };
 }
 
+async function resolveEndpointId(managementKey) {
+  const configuredId = text(process.env.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID);
+  if (configuredId) {
+    return { endpointId: configuredId, discoveredByName: false };
+  }
+
+  const endpointName =
+    text(process.env.AVANTIQO_IMAGE_RUNPOD_ENDPOINT_NAME) || DEFAULT_ENDPOINT_NAME;
+  const endpoints = await request(
+    `${REST_BASE}/endpoints?includeTemplate=false&includeWorkers=false`,
+    managementKey,
+    "management",
+  );
+  if (!Array.isArray(endpoints)) {
+    throw new Error("RUNPOD_IMAGE_ENDPOINT_LIST_INVALID");
+  }
+  const matches = endpoints.filter((entry) => text(entry?.name) === endpointName);
+  if (matches.length !== 1) {
+    throw new Error(
+      `RUNPOD_IMAGE_ENDPOINT_DISCOVERY_FAILED:name=${endpointName}:matches=${matches.length}`,
+    );
+  }
+  const endpointId = text(matches[0]?.id);
+  if (!endpointId) throw new Error("RUNPOD_IMAGE_ENDPOINT_DISCOVERED_ID_MISSING");
+  return { endpointId, discoveredByName: true };
+}
+
 const inferenceKey =
   text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
 const managementKey = required(
   "RUNPOD_MANAGEMENT_API_KEY",
   "RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_READ_ONLY_IMAGE_ENDPOINT_INSPECTION",
 );
-const endpointId = required("RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID");
+const { endpointId, discoveredByName } = await resolveEndpointId(managementKey);
 
 console.log("AVANTIQO_IMAGE_RUNPOD_INSPECT_READ_ONLY=true");
 console.log("AVANTIQO_IMAGE_RUNPOD_MANAGEMENT_CREDENTIAL=DEDICATED");
+console.log(
+  `AVANTIQO_IMAGE_ENDPOINT_ID_SOURCE=${discoveredByName ? "DISCOVERED_BY_EXACT_NAME" : "ENV"}`,
+);
+if (discoveredByName) {
+  console.log(`AVANTIQO_IMAGE_ENDPOINT_ID_DISCOVERED=${endpointId}`);
+}
 
 const endpoint = await request(
   `${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
@@ -163,10 +197,11 @@ const health = await request(
 
 const result = {
   success: true,
-  contract: "AVANTIQO_IMAGE_RUNPOD_INSPECT_V2",
+  contract: "AVANTIQO_IMAGE_RUNPOD_INSPECT_V3",
   read_only: true,
   mutation_performed: false,
   inference_performed: false,
+  endpoint_id_source: discoveredByName ? "DISCOVERED_BY_EXACT_NAME" : "ENV",
   endpoint: safeEndpoint(endpoint),
   template: safeTemplate(template),
   health: safeHealth(health),

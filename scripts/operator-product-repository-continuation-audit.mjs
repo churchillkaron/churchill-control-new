@@ -88,10 +88,17 @@ requireFragments(continuationPath, [
   "database_migration_execution_allowed: false",
   "commit_message: null",
 ]);
-if (files[continuationPath].includes("assessAvantiqoProductAutonomy")) {
-  throw new Error(
-    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: post-commit continuation must not fall back to process-only Product autonomy assessment",
-  );
+const continuationSource = files[continuationPath];
+for (const forbiddenLegacyExecution of [
+  'from "@/lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime"',
+  "await assessAvantiqoProductAutonomy(",
+  "assessAvantiqoProductAutonomy({",
+]) {
+  if (continuationSource.includes(forbiddenLegacyExecution)) {
+    throw new Error(
+      `PRODUCT_REPOSITORY_CONTINUATION_AUDIT: post-commit continuation must not execute the process-only Product autonomy assessor: ${forbiddenLegacyExecution}`,
+    );
+  }
 }
 
 requireFragments(

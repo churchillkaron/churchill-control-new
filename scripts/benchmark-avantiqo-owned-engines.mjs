@@ -19,13 +19,33 @@ function runNode(script, env = {}) {
 }
 async function readJson(path) { try { return JSON.parse(await readFile(path, "utf8")); } catch { return null; } }
 
+const IMAGE_IMPLEMENTED = [
+  "ai.image.generate",
+  "ai.image.edit",
+  "ai.image.inpaint",
+  "ai.image.outpaint",
+  "ai.image.upscale",
+  "ai.image.analyze",
+];
+const CINEMA_IMPLEMENTED = [
+  "ai.video.generate",
+  "ai.video.image_to_video",
+  "ai.video.first_last_frame_to_video",
+  "ai.video.video_to_video",
+  "ai.video.edit",
+  "ai.video.inpaint",
+  "ai.video.extend",
+  "ai.video.upscale",
+  "ai.video.lipsync",
+];
+
 const engines = [
-  { id:"intelligence", provider:"avantiqo-intelligence", models:["Qwen/Qwen3-30B-A3B-Thinking-2507"], capabilities:["ai.reasoning.execute","ai.text.generate"], required_env:["RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-intelligence.mjs", benchmark_output:"/tmp/avantiqo-intelligence-certification-benchmark.json", output_env:"AVANTIQO_INTELLIGENCE_CERTIFICATION_OUTPUT", isolation_contract:"AVANTIQO_INTELLIGENCE_NON_QUEUE_CERTIFICATION_V1" },
-  { id:"image", provider:"avantiqo-image", models:["Qwen/Qwen-Image"], capabilities:["ai.image.generate"], required_env:["RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID","AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL","AVANTIQO_IMAGE_BENCHMARK_STORAGE_REFERENCE"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-image.mjs", benchmark_output:"/tmp/avantiqo-image-certification-benchmark.json", output_env:"AVANTIQO_IMAGE_BENCHMARK_OUTPUT" },
-  { id:"cinema", provider:"avantiqo-video", models:["Wan-AI/Wan2.2-T2V-A14B-Diffusers","Wan-AI/Wan2.2-I2V-A14B-Diffusers"], capabilities:["ai.video.generate","ai.video.image_to_video"], required_env:["RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID","AVANTIQO_CINEMA_BENCHMARK_T2V_UPLOAD_URL","AVANTIQO_CINEMA_BENCHMARK_T2V_STORAGE_REFERENCE","AVANTIQO_CINEMA_BENCHMARK_I2V_UPLOAD_URL","AVANTIQO_CINEMA_BENCHMARK_I2V_STORAGE_REFERENCE","AVANTIQO_CINEMA_BENCHMARK_I2V_SOURCE_URL"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-cinema.mjs", benchmark_output:"/tmp/avantiqo-cinema-certification-benchmark.json", output_env:"AVANTIQO_CINEMA_BENCHMARK_OUTPUT" },
-  { id:"voice", provider:"avantiqo-voice", models:["openai/whisper-large-v3-turbo","resemble-ai/chatterbox:multilingual-v3"], capabilities:["ai.speech.to.text","ai.text.to.speech"], required_env:["RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID","RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-voice.mjs", benchmark_output:"/tmp/avantiqo-voice-certification-benchmark.json", output_env:"AVANTIQO_VOICE_BENCHMARK_OUTPUT" },
-  { id:"music", provider:"avantiqo-audio", models:["ACE-Step/Ace-Step1.5"], capabilities:["ai.music.generate"], required_env:["RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID","AVANTIQO_AUDIO_BENCHMARK_UPLOAD_URL","AVANTIQO_AUDIO_BENCHMARK_STORAGE_REFERENCE"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-music.mjs", benchmark_output:"/tmp/avantiqo-music-certification-benchmark.json", output_env:"AVANTIQO_AUDIO_BENCHMARK_OUTPUT" },
-  { id:"code", provider:"avantiqo-code", models:["Qwen/Qwen3-Coder-30B-A3B-Instruct"], capabilities:["ai.code.generate","ai.code.edit","ai.code.refactor","ai.code.review","ai.code.debug"], required_env:["RUNPOD_AVANTIQO_CODE_ENDPOINT_ID"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-code.mjs", benchmark_output:"/tmp/avantiqo-code-certification-benchmark.json", output_env:"AVANTIQO_CODE_BENCHMARK_OUTPUT" },
+  { id:"intelligence", provider:"avantiqo-intelligence", models:["Qwen/Qwen3-30B-A3B-Thinking-2507"], implemented_capabilities:["ai.reasoning.execute","ai.text.generate"], measured_capabilities:["ai.reasoning.execute","ai.text.generate"], required_env:["RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-intelligence.mjs", benchmark_output:"/tmp/avantiqo-intelligence-certification-benchmark.json", output_env:"AVANTIQO_INTELLIGENCE_CERTIFICATION_OUTPUT", isolation_contract:"AVANTIQO_INTELLIGENCE_NON_QUEUE_CERTIFICATION_V1" },
+  { id:"image", provider:"avantiqo-image", models:["Qwen/Qwen-Image","Qwen/Qwen-Image-Edit","Qwen/Qwen-Image-Edit-2511","caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr","Qwen/Qwen2.5-VL-7B-Instruct"], implemented_capabilities:IMAGE_IMPLEMENTED, measured_capabilities:["ai.image.generate"], required_env:["RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID","AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL","AVANTIQO_IMAGE_BENCHMARK_STORAGE_REFERENCE"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-image.mjs", benchmark_output:"/tmp/avantiqo-image-certification-benchmark.json", output_env:"AVANTIQO_IMAGE_BENCHMARK_OUTPUT" },
+  { id:"cinema", provider:"avantiqo-video", models:["Wan-AI/Wan2.2-T2V-A14B-Diffusers","Wan-AI/Wan2.2-I2V-A14B-Diffusers","Wan-AI/Wan2.1-FLF2V-14B-720P-diffusers","Wan-AI/Wan2.1-VACE-14B-diffusers","caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr","ByteDance/LatentSync-1.6"], implemented_capabilities:CINEMA_IMPLEMENTED, measured_capabilities:["ai.video.generate","ai.video.image_to_video"], required_env:["RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID","AVANTIQO_CINEMA_BENCHMARK_T2V_UPLOAD_URL","AVANTIQO_CINEMA_BENCHMARK_T2V_STORAGE_REFERENCE","AVANTIQO_CINEMA_BENCHMARK_I2V_UPLOAD_URL","AVANTIQO_CINEMA_BENCHMARK_I2V_STORAGE_REFERENCE","AVANTIQO_CINEMA_BENCHMARK_I2V_SOURCE_URL"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-cinema.mjs", benchmark_output:"/tmp/avantiqo-cinema-certification-benchmark.json", output_env:"AVANTIQO_CINEMA_BENCHMARK_OUTPUT" },
+  { id:"voice", provider:"avantiqo-voice", models:["openai/whisper-large-v3-turbo","resemble-ai/chatterbox:multilingual-v3"], implemented_capabilities:["ai.speech.to.text","ai.text.to.speech"], measured_capabilities:["ai.speech.to.text","ai.text.to.speech"], required_env:["RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID","RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-voice.mjs", benchmark_output:"/tmp/avantiqo-voice-certification-benchmark.json", output_env:"AVANTIQO_VOICE_BENCHMARK_OUTPUT" },
+  { id:"music", provider:"avantiqo-audio", models:["ACE-Step/Ace-Step1.5"], implemented_capabilities:["ai.music.generate"], measured_capabilities:["ai.music.generate"], required_env:["RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID","AVANTIQO_AUDIO_BENCHMARK_UPLOAD_URL","AVANTIQO_AUDIO_BENCHMARK_STORAGE_REFERENCE"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-music.mjs", benchmark_output:"/tmp/avantiqo-music-certification-benchmark.json", output_env:"AVANTIQO_AUDIO_BENCHMARK_OUTPUT" },
+  { id:"code", provider:"avantiqo-code", models:["Qwen/Qwen3-Coder-30B-A3B-Instruct"], implemented_capabilities:["ai.code.generate","ai.code.edit","ai.code.refactor","ai.code.review","ai.code.debug"], measured_capabilities:["ai.code.generate","ai.code.edit","ai.code.refactor","ai.code.review","ai.code.debug"], required_env:["RUNPOD_AVANTIQO_CODE_ENDPOINT_ID"], source_ready:true, benchmark_script:"scripts/benchmark-avantiqo-code.mjs", benchmark_output:"/tmp/avantiqo-code-certification-benchmark.json", output_env:"AVANTIQO_CODE_BENCHMARK_OUTPUT" },
 ];
 
 const selected = new Set(text(process.env.AVANTIQO_OWNED_BENCHMARK_ENGINES).split(",").map((item) => item.trim().toLowerCase()).filter(Boolean));
@@ -37,13 +57,44 @@ for (const engine of engines) {
   const missingEnv = missing(engine.required_env);
   const scriptPath = engine.benchmark_script ? resolve(ROOT, engine.benchmark_script) : null;
   const scriptExists = scriptPath ? await exists(scriptPath) : false;
-  const result = { engine:engine.id, provider:engine.provider, models:engine.models, capabilities:engine.capabilities, source_ready:engine.source_ready, endpoint_configured:missingEnv.length === 0, required_env:engine.required_env, missing_env:missingEnv, runpod_api_key_configured:apiKeyConfigured, benchmark_script:engine.benchmark_script, benchmark_script_present:scriptExists, benchmark_attempted:false, benchmark_passed:false, activation_allowed:false, production_pricing_status_required:"PRODUCTION_CERTIFIED", human_quality_review_required:["image","cinema","voice","music"].includes(engine.id), measured_gpu_economics_required:true, isolation_contract:engine.isolation_contract || null, blockers:[] };
+  const implemented = [...engine.implemented_capabilities];
+  const measured = [...engine.measured_capabilities];
+  const measuredSet = new Set(measured);
+  const unmeasured = implemented.filter((capability) => !measuredSet.has(capability));
+  const fullCoverage = unmeasured.length === 0;
+  const result = {
+    engine:engine.id,
+    provider:engine.provider,
+    models:engine.models,
+    capabilities:implemented,
+    implemented_capabilities:implemented,
+    measured_capabilities:measured,
+    unmeasured_capabilities:unmeasured,
+    full_capability_coverage:fullCoverage,
+    source_ready:engine.source_ready,
+    endpoint_configured:missingEnv.length === 0,
+    required_env:engine.required_env,
+    missing_env:missingEnv,
+    runpod_api_key_configured:apiKeyConfigured,
+    benchmark_script:engine.benchmark_script,
+    benchmark_script_present:scriptExists,
+    benchmark_attempted:false,
+    benchmark_passed:false,
+    activation_allowed:false,
+    production_pricing_status_required:"PRODUCTION_CERTIFIED",
+    human_quality_review_required:["image","cinema","voice","music"].includes(engine.id),
+    measured_gpu_economics_required:true,
+    isolation_contract:engine.isolation_contract || null,
+    blockers:[],
+  };
+  if (!fullCoverage) result.blockers.push(`UNMEASURED_CAPABILITIES:${unmeasured.join(",")}`);
   if (!shouldRun) { result.status="NOT_SELECTED"; results.push(result); continue; }
   if (!apiKeyConfigured) result.blockers.push("MISSING:RUNPOD_API_KEY");
   for (const name of missingEnv) result.blockers.push(`MISSING:${name}`);
   if (!engine.benchmark_script) result.blockers.push("BENCHMARK_SCRIPT_NOT_IMPLEMENTED");
   if (engine.benchmark_script && !scriptExists) result.blockers.push("BENCHMARK_SCRIPT_MISSING");
-  if (result.blockers.length) { result.status="BLOCKED"; results.push(result); continue; }
+  const executionBlockers = result.blockers.filter((item) => !item.startsWith("UNMEASURED_CAPABILITIES:"));
+  if (executionBlockers.length) { result.status="BLOCKED"; results.push(result); continue; }
   const outputPath = engine.benchmark_output;
   const env = engine.output_env ? { [engine.output_env]: outputPath } : {};
   result.benchmark_attempted = true;
@@ -55,10 +106,41 @@ for (const engine of engines) {
   const genericPass = result.evidence?.summary?.passed === true;
   const voicePass = engine.id === "voice" && result.evidence?.tts?.summary?.passed === true && result.evidence?.stt?.summary?.passed === true && result.evidence?.stt?.skipped !== true;
   result.benchmark_passed = execution.code === 0 && (engine.id === "voice" ? voicePass : genericPass);
-  result.status = result.benchmark_passed ? "MEASURED_PENDING_CERTIFICATION" : "BENCHMARK_FAILED";
+  result.status = !result.benchmark_passed
+    ? "BENCHMARK_FAILED"
+    : fullCoverage
+      ? "MEASURED_PENDING_CERTIFICATION"
+      : "MEASURED_PARTIAL_CAPABILITY_COVERAGE";
   results.push(result);
 }
 
-const report = { contract:"AVANTIQO_OWNED_ENGINE_CERTIFICATION_SUITE_V1", generated_at:new Date().toISOString(), activation_allowed:false, pricing_activation_performed:false, provider_selection_changed:false, purpose:"READINESS_AND_MEASUREMENT_ONLY", engines:results, summary:{ engines:results.length, source_ready:results.filter((item)=>item.source_ready).length, benchmark_attempted:results.filter((item)=>item.benchmark_attempted).length, benchmark_passed:results.filter((item)=>item.benchmark_passed).length, blocked:results.filter((item)=>item.status==="BLOCKED").length, production_certified:0 }, certification_rule:{ benchmark_required:true, economics_required:true, model_license_required:true, human_quality_review_where_media:true, pricing_status_required:"PRODUCTION_CERTIFIED", automatic_activation_forbidden:true } };
+const report = {
+  contract:"AVANTIQO_OWNED_ENGINE_CERTIFICATION_SUITE_V2",
+  generated_at:new Date().toISOString(),
+  activation_allowed:false,
+  pricing_activation_performed:false,
+  provider_selection_changed:false,
+  purpose:"READINESS_AND_MEASUREMENT_ONLY",
+  engines:results,
+  summary:{
+    engines:results.length,
+    source_ready:results.filter((item)=>item.source_ready).length,
+    benchmark_attempted:results.filter((item)=>item.benchmark_attempted).length,
+    benchmark_passed:results.filter((item)=>item.benchmark_passed).length,
+    full_capability_coverage:results.filter((item)=>item.full_capability_coverage).length,
+    partial_capability_coverage:results.filter((item)=>!item.full_capability_coverage).length,
+    blocked:results.filter((item)=>item.status==="BLOCKED").length,
+    production_certified:0,
+  },
+  certification_rule:{
+    benchmark_required:true,
+    full_capability_coverage_required:true,
+    economics_required:true,
+    model_license_required:true,
+    human_quality_review_where_media:true,
+    pricing_status_required:"PRODUCTION_CERTIFIED",
+    automatic_activation_forbidden:true,
+  },
+};
 await writeFile(OUTPUT, `${JSON.stringify(report,null,2)}\n`, "utf8");
 console.log(JSON.stringify({ success:true, output_path:OUTPUT, summary:report.summary, activation_allowed:false },null,2));

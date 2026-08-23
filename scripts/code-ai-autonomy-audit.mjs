@@ -10,12 +10,16 @@ const files = {
   autonomous: "lib/code/runtime/CodeAIAutonomousRuntime.js",
   attestation: "lib/code/runtime/CodeMissionAttestationRuntime.js",
   githubCommit: "lib/code/runtime/CodeGitHubCommitRuntime.js",
+  autonomousExecutionState: "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
+  commitArtifact: "lib/code/runtime/CodeAICommitArtifactRuntime.js",
+  commitExecutionState: "lib/code/runtime/CodeAICommitExecutionStateRuntime.js",
   missionCapability: "lib/platform/capabilities/createCodeAIMissionCapability.js",
   autonomousCapability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
   commitCapability: "lib/platform/capabilities/createCodeAICommitCapability.js",
   platform: "lib/platform/runtime/PlatformDomainRuntime.js",
   research: "lib/platform/capabilities/createOperatorWebResearchCapability.js",
   benchmark: "scripts/benchmark-avantiqo-code.mjs",
+  sandboxSmoke: "scripts/code-ai-sandbox-live-smoke.mjs",
 };
 
 async function source(path) {
@@ -44,12 +48,16 @@ const [
   autonomous,
   attestation,
   githubCommit,
+  autonomousExecutionState,
+  commitArtifact,
+  commitExecutionState,
   missionCapability,
   autonomousCapability,
   commitCapability,
   platform,
   research,
   benchmark,
+  sandboxSmoke,
 ] = loaded;
 
 requireMarkers("WORKER", worker, [
@@ -81,6 +89,13 @@ requireMarkers("OWNED_FIRST_PROVIDER_RESOLUTION", providerResolver, [
 requireMarkers("WORKSPACE", workspace, [
   "AVANTIQO_CODE_WORKSPACE_SANDBOX_V1",
   "Sandbox.create",
+  "sandboxCredentials",
+  "VERCEL_TOKEN",
+  "VERCEL_TEAM_ID",
+  "VERCEL_ORG_ID",
+  "VERCEL_PROJECT_ID",
+  "CODE_AI_SANDBOX_LOCAL_CREDENTIALS_INCOMPLETE",
+  'runtime: "node24"',
   '"clone", "--depth", "1"',
   "sandbox.readFileToBuffer",
   "sandbox.writeFiles",
@@ -158,6 +173,34 @@ requireMarkers("GITHUB_COMMIT", githubCommit, [
   "CODE_AI_GITHUB_POST_COMMIT_VERIFICATION_FAILED",
 ]);
 
+requireMarkers("AUTONOMOUS_EXECUTION_STATE", autonomousExecutionState, [
+  "AVANTIQO_CODE_AI_AUTONOMOUS_EXECUTION_STATE_V1",
+  "verifyCodeMissionStateAttestation",
+  "code_ai_execution_state",
+  "ordinary_memory_recall: false",
+  "authorization_effect: \"NONE\"",
+  "verifyCompletedCodeAIAutonomousExecution",
+  "CODE_AI_AUTONOMOUS_CHANGED_STATE_NOT_VERIFIED",
+]);
+
+requireMarkers("COMMIT_ARTIFACT", commitArtifact, [
+  "AVANTIQO_CODE_AI_COMMIT_ARTIFACT_V1",
+  "verifyCodeMissionStateAttestation",
+  "code_ai_commit_artifact",
+  "mission_state: state",
+  "ordinary_memory_recall: false",
+  "commit_requires_separate_governed_capability: true",
+  "retireCodeAICommitArtifact",
+]);
+
+requireMarkers("COMMIT_EXECUTION_STATE", commitExecutionState, [
+  "AVANTIQO_CODE_AI_COMMIT_EXECUTION_STATE_V1",
+  "code_ai_commit_execution_state",
+  "CODE_AI_COMMIT_RESULT_NOT_VERIFIED",
+  "ordinary_memory_recall: false",
+  "authorization_effect: \"NONE\"",
+]);
+
 requireMarkers("MISSION_CAPABILITY", missionCapability, [
   "platform.code.ai.execute",
   "operatorEnabled: true",
@@ -173,6 +216,10 @@ requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
   "executeAutonomousCodeMission",
   "verifyCodeMissionStateAttestation",
   "attestCodeMissionState",
+  "execution_key",
+  "persistCodeAIAutonomousExecutionState",
+  "persistCodeAICommitArtifact",
+  "commit_artifact_persisted",
   "RESTORABLE_MISSION_STATUSES",
   "resumeStateForExecution",
   "CODE_AI_AUTONOMOUS_PENDING_RESUME_STATUS_EVIDENCE_REQUIRED",
@@ -182,8 +229,14 @@ requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
 requireMarkers("COMMIT_CAPABILITY", commitCapability, [
   "code_ai_commit",
   "platform.code.ai.commit",
+  "execution_key",
+  "loadCodeAICommitArtifact",
+  "persistCodeAICommitExecutionState",
+  "retireCodeAICommitArtifact",
   "CODE_AI_COMMIT_ORGANIZATION_MISMATCH",
   "commitVerifiedCodeMission",
+  "operatorAutoExecute: false",
+  "operatorRequiresConfirmation: true",
 ]);
 
 requireMarkers("PLATFORM", platform, [
@@ -207,6 +260,20 @@ requireMarkers("SHARED_RESEARCH", research, [
 requireMarkers("BENCHMARK", benchmark, [
   "sandbox_execution_certified:false",
   "broader_capability_suite_required:true",
+  "activation_allowed:false",
+]);
+
+requireMarkers("SANDBOX_SMOKE", sandboxSmoke, [
+  "AVANTIQO_CODE_SANDBOX_LIVE_SMOKE_V1",
+  "CodeWorkspaceSandboxRuntime.open",
+  "AVANTIQO_CODE_AI_MISSION_V1",
+  "isolated_edit_verified",
+  "command_execution_verified",
+  "diff_verified",
+  "CODE_AI_GIT_PUSH_REQUIRES_GOVERNED_COMMIT_RUNTIME",
+  "production_side_effects_executed: false",
+  "provider_calls_executed: false",
+  "provider_spend_approved: false",
 ]);
 
 if (/git\s+push|vercel\s+deploy|supabase\s+db\s+push/.test(mission + autonomous)) {
@@ -215,12 +282,14 @@ if (/git\s+push|vercel\s+deploy|supabase\s+db\s+push/.test(mission + autonomous)
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V3",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V4",
   verified: {
     owned_code_worker: true,
     certified_capability_gate: true,
     owned_first_provider_resolution: true,
     isolated_repository_workspace: true,
+    local_sandbox_credential_path: true,
+    node24_sandbox_runtime: true,
     resumable_patch_state_including_new_files: true,
     source_manifest_bound_to_explicit_edits: true,
     undeclared_source_mutation_blocked: true,
@@ -231,13 +300,17 @@ console.log(JSON.stringify({
     shared_governed_research_reused: true,
     mission_state_attested: true,
     organization_actor_resume_scope: true,
+    autonomous_execution_evidence_server_owned: true,
+    full_commit_artifact_server_owned_and_non_recallable: true,
     atomic_non_force_github_commit_runtime: true,
+    verified_commit_execution_state_server_owned: true,
     persistent_commit_permission_separated: true,
     production_side_effects_blocked_from_autonomous_workspace: true,
+    live_sandbox_smoke_available: true,
     live_sandbox_execution_certified: false,
     live_owned_planner_execution_certified: false,
     live_github_connect_commit_certified: false,
     broader_model_capability_suite_certified: false,
   },
-  note: "Source architecture audit passed only when this script is actually executed. Live Sandbox, live owned planner execution, live Vercel Connect/GitHub write-back, and broader model benchmarks remain locked until their environment-backed certification runs pass.",
+  note: "Source architecture audit passed only when this script is actually executed. A zero-provider-spend live Sandbox smoke is available separately; live Sandbox, live owned planner execution, live Vercel Connect/GitHub write-back, and broader model benchmarks remain uncertified until their environment-backed certification runs pass.",
 }, null, 2));

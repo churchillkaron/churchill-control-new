@@ -17,13 +17,18 @@ const db = getServiceSupabase();
 
 const CASES = Object.freeze({
   strategy: Object.freeze({
-    timeout: 120000,
-    max_output_tokens: 1400,
-    messages: Object.freeze([
+    timeout: 60000,
+    reasoning_max_output_tokens: 1400,
+    compiler_max_output_tokens: 900,
+    reasoning_messages: Object.freeze([
       Object.freeze({
         role: "system",
-        content:
-          "Return only one JSON object with exactly these keys: decision (string), rationale (string), next_steps (array of strings). Do not invent evidence. The first management move must explicitly acknowledge that guest-count evidence is missing.",
+        content: [
+          "Think through the management problem naturally and concisely.",
+          "Do not return JSON and do not force the reasoning into a schema.",
+          "Do not invent evidence. Explicitly identify material missing evidence before recommending the first management move.",
+          "Return only a concise decision brief, not private chain-of-thought.",
+        ].join(" "),
       }),
       Object.freeze({
         role: "user",
@@ -31,6 +36,12 @@ const CASES = Object.freeze({
           "A restaurant has falling dinner revenue, stable lunch revenue, rising food cost, and no evidence yet about guest count. Decide the first management move without inventing facts.",
       }),
     ]),
+    compiler_system: [
+      "You are a machine-boundary compiler, not the strategic thinker.",
+      "Convert the supplied verified decision brief into exactly one JSON object with exactly these keys: decision (string), rationale (string), next_steps (array of strings).",
+      "Preserve uncertainty and missing evidence exactly. Do not invent any new facts or recommendations.",
+      "Return JSON only.",
+    ].join(" "),
   }),
   tool: Object.freeze({
     timeout: 120000,
@@ -268,6 +279,10 @@ async function readiness() {
         temperature: TEMPERATURE,
         top_p: TOP_P,
       },
+      strategy_contract: {
+        cognition_format: "natural_decision_brief",
+        machine_boundary_format: "json_object",
+      },
       activation_allowed: false,
     };
   } catch (error) {
@@ -278,6 +293,103 @@ async function readiness() {
       activation_allowed: false,
     };
   }
+}
+
+async function runStrategyCase(sample) {
+  const contextBase = {
+    organization_id: "benchmark-organization",
+    organization_service_id: "benchmark-service",
+  };
+  const reasoningStarted = Date.now();
+  const reasoning = await AvantiqoIntelligenceProvider.execute({
+    messages: sample.reasoning_messages,
+    temperature: TEMPERATURE,
+    top_p: TOP_P,
+    max_output_tokens: sample.reasoning_max_output_tokens,
+    request_timeout_ms: sample.timeout,
+    context: {
+      ...contextBase,
+      usage_id: `benchmark-v5-strategy-reason-${Date.now()}`,
+    },
+  });
+  const decisionBrief = text(reasoning?.output?.text);
+  if (!decisionBrief) throw new Error("STRATEGY_DECISION_BRIEF_EMPTY");
+  const reasoningLatency = Date.now() - reasoningStarted;
+
+  const compilerStarted = Date.now();
+  const compiled = await AvantiqoIntelligenceProvider.execute({
+    messages: [
+      { role: "system", content: sample.compiler_system },
+      {
+        role: "user",
+        content: `Verified decision brief:\n${decisionBrief}\n\nCompile this brief only. Do not add new reasoning or facts.`,
+      },
+    ],
+    temperature: TEMPERATURE,
+    top_p: TOP_P,
+    max_output_tokens: sample.compiler_max_output_tokens,
+    request_timeout_ms: sample.timeout,
+    response_format: { type: "json_object" },
+    context: {
+      ...contextBase,
+      usage_id: `benchmark-v5-strategy-compile-${Date.now()}`,
+    },
+  });
+  const compilerLatency = Date.now() - compilerStarted;
+  const parsed = parseObject(compiled?.output?.text);
+  return {
+    parsed,
+    structure: diagnostic("strategy", parsed),
+    passed: passes("strategy", parsed),
+    latency_ms: reasoningLatency + compilerLatency,
+    input_tokens:
+      Number(reasoning?.usage?.input_tokens || 0) + Number(compiled?.usage?.input_tokens || 0),
+    output_tokens:
+      Number(reasoning?.usage?.output_tokens || 0) + Number(compiled?.usage?.output_tokens || 0),
+    finish_reason: compiled?.output?.finish_reason || null,
+    phases: {
+      cognition: {
+        format: "natural_decision_brief",
+        latency_ms: reasoningLatency,
+        finish_reason: reasoning?.output?.finish_reason || null,
+        output_tokens: Number(reasoning?.usage?.output_tokens || 0),
+      },
+      contract_compile: {
+        format: "json_object",
+        latency_ms: compilerLatency,
+        finish_reason: compiled?.output?.finish_reason || null,
+        output_tokens: Number(compiled?.usage?.output_tokens || 0),
+      },
+    },
+  };
+}
+
+async function runDirectJsonCase(id, sample) {
+  const started = Date.now();
+  const result = await AvantiqoIntelligenceProvider.execute({
+    messages: sample.messages,
+    temperature: TEMPERATURE,
+    top_p: TOP_P,
+    max_output_tokens: sample.max_output_tokens,
+    request_timeout_ms: sample.timeout,
+    response_format: { type: "json_object" },
+    context: {
+      organization_id: "benchmark-organization",
+      organization_service_id: "benchmark-service",
+      usage_id: `benchmark-v5-${id}-${Date.now()}`,
+    },
+  });
+  const parsed = parseObject(result?.output?.text);
+  return {
+    parsed,
+    structure: diagnostic(id, parsed),
+    passed: passes(id, parsed),
+    latency_ms: Date.now() - started,
+    input_tokens: Number(result?.usage?.input_tokens || 0),
+    output_tokens: Number(result?.usage?.output_tokens || 0),
+    finish_reason: result?.output?.finish_reason || null,
+    phases: null,
+  };
 }
 
 async function runCase(id) {
@@ -307,34 +419,21 @@ async function runCase(id) {
     };
   }
 
-  const started = Date.now();
   let evidence;
   try {
-    const result = await AvantiqoIntelligenceProvider.execute({
-      messages: sample.messages,
-      temperature: TEMPERATURE,
-      top_p: TOP_P,
-      max_output_tokens: sample.max_output_tokens,
-      request_timeout_ms: sample.timeout,
-      response_format: { type: "json_object" },
-      context: {
-        organization_id: "benchmark-organization",
-        organization_service_id: "benchmark-service",
-        usage_id: `benchmark-v5-${id}-${Date.now()}`,
-      },
-    });
-    const parsed = parseObject(result?.output?.text);
-    const structure = diagnostic(id, parsed);
-    const passed = passes(id, parsed);
+    const result = id === "strategy"
+      ? await runStrategyCase(sample)
+      : await runDirectJsonCase(id, sample);
     evidence = {
       id,
-      status: passed ? "PASS" : "FAIL",
-      passed,
-      latency_ms: Date.now() - started,
-      input_tokens: Number(result?.usage?.input_tokens || 0),
-      output_tokens: Number(result?.usage?.output_tokens || 0),
-      finish_reason: result?.output?.finish_reason || null,
-      structure,
+      status: result.passed ? "PASS" : "FAIL",
+      passed: result.passed,
+      latency_ms: result.latency_ms,
+      input_tokens: result.input_tokens,
+      output_tokens: result.output_tokens,
+      finish_reason: result.finish_reason,
+      structure: result.structure,
+      ...(result.phases ? { phases: result.phases } : {}),
       sampling: {
         policy: "QWEN3_THINKING_2507_RECOMMENDED",
         temperature: TEMPERATURE,
@@ -349,7 +448,6 @@ async function runCase(id) {
       id,
       status: "ERROR",
       passed: false,
-      latency_ms: Date.now() - started,
       error: safeError(error),
       raw_reasoning_persisted: false,
       final_answer_persisted: false,

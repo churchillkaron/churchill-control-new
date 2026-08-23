@@ -1,4 +1,5 @@
 import process from "node:process";
+import { writeFile } from "node:fs/promises";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -18,6 +19,7 @@ function sceneList(value) {
 const mode = text(process.env.INVESTOR_STUDIO_MODE || process.argv[2] || "prepare").toLowerCase();
 const scenes = sceneList(process.env.INVESTOR_STUDIO_SCENES || process.argv[3]);
 const spendApproved = text(process.env.INVESTOR_STUDIO_SPEND_APPROVED).toUpperCase() === "YES";
+const resultPath = text(process.env.INVESTOR_STUDIO_RESULT_PATH);
 
 if (!["prepare", "execute"].includes(mode)) {
   throw new Error(`INVESTOR_STUDIO_MODE_INVALID:${mode}`);
@@ -45,7 +47,13 @@ const result = mode === "execute"
     })
   : await prepareInvestorStudioScenes({ scenes });
 
-console.log(JSON.stringify(result, null, 2));
+const serialized = `${JSON.stringify(result, null, 2)}\n`;
+console.log(serialized);
+
+if (resultPath) {
+  await writeFile(resultPath, serialized, "utf8");
+  console.log(`RESULT_PATH=${resultPath}`);
+}
 
 if (mode === "execute" && result?.success !== true) {
   process.exitCode = 1;

@@ -46,6 +46,15 @@ function command(commandName, args, options = {}) {
   return text(result.stdout);
 }
 
+function commandResult(commandName, args) {
+  return spawnSync(commandName, args, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
 async function restRequest(path, credential) {
   const response = await fetch(`${REST_BASE}${path}`, {
     headers: {
@@ -227,26 +236,71 @@ function verifyPythonSyntax() {
   );
 }
 
-function resolveDeployedCommit(deployedTag) {
-  const tag = text(deployedTag);
-  if (!/^[0-9a-f]{7,40}$/i.test(tag)) {
-    throw new Error(`AVANTIQO_IMAGE_REFRESH_DEPLOYED_TAG_NOT_COMMIT_LIKE:${tag || "MISSING"}`);
+function resolveCommitLikeTag(commitLike, fetchOnMiss = false) {
+  const tag = text(commitLike);
+  if (!/^[0-9a-f]{7,40}$/i.test(tag)) return null;
+
+  const resolve = () => {
+    const result = commandResult("git", ["rev-parse", `${tag}^{commit}`]);
+    return result.status === 0 ? text(result.stdout) : null;
+  };
+
+  let resolved = resolve();
+  if (!resolved && fetchOnMiss) {
+    command("git", ["fetch", "origin", "main"], {
+      errorCode: "GIT_FETCH_MAIN_FOR_RUNPOD_TAG_FAILED",
+    });
+    resolved = resolve();
   }
-  return command("git", ["rev-parse", `${tag}^{commit}`], {
-    errorCode: "AVANTIQO_IMAGE_REFRESH_DEPLOYED_COMMIT_NOT_IN_REPOSITORY",
-  });
+  return resolved;
 }
 
-function sourceChanges(deployedCommit, head) {
+function resolveDeployedCommit(deployedTag) {
+  const resolved = resolveCommitLikeTag(deployedTag, true);
+  if (!resolved) {
+    throw new Error(
+      `AVANTIQO_IMAGE_REFRESH_DEPLOYED_COMMIT_NOT_IN_REPOSITORY:${text(deployedTag) || "MISSING"}`,
+    );
+  }
+  return resolved;
+}
+
+function sourceChanges(leftCommit, rightCommit) {
   const result = command(
     "git",
-    ["diff", "--name-only", `${deployedCommit}..${head}`, "--", IMAGE_SOURCE_PATH],
+    ["diff", "--name-only", `${leftCommit}..${rightCommit}`, "--", IMAGE_SOURCE_PATH],
     { errorCode: "AVANTIQO_IMAGE_REFRESH_SOURCE_DIFF_FAILED" },
   );
   return result
     .split("\n")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function sourceTreeMatches(leftCommit, rightCommit) {
+  const result = commandResult(
+    "git",
+    ["diff", "--quiet", leftCommit, rightCommit, "--", IMAGE_SOURCE_PATH],
+  );
+  if (result.status === 0) return true;
+  if (result.status === 1) return false;
+  const detail = text(result.stderr || result.stdout).slice(0, 800);
+  throw new Error(
+    `AVANTIQO_IMAGE_REFRESH_SOURCE_COMPARE_FAILED:${detail || `exit=${result.status}`}`,
+  );
+}
+
+function isAncestor(ancestorCommit, descendantCommit) {
+  const result = commandResult(
+    "git",
+    ["merge-base", "--is-ancestor", ancestorCommit, descendantCommit],
+  );
+  if (result.status === 0) return true;
+  if (result.status === 1) return false;
+  const detail = text(result.stderr || result.stdout).slice(0, 800);
+  throw new Error(
+    `AVANTIQO_IMAGE_REFRESH_ANCESTRY_CHECK_FAILED:${detail || `exit=${result.status}`}`,
+  );
 }
 
 function ghReady() {
@@ -351,14 +405,10 @@ if (!suitableVolume) {
 const deployedImage = text(template?.imageName);
 const deployedTag = imageTag(deployedImage);
 const deployedCommit = resolveDeployedCommit(deployedTag);
-command("git", ["merge-base", "--is-ancestor", deployedCommit, head], {
-  errorCode: "AVANTIQO_IMAGE_REFRESH_DEPLOYED_COMMIT_NOT_ANCESTOR_OF_MAIN",
-});
-const changedSourceFiles = sourceChanges(deployedCommit, head);
-if (!changedSourceFiles.length) {
-  throw new Error("AVANTIQO_IMAGE_REFRESH_NO_IMAGE_SOURCE_CHANGE_SINCE_DEPLOYED_BUILD");
+if (!isAncestor(deployedCommit, head) && !isAncestor(head, deployedCommit)) {
+  throw new Error("AVANTIQO_IMAGE_REFRESH_DEPLOYED_COMMIT_DIVERGES_FROM_MAIN");
 }
-
+const changedSourceFiles = sourceChanges(deployedCommit, head);
 const expectedRunpodTag = head.slice(0, 9);
 const releaseTag = `runpod-image-${head.slice(0, 12)}`;
 const existingRelease = releaseExists(releaseTag);
@@ -368,9 +418,9 @@ if (existingRelease && text(existingRelease.targetCommitish) && text(existingRel
   );
 }
 
-const plan = {
+const basePlan = {
   success: true,
-  contract: "AVANTIQO_IMAGE_RUNPOD_WORKER_REFRESH_V1",
+  contract: "AVANTIQO_IMAGE_RUNPOD_WORKER_REFRESH_V2",
   mode: apply ? "APPLY" : "PLAN",
   mutation_performed: false,
   main_commit: head,
@@ -390,16 +440,43 @@ const plan = {
     target_commit: head,
     already_exists: Boolean(existingRelease),
     expected_runpod_image_tag: expectedRunpodTag,
+    acceptance_rule: "IMAGE_SOURCE_TREE_EQUALS_PLANNED_MAIN",
   },
   safety: {
     apply_required_for_release_creation: true,
     runpod_release_trigger_is_repository_level: true,
-    other_runpod_github_integrated_endpoints_may_rebuild: true,
+    intermediate_ancestor_builds_are_observed_not_accepted: true,
+    newer_different_image_source_requires_replan: true,
     automatic_rollback_allowed: false,
     generation_submitted: false,
     production_deploy_performed: false,
   },
-  next_action: apply ? "WAIT_FOR_IMAGE_BUILD" : "RUN_WITH_APPLY_TO_TRIGGER_RUNPOD_GITHUB_BUILD",
+};
+
+if (sourceTreeMatches(deployedCommit, head)) {
+  console.log("AVANTIQO_IMAGE_RUNPOD_REFRESH_ALREADY_CURRENT=true");
+  console.log("AVANTIQO_IMAGE_RUNPOD_REFRESH=COMPLETE");
+  console.log(
+    JSON.stringify(
+      {
+        ...basePlan,
+        mode: apply ? "APPLY" : "PLAN",
+        current_image_source_matches_main: true,
+        image_worker_refreshed: true,
+        refresh_action: "ALREADY_CURRENT",
+        next_action: "CACHE_QWEN_IMAGE_2512",
+      },
+      null,
+      2,
+    ),
+  );
+  process.exit(0);
+}
+
+const plan = {
+  ...basePlan,
+  current_image_source_matches_main: false,
+  next_action: apply ? "WAIT_FOR_IMAGE_SOURCE_EQUIVALENT_BUILD" : "RUN_WITH_APPLY_TO_TRIGGER_OR_RESUME_RUNPOD_GITHUB_BUILD",
 };
 
 if (!apply) {
@@ -423,8 +500,28 @@ if (headBeforeWrite !== head || originMainBeforeWrite !== head) {
 }
 
 const endpointBeforeWrite = await inspectEndpoint(managementKey, endpointId);
-if (text(endpointBeforeWrite.template?.imageName) !== deployedImage) {
-  throw new Error("AVANTIQO_IMAGE_REFRESH_CONCURRENT_IMAGE_CHANGE_DETECTED");
+const endpointBeforeWriteTag = imageTag(endpointBeforeWrite.template?.imageName);
+const endpointBeforeWriteCommit = resolveDeployedCommit(endpointBeforeWriteTag);
+if (sourceTreeMatches(endpointBeforeWriteCommit, head)) {
+  console.log("AVANTIQO_IMAGE_RUNPOD_REFRESH_BECAME_CURRENT_BEFORE_RELEASE=true");
+  console.log("AVANTIQO_IMAGE_RUNPOD_REFRESH=COMPLETE");
+  console.log(
+    JSON.stringify(
+      {
+        ...plan,
+        mutation_performed: false,
+        image_worker_refreshed: true,
+        refresh_action: "BECAME_CURRENT_BEFORE_RELEASE",
+        verified_endpoint: safeEndpoint(endpointBeforeWrite.endpoint),
+        verified_template: safeTemplate(endpointBeforeWrite.template),
+        verified_commit: endpointBeforeWriteCommit,
+        next_action: "CACHE_QWEN_IMAGE_2512",
+      },
+      null,
+      2,
+    ),
+  );
+  process.exit(0);
 }
 if (!endpointVolumeIds(endpointBeforeWrite.endpoint).includes(text(suitableVolume?.id))) {
   throw new Error("AVANTIQO_IMAGE_REFRESH_CONCURRENT_VOLUME_CHANGE_DETECTED");
@@ -438,29 +535,71 @@ if (!existingRelease) {
 }
 
 const deadline = Date.now() + Math.max(60_000, waitMs);
-let lastImageName = deployedImage;
+let lastImageName = text(endpointBeforeWrite.template?.imageName) || deployedImage;
 let verified = null;
+let verifiedCommit = null;
+let verifiedReason = null;
+const intermediateBuilds = [];
 while (Date.now() < deadline) {
   await sleep(Math.max(5_000, pollMs));
   const current = await inspectEndpoint(managementKey, endpointId);
   const currentImageName = text(current.template?.imageName);
-  if (currentImageName) lastImageName = currentImageName;
   const currentTag = imageTag(currentImageName);
-  if (currentImageName !== deployedImage) {
-    if (currentTag !== expectedRunpodTag) {
-      throw new Error(
-        `AVANTIQO_IMAGE_REFRESH_UNEXPECTED_IMAGE_BUILD:expected_tag=${expectedRunpodTag}:actual_tag=${currentTag || "MISSING"}`,
-      );
-    }
+
+  if (!currentImageName || currentImageName === lastImageName) {
+    console.log(`AVANTIQO_IMAGE_RUNPOD_REFRESH_WAITING image_tag=${currentTag || "MISSING"}`);
+    continue;
+  }
+
+  lastImageName = currentImageName;
+  const currentCommit = resolveCommitLikeTag(currentTag, true);
+  if (!currentCommit) {
+    intermediateBuilds.push({
+      image_tag: currentTag || null,
+      commit: null,
+      classification: "UNKNOWN_COMMIT_TAG",
+    });
+    console.log(
+      `AVANTIQO_IMAGE_RUNPOD_REFRESH_INTERMEDIATE image_tag=${currentTag || "MISSING"} classification=UNKNOWN_COMMIT_TAG`,
+    );
+    continue;
+  }
+
+  if (sourceTreeMatches(currentCommit, head)) {
     verified = current;
+    verifiedCommit = currentCommit;
+    verifiedReason = currentCommit === head ? "EXACT_PLANNED_COMMIT" : "IMAGE_SOURCE_EQUIVALENT_COMMIT";
     break;
   }
-  console.log(`AVANTIQO_IMAGE_RUNPOD_REFRESH_WAITING image_tag=${currentTag || "MISSING"}`);
+
+  if (isAncestor(currentCommit, head)) {
+    const remainingSourceChanges = sourceChanges(currentCommit, head);
+    intermediateBuilds.push({
+      image_tag: currentTag,
+      commit: currentCommit,
+      classification: "OLDER_ANCESTOR_IMAGE_SOURCE",
+      remaining_image_source_changes: remainingSourceChanges,
+    });
+    console.log(
+      `AVANTIQO_IMAGE_RUNPOD_REFRESH_INTERMEDIATE image_tag=${currentTag} classification=OLDER_ANCESTOR_IMAGE_SOURCE remaining_changes=${remainingSourceChanges.length}`,
+    );
+    continue;
+  }
+
+  if (isAncestor(head, currentCommit)) {
+    throw new Error(
+      `AVANTIQO_IMAGE_REFRESH_NEWER_DIFFERENT_IMAGE_SOURCE_REPLAN_REQUIRED:planned=${head}:actual=${currentCommit}`,
+    );
+  }
+
+  throw new Error(
+    `AVANTIQO_IMAGE_REFRESH_DIVERGENT_BUILD_REJECTED:planned=${head}:actual=${currentCommit}`,
+  );
 }
 
 if (!verified) {
   throw new Error(
-    `AVANTIQO_IMAGE_REFRESH_TIMEOUT:old_image=${deployedImage}:last_image=${lastImageName}:release=${releaseTag}`,
+    `AVANTIQO_IMAGE_REFRESH_TIMEOUT:initial_image=${deployedImage}:last_image=${lastImageName}:release=${releaseTag}:intermediate_builds=${intermediateBuilds.length}`,
   );
 }
 
@@ -477,6 +616,9 @@ console.log(
       release_reused: Boolean(existingRelease),
       verified_endpoint: safeEndpoint(verified.endpoint),
       verified_template: safeTemplate(verified.template),
+      verified_commit: verifiedCommit,
+      verification_reason: verifiedReason,
+      intermediate_builds: intermediateBuilds,
       runpod_endpoint_changes_observed: changed,
       image_worker_refreshed: true,
       next_action: "CACHE_QWEN_IMAGE_2512",

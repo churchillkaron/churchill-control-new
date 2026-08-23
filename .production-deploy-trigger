@@ -1,2 +1,2 @@
-2026-08-23T05:46:05Z
-Explicit production release retry after aligning react-chartjs-2 with the existing lockfile; deploy current main and verify Code AI in production.
+2026-08-23T05:47:55Z
+Explicit production release retry after requiring confirmation for persistent Code AI commits and preserving the newest concurrent main changes; deploy current main and verify Code AI in production.

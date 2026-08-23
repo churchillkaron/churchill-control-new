@@ -1,6 +1,7 @@
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const DEFAULT_IMAGE_ENDPOINT_NAME = "avantiqo-image-v1";
+const QWEN_2512_REQUIRED_FREE_BYTES = 63_068_709_120;
 
 const KNOWN_ENDPOINT_ENV_BY_NAME = new Map([
   ["avantiqo-image-v1", "RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID"],
@@ -9,8 +10,10 @@ const KNOWN_ENDPOINT_ENV_BY_NAME = new Map([
   ["avantiqo-code-v1", "RUNPOD_AVANTIQO_CODE_ENDPOINT_ID"],
   ["avantiqo-voice-stt-v1", "RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID"],
   ["avantiqo-voice-tts-v1", "RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID"],
+  ["services/avantiqo-voice-tts-v1", "RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID"],
   ["avantiqo-audio-v1", "RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID"],
   ["avantiqo-lipsync-v1", "RUNPOD_AVANTIQO_LIPSYNC_ENDPOINT_ID"],
+  ["avantiqo-lipsync-v1.", "RUNPOD_AVANTIQO_LIPSYNC_ENDPOINT_ID"],
 ]);
 
 function text(value) {
@@ -129,30 +132,33 @@ function safeEndpoint(endpoint = {}) {
   };
 }
 
-function safeTemplate(endpoint = {}) {
-  const template = object(endpoint.template);
-  const templateId = text(endpoint.templateId || template.id);
-  const imageName = text(template.imageName);
-  const env = normalizeEnv(template.env);
-  const hasInlineTemplate = Object.keys(template).length > 0;
-
+function safeTemplate(template = {}, expectedTemplateId = "") {
+  const source = object(template);
+  const templateId = text(source.id || expectedTemplateId);
+  const imageName = text(source.imageName);
+  const env = normalizeEnv(source.env);
+  const found = Object.keys(source).length > 0;
   return {
-    status: hasInlineTemplate
-      ? "INLINE_AVAILABLE"
-      : templateId
-        ? "REFERENCE_ONLY_OR_STALE"
-        : "MISSING",
-    id: text(template.id) || templateId || null,
-    name: text(template.name) || null,
+    status: found ? "FOUND" : templateId ? "NOT_RETURNED" : "MISSING",
+    id: templateId || null,
+    name: text(source.name) || null,
     image_name: imageName || null,
     image_reference_kind: imageReferenceKind(imageName),
-    container_disk_gb: finite(template.containerDiskInGb),
-    local_volume_gb: finite(template.volumeInGb),
-    volume_mount_path: text(template.volumeMountPath) || null,
-    container_registry_auth_configured: Boolean(text(template.containerRegistryAuthId)),
+    container_disk_gb: finite(source.containerDiskInGb),
+    local_volume_gb: finite(source.volumeInGb),
+    volume_mount_path: text(source.volumeMountPath) || null,
+    container_registry_auth_configured: Boolean(text(source.containerRegistryAuthId)),
     env_keys: Object.keys(env).sort(),
-    inline_template_available: hasInlineTemplate,
-    stale_template_reference_possible: Boolean(templateId && !hasInlineTemplate),
+    endpoint_bound_template_returned: found,
+  };
+}
+
+function safeNetworkVolume(volume = {}) {
+  return {
+    id: text(volume.id) || null,
+    name: text(volume.name) || null,
+    size_gb: finite(volume.size),
+    data_center_id: text(volume.dataCenterId) || null,
   };
 }
 
@@ -190,6 +196,18 @@ function envBindingHint(endpoint) {
   };
 }
 
+function endpointVolumeIds(endpoint = {}) {
+  return [
+    text(endpoint.networkVolumeId),
+    ...list(endpoint.networkVolumeIds).map(text),
+  ].filter(Boolean);
+}
+
+function gbToBytes(sizeGb) {
+  const value = finite(sizeGb);
+  return value === null ? null : value * 1024 ** 3;
+}
+
 const inferenceKey =
   text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
 const managementKey = required(
@@ -203,18 +221,38 @@ const imageEndpointName =
 console.log("AVANTIQO_RUNPOD_INSPECT_READ_ONLY=true");
 console.log("AVANTIQO_RUNPOD_MANAGEMENT_CREDENTIAL=DEDICATED");
 
-const endpoints = await request(
-  `${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`,
-  managementKey,
-  "management",
+const [endpoints, templates, networkVolumes] = await Promise.all([
+  request(
+    `${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`,
+    managementKey,
+    "management",
+  ),
+  request(
+    `${REST_BASE}/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false`,
+    managementKey,
+    "management",
+  ),
+  request(`${REST_BASE}/networkvolumes`, managementKey, "management"),
+]);
+if (!Array.isArray(endpoints)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
+if (!Array.isArray(templates)) throw new Error("RUNPOD_TEMPLATE_LIST_INVALID");
+if (!Array.isArray(networkVolumes)) throw new Error("RUNPOD_NETWORK_VOLUME_LIST_INVALID");
+
+const templateById = new Map(
+  templates.map((template) => [text(template?.id), template]).filter(([id]) => id),
 );
-if (!Array.isArray(endpoints)) {
-  throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
-}
+const volumeById = new Map(
+  networkVolumes.map((volume) => [text(volume?.id), volume]).filter(([id]) => id),
+);
 
 const inspectedEndpoints = [];
 for (const endpoint of endpoints) {
   const endpointId = text(endpoint?.id);
+  const templateId = text(endpoint?.templateId || endpoint?.template?.id);
+  const resolvedTemplate =
+    Object.keys(object(endpoint?.template)).length > 0
+      ? endpoint.template
+      : templateById.get(templateId) || {};
   const healthResult = endpointId
     ? await optionalRequest(
         `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`,
@@ -222,10 +260,16 @@ for (const endpoint of endpoints) {
         "inference",
       )
     : { ok: false, body: null, error: "RUNPOD_ENDPOINT_ID_MISSING" };
+  const attachedVolumeIds = [...new Set(endpointVolumeIds(endpoint))];
 
   inspectedEndpoints.push({
     endpoint: safeEndpoint(endpoint),
-    template: safeTemplate(endpoint),
+    template: safeTemplate(resolvedTemplate, templateId),
+    attached_network_volumes: attachedVolumeIds.map((volumeId) => ({
+      id: volumeId,
+      found_in_account: volumeById.has(volumeId),
+      volume: volumeById.has(volumeId) ? safeNetworkVolume(volumeById.get(volumeId)) : null,
+    })),
     health: healthResult.ok ? safeHealth(healthResult.body) : null,
     health_read: {
       ok: healthResult.ok,
@@ -247,24 +291,47 @@ const selectedImage = configuredImageEndpointId
     ? imageMatchesByName[0]
     : null;
 
-const staleTemplateReferences = inspectedEndpoints.filter(
-  (entry) => entry.template.stale_template_reference_possible,
+const attachedVolumeIds = new Set(
+  inspectedEndpoints.flatMap((entry) => endpointVolumeIds(entry.endpoint)),
 );
-const immutableImageReferences = inspectedEndpoints.filter(
-  (entry) => entry.template.image_reference_kind === "IMMUTABLE_DIGEST",
+const sanitizedVolumes = networkVolumes.map((volume) => ({
+  ...safeNetworkVolume(volume),
+  attached_to_endpoint_ids: inspectedEndpoints
+    .filter((entry) => endpointVolumeIds(entry.endpoint).includes(text(volume?.id)))
+    .map((entry) => entry.endpoint.id),
+  attached_to_endpoint_names: inspectedEndpoints
+    .filter((entry) => endpointVolumeIds(entry.endpoint).includes(text(volume?.id)))
+    .map((entry) => entry.endpoint.name),
+}));
+const unattachedVolumes = sanitizedVolumes.filter(
+  (volume) => volume.id && !attachedVolumeIds.has(volume.id),
 );
-const mutableImageReferences = inspectedEndpoints.filter((entry) =>
-  entry.template.image_reference_kind.startsWith("MUTABLE_"),
+const qwenSizedVolumes = sanitizedVolumes.filter((volume) => {
+  const bytes = gbToBytes(volume.size_gb);
+  return bytes !== null && bytes >= QWEN_2512_REQUIRED_FREE_BYTES;
+});
+const templatesMissing = inspectedEndpoints.filter(
+  (entry) => entry.template.status !== "FOUND",
 );
+
+const imagePersistentVolumeAttached = Boolean(
+  selectedImage && endpointVolumeIds(selectedImage.endpoint).length > 0,
+);
+const imageLocalVolumeGb = selectedImage?.template?.local_volume_gb ?? null;
+const imageContainerDiskGb = selectedImage?.template?.container_disk_gb ?? null;
 
 const result = {
   success: true,
-  contract: "AVANTIQO_RUNPOD_WORKER_INSPECT_V4",
+  contract: "AVANTIQO_RUNPOD_WORKER_INSPECT_V5",
   read_only: true,
   mutation_performed: false,
   inference_performed: false,
   endpoint_count: inspectedEndpoints.length,
+  template_count: templates.length,
+  network_volume_count: sanitizedVolumes.length,
   endpoints: inspectedEndpoints,
+  templates: templates.map((template) => safeTemplate(template)),
+  network_volumes: sanitizedVolumes,
   endpoint_bindings: inspectedEndpoints.map((entry) => entry.env_binding_hint),
   image_target: {
     requested_name: imageEndpointName,
@@ -272,16 +339,35 @@ const result = {
     exact_name_match_count: imageMatchesByName.length,
     configured_id_match_count: imageMatchesByConfiguredId.length,
     selected: selectedImage,
+    storage: {
+      persistent_network_volume_attached: imagePersistentVolumeAttached,
+      attached_network_volume_ids: selectedImage
+        ? endpointVolumeIds(selectedImage.endpoint)
+        : [],
+      template_local_volume_gb: imageLocalVolumeGb,
+      template_container_disk_gb: imageContainerDiskGb,
+      volume_mount_path: selectedImage?.template?.volume_mount_path ?? null,
+      qwen_2512_required_free_bytes: QWEN_2512_REQUIRED_FREE_BYTES,
+    },
+  },
+  storage_analysis: {
+    network_volume_count: sanitizedVolumes.length,
+    unattached_network_volume_count: unattachedVolumes.length,
+    unattached_network_volumes: unattachedVolumes,
+    qwen_2512_size_candidate_volume_count: qwenSizedVolumes.length,
+    qwen_2512_size_candidate_volumes: qwenSizedVolumes,
+    automatic_attachment_allowed: false,
+    automatic_volume_creation_allowed: false,
+    automatic_volume_resize_allowed: false,
+    automatic_deletion_allowed: false,
   },
   diagnostics: {
-    stale_template_reference_count: staleTemplateReferences.length,
-    stale_template_references: staleTemplateReferences.map((entry) => ({
+    endpoint_template_not_returned_count: templatesMissing.length,
+    endpoint_template_not_returned: templatesMissing.map((entry) => ({
       endpoint_id: entry.endpoint.id,
       endpoint_name: entry.endpoint.name,
       template_id: entry.endpoint.template_id,
     })),
-    immutable_image_reference_count: immutableImageReferences.length,
-    mutable_image_reference_count: mutableImageReferences.length,
   },
   safety: {
     read_only: true,
@@ -296,10 +382,20 @@ const result = {
 };
 
 console.log(`AVANTIQO_RUNPOD_ENDPOINT_COUNT=${inspectedEndpoints.length}`);
+console.log(`AVANTIQO_RUNPOD_TEMPLATE_COUNT=${templates.length}`);
+console.log(`AVANTIQO_RUNPOD_NETWORK_VOLUME_COUNT=${sanitizedVolumes.length}`);
 for (const binding of result.endpoint_bindings) {
   console.log(
     `AVANTIQO_RUNPOD_ENDPOINT name=${binding.endpoint_name || "UNKNOWN"} id=${binding.endpoint_id || "MISSING"} env=${binding.known_repo_env_name || "UNMAPPED"}`,
   );
 }
+console.log(
+  `AVANTIQO_IMAGE_PERSISTENT_NETWORK_VOLUME_ATTACHED=${imagePersistentVolumeAttached ? "YES" : "NO"}`,
+);
+console.log(`AVANTIQO_IMAGE_TEMPLATE_LOCAL_VOLUME_GB=${imageLocalVolumeGb ?? "UNKNOWN"}`);
+console.log(`AVANTIQO_IMAGE_CONTAINER_DISK_GB=${imageContainerDiskGb ?? "UNKNOWN"}`);
+console.log(
+  `AVANTIQO_QWEN_2512_SIZE_CANDIDATE_VOLUMES=${qwenSizedVolumes.length}`,
+);
 console.log("AVANTIQO_RUNPOD_INSPECT=COMPLETE");
 console.log(JSON.stringify(result, null, 2));

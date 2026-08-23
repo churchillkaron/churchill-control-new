@@ -100,6 +100,8 @@ requireFragments(continuationPath, [
   '"platform.product_autonomy_continuation.assess"',
   "payload.verified_commit_server_state_found !== false",
   "PRODUCT_AUTONOMY_CONTINUATION_RECOVERY_ARTIFACT_REQUIRED",
+  "artifact.commit_attempted !== true",
+  "PRODUCT_AUTONOMY_CONTINUATION_RECOVERY_ATTEMPT_EVIDENCE_REQUIRED",
   "PRODUCT_AUTONOMY_CONTINUATION_BOUND_COMMIT_MISMATCH",
   'ref: "main"',
   "repositoryAssessment?.repository_snapshot",
@@ -109,6 +111,7 @@ requireFragments(continuationPath, [
   "main_advanced_after_verified_commit",
   "server_state_or_registered_verifier_binding_required: true",
   "recovery_binding_trusted_only_inside_exact_mission_step: true",
+  "recovery_artifact_commit_attempt_marker_required: true",
   "write_replay_for_recovery_allowed: false",
   "repository_grounded_current_main_required: true",
   "bounded_next_cycle_count: 1",
@@ -199,6 +202,7 @@ console.log("OPERATOR_PRODUCT_REPOSITORY_CONCURRENCY=NEWER_MAIN_PRESERVED");
 console.log("OPERATOR_PRODUCT_REPOSITORY_NEXT_OBJECTIVE=NONEMPTY_BOUNDED_HANDOFF_REQUIRED");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY=REGISTERED_VERIFIER_BOUND_SCALARS_ONLY");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_CONTEXT=EXACT_DURABLE_MISSION_STEP_ONLY");
+console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_ATTEMPT_MARKER=REQUIRED");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_WRITE_REPLAY=DISABLED");
 console.log("OPERATOR_PRODUCT_REPOSITORY_CERTIFICATION=SOURCE_EVIDENCE_ONLY");
 console.log("OPERATOR_PRODUCT_AUTONOMY_RECURSION=DISABLED");

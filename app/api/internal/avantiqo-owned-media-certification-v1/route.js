@@ -7,7 +7,6 @@ import sharp from "sharp";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
 const CONTRACT = "AVANTIQO_OWNED_MEDIA_VERCEL_CERTIFICATION_V1";
-const TOKEN = process.env.AVANTIQO_OWNED_CERTIFICATION_TOKEN || "avq-owned-cert-vercel-v1-20260823-a6e1f71c";
 const RUNPOD_API_BASE = "https://api.runpod.ai/v2";
 const BUCKET = "creative-assets";
 const supabase = getServiceSupabase();
@@ -36,6 +35,18 @@ function json(data, status = 200) {
     status,
     headers: { "Cache-Control": "no-store, private" },
   });
+}
+
+function requireToken(request) {
+  const expected = text(process.env.AVANTIQO_OWNED_CERTIFICATION_TOKEN);
+  if (!expected) throw new Error("AVANTIQO_OWNED_CERTIFICATION_TOKEN_REQUIRED");
+  const supplied = text(
+    request.headers.get("x-avantiqo-certification-token") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, ""),
+  );
+  if (!supplied || supplied !== expected) {
+    throw new Error("CERTIFICATION_UNAUTHORIZED");
+  }
 }
 
 function percentile(values, fraction) {
@@ -405,11 +416,13 @@ async function runEngine(engine) {
 }
 
 export async function GET(request) {
-  const url = new URL(request.url);
-  if (!TOKEN || url.searchParams.get("token") !== TOKEN) {
+  try {
+    requireToken(request);
+  } catch {
     return json({ success: false }, 404);
   }
 
+  const url = new URL(request.url);
   const action = text(url.searchParams.get("action")) || "readiness";
   const engine = text(url.searchParams.get("engine")).toLowerCase();
 

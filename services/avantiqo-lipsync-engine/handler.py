@@ -10,16 +10,19 @@ from urllib.parse import urlparse
 import requests
 import runpod
 import torch
+from huggingface_hub import snapshot_download
 
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1"
 CAPABILITY = "ai.video.lipsync"
 PRODUCT_MODEL = "avantiqo-cinema-lipsync-v1"
 FOUNDATION_MODEL = "ByteDance/LatentSync-1.6"
 UPSTREAM_COMMIT = "a229c3948406bc2cf6eaf4873e662e70c6a04746"
+VAE_MODEL = "stabilityai/sd-vae-ft-mse"
 ROOT = Path(os.getenv("AVANTIQO_LATENTSYNC_ROOT", "/opt/latentsync"))
 CHECKPOINT_ROOT = Path(
     os.getenv("AVANTIQO_LATENTSYNC_CHECKPOINT_ROOT", "/runpod-volume/latentsync-1.6")
 )
+HF_HOME = Path(os.getenv("HF_HOME", "/runpod-volume/huggingface-cache"))
 OUTPUT_DIR = Path(os.getenv("AVANTIQO_LIPSYNC_OUTPUT_DIR", "/tmp/avantiqo-lipsync"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 MAX_VIDEO_BYTES = 200 * 1024 * 1024
@@ -117,29 +120,50 @@ def _upload(path: Path, storage: dict[str, Any]) -> None:
         )
 
 
-def _checkpoint_paths() -> tuple[Path, Path]:
+def _checkpoint_paths() -> tuple[Path, Path, Path]:
     return (
         CHECKPOINT_ROOT / "latentsync_unet.pt",
         CHECKPOINT_ROOT / "whisper" / "tiny.pt",
+        CHECKPOINT_ROOT / "auxiliary",
     )
 
 
+def _replace_with_symlink(source: Path, target: Path) -> None:
+    if target.is_symlink() or target.is_file():
+        target.unlink()
+    elif target.is_dir():
+        shutil.rmtree(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.symlink_to(source, target_is_directory=source.is_dir())
+
+
 def _ensure_checkpoint_links() -> None:
-    unet, whisper = _checkpoint_paths()
+    unet, whisper, auxiliary = _checkpoint_paths()
     if not unet.is_file():
         raise RuntimeError("AVANTIQO_LIPSYNC_UNET_CHECKPOINT_REQUIRED")
     if not whisper.is_file():
         raise RuntimeError("AVANTIQO_LIPSYNC_WHISPER_CHECKPOINT_REQUIRED")
+    insightface_pack = auxiliary / "models" / "buffalo_l"
+    if not insightface_pack.is_dir() or not any(insightface_pack.iterdir()):
+        raise RuntimeError("AVANTIQO_LIPSYNC_INSIGHTFACE_BUFFALO_L_REQUIRED")
+
     target_root = ROOT / "checkpoints"
     target_whisper = target_root / "whisper"
     target_whisper.mkdir(parents=True, exist_ok=True)
-    for source, target in [
-        (unet, target_root / "latentsync_unet.pt"),
-        (whisper, target_whisper / "tiny.pt"),
-    ]:
-        if target.exists() or target.is_symlink():
-            target.unlink()
-        target.symlink_to(source)
+    _replace_with_symlink(unet, target_root / "latentsync_unet.pt")
+    _replace_with_symlink(whisper, target_whisper / "tiny.pt")
+    _replace_with_symlink(auxiliary, target_root / "auxiliary")
+
+
+def _ensure_offline_dependencies() -> None:
+    try:
+        snapshot_download(
+            VAE_MODEL,
+            cache_dir=str(HF_HOME),
+            local_files_only=True,
+        )
+    except Exception as exc:
+        raise RuntimeError("AVANTIQO_LIPSYNC_SD_VAE_CACHE_REQUIRED") from exc
 
 
 def _validated(job: dict[str, Any]) -> dict[str, Any]:
@@ -172,7 +196,17 @@ def _validated(job: dict[str, Any]) -> dict[str, Any]:
     storage_reference = _text(storage.get("storage_reference"))
     if not storage_reference.startswith("storage://creative-assets/"):
         raise ValueError("AVANTIQO_LIPSYNC_STORAGE_REFERENCE_INVALID")
-    seed = int(data.get("seed") if data.get("seed") is not None else 1247)
+    specification = data.get("structured_specification") or {}
+    generation = specification.get("generation") or {}
+    provider_parameters = specification.get("provider_parameters") or {}
+    raw_seed = (
+        data.get("seed")
+        if data.get("seed") is not None
+        else generation.get("seed")
+        if generation.get("seed") is not None
+        else provider_parameters.get("seed")
+    )
+    seed = int(raw_seed) if raw_seed is not None and raw_seed != "" else 1247
     if seed < 0 or seed > 4294967295:
         raise ValueError("AVANTIQO_LIPSYNC_SEED_INVALID")
     return {
@@ -192,6 +226,7 @@ def _validated(job: dict[str, Any]) -> dict[str, Any]:
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     data = _validated(job)
     _ensure_checkpoint_links()
+    _ensure_offline_dependencies()
     started = time.perf_counter()
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     work = OUTPUT_DIR / job_id
@@ -227,6 +262,12 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             capture_output=True,
             text=True,
             check=False,
+            env={
+                **os.environ,
+                "HF_HOME": str(HF_HOME),
+                "HF_HUB_OFFLINE": "1",
+                "TRANSFORMERS_OFFLINE": "1",
+            },
         )
         if result.returncode != 0 or not output.is_file():
             detail = _text(result.stderr or result.stdout)[-1500:]
@@ -249,6 +290,9 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "seed": data["seed"],
             "size_bytes": size_bytes,
             "audio_conditioned_latent_diffusion": True,
+            "offline_model_cache_required": True,
+            "sd_vae_model": VAE_MODEL,
+            "insightface_pack": "buffalo_l",
             "identity_quality_review_required": True,
             "sync_quality_review_required": True,
             "certification_execution": data.get("certification_execution") is True,
@@ -265,6 +309,7 @@ def check_worker():
     if not ROOT.is_dir():
         raise RuntimeError("AVANTIQO_LATENTSYNC_ROOT_REQUIRED")
     _ensure_checkpoint_links()
+    _ensure_offline_dependencies()
 
 
 if __name__ == "__main__":

@@ -6,7 +6,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     AVANTIQO_LATENTSYNC_ROOT=/opt/latentsync \
     AVANTIQO_LATENTSYNC_CHECKPOINT_ROOT=/runpod-volume/latentsync-1.6 \
-    AVANTIQO_LIPSYNC_OUTPUT_DIR=/tmp/avantiqo-lipsync
+    AVANTIQO_LIPSYNC_OUTPUT_DIR=/tmp/avantiqo-lipsync \
+    HF_HOME=/runpod-volume/huggingface-cache \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg git ca-certificates libgl1 libglib2.0-0 \

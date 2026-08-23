@@ -4,6 +4,9 @@ import test from "node:test";
 import {
   createCreativeDesignMeasuredTextLayout,
 } from "../lib/creative/design/runtime/CreativeDesignMeasuredTextLayoutRuntime.js";
+import {
+  selectCreativeDesignPdfTextRenderMode,
+} from "../lib/creative/design/runtime/CreativeDesignPdfRenderer.js";
 
 const fontBindings = new Map([
   [
@@ -93,4 +96,46 @@ test("measured typography balances exact line breaks and table cells", async () 
   assert.ok(tableCell);
   assert.equal(tableCell.overflow, false);
   assert.equal(tableCell.measurement_source, "INJECTED_TEST_MEASURER");
+});
+
+test("PDF typography preserves vector text only when native metrics are safe", () => {
+  assert.equal(
+    selectCreativeDesignPdfTextRenderMode({
+      content: "Premium dinner tonight",
+      measured_width: 180,
+      native_width: 180.5,
+      maximum_width: 240,
+    }),
+    "NATIVE_VECTOR",
+  );
+
+  assert.equal(
+    selectCreativeDesignPdfTextRenderMode({
+      content: "Premium dinner tonight",
+      measured_width: 180,
+      native_width: 190,
+      maximum_width: 240,
+    }),
+    "PANGO_SHAPED_RASTER",
+  );
+
+  assert.equal(
+    selectCreativeDesignPdfTextRenderMode({
+      content: "อาหารค่ำระดับพรีเมียม",
+      measured_width: 180,
+      native_width: 180,
+      maximum_width: 240,
+    }),
+    "PANGO_SHAPED_RASTER",
+  );
+
+  assert.equal(
+    selectCreativeDesignPdfTextRenderMode({
+      content: "مرحبا بالعالم",
+      measured_width: 180,
+      native_width: 180,
+      maximum_width: 240,
+    }),
+    "PANGO_SHAPED_RASTER",
+  );
 });

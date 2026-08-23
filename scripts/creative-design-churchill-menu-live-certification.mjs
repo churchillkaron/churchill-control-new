@@ -15,6 +15,9 @@ import {
   materializeCreativeDesignFonts,
 } from "../lib/creative/design/runtime/CreativeDesignFontMaterializationRuntime.js";
 import {
+  createCreativeDesignMeasuredTextLayout,
+} from "../lib/creative/design/runtime/CreativeDesignMeasuredTextLayoutRuntime.js";
+import {
   renderCreativeDesignDocumentToSvg,
 } from "../lib/creative/design/runtime/CreativeDesignSvgRenderer.js";
 import {
@@ -239,16 +242,32 @@ try {
   assert.ok(fonts.bindings.has(FONT_DISPLAY));
   assert.ok(fonts.bindings.has(FONT_BODY));
 
-  const svg = renderCreativeDesignDocumentToSvg(withLogo, {
+  const typography = await createCreativeDesignMeasuredTextLayout({
+    document: withLogo,
     font_bindings: fonts.bindings,
   });
+  assert.equal(typography.success, true);
+  assert.equal(typography.actual_font_measurement, true);
+  assert.ok(typography.measurement_count > 0);
+
+  const renderOptions = {
+    font_bindings: fonts.bindings,
+    text_layouts: typography.layouts,
+    typography_evidence: typography.evidence,
+    typography_measurement_count: typography.measurement_count,
+    require_measured_typography: true,
+  };
+
+  const svg = renderCreativeDesignDocumentToSvg(withLogo, renderOptions);
   assert.equal(svg.success, true);
   assert.equal(svg.text_overflow_nodes.length, 0);
   assert.equal(svg.table_overflow_nodes.length, 0);
+  assert.equal(svg.unmeasured_typography_nodes.length, 0);
+  assert.equal(svg.actual_font_measurement_available, true);
   assert.equal(svg.content_preserved_on_overflow, true);
 
   const png = await renderCreativeDesignDocumentToPng(withLogo, {
-    font_bindings: fonts.bindings,
+    ...renderOptions,
     density: 144,
   });
   assert.equal(png.success, true);
@@ -256,15 +275,25 @@ try {
   assert.ok(png.pages.every((page) => page.byte_length > 0));
 
   const pdf = await renderCreativeDesignDocumentToPdf(withLogo, {
-    font_bindings: fonts.bindings,
+    ...renderOptions,
     density: 144,
+    pdf_text_density: 600,
   });
   assert.equal(pdf.success, true);
   assert.equal(pdf.page_count, menu.data.categories.length);
   assert.ok(pdf.byte_length > 0);
+  assert.equal(pdf.measured_typography, true);
+  assert.equal(pdf.actual_font_measurement_available, true);
+  assert.equal(pdf.unmeasured_typography_nodes.length, 0);
+  assert.ok(pdf.text_line_count > 0);
+  assert.equal(
+    pdf.native_vector_text_line_count + pdf.shaped_raster_text_line_count,
+    pdf.text_line_count,
+  );
+  assert.equal(pdf.complex_script_shaping_engine, "PANGO_HARFBUZZ_FREETYPE");
 
   console.log(JSON.stringify({
-    certification: "CHURCHILL_LIVE_MENU_DESIGN_V1",
+    certification: "CHURCHILL_LIVE_MENU_DESIGN_V2",
     passed: true,
     publish_performed: false,
     organization_id: ORGANIZATION_ID,
@@ -281,10 +310,18 @@ try {
     display_font: FONT_DISPLAY,
     body_font: FONT_BODY,
     font_evidence: fonts.evidence,
+    typography_measurement_count: typography.measurement_count,
+    typography_shaping_engine: typography.shaping_engine,
     svg_pages: svg.pages.length,
     png_pages: png.pages.length,
     pdf_pages: pdf.page_count,
     pdf_color_space: pdf.color_space,
+    pdf_measured_typography: pdf.measured_typography,
+    pdf_native_vector_text_lines: pdf.native_vector_text_line_count,
+    pdf_shaped_raster_text_lines: pdf.shaped_raster_text_line_count,
+    pdf_selectable_text_layer_complete: pdf.selectable_text_layer_complete,
+    pdf_complex_script_shaping_engine: pdf.complex_script_shaping_engine,
+    pdf_text_density: pdf.text_density,
     cmyk_certified: pdf.cmyk_certified,
     pdfx_certified: pdf.pdfx_certified,
     business_truth_preserved: true,

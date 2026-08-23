@@ -24,8 +24,9 @@ function required(name) {
   return value;
 }
 
-function positiveRate(name) {
-  const raw = required(name);
+function optionalPositiveRate(name) {
+  const raw = text(process.env[name]);
+  if (!raw) return null;
   const value = Number(raw);
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`AVANTIQO_MEDIA_PREFLIGHT_GPU_RATE_INVALID:${name}`);
@@ -204,12 +205,16 @@ if (includeLipsync) {
 }
 
 const gpuRates = {
-  image_usd_per_second: positiveRate("AVANTIQO_IMAGE_GPU_USD_PER_SECOND"),
-  cinema_usd_per_second: positiveRate("AVANTIQO_VIDEO_GPU_USD_PER_SECOND"),
+  image_usd_per_second: optionalPositiveRate("AVANTIQO_IMAGE_GPU_USD_PER_SECOND"),
+  cinema_usd_per_second: optionalPositiveRate("AVANTIQO_VIDEO_GPU_USD_PER_SECOND"),
   lipsync_usd_per_second: includeLipsync
-    ? positiveRate("AVANTIQO_LIPSYNC_GPU_USD_PER_SECOND")
+    ? optionalPositiveRate("AVANTIQO_LIPSYNC_GPU_USD_PER_SECOND")
     : null,
 };
+const economicsRatesConfigured =
+  gpuRates.image_usd_per_second !== null &&
+  gpuRates.cinema_usd_per_second !== null &&
+  (!includeLipsync || gpuRates.lipsync_usd_per_second !== null);
 
 const apiKey = required("RUNPOD_API_KEY");
 const endpoints = {
@@ -249,6 +254,11 @@ const report = {
   },
   lipsync_fixture_source: lipsyncFixtureSource,
   gpu_rates: gpuRates,
+  economics: {
+    rate_configuration_required_for_core_health: false,
+    rates_configured_for_current_scope: economicsRatesConfigured,
+    measurement_pending_real_inference: true,
+  },
   endpoints: healthResults,
   supabase,
   safety: {
@@ -275,6 +285,7 @@ console.log(
       endpoint_health_checks: report.endpoints.length,
       supabase_read_access: true,
       runpod_generation_jobs_submitted: 0,
+      economics_rates_configured: economicsRatesConfigured,
       ready_for_core_generation_benchmark: true,
       ready_for_fixture_preparation: report.ready_for_fixture_preparation,
     },

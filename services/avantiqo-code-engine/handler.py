@@ -7,20 +7,17 @@ from typing import Any
 
 import runpod
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from vllm import LLM, SamplingParams
 
 ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-code-v1"
 FOUNDATION_MODEL = os.getenv("AVANTIQO_CODE_FOUNDATION_MODEL", "").strip()
 OFFICIAL_FP8_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
-DEVICE = os.getenv("AVANTIQO_CODE_DEVICE", "cuda")
-DTYPE = torch.bfloat16 if os.getenv("AVANTIQO_CODE_DTYPE", "bfloat16").lower() == "bfloat16" else torch.float16
+RUNTIME_MODEL = os.getenv("AVANTIQO_CODE_RUNTIME_MODEL", OFFICIAL_FP8_RUNTIME_MODEL).strip()
 QUANTIZATION = os.getenv("AVANTIQO_CODE_QUANTIZATION", "fp8").strip().lower()
-RUNTIME_MODEL = os.getenv(
-    "AVANTIQO_CODE_RUNTIME_MODEL",
-    OFFICIAL_FP8_RUNTIME_MODEL if QUANTIZATION == "fp8" else FOUNDATION_MODEL,
-).strip()
 MAX_NEW_TOKENS = int(os.getenv("AVANTIQO_CODE_MAX_NEW_TOKENS", "4096"))
+MAX_MODEL_LEN = int(os.getenv("AVANTIQO_CODE_MAX_MODEL_LEN", "32768"))
+GPU_MEMORY_UTILIZATION = float(os.getenv("AVANTIQO_CODE_GPU_MEMORY_UTILIZATION", "0.90"))
 HF_CACHE_ROOT = Path(
     os.getenv(
         "AVANTIQO_CODE_HF_CACHE_ROOT",
@@ -38,9 +35,8 @@ CERTIFIED_CAPABILITIES = {
     "ai.code.review",
     "ai.code.debug",
 }
-SUPPORTED_QUANTIZATION = {"none", "int8", "fp8"}
 _TOKENIZER: Any | None = None
-_MODEL: Any | None = None
+_ENGINE: LLM | None = None
 
 
 def _text(value: Any) -> str:
@@ -66,55 +62,52 @@ def _cached_model_path(model_id: str) -> str | None:
     return None
 
 
-def _quantization_config() -> BitsAndBytesConfig | None:
-    if QUANTIZATION not in SUPPORTED_QUANTIZATION:
-        raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_NOT_SUPPORTED:{QUANTIZATION}")
-    if QUANTIZATION == "int8":
-        if not DEVICE.startswith("cuda"):
-            raise RuntimeError("AVANTIQO_CODE_INT8_REQUIRES_CUDA")
-        return BitsAndBytesConfig(load_in_8bit=True)
-    if QUANTIZATION == "fp8" and RUNTIME_MODEL != OFFICIAL_FP8_RUNTIME_MODEL:
-        raise RuntimeError(f"AVANTIQO_CODE_FP8_RUNTIME_MODEL_INVALID:{RUNTIME_MODEL}")
-    return None
-
-
-def _load_model():
-    global _TOKENIZER, _MODEL
-    if _TOKENIZER is not None and _MODEL is not None:
-        return _TOKENIZER, _MODEL
+def _validate_runtime_contract() -> None:
     if not FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_CODE_FOUNDATION_MODEL_REQUIRED")
-    if not RUNTIME_MODEL:
-        raise RuntimeError("AVANTIQO_CODE_RUNTIME_MODEL_REQUIRED")
+    if RUNTIME_MODEL != OFFICIAL_FP8_RUNTIME_MODEL:
+        raise RuntimeError(f"AVANTIQO_CODE_FP8_RUNTIME_MODEL_INVALID:{RUNTIME_MODEL}")
+    if QUANTIZATION != "fp8":
+        raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_REQUIRED:fp8:{QUANTIZATION}")
+    if not torch.cuda.is_available():
+        raise RuntimeError("AVANTIQO_CODE_CUDA_REQUIRED")
+    if MAX_MODEL_LEN < 4096 or MAX_MODEL_LEN > 262144:
+        raise RuntimeError(f"AVANTIQO_CODE_MAX_MODEL_LEN_INVALID:{MAX_MODEL_LEN}")
+    if not 0.5 <= GPU_MEMORY_UTILIZATION <= 0.98:
+        raise RuntimeError(
+            f"AVANTIQO_CODE_GPU_MEMORY_UTILIZATION_INVALID:{GPU_MEMORY_UTILIZATION}"
+        )
 
+
+def _load_engine() -> tuple[Any, LLM]:
+    global _TOKENIZER, _ENGINE
+    if _TOKENIZER is not None and _ENGINE is not None:
+        return _TOKENIZER, _ENGINE
+
+    _validate_runtime_contract()
     cached_path = _cached_model_path(RUNTIME_MODEL)
     if REQUIRE_CACHED_MODEL and not cached_path:
         raise RuntimeError(f"AVANTIQO_CODE_CACHED_MODEL_REQUIRED:{RUNTIME_MODEL}")
     model_source = cached_path or RUNTIME_MODEL
 
-    _TOKENIZER = AutoTokenizer.from_pretrained(
-        model_source,
+    # vLLM is the serving runtime for the official Qwen fine-grained FP8 checkpoint.
+    # On Ampere it can use the supported FP8 Marlin weight-only path; on Ada/Hopper
+    # it can use native FP8 kernels. Keep one bounded model context per Code action;
+    # repository-scale understanding belongs to Avantiqo's inspect/read/memory loop.
+    _ENGINE = LLM(
+        model=model_source,
+        tokenizer=model_source,
+        dtype="auto",
         trust_remote_code=False,
-        local_files_only=bool(cached_path),
+        tensor_parallel_size=1,
+        max_model_len=MAX_MODEL_LEN,
+        gpu_memory_utilization=GPU_MEMORY_UTILIZATION,
+        enforce_eager=True,
+        enable_prefix_caching=True,
+        disable_log_stats=True,
     )
-    load_kwargs: dict[str, Any] = {
-        "torch_dtype": DTYPE,
-        "device_map": "auto" if DEVICE.startswith("cuda") else None,
-        "trust_remote_code": False,
-        "local_files_only": bool(cached_path),
-    }
-    quantization_config = _quantization_config()
-    if quantization_config is not None:
-        load_kwargs["quantization_config"] = quantization_config
-
-    _MODEL = AutoModelForCausalLM.from_pretrained(
-        model_source,
-        **load_kwargs,
-    )
-    if not DEVICE.startswith("cuda"):
-        _MODEL.to(DEVICE)
-    _MODEL.eval()
-    return _TOKENIZER, _MODEL
+    _TOKENIZER = _ENGINE.get_tokenizer()
+    return _TOKENIZER, _ENGINE
 
 
 def _strip_reasoning(value: str) -> str:
@@ -158,56 +151,48 @@ def _prompt(data: dict[str, Any]) -> str:
 
 
 def _billable_input_tokens(tokenizer: Any, data: dict[str, Any]) -> int:
-    # Customer billing must reflect customer-controlled task content, not Avantiqo's
-    # private runtime wrapper, policy text, chat-template tokens, or generation marker.
     customer_content = "\n\n".join([
         _text(data.get("instruction")),
         _serialized_specification(data),
     ])
-    encoded = tokenizer(customer_content, add_special_tokens=False)
-    input_ids = encoded.get("input_ids") or []
-    return int(len(input_ids))
+    return int(len(tokenizer.encode(customer_content, add_special_tokens=False)))
 
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     data = _validated_input(job)
     started = time.perf_counter()
     runpod.serverless.progress_update(job, "loading Avantiqo Code")
-    tokenizer, model = _load_model()
+    tokenizer, engine = _load_engine()
+
     prompt = _prompt(data)
-    messages = [{"role": "user", "content": prompt}]
-    if hasattr(tokenizer, "apply_chat_template"):
-        rendered = tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-    else:
-        rendered = prompt
-    inputs = tokenizer(rendered, return_tensors="pt")
-    if DEVICE.startswith("cuda"):
-        inputs = {key: value.to(model.device) for key, value in inputs.items()}
+    rendered = tokenizer.apply_chat_template(
+        [{"role": "user", "content": prompt}],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+    runtime_prompt_tokens = int(len(tokenizer.encode(rendered, add_special_tokens=False)))
+    billable_input_tokens = _billable_input_tokens(tokenizer, data)
 
     runpod.serverless.progress_update(job, "executing bounded code task")
-    with torch.inference_mode():
-        generated = model.generate(
-            **inputs,
-            max_new_tokens=max(64, min(MAX_NEW_TOKENS, 8192)),
-            do_sample=False,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-    runtime_prompt_tokens = int(inputs["input_ids"].shape[-1])
-    billable_input_tokens = _billable_input_tokens(tokenizer, data)
-    completion_tokens = int(generated.shape[-1] - runtime_prompt_tokens)
-    decoded = tokenizer.decode(
-        generated[0][runtime_prompt_tokens:],
-        skip_special_tokens=True,
+    outputs = engine.generate(
+        [rendered],
+        SamplingParams(
+            temperature=0.0,
+            max_tokens=max(64, min(MAX_NEW_TOKENS, 8192)),
+            skip_special_tokens=True,
+        ),
+        use_tqdm=False,
     )
-    result = _strip_reasoning(decoded)
-    if not result:
+    if not outputs or not outputs[0].outputs:
         raise RuntimeError("AVANTIQO_CODE_OUTPUT_REQUIRED")
 
+    candidate = outputs[0].outputs[0]
+    result = _strip_reasoning(candidate.text)
+    if not result:
+        raise RuntimeError("AVANTIQO_CODE_OUTPUT_REQUIRED")
+    completion_tokens = int(len(candidate.token_ids or []))
     runtime_cached = bool(_cached_model_path(RUNTIME_MODEL))
+
     return {
         "status": "completed",
         "provider": "avantiqo-code",
@@ -216,9 +201,12 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "capability": data["capability"],
         "foundation_model": FOUNDATION_MODEL,
         "runtime_model": RUNTIME_MODEL,
+        "serving_runtime": "vllm",
+        "serving_runtime_version": "0.27.1",
         "foundation_model_source": "runpod-cache" if runtime_cached else "huggingface",
         "runtime_model_source": "runpod-cache" if runtime_cached else "huggingface",
         "quantization": QUANTIZATION,
+        "max_model_len": MAX_MODEL_LEN,
         "result": result,
         "usage": {
             "input_tokens": billable_input_tokens,
@@ -233,23 +221,12 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 @runpod.serverless.register_fitness_check
 def check_worker():
-    if not FOUNDATION_MODEL:
-        raise RuntimeError("AVANTIQO_CODE_FOUNDATION_MODEL_REQUIRED")
-    if not RUNTIME_MODEL:
-        raise RuntimeError("AVANTIQO_CODE_RUNTIME_MODEL_REQUIRED")
-    if DEVICE.startswith("cuda") and not torch.cuda.is_available():
-        raise RuntimeError("AVANTIQO_CODE_CUDA_REQUIRED")
-    if QUANTIZATION not in SUPPORTED_QUANTIZATION:
-        raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_NOT_SUPPORTED:{QUANTIZATION}")
-    if QUANTIZATION == "int8" and not DEVICE.startswith("cuda"):
-        raise RuntimeError("AVANTIQO_CODE_INT8_REQUIRES_CUDA")
-    if QUANTIZATION == "fp8" and RUNTIME_MODEL != OFFICIAL_FP8_RUNTIME_MODEL:
-        raise RuntimeError(f"AVANTIQO_CODE_FP8_RUNTIME_MODEL_INVALID:{RUNTIME_MODEL}")
-    # Keep the readiness probe limited to container/runtime health. Cached-model
-    # presence remains mandatory in _load_model(), where a controlled request can
-    # return the precise AVANTIQO_CODE_CACHED_MODEL_REQUIRED failure instead of
-    # trapping the worker indefinitely in RunPod's initializing state.
+    _validate_runtime_contract()
 
 
 if __name__ == "__main__":
+    # A worker is not considered operational until the actual FP8 engine is loaded.
+    # This makes RunPod readiness truthful and moves cold initialization outside a
+    # user Code job instead of hiding it inside the first request.
+    _load_engine()
     runpod.serverless.start({"handler": handler})

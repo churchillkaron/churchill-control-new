@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 
-const REST_BASE = "https://rest.runpod.io/v1";
+const GRAPHQL_BASE = "https://api.runpod.io/graphql";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const apiKey = required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID");
@@ -52,14 +52,17 @@ function normalizeEnv(value) {
   return {};
 }
 
-function sanitizeWorker(worker = {}) {
+function environmentList(value) {
+  return Object.entries(normalizeEnv(value)).map(([key, child]) => ({
+    key,
+    value: child,
+  }));
+}
+
+function sanitizedPod(pod = {}) {
   return {
-    id: worker.id || worker.workerId || worker.podId || null,
-    desired_status: worker.desiredStatus || null,
-    status: worker.status || worker.runtimeStatus || null,
-    last_started_at: worker.lastStartedAt || null,
-    gpu: worker.gpu?.displayName || worker.gpu?.id || worker.gpuTypeId || null,
-    data_center_id: worker.dataCenterId || null,
+    id: pod.id || null,
+    desired_status: pod.desiredStatus || null,
   };
 }
 
@@ -71,35 +74,22 @@ function sanitizeEndpoint(endpoint = {}) {
     name: endpoint.name || null,
     version: endpoint.version ?? null,
     template_id: endpoint.templateId || endpoint.template?.id || null,
+    template_bound_endpoint_id: endpoint.template?.boundEndpointId || null,
     template_name: endpoint.template?.name || null,
-    template_image: endpoint.template?.imageName || endpoint.template?.image || null,
+    template_image: endpoint.template?.imageName || null,
     workers_min: endpoint.workersMin ?? null,
     workers_max: endpoint.workersMax ?? null,
     scaler_type: endpoint.scalerType || null,
     scaler_value: endpoint.scalerValue ?? null,
-    gpu_type_ids: endpoint.gpuTypeIds || null,
-    data_center_ids: endpoint.dataCenterIds || null,
-    network_volume_ids: endpoint.networkVolumeIds ||
-      (endpoint.networkVolumeId ? [endpoint.networkVolumeId] : []),
+    gpu_ids: endpoint.gpuIds || null,
+    network_volume_id: endpoint.networkVolumeId || null,
     endpoint_env_keys: Object.keys(endpointEnv).sort(),
     template_env_keys: Object.keys(templateEnv).sort(),
-    workers: Array.isArray(endpoint.workers)
-      ? endpoint.workers.map(sanitizeWorker)
-      : [],
+    workers: Array.isArray(endpoint.pods) ? endpoint.pods.map(sanitizedPod) : [],
   };
 }
 
-async function runpodFetch(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.headers || {}),
-    },
-    signal: AbortSignal.timeout(30_000),
-  });
+async function parseResponse(response) {
   const raw = await response.text();
   let body = null;
   try {
@@ -108,41 +98,25 @@ async function runpodFetch(url, options = {}) {
     body = null;
   }
   if (!response.ok) {
-    const message =
-      body?.message || body?.error || body?.detail || raw || "UNKNOWN_RUNPOD_ERROR";
-    throw new Error(
-      `RUNPOD_HTTP_${response.status}:${typeof message === "string" ? message.slice(0, 1000) : JSON.stringify(message).slice(0, 1000)}`,
-    );
+    throw new Error(`RUNPOD_HTTP_${response.status}:UNKNOWN_RUNPOD_ERROR`);
   }
   return body;
 }
 
-async function listEndpoints() {
-  const body = await runpodFetch(
-    `${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`,
-  );
-  if (!Array.isArray(body)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
-  return body;
-}
-
-async function endpoint() {
-  const endpoints = await listEndpoints();
-  const found = endpoints.find((entry) => String(entry?.id || "") === endpointId);
-  if (!found) throw new Error(`RUNPOD_VIDEO_ENDPOINT_NOT_FOUND:${endpointId}`);
-  return found;
-}
-
-async function template(templateId) {
-  return runpodFetch(
-    `${REST_BASE}/templates/${encodeURIComponent(templateId)}?includeEndpointBoundTemplates=true`,
-  );
-}
-
 async function queueStatus() {
   if (!providerJobId) return null;
-  return runpodFetch(
+  const response = await fetch(
     `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/status/${encodeURIComponent(providerJobId)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(30_000),
+    },
   );
+  return parseResponse(response);
 }
 
 function queueSummary(body = {}) {
@@ -158,58 +132,197 @@ function queueSummary(body = {}) {
   };
 }
 
-function templateUpdateFallbackPayload(currentTemplate, env) {
-  const payload = { env };
-  for (const key of [
-    "name",
-    "imageName",
-    "containerDiskInGb",
-    "volumeInGb",
-    "volumeMountPath",
-    "dockerEntrypoint",
-    "dockerStartCmd",
-    "ports",
-    "isPublic",
-    "containerRegistryAuthId",
-  ]) {
-    if (currentTemplate?.[key] !== undefined && currentTemplate?.[key] !== null) {
-      payload[key] = currentTemplate[key];
+async function graphql(query, variables = {}) {
+  const call = async (url, authorization = false) => {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...(authorization ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify({ query, variables }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const raw = await response.text();
+    let body = null;
+    try {
+      body = raw ? JSON.parse(raw) : null;
+    } catch {
+      body = null;
+    }
+    return { response, body };
+  };
+
+  let result = await call(
+    `${GRAPHQL_BASE}?api_key=${encodeURIComponent(apiKey)}`,
+    false,
+  );
+  if (result.response.status === 401 || result.response.status === 403) {
+    result = await call(GRAPHQL_BASE, true);
+  }
+  if (!result.response.ok) {
+    throw new Error(`RUNPOD_GRAPHQL_HTTP_${result.response.status}`);
+  }
+  if (Array.isArray(result.body?.errors) && result.body.errors.length) {
+    const safe = result.body.errors
+      .map((entry) => String(entry?.message || "GRAPHQL_ERROR").slice(0, 500))
+      .join(" | ");
+    throw new Error(`RUNPOD_GRAPHQL_ERROR:${safe}`);
+  }
+  if (!result.body?.data) throw new Error("RUNPOD_GRAPHQL_DATA_REQUIRED");
+  return result.body.data;
+}
+
+const ENDPOINT_QUERY = `
+  query CinemaEndpoint($id: String!) {
+    myself {
+      endpoint(id: $id) {
+        id
+        name
+        gpuIds
+        idleTimeout
+        locations
+        networkVolumeId
+        scalerType
+        scalerValue
+        templateId
+        workersMax
+        workersMin
+        version
+        env { key value }
+        pods { id desiredStatus }
+        template {
+          id
+          name
+          imageName
+          containerDiskInGb
+          volumeInGb
+          volumeMountPath
+          dockerArgs
+          ports
+          readme
+          isPublic
+          isServerless
+          boundEndpointId
+          containerRegistryAuthId
+          env { key value }
+        }
+      }
+      endpoints { id templateId }
     }
   }
-  return payload;
+`;
+
+async function endpointBundle() {
+  const data = await graphql(ENDPOINT_QUERY, { id: endpointId });
+  const endpoint = data?.myself?.endpoint;
+  if (!endpoint) throw new Error(`RUNPOD_VIDEO_ENDPOINT_NOT_FOUND:${endpointId}`);
+  return {
+    endpoint,
+    endpoints: Array.isArray(data?.myself?.endpoints) ? data.myself.endpoints : [],
+  };
 }
 
-async function updateTemplate(templateId, currentTemplate, env) {
-  const url = `${REST_BASE}/templates/${encodeURIComponent(templateId)}/update`;
-  try {
-    return await runpodFetch(url, {
-      method: "POST",
-      body: JSON.stringify({ env }),
-    });
-  } catch (error) {
-    if (!/^RUNPOD_HTTP_(400|422):/.test(String(error?.message || ""))) throw error;
-    return runpodFetch(url, {
-      method: "POST",
-      body: JSON.stringify(templateUpdateFallbackPayload(currentTemplate, env)),
-    });
-  }
+function graphqlString(value) {
+  return JSON.stringify(String(value ?? ""));
 }
 
-const beforeEndpoint = await endpoint();
-const beforeSanitized = sanitizeEndpoint(beforeEndpoint);
+function graphqlEnv(env) {
+  return `[${environmentList(env)
+    .map(
+      ({ key, value }) =>
+        `{ key: ${graphqlString(key)}, value: ${graphqlString(value)} }`,
+    )
+    .join(", ")}]`;
+}
+
+function optionalStringField(name, value) {
+  if (value === undefined || value === null) return "";
+  return `${name}: ${graphqlString(value)}`;
+}
+
+function optionalBooleanField(name, value) {
+  if (typeof value !== "boolean") return "";
+  return `${name}: ${value ? "true" : "false"}`;
+}
+
+function optionalNumberField(name, value) {
+  if (!Number.isFinite(Number(value))) return "";
+  return `${name}: ${Number(value)}`;
+}
+
+async function updateTemplate(template, env) {
+  if (!template?.id) throw new Error("RUNPOD_VIDEO_TEMPLATE_ID_REQUIRED");
+  const fields = [
+    `id: ${graphqlString(template.id)}`,
+    optionalNumberField("containerDiskInGb", template.containerDiskInGb),
+    optionalStringField("imageName", template.imageName),
+    optionalStringField("name", template.name),
+    optionalNumberField("volumeInGb", template.volumeInGb),
+    optionalStringField("volumeMountPath", template.volumeMountPath),
+    optionalStringField("dockerArgs", template.dockerArgs),
+    optionalStringField("ports", template.ports),
+    optionalStringField("readme", template.readme),
+    optionalBooleanField("isPublic", template.isPublic),
+    optionalBooleanField("isServerless", template.isServerless),
+    optionalStringField("containerRegistryAuthId", template.containerRegistryAuthId),
+    `env: ${graphqlEnv(env)}`,
+  ].filter(Boolean);
+
+  const mutation = `
+    mutation {
+      saveTemplate(input: { ${fields.join(", ")} }) {
+        id
+        name
+        imageName
+        isServerless
+        boundEndpointId
+        env { key value }
+      }
+    }
+  `;
+  const data = await graphql(mutation);
+  if (!data?.saveTemplate?.id) throw new Error("RUNPOD_TEMPLATE_UPDATE_RESULT_REQUIRED");
+  return data.saveTemplate;
+}
+
+const beforeBundle = await endpointBundle();
+const beforeEndpoint = beforeBundle.endpoint;
+console.log("AVANTIQO_CINEMA_RUNPOD_CONTROL_PLANE=GRAPHQL");
 console.log("AVANTIQO_CINEMA_RUNPOD_ENDPOINT_BEFORE");
-console.log(JSON.stringify(beforeSanitized, null, 2));
+console.log(JSON.stringify(sanitizeEndpoint(beforeEndpoint), null, 2));
 
 const beforeQueue = await queueStatus();
 console.log("AVANTIQO_CINEMA_SCENE9_QUEUE_BEFORE");
 console.log(JSON.stringify(queueSummary(beforeQueue), null, 2));
 
-const templateId = beforeEndpoint.templateId || beforeEndpoint.template?.id;
-if (!templateId) throw new Error("RUNPOD_VIDEO_TEMPLATE_ID_REQUIRED");
-const currentTemplate = await template(templateId);
-const templateEnv = normalizeEnv(currentTemplate?.env);
-const endpointEnv = normalizeEnv(beforeEndpoint?.env);
+const currentTemplate = beforeEndpoint.template;
+const templateId = beforeEndpoint.templateId || currentTemplate?.id;
+if (!templateId || !currentTemplate?.id) {
+  throw new Error("RUNPOD_VIDEO_TEMPLATE_ID_REQUIRED");
+}
+if (String(currentTemplate.id) !== String(templateId)) {
+  throw new Error("RUNPOD_VIDEO_TEMPLATE_BINDING_MISMATCH");
+}
 
+const templateConsumers = beforeBundle.endpoints.filter(
+  (entry) => String(entry?.templateId || "") === String(templateId),
+);
+const boundEndpointId = String(currentTemplate.boundEndpointId || "").trim();
+if (boundEndpointId && boundEndpointId !== endpointId) {
+  throw new Error(
+    `RUNPOD_TEMPLATE_BOUND_TO_DIFFERENT_ENDPOINT:${boundEndpointId}`,
+  );
+}
+if (!boundEndpointId && templateConsumers.length !== 1) {
+  throw new Error(
+    `RUNPOD_SHARED_TEMPLATE_REPAIR_BLOCKED:${templateConsumers.length}`,
+  );
+}
+
+const templateEnv = normalizeEnv(currentTemplate.env);
+const endpointEnv = normalizeEnv(beforeEndpoint.env);
 const conflictingEndpointOverrides = Object.keys(TARGET_OVERRIDES).filter(
   (key) => Object.prototype.hasOwnProperty.call(endpointEnv, key),
 );
@@ -220,9 +333,10 @@ if (conflictingEndpointOverrides.length) {
 }
 
 const backup = {
-  contract: "AVANTIQO_CINEMA_RUNPOD_REPAIR_BACKUP_V1",
+  contract: "AVANTIQO_CINEMA_RUNPOD_REPAIR_BACKUP_V2_GRAPHQL",
   endpoint_id: endpointId,
   template_id: templateId,
+  template_bound_endpoint_id: boundEndpointId || null,
   created_at: new Date().toISOString(),
   modified_keys: Object.fromEntries(
     Object.keys(TARGET_OVERRIDES).map((key) => [
@@ -254,7 +368,7 @@ const repairedEnv = {
   ...templateEnv,
   ...TARGET_OVERRIDES,
 };
-await updateTemplate(templateId, currentTemplate, repairedEnv);
+await updateTemplate(currentTemplate, repairedEnv);
 console.log("AVANTIQO_CINEMA_RUNPOD_TEMPLATE_UPDATE=APPLIED");
 console.log("AVANTIQO_CINEMA_RUNPOD_MODE=T2V_ONLY_FAIL_CLOSED");
 
@@ -263,7 +377,8 @@ let lastEndpointVersion = beforeEndpoint.version ?? null;
 let lastQueueStatus = String(beforeQueue?.status || "");
 while (Date.now() - started < maxWaitMs) {
   await sleep(5000);
-  const currentEndpoint = await endpoint();
+  const currentBundle = await endpointBundle();
+  const currentEndpoint = currentBundle.endpoint;
   const currentQueue = await queueStatus();
   const currentVersion = currentEndpoint.version ?? null;
   const currentStatus = String(currentQueue?.status || "");
@@ -294,13 +409,13 @@ while (Date.now() - started < maxWaitMs) {
   }
 }
 
-const finalEndpoint = await endpoint();
+const finalBundle = await endpointBundle();
 const finalQueue = await queueStatus();
 console.log("AVANTIQO_CINEMA_RUNPOD_REPAIR_RESULT=WAIT_TIMEOUT");
 console.log(
   JSON.stringify(
     {
-      endpoint: sanitizeEndpoint(finalEndpoint),
+      endpoint: sanitizeEndpoint(finalBundle.endpoint),
       scene9_queue: queueSummary(finalQueue),
     },
     null,

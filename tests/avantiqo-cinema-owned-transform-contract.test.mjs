@@ -129,6 +129,30 @@ test("continued first-last Cinema autonomously plans and binds a governed closin
   assert.match(closingGate, /CREATIVE_CLOSING_KEYFRAME_REVIEW_FAILED/);
 });
 
+test("Cinema endpoint failures enter isolated pair repair without mutating continuity bindings", () => {
+  const repair = source(
+    "lib/creative/quality/runtime/CreativeCinemaRepairContinuityBootstrap.js",
+  );
+  const instrumentation = source("instrumentation.js");
+  const localBootstrap = source("scripts/creative-runtime-bootstrap.mjs");
+
+  assert.match(repair, /CREATIVE_CINEMA_REPAIR_CONTINUITY_MEMORY_V1/);
+  assert.match(repair, /normalizeEndpointFailures/);
+  assert.match(repair, /perceptual_validation_failed:\s*true/);
+  assert.match(repair, /cinema_endpoint_failure_normalized_for_pair_recovery/);
+  assert.match(repair, /preserve_approved_neighboring_shots:\s*true/);
+  assert.match(repair, /preserve_governed_first_frame/);
+  assert.match(repair, /preserve_governed_last_frame/);
+  assert.match(repair, /CREATIVE_CINEMA_REPAIR_FIRST_FRAME_DRIFT_FORBIDDEN/);
+  assert.match(repair, /CREATIVE_CINEMA_REPAIR_LAST_FRAME_DRIFT_FORBIDDEN/);
+  assert.match(repair, /CREATIVE_CINEMA_REPAIR_IDENTITY_BINDING_DRIFT_FORBIDDEN/);
+  assert.match(repair, /CREATIVE_CINEMA_REPAIR_CONTINUITY_BINDING_DRIFT_FORBIDDEN/);
+  assert.match(repair, /CREATIVE_CINEMA_REPAIR_SOURCE_ASSET_DRIFT_FORBIDDEN/);
+  assert.match(repair, /change_only_failed_requirements !== true/);
+  assert.match(instrumentation, /CreativeCinemaRepairContinuityBootstrap/);
+  assert.match(localBootstrap, /CreativeCinemaRepairContinuityBootstrap/);
+});
+
 test("advanced Cinema transforms stay implemented but not default production-certified", () => {
   const provider = source(
     "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProvider.js",

@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import time
 import traceback
 from importlib.metadata import version
@@ -32,6 +33,7 @@ HF_CACHE_ROOT = Path(
         "/runpod-volume/huggingface-cache/hub",
     )
 )
+MIN_CACHE_FREE_BYTES = 40 * 1024**3
 REQUIRE_CACHED_MODEL = os.getenv(
     "AVANTIQO_CODE_REQUIRE_CACHED_MODEL",
     "1",
@@ -135,6 +137,64 @@ def _runtime_probe(data: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _cache_runtime_model(data: dict[str, Any]) -> dict[str, Any] | None:
+    specification = data.get("structured_specification") or {}
+    if specification.get("cache_runtime_model") is not True:
+        return None
+    if _text(data.get("organization_id")) != "benchmark-only":
+        raise ValueError("AVANTIQO_CODE_CACHE_BOOTSTRAP_BENCHMARK_ONLY")
+
+    _validate_runtime_contract()
+    cached_path = _cached_model_path(RUNTIME_MODEL)
+    if cached_path:
+        return {
+            "status": "cache_ready",
+            "provider": "avantiqo-code",
+            "model": PRODUCT_MODEL,
+            "engine_contract": ENGINE_CONTRACT,
+            "runtime_model": RUNTIME_MODEL,
+            "cache_ready": True,
+            "cache_reused": True,
+            "inference_performed": False,
+            "engine_loaded": _ENGINE is not None,
+            "raw_reasoning_persisted": False,
+        }
+
+    cache_parent = HF_CACHE_ROOT.parent
+    cache_parent.mkdir(parents=True, exist_ok=True)
+    disk_before = shutil.disk_usage(cache_parent)
+    if disk_before.free < MIN_CACHE_FREE_BYTES:
+        raise RuntimeError(
+            f"AVANTIQO_CODE_CACHE_VOLUME_FREE_SPACE_REQUIRED:free_bytes={disk_before.free}:minimum_bytes={MIN_CACHE_FREE_BYTES}"
+        )
+
+    runpod.serverless.progress_update(job=data.get("_job"), progress="caching Avantiqo Code FP8 runtime model")
+    from huggingface_hub import snapshot_download
+
+    snapshot_download(
+        repo_id=RUNTIME_MODEL,
+        cache_dir=str(HF_CACHE_ROOT),
+    )
+    cached_path = _cached_model_path(RUNTIME_MODEL)
+    if not cached_path:
+        raise RuntimeError("AVANTIQO_CODE_CACHE_BOOTSTRAP_SNAPSHOT_NOT_FOUND")
+    disk_after = shutil.disk_usage(cache_parent)
+    return {
+        "status": "cache_ready",
+        "provider": "avantiqo-code",
+        "model": PRODUCT_MODEL,
+        "engine_contract": ENGINE_CONTRACT,
+        "runtime_model": RUNTIME_MODEL,
+        "cache_ready": True,
+        "cache_reused": False,
+        "downloaded_bytes_approx": max(0, disk_before.free - disk_after.free),
+        "free_bytes_after": disk_after.free,
+        "inference_performed": False,
+        "engine_loaded": _ENGINE is not None,
+        "raw_reasoning_persisted": False,
+    }
+
+
 def _load_engine() -> tuple[Any, LLM]:
     global _TOKENIZER, _ENGINE
     if _TOKENIZER is not None and _ENGINE is not None:
@@ -212,6 +272,7 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("AVANTIQO_CODE_INSTRUCTION_REQUIRED")
     if len(instruction) > 30000:
         raise ValueError("AVANTIQO_CODE_INSTRUCTION_TOO_LONG")
+    data["_job"] = job
     return data
 
 
@@ -244,6 +305,9 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     probe = _runtime_probe(data)
     if probe is not None:
         return probe
+    cache_result = _cache_runtime_model(data)
+    if cache_result is not None:
+        return cache_result
 
     started = time.perf_counter()
     runpod.serverless.progress_update(job, "loading Avantiqo Code")
@@ -333,8 +397,8 @@ def check_worker():
 if __name__ == "__main__":
     # Start RunPod first. Engine loading is lazy on the first real Code request so
     # startup failures are observable as structured evidence instead of anonymous
-    # container exit-code loops. A benchmark-only runtime probe can verify the
-    # exact deployed FP8/vLLM environment without loading the model.
+    # container exit-code loops. Benchmark-only runtime/cache probes can verify
+    # and bootstrap the exact FP8/vLLM environment without loading the model.
     print(
         json.dumps(
             {

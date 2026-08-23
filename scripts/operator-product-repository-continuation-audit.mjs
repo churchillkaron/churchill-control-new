@@ -10,6 +10,7 @@ register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 const paths = [
   "lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js",
   "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
+  "lib/operator/runtime/OperatorTurnRuntime.js",
   "lib/platform/capabilities/createProductRepositoryAssessmentCapability.js",
   "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
   "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
@@ -185,10 +186,46 @@ requireFragments(
     '"platform.product_repository_assessment.read"',
     "repository_reassessment_capability_key",
     "repository_grounded_post_commit_reassessment_required: true",
+    "already_persisted_second_commit_allowed: false",
+    "already_persisted_reverification_required: true",
+    "next_engineering_cycle_started_automatically: false",
     "actual checked-out current main",
     "Repository checkout evidence is source evidence, not build, test, end-to-end, provider, deployment or certification evidence.",
   ],
 );
+
+const operatorTurnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
+requireFragments(operatorTurnPath, [
+  "continuationCapabilityResult",
+  "boundedContinuationHandoff",
+  "postCommitContinuationHandoff",
+  "capabilityKey === PRODUCT_PERSISTENCE_HANDOFF_KEY",
+  "capabilityKey === PRODUCT_ENGINEERING_CYCLE_KEY",
+  "object(executionResult.persistence_handoff)",
+  "capabilityKey !== OPERATOR_MISSION_KEY",
+  'text(step?.id) === "reassess_verified_main"',
+  "continuationStep?.result",
+  "handoff.automatic_execution_started === true",
+  'source: "verified_persistence_handoff"',
+  'source: "verified_post_commit_product_reassessment"',
+  "agreementWithOperatorRecommendation",
+  'payload: { focus: postCommitHandoff.focus }',
+  "Verified persistence is complete.",
+  'Say “next”, “continue”, or “do it”',
+]);
+const detectorSource = files[operatorTurnPath].slice(
+  files[operatorTurnPath].indexOf("function postCommitContinuationHandoff"),
+  files[operatorTurnPath].indexOf("function decisionText"),
+);
+if (
+  detectorSource.includes("executeUbteCapability") ||
+  detectorSource.includes("runOperatorTurnCore(") ||
+  detectorSource.includes("platform.code_ai_commit.execute")
+) {
+  throw new Error(
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: conversation continuation detector must only extract a recommendation and must not execute engineering or persistence",
+  );
+}
 
 requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "createProductRepositoryAssessmentCapability",
@@ -282,6 +319,8 @@ console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_CONTEXT=EXACT_DURABLE_MISSION_
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_ATTEMPT_MARKER=REQUIRED");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_WRITE_REPLAY=DISABLED");
 console.log("OPERATOR_PRODUCT_ALREADY_PERSISTED_CONTINUATION=TWO_READS_ONE_OBJECTIVE_NO_EXECUTION");
+console.log("OPERATOR_PRODUCT_CONTINUATION_CONVERSATION=DIRECT_NESTED_OR_MISSION_RESULT_TO_SAFE_RECOMMENDATION");
+console.log("OPERATOR_PRODUCT_CONTINUATION_CONVERSATION_AUTO_EXECUTION=DISABLED");
 console.log("OPERATOR_CODE_AI_COMMIT_STATUS_AUTHORITY=EXECUTE_READ_ONLY_NOT_COMMIT_WRITE");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_HANDOFF_AUTHORITY=CONDITIONAL_WRITE_PERMISSION_AT_REGISTERED_STEP");
 console.log("OPERATOR_PRODUCT_REPOSITORY_CERTIFICATION=SOURCE_EVIDENCE_ONLY");

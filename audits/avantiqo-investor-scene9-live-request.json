@@ -12,5 +12,7 @@
   "existing_assets_final_insert_allowed": false,
   "production_certified": false,
   "user_visual_approval_required": true,
-  "requested_at": "2026-08-23T09:24:30Z"
+  "retry_policy": "IDEMPOTENT_EXISTING_ASSET_OR_GENERATION_CLAIM",
+  "retry_reason": "Previous workflow produced no generation ledger, asset node, storage object, or sanitized result.",
+  "requested_at": "2026-08-23T09:49:00Z"
 }

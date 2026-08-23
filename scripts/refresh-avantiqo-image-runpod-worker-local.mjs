@@ -22,6 +22,10 @@ function finite(value, fallback = null) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -62,6 +66,30 @@ async function restRequest(path, credential) {
     throw new Error(`RUNPOD_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
   }
   return body;
+}
+
+async function endpointBoundTemplates(managementKey) {
+  const templates = await restRequest(
+    "/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false",
+    managementKey,
+  );
+  if (!Array.isArray(templates)) throw new Error("RUNPOD_TEMPLATE_LIST_INVALID");
+  return templates;
+}
+
+function resolveEndpointTemplate(endpoint, templates) {
+  const inline = object(endpoint?.template);
+  const templateId = text(endpoint?.templateId || inline.id);
+  if (!templateId) throw new Error("AVANTIQO_IMAGE_TEMPLATE_ID_REQUIRED");
+  if (Object.keys(inline).length) return inline;
+
+  const matches = templates.filter((template) => text(template?.id) === templateId);
+  if (matches.length !== 1) {
+    throw new Error(
+      `AVANTIQO_ENDPOINT_BOUND_TEMPLATE_RESOLUTION_FAILED:id=${templateId}:matches=${matches.length}`,
+    );
+  }
+  return matches[0];
 }
 
 function endpointVolumeIds(endpoint = {}) {
@@ -107,40 +135,53 @@ function safeEndpoint(endpoint = {}) {
 }
 
 async function inspectEndpoint(managementKey, endpointId) {
-  const endpoint = await restRequest(
-    `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
-    managementKey,
-  );
+  const [endpoint, templates] = await Promise.all([
+    restRequest(
+      `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
+      managementKey,
+    ),
+    endpointBoundTemplates(managementKey),
+  ]);
   if (text(endpoint?.id) !== endpointId) throw new Error("AVANTIQO_IMAGE_ENDPOINT_ID_MISMATCH");
   if (text(endpoint?.name) !== IMAGE_ENDPOINT_NAME) {
     throw new Error(`AVANTIQO_IMAGE_ENDPOINT_NAME_MISMATCH:${text(endpoint?.name) || "MISSING"}`);
   }
-  const templateId = text(endpoint?.templateId || endpoint?.template?.id);
-  if (!templateId) throw new Error("AVANTIQO_IMAGE_TEMPLATE_ID_REQUIRED");
-  let template = endpoint?.template;
-  if (!template || typeof template !== "object" || Array.isArray(template) || !Object.keys(template).length) {
-    template = await restRequest(`/templates/${encodeURIComponent(templateId)}`, managementKey);
-  }
-  return { endpoint, template };
+  return {
+    endpoint,
+    template: resolveEndpointTemplate(endpoint, templates),
+  };
 }
 
 async function inspectAllEndpointImages(managementKey) {
-  const endpoints = await restRequest(
-    "/endpoints?includeTemplate=true&includeWorkers=false",
-    managementKey,
-  );
+  const [endpoints, templates] = await Promise.all([
+    restRequest(
+      "/endpoints?includeTemplate=true&includeWorkers=false",
+      managementKey,
+    ),
+    endpointBoundTemplates(managementKey),
+  ]);
   if (!Array.isArray(endpoints)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
+  const templateById = new Map(
+    templates.map((template) => [text(template?.id), template]).filter(([id]) => id),
+  );
   return Object.fromEntries(
     endpoints
-      .map((endpoint) => [
-        text(endpoint?.id),
-        {
-          name: text(endpoint?.name) || null,
-          image_name: text(endpoint?.template?.imageName) || null,
-          image_tag: imageTag(endpoint?.template?.imageName),
-          version: finite(endpoint?.version),
-        },
-      ])
+      .map((endpoint) => {
+        const inline = object(endpoint?.template);
+        const templateId = text(endpoint?.templateId || inline.id);
+        const template = Object.keys(inline).length
+          ? inline
+          : templateById.get(templateId) || {};
+        return [
+          text(endpoint?.id),
+          {
+            name: text(endpoint?.name) || null,
+            image_name: text(template?.imageName) || null,
+            image_tag: imageTag(template?.imageName),
+            version: finite(endpoint?.version),
+          },
+        ];
+      })
       .filter(([id]) => id),
   );
 }

@@ -7,10 +7,10 @@ on:
       - main
     paths:
       - audits/avantiqo-code-ai-certification-request.json
-      - .github/workflows/avantiqo-code-ai-certification.yml
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: avantiqo-code-ai-certification
@@ -41,6 +41,7 @@ jobs:
           node scripts/benchmark-avantiqo-code.mjs
 
       - name: Verify certification remains measure-only
+        if: success()
         run: |
           node --input-type=module <<'NODE'
           import { readFile } from "node:fs/promises";
@@ -52,6 +53,37 @@ jobs:
           console.log(`CODE_AI_CERTIFICATION_P50_WALL_MS=${report.summary?.p50_wall_ms ?? "unknown"}`);
           console.log(`CODE_AI_CERTIFICATION_P95_WALL_MS=${report.summary?.p95_wall_ms ?? "unknown"}`);
           NODE
+
+      - name: Publish sanitized Code certification evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          node --input-type=module <<'NODE' > /tmp/code-ai-certification-comment.md
+          import { readFile } from "node:fs/promises";
+          let report = null;
+          try {
+            report = JSON.parse(await readFile("artifacts/code-ai-certification.json", "utf8"));
+          } catch {}
+          console.log(`## Code AI certification run ${process.env.RUN_ID}`);
+          console.log(`Commit: \`${process.env.RUN_SHA}\``);
+          if (!report) {
+            console.log("- Result: NO_CODE_CERTIFICATION_REPORT");
+            console.log("- Production activation allowed: false");
+          } else {
+            console.log(`- Contract: ${report.contract}`);
+            console.log(`- Benchmark passed: ${report.summary?.passed === true}`);
+            console.log(`- Runs: ${report.summary?.runs || 0}`);
+            console.log(`- p50 wall ms: ${report.summary?.p50_wall_ms ?? "unknown"}`);
+            console.log(`- p95 wall ms: ${report.summary?.p95_wall_ms ?? "unknown"}`);
+            console.log(`- Production activation allowed: ${report.activation_allowed === true}`);
+            console.log(`- Sandbox execution certified: ${report.certification_requirements?.sandbox_execution_certified === true}`);
+          }
+          NODE
+          gh issue comment 279 --repo "$GH_REPO" --body-file /tmp/code-ai-certification-comment.md
 
       - name: Upload Code certification evidence
         if: always()

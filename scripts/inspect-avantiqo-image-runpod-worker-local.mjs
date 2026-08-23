@@ -1,6 +1,17 @@
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const DEFAULT_ENDPOINT_NAME = "avantiqo-image-v1";
+const DEFAULT_IMAGE_ENDPOINT_NAME = "avantiqo-image-v1";
+
+const KNOWN_ENDPOINT_ENV_BY_NAME = new Map([
+  ["avantiqo-image-v1", "RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID"],
+  ["avantiqo-cinema-v1", "RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID"],
+  ["avantiqo-intelligence-v1", "RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID"],
+  ["avantiqo-code-v1", "RUNPOD_AVANTIQO_CODE_ENDPOINT_ID"],
+  ["avantiqo-voice-stt-v1", "RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID"],
+  ["avantiqo-voice-tts-v1", "RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID"],
+  ["avantiqo-audio-v1", "RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID"],
+  ["avantiqo-lipsync-v1", "RUNPOD_AVANTIQO_LIPSYNC_ENDPOINT_ID"],
+]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -17,10 +28,17 @@ function finite(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function list(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 function normalizeEnv(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(
-    Object.entries(value).map(([key, child]) => [String(key), String(child ?? "")]),
+    Object.entries(object(value)).map(([key, child]) => [String(key), String(child ?? "")]),
   );
 }
 
@@ -51,6 +69,22 @@ async function request(url, credential, credentialKind) {
   return body;
 }
 
+async function optionalRequest(url, credential, credentialKind) {
+  try {
+    return {
+      ok: true,
+      body: await request(url, credential, credentialKind),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      body: null,
+      error: text(error?.message || error),
+    };
+  }
+}
+
 function imageReferenceKind(imageName) {
   const value = text(imageName);
   if (!value) return "MISSING";
@@ -61,37 +95,54 @@ function imageReferenceKind(imageName) {
   return "MUTABLE_EXPLICIT_TAG";
 }
 
+function safeWorker(worker = {}) {
+  return {
+    id_present: Boolean(text(worker.id)),
+    desired_status: text(worker.desiredStatus) || null,
+    last_status_change: text(worker.lastStatusChange) || null,
+    gpu: text(worker.gpu?.displayName || worker.machine?.gpuDisplayName) || null,
+    cost_per_hour: finite(worker.costPerHr),
+    adjusted_cost_per_hour: finite(worker.adjustedCostPerHr),
+  };
+}
+
 function safeEndpoint(endpoint = {}) {
   return {
     id: text(endpoint.id) || null,
     name: text(endpoint.name) || null,
     version: finite(endpoint.version),
+    compute_type: text(endpoint.computeType) || null,
+    gpu_count: finite(endpoint.gpuCount),
     template_id: text(endpoint.templateId || endpoint.template?.id) || null,
     network_volume_id: text(endpoint.networkVolumeId) || null,
-    network_volume_ids: Array.isArray(endpoint.networkVolumeIds)
-      ? endpoint.networkVolumeIds.map((value) => text(value)).filter(Boolean)
-      : [],
+    network_volume_ids: list(endpoint.networkVolumeIds).map(text).filter(Boolean),
     workers_min: finite(endpoint.workersMin),
     workers_max: finite(endpoint.workersMax),
+    idle_timeout_seconds: finite(endpoint.idleTimeout),
+    execution_timeout_ms: finite(endpoint.executionTimeoutMs),
     scaler_type: text(endpoint.scalerType) || null,
     scaler_value: finite(endpoint.scalerValue),
-    gpu_type_ids: Array.isArray(endpoint.gpuTypeIds) ? endpoint.gpuTypeIds : [],
-    workers: Array.isArray(endpoint.workers)
-      ? endpoint.workers.map((worker) => ({
-          id_present: Boolean(text(worker?.id)),
-          desired_status: text(worker?.desiredStatus) || null,
-          last_status_change: text(worker?.lastStatusChange) || null,
-          gpu: text(worker?.gpu?.displayName || worker?.machine?.gpuDisplayName) || null,
-        }))
-      : [],
+    gpu_type_ids: list(endpoint.gpuTypeIds).map(text).filter(Boolean),
+    data_center_ids: list(endpoint.dataCenterIds).map(text).filter(Boolean),
+    flashboot: endpoint.flashboot === true,
+    workers: list(endpoint.workers).map(safeWorker),
   };
 }
 
-function safeTemplate(template = {}) {
-  const env = normalizeEnv(template.env);
+function safeTemplate(endpoint = {}) {
+  const template = object(endpoint.template);
+  const templateId = text(endpoint.templateId || template.id);
   const imageName = text(template.imageName);
+  const env = normalizeEnv(template.env);
+  const hasInlineTemplate = Object.keys(template).length > 0;
+
   return {
-    id: text(template.id) || null,
+    status: hasInlineTemplate
+      ? "INLINE_AVAILABLE"
+      : templateId
+        ? "REFERENCE_ONLY_OR_STALE"
+        : "MISSING",
+    id: text(template.id) || templateId || null,
     name: text(template.name) || null,
     image_name: imageName || null,
     image_reference_kind: imageReferenceKind(imageName),
@@ -100,12 +151,14 @@ function safeTemplate(template = {}) {
     volume_mount_path: text(template.volumeMountPath) || null,
     container_registry_auth_configured: Boolean(text(template.containerRegistryAuthId)),
     env_keys: Object.keys(env).sort(),
+    inline_template_available: hasInlineTemplate,
+    stale_template_reference_possible: Boolean(templateId && !hasInlineTemplate),
   };
 }
 
 function safeHealth(body = {}) {
-  const jobs = body?.jobs && typeof body.jobs === "object" ? body.jobs : {};
-  const workers = body?.workers && typeof body.workers === "object" ? body.workers : {};
+  const jobs = object(body.jobs);
+  const workers = object(body.workers);
   return {
     jobs: {
       completed: finite(jobs.completed) ?? 0,
@@ -125,95 +178,128 @@ function safeHealth(body = {}) {
   };
 }
 
-async function resolveEndpointId(managementKey) {
-  const configuredId = text(process.env.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID);
-  if (configuredId) {
-    return { endpointId: configuredId, discoveredByName: false };
-  }
-
-  const endpointName =
-    text(process.env.AVANTIQO_IMAGE_RUNPOD_ENDPOINT_NAME) || DEFAULT_ENDPOINT_NAME;
-  const endpoints = await request(
-    `${REST_BASE}/endpoints?includeTemplate=false&includeWorkers=false`,
-    managementKey,
-    "management",
-  );
-  if (!Array.isArray(endpoints)) {
-    throw new Error("RUNPOD_IMAGE_ENDPOINT_LIST_INVALID");
-  }
-  const matches = endpoints.filter((entry) => text(entry?.name) === endpointName);
-  if (matches.length !== 1) {
-    throw new Error(
-      `RUNPOD_IMAGE_ENDPOINT_DISCOVERY_FAILED:name=${endpointName}:matches=${matches.length}`,
-    );
-  }
-  const endpointId = text(matches[0]?.id);
-  if (!endpointId) throw new Error("RUNPOD_IMAGE_ENDPOINT_DISCOVERED_ID_MISSING");
-  return { endpointId, discoveredByName: true };
+function envBindingHint(endpoint) {
+  const name = text(endpoint?.name);
+  const id = text(endpoint?.id);
+  const envName = KNOWN_ENDPOINT_ENV_BY_NAME.get(name) || null;
+  return {
+    endpoint_name: name || null,
+    endpoint_id: id || null,
+    known_repo_env_name: envName,
+    assignment: envName && id ? `${envName}=${id}` : null,
+  };
 }
 
 const inferenceKey =
   text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
 const managementKey = required(
   "RUNPOD_MANAGEMENT_API_KEY",
-  "RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_READ_ONLY_IMAGE_ENDPOINT_INSPECTION",
+  "RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_READ_ONLY_RUNPOD_ENDPOINT_INSPECTION",
 );
-const { endpointId, discoveredByName } = await resolveEndpointId(managementKey);
+const configuredImageEndpointId = text(process.env.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID);
+const imageEndpointName =
+  text(process.env.AVANTIQO_IMAGE_RUNPOD_ENDPOINT_NAME) || DEFAULT_IMAGE_ENDPOINT_NAME;
 
-console.log("AVANTIQO_IMAGE_RUNPOD_INSPECT_READ_ONLY=true");
-console.log("AVANTIQO_IMAGE_RUNPOD_MANAGEMENT_CREDENTIAL=DEDICATED");
-console.log(
-  `AVANTIQO_IMAGE_ENDPOINT_ID_SOURCE=${discoveredByName ? "DISCOVERED_BY_EXACT_NAME" : "ENV"}`,
-);
-if (discoveredByName) {
-  console.log(`AVANTIQO_IMAGE_ENDPOINT_ID_DISCOVERED=${endpointId}`);
-}
+console.log("AVANTIQO_RUNPOD_INSPECT_READ_ONLY=true");
+console.log("AVANTIQO_RUNPOD_MANAGEMENT_CREDENTIAL=DEDICATED");
 
-const endpoint = await request(
-  `${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
+const endpoints = await request(
+  `${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`,
   managementKey,
   "management",
 );
-if (text(endpoint?.id) !== endpointId) {
-  throw new Error("RUNPOD_IMAGE_ENDPOINT_ID_MISMATCH");
+if (!Array.isArray(endpoints)) {
+  throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
 }
 
-const templateId = text(endpoint.templateId || endpoint.template?.id);
-if (!templateId) throw new Error("RUNPOD_IMAGE_TEMPLATE_ID_REQUIRED");
-const template = await request(
-  `${REST_BASE}/templates/${encodeURIComponent(templateId)}`,
-  managementKey,
-  "management",
+const inspectedEndpoints = [];
+for (const endpoint of endpoints) {
+  const endpointId = text(endpoint?.id);
+  const healthResult = endpointId
+    ? await optionalRequest(
+        `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`,
+        inferenceKey,
+        "inference",
+      )
+    : { ok: false, body: null, error: "RUNPOD_ENDPOINT_ID_MISSING" };
+
+  inspectedEndpoints.push({
+    endpoint: safeEndpoint(endpoint),
+    template: safeTemplate(endpoint),
+    health: healthResult.ok ? safeHealth(healthResult.body) : null,
+    health_read: {
+      ok: healthResult.ok,
+      error: healthResult.error,
+    },
+    env_binding_hint: envBindingHint(endpoint),
+  });
+}
+
+const imageMatchesByName = inspectedEndpoints.filter(
+  (entry) => entry.endpoint.name === imageEndpointName,
 );
-if (text(template?.id) !== templateId) {
-  throw new Error("RUNPOD_IMAGE_TEMPLATE_BINDING_MISMATCH");
-}
+const imageMatchesByConfiguredId = configuredImageEndpointId
+  ? inspectedEndpoints.filter((entry) => entry.endpoint.id === configuredImageEndpointId)
+  : [];
+const selectedImage = configuredImageEndpointId
+  ? imageMatchesByConfiguredId[0] || null
+  : imageMatchesByName.length === 1
+    ? imageMatchesByName[0]
+    : null;
 
-const health = await request(
-  `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`,
-  inferenceKey,
-  "inference",
+const staleTemplateReferences = inspectedEndpoints.filter(
+  (entry) => entry.template.stale_template_reference_possible,
+);
+const immutableImageReferences = inspectedEndpoints.filter(
+  (entry) => entry.template.image_reference_kind === "IMMUTABLE_DIGEST",
+);
+const mutableImageReferences = inspectedEndpoints.filter((entry) =>
+  entry.template.image_reference_kind.startsWith("MUTABLE_"),
 );
 
 const result = {
   success: true,
-  contract: "AVANTIQO_IMAGE_RUNPOD_INSPECT_V3",
+  contract: "AVANTIQO_RUNPOD_WORKER_INSPECT_V4",
   read_only: true,
   mutation_performed: false,
   inference_performed: false,
-  endpoint_id_source: discoveredByName ? "DISCOVERED_BY_EXACT_NAME" : "ENV",
-  endpoint: safeEndpoint(endpoint),
-  template: safeTemplate(template),
-  health: safeHealth(health),
-  next_action_basis: {
-    immutable_digest_requires_new_image_reference:
-      imageReferenceKind(template.imageName) === "IMMUTABLE_DIGEST",
-    mutable_tag_can_rolling_release_after_registry_publish:
-      imageReferenceKind(template.imageName).startsWith("MUTABLE_"),
+  endpoint_count: inspectedEndpoints.length,
+  endpoints: inspectedEndpoints,
+  endpoint_bindings: inspectedEndpoints.map((entry) => entry.env_binding_hint),
+  image_target: {
+    requested_name: imageEndpointName,
+    configured_id_present: Boolean(configuredImageEndpointId),
+    exact_name_match_count: imageMatchesByName.length,
+    configured_id_match_count: imageMatchesByConfiguredId.length,
+    selected: selectedImage,
+  },
+  diagnostics: {
+    stale_template_reference_count: staleTemplateReferences.length,
+    stale_template_references: staleTemplateReferences.map((entry) => ({
+      endpoint_id: entry.endpoint.id,
+      endpoint_name: entry.endpoint.name,
+      template_id: entry.endpoint.template_id,
+    })),
+    immutable_image_reference_count: immutableImageReferences.length,
+    mutable_image_reference_count: mutableImageReferences.length,
+  },
+  safety: {
+    read_only: true,
+    endpoint_mutations_performed: 0,
+    template_mutations_performed: 0,
+    volume_mutations_performed: 0,
+    runpod_generation_jobs_submitted: 0,
+    secret_values_in_output: false,
   },
   dedicated_management_credential_used: true,
   secrets_in_output: false,
 };
 
-console.log("AVANTIQO_IMAGE_RUNPOD_INSPECT=COMPLETE");
+console.log(`AVANTIQO_RUNPOD_ENDPOINT_COUNT=${inspectedEndpoints.length}`);
+for (const binding of result.endpoint_bindings) {
+  console.log(
+    `AVANTIQO_RUNPOD_ENDPOINT name=${binding.endpoint_name || "UNKNOWN"} id=${binding.endpoint_id || "MISSING"} env=${binding.known_repo_env_name || "UNMAPPED"}`,
+  );
+}
+console.log("AVANTIQO_RUNPOD_INSPECT=COMPLETE");
 console.log(JSON.stringify(result, null, 2));

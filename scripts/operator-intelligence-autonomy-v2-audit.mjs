@@ -16,6 +16,8 @@ const REQUIRED_CAPABILITIES = new Map([
   ["platform.research_source.read", "read"],
   ["platform.research_compare.analyze", "read"],
   ["platform.product_autonomy.assess", "read"],
+  ["platform.product_persistence_decision.assess", "read"],
+  ["platform.product_autonomy_continuation.assess", "read"],
   ["platform.product_engineering_cycle.execute", "write"],
   ["platform.operator_mission.execute", "write"],
   ["platform.code_ai_autonomous.execute", "write"],
@@ -37,6 +39,7 @@ const files = Object.fromEntries(
       "lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js",
       "lib/intelligence/runtime/AvantiqoProductConstitution.js",
       "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
+      "lib/intelligence/runtime/AvantiqoProductPersistenceDecisionRuntime.js",
       "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
       "lib/code/runtime/CodeAICommitArtifactRuntime.js",
       "lib/code/runtime/CodeAICommitExecutionStateRuntime.js",
@@ -44,6 +47,8 @@ const files = Object.fromEntries(
       "lib/platform/capabilities/createCodeAIAutonomousStatusCapability.js",
       "lib/platform/capabilities/createCodeAICommitCapability.js",
       "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
+      "lib/platform/capabilities/createProductPersistenceDecisionCapability.js",
+      "lib/platform/capabilities/createProductAutonomyContinuationCapability.js",
       "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
       "lib/operator/runtime/IntelligenceMemoryRuntime.js",
       "lib/platform/runtime/PlatformDomainRuntime.js",
@@ -141,8 +146,28 @@ requireFragments("lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRunt
   "operatorRegistryCreateCoverage",
   '"platform.code_ai_autonomous.execute"',
   '"platform.code_ai_autonomous_status.verify"',
+  '"platform.product_persistence_decision.assess"',
+  '"platform.product_autonomy_continuation.assess"',
   "durable_operator_mission_required: true",
+  "automatic_recursion_allowed: false",
   "execution_started: false",
+]);
+
+requireFragments("lib/intelligence/runtime/AvantiqoProductPersistenceDecisionRuntime.js", [
+  "AVANTIQO_PRODUCT_PERSISTENCE_DECISION_V1",
+  '"STAY_LOCAL"',
+  '"REQUEST_COMMIT_CONFIRMATION"',
+  '"ALREADY_PERSISTED"',
+  "loadCodeAIAutonomousExecutionState",
+  "verifyCompletedCodeAIAutonomousExecution",
+  "loadCodeAICommitExecutionState",
+  "VERIFIED_COMMIT_ALREADY_EXISTS",
+  "UNSUPPORTED_ALREADY_PERSISTED_CLAIM_REJECTED",
+  "authorization_effect: \"NONE\"",
+  "bounded_next_cycle_count",
+  "production_deployment_allowed: false",
+  "database_migration_execution_allowed: false",
+  "replaceAll(DEPLOY_MARKER, \"\")",
 ]);
 
 requireFragments("lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js", [
@@ -204,6 +229,30 @@ requireFragments("lib/platform/capabilities/createCodeAICommitStatusCapability.j
   'operatorAutoExecute: true',
 ]);
 
+requireFragments("lib/platform/capabilities/createProductPersistenceDecisionCapability.js", [
+  'capability: "product_persistence_decision"',
+  'action: "assess"',
+  "decideAvantiqoProductPersistence",
+  'operatorMode: "read"',
+  'operatorAutoExecute: true',
+  'operatorRequiresConfirmation: false',
+  'risk: "low"',
+]);
+
+requireFragments("lib/platform/capabilities/createProductAutonomyContinuationCapability.js", [
+  'capability: "product_autonomy_continuation"',
+  'action: "assess"',
+  "loadCodeAICommitExecutionState",
+  "assessAvantiqoProductAutonomy",
+  'status: "READY_FOR_ONE_NEXT_BOUNDED_CYCLE"',
+  "bounded_next_cycle_count: 1",
+  "automatic_recursion_allowed: false",
+  "automatic_commit_allowed: false",
+  "production_deployment_allowed: false",
+  "database_migration_execution_allowed: false",
+  "commit_message: null",
+]);
+
 requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapability.js", [
   'capability: "product_engineering_cycle"',
   '"platform.product_autonomy.assess"',
@@ -211,8 +260,10 @@ requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapabil
   'source_path: "recommended_code_ai_handoff.objective"',
   'target_path: "objective"',
   '"platform.code_ai_autonomous_status.verify"',
+  '"platform.product_persistence_decision.assess"',
   '"platform.code_ai_commit.execute"',
   '"platform.code_ai_commit_status.verify"',
+  "persistence_decision",
   "commit_message",
   "commit_requested",
   "commit_completed",
@@ -244,6 +295,8 @@ requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "createOperatorWebSourceReadCapability",
   "createOperatorResearchCompareCapability",
   "createProductAutonomyAssessmentCapability",
+  "createProductPersistenceDecisionCapability",
+  "createProductAutonomyContinuationCapability",
   "createProductEngineeringCycleCapability",
   "createCodeAIAutonomousStatusCapability",
   "createCodeAICommitCapability",
@@ -273,6 +326,8 @@ for (const key of [
   "platform.research_source.read",
   "platform.research_compare.analyze",
   "platform.product_autonomy.assess",
+  "platform.product_persistence_decision.assess",
+  "platform.product_autonomy_continuation.assess",
   "platform.code_ai_autonomous_status.verify",
   "platform.code_ai_commit_status.verify",
 ]) {
@@ -307,6 +362,18 @@ if (
   throw new Error(
     "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI status read must require code execution permission",
   );
+}
+
+for (const key of [
+  "platform.product_persistence_decision.assess",
+  "platform.product_autonomy_continuation.assess",
+]) {
+  const capability = byKey.get(key);
+  if (!capability?.permissions?.includes("platform.code.ai.execute")) {
+    throw new Error(
+      `OPERATOR_INTELLIGENCE_AUTONOMY_V2: ${key} must require code execution permission`,
+    );
+  }
 }
 
 const codeCommit = byKey.get("platform.code_ai_commit.execute");
@@ -375,6 +442,9 @@ console.log("OPERATOR_CODE_AI_EXECUTION_STATE=SERVER_OWNED_NON_RECALLABLE_SCOPE"
 console.log("OPERATOR_CODE_AI_COMMIT_ARTIFACT=SERVER_OWNED_NON_RECALLABLE_FULL_ATTESTED_STATE");
 console.log("OPERATOR_CODE_AI_COMMIT=EXPLICIT_CONFIRMATION_PLUS_PERMISSION_PLUS_EXACT_BASE");
 console.log("OPERATOR_CODE_AI_COMMIT_VERIFICATION=SERVER_OWNED_REGISTERED_READ");
-console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY_OPTIONAL_COMMIT_VERIFY");
+console.log("OPERATOR_PRODUCT_PERSISTENCE_DECISION=OWNED_READ_ONLY_NO_AUTHORIZATION_EFFECT");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY_DECIDE_OPTIONAL_COMMIT_VERIFY");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_DEFAULT_PERSISTENCE=LOCAL_ONLY_NO_COMMIT");
+console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION=VERIFIED_COMMIT_ONE_BOUNDED_REASSESSMENT");
+console.log("OPERATOR_PRODUCT_AUTONOMY_RECURSION=DISABLED");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_PRODUCTION=NO_DEPLOY_NO_MIGRATION");

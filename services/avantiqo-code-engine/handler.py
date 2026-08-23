@@ -137,7 +137,7 @@ def _runtime_probe(data: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def _cache_runtime_model(data: dict[str, Any]) -> dict[str, Any] | None:
+def _cache_runtime_model(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any] | None:
     specification = data.get("structured_specification") or {}
     if specification.get("cache_runtime_model") is not True:
         return None
@@ -168,7 +168,7 @@ def _cache_runtime_model(data: dict[str, Any]) -> dict[str, Any] | None:
             f"AVANTIQO_CODE_CACHE_VOLUME_FREE_SPACE_REQUIRED:free_bytes={disk_before.free}:minimum_bytes={MIN_CACHE_FREE_BYTES}"
         )
 
-    runpod.serverless.progress_update(job=data.get("_job"), progress="caching Avantiqo Code FP8 runtime model")
+    runpod.serverless.progress_update(job, "caching Avantiqo Code FP8 runtime model")
     from huggingface_hub import snapshot_download
 
     snapshot_download(
@@ -272,7 +272,6 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("AVANTIQO_CODE_INSTRUCTION_REQUIRED")
     if len(instruction) > 30000:
         raise ValueError("AVANTIQO_CODE_INSTRUCTION_TOO_LONG")
-    data["_job"] = job
     return data
 
 
@@ -305,7 +304,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     probe = _runtime_probe(data)
     if probe is not None:
         return probe
-    cache_result = _cache_runtime_model(data)
+    cache_result = _cache_runtime_model(data, job)
     if cache_result is not None:
         return cache_result
 

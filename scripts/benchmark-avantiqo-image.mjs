@@ -146,6 +146,7 @@ async function runQueued(endpointId, input, apiKey) {
 const apiKey = text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID");
 const foundationModel = text(process.env.AVANTIQO_IMAGE_FOUNDATION_MODEL) || "Qwen/Qwen-Image";
+const requireTrueCfg = /(^|\/)Qwen-Image$/i.test(foundationModel);
 const uploadTemplate = required("AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL");
 const referenceTemplate = required("AVANTIQO_IMAGE_BENCHMARK_STORAGE_REFERENCE");
 const instruction = text(process.env.AVANTIQO_IMAGE_BENCHMARK_INSTRUCTION) || DEFAULT_QUALITY_INSTRUCTION;
@@ -186,7 +187,7 @@ for (let index = 0; index < runs; index += 1) {
     instruction,
     structured_specification: {
       output_spec: { aspect_ratio: "1:1" },
-      provider_parameters: { seed: 51000 + index, inference_steps: 28, guidance_scale: 4.0 },
+      provider_parameters: { seed: 51000 + index, inference_steps: 28, true_cfg_scale: 4.0 },
     },
     storage_upload: {
       signed_url: uploadUrl,
@@ -194,6 +195,18 @@ for (let index = 0; index < runs; index += 1) {
     },
   }, apiKey);
   const output = body.output || {};
+  const guidance = output.generation_guidance || {};
+  const trueCfgVerified =
+    text(guidance.mode).toUpperCase() === "TRUE_CFG" &&
+    Number(guidance.scale) === 4 &&
+    guidance.negative_prompt_supplied === true;
+  console.log(
+    `AVANTIQO_IMAGE_GENERATION_GUIDANCE=${JSON.stringify({
+      required: requireTrueCfg,
+      verified: requireTrueCfg ? trueCfgVerified : null,
+      ...guidance,
+    })}`,
+  );
   const previewUrl = await createPreviewUrl(storageReference);
   if (previewUrl) console.log(`AVANTIQO_IMAGE_PREVIEW_URL=${previewUrl}`);
   observations.push({
@@ -208,12 +221,15 @@ for (let index = 0; index < runs; index += 1) {
     foundation_model: text(output.foundation_model),
     storage_reference: storageReference,
     preview_url: previewUrl,
+    generation_guidance: guidance,
+    true_cfg_verified: requireTrueCfg ? trueCfgVerified : null,
     passed:
       text(output.capability) === "ai.image.generate" &&
       text(output.foundation_model) === foundationModel &&
       Number(output.width) === 1024 && Number(output.height) === 1024 &&
       Number(output.size_bytes) > 10000 &&
-      output.raw_reasoning_persisted === false,
+      output.raw_reasoning_persisted === false &&
+      (!requireTrueCfg || trueCfgVerified),
   });
 }
 
@@ -236,6 +252,10 @@ const report = {
   summary: {
     runs: observations.length,
     passed: observations.length > 0 && observations.every((item) => item.passed),
+    true_cfg_required: requireTrueCfg,
+    true_cfg_verified: requireTrueCfg
+      ? observations.length > 0 && observations.every((item) => item.true_cfg_verified === true)
+      : null,
     p50_wall_ms: percentile(wall, 0.5),
     p95_wall_ms: percentile(wall, 0.95),
   },

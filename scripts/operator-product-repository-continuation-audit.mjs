@@ -232,7 +232,7 @@ requireFragments(operatorTurnPath, [
   "capabilityKey !== OPERATOR_MISSION_KEY",
   'text(step?.id) === "reassess_verified_main"',
   "continuationStep?.result",
-  "handoff.automatic_execution_started === true",
+  "handoff.automatic_execution_started !== false",
   'source: "verified_persistence_handoff"',
   'source: "verified_post_commit_product_reassessment"',
   "agreementWithOperatorRecommendation",

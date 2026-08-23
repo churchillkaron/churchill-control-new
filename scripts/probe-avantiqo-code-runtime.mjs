@@ -65,8 +65,23 @@ function workerSnapshot(health) {
   };
 }
 
+function jobSnapshot(health) {
+  const jobs = health?.jobs || {};
+  return {
+    completed: Number(jobs.completed) || 0,
+    failed: Number(jobs.failed) || 0,
+    in_progress: Number(jobs.in_progress) || 0,
+    in_queue: Number(jobs.in_queue) || 0,
+    retried: Number(jobs.retried) || 0,
+  };
+}
+
 function operationalCapacity(workers) {
   return workers.ready + workers.running + workers.idle;
+}
+
+function hasWorkerAcceptanceEvidence(workers, jobs) {
+  return workers.running > 0 || jobs.in_progress > 0;
 }
 
 const apiKey = required("RUNPOD_API_KEY");
@@ -93,7 +108,11 @@ async function healthSnapshot() {
   );
   const health = await responseBody(response);
   if (!response.ok) throw new Error(`RUNPOD_HEALTH_HTTP_${response.status}`);
-  return { health, workers: workerSnapshot(health) };
+  return {
+    health,
+    workers: workerSnapshot(health),
+    jobs: jobSnapshot(health),
+  };
 }
 
 async function cancelProbeJob(jobId, reason) {
@@ -144,6 +163,7 @@ const readyTimeoutMs = Math.max(
 const readyDeadline = Date.now() + readyTimeoutMs;
 let finalHealth = null;
 let finalWorkers = null;
+let finalJobs = null;
 let readinessMode = null;
 let healthAttempt = 0;
 
@@ -156,9 +176,10 @@ while (Date.now() < readyDeadline) {
     provider_job_submitted: false,
   }));
 
-  const { health, workers } = await healthSnapshot();
+  const { health, workers, jobs } = await healthSnapshot();
   finalHealth = health;
   finalWorkers = workers;
+  finalJobs = jobs;
 
   if (workers.unhealthy > 0) {
     throw new Error(`RUNPOD_WORKER_UNHEALTHY:${workers.unhealthy}`);
@@ -179,6 +200,7 @@ while (Date.now() < readyDeadline) {
     generation_performed: false,
     provider_job_submitted: false,
     workers,
+    jobs,
     seconds_remaining: Math.max(0, Math.ceil((readyDeadline - Date.now()) / 1000)),
   }));
   await delay(HEALTH_POLL_MS);
@@ -194,6 +216,7 @@ console.log(JSON.stringify({
   event: "AVANTIQO_CODE_RUNTIME_PROBE_READY",
   readiness_mode: readinessMode,
   workers: finalWorkers,
+  jobs: finalJobs,
   generation_performed: false,
   provider_job_submitted: false,
 }));
@@ -264,6 +287,10 @@ const deadline = Date.now() + jobTimeoutMs;
 const queuedSince = Date.now();
 let lastStatus = null;
 let lastHeartbeatAt = 0;
+let workerAcceptanceObserved = false;
+let workerAcceptanceObservedAt = null;
+let latestWorkers = finalWorkers;
+let latestJobs = finalJobs;
 
 while (Date.now() < deadline) {
   const status = text(body?.status).toUpperCase();
@@ -276,26 +303,50 @@ while (Date.now() < deadline) {
   const statusChanged = status !== lastStatus;
   const heartbeatDue = now - lastHeartbeatAt >= JOB_HEARTBEAT_MS;
   if (statusChanged || heartbeatDue) {
-    let currentWorkers = null;
     try {
-      currentWorkers = (await healthSnapshot()).workers;
+      const snapshot = await healthSnapshot();
+      latestWorkers = snapshot.workers;
+      latestJobs = snapshot.jobs;
+      if (hasWorkerAcceptanceEvidence(latestWorkers, latestJobs) && !workerAcceptanceObserved) {
+        workerAcceptanceObserved = true;
+        workerAcceptanceObservedAt = now;
+        console.log(JSON.stringify({
+          event: "AVANTIQO_CODE_RUNTIME_PROBE_WORKER_ACCEPTED",
+          job_id: jobId,
+          api_status: status,
+          workers: latestWorkers,
+          jobs: latestJobs,
+          generation_performed: false,
+        }));
+      }
     } catch (error) {
-      currentWorkers = { health_error: text(error?.message || error) };
+      latestWorkers = { health_error: text(error?.message || error) };
+      latestJobs = null;
     }
+
     console.log(JSON.stringify({
       event: "AVANTIQO_CODE_RUNTIME_PROBE_JOB_STATUS",
       job_id: jobId,
       status,
-      seconds_in_status: Math.round((now - queuedSince) / 1000),
-      workers: currentWorkers,
+      seconds_since_submit: Math.round((now - queuedSince) / 1000),
+      worker_acceptance_observed: workerAcceptanceObserved,
+      seconds_since_worker_acceptance: workerAcceptanceObservedAt
+        ? Math.round((now - workerAcceptanceObservedAt) / 1000)
+        : null,
+      workers: latestWorkers,
+      jobs: latestJobs,
       generation_performed: false,
     }));
     lastStatus = status;
     lastHeartbeatAt = now;
   }
 
-  if (status === "IN_QUEUE" && now - queuedSince >= queueTimeoutMs) {
-    await cancelProbeJob(jobId, `QUEUE_TIMEOUT_${queueTimeoutMs}MS`);
+  if (
+    status === "IN_QUEUE" &&
+    !workerAcceptanceObserved &&
+    now - queuedSince >= queueTimeoutMs
+  ) {
+    await cancelProbeJob(jobId, `QUEUE_TIMEOUT_WITHOUT_WORKER_ACCEPTANCE_${queueTimeoutMs}MS`);
     throw new Error(
       `RUNPOD_RUNTIME_PROBE_QUEUE_STALE:${jobId}:${readinessMode}:${queueTimeoutMs}MS`,
     );
@@ -314,7 +365,9 @@ while (Date.now() < deadline) {
 
 if (text(body?.status).toUpperCase() !== "COMPLETED") {
   await cancelProbeJob(jobId, `JOB_TIMEOUT_${jobTimeoutMs}MS`);
-  throw new Error(`RUNPOD_RUNTIME_PROBE_TIMEOUT:${jobId}`);
+  throw new Error(
+    `RUNPOD_RUNTIME_PROBE_TIMEOUT:${jobId}:worker_acceptance=${workerAcceptanceObserved}`,
+  );
 }
 
 const output = body?.output || {};
@@ -333,8 +386,9 @@ const passed = Object.values(checks).every(Boolean);
 
 console.log(JSON.stringify({
   success: passed,
-  contract: "AVANTIQO_CODE_RUNTIME_PROBE_V4",
+  contract: "AVANTIQO_CODE_RUNTIME_PROBE_V5",
   readiness_mode: readinessMode,
+  worker_acceptance_observed: workerAcceptanceObserved,
   initial_health: finalHealth,
   provider_job_submitted: true,
   generation_performed: false,

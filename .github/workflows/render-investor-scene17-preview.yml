@@ -38,7 +38,7 @@ jobs:
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
-        run: bash .github/scripts/render-investor-scenes-1-17-review-v4.sh
+        run: bash .github/scripts/render-investor-scenes-1-17-review-v5.sh
 
       - name: Upload review package artifact
         uses: actions/upload-artifact@v4

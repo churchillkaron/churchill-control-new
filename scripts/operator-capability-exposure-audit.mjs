@@ -20,6 +20,7 @@ const GOVERNED_AUTONOMOUS_COMPOSITES = new Set([
   "platform.code_ai_autonomous.execute",
   "platform.code_ai_mission.execute",
   "platform.product_engineering_cycle.execute",
+  "platform.product_persistence_handoff.execute",
 ]);
 
 const { listDomainRuntimeNames } = await import(

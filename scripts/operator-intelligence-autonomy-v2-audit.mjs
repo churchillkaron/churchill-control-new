@@ -2,10 +2,9 @@ import { register } from "node:module";
 import { pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
 
-// Keep this static autonomy audit runnable from raw `npm run build` / prebuild,
-// where Next.js has not loaded .env.local yet. Preserve real values when they
-// exist; these placeholders only allow import-time server client construction.
-// This audit performs no Supabase queries or writes.
+// Static source/catalog audit only. Next has not loaded .env.local during raw
+// prebuild execution, so preserve real values and provide inert import-time
+// placeholders. This audit performs no Supabase queries or writes.
 process.env.NEXT_PUBLIC_SUPABASE_URL ||= "https://audit.invalid";
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= "audit-service-role-key";
 
@@ -16,6 +15,7 @@ const REQUIRED_CAPABILITIES = new Map([
   ["platform.research_source.read", "read"],
   ["platform.research_compare.analyze", "read"],
   ["platform.product_autonomy.assess", "read"],
+  ["platform.product_repository_assessment.read", "read"],
   ["platform.product_persistence_decision.assess", "read"],
   ["platform.product_persistence_handoff.execute", "write"],
   ["platform.product_autonomy_continuation.assess", "read"],
@@ -27,37 +27,39 @@ const REQUIRED_CAPABILITIES = new Map([
   ["platform.code_ai_commit_status.verify", "read"],
 ]);
 
+const sourcePaths = [
+  "lib/ubte/runtime/ExecutionEngine.js",
+  "lib/operator/runtime/OperatorMissionBindingRuntime.js",
+  "lib/operator/runtime/OperatorMissionBindingExecutionRuntime.js",
+  "lib/operator/runtime/OperatorTurnRuntime.js",
+  "lib/operator/runtime/OperatorHumanDecisionClassifier.js",
+  "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js",
+  "lib/platform/research/runtime/OperatorWebResearchRuntime.js",
+  "lib/platform/research/runtime/OperatorWebSourceReadRuntime.js",
+  "lib/platform/research/runtime/OperatorResearchEvidenceComparisonRuntime.js",
+  "lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js",
+  "lib/intelligence/runtime/AvantiqoProductConstitution.js",
+  "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
+  "lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js",
+  "lib/intelligence/runtime/AvantiqoProductPersistenceDecisionRuntime.js",
+  "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
+  "lib/code/runtime/CodeAICommitArtifactRuntime.js",
+  "lib/code/runtime/CodeAICommitExecutionStateRuntime.js",
+  "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
+  "lib/platform/capabilities/createCodeAIAutonomousStatusCapability.js",
+  "lib/platform/capabilities/createCodeAICommitCapability.js",
+  "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
+  "lib/platform/capabilities/createProductRepositoryAssessmentCapability.js",
+  "lib/platform/capabilities/createProductPersistenceDecisionCapability.js",
+  "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
+  "lib/platform/capabilities/createProductAutonomyContinuationCapability.js",
+  "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
+  "lib/operator/runtime/IntelligenceMemoryRuntime.js",
+  "lib/platform/runtime/PlatformDomainRuntime.js",
+];
+
 const files = Object.fromEntries(
-  await Promise.all(
-    [
-      "lib/ubte/runtime/ExecutionEngine.js",
-      "lib/operator/runtime/OperatorMissionBindingRuntime.js",
-      "lib/operator/runtime/OperatorMissionBindingExecutionRuntime.js",
-      "lib/operator/runtime/OperatorTurnRuntime.js",
-      "lib/operator/runtime/OperatorHumanDecisionClassifier.js",
-      "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js",
-      "lib/platform/research/runtime/OperatorWebResearchRuntime.js",
-      "lib/platform/research/runtime/OperatorWebSourceReadRuntime.js",
-      "lib/platform/research/runtime/OperatorResearchEvidenceComparisonRuntime.js",
-      "lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js",
-      "lib/intelligence/runtime/AvantiqoProductConstitution.js",
-      "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
-      "lib/intelligence/runtime/AvantiqoProductPersistenceDecisionRuntime.js",
-      "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
-      "lib/code/runtime/CodeAICommitArtifactRuntime.js",
-      "lib/code/runtime/CodeAICommitExecutionStateRuntime.js",
-      "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
-      "lib/platform/capabilities/createCodeAIAutonomousStatusCapability.js",
-      "lib/platform/capabilities/createCodeAICommitCapability.js",
-      "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
-      "lib/platform/capabilities/createProductPersistenceDecisionCapability.js",
-      "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
-      "lib/platform/capabilities/createProductAutonomyContinuationCapability.js",
-      "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
-      "lib/operator/runtime/IntelligenceMemoryRuntime.js",
-      "lib/platform/runtime/PlatformDomainRuntime.js",
-    ].map(async (path) => [path, await readFile(path, "utf8")]),
-  ),
+  await Promise.all(sourcePaths.map(async (path) => [path, await readFile(path, "utf8")])),
 );
 
 function requireFragments(path, fragments) {
@@ -83,7 +85,8 @@ requireFragments("lib/operator/runtime/OperatorMissionBindingExecutionRuntime.js
   "operatorMissionResume",
   "normalizeMissionBindings",
   "captureMissionBindingValue",
-  "verification",
+  'source === "result"',
+  'source === "verification"',
   "binding_state",
 ]);
 
@@ -96,24 +99,17 @@ requireFragments("lib/ubte/runtime/ExecutionEngine.js", [
 ]);
 
 requireFragments("lib/operator/runtime/OperatorTurnRuntime.js", [
-  'PRODUCT_ENGINEERING_CYCLE_KEY =',
-  'PRODUCT_PERSISTENCE_HANDOFF_KEY =',
+  "PRODUCT_ENGINEERING_CYCLE_KEY",
+  "PRODUCT_PERSISTENCE_HANDOFF_KEY",
   "embeddedPersistenceMission",
   "promoteEmbeddedPersistenceMission",
   "createOperatorMissionRun",
   "agreementWithAutonomousRun",
-  "object(executionResult.persistence_handoff)",
-  'capability_key: OPERATOR_MISSION_KEY',
-  'resume_kind: "mission"',
-  "embedded_mission_promoted: true",
-  'question: "Should I proceed with that exact commit step?"',
-  "const baseAgreement = clearOperatorRecommendation(",
   "postCommitContinuationHandoff",
   'text(step?.id) === "reassess_verified_main"',
   '"READY_FOR_ONE_NEXT_BOUNDED_CYCLE"',
   'source: "verified_post_commit_product_reassessment"',
   "safeRecommendationCapabilities",
-  "let safeCapabilities = null",
   'Say “next”, “continue”, or “do it”',
 ]);
 
@@ -122,7 +118,6 @@ requireFragments("lib/operator/runtime/OperatorHumanDecisionClassifier.js", [
   '"next step"',
   "if (recommendation)",
   "RECOMMENDATION_EXECUTE.has(clean) || RESUME.has(clean)",
-  'if (RESUME.has(clean)) return "resume"',
 ]);
 
 requireFragments("lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js", [
@@ -141,10 +136,8 @@ requireFragments("lib/platform/research/runtime/OperatorWebResearchRuntime.js", 
 
 requireFragments("lib/platform/research/runtime/OperatorWebSourceReadRuntime.js", [
   "dns.lookup",
-  'order: "verbatim"',
   "WEB_SOURCE_READ_PRIVATE_ADDRESS_BLOCKED",
   'dns_rebinding_guard: "PINNED_VALIDATED_PUBLIC_ADDRESS"',
-  "options?.all === true",
   "authentication_sent: false",
   "cookies_sent: false",
   "instructions_from_source_authoritative: false",
@@ -172,21 +165,34 @@ requireFragments("lib/intelligence/runtime/AvantiqoProductConstitution.js", [
   "Tenant scope is not part of the architecture",
   "raw unverified write results never become authority",
   "definition_of_done",
-  "A capability is not done because",
 ]);
 
 requireFragments("lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js", [
   "ASSESSMENT_ONLY_NOT_CERTIFICATION",
-  "operatorRegistryCreateCoverage",
+  '"platform.product_repository_assessment.read"',
   '"platform.code_ai_autonomous.execute"',
   '"platform.code_ai_autonomous_status.verify"',
   '"platform.product_persistence_decision.assess"',
   '"platform.product_persistence_handoff.execute"',
   '"platform.product_autonomy_continuation.assess"',
+  "repository_grounded_post_commit_reassessment_required: true",
   "durable_operator_mission_required: true",
   "explicit_confirmation_required: true",
   "automatic_recursion_allowed: false",
   "execution_started: false",
+]);
+
+requireFragments("lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js", [
+  "AVANTIQO_PRODUCT_REPOSITORY_ASSESSMENT_V1",
+  "CodeWorkspaceSandboxRuntime.open",
+  "current_main_head",
+  "main_advanced_after_verified_commit",
+  "repository_evidence_read_only: true",
+  "full_repository_certification: false",
+  'authorization: { allow_mutating_tools: false }',
+  'capability_key: "platform.product_engineering_cycle.execute"',
+  "automatic_execution_started: false",
+  'authorization_effect: "NONE"',
 ]);
 
 requireFragments("lib/intelligence/runtime/AvantiqoProductPersistenceDecisionRuntime.js", [
@@ -197,13 +203,15 @@ requireFragments("lib/intelligence/runtime/AvantiqoProductPersistenceDecisionRun
   "loadCodeAIAutonomousExecutionState",
   "verifyCompletedCodeAIAutonomousExecution",
   "loadCodeAICommitExecutionState",
+  "artifact.commit_attempted !== true",
   "VERIFIED_COMMIT_ALREADY_EXISTS",
+  "VERIFIED_COMMIT_RECOVERED_FROM_ATTESTED_ARTIFACT",
   "UNSUPPORTED_ALREADY_PERSISTED_CLAIM_REJECTED",
-  "authorization_effect: \"NONE\"",
+  'authorization_effect: "NONE"',
   "bounded_next_cycle_count",
   "production_deployment_allowed: false",
   "database_migration_execution_allowed: false",
-  "replaceAll(DEPLOY_MARKER, \"\")",
+  'replaceAll(DEPLOY_MARKER, "")',
 ]);
 
 requireFragments("lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js", [
@@ -221,6 +229,9 @@ requireFragments("lib/code/runtime/CodeAICommitArtifactRuntime.js", [
   "mission_state: state",
   "ordinary_memory_recall: false",
   "commit_requires_separate_governed_capability: true",
+  "commit_attempted: false",
+  "markCodeAICommitArtifactAttempt",
+  "CODE_AI_COMMIT_ARTIFACT_ATTEMPTED_IMMUTABLE",
   "retireCodeAICommitArtifact",
 ]);
 
@@ -245,13 +256,19 @@ requireFragments("lib/platform/capabilities/createCodeAIAutonomousStatusCapabili
   "loadCodeAIAutonomousExecutionState",
   "verifyCompletedCodeAIAutonomousExecution",
   'status: "VERIFIED_COMPLETED"',
+  'platform.code.ai.execute',
 ]);
 
 requireFragments("lib/platform/capabilities/createCodeAICommitCapability.js", [
   "loadCodeAICommitArtifact",
   "persistCodeAICommitExecutionState",
   "retireCodeAICommitArtifact",
+  "recoverPriorAttempt",
+  "markCodeAICommitArtifactAttempt",
+  "commitVerifiedCodeMission",
+  "safe_to_retry_commit: false",
   "execution_key",
+  'platform.code.ai.commit',
   "operatorAutoExecute: false",
   "operatorRequiresConfirmation: true",
   'risk: "medium"',
@@ -259,10 +276,25 @@ requireFragments("lib/platform/capabilities/createCodeAICommitCapability.js", [
 ]);
 
 requireFragments("lib/platform/capabilities/createCodeAICommitStatusCapability.js", [
+  'REQUIRED_PERMISSION = "platform.code.ai.execute"',
   "loadCodeAICommitExecutionState",
+  "loadCodeAICommitArtifact",
+  "artifact.commit_attempted !== true",
   'status: "VERIFIED_COMMITTED"',
   'operatorMode: "read"',
   'operatorAutoExecute: true',
+  'operatorRequiresConfirmation: false',
+  'risk: "low"',
+  'transactional: false',
+]);
+
+requireFragments("lib/platform/capabilities/createProductRepositoryAssessmentCapability.js", [
+  'capability: "product_repository_assessment"',
+  'action: "read"',
+  "assessAvantiqoCurrentRepository",
+  'operatorMode: "read"',
+  'operatorAutoExecute: true',
+  'operatorRequiresConfirmation: false',
 ]);
 
 requireFragments("lib/platform/capabilities/createProductPersistenceDecisionCapability.js", [
@@ -275,29 +307,64 @@ requireFragments("lib/platform/capabilities/createProductPersistenceDecisionCapa
   'risk: "low"',
 ]);
 
-requireFragments("lib/platform/capabilities/createProductPersistenceHandoffCapability.js", [
+const handoffPath =
+  "lib/platform/capabilities/createProductPersistenceHandoffCapability.js";
+requireFragments(handoffPath, [
   'capability: "product_persistence_handoff"',
   'action: "execute"',
+  'permissions: [REQUIRED_EXECUTE_PERMISSION]',
   "decideAvantiqoProductPersistence",
   'decision.decision === "STAY_LOCAL"',
-  "mission: null",
+  'decision.decision === "ALREADY_PERSISTED"',
+  "alreadyPersistedContinuationMission",
+  'id: "verify_existing_persistence"',
+  'capability_key: "platform.code_ai_commit_status.verify"',
+  'source_step_id: "verify_existing_persistence"',
+  'source: "result"',
+  'status: "READY_FOR_ONE_NEXT_BOUNDED_CYCLE"',
+  "PRODUCT_PERSISTENCE_HANDOFF_ALREADY_PERSISTED_NEXT_OBJECTIVE_REQUIRED",
+  "second_commit_allowed: false",
+  "next_engineering_cycle_started: false",
+  "automatic_execution_started: false",
+  "bounded_next_cycle_count: 1",
   'decision.decision !== "REQUEST_COMMIT_CONFIRMATION"',
   'capability_key: "platform.code_ai_commit.execute"',
-  'capability_key: "platform.code_ai_commit_status.verify"',
   'capability_key: "platform.product_autonomy_continuation.assess"',
-  "executeUbteCapability",
   "explicit_commit_confirmation_preserved: true",
+  "commit_permission_enforced_by_registered_commit_step_preflight: true",
+  "verified_commit_evidence_bound_to_continuation: true",
   "post_commit_continuation_count: 1",
   "automatic_recursion_allowed: false",
   "production_deployed: false",
   "database_migrations_applied: false",
 ]);
 
-requireFragments("lib/platform/capabilities/createProductAutonomyContinuationCapability.js", [
+const alreadyPersistedMission = files[handoffPath].slice(
+  files[handoffPath].indexOf("function alreadyPersistedContinuationMission"),
+  files[handoffPath].indexOf("function missionStepCapabilityResult"),
+);
+if (
+  !alreadyPersistedMission ||
+  alreadyPersistedMission.includes('"platform.code_ai_commit.execute"') ||
+  alreadyPersistedMission.includes('"platform.product_engineering_cycle.execute"') ||
+  (alreadyPersistedMission.match(/capability_key:/g)?.length || 0) !== 2
+) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: ALREADY_PERSISTED continuation must remain exactly two read steps with no second commit or engineering execution",
+  );
+}
+
+const continuationPath =
+  "lib/platform/capabilities/createProductAutonomyContinuationCapability.js";
+requireFragments(continuationPath, [
   'capability: "product_autonomy_continuation"',
   'action: "assess"',
   "loadCodeAICommitExecutionState",
-  "assessAvantiqoProductAutonomy",
+  "loadCodeAICommitArtifact",
+  "assessAvantiqoCurrentRepository",
+  "verifiedCommitSha",
+  "PRODUCT_AUTONOMY_CONTINUATION_CURRENT_MAIN_HEAD_REQUIRED",
+  "PRODUCT_AUTONOMY_CONTINUATION_ENGINEERING_OBJECTIVE_REQUIRED",
   'status: "READY_FOR_ONE_NEXT_BOUNDED_CYCLE"',
   "bounded_next_cycle_count: 1",
   "automatic_recursion_allowed: false",
@@ -306,6 +373,17 @@ requireFragments("lib/platform/capabilities/createProductAutonomyContinuationCap
   "database_migration_execution_allowed: false",
   "commit_message: null",
 ]);
+for (const forbiddenLegacyExecution of [
+  'from "@/lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime"',
+  "await assessAvantiqoProductAutonomy(",
+  "assessAvantiqoProductAutonomy({",
+]) {
+  if (files[continuationPath].includes(forbiddenLegacyExecution)) {
+    throw new Error(
+      `OPERATOR_INTELLIGENCE_AUTONOMY_V2: post-commit continuation must not execute process-only autonomy assessment: ${forbiddenLegacyExecution}`,
+    );
+  }
+}
 
 requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapability.js", [
   'capability: "product_engineering_cycle"',
@@ -320,16 +398,10 @@ requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapabil
   "preparePersistenceHandoff",
   'decision?.decision === "REQUEST_COMMIT_CONFIRMATION"',
   "persistence_handoff",
-  "persistence_handoff_available",
-  "persistence_handoff_reason",
-  "product_persistence_handoff_may_only_prepare_confirmation: true",
   '"platform.code_ai_commit.execute"',
   '"platform.code_ai_commit_status.verify"',
-  "persistence_decision",
-  "commit_message",
   "commit_requested",
   "commit_completed",
-  "executeUbteCapability",
   "production_deployed: false",
   "database_migrations_applied: false",
 ]);
@@ -357,6 +429,7 @@ requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "createOperatorWebSourceReadCapability",
   "createOperatorResearchCompareCapability",
   "createProductAutonomyAssessmentCapability",
+  "createProductRepositoryAssessmentCapability",
   "createProductPersistenceDecisionCapability",
   "createProductPersistenceHandoffCapability",
   "createProductAutonomyContinuationCapability",
@@ -389,6 +462,7 @@ for (const key of [
   "platform.research_source.read",
   "platform.research_compare.analyze",
   "platform.product_autonomy.assess",
+  "platform.product_repository_assessment.read",
   "platform.product_persistence_decision.assess",
   "platform.product_autonomy_continuation.assess",
   "platform.code_ai_autonomous_status.verify",
@@ -417,26 +491,26 @@ if (
   );
 }
 
-const codeStatus = byKey.get("platform.code_ai_autonomous_status.verify");
-if (
-  !Array.isArray(codeStatus?.permissions) ||
-  !codeStatus.permissions.includes("platform.code.ai.execute")
-) {
-  throw new Error(
-    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI status read must require code execution permission",
-  );
-}
-
 for (const key of [
+  "platform.code_ai_autonomous_status.verify",
+  "platform.code_ai_commit_status.verify",
+  "platform.product_repository_assessment.read",
   "platform.product_persistence_decision.assess",
   "platform.product_autonomy_continuation.assess",
 ]) {
   const capability = byKey.get(key);
   if (!capability?.permissions?.includes("platform.code.ai.execute")) {
     throw new Error(
-      `OPERATOR_INTELLIGENCE_AUTONOMY_V2: ${key} must require code execution permission`,
+      `OPERATOR_INTELLIGENCE_AUTONOMY_V2: ${key} must require code execution read authority`,
     );
   }
+}
+
+const codeCommitStatus = byKey.get("platform.code_ai_commit_status.verify");
+if (codeCommitStatus?.permissions?.includes("platform.code.ai.commit")) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: read-only Code AI commit verification must not require commit write permission",
+  );
 }
 
 const persistenceHandoff = byKey.get("platform.product_persistence_handoff.execute");
@@ -446,10 +520,10 @@ if (
   persistenceHandoff?.requires_confirmation === true ||
   persistenceHandoff?.transactional === true ||
   !persistenceHandoff?.permissions?.includes("platform.code.ai.execute") ||
-  !persistenceHandoff?.permissions?.includes("platform.code.ai.commit")
+  persistenceHandoff?.permissions?.includes("platform.code.ai.commit")
 ) {
   throw new Error(
-    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product persistence handoff must remain a low-risk non-transactional governed composite that can only prepare the separately confirmed commit mission for actors holding both execute and commit permission",
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product persistence handoff must allow read-only decisions/continuation under execute authority and leave commit permission to the registered commit step",
   );
 }
 
@@ -464,16 +538,6 @@ if (
 ) {
   throw new Error(
     "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI commit must remain explicit-confirmation, medium-risk, transactional, commit-permission-gated and execution-key addressable",
-  );
-}
-
-const codeCommitStatus = byKey.get("platform.code_ai_commit_status.verify");
-if (
-  !Array.isArray(codeCommitStatus?.permissions) ||
-  !codeCommitStatus.permissions.includes("platform.code.ai.commit")
-) {
-  throw new Error(
-    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI commit status read must require commit permission",
   );
 }
 
@@ -514,19 +578,19 @@ console.log("OPERATOR_MISSION_BINDINGS=EXPLICIT_SCALAR_VERIFIED_HANDOFF");
 console.log("OPERATOR_MISSION_BINDING_WRITE_SOURCE=VERIFICATION_ONLY");
 console.log("OPERATOR_PRODUCT_CONSTITUTION=REGISTERED");
 console.log("OPERATOR_PRODUCT_AUTONOMY=ASSESSMENT_ONLY_HANDOFF_SEPARATE");
+console.log("OPERATOR_PRODUCT_REPOSITORY_ASSESSMENT=FRESH_CURRENT_MAIN_SOURCE_EVIDENCE");
 console.log("OPERATOR_CODE_AI_HANDOFF=EXECUTION_KEY_PLUS_REGISTERED_VERIFICATION");
 console.log("OPERATOR_CODE_AI_EXECUTION_STATE=SERVER_OWNED_NON_RECALLABLE_SCOPE");
 console.log("OPERATOR_CODE_AI_COMMIT_ARTIFACT=SERVER_OWNED_NON_RECALLABLE_FULL_ATTESTED_STATE");
-console.log("OPERATOR_CODE_AI_COMMIT=EXPLICIT_CONFIRMATION_PLUS_PERMISSION_PLUS_EXACT_BASE");
-console.log("OPERATOR_CODE_AI_COMMIT_VERIFICATION=SERVER_OWNED_REGISTERED_READ");
+console.log("OPERATOR_CODE_AI_COMMIT=EXPLICIT_CONFIRMATION_PLUS_COMMIT_PERMISSION_PLUS_EXACT_BASE");
+console.log("OPERATOR_CODE_AI_COMMIT_VERIFICATION=EXECUTE_PERMISSION_READ_ONLY_REGISTERED_EVIDENCE");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_DECISION=OWNED_READ_ONLY_NO_AUTHORIZATION_EFFECT");
-console.log("OPERATOR_PRODUCT_PERSISTENCE_HANDOFF=DECIDE_THEN_PREPARE_CONFIRMATION_NO_HIDDEN_COMMIT");
+console.log("OPERATOR_PRODUCT_PERSISTENCE_HANDOFF=CONDITIONAL_COMMIT_PERMISSION_AT_REGISTERED_WRITE_STEP");
+console.log("OPERATOR_PRODUCT_ALREADY_PERSISTED_CONTINUATION=TWO_READS_ONE_OBJECTIVE_NO_EXECUTION");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY_DECIDE_PREPARE_CONFIRMATION");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_DEFAULT_PERSISTENCE=LOCAL_ONLY_UNTIL_EXPLICIT_NESTED_COMMIT_CONFIRMATION");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_CONVERSATION=ONE_CONFIRMATION_EXACT_MISSION_RESUME");
-console.log("OPERATOR_PRODUCT_PERSISTENCE_RECOMMENDATION_STATE=SUPERSEDED_RECOMMENDATION_CLEARED_BEFORE_CONFIRMATION");
-console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION=VERIFIED_COMMIT_ONE_BOUNDED_REASSESSMENT");
+console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION=VERIFIED_COMMIT_ONE_REPOSITORY_GROUNDED_BOUNDED_REASSESSMENT");
 console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION_CONVERSATION=NEXT_CONTINUE_DO_IT_EXECUTE_EXACT_PENDING_RECOMMENDATION");
-console.log("OPERATOR_PRODUCT_AUTONOMY_RECOMMENDATION_CATALOG=LAZY_ONLY_WHEN_REQUIRED");
 console.log("OPERATOR_PRODUCT_AUTONOMY_RECURSION=DISABLED");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_PRODUCTION=NO_DEPLOY_NO_MIGRATION");

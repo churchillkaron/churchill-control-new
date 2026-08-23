@@ -12,6 +12,10 @@ const OUTPUT = resolve(
   process.env.AVANTIQO_MEDIA_CERTIFICATION_STATUS_OUTPUT ||
     "/tmp/avantiqo-owned-media-certification-status.json",
 );
+const FRESH_CAMPAIGN_COMMAND =
+  "sh scripts/certify-avantiqo-owned-media-local.sh";
+const RESUME_CAMPAIGN_COMMAND =
+  "AVANTIQO_MEDIA_CERTIFICATION_RESUME=1 sh scripts/certify-avantiqo-owned-media-local.sh";
 
 const IMAGE_CAPABILITIES = Object.freeze([
   "ai.image.generate",
@@ -72,6 +76,10 @@ function engineContractFor(capability) {
   return capability.startsWith("ai.image.")
     ? "AVANTIQO_IMAGE_ENGINE_V1"
     : "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1";
+}
+
+function targetedRetryCommand(capability) {
+  return `AVANTIQO_MEDIA_CERTIFICATION_RESUME=1 AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY=${capability} sh scripts/certify-avantiqo-owned-media-local.sh`;
 }
 
 function rateFor(capability) {
@@ -213,6 +221,15 @@ for (const item of list(checkpoint?.cases)) {
   byCapability.set(capability, item);
 }
 
+const checkpointCoverageComplete =
+  Boolean(checkpoint) && ALL_CAPABILITIES.every((capability) => byCapability.has(capability));
+
+function recoveryCommand(capability) {
+  if (!checkpoint) return FRESH_CAMPAIGN_COMMAND;
+  if (!checkpointCoverageComplete) return RESUME_CAMPAIGN_COMMAND;
+  return targetedRetryCommand(capability);
+}
+
 const statuses = ALL_CAPABILITIES.map((capability) => {
   const item = byCapability.get(capability) || null;
   if (!item) {
@@ -225,7 +242,7 @@ const statuses = ALL_CAPABILITIES.map((capability) => {
       foundation_model: null,
       output_storage_reference: null,
       estimated_supplier_compute_cost_usd: null,
-      retry_command: `AVANTIQO_MEDIA_CERTIFICATION_RESUME=1 AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY=${capability} sh scripts/certify-avantiqo-owned-media-local.sh`,
+      recommended_command: recoveryCommand(capability),
     };
   }
 
@@ -242,7 +259,7 @@ const statuses = ALL_CAPABILITIES.map((capability) => {
         finiteEvidence(item?.economics?.estimated_supplier_compute_cost_usd)
           ? Number(item.economics.estimated_supplier_compute_cost_usd)
           : null,
-      retry_command: `AVANTIQO_MEDIA_CERTIFICATION_RESUME=1 AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY=${capability} sh scripts/certify-avantiqo-owned-media-local.sh`,
+      recommended_command: recoveryCommand(capability),
     };
   }
 
@@ -266,9 +283,7 @@ const statuses = ALL_CAPABILITIES.map((capability) => {
       finiteEvidence(item?.economics?.estimated_supplier_compute_cost_usd)
         ? Number(item.economics.estimated_supplier_compute_cost_usd)
         : null,
-    retry_command: reasons.length > 0
-      ? `AVANTIQO_MEDIA_CERTIFICATION_RESUME=1 AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY=${capability} sh scripts/certify-avantiqo-owned-media-local.sh`
-      : null,
+    recommended_command: reasons.length > 0 ? recoveryCommand(capability) : null,
   };
 });
 
@@ -280,12 +295,26 @@ const missing = count("MISSING");
 const readyForHumanQualityReview =
   passed === ALL_CAPABILITIES.length && failed === 0 && stale === 0 && missing === 0;
 
+const recommendedAction = readyForHumanQualityReview
+  ? { mode: "HUMAN_QUALITY_REVIEW", command: null }
+  : !checkpoint
+    ? { mode: "FRESH_CAMPAIGN", command: FRESH_CAMPAIGN_COMMAND }
+    : !checkpointCoverageComplete
+      ? { mode: "RESUME_CAMPAIGN", command: RESUME_CAMPAIGN_COMMAND }
+      : {
+          mode: "TARGETED_RETRY_AVAILABLE",
+          command: recoveryCommand(
+            statuses.find((item) => item.status !== "PASSED")?.capability,
+          ),
+        };
+
 const report = {
   contract: CONTRACT,
   generated_at: new Date().toISOString(),
   checkpoint_path: CHECKPOINT,
   checkpoint_found: Boolean(checkpoint),
   checkpoint_generated_at: text(checkpoint?.generated_at) || null,
+  checkpoint_capability_coverage_complete: checkpointCoverageComplete,
   source_scope: "BENCHMARK_ONLY",
   statuses,
   summary: {
@@ -298,6 +327,7 @@ const report = {
     next_retry_capabilities: statuses
       .filter((item) => item.status !== "PASSED")
       .map((item) => item.capability),
+    recommended_action: recommendedAction,
   },
   safety: {
     diagnostic_only: true,
@@ -313,6 +343,9 @@ const report = {
     failed_means_latest_execution_did_not_pass_mechanical_checks: true,
     stale_means_prior_pass_exists_but_current_evidence_binding_is_not_reusable: true,
     missing_means_no_checkpoint_case_exists: true,
+    fresh_campaign_required_when_checkpoint_absent: true,
+    resume_campaign_required_while_checkpoint_coverage_is_partial: true,
+    targeted_retry_only_recommended_after_all_capabilities_have_checkpoint_cases: true,
     human_visual_review_still_required_after_all_passed: true,
     diagnostic_does_not_certify_or_activate_production: true,
   },

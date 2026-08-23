@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   AVANTIQO_OWNED_MODEL_CATALOG,
+  AVANTIQO_OWNED_MEDIA_CERTIFICATION_EVIDENCE_CONTRACT,
   ownedExecutionCertification,
   ownedModelCertification,
   ownedPricingCertification,
@@ -30,6 +31,25 @@ function certifiedPricing(providerId) {
       economics_certified: true,
       model_license_verified: true,
       recalibration_required: false,
+    },
+  };
+}
+
+function certifiedMediaPricing({ providerId, capability, model }) {
+  return {
+    ...certifiedPricing(providerId),
+    provider: providerId,
+    capability,
+    model,
+    metadata: {
+      ...certifiedPricing(providerId).metadata,
+      human_quality_certified: true,
+      human_quality_evidence_contract:
+        AVANTIQO_OWNED_MEDIA_CERTIFICATION_EVIDENCE_CONTRACT,
+      certified_capability: capability,
+      certified_model: model,
+      human_quality_reviewer: "media-certification-reviewer",
+      human_quality_reviewed_at: "2026-08-23T05:00:00.000Z",
     },
   };
 }
@@ -157,4 +177,69 @@ test("owned execution requires both model and economics certification", () => {
     },
   });
   assert.equal(rejected.eligible, false);
+});
+
+test("owned media pricing requires explicit human quality certification", () => {
+  const result = ownedPricingCertification({
+    provider: "avantiqo-image",
+    capability: "ai.image.generate",
+    pricing: {
+      ...certifiedPricing("avantiqo-image"),
+      capability: "ai.image.generate",
+      model: "Qwen/Qwen-Image",
+    },
+  });
+  assert.equal(result.eligible, false);
+  assert.equal(result.media_human_quality_required, true);
+  assert.ok(result.failed_checks.includes("human_quality_certified"));
+  assert.ok(result.failed_checks.includes("human_quality_evidence_contract"));
+  assert.ok(result.failed_checks.includes("certified_capability_bound"));
+  assert.ok(result.failed_checks.includes("certified_model_bound"));
+});
+
+test("owned media pricing requires exact reviewed capability and model bindings", () => {
+  const capability = "ai.video.lipsync";
+  const model = "ByteDance/LatentSync-1.6";
+  const valid = ownedPricingCertification({
+    provider: "avantiqo-video",
+    capability,
+    pricing: certifiedMediaPricing({
+      providerId: "avantiqo-video",
+      capability,
+      model,
+    }),
+  });
+  assert.equal(valid.eligible, true);
+
+  const mismatched = certifiedMediaPricing({
+    providerId: "avantiqo-video",
+    capability,
+    model,
+  });
+  mismatched.metadata.certified_model = "different/model";
+  const rejected = ownedPricingCertification({
+    provider: "avantiqo-video",
+    capability,
+    pricing: mismatched,
+  });
+  assert.equal(rejected.eligible, false);
+  assert.ok(rejected.failed_checks.includes("certified_model_bound"));
+});
+
+test("owned media execution passes only with licensed model and bound human review evidence", () => {
+  const capability = "ai.image.generate";
+  const model = "Qwen/Qwen-Image";
+  const result = ownedExecutionCertification({
+    provider: provider("avantiqo-image", model),
+    capability,
+    pricing: certifiedMediaPricing({
+      providerId: "avantiqo-image",
+      capability,
+      model,
+    }),
+  });
+  assert.equal(result.eligible, true);
+  assert.equal(result.economics.checks.human_quality_certified, true);
+  assert.equal(result.economics.checks.certified_capability_bound, true);
+  assert.equal(result.economics.checks.certified_model_bound, true);
 });

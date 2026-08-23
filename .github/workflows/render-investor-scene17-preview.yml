@@ -31,8 +31,7 @@ jobs:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
-          curl -fsSL \
-            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+          curl -fsSL -H "Authorization: Bearer ${OIDC_TOKEN}" \
             "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-scene17-github-render" \
             > /tmp/assets.json
           python3 - <<'PY'
@@ -46,60 +45,31 @@ jobs:
               print(key, target.stat().st_size)
           PY
 
-      - name: Build Scene 17 overlays
+      - name: Validate render inputs
         run: |
-          python3 -m pip install --quiet pillow
-          python3 - <<'PY'
-          from PIL import Image, ImageDraw, ImageFont
-          from pathlib import Path
-          OUT=Path('/tmp'); W,H=1920,1080
-          def font(size,bold=False):
-              p='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf' if bold else '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
-              return ImageFont.truetype(p,size)
-          src=Image.open('/tmp/customer.png').convert('RGBA')
-          pw,ph,inset=1120,632,19
-          pane=Image.new('RGBA',(pw,ph),(0,0,0,0)); iw,ih=pw-inset*2,ph-inset*2
-          src.thumbnail((iw,ih),Image.Resampling.LANCZOS)
-          ui=Image.new('RGBA',(iw,ih),(0,0,0,0)); ui.alpha_composite(src,((iw-src.width)//2,(ih-src.height)//2))
-          mask=Image.new('L',(iw,ih),0); ImageDraw.Draw(mask).rounded_rectangle((0,0,iw-1,ih-1),radius=23,fill=255)
-          pane.alpha_composite(Image.composite(ui,Image.new('RGBA',ui.size),mask),(inset,inset))
-          d=ImageDraw.Draw(pane); d.rounded_rectangle((6,6,pw-7,ph-7),radius=30,fill=(7,8,10,62),outline=(255,255,255,86),width=2)
-          d.line((28,18,pw-38,18),fill=(255,255,255,42),width=2); pane.save(OUT/'customer-pane.png')
-
-          field=Image.new('RGBA',(W,H),(0,0,0,0)); d=ImageDraw.Draw(field)
-          channels=[('WhatsApp','WA',(37,211,102,255)),('LINE','LINE',(6,199,85,255)),('Messenger','M',(22,138,255,255)),('Facebook','f',(24,119,242,255)),('Instagram','IG',(193,53,132,255)),('Google Reviews','G',(66,133,244,255)),('Email','@',(234,67,53,255)),('Website','WEB',(242,242,238,255))]
-          ys=[190,300,410,520,630,740,850,960]
-          for (label,mark,color),y in zip(channels,ys):
-              x=110
-              pts=[]; p0=(370,y+39);p1=(560,y+39);p2=(600,540);p3=(755,540)
-              for i in range(31):
-                  t=i/30;u=1-t
-                  pts.append((u**3*p0[0]+3*u*u*t*p1[0]+3*u*t*t*p2[0]+t**3*p3[0],u**3*p0[1]+3*u*u*t*p1[1]+3*u*t*t*p2[1]+t**3*p3[1]))
-              d.line(pts,fill=(214,166,106,86),width=2)
-              d.rounded_rectangle((x,y,x+260,y+78),radius=20,fill=(7,8,10,158),outline=(255,255,255,26),width=1)
-              d.rounded_rectangle((x+12,y+12,x+66,y+66),radius=17,fill=color)
-              mf=font(12 if len(mark)>2 else 22,True); bb=d.textbbox((0,0),mark,font=mf)
-              fill=(16,17,20,255) if label=='Website' else (255,255,255,255)
-              d.text((x+39-(bb[2]-bb[0])/2,y+39-(bb[3]-bb[1])/2-2),mark,font=mf,fill=fill)
-              d.text((x+82,y+25),label,font=font(18,True),fill=(242,240,234,235))
-          d.ellipse((751,536,759,544),fill=(232,201,141,210)); field.save(OUT/'channels.png')
-
-          label=Image.new('RGBA',(780,86),(0,0,0,0)); d=ImageDraw.Draw(label)
-          text='EVERY INTERACTION  →  ONE BUSINESS CONTEXT'; f=font(19)
-          bb=d.textbbox((0,0),text,font=f); d.text(((780-(bb[2]-bb[0]))/2,14),text,font=f,fill=(242,240,234,235))
-          d.line((110,62,670,62),fill=(214,166,106,180),width=1); label.save(OUT/'context-label.png')
-          PY
+          set -euo pipefail
+          test -s /tmp/manager.mp4
+          test -s /tmp/customer.png
+          test -s /tmp/voice.mp3
+          test -s /tmp/score.mp3
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 /tmp/manager.mp4
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 /tmp/voice.mp3
 
       - name: Render Scene 17 V2
+        shell: bash
         run: |
+          set -euo pipefail
+          FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+          BOLD=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
           ffmpeg -y \
             -stream_loop -1 -ss 2.4 -i /tmp/manager.mp4 \
-            -loop 1 -framerate 24 -i /tmp/channels.png \
-            -loop 1 -framerate 24 -i /tmp/customer-pane.png \
-            -loop 1 -framerate 24 -i /tmp/context-label.png \
-            -i /tmp/voice.mp3 -i /tmp/score.mp3 -t 5.625 \
-            -filter_complex "[0:v]scale=1970:1108:force_original_aspect_ratio=increase,crop=1920:1080:x='(iw-ow)/2+4*sin(t*0.19)':y='(ih-oh)/2+2*sin(t*0.15)',fps=24,eq=contrast=1.04:brightness=-0.022:saturation=0.84,format=yuv420p[bg];[1:v]format=rgba,fade=t=in:st=0.10:d=0.42:alpha=1[channelField];[2:v]format=rgba,fade=t=in:st=0.92:d=0.45:alpha=1[customerPane];[3:v]format=rgba,fade=t=in:st=3.45:d=0.36:alpha=1[contextLabel];[bg][channelField]overlay=0:0:shortest=1[s1];[s1][customerPane]overlay=x='760+4*sin(t*0.18)':y='225+3*sin(t*0.15)':shortest=1[s2];[s2][contextLabel]overlay=x=965:y=880:shortest=1,format=yuv420p[v];[4:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=1.03[voice];[5:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=0.10[score];[voice][score]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,alimiter=limit=0.95,atrim=duration=5.625[a]" \
-            -map "[v]" -map "[a]" -c:v libx264 -preset fast -crf 17 -pix_fmt yuv420p -r 24 \
+            -loop 1 -framerate 24 -i /tmp/customer.png \
+            -i /tmp/voice.mp3 \
+            -i /tmp/score.mp3 \
+            -t 5.625 \
+            -filter_complex "[0:v]scale=1970:1108:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,eq=contrast=1.04:brightness=-0.022:saturation=0.84,format=yuv420p[base];[1:v]scale=1040:586:force_original_aspect_ratio=decrease,pad=1080:626:20:20:color=0x08090BCC,format=rgba,fade=t=in:st=0.92:d=0.42:alpha=1[ui];[base]drawbox=x=92:y=165:w=300:h=805:color=0x07080AAA:t=fill:enable='gte(t,0.08)',drawbox=x=104:y=185:w=54:h=54:color=0x25D366:t=fill:enable='gte(t,0.12)',drawtext=fontfile=${BOLD}:text='WA':fontcolor=white:fontsize=19:x=115:y=201:enable='gte(t,0.12)',drawtext=fontfile=${BOLD}:text='WhatsApp':fontcolor=0xF2F0EA:fontsize=20:x=176:y=201:enable='gte(t,0.12)',drawbox=x=104:y=280:w=54:h=54:color=0x06C755:t=fill:enable='gte(t,0.22)',drawtext=fontfile=${BOLD}:text='LINE':fontcolor=white:fontsize=14:x=112:y=299:enable='gte(t,0.22)',drawtext=fontfile=${BOLD}:text='LINE':fontcolor=0xF2F0EA:fontsize=20:x=176:y=296:enable='gte(t,0.22)',drawbox=x=104:y=375:w=54:h=54:color=0x168AFF:t=fill:enable='gte(t,0.32)',drawtext=fontfile=${BOLD}:text='M':fontcolor=white:fontsize=24:x=121:y=390:enable='gte(t,0.32)',drawtext=fontfile=${BOLD}:text='Messenger':fontcolor=0xF2F0EA:fontsize=20:x=176:y=391:enable='gte(t,0.32)',drawbox=x=104:y=470:w=54:h=54:color=0x1877F2:t=fill:enable='gte(t,0.42)',drawtext=fontfile=${BOLD}:text='f':fontcolor=white:fontsize=27:x=125:y=481:enable='gte(t,0.42)',drawtext=fontfile=${BOLD}:text='Facebook':fontcolor=0xF2F0EA:fontsize=20:x=176:y=486:enable='gte(t,0.42)',drawbox=x=104:y=565:w=54:h=54:color=0xC13584:t=fill:enable='gte(t,0.52)',drawtext=fontfile=${BOLD}:text='IG':fontcolor=white:fontsize=18:x=116:y=582:enable='gte(t,0.52)',drawtext=fontfile=${BOLD}:text='Instagram':fontcolor=0xF2F0EA:fontsize=20:x=176:y=581:enable='gte(t,0.52)',drawbox=x=104:y=660:w=54:h=54:color=0x4285F4:t=fill:enable='gte(t,0.62)',drawtext=fontfile=${BOLD}:text='G':fontcolor=white:fontsize=23:x=121:y=675:enable='gte(t,0.62)',drawtext=fontfile=${BOLD}:text='Google Reviews':fontcolor=0xF2F0EA:fontsize=18:x=176:y=677:enable='gte(t,0.62)',drawbox=x=104:y=755:w=54:h=54:color=0xEA4335:t=fill:enable='gte(t,0.72)',drawtext=fontfile=${BOLD}:text='@':fontcolor=white:fontsize=22:x=118:y=770:enable='gte(t,0.72)',drawtext=fontfile=${BOLD}:text='Email':fontcolor=0xF2F0EA:fontsize=20:x=176:y=771:enable='gte(t,0.72)',drawbox=x=104:y=850:w=54:h=54:color=0xF2F2EE:t=fill:enable='gte(t,0.82)',drawtext=fontfile=${BOLD}:text='WEB':fontcolor=0x101114:fontsize=12:x=114:y=871:enable='gte(t,0.82)',drawtext=fontfile=${BOLD}:text='Website':fontcolor=0xF2F0EA:fontsize=20:x=176:y=866:enable='gte(t,0.82)'[stage];[stage][ui]overlay=x=700:y=205:enable='gte(t,0.92)':shortest=1[withui];[withui]drawbox=x=430:y=527:w=245:h=2:color=0xD6A66A99:t=fill:enable='between(t,0.55,5.625)',drawbox=x=450:y=930:w=1280:h=1:color=0xD6A66A88:t=fill:enable='gte(t,3.45)',drawtext=fontfile=${FONT}:text='EVERY INTERACTION   -   ONE BUSINESS CONTEXT':fontcolor=0xF3EFE8:fontsize=22:x=690:y=888:enable='gte(t,3.45)',format=yuv420p[v];[2:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=1.03[voice];[3:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=0.10[score];[voice][score]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,alimiter=limit=0.95,atrim=duration=5.625[a]" \
+            -map "[v]" -map "[a]" \
+            -c:v libx264 -preset fast -crf 17 -pix_fmt yuv420p -r 24 \
             -c:a aac -b:a 256k -ar 48000 -ac 2 -movflags +faststart \
             scene-17-customer-interaction-review-v2.mp4
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 scene-17-customer-interaction-review-v2.mp4

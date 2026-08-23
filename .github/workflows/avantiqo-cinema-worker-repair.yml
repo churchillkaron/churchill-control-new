@@ -1,0 +1,102 @@
+name: Avantiqo Cinema Worker Repair
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-cinema-worker-repair-request.json
+      - .github/workflows/avantiqo-cinema-worker-repair.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-cinema-worker-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID }}
+      INVESTOR_SCENE9_PROVIDER_JOB_ID: 7149b284-b209-417f-acb6-71b4112e116c-e1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Verify execution and management access
+        id: preflight
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const apiKey = String(process.env.RUNPOD_API_KEY || "").trim();
+          const endpointId = String(process.env.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID || "").trim();
+          const jobId = String(process.env.INVESTOR_SCENE9_PROVIDER_JOB_ID || "").trim();
+          if (!apiKey || !endpointId || !jobId) throw new Error("RUNPOD_REPAIR_REQUIRED_SECRET_MISSING");
+
+          async function json(url, options = {}) {
+            const response = await fetch(url, {
+              ...options,
+              headers: {
+                Accept: "application/json",
+                ...(options.body ? { "Content-Type": "application/json" } : {}),
+                ...(options.headers || {}),
+              },
+              signal: AbortSignal.timeout(30000),
+            });
+            const raw = await response.text();
+            let body = null;
+            try { body = raw ? JSON.parse(raw) : null; } catch {}
+            return { status: response.status, ok: response.ok, body };
+          }
+
+          const auth = { Authorization: `Bearer ${apiKey}` };
+          const health = await json(`https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}/health`, { headers: auth });
+          const job = await json(`https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}/status/${encodeURIComponent(jobId)}`, { headers: auth });
+          console.log(`AVANTIQO_CINEMA_EXECUTION_HEALTH_HTTP=${health.status}`);
+          console.log(`AVANTIQO_CINEMA_SCENE9_STATUS_HTTP=${job.status}`);
+          console.log(`AVANTIQO_CINEMA_SCENE9_STATUS=${String(job.body?.status || "UNKNOWN")}`);
+          console.log(`AVANTIQO_CINEMA_HEALTH_JOBS=${Number(health.body?.jobs?.inQueue ?? health.body?.jobs?.in_queue ?? 0)}`);
+          console.log(`AVANTIQO_CINEMA_HEALTH_WORKERS_IDLE=${Number(health.body?.workers?.idle ?? 0)}`);
+          console.log(`AVANTIQO_CINEMA_HEALTH_WORKERS_RUNNING=${Number(health.body?.workers?.running ?? 0)}`);
+          console.log(`AVANTIQO_CINEMA_HEALTH_WORKERS_READY=${Number(health.body?.workers?.ready ?? 0)}`);
+
+          const query = `query { myself { id endpoints { id name templateId workersMin workersMax scalerType scalerValue } } }`;
+          const management = await json(`https://api.runpod.io/graphql?api_key=${encodeURIComponent(apiKey)}`, {
+            method: "POST",
+            body: JSON.stringify({ query }),
+          });
+          const endpointVisible = Array.isArray(management.body?.data?.myself?.endpoints) &&
+            management.body.data.myself.endpoints.some((entry) => String(entry?.id || "") === endpointId);
+          const managementOk = management.ok && !management.body?.errors && endpointVisible;
+          console.log(`AVANTIQO_CINEMA_MANAGEMENT_HTTP=${management.status}`);
+          console.log(`AVANTIQO_CINEMA_MANAGEMENT_TARGET_VISIBLE=${managementOk ? "YES" : "NO"}`);
+          await import("node:fs/promises").then(({ appendFile }) =>
+            appendFile(process.env.GITHUB_OUTPUT, `management_ok=${managementOk ? "true" : "false"}\n`),
+          );
+          NODE
+
+      - name: Apply guarded T2V-only worker repair
+        if: steps.preflight.outputs.management_ok == 'true'
+        env:
+          AVANTIQO_CINEMA_RUNPOD_REPAIR: "1"
+          AVANTIQO_CINEMA_RUNPOD_REPAIR_WAIT_MS: "600000"
+        run: node scripts/repair-avantiqo-cinema-runpod-worker-local.mjs
+
+      - name: Record repair result
+        if: always()
+        shell: bash
+        run: |
+          echo "## Avantiqo Cinema worker repair" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Scene 9 provider job: $INVESTOR_SCENE9_PROVIDER_JOB_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Management access available: ${{ steps.preflight.outputs.management_ok || 'false' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- No new Scene 9 generation was submitted by this workflow." >> "$GITHUB_STEP_SUMMARY"

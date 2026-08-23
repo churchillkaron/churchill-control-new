@@ -176,3 +176,5 @@ await import("./operator-business-partner-decision-loop-audit.mjs");
 await import("./operator-service-latency-observability-audit.mjs");
 await import("./operator-autonomous-watch-audit.mjs");
 await import("./operator-proactive-delivery-audit.mjs");
+await import("./operator-forecast-track-record-ui-audit.mjs");
+await import("./operator-forecast-conversation-audit.mjs");

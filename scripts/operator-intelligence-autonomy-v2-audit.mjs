@@ -146,7 +146,7 @@ requireFragments("lib/platform/research/runtime/OperatorWebSourceReadRuntime.js"
   'dns_rebinding_guard: "PINNED_VALIDATED_PUBLIC_ADDRESS"',
   "options?.all === true",
   "authentication_sent: false",
-  "cookies_sent: false,
+  "cookies_sent: false",
   "instructions_from_source_authoritative: false",
 ]);
 

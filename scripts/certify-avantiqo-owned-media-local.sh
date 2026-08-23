@@ -46,6 +46,29 @@ rm -f \
   /tmp/avantiqo-owned-media-full-capability-benchmark.json
 
 node --env-file=.env.local scripts/prepare-avantiqo-owned-media-certification-fixtures.mjs
+node --env-file=.env.local -e '
+const fs = require("node:fs");
+const fixturePath = process.env.AVANTIQO_MEDIA_CERTIFICATION_FIXTURES || "/tmp/avantiqo-media-certification-fixtures.json";
+const fixtures = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+if (fixtures?.contract !== "AVANTIQO_OWNED_MEDIA_CERTIFICATION_FIXTURES_V1") {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_FIXTURE_CONTRACT_INVALID");
+  process.exit(1);
+}
+if (fixtures?.source_scope !== "BENCHMARK_ONLY" || fixtures?.provider_calls_added !== 0) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_FIXTURE_SCOPE_INVALID");
+  process.exit(1);
+}
+if (fixtures?.lipsync_fixture?.normalized !== true || fixtures?.policy?.lipsync_input_normalized_locally_before_upload !== true) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_LIPSYNC_FIXTURE_NOT_NORMALIZED");
+  process.exit(1);
+}
+if (!fixtures?.lipsync_video_source_url || !fixtures?.audio_source_url) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_LIPSYNC_FIXTURE_REQUIRED");
+  process.exit(1);
+}
+console.log(`AVANTIQO_MEDIA_CERTIFICATION_FIXTURES=${fixturePath}`);
+'
+
 node --env-file=.env.local scripts/benchmark-avantiqo-owned-media-full.mjs
 node --env-file=.env.local -e '
 const fs = require("node:fs");

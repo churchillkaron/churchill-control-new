@@ -24,6 +24,10 @@ const registration = fs.readFileSync(
   ),
   "utf8",
 );
+const packageJson = fs.readFileSync(
+  new URL("../package.json", import.meta.url),
+  "utf8",
+);
 
 test("Qwen3 parser and tool parser contract remain pinned", () => {
   assert.match(registration, /REASONING_PARSER:\s*"qwen3"/);
@@ -39,9 +43,24 @@ test("reasoning parser boundary rejects leaks and truncation", () => {
 
 test("benchmark embeds a trace without changing provider transport schema", () => {
   assert.match(benchmark, /AVANTIQO_CERTIFICATION_TRACE_ID=/);
-  assert.match(benchmark, /messages:\s*tracedMessages\(item\.input\.messages\)/);
+  assert.match(benchmark, /tracedMessages/);
   assert.doesNotMatch(benchmark, /metadata:\s*\{/);
   assert.match(benchmark, /AVANTIQO_INTELLIGENCE_BENCHMARK_OUTPUT/);
+});
+
+test("deep strategy cognition is natural and JSON is only a boundary compile", () => {
+  assert.match(benchmark, /NATURAL_REASONING_THEN_MACHINE_BOUNDARY_COMPILE/);
+  assert.match(benchmark, /Do not output JSON, a schema, or private chain-of-thought/);
+  assert.match(benchmark, /response_format_used:\s*false/);
+  assert.match(benchmark, /contract_compile/);
+  assert.match(benchmark, /response_format:\s*\{\s*type:\s*"json_object"\s*\}/);
+  assert.match(benchmark, /tools_used:\s*false/);
+});
+
+test("strategic compiler preserves evidence gaps and exact contract", () => {
+  assert.match(benchmark, /exactKeys\(parsed, \["decision", "rationale", "next_steps"\]\)/);
+  assert.match(benchmark, /acknowledges_missing_guest_count/);
+  assert.match(benchmark, /Preserve missing-evidence statements/);
 });
 
 test("certification refuses pre-existing work and never purges a shared queue", () => {
@@ -55,6 +74,13 @@ test("cleanup may cancel only requests carrying its own trace", () => {
   assert.match(wrapper, /cleanup_only_own_traced_requests:\s*true/);
   assert.match(wrapper, /foreign_requests_touched:\s*0/);
   assert.match(wrapper, /foreign_nonterminal_detected/);
+});
+
+test("local certification commands load .env.local and never deploy", () => {
+  assert.match(packageJson, /benchmark:intelligence:local/);
+  assert.match(packageJson, /benchmark:owned:local/);
+  assert.match(packageJson, /--env-file=\.env\.local/);
+  assert.doesNotMatch(packageJson, /benchmark:intelligence:local[^\n]*vercel\s+(--prod|deploy)/);
 });
 
 test("intelligence certification cannot activate pricing or routing", () => {

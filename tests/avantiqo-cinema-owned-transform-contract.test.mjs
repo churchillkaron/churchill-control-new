@@ -93,6 +93,42 @@ test("first-last Cinema release requires deterministic endpoint fidelity and exp
   assert.match(endpointGate, /CREATIVE_CINEMA_ENDPOINT_FIDELITY_FAILED/);
 });
 
+test("continued first-last Cinema autonomously plans and binds a governed closing keyframe", () => {
+  const continuationGraph = source(
+    "lib/creative/continuity/runtime/CreativeShotContinuationGraphRuntime.js",
+  );
+  const continuationGate = source(
+    "lib/creative/continuity/runtime/CreativeShotContinuationExecutionGate.js",
+  );
+  const closingGate = source(
+    "lib/creative/continuity/runtime/CreativeClosingKeyframeExecutionGate.js",
+  );
+
+  assert.match(continuationGraph, /CREATIVE_CLOSING_KEYFRAME_V1/);
+  assert.match(continuationGraph, /CREATIVE_CLOSING_KEYFRAME_REVIEW_V1/);
+  assert.match(continuationGraph, /provider:\s*"avantiqo-image"/);
+  assert.match(continuationGraph, /closing_keyframe_required:\s*true/);
+  assert.match(
+    continuationGraph,
+    /last_frame_binding_required_at_execution:\s*true/,
+  );
+  assert.match(
+    continuationGate,
+    /CreativeClosingKeyframeExecutionGate/,
+  );
+  assert.doesNotMatch(
+    continuationGate,
+    /CREATIVE_SHOT_CONTINUATION_LAST_FRAME_REQUIRED/,
+  );
+  assert.match(closingGate, /CREATIVE_APPROVED_CLOSING_KEYFRAME_BINDING_V1/);
+  assert.match(closingGate, /closing_state_correct === true/);
+  assert.match(closingGate, /camera_handoff_coherent === true/);
+  assert.match(closingGate, /artifacts_absent === true/);
+  assert.match(closingGate, /last_frame:\s*url/);
+  assert.match(closingGate, /role:\s*"APPROVED_CLOSING_KEYFRAME"/);
+  assert.match(closingGate, /CREATIVE_CLOSING_KEYFRAME_REVIEW_FAILED/);
+});
+
 test("advanced Cinema transforms stay implemented but not default production-certified", () => {
   const provider = source(
     "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProvider.js",

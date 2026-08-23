@@ -20,11 +20,10 @@ const businessAgent = fs.readFileSync(
 );
 
 test("supervisor implements shared fast and deep owned brain modes", () => {
-  assert.match(supervisor, /AVANTIQO_INTELLIGENCE_SUPERVISOR_V1/);
+  assert.match(supervisor, /AVANTIQO_INTELLIGENCE_SUPERVISOR_V2/);
   assert.match(supervisor, /FAST MODE:/);
   assert.match(supervisor, /DEEP MODE:/);
-  assert.match(supervisor, /reason_act_observe/);
-  assert.match(supervisor, /critique_repair/);
+  assert.match(supervisor, /AvantiqoStructuredIntelligenceSupervisorRuntime\.run/);
 });
 
 test("supervisor repairs before completion claims in deep mode", () => {
@@ -34,12 +33,20 @@ test("supervisor repairs before completion claims in deep mode", () => {
   assert.match(supervisor, /needs_human/);
 });
 
-test("structured supervisor can wrap existing governed decision contracts", () => {
-  assert.match(structuredSupervisor, /AVANTIQO_STRUCTURED_INTELLIGENCE_SUPERVISOR_V1/);
-  assert.match(structuredSupervisor, /reason_act_observe/);
-  assert.match(structuredSupervisor, /critique_repair/);
-  assert.match(structuredSupervisor, /Do not change the required JSON schema/);
-  assert.match(structuredSupervisor, /INVALID_REPAIR_JSON/);
+test("structured supervisor separates natural cognition from JSON boundary compilation", () => {
+  assert.match(structuredSupervisor, /AVANTIQO_STRUCTURED_INTELLIGENCE_SUPERVISOR_V2/);
+  assert.match(structuredSupervisor, /Do not force your reasoning into JSON or any schema/);
+  assert.match(structuredSupervisor, /structured_boundary_compilation: false/);
+  assert.match(structuredSupervisor, /structured_boundary_compilation: true/);
+  assert.match(structuredSupervisor, /response_format: \{ type: "json_object" \}/);
+  assert.match(structuredSupervisor, /contract_compile/);
+  assert.match(structuredSupervisor, /Return a concise corrected decision brief, not JSON/);
+  assert.match(structuredSupervisor, /INVALID_COMPILED_JSON/);
+});
+
+test("reasoning loop exposes JSON mode only as an optional machine-boundary control", () => {
+  assert.match(reasoningLoop, /response_format = null/);
+  assert.match(reasoningLoop, /response_format \? \{ response_format: object\(response_format\) \} : \{\}/);
 });
 
 test("reasoning loop is locked to owned Avantiqo Intelligence", () => {

@@ -385,14 +385,28 @@ for (const forbiddenLegacyExecution of [
   }
 }
 
-requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapability.js", [
+const productCyclePath =
+  "lib/platform/capabilities/createProductEngineeringCycleCapability.js";
+requireFragments(productCyclePath, [
   'capability: "product_engineering_cycle"',
-  '"platform.product_autonomy.assess"',
+  'id: "assess_repository"',
+  'capability_key: "platform.product_repository_assessment.read"',
   '"platform.code_ai_autonomous.execute"',
-  'source_path: "recommended_code_ai_handoff.objective"',
+  'source_step_id: "assess_repository"',
+  'source_path: "next_engineering_handoff.focus"',
   'target_path: "objective"',
   '"platform.code_ai_autonomous_status.verify"',
   '"platform.product_persistence_decision.assess"',
+  "missionStepCapabilityResult",
+  "repositoryAssessment",
+  "repository_head_observed",
+  "PRODUCT_ENGINEERING_CYCLE_MAIN_ONLY",
+  "repositoryGroundedAssessmentRequired: true",
+  "currentMainRecheckBeforeEngineeringRequired: true",
+  "repository_grounded_assessment_required: true",
+  "current_main_rechecked_before_engineering",
+  "repository_source_evidence_is_certification: false",
+  "incoming_focus_is_authority: false",
   'capability: "product_persistence_handoff"',
   'action: "execute"',
   "preparePersistenceHandoff",
@@ -402,9 +416,15 @@ requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapabil
   '"platform.code_ai_commit_status.verify"',
   "commit_requested",
   "commit_completed",
+  "automaticRecursionAllowed: false",
   "production_deployed: false",
   "database_migrations_applied: false",
 ]);
+if (files[productCyclePath].includes('capability_key: "platform.product_autonomy.assess"')) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product Engineering Cycle must select its engineering objective from fresh repository evidence, not the running-process Product autonomy assessor",
+  );
+}
 
 requireFragments("lib/operator/runtime/IntelligenceMemoryRuntime.js", [
   'const scopes = ["organization"]',
@@ -587,7 +607,8 @@ console.log("OPERATOR_CODE_AI_COMMIT_VERIFICATION=EXECUTE_PERMISSION_READ_ONLY_R
 console.log("OPERATOR_PRODUCT_PERSISTENCE_DECISION=OWNED_READ_ONLY_NO_AUTHORIZATION_EFFECT");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_HANDOFF=CONDITIONAL_COMMIT_PERMISSION_AT_REGISTERED_WRITE_STEP");
 console.log("OPERATOR_PRODUCT_ALREADY_PERSISTED_CONTINUATION=TWO_READS_ONE_OBJECTIVE_NO_EXECUTION");
-console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY_DECIDE_PREPARE_CONFIRMATION");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=REPOSITORY_MAIN_ASSESS_BIND_ENGINEER_VERIFY_DECIDE_PREPARE_CONFIRMATION");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_OBJECTIVE=FRESH_CURRENT_MAIN_EVIDENCE_NOT_PROCESS_CATALOG");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_DEFAULT_PERSISTENCE=LOCAL_ONLY_UNTIL_EXPLICIT_NESTED_COMMIT_CONFIRMATION");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_CONVERSATION=ONE_CONFIRMATION_EXACT_MISSION_RESUME");
 console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION=VERIFIED_COMMIT_ONE_REPOSITORY_GROUNDED_BOUNDED_REASSESSMENT");

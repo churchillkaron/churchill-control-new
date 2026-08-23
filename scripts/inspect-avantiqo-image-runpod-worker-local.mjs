@@ -5,9 +5,9 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-function required(name) {
+function required(name, code = `${name}_REQUIRED`) {
   const value = text(process.env[name]);
-  if (!value) throw new Error(`${name}_REQUIRED`);
+  if (!value) throw new Error(code);
   return value;
 }
 
@@ -23,7 +23,7 @@ function normalizeEnv(value) {
   );
 }
 
-async function request(url, credential) {
+async function request(url, credential, credentialKind) {
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${credential}`,
@@ -40,6 +40,11 @@ async function request(url, credential) {
   }
   if (!response.ok) {
     const detail = text(body?.message || body?.error || body?.detail || raw).slice(0, 1000);
+    if (response.status === 401 && credentialKind === "management") {
+      throw new Error(
+        `RUNPOD_MANAGEMENT_API_KEY_UNAUTHORIZED:${detail || "EMPTY_BODY"}`,
+      );
+    }
     throw new Error(`RUNPOD_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
   }
   return body;
@@ -121,13 +126,19 @@ function safeHealth(body = {}) {
 
 const inferenceKey =
   text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
-const managementKey =
-  text(process.env.RUNPOD_MANAGEMENT_API_KEY) || required("RUNPOD_API_KEY");
+const managementKey = required(
+  "RUNPOD_MANAGEMENT_API_KEY",
+  "RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_READ_ONLY_IMAGE_ENDPOINT_INSPECTION",
+);
 const endpointId = required("RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID");
+
+console.log("AVANTIQO_IMAGE_RUNPOD_INSPECT_READ_ONLY=true");
+console.log("AVANTIQO_IMAGE_RUNPOD_MANAGEMENT_CREDENTIAL=DEDICATED");
 
 const endpoint = await request(
   `${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
   managementKey,
+  "management",
 );
 if (text(endpoint?.id) !== endpointId) {
   throw new Error("RUNPOD_IMAGE_ENDPOINT_ID_MISMATCH");
@@ -138,6 +149,7 @@ if (!templateId) throw new Error("RUNPOD_IMAGE_TEMPLATE_ID_REQUIRED");
 const template = await request(
   `${REST_BASE}/templates/${encodeURIComponent(templateId)}`,
   managementKey,
+  "management",
 );
 if (text(template?.id) !== templateId) {
   throw new Error("RUNPOD_IMAGE_TEMPLATE_BINDING_MISMATCH");
@@ -146,11 +158,12 @@ if (text(template?.id) !== templateId) {
 const health = await request(
   `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`,
   inferenceKey,
+  "inference",
 );
 
 const result = {
   success: true,
-  contract: "AVANTIQO_IMAGE_RUNPOD_INSPECT_V1",
+  contract: "AVANTIQO_IMAGE_RUNPOD_INSPECT_V2",
   read_only: true,
   mutation_performed: false,
   inference_performed: false,
@@ -163,6 +176,7 @@ const result = {
     mutable_tag_can_rolling_release_after_registry_publish:
       imageReferenceKind(template.imageName).startsWith("MUTABLE_"),
   },
+  dedicated_management_credential_used: true,
   secrets_in_output: false,
 };
 

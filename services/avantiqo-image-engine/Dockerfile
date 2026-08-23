@@ -3,7 +3,11 @@ FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    HF_HUB_DISABLE_XET=1 \
+    HF_HUB_DOWNLOAD_TIMEOUT=600 \
+    HF_HUB_ETAG_TIMEOUT=60 \
+    HF_HUB_DISABLE_PROGRESS_BARS=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git ca-certificates \

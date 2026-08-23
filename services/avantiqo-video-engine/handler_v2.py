@@ -38,6 +38,10 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _object(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def _configured_capabilities() -> set[str]:
     configured = {
         item.strip()
@@ -56,6 +60,62 @@ def _certification_execution(data: dict[str, Any]) -> bool:
     )
 
 
+def _structured_transport(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    specification = _object(data.get("structured_specification"))
+    generation = _object(specification.get("generation"))
+    provider_parameters = {
+        **_object(generation.get("provider_parameters")),
+        **_object(specification.get("provider_parameters")),
+    }
+    return specification, generation, provider_parameters
+
+
+def _governed_control(
+    data: dict[str, Any],
+    specification: dict[str, Any],
+    generation: dict[str, Any],
+) -> dict[str, Any]:
+    existing = _object(data.get("cinematic_control"))
+    if existing:
+        return existing
+    requirements = _object(specification.get("requirements"))
+    shot_specification = _object(
+        generation.get("shot_specification")
+        or generation.get("shotSpecification")
+        or requirements.get("shot_specification")
+        or requirements.get("shotSpecification")
+    )
+    return {
+        "contract": legacy.CINEMATIC_CONTROL_CONTRACT,
+        "identity_lock": _object(
+            specification.get("identity_lock")
+            or generation.get("identity_lock")
+            or requirements.get("identity_lock")
+        ),
+        "shot_specification": shot_specification,
+        "camera": _object(
+            generation.get("camera")
+            or shot_specification.get("camera")
+            or requirements.get("camera")
+        ),
+        "continuity": _object(
+            generation.get("continuity")
+            or shot_specification.get("continuity")
+            or requirements.get("continuity")
+        ),
+        "frame_contract": _object(
+            generation.get("frame_contract")
+            or shot_specification.get("frame_contract")
+            or requirements.get("frame_contract")
+        ),
+        "negative_constraints": (
+            requirements.get("negative_constraints")
+            if isinstance(requirements.get("negative_constraints"), list)
+            else []
+        ),
+    }
+
+
 def _validate_special(job: dict[str, Any]) -> dict[str, Any]:
     data = job.get("input") or {}
     if data.get("contract") != legacy.ENGINE_CONTRACT:
@@ -72,20 +132,64 @@ def _validate_special(job: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("AVANTIQO_VIDEO_INSTRUCTION_REQUIRED")
     if len(instruction) > 12000:
         raise ValueError("AVANTIQO_VIDEO_INSTRUCTION_TOO_LONG")
-    duration = int(data.get("duration_seconds") or 5)
+
+    specification, generation, provider_parameters = _structured_transport(data)
+    duration = int(
+        data.get("duration_seconds")
+        or generation.get("duration_seconds")
+        or generation.get("duration")
+        or provider_parameters.get("duration_seconds")
+        or 5
+    )
     if duration < 2 or duration > 10:
         raise ValueError("AVANTIQO_VIDEO_DURATION_INVALID")
-    fps = int(data.get("fps") or 24)
+    fps = int(
+        data.get("fps")
+        or generation.get("fps")
+        or provider_parameters.get("fps")
+        or 24
+    )
     if fps < 8 or fps > 30:
         raise ValueError("AVANTIQO_VIDEO_FPS_INVALID")
-    aspect_ratio = _text(data.get("aspect_ratio") or "16:9")
+    aspect_ratio = _text(
+        data.get("aspect_ratio")
+        or generation.get("aspect_ratio")
+        or generation.get("ratio")
+        or provider_parameters.get("aspect_ratio")
+        or "16:9"
+    )
     if aspect_ratio not in {"16:9", "9:16", "1:1"}:
         raise ValueError("AVANTIQO_VIDEO_ASPECT_RATIO_INVALID")
+    resolution = _text(
+        data.get("resolution")
+        or generation.get("resolution")
+        or provider_parameters.get("resolution")
+        or "720p"
+    ).lower()
+    if resolution != "720p":
+        raise ValueError("AVANTIQO_VIDEO_RESOLUTION_UNSUPPORTED")
 
-    source_video = _text(data.get("source_video"))
+    roles = _object(data.get("source_asset_roles"))
+    source_video = _text(data.get("source_video") or roles.get("source_video"))
+    if not source_video:
+        source_assets = data.get("source_assets") or []
+        if isinstance(source_assets, list) and source_assets:
+            source_video = _text(source_assets[0])
     if not source_video:
         raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_REQUIRED")
     source_video = legacy._public_https_url(source_video)
+
+    raw_seed = (
+        data.get("seed")
+        if data.get("seed") is not None
+        else generation.get("seed")
+        if generation.get("seed") is not None
+        else provider_parameters.get("seed")
+    )
+    seed = int(raw_seed) if raw_seed is not None and raw_seed != "" else None
+    if seed is not None and (seed < 0 or seed > 4294967295):
+        raise ValueError("AVANTIQO_VIDEO_SEED_INVALID")
+
     storage_upload = data.get("storage_upload") or {}
     signed_url = legacy._public_https_url(storage_upload.get("signed_url"), upload=True)
     storage_reference = _text(storage_upload.get("storage_reference"))
@@ -99,7 +203,10 @@ def _validate_special(job: dict[str, Any]) -> dict[str, Any]:
         "duration_seconds": duration,
         "fps": fps,
         "aspect_ratio": aspect_ratio,
+        "resolution": resolution,
         "source_video": source_video,
+        "seed": seed,
+        "cinematic_control": _governed_control(data, specification, generation),
         "storage_upload": {
             **storage_upload,
             "signed_url": signed_url,
@@ -219,9 +326,11 @@ def _extend(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
             "width": width,
             "height": height,
             "size_bytes": size_bytes,
+            "seed": seed,
             "boundary_frame_from_exact_source_tail": True,
             "source_then_generated_continuation": True,
             "continuity_control_bound": bool((data.get("cinematic_control") or {}).get("continuity")),
+            "cinematic_control_contract": _text((data.get("cinematic_control") or {}).get("contract")) or None,
             "native_audio": False,
             "certification_execution": data.get("certification_execution") is True,
             "raw_reasoning_persisted": False,
@@ -261,11 +370,13 @@ def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(result, Image.Image):
                 raise RuntimeError("AVANTIQO_VIDEO_UPSCALE_FRAME_OUTPUT_INVALID")
             superres = result.convert("RGB")
-            # Cinema V1 is 720p; normalize owned SR to a bounded 1080-class delivery raster.
             ratio = min(1.0, (MAX_UPSCALE_OUTPUT_PIXELS / (superres.width * superres.height)) ** 0.5)
             if ratio < 1.0:
                 superres = superres.resize(
-                    (max(2, int(superres.width * ratio) // 2 * 2), max(2, int(superres.height * ratio) // 2 * 2)),
+                    (
+                        max(2, int(superres.width * ratio) // 2 * 2),
+                        max(2, int(superres.height * ratio) // 2 * 2),
+                    ),
                     Image.Resampling.LANCZOS,
                 )
             output_width, output_height = superres.size

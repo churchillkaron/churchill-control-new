@@ -14,11 +14,10 @@ import { operatorPredictionAccountabilitySummary } from "@/lib/operator/contract
 import {
   normalizeOperatorProactiveDeliveryPolicy,
   normalizeOperatorProactiveDeliveryPolicySource,
-  operatorProactiveDeliveryChannelCatalog,
   operatorProactiveDeliveryPublicPolicy,
 } from "@/lib/operator/contracts/OperatorProactiveDeliveryPolicy";
 import { operatorProactiveDeliveryStatus } from "@/lib/operator/runtime/OperatorProactiveDeliveryRuntime";
-import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
+import { operatorProactiveDeliveryReadiness } from "@/lib/operator/runtime/OperatorProactiveDeliveryReadinessRuntime";
 
 const FULL_ACCESS_ROLES = new Set(["OWNER", "ORGANIZATION_OWNER", "ORG_OWNER", "PLATFORM_OWNER", "SUPER_ADMIN"]);
 
@@ -116,37 +115,6 @@ function requestedDeliveryPolicy(body, projectState) {
   );
 }
 
-async function deliveryChannelReadiness(organizationId) {
-  return Promise.all(
-    operatorProactiveDeliveryChannelCatalog().map(async (channel) => {
-      try {
-        const service = await OrganizationServiceRuntime.get({
-          organization_id: organizationId,
-          service_id: channel.service_id,
-        });
-        const status = text(service?.status, 80).toUpperCase();
-        return {
-          ...channel,
-          organization_service_exists: Boolean(service),
-          active: status === "ACTIVE",
-          usage_enabled: service?.usage_enabled !== false,
-          ready_for_execution:
-            Boolean(service) && status === "ACTIVE" && service?.usage_enabled !== false,
-        };
-      } catch (error) {
-        return {
-          ...channel,
-          organization_service_exists: false,
-          active: false,
-          usage_enabled: false,
-          ready_for_execution: false,
-          status_error: text(error?.message || error, 180) || "Service readiness unavailable",
-        };
-      }
-    }),
-  );
-}
-
 async function responsePayload({ organizationId, projectState, revealDestinations = false }) {
   let budgetStatus = null;
   try {
@@ -166,7 +134,7 @@ async function responsePayload({ organizationId, projectState, revealDestination
     budget_status: budgetStatus,
     prediction_accountability: operatorPredictionAccountabilitySummary(thesis.prediction_accountability),
     proactive_delivery_status: operatorProactiveDeliveryStatus(projectState),
-    proactive_delivery_channels: await deliveryChannelReadiness(organizationId),
+    proactive_delivery_channels: await operatorProactiveDeliveryReadiness({ organizationId }),
   };
 }
 

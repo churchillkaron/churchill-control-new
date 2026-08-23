@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
 import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
 import SyntheticIntelligenceControlCenter from "@/components/operator/SyntheticIntelligenceControlCenter";
+import SyntheticIntelligenceForecastTrackRecord from "@/components/operator/SyntheticIntelligenceForecastTrackRecord";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 
 function getGreeting(name) {
@@ -49,10 +50,13 @@ export default function OrganizationWorkspacePage() {
     <div className="min-h-screen bg-black text-white">
       <AutonomousWatchAlertBridge organizationId={organizationId} />
 
-      <div className="p-6 pb-0">
+      <div className="space-y-4 p-6 pb-0">
         <SyntheticIntelligenceControlCenter
           organizationId={organizationId}
           role={role}
+        />
+        <SyntheticIntelligenceForecastTrackRecord
+          organizationId={organizationId}
         />
       </div>
 

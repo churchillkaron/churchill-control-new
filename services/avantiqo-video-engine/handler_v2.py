@@ -436,16 +436,14 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     return output
 
 
-@runpod.serverless.register_fitness_check
-def check_worker():
-    if not torch.cuda.is_available():
-        raise RuntimeError("AVANTIQO_VIDEO_CUDA_REQUIRED")
-    required = _configured_capabilities()
-    if legacy.CERTIFICATION_EXECUTION_ENABLED:
-        required = set(legacy.IMPLEMENTED_CAPABILITIES)
-    required_models = {legacy.T2V_MODEL, legacy.I2V_MODEL}
-    for capability in required:
-        if capability == "ai.video.first_last_frame_to_video":
+def _required_cached_models(capabilities: set[str]) -> set[str]:
+    required_models: set[str] = set()
+    for capability in capabilities:
+        if capability == "ai.video.generate":
+            required_models.add(legacy.T2V_MODEL)
+        elif capability == "ai.video.image_to_video":
+            required_models.add(legacy.I2V_MODEL)
+        elif capability == "ai.video.first_last_frame_to_video":
             required_models.add(legacy.FIRST_LAST_MODEL)
         elif capability == "ai.video.video_to_video":
             required_models.add(legacy.V2V_MODEL)
@@ -457,9 +455,20 @@ def check_worker():
             required_models.add(legacy.I2V_MODEL)
         elif capability == UPSCALE_CAPABILITY:
             required_models.add(UPSCALE_MODEL)
+    return {model_id for model_id in required_models if model_id}
+
+
+@runpod.serverless.register_fitness_check
+def check_worker():
+    if not torch.cuda.is_available():
+        raise RuntimeError("AVANTIQO_VIDEO_CUDA_REQUIRED")
+    required = _configured_capabilities()
+    if not required:
+        raise RuntimeError("AVANTIQO_VIDEO_CERTIFIED_CAPABILITIES_REQUIRED")
+    required_models = _required_cached_models(required)
     if legacy.REQUIRE_CACHED_MODEL:
         for model_id in required_models:
-            if model_id and not legacy._cached_model_path(model_id):
+            if not legacy._cached_model_path(model_id):
                 raise RuntimeError(f"AVANTIQO_VIDEO_CACHED_MODEL_REQUIRED:{model_id}")
 
 

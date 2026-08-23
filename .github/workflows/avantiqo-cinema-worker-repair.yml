@@ -53,11 +53,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${RUNPOD_API_KEY:-}" || { echo "RUNPOD_API_KEY missing"; exit 1; }
-          test -n "${RUNPOD_MANAGEMENT_API_KEY:-}" || { echo "RUNPOD_MANAGEMENT_API_KEY missing"; exit 1; }
-          test -n "${RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID:-}" || { echo "RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID missing"; exit 1; }
-          test -n "${NEXT_PUBLIC_SUPABASE_URL:-}" || { echo "NEXT_PUBLIC_SUPABASE_URL missing"; exit 1; }
-          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "SUPABASE_SERVICE_ROLE_KEY missing"; exit 1; }
+          mkdir -p artifacts
+          missing=()
+          for name in \
+            RUNPOD_API_KEY \
+            RUNPOD_MANAGEMENT_API_KEY \
+            RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID \
+            NEXT_PUBLIC_SUPABASE_URL \
+            SUPABASE_SERVICE_ROLE_KEY
+          do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            first="${missing[0]}"
+            printf '{"success":false,"contract":"AVANTIQO_CINEMA_RUNPOD_WORKER_REPAIR_V3","error":"CREDENTIAL_PREFLIGHT_FAILED","missing_binding":"%s","github_run_id":"%s","generation_submitted":false,"external_ai_provider_used":false,"secrets_in_output":false}\n' \
+              "$first" "$GITHUB_RUN_ID" > "$AVANTIQO_CINEMA_RUNPOD_REPAIR_RESULT"
+            echo "Cinema repair preflight failed: required binding missing: $first"
+            exit 1
+          fi
           echo "Cinema inference, management and test-scoped storage bindings are present."
 
       - name: Syntax check repair and Scene 9 runners
@@ -109,12 +124,14 @@ jobs:
           if [ -f artifacts/avantiqo-cinema-runpod-repair.json ]; then
             cp artifacts/avantiqo-cinema-runpod-repair.json audits/results/avantiqo-cinema-runpod-repair.json
           else
-            printf '%s\n' '{"success":false,"contract":"AVANTIQO_CINEMA_RUNPOD_WORKER_REPAIR_V3","error":"REPAIR_RESULT_NOT_PRODUCED","generation_submitted":false,"external_ai_provider_used":false}' > audits/results/avantiqo-cinema-runpod-repair.json
+            printf '{"success":false,"contract":"AVANTIQO_CINEMA_RUNPOD_WORKER_REPAIR_V3","error":"REPAIR_RESULT_NOT_PRODUCED","github_run_id":"%s","generation_submitted":false,"external_ai_provider_used":false,"secrets_in_output":false}\n' \
+              "$GITHUB_RUN_ID" > audits/results/avantiqo-cinema-runpod-repair.json
           fi
           if [ -f artifacts/avantiqo-investor-scene9-cinema-proof.json ]; then
             cp artifacts/avantiqo-investor-scene9-cinema-proof.json audits/results/avantiqo-investor-scene9-cinema-proof.json
           else
-            printf '%s\n' '{"success":false,"contract":"AVANTIQO_INVESTOR_SCENE9_CINEMA_PROOF_V1","error":"SCENE9_RESULT_NOT_PRODUCED","external_ai_provider_used":false}' > audits/results/avantiqo-investor-scene9-cinema-proof.json
+            printf '{"success":false,"contract":"AVANTIQO_INVESTOR_SCENE9_CINEMA_PROOF_V1","error":"SCENE9_RESULT_NOT_PRODUCED","github_run_id":"%s","external_ai_provider_used":false}\n' \
+              "$GITHUB_RUN_ID" > audits/results/avantiqo-investor-scene9-cinema-proof.json
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

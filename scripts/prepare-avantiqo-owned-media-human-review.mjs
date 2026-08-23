@@ -126,6 +126,12 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
+}
+
 const benchmark = JSON.parse(await readFile(BENCHMARK, "utf8"));
 const fixtures = JSON.parse(await readFile(FIXTURES, "utf8"));
 
@@ -146,19 +152,65 @@ if (fixtures?.contract !== "AVANTIQO_OWNED_MEDIA_CERTIFICATION_FIXTURES_V1") {
 }
 
 const cases = Array.isArray(benchmark.cases) ? benchmark.cases : [];
+const seenCapabilities = new Set();
 const items = cases.map((item) => {
   const capability = text(item.capability);
   const criteria = CRITERIA[capability];
   if (!criteria) {
     throw new Error(`AVANTIQO_MEDIA_HUMAN_REVIEW_CRITERIA_MISSING:${capability}`);
   }
+  if (seenCapabilities.has(capability)) {
+    throw new Error(`AVANTIQO_MEDIA_HUMAN_REVIEW_DUPLICATE_CAPABILITY:${capability}`);
+  }
+  seenCapabilities.add(capability);
+  if (item.mechanical_passed !== true) {
+    throw new Error(`AVANTIQO_MEDIA_HUMAN_REVIEW_CASE_NOT_MECHANICALLY_PASSED:${capability}`);
+  }
+
+  const model = text(item.foundation_model);
+  if (!model || text(item?.output?.foundation_model) !== model) {
+    throw new Error(`AVANTIQO_MEDIA_HUMAN_REVIEW_MODEL_BINDING_INVALID:${capability}`);
+  }
+  const definitionFingerprint = text(item.benchmark_definition_sha256);
+  if (!definitionFingerprint) {
+    throw new Error(`AVANTIQO_MEDIA_HUMAN_REVIEW_DEFINITION_BINDING_MISSING:${capability}`);
+  }
+
+  const provenance = object(item.fixture_provenance);
+  if (
+    text(provenance.contract) !== "AVANTIQO_OWNED_MEDIA_CERTIFICATION_FIXTURES_V1" ||
+    !text(provenance.prefix) ||
+    !text(provenance.fingerprint_sha256)
+  ) {
+    throw new Error(`AVANTIQO_MEDIA_HUMAN_REVIEW_CASE_PROVENANCE_INVALID:${capability}`);
+  }
+  const sourceStorageReferences = object(provenance.source_storage_references);
+  if (Object.keys(sourceStorageReferences).length === 0) {
+    throw new Error(`AVANTIQO_MEDIA_HUMAN_REVIEW_SOURCE_PROVENANCE_MISSING:${capability}`);
+  }
+
+  const outputStorageReference = text(item.storage_reference) || null;
+  if (capability !== "ai.image.analyze") {
+    if (!outputStorageReference?.startsWith("storage://creative-assets/")) {
+      throw new Error(`AVANTIQO_MEDIA_HUMAN_REVIEW_OUTPUT_REFERENCE_INVALID:${capability}`);
+    }
+    if (text(provenance.output_storage_reference) !== outputStorageReference) {
+      throw new Error(`AVANTIQO_MEDIA_HUMAN_REVIEW_OUTPUT_PROVENANCE_MISMATCH:${capability}`);
+    }
+  }
+
   return {
     capability,
     engine: item.engine || null,
-    model: item.foundation_model || null,
-    output_storage_reference: item.storage_reference || null,
-    source_storage_references: fixtures.source_storage_references || {},
-    mechanical_passed: item.mechanical_passed === true,
+    model,
+    output_storage_reference: outputStorageReference,
+    source_storage_references: sourceStorageReferences,
+    fixture_provenance: provenance,
+    benchmark_definition_sha256: definitionFingerprint,
+    benchmark_attempt_number: Number(item.attempt_number || 1),
+    benchmark_executed_at: item.executed_at || null,
+    resumed_from_previous_report: item.resumed_from_previous_report === true,
+    mechanical_passed: true,
     economics: item.economics || null,
     review_status: "PENDING_HUMAN_REVIEW",
     required_criteria: criteria.map((criterion) => ({
@@ -185,6 +237,7 @@ const manifest = {
   generated_at: new Date().toISOString(),
   benchmark_contract: benchmark.contract,
   benchmark_generated_at: benchmark.generated_at || null,
+  benchmark_resume: benchmark.resume || null,
   source_scope: "BENCHMARK_ONLY",
   capability_count: items.length,
   review_status: "PENDING_HUMAN_REVIEW",
@@ -199,15 +252,26 @@ const manifest = {
     every_criterion_minimum_score: 86,
     identity_endpoint_and_lipsync_critical_minimum: 90,
     any_failed_criterion_blocks_capability: true,
+    every_capability_uses_its_own_fixture_provenance: true,
+    resumed_campaign_evidence_may_span_fixture_runs_only_with_per_case_provenance: true,
+    exact_returned_model_binding_required: true,
+    exact_benchmark_definition_binding_required: true,
     production_activation_requires_separate_final_certification: true,
   },
 };
 
 await writeFile(OUTPUT, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-console.log(JSON.stringify({
-  success: true,
-  output_path: OUTPUT,
-  capability_count: items.length,
-  review_status: manifest.review_status,
-  activation_allowed: false,
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      success: true,
+      output_path: OUTPUT,
+      capability_count: items.length,
+      review_status: manifest.review_status,
+      resumed_capabilities: items.filter((item) => item.resumed_from_previous_report).length,
+      activation_allowed: false,
+    },
+    null,
+    2,
+  ),
+);

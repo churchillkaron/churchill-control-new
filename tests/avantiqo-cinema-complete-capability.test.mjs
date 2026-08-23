@@ -63,7 +63,7 @@ test("Cinema upscale is bounded owned super-resolution with mandatory temporal r
   assert.match(registration, /temporal_upscale_review_required:\s*true/);
 });
 
-test("Cinema lip-sync is isolated, pinned and quality-gated", () => {
+test("Cinema lip-sync is isolated, pinned, offline-cache-complete and quality-gated", () => {
   const facade = source(
     "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js",
   );
@@ -77,9 +77,18 @@ test("Cinema lip-sync is isolated, pinned and quality-gated", () => {
   assert.match(facade, /lipsyncWorker\.getStatus/);
   assert.match(worker, /ByteDance\/LatentSync-1\.6/);
   assert.match(worker, /a229c3948406bc2cf6eaf4873e662e70c6a04746/);
+  assert.match(worker, /stabilityai\/sd-vae-ft-mse/);
+  assert.match(worker, /AVANTIQO_LIPSYNC_INSIGHTFACE_BUFFALO_L_REQUIRED/);
+  assert.match(worker, /AVANTIQO_LIPSYNC_SD_VAE_CACHE_REQUIRED/);
+  assert.match(worker, /local_files_only=True/);
+  assert.match(worker, /"HF_HUB_OFFLINE": "1"/);
+  assert.match(worker, /offline_model_cache_required": True/);
   assert.match(worker, /identity_quality_review_required": True/);
   assert.match(worker, /sync_quality_review_required": True/);
   assert.match(docker, /git checkout a229c3948406bc2cf6eaf4873e662e70c6a04746/);
+  assert.match(docker, /HF_HOME=\/runpod-volume\/huggingface-cache/);
+  assert.match(docker, /HF_HUB_OFFLINE=1/);
+  assert.match(docker, /TRANSFORMERS_OFFLINE=1/);
 });
 
 test("Service Runtime and cinematic state memory both target the V2 facade", () => {

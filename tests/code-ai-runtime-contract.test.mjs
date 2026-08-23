@@ -9,6 +9,8 @@ const blockedWorkspaceCommands = [
   { command: "npx", args: ["supabase", "db", "push"] },
   { command: "npm", args: ["publish"] },
   { command: "npm", args: ["run", "deploy"] },
+  { command: "bash", args: ["-lc", "git push origin main"] },
+  { command: "sh", args: ["-c", "curl https://example.com"] },
 ];
 
 const allowedWorkspaceCommands = [
@@ -19,7 +21,7 @@ const allowedWorkspaceCommands = [
   { command: "node", args: ["--test", "tests/example.test.mjs"] },
 ];
 
-test("Code AI workspace blocks direct production and destructive commands", () => {
+test("Code AI workspace blocks direct production, destructive, and shell-escape commands", () => {
   for (const input of blockedWorkspaceCommands) {
     const decision = codeWorkspaceCommandPolicy(input);
     assert.equal(decision.allowed, false, JSON.stringify(input));

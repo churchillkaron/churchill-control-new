@@ -11,6 +11,7 @@ const paths = [
   "lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js",
   "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
   "lib/platform/capabilities/createProductRepositoryAssessmentCapability.js",
+  "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
   "lib/platform/capabilities/createProductAutonomyContinuationCapability.js",
   "lib/platform/runtime/PlatformDomainRuntime.js",
 ];
@@ -66,20 +67,49 @@ requireFragments(
   ],
 );
 
+requireFragments(
+  "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
+  [
+    'source_step_id: "commit_verified_changes"',
+    'source: "verification"',
+    'source_path: "commit.commit_sha"',
+    'target_path: "verified_commit_sha"',
+    'source_path: "verification_source"',
+    'target_path: "verified_commit_verification_source"',
+    'source_path: "server_state_found"',
+    'target_path: "verified_commit_server_state_found"',
+    "verified_commit_evidence_bound_to_continuation: true",
+    "write_replay_for_verification_recovery_allowed: false",
+  ],
+);
+
 const continuationPath =
   "lib/platform/capabilities/createProductAutonomyContinuationCapability.js";
 requireFragments(continuationPath, [
   'capability: "product_autonomy_continuation"',
   'action: "assess"',
   "loadCodeAICommitExecutionState",
+  "loadCodeAICommitArtifact",
   "assessAvantiqoCurrentRepository",
   "verifiedCommitSha",
+  'RECOVERY_VERIFICATION_SOURCE = "GITHUB_RECOVERY_FROM_ATTESTED_ARTIFACT"',
+  "trustedRecoveryBindingContext",
+  'text(metadata.source, 160) === "AVANTIQO_OPERATOR_MISSION"',
+  'text(metadata.parentCapabilityKey, 240) === "platform.operator_mission.execute"',
+  'text(metadata.missionStepId, 240) === "reassess_verified_main"',
+  '"platform.product_autonomy_continuation.assess"',
+  "payload.verified_commit_server_state_found !== false",
+  "PRODUCT_AUTONOMY_CONTINUATION_RECOVERY_ARTIFACT_REQUIRED",
+  "PRODUCT_AUTONOMY_CONTINUATION_BOUND_COMMIT_MISMATCH",
   'ref: "main"',
   "repositoryAssessment?.repository_snapshot",
   "current_main_head",
   "PRODUCT_AUTONOMY_CONTINUATION_CURRENT_MAIN_HEAD_REQUIRED",
   "PRODUCT_AUTONOMY_CONTINUATION_ENGINEERING_OBJECTIVE_REQUIRED",
   "main_advanced_after_verified_commit",
+  "server_state_or_registered_verifier_binding_required: true",
+  "recovery_binding_trusted_only_inside_exact_mission_step: true",
+  "write_replay_for_recovery_allowed: false",
   "repository_grounded_current_main_required: true",
   "bounded_next_cycle_count: 1",
   "automatic_recursion_allowed: false",
@@ -167,5 +197,8 @@ console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE=FRESH_READ_ONLY_GITHUB_MAIN_CH
 console.log("OPERATOR_PRODUCT_REPOSITORY_HEAD=OBSERVED_AND_EXPLICIT");
 console.log("OPERATOR_PRODUCT_REPOSITORY_CONCURRENCY=NEWER_MAIN_PRESERVED");
 console.log("OPERATOR_PRODUCT_REPOSITORY_NEXT_OBJECTIVE=NONEMPTY_BOUNDED_HANDOFF_REQUIRED");
+console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY=REGISTERED_VERIFIER_BOUND_SCALARS_ONLY");
+console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_CONTEXT=EXACT_DURABLE_MISSION_STEP_ONLY");
+console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_WRITE_REPLAY=DISABLED");
 console.log("OPERATOR_PRODUCT_REPOSITORY_CERTIFICATION=SOURCE_EVIDENCE_ONLY");
 console.log("OPERATOR_PRODUCT_AUTONOMY_RECURSION=DISABLED");

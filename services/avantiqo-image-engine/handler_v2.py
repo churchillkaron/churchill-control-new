@@ -112,6 +112,7 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
         repo_id=target_model,
         cache_dir=str(legacy.HF_CACHE_ROOT),
         local_files_only=False,
+        max_workers=1,
     )
     cached = legacy._cached_model_path(target_model)
     if not cached:

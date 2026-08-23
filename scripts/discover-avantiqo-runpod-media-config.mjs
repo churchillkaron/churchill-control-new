@@ -54,26 +54,44 @@ function sanitizeWorker(worker = {}) {
 }
 
 function sanitizeEndpoint(endpoint = {}) {
+  const template = object(endpoint.template);
   return {
     id: text(endpoint.id) || null,
     name: text(endpoint.name) || null,
     compute_type: text(endpoint.computeType) || null,
     gpu_count: Number.isFinite(Number(endpoint.gpuCount)) ? Number(endpoint.gpuCount) : null,
     gpu_type_ids: list(endpoint.gpuTypeIds).map(text).filter(Boolean),
+    data_center_ids: list(endpoint.dataCenterIds).map(text).filter(Boolean),
+    network_volume_id: text(endpoint.networkVolumeId) || null,
+    network_volume_ids: list(endpoint.networkVolumeIds).map(text).filter(Boolean),
     workers_min: Number.isFinite(Number(endpoint.workersMin)) ? Number(endpoint.workersMin) : null,
     workers_max: Number.isFinite(Number(endpoint.workersMax)) ? Number(endpoint.workersMax) : null,
     idle_timeout_seconds: Number.isFinite(Number(endpoint.idleTimeout)) ? Number(endpoint.idleTimeout) : null,
+    execution_timeout_ms: Number.isFinite(Number(endpoint.executionTimeoutMs))
+      ? Number(endpoint.executionTimeoutMs)
+      : null,
+    scaler_type: text(endpoint.scalerType) || null,
+    scaler_value: Number.isFinite(Number(endpoint.scalerValue)) ? Number(endpoint.scalerValue) : null,
+    flashboot: endpoint.flashboot === true,
+    min_cuda_version: text(endpoint.minCudaVersion) || null,
+    allowed_cuda_versions: list(endpoint.allowedCudaVersions).map(text).filter(Boolean),
     template_id: text(endpoint.templateId) || null,
-    template_name: text(endpoint.template?.name) || null,
-    template_image_name: text(endpoint.template?.imageName) || null,
+    template_name: text(template.name) || null,
+    template_image_name: text(template.imageName) || null,
+    template_container_disk_gb: Number.isFinite(Number(template.containerDiskInGb))
+      ? Number(template.containerDiskInGb)
+      : null,
+    template_volume_mount_path: text(template.volumeMountPath) || null,
+    template_registry_auth_id: text(template.containerRegistryAuthId) || null,
+    template_registry_auth_configured: Boolean(text(template.containerRegistryAuthId)),
     endpoint_env_keys: redactEnvKeys(endpoint.env),
-    template_env_keys: redactEnvKeys(endpoint.template?.env),
+    template_env_keys: redactEnvKeys(template.env),
     workers: list(endpoint.workers).map(sanitizeWorker),
   };
 }
 
 async function main() {
-  const apiKey = required("RUNPOD_API_KEY");
+  const apiKey = required("RUNPOD_MANAGEMENT_API_KEY");
   const configuredVideoId = text(process.env.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID);
   const configuredImageId = text(process.env.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID);
   const configuredLipsyncId = text(process.env.RUNPOD_AVANTIQO_LIPSYNC_ENDPOINT_ID);
@@ -95,6 +113,11 @@ async function main() {
     body = null;
   }
 
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(
+      `AVANTIQO_RUNPOD_MANAGEMENT_PERMISSION_REQUIRED:${response.status}:create a local-only RunPod key with management read access; do not broaden the inference key`,
+    );
+  }
   if (!response.ok || !Array.isArray(body)) {
     throw new Error(
       `AVANTIQO_RUNPOD_DISCOVERY_FAILED:${response.status}:${text(body?.error || body?.message || raw).slice(0, 500)}`,
@@ -118,10 +141,18 @@ async function main() {
   const lipsyncCandidates = endpoints
     .filter((endpoint) => endpoint.lipsync_candidate_score > 0)
     .sort((a, b) => b.lipsync_candidate_score - a.lipsync_candidate_score);
+  const cinemaEndpoint = configuredVideoId
+    ? endpoints.find((endpoint) => endpoint.id === configuredVideoId) || null
+    : null;
 
   const report = {
-    contract: "AVANTIQO_RUNPOD_MEDIA_CONFIG_DISCOVERY_V1",
+    contract: "AVANTIQO_RUNPOD_MEDIA_CONFIG_DISCOVERY_V2",
     generated_at: new Date().toISOString(),
+    management_credential: {
+      env_name: "RUNPOD_MANAGEMENT_API_KEY",
+      separate_from_inference_credential: true,
+      secret_value_in_output: false,
+    },
     request: {
       method: "GET",
       endpoint: "https://rest.runpod.io/v1/endpoints",
@@ -132,7 +163,9 @@ async function main() {
       image_endpoint_id_present: Boolean(configuredImageId),
       cinema_endpoint_id_present: Boolean(configuredVideoId),
       lipsync_endpoint_id_present: Boolean(configuredLipsyncId),
+      configured_cinema_endpoint_found_in_account: Boolean(cinemaEndpoint),
     },
+    existing_cinema_binding: cinemaEndpoint,
     endpoint_count: endpoints.length,
     endpoints,
     candidates: {
@@ -145,13 +178,15 @@ async function main() {
       runpod_run_called: false,
       runpod_runsync_called: false,
       endpoint_mutations_performed: 0,
+      inference_key_permissions_modified: false,
       secrets_persisted: false,
       secret_values_in_output: false,
     },
     next_step: {
+      inspect_existing_cinema_network_volume_and_registry_binding: Boolean(cinemaEndpoint),
       identify_exact_image_endpoint_id: !configuredImageId,
       identify_exact_lipsync_endpoint_id: !configuredLipsyncId,
-      use_gpu_type_ids_and_worker_mode_to_set_current_cost_rates: true,
+      use_exact_gpu_type_and_worker_mode_for_economics: true,
     },
   };
 

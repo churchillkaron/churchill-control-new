@@ -1,2 +1,2 @@
-2026-08-23T05:55:00Z
-Explicit production release retry after aligning durable mission certification with the split Operator turn runtime; continue full production verification and Code AI live testing.
+2026-08-23T06:04:00Z
+Explicit final production release requested by owner: deploy the newest main including all concurrent application fixes and Code AI certification tooling, then verify production health.

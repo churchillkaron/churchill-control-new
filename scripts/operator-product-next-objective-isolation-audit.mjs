@@ -6,11 +6,14 @@ const handoffPath =
   "lib/platform/capabilities/createProductPersistenceHandoffCapability.js";
 const intelligencePath =
   "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js";
+const persistenceDecisionPath =
+  "lib/intelligence/runtime/AvantiqoProductPersistenceDecisionRuntime.js";
 
-const [cycle, handoff, intelligence] = await Promise.all([
+const [cycle, handoff, intelligence, persistenceDecision] = await Promise.all([
   readFile(cyclePath, "utf8"),
   readFile(handoffPath, "utf8"),
   readFile(intelligencePath, "utf8"),
+  readFile(persistenceDecisionPath, "utf8"),
 ]);
 
 function requireFragments(label, source, fragments) {
@@ -125,11 +128,44 @@ requireFragments("handoff", handoff, [
   "privileged_production_marker_removed_from_commit_message: true",
 ]);
 
+requireFragments("persistence-decision", persistenceDecision, [
+  "error?.main_advanced_from_expected_base === true",
+  "expected_base_commit: expectedBase",
+  "current_main_head: currentMainHead",
+  "if (recovery.stale_base)",
+  'decision: "STAY_LOCAL"',
+  'reason_code: "STALE_BASE_REPLAN_REQUIRED"',
+  "stale_base_replan_required: true",
+  "This artifact is stale for persistence and must not be retried against newer main.",
+  "No duplicate or rebased commit is attempted automatically.",
+]);
+
+const stalePersistenceBranch = persistenceDecision.slice(
+  persistenceDecision.indexOf("if (recovery.stale_base)"),
+  persistenceDecision.indexOf("const deterministic = deterministicDecision(state)"),
+);
+if (
+  !stalePersistenceBranch ||
+  !stalePersistenceBranch.includes('decision: "STAY_LOCAL"') ||
+  stalePersistenceBranch.includes('decision: "REQUEST_COMMIT_CONFIRMATION"') ||
+  stalePersistenceBranch.includes("commitVerifiedCodeMission")
+) {
+  throw new Error(
+    "OPERATOR_PRODUCT_NEXT_OBJECTIVE_ISOLATION: stale attempted persistence must remain STAY_LOCAL and must not retry, rebase, or request commit confirmation",
+  );
+}
+
 requireFragments("intelligence", intelligence, [
   "A previously surfaced post-commit objective is also context, not immutable authority.",
   "current_main_recheck_before_engineering_required: true",
   "focus_is_authority: false",
   "next_engineering_cycle_rechecks_current_main: true",
+  "STALE_BASE_REPLAN_REQUIRED",
+  "stale_attempted_artifact_requires_fresh_cycle: true",
+  "stale_attempted_artifact_retry_allowed: false",
+  "stale_attempted_artifact_auto_rebase_allowed: false",
+  "stale_attempted_artifact_replacement_commit_allowed: false",
+  "historical engineering evidence only",
 ]);
 
 console.log("OPERATOR_PRODUCT_NEXT_OBJECTIVE_ISOLATION_AUDIT=PASS");
@@ -139,3 +175,5 @@ console.log("OPERATOR_PRODUCT_COMPLETED_OBJECTIVE_AUTO_REUSE=DISABLED");
 console.log("OPERATOR_PRODUCT_ENGINEERING_MISSION_DIRECT_COMMIT=DISABLED");
 console.log("OPERATOR_PRODUCT_CALLER_COMMIT_REQUEST=NO_AUTHORIZATION_EFFECT");
 console.log("OPERATOR_PRODUCT_CALLER_DEPLOY_MARKER=STRIPPED_BEFORE_HANDOFF_OR_ECHO");
+console.log("OPERATOR_PRODUCT_STALE_ATTEMPTED_ARTIFACT=STAY_LOCAL_REPLAN_CURRENT_MAIN");
+console.log("OPERATOR_PRODUCT_STALE_ATTEMPT_RETRY_REBASE_REPLACEMENT=DISABLED");

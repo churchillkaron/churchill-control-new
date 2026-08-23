@@ -21,8 +21,10 @@ WORKDIR /app
 # that are binary-sensitive to the exact torch/CUDA build, so do not layer it
 # onto an unrelated PyTorch base image.
 COPY services/avantiqo-code-engine/requirements.txt ./requirements.txt
-RUN uv pip install --system -r requirements.txt
+RUN uv pip install --system -r requirements.txt \
+    && python -c "from importlib.metadata import version; import runpod, vllm; assert version('vllm') == '0.27.1', version('vllm'); print('AVANTIQO_CODE_VLLM_BUILD_CHECK=PASS')"
 COPY services/avantiqo-code-engine/handler.py ./handler.py
+RUN python -m py_compile handler.py
 
 # The upstream vllm-openai image has ENTRYPOINT ["vllm", "serve"]. Replace it
 # completely because RunPod invokes our bounded worker handler, not the generic

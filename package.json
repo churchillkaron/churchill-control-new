@@ -12,7 +12,7 @@
     "start": "next start",
     "benchmark:intelligence:local": "node --env-file=.env.local scripts/benchmark-avantiqo-intelligence.mjs",
     "benchmark:owned:local": "node --env-file=.env.local scripts/benchmark-avantiqo-owned-engines.mjs",
-    "benchmark:code-ai:local": "node --env-file=.env.local scripts/benchmark-avantiqo-code.mjs",
+    "benchmark:code-ai:local": "node --env-file=.env.local scripts/benchmark-avantiqo-code-local.mjs",
     "smoke:code-ai-sandbox": "node --env-file=.env.local scripts/code-ai-sandbox-live-smoke.mjs",
     "creative": "sh scripts/run-creative-command.sh",
     "bootstrap:finance-master-data": "node scripts/finance-production-master-data-bootstrap.mjs",

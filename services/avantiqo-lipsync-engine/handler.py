@@ -285,6 +285,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "foundation_model": FOUNDATION_MODEL,
             "upstream_commit": UPSTREAM_COMMIT,
             "duration_seconds": round(duration, 3),
+            "generation_seconds": round(time.perf_counter() - started, 3),
             "inference_steps": INFERENCE_STEPS,
             "guidance_scale": GUIDANCE_SCALE,
             "seed": data["seed"],

@@ -8,6 +8,7 @@ from typing import Any
 import runpod
 import torch
 from diffusers.utils import load_image
+from huggingface_hub import snapshot_download
 from PIL import Image
 from transformers import pipeline
 
@@ -16,6 +17,8 @@ import handler as legacy
 UPSCALE_CAPABILITY = "ai.image.upscale"
 ANALYZE_CAPABILITY = "ai.image.analyze"
 SPECIAL_CAPABILITIES = {UPSCALE_CAPABILITY, ANALYZE_CAPABILITY}
+MODEL_CACHE_OPERATION = "cache_foundation_model"
+MODEL_CACHE_ALLOWLIST = {"Qwen/Qwen-Image-2512"}
 UPSCALE_MODEL = os.getenv(
     "AVANTIQO_IMAGE_UPSCALE_MODEL",
     "caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr",
@@ -65,6 +68,60 @@ def _certification_execution(data: dict[str, Any]) -> bool:
         data.get("certification_execution") is True
         and legacy.CERTIFICATION_EXECUTION_ENABLED
     )
+
+
+def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
+    data = job.get("input") or {}
+    if data.get("contract") != legacy.ENGINE_CONTRACT:
+        raise ValueError("AVANTIQO_IMAGE_ENGINE_CONTRACT_INVALID")
+    if _text(data.get("operation")) != MODEL_CACHE_OPERATION:
+        raise ValueError("AVANTIQO_IMAGE_MODEL_CACHE_OPERATION_INVALID")
+    target_model = _text(data.get("target_model"))
+    if target_model not in MODEL_CACHE_ALLOWLIST:
+        raise ValueError("AVANTIQO_IMAGE_MODEL_CACHE_TARGET_FORBIDDEN")
+
+    existing = legacy._cached_model_path(target_model)
+    if existing:
+        return {
+            "status": "completed",
+            "provider": "avantiqo-image",
+            "model": legacy.PRODUCT_MODEL,
+            "engine_contract": legacy.ENGINE_CONTRACT,
+            "operation": MODEL_CACHE_OPERATION,
+            "target_model": target_model,
+            "foundation_model_source": "runpod-cache",
+            "already_cached": True,
+            "cache_ready": True,
+            "inference_performed": False,
+            "raw_reasoning_persisted": False,
+        }
+
+    runpod.serverless.progress_update(
+        job,
+        f"caching approved Avantiqo Image foundation {target_model}",
+    )
+    snapshot_download(
+        repo_id=target_model,
+        cache_dir=str(legacy.HF_CACHE_ROOT),
+        local_files_only=False,
+    )
+    cached = legacy._cached_model_path(target_model)
+    if not cached:
+        raise RuntimeError(f"AVANTIQO_IMAGE_MODEL_CACHE_VERIFY_FAILED:{target_model}")
+
+    return {
+        "status": "completed",
+        "provider": "avantiqo-image",
+        "model": legacy.PRODUCT_MODEL,
+        "engine_contract": legacy.ENGINE_CONTRACT,
+        "operation": MODEL_CACHE_OPERATION,
+        "target_model": target_model,
+        "foundation_model_source": "runpod-cache",
+        "already_cached": False,
+        "cache_ready": True,
+        "inference_performed": False,
+        "raw_reasoning_persisted": False,
+    }
 
 
 def _validate_special(job: dict[str, Any]) -> dict[str, Any]:
@@ -299,7 +356,11 @@ def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
 
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
-    capability = _text((job.get("input") or {}).get("capability"))
+    data = job.get("input") or {}
+    if _text(data.get("operation")) == MODEL_CACHE_OPERATION:
+        return _cache_foundation_model(job)
+
+    capability = _text(data.get("capability"))
     if capability not in SPECIAL_CAPABILITIES:
         return legacy.handler(job)
     data = _validate_special(job)

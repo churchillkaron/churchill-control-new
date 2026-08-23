@@ -3,7 +3,7 @@ name: Avantiqo Investor Scene 9 Studio Live
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/5 9 23 8 *"
+    - cron: "*/5 10 23 8 *"
   push:
     branches:
       - main

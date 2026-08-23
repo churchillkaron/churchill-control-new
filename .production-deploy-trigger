@@ -1,2 +1,2 @@
-2026-08-23T05:38:30Z
-Explicit production release requested by owner: build and deploy current main, then run production verification with Code AI included.
+2026-08-23T05:40:45Z
+Explicit production release retry after repairing the universal Creative hardcoding audit false positive; deploy current main and verify Code AI in production.

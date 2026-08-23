@@ -79,7 +79,7 @@ async function runSync(endpointId, input, apiKey) {
   throw new Error(`RUNPOD_JOB_WAIT_TIMEOUT:${jobId}:${MAX_JOB_WAIT_MS}`);
 }
 
-const apiKey = required("RUNPOD_API_KEY");
+const apiKey = text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID");
 const foundationModel = text(process.env.AVANTIQO_IMAGE_FOUNDATION_MODEL) || "Qwen/Qwen-Image";
 const uploadTemplate = required("AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL");

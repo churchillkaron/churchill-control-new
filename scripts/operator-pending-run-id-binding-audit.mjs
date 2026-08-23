@@ -22,8 +22,12 @@ requireFragments(runSource, runPath, [
   'const PENDING_RUN_ID_BINDING = "run_id_v1"',
   "pending_binding: PENDING_RUN_ID_BINDING",
   "export function operatorPendingExecutionRunIdMatchesAutonomousRun(",
+  'Object.prototype.hasOwnProperty.call(candidate,\n    "pending_binding",',
+  "...(pendingBindingDeclared\n      ? { pending_binding: pendingBinding || null }\n      : {})",
+  'Object.prototype.hasOwnProperty.call(\n    sourceRun,\n    "pending_binding",',
   'Object.prototype.hasOwnProperty.call(pending, "run_id")',
   "const runIdRequired = text(sourceRun.pending_binding) === PENDING_RUN_ID_BINDING",
+  "if (runBindingDeclared && !runIdRequired) return false",
   "if (!runIdDeclared) return !runIdRequired",
   "return Boolean(pendingRunId) && pendingRunId === sourceRunId",
   "operatorPendingExecutionRunIdMatchesAutonomousRun(pending, run)",
@@ -160,6 +164,36 @@ assert.equal(
   true,
   "legacy structurally exact pending state remains backward compatible only with a legacy run",
 );
+
+for (const corruptedBinding of ["run_id_v2", "corrupt_binding", "", null, undefined]) {
+  const corruptedRun = normalizeOperatorAutonomousRun({
+    ...legacyRunShape,
+    pending_binding: corruptedBinding,
+  });
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(corruptedRun, "pending_binding"),
+    true,
+    "declared binding corruption must remain distinguishable from true legacy absence",
+  );
+  assert.equal(
+    operatorPendingExecutionRunIdMatchesAutonomousRun(noIdPending, corruptedRun),
+    false,
+    "unknown or empty declared binding markers must never enable legacy run-ID fallback",
+  );
+  assert.equal(
+    operatorPendingExecutionMatchesAutonomousRun(noIdPending, corruptedRun),
+    false,
+    "unknown or empty declared binding markers must fail the full pending matcher",
+  );
+  assert.equal(
+    operatorPendingExecutionMatchesAutonomousRun(
+      { ...noIdPending, run_id: corruptedRun.run_id },
+      corruptedRun,
+    ),
+    false,
+    "an exact run ID must not authorize semantics for an unknown binding version",
+  );
+}
 
 for (const declaredEmptyRunId of ["", null, undefined]) {
   const declaredEmptyPending = {
@@ -352,5 +386,6 @@ console.log("OPERATOR_PENDING_RUN_ID_VERIFICATION=REFERENT_PRESERVED");
 console.log("OPERATOR_PENDING_RUN_ID_MISMATCH=STRUCTURALLY_EQUAL_REJECTED");
 console.log("OPERATOR_PENDING_RUN_ID_LEGACY=ONLY_LEGACY_RUNS_ALLOW_STRUCTURAL_FALLBACK");
 console.log("OPERATOR_PENDING_RUN_ID_DOWNGRADE=REMOVED_REFERENT_REJECTED_FOR_NEW_RUNS");
+console.log("OPERATOR_PENDING_RUN_ID_BINDING_MARKER=UNKNOWN_OR_EMPTY_FAIL_CLOSED");
 console.log("OPERATOR_PENDING_RUN_ID_EMPTY=FAIL_CLOSED");
 console.log("OPERATOR_PENDING_RUN_ID_MISSION=SEPARATE");

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_CODE_ENGINE_V1";
 const EXPECTED_FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct";
+const DEFAULT_EXPECTED_QUANTIZATION = "none";
 const DEFAULT_TIMEOUT_MS = 12 * 60 * 1000;
 const DEFAULT_POLL_MS = 2000;
 
@@ -177,6 +178,10 @@ const foundationModel = text(process.env.AVANTIQO_CODE_FOUNDATION_MODEL) || EXPE
 if (foundationModel !== EXPECTED_FOUNDATION_MODEL) {
   throw new Error(`AVANTIQO_CODE_FOUNDATION_MODEL_CERTIFICATION_MISMATCH:${foundationModel}`);
 }
+const expectedQuantization = text(process.env.AVANTIQO_CODE_EXPECTED_QUANTIZATION).toLowerCase() || DEFAULT_EXPECTED_QUANTIZATION;
+if (!["none", "int8"].includes(expectedQuantization)) {
+  throw new Error(`AVANTIQO_CODE_EXPECTED_QUANTIZATION_INVALID:${expectedQuantization}`);
+}
 
 const requestedRuns = Math.floor(number(process.env.AVANTIQO_CODE_BENCHMARK_RUNS, cases.length));
 const runs = Math.max(cases.length, Math.min(12, requestedRuns));
@@ -206,11 +211,13 @@ for (let index = 0; index < runs; index += 1) {
     const semanticPass = sample.plannerProtocol
       ? plannerProtocolPass(result)
       : includesAll(result, sample.requiredAll) && includesAny(result, sample.requiredAny);
+    const observedQuantization = text(output.quantization || "none").toLowerCase();
     const contractPass =
       text(output.provider) === "avantiqo-code" &&
       text(output.engine_contract) === CONTRACT &&
       text(output.capability) === sample.capability &&
       text(output.foundation_model) === EXPECTED_FOUNDATION_MODEL &&
+      observedQuantization === expectedQuantization &&
       output.raw_reasoning_persisted === false;
     const reasoningPass = !/<think>|<\/think>|<reasoning>|<\/reasoning>/i.test(result);
     const outputPass = result.length > 10;
@@ -224,8 +231,11 @@ for (let index = 0; index < runs; index += 1) {
       runpod_delay_ms: Number(body.delayTime) || null,
       runpod_execution_ms: Number(body.executionTime) || null,
       worker_generation_seconds: Number(output.generation_seconds) || null,
+      quantization: observedQuantization,
       input_tokens: Number(output.usage?.input_tokens) || null,
       output_tokens: Number(output.usage?.output_tokens) || null,
+      runtime_prompt_tokens: Number(output.usage?.runtime_prompt_tokens) || null,
+      internal_prompt_tokens: Number(output.usage?.internal_prompt_tokens) || null,
       result_length: result.length,
       semantic_pass: semanticPass,
       planner_protocol_pass: sample.plannerProtocol ? semanticPass : null,
@@ -269,6 +279,7 @@ const report = {
     provider: "avantiqo-code",
     product_model: "avantiqo-code-v1",
     foundation_model: EXPECTED_FOUNDATION_MODEL,
+    quantization: expectedQuantization,
     capabilities: [
       "ai.code.generate",
       "ai.code.edit",

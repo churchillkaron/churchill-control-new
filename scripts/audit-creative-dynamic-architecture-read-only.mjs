@@ -110,8 +110,20 @@ function windowFor(lines, index, radius = 3) {
     .join("\n");
 }
 
+function taxonomyDataProjection(line) {
+  const taxonomy = "(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)";
+  return new RegExp(
+    `\\.select\\s*\\(\\s*["'\\x60][^"'\\x60\\n]*\\b${taxonomy}\\b[^"'\\x60\\n]*["'\\x60]\\s*\\)`,
+    "i",
+  ).test(line);
+}
+
 function taxonomyControlsBehavior(line, context) {
   if (antiHardcodingText(context)) return false;
+  // Reading taxonomy columns from a data source is descriptive context, not a
+  // Creative decision. Keep `.select("...,industry,...")` out of the control-
+  // flow rule while still blocking actual routing/selecting/ranking by taxonomy.
+  if (taxonomyDataProjection(line)) return false;
   const taxonomy = "(?:industry|sector|businessVertical|business_vertical|organizationType|organization_type)";
   const patterns = [
     new RegExp(`if\\s*\\([^)]*\\b${taxonomy}\\b`, "i"),

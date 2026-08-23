@@ -47,36 +47,61 @@ if (review?.activation_allowed !== false || review?.automatic_human_approval_for
 const failures = [];
 const reviewed = review.items.map((item) => {
   const capability = text(item.capability);
+  const engine = text(item.engine);
+  const model = text(item.model);
   const reviewer = text(item.reviewer);
-  if (!reviewer) failures.push(`${capability}:REVIEWER_REQUIRED`);
-  if (!validIso(item.reviewed_at)) failures.push(`${capability}:REVIEWED_AT_REQUIRED`);
+  const reviewStatus = text(item.review_status).toUpperCase();
+
+  if (!capability) failures.push("UNKNOWN:CAPABILITY_REQUIRED");
+  if (!engine) failures.push(`${capability || "UNKNOWN"}:ENGINE_REQUIRED`);
+  if (!model) failures.push(`${capability || "UNKNOWN"}:MODEL_REQUIRED`);
+  if (reviewStatus !== "PASS") failures.push(`${capability || "UNKNOWN"}:REVIEW_STATUS_PASS_REQUIRED`);
+  if (item.mechanical_passed !== true) failures.push(`${capability || "UNKNOWN"}:MECHANICAL_PASS_REQUIRED`);
+  if (!reviewer) failures.push(`${capability || "UNKNOWN"}:REVIEWER_REQUIRED`);
+  if (!validIso(item.reviewed_at)) failures.push(`${capability || "UNKNOWN"}:REVIEWED_AT_REQUIRED`);
   if (!Array.isArray(item.required_criteria) || item.required_criteria.length === 0) {
-    failures.push(`${capability}:CRITERIA_REQUIRED`);
+    failures.push(`${capability || "UNKNOWN"}:CRITERIA_REQUIRED`);
   }
 
   const criteria = (item.required_criteria || []).map((entry) => {
     const criterion = text(entry.criterion);
     const score = Number(entry.score_0_100);
+    const evidenceNote = text(entry.evidence_note);
+    const status = text(entry.status).toUpperCase();
     const minimum = CRITICAL.has(criterion)
       ? Number(item.critical_identity_or_endpoint_minimum || 90)
       : Number(item.minimum_score_per_criterion || 86);
     const passed =
-      text(entry.status).toUpperCase() === "PASS" &&
+      status === "PASS" &&
       Number.isFinite(score) &&
       score >= minimum &&
       score <= 100 &&
-      text(entry.evidence_note).length >= 8;
-    if (!passed) failures.push(`${capability}:${criterion || "UNKNOWN"}:FAILED`);
-    return { criterion, score, minimum, passed };
+      evidenceNote.length >= 8;
+    if (!passed) failures.push(`${capability || "UNKNOWN"}:${criterion || "UNKNOWN"}:FAILED`);
+    return {
+      criterion,
+      status,
+      score,
+      minimum,
+      evidence_note: evidenceNote,
+      passed,
+    };
   });
 
   const passed =
+    Boolean(capability && engine && model) &&
+    reviewStatus === "PASS" &&
     item.mechanical_passed === true &&
     criteria.length > 0 &&
     criteria.every((entry) => entry.passed);
-  if (!passed) failures.push(`${capability}:HUMAN_QUALITY_FAILED`);
+  if (!passed) failures.push(`${capability || "UNKNOWN"}:HUMAN_QUALITY_FAILED`);
+
   return {
+    engine,
     capability,
+    model,
+    mechanical_passed: item.mechanical_passed === true,
+    review_status: reviewStatus,
     reviewer,
     reviewed_at: item.reviewed_at || null,
     output_storage_reference: item.output_storage_reference || null,
@@ -96,7 +121,7 @@ const evidence = {
   source_review_contract: review.contract,
   source_scope: "BENCHMARK_ONLY",
   capability_count: reviewed.length,
-  mechanically_certified_for_review: true,
+  mechanically_certified_for_review: reviewed.every((item) => item.mechanical_passed),
   economics_evidence_complete: reviewed.every(
     (item) => item.economics?.rate_configured === true &&
       Number.isFinite(item.economics?.estimated_supplier_compute_cost_usd),
@@ -111,6 +136,8 @@ const evidence = {
   final_certification_required: true,
   final_certification_requirements: {
     model_license_gate: true,
+    exact_reviewed_model_binding: true,
+    exact_capability_binding: true,
     capability_specific_quality_evidence: true,
     economics_evidence: true,
     explicit_pricing_status_promotion: true,
@@ -119,7 +146,11 @@ const evidence = {
   },
 };
 
-if (!evidence.economics_evidence_complete || !evidence.human_quality_certified) {
+if (
+  !evidence.mechanically_certified_for_review ||
+  !evidence.economics_evidence_complete ||
+  !evidence.human_quality_certified
+) {
   throw new Error("AVANTIQO_MEDIA_CERTIFICATION_EVIDENCE_NOT_COMPLETE");
 }
 
@@ -128,6 +159,7 @@ console.log(JSON.stringify({
   success: true,
   output_path: OUTPUT,
   capability_count: evidence.capability_count,
+  mechanically_certified_for_review: evidence.mechanically_certified_for_review,
   human_quality_certified: evidence.human_quality_certified,
   economics_evidence_complete: evidence.economics_evidence_complete,
   production_certified: false,

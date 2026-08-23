@@ -43,7 +43,7 @@ assert.doesNotMatch(conversationSource, /supabaseAdmin/);
 assert.doesNotMatch(conversationSource, /WalletRuntime/);
 
 assert.match(syntheticSource, /OperatorForecastConversationRuntime/);
-assert.match(syntheticSource, /isForecastAccountabilityQuestion\(options\.message\)/);
+assert.match(syntheticSource, /isForecastAccountabilityQuestion\(effectiveOptions\.message\)/);
 assert.match(syntheticSource, /localForecastAccountabilityTurn/);
 assert.match(syntheticSource, /forecast-accountability-local-v1/);
 assert.match(syntheticSource, /provider:\s*"avantiqo-local"/);
@@ -56,8 +56,8 @@ assert.match(syntheticSource, /forecast_accountability_local:\s*true/);
 assert.match(syntheticSource, /execution:\s*null/);
 assert.match(syntheticSource, /navigation:\s*null/);
 
-const localGateIndex = syntheticSource.indexOf("isForecastAccountabilityQuestion(options.message)");
-const cognitiveBriefIndex = syntheticSource.indexOf("const cognitiveBrief = await ownedCognitiveBrief(options)");
+const localGateIndex = syntheticSource.indexOf("isForecastAccountabilityQuestion(effectiveOptions.message)");
+const cognitiveBriefIndex = syntheticSource.indexOf("const cognitiveBrief = await ownedCognitiveBrief(effectiveOptions)");
 assert.ok(localGateIndex >= 0, "Forecast accountability gate must exist");
 assert.ok(cognitiveBriefIndex >= 0, "Owned cognitive brief call must exist");
 assert.ok(

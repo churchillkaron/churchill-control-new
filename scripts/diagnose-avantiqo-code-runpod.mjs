@@ -61,44 +61,52 @@ const [endpointsResponse, healthResponse] = await Promise.all([
 
 const endpointsBody = await json(endpointsResponse);
 const health = await json(healthResponse);
-if (!endpointsResponse.ok) {
-  throw new Error(`RUNPOD_ENDPOINT_DISCOVERY_HTTP_${endpointsResponse.status}:${text(endpointsBody?.error || endpointsBody?.message)}`);
-}
 if (!healthResponse.ok) {
   throw new Error(`RUNPOD_ENDPOINT_HEALTH_HTTP_${healthResponse.status}:${text(health?.error || health?.message)}`);
 }
 
-const endpoints = Array.isArray(endpointsBody)
-  ? endpointsBody
-  : Array.isArray(endpointsBody?.endpoints)
-    ? endpointsBody.endpoints
-    : [];
-const endpoint = endpoints.find((candidate) => text(candidate?.id) === endpointId);
-if (!endpoint) throw new Error(`RUNPOD_CODE_ENDPOINT_NOT_FOUND:${endpointId}`);
+const managementScopeAvailable = endpointsResponse.ok;
+const managementScopeStatus = endpointsResponse.status;
+const endpoints = managementScopeAvailable
+  ? Array.isArray(endpointsBody)
+    ? endpointsBody
+    : Array.isArray(endpointsBody?.endpoints)
+      ? endpointsBody.endpoints
+      : []
+  : [];
+const endpoint = endpoints.find((candidate) => text(candidate?.id) === endpointId) || null;
 
 const workers = health?.workers || {};
 const jobs = health?.jobs || {};
 const operationalWorkers = number(workers.idle) + number(workers.ready) + number(workers.running);
 const initializingWorkers = number(workers.initializing);
-const gpuTypes = Array.isArray(endpoint.gpuTypeIds) ? endpoint.gpuTypeIds : [];
-const dataCenters = Array.isArray(endpoint.dataCenterIds)
+const gpuTypes = endpoint && Array.isArray(endpoint.gpuTypeIds) ? endpoint.gpuTypeIds : [];
+const dataCenters = endpoint && Array.isArray(endpoint.dataCenterIds)
   ? endpoint.dataCenterIds
-  : text(endpoint.dataCenterIds)
+  : endpoint && text(endpoint.dataCenterIds)
     ? text(endpoint.dataCenterIds).split(",").map((value) => value.trim()).filter(Boolean)
     : [];
 
 let readiness = "UNKNOWN";
 if (operationalWorkers > 0) readiness = "READY_OR_RUNNING";
 else if (initializingWorkers > 0) readiness = "WORKER_INITIALIZING_NO_READY_CAPACITY";
-else if (number(endpoint.workersMin) === 0) readiness = "SCALE_TO_ZERO_IDLE";
+else if (endpoint && number(endpoint.workersMin) === 0) readiness = "SCALE_TO_ZERO_IDLE";
+else if (number(jobs.inQueue) === 0) readiness = "NO_ACTIVE_WORKER_QUEUE_CLEAN";
 else readiness = "NO_WORKER_CAPACITY";
 
 const report = {
   success: readiness !== "WORKER_INITIALIZING_NO_READY_CAPACITY" && readiness !== "NO_WORKER_CAPACITY",
-  contract: "AVANTIQO_CODE_RUNPOD_DIAGNOSTIC_V1",
+  contract: "AVANTIQO_CODE_RUNPOD_DIAGNOSTIC_V2",
   mutation_performed: false,
   provider_job_submitted: false,
-  endpoint: {
+  management_scope: {
+    available: managementScopeAvailable,
+    http_status: managementScopeStatus,
+    note: managementScopeAvailable
+      ? "Account-level endpoint configuration was readable."
+      : "Runtime API key cannot read account-level endpoint configuration; endpoint health remains available and is authoritative for queue/worker state.",
+  },
+  endpoint: endpoint ? {
     id: endpoint.id,
     name: endpoint.name || null,
     compute_type: endpoint.computeType || null,
@@ -127,6 +135,9 @@ const report = {
       environment: safeEnv(endpoint.template.env),
     } : null,
     workers: Array.isArray(endpoint.workers) ? endpoint.workers.map(sanitizeWorker) : [],
+  } : {
+    id: endpointId,
+    configuration_unavailable_without_management_scope: true,
   },
   health: {
     jobs: {
@@ -149,10 +160,8 @@ const report = {
   diagnosis: {
     readiness,
     queue_is_clean: number(jobs.inQueue) === 0,
-    single_gpu_type_only: gpuTypes.length === 1,
-    region_restricted: dataCenters.length > 0,
-    scale_to_zero: number(endpoint.workersMin) === 0,
     initialization_blocker: readiness === "WORKER_INITIALIZING_NO_READY_CAPACITY",
+    management_scope_required_for_gpu_template_details: !managementScopeAvailable,
   },
 };
 

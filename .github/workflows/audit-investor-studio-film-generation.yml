@@ -1,0 +1,42 @@
+name: Audit Investor Studio Film Generation
+
+on:
+  push:
+    paths:
+      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationPlan.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationRuntime.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorStudioExecutionRuntime.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js"
+      - "scripts/avantiqo-investor-studio-scenes.mjs"
+      - "scripts/investor-studio-film-generation-audit.mjs"
+      - ".github/workflows/audit-investor-studio-film-generation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Syntax check investor Studio source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationPlan.js
+          node --check lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationRuntime.js
+          node --check lib/creative/post-production/runtime/AvantiqoInvestorStudioExecutionRuntime.js
+          node --check lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js
+          node --check lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js
+          node --check lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js
+          node --check scripts/avantiqo-investor-studio-scenes.mjs
+          node --check scripts/investor-studio-film-generation-audit.mjs
+      - name: Enforce investor Studio generation contract
+        run: node scripts/investor-studio-film-generation-audit.mjs

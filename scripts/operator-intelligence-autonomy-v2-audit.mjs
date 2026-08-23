@@ -17,6 +17,7 @@ const REQUIRED_CAPABILITIES = new Map([
   ["platform.research_compare.analyze", "read"],
   ["platform.product_autonomy.assess", "read"],
   ["platform.product_persistence_decision.assess", "read"],
+  ["platform.product_persistence_handoff.execute", "write"],
   ["platform.product_autonomy_continuation.assess", "read"],
   ["platform.product_engineering_cycle.execute", "write"],
   ["platform.operator_mission.execute", "write"],
@@ -48,6 +49,7 @@ const files = Object.fromEntries(
       "lib/platform/capabilities/createCodeAICommitCapability.js",
       "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
       "lib/platform/capabilities/createProductPersistenceDecisionCapability.js",
+      "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
       "lib/platform/capabilities/createProductAutonomyContinuationCapability.js",
       "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
       "lib/operator/runtime/IntelligenceMemoryRuntime.js",
@@ -147,8 +149,10 @@ requireFragments("lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRunt
   '"platform.code_ai_autonomous.execute"',
   '"platform.code_ai_autonomous_status.verify"',
   '"platform.product_persistence_decision.assess"',
+  '"platform.product_persistence_handoff.execute"',
   '"platform.product_autonomy_continuation.assess"',
   "durable_operator_mission_required: true",
+  "explicit_confirmation_required: true",
   "automatic_recursion_allowed: false",
   "execution_started: false",
 ]);
@@ -239,6 +243,24 @@ requireFragments("lib/platform/capabilities/createProductPersistenceDecisionCapa
   'risk: "low"',
 ]);
 
+requireFragments("lib/platform/capabilities/createProductPersistenceHandoffCapability.js", [
+  'capability: "product_persistence_handoff"',
+  'action: "execute"',
+  "decideAvantiqoProductPersistence",
+  'decision.decision === "STAY_LOCAL"',
+  "mission: null",
+  'decision.decision !== "REQUEST_COMMIT_CONFIRMATION"',
+  'capability_key: "platform.code_ai_commit.execute"',
+  'capability_key: "platform.code_ai_commit_status.verify"',
+  'capability_key: "platform.product_autonomy_continuation.assess"',
+  "executeUbteCapability",
+  "explicit_commit_confirmation_preserved: true",
+  "post_commit_continuation_count: 1",
+  "automatic_recursion_allowed: false",
+  "production_deployed: false",
+  "database_migrations_applied: false",
+]);
+
 requireFragments("lib/platform/capabilities/createProductAutonomyContinuationCapability.js", [
   'capability: "product_autonomy_continuation"',
   'action: "assess"',
@@ -296,6 +318,7 @@ requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "createOperatorResearchCompareCapability",
   "createProductAutonomyAssessmentCapability",
   "createProductPersistenceDecisionCapability",
+  "createProductPersistenceHandoffCapability",
   "createProductAutonomyContinuationCapability",
   "createProductEngineeringCycleCapability",
   "createCodeAIAutonomousStatusCapability",
@@ -376,6 +399,20 @@ for (const key of [
   }
 }
 
+const persistenceHandoff = byKey.get("platform.product_persistence_handoff.execute");
+if (
+  persistenceHandoff?.risk !== "low" ||
+  persistenceHandoff?.auto_execute !== true ||
+  persistenceHandoff?.requires_confirmation === true ||
+  persistenceHandoff?.transactional === true ||
+  !persistenceHandoff?.permissions?.includes("platform.code.ai.execute") ||
+  !persistenceHandoff?.permissions?.includes("platform.code.ai.commit")
+) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product persistence handoff must remain a low-risk non-transactional governed composite that can only prepare the separately confirmed commit mission for actors holding both execute and commit permission",
+  );
+}
+
 const codeCommit = byKey.get("platform.code_ai_commit.execute");
 if (
   codeCommit?.risk !== "medium" ||
@@ -443,6 +480,7 @@ console.log("OPERATOR_CODE_AI_COMMIT_ARTIFACT=SERVER_OWNED_NON_RECALLABLE_FULL_A
 console.log("OPERATOR_CODE_AI_COMMIT=EXPLICIT_CONFIRMATION_PLUS_PERMISSION_PLUS_EXACT_BASE");
 console.log("OPERATOR_CODE_AI_COMMIT_VERIFICATION=SERVER_OWNED_REGISTERED_READ");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_DECISION=OWNED_READ_ONLY_NO_AUTHORIZATION_EFFECT");
+console.log("OPERATOR_PRODUCT_PERSISTENCE_HANDOFF=DECIDE_THEN_PREPARE_CONFIRMATION_NO_HIDDEN_COMMIT");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY_DECIDE_OPTIONAL_COMMIT_VERIFY");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_DEFAULT_PERSISTENCE=LOCAL_ONLY_NO_COMMIT");
 console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION=VERIFIED_COMMIT_ONE_BOUNDED_REASSESSMENT");

@@ -9,6 +9,7 @@ if [ ! -f .env.local ]; then
   exit 1
 fi
 
+MISSING_ENV_COUNT=0
 for name in \
   AVANTIQO_MEDIA_CERTIFICATION_FACE_VIDEO_PATH \
   AVANTIQO_MEDIA_CERTIFICATION_FACE_AUDIO_PATH \
@@ -22,11 +23,18 @@ for name in \
   AVANTIQO_VIDEO_GPU_USD_PER_SECOND \
   AVANTIQO_LIPSYNC_GPU_USD_PER_SECOND
 do
-  if ! grep -Eq "^(export[[:space:]]+)?${name}=" .env.local; then
+  if ! grep -Eq "^(export[[:space:]]+)?${name}=.+$" .env.local; then
     echo "AVANTIQO_MEDIA_CERTIFICATION_ENV_MISSING:${name}" >&2
-    exit 1
+    MISSING_ENV_COUNT=$((MISSING_ENV_COUNT + 1))
   fi
 done
+
+if [ "$MISSING_ENV_COUNT" -ne 0 ]; then
+  echo "AVANTIQO_MEDIA_CERTIFICATION_ENV_MISSING_COUNT=${MISSING_ENV_COUNT}" >&2
+  echo "AVANTIQO_MEDIA_CERTIFICATION_PREFLIGHT_NOT_STARTED" >&2
+  echo "AVANTIQO_MEDIA_CERTIFICATION_RUNPOD_GENERATION_JOBS_SUBMITTED=0" >&2
+  exit 1
+fi
 
 command -v node >/dev/null 2>&1 || {
   echo "AVANTIQO_MEDIA_CERTIFICATION_NODE_REQUIRED" >&2

@@ -24,6 +24,14 @@ function required(name) {
   return value;
 }
 
+function requiredAny(names) {
+  for (const name of names) {
+    const value = text(process.env[name]);
+    if (value) return { value, source: name };
+  }
+  throw new Error(`AVANTIQO_MEDIA_PREFLIGHT_ENV_REQUIRED:${names.join("_OR_")}`);
+}
+
 function optionalPositiveRate(name) {
   const raw = text(process.env[name]);
   if (!raw) return null;
@@ -119,7 +127,7 @@ function normalizeHealth(body = {}) {
   };
 }
 
-async function endpointHealth(label, endpointId, apiKey) {
+async function endpointHealth(label, endpointId, apiKey, credentialSource) {
   const started = Date.now();
   const body = await requestJson(
     `${RUNPOD_API_BASE}/${encodeURIComponent(endpointId)}/health`,
@@ -129,6 +137,7 @@ async function endpointHealth(label, endpointId, apiKey) {
     label,
     endpoint_configured: true,
     health_reachable: true,
+    credential_source: credentialSource,
     latency_ms: Date.now() - started,
     ...normalizeHealth(body),
   };
@@ -216,7 +225,6 @@ const economicsRatesConfigured =
   gpuRates.cinema_usd_per_second !== null &&
   (!includeLipsync || gpuRates.lipsync_usd_per_second !== null);
 
-const apiKey = required("RUNPOD_API_KEY");
 const endpoints = {
   image: required("RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID"),
   cinema: required("RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID"),
@@ -228,12 +236,41 @@ if (new Set(Object.values(endpoints)).size !== Object.values(endpoints).length) 
   throw new Error("AVANTIQO_MEDIA_PREFLIGHT_DISTINCT_ENDPOINTS_REQUIRED");
 }
 
+const imageCredential = requiredAny([
+  "RUNPOD_AVANTIQO_IMAGE_API_KEY",
+  "RUNPOD_API_KEY",
+]);
+const cinemaCredential = requiredAny([
+  "RUNPOD_AVANTIQO_VIDEO_API_KEY",
+  "RUNPOD_API_KEY",
+]);
+const lipsyncCredential = includeLipsync
+  ? requiredAny(["RUNPOD_AVANTIQO_LIPSYNC_API_KEY", "RUNPOD_API_KEY"])
+  : null;
+
 const endpointChecks = [
-  endpointHealth("image", endpoints.image, apiKey),
-  endpointHealth("cinema", endpoints.cinema, apiKey),
+  endpointHealth(
+    "image",
+    endpoints.image,
+    imageCredential.value,
+    imageCredential.source,
+  ),
+  endpointHealth(
+    "cinema",
+    endpoints.cinema,
+    cinemaCredential.value,
+    cinemaCredential.source,
+  ),
 ];
 if (includeLipsync) {
-  endpointChecks.push(endpointHealth("lipsync", endpoints.lipsync, apiKey));
+  endpointChecks.push(
+    endpointHealth(
+      "lipsync",
+      endpoints.lipsync,
+      lipsyncCredential.value,
+      lipsyncCredential.source,
+    ),
+  );
 }
 const [healthResults, supabase] = await Promise.all([
   Promise.all(endpointChecks),
@@ -259,6 +296,13 @@ const report = {
     rates_configured_for_current_scope: economicsRatesConfigured,
     measurement_pending_real_inference: true,
   },
+  endpoint_credentials: {
+    image: imageCredential.source,
+    cinema: cinemaCredential.source,
+    lipsync: lipsyncCredential?.source || null,
+    secret_values_in_report: false,
+    endpoint_scoped_credentials_supported: true,
+  },
   endpoints: healthResults,
   supabase,
   safety: {
@@ -283,6 +327,7 @@ console.log(
       certification_stage: report.certification_stage,
       output_path: OUTPUT,
       endpoint_health_checks: report.endpoints.length,
+      endpoint_credentials: report.endpoint_credentials,
       supabase_read_access: true,
       runpod_generation_jobs_submitted: 0,
       economics_rates_configured: economicsRatesConfigured,

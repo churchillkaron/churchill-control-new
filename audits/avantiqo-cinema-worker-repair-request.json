@@ -1,0 +1,10 @@
+{
+  "contract": "AVANTIQO_CINEMA_WORKER_REPAIR_REQUEST_V1",
+  "requested_at": "2026-08-23T12:24:00Z",
+  "scope": "INVESTOR_SCENE9",
+  "action": "REPAIR_WORKER_THEN_RUN_ONE_FRESH_PROOF",
+  "owned_only": true,
+  "external_ai_fallback_allowed": false,
+  "stale_provider_job_id": "7149b284-b209-417f-acb6-71b4112e116c-e1",
+  "fresh_request_id": "scene9-owned-proof-v2"
+}

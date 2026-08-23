@@ -1,0 +1,8 @@
+{
+  "contract": "AVANTIQO_CODE_AI_CERTIFICATION_REQUEST_V1",
+  "requested_at": "2026-08-23T06:02:00Z",
+  "scope": "code-only",
+  "benchmark_runs": 3,
+  "production_activation_allowed": false,
+  "purpose": "Live owned Code model certification after production deployment"
+}

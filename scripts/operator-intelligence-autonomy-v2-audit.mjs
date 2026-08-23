@@ -33,6 +33,7 @@ const files = Object.fromEntries(
       "lib/ubte/runtime/ExecutionEngine.js",
       "lib/operator/runtime/OperatorMissionBindingRuntime.js",
       "lib/operator/runtime/OperatorMissionBindingExecutionRuntime.js",
+      "lib/operator/runtime/OperatorTurnRuntime.js",
       "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js",
       "lib/platform/research/runtime/OperatorWebResearchRuntime.js",
       "lib/platform/research/runtime/OperatorWebSourceReadRuntime.js",
@@ -91,6 +92,20 @@ requireFragments("lib/ubte/runtime/ExecutionEngine.js", [
   "observeOperatorMissionBindingResult",
   "attachMissionBindingState",
   "executionPayload",
+]);
+
+requireFragments("lib/operator/runtime/OperatorTurnRuntime.js", [
+  'PRODUCT_ENGINEERING_CYCLE_KEY =',
+  'PRODUCT_PERSISTENCE_HANDOFF_KEY =',
+  "embeddedPersistenceMission",
+  "promoteEmbeddedPersistenceMission",
+  "createOperatorMissionRun",
+  "agreementWithAutonomousRun",
+  "object(executionResult.persistence_handoff)",
+  'capability_key: OPERATOR_MISSION_KEY',
+  'resume_kind: "mission"',
+  "embedded_mission_promoted: true",
+  'question: "Should I proceed with that exact commit step?"',
 ]);
 
 requireFragments("lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js", [
@@ -283,6 +298,14 @@ requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapabil
   'target_path: "objective"',
   '"platform.code_ai_autonomous_status.verify"',
   '"platform.product_persistence_decision.assess"',
+  'capability: "product_persistence_handoff"',
+  'action: "execute"',
+  "preparePersistenceHandoff",
+  'decision?.decision === "REQUEST_COMMIT_CONFIRMATION"',
+  "persistence_handoff",
+  "persistence_handoff_available",
+  "persistence_handoff_reason",
+  "product_persistence_handoff_may_only_prepare_confirmation: true",
   '"platform.code_ai_commit.execute"',
   '"platform.code_ai_commit_status.verify"',
   "persistence_decision",
@@ -481,8 +504,9 @@ console.log("OPERATOR_CODE_AI_COMMIT=EXPLICIT_CONFIRMATION_PLUS_PERMISSION_PLUS_
 console.log("OPERATOR_CODE_AI_COMMIT_VERIFICATION=SERVER_OWNED_REGISTERED_READ");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_DECISION=OWNED_READ_ONLY_NO_AUTHORIZATION_EFFECT");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_HANDOFF=DECIDE_THEN_PREPARE_CONFIRMATION_NO_HIDDEN_COMMIT");
-console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY_DECIDE_OPTIONAL_COMMIT_VERIFY");
-console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_DEFAULT_PERSISTENCE=LOCAL_ONLY_NO_COMMIT");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY_DECIDE_PREPARE_CONFIRMATION");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_DEFAULT_PERSISTENCE=LOCAL_ONLY_UNTIL_EXPLICIT_NESTED_COMMIT_CONFIRMATION");
+console.log("OPERATOR_PRODUCT_PERSISTENCE_CONVERSATION=ONE_CONFIRMATION_EXACT_MISSION_RESUME");
 console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION=VERIFIED_COMMIT_ONE_BOUNDED_REASSESSMENT");
 console.log("OPERATOR_PRODUCT_AUTONOMY_RECURSION=DISABLED");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_PRODUCTION=NO_DEPLOY_NO_MIGRATION");

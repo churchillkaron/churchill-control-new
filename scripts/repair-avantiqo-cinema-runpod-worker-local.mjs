@@ -1,23 +1,27 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 
-const GRAPHQL_BASE = "https://api.runpod.io/graphql";
+const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const apiKey = required("RUNPOD_API_KEY");
+const inferenceKey = required("RUNPOD_API_KEY");
+const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID");
-const providerJobId = String(
+const staleJobId = String(
   process.env.INVESTOR_SCENE9_PROVIDER_JOB_ID ||
     "7149b284-b209-417f-acb6-71b4112e116c-e1",
 ).trim();
-const repairEnabled = /^(1|true|yes|on)$/i.test(
-  String(process.env.AVANTIQO_CINEMA_RUNPOD_REPAIR || ""),
-);
+const repairEnabled = flag("AVANTIQO_CINEMA_RUNPOD_REPAIR");
+const restoreMinOnly = flag("AVANTIQO_CINEMA_RUNPOD_RESTORE_MIN");
+const cancelStale = flag("AVANTIQO_CINEMA_CANCEL_STALE_JOB");
 const maxWaitMs = Math.max(
   30_000,
-  Number(process.env.AVANTIQO_CINEMA_RUNPOD_REPAIR_WAIT_MS || 10 * 60 * 1000),
+  Number(process.env.AVANTIQO_CINEMA_RUNPOD_REPAIR_WAIT_MS || 15 * 60 * 1000),
 );
 const backupPath =
   process.env.AVANTIQO_CINEMA_RUNPOD_REPAIR_BACKUP ||
   "/tmp/avantiqo-cinema-runpod-repair-backup.json";
+const resultPath =
+  process.env.AVANTIQO_CINEMA_RUNPOD_REPAIR_RESULT ||
+  "/tmp/avantiqo-cinema-runpod-repair-result.json";
 
 const TARGET_OVERRIDES = Object.freeze({
   AVANTIQO_VIDEO_CERTIFIED_CAPABILITIES: "ai.video.generate",
@@ -31,65 +35,98 @@ function required(name) {
   return value;
 }
 
+function flag(name) {
+  return /^(1|true|yes|on)$/i.test(String(process.env[name] || ""));
+}
+
+function text(value) {
+  return String(value ?? "").trim();
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function finite(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function normalizeEnv(value) {
-  if (!value) return {};
-  if (Array.isArray(value)) {
-    return Object.fromEntries(
-      value
-        .filter((entry) => entry && typeof entry === "object" && entry.key)
-        .map((entry) => [String(entry.key), String(entry.value ?? "")]),
-    );
-  }
-  if (typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, child]) => [String(key), String(child ?? "")]),
-    );
-  }
-  return {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [String(key), String(child ?? "")]),
+  );
 }
 
-function environmentList(value) {
-  return Object.entries(normalizeEnv(value)).map(([key, child]) => ({
-    key,
-    value: child,
-  }));
-}
-
-function sanitizedPod(pod = {}) {
+function sanitizedEndpoint(endpoint = {}) {
   return {
-    id: pod.id || null,
-    desired_status: pod.desiredStatus || null,
+    id: text(endpoint.id) || null,
+    name: text(endpoint.name) || null,
+    version: finite(endpoint.version),
+    template_id: text(endpoint.templateId || endpoint.template?.id) || null,
+    template_name: text(endpoint.template?.name) || null,
+    template_image: text(endpoint.template?.imageName) || null,
+    workers_min: finite(endpoint.workersMin),
+    workers_max: finite(endpoint.workersMax),
+    scaler_type: text(endpoint.scalerType) || null,
+    scaler_value: finite(endpoint.scalerValue),
+    gpu_type_ids: Array.isArray(endpoint.gpuTypeIds) ? endpoint.gpuTypeIds : [],
+    network_volume_id: text(endpoint.networkVolumeId) || null,
+    template_env_keys: Object.keys(normalizeEnv(endpoint.template?.env)).sort(),
+    workers: Array.isArray(endpoint.workers)
+      ? endpoint.workers.map((worker) => ({
+          id_present: Boolean(text(worker?.id)),
+          desired_status: text(worker?.desiredStatus) || null,
+          last_status_change: text(worker?.lastStatusChange) || null,
+          gpu: text(worker?.gpu?.displayName || worker?.machine?.gpuDisplayName) || null,
+        }))
+      : [],
   };
 }
 
-function sanitizeEndpoint(endpoint = {}) {
-  const endpointEnv = normalizeEnv(endpoint.env);
-  const templateEnv = normalizeEnv(endpoint.template?.env);
+function sanitizedHealth(body = {}) {
+  const jobs = body?.jobs && typeof body.jobs === "object" ? body.jobs : {};
+  const workers = body?.workers && typeof body.workers === "object" ? body.workers : {};
   return {
-    id: endpoint.id || null,
-    name: endpoint.name || null,
-    version: endpoint.version ?? null,
-    template_id: endpoint.templateId || endpoint.template?.id || null,
-    template_bound_endpoint_id: endpoint.template?.boundEndpointId || null,
-    template_name: endpoint.template?.name || null,
-    template_image: endpoint.template?.imageName || null,
-    workers_min: endpoint.workersMin ?? null,
-    workers_max: endpoint.workersMax ?? null,
-    scaler_type: endpoint.scalerType || null,
-    scaler_value: endpoint.scalerValue ?? null,
-    gpu_ids: endpoint.gpuIds || null,
-    network_volume_id: endpoint.networkVolumeId || null,
-    endpoint_env_keys: Object.keys(endpointEnv).sort(),
-    template_env_keys: Object.keys(templateEnv).sort(),
-    workers: Array.isArray(endpoint.pods) ? endpoint.pods.map(sanitizedPod) : [],
+    jobs: {
+      in_queue: finite(jobs.inQueue ?? jobs.in_queue) ?? 0,
+      in_progress: finite(jobs.inProgress ?? jobs.in_progress) ?? 0,
+      completed: finite(jobs.completed) ?? 0,
+      failed: finite(jobs.failed) ?? 0,
+    },
+    workers: {
+      idle: finite(workers.idle) ?? 0,
+      initializing: finite(workers.initializing) ?? 0,
+      ready: finite(workers.ready) ?? 0,
+      running: finite(workers.running) ?? 0,
+      throttled: finite(workers.throttled) ?? 0,
+    },
   };
 }
 
-async function parseResponse(response) {
+function queueSummary(body = {}) {
+  return {
+    job_id: staleJobId || null,
+    status: text(body?.status) || null,
+    delay_ms: finite(body?.delayTime),
+    execution_ms: finite(body?.executionTime),
+    worker_id_present: Boolean(text(body?.workerId)),
+    has_error: Boolean(body?.error || body?.output?.error),
+  };
+}
+
+async function request(url, options = {}, credential = managementKey) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${credential}`,
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {}),
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
   const raw = await response.text();
   let body = null;
   try {
@@ -98,254 +135,159 @@ async function parseResponse(response) {
     body = null;
   }
   if (!response.ok) {
-    throw new Error(`RUNPOD_HTTP_${response.status}:UNKNOWN_RUNPOD_ERROR`);
+    const detail = text(body?.message || body?.error || body?.detail || raw).slice(0, 800);
+    throw new Error(`RUNPOD_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
   }
   return body;
 }
 
-async function queueStatus() {
-  if (!providerJobId) return null;
-  const response = await fetch(
-    `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/status/${encodeURIComponent(providerJobId)}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
-      signal: AbortSignal.timeout(30_000),
-    },
+async function getEndpoint() {
+  return request(
+    `${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
   );
-  return parseResponse(response);
 }
 
-function queueSummary(body = {}) {
-  return {
-    job_id: providerJobId || null,
-    status: body?.status || null,
-    delay_ms: Number.isFinite(Number(body?.delayTime)) ? Number(body.delayTime) : null,
-    execution_ms: Number.isFinite(Number(body?.executionTime))
-      ? Number(body.executionTime)
-      : null,
-    worker_id: body?.workerId || null,
-    has_error: Boolean(body?.error || body?.output?.error),
-  };
+async function listEndpoints() {
+  const body = await request(`${REST_BASE}/endpoints?includeTemplate=false&includeWorkers=false`);
+  if (!Array.isArray(body)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
+  return body;
 }
 
-async function graphql(query, variables = {}) {
-  const call = async (url, authorization = false) => {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        ...(authorization ? { Authorization: `Bearer ${apiKey}` } : {}),
-      },
-      body: JSON.stringify({ query, variables }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    const raw = await response.text();
-    let body = null;
-    try {
-      body = raw ? JSON.parse(raw) : null;
-    } catch {
-      body = null;
-    }
-    return { response, body };
-  };
-
-  let result = await call(
-    `${GRAPHQL_BASE}?api_key=${encodeURIComponent(apiKey)}`,
-    false,
-  );
-  if (result.response.status === 401 || result.response.status === 403) {
-    result = await call(GRAPHQL_BASE, true);
-  }
-  if (!result.response.ok) {
-    throw new Error(`RUNPOD_GRAPHQL_HTTP_${result.response.status}`);
-  }
-  if (Array.isArray(result.body?.errors) && result.body.errors.length) {
-    const safe = result.body.errors
-      .map((entry) => String(entry?.message || "GRAPHQL_ERROR").slice(0, 500))
-      .join(" | ");
-    throw new Error(`RUNPOD_GRAPHQL_ERROR:${safe}`);
-  }
-  if (!result.body?.data) throw new Error("RUNPOD_GRAPHQL_DATA_REQUIRED");
-  return result.body.data;
-}
-
-const ENDPOINT_QUERY = `
-  query CinemaEndpoint($id: String!) {
-    myself {
-      endpoint(id: $id) {
-        id
-        name
-        gpuIds
-        idleTimeout
-        locations
-        networkVolumeId
-        scalerType
-        scalerValue
-        templateId
-        workersMax
-        workersMin
-        version
-        env { key value }
-        pods { id desiredStatus }
-        template {
-          id
-          name
-          imageName
-          containerDiskInGb
-          volumeInGb
-          volumeMountPath
-          dockerArgs
-          ports
-          readme
-          isPublic
-          isServerless
-          boundEndpointId
-          containerRegistryAuthId
-          env { key value }
-        }
-      }
-      endpoints { id templateId }
-    }
-  }
-`;
-
-async function endpointBundle() {
-  const data = await graphql(ENDPOINT_QUERY, { id: endpointId });
-  const endpoint = data?.myself?.endpoint;
-  if (!endpoint) throw new Error(`RUNPOD_VIDEO_ENDPOINT_NOT_FOUND:${endpointId}`);
-  return {
-    endpoint,
-    endpoints: Array.isArray(data?.myself?.endpoints) ? data.myself.endpoints : [],
-  };
-}
-
-function graphqlString(value) {
-  return JSON.stringify(String(value ?? ""));
-}
-
-function graphqlEnv(env) {
-  return `[${environmentList(env)
-    .map(
-      ({ key, value }) =>
-        `{ key: ${graphqlString(key)}, value: ${graphqlString(value)} }`,
-    )
-    .join(", ")}]`;
-}
-
-function optionalStringField(name, value) {
-  if (value === undefined || value === null) return "";
-  return `${name}: ${graphqlString(value)}`;
-}
-
-function optionalBooleanField(name, value) {
-  if (typeof value !== "boolean") return "";
-  return `${name}: ${value ? "true" : "false"}`;
-}
-
-function optionalNumberField(name, value) {
-  if (!Number.isFinite(Number(value))) return "";
-  return `${name}: ${Number(value)}`;
+async function getTemplate(templateId) {
+  return request(`${REST_BASE}/templates/${encodeURIComponent(templateId)}`);
 }
 
 async function updateTemplate(template, env) {
-  if (!template?.id) throw new Error("RUNPOD_VIDEO_TEMPLATE_ID_REQUIRED");
-  const fields = [
-    `id: ${graphqlString(template.id)}`,
-    optionalNumberField("containerDiskInGb", template.containerDiskInGb),
-    optionalStringField("imageName", template.imageName),
-    optionalStringField("name", template.name),
-    optionalNumberField("volumeInGb", template.volumeInGb),
-    optionalStringField("volumeMountPath", template.volumeMountPath),
-    optionalStringField("dockerArgs", template.dockerArgs),
-    optionalStringField("ports", template.ports),
-    optionalStringField("readme", template.readme),
-    optionalBooleanField("isPublic", template.isPublic),
-    optionalBooleanField("isServerless", template.isServerless),
-    optionalStringField("containerRegistryAuthId", template.containerRegistryAuthId),
-    `env: ${graphqlEnv(env)}`,
-  ].filter(Boolean);
-
-  const mutation = `
-    mutation {
-      saveTemplate(input: { ${fields.join(", ")} }) {
-        id
-        name
-        imageName
-        isServerless
-        boundEndpointId
-        env { key value }
-      }
-    }
-  `;
-  const data = await graphql(mutation);
-  if (!data?.saveTemplate?.id) throw new Error("RUNPOD_TEMPLATE_UPDATE_RESULT_REQUIRED");
-  return data.saveTemplate;
+  const body = {
+    containerDiskInGb: finite(template.containerDiskInGb) ?? 50,
+    dockerEntrypoint: Array.isArray(template.dockerEntrypoint) ? template.dockerEntrypoint : [],
+    dockerStartCmd: Array.isArray(template.dockerStartCmd) ? template.dockerStartCmd : [],
+    env,
+    imageName: requiredTemplateField(template.imageName, "RUNPOD_TEMPLATE_IMAGE_REQUIRED"),
+    isPublic: template.isPublic === true,
+    name: requiredTemplateField(template.name, "RUNPOD_TEMPLATE_NAME_REQUIRED"),
+    ports: Array.isArray(template.ports) ? template.ports : [],
+    readme: text(template.readme),
+    volumeInGb: finite(template.volumeInGb) ?? 20,
+    volumeMountPath: text(template.volumeMountPath) || "/workspace",
+  };
+  if (text(template.containerRegistryAuthId)) {
+    body.containerRegistryAuthId = text(template.containerRegistryAuthId);
+  }
+  return request(`${REST_BASE}/templates/${encodeURIComponent(template.id)}/update`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
-const beforeBundle = await endpointBundle();
-const beforeEndpoint = beforeBundle.endpoint;
-console.log("AVANTIQO_CINEMA_RUNPOD_CONTROL_PLANE=GRAPHQL");
-console.log("AVANTIQO_CINEMA_RUNPOD_ENDPOINT_BEFORE");
-console.log(JSON.stringify(sanitizeEndpoint(beforeEndpoint), null, 2));
-
-const beforeQueue = await queueStatus();
-console.log("AVANTIQO_CINEMA_SCENE9_QUEUE_BEFORE");
-console.log(JSON.stringify(queueSummary(beforeQueue), null, 2));
-
-const currentTemplate = beforeEndpoint.template;
-const templateId = beforeEndpoint.templateId || currentTemplate?.id;
-if (!templateId || !currentTemplate?.id) {
-  throw new Error("RUNPOD_VIDEO_TEMPLATE_ID_REQUIRED");
-}
-if (String(currentTemplate.id) !== String(templateId)) {
-  throw new Error("RUNPOD_VIDEO_TEMPLATE_BINDING_MISMATCH");
+function requiredTemplateField(value, code) {
+  const result = text(value);
+  if (!result) throw new Error(code);
+  return result;
 }
 
-const templateConsumers = beforeBundle.endpoints.filter(
-  (entry) => String(entry?.templateId || "") === String(templateId),
-);
-const boundEndpointId = String(currentTemplate.boundEndpointId || "").trim();
-if (boundEndpointId && boundEndpointId !== endpointId) {
-  throw new Error(
-    `RUNPOD_TEMPLATE_BOUND_TO_DIFFERENT_ENDPOINT:${boundEndpointId}`,
-  );
+async function patchWorkersMin(value) {
+  return request(`${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ workersMin: Number(value) }),
+  });
 }
-if (!boundEndpointId && templateConsumers.length !== 1) {
-  throw new Error(
-    `RUNPOD_SHARED_TEMPLATE_REPAIR_BLOCKED:${templateConsumers.length}`,
+
+async function health() {
+  return request(
+    `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`,
+    { method: "GET" },
+    inferenceKey,
   );
 }
 
-const templateEnv = normalizeEnv(currentTemplate.env);
-const endpointEnv = normalizeEnv(beforeEndpoint.env);
-const conflictingEndpointOverrides = Object.keys(TARGET_OVERRIDES).filter(
-  (key) => Object.prototype.hasOwnProperty.call(endpointEnv, key),
-);
-if (conflictingEndpointOverrides.length) {
-  throw new Error(
-    `RUNPOD_ENDPOINT_ENV_OVERRIDE_BLOCKS_SAFE_TEMPLATE_REPAIR:${conflictingEndpointOverrides.join(",")}`,
+async function staleStatus() {
+  if (!staleJobId) return null;
+  return request(
+    `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/status/${encodeURIComponent(staleJobId)}`,
+    { method: "GET" },
+    inferenceKey,
   );
 }
 
+async function cancelStaleJob() {
+  if (!staleJobId) return null;
+  return request(
+    `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/cancel/${encodeURIComponent(staleJobId)}`,
+    { method: "POST" },
+    inferenceKey,
+  );
+}
+
+async function writeResult(result) {
+  await writeFile(resultPath, `${JSON.stringify(result, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  console.log(`AVANTIQO_CINEMA_RUNPOD_RESULT_PATH=${resultPath}`);
+}
+
+async function restoreMinimumWorker() {
+  const backup = JSON.parse(await readFile(backupPath, "utf8"));
+  const original = Number(backup?.endpoint?.workers_min);
+  if (!Number.isFinite(original) || original < 0) {
+    throw new Error("RUNPOD_REPAIR_BACKUP_WORKERS_MIN_INVALID");
+  }
+  await patchWorkersMin(original);
+  const result = {
+    success: true,
+    contract: "AVANTIQO_CINEMA_RUNPOD_WORKER_REPAIR_V3",
+    mode: "RESTORE_MINIMUM_WORKER",
+    endpoint_id: endpointId,
+    workers_min_restored_to: original,
+    generation_submitted: false,
+    external_ai_provider_used: false,
+  };
+  await writeResult(result);
+  console.log(`AVANTIQO_CINEMA_RUNPOD_WORKERS_MIN_RESTORED=${original}`);
+}
+
+if (restoreMinOnly) {
+  await restoreMinimumWorker();
+  process.exit(0);
+}
+
+const endpointBefore = await getEndpoint();
+if (text(endpointBefore.id) !== endpointId) throw new Error("RUNPOD_VIDEO_ENDPOINT_ID_MISMATCH");
+const templateId = text(endpointBefore.templateId || endpointBefore.template?.id);
+if (!templateId) throw new Error("RUNPOD_VIDEO_TEMPLATE_ID_REQUIRED");
+const template = await getTemplate(templateId);
+if (text(template.id) !== templateId) throw new Error("RUNPOD_VIDEO_TEMPLATE_BINDING_MISMATCH");
+const endpoints = await listEndpoints();
+const consumers = endpoints.filter((entry) => text(entry?.templateId) === templateId);
+if (consumers.length !== 1 || text(consumers[0]?.id) !== endpointId) {
+  throw new Error(`RUNPOD_SHARED_TEMPLATE_REPAIR_BLOCKED:${consumers.length}`);
+}
+
+let staleBefore = null;
+try {
+  staleBefore = await staleStatus();
+} catch (error) {
+  if (!String(error?.message || "").startsWith("RUNPOD_HTTP_404:")) throw error;
+}
+const healthBefore = await health();
+const templateEnv = normalizeEnv(template.env);
 const backup = {
-  contract: "AVANTIQO_CINEMA_RUNPOD_REPAIR_BACKUP_V2_GRAPHQL",
-  endpoint_id: endpointId,
-  template_id: templateId,
-  template_bound_endpoint_id: boundEndpointId || null,
+  contract: "AVANTIQO_CINEMA_RUNPOD_REPAIR_BACKUP_V3",
   created_at: new Date().toISOString(),
-  modified_keys: Object.fromEntries(
+  endpoint: {
+    id: endpointId,
+    workers_min: finite(endpointBefore.workersMin) ?? 0,
+    workers_max: finite(endpointBefore.workersMax),
+    version: finite(endpointBefore.version),
+    template_id: templateId,
+  },
+  modified_template_keys: Object.fromEntries(
     Object.keys(TARGET_OVERRIDES).map((key) => [
       key,
       {
         present: Object.prototype.hasOwnProperty.call(templateEnv, key),
-        value: Object.prototype.hasOwnProperty.call(templateEnv, key)
-          ? templateEnv[key]
-          : null,
+        value: Object.prototype.hasOwnProperty.call(templateEnv, key) ? templateEnv[key] : null,
       },
     ]),
   ),
@@ -355,71 +297,87 @@ await writeFile(backupPath, `${JSON.stringify(backup, null, 2)}\n`, {
   mode: 0o600,
 });
 console.log(`AVANTIQO_CINEMA_RUNPOD_BACKUP=${backupPath}`);
+console.log(`AVANTIQO_CINEMA_ENDPOINT_BEFORE=${JSON.stringify(sanitizedEndpoint(endpointBefore))}`);
+console.log(`AVANTIQO_CINEMA_HEALTH_BEFORE=${JSON.stringify(sanitizedHealth(healthBefore))}`);
+console.log(`AVANTIQO_CINEMA_STALE_JOB_BEFORE=${JSON.stringify(queueSummary(staleBefore || {}))}`);
 
 if (!repairEnabled) {
-  console.log("AVANTIQO_CINEMA_RUNPOD_REPAIR=DRY_RUN");
-  console.log(
-    "Set AVANTIQO_CINEMA_RUNPOD_REPAIR=1 to apply the guarded T2V-only rolling repair.",
-  );
+  await writeResult({
+    success: true,
+    contract: "AVANTIQO_CINEMA_RUNPOD_WORKER_REPAIR_V3",
+    mode: "DRY_RUN",
+    endpoint: sanitizedEndpoint(endpointBefore),
+    health: sanitizedHealth(healthBefore),
+    stale_job: queueSummary(staleBefore || {}),
+    generation_submitted: false,
+    external_ai_provider_used: false,
+  });
   process.exit(0);
 }
 
-const repairedEnv = {
-  ...templateEnv,
-  ...TARGET_OVERRIDES,
-};
-await updateTemplate(currentTemplate, repairedEnv);
+let staleCancelled = false;
+const staleState = text(staleBefore?.status).toUpperCase();
+if (cancelStale && ["IN_QUEUE", "IN_PROGRESS"].includes(staleState)) {
+  const cancelled = await cancelStaleJob();
+  staleCancelled = ["CANCELLED", "CANCELED"].includes(text(cancelled?.status).toUpperCase());
+  console.log(`AVANTIQO_CINEMA_STALE_JOB_CANCELLED=${staleCancelled ? "YES" : "NO"}`);
+}
+
+const repairedEnv = { ...templateEnv, ...TARGET_OVERRIDES };
+await updateTemplate(template, repairedEnv);
 console.log("AVANTIQO_CINEMA_RUNPOD_TEMPLATE_UPDATE=APPLIED");
 console.log("AVANTIQO_CINEMA_RUNPOD_MODE=T2V_ONLY_FAIL_CLOSED");
 
+const originalMin = finite(endpointBefore.workersMin) ?? 0;
+if (originalMin < 1) {
+  await patchWorkersMin(1);
+  console.log("AVANTIQO_CINEMA_RUNPOD_TEMPORARY_WORKERS_MIN=1");
+}
+
 const started = Date.now();
-let lastEndpointVersion = beforeEndpoint.version ?? null;
-let lastQueueStatus = String(beforeQueue?.status || "");
+let last = "";
+let ready = false;
+let finalEndpoint = endpointBefore;
+let finalHealth = healthBefore;
 while (Date.now() - started < maxWaitMs) {
   await sleep(5000);
-  const currentBundle = await endpointBundle();
-  const currentEndpoint = currentBundle.endpoint;
-  const currentQueue = await queueStatus();
-  const currentVersion = currentEndpoint.version ?? null;
-  const currentStatus = String(currentQueue?.status || "");
-  if (currentVersion !== lastEndpointVersion || currentStatus !== lastQueueStatus) {
-    console.log("AVANTIQO_CINEMA_RUNPOD_PROGRESS");
-    console.log(
-      JSON.stringify(
-        {
-          endpoint: sanitizeEndpoint(currentEndpoint),
-          scene9_queue: queueSummary(currentQueue),
-        },
-        null,
-        2,
-      ),
-    );
-    lastEndpointVersion = currentVersion;
-    lastQueueStatus = currentStatus;
+  finalEndpoint = await getEndpoint();
+  finalHealth = await health();
+  const safeHealth = sanitizedHealth(finalHealth);
+  const workerCount =
+    safeHealth.workers.idle + safeHealth.workers.ready + safeHealth.workers.running;
+  const signature = JSON.stringify({
+    version: finite(finalEndpoint.version),
+    health: safeHealth,
+  });
+  if (signature !== last) {
+    console.log(`AVANTIQO_CINEMA_RUNPOD_PROGRESS=${signature}`);
+    last = signature;
   }
-
-  if (["IN_PROGRESS", "COMPLETED"].includes(currentStatus)) {
-    console.log(`AVANTIQO_CINEMA_RUNPOD_REPAIR_RESULT=${currentStatus}`);
-    process.exit(0);
-  }
-  if (["FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(currentStatus)) {
-    console.log(`AVANTIQO_CINEMA_RUNPOD_REPAIR_RESULT=${currentStatus}`);
-    process.exitCode = 2;
-    process.exit();
+  if (workerCount > 0) {
+    ready = true;
+    break;
   }
 }
 
-const finalBundle = await endpointBundle();
-const finalQueue = await queueStatus();
-console.log("AVANTIQO_CINEMA_RUNPOD_REPAIR_RESULT=WAIT_TIMEOUT");
-console.log(
-  JSON.stringify(
-    {
-      endpoint: sanitizeEndpoint(finalBundle.endpoint),
-      scene9_queue: queueSummary(finalQueue),
-    },
-    null,
-    2,
-  ),
-);
-process.exitCode = 3;
+const result = {
+  success: ready,
+  contract: "AVANTIQO_CINEMA_RUNPOD_WORKER_REPAIR_V3",
+  mode: "REPAIR_AND_WARM",
+  endpoint_before: sanitizedEndpoint(endpointBefore),
+  endpoint_after: sanitizedEndpoint(finalEndpoint),
+  health_before: sanitizedHealth(healthBefore),
+  health_after: sanitizedHealth(finalHealth),
+  stale_job_cancelled: staleCancelled,
+  stale_job_id_present: Boolean(staleJobId),
+  t2v_only_fail_closed: true,
+  temporary_workers_min: originalMin < 1 ? 1 : originalMin,
+  original_workers_min: originalMin,
+  backup_path: backupPath,
+  generation_submitted: false,
+  external_ai_provider_used: false,
+  secrets_in_output: false,
+};
+await writeResult(result);
+if (!ready) throw new Error("AVANTIQO_CINEMA_WORKER_NOT_READY_AFTER_REPAIR");
+console.log("AVANTIQO_CINEMA_RUNPOD_REPAIR_RESULT=READY");

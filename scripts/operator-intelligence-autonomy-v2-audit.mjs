@@ -2,6 +2,13 @@ import { register } from "node:module";
 import { pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
 
+// Keep this static autonomy audit runnable from raw `npm run build` / prebuild,
+// where Next.js has not loaded .env.local yet. Preserve real values when they
+// exist; these placeholders only allow import-time server client construction.
+// This audit performs no Supabase queries or writes.
+process.env.NEXT_PUBLIC_SUPABASE_URL ||= "https://audit.invalid";
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= "audit-service-role-key";
+
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
 const REQUIRED_CAPABILITIES = new Map([

@@ -120,20 +120,43 @@ function vercel(args, value) {
   });
 }
 
+function vercelDetail(result) {
+  return text(result.stderr || result.stdout).slice(0, 800);
+}
+
+function vercelVariableMissing(detail) {
+  const normalized = text(detail).toLowerCase();
+  return [
+    "does not exist",
+    "not found",
+    "could not find",
+    "no environment variable",
+  ].some((marker) => normalized.includes(marker));
+}
+
 function syncVercelEndpoint(binding) {
+  // Vercel CLI accepts the updated value over stdin. `env update` does not
+  // require/accept the global confirmation shortcut used by `env add`.
   const update = vercel(
-    ["env", "update", binding.envName, TARGET_ENVIRONMENT, "--yes"],
+    ["env", "update", binding.envName, TARGET_ENVIRONMENT],
     binding.endpointId,
   );
   if (update.status === 0) return "UPDATED";
+
+  const updateDetail = vercelDetail(update);
+  if (!vercelVariableMissing(updateDetail)) {
+    throw new Error(
+      `VERCEL_ENDPOINT_UPDATE_FAILED:${binding.envName}:${updateDetail || "UNKNOWN"}`,
+    );
+  }
 
   const add = vercel(
     ["env", "add", binding.envName, TARGET_ENVIRONMENT, "--yes"],
     binding.endpointId,
   );
   if (add.status !== 0) {
-    const detail = text(add.stderr || add.stdout || update.stderr || update.stdout).slice(0, 800);
-    throw new Error(`VERCEL_ENDPOINT_SYNC_FAILED:${binding.envName}:${detail || "UNKNOWN"}`);
+    const detail = vercelDetail(add) || updateDetail;
+    throw new Error(`VERCEL_ENDPOINT_ADD_FAILED:${binding.envName}:${detail || "UNKNOWN"}`);
   }
   return "ADDED";
 }

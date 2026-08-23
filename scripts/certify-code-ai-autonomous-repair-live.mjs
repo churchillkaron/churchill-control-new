@@ -3,13 +3,15 @@ import { executeCodeAIMission } from "../lib/code/runtime/CodeAIMissionRuntime.j
 const CONTRACT = "AVANTIQO_CODE_AUTONOMOUS_REPAIR_LIVE_CERTIFICATION_V1";
 const ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1";
 const FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct";
+const RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
+const EXPECTED_QUANTIZATION = "fp8";
+const EXPECTED_SERVING_RUNTIME = "vllm";
 const FIXTURE = "tests/fixtures/code-ai-autonomous-repair/invoice-total.mjs";
 const VERIFIER = "scripts/code-ai-autonomous-repair-fixture-test.mjs";
 const REPOSITORY = process.env.AVANTIQO_CODE_SANDBOX_REPOSITORY || "https://github.com/churchillkaron/churchill-control-new";
 const REF = process.env.AVANTIQO_CODE_SANDBOX_REF || "main";
 const ENDPOINT = String(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID || "").trim();
 const API_KEY = String(process.env.RUNPOD_API_KEY || "").trim();
-const EXPECTED_QUANTIZATION = String(process.env.AVANTIQO_CODE_EXPECTED_QUANTIZATION || "").trim().toLowerCase();
 const API_BASE = "https://api.runpod.ai/v2";
 
 if (!ENDPOINT) throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_REQUIRED");
@@ -96,8 +98,14 @@ async function runOwnedRepairPlanner({ fileContent, failure }) {
   if (String(output.provider || "") !== "avantiqo-code") throw new Error("CODE_AI_AUTONOMOUS_REPAIR_PROVIDER_MISMATCH");
   if (String(output.engine_contract || "") !== ENGINE_CONTRACT) throw new Error("CODE_AI_AUTONOMOUS_REPAIR_ENGINE_CONTRACT_MISMATCH");
   if (String(output.foundation_model || "") !== FOUNDATION_MODEL) throw new Error("CODE_AI_AUTONOMOUS_REPAIR_MODEL_MISMATCH");
-  if (EXPECTED_QUANTIZATION && String(output.quantization || "").toLowerCase() !== EXPECTED_QUANTIZATION) {
+  if (String(output.runtime_model || "") !== RUNTIME_MODEL) {
+    throw new Error(`CODE_AI_AUTONOMOUS_REPAIR_RUNTIME_MODEL_MISMATCH:${output.runtime_model || "missing"}`);
+  }
+  if (String(output.quantization || "").toLowerCase() !== EXPECTED_QUANTIZATION) {
     throw new Error(`CODE_AI_AUTONOMOUS_REPAIR_QUANTIZATION_MISMATCH:${output.quantization || "missing"}`);
+  }
+  if (String(output.serving_runtime || "").toLowerCase() !== EXPECTED_SERVING_RUNTIME) {
+    throw new Error(`CODE_AI_AUTONOMOUS_REPAIR_SERVING_RUNTIME_MISMATCH:${output.serving_runtime || "missing"}`);
   }
   const repair = cleanJson(output.result);
   if (repair.path !== FIXTURE) throw new Error(`CODE_AI_AUTONOMOUS_REPAIR_PATH_INVALID:${repair.path || "missing"}`);
@@ -163,7 +171,9 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   provider: planned.output.provider,
   foundation_model: planned.output.foundation_model,
-  quantization: planned.output.quantization || null,
+  runtime_model: planned.output.runtime_model,
+  serving_runtime: planned.output.serving_runtime,
+  quantization: planned.output.quantization,
   provider_job_id: planned.jobId,
   observed_failure: true,
   diagnosis_present: Boolean(String(planned.repair.diagnosis || "").trim()),

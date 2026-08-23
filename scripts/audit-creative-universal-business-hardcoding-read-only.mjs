@@ -233,6 +233,14 @@ const controlFlow = /\b(?:if|else\s+if|switch|case)\b|\?.*:/;
 const routingVerb = /\b(?:route|routing|select|selection|rank|ranking|score|scoring|priority|prioritize|order|ordering|strategy|profile|template|preset)\b/i;
 const taxonomyMap = /\b(?:INDUSTRY|SECTOR|INDUSTRY_VERTICAL|BUSINESS_VERTICAL|BUSINESS_TYPE|ORGANIZATION_TYPE|CATEGORY)_[A-Z0-9_]*\s*=|\b(?:industry|sector|industryVertical|businessVertical|businessType|organizationType)Map\b/;
 
+function taxonomyMapDisposition(code, context) {
+  const match = code.match(taxonomyMap)?.[0] || null;
+  if (!match) return null;
+  if (!/^CATEGORY_/i.test(match)) return "BLOCKER";
+  const businessSpecific = businessTerms.some((term) => phraseRegex(term).test(context));
+  return businessSpecific ? "BLOCKER" : "REVIEW_NON_BUSINESS_CATEGORY_MAP";
+}
+
 const files = unique(ROOTS.flatMap((root) => walk(path.resolve(root)))).sort();
 const findings = [];
 const exemptions = [];
@@ -300,7 +308,8 @@ for (const absolute of files) {
       });
     }
 
-    if (taxonomyMap.test(code)) {
+    const taxonomyDisposition = taxonomyMapDisposition(code, context);
+    if (taxonomyDisposition === "BLOCKER") {
       findings.push({
         severity: "BLOCKER",
         rule: "STATIC_TAXONOMY_MAP",
@@ -309,6 +318,16 @@ for (const absolute of files) {
         line: index + 1,
         source: original.trim(),
         reason: "Universal Creative code must not maintain a fixed business taxonomy map.",
+      });
+    } else if (taxonomyDisposition === "REVIEW_NON_BUSINESS_CATEGORY_MAP") {
+      findings.push({
+        severity: "REVIEW",
+        rule: "GENERIC_CATEGORY_MAP_REVIEW",
+        term: code.match(taxonomyMap)?.[0] || "category-map",
+        file: relative,
+        line: index + 1,
+        source: original.trim(),
+        reason: "Generic category maps are review-only unless their surrounding context encodes a forbidden business taxonomy.",
       });
     }
   }
@@ -352,6 +371,7 @@ const report = {
   audit_semantics: {
     plain_vertical_is_media_orientation: true,
     explicit_business_vertical_fields_remain_audited: true,
+    generic_category_maps_are_review_only_without_business_taxonomy_evidence: true,
     navigation_menu_labels_are_exempt: true,
     deliverable_menu_types_are_exempt: true,
   },

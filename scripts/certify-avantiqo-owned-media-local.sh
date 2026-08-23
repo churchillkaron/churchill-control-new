@@ -41,11 +41,22 @@ command -v ffprobe >/dev/null 2>&1 || {
   exit 1
 }
 
+RESUME_ENABLED=0
+case "${AVANTIQO_MEDIA_CERTIFICATION_RESUME:-}" in
+  1|true|TRUE|yes|YES|on|ON) RESUME_ENABLED=1 ;;
+esac
+
 rm -f \
   /tmp/avantiqo-owned-media-local-preflight.json \
   /tmp/avantiqo-media-certification-fixtures.json \
-  /tmp/avantiqo-owned-media-full-capability-benchmark.json \
   /tmp/avantiqo-owned-media-human-review.json
+
+if [ "$RESUME_ENABLED" -eq 0 ]; then
+  rm -f /tmp/avantiqo-owned-media-full-capability-benchmark.json
+  echo "AVANTIQO_MEDIA_CERTIFICATION_RESUME=DISABLED_FRESH_BENCHMARK"
+else
+  echo "AVANTIQO_MEDIA_CERTIFICATION_RESUME=ENABLED_PRESERVE_BENCHMARK_CHECKPOINT"
+fi
 
 node --env-file=.env.local scripts/preflight-avantiqo-owned-media-local.mjs
 node --env-file=.env.local -e '
@@ -109,6 +120,8 @@ if (report?.summary?.ready_for_human_quality_review !== true) {
   process.exit(1);
 }
 console.log(`AVANTIQO_MEDIA_CERTIFICATION_REPORT=${reportPath}`);
+console.log(`AVANTIQO_MEDIA_CERTIFICATION_REUSED=${Number(report?.summary?.capabilities_reused || 0)}`);
+console.log(`AVANTIQO_MEDIA_CERTIFICATION_EXECUTED_THIS_RUN=${Number(report?.summary?.capabilities_executed_this_run || 0)}`);
 '
 
 node --env-file=.env.local scripts/prepare-avantiqo-owned-media-human-review.mjs

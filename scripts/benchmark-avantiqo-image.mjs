@@ -268,4 +268,5 @@ const report = {
 };
 const outputPath = resolve(process.env.AVANTIQO_IMAGE_BENCHMARK_OUTPUT || "/tmp/avantiqo-image-certification-benchmark.json");
 await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-console.log(JSON.stringify({ success: true, output_path: outputPath, summary: report.summary, activation_allowed: false }, null, 2));
+console.log(JSON.stringify({ success: report.summary.passed, output_path: outputPath, summary: report.summary, activation_allowed: false }, null, 2));
+if (!report.summary.passed) process.exitCode = 2;

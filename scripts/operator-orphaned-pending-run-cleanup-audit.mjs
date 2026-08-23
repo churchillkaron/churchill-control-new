@@ -16,15 +16,18 @@ function requireFragments(source, label, fragments) {
 
 requireFragments(coreSource, corePath, [
   "function runHasExactPendingBinding(run, agreementState = {})",
+  "function hasStoredPendingExecution(agreementState = {})",
+  "Object.prototype.hasOwnProperty.call(",
+  '"pending_execution"',
   "function clearedAgreementState(agreementState = {})",
   "delete next.pending_execution",
   "const orphaned = !runHasExactPendingBinding(run, agreementState)",
-  "const stalePendingCleared = Boolean(orphaned && pendingAction(agreementState))",
+  "orphaned && hasStoredPendingExecution(agreementState)",
+  "const stalePendingCleared = hasStoredPendingExecution(agreementState)",
   "const nextAgreementState = stalePendingCleared",
   "? clearedAgreementState(agreementState)",
   "agreement_state: nextAgreementState",
   "stale_pending_cleared: stalePendingCleared",
-  "const stalePendingCleared = Boolean(pendingAction(agreementState))",
   "I will not reconstruct or guess the old payload",
   "orphaned_pending_bound_run: true",
   "execution_authorized: false",
@@ -35,14 +38,12 @@ const statusEnd = coreSource.indexOf("function runResumeTurn({", statusStart);
 assert.ok(statusStart >= 0 && statusEnd > statusStart);
 const statusSource = coreSource.slice(statusStart, statusEnd);
 assert.ok(
-  statusSource.includes(
-    "const stalePendingCleared = Boolean(orphaned && pendingAction(agreementState))",
-  ),
-  "orphaned status must detect a physically stored stale pending projection",
+  statusSource.includes("orphaned && hasStoredPendingExecution(agreementState)"),
+  "orphaned status must detect raw stored pending state even when normalization fails",
 );
 assert.ok(
   statusSource.includes("? clearedAgreementState(agreementState)"),
-  "orphaned status must remove the stale pending projection",
+  "orphaned status must remove the raw stale pending projection",
 );
 assert.equal(
   (statusSource.match(/agreement_state: nextAgreementState/g) || []).length,
@@ -55,12 +56,12 @@ const resumeEnd = coreSource.indexOf("function permissionMatches", resumeStart);
 assert.ok(resumeStart >= 0 && resumeEnd > resumeStart);
 const resumeSource = coreSource.slice(resumeStart, resumeEnd);
 assert.ok(
-  resumeSource.includes("const stalePendingCleared = Boolean(pendingAction(agreementState))"),
-  "orphaned resume must detect a physically stored stale pending projection",
+  resumeSource.includes("const stalePendingCleared = hasStoredPendingExecution(agreementState)"),
+  "orphaned resume must detect raw stored pending state even when normalization fails",
 );
 assert.ok(
   resumeSource.includes("? clearedAgreementState(agreementState)"),
-  "orphaned resume must remove the stale pending projection",
+  "orphaned resume must remove the raw stale pending projection",
 );
 assert.ok(
   resumeSource.includes("agreement_state: nextAgreementState"),
@@ -91,6 +92,15 @@ const {
   operatorAutonomousRunRequiresPendingExecutionBinding,
   operatorPendingExecutionMatchesAutonomousRun,
 } = await import("@/lib/operator/contracts/OperatorAutonomousRun");
+
+function hasStoredPendingExecution(agreementState = {}) {
+  return Object.prototype.hasOwnProperty.call(
+    agreementState && typeof agreementState === "object" && !Array.isArray(agreementState)
+      ? agreementState
+      : {},
+    "pending_execution",
+  );
+}
 
 function clearOnlyPendingExecution(agreementState = {}) {
   const next = { ...agreementState };
@@ -155,16 +165,50 @@ assert.equal(
   false,
   "cleanup must physically remove the invalid pending projection",
 );
-assert.deepEqual(
-  cleaned.autonomous_run,
-  run,
-  "cleanup must preserve autonomous run history unchanged",
-);
-assert.deepEqual(
-  cleaned.unrelated_state,
-  { keep: true },
-  "cleanup must preserve unrelated agreement state",
-);
+assert.deepEqual(cleaned.autonomous_run, run, "cleanup must preserve autonomous run history unchanged");
+assert.deepEqual(cleaned.unrelated_state, { keep: true }, "cleanup must preserve unrelated agreement state");
+
+for (const malformedPending of [
+  null,
+  "broken",
+  42,
+  [],
+  {},
+  { payload: { amount: 100 } },
+  { capability_key: "" },
+]) {
+  const malformedAgreement = {
+    autonomous_run: run,
+    pending_execution: malformedPending,
+    unrelated_state: { keep: true },
+  };
+  assert.equal(
+    hasStoredPendingExecution(malformedAgreement),
+    true,
+    "raw pending field presence must be detected independently of normalization",
+  );
+  assert.equal(
+    operatorPendingExecutionMatchesAutonomousRun(malformedPending, run),
+    false,
+    "malformed pending projection must never exact-match an autonomous run",
+  );
+  const malformedCleaned = clearOnlyPendingExecution(malformedAgreement);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(malformedCleaned, "pending_execution"),
+    false,
+    "malformed stored pending projection must be physically removable",
+  );
+  assert.deepEqual(
+    malformedCleaned.autonomous_run,
+    run,
+    "malformed cleanup must preserve autonomous run history",
+  );
+  assert.deepEqual(
+    malformedCleaned.unrelated_state,
+    { keep: true },
+    "malformed cleanup must preserve unrelated agreement state",
+  );
+}
 
 const agreementWithValidPending = {
   autonomous_run: run,
@@ -180,6 +224,11 @@ assert.equal(
 );
 
 const runOnlyAgreement = { autonomous_run: run };
+assert.equal(
+  hasStoredPendingExecution(runOnlyAgreement),
+  false,
+  "absence of pending field must remain distinct from malformed stored pending state",
+);
 const runOnlyCleaned = clearOnlyPendingExecution(runOnlyAgreement);
 assert.deepEqual(
   runOnlyCleaned,
@@ -222,6 +271,7 @@ assert.equal(
 
 console.log("OPERATOR_ORPHANED_PENDING_RUN_CLEANUP_AUDIT=PASS");
 console.log("OPERATOR_ORPHANED_PENDING_RUN_CLEANUP=INVALID_PENDING_REMOVED");
+console.log("OPERATOR_ORPHANED_PENDING_RUN_MALFORMED=RAW_FIELD_REMOVED");
 console.log("OPERATOR_ORPHANED_PENDING_RUN_HISTORY=PRESERVED_UNCHANGED");
 console.log("OPERATOR_ORPHANED_PENDING_RUN_STATUS=SELF_HEALING_NO_EXECUTION");
 console.log("OPERATOR_ORPHANED_PENDING_RUN_RESUME=SELF_HEALING_NO_RECONSTRUCTION");

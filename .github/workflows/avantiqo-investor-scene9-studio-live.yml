@@ -2,6 +2,8 @@ name: Avantiqo Investor Scene 9 Studio Live
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/5 9 23 8 *"
   push:
     branches:
       - main
@@ -30,6 +32,7 @@ jobs:
       RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
       RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID }}
       AVANTIQO_VIDEO_CERTIFIED_CAPABILITIES: ai.video.generate
+      INVESTOR_STUDIO_REQUEST_ID: investor-scene9-owned-preview-20260823-v2
       INVESTOR_STUDIO_RESULT_PATH: artifacts/investor-scene9-studio-live.json
       INVESTOR_STUDIO_PREVIEW_TIMEOUT_MS: "1800000"
     steps:

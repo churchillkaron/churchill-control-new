@@ -12,9 +12,14 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-code-v1"
 FOUNDATION_MODEL = os.getenv("AVANTIQO_CODE_FOUNDATION_MODEL", "").strip()
+OFFICIAL_FP8_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
 DEVICE = os.getenv("AVANTIQO_CODE_DEVICE", "cuda")
 DTYPE = torch.bfloat16 if os.getenv("AVANTIQO_CODE_DTYPE", "bfloat16").lower() == "bfloat16" else torch.float16
-QUANTIZATION = os.getenv("AVANTIQO_CODE_QUANTIZATION", "int8").strip().lower()
+QUANTIZATION = os.getenv("AVANTIQO_CODE_QUANTIZATION", "fp8").strip().lower()
+RUNTIME_MODEL = os.getenv(
+    "AVANTIQO_CODE_RUNTIME_MODEL",
+    OFFICIAL_FP8_RUNTIME_MODEL if QUANTIZATION == "fp8" else FOUNDATION_MODEL,
+).strip()
 MAX_NEW_TOKENS = int(os.getenv("AVANTIQO_CODE_MAX_NEW_TOKENS", "4096"))
 HF_CACHE_ROOT = Path(
     os.getenv(
@@ -33,7 +38,7 @@ CERTIFIED_CAPABILITIES = {
     "ai.code.review",
     "ai.code.debug",
 }
-SUPPORTED_QUANTIZATION = {"none", "int8"}
+SUPPORTED_QUANTIZATION = {"none", "int8", "fp8"}
 _TOKENIZER: Any | None = None
 _MODEL: Any | None = None
 
@@ -68,6 +73,8 @@ def _quantization_config() -> BitsAndBytesConfig | None:
         if not DEVICE.startswith("cuda"):
             raise RuntimeError("AVANTIQO_CODE_INT8_REQUIRES_CUDA")
         return BitsAndBytesConfig(load_in_8bit=True)
+    if QUANTIZATION == "fp8" and RUNTIME_MODEL != OFFICIAL_FP8_RUNTIME_MODEL:
+        raise RuntimeError(f"AVANTIQO_CODE_FP8_RUNTIME_MODEL_INVALID:{RUNTIME_MODEL}")
     return None
 
 
@@ -77,11 +84,13 @@ def _load_model():
         return _TOKENIZER, _MODEL
     if not FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_CODE_FOUNDATION_MODEL_REQUIRED")
+    if not RUNTIME_MODEL:
+        raise RuntimeError("AVANTIQO_CODE_RUNTIME_MODEL_REQUIRED")
 
-    cached_path = _cached_model_path(FOUNDATION_MODEL)
+    cached_path = _cached_model_path(RUNTIME_MODEL)
     if REQUIRE_CACHED_MODEL and not cached_path:
-        raise RuntimeError(f"AVANTIQO_CODE_CACHED_MODEL_REQUIRED:{FOUNDATION_MODEL}")
-    model_source = cached_path or FOUNDATION_MODEL
+        raise RuntimeError(f"AVANTIQO_CODE_CACHED_MODEL_REQUIRED:{RUNTIME_MODEL}")
+    model_source = cached_path or RUNTIME_MODEL
 
     _TOKENIZER = AutoTokenizer.from_pretrained(
         model_source,
@@ -198,6 +207,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     if not result:
         raise RuntimeError("AVANTIQO_CODE_OUTPUT_REQUIRED")
 
+    runtime_cached = bool(_cached_model_path(RUNTIME_MODEL))
     return {
         "status": "completed",
         "provider": "avantiqo-code",
@@ -205,7 +215,9 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "engine_contract": ENGINE_CONTRACT,
         "capability": data["capability"],
         "foundation_model": FOUNDATION_MODEL,
-        "foundation_model_source": "runpod-cache" if _cached_model_path(FOUNDATION_MODEL) else "huggingface",
+        "runtime_model": RUNTIME_MODEL,
+        "foundation_model_source": "runpod-cache" if runtime_cached else "huggingface",
+        "runtime_model_source": "runpod-cache" if runtime_cached else "huggingface",
         "quantization": QUANTIZATION,
         "result": result,
         "usage": {
@@ -223,12 +235,16 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 def check_worker():
     if not FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_CODE_FOUNDATION_MODEL_REQUIRED")
+    if not RUNTIME_MODEL:
+        raise RuntimeError("AVANTIQO_CODE_RUNTIME_MODEL_REQUIRED")
     if DEVICE.startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_CODE_CUDA_REQUIRED")
     if QUANTIZATION not in SUPPORTED_QUANTIZATION:
         raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_NOT_SUPPORTED:{QUANTIZATION}")
     if QUANTIZATION == "int8" and not DEVICE.startswith("cuda"):
         raise RuntimeError("AVANTIQO_CODE_INT8_REQUIRES_CUDA")
+    if QUANTIZATION == "fp8" and RUNTIME_MODEL != OFFICIAL_FP8_RUNTIME_MODEL:
+        raise RuntimeError(f"AVANTIQO_CODE_FP8_RUNTIME_MODEL_INVALID:{RUNTIME_MODEL}")
     # Keep the readiness probe limited to container/runtime health. Cached-model
     # presence remains mandatory in _load_model(), where a controlled request can
     # return the precise AVANTIQO_CODE_CACHED_MODEL_REQUIRED failure instead of

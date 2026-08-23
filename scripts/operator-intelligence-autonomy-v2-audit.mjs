@@ -20,6 +20,8 @@ const REQUIRED_CAPABILITIES = new Map([
   ["platform.operator_mission.execute", "write"],
   ["platform.code_ai_autonomous.execute", "write"],
   ["platform.code_ai_autonomous_status.verify", "read"],
+  ["platform.code_ai_commit.execute", "write"],
+  ["platform.code_ai_commit_status.verify", "read"],
 ]);
 
 const files = Object.fromEntries(
@@ -36,8 +38,12 @@ const files = Object.fromEntries(
       "lib/intelligence/runtime/AvantiqoProductConstitution.js",
       "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
       "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
+      "lib/code/runtime/CodeAICommitArtifactRuntime.js",
+      "lib/code/runtime/CodeAICommitExecutionStateRuntime.js",
       "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
       "lib/platform/capabilities/createCodeAIAutonomousStatusCapability.js",
+      "lib/platform/capabilities/createCodeAICommitCapability.js",
+      "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
       "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
       "lib/operator/runtime/IntelligenceMemoryRuntime.js",
       "lib/platform/runtime/PlatformDomainRuntime.js",
@@ -148,9 +154,29 @@ requireFragments("lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js", [
   "CODE_AI_AUTONOMOUS_CHANGED_STATE_NOT_VERIFIED",
 ]);
 
+requireFragments("lib/code/runtime/CodeAICommitArtifactRuntime.js", [
+  'MEMORY_SCOPE = "code_ai_commit_artifact"',
+  "verifyCodeMissionStateAttestation",
+  "mission_state: state",
+  "ordinary_memory_recall: false",
+  "commit_requires_separate_governed_capability: true",
+  "retireCodeAICommitArtifact",
+]);
+
+requireFragments("lib/code/runtime/CodeAICommitExecutionStateRuntime.js", [
+  'MEMORY_SCOPE = "code_ai_commit_execution_state"',
+  "CODE_AI_COMMIT_RESULT_NOT_VERIFIED",
+  "commit_sha",
+  "previous_commit",
+  "tree_sha",
+  "ordinary_memory_recall: false",
+]);
+
 requireFragments("lib/platform/capabilities/createCodeAIAutonomousCapability.js", [
   "execution_key",
   "persistCodeAIAutonomousExecutionState",
+  "persistCodeAICommitArtifact",
+  "commit_artifact_persisted",
   "verification_evidence",
 ]);
 
@@ -160,6 +186,24 @@ requireFragments("lib/platform/capabilities/createCodeAIAutonomousStatusCapabili
   'status: "VERIFIED_COMPLETED"',
 ]);
 
+requireFragments("lib/platform/capabilities/createCodeAICommitCapability.js", [
+  "loadCodeAICommitArtifact",
+  "persistCodeAICommitExecutionState",
+  "retireCodeAICommitArtifact",
+  "execution_key",
+  "operatorAutoExecute: false",
+  "operatorRequiresConfirmation: true",
+  'risk: "medium"',
+  'transactional: true',
+]);
+
+requireFragments("lib/platform/capabilities/createCodeAICommitStatusCapability.js", [
+  "loadCodeAICommitExecutionState",
+  'status: "VERIFIED_COMMITTED"',
+  'operatorMode: "read"',
+  'operatorAutoExecute: true',
+]);
+
 requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapability.js", [
   'capability: "product_engineering_cycle"',
   '"platform.product_autonomy.assess"',
@@ -167,11 +211,14 @@ requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapabil
   'source_path: "recommended_code_ai_handoff.objective"',
   'target_path: "objective"',
   '"platform.code_ai_autonomous_status.verify"',
+  '"platform.code_ai_commit.execute"',
+  '"platform.code_ai_commit_status.verify"',
+  "commit_message",
+  "commit_requested",
+  "commit_completed",
   "executeUbteCapability",
-  "persistent_source_changed: false",
   "production_deployed: false",
   "database_migrations_applied: false",
-  "code_ai_commit_capability_invoked: false",
 ]);
 
 requireFragments("lib/operator/runtime/IntelligenceMemoryRuntime.js", [
@@ -179,10 +226,16 @@ requireFragments("lib/operator/runtime/IntelligenceMemoryRuntime.js", [
   'scope: "party"',
   'scope: "entity"',
 ]);
-if (files["lib/operator/runtime/IntelligenceMemoryRuntime.js"].includes('"code_ai_execution_state"')) {
-  throw new Error(
-    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI execution state must remain outside ordinary memory recall scopes",
-  );
+for (const forbiddenScope of [
+  '"code_ai_execution_state"',
+  '"code_ai_commit_artifact"',
+  '"code_ai_commit_execution_state"',
+]) {
+  if (files["lib/operator/runtime/IntelligenceMemoryRuntime.js"].includes(forbiddenScope)) {
+    throw new Error(
+      `OPERATOR_INTELLIGENCE_AUTONOMY_V2: ${forbiddenScope} must remain outside ordinary memory recall scopes`,
+    );
+  }
 }
 
 requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
@@ -193,6 +246,8 @@ requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "createProductAutonomyAssessmentCapability",
   "createProductEngineeringCycleCapability",
   "createCodeAIAutonomousStatusCapability",
+  "createCodeAICommitCapability",
+  "createCodeAICommitStatusCapability",
 ]);
 
 const { listOperatorCapabilities } = await import(
@@ -219,6 +274,7 @@ for (const key of [
   "platform.research_compare.analyze",
   "platform.product_autonomy.assess",
   "platform.code_ai_autonomous_status.verify",
+  "platform.code_ai_commit_status.verify",
 ]) {
   const capability = byKey.get(key);
   if (
@@ -253,6 +309,30 @@ if (
   );
 }
 
+const codeCommit = byKey.get("platform.code_ai_commit.execute");
+if (
+  codeCommit?.risk !== "medium" ||
+  codeCommit?.auto_execute !== false ||
+  codeCommit?.requires_confirmation !== true ||
+  codeCommit?.transactional !== true ||
+  !codeCommit?.permissions?.includes("platform.code.ai.commit") ||
+  !codeCommit?.input_schema?.properties?.execution_key
+) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI commit must remain explicit-confirmation, medium-risk, transactional, commit-permission-gated and execution-key addressable",
+  );
+}
+
+const codeCommitStatus = byKey.get("platform.code_ai_commit_status.verify");
+if (
+  !Array.isArray(codeCommitStatus?.permissions) ||
+  !codeCommitStatus.permissions.includes("platform.code.ai.commit")
+) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI commit status read must require commit permission",
+  );
+}
+
 const productCycle = byKey.get("platform.product_engineering_cycle.execute");
 if (
   productCycle?.risk !== "low" ||
@@ -264,6 +344,14 @@ if (
 ) {
   throw new Error(
     "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product Engineering Cycle must remain a low-risk reversible governed composite with code execution permission",
+  );
+}
+const productCycleRequired = Array.isArray(productCycle?.input_schema?.required)
+  ? productCycle.input_schema.required
+  : [];
+if (productCycleRequired.includes("commit_message")) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product Engineering Cycle must remain local-only by default; commit_message may only be optional",
   );
 }
 
@@ -284,5 +372,9 @@ console.log("OPERATOR_PRODUCT_CONSTITUTION=REGISTERED");
 console.log("OPERATOR_PRODUCT_AUTONOMY=ASSESSMENT_ONLY_HANDOFF_SEPARATE");
 console.log("OPERATOR_CODE_AI_HANDOFF=EXECUTION_KEY_PLUS_REGISTERED_VERIFICATION");
 console.log("OPERATOR_CODE_AI_EXECUTION_STATE=SERVER_OWNED_NON_RECALLABLE_SCOPE");
-console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY");
-console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_PERSISTENCE=NO_COMMIT_NO_DEPLOY_NO_MIGRATION");
+console.log("OPERATOR_CODE_AI_COMMIT_ARTIFACT=SERVER_OWNED_NON_RECALLABLE_FULL_ATTESTED_STATE");
+console.log("OPERATOR_CODE_AI_COMMIT=EXPLICIT_CONFIRMATION_PLUS_PERMISSION_PLUS_EXACT_BASE");
+console.log("OPERATOR_CODE_AI_COMMIT_VERIFICATION=SERVER_OWNED_REGISTERED_READ");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY_OPTIONAL_COMMIT_VERIFY");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_DEFAULT_PERSISTENCE=LOCAL_ONLY_NO_COMMIT");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_PRODUCTION=NO_DEPLOY_NO_MIGRATION");

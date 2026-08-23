@@ -41,3 +41,17 @@ test("owned media diagnostics fail stale when evidence bindings or economics dri
   assert.match(source, /ECONOMICS_MEASUREMENT_MISSING/);
   assert.match(source, /UNEXPECTED_PRODUCTION_CERTIFICATION_STATE/);
 });
+
+test("owned media diagnostics recommend fresh, resume, and targeted recovery safely", async () => {
+  const source = await readFile(STATUS, "utf8");
+
+  assert.match(source, /FRESH_CAMPAIGN_COMMAND/);
+  assert.match(source, /RESUME_CAMPAIGN_COMMAND/);
+  assert.match(source, /checkpointCoverageComplete/);
+  assert.match(source, /mode: "FRESH_CAMPAIGN"/);
+  assert.match(source, /mode: "RESUME_CAMPAIGN"/);
+  assert.match(source, /mode: "TARGETED_RETRY_AVAILABLE"/);
+  assert.match(source, /fresh_campaign_required_when_checkpoint_absent: true/);
+  assert.match(source, /resume_campaign_required_while_checkpoint_coverage_is_partial: true/);
+  assert.match(source, /targeted_retry_only_recommended_after_all_capabilities_have_checkpoint_cases: true/);
+});

@@ -56,7 +56,7 @@ try {
     start_line: 1,
     end_line: 20,
   });
-  assert.equal(readBack.content, certificationContent.trimEnd(), "sandbox write must be readable exactly");
+  assert.equal(readBack.content, certificationContent, "sandbox write must be readable exactly");
 
   const verify = await workspace.run({
     command: "node",

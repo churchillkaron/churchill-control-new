@@ -5,7 +5,6 @@ import { readFile } from "node:fs/promises";
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
 const MINIMUM_EXPOSED_CAPABILITIES = 100;
-const MINIMUM_EXPOSED_DOMAINS = 2;
 const READ_CHAIN_KEY = "platform.operator_read_chain.execute";
 const ORGANIZATIONAL_CONTEXT_KEY = "platform.organizational_context.read";
 const ATTENTION_KEY = "platform.attention.scan";
@@ -13,11 +12,14 @@ const GOVERNED_AUTONOMOUS_COMPOSITES = new Set([
   "platform.operator_mission.execute",
 ]);
 
-const { DOMAIN_RUNTIMES } = await import(
+const { listDomainRuntimeNames } = await import(
   "@/lib/ubte/runtime/domains/DomainRuntimeRegistry"
 );
 const { listOperatorCapabilities } = await import(
   "@/lib/operator/runtime/OperatorCapabilityCatalog"
+);
+const { operatorRegistrySkippedCreates } = await import(
+  "@/lib/platform/registry/OperatorRegistryDomainRuntimes"
 );
 
 const [capabilities, organizationalContextSource] = await Promise.all([
@@ -42,9 +44,17 @@ const byDomain = capabilities.reduce((totals, capability) => {
   return totals;
 }, {});
 
-if (Object.keys(byDomain).length < MINIMUM_EXPOSED_DOMAINS) {
+const runtimeDomains = listDomainRuntimeNames().slice().sort();
+if (!runtimeDomains.length) {
   throw new Error(
-    `OPERATOR_EXPOSURE: only ${Object.keys(byDomain).length} domain(s) expose capabilities, expected at least ${MINIMUM_EXPOSED_DOMAINS}`,
+    "OPERATOR_EXPOSURE: no runtime domains are registered; full-system Intelligence coverage cannot be evaluated",
+  );
+}
+
+const silentDomains = runtimeDomains.filter((domain) => !byDomain[domain]);
+if (silentDomains.length) {
+  throw new Error(
+    `OPERATOR_EXPOSURE: runtime domain(s) are completely silent to Intelligence: ${silentDomains.join(", ")}`,
   );
 }
 
@@ -203,19 +213,19 @@ if (
   );
 }
 
-const registeredDomains = Object.keys(DOMAIN_RUNTIMES || {});
-const silentDomains = registeredDomains.filter((domain) => !byDomain[domain]);
-
 const modes = capabilities.reduce((totals, capability) => {
   totals[capability.mode] = (totals[capability.mode] || 0) + 1;
   return totals;
 }, {});
+const skippedCreates = operatorRegistrySkippedCreates().slice().sort();
 
 console.log("OPERATOR_CAPABILITY_EXPOSURE_AUDIT=PASS");
 console.log(`OPERATOR_EXPOSED_CAPABILITIES=${capabilities.length}`);
-console.log(`OPERATOR_REGISTERED_DOMAINS=${registeredDomains.length}`);
+console.log(`OPERATOR_RUNTIME_DOMAINS=${runtimeDomains.length}`);
+console.log(`OPERATOR_RUNTIME_DOMAIN_LIST=${runtimeDomains.join(",")}`);
 console.log(
   `OPERATOR_EXPOSED_BY_DOMAIN=${Object.entries(byDomain)
+    .sort(([left], [right]) => left.localeCompare(right))
     .map(([domain, count]) => `${domain}:${count}`)
     .join(",")}`,
 );
@@ -224,8 +234,10 @@ console.log(
     .map(([mode, count]) => `${mode}:${count}`)
     .join(",")}`,
 );
+console.log("OPERATOR_SILENT_DOMAINS=NONE");
+console.log(`OPERATOR_REGISTRY_SKIPPED_CREATE_COUNT=${skippedCreates.length}`);
 console.log(
-  `OPERATOR_SILENT_DOMAINS=${silentDomains.length ? silentDomains.join(",") : "NONE"}`,
+  `OPERATOR_REGISTRY_SKIPPED_CREATES=${skippedCreates.length ? skippedCreates.join(",") : "NONE"}`,
 );
 console.log(
   `OPERATOR_GOVERNED_AUTONOMOUS_COMPOSITES=${[...GOVERNED_AUTONOMOUS_COMPOSITES].join(",")}`,

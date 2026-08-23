@@ -37,6 +37,10 @@ requireFragments(recommendationPath, recommendationSource, [
   "requestedAction.payload",
   "recommendation_id: boundRecommendation.recommendation_id",
   "[RECOMMENDATION_KEY]: boundRecommendation",
+  "const exactBinding = Boolean(",
+  "if (!recommendation || !exactBinding) return next",
+  "delete next.pending_execution",
+  "delete next.autonomous_run",
 ]);
 
 requireFragments(turnPath, turnSource, [
@@ -109,6 +113,7 @@ requireFragments(classifierPath, classifierSource, [
 
 const {
   agreementWithOperatorRecommendation,
+  clearOperatorRecommendation,
   operatorRecommendationFromAgreementState,
   operatorRecommendationMatchesPendingExecution,
 } = await import("@/lib/operator/contracts/OperatorRecommendationState");
@@ -166,6 +171,12 @@ assert.equal(
   operatorRecommendationMatchesPendingExecution(wrongPayload, persisted),
   false,
 );
+const preservedPending = copy(wrongPayload.pending_execution);
+const preservedRun = copy(wrongPayload.autonomous_run);
+const clearedMismatch = clearOperatorRecommendation(wrongPayload);
+assert.equal(clearedMismatch.recommended_action, undefined);
+assert.deepEqual(clearedMismatch.pending_execution, preservedPending);
+assert.deepEqual(clearedMismatch.autonomous_run, preservedRun);
 
 const wrongRunPayload = copy(agreement);
 const wrongRunAction = wrongRunPayload.autonomous_run.planned_steps.find(
@@ -183,6 +194,11 @@ assert.equal(
   operatorRecommendationMatchesPendingExecution(terminalRun, persisted),
   false,
 );
+
+const exactCleared = clearOperatorRecommendation(copy(agreement));
+assert.equal(exactCleared.recommended_action, undefined);
+assert.equal(exactCleared.pending_execution, undefined);
+assert.equal(exactCleared.autonomous_run, undefined);
 
 const legacyAgreement = copy(agreement);
 delete legacyAgreement.recommended_action.recommendation_id;
@@ -212,3 +228,4 @@ console.log(
   "OPERATOR_RECOMMENDATION_BINDING_MISMATCH=NO_SHORTHAND_EXECUTION",
 );
 console.log("OPERATOR_RECOMMENDATION_BINDING_STATE=PRESERVED_ON_MISMATCH");
+console.log("OPERATOR_RECOMMENDATION_BINDING_CLEAR=EXACT_BINDING_ONLY");

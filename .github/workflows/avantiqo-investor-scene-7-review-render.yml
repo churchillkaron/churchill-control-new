@@ -1,0 +1,120 @@
+name: Avantiqo Investor Scene 7 Review Render
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/avantiqo-investor-scene-7-review-render.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-scene-7:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CREATIVE_MEDIA_FFMPEG_PATH: /usr/bin/ffmpeg
+      CREATIVE_MEDIA_FFPROBE_PATH: /usr/bin/ffprobe
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install media tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg jq
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      - name: Install application dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify render credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${NEXT_PUBLIC_SUPABASE_URL:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+
+      - name: Start local Avantiqo runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup npm run dev -- --hostname 127.0.0.1 --port 3000 > /tmp/avantiqo-scene7-next.log 2>&1 &
+          echo $! > /tmp/avantiqo-scene7-next.pid
+
+          STATUS_URL='http://127.0.0.1:3000/api/internal/avantiqo-investor-scene-7-operator-review-v2?token=avq-investor-scene-7-operator-review-v2-20260823&action=status'
+          ready=0
+          for attempt in $(seq 1 90); do
+            code="$(curl --silent --show-error --location --output /tmp/scene7-status.json --write-out '%{http_code}' "$STATUS_URL" || true)"
+            if [ "$code" = '200' ] && jq -e '.success == true' /tmp/scene7-status.json >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != '1' ]; then
+            cat /tmp/avantiqo-scene7-next.log
+            cat /tmp/scene7-status.json 2>/dev/null || true
+            exit 1
+          fi
+          cat /tmp/scene7-status.json
+
+      - name: Render Scene 7 V2
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p scene7-review
+          RENDER_URL='http://127.0.0.1:3000/api/internal/avantiqo-investor-scene-7-operator-review-v2?token=avq-investor-scene-7-operator-review-v2-20260823&action=render'
+          curl --fail --show-error --silent --location --max-time 720 "$RENDER_URL" --output scene7-review/render-response.json
+          cat scene7-review/render-response.json
+          jq -e '.success == true and .output_ready == true' scene7-review/render-response.json >/dev/null
+
+          SIGNED_URL="$(jq -r '.signed_url // empty' scene7-review/render-response.json)"
+          test -n "$SIGNED_URL"
+          curl --fail --show-error --silent --location "$SIGNED_URL" --output scene7-review/scene-07-operator-integration-review-v2.mp4
+
+          ffprobe -v error \
+            -show_entries format=duration,size:stream=codec_name,codec_type,width,height,r_frame_rate \
+            -of json \
+            scene7-review/scene-07-operator-integration-review-v2.mp4 \
+            > scene7-review/media-probe.json
+          cat scene7-review/media-probe.json
+
+          duration="$(jq -r '.format.duration | tonumber' scene7-review/media-probe.json)"
+          awk -v d="$duration" 'BEGIN { if (d < 8.35 || d > 8.55) exit 1 }'
+          jq -e '[.streams[] | select(.codec_type == "video" and .width == 1920 and .height == 1080 and .r_frame_rate == "24/1")] | length == 1' scene7-review/media-probe.json >/dev/null
+
+      - name: Extract visual review frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          input='scene7-review/scene-07-operator-integration-review-v2.mp4'
+          ffmpeg -y -ss 0.75 -i "$input" -frames:v 1 -q:v 2 scene7-review/frame-01-00.75s.jpg >/dev/null 2>&1
+          ffmpeg -y -ss 2.75 -i "$input" -frames:v 1 -q:v 2 scene7-review/frame-02-02.75s.jpg >/dev/null 2>&1
+          ffmpeg -y -ss 5.00 -i "$input" -frames:v 1 -q:v 2 scene7-review/frame-03-05.00s.jpg >/dev/null 2>&1
+          ffmpeg -y -ss 7.60 -i "$input" -frames:v 1 -q:v 2 scene7-review/frame-04-07.60s.jpg >/dev/null 2>&1
+          cp /tmp/avantiqo-scene7-next.log scene7-review/local-runtime.log
+          sha256sum scene7-review/scene-07-operator-integration-review-v2.mp4 > scene7-review/sha256.txt
+          ls -lh scene7-review
+
+      - name: Upload Scene 7 review pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-scene-7-v2-review
+          path: scene7-review
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0

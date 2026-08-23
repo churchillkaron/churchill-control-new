@@ -124,6 +124,7 @@ const run = createOperatorAutonomousRun({
 });
 const exactPending = {
   capability_key: capabilityKey,
+  run_id: run.run_id,
   payload: {
     nested: { currency: "THB" },
     amount: 100,

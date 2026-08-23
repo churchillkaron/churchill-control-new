@@ -25,7 +25,7 @@ jobs:
           TOKEN=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$TOKEN_JSON")
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
-      - name: Fetch approved Scene 17 review assets
+      - name: Fetch approved Scene 17 visual assets
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
@@ -38,33 +38,30 @@ jobs:
           import json, pathlib, urllib.request
           data=json.loads(pathlib.Path('/tmp/assets.json').read_text())
           assert data.get('success') is True, data
-          names={'manager':'manager.mp4','customer':'customer.png','voice':'voice.mp3'}
+          names={'manager':'manager.mp4','customer':'customer.png'}
           for key, filename in names.items():
               target=pathlib.Path('/tmp')/filename
               urllib.request.urlretrieve(data['assets'][key]['signed_url'], target)
               print(key, target.stat().st_size)
           PY
 
-      - name: Render Scene 17 review MP4
+      - name: Render Scene 17 silent visual review MP4
         shell: bash
         run: |
           set -euo pipefail
           test -s /tmp/manager.mp4
           test -s /tmp/customer.png
-          test -s /tmp/voice.mp3
           ffmpeg -y \
             -stream_loop -1 -ss 2.4 -i /tmp/manager.mp4 \
             -loop 1 -framerate 24 -i /tmp/customer.png \
-            -i /tmp/voice.mp3 \
             -t 5.625 \
-            -filter_complex "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,eq=contrast=1.03:brightness=-0.02:saturation=0.86[bg];[1:v]scale=1040:-2,format=rgba,fade=t=in:st=0.75:d=0.35:alpha=1[ui];[bg][ui]overlay=x=760:y=235:enable='gte(t,0.75)':shortest=1,format=yuv420p[v];[2:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=1.03[a]" \
-            -map "[v]" -map "[a]" \
-            -c:v libx264 -preset fast -crf 17 -pix_fmt yuv420p -r 24 \
-            -c:a aac -b:a 256k -ar 48000 -ac 2 -movflags +faststart \
+            -filter_complex "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,eq=contrast=1.03:brightness=-0.02:saturation=0.86[bg];[1:v]scale=1040:-2,format=rgba,fade=t=in:st=0.75:d=0.35:alpha=1[ui];[bg][ui]overlay=x=760:y=235:enable='gte(t,0.75)':shortest=1,format=yuv420p[v]" \
+            -map "[v]" -an \
+            -c:v libx264 -preset fast -crf 17 -pix_fmt yuv420p -r 24 -movflags +faststart \
             scene-17-customer-interaction-review-v2.mp4
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 scene-17-customer-interaction-review-v2.mp4
 
-      - name: Upload review render to Creative Storage
+      - name: Upload visual review to Creative Storage
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}

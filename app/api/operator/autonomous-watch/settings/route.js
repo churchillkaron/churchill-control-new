@@ -11,6 +11,14 @@ import {
 } from "@/lib/operator/runtime/OperatorAutonomousCognitionPolicy";
 import { mergeOperatorProjectState } from "@/lib/operator/contracts/OperatorProjectState";
 import { operatorPredictionAccountabilitySummary } from "@/lib/operator/contracts/OperatorPredictionAccountability";
+import {
+  normalizeOperatorProactiveDeliveryPolicy,
+  normalizeOperatorProactiveDeliveryPolicySource,
+  operatorProactiveDeliveryChannelCatalog,
+  operatorProactiveDeliveryPublicPolicy,
+} from "@/lib/operator/contracts/OperatorProactiveDeliveryPolicy";
+import { operatorProactiveDeliveryStatus } from "@/lib/operator/runtime/OperatorProactiveDeliveryRuntime";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 
 const FULL_ACCESS_ROLES = new Set(["OWNER", "ORGANIZATION_OWNER", "ORG_OWNER", "PLATFORM_OWNER", "SUPER_ADMIN"]);
 
@@ -63,17 +71,19 @@ async function resolveConversation(request, organizationId) {
   return { access, partyId, snapshot };
 }
 
-function settingsFromProjectState(projectState) {
+function settingsFromProjectState(projectState, { revealDestinations = false } = {}) {
   const watch = object(projectState?.business_watch);
   return {
     enabled: watch.enabled !== false,
     cognition_budget: normalizeAutonomousCognitionBudget(projectState),
+    delivery_policy: operatorProactiveDeliveryPublicPolicy(projectState, { revealDestinations }),
     last_cognition: object(watch.last_cognition),
     last_checked_at: text(watch.last_checked_at, 80) || null,
     next_check_at: text(watch.next_check_at, 80) || null,
     last_thesis_level: text(watch.last_thesis_level, 40) || null,
   };
 }
+
 function requestedBudget(body, currentBudget) {
   const source = object(body?.cognition_budget || body?.cognitionBudget);
   return {
@@ -96,7 +106,47 @@ function requestedBudget(body, currentBudget) {
   };
 }
 
-async function responsePayload({ organizationId, projectState }) {
+function requestedDeliveryPolicy(body, projectState) {
+  const hasDeliveryPolicy = hasOwn(body, "delivery_policy") || hasOwn(body, "deliveryPolicy");
+  if (!hasDeliveryPolicy) return normalizeOperatorProactiveDeliveryPolicy(projectState);
+  return normalizeOperatorProactiveDeliveryPolicySource(
+    object(body.delivery_policy || body.deliveryPolicy),
+    { strict: true },
+  );
+}
+
+async function deliveryChannelReadiness(organizationId) {
+  return Promise.all(
+    operatorProactiveDeliveryChannelCatalog().map(async (channel) => {
+      try {
+        const service = await OrganizationServiceRuntime.get({
+          organization_id: organizationId,
+          service_id: channel.service_id,
+        });
+        const status = text(service?.status, 80).toUpperCase();
+        return {
+          ...channel,
+          organization_service_exists: Boolean(service),
+          active: status === "ACTIVE",
+          usage_enabled: service?.usage_enabled !== false,
+          ready_for_execution:
+            Boolean(service) && status === "ACTIVE" && service?.usage_enabled !== false,
+        };
+      } catch (error) {
+        return {
+          ...channel,
+          organization_service_exists: false,
+          active: false,
+          usage_enabled: false,
+          ready_for_execution: false,
+          status_error: text(error?.message || error, 180) || "Service readiness unavailable",
+        };
+      }
+    }),
+  );
+}
+
+async function responsePayload({ organizationId, projectState, revealDestinations = false }) {
   let budgetStatus = null;
   try {
     budgetStatus = cognitionBudgetSummary(
@@ -111,9 +161,11 @@ async function responsePayload({ organizationId, projectState }) {
   const thesis = object(projectState?.business_thesis);
   return {
     success: true,
-    settings: settingsFromProjectState(projectState),
+    settings: settingsFromProjectState(projectState, { revealDestinations }),
     budget_status: budgetStatus,
     prediction_accountability: operatorPredictionAccountabilitySummary(thesis.prediction_accountability),
+    proactive_delivery_status: operatorProactiveDeliveryStatus(projectState),
+    proactive_delivery_channels: await deliveryChannelReadiness(organizationId),
   };
 }
 
@@ -124,9 +176,11 @@ export async function GET(request) {
     const resolved = await resolveConversation(request, organizationId);
     if (resolved.error) return resolved.error;
     const projectState = object(resolved.snapshot?.conversation?.project_state);
+    const revealDestinations = FULL_ACCESS_ROLES.has(normalizedRole(resolved.access.role));
     return Response.json(await responsePayload({
       organizationId: resolved.access.organizationId,
       projectState,
+      revealDestinations,
     }));
   } catch (error) {
     return errorResponse(error?.message || "Autonomous watch settings load failed", error?.status || 500);
@@ -140,7 +194,7 @@ export async function POST(request) {
     const resolved = await resolveConversation(request, organizationId);
     if (resolved.error) return resolved.error;
     if (!FULL_ACCESS_ROLES.has(normalizedRole(resolved.access.role))) {
-      return errorResponse("Organization owner access is required to change autonomous cognition settings", 403);
+      return errorResponse("Organization owner access is required to change autonomous cognition or proactive delivery settings", 403);
     }
     const conversationId = resolved.snapshot?.conversation?.id;
     if (!conversationId) return errorResponse("Primary intelligence conversation not found", 404);
@@ -154,6 +208,7 @@ export async function POST(request) {
         const watch = object(current.business_watch);
         const currentBudget = normalizeAutonomousCognitionBudget(current);
         const cognitionBudget = requestedBudget(body, currentBudget);
+        const deliveryPolicy = requestedDeliveryPolicy(body, current);
         const enabled = hasOwn(body, "enabled") ? body.enabled !== false : watch.enabled !== false;
         const nextProjectState = mergeOperatorProjectState(
           current,
@@ -163,6 +218,7 @@ export async function POST(request) {
               ...watch,
               enabled,
               cognition_budget: cognitionBudget,
+              delivery_policy: deliveryPolicy,
               settings_updated_at: new Date().toISOString(),
               settings_updated_by_party_id: resolved.partyId,
             },
@@ -170,7 +226,7 @@ export async function POST(request) {
         );
         return {
           projectState: nextProjectState,
-          outcome: { settings: settingsFromProjectState(nextProjectState) },
+          outcome: { settings: settingsFromProjectState(nextProjectState, { revealDestinations: true }) },
         };
       },
     });
@@ -179,10 +235,14 @@ export async function POST(request) {
     const payload = await responsePayload({
       organizationId: resolved.access.organizationId,
       projectState,
+      revealDestinations: true,
     });
     return Response.json({ ...payload, persistence_attempts: Number(persisted.attempt || 1) });
   } catch (error) {
-    const status = /must be|currency/i.test(text(error?.message)) ? 400 : error?.status || 500;
-    return errorResponse(error?.message || "Autonomous watch settings update failed", status);
+    const message = text(error?.message || error, 500);
+    const status = /must be|required|unsupported|only one|valid|credential|secret|currency/i.test(message)
+      ? 400
+      : error?.status || 500;
+    return errorResponse(message || "Autonomous watch settings update failed", status);
   }
 }

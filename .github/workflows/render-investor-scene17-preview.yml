@@ -1,4 +1,4 @@
-name: Render Investor Scene 17 Preview
+name: Render Investor Scenes 1-17 Review
 
 on:
   push:
@@ -11,17 +11,18 @@ permissions:
   id-token: write
 
 jobs:
-  render-scene17:
+  render-scenes-1-17:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install FFmpeg
+      - name: Install review render dependencies
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
+          sudo apt-get install -y -qq ffmpeg python3-pil
           ffmpeg -version | head -1
 
       - name: Request GitHub OIDC token
@@ -29,65 +30,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TOKEN_JSON=$(curl -fsSL -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=avantiqo-scene17-render")
+          TOKEN_JSON=$(curl -fsSL -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=avantiqo-investor-review-render-v1")
           TOKEN=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$TOKEN_JSON")
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
-      - name: Fetch approved Scene 17 visual assets
+      - name: Render and upload Scenes 1-17
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
-        run: |
-          set -euo pipefail
-          curl -fsSL -H "Authorization: Bearer ${OIDC_TOKEN}" \
-            "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-scene17-github-render?run_id=${GITHUB_RUN_ID}" \
-            > /tmp/assets.json
-          python3 - <<'PY'
-          import json, pathlib, urllib.request
-          data=json.loads(pathlib.Path('/tmp/assets.json').read_text())
-          assert data.get('success') is True, data
-          names={'manager':'manager.mp4','customer':'customer.png'}
-          for key, filename in names.items():
-              target=pathlib.Path('/tmp')/filename
-              urllib.request.urlretrieve(data['assets'][key]['signed_url'], target)
-              print(key, target.stat().st_size)
-          PY
+        run: bash .github/scripts/render-investor-scenes-1-17-review.sh
 
-      - name: Render Scene 17 silent visual review MP4
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s /tmp/manager.mp4
-          test -s /tmp/customer.png
-          ffmpeg -y \
-            -stream_loop -1 -ss 2.4 -i /tmp/manager.mp4 \
-            -loop 1 -framerate 24 -i /tmp/customer.png \
-            -t 5.625 \
-            -filter_complex "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,eq=contrast=1.03:brightness=-0.02:saturation=0.86[bg];[1:v]scale=1040:-2,format=rgba,fade=t=in:st=0.75:d=0.35:alpha=1[ui];[bg][ui]overlay=x=760:y=235:enable='gte(t,0.75)':shortest=1,format=yuv420p[v]" \
-            -map "[v]" -an \
-            -c:v libx264 -preset fast -crf 17 -pix_fmt yuv420p -r 24 -movflags +faststart \
-            scene-17-customer-interaction-review-v2.mp4
-          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 scene-17-customer-interaction-review-v2.mp4
-
-      - name: Upload visual review to Creative Storage
-        shell: bash
-        env:
-          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
-        run: |
-          set -euo pipefail
-          curl -fsSL -X POST \
-            -H "Authorization: Bearer ${OIDC_TOKEN}" \
-            -H "Content-Type: video/mp4" \
-            --data-binary @scene-17-customer-interaction-review-v2.mp4 \
-            "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-scene17-github-render?run_id=${GITHUB_RUN_ID}" \
-            | tee scene17-upload-result.json
-
-      - name: Upload review artifact
+      - name: Upload review package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: avantiqo-investor-scene17-preview-v2
-          path: |
-            scene-17-customer-interaction-review-v2.mp4
-            scene17-upload-result.json
+          name: avantiqo-investor-scenes-1-17-review
+          path: review-scenes/
           if-no-files-found: error
           retention-days: 7

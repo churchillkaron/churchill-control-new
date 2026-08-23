@@ -1,4 +1,5 @@
 name: Avantiqo Investor Scene 7 Review Render
+run-name: Render investor Scene 7 V2 on main
 
 on:
   push:
@@ -9,6 +10,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: avantiqo-investor-scene-7-review-render
+  cancel-in-progress: false
 
 jobs:
   render-scene-7:

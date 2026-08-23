@@ -19,9 +19,12 @@ function requireFragments(source, label, fragments) {
 }
 
 requireFragments(runSource, runPath, [
+  'const PENDING_RUN_ID_BINDING = "run_id_v1"',
+  "pending_binding: PENDING_RUN_ID_BINDING",
   "export function operatorPendingExecutionRunIdMatchesAutonomousRun(",
   'Object.prototype.hasOwnProperty.call(pending, "run_id")',
-  "if (!runIdDeclared) return true",
+  "const runIdRequired = text(sourceRun.pending_binding) === PENDING_RUN_ID_BINDING",
+  "if (!runIdDeclared) return !runIdRequired",
   "return Boolean(pendingRunId) && pendingRunId === sourceRunId",
   "operatorPendingExecutionRunIdMatchesAutonomousRun(pending, run)",
   'text(run.run_kind).toLowerCase() !== "single_action"',
@@ -58,6 +61,7 @@ assert.ok(
 const {
   createOperatorAutonomousRun,
   createOperatorMissionRun,
+  normalizeOperatorAutonomousRun,
   operatorPendingExecutionMatchesAutonomousRun,
   operatorPendingExecutionRunIdMatchesAutonomousRun,
   transitionOperatorAutonomousRun,
@@ -77,6 +81,11 @@ const confirmationRun = createOperatorAutonomousRun({
     payload,
   },
 });
+assert.equal(
+  confirmationRun.pending_binding,
+  "run_id_v1",
+  "new single-action runs must explicitly require run-ID pending binding",
+);
 const exactPending = {
   capability_key: capabilityKey,
   run_id: confirmationRun.run_id,
@@ -119,32 +128,42 @@ assert.equal(
   "structurally identical pending state must not cross-bind between run IDs",
 );
 
-const legacyPending = {
+const noIdPending = {
   capability_key: capabilityKey,
   payload,
 };
 assert.equal(
-  Object.prototype.hasOwnProperty.call(legacyPending, "run_id"),
+  operatorPendingExecutionMatchesAutonomousRun(noIdPending, confirmationRun),
   false,
-  "legacy fixture must truly omit the run_id property",
+  "a new run must not downgrade to structural matching when pending run_id is removed",
+);
+
+const { pending_binding: _newBinding, ...legacyRunShape } = confirmationRun;
+const legacyRun = normalizeOperatorAutonomousRun(legacyRunShape);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(legacyRun, "pending_binding"),
+  false,
+  "legacy fixture must truly omit the run binding marker",
 );
 assert.equal(
-  operatorPendingExecutionRunIdMatchesAutonomousRun(
-    legacyPending,
-    confirmationRun,
-  ),
-  true,
-  "legacy state may use the bounded structural fallback only when run_id is absent",
+  Object.prototype.hasOwnProperty.call(noIdPending, "run_id"),
+  false,
+  "legacy pending fixture must truly omit the run_id property",
 );
 assert.equal(
-  operatorPendingExecutionMatchesAutonomousRun(legacyPending, confirmationRun),
+  operatorPendingExecutionRunIdMatchesAutonomousRun(noIdPending, legacyRun),
   true,
-  "legacy structurally exact pending state remains backward compatible",
+  "legacy run state may use structural fallback only when the run itself predates the binding marker",
+);
+assert.equal(
+  operatorPendingExecutionMatchesAutonomousRun(noIdPending, legacyRun),
+  true,
+  "legacy structurally exact pending state remains backward compatible only with a legacy run",
 );
 
 for (const declaredEmptyRunId of ["", null, undefined]) {
   const declaredEmptyPending = {
-    ...legacyPending,
+    ...noIdPending,
     run_id: declaredEmptyRunId,
   };
   assert.equal(
@@ -180,6 +199,11 @@ const approvalRun = transitionOperatorAutonomousRun(confirmationRun, {
   blocker: "APPROVAL_REQUIRED",
   approvalRequestId,
 });
+assert.equal(
+  approvalRun.pending_binding,
+  "run_id_v1",
+  "run binding requirement must survive approval transition",
+);
 const approvalPending = {
   ...exactPending,
   approval_request_id: approvalRequestId,
@@ -196,6 +220,14 @@ assert.equal(
   ),
   false,
   "approval request equality must not override a run referent mismatch",
+);
+assert.equal(
+  operatorPendingExecutionMatchesAutonomousRun(
+    { capability_key: capabilityKey, payload, approval_request_id: approvalRequestId },
+    approvalRun,
+  ),
+  false,
+  "approval state must not downgrade when its pending run referent is removed",
 );
 
 const verificationCapabilityKey = "finance.example.verify";
@@ -230,6 +262,11 @@ const verificationFailedRun = transitionOperatorAutonomousRun(actionCompletedRun
   stepStatus: "failed",
   blocker: "Verification failed",
 });
+assert.equal(
+  verificationFailedRun.pending_binding,
+  "run_id_v1",
+  "run binding requirement must survive verification transitions",
+);
 const verificationPending = {
   capability_key: verificationCapabilityKey,
   run_id: verificationFailedRun.run_id,
@@ -251,6 +288,16 @@ assert.equal(
   ),
   false,
   "verification retry must reject a different run referent",
+);
+const { run_id: _removedVerificationRunId, ...verificationWithoutRunId } =
+  verificationPending;
+assert.equal(
+  operatorPendingExecutionMatchesAutonomousRun(
+    verificationWithoutRunId,
+    verificationFailedRun,
+  ),
+  false,
+  "verification retry must not downgrade if its run referent is removed",
 );
 
 const missionRun = createOperatorMissionRun({
@@ -281,6 +328,11 @@ const missionRun = createOperatorMissionRun({
   },
 });
 assert.equal(
+  Object.prototype.hasOwnProperty.call(missionRun, "pending_binding"),
+  false,
+  "mission runs must not inherit the generic single-action binding marker",
+);
+assert.equal(
   operatorPendingExecutionMatchesAutonomousRun(
     {
       capability_key: capabilityKey,
@@ -298,6 +350,7 @@ console.log("OPERATOR_PENDING_RUN_ID_CONFIRMATION=EXACT_REFERENT_REQUIRED");
 console.log("OPERATOR_PENDING_RUN_ID_APPROVAL=REFERENT_PRESERVED");
 console.log("OPERATOR_PENDING_RUN_ID_VERIFICATION=REFERENT_PRESERVED");
 console.log("OPERATOR_PENDING_RUN_ID_MISMATCH=STRUCTURALLY_EQUAL_REJECTED");
-console.log("OPERATOR_PENDING_RUN_ID_LEGACY=STRUCTURAL_FALLBACK_ONLY_WHEN_ABSENT");
+console.log("OPERATOR_PENDING_RUN_ID_LEGACY=ONLY_LEGACY_RUNS_ALLOW_STRUCTURAL_FALLBACK");
+console.log("OPERATOR_PENDING_RUN_ID_DOWNGRADE=REMOVED_REFERENT_REJECTED_FOR_NEW_RUNS");
 console.log("OPERATOR_PENDING_RUN_ID_EMPTY=FAIL_CLOSED");
 console.log("OPERATOR_PENDING_RUN_ID_MISSION=SEPARATE");

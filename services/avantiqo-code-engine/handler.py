@@ -14,7 +14,7 @@ PRODUCT_MODEL = "avantiqo-code-v1"
 FOUNDATION_MODEL = os.getenv("AVANTIQO_CODE_FOUNDATION_MODEL", "").strip()
 DEVICE = os.getenv("AVANTIQO_CODE_DEVICE", "cuda")
 DTYPE = torch.bfloat16 if os.getenv("AVANTIQO_CODE_DTYPE", "bfloat16").lower() == "bfloat16" else torch.float16
-QUANTIZATION = os.getenv("AVANTIQO_CODE_QUANTIZATION", "none").strip().lower()
+QUANTIZATION = os.getenv("AVANTIQO_CODE_QUANTIZATION", "int8").strip().lower()
 MAX_NEW_TOKENS = int(os.getenv("AVANTIQO_CODE_MAX_NEW_TOKENS", "4096"))
 HF_CACHE_ROOT = Path(
     os.getenv(

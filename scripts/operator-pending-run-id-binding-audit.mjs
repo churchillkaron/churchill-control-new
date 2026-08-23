@@ -22,7 +22,7 @@ requireFragments(runSource, runPath, [
   'const PENDING_RUN_ID_BINDING = "run_id_v1"',
   "pending_binding: PENDING_RUN_ID_BINDING",
   "export function operatorPendingExecutionRunIdMatchesAutonomousRun(",
-  'Object.prototype.hasOwnProperty.call(candidate,\n    "pending_binding",',
+  'Object.prototype.hasOwnProperty.call(\n    candidate,\n    "pending_binding",',
   "...(pendingBindingDeclared\n      ? { pending_binding: pendingBinding || null }\n      : {})",
   'Object.prototype.hasOwnProperty.call(\n    sourceRun,\n    "pending_binding",',
   'Object.prototype.hasOwnProperty.call(pending, "run_id")',

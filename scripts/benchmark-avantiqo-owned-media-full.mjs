@@ -144,7 +144,7 @@ function mechanicalPass(capability, output) {
       Object.keys(object(output.result)).length > 0;
   }
   return text(output.storage_reference).startsWith("storage://creative-assets/") &&
-    Number(output.size_bytes || 1) > 0;
+    Number(output.size_bytes) > 10000;
 }
 
 async function benchmarkCase({ engine, capability, endpointId, input }) {
@@ -198,6 +198,10 @@ const firstFrame = assertHttps(fixtures.video_first_frame_url || fixtures.image_
 const lastFrame = assertHttps(fixtures.video_last_frame_url, "video_last_frame_url");
 const videoSource = assertHttps(fixtures.video_source_url, "video_source_url");
 const videoMask = assertHttps(fixtures.video_mask_url, "video_mask_url");
+const lipsyncVideoSource = assertHttps(
+  fixtures.lipsync_video_source_url,
+  "lipsync_video_source_url",
+);
 const audioSource = assertHttps(fixtures.audio_source_url, "audio_source_url");
 
 const cases = [
@@ -355,9 +359,12 @@ const cases = [
     endpointId: lipsyncEndpoint,
     input: {
       ...cinemaBase("ai.video.lipsync", "Synchronize visible speech articulation to the supplied governed audio while preserving facial identity and all non-mouth visual detail."),
-      source_video: videoSource,
+      source_video: lipsyncVideoSource,
       source_audio: audioSource,
-      source_asset_roles: { source_video: videoSource, source_audio: audioSource },
+      source_asset_roles: {
+        source_video: lipsyncVideoSource,
+        source_audio: audioSource,
+      },
       storage_upload: uploadFor(fixtures, "ai.video.lipsync"),
     },
   },

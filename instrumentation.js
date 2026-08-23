@@ -55,6 +55,9 @@ export async function register() {
       "@/lib/creative/quality/runtime/CreativeCinemaRepairContinuityBootstrap"
     );
     await import(
+      "@/lib/creative/quality/runtime/CreativeOwnedCinemaRepairProviderPolicyBootstrap"
+    );
+    await import(
       "@/lib/creative/quality/runtime/CreativePerceptualCandidateSelectionBridgeBootstrap"
     );
     await import(

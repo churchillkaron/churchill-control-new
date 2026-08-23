@@ -43,7 +43,8 @@ command -v ffprobe >/dev/null 2>&1 || {
 
 rm -f \
   /tmp/avantiqo-media-certification-fixtures.json \
-  /tmp/avantiqo-owned-media-full-capability-benchmark.json
+  /tmp/avantiqo-owned-media-full-capability-benchmark.json \
+  /tmp/avantiqo-owned-media-human-review.json
 
 node --env-file=.env.local scripts/prepare-avantiqo-owned-media-certification-fixtures.mjs
 node --env-file=.env.local -e '
@@ -89,5 +90,22 @@ if (report?.summary?.ready_for_human_quality_review !== true) {
 console.log(`AVANTIQO_MEDIA_CERTIFICATION_REPORT=${reportPath}`);
 '
 
+node --env-file=.env.local scripts/prepare-avantiqo-owned-media-human-review.mjs
+node --env-file=.env.local -e '
+const fs = require("node:fs");
+const reviewPath = process.env.AVANTIQO_MEDIA_HUMAN_REVIEW_OUTPUT || "/tmp/avantiqo-owned-media-human-review.json";
+const review = JSON.parse(fs.readFileSync(reviewPath, "utf8"));
+if (review?.contract !== "AVANTIQO_OWNED_MEDIA_HUMAN_REVIEW_V1" || review?.capability_count !== 15) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_HUMAN_REVIEW_PACK_INVALID");
+  process.exit(1);
+}
+if (review?.review_status !== "PENDING_HUMAN_REVIEW" || review?.activation_allowed !== false) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_HUMAN_REVIEW_STATE_INVALID");
+  process.exit(1);
+}
+console.log(`AVANTIQO_MEDIA_HUMAN_REVIEW_PACK=${reviewPath}`);
+'
+
 echo "AVANTIQO_OWNED_MEDIA_LOCAL_CERTIFICATION_MEASUREMENT_COMPLETE"
+echo "HUMAN_REVIEW=PENDING"
 echo "PRODUCTION_ACTIVATION=FORBIDDEN_PENDING_HUMAN_QUALITY_AND_FINAL_CERTIFICATION"

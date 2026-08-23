@@ -12,6 +12,8 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
+export const dynamic = "force-dynamic";
+
 function accessError(access) {
   return NextResponse.json(
     {

@@ -1,0 +1,63 @@
+name: Avantiqo Code AI Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-ai-certification-request.json
+      - .github/workflows/avantiqo-code-ai-certification.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-ai-certification
+  cancel-in-progress: false
+
+jobs:
+  certify-code:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Run owned Code benchmark only
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_CODE_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID }}
+          AVANTIQO_CODE_FOUNDATION_MODEL: ${{ vars.AVANTIQO_CODE_FOUNDATION_MODEL }}
+          AVANTIQO_CODE_BENCHMARK_RUNS: "3"
+          AVANTIQO_CODE_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/code-ai-certification.json
+        run: |
+          mkdir -p artifacts
+          node scripts/benchmark-avantiqo-code.mjs
+
+      - name: Verify certification remains measure-only
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("artifacts/code-ai-certification.json", "utf8"));
+          if (report.activation_allowed !== false) throw new Error("CODE_AI_CERTIFICATION_MUST_NOT_ACTIVATE_PRODUCTION");
+          if (report.summary?.passed !== true) throw new Error("CODE_AI_CERTIFICATION_BENCHMARK_FAILED");
+          console.log("CODE_AI_CERTIFICATION_MEASURE_ONLY=PASS");
+          console.log(`CODE_AI_CERTIFICATION_RUNS=${report.summary?.runs || 0}`);
+          console.log(`CODE_AI_CERTIFICATION_P50_WALL_MS=${report.summary?.p50_wall_ms ?? "unknown"}`);
+          console.log(`CODE_AI_CERTIFICATION_P95_WALL_MS=${report.summary?.p95_wall_ms ?? "unknown"}`);
+          NODE
+
+      - name: Upload Code certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-ai-certification-${{ github.run_id }}
+          path: artifacts/code-ai-certification.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -18,7 +18,14 @@ UPSCALE_CAPABILITY = "ai.image.upscale"
 ANALYZE_CAPABILITY = "ai.image.analyze"
 SPECIAL_CAPABILITIES = {UPSCALE_CAPABILITY, ANALYZE_CAPABILITY}
 MODEL_CACHE_OPERATION = "cache_foundation_model"
-MODEL_CACHE_ALLOWLIST = {"Qwen/Qwen-Image-2512"}
+QUALITY_FOUNDATION_MODEL = "Qwen/Qwen-Image-2512"
+MODEL_CACHE_ALLOWLIST = {QUALITY_FOUNDATION_MODEL}
+QUALITY_RUNTIME_REVISION = "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V1"
+QUALITY_NEGATIVE_PROMPT = (
+    "low resolution, low quality, anatomical deformity, malformed limbs, malformed fingers, "
+    "oversaturated image, waxy skin, faces without detail, overly smooth skin, obvious AI-generated "
+    "appearance, chaotic composition, blurred text, distorted text"
+)
 UPSCALE_MODEL = os.getenv(
     "AVANTIQO_IMAGE_UPSCALE_MODEL",
     "caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr",
@@ -87,6 +94,7 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
             "provider": "avantiqo-image",
             "model": legacy.PRODUCT_MODEL,
             "engine_contract": legacy.ENGINE_CONTRACT,
+            "runtime_revision": QUALITY_RUNTIME_REVISION,
             "operation": MODEL_CACHE_OPERATION,
             "target_model": target_model,
             "foundation_model_source": "runpod-cache",
@@ -114,12 +122,101 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
         "provider": "avantiqo-image",
         "model": legacy.PRODUCT_MODEL,
         "engine_contract": legacy.ENGINE_CONTRACT,
+        "runtime_revision": QUALITY_RUNTIME_REVISION,
         "operation": MODEL_CACHE_OPERATION,
         "target_model": target_model,
         "foundation_model_source": "runpod-cache",
         "already_cached": False,
         "cache_ready": True,
         "inference_performed": False,
+        "raw_reasoning_persisted": False,
+    }
+
+
+def _generate_quality_foundation(job: dict[str, Any]) -> dict[str, Any]:
+    raw = job.get("input") or {}
+    if _text(raw.get("foundation_model")) != QUALITY_FOUNDATION_MODEL:
+        raise ValueError("AVANTIQO_IMAGE_QUALITY_FOUNDATION_REQUEST_INVALID")
+    if not legacy._cached_model_path(QUALITY_FOUNDATION_MODEL):
+        raise RuntimeError(
+            f"AVANTIQO_IMAGE_SELECTED_FOUNDATION_NOT_CACHED:{QUALITY_FOUNDATION_MODEL}"
+        )
+
+    data = legacy._validated_input(job)
+    started = time.perf_counter()
+    spec = data.get("structured_specification") or {}
+    params = spec.get("provider_parameters") or {}
+    width, height = legacy._dimensions(spec)
+    seed = int(
+        params.get("seed")
+        if params.get("seed") is not None
+        else int.from_bytes(os.urandom(4), "big")
+    )
+    if seed < 0 or seed > 4294967295:
+        raise ValueError("AVANTIQO_IMAGE_SEED_INVALID")
+    inference_steps = int(params.get("inference_steps") or 50)
+    if inference_steps < 1 or inference_steps > 100:
+        raise ValueError("AVANTIQO_IMAGE_INFERENCE_STEPS_INVALID")
+
+    generator_device = "cuda" if legacy.DEVICE.startswith("cuda") else legacy.DEVICE
+    generator = torch.Generator(device=generator_device).manual_seed(seed)
+    runpod.serverless.progress_update(job, "loading Avantiqo Image 2512 quality foundation")
+    pipe = legacy._pipeline(QUALITY_FOUNDATION_MODEL)
+    guidance_kwargs, guidance_metadata = legacy._generation_guidance(pipe, params)
+    if guidance_metadata.get("mode") != "TRUE_CFG":
+        raise RuntimeError("AVANTIQO_IMAGE_2512_TRUE_CFG_REQUIRED")
+    negative_prompt = _text(params.get("negative_prompt")) or QUALITY_NEGATIVE_PROMPT
+    guidance_kwargs["negative_prompt"] = negative_prompt
+    guidance_metadata = {
+        **guidance_metadata,
+        "negative_prompt_supplied": True,
+        "negative_prompt_has_content": True,
+        "quality_policy": "QWEN_IMAGE_2512_REALISM_V1",
+    }
+
+    runpod.serverless.progress_update(job, "generating Avantiqo Image 2512 quality image")
+    result = pipe(
+        prompt=data["instruction"],
+        width=width,
+        height=height,
+        num_inference_steps=inference_steps,
+        generator=generator,
+        **guidance_kwargs,
+    )
+    image = result.images[0].convert("RGB")
+    width, height = image.size
+    job_id = _text(job.get("id")) or str(int(time.time() * 1000))
+    path = _OUTPUT_DIR / f"{job_id}-qwen-2512.png"
+    image.save(path, format="PNG")
+    runpod.serverless.progress_update(job, "storing private Avantiqo 2512 asset")
+    legacy._upload(path, data["storage_upload"])
+    size_bytes = path.stat().st_size
+    path.unlink(missing_ok=True)
+
+    return {
+        "status": "completed",
+        "provider": "avantiqo-image",
+        "model": legacy.PRODUCT_MODEL,
+        "engine_contract": legacy.ENGINE_CONTRACT,
+        "runtime_revision": QUALITY_RUNTIME_REVISION,
+        "capability": "ai.image.generate",
+        "storage_reference": data["storage_upload"]["storage_reference"],
+        "foundation_model": QUALITY_FOUNDATION_MODEL,
+        "foundation_model_source": "runpod-cache",
+        "seed": seed,
+        "width": width,
+        "height": height,
+        "size_bytes": size_bytes,
+        "source_asset_count": len(data.get("source_assets") or []),
+        "source_asset_roles": sorted((data.get("source_asset_roles") or {}).keys()),
+        "semantic_asset_roles_used": bool(data.get("source_asset_roles")),
+        "preservation_mode": "NONE",
+        "mask_conditioning_used": False,
+        "outpaint_canvas_conditioning_used": False,
+        "generation_guidance": guidance_metadata,
+        "inference_steps": inference_steps,
+        "certification_execution": data.get("certification_execution") is True,
+        "generation_seconds": round(time.perf_counter() - started, 3),
         "raw_reasoning_persisted": False,
     }
 
@@ -361,6 +458,14 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         return _cache_foundation_model(job)
 
     capability = _text(data.get("capability"))
+    requested_foundation = _text(data.get("foundation_model"))
+    if capability == "ai.image.generate" and requested_foundation == QUALITY_FOUNDATION_MODEL:
+        return _generate_quality_foundation(job)
+    if requested_foundation and requested_foundation not in {
+        legacy.FOUNDATION_MODEL,
+        QUALITY_FOUNDATION_MODEL,
+    }:
+        raise ValueError("AVANTIQO_IMAGE_FOUNDATION_MODEL_NOT_APPROVED")
     if capability not in SPECIAL_CAPABILITIES:
         return legacy.handler(job)
     data = _validate_special(job)

@@ -67,6 +67,9 @@ await import(
   "@/lib/creative/quality/runtime/CreativeOwnedCinemaRepairProviderPolicyBootstrap"
 );
 await import(
+  "@/lib/creative/continuity/runtime/CreativeCinematicStateMemoryBootstrap"
+);
+await import(
   "@/lib/creative/quality/runtime/CreativePerceptualCandidateSelectionBridgeBootstrap"
 );
 await import(

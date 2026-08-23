@@ -168,6 +168,9 @@ requireMarkers("GITHUB_COMMIT", githubCommit, [
   "AVANTIQO_CODE_GITHUB_CONNECTOR",
   "VERCEL_OIDC_TOKEN",
   "api.vercel.com/v1/connect/token",
+  "recoverVerifiedCodeMissionCommit",
+  "RECOVERY_HISTORY_LIMIT = 50",
+  "currentMainHead === expectedBase",
   "CODE_AI_GITHUB_BASE_COMMIT_MOVED_REPLAN_REQUIRED",
   "base_tree",
   "force: false",
@@ -189,6 +192,12 @@ requireMarkers("COMMIT_ARTIFACT", commitArtifact, [
   "verifyCodeMissionStateAttestation",
   "code_ai_commit_artifact",
   "mission_state: state",
+  "commit_attempted: false",
+  "markCodeAICommitArtifactAttempt",
+  "commit_attempted: true",
+  "commit_attempt_count",
+  "CODE_AI_COMMIT_ARTIFACT_ATTEMPTED_IMMUTABLE",
+  "CODE_AI_COMMIT_ARTIFACT_ATTEMPT_MARK_FAILED",
   "ordinary_memory_recall: false",
   "commit_requires_separate_governed_capability: true",
   "retireCodeAICommitArtifact",
@@ -232,6 +241,9 @@ requireMarkers("COMMIT_CAPABILITY", commitCapability, [
   "platform.code.ai.commit",
   "execution_key",
   "loadCodeAICommitArtifact",
+  "recoverVerifiedCodeMissionCommit",
+  "recoverPriorAttempt",
+  "markCodeAICommitArtifactAttempt",
   "persistCodeAICommitExecutionState",
   "retireCodeAICommitArtifact",
   "CODE_AI_COMMIT_ORGANIZATION_MISMATCH",
@@ -244,21 +256,26 @@ requireMarkers("COMMIT_CAPABILITY", commitCapability, [
   "VERIFIED_COMMIT_STATE_PERSIST_INCOMPLETE",
   "VERIFIED_COMMIT_ARTIFACT_RETIRE_INCOMPLETE",
   "github_write_verified: result?.verified === true",
+  "recovered_existing_verified_commit",
+  "commit_executed_this_invocation",
   "safe_to_retry_commit: false",
   "verification_read_required: true",
   "operatorAutoExecute: false",
   "operatorRequiresConfirmation: true",
 ]);
 
-const verifiedWriteIndex = commitCapability.indexOf(
-  "const result = await commitVerifiedCodeMission",
-);
-const postWriteStateIndex = commitCapability.indexOf(
-  "const commitState = await persistVerifiedCommitState",
-);
-if (verifiedWriteIndex < 0 || postWriteStateIndex <= verifiedWriteIndex) {
+const recoverPriorIndex = commitCapability.indexOf("await recoverPriorAttempt");
+const markAttemptIndex = commitCapability.indexOf("await markCodeAICommitArtifactAttempt");
+const verifiedWriteIndex = commitCapability.indexOf("result = await commitVerifiedCodeMission");
+const postWriteStateIndex = commitCapability.indexOf("const commitState = await persistVerifiedCommitState");
+if (
+  recoverPriorIndex < 0 ||
+  markAttemptIndex <= recoverPriorIndex ||
+  verifiedWriteIndex <= markAttemptIndex ||
+  postWriteStateIndex <= verifiedWriteIndex
+) {
   throw new Error(
-    "CODE_AI_AUDIT_POST_WRITE_STATE_MUST_FOLLOW_VERIFIED_GITHUB_COMMIT",
+    "CODE_AI_AUDIT_COMMIT_SEQUENCE_MUST_BE_RECOVER_THEN_MARK_THEN_WRITE_THEN_PERSIST_VERIFICATION",
   );
 }
 const postWriteHousekeeping = commitCapability.slice(postWriteStateIndex);
@@ -324,7 +341,7 @@ if (/git\s+push|vercel\s+deploy|supabase\s+db\s+push/.test(mission + autonomous)
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V6",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V7",
   verified: {
     owned_code_worker: true,
     certified_capability_gate: true,
@@ -344,6 +361,9 @@ console.log(JSON.stringify({
     organization_actor_resume_scope: true,
     autonomous_execution_evidence_server_owned: true,
     full_commit_artifact_server_owned_and_non_recallable: true,
+    commit_attempt_marker_persisted_before_github_write: true,
+    attempted_commit_artifact_immutable: true,
+    recovery_before_commit_retry_required: true,
     atomic_non_force_github_commit_runtime: true,
     verified_commit_execution_state_server_owned: true,
     verified_github_write_never_reclassified_as_generic_retryable_failure: true,

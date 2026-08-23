@@ -42,6 +42,16 @@ requireFragments("cycle", cycle, [
   '"platform.code_ai_commit_status.verify"',
   "commit_is_only_allowed_inside_persistence_handoff: true",
   "caller_commit_request_cannot_override_stay_local: true",
+  'const DEPLOY_MARKER = "[deploy-production-final]"',
+  "governedCommitMessage",
+  'replaceAll(DEPLOY_MARKER, "")',
+  "const rawCommitMessage = text(payload.commit_message, 200) || null",
+  "const commitMessage = governedCommitMessage(rawCommitMessage)",
+  "callerCommitProductionMarkerPreserved: false",
+  "caller_commit_message_sanitized: commitMessageSanitized",
+  "production_deploy_marker_preserved: false",
+  "caller_commit_message_sanitized_before_handoff: true",
+  "production_deploy_marker_preserved_from_caller_commit_message: false",
 ]);
 
 const missionStepsSource = cycle.slice(
@@ -58,6 +68,7 @@ for (const forbidden of [
   'platform.code_ai_commit_status.verify',
   'platform.product_autonomy.assess',
   'continuation_focus',
+  '[deploy-production-final]',
 ]) {
   if (missionStepsSource.includes(forbidden)) {
     throw new Error(
@@ -78,6 +89,30 @@ if (!handoffCallSource.includes("continuationFocus")) {
 if (handoffCallSource.includes("...(focus ? { focus }")) {
   throw new Error(
     "OPERATOR_PRODUCT_NEXT_OBJECTIVE_ISOLATION: completed current-cycle focus must not be forwarded into post-commit continuation",
+  );
+}
+if (!handoffCallSource.includes("commitMessage")) {
+  throw new Error(
+    "OPERATOR_PRODUCT_NEXT_OBJECTIVE_ISOLATION: sanitized caller commit label must be the only commit label forwarded into persistence handoff",
+  );
+}
+if (handoffCallSource.includes("rawCommitMessage")) {
+  throw new Error(
+    "OPERATOR_PRODUCT_NEXT_OBJECTIVE_ISOLATION: raw caller commit label must never reach persistence handoff",
+  );
+}
+
+const suggestedMessageSource = cycle.slice(
+  cycle.indexOf("const suggestedCommitMessage"),
+  cycle.indexOf("return {", cycle.indexOf("const suggestedCommitMessage")),
+);
+if (
+  !suggestedMessageSource ||
+  !suggestedMessageSource.includes("governedCommitMessage(") ||
+  suggestedMessageSource.includes("rawCommitMessage")
+) {
+  throw new Error(
+    "OPERATOR_PRODUCT_NEXT_OBJECTIVE_ISOLATION: suggested commit message must be sanitized and must never echo the raw caller label",
   );
 }
 
@@ -103,3 +138,4 @@ console.log("OPERATOR_PRODUCT_CONTINUATION_FOCUS=EXPLICIT_ONLY");
 console.log("OPERATOR_PRODUCT_COMPLETED_OBJECTIVE_AUTO_REUSE=DISABLED");
 console.log("OPERATOR_PRODUCT_ENGINEERING_MISSION_DIRECT_COMMIT=DISABLED");
 console.log("OPERATOR_PRODUCT_CALLER_COMMIT_REQUEST=NO_AUTHORIZATION_EFFECT");
+console.log("OPERATOR_PRODUCT_CALLER_DEPLOY_MARKER=STRIPPED_BEFORE_HANDOFF_OR_ECHO");

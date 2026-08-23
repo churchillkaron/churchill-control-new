@@ -2,11 +2,12 @@ import json
 import os
 import re
 import time
+import traceback
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
 import runpod
-import torch
 from vllm import LLM, SamplingParams
 
 ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1"
@@ -69,14 +70,41 @@ def _validate_runtime_contract() -> None:
         raise RuntimeError(f"AVANTIQO_CODE_FP8_RUNTIME_MODEL_INVALID:{RUNTIME_MODEL}")
     if QUANTIZATION != "fp8":
         raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_REQUIRED:fp8:{QUANTIZATION}")
-    if not torch.cuda.is_available():
-        raise RuntimeError("AVANTIQO_CODE_CUDA_REQUIRED")
     if MAX_MODEL_LEN < 4096 or MAX_MODEL_LEN > 262144:
         raise RuntimeError(f"AVANTIQO_CODE_MAX_MODEL_LEN_INVALID:{MAX_MODEL_LEN}")
     if not 0.5 <= GPU_MEMORY_UTILIZATION <= 0.98:
         raise RuntimeError(
             f"AVANTIQO_CODE_GPU_MEMORY_UTILIZATION_INVALID:{GPU_MEMORY_UTILIZATION}"
         )
+
+
+def _runtime_probe(data: dict[str, Any]) -> dict[str, Any] | None:
+    specification = data.get("structured_specification") or {}
+    if specification.get("runtime_probe") is not True:
+        return None
+    if _text(data.get("organization_id")) != "benchmark-only":
+        raise ValueError("AVANTIQO_CODE_RUNTIME_PROBE_BENCHMARK_ONLY")
+
+    _validate_runtime_contract()
+    cached_path = _cached_model_path(RUNTIME_MODEL)
+    return {
+        "status": "runtime_probe",
+        "provider": "avantiqo-code",
+        "model": PRODUCT_MODEL,
+        "engine_contract": ENGINE_CONTRACT,
+        "capability": data["capability"],
+        "foundation_model": FOUNDATION_MODEL,
+        "runtime_model": RUNTIME_MODEL,
+        "serving_runtime": "vllm",
+        "serving_runtime_version": version("vllm"),
+        "quantization": QUANTIZATION,
+        "max_model_len": MAX_MODEL_LEN,
+        "gpu_memory_utilization": GPU_MEMORY_UTILIZATION,
+        "cached_model_found": bool(cached_path),
+        "engine_loaded": _ENGINE is not None,
+        "vllm_worker_multiproc_method": os.getenv("VLLM_WORKER_MULTIPROC_METHOD", ""),
+        "raw_reasoning_persisted": False,
+    }
 
 
 def _load_engine() -> tuple[Any, LLM]:
@@ -90,10 +118,24 @@ def _load_engine() -> tuple[Any, LLM]:
         raise RuntimeError(f"AVANTIQO_CODE_CACHED_MODEL_REQUIRED:{RUNTIME_MODEL}")
     model_source = cached_path or RUNTIME_MODEL
 
-    # vLLM is the serving runtime for the official Qwen fine-grained FP8 checkpoint.
-    # On Ampere it can use the supported FP8 Marlin weight-only path; on Ada/Hopper
-    # it can use native FP8 kernels. Keep one bounded model context per Code action;
-    # repository-scale understanding belongs to Avantiqo's inspect/read/memory loop.
+    print(
+        json.dumps(
+            {
+                "event": "AVANTIQO_CODE_ENGINE_LOAD_START",
+                "runtime_model": RUNTIME_MODEL,
+                "cached_model": bool(cached_path),
+                "quantization": QUANTIZATION,
+                "max_model_len": MAX_MODEL_LEN,
+                "multiproc_method": os.getenv("VLLM_WORKER_MULTIPROC_METHOD", ""),
+            },
+            separators=(",", ":"),
+        ),
+        flush=True,
+    )
+
+    # vLLM owns CUDA initialization. Do not touch torch.cuda before this call:
+    # library-mode vLLM historically defaults to fork, which is unsafe after CUDA
+    # initialization. Docker also forces VLLM_WORKER_MULTIPROC_METHOD=spawn.
     _ENGINE = LLM(
         model=model_source,
         tokenizer=model_source,
@@ -107,6 +149,17 @@ def _load_engine() -> tuple[Any, LLM]:
         disable_log_stats=True,
     )
     _TOKENIZER = _ENGINE.get_tokenizer()
+    print(
+        json.dumps(
+            {
+                "event": "AVANTIQO_CODE_ENGINE_LOAD_COMPLETE",
+                "runtime_model": RUNTIME_MODEL,
+                "quantization": QUANTIZATION,
+            },
+            separators=(",", ":"),
+        ),
+        flush=True,
+    )
     return _TOKENIZER, _ENGINE
 
 
@@ -160,9 +213,32 @@ def _billable_input_tokens(tokenizer: Any, data: dict[str, Any]) -> int:
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     data = _validated_input(job)
+    probe = _runtime_probe(data)
+    if probe is not None:
+        return probe
+
     started = time.perf_counter()
     runpod.serverless.progress_update(job, "loading Avantiqo Code")
-    tokenizer, engine = _load_engine()
+    try:
+        tokenizer, engine = _load_engine()
+    except Exception as error:
+        traceback.print_exc()
+        return {
+            "status": "engine_load_failed",
+            "provider": "avantiqo-code",
+            "model": PRODUCT_MODEL,
+            "engine_contract": ENGINE_CONTRACT,
+            "capability": data["capability"],
+            "foundation_model": FOUNDATION_MODEL,
+            "runtime_model": RUNTIME_MODEL,
+            "serving_runtime": "vllm",
+            "serving_runtime_version": version("vllm"),
+            "quantization": QUANTIZATION,
+            "error_code": "AVANTIQO_CODE_ENGINE_LOAD_FAILED",
+            "error_type": type(error).__name__,
+            "error_message": _text(error)[:800],
+            "raw_reasoning_persisted": False,
+        }
 
     prompt = _prompt(data)
     rendered = tokenizer.apply_chat_template(
@@ -202,7 +278,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "foundation_model": FOUNDATION_MODEL,
         "runtime_model": RUNTIME_MODEL,
         "serving_runtime": "vllm",
-        "serving_runtime_version": "0.27.1",
+        "serving_runtime_version": version("vllm"),
         "foundation_model_source": "runpod-cache" if runtime_cached else "huggingface",
         "runtime_model_source": "runpod-cache" if runtime_cached else "huggingface",
         "quantization": QUANTIZATION,
@@ -225,8 +301,22 @@ def check_worker():
 
 
 if __name__ == "__main__":
-    # A worker is not considered operational until the actual FP8 engine is loaded.
-    # This makes RunPod readiness truthful and moves cold initialization outside a
-    # user Code job instead of hiding it inside the first request.
-    _load_engine()
+    # Start RunPod first. Engine loading is lazy on the first real Code request so
+    # startup failures are observable as structured evidence instead of anonymous
+    # container exit-code loops. A benchmark-only runtime probe can verify the
+    # exact deployed FP8/vLLM environment without loading the model.
+    print(
+        json.dumps(
+            {
+                "event": "AVANTIQO_CODE_WORKER_BOOT",
+                "serving_runtime": "vllm",
+                "serving_runtime_version": version("vllm"),
+                "runtime_model": RUNTIME_MODEL,
+                "quantization": QUANTIZATION,
+                "multiproc_method": os.getenv("VLLM_WORKER_MULTIPROC_METHOD", ""),
+            },
+            separators=(",", ":"),
+        ),
+        flush=True,
+    )
     runpod.serverless.start({"handler": handler})

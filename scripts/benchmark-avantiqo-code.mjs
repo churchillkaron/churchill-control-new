@@ -4,7 +4,9 @@ import { resolve } from "node:path";
 const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_CODE_ENGINE_V1";
 const EXPECTED_FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct";
-const DEFAULT_EXPECTED_QUANTIZATION = "none";
+const EXPECTED_FP8_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
+const DEFAULT_EXPECTED_QUANTIZATION = "fp8";
+const DEFAULT_EXPECTED_SERVING_RUNTIME = "vllm";
 const DEFAULT_TIMEOUT_MS = 12 * 60 * 1000;
 const DEFAULT_POLL_MS = 2000;
 
@@ -179,9 +181,15 @@ if (foundationModel !== EXPECTED_FOUNDATION_MODEL) {
   throw new Error(`AVANTIQO_CODE_FOUNDATION_MODEL_CERTIFICATION_MISMATCH:${foundationModel}`);
 }
 const expectedQuantization = text(process.env.AVANTIQO_CODE_EXPECTED_QUANTIZATION).toLowerCase() || DEFAULT_EXPECTED_QUANTIZATION;
-if (!["none", "int8"].includes(expectedQuantization)) {
+if (!["none", "int8", "fp8"].includes(expectedQuantization)) {
   throw new Error(`AVANTIQO_CODE_EXPECTED_QUANTIZATION_INVALID:${expectedQuantization}`);
 }
+const expectedRuntimeModel = expectedQuantization === "fp8"
+  ? EXPECTED_FP8_RUNTIME_MODEL
+  : EXPECTED_FOUNDATION_MODEL;
+const expectedServingRuntime = expectedQuantization === "fp8"
+  ? DEFAULT_EXPECTED_SERVING_RUNTIME
+  : "transformers";
 
 const requestedRuns = Math.floor(number(process.env.AVANTIQO_CODE_BENCHMARK_RUNS, cases.length));
 const runs = Math.max(cases.length, Math.min(12, requestedRuns));
@@ -212,11 +220,15 @@ for (let index = 0; index < runs; index += 1) {
       ? plannerProtocolPass(result)
       : includesAll(result, sample.requiredAll) && includesAny(result, sample.requiredAny);
     const observedQuantization = text(output.quantization || "none").toLowerCase();
+    const observedRuntimeModel = text(output.runtime_model || output.foundation_model);
+    const observedServingRuntime = text(output.serving_runtime || "transformers").toLowerCase();
     const contractPass =
       text(output.provider) === "avantiqo-code" &&
       text(output.engine_contract) === CONTRACT &&
       text(output.capability) === sample.capability &&
       text(output.foundation_model) === EXPECTED_FOUNDATION_MODEL &&
+      observedRuntimeModel === expectedRuntimeModel &&
+      observedServingRuntime === expectedServingRuntime &&
       observedQuantization === expectedQuantization &&
       output.raw_reasoning_persisted === false;
     const reasoningPass = !/<think>|<\/think>|<reasoning>|<\/reasoning>/i.test(result);
@@ -232,6 +244,8 @@ for (let index = 0; index < runs; index += 1) {
       runpod_execution_ms: Number(body.executionTime) || null,
       worker_generation_seconds: Number(output.generation_seconds) || null,
       quantization: observedQuantization,
+      runtime_model: observedRuntimeModel,
+      serving_runtime: observedServingRuntime,
       input_tokens: Number(output.usage?.input_tokens) || null,
       output_tokens: Number(output.usage?.output_tokens) || null,
       runtime_prompt_tokens: Number(output.usage?.runtime_prompt_tokens) || null,
@@ -279,6 +293,8 @@ const report = {
     provider: "avantiqo-code",
     product_model: "avantiqo-code-v1",
     foundation_model: EXPECTED_FOUNDATION_MODEL,
+    runtime_model: expectedRuntimeModel,
+    serving_runtime: expectedServingRuntime,
     quantization: expectedQuantization,
     capabilities: [
       "ai.code.generate",

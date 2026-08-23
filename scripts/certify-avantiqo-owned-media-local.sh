@@ -42,9 +42,30 @@ command -v ffprobe >/dev/null 2>&1 || {
 }
 
 rm -f \
+  /tmp/avantiqo-owned-media-local-preflight.json \
   /tmp/avantiqo-media-certification-fixtures.json \
   /tmp/avantiqo-owned-media-full-capability-benchmark.json \
   /tmp/avantiqo-owned-media-human-review.json
+
+node --env-file=.env.local scripts/preflight-avantiqo-owned-media-local.mjs
+node --env-file=.env.local -e '
+const fs = require("node:fs");
+const preflightPath = process.env.AVANTIQO_MEDIA_PREFLIGHT_OUTPUT || "/tmp/avantiqo-owned-media-local-preflight.json";
+const preflight = JSON.parse(fs.readFileSync(preflightPath, "utf8"));
+if (preflight?.contract !== "AVANTIQO_OWNED_MEDIA_LOCAL_PREFLIGHT_V1" || preflight?.success !== true) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_PREFLIGHT_INVALID");
+  process.exit(1);
+}
+if (preflight?.safety?.runpod_generation_jobs_submitted !== 0 || preflight?.safety?.runpod_run_called !== false || preflight?.safety?.runpod_runsync_called !== false) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_PREFLIGHT_SPEND_SAFETY_INVALID");
+  process.exit(1);
+}
+if (preflight?.ready_for_fixture_preparation !== true) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_PREFLIGHT_NOT_READY");
+  process.exit(1);
+}
+console.log(`AVANTIQO_MEDIA_CERTIFICATION_PREFLIGHT=${preflightPath}`);
+'
 
 node --env-file=.env.local scripts/prepare-avantiqo-owned-media-certification-fixtures.mjs
 node --env-file=.env.local -e '

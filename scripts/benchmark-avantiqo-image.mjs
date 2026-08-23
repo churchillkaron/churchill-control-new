@@ -3,10 +3,11 @@ import { resolve } from "node:path";
 
 const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1";
-const RUNSYNC_WAIT_MS = 300000;
+const SUBMIT_TIMEOUT_MS = 30000;
+const STATUS_TIMEOUT_MS = 30000;
 const POLL_INTERVAL_MS = 5000;
 const MAX_JOB_WAIT_MS = Math.max(
-  RUNSYNC_WAIT_MS,
+  POLL_INTERVAL_MS,
   Number(process.env.AVANTIQO_RUNPOD_BENCHMARK_TIMEOUT_MS || 15 * 60 * 1000),
 );
 
@@ -30,50 +31,62 @@ function sleep(ms) { return new Promise((resolvePromise) => setTimeout(resolvePr
 function terminalFailure(status) {
   return ["FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(status);
 }
+function errorDetail(body = {}) {
+  const value = body?.error ?? body?.message ?? body?.output?.error;
+  if (value && typeof value === "object") return JSON.stringify(value).slice(0, 1000);
+  return text(value).slice(0, 1000);
+}
 async function parseJsonResponse(response) {
   const raw = await response.text();
   let body = {};
   try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
   if (!response.ok) {
-    throw new Error(`RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message || raw).slice(0, 1000)}`);
+    throw new Error(`RUNPOD_HTTP_${response.status}:${errorDetail(body) || text(raw).slice(0, 1000)}`);
   }
   return body;
 }
-async function runSync(endpointId, input, apiKey) {
+async function runQueued(endpointId, input, apiKey) {
   const started = performance.now();
-  const response = await fetch(`${API_BASE}/${endpointId}/runsync?wait=${RUNSYNC_WAIT_MS}`, {
+  const submitResponse = await fetch(`${API_BASE}/${endpointId}/run`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", Accept: "application/json" },
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
     body: JSON.stringify({ input }),
-    signal: AbortSignal.timeout(RUNSYNC_WAIT_MS + 30000),
+    signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
   });
-  let body = await parseJsonResponse(response);
+  let body = await parseJsonResponse(submitResponse);
   let status = text(body?.status).toUpperCase();
-  if (status === "COMPLETED") {
-    return { body, wallMs: Math.round(performance.now() - started) };
-  }
-
   const jobId = text(body?.id);
-  if (!jobId) throw new Error(`RUNPOD_NOT_COMPLETED:${status || "UNKNOWN"}:JOB_ID_MISSING`);
+
+  if (status === "COMPLETED") {
+    return { body, wallMs: Math.round(performance.now() - started), jobId: jobId || null };
+  }
+  if (!jobId) throw new Error(`RUNPOD_ASYNC_SUBMIT_JOB_ID_MISSING:${status || "UNKNOWN"}`);
   if (terminalFailure(status)) {
-    throw new Error(`RUNPOD_JOB_${status}:${text(body?.error || body?.message).slice(0, 1000)}`);
+    throw new Error(`RUNPOD_JOB_${status}:${errorDetail(body)}`);
   }
 
   const deadline = Date.now() + MAX_JOB_WAIT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
-    const statusResponse = await fetch(`${API_BASE}/${endpointId}/status/${encodeURIComponent(jobId)}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-      signal: AbortSignal.timeout(30000),
-    });
+    const statusResponse = await fetch(
+      `${API_BASE}/${endpointId}/status/${encodeURIComponent(jobId)}`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+        signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+      },
+    );
     body = await parseJsonResponse(statusResponse);
     status = text(body?.status).toUpperCase();
     if (status === "COMPLETED") {
-      return { body, wallMs: Math.round(performance.now() - started) };
+      return { body, wallMs: Math.round(performance.now() - started), jobId };
     }
     if (terminalFailure(status)) {
-      throw new Error(`RUNPOD_JOB_${status}:${text(body?.error || body?.message).slice(0, 1000)}`);
+      throw new Error(`RUNPOD_JOB_${status}:${errorDetail(body)}`);
     }
   }
   throw new Error(`RUNPOD_JOB_WAIT_TIMEOUT:${jobId}:${MAX_JOB_WAIT_MS}`);
@@ -89,7 +102,7 @@ const observations = [];
 
 for (let index = 0; index < runs; index += 1) {
   const run = index + 1;
-  const { body, wallMs } = await runSync(endpointId, {
+  const { body, wallMs, jobId } = await runQueued(endpointId, {
     contract: CONTRACT,
     capability: "ai.image.generate",
     foundation_model: foundationModel,
@@ -109,6 +122,7 @@ for (let index = 0; index < runs; index += 1) {
   const output = body.output || {};
   observations.push({
     run,
+    runpod_job_id: jobId,
     wall_ms: wallMs,
     worker_generation_seconds: Number(output.generation_seconds) || null,
     width: Number(output.width) || null,
@@ -133,7 +147,9 @@ const report = {
   purpose: "MEASURE_ONLY_DO_NOT_ACTIVATE_PRICING",
   model: { provider: "avantiqo-image", foundation_model: foundationModel, capability: "ai.image.generate" },
   runpod_wait_policy: {
-    runsync_wait_ms: RUNSYNC_WAIT_MS,
+    submission_mode: "ASYNC_RUN_STATUS_POLLING",
+    submit_timeout_ms: SUBMIT_TIMEOUT_MS,
+    status_timeout_ms: STATUS_TIMEOUT_MS,
     poll_interval_ms: POLL_INTERVAL_MS,
     max_job_wait_ms: MAX_JOB_WAIT_MS,
   },

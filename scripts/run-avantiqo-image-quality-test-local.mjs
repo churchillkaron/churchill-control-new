@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 const FIXTURE_PATH =
   process.env.AVANTIQO_MEDIA_CERTIFICATION_FIXTURES ||
   "/tmp/avantiqo-media-certification-fixtures.json";
+const QUALITY_FOUNDATION_MODEL = "Qwen/Qwen-Image-2512";
 const HUMAN_RESTAURANT_INSTRUCTION = [
   "Create a photorealistic high-end restaurant advertising photograph captured during a real dinner service.",
   "The main subject is a natural-looking adult female restaurant manager in her early 30s standing beside a dining table, warmly presenting a plated fine-dining dish to two seated adult guests.",
@@ -36,6 +37,7 @@ if (!fs.existsSync(".env.local")) {
 }
 
 console.log("AVANTIQO_IMAGE_QUALITY_SCENARIO=HUMAN_RESTAURANT_ADVERTISING");
+console.log(`AVANTIQO_IMAGE_QUALITY_FOUNDATION=${QUALITY_FOUNDATION_MODEL}`);
 console.log("AVANTIQO_IMAGE_QUALITY_STAGE=FIXTURE");
 runNode(
   ["--env-file=.env.local", "scripts/prepare-avantiqo-owned-media-certification-fixtures.mjs"],
@@ -61,6 +63,7 @@ runNode(
   ["--env-file=.env.local", "scripts/benchmark-avantiqo-image.mjs"],
   {
     AVANTIQO_IMAGE_BENCHMARK_RUNS: "1",
+    AVANTIQO_IMAGE_BENCHMARK_FOUNDATION_MODEL: QUALITY_FOUNDATION_MODEL,
     AVANTIQO_IMAGE_BENCHMARK_INSTRUCTION:
       text(process.env.AVANTIQO_IMAGE_BENCHMARK_INSTRUCTION) || HUMAN_RESTAURANT_INSTRUCTION,
     AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL: target.signed_url,

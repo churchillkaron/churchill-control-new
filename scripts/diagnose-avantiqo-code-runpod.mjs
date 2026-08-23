@@ -19,11 +19,15 @@ function safeEnv(env = {}) {
   const source = env && typeof env === "object" && !Array.isArray(env) ? env : {};
   const visible = new Set([
     "AVANTIQO_CODE_FOUNDATION_MODEL",
+    "AVANTIQO_CODE_RUNTIME_MODEL",
     "AVANTIQO_CODE_QUANTIZATION",
     "AVANTIQO_CODE_DTYPE",
     "AVANTIQO_CODE_REQUIRE_CACHED_MODEL",
     "AVANTIQO_CODE_HF_CACHE_ROOT",
+    "AVANTIQO_CODE_MAX_MODEL_LEN",
+    "AVANTIQO_CODE_GPU_MEMORY_UTILIZATION",
     "AVANTIQO_CODE_MAX_NEW_TOKENS",
+    "VLLM_WORKER_MULTIPROC_METHOD",
   ]);
   return {
     keys: Object.keys(source).sort(),
@@ -50,13 +54,38 @@ function sanitizeWorker(worker = {}) {
   };
 }
 
-const apiKey = required("RUNPOD_API_KEY");
+function sanitizeTemplate(template = {}) {
+  return {
+    id: template.id || null,
+    name: template.name || null,
+    image_name: template.imageName || template.image || null,
+    docker_entrypoint: Array.isArray(template.dockerEntrypoint) ? template.dockerEntrypoint : [],
+    docker_start_cmd: Array.isArray(template.dockerStartCmd) ? template.dockerStartCmd : [],
+    container_disk_gb: template.containerDiskInGb ?? null,
+    volume_gb: template.volumeInGb ?? null,
+    volume_mount_path: template.volumeMountPath || null,
+    is_serverless: template.isServerless ?? null,
+    environment: safeEnv(template.env),
+  };
+}
+
+const runtimeApiKey = required("RUNPOD_API_KEY");
+const managementApiKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
 const endpointId = required("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID");
-const authorization = { Authorization: `Bearer ${apiKey}`, Accept: "application/json" };
+const runtimeAuthorization = {
+  Authorization: `Bearer ${runtimeApiKey}`,
+  Accept: "application/json",
+};
+const managementAuthorization = {
+  Authorization: `Bearer ${managementApiKey || runtimeApiKey}`,
+  Accept: "application/json",
+};
 
 const [endpointsResponse, healthResponse] = await Promise.all([
-  fetch(`${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`, { headers: authorization }),
-  fetch(`${QUEUE_BASE}/${endpointId}/health`, { headers: authorization }),
+  fetch(`${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`, {
+    headers: managementAuthorization,
+  }),
+  fetch(`${QUEUE_BASE}/${endpointId}/health`, { headers: runtimeAuthorization }),
 ]);
 
 const endpointsBody = await json(endpointsResponse);
@@ -75,6 +104,19 @@ const endpoints = managementScopeAvailable
       : []
   : [];
 const endpoint = endpoints.find((candidate) => text(candidate?.id) === endpointId) || null;
+const templateId = text(endpoint?.templateId || endpoint?.template?.id);
+let directTemplate = null;
+let directTemplateStatus = null;
+if (managementScopeAvailable && templateId) {
+  const templateResponse = await fetch(`${REST_BASE}/templates/${templateId}`, {
+    headers: managementAuthorization,
+  });
+  directTemplateStatus = templateResponse.status;
+  const templateBody = await json(templateResponse);
+  if (templateResponse.ok && templateBody && typeof templateBody === "object") {
+    directTemplate = templateBody;
+  }
+}
 
 const workers = health?.workers || {};
 const jobs = health?.jobs || {};
@@ -94,17 +136,23 @@ else if (endpoint && number(endpoint.workersMin) === 0) readiness = "SCALE_TO_ZE
 else if (number(jobs.inQueue) === 0) readiness = "NO_ACTIVE_WORKER_QUEUE_CLEAN";
 else readiness = "NO_WORKER_CAPACITY";
 
+const template = directTemplate || endpoint?.template || null;
 const report = {
-  success: readiness !== "WORKER_INITIALIZING_NO_READY_CAPACITY" && readiness !== "NO_WORKER_CAPACITY",
-  contract: "AVANTIQO_CODE_RUNPOD_DIAGNOSTIC_V2",
+  success: readiness !== "NO_WORKER_CAPACITY",
+  contract: "AVANTIQO_CODE_RUNPOD_DIAGNOSTIC_V3",
   mutation_performed: false,
   provider_job_submitted: false,
+  generation_performed: false,
   management_scope: {
     available: managementScopeAvailable,
     http_status: managementScopeStatus,
+    credential_source: managementApiKey
+      ? "RUNPOD_MANAGEMENT_API_KEY"
+      : "RUNPOD_API_KEY_FALLBACK",
+    direct_template_http_status: directTemplateStatus,
     note: managementScopeAvailable
-      ? "Account-level endpoint configuration was readable."
-      : "Runtime API key cannot read account-level endpoint configuration; endpoint health remains available and is authoritative for queue/worker state.",
+      ? "Account-level Code endpoint and template configuration were read without mutation."
+      : "Management configuration was unavailable; runtime health remains available.",
   },
   endpoint: endpoint ? {
     id: endpoint.id,
@@ -124,16 +172,14 @@ const report = {
     scaler_value: endpoint.scalerValue ?? null,
     execution_timeout_ms: endpoint.executionTimeoutMs ?? null,
     flashboot: endpoint.flashboot ?? endpoint.flashBoot ?? null,
-    network_volume_attached: Boolean(endpoint.networkVolumeId || (endpoint.networkVolumeIds || []).length),
-    template_id: endpoint.templateId || endpoint.template?.id || null,
+    network_volume_id_present: Boolean(endpoint.networkVolumeId),
+    network_volume_ids_count: Array.isArray(endpoint.networkVolumeIds)
+      ? endpoint.networkVolumeIds.length
+      : 0,
+    template_id: templateId || null,
     version: endpoint.version ?? null,
     environment: safeEnv(endpoint.env),
-    template: endpoint.template ? {
-      id: endpoint.template.id || null,
-      image: endpoint.template.image || null,
-      container_disk_gb: endpoint.template.containerDiskInGb ?? null,
-      environment: safeEnv(endpoint.template.env),
-    } : null,
+    template: template ? sanitizeTemplate(template) : null,
     workers: Array.isArray(endpoint.workers) ? endpoint.workers.map(sanitizeWorker) : [],
   } : {
     id: endpointId,
@@ -160,8 +206,9 @@ const report = {
   diagnosis: {
     readiness,
     queue_is_clean: number(jobs.inQueue) === 0,
-    initialization_blocker: readiness === "WORKER_INITIALIZING_NO_READY_CAPACITY",
+    initialization_in_progress: initializingWorkers > 0,
     management_scope_required_for_gpu_template_details: !managementScopeAvailable,
+    runtime_probe_should_not_load_model: true,
   },
 };
 

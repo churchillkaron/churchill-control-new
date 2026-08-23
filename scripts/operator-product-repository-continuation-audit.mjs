@@ -11,6 +11,7 @@ const paths = [
   "lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js",
   "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
   "lib/platform/capabilities/createProductRepositoryAssessmentCapability.js",
+  "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
   "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
   "lib/platform/capabilities/createProductAutonomyContinuationCapability.js",
   "lib/platform/runtime/PlatformDomainRuntime.js",
@@ -68,20 +69,64 @@ requireFragments(
 );
 
 requireFragments(
-  "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
+  "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
   [
-    'source_step_id: "commit_verified_changes"',
-    'source: "verification"',
-    'source_path: "commit.commit_sha"',
-    'target_path: "verified_commit_sha"',
-    'source_path: "verification_source"',
-    'target_path: "verified_commit_verification_source"',
-    'source_path: "server_state_found"',
-    'target_path: "verified_commit_server_state_found"',
-    "verified_commit_evidence_bound_to_continuation: true",
-    "write_replay_for_verification_recovery_allowed: false",
+    'REQUIRED_PERMISSION = "platform.code.ai.execute"',
+    'capability: "code_ai_commit_status"',
+    'action: "verify"',
+    'operatorMode: "read"',
+    'operatorAutoExecute: true',
+    'operatorRequiresConfirmation: false',
+    'risk: "low"',
+    'transactional: false',
+    "artifact.commit_attempted !== true",
   ],
 );
+
+const handoffPath =
+  "lib/platform/capabilities/createProductPersistenceHandoffCapability.js";
+requireFragments(handoffPath, [
+  'permissions: [REQUIRED_EXECUTE_PERMISSION]',
+  'source_step_id: "commit_verified_changes"',
+  'source: "verification"',
+  'source_path: "commit.commit_sha"',
+  'target_path: "verified_commit_sha"',
+  'source_path: "verification_source"',
+  'target_path: "verified_commit_verification_source"',
+  'source_path: "server_state_found"',
+  'target_path: "verified_commit_server_state_found"',
+  "alreadyPersistedContinuationMission",
+  'id: "verify_existing_persistence"',
+  'source_step_id: "verify_existing_persistence"',
+  'source: "result"',
+  'status: "READY_FOR_ONE_NEXT_BOUNDED_CYCLE"',
+  "PRODUCT_PERSISTENCE_HANDOFF_ALREADY_PERSISTED_NEXT_OBJECTIVE_REQUIRED",
+  "bounded_next_cycle_count: 1",
+  "second_commit_allowed: false",
+  "next_engineering_cycle_started: false",
+  "automatic_execution_started: false",
+  "commit_permission_enforced_by_registered_commit_step_preflight: true",
+  "verified_commit_evidence_bound_to_continuation: true",
+  "write_replay_for_verification_recovery_allowed: false",
+]);
+const alreadyPersistedMission = files[handoffPath].slice(
+  files[handoffPath].indexOf("function alreadyPersistedContinuationMission"),
+  files[handoffPath].indexOf("function missionStepCapabilityResult"),
+);
+if (
+  !alreadyPersistedMission ||
+  alreadyPersistedMission.includes('"platform.code_ai_commit.execute"') ||
+  alreadyPersistedMission.includes('"platform.product_engineering_cycle.execute"')
+) {
+  throw new Error(
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: ALREADY_PERSISTED continuation must remain read-only and must not execute another commit or engineering cycle",
+  );
+}
+if ((alreadyPersistedMission.match(/capability_key:/g)?.length || 0) !== 2) {
+  throw new Error(
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: ALREADY_PERSISTED continuation must remain exactly two registered read steps",
+  );
+}
 
 const continuationPath =
   "lib/platform/capabilities/createProductAutonomyContinuationCapability.js";
@@ -148,6 +193,7 @@ requireFragments(
 requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "createProductRepositoryAssessmentCapability",
   "product_repository_assessment",
+  "createProductPersistenceHandoffCapability",
   "createProductAutonomyContinuationCapability",
 ]);
 
@@ -173,6 +219,37 @@ if (
 ) {
   throw new Error(
     "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: repository assessment must remain low-risk read-only auto-executable evidence with code execution permission",
+  );
+}
+
+const commitStatus = byKey.get("platform.code_ai_commit_status.verify");
+if (
+  !commitStatus ||
+  commitStatus.mode !== "read" ||
+  commitStatus.risk !== "low" ||
+  commitStatus.auto_execute !== true ||
+  commitStatus.requires_confirmation === true ||
+  commitStatus.transactional === true ||
+  !commitStatus.permissions?.includes("platform.code.ai.execute") ||
+  commitStatus.permissions?.includes("platform.code.ai.commit")
+) {
+  throw new Error(
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: commit verification must remain read-authority under code execution permission and must not require commit write permission",
+  );
+}
+
+const persistenceHandoff = byKey.get("platform.product_persistence_handoff.execute");
+if (
+  !persistenceHandoff ||
+  persistenceHandoff.risk !== "low" ||
+  persistenceHandoff.auto_execute !== true ||
+  persistenceHandoff.requires_confirmation === true ||
+  persistenceHandoff.transactional === true ||
+  !persistenceHandoff.permissions?.includes("platform.code.ai.execute") ||
+  persistenceHandoff.permissions?.includes("platform.code.ai.commit")
+) {
+  throw new Error(
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: Product persistence handoff must allow read-only decisions/continuation under execute authority while leaving commit permission to the registered write step",
   );
 }
 
@@ -204,5 +281,8 @@ console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY=REGISTERED_VERIFIER_BOUND_SCAL
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_CONTEXT=EXACT_DURABLE_MISSION_STEP_ONLY");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_ATTEMPT_MARKER=REQUIRED");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_WRITE_REPLAY=DISABLED");
+console.log("OPERATOR_PRODUCT_ALREADY_PERSISTED_CONTINUATION=TWO_READS_ONE_OBJECTIVE_NO_EXECUTION");
+console.log("OPERATOR_CODE_AI_COMMIT_STATUS_AUTHORITY=EXECUTE_READ_ONLY_NOT_COMMIT_WRITE");
+console.log("OPERATOR_PRODUCT_PERSISTENCE_HANDOFF_AUTHORITY=CONDITIONAL_WRITE_PERMISSION_AT_REGISTERED_STEP");
 console.log("OPERATOR_PRODUCT_REPOSITORY_CERTIFICATION=SOURCE_EVIDENCE_ONLY");
 console.log("OPERATOR_PRODUCT_AUTONOMY_RECURSION=DISABLED");

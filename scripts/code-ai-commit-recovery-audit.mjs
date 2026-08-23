@@ -27,11 +27,17 @@ function requireFragments(label, fragments) {
 requireFragments("github", [
   "recoverVerifiedCodeMissionCommit",
   "RECOVERY_HISTORY_LIMIT = 50",
+  'RECOVERY_NOT_FOUND = "CODE_AI_GITHUB_RECOVERY_VERIFIED_COMMIT_NOT_FOUND"',
+  "recoveryNotFoundError",
+  "error.expected_base_commit",
+  "error.current_main_head",
+  "error.main_advanced_from_expected_base",
+  "error.recovery_history_limit",
   "candidateMatchesAttestedChanges",
   "samePathSet",
   'github("/git/ref/heads/main")',
   "currentMainHead === expectedBase",
-  "CODE_AI_GITHUB_RECOVERY_VERIFIED_COMMIT_NOT_FOUND",
+  "throw recoveryNotFoundError({ expectedBase, currentMainHead })",
   "/commits?sha=main&per_page=${RECOVERY_HISTORY_LIMIT}",
   "/compare/${encodeURIComponent(baseCommit)}...${encodeURIComponent(candidateSha)}",
   "/contents/${encodedRepositoryPath(change.path)}?ref=${encodeURIComponent(candidateSha)}",
@@ -117,7 +123,30 @@ requireFragments("decision", [
   "The same source persistence must not be proposed again.",
   "GitHub recovery is attempted only after a server-owned commit-attempt marker exists.",
   "deterministic registered commit verification evidence",
+  "error?.main_advanced_from_expected_base === true",
+  "expected_base_commit: expectedBase",
+  "current_main_head: currentMainHead",
+  "if (recovery.stale_base)",
+  'reason_code: "STALE_BASE_REPLAN_REQUIRED"',
+  "stale_base_replan_required: true",
+  "This artifact is stale for persistence and must not be retried against newer main.",
+  "No duplicate or rebased commit is attempted automatically.",
 ]);
+
+const staleBaseDecision = sources.decision.slice(
+  sources.decision.indexOf("if (recovery.stale_base)"),
+  sources.decision.indexOf("const deterministic = deterministicDecision(state)"),
+);
+if (
+  !staleBaseDecision ||
+  !staleBaseDecision.includes('decision: "STAY_LOCAL"') ||
+  staleBaseDecision.includes('decision: "REQUEST_COMMIT_CONFIRMATION"') ||
+  staleBaseDecision.includes("commitVerifiedCodeMission")
+) {
+  throw new Error(
+    "CODE_AI_COMMIT_RECOVERY_AUDIT: stale attempted artifact must deterministically stay local and require replan without write replay",
+  );
+}
 
 requireFragments("handoff", [
   'permissions: [REQUIRED_EXECUTE_PERMISSION]',
@@ -188,6 +217,8 @@ console.log("CODE_AI_COMMIT_RECOVERY_BEFORE_RETRY=REQUIRED");
 console.log("CODE_AI_COMMIT_RECOVERY_WITHOUT_ATTEMPT=DISABLED");
 console.log("CODE_AI_COMMIT_RECOVERY_WRITE_REPLAY=DISABLED_FOR_VERIFICATION");
 console.log("CODE_AI_COMMIT_RECOVERY_MATCH=BASE_PARENT_PATH_SET_AND_FILE_BYTES");
+console.log("CODE_AI_COMMIT_RECOVERY_NOT_FOUND=EXPECTED_BASE_AND_CURRENT_MAIN_PRESERVED");
+console.log("CODE_AI_COMMIT_STALE_BASE=STAY_LOCAL_REPLAN_REQUIRED");
 console.log("CODE_AI_COMMIT_STATUS_AUTHORITY=READ_EXECUTE_PERMISSION_ONLY");
 console.log("CODE_AI_PRODUCT_PERSISTENCE_RECOVERY=IDEMPOTENT_ALREADY_PERSISTED");
 console.log("CODE_AI_PRODUCT_ALREADY_PERSISTED_CONTINUATION=TWO_READS_ONE_OBJECTIVE_NO_EXECUTION");

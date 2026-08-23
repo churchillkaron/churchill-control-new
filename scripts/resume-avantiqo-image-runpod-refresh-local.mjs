@@ -205,6 +205,33 @@ async function inspectEndpoint(managementKey, endpointId) {
   };
 }
 
+async function resolveImageEndpointId(managementKey) {
+  const configured = text(process.env.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID);
+  if (configured) {
+    const inspection = await inspectEndpoint(managementKey, configured);
+    console.log("AVANTIQO_IMAGE_RUNPOD_RESUME_ENDPOINT_RESOLUTION=ENV");
+    console.log(`AVANTIQO_IMAGE_RUNPOD_RESUME_ENDPOINT_NAME=${text(inspection.endpoint?.name)}`);
+    return configured;
+  }
+
+  const endpoints = await restRequest(
+    "/endpoints?includeTemplate=false&includeWorkers=false",
+    managementKey,
+  );
+  if (!Array.isArray(endpoints)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
+  const matches = endpoints.filter((endpoint) => text(endpoint?.name) === IMAGE_ENDPOINT_NAME);
+  if (matches.length !== 1) {
+    throw new Error(
+      `AVANTIQO_IMAGE_RUNPOD_RESUME_ENDPOINT_AUTO_RESOLUTION_FAILED:name=${IMAGE_ENDPOINT_NAME}:matches=${matches.length}`,
+    );
+  }
+  const endpointId = text(matches[0]?.id);
+  if (!endpointId) throw new Error("AVANTIQO_IMAGE_RUNPOD_RESUME_ENDPOINT_ID_MISSING");
+  console.log("AVANTIQO_IMAGE_RUNPOD_RESUME_ENDPOINT_RESOLUTION=EXACT_NAME");
+  console.log(`AVANTIQO_IMAGE_RUNPOD_RESUME_ENDPOINT_NAME=${IMAGE_ENDPOINT_NAME}`);
+  return endpointId;
+}
+
 function validateLocalMain() {
   command("git", ["fetch", "origin", "main"], "GIT_FETCH_MAIN_FAILED");
   const branch = command("git", ["branch", "--show-current"], "GIT_BRANCH_READ_FAILED");
@@ -243,7 +270,7 @@ function assertMainImageSourceStillMatches(plannedImageTree) {
 }
 
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
-const endpointId = required("RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID");
+const endpointId = await resolveImageEndpointId(managementKey);
 const waitMs = Math.max(
   60_000,
   finite(process.env.AVANTIQO_IMAGE_RUNPOD_REFRESH_WAIT_MS, DEFAULT_WAIT_MS),

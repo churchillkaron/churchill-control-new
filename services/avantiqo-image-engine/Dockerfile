@@ -13,9 +13,10 @@ WORKDIR /app
 COPY requirements.txt ./requirements.txt
 RUN python -m pip install --upgrade pip && python -m pip install -r requirements.txt
 COPY handler.py ./handler.py
+COPY handler_v2.py ./handler_v2.py
 
 RUN mkdir -p /tmp/avantiqo-image
 ENV AVANTIQO_IMAGE_OUTPUT_DIR=/tmp/avantiqo-image \
     AVANTIQO_IMAGE_DEVICE=cuda
 
-CMD ["python", "-u", "handler.py"]
+CMD ["python", "-u", "handler_v2.py"]

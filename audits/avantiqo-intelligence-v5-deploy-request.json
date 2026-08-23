@@ -1,0 +1,8 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_VERCEL_CERTIFICATION_V5",
+  "requested_at": "2026-08-23T09:23:00+07:00",
+  "purpose": "Deploy V5 certification route and validate owned Intelligence strategic structured-output contract after Qwen3 Thinking sampling correction.",
+  "production_activation_allowed": false,
+  "pricing_activation_allowed": false,
+  "provider_selection_change_allowed": false
+}

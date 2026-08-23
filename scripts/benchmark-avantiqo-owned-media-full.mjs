@@ -146,7 +146,7 @@ async function runSync(endpointId, input, timeoutMs = 15 * 60 * 1000) {
   if (text(body?.status).toUpperCase() !== "COMPLETED") {
     throw new Error(`RUNPOD_NOT_COMPLETED:${text(body?.status) || "UNKNOWN"}`);
   }
-  return { body, output: object(body.output), wall_ms: wallMs };
+  return { output: object(body.output), wall_ms: wallMs };
 }
 
 function imageBase(capability, instruction) {
@@ -347,6 +347,7 @@ async function benchmarkCase(benchmark, fixtures, prior = null) {
     economics_review_required: true,
     production_certified: false,
   };
+
   try {
     const execution = await runSync(endpointId, input);
     return {
@@ -387,6 +388,19 @@ async function loadPreviousReport(resumeEnabled) {
     if (error?.code === "ENOENT") return null;
     throw error;
   }
+}
+
+function previousCaseMap(previousReport) {
+  const map = new Map();
+  for (const item of list(previousReport?.cases)) {
+    const capability = text(item?.capability);
+    if (!ALL_CAPABILITIES.includes(capability)) continue;
+    if (map.has(capability)) {
+      throw new Error(`AVANTIQO_MEDIA_CERTIFICATION_DUPLICATE_CHECKPOINT_CASE:${capability}`);
+    }
+    map.set(capability, item);
+  }
+  return map;
 }
 
 function orderedResults(resultsByCapability) {
@@ -451,13 +465,22 @@ function reportFor(results, fixtures, resume) {
       enabled: resume.enabled,
       previous_report_loaded: resume.previous_report_loaded,
       previous_report_generated_at: resume.previous_report_generated_at,
+      targeted_retry_enabled: resume.targeted_retry_enabled,
+      target_capability: resume.target_capability,
       capabilities_reused: [...resume.capabilities_reused],
+      capabilities_preserved_without_execution: [
+        ...resume.capabilities_preserved_without_execution,
+      ],
       capabilities_executed_this_run: [...resume.capabilities_executed_this_run],
       gpu_jobs_submitted_this_run: resume.capabilities_executed_this_run.length,
       successful_capabilities_never_rerun_automatically: true,
       reused_case_requires_exact_definition_and_evidence_binding: true,
       mixed_fixture_runs_allowed_with_per_case_provenance: true,
       partial_checkpoint_written_after_each_execution: true,
+      target_retry_requires_existing_checkpoint: true,
+      target_retry_executes_exactly_one_named_capability: true,
+      successful_non_target_case_revalidated_before_target_spend: true,
+      failed_non_target_case_preserved_without_execution: true,
     },
     ready_for_human_quality_review:
       allMechanicalPassed && economicsEvidenceComplete,
@@ -474,7 +497,11 @@ function reportFor(results, fixtures, resume) {
       capabilities_failed: failed.length,
       capabilities_missing: missing.length,
       capabilities_reused: resume.capabilities_reused.length,
+      capabilities_preserved_without_execution:
+        resume.capabilities_preserved_without_execution.length,
       capabilities_executed_this_run: resume.capabilities_executed_this_run.length,
+      targeted_retry_enabled: resume.targeted_retry_enabled,
+      target_capability: resume.target_capability,
       full_capability_coverage: fullCoverage,
       all_mechanical_checks_passed: allMechanicalPassed,
       economics_evidence_complete: economicsEvidenceComplete,
@@ -496,6 +523,7 @@ function reportFor(results, fixtures, resume) {
       exact_returned_model_binding_required: true,
       successful_case_reuse_requires_same_benchmark_definition: true,
       successful_case_reuse_requires_same_gpu_rate: true,
+      targeted_retry_must_not_execute_unrequested_capabilities: true,
       pricing_status_required: "PRODUCTION_CERTIFIED",
       automatic_activation_forbidden: true,
     },
@@ -509,7 +537,20 @@ async function writeCheckpoint(resultsByCapability, fixtures, resume) {
 }
 
 const resumeEnabled = enabled(process.env.AVANTIQO_MEDIA_CERTIFICATION_RESUME);
+const targetCapability = text(process.env.AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY);
+const targetedRetryEnabled = Boolean(targetCapability);
+if (targetedRetryEnabled && !ALL_CAPABILITIES.includes(targetCapability)) {
+  throw new Error(`AVANTIQO_MEDIA_CERTIFICATION_TARGET_INVALID:${targetCapability}`);
+}
+if (targetedRetryEnabled && !resumeEnabled) {
+  throw new Error("AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_REQUIRES_RESUME");
+}
+
 const previousReport = await loadPreviousReport(resumeEnabled);
+if (targetedRetryEnabled && !previousReport) {
+  throw new Error("AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_CHECKPOINT_REQUIRED");
+}
+
 const fixtures = JSON.parse(await readFile(FIXTURES_PATH, "utf8"));
 if (fixtures?.contract !== "AVANTIQO_OWNED_MEDIA_CERTIFICATION_FIXTURES_V1") {
   throw new Error("AVANTIQO_MEDIA_CERTIFICATION_FIXTURE_CONTRACT_INVALID");
@@ -546,56 +587,58 @@ const lipsyncVideoSource = assertHttps(
 );
 const audioSource = assertHttps(fixtures.audio_source_url, "audio_source_url");
 
-const cases = [
-  {
+function imageCase(capability, instruction, extra = {}) {
+  return {
     engine: "image",
-    capability: "ai.image.generate",
+    capability,
     endpointId: imageEndpoint,
     input: {
-      ...imageBase(
-        "ai.image.generate",
-        "Generate a premium photorealistic black glass product on a neutral studio surface, no text, no logo.",
-      ),
-      storage_upload: uploadFor(fixtures, "ai.image.generate"),
+      ...imageBase(capability, instruction),
+      ...extra,
     },
-  },
-  {
-    engine: "image",
-    capability: "ai.image.edit",
-    endpointId: imageEndpoint,
+  };
+}
+
+function cinemaCase(capability, instruction, extra = {}, endpointId = cinemaEndpoint) {
+  return {
+    engine: "cinema",
+    capability,
+    endpointId,
     input: {
-      ...imageBase(
-        "ai.image.edit",
-        "Make one controlled material change while preserving composition, identity, geometry and camera.",
-      ),
+      ...cinemaBase(capability, instruction),
+      ...extra,
+    },
+  };
+}
+
+const cases = [
+  imageCase(
+    "ai.image.generate",
+    "Generate a premium photorealistic black glass product on a neutral studio surface, no text, no logo.",
+    { storage_upload: uploadFor(fixtures, "ai.image.generate") },
+  ),
+  imageCase(
+    "ai.image.edit",
+    "Make one controlled material change while preserving composition, identity, geometry and camera.",
+    {
       source_asset_roles: { source_image: imageSource },
       source_assets: [imageSource],
       storage_upload: uploadFor(fixtures, "ai.image.edit"),
     },
-  },
-  {
-    engine: "image",
-    capability: "ai.image.inpaint",
-    endpointId: imageEndpoint,
-    input: {
-      ...imageBase(
-        "ai.image.inpaint",
-        "Replace only the masked region with a coherent photorealistic detail; preserve every unmasked pixel.",
-      ),
+  ),
+  imageCase(
+    "ai.image.inpaint",
+    "Replace only the masked region with a coherent photorealistic detail; preserve every unmasked pixel.",
+    {
       source_asset_roles: { source_image: imageSource, mask_image: imageMask },
       source_assets: [imageSource, imageMask],
       storage_upload: uploadFor(fixtures, "ai.image.inpaint"),
     },
-  },
-  {
-    engine: "image",
-    capability: "ai.image.outpaint",
-    endpointId: imageEndpoint,
-    input: {
-      ...imageBase(
-        "ai.image.outpaint",
-        "Extend the scene naturally while preserving the original image region exactly.",
-      ),
+  ),
+  imageCase(
+    "ai.image.outpaint",
+    "Extend the scene naturally while preserving the original image region exactly.",
+    {
       source_asset_roles: { source_image: imageSource },
       source_assets: [imageSource],
       structured_specification: {
@@ -604,148 +647,91 @@ const cases = [
       },
       storage_upload: uploadFor(fixtures, "ai.image.outpaint"),
     },
-  },
-  {
-    engine: "image",
-    capability: "ai.image.upscale",
-    endpointId: imageEndpoint,
-    input: {
-      ...imageBase(
-        "ai.image.upscale",
-        "Increase real detail and clarity without changing identity, composition, colors or geometry.",
-      ),
+  ),
+  imageCase(
+    "ai.image.upscale",
+    "Increase real detail and clarity without changing identity, composition, colors or geometry.",
+    {
       source_asset_roles: { source_image: imageSource },
       source_assets: [imageSource],
       storage_upload: uploadFor(fixtures, "ai.image.upscale"),
     },
-  },
-  {
-    engine: "image",
-    capability: "ai.image.analyze",
-    endpointId: imageEndpoint,
-    input: {
-      ...imageBase(
-        "ai.image.analyze",
-        "Return strict JSON with keys: description, visible_artifacts, composition_score, realism_score, identity_risk, release_recommendation.",
-      ),
+  ),
+  imageCase(
+    "ai.image.analyze",
+    "Return strict JSON with keys: description, visible_artifacts, composition_score, realism_score, identity_risk, release_recommendation.",
+    {
       source_asset_roles: { source_image: imageSource },
       source_assets: [imageSource],
     },
-  },
-  {
-    engine: "cinema",
-    capability: "ai.video.generate",
-    endpointId: cinemaEndpoint,
-    input: {
-      ...cinemaBase(
-        "ai.video.generate",
-        "Cinematic slow dolly through a refined dark architectural space with physically realistic materials.",
-      ),
-      storage_upload: uploadFor(fixtures, "ai.video.generate"),
-    },
-  },
-  {
-    engine: "cinema",
-    capability: "ai.video.image_to_video",
-    endpointId: cinemaEndpoint,
-    input: {
-      ...cinemaBase(
-        "ai.video.image_to_video",
-        "Preserve the reference composition and identity while adding subtle physically plausible cinematic motion.",
-      ),
+  ),
+  cinemaCase(
+    "ai.video.generate",
+    "Cinematic slow dolly through a refined dark architectural space with physically realistic materials.",
+    { storage_upload: uploadFor(fixtures, "ai.video.generate") },
+  ),
+  cinemaCase(
+    "ai.video.image_to_video",
+    "Preserve the reference composition and identity while adding subtle physically plausible cinematic motion.",
+    {
       reference_images: [firstFrame],
       storage_upload: uploadFor(fixtures, "ai.video.image_to_video"),
     },
-  },
-  {
-    engine: "cinema",
-    capability: "ai.video.first_last_frame_to_video",
-    endpointId: cinemaEndpoint,
-    input: {
-      ...cinemaBase(
-        "ai.video.first_last_frame_to_video",
-        "Create a coherent cinematic transition from the governed opening frame to the governed closing frame.",
-      ),
+  ),
+  cinemaCase(
+    "ai.video.first_last_frame_to_video",
+    "Create a coherent cinematic transition from the governed opening frame to the governed closing frame.",
+    {
       first_frame: firstFrame,
       last_frame: lastFrame,
       storage_upload: uploadFor(fixtures, "ai.video.first_last_frame_to_video"),
     },
-  },
-  {
-    engine: "cinema",
-    capability: "ai.video.video_to_video",
-    endpointId: cinemaEndpoint,
-    input: {
-      ...cinemaBase(
-        "ai.video.video_to_video",
-        "Transform the visual treatment while preserving source timing, geometry, motion and identity.",
-      ),
+  ),
+  cinemaCase(
+    "ai.video.video_to_video",
+    "Transform the visual treatment while preserving source timing, geometry, motion and identity.",
+    {
       source_video: videoSource,
       storage_upload: uploadFor(fixtures, "ai.video.video_to_video"),
     },
-  },
-  {
-    engine: "cinema",
-    capability: "ai.video.edit",
-    endpointId: cinemaEndpoint,
-    input: {
-      ...cinemaBase(
-        "ai.video.edit",
-        "Apply a controlled cinematic visual edit while preserving timing, identity, motion and source geometry.",
-      ),
+  ),
+  cinemaCase(
+    "ai.video.edit",
+    "Apply a controlled cinematic visual edit while preserving timing, identity, motion and source geometry.",
+    {
       source_video: videoSource,
       storage_upload: uploadFor(fixtures, "ai.video.edit"),
     },
-  },
-  {
-    engine: "cinema",
-    capability: "ai.video.inpaint",
-    endpointId: cinemaEndpoint,
-    input: {
-      ...cinemaBase(
-        "ai.video.inpaint",
-        "Regenerate only the masked moving region while preserving every unmasked source region and temporal continuity.",
-      ),
+  ),
+  cinemaCase(
+    "ai.video.inpaint",
+    "Regenerate only the masked moving region while preserving every unmasked source region and temporal continuity.",
+    {
       source_video: videoSource,
       mask_video: videoMask,
       storage_upload: uploadFor(fixtures, "ai.video.inpaint"),
     },
-  },
-  {
-    engine: "cinema",
-    capability: "ai.video.extend",
-    endpointId: cinemaEndpoint,
-    input: {
-      ...cinemaBase(
-        "ai.video.extend",
-        "Continue naturally from the exact source tail with consistent identity, camera, physics, lighting and spatial direction.",
-      ),
+  ),
+  cinemaCase(
+    "ai.video.extend",
+    "Continue naturally from the exact source tail with consistent identity, camera, physics, lighting and spatial direction.",
+    {
       source_video: videoSource,
       storage_upload: uploadFor(fixtures, "ai.video.extend"),
     },
-  },
-  {
-    engine: "cinema",
-    capability: "ai.video.upscale",
-    endpointId: cinemaEndpoint,
-    input: {
-      ...cinemaBase(
-        "ai.video.upscale",
-        "Increase delivery detail while preserving source identity, colors, geometry, timing and motion.",
-      ),
+  ),
+  cinemaCase(
+    "ai.video.upscale",
+    "Increase delivery detail while preserving source identity, colors, geometry, timing and motion.",
+    {
       source_video: videoSource,
       storage_upload: uploadFor(fixtures, "ai.video.upscale"),
     },
-  },
-  {
-    engine: "cinema",
-    capability: "ai.video.lipsync",
-    endpointId: lipsyncEndpoint,
-    input: {
-      ...cinemaBase(
-        "ai.video.lipsync",
-        "Synchronize visible speech articulation to the supplied governed audio while preserving facial identity and all non-mouth visual detail.",
-      ),
+  ),
+  cinemaCase(
+    "ai.video.lipsync",
+    "Synchronize visible speech articulation to the supplied governed audio while preserving facial identity and all non-mouth visual detail.",
+    {
       source_video: lipsyncVideoSource,
       source_audio: audioSource,
       source_asset_roles: {
@@ -754,59 +740,118 @@ const cases = [
       },
       storage_upload: uploadFor(fixtures, "ai.video.lipsync"),
     },
-  },
+    lipsyncEndpoint,
+  ),
 ];
 
 if (cases.length !== ALL_CAPABILITIES.length) {
   throw new Error(`AVANTIQO_MEDIA_CERTIFICATION_CASE_COUNT_INVALID:${cases.length}`);
 }
-if (
-  cases.some((item, index) => item.capability !== ALL_CAPABILITIES[index])
-) {
+if (cases.some((item, index) => item.capability !== ALL_CAPABILITIES[index])) {
   throw new Error("AVANTIQO_MEDIA_CERTIFICATION_CASE_ORDER_INVALID");
 }
 
-const previousByCapability = new Map(
-  list(previousReport?.cases)
-    .filter((item) => ALL_CAPABILITIES.includes(text(item?.capability)))
-    .map((item) => [text(item.capability), item]),
-);
+const previousByCapability = previousCaseMap(previousReport);
 const resultsByCapability = new Map();
 const resumeState = {
   enabled: resumeEnabled,
   previous_report_loaded: Boolean(previousReport),
   previous_report_generated_at: text(previousReport?.generated_at) || null,
+  targeted_retry_enabled: targetedRetryEnabled,
+  target_capability: targetCapability || null,
   capabilities_reused: [],
+  capabilities_preserved_without_execution: [],
   capabilities_executed_this_run: [],
 };
 
-for (const benchmark of cases) {
-  const prior = previousByCapability.get(benchmark.capability) || null;
-  if (resumeEnabled && reusablePriorCase(prior, benchmark)) {
-    console.log(`REUSE ${benchmark.capability}`);
+if (targetedRetryEnabled) {
+  for (const benchmark of cases) {
+    if (benchmark.capability === targetCapability) continue;
+    const prior = previousByCapability.get(benchmark.capability) || null;
+    if (!prior) {
+      throw new Error(
+        `AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_NON_TARGET_CHECKPOINT_MISSING:${benchmark.capability}`,
+      );
+    }
+    if (
+      text(prior.capability) !== benchmark.capability ||
+      text(prior.engine) !== benchmark.engine
+    ) {
+      throw new Error(
+        `AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_NON_TARGET_CHECKPOINT_INVALID:${benchmark.capability}`,
+      );
+    }
+    if (prior.mechanical_passed === true && !reusablePriorCase(prior, benchmark)) {
+      throw new Error(
+        `AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_NON_TARGET_SUCCESS_STALE:${benchmark.capability}`,
+      );
+    }
+  }
+
+  for (const benchmark of cases) {
+    if (benchmark.capability === targetCapability) continue;
+    const prior = previousByCapability.get(benchmark.capability);
     resultsByCapability.set(benchmark.capability, {
       ...prior,
       resumed_from_previous_report: true,
     });
-    resumeState.capabilities_reused.push(benchmark.capability);
-    continue;
+    if (prior.mechanical_passed === true) {
+      resumeState.capabilities_reused.push(benchmark.capability);
+    } else {
+      resumeState.capabilities_preserved_without_execution.push(benchmark.capability);
+    }
   }
 
-  console.log(`BENCHMARK ${benchmark.capability}`);
-  const result = await benchmarkCase(benchmark, fixtures, prior);
-  resultsByCapability.set(benchmark.capability, result);
-  resumeState.capabilities_executed_this_run.push(benchmark.capability);
+  const targetBenchmark = cases.find(
+    (benchmark) => benchmark.capability === targetCapability,
+  );
+  const prior = previousByCapability.get(targetCapability) || null;
+  console.log(`TARGET_RETRY ${targetCapability}`);
+  const result = await benchmarkCase(targetBenchmark, fixtures, prior);
+  resultsByCapability.set(targetCapability, result);
+  resumeState.capabilities_executed_this_run.push(targetCapability);
   await writeCheckpoint(resultsByCapability, fixtures, resumeState);
+} else {
+  for (const benchmark of cases) {
+    const prior = previousByCapability.get(benchmark.capability) || null;
+    if (resumeEnabled && reusablePriorCase(prior, benchmark)) {
+      console.log(`REUSE ${benchmark.capability}`);
+      resultsByCapability.set(benchmark.capability, {
+        ...prior,
+        resumed_from_previous_report: true,
+      });
+      resumeState.capabilities_reused.push(benchmark.capability);
+      continue;
+    }
+
+    console.log(`BENCHMARK ${benchmark.capability}`);
+    const result = await benchmarkCase(benchmark, fixtures, prior);
+    resultsByCapability.set(benchmark.capability, result);
+    resumeState.capabilities_executed_this_run.push(benchmark.capability);
+    await writeCheckpoint(resultsByCapability, fixtures, resumeState);
+  }
 }
 
 const report = await writeCheckpoint(resultsByCapability, fixtures, resumeState);
+const targetResult = targetedRetryEnabled
+  ? resultsByCapability.get(targetCapability)
+  : null;
+const runSucceeded = targetedRetryEnabled
+  ? targetResult?.mechanical_passed === true
+  : report.summary.all_mechanical_checks_passed;
+
 console.log(
   JSON.stringify(
     {
-      success: report.summary.all_mechanical_checks_passed,
+      success: runSucceeded,
       output_path: OUTPUT,
       resume_enabled: resumeEnabled,
+      targeted_retry_enabled: targetedRetryEnabled,
+      target_capability: targetCapability || null,
+      target_mechanical_passed: targetResult?.mechanical_passed ?? null,
       reused_capabilities: report.summary.capabilities_reused,
+      preserved_without_execution:
+        report.summary.capabilities_preserved_without_execution,
       executed_this_run: report.summary.capabilities_executed_this_run,
       summary: report.summary,
       activation_allowed: false,
@@ -816,4 +861,4 @@ console.log(
   ),
 );
 
-if (!report.summary.all_mechanical_checks_passed) process.exitCode = 1;
+if (!runSucceeded) process.exitCode = 1;

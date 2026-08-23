@@ -236,9 +236,42 @@ requireMarkers("COMMIT_CAPABILITY", commitCapability, [
   "retireCodeAICommitArtifact",
   "CODE_AI_COMMIT_ORGANIZATION_MISMATCH",
   "commitVerifiedCodeMission",
+  "persistVerifiedCommitState",
+  "retireVerifiedCommitArtifact",
+  "CODE_AI_COMMIT_POST_WRITE_STATE_PERSIST_FAILED",
+  "CODE_AI_COMMIT_POST_WRITE_ARTIFACT_RETIRE_FAILED",
+  "VERIFIED_COMMIT_ARTIFACT_RETAINED_FOR_RECOVERY",
+  "VERIFIED_COMMIT_STATE_PERSIST_INCOMPLETE",
+  "VERIFIED_COMMIT_ARTIFACT_RETIRE_INCOMPLETE",
+  "github_write_verified: result?.verified === true",
+  "safe_to_retry_commit: false",
+  "verification_read_required: true",
   "operatorAutoExecute: false",
   "operatorRequiresConfirmation: true",
 ]);
+
+const verifiedWriteIndex = commitCapability.indexOf(
+  "const result = await commitVerifiedCodeMission",
+);
+const postWriteStateIndex = commitCapability.indexOf(
+  "const commitState = await persistVerifiedCommitState",
+);
+if (verifiedWriteIndex < 0 || postWriteStateIndex <= verifiedWriteIndex) {
+  throw new Error(
+    "CODE_AI_AUDIT_POST_WRITE_STATE_MUST_FOLLOW_VERIFIED_GITHUB_COMMIT",
+  );
+}
+const postWriteHousekeeping = commitCapability.slice(postWriteStateIndex);
+if (/throw\s+new\s+Error/.test(postWriteHousekeeping)) {
+  throw new Error(
+    "CODE_AI_AUDIT_VERIFIED_GITHUB_WRITE_MUST_NOT_BECOME_GENERIC_RETRYABLE_FAILURE",
+  );
+}
+if (!commitCapability.includes("const artifact = commitState.persisted")) {
+  throw new Error(
+    "CODE_AI_AUDIT_COMMIT_ARTIFACT_RETIREMENT_MUST_REQUIRE_PERSISTED_VERIFICATION_STATE",
+  );
+}
 
 requireMarkers("PLATFORM", platform, [
   "createCodeAIMissionCapability",
@@ -291,7 +324,7 @@ if (/git\s+push|vercel\s+deploy|supabase\s+db\s+push/.test(mission + autonomous)
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V5",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V6",
   verified: {
     owned_code_worker: true,
     certified_capability_gate: true,
@@ -313,6 +346,8 @@ console.log(JSON.stringify({
     full_commit_artifact_server_owned_and_non_recallable: true,
     atomic_non_force_github_commit_runtime: true,
     verified_commit_execution_state_server_owned: true,
+    verified_github_write_never_reclassified_as_generic_retryable_failure: true,
+    commit_artifact_retirement_requires_persisted_verification_state: true,
     persistent_commit_permission_separated: true,
     production_side_effects_blocked_from_autonomous_workspace: true,
     live_sandbox_smoke_available: true,

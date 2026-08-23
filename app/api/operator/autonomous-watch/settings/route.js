@@ -77,6 +77,7 @@ function settingsFromProjectState(projectState, { revealDestinations = false } =
     enabled: watch.enabled !== false,
     cognition_budget: normalizeAutonomousCognitionBudget(projectState),
     delivery_policy: operatorProactiveDeliveryPublicPolicy(projectState, { revealDestinations }),
+    delivery_policy_enabled_at: text(watch.delivery_policy_enabled_at, 80) || null,
     last_cognition: object(watch.last_cognition),
     last_checked_at: text(watch.last_checked_at, 80) || null,
     next_check_at: text(watch.next_check_at, 80) || null,
@@ -209,14 +210,23 @@ export async function POST(request) {
         const watch = object(current.business_watch);
         const currentBudget = normalizeAutonomousCognitionBudget(current);
         const cognitionBudget = requestedBudget(body, currentBudget);
+        const previousDeliveryPolicy = normalizeOperatorProactiveDeliveryPolicy(current);
         const deliveryPolicy = requestedDeliveryPolicy(body, current);
         const enabled = hasOwn(body, "enabled") ? body.enabled !== false : watch.enabled !== false;
+        const nowIso = new Date().toISOString();
+        const deliveryPolicyEnabledAt = !deliveryPolicyWasRequested
+          ? text(watch.delivery_policy_enabled_at, 80) || null
+          : deliveryPolicy.enabled !== true
+            ? null
+            : previousDeliveryPolicy.enabled === true && text(watch.delivery_policy_enabled_at, 80)
+              ? text(watch.delivery_policy_enabled_at, 80)
+              : nowIso;
         const externalDelivery = deliveryPolicyWasRequested && deliveryPolicy.enabled === false
           ? {
               ...object(watch.external_delivery),
               pending_alert: null,
               channels: {},
-              canceled_at: new Date().toISOString(),
+              canceled_at: nowIso,
               cancel_reason: "OWNER_DISABLED_PROACTIVE_DELIVERY",
             }
           : object(watch.external_delivery);
@@ -229,8 +239,9 @@ export async function POST(request) {
               enabled,
               cognition_budget: cognitionBudget,
               delivery_policy: deliveryPolicy,
+              delivery_policy_enabled_at: deliveryPolicyEnabledAt,
               external_delivery: externalDelivery,
-              settings_updated_at: new Date().toISOString(),
+              settings_updated_at: nowIso,
               settings_updated_by_party_id: resolved.partyId,
             },
           },

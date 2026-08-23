@@ -7,15 +7,18 @@ from typing import Any
 from urllib.parse import urlparse
 
 import imageio.v3 as iio
+import numpy as np
 import requests
 import runpod
 import torch
 from diffusers import DiffusionPipeline
+from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
 from diffusers.utils import export_to_video, load_image
 from PIL import Image
 
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1"
 CINEMATIC_CONTROL_CONTRACT = "AVANTIQO_CINEMATIC_CONTROL_V1"
+MASK_PRESERVATION_CONTRACT = "AVANTIQO_MASKED_SOURCE_PRESERVATION_V1"
 PRODUCT_MODEL = "avantiqo-cinema-v1"
 IMPLEMENTED_CAPABILITIES = {
     "ai.video.generate",
@@ -50,6 +53,13 @@ DTYPE = (
     if os.getenv("AVANTIQO_VIDEO_DTYPE", "bfloat16").lower() == "bfloat16"
     else torch.float16
 )
+VACE_FLOW_SHIFT_720P = float(
+    os.getenv("AVANTIQO_VIDEO_VACE_FLOW_SHIFT_720P", "5.0")
+)
+EXPORT_QUALITY = float(os.getenv("AVANTIQO_VIDEO_EXPORT_QUALITY", "9.0"))
+MAX_SOURCE_RANGE_SECONDS = float(
+    os.getenv("AVANTIQO_VIDEO_MAX_SOURCE_RANGE_SECONDS", "600")
+)
 HF_CACHE_ROOT = Path(
     os.getenv(
         "AVANTIQO_VIDEO_HF_CACHE_ROOT",
@@ -73,6 +83,18 @@ def _text(value: Any) -> str:
 
 def _object(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _optional_seconds(value: Any, field: str) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"AVANTIQO_VIDEO_{field}_INVALID") from exc
+    if number < 0 or number > MAX_SOURCE_RANGE_SECONDS:
+        raise ValueError(f"AVANTIQO_VIDEO_{field}_INVALID")
+    return number
 
 
 def _configured_capabilities() -> set[str]:
@@ -166,6 +188,18 @@ def _cached_model_path(model_id: str) -> str | None:
     return None
 
 
+def _configure_scheduler(pipe: Any, model_id: str) -> Any:
+    if "vace" not in model_id.lower():
+        return pipe
+    if not hasattr(pipe, "scheduler") or not getattr(pipe.scheduler, "config", None):
+        raise RuntimeError("AVANTIQO_VIDEO_VACE_SCHEDULER_REQUIRED")
+    pipe.scheduler = UniPCMultistepScheduler.from_config(
+        pipe.scheduler.config,
+        flow_shift=VACE_FLOW_SHIFT_720P,
+    )
+    return pipe
+
+
 def _pipeline(model_id: str):
     if model_id in _PIPELINES:
         return _PIPELINES[model_id]
@@ -179,6 +213,7 @@ def _pipeline(model_id: str):
         device_map="balanced" if DEVICE.startswith("cuda") else None,
         local_files_only=bool(cached_path),
     )
+    pipe = _configure_scheduler(pipe, model_id)
     if not DEVICE.startswith("cuda"):
         pipe.to(DEVICE)
     if hasattr(pipe, "enable_attention_slicing"):
@@ -187,6 +222,24 @@ def _pipeline(model_id: str):
         pipe.enable_vae_slicing()
     _PIPELINES[model_id] = pipe
     return pipe
+
+
+def _bounded_control(value: Any, depth: int = 0) -> Any:
+    if depth > 3:
+        return None
+    if isinstance(value, dict):
+        return {
+            _text(key)[:120]: _bounded_control(child, depth + 1)
+            for key, child in list(value.items())[:16]
+            if _text(key)
+        }
+    if isinstance(value, list):
+        return [_bounded_control(child, depth + 1) for child in value[:16]]
+    if isinstance(value, str):
+        return value[:600]
+    if isinstance(value, (bool, int, float)) or value is None:
+        return value
+    return _text(value)[:600]
 
 
 def _validate_control(data: dict[str, Any]) -> None:
@@ -254,6 +307,19 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
         if isinstance(legacy_sources, list) and legacy_sources:
             source_video = _text(legacy_sources[0])
     data["source_video"] = _public_https_url(source_video) if source_video else None
+    data["source_start_seconds"] = _optional_seconds(
+        data.get("source_start_seconds"),
+        "SOURCE_START_SECONDS",
+    ) or 0.0
+    data["source_end_seconds"] = _optional_seconds(
+        data.get("source_end_seconds"),
+        "SOURCE_END_SECONDS",
+    )
+    if (
+        data["source_end_seconds"] is not None
+        and data["source_end_seconds"] <= data["source_start_seconds"]
+    ):
+        raise ValueError("AVANTIQO_VIDEO_SOURCE_RANGE_INVALID")
 
     mask_video = _text(data.get("mask_video"))
     data["mask_video"] = _public_https_url(mask_video) if mask_video else None
@@ -286,7 +352,7 @@ def _cinematic_instruction(data: dict[str, Any]) -> str:
     control = _object(data.get("cinematic_control"))
     if not control:
         return base
-    bounded = {
+    bounded = _bounded_control({
         "camera": _object(control.get("camera")),
         "continuity": _object(control.get("continuity")),
         "frame_contract": _object(control.get("frame_contract")),
@@ -295,10 +361,10 @@ def _cinematic_instruction(data: dict[str, Any]) -> str:
         "negative_constraints": control.get("negative_constraints")
         if isinstance(control.get("negative_constraints"), list)
         else [],
-    }
+    })
     serialized = json.dumps(bounded, separators=(",", ":"), ensure_ascii=True)
     if len(serialized) > 6000:
-        serialized = serialized[:6000]
+        raise ValueError("AVANTIQO_VIDEO_CINEMATIC_CONTROL_TOO_LARGE")
     return (
         f"{base}\n\n"
         "GOVERNED CINEMATIC CONTROL: Treat the following structured continuity, camera, frame and identity constraints as binding. "
@@ -342,22 +408,37 @@ def _sample_video_frames(
     duration_seconds: int,
     *,
     grayscale: bool = False,
+    start_seconds: float = 0.0,
+    end_seconds: float | None = None,
 ) -> list[Image.Image]:
     if frames < 2 or duration_seconds <= 0:
         raise ValueError("AVANTIQO_VIDEO_FRAME_SAMPLING_INVALID")
+    range_seconds = (
+        float(end_seconds) - float(start_seconds)
+        if end_seconds is not None
+        else float(duration_seconds)
+    )
+    if range_seconds <= 0:
+        raise ValueError("AVANTIQO_VIDEO_SOURCE_RANGE_INVALID")
     mode = "L" if grayscale else "RGB"
-    sample_fps = max(1.0, min(30.0, frames / float(duration_seconds)))
+    resampling = Image.Resampling.NEAREST if grayscale else Image.Resampling.LANCZOS
+    sample_fps = max(1.0, min(30.0, frames / range_seconds))
+    skip_frames = max(0, int(round(float(start_seconds) * sample_fps)))
     sampled: list[Image.Image] = []
-    for frame in iio.imiter(path, plugin="FFMPEG", fps=sample_fps):
+    for index, frame in enumerate(iio.imiter(path, plugin="FFMPEG", fps=sample_fps)):
+        if index < skip_frames:
+            continue
         sampled.append(
             Image.fromarray(frame)
             .convert(mode)
-            .resize((width, height), Image.Resampling.LANCZOS)
+            .resize((width, height), resampling)
         )
         if len(sampled) >= frames:
             break
     if len(sampled) < 2:
         raise ValueError("AVANTIQO_VIDEO_SOURCE_VIDEO_EMPTY")
+    if end_seconds is not None and len(sampled) < frames:
+        raise ValueError("AVANTIQO_VIDEO_SOURCE_RANGE_INCOMPLETE")
     while len(sampled) < frames:
         sampled.append(sampled[-1].copy())
     return sampled
@@ -365,6 +446,46 @@ def _sample_video_frames(
 
 def _binary_mask_frame(frame: Image.Image) -> Image.Image:
     return frame.convert("L").point(lambda value: 255 if value >= 128 else 0, mode="L")
+
+
+def _as_rgb_image(frame: Any) -> Image.Image:
+    if isinstance(frame, Image.Image):
+        return frame.convert("RGB")
+    if torch.is_tensor(frame):
+        array = frame.detach().float().cpu().numpy()
+        if array.ndim == 3 and array.shape[0] in {1, 3, 4}:
+            array = np.transpose(array, (1, 2, 0))
+    else:
+        array = np.asarray(frame)
+    if np.issubdtype(array.dtype, np.floating):
+        array = np.clip(array, 0.0, 1.0) * 255.0
+    array = np.clip(array, 0, 255).astype(np.uint8)
+    if array.ndim == 3 and array.shape[-1] == 1:
+        array = array[..., 0]
+    return Image.fromarray(array).convert("RGB")
+
+
+def _composite_preserved_regions(
+    generated_frames: list[Any],
+    source_frames: list[Image.Image],
+    mask_frames: list[Image.Image],
+) -> list[Image.Image]:
+    if not (
+        len(generated_frames) == len(source_frames) == len(mask_frames)
+    ):
+        raise RuntimeError("AVANTIQO_VIDEO_MASK_PRESERVATION_FRAME_COUNT_MISMATCH")
+    composited = []
+    for generated, source, mask in zip(
+        generated_frames,
+        source_frames,
+        mask_frames,
+        strict=True,
+    ):
+        generated_image = _as_rgb_image(generated)
+        source_image = source.convert("RGB")
+        binary_mask = _binary_mask_frame(mask)
+        composited.append(Image.composite(generated_image, source_image, binary_mask))
+    return composited
 
 
 def _upload_video(path: Path, storage_upload: dict[str, Any]) -> None:
@@ -384,6 +505,19 @@ def _upload_video(path: Path, storage_upload: dict[str, Any]) -> None:
         raise RuntimeError(
             f"AVANTIQO_VIDEO_STORAGE_UPLOAD_FAILED:{response.status_code}:{detail}"
         )
+
+
+def _scheduler_flow_shift(pipe: Any) -> float | None:
+    config = getattr(getattr(pipe, "scheduler", None), "config", None)
+    if config is None:
+        return None
+    value = getattr(config, "flow_shift", None)
+    if value is None and isinstance(config, dict):
+        value = config.get("flow_shift")
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
@@ -418,7 +552,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     references = data.get("reference_images") or []
     source_path = None
     mask_path = None
+    source_frames: list[Image.Image] | None = None
+    mask_frames: list[Image.Image] | None = None
     mask_mode = "NONE"
+    preencode_source_preservation = False
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     capability = data["capability"]
 
@@ -435,6 +572,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             height,
             frames,
             duration_seconds,
+            start_seconds=float(data.get("source_start_seconds") or 0.0),
+            end_seconds=data.get("source_end_seconds"),
         )
         kwargs["video"] = source_frames
 
@@ -447,11 +586,15 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 frames,
                 duration_seconds,
                 grayscale=True,
+                start_seconds=float(data.get("source_start_seconds") or 0.0),
+                end_seconds=data.get("source_end_seconds"),
             )
-            kwargs["mask"] = [_binary_mask_frame(frame) for frame in mask_frames]
+            mask_frames = [_binary_mask_frame(frame) for frame in mask_frames]
+            kwargs["mask"] = mask_frames
             mask_mode = "LOCALIZED_WHITE_REGENERATE_BLACK_PRESERVE"
         else:
-            kwargs["mask"] = [Image.new("L", (width, height), 255) for _ in source_frames]
+            mask_frames = [Image.new("L", (width, height), 255) for _ in source_frames]
+            kwargs["mask"] = mask_frames
             mask_mode = "FULL_FRAME_REGENERATE"
 
         kwargs["negative_prompt"] = _text(
@@ -463,6 +606,17 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     try:
         result = pipe(**kwargs)
         video_frames = result.frames[0]
+        if (
+            mask_mode == "LOCALIZED_WHITE_REGENERATE_BLACK_PRESERVE"
+            and source_frames is not None
+            and mask_frames is not None
+        ):
+            video_frames = _composite_preserved_regions(
+                video_frames,
+                source_frames,
+                mask_frames,
+            )
+            preencode_source_preservation = True
     finally:
         if source_path:
             source_path.unlink(missing_ok=True)
@@ -470,12 +624,18 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             mask_path.unlink(missing_ok=True)
 
     output_path = OUTPUT_DIR / f"{job_id}.mp4"
-    export_to_video(video_frames, str(output_path), fps=fps)
+    export_to_video(
+        video_frames,
+        str(output_path),
+        fps=fps,
+        quality=max(0.0, min(10.0, EXPORT_QUALITY)),
+    )
     runpod.serverless.progress_update(job, "storing private Avantiqo asset")
     _upload_video(output_path, data["storage_upload"])
     elapsed = time.perf_counter() - started_at
     size_bytes = output_path.stat().st_size
     output_path.unlink(missing_ok=True)
+    scheduler = getattr(getattr(pipe, "scheduler", None), "__class__", type(None)).__name__
     return {
         "status": "completed",
         "provider": "avantiqo-video",
@@ -485,6 +645,9 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "storage_reference": data["storage_upload"]["storage_reference"],
         "foundation_model": model_id,
         "foundation_model_source": "runpod-cache" if _cached_model_path(model_id) else "huggingface",
+        "scheduler": scheduler,
+        "scheduler_flow_shift": _scheduler_flow_shift(pipe),
+        "vace_720p_scheduler_hardened": "vace" in model_id.lower(),
         "seed": seed,
         "duration_seconds": duration_seconds,
         "fps": fps,
@@ -492,6 +655,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "width": width,
         "height": height,
         "size_bytes": size_bytes,
+        "export_quality": max(0.0, min(10.0, EXPORT_QUALITY)),
         "first_frame_conditioning": capability == "ai.video.first_last_frame_to_video",
         "last_frame_conditioning": capability == "ai.video.first_last_frame_to_video",
         "identity_anchor_conditioning": bool(identity_anchor) and capability == "ai.video.image_to_video",
@@ -504,9 +668,25 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "ai.video.edit",
             "ai.video.inpaint",
         },
+        "source_range_bound": capability in {
+            "ai.video.video_to_video",
+            "ai.video.edit",
+            "ai.video.inpaint",
+        } and (
+            float(data.get("source_start_seconds") or 0.0) > 0
+            or data.get("source_end_seconds") is not None
+        ),
+        "source_start_seconds": float(data.get("source_start_seconds") or 0.0),
+        "source_end_seconds": data.get("source_end_seconds"),
         "mask_video_conditioning": bool(data.get("mask_video")),
         "mask_mode": mask_mode,
+        "mask_resampling": "NEAREST" if data.get("mask_video") else None,
         "localized_editing": mask_mode == "LOCALIZED_WHITE_REGENERATE_BLACK_PRESERVE",
+        "mask_preservation_contract": MASK_PRESERVATION_CONTRACT
+        if preencode_source_preservation
+        else None,
+        "source_region_recomposited_before_encode": preencode_source_preservation,
+        "final_encoded_pixels_claimed_exact": False,
         "streaming_source_sampling": capability in {
             "ai.video.video_to_video",
             "ai.video.edit",
@@ -533,6 +713,10 @@ def check_worker():
         raise RuntimeError("AVANTIQO_VIDEO_EDIT_MODEL_REQUIRED")
     if not INPAINT_MODEL:
         raise RuntimeError("AVANTIQO_VIDEO_INPAINT_MODEL_REQUIRED")
+    if not 0.0 <= EXPORT_QUALITY <= 10.0:
+        raise RuntimeError("AVANTIQO_VIDEO_EXPORT_QUALITY_INVALID")
+    if VACE_FLOW_SHIFT_720P <= 0:
+        raise RuntimeError("AVANTIQO_VIDEO_VACE_FLOW_SHIFT_INVALID")
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VIDEO_CUDA_REQUIRED")
     if REQUIRE_CACHED_MODEL:

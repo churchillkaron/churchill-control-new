@@ -2,6 +2,7 @@ import json
 import os
 import re
 import time
+from pathlib import Path
 from typing import Any
 
 import runpod
@@ -14,6 +15,16 @@ FOUNDATION_MODEL = os.getenv("AVANTIQO_CODE_FOUNDATION_MODEL", "").strip()
 DEVICE = os.getenv("AVANTIQO_CODE_DEVICE", "cuda")
 DTYPE = torch.bfloat16 if os.getenv("AVANTIQO_CODE_DTYPE", "bfloat16").lower() == "bfloat16" else torch.float16
 MAX_NEW_TOKENS = int(os.getenv("AVANTIQO_CODE_MAX_NEW_TOKENS", "4096"))
+HF_CACHE_ROOT = Path(
+    os.getenv(
+        "AVANTIQO_CODE_HF_CACHE_ROOT",
+        "/runpod-volume/huggingface-cache/hub",
+    )
+)
+REQUIRE_CACHED_MODEL = os.getenv(
+    "AVANTIQO_CODE_REQUIRE_CACHED_MODEL",
+    "1",
+).strip().lower() not in {"0", "false", "no", "off"}
 CERTIFIED_CAPABILITIES = {
     "ai.code.generate",
     "ai.code.edit",
@@ -29,21 +40,48 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _cached_model_path(model_id: str) -> str | None:
+    if "/" not in model_id:
+        return None
+    model_root = HF_CACHE_ROOT / f"models--{model_id.replace('/', '--')}"
+    snapshots_root = model_root / "snapshots"
+    ref_main = model_root / "refs" / "main"
+    if ref_main.is_file():
+        revision = ref_main.read_text(encoding="utf-8").strip()
+        candidate = snapshots_root / revision
+        if candidate.is_dir():
+            return str(candidate)
+    if snapshots_root.is_dir():
+        candidates = [candidate for candidate in snapshots_root.iterdir() if candidate.is_dir()]
+        if candidates:
+            candidates.sort(key=lambda candidate: candidate.stat().st_mtime, reverse=True)
+            return str(candidates[0])
+    return None
+
+
 def _load_model():
     global _TOKENIZER, _MODEL
     if _TOKENIZER is not None and _MODEL is not None:
         return _TOKENIZER, _MODEL
     if not FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_CODE_FOUNDATION_MODEL_REQUIRED")
+
+    cached_path = _cached_model_path(FOUNDATION_MODEL)
+    if REQUIRE_CACHED_MODEL and not cached_path:
+        raise RuntimeError(f"AVANTIQO_CODE_CACHED_MODEL_REQUIRED:{FOUNDATION_MODEL}")
+    model_source = cached_path or FOUNDATION_MODEL
+
     _TOKENIZER = AutoTokenizer.from_pretrained(
-        FOUNDATION_MODEL,
+        model_source,
         trust_remote_code=False,
+        local_files_only=bool(cached_path),
     )
     _MODEL = AutoModelForCausalLM.from_pretrained(
-        FOUNDATION_MODEL,
+        model_source,
         torch_dtype=DTYPE,
         device_map="auto" if DEVICE.startswith("cuda") else None,
         trust_remote_code=False,
+        local_files_only=bool(cached_path),
     )
     if not DEVICE.startswith("cuda"):
         _MODEL.to(DEVICE)
@@ -131,6 +169,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "engine_contract": ENGINE_CONTRACT,
         "capability": data["capability"],
         "foundation_model": FOUNDATION_MODEL,
+        "foundation_model_source": "runpod-cache" if _cached_model_path(FOUNDATION_MODEL) else "huggingface",
         "result": result,
         "usage": {
             "input_tokens": int(prompt_tokens),
@@ -147,6 +186,8 @@ def check_worker():
         raise RuntimeError("AVANTIQO_CODE_FOUNDATION_MODEL_REQUIRED")
     if DEVICE.startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_CODE_CUDA_REQUIRED")
+    if REQUIRE_CACHED_MODEL and not _cached_model_path(FOUNDATION_MODEL):
+        raise RuntimeError(f"AVANTIQO_CODE_CACHED_MODEL_REQUIRED:{FOUNDATION_MODEL}")
 
 
 if __name__ == "__main__":

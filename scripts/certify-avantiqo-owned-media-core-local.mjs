@@ -4,9 +4,27 @@ import { spawnSync } from "node:child_process";
 const FIXTURE_PATH =
   process.env.AVANTIQO_MEDIA_CERTIFICATION_FIXTURES ||
   "/tmp/avantiqo-media-certification-fixtures.json";
+const imageReportPath =
+  process.env.AVANTIQO_IMAGE_BENCHMARK_OUTPUT ||
+  "/tmp/avantiqo-image-certification-benchmark.json";
+const cinemaReportPath =
+  process.env.AVANTIQO_CINEMA_BENCHMARK_OUTPUT ||
+  "/tmp/avantiqo-cinema-certification-benchmark.json";
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function enabled(value) {
+  return ["1", "true", "yes", "on"].includes(text(value).toLowerCase());
+}
+
+function readJson(path) {
+  try {
+    return JSON.parse(fs.readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
 }
 
 function runNode(args, env = {}) {
@@ -21,6 +39,16 @@ function runNode(args, env = {}) {
 if (!fs.existsSync(".env.local")) {
   throw new Error("AVANTIQO_MEDIA_CORE_ENV_LOCAL_REQUIRED");
 }
+
+const resumeRequested =
+  enabled(process.env.AVANTIQO_MEDIA_CORE_RESUME) ||
+  Boolean(text(process.env.AVANTIQO_CINEMA_RESUME_T2V_JOB_ID)) ||
+  Boolean(text(process.env.AVANTIQO_CINEMA_RESUME_I2V_JOB_ID));
+const existingImageReport = readJson(imageReportPath);
+const reuseImageReport =
+  resumeRequested &&
+  existingImageReport?.contract === "AVANTIQO_IMAGE_CERTIFICATION_BENCHMARK_V1" &&
+  existingImageReport?.summary?.passed === true;
 
 console.log("AVANTIQO_MEDIA_CORE_STAGE=PREFLIGHT");
 runNode(["--env-file=.env.local", "scripts/preflight-avantiqo-owned-media-local.mjs"]);
@@ -56,14 +84,19 @@ if (!i2vSource) {
   throw new Error("AVANTIQO_MEDIA_CORE_I2V_SOURCE_REQUIRED");
 }
 
-console.log("AVANTIQO_MEDIA_CORE_STAGE=IMAGE_GENERATION");
-runNode(
-  ["--env-file=.env.local", "scripts/benchmark-avantiqo-image.mjs"],
-  {
-    AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL: imageTarget.signed_url,
-    AVANTIQO_IMAGE_BENCHMARK_STORAGE_REFERENCE: imageTarget.storage_reference,
-  },
-);
+if (reuseImageReport) {
+  console.log("AVANTIQO_MEDIA_CORE_STAGE=IMAGE_GENERATION_REUSED");
+  console.log(`AVANTIQO_IMAGE_BENCHMARK_REUSED=${imageReportPath}`);
+} else {
+  console.log("AVANTIQO_MEDIA_CORE_STAGE=IMAGE_GENERATION");
+  runNode(
+    ["--env-file=.env.local", "scripts/benchmark-avantiqo-image.mjs"],
+    {
+      AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL: imageTarget.signed_url,
+      AVANTIQO_IMAGE_BENCHMARK_STORAGE_REFERENCE: imageTarget.storage_reference,
+    },
+  );
+}
 
 console.log("AVANTIQO_MEDIA_CORE_STAGE=CINEMA_GENERATION");
 runNode(
@@ -77,12 +110,6 @@ runNode(
   },
 );
 
-const imageReportPath =
-  process.env.AVANTIQO_IMAGE_BENCHMARK_OUTPUT ||
-  "/tmp/avantiqo-image-certification-benchmark.json";
-const cinemaReportPath =
-  process.env.AVANTIQO_CINEMA_BENCHMARK_OUTPUT ||
-  "/tmp/avantiqo-cinema-certification-benchmark.json";
 const imageReport = JSON.parse(fs.readFileSync(imageReportPath, "utf8"));
 const cinemaReport = JSON.parse(fs.readFileSync(cinemaReportPath, "utf8"));
 
@@ -95,12 +122,17 @@ console.log(
     {
       success: mechanicalPass,
       contract: "AVANTIQO_OWNED_MEDIA_CORE_LOCAL_CERTIFICATION_V1",
+      resumed: resumeRequested,
+      image_generation_reused: reuseImageReport,
       image_generation_passed: imageReport?.summary?.passed === true,
       cinema_generation_passed: cinemaReport?.summary?.passed === true,
       cinema_t2v_passed: cinemaReport?.summary?.t2v_passed === true,
       cinema_i2v_passed: cinemaReport?.summary?.i2v_passed === true,
       image_report: imageReportPath,
       cinema_report: cinemaReportPath,
+      cinema_state:
+        process.env.AVANTIQO_CINEMA_BENCHMARK_STATE ||
+        "/tmp/avantiqo-cinema-benchmark-state.json",
       fixtures: FIXTURE_PATH,
       quality_review_required: true,
       economics_measurement_required: true,

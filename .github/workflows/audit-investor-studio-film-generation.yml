@@ -6,6 +6,9 @@ on:
       - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationPlan.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationRuntime.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorStudioExecutionRuntime.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorCapabilityVisualChoreography.js"
+      - "lib/creative/post-production/runtime/AvantiqoInvestorOwnedExecutionPolicy.js"
+      - "lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js"
       - "lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js"
@@ -33,6 +36,9 @@ jobs:
           node --check lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationPlan.js
           node --check lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationRuntime.js
           node --check lib/creative/post-production/runtime/AvantiqoInvestorStudioExecutionRuntime.js
+          node --check lib/creative/post-production/runtime/AvantiqoInvestorCapabilityVisualChoreography.js
+          node --check lib/creative/post-production/runtime/AvantiqoInvestorOwnedExecutionPolicy.js
+          node --check lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js
           node --check lib/creative/post-production/runtime/AvantiqoInvestorProductProofPlan.js
           node --check lib/creative/post-production/runtime/AvantiqoInvestorFinalActPlan.js
           node --check lib/creative/post-production/runtime/AvantiqoInvestorFilmMasterPlan.js

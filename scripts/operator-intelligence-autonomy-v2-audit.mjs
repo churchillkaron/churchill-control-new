@@ -177,7 +177,7 @@ requireFragments("lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRunt
   '"platform.product_autonomy_continuation.assess"',
   "repository_grounded_post_commit_reassessment_required: true",
   "durable_operator_mission_required: true",
-  "explicit_confirmation_required: true",
+  "explicit_confirmation_required_for_commit: true",
   "automatic_recursion_allowed: false",
   "execution_started: false",
 ]);

@@ -14,6 +14,10 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function enabled(value) {
+  return ["1", "true", "yes", "on"].includes(text(value).toLowerCase());
+}
+
 function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`AVANTIQO_MEDIA_PREFLIGHT_ENV_REQUIRED:${name}`);
@@ -161,42 +165,73 @@ if (nodeMajor !== REQUIRED_NODE_MAJOR) {
   );
 }
 
+const includeLipsync = enabled(
+  process.env.AVANTIQO_MEDIA_CERTIFICATION_INCLUDE_LIPSYNC ||
+    process.env.AVANTIQO_MEDIA_PREFLIGHT_INCLUDE_LIPSYNC,
+);
 const ffmpegVersion = requireCommand("ffmpeg");
 const ffprobeVersion = requireCommand("ffprobe");
 
-const faceVideo = requireLocalFile("AVANTIQO_MEDIA_CERTIFICATION_FACE_VIDEO_PATH");
-const faceAudio = requireLocalFile("AVANTIQO_MEDIA_CERTIFICATION_FACE_AUDIO_PATH");
-const faceVideoDuration = mediaDurationSeconds(faceVideo.path);
-const faceAudioDuration = mediaDurationSeconds(faceAudio.path);
-const normalizedVideoDuration = Math.min(LIPSYNC_MAX_SECONDS, faceVideoDuration);
-const normalizedAudioDuration = Math.min(LIPSYNC_MAX_SECONDS, faceAudioDuration);
-if (normalizedVideoDuration < 1.9 || normalizedAudioDuration < 1.9) {
-  throw new Error("AVANTIQO_MEDIA_PREFLIGHT_LIPSYNC_INPUT_TOO_SHORT");
-}
-if (Math.abs(normalizedVideoDuration - normalizedAudioDuration) > 0.75) {
-  throw new Error("AVANTIQO_MEDIA_PREFLIGHT_LIPSYNC_DURATION_MISMATCH");
+let lipsyncFixtureSource = {
+  required: false,
+  configured: false,
+  normalization_compatible: null,
+};
+if (includeLipsync) {
+  const faceVideo = requireLocalFile("AVANTIQO_MEDIA_CERTIFICATION_FACE_VIDEO_PATH");
+  const faceAudio = requireLocalFile("AVANTIQO_MEDIA_CERTIFICATION_FACE_AUDIO_PATH");
+  const faceVideoDuration = mediaDurationSeconds(faceVideo.path);
+  const faceAudioDuration = mediaDurationSeconds(faceAudio.path);
+  const normalizedVideoDuration = Math.min(LIPSYNC_MAX_SECONDS, faceVideoDuration);
+  const normalizedAudioDuration = Math.min(LIPSYNC_MAX_SECONDS, faceAudioDuration);
+  if (normalizedVideoDuration < 1.9 || normalizedAudioDuration < 1.9) {
+    throw new Error("AVANTIQO_MEDIA_PREFLIGHT_LIPSYNC_INPUT_TOO_SHORT");
+  }
+  if (Math.abs(normalizedVideoDuration - normalizedAudioDuration) > 0.75) {
+    throw new Error("AVANTIQO_MEDIA_PREFLIGHT_LIPSYNC_DURATION_MISMATCH");
+  }
+  lipsyncFixtureSource = {
+    required: true,
+    configured: true,
+    face_video_size_bytes: faceVideo.size_bytes,
+    face_audio_size_bytes: faceAudio.size_bytes,
+    face_video_duration_seconds: Number(faceVideoDuration.toFixed(3)),
+    face_audio_duration_seconds: Number(faceAudioDuration.toFixed(3)),
+    normalized_video_duration_seconds: Number(normalizedVideoDuration.toFixed(3)),
+    normalized_audio_duration_seconds: Number(normalizedAudioDuration.toFixed(3)),
+    normalization_compatible: true,
+  };
 }
 
 const gpuRates = {
   image_usd_per_second: positiveRate("AVANTIQO_IMAGE_GPU_USD_PER_SECOND"),
   cinema_usd_per_second: positiveRate("AVANTIQO_VIDEO_GPU_USD_PER_SECOND"),
-  lipsync_usd_per_second: positiveRate("AVANTIQO_LIPSYNC_GPU_USD_PER_SECOND"),
+  lipsync_usd_per_second: includeLipsync
+    ? positiveRate("AVANTIQO_LIPSYNC_GPU_USD_PER_SECOND")
+    : null,
 };
 
 const apiKey = required("RUNPOD_API_KEY");
 const endpoints = {
   image: required("RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID"),
   cinema: required("RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID"),
-  lipsync: required("RUNPOD_AVANTIQO_LIPSYNC_ENDPOINT_ID"),
 };
-if (new Set(Object.values(endpoints)).size !== 3) {
+if (includeLipsync) {
+  endpoints.lipsync = required("RUNPOD_AVANTIQO_LIPSYNC_ENDPOINT_ID");
+}
+if (new Set(Object.values(endpoints)).size !== Object.values(endpoints).length) {
   throw new Error("AVANTIQO_MEDIA_PREFLIGHT_DISTINCT_ENDPOINTS_REQUIRED");
 }
 
-const [imageHealth, cinemaHealth, lipsyncHealth, supabase] = await Promise.all([
+const endpointChecks = [
   endpointHealth("image", endpoints.image, apiKey),
   endpointHealth("cinema", endpoints.cinema, apiKey),
-  endpointHealth("lipsync", endpoints.lipsync, apiKey),
+];
+if (includeLipsync) {
+  endpointChecks.push(endpointHealth("lipsync", endpoints.lipsync, apiKey));
+}
+const [healthResults, supabase] = await Promise.all([
+  Promise.all(endpointChecks),
   assertSupabaseReadAccess(),
 ]);
 
@@ -205,23 +240,16 @@ const report = {
   generated_at: new Date().toISOString(),
   success: true,
   source_scope: "BENCHMARK_ONLY",
+  certification_stage: includeLipsync ? "FULL_WITH_LIPSYNC" : "CORE_IMAGE_CINEMA",
   local_runtime: {
     node_version: process.versions.node,
     node_major_required: REQUIRED_NODE_MAJOR,
     ffmpeg: ffmpegVersion,
     ffprobe: ffprobeVersion,
   },
-  lipsync_fixture_source: {
-    face_video_size_bytes: faceVideo.size_bytes,
-    face_audio_size_bytes: faceAudio.size_bytes,
-    face_video_duration_seconds: Number(faceVideoDuration.toFixed(3)),
-    face_audio_duration_seconds: Number(faceAudioDuration.toFixed(3)),
-    normalized_video_duration_seconds: Number(normalizedVideoDuration.toFixed(3)),
-    normalized_audio_duration_seconds: Number(normalizedAudioDuration.toFixed(3)),
-    normalization_compatible: true,
-  },
+  lipsync_fixture_source: lipsyncFixtureSource,
   gpu_rates: gpuRates,
-  endpoints: [imageHealth, cinemaHealth, lipsyncHealth],
+  endpoints: healthResults,
   supabase,
   safety: {
     runpod_health_requests_only: true,
@@ -232,7 +260,8 @@ const report = {
     production_activation_performed: false,
     secrets_persisted: false,
   },
-  ready_for_fixture_preparation: true,
+  ready_for_core_generation_benchmark: true,
+  ready_for_fixture_preparation: includeLipsync,
 };
 
 fs.writeFileSync(OUTPUT, `${JSON.stringify(report, null, 2)}\n`, "utf8");
@@ -241,11 +270,13 @@ console.log(
     {
       success: true,
       contract: CONTRACT,
+      certification_stage: report.certification_stage,
       output_path: OUTPUT,
       endpoint_health_checks: report.endpoints.length,
       supabase_read_access: true,
       runpod_generation_jobs_submitted: 0,
-      ready_for_fixture_preparation: true,
+      ready_for_core_generation_benchmark: true,
+      ready_for_fixture_preparation: report.ready_for_fixture_preparation,
     },
     null,
     2,

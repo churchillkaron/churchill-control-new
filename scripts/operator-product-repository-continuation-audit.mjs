@@ -15,6 +15,7 @@ const paths = [
   "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
   "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
   "lib/platform/capabilities/createProductAutonomyContinuationCapability.js",
+  "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
   "lib/platform/runtime/PlatformDomainRuntime.js",
 ];
 
@@ -180,6 +181,32 @@ for (const forbiddenLegacyExecution of [
   }
 }
 
+const cyclePath =
+  "lib/platform/capabilities/createProductEngineeringCycleCapability.js";
+requireFragments(cyclePath, [
+  'id: "assess_repository"',
+  'capability_key: "platform.product_repository_assessment.read"',
+  'source_step_id: "assess_repository"',
+  'source_path: "next_engineering_handoff.focus"',
+  'target_path: "objective"',
+  "missionStepCapabilityResult",
+  "repositoryAssessment",
+  "repository_head_observed",
+  "PRODUCT_ENGINEERING_CYCLE_MAIN_ONLY",
+  "repositoryGroundedAssessmentRequired: true",
+  "currentMainRecheckBeforeEngineeringRequired: true",
+  "repository_grounded_assessment_required: true",
+  "current_main_rechecked_before_engineering",
+  "repository_source_evidence_is_certification: false",
+  "incoming_focus_is_authority: false",
+  "automaticRecursionAllowed: false",
+]);
+if (files[cyclePath].includes('capability_key: "platform.product_autonomy.assess"')) {
+  throw new Error(
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: the next engineering cycle must recheck actual current main rather than replace the repository-grounded objective with a process-only Product autonomy assessment",
+  );
+}
+
 requireFragments(
   "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
   [
@@ -232,6 +259,7 @@ requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "product_repository_assessment",
   "createProductPersistenceHandoffCapability",
   "createProductAutonomyContinuationCapability",
+  "createProductEngineeringCycleCapability",
 ]);
 
 const { listOperatorCapabilities } = await import(
@@ -309,6 +337,21 @@ if (
   );
 }
 
+const productCycle = byKey.get("platform.product_engineering_cycle.execute");
+if (
+  !productCycle ||
+  productCycle.mode !== "write" ||
+  productCycle.risk !== "low" ||
+  productCycle.auto_execute !== true ||
+  productCycle.requires_confirmation === true ||
+  productCycle.transactional === true ||
+  !productCycle.permissions?.includes("platform.code.ai.execute")
+) {
+  throw new Error(
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: repository-first Product Engineering Cycle must remain a low-risk bounded execute-authority composite",
+  );
+}
+
 console.log("OPERATOR_PRODUCT_REPOSITORY_CONTINUATION_AUDIT=PASS");
 console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE=FRESH_READ_ONLY_GITHUB_MAIN_CHECKOUT");
 console.log("OPERATOR_PRODUCT_REPOSITORY_HEAD=OBSERVED_AND_EXPLICIT");
@@ -321,6 +364,8 @@ console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_WRITE_REPLAY=DISABLED");
 console.log("OPERATOR_PRODUCT_ALREADY_PERSISTED_CONTINUATION=TWO_READS_ONE_OBJECTIVE_NO_EXECUTION");
 console.log("OPERATOR_PRODUCT_CONTINUATION_CONVERSATION=DIRECT_NESTED_OR_MISSION_RESULT_TO_SAFE_RECOMMENDATION");
 console.log("OPERATOR_PRODUCT_CONTINUATION_CONVERSATION_AUTO_EXECUTION=DISABLED");
+console.log("OPERATOR_PRODUCT_NEXT_CYCLE=FRESH_CURRENT_MAIN_RECHECK_BEFORE_ENGINEERING");
+console.log("OPERATOR_PRODUCT_NEXT_CYCLE_OBJECTIVE=REPOSITORY_EVIDENCE_NOT_PROCESS_CATALOG");
 console.log("OPERATOR_CODE_AI_COMMIT_STATUS_AUTHORITY=EXECUTE_READ_ONLY_NOT_COMMIT_WRITE");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_HANDOFF_AUTHORITY=CONDITIONAL_WRITE_PERMISSION_AT_REGISTERED_STEP");
 console.log("OPERATOR_PRODUCT_REPOSITORY_CERTIFICATION=SOURCE_EVIDENCE_ONLY");

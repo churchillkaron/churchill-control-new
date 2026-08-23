@@ -6,6 +6,15 @@ import path from "node:path";
 
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
+// Import-only readiness checks must remain build-safe when npm prebuild is run
+// directly from a shell where Next.js has not loaded .env.local yet. Preserve any
+// real runtime values, but provide syntactically valid audit placeholders so
+// modules that construct server clients at import time can still be inspected.
+// The schema probe below treats the placeholder host as unreachable evidence and
+// skips it; no database write or provider call is ever executed by this audit.
+process.env.NEXT_PUBLIC_SUPABASE_URL ||= "https://audit.invalid";
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= "audit-service-role-key";
+
 // Zero-cost readiness check for the Creative Studio.
 //
 // The Studio has 117 bespoke scripts, but none of them answers "can the pipeline

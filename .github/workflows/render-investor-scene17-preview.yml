@@ -1,0 +1,128 @@
+name: Render Investor Scene 17 Preview
+
+on:
+  push:
+    paths:
+      - ".github/workflows/render-investor-scene17-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  render-scene17:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Request GitHub OIDC token
+        id: oidc
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN_JSON=$(curl -fsSL -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=avantiqo-scene17-render")
+          TOKEN=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$TOKEN_JSON")
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch approved Scene 17 assets
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-scene17-github-render" \
+            > /tmp/assets.json
+          python3 - <<'PY'
+          import json, pathlib, urllib.request
+          data=json.loads(pathlib.Path('/tmp/assets.json').read_text())
+          assert data.get('success') is True, data
+          names={'manager':'manager.mp4','customer':'customer.png','voice':'voice.mp3','score':'score.mp3'}
+          for key, filename in names.items():
+              target=pathlib.Path('/tmp')/filename
+              urllib.request.urlretrieve(data['assets'][key]['signed_url'], target)
+              print(key, target.stat().st_size)
+          PY
+
+      - name: Build Scene 17 overlays
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw, ImageFont
+          from pathlib import Path
+          OUT=Path('/tmp'); W,H=1920,1080
+          def font(size,bold=False):
+              p='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf' if bold else '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+              return ImageFont.truetype(p,size)
+          src=Image.open('/tmp/customer.png').convert('RGBA')
+          pw,ph,inset=1120,632,19
+          pane=Image.new('RGBA',(pw,ph),(0,0,0,0)); iw,ih=pw-inset*2,ph-inset*2
+          src.thumbnail((iw,ih),Image.Resampling.LANCZOS)
+          ui=Image.new('RGBA',(iw,ih),(0,0,0,0)); ui.alpha_composite(src,((iw-src.width)//2,(ih-src.height)//2))
+          mask=Image.new('L',(iw,ih),0); ImageDraw.Draw(mask).rounded_rectangle((0,0,iw-1,ih-1),radius=23,fill=255)
+          pane.alpha_composite(Image.composite(ui,Image.new('RGBA',ui.size),mask),(inset,inset))
+          d=ImageDraw.Draw(pane); d.rounded_rectangle((6,6,pw-7,ph-7),radius=30,fill=(7,8,10,62),outline=(255,255,255,86),width=2)
+          d.line((28,18,pw-38,18),fill=(255,255,255,42),width=2); pane.save(OUT/'customer-pane.png')
+
+          field=Image.new('RGBA',(W,H),(0,0,0,0)); d=ImageDraw.Draw(field)
+          channels=[('WhatsApp','WA',(37,211,102,255)),('LINE','LINE',(6,199,85,255)),('Messenger','M',(22,138,255,255)),('Facebook','f',(24,119,242,255)),('Instagram','IG',(193,53,132,255)),('Google Reviews','G',(66,133,244,255)),('Email','@',(234,67,53,255)),('Website','WEB',(242,242,238,255))]
+          ys=[190,300,410,520,630,740,850,960]
+          for (label,mark,color),y in zip(channels,ys):
+              x=110
+              pts=[]; p0=(370,y+39);p1=(560,y+39);p2=(600,540);p3=(755,540)
+              for i in range(31):
+                  t=i/30;u=1-t
+                  pts.append((u**3*p0[0]+3*u*u*t*p1[0]+3*u*t*t*p2[0]+t**3*p3[0],u**3*p0[1]+3*u*u*t*p1[1]+3*u*t*t*p2[1]+t**3*p3[1]))
+              d.line(pts,fill=(214,166,106,86),width=2)
+              d.rounded_rectangle((x,y,x+260,y+78),radius=20,fill=(7,8,10,158),outline=(255,255,255,26),width=1)
+              d.rounded_rectangle((x+12,y+12,x+66,y+66),radius=17,fill=color)
+              mf=font(12 if len(mark)>2 else 22,True); bb=d.textbbox((0,0),mark,font=mf)
+              fill=(16,17,20,255) if label=='Website' else (255,255,255,255)
+              d.text((x+39-(bb[2]-bb[0])/2,y+39-(bb[3]-bb[1])/2-2),mark,font=mf,fill=fill)
+              d.text((x+82,y+25),label,font=font(18,True),fill=(242,240,234,235))
+          d.ellipse((751,536,759,544),fill=(232,201,141,210)); field.save(OUT/'channels.png')
+
+          label=Image.new('RGBA',(780,86),(0,0,0,0)); d=ImageDraw.Draw(label)
+          text='EVERY INTERACTION  →  ONE BUSINESS CONTEXT'; f=font(19)
+          bb=d.textbbox((0,0),text,font=f); d.text(((780-(bb[2]-bb[0]))/2,14),text,font=f,fill=(242,240,234,235))
+          d.line((110,62,670,62),fill=(214,166,106,180),width=1); label.save(OUT/'context-label.png')
+          PY
+
+      - name: Render Scene 17 V2
+        run: |
+          ffmpeg -y \
+            -stream_loop -1 -ss 2.4 -i /tmp/manager.mp4 \
+            -loop 1 -framerate 24 -i /tmp/channels.png \
+            -loop 1 -framerate 24 -i /tmp/customer-pane.png \
+            -loop 1 -framerate 24 -i /tmp/context-label.png \
+            -i /tmp/voice.mp3 -i /tmp/score.mp3 -t 5.625 \
+            -filter_complex "[0:v]scale=1970:1108:force_original_aspect_ratio=increase,crop=1920:1080:x='(iw-ow)/2+4*sin(t*0.19)':y='(ih-oh)/2+2*sin(t*0.15)',fps=24,eq=contrast=1.04:brightness=-0.022:saturation=0.84,format=yuv420p[bg];[1:v]format=rgba,fade=t=in:st=0.10:d=0.42:alpha=1[channelField];[2:v]format=rgba,fade=t=in:st=0.92:d=0.45:alpha=1[customerPane];[3:v]format=rgba,fade=t=in:st=3.45:d=0.36:alpha=1[contextLabel];[bg][channelField]overlay=0:0:shortest=1[s1];[s1][customerPane]overlay=x='760+4*sin(t*0.18)':y='225+3*sin(t*0.15)':shortest=1[s2];[s2][contextLabel]overlay=x=965:y=880:shortest=1,format=yuv420p[v];[4:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=1.03[voice];[5:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=0.10[score];[voice][score]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,alimiter=limit=0.95,atrim=duration=5.625[a]" \
+            -map "[v]" -map "[a]" -c:v libx264 -preset fast -crf 17 -pix_fmt yuv420p -r 24 \
+            -c:a aac -b:a 256k -ar 48000 -ac 2 -movflags +faststart \
+            scene-17-customer-interaction-review-v2.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 scene-17-customer-interaction-review-v2.mp4
+
+      - name: Upload render to Creative Storage
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: video/mp4" \
+            --data-binary @scene-17-customer-interaction-review-v2.mp4 \
+            "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-scene17-github-render" \
+            | tee scene17-upload-result.json
+
+      - name: Upload review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-scene17-preview-v2
+          path: |
+            scene-17-customer-interaction-review-v2.mp4
+            scene17-upload-result.json
+          if-no-files-found: error
+          retention-days: 7

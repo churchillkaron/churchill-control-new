@@ -199,6 +199,7 @@ export async function POST(request) {
     const conversationId = resolved.snapshot?.conversation?.id;
     if (!conversationId) return errorResponse("Primary intelligence conversation not found", 404);
 
+    const deliveryPolicyWasRequested = hasOwn(body, "delivery_policy") || hasOwn(body, "deliveryPolicy");
     const persisted = await mutateOperatorWatchProjectState({
       organizationId: resolved.access.organizationId,
       partyId: resolved.partyId,
@@ -210,6 +211,15 @@ export async function POST(request) {
         const cognitionBudget = requestedBudget(body, currentBudget);
         const deliveryPolicy = requestedDeliveryPolicy(body, current);
         const enabled = hasOwn(body, "enabled") ? body.enabled !== false : watch.enabled !== false;
+        const externalDelivery = deliveryPolicyWasRequested && deliveryPolicy.enabled === false
+          ? {
+              ...object(watch.external_delivery),
+              pending_alert: null,
+              channels: {},
+              canceled_at: new Date().toISOString(),
+              cancel_reason: "OWNER_DISABLED_PROACTIVE_DELIVERY",
+            }
+          : object(watch.external_delivery);
         const nextProjectState = mergeOperatorProjectState(
           current,
           current,
@@ -219,6 +229,7 @@ export async function POST(request) {
               enabled,
               cognition_budget: cognitionBudget,
               delivery_policy: deliveryPolicy,
+              external_delivery: externalDelivery,
               settings_updated_at: new Date().toISOString(),
               settings_updated_by_party_id: resolved.partyId,
             },

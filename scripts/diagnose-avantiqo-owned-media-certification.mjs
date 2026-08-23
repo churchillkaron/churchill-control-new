@@ -56,6 +56,14 @@ function list(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function finiteEvidence(value) {
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+function positiveEvidence(value) {
+  return finiteEvidence(value) && Number(value) > 0;
+}
+
 function engineFor(capability) {
   return capability.startsWith("ai.image.") ? "image" : "cinema";
 }
@@ -150,13 +158,22 @@ function staleReasons(capability, item) {
   if (economics.rate_configured !== true) {
     reasons.push("MEASURED_GPU_RATE_NOT_CONFIGURED");
   }
+  if (!positiveEvidence(economics.usd_per_second)) {
+    reasons.push("MEASURED_GPU_RATE_INVALID");
+  }
   if (
     currentRate.configured &&
     Number(economics.usd_per_second) !== currentRate.usd_per_second
   ) {
     reasons.push("GPU_RATE_CHANGED_SINCE_MEASUREMENT");
   }
-  if (!Number.isFinite(Number(economics.estimated_supplier_compute_cost_usd))) {
+  if (!positiveEvidence(economics.observed_seconds)) {
+    reasons.push("ECONOMICS_OBSERVED_SECONDS_MISSING");
+  }
+  if (!positiveEvidence(item.wall_ms)) {
+    reasons.push("BENCHMARK_WALL_TIME_MISSING");
+  }
+  if (!finiteEvidence(economics.estimated_supplier_compute_cost_usd)) {
     reasons.push("ECONOMICS_MEASUREMENT_MISSING");
   }
   if (item.production_certified !== false) {
@@ -222,7 +239,7 @@ const statuses = ALL_CAPABILITIES.map((capability) => {
       foundation_model: text(item.foundation_model) || null,
       output_storage_reference: text(item.storage_reference) || null,
       estimated_supplier_compute_cost_usd:
-        Number.isFinite(Number(item?.economics?.estimated_supplier_compute_cost_usd))
+        finiteEvidence(item?.economics?.estimated_supplier_compute_cost_usd)
           ? Number(item.economics.estimated_supplier_compute_cost_usd)
           : null,
       retry_command: `AVANTIQO_MEDIA_CERTIFICATION_RESUME=1 AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY=${capability} sh scripts/certify-avantiqo-owned-media-local.sh`,
@@ -241,12 +258,12 @@ const statuses = ALL_CAPABILITIES.map((capability) => {
     fixture_prefix: text(item?.fixture_provenance?.prefix) || null,
     benchmark_definition_sha256: text(item.benchmark_definition_sha256) || null,
     measured_gpu_rate_usd_per_second:
-      Number.isFinite(Number(item?.economics?.usd_per_second))
+      positiveEvidence(item?.economics?.usd_per_second)
         ? Number(item.economics.usd_per_second)
         : null,
     current_gpu_rate_usd_per_second: rateFor(capability).usd_per_second,
     estimated_supplier_compute_cost_usd:
-      Number.isFinite(Number(item?.economics?.estimated_supplier_compute_cost_usd))
+      finiteEvidence(item?.economics?.estimated_supplier_compute_cost_usd)
         ? Number(item.economics.estimated_supplier_compute_cost_usd)
         : null,
     retry_command: reasons.length > 0

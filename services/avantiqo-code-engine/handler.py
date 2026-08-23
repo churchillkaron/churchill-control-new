@@ -7,15 +7,22 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
+# Certification-critical vLLM process behavior is source-owned. A stale RunPod
+# endpoint environment must never be able to re-enable fork after CUDA setup.
+os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+
 import runpod
 from vllm import LLM, SamplingParams
 
 ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-code-v1"
-FOUNDATION_MODEL = os.getenv("AVANTIQO_CODE_FOUNDATION_MODEL", "").strip()
+FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
 OFFICIAL_FP8_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
-RUNTIME_MODEL = os.getenv("AVANTIQO_CODE_RUNTIME_MODEL", OFFICIAL_FP8_RUNTIME_MODEL).strip()
-QUANTIZATION = os.getenv("AVANTIQO_CODE_QUANTIZATION", "fp8").strip().lower()
+RUNTIME_MODEL = OFFICIAL_FP8_RUNTIME_MODEL
+QUANTIZATION = "fp8"
+CONFIGURED_FOUNDATION_MODEL = os.getenv("AVANTIQO_CODE_FOUNDATION_MODEL", "").strip()
+CONFIGURED_RUNTIME_MODEL = os.getenv("AVANTIQO_CODE_RUNTIME_MODEL", "").strip()
+CONFIGURED_QUANTIZATION = os.getenv("AVANTIQO_CODE_QUANTIZATION", "").strip().lower()
 MAX_NEW_TOKENS = int(os.getenv("AVANTIQO_CODE_MAX_NEW_TOKENS", "4096"))
 MAX_MODEL_LEN = int(os.getenv("AVANTIQO_CODE_MAX_MODEL_LEN", "32768"))
 GPU_MEMORY_UTILIZATION = float(os.getenv("AVANTIQO_CODE_GPU_MEMORY_UTILIZATION", "0.90"))
@@ -63,13 +70,33 @@ def _cached_model_path(model_id: str) -> str | None:
     return None
 
 
+def _configuration_overrides() -> dict[str, Any]:
+    return {
+        "foundation_model_env_present": bool(CONFIGURED_FOUNDATION_MODEL),
+        "foundation_model_env_matches": (
+            not CONFIGURED_FOUNDATION_MODEL or CONFIGURED_FOUNDATION_MODEL == FOUNDATION_MODEL
+        ),
+        "runtime_model_env_present": bool(CONFIGURED_RUNTIME_MODEL),
+        "runtime_model_env_matches": (
+            not CONFIGURED_RUNTIME_MODEL or CONFIGURED_RUNTIME_MODEL == RUNTIME_MODEL
+        ),
+        "quantization_env_present": bool(CONFIGURED_QUANTIZATION),
+        "quantization_env_matches": (
+            not CONFIGURED_QUANTIZATION or CONFIGURED_QUANTIZATION == QUANTIZATION
+        ),
+        "certification_values_source_locked": True,
+    }
+
+
 def _validate_runtime_contract() -> None:
-    if not FOUNDATION_MODEL:
-        raise RuntimeError("AVANTIQO_CODE_FOUNDATION_MODEL_REQUIRED")
+    if FOUNDATION_MODEL != "Qwen/Qwen3-Coder-30B-A3B-Instruct":
+        raise RuntimeError(f"AVANTIQO_CODE_FOUNDATION_MODEL_INVALID:{FOUNDATION_MODEL}")
     if RUNTIME_MODEL != OFFICIAL_FP8_RUNTIME_MODEL:
         raise RuntimeError(f"AVANTIQO_CODE_FP8_RUNTIME_MODEL_INVALID:{RUNTIME_MODEL}")
     if QUANTIZATION != "fp8":
         raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_REQUIRED:fp8:{QUANTIZATION}")
+    if os.getenv("VLLM_WORKER_MULTIPROC_METHOD") != "spawn":
+        raise RuntimeError("AVANTIQO_CODE_VLLM_SPAWN_REQUIRED")
     if MAX_MODEL_LEN < 4096 or MAX_MODEL_LEN > 262144:
         raise RuntimeError(f"AVANTIQO_CODE_MAX_MODEL_LEN_INVALID:{MAX_MODEL_LEN}")
     if not 0.5 <= GPU_MEMORY_UTILIZATION <= 0.98:
@@ -103,6 +130,7 @@ def _runtime_probe(data: dict[str, Any]) -> dict[str, Any] | None:
         "cached_model_found": bool(cached_path),
         "engine_loaded": _ENGINE is not None,
         "vllm_worker_multiproc_method": os.getenv("VLLM_WORKER_MULTIPROC_METHOD", ""),
+        "endpoint_environment": _configuration_overrides(),
         "raw_reasoning_persisted": False,
     }
 
@@ -127,15 +155,15 @@ def _load_engine() -> tuple[Any, LLM]:
                 "quantization": QUANTIZATION,
                 "max_model_len": MAX_MODEL_LEN,
                 "multiproc_method": os.getenv("VLLM_WORKER_MULTIPROC_METHOD", ""),
+                "endpoint_environment": _configuration_overrides(),
             },
             separators=(",", ":"),
         ),
         flush=True,
     )
 
-    # vLLM owns CUDA initialization. Do not touch torch.cuda before this call:
-    # library-mode vLLM historically defaults to fork, which is unsafe after CUDA
-    # initialization. Docker also forces VLLM_WORKER_MULTIPROC_METHOD=spawn.
+    # vLLM owns CUDA initialization. Do not touch torch.cuda before this call.
+    # Source forces VLLM_WORKER_MULTIPROC_METHOD=spawn before importing vLLM.
     _ENGINE = LLM(
         model=model_source,
         tokenizer=model_source,
@@ -234,6 +262,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "serving_runtime": "vllm",
             "serving_runtime_version": version("vllm"),
             "quantization": QUANTIZATION,
+            "endpoint_environment": _configuration_overrides(),
             "error_code": "AVANTIQO_CODE_ENGINE_LOAD_FAILED",
             "error_type": type(error).__name__,
             "error_message": _text(error)[:800],
@@ -283,6 +312,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "runtime_model_source": "runpod-cache" if runtime_cached else "huggingface",
         "quantization": QUANTIZATION,
         "max_model_len": MAX_MODEL_LEN,
+        "endpoint_environment": _configuration_overrides(),
         "result": result,
         "usage": {
             "input_tokens": billable_input_tokens,
@@ -314,6 +344,7 @@ if __name__ == "__main__":
                 "runtime_model": RUNTIME_MODEL,
                 "quantization": QUANTIZATION,
                 "multiproc_method": os.getenv("VLLM_WORKER_MULTIPROC_METHOD", ""),
+                "endpoint_environment": _configuration_overrides(),
             },
             separators=(",", ":"),
         ),

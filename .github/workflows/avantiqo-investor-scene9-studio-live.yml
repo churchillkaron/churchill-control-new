@@ -1,0 +1,103 @@
+name: Avantiqo Investor Scene 9 Studio Live
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-investor-scene9-live-request.json
+      - .github/workflows/avantiqo-investor-scene9-studio-live.yml
+      - scripts/avantiqo-investor-studio-scenes.mjs
+      - lib/creative/post-production/runtime/AvantiqoInvestorStudioExecutionRuntime.js
+      - lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationRuntime.js
+      - lib/creative/post-production/runtime/AvantiqoInvestorStudioGenerationPlan.js
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-investor-scene9-studio-live
+  cancel-in-progress: false
+
+jobs:
+  generate-scene9:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
+      FLUX_API_KEY: ${{ secrets.FLUX_API_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID }}
+      RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID }}
+      AVANTIQO_PROVIDER_CREDENTIALS_JSON: ${{ secrets.AVANTIQO_PROVIDER_CREDENTIALS_JSON }}
+      INVESTOR_STUDIO_MODE: execute
+      INVESTOR_STUDIO_SCENES: "9"
+      INVESTOR_STUDIO_SPEND_APPROVED: "YES"
+      INVESTOR_STUDIO_MAX_TASKS: "24"
+      INVESTOR_STUDIO_MAX_PASSES: "60"
+      INVESTOR_STUDIO_RESULT_PATH: artifacts/investor-scene9-studio-live.json
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate required runtime bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${NEXT_PUBLIC_SUPABASE_URL:-}" || { echo "NEXT_PUBLIC_SUPABASE_URL missing"; exit 1; }
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "SUPABASE_SERVICE_ROLE_KEY missing"; exit 1; }
+          if [ -z "${GEMINI_API_KEY:-}" ] && [ -z "${RUNWAY_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ] && [ -z "${AVANTIQO_PROVIDER_CREDENTIALS_JSON:-}" ]; then
+            echo "No managed video-generation credential binding available"
+            exit 1
+          fi
+          echo "Runtime binding gate passed without exposing secret values."
+
+      - name: Run Studio generation for Scene 9 only
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/avantiqo-investor-studio-scenes.mjs execute 9
+
+      - name: Publish execution artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-scene9-studio-${{ github.run_id }}
+          path: artifacts/investor-scene9-studio-live.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Commit sanitized result to main
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f artifacts/investor-scene9-studio-live.json ]; then
+            printf '%s\n' '{"success":false,"error":"RESULT_FILE_NOT_PRODUCED"}' > artifacts/investor-scene9-studio-live.json
+          fi
+          mkdir -p audits/results
+          cp artifacts/investor-scene9-studio-live.json audits/results/avantiqo-investor-scene9-studio-live.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audits/results/avantiqo-investor-scene9-studio-live.json
+          if git diff --cached --quiet; then
+            echo "No result change to commit."
+            exit 0
+          fi
+          git commit -m "Record investor Scene 9 Studio live result"
+          git pull --rebase origin main
+          git push origin HEAD:main

@@ -39,10 +39,36 @@ test("resume preserves the prior benchmark checkpoint while fresh runs remove it
   assert.match(source, /RESUME_ENABLED=0/);
   assert.match(source, /AVANTIQO_MEDIA_CERTIFICATION_RESUME/);
   assert.match(source, /if \[ "\$RESUME_ENABLED" -eq 0 \]; then/);
-  assert.match(source, /rm -f \/tmp\/avantiqo-owned-media-full-capability-benchmark\.json/);
+  assert.match(source, /rm -f "\$BENCHMARK_PATH"/);
   assert.match(source, /ENABLED_PRESERVE_BENCHMARK_CHECKPOINT/);
   assert.match(source, /AVANTIQO_MEDIA_CERTIFICATION_REUSED/);
   assert.match(source, /AVANTIQO_MEDIA_CERTIFICATION_EXECUTED_THIS_RUN/);
+});
+
+test("explicit media retry executes exactly one named capability", async () => {
+  const benchmark = await readFile(BENCHMARK, "utf8");
+  const certify = await readFile(CERTIFY, "utf8");
+
+  assert.match(benchmark, /AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY/);
+  assert.match(benchmark, /TARGET_RETRY/);
+  assert.match(benchmark, /TARGET_RETRY_REQUIRES_RESUME/);
+  assert.match(benchmark, /TARGET_RETRY_CHECKPOINT_REQUIRED/);
+  assert.match(benchmark, /TARGET_RETRY_NON_TARGET_CHECKPOINT_MISSING/);
+  assert.match(benchmark, /TARGET_RETRY_NON_TARGET_SUCCESS_STALE/);
+  assert.match(benchmark, /target_retry_executes_exactly_one_named_capability:\s*true/);
+  assert.match(benchmark, /successful_non_target_case_revalidated_before_target_spend:\s*true/);
+  assert.match(benchmark, /failed_non_target_case_preserved_without_execution:\s*true/);
+  assert.match(benchmark, /targeted_retry_must_not_execute_unrequested_capabilities:\s*true/);
+  assert.match(benchmark, /const runSucceeded = targetedRetryEnabled/);
+
+  assert.match(certify, /TARGETED_RETRY_ENABLED=0/);
+  assert.match(certify, /TARGET_CAPABILITY=\$\{AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY:-\}/);
+  assert.match(certify, /AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_REQUIRES_RESUME/);
+  assert.match(certify, /AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_CHECKPOINT_REQUIRED/);
+  assert.match(certify, /AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_EXECUTION_SCOPE_INVALID/);
+  assert.match(certify, /capabilities_executed_this_run !== 1/);
+  assert.match(certify, /AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_PASSED/);
+  assert.match(certify, /HUMAN_REVIEW_PACK=DEFERRED_UNTIL_FULL_MECHANICAL_AND_ECONOMICS_PASS/);
 });
 
 test("human review binds every capability to its own resumed fixture provenance", async () => {

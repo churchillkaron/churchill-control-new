@@ -1,6 +1,18 @@
-import json
 import os
+
+# huggingface_hub reads these settings at import time. Force the safe cache transport
+# before importing RunPod, Diffusers, Transformers, or huggingface_hub itself so a
+# runtime/template environment override cannot silently re-enable Xet reconstruction.
+os.environ["HF_HUB_DISABLE_XET"] = "1"
+os.environ["HF_XET_RECONSTRUCT_WRITE_SEQUENTIALLY"] = "1"
+os.environ["HF_XET_NUM_CONCURRENT_RANGE_GETS"] = "1"
+os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "600"
+os.environ["HF_HUB_ETAG_TIMEOUT"] = "60"
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
+import json
 import re
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -8,6 +20,7 @@ from typing import Any
 import runpod
 import torch
 from diffusers.utils import load_image
+from huggingface_hub import constants as hf_hub_constants
 from huggingface_hub import snapshot_download
 from PIL import Image
 from transformers import pipeline
@@ -21,6 +34,9 @@ MODEL_CACHE_OPERATION = "cache_foundation_model"
 QUALITY_FOUNDATION_MODEL = "Qwen/Qwen-Image-2512"
 MODEL_CACHE_ALLOWLIST = {QUALITY_FOUNDATION_MODEL}
 QUALITY_RUNTIME_REVISION = "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V1"
+QUALITY_FOUNDATION_MODEL_BYTES = 57_700_000_000
+CACHE_DOWNLOAD_WORKERS = 1
+CACHE_HEADROOM_BYTES = 5 * 1024 * 1024 * 1024
 QUALITY_NEGATIVE_PROMPT = (
     "low resolution, low quality, anatomical deformity, malformed limbs, malformed fingers, "
     "oversaturated image, waxy skin, faces without detail, overly smooth skin, obvious AI-generated "
@@ -77,6 +93,51 @@ def _certification_execution(data: dict[str, Any]) -> bool:
     )
 
 
+def _directory_bytes(path: Path) -> int:
+    if not path.exists():
+        return 0
+    total = 0
+    for child in path.rglob("*"):
+        try:
+            if child.is_file() and not child.is_symlink():
+                total += child.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
+def _cache_storage_state(target_model: str) -> dict[str, int]:
+    cache_root = legacy.HF_CACHE_ROOT
+    cache_root.mkdir(parents=True, exist_ok=True)
+    usage = shutil.disk_usage(cache_root)
+    model_root = cache_root / f"models--{target_model.replace('/', '--')}"
+    cached_blob_bytes = _directory_bytes(model_root / "blobs")
+    estimated_remaining_bytes = max(
+        0,
+        QUALITY_FOUNDATION_MODEL_BYTES - cached_blob_bytes,
+    )
+    required_free_bytes = estimated_remaining_bytes + CACHE_HEADROOM_BYTES
+    return {
+        "disk_total_bytes": int(usage.total),
+        "disk_used_bytes": int(usage.used),
+        "disk_free_bytes": int(usage.free),
+        "cached_blob_bytes": int(cached_blob_bytes),
+        "estimated_remaining_bytes": int(estimated_remaining_bytes),
+        "required_free_bytes": int(required_free_bytes),
+    }
+
+
+def _cache_transport_state() -> dict[str, Any]:
+    return {
+        "xet_disabled": bool(getattr(hf_hub_constants, "HF_HUB_DISABLE_XET", False)),
+        "xet_sequential_write": os.getenv("HF_XET_RECONSTRUCT_WRITE_SEQUENTIALLY") == "1",
+        "xet_range_gets": int(os.getenv("HF_XET_NUM_CONCURRENT_RANGE_GETS", "1")),
+        "snapshot_max_workers": CACHE_DOWNLOAD_WORKERS,
+        "download_timeout_seconds": int(os.getenv("HF_HUB_DOWNLOAD_TIMEOUT", "600")),
+        "etag_timeout_seconds": int(os.getenv("HF_HUB_ETAG_TIMEOUT", "60")),
+    }
+
+
 def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
     data = job.get("input") or {}
     if data.get("contract") != legacy.ENGINE_CONTRACT:
@@ -86,6 +147,11 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
     target_model = _text(data.get("target_model"))
     if target_model not in MODEL_CACHE_ALLOWLIST:
         raise ValueError("AVANTIQO_IMAGE_MODEL_CACHE_TARGET_FORBIDDEN")
+
+    transport = _cache_transport_state()
+    storage = _cache_storage_state(target_model)
+    if not transport["xet_disabled"]:
+        raise RuntimeError("AVANTIQO_IMAGE_CACHE_XET_DISABLE_NOT_EFFECTIVE")
 
     existing = legacy._cached_model_path(target_model)
     if existing:
@@ -100,24 +166,56 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
             "foundation_model_source": "runpod-cache",
             "already_cached": True,
             "cache_ready": True,
+            "cache_transport": transport,
+            "cache_storage": storage,
             "inference_performed": False,
             "raw_reasoning_persisted": False,
         }
 
+    if storage["disk_free_bytes"] < storage["required_free_bytes"]:
+        raise RuntimeError(
+            "AVANTIQO_IMAGE_CACHE_STORAGE_INSUFFICIENT:"
+            f"free_bytes={storage['disk_free_bytes']}:"
+            f"cached_blob_bytes={storage['cached_blob_bytes']}:"
+            f"estimated_remaining_bytes={storage['estimated_remaining_bytes']}:"
+            f"required_free_bytes={storage['required_free_bytes']}"
+        )
+
     runpod.serverless.progress_update(
         job,
-        f"caching approved Avantiqo Image foundation {target_model}",
+        " ".join(
+            [
+                f"caching approved Avantiqo Image foundation {target_model}",
+                "xet_disabled=true",
+                f"max_workers={CACHE_DOWNLOAD_WORKERS}",
+                f"free_gib={storage['disk_free_bytes'] / (1024 ** 3):.1f}",
+                f"cached_gib={storage['cached_blob_bytes'] / (1024 ** 3):.1f}",
+            ]
+        ),
     )
-    snapshot_download(
-        repo_id=target_model,
-        cache_dir=str(legacy.HF_CACHE_ROOT),
-        local_files_only=False,
-        max_workers=1,
-    )
+    try:
+        snapshot_download(
+            repo_id=target_model,
+            cache_dir=str(legacy.HF_CACHE_ROOT),
+            local_files_only=False,
+            max_workers=CACHE_DOWNLOAD_WORKERS,
+            etag_timeout=60,
+        )
+    except Exception as exc:
+        failed_storage = _cache_storage_state(target_model)
+        raise RuntimeError(
+            "AVANTIQO_IMAGE_MODEL_CACHE_DOWNLOAD_FAILED:"
+            f"{type(exc).__name__}:{_text(exc)}:"
+            f"xet_disabled={transport['xet_disabled']}:"
+            f"disk_free_bytes={failed_storage['disk_free_bytes']}:"
+            f"cached_blob_bytes={failed_storage['cached_blob_bytes']}"
+        ) from exc
+
     cached = legacy._cached_model_path(target_model)
     if not cached:
         raise RuntimeError(f"AVANTIQO_IMAGE_MODEL_CACHE_VERIFY_FAILED:{target_model}")
 
+    final_storage = _cache_storage_state(target_model)
     return {
         "status": "completed",
         "provider": "avantiqo-image",
@@ -129,6 +227,8 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
         "foundation_model_source": "runpod-cache",
         "already_cached": False,
         "cache_ready": True,
+        "cache_transport": transport,
+        "cache_storage": final_storage,
         "inference_performed": False,
         "raw_reasoning_persisted": False,
     }

@@ -3,6 +3,12 @@ import { resolve } from "node:path";
 
 const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1";
+const RUNSYNC_WAIT_MS = 300000;
+const POLL_INTERVAL_MS = 5000;
+const MAX_JOB_WAIT_MS = Math.max(
+  RUNSYNC_WAIT_MS,
+  Number(process.env.AVANTIQO_RUNPOD_BENCHMARK_TIMEOUT_MS || 15 * 60 * 1000),
+);
 
 function text(value) { return String(value ?? "").trim(); }
 function required(name) {
@@ -20,18 +26,57 @@ function percentile(values, fraction) {
   if (!sorted.length) return null;
   return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * fraction))];
 }
+function sleep(ms) { return new Promise((resolvePromise) => setTimeout(resolvePromise, ms)); }
+function terminalFailure(status) {
+  return ["FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(status);
+}
+async function parseJsonResponse(response) {
+  const raw = await response.text();
+  let body = {};
+  try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
+  if (!response.ok) {
+    throw new Error(`RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message || raw).slice(0, 1000)}`);
+  }
+  return body;
+}
 async function runSync(endpointId, input, apiKey) {
   const started = performance.now();
-  const response = await fetch(`${API_BASE}/${endpointId}/runsync`, {
+  const response = await fetch(`${API_BASE}/${endpointId}/runsync?wait=${RUNSYNC_WAIT_MS}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ input }),
+    signal: AbortSignal.timeout(RUNSYNC_WAIT_MS + 30000),
   });
-  const body = await response.json().catch(() => ({}));
-  const wallMs = Math.round(performance.now() - started);
-  if (!response.ok) throw new Error(`RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message)}`);
-  if (text(body?.status).toUpperCase() !== "COMPLETED") throw new Error(`RUNPOD_NOT_COMPLETED:${text(body?.status) || "UNKNOWN"}`);
-  return { body, wallMs };
+  let body = await parseJsonResponse(response);
+  let status = text(body?.status).toUpperCase();
+  if (status === "COMPLETED") {
+    return { body, wallMs: Math.round(performance.now() - started) };
+  }
+
+  const jobId = text(body?.id);
+  if (!jobId) throw new Error(`RUNPOD_NOT_COMPLETED:${status || "UNKNOWN"}:JOB_ID_MISSING`);
+  if (terminalFailure(status)) {
+    throw new Error(`RUNPOD_JOB_${status}:${text(body?.error || body?.message).slice(0, 1000)}`);
+  }
+
+  const deadline = Date.now() + MAX_JOB_WAIT_MS;
+  while (Date.now() < deadline) {
+    await sleep(POLL_INTERVAL_MS);
+    const statusResponse = await fetch(`${API_BASE}/${endpointId}/status/${encodeURIComponent(jobId)}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(30000),
+    });
+    body = await parseJsonResponse(statusResponse);
+    status = text(body?.status).toUpperCase();
+    if (status === "COMPLETED") {
+      return { body, wallMs: Math.round(performance.now() - started) };
+    }
+    if (terminalFailure(status)) {
+      throw new Error(`RUNPOD_JOB_${status}:${text(body?.error || body?.message).slice(0, 1000)}`);
+    }
+  }
+  throw new Error(`RUNPOD_JOB_WAIT_TIMEOUT:${jobId}:${MAX_JOB_WAIT_MS}`);
 }
 
 const apiKey = required("RUNPOD_API_KEY");
@@ -73,7 +118,7 @@ for (let index = 0; index < runs; index += 1) {
     foundation_model: text(output.foundation_model),
     passed:
       text(output.capability) === "ai.image.generate" &&
-      text(output.foundation_model) === "Qwen/Qwen-Image" &&
+      text(output.foundation_model) === foundationModel &&
       Number(output.width) === 1024 && Number(output.height) === 1024 &&
       Number(output.size_bytes) > 10000 &&
       output.raw_reasoning_persisted === false,
@@ -86,7 +131,12 @@ const report = {
   generated_at: new Date().toISOString(),
   activation_allowed: false,
   purpose: "MEASURE_ONLY_DO_NOT_ACTIVATE_PRICING",
-  model: { provider: "avantiqo-image", foundation_model: "Qwen/Qwen-Image", capability: "ai.image.generate" },
+  model: { provider: "avantiqo-image", foundation_model: foundationModel, capability: "ai.image.generate" },
+  runpod_wait_policy: {
+    runsync_wait_ms: RUNSYNC_WAIT_MS,
+    poll_interval_ms: POLL_INTERVAL_MS,
+    max_job_wait_ms: MAX_JOB_WAIT_MS,
+  },
   summary: {
     runs: observations.length,
     passed: observations.length > 0 && observations.every((item) => item.passed),

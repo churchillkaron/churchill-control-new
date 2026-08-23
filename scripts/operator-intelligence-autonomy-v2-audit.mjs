@@ -9,6 +9,7 @@ const REQUIRED_CAPABILITIES = new Map([
   ["platform.research_source.read", "read"],
   ["platform.research_compare.analyze", "read"],
   ["platform.product_autonomy.assess", "read"],
+  ["platform.product_engineering_cycle.execute", "write"],
   ["platform.operator_mission.execute", "write"],
   ["platform.code_ai_autonomous.execute", "write"],
   ["platform.code_ai_autonomous_status.verify", "read"],
@@ -30,6 +31,7 @@ const files = Object.fromEntries(
       "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
       "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
       "lib/platform/capabilities/createCodeAIAutonomousStatusCapability.js",
+      "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
       "lib/operator/runtime/IntelligenceMemoryRuntime.js",
       "lib/platform/runtime/PlatformDomainRuntime.js",
     ].map(async (path) => [path, await readFile(path, "utf8")]),
@@ -151,6 +153,20 @@ requireFragments("lib/platform/capabilities/createCodeAIAutonomousStatusCapabili
   'status: "VERIFIED_COMPLETED"',
 ]);
 
+requireFragments("lib/platform/capabilities/createProductEngineeringCycleCapability.js", [
+  'capability: "product_engineering_cycle"',
+  '"platform.product_autonomy.assess"',
+  '"platform.code_ai_autonomous.execute"',
+  'source_path: "recommended_code_ai_handoff.objective"',
+  'target_path: "objective"',
+  '"platform.code_ai_autonomous_status.verify"',
+  "executeUbteCapability",
+  "persistent_source_changed: false",
+  "production_deployed: false",
+  "database_migrations_applied: false",
+  "code_ai_commit_capability_invoked: false",
+]);
+
 requireFragments("lib/operator/runtime/IntelligenceMemoryRuntime.js", [
   'const scopes = ["organization"]',
   'scope: "party"',
@@ -168,6 +184,7 @@ requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "createOperatorWebSourceReadCapability",
   "createOperatorResearchCompareCapability",
   "createProductAutonomyAssessmentCapability",
+  "createProductEngineeringCycleCapability",
   "createCodeAIAutonomousStatusCapability",
 ]);
 
@@ -229,6 +246,20 @@ if (
   );
 }
 
+const productCycle = byKey.get("platform.product_engineering_cycle.execute");
+if (
+  productCycle?.risk !== "low" ||
+  productCycle?.auto_execute !== true ||
+  productCycle?.requires_confirmation === true ||
+  productCycle?.transactional === true ||
+  productCycle?.reversible !== true ||
+  !productCycle?.permissions?.includes("platform.code.ai.execute")
+) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product Engineering Cycle must remain a low-risk reversible governed composite with code execution permission",
+  );
+}
+
 const mission = byKey.get("platform.operator_mission.execute");
 const bindingSchema = mission?.input_schema?.properties?.steps?.items?.properties?.bindings;
 if (!bindingSchema || bindingSchema.type !== "array" || bindingSchema.maxItems !== 12) {
@@ -246,3 +277,5 @@ console.log("OPERATOR_PRODUCT_CONSTITUTION=REGISTERED");
 console.log("OPERATOR_PRODUCT_AUTONOMY=ASSESSMENT_ONLY_HANDOFF_SEPARATE");
 console.log("OPERATOR_CODE_AI_HANDOFF=EXECUTION_KEY_PLUS_REGISTERED_VERIFICATION");
 console.log("OPERATOR_CODE_AI_EXECUTION_STATE=SERVER_OWNED_NON_RECALLABLE_SCOPE");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY");
+console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_PERSISTENCE=NO_COMMIT_NO_DEPLOY_NO_MIGRATION");

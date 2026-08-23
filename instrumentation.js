@@ -61,6 +61,9 @@ export async function register() {
       "@/lib/creative/continuity/runtime/CreativeCinematicStateMemoryBootstrap"
     );
     await import(
+      "@/lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoCinematicStateMemoryBootstrap"
+    );
+    await import(
       "@/lib/creative/quality/runtime/CreativePerceptualCandidateSelectionBridgeBootstrap"
     );
     await import(

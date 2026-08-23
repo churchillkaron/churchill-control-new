@@ -25,7 +25,7 @@ jobs:
           TOKEN=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$TOKEN_JSON")
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
-      - name: Fetch approved Scene 17 assets
+      - name: Fetch approved Scene 17 review assets
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
@@ -38,43 +38,33 @@ jobs:
           import json, pathlib, urllib.request
           data=json.loads(pathlib.Path('/tmp/assets.json').read_text())
           assert data.get('success') is True, data
-          names={'manager':'manager.mp4','customer':'customer.png','voice':'voice.mp3','score':'score.mp3'}
+          names={'manager':'manager.mp4','customer':'customer.png','voice':'voice.mp3'}
           for key, filename in names.items():
               target=pathlib.Path('/tmp')/filename
               urllib.request.urlretrieve(data['assets'][key]['signed_url'], target)
               print(key, target.stat().st_size)
           PY
 
-      - name: Validate render inputs
+      - name: Render Scene 17 review MP4
+        shell: bash
         run: |
           set -euo pipefail
           test -s /tmp/manager.mp4
           test -s /tmp/customer.png
           test -s /tmp/voice.mp3
-          test -s /tmp/score.mp3
-          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 /tmp/manager.mp4
-          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 /tmp/voice.mp3
-
-      - name: Render Scene 17 V2
-        shell: bash
-        run: |
-          set -euo pipefail
-          FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-          BOLD=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
           ffmpeg -y \
             -stream_loop -1 -ss 2.4 -i /tmp/manager.mp4 \
             -loop 1 -framerate 24 -i /tmp/customer.png \
             -i /tmp/voice.mp3 \
-            -i /tmp/score.mp3 \
             -t 5.625 \
-            -filter_complex "[0:v]scale=1970:1108:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,eq=contrast=1.04:brightness=-0.022:saturation=0.84,format=yuv420p[base];[1:v]scale=1040:586:force_original_aspect_ratio=decrease,pad=1080:626:20:20:color=0x08090BCC,format=rgba,fade=t=in:st=0.92:d=0.42:alpha=1[ui];[base]drawbox=x=92:y=165:w=300:h=805:color=0x07080AAA:t=fill:enable='gte(t,0.08)',drawbox=x=104:y=185:w=54:h=54:color=0x25D366:t=fill:enable='gte(t,0.12)',drawtext=fontfile=${BOLD}:text='WA':fontcolor=white:fontsize=19:x=115:y=201:enable='gte(t,0.12)',drawtext=fontfile=${BOLD}:text='WhatsApp':fontcolor=0xF2F0EA:fontsize=20:x=176:y=201:enable='gte(t,0.12)',drawbox=x=104:y=280:w=54:h=54:color=0x06C755:t=fill:enable='gte(t,0.22)',drawtext=fontfile=${BOLD}:text='LINE':fontcolor=white:fontsize=14:x=112:y=299:enable='gte(t,0.22)',drawtext=fontfile=${BOLD}:text='LINE':fontcolor=0xF2F0EA:fontsize=20:x=176:y=296:enable='gte(t,0.22)',drawbox=x=104:y=375:w=54:h=54:color=0x168AFF:t=fill:enable='gte(t,0.32)',drawtext=fontfile=${BOLD}:text='M':fontcolor=white:fontsize=24:x=121:y=390:enable='gte(t,0.32)',drawtext=fontfile=${BOLD}:text='Messenger':fontcolor=0xF2F0EA:fontsize=20:x=176:y=391:enable='gte(t,0.32)',drawbox=x=104:y=470:w=54:h=54:color=0x1877F2:t=fill:enable='gte(t,0.42)',drawtext=fontfile=${BOLD}:text='f':fontcolor=white:fontsize=27:x=125:y=481:enable='gte(t,0.42)',drawtext=fontfile=${BOLD}:text='Facebook':fontcolor=0xF2F0EA:fontsize=20:x=176:y=486:enable='gte(t,0.42)',drawbox=x=104:y=565:w=54:h=54:color=0xC13584:t=fill:enable='gte(t,0.52)',drawtext=fontfile=${BOLD}:text='IG':fontcolor=white:fontsize=18:x=116:y=582:enable='gte(t,0.52)',drawtext=fontfile=${BOLD}:text='Instagram':fontcolor=0xF2F0EA:fontsize=20:x=176:y=581:enable='gte(t,0.52)',drawbox=x=104:y=660:w=54:h=54:color=0x4285F4:t=fill:enable='gte(t,0.62)',drawtext=fontfile=${BOLD}:text='G':fontcolor=white:fontsize=23:x=121:y=675:enable='gte(t,0.62)',drawtext=fontfile=${BOLD}:text='Google Reviews':fontcolor=0xF2F0EA:fontsize=18:x=176:y=677:enable='gte(t,0.62)',drawbox=x=104:y=755:w=54:h=54:color=0xEA4335:t=fill:enable='gte(t,0.72)',drawtext=fontfile=${BOLD}:text='@':fontcolor=white:fontsize=22:x=118:y=770:enable='gte(t,0.72)',drawtext=fontfile=${BOLD}:text='Email':fontcolor=0xF2F0EA:fontsize=20:x=176:y=771:enable='gte(t,0.72)',drawbox=x=104:y=850:w=54:h=54:color=0xF2F2EE:t=fill:enable='gte(t,0.82)',drawtext=fontfile=${BOLD}:text='WEB':fontcolor=0x101114:fontsize=12:x=114:y=871:enable='gte(t,0.82)',drawtext=fontfile=${BOLD}:text='Website':fontcolor=0xF2F0EA:fontsize=20:x=176:y=866:enable='gte(t,0.82)'[stage];[stage][ui]overlay=x=700:y=205:enable='gte(t,0.92)':shortest=1[withui];[withui]drawbox=x=430:y=527:w=245:h=2:color=0xD6A66A99:t=fill:enable='between(t,0.55,5.625)',drawbox=x=450:y=930:w=1280:h=1:color=0xD6A66A88:t=fill:enable='gte(t,3.45)',drawtext=fontfile=${FONT}:text='EVERY INTERACTION   -   ONE BUSINESS CONTEXT':fontcolor=0xF3EFE8:fontsize=22:x=690:y=888:enable='gte(t,3.45)',format=yuv420p[v];[2:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=1.03[voice];[3:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=0.10[score];[voice][score]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,alimiter=limit=0.95,atrim=duration=5.625[a]" \
+            -filter_complex "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,eq=contrast=1.03:brightness=-0.02:saturation=0.86[bg];[1:v]scale=1040:-2,format=rgba,fade=t=in:st=0.75:d=0.35:alpha=1[ui];[bg][ui]overlay=x=760:y=235:enable='gte(t,0.75)':shortest=1,format=yuv420p[v];[2:a]atrim=start=75.938:end=81.563,asetpts=PTS-STARTPTS,volume=1.03[a]" \
             -map "[v]" -map "[a]" \
             -c:v libx264 -preset fast -crf 17 -pix_fmt yuv420p -r 24 \
             -c:a aac -b:a 256k -ar 48000 -ac 2 -movflags +faststart \
             scene-17-customer-interaction-review-v2.mp4
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 scene-17-customer-interaction-review-v2.mp4
 
-      - name: Upload render to Creative Storage
+      - name: Upload review render to Creative Storage
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}

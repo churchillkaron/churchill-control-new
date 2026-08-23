@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-import requests
 import runpod
 import torch
 from diffusers.utils import load_image
@@ -28,6 +27,14 @@ ANALYZE_MODEL = os.getenv(
 MAX_ANALYSIS_TOKENS = max(
     128,
     min(4096, int(os.getenv("AVANTIQO_IMAGE_ANALYZE_MAX_NEW_TOKENS", "1400"))),
+)
+MAX_UPSCALE_SOURCE_PIXELS = max(
+    262144,
+    min(16777216, int(os.getenv("AVANTIQO_IMAGE_UPSCALE_MAX_SOURCE_PIXELS", "4194304"))),
+)
+MAX_UPSCALE_OUTPUT_PIXELS = max(
+    1048576,
+    min(67108864, int(os.getenv("AVANTIQO_IMAGE_UPSCALE_MAX_OUTPUT_PIXELS", "33554432"))),
 )
 _OUTPUT_DIR = Path(os.getenv("AVANTIQO_IMAGE_OUTPUT_DIR", "/tmp/avantiqo-image"))
 _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -225,9 +232,17 @@ def _analyze(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
 
 
 def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
-    runpod.serverless.progress_update(job, "loading Avantiqo Image super-resolution")
     source = load_image(data["resolved_source_image"]).convert("RGB")
     source_width, source_height = source.size
+    source_pixels = source_width * source_height
+    if source_pixels > MAX_UPSCALE_SOURCE_PIXELS:
+        raise ValueError(
+            f"AVANTIQO_IMAGE_UPSCALE_SOURCE_TOO_LARGE:{source_width}x{source_height}"
+        )
+    if source_pixels * 16 > MAX_UPSCALE_OUTPUT_PIXELS:
+        raise ValueError("AVANTIQO_IMAGE_UPSCALE_OUTPUT_PIXEL_BUDGET_EXCEEDED")
+
+    runpod.serverless.progress_update(job, "loading Avantiqo Image super-resolution")
     upscaler = _upscale_pipeline()
     runpod.serverless.progress_update(job, "upscaling image")
     result = upscaler(source)
@@ -239,8 +254,11 @@ def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("AVANTIQO_IMAGE_UPSCALE_OUTPUT_INVALID")
     image = result.convert("RGB")
     width, height = image.size
+    output_pixels = width * height
     if width < source_width * 2 or height < source_height * 2:
         raise RuntimeError("AVANTIQO_IMAGE_UPSCALE_FACTOR_INVALID")
+    if output_pixels > MAX_UPSCALE_OUTPUT_PIXELS:
+        raise RuntimeError("AVANTIQO_IMAGE_UPSCALE_OUTPUT_TOO_LARGE")
 
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     path = _OUTPUT_DIR / f"{job_id}-upscale.png"
@@ -270,6 +288,11 @@ def _upscale(data: dict[str, Any], job: dict[str, Any]) -> dict[str, Any]:
         "size_bytes": size_bytes,
         "source_asset_count": len(data.get("source_assets") or []),
         "super_resolution": True,
+        "resource_budget_contract": "AVANTIQO_IMAGE_UPSCALE_RESOURCE_BUDGET_V1",
+        "source_pixels": source_pixels,
+        "output_pixels": output_pixels,
+        "max_source_pixels": MAX_UPSCALE_SOURCE_PIXELS,
+        "max_output_pixels": MAX_UPSCALE_OUTPUT_PIXELS,
         "certification_execution": data.get("certification_execution") is True,
         "raw_reasoning_persisted": False,
     }

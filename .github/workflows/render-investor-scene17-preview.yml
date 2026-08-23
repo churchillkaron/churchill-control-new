@@ -1,5 +1,5 @@
-name: Render Investor Scenes 1-17 Review
-# Simplified transparent compositor trigger 2026-08-23
+name: Render Investor Scenes 9-17 Review
+# Direct remaining-scene renderer 2026-08-23
 
 on:
   push:
@@ -12,9 +12,9 @@ permissions:
   id-token: write
 
 jobs:
-  render-scenes-1-17:
+  render-scenes-9-17:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -35,16 +35,16 @@ jobs:
           TOKEN=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$TOKEN_JSON")
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
-      - name: Render and upload Scenes 1-17
+      - name: Render and upload Scenes 9-17
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
-        run: bash .github/scripts/render-investor-scenes-1-17-review-v5.sh
+        run: bash .github/scripts/render-investor-scenes-09-17-review.sh
 
-      - name: Upload review package artifact
+      - name: Upload remaining review artifact
         uses: actions/upload-artifact@v4
         with:
-          name: avantiqo-investor-scenes-1-17-review
+          name: avantiqo-investor-scenes-09-17-review
           path: review-scenes/
           if-no-files-found: error
           retention-days: 7

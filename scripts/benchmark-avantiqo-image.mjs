@@ -15,6 +15,8 @@ const MAX_JOB_WAIT_MS = Math.max(
   POLL_INTERVAL_MS,
   Number(process.env.AVANTIQO_RUNPOD_BENCHMARK_TIMEOUT_MS || 15 * 60 * 1000),
 );
+const QUALITY_MODEL = "Qwen/Qwen-Image-2512";
+const QUALITY_RUNTIME_REVISION = "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V1";
 const DEFAULT_QUALITY_INSTRUCTION = [
   "Create a photorealistic luxury product photograph of a real, recognizable perfume bottle.",
   "The bottle is rectangular black smoked glass with precise beveled edges, realistic transparent glass thickness visible around the perimeter, and a heavy brushed-gold metal cap with clean manufactured geometry.",
@@ -145,8 +147,12 @@ async function runQueued(endpointId, input, apiKey) {
 
 const apiKey = text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID");
-const foundationModel = text(process.env.AVANTIQO_IMAGE_FOUNDATION_MODEL) || "Qwen/Qwen-Image";
-const requireTrueCfg = /(^|\/)Qwen-Image$/i.test(foundationModel);
+const foundationModel = text(process.env.AVANTIQO_IMAGE_BENCHMARK_FOUNDATION_MODEL) || text(process.env.AVANTIQO_IMAGE_FOUNDATION_MODEL) || "Qwen/Qwen-Image";
+const qualityMode = foundationModel === QUALITY_MODEL;
+const requireTrueCfg = /(^|\/)Qwen-Image(?:-2512)?$/i.test(foundationModel);
+const expectedWidth = qualityMode ? 1328 : 1024;
+const expectedHeight = qualityMode ? 1328 : 1024;
+const inferenceSteps = qualityMode ? 50 : 28;
 const uploadTemplate = required("AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL");
 const referenceTemplate = required("AVANTIQO_IMAGE_BENCHMARK_STORAGE_REFERENCE");
 const instruction = text(process.env.AVANTIQO_IMAGE_BENCHMARK_INSTRUCTION) || DEFAULT_QUALITY_INSTRUCTION;
@@ -176,6 +182,9 @@ for (let index = 0; index < runs; index += 1) {
   const uploadUrl = scoped(uploadTemplate, run, runs, "AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL");
   const storageReference = scoped(referenceTemplate, run, runs, "AVANTIQO_IMAGE_BENCHMARK_STORAGE_REFERENCE");
   console.log(`AVANTIQO_IMAGE_BENCHMARK_RUN=${run}/${runs}`);
+  console.log(`AVANTIQO_IMAGE_BENCHMARK_FOUNDATION=${foundationModel}`);
+  console.log(`AVANTIQO_IMAGE_BENCHMARK_DIMENSIONS=${expectedWidth}x${expectedHeight}`);
+  console.log(`AVANTIQO_IMAGE_BENCHMARK_STEPS=${inferenceSteps}`);
   console.log(`AVANTIQO_IMAGE_BENCHMARK_INSTRUCTION=${instruction}`);
   const { body, wallMs, jobId } = await runQueued(endpointId, {
     contract: CONTRACT,
@@ -186,8 +195,10 @@ for (let index = 0; index < runs; index += 1) {
     usage_id: `benchmark-image-${run}`,
     instruction,
     structured_specification: {
-      output_spec: { aspect_ratio: "1:1" },
-      provider_parameters: { seed: 51000 + index, inference_steps: 28, true_cfg_scale: 4.0 },
+      output_spec: qualityMode
+        ? { width: expectedWidth, height: expectedHeight, aspect_ratio: "1:1" }
+        : { aspect_ratio: "1:1" },
+      provider_parameters: { seed: 51000 + index, inference_steps: inferenceSteps, true_cfg_scale: 4.0 },
     },
     storage_upload: {
       signed_url: uploadUrl,
@@ -200,10 +211,17 @@ for (let index = 0; index < runs; index += 1) {
     text(guidance.mode).toUpperCase() === "TRUE_CFG" &&
     Number(guidance.scale) === 4 &&
     guidance.negative_prompt_supplied === true;
+  const qualityRuntimeVerified = !qualityMode ||
+    (text(output.runtime_revision) === QUALITY_RUNTIME_REVISION &&
+      text(output.foundation_model_source) === "runpod-cache" &&
+      guidance.negative_prompt_has_content === true &&
+      text(guidance.quality_policy) === "QWEN_IMAGE_2512_REALISM_V1" &&
+      Number(output.inference_steps) === 50);
   console.log(
     `AVANTIQO_IMAGE_GENERATION_GUIDANCE=${JSON.stringify({
       required: requireTrueCfg,
       verified: requireTrueCfg ? trueCfgVerified : null,
+      quality_runtime_verified: qualityMode ? qualityRuntimeVerified : null,
       ...guidance,
     })}`,
   );
@@ -219,17 +237,22 @@ for (let index = 0; index < runs; index += 1) {
     size_bytes: Number(output.size_bytes) || null,
     seed: Number(output.seed) || null,
     foundation_model: text(output.foundation_model),
+    foundation_model_source: text(output.foundation_model_source),
+    runtime_revision: text(output.runtime_revision),
+    inference_steps: Number(output.inference_steps) || null,
     storage_reference: storageReference,
     preview_url: previewUrl,
     generation_guidance: guidance,
     true_cfg_verified: requireTrueCfg ? trueCfgVerified : null,
+    quality_runtime_verified: qualityMode ? qualityRuntimeVerified : null,
     passed:
       text(output.capability) === "ai.image.generate" &&
       text(output.foundation_model) === foundationModel &&
-      Number(output.width) === 1024 && Number(output.height) === 1024 &&
+      Number(output.width) === expectedWidth && Number(output.height) === expectedHeight &&
       Number(output.size_bytes) > 10000 &&
       output.raw_reasoning_persisted === false &&
-      (!requireTrueCfg || trueCfgVerified),
+      (!requireTrueCfg || trueCfgVerified) &&
+      qualityRuntimeVerified,
   });
 }
 
@@ -241,6 +264,13 @@ const report = {
   purpose: "MEASURE_ONLY_DO_NOT_ACTIVATE_PRICING",
   instruction,
   model: { provider: "avantiqo-image", foundation_model: foundationModel, capability: "ai.image.generate" },
+  quality_recipe: {
+    qwen_2512_mode: qualityMode,
+    expected_width: expectedWidth,
+    expected_height: expectedHeight,
+    inference_steps: inferenceSteps,
+    true_cfg_scale: 4.0,
+  },
   runpod_wait_policy: {
     submission_mode: "ASYNC_RUN_STATUS_POLLING",
     submit_timeout_ms: SUBMIT_TIMEOUT_MS,
@@ -255,6 +285,9 @@ const report = {
     true_cfg_required: requireTrueCfg,
     true_cfg_verified: requireTrueCfg
       ? observations.length > 0 && observations.every((item) => item.true_cfg_verified === true)
+      : null,
+    qwen_2512_quality_runtime_verified: qualityMode
+      ? observations.length > 0 && observations.every((item) => item.quality_runtime_verified === true)
       : null,
     p50_wall_ms: percentile(wall, 0.5),
     p95_wall_ms: percentile(wall, 0.95),

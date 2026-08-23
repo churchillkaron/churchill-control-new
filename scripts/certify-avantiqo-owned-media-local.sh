@@ -46,13 +46,40 @@ case "${AVANTIQO_MEDIA_CERTIFICATION_RESUME:-}" in
   1|true|TRUE|yes|YES|on|ON) RESUME_ENABLED=1 ;;
 esac
 
+TARGET_CAPABILITY=${AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY:-}
+TARGETED_RETRY_ENABLED=0
+if [ -n "$TARGET_CAPABILITY" ]; then
+  TARGETED_RETRY_ENABLED=1
+fi
+
+BENCHMARK_PATH=${AVANTIQO_MEDIA_FULL_BENCHMARK_OUTPUT:-/tmp/avantiqo-owned-media-full-capability-benchmark.json}
+
+if [ "$TARGETED_RETRY_ENABLED" -eq 1 ]; then
+  if [ "$RESUME_ENABLED" -ne 1 ]; then
+    echo "AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_REQUIRES_RESUME" >&2
+    exit 1
+  fi
+  case "$TARGET_CAPABILITY" in
+    ai.image.generate|ai.image.edit|ai.image.inpaint|ai.image.outpaint|ai.image.upscale|ai.image.analyze|ai.video.generate|ai.video.image_to_video|ai.video.first_last_frame_to_video|ai.video.video_to_video|ai.video.edit|ai.video.inpaint|ai.video.extend|ai.video.upscale|ai.video.lipsync) ;;
+    *)
+      echo "AVANTIQO_MEDIA_CERTIFICATION_TARGET_INVALID:${TARGET_CAPABILITY}" >&2
+      exit 1
+      ;;
+  esac
+  if [ ! -f "$BENCHMARK_PATH" ]; then
+    echo "AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_CHECKPOINT_REQUIRED:${BENCHMARK_PATH}" >&2
+    exit 1
+  fi
+  echo "AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY=${TARGET_CAPABILITY}"
+fi
+
 rm -f \
   /tmp/avantiqo-owned-media-local-preflight.json \
   /tmp/avantiqo-media-certification-fixtures.json \
   /tmp/avantiqo-owned-media-human-review.json
 
 if [ "$RESUME_ENABLED" -eq 0 ]; then
-  rm -f /tmp/avantiqo-owned-media-full-capability-benchmark.json
+  rm -f "$BENCHMARK_PATH"
   echo "AVANTIQO_MEDIA_CERTIFICATION_RESUME=DISABLED_FRESH_BENCHMARK"
 else
   echo "AVANTIQO_MEDIA_CERTIFICATION_RESUME=ENABLED_PRESERVE_BENCHMARK_CHECKPOINT"
@@ -107,25 +134,53 @@ node --env-file=.env.local -e '
 const fs = require("node:fs");
 const reportPath = process.env.AVANTIQO_MEDIA_FULL_BENCHMARK_OUTPUT || "/tmp/avantiqo-owned-media-full-capability-benchmark.json";
 const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
-if (report?.summary?.all_mechanical_checks_passed !== true) {
-  console.error("AVANTIQO_MEDIA_CERTIFICATION_MECHANICAL_EVIDENCE_INCOMPLETE");
-  process.exit(1);
-}
-if (report?.summary?.economics_evidence_complete !== true) {
-  console.error("AVANTIQO_MEDIA_CERTIFICATION_ECONOMICS_EVIDENCE_INCOMPLETE");
-  process.exit(1);
-}
-if (report?.summary?.ready_for_human_quality_review !== true) {
-  console.error("AVANTIQO_MEDIA_CERTIFICATION_NOT_READY_FOR_HUMAN_REVIEW");
-  process.exit(1);
+const target = String(process.env.AVANTIQO_MEDIA_CERTIFICATION_CAPABILITY || "").trim();
+if (target) {
+  if (report?.resume?.targeted_retry_enabled !== true || report?.resume?.target_capability !== target) {
+    console.error("AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_REPORT_INVALID");
+    process.exit(1);
+  }
+  if (report?.summary?.capabilities_executed_this_run !== 1 || report?.resume?.capabilities_executed_this_run?.[0] !== target) {
+    console.error("AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_EXECUTION_SCOPE_INVALID");
+    process.exit(1);
+  }
+  const result = Array.isArray(report?.cases)
+    ? report.cases.find((item) => item?.capability === target)
+    : null;
+  if (result?.mechanical_passed !== true) {
+    console.error(`AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_FAILED:${target}`);
+    process.exit(1);
+  }
+  console.log(`AVANTIQO_MEDIA_CERTIFICATION_TARGET_RETRY_PASSED=${target}`);
+} else {
+  if (report?.summary?.all_mechanical_checks_passed !== true) {
+    console.error("AVANTIQO_MEDIA_CERTIFICATION_MECHANICAL_EVIDENCE_INCOMPLETE");
+    process.exit(1);
+  }
+  if (report?.summary?.economics_evidence_complete !== true) {
+    console.error("AVANTIQO_MEDIA_CERTIFICATION_ECONOMICS_EVIDENCE_INCOMPLETE");
+    process.exit(1);
+  }
 }
 console.log(`AVANTIQO_MEDIA_CERTIFICATION_REPORT=${reportPath}`);
 console.log(`AVANTIQO_MEDIA_CERTIFICATION_REUSED=${Number(report?.summary?.capabilities_reused || 0)}`);
+console.log(`AVANTIQO_MEDIA_CERTIFICATION_PRESERVED=${Number(report?.summary?.capabilities_preserved_without_execution || 0)}`);
 console.log(`AVANTIQO_MEDIA_CERTIFICATION_EXECUTED_THIS_RUN=${Number(report?.summary?.capabilities_executed_this_run || 0)}`);
 '
 
-node --env-file=.env.local scripts/prepare-avantiqo-owned-media-human-review.mjs
 node --env-file=.env.local -e '
+const fs = require("node:fs");
+const reportPath = process.env.AVANTIQO_MEDIA_FULL_BENCHMARK_OUTPUT || "/tmp/avantiqo-owned-media-full-capability-benchmark.json";
+const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+if (report?.summary?.ready_for_human_quality_review === true) process.exit(0);
+console.log("AVANTIQO_MEDIA_HUMAN_REVIEW_PACK=DEFERRED_UNTIL_FULL_MECHANICAL_AND_ECONOMICS_PASS");
+process.exit(10);
+' || HUMAN_REVIEW_GATE=$?
+HUMAN_REVIEW_GATE=${HUMAN_REVIEW_GATE:-0}
+
+if [ "$HUMAN_REVIEW_GATE" -eq 0 ]; then
+  node --env-file=.env.local scripts/prepare-avantiqo-owned-media-human-review.mjs
+  node --env-file=.env.local -e '
 const fs = require("node:fs");
 const reviewPath = process.env.AVANTIQO_MEDIA_HUMAN_REVIEW_OUTPUT || "/tmp/avantiqo-owned-media-human-review.json";
 const review = JSON.parse(fs.readFileSync(reviewPath, "utf8"));
@@ -139,7 +194,14 @@ if (review?.review_status !== "PENDING_HUMAN_REVIEW" || review?.activation_allow
 }
 console.log(`AVANTIQO_MEDIA_HUMAN_REVIEW_PACK=${reviewPath}`);
 '
+elif [ "$HUMAN_REVIEW_GATE" -ne 10 ]; then
+  exit "$HUMAN_REVIEW_GATE"
+fi
 
 echo "AVANTIQO_OWNED_MEDIA_LOCAL_CERTIFICATION_MEASUREMENT_COMPLETE"
-echo "HUMAN_REVIEW=PENDING"
+if [ "$HUMAN_REVIEW_GATE" -eq 0 ]; then
+  echo "HUMAN_REVIEW=PENDING"
+else
+  echo "HUMAN_REVIEW=DEFERRED"
+fi
 echo "PRODUCTION_ACTIVATION=FORBIDDEN_PENDING_HUMAN_QUALITY_AND_FINAL_CERTIFICATION"

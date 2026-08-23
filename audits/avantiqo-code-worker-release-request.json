@@ -1,0 +1,1 @@
+{"contract":"AVANTIQO_CODE_WORKER_RELEASE_REQUEST_V1","requested":true,"reason":"Deploy corrected source-locked Qwen3-Coder FP8 vLLM 0.27.1 RunPod worker image","production_web_deploy":false,"database_migration":false}

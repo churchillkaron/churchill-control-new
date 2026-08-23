@@ -259,9 +259,17 @@ requireMarkers("SHARED_RESEARCH", research, [
 ]);
 
 requireMarkers("BENCHMARK", benchmark, [
-  "sandbox_execution_certified:false",
-  "broader_capability_suite_required:true",
-  "activation_allowed:false",
+  "AVANTIQO_CODE_CERTIFICATION_BENCHMARK_V2",
+  'id: "generate_finite_sum"',
+  'id: "edit_numeric_normalization"',
+  'id: "refactor_email_normalization"',
+  'id: "review_authorization_guard"',
+  'id: "debug_numeric_reduce"',
+  'id: "autonomous_planner_json_protocol"',
+  "plannerProtocolPass",
+  "measured_gpu_economics_required: true",
+  "activation_allowed: false",
+  'sandbox_execution_gate: "SEPARATE_LIVE_GATE"',
 ]);
 
 requireMarkers("SANDBOX_SMOKE", sandboxSmoke, [
@@ -283,7 +291,7 @@ if (/git\s+push|vercel\s+deploy|supabase\s+db\s+push/.test(mission + autonomous)
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V4",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V5",
   verified: {
     owned_code_worker: true,
     certified_capability_gate: true,
@@ -308,10 +316,11 @@ console.log(JSON.stringify({
     persistent_commit_permission_separated: true,
     production_side_effects_blocked_from_autonomous_workspace: true,
     live_sandbox_smoke_available: true,
+    broader_owned_model_benchmark_available: true,
     live_sandbox_execution_certified: false,
     live_owned_planner_execution_certified: false,
     live_github_connect_commit_certified: false,
     broader_model_capability_suite_certified: false,
   },
-  note: "Source architecture audit passed only when this script is actually executed. A zero-provider-spend live Sandbox smoke is available separately; live Sandbox, live owned planner execution, live Vercel Connect/GitHub write-back, and broader model benchmarks remain uncertified until their environment-backed certification runs pass.",
+  note: "Source architecture audit passed only when this script is actually executed. Live Sandbox evidence is certified by the separate smoke result; live owned planner/model execution, live Vercel Connect/GitHub write-back, and measured production economics remain separate environment-backed gates.",
 }, null, 2));

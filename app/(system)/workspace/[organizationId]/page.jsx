@@ -5,6 +5,7 @@ import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAle
 import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
 import SyntheticIntelligenceControlCenter from "@/components/operator/SyntheticIntelligenceControlCenter";
 import SyntheticIntelligenceForecastTrackRecord from "@/components/operator/SyntheticIntelligenceForecastTrackRecord";
+import SyntheticIntelligenceDeliveryControl from "@/components/operator/SyntheticIntelligenceDeliveryControl";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 
 function getGreeting(name) {
@@ -57,6 +58,10 @@ export default function OrganizationWorkspacePage() {
         />
         <SyntheticIntelligenceForecastTrackRecord
           organizationId={organizationId}
+        />
+        <SyntheticIntelligenceDeliveryControl
+          organizationId={organizationId}
+          role={role}
         />
       </div>
 

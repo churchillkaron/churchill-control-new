@@ -34,6 +34,7 @@ const files = Object.fromEntries(
       "lib/operator/runtime/OperatorMissionBindingRuntime.js",
       "lib/operator/runtime/OperatorMissionBindingExecutionRuntime.js",
       "lib/operator/runtime/OperatorTurnRuntime.js",
+      "lib/operator/runtime/OperatorHumanDecisionClassifier.js",
       "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js",
       "lib/platform/research/runtime/OperatorWebResearchRuntime.js",
       "lib/platform/research/runtime/OperatorWebSourceReadRuntime.js",
@@ -106,6 +107,22 @@ requireFragments("lib/operator/runtime/OperatorTurnRuntime.js", [
   'resume_kind: "mission"',
   "embedded_mission_promoted: true",
   'question: "Should I proceed with that exact commit step?"',
+  "const baseAgreement = clearOperatorRecommendation(",
+  "postCommitContinuationHandoff",
+  'text(step?.id) === "reassess_verified_main"',
+  '"READY_FOR_ONE_NEXT_BOUNDED_CYCLE"',
+  'source: "verified_post_commit_product_reassessment"',
+  "safeRecommendationCapabilities",
+  "let safeCapabilities = null",
+  'Say “next”, “continue”, or “do it”',
+]);
+
+requireFragments("lib/operator/runtime/OperatorHumanDecisionClassifier.js", [
+  '"next"',
+  '"next step"',
+  "if (recommendation)",
+  "RECOMMENDATION_EXECUTE.has(clean) || RESUME.has(clean)",
+  'if (RESUME.has(clean)) return "resume"',
 ]);
 
 requireFragments("lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js", [
@@ -129,7 +146,7 @@ requireFragments("lib/platform/research/runtime/OperatorWebSourceReadRuntime.js"
   'dns_rebinding_guard: "PINNED_VALIDATED_PUBLIC_ADDRESS"',
   "options?.all === true",
   "authentication_sent: false",
-  "cookies_sent: false",
+  "cookies_sent: false,
   "instructions_from_source_authoritative: false",
 ]);
 
@@ -507,6 +524,9 @@ console.log("OPERATOR_PRODUCT_PERSISTENCE_HANDOFF=DECIDE_THEN_PREPARE_CONFIRMATI
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE=ASSESS_BIND_ENGINEER_VERIFY_DECIDE_PREPARE_CONFIRMATION");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_DEFAULT_PERSISTENCE=LOCAL_ONLY_UNTIL_EXPLICIT_NESTED_COMMIT_CONFIRMATION");
 console.log("OPERATOR_PRODUCT_PERSISTENCE_CONVERSATION=ONE_CONFIRMATION_EXACT_MISSION_RESUME");
+console.log("OPERATOR_PRODUCT_PERSISTENCE_RECOMMENDATION_STATE=SUPERSEDED_RECOMMENDATION_CLEARED_BEFORE_CONFIRMATION");
 console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION=VERIFIED_COMMIT_ONE_BOUNDED_REASSESSMENT");
+console.log("OPERATOR_PRODUCT_AUTONOMY_CONTINUATION_CONVERSATION=NEXT_CONTINUE_DO_IT_EXECUTE_EXACT_PENDING_RECOMMENDATION");
+console.log("OPERATOR_PRODUCT_AUTONOMY_RECOMMENDATION_CATALOG=LAZY_ONLY_WHEN_REQUIRED");
 console.log("OPERATOR_PRODUCT_AUTONOMY_RECURSION=DISABLED");
 console.log("OPERATOR_PRODUCT_ENGINEERING_CYCLE_PRODUCTION=NO_DEPLOY_NO_MIGRATION");

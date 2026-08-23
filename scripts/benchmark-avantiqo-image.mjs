@@ -6,6 +6,7 @@ const CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1";
 const SUBMIT_TIMEOUT_MS = 30000;
 const STATUS_TIMEOUT_MS = 30000;
 const POLL_INTERVAL_MS = 5000;
+const HEARTBEAT_INTERVAL_MS = 15000;
 const MAX_JOB_WAIT_MS = Math.max(
   POLL_INTERVAL_MS,
   Number(process.env.AVANTIQO_RUNPOD_BENCHMARK_TIMEOUT_MS || 15 * 60 * 1000),
@@ -36,6 +37,26 @@ function errorDetail(body = {}) {
   if (value && typeof value === "object") return JSON.stringify(value).slice(0, 1000);
   return text(value).slice(0, 1000);
 }
+function safeMetric(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.round(number) : null;
+}
+function logProgress(jobId, status, started, body = {}, reason = "STATUS") {
+  const elapsedSeconds = Math.max(0, Math.round((performance.now() - started) / 1000));
+  const delayMs = safeMetric(body?.delayTime);
+  const executionMs = safeMetric(body?.executionTime);
+  console.log(
+    [
+      "AVANTIQO_IMAGE_RUNPOD_PROGRESS",
+      `reason=${reason}`,
+      `job_id=${jobId}`,
+      `status=${status || "UNKNOWN"}`,
+      `elapsed_seconds=${elapsedSeconds}`,
+      `delay_ms=${delayMs ?? "unknown"}`,
+      `execution_ms=${executionMs ?? "unknown"}`,
+    ].join(" "),
+  );
+}
 async function parseJsonResponse(response) {
   const raw = await response.text();
   let body = {};
@@ -47,6 +68,7 @@ async function parseJsonResponse(response) {
 }
 async function runQueued(endpointId, input, apiKey) {
   const started = performance.now();
+  console.log("AVANTIQO_IMAGE_RUNPOD_SUBMITTING=true");
   const submitResponse = await fetch(`${API_BASE}/${endpointId}/run`, {
     method: "POST",
     headers: {
@@ -62,14 +84,19 @@ async function runQueued(endpointId, input, apiKey) {
   const jobId = text(body?.id);
 
   if (status === "COMPLETED") {
+    console.log(`AVANTIQO_IMAGE_RUNPOD_JOB_COMPLETED_IMMEDIATELY=${jobId || "unknown"}`);
     return { body, wallMs: Math.round(performance.now() - started), jobId: jobId || null };
   }
   if (!jobId) throw new Error(`RUNPOD_ASYNC_SUBMIT_JOB_ID_MISSING:${status || "UNKNOWN"}`);
+  console.log(`AVANTIQO_IMAGE_RUNPOD_JOB_SUBMITTED=${jobId}`);
+  logProgress(jobId, status, started, body, "SUBMITTED");
   if (terminalFailure(status)) {
     throw new Error(`RUNPOD_JOB_${status}:${errorDetail(body)}`);
   }
 
   const deadline = Date.now() + MAX_JOB_WAIT_MS;
+  let lastStatus = status;
+  let lastHeartbeatAt = Date.now();
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
     const statusResponse = await fetch(
@@ -82,7 +109,17 @@ async function runQueued(endpointId, input, apiKey) {
     );
     body = await parseJsonResponse(statusResponse);
     status = text(body?.status).toUpperCase();
+    const now = Date.now();
+    if (status !== lastStatus) {
+      logProgress(jobId, status, started, body, "STATUS_CHANGE");
+      lastStatus = status;
+      lastHeartbeatAt = now;
+    } else if (now - lastHeartbeatAt >= HEARTBEAT_INTERVAL_MS) {
+      logProgress(jobId, status, started, body, "HEARTBEAT");
+      lastHeartbeatAt = now;
+    }
     if (status === "COMPLETED") {
+      console.log(`AVANTIQO_IMAGE_RUNPOD_JOB_COMPLETED=${jobId}`);
       return { body, wallMs: Math.round(performance.now() - started), jobId };
     }
     if (terminalFailure(status)) {
@@ -102,6 +139,7 @@ const observations = [];
 
 for (let index = 0; index < runs; index += 1) {
   const run = index + 1;
+  console.log(`AVANTIQO_IMAGE_BENCHMARK_RUN=${run}/${runs}`);
   const { body, wallMs, jobId } = await runQueued(endpointId, {
     contract: CONTRACT,
     capability: "ai.image.generate",
@@ -151,6 +189,7 @@ const report = {
     submit_timeout_ms: SUBMIT_TIMEOUT_MS,
     status_timeout_ms: STATUS_TIMEOUT_MS,
     poll_interval_ms: POLL_INTERVAL_MS,
+    heartbeat_interval_ms: HEARTBEAT_INTERVAL_MS,
     max_job_wait_ms: MAX_JOB_WAIT_MS,
   },
   summary: {

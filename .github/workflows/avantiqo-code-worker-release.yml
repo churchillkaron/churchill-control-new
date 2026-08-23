@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Verify Code worker release contract
         shell: bash
@@ -38,23 +38,94 @@ jobs:
           echo 'AVANTIQO_CODE_WORKER_RELEASE_PREFLIGHT=PASS'
 
       - name: Create immutable Code worker release
+        id: release
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          short_sha="${release_sha:0:12}"
+          tag="avantiqo-code-worker-${short_sha}"
+          status="FAILED"
+
+          if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            status="EXISTS"
+          elif gh release create "$tag" \
+            --repo "$GH_REPO" \
+            --target "$release_sha" \
+            --title "Avantiqo Code Worker ${short_sha}" \
+            --notes "Avantiqo-owned Code worker release for RunPod. Source-locked Qwen3-Coder 30B A3B FP8 served by vLLM 0.27.1. This release does not deploy the Avantiqo web application or modify production databases."; then
+            status="CREATED"
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "release_status=$status" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_CODE_WORKER_RELEASE_STATUS=$status"
+          echo "AVANTIQO_CODE_WORKER_RELEASE_TAG=$tag"
+          echo "AVANTIQO_CODE_WORKER_RELEASE_SHA=$release_sha"
+
+          if [ "$status" = "FAILED" ]; then
+            exit 1
+          fi
+
+      - name: Record sanitized release evidence on main
+        if: always()
+        env:
+          RELEASE_STATUS: ${{ steps.release.outputs.release_status || 'NOT_RUN' }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag || '' }}
+          RELEASE_SHA: ${{ steps.release.outputs.release_sha || '' }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
-          short_sha="${RELEASE_SHA:0:12}"
-          tag="avantiqo-code-worker-${short_sha}"
-          if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
-            echo "AVANTIQO_CODE_WORKER_RELEASE_EXISTS=$tag"
+          mkdir -p audits/results
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          const report = {
+            success: ["CREATED", "EXISTS"].includes(process.env.RELEASE_STATUS || ""),
+            contract: "AVANTIQO_CODE_WORKER_RELEASE_RESULT_V1",
+            release_status: process.env.RELEASE_STATUS || "NOT_RUN",
+            release_tag: process.env.RELEASE_TAG || null,
+            release_sha: process.env.RELEASE_SHA || null,
+            github_run_id: process.env.RELEASE_RUN_ID || null,
+            runtime: "vllm-0.27.1",
+            runtime_model: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+            production_web_deploy: false,
+            database_migration: false,
+            provider_job_submitted: false,
+            secrets_in_output: false,
+          };
+          writeFileSync(
+            "audits/results/avantiqo-code-worker-release.json",
+            `${JSON.stringify(report)}\n`,
+            "utf8",
+          );
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audits/results/avantiqo-code-worker-release.json
+          if git diff --cached --quiet; then
+            echo "AVANTIQO_CODE_WORKER_RELEASE_EVIDENCE_UNCHANGED=YES"
             exit 0
           fi
-          gh release create "$tag" \
-            --repo "$GH_REPO" \
-            --target "$RELEASE_SHA" \
-            --title "Avantiqo Code Worker ${short_sha}" \
-            --notes "Avantiqo-owned Code worker release for RunPod. Source-locked Qwen3-Coder 30B A3B FP8 served by vLLM 0.27.1. This release does not deploy the Avantiqo web application or modify production databases."
-          echo "AVANTIQO_CODE_WORKER_RELEASE_CREATED=$tag"
-          echo "AVANTIQO_CODE_WORKER_RELEASE_SHA=$RELEASE_SHA"
+          git commit -m "Record Code worker release result"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+      - name: Enforce release success
+        if: always()
+        env:
+          RELEASE_STATUS: ${{ steps.release.outputs.release_status || 'NOT_RUN' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RELEASE_STATUS" in
+            CREATED|EXISTS) ;;
+            *) echo "AVANTIQO_CODE_WORKER_RELEASE_FAILED=$RELEASE_STATUS"; exit 1 ;;
+          esac

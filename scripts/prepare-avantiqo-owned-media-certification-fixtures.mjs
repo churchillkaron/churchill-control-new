@@ -15,7 +15,12 @@ const RUN_ID = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
 const PREFIX = `platform-certification/owned-media-local/${RUN_ID}`;
 const SOURCE_URL_TTL_SECONDS = 4 * 60 * 60;
 const LIPSYNC_FIXTURE_SECONDS = 4;
-const OUTPUT_CAPABILITIES = Object.freeze([
+const CORE_OUTPUT_CAPABILITIES = Object.freeze([
+  "ai.image.generate",
+  "ai.video.generate",
+  "ai.video.image_to_video",
+]);
+const FULL_OUTPUT_CAPABILITIES = Object.freeze([
   "ai.image.generate",
   "ai.image.edit",
   "ai.image.inpaint",
@@ -34,6 +39,10 @@ const OUTPUT_CAPABILITIES = Object.freeze([
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function enabled(value) {
+  return ["1", "true", "yes", "on"].includes(text(value).toLowerCase());
 }
 
 function required(name) {
@@ -255,27 +264,67 @@ async function outputTarget(supabase, capability) {
   };
 }
 
-const faceVideoPath = localFile("AVANTIQO_MEDIA_CERTIFICATION_FACE_VIDEO_PATH");
-const faceAudioPath = localFile("AVANTIQO_MEDIA_CERTIFICATION_FACE_AUDIO_PATH");
+const fixtureScope = text(process.env.AVANTIQO_MEDIA_CERTIFICATION_FIXTURE_SCOPE).toUpperCase();
+const coreOnly =
+  fixtureScope === "CORE" ||
+  fixtureScope === "CORE_IMAGE_CINEMA" ||
+  enabled(process.env.AVANTIQO_MEDIA_CERTIFICATION_CORE_FIXTURES);
+const outputCapabilities = coreOnly ? CORE_OUTPUT_CAPABILITIES : FULL_OUTPUT_CAPABILITIES;
+
 const supabase = supabaseClient();
 const images = await sourceImages();
-const videoPath = syntheticVideo(images.firstPath);
-const videoMaskPath = await syntheticVideoMask();
-const lipsyncFixtures = normalizedLipSyncFixtures(faceVideoPath, faceAudioPath);
-
 const sourceUploads = {
   image_source: await uploadFile(supabase, images.imagePath, `${PREFIX}/image-source.png`, "image/png"),
-  image_mask: await uploadFile(supabase, images.maskPath, `${PREFIX}/image-mask.png`, "image/png"),
   video_first_frame: await uploadFile(supabase, images.firstPath, `${PREFIX}/video-first.png`, "image/png"),
-  video_last_frame: await uploadFile(supabase, images.lastPath, `${PREFIX}/video-last.png`, "image/png"),
-  video_source: await uploadFile(supabase, videoPath, `${PREFIX}/video-source.mp4`, "video/mp4"),
-  video_mask: await uploadFile(supabase, videoMaskPath, `${PREFIX}/video-mask.mp4`, "video/mp4"),
-  lipsync_video: await uploadFile(supabase, lipsyncFixtures.video, `${PREFIX}/lipsync-face.mp4`, "video/mp4"),
-  lipsync_audio: await uploadFile(supabase, lipsyncFixtures.audio, `${PREFIX}/lipsync-audio.wav`, "audio/wav"),
 };
+let lipsyncFixtures = null;
+
+if (!coreOnly) {
+  const faceVideoPath = localFile("AVANTIQO_MEDIA_CERTIFICATION_FACE_VIDEO_PATH");
+  const faceAudioPath = localFile("AVANTIQO_MEDIA_CERTIFICATION_FACE_AUDIO_PATH");
+  const videoPath = syntheticVideo(images.firstPath);
+  const videoMaskPath = await syntheticVideoMask();
+  lipsyncFixtures = normalizedLipSyncFixtures(faceVideoPath, faceAudioPath);
+  sourceUploads.image_mask = await uploadFile(
+    supabase,
+    images.maskPath,
+    `${PREFIX}/image-mask.png`,
+    "image/png",
+  );
+  sourceUploads.video_last_frame = await uploadFile(
+    supabase,
+    images.lastPath,
+    `${PREFIX}/video-last.png`,
+    "image/png",
+  );
+  sourceUploads.video_source = await uploadFile(
+    supabase,
+    videoPath,
+    `${PREFIX}/video-source.mp4`,
+    "video/mp4",
+  );
+  sourceUploads.video_mask = await uploadFile(
+    supabase,
+    videoMaskPath,
+    `${PREFIX}/video-mask.mp4`,
+    "video/mp4",
+  );
+  sourceUploads.lipsync_video = await uploadFile(
+    supabase,
+    lipsyncFixtures.video,
+    `${PREFIX}/lipsync-face.mp4`,
+    "video/mp4",
+  );
+  sourceUploads.lipsync_audio = await uploadFile(
+    supabase,
+    lipsyncFixtures.audio,
+    `${PREFIX}/lipsync-audio.wav`,
+    "audio/wav",
+  );
+}
 
 const uploads = {};
-for (const capability of OUTPUT_CAPABILITIES) {
+for (const capability of outputCapabilities) {
   uploads[capability] = await outputTarget(supabase, capability);
 }
 
@@ -283,35 +332,39 @@ const fixtures = {
   contract: "AVANTIQO_OWNED_MEDIA_CERTIFICATION_FIXTURES_V1",
   generated_at: new Date().toISOString(),
   source_scope: "BENCHMARK_ONLY",
+  fixture_scope: coreOnly ? "CORE_IMAGE_CINEMA" : "FULL_WITH_LIPSYNC",
   provider_calls_added: 0,
   prefix: PREFIX,
   image_source_url: sourceUploads.image_source.signed_url,
-  image_mask_url: sourceUploads.image_mask.signed_url,
+  image_mask_url: sourceUploads.image_mask?.signed_url || null,
   video_first_frame_url: sourceUploads.video_first_frame.signed_url,
-  video_last_frame_url: sourceUploads.video_last_frame.signed_url,
-  video_source_url: sourceUploads.video_source.signed_url,
-  video_mask_url: sourceUploads.video_mask.signed_url,
-  lipsync_video_source_url: sourceUploads.lipsync_video.signed_url,
-  audio_source_url: sourceUploads.lipsync_audio.signed_url,
-  lipsync_fixture: {
-    normalized: true,
-    video_codec: "h264",
-    pixel_format: "yuv420p",
-    fps: 25,
-    audio_codec: "pcm_s16le",
-    audio_channels: 1,
-    audio_sample_rate_hz: 16000,
-    video_duration_seconds: lipsyncFixtures.videoDuration,
-    audio_duration_seconds: lipsyncFixtures.audioDuration,
-  },
+  video_last_frame_url: sourceUploads.video_last_frame?.signed_url || null,
+  video_source_url: sourceUploads.video_source?.signed_url || null,
+  video_mask_url: sourceUploads.video_mask?.signed_url || null,
+  lipsync_video_source_url: sourceUploads.lipsync_video?.signed_url || null,
+  audio_source_url: sourceUploads.lipsync_audio?.signed_url || null,
+  lipsync_fixture: lipsyncFixtures
+    ? {
+        normalized: true,
+        video_codec: "h264",
+        pixel_format: "yuv420p",
+        fps: 25,
+        audio_codec: "pcm_s16le",
+        audio_channels: 1,
+        audio_sample_rate_hz: 16000,
+        video_duration_seconds: lipsyncFixtures.videoDuration,
+        audio_duration_seconds: lipsyncFixtures.audioDuration,
+      }
+    : null,
   source_storage_references: Object.fromEntries(
     Object.entries(sourceUploads).map(([key, value]) => [key, value.storage_reference]),
   ),
   uploads,
   policy: {
     deterministic_non_lipsync_fixtures_generated_locally: true,
-    lipsync_requires_real_face_video_and_matching_audio: true,
-    lipsync_input_normalized_locally_before_upload: true,
+    lipsync_required_for_fixture_scope: !coreOnly,
+    lipsync_requires_real_face_video_and_matching_audio: !coreOnly,
+    lipsync_input_normalized_locally_before_upload: lipsyncFixtures !== null,
     benchmark_only_storage_scope: true,
     signed_source_urls_expire: true,
     production_activation_forbidden: true,
@@ -322,9 +375,10 @@ fs.writeFileSync(OUTPUT, `${JSON.stringify(fixtures, null, 2)}\n`, "utf8");
 console.log(JSON.stringify({
   success: true,
   contract: fixtures.contract,
+  fixture_scope: fixtures.fixture_scope,
   output_path: OUTPUT,
   prefix: PREFIX,
   provider_calls_added: 0,
-  output_targets: OUTPUT_CAPABILITIES.length,
-  lipsync_fixture_normalized: true,
+  output_targets: outputCapabilities.length,
+  lipsync_fixture_normalized: fixtures.lipsync_fixture?.normalized === true,
 }, null, 2));

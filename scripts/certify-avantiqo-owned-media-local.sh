@@ -41,15 +41,30 @@ command -v ffprobe >/dev/null 2>&1 || {
   exit 1
 }
 
-FIXTURES=${AVANTIQO_MEDIA_CERTIFICATION_FIXTURES:-/tmp/avantiqo-media-certification-fixtures.json}
-REPORT=${AVANTIQO_MEDIA_FULL_BENCHMARK_OUTPUT:-/tmp/avantiqo-owned-media-full-capability-benchmark.json}
-
-rm -f "$FIXTURES" "$REPORT"
+rm -f \
+  /tmp/avantiqo-media-certification-fixtures.json \
+  /tmp/avantiqo-owned-media-full-capability-benchmark.json
 
 node --env-file=.env.local scripts/prepare-avantiqo-owned-media-certification-fixtures.mjs
 node --env-file=.env.local scripts/benchmark-avantiqo-owned-media-full.mjs
+node --env-file=.env.local -e '
+const fs = require("node:fs");
+const reportPath = process.env.AVANTIQO_MEDIA_FULL_BENCHMARK_OUTPUT || "/tmp/avantiqo-owned-media-full-capability-benchmark.json";
+const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+if (report?.summary?.all_mechanical_checks_passed !== true) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_MECHANICAL_EVIDENCE_INCOMPLETE");
+  process.exit(1);
+}
+if (report?.summary?.economics_evidence_complete !== true) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_ECONOMICS_EVIDENCE_INCOMPLETE");
+  process.exit(1);
+}
+if (report?.summary?.ready_for_human_quality_review !== true) {
+  console.error("AVANTIQO_MEDIA_CERTIFICATION_NOT_READY_FOR_HUMAN_REVIEW");
+  process.exit(1);
+}
+console.log(`AVANTIQO_MEDIA_CERTIFICATION_REPORT=${reportPath}`);
+'
 
 echo "AVANTIQO_OWNED_MEDIA_LOCAL_CERTIFICATION_MEASUREMENT_COMPLETE"
-echo "FIXTURES=$FIXTURES"
-echo "REPORT=$REPORT"
 echo "PRODUCTION_ACTIVATION=FORBIDDEN_PENDING_HUMAN_QUALITY_AND_FINAL_CERTIFICATION"

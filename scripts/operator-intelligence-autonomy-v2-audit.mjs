@@ -11,6 +11,7 @@ const REQUIRED_CAPABILITIES = new Map([
   ["platform.product_autonomy.assess", "read"],
   ["platform.operator_mission.execute", "write"],
   ["platform.code_ai_autonomous.execute", "write"],
+  ["platform.code_ai_autonomous_status.verify", "read"],
 ]);
 
 const files = Object.fromEntries(
@@ -26,6 +27,10 @@ const files = Object.fromEntries(
       "lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js",
       "lib/intelligence/runtime/AvantiqoProductConstitution.js",
       "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
+      "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
+      "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
+      "lib/platform/capabilities/createCodeAIAutonomousStatusCapability.js",
+      "lib/operator/runtime/IntelligenceMemoryRuntime.js",
       "lib/platform/runtime/PlatformDomainRuntime.js",
     ].map(async (path) => [path, await readFile(path, "utf8")]),
   ),
@@ -119,9 +124,43 @@ requireFragments("lib/intelligence/runtime/AvantiqoProductConstitution.js", [
 requireFragments("lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js", [
   "ASSESSMENT_ONLY_NOT_CERTIFICATION",
   "operatorRegistryCreateCoverage",
-  "platform.code_ai_autonomous.execute",
+  '"platform.code_ai_autonomous.execute"',
+  '"platform.code_ai_autonomous_status.verify"',
+  "durable_operator_mission_required: true",
   "execution_started: false",
 ]);
+
+requireFragments("lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js", [
+  'MEMORY_SCOPE = "code_ai_execution_state"',
+  "verifyCodeMissionStateAttestation",
+  "ordinary_memory_recall: false",
+  "source_change_count",
+  "verification_passed",
+  "CODE_AI_AUTONOMOUS_CHANGED_STATE_NOT_VERIFIED",
+]);
+
+requireFragments("lib/platform/capabilities/createCodeAIAutonomousCapability.js", [
+  "execution_key",
+  "persistCodeAIAutonomousExecutionState",
+  "verification_evidence",
+]);
+
+requireFragments("lib/platform/capabilities/createCodeAIAutonomousStatusCapability.js", [
+  "loadCodeAIAutonomousExecutionState",
+  "verifyCompletedCodeAIAutonomousExecution",
+  'status: "VERIFIED_COMPLETED"',
+]);
+
+requireFragments("lib/operator/runtime/IntelligenceMemoryRuntime.js", [
+  'const scopes = ["organization"]',
+  'scope: "party"',
+  'scope: "entity"',
+]);
+if (files["lib/operator/runtime/IntelligenceMemoryRuntime.js"].includes('"code_ai_execution_state"')) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI execution state must remain outside ordinary memory recall scopes",
+  );
+}
 
 requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "createOperatorBindingAwareMissionCapability",
@@ -129,6 +168,7 @@ requireFragments("lib/platform/runtime/PlatformDomainRuntime.js", [
   "createOperatorWebSourceReadCapability",
   "createOperatorResearchCompareCapability",
   "createProductAutonomyAssessmentCapability",
+  "createCodeAIAutonomousStatusCapability",
 ]);
 
 const { listOperatorCapabilities } = await import(
@@ -154,6 +194,7 @@ for (const key of [
   "platform.research_source.read",
   "platform.research_compare.analyze",
   "platform.product_autonomy.assess",
+  "platform.code_ai_autonomous_status.verify",
 ]) {
   const capability = byKey.get(key);
   if (
@@ -164,6 +205,28 @@ for (const key of [
   ) {
     throw new Error(`OPERATOR_INTELLIGENCE_AUTONOMY_V2: unsafe read contract ${key}`);
   }
+}
+
+const codeAutonomous = byKey.get("platform.code_ai_autonomous.execute");
+const executionKeySchema = codeAutonomous?.input_schema?.properties?.execution_key;
+if (
+  !executionKeySchema ||
+  Number(executionKeySchema.minLength) !== 12 ||
+  Number(executionKeySchema.maxLength) !== 160
+) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI autonomous execution_key contract missing",
+  );
+}
+
+const codeStatus = byKey.get("platform.code_ai_autonomous_status.verify");
+if (
+  !Array.isArray(codeStatus?.permissions) ||
+  !codeStatus.permissions.includes("platform.code.ai.execute")
+) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Code AI status read must require code execution permission",
+  );
 }
 
 const mission = byKey.get("platform.operator_mission.execute");
@@ -181,3 +244,5 @@ console.log("OPERATOR_MISSION_BINDINGS=EXPLICIT_SCALAR_VERIFIED_HANDOFF");
 console.log("OPERATOR_MISSION_BINDING_WRITE_SOURCE=VERIFICATION_ONLY");
 console.log("OPERATOR_PRODUCT_CONSTITUTION=REGISTERED");
 console.log("OPERATOR_PRODUCT_AUTONOMY=ASSESSMENT_ONLY_HANDOFF_SEPARATE");
+console.log("OPERATOR_CODE_AI_HANDOFF=EXECUTION_KEY_PLUS_REGISTERED_VERIFICATION");
+console.log("OPERATOR_CODE_AI_EXECUTION_STATE=SERVER_OWNED_NON_RECALLABLE_SCOPE");

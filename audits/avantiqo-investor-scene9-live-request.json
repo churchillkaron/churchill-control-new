@@ -1,10 +1,16 @@
 {
-  "contract": "AVANTIQO_INVESTOR_SCENE9_LIVE_REQUEST_V1",
+  "contract": "AVANTIQO_INVESTOR_SCENE9_LIVE_REQUEST_V2_OWNED_ONLY",
   "scene": 9,
-  "mode": "execute",
+  "mode": "owned_preview_execute",
   "fresh_generation_required": true,
+  "creative_studio_choreography_required": true,
+  "provider": "avantiqo-video",
+  "owned_ai_only": true,
+  "external_ai_provider_allowed": false,
+  "external_ai_fallback_allowed": false,
   "product_screenshots_allowed": false,
   "existing_assets_final_insert_allowed": false,
+  "production_certified": false,
   "user_visual_approval_required": true,
-  "requested_at": "2026-08-23T08:14:00Z"
+  "requested_at": "2026-08-23T09:24:30Z"
 }

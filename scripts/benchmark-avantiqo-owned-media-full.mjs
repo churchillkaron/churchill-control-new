@@ -31,6 +31,11 @@ const CINEMA_CAPABILITIES = Object.freeze([
   "ai.video.upscale",
   "ai.video.lipsync",
 ]);
+const ECONOMICS_RATE_ENV = Object.freeze({
+  image: "AVANTIQO_IMAGE_GPU_USD_PER_SECOND",
+  cinema: "AVANTIQO_VIDEO_GPU_USD_PER_SECOND",
+  lipsync: "AVANTIQO_LIPSYNC_GPU_USD_PER_SECOND",
+});
 
 function text(value) {
   return String(value ?? "").trim();
@@ -65,6 +70,41 @@ function uploadFor(fixtures, capability) {
       upload.storage_reference,
       `uploads.${capability}.storage_reference`,
     ),
+  };
+}
+
+function economicsRate(capability) {
+  const family = capability === "ai.video.lipsync"
+    ? "lipsync"
+    : capability.startsWith("ai.image.")
+      ? "image"
+      : "cinema";
+  const envName = ECONOMICS_RATE_ENV[family];
+  const value = Number(process.env[envName]);
+  return {
+    family,
+    env_name: envName,
+    configured: Number.isFinite(value) && value > 0,
+    usd_per_second: Number.isFinite(value) && value > 0 ? value : null,
+  };
+}
+
+function economicsEvidence(capability, wallMs) {
+  const rate = economicsRate(capability);
+  const observedSeconds = Number.isFinite(wallMs) && wallMs > 0
+    ? wallMs / 1000
+    : null;
+  return {
+    rate_env_name: rate.env_name,
+    rate_configured: rate.configured,
+    usd_per_second: rate.usd_per_second,
+    observed_seconds: observedSeconds,
+    measurement_basis: "RUNPOD_RUNSYNC_WALL_TIME_CONSERVATIVE",
+    estimated_supplier_compute_cost_usd:
+      rate.configured && observedSeconds !== null
+        ? Number((rate.usd_per_second * observedSeconds).toFixed(6))
+        : null,
+    economics_certified: false,
   };
 }
 
@@ -160,6 +200,7 @@ async function benchmarkCase({ engine, capability, endpointId, input }) {
       foundation_model: text(execution.output.foundation_model) || null,
       storage_reference: text(execution.output.storage_reference) || null,
       output: execution.output,
+      economics: economicsEvidence(capability, execution.wall_ms),
       human_visual_quality_review_required: true,
       economics_review_required: true,
       production_certified: false,
@@ -171,6 +212,7 @@ async function benchmarkCase({ engine, capability, endpointId, input }) {
       attempted: true,
       mechanical_passed: false,
       error: text(error?.message || error).slice(0, 1500),
+      economics: economicsEvidence(capability, null),
       human_visual_quality_review_required: true,
       economics_review_required: true,
       production_certified: false,
@@ -382,6 +424,19 @@ const failed = results.filter((item) => !item.mechanical_passed).map((item) => i
 const allCapabilities = [...IMAGE_CAPABILITIES, ...CINEMA_CAPABILITIES];
 const fullCoverage = allCapabilities.every((capability) => measured.includes(capability));
 const allMechanicalPassed = fullCoverage && failed.length === 0;
+const economicsMissingRateCapabilities = results
+  .filter((item) => item.economics?.rate_configured !== true)
+  .map((item) => item.capability);
+const economicsMeasuredCapabilities = results
+  .filter((item) => Number.isFinite(item.economics?.estimated_supplier_compute_cost_usd))
+  .map((item) => item.capability);
+const economicsEvidenceComplete =
+  economicsMissingRateCapabilities.length === 0 &&
+  economicsMeasuredCapabilities.length === allCapabilities.length;
+const estimatedSupplierComputeCostUsd = results.reduce(
+  (total, item) => total + Number(item.economics?.estimated_supplier_compute_cost_usd || 0),
+  0,
+);
 
 const report = {
   contract: CONTRACT,
@@ -396,6 +451,17 @@ const report = {
   failed_capabilities: failed,
   full_capability_coverage: fullCoverage,
   all_mechanical_checks_passed: allMechanicalPassed,
+  economics: {
+    evidence_complete: economicsEvidenceComplete,
+    measured_capabilities: economicsMeasuredCapabilities,
+    missing_rate_capabilities: economicsMissingRateCapabilities,
+    required_rate_env_names: Object.values(ECONOMICS_RATE_ENV),
+    estimated_supplier_compute_cost_usd: Number(estimatedSupplierComputeCostUsd.toFixed(6)),
+    measurement_basis: "RUNPOD_RUNSYNC_WALL_TIME_CONSERVATIVE",
+    economics_certified: false,
+  },
+  ready_for_human_quality_review:
+    allMechanicalPassed && economicsEvidenceComplete,
   activation_allowed: false,
   pricing_activation_performed: false,
   human_visual_quality_review_required: true,
@@ -409,10 +475,15 @@ const report = {
     capabilities_failed: failed.length,
     full_capability_coverage: fullCoverage,
     all_mechanical_checks_passed: allMechanicalPassed,
+    economics_evidence_complete: economicsEvidenceComplete,
+    economics_missing_rate_capabilities: economicsMissingRateCapabilities.length,
+    ready_for_human_quality_review:
+      allMechanicalPassed && economicsEvidenceComplete,
     production_certified: 0,
   },
   certification_rule: {
     mechanical_benchmark_is_not_production_certification: true,
+    economics_estimate_is_not_production_certification: true,
     human_visual_review_required: true,
     identity_review_required_for_identity_sensitive_video: true,
     temporal_review_required_for_video: true,

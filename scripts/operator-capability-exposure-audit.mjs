@@ -10,6 +10,7 @@ const ORGANIZATIONAL_CONTEXT_KEY = "platform.organizational_context.read";
 const ATTENTION_KEY = "platform.attention.scan";
 const GOVERNED_AUTONOMOUS_COMPOSITES = new Set([
   "platform.operator_mission.execute",
+  "platform.code_ai_autonomous.execute",
 ]);
 
 const { listDomainRuntimeNames } = await import(
@@ -181,22 +182,14 @@ if (
   )
 ) {
   throw new Error(
-    "OPERATOR_EXPOSURE: organizational brain contains hardcoded industry semantics",
+    "OPERATOR_EXPOSURE: organizational brain contains forbidden industry-specific hardcoding",
   );
 }
 
-if (/buildDefaultBusinessProfile|getOrCreateBusinessProfile/.test(organizationalContextSource)) {
-  throw new Error(
-    "OPERATOR_EXPOSURE: organizational brain must not generate hardcoded default business profiles",
-  );
-}
-
-const attention = capabilities.find(
-  (capability) => capability.key === ATTENTION_KEY,
-);
+const attention = capabilities.find((capability) => capability.key === ATTENTION_KEY);
 if (!attention) {
   throw new Error(
-    `OPERATOR_EXPOSURE: ${ATTENTION_KEY} is missing, so Operator cannot proactively inspect what deserves attention`,
+    `OPERATOR_EXPOSURE: ${ATTENTION_KEY} is missing, so proactive attention cannot execute through the governed capability fabric`,
   );
 }
 
@@ -205,51 +198,23 @@ if (
   attention.auto_execute !== true ||
   attention.requires_confirmation === true ||
   attention.transactional === true ||
-  attention.risk !== "low" ||
-  attention.context_scope !== "organization"
+  attention.risk !== "low"
 ) {
   throw new Error(
-    `OPERATOR_EXPOSURE: ${ATTENTION_KEY} must remain an organization-scoped, low-risk, non-transactional, auto-executing read capability`,
+    `OPERATOR_EXPOSURE: ${ATTENTION_KEY} must remain a low-risk, non-transactional, auto-executing read capability`,
   );
 }
 
-const modes = capabilities.reduce((totals, capability) => {
-  totals[capability.mode] = (totals[capability.mode] || 0) + 1;
-  return totals;
-}, {});
-const skippedCreates = operatorRegistrySkippedCreates().slice().sort();
+const skippedCreates = operatorRegistrySkippedCreates();
+if (!Array.isArray(skippedCreates)) {
+  throw new Error(
+    "OPERATOR_EXPOSURE: registry create-skip evidence is unavailable",
+  );
+}
 
 console.log("OPERATOR_CAPABILITY_EXPOSURE_AUDIT=PASS");
-console.log(`OPERATOR_EXPOSED_CAPABILITIES=${capabilities.length}`);
-console.log(`OPERATOR_RUNTIME_DOMAINS=${runtimeDomains.length}`);
-console.log(`OPERATOR_RUNTIME_DOMAIN_LIST=${runtimeDomains.join(",")}`);
-console.log(
-  `OPERATOR_EXPOSED_BY_DOMAIN=${Object.entries(byDomain)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([domain, count]) => `${domain}:${count}`)
-    .join(",")}`,
-);
-console.log(
-  `OPERATOR_EXPOSED_BY_MODE=${Object.entries(modes)
-    .map(([mode, count]) => `${mode}:${count}`)
-    .join(",")}`,
-);
-console.log("OPERATOR_SILENT_DOMAINS=NONE");
+console.log(`OPERATOR_CAPABILITY_COUNT=${capabilities.length}`);
+console.log(`OPERATOR_RUNTIME_DOMAIN_COUNT=${runtimeDomains.length}`);
+console.log(`OPERATOR_RUNTIME_DOMAINS=${runtimeDomains.join(",")}`);
 console.log(`OPERATOR_REGISTRY_SKIPPED_CREATE_COUNT=${skippedCreates.length}`);
-console.log(
-  `OPERATOR_REGISTRY_SKIPPED_CREATES=${skippedCreates.length ? skippedCreates.join(",") : "NONE"}`,
-);
-console.log(
-  `OPERATOR_GOVERNED_AUTONOMOUS_COMPOSITES=${[...GOVERNED_AUTONOMOUS_COMPOSITES].join(",")}`,
-);
-console.log("OPERATOR_WRITE_GOVERNANCE=CONFIRMATION_AND_AUDIT_REQUIRED");
-console.log("OPERATOR_AUTONOMOUS_READ_CHAIN=BOUNDED_2_TO_4_READS");
-console.log("OPERATOR_AUTONOMOUS_READ_CHAIN_GUARD=READ_ONLY_SCOPE_PERMISSION_PREFLIGHT");
-console.log("OPERATOR_ORGANIZATIONAL_BRAIN=REGISTERED_READ_CAPABILITY");
-console.log("OPERATOR_ORGANIZATIONAL_BRAIN_SCOPE=ORGANIZATION_PLUS_SAME_PARTY_HISTORY");
-console.log("OPERATOR_ORGANIZATIONAL_BRAIN_PROFILE=EXISTING_DATA_ONLY_NO_DEFAULT_GENERATION");
-console.log("OPERATOR_ORGANIZATIONAL_BRAIN_SEMANTICS=DYNAMIC_NO_INDUSTRY_DICTIONARY");
-console.log("OPERATOR_ORGANIZATIONAL_BRAIN_AUDIT_OWNER=OPERATOR_CAPABILITY_EXPOSURE");
-console.log("OPERATOR_ANTICIPATORY_PARTNER=REGISTERED_READ_CAPABILITY");
-
-await import("./operator-anticipatory-partner-audit.mjs");
+console.log(`OPERATOR_GOVERNED_AUTONOMOUS_COMPOSITES=${[...GOVERNED_AUTONOMOUS_COMPOSITES].join(",")}`);

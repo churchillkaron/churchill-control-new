@@ -11,6 +11,7 @@ const ATTENTION_KEY = "platform.attention.scan";
 const GOVERNED_AUTONOMOUS_COMPOSITES = new Set([
   "platform.operator_mission.execute",
   "platform.code_ai_autonomous.execute",
+  "platform.code_ai_mission.execute",
 ]);
 
 const { listDomainRuntimeNames } = await import(

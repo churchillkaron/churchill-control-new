@@ -81,13 +81,18 @@ assert.ok(
 const mismatchTurnStart = turnSource.indexOf(
   "function recommendationBindingMismatchTurn",
 );
-const requiredFieldsStart = turnSource.indexOf(
-  "function requiredFields",
+const mismatchTurnEnd = turnSource.indexOf(
+  "function recommendationDiscussionKind",
   mismatchTurnStart,
+);
+assert.ok(mismatchTurnStart >= 0, "binding mismatch turn must exist");
+assert.ok(
+  mismatchTurnEnd > mismatchTurnStart,
+  "binding mismatch turn must end before recommendation discussion helpers",
 );
 const mismatchTurnSource = turnSource.slice(
   mismatchTurnStart,
-  requiredFieldsStart,
+  mismatchTurnEnd,
 );
 for (const forbidden of [
   "runOperatorTurnCore",

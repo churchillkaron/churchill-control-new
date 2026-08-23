@@ -74,12 +74,37 @@ requireFragments("commit", [
   "recoverPriorAttempt",
   "artifact?.commit_attempted !== true",
   "recoverVerifiedCodeMissionCommit",
+  'STALE_ATTEMPT_REPLAN_REQUIRED =',
+  '"CODE_AI_COMMIT_PRIOR_ATTEMPT_STALE_BASE_REPLAN_REQUIRED"',
+  "error?.main_advanced_from_expected_base === true",
+  "stale.expected_base_commit",
+  "stale.current_main_head",
+  "stale.safe_to_retry_commit = false",
+  "stale.replan_required = true",
+  "stale.write_replayed = false",
   "markCodeAICommitArtifactAttempt",
   "recovered_existing_verified_commit",
   "commit_executed_this_invocation",
   "safe_to_retry_commit: false",
   'platform.code.ai.commit',
 ]);
+
+const recoverPriorAttemptSource = sources.commit.slice(
+  sources.commit.indexOf("async function recoverPriorAttempt"),
+  sources.commit.indexOf("async function persistVerifiedCommitState"),
+);
+if (
+  !recoverPriorAttemptSource ||
+  !recoverPriorAttemptSource.includes("main_advanced_from_expected_base === true") ||
+  !recoverPriorAttemptSource.includes("throw stale") ||
+  recoverPriorAttemptSource.includes("markCodeAICommitArtifactAttempt") ||
+  recoverPriorAttemptSource.includes("commitVerifiedCodeMission({")
+) {
+  throw new Error(
+    "CODE_AI_COMMIT_RECOVERY_AUDIT: stale prior-attempt recovery must fail before attempt marking or GitHub write replay",
+  );
+}
+
 const recoverAttemptIndex = sources.commit.indexOf("await recoverPriorAttempt");
 const markAttemptIndex = sources.commit.indexOf("await markCodeAICommitArtifactAttempt");
 const writeIndex = sources.commit.indexOf("result = await commitVerifiedCodeMission");
@@ -219,6 +244,7 @@ console.log("CODE_AI_COMMIT_RECOVERY_WRITE_REPLAY=DISABLED_FOR_VERIFICATION");
 console.log("CODE_AI_COMMIT_RECOVERY_MATCH=BASE_PARENT_PATH_SET_AND_FILE_BYTES");
 console.log("CODE_AI_COMMIT_RECOVERY_NOT_FOUND=EXPECTED_BASE_AND_CURRENT_MAIN_PRESERVED");
 console.log("CODE_AI_COMMIT_STALE_BASE=STAY_LOCAL_REPLAN_REQUIRED");
+console.log("CODE_AI_COMMIT_STALE_DIRECT_RETRY=BLOCKED_BEFORE_ATTEMPT_MARKER_OR_WRITE");
 console.log("CODE_AI_COMMIT_STATUS_AUTHORITY=READ_EXECUTE_PERMISSION_ONLY");
 console.log("CODE_AI_PRODUCT_PERSISTENCE_RECOVERY=IDEMPOTENT_ALREADY_PERSISTED");
 console.log("CODE_AI_PRODUCT_ALREADY_PERSISTED_CONTINUATION=TWO_READS_ONE_OBJECTIVE_NO_EXECUTION");

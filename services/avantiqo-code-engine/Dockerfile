@@ -20,10 +20,11 @@ WORKDIR /app
 # This Dockerfile is intentionally valid when the build context is the Code
 # service directory. Keep it runtime-equivalent to Dockerfile.runpod so the
 # endpoint cannot silently deploy a non-vLLM image when its configured
-# Dockerfile path points at the ordinary service Dockerfile.
+# Dockerfile path points at the ordinary service Dockerfile. The requirements
+# pin RunPod to the newest SDK whose FastAPI range is compatible with vLLM.
 COPY requirements.txt ./requirements.txt
 RUN python -m pip install --no-cache-dir -r requirements.txt \
-    && python -c "from importlib.metadata import version; import runpod, vllm; assert version('vllm') == '0.27.1', version('vllm'); print('AVANTIQO_CODE_VLLM_BUILD_CHECK=PASS')"
+    && python -c "from importlib.metadata import version; import runpod, vllm; assert version('runpod') == '1.10.0', version('runpod'); assert version('vllm') == '0.27.1', version('vllm'); print('AVANTIQO_CODE_VLLM_BUILD_CHECK=PASS')"
 COPY handler.py ./handler.py
 RUN python -m py_compile handler.py
 

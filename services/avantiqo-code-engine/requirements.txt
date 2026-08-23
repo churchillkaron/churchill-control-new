@@ -1,2 +1,5 @@
-runpod>=1.10.1
+# vLLM 0.27.1 requires FastAPI >=0.133.0,<0.137.0.
+# RunPod 1.10.1+ requires a newer FastAPI range, so 1.10.0 is the
+# newest compatible Serverless SDK for this worker runtime.
+runpod==1.10.0
 vllm==0.27.1

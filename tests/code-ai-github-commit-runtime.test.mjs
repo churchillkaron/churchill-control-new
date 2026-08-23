@@ -193,7 +193,14 @@ test("Code AI commit recovery stops at unchanged base without scanning history",
       env,
       fetch_impl,
     }),
-    /CODE_AI_GITHUB_RECOVERY_VERIFIED_COMMIT_NOT_FOUND/,
+    (error) => {
+      assert.equal(error.message, "CODE_AI_GITHUB_RECOVERY_VERIFIED_COMMIT_NOT_FOUND");
+      assert.equal(error.expected_base_commit, BASE);
+      assert.equal(error.current_main_head, BASE);
+      assert.equal(error.main_advanced_from_expected_base, false);
+      assert.equal(error.recovery_history_limit, 50);
+      return true;
+    },
   );
   assert.equal(calls.filter((call) => call.url.includes("/commits?sha=main")).length, 0);
   assert.equal(calls.some((call) => (call.options.method || "GET") !== "GET"), true);
@@ -275,7 +282,7 @@ test("Code AI commit recovery verifies exact paths and exact file contents witho
   );
 });
 
-test("Code AI commit recovery rejects a candidate with an unexpected changed path", async () => {
+test("Code AI commit recovery rejects a candidate with an unexpected changed path and preserves moved-main evidence", async () => {
   const state = missionState();
   const fetch_impl = async (url) => {
     if (url.startsWith("https://api.vercel.com/v1/connect/token/")) {
@@ -305,7 +312,14 @@ test("Code AI commit recovery rejects a candidate with an unexpected changed pat
       env,
       fetch_impl,
     }),
-    /CODE_AI_GITHUB_RECOVERY_VERIFIED_COMMIT_NOT_FOUND/,
+    (error) => {
+      assert.equal(error.message, "CODE_AI_GITHUB_RECOVERY_VERIFIED_COMMIT_NOT_FOUND");
+      assert.equal(error.expected_base_commit, BASE);
+      assert.equal(error.current_main_head, COMMIT);
+      assert.equal(error.main_advanced_from_expected_base, true);
+      assert.equal(error.recovery_history_limit, 50);
+      return true;
+    },
   );
 });
 

@@ -70,6 +70,9 @@ await import(
   "@/lib/creative/continuity/runtime/CreativeCinematicStateMemoryBootstrap"
 );
 await import(
+  "@/lib/creative/continuity/runtime/CreativeCinematicContinuityConflictGate"
+);
+await import(
   "@/lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoCinematicStateMemoryBootstrap"
 );
 await import(

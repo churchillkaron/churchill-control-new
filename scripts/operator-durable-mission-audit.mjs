@@ -3,12 +3,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [runSource, missionSource, turnSource, routeSource] = await Promise.all([
+const [runSource, missionSource, turnWrapperSource, turnCoreSource, routeSource] = await Promise.all([
   readFile("lib/operator/contracts/OperatorAutonomousRun.js", "utf8"),
   readFile("lib/platform/capabilities/createOperatorMissionCapability.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorTurnRuntimeCore.js", "utf8"),
   readFile("app/api/operator/turn/route.js", "utf8"),
 ]);
+const turnSource = `${turnWrapperSource}\n${turnCoreSource}`;
 
 function requireAll(label, source, fragments) {
   for (const fragment of fragments) {

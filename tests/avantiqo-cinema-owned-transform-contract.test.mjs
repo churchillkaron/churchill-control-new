@@ -66,6 +66,33 @@ test("first-last Cinema generations remain fail-closed behind perceptual endpoin
   );
 });
 
+test("first-last Cinema release requires deterministic endpoint fidelity and explicit temporal evidence", () => {
+  const endpointGate = source(
+    "lib/creative/quality/runtime/CreativeCinemaEndpointFidelityExecutionGate.js",
+  );
+  const continuationGate = source(
+    "lib/creative/continuity/runtime/CreativeShotContinuationExecutionGate.js",
+  );
+
+  assert.match(
+    continuationGate,
+    /CreativeCinemaEndpointFidelityExecutionGate/,
+  );
+  assert.match(
+    endpointGate,
+    /CREATIVE_CINEMA_ENDPOINT_FIDELITY_V1/,
+  );
+  assert.match(endpointGate, /extractEndpointFrame/);
+  assert.match(endpointGate, /compareImages/);
+  assert.match(endpointGate, /minimum_similarity/);
+  assert.match(endpointGate, /requested_camera_correct:\s*true/);
+  assert.match(endpointGate, /physics_valid:\s*true/);
+  assert.match(endpointGate, /continuity_valid:\s*true/);
+  assert.match(endpointGate, /identity_preserved:\s*expected\.identity_expected === true/);
+  assert.match(endpointGate, /provider_calls_added:\s*0/);
+  assert.match(endpointGate, /CREATIVE_CINEMA_ENDPOINT_FIDELITY_FAILED/);
+});
+
 test("advanced Cinema transforms stay implemented but not default production-certified", () => {
   const provider = source(
     "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProvider.js",

@@ -1,0 +1,10 @@
+{
+  "contract": "AVANTIQO_INVESTOR_SCENE9_LIVE_REQUEST_V1",
+  "scene": 9,
+  "mode": "execute",
+  "fresh_generation_required": true,
+  "product_screenshots_allowed": false,
+  "existing_assets_final_insert_allowed": false,
+  "user_visual_approval_required": true,
+  "requested_at": "2026-08-23T08:14:00Z"
+}

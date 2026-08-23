@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { AvantiqoVideoProvider } from "@/lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProvider.js";
 import { CreativeProjectRuntime } from "@/lib/creative/projects/runtime/CreativeProjectRuntime";
+import { getServiceSupabase } from "@/lib/shared/supabase/service";
 import {
   createCreativeAssetNode,
   CREATIVE_ASSET_NODE_STATUS,
@@ -24,6 +25,15 @@ const POLL_INTERVAL_MS = Math.max(1000, Number(process.env.INVESTOR_STUDIO_PREVI
 const MAX_WAIT_MS = Math.max(POLL_INTERVAL_MS, Number(process.env.INVESTOR_STUDIO_PREVIEW_TIMEOUT_MS || 30 * 60 * 1000));
 const OUTPUT_PATH = process.env.INVESTOR_STUDIO_RESULT_PATH ||
   "artifacts/investor-scene9-studio-live.json";
+const REQUEST_ID = String(
+  process.env.INVESTOR_STUDIO_REQUEST_ID ||
+  process.env.GITHUB_SHA ||
+  "",
+).trim();
+const GENERATION_CONTRACT = "AVANTIQO_INVESTOR_SCENE9_OWNED_PREVIEW_EXECUTION_V2";
+const supabase = getServiceSupabase();
+
+let activeGenerationJobId = null;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -42,6 +52,16 @@ function scenePlan() {
     .find((entry) => Number(entry.scene) === SCENE);
   if (!plan) throw new Error("INVESTOR_SCENE9_PLAN_REQUIRED");
   return plan;
+}
+
+function requestIdentity() {
+  const normalized = text(REQUEST_ID).replace(/[^A-Za-z0-9._-]/g, "");
+  if (!normalized) throw new Error("INVESTOR_SCENE9_REQUEST_ID_REQUIRED");
+  return normalized;
+}
+
+function generationIdempotencyKey() {
+  return `investor-scene9-owned-preview:${requestIdentity()}`;
 }
 
 function studioInstruction(plan, choreography) {
@@ -70,6 +90,103 @@ function storagePath(storageReference) {
   return source.startsWith(prefix) ? source.slice(prefix.length) : null;
 }
 
+async function existingOwnedReviewAsset(projectId) {
+  const nodes = await AssetGraphRepository.listByProject({
+    organization_id: ORGANIZATION_ID,
+    creative_project_id: projectId,
+  });
+  return list(nodes)
+    .filter((node) =>
+      node.type === CREATIVE_ASSET_NODE_TYPES.VIDEO &&
+      [CREATIVE_ASSET_NODE_STATUS.REVIEW, CREATIVE_ASSET_NODE_STATUS.APPROVED]
+        .includes(node.status) &&
+      Number(node.metadata?.investor_scene) === SCENE &&
+      node.lineage?.source === "avantiqo_investor_owned_preview" &&
+      node.lineage?.provider_id === "avantiqo-video" &&
+      node.metadata?.external_ai_provider_used === false,
+    )
+    .sort((left, right) =>
+      Date.parse(right.created_at || 0) - Date.parse(left.created_at || 0),
+    )[0] || null;
+}
+
+async function claimGeneration({ project, plan, choreography }) {
+  const idempotencyKey = generationIdempotencyKey();
+  const startedAt = new Date().toISOString();
+  const payload = {
+    organization_id: ORGANIZATION_ID,
+    creative_mission_id: project.creative_mission_id || null,
+    creative_project_id: project.id,
+    generation_type: "investor_scene_preview",
+    capability: "ai.video.generate",
+    provider: "avantiqo-video",
+    status: "processing",
+    input: {
+      contract: GENERATION_CONTRACT,
+      investor_scene: SCENE,
+      objective: plan.objective,
+      duration_seconds: plan.duration_seconds,
+      visual_choreography_contract:
+        AVANTIQO_INVESTOR_CAPABILITY_VISUAL_CHOREOGRAPHY.contract,
+      visual_choreography: choreography,
+    },
+    metadata: {
+      contract: GENERATION_CONTRACT,
+      investor_project_id: AVANTIQO_INVESTOR_STUDIO_GENERATION_PLAN.investor_project_id,
+      investor_scene: SCENE,
+      request_id: requestIdentity(),
+      owned_only_execution: true,
+      provider: "avantiqo-video",
+      external_ai_provider_used: false,
+      external_ai_fallback_allowed: false,
+      production_certified: false,
+      user_visual_approval_required: true,
+    },
+    idempotency_key: idempotencyKey,
+    attempt_count: 1,
+    max_attempts: 1,
+    started_at: startedAt,
+  };
+
+  const { data, error } = await supabase
+    .from("creative_generation_jobs")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (!error) {
+    activeGenerationJobId = data.id;
+    return { duplicate: false, job: data };
+  }
+  if (String(error.code || "") !== "23505") throw error;
+
+  const { data: existing, error: existingError } = await supabase
+    .from("creative_generation_jobs")
+    .select("*")
+    .eq("organization_id", ORGANIZATION_ID)
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (!existing) throw new Error("INVESTOR_SCENE9_DUPLICATE_CLAIM_NOT_RESOLVED");
+  return { duplicate: true, job: existing };
+}
+
+async function updateGenerationJob(id, values = {}) {
+  if (!id) return null;
+  const { data, error } = await supabase
+    .from("creative_generation_jobs")
+    .update({
+      ...values,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("organization_id", ORGANIZATION_ID)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 async function registerReviewAsset({ project, usageId, completed, plan, choreography }) {
   const output = completed.output || {};
   const stableUrl = text(output.storage_reference) || text(output.video_url);
@@ -88,7 +205,7 @@ async function registerReviewAsset({ project, usageId, completed, plan, choreogr
       source: "avantiqo_investor_owned_preview",
       provider_id: "avantiqo-video",
       capability: "ai.video.generate",
-      generation_version: 1,
+      generation_version: 2,
     },
     intelligence: {
       tags: [
@@ -111,9 +228,11 @@ async function registerReviewAsset({ project, usageId, completed, plan, choreogr
       notes: "Owned-engine preview only. Requires visual review and explicit user approval before lock or master use.",
     },
     metadata: {
-      contract: "AVANTIQO_INVESTOR_SCENE_PREVIEW_V1",
+      contract: "AVANTIQO_INVESTOR_SCENE_PREVIEW_V2",
       investor_project_id: AVANTIQO_INVESTOR_STUDIO_GENERATION_PLAN.investor_project_id,
       investor_scene: SCENE,
+      generation_job_id: activeGenerationJobId,
+      request_id: requestIdentity(),
       usage_id: usageId,
       provider_job_id: completed.provider_job_id || null,
       engine: "avantiqo-video",
@@ -156,6 +275,7 @@ async function run() {
   if (!text(process.env.SUPABASE_SERVICE_ROLE_KEY)) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY_REQUIRED");
   }
+  requestIdentity();
 
   const project = await CreativeProjectRuntime.get(PROJECT_ID);
   if (!project || text(project.organization_id) !== ORGANIZATION_ID) {
@@ -165,9 +285,50 @@ async function run() {
     throw new Error("INVESTOR_SCENE9_PROJECT_SCOPE_MISMATCH");
   }
 
+  const priorAsset = await existingOwnedReviewAsset(project.id);
+  if (priorAsset) {
+    return {
+      success: true,
+      contract: GENERATION_CONTRACT,
+      status: "READY_FOR_REVIEW",
+      duplicate_generation_prevented: true,
+      existing_owned_preview_used: true,
+      organization_id: ORGANIZATION_ID,
+      creative_project_id: project.id,
+      scene: SCENE,
+      provider: "avantiqo-video",
+      capability: "ai.video.generate",
+      external_ai_provider_used: false,
+      production_certified: false,
+      approved: priorAsset.review?.approved === true,
+      asset_node_id: priorAsset.id,
+      storage_reference: priorAsset.url || null,
+    };
+  }
+
   const plan = scenePlan();
   const choreography = investorSceneVisualChoreography(SCENE);
   if (!choreography) throw new Error("INVESTOR_SCENE9_CHOREOGRAPHY_REQUIRED");
+
+  const claim = await claimGeneration({ project, plan, choreography });
+  if (claim.duplicate) {
+    const status = text(claim.job.status).toLowerCase();
+    return {
+      success: status === "completed",
+      contract: GENERATION_CONTRACT,
+      status: status === "completed" ? "READY_FOR_REVIEW" : "ALREADY_IN_PROGRESS",
+      duplicate_generation_prevented: true,
+      existing_generation_job_id: claim.job.id,
+      existing_generation_job_status: claim.job.status,
+      provider_job_id: claim.job.provider_job_id || null,
+      asset_node_id: claim.job.output?.asset_node_id || null,
+      storage_reference: claim.job.output?.storage_reference || null,
+      scene: SCENE,
+      provider: "avantiqo-video",
+      external_ai_provider_used: false,
+      production_certified: false,
+    };
+  }
 
   const usageId = `investor-scene9-${crypto.randomUUID()}`;
   const instruction = studioInstruction(plan, choreography);
@@ -177,6 +338,8 @@ async function run() {
     context: {
       organization_id: ORGANIZATION_ID,
       usage_id: usageId,
+      execution_scope: "BENCHMARK_REVIEW_PREVIEW",
+      benchmark_only: true,
     },
     instructions_text: instruction,
     duration_seconds: plan.duration_seconds,
@@ -205,6 +368,15 @@ async function run() {
 
   const jobId = text(submission.output?.provider_job_id);
   if (!jobId) throw new Error("INVESTOR_SCENE9_PROVIDER_JOB_ID_REQUIRED");
+  await updateGenerationJob(activeGenerationJobId, {
+    status: "processing",
+    provider_job_id: jobId,
+    provider_execution_id: jobId,
+    output: {
+      submission_status: submission.status || null,
+      provider_job_id: jobId,
+    },
+  });
 
   const deadline = Date.now() + MAX_WAIT_MS;
   let completed = null;
@@ -232,11 +404,26 @@ async function run() {
     choreography,
   });
 
+  await updateGenerationJob(activeGenerationJobId, {
+    status: "completed",
+    provider_job_id: jobId,
+    provider_execution_id: jobId,
+    completed_at: new Date().toISOString(),
+    output: {
+      provider_job_id: jobId,
+      asset_node_id: asset.id,
+      storage_reference: completed.output?.storage_reference || null,
+      review_status: "READY_FOR_REVIEW",
+      approved: false,
+    },
+  });
+
   return {
     success: true,
-    contract: "AVANTIQO_INVESTOR_SCENE9_OWNED_PREVIEW_EXECUTION_V1",
+    contract: GENERATION_CONTRACT,
     organization_id: ORGANIZATION_ID,
     creative_project_id: project.id,
+    generation_job_id: activeGenerationJobId,
     scene: SCENE,
     provider: "avantiqo-video",
     capability: "ai.video.generate",
@@ -254,12 +441,20 @@ let result;
 try {
   result = await run();
 } catch (error) {
+  if (activeGenerationJobId) {
+    await updateGenerationJob(activeGenerationJobId, {
+      status: "failed",
+      failed_at: new Date().toISOString(),
+      error_message: text(error?.message || error),
+    }).catch(() => null);
+  }
   result = {
     success: false,
-    contract: "AVANTIQO_INVESTOR_SCENE9_OWNED_PREVIEW_EXECUTION_V1",
+    contract: GENERATION_CONTRACT,
     scene: SCENE,
     provider: "avantiqo-video",
     external_ai_provider_used: false,
+    generation_job_id: activeGenerationJobId,
     error: text(error?.message || error),
   };
   process.exitCode = 1;

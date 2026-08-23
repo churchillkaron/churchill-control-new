@@ -1,3 +1,4 @@
+import inspect
 import ipaddress
 import os
 import time
@@ -151,7 +152,9 @@ def _pipeline(model_id: str):
         pipe.to(DEVICE)
     if hasattr(pipe, "enable_attention_slicing"):
         pipe.enable_attention_slicing()
-    if hasattr(pipe, "enable_vae_slicing"):
+    if hasattr(pipe, "vae") and hasattr(pipe.vae, "enable_slicing"):
+        pipe.vae.enable_slicing()
+    elif hasattr(pipe, "enable_vae_slicing"):
         pipe.enable_vae_slicing()
     _PIPELINES[model_id] = pipe
     return pipe
@@ -297,6 +300,49 @@ def _upload(path: Path, storage: dict[str, Any]) -> None:
         )
 
 
+def _generation_guidance(
+    pipe: Any,
+    params: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    requested_scale = params.get("true_cfg_scale")
+    if requested_scale is None:
+        requested_scale = params.get("guidance_scale")
+    if requested_scale is None:
+        requested_scale = (
+            os.getenv("AVANTIQO_IMAGE_TRUE_CFG_SCALE")
+            or os.getenv("AVANTIQO_IMAGE_GUIDANCE_SCALE", "4.0")
+        )
+    scale = float(requested_scale)
+    if scale < 1.0 or scale > 20.0:
+        raise ValueError("AVANTIQO_IMAGE_TRUE_CFG_SCALE_INVALID")
+
+    negative_prompt = os.getenv("AVANTIQO_IMAGE_NEGATIVE_PROMPT", " ")
+    if negative_prompt == "":
+        negative_prompt = " "
+
+    try:
+        accepted = set(inspect.signature(pipe.__call__).parameters)
+    except (TypeError, ValueError):
+        accepted = set()
+
+    kwargs: dict[str, Any] = {}
+    mode = "NONE"
+    if "true_cfg_scale" in accepted and "negative_prompt" in accepted:
+        kwargs["true_cfg_scale"] = scale
+        kwargs["negative_prompt"] = negative_prompt
+        mode = "TRUE_CFG"
+    elif "guidance_scale" in accepted:
+        kwargs["guidance_scale"] = scale
+        mode = "GUIDANCE_SCALE"
+
+    return kwargs, {
+        "mode": mode,
+        "scale": scale if mode != "NONE" else None,
+        "negative_prompt_supplied": mode == "TRUE_CFG",
+        "negative_prompt_has_content": bool(negative_prompt.strip()) if mode == "TRUE_CFG" else False,
+    }
+
+
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     data = _validated_input(job)
     started = time.perf_counter()
@@ -321,6 +367,12 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         or os.getenv("AVANTIQO_IMAGE_INFERENCE_STEPS", "28")
     )
     preservation_mode = "NONE"
+    guidance_metadata = {
+        "mode": "NOT_APPLICABLE",
+        "scale": None,
+        "negative_prompt_supplied": False,
+        "negative_prompt_has_content": False,
+    }
 
     runpod.serverless.progress_update(job, "generating image")
     if capability == "ai.image.edit":
@@ -373,16 +425,14 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         image = generated
         preservation_mode = "POST_COMPOSITE_ORIGINAL_REGION_EXACT"
     else:
+        guidance_kwargs, guidance_metadata = _generation_guidance(pipe, params)
         result = pipe(
             prompt=data["instruction"],
             width=width,
             height=height,
             num_inference_steps=inference_steps,
-            guidance_scale=float(
-                params.get("guidance_scale")
-                or os.getenv("AVANTIQO_IMAGE_GUIDANCE_SCALE", "4.0")
-            ),
             generator=generator,
+            **guidance_kwargs,
         )
         image = result.images[0].convert("RGB")
 
@@ -416,6 +466,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "preservation_mode": preservation_mode,
         "mask_conditioning_used": capability == "ai.image.inpaint",
         "outpaint_canvas_conditioning_used": capability == "ai.image.outpaint",
+        "generation_guidance": guidance_metadata,
         "certification_execution": data.get("certification_execution") is True,
         "generation_seconds": round(time.perf_counter() - started, 3),
         "raw_reasoning_persisted": False,

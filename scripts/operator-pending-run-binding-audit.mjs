@@ -21,6 +21,7 @@ function requireFragments(source, label, fragments) {
 
 requireFragments(runSource, runPath, [
   "export function operatorPendingExecutionMatchesAutonomousRun(",
+  "operatorPendingExecutionRunIdMatchesAutonomousRun(pending, run)",
   'text(run.run_kind).toLowerCase() !== "single_action"',
   'resumeKind && resumeKind !== "verification"',
   '["awaiting_confirmation", "awaiting_approval"]',
@@ -119,13 +120,6 @@ const payload = {
   alpha: 1,
   nested: { beta: 2, gamma: ["x", "y"] },
 };
-const confirmationPending = {
-  capability_key: capabilityKey,
-  payload: {
-    nested: { gamma: ["x", "y"], beta: 2 },
-    alpha: 1,
-  },
-};
 const confirmationRun = createOperatorAutonomousRun({
   objective: "Test exact pending/run binding",
   pendingExecution: {
@@ -134,6 +128,14 @@ const confirmationRun = createOperatorAutonomousRun({
     payload,
   },
 });
+const confirmationPending = {
+  capability_key: capabilityKey,
+  run_id: confirmationRun.run_id,
+  payload: {
+    nested: { gamma: ["x", "y"], beta: 2 },
+    alpha: 1,
+  },
+};
 
 assert.equal(
   operatorPendingExecutionMatchesAutonomousRun(
@@ -231,6 +233,7 @@ const verificationFailedRun = transitionOperatorAutonomousRun(actionCompletedRun
 });
 const verificationPending = {
   capability_key: verificationCapabilityKey,
+  run_id: verificationFailedRun.run_id,
   payload: verificationPayload,
   resume_kind: "verification",
 };

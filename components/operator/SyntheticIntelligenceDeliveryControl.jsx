@@ -96,15 +96,31 @@ function selectedProviderReadiness(service, providerId) {
 }
 
 function readinessLabel(service, provider) {
-  if (provider?.ready_for_execution) return "Execution preflight ready";
-  if (!service?.organization_service_exists) return "Connected service required";
-  if (!service?.active) return "Connected service inactive";
+  if (provider?.ready_for_execution === true) return "Execution preflight ready";
+  if (service?.service_status_error || service?.organization_service_exists === null) {
+    return "Service status unavailable";
+  }
+  if (service?.organization_service_exists === false) return "Connected service required";
+  if (service?.active === null) return "Service status unavailable";
+  if (service?.active === false) return "Connected service inactive";
+  if (service?.usage_enabled === null) return "Service usage status unavailable";
   if (service?.usage_enabled === false) return "Service usage disabled";
   if (service?.capability_enabled === false) return "Delivery capability unavailable";
-  if (provider?.pricing_ready === false && provider?.provider_selected === false) return "Provider pricing required";
-  if (provider?.runtime_ready === false && provider?.provider_selected) return "Provider runtime unavailable";
-  if (provider?.credential_configured === false) return "Provider credential required";
-  if (provider?.credential_ready === false) return "Provider credential incomplete";
+  if (!provider) return "Provider status unavailable";
+  if (provider.provider_selected === null) return "Provider not evaluated";
+  if (provider.provider_selected === false) return "Provider unavailable";
+  if (provider.pricing_ready === null) return "Pricing not evaluated";
+  if (provider.pricing_ready === false) return "Provider pricing required";
+  if (provider.runtime_ready === null) return "Runtime not evaluated";
+  if (provider.runtime_ready === false) return "Provider runtime unavailable";
+  if (
+    provider.credential_configured === null ||
+    provider.credential_ready === null
+  ) {
+    return "Credential status unavailable";
+  }
+  if (provider.credential_configured === false) return "Provider credential required";
+  if (provider.credential_ready === false) return "Provider credential incomplete";
   return "Execution preflight unavailable";
 }
 

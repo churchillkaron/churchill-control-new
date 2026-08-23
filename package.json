@@ -77,6 +77,8 @@
     "audit:creative-research-grounding-v3": "node scripts/creative-research-grounding-v3-audit.mjs",
     "benchmark:creative-case": "node --loader ./scripts/next-alias-loader.mjs scripts/creative-world-class-live-benchmark-runner.mjs",
     "creative:one-clip": "node scripts/creative-one-clip-safe.mjs",
+    "investor:studio:prepare": "node --env-file=.env.local --loader ./scripts/next-alias-loader.mjs scripts/avantiqo-investor-studio-scenes.mjs prepare",
+    "investor:studio:execute": "node --env-file=.env.local --loader ./scripts/next-alias-loader.mjs scripts/avantiqo-investor-studio-scenes.mjs execute",
     "audit:api-tenant-isolation": "node scripts/api-tenant-isolation-audit.mjs",
     "test": "node --test tests/*.test.mjs",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx"

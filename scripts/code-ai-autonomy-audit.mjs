@@ -125,7 +125,8 @@ requireMarkers("MISSION", mission, [
 
 requireMarkers("PLANNER_EXECUTION", plannerExecution, [
   "AVANTIQO_CODE_AI_PLANNER_EXECUTION_V1",
-  "ServiceExecutionRuntime.execute",
+  "service_runtime = ServiceExecutionRuntime",
+  "service_runtime.execute(executionInput)",
   "serviceRuntime.settle",
   "pending_execution",
   "provider_job_id",

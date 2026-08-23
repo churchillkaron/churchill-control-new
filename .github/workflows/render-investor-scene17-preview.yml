@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL -H "Authorization: Bearer ${OIDC_TOKEN}" \
-            "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-scene17-github-render" \
+            "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-scene17-github-render?run_id=${GITHUB_RUN_ID}" \
             > /tmp/assets.json
           python3 - <<'PY'
           import json, pathlib, urllib.request
@@ -71,7 +71,7 @@ jobs:
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: video/mp4" \
             --data-binary @scene-17-customer-interaction-review-v2.mp4 \
-            "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-scene17-github-render" \
+            "https://vfsjqabpkcbiuerhzugk.supabase.co/functions/v1/avantiqo-scene17-github-render?run_id=${GITHUB_RUN_ID}" \
             | tee scene17-upload-result.json
 
       - name: Upload review artifact

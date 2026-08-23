@@ -90,6 +90,24 @@ function readinessMap(payload) {
   );
 }
 
+function selectedProviderReadiness(service, providerId) {
+  return (Array.isArray(service?.providers) ? service.providers : [])
+    .find((provider) => provider?.provider_id === providerId) || null;
+}
+
+function readinessLabel(service, provider) {
+  if (provider?.ready_for_execution) return "Execution preflight ready";
+  if (!service?.organization_service_exists) return "Connected service required";
+  if (!service?.active) return "Connected service inactive";
+  if (service?.usage_enabled === false) return "Service usage disabled";
+  if (service?.capability_enabled === false) return "Delivery capability unavailable";
+  if (provider?.pricing_ready === false && provider?.provider_selected === false) return "Provider pricing required";
+  if (provider?.runtime_ready === false && provider?.provider_selected) return "Provider runtime unavailable";
+  if (provider?.credential_configured === false) return "Provider credential required";
+  if (provider?.credential_ready === false) return "Provider credential incomplete";
+  return "Execution preflight unavailable";
+}
+
 function channelState(status, channel) {
   return status?.channels?.[channel] || {};
 }
@@ -273,7 +291,7 @@ export default function SyntheticIntelligenceDeliveryControl({ organizationId, r
             <div>
               <div className="text-xs text-white/70">Deliver outside Avantiqo</div>
               <div className="mt-1 text-[10px] leading-4 text-white/30">
-                Delivery uses connected organization services through governed pricing, wallet, usage and billing.
+                Static preflight checks service, provider, pricing, runtime and credential configuration without sending. Actual delivery still runs through governed pricing, wallet, usage and billing.
               </div>
             </div>
             <button
@@ -304,6 +322,9 @@ export default function SyntheticIntelligenceDeliveryControl({ organizationId, r
               const Icon = meta.icon;
               const row = draft.channels[channel];
               const service = readiness.get(channel) || {};
+              const provider = selectedProviderReadiness(service, row.provider_id);
+              const providerReady = provider?.ready_for_execution === true;
+              const providerLabel = readinessLabel(service, provider);
               const delivery = channelState(status, channel);
               return (
                 <div key={channel} className="rounded-2xl border border-white/[0.06] bg-black/20 p-4">
@@ -330,10 +351,13 @@ export default function SyntheticIntelligenceDeliveryControl({ organizationId, r
                   </div>
 
                   <div className="mt-3 flex items-center gap-2 text-[10px]">
-                    <span className={`h-1.5 w-1.5 rounded-full ${service.ready_for_execution ? "bg-[#D6A66A]" : "bg-white/20"}`} />
-                    <span className={service.ready_for_execution ? "text-[#E7C48E]/65" : "text-white/28"}>
-                      {service.ready_for_execution ? "Connected service ready" : "Connected service required"}
+                    <span className={`h-1.5 w-1.5 rounded-full ${providerReady ? "bg-[#D6A66A]" : "bg-white/20"}`} />
+                    <span className={providerReady ? "text-[#E7C48E]/65" : "text-white/28"}>
+                      {providerLabel}
                     </span>
+                  </div>
+                  <div className="mt-1 text-[9px] leading-4 text-white/20">
+                    Static configuration only · provider connectivity is not tested here.
                   </div>
 
                   {channel === "email" ? (

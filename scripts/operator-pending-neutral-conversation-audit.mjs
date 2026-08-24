@@ -77,7 +77,7 @@ requireFragments(fastPath, fastSource, [
   "const TEXT_NEUTRAL_CONVERSATION_PATTERN =",
   'const channel = text(source).toLowerCase() || "text"',
   'if (channel !== "voice") {',
-  "return TEXT_NEUTRAL_CONVERSATION_PATTERN.test(clean)",
+  "return TEXT_NEUTRAL_CONVERSATION_PATTERN.test(normalized(clean))",
   "if (PROJECT_CONTROL_PATTERN.test(clean)) return false",
   'source = "voice"',
   "const pendingContext = compactPendingContext(agreementState)",
@@ -97,6 +97,17 @@ const textPatternSource = fastSource.match(
 assert.ok(textPatternSource, "text neutral conversation regex must be extractable");
 const textNeutralPattern = Function(`return ${textPatternSource}`)();
 
+function normalizeForTextGate(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9+\-*/.\u0e00-\u0e7f\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 for (const message of [
   "why?",
   "why not?",
@@ -108,9 +119,34 @@ for (const message of [
   "what exactly will you do?",
   "thanks",
   "got it",
+  "varför?",
+  "vad menar du?",
+  "kan du förklara det?",
+  "vilka är riskerna?",
+  "låter bra",
+  "warum?",
+  "was meinst du?",
+  "kannst du das erklären?",
+  "welche Risiken gibt es?",
+  "klingt gut",
+  "pourquoi?",
+  "tu veux dire quoi?",
+  "peux-tu expliquer?",
+  "quels sont les risques?",
+  "ça a du sens",
+  "¿por qué?",
+  "¿qué quieres decir?",
+  "¿puedes explicar eso?",
+  "¿cuáles son los riesgos?",
+  "suena bien",
+  "ทำไม?",
+  "หมายความว่าอะไร?",
+  "อธิบายได้ไหม?",
+  "มีความเสี่ยงอะไรบ้าง?",
+  "ฟังดูดี",
 ]) {
   assert.equal(
-    textNeutralPattern.test(message),
+    textNeutralPattern.test(normalizeForTextGate(message)),
     true,
     `neutral text follow-up must remain discussion-only: ${message}`,
   );
@@ -127,9 +163,25 @@ for (const message of [
   "change the supplier",
   "what about changing the supplier",
   "should we use another supplier instead",
+  "ja",
+  "nej",
+  "fortsätt",
+  "gör det",
+  "oui",
+  "non",
+  "continuez",
+  "faites-le",
+  "sí",
+  "no",
+  "continúa",
+  "hazlo",
+  "ใช่",
+  "ไม่",
+  "ยืนยัน",
+  "ยกเลิก",
 ]) {
   assert.equal(
-    textNeutralPattern.test(message),
+    textNeutralPattern.test(normalizeForTextGate(message)),
     false,
     `control or new-direction text must not be classified as neutral discussion: ${message}`,
   );
@@ -187,6 +239,8 @@ console.log("OPERATOR_PENDING_NEUTRAL_CONVERSATION_VALID=EXACT_PENDING_PRESERVED
 console.log("OPERATOR_PENDING_NEUTRAL_CONVERSATION_MISSION=EXACT_MISSION_PRESERVED");
 console.log("OPERATOR_PENDING_NEUTRAL_CONVERSATION_MALFORMED=STALE_PENDING_CLEARED_NO_EXECUTION");
 console.log("OPERATOR_PENDING_NEUTRAL_CONVERSATION_TEXT=NEUTRAL_DISCUSSION_ONLY");
+console.log("OPERATOR_PENDING_NEUTRAL_CONVERSATION_MULTILINGUAL=DISCUSSION_ONLY");
+console.log("OPERATOR_PENDING_NEUTRAL_CONVERSATION_CONTROL=NOT_RECLASSIFIED");
 console.log("OPERATOR_PENDING_NEUTRAL_CONVERSATION_CHANNEL=TEXT_VOICE_SOURCE_PRESERVED");
 console.log("OPERATOR_PENDING_NEUTRAL_CONVERSATION_CONTEXT=BOUNDED_NO_EXECUTION_REFERENTS");
 console.log("OPERATOR_PENDING_NEUTRAL_CONVERSATION_NEW_DIRECTION=SUPERSESSION_UNCHANGED");

@@ -2,7 +2,7 @@ const REST = "https://rest.runpod.io/v1";
 const GQL = "https://api.runpod.io/graphql";
 const SERVERLESS = "https://api.runpod.ai/v2";
 
-const CONTRACT = "AVANTIQO_CODE_REGION_MIGRATION_V1";
+const CONTRACT = "AVANTIQO_CODE_REGION_MIGRATION_V2";
 const CODE_ENDPOINT_NAME = "avantiqo-code-v1";
 const ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1";
 const TARGET_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
@@ -16,18 +16,9 @@ const JOB_TIMEOUT_MS = 45 * 60 * 1000;
 const POLL_MS = 5000;
 
 const TARGET_GPU_PREFERENCES = Object.freeze([
-  Object.freeze({
-    id: "NVIDIA H100 80GB HBM3",
-    profile: "H100_SXM_80GB",
-  }),
-  Object.freeze({
-    id: "NVIDIA H200",
-    profile: "H200_SXM_141GB",
-  }),
-  Object.freeze({
-    id: "NVIDIA B200",
-    profile: "B200_180GB",
-  }),
+  Object.freeze({ id: "NVIDIA H100 80GB HBM3", profile: "H100_SXM_80GB" }),
+  Object.freeze({ id: "NVIDIA H200", profile: "H200_SXM_141GB" }),
+  Object.freeze({ id: "NVIDIA B200", profile: "B200_180GB" }),
 ]);
 
 function text(value) {
@@ -148,6 +139,24 @@ function assertNoLiveWork(health, label) {
   return counters;
 }
 
+function stableEndpointFieldsMatch(before, after) {
+  return (
+    before.template_id === after.template_id &&
+    before.workers_min === after.workers_min &&
+    before.workers_max === after.workers_max &&
+    before.idle_timeout_seconds === after.idle_timeout_seconds &&
+    before.scaler_type === after.scaler_type &&
+    before.scaler_value === after.scaler_value &&
+    before.execution_timeout_ms === after.execution_timeout_ms &&
+    before.flashboot === after.flashboot
+  );
+}
+
+function endpointDatacenterCompatible(endpoint, requiredDataCenterId) {
+  const ids = endpoint.data_center_ids || [];
+  return ids.length === 0 || ids.includes(requiredDataCenterId);
+}
+
 async function readBody(response) {
   const raw = await response.text();
   let body = null;
@@ -172,7 +181,9 @@ async function rest(key, path, options = {}) {
   });
   const { raw, body } = await readBody(response);
   if (!response.ok) {
-    throw new Error(`RUNPOD_MANAGEMENT_HTTP_${response.status}:${text(body?.message || body?.error || raw).slice(0, 1000)}`);
+    throw new Error(
+      `RUNPOD_MANAGEMENT_HTTP_${response.status}:${text(body?.message || body?.error || raw).slice(0, 1000)}`,
+    );
   }
   return body;
 }
@@ -190,7 +201,9 @@ async function serverless(apiKey, endpointId, path, options = {}) {
   });
   const { raw, body } = await readBody(response);
   if (!response.ok) {
-    throw new Error(`RUNPOD_SERVERLESS_HTTP_${response.status}:${text(body?.message || body?.error || raw).slice(0, 1000)}`);
+    throw new Error(
+      `RUNPOD_SERVERLESS_HTTP_${response.status}:${text(body?.message || body?.error || raw).slice(0, 1000)}`,
+    );
   }
   return body || {};
 }
@@ -231,11 +244,21 @@ async function discoverTargetDatacenter(managementKey) {
   });
   const { raw, body } = await readBody(response);
   if (!response.ok || body?.errors?.length) {
-    throw new Error(`RUNPOD_GPU_AVAILABILITY_FAILED:${text(body?.errors?.map((entry) => entry?.message).filter(Boolean).join(" | ") || raw).slice(0, 1200)}`);
+    throw new Error(
+      `RUNPOD_GPU_AVAILABILITY_FAILED:${text(
+        body?.errors?.map((entry) => entry?.message).filter(Boolean).join(" | ") || raw,
+      ).slice(0, 1200)}`,
+    );
   }
-  const datacenter = list(body?.data?.dataCenters).find((entry) => text(entry?.id) === TARGET_DATACENTER);
+
+  const datacenter = list(body?.data?.dataCenters).find(
+    (entry) => text(entry?.id) === TARGET_DATACENTER,
+  );
   if (!datacenter) throw new Error(`TARGET_DATACENTER_NOT_FOUND:${TARGET_DATACENTER}`);
-  if (datacenter.storageSupport !== true) throw new Error(`TARGET_DATACENTER_STORAGE_UNSUPPORTED:${TARGET_DATACENTER}`);
+  if (datacenter.storageSupport !== true) {
+    throw new Error(`TARGET_DATACENTER_STORAGE_UNSUPPORTED:${TARGET_DATACENTER}`);
+  }
+
   const available = list(datacenter.gpuAvailability)
     .filter((gpu) => gpu?.available === true && stockRank(gpu?.stockStatus) > 0)
     .map((gpu) => ({
@@ -249,6 +272,7 @@ async function discoverTargetDatacenter(managementKey) {
   const selectedGpu = selectedPreference
     ? available.find((gpu) => gpu.id === selectedPreference.id)
     : null;
+
   return {
     id: TARGET_DATACENTER,
     name: text(datacenter.name) || null,
@@ -273,14 +297,19 @@ async function waitForJob(apiKey, endpointId, jobId, label) {
   let body = await serverless(apiKey, endpointId, `/status/${encodeURIComponent(jobId)}`);
   let status = text(body.status).toUpperCase();
   let lastPrinted = 0;
+
   while (!["COMPLETED", "FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(status)) {
     const elapsed = Date.now() - started;
     if (status === "IN_QUEUE" && elapsed >= QUEUE_TIMEOUT_MS) {
-      await serverless(apiKey, endpointId, `/cancel/${encodeURIComponent(jobId)}`, { method: "POST" }).catch(() => null);
+      await serverless(apiKey, endpointId, `/cancel/${encodeURIComponent(jobId)}`, {
+        method: "POST",
+      }).catch(() => null);
       throw new Error(`${label}_QUEUE_TIMEOUT:${jobId}:${Math.round(elapsed / 1000)}s`);
     }
     if (elapsed >= JOB_TIMEOUT_MS) {
-      await serverless(apiKey, endpointId, `/cancel/${encodeURIComponent(jobId)}`, { method: "POST" }).catch(() => null);
+      await serverless(apiKey, endpointId, `/cancel/${encodeURIComponent(jobId)}`, {
+        method: "POST",
+      }).catch(() => null);
       throw new Error(`${label}_JOB_TIMEOUT:${jobId}:${Math.round(elapsed / 1000)}s`);
     }
     if (Date.now() - lastPrinted >= 15_000) {
@@ -298,6 +327,7 @@ async function waitForJob(apiKey, endpointId, jobId, label) {
     body = await serverless(apiKey, endpointId, `/status/${encodeURIComponent(jobId)}`);
     status = text(body.status).toUpperCase();
   }
+
   if (status !== "COMPLETED") {
     throw new Error(`${label}_${status}:${text(body?.error || body?.output?.error || body?.message)}`);
   }
@@ -345,7 +375,6 @@ async function submitCacheJob(apiKey, endpointId) {
     job_id: jobId,
     delay_ms: number(completed.delayTime, null),
     execution_ms: number(completed.executionTime, null),
-    output,
   };
 }
 
@@ -391,8 +420,80 @@ async function submitProbeJob(apiKey, endpointId) {
     delay_ms: number(completed.delayTime, null),
     execution_ms: number(completed.executionTime, null),
     checks,
-    output,
   };
+}
+
+async function verifyPlacement(managementKey, endpointId, targetVolumeId, targetGpuId, before) {
+  const [verifiedEndpoint, verifiedVolume] = await Promise.all([
+    rest(
+      managementKey,
+      `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
+    ),
+    rest(managementKey, `/networkvolumes/${encodeURIComponent(targetVolumeId)}`),
+  ]);
+  const after = safeEndpoint(verifiedEndpoint);
+  const volume = safeVolume(verifiedVolume);
+
+  if (after.network_volume_id !== targetVolumeId) {
+    throw new Error("CODE_REGION_ENDPOINT_VOLUME_VERIFY_FAILED");
+  }
+  if (volume.data_center_id !== TARGET_DATACENTER) {
+    throw new Error(`CODE_REGION_VOLUME_DATACENTER_VERIFY_FAILED:${volume.data_center_id}`);
+  }
+  if (!endpointDatacenterCompatible(after, TARGET_DATACENTER)) {
+    throw new Error(`CODE_REGION_ENDPOINT_DATACENTER_CONFLICT:${JSON.stringify(after.data_center_ids)}`);
+  }
+  if (!sameArray(after.gpu_type_ids, [targetGpuId])) {
+    throw new Error("CODE_REGION_ENDPOINT_GPU_VERIFY_FAILED");
+  }
+  if (!stableEndpointFieldsMatch(before, after)) {
+    throw new Error("CODE_REGION_ENDPOINT_UNRELATED_CONFIGURATION_CHANGED");
+  }
+
+  return {
+    endpoint: after,
+    volume,
+    placement_verification_source: after.data_center_ids.length
+      ? "NETWORK_VOLUME_AND_ENDPOINT_DATACENTER"
+      : "NETWORK_VOLUME_DATACENTER",
+  };
+}
+
+async function rollbackEndpoint(managementKey, endpointId, before, oldVolume) {
+  const body = {
+    networkVolumeId: before.network_volume_id,
+    gpuTypeIds: before.gpu_type_ids,
+  };
+  if (before.data_center_ids.length) body.dataCenterIds = before.data_center_ids;
+
+  await rest(managementKey, `/endpoints/${encodeURIComponent(endpointId)}`, {
+    method: "PATCH",
+    body,
+  });
+
+  const [rolledBackEndpoint, rolledBackVolume] = await Promise.all([
+    rest(
+      managementKey,
+      `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
+    ),
+    rest(managementKey, `/networkvolumes/${encodeURIComponent(before.network_volume_id)}`),
+  ]);
+  const rollback = safeEndpoint(rolledBackEndpoint);
+  const volume = safeVolume(rolledBackVolume);
+  const datacenterRestored = before.data_center_ids.length === 0
+    ? rollback.data_center_ids.length === 0 || volume.data_center_id === oldVolume.data_center_id
+    : sameArray(rollback.data_center_ids, before.data_center_ids);
+
+  if (
+    rollback.network_volume_id !== before.network_volume_id ||
+    !sameArray(rollback.gpu_type_ids, before.gpu_type_ids) ||
+    !datacenterRestored ||
+    volume.data_center_id !== oldVolume.data_center_id ||
+    !stableEndpointFieldsMatch(before, rollback)
+  ) {
+    throw new Error(`CODE_REGION_ROLLBACK_VERIFY_FAILED:${JSON.stringify({ rollback, volume })}`);
+  }
+  return { endpoint: rollback, volume };
 }
 
 async function main() {
@@ -407,12 +508,21 @@ async function main() {
   if (!managementKey) throw new Error("RUNPOD_MANAGEMENT_API_KEY_REQUIRED");
   if (!apiKey) throw new Error("RUNPOD_API_KEY_REQUIRED");
   if (!endpointId) throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_REQUIRED");
-  if (apply && !migrationApproved) throw new Error("AVANTIQO_CODE_REGION_MIGRATION_APPROVED=YES_REQUIRED");
-  if (apply && !storageSpendApproved) throw new Error("AVANTIQO_CODE_STORAGE_SPEND_APPROVED=YES_REQUIRED");
-  if (apply && !providerSpendApproved) throw new Error("AVANTIQO_CODE_PROVIDER_SPEND_APPROVED=YES_REQUIRED");
+  if (apply && !migrationApproved) {
+    throw new Error("AVANTIQO_CODE_REGION_MIGRATION_APPROVED=YES_REQUIRED");
+  }
+  if (apply && !storageSpendApproved) {
+    throw new Error("AVANTIQO_CODE_STORAGE_SPEND_APPROVED=YES_REQUIRED");
+  }
+  if (apply && !providerSpendApproved) {
+    throw new Error("AVANTIQO_CODE_PROVIDER_SPEND_APPROVED=YES_REQUIRED");
+  }
 
   const [endpoint, volumes, health, target] = await Promise.all([
-    rest(managementKey, `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`),
+    rest(
+      managementKey,
+      `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
+    ),
     rest(managementKey, "/networkvolumes"),
     serverless(apiKey, endpointId, "/health"),
     discoverTargetDatacenter(managementKey),
@@ -427,14 +537,15 @@ async function main() {
   const before = safeEndpoint(endpoint);
   const oldVolumeId = before.network_volume_id;
   if (!oldVolumeId) throw new Error("CODE_CURRENT_NETWORK_VOLUME_REQUIRED");
-  const oldVolume = volumes.find((volume) => text(volume.id) === oldVolumeId) || null;
-  if (!oldVolume) throw new Error(`CODE_CURRENT_NETWORK_VOLUME_NOT_FOUND:${oldVolumeId}`);
-  const selectedGpu = target.selected_gpu;
-  const existingTargetVolumes = volumes.filter((volume) => text(volume.name) === TARGET_VOLUME_NAME);
-  if (existingTargetVolumes.length > 1) {
-    throw new Error(`CODE_REGION_TARGET_VOLUME_AMBIGUOUS:${existingTargetVolumes.length}`);
+  const oldVolumeRaw = volumes.find((volume) => text(volume.id) === oldVolumeId) || null;
+  if (!oldVolumeRaw) throw new Error(`CODE_CURRENT_NETWORK_VOLUME_NOT_FOUND:${oldVolumeId}`);
+  const oldVolume = safeVolume(oldVolumeRaw);
+
+  const targetVolumes = volumes.filter((volume) => text(volume.name) === TARGET_VOLUME_NAME);
+  if (targetVolumes.length > 1) {
+    throw new Error(`CODE_REGION_TARGET_VOLUME_AMBIGUOUS:${targetVolumes.length}`);
   }
-  const reusableTargetVolume = existingTargetVolumes[0] || null;
+  const reusableTargetVolume = targetVolumes[0] || null;
   if (reusableTargetVolume) {
     if (text(reusableTargetVolume.dataCenterId) !== TARGET_DATACENTER) {
       throw new Error("CODE_REGION_TARGET_VOLUME_DATACENTER_MISMATCH");
@@ -444,9 +555,8 @@ async function main() {
     }
   }
 
-  const monthlyStorageUsd = Number((TARGET_VOLUME_SIZE_GB * STORAGE_USD_PER_GB_MONTH).toFixed(2));
   const plan = {
-    success: Boolean(selectedGpu),
+    success: Boolean(target.selected_gpu),
     contract: CONTRACT,
     mode: apply ? "APPLY" : "PLAN",
     mutation_performed: false,
@@ -455,15 +565,17 @@ async function main() {
     inference_performed: false,
     production_deploy_performed: false,
     endpoint_before: before,
-    current_volume: safeVolume(oldVolume),
+    current_volume: oldVolume,
     target: {
       data_center_id: TARGET_DATACENTER,
       location: target.location,
-      selected_gpu: selectedGpu,
+      selected_gpu: target.selected_gpu,
       approved_gpu_availability: target.available_approved_gpus,
       volume_name: TARGET_VOLUME_NAME,
       volume_size_gb: TARGET_VOLUME_SIZE_GB,
-      estimated_monthly_storage_usd: monthlyStorageUsd,
+      estimated_monthly_storage_usd: Number(
+        (TARGET_VOLUME_SIZE_GB * STORAGE_USD_PER_GB_MONTH).toFixed(2),
+      ),
       reusable_target_volume: reusableTargetVolume ? safeVolume(reusableTargetVolume) : null,
     },
     health_before: healthCounters(health),
@@ -472,13 +584,16 @@ async function main() {
       nvidia_only: true,
       amd_allowed: false,
       sub_80gb_gpu_allowed: false,
+      network_volume_datacenter_is_authoritative_for_single_volume_placement: true,
+      empty_endpoint_data_center_ids_allowed_when_target_volume_is_verified: true,
       old_volume_delete_in_this_script: false,
       rollback_endpoint_on_cache_or_probe_failure: true,
+      rollback_must_be_refetched_and_verified: true,
       first_inference_in_this_script: false,
     },
   };
 
-  if (!selectedGpu) {
+  if (!target.selected_gpu) {
     console.log(JSON.stringify({
       ...plan,
       success: false,
@@ -487,7 +602,6 @@ async function main() {
     process.exitCode = 2;
     return;
   }
-
   if (!apply) {
     console.log(JSON.stringify(plan, null, 2));
     return;
@@ -496,25 +610,35 @@ async function main() {
   assertNoLiveWork(health, "CODE_REGION_MIGRATION_BLOCKED");
 
   const [freshEndpoint, freshHealth, freshTarget, freshVolumes] = await Promise.all([
-    rest(managementKey, `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`),
+    rest(
+      managementKey,
+      `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
+    ),
     serverless(apiKey, endpointId, "/health"),
     discoverTargetDatacenter(managementKey),
     rest(managementKey, "/networkvolumes"),
   ]);
   const fresh = safeEndpoint(freshEndpoint);
   assertNoLiveWork(freshHealth, "CODE_REGION_MIGRATION_BLOCKED_BEFORE_WRITE");
-  if (fresh.network_volume_id !== before.network_volume_id) throw new Error("CODE_REGION_MIGRATION_STALE_VOLUME");
-  if (fresh.template_id !== before.template_id) throw new Error("CODE_REGION_MIGRATION_STALE_TEMPLATE");
-  if (!sameArray(fresh.gpu_type_ids, before.gpu_type_ids)) throw new Error("CODE_REGION_MIGRATION_STALE_GPU_BINDING");
-  if (fresh.workers_min !== before.workers_min || fresh.workers_max !== before.workers_max) {
-    throw new Error("CODE_REGION_MIGRATION_STALE_WORKER_LIMITS");
+  if (fresh.network_volume_id !== before.network_volume_id) {
+    throw new Error("CODE_REGION_MIGRATION_STALE_VOLUME");
   }
-  if (fresh.scaler_type !== before.scaler_type || fresh.scaler_value !== before.scaler_value || fresh.idle_timeout_seconds !== before.idle_timeout_seconds) {
-    throw new Error("CODE_REGION_MIGRATION_STALE_SCALER");
+  if (fresh.template_id !== before.template_id) {
+    throw new Error("CODE_REGION_MIGRATION_STALE_TEMPLATE");
   }
-  if (!freshTarget.selected_gpu) throw new Error("CODE_REGION_MIGRATION_TARGET_STOCK_DISAPPEARED");
+  if (!sameArray(fresh.gpu_type_ids, before.gpu_type_ids)) {
+    throw new Error("CODE_REGION_MIGRATION_STALE_GPU_BINDING");
+  }
+  if (!stableEndpointFieldsMatch(before, fresh)) {
+    throw new Error("CODE_REGION_MIGRATION_STALE_ENDPOINT_CONFIGURATION");
+  }
+  if (!freshTarget.selected_gpu) {
+    throw new Error("CODE_REGION_MIGRATION_TARGET_STOCK_DISAPPEARED");
+  }
 
-  let targetVolume = list(freshVolumes).find((volume) => text(volume.name) === TARGET_VOLUME_NAME) || null;
+  let targetVolume = list(freshVolumes).find(
+    (volume) => text(volume.name) === TARGET_VOLUME_NAME,
+  ) || null;
   let volumeAction = "REUSED";
   if (!targetVolume) {
     targetVolume = await rest(managementKey, "/networkvolumes", {
@@ -542,22 +666,13 @@ async function main() {
     });
     switched = true;
 
-    const verifiedEndpoint = await rest(
+    const placement = await verifyPlacement(
       managementKey,
-      `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
+      endpointId,
+      targetVolumeId,
+      freshTarget.selected_gpu.id,
+      before,
     );
-    const after = safeEndpoint(verifiedEndpoint);
-    if (after.network_volume_id !== targetVolumeId) throw new Error("CODE_REGION_ENDPOINT_VOLUME_VERIFY_FAILED");
-    if (!sameArray(after.data_center_ids, [TARGET_DATACENTER])) throw new Error("CODE_REGION_ENDPOINT_DATACENTER_VERIFY_FAILED");
-    if (!sameArray(after.gpu_type_ids, [freshTarget.selected_gpu.id])) throw new Error("CODE_REGION_ENDPOINT_GPU_VERIFY_FAILED");
-    if (after.template_id !== before.template_id) throw new Error("CODE_REGION_ENDPOINT_TEMPLATE_CHANGED");
-    if (after.workers_min !== before.workers_min || after.workers_max !== before.workers_max) {
-      throw new Error("CODE_REGION_ENDPOINT_WORKER_LIMITS_CHANGED");
-    }
-    if (after.scaler_type !== before.scaler_type || after.scaler_value !== before.scaler_value || after.idle_timeout_seconds !== before.idle_timeout_seconds) {
-      throw new Error("CODE_REGION_ENDPOINT_SCALER_CHANGED");
-    }
-    if (after.flashboot !== before.flashboot) throw new Error("CODE_REGION_ENDPOINT_FLASHBOOT_CHANGED");
 
     const cache = await submitCacheJob(apiKey, endpointId);
     const probe = await submitProbeJob(apiKey, endpointId);
@@ -571,40 +686,37 @@ async function main() {
       generation_performed: false,
       inference_performed: false,
       selected_gpu: freshTarget.selected_gpu,
-      target_volume: safeVolume(targetVolume),
+      target_volume: placement.volume,
       volume_action: volumeAction,
-      endpoint_after: after,
-      cache: {
-        job_id: cache.job_id,
-        delay_ms: cache.delay_ms,
-        execution_ms: cache.execution_ms,
-        verified: true,
-      },
-      runtime_probe: {
-        job_id: probe.job_id,
-        delay_ms: probe.delay_ms,
-        execution_ms: probe.execution_ms,
-        checks: probe.checks,
-        verified: true,
-      },
-      old_volume_retained_for_rollback: safeVolume(oldVolume),
+      endpoint_after: placement.endpoint,
+      placement_verification_source: placement.placement_verification_source,
+      cache: { ...cache, verified: true },
+      runtime_probe: { ...probe, verified: true },
+      old_volume_retained_for_rollback: oldVolume,
       cleanup_allowed_after_first_inference_passes: true,
       next_action: "RUN_ONE_REAL_CODE_INFERENCE_IMMEDIATELY_THEN_DELETE_OLD_EU_RO_1_CODE_VOLUME",
     }, null, 2));
   } catch (error) {
     if (switched) {
       try {
-        await rest(managementKey, `/endpoints/${encodeURIComponent(endpointId)}`, {
-          method: "PATCH",
-          body: {
-            networkVolumeId: before.network_volume_id,
-            dataCenterIds: before.data_center_ids,
-            gpuTypeIds: before.gpu_type_ids,
-          },
-        });
-        console.error("AVANTIQO_CODE_REGION_MIGRATION_ENDPOINT_ROLLBACK=VERIFIED_REQUESTED");
+        const rollback = await rollbackEndpoint(
+          managementKey,
+          endpointId,
+          before,
+          oldVolume,
+        );
+        console.error("AVANTIQO_CODE_REGION_MIGRATION_ENDPOINT_ROLLBACK=VERIFIED");
+        console.error(JSON.stringify({
+          event: "AVANTIQO_CODE_REGION_MIGRATION_ROLLBACK_VERIFIED",
+          endpoint: rollback.endpoint,
+          volume: rollback.volume,
+        }));
       } catch (rollbackError) {
-        console.error(`AVANTIQO_CODE_REGION_MIGRATION_ENDPOINT_ROLLBACK_FAILED=${text(rollbackError?.message || rollbackError)}`);
+        console.error(
+          `AVANTIQO_CODE_REGION_MIGRATION_ENDPOINT_ROLLBACK_FAILED=${text(
+            rollbackError?.message || rollbackError,
+          )}`,
+        );
       }
     }
     throw error;

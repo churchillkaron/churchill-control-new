@@ -73,6 +73,65 @@ function requireRunpodList(value, candidateKeys, errorCode) {
   return normalized;
 }
 
+function registryAuthDescriptor(item = {}) {
+  return [
+    item?.name,
+    item?.registry,
+    item?.registryUrl,
+    item?.registry_url,
+    item?.serverAddress,
+    item?.server_address,
+    item?.url,
+    item?.host,
+  ]
+    .map(text)
+    .filter(Boolean)
+    .join(" ");
+}
+
+function looksLikeRegistryAuthRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (!text(value.id)) return false;
+  return Boolean(
+    registryAuthDescriptor(value) ||
+    Object.prototype.hasOwnProperty.call(value, "username") ||
+    Object.prototype.hasOwnProperty.call(value, "password") ||
+    Object.prototype.hasOwnProperty.call(value, "credential") ||
+    Object.prototype.hasOwnProperty.call(value, "credentials")
+  );
+}
+
+function normalizeRegistryAuthResponse(value) {
+  const preferred = normalizeListResponse(value, [
+    "containerRegistryAuths",
+    "containerRegistryCreds",
+    "registryAuths",
+    "registryCredentials",
+    "credentials",
+    "auths",
+  ]);
+  if (preferred) return preferred;
+
+  const records = [];
+  const seen = new Set();
+
+  function visit(node, depth = 0) {
+    if (!node || typeof node !== "object" || depth > 8 || seen.has(node)) return;
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item, depth + 1);
+      return;
+    }
+
+    if (looksLikeRegistryAuthRecord(node)) records.push(node);
+    for (const nested of Object.values(node)) visit(nested, depth + 1);
+  }
+
+  visit(value);
+  return records;
+}
+
 function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name}_REQUIRED`);
@@ -173,7 +232,7 @@ function resolveRegistryAuth(registryAuths) {
     }
     return matches[0];
   }
-  const candidates = registryAuths.filter((item) => /ghcr|github/i.test(text(item?.name)));
+  const candidates = registryAuths.filter((item) => /ghcr|github/i.test(registryAuthDescriptor(item)));
   if (candidates.length === 1) return candidates[0];
   if (candidates.length > 1) {
     throw new Error(`AVANTIQO_VOICE_RUNPOD_GHCR_AUTH_AMBIGUOUS:matches=${candidates.length}`);
@@ -245,17 +304,7 @@ let templates = requireRunpodList(
   ["templates"],
   "RUNPOD_TEMPLATE_LIST_INVALID",
 );
-const registryAuths = requireRunpodList(
-  registryAuthsRaw,
-  [
-    "containerRegistryAuths",
-    "containerRegistryCreds",
-    "registryAuths",
-    "registryCredentials",
-    "credentials",
-  ],
-  "RUNPOD_REGISTRY_AUTH_LIST_INVALID",
-);
+const registryAuths = normalizeRegistryAuthResponse(registryAuthsRaw);
 
 const registryAuth = resolveRegistryAuth(registryAuths);
 const plan = {

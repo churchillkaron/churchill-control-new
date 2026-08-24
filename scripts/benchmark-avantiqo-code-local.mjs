@@ -39,26 +39,26 @@ function managementAccessError(status) {
 function printProvisioningBlocker(error) {
   console.error(JSON.stringify({
     success: false,
-    contract: "AVANTIQO_CODE_LOCAL_ENDPOINT_RESOLUTION_V2",
+    contract: "AVANTIQO_CODE_LOCAL_ENDPOINT_RESOLUTION_V3",
     blocker: error?.code || text(error?.message || error),
     endpoint_configured: false,
     runpod_management_discovery_authorized: false,
-    production_runtime_requirement: "RUNPOD_AVANTIQO_CODE_ENDPOINT_ID",
+    production_runtime_requirement: "RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_OR_AUTHORIZED_MANAGEMENT_KEY",
     deployment_source: {
       repository: "churchillkaron/churchill-control-new",
       branch: "main",
       dockerfile: RUNPOD_DEPLOYMENT_DOCKERFILE,
       foundation_model: EXPECTED_FOUNDATION_MODEL,
-      gpu_requirement: "80GB_CLASS_FOR_CURRENT_BFLOAT16_WORKER",
+      gpu_requirement: "80GB_CLASS_FOR_CURRENT_FP8_WORKER",
     },
-    required_next_evidence: "Create or identify the dedicated Avantiqo Code RunPod Serverless endpoint, then set only its endpoint ID as RUNPOD_AVANTIQO_CODE_ENDPOINT_ID in local/Vercel environment configuration.",
+    required_next_evidence: "Provide the configured Code endpoint ID or an authorized RUNPOD_MANAGEMENT_API_KEY so the exact dedicated endpoint can be discovered read-only.",
     mutation_performed: false,
     provider_call_performed: false,
     secret_values_required_in_chat: false,
   }, null, 2));
 }
 
-async function discoverCodeEndpoint(apiKey) {
+async function discoverCodeEndpoint(managementKey) {
   const configured = text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID);
   if (configured) {
     return {
@@ -67,13 +67,19 @@ async function discoverCodeEndpoint(apiKey) {
       source: "environment",
     };
   }
+  if (!managementKey) {
+    const error = new Error("RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_ENDPOINT_DISCOVERY");
+    error.code = "RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_ENDPOINT_DISCOVERY";
+    throw error;
+  }
 
   const response = await fetch(`${RUNPOD_REST_API}/endpoints?includeTemplate=true`, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${managementKey}`,
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(30_000),
   });
   const body = await response.json().catch(() => []);
   if (!response.ok) throw managementAccessError(response.status);
@@ -98,7 +104,7 @@ async function discoverCodeEndpoint(apiKey) {
   return {
     id: text(ranked[0].endpoint.id),
     name: text(ranked[0].endpoint.name) || null,
-    source: "runpod_read_only_discovery",
+    source: "runpod_management_read_only_discovery",
   };
 }
 
@@ -115,13 +121,15 @@ function runBenchmark(env) {
 }
 
 const apiKey = text(process.env.RUNPOD_API_KEY);
+const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
 if (!apiKey) throw new Error("RUNPOD_API_KEY_REQUIRED");
 
 let endpoint;
 try {
-  endpoint = await discoverCodeEndpoint(apiKey);
+  endpoint = await discoverCodeEndpoint(managementKey);
 } catch (error) {
   if ([
+    "RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_ENDPOINT_DISCOVERY",
     "RUNPOD_MANAGEMENT_API_NOT_AUTHORIZED",
     "RUNPOD_AVANTIQO_CODE_ENDPOINT_NOT_FOUND",
     "RUNPOD_AVANTIQO_CODE_ENDPOINT_DISCOVERY_AMBIGUOUS",
@@ -136,12 +144,14 @@ try {
 if (endpoint) {
   console.log(JSON.stringify({
     success: true,
-    contract: "AVANTIQO_CODE_LOCAL_ENDPOINT_RESOLUTION_V2",
+    contract: "AVANTIQO_CODE_LOCAL_ENDPOINT_RESOLUTION_V3",
     endpoint_resolution: {
       source: endpoint.source,
       endpoint_id: endpoint.id,
       endpoint_name: endpoint.name,
     },
+    management_key_used_for_discovery: endpoint.source === "runpod_management_read_only_discovery",
+    serverless_key_used_for_benchmark: true,
     mutation_performed: false,
     provider_call_performed: false,
   }, null, 2));

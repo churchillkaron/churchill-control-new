@@ -23,12 +23,12 @@ command -v vercel >/dev/null 2>&1 || {
   exit 1
 }
 
+PREFLIGHT_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/avantiqo-music-preflight.XXXXXX")
+trap 'rm -f "$PREFLIGHT_OUTPUT"' EXIT HUP INT TERM
+
 run_node() {
   node --env-file=.env.local "$@"
 }
-
-PREFLIGHT_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/avantiqo-music-preflight.XXXXXX")
-trap 'rm -f "$PREFLIGHT_OUTPUT"' EXIT HUP INT TERM
 
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 1: IMPORT CURRENT VERCEL MEDIA ENV LOCALLY"
@@ -43,7 +43,8 @@ node scripts/music-studio-release-audit.mjs
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 3: ZERO-SPEND MUSIC PREFLIGHT"
 printf '%s\n' "========================================"
-run_node scripts/preflight-avantiqo-music-local.mjs | tee "$PREFLIGHT_OUTPUT"
+run_node scripts/preflight-avantiqo-music-local.mjs > "$PREFLIGHT_OUTPUT"
+cat "$PREFLIGHT_OUTPUT"
 
 RESOLVED_GPU_USD_PER_HOUR=$(PREFLIGHT_OUTPUT="$PREFLIGHT_OUTPUT" node -e '
   const fs = require("node:fs");

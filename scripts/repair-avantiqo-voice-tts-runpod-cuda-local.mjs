@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_VOICE_TTS_RUNPOD_CUDA_REPAIR_V1";
+const CONTRACT = "AVANTIQO_VOICE_TTS_RUNPOD_CUDA_REPAIR_V2";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-voice-worker-images.json";
 const ENDPOINT_NAME = "avantiqo-voice-tts-v1";
 const REQUIRED_MIN_CUDA_VERSION = "12.4";
@@ -24,6 +24,17 @@ function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
+}
+
+function normalizeListResponse(value, candidateKeys = [], depth = 0) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object" || depth > 4) return null;
+  for (const key of [...candidateKeys, "data", "items", "results"]) {
+    if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+    const normalized = normalizeListResponse(value[key], candidateKeys, depth + 1);
+    if (normalized) return normalized;
+  }
+  return null;
 }
 
 async function readJson(response, errorPrefix) {
@@ -67,6 +78,28 @@ async function queue(pathname, credential, options = {}) {
   return readJson(response, "RUNPOD_VOICE_TTS_CUDA_REPAIR_QUEUE");
 }
 
+async function endpointBoundTemplate(endpoint, managementKey) {
+  const templateId = text(endpoint?.templateId || endpoint?.template?.id);
+  if (!templateId) {
+    throw new Error("AVANTIQO_VOICE_TTS_ENDPOINT_TEMPLATE_ID_REQUIRED");
+  }
+  const raw = await rest(
+    "/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false",
+    managementKey,
+  );
+  const templates = normalizeListResponse(raw, ["templates"]);
+  if (!templates) {
+    throw new Error("AVANTIQO_VOICE_TTS_ENDPOINT_BOUND_TEMPLATE_LIST_INVALID");
+  }
+  const matches = templates.filter((template) => text(template?.id) === templateId);
+  if (matches.length !== 1) {
+    throw new Error(
+      `AVANTIQO_VOICE_TTS_ENDPOINT_BOUND_TEMPLATE_RESOLUTION_FAILED:matches=${matches.length}`,
+    );
+  }
+  return matches[0];
+}
+
 function safeHealth(body = {}) {
   const jobs = object(body.jobs);
   const workers = object(body.workers);
@@ -94,7 +127,7 @@ function safeEndpoint(endpoint = {}) {
     id: text(endpoint.id) || null,
     name: text(endpoint.name) || null,
     template_id: text(endpoint.templateId || endpoint.template?.id) || null,
-    template_image: text(endpoint.template?.imageName) || null,
+    embedded_template_image: text(endpoint.template?.imageName) || null,
     min_cuda_version: text(endpoint.minCudaVersion) || null,
     gpu_type_ids: Array.isArray(endpoint.gpuTypeIds)
       ? endpoint.gpuTypeIds.map(text).filter(Boolean)
@@ -102,6 +135,15 @@ function safeEndpoint(endpoint = {}) {
     workers_min: finite(endpoint.workersMin),
     workers_max: finite(endpoint.workersMax),
     flashboot: endpoint.flashboot === true,
+  };
+}
+
+function safeTemplate(template = {}) {
+  return {
+    id: text(template.id) || null,
+    name: text(template.name) || null,
+    image_name: text(template.imageName) || null,
+    registry_auth_configured: Boolean(text(template.containerRegistryAuthId)),
   };
 }
 
@@ -142,11 +184,11 @@ let endpoint = await rest(
 if (text(endpoint.id) !== endpointId || text(endpoint.name) !== ENDPOINT_NAME) {
   throw new Error("AVANTIQO_VOICE_TTS_ENDPOINT_BINDING_MISMATCH");
 }
-const templateImage = text(endpoint?.template?.imageName);
-if (templateImage !== immutableImage) {
+let template = await endpointBoundTemplate(endpoint, managementKey);
+if (text(template.imageName) !== immutableImage) {
   throw new Error("AVANTIQO_VOICE_TTS_ENDPOINT_IMMUTABLE_IMAGE_MISMATCH");
 }
-if (!text(endpoint?.template?.containerRegistryAuthId)) {
+if (!text(template.containerRegistryAuthId)) {
   throw new Error("AVANTIQO_VOICE_TTS_ENDPOINT_REGISTRY_AUTH_REQUIRED");
 }
 
@@ -161,6 +203,8 @@ const plan = {
   contract: CONTRACT,
   mode: apply ? "APPLY" : "PLAN",
   endpoint: safeEndpoint(endpoint),
+  template: safeTemplate(template),
+  template_resolution: "ENDPOINT_BOUND_TEMPLATE_LIST",
   immutable_image_verified: true,
   required_min_cuda_version: REQUIRED_MIN_CUDA_VERSION,
   min_cuda_repair_required: text(endpoint.minCudaVersion) !== REQUIRED_MIN_CUDA_VERSION,
@@ -232,8 +276,12 @@ if (text(endpoint.minCudaVersion) !== REQUIRED_MIN_CUDA_VERSION) {
     `AVANTIQO_VOICE_TTS_MIN_CUDA_VERIFY_FAILED:actual=${text(endpoint.minCudaVersion) || "MISSING"}:expected=${REQUIRED_MIN_CUDA_VERSION}`,
   );
 }
-if (text(endpoint?.template?.imageName) !== immutableImage) {
+template = await endpointBoundTemplate(endpoint, managementKey);
+if (text(template.imageName) !== immutableImage) {
   throw new Error("AVANTIQO_VOICE_TTS_IMMUTABLE_IMAGE_CHANGED_DURING_REPAIR");
+}
+if (!text(template.containerRegistryAuthId)) {
+  throw new Error("AVANTIQO_VOICE_TTS_REGISTRY_AUTH_CHANGED_DURING_REPAIR");
 }
 
 const healthAfter = safeHealth(
@@ -252,6 +300,7 @@ console.log(JSON.stringify({
   success: true,
   mode: "APPLY",
   endpoint: safeEndpoint(endpoint),
+  template: safeTemplate(template),
   health_after: healthAfter,
   next_action: "RUN_ONE_CONTROLLED_VOICE_TTS_SMOKE",
 }, null, 2));

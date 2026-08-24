@@ -40,6 +40,7 @@ const endpointBinder = read("scripts/bind-avantiqo-audio-endpoint-local.mjs");
 const endpointAutoBinder = read("scripts/bind-avantiqo-audio-endpoint-auto-local.mjs");
 const endpointProvisioner = read("scripts/provision-avantiqo-audio-runpod-endpoint-local.mjs");
 const storageProvisioner = read("scripts/provision-avantiqo-audio-runpod-storage-local.mjs");
+const sharedVolumePolicy = read("scripts/lib/avantiqo-runpod-shared-volumes.mjs");
 const workerRepair = read("scripts/repair-avantiqo-audio-runpod-worker-local.mjs");
 const runpodPrepare = read("scripts/prepare-avantiqo-music-runpod-local.sh");
 const imageWorkflow = read(".github/workflows/avantiqo-audio-worker-image.yml");
@@ -170,7 +171,12 @@ requirePattern(endpointProvisioner, /containerRegistryAuthId/, "music-endpoint-p
 requirePattern(endpointProvisioner, /production_deploy_performed:\s*false/, "music-endpoint-provisioner-must-not-deploy-production");
 requirePattern(endpointProvisioner, /generation_submitted:\s*false/, "music-endpoint-provisioner-must-not-submit-generation");
 
-requirePattern(storageProvisioner, /AVANTIQO_AUDIO_RUNPOD_STORAGE_V1/, "music-storage-provisioner-contract-required");
+requirePattern(storageProvisioner, /AVANTIQO_AUDIO_RUNPOD_STORAGE_V2/, "music-storage-provisioner-contract-v2-required");
+requirePattern(storageProvisioner, /sharedVolumeGroup\("AUDIO_VOICE"\)/, "music-storage-provisioner-must-use-shared-audio-voice-group");
+requirePattern(storageProvisioner, /DEFAULT_VOLUME_NAME = SHARED_VOLUME_GROUP\.canonical_name/, "music-storage-provisioner-must-use-canonical-shared-volume-name");
+requirePattern(storageProvisioner, /resolveReusableGroupVolume\(volumes, SHARED_VOLUME_GROUP\)/, "music-storage-provisioner-must-reuse-existing-shared-audio-voice-volume");
+requirePattern(storageProvisioner, /assertManagedVolumeCreationAllowed\(freshVolumes, SHARED_VOLUME_GROUP\)/, "music-storage-provisioner-must-enforce-shared-volume-creation-limit");
+requirePattern(storageProvisioner, /additional_audio_voice_volume_forbidden:\s*true/, "music-storage-provisioner-must-forbid-extra-audio-voice-cache");
 requirePattern(storageProvisioner, /AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED=YES_REQUIRED/, "music-storage-provisioner-must-require-explicit-apply-approval");
 requirePattern(storageProvisioner, /DEFAULT_VOLUME_SIZE_GB = 30/, "music-storage-provisioner-must-default-to-30gb-cache");
 requirePattern(storageProvisioner, /MIN_VOLUME_SIZE_GB = 20/, "music-storage-provisioner-must-protect-minimum-cache-headroom");
@@ -181,6 +187,16 @@ requirePattern(storageProvisioner, /networkVolumeId:\s*volumeId/, "music-storage
 requirePattern(storageProvisioner, /dataCenterIds:\s*\[selectedDatacenter\.id\]/, "music-storage-provisioner-must-bind-compatible-datacenter");
 requirePattern(storageProvisioner, /generation_submitted:\s*false/, "music-storage-provisioner-must-not-submit-generation");
 requirePattern(storageProvisioner, /production_deploy_performed:\s*false/, "music-storage-provisioner-must-not-deploy-production");
+
+requirePattern(sharedVolumePolicy, /AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY_V2/, "music-shared-volume-policy-v2-required");
+requirePattern(sharedVolumePolicy, /maximum_managed_cache_volumes:\s*3/, "music-shared-volume-policy-must-cap-managed-caches-at-three");
+requirePattern(sharedVolumePolicy, /AUDIO_VOICE:\s*Object\.freeze/, "music-shared-volume-policy-must-define-audio-voice-group");
+requirePattern(sharedVolumePolicy, /canonical_name:\s*"avantiqo-shared-audio-voice-cache"/, "music-shared-volume-policy-must-use-canonical-audio-voice-cache");
+requirePattern(sharedVolumePolicy, /"avantiqo-audio-v1"/, "music-shared-volume-policy-must-include-audio-endpoint");
+requirePattern(sharedVolumePolicy, /"avantiqo-voice-stt-v1"/, "music-shared-volume-policy-must-include-voice-stt-endpoint");
+requirePattern(sharedVolumePolicy, /"avantiqo-voice-tts-v1"/, "music-shared-volume-policy-must-include-voice-tts-endpoint");
+requirePattern(sharedVolumePolicy, /resolveReusableGroupVolume/, "music-shared-volume-policy-must-resolve-single-reusable-group-cache");
+requirePattern(sharedVolumePolicy, /AVANTIQO_RUNPOD_SHARED_VOLUME_CONSOLIDATION_REQUIRED/, "music-shared-volume-policy-must-fail-on-duplicate-group-caches");
 
 requirePattern(workerRepair, /NETWORK_VOLUME_MOUNT_ROOT = "\/runpod-volume"/, "music-worker-repair-must-know-runpod-network-volume-root");
 requirePattern(workerRepair, /attachedVolumeIds\.length[\s\S]*NETWORK_VOLUME_MOUNT_ROOT/, "music-worker-repair-must-route-checkpoints-to-network-volume-only-when-attached");
@@ -235,7 +251,8 @@ console.log("MUSIC_BENCHMARK=SPEND_GUARDED_PREFLIGHT_REQUIRED_QUEUED_AND_SYNTHET
 console.log("MUSIC_RUNPOD_INSPECTION=READ_ONLY_ENDPOINT_BOUND_TEMPLATE_AWARE");
 console.log("MUSIC_WORKER_IMAGE=EXACT_SOURCE_CUDA_12_8_NATIVE_AUDIO_SMOKE_REQUIRED");
 console.log("MUSIC_ENDPOINT_PROVISIONING=HARDENED_IMMUTABLE_IMAGE_PRIVATE_REGISTRY_SCALE_TO_ZERO");
-console.log("MUSIC_RUNPOD_CACHE=DURABLE_NETWORK_VOLUME_RUNPOD_VOLUME_ROOT");
+console.log("MUSIC_RUNPOD_CACHE=SHARED_AUDIO_VOICE_NETWORK_VOLUME_RUNPOD_VOLUME_ROOT");
+console.log("MUSIC_RUNPOD_SHARED_CACHE_POLICY=THREE_MANAGED_GROUPS_MAX_DUPLICATE_AUDIO_VOICE_FORBIDDEN");
 console.log("MUSIC_ENDPOINT_BINDING=FINGERPRINT_PROVEN_LOCAL_ONLY");
 console.log("MUSIC_CERTIFICATION_WORKFLOW=DEDICATED_MEASURE_ONLY");
 console.log("MUSIC_ECONOMICS=MEASUREMENT_REQUIRED_BEFORE_PRICING_PROMOTION");

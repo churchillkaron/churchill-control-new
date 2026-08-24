@@ -48,7 +48,7 @@ function writeAudioEndpointId(endpointId) {
   } else {
     env = `${env.trimEnd()}\n${line}\n`;
   }
-  fs.writeFileSync(env, "utf8");
+  fs.writeFileSync(envPath, env, { encoding: "utf8", mode: 0o600 });
 }
 
 async function endpointHealth(endpointId, apiKey) {
@@ -88,7 +88,6 @@ async function submitFingerprint(endpointId, apiKey) {
 
 async function waitForFingerprint(endpointId, jobId, apiKey) {
   const startedAt = Date.now();
-  let lastStatus = null;
   while (Date.now() - startedAt <= MAX_WAIT_MS) {
     const { response, raw, body } = await requestText(
       `${RUNPOD_API_BASE}/${encodeURIComponent(endpointId)}/status/${encodeURIComponent(jobId)}`,

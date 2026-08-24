@@ -3,9 +3,10 @@ import { readFile } from "node:fs/promises";
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
+const AUDIO_VOICE_VOLUME_NAME = "avantiqo-shared-audio-voice-cache";
 const DEFAULT_VOLUME_MOUNT_PATH = "/workspace";
 const NETWORK_VOLUME_MOUNT_ROOT = "/runpod-volume";
-const EPHEMERAL_CHECKPOINT_ROOT = "/opt/ace-step/checkpoints";
+const NETWORK_VOLUME_CHECKPOINT_ROOT = `${NETWORK_VOLUME_MOUNT_ROOT}/ace-step-checkpoints`;
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-audio-worker-image.json";
 const EXPECTED_CUDA_RUNTIME = "12.8";
 const MIN_CONTAINER_DISK_GB = 30;
@@ -374,6 +375,7 @@ console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_PRODUCTION_DEPLOY_PERFORMED=false");
 console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_SECRET_VALUES_PRINTED=false");
 console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_MANAGEMENT_WORKERS_AUTHORITATIVE=true");
 console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_HEALTH_BUCKET_SUM=false");
+console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_DURABLE_CACHE_REQUIRED_BEFORE_APPLY=true");
 
 const immutableImage = await imageEvidence();
 const [endpoints, templates, volumes, registryAuths] = await Promise.all([
@@ -418,6 +420,10 @@ if (!resolved.endpoint) {
   const attachedVolumes = volumes
     .filter((volume) => attachedVolumeIds.includes(text(volume?.id)))
     .map(safeVolume);
+  const durableAudioVoiceVolumeReady =
+    attachedVolumeIds.length === 1 &&
+    attachedVolumes.length === 1 &&
+    attachedVolumes[0]?.name === AUDIO_VOICE_VOLUME_NAME;
   const counters = healthCounters(await queueHealth(endpointId, inferenceKey));
   const management = managementWorkerSummary(endpoint);
   const drain = repairDrainState(counters, management);
@@ -433,9 +439,7 @@ if (!resolved.endpoint) {
     text(process.env.AVANTIQO_AUDIO_RUNPOD_VOLUME_MOUNT_PATH) ||
     text(template.volumeMountPath) ||
     DEFAULT_VOLUME_MOUNT_PATH;
-  const checkpointRoot = attachedVolumeIds.length
-    ? `${NETWORK_VOLUME_MOUNT_ROOT}/ace-step-checkpoints`
-    : text(process.env.AVANTIQO_AUDIO_EPHEMERAL_CHECKPOINTS_DIR) || EPHEMERAL_CHECKPOINT_ROOT;
+  const checkpointRoot = NETWORK_VOLUME_CHECKPOINT_ROOT;
   const currentEnv = normalizeEnv(template.env);
   const desiredEnv = {
     ...currentEnv,
@@ -468,12 +472,10 @@ if (!resolved.endpoint) {
   if (ghcrRegistryAuthRequired) nextAction = "CONFIGURE_RUNPOD_GHCR_REGISTRY_AUTH";
   else if (!drain.drained_candidate) {
     nextAction = "WAIT_FOR_AUDIO_WORKER_DRAIN";
+  } else if (!durableAudioVoiceVolumeReady) {
+    nextAction = "PROVISION_AUDIO_NETWORK_VOLUME_THEN_APPLY_TEMPLATE_REPAIR";
   } else if (mutationRequired) {
-    nextAction = attachedVolumeIds.length
-      ? "APPLY_AUDIO_TEMPLATE_REPAIR_THEN_FINGERPRINT"
-      : "APPLY_IMMUTABLE_AUDIO_TEMPLATE_REPAIR_THEN_PROVISION_NETWORK_VOLUME";
-  } else if (!attachedVolumeIds.length) {
-    nextAction = "PROVISION_AUDIO_NETWORK_VOLUME";
+    nextAction = "APPLY_AUDIO_TEMPLATE_REPAIR_THEN_FINGERPRINT";
   }
 
   const plan = {
@@ -488,6 +490,8 @@ if (!resolved.endpoint) {
       templateConsumers.length === 1 && text(templateConsumers[0]?.id) === endpointId,
     attached_network_volumes: attachedVolumes,
     attached_network_volume_ids: attachedVolumeIds,
+    durable_audio_voice_volume_ready: durableAudioVoiceVolumeReady,
+    required_audio_voice_volume_name: AUDIO_VOICE_VOLUME_NAME,
     health: counters,
     management_workers: management,
     drain,
@@ -511,9 +515,11 @@ if (!resolved.endpoint) {
       minimum_container_disk_gb: MIN_CONTAINER_DISK_GB,
       container_disk_change_required: containerDiskChangeRequired,
       local_volume_mount_path: desiredMountPath,
-      network_volume_mount_root: attachedVolumeIds.length ? NETWORK_VOLUME_MOUNT_ROOT : null,
+      network_volume_mount_root: NETWORK_VOLUME_MOUNT_ROOT,
       checkpoints_dir: checkpointRoot,
-      cache_persistence: attachedVolumeIds.length ? "RUNPOD_NETWORK_VOLUME" : "EPHEMERAL_CONTAINER_DISK",
+      cache_persistence: durableAudioVoiceVolumeReady
+        ? "RUNPOD_NETWORK_VOLUME"
+        : "NETWORK_VOLUME_REQUIRED_BEFORE_APPLY",
       changed_env_keys: changedEnvKeys,
       mount_change_required: mountChangeRequired,
       registry_auth_change_required: registryAuthChangeRequired,
@@ -538,6 +544,11 @@ if (!resolved.endpoint) {
     if (ghcrRegistryAuthRequired) {
       throw new Error("AVANTIQO_AUDIO_RUNPOD_GHCR_REGISTRY_AUTH_REQUIRED_FOR_IMMUTABLE_IMAGE");
     }
+    if (!durableAudioVoiceVolumeReady) {
+      throw new Error(
+        `AVANTIQO_AUDIO_TEMPLATE_REPAIR_SHARED_AUDIO_VOICE_VOLUME_REQUIRED:name=${AUDIO_VOICE_VOLUME_NAME}`,
+      );
+    }
     if (templateConsumers.length !== 1 || text(templateConsumers[0]?.id) !== endpointId) {
       throw new Error(`AVANTIQO_AUDIO_SHARED_TEMPLATE_REPAIR_BLOCKED:consumers=${templateConsumers.length}`);
     }
@@ -556,9 +567,10 @@ if (!resolved.endpoint) {
         throw new Error("AVANTIQO_AUDIO_IMAGE_EVIDENCE_CHANGED_REPLAN_REQUIRED");
       }
 
-      const [freshEndpoints, freshTemplates, freshRegistryAuths] = await Promise.all([
+      const [freshEndpoints, freshTemplates, freshVolumes, freshRegistryAuths] = await Promise.all([
         rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
         endpointBoundTemplates(managementKey),
+        rest("/networkvolumes", managementKey),
         rest("/containerregistryauth", managementKey),
       ]);
       const freshResolved = resolveEndpoint(freshEndpoints, endpointId);
@@ -570,8 +582,23 @@ if (!resolved.endpoint) {
       if (templateStateKey(freshTemplate) !== templateStateKey(template)) {
         throw new Error("AVANTIQO_AUDIO_TEMPLATE_CONTENT_CHANGED_REPLAN_REQUIRED");
       }
-      if (endpointVolumeIds(freshEndpoint).join("|") !== attachedVolumeIds.join("|")) {
+      const freshAttachedVolumeIds = endpointVolumeIds(freshEndpoint);
+      if (freshAttachedVolumeIds.join("|") !== attachedVolumeIds.join("|")) {
         throw new Error("AVANTIQO_AUDIO_VOLUME_BINDING_CHANGED_REPLAN_REQUIRED");
+      }
+      const freshAttachedVolumes = Array.isArray(freshVolumes)
+        ? freshVolumes
+          .filter((volume) => freshAttachedVolumeIds.includes(text(volume?.id)))
+          .map(safeVolume)
+        : [];
+      if (
+        freshAttachedVolumeIds.length !== 1 ||
+        freshAttachedVolumes.length !== 1 ||
+        freshAttachedVolumes[0]?.name !== AUDIO_VOICE_VOLUME_NAME
+      ) {
+        throw new Error(
+          `AVANTIQO_AUDIO_TEMPLATE_REPAIR_SHARED_AUDIO_VOICE_VOLUME_CHANGED:name=${AUDIO_VOICE_VOLUME_NAME}`,
+        );
       }
 
       const freshRegistryAuth = resolveRegistryAuth(freshRegistryAuths, freshTemplate);
@@ -631,9 +658,7 @@ if (!resolved.endpoint) {
             endpoint: safeEndpoint(verifiedEndpoint),
             template: safeTemplate(verifiedTemplate),
             mutation_performed: true,
-            next_action: attachedVolumeIds.length
-              ? "FINGERPRINT_AUDIO_ENDPOINT"
-              : "PROVISION_AUDIO_NETWORK_VOLUME_THEN_REPAIR_CACHE",
+            next_action: "FINGERPRINT_AUDIO_ENDPOINT",
           },
           null,
           2,

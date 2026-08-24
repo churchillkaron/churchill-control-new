@@ -9,6 +9,7 @@ const NETWORK_VOLUME_MOUNT_ROOT = "/runpod-volume";
 const NETWORK_VOLUME_CHECKPOINT_ROOT = `${NETWORK_VOLUME_MOUNT_ROOT}/ace-step-checkpoints`;
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-audio-worker-image.json";
 const EXPECTED_CUDA_RUNTIME = "12.8";
+const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
 const MIN_CONTAINER_DISK_GB = 30;
 const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_WORKER_REPAIR_V2";
 
@@ -210,13 +211,19 @@ async function imageEvidence() {
   } catch {
     throw new Error("AVANTIQO_AUDIO_IMMUTABLE_WORKER_IMAGE_EVIDENCE_REQUIRED");
   }
-  if (parsed?.success !== true || parsed?.contract !== "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2") {
-    throw new Error("AVANTIQO_AUDIO_HARDENED_WORKER_IMAGE_EVIDENCE_REQUIRED");
+  if (parsed?.success !== true || parsed?.contract !== "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3") {
+    throw new Error("AVANTIQO_AUDIO_XL_LM_WORKER_IMAGE_EVIDENCE_REQUIRED");
   }
   if (
     parsed?.source_sha_matches_trigger !== true ||
     text(parsed?.source_sha) !== text(parsed?.trigger_sha) ||
     text(parsed?.cuda_runtime_expected) !== EXPECTED_CUDA_RUNTIME ||
+    text(parsed?.runtime_variant) !== "acestep-v15-xl-turbo" ||
+    text(parsed?.quality_profile) !== EXPECTED_QUALITY_PROFILE ||
+    parsed?.ace_step_lm_required !== true ||
+    text(parsed?.ace_step_lm_model) !== "acestep-5Hz-lm-1.7B" ||
+    text(parsed?.ace_step_lm_backend) !== "vllm" ||
+    parsed?.thinking_required !== true ||
     parsed?.cuda_enabled_torch_required !== true ||
     parsed?.owned_handler_import_smoke_required !== true ||
     parsed?.native_audio_import_smoke_required !== true ||
@@ -241,6 +248,7 @@ async function imageEvidence() {
     source_sha: sourceSha,
     trigger_sha: text(parsed.trigger_sha),
     digest: text(parsed.image_digest),
+    quality_profile: EXPECTED_QUALITY_PROFILE,
   };
 }
 
@@ -379,6 +387,7 @@ console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_MANAGEMENT_WORKERS_AUTHORITATIVE=true"
 console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_HEALTH_BUCKET_SUM=false");
 console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_THROTTLED_STALE_WHEN_MANAGEMENT_EXITED=true");
 console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_DURABLE_CACHE_REQUIRED_BEFORE_APPLY=true");
+console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_XL_PLUS_1_7B_LM_REQUIRED=true");
 
 const immutableImage = await imageEvidence();
 const [endpoints, templates, volumes, registryAuths] = await Promise.all([
@@ -403,6 +412,7 @@ if (!resolved.endpoint) {
     immutable_worker_image_verified: true,
     immutable_worker_image: immutableImage.image,
     image_source_sha: immutableImage.source_sha,
+    quality_profile: immutableImage.quality_profile,
     mutation_performed: false,
     generation_submitted: false,
     production_deploy_performed: false,
@@ -450,11 +460,13 @@ if (!resolved.endpoint) {
     AVANTIQO_AUDIO_DEVICE: "cuda",
     AVANTIQO_AUDIO_MODEL_FAMILY: "ACE_STEP_1_5",
     AVANTIQO_AUDIO_FOUNDATION_MODEL: "ACE-Step/Ace-Step1.5",
-    AVANTIQO_AUDIO_MODEL_VARIANT: "acestep-v15-turbo",
+    AVANTIQO_AUDIO_MODEL_VARIANT: "acestep-v15-xl-turbo",
+    AVANTIQO_AUDIO_LM_MODEL: "acestep-5Hz-lm-1.7B",
+    AVANTIQO_AUDIO_LM_BACKEND: "vllm",
     AVANTIQO_AUDIO_MODEL_SOURCE: "huggingface",
     AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES: "ai.music.generate",
     AVANTIQO_AUDIO_FITNESS_LOAD_MODEL: "false",
-    ACESTEP_INIT_LLM: "false",
+    ACESTEP_INIT_LLM: "true",
     HF_HOME: `${checkpointRoot}/.hf-cache`,
   };
   const changedEnvKeys = Object.keys(desiredEnv)
@@ -505,6 +517,11 @@ if (!resolved.endpoint) {
       trigger_sha: immutableImage.trigger_sha,
       digest: immutableImage.digest,
       cuda_runtime: EXPECTED_CUDA_RUNTIME,
+      quality_profile: immutableImage.quality_profile,
+      model_variant: "acestep-v15-xl-turbo",
+      ace_step_lm_model: "acestep-5Hz-lm-1.7B",
+      ace_step_lm_backend: "vllm",
+      thinking_required: true,
     },
     registry_auth: {
       ghcr_auth_found: Boolean(registryAuthId),
@@ -565,7 +582,8 @@ if (!resolved.endpoint) {
       if (
         freshImage.image !== immutableImage.image ||
         freshImage.source_sha !== immutableImage.source_sha ||
-        freshImage.trigger_sha !== immutableImage.trigger_sha
+        freshImage.trigger_sha !== immutableImage.trigger_sha ||
+        freshImage.quality_profile !== immutableImage.quality_profile
       ) {
         throw new Error("AVANTIQO_AUDIO_IMAGE_EVIDENCE_CHANGED_REPLAN_REQUIRED");
       }

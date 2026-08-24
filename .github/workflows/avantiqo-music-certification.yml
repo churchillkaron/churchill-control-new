@@ -1,0 +1,106 @@
+name: Avantiqo Music Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-music-certification-request.json
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: avantiqo-music-certification
+  cancel-in-progress: false
+
+jobs:
+  certify-music:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run owned Music benchmark only
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AVANTIQO_AUDIO_FOUNDATION_MODEL: ${{ vars.AVANTIQO_AUDIO_FOUNDATION_MODEL }}
+          AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED: "YES"
+          AVANTIQO_MUSIC_BENCHMARK_ORGANIZATION_ID: "benchmark-music-ci"
+          AVANTIQO_AUDIO_BENCHMARK_RUNS: "1"
+          AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS: "12"
+          AVANTIQO_AUDIO_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/music-certification.json
+        run: |
+          mkdir -p artifacts
+          node scripts/benchmark-avantiqo-music.mjs
+
+      - name: Verify certification remains measure-only
+        if: success()
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("artifacts/music-certification.json", "utf8"));
+          if (report.contract !== "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3") throw new Error("MUSIC_CERTIFICATION_CONTRACT_INVALID");
+          if (report.activation_allowed !== false) throw new Error("MUSIC_CERTIFICATION_MUST_NOT_ACTIVATE_PRODUCTION");
+          if (report.summary?.passed !== true) throw new Error("MUSIC_CERTIFICATION_BENCHMARK_FAILED");
+          if (report.benchmark_scope?.organization_record_created !== false) throw new Error("MUSIC_CERTIFICATION_MUST_NOT_CREATE_ORGANIZATION");
+          if (!String(report.benchmark_scope?.organization_id || "").startsWith("benchmark-")) throw new Error("MUSIC_CERTIFICATION_SCOPE_MUST_BE_SYNTHETIC");
+          console.log("MUSIC_CERTIFICATION_MEASURE_ONLY=PASS");
+          console.log(`MUSIC_CERTIFICATION_RUNPOD_EXECUTION_MS=${report.summary?.p50_runpod_execution_ms ?? "unknown"}`);
+          console.log(`MUSIC_CERTIFICATION_WALL_MS=${report.summary?.p50_wall_ms ?? "unknown"}`);
+          NODE
+
+      - name: Publish sanitized Music certification evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          node --input-type=module <<'NODE' > /tmp/music-certification-comment.md
+          import { readFile } from "node:fs/promises";
+          let report = null;
+          try {
+            report = JSON.parse(await readFile("artifacts/music-certification.json", "utf8"));
+          } catch {}
+          console.log(`## Music certification run ${process.env.RUN_ID}`);
+          console.log(`Commit: \`${process.env.RUN_SHA}\``);
+          if (!report) {
+            console.log("- Result: NO_MUSIC_CERTIFICATION_REPORT");
+            console.log("- Production activation allowed: false");
+          } else {
+            console.log(`- Contract: ${report.contract}`);
+            console.log(`- Benchmark passed: ${report.summary?.passed === true}`);
+            console.log(`- Runs: ${report.summary?.runs || 0}`);
+            console.log(`- RunPod execution ms: ${report.summary?.p50_runpod_execution_ms ?? "unknown"}`);
+            console.log(`- Wall ms: ${report.summary?.p50_wall_ms ?? "unknown"}`);
+            console.log(`- Human audio review required: ${report.certification_requirements?.human_audio_quality_review_required === true}`);
+            console.log(`- Production activation allowed: ${report.activation_allowed === true}`);
+          }
+          NODE
+          gh issue comment 279 --repo "$GH_REPO" --body-file /tmp/music-certification-comment.md
+
+      - name: Upload Music certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-music-certification-${{ github.run_id }}
+          path: artifacts/music-certification.json
+          if-no-files-found: warn
+          retention-days: 14

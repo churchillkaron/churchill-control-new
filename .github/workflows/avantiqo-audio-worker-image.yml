@@ -19,6 +19,13 @@ jobs:
   build-audio-worker-image:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      image_repository: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.image.outputs.tag }}
+      source_sha: ${{ steps.image.outputs.release_sha }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      preflight_outcome: ${{ steps.preflight.outcome }}
+      build_outcome: ${{ steps.build.outcome }}
     steps:
       - name: Checkout exact triggering source
         uses: actions/checkout@v4
@@ -27,6 +34,7 @@ jobs:
           fetch-depth: 0
 
       - name: Verify Audio worker source lock
+        id: preflight
         shell: bash
         run: |
           set -euo pipefail
@@ -86,75 +94,6 @@ jobs:
           cache-from: type=gha,scope=avantiqo-audio-worker
           cache-to: type=gha,mode=max,scope=avantiqo-audio-worker
 
-      - name: Record sanitized image evidence on newest main
-        env:
-          IMAGE_REPOSITORY: ${{ steps.image.outputs.image }}
-          IMAGE_TAG: ${{ steps.image.outputs.tag }}
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
-          RELEASE_SHA: ${{ steps.image.outputs.release_sha }}
-          BUILD_RUN_ID: ${{ github.run_id }}
-          TRIGGER_SHA: ${{ github.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$IMAGE_DIGEST"
-          test "$RELEASE_SHA" = "$TRIGGER_SHA"
-          case "$IMAGE_DIGEST" in
-            sha256:*) ;;
-            *) echo "AVANTIQO_AUDIO_WORKER_IMAGE_DIGEST_INVALID"; exit 1 ;;
-          esac
-
-          # The immutable image has already been built from TRIGGER_SHA. Move to
-          # the newest main only for the evidence commit so concurrent chats or
-          # an older cancelled image run cannot create a rebase conflict here.
-          git fetch origin main
-          git checkout -B audio-image-evidence origin/main
-          mkdir -p audits/results
-          node --input-type=module <<'NODE'
-          import { writeFileSync } from "node:fs";
-          const repository = process.env.IMAGE_REPOSITORY;
-          const digest = process.env.IMAGE_DIGEST;
-          const report = {
-            success: true,
-            contract: "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2",
-            source_sha: process.env.RELEASE_SHA || null,
-            trigger_sha: process.env.TRIGGER_SHA || null,
-            source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
-            github_run_id: process.env.BUILD_RUN_ID || null,
-            image_repository: repository,
-            image_tag: process.env.IMAGE_TAG || null,
-            image_digest: digest,
-            immutable_image_reference: `${repository}@${digest}`,
-            runtime: "ACE-Step-1.5",
-            runtime_variant: "acestep-v15-turbo",
-            cuda_runtime_expected: "12.8",
-            cuda_enabled_torch_required: true,
-            owned_handler_import_smoke_required: true,
-            native_audio_import_smoke_required: true,
-            cuda_import_smoke_passed_by_docker_build: true,
-            native_audio_import_smoke_passed_by_docker_build: true,
-            certified_capability_default: "ai.music.generate",
-            production_web_deploy: false,
-            provider_job_submitted: false,
-            pricing_activation_performed: false,
-            secrets_in_output: false,
-          };
-          if (!report.source_sha_matches_trigger) {
-            throw new Error("AVANTIQO_AUDIO_WORKER_IMAGE_SOURCE_TRIGGER_MISMATCH");
-          }
-          writeFileSync(
-            "audits/results/avantiqo-audio-worker-image.json",
-            `${JSON.stringify(report)}\n`,
-            "utf8",
-          );
-          NODE
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audits/results/avantiqo-audio-worker-image.json
-          git commit -m "Record Audio worker image result"
-          git push origin HEAD:main
-
       - name: Confirm no production application deployment
         shell: bash
         run: |
@@ -165,3 +104,118 @@ jobs:
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PRODUCTION_WEB_DEPLOY=false'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PRICING_ACTIVATION=false'
+
+  record-audio-worker-image-evidence:
+    needs: build-audio-worker-image
+    if: ${{ always() && needs.build-audio-worker-image.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest main for evidence only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Record sanitized PASS or FAIL evidence
+        env:
+          BUILD_JOB_RESULT: ${{ needs.build-audio-worker-image.result }}
+          PREFLIGHT_OUTCOME: ${{ needs.build-audio-worker-image.outputs.preflight_outcome }}
+          BUILD_OUTCOME: ${{ needs.build-audio-worker-image.outputs.build_outcome }}
+          IMAGE_REPOSITORY: ${{ needs.build-audio-worker-image.outputs.image_repository }}
+          IMAGE_TAG: ${{ needs.build-audio-worker-image.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.build-audio-worker-image.outputs.image_digest }}
+          RELEASE_SHA: ${{ needs.build-audio-worker-image.outputs.source_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+          TRIGGER_SHA: ${{ github.sha }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+
+          const triggerSha = String(process.env.TRIGGER_SHA || "").trim();
+          const sourceSha = String(process.env.RELEASE_SHA || "").trim();
+          const digest = String(process.env.IMAGE_DIGEST || "").trim();
+          const owner = String(process.env.REPOSITORY_OWNER || "").trim().toLowerCase();
+          const repository = String(process.env.IMAGE_REPOSITORY || "").trim() ||
+            (owner ? `ghcr.io/${owner}/avantiqo-audio-worker` : null);
+          const buildJobResult = String(process.env.BUILD_JOB_RESULT || "").trim();
+          const preflightOutcome = String(process.env.PREFLIGHT_OUTCOME || "").trim() || null;
+          const buildOutcome = String(process.env.BUILD_OUTCOME || "").trim() || null;
+          const sourceMatchesTrigger = Boolean(sourceSha) && sourceSha === triggerSha;
+          const digestValid = /^sha256:[a-f0-9]{64}$/i.test(digest);
+          const success = buildJobResult === "success" && sourceMatchesTrigger && digestValid && Boolean(repository);
+
+          const report = {
+            success,
+            contract: "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2",
+            observable_result: true,
+            build_job_result: buildJobResult || "unknown",
+            preflight_outcome: preflightOutcome,
+            build_outcome: buildOutcome,
+            source_sha: sourceSha || null,
+            trigger_sha: triggerSha || null,
+            source_sha_matches_trigger: sourceMatchesTrigger,
+            github_run_id: process.env.BUILD_RUN_ID || null,
+            image_repository: repository,
+            image_tag: String(process.env.IMAGE_TAG || "").trim() || null,
+            image_digest: digestValid ? digest : null,
+            immutable_image_reference: success ? `${repository}@${digest}` : null,
+            runtime: "ACE-Step-1.5",
+            runtime_variant: "acestep-v15-turbo",
+            cuda_runtime_expected: "12.8",
+            cuda_enabled_torch_required: true,
+            owned_handler_import_smoke_required: true,
+            native_audio_import_smoke_required: true,
+            cuda_import_smoke_passed_by_docker_build: success,
+            native_audio_import_smoke_passed_by_docker_build: success,
+            certified_capability_default: "ai.music.generate",
+            failure: success ? null : {
+              code: "AVANTIQO_AUDIO_WORKER_IMAGE_BUILD_FAILED",
+              build_job_result: buildJobResult || "unknown",
+              preflight_outcome: preflightOutcome,
+              build_outcome: buildOutcome,
+            },
+            production_web_deploy: false,
+            provider_job_submitted: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false,
+          };
+
+          writeFileSync(
+            "/tmp/avantiqo-audio-worker-image.json",
+            `${JSON.stringify(report)}\n`,
+            "utf8",
+          );
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B audio-image-evidence origin/main
+            mkdir -p audits/results
+            cp /tmp/avantiqo-audio-worker-image.json audits/results/avantiqo-audio-worker-image.json
+            git add audits/results/avantiqo-audio-worker-image.json
+
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_AUDIO_WORKER_IMAGE_EVIDENCE_ALREADY_CURRENT=true'
+              exit 0
+            fi
+
+            git commit -m "Record Audio worker image result"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_AUDIO_WORKER_IMAGE_EVIDENCE_RECORDED=true'
+              exit 0
+            fi
+
+            echo "AVANTIQO_AUDIO_WORKER_IMAGE_EVIDENCE_PUSH_RETRY=${attempt}"
+            sleep "$attempt"
+          done
+
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_EVIDENCE_PUSH_FAILED'
+          exit 1

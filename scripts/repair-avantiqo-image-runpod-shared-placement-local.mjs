@@ -98,9 +98,6 @@ function endpointVolumeIds(endpoint = {}) {
 }
 function endpointDatacenterCompatible(endpoint, requiredDataCenterId) {
   const ids = list(endpoint?.dataCenterIds);
-  // RunPod may omit dataCenterIds when a network volume is attached. In that
-  // case the network volume's data center is the authoritative placement
-  // constraint, matching the Code runtime diagnostic's effective placement.
   return ids.length === 0 || ids.includes(requiredDataCenterId);
 }
 function profileForGpu(gpu = {}) {
@@ -108,6 +105,7 @@ function profileForGpu(gpu = {}) {
     .map(text)
     .filter(Boolean)
     .join(" ");
+  if (/\bMIG\b/i.test(label)) return null;
   return GPU_PROFILES.find(
     (profile) => profile.match.test(label) && !(profile.exclude && profile.exclude.test(label)),
   ) || null;
@@ -322,6 +320,7 @@ console.log(`AVANTIQO_IMAGE_SHARED_PLACEMENT_MODE=${apply ? "APPLY" : "PLAN"}`);
 console.log(`AVANTIQO_IMAGE_SHARED_PLACEMENT_GROUP=${SHARED_GROUP.id}`);
 console.log(`AVANTIQO_IMAGE_SHARED_PLACEMENT_CANONICAL_VOLUME=${SHARED_GROUP.canonical_name}`);
 console.log(`AVANTIQO_IMAGE_SHARED_PLACEMENT_MIN_GPU_GB=${MIN_GPU_MEMORY_GB}`);
+console.log("AVANTIQO_IMAGE_SHARED_PLACEMENT_MIG_SLICES_ALLOWED=false");
 console.log("AVANTIQO_IMAGE_SHARED_PLACEMENT_PER_ENGINE_VOLUME_CREATION=false");
 console.log("AVANTIQO_IMAGE_SHARED_PLACEMENT_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_IMAGE_SHARED_PLACEMENT_MODEL_DOWNLOAD_SUBMITTED=false");
@@ -452,7 +451,6 @@ if (!apply || placementReady) {
   process.exit(0);
 }
 
-// Refetch endpoint + health immediately before mutation.
 let freshEndpoints = await rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey);
 if (!Array.isArray(freshEndpoints)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID_BEFORE_WRITE");
 let fresh = resolveEndpoint(freshEndpoints, endpointId).endpoint;
@@ -484,14 +482,12 @@ if (activeJobs(freshHealth) > 0) {
   console.log(`AVANTIQO_IMAGE_SHARED_STUCK_JOB_CANCELLED=${cancelJobId}`);
 }
 
-// Stop new worker allocation while the old placement drains.
 await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
   method: "PATCH",
   body: { workersMin: 0, workersMax: 0 },
 });
 await waitForQuiescence(endpointId, inferenceKey);
 
-// Refetch again after drain. Preserve template and refuse to overwrite concurrent placement changes.
 freshEndpoints = await rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey);
 fresh = resolveEndpoint(freshEndpoints, endpointId).endpoint;
 if (text(fresh?.templateId || fresh?.template?.id) !== templateId) {

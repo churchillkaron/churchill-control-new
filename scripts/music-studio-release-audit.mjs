@@ -36,6 +36,11 @@ const reviewFinalizer = read("scripts/finalize-avantiqo-music-human-review.mjs")
 const promotionPlan = read("scripts/plan-avantiqo-music-promotion.mjs");
 const runpodInspector = read("scripts/inspect-avantiqo-audio-runpod-worker-local.mjs");
 const endpointBinder = read("scripts/bind-avantiqo-audio-endpoint-local.mjs");
+const endpointAutoBinder = read("scripts/bind-avantiqo-audio-endpoint-auto-local.mjs");
+const endpointProvisioner = read("scripts/provision-avantiqo-audio-runpod-endpoint-local.mjs");
+const storageProvisioner = read("scripts/provision-avantiqo-audio-runpod-storage-local.mjs");
+const workerRepair = read("scripts/repair-avantiqo-audio-runpod-worker-local.mjs");
+const runpodPrepare = read("scripts/prepare-avantiqo-music-runpod-local.sh");
 const certificationWorkflow = read(".github/workflows/avantiqo-music-certification.yml");
 
 requirePattern(route, /UsageRuntime\.get\(usageId\)/, "music-status-must-resolve-governed-usage-server-side");
@@ -86,6 +91,10 @@ requirePattern(benchmark, /runpod_execution_ms/, "music-benchmark-must-capture-r
 requirePattern(benchmark, /organization_record_created:\s*false/, "music-benchmark-must-not-create-business-organization-records");
 requirePattern(benchmark, /MUST_BE_SYNTHETIC/, "music-benchmark-must-reject-real-organization-scope");
 requirePattern(benchmark, /activation_allowed:\s*false/, "music-benchmark-must-not-activate-production-routing");
+requirePattern(benchmark, /\/run`/, "music-benchmark-must-use-queued-runpod-transport");
+requirePattern(benchmark, /\/status\//, "music-benchmark-must-poll-runpod-job-status");
+requirePattern(benchmark, /AVANTIQO_AUDIO_BENCHMARK_QUEUE_TIMEOUT_MS/, "music-benchmark-must-bound-queue-wait");
+requirePattern(benchmark, /AVANTIQO_AUDIO_BENCHMARK_EXECUTION_TIMEOUT_MS/, "music-benchmark-must-bound-execution-wait");
 
 requirePattern(economics, /AVANTIQO_MUSIC_ECONOMICS_V1/, "music-economics-contract-required");
 requirePattern(economics, /AVANTIQO_AUDIO_GPU_USD_PER_HOUR_REQUIRED/, "music-economics-must-require-real-gpu-rate");
@@ -128,6 +137,42 @@ requirePattern(endpointBinder, /COLLIDES_WITH_OTHER_CONFIGURED_ENGINE/, "music-e
 requirePattern(endpointBinder, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID_BOUND_LOCAL=true/, "music-endpoint-binder-must-only-bind-local-audio-endpoint");
 requirePattern(endpointBinder, /MODEL_GENERATION_PERFORMED=false/, "music-endpoint-binder-fingerprint-must-not-generate-music");
 requirePattern(endpointBinder, /PRODUCTION_DEPLOY_PERFORMED=false/, "music-endpoint-binder-must-not-deploy-production");
+requirePattern(endpointAutoBinder, /avantiqo-audio-v1/, "music-auto-binder-must-resolve-exact-audio-endpoint-name");
+requirePattern(endpointAutoBinder, /bind-avantiqo-audio-endpoint-local\.mjs/, "music-auto-binder-must-delegate-to-fingerprint-binder");
+
+requirePattern(endpointProvisioner, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V1/, "music-endpoint-provisioner-must-require-immutable-worker-image-evidence");
+requirePattern(endpointProvisioner, /@sha256:/, "music-endpoint-provisioner-must-require-image-digest");
+requirePattern(endpointProvisioner, /workersMin:\s*0/, "music-endpoint-provisioner-must-scale-to-zero");
+requirePattern(endpointProvisioner, /ECONOMICAL_24GB_NO_LM_PRIORITY/, "music-endpoint-provisioner-must-prefer-economic-no-lm-gpus");
+requirePattern(endpointProvisioner, /ACESTEP_CHECKPOINTS_DIR:\s*"\/opt\/ace-step\/checkpoints"/, "music-endpoint-provisioner-must-not-fake-persistent-cache-before-volume-attachment");
+requirePattern(endpointProvisioner, /containerRegistryAuthId/, "music-endpoint-provisioner-must-support-private-ghcr-auth");
+requirePattern(endpointProvisioner, /production_deploy_performed:\s*false/, "music-endpoint-provisioner-must-not-deploy-production");
+requirePattern(endpointProvisioner, /generation_submitted:\s*false/, "music-endpoint-provisioner-must-not-submit-generation");
+
+requirePattern(storageProvisioner, /AVANTIQO_AUDIO_RUNPOD_STORAGE_V1/, "music-storage-provisioner-contract-required");
+requirePattern(storageProvisioner, /AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED=YES_REQUIRED/, "music-storage-provisioner-must-require-explicit-apply-approval");
+requirePattern(storageProvisioner, /DEFAULT_VOLUME_SIZE_GB = 30/, "music-storage-provisioner-must-default-to-30gb-cache");
+requirePattern(storageProvisioner, /MIN_VOLUME_SIZE_GB = 20/, "music-storage-provisioner-must-protect-minimum-cache-headroom");
+requirePattern(storageProvisioner, /MIN_GPU_MEMORY_GB = 24/, "music-storage-provisioner-must-target-supported-24gb-gpu-lane");
+requirePattern(storageProvisioner, /NETWORK_VOLUME_MOUNT_ROOT = "\/runpod-volume"/, "music-storage-provisioner-must-use-runpod-serverless-network-volume-root");
+requirePattern(storageProvisioner, /\/networkvolumes/, "music-storage-provisioner-must-use-runpod-network-volume-api");
+requirePattern(storageProvisioner, /networkVolumeId:\s*volumeId/, "music-storage-provisioner-must-attach-created-or-reused-volume");
+requirePattern(storageProvisioner, /dataCenterIds:\s*\[selectedDatacenter\.id\]/, "music-storage-provisioner-must-bind-compatible-datacenter");
+requirePattern(storageProvisioner, /generation_submitted:\s*false/, "music-storage-provisioner-must-not-submit-generation");
+requirePattern(storageProvisioner, /production_deploy_performed:\s*false/, "music-storage-provisioner-must-not-deploy-production");
+
+requirePattern(workerRepair, /NETWORK_VOLUME_MOUNT_ROOT = "\/runpod-volume"/, "music-worker-repair-must-know-runpod-network-volume-root");
+requirePattern(workerRepair, /attachedVolumeIds\.length[\s\S]*NETWORK_VOLUME_MOUNT_ROOT/, "music-worker-repair-must-route-checkpoints-to-network-volume-only-when-attached");
+requirePattern(workerRepair, /EPHEMERAL_CHECKPOINT_ROOT = "\/opt\/ace-step\/checkpoints"/, "music-worker-repair-must-retain-honest-ephemeral-fallback");
+requirePattern(workerRepair, /RUNPOD_REPAIR_GENERATION_SUBMITTED=false/, "music-worker-repair-must-not-generate-music");
+requirePattern(workerRepair, /RUNPOD_REPAIR_PRODUCTION_DEPLOY_PERFORMED=false/, "music-worker-repair-must-not-deploy-production");
+
+requirePattern(runpodPrepare, /provision-avantiqo-audio-runpod-storage-local\.mjs/, "music-runpod-prepare-must-plan-and-apply-durable-cache");
+requirePattern(runpodPrepare, /AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED/, "music-runpod-prepare-must-require-storage-approval");
+requirePattern(runpodPrepare, /STEP 6: ATTACH DURABLE AUDIO MODEL CACHE/, "music-runpod-prepare-must-attach-cache-before-final-repair");
+requirePattern(runpodPrepare, /STEP 7: APPLY AUDIO WORKER REPAIR/, "music-runpod-prepare-must-repair-template-after-cache-attachment");
+requirePattern(runpodPrepare, /STEP 8: PROVE AUDIO IDENTITY AND BIND LOCALLY/, "music-runpod-prepare-must-fingerprint-after-storage-and-repair");
+requirePattern(runpodPrepare, /REAL_MUSIC_GENERATION_SUBMITTED=false/, "music-runpod-prepare-must-stop-before-real-benchmark-generation");
 
 requirePattern(certificationWorkflow, /audits\/avantiqo-music-certification-request\.json/, "music-certification-workflow-must-use-dedicated-request-trigger");
 requirePattern(certificationWorkflow, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID/, "music-certification-workflow-must-bind-owned-audio-endpoint");
@@ -153,8 +198,10 @@ console.log("MUSIC_ASSET_PERSISTENCE=DURABLE");
 console.log("MUSIC_AUTOMATIC_MASTERING=REQUIRED");
 console.log("MUSIC_VERSION_HISTORY=REQUIRED");
 console.log("MUSIC_CLIENT_PROVIDER_SELECTION=HIDDEN");
-console.log("MUSIC_BENCHMARK=SPEND_GUARDED_AND_SYNTHETIC_SCOPE_ONLY");
+console.log("MUSIC_BENCHMARK=SPEND_GUARDED_QUEUED_AND_SYNTHETIC_SCOPE_ONLY");
 console.log("MUSIC_RUNPOD_INSPECTION=READ_ONLY_ENDPOINT_BOUND_TEMPLATE_AWARE");
+console.log("MUSIC_ENDPOINT_PROVISIONING=IMMUTABLE_IMAGE_PRIVATE_REGISTRY_SCALE_TO_ZERO");
+console.log("MUSIC_RUNPOD_CACHE=DURABLE_NETWORK_VOLUME_RUNPOD_VOLUME_ROOT");
 console.log("MUSIC_ENDPOINT_BINDING=FINGERPRINT_PROVEN_LOCAL_ONLY");
 console.log("MUSIC_CERTIFICATION_WORKFLOW=DEDICATED_MEASURE_ONLY");
 console.log("MUSIC_ECONOMICS=MEASUREMENT_REQUIRED_BEFORE_PRICING_PROMOTION");

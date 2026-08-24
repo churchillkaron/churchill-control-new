@@ -11,7 +11,7 @@ const recommendationPath =
   "lib/operator/contracts/OperatorRecommendationState.js";
 const syntheticPath =
   "lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js";
-const operatorTurnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
+const operatorTurnPath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
 const productCyclePath =
   "lib/platform/capabilities/createProductEngineeringCycleCapability.js";
 
@@ -283,6 +283,9 @@ assert.equal(
 );
 
 console.log("OPERATOR_PRODUCT_RECOMMENDATION_REFINEMENT_AUDIT=PASS");
+console.log(
+  "OPERATOR_PRODUCT_RECOMMENDATION_REFINEMENT_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER",
+);
 console.log(
   "OPERATOR_PRODUCT_RECOMMENDATION_REFINEMENT_PROPOSAL=PRIORITY_CONTEXT_ONLY_NO_AUTHORITY",
 );

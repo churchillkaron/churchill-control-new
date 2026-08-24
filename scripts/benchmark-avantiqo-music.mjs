@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -6,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
 const STORAGE_BUCKET = "creative-assets";
+const PREFLIGHT_CONTRACT = "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V2";
 const POLL_INTERVAL_MS = Math.max(
   2_000,
   Math.min(30_000, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_POLL_INTERVAL_MS || 5_000)),
@@ -55,6 +57,49 @@ function percentile(values, fraction) {
 
 function sleep(ms) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
+}
+
+function runRequiredPreflight() {
+  let raw = "";
+  try {
+    raw = execFileSync(
+      process.execPath,
+      [resolve("scripts/preflight-avantiqo-music-local.mjs")],
+      {
+        cwd: process.cwd(),
+        env: process.env,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 60_000,
+      },
+    );
+  } catch (error) {
+    const stderr = text(error?.stderr).slice(0, 1200);
+    const stdout = text(error?.stdout).slice(0, 1200);
+    throw new Error(
+      `AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT_FAILED:${stderr || stdout || text(error?.message).slice(0, 1200)}`,
+    );
+  }
+
+  let result = null;
+  try {
+    result = JSON.parse(raw);
+  } catch {
+    throw new Error("AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT_OUTPUT_INVALID");
+  }
+  if (
+    result?.success !== true ||
+    result?.contract !== PREFLIGHT_CONTRACT ||
+    result?.ready_for_controlled_benchmark !== true ||
+    result?.safety?.runpod_generation_jobs_submitted !== 0 ||
+    result?.safety?.endpoint_mutations_performed !== 0 ||
+    result?.safety?.production_deploy_performed !== false
+  ) {
+    throw new Error("AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT_NOT_READY");
+  }
+  console.log("AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT=PASS");
+  console.log(`AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT_CONTRACT=${result.contract}`);
+  return result;
 }
 
 async function runpodRequest(url, apiKey, options = {}) {
@@ -170,6 +215,7 @@ async function runJob(endpointId, payload, apiKey, runNumber) {
 }
 
 approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
+const preflight = runRequiredPreflight();
 
 const apiKey = required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
@@ -286,6 +332,15 @@ const report = {
   generated_at: new Date().toISOString(),
   activation_allowed: false,
   purpose: "MEASURE_ONLY_DO_NOT_ACTIVATE_PRICING",
+  preflight: {
+    contract: preflight.contract,
+    passed: true,
+    ready_for_controlled_benchmark: true,
+    endpoint_quiet: preflight.endpoint?.quiet_for_controlled_benchmark === true,
+    durable_model_cache: preflight.model_cache?.persistent === true,
+    generation_jobs_submitted: preflight.safety?.runpod_generation_jobs_submitted,
+    endpoint_mutations_performed: preflight.safety?.endpoint_mutations_performed,
+  },
   benchmark_scope: {
     organization_id: organizationId,
     organization_record_created: false,

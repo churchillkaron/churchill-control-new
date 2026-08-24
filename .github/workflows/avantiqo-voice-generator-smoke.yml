@@ -1,0 +1,143 @@
+name: Avantiqo Voice Generator Smoke
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-voice-generator-smoke-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-voice-generator-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Run one-shot Voice generator roundtrip
+        id: voice_smoke
+        continue-on-error: true
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID }}
+          RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID }}
+          AVANTIQO_VOICE_TTS_FOUNDATION_MODEL: ${{ vars.AVANTIQO_VOICE_TTS_FOUNDATION_MODEL }}
+          AVANTIQO_VOICE_STT_FOUNDATION_MODEL: ${{ vars.AVANTIQO_VOICE_STT_FOUNDATION_MODEL }}
+          AVANTIQO_VOICE_SMOKE_REPORT_OUTPUT: /tmp/avantiqo-voice-generator-smoke.json
+          AVANTIQO_VOICE_SMOKE_AUDIO_OUTPUT: /tmp/avantiqo-voice-generator-smoke.wav
+        run: node scripts/smoke-avantiqo-voice-generator.mjs
+
+      - name: Publish sanitized smoke summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/avantiqo-voice-generator-smoke.json ]; then
+            node --input-type=module <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("/tmp/avantiqo-voice-generator-smoke.json", "utf8"));
+          console.log("## Avantiqo Voice generator smoke");
+          console.log(`- success: ${report.success === true}`);
+          console.log(`- error: ${report.error_code || "none"}`);
+          console.log(`- TTS passed: ${report.tts?.passed === true}`);
+          console.log(`- STT passed: ${report.stt?.passed === true}`);
+          console.log(`- transcript: ${report.stt?.transcript || "none"}`);
+          console.log("- production deploy: false");
+          console.log("- pricing activation: false");
+          NODE
+          else
+            echo "## Avantiqo Voice generator smoke" >> "$GITHUB_STEP_SUMMARY"
+            echo "- no smoke report produced" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload generated WAV and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-voice-generator-smoke-${{ github.run_id }}
+          path: |
+            /tmp/avantiqo-voice-generator-smoke.json
+            /tmp/avantiqo-voice-generator-smoke.wav
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Record sanitized Voice smoke evidence on main
+        if: always()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          TRIGGER_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f /tmp/avantiqo-voice-generator-smoke.json ]; then
+            cat > /tmp/avantiqo-voice-generator-smoke.json <<EOF
+          {"success":false,"contract":"AVANTIQO_VOICE_GENERATOR_SMOKE_V1","error_code":"AVANTIQO_VOICE_SMOKE_REPORT_MISSING","production_web_deploy":false,"pricing_activation_performed":false,"provider_selection_changed":false}
+          EOF
+          fi
+
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+          const path = "/tmp/avantiqo-voice-generator-smoke.json";
+          const report = JSON.parse(await readFile(path, "utf8"));
+          report.github_run_id = process.env.RUN_ID || null;
+          report.trigger_sha = process.env.TRIGGER_SHA || null;
+          report.production_web_deploy = false;
+          report.pricing_activation_performed = false;
+          report.provider_selection_changed = false;
+          await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B voice-generator-smoke-evidence origin/main
+            mkdir -p audits/results
+            cp /tmp/avantiqo-voice-generator-smoke.json audits/results/avantiqo-voice-generator-smoke.json
+            git add audits/results/avantiqo-voice-generator-smoke.json
+
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_VOICE_GENERATOR_SMOKE_EVIDENCE_ALREADY_CURRENT=true'
+              exit 0
+            fi
+
+            git commit -m "Record Voice generator smoke result"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_VOICE_GENERATOR_SMOKE_EVIDENCE_RECORDED=true'
+              exit 0
+            fi
+            sleep "$attempt"
+          done
+
+          echo 'AVANTIQO_VOICE_GENERATOR_SMOKE_EVIDENCE_PUSH_FAILED'
+          exit 1
+
+      - name: Fail workflow if Voice smoke failed
+        if: always()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("/tmp/avantiqo-voice-generator-smoke.json", "utf8"));
+          if (report.success !== true) {
+            console.error(`AVANTIQO_VOICE_GENERATOR_SMOKE_FAILED:${report.error_code || "UNKNOWN"}`);
+            process.exit(1);
+          }
+          console.log("AVANTIQO_VOICE_GENERATOR_SMOKE=PASS");
+          NODE

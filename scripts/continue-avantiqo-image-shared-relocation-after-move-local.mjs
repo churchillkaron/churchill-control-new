@@ -165,13 +165,12 @@ function healthCounters(body = {}) {
 }
 
 function activeExecution(counters) {
-  // Warm idle/ready workers are available capacity, not active work.
+  // Idle, ready, and throttled are capacity/scaler states, not active jobs.
   return (
     counters.jobs.in_queue +
     counters.jobs.in_progress +
     counters.workers.initializing +
     counters.workers.running +
-    counters.workers.throttled +
     counters.workers.unhealthy
   );
 }

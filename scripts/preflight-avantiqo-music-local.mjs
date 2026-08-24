@@ -1,8 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 
+import {
+  assertSharedVolumeInventoryCompatible,
+  classifyManagedVolumeName,
+  resolveReusableGroupVolume,
+  sharedVolumeGroup,
+} from "./lib/avantiqo-runpod-shared-volumes.mjs";
+
 const RUNPOD_API_BASE = "https://api.runpod.ai/v2";
 const RUNPOD_REST_BASE = "https://rest.runpod.io/v1";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
+const AUDIO_VOICE_GROUP = sharedVolumeGroup("AUDIO_VOICE");
 const STORAGE_BUCKET = "creative-assets";
 const NETWORK_VOLUME_CHECKPOINT_ROOT = "/runpod-volume/ace-step-checkpoints";
 const EXPECTED_FOUNDATION_MODEL = "ACE-Step/Ace-Step1.5";
@@ -120,9 +128,10 @@ if (collisions.length) {
   throw new Error(`AVANTIQO_MUSIC_ENDPOINT_COLLISION:${collisions.join(",")}`);
 }
 
-const [health, endpoint] = await Promise.all([
+const [health, endpoint, volumes] = await Promise.all([
   runpodHealth(endpointId, apiKey),
   runpodRest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey),
+  runpodRest("/networkvolumes", managementKey),
 ]);
 if (text(endpoint?.id) !== endpointId) throw new Error("AVANTIQO_MUSIC_PREFLIGHT_ENDPOINT_ID_MISMATCH");
 if (text(endpoint?.name) !== AUDIO_ENDPOINT_NAME) {
@@ -131,10 +140,29 @@ if (text(endpoint?.name) !== AUDIO_ENDPOINT_NAME) {
 if (finite(endpoint?.workersMin, -1) !== 0) {
   throw new Error(`AVANTIQO_MUSIC_PREFLIGHT_SCALE_TO_ZERO_REQUIRED:workers_min=${finite(endpoint?.workersMin, -1)}`);
 }
+if (!Array.isArray(volumes)) throw new Error("AVANTIQO_MUSIC_PREFLIGHT_NETWORK_VOLUME_LIST_INVALID");
+assertSharedVolumeInventoryCompatible(volumes);
 
 const attachedVolumeIds = endpointVolumeIds(endpoint);
 if (!attachedVolumeIds.length) {
   throw new Error("AVANTIQO_MUSIC_PREFLIGHT_DURABLE_NETWORK_VOLUME_REQUIRED");
+}
+const attachedVolumes = volumes.filter((volume) => attachedVolumeIds.includes(text(volume?.id)));
+if (attachedVolumes.length !== attachedVolumeIds.length) {
+  throw new Error("AVANTIQO_MUSIC_PREFLIGHT_ATTACHED_VOLUME_LOOKUP_FAILED");
+}
+const wrongSharedGroup = attachedVolumes.filter(
+  (volume) => classifyManagedVolumeName(volume?.name)?.id !== AUDIO_VOICE_GROUP.id,
+);
+if (wrongSharedGroup.length) {
+  throw new Error(`AVANTIQO_MUSIC_PREFLIGHT_ATTACHED_VOLUME_WRONG_SHARED_GROUP:count=${wrongSharedGroup.length}`);
+}
+const reusableAudioVoiceVolume = resolveReusableGroupVolume(volumes, AUDIO_VOICE_GROUP);
+if (!reusableAudioVoiceVolume.volume) {
+  throw new Error("AVANTIQO_MUSIC_PREFLIGHT_SHARED_AUDIO_VOICE_VOLUME_REQUIRED");
+}
+if (!attachedVolumeIds.includes(text(reusableAudioVoiceVolume.volume.id))) {
+  throw new Error("AVANTIQO_MUSIC_PREFLIGHT_SHARED_AUDIO_VOICE_VOLUME_NOT_ATTACHED");
 }
 
 const template = await resolveEndpointTemplate(endpoint, managementKey);
@@ -199,6 +227,10 @@ const result = {
   model_cache: {
     network_volume_attached: true,
     attached_volume_count: attachedVolumeIds.length,
+    shared_volume_group: AUDIO_VOICE_GROUP.id,
+    shared_volume_name: text(reusableAudioVoiceVolume.volume.name),
+    shared_volume_resolution: reusableAudioVoiceVolume.resolution,
+    shared_volume_policy_compliant: true,
     checkpoints_dir: NETWORK_VOLUME_CHECKPOINT_ROOT,
     huggingface_cache_dir: `${NETWORK_VOLUME_CHECKPOINT_ROOT}/.hf-cache`,
     persistent: true,
@@ -222,6 +254,7 @@ const result = {
   ready_for_controlled_benchmark: true,
   safety: {
     read_only_except_signed_url_creation: true,
+    shared_volume_policy_verified: true,
     runpod_generation_jobs_submitted: 0,
     runpod_run_called: false,
     runpod_runsync_called: false,

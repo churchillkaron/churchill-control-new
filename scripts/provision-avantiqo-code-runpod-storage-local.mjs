@@ -5,7 +5,7 @@ const DEFAULT_VOLUME_NAME = "avantiqo-code-model-cache";
 const DEFAULT_VOLUME_SIZE_GB = 80;
 const MIN_VOLUME_SIZE_GB = 48;
 const DEFAULT_STORAGE_USD_PER_GB_MONTH = 0.07;
-const MIN_GPU_MEMORY_GB = 48;
+const MIN_GPU_MEMORY_GB = 80;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -180,15 +180,6 @@ function gpuProfile(gpu = {}) {
   if (label.includes("B200")) {
     return { id: "B200", tier: "HIGH_END", priority: 5100, native_fp8: true };
   }
-  if (label.includes("L40S")) {
-    return { id: "L40S_48GB", tier: "48GB_FALLBACK", priority: 3200, native_fp8: true };
-  }
-  if (label.includes("RTX 6000 ADA")) {
-    return { id: "RTX_6000_ADA_48GB", tier: "48GB_FALLBACK", priority: 3100, native_fp8: true };
-  }
-  if (label.includes("L40")) {
-    return { id: "L40_48GB", tier: "48GB_FALLBACK", priority: 3000, native_fp8: true };
-  }
   return null;
 }
 
@@ -250,7 +241,6 @@ function storageInventory(dataCenters) {
       name: text(dc?.name) || null,
       location: text(dc?.location) || null,
       high_end_gpus: rankedGpus(dc, "HIGH_END"),
-      fallback_48gb_gpus: rankedGpus(dc, "48GB_FALLBACK"),
     }))
     .filter((dc) => dc.id)
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -293,7 +283,6 @@ const monthlyRate = finite(
 );
 const volumeName = text(process.env.AVANTIQO_CODE_NETWORK_VOLUME_NAME) || DEFAULT_VOLUME_NAME;
 const estimatedMonthlyUsd = Number((requestedSizeGb * monthlyRate).toFixed(2));
-const allow48GbFallback = approved(process.env.AVANTIQO_CODE_ALLOW_48GB_FALLBACK);
 
 if (requestedSizeGb < MIN_VOLUME_SIZE_GB) {
   throw new Error(
@@ -304,8 +293,9 @@ if (requestedSizeGb < MIN_VOLUME_SIZE_GB) {
 console.log(`AVANTIQO_CODE_STORAGE_MODE=${apply ? "APPLY" : "PLAN"}`);
 console.log(`AVANTIQO_CODE_STORAGE_REQUESTED_GB=${requestedSizeGb}`);
 console.log(`AVANTIQO_CODE_STORAGE_ESTIMATED_MONTHLY_USD=${estimatedMonthlyUsd.toFixed(2)}`);
-console.log("AVANTIQO_CODE_STORAGE_HIGH_END_GPU_PREFERRED=true");
-console.log(`AVANTIQO_CODE_STORAGE_48GB_FALLBACK_ALLOWED=${allow48GbFallback}`);
+console.log(`AVANTIQO_CODE_STORAGE_MINIMUM_GPU_MEMORY_GB=${MIN_GPU_MEMORY_GB}`);
+console.log("AVANTIQO_CODE_STORAGE_SUB_80GB_GPU_ALLOWED=false");
+console.log("AVANTIQO_CODE_STORAGE_48GB_FALLBACK_ALLOWED=false");
 console.log("AVANTIQO_CODE_STORAGE_SECRET_VALUES_PRINTED=false");
 console.log("AVANTIQO_CODE_STORAGE_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_CODE_STORAGE_PRODUCTION_DEPLOY_PERFORMED=false");
@@ -331,6 +321,8 @@ if (alreadyAttached.length) {
     contract: "AVANTIQO_CODE_RUNPOD_STORAGE_V3",
     mode: apply ? "APPLY" : "PLAN",
     mutation_performed: false,
+    minimum_gpu_memory_gb: MIN_GPU_MEMORY_GB,
+    sub_80gb_gpu_allowed: false,
     endpoint: safeEndpoint(endpoint),
     attached_volumes: existingAttached.map(safeVolume),
     next_action: "REFRESH_CODE_RUNPOD_WORKER",
@@ -342,17 +334,10 @@ const endpointGpuTypes = stringList(endpoint?.gpuTypeIds);
 if (!endpointGpuTypes.length) throw new Error("AVANTIQO_CODE_ENDPOINT_GPU_TYPES_REQUIRED");
 
 const highEndCandidates = evaluateDatacenters(dataCenters, "HIGH_END");
-const fallbackCandidates = evaluateDatacenters(dataCenters, "48GB_FALLBACK");
 const selectionMode = highEndCandidates.length
   ? "HIGH_END_FP8_GPU"
-  : allow48GbFallback && fallbackCandidates.length
-    ? "48GB_FP8_FALLBACK"
-    : "BLOCKED_NO_HIGH_END_STORAGE_GPU_STOCK";
-const candidates = selectionMode === "HIGH_END_FP8_GPU"
-  ? highEndCandidates
-  : selectionMode === "48GB_FP8_FALLBACK"
-    ? fallbackCandidates
-    : [];
+  : "BLOCKED_NO_80GB_PLUS_STORAGE_GPU_STOCK";
+const candidates = selectionMode === "HIGH_END_FP8_GPU" ? highEndCandidates : [];
 const selectedDatacenter = candidates[0] || null;
 const inventory = storageInventory(dataCenters);
 
@@ -368,11 +353,9 @@ if (!selectedDatacenter) {
     contract: "AVANTIQO_CODE_RUNPOD_STORAGE_V3",
     mode: apply ? "APPLY" : "PLAN",
     mutation_performed: false,
-    blocked_reason: highEndCandidates.length
-      ? "UNKNOWN_SELECTION_FAILURE"
-      : fallbackCandidates.length && !allow48GbFallback
-        ? "NO_HIGH_END_STORAGE_GPU_STOCK_AND_48GB_FALLBACK_DISABLED"
-        : "NO_SUPPORTED_STORAGE_GPU_STOCK",
+    blocked_reason: "NO_80GB_PLUS_STORAGE_GPU_STOCK",
+    minimum_gpu_memory_gb: MIN_GPU_MEMORY_GB,
+    sub_80gb_gpu_allowed: false,
     endpoint: safeEndpoint(endpoint),
     high_end_gpu_preference_order: [
       "RTX PRO 6000 96GB",
@@ -381,9 +364,7 @@ if (!selectedDatacenter) {
       "H200",
       "B200",
     ],
-    fallback_48gb_allowed: allow48GbFallback,
     high_end_datacenters: highEndCandidates,
-    fallback_48gb_datacenters: fallbackCandidates,
     storage_datacenter_inventory: inventory,
     requested_volume: {
       name: volumeName,
@@ -395,7 +376,7 @@ if (!selectedDatacenter) {
   };
   console.log("AVANTIQO_CODE_STORAGE_PLAN=BLOCKED");
   console.log(JSON.stringify(blockedPlan, null, 2));
-  if (apply) throw new Error("AVANTIQO_CODE_STORAGE_HIGH_END_GPU_REPLAN_REQUIRED");
+  if (apply) throw new Error("AVANTIQO_CODE_STORAGE_80GB_PLUS_GPU_REPLAN_REQUIRED");
   process.exitCode = 2;
   process.exit(0);
 }
@@ -424,13 +405,13 @@ const plan = {
   runtime_model_repository_size_gb: 31.2,
   gpu_selection: {
     mode: selectionMode,
+    minimum_gpu_memory_gb: MIN_GPU_MEMORY_GB,
+    sub_80gb_gpu_allowed: false,
     configured_gpu_type_ids: endpointGpuTypes,
     gpu_binding_change_required: gpuBindingChangeRequired,
     target_gpu_type_ids: targetGpuTypes,
     selected_gpu: selectedDatacenter.best_gpu,
-    rationale: selectionMode === "HIGH_END_FP8_GPU"
-      ? "Prefer 80GB+ native-FP8 hardware for vLLM headroom; RTX PRO 6000 96GB is preferred when storage-compatible stock exists."
-      : "48GB native-FP8 fallback was explicitly enabled because no high-end storage-compatible GPU stock is available.",
+    rationale: "Require 80GB+ native-FP8 hardware for the Avantiqo Code vLLM runtime; never downgrade to a 48GB L40-class fallback.",
   },
   requested_volume: {
     name: volumeName,
@@ -441,14 +422,14 @@ const plan = {
   selected_datacenter: selectedDatacenter,
   compatible_datacenters: candidates,
   high_end_datacenters: highEndCandidates,
-  fallback_48gb_datacenters: fallbackCandidates,
   storage_datacenter_inventory: inventory,
   reusable_existing_volume: sameNameVolume ? safeVolume(sameNameVolume) : null,
   safety: {
     network_volume_create_requires_apply: true,
     recurring_storage_spend_requires_explicit_approval: true,
     gpu_binding_change_requires_explicit_approval: gpuBindingChangeRequired,
-    fallback_48gb_requires_separate_explicit_approval: selectionMode === "48GB_FP8_FALLBACK",
+    minimum_gpu_memory_gb: MIN_GPU_MEMORY_GB,
+    sub_80gb_gpu_allowed: false,
     selected_gpu_stock_rechecked_immediately_before_storage_create: true,
     gpu_runtime_spend_not_started_by_storage_apply: true,
     endpoint_patch_requires_apply: true,
@@ -472,11 +453,6 @@ if (!sameNameVolume && !approved(process.env.AVANTIQO_CODE_STORAGE_SPEND_APPROVE
 if (gpuBindingChangeRequired && !approved(process.env.AVANTIQO_CODE_GPU_BINDING_APPROVED)) {
   throw new Error(
     `AVANTIQO_CODE_GPU_BINDING_APPROVAL_REQUIRED:selected=${selectedDatacenter.best_gpu.gpu_type_id}:set_AVANTIQO_CODE_GPU_BINDING_APPROVED=YES`,
-  );
-}
-if (selectionMode === "48GB_FP8_FALLBACK" && !approved(process.env.AVANTIQO_CODE_48GB_FALLBACK_APPROVED)) {
-  throw new Error(
-    `AVANTIQO_CODE_48GB_FALLBACK_APPROVAL_REQUIRED:selected=${selectedDatacenter.best_gpu.gpu_type_id}:set_AVANTIQO_CODE_48GB_FALLBACK_APPROVED=YES`,
   );
 }
 

@@ -1,3 +1,4 @@
+import "./lib/avantiqo-audio-runpod-endpoint-ready-fetch-guard.mjs";
 import fs from "node:fs";
 
 const RUNPOD_API_BASE = "https://api.runpod.ai/v2";
@@ -47,7 +48,7 @@ function writeAudioEndpointId(endpointId) {
   } else {
     env = `${env.trimEnd()}\n${line}\n`;
   }
-  fs.writeFileSync(envPath, env, { encoding: "utf8", mode: 0o600 });
+  fs.writeFileSync(env, "utf8");
 }
 
 async function endpointHealth(endpointId, apiKey) {
@@ -97,10 +98,8 @@ async function waitForFingerprint(endpointId, jobId, apiKey) {
       throw new Error(`AVANTIQO_AUDIO_ENDPOINT_FINGERPRINT_STATUS_FAILED:${response.status}:${compactDetail(raw) || "EMPTY_BODY"}`);
     }
     const status = text(body?.status).toUpperCase();
-    if (status && status !== lastStatus) {
-      console.log(`FINGERPRINT_STATUS=${status}`);
-      lastStatus = status;
-    }
+    console.log(`FINGERPRINT_STATUS=${status || "UNKNOWN"}`);
+    console.log(`FINGERPRINT_HEALTH=${JSON.stringify(await endpointHealth(endpointId, apiKey))}`);
     if (["COMPLETED", "FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(status)) return body || {};
     await sleep(POLL_INTERVAL_MS);
   }
@@ -131,7 +130,7 @@ const knownOtherEndpointIds = [
   process.env.RUNPOD_AVANTIQO_LIPSYNC_ENDPOINT_ID,
 ].map(text).filter(Boolean);
 if (knownOtherEndpointIds.includes(candidateId)) {
-  throw new Error("AVANTIQO_AUDIO_ENDPOINT_CANDIDATE_COLLIDES_WITH_OTHER_CONFIGURED_ENGINE");
+  throw new Error("AVANTIQO_AUDIO_ENDPOINT_CANDIDATE_COLLIDES_WITH_OTHER_ENGINE");
 }
 
 const health = await endpointHealth(candidateId, apiKey);

@@ -1,8 +1,11 @@
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { createClient } from "@supabase/supabase-js";
+
 const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
+const STORAGE_BUCKET = "creative-assets";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -14,18 +17,23 @@ function required(name) {
   return value;
 }
 
+function approved(name) {
+  if (text(process.env[name]).toUpperCase() !== "YES") {
+    throw new Error(`${name}_YES_REQUIRED`);
+  }
+}
+
+function safe(value, fallback = "benchmark") {
+  return text(value || fallback)
+    .replace(/[^A-Za-z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || fallback;
+}
+
 function percentile(values, fraction) {
   const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
   if (!sorted.length) return null;
   return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * fraction))];
-}
-
-function scoped(value, run, runs, name) {
-  if (runs === 1) return value.replaceAll("{run}", String(run));
-  if (!value.includes("{run}")) {
-    throw new Error(`${name}_RUN_PLACEHOLDER_REQUIRED_FOR_MULTIPLE_RUNS`);
-  }
-  return value.replaceAll("{run}", String(run));
 }
 
 async function runJob(endpointId, payload, apiKey) {
@@ -50,26 +58,44 @@ async function runJob(endpointId, payload, apiKey) {
   return { body, wallMs };
 }
 
+approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
+
 const apiKey = required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
-const uploadUrlTemplate = required("AVANTIQO_AUDIO_BENCHMARK_UPLOAD_URL");
-const storageReferenceTemplate = required("AVANTIQO_AUDIO_BENCHMARK_STORAGE_REFERENCE");
+const organizationId = required("AVANTIQO_MUSIC_BENCHMARK_ORGANIZATION_ID");
+const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
+const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
 const foundationModel = text(process.env.AVANTIQO_AUDIO_FOUNDATION_MODEL) || "ACE-Step/Ace-Step1.5";
-const runs = Math.max(1, Math.min(10, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_RUNS || 1)));
-const duration = Math.max(10, Math.min(60, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS || 12)));
+const runs = Math.max(1, Math.min(5, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_RUNS || 1)));
+const duration = Math.max(10, Math.min(30, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS || 12)));
+const benchmarkId = safe(`music-${new Date().toISOString()}-${crypto.randomUUID().slice(0, 8)}`);
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+});
 const observations = [];
 
 for (let index = 0; index < runs; index += 1) {
   const run = index + 1;
-  const uploadUrl = scoped(uploadUrlTemplate, run, runs, "AVANTIQO_AUDIO_BENCHMARK_UPLOAD_URL");
-  const storageReference = scoped(storageReferenceTemplate, run, runs, "AVANTIQO_AUDIO_BENCHMARK_STORAGE_REFERENCE");
+  const usageId = `${benchmarkId}-${run}`;
+  const storagePath = `${organizationId}/benchmark/avantiqo-audio/${usageId}.wav`;
+  const { data: upload, error: uploadError } = await supabase.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUploadUrl(storagePath, { upsert: false });
+  if (uploadError) throw uploadError;
+  if (!upload?.signedUrl) throw new Error("AVANTIQO_MUSIC_BENCHMARK_SIGNED_UPLOAD_REQUIRED");
+
+  const storageReference = `storage://${STORAGE_BUCKET}/${storagePath}`;
   const { body, wallMs } = await runJob(endpointId, {
     contract: CONTRACT,
     capability: "ai.music.generate",
     foundation_model: foundationModel,
-    organization_id: "benchmark-only",
-    organization_service_id: "benchmark-only",
-    usage_id: `benchmark-music-${run}`,
+    organization_id: organizationId,
+    organization_service_id: "benchmark-owned-music",
+    usage_id: usageId,
     instruction: "Cinematic premium instrumental underscore, restrained percussion, warm strings, modern electronic texture, no vocals.",
     structured_specification: {
       music: {
@@ -85,14 +111,22 @@ for (let index = 0; index < runs; index += 1) {
       },
     },
     storage_upload: {
-      signed_url: uploadUrl,
+      signed_url: upload.signedUrl,
       storage_reference: storageReference,
     },
   }, apiKey);
 
   const output = body.output || {};
+  const { data: review } = await supabase.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUrl(storagePath, 60 * 60);
+
   observations.push({
     run,
+    usage_id: usageId,
+    storage_reference: storageReference,
+    review_url: review?.signedUrl || null,
+    review_url_expires_seconds: review?.signedUrl ? 3600 : null,
     wall_ms: wallMs,
     worker_generation_seconds: Number(output.generation_seconds) || null,
     duration_seconds: Number(output.duration_seconds) || null,
@@ -107,9 +141,10 @@ for (let index = 0; index < runs; index += 1) {
       text(output.foundation_model) === "ACE-Step/Ace-Step1.5" &&
       text(output.model_family) === "ACE_STEP_1_5" &&
       text(output.model_variant) === "acestep-v15-turbo" &&
+      text(output.storage_reference) === storageReference &&
       Number(output.sample_rate) >= 44100 &&
       Number(output.size_bytes) > 10000 &&
-      Number(output.duration_seconds) >= 9 &&
+      Number(output.duration_seconds) >= Math.max(9, duration - 2) &&
       output.ace_step_lm_used === false &&
       output.raw_reasoning_persisted === false &&
       output.generation_input_persisted === false,
@@ -119,10 +154,18 @@ for (let index = 0; index < runs; index += 1) {
 const wall = observations.map((item) => item.wall_ms);
 const worker = observations.map((item) => item.worker_generation_seconds).filter(Number.isFinite);
 const report = {
-  contract: "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V1",
+  contract: "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V2",
+  benchmark_id: benchmarkId,
   generated_at: new Date().toISOString(),
   activation_allowed: false,
   purpose: "MEASURE_ONLY_DO_NOT_ACTIVATE_PRICING",
+  benchmark_scope: {
+    organization_id: organizationId,
+    storage_bucket: STORAGE_BUCKET,
+    controlled_spend_approved: true,
+    runs,
+    requested_duration_seconds: duration,
+  },
   model: {
     provider: "avantiqo-audio",
     family: "ACE_STEP_1_5",
@@ -144,8 +187,10 @@ const report = {
     measured_gpu_economics_required: true,
     commercial_pricing_status_current: "MARKET_PARITY_READY",
     production_pricing_status_required: "PRODUCTION_CERTIFIED",
-    sfx_certified: false,
+    remix_certified: false,
     audio_edit_certified: false,
+    extend_certified: false,
+    stems_certified: false,
     ace_step_internal_lm_allowed: false,
   },
 };
@@ -156,8 +201,10 @@ const outputPath = resolve(
 );
 await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 console.log(JSON.stringify({
-  success: true,
+  success: report.summary.passed,
   output_path: outputPath,
+  benchmark_id: benchmarkId,
   summary: report.summary,
+  review_urls: observations.map((item) => item.review_url).filter(Boolean),
   activation_allowed: false,
 }, null, 2));

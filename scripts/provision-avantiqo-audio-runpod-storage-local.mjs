@@ -335,6 +335,13 @@ if (sharedVolume && finite(sharedVolume.size, 0) < requestedSizeGb) {
     `AVANTIQO_AUDIO_STORAGE_EXISTING_SHARED_VOLUME_TOO_SMALL:id=${text(sharedVolume.id)}:size_gb=${finite(sharedVolume.size, 0)}:requested_gb=${requestedSizeGb}`,
   );
 }
+const sharedPolicy = sharedVolumePolicySummary(volumes);
+const creationBlockedBySharedInventory =
+  !sharedVolume &&
+  (
+    sharedPolicy.policy_compliant !== true ||
+    sharedPolicy.managed_cache_volume_count >= sharedPolicy.maximum_managed_cache_volumes
+  );
 
 let selectedDatacenter = candidates[0];
 if (sharedVolume) {
@@ -348,13 +355,16 @@ if (sharedVolume) {
 }
 
 const plan = {
-  success: true,
+  success: !creationBlockedBySharedInventory,
   contract: CONTRACT,
   mode: apply ? "APPLY" : "PLAN",
   endpoint_resolution: resolved.resolution,
   endpoint: safeEndpoint(endpoint),
   shared_volume_group: SHARED_VOLUME_GROUP.id,
-  shared_volume_policy: sharedVolumePolicySummary(volumes),
+  shared_volume_policy: sharedPolicy,
+  blocking_shared_cache_groups: creationBlockedBySharedInventory
+    ? sharedPolicy.duplicate_groups
+    : [],
   expected_serverless_mount_root: NETWORK_VOLUME_MOUNT_ROOT,
   checkpoints_dir: CHECKPOINT_ROOT,
   requested_volume: {
@@ -376,14 +386,30 @@ const plan = {
     workers_min_preserved: true,
     maximum_managed_cache_volumes: 3,
     additional_audio_voice_volume_forbidden: true,
+    shared_cache_inventory_must_be_compliant_before_creation: true,
   },
-  next_action: apply ? "CREATE_OR_REUSE_SHARED_VOLUME_AND_ATTACH_ENDPOINT" : "APPROVE_AUDIO_STORAGE_PROVISION",
+  next_action: creationBlockedBySharedInventory
+    ? "COMPLETE_SHARED_CACHE_CONSOLIDATION_THEN_REPLAN_AUDIO_STORAGE"
+    : apply
+      ? "CREATE_OR_REUSE_SHARED_VOLUME_AND_ATTACH_ENDPOINT"
+      : "APPROVE_AUDIO_STORAGE_PROVISION",
 };
 
 if (!apply) {
+  if (creationBlockedBySharedInventory) {
+    console.log("AVANTIQO_AUDIO_STORAGE_PLAN=BLOCKED_SHARED_CACHE_CONSOLIDATION");
+    console.log(JSON.stringify(plan, null, 2));
+    process.exit(2);
+  }
   console.log("AVANTIQO_AUDIO_STORAGE_PLAN=READY");
   console.log(JSON.stringify(plan, null, 2));
   process.exit(0);
+}
+
+if (creationBlockedBySharedInventory) {
+  throw new Error(
+    `AVANTIQO_AUDIO_STORAGE_SHARED_CACHE_CONSOLIDATION_REQUIRED:managed=${sharedPolicy.managed_cache_volume_count}:maximum=${sharedPolicy.maximum_managed_cache_volumes}:duplicate_groups=${sharedPolicy.duplicate_groups.join("|") || "NONE"}`,
+  );
 }
 
 const freshEndpoints = await rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey);

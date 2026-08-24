@@ -96,6 +96,27 @@ function required(name) {
 function endpointVolumeIds(endpoint = {}) {
   return unique([endpoint.networkVolumeId, ...list(endpoint.networkVolumeIds)]);
 }
+function resolvePlacementGroupVolume(volumes, endpoint, group) {
+  const candidates = groupCacheVolumes(volumes, group);
+  const attachedIds = new Set(endpointVolumeIds(endpoint));
+  const attachedCandidates = candidates.filter((volume) => attachedIds.has(text(volume?.id)));
+  if (attachedCandidates.length > 1) {
+    throw new Error(
+      `AVANTIQO_IMAGE_SHARED_MULTIPLE_ATTACHED_GROUP_VOLUMES:group=${group.id}:count=${attachedCandidates.length}`,
+    );
+  }
+  if (attachedCandidates.length === 1) {
+    return {
+      volume: attachedCandidates[0],
+      resolution: candidates.length > 1
+        ? "ENDPOINT_ATTACHED_GROUP_VOLUME_WITH_CONSOLIDATION_PENDING"
+        : "ENDPOINT_ATTACHED_GROUP_VOLUME",
+      candidate_count: candidates.length,
+      detached_group_candidate_count: Math.max(0, candidates.length - 1),
+    };
+  }
+  return resolveReusableGroupVolume(volumes, group);
+}
 function endpointDatacenterCompatible(endpoint, requiredDataCenterId) {
   const ids = list(endpoint?.dataCenterIds);
   return ids.length === 0 || ids.includes(requiredDataCenterId);
@@ -341,7 +362,7 @@ const endpointId = text(endpoint.id);
 const templateId = text(endpoint?.templateId || endpoint?.template?.id);
 if (!templateId) throw new Error("AVANTIQO_IMAGE_SHARED_TEMPLATE_ID_REQUIRED");
 
-const reusable = resolveReusableGroupVolume(volumes, SHARED_GROUP);
+const reusable = resolvePlacementGroupVolume(volumes, endpoint, SHARED_GROUP);
 const sharedVolume = reusable.volume;
 if (!sharedVolume) {
   throw new Error(

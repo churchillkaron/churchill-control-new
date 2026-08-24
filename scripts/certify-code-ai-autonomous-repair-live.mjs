@@ -13,6 +13,7 @@ const REF = process.env.AVANTIQO_CODE_SANDBOX_REF || "main";
 const ENDPOINT = String(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID || "").trim();
 const API_KEY = String(process.env.RUNPOD_API_KEY || "").trim();
 const API_BASE = "https://api.runpod.ai/v2";
+const MAX_CONCURRENCY_REPLANS = 4;
 
 if (!ENDPOINT) throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_REQUIRED");
 if (!API_KEY) throw new Error("RUNPOD_API_KEY_REQUIRED");
@@ -113,6 +114,42 @@ async function runOwnedRepairPlanner({ fileContent, failure }) {
   return { jobId, output, repair };
 }
 
+function repairOperations(repairContent) {
+  return [
+    { id: "cert_apply_owned_repair", action: "apply_files", description: "Apply the owned Code model repair to the isolated fixture only.", input: { files: [{ path: FIXTURE, content: repairContent }] } },
+    { id: "cert_verify_repair", action: "verify", description: "Run the real verifier after repair.", input: { command: "node", args: [VERIFIER], cwd: "." } },
+    { id: "cert_diff_repair", action: "diff", description: "Capture the final evidence-backed repair diff.", input: {} },
+  ];
+}
+
+async function executeRepairWithConcurrencyRecovery({ objective, resumeState, repairContent }) {
+  let result = await executeCodeAIMission({
+    objective,
+    repository_url: REPOSITORY,
+    ref: REF,
+    resume_state: resumeState,
+    operations: repairOperations(repairContent),
+  });
+  let concurrencyReplans = 0;
+
+  while (result.status === "replan_required" && concurrencyReplans < MAX_CONCURRENCY_REPLANS) {
+    concurrencyReplans += 1;
+    result = await executeCodeAIMission({
+      objective,
+      repository_url: REPOSITORY,
+      ref: REF,
+      resume_state: result.state,
+      operations: repairOperations(repairContent),
+    });
+  }
+
+  if (result.status === "replan_required") {
+    throw new Error(`CODE_AI_AUTONOMOUS_REPAIR_MAIN_MOVING_REPLAN_LIMIT_EXCEEDED:${concurrencyReplans}`);
+  }
+
+  return { result, concurrencyReplans };
+}
+
 const objective = "Observe the intentionally broken invoice-total certification fixture, diagnose the real verifier failure, repair only that fixture in an isolated Vercel Sandbox, verify the repair, and produce an evidence-backed diff without mutating GitHub main.";
 
 const observed = await executeCodeAIMission({
@@ -136,22 +173,13 @@ const failure = (observed.state?.failures || []).find((item) => item?.operation_
 if (!failure) throw new Error("CODE_AI_AUTONOMOUS_REPAIR_FAILURE_EVIDENCE_REQUIRED");
 
 const planned = await runOwnedRepairPlanner({ fileContent, failure });
-
-const repaired = await executeCodeAIMission({
+const repairExecution = await executeRepairWithConcurrencyRecovery({
   objective,
-  repository_url: REPOSITORY,
-  ref: REF,
-  resume_state: observed.state,
-  operations: [
-    { id: "cert_apply_owned_repair", action: "apply_files", description: "Apply the owned Code model repair to the isolated fixture only.", input: { files: [{ path: FIXTURE, content: planned.repair.content }] } },
-    { id: "cert_verify_repair", action: "verify", description: "Run the real verifier after repair.", input: { command: "node", args: [VERIFIER], cwd: "." } },
-    { id: "cert_diff_repair", action: "diff", description: "Capture the final evidence-backed repair diff.", input: {} },
-  ],
+  resumeState: observed.state,
+  repairContent: planned.repair.content,
 });
+const repaired = repairExecution.result;
 
-if (repaired.status === "replan_required") {
-  throw new Error("CODE_AI_AUTONOMOUS_REPAIR_MAIN_MOVED_RETRY_REQUIRED");
-}
 if (!repaired.success || repaired.status !== "completed") {
   throw new Error(`CODE_AI_AUTONOMOUS_REPAIR_MISSION_FAILED:${repaired.reason || repaired.status}`);
 }
@@ -175,6 +203,9 @@ console.log(JSON.stringify({
   serving_runtime: planned.output.serving_runtime,
   quantization: planned.output.quantization,
   provider_job_id: planned.jobId,
+  planner_inference_count: 1,
+  concurrency_replans_recovered: repairExecution.concurrencyReplans,
+  additional_inference_submitted_due_to_concurrency: false,
   observed_failure: true,
   diagnosis_present: Boolean(String(planned.repair.diagnosis || "").trim()),
   isolated_repair_applied: true,

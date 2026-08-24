@@ -14,7 +14,10 @@ const AUDIO_VOICE_GROUP = sharedVolumeGroup("AUDIO_VOICE");
 const STORAGE_BUCKET = "creative-assets";
 const NETWORK_VOLUME_CHECKPOINT_ROOT = "/runpod-volume/ace-step-checkpoints";
 const EXPECTED_FOUNDATION_MODEL = "ACE-Step/Ace-Step1.5";
-const EXPECTED_VARIANT = "acestep-v15-turbo";
+const EXPECTED_VARIANT = "acestep-v15-xl-turbo";
+const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
+const EXPECTED_LM_BACKEND = "vllm";
+const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
 const RUNPOD_24GB_FLEX_USD_PER_SECOND = 0.00019;
 const RUNPOD_PUBLIC_PRICING_VERIFIED_AT = "2026-08-24";
 const RUNPOD_24GB_FLEX_GPU_TYPE_IDS = new Set([
@@ -296,8 +299,10 @@ const requiredTemplateEnv = {
   HF_HOME: `${NETWORK_VOLUME_CHECKPOINT_ROOT}/.hf-cache`,
   AVANTIQO_AUDIO_FOUNDATION_MODEL: EXPECTED_FOUNDATION_MODEL,
   AVANTIQO_AUDIO_MODEL_VARIANT: EXPECTED_VARIANT,
+  AVANTIQO_AUDIO_LM_MODEL: EXPECTED_LM_MODEL,
+  AVANTIQO_AUDIO_LM_BACKEND: EXPECTED_LM_BACKEND,
   AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES: "ai.music.generate",
-  ACESTEP_INIT_LLM: "false",
+  ACESTEP_INIT_LLM: "true",
 };
 const invalidEnv = Object.entries(requiredTemplateEnv)
   .filter(([key, expected]) => env[key] !== expected)
@@ -378,8 +383,12 @@ const result = {
   model_contract: {
     foundation_model: EXPECTED_FOUNDATION_MODEL,
     variant: EXPECTED_VARIANT,
+    quality_profile: EXPECTED_QUALITY_PROFILE,
     certified_capabilities: ["ai.music.generate"],
-    ace_step_lm_enabled: false,
+    ace_step_lm_enabled: true,
+    ace_step_lm_model: EXPECTED_LM_MODEL,
+    ace_step_lm_backend: EXPECTED_LM_BACKEND,
+    thinking_enabled: true,
   },
   storage: {
     bucket: STORAGE_BUCKET,

@@ -54,13 +54,16 @@ ENV PATH="/opt/ace-step/.venv/bin:${PATH}" \
     AVANTIQO_AUDIO_DEVICE=cuda \
     AVANTIQO_AUDIO_MODEL_FAMILY=ACE_STEP_1_5 \
     AVANTIQO_AUDIO_FOUNDATION_MODEL=ACE-Step/Ace-Step1.5 \
-    AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-turbo \
+    AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-xl-turbo \
+    AVANTIQO_AUDIO_LM_MODEL=acestep-5Hz-lm-1.7B \
+    AVANTIQO_AUDIO_LM_BACKEND=vllm \
+    ACESTEP_INIT_LLM=true \
     AVANTIQO_AUDIO_MODEL_SOURCE=huggingface
 
 # Build-time smoke deliberately does not require physical GPU access. It proves
-# that the locked environment contains a CUDA 12.8 PyTorch stack, native audio
-# libraries, ACE-Step generation symbols, and the owned worker contract before
-# an immutable image can be accepted for RunPod.
-RUN /opt/ace-step/.venv/bin/python -c "import torch, torchaudio, soundfile; import handler; from acestep.handler import AceStepHandler; from acestep.inference import GenerationConfig, GenerationParams, generate_music; handler._validate_model_contract(); assert torch.version.cuda and str(torch.version.cuda).startswith('12.8'), 'AVANTIQO_AUDIO_CUDA_12_8_TORCH_REQUIRED'; print('AVANTIQO_AUDIO_IMAGE_IMPORT_SMOKE=PASS'); print('AVANTIQO_AUDIO_TORCH_CUDA_RUNTIME=' + str(torch.version.cuda)); print('AVANTIQO_AUDIO_NATIVE_AUDIO_IMPORTS=PASS')"
+# that the locked environment contains the CUDA 12.8 PyTorch stack, native audio
+# libraries, XL DiT + 1.7B LM symbols, and the owned quality contract before an
+# immutable image can be accepted for RunPod.
+RUN /opt/ace-step/.venv/bin/python -c "import torch, torchaudio, soundfile; import handler; from acestep.handler import AceStepHandler; from acestep.inference import GenerationConfig, GenerationParams, generate_music; from acestep.llm_inference import LLMHandler; from acestep.model_downloader import ensure_lm_model; handler._validate_model_contract(); assert handler.MODEL_VARIANT == 'acestep-v15-xl-turbo', 'AVANTIQO_AUDIO_XL_MODEL_REQUIRED'; assert handler.LM_MODEL == 'acestep-5Hz-lm-1.7B', 'AVANTIQO_AUDIO_1_7B_LM_REQUIRED'; assert handler.INIT_LLM, 'AVANTIQO_AUDIO_LM_INIT_REQUIRED'; assert torch.version.cuda and str(torch.version.cuda).startswith('12.8'), 'AVANTIQO_AUDIO_CUDA_12_8_TORCH_REQUIRED'; print('AVANTIQO_AUDIO_IMAGE_IMPORT_SMOKE=PASS'); print('AVANTIQO_AUDIO_QUALITY_PROFILE=' + handler.QUALITY_PROFILE); print('AVANTIQO_AUDIO_TORCH_CUDA_RUNTIME=' + str(torch.version.cuda)); print('AVANTIQO_AUDIO_NATIVE_AUDIO_IMPORTS=PASS')"
 
 CMD ["/opt/ace-step/.venv/bin/python", "-u", "/app/handler.py"]

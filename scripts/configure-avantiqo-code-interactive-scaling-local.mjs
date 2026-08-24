@@ -8,6 +8,11 @@ const TARGET = Object.freeze({
   scalerValue: 1,
   idleTimeout: 600,
 });
+const SCALING_PATCH = Object.freeze({
+  scalerType: TARGET.scalerType,
+  scalerValue: TARGET.scalerValue,
+  idleTimeout: TARGET.idleTimeout,
+});
 
 function text(value) {
   return String(value ?? "").trim();
@@ -59,6 +64,10 @@ function liveWork(healthBody = {}) {
   };
 }
 
+function activeExecution(work = {}) {
+  return work.in_progress > 0 || work.initializing > 0 || work.running > 0;
+}
+
 function safeEndpoint(value = {}) {
   return {
     id: text(value.id) || null,
@@ -83,6 +92,10 @@ function sameTarget(value = {}) {
     Number(value.idleTimeout) === TARGET.idleTimeout;
 }
 
+function unchanged(before, after, key) {
+  return before[key] === after[key];
+}
+
 const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
 const apiKey = text(process.env.RUNPOD_API_KEY);
 const endpointId = text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID);
@@ -94,17 +107,23 @@ if (!endpointId) throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_REQUIRED");
 const before = await endpoint(managementKey, endpointId);
 const beforeSafe = safeEndpoint(before);
 if (beforeSafe.id !== endpointId) throw new Error("AVANTIQO_CODE_ENDPOINT_ID_MISMATCH");
+if (beforeSafe.workersMin !== TARGET.workersMin || beforeSafe.workersMax !== TARGET.workersMax) {
+  throw new Error(
+    `AVANTIQO_CODE_WORKER_LIMITS_UNEXPECTED:min=${beforeSafe.workersMin}:max=${beforeSafe.workersMax}`,
+  );
+}
 
-const currentHealth = await health(apiKey, endpointId);
-const work = liveWork(currentHealth);
-if (work.in_queue > 0 || work.in_progress > 0 || work.initializing > 0 || work.running > 0) {
+const work = liveWork(await health(apiKey, endpointId));
+const queuedBeforePatch = work.in_queue > 0;
+if (activeExecution(work)) {
   console.log(JSON.stringify({
     success: false,
     contract: CONTRACT,
-    status: "BLOCKED_ACTIVE_WORK",
+    status: "BLOCKED_ACTIVE_EXECUTION",
     mutation_performed: false,
     endpoint: beforeSafe,
     health: work,
+    queued_job_present: queuedBeforePatch,
     target: TARGET,
     production_deploy_performed: false,
   }, null, 2));
@@ -118,6 +137,8 @@ if (sameTarget(before)) {
     status: "ALREADY_CONFIGURED",
     mutation_performed: false,
     endpoint: beforeSafe,
+    health: work,
+    queued_job_present: queuedBeforePatch,
     target: TARGET,
     production_deploy_performed: false,
   }, null, 2));
@@ -127,13 +148,29 @@ if (sameTarget(before)) {
 // Refetch immediately before mutation and preserve all unrelated endpoint state.
 const fresh = await endpoint(managementKey, endpointId);
 const freshSafe = safeEndpoint(fresh);
-for (const key of ["networkVolumeId", "templateId"]) {
-  if (freshSafe[key] !== beforeSafe[key]) {
+for (const key of ["networkVolumeId", "templateId", "workersMin", "workersMax"]) {
+  if (!unchanged(beforeSafe, freshSafe, key)) {
     throw new Error(`AVANTIQO_CODE_ENDPOINT_CONCURRENT_CHANGE:${key}`);
   }
 }
 if (JSON.stringify(freshSafe.gpuTypeIds) !== JSON.stringify(beforeSafe.gpuTypeIds)) {
   throw new Error("AVANTIQO_CODE_ENDPOINT_CONCURRENT_CHANGE:gpuTypeIds");
+}
+
+const freshWork = liveWork(await health(apiKey, endpointId));
+if (activeExecution(freshWork)) {
+  console.log(JSON.stringify({
+    success: false,
+    contract: CONTRACT,
+    status: "BLOCKED_ACTIVE_EXECUTION_BEFORE_PATCH",
+    mutation_performed: false,
+    endpoint: freshSafe,
+    health: freshWork,
+    queued_job_present: freshWork.in_queue > 0,
+    target: TARGET,
+    production_deploy_performed: false,
+  }, null, 2));
+  process.exit(2);
 }
 
 const patched = await readJson(`${REST}/endpoints/${encodeURIComponent(endpointId)}`, {
@@ -143,7 +180,7 @@ const patched = await readJson(`${REST}/endpoints/${encodeURIComponent(endpointI
     Accept: "application/json",
     "Content-Type": "application/json",
   },
-  body: JSON.stringify(TARGET),
+  body: JSON.stringify(SCALING_PATCH),
 });
 
 const verified = await endpoint(managementKey, endpointId);
@@ -152,8 +189,8 @@ if (!sameTarget(verified)) {
 }
 
 const verifiedSafe = safeEndpoint(verified);
-for (const key of ["networkVolumeId", "templateId"]) {
-  if (verifiedSafe[key] !== beforeSafe[key]) {
+for (const key of ["networkVolumeId", "templateId", "workersMin", "workersMax"]) {
+  if (!unchanged(beforeSafe, verifiedSafe, key)) {
     throw new Error(`AVANTIQO_CODE_ENDPOINT_UNRELATED_FIELD_CHANGED:${key}`);
   }
 }
@@ -161,18 +198,26 @@ if (JSON.stringify(verifiedSafe.gpuTypeIds) !== JSON.stringify(beforeSafe.gpuTyp
   throw new Error("AVANTIQO_CODE_ENDPOINT_UNRELATED_FIELD_CHANGED:gpuTypeIds");
 }
 
+const healthAfter = liveWork(await health(apiKey, endpointId));
+const queueWasPresent = queuedBeforePatch || freshWork.in_queue > 0;
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
-  status: "CONFIGURED",
+  status: queueWasPresent ? "CONFIGURED_WITH_QUEUED_JOB" : "CONFIGURED",
   mutation_performed: true,
   before: beforeSafe,
   after: verifiedSafe,
+  health_before: work,
+  health_immediately_before_patch: freshWork,
+  health_after: healthAfter,
+  queued_job_present_before_patch: queueWasPresent,
   target: TARGET,
+  patched_fields: Object.keys(SCALING_PATCH),
   patch_response_id: text(patched?.id) || endpointId,
   gpu_binding_preserved: true,
   network_volume_preserved: true,
   template_preserved: true,
+  worker_limits_preserved: true,
   flashboot_preserved: beforeSafe.flashBoot === verifiedSafe.flashBoot,
   production_deploy_performed: false,
 }, null, 2));

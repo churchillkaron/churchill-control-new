@@ -29,6 +29,8 @@ const worker = read("services/avantiqo-audio-engine/handler.py");
 const registration = read("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration.js");
 const router = read("components/creative/ProductionStudio/layout/WorkspaceCanvasRouter.jsx");
 const registry = read("lib/creative/registry/applyCreativeWorkspaceRegistry.js");
+const benchmark = read("scripts/benchmark-avantiqo-music.mjs");
+const economics = read("scripts/avantiqo-music-economics.mjs");
 
 requirePattern(route, /UsageRuntime\.get\(usageId\)/, "music-status-must-resolve-governed-usage-server-side");
 requirePattern(route, /CreativeMusicFinishingRuntime\.ensureMaster/, "music-route-must-trigger-automatic-mastering");
@@ -72,6 +74,21 @@ requirePattern(registration, /"ai\.audio\.remix"/, "audio-provider-must-register
 requirePattern(registration, /"ai\.audio\.edit"/, "audio-provider-must-register-implemented-edit-contract");
 requirePattern(registration, /base_model_required_capabilities/, "audio-provider-must-declare-base-model-required-capabilities");
 
+requirePattern(benchmark, /AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED/, "music-benchmark-must-require-explicit-spend-approval");
+requirePattern(benchmark, /AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3/, "music-benchmark-must-use-current-evidence-contract");
+requirePattern(benchmark, /runpod_execution_ms/, "music-benchmark-must-capture-runpod-billed-execution-time");
+requirePattern(benchmark, /organization_record_created:\s*false/, "music-benchmark-must-not-create-business-organization-records");
+requirePattern(benchmark, /MUST_BE_SYNTHETIC/, "music-benchmark-must-reject-real-organization-scope");
+requirePattern(benchmark, /activation_allowed:\s*false/, "music-benchmark-must-not-activate-production-routing");
+
+requirePattern(economics, /AVANTIQO_MUSIC_ECONOMICS_V1/, "music-economics-contract-required");
+requirePattern(economics, /AVANTIQO_AUDIO_GPU_USD_PER_HOUR_REQUIRED/, "music-economics-must-require-real-gpu-rate");
+requirePattern(economics, /runpod_execution_ms/, "music-economics-must-use-runpod-billed-execution-time");
+requirePattern(economics, /utilization_adjusted_compute_usd_per_audio_second/, "music-economics-must-measure-unit-cost");
+requirePattern(economics, /human_audio_quality_certified:\s*false/, "music-economics-must-keep-human-quality-gate-open");
+requirePattern(economics, /pricing_activation_performed:\s*false/, "music-economics-must-not-activate-pricing");
+requirePattern(economics, /activation_allowed:\s*false/, "music-economics-must-remain-measurement-only");
+
 requirePattern(router, /music:\s*MusicWorkspace/, "creative-router-must-route-music-workspace");
 requirePattern(registry, /id:\s*"music"/, "creative-registry-must-own-music-workspace");
 
@@ -87,5 +104,7 @@ console.log("MUSIC_ASSET_PERSISTENCE=DURABLE");
 console.log("MUSIC_AUTOMATIC_MASTERING=REQUIRED");
 console.log("MUSIC_VERSION_HISTORY=REQUIRED");
 console.log("MUSIC_CLIENT_PROVIDER_SELECTION=HIDDEN");
+console.log("MUSIC_BENCHMARK=SPEND_GUARDED_AND_SYNTHETIC_SCOPE_ONLY");
+console.log("MUSIC_ECONOMICS=MEASUREMENT_REQUIRED_BEFORE_PRICING_PROMOTION");
 console.log("MUSIC_REMIX_EDIT=IMPLEMENTED_BENCHMARK_GATED");
 console.log("MUSIC_EXTEND_STEMS=BASE_MODEL_GATED");

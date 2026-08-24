@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,10 @@ CACHE_COMPLETION_CONTRACT = "AVANTIQO_IMAGE_CACHE_COMPLETION_V1"
 CACHE_COMPLETION_MARKER = ".avantiqo-cache-complete.json"
 RUNTIME_PROBE_OPERATION = "runtime_probe"
 RUNTIME_PROBE_CONTRACT = "AVANTIQO_IMAGE_RUNTIME_PROBE_V1"
-RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V3_CACHE_INTEGRITY_V1"
+RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V3_QUALITY_COMPILER_V2"
+QUALITY_RUNTIME_REVISION = "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2"
+QUALITY_POLICY = "QWEN_IMAGE_2512_REALISM_IDENTITY_PHYSICS_V2"
+QUALITY_COMPILER_CONTRACT = "AVANTIQO_IMAGE_QUALITY_COMPILER_V2"
 QUALITY_REQUIRED_FILES = (
     "model_index.json",
     "scheduler/scheduler_config.json",
@@ -37,6 +41,103 @@ QUALITY_REQUIRED_FILES = (
     "vae/config.json",
     "vae/diffusion_pytorch_model.safetensors",
 )
+
+QUALITY_BASE_NEGATIVE = (
+    "low resolution, low quality, anatomical deformity, malformed limbs, malformed fingers, "
+    "oversaturated image, waxy skin, faces without detail, overly smooth skin, obvious AI-generated "
+    "appearance, chaotic composition, blurred text, distorted text"
+)
+QUALITY_RULES = {
+    "identity_separation": {
+        "triggers": (
+            "two people",
+            "two guests",
+            "guests",
+            "diners",
+            "people",
+            "multiple people",
+            "group of",
+            "couple",
+            "customers",
+            "several people",
+        ),
+        "positive": (
+            "Every separate person must be a genuinely distinct individual. Preserve the requested "
+            "person count and roles, but do not reuse one facial identity. Deliberately vary facial "
+            "bone structure, eye shape, nose, jaw, hairline and hair texture, age cues, grooming, "
+            "clothing, posture and expression so unrelated people cannot read as twins or clones."
+        ),
+        "negative": (
+            "duplicate people, duplicate person, cloned people, cloned face, same face repeated, "
+            "identical faces, twin-looking unrelated people, reused facial identity, mirrored faces, "
+            "same person shown twice, repeated hairstyle, repeated beard"
+        ),
+    },
+    "requested_hand_visibility": {
+        "triggers": ("hand", "hands", "finger", "fingers"),
+        "positive": (
+            "When the brief requires visible hands or fingers, keep those hands fully inside frame "
+            "and unobscured by plates, props, bodies or cropping. Visible means the requested fingers "
+            "can actually be inspected, with ordinary anatomy and natural grip or gesture."
+        ),
+        "negative": (
+            "hidden requested hands, obscured hands, cropped hands, fused fingers, extra fingers, "
+            "missing fingers, merged hands, hand concealed behind plate"
+        ),
+    },
+    "physical_food_realism": {
+        "triggers": (
+            "food",
+            "steak",
+            "beef",
+            "dish",
+            "plate",
+            "meal",
+            "dinner",
+            "restaurant",
+            "asparagus",
+            "puree",
+            "sauce",
+            "jus",
+            "cuisine",
+        ),
+        "positive": (
+            "Keep food at physically believable real-world scale relative to the plate, hands and "
+            "table. Use irregular organic geometry, natural cooking variation, uneven sear and char, "
+            "fibrous cut surfaces and restrained moisture. Plating should show small asymmetries and "
+            "ordinary serving variation rather than sculpted or mathematically repeated shapes."
+        ),
+        "negative": (
+            "oversized food, giant steak, cylindrical steak, perfect circular steak, geometric steak, "
+            "cube steak, molded meat, plastic food, wax food, lacquered food, polished resin food, "
+            "perfect grill grid, mirror-gloss sauce, perfect sauce circle, sculpted puree, identical "
+            "vegetables, impossible raw exterior, artificial food shine"
+        ),
+    },
+    "photographic_naturalism": {
+        "triggers": (
+            "photoreal",
+            "photograph",
+            "photography",
+            "camera",
+            "realistic",
+            "candid",
+            "lens",
+        ),
+        "positive": (
+            "Preserve candid photographic asymmetry and plausible camera evidence: non-identical "
+            "micro-expressions, ordinary skin texture, physically consistent light and reflections, "
+            "and small natural imperfections. Avoid the visual regularity of synthetic stock imagery."
+        ),
+        "negative": (
+            "stock-photo symmetry, mannequin pose, plastic skin, airbrushed skin, synthetic studio "
+            "perfection, CGI look, mirrored composition, repeated facial features"
+        ),
+    },
+}
+
+# V3 owns the active Qwen-2512 runtime contract while retaining V2's proven generation path.
+v2.QUALITY_RUNTIME_REVISION = QUALITY_RUNTIME_REVISION
 
 
 def _text(value: Any) -> str:
@@ -90,6 +191,74 @@ def _quality_cache_readiness() -> dict[str, Any]:
     }
 
 
+def _quality_rule_names(instruction: str) -> list[str]:
+    source = instruction.lower()
+    return [
+        name
+        for name, rule in QUALITY_RULES.items()
+        if any(trigger in source for trigger in rule["triggers"])
+    ]
+
+
+def _merge_negative_prompt(existing: str, rule_names: list[str]) -> str:
+    segments = [QUALITY_BASE_NEGATIVE]
+    if existing:
+        segments.append(existing)
+    segments.extend(QUALITY_RULES[name]["negative"] for name in rule_names)
+    seen: set[str] = set()
+    merged: list[str] = []
+    for segment in segments:
+        normalized = _text(segment)
+        if normalized and normalized.lower() not in seen:
+            seen.add(normalized.lower())
+            merged.append(normalized)
+    return ", ".join(merged)
+
+
+def _compile_quality_job(job: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    prepared = copy.deepcopy(job)
+    data = prepared.get("input") or {}
+    instruction = _text(data.get("instruction"))
+    rule_names = _quality_rule_names(instruction)
+
+    structured = data.get("structured_specification") or {}
+    if not isinstance(structured, dict):
+        structured = {}
+    params = structured.get("provider_parameters") or {}
+    if not isinstance(params, dict):
+        params = {}
+    user_negative = _text(params.get("negative_prompt"))
+    params = {
+        **params,
+        "negative_prompt": _merge_negative_prompt(user_negative, rule_names),
+    }
+    data["structured_specification"] = {
+        **structured,
+        "provider_parameters": params,
+    }
+
+    positive_constraints = [QUALITY_RULES[name]["positive"] for name in rule_names]
+    positive_applied = False
+    if positive_constraints:
+        suffix = " Avantiqo realism constraints: " + " ".join(positive_constraints)
+        if len(instruction) + len(suffix) <= 12000:
+            data["instruction"] = instruction + suffix
+            positive_applied = True
+
+    prepared["input"] = data
+    return prepared, {
+        "contract": QUALITY_COMPILER_CONTRACT,
+        "quality_policy": QUALITY_POLICY,
+        "rules": rule_names,
+        "rule_count": len(rule_names),
+        "positive_constraints_applied": positive_applied,
+        "negative_policy_applied": True,
+        "user_negative_prompt_preserved": bool(user_negative),
+        "compiled_prompt_persisted": False,
+        "raw_reasoning_persisted": False,
+    }
+
+
 def _runtime_probe(job: dict[str, Any]) -> dict[str, Any]:
     data = job.get("input") or {}
     if data.get("contract") != v2.legacy.ENGINE_CONTRACT:
@@ -110,7 +279,9 @@ def _runtime_probe(job: dict[str, Any]) -> dict[str, Any]:
         "operation": RUNTIME_PROBE_OPERATION,
         "entrypoint": "handler_v3.py",
         "entrypoint_revision": RUNTIME_ENTRYPOINT_REVISION,
-        "runtime_revision": v2.QUALITY_RUNTIME_REVISION,
+        "runtime_revision": QUALITY_RUNTIME_REVISION,
+        "quality_policy": QUALITY_POLICY,
+        "quality_compiler_contract": QUALITY_COMPILER_CONTRACT,
         "configured_generation_foundation": v2.legacy.FOUNDATION_MODEL,
         "quality_foundation_model": v2.QUALITY_FOUNDATION_MODEL,
         "quality_cache": {
@@ -174,7 +345,7 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
             "provider": "avantiqo-image",
             "model": v2.legacy.PRODUCT_MODEL,
             "engine_contract": v2.legacy.ENGINE_CONTRACT,
-            "runtime_revision": v2.QUALITY_RUNTIME_REVISION,
+            "runtime_revision": QUALITY_RUNTIME_REVISION,
             "operation": v2.MODEL_CACHE_OPERATION,
             "target_model": target_model,
             "foundation_model_source": "runpod-cache",
@@ -199,7 +370,7 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
             "provider": "avantiqo-image",
             "model": v2.legacy.PRODUCT_MODEL,
             "engine_contract": v2.legacy.ENGINE_CONTRACT,
-            "runtime_revision": v2.QUALITY_RUNTIME_REVISION,
+            "runtime_revision": QUALITY_RUNTIME_REVISION,
             "operation": v2.MODEL_CACHE_OPERATION,
             "target_model": target_model,
             "foundation_model_source": None,
@@ -275,7 +446,7 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
         "provider": "avantiqo-image",
         "model": v2.legacy.PRODUCT_MODEL,
         "engine_contract": v2.legacy.ENGINE_CONTRACT,
-        "runtime_revision": v2.QUALITY_RUNTIME_REVISION,
+        "runtime_revision": QUALITY_RUNTIME_REVISION,
         "operation": v2.MODEL_CACHE_OPERATION,
         "target_model": target_model,
         "foundation_model_source": "runpod-cache",
@@ -304,10 +475,11 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
     capability = _text(data.get("capability"))
     requested_foundation = _text(data.get("foundation_model"))
-    if (
+    quality_generation = (
         capability == "ai.image.generate"
         and requested_foundation == v2.QUALITY_FOUNDATION_MODEL
-    ):
+    )
+    if quality_generation:
         readiness = _quality_cache_readiness()
         if not readiness["cache_ready"]:
             missing = readiness["missing_required_files"]
@@ -316,6 +488,18 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 f"completion_marker_valid={readiness['completion_marker_valid']}:"
                 f"missing_required_files={'|'.join(missing) if missing else 'NONE'}"
             )
+        prepared, compiler = _compile_quality_job(job)
+        output = v2.handler(prepared)
+        if isinstance(output, dict):
+            output = {**output, "runtime_revision": QUALITY_RUNTIME_REVISION}
+            guidance = output.get("generation_guidance") or {}
+            output["generation_guidance"] = {
+                **guidance,
+                "quality_policy": QUALITY_POLICY,
+                "quality_compiler_contract": QUALITY_COMPILER_CONTRACT,
+            }
+            output["quality_compiler"] = compiler
+        return output
 
     return v2.handler(job)
 

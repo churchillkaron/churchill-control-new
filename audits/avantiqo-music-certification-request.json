@@ -1,0 +1,9 @@
+{
+  "contract": "AVANTIQO_MUSIC_CERTIFICATION_REQUEST_V1",
+  "requested_at": "2026-08-24T04:48:30Z",
+  "scope": "music-only",
+  "benchmark_runs": 1,
+  "duration_seconds": 12,
+  "production_activation_allowed": false,
+  "purpose": "Controlled owned Music benchmark with synthetic storage scope and no pricing activation"
+}

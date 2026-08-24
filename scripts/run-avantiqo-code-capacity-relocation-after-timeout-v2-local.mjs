@@ -160,6 +160,47 @@ if (refreshedBestTargetId !== targetDcId) {
 selection = { ...selection, selected: refreshedPlannedTarget };
 const freshTargetGpuTypes = unique(selection.selected.available_gpu_pool.slice(0, 4).map((row) => row.gpu_type_id));`;
 
+  const strictStorageApproval = `if (targetCreateRequired && apply && !storageApproved) {
+  throw new Error(\`AVANTIQO_CODE_STORAGE_SPEND_APPROVED=YES_REQUIRED:estimated_monthly_usd=\${(TARGET_VOLUME_SIZE_GB * STORAGE_USD_PER_GB_MONTH).toFixed(2)}\`);
+}`;
+  const recoveryStorageApproval = `if (targetCreateRequired && apply && !storageApproved) {
+  throw new Error(\`AVANTIQO_CODE_STORAGE_SPEND_APPROVED=YES_REQUIRED:estimated_monthly_usd=\${(TARGET_VOLUME_SIZE_GB * STORAGE_USD_PER_GB_MONTH).toFixed(2)}\`);
+}
+if (targetCreateRequired && apply) {
+  const balanceResponse = await fetch(\`${"${GRAPHQL}"}?api_key=\${encodeURIComponent(managementKey)}\`, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: "query AvantiqoCodeRelocationBalance { myself { clientBalance } }",
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const balanceRaw = await balanceResponse.text();
+  let balanceBody = null;
+  try { balanceBody = balanceRaw ? JSON.parse(balanceRaw) : null; } catch { balanceBody = null; }
+  const balanceErrors = array(balanceBody?.errors).map((entry) => text(entry?.message)).filter(Boolean);
+  const clientBalance = Number(balanceBody?.data?.myself?.clientBalance);
+  if (!balanceResponse.ok || balanceErrors.length || !Number.isFinite(clientBalance)) {
+    throw new Error(
+      \`AVANTIQO_CODE_RUNPOD_BALANCE_PREFLIGHT_FAILED:http=\${balanceResponse.status}:detail=\${text(balanceErrors.join(" | ") || balanceRaw).slice(0, 500) || "invalid_balance"}\`,
+    );
+  }
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_CAPACITY_RELOCATION_BALANCE_PREFLIGHT",
+    client_balance_usd: Number(clientBalance.toFixed(2)),
+    required_network_volume_minimum_usd: 5,
+    target_volume_create_required: true,
+    storage_mutation_performed: false,
+    endpoint_mutation_performed: false,
+    secrets_printed: false,
+  }));
+  if (clientBalance < 5) {
+    throw new Error(
+      \`AVANTIQO_CODE_RUNPOD_BALANCE_BELOW_NETWORK_VOLUME_MINIMUM:balance_usd=\${clientBalance.toFixed(2)}:required_usd=5.00\`,
+    );
+  }
+}`;
+
   const strictLiveGuard = `  if (!liveTarget || liveTarget.best_stock_rank <= selection.sourceRank || !liveGpuTypes.length) {
     throw new Error("CODE_CAPACITY_RELOCATION_TARGET_STOCK_LOST_BEFORE_SWITCH");
   }`;
@@ -243,6 +284,7 @@ ${quiescenceAnchor}`;
   for (const [needle, code] of [
     [strictCandidate, "CODE_TIMEOUT_RECOVERY_SOURCE_SELECTION_FRAGMENT_CHANGED_REPLAN_REQUIRED"],
     [strictTargetStability, "CODE_TIMEOUT_RECOVERY_SOURCE_TARGET_STABILITY_FRAGMENT_CHANGED_REPLAN_REQUIRED"],
+    [strictStorageApproval, "CODE_TIMEOUT_RECOVERY_SOURCE_STORAGE_APPROVAL_FRAGMENT_CHANGED_REPLAN_REQUIRED"],
     [strictLiveGuard, "CODE_TIMEOUT_RECOVERY_SOURCE_LIVE_GUARD_FRAGMENT_CHANGED_REPLAN_REQUIRED"],
     [quiescenceAnchor, "CODE_TIMEOUT_RECOVERY_SOURCE_QUIESCENCE_ANCHOR_CHANGED_REPLAN_REQUIRED"],
     [movedAnchor, "CODE_TIMEOUT_RECOVERY_SOURCE_RESUME_ANCHOR_CHANGED_REPLAN_REQUIRED"],
@@ -254,6 +296,7 @@ ${quiescenceAnchor}`;
   const patched = source
     .replace(strictCandidate, recoveryCandidate)
     .replace(strictTargetStability, recoveryTargetStability)
+    .replace(strictStorageApproval, recoveryStorageApproval)
     .replace(strictLiveGuard, recoveryLiveGuard)
     .replace(quiescenceAnchor, resumeHelper)
     .replace(movedAnchor, movedReplacement)
@@ -263,6 +306,7 @@ ${quiescenceAnchor}`;
     patched === source ||
     patched.includes(strictCandidate) ||
     patched.includes(strictTargetStability) ||
+    patched.includes(strictStorageApproval) ||
     patched.includes(strictLiveGuard) ||
     patched.includes(movedAnchor) ||
     patched.includes(rollbackAnchor)
@@ -336,6 +380,7 @@ console.log(JSON.stringify({
   plan_safe_with_missing_historical_job_because_no_mutation_occurs: !apply,
   equal_stock_rank_recovery_requires_material_scheduler_advantage: true,
   valid_planned_target_may_survive_best_target_churn: true,
+  runpod_balance_preflight_before_storage_mutation: true,
   endpoint_resume_verified_before_provider_submission: true,
   rollback_resume_verified: true,
   minimum_gpu_memory_gb_preserved: 80,
@@ -366,6 +411,7 @@ try {
     job_status_source: jobEvidence.source,
     equal_rank_recovery_path_used: true,
     valid_planned_target_may_survive_best_target_churn: true,
+    runpod_balance_preflight_before_storage_mutation: true,
     endpoint_resume_verified_before_provider_submission: true,
     production_deploy_performed: false,
     secrets_printed: false,

@@ -90,7 +90,8 @@ function normalizedSession(body = {}) {
   }
 
   const profileId = text(body.mastering_profile || "streaming").toLowerCase();
-  const mastering = MASTERING_PROFILES[profileId] || MASTERING_PROFILES.streaming;
+  const validProfile = Object.hasOwn(MASTERING_PROFILES, profileId);
+  const mastering = validProfile ? MASTERING_PROFILES[profileId] : MASTERING_PROFILES.streaming;
   const vocalLanguage = instrumental ? "unknown" : text(body.vocal_language || "english").toLowerCase().slice(0, 16);
 
   const directionParts = [
@@ -119,26 +120,26 @@ function normalizedSession(body = {}) {
     keyscale,
     timesignature,
     vocal_language: vocalLanguage,
-    mastering_profile: profileId in MASTERING_PROFILES ? profileId : "streaming",
+    mastering_profile: validProfile ? profileId : "streaming",
     mastering,
     direction: directionParts.join("; "),
   };
 }
 
-function publicExecution(result, session = null) {
+function publicExecution(result, session = null, execution = {}) {
   const output = result?.output || null;
   return {
     success: result?.success !== false,
     pending: result?.pending === true,
     failed: result?.failed === true,
-    provider: result?.provider || null,
-    model: result?.model || null,
-    provider_job_id: result?.provider_job_id || null,
+    provider: result?.provider || execution.provider || null,
+    model: result?.model || execution.model || null,
+    provider_job_id: result?.provider_job_id || execution.provider_job_id || null,
     provider_status: result?.provider_status || null,
-    usage_id: result?.usage?.id || null,
-    pricing: result?.pricing || result?.reservation_pricing || null,
-    credential_id: result?.credential_id || null,
-    started_at: result?.started_at || null,
+    usage_id: result?.usage?.id || execution.usage_id || null,
+    pricing: result?.pricing || result?.reservation_pricing || execution.pricing || null,
+    credential_id: result?.credential_id || execution.credential_id || null,
+    started_at: result?.started_at || execution.started_at || null,
     settlement: result?.settlement || null,
     output,
     ...(session ? {
@@ -270,7 +271,14 @@ async function status(body) {
     },
   });
 
-  return publicExecution(result);
+  return publicExecution(result, null, {
+    provider,
+    provider_job_id: providerJobId,
+    usage_id: usageId,
+    pricing: body.pricing || null,
+    credential_id: text(body.credential_id) || null,
+    started_at: text(body.started_at) || null,
+  });
 }
 
 export async function POST(request) {

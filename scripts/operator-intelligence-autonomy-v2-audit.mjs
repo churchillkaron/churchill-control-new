@@ -146,6 +146,21 @@ const SOURCE_REQUIREMENTS = {
     "CodeWorkspaceSandboxRuntime.open",
     "current_main_head",
     "main_advanced_after_verified_commit",
+    "MAX_OBJECTIVE_CANDIDATES = 4",
+    "OBJECTIVE_RANKING_WEIGHTS",
+    "candidateEvidenceStrength",
+    "objectiveEvidenceSets",
+    "normalizedObjectiveCandidates",
+    "objectiveSelectionFromAssessment",
+    'filter((filePath) => observedPaths.has(filePath))',
+    "evidence_strength: candidateEvidenceStrength",
+    'ranking_policy: "CONSTITUTION_WEIGHTED_EVIDENCE_BACKED_V1"',
+    'contract: "AVANTIQO_PRODUCT_ENGINEERING_OBJECTIVE_SELECTION_V1"',
+    'policy: "DETERMINISTIC_CONSTITUTION_WEIGHTED_EVIDENCE_BACKED_RANKING"',
+    "PRODUCT_REPOSITORY_ASSESSMENT_EVIDENCE_BACKED_OBJECTIVE_REQUIRED",
+    "selectedCandidate.objective",
+    "objective_selection: objectiveSelection",
+    "objective_selection_evidence_backed: true",
     "repository_evidence_read_only: true",
     "full_repository_certification: false",
     'authorization: { allow_mutating_tools: false }',
@@ -420,6 +435,70 @@ for (const forbiddenLegacyExecution of [
   }
 }
 
+const repositoryAssessmentPath =
+  "lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js";
+const repositoryAssessmentSource = files[repositoryAssessmentPath];
+const objectiveNormalizationStart = repositoryAssessmentSource.indexOf(
+  "function normalizedObjectiveCandidates",
+);
+const objectiveSelectionStart = repositoryAssessmentSource.indexOf(
+  "function objectiveSelectionFromAssessment",
+);
+const assessmentSystemStart = repositoryAssessmentSource.indexOf(
+  "function assessmentSystem",
+);
+if (
+  objectiveNormalizationStart < 0 ||
+  objectiveSelectionStart <= objectiveNormalizationStart ||
+  assessmentSystemStart <= objectiveSelectionStart
+) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product objective candidate normalization/ranking stages must remain explicit and ordered",
+  );
+}
+const objectiveRankingSource = repositoryAssessmentSource.slice(
+  objectiveNormalizationStart,
+  assessmentSystemStart,
+);
+for (const required of [
+  "observedPaths.has(filePath)",
+  "candidateEvidenceStrength(evidencePaths, dynamicPaths)",
+  "OBJECTIVE_RANKING_WEIGHTS",
+  "weighted_score: weightedScore",
+  "right.weighted_score - left.weighted_score",
+  'policy: "DETERMINISTIC_CONSTITUTION_WEIGHTED_EVIDENCE_BACKED_RANKING"',
+  "selected_candidate_id: selected.id",
+  "selected_objective: selected.objective",
+  "selected_evidence_paths: selected.evidence_paths",
+  'authorization_effect: "NONE"',
+]) {
+  if (!objectiveRankingSource.includes(required)) {
+    throw new Error(
+      `OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product objective ranking missing ${required}`,
+    );
+  }
+}
+if (repositoryAssessmentSource.includes("focus: text(result.parsed?.engineering_objective")) {
+  throw new Error(
+    "OPERATOR_INTELLIGENCE_AUTONOMY_V2: model-returned engineering_objective must not bypass deterministic objective ranking",
+  );
+}
+for (const required of [
+  "Do not select the winner yourself",
+  "objective_candidates",
+  "Evidence strength is computed by owned runtime code",
+  "const objectiveSelection = objectiveSelectionFromAssessment",
+  "const selectedCandidate = objectiveSelection.ranked_candidates[0]",
+  "focus: selectedCandidate.objective",
+  "objective_selection_evidence_backed: true",
+]) {
+  if (!repositoryAssessmentSource.includes(required)) {
+    throw new Error(
+      `OPERATOR_INTELLIGENCE_AUTONOMY_V2: Product objective handoff governance missing ${required}`,
+    );
+  }
+}
+
 const productCyclePath =
   "lib/platform/capabilities/createProductEngineeringCycleCapability.js";
 if (files[productCyclePath].includes('capability_key: "platform.product_autonomy.assess"')) {
@@ -582,6 +661,10 @@ console.log("OPERATOR_MISSION_BINDING_WRITE_SOURCE=VERIFICATION_ONLY");
 console.log("OPERATOR_PRODUCT_CONSTITUTION=REGISTERED");
 console.log("OPERATOR_PRODUCT_AUTONOMY=ASSESSMENT_ONLY_HANDOFF_SEPARATE");
 console.log("OPERATOR_PRODUCT_REPOSITORY_ASSESSMENT=FRESH_CURRENT_MAIN_SOURCE_EVIDENCE");
+console.log("OPERATOR_PRODUCT_OBJECTIVE_CANDIDATES=MAX_4_EVIDENCE_BACKED");
+console.log("OPERATOR_PRODUCT_OBJECTIVE_RANKING=DETERMINISTIC_CONSTITUTION_WEIGHTED");
+console.log("OPERATOR_PRODUCT_OBJECTIVE_EVIDENCE=SUCCESSFULLY_READ_CURRENT_MAIN_PATHS_ONLY");
+console.log("OPERATOR_PRODUCT_OBJECTIVE_HANDOFF=RUNTIME_SELECTED_WINNER_ONLY");
 console.log("OPERATOR_CODE_AI_HANDOFF=EXECUTION_KEY_PLUS_REGISTERED_VERIFICATION");
 console.log("OPERATOR_CODE_AI_EXECUTION_STATE=SERVER_OWNED_NON_RECALLABLE_SCOPE");
 console.log("OPERATOR_CODE_AI_COMMIT_ARTIFACT=SERVER_OWNED_NON_RECALLABLE_FULL_ATTESTED_STATE");

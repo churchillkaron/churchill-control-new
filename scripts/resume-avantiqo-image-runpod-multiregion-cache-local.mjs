@@ -316,6 +316,20 @@ async function patchEndpoint({ volumeIds, dataCenterIds, gpuTypeIds, executionTi
   });
 }
 
+function volumeDataCenterBindings(volumeIds) {
+  return volumeIds.map((volumeId) => {
+    const volume = volumes.find((entry) => text(entry?.id) === text(volumeId));
+    if (!volume) {
+      throw new Error(`AVANTIQO_IMAGE_MULTI_REGION_VOLUME_LOOKUP_FAILED:${text(volumeId)}`);
+    }
+    const dataCenterId = text(volume?.dataCenterId);
+    if (!dataCenterId) {
+      throw new Error(`AVANTIQO_IMAGE_MULTI_REGION_VOLUME_DATACENTER_MISSING:${text(volumeId)}`);
+    }
+    return { volume_id: text(volumeId), data_center_id: dataCenterId };
+  });
+}
+
 async function verifyEndpoint({ volumeIds, dataCenterIds, gpuTypeIds }) {
   const current = await restRequest(
     `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=false`,
@@ -327,14 +341,17 @@ async function verifyEndpoint({ volumeIds, dataCenterIds, gpuTypeIds }) {
   if (!sameSet(endpointVolumeIds(current), volumeIds)) {
     throw new Error(`AVANTIQO_IMAGE_MULTI_REGION_VOLUME_VERIFY_FAILED:${endpointVolumeIds(current).join("|")}`);
   }
-  const actualDcs = parseDataCenters(current?.dataCenterIds);
-  if (!dataCenterIds.every((dc) => actualDcs.includes(dc))) {
-    throw new Error(`AVANTIQO_IMAGE_MULTI_REGION_DATACENTER_VERIFY_FAILED:${actualDcs.join("|")}`);
+  const bindings = volumeDataCenterBindings(volumeIds);
+  const boundDataCenters = unique(bindings.map((binding) => binding.data_center_id));
+  if (!sameSet(boundDataCenters, dataCenterIds)) {
+    throw new Error(
+      `AVANTIQO_IMAGE_MULTI_REGION_VOLUME_DATACENTER_VERIFY_FAILED:${boundDataCenters.join("|")}`,
+    );
   }
   if (!sameSet(list(current?.gpuTypeIds), gpuTypeIds)) {
     throw new Error(`AVANTIQO_IMAGE_MULTI_REGION_GPU_POOL_VERIFY_FAILED:${list(current?.gpuTypeIds).join("|")}`);
   }
-  return current;
+  return { current, bindings };
 }
 
 let finalConfigured = false;
@@ -432,7 +449,7 @@ try {
     gpuTypeIds: generationPool,
     executionTimeoutMs: originalTimeoutMs,
   });
-  const verified = await verifyEndpoint({
+  const { current: verified, bindings: verifiedBindings } = await verifyEndpoint({
     volumeIds: [primaryId, secondaryId],
     dataCenterIds: [primaryDc, secondaryDc],
     gpuTypeIds: generationPool,
@@ -442,12 +459,14 @@ try {
   console.log("AVANTIQO_IMAGE_MULTI_REGION_RESUME=COMPLETE");
   console.log(JSON.stringify({
     success: true,
-    contract: "AVANTIQO_IMAGE_MULTI_REGION_CACHE_RESUME_V1",
+    contract: "AVANTIQO_IMAGE_MULTI_REGION_CACHE_RESUME_V2",
     primary: { id: primaryId, data_center_id: primaryDc, size_gb: finite(primary?.size) },
     secondary: { id: secondaryId, data_center_id: secondaryDc, size_gb: finite(secondary?.size) },
     completed_cache_job_id: activeCacheJobId,
     final_network_volume_ids: endpointVolumeIds(verified),
-    final_data_center_ids: parseDataCenters(verified?.dataCenterIds),
+    final_data_center_ids: unique(verifiedBindings.map((binding) => binding.data_center_id)),
+    endpoint_data_center_ids_reported: parseDataCenters(verified?.dataCenterIds),
+    region_binding_source: "NETWORK_VOLUMES",
     final_gpu_type_ids: list(verified?.gpuTypeIds),
     per_job_unblock_command_required: false,
     next_action: "RUN_ONE_IMAGE_QUALITY_TEST_AFTER_MULTI_REGION_READY",

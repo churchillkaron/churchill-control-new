@@ -191,7 +191,7 @@ function verifySource() {
     "FROM vllm/vllm-openai:v0.27.1",
     "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
     "HF_HOME=/runpod-volume/huggingface-cache",
-    'ENTRYPOINT ["python", "-u", "handler.py"]',
+    'ENTRYPOINT ["python3", "-u", "handler.py"]',
   ]) {
     if (!dockerfile.includes(requiredText)) {
       throw new Error(`AVANTIQO_CODE_REFRESH_DOCKERFILE_CONTRACT_MISSING:${requiredText}`);
@@ -322,7 +322,8 @@ const plan = {
   deployed_commit: deployedCommit,
   deployed_image_tag: deployedTag,
   code_source_changes_since_deployed_build: changedSourceFiles,
-  refresh_required: changedSourceFiles.length > 0 || deployedTag !== expectedRunpodTag,
+  deployed_source_equivalent_to_main: changedSourceFiles.length === 0,
+  refresh_required: changedSourceFiles.length > 0,
   release: {
     tag: releaseTag,
     target_commit: head,
@@ -382,7 +383,8 @@ while (Date.now() < deadline) {
     expected_image_tag: expectedRunpodTag,
     generation_submitted: false,
   }));
-  if (currentTag === expectedRunpodTag) {
+  const currentCommit = resolveCommitLikeTag(currentTag);
+  if (currentCommit && sourceChanges(currentCommit, head).length === 0) {
     changed = true;
     break;
   }

@@ -1,0 +1,6 @@
+{
+  "contract": "AVANTIQO_VOICE_GENERATOR_SMOKE_REQUEST_V1",
+  "purpose": "one_shot_tts_stt_roundtrip",
+  "production_web_deploy": false,
+  "pricing_activation": false
+}

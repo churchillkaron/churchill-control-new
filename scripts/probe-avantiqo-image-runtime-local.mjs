@@ -22,6 +22,14 @@ const MAX_WAIT_MS = Math.max(
   QUEUE_WAIT_MS,
   Number(process.env.AVANTIQO_IMAGE_RUNTIME_PROBE_TIMEOUT_MS || 15 * 60 * 1000),
 );
+const TRANSIENT_RETRY_ATTEMPTS = Math.max(
+  1,
+  Number(process.env.AVANTIQO_IMAGE_RUNTIME_PROBE_NETWORK_RETRIES || 8),
+);
+const TRANSIENT_RETRY_BASE_MS = Math.max(
+  250,
+  Number(process.env.AVANTIQO_IMAGE_RUNTIME_PROBE_NETWORK_RETRY_BASE_MS || 1500),
+);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -43,6 +51,11 @@ function required(name, code = `${name}_REQUIRED`) {
 }
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function arg(name) {
+  const prefix = `--${name}=`;
+  const match = process.argv.find((value) => value.startsWith(prefix));
+  return text(match ? match.slice(prefix.length) : "");
 }
 function endpointVolumeIds(endpoint = {}) {
   return unique([endpoint.networkVolumeId, ...list(endpoint.networkVolumeIds)]);
@@ -71,8 +84,41 @@ function activeJobs(counters) {
 function terminalFailure(status) {
   return ["FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(status);
 }
+function retryableHttpStatus(status) {
+  return status === 408 || status === 425 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+function transientCode(error) {
+  return text(
+    error?.cause?.code ||
+    error?.cause?.cause?.code ||
+    error?.code ||
+    error?.name ||
+    error?.message,
+  ).toUpperCase();
+}
+function isTransientNetworkError(error) {
+  if (error?.transient === true) return true;
+  const code = transientCode(error);
+  return [
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_BODY_TIMEOUT",
+    "UND_ERR_SOCKET",
+    "ABORTERROR",
+    "TIMEOUTERROR",
+    "TYPEERROR",
+  ].some((candidate) => code.includes(candidate));
+}
+function retryDelayMs(attempt) {
+  return Math.min(10_000, TRANSIENT_RETRY_BASE_MS * Math.max(1, attempt));
+}
 
-async function parseJson(response, prefix = "RUNPOD_HTTP") {
+async function parseResponse(response, prefix = "RUNPOD_HTTP") {
   const raw = await response.text();
   let body = {};
   try {
@@ -80,35 +126,87 @@ async function parseJson(response, prefix = "RUNPOD_HTTP") {
   } catch {
     body = {};
   }
-  if (!response.ok) {
-    throw new Error(
-      `${prefix}_${response.status}:${text(body?.error || body?.message || body?.detail || raw).slice(0, 1000)}`,
-    );
+  return { response, raw, body, prefix };
+}
+async function requestJson(url, options, { label, retrySafe = true } = {}) {
+  const attempts = retrySafe ? TRANSIENT_RETRY_ATTEMPTS : 1;
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const parsed = await parseResponse(
+        await fetch(url, {
+          ...options,
+          signal: AbortSignal.timeout(30_000),
+        }),
+        label || "RUNPOD_HTTP",
+      );
+      if (parsed.response.ok) return parsed.body;
+      const detail = text(
+        parsed.body?.error ||
+        parsed.body?.message ||
+        parsed.body?.detail ||
+        parsed.raw,
+      ).slice(0, 1000);
+      const error = new Error(`${parsed.prefix}_${parsed.response.status}:${detail}`);
+      if (!retrySafe || !retryableHttpStatus(parsed.response.status) || attempt >= attempts) {
+        throw error;
+      }
+      lastError = error;
+      console.log(
+        `AVANTIQO_IMAGE_RUNTIME_PROBE_TRANSIENT_HTTP_RETRY label=${parsed.prefix} status=${parsed.response.status} attempt=${attempt}/${attempts}`,
+      );
+      await sleep(retryDelayMs(attempt));
+    } catch (error) {
+      if (!retrySafe || !isTransientNetworkError(error)) {
+        throw error;
+      }
+      lastError = error;
+      if (attempt >= attempts) break;
+      console.log(
+        `AVANTIQO_IMAGE_RUNTIME_PROBE_TRANSIENT_NETWORK_RETRY label=${label || "RUNPOD_HTTP"} code=${transientCode(error).slice(0, 80)} attempt=${attempt}/${attempts}`,
+      );
+      await sleep(retryDelayMs(attempt));
+    }
   }
-  return body;
+  const exhausted = new Error(
+    `AVANTIQO_IMAGE_RUNTIME_PROBE_TRANSIENT_NETWORK_EXHAUSTED:${text(lastError?.message).slice(0, 500)}`,
+  );
+  exhausted.transient = true;
+  throw exhausted;
 }
 async function rest(path, managementKey) {
-  const response = await fetch(`${REST_BASE}${path}`, {
-    headers: {
-      Authorization: `Bearer ${managementKey}`,
-      Accept: "application/json",
+  return requestJson(
+    `${REST_BASE}${path}`,
+    {
+      headers: {
+        Authorization: `Bearer ${managementKey}`,
+        Accept: "application/json",
+      },
     },
-    signal: AbortSignal.timeout(30000),
-  });
-  return parseJson(response, "RUNPOD_REST_HTTP");
+    { label: "RUNPOD_REST_HTTP", retrySafe: true },
+  );
 }
 async function queue(endpointId, path, apiKey, options = {}) {
-  const response = await fetch(`${API_BASE}/${encodeURIComponent(endpointId)}${path}`, {
-    method: options.method || "GET",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
+  const method = options.method || "GET";
+  return requestJson(
+    `${API_BASE}/${encodeURIComponent(endpointId)}${path}`,
+    {
+      method,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-    signal: AbortSignal.timeout(30000),
-  });
-  return parseJson(response, "RUNPOD_QUEUE_HTTP");
+    {
+      label: "RUNPOD_QUEUE_HTTP",
+      // Never retry /run automatically: an accepted request whose response was
+      // lost could otherwise create a duplicate provider job. GET/status and
+      // exact-job cancellation are safe to retry.
+      retrySafe: options.retrySafe ?? method === "GET",
+    },
+  );
 }
 function resolveEndpoint(endpoints, explicitId) {
   if (explicitId) {
@@ -130,7 +228,10 @@ function resolveEndpoint(endpoints, explicitId) {
 async function cancelProbe(endpointId, jobId, apiKey, reason) {
   if (!jobId) return false;
   try {
-    await queue(endpointId, `/cancel/${encodeURIComponent(jobId)}`, apiKey, { method: "POST" });
+    await queue(endpointId, `/cancel/${encodeURIComponent(jobId)}`, apiKey, {
+      method: "POST",
+      retrySafe: true,
+    });
     console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_CANCELLED=${reason}`);
     return true;
   } catch (error) {
@@ -142,6 +243,7 @@ async function cancelProbe(endpointId, jobId, apiKey, reason) {
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const apiKey = text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
 const configuredEndpointId = text(process.env.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID);
+const resumeJobId = arg("job-id") || text(process.env.AVANTIQO_IMAGE_RUNTIME_PROBE_JOB_ID);
 
 console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_SHARED_VOLUME_AWARE=true");
 console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_SHARED_GROUP=${SHARED_GROUP.id}`);
@@ -151,7 +253,10 @@ console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_MODEL_DOWNLOAD_PERFORMED=false");
 console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_STORAGE_MUTATION=false");
 console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_ENDPOINT_MUTATION=false");
 console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_QUEUE_TIMEOUT_MS=${QUEUE_WAIT_MS}`);
+console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_TRANSIENT_FETCH_RETRY=true");
+console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_TRANSIENT_FETCH_ATTEMPTS=${TRANSIENT_RETRY_ATTEMPTS}`);
 console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_DUPLICATE_JOB_RETRY=false");
+console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_RESUME_EXISTING_JOB=${resumeJobId ? "true" : "false"}`);
 console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_PRODUCTION_DEPLOY=false");
 
 const [endpoints, volumes] = await Promise.all([
@@ -191,9 +296,14 @@ const gpuTypes = list(endpoint?.gpuTypeIds);
 if (!gpuTypes.length) throw new Error("AVANTIQO_IMAGE_RUNTIME_PROBE_GPU_TYPES_REQUIRED");
 
 const initialHealth = healthCounters(await queue(endpointId, "/health", apiKey));
-if (activeJobs(initialHealth) !== 0) {
+if (!resumeJobId && activeJobs(initialHealth) !== 0) {
   throw new Error(
-    `AVANTIQO_IMAGE_RUNTIME_PROBE_EXISTING_JOB_BLOCKED:in_queue=${initialHealth.jobs.in_queue}:in_progress=${initialHealth.jobs.in_progress}`,
+    `AVANTIQO_IMAGE_RUNTIME_PROBE_EXISTING_JOB_BLOCKED:in_queue=${initialHealth.jobs.in_queue}:in_progress=${initialHealth.jobs.in_progress}:resume_with_--job-id=<exact_job_id>`,
+  );
+}
+if (resumeJobId && activeJobs(initialHealth) > 1) {
+  throw new Error(
+    `AVANTIQO_IMAGE_RUNTIME_PROBE_RESUME_UNSAFE_MULTIPLE_JOBS:active_jobs=${activeJobs(initialHealth)}`,
   );
 }
 
@@ -204,21 +314,48 @@ console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_GPU_TYPES=${gpuTypes.join("|")}`);
 console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_INITIAL_HEALTH=${JSON.stringify(initialHealth)}`);
 console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_SHARED_POLICY=${JSON.stringify(sharedVolumePolicySummary(volumes))}`);
 
-let body = await queue(endpointId, "/run", apiKey, {
-  method: "POST",
-  body: {
-    input: {
-      contract: CONTRACT,
-      operation: OPERATION,
-    },
-  },
-});
+let body = null;
+let jobId = resumeJobId;
+let newJobSubmitted = false;
+if (resumeJobId) {
+  body = await queue(endpointId, `/status/${encodeURIComponent(resumeJobId)}`, apiKey);
+  const resumedStatus = text(body?.status).toUpperCase();
+  if (activeJobs(initialHealth) === 1 && terminalFailure(resumedStatus)) {
+    throw new Error(
+      `AVANTIQO_IMAGE_RUNTIME_PROBE_RESUME_JOB_TERMINAL_BUT_OTHER_ACTIVE_JOB_PRESENT:status=${resumedStatus}`,
+    );
+  }
+  console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_RESUMED_JOB=${resumeJobId}`);
+} else {
+  try {
+    body = await queue(endpointId, "/run", apiKey, {
+      method: "POST",
+      retrySafe: false,
+      body: {
+        input: {
+          contract: CONTRACT,
+          operation: OPERATION,
+        },
+      },
+    });
+  } catch (error) {
+    if (isTransientNetworkError(error)) {
+      throw new Error(
+        `AVANTIQO_IMAGE_RUNTIME_PROBE_SUBMIT_RESULT_UNKNOWN_DO_NOT_RETRY_BLINDLY:${text(error?.message).slice(0, 500)}`,
+      );
+    }
+    throw error;
+  }
+  jobId = text(body?.id);
+  newJobSubmitted = true;
+}
+
 let status = text(body?.status).toUpperCase();
-const jobId = text(body?.id);
 if (!jobId && status !== "COMPLETED") {
   throw new Error(`AVANTIQO_IMAGE_RUNTIME_PROBE_JOB_ID_MISSING:${status || "UNKNOWN"}`);
 }
 console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_JOB=${jobId || "completed-immediately"}`);
+console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_NEW_JOB_SUBMITTED=${newJobSubmitted ? "true" : "false"}`);
 
 const startedAt = Date.now();
 const deadline = startedAt + MAX_WAIT_MS;
@@ -237,19 +374,31 @@ while (status !== "COMPLETED") {
     await cancelProbe(endpointId, jobId, apiKey, "TOTAL_TIMEOUT");
     throw new Error(`AVANTIQO_IMAGE_RUNTIME_PROBE_WAIT_TIMEOUT:${jobId}`);
   }
+
   const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
   let health = null;
   try {
     health = healthCounters(await queue(endpointId, "/health", apiKey));
-  } catch {
-    health = null;
+  } catch (error) {
+    if (!isTransientNetworkError(error)) throw error;
+    console.log(
+      `AVANTIQO_IMAGE_RUNTIME_PROBE_MONITOR_NETWORK_UNAVAILABLE phase=health elapsed_seconds=${elapsedSeconds}`,
+    );
   }
   console.log(
     `AVANTIQO_IMAGE_RUNTIME_PROBE_PROGRESS status=${status || "UNKNOWN"} elapsed_seconds=${elapsedSeconds} health=${health ? JSON.stringify(health) : "UNAVAILABLE"}`,
   );
+
   await sleep(POLL_INTERVAL_MS);
-  body = await queue(endpointId, `/status/${encodeURIComponent(jobId)}`, apiKey);
-  status = text(body?.status).toUpperCase();
+  try {
+    body = await queue(endpointId, `/status/${encodeURIComponent(jobId)}`, apiKey);
+    status = text(body?.status).toUpperCase();
+  } catch (error) {
+    if (!isTransientNetworkError(error)) throw error;
+    console.log(
+      `AVANTIQO_IMAGE_RUNTIME_PROBE_MONITOR_NETWORK_UNAVAILABLE phase=status elapsed_seconds=${Math.round((Date.now() - startedAt) / 1000)}`,
+    );
+  }
 }
 
 const output = body?.output || {};

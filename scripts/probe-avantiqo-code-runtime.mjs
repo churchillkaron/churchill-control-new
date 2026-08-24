@@ -1,4 +1,5 @@
 const API_BASE = "https://api.runpod.ai/v2";
+const REST_BASE = "https://rest.runpod.io/v1";
 const CONTRACT = "AVANTIQO_CODE_ENGINE_V1";
 const EXPECTED_FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct";
 const EXPECTED_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
@@ -76,6 +77,22 @@ function jobSnapshot(health) {
   };
 }
 
+function managementWorkerSnapshot(endpoint) {
+  const workers = Array.isArray(endpoint?.workers) ? endpoint.workers : [];
+  const safeWorkers = workers.map((worker) => ({
+    id_present: Boolean(text(worker?.id)),
+    desired_status: text(worker?.desiredStatus ?? worker?.desired_status).toUpperCase() || null,
+    status: text(worker?.status ?? worker?.workerStatus ?? worker?.runtimeStatus).toUpperCase() || null,
+  }));
+  const nonExited = safeWorkers.filter((worker) => worker.desired_status !== "EXITED");
+  return {
+    worker_count: safeWorkers.length,
+    non_exited_worker_count: nonExited.length,
+    all_workers_desired_exited: safeWorkers.length === 0 || nonExited.length === 0,
+    workers: safeWorkers,
+  };
+}
+
 function operationalCapacity(workers) {
   return workers.ready + workers.running + workers.idle;
 }
@@ -86,11 +103,18 @@ function hasWorkerAcceptanceEvidence(workers, jobs) {
 
 const apiKey = required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID");
+const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
 const headers = {
   Authorization: `Bearer ${apiKey}`,
   "Content-Type": "application/json",
   Accept: "application/json",
 };
+const managementHeaders = managementKey
+  ? {
+      Authorization: `Bearer ${managementKey}`,
+      Accept: "application/json",
+    }
+  : null;
 const requestTimeoutMs = Math.max(
   5000,
   Math.min(
@@ -112,6 +136,33 @@ async function healthSnapshot() {
     health,
     workers: workerSnapshot(health),
     jobs: jobSnapshot(health),
+  };
+}
+
+async function managementSnapshot() {
+  if (!managementHeaders) return null;
+  const response = await fetchWithTimeout(
+    `${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=false&includeWorkers=true`,
+    { headers: managementHeaders },
+    "RUNPOD_MANAGEMENT_ENDPOINT_REQUEST",
+    requestTimeoutMs,
+  );
+  const endpoint = await responseBody(response);
+  if (!response.ok) throw new Error(`RUNPOD_MANAGEMENT_ENDPOINT_HTTP_${response.status}`);
+  if (text(endpoint?.id) !== endpointId) {
+    throw new Error(`RUNPOD_MANAGEMENT_ENDPOINT_ID_MISMATCH:${text(endpoint?.id) || "MISSING"}`);
+  }
+  return managementWorkerSnapshot(endpoint);
+}
+
+async function readinessSnapshot() {
+  const [health, management] = await Promise.all([
+    healthSnapshot(),
+    managementSnapshot(),
+  ]);
+  return {
+    ...health,
+    management,
   };
 }
 
@@ -151,6 +202,8 @@ console.log(JSON.stringify({
   generation_performed: false,
   provider_job_submitted: false,
   request_timeout_ms: requestTimeoutMs,
+  management_plane_available: Boolean(managementHeaders),
+  management_plane_authoritative_for_scaled_to_zero: Boolean(managementHeaders),
 }));
 
 const readyTimeoutMs = Math.max(
@@ -164,6 +217,7 @@ const readyDeadline = Date.now() + readyTimeoutMs;
 let finalHealth = null;
 let finalWorkers = null;
 let finalJobs = null;
+let finalManagement = null;
 let readinessMode = null;
 let healthAttempt = 0;
 
@@ -176,10 +230,11 @@ while (Date.now() < readyDeadline) {
     provider_job_submitted: false,
   }));
 
-  const { health, workers, jobs } = await healthSnapshot();
+  const { health, workers, jobs, management } = await readinessSnapshot();
   finalHealth = health;
   finalWorkers = workers;
   finalJobs = jobs;
+  finalManagement = management;
 
   if (workers.unhealthy > 0) {
     throw new Error(`RUNPOD_WORKER_UNHEALTHY:${workers.unhealthy}`);
@@ -190,8 +245,14 @@ while (Date.now() < readyDeadline) {
     break;
   }
 
+  const jobsClear = jobs.in_queue === 0 && jobs.in_progress === 0;
+  if (management?.all_workers_desired_exited === true && jobsClear) {
+    readinessMode = "SCALED_TO_ZERO_MANAGEMENT_AUTHORITY";
+    break;
+  }
+
   if (workers.initializing === 0) {
-    readinessMode = "SCALED_TO_ZERO";
+    readinessMode = "SCALED_TO_ZERO_HEALTH";
     break;
   }
 
@@ -201,6 +262,7 @@ while (Date.now() < readyDeadline) {
     provider_job_submitted: false,
     workers,
     jobs,
+    management,
     seconds_remaining: Math.max(0, Math.ceil((readyDeadline - Date.now()) / 1000)),
   }));
   await delay(HEALTH_POLL_MS);
@@ -208,7 +270,7 @@ while (Date.now() < readyDeadline) {
 
 if (!readinessMode) {
   throw new Error(
-    `RUNPOD_WORKER_READINESS_TIMEOUT:${JSON.stringify(finalWorkers || {})}`,
+    `RUNPOD_WORKER_READINESS_TIMEOUT:${JSON.stringify({ workers: finalWorkers || {}, management: finalManagement })}`,
   );
 }
 
@@ -217,6 +279,9 @@ console.log(JSON.stringify({
   readiness_mode: readinessMode,
   workers: finalWorkers,
   jobs: finalJobs,
+  management: finalManagement,
+  stale_initializing_ignored:
+    readinessMode === "SCALED_TO_ZERO_MANAGEMENT_AUTHORITY" && (finalWorkers?.initializing || 0) > 0,
   generation_performed: false,
   provider_job_submitted: false,
 }));
@@ -386,10 +451,14 @@ const passed = Object.values(checks).every(Boolean);
 
 console.log(JSON.stringify({
   success: passed,
-  contract: "AVANTIQO_CODE_RUNTIME_PROBE_V5",
+  contract: "AVANTIQO_CODE_RUNTIME_PROBE_V6",
   readiness_mode: readinessMode,
+  management_plane_authoritative_for_scaled_to_zero: Boolean(managementHeaders),
+  stale_initializing_ignored:
+    readinessMode === "SCALED_TO_ZERO_MANAGEMENT_AUTHORITY" && (finalWorkers?.initializing || 0) > 0,
   worker_acceptance_observed: workerAcceptanceObserved,
   initial_health: finalHealth,
+  initial_management: finalManagement,
   provider_job_submitted: true,
   generation_performed: false,
   job_id: jobId,

@@ -9,5 +9,9 @@
   "provider_job_submitted": false,
   "image_generation_submitted": false,
   "production_web_deploy": false,
-  "pricing_activation_performed": false
+  "pricing_activation_performed": false,
+  "runtime_revision": "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2",
+  "quality_policy": "QWEN_IMAGE_2512_REALISM_IDENTITY_PHYSICS_V2",
+  "quality_compiler_contract": "AVANTIQO_IMAGE_QUALITY_COMPILER_V2",
+  "refresh_requested_at": "2026-08-24T14:15:07.781Z"
 }

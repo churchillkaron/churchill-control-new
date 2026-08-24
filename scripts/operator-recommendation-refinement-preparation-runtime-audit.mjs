@@ -6,12 +6,19 @@ import {
 
 const organizationId = "63e6b0d7-9882-4db4-a2c3-e695487ba21d";
 const customerId = "2f1c9f57-5917-4b26-84d1-086de4d86f79";
+const engineeringPermission = "platform.product_engineering.manage";
+const invoicePermission = "finance.customer_invoice.manage";
+const legacyPermission = "platform.legacy.manage";
+
 const oldCapability = {
   key: "platform.legacy.write",
   mode: "write",
   name: "Legacy action",
   description: "Run legacy action",
   operator_aliases: ["legacy action"],
+  permissions: [legacyPermission],
+  operator_enabled: true,
+  requires_confirmation: true,
   input_schema: { type: "object", properties: {}, required: [] },
 };
 const engineeringCapability = {
@@ -20,6 +27,9 @@ const engineeringCapability = {
   name: "Product engineering cycle",
   description: "Run product engineering cycle",
   operator_aliases: ["product engineering cycle", "engineering objective"],
+  permissions: [engineeringPermission],
+  operator_enabled: true,
+  requires_confirmation: true,
   input_schema: {
     type: "object",
     properties: { focus: { type: "string" } },
@@ -32,6 +42,9 @@ const invoiceCapability = {
   name: "Create customer invoice",
   description: "Create customer invoice",
   operator_aliases: ["customer invoice"],
+  permissions: [invoicePermission],
+  operator_enabled: true,
+  requires_confirmation: true,
   input_schema: {
     type: "object",
     properties: {
@@ -52,11 +65,14 @@ const immediate = prepareRecommendationRefinement({
     selection_origin: "REFINEMENT_PROPOSAL",
   },
   capabilities: [oldCapability, engineeringCapability],
+  permissions: [engineeringPermission],
   context: {},
 });
 assert.equal(immediate.stage, "READY_FOR_GOVERNED_BINDING");
 assert.equal(immediate.ready_for_governed_binding, true);
 assert.equal(immediate.capability?.key, engineeringCapability.key);
+assert.equal(immediate.actor_policy_filtered_capability_count, 1);
+assert.equal(immediate.binding_preflight?.actor_policy?.allowed, true);
 assert.deepEqual(immediate.recommendation?.payload, {
   focus: "Run the product engineering cycle for this engineering objective",
 });
@@ -79,12 +95,14 @@ const needsInput = prepareRecommendationRefinement({
     selection_origin: "REFINEMENT_PROPOSAL",
   },
   capabilities: [oldCapability, invoiceCapability],
+  permissions: [invoicePermission],
   context: { organizationId },
 });
 assert.equal(needsInput.stage, "INPUT_CLARIFICATION_REQUIRED");
 assert.equal(needsInput.ready_for_governed_binding, false);
 assert.equal(needsInput.capability, undefined);
 assert.equal(needsInput.plan.capability?.key, invoiceCapability.key);
+assert.equal(needsInput.actor_policy_filtered_capability_count, 1);
 assert.deepEqual(needsInput.plan.payload, {
   description: "Create a customer invoice for the refined direction",
 });
@@ -100,6 +118,7 @@ const invalidAnswer = continueRecommendationRefinementPreparation({
   inputState: needsInput.input_state,
   capability: invoiceCapability,
   answers: { customer_id: "not-a-uuid", amount: "1500" },
+  permissions: [invoicePermission],
   context: { organizationId },
 });
 assert.equal(invalidAnswer.stage, "INPUT_CLARIFICATION_REQUIRED");
@@ -116,6 +135,7 @@ const complete = continueRecommendationRefinementPreparation({
   inputState: needsInput.input_state,
   capability: invoiceCapability,
   answers: { customer_id: customerId, amount: 1500 },
+  permissions: [invoicePermission],
   context: { organizationId },
 });
 assert.equal(complete.stage, "READY_FOR_GOVERNED_BINDING");
@@ -127,8 +147,30 @@ assert.deepEqual(complete.recommendation?.payload, {
 });
 assert.equal(complete.revalidation?.current_capability_revalidated, true);
 assert.equal(complete.binding_preflight?.ready_for_governed_binding, true);
+assert.equal(complete.binding_preflight?.actor_policy?.allowed, true);
 assert.equal(complete.recommendation_binding_created, false);
 assert.equal(complete.execution_authorized, false);
+
+const revokedBeforeBinding = continueRecommendationRefinementPreparation({
+  proposal: needsInput.proposal,
+  inputState: needsInput.input_state,
+  capability: invoiceCapability,
+  answers: { customer_id: customerId, amount: 1500 },
+  permissions: [],
+  context: { organizationId },
+});
+assert.equal(revokedBeforeBinding.stage, "BINDING_PREFLIGHT_FAILED_CLOSED");
+assert.equal(revokedBeforeBinding.ready_for_governed_binding, false);
+assert.equal(
+  revokedBeforeBinding.binding_preflight?.reason,
+  "REFINEMENT_ACTOR_CAPABILITY_POLICY_CHANGED",
+);
+assert.equal(
+  revokedBeforeBinding.binding_preflight?.actor_policy?.reason,
+  "CURRENT_ACTOR_PERMISSION_DENIED",
+);
+assert.equal(revokedBeforeBinding.execution_authorized, false);
+assert.equal(revokedBeforeBinding.recommendation_binding_created, false);
 
 const ambiguous = prepareRecommendationRefinement({
   proposal: {
@@ -141,6 +183,7 @@ const ambiguous = prepareRecommendationRefinement({
     { ...oldCapability, key: "platform.review_a.write", name: "Review A" },
     { ...oldCapability, key: "platform.review_b.write", name: "Review B" },
   ],
+  permissions: [legacyPermission],
   context: {},
 });
 assert.equal(ambiguous.stage, "CAPABILITY_CLARIFICATION_REQUIRED");
@@ -165,22 +208,41 @@ const drifted = continueRecommendationRefinementPreparation({
   inputState: needsInput.input_state,
   capability: driftedInvoice,
   answers: { customer_id: customerId, amount: 1500 },
+  permissions: [invoicePermission],
   context: { organizationId },
 });
-assert.equal(drifted.stage, "REVALIDATION_REQUIRED_OR_FAILED");
+assert.equal(drifted.stage, "INPUT_CLARIFICATION_REQUIRED");
 assert.equal(drifted.ready_for_governed_binding, false);
-assert.deepEqual(drifted.revalidation?.missing_required_fields, ["currency"]);
-assert.equal(drifted.candidate, null);
-assert.equal(drifted.binding_preflight, null);
+assert.equal(drifted.answer_result?.reason, "REFINEMENT_INPUT_SCHEMA_CHANGED");
+assert.equal(drifted.candidate, undefined);
 assert.equal(drifted.execution_authorized, false);
 assert.equal(drifted.pending_execution_created, false);
 assert.equal(drifted.autonomous_run_created, false);
+
+const deniedAtSelection = prepareRecommendationRefinement({
+  proposal: {
+    proposal_id: "refinement_denied",
+    proposal_text: "Create a customer invoice for the refined direction",
+    previous_capability_key: oldCapability.key,
+    selection_origin: "REFINEMENT_PROPOSAL",
+  },
+  capabilities: [invoiceCapability],
+  permissions: [],
+  context: { organizationId },
+});
+assert.equal(deniedAtSelection.stage, "CAPABILITY_CLARIFICATION_REQUIRED");
+assert.equal(deniedAtSelection.actor_policy_filtered_capability_count, 0);
+assert.equal(deniedAtSelection.plan.capability, null);
+assert.equal(deniedAtSelection.ready_for_governed_binding, false);
+assert.equal(deniedAtSelection.execution_authorized, false);
 
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_RUNTIME_AUDIT=PASS");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_IMMEDIATE=PREBINDING_ONLY");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_CLARIFICATION=EXACT_REQUIRED_FIELDS");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_INVALID_INPUT=FAIL_CLOSED");
-console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_SCHEMA_DRIFT=FAIL_CLOSED");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_SCHEMA_DRIFT=FAIL_CLOSED_IMMEDIATELY");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_PERMISSION_SELECTION=FILTERED");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_PERMISSION_REVOCATION=FAIL_CLOSED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_BINDING=NOT_CREATED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_AUTHORIZATION=NONE");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_PREPARATION_EXECUTION=NONE");

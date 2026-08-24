@@ -35,11 +35,11 @@ function audioUrl(value, depth = 0) {
     return value.map((entry) => audioUrl(entry, depth + 1)).find(Boolean) || "";
   }
   if (typeof value !== "object") return "";
-  for (const key of ["audio_url", "audioUrl", "file_url", "fileUrl", "asset_url", "assetUrl", "url", "master_url", "masterUrl"]) {
+  for (const key of ["audio_url", "audioUrl", "file_url", "fileUrl", "asset_url", "assetUrl", "playback_url", "playbackUrl", "url", "master_url", "masterUrl"]) {
     const resolved = audioUrl(value[key], depth + 1);
     if (resolved) return resolved;
   }
-  for (const key of ["output", "raw", "result", "data", "files", "audio"]) {
+  for (const key of ["output", "raw", "result", "data", "files", "audio", "asset"]) {
     const resolved = audioUrl(value[key], depth + 1);
     if (resolved) return resolved;
   }
@@ -51,6 +51,10 @@ function isAudioAsset(asset = {}) {
   const type = text(asset.asset_type || asset.previewType || asset.type).toLowerCase();
   const url = text(asset.url || asset.file_url).toLowerCase();
   return mime.startsWith("audio/") || type.includes("audio") || /\.(wav|mp3|m4a|aac|flac|ogg)(\?|$)/.test(url);
+}
+
+function directPlaybackUrl(asset = {}) {
+  return audioUrl(asset.url || asset.file_url || asset.playback_url || asset);
 }
 
 function Field({ label, hint, children }) {
@@ -82,6 +86,8 @@ function GateCard({ title, copy }) {
 export default function MusicWorkspace({ runtime }) {
   const project = runtime.projectRuntime?.current || null;
   const mission = runtime.missionRuntime?.current || null;
+  const organizationId = runtime.organizationId || null;
+  const refresh = runtime.refresh;
   const audioAssets = useMemo(
     () => (runtime.assetRuntime?.items || []).filter(isAudioAsset).slice(0, 8),
     [runtime.assetRuntime?.items],
@@ -106,6 +112,8 @@ export default function MusicWorkspace({ runtime }) {
   const [session, setSession] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [playbackUrls, setPlaybackUrls] = useState({});
+  const [resolvingAssets, setResolvingAssets] = useState({});
 
   function update(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -125,18 +133,19 @@ export default function MusicWorkspace({ runtime }) {
   }
 
   async function compose() {
-    if (!runtime.organizationId) return;
+    if (!organizationId) return;
     setBusy(true);
     setError("");
     try {
       const result = await request({
         action: "compose",
-        organization_id: runtime.organizationId,
+        organization_id: organizationId,
         creative_project_id: project?.id || null,
         creative_mission_id: mission?.id || null,
         ...form,
       });
       setSession({ ...result, quantity: Number(form.duration_seconds), unit: "second" });
+      if (!result.pending) refresh?.();
     } catch (cause) {
       setError(cause?.message || "Music Studio execution failed");
     } finally {
@@ -145,15 +154,17 @@ export default function MusicWorkspace({ runtime }) {
   }
 
   useEffect(() => {
-    if (!session?.pending || !session?.provider_job_id || !session?.usage_id) return undefined;
+    if (!session?.pending || !session?.provider_job_id || !session?.usage_id || !organizationId) return undefined;
     let cancelled = false;
     const timer = setInterval(async () => {
       try {
         const result = await request({
           action: "status",
-          organization_id: runtime.organizationId,
+          organization_id: organizationId,
           creative_project_id: project?.id || null,
           creative_mission_id: mission?.id || null,
+          title: session?.session?.title || form.title,
+          mastering_profile: session?.session?.mastering_profile || form.mastering_profile,
           provider: session.provider,
           provider_job_id: session.provider_job_id,
           usage_id: session.usage_id,
@@ -165,7 +176,7 @@ export default function MusicWorkspace({ runtime }) {
         });
         if (!cancelled) {
           setSession((current) => ({ ...current, ...result }));
-          if (!result.pending) runtime.refresh?.();
+          if (!result.pending) refresh?.();
         }
       } catch (cause) {
         if (!cancelled) setError(cause?.message || "Music job status failed");
@@ -175,7 +186,70 @@ export default function MusicWorkspace({ runtime }) {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [session?.pending, session?.provider_job_id, session?.usage_id, session?.provider, session?.pricing, session?.credential_id, session?.started_at, session?.quantity, session?.unit, runtime, project?.id, mission?.id]);
+  }, [
+    session?.pending,
+    session?.provider_job_id,
+    session?.usage_id,
+    session?.provider,
+    session?.pricing,
+    session?.credential_id,
+    session?.started_at,
+    session?.quantity,
+    session?.unit,
+    session?.session?.title,
+    session?.session?.mastering_profile,
+    organizationId,
+    project?.id,
+    mission?.id,
+    form.title,
+    form.mastering_profile,
+    refresh,
+  ]);
+
+  useEffect(() => {
+    if (!organizationId || !audioAssets.length) return undefined;
+    let cancelled = false;
+    const unresolved = audioAssets.filter((asset) => (
+      asset?.id &&
+      !directPlaybackUrl(asset) &&
+      !playbackUrls[asset.id] &&
+      !resolvingAssets[asset.id]
+    ));
+    if (!unresolved.length) return undefined;
+
+    setResolvingAssets((current) => ({
+      ...current,
+      ...Object.fromEntries(unresolved.map((asset) => [asset.id, true])),
+    }));
+
+    Promise.all(unresolved.map(async (asset) => {
+      try {
+        const result = await request({
+          action: "resolve_asset",
+          organization_id: organizationId,
+          asset_id: asset.id,
+        });
+        return [asset.id, audioUrl(result?.asset?.playback_url || result?.asset)];
+      } catch {
+        return [asset.id, ""];
+      }
+    })).then((entries) => {
+      if (cancelled) return;
+      setPlaybackUrls((current) => ({
+        ...current,
+        ...Object.fromEntries(entries.filter(([, url]) => Boolean(url))),
+      }));
+      setResolvingAssets((current) => {
+        const next = { ...current };
+        for (const [id] of entries) delete next[id];
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, audioAssets, playbackUrls, resolvingAssets]);
 
   const generatedUrl = audioUrl(session?.output);
   const activeMaster = MASTERING_PROFILES.find((profile) => profile.id === form.mastering_profile) || MASTERING_PROFILES[0];
@@ -314,7 +388,7 @@ export default function MusicWorkspace({ runtime }) {
                 <div className="text-[10px] uppercase tracking-[0.22em] text-white/28">Current session</div>
                 <div className="mt-1 text-lg font-medium text-white/80">{session?.session?.title || form.title}</div>
               </div>
-              {session?.pending ? <AudioLines className="h-5 w-5 animate-pulse text-[#d6a66a]" /> : generatedUrl ? <BadgeCheck className="h-5 w-5 text-emerald-300/70" /> : <Disc3 className="h-5 w-5 text-white/24" />}
+              {session?.pending ? <AudioLines className="h-5 w-5 animate-pulse text-[#d6a66a]" /> : session?.failed ? <CircleStop className="h-5 w-5 text-red-300/70" /> : generatedUrl ? <BadgeCheck className="h-5 w-5 text-emerald-300/70" /> : <Disc3 className="h-5 w-5 text-white/24" />}
             </div>
 
             <div className="mt-5 flex min-h-36 items-center justify-center rounded-xl border border-white/7 bg-black/40 p-4">
@@ -322,6 +396,8 @@ export default function MusicWorkspace({ runtime }) {
                 <audio src={generatedUrl} controls className="w-full" />
               ) : session?.pending ? (
                 <div className="text-center"><AudioLines className="mx-auto h-8 w-8 animate-pulse text-[#d6a66a]/75" /><div className="mt-3 text-sm text-white/48">Avantiqo Music is composing</div><div className="mt-1 text-xs text-white/24">Wallet reservation remains governed until settlement.</div></div>
+              ) : session?.failed ? (
+                <div className="text-center"><CircleStop className="mx-auto h-8 w-8 text-red-300/55" /><div className="mt-3 text-sm text-red-100/65">Composition did not complete</div><div className="mt-1 text-xs text-white/24">No failed output is stored as a project asset.</div></div>
               ) : (
                 <div className="text-center"><Music2 className="mx-auto h-8 w-8 text-white/16" /><div className="mt-3 text-sm text-white/35">Your composition will appear here</div></div>
               )}
@@ -352,8 +428,17 @@ export default function MusicWorkspace({ runtime }) {
             <div className="mb-3 flex items-center justify-between"><div className="text-sm font-medium text-white/70">Project audio</div><span className="text-[10px] text-white/24">{audioAssets.length} recent</span></div>
             <div className="space-y-2">
               {audioAssets.map((asset) => {
-                const url = asset.url || asset.file_url;
-                return <div key={asset.id} className="rounded-xl border border-white/7 p-3"><div className="truncate text-xs text-white/60">{asset.title || asset.name || asset.file_name || "Audio asset"}</div>{url ? <audio src={url} controls className="mt-2 w-full" /> : null}</div>;
+                const url = directPlaybackUrl(asset) || playbackUrls[asset.id] || "";
+                const resolving = Boolean(resolvingAssets[asset.id]);
+                return (
+                  <div key={asset.id} className="rounded-xl border border-white/7 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="truncate text-xs text-white/60">{asset.title || asset.name || asset.file_name || "Audio asset"}</div>
+                      {asset.metadata?.owned_engine ? <span className="shrink-0 text-[9px] uppercase tracking-[0.12em] text-[#d6a66a]/55">Avantiqo</span> : null}
+                    </div>
+                    {url ? <audio src={url} controls className="mt-2 w-full" /> : resolving ? <div className="mt-2 flex items-center gap-2 text-[10px] text-white/26"><AudioLines className="h-3 w-3 animate-pulse" /> Securing private playback…</div> : <div className="mt-2 text-[10px] text-white/22">Playback unavailable</div>}
+                  </div>
+                );
               })}
               {!audioAssets.length ? <div className="rounded-xl border border-dashed border-white/8 p-4 text-center text-xs text-white/24">No project audio assets yet</div> : null}
             </div>

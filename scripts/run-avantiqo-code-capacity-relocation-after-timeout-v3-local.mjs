@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 
 const CONTRACT = "AVANTIQO_CODE_CAPACITY_TIMEOUT_RECOVERY_V3";
 const CHILD_SCRIPT = "scripts/run-avantiqo-code-capacity-relocation-after-timeout-v2-local.mjs";
+const ENDPOINT_READY_GUARD_SCRIPT = "scripts/lib/avantiqo-code-runpod-endpoint-ready-fetch-guard.mjs";
 const CANONICAL_CODE_VOLUME_NAME = "avantiqo-shared-intelligence-code-cache";
 const CODE_ENDPOINT_NAME = "avantiqo-code-v1";
 const REST = "https://rest.runpod.io/v1";
@@ -193,6 +194,20 @@ if (!failedJobId || !/^[A-Za-z0-9-]+$/.test(failedJobId)) {
   throw new Error("AVANTIQO_CODE_CAPACITY_RELOCATION_FAILED_JOB_ID_REQUIRED");
 }
 
+const endpointReadyGuardPath = resolve(process.cwd(), ENDPOINT_READY_GUARD_SCRIPT);
+if (!existsSync(endpointReadyGuardPath)) {
+  throw new Error("CODE_TIMEOUT_RECOVERY_V3_ENDPOINT_READY_GUARD_REQUIRED");
+}
+const inheritedNodeOptions = text(process.env.NODE_OPTIONS);
+const guardNodeOption = `--import=${endpointReadyGuardPath}`;
+const childNodeOptions = inheritedNodeOptions.includes(endpointReadyGuardPath)
+  ? inheritedNodeOptions
+  : [inheritedNodeOptions, guardNodeOption].filter(Boolean).join(" ");
+const childEnv = {
+  ...process.env,
+  NODE_OPTIONS: childNodeOptions,
+};
+
 let [beforeVolumes, beforeEndpoints] = await Promise.all([
   rest(managementKey, "/networkvolumes"),
   rest(managementKey, "/endpoints?includeTemplate=true&includeWorkers=true"),
@@ -279,13 +294,17 @@ console.log(JSON.stringify({
   },
   paused_baseline_recovered: pausedBaselineRecovered,
   canonical_interactive_worker_baseline: { min: 0, max: 1 },
+  endpoint_ready_guard_script: ENDPOINT_READY_GUARD_SCRIPT,
+  endpoint_ready_guard_propagates_to_descendants: true,
+  endpoint_ready_guard_retry_only_on_explicit_409_paused: true,
+  endpoint_ready_guard_duplicate_job_retry: false,
   production_deploy_performed: false,
   secrets_printed: false,
 }, null, 2));
 
 const child = spawnSync(process.execPath, [resolve(process.cwd(), CHILD_SCRIPT), failedJobId], {
   cwd: process.cwd(),
-  env: process.env,
+  env: childEnv,
   stdio: "inherit",
 });
 
@@ -299,6 +318,7 @@ if (child.status === 0) {
     mode: apply ? "APPLY" : "PLAN",
     child_exit_code: 0,
     paused_baseline_recovered: pausedBaselineRecovered,
+    endpoint_ready_guard_propagated: true,
     orphan_cleanup_required: false,
     production_deploy_performed: false,
     secrets_printed: false,
@@ -358,6 +378,7 @@ console.error(JSON.stringify({
   mode: apply ? "APPLY" : "PLAN",
   child_exit_code: child.status,
   paused_baseline_recovered: pausedBaselineRecovered,
+  endpoint_ready_guard_propagated: true,
   cleanup,
   production_deploy_performed: false,
   secrets_printed: false,

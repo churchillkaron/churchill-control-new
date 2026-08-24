@@ -10,13 +10,21 @@ import runpod
 import torch
 from acestep.handler import AceStepHandler
 from acestep.inference import GenerationConfig, GenerationParams, generate_music
+from acestep.llm_inference import LLMHandler
+from acestep.model_downloader import ensure_lm_model
 
 ENGINE_CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-music-v1"
+QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1"
 MODEL_FAMILY = os.getenv("AVANTIQO_AUDIO_MODEL_FAMILY", "ACE_STEP_1_5").strip().upper()
 FOUNDATION_MODEL = os.getenv("AVANTIQO_AUDIO_FOUNDATION_MODEL", "ACE-Step/Ace-Step1.5").strip()
-MODEL_VARIANT = os.getenv("AVANTIQO_AUDIO_MODEL_VARIANT", "acestep-v15-turbo").strip()
+MODEL_VARIANT = os.getenv("AVANTIQO_AUDIO_MODEL_VARIANT", "acestep-v15-xl-turbo").strip()
+LM_MODEL = os.getenv("AVANTIQO_AUDIO_LM_MODEL", "acestep-5Hz-lm-1.7B").strip()
+LM_BACKEND = os.getenv("AVANTIQO_AUDIO_LM_BACKEND", "vllm").strip().lower()
 PROJECT_ROOT = Path(os.getenv("ACESTEP_PROJECT_ROOT", "/opt/ace-step")).resolve()
+CHECKPOINT_DIR = Path(
+    os.getenv("ACESTEP_CHECKPOINTS_DIR", str(PROJECT_ROOT / "checkpoints"))
+).resolve()
 OUTPUT_DIR = Path(os.getenv("AVANTIQO_AUDIO_OUTPUT_DIR", "/tmp/avantiqo-audio"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = os.getenv("AVANTIQO_AUDIO_DEVICE", "cuda").strip()
@@ -29,8 +37,16 @@ MODEL_WARM_FITNESS = os.getenv("AVANTIQO_AUDIO_FITNESS_LOAD_MODEL", "false").str
     "yes",
     "on",
 }
+INIT_LLM = os.getenv("ACESTEP_INIT_LLM", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 SUPPORTED_FOUNDATION_MODELS = {"ACE-Step/Ace-Step1.5"}
-SUPPORTED_MODEL_VARIANTS = {"acestep-v15-turbo"}
+SUPPORTED_MODEL_VARIANTS = {"acestep-v15-xl-turbo"}
+SUPPORTED_LM_MODELS = {"acestep-5Hz-lm-1.7B"}
+SUPPORTED_LM_BACKENDS = {"vllm", "pt"}
 IMPLEMENTED_CAPABILITIES = {
     "ai.music.generate",
     "ai.audio.remix",
@@ -43,6 +59,7 @@ CAPABILITY_TASK_TYPES = {
     "ai.audio.edit": "repaint",
 }
 _DIT_HANDLER: AceStepHandler | None = None
+_LM_HANDLER: LLMHandler | None = None
 
 
 def _text(value: Any) -> str:
@@ -123,6 +140,12 @@ def _validate_model_contract() -> None:
         raise RuntimeError("AVANTIQO_AUDIO_FOUNDATION_MODEL_NOT_CERTIFIED")
     if MODEL_VARIANT not in SUPPORTED_MODEL_VARIANTS:
         raise RuntimeError("AVANTIQO_AUDIO_MODEL_VARIANT_NOT_CERTIFIED")
+    if not INIT_LLM:
+        raise RuntimeError("AVANTIQO_AUDIO_QUALITY_LM_REQUIRED")
+    if LM_MODEL not in SUPPORTED_LM_MODELS:
+        raise RuntimeError("AVANTIQO_AUDIO_LM_MODEL_NOT_CERTIFIED")
+    if LM_BACKEND not in SUPPORTED_LM_BACKENDS:
+        raise RuntimeError("AVANTIQO_AUDIO_LM_BACKEND_NOT_SUPPORTED")
     if MODEL_SOURCE not in {"huggingface", "modelscope"}:
         raise RuntimeError("AVANTIQO_AUDIO_MODEL_SOURCE_INVALID")
     _certified_capabilities()
@@ -151,6 +174,38 @@ def _dit_handler() -> AceStepHandler:
         detail = _text(status).replace("\n", " ")[:1000]
         raise RuntimeError(f"AVANTIQO_AUDIO_MODEL_INITIALIZATION_FAILED:{detail}")
     _DIT_HANDLER = handler
+    return handler
+
+
+def _llm_handler() -> LLMHandler:
+    global _LM_HANDLER
+    if _LM_HANDLER is not None:
+        return _LM_HANDLER
+
+    _validate_model_contract()
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    download_ok, download_status = ensure_lm_model(
+        model_name=LM_MODEL,
+        checkpoints_dir=str(CHECKPOINT_DIR),
+        prefer_source=MODEL_SOURCE,
+    )
+    if not download_ok:
+        detail = _text(download_status).replace("\n", " ")[:1000]
+        raise RuntimeError(f"AVANTIQO_AUDIO_LM_DOWNLOAD_FAILED:{detail}")
+
+    handler = LLMHandler()
+    status, success = handler.initialize(
+        checkpoint_dir=str(CHECKPOINT_DIR),
+        lm_model_path=LM_MODEL,
+        backend=LM_BACKEND,
+        device=DEVICE,
+        offload_to_cpu=False,
+        dtype=None,
+    )
+    if not success:
+        detail = _text(status).replace("\n", " ")[:1000]
+        raise RuntimeError(f"AVANTIQO_AUDIO_LM_INITIALIZATION_FAILED:{detail}")
+    _LM_HANDLER = handler
     return handler
 
 
@@ -245,7 +300,7 @@ def _generation_request(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("AVANTIQO_AUDIO_SEED_INVALID")
 
     inference_steps = _integer(_first_value(objects, ("inference_steps", "steps")), 8) or 8
-    inference_steps = max(1, min(20, inference_steps))
+    inference_steps = max(8, min(20, inference_steps))
     shift = _number(_first_value(objects, ("shift",)), 3.0) or 3.0
     shift = max(1.0, min(5.0, shift))
     cover_strength = _number(
@@ -386,6 +441,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
     runpod.serverless.progress_update(job, "loading Avantiqo Music")
     dit_handler = _dit_handler()
+    lm_handler = _llm_handler() if request["task_type"] == "text2music" else None
+    use_lm = lm_handler is not None
 
     job_id = _text(job.get("id")) or str(int(time.time() * 1000))
     job_output_dir = OUTPUT_DIR / job_id
@@ -415,12 +472,12 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             repainting_start=request["repainting_start"],
             repainting_end=request["repainting_end"],
             audio_cover_strength=request["audio_cover_strength"],
-            thinking=False,
-            use_cot_metas=False,
-            use_cot_caption=False,
-            use_cot_lyrics=False,
-            use_cot_language=False,
-            use_constrained_decoding=False,
+            thinking=use_lm,
+            use_cot_metas=use_lm,
+            use_cot_caption=use_lm,
+            use_cot_lyrics=use_lm,
+            use_cot_language=use_lm,
+            use_constrained_decoding=use_lm,
             enable_normalization=True,
             normalization_db=-1.0,
         )
@@ -434,14 +491,14 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         )
 
         progress = {
-            "text2music": "generating music",
+            "text2music": "generating XL quality music",
             "cover": "creating owned remix",
             "repaint": "repairing selected audio region",
         }[request["task_type"]]
         runpod.serverless.progress_update(job, progress)
         result = generate_music(
             dit_handler,
-            None,
+            lm_handler,
             params,
             config,
             save_dir=str(job_output_dir),
@@ -480,6 +537,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "model": PRODUCT_MODEL,
             "model_family": MODEL_FAMILY,
             "model_variant": MODEL_VARIANT,
+            "quality_profile": QUALITY_PROFILE,
             "engine_contract": ENGINE_CONTRACT,
             "capability": data["capability"],
             "task_type": request["task_type"],
@@ -494,7 +552,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "audio_cover_strength": request["audio_cover_strength"] if request["task_type"] == "cover" else None,
             "repainting_start": request["repainting_start"] if request["task_type"] == "repaint" else None,
             "repainting_end": request["repainting_end"] if request["task_type"] == "repaint" else None,
-            "ace_step_lm_used": False,
+            "ace_step_lm_used": use_lm,
+            "ace_step_lm_model": LM_MODEL if use_lm else None,
+            "ace_step_lm_backend": LM_BACKEND if use_lm else None,
+            "thinking_enabled": use_lm,
             "raw_reasoning_persisted": False,
             "generation_input_persisted": False,
         }
@@ -509,6 +570,7 @@ def check_worker():
         raise RuntimeError("AVANTIQO_AUDIO_CUDA_REQUIRED")
     if MODEL_WARM_FITNESS:
         _dit_handler()
+        _llm_handler()
 
 
 if __name__ == "__main__":

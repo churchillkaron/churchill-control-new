@@ -13,6 +13,10 @@ const HUMAN_EVIDENCE_CONTRACT = "AVANTIQO_OWNED_MEDIA_CERTIFICATION_EVIDENCE_V1"
 const PROVIDER = "avantiqo-audio";
 const MODEL = "ACE-Step/Ace-Step1.5";
 const CAPABILITY = "ai.music.generate";
+const MODEL_VARIANT = "acestep-v15-xl-turbo";
+const LM_MODEL = "acestep-5Hz-lm-1.7B";
+const LM_BACKEND = "vllm";
+const QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
 
 const BENCHMARK_INPUT = resolve(
   process.env.AVANTIQO_AUDIO_BENCHMARK_OUTPUT ||
@@ -52,11 +56,23 @@ if (text(benchmark?.contract) !== BENCHMARK_CONTRACT) failures.push("BENCHMARK_C
 if (benchmark?.summary?.passed !== true) failures.push("BENCHMARK_PASS_REQUIRED");
 if (text(benchmark?.model?.provider) !== PROVIDER) failures.push("BENCHMARK_PROVIDER_MISMATCH");
 if (text(benchmark?.model?.foundation_model) !== MODEL) failures.push("BENCHMARK_MODEL_MISMATCH");
+if (text(benchmark?.model?.variant) !== MODEL_VARIANT) failures.push("BENCHMARK_VARIANT_MISMATCH");
+if (text(benchmark?.model?.quality_profile) !== QUALITY_PROFILE) failures.push("BENCHMARK_QUALITY_PROFILE_MISMATCH");
+if (benchmark?.model?.ace_step_lm_required !== true) failures.push("BENCHMARK_LM_REQUIRED");
+if (text(benchmark?.model?.ace_step_lm_model) !== LM_MODEL) failures.push("BENCHMARK_LM_MODEL_MISMATCH");
+if (text(benchmark?.model?.ace_step_lm_backend) !== LM_BACKEND) failures.push("BENCHMARK_LM_BACKEND_MISMATCH");
+if (benchmark?.model?.thinking_required !== true) failures.push("BENCHMARK_THINKING_REQUIRED");
 if (text(benchmark?.model?.capability) !== CAPABILITY) failures.push("BENCHMARK_CAPABILITY_MISMATCH");
 
 if (text(economics?.contract) !== ECONOMICS_CONTRACT) failures.push("ECONOMICS_CONTRACT_INVALID");
 if (text(economics?.provider) !== PROVIDER) failures.push("ECONOMICS_PROVIDER_MISMATCH");
 if (text(economics?.foundation_model) !== MODEL) failures.push("ECONOMICS_MODEL_MISMATCH");
+if (text(economics?.model_variant) !== MODEL_VARIANT) failures.push("ECONOMICS_VARIANT_MISMATCH");
+if (text(economics?.quality_profile) !== QUALITY_PROFILE) failures.push("ECONOMICS_QUALITY_PROFILE_MISMATCH");
+if (economics?.ace_step_lm_required !== true) failures.push("ECONOMICS_LM_REQUIRED");
+if (text(economics?.ace_step_lm_model) !== LM_MODEL) failures.push("ECONOMICS_LM_MODEL_MISMATCH");
+if (text(economics?.ace_step_lm_backend) !== LM_BACKEND) failures.push("ECONOMICS_LM_BACKEND_MISMATCH");
+if (economics?.thinking_required !== true) failures.push("ECONOMICS_THINKING_REQUIRED");
 if (text(economics?.capability) !== CAPABILITY) failures.push("ECONOMICS_CAPABILITY_MISMATCH");
 if (text(economics?.source_benchmark_id) !== text(benchmark?.benchmark_id)) failures.push("ECONOMICS_BENCHMARK_ID_MISMATCH");
 if (economics?.certification?.benchmark_certified !== true) failures.push("ECONOMICS_BENCHMARK_CERTIFICATION_REQUIRED");
@@ -86,6 +102,12 @@ if (!humanCapability) {
 } else {
   if (text(humanCapability.engine) !== PROVIDER) failures.push("HUMAN_PROVIDER_MISMATCH");
   if (text(humanCapability.model) !== MODEL) failures.push("HUMAN_MODEL_MISMATCH");
+  if (text(humanCapability.model_variant) !== MODEL_VARIANT) failures.push("HUMAN_VARIANT_MISMATCH");
+  if (text(humanCapability.quality_profile) !== QUALITY_PROFILE) failures.push("HUMAN_QUALITY_PROFILE_MISMATCH");
+  if (humanCapability.ace_step_lm_required !== true) failures.push("HUMAN_LM_REQUIRED");
+  if (text(humanCapability.ace_step_lm_model) !== LM_MODEL) failures.push("HUMAN_LM_MODEL_MISMATCH");
+  if (text(humanCapability.ace_step_lm_backend) !== LM_BACKEND) failures.push("HUMAN_LM_BACKEND_MISMATCH");
+  if (humanCapability.thinking_required !== true) failures.push("HUMAN_THINKING_REQUIRED");
   if (humanCapability.human_quality_passed !== true) failures.push("HUMAN_CAPABILITY_PASS_REQUIRED");
   if (!text(humanCapability.reviewer)) failures.push("HUMAN_REVIEWER_REQUIRED");
   if (!validIso(humanCapability.reviewed_at)) failures.push("HUMAN_REVIEWED_AT_REQUIRED");
@@ -116,7 +138,12 @@ const plan = {
   capability: CAPABILITY,
   foundation_model: MODEL,
   model_family: "ACE_STEP_1_5",
-  model_variant: "acestep-v15-turbo",
+  model_variant: MODEL_VARIANT,
+  quality_profile: QUALITY_PROFILE,
+  ace_step_lm_required: true,
+  ace_step_lm_model: LM_MODEL,
+  ace_step_lm_backend: LM_BACKEND,
+  thinking_required: true,
   evidence: {
     benchmark_contract: BENCHMARK_CONTRACT,
     benchmark_id: benchmark.benchmark_id || null,
@@ -149,6 +176,12 @@ const plan = {
     human_quality_reviewed_at: reviewedAt,
     certified_capability: CAPABILITY,
     certified_model: MODEL,
+    certified_model_variant: MODEL_VARIANT,
+    quality_profile: QUALITY_PROFILE,
+    ace_step_lm_required: true,
+    ace_step_lm_model: LM_MODEL,
+    ace_step_lm_backend: LM_BACKEND,
+    thinking_required: true,
     model_license_verified: true,
     runtime_compatible: true,
     recalibration_required: false,
@@ -184,6 +217,7 @@ console.log(JSON.stringify({
   success: true,
   output_path: OUTPUT,
   capability: CAPABILITY,
+  quality_profile: QUALITY_PROFILE,
   measured_compute_usd_per_audio_second: measuredUsdPerAudioSecond,
   human_quality_reviewer: reviewer,
   ready_for_explicit_pricing_review: true,

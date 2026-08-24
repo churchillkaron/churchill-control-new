@@ -96,6 +96,13 @@ function required(name) {
 function endpointVolumeIds(endpoint = {}) {
   return unique([endpoint.networkVolumeId, ...list(endpoint.networkVolumeIds)]);
 }
+function endpointDatacenterCompatible(endpoint, requiredDataCenterId) {
+  const ids = list(endpoint?.dataCenterIds);
+  // RunPod may omit dataCenterIds when a network volume is attached. In that
+  // case the network volume's data center is the authoritative placement
+  // constraint, matching the Code runtime diagnostic's effective placement.
+  return ids.length === 0 || ids.includes(requiredDataCenterId);
+}
 function profileForGpu(gpu = {}) {
   const label = [gpu?.gpuTypeId, gpu?.gpuTypeDisplayName, gpu?.displayName]
     .map(text)
@@ -121,10 +128,6 @@ function safeGpu(gpu = {}) {
     stock_status: text(gpu?.stockStatus) || null,
     stock_rank: stockRank(gpu?.stockStatus),
   };
-}
-function rankedApprovedGpus(dataCenter = {}) {
-  return list(dataCenter?.gpuAvailability)
-    .map((gpuTypeId) => gpuTypeId);
 }
 function rankedGpuObjects(dataCenter = {}) {
   return (Array.isArray(dataCenter?.gpuAvailability) ? dataCenter.gpuAvailability : [])
@@ -390,8 +393,7 @@ const legacyGroupVolumes = groupCacheVolumes(volumes, SHARED_GROUP).filter(
 const targetGpuTypes = unique(sharedDcCandidates.slice(0, 4).map((gpu) => gpu.gpu_type_id));
 const placementReady =
   sameSet(attachedIds, [sharedVolumeId]) &&
-  list(endpoint?.dataCenterIds).length === 1 &&
-  list(endpoint?.dataCenterIds)[0] === sharedDataCenterId &&
+  endpointDatacenterCompatible(endpoint, sharedDataCenterId) &&
   targetGpuTypes.length > 0 &&
   sameSet(list(endpoint?.gpuTypeIds), targetGpuTypes) &&
   finite(endpoint?.workersMin) === 0 &&
@@ -403,6 +405,11 @@ const report = {
   mode: apply ? "APPLY" : "PLAN",
   endpoint_resolution: resolved.resolution,
   endpoint: safeEndpoint(endpoint),
+  effective_placement: {
+    data_center_id: sharedDataCenterId,
+    source: "NETWORK_VOLUME_DATACENTER",
+    endpoint_data_center_ids_omitted_is_valid: true,
+  },
   shared_volume_group: SHARED_GROUP.id,
   shared_volume_policy: sharedVolumePolicySummary(volumes),
   shared_volume_resolution: reusable.resolution,
@@ -513,7 +520,7 @@ if (text(verified?.templateId || verified?.template?.id) !== templateId) {
 if (!sameSet(endpointVolumeIds(verified), [sharedVolumeId])) {
   throw new Error(`AVANTIQO_IMAGE_SHARED_VOLUME_VERIFY_FAILED:${endpointVolumeIds(verified).join("|")}`);
 }
-if (!sameSet(list(verified?.dataCenterIds), [sharedDataCenterId])) {
+if (!endpointDatacenterCompatible(verified, sharedDataCenterId)) {
   throw new Error(`AVANTIQO_IMAGE_SHARED_DATACENTER_VERIFY_FAILED:${list(verified?.dataCenterIds).join("|")}`);
 }
 if (!sameSet(list(verified?.gpuTypeIds), targetGpuTypes)) {
@@ -531,10 +538,15 @@ console.log(JSON.stringify({
   success: true,
   mode: "APPLY",
   endpoint: safeEndpoint(verified),
+  effective_placement: {
+    data_center_id: sharedDataCenterId,
+    source: "NETWORK_VOLUME_DATACENTER",
+    endpoint_data_center_ids_omitted_is_valid: list(verified?.dataCenterIds).length === 0,
+  },
   mutation_performed: true,
   stuck_job_cancelled: stuckJobCancelled,
   new_job_submitted: false,
   model_download_submitted: false,
   production_deploy: false,
-  next_action: "PROBE_THEN_CACHE_QWEN_IMAGE_2512_ON_SHARED_VOLUME",
+  next_action: "PROBE_SHARED_IMAGE_CACHE",
 }, null, 2));

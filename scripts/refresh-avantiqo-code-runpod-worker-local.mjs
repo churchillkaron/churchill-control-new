@@ -86,6 +86,40 @@ async function endpointBoundTemplates(managementKey) {
   return templates;
 }
 
+async function resolveCodeEndpoint(managementKey) {
+  const endpoints = await restRequest(
+    "/endpoints?includeTemplate=true&includeWorkers=true",
+    managementKey,
+  );
+  if (!Array.isArray(endpoints)) throw new Error("AVANTIQO_CODE_REFRESH_ENDPOINT_LIST_INVALID");
+
+  const configuredId = text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID);
+  if (configuredId) {
+    const matches = endpoints.filter((endpoint) => text(endpoint?.id) === configuredId);
+    if (matches.length !== 1) {
+      throw new Error(
+        `AVANTIQO_CODE_REFRESH_CONFIGURED_ENDPOINT_RESOLUTION_FAILED:id=${configuredId}:matches=${matches.length}`,
+      );
+    }
+    if (text(matches[0]?.name) !== CODE_ENDPOINT_NAME) {
+      throw new Error(
+        `AVANTIQO_CODE_REFRESH_CONFIGURED_ENDPOINT_NAME_MISMATCH:${text(matches[0]?.name) || "MISSING"}`,
+      );
+    }
+    return { endpoint_id: configuredId, resolution: "CONFIGURED_ID" };
+  }
+
+  const matches = endpoints.filter((endpoint) => text(endpoint?.name) === CODE_ENDPOINT_NAME);
+  if (matches.length !== 1) {
+    throw new Error(
+      `AVANTIQO_CODE_REFRESH_EXACT_NAME_ENDPOINT_RESOLUTION_FAILED:name=${CODE_ENDPOINT_NAME}:matches=${matches.length}`,
+    );
+  }
+  const endpointId = text(matches[0]?.id);
+  if (!endpointId) throw new Error("AVANTIQO_CODE_REFRESH_EXACT_NAME_ENDPOINT_ID_MISSING");
+  return { endpoint_id: endpointId, resolution: "EXACT_NAME" };
+}
+
 function resolveEndpointTemplate(endpoint, templates) {
   const inline = object(endpoint?.template);
   const templateId = text(endpoint?.templateId || inline.id);
@@ -191,6 +225,7 @@ function verifySource() {
     "FROM vllm/vllm-openai:v0.27.1",
     "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
     "HF_HOME=/runpod-volume/huggingface-cache",
+    "VLLM_USE_FLASHINFER_SAMPLER=0",
     'ENTRYPOINT ["python3", "-u", "handler.py"]',
   ]) {
     if (!dockerfile.includes(requiredText)) {
@@ -250,7 +285,7 @@ function createRelease(tag, head) {
       "",
       `Target commit: ${head}`,
       `Worker source: ${CODE_SOURCE_PATH}`,
-      "Purpose: replace the stale pre-vLLM Code worker with the current source-locked FP8/vLLM runtime.",
+      "Purpose: refresh the Code worker with the current source-locked FP8/vLLM runtime.",
       "This is provider worker infrastructure, not a Vercel production deployment.",
     ].join("\n"),
   ], { errorCode: "AVANTIQO_CODE_REFRESH_GITHUB_RELEASE_CREATE_FAILED" });
@@ -258,7 +293,6 @@ function createRelease(tag, head) {
 
 const apply = process.argv.includes("--apply");
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
-const endpointId = required("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID");
 const waitMs = Math.max(60_000, finite(process.env.AVANTIQO_CODE_RUNPOD_REFRESH_WAIT_MS, DEFAULT_WAIT_MS));
 const pollMs = Math.max(5_000, finite(process.env.AVANTIQO_CODE_RUNPOD_REFRESH_POLL_MS, DEFAULT_POLL_MS));
 
@@ -270,6 +304,12 @@ console.log("AVANTIQO_CODE_RUNPOD_REFRESH_SECRETS_PRINTED=false");
 const head = validateLocalMain();
 verifySource();
 ghReady();
+
+const endpointResolution = await resolveCodeEndpoint(managementKey);
+const endpointId = endpointResolution.endpoint_id;
+console.log(`AVANTIQO_CODE_RUNPOD_REFRESH_ENDPOINT_RESOLUTION=${endpointResolution.resolution}`);
+console.log(`AVANTIQO_CODE_RUNPOD_REFRESH_ENDPOINT_NAME=${CODE_ENDPOINT_NAME}`);
+console.log("AVANTIQO_CODE_RUNPOD_REFRESH_ENDPOINT_SECRET_PRINTED=false");
 
 const { endpoint, template } = await inspectEndpoint(managementKey, endpointId);
 const attachedVolumeIds = endpointVolumeIds(endpoint);
@@ -311,6 +351,7 @@ const plan = {
   mode: apply ? "APPLY" : "PLAN",
   mutation_performed: false,
   main_commit: head,
+  endpoint_resolution: endpointResolution.resolution,
   endpoint: safeEndpoint(endpoint),
   template: safeTemplate(template),
   attached_network_volume: {

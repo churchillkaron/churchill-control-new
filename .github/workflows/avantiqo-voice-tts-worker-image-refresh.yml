@@ -109,11 +109,7 @@ jobs:
             test -r /app/bootstrap.sh
             grep -F AVANTIQO_VOICE_TTS_BOOTSTRAP /app/bootstrap.sh >/dev/null
             python --version
-            python - <<"PY"
-import torch
-assert torch.version.cuda, "AVANTIQO_VOICE_TTS_STARTUP_PROBE_CUDA_TORCH_REQUIRED"
-print("AVANTIQO_VOICE_TTS_STARTUP_PROBE=PASS")
-PY
+            python -c "import torch; assert torch.version.cuda, \"AVANTIQO_VOICE_TTS_STARTUP_PROBE_CUDA_TORCH_REQUIRED\"; print(\"AVANTIQO_VOICE_TTS_STARTUP_PROBE=PASS\")"
           '
           echo 'AVANTIQO_VOICE_TTS_IMAGE_PLATFORM_AMD64=PASS'
           echo 'AVANTIQO_VOICE_TTS_IMAGE_CMD_BOOTSTRAP=PASS'

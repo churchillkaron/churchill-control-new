@@ -69,17 +69,18 @@ function summarizeManagement(endpoint = {}) {
 
 function evaluateDrain(health, management) {
   const jobsClear = health.jobs.in_queue === 0 && health.jobs.in_progress === 0;
+  const managementExited = management.all_workers_desired_exited === true;
   const noExecutingWorkers =
     health.workers.running === 0 &&
-    health.workers.throttled === 0 &&
-    health.workers.unhealthy === 0;
-  const managementExited = management.all_workers_desired_exited === true;
+    health.workers.unhealthy === 0 &&
+    (managementExited || health.workers.throttled === 0);
   return {
     jobs_clear: jobsClear,
     no_executing_workers: noExecutingWorkers,
     management_workers_exited: managementExited,
     health_ready_idle_overlap_ignored: true,
     health_initializing_ignored_when_management_desired_exited: managementExited,
+    health_throttled_ignored_when_management_desired_exited: managementExited,
     drained_candidate: jobsClear && noExecutingWorkers && managementExited,
   };
 }
@@ -167,6 +168,7 @@ let latest = await readSnapshot(endpointId, apiKey, managementKey);
 console.log("AVANTIQO_AUDIO_RUNPOD_DRAIN_WAIT_READ_ONLY=true");
 console.log("AVANTIQO_AUDIO_RUNPOD_DRAIN_WAIT_MANAGEMENT_PLANE_AUTHORITATIVE=true");
 console.log("AVANTIQO_AUDIO_RUNPOD_DRAIN_WAIT_HEALTH_BUCKET_SUM=false");
+console.log("AVANTIQO_AUDIO_RUNPOD_DRAIN_WAIT_THROTTLED_STALE_WHEN_MANAGEMENT_EXITED=true");
 console.log("AVANTIQO_AUDIO_RUNPOD_DRAIN_WAIT_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_AUDIO_RUNPOD_DRAIN_WAIT_ENDPOINT_MUTATION=false");
 console.log("AVANTIQO_AUDIO_RUNPOD_DRAIN_WAIT_PRODUCTION_DEPLOY=false");

@@ -8,6 +8,9 @@ import handler_v2 as v2
 
 CACHE_COMPLETION_CONTRACT = "AVANTIQO_IMAGE_CACHE_COMPLETION_V1"
 CACHE_COMPLETION_MARKER = ".avantiqo-cache-complete.json"
+RUNTIME_PROBE_OPERATION = "runtime_probe"
+RUNTIME_PROBE_CONTRACT = "AVANTIQO_IMAGE_RUNTIME_PROBE_V1"
+RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V3_CACHE_INTEGRITY_V1"
 QUALITY_REQUIRED_FILES = (
     "model_index.json",
     "scheduler/scheduler_config.json",
@@ -84,6 +87,51 @@ def _quality_cache_readiness() -> dict[str, Any]:
         "missing_required_files": missing,
         "completion_marker_valid": marker_valid,
         "cache_ready": bool(snapshot and not missing and marker_valid),
+    }
+
+
+def _runtime_probe(job: dict[str, Any]) -> dict[str, Any]:
+    data = job.get("input") or {}
+    if data.get("contract") != v2.legacy.ENGINE_CONTRACT:
+        raise ValueError("AVANTIQO_IMAGE_ENGINE_CONTRACT_INVALID")
+    if _text(data.get("operation")) != RUNTIME_PROBE_OPERATION:
+        raise ValueError("AVANTIQO_IMAGE_RUNTIME_PROBE_OPERATION_INVALID")
+
+    readiness = _quality_cache_readiness()
+    quality_pipeline_already_loaded = (
+        v2.QUALITY_FOUNDATION_MODEL in v2.legacy._PIPELINES
+    )
+    return {
+        "status": "completed",
+        "provider": "avantiqo-image",
+        "model": v2.legacy.PRODUCT_MODEL,
+        "engine_contract": v2.legacy.ENGINE_CONTRACT,
+        "probe_contract": RUNTIME_PROBE_CONTRACT,
+        "operation": RUNTIME_PROBE_OPERATION,
+        "entrypoint": "handler_v3.py",
+        "entrypoint_revision": RUNTIME_ENTRYPOINT_REVISION,
+        "runtime_revision": v2.QUALITY_RUNTIME_REVISION,
+        "configured_generation_foundation": v2.legacy.FOUNDATION_MODEL,
+        "quality_foundation_model": v2.QUALITY_FOUNDATION_MODEL,
+        "quality_cache": {
+            "cache_ready": readiness["cache_ready"],
+            "completion_contract": CACHE_COMPLETION_CONTRACT,
+            "completion_marker_valid": readiness["completion_marker_valid"],
+            "snapshot_present": readiness["snapshot"] is not None,
+            "snapshot_revision": readiness["snapshot_revision"],
+            "required_file_count": len(QUALITY_REQUIRED_FILES),
+            "missing_required_file_count": len(readiness["missing_required_files"]),
+            "missing_required_files": readiness["missing_required_files"],
+        },
+        "cache_transport": v2._cache_transport_state(),
+        "generation_pipeline_was_loaded_before_probe": quality_pipeline_already_loaded,
+        "generation_pipeline_loaded_by_probe": False,
+        "generation_requested": False,
+        "inference_performed": False,
+        "model_download_performed": False,
+        "storage_upload_performed": False,
+        "storage_mutation_performed": False,
+        "raw_reasoning_persisted": False,
     }
 
 
@@ -248,7 +296,10 @@ def _cache_foundation_model(job: dict[str, Any]) -> dict[str, Any]:
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     data = job.get("input") or {}
-    if _text(data.get("operation")) == v2.MODEL_CACHE_OPERATION:
+    operation = _text(data.get("operation"))
+    if operation == RUNTIME_PROBE_OPERATION:
+        return _runtime_probe(job)
+    if operation == v2.MODEL_CACHE_OPERATION:
         return _cache_foundation_model(job)
 
     capability = _text(data.get("capability"))

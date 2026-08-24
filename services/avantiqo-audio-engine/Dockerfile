@@ -35,4 +35,9 @@ ENV PATH="/opt/ace-step/.venv/bin:${PATH}" \
     AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-turbo \
     AVANTIQO_AUDIO_MODEL_SOURCE=huggingface
 
+# Build-time smoke: no GPU is required here. The ACE-Step lock must resolve a
+# CUDA-enabled PyTorch wheel and the owned handler plus generation symbols must
+# import successfully before an image can ever be promoted to RunPod.
+RUN /opt/ace-step/.venv/bin/python -c "import torch; import handler; from acestep.handler import AceStepHandler; from acestep.inference import GenerationConfig, GenerationParams, generate_music; handler._validate_model_contract(); assert torch.version.cuda, 'AVANTIQO_AUDIO_CUDA_ENABLED_TORCH_REQUIRED'; print('AVANTIQO_AUDIO_IMAGE_IMPORT_SMOKE=PASS'); print('AVANTIQO_AUDIO_TORCH_CUDA_RUNTIME=' + str(torch.version.cuda))"
+
 CMD ["/opt/ace-step/.venv/bin/python", "-u", "/app/handler.py"]

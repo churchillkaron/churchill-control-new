@@ -52,7 +52,7 @@ for (const item of localizedAdvance) {
       proposal: selected,
     }),
     true,
-    `${item.language} continuation must advance selected refinement to materialization only`,
+    `${item.language} continuation must advance selected refinement to governed preparation only`,
   );
 }
 
@@ -134,68 +134,79 @@ for (const status of ["PROPOSED", "REJECTED", "MATERIALIZED"]) {
   );
 }
 
-const turnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
-const turnSource = await readFile(turnPath, "utf8");
+const canonicalPath = "lib/operator/runtime/OperatorTurnRuntime.js";
+const governedPath = "lib/operator/runtime/OperatorTurnRuntimeGoverned.js";
+const canonicalSource = await readFile(canonicalPath, "utf8");
+const governedSource = await readFile(governedPath, "utf8");
+
+assert.ok(
+  canonicalSource.includes("OperatorTurnRuntimeGoverned.js"),
+  "canonical runtime must route advance handling through governed runtime",
+);
+assert.ok(
+  !canonicalSource.includes("OperatorTurnRuntimeLegacy.js"),
+  "canonical runtime must not bypass governed refinement advance routing",
+);
+
 for (const required of [
   "classifyRecommendationRefinementAdvanceRequest",
-  "const refinementAdvanceRequested =",
-  "refinementMaterializationRequested || refinementAdvanceRequested",
-  "return recommendationRefinementMaterializationTurn(",
+  "const advanceRequested = classifyRecommendationRefinementAdvanceRequest",
+  "materializationRequested || advanceRequested",
+  "return runGovernedRecommendationRefinementTurn({",
+  "prepareSelectedRefinementForGovernedBinding",
+  "operatorRecommendationMatchesPendingExecution",
+  "authorization_effect: \"NONE\"",
+  "execution_authorized: false",
+  "old_payload_reused: false",
 ]) {
-  assert.ok(turnSource.includes(required), `${turnPath} missing ${required}`);
+  assert.ok(governedSource.includes(required), `${governedPath} missing ${required}`);
 }
 
-const runTurnStart = turnSource.indexOf("export async function runOperatorTurn");
-const advanceStart = turnSource.indexOf(
-  "const refinementAdvanceRequested =",
+const runTurnStart = governedSource.indexOf("export async function runOperatorTurn");
+const advanceStart = governedSource.indexOf(
+  "const advanceRequested = classifyRecommendationRefinementAdvanceRequest",
   runTurnStart,
 );
-const materializeReturn = turnSource.indexOf(
-  "return recommendationRefinementMaterializationTurn(",
+const governedReturn = governedSource.indexOf(
+  "return runGovernedRecommendationRefinementTurn({",
   advanceStart,
 );
-const pendingStart = turnSource.indexOf(
-  "const replyClass = pendingReplyClass(",
-  materializeReturn,
-);
-const coreStart = turnSource.indexOf(
-  "const coreResult = await runOperatorTurnCore",
-  pendingStart,
+const legacyFallback = governedSource.indexOf(
+  "return legacyRunOperatorTurn(options);",
+  governedReturn,
 );
 assert.ok(advanceStart > runTurnStart);
-assert.ok(materializeReturn > advanceStart);
+assert.ok(governedReturn > advanceStart);
 assert.ok(
-  pendingStart > materializeReturn,
-  "selected refinement continuation must intercept before pending reply classification",
-);
-assert.ok(
-  coreStart > materializeReturn,
-  "selected refinement continuation must materialize before Operator Core",
+  legacyFallback > governedReturn,
+  "selected refinement advance must intercept before the final legacy fallback",
 );
 
-const materializationStart = turnSource.indexOf(
-  "async function recommendationRefinementMaterializationTurn",
+const governedPreparationStart = governedSource.indexOf(
+  "export async function runGovernedRecommendationRefinementTurn",
 );
-const continuationStart = turnSource.indexOf(
-  "function continuationCapabilityResult",
-  materializationStart,
+const legacyFunctionStart = governedSource.indexOf(
+  "async function legacyRunOperatorTurn",
+  governedPreparationStart,
 );
-const materializationSource = turnSource.slice(
-  materializationStart,
-  continuationStart,
+const governedPreparationSource = governedSource.slice(
+  governedPreparationStart,
+  legacyFunctionStart,
 );
-assert.ok(!materializationSource.includes("runOperatorTurnCore("));
-assert.ok(materializationSource.includes("execution: null"));
-assert.ok(materializationSource.includes("execution_authorized: false"));
-assert.ok(materializationSource.includes("old_payload_reused: false"));
-assert.ok(materializationSource.includes("capability_freshly_validated: true"));
+assert.ok(!governedPreparationSource.includes("runOperatorTurnCore("));
+assert.ok(!governedPreparationSource.includes("executeUbteCapability"));
+assert.ok(governedPreparationSource.includes("prepareSelectedRefinementForGovernedBinding({"));
+assert.ok(governedPreparationSource.includes("execution_authorized: false"));
+assert.ok(governedPreparationSource.includes("old_payload_reused: false"));
+assert.ok(governedPreparationSource.includes("bindingFailed: true"));
 
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_AUDIT=PASS");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_LANGUAGES=SV_DE_FR_ES_TH");
-console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_SELECTED=CONTINUE_TO_MATERIALIZATION");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_SELECTED=CONTINUE_TO_GOVERNED_PREPARATION");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_PREMATERIALIZED_EXECUTION=NONE");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_DO_IT=FAIL_CLOSED_NOT_ADVANCE");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_EXISTING_AUTHORITY=FAIL_CLOSED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_CAPABILITY=FRESHLY_VALIDATED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_OLD_PAYLOAD=NOT_REUSED");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_EXACT_BINDING=VERIFIED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_CORE_EXECUTION=BYPASSED");

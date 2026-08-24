@@ -173,7 +173,7 @@ assert.equal(
   false,
 );
 
-const turnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
+const turnPath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
 const turnSource = await readFile(turnPath, "utf8");
 const runTurnStart = turnSource.indexOf("export async function runOperatorTurn");
 const proposalRead = turnSource.indexOf(
@@ -252,6 +252,7 @@ assert.ok(
 );
 
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_SELECTION_AUDIT=PASS");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_SELECTION_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_SELECTION_LANGUAGES=SV_DE_FR_ES_TH");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_SELECTION=PROPOSED_TO_SELECTED_DIRECTION_ONLY");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_SELECTION_AUTHORIZATION=NONE");

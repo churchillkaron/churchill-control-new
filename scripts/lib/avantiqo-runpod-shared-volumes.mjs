@@ -15,9 +15,9 @@ export const AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY = Object.freeze({
       ]),
       root: "/runpod-volume/audio-voice",
       legacy_name_patterns: Object.freeze([
-        /^avantiqo-audio-.*cache$/i,
-        /^avantiqo-voice-.*cache$/i,
-        /^avantiqo-lipsync-.*cache$/i,
+        /^avantiqo-audio-.*cache(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/i,
+        /^avantiqo-voice-.*cache(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/i,
+        /^avantiqo-lipsync-.*cache(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/i,
       ]),
     }),
     IMAGE_VIDEO: Object.freeze({
@@ -30,9 +30,9 @@ export const AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY = Object.freeze({
       ]),
       root: "/runpod-volume/image-video",
       legacy_name_patterns: Object.freeze([
-        /^avantiqo-image-.*cache$/i,
-        /^avantiqo-video-.*cache$/i,
-        /^avantiqo-cinema-.*cache$/i,
+        /^avantiqo-image-.*cache(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/i,
+        /^avantiqo-video-.*cache(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/i,
+        /^avantiqo-cinema-.*cache(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/i,
       ]),
     }),
     INTELLIGENCE_CODE: Object.freeze({
@@ -44,8 +44,8 @@ export const AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY = Object.freeze({
       ]),
       root: "/runpod-volume/intelligence-code",
       legacy_name_patterns: Object.freeze([
-        /^avantiqo-code-.*cache$/i,
-        /^avantiqo-intelligence-.*cache$/i,
+        /^avantiqo-code-.*cache(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/i,
+        /^avantiqo-intelligence-.*cache(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/i,
       ]),
     }),
   }),

@@ -11,6 +11,10 @@ const QUIESCENCE_POLL_MS = Math.max(
   1_000,
   Number(process.env.AVANTIQO_IMAGE_CACHE_STABILIZER_POLL_MS || 3_000),
 );
+const HEALTH_REQUEST_TIMEOUT_MS = Math.max(
+  5_000,
+  Number(process.env.AVANTIQO_IMAGE_CACHE_STABILIZER_HEALTH_TIMEOUT_MS || 30_000),
+);
 
 const baseFetch = globalThis.fetch.bind(globalThis);
 
@@ -61,6 +65,28 @@ function isHealthUrl(url) {
   return url.startsWith(`${QUEUE_BASE}/`) && /\/health(?:\?|$)/.test(url);
 }
 
+function timeoutLike(error) {
+  const name = text(error?.name);
+  return name === "TimeoutError" || name === "AbortError";
+}
+
+function freshHealthInit(init) {
+  const { signal: _ignoredSignal, ...rest } = init || {};
+  return {
+    ...rest,
+    signal: AbortSignal.timeout(HEALTH_REQUEST_TIMEOUT_MS),
+  };
+}
+
+async function fetchHealthOnce(input, init) {
+  try {
+    return await baseFetch(input, freshHealthInit(init));
+  } catch (error) {
+    if (timeoutLike(error)) return null;
+    throw error;
+  }
+}
+
 async function parseJson(response) {
   try {
     return await response.clone().json();
@@ -92,16 +118,32 @@ function normalizeHarmlessWorkers(body = {}) {
   };
 }
 
-async function stableHealth(input, init, initialResponse) {
-  let response = initialResponse;
-  let body = await parseJson(response);
-  if (!response.ok || !body) return response;
-
+async function stableHealth(input, init, initialResponse = null) {
   const deadline = Date.now() + QUIESCENCE_TIMEOUT_MS;
+  let response = initialResponse;
+  let body = response ? await parseJson(response) : null;
   let lastPrinted = 0;
   let consecutiveSafeReads = 0;
+  let transientTimeouts = 0;
 
-  while (true) {
+  while (Date.now() <= deadline) {
+    if (!response || !body) {
+      response = await fetchHealthOnce(input, init);
+      if (!response) {
+        transientTimeouts += 1;
+        if (Date.now() - lastPrinted >= 15_000) {
+          console.log(
+            `AVANTIQO_IMAGE_CACHE_STABILIZER_HEALTH_RETRY transient_timeouts=${transientTimeouts}`,
+          );
+          lastPrinted = Date.now();
+        }
+        await sleep(QUIESCENCE_POLL_MS);
+        continue;
+      }
+      body = await parseJson(response);
+      if (!response.ok || !body) return response;
+    }
+
     const counters = healthCounters(body);
     const blocking = blockingActivity(counters);
 
@@ -118,12 +160,6 @@ async function stableHealth(input, init, initialResponse) {
       await sleep(Math.min(1_500, QUIESCENCE_POLL_MS));
     } else {
       consecutiveSafeReads = 0;
-      if (Date.now() >= deadline) {
-        console.log(
-          `AVANTIQO_IMAGE_CACHE_STABILIZER_QUIESCENCE_TIMEOUT jobs=${counters.jobs.in_queue + counters.jobs.in_progress} initializing=${counters.workers.initializing} running=${counters.workers.running} throttled=${counters.workers.throttled} unhealthy=${counters.workers.unhealthy} idle=${counters.workers.idle} ready=${counters.workers.ready}`,
-        );
-        return response;
-      }
       if (Date.now() - lastPrinted >= 15_000) {
         console.log(
           `AVANTIQO_IMAGE_CACHE_STABILIZER_WAIT jobs=${counters.jobs.in_queue + counters.jobs.in_progress} initializing=${counters.workers.initializing} running=${counters.workers.running} throttled=${counters.workers.throttled} unhealthy=${counters.workers.unhealthy}`,
@@ -133,17 +169,36 @@ async function stableHealth(input, init, initialResponse) {
       await sleep(QUIESCENCE_POLL_MS);
     }
 
-    response = await baseFetch(input, init);
+    response = await fetchHealthOnce(input, init);
+    if (!response) {
+      transientTimeouts += 1;
+      body = null;
+      continue;
+    }
     body = await parseJson(response);
     if (!response.ok || !body) return response;
   }
+
+  if (response && body) {
+    const counters = healthCounters(body);
+    console.log(
+      `AVANTIQO_IMAGE_CACHE_STABILIZER_QUIESCENCE_TIMEOUT jobs=${counters.jobs.in_queue + counters.jobs.in_progress} initializing=${counters.workers.initializing} running=${counters.workers.running} throttled=${counters.workers.throttled} unhealthy=${counters.workers.unhealthy} idle=${counters.workers.idle} ready=${counters.workers.ready}`,
+    );
+    return response;
+  }
+
+  throw new Error(
+    `AVANTIQO_IMAGE_CACHE_STABILIZER_HEALTH_UNAVAILABLE:transient_timeouts=${transientTimeouts}`,
+  );
 }
 
 globalThis.fetch = async (input, init) => {
-  const response = await baseFetch(input, init);
   const url = typeof input === "string" ? input : text(input?.url);
-  if (!response.ok || !isHealthUrl(url)) return response;
-  return stableHealth(input, init, response);
+  if (isHealthUrl(url)) {
+    const response = await fetchHealthOnce(input, init);
+    return stableHealth(input, init, response);
+  }
+  return baseFetch(input, init);
 };
 
 if (!PRELOAD_ONLY) {
@@ -157,6 +212,8 @@ if (!PRELOAD_ONLY) {
   console.log("AVANTIQO_IMAGE_CACHE_STABILIZER_ACTIVE=true");
   console.log("AVANTIQO_IMAGE_CACHE_STABILIZER_BUSY_DEFINITION=JOBS_PLUS_ACTIVE_WORKERS");
   console.log("AVANTIQO_IMAGE_CACHE_STABILIZER_IDLE_READY_BLOCK_MUTATION=false");
+  console.log("AVANTIQO_IMAGE_CACHE_STABILIZER_FRESH_HEALTH_ABORT_SIGNAL=true");
+  console.log("AVANTIQO_IMAGE_CACHE_STABILIZER_TRANSIENT_HEALTH_TIMEOUT_RETRY=true");
   console.log("AVANTIQO_IMAGE_CACHE_STABILIZER_CHILD_PRELOAD=true");
   console.log("AVANTIQO_IMAGE_CACHE_STABILIZER_IMAGE_GENERATION=false");
   console.log("AVANTIQO_IMAGE_CACHE_STABILIZER_PRODUCTION_DEPLOY=false");

@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { loadEnvFile } from "node:process";
 import { executeCodeAIMission } from "../lib/code/runtime/CodeAIMissionRuntime.js";
 
 const CONTRACT = "AVANTIQO_CODE_AUTONOMOUS_REPAIR_LIVE_CERTIFICATION_V1";
@@ -8,15 +11,74 @@ const EXPECTED_QUANTIZATION = "fp8";
 const EXPECTED_SERVING_RUNTIME = "vllm";
 const FIXTURE = "tests/fixtures/code-ai-autonomous-repair/invoice-total.mjs";
 const VERIFIER = "scripts/code-ai-autonomous-repair-fixture-test.mjs";
+const CODE_ENDPOINT_NAME = "avantiqo-code-v1";
 const REPOSITORY = process.env.AVANTIQO_CODE_SANDBOX_REPOSITORY || "https://github.com/churchillkaron/churchill-control-new";
 const REF = process.env.AVANTIQO_CODE_SANDBOX_REF || "main";
-const ENDPOINT = String(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID || "").trim();
-const API_KEY = String(process.env.RUNPOD_API_KEY || "").trim();
 const API_BASE = "https://api.runpod.ai/v2";
+const RUNPOD_REST_BASE = "https://rest.runpod.io/v1";
 const MAX_CONCURRENCY_REPLANS = 4;
 
-if (!ENDPOINT) throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_REQUIRED");
-if (!API_KEY) throw new Error("RUNPOD_API_KEY_REQUIRED");
+function text(value) {
+  return String(value ?? "").trim();
+}
+
+function loadLocalEnvironment() {
+  const localEnvPath = resolve(process.cwd(), ".env.local");
+  if (!existsSync(localEnvPath)) return false;
+  loadEnvFile(localEnvPath);
+  return true;
+}
+
+const LOCAL_ENV_LOADED = loadLocalEnvironment();
+const API_KEY = text(process.env.RUNPOD_AVANTIQO_CODE_API_KEY) || text(process.env.RUNPOD_API_KEY);
+
+if (!API_KEY) throw new Error("RUNPOD_AVANTIQO_CODE_API_KEY_OR_RUNPOD_API_KEY_REQUIRED");
+
+async function readJson(response, label) {
+  const raw = await response.text();
+  let body = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch {
+    throw new Error(`${label}_INVALID_JSON`);
+  }
+  if (!response.ok) throw new Error(`${label}_HTTP_${response.status}`);
+  return body;
+}
+
+async function resolveCodeEndpoint() {
+  const explicitId = text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID);
+  if (explicitId) {
+    return { id: explicitId, source: "ENV" };
+  }
+
+  const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
+  if (!managementKey) {
+    throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_OR_RUNPOD_MANAGEMENT_API_KEY_REQUIRED");
+  }
+
+  const response = await fetch(`${RUNPOD_REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${managementKey}`,
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+  const endpoints = await readJson(response, "RUNPOD_ENDPOINT_DISCOVERY");
+  if (!Array.isArray(endpoints)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
+
+  const matches = endpoints.filter((endpoint) => text(endpoint?.name) === CODE_ENDPOINT_NAME);
+  if (matches.length !== 1) {
+    throw new Error(`RUNPOD_CODE_ENDPOINT_EXACT_NAME_RESOLUTION_FAILED:matches=${matches.length}`);
+  }
+  const id = text(matches[0]?.id);
+  if (!id) throw new Error("RUNPOD_CODE_ENDPOINT_ID_MISSING_AFTER_RESOLUTION");
+  return { id, source: "EXACT_NAME" };
+}
+
+const ENDPOINT_RESOLUTION = await resolveCodeEndpoint();
+const ENDPOINT = ENDPOINT_RESOLUTION.id;
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -206,6 +268,8 @@ console.log(JSON.stringify({
   planner_inference_count: 1,
   concurrency_replans_recovered: repairExecution.concurrencyReplans,
   additional_inference_submitted_due_to_concurrency: false,
+  endpoint_resolution_source: ENDPOINT_RESOLUTION.source,
+  local_env_loaded: LOCAL_ENV_LOADED,
   observed_failure: true,
   diagnosis_present: Boolean(String(planned.repair.diagnosis || "").trim()),
   isolated_repair_applied: true,
@@ -215,4 +279,5 @@ console.log(JSON.stringify({
   base_commit: repaired.state.base_commit,
   github_main_mutated: false,
   production_deploy_performed: false,
+  secrets_printed: false,
 }, null, 2));

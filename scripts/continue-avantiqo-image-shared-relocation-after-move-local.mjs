@@ -165,13 +165,14 @@ function healthCounters(body = {}) {
 }
 
 function activeExecution(counters) {
+  // Warm idle/ready workers are available capacity, not active work.
   return (
     counters.jobs.in_queue +
     counters.jobs.in_progress +
-    counters.workers.idle +
     counters.workers.initializing +
-    counters.workers.ready +
-    counters.workers.running
+    counters.workers.running +
+    counters.workers.throttled +
+    counters.workers.unhealthy
   );
 }
 

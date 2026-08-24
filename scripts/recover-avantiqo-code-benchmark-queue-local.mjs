@@ -1,4 +1,6 @@
 const API_BASE = "https://api.runpod.ai/v2";
+const RUNPOD_REST_API = "https://rest.runpod.io/v1";
+const EXPECTED_ENDPOINT_NAME = "avantiqo-code-v1";
 const TERMINAL_JOB_STATUSES = new Set([
   "COMPLETED",
   "FAILED",
@@ -7,7 +9,7 @@ const TERMINAL_JOB_STATUSES = new Set([
   "CANCELED",
 ]);
 const POLL_MS = 3000;
-const SETTLE_TIMEOUT_MS = 3 * 60 * 1000;
+const DEFAULT_SETTLE_TIMEOUT_MS = 15 * 60 * 1000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -36,6 +38,16 @@ function headers(apiKey) {
   };
 }
 
+function settleTimeoutMs() {
+  return Math.max(
+    3 * 60 * 1000,
+    Math.min(
+      30 * 60 * 1000,
+      number(process.env.AVANTIQO_CODE_BENCHMARK_RECOVERY_TIMEOUT_MS, DEFAULT_SETTLE_TIMEOUT_MS),
+    ),
+  );
+}
+
 async function request(endpointId, path, apiKey, method = "GET") {
   const response = await fetch(`${API_BASE}/${endpointId}${path}`, {
     method,
@@ -47,6 +59,45 @@ async function request(endpointId, path, apiKey, method = "GET") {
     throw new Error(`RUNPOD_${method}_${response.status}:${text(body?.error || body?.message || body?.status)}`);
   }
   return body;
+}
+
+async function resolveEndpointId() {
+  const configured = text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID);
+  if (configured) {
+    return {
+      id: configured,
+      name: null,
+      source: "environment",
+    };
+  }
+
+  const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
+  const response = await fetch(`${RUNPOD_REST_API}/endpoints?includeTemplate=true`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${managementKey}`,
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+  const body = await response.json().catch(() => []);
+  if (!response.ok) {
+    throw new Error(`RUNPOD_ENDPOINT_DISCOVERY_HTTP_${response.status}`);
+  }
+
+  const endpoints = Array.isArray(body) ? body : Array.isArray(body?.endpoints) ? body.endpoints : [];
+  const matches = endpoints.filter(
+    (endpoint) => text(endpoint?.name).toLowerCase() === EXPECTED_ENDPOINT_NAME,
+  );
+  if (matches.length !== 1 || !text(matches[0]?.id)) {
+    throw new Error(`RUNPOD_AVANTIQO_CODE_ENDPOINT_EXACT_MATCH_REQUIRED:${matches.length}`);
+  }
+
+  return {
+    id: text(matches[0].id),
+    name: text(matches[0].name) || null,
+    source: "runpod_management_read_only_discovery",
+  };
 }
 
 function summarizeHealth(health = {}) {
@@ -85,7 +136,7 @@ async function settleExactJob(endpointId, jobId, apiKey) {
     }));
   }
 
-  const deadline = Date.now() + SETTLE_TIMEOUT_MS;
+  const deadline = Date.now() + settleTimeoutMs();
   while (!TERMINAL_JOB_STATUSES.has(status)) {
     if (Date.now() >= deadline) {
       throw new Error(`AVANTIQO_CODE_BENCHMARK_RECOVERY_JOB_SETTLE_TIMEOUT:${jobId}:${status || "UNKNOWN"}`);
@@ -104,7 +155,7 @@ async function settleExactJob(endpointId, jobId, apiKey) {
 }
 
 async function waitQuiescent(endpointId, apiKey) {
-  const deadline = Date.now() + SETTLE_TIMEOUT_MS;
+  const deadline = Date.now() + settleTimeoutMs();
   let latest = null;
   while (Date.now() < deadline) {
     latest = summarizeHealth(await request(endpointId, "/health", apiKey));
@@ -125,17 +176,18 @@ async function waitQuiescent(endpointId, apiKey) {
 }
 
 const apiKey = required("RUNPOD_API_KEY");
-const endpointId = required("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID");
 const approval = text(process.env.AVANTIQO_CODE_BENCHMARK_QUEUE_RECOVERY_APPROVED).toUpperCase();
 if (approval !== "YES") {
   throw new Error("AVANTIQO_CODE_BENCHMARK_QUEUE_RECOVERY_APPROVED_REQUIRED");
 }
 const exactJobId = text(process.env.AVANTIQO_CODE_BENCHMARK_RECOVER_JOB_ID);
+const endpoint = await resolveEndpointId();
+const endpointId = endpoint.id;
 
 const before = summarizeHealth(await request(endpointId, "/health", apiKey));
 console.log(JSON.stringify({
   event: "AVANTIQO_CODE_BENCHMARK_RECOVERY_START",
-  endpoint_id: endpointId,
+  endpoint_resolution: endpoint,
   exact_job_id: exactJobId || null,
   health: before,
   endpoint_mutation_performed: false,
@@ -165,8 +217,8 @@ if (prePurge.jobs.in_queue > 0) {
 const after = await waitQuiescent(endpointId, apiKey);
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_BENCHMARK_QUEUE_RECOVERY_V1",
-  endpoint_id: endpointId,
+  contract: "AVANTIQO_CODE_BENCHMARK_QUEUE_RECOVERY_V2",
+  endpoint_resolution: endpoint,
   exact_job_id: exactJobId || null,
   final_health: after,
   endpoint_mutation_performed: false,

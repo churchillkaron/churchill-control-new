@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
 const recommendationPath = "lib/operator/contracts/OperatorRecommendationState.js";
-const turnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
+const turnPath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
 const classifierPath = "lib/operator/runtime/OperatorHumanDecisionClassifier.js";
 
 const [recommendationSource, turnSource, classifierSource] = await Promise.all([
@@ -221,6 +221,7 @@ assert.equal(
 );
 
 console.log("OPERATOR_RECOMMENDATION_BINDING_AUDIT=PASS");
+console.log("OPERATOR_RECOMMENDATION_BINDING_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER");
 console.log(
   "OPERATOR_RECOMMENDATION_BINDING_ID=EXACT_OR_LEGACY_STRUCTURAL_MATCH",
 );

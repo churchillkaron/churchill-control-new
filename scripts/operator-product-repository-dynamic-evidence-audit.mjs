@@ -7,6 +7,10 @@ const source = await readFile(
   "lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js",
   "utf8",
 );
+const workspaceSource = await readFile(
+  "lib/code/runtime/CodeWorkspaceSandboxRuntime.js",
+  "utf8",
+);
 
 for (const fragment of [
   "MAX_DYNAMIC_EVIDENCE_FILES = 8",
@@ -157,11 +161,58 @@ assert.ok(
   "Repository assessment must never run mutating repository commands while assessing",
 );
 
+for (const fragment of [
+  "MAX_REPOSITORY_INVENTORY_SURFACES = 160",
+  "MAX_REPOSITORY_INVENTORY_EXTENSIONS = 40",
+  "MAX_REPOSITORY_REPRESENTATIVE_FILES = 200",
+  "REPOSITORY_INVENTORY_SAMPLE_PER_SURFACE = 2",
+  "repositoryTrackedFileInventory",
+  'contract: "AVANTIQO_CODE_REPOSITORY_TRACKED_FILE_INVENTORY_V1"',
+  'source: "GIT_LS_FILES_FULL_TRACKED_SET"',
+  "complete_tracked_file_count: tracked.length",
+  "all_tracked_files_counted: true",
+  "top_level_counts: sortedCountEntries(topLevelCounts)",
+  "surface_counts: boundedSurfaces",
+  "representative_paths: boundedSurfaces.map",
+  "representative_tracked_files: representativePaths",
+  '"CROSS_SURFACE_FROM_FULL_GIT_LS_FILES_INVENTORY"',
+  "tracked_files_sample: trackedFileInventory.representative_tracked_files",
+  "tracked_files_sample_strategy:",
+  "tracked_file_inventory: trackedFileInventory",
+  'authorization_effect: "NONE"',
+]) {
+  assert.ok(
+    workspaceSource.includes(fragment),
+    `tracked repository inventory missing ${fragment}`,
+  );
+}
+assert.ok(
+  workspaceSource.includes('runRequired(sandbox, "git", ["ls-files"])'),
+  "Tracked repository inventory must be derived from the complete Git tracked-file set",
+);
+assert.ok(
+  !workspaceSource.includes("tracked_files_sample: tracked.slice(0, 200)"),
+  "Repository sample must not fall back to the first 200 lexicographic tracked paths",
+);
+assert.ok(
+  workspaceSource.includes(".slice(0, MAX_REPOSITORY_REPRESENTATIVE_FILES)"),
+  "Cross-surface representative sample must remain bounded",
+);
+assert.ok(
+  workspaceSource.includes("surfaceCounts.size > MAX_REPOSITORY_INVENTORY_SURFACES"),
+  "Tracked repository surface inventory must explicitly report bounded truncation",
+);
+assert.ok(
+  workspaceSource.includes("bounded_output: true"),
+  "Tracked repository inventory must explicitly remain bounded output",
+);
+
 const plannerStart = source.indexOf("async function planRepositoryEvidenceQueries");
 const pathGuardStart = source.indexOf("function isAllowedDynamicEvidencePath", plannerStart);
 assert.ok(plannerStart >= 0 && pathGuardStart > plannerStart);
 const plannerSource = source.slice(plannerStart, pathGuardStart);
 assert.ok(plannerSource.includes("AvantiqoStructuredIntelligenceSupervisorRuntime.run"));
+assert.ok(plannerSource.includes("tracked_files_sample: list(repository.tracked_files_sample).slice(0, 200)"));
 assert.ok(plannerSource.includes("tools: []"));
 assert.ok(plannerSource.includes('authorization: { allow_mutating_tools: false }'));
 assert.ok(plannerSource.includes('query_plan_only: true'));
@@ -202,4 +253,7 @@ console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER_LIMIT=6_LITERAL_QUERIE
 console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER_SCOPE=APPROVED_TRACKED_SOURCE_SURFACES_ONLY");
 console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER_TOOLS=NONE");
 console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER_FAILURE=DETERMINISTIC_FALLBACK");
+console.log("OPERATOR_PRODUCT_REPOSITORY_INVENTORY=FULL_GIT_TRACKED_SET_COUNTS");
+console.log("OPERATOR_PRODUCT_REPOSITORY_INVENTORY_SAMPLE=CROSS_SURFACE_REPRESENTATIVE_200");
+console.log("OPERATOR_PRODUCT_REPOSITORY_INVENTORY_AUTHORITY=READ_ONLY_NONE");
 console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE_CERTIFICATION=BOUNDED_NOT_FULL_REPOSITORY");

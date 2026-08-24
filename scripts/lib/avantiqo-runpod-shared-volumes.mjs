@@ -1,5 +1,5 @@
 export const AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY = Object.freeze({
-  contract: "AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY_V1",
+  contract: "AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY_V2",
   maximum_managed_cache_volumes: 3,
   groups: Object.freeze({
     AUDIO_VOICE: Object.freeze({
@@ -86,10 +86,23 @@ export function classifyManagedVolumeName(volumeName) {
   return matches.length === 1 ? matches[0] : null;
 }
 
+export function isAvantiqoCacheLikeVolumeName(volumeName) {
+  const name = text(volumeName).toLowerCase();
+  return name.startsWith("avantiqo-") && name.includes("cache");
+}
+
 export function managedCacheVolumes(volumes) {
   return (Array.isArray(volumes) ? volumes : [])
     .map((volume) => ({ volume, group: classifyManagedVolumeName(volume?.name) }))
     .filter((entry) => entry.group);
+}
+
+export function unknownAvantiqoCacheVolumes(volumes) {
+  return (Array.isArray(volumes) ? volumes : []).filter(
+    (volume) =>
+      isAvantiqoCacheLikeVolumeName(volume?.name) &&
+      !classifyManagedVolumeName(volume?.name),
+  );
 }
 
 export function groupCacheVolumes(volumes, group) {
@@ -100,26 +113,54 @@ export function groupCacheVolumes(volumes, group) {
 
 export function resolveReusableGroupVolume(volumes, group) {
   const candidates = groupCacheVolumes(volumes, group);
-  const canonical = candidates.filter((volume) => text(volume?.name) === group.canonical_name);
-  if (canonical.length > 1) {
-    throw new Error(`AVANTIQO_RUNPOD_SHARED_VOLUME_DUPLICATE_CANONICAL:group=${group.id}:count=${canonical.length}`);
-  }
-  if (canonical.length === 1) {
-    return { volume: canonical[0], resolution: "CANONICAL_NAME", candidate_count: candidates.length };
+  if (candidates.length > 1) {
+    throw new Error(
+      `AVANTIQO_RUNPOD_SHARED_VOLUME_CONSOLIDATION_REQUIRED:group=${group.id}:count=${candidates.length}`,
+    );
   }
   if (candidates.length === 1) {
-    return { volume: candidates[0], resolution: "LEGACY_GROUP_VOLUME", candidate_count: 1 };
-  }
-  if (candidates.length > 1) {
-    throw new Error(`AVANTIQO_RUNPOD_SHARED_VOLUME_CONSOLIDATION_REQUIRED:group=${group.id}:count=${candidates.length}`);
+    const volume = candidates[0];
+    return {
+      volume,
+      resolution: text(volume?.name) === group.canonical_name
+        ? "CANONICAL_NAME"
+        : "LEGACY_GROUP_VOLUME",
+      candidate_count: 1,
+    };
   }
   return { volume: null, resolution: "MISSING", candidate_count: 0 };
 }
 
+export function assertSharedVolumeInventoryCompatible(volumes) {
+  const unknown = unknownAvantiqoCacheVolumes(volumes);
+  if (unknown.length) {
+    throw new Error(
+      `AVANTIQO_RUNPOD_SHARED_VOLUME_UNKNOWN_CACHE_CLASSIFICATION_REQUIRED:count=${unknown.length}:names=${unknown.map((volume) => text(volume?.name) || "MISSING").join(",")}`,
+    );
+  }
+
+  for (const group of sharedVolumeGroups()) {
+    resolveReusableGroupVolume(volumes, group);
+  }
+
+  const managed = managedCacheVolumes(volumes);
+  if (managed.length > AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY.maximum_managed_cache_volumes) {
+    throw new Error(
+      `AVANTIQO_RUNPOD_SHARED_VOLUME_HARD_LIMIT_EXCEEDED:managed=${managed.length}:maximum=${AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY.maximum_managed_cache_volumes}`,
+    );
+  }
+  return true;
+}
+
 export function assertManagedVolumeCreationAllowed(volumes, group) {
+  assertSharedVolumeInventoryCompatible(volumes);
   const managed = managedCacheVolumes(volumes);
   const groupsPresent = new Set(managed.map((entry) => entry.group.id));
-  if (groupsPresent.has(group.id)) return;
+  if (groupsPresent.has(group.id)) {
+    throw new Error(
+      `AVANTIQO_RUNPOD_SHARED_VOLUME_GROUP_ALREADY_EXISTS:group=${group.id}:create_forbidden=true`,
+    );
+  }
   if (managed.length >= AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY.maximum_managed_cache_volumes) {
     throw new Error(
       `AVANTIQO_RUNPOD_SHARED_VOLUME_LIMIT_REACHED:managed=${managed.length}:maximum=${AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY.maximum_managed_cache_volumes}:target_group=${group.id}`,
@@ -127,24 +168,40 @@ export function assertManagedVolumeCreationAllowed(volumes, group) {
   }
 }
 
+function safeVolume(volume = {}) {
+  return {
+    id: text(volume?.id) || null,
+    name: text(volume?.name) || null,
+    size_gb: Number.isFinite(Number(volume?.size)) ? Number(volume.size) : null,
+    data_center_id: text(volume?.dataCenterId) || null,
+  };
+}
+
 export function sharedVolumePolicySummary(volumes) {
-  const managed = managedCacheVolumes(volumes);
+  const rows = Array.isArray(volumes) ? volumes : [];
+  const managed = managedCacheVolumes(rows);
+  const unknown = unknownAvantiqoCacheVolumes(rows);
   const byGroup = Object.fromEntries(
     sharedVolumeGroups().map((group) => [
       group.id,
-      groupCacheVolumes(volumes, group).map((volume) => ({
-        id: text(volume?.id) || null,
-        name: text(volume?.name) || null,
-        size_gb: Number.isFinite(Number(volume?.size)) ? Number(volume.size) : null,
-        data_center_id: text(volume?.dataCenterId) || null,
-      })),
+      groupCacheVolumes(rows, group).map(safeVolume),
     ]),
   );
+  const duplicateGroups = sharedVolumeGroups()
+    .filter((group) => groupCacheVolumes(rows, group).length > 1)
+    .map((group) => group.id);
+  const compliant =
+    managed.length <= AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY.maximum_managed_cache_volumes &&
+    unknown.length === 0 &&
+    duplicateGroups.length === 0;
   return {
     contract: AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY.contract,
     maximum_managed_cache_volumes: AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY.maximum_managed_cache_volumes,
     managed_cache_volume_count: managed.length,
     distinct_managed_groups: [...new Set(managed.map((entry) => entry.group.id))].sort(),
+    unknown_avantiqo_cache_volumes: unknown.map(safeVolume),
+    duplicate_groups: duplicateGroups,
+    policy_compliant: compliant,
     groups: byGroup,
   };
 }

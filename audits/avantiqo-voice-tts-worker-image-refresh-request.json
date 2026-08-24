@@ -1,0 +1,11 @@
+{
+  "contract": "AVANTIQO_VOICE_TTS_WORKER_IMAGE_REFRESH_REQUEST_V1",
+  "requested_for": "tts_startup_runtime_diagnostic",
+  "source_commit": "9b98024ce5ae712339744f3f0425e1adceb8e3f0",
+  "build_tts": true,
+  "build_stt": false,
+  "platform": "linux/amd64",
+  "production_web_deploy": false,
+  "provider_generation": false,
+  "pricing_activation": false
+}

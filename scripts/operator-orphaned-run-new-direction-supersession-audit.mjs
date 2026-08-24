@@ -19,8 +19,12 @@ requireFragments(coreSource, corePath, [
   "const run = autonomousRunFromAgreementState(agreementState)",
   "const orphanedPendingBoundRun = Boolean(",
   "operatorAutonomousRunRequiresPendingExecutionBinding(run)",
+  "const orphanedMissionRun = Boolean(",
+  "missionRunRequiresPendingExecutionBinding(run)",
   "!runHasExactPendingBinding(run, agreementState)",
-  "if (!shouldSupersede && !orphanedPendingBoundRun) return cleared",
+  "const orphanedRun = orphanedPendingBoundRun || orphanedMissionRun",
+  "if (!shouldSupersede && !orphanedRun) return cleared",
+  '"Orphaned mission run superseded by a new user request"',
   '"Orphaned pending-bound run superseded by a new user request"',
   ": clearPendingAndSupersedeRun(agreementState, Boolean(offeredPending))",
 ]);
@@ -42,6 +46,16 @@ assert.ok(
 assert.ok(
   functionSource.includes("!runHasExactPendingBinding(run, agreementState)"),
   "malformed or missing pending projection must be detected independently of normalization success",
+);
+assert.ok(
+  functionSource.includes(
+    "const orphanedRun = orphanedPendingBoundRun || orphanedMissionRun",
+  ),
+  "single-action and mission orphan detection must feed one supersession gate",
+);
+assert.ok(
+  functionSource.includes("if (!shouldSupersede && !orphanedRun) return cleared"),
+  "new-direction supersession must retain the broadened orphan guard",
 );
 
 const {
@@ -83,7 +97,10 @@ function runHasExactPendingBinding(run, agreementState = {}) {
   );
 }
 
-function clearPendingAndSupersedeRun(agreementState, shouldSupersede) {
+function clearPendingAndSupersedeSingleActionRun(
+  agreementState,
+  shouldSupersede,
+) {
   const run = agreementState?.autonomous_run || null;
   const orphanedPendingBoundRun = Boolean(
     run &&
@@ -127,7 +144,10 @@ const validState = {
   pending_execution: exactPending,
   unrelated_state: { keep: true },
 };
-const validSuperseded = clearPendingAndSupersedeRun(validState, true);
+const validSuperseded = clearPendingAndSupersedeSingleActionRun(
+  validState,
+  true,
+);
 assert.equal(validSuperseded.autonomous_run.status, "superseded");
 assert.equal(
   Object.prototype.hasOwnProperty.call(validSuperseded, "pending_execution"),
@@ -150,7 +170,7 @@ for (const malformedPending of [
     pending_execution: malformedPending,
     unrelated_state: { keep: true },
   };
-  const next = clearPendingAndSupersedeRun(orphanedState, false);
+  const next = clearPendingAndSupersedeSingleActionRun(orphanedState, false);
   assert.equal(
     next.autonomous_run.status,
     "superseded",
@@ -168,7 +188,10 @@ const runOnlyState = {
   autonomous_run: run,
   unrelated_state: { keep: true },
 };
-const runOnlySuperseded = clearPendingAndSupersedeRun(runOnlyState, false);
+const runOnlySuperseded = clearPendingAndSupersedeSingleActionRun(
+  runOnlyState,
+  false,
+);
 assert.equal(
   runOnlySuperseded.autonomous_run.status,
   "superseded",
@@ -185,7 +208,10 @@ const completedState = {
   autonomous_run: completedRun,
   unrelated_state: { keep: true },
 };
-const completedPreserved = clearPendingAndSupersedeRun(completedState, false);
+const completedPreserved = clearPendingAndSupersedeSingleActionRun(
+  completedState,
+  false,
+);
 assert.equal(
   completedPreserved.autonomous_run.status,
   "completed",
@@ -197,4 +223,5 @@ console.log("OPERATOR_ORPHANED_RUN_NEW_DIRECTION=MALFORMED_PENDING_SUPERSEDED");
 console.log("OPERATOR_ORPHANED_RUN_NEW_DIRECTION=MISSING_PENDING_SUPERSEDED");
 console.log("OPERATOR_ORPHANED_RUN_NEW_DIRECTION=VALID_PENDING_NEW_REQUEST_SUPERSEDED");
 console.log("OPERATOR_ORPHANED_RUN_NEW_DIRECTION=TERMINAL_HISTORY_PRESERVED");
+console.log("OPERATOR_ORPHANED_RUN_NEW_DIRECTION=MISSION_GUARD_INCLUDED");
 console.log("OPERATOR_ORPHANED_RUN_NEW_DIRECTION=NO_RECONSTRUCTION_NO_EXECUTION");

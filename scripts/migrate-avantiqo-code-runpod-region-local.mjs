@@ -20,6 +20,7 @@ const TARGET_GPU_PREFERENCES = Object.freeze([
   Object.freeze({ id: "NVIDIA H200", profile: "H200_SXM_141GB" }),
   Object.freeze({ id: "NVIDIA B200", profile: "B200_180GB" }),
 ]);
+const TARGET_GPU_FALLBACK_IDS = Object.freeze(TARGET_GPU_PREFERENCES.map(({ id }) => id));
 
 function text(value) {
   return String(value ?? "").trim();
@@ -423,7 +424,7 @@ async function submitProbeJob(apiKey, endpointId) {
   };
 }
 
-async function verifyPlacement(managementKey, endpointId, targetVolumeId, targetGpuId, before) {
+async function verifyPlacement(managementKey, endpointId, targetVolumeId, targetGpuIds, before) {
   const [verifiedEndpoint, verifiedVolume] = await Promise.all([
     rest(
       managementKey,
@@ -443,7 +444,7 @@ async function verifyPlacement(managementKey, endpointId, targetVolumeId, target
   if (!endpointDatacenterCompatible(after, TARGET_DATACENTER)) {
     throw new Error(`CODE_REGION_ENDPOINT_DATACENTER_CONFLICT:${JSON.stringify(after.data_center_ids)}`);
   }
-  if (!sameArray(after.gpu_type_ids, [targetGpuId])) {
+  if (!sameArray(after.gpu_type_ids, targetGpuIds)) {
     throw new Error("CODE_REGION_ENDPOINT_GPU_VERIFY_FAILED");
   }
   if (!stableEndpointFieldsMatch(before, after)) {
@@ -570,6 +571,7 @@ async function main() {
       data_center_id: TARGET_DATACENTER,
       location: target.location,
       selected_gpu: target.selected_gpu,
+      gpu_fallback_ids: TARGET_GPU_FALLBACK_IDS,
       approved_gpu_availability: target.available_approved_gpus,
       volume_name: TARGET_VOLUME_NAME,
       volume_size_gb: TARGET_VOLUME_SIZE_GB,
@@ -584,6 +586,8 @@ async function main() {
       nvidia_only: true,
       amd_allowed: false,
       sub_80gb_gpu_allowed: false,
+      runpod_gpu_priority_fallback_enabled: true,
+      runpod_gpu_priority_fallback_max_types: TARGET_GPU_FALLBACK_IDS.length,
       network_volume_datacenter_is_authoritative_for_single_volume_placement: true,
       empty_endpoint_data_center_ids_allowed_when_target_volume_is_verified: true,
       old_volume_delete_in_this_script: false,
@@ -661,7 +665,7 @@ async function main() {
       body: {
         networkVolumeId: targetVolumeId,
         dataCenterIds: [TARGET_DATACENTER],
-        gpuTypeIds: [freshTarget.selected_gpu.id],
+        gpuTypeIds: TARGET_GPU_FALLBACK_IDS,
       },
     });
     switched = true;
@@ -670,7 +674,7 @@ async function main() {
       managementKey,
       endpointId,
       targetVolumeId,
-      freshTarget.selected_gpu.id,
+      TARGET_GPU_FALLBACK_IDS,
       before,
     );
 
@@ -686,6 +690,7 @@ async function main() {
       generation_performed: false,
       inference_performed: false,
       selected_gpu: freshTarget.selected_gpu,
+      gpu_fallback_ids: TARGET_GPU_FALLBACK_IDS,
       target_volume: placement.volume,
       volume_action: volumeAction,
       endpoint_after: placement.endpoint,

@@ -269,11 +269,36 @@ async function recoverExactStaleJob(apiKey, endpointId, jobId) {
     job_id: jobId,
   }));
   await cleanupKnownJobs(apiKey, endpointId, new Set([jobId]));
-  await verifyNoLiveWorkAfterAbnormalExit(apiKey, endpointId);
   console.error(JSON.stringify({
-    event: "AVANTIQO_CODE_REGION_EXACT_STALE_JOB_RECOVERY_VERIFIED",
+    event: "AVANTIQO_CODE_REGION_EXACT_STALE_JOB_RECOVERY_SETTLED",
     job_id: jobId,
   }));
+}
+
+async function recoverQueuedJobs(apiKey, endpointId) {
+  const before = healthCounters(await serverless(apiKey, endpointId, "/health"));
+  if (before.workers.unhealthy > 0) {
+    throw new Error(`CODE_REGION_QUEUE_RECOVERY_UNHEALTHY_WORKER:${before.workers.unhealthy}`);
+  }
+  if (before.jobs.in_progress > 0) {
+    throw new Error(`CODE_REGION_QUEUE_RECOVERY_IN_PROGRESS_JOB_BLOCKS_PURGE:${before.jobs.in_progress}`);
+  }
+  if (before.jobs.in_queue === 0) {
+    console.error(JSON.stringify({
+      event: "AVANTIQO_CODE_REGION_QUEUE_ALREADY_EMPTY",
+      health: before,
+    }));
+    return;
+  }
+
+  const purged = await serverless(apiKey, endpointId, "/purge-queue", { method: "POST" });
+  console.error(JSON.stringify({
+    event: "AVANTIQO_CODE_REGION_STALE_QUEUE_PURGED",
+    queued_before: before.jobs.in_queue,
+    removed: number(purged?.removed),
+    status: text(purged?.status) || null,
+  }));
+  await verifyNoLiveWorkAfterAbnormalExit(apiKey, endpointId);
 }
 
 async function runMigration(apiKey, endpointId) {
@@ -333,6 +358,7 @@ async function main() {
   const apiKey = text(process.env.RUNPOD_API_KEY);
   const recoverJobId = text(process.env.AVANTIQO_CODE_REGION_RECOVER_JOB_ID);
   const recoverApproved = yes(process.env.AVANTIQO_CODE_REGION_RECOVER_JOB_APPROVED);
+  const recoverQueueApproved = yes(process.env.AVANTIQO_CODE_REGION_RECOVER_QUEUE_APPROVED);
   if (!managementKey) throw new Error("RUNPOD_MANAGEMENT_API_KEY_REQUIRED");
   if (!apiKey) throw new Error("RUNPOD_API_KEY_REQUIRED");
   if (recoverJobId && !recoverApproved) {
@@ -343,12 +369,24 @@ async function main() {
   console.log("AVANTIQO_CODE_REGION_QUIESCENCE_TRANSIENT_FETCH_RETRY=ACTIVE");
   console.log("AVANTIQO_CODE_REGION_QUIESCENCE_ABNORMAL_EXIT_CLEANUP=ACTIVE");
   console.log(`AVANTIQO_CODE_REGION_EXACT_STALE_JOB_RECOVERY=${recoverJobId ? "REQUESTED" : "NOT_REQUESTED"}`);
+  console.log(`AVANTIQO_CODE_REGION_STALE_QUEUE_RECOVERY=${recoverQueueApproved ? "APPROVED" : "NOT_APPROVED"}`);
   console.log("AVANTIQO_CODE_REGION_QUIESCENCE_PRODUCTION_DEPLOY_PERFORMED=false");
 
   const endpointId = await resolveEndpointId(managementKey);
   if (recoverJobId) {
     await recoverExactStaleJob(apiKey, endpointId, recoverJobId);
   }
+
+  const beforeQuiescence = healthCounters(await serverless(apiKey, endpointId, "/health"));
+  if (beforeQuiescence.jobs.in_queue > 0 && !recoverQueueApproved) {
+    throw new Error(
+      `CODE_REGION_STALE_QUEUE_RECOVERY_APPROVAL_REQUIRED:in_queue=${beforeQuiescence.jobs.in_queue}:set_AVANTIQO_CODE_REGION_RECOVER_QUEUE_APPROVED=YES`,
+    );
+  }
+  if (recoverQueueApproved) {
+    await recoverQueuedJobs(apiKey, endpointId);
+  }
+
   await waitForQuiescence(apiKey, endpointId);
   await runMigration(apiKey, endpointId);
 }
@@ -356,7 +394,7 @@ async function main() {
 main().catch((error) => {
   console.error(JSON.stringify({
     success: false,
-    contract: "AVANTIQO_CODE_REGION_QUIESCENCE_WRAPPER_V3",
+    contract: "AVANTIQO_CODE_REGION_QUIESCENCE_WRAPPER_V4",
     error: text(error?.message || error),
     production_deploy_performed: false,
   }, null, 2));

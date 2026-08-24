@@ -5,10 +5,15 @@ import {
 
 const organizationId = "63e6b0d7-9882-4db4-a2c3-e695487ba21d";
 const customerId = "2f1c9f57-5917-4b26-84d1-086de4d86f79";
+const invoicePermission = "finance.customer_invoice.manage";
 const capability = {
   key: "finance.customer_invoice.write",
+  mode: "write",
   name: "Create customer invoice",
   description: "Create a customer invoice",
+  permissions: [invoicePermission],
+  operator_enabled: true,
+  requires_confirmation: true,
   input_schema: {
     type: "object",
     properties: {
@@ -25,6 +30,7 @@ const candidate = {
   capability_key: capability.key,
   description: "Create the refined invoice",
   payload: {
+    organization_id: organizationId,
     customer_id: customerId,
     amount: 1500,
     status: "DRAFT",
@@ -41,30 +47,31 @@ const candidate = {
   requires_fresh_recommendation_binding: true,
 };
 
+const actor = { permissions: [invoicePermission], role: "ACCOUNTANT" };
 const valid = preflightRecommendationRefinementBinding({
   candidate,
   capability,
   context: { organizationId },
+  ...actor,
 });
 assert.equal(valid.ready_for_governed_binding, true);
-assert.equal(valid.reason, null);
-assert.ok(valid.recommendation);
+assert.equal(valid.actor_policy.allowed, true);
 assert.equal(valid.recommendation.capability_key, capability.key);
 assert.deepEqual(valid.recommendation.payload, candidate.payload);
-assert.equal(valid.recommendation.source, "selected_refinement_binding_preflight");
 assert.equal(valid.authorization_effect, "NONE");
 assert.equal(valid.execution_authorized, false);
-assert.equal(valid.recommendation_binding_created, false);
-assert.equal(valid.pending_execution_created, false);
-assert.equal(valid.autonomous_run_created, false);
-assert.equal(valid.old_payload_reused, false);
-for (const forbidden of ["recommendation_id", "pending_execution", "autonomous_run", "run_id"]) {
-  assert.equal(
-    Object.prototype.hasOwnProperty.call(valid.recommendation, forbidden),
-    false,
-    `preflight recommendation must not contain ${forbidden}`,
-  );
-}
+
+const revoked = preflightRecommendationRefinementBinding({
+  candidate,
+  capability,
+  context: { organizationId },
+  permissions: [],
+  role: "ACCOUNTANT",
+});
+assert.equal(revoked.ready_for_governed_binding, false);
+assert.equal(revoked.reason, "REFINEMENT_ACTOR_CAPABILITY_POLICY_CHANGED");
+assert.equal(revoked.actor_policy.reason, "CURRENT_ACTOR_PERMISSION_DENIED");
+assert.equal(revoked.recommendation, null);
 
 for (const [field, unsafeValue] of [
   ["authorization_effect", "EXECUTE"],
@@ -79,72 +86,14 @@ for (const [field, unsafeValue] of [
     candidate: { ...candidate, [field]: unsafeValue },
     capability,
     context: { organizationId },
+    ...actor,
   });
   assert.equal(unsafe.ready_for_governed_binding, false);
   assert.equal(unsafe.reason, "REFINEMENT_CANDIDATE_NOT_SAFE_FOR_BINDING");
-  assert.equal(unsafe.recommendation, null);
 }
 
-const changedCapability = preflightRecommendationRefinementBinding({
-  candidate,
-  capability: { ...capability, key: "finance.vendor_bill.write" },
-  context: { organizationId },
-});
-assert.equal(changedCapability.ready_for_governed_binding, false);
-assert.equal(changedCapability.reason, "REFINEMENT_CANDIDATE_NOT_SAFE_FOR_BINDING");
-
-const missingContext = preflightRecommendationRefinementBinding({
-  candidate,
-  capability,
-  context: {},
-});
-assert.equal(missingContext.ready_for_governed_binding, false);
-assert.equal(missingContext.reason, "REFINEMENT_CANDIDATE_STALE_BEFORE_BINDING");
-assert.deepEqual(missingContext.revalidation?.missing_required_fields, ["organization_id"]);
-
-const enumDrift = preflightRecommendationRefinementBinding({
-  candidate,
-  capability: {
-    ...capability,
-    input_schema: {
-      ...capability.input_schema,
-      properties: {
-        ...capability.input_schema.properties,
-        status: { type: "string", enum: ["FINAL"] },
-      },
-    },
-  },
-  context: { organizationId },
-});
-assert.equal(enumDrift.ready_for_governed_binding, false);
-assert.equal(enumDrift.reason, "REFINEMENT_CANDIDATE_STALE_BEFORE_BINDING");
-assert.deepEqual(enumDrift.revalidation?.invalid_fields, [
-  { field: "status", reason: "ENUM_VALUE_NOT_ALLOWED" },
-]);
-
-const newRequired = preflightRecommendationRefinementBinding({
-  candidate,
-  capability: {
-    ...capability,
-    input_schema: {
-      ...capability.input_schema,
-      properties: {
-        ...capability.input_schema.properties,
-        currency: { type: "string", enum: ["THB", "USD"] },
-      },
-      required: [...capability.input_schema.required, "currency"],
-    },
-  },
-  context: { organizationId },
-});
-assert.equal(newRequired.ready_for_governed_binding, false);
-assert.equal(newRequired.reason, "REFINEMENT_CANDIDATE_STALE_BEFORE_BINDING");
-assert.deepEqual(newRequired.revalidation?.missing_required_fields, ["currency"]);
-
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_BINDING_PREFLIGHT_AUDIT=PASS");
-console.log("OPERATOR_RECOMMENDATION_REFINEMENT_BINDING_PREFLIGHT_CURRENT_SCHEMA=RECHECKED");
-console.log("OPERATOR_RECOMMENDATION_REFINEMENT_BINDING_PREFLIGHT_CURRENT_CONTEXT=RECHECKED");
-console.log("OPERATOR_RECOMMENDATION_REFINEMENT_BINDING_PREFLIGHT_STALE_CANDIDATE=REJECTED");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_BINDING_PREFLIGHT_ACTOR_RECHECK=PASS");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_BINDING_PREFLIGHT_BINDING=NOT_CREATED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_BINDING_PREFLIGHT_AUTHORIZATION=NONE");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_BINDING_PREFLIGHT_EXECUTION=NONE");

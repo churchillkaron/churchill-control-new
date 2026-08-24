@@ -1,5 +1,6 @@
 name: Operator refinement capability convergence
 
+# One-shot governed convergence trigger.
 on:
   push:
     branches: [main]

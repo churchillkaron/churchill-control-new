@@ -80,7 +80,7 @@ async function imageEvidence() {
 
 function desiredTemplateEnv() {
   return {
-    ACESTEP_CHECKPOINTS_DIR: "/workspace/ace-step-checkpoints",
+    ACESTEP_CHECKPOINTS_DIR: "/opt/ace-step/checkpoints",
     AVANTIQO_AUDIO_DEVICE: "cuda",
     AVANTIQO_AUDIO_MODEL_FAMILY: "ACE_STEP_1_5",
     AVANTIQO_AUDIO_FOUNDATION_MODEL: "ACE-Step/Ace-Step1.5",
@@ -89,7 +89,7 @@ function desiredTemplateEnv() {
     AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES: "ai.music.generate",
     AVANTIQO_AUDIO_FITNESS_LOAD_MODEL: "false",
     ACESTEP_INIT_LLM: "false",
-    HF_HOME: "/workspace/ace-step-checkpoints/.hf-cache",
+    HF_HOME: "/opt/ace-step/checkpoints/.hf-cache",
   };
 }
 
@@ -165,7 +165,7 @@ if (endpointMatches.length === 1) {
     endpoint_exists: true,
     endpoint: safeEndpoint(endpointMatches[0]),
     mutation_performed: false,
-    next_action: "RUN_AUDIO_WORKER_REPAIR_AND_FINGERPRINT",
+    next_action: "PROVISION_AUDIO_NETWORK_VOLUME_THEN_REPAIR_AND_FINGERPRINT",
     production_deploy_performed: false,
     generation_submitted: false,
   }, null, 2));
@@ -203,6 +203,7 @@ const plan = {
   workers_min: 0,
   workers_max: workersMax,
   idle_timeout_seconds: idleTimeout,
+  initial_cache_persistence: "EPHEMERAL_UNTIL_NETWORK_VOLUME_ATTACHED",
   mutation_performed: false,
   production_deploy_performed: false,
   generation_submitted: false,
@@ -296,5 +297,5 @@ console.log(JSON.stringify({
   template_created: exactTemplates.length === 0,
   endpoint_created: true,
   mutation_performed: true,
-  next_action: "BIND_ENDPOINT_ID_LOCALLY_THEN_REPAIR_FINGERPRINT_PREFLIGHT",
+  next_action: "PROVISION_AUDIO_NETWORK_VOLUME_THEN_REPAIR_BIND_FINGERPRINT_PREFLIGHT",
 }, null, 2));

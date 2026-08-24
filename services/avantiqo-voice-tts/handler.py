@@ -12,7 +12,11 @@ from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 ENGINE_CONTRACT = "AVANTIQO_VOICE_ENGINE_V1"
 CAPABILITY = "ai.text.to.speech"
 PRODUCT_MODEL = "avantiqo-voice-tts-v1"
-FOUNDATION_MODEL = os.getenv("AVANTIQO_VOICE_TTS_FOUNDATION_MODEL", "").strip()
+EXPECTED_FOUNDATION_MODEL = "resemble-ai/chatterbox:multilingual-v3"
+FOUNDATION_MODEL = os.getenv(
+    "AVANTIQO_VOICE_TTS_FOUNDATION_MODEL",
+    EXPECTED_FOUNDATION_MODEL,
+).strip()
 DEVICE = os.getenv("AVANTIQO_VOICE_TTS_DEVICE", "cuda")
 SUPPORTED_LANGUAGES = {
     "ar", "da", "de", "el", "en", "es", "fi", "fr", "he", "hi", "it",
@@ -29,9 +33,7 @@ def _model():
     global _MODEL
     if _MODEL is not None:
         return _MODEL
-    if not FOUNDATION_MODEL:
-        raise RuntimeError("AVANTIQO_VOICE_TTS_FOUNDATION_MODEL_REQUIRED")
-    if FOUNDATION_MODEL != "resemble-ai/chatterbox:multilingual-v3":
+    if FOUNDATION_MODEL != EXPECTED_FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_VOICE_TTS_FOUNDATION_MODEL_UNSUPPORTED")
     _MODEL = ChatterboxMultilingualTTS.from_pretrained(
         device=DEVICE,
@@ -46,6 +48,8 @@ def _validated(job: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         raise ValueError("AVANTIQO_VOICE_ENGINE_CONTRACT_INVALID")
     if _text(data.get("capability")) != CAPABILITY:
         raise ValueError("AVANTIQO_VOICE_TTS_CAPABILITY_INVALID")
+    if _text(data.get("foundation_model")) != FOUNDATION_MODEL:
+        raise ValueError("AVANTIQO_VOICE_TTS_FOUNDATION_MODEL_MISMATCH")
     workload = data.get("workload") or {}
     speech = _text(workload.get("text"))
     if not speech:
@@ -100,8 +104,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 @runpod.serverless.register_fitness_check
 def check_worker():
-    if FOUNDATION_MODEL != "resemble-ai/chatterbox:multilingual-v3":
-        raise RuntimeError("AVANTIQO_VOICE_TTS_FOUNDATION_MODEL_REQUIRED")
+    if FOUNDATION_MODEL != EXPECTED_FOUNDATION_MODEL:
+        raise RuntimeError("AVANTIQO_VOICE_TTS_FOUNDATION_MODEL_UNSUPPORTED")
     if DEVICE.startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VOICE_TTS_CUDA_REQUIRED")
 

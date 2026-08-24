@@ -12,7 +12,11 @@ from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 ENGINE_CONTRACT = "AVANTIQO_VOICE_ENGINE_V1"
 CAPABILITY = "ai.speech.to.text"
 PRODUCT_MODEL = "avantiqo-voice-stt-v1"
-FOUNDATION_MODEL = os.getenv("AVANTIQO_VOICE_STT_FOUNDATION_MODEL", "").strip()
+EXPECTED_FOUNDATION_MODEL = "openai/whisper-large-v3-turbo"
+FOUNDATION_MODEL = os.getenv(
+    "AVANTIQO_VOICE_STT_FOUNDATION_MODEL",
+    EXPECTED_FOUNDATION_MODEL,
+).strip()
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float16 if DEVICE.startswith("cuda") else torch.float32
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
@@ -27,8 +31,8 @@ def _recognizer():
     global _PIPELINE
     if _PIPELINE is not None:
         return _PIPELINE
-    if not FOUNDATION_MODEL:
-        raise RuntimeError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_REQUIRED")
+    if FOUNDATION_MODEL != EXPECTED_FOUNDATION_MODEL:
+        raise RuntimeError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_UNSUPPORTED")
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
         FOUNDATION_MODEL,
         torch_dtype=DTYPE,
@@ -57,6 +61,8 @@ def _validated(job: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         raise ValueError("AVANTIQO_VOICE_ENGINE_CONTRACT_INVALID")
     if _text(data.get("capability")) != CAPABILITY:
         raise ValueError("AVANTIQO_VOICE_STT_CAPABILITY_INVALID")
+    if _text(data.get("foundation_model")) != FOUNDATION_MODEL:
+        raise ValueError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_MISMATCH")
     workload = data.get("workload") or {}
     encoded = _text(workload.get("audio_base64"))
     if not encoded:
@@ -115,8 +121,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 @runpod.serverless.register_fitness_check
 def check_worker():
-    if not FOUNDATION_MODEL:
-        raise RuntimeError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_REQUIRED")
+    if FOUNDATION_MODEL != EXPECTED_FOUNDATION_MODEL:
+        raise RuntimeError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_UNSUPPORTED")
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VOICE_STT_CUDA_REQUIRED")
 

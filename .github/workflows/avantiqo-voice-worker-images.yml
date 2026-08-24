@@ -1,0 +1,277 @@
+name: Avantiqo Voice Worker Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-voice-worker-images-request.json
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-voice-worker-images
+  cancel-in-progress: true
+
+jobs:
+  build_voice_stt_image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      image_repository: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.image.outputs.tag }}
+      source_sha: ${{ steps.image.outputs.release_sha }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      preflight_outcome: ${{ steps.preflight.outcome }}
+      build_outcome: ${{ steps.build.outcome }}
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify Voice STT source lock
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-voice-stt/Dockerfile
+          test -f services/avantiqo-voice-stt/handler.py
+          grep -F 'FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime' services/avantiqo-voice-stt/Dockerfile
+          grep -F 'runpod==1.9.1' services/avantiqo-voice-stt/requirements.txt
+          grep -F 'AVANTIQO_VOICE_STT_IMAGE_IMPORT_SMOKE=PASS' services/avantiqo-voice-stt/Dockerfile
+          grep -F 'EXPECTED_FOUNDATION_MODEL = "openai/whisper-large-v3-turbo"' services/avantiqo-voice-stt/handler.py
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo 'AVANTIQO_VOICE_STT_IMAGE_PREFLIGHT=PASS'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable STT image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$GITHUB_SHA"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-voice-stt-worker"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push immutable Voice STT image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-voice-stt
+          file: services/avantiqo-voice-stt/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-voice-stt-worker
+          cache-to: type=gha,mode=max,scope=avantiqo-voice-stt-worker
+
+  build_voice_tts_image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      image_repository: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.image.outputs.tag }}
+      source_sha: ${{ steps.image.outputs.release_sha }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      preflight_outcome: ${{ steps.preflight.outcome }}
+      build_outcome: ${{ steps.build.outcome }}
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify Voice TTS source lock
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-voice-tts/Dockerfile
+          test -f services/avantiqo-voice-tts/handler.py
+          grep -F 'FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime' services/avantiqo-voice-tts/Dockerfile
+          grep -F 'runpod==1.9.1' services/avantiqo-voice-tts/requirements.txt
+          grep -F 'AVANTIQO_VOICE_TTS_IMAGE_IMPORT_SMOKE=PASS' services/avantiqo-voice-tts/Dockerfile
+          grep -F 'EXPECTED_FOUNDATION_MODEL = "resemble-ai/chatterbox:multilingual-v3"' services/avantiqo-voice-tts/handler.py
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo 'AVANTIQO_VOICE_TTS_IMAGE_PREFLIGHT=PASS'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable TTS image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$GITHUB_SHA"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-voice-tts-worker"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push immutable Voice TTS image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-voice-tts
+          file: services/avantiqo-voice-tts/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-voice-tts-worker
+          cache-to: type=gha,mode=max,scope=avantiqo-voice-tts-worker
+
+  record_voice_image_evidence:
+    needs:
+      - build_voice_stt_image
+      - build_voice_tts_image
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest main for evidence only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Record sanitized Voice image evidence
+        env:
+          STT_JOB_RESULT: ${{ needs.build_voice_stt_image.result }}
+          STT_PREFLIGHT_OUTCOME: ${{ needs.build_voice_stt_image.outputs.preflight_outcome }}
+          STT_BUILD_OUTCOME: ${{ needs.build_voice_stt_image.outputs.build_outcome }}
+          STT_IMAGE_REPOSITORY: ${{ needs.build_voice_stt_image.outputs.image_repository }}
+          STT_IMAGE_TAG: ${{ needs.build_voice_stt_image.outputs.image_tag }}
+          STT_IMAGE_DIGEST: ${{ needs.build_voice_stt_image.outputs.image_digest }}
+          STT_SOURCE_SHA: ${{ needs.build_voice_stt_image.outputs.source_sha }}
+          TTS_JOB_RESULT: ${{ needs.build_voice_tts_image.result }}
+          TTS_PREFLIGHT_OUTCOME: ${{ needs.build_voice_tts_image.outputs.preflight_outcome }}
+          TTS_BUILD_OUTCOME: ${{ needs.build_voice_tts_image.outputs.build_outcome }}
+          TTS_IMAGE_REPOSITORY: ${{ needs.build_voice_tts_image.outputs.image_repository }}
+          TTS_IMAGE_TAG: ${{ needs.build_voice_tts_image.outputs.image_tag }}
+          TTS_IMAGE_DIGEST: ${{ needs.build_voice_tts_image.outputs.image_digest }}
+          TTS_SOURCE_SHA: ${{ needs.build_voice_tts_image.outputs.source_sha }}
+          TRIGGER_SHA: ${{ github.sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+
+          const text = (value) => String(value ?? "").trim();
+          const digestValid = (value) => /^sha256:[a-f0-9]{64}$/i.test(text(value));
+          const triggerSha = text(process.env.TRIGGER_SHA);
+          const owner = text(process.env.REPOSITORY_OWNER).toLowerCase();
+
+          function lane(prefix, fallbackRepository, foundationModel, cudaRuntime) {
+            const result = text(process.env[`${prefix}_JOB_RESULT`]);
+            const sourceSha = text(process.env[`${prefix}_SOURCE_SHA`]);
+            const repository = text(process.env[`${prefix}_IMAGE_REPOSITORY`]) || `ghcr.io/${owner}/${fallbackRepository}`;
+            const digest = text(process.env[`${prefix}_IMAGE_DIGEST`]);
+            const success = result === "success" && sourceSha === triggerSha && digestValid(digest);
+            return {
+              success,
+              build_job_result: result || "unknown",
+              preflight_outcome: text(process.env[`${prefix}_PREFLIGHT_OUTCOME`]) || null,
+              build_outcome: text(process.env[`${prefix}_BUILD_OUTCOME`]) || null,
+              source_sha: sourceSha || null,
+              source_sha_matches_trigger: Boolean(sourceSha) && sourceSha === triggerSha,
+              image_repository: repository,
+              image_tag: text(process.env[`${prefix}_IMAGE_TAG`]) || null,
+              image_digest: digestValid(digest) ? digest : null,
+              immutable_image_reference: success ? `${repository}@${digest}` : null,
+              foundation_model: foundationModel,
+              cuda_runtime_expected: cudaRuntime,
+              runpod_fitness_sdk_required: "1.9.1",
+              import_smoke_passed_by_docker_build: success,
+            };
+          }
+
+          const stt = lane("STT", "avantiqo-voice-stt-worker", "openai/whisper-large-v3-turbo", "12.8");
+          const tts = lane("TTS", "avantiqo-voice-tts-worker", "resemble-ai/chatterbox:multilingual-v3", "12.4");
+          const report = {
+            success: stt.success && tts.success,
+            contract: "AVANTIQO_VOICE_WORKER_IMAGES_RESULT_V1",
+            observable_result: true,
+            trigger_sha: triggerSha || null,
+            github_run_id: process.env.BUILD_RUN_ID || null,
+            stt,
+            tts,
+            production_web_deploy: false,
+            provider_job_submitted: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false,
+          };
+
+          writeFileSync("/tmp/avantiqo-voice-worker-images.json", `${JSON.stringify(report)}\n`, "utf8");
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B voice-image-evidence origin/main
+            mkdir -p audits/results
+            cp /tmp/avantiqo-voice-worker-images.json audits/results/avantiqo-voice-worker-images.json
+            git add audits/results/avantiqo-voice-worker-images.json
+
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_VOICE_WORKER_IMAGE_EVIDENCE_ALREADY_CURRENT=true'
+              exit 0
+            fi
+
+            git commit -m "Record Voice worker image result"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_VOICE_WORKER_IMAGE_EVIDENCE_RECORDED=true'
+              exit 0
+            fi
+
+            echo "AVANTIQO_VOICE_WORKER_IMAGE_EVIDENCE_PUSH_RETRY=${attempt}"
+            sleep "$attempt"
+          done
+
+          echo 'AVANTIQO_VOICE_WORKER_IMAGE_EVIDENCE_PUSH_FAILED'
+          exit 1
+
+      - name: Confirm Voice image build is not a production app deploy
+        shell: bash
+        run: |
+          echo 'AVANTIQO_VOICE_WORKER_IMAGES_PRODUCTION_WEB_DEPLOY=false'
+          echo 'AVANTIQO_VOICE_WORKER_IMAGES_PROVIDER_JOB_SUBMITTED=false'
+          echo 'AVANTIQO_VOICE_WORKER_IMAGES_PRICING_ACTIVATION=false'

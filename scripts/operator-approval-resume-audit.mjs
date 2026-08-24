@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 
 const [governanceSource, turnSource] = await Promise.all([
   readFile("lib/operator/governance/operatorExecutionGovernance.js", "utf8"),
-  readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorTurnRuntimeLegacy.js", "utf8"),
 ]);
 
 function requireAll(label, source, fragments) {
@@ -63,6 +63,7 @@ requireAll("REJECTION_FAILS_CLOSED", turnSource, [
 ]);
 
 console.log("OPERATOR_APPROVAL_RESUME_AUDIT=PASS");
+console.log("OPERATOR_APPROVAL_RESUME_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_APPROVAL_BINDING=EXACT_REQUEST_ID");
 console.log("OPERATOR_APPROVAL_RESUME=RECHECK_SAME_REQUEST");
 console.log("OPERATOR_APPROVAL_DUPLICATE_REQUEST_ON_RESUME=FORBIDDEN");

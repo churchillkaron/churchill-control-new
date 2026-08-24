@@ -1,0 +1,16 @@
+{
+  "success": false,
+  "contract": "AVANTIQO_VOICE_GENERATOR_SMOKE_V1",
+  "generated_at": "2026-08-24T06:42:28.028Z",
+  "engine_contract": "AVANTIQO_VOICE_ENGINE_V1",
+  "purpose": "ONE_SHOT_GENERATOR_ROUNDTRIP",
+  "production_web_deploy": false,
+  "pricing_activation_performed": false,
+  "provider_selection_changed": false,
+  "raw_reasoning_persisted": false,
+  "error_code": "RUNPOD_API_KEY_REQUIRED",
+  "tts": null,
+  "stt": null,
+  "github_run_id": "32698397943",
+  "trigger_sha": "7ec39e3e4c13675e13070c204f5702b9c748d9ab"
+}

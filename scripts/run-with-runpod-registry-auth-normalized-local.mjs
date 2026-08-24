@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const REGISTRY_AUTH_URL = `${REST_BASE}/containerregistryauth`;
+const ENDPOINTS_URL_PREFIX = `${REST_BASE}/endpoints`;
 const baseFetch = globalThis.fetch.bind(globalThis);
 
 function text(value) {
@@ -90,35 +91,78 @@ function canonicalRegistryAuthRecord(item) {
   return { ...item, name: descriptor };
 }
 
-globalThis.fetch = async (input, init) => {
-  const response = await baseFetch(input, init);
-  const url = typeof input === "string" ? input : text(input?.url);
-  if (!response.ok || url !== REGISTRY_AUTH_URL) return response;
-
-  let body = null;
-  try {
-    body = await response.clone().json();
-  } catch {
-    return response;
+function canonicalEndpointRecord(item) {
+  if (!isObject(item)) return item;
+  const singular = text(item.networkVolumeId);
+  const plural = Array.isArray(item.networkVolumeIds)
+    ? item.networkVolumeIds.map(text).filter(Boolean)
+    : [];
+  const seen = new Set();
+  const normalizedPlural = [];
+  for (const id of plural) {
+    if (!id || id === singular || seen.has(id)) continue;
+    seen.add(id);
+    normalizedPlural.push(id);
   }
-  if (Array.isArray(body)) return response;
+  return {
+    ...item,
+    networkVolumeIds: normalizedPlural,
+  };
+}
 
-  const normalized = normalizeRegistryAuthResponse(body).map(canonicalRegistryAuthRecord);
+function normalizedResponse(response, body) {
   const headers = new Headers(response.headers);
   headers.delete("content-length");
   headers.delete("content-encoding");
   headers.set("content-type", "application/json");
-
-  return new Response(JSON.stringify(normalized), {
+  return new Response(JSON.stringify(body), {
     status: response.status,
     statusText: response.statusText,
     headers,
   });
+}
+
+globalThis.fetch = async (input, init) => {
+  const response = await baseFetch(input, init);
+  const url = typeof input === "string" ? input : text(input?.url);
+  if (!response.ok) return response;
+
+  if (url === REGISTRY_AUTH_URL) {
+    let body = null;
+    try {
+      body = await response.clone().json();
+    } catch {
+      return response;
+    }
+    if (Array.isArray(body)) return response;
+    const normalized = normalizeRegistryAuthResponse(body).map(canonicalRegistryAuthRecord);
+    return normalizedResponse(response, normalized);
+  }
+
+  if (url.startsWith(ENDPOINTS_URL_PREFIX)) {
+    let body = null;
+    try {
+      body = await response.clone().json();
+    } catch {
+      return response;
+    }
+    if (Array.isArray(body)) {
+      return normalizedResponse(response, body.map(canonicalEndpointRecord));
+    }
+    if (isObject(body)) {
+      return normalizedResponse(response, canonicalEndpointRecord(body));
+    }
+  }
+
+  return response;
 };
 
 console.log("AVANTIQO_RUNPOD_REGISTRY_AUTH_RESPONSE_NORMALIZED=true");
+console.log("AVANTIQO_RUNPOD_ENDPOINT_VOLUME_BINDINGS_NORMALIZED=true");
+console.log("AVANTIQO_RUNPOD_ENDPOINT_VOLUME_BINDING_DUPLICATES_REMOVED=true");
 console.log("AVANTIQO_RUNPOD_REGISTRY_AUTH_SECRET_VALUES_PRINTED=false");
 console.log("AVANTIQO_RUNPOD_REGISTRY_AUTH_MUTATION_PERFORMED=false");
+console.log("AVANTIQO_RUNPOD_ENDPOINT_NORMALIZATION_MUTATION_PERFORMED=false");
 
 const target = text(process.argv[2]);
 if (!target) throw new Error("AVANTIQO_RUNPOD_REGISTRY_AUTH_NORMALIZER_TARGET_REQUIRED");

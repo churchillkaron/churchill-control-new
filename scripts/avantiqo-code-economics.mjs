@@ -134,7 +134,23 @@ function billingRows(body) {
 }
 
 async function runpodBillingRate({ apiKey, endpointId }) {
-  const response = await fetch(`${RUNPOD_REST}/billing/endpoints?bucketSize=hour`, {
+  const lookbackHours = clamp(
+    process.env.AVANTIQO_CODE_BILLING_LOOKBACK_HOURS,
+    1,
+    168,
+    DEFAULT_BILLING_LOOKBACK_HOURS,
+  );
+  const endTime = new Date();
+  const startTime = new Date(endTime.getTime() - lookbackHours * 60 * 60 * 1000);
+  const query = new URLSearchParams({
+    bucketSize: "hour",
+    grouping: "gpuTypeId",
+    endpointId,
+    startTime: startTime.toISOString(),
+    endTime: endTime.toISOString(),
+  });
+
+  const response = await fetch(`${RUNPOD_REST}/billing/endpoints?${query.toString()}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -155,48 +171,36 @@ async function runpodBillingRate({ apiKey, endpointId }) {
     );
   }
 
-  const lookbackHours = clamp(
-    process.env.AVANTIQO_CODE_BILLING_LOOKBACK_HOURS,
-    1,
-    168,
-    DEFAULT_BILLING_LOOKBACK_HOURS,
-  );
-  const cutoffMs = Date.now() - lookbackHours * 60 * 60 * 1000;
   const records = billingRows(body)
     .map((record) => {
       const gpuTypeId = text(record?.gpuTypeId);
       const amountUsd = Number(record?.amount);
       const timeBilledMs = Number(record?.timeBilledMs);
-      const timeMs = Date.parse(text(record?.time));
       const effectiveUsdPerHour =
         Number.isFinite(amountUsd) && amountUsd > 0 && Number.isFinite(timeBilledMs) && timeBilledMs > 0
           ? amountUsd / (timeBilledMs / 3_600_000)
           : null;
       return {
         time: text(record?.time) || null,
-        endpoint_id: text(record?.endpointId) || null,
+        endpoint_id: text(record?.endpointId) || endpointId,
         gpu_type_id: gpuTypeId || null,
         amount_usd: Number.isFinite(amountUsd) ? amountUsd : null,
         time_billed_ms: Number.isFinite(timeBilledMs) ? timeBilledMs : null,
         effective_usd_per_hour: Number.isFinite(effectiveUsdPerHour)
           ? round(effectiveUsdPerHour, 6)
           : null,
-        time_ms: Number.isFinite(timeMs) ? timeMs : null,
       };
     })
     .filter(
       (record) =>
-        record.endpoint_id === endpointId &&
         APPROVED_GPU_TYPES.includes(record.gpu_type_id) &&
         Number.isFinite(record.amount_usd) &&
         record.amount_usd > 0 &&
         Number.isFinite(record.time_billed_ms) &&
         record.time_billed_ms > 0 &&
         Number.isFinite(record.effective_usd_per_hour) &&
-        record.effective_usd_per_hour > 0 &&
-        (!Number.isFinite(record.time_ms) || record.time_ms >= cutoffMs),
-    )
-    .map(({ time_ms: _timeMs, ...record }) => record);
+        record.effective_usd_per_hour > 0,
+    );
 
   if (!records.length) {
     throw new Error(
@@ -214,7 +218,10 @@ async function runpodBillingRate({ apiKey, endpointId }) {
   return {
     source: "RUNPOD_SERVERLESS_BILLING_API",
     endpoint_id: endpointId,
+    grouping: "gpuTypeId",
     lookback_hours: lookbackHours,
+    start_time: startTime.toISOString(),
+    end_time: endTime.toISOString(),
     approved_gpu_types: [...APPROVED_GPU_TYPES],
     observed_gpu_types: [...new Set(records.map((record) => record.gpu_type_id))],
     record_count: records.length,

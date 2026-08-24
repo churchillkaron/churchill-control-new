@@ -13,7 +13,7 @@ const [
 ] = await Promise.all([
   readFile("lib/operator/governance/operatorExecutionGovernance.js", "utf8"),
   readFile("lib/operator/governance/operatorAuthorizationEvidence.js", "utf8"),
-  readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorTurnRuntimeLegacy.js", "utf8"),
   readFile("lib/ubte/runtime/ExecutionEngine.js", "utf8"),
   readFile("lib/operator/runtime/IntelligenceConversationRuntime.js", "utf8"),
   readFile("lib/ubte/runtime/engines/AuditEngine.js", "utf8"),
@@ -272,6 +272,7 @@ assert.ok(
 const legacyTurnFlagPresent = turnSource.includes("conversationallyConfirmed: true");
 
 console.log("OPERATOR_AUTHORIZATION_PROVENANCE_AUDIT=PASS");
+console.log("OPERATOR_AUTHORIZATION_PROVENANCE_TURN_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_AUDIT_AUTHORIZATION=TRUSTED_RUNTIME_EVIDENCE_WITH_CONSERVATIVE_FALLBACK");
 console.log("OPERATOR_RUNTIME_AUTHORIZATION=UBTE_BOUNDARY_NORMALIZED");
 console.log("OPERATOR_RUNTIME_EVIDENCE=NON_ENUMERABLE_SERVER_ONLY");

@@ -4,7 +4,7 @@ const REST_BASE = "https://rest.runpod.io/v1";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const AUDIO_TEMPLATE_NAME = "avantiqo-audio-v1";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-audio-worker-image.json";
-const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_ENDPOINT_PROVISION_V1";
+const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_ENDPOINT_PROVISION_V2";
 const DEFAULT_GPU_TYPE_IDS = Object.freeze([
   "NVIDIA L4",
   "NVIDIA RTX A5000",
@@ -68,14 +68,32 @@ async function imageEvidence() {
   } catch {
     throw new Error("AVANTIQO_AUDIO_IMMUTABLE_WORKER_IMAGE_EVIDENCE_REQUIRED");
   }
-  if (parsed?.success !== true || parsed?.contract !== "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V1") {
-    throw new Error("AVANTIQO_AUDIO_IMMUTABLE_WORKER_IMAGE_EVIDENCE_INVALID");
+  if (parsed?.success !== true || parsed?.contract !== "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2") {
+    throw new Error("AVANTIQO_AUDIO_HARDENED_WORKER_IMAGE_EVIDENCE_REQUIRED");
+  }
+  if (
+    parsed?.source_sha_matches_trigger !== true ||
+    text(parsed?.source_sha) !== text(parsed?.trigger_sha) ||
+    parsed?.cuda_enabled_torch_required !== true ||
+    parsed?.owned_handler_import_smoke_required !== true ||
+    parsed?.cuda_import_smoke_passed_by_docker_build !== true
+  ) {
+    throw new Error("AVANTIQO_AUDIO_WORKER_IMAGE_RUNTIME_EVIDENCE_INVALID");
+  }
+  const sourceSha = text(parsed.source_sha);
+  if (!/^[a-f0-9]{40}$/i.test(sourceSha)) {
+    throw new Error("AVANTIQO_AUDIO_WORKER_IMAGE_SOURCE_SHA_INVALID");
   }
   const image = text(parsed.immutable_image_reference);
   if (!/^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(image)) {
     throw new Error("AVANTIQO_AUDIO_IMMUTABLE_WORKER_IMAGE_REFERENCE_INVALID");
   }
-  return { image, source_sha: text(parsed.source_sha) || null };
+  return {
+    image,
+    source_sha: sourceSha,
+    trigger_sha: text(parsed.trigger_sha),
+    cuda_import_smoke_passed: true,
+  };
 }
 
 function desiredTemplateEnv() {
@@ -164,6 +182,10 @@ if (endpointMatches.length === 1) {
     mode: apply ? "APPLY" : "PLAN",
     endpoint_exists: true,
     endpoint: safeEndpoint(endpointMatches[0]),
+    hardened_image_evidence_verified: true,
+    image_source_sha: image.source_sha,
+    image_source_matches_trigger: true,
+    cuda_import_smoke_passed: image.cuda_import_smoke_passed,
     mutation_performed: false,
     next_action: "PROVISION_AUDIO_NETWORK_VOLUME_THEN_REPAIR_AND_FINGERPRINT",
     production_deploy_performed: false,
@@ -192,6 +214,9 @@ const plan = {
   endpoint_exists: false,
   immutable_worker_image: image.image,
   source_sha: image.source_sha,
+  trigger_sha: image.trigger_sha,
+  source_sha_matches_trigger: true,
+  cuda_import_smoke_passed: image.cuda_import_smoke_passed,
   existing_template: exactTemplates[0] ? safeTemplate(exactTemplates[0]) : null,
   template_creation_required: exactTemplates.length === 0,
   ghcr_registry_auth_found: Boolean(registryAuth),
@@ -251,7 +276,6 @@ if (text(template?.imageName) && text(template.imageName) !== image.image) {
   throw new Error("AVANTIQO_AUDIO_EXISTING_TEMPLATE_IMAGE_MISMATCH_REPAIR_REQUIRED");
 }
 
-// Re-list endpoints immediately before the endpoint mutation to prevent duplicate creation.
 const freshEndpoints = await rest("/endpoints?includeTemplate=false&includeWorkers=false", managementKey);
 const freshMatches = Array.isArray(freshEndpoints)
   ? freshEndpoints.filter((endpoint) => text(endpoint?.name) === AUDIO_ENDPOINT_NAME)

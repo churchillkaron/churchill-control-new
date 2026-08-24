@@ -2,6 +2,8 @@ const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const DEFAULT_VOLUME_MOUNT_PATH = "/workspace";
+const NETWORK_VOLUME_MOUNT_ROOT = "/runpod-volume";
+const EPHEMERAL_CHECKPOINT_ROOT = "/opt/ace-step/checkpoints";
 const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_WORKER_REPAIR_V1";
 
 function text(value) {
@@ -276,9 +278,9 @@ if (!resolved.endpoint) {
     text(process.env.AVANTIQO_AUDIO_RUNPOD_VOLUME_MOUNT_PATH) ||
     text(template.volumeMountPath) ||
     DEFAULT_VOLUME_MOUNT_PATH;
-  const checkpointRoot = desiredMountPath === "/opt/ace-step/checkpoints"
-    ? desiredMountPath
-    : `${desiredMountPath.replace(/\/$/, "")}/ace-step-checkpoints`;
+  const checkpointRoot = attachedVolumeIds.length
+    ? `${NETWORK_VOLUME_MOUNT_ROOT}/ace-step-checkpoints`
+    : text(process.env.AVANTIQO_AUDIO_EPHEMERAL_CHECKPOINTS_DIR) || EPHEMERAL_CHECKPOINT_ROOT;
   const currentEnv = normalizeEnv(template.env);
   const desiredEnv = {
     ...currentEnv,
@@ -313,8 +315,10 @@ if (!resolved.endpoint) {
     attached_network_volume_ids: attachedVolumeIds,
     health: counters,
     desired: {
-      volume_mount_path: desiredMountPath,
+      local_volume_mount_path: desiredMountPath,
+      network_volume_mount_root: attachedVolumeIds.length ? NETWORK_VOLUME_MOUNT_ROOT : null,
       checkpoints_dir: checkpointRoot,
+      cache_persistence: attachedVolumeIds.length ? "RUNPOD_NETWORK_VOLUME" : "EPHEMERAL_CONTAINER_DISK",
       changed_env_keys: changedEnvKeys,
       mount_change_required: mountChangeRequired,
     },

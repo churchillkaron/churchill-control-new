@@ -6,12 +6,20 @@ import {
 
 const organizationId = "63e6b0d7-9882-4db4-a2c3-e695487ba21d";
 const customerId = "2f1c9f57-5917-4b26-84d1-086de4d86f79";
+const invoicePermission = "finance.customer_invoice.manage";
+const actor = {
+  permissions: [invoicePermission],
+  role: "ACCOUNTANT",
+};
 const capability = {
   key: "finance.customer_invoice.write",
   mode: "write",
   name: "Create customer invoice",
   description: "Create customer invoice",
   operator_aliases: ["customer invoice"],
+  operator_enabled: true,
+  permissions: [invoicePermission],
+  requires_confirmation: true,
   input_schema: {
     type: "object",
     properties: {
@@ -33,6 +41,7 @@ const initial = prepareRecommendationRefinement({
   proposal,
   capabilities: [capability],
   context: { organizationId },
+  ...actor,
 });
 assert.equal(initial.stage, "INPUT_CLARIFICATION_REQUIRED");
 assert.deepEqual(initial.input_state?.missing_required_fields, [
@@ -40,6 +49,9 @@ assert.deepEqual(initial.input_state?.missing_required_fields, [
   "amount",
 ]);
 assert.equal(initial.clarification.required, true);
+assert.equal(initial.execution_authorized, false);
+assert.equal(initial.pending_execution_created, false);
+assert.equal(initial.autonomous_run_created, false);
 
 const freeText = continueRecommendationRefinementPreparationFromMessage({
   proposal,
@@ -48,6 +60,7 @@ const freeText = continueRecommendationRefinementPreparationFromMessage({
   clarification: initial.clarification,
   message: `use ${customerId} and about 1500`,
   context: { organizationId },
+  ...actor,
 });
 assert.equal(freeText.stage, "INPUT_ANSWER_CLARIFICATION_REQUIRED");
 assert.equal(freeText.extraction.accepted, false);
@@ -62,6 +75,7 @@ const partial = continueRecommendationRefinementPreparationFromMessage({
   clarification: initial.clarification,
   message: `Customer: ${customerId}`,
   context: { organizationId },
+  ...actor,
 });
 assert.equal(partial.stage, "INPUT_CLARIFICATION_REQUIRED");
 assert.equal(partial.extraction.accepted, true);
@@ -69,15 +83,37 @@ assert.equal(partial.answer_result.accepted, true);
 assert.deepEqual(partial.input_state?.missing_required_fields, ["amount"]);
 assert.equal(partial.ready_for_governed_binding, false);
 assert.equal(partial.execution_authorized, false);
+assert.equal(partial.pending_execution_created, false);
+assert.equal(partial.autonomous_run_created, false);
 
-const partialClarification = partial.clarification;
+const revokedAfterPartial = continueRecommendationRefinementPreparationFromMessage({
+  proposal,
+  inputState: partial.input_state,
+  capability,
+  clarification: partial.clarification,
+  message: "Amount = 1500",
+  context: { organizationId },
+  permissions: [],
+  role: actor.role,
+});
+assert.equal(
+  revokedAfterPartial.stage,
+  "ACTOR_POLICY_CHANGED_DURING_CLARIFICATION",
+);
+assert.equal(revokedAfterPartial.actor_policy.allowed, false);
+assert.equal(revokedAfterPartial.ready_for_governed_binding, false);
+assert.equal(revokedAfterPartial.execution_authorized, false);
+assert.equal(revokedAfterPartial.pending_execution_created, false);
+assert.equal(revokedAfterPartial.autonomous_run_created, false);
+
 const completed = continueRecommendationRefinementPreparationFromMessage({
   proposal,
   inputState: partial.input_state,
   capability,
-  clarification: partialClarification,
+  clarification: partial.clarification,
   message: "Amount = 1500",
   context: { organizationId },
+  ...actor,
 });
 assert.equal(completed.stage, "READY_FOR_GOVERNED_BINDING");
 assert.equal(completed.extraction.accepted, true);
@@ -101,6 +137,7 @@ const extraField = continueRecommendationRefinementPreparationFromMessage({
   clarification: initial.clarification,
   message: `Customer: ${customerId}; currency: THB`,
   context: { organizationId },
+  ...actor,
 });
 assert.equal(extraField.stage, "INPUT_ANSWER_CLARIFICATION_REQUIRED");
 assert.equal(extraField.extraction.accepted, false);
@@ -116,6 +153,7 @@ assert.equal(extraField.execution_authorized, false);
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_CONVERSATIONAL_PREPARATION_AUDIT=PASS");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_CONVERSATION_FREE_TEXT=NOT_INFERRED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_CONVERSATION_PARTIAL=CLARIFICATION_PRESERVED");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_CONVERSATION_PERMISSION_REVOKED=FAIL_CLOSED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_CONVERSATION_COMPLETE=PREBINDING_ONLY");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_CONVERSATION_EXTRA_FIELDS=REJECTED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_CONVERSATION_BINDING=NOT_CREATED");

@@ -32,15 +32,19 @@ jobs:
           set -euo pipefail
           test -f services/avantiqo-audio-engine/Dockerfile
           test -f services/avantiqo-audio-engine/handler.py
+          grep -F 'ARG CUDA_VERSION=12.8.1' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04' services/avantiqo-audio-engine/Dockerfile
           grep -F 'git checkout 14c0211d5a0653b0f63e27686f4c3f151b4d8629' services/avantiqo-audio-engine/Dockerfile
           grep -F 'AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-turbo' services/avantiqo-audio-engine/Dockerfile
           grep -F 'DEFAULT_CERTIFIED_CAPABILITIES = {"ai.music.generate"}' services/avantiqo-audio-engine/handler.py
           grep -F 'AVANTIQO_AUDIO_IMAGE_IMPORT_SMOKE=PASS' services/avantiqo-audio-engine/Dockerfile
-          grep -F "assert torch.version.cuda, 'AVANTIQO_AUDIO_CUDA_ENABLED_TORCH_REQUIRED'" services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_CUDA_12_8_TORCH_REQUIRED' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_NATIVE_AUDIO_IMPORTS=PASS' services/avantiqo-audio-engine/Dockerfile
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PREFLIGHT=PASS'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_TRIGGER_SHA_BOUND=true'
-          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_CUDA_IMPORT_SMOKE_REQUIRED=true'
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_CUDA_12_8_REQUIRED=true'
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_NATIVE_AUDIO_IMPORT_SMOKE_REQUIRED=true'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -123,9 +127,12 @@ jobs:
             immutable_image_reference: `${repository}@${digest}`,
             runtime: "ACE-Step-1.5",
             runtime_variant: "acestep-v15-turbo",
+            cuda_runtime_expected: "12.8",
             cuda_enabled_torch_required: true,
             owned_handler_import_smoke_required: true,
+            native_audio_import_smoke_required: true,
             cuda_import_smoke_passed_by_docker_build: true,
+            native_audio_import_smoke_passed_by_docker_build: true,
             certified_capability_default: "ai.music.generate",
             production_web_deploy: false,
             provider_job_submitted: false,
@@ -153,7 +160,8 @@ jobs:
         run: |
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_SOURCE_TRIGGER_MATCH=true'
-          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_CUDA_IMPORT_SMOKE=PASS'
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_CUDA_12_8=PASS'
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_NATIVE_AUDIO_IMPORT_SMOKE=PASS'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PRODUCTION_WEB_DEPLOY=false'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PRICING_ACTIVATION=false'

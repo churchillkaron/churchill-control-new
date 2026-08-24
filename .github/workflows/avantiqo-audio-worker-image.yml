@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: avantiqo-audio-worker-image
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-audio-worker-image:

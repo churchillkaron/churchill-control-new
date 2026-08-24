@@ -7,6 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     TOKENIZERS_PARALLELISM=false \
     HF_HOME=/runpod-volume/huggingface-cache \
     VLLM_WORKER_MULTIPROC_METHOD=spawn \
+    VLLM_USE_FLASHINFER_SAMPLER=0 \
     AVANTIQO_CODE_DEVICE=cuda \
     AVANTIQO_CODE_QUANTIZATION=fp8 \
     AVANTIQO_CODE_FOUNDATION_MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct \

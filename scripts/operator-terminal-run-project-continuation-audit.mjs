@@ -11,10 +11,10 @@ import {
   transitionOperatorAutonomousRun,
 } from "../lib/operator/contracts/OperatorAutonomousRun.js";
 
-const outerPath = "lib/operator/runtime/OperatorTurnRuntime.js";
+const legacyPath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
 const corePath = "lib/operator/runtime/OperatorTurnRuntimeCore.js";
-const [outerSource, coreSource] = await Promise.all([
-  readFile(outerPath, "utf8"),
+const [legacySource, coreSource] = await Promise.all([
+  readFile(legacyPath, "utf8"),
   readFile(corePath, "utf8"),
 ]);
 
@@ -24,7 +24,7 @@ function requireFragments(path, source, fragments) {
   }
 }
 
-requireFragments(outerPath, outerSource, [
+requireFragments(legacyPath, legacySource, [
   "function normalizedPendingMessage(message, replyClass)",
   'if (replyClass === "resume") return "continue";',
 ]);
@@ -186,6 +186,7 @@ assert.ok(
 );
 
 console.log("OPERATOR_TERMINAL_RUN_PROJECT_CONTINUATION_AUDIT=PASS");
+console.log("OPERATOR_TERMINAL_RUN_PROJECT_CONTINUATION_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_TERMINAL_RUN_PROJECT_CONTINUATION_STATUSES=COMPLETED_CANCELLED_SUPERSEDED");
 console.log("OPERATOR_TERMINAL_RUN_PROJECT_CONTINUATION_LANGUAGES=SV_DE_FR_ES_TH");
 console.log("OPERATOR_TERMINAL_RUN_PROJECT_CONTINUATION_SCOPE=ACTIVE_PROJECT_NOT_OLD_RUN");

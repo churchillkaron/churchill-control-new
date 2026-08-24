@@ -4,7 +4,15 @@ const REST_BASE = "https://rest.runpod.io/v1";
 const GRAPHQL_URL = "https://api.runpod.io/graphql";
 const ENDPOINT_NAME = "avantiqo-image-v1";
 const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-image-video-shared-region-local.mjs";
-const CONTRACT = "AVANTIQO_IMAGE_VIDEO_SHARED_REGION_AUTO_SELECTOR_V1";
+const CONTRACT = "AVANTIQO_IMAGE_VIDEO_SHARED_REGION_AUTO_SELECTOR_V2";
+
+const APPROVED_GPU_PROFILES = Object.freeze([
+  Object.freeze({ key: "RTX_PRO_6000_96GB", match: /RTX\s*PRO\s*6000/i, exclude: null, vram_gb: 96, preference: 0 }),
+  Object.freeze({ key: "H100_NVL_94GB", match: /H100.*NVL|NVL.*H100/i, exclude: null, vram_gb: 94, preference: 1 }),
+  Object.freeze({ key: "H100_80GB", match: /\bH100\b/i, exclude: /NVL/i, vram_gb: 80, preference: 2 }),
+  Object.freeze({ key: "H200_141GB", match: /\bH200\b/i, exclude: null, vram_gb: 141, preference: 3 }),
+  Object.freeze({ key: "B200_180GB", match: /\bB200\b/i, exclude: null, vram_gb: 180, preference: 4 }),
+]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -37,6 +45,15 @@ function required(name) {
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
 }
+function gpuProfile(gpu = {}) {
+  const label = [gpu?.gpuTypeId, gpu?.gpuTypeDisplayName, gpu?.displayName]
+    .map(text)
+    .filter(Boolean)
+    .join(" ");
+  return APPROVED_GPU_PROFILES.find(
+    (profile) => profile.match.test(label) && !(profile.exclude && profile.exclude.test(label)),
+  ) || null;
+}
 function safeVolume(volume = {}) {
   return {
     id: text(volume?.id) || null,
@@ -56,6 +73,7 @@ function safeEndpoint(endpoint = {}) {
   };
 }
 function safeCapacityRow(dataCenter, gpu) {
+  const profile = gpuProfile(gpu);
   return {
     data_center_id: text(dataCenter?.id) || null,
     data_center_name: text(dataCenter?.name) || null,
@@ -63,6 +81,9 @@ function safeCapacityRow(dataCenter, gpu) {
     storage_support: dataCenter?.storageSupport === true,
     gpu_type_id: text(gpu?.gpuTypeId) || null,
     gpu_name: text(gpu?.gpuTypeDisplayName || gpu?.displayName || gpu?.gpuTypeId) || null,
+    profile: profile?.key || null,
+    vram_gb: profile?.vram_gb || null,
+    preference: profile?.preference ?? 99,
     available: gpu?.available === true,
     stock_status: text(gpu?.stockStatus) || null,
     stock_rank: stockRank(gpu?.stockStatus),
@@ -93,7 +114,7 @@ async function rest(path, key) {
 }
 async function discoverDatacenters(key) {
   const query = `
-    query AvantiqoImageVideoAutoRegion($input: GpuAvailabilityInput) {
+    query AvantiqoImageVideoAutoRegionV2($input: GpuAvailabilityInput) {
       dataCenters {
         id
         name
@@ -155,30 +176,41 @@ function resolveEndpoint(endpoints) {
   }
   return { endpoint: matches[0], source: "EXACT_NAME" };
 }
-function rankCandidate(left, right, sourceLocation) {
+function rankCandidate(left, right, sourceLocation, currentGpuTypes) {
   if (right.stock_rank !== left.stock_rank) return right.stock_rank - left.stock_rank;
+  const leftCurrentGpu = currentGpuTypes.includes(left.gpu_type_id) ? 1 : 0;
+  const rightCurrentGpu = currentGpuTypes.includes(right.gpu_type_id) ? 1 : 0;
+  if (rightCurrentGpu !== leftCurrentGpu) return rightCurrentGpu - leftCurrentGpu;
   const leftSameLocation = left.location === sourceLocation ? 1 : 0;
   const rightSameLocation = right.location === sourceLocation ? 1 : 0;
   if (rightSameLocation !== leftSameLocation) return rightSameLocation - leftSameLocation;
-  return String(left.data_center_id).localeCompare(String(right.data_center_id));
+  if (left.preference !== right.preference) return left.preference - right.preference;
+  const dc = String(left.data_center_id).localeCompare(String(right.data_center_id));
+  if (dc !== 0) return dc;
+  return String(left.gpu_type_id).localeCompare(String(right.gpu_type_id));
 }
-function runMigration(targetDataCenterId, apply) {
-  const args = [MIGRATION_SCRIPT, `--target-datacenter=${targetDataCenterId}`];
+function runMigration(target, apply) {
+  const args = [
+    MIGRATION_SCRIPT,
+    `--target-datacenter=${target.data_center_id}`,
+    `--target-gpu-types=${target.gpu_type_id}`,
+  ];
   if (apply) args.push("--apply");
   const result = spawnSync(process.execPath, args, {
     cwd: process.cwd(),
     env: process.env,
     stdio: "inherit",
   });
-  if (result.status !== 0) {
-    process.exitCode = result.status || 1;
-  }
+  if (result.status !== 0) process.exitCode = result.status || 1;
 }
 
 const apply = process.argv.includes("--apply");
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 
 console.log(`AVANTIQO_IMAGE_VIDEO_AUTO_MODE=${apply ? "APPLY" : "PLAN"}`);
+console.log(`AVANTIQO_IMAGE_VIDEO_AUTO_CONTRACT=${CONTRACT}`);
+console.log("AVANTIQO_IMAGE_VIDEO_AUTO_APPROVED_GPU_POOL=RTX_PRO_6000_96GB|H100_NVL_94GB|H100_80GB|H200_141GB|B200_180GB");
+console.log("AVANTIQO_IMAGE_VIDEO_AUTO_MIN_VRAM_GB=80");
 console.log("AVANTIQO_IMAGE_VIDEO_AUTO_ENDPOINT_MUTATION=false");
 console.log("AVANTIQO_IMAGE_VIDEO_AUTO_VOLUME_MUTATION=false");
 console.log("AVANTIQO_IMAGE_VIDEO_AUTO_JOB_SUBMISSION=false");
@@ -204,27 +236,28 @@ if (!volume) throw new Error("AVANTIQO_IMAGE_VIDEO_AUTO_ATTACHED_VOLUME_NOT_FOUN
 const sourceDataCenterId = text(volume?.dataCenterId);
 if (!sourceDataCenterId) throw new Error("AVANTIQO_IMAGE_VIDEO_AUTO_SOURCE_DATACENTER_REQUIRED");
 
-const gpuTypes = endpointGpuTypes(endpoint);
-if (!gpuTypes.length) throw new Error("AVANTIQO_IMAGE_VIDEO_AUTO_GPU_TYPES_REQUIRED");
+const currentGpuTypes = endpointGpuTypes(endpoint);
+if (!currentGpuTypes.length) throw new Error("AVANTIQO_IMAGE_VIDEO_AUTO_GPU_TYPES_REQUIRED");
 const sourceDataCenter = dataCenters.find((entry) => text(entry?.id) === sourceDataCenterId);
 if (!sourceDataCenter) throw new Error(`AVANTIQO_IMAGE_VIDEO_AUTO_SOURCE_DATACENTER_NOT_FOUND:${sourceDataCenterId}`);
 const sourceLocation = text(sourceDataCenter?.location);
 
-const capacityRows = dataCenters
+const approvedCapacityRows = dataCenters
   .flatMap((dataCenter) => array(dataCenter?.gpuAvailability).map((gpu) => safeCapacityRow(dataCenter, gpu)))
   .filter((row) => row.storage_support === true)
-  .filter((row) => gpuTypes.includes(row.gpu_type_id));
-
-const sourceRows = capacityRows.filter((row) => row.data_center_id === sourceDataCenterId);
+  .filter((row) => row.profile && finite(row.vram_gb, 0) >= 80 && row.gpu_type_id);
+const sourceRows = approvedCapacityRows.filter(
+  (row) => row.data_center_id === sourceDataCenterId && currentGpuTypes.includes(row.gpu_type_id),
+);
 const sourceBestRank = Math.max(
   0,
   ...sourceRows.filter((row) => row.available).map((row) => row.stock_rank),
 );
-const candidates = capacityRows
+const candidates = approvedCapacityRows
   .filter((row) => row.data_center_id !== sourceDataCenterId)
   .filter((row) => row.available === true)
   .filter((row) => row.stock_rank > sourceBestRank)
-  .sort((left, right) => rankCandidate(left, right, sourceLocation));
+  .sort((left, right) => rankCandidate(left, right, sourceLocation, currentGpuTypes));
 
 const best = candidates[0] || null;
 const report = {
@@ -237,28 +270,33 @@ const report = {
   source_location: sourceLocation || null,
   source_capacity_for_bound_gpu_types: sourceRows,
   source_best_stock_rank: sourceBestRank,
+  approved_80gb_plus_capacity_rows: approvedCapacityRows,
   strictly_better_candidates: candidates,
   selected_target: best,
+  selected_target_same_gpu_type: best ? currentGpuTypes.includes(best.gpu_type_id) : null,
+  fallback_gpu_generation_certified: false,
   selector_mutation_performed: false,
   selector_job_submitted: false,
   selector_production_deploy: false,
   next_action: best
     ? apply
-      ? "DELEGATE_TO_GUARDED_MIGRATION_APPLY"
-      : "DELEGATE_TO_GUARDED_MIGRATION_PLAN"
-    : "KEEP_CURRENT_REGION_NO_STRICTLY_BETTER_LIVE_STOCK",
+      ? "DELEGATE_SELECTED_REGION_AND_GPU_TO_GUARDED_MIGRATION_APPLY"
+      : "DELEGATE_SELECTED_REGION_AND_GPU_TO_GUARDED_MIGRATION_PLAN"
+    : "KEEP_CURRENT_REGION_NO_STRICTLY_BETTER_APPROVED_80GB_PLUS_LIVE_STOCK",
 };
 
 if (!best) {
-  console.log("AVANTIQO_IMAGE_VIDEO_AUTO_SELECTION=NO_STRICTLY_BETTER_REGION");
+  console.log("AVANTIQO_IMAGE_VIDEO_AUTO_SELECTION=NO_STRICTLY_BETTER_APPROVED_80GB_PLUS_REGION");
   console.log(JSON.stringify(report, null, 2));
   process.exit(0);
 }
 
 console.log(`AVANTIQO_IMAGE_VIDEO_AUTO_SELECTED_DATACENTER=${best.data_center_id}`);
+console.log(`AVANTIQO_IMAGE_VIDEO_AUTO_SELECTED_GPU=${best.gpu_type_id}`);
+console.log(`AVANTIQO_IMAGE_VIDEO_AUTO_SELECTED_PROFILE=${best.profile}`);
 console.log(`AVANTIQO_IMAGE_VIDEO_AUTO_SELECTED_STOCK=${best.stock_status}`);
 console.log(`AVANTIQO_IMAGE_VIDEO_AUTO_SOURCE_STOCK_RANK=${sourceBestRank}`);
 console.log(`AVANTIQO_IMAGE_VIDEO_AUTO_SELECTED_STOCK_RANK=${best.stock_rank}`);
 console.log(JSON.stringify(report, null, 2));
 console.log("AVANTIQO_IMAGE_VIDEO_AUTO_DELEGATING=true");
-runMigration(best.data_center_id, apply);
+runMigration(best, apply);

@@ -506,6 +506,7 @@ if (number(sourceVolume?.size ?? sourceVolume?.sizeGb, 0) < TARGET_VOLUME_SIZE_G
 const sourceVolumeId = text(sourceVolume?.id);
 const sourceDcId = text(sourceVolume?.dataCenterId);
 const sourceGpuTypes = endpointGpuTypes(endpoint);
+const sourceDataCenterIds = endpointDataCenters(endpoint);
 const sourceOtherUsers = endpointUsers(endpoints, sourceVolumeId, endpointId);
 if (sourceOtherUsers.length) {
   throw new Error(`CODE_CAPACITY_RELOCATION_SOURCE_SHARED_WITH_OTHER_ENDPOINT_REQUIRES_COORDINATED_MOVE:${JSON.stringify(sourceOtherUsers)}`);
@@ -684,7 +685,7 @@ try {
     body: {
       networkVolumeId: targetVolumeId,
       networkVolumeIds: [targetVolumeId],
-      dataCenterIds: [targetDcId],
+      dataCenterIds: [],
       gpuTypeIds: liveGpuTypes,
       workersMin: originalWorkers.min,
       workersMax: originalWorkers.max,
@@ -747,7 +748,7 @@ try {
         body: {
           networkVolumeId: sourceVolumeId,
           networkVolumeIds: [sourceVolumeId],
-          dataCenterIds: sourceDcId ? [sourceDcId] : [],
+          dataCenterIds: sourceDataCenterIds,
           gpuTypeIds: sourceGpuTypes,
           workersMin: originalWorkers.min,
           workersMax: originalWorkers.max,

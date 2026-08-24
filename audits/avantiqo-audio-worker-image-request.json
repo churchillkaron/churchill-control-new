@@ -1,11 +1,13 @@
 {
-  "contract": "AVANTIQO_AUDIO_WORKER_IMAGE_REQUEST_V1",
+  "contract": "AVANTIQO_AUDIO_WORKER_IMAGE_REQUEST_V2",
   "requested_for": "avantiqo-audio-v1",
   "source_path": "services/avantiqo-audio-engine",
+  "source_sha": "82403a7bc5f75dd53f4bbe6e2a1fe5fbcc3ed2e4",
   "runtime": "ACE-Step-1.5",
   "variant": "acestep-v15-turbo",
   "registry": "ghcr.io",
   "immutable_digest_required": true,
+  "cuda_import_smoke_required": true,
   "provider_job_submitted": false,
   "production_web_deploy": false,
   "pricing_activation_performed": false

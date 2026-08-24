@@ -21,7 +21,9 @@ const MAX_EXECUTION_WAIT_MS = Math.max(
   Number(process.env.AVANTIQO_RUNPOD_BENCHMARK_EXECUTION_TIMEOUT_MS || 25 * 60 * 1000),
 );
 const QUALITY_MODEL = "Qwen/Qwen-Image-2512";
-const QUALITY_RUNTIME_REVISION = "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V1";
+const QUALITY_RUNTIME_REVISION = "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2";
+const QUALITY_POLICY = "QWEN_IMAGE_2512_REALISM_IDENTITY_PHYSICS_V2";
+const QUALITY_COMPILER_CONTRACT = "AVANTIQO_IMAGE_QUALITY_COMPILER_V2";
 const DEFAULT_QUALITY_INSTRUCTION = [
   "Create a photorealistic luxury product photograph of a real, recognizable perfume bottle.",
   "The bottle is rectangular black smoked glass with precise beveled edges, realistic transparent glass thickness visible around the perimeter, and a heavy brushed-gold metal cap with clean manufactured geometry.",
@@ -61,6 +63,12 @@ function errorDetail(body = {}) {
 function safeMetric(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? Math.round(number) : null;
+}
+function stringList(value) {
+  return String(value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 function logProgress(jobId, status, started, body = {}, reason = "STATUS") {
   const elapsedSeconds = Math.max(0, Math.round((performance.now() - started) / 1000));
@@ -214,6 +222,9 @@ const inferenceSteps = qualityMode ? 50 : 28;
 const uploadTemplate = required("AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL");
 const referenceTemplate = required("AVANTIQO_IMAGE_BENCHMARK_STORAGE_REFERENCE");
 const instruction = text(process.env.AVANTIQO_IMAGE_BENCHMARK_INSTRUCTION) || DEFAULT_QUALITY_INSTRUCTION;
+const requiredQualityCompilerRules = stringList(
+  process.env.AVANTIQO_IMAGE_BENCHMARK_REQUIRED_QUALITY_RULES,
+);
 const runs = Math.max(1, Math.min(10, Number(process.env.AVANTIQO_IMAGE_BENCHMARK_RUNS || 1)));
 const observations = [];
 const supabaseUrl = text(process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -243,6 +254,7 @@ for (let index = 0; index < runs; index += 1) {
   console.log(`AVANTIQO_IMAGE_BENCHMARK_FOUNDATION=${foundationModel}`);
   console.log(`AVANTIQO_IMAGE_BENCHMARK_DIMENSIONS=${expectedWidth}x${expectedHeight}`);
   console.log(`AVANTIQO_IMAGE_BENCHMARK_STEPS=${inferenceSteps}`);
+  console.log(`AVANTIQO_IMAGE_BENCHMARK_REQUIRED_QUALITY_RULES=${requiredQualityCompilerRules.join("|") || "NONE"}`);
   console.log(`AVANTIQO_IMAGE_BENCHMARK_INSTRUCTION=${instruction}`);
   const { body, wallMs, jobId } = await runQueued(endpointId, {
     contract: CONTRACT,
@@ -265,21 +277,33 @@ for (let index = 0; index < runs; index += 1) {
   }, apiKey);
   const output = body.output || {};
   const guidance = output.generation_guidance || {};
+  const compiler = output.quality_compiler || {};
+  const compilerRules = Array.isArray(compiler.rules) ? compiler.rules.map(text).filter(Boolean) : [];
   const trueCfgVerified =
     text(guidance.mode).toUpperCase() === "TRUE_CFG" &&
     Number(guidance.scale) === 4 &&
     guidance.negative_prompt_supplied === true;
+  const qualityCompilerVerified = !qualityMode ||
+    (text(compiler.contract) === QUALITY_COMPILER_CONTRACT &&
+      text(compiler.quality_policy) === QUALITY_POLICY &&
+      compiler.negative_policy_applied === true &&
+      compiler.compiled_prompt_persisted === false &&
+      requiredQualityCompilerRules.every((rule) => compilerRules.includes(rule)));
   const qualityRuntimeVerified = !qualityMode ||
     (text(output.runtime_revision) === QUALITY_RUNTIME_REVISION &&
       text(output.foundation_model_source) === "runpod-cache" &&
       guidance.negative_prompt_has_content === true &&
-      text(guidance.quality_policy) === "QWEN_IMAGE_2512_REALISM_V1" &&
-      Number(output.inference_steps) === 50);
+      text(guidance.quality_policy) === QUALITY_POLICY &&
+      text(guidance.quality_compiler_contract) === QUALITY_COMPILER_CONTRACT &&
+      Number(output.inference_steps) === 50 &&
+      qualityCompilerVerified);
   console.log(
     `AVANTIQO_IMAGE_GENERATION_GUIDANCE=${JSON.stringify({
       required: requireTrueCfg,
       verified: requireTrueCfg ? trueCfgVerified : null,
       quality_runtime_verified: qualityMode ? qualityRuntimeVerified : null,
+      quality_compiler_verified: qualityMode ? qualityCompilerVerified : null,
+      quality_compiler_rules: compilerRules,
       ...guidance,
     })}`,
   );
@@ -301,7 +325,10 @@ for (let index = 0; index < runs; index += 1) {
     storage_reference: storageReference,
     preview_url: previewUrl,
     generation_guidance: guidance,
+    quality_compiler: compiler,
+    quality_compiler_rules: compilerRules,
     true_cfg_verified: requireTrueCfg ? trueCfgVerified : null,
+    quality_compiler_verified: qualityMode ? qualityCompilerVerified : null,
     quality_runtime_verified: qualityMode ? qualityRuntimeVerified : null,
     passed:
       text(output.capability) === "ai.image.generate" &&
@@ -310,13 +337,14 @@ for (let index = 0; index < runs; index += 1) {
       Number(output.size_bytes) > 10000 &&
       output.raw_reasoning_persisted === false &&
       (!requireTrueCfg || trueCfgVerified) &&
-      qualityRuntimeVerified,
+      qualityRuntimeVerified &&
+      qualityCompilerVerified,
   });
 }
 
 const wall = observations.map((item) => item.wall_ms);
 const report = {
-  contract: "AVANTIQO_IMAGE_CERTIFICATION_BENCHMARK_V1",
+  contract: "AVANTIQO_IMAGE_CERTIFICATION_BENCHMARK_V2",
   generated_at: new Date().toISOString(),
   activation_allowed: false,
   purpose: "MEASURE_ONLY_DO_NOT_ACTIVATE_PRICING",
@@ -328,6 +356,10 @@ const report = {
     expected_height: expectedHeight,
     inference_steps: inferenceSteps,
     true_cfg_scale: 4.0,
+    runtime_revision: qualityMode ? QUALITY_RUNTIME_REVISION : null,
+    quality_policy: qualityMode ? QUALITY_POLICY : null,
+    quality_compiler_contract: qualityMode ? QUALITY_COMPILER_CONTRACT : null,
+    required_quality_compiler_rules: requiredQualityCompilerRules,
   },
   runpod_wait_policy: {
     submission_mode: "ASYNC_RUN_STATUS_POLLING",
@@ -349,6 +381,9 @@ const report = {
       : null,
     qwen_2512_quality_runtime_verified: qualityMode
       ? observations.length > 0 && observations.every((item) => item.quality_runtime_verified === true)
+      : null,
+    qwen_2512_quality_compiler_verified: qualityMode
+      ? observations.length > 0 && observations.every((item) => item.quality_compiler_verified === true)
       : null,
     p50_wall_ms: percentile(wall, 0.5),
     p95_wall_ms: percentile(wall, 0.95),

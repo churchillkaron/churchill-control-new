@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const turnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
+const turnPath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
 const fastPath = "lib/operator/runtime/OperatorFastConversationRuntime.js";
 const [turnSource, fastSource] = await Promise.all([
   readFile(turnPath, "utf8"),
@@ -146,6 +146,7 @@ for (const dangerous of [
 }
 
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION_AUDIT=PASS");
+console.log("OPERATOR_RECOMMENDATION_DISCUSSION_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION=THINKING_ONLY_NO_EXECUTION");
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION_NEUTRAL=EXACT_PENDING_PRESERVED");
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION_MULTILINGUAL=SV_DE_FR_ES_TH_PRESERVED");

@@ -1,5 +1,6 @@
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
+const GRAPHQL_URL = "https://api.runpod.io/graphql";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -55,6 +56,15 @@ function nullableNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function stockScore(value) {
+  const status = text(value).toUpperCase();
+  if (status === "HIGH") return 4;
+  if (status === "MEDIUM") return 3;
+  if (status === "LOW") return 2;
+  if (status && status !== "NONE" && status !== "UNAVAILABLE") return 1;
+  return 0;
+}
+
 function sanitizeWorker(worker = {}) {
   return {
     id: worker.id || null,
@@ -91,6 +101,17 @@ function sanitizeNetworkVolume(volume = {}) {
   };
 }
 
+function sanitizeGpu(gpu = {}) {
+  const status = text(gpu.stockStatus) || null;
+  return {
+    gpu_type_id: text(gpu.gpuTypeId) || null,
+    gpu_name: text(gpu.gpuTypeDisplayName || gpu.displayName) || null,
+    available: gpu.available === true,
+    stock_status: status,
+    schedulable_stock_reported: gpu.available === true && stockScore(status) > 0,
+  };
+}
+
 function endpointNetworkVolumeIds(endpoint = {}) {
   return [
     text(endpoint.networkVolumeId),
@@ -98,19 +119,101 @@ function endpointNetworkVolumeIds(endpoint = {}) {
   ].filter(Boolean);
 }
 
+async function discoverGpuAvailability(credential) {
+  if (!text(credential)) {
+    return {
+      available: false,
+      http_status: null,
+      data_centers: [],
+      error: "RUNPOD_MANAGEMENT_CREDENTIAL_UNAVAILABLE",
+    };
+  }
+
+  const query = `
+    query AvantiqoCodeDiagnosticGpuAvailability($input: GpuAvailabilityInput) {
+      dataCenters {
+        id
+        name
+        location
+        storageSupport
+        gpuAvailability(input: $input) {
+          available
+          stockStatus
+          gpuTypeId
+          gpuTypeDisplayName
+          displayName
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await fetch(`${GRAPHQL_URL}?api_key=${encodeURIComponent(credential)}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        variables: {
+          input: {
+            gpuCount: 1,
+            minDisk: 5,
+            minMemoryInGb: 80,
+            secureCloud: true,
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const body = await json(response);
+    const errors = list(body?.errors).map((entry) => text(entry?.message)).filter(Boolean);
+    const dataCenters = list(body?.data?.dataCenters);
+    if (!response.ok || errors.length || !Array.isArray(body?.data?.dataCenters)) {
+      return {
+        available: false,
+        http_status: response.status,
+        data_centers: [],
+        error: errors.join(" | ") || text(body?.message || body?.error) || "INVALID_RESPONSE",
+      };
+    }
+    return {
+      available: true,
+      http_status: response.status,
+      data_centers: dataCenters,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      available: false,
+      http_status: null,
+      data_centers: [],
+      error: text(error?.message || error) || "RUNPOD_GPU_AVAILABILITY_FAILED",
+    };
+  }
+}
+
 const runtimeApiKey = required("RUNPOD_API_KEY");
 const managementApiKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
+const managementCredential = managementApiKey || runtimeApiKey;
 const endpointId = required("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID");
 const runtimeAuthorization = {
   Authorization: `Bearer ${runtimeApiKey}`,
   Accept: "application/json",
 };
 const managementAuthorization = {
-  Authorization: `Bearer ${managementApiKey || runtimeApiKey}`,
+  Authorization: `Bearer ${managementCredential}`,
   Accept: "application/json",
 };
 
-const [endpointsResponse, templatesResponse, networkVolumesResponse, healthResponse] = await Promise.all([
+const [
+  endpointsResponse,
+  templatesResponse,
+  networkVolumesResponse,
+  healthResponse,
+  gpuAvailability,
+] = await Promise.all([
   fetch(`${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`, {
     headers: managementAuthorization,
   }),
@@ -122,6 +225,7 @@ const [endpointsResponse, templatesResponse, networkVolumesResponse, healthRespo
   fetch(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`, {
     headers: runtimeAuthorization,
   }),
+  discoverGpuAvailability(managementCredential),
 ]);
 
 const endpointsBody = await json(endpointsResponse);
@@ -178,28 +282,82 @@ const attachedNetworkVolumes = attachedNetworkVolumeIds.map((volumeId) => ({
     ? sanitizeNetworkVolume(networkVolumeById.get(volumeId))
     : null,
 }));
+const attachedVolumeDataCenterIds = [
+  ...new Set(
+    attachedNetworkVolumes
+      .map((entry) => text(entry?.volume?.data_center_id))
+      .filter(Boolean),
+  ),
+];
 
 const workers = health?.workers || {};
 const jobs = health?.jobs || {};
+const queuedJobs = number(jobs.inQueue);
 const operationalWorkers = number(workers.idle) + number(workers.ready) + number(workers.running);
 const initializingWorkers = number(workers.initializing);
-const gpuTypes = endpoint && Array.isArray(endpoint.gpuTypeIds) ? endpoint.gpuTypeIds : [];
+const gpuTypes = endpoint && Array.isArray(endpoint.gpuTypeIds) ? endpoint.gpuTypeIds.map(text).filter(Boolean) : [];
 const dataCenters = endpoint && Array.isArray(endpoint.dataCenterIds)
-  ? endpoint.dataCenterIds
+  ? endpoint.dataCenterIds.map(text).filter(Boolean)
   : endpoint && text(endpoint.dataCenterIds)
     ? text(endpoint.dataCenterIds).split(",").map((value) => value.trim()).filter(Boolean)
     : [];
+const effectiveDataCenterIds = attachedVolumeDataCenterIds.length
+  ? attachedVolumeDataCenterIds
+  : dataCenters;
+const effectiveDataCenters = effectiveDataCenterIds.map((dataCenterId) => {
+  const source = gpuAvailability.data_centers.find((candidate) => text(candidate?.id) === dataCenterId) || null;
+  return {
+    id: dataCenterId,
+    name: text(source?.name) || null,
+    location: text(source?.location) || null,
+    storage_support: source?.storageSupport ?? null,
+    gpu_availability: list(source?.gpuAvailability).map(sanitizeGpu),
+  };
+});
+const boundGpuCapacity = effectiveDataCenters.flatMap((dataCenter) =>
+  gpuTypes.map((gpuTypeId) => {
+    const match = dataCenter.gpu_availability.find((gpu) => gpu.gpu_type_id === gpuTypeId) || null;
+    return {
+      data_center_id: dataCenter.id,
+      gpu_type_id: gpuTypeId,
+      returned_by_availability_api: Boolean(match),
+      available: match?.available ?? null,
+      stock_status: match?.stock_status ?? null,
+      schedulable_stock_reported: match?.schedulable_stock_reported ?? false,
+    };
+  }),
+);
+const boundGpuStockReportedAvailable = boundGpuCapacity.some(
+  (entry) => entry.schedulable_stock_reported === true,
+);
+const boundGpuStockReportedUnavailable = (
+  gpuAvailability.available
+  && effectiveDataCenterIds.length > 0
+  && gpuTypes.length > 0
+  && boundGpuCapacity.length === effectiveDataCenterIds.length * gpuTypes.length
+  && !boundGpuStockReportedAvailable
+);
 
 let readiness = "UNKNOWN";
 if (operationalWorkers > 0) readiness = "READY_OR_RUNNING";
 else if (initializingWorkers > 0) readiness = "WORKER_INITIALIZING_NO_READY_CAPACITY";
+else if (queuedJobs > 0 && boundGpuStockReportedUnavailable) readiness = "QUEUED_NO_BOUND_GPU_STOCK";
+else if (queuedJobs > 0) readiness = "QUEUED_NO_WORKER_CAPACITY";
 else if (endpoint && number(endpoint.workersMin) === 0) readiness = "SCALE_TO_ZERO_IDLE";
-else if (number(jobs.inQueue) === 0) readiness = "NO_ACTIVE_WORKER_QUEUE_CLEAN";
-else readiness = "NO_WORKER_CAPACITY";
+else readiness = "NO_ACTIVE_WORKER_QUEUE_CLEAN";
+
+const success = !["QUEUED_NO_BOUND_GPU_STOCK", "QUEUED_NO_WORKER_CAPACITY"].includes(readiness);
+const nextAction = readiness === "QUEUED_NO_BOUND_GPU_STOCK"
+  ? "WIDEN_GPU_POOL_IN_ATTACHED_VOLUME_DATACENTER_OR_RELOCATE_STORAGE"
+  : readiness === "QUEUED_NO_WORKER_CAPACITY" && boundGpuStockReportedAvailable
+    ? "INSPECT_RUNPOD_SCHEDULER_OR_WORKER_START_FAILURE"
+    : readiness === "QUEUED_NO_WORKER_CAPACITY"
+      ? "RESOLVE_EFFECTIVE_DATACENTER_GPU_CAPACITY"
+      : null;
 
 const report = {
-  success: readiness !== "NO_WORKER_CAPACITY",
-  contract: "AVANTIQO_CODE_RUNPOD_DIAGNOSTIC_V4",
+  success,
+  contract: "AVANTIQO_CODE_RUNPOD_DIAGNOSTIC_V5",
   mutation_performed: false,
   provider_job_submitted: false,
   generation_performed: false,
@@ -213,8 +371,11 @@ const report = {
     endpoint_bound_template_list_available: templateListAvailable,
     network_volume_list_http_status: networkVolumesResponse.status,
     network_volume_list_available: networkVolumeListAvailable,
+    gpu_availability_http_status: gpuAvailability.http_status,
+    gpu_availability_available: gpuAvailability.available,
+    gpu_availability_error: gpuAvailability.error,
     note: managementScopeAvailable
-      ? "Account-level Code endpoint, endpoint-bound template, and network-volume configuration were read without mutation."
+      ? "Account-level Code endpoint, endpoint-bound template, network-volume configuration, and GPU availability were read without mutation."
       : "Management configuration was unavailable; runtime health remains available.",
   },
   endpoint: endpoint ? {
@@ -226,6 +387,12 @@ const report = {
     gpu_type_count: gpuTypes.length,
     data_center_ids: dataCenters,
     data_center_scope: dataCenters.length ? "RESTRICTED" : "ANY",
+    effective_data_center_ids: effectiveDataCenterIds,
+    worker_placement_scope: attachedVolumeDataCenterIds.length
+      ? "NETWORK_VOLUME_DATACENTER"
+      : dataCenters.length
+        ? "ENDPOINT_DATACENTER_RESTRICTION"
+        : "RUNPOD_AVAILABLE_DATACENTERS",
     allowed_cuda_versions: endpoint.allowedCudaVersions || [],
     min_cuda_version: endpoint.minCudaVersion || null,
     workers_min: endpoint.workersMin ?? null,
@@ -249,13 +416,22 @@ const report = {
     id: endpointId,
     configuration_unavailable_without_management_scope: true,
   },
+  gpu_capacity: {
+    minimum_memory_gb: 80,
+    secure_cloud: true,
+    effective_data_center_ids: effectiveDataCenterIds,
+    effective_data_centers: effectiveDataCenters,
+    bound_gpu_capacity: boundGpuCapacity,
+    bound_gpu_stock_reported_available: boundGpuStockReportedAvailable,
+    bound_gpu_stock_reported_unavailable: boundGpuStockReportedUnavailable,
+  },
   account_network_volumes: networkVolumes.map(sanitizeNetworkVolume),
   health: {
     jobs: {
       completed: number(jobs.completed),
       failed: number(jobs.failed),
       in_progress: number(jobs.inProgress),
-      in_queue: number(jobs.inQueue),
+      in_queue: queuedJobs,
       retried: number(jobs.retried),
     },
     workers: {
@@ -270,13 +446,18 @@ const report = {
   },
   diagnosis: {
     readiness,
-    queue_is_clean: number(jobs.inQueue) === 0,
+    queue_is_clean: queuedJobs === 0,
+    queued_job_requires_capacity: queuedJobs > 0,
     initialization_in_progress: initializingWorkers > 0,
     management_scope_required_for_gpu_template_details: !managementScopeAvailable,
     template_id_present: Boolean(templateId),
     template_resolved: Boolean(resolvedTemplate),
     template_resolution_source: templateResolutionSource,
     persistent_network_volume_attached: attachedNetworkVolumeIds.length > 0,
+    volume_region_constrains_worker_placement: attachedVolumeDataCenterIds.length > 0,
+    bound_gpu_stock_reported_available: boundGpuStockReportedAvailable,
+    bound_gpu_stock_reported_unavailable: boundGpuStockReportedUnavailable,
+    next_action: nextAction,
     runtime_probe_should_not_load_model: true,
   },
 };

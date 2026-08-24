@@ -67,7 +67,7 @@ assert.equal(
 
 const [recommendationSource, turnSource, turnCoreSource] = await Promise.all([
   readFile("lib/operator/contracts/OperatorRecommendationState.js", "utf8"),
-  readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorTurnRuntimeLegacy.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntimeCore.js", "utf8"),
 ]);
 
@@ -102,6 +102,7 @@ assert.match(turnCoreSource, /runPendingPostActionVerification/);
 assert.match(turnCoreSource, /verifyOperatorExecution/);
 
 console.log("OPERATOR_BUSINESS_PARTNER_DECISION_LOOP_AUDIT=PASS");
+console.log("OPERATOR_BUSINESS_PARTNER_DECISION_LOOP_RUNTIME=LEGACY_PLUS_CORE_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_RECOMMENDATION=EXACT_REGISTERED_PROPOSAL");
 console.log("OPERATOR_RECOMMENDATION_AUTHORIZATION=NEVER_IMPLICIT");
 console.log("OPERATOR_RECOMMENDATION_AGREEMENT=DECISION_WITHOUT_EXECUTION");

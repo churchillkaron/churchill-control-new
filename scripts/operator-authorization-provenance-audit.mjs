@@ -156,8 +156,35 @@ assert.ok(
   "Mission writes without step-specific confirmation evidence must stay conservative",
 );
 assert.ok(
-  executionEngineSource.includes("stampOperatorAuthorizationEvidence(payload"),
-  "UBTE must stamp trusted in-memory authorization evidence before capability execution",
+  executionEngineSource.includes("let executionPayload = payload"),
+  "UBTE must establish the exact payload that will cross validation and execution boundaries",
+);
+assert.ok(
+  executionEngineSource.includes("executionPayload = missionBindingPrepared.payload"),
+  "Mission binding must replace the execution payload before authorization evidence is stamped",
+);
+assert.ok(
+  executionEngineSource.includes("stampOperatorAuthorizationEvidence(executionPayload"),
+  "UBTE must stamp trusted in-memory authorization evidence onto the actual execution payload",
+);
+const executionPayloadBindingIndex = executionEngineSource.indexOf(
+  "executionPayload = missionBindingPrepared.payload",
+);
+const authorizationStampIndex = executionEngineSource.indexOf(
+  "stampOperatorAuthorizationEvidence(executionPayload",
+);
+const validationIndex = executionEngineSource.indexOf(
+  "await runValidation({",
+);
+assert.ok(
+  executionPayloadBindingIndex >= 0 &&
+    authorizationStampIndex > executionPayloadBindingIndex &&
+    validationIndex > authorizationStampIndex,
+  "Mission binding must settle the exact execution payload before trusted authorization evidence is stamped and validation begins",
+);
+assert.ok(
+  executionEngineSource.includes("payload: executionPayload"),
+  "Validation and capability execution must consume the same evidence-stamped execution payload",
 );
 assert.ok(
   executionEngineSource.includes("conversationallyConfirmed: originMode === \"user_confirmed\""),
@@ -273,6 +300,7 @@ const legacyTurnFlagPresent = turnSource.includes("conversationallyConfirmed: tr
 
 console.log("OPERATOR_AUTHORIZATION_PROVENANCE_AUDIT=PASS");
 console.log("OPERATOR_AUTHORIZATION_PROVENANCE_TURN_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER");
+console.log("OPERATOR_AUTHORIZATION_EVIDENCE_PAYLOAD=BOUND_EXECUTION_PAYLOAD");
 console.log("OPERATOR_AUDIT_AUTHORIZATION=TRUSTED_RUNTIME_EVIDENCE_WITH_CONSERVATIVE_FALLBACK");
 console.log("OPERATOR_RUNTIME_AUTHORIZATION=UBTE_BOUNDARY_NORMALIZED");
 console.log("OPERATOR_RUNTIME_EVIDENCE=NON_ENUMERABLE_SERVER_ONLY");

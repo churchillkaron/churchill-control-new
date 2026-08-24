@@ -6,6 +6,7 @@ const AUDIO_TEMPLATE_NAME = "avantiqo-audio-v1";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-audio-worker-image.json";
 const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_ENDPOINT_PROVISION_V3";
 const EXPECTED_CUDA_RUNTIME = "12.8";
+const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
 const DEFAULT_GPU_TYPE_IDS = Object.freeze([
   "NVIDIA L4",
   "NVIDIA RTX A5000",
@@ -69,13 +70,19 @@ async function imageEvidence() {
   } catch {
     throw new Error("AVANTIQO_AUDIO_IMMUTABLE_WORKER_IMAGE_EVIDENCE_REQUIRED");
   }
-  if (parsed?.success !== true || parsed?.contract !== "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2") {
-    throw new Error("AVANTIQO_AUDIO_HARDENED_WORKER_IMAGE_EVIDENCE_REQUIRED");
+  if (parsed?.success !== true || parsed?.contract !== "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3") {
+    throw new Error("AVANTIQO_AUDIO_XL_LM_WORKER_IMAGE_EVIDENCE_REQUIRED");
   }
   if (
     parsed?.source_sha_matches_trigger !== true ||
     text(parsed?.source_sha) !== text(parsed?.trigger_sha) ||
     text(parsed?.cuda_runtime_expected) !== EXPECTED_CUDA_RUNTIME ||
+    text(parsed?.runtime_variant) !== "acestep-v15-xl-turbo" ||
+    text(parsed?.quality_profile) !== EXPECTED_QUALITY_PROFILE ||
+    parsed?.ace_step_lm_required !== true ||
+    text(parsed?.ace_step_lm_model) !== "acestep-5Hz-lm-1.7B" ||
+    text(parsed?.ace_step_lm_backend) !== "vllm" ||
+    parsed?.thinking_required !== true ||
     parsed?.cuda_enabled_torch_required !== true ||
     parsed?.owned_handler_import_smoke_required !== true ||
     parsed?.native_audio_import_smoke_required !== true ||
@@ -97,6 +104,7 @@ async function imageEvidence() {
     source_sha: sourceSha,
     trigger_sha: text(parsed.trigger_sha),
     cuda_runtime: EXPECTED_CUDA_RUNTIME,
+    quality_profile: EXPECTED_QUALITY_PROFILE,
     cuda_import_smoke_passed: true,
     native_audio_import_smoke_passed: true,
   };
@@ -108,11 +116,13 @@ function desiredTemplateEnv() {
     AVANTIQO_AUDIO_DEVICE: "cuda",
     AVANTIQO_AUDIO_MODEL_FAMILY: "ACE_STEP_1_5",
     AVANTIQO_AUDIO_FOUNDATION_MODEL: "ACE-Step/Ace-Step1.5",
-    AVANTIQO_AUDIO_MODEL_VARIANT: "acestep-v15-turbo",
+    AVANTIQO_AUDIO_MODEL_VARIANT: "acestep-v15-xl-turbo",
+    AVANTIQO_AUDIO_LM_MODEL: "acestep-5Hz-lm-1.7B",
+    AVANTIQO_AUDIO_LM_BACKEND: "vllm",
     AVANTIQO_AUDIO_MODEL_SOURCE: "huggingface",
     AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES: "ai.music.generate",
     AVANTIQO_AUDIO_FITNESS_LOAD_MODEL: "false",
-    ACESTEP_INIT_LLM: "false",
+    ACESTEP_INIT_LLM: "true",
     HF_HOME: "/opt/ace-step/checkpoints/.hf-cache",
   };
 }
@@ -189,6 +199,7 @@ if (endpointMatches.length === 1) {
     endpoint_exists: true,
     endpoint: safeEndpoint(endpointMatches[0]),
     hardened_image_evidence_verified: true,
+    quality_profile: image.quality_profile,
     image_source_sha: image.source_sha,
     image_source_matches_trigger: true,
     cuda_runtime: image.cuda_runtime,
@@ -224,6 +235,7 @@ const plan = {
   source_sha: image.source_sha,
   trigger_sha: image.trigger_sha,
   source_sha_matches_trigger: true,
+  quality_profile: image.quality_profile,
   cuda_runtime: image.cuda_runtime,
   cuda_import_smoke_passed: image.cuda_import_smoke_passed,
   native_audio_import_smoke_passed: image.native_audio_import_smoke_passed,
@@ -234,7 +246,7 @@ const plan = {
   gpu_type_ids: gpuTypeIds,
   gpu_policy: configuredGpuTypeIds.length
     ? "EXPLICIT_OVERRIDE"
-    : "ECONOMICAL_24GB_NO_LM_PRIORITY",
+    : "ECONOMICAL_24GB_XL_LM_PRIORITY",
   workers_min: 0,
   workers_max: workersMax,
   idle_timeout_seconds: idleTimeout,
@@ -273,7 +285,7 @@ if (!template) {
       isPublic: false,
       isServerless: true,
       ports: [],
-      readme: "Avantiqo-owned Music worker. ACE-Step 1.5 turbo, LM disabled, generation-only certification lane.",
+      readme: "Avantiqo-owned Music worker. ACE-Step 1.5 XL Turbo plus 1.7B LM with thinking enabled; generation certification lane.",
       volumeInGb: 0,
       volumeMountPath: "/workspace",
     },

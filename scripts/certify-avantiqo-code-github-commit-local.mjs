@@ -20,6 +20,7 @@ const ECONOMICS_CONTRACT = "AVANTIQO_CODE_ECONOMICS_V1";
 const PROMOTION_CONTRACT = "AVANTIQO_CODE_PROMOTION_PLAN_V1";
 const SANDBOX_CONTRACT = "AVANTIQO_CODE_SANDBOX_CERTIFICATION_EVIDENCE_V1";
 const APPROVAL = "AVANTIQO_CODE_GITHUB_LIVE_CERTIFICATION_APPROVED";
+const ALLOW_DIRTY_WORKTREE = "AVANTIQO_CODE_GITHUB_LIVE_ALLOW_DIRTY_WORKTREE";
 const OUTPUT = resolve(
   process.env.AVANTIQO_CODE_GITHUB_LIVE_CERTIFICATION_OUTPUT ||
     "/tmp/avantiqo-code-github-live-certification.json",
@@ -146,12 +147,23 @@ async function localRepositoryState() {
 
   if (branch !== "main") throw new Error(`AVANTIQO_CODE_GITHUB_LIVE_MAIN_REQUIRED:${branch || "DETACHED"}`);
   if (!/^[a-f0-9]{40}$/i.test(baseCommit)) throw new Error("AVANTIQO_CODE_GITHUB_LIVE_BASE_COMMIT_INVALID");
-  if (status) throw new Error("AVANTIQO_CODE_GITHUB_LIVE_LOCAL_WORKTREE_MUST_BE_CLEAN");
+  const worktreeDirty = Boolean(status);
+  const dirtyWorktreeAllowed = worktreeDirty && yes(process.env[ALLOW_DIRTY_WORKTREE]);
+  if (worktreeDirty && !dirtyWorktreeAllowed) {
+    throw new Error("AVANTIQO_CODE_GITHUB_LIVE_LOCAL_WORKTREE_MUST_BE_CLEAN");
+  }
   if (!repositoryRemoteAllowed(origin)) {
     throw new Error(`AVANTIQO_CODE_GITHUB_LIVE_ORIGIN_MISMATCH:${origin || "MISSING"}`);
   }
 
-  return { branch, baseCommit, origin };
+  return {
+    branch,
+    baseCommit,
+    origin,
+    worktree_dirty: worktreeDirty,
+    dirty_worktree_allowed: dirtyWorktreeAllowed,
+    worktree_status_sha256: worktreeDirty ? sha256(status) : null,
+  };
 }
 
 async function syncLocalMain() {
@@ -201,12 +213,18 @@ const artifact = {
       sha256: item.sha256,
     }]),
   ),
+  local_repository: {
+    worktree_dirty: local.worktree_dirty,
+    dirty_worktree_allowed_for_certification: local.dirty_worktree_allowed,
+    worktree_status_sha256: local.worktree_status_sha256,
+  },
   guarantees: {
     mission_attested: true,
     exact_base_required: true,
     force_forbidden: true,
     post_commit_verification_required: true,
     direct_git_push_used: false,
+    local_worktree_not_modified_by_github_write: true,
     production_deploy_performed: false,
   },
 };
@@ -228,6 +246,8 @@ const missionState = attestCodeMissionState({
     promotion_plan_ready_for_pricing_review: true,
     sandbox_execution_certified: true,
     direct_push_blocked: true,
+    local_worktree_dirty: local.worktree_dirty,
+    local_worktree_preserved: true,
   }],
   source_changes: [{
     path: REPOSITORY_EVIDENCE_PATH,
@@ -249,6 +269,8 @@ try {
     actual_base_commit: error?.actual_base_commit || null,
     stale_base_replan_required: stale,
     safe_to_retry_after_ff_sync: stale,
+    local_worktree_dirty: local.worktree_dirty,
+    local_worktree_preserved: true,
   });
   process.exit(1);
 }
@@ -266,6 +288,8 @@ try {
     live_github_commit_performed: true,
     governed_commit_verified: commitResult?.verified === true,
     verification_read_required: true,
+    local_worktree_dirty: local.worktree_dirty,
+    local_worktree_preserved: true,
   });
   process.exit(1);
 }
@@ -283,16 +307,19 @@ if (
 }
 
 let localSync = {
-  attempted: true,
+  attempted: !local.worktree_dirty,
   success: false,
   head: local.baseCommit,
+  skipped_reason: local.worktree_dirty ? "PRESERVE_DIRTY_LOCAL_WORKTREE" : null,
   error: null,
 };
-try {
-  localSync.head = await syncLocalMain();
-  localSync.success = true;
-} catch (error) {
-  localSync.error = text(error?.message || error).slice(0, 500);
+if (!local.worktree_dirty) {
+  try {
+    localSync.head = await syncLocalMain();
+    localSync.success = true;
+  } catch (error) {
+    localSync.error = text(error?.message || error).slice(0, 500);
+  }
 }
 
 const result = {
@@ -310,6 +337,10 @@ const result = {
   exact_artifact_recovery_verified: true,
   recovery_history_limit: recoveryResult.recovery_history_limit,
   main_advanced_after_commit: recoveryResult.main_advanced_after_commit,
+  local_worktree_dirty: local.worktree_dirty,
+  dirty_worktree_allowed_for_certification: local.dirty_worktree_allowed,
+  local_worktree_preserved: true,
+  worktree_status_sha256: local.worktree_status_sha256,
   force_used: false,
   direct_git_push_used: false,
   evidence_fingerprints: Object.fromEntries(
@@ -333,8 +364,11 @@ console.log(JSON.stringify({
   commit_sha: result.commit_sha,
   governed_commit_verified: true,
   exact_artifact_recovery_verified: true,
-  force_used: false,
+  local_worktree_dirty: result.local_worktree_dirty,
+  local_worktree_preserved: true,
+  local_sync_attempted: localSync.attempted,
   local_sync_success: localSync.success,
+  force_used: false,
   live_github_commit_performed: true,
   production_deploy_performed: false,
 }, null, 2));

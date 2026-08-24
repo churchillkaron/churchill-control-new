@@ -1,10 +1,20 @@
+import {
+  assertManagedVolumeCreationAllowed,
+  classifyManagedVolumeName,
+  resolveReusableGroupVolume,
+  sharedVolumeGroup,
+  sharedVolumePolicySummary,
+} from "./lib/avantiqo-runpod-shared-volumes.mjs";
+
 const REST_BASE = "https://rest.runpod.io/v1";
 const GRAPHQL_URL = "https://api.runpod.io/graphql";
 const IMAGE_ENDPOINT_NAME = "avantiqo-image-v1";
-const DEFAULT_VOLUME_NAME = "avantiqo-image-model-cache";
+const SHARED_VOLUME_GROUP = sharedVolumeGroup("IMAGE_VIDEO");
+const DEFAULT_VOLUME_NAME = SHARED_VOLUME_GROUP.canonical_name;
 const DEFAULT_VOLUME_SIZE_GB = 80;
 const DEFAULT_STORAGE_USD_PER_GB_MONTH = 0.07;
 const REQUIRED_2512_FREE_BYTES = 63_068_709_120;
+const CONTRACT = "AVANTIQO_IMAGE_RUNPOD_STORAGE_V2";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -212,11 +222,17 @@ const requestedSizeGb = positiveInteger(
   process.env.AVANTIQO_IMAGE_NETWORK_VOLUME_SIZE_GB,
   DEFAULT_VOLUME_SIZE_GB,
 );
+const configuredVolumeName = text(process.env.AVANTIQO_IMAGE_NETWORK_VOLUME_NAME);
+if (configuredVolumeName && configuredVolumeName !== DEFAULT_VOLUME_NAME) {
+  throw new Error(
+    `AVANTIQO_IMAGE_NETWORK_VOLUME_NAME_FIXED_BY_SHARED_POLICY:expected=${DEFAULT_VOLUME_NAME}:actual=${configuredVolumeName}`,
+  );
+}
 const monthlyRate = finite(
   process.env.AVANTIQO_RUNPOD_NETWORK_VOLUME_USD_PER_GB_MONTH,
   DEFAULT_STORAGE_USD_PER_GB_MONTH,
 );
-const volumeName = text(process.env.AVANTIQO_IMAGE_NETWORK_VOLUME_NAME) || DEFAULT_VOLUME_NAME;
+const volumeName = DEFAULT_VOLUME_NAME;
 const estimatedMonthlyUsd = Number((requestedSizeGb * monthlyRate).toFixed(2));
 const requestedBytes = requestedSizeGb * 1024 ** 3;
 
@@ -227,6 +243,8 @@ if (requestedBytes < REQUIRED_2512_FREE_BYTES) {
 }
 
 console.log(`AVANTIQO_IMAGE_STORAGE_MODE=${apply ? "APPLY" : "PLAN"}`);
+console.log(`AVANTIQO_IMAGE_STORAGE_SHARED_GROUP=${SHARED_VOLUME_GROUP.id}`);
+console.log(`AVANTIQO_IMAGE_STORAGE_CANONICAL_VOLUME_NAME=${volumeName}`);
 console.log(`AVANTIQO_IMAGE_STORAGE_REQUESTED_GB=${requestedSizeGb}`);
 console.log(`AVANTIQO_IMAGE_STORAGE_ESTIMATED_MONTHLY_USD=${estimatedMonthlyUsd.toFixed(2)}`);
 console.log("AVANTIQO_IMAGE_STORAGE_SECRET_VALUES_PRINTED=false");
@@ -250,15 +268,28 @@ if (!Array.isArray(volumes)) throw new Error("RUNPOD_NETWORK_VOLUME_LIST_INVALID
 const alreadyAttached = endpointVolumeIds(endpoint);
 if (alreadyAttached.length) {
   const existingAttached = volumes.filter((volume) => alreadyAttached.includes(text(volume?.id)));
+  if (existingAttached.length !== alreadyAttached.length) {
+    throw new Error("AVANTIQO_IMAGE_STORAGE_ATTACHED_VOLUME_LOOKUP_FAILED");
+  }
+  const wrongGroup = existingAttached.filter(
+    (volume) => classifyManagedVolumeName(volume?.name)?.id !== SHARED_VOLUME_GROUP.id,
+  );
+  if (wrongGroup.length) {
+    throw new Error(
+      `AVANTIQO_IMAGE_STORAGE_ATTACHED_VOLUME_WRONG_SHARED_GROUP:count=${wrongGroup.length}`,
+    );
+  }
   console.log("AVANTIQO_IMAGE_STORAGE_ALREADY_ATTACHED=true");
   console.log(
     JSON.stringify(
       {
         success: true,
-        contract: "AVANTIQO_IMAGE_RUNPOD_STORAGE_V1",
+        contract: CONTRACT,
         mode: apply ? "APPLY" : "PLAN",
         mutation_performed: false,
         endpoint: safeEndpoint(endpoint),
+        shared_volume_group: SHARED_VOLUME_GROUP.id,
+        shared_volume_policy: sharedVolumePolicySummary(volumes),
         attached_volumes: existingAttached.map(safeVolume),
         next_action: "CACHE_QWEN_IMAGE_2512",
       },
@@ -278,33 +309,36 @@ const candidates = evaluateDatacenters(dataCenters, endpointGpuTypes);
 if (!candidates.length) {
   throw new Error("AVANTIQO_IMAGE_STORAGE_NO_COMPATIBLE_STORAGE_DATACENTER_WITH_GPU_STOCK");
 }
-const selectedDatacenter = candidates[0];
 
-const sameNameVolumes = volumes.filter((volume) => text(volume?.name) === volumeName);
-if (sameNameVolumes.length > 1) {
-  throw new Error(`AVANTIQO_IMAGE_STORAGE_AMBIGUOUS_EXISTING_VOLUMES:count=${sameNameVolumes.length}`);
-}
-const sameNameVolume = sameNameVolumes[0] || null;
-if (sameNameVolume && finite(sameNameVolume.size, 0) < requestedSizeGb) {
+const reusable = resolveReusableGroupVolume(volumes, SHARED_VOLUME_GROUP);
+const sharedVolume = reusable.volume;
+if (sharedVolume && finite(sharedVolume.size, 0) < requestedSizeGb) {
   throw new Error(
-    `AVANTIQO_IMAGE_STORAGE_EXISTING_VOLUME_TOO_SMALL:id=${text(sameNameVolume.id)}:size_gb=${finite(sameNameVolume.size, 0)}:requested_gb=${requestedSizeGb}`,
+    `AVANTIQO_IMAGE_STORAGE_EXISTING_SHARED_VOLUME_TOO_SMALL:id=${text(sharedVolume.id)}:size_gb=${finite(sharedVolume.size, 0)}:requested_gb=${requestedSizeGb}`,
   );
 }
-if (
-  sameNameVolume &&
-  text(sameNameVolume.dataCenterId) !== selectedDatacenter.id
-) {
-  throw new Error(
-    `AVANTIQO_IMAGE_STORAGE_EXISTING_VOLUME_DATACENTER_MISMATCH:id=${text(sameNameVolume.id)}:actual=${text(sameNameVolume.dataCenterId)}:selected=${selectedDatacenter.id}`,
+
+let selectedDatacenter = candidates[0];
+if (sharedVolume) {
+  const compatibleExistingDc = candidates.find(
+    (candidate) => candidate.id === text(sharedVolume.dataCenterId),
   );
+  if (!compatibleExistingDc) {
+    throw new Error(
+      `AVANTIQO_IMAGE_STORAGE_SHARED_VOLUME_DATACENTER_INCOMPATIBLE:id=${text(sharedVolume.id)}:data_center_id=${text(sharedVolume.dataCenterId)}:additional_regional_volume_forbidden=true`,
+    );
+  }
+  selectedDatacenter = compatibleExistingDc;
 }
 
 const plan = {
   success: true,
-  contract: "AVANTIQO_IMAGE_RUNPOD_STORAGE_V1",
+  contract: CONTRACT,
   mode: apply ? "APPLY" : "PLAN",
   mutation_performed: false,
   endpoint: safeEndpoint(endpoint),
+  shared_volume_group: SHARED_VOLUME_GROUP.id,
+  shared_volume_policy: sharedVolumePolicySummary(volumes),
   qwen_2512_required_free_bytes: REQUIRED_2512_FREE_BYTES,
   requested_volume: {
     name: volumeName,
@@ -313,13 +347,17 @@ const plan = {
   },
   selected_datacenter: selectedDatacenter,
   compatible_datacenters: candidates,
-  reusable_existing_volume: sameNameVolume ? safeVolume(sameNameVolume) : null,
+  reusable_existing_volume: sharedVolume ? safeVolume(sharedVolume) : null,
+  reusable_volume_resolution: reusable.resolution,
   safety: {
     network_volume_create_requires_apply: true,
     endpoint_patch_requires_apply: true,
     automatic_delete_on_failure: false,
     generation_submitted: false,
     production_deploy_performed: false,
+    maximum_managed_cache_volumes: 3,
+    additional_image_video_volume_forbidden: true,
+    shared_volume_datacenter_is_authoritative_when_present: true,
   },
 };
 
@@ -329,7 +367,6 @@ if (!apply) {
   process.exit(0);
 }
 
-// Re-read immediately before mutation so apply cannot proceed on a stale endpoint state.
 const endpointBeforeWrite = await restRequest(
   `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
   managementKey,
@@ -341,9 +378,20 @@ if (text(endpointBeforeWrite.templateId) !== text(endpoint.templateId)) {
   throw new Error("AVANTIQO_IMAGE_STORAGE_CONCURRENT_TEMPLATE_CHANGE_DETECTED");
 }
 
-let volume = sameNameVolume;
+const freshVolumes = await restRequest("/networkvolumes", managementKey);
+if (!Array.isArray(freshVolumes)) throw new Error("RUNPOD_NETWORK_VOLUME_LIST_INVALID_BEFORE_WRITE");
+const freshReusable = resolveReusableGroupVolume(freshVolumes, SHARED_VOLUME_GROUP);
+if (Boolean(freshReusable.volume) !== Boolean(sharedVolume)) {
+  throw new Error("AVANTIQO_IMAGE_STORAGE_CONCURRENT_SHARED_VOLUME_CHANGE_DETECTED");
+}
+if (freshReusable.volume && text(freshReusable.volume.id) !== text(sharedVolume?.id)) {
+  throw new Error("AVANTIQO_IMAGE_STORAGE_CONCURRENT_SHARED_VOLUME_ID_CHANGE_DETECTED");
+}
+
+let volume = freshReusable.volume;
 let volumeAction = "REUSED";
 if (!volume) {
+  assertManagedVolumeCreationAllowed(freshVolumes, SHARED_VOLUME_GROUP);
   volume = await restRequest("/networkvolumes", managementKey, {
     method: "POST",
     body: {
@@ -352,7 +400,7 @@ if (!volume) {
       size: requestedSizeGb,
     },
   });
-  volumeAction = "CREATED";
+  volumeAction = "CREATED_SHARED_IMAGE_VIDEO";
 }
 
 const volumeId = text(volume?.id);
@@ -382,6 +430,12 @@ const verifiedAttachedIds = endpointVolumeIds(verifiedEndpoint);
 if (!verifiedAttachedIds.includes(volumeId)) {
   throw new Error("AVANTIQO_IMAGE_STORAGE_ATTACHMENT_VERIFICATION_FAILED");
 }
+if (classifyManagedVolumeName(verifiedVolume?.name)?.id !== SHARED_VOLUME_GROUP.id) {
+  throw new Error("AVANTIQO_IMAGE_STORAGE_SHARED_GROUP_VERIFICATION_FAILED");
+}
+if (text(verifiedVolume?.dataCenterId) !== selectedDatacenter.id) {
+  throw new Error("AVANTIQO_IMAGE_STORAGE_DATACENTER_VERIFICATION_FAILED");
+}
 if (finite(verifiedVolume?.size, 0) < requestedSizeGb) {
   throw new Error("AVANTIQO_IMAGE_STORAGE_VOLUME_SIZE_VERIFICATION_FAILED");
 }
@@ -396,6 +450,10 @@ console.log(
       endpoint: safeEndpoint(verifiedEndpoint),
       volume: safeVolume(verifiedVolume),
       volume_action: volumeAction,
+      shared_volume_policy_after: sharedVolumePolicySummary([
+        ...freshVolumes.filter((entry) => text(entry?.id) !== volumeId),
+        verifiedVolume,
+      ]),
       next_action: "REFRESH_IMAGE_WORKER_THEN_CACHE_QWEN_IMAGE_2512",
     },
     null,

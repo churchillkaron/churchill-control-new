@@ -1,0 +1,135 @@
+name: Avantiqo Audio Worker Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-audio-worker-release-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-audio-worker-release
+  cancel-in-progress: false
+
+jobs:
+  release-audio-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify Audio worker release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-audio-engine/Dockerfile
+          test -f services/avantiqo-audio-engine/handler.py
+          grep -F 'ACE-Step-1.5.git' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'git checkout 14c0211d5a0653b0f63e27686f4c3f151b4d8629' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-turbo' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_ENGINE_V1' services/avantiqo-audio-engine/handler.py
+          grep -F 'ACE_STEP_1_5' services/avantiqo-audio-engine/handler.py
+          grep -F 'DEFAULT_CERTIFIED_CAPABILITIES = {"ai.music.generate"}' services/avantiqo-audio-engine/handler.py
+          echo 'AVANTIQO_AUDIO_WORKER_RELEASE_PREFLIGHT=PASS'
+
+      - name: Create immutable Audio worker release
+        id: release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          short_sha="${release_sha:0:12}"
+          tag="avantiqo-audio-worker-${short_sha}"
+          status="FAILED"
+
+          if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            status="EXISTS"
+          elif gh release create "$tag" \
+            --repo "$GH_REPO" \
+            --target "$release_sha" \
+            --title "Avantiqo Audio Worker ${short_sha}" \
+            --notes "Avantiqo-owned Audio/Music RunPod worker release. Source-locked ACE-Step 1.5 turbo runtime. This release does not deploy the Avantiqo web application, submit provider jobs, change pricing, or modify production databases."; then
+            status="CREATED"
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "release_status=$status" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_AUDIO_WORKER_RELEASE_STATUS=$status"
+          echo "AVANTIQO_AUDIO_WORKER_RELEASE_TAG=$tag"
+          echo "AVANTIQO_AUDIO_WORKER_RELEASE_SHA=$release_sha"
+
+          if [ "$status" = "FAILED" ]; then
+            exit 1
+          fi
+
+      - name: Record sanitized release evidence on main
+        if: always()
+        env:
+          RELEASE_STATUS: ${{ steps.release.outputs.release_status || 'NOT_RUN' }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag || '' }}
+          RELEASE_SHA: ${{ steps.release.outputs.release_sha || '' }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audits/results
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          const report = {
+            success: ["CREATED", "EXISTS"].includes(process.env.RELEASE_STATUS || ""),
+            contract: "AVANTIQO_AUDIO_WORKER_RELEASE_RESULT_V1",
+            release_status: process.env.RELEASE_STATUS || "NOT_RUN",
+            release_tag: process.env.RELEASE_TAG || null,
+            release_sha: process.env.RELEASE_SHA || null,
+            github_run_id: process.env.RELEASE_RUN_ID || null,
+            runtime: "ACE-Step-1.5",
+            runtime_variant: "acestep-v15-turbo",
+            certified_capability_default: "ai.music.generate",
+            production_web_deploy: false,
+            database_migration: false,
+            provider_job_submitted: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false,
+          };
+          writeFileSync(
+            "audits/results/avantiqo-audio-worker-release.json",
+            `${JSON.stringify(report)}\n`,
+            "utf8",
+          );
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audits/results/avantiqo-audio-worker-release.json
+          if git diff --cached --quiet; then
+            echo "AVANTIQO_AUDIO_WORKER_RELEASE_EVIDENCE_UNCHANGED=YES"
+            exit 0
+          fi
+          git commit -m "Record Audio worker release result"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+      - name: Enforce release success
+        if: always()
+        env:
+          RELEASE_STATUS: ${{ steps.release.outputs.release_status || 'NOT_RUN' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RELEASE_STATUS" in
+            CREATED|EXISTS) ;;
+            *) echo "AVANTIQO_AUDIO_WORKER_RELEASE_FAILED=$RELEASE_STATUS"; exit 1 ;;
+          esac

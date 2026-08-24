@@ -3,6 +3,7 @@ const QUEUE_BASE = "https://api.runpod.ai/v2";
 const IMAGE_ENDPOINT_NAME = "avantiqo-image-v1";
 const CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1";
 const TARGET_MODEL = "Qwen/Qwen-Image-2512";
+const CACHE_COMPLETION_CONTRACT = "AVANTIQO_IMAGE_CACHE_COMPLETION_V1";
 const TEMP_EXECUTION_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const POLL_MS = 10_000;
 const MAX_WAIT_MS = 110 * 60 * 1000;
@@ -22,6 +23,10 @@ function required(name) {
   return value;
 }
 
+function approved(value) {
+  return ["YES", "TRUE", "1", "APPROVED"].includes(text(value).toUpperCase());
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -37,6 +42,14 @@ function sameArray(left, right) {
 function failedJobIdFromArgs() {
   const arg = process.argv.find((value) => value.startsWith("--failed-job-id="));
   return text(arg ? arg.slice("--failed-job-id=".length) : process.env.AVANTIQO_IMAGE_FAILED_CACHE_JOB_ID);
+}
+
+function queueCounts(health = {}) {
+  const jobs = health?.jobs || {};
+  return {
+    queued: finite(jobs.inQueue ?? jobs.in_queue, 0),
+    in_progress: finite(jobs.inProgress ?? jobs.in_progress, 0),
+  };
 }
 
 async function restRequest(path, credential, options = {}) {
@@ -83,6 +96,9 @@ async function queueRequest(endpointId, path, inferenceKey, options = {}) {
     body = null;
   }
   if (!response.ok) {
+    if (response.status === 404 && options.allowNotFound === true) {
+      return { __not_found: true, status_code: 404 };
+    }
     const detail = text(body?.error || body?.message || raw).slice(0, 1000);
     throw new Error(`RUNPOD_QUEUE_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
   }
@@ -119,15 +135,23 @@ function sameProtectedConfig(left = {}, right = {}) {
 
 function cacheOutputValid(job = {}) {
   const output = job.output || {};
+  const integrity = output.cache_integrity || {};
   return (
     text(output.target_model) === TARGET_MODEL &&
     output.cache_ready === true &&
     output.inference_performed === false &&
-    text(output.foundation_model_source) === "runpod-cache"
+    text(output.foundation_model_source) === "runpod-cache" &&
+    text(integrity.contract) === CACHE_COMPLETION_CONTRACT &&
+    integrity.completion_marker_valid === true &&
+    Array.isArray(integrity.missing_required_files) &&
+    integrity.missing_required_files.length === 0
   );
 }
 
 const apply = process.argv.includes("--apply");
+const expiredFailedJobApproved =
+  process.argv.includes("--expired-failed-job-ok") ||
+  approved(process.env.AVANTIQO_IMAGE_EXPIRED_FAILED_JOB_APPROVED);
 const failedJobId = failedJobIdFromArgs();
 if (!failedJobId) {
   throw new Error("AVANTIQO_IMAGE_FAILED_CACHE_JOB_ID_REQUIRED_USE_--failed-job-id=<job-id>");
@@ -167,14 +191,35 @@ console.log(`AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_ENDPOINT_RESOLUTION=${configure
 
 const [endpoint, failedJob] = await Promise.all([
   restRequest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey),
-  queueRequest(endpointId, `/status/${encodeURIComponent(failedJobId)}`, inferenceKey),
+  queueRequest(endpointId, `/status/${encodeURIComponent(failedJobId)}`, inferenceKey, { allowNotFound: true }),
 ]);
 if (text(endpoint?.name) !== IMAGE_ENDPOINT_NAME) {
   throw new Error("AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_ENDPOINT_NAME_MISMATCH");
 }
-const failedStatus = text(failedJob?.status).toUpperCase();
-const failedReason = text(failedJob?.error || failedJob?.output?.error);
-if (failedStatus !== "FAILED" || !failedReason.toLowerCase().includes("executiontimeout")) {
+
+const failedJobExpired = failedJob?.__not_found === true;
+let failedStatus = text(failedJob?.status).toUpperCase();
+let failedReason = text(failedJob?.error || failedJob?.output?.error);
+let expiredQueueCheck = null;
+
+if (failedJobExpired) {
+  if (!expiredFailedJobApproved) {
+    throw new Error(
+      "AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_HISTORICAL_JOB_EXPIRED_USE_--expired-failed-job-ok",
+    );
+  }
+  const health = await queueRequest(endpointId, "/health", inferenceKey);
+  expiredQueueCheck = queueCounts(health);
+  if (expiredQueueCheck.queued !== 0 || expiredQueueCheck.in_progress !== 0) {
+    throw new Error(
+      `AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_EXPIRED_JOB_QUEUE_NOT_IDLE:queued=${expiredQueueCheck.queued}:in_progress=${expiredQueueCheck.in_progress}`,
+    );
+  }
+  failedStatus = "EXPIRED";
+  failedReason = "RUNPOD_STATUS_404_HISTORICAL_RECORD_EXPIRED";
+  console.log("AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_HISTORICAL_JOB=EXPIRED_404_EXPLICITLY_APPROVED");
+  console.log("AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_QUEUE_IDLE=YES");
+} else if (failedStatus !== "FAILED" || !failedReason.toLowerCase().includes("executiontimeout")) {
   throw new Error(
     `AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_FAILED_JOB_NOT_TIMEOUT:status=${failedStatus || "UNKNOWN"}:reason=${failedReason || "MISSING"}`,
   );
@@ -199,7 +244,7 @@ if (original.execution_timeout_ms >= TEMP_EXECUTION_TIMEOUT_MS) {
 
 const plan = {
   success: true,
-  contract: "AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_V1",
+  contract: "AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_V2",
   mode: apply ? "APPLY" : "PLAN",
   endpoint: {
     name: IMAGE_ENDPOINT_NAME,
@@ -209,7 +254,10 @@ const plan = {
     id: failedJobId,
     status: failedStatus,
     reason: failedReason,
+    historical_record_expired: failedJobExpired,
+    explicit_expired_record_approval: failedJobExpired ? expiredFailedJobApproved : false,
   },
+  expired_record_queue_check: expiredQueueCheck,
   protected_configuration: {
     template_id: original.template_id,
     network_volume_ids: original.network_volume_ids,
@@ -224,6 +272,7 @@ const plan = {
   },
   new_cache_job_required: true,
   persistent_cache_reused: true,
+  strict_cache_completion_contract: CACHE_COMPLETION_CONTRACT,
   safety: {
     image_endpoint_only: true,
     gpu_pool_mutation: false,
@@ -232,6 +281,7 @@ const plan = {
     worker_scaling_mutation: false,
     production_deploy: false,
     one_new_cache_job_only: true,
+    queue_must_be_idle_when_historical_record_expired: true,
   },
 };
 
@@ -320,6 +370,17 @@ try {
     );
   }
 
+  if (failedJobExpired) {
+    const healthBeforeWrite = await queueRequest(endpointId, "/health", inferenceKey);
+    const countsBeforeWrite = queueCounts(healthBeforeWrite);
+    if (countsBeforeWrite.queued !== 0 || countsBeforeWrite.in_progress !== 0) {
+      throw new Error(
+        `AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_EXPIRED_JOB_QUEUE_CHANGED_BEFORE_WRITE:queued=${countsBeforeWrite.queued}:in_progress=${countsBeforeWrite.in_progress}`,
+      );
+    }
+    console.log("AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_QUEUE_IDLE_BEFORE_WRITE=YES");
+  }
+
   await restRequest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
     method: "PATCH",
     body: { executionTimeoutMs: TEMP_EXECUTION_TIMEOUT_MS },
@@ -341,6 +402,17 @@ try {
   console.log(
     `AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_TIMEOUT_EXTENDED=true temporary_ms=${TEMP_EXECUTION_TIMEOUT_MS}`,
   );
+
+  if (failedJobExpired) {
+    const healthBeforeSubmit = await queueRequest(endpointId, "/health", inferenceKey);
+    const countsBeforeSubmit = queueCounts(healthBeforeSubmit);
+    if (countsBeforeSubmit.queued !== 0 || countsBeforeSubmit.in_progress !== 0) {
+      throw new Error(
+        `AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_EXPIRED_JOB_QUEUE_CHANGED_BEFORE_SUBMIT:queued=${countsBeforeSubmit.queued}:in_progress=${countsBeforeSubmit.in_progress}`,
+      );
+    }
+    console.log("AVANTIQO_IMAGE_CACHE_TIMEOUT_RESUME_QUEUE_IDLE_BEFORE_SUBMIT=YES");
+  }
 
   const submit = await queueRequest(endpointId, "/run", inferenceKey, {
     method: "POST",

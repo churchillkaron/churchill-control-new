@@ -2,30 +2,9 @@ const REST = "https://rest.runpod.io/v1";
 const GQL = "https://api.runpod.io/graphql";
 const SERVERLESS = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_CODE_GPU_REBIND_V1";
+const MINIMUM_VRAM_GB = 80;
 
 const PROFILES = Object.freeze([
-  Object.freeze({
-    key: "L40S_48GB",
-    match: /\bL40S\b/i,
-    usd_per_hour_reference: 1.75,
-    priority: 3200,
-    production_certified: false,
-  }),
-  Object.freeze({
-    key: "RTX_6000_ADA_48GB",
-    match: /RTX\s*6000\s*ADA/i,
-    usd_per_hour_reference: 1.75,
-    priority: 3100,
-    production_certified: false,
-  }),
-  Object.freeze({
-    key: "L40_48GB",
-    match: /\bL40\b/i,
-    exclude: /L40S/i,
-    usd_per_hour_reference: 1.75,
-    priority: 3000,
-    production_certified: false,
-  }),
   Object.freeze({
     key: "RTX_PRO_6000_96GB",
     match: /RTX\s*PRO\s*6000/i,
@@ -195,7 +174,7 @@ query CodeGpuAvailability($input: GpuAvailabilityInput) {
         input: {
           gpuCount: 1,
           minDisk: 5,
-          minMemoryInGb: 48,
+          minMemoryInGb: MINIMUM_VRAM_GB,
           secureCloud: true,
         },
       },
@@ -271,6 +250,7 @@ async function main() {
     contract: CONTRACT,
     mode: apply ? "APPLY" : "PLAN",
     certification_mode: certificationMode,
+    minimum_vram_gb: MINIMUM_VRAM_GB,
     endpoint: {
       id: endpointId,
       gpu_type_ids: currentGpuIds,

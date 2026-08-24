@@ -34,6 +34,9 @@ const economics = read("scripts/avantiqo-music-economics.mjs");
 const reviewPrep = read("scripts/prepare-avantiqo-music-human-review.mjs");
 const reviewFinalizer = read("scripts/finalize-avantiqo-music-human-review.mjs");
 const promotionPlan = read("scripts/plan-avantiqo-music-promotion.mjs");
+const runpodInspector = read("scripts/inspect-avantiqo-audio-runpod-worker-local.mjs");
+const endpointBinder = read("scripts/bind-avantiqo-audio-endpoint-local.mjs");
+const certificationWorkflow = read(".github/workflows/avantiqo-music-certification.yml");
 
 requirePattern(route, /UsageRuntime\.get\(usageId\)/, "music-status-must-resolve-governed-usage-server-side");
 requirePattern(route, /CreativeMusicFinishingRuntime\.ensureMaster/, "music-route-must-trigger-automatic-mastering");
@@ -113,6 +116,28 @@ requirePattern(promotionPlan, /automatic_activation_forbidden:\s*true/, "music-p
 requirePattern(promotionPlan, /pricing_mutation_performed:\s*false/, "music-promotion-plan-must-not-mutate-pricing");
 requirePattern(promotionPlan, /ready_for_explicit_promotion:\s*false/, "music-promotion-plan-must-require-explicit-promotion-step");
 
+requirePattern(runpodInspector, /includeEndpointBoundTemplates=true/, "music-runpod-inspector-must-resolve-endpoint-bound-templates");
+requirePattern(runpodInspector, /RUNPOD_MANAGEMENT_API_KEY/, "music-runpod-inspector-must-use-dedicated-management-credential");
+requirePattern(runpodInspector, /read_only:\s*true/, "music-runpod-inspector-must-remain-read-only");
+requirePattern(runpodInspector, /runpod_generation_jobs_submitted:\s*0/, "music-runpod-inspector-must-not-spend-provider-generation");
+requirePattern(runpodInspector, /secret_values_in_output:\s*false/, "music-runpod-inspector-must-not-print-secret-values");
+
+requirePattern(endpointBinder, /AVANTIQO_AUDIO_ENGINE_V1/, "music-endpoint-binder-must-fingerprint-audio-contract");
+requirePattern(endpointBinder, /AVANTIQO_AUDIO_CAPABILITY_NOT_IMPLEMENTED/, "music-endpoint-binder-must-prove-audio-worker-identity");
+requirePattern(endpointBinder, /COLLIDES_WITH_OTHER_CONFIGURED_ENGINE/, "music-endpoint-binder-must-reject-cross-engine-endpoint-collision");
+requirePattern(endpointBinder, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID_BOUND_LOCAL=true/, "music-endpoint-binder-must-only-bind-local-audio-endpoint");
+requirePattern(endpointBinder, /MODEL_GENERATION_PERFORMED=false/, "music-endpoint-binder-fingerprint-must-not-generate-music");
+requirePattern(endpointBinder, /PRODUCTION_DEPLOY_PERFORMED=false/, "music-endpoint-binder-must-not-deploy-production");
+
+requirePattern(certificationWorkflow, /audits\/avantiqo-music-certification-request\.json/, "music-certification-workflow-must-use-dedicated-request-trigger");
+requirePattern(certificationWorkflow, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID/, "music-certification-workflow-must-bind-owned-audio-endpoint");
+requirePattern(certificationWorkflow, /NEXT_PUBLIC_SUPABASE_URL/, "music-certification-workflow-must-have-private-storage-url-secret");
+requirePattern(certificationWorkflow, /SUPABASE_SERVICE_ROLE_KEY/, "music-certification-workflow-must-have-private-storage-service-secret");
+requirePattern(certificationWorkflow, /AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED:\s*"YES"/, "music-certification-workflow-must-explicitly-approve-single-controlled-spend");
+requirePattern(certificationWorkflow, /AVANTIQO_AUDIO_BENCHMARK_RUNS:\s*"1"/, "music-certification-workflow-must-default-to-one-controlled-run");
+requirePattern(certificationWorkflow, /AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS:\s*"12"/, "music-certification-workflow-must-default-to-short-controlled-duration");
+requirePattern(certificationWorkflow, /activation_allowed !== false/, "music-certification-workflow-must-verify-no-production-activation");
+
 requirePattern(router, /music:\s*MusicWorkspace/, "creative-router-must-route-music-workspace");
 requirePattern(registry, /id:\s*"music"/, "creative-registry-must-own-music-workspace");
 
@@ -129,6 +154,9 @@ console.log("MUSIC_AUTOMATIC_MASTERING=REQUIRED");
 console.log("MUSIC_VERSION_HISTORY=REQUIRED");
 console.log("MUSIC_CLIENT_PROVIDER_SELECTION=HIDDEN");
 console.log("MUSIC_BENCHMARK=SPEND_GUARDED_AND_SYNTHETIC_SCOPE_ONLY");
+console.log("MUSIC_RUNPOD_INSPECTION=READ_ONLY_ENDPOINT_BOUND_TEMPLATE_AWARE");
+console.log("MUSIC_ENDPOINT_BINDING=FINGERPRINT_PROVEN_LOCAL_ONLY");
+console.log("MUSIC_CERTIFICATION_WORKFLOW=DEDICATED_MEASURE_ONLY");
 console.log("MUSIC_ECONOMICS=MEASUREMENT_REQUIRED_BEFORE_PRICING_PROMOTION");
 console.log("MUSIC_HUMAN_QUALITY=EXPLICIT_LISTENING_REVIEW_REQUIRED");
 console.log("MUSIC_PROMOTION=PLAN_ONLY_EXPLICIT_ACTIVATION_REQUIRED");

@@ -8,7 +8,18 @@ const EXPECTED_FP8_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
 const DEFAULT_EXPECTED_QUANTIZATION = "fp8";
 const DEFAULT_EXPECTED_SERVING_RUNTIME = "vllm";
 const DEFAULT_TIMEOUT_MS = 12 * 60 * 1000;
+const DEFAULT_QUEUE_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_POLL_MS = 2000;
+const DEFAULT_PROGRESS_INTERVAL_MS = 15_000;
+const CLEANUP_TIMEOUT_MS = 3 * 60 * 1000;
+const CLEANUP_POLL_MS = 3000;
+const TERMINAL_JOB_STATUSES = new Set([
+  "COMPLETED",
+  "FAILED",
+  "TIMED_OUT",
+  "CANCELLED",
+  "CANCELED",
+]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -51,12 +62,122 @@ function runpodError(prefix, response, body) {
   return new Error(`${prefix}_${response.status}:${text(body?.error || body?.message || body?.status)}`);
 }
 
-async function runAndWait(endpointId, input, apiKey) {
+function healthCounters(health = {}) {
+  const jobs = health.jobs || {};
+  const workers = health.workers || {};
+  return {
+    jobs: {
+      in_queue: number(jobs.inQueue ?? jobs.in_queue, 0),
+      in_progress: number(jobs.inProgress ?? jobs.in_progress, 0),
+      completed: number(jobs.completed, 0),
+      failed: number(jobs.failed, 0),
+      retried: number(jobs.retried, 0),
+    },
+    workers: {
+      idle: number(workers.idle, 0),
+      initializing: number(workers.initializing, 0),
+      ready: number(workers.ready, 0),
+      running: number(workers.running, 0),
+      throttled: number(workers.throttled, 0),
+      unhealthy: number(workers.unhealthy, 0),
+    },
+  };
+}
+
+async function runpodRequest(endpointId, path, apiKey, options = {}) {
+  const response = await fetch(`${API_BASE}/${endpointId}${path}`, {
+    method: options.method || "GET",
+    headers: headers(apiKey),
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: AbortSignal.timeout(options.timeoutMs || 30_000),
+  });
+  const body = await responseBody(response);
+  if (!response.ok) throw runpodError(options.errorPrefix || "RUNPOD_HTTP", response, body);
+  return body;
+}
+
+async function cancelAndSettle(endpointId, jobId, apiKey, caseId) {
+  const deadline = Date.now() + CLEANUP_TIMEOUT_MS;
+  let body = null;
+  let status = "";
+
+  try {
+    body = await runpodRequest(
+      endpointId,
+      `/status/${encodeURIComponent(jobId)}`,
+      apiKey,
+      { errorPrefix: "RUNPOD_CLEANUP_STATUS_HTTP" },
+    );
+    status = text(body?.status).toUpperCase();
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "AVANTIQO_CODE_BENCHMARK_JOB_CLEANUP_STATUS_READ_FAILED",
+      case_id: caseId,
+      job_id: jobId,
+      error: text(error?.message || error).slice(0, 500),
+    }));
+  }
+
+  if (!TERMINAL_JOB_STATUSES.has(status)) {
+    try {
+      await runpodRequest(
+        endpointId,
+        `/cancel/${encodeURIComponent(jobId)}`,
+        apiKey,
+        { method: "POST", errorPrefix: "RUNPOD_CLEANUP_CANCEL_HTTP" },
+      );
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "AVANTIQO_CODE_BENCHMARK_JOB_CANCEL_REQUEST_FAILED",
+        case_id: caseId,
+        job_id: jobId,
+        error: text(error?.message || error).slice(0, 500),
+      }));
+    }
+  }
+
+  while (!TERMINAL_JOB_STATUSES.has(status)) {
+    if (Date.now() >= deadline) {
+      throw new Error(`RUNPOD_JOB_CLEANUP_UNVERIFIED:${caseId}:${jobId}:${status || "UNKNOWN"}`);
+    }
+    await delay(CLEANUP_POLL_MS);
+    try {
+      body = await runpodRequest(
+        endpointId,
+        `/status/${encodeURIComponent(jobId)}`,
+        apiKey,
+        { errorPrefix: "RUNPOD_CLEANUP_STATUS_HTTP" },
+      );
+      status = text(body?.status).toUpperCase();
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "AVANTIQO_CODE_BENCHMARK_JOB_CLEANUP_RETRY",
+        case_id: caseId,
+        job_id: jobId,
+        error: text(error?.message || error).slice(0, 500),
+      }));
+    }
+  }
+
+  console.error(JSON.stringify({
+    event: "AVANTIQO_CODE_BENCHMARK_JOB_CLEANUP",
+    case_id: caseId,
+    job_id: jobId,
+    terminal_status: status,
+    verified: true,
+  }));
+  return status;
+}
+
+async function runAndWait(endpointId, input, apiKey, context = {}) {
+  const caseId = text(context.caseId) || "unknown";
   const started = performance.now();
+  const startedAt = Date.now();
   const submit = await fetch(`${API_BASE}/${endpointId}/run`, {
     method: "POST",
     headers: headers(apiKey),
     body: JSON.stringify({ input }),
+    signal: AbortSignal.timeout(30_000),
   });
   let body = await responseBody(submit);
   if (!submit.ok) throw runpodError("RUNPOD_SUBMIT_HTTP", submit, body);
@@ -64,31 +185,97 @@ async function runAndWait(endpointId, input, apiKey) {
   const jobId = text(body?.id);
   if (!jobId) throw new Error("RUNPOD_JOB_ID_REQUIRED");
 
-  const timeoutMs = Math.max(30000, Math.min(30 * 60 * 1000, number(process.env.AVANTIQO_CODE_BENCHMARK_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)));
-  const pollMs = Math.max(500, Math.min(10000, number(process.env.AVANTIQO_CODE_BENCHMARK_POLL_MS, DEFAULT_POLL_MS)));
-  const deadline = Date.now() + timeoutMs;
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_BENCHMARK_JOB",
+    case_id: caseId,
+    job_id: jobId,
+    run: context.run || null,
+    total_runs: context.totalRuns || null,
+  }));
 
-  while (true) {
+  const timeoutMs = Math.max(
+    30_000,
+    Math.min(30 * 60 * 1000, number(process.env.AVANTIQO_CODE_BENCHMARK_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)),
+  );
+  const queueTimeoutMs = Math.max(
+    30_000,
+    Math.min(timeoutMs, number(process.env.AVANTIQO_CODE_BENCHMARK_QUEUE_TIMEOUT_MS, DEFAULT_QUEUE_TIMEOUT_MS)),
+  );
+  const pollMs = Math.max(
+    500,
+    Math.min(10_000, number(process.env.AVANTIQO_CODE_BENCHMARK_POLL_MS, DEFAULT_POLL_MS)),
+  );
+  const progressIntervalMs = Math.max(
+    5000,
+    Math.min(60_000, number(process.env.AVANTIQO_CODE_BENCHMARK_PROGRESS_INTERVAL_MS, DEFAULT_PROGRESS_INTERVAL_MS)),
+  );
+  let lastProgressAt = 0;
+
+  try {
+    while (true) {
+      const status = text(body?.status).toUpperCase();
+      const elapsedMs = Date.now() - startedAt;
+      if (status === "COMPLETED") {
+        return {
+          body,
+          wallMs: Math.round(performance.now() - started),
+          jobId,
+        };
+      }
+      if (TERMINAL_JOB_STATUSES.has(status)) {
+        throw new Error(`RUNPOD_JOB_${status}:${text(body?.error || body?.message)}`);
+      }
+      if (status === "IN_QUEUE" && elapsedMs >= queueTimeoutMs) {
+        await cancelAndSettle(endpointId, jobId, apiKey, caseId);
+        throw new Error(`RUNPOD_JOB_QUEUE_TIMEOUT:${caseId}:${jobId}:${Math.round(elapsedMs / 1000)}s`);
+      }
+      if (elapsedMs >= timeoutMs) {
+        await cancelAndSettle(endpointId, jobId, apiKey, caseId);
+        throw new Error(`RUNPOD_JOB_TIMEOUT:${caseId}:${jobId}:${Math.round(elapsedMs / 1000)}s`);
+      }
+
+      if (Date.now() - lastProgressAt >= progressIntervalMs) {
+        let health = null;
+        let healthError = null;
+        try {
+          health = await runpodRequest(endpointId, "/health", apiKey, {
+            errorPrefix: "RUNPOD_HEALTH_HTTP",
+          });
+        } catch (error) {
+          healthError = text(error?.message || error).slice(0, 500);
+        }
+        console.log(JSON.stringify({
+          event: "AVANTIQO_CODE_BENCHMARK_PROGRESS",
+          case_id: caseId,
+          job_id: jobId,
+          status: status || "UNKNOWN",
+          elapsed_seconds: Math.round(elapsedMs / 1000),
+          health: health ? healthCounters(health) : null,
+          health_error: healthError,
+        }));
+        lastProgressAt = Date.now();
+      }
+
+      await delay(pollMs);
+      body = await runpodRequest(
+        endpointId,
+        `/status/${encodeURIComponent(jobId)}`,
+        apiKey,
+        { errorPrefix: "RUNPOD_STATUS_HTTP" },
+      );
+    }
+  } catch (error) {
     const status = text(body?.status).toUpperCase();
-    if (status === "COMPLETED") {
-      return {
-        body,
-        wallMs: Math.round(performance.now() - started),
-        jobId,
-      };
+    if (!TERMINAL_JOB_STATUSES.has(status) && !text(error?.message).startsWith("RUNPOD_JOB_CLEANUP_UNVERIFIED")) {
+      try {
+        await cancelAndSettle(endpointId, jobId, apiKey, caseId);
+      } catch (cleanupError) {
+        throw new Error(
+          `RUNPOD_JOB_FAILURE_WITH_UNVERIFIED_CLEANUP:${caseId}:${jobId}:original=${text(error?.message || error)}:cleanup=${text(cleanupError?.message || cleanupError)}`,
+        );
+      }
     }
-    if (["FAILED", "CANCELLED", "TIMED_OUT"].includes(status)) {
-      throw new Error(`RUNPOD_JOB_${status}:${text(body?.error || body?.message)}`);
-    }
-    if (Date.now() >= deadline) throw new Error(`RUNPOD_JOB_TIMEOUT:${jobId}`);
-
-    await delay(pollMs);
-    const response = await fetch(`${API_BASE}/${endpointId}/status/${jobId}`, {
-      method: "GET",
-      headers: headers(apiKey),
-    });
-    body = await responseBody(response);
-    if (!response.ok) throw runpodError("RUNPOD_STATUS_HTTP", response, body);
+    throw error;
   }
 }
 
@@ -198,6 +385,13 @@ let infrastructureFailure = null;
 
 for (let index = 0; index < runs; index += 1) {
   const sample = cases[index % cases.length];
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_BENCHMARK_CASE_START",
+    run: index + 1,
+    total_runs: runs,
+    case_id: sample.id,
+    capability: sample.capability,
+  }));
   try {
     const { body, wallMs, jobId } = await runAndWait(endpointId, {
       contract: CONTRACT,
@@ -212,7 +406,11 @@ for (let index = 0; index < runs; index += 1) {
         benchmark_case: sample.id,
         response_style: sample.plannerProtocol ? "strict_json" : "bounded",
       },
-    }, apiKey);
+    }, apiKey, {
+      caseId: sample.id,
+      run: index + 1,
+      totalRuns: runs,
+    });
 
     const output = body.output || {};
     const result = text(output.result);
@@ -257,6 +455,17 @@ for (let index = 0; index < runs; index += 1) {
       reasoning_boundary_pass: reasoningPass,
       passed: semanticPass && contractPass && reasoningPass && outputPass,
     });
+    console.log(JSON.stringify({
+      event: "AVANTIQO_CODE_BENCHMARK_CASE_COMPLETE",
+      run: index + 1,
+      total_runs: runs,
+      case_id: sample.id,
+      capability: sample.capability,
+      job_id: jobId,
+      passed: semanticPass && contractPass && reasoningPass && outputPass,
+      wall_ms: wallMs,
+      runpod_execution_ms: Number(body.executionTime) || null,
+    }));
   } catch (error) {
     infrastructureFailure = text(error?.message || error);
     observations.push({

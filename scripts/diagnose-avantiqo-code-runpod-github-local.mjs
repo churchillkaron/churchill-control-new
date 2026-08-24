@@ -168,6 +168,32 @@ function repoNameMatches(value) {
   return repo === EXPECTED_REPO || repo.endsWith(`/${EXPECTED_REPO}`);
 }
 
+function resolveCodeEndpoint(endpoints) {
+  const configuredId = text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID);
+  if (configuredId) {
+    const matches = endpoints.filter((entry) => text(entry?.id) === configuredId);
+    if (matches.length !== 1) {
+      throw new Error(
+        `AVANTIQO_CODE_RUNPOD_CONFIGURED_ENDPOINT_RESOLUTION_FAILED:id=${configuredId}:matches=${matches.length}`,
+      );
+    }
+    if (text(matches[0]?.name) !== CODE_ENDPOINT_NAME) {
+      throw new Error(
+        `AVANTIQO_CODE_RUNPOD_CONFIGURED_ENDPOINT_NAME_MISMATCH:${text(matches[0]?.name) || "MISSING"}`,
+      );
+    }
+    return { endpoint: matches[0], resolution: "CONFIGURED_ID" };
+  }
+
+  const matches = endpoints.filter((entry) => text(entry?.name) === CODE_ENDPOINT_NAME);
+  if (matches.length !== 1) {
+    throw new Error(
+      `AVANTIQO_CODE_RUNPOD_EXACT_NAME_ENDPOINT_RESOLUTION_FAILED:name=${CODE_ENDPOINT_NAME}:matches=${matches.length}`,
+    );
+  }
+  return { endpoint: matches[0], resolution: "EXACT_NAME" };
+}
+
 function classify({ githubAccount, endpoint, release, targetBuild }) {
   if (!githubAccount?.username) {
     return {
@@ -235,7 +261,6 @@ function classify({ githubAccount, endpoint, release, targetBuild }) {
   };
 }
 
-const endpointId = required("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID");
 const apiKey = required(
   "RUNPOD_MANAGEMENT_API_KEY",
   process.env.RUNPOD_API_KEY,
@@ -253,11 +278,11 @@ const [release, runpod] = await Promise.all([
 ]);
 
 const endpoints = Array.isArray(runpod?.endpoints) ? runpod.endpoints : [];
-const endpoint = endpoints.find((entry) => text(entry?.id) === endpointId);
-if (!endpoint) throw new Error(`AVANTIQO_CODE_RUNPOD_ENDPOINT_NOT_FOUND:${endpointId}`);
-if (text(endpoint.name) !== CODE_ENDPOINT_NAME) {
-  throw new Error(`AVANTIQO_CODE_RUNPOD_ENDPOINT_NAME_MISMATCH:${text(endpoint.name) || "MISSING"}`);
-}
+const endpointResolution = resolveCodeEndpoint(endpoints);
+const endpoint = endpointResolution.endpoint;
+console.log(`AVANTIQO_CODE_RUNPOD_GITHUB_ENDPOINT_RESOLUTION=${endpointResolution.resolution}`);
+console.log(`AVANTIQO_CODE_RUNPOD_GITHUB_ENDPOINT_NAME=${CODE_ENDPOINT_NAME}`);
+console.log("AVANTIQO_CODE_RUNPOD_GITHUB_ENDPOINT_SECRET_PRINTED=false");
 
 const builds = (Array.isArray(endpoint.builds) ? endpoint.builds : [])
   .slice()
@@ -277,6 +302,7 @@ const result = {
   mutation_performed: false,
   generation_submitted: false,
   production_deploy_performed: false,
+  endpoint_resolution: endpointResolution.resolution,
   github_release: {
     tag: text(release.tagName) || null,
     target_commit: targetCommit || null,

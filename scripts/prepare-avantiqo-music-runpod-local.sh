@@ -60,7 +60,10 @@ fi
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 4: PLAN DURABLE AUDIO MODEL CACHE"
 printf '%s\n' "========================================"
+set +e
 run_node scripts/provision-avantiqo-audio-runpod-storage-local.mjs --plan
+STORAGE_PLAN_STATUS=$?
+set -e
 
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 5: INSPECT AUDIO WORKER READ ONLY"
@@ -68,9 +71,25 @@ printf '%s\n' "========================================"
 run_node scripts/inspect-avantiqo-audio-runpod-worker-local.mjs
 
 if [ "$MODE" = "plan" ]; then
+  if [ "$STORAGE_PLAN_STATUS" -eq 2 ]; then
+    echo "AVANTIQO_MUSIC_RUNPOD_PREPARE=PLAN_BLOCKED_SHARED_CACHE_CONSOLIDATION"
+    echo "AVANTIQO_MUSIC_RUNPOD_MUTATION_PERFORMED=false"
+    exit 2
+  fi
+  if [ "$STORAGE_PLAN_STATUS" -ne 0 ]; then
+    echo "AVANTIQO_MUSIC_RUNPOD_PREPARE=PLAN_FAILED_STORAGE_STATUS_${STORAGE_PLAN_STATUS}" >&2
+    echo "AVANTIQO_MUSIC_RUNPOD_MUTATION_PERFORMED=false"
+    exit "$STORAGE_PLAN_STATUS"
+  fi
   echo "AVANTIQO_MUSIC_RUNPOD_PREPARE=PLAN_COMPLETE"
   echo "AVANTIQO_MUSIC_RUNPOD_MUTATION_PERFORMED=false"
   exit 0
+fi
+
+if [ "$STORAGE_PLAN_STATUS" -ne 0 ]; then
+  echo "AVANTIQO_MUSIC_RUNPOD_APPLY_BLOCKED_BY_STORAGE_PLAN_STATUS=${STORAGE_PLAN_STATUS}" >&2
+  echo "AVANTIQO_MUSIC_RUNPOD_MUTATION_PERFORMED=false"
+  exit "$STORAGE_PLAN_STATUS"
 fi
 
 if [ "${AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED:-}" != "YES" ]; then

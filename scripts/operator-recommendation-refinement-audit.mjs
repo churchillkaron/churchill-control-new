@@ -97,7 +97,7 @@ assert.equal(
   "proposal must not carry an executable payload",
 );
 
-const turnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
+const turnPath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
 const turnSource = await readFile(turnPath, "utf8");
 for (const fragment of [
   "OperatorRecommendationRefinement",
@@ -155,6 +155,7 @@ assert.ok(
 );
 
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_AUDIT=PASS");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_LANGUAGES=SV_DE_FR_ES_TH");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_OLD_PENDING=DISARMED");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_OLD_RECOMMENDATION=VISIBLE_NOT_EXECUTABLE");

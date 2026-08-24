@@ -8,6 +8,13 @@ const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
 const STORAGE_BUCKET = "creative-assets";
 const PREFLIGHT_CONTRACT = "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V2";
+const EXPECTED_SHARED_VOLUME_GROUP = "AUDIO_VOICE";
+const EXPECTED_SHARED_VOLUME_NAME = "avantiqo-shared-audio-voice-cache";
+const EXPECTED_CHECKPOINT_ROOT = "/runpod-volume/ace-step-checkpoints";
+const EXPECTED_HF_CACHE_ROOT = `${EXPECTED_CHECKPOINT_ROOT}/.hf-cache`;
+const EXPECTED_FOUNDATION_MODEL = "ACE-Step/Ace-Step1.5";
+const EXPECTED_MODEL_VARIANT = "acestep-v15-turbo";
+const EXPECTED_CAPABILITY = "ai.music.generate";
 const POLL_INTERVAL_MS = Math.max(
   2_000,
   Math.min(30_000, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_POLL_INTERVAL_MS || 5_000)),
@@ -87,18 +94,56 @@ function runRequiredPreflight() {
   } catch {
     throw new Error("AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT_OUTPUT_INVALID");
   }
-  if (
-    result?.success !== true ||
-    result?.contract !== PREFLIGHT_CONTRACT ||
-    result?.ready_for_controlled_benchmark !== true ||
-    result?.safety?.runpod_generation_jobs_submitted !== 0 ||
-    result?.safety?.endpoint_mutations_performed !== 0 ||
-    result?.safety?.production_deploy_performed !== false
-  ) {
-    throw new Error("AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT_NOT_READY");
+
+  const failures = [
+    ["success", result?.success === true],
+    ["contract", result?.contract === PREFLIGHT_CONTRACT],
+    ["ready_for_controlled_benchmark", result?.ready_for_controlled_benchmark === true],
+    ["endpoint_exact_audio_identity", result?.endpoint?.exact_audio_identity === true],
+    ["endpoint_collision_free", result?.endpoint?.collision_with_other_owned_engine === false],
+    ["endpoint_health_reachable", result?.endpoint?.health_reachable === true],
+    ["endpoint_workers_min_zero", result?.endpoint?.workers_min === 0],
+    ["endpoint_scale_to_zero", result?.endpoint?.scale_to_zero === true],
+    ["endpoint_quiet", result?.endpoint?.quiet_for_controlled_benchmark === true],
+    ["network_volume_attached", result?.model_cache?.network_volume_attached === true],
+    ["single_attached_volume", result?.model_cache?.attached_volume_count === 1],
+    ["shared_volume_group", result?.model_cache?.shared_volume_group === EXPECTED_SHARED_VOLUME_GROUP],
+    ["shared_volume_name", result?.model_cache?.shared_volume_name === EXPECTED_SHARED_VOLUME_NAME],
+    ["shared_volume_policy_scope", result?.model_cache?.shared_volume_policy_scope === EXPECTED_SHARED_VOLUME_GROUP],
+    ["shared_volume_policy_compliant", result?.model_cache?.shared_volume_policy_compliant === true],
+    ["durable_model_cache", result?.model_cache?.persistent === true],
+    ["checkpoint_root", result?.model_cache?.checkpoints_dir === EXPECTED_CHECKPOINT_ROOT],
+    ["hf_cache_root", result?.model_cache?.huggingface_cache_dir === EXPECTED_HF_CACHE_ROOT],
+    ["foundation_model", result?.model_contract?.foundation_model === EXPECTED_FOUNDATION_MODEL],
+    ["model_variant", result?.model_contract?.variant === EXPECTED_MODEL_VARIANT],
+    ["generation_capability", Array.isArray(result?.model_contract?.certified_capabilities) && result.model_contract.certified_capabilities.includes(EXPECTED_CAPABILITY)],
+    ["ace_step_lm_disabled", result?.model_contract?.ace_step_lm_enabled === false],
+    ["signed_upload_creation", result?.storage?.signed_upload_creation_passed === true],
+    ["signed_read_creation", result?.storage?.signed_read_creation_passed === true],
+    ["preflight_storage_object_not_written", result?.storage?.object_written === false],
+    ["gpu_hourly_rate_present", result?.economics?.gpu_usd_per_hour_present === true],
+    ["gpu_hourly_rate_positive", finite(result?.economics?.gpu_usd_per_hour, 0) > 0],
+    ["gpu_second_rate_positive", finite(result?.economics?.gpu_usd_per_second, 0) > 0],
+    ["preflight_read_only", result?.safety?.read_only_except_signed_url_creation === true],
+    ["shared_volume_policy_verified", result?.safety?.shared_volume_policy_verified === true],
+    ["generation_jobs_zero", result?.safety?.runpod_generation_jobs_submitted === 0],
+    ["run_not_called", result?.safety?.runpod_run_called === false],
+    ["runsync_not_called", result?.safety?.runpod_runsync_called === false],
+    ["storage_objects_zero", result?.safety?.storage_objects_written === 0],
+    ["database_rows_zero", result?.safety?.database_rows_written === 0],
+    ["endpoint_mutations_zero", result?.safety?.endpoint_mutations_performed === 0],
+    ["production_not_deployed", result?.safety?.production_deploy_performed === false],
+    ["secret_values_not_printed", result?.safety?.secret_values_printed === false],
+  ].filter(([, passed]) => !passed).map(([label]) => label);
+
+  if (failures.length) {
+    throw new Error(`AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT_NOT_READY:${failures.join(",")}`);
   }
+
   console.log("AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT=PASS");
   console.log(`AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT_CONTRACT=${result.contract}`);
+  console.log(`AVANTIQO_MUSIC_BENCHMARK_SHARED_VOLUME_GROUP=${result.model_cache.shared_volume_group}`);
+  console.log(`AVANTIQO_MUSIC_BENCHMARK_SHARED_VOLUME_POLICY_VERIFIED=${result.safety.shared_volume_policy_verified}`);
   return result;
 }
 
@@ -221,7 +266,7 @@ const apiKey = required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
 const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
 const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
-const foundationModel = text(process.env.AVANTIQO_AUDIO_FOUNDATION_MODEL) || "ACE-Step/Ace-Step1.5";
+const foundationModel = text(process.env.AVANTIQO_AUDIO_FOUNDATION_MODEL) || EXPECTED_FOUNDATION_MODEL;
 const runs = Math.max(1, Math.min(5, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_RUNS || 1)));
 const duration = Math.max(10, Math.min(30, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS || 12)));
 const benchmarkId = safe(`music-${new Date().toISOString()}-${crypto.randomUUID().slice(0, 8)}`);
@@ -257,7 +302,7 @@ for (let index = 0; index < runs; index += 1) {
     jobId,
   } = await runJob(endpointId, {
     contract: CONTRACT,
-    capability: "ai.music.generate",
+    capability: EXPECTED_CAPABILITY,
     foundation_model: foundationModel,
     organization_id: organizationId,
     organization_service_id: "benchmark-owned-music",
@@ -306,10 +351,10 @@ for (let index = 0; index < runs; index += 1) {
     model_variant: text(output.model_variant),
     foundation_model: text(output.foundation_model),
     passed:
-      text(output.capability) === "ai.music.generate" &&
-      text(output.foundation_model) === "ACE-Step/Ace-Step1.5" &&
+      text(output.capability) === EXPECTED_CAPABILITY &&
+      text(output.foundation_model) === EXPECTED_FOUNDATION_MODEL &&
       text(output.model_family) === "ACE_STEP_1_5" &&
-      text(output.model_variant) === "acestep-v15-turbo" &&
+      text(output.model_variant) === EXPECTED_MODEL_VARIANT &&
       text(output.storage_reference) === storageReference &&
       Number(output.sample_rate) >= 44100 &&
       Number(output.size_bytes) > 10000 &&
@@ -335,11 +380,39 @@ const report = {
   preflight: {
     contract: preflight.contract,
     passed: true,
-    ready_for_controlled_benchmark: true,
+    ready_for_controlled_benchmark: preflight.ready_for_controlled_benchmark === true,
+    exact_audio_identity: preflight.endpoint?.exact_audio_identity === true,
+    collision_with_other_owned_engine: preflight.endpoint?.collision_with_other_owned_engine === true,
+    health_reachable: preflight.endpoint?.health_reachable === true,
+    scale_to_zero: preflight.endpoint?.scale_to_zero === true,
     endpoint_quiet: preflight.endpoint?.quiet_for_controlled_benchmark === true,
+    network_volume_attached: preflight.model_cache?.network_volume_attached === true,
+    attached_volume_count: preflight.model_cache?.attached_volume_count,
+    shared_volume_group: preflight.model_cache?.shared_volume_group,
+    shared_volume_name: preflight.model_cache?.shared_volume_name,
+    shared_volume_policy_scope: preflight.model_cache?.shared_volume_policy_scope,
+    shared_volume_policy_compliant: preflight.model_cache?.shared_volume_policy_compliant === true,
+    shared_volume_policy_verified: preflight.safety?.shared_volume_policy_verified === true,
+    checkpoints_dir: preflight.model_cache?.checkpoints_dir,
+    huggingface_cache_dir: preflight.model_cache?.huggingface_cache_dir,
     durable_model_cache: preflight.model_cache?.persistent === true,
+    foundation_model: preflight.model_contract?.foundation_model,
+    model_variant: preflight.model_contract?.variant,
+    certified_capabilities: preflight.model_contract?.certified_capabilities,
+    ace_step_lm_enabled: preflight.model_contract?.ace_step_lm_enabled,
+    signed_upload_creation_passed: preflight.storage?.signed_upload_creation_passed === true,
+    signed_read_creation_passed: preflight.storage?.signed_read_creation_passed === true,
+    preflight_storage_object_written: preflight.storage?.object_written === true,
+    gpu_usd_per_hour: preflight.economics?.gpu_usd_per_hour,
+    gpu_usd_per_second: preflight.economics?.gpu_usd_per_second,
+    gpu_rate_source: preflight.economics?.gpu_rate_source,
     generation_jobs_submitted: preflight.safety?.runpod_generation_jobs_submitted,
+    runpod_run_called: preflight.safety?.runpod_run_called,
+    runpod_runsync_called: preflight.safety?.runpod_runsync_called,
+    storage_objects_written: preflight.safety?.storage_objects_written,
+    database_rows_written: preflight.safety?.database_rows_written,
     endpoint_mutations_performed: preflight.safety?.endpoint_mutations_performed,
+    production_deploy_performed: preflight.safety?.production_deploy_performed,
   },
   benchmark_scope: {
     organization_id: organizationId,
@@ -356,9 +429,9 @@ const report = {
   model: {
     provider: "avantiqo-audio",
     family: "ACE_STEP_1_5",
-    foundation_model: "ACE-Step/Ace-Step1.5",
-    variant: "acestep-v15-turbo",
-    capability: "ai.music.generate",
+    foundation_model: EXPECTED_FOUNDATION_MODEL,
+    variant: EXPECTED_MODEL_VARIANT,
+    capability: EXPECTED_CAPABILITY,
   },
   summary: {
     runs: observations.length,

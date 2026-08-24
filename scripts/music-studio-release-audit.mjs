@@ -178,7 +178,8 @@ requirePattern(runpodInspector, /secret_values_in_output:\s*false/, "music-runpo
 
 requirePattern(endpointBinder, /AVANTIQO_AUDIO_ENGINE_V1/, "music-endpoint-binder-must-fingerprint-audio-contract");
 requirePattern(endpointBinder, /AVANTIQO_AUDIO_CAPABILITY_NOT_IMPLEMENTED/, "music-endpoint-binder-must-prove-audio-worker-identity");
-requirePattern(endpointBinder, /COLLIDES_WITH_OTHER_CONFIGURED_ENGINE/, "music-endpoint-binder-must-reject-cross-engine-endpoint-collision");
+requirePattern(endpointBinder, /knownOtherEndpointIds/, "music-endpoint-binder-must-enumerate-cross-engine-endpoint-collisions");
+requirePattern(endpointBinder, /AVANTIQO_AUDIO_ENDPOINT_CANDIDATE_COLLIDES_WITH_OTHER_ENGINE/, "music-endpoint-binder-must-reject-cross-engine-endpoint-collision");
 requirePattern(endpointBinder, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID_BOUND_LOCAL=true/, "music-endpoint-binder-must-only-bind-local-audio-endpoint");
 requirePattern(endpointBinder, /MODEL_GENERATION_PERFORMED=false/, "music-endpoint-binder-fingerprint-must-not-generate-music");
 requirePattern(endpointBinder, /PRODUCTION_DEPLOY_PERFORMED=false/, "music-endpoint-binder-must-not-deploy-production");
@@ -215,7 +216,13 @@ requirePattern(storageProvisioner, /MIN_GPU_MEMORY_GB = 24/, "music-storage-prov
 requirePattern(storageProvisioner, /NETWORK_VOLUME_MOUNT_ROOT = "\/runpod-volume"/, "music-storage-provisioner-must-use-runpod-serverless-network-volume-root");
 requirePattern(storageProvisioner, /\/networkvolumes/, "music-storage-provisioner-must-use-runpod-network-volume-api");
 requirePattern(storageProvisioner, /networkVolumeId:\s*volumeId/, "music-storage-provisioner-must-attach-created-or-reused-volume");
-requirePattern(storageProvisioner, /dataCenterIds:\s*\[selectedDatacenter\.id\]/, "music-storage-provisioner-must-bind-compatible-datacenter");
+requirePattern(storageProvisioner, /networkVolumeIds:\s*\[volumeId\]/, "music-storage-provisioner-must-bind-network-volume-array");
+requirePattern(storageProvisioner, /dataCenterIds:\s*\[\]/, "music-storage-provisioner-must-let-network-volume-placement-own-datacenter");
+requirePattern(storageProvisioner, /gpuTypeIds:\s*applyDatacenter\.target_gpu_type_ids/, "music-storage-provisioner-must-bind-live-compatible-gpu-pool");
+requirePattern(storageProvisioner, /EXISTING_POOL_FIRST_THEN_ANY_LIVE_24GB_PLUS_NON_MIG/, "music-storage-provisioner-must-use-live-capacity-strategy");
+requirePattern(storageProvisioner, /AVANTIQO_AUDIO_STORAGE_NETWORK_VOLUME_PLACEMENT_AUTHORITATIVE=true/, "music-storage-provisioner-must-record-network-volume-placement-authority");
+requirePattern(storageProvisioner, /AVANTIQO_AUDIO_STORAGE_EXPLICIT_DATACENTER_ENDPOINT_PATCH=false/, "music-storage-provisioner-must-record-no-explicit-datacenter-patch");
+forbidPattern(storageProvisioner, /dataCenterIds:\s*\[selectedDatacenter\.id\]/, "music-storage-provisioner-must-not-hard-pin-endpoint-datacenter");
 requirePattern(storageProvisioner, /generation_submitted:\s*false/, "music-storage-provisioner-must-not-submit-generation");
 requirePattern(storageProvisioner, /production_deploy_performed:\s*false/, "music-storage-provisioner-must-not-deploy-production");
 

@@ -216,6 +216,67 @@ function safeVolume(volume = {}) {
   };
 }
 
+function blockingDependencyState(groupId, endpoints, sharedPolicy) {
+  const group = sharedVolumeGroup(groupId);
+  const groupVolumes = Array.isArray(sharedPolicy?.groups?.[group.id])
+    ? sharedPolicy.groups[group.id]
+    : [];
+  const volumeById = new Map(
+    groupVolumes
+      .map((volume) => [text(volume?.id), volume])
+      .filter(([id]) => Boolean(id)),
+  );
+  const relevantEndpoints = endpoints.filter((entry) =>
+    group.endpoint_names.includes(text(entry?.name)),
+  );
+  const endpointBindings = relevantEndpoints.map((entry) => {
+    const attachedIds = endpointVolumeIds(entry);
+    const attachedGroupVolumes = attachedIds
+      .map((id) => volumeById.get(id))
+      .filter(Boolean);
+    const canonicalAttached = attachedGroupVolumes.some(
+      (volume) => text(volume?.name) === group.canonical_name,
+    );
+    const legacyAttached = attachedGroupVolumes.some(
+      (volume) => text(volume?.name) !== group.canonical_name,
+    );
+    return {
+      endpoint_id: text(entry?.id) || null,
+      endpoint_name: text(entry?.name) || null,
+      attached_network_volume_ids: attachedIds,
+      attached_group_volumes: attachedGroupVolumes.map(safeVolume),
+      canonical_group_volume_attached: canonicalAttached,
+      legacy_group_volume_attached: legacyAttached,
+      group_volume_detached: attachedGroupVolumes.length === 0,
+    };
+  });
+  const canonicalVolumes = groupVolumes.filter(
+    (volume) => text(volume?.name) === group.canonical_name,
+  );
+  const legacyVolumes = groupVolumes.filter(
+    (volume) => text(volume?.name) !== group.canonical_name,
+  );
+  return {
+    group: group.id,
+    canonical_volume_name: group.canonical_name,
+    managed_group_volume_count: groupVolumes.length,
+    canonical_volume_present: canonicalVolumes.length === 1,
+    legacy_group_volume_count: legacyVolumes.length,
+    endpoint_bindings: endpointBindings,
+    endpoints_detached_from_group: endpointBindings
+      .filter((binding) => binding.group_volume_detached)
+      .map((binding) => binding.endpoint_name),
+    endpoints_on_canonical_group_volume: endpointBindings
+      .filter((binding) => binding.canonical_group_volume_attached)
+      .map((binding) => binding.endpoint_name),
+    endpoints_on_legacy_group_volume: endpointBindings
+      .filter((binding) => binding.legacy_group_volume_attached)
+      .map((binding) => binding.endpoint_name),
+    owner_consolidation_required: groupVolumes.length > 1,
+    music_owner_group_mutation_forbidden: true,
+  };
+}
+
 function resolveEndpoint(endpoints, configuredId) {
   if (configuredId) {
     const matches = endpoints.filter((endpoint) => text(endpoint?.id) === configuredId);
@@ -274,6 +335,7 @@ console.log(`AVANTIQO_AUDIO_STORAGE_CHECKPOINT_ROOT=${CHECKPOINT_ROOT}`);
 console.log("AVANTIQO_AUDIO_STORAGE_SECRET_VALUES_PRINTED=false");
 console.log("AVANTIQO_AUDIO_STORAGE_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_AUDIO_STORAGE_PRODUCTION_DEPLOY_PERFORMED=false");
+console.log("AVANTIQO_AUDIO_STORAGE_OWNER_GROUP_MUTATION_PERFORMED=false");
 
 const [endpoints, volumes, dataCenters] = await Promise.all([
   rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
@@ -342,6 +404,12 @@ const creationBlockedBySharedInventory =
     sharedPolicy.policy_compliant !== true ||
     sharedPolicy.managed_cache_volume_count >= sharedPolicy.maximum_managed_cache_volumes
   );
+const blockingSharedCacheGroups = creationBlockedBySharedInventory
+  ? sharedPolicy.duplicate_groups
+  : [];
+const blockingSharedCacheDependencies = blockingSharedCacheGroups.map((groupId) =>
+  blockingDependencyState(groupId, endpoints, sharedPolicy),
+);
 
 let selectedDatacenter = candidates[0];
 if (sharedVolume) {
@@ -362,9 +430,8 @@ const plan = {
   endpoint: safeEndpoint(endpoint),
   shared_volume_group: SHARED_VOLUME_GROUP.id,
   shared_volume_policy: sharedPolicy,
-  blocking_shared_cache_groups: creationBlockedBySharedInventory
-    ? sharedPolicy.duplicate_groups
-    : [],
+  blocking_shared_cache_groups: blockingSharedCacheGroups,
+  blocking_shared_cache_dependencies: blockingSharedCacheDependencies,
   expected_serverless_mount_root: NETWORK_VOLUME_MOUNT_ROOT,
   checkpoints_dir: CHECKPOINT_ROOT,
   requested_volume: {
@@ -387,6 +454,7 @@ const plan = {
     maximum_managed_cache_volumes: 3,
     additional_audio_voice_volume_forbidden: true,
     shared_cache_inventory_must_be_compliant_before_creation: true,
+    owner_group_mutation_performed: false,
   },
   next_action: creationBlockedBySharedInventory
     ? "COMPLETE_SHARED_CACHE_CONSOLIDATION_THEN_REPLAN_AUDIO_STORAGE"

@@ -12,11 +12,10 @@ const EXPECTED_SERVING_RUNTIME = "vllm";
 const FIXTURE = "tests/fixtures/code-ai-autonomous-repair/invoice-total.mjs";
 const VERIFIER = "scripts/code-ai-autonomous-repair-fixture-test.mjs";
 const CODE_ENDPOINT_NAME = "avantiqo-code-v1";
-const REPOSITORY = process.env.AVANTIQO_CODE_SANDBOX_REPOSITORY || "https://github.com/churchillkaron/churchill-control-new";
-const REF = process.env.AVANTIQO_CODE_SANDBOX_REF || "main";
 const API_BASE = "https://api.runpod.ai/v2";
 const RUNPOD_REST_BASE = "https://rest.runpod.io/v1";
 const MAX_CONCURRENCY_REPLANS = 4;
+const PROGRESS_INTERVAL_MS = 15_000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -30,9 +29,49 @@ function loadLocalEnvironment() {
 }
 
 const LOCAL_ENV_LOADED = loadLocalEnvironment();
+const REPOSITORY = process.env.AVANTIQO_CODE_SANDBOX_REPOSITORY || "https://github.com/churchillkaron/churchill-control-new";
+const REF = process.env.AVANTIQO_CODE_SANDBOX_REF || "main";
 const API_KEY = text(process.env.RUNPOD_AVANTIQO_CODE_API_KEY) || text(process.env.RUNPOD_API_KEY);
 
 if (!API_KEY) throw new Error("RUNPOD_AVANTIQO_CODE_API_KEY_OR_RUNPOD_API_KEY_REQUIRED");
+
+function progress(event, details = {}) {
+  console.log(JSON.stringify({
+    event: `AVANTIQO_CODE_AUTONOMOUS_REPAIR_${event}`,
+    at: new Date().toISOString(),
+    ...details,
+  }));
+}
+
+async function withHeartbeat(stage, operation) {
+  const startedAt = Date.now();
+  progress("STAGE_START", { stage });
+  const timer = setInterval(() => {
+    progress("PROGRESS", {
+      stage,
+      elapsed_seconds: Math.round((Date.now() - startedAt) / 1000),
+    });
+  }, PROGRESS_INTERVAL_MS);
+  timer.unref?.();
+
+  try {
+    const result = await operation();
+    progress("STAGE_COMPLETE", {
+      stage,
+      elapsed_seconds: Math.round((Date.now() - startedAt) / 1000),
+    });
+    return result;
+  } catch (error) {
+    progress("STAGE_FAILED", {
+      stage,
+      elapsed_seconds: Math.round((Date.now() - startedAt) / 1000),
+      error: text(error?.message || error).slice(0, 500),
+    });
+    throw error;
+  } finally {
+    clearInterval(timer);
+  }
+}
 
 async function readJson(response, label) {
   const raw = await response.text();
@@ -77,8 +116,15 @@ async function resolveCodeEndpoint() {
   return { id, source: "EXACT_NAME" };
 }
 
-const ENDPOINT_RESOLUTION = await resolveCodeEndpoint();
+progress("START", {
+  contract: CONTRACT,
+  local_env_loaded: LOCAL_ENV_LOADED,
+  ref: REF,
+  production_deploy_performed: false,
+});
+const ENDPOINT_RESOLUTION = await withHeartbeat("resolve_code_endpoint", resolveCodeEndpoint);
 const ENDPOINT = ENDPOINT_RESOLUTION.id;
+progress("ENDPOINT_RESOLVED", { source: ENDPOINT_RESOLUTION.source });
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -94,6 +140,7 @@ function cleanJson(value) {
 }
 
 async function runOwnedRepairPlanner({ fileContent, failure }) {
+  progress("RUNPOD_SUBMIT_START", { capability: "ai.code.debug" });
   const submit = await fetch(`${API_BASE}/${ENDPOINT}/run`, {
     method: "POST",
     headers: {
@@ -131,17 +178,31 @@ async function runOwnedRepairPlanner({ fileContent, failure }) {
         },
       },
     }),
+    signal: AbortSignal.timeout(30_000),
   });
   const submitted = await submit.json().catch(() => ({}));
   if (!submit.ok) throw new Error(`RUNPOD_SUBMIT_HTTP_${submit.status}:${submitted?.error || submitted?.message || ""}`);
   const jobId = String(submitted?.id || "").trim();
   if (!jobId) throw new Error("RUNPOD_JOB_ID_REQUIRED");
+  progress("RUNPOD_JOB_SUBMITTED", { job_id: jobId });
 
   const timeoutMs = Math.max(60_000, Math.min(20 * 60_000, Number(process.env.AVANTIQO_CODE_AUTONOMOUS_CERT_TIMEOUT_MS || 15 * 60_000)));
   const deadline = Date.now() + timeoutMs;
+  const startedAt = Date.now();
   let body = submitted;
+  let lastStatus = null;
+  let lastProgressAt = 0;
   while (Date.now() < deadline) {
-    const status = String(body?.status || "").toUpperCase();
+    const status = String(body?.status || "").toUpperCase() || "UNKNOWN";
+    if (status !== lastStatus || Date.now() - lastProgressAt >= PROGRESS_INTERVAL_MS) {
+      progress("RUNPOD_JOB_STATUS", {
+        job_id: jobId,
+        status,
+        elapsed_seconds: Math.round((Date.now() - startedAt) / 1000),
+      });
+      lastStatus = status;
+      lastProgressAt = Date.now();
+    }
     if (status === "COMPLETED") break;
     if (["FAILED", "CANCELLED", "TIMED_OUT"].includes(status)) {
       throw new Error(`RUNPOD_JOB_${status}:${body?.error || body?.message || ""}`);
@@ -149,6 +210,7 @@ async function runOwnedRepairPlanner({ fileContent, failure }) {
     await delay(2000);
     const response = await fetch(`${API_BASE}/${ENDPOINT}/status/${jobId}`, {
       headers: { Authorization: `Bearer ${API_KEY}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(30_000),
     });
     body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(`RUNPOD_STATUS_HTTP_${response.status}`);
@@ -173,6 +235,10 @@ async function runOwnedRepairPlanner({ fileContent, failure }) {
   const repair = cleanJson(output.result);
   if (repair.path !== FIXTURE) throw new Error(`CODE_AI_AUTONOMOUS_REPAIR_PATH_INVALID:${repair.path || "missing"}`);
   if (!String(repair.content || "").trim()) throw new Error("CODE_AI_AUTONOMOUS_REPAIR_CONTENT_REQUIRED");
+  progress("RUNPOD_REPAIR_READY", {
+    job_id: jobId,
+    diagnosis_present: Boolean(String(repair.diagnosis || "").trim()),
+  });
   return { jobId, output, repair };
 }
 
@@ -185,24 +251,28 @@ function repairOperations(repairContent) {
 }
 
 async function executeRepairWithConcurrencyRecovery({ objective, resumeState, repairContent }) {
-  let result = await executeCodeAIMission({
+  let concurrencyReplans = 0;
+  let result = await withHeartbeat("sandbox_apply_repair", () => executeCodeAIMission({
     objective,
     repository_url: REPOSITORY,
     ref: REF,
     resume_state: resumeState,
     operations: repairOperations(repairContent),
-  });
-  let concurrencyReplans = 0;
+  }));
 
   while (result.status === "replan_required" && concurrencyReplans < MAX_CONCURRENCY_REPLANS) {
     concurrencyReplans += 1;
-    result = await executeCodeAIMission({
+    progress("CONCURRENCY_REPLAN", {
+      attempt: concurrencyReplans,
+      previous_reason: result.reason || "CODE_AI_BASE_COMMIT_MOVED_REPLAN_REQUIRED",
+    });
+    result = await withHeartbeat(`sandbox_apply_repair_replan_${concurrencyReplans}`, () => executeCodeAIMission({
       objective,
       repository_url: REPOSITORY,
       ref: REF,
       resume_state: result.state,
       operations: repairOperations(repairContent),
-    });
+    }));
   }
 
   if (result.status === "replan_required") {
@@ -214,7 +284,7 @@ async function executeRepairWithConcurrencyRecovery({ objective, resumeState, re
 
 const objective = "Observe the intentionally broken invoice-total certification fixture, diagnose the real verifier failure, repair only that fixture in an isolated Vercel Sandbox, verify the repair, and produce an evidence-backed diff without mutating GitHub main.";
 
-const observed = await executeCodeAIMission({
+const observed = await withHeartbeat("sandbox_observe_failure", () => executeCodeAIMission({
   objective,
   repository_url: REPOSITORY,
   ref: REF,
@@ -223,8 +293,12 @@ const observed = await executeCodeAIMission({
     { id: "cert_read_fixture", action: "read", description: "Read the complete broken certification fixture.", input: { file_path: FIXTURE, start_line: 1, end_line: 200 } },
     { id: "cert_observe_failure", action: "verify", description: "Observe the real failing verifier before any repair.", input: { command: "node", args: [VERIFIER], cwd: "." } },
   ],
-});
+}));
 
+progress("OBSERVATION_COMPLETE", {
+  status: observed.status,
+  base_commit: observed.state?.base_commit || null,
+});
 if (observed.status !== "repair_required") {
   throw new Error(`CODE_AI_AUTONOMOUS_REPAIR_EXPECTED_INITIAL_FAILURE:${observed.status}`);
 }
@@ -234,7 +308,7 @@ if (!fileContent) throw new Error("CODE_AI_AUTONOMOUS_REPAIR_READ_EVIDENCE_REQUI
 const failure = (observed.state?.failures || []).find((item) => item?.operation_id === "cert_observe_failure");
 if (!failure) throw new Error("CODE_AI_AUTONOMOUS_REPAIR_FAILURE_EVIDENCE_REQUIRED");
 
-const planned = await runOwnedRepairPlanner({ fileContent, failure });
+const planned = await withHeartbeat("owned_code_repair", () => runOwnedRepairPlanner({ fileContent, failure }));
 const repairExecution = await executeRepairWithConcurrencyRecovery({
   objective,
   resumeState: observed.state,
@@ -256,6 +330,11 @@ if (!String(repaired.state?.patch || "").includes(FIXTURE)) {
   throw new Error("CODE_AI_AUTONOMOUS_REPAIR_DIFF_EVIDENCE_REQUIRED");
 }
 
+progress("CERTIFICATION_COMPLETE", {
+  provider_job_id: planned.jobId,
+  concurrency_replans_recovered: repairExecution.concurrencyReplans,
+  changed_files: changed,
+});
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,

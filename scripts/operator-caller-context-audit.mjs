@@ -8,7 +8,7 @@ const HOPS = [
   ["turn route forwards the request", "app/api/operator/turn/route.js", /callerRequest:\s*request/],
   ["turn core accepts it", "lib/operator/runtime/OperatorTurnRuntimeCore.js", /callerRequest = null/],
   ["turn core forwards it into runtime payload", "lib/operator/runtime/OperatorTurnRuntimeCore.js", /callerRequest,\s*\n\s*metadata:/],
-  ["turn orchestration forwards all options", "lib/operator/runtime/OperatorTurnRuntime.js", /runOperatorTurnCore\(\{[\s\S]*\.\.\.options/],
+  ["legacy turn orchestration forwards all options", "lib/operator/runtime/OperatorTurnRuntimeLegacy.js", /runOperatorTurnCore\(\{[\s\S]*\.\.\.options/],
   ["execution engine spreads runtime into context", "lib/ubte/runtime/ExecutionEngine.js", /\.\.\.runtime/],
   ["execution context returns it", "lib/ubte/runtime/context/createExecutionContext.js", /^\s+callerRequest,$/m],
   ["registry bridge consumes it", "lib/platform/registry/operatorRegistryBridge.js", /context\?\.callerRequest/],
@@ -102,4 +102,5 @@ console.log("OPERATOR_CALLER_CONTEXT_AUDIT=PASS");
 console.log(`OPERATOR_CALLER_CONTEXT_HOPS=${HOPS.length}`);
 console.log(`OPERATOR_EXECUTE_CALL_SITES=${callSites}`);
 console.log("OPERATOR_CALLER_CONTEXT=THREADED_END_TO_END");
+console.log("OPERATOR_TURN_ORCHESTRATION=LEGACY_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_TURN_ORCHESTRATION=FORWARDS_CALLER_CONTEXT_UNCHANGED");

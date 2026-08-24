@@ -10,6 +10,11 @@ const CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1";
 const OPERATION = "runtime_probe";
 const EXPECTED_PROBE_CONTRACT = "AVANTIQO_IMAGE_RUNTIME_PROBE_V1";
 const EXPECTED_CACHE_CONTRACT = "AVANTIQO_IMAGE_CACHE_COMPLETION_V1";
+const EXPECTED_ENTRYPOINT = "handler_v3.py";
+const EXPECTED_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V3_QUALITY_COMPILER_V2";
+const EXPECTED_RUNTIME_REVISION = "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2";
+const EXPECTED_QUALITY_POLICY = "QWEN_IMAGE_2512_REALISM_IDENTITY_PHYSICS_V2";
+const EXPECTED_QUALITY_COMPILER_CONTRACT = "AVANTIQO_IMAGE_QUALITY_COMPILER_V2";
 const TARGET_MODEL = "Qwen/Qwen-Image-2512";
 const DEFAULT_ENDPOINT_NAME = "avantiqo-image-v1";
 const SHARED_GROUP = sharedVolumeGroup("IMAGE_VIDEO");
@@ -247,6 +252,10 @@ const resumeJobId = arg("job-id") || text(process.env.AVANTIQO_IMAGE_RUNTIME_PRO
 
 console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_SHARED_VOLUME_AWARE=true");
 console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_SHARED_GROUP=${SHARED_GROUP.id}`);
+console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_EXPECTED_ENTRYPOINT_REVISION=${EXPECTED_ENTRYPOINT_REVISION}`);
+console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_EXPECTED_RUNTIME_REVISION=${EXPECTED_RUNTIME_REVISION}`);
+console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_EXPECTED_QUALITY_POLICY=${EXPECTED_QUALITY_POLICY}`);
+console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_EXPECTED_QUALITY_COMPILER=${EXPECTED_QUALITY_COMPILER_CONTRACT}`);
 console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_GENERATION_REQUESTED=false");
 console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_INFERENCE_PERFORMED=false");
 console.log("AVANTIQO_IMAGE_RUNTIME_PROBE_MODEL_DOWNLOAD_PERFORMED=false");
@@ -407,7 +416,11 @@ const safe =
   text(output.probe_contract) === EXPECTED_PROBE_CONTRACT &&
   text(output.engine_contract) === CONTRACT &&
   text(output.operation) === OPERATION &&
-  text(output.entrypoint) === "handler_v3.py" &&
+  text(output.entrypoint) === EXPECTED_ENTRYPOINT &&
+  text(output.entrypoint_revision) === EXPECTED_ENTRYPOINT_REVISION &&
+  text(output.runtime_revision) === EXPECTED_RUNTIME_REVISION &&
+  text(output.quality_policy) === EXPECTED_QUALITY_POLICY &&
+  text(output.quality_compiler_contract) === EXPECTED_QUALITY_COMPILER_CONTRACT &&
   text(output.quality_foundation_model) === TARGET_MODEL &&
   cache.cache_ready === true &&
   text(cache.completion_contract) === EXPECTED_CACHE_CONTRACT &&
@@ -426,6 +439,8 @@ console.log(`AVANTIQO_IMAGE_RUNTIME_PROBE_SAFE=${safe ? "YES" : "NO"}`);
 console.log(`AVANTIQO_IMAGE_RUNTIME_ENTRYPOINT=${text(output.entrypoint) || "UNKNOWN"}`);
 console.log(`AVANTIQO_IMAGE_RUNTIME_ENTRYPOINT_REVISION=${text(output.entrypoint_revision) || "UNKNOWN"}`);
 console.log(`AVANTIQO_IMAGE_RUNTIME_REVISION=${text(output.runtime_revision) || "UNKNOWN"}`);
+console.log(`AVANTIQO_IMAGE_RUNTIME_QUALITY_POLICY=${text(output.quality_policy) || "UNKNOWN"}`);
+console.log(`AVANTIQO_IMAGE_RUNTIME_QUALITY_COMPILER=${text(output.quality_compiler_contract) || "UNKNOWN"}`);
 console.log(`AVANTIQO_IMAGE_2512_CACHE_READY=${cache.cache_ready === true ? "YES" : "NO"}`);
 console.log(`AVANTIQO_IMAGE_2512_CACHE_COMPLETION_MARKER_VALID=${cache.completion_marker_valid === true ? "YES" : "NO"}`);
 console.log(`AVANTIQO_IMAGE_2512_CACHE_MISSING_FILES=${finite(cache.missing_required_file_count, -1)}`);

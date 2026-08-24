@@ -152,6 +152,17 @@ export function resolveReusableGroupVolume(volumes, group) {
   };
 }
 
+export function assertSharedVolumeGroupCompatible(volumes, group) {
+  const candidates = groupCacheVolumes(volumes, group);
+  if (candidates.length > 1) {
+    throw new Error(
+      `AVANTIQO_RUNPOD_SHARED_VOLUME_CONSOLIDATION_REQUIRED:group=${group.id}:count=${candidates.length}`,
+    );
+  }
+  resolveReusableGroupVolume(volumes, group);
+  return true;
+}
+
 export function assertSharedVolumeInventoryCompatible(volumes) {
   const unknown = unknownAvantiqoCacheVolumes(volumes);
   if (unknown.length) {
@@ -161,13 +172,7 @@ export function assertSharedVolumeInventoryCompatible(volumes) {
   }
 
   for (const group of sharedVolumeGroups()) {
-    const candidates = groupCacheVolumes(volumes, group);
-    if (candidates.length > 1) {
-      throw new Error(
-        `AVANTIQO_RUNPOD_SHARED_VOLUME_CONSOLIDATION_REQUIRED:group=${group.id}:count=${candidates.length}`,
-      );
-    }
-    resolveReusableGroupVolume(volumes, group);
+    assertSharedVolumeGroupCompatible(volumes, group);
   }
 
   const managed = managedCacheVolumes(volumes);

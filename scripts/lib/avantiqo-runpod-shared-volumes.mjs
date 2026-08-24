@@ -113,22 +113,43 @@ export function groupCacheVolumes(volumes, group) {
 
 export function resolveReusableGroupVolume(volumes, group) {
   const candidates = groupCacheVolumes(volumes, group);
+  const canonical = candidates.filter(
+    (volume) => text(volume?.name) === group.canonical_name,
+  );
+  if (canonical.length > 1) {
+    throw new Error(
+      `AVANTIQO_RUNPOD_SHARED_VOLUME_CANONICAL_AMBIGUOUS:group=${group.id}:count=${canonical.length}`,
+    );
+  }
+  if (canonical.length === 1) {
+    return {
+      volume: canonical[0],
+      resolution: candidates.length > 1
+        ? "CANONICAL_NAME_WITH_LEGACY_MIGRATION_OVERLAP"
+        : "CANONICAL_NAME",
+      candidate_count: candidates.length,
+      legacy_candidate_count: candidates.length - 1,
+    };
+  }
   if (candidates.length > 1) {
     throw new Error(
       `AVANTIQO_RUNPOD_SHARED_VOLUME_CONSOLIDATION_REQUIRED:group=${group.id}:count=${candidates.length}`,
     );
   }
   if (candidates.length === 1) {
-    const volume = candidates[0];
     return {
-      volume,
-      resolution: text(volume?.name) === group.canonical_name
-        ? "CANONICAL_NAME"
-        : "LEGACY_GROUP_VOLUME",
+      volume: candidates[0],
+      resolution: "LEGACY_GROUP_VOLUME",
       candidate_count: 1,
+      legacy_candidate_count: 1,
     };
   }
-  return { volume: null, resolution: "MISSING", candidate_count: 0 };
+  return {
+    volume: null,
+    resolution: "MISSING",
+    candidate_count: 0,
+    legacy_candidate_count: 0,
+  };
 }
 
 export function assertSharedVolumeInventoryCompatible(volumes) {
@@ -140,6 +161,12 @@ export function assertSharedVolumeInventoryCompatible(volumes) {
   }
 
   for (const group of sharedVolumeGroups()) {
+    const candidates = groupCacheVolumes(volumes, group);
+    if (candidates.length > 1) {
+      throw new Error(
+        `AVANTIQO_RUNPOD_SHARED_VOLUME_CONSOLIDATION_REQUIRED:group=${group.id}:count=${candidates.length}`,
+      );
+    }
     resolveReusableGroupVolume(volumes, group);
   }
 

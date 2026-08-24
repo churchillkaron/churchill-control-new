@@ -82,10 +82,13 @@ requirePattern(worker, /AVANTIQO_AUDIO_CAPABILITY_NOT_CERTIFIED/, "owned-audio-w
 requirePattern(worker, /MAX_SOURCE_BYTES/, "owned-audio-worker-must-bound-source-downloads");
 requirePattern(worker, /allow_redirects=False/, "owned-audio-worker-source-download-must-not-follow-redirects");
 
+requirePattern(audioDockerfile, /ARG CUDA_VERSION=12\.8\.1/, "music-worker-image-must-pin-cuda-12-8-runtime");
+requirePattern(audioDockerfile, /FROM nvidia\/cuda:\$\{CUDA_VERSION\}-runtime-ubuntu22\.04/, "music-worker-image-must-use-nvidia-cuda-runtime");
+requirePattern(audioDockerfile, /libsndfile1/, "music-worker-image-must-install-native-audio-runtime");
 requirePattern(audioDockerfile, /git checkout 14c0211d5a0653b0f63e27686f4c3f151b4d8629/, "music-worker-image-must-pin-ace-step-source");
 requirePattern(audioDockerfile, /AVANTIQO_AUDIO_IMAGE_IMPORT_SMOKE=PASS/, "music-worker-image-must-run-owned-handler-import-smoke");
-requirePattern(audioDockerfile, /torch\.version\.cuda/, "music-worker-image-must-require-cuda-enabled-torch");
-requirePattern(audioDockerfile, /AVANTIQO_AUDIO_CUDA_ENABLED_TORCH_REQUIRED/, "music-worker-image-must-fail-build-on-cpu-only-torch");
+requirePattern(audioDockerfile, /AVANTIQO_AUDIO_CUDA_12_8_TORCH_REQUIRED/, "music-worker-image-must-fail-build-without-cuda-12-8-torch");
+requirePattern(audioDockerfile, /AVANTIQO_AUDIO_NATIVE_AUDIO_IMPORTS=PASS/, "music-worker-image-must-prove-native-audio-imports");
 
 requirePattern(registration, /DEFAULT_CERTIFIED_CAPABILITIES = Object\.freeze\(\["ai\.music\.generate"\]\)/, "audio-provider-default-certification-must-remain-generation-only");
 requirePattern(registration, /"ai\.audio\.remix"/, "audio-provider-must-register-implemented-remix-contract");
@@ -93,6 +96,9 @@ requirePattern(registration, /"ai\.audio\.edit"/, "audio-provider-must-register-
 requirePattern(registration, /base_model_required_capabilities/, "audio-provider-must-declare-base-model-required-capabilities");
 
 requirePattern(benchmark, /AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED/, "music-benchmark-must-require-explicit-spend-approval");
+requirePattern(benchmark, /AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V2/, "music-benchmark-must-require-current-zero-generation-preflight");
+requirePattern(benchmark, /runRequiredPreflight\(\)/, "music-benchmark-must-run-preflight-before-paid-job");
+requirePattern(benchmark, /ready_for_controlled_benchmark/, "music-benchmark-must-require-preflight-readiness");
 requirePattern(benchmark, /AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3/, "music-benchmark-must-use-current-evidence-contract");
 requirePattern(benchmark, /runpod_execution_ms/, "music-benchmark-must-capture-runpod-billed-execution-time");
 requirePattern(benchmark, /organization_record_created:\s*false/, "music-benchmark-must-not-create-business-organization-records");
@@ -147,11 +153,14 @@ requirePattern(endpointBinder, /PRODUCTION_DEPLOY_PERFORMED=false/, "music-endpo
 requirePattern(endpointAutoBinder, /avantiqo-audio-v1/, "music-auto-binder-must-resolve-exact-audio-endpoint-name");
 requirePattern(endpointAutoBinder, /bind-avantiqo-audio-endpoint-local\.mjs/, "music-auto-binder-must-delegate-to-fingerprint-binder");
 
-requirePattern(endpointProvisioner, /AVANTIQO_AUDIO_RUNPOD_ENDPOINT_PROVISION_V2/, "music-endpoint-provisioner-must-use-current-contract");
+requirePattern(endpointProvisioner, /AVANTIQO_AUDIO_RUNPOD_ENDPOINT_PROVISION_V3/, "music-endpoint-provisioner-must-use-current-contract");
 requirePattern(endpointProvisioner, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2/, "music-endpoint-provisioner-must-require-hardened-worker-image-evidence");
+requirePattern(endpointProvisioner, /EXPECTED_CUDA_RUNTIME = "12\.8"/, "music-endpoint-provisioner-must-require-cuda-12-8-image");
 requirePattern(endpointProvisioner, /source_sha_matches_trigger/, "music-endpoint-provisioner-must-bind-image-source-to-trigger");
 requirePattern(endpointProvisioner, /cuda_enabled_torch_required/, "music-endpoint-provisioner-must-require-cuda-enabled-torch-evidence");
 requirePattern(endpointProvisioner, /owned_handler_import_smoke_required/, "music-endpoint-provisioner-must-require-owned-handler-import-evidence");
+requirePattern(endpointProvisioner, /native_audio_import_smoke_required/, "music-endpoint-provisioner-must-require-native-audio-evidence");
+requirePattern(endpointProvisioner, /native_audio_import_smoke_passed_by_docker_build/, "music-endpoint-provisioner-must-require-native-audio-runtime-smoke");
 requirePattern(endpointProvisioner, /cuda_import_smoke_passed_by_docker_build/, "music-endpoint-provisioner-must-require-image-runtime-smoke");
 requirePattern(endpointProvisioner, /@sha256:/, "music-endpoint-provisioner-must-require-image-digest");
 requirePattern(endpointProvisioner, /workersMin:\s*0/, "music-endpoint-provisioner-must-scale-to-zero");
@@ -189,6 +198,9 @@ requirePattern(runpodPrepare, /REAL_MUSIC_GENERATION_SUBMITTED=false/, "music-ru
 requirePattern(imageWorkflow, /ref:\s*\$\{\{ github\.sha \}\}/, "music-worker-image-workflow-must-checkout-exact-trigger-sha");
 requirePattern(imageWorkflow, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2/, "music-worker-image-workflow-must-emit-current-evidence-contract");
 requirePattern(imageWorkflow, /source_sha_matches_trigger/, "music-worker-image-workflow-must-record-source-trigger-match");
+requirePattern(imageWorkflow, /cuda_runtime_expected:\s*"12\.8"/, "music-worker-image-workflow-must-record-cuda-12-8-runtime");
+requirePattern(imageWorkflow, /native_audio_import_smoke_required:\s*true/, "music-worker-image-workflow-must-record-native-audio-requirement");
+requirePattern(imageWorkflow, /native_audio_import_smoke_passed_by_docker_build:\s*true/, "music-worker-image-workflow-must-record-native-audio-smoke");
 requirePattern(imageWorkflow, /cuda_import_smoke_passed_by_docker_build:\s*true/, "music-worker-image-workflow-must-record-runtime-smoke");
 requirePattern(imageWorkflow, /test \"\$RELEASE_SHA\" = \"\$TRIGGER_SHA\"/, "music-worker-image-workflow-must-fail-on-source-trigger-mismatch");
 requirePattern(imageWorkflow, /AVANTIQO_AUDIO_WORKER_IMAGE_PRODUCTION_WEB_DEPLOY=false/, "music-worker-image-workflow-must-not-deploy-production-app");
@@ -219,9 +231,9 @@ console.log("MUSIC_ASSET_PERSISTENCE=DURABLE");
 console.log("MUSIC_AUTOMATIC_MASTERING=REQUIRED");
 console.log("MUSIC_VERSION_HISTORY=REQUIRED");
 console.log("MUSIC_CLIENT_PROVIDER_SELECTION=HIDDEN");
-console.log("MUSIC_BENCHMARK=SPEND_GUARDED_QUEUED_AND_SYNTHETIC_SCOPE_ONLY");
+console.log("MUSIC_BENCHMARK=SPEND_GUARDED_PREFLIGHT_REQUIRED_QUEUED_AND_SYNTHETIC_SCOPE_ONLY");
 console.log("MUSIC_RUNPOD_INSPECTION=READ_ONLY_ENDPOINT_BOUND_TEMPLATE_AWARE");
-console.log("MUSIC_WORKER_IMAGE=EXACT_SOURCE_CUDA_IMPORT_SMOKE_REQUIRED");
+console.log("MUSIC_WORKER_IMAGE=EXACT_SOURCE_CUDA_12_8_NATIVE_AUDIO_SMOKE_REQUIRED");
 console.log("MUSIC_ENDPOINT_PROVISIONING=HARDENED_IMMUTABLE_IMAGE_PRIVATE_REGISTRY_SCALE_TO_ZERO");
 console.log("MUSIC_RUNPOD_CACHE=DURABLE_NETWORK_VOLUME_RUNPOD_VOLUME_ROOT");
 console.log("MUSIC_ENDPOINT_BINDING=FINGERPRINT_PROVEN_LOCAL_ONLY");

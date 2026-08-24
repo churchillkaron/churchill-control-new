@@ -30,6 +30,11 @@ function safe(value, fallback = "benchmark") {
     .replace(/^-|-$/g, "") || fallback;
 }
 
+function finite(value, fallback = null) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
 function percentile(values, fraction) {
   const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
   if (!sorted.length) return null;
@@ -55,20 +60,28 @@ async function runJob(endpointId, payload, apiKey) {
   if (text(body?.status).toUpperCase() !== "COMPLETED") {
     throw new Error(`RUNPOD_NOT_COMPLETED:${text(body?.status) || "UNKNOWN"}`);
   }
-  return { body, wallMs };
+  return {
+    body,
+    wallMs,
+    runpodExecutionMs: finite(body.executionTime ?? body.execution_time, null),
+    runpodDelayMs: finite(body.delayTime ?? body.delay_time, null),
+  };
 }
 
 approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
 
 const apiKey = required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
-const organizationId = required("AVANTIQO_MUSIC_BENCHMARK_ORGANIZATION_ID");
 const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
 const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
 const foundationModel = text(process.env.AVANTIQO_AUDIO_FOUNDATION_MODEL) || "ACE-Step/Ace-Step1.5";
 const runs = Math.max(1, Math.min(5, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_RUNS || 1)));
 const duration = Math.max(10, Math.min(30, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS || 12)));
 const benchmarkId = safe(`music-${new Date().toISOString()}-${crypto.randomUUID().slice(0, 8)}`);
+const organizationId = text(process.env.AVANTIQO_MUSIC_BENCHMARK_ORGANIZATION_ID) || `benchmark-${crypto.randomUUID()}`;
+if (!organizationId.startsWith("benchmark-")) {
+  throw new Error("AVANTIQO_MUSIC_BENCHMARK_ORGANIZATION_ID_MUST_BE_SYNTHETIC");
+}
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: {
     persistSession: false,
@@ -89,7 +102,12 @@ for (let index = 0; index < runs; index += 1) {
   if (!upload?.signedUrl) throw new Error("AVANTIQO_MUSIC_BENCHMARK_SIGNED_UPLOAD_REQUIRED");
 
   const storageReference = `storage://${STORAGE_BUCKET}/${storagePath}`;
-  const { body, wallMs } = await runJob(endpointId, {
+  const {
+    body,
+    wallMs,
+    runpodExecutionMs,
+    runpodDelayMs,
+  } = await runJob(endpointId, {
     contract: CONTRACT,
     capability: "ai.music.generate",
     foundation_model: foundationModel,
@@ -128,6 +146,8 @@ for (let index = 0; index < runs; index += 1) {
     review_url: review?.signedUrl || null,
     review_url_expires_seconds: review?.signedUrl ? 3600 : null,
     wall_ms: wallMs,
+    runpod_execution_ms: runpodExecutionMs,
+    runpod_delay_ms: runpodDelayMs,
     worker_generation_seconds: Number(output.generation_seconds) || null,
     duration_seconds: Number(output.duration_seconds) || null,
     sample_rate: Number(output.sample_rate) || null,
@@ -145,6 +165,8 @@ for (let index = 0; index < runs; index += 1) {
       Number(output.sample_rate) >= 44100 &&
       Number(output.size_bytes) > 10000 &&
       Number(output.duration_seconds) >= Math.max(9, duration - 2) &&
+      Number.isFinite(runpodExecutionMs) &&
+      runpodExecutionMs > 0 &&
       output.ace_step_lm_used === false &&
       output.raw_reasoning_persisted === false &&
       output.generation_input_persisted === false,
@@ -153,14 +175,17 @@ for (let index = 0; index < runs; index += 1) {
 
 const wall = observations.map((item) => item.wall_ms);
 const worker = observations.map((item) => item.worker_generation_seconds).filter(Number.isFinite);
+const runpodExecution = observations.map((item) => item.runpod_execution_ms).filter(Number.isFinite);
+const runpodDelay = observations.map((item) => item.runpod_delay_ms).filter(Number.isFinite);
 const report = {
-  contract: "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V2",
+  contract: "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3",
   benchmark_id: benchmarkId,
   generated_at: new Date().toISOString(),
   activation_allowed: false,
   purpose: "MEASURE_ONLY_DO_NOT_ACTIVATE_PRICING",
   benchmark_scope: {
     organization_id: organizationId,
+    organization_record_created: false,
     storage_bucket: STORAGE_BUCKET,
     controlled_spend_approved: true,
     runs,
@@ -178,6 +203,10 @@ const report = {
     passed: observations.length > 0 && observations.every((item) => item.passed),
     p50_wall_ms: percentile(wall, 0.5),
     p95_wall_ms: percentile(wall, 0.95),
+    p50_runpod_execution_ms: percentile(runpodExecution, 0.5),
+    p95_runpod_execution_ms: percentile(runpodExecution, 0.95),
+    p50_runpod_delay_ms: percentile(runpodDelay, 0.5),
+    p95_runpod_delay_ms: percentile(runpodDelay, 0.95),
     p50_worker_seconds: percentile(worker, 0.5),
     p95_worker_seconds: percentile(worker, 0.95),
   },

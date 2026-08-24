@@ -1,0 +1,263 @@
+name: Avantiqo Voice TTS Worker Image Refresh
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-voice-tts-worker-image-refresh-request.json
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-voice-tts-worker-image-refresh
+  cancel-in-progress: true
+
+jobs:
+  build_voice_tts_image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      image_repository: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.image.outputs.tag }}
+      source_sha: ${{ steps.image.outputs.release_sha }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      preflight_outcome: ${{ steps.preflight.outcome }}
+      build_outcome: ${{ steps.build.outcome }}
+      startup_probe_outcome: ${{ steps.startup_probe.outcome }}
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify Voice TTS refresh source lock
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-voice-tts/Dockerfile
+          test -f services/avantiqo-voice-tts/handler.py
+          test -f services/avantiqo-voice-tts/bootstrap.sh
+          grep -F 'FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime' services/avantiqo-voice-tts/Dockerfile
+          grep -F 'runpod==1.9.1' services/avantiqo-voice-tts/requirements.txt
+          grep -F 'AVANTIQO_VOICE_TTS_IMAGE_IMPORT_SMOKE=PASS' services/avantiqo-voice-tts/Dockerfile
+          grep -F 'EXPECTED_FOUNDATION_MODEL = "resemble-ai/chatterbox:multilingual-v3"' services/avantiqo-voice-tts/handler.py
+          grep -F 'AVANTIQO_VOICE_TTS_BOOTSTRAP' services/avantiqo-voice-tts/bootstrap.sh
+          grep -F 'CMD ["/bin/sh", "/app/bootstrap.sh"]' services/avantiqo-voice-tts/Dockerfile
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo 'AVANTIQO_VOICE_TTS_REFRESH_PREFLIGHT=PASS'
+          echo 'AVANTIQO_VOICE_TTS_REFRESH_PLATFORM=linux/amd64'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable TTS image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$GITHUB_SHA"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-voice-tts-worker"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push immutable Voice TTS image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-voice-tts
+          file: services/avantiqo-voice-tts/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-voice-tts-worker
+          cache-to: type=gha,mode=max,scope=avantiqo-voice-tts-worker
+
+      - name: Pull and execute immutable TTS startup probe
+        id: startup_probe
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker pull "$IMAGE_TAG"
+          architecture="$(docker image inspect "$IMAGE_TAG" --format '{{.Architecture}}')"
+          test "$architecture" = "amd64"
+          cmd_json="$(docker image inspect "$IMAGE_TAG" --format '{{json .Config.Cmd}}')"
+          printf '%s' "$cmd_json" | grep -F '/bin/sh'
+          printf '%s' "$cmd_json" | grep -F '/app/bootstrap.sh'
+          docker run --rm --entrypoint /bin/sh "$IMAGE_TAG" -lc '
+            set -eu
+            test -r /app/bootstrap.sh
+            grep -F AVANTIQO_VOICE_TTS_BOOTSTRAP /app/bootstrap.sh >/dev/null
+            python --version
+            python - <<"PY"
+import torch
+assert torch.version.cuda, "AVANTIQO_VOICE_TTS_STARTUP_PROBE_CUDA_TORCH_REQUIRED"
+print("AVANTIQO_VOICE_TTS_STARTUP_PROBE=PASS")
+PY
+          '
+          echo 'AVANTIQO_VOICE_TTS_IMAGE_PLATFORM_AMD64=PASS'
+          echo 'AVANTIQO_VOICE_TTS_IMAGE_CMD_BOOTSTRAP=PASS'
+          echo 'AVANTIQO_VOICE_TTS_IMAGE_CONTAINER_EXEC=PASS'
+
+      - name: Confirm refresh scope
+        shell: bash
+        run: |
+          echo 'AVANTIQO_VOICE_TTS_REFRESH_STT_REBUILT=false'
+          echo 'AVANTIQO_VOICE_TTS_REFRESH_PRODUCTION_WEB_DEPLOY=false'
+          echo 'AVANTIQO_VOICE_TTS_REFRESH_PROVIDER_JOB_SUBMITTED=false'
+          echo 'AVANTIQO_VOICE_TTS_REFRESH_PRICING_ACTIVATION=false'
+
+  record_voice_tts_image_evidence:
+    needs: build_voice_tts_image
+    if: ${{ always() && needs.build_voice_tts_image.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest main for evidence only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Preserve STT evidence and replace TTS evidence
+        env:
+          BUILD_JOB_RESULT: ${{ needs.build_voice_tts_image.result }}
+          PREFLIGHT_OUTCOME: ${{ needs.build_voice_tts_image.outputs.preflight_outcome }}
+          BUILD_OUTCOME: ${{ needs.build_voice_tts_image.outputs.build_outcome }}
+          STARTUP_PROBE_OUTCOME: ${{ needs.build_voice_tts_image.outputs.startup_probe_outcome }}
+          IMAGE_REPOSITORY: ${{ needs.build_voice_tts_image.outputs.image_repository }}
+          IMAGE_TAG: ${{ needs.build_voice_tts_image.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.build_voice_tts_image.outputs.image_digest }}
+          RELEASE_SHA: ${{ needs.build_voice_tts_image.outputs.source_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+          TRIGGER_SHA: ${{ github.sha }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f audits/results/avantiqo-voice-worker-images.json
+
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const text = (value) => String(value ?? "").trim();
+          const digestValid = (value) => /^sha256:[a-f0-9]{64}$/i.test(text(value));
+          const sourceShaValid = (value) => /^[a-f0-9]{40}$/i.test(text(value));
+
+          const existing = JSON.parse(readFileSync("audits/results/avantiqo-voice-worker-images.json", "utf8"));
+          const stt = existing?.stt || {};
+          if (
+            existing?.contract !== "AVANTIQO_VOICE_WORKER_IMAGES_RESULT_V1" ||
+            stt?.success !== true ||
+            stt?.source_sha_matches_trigger !== true ||
+            stt?.import_smoke_passed_by_docker_build !== true ||
+            !sourceShaValid(stt?.source_sha) ||
+            !/^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(text(stt?.immutable_image_reference))
+          ) {
+            throw new Error("AVANTIQO_VOICE_STT_EXISTING_EVIDENCE_INVALID");
+          }
+
+          const triggerSha = text(process.env.TRIGGER_SHA);
+          const sourceSha = text(process.env.RELEASE_SHA);
+          const digest = text(process.env.IMAGE_DIGEST);
+          const owner = text(process.env.REPOSITORY_OWNER).toLowerCase();
+          const repository = text(process.env.IMAGE_REPOSITORY) || `ghcr.io/${owner}/avantiqo-voice-tts-worker`;
+          const buildJobResult = text(process.env.BUILD_JOB_RESULT);
+          const preflightOutcome = text(process.env.PREFLIGHT_OUTCOME) || null;
+          const buildOutcome = text(process.env.BUILD_OUTCOME) || null;
+          const startupProbeOutcome = text(process.env.STARTUP_PROBE_OUTCOME) || null;
+          const sourceMatchesTrigger = sourceShaValid(sourceSha) && sourceSha === triggerSha;
+          const success =
+            buildJobResult === "success" &&
+            preflightOutcome === "success" &&
+            buildOutcome === "success" &&
+            startupProbeOutcome === "success" &&
+            sourceMatchesTrigger &&
+            digestValid(digest);
+
+          const tts = {
+            success,
+            build_job_result: buildJobResult || "unknown",
+            preflight_outcome: preflightOutcome,
+            build_outcome: buildOutcome,
+            startup_probe_outcome: startupProbeOutcome,
+            source_sha: sourceSha || null,
+            source_sha_matches_trigger: sourceMatchesTrigger,
+            image_repository: repository,
+            image_tag: text(process.env.IMAGE_TAG) || null,
+            image_digest: digestValid(digest) ? digest : null,
+            immutable_image_reference: success ? `${repository}@${digest}` : null,
+            foundation_model: "resemble-ai/chatterbox:multilingual-v3",
+            cuda_runtime_expected: "12.4",
+            runpod_fitness_sdk_required: "1.9.1",
+            import_smoke_passed_by_docker_build: success,
+            image_platform: "linux/amd64",
+            bootstrap_breadcrumb_baked: true,
+            container_startup_probe_passed_by_github_build: success,
+          };
+
+          const report = {
+            ...existing,
+            success: stt.success === true && tts.success === true,
+            contract: "AVANTIQO_VOICE_WORKER_IMAGES_RESULT_V1",
+            observable_result: true,
+            trigger_sha: triggerSha || null,
+            github_run_id: process.env.BUILD_RUN_ID || null,
+            stt,
+            tts,
+            production_web_deploy: false,
+            provider_job_submitted: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false,
+          };
+
+          writeFileSync("/tmp/avantiqo-voice-worker-images.json", `${JSON.stringify(report)}\n`, "utf8");
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B voice-tts-image-evidence origin/main
+            mkdir -p audits/results
+            cp /tmp/avantiqo-voice-worker-images.json audits/results/avantiqo-voice-worker-images.json
+            git add audits/results/avantiqo-voice-worker-images.json
+
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_VOICE_TTS_IMAGE_EVIDENCE_ALREADY_CURRENT=true'
+              exit 0
+            fi
+
+            git commit -m "Record Voice TTS worker image refresh"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_VOICE_TTS_IMAGE_EVIDENCE_RECORDED=true'
+              exit 0
+            fi
+
+            echo "AVANTIQO_VOICE_TTS_IMAGE_EVIDENCE_PUSH_RETRY=${attempt}"
+            sleep "$attempt"
+          done
+
+          echo 'AVANTIQO_VOICE_TTS_IMAGE_EVIDENCE_PUSH_FAILED'
+          exit 1

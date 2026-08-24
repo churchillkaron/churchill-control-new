@@ -35,7 +35,25 @@ run_node scripts/inspect-avantiqo-audio-runpod-worker-local.mjs
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 3: PLAN AUDIO WORKER REPAIR"
 printf '%s\n' "========================================"
+set +e
 run_node scripts/run-with-runpod-registry-auth-normalized-local.mjs scripts/repair-avantiqo-audio-runpod-worker-local.mjs
+REPAIR_PLAN_STATUS=$?
+set -e
+
+if [ "$REPAIR_PLAN_STATUS" -eq 3 ]; then
+  printf '%s\n' "========================================"
+printf '%s\n' "STEP 3A: PLAN RUNPOD GHCR AUTH"
+printf '%s\n' "========================================"
+  if [ "$MODE" = "apply" ]; then
+    run_node scripts/provision-avantiqo-runpod-ghcr-auth-local.mjs --apply
+  else
+    run_node scripts/provision-avantiqo-runpod-ghcr-auth-local.mjs --plan
+    exit 3
+  fi
+  run_node scripts/run-with-runpod-registry-auth-normalized-local.mjs scripts/repair-avantiqo-audio-runpod-worker-local.mjs
+elif [ "$REPAIR_PLAN_STATUS" -ne 0 ]; then
+  exit "$REPAIR_PLAN_STATUS"
+fi
 
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 4: PLAN DURABLE AUDIO MODEL CACHE"
@@ -43,7 +61,55 @@ printf '%s\n' "========================================"
 run_node scripts/provision-avantiqo-audio-runpod-storage-local.mjs --plan
 
 printf '%s\n' "========================================"
-printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_PREPARE=PLAN_COMPLETE"
-printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_MUTATION_PERFORMED=false"
-printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_GENERATION_SUBMITTED=false"
+printf '%s\n' "STEP 5: INSPECT AUDIO WORKER READ ONLY"
+printf '%s\n' "========================================"
+run_node scripts/inspect-avantiqo-audio-runpod-worker-local.mjs
+
+if [ "$MODE" = "plan" ]; then
+  printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_PREPARE=PLAN_COMPLETE"
+  printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_MUTATION_PERFORMED=false"
+  printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_GENERATION_SUBMITTED=false"
+  printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_PRODUCTION_DEPLOY_PERFORMED=false"
+  exit 0
+fi
+
+if [ "${AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED:-}" != "YES" ]; then
+  echo "AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED=YES_REQUIRED_FOR_APPLY" >&2
+  exit 4
+fi
+if [ "${AVANTIQO_AUDIO_RUNPOD_REPAIR_APPROVED:-}" != "YES" ]; then
+  echo "AVANTIQO_AUDIO_RUNPOD_REPAIR_APPROVED=YES_REQUIRED_FOR_APPLY" >&2
+  exit 5
+fi
+
+printf '%s\n' "========================================"
+printf '%s\n' "STEP 6: ATTACH DURABLE AUDIO MODEL CACHE"
+printf '%s\n' "========================================"
+run_node scripts/provision-avantiqo-audio-runpod-storage-local.mjs --apply
+
+printf '%s\n' "========================================"
+printf '%s\n' "STEP 7: APPLY AUDIO WORKER REPAIR"
+printf '%s\n' "========================================"
+run_node scripts/run-with-runpod-registry-auth-normalized-local.mjs scripts/repair-avantiqo-audio-runpod-worker-local.mjs --apply
+
+printf '%s\n' "========================================"
+printf '%s\n' "STEP 8: PROVE AUDIO IDENTITY AND BIND LOCALLY"
+printf '%s\n' "========================================"
+run_node scripts/bind-avantiqo-audio-endpoint-auto-local.mjs
+
+printf '%s\n' "========================================"
+printf '%s\n' "STEP 9: RE-INSPECT AUDIO WORKER"
+printf '%s\n' "========================================"
+run_node scripts/inspect-avantiqo-audio-runpod-worker-local.mjs
+
+printf '%s\n' "========================================"
+printf '%s\n' "STEP 10: ZERO-GENERATION MUSIC PREFLIGHT"
+printf '%s\n' "========================================"
+run_node scripts/preflight-avantiqo-music-local.mjs
+
+printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_PREPARE=APPLY_COMPLETE"
+printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_REAL_MUSIC_GENERATION_SUBMITTED=false"
+printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_ENDPOINT_IDENTITY_PROVEN=true"
+printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_DURABLE_CACHE_ATTACHED=true"
 printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_PRODUCTION_DEPLOY_PERFORMED=false"
+printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_NEXT=CONTROLLED_12_SECOND_CERTIFICATION_BENCHMARK"

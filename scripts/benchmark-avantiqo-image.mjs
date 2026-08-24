@@ -9,11 +9,16 @@ const BUCKET = "creative-assets";
 const STORAGE_REFERENCE_PREFIX = `storage://${BUCKET}/`;
 const SUBMIT_TIMEOUT_MS = 30000;
 const STATUS_TIMEOUT_MS = 30000;
+const CANCEL_TIMEOUT_MS = 30000;
 const POLL_INTERVAL_MS = 5000;
 const HEARTBEAT_INTERVAL_MS = 15000;
-const MAX_JOB_WAIT_MS = Math.max(
+const MAX_QUEUE_WAIT_MS = Math.max(
   POLL_INTERVAL_MS,
   Number(process.env.AVANTIQO_RUNPOD_BENCHMARK_TIMEOUT_MS || 15 * 60 * 1000),
+);
+const MAX_EXECUTION_WAIT_MS = Math.max(
+  POLL_INTERVAL_MS,
+  Number(process.env.AVANTIQO_RUNPOD_BENCHMARK_EXECUTION_TIMEOUT_MS || 25 * 60 * 1000),
 );
 const QUALITY_MODEL = "Qwen/Qwen-Image-2512";
 const QUALITY_RUNTIME_REVISION = "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V1";
@@ -82,6 +87,36 @@ async function parseJsonResponse(response) {
   }
   return body;
 }
+async function fetchJobStatus(endpointId, jobId, apiKey) {
+  const response = await fetch(
+    `${API_BASE}/${endpointId}/status/${encodeURIComponent(jobId)}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+    },
+  );
+  return parseJsonResponse(response);
+}
+async function cancelJob(endpointId, jobId, apiKey, reason) {
+  const response = await fetch(
+    `${API_BASE}/${endpointId}/cancel/${encodeURIComponent(jobId)}`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
+    },
+  );
+  const body = await parseJsonResponse(response);
+  const status = text(body?.status).toUpperCase();
+  console.log(
+    `AVANTIQO_IMAGE_RUNPOD_JOB_CANCELLED reason=${reason} job_id=${jobId} status=${status || "UNKNOWN"}`,
+  );
+  if (!["CANCELLED", "CANCELED"].includes(status)) {
+    throw new Error(`RUNPOD_JOB_CANCEL_VERIFY_FAILED:${jobId}:${status || "UNKNOWN"}`);
+  }
+  return body;
+}
 async function runQueued(endpointId, input, apiKey) {
   const started = performance.now();
   console.log("AVANTIQO_IMAGE_RUNPOD_SUBMITTING=true");
@@ -110,24 +145,48 @@ async function runQueued(endpointId, input, apiKey) {
     throw new Error(`RUNPOD_JOB_${status}:${errorDetail(body)}`);
   }
 
-  const deadline = Date.now() + MAX_JOB_WAIT_MS;
+  const queueDeadline = Date.now() + MAX_QUEUE_WAIT_MS;
+  let executionDeadline = status === "IN_PROGRESS" ? Date.now() + MAX_EXECUTION_WAIT_MS : null;
   let lastStatus = status;
   let lastHeartbeatAt = Date.now();
-  while (Date.now() < deadline) {
+
+  while (true) {
+    const nowBeforePoll = Date.now();
+    const queueExpired = status === "IN_QUEUE" && nowBeforePoll >= queueDeadline;
+    const executionExpired = status === "IN_PROGRESS" && executionDeadline && nowBeforePoll >= executionDeadline;
+    if (queueExpired || executionExpired) {
+      body = await fetchJobStatus(endpointId, jobId, apiKey);
+      status = text(body?.status).toUpperCase();
+      if (status === "COMPLETED") {
+        console.log(`AVANTIQO_IMAGE_RUNPOD_JOB_COMPLETED=${jobId}`);
+        return { body, wallMs: Math.round(performance.now() - started), jobId };
+      }
+      if (terminalFailure(status)) {
+        throw new Error(`RUNPOD_JOB_${status}:${errorDetail(body)}`);
+      }
+      if (queueExpired && status === "IN_PROGRESS") {
+        executionDeadline = Date.now() + MAX_EXECUTION_WAIT_MS;
+        logProgress(jobId, status, started, body, "STARTED_AT_QUEUE_DEADLINE");
+        lastStatus = status;
+        lastHeartbeatAt = Date.now();
+      } else {
+        const reason = status === "IN_QUEUE" ? "QUEUE_TIMEOUT" : "EXECUTION_MONITOR_TIMEOUT";
+        await cancelJob(endpointId, jobId, apiKey, reason);
+        throw new Error(
+          `RUNPOD_JOB_${reason}_CANCELLED:${jobId}:${status === "IN_QUEUE" ? MAX_QUEUE_WAIT_MS : MAX_EXECUTION_WAIT_MS}`,
+        );
+      }
+    }
+
     await sleep(POLL_INTERVAL_MS);
-    const statusResponse = await fetch(
-      `${API_BASE}/${endpointId}/status/${encodeURIComponent(jobId)}`,
-      {
-        method: "GET",
-        headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-        signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
-      },
-    );
-    body = await parseJsonResponse(statusResponse);
+    body = await fetchJobStatus(endpointId, jobId, apiKey);
     status = text(body?.status).toUpperCase();
     const now = Date.now();
     if (status !== lastStatus) {
       logProgress(jobId, status, started, body, "STATUS_CHANGE");
+      if (status === "IN_PROGRESS" && !executionDeadline) {
+        executionDeadline = now + MAX_EXECUTION_WAIT_MS;
+      }
       lastStatus = status;
       lastHeartbeatAt = now;
     } else if (now - lastHeartbeatAt >= HEARTBEAT_INTERVAL_MS) {
@@ -142,7 +201,6 @@ async function runQueued(endpointId, input, apiKey) {
       throw new Error(`RUNPOD_JOB_${status}:${errorDetail(body)}`);
     }
   }
-  throw new Error(`RUNPOD_JOB_WAIT_TIMEOUT:${jobId}:${MAX_JOB_WAIT_MS}`);
 }
 
 const apiKey = text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
@@ -275,9 +333,12 @@ const report = {
     submission_mode: "ASYNC_RUN_STATUS_POLLING",
     submit_timeout_ms: SUBMIT_TIMEOUT_MS,
     status_timeout_ms: STATUS_TIMEOUT_MS,
+    cancel_timeout_ms: CANCEL_TIMEOUT_MS,
     poll_interval_ms: POLL_INTERVAL_MS,
     heartbeat_interval_ms: HEARTBEAT_INTERVAL_MS,
-    max_job_wait_ms: MAX_JOB_WAIT_MS,
+    max_queue_wait_ms: MAX_QUEUE_WAIT_MS,
+    max_execution_wait_ms: MAX_EXECUTION_WAIT_MS,
+    cancel_on_monitor_timeout: true,
   },
   summary: {
     runs: observations.length,

@@ -149,16 +149,92 @@ function patchRelocationSource(source) {
     throw new Error("CODE_CAPACITY_RELOCATION_TARGET_STOCK_LOST_BEFORE_SWITCH");
   }`;
 
-  if (!source.includes(strictCandidate)) {
-    throw new Error("CODE_TIMEOUT_RECOVERY_SOURCE_SELECTION_FRAGMENT_CHANGED_REPLAN_REQUIRED");
+  const quiescenceAnchor = "async function waitForQuiescence(endpointId, key, label) {";
+  const resumeHelper = `async function ensureEndpointWorkerLimits(endpointId, key, expected, label) {
+  const expectedMin = number(expected?.min);
+  const expectedMax = number(expected?.max);
+  if (expectedMax <= 0) throw new Error(\`${"${label}"}_EXPECTED_WORKERS_MAX_MUST_BE_POSITIVE:\${expectedMax}\`);
+
+  await rest(\`/endpoints/\${encodeURIComponent(endpointId)}\`, key, {
+    method: "PATCH",
+    body: { workersMin: expectedMin, workersMax: expectedMax },
+  });
+
+  const deadline = Date.now() + 30_000;
+  let last = null;
+  while (Date.now() < deadline) {
+    last = resolveCodeEndpoint(
+      await rest("/endpoints?includeTemplate=true&includeWorkers=true", key),
+      endpointId,
+    ).endpoint;
+    const workersMin = number(last?.workersMin);
+    const workersMax = number(last?.workersMax);
+    if (workersMin === expectedMin && workersMax === expectedMax) {
+      console.log(JSON.stringify({
+        event: "AVANTIQO_CODE_CAPACITY_RELOCATION_ENDPOINT_RESUMED",
+        label,
+        workers_min: workersMin,
+        workers_max: workersMax,
+      }));
+      return last;
+    }
+    await sleep(1000);
   }
-  if (!source.includes(strictLiveGuard)) {
-    throw new Error("CODE_TIMEOUT_RECOVERY_SOURCE_LIVE_GUARD_FRAGMENT_CHANGED_REPLAN_REQUIRED");
+  throw new Error(\`${"${label}"}_WORKER_LIMIT_VERIFY_TIMEOUT:min=\${number(last?.workersMin)}:max=\${number(last?.workersMax)}\`);
+}
+
+${quiescenceAnchor}`;
+
+  const movedAnchor = `  switched = true;
+
+  const moved = resolveCodeEndpoint(
+    await rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
+    endpointId,
+  ).endpoint;`;
+  const movedReplacement = `  switched = true;
+
+  const moved = await ensureEndpointWorkerLimits(
+    endpointId,
+    managementKey,
+    originalWorkers,
+    "CODE_CAPACITY_RELOCATION_RESUME",
+  );`;
+
+  const rollbackAnchor = `      const rolledBack = resolveCodeEndpoint(
+        await rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
+        endpointId,
+      ).endpoint;`;
+  const rollbackReplacement = `      const rolledBack = await ensureEndpointWorkerLimits(
+        endpointId,
+        managementKey,
+        originalWorkers,
+        "CODE_CAPACITY_RELOCATION_ROLLBACK_RESUME",
+      );`;
+
+  for (const [needle, code] of [
+    [strictCandidate, "CODE_TIMEOUT_RECOVERY_SOURCE_SELECTION_FRAGMENT_CHANGED_REPLAN_REQUIRED"],
+    [strictLiveGuard, "CODE_TIMEOUT_RECOVERY_SOURCE_LIVE_GUARD_FRAGMENT_CHANGED_REPLAN_REQUIRED"],
+    [quiescenceAnchor, "CODE_TIMEOUT_RECOVERY_SOURCE_QUIESCENCE_ANCHOR_CHANGED_REPLAN_REQUIRED"],
+    [movedAnchor, "CODE_TIMEOUT_RECOVERY_SOURCE_RESUME_ANCHOR_CHANGED_REPLAN_REQUIRED"],
+    [rollbackAnchor, "CODE_TIMEOUT_RECOVERY_SOURCE_ROLLBACK_RESUME_ANCHOR_CHANGED_REPLAN_REQUIRED"],
+  ]) {
+    if (!source.includes(needle)) throw new Error(code);
   }
+
   const patched = source
     .replace(strictCandidate, recoveryCandidate)
-    .replace(strictLiveGuard, recoveryLiveGuard);
-  if (patched === source || patched.includes(strictCandidate) || patched.includes(strictLiveGuard)) {
+    .replace(strictLiveGuard, recoveryLiveGuard)
+    .replace(quiescenceAnchor, resumeHelper)
+    .replace(movedAnchor, movedReplacement)
+    .replace(rollbackAnchor, rollbackReplacement);
+
+  if (
+    patched === source ||
+    patched.includes(strictCandidate) ||
+    patched.includes(strictLiveGuard) ||
+    patched.includes(movedAnchor) ||
+    patched.includes(rollbackAnchor)
+  ) {
     throw new Error("CODE_TIMEOUT_RECOVERY_SOURCE_PATCH_VERIFY_FAILED");
   }
   return patched;
@@ -227,6 +303,8 @@ console.log(JSON.stringify({
   health,
   plan_safe_with_missing_historical_job_because_no_mutation_occurs: !apply,
   equal_stock_rank_recovery_requires_material_scheduler_advantage: true,
+  endpoint_resume_verified_before_provider_submission: true,
+  rollback_resume_verified: true,
   minimum_gpu_memory_gb_preserved: 80,
   provider_job_submitted_by_wrapper: false,
   endpoint_mutation_performed_by_wrapper: false,
@@ -254,6 +332,7 @@ try {
     failed_job_id: failedJobId,
     job_status_source: jobEvidence.source,
     equal_rank_recovery_path_used: true,
+    endpoint_resume_verified_before_provider_submission: true,
     production_deploy_performed: false,
     secrets_printed: false,
   }));

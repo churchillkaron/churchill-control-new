@@ -1,12 +1,15 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const CONTRACT = "AVANTIQO_MUSIC_ECONOMICS_V1";
-const EXPECTED_BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3";
+const CONTRACT = "AVANTIQO_MUSIC_ECONOMICS_V2";
+const EXPECTED_BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V4";
 const EXPECTED_PROVIDER = "avantiqo-audio";
 const EXPECTED_FOUNDATION_MODEL = "ACE-Step/Ace-Step1.5";
 const EXPECTED_FAMILY = "ACE_STEP_1_5";
-const EXPECTED_VARIANT = "acestep-v15-turbo";
+const EXPECTED_VARIANT = "acestep-v15-xl-turbo";
+const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
+const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
+const EXPECTED_LM_BACKEND = "vllm";
 
 const INPUT = resolve(
   process.env.AVANTIQO_AUDIO_BENCHMARK_OUTPUT ||
@@ -51,6 +54,11 @@ function assertBenchmark(report = {}) {
     foundation_model: text(model.foundation_model) === EXPECTED_FOUNDATION_MODEL,
     family: text(model.family) === EXPECTED_FAMILY,
     variant: text(model.variant) === EXPECTED_VARIANT,
+    quality_profile: text(model.quality_profile) === EXPECTED_QUALITY_PROFILE,
+    lm_model: text(model.lm_model) === EXPECTED_LM_MODEL,
+    lm_backend: text(model.lm_backend) === EXPECTED_LM_BACKEND,
+    ace_step_lm_used: model.ace_step_lm_used === true,
+    thinking_enabled: model.thinking_enabled === true,
     capability: text(model.capability) === "ai.music.generate",
   };
   const failed = Object.entries(checks)
@@ -131,6 +139,10 @@ async function main() {
     foundation_model: EXPECTED_FOUNDATION_MODEL,
     model_family: EXPECTED_FAMILY,
     model_variant: EXPECTED_VARIANT,
+    quality_profile: EXPECTED_QUALITY_PROFILE,
+    lm_model: EXPECTED_LM_MODEL,
+    lm_backend: EXPECTED_LM_BACKEND,
+    ace_step_lm_required: true,
     capability: "ai.music.generate",
     source_benchmark_contract: benchmark.contract,
     source_benchmark_id: benchmark.benchmark_id || null,

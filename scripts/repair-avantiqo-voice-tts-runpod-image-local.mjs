@@ -93,13 +93,14 @@ async function rest(pathname, credential, options = {}) {
   return body;
 }
 
-async function queueHealth(endpointId, credential) {
-  const response = await fetch(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`, {
+async function queueRequest(endpointId, credential, pathname, options = {}) {
+  const response = await fetch(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}${pathname}`, {
+    method: options.method || "GET",
     headers: {
       Authorization: `Bearer ${credential}`,
       Accept: "application/json",
     },
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(options.timeoutMs || 30_000),
   });
   const raw = await response.text();
   let body = null;
@@ -110,9 +111,17 @@ async function queueHealth(endpointId, credential) {
   }
   if (!response.ok) {
     const detail = text(body?.message || body?.error || raw).slice(0, 1000);
-    throw new Error(`RUNPOD_HEALTH_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
+    throw new Error(`RUNPOD_QUEUE_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
   }
   return body || {};
+}
+
+async function queueHealth(endpointId, credential) {
+  return queueRequest(endpointId, credential, "/health");
+}
+
+async function purgeQueue(endpointId, credential) {
+  return queueRequest(endpointId, credential, "/purge-queue", { method: "POST" });
 }
 
 function healthCounters(body = {}) {
@@ -137,15 +146,24 @@ function healthCounters(body = {}) {
   };
 }
 
-function assertNoLiveExecution(health) {
-  if (health.jobs.in_queue > 0 || health.jobs.in_progress > 0) {
+function assertNoExecutingWork(health) {
+  if (health.jobs.in_progress > 0) {
     throw new Error(
-      `AVANTIQO_VOICE_TTS_IMAGE_REPAIR_BLOCKED_LIVE_JOBS:in_queue=${health.jobs.in_queue}:in_progress=${health.jobs.in_progress}`,
+      `AVANTIQO_VOICE_TTS_IMAGE_REPAIR_BLOCKED_IN_PROGRESS_JOBS:in_progress=${health.jobs.in_progress}`,
     );
   }
   if (health.workers.running > 0 || health.workers.throttled > 0) {
     throw new Error(
       `AVANTIQO_VOICE_TTS_IMAGE_REPAIR_BLOCKED_EXECUTING_WORKERS:running=${health.workers.running}:throttled=${health.workers.throttled}`,
+    );
+  }
+}
+
+function assertNoLiveExecution(health) {
+  assertNoExecutingWork(health);
+  if (health.jobs.in_queue > 0) {
+    throw new Error(
+      `AVANTIQO_VOICE_TTS_IMAGE_REPAIR_BLOCKED_QUEUED_JOBS:in_queue=${health.jobs.in_queue}`,
     );
   }
 }
@@ -338,6 +356,7 @@ if (finite(endpoint.workersMin, 0) !== 0) endpointPatch.workersMin = 0;
 if (finite(endpoint.workersMax, 0) !== 1) endpointPatch.workersMax = 1;
 if (finite(endpoint.idleTimeout, 0) !== desiredIdleTimeout) endpointPatch.idleTimeout = desiredIdleTimeout;
 const endpointChangeRequired = Object.keys(endpointPatch).length > 0;
+const staleQueueDetected = health.jobs.in_queue > 0;
 
 const plan = {
   success: templateExclusive,
@@ -369,14 +388,18 @@ const plan = {
   image_change_required: imageChangeRequired,
   endpoint_change_required: endpointChangeRequired,
   endpoint_patch_fields: Object.keys(endpointPatch),
-  mutation_required: imageChangeRequired || endpointChangeRequired,
+  stale_queue_detected: staleQueueDetected,
+  stale_queue_purge_allowed_only_when_no_execution: true,
+  mutation_required: imageChangeRequired || endpointChangeRequired || staleQueueDetected,
   mutation_performed: false,
+  queue_purged: false,
+  queue_removed_count: 0,
   broken_nonexecuting_workers_may_be_replaced: true,
   generation_submitted: false,
   production_deploy_performed: false,
   pricing_activation_performed: false,
   secrets_in_output: false,
-  next_action: imageChangeRequired || endpointChangeRequired
+  next_action: imageChangeRequired || endpointChangeRequired || staleQueueDetected
     ? "APPLY_TTS_IMAGE_REPAIR_THEN_RUN_READ_ONLY_STARTUP_DIAGNOSTIC"
     : "RUN_READ_ONLY_TTS_STARTUP_DIAGNOSTIC",
 };
@@ -390,7 +413,17 @@ if (!apply) {
 if (!templateExclusive) {
   throw new Error(`AVANTIQO_VOICE_TTS_SHARED_TEMPLATE_REPAIR_BLOCKED:consumers=${templateConsumers.length}`);
 }
-assertNoLiveExecution(health);
+assertNoExecutingWork(health);
+
+let queuePurged = false;
+let queueRemovedCount = 0;
+if (health.jobs.in_queue > 0) {
+  const purge = await purgeQueue(endpointId, managementKey);
+  queuePurged = true;
+  queueRemovedCount = finite(purge?.removed, health.jobs.in_queue);
+  const postPurgeHealth = healthCounters(await queueHealth(endpointId, managementKey));
+  assertNoLiveExecution(postPurgeHealth);
+}
 
 const freshEvidence = await refreshedTtsEvidence();
 if (
@@ -430,7 +463,7 @@ if (freshConsumers.length !== 1 || text(freshConsumers[0]?.id) !== endpointId) {
 }
 assertNoLiveExecution(healthCounters(freshHealthRaw));
 
-let mutationPerformed = false;
+let mutationPerformed = queuePurged;
 if (text(freshTemplate.imageName) !== evidence.image) {
   await rest(`/templates/${encodeURIComponent(templateId)}/update`, managementKey, {
     method: "POST",
@@ -454,12 +487,14 @@ if (Object.keys(freshPatch).length) {
   mutationPerformed = true;
 }
 
-const [verifiedEndpoint, verifiedTemplates] = await Promise.all([
+const [verifiedEndpoint, verifiedTemplates, verifiedHealthRaw] = await Promise.all([
   rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey),
   endpointBoundTemplates(managementKey),
+  queueHealth(endpointId, managementKey),
 ]);
 const verifiedTemplate = resolveTemplate(verifiedEndpoint, verifiedTemplates);
 const verifiedGpuTypeIds = list(verifiedEndpoint.gpuTypeIds).map(text).filter(Boolean);
+const verifiedHealth = healthCounters(verifiedHealthRaw);
 if (text(verifiedTemplate.imageName) !== evidence.image) {
   throw new Error("AVANTIQO_VOICE_TTS_IMAGE_REPAIR_VERIFY_IMAGE_FAILED");
 }
@@ -475,6 +510,7 @@ if (finite(verifiedEndpoint.workersMin, 0) !== 0 || finite(verifiedEndpoint.work
 if (finite(verifiedEndpoint.idleTimeout, 0) !== desiredIdleTimeout) {
   throw new Error("AVANTIQO_VOICE_TTS_IMAGE_REPAIR_VERIFY_IDLE_TIMEOUT_FAILED");
 }
+assertNoLiveExecution(verifiedHealth);
 
 console.log(JSON.stringify({
   ...plan,
@@ -482,7 +518,10 @@ console.log(JSON.stringify({
   mode: "APPLY",
   endpoint: safeEndpoint(verifiedEndpoint),
   template: safeTemplate(verifiedTemplate),
+  health_after: verifiedHealth,
   mutation_performed: mutationPerformed,
+  queue_purged: queuePurged,
+  queue_removed_count: queueRemovedCount,
   generation_submitted: false,
   production_deploy_performed: false,
   pricing_activation_performed: false,

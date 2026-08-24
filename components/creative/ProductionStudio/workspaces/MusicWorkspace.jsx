@@ -39,7 +39,7 @@ function audioUrl(value, depth = 0) {
     const resolved = audioUrl(value[key], depth + 1);
     if (resolved) return resolved;
   }
-  for (const key of ["output", "raw", "result", "data", "files", "audio", "asset"]) {
+  for (const key of ["output", "raw", "result", "data", "files", "audio", "asset", "master_asset"]) {
     const resolved = audioUrl(value[key], depth + 1);
     if (resolved) return resolved;
   }
@@ -53,8 +53,22 @@ function isAudioAsset(asset = {}) {
   return mime.startsWith("audio/") || type.includes("audio") || /\.(wav|mp3|m4a|aac|flac|ogg)(\?|$)/.test(url);
 }
 
+function isMusicAsset(asset = {}) {
+  return isAudioAsset(asset) && text(asset.metadata?.media_kind).toUpperCase() === "MUSIC";
+}
+
 function directPlaybackUrl(asset = {}) {
-  return audioUrl(asset.url || asset.file_url || asset.playback_url || asset);
+  return audioUrl(asset.playback_url || asset.url || asset.file_url || asset);
+}
+
+function assetKind(asset = {}) {
+  return text(asset.metadata?.music_asset_kind || "SOURCE").toUpperCase();
+}
+
+function versionLabel(asset = {}) {
+  const version = Number(asset.metadata?.music_version || 0);
+  const kind = assetKind(asset) === "MASTER" ? "Master" : "Source";
+  return version > 0 ? `V${version} · ${kind}` : kind;
 }
 
 function Field({ label, hint, children }) {
@@ -88,8 +102,8 @@ export default function MusicWorkspace({ runtime }) {
   const mission = runtime.missionRuntime?.current || null;
   const organizationId = runtime.organizationId || null;
   const refresh = runtime.refresh;
-  const audioAssets = useMemo(
-    () => (runtime.assetRuntime?.items || []).filter(isAudioAsset).slice(0, 8),
+  const runtimeMusicAssets = useMemo(
+    () => (runtime.assetRuntime?.items || []).filter(isMusicAsset).slice(0, 12),
     [runtime.assetRuntime?.items],
   );
 
@@ -110,10 +124,17 @@ export default function MusicWorkspace({ runtime }) {
     mastering_profile: "streaming",
   });
   const [session, setSession] = useState(null);
+  const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [playbackUrls, setPlaybackUrls] = useState({});
   const [resolvingAssets, setResolvingAssets] = useState({});
+  const [resolutionFailures, setResolutionFailures] = useState({});
+
+  const musicAssets = useMemo(() => {
+    const combined = [...history, ...runtimeMusicAssets];
+    return [...new Map(combined.filter(Boolean).map((asset) => [asset.id, asset])).values()].slice(0, 16);
+  }, [history, runtimeMusicAssets]);
 
   function update(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -132,6 +153,21 @@ export default function MusicWorkspace({ runtime }) {
     return result;
   }
 
+  async function loadHistory() {
+    if (!organizationId) return;
+    try {
+      const result = await request({
+        action: "history",
+        organization_id: organizationId,
+        creative_project_id: project?.id || null,
+        creative_mission_id: mission?.id || null,
+      });
+      setHistory(Array.isArray(result.assets) ? result.assets : []);
+    } catch {
+      // Runtime asset list remains a safe fallback if history is temporarily unavailable.
+    }
+  }
+
   async function compose() {
     if (!organizationId) return;
     setBusy(true);
@@ -144,8 +180,11 @@ export default function MusicWorkspace({ runtime }) {
         creative_mission_id: mission?.id || null,
         ...form,
       });
-      setSession({ ...result, quantity: Number(form.duration_seconds), unit: "second" });
-      if (!result.pending) refresh?.();
+      setSession(result);
+      if (!result.pending) {
+        refresh?.();
+        await loadHistory();
+      }
     } catch (cause) {
       setError(cause?.message || "Music Studio execution failed");
     } finally {
@@ -154,66 +193,53 @@ export default function MusicWorkspace({ runtime }) {
   }
 
   useEffect(() => {
-    if (!session?.pending || !session?.provider_job_id || !session?.usage_id || !organizationId) return undefined;
+    loadHistory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, project?.id, mission?.id]);
+
+  useEffect(() => {
+    if (!session?.pending || !session?.usage_id || !organizationId) return undefined;
     let cancelled = false;
-    const timer = setInterval(async () => {
+    let inFlight = false;
+    const poll = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const result = await request({
           action: "status",
           organization_id: organizationId,
-          creative_project_id: project?.id || null,
-          creative_mission_id: mission?.id || null,
-          title: session?.session?.title || form.title,
-          mastering_profile: session?.session?.mastering_profile || form.mastering_profile,
-          provider: session.provider,
-          provider_job_id: session.provider_job_id,
           usage_id: session.usage_id,
-          pricing: session.pricing || {},
-          credential_id: session.credential_id || null,
-          started_at: session.started_at || null,
-          quantity: session.quantity,
-          unit: session.unit,
         });
         if (!cancelled) {
           setSession((current) => ({ ...current, ...result }));
-          if (!result.pending) refresh?.();
+          if (!result.pending) {
+            refresh?.();
+            await loadHistory();
+          }
         }
       } catch (cause) {
         if (!cancelled) setError(cause?.message || "Music job status failed");
+      } finally {
+        inFlight = false;
       }
-    }, 3000);
+    };
+    const timer = setInterval(poll, 3000);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [
-    session?.pending,
-    session?.provider_job_id,
-    session?.usage_id,
-    session?.provider,
-    session?.pricing,
-    session?.credential_id,
-    session?.started_at,
-    session?.quantity,
-    session?.unit,
-    session?.session?.title,
-    session?.session?.mastering_profile,
-    organizationId,
-    project?.id,
-    mission?.id,
-    form.title,
-    form.mastering_profile,
-    refresh,
-  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.pending, session?.usage_id, organizationId]);
 
   useEffect(() => {
-    if (!organizationId || !audioAssets.length) return undefined;
+    if (!organizationId || !musicAssets.length) return undefined;
     let cancelled = false;
-    const unresolved = audioAssets.filter((asset) => (
+    const unresolved = musicAssets.filter((asset) => (
       asset?.id &&
       !directPlaybackUrl(asset) &&
       !playbackUrls[asset.id] &&
-      !resolvingAssets[asset.id]
+      !resolvingAssets[asset.id] &&
+      !resolutionFailures[asset.id]
     ));
     if (!unresolved.length) return undefined;
 
@@ -229,15 +255,19 @@ export default function MusicWorkspace({ runtime }) {
           organization_id: organizationId,
           asset_id: asset.id,
         });
-        return [asset.id, audioUrl(result?.asset?.playback_url || result?.asset)];
+        return [asset.id, audioUrl(result?.asset?.playback_url || result?.asset), false];
       } catch {
-        return [asset.id, ""];
+        return [asset.id, "", true];
       }
     })).then((entries) => {
       if (cancelled) return;
       setPlaybackUrls((current) => ({
         ...current,
-        ...Object.fromEntries(entries.filter(([, url]) => Boolean(url))),
+        ...Object.fromEntries(entries.filter(([, url]) => Boolean(url)).map(([id, url]) => [id, url])),
+      }));
+      setResolutionFailures((current) => ({
+        ...current,
+        ...Object.fromEntries(entries.filter(([, , failed]) => failed).map(([id]) => [id, true])),
       }));
       setResolvingAssets((current) => {
         const next = { ...current };
@@ -249,10 +279,38 @@ export default function MusicWorkspace({ runtime }) {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, audioAssets, playbackUrls, resolvingAssets]);
+  }, [organizationId, musicAssets, playbackUrls, resolvingAssets, resolutionFailures]);
 
-  const generatedUrl = audioUrl(session?.output);
+  useEffect(() => {
+    const masterId = session?.master_asset?.id;
+    if (!masterId || !organizationId || playbackUrls[masterId] || resolvingAssets[masterId] || resolutionFailures[masterId]) return undefined;
+    let cancelled = false;
+    setResolvingAssets((current) => ({ ...current, [masterId]: true }));
+    request({ action: "resolve_asset", organization_id: organizationId, asset_id: masterId })
+      .then((result) => {
+        if (cancelled) return;
+        const url = audioUrl(result?.asset?.playback_url || result?.asset);
+        if (url) setPlaybackUrls((current) => ({ ...current, [masterId]: url }));
+        else setResolutionFailures((current) => ({ ...current, [masterId]: true }));
+      })
+      .catch(() => {
+        if (!cancelled) setResolutionFailures((current) => ({ ...current, [masterId]: true }));
+      })
+      .finally(() => {
+        if (!cancelled) setResolvingAssets((current) => {
+          const next = { ...current };
+          delete next[masterId];
+          return next;
+        });
+      });
+    return () => { cancelled = true; };
+  }, [organizationId, session?.master_asset?.id, playbackUrls, resolvingAssets, resolutionFailures]);
+
+  const sourceUrl = audioUrl(session?.output);
+  const masterUrl = session?.master_asset?.id ? playbackUrls[session.master_asset.id] || directPlaybackUrl(session.master_asset) : "";
+  const generatedUrl = masterUrl || sourceUrl;
   const activeMaster = MASTERING_PROFILES.find((profile) => profile.id === form.mastering_profile) || MASTERING_PROFILES[0];
+  const finishingStatus = session?.finishing?.status || (session?.pending ? "WAITING_FOR_GENERATION" : null);
 
   return (
     <div className="min-h-full bg-[#050505] text-white">
@@ -263,19 +321,19 @@ export default function MusicWorkspace({ runtime }) {
               <Music2 className="h-3.5 w-3.5" />
               Avantiqo Music · Owned Studio Engine
             </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight">Compose, shape and finish original music</h1>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">Compose, master and preserve original music</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/42">
-              Direct musical intent instead of writing provider prompts. Avantiqo converts the session into execution-only ACE-Step direction, routes it through governed wallet and usage controls, and keeps mastering targets ready for the finishing pipeline.
+              Describe musical intent, not a provider prompt. Avantiqo owns the composition contract, governed execution, private asset lifecycle, version history and automatic release mastering.
             </p>
           </div>
           <div className="grid gap-2 text-[10px] sm:grid-cols-3">
             <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.05] px-3 py-2 text-emerald-100/75">
               <BadgeCheck className="mb-1 h-3.5 w-3.5" />
-              Music generation certified
+              Generation certified
             </div>
             <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-2 text-white/48">
-              <Disc3 className="mb-1 h-3.5 w-3.5" />
-              ACE-Step 1.5
+              <Sparkles className="mb-1 h-3.5 w-3.5" />
+              Auto mastering
             </div>
             <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-2 text-white/48">
               <Radio className="mb-1 h-3.5 w-3.5" />
@@ -292,81 +350,40 @@ export default function MusicWorkspace({ runtime }) {
               <div className="text-[10px] uppercase tracking-[0.24em] text-white/28">Composition direction</div>
               <div className="mt-1 text-lg font-medium text-white/82">Musical intent</div>
             </div>
-            <span className="rounded-full border border-[#d6a66a]/20 bg-[#d6a66a]/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-[#e8c995]/75">
-              No provider prompt box
-            </span>
+            <span className="rounded-full border border-[#d6a66a]/20 bg-[#d6a66a]/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-[#e8c995]/75">No provider prompt box</span>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Title">
-              <input value={form.title} onChange={(event) => update("title", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none focus:border-[#d6a66a]/35" />
-            </Field>
-            <Field label="Style / genre">
-              <input value={form.style} onChange={(event) => update("style", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none focus:border-[#d6a66a]/35" />
-            </Field>
-            <Field label="Mood">
-              <input value={form.mood} onChange={(event) => update("mood", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none focus:border-[#d6a66a]/35" />
-            </Field>
-            <Field label="Energy">
-              <input value={form.energy} onChange={(event) => update("energy", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none focus:border-[#d6a66a]/35" />
-            </Field>
+            <Field label="Title"><input value={form.title} onChange={(event) => update("title", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none focus:border-[#d6a66a]/35" /></Field>
+            <Field label="Style / genre"><input value={form.style} onChange={(event) => update("style", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none focus:border-[#d6a66a]/35" /></Field>
+            <Field label="Mood"><input value={form.mood} onChange={(event) => update("mood", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none focus:border-[#d6a66a]/35" /></Field>
+            <Field label="Energy"><input value={form.energy} onChange={(event) => update("energy", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none focus:border-[#d6a66a]/35" /></Field>
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Field label="Instrumentation">
-              <textarea value={form.instrumentation} onChange={(event) => update("instrumentation", event.target.value)} className="h-24 w-full resize-none rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm leading-6 outline-none focus:border-[#d6a66a]/35" />
-            </Field>
-            <Field label="Arrangement">
-              <textarea value={form.structure} onChange={(event) => update("structure", event.target.value)} className="h-24 w-full resize-none rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm leading-6 outline-none focus:border-[#d6a66a]/35" />
-            </Field>
+            <Field label="Instrumentation"><textarea value={form.instrumentation} onChange={(event) => update("instrumentation", event.target.value)} className="h-24 w-full resize-none rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm leading-6 outline-none focus:border-[#d6a66a]/35" /></Field>
+            <Field label="Arrangement"><textarea value={form.structure} onChange={(event) => update("structure", event.target.value)} className="h-24 w-full resize-none rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm leading-6 outline-none focus:border-[#d6a66a]/35" /></Field>
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Duration" hint="10–180 sec">
-              <input type="number" min="10" max="180" value={form.duration_seconds} onChange={(event) => update("duration_seconds", Number(event.target.value))} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none" />
-            </Field>
-            <Field label="Tempo" hint="BPM">
-              <input type="number" min="30" max="300" value={form.bpm} onChange={(event) => update("bpm", Number(event.target.value))} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none" />
-            </Field>
-            <Field label="Key">
-              <select value={form.keyscale} onChange={(event) => update("keyscale", event.target.value)} className="w-full rounded-xl border border-white/9 bg-[#0a0a09] px-4 py-3 text-sm outline-none">
-                {KEYS.map((key) => <option key={key || "auto"} value={key}>{key || "Auto"}</option>)}
-              </select>
-            </Field>
-            <Field label="Meter">
-              <select value={form.timesignature} onChange={(event) => update("timesignature", event.target.value)} className="w-full rounded-xl border border-white/9 bg-[#0a0a09] px-4 py-3 text-sm outline-none">
-                <option value="4">4/4</option><option value="3">3/4</option><option value="6">6/8</option><option value="2">2/4</option>
-              </select>
-            </Field>
+            <Field label="Duration" hint="10–180 sec"><input type="number" min="10" max="180" value={form.duration_seconds} onChange={(event) => update("duration_seconds", Number(event.target.value))} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none" /></Field>
+            <Field label="Tempo" hint="BPM"><input type="number" min="30" max="300" value={form.bpm} onChange={(event) => update("bpm", Number(event.target.value))} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none" /></Field>
+            <Field label="Key"><select value={form.keyscale} onChange={(event) => update("keyscale", event.target.value)} className="w-full rounded-xl border border-white/9 bg-[#0a0a09] px-4 py-3 text-sm outline-none">{KEYS.map((key) => <option key={key || "auto"} value={key}>{key || "Auto"}</option>)}</select></Field>
+            <Field label="Meter"><select value={form.timesignature} onChange={(event) => update("timesignature", event.target.value)} className="w-full rounded-xl border border-white/9 bg-[#0a0a09] px-4 py-3 text-sm outline-none"><option value="4">4/4</option><option value="3">3/4</option><option value="6">6/8</option><option value="2">2/4</option></select></Field>
           </div>
 
           <div className="mt-6 rounded-2xl border border-white/8 bg-white/[0.018] p-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <div className="text-sm font-medium text-white/78">Performance mode</div>
-                <div className="mt-1 text-xs text-white/30">Instrumental is the safest production-certified path. Vocal mode uses only lyrics you supply.</div>
-              </div>
-              <button type="button" onClick={() => update("instrumental", !form.instrumental)} className={`rounded-full border px-4 py-2 text-xs ${form.instrumental ? "border-[#d6a66a]/30 bg-[#d6a66a]/10 text-[#f0d6a4]" : "border-white/10 bg-white/[0.03] text-white/60"}`}>
-                {form.instrumental ? "Instrumental" : "Vocals"}
-              </button>
+              <div><div className="text-sm font-medium text-white/78">Performance mode</div><div className="mt-1 text-xs text-white/30">Instrumental and vocal compositions use the same owned generation lane. Vocal mode uses only lyrics you supply.</div></div>
+              <button type="button" onClick={() => update("instrumental", !form.instrumental)} className={`rounded-full border px-4 py-2 text-xs ${form.instrumental ? "border-[#d6a66a]/30 bg-[#d6a66a]/10 text-[#f0d6a4]" : "border-white/10 bg-white/[0.03] text-white/60"}`}>{form.instrumental ? "Instrumental" : "Vocals"}</button>
             </div>
-            {!form.instrumental ? (
-              <div className="mt-4 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
-                <Field label="Language"><input value={form.vocal_language} onChange={(event) => update("vocal_language", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none" /></Field>
-                <Field label="Lyrics"><textarea value={form.lyrics} onChange={(event) => update("lyrics", event.target.value)} className="h-32 w-full resize-none rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm leading-6 outline-none" /></Field>
-              </div>
-            ) : null}
+            {!form.instrumental ? <div className="mt-4 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]"><Field label="Language"><input value={form.vocal_language} onChange={(event) => update("vocal_language", event.target.value)} className="w-full rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm outline-none" /></Field><Field label="Lyrics"><textarea value={form.lyrics} onChange={(event) => update("lyrics", event.target.value)} className="h-32 w-full resize-none rounded-xl border border-white/9 bg-white/[0.025] px-4 py-3 text-sm leading-6 outline-none" /></Field></div> : null}
           </div>
 
           <div className="mt-6">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white/72"><SlidersHorizontal className="h-4 w-4 text-[#d6a66a]" /> Mastering target</div>
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white/72"><SlidersHorizontal className="h-4 w-4 text-[#d6a66a]" /> Automatic mastering target</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {MASTERING_PROFILES.map((profile) => (
-                <button key={profile.id} type="button" onClick={() => update("mastering_profile", profile.id)} className={`rounded-xl border p-3 text-left ${form.mastering_profile === profile.id ? "border-[#d6a66a]/35 bg-[#d6a66a]/[0.08]" : "border-white/8 bg-white/[0.018]"}`}>
-                  <div className="text-xs font-medium text-white/72">{profile.label}</div>
-                  <div className="mt-1 text-[10px] text-white/28">{profile.detail}</div>
-                </button>
-              ))}
+              {MASTERING_PROFILES.map((profile) => <button key={profile.id} type="button" onClick={() => update("mastering_profile", profile.id)} className={`rounded-xl border p-3 text-left ${form.mastering_profile === profile.id ? "border-[#d6a66a]/35 bg-[#d6a66a]/[0.08]" : "border-white/8 bg-white/[0.018]"}`}><div className="text-xs font-medium text-white/72">{profile.label}</div><div className="mt-1 text-[10px] text-white/28">{profile.detail}</div></button>)}
             </div>
           </div>
 
@@ -377,70 +394,53 @@ export default function MusicWorkspace({ runtime }) {
               {session?.pending ? <AudioLines className="h-4 w-4 animate-pulse" /> : <WandSparkles className="h-4 w-4" />}
               {session?.pending ? "Composing…" : busy ? "Starting…" : "Compose music"}
             </button>
-            <div className="text-xs text-white/28">{form.duration_seconds}s · {form.bpm} BPM · {activeMaster.label}</div>
+            <div className="text-xs text-white/28">{form.duration_seconds}s · {form.bpm} BPM · {activeMaster.label} master</div>
           </div>
         </main>
 
         <aside className="p-5 lg:p-7">
           <div className="rounded-2xl border border-white/8 bg-white/[0.018] p-5">
             <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-white/28">Current session</div>
-                <div className="mt-1 text-lg font-medium text-white/80">{session?.session?.title || form.title}</div>
-              </div>
-              {session?.pending ? <AudioLines className="h-5 w-5 animate-pulse text-[#d6a66a]" /> : session?.failed ? <CircleStop className="h-5 w-5 text-red-300/70" /> : generatedUrl ? <BadgeCheck className="h-5 w-5 text-emerald-300/70" /> : <Disc3 className="h-5 w-5 text-white/24" />}
+              <div><div className="text-[10px] uppercase tracking-[0.22em] text-white/28">Current session</div><div className="mt-1 text-lg font-medium text-white/80">{session?.session?.title || form.title}</div></div>
+              {session?.pending ? <AudioLines className="h-5 w-5 animate-pulse text-[#d6a66a]" /> : session?.failed || session?.finishing?.failed ? <CircleStop className="h-5 w-5 text-red-300/70" /> : generatedUrl ? <BadgeCheck className="h-5 w-5 text-emerald-300/70" /> : <Disc3 className="h-5 w-5 text-white/24" />}
             </div>
 
             <div className="mt-5 flex min-h-36 items-center justify-center rounded-xl border border-white/7 bg-black/40 p-4">
-              {generatedUrl ? (
-                <audio src={generatedUrl} controls className="w-full" />
-              ) : session?.pending ? (
-                <div className="text-center"><AudioLines className="mx-auto h-8 w-8 animate-pulse text-[#d6a66a]/75" /><div className="mt-3 text-sm text-white/48">Avantiqo Music is composing</div><div className="mt-1 text-xs text-white/24">Wallet reservation remains governed until settlement.</div></div>
-              ) : session?.failed ? (
-                <div className="text-center"><CircleStop className="mx-auto h-8 w-8 text-red-300/55" /><div className="mt-3 text-sm text-red-100/65">Composition did not complete</div><div className="mt-1 text-xs text-white/24">No failed output is stored as a project asset.</div></div>
-              ) : (
-                <div className="text-center"><Music2 className="mx-auto h-8 w-8 text-white/16" /><div className="mt-3 text-sm text-white/35">Your composition will appear here</div></div>
-              )}
+              {generatedUrl ? <audio src={generatedUrl} controls className="w-full" /> : session?.pending ? <div className="text-center"><AudioLines className="mx-auto h-8 w-8 animate-pulse text-[#d6a66a]/75" /><div className="mt-3 text-sm text-white/48">Avantiqo Music is composing</div><div className="mt-1 text-xs text-white/24">Wallet reservation remains governed until settlement.</div></div> : session?.failed ? <div className="text-center"><CircleStop className="mx-auto h-8 w-8 text-red-300/55" /><div className="mt-3 text-sm text-red-100/65">Composition did not complete</div></div> : session?.finishing && !session.finishing.ready ? <div className="text-center"><Sparkles className="mx-auto h-8 w-8 animate-pulse text-[#d6a66a]/70" /><div className="mt-3 text-sm text-white/48">Creating release master</div><div className="mt-1 text-xs text-white/24">Loudness, true peak, deliveries and waveform are being validated.</div></div> : <div className="text-center"><Music2 className="mx-auto h-8 w-8 text-white/16" /><div className="mt-3 text-sm text-white/35">Your composition will appear here</div></div>}
             </div>
 
-            {session ? (
-              <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Status</div><div className="mt-1 text-white/65">{session.pending ? "Composing" : session.failed ? "Failed" : generatedUrl ? "Ready" : session.provider_status || "Processing"}</div></div>
-                <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Engine</div><div className="mt-1 text-white/65">Avantiqo Music</div></div>
-                <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Settlement</div><div className="mt-1 text-white/65">{session.settlement || "Governed"}</div></div>
-                <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Master target</div><div className="mt-1 text-white/65">{activeMaster.label}</div></div>
-              </div>
-            ) : null}
+            {session ? <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Generation</div><div className="mt-1 text-white/65">{session.pending ? "Composing" : session.failed ? "Failed" : "Complete"}</div></div>
+              <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Mastering</div><div className="mt-1 text-white/65">{session?.finishing?.ready ? "Release ready" : session?.finishing?.failed ? "Needs repair" : finishingStatus || "Queued"}</div></div>
+              <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Settlement</div><div className="mt-1 text-white/65">{session.settlement || "Governed"}</div></div>
+              <div className="rounded-lg border border-white/7 p-3"><div className="text-white/25">Master target</div><div className="mt-1 text-white/65">{activeMaster.label}</div></div>
+            </div> : null}
           </div>
 
           <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.018] p-5">
-            <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-[#d6a66a]" /><div className="text-sm font-medium text-white/72">Studio finishing</div></div>
-            <p className="mt-2 text-xs leading-5 text-white/32">The selected {activeMaster.label.toLowerCase()} profile is carried as a downstream Avantiqo Audio Finishing target. Multi-track mix, LUFS/true-peak validation, WAV/MP3 delivery and waveform reporting already exist in the finishing runtime.</p>
+            <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-[#d6a66a]" /><div className="text-sm font-medium text-white/72">Automatic studio finishing</div></div>
+            <p className="mt-2 text-xs leading-5 text-white/32">Every completed composition is preserved as a source version, then Avantiqo Audio Finishing creates a separate release master with LUFS and true-peak validation, 24-bit WAV, 320 kbps MP3, waveform and master evidence.</p>
           </div>
 
           <div className="mt-5 space-y-2">
-            <GateCard title="Remix / repaint" copy="Engine target exists, but it stays disabled until source-audio quality and GPU-economics certification are complete." />
-            <GateCard title="Stem Lab" copy="Stem separation is a target capability, not yet a certified owned execution lane." />
-            <GateCard title="Extend composition" copy="Continuation will unlock only with dedicated continuity and audio-quality benchmarks." />
+            <GateCard title="Remix / repaint" copy="Owned source-audio mode remains fail-closed until its dedicated quality and GPU-economics benchmark passes." />
+            <GateCard title="Stem Lab" copy="Owned stem extraction remains fail-closed until its base-model lane and separation benchmark pass." />
+            <GateCard title="Extend composition" copy="Owned continuation remains fail-closed until musical continuity and duration economics are certified." />
           </div>
 
           <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.018] p-5">
-            <div className="mb-3 flex items-center justify-between"><div className="text-sm font-medium text-white/70">Project audio</div><span className="text-[10px] text-white/24">{audioAssets.length} recent</span></div>
+            <div className="mb-3 flex items-center justify-between"><div className="text-sm font-medium text-white/70">Version history</div><span className="text-[10px] text-white/24">{musicAssets.length} assets</span></div>
             <div className="space-y-2">
-              {audioAssets.map((asset) => {
+              {musicAssets.map((asset) => {
                 const url = directPlaybackUrl(asset) || playbackUrls[asset.id] || "";
                 const resolving = Boolean(resolvingAssets[asset.id]);
-                return (
-                  <div key={asset.id} className="rounded-xl border border-white/7 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="truncate text-xs text-white/60">{asset.title || asset.name || asset.file_name || "Audio asset"}</div>
-                      {asset.metadata?.owned_engine ? <span className="shrink-0 text-[9px] uppercase tracking-[0.12em] text-[#d6a66a]/55">Avantiqo</span> : null}
-                    </div>
-                    {url ? <audio src={url} controls className="mt-2 w-full" /> : resolving ? <div className="mt-2 flex items-center gap-2 text-[10px] text-white/26"><AudioLines className="h-3 w-3 animate-pulse" /> Securing private playback…</div> : <div className="mt-2 text-[10px] text-white/22">Playback unavailable</div>}
-                  </div>
-                );
+                const master = assetKind(asset) === "MASTER";
+                return <div key={asset.id} className={`rounded-xl border p-3 ${master ? "border-[#d6a66a]/20 bg-[#d6a66a]/[0.035]" : "border-white/7"}`}>
+                  <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-xs text-white/64">{asset.title || asset.name || asset.file_name || "Audio asset"}</div><div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-white/24">{versionLabel(asset)}{asset.metadata?.mastering_profile ? ` · ${asset.metadata.mastering_profile}` : ""}</div></div>{master ? <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[#d6a66a]/70" /> : <Disc3 className="h-3.5 w-3.5 shrink-0 text-white/22" />}</div>
+                  {url ? <audio src={url} controls className="mt-2 w-full" /> : resolving ? <div className="mt-2 flex items-center gap-2 text-[10px] text-white/26"><AudioLines className="h-3 w-3 animate-pulse" /> Securing private playback…</div> : <div className="mt-2 text-[10px] text-white/22">Playback unavailable</div>}
+                </div>;
               })}
-              {!audioAssets.length ? <div className="rounded-xl border border-dashed border-white/8 p-4 text-center text-xs text-white/24">No project audio assets yet</div> : null}
+              {!musicAssets.length ? <div className="rounded-xl border border-dashed border-white/8 p-4 text-center text-xs text-white/24">No music versions yet</div> : null}
             </div>
           </div>
         </aside>

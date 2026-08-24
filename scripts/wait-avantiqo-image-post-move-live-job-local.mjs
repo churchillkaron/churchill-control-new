@@ -107,7 +107,10 @@ async function resolveEndpointId(managementKey) {
 async function waitForExistingWork(apiKey, endpointId) {
   const started = Date.now();
   let lastPrinted = 0;
+  let sawQueued = false;
   let sawInProgress = false;
+  let sawInitializing = false;
+  let sawRunning = false;
 
   while (true) {
     const counters = healthCounters(await serverless(apiKey, endpointId, "/health"));
@@ -118,17 +121,15 @@ async function waitForExistingWork(apiKey, endpointId) {
       );
     }
 
-    if (counters.jobs.in_queue > 0) {
-      throw new Error(
-        `AVANTIQO_IMAGE_EXISTING_JOB_QUEUED_WORK_REQUIRES_EXPLICIT_RECOVERY:in_queue=${counters.jobs.in_queue}:in_progress=${counters.jobs.in_progress}`,
-      );
-    }
+    if (counters.jobs.in_queue > 0) sawQueued = true;
+    if (counters.jobs.in_progress > 0) sawInProgress = true;
+    if (counters.workers.initializing > 0) sawInitializing = true;
+    if (counters.workers.running > 0) sawRunning = true;
 
-    if (counters.jobs.in_progress > 0) {
-      sawInProgress = true;
-    }
-
+    // Queue transitions are provider work too. We wait without cancelling or purging.
+    // Idle, ready and throttled alone are harmless capacity/scaler states.
     const live =
+      counters.jobs.in_queue +
       counters.jobs.in_progress +
       counters.workers.initializing +
       counters.workers.running;
@@ -137,7 +138,12 @@ async function waitForExistingWork(apiKey, endpointId) {
       console.log(JSON.stringify({
         event: "AVANTIQO_IMAGE_EXISTING_JOB_QUIESCENCE_READY",
         elapsed_seconds: Math.round((Date.now() - started) / 1000),
-        saw_existing_in_progress_job: sawInProgress,
+        observed_states: {
+          queued: sawQueued,
+          in_progress: sawInProgress,
+          initializing: sawInitializing,
+          running: sawRunning,
+        },
         health: counters,
       }));
       return counters;
@@ -155,6 +161,12 @@ async function waitForExistingWork(apiKey, endpointId) {
         event: "AVANTIQO_IMAGE_EXISTING_JOB_WAIT",
         elapsed_seconds: Math.round(elapsed / 1000),
         timeout_seconds: Math.round(WAIT_MS / 1000),
+        observed_states: {
+          queued: sawQueued,
+          in_progress: sawInProgress,
+          initializing: sawInitializing,
+          running: sawRunning,
+        },
         health: counters,
       }));
       lastPrinted = Date.now();
@@ -197,6 +209,7 @@ async function main() {
 
   console.log("AVANTIQO_IMAGE_EXISTING_JOB_WAIT_GUARD=ACTIVE");
   console.log(`AVANTIQO_IMAGE_EXISTING_JOB_WAIT_TIMEOUT_MS=${WAIT_MS}`);
+  console.log("AVANTIQO_IMAGE_EXISTING_JOB_QUEUED_WORK_POLICY=WAIT_WITHOUT_MUTATION");
   console.log("AVANTIQO_IMAGE_EXISTING_JOB_AUTO_CANCEL=false");
   console.log("AVANTIQO_IMAGE_EXISTING_JOB_QUEUE_PURGE=false");
   console.log("AVANTIQO_IMAGE_EXISTING_JOB_IDLE_READY_THROTTLED_ARE_LIVE_WORK=false");
@@ -209,9 +222,10 @@ async function main() {
 
   console.log(JSON.stringify({
     success: true,
-    contract: "AVANTIQO_IMAGE_EXISTING_JOB_WAIT_GUARD_V1",
+    contract: "AVANTIQO_IMAGE_EXISTING_JOB_WAIT_GUARD_V2",
     endpoint_id: endpointId,
     existing_work_waited_out: true,
+    queued_work_waited_without_mutation: true,
     automatic_cancel_performed: false,
     queue_purge_performed: false,
     guarded_continuation_passed: true,
@@ -223,7 +237,7 @@ async function main() {
 main().catch((error) => {
   console.error(JSON.stringify({
     success: false,
-    contract: "AVANTIQO_IMAGE_EXISTING_JOB_WAIT_GUARD_V1",
+    contract: "AVANTIQO_IMAGE_EXISTING_JOB_WAIT_GUARD_V2",
     error: text(error?.message || error),
     automatic_cancel_performed: false,
     queue_purge_performed: false,

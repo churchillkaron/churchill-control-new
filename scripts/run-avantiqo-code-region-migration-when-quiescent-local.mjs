@@ -1,11 +1,22 @@
 import { spawn } from "node:child_process";
+import "./runpod-transient-fetch-retry-preload.mjs";
 
 const REST = "https://rest.runpod.io/v1";
 const SERVERLESS = "https://api.runpod.ai/v2";
 const CODE_ENDPOINT_NAME = "avantiqo-code-v1";
 const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-code-runpod-region-local.mjs";
+const RETRY_PRELOAD = "./scripts/runpod-transient-fetch-retry-preload.mjs";
 const QUIESCENCE_TIMEOUT_MS = 12 * 60 * 1000;
+const ABNORMAL_EXIT_CLEANUP_TIMEOUT_MS = 3 * 60 * 1000;
 const POLL_MS = 10_000;
+const CLEANUP_POLL_MS = 3000;
+const TERMINAL_JOB_STATUSES = new Set([
+  "COMPLETED",
+  "FAILED",
+  "TIMED_OUT",
+  "CANCELLED",
+  "CANCELED",
+]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -48,12 +59,15 @@ async function rest(managementKey, path) {
   return body;
 }
 
-async function serverless(apiKey, endpointId, path) {
+async function serverless(apiKey, endpointId, path, options = {}) {
   const response = await fetch(`${SERVERLESS}/${encodeURIComponent(endpointId)}${path}`, {
+    method: options.method || "GET",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
     },
+    body: options.body ? JSON.stringify(options.body) : undefined,
     signal: AbortSignal.timeout(30_000),
   });
   const { raw, body } = await readBody(response);
@@ -85,6 +99,15 @@ function healthCounters(health = {}) {
       unhealthy: number(workers.unhealthy),
     },
   };
+}
+
+function liveWork(counters) {
+  return (
+    counters.jobs.in_queue +
+    counters.jobs.in_progress +
+    counters.workers.initializing +
+    counters.workers.running
+  );
 }
 
 async function resolveEndpointId(managementKey) {
@@ -150,14 +173,114 @@ async function waitForQuiescence(apiKey, endpointId) {
   }
 }
 
-async function runMigration(endpointId) {
-  const child = spawn(process.execPath, ["--env-file=.env.local", MIGRATION_SCRIPT], {
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      RUNPOD_AVANTIQO_CODE_ENDPOINT_ID: endpointId,
+function captureJobIds(chunk, buffer, knownJobIds) {
+  const combined = buffer + chunk.toString("utf8");
+  const lines = combined.split(/\r?\n/);
+  const remainder = lines.pop() || "";
+  for (const line of lines) {
+    const match = line.match(/AVANTIQO_CODE_REGION_(?:CACHE|PROBE)_JOB=([A-Za-z0-9-]+)/);
+    if (match?.[1]) knownJobIds.add(match[1]);
+  }
+  return remainder;
+}
+
+async function waitForJobTerminal(apiKey, endpointId, jobId) {
+  const deadline = Date.now() + ABNORMAL_EXIT_CLEANUP_TIMEOUT_MS;
+  while (true) {
+    const body = await serverless(apiKey, endpointId, `/status/${encodeURIComponent(jobId)}`);
+    const status = text(body.status).toUpperCase();
+    if (TERMINAL_JOB_STATUSES.has(status)) return status;
+    if (Date.now() >= deadline) {
+      throw new Error(`CODE_REGION_ABNORMAL_EXIT_JOB_STILL_LIVE:${jobId}:${status || "UNKNOWN"}`);
+    }
+    await sleep(CLEANUP_POLL_MS);
+  }
+}
+
+async function cleanupKnownJobs(apiKey, endpointId, knownJobIds) {
+  const outcomes = [];
+  for (const jobId of knownJobIds) {
+    let before = null;
+    try {
+      before = await serverless(apiKey, endpointId, `/status/${encodeURIComponent(jobId)}`);
+      const beforeStatus = text(before.status).toUpperCase();
+      if (!TERMINAL_JOB_STATUSES.has(beforeStatus)) {
+        await serverless(apiKey, endpointId, `/cancel/${encodeURIComponent(jobId)}`, {
+          method: "POST",
+        });
+      }
+      const terminalStatus = TERMINAL_JOB_STATUSES.has(beforeStatus)
+        ? beforeStatus
+        : await waitForJobTerminal(apiKey, endpointId, jobId);
+      outcomes.push({ job_id: jobId, terminal_status: terminalStatus, verified: true });
+    } catch (error) {
+      outcomes.push({
+        job_id: jobId,
+        terminal_status: text(before?.status).toUpperCase() || null,
+        verified: false,
+        error: text(error?.message || error),
+      });
+    }
+  }
+
+  console.error(JSON.stringify({
+    event: "AVANTIQO_CODE_REGION_ABNORMAL_EXIT_JOB_CLEANUP",
+    jobs: outcomes,
+  }));
+
+  if (outcomes.some((item) => item.verified !== true)) {
+    throw new Error("CODE_REGION_ABNORMAL_EXIT_JOB_CLEANUP_UNVERIFIED");
+  }
+}
+
+async function verifyNoLiveWorkAfterAbnormalExit(apiKey, endpointId) {
+  const deadline = Date.now() + ABNORMAL_EXIT_CLEANUP_TIMEOUT_MS;
+  let last = null;
+  while (true) {
+    const health = await serverless(apiKey, endpointId, "/health");
+    last = healthCounters(health);
+    if (last.workers.unhealthy > 0) {
+      throw new Error(`CODE_REGION_ABNORMAL_EXIT_UNHEALTHY_WORKER:${last.workers.unhealthy}`);
+    }
+    if (liveWork(last) === 0) {
+      console.error(JSON.stringify({
+        event: "AVANTIQO_CODE_REGION_ABNORMAL_EXIT_QUIESCENCE_VERIFIED",
+        health: last,
+      }));
+      return;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(`CODE_REGION_ABNORMAL_EXIT_QUIESCENCE_TIMEOUT:${JSON.stringify(last)}`);
+    }
+    await sleep(CLEANUP_POLL_MS);
+  }
+}
+
+async function runMigration(apiKey, endpointId) {
+  const knownJobIds = new Set();
+  let stdoutBuffer = "";
+  let stderrBuffer = "";
+
+  const child = spawn(
+    process.execPath,
+    ["--import", RETRY_PRELOAD, "--env-file=.env.local", MIGRATION_SCRIPT],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        RUNPOD_AVANTIQO_CODE_ENDPOINT_ID: endpointId,
+      },
+      stdio: ["inherit", "pipe", "pipe"],
     },
-    stdio: "inherit",
+  );
+
+  child.stdout.on("data", (chunk) => {
+    process.stdout.write(chunk);
+    stdoutBuffer = captureJobIds(chunk, stdoutBuffer, knownJobIds);
+  });
+  child.stderr.on("data", (chunk) => {
+    process.stderr.write(chunk);
+    stderrBuffer = captureJobIds(chunk, stderrBuffer, knownJobIds);
   });
 
   const exitCode = await new Promise((resolve, reject) => {
@@ -170,7 +293,17 @@ async function runMigration(endpointId) {
       resolve(code ?? 1);
     });
   });
+
   if (exitCode !== 0) {
+    console.error(JSON.stringify({
+      event: "AVANTIQO_CODE_REGION_MIGRATION_CHILD_FAILED",
+      exit_code: exitCode,
+      known_provider_job_ids: [...knownJobIds],
+    }));
+    if (knownJobIds.size) {
+      await cleanupKnownJobs(apiKey, endpointId, knownJobIds);
+    }
+    await verifyNoLiveWorkAfterAbnormalExit(apiKey, endpointId);
     throw new Error(`CODE_REGION_MIGRATION_CHILD_EXIT:${exitCode}`);
   }
 }
@@ -182,17 +315,19 @@ async function main() {
   if (!apiKey) throw new Error("RUNPOD_API_KEY_REQUIRED");
 
   console.log("AVANTIQO_CODE_REGION_QUIESCENCE_WRAPPER=READ_ONLY_UNTIL_MIGRATION");
+  console.log("AVANTIQO_CODE_REGION_QUIESCENCE_TRANSIENT_FETCH_RETRY=ACTIVE");
+  console.log("AVANTIQO_CODE_REGION_QUIESCENCE_ABNORMAL_EXIT_CLEANUP=ACTIVE");
   console.log("AVANTIQO_CODE_REGION_QUIESCENCE_PRODUCTION_DEPLOY_PERFORMED=false");
 
   const endpointId = await resolveEndpointId(managementKey);
   await waitForQuiescence(apiKey, endpointId);
-  await runMigration(endpointId);
+  await runMigration(apiKey, endpointId);
 }
 
 main().catch((error) => {
   console.error(JSON.stringify({
     success: false,
-    contract: "AVANTIQO_CODE_REGION_QUIESCENCE_WRAPPER_V1",
+    contract: "AVANTIQO_CODE_REGION_QUIESCENCE_WRAPPER_V2",
     error: text(error?.message || error),
     production_deploy_performed: false,
   }, null, 2));

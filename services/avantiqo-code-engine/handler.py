@@ -9,8 +9,12 @@ from pathlib import Path
 from typing import Any
 
 # Certification-critical vLLM process behavior is source-owned. A stale RunPod
-# endpoint environment must never be able to re-enable fork after CUDA setup.
+# endpoint environment must never be able to re-enable fork after CUDA setup or
+# the FlashInfer sampler path that currently requires boot-time JIT support on
+# RTX PRO 6000 Blackwell workers. The model remains vLLM-served FP8; only the
+# sampler implementation is forced onto vLLM's stable non-FlashInfer path.
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
 
 import runpod
 from vllm import LLM, SamplingParams
@@ -86,6 +90,9 @@ def _configuration_overrides() -> dict[str, Any]:
         "quantization_env_matches": (
             not CONFIGURED_QUANTIZATION or CONFIGURED_QUANTIZATION == QUANTIZATION
         ),
+        "vllm_worker_multiproc_method": os.getenv("VLLM_WORKER_MULTIPROC_METHOD", ""),
+        "flashinfer_sampler_env": os.getenv("VLLM_USE_FLASHINFER_SAMPLER", ""),
+        "flashinfer_sampler_disabled": os.getenv("VLLM_USE_FLASHINFER_SAMPLER") == "0",
         "certification_values_source_locked": True,
     }
 
@@ -99,6 +106,8 @@ def _validate_runtime_contract() -> None:
         raise RuntimeError(f"AVANTIQO_CODE_QUANTIZATION_REQUIRED:fp8:{QUANTIZATION}")
     if os.getenv("VLLM_WORKER_MULTIPROC_METHOD") != "spawn":
         raise RuntimeError("AVANTIQO_CODE_VLLM_SPAWN_REQUIRED")
+    if os.getenv("VLLM_USE_FLASHINFER_SAMPLER") != "0":
+        raise RuntimeError("AVANTIQO_CODE_FLASHINFER_SAMPLER_MUST_BE_DISABLED")
     if MAX_MODEL_LEN < 4096 or MAX_MODEL_LEN > 262144:
         raise RuntimeError(f"AVANTIQO_CODE_MAX_MODEL_LEN_INVALID:{MAX_MODEL_LEN}")
     if not 0.5 <= GPU_MEMORY_UTILIZATION <= 0.98:
@@ -132,6 +141,7 @@ def _runtime_probe(data: dict[str, Any]) -> dict[str, Any] | None:
         "cached_model_found": bool(cached_path),
         "engine_loaded": _ENGINE is not None,
         "vllm_worker_multiproc_method": os.getenv("VLLM_WORKER_MULTIPROC_METHOD", ""),
+        "flashinfer_sampler_disabled": os.getenv("VLLM_USE_FLASHINFER_SAMPLER") == "0",
         "endpoint_environment": _configuration_overrides(),
         "raw_reasoning_persisted": False,
     }
@@ -223,7 +233,8 @@ def _load_engine() -> tuple[Any, LLM]:
     )
 
     # vLLM owns CUDA initialization. Do not touch torch.cuda before this call.
-    # Source forces VLLM_WORKER_MULTIPROC_METHOD=spawn before importing vLLM.
+    # Source forces spawn and a non-FlashInfer sampler before importing vLLM so
+    # one worker image remains safe across the approved Hopper/Blackwell pool.
     _ENGINE = LLM(
         model=model_source,
         tokenizer=model_source,

@@ -15,6 +15,10 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function upper(value) {
+  return text(value).toUpperCase();
+}
+
 function object(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
@@ -59,13 +63,42 @@ function healthCounters(body = {}) {
       initializing: finite(workers.initializing, 0),
       ready: finite(workers.ready, 0),
       running: finite(workers.running, 0),
+      throttled: finite(workers.throttled, 0),
       unhealthy: finite(workers.unhealthy, 0),
     },
   };
 }
 
-function workerCount(counters) {
-  return Object.values(counters.workers).reduce((sum, value) => sum + finite(value, 0), 0);
+function managementWorkerSummary(endpoint = {}) {
+  const workers = list(endpoint.workers).map((worker) => ({
+    id_present: Boolean(text(worker?.id)),
+    desired_status: upper(worker?.desiredStatus ?? worker?.desired_status) || null,
+    status: upper(worker?.status ?? worker?.workerStatus ?? worker?.runtimeStatus) || null,
+  }));
+  const nonExited = workers.filter((worker) => worker.desired_status !== "EXITED");
+  return {
+    worker_count: workers.length,
+    workers,
+    all_workers_desired_exited: workers.length === 0 || nonExited.length === 0,
+    non_exited_worker_count: nonExited.length,
+  };
+}
+
+function repairDrainState(counters, management) {
+  const jobsClear = counters.jobs.in_queue === 0 && counters.jobs.in_progress === 0;
+  const noExecutingWorkers =
+    counters.workers.running === 0 &&
+    counters.workers.throttled === 0 &&
+    counters.workers.unhealthy === 0;
+  const managementWorkersExited = management.all_workers_desired_exited === true;
+  return {
+    jobs_clear: jobsClear,
+    no_executing_workers: noExecutingWorkers,
+    management_workers_exited: managementWorkersExited,
+    health_ready_idle_overlap_ignored: true,
+    health_initializing_ignored_when_management_desired_exited: managementWorkersExited,
+    drained_candidate: jobsClear && noExecutingWorkers && managementWorkersExited,
+  };
 }
 
 function safeEndpoint(endpoint = {}) {
@@ -303,6 +336,28 @@ function templateUpdateBody(template, desiredEnv, desiredMountPath, desiredImage
   return body;
 }
 
+function assertRepairDrainSafe(counters, management) {
+  if (counters.jobs.in_queue > 0 || counters.jobs.in_progress > 0) {
+    throw new Error(
+      `AVANTIQO_AUDIO_TEMPLATE_REPAIR_BLOCKED_LIVE_JOBS:in_queue=${counters.jobs.in_queue}:in_progress=${counters.jobs.in_progress}`,
+    );
+  }
+  if (
+    counters.workers.running > 0 ||
+    counters.workers.throttled > 0 ||
+    counters.workers.unhealthy > 0
+  ) {
+    throw new Error(
+      `AVANTIQO_AUDIO_TEMPLATE_REPAIR_BLOCKED_EXECUTING_WORKERS:running=${counters.workers.running}:throttled=${counters.workers.throttled}:unhealthy=${counters.workers.unhealthy}`,
+    );
+  }
+  if (management.non_exited_worker_count > 0) {
+    throw new Error(
+      `AVANTIQO_AUDIO_TEMPLATE_REPAIR_BLOCKED_ACTIVE_WORKERS:count=${management.non_exited_worker_count}`,
+    );
+  }
+}
+
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const inferenceKey = text(process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY) || required("RUNPOD_API_KEY");
 const configuredId = text(process.env.RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID);
@@ -317,6 +372,8 @@ console.log(`AVANTIQO_AUDIO_RUNPOD_REPAIR_MODE=${apply ? "APPLY" : "PLAN"}`);
 console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_PRODUCTION_DEPLOY_PERFORMED=false");
 console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_SECRET_VALUES_PRINTED=false");
+console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_MANAGEMENT_WORKERS_AUTHORITATIVE=true");
+console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_HEALTH_BUCKET_SUM=false");
 
 const immutableImage = await imageEvidence();
 const [endpoints, templates, volumes, registryAuths] = await Promise.all([
@@ -361,9 +418,10 @@ if (!resolved.endpoint) {
   const attachedVolumes = volumes
     .filter((volume) => attachedVolumeIds.includes(text(volume?.id)))
     .map(safeVolume);
-  const health = await queueHealth(endpointId, inferenceKey);
-  const counters = healthCounters(health);
-  const activeWorkers = workerCount(counters);
+  const counters = healthCounters(await queueHealth(endpointId, inferenceKey));
+  const management = managementWorkerSummary(endpoint);
+  const drain = repairDrainState(counters, management);
+  const activeWorkers = management.non_exited_worker_count;
 
   const registryAuth = resolveRegistryAuth(registryAuths, template);
   const registryAuthId = text(registryAuth?.id);
@@ -408,7 +466,7 @@ if (!resolved.endpoint) {
 
   let nextAction = "FINGERPRINT_AUDIO_ENDPOINT";
   if (ghcrRegistryAuthRequired) nextAction = "CONFIGURE_RUNPOD_GHCR_REGISTRY_AUTH";
-  else if (counters.jobs.in_queue > 0 || counters.jobs.in_progress > 0 || activeWorkers > 0) {
+  else if (!drain.drained_candidate) {
     nextAction = "WAIT_FOR_AUDIO_WORKER_DRAIN";
   } else if (mutationRequired) {
     nextAction = attachedVolumeIds.length
@@ -431,6 +489,8 @@ if (!resolved.endpoint) {
     attached_network_volumes: attachedVolumes,
     attached_network_volume_ids: attachedVolumeIds,
     health: counters,
+    management_workers: management,
+    drain,
     immutable_worker_image: {
       verified: true,
       reference: immutableImage.image,
@@ -481,14 +541,7 @@ if (!resolved.endpoint) {
     if (templateConsumers.length !== 1 || text(templateConsumers[0]?.id) !== endpointId) {
       throw new Error(`AVANTIQO_AUDIO_SHARED_TEMPLATE_REPAIR_BLOCKED:consumers=${templateConsumers.length}`);
     }
-    if (counters.jobs.in_queue > 0 || counters.jobs.in_progress > 0) {
-      throw new Error(
-        `AVANTIQO_AUDIO_TEMPLATE_REPAIR_BLOCKED_LIVE_JOBS:in_queue=${counters.jobs.in_queue}:in_progress=${counters.jobs.in_progress}`,
-      );
-    }
-    if (activeWorkers > 0) {
-      throw new Error(`AVANTIQO_AUDIO_TEMPLATE_REPAIR_BLOCKED_ACTIVE_WORKERS:count=${activeWorkers}`);
-    }
+    assertRepairDrainSafe(counters, management);
 
     if (!mutationRequired) {
       console.log("AVANTIQO_AUDIO_RUNPOD_REPAIR_PLAN=NO_TEMPLATE_CHANGE_REQUIRED");
@@ -528,14 +581,8 @@ if (!resolved.endpoint) {
       }
 
       const freshHealth = healthCounters(await queueHealth(endpointId, inferenceKey));
-      if (freshHealth.jobs.in_queue > 0 || freshHealth.jobs.in_progress > 0) {
-        throw new Error(
-          `AVANTIQO_AUDIO_TEMPLATE_REPAIR_BLOCKED_LIVE_JOBS:in_queue=${freshHealth.jobs.in_queue}:in_progress=${freshHealth.jobs.in_progress}`,
-        );
-      }
-      if (workerCount(freshHealth) > 0) {
-        throw new Error(`AVANTIQO_AUDIO_TEMPLATE_REPAIR_BLOCKED_ACTIVE_WORKERS:count=${workerCount(freshHealth)}`);
-      }
+      const freshManagement = managementWorkerSummary(freshEndpoint);
+      assertRepairDrainSafe(freshHealth, freshManagement);
 
       await rest(`/templates/${encodeURIComponent(templateId)}/update`, managementKey, {
         method: "POST",

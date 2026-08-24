@@ -7,6 +7,9 @@ import {
   createRecommendationRefinementProposal,
   recommendationRefinementProposalFromAgreementState,
 } from "../lib/operator/runtime/OperatorRecommendationRefinement.js";
+import {
+  resolveRecommendationRefinementPayload,
+} from "../lib/operator/runtime/OperatorRecommendationRefinementPayloadResolver.js";
 
 const oldRecommendation = {
   recommendation_id: "operator_recommendation_restore_old",
@@ -124,17 +127,42 @@ assert.equal(
   "plain rejection must remain different from restoring original direction",
 );
 
-const turnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
-const turnSource = await readFile(turnPath, "utf8");
-const decisionStart = turnSource.indexOf(
+const freshPayload = resolveRecommendationRefinementPayload({
+  proposal: restored,
+  capability: {
+    key: oldRecommendation.capability_key,
+    input_schema: {
+      type: "object",
+      properties: { focus: { type: "string" } },
+      required: ["focus"],
+    },
+  },
+});
+assert.equal(freshPayload.ready, true);
+assert.deepEqual(freshPayload.payload, { focus: oldRecommendation.description });
+assert.equal(freshPayload.old_payload_reused, false);
+assert.notEqual(
+  freshPayload.payload.focus,
+  oldRecommendation.payload.focus,
+  "restored Product Engineering direction must derive fresh focus from direction text rather than revive the old payload",
+);
+
+const legacyPath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
+const governedPath = "lib/operator/runtime/OperatorTurnRuntimeGoverned.js";
+const [legacySource, governedSource] = await Promise.all([
+  readFile(legacyPath, "utf8"),
+  readFile(governedPath, "utf8"),
+]);
+
+const decisionStart = legacySource.indexOf(
   "function recommendationRefinementDecisionTurn",
 );
-const discussionStart = turnSource.indexOf(
+const discussionStart = legacySource.indexOf(
   "function recommendationDiscussionKind",
   decisionStart,
 );
 assert.ok(decisionStart >= 0 && discussionStart > decisionStart);
-const decisionSource = turnSource.slice(decisionStart, discussionStart);
+const decisionSource = legacySource.slice(decisionStart, discussionStart);
 for (const required of [
   'const restoredOriginal = outcome === "restore_original"',
   'const selected = outcome === "select" || restoredOriginal',
@@ -161,22 +189,32 @@ assert.ok(
   ),
 );
 
-const materializeStart = turnSource.indexOf(
-  "async function recommendationRefinementMaterializationTurn",
-);
-const continuationStart = turnSource.indexOf(
-  "function continuationCapabilityResult",
-  materializeStart,
-);
-const materializeSource = turnSource.slice(materializeStart, continuationStart);
-assert.ok(materializeSource.includes("old_payload_reused: false"));
-assert.ok(materializeSource.includes("capability_freshly_validated: true"));
-assert.ok(
-  materializeSource.includes("? { focus: proposalText }"),
-  "Product Engineering restoration must derive fresh focus from restored direction text",
-);
+for (const required of [
+  "classifyRecommendationRefinementAdvanceRequest",
+  "listOperatorCapabilities",
+  "runGovernedRecommendationRefinementTurn",
+  "prepareSelectedRefinementForGovernedBinding",
+  "result?.old_payload_reused !== false",
+  "operatorRecommendationMatchesPendingExecution",
+  "capability_freshly_validated: ready",
+  "old_payload_reused: false",
+  "execution_authorized: false",
+  "materializationRequested || advanceRequested",
+]) {
+  assert.ok(
+    governedSource.includes(required),
+    `${governedPath} missing governed restore/materialization guard ${required}`,
+  );
+}
+for (const forbidden of ["executeUbteCapability", "runOperatorTurnCore("]) {
+  assert.ok(
+    !governedSource.includes(forbidden),
+    `governed refinement preparation must bind without executing through ${forbidden}`,
+  );
+}
 
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_RESTORE_AUDIT=PASS");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_RESTORE_RUNTIME=LEGACY_DECISION_GOVERNED_MATERIALIZATION");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_RESTORE_LANGUAGES=SV_DE_FR_ES_TH");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_RESTORE=ORIGINAL_DIRECTION_ONLY");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_RESTORE_OLD_PAYLOAD=NOT_RESTORED");

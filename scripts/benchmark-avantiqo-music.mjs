@@ -6,6 +6,18 @@ import { createClient } from "@supabase/supabase-js";
 const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
 const STORAGE_BUCKET = "creative-assets";
+const POLL_INTERVAL_MS = Math.max(
+  2_000,
+  Math.min(30_000, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_POLL_INTERVAL_MS || 5_000)),
+);
+const QUEUE_TIMEOUT_MS = Math.max(
+  60_000,
+  Math.min(30 * 60 * 1000, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_QUEUE_TIMEOUT_MS || 15 * 60 * 1000)),
+);
+const EXECUTION_TIMEOUT_MS = Math.max(
+  60_000,
+  Math.min(45 * 60 * 1000, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_EXECUTION_TIMEOUT_MS || 25 * 60 * 1000)),
+);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -41,31 +53,120 @@ function percentile(values, fraction) {
   return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * fraction))];
 }
 
-async function runJob(endpointId, payload, apiKey) {
-  const started = performance.now();
-  const response = await fetch(`${API_BASE}/${endpointId}/runsync`, {
-    method: "POST",
+function sleep(ms) {
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
+}
+
+async function runpodRequest(url, apiKey, options = {}) {
+  const response = await fetch(url, {
+    ...options,
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
       Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {}),
     },
-    body: JSON.stringify({ input: payload }),
+    signal: AbortSignal.timeout(30_000),
   });
-  const body = await response.json().catch(() => ({}));
-  const wallMs = Math.round(performance.now() - started);
+  const raw = await response.text();
+  let body = {};
+  try {
+    body = raw ? JSON.parse(raw) : {};
+  } catch {
+    body = {};
+  }
   if (!response.ok) {
-    throw new Error(`RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message)}`);
+    throw new Error(
+      `RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message || raw).slice(0, 800)}`,
+    );
   }
-  if (text(body?.status).toUpperCase() !== "COMPLETED") {
-    throw new Error(`RUNPOD_NOT_COMPLETED:${text(body?.status) || "UNKNOWN"}`);
+  return body;
+}
+
+async function cancelJob(endpointId, jobId, apiKey) {
+  try {
+    await runpodRequest(
+      `${API_BASE}/${encodeURIComponent(endpointId)}/cancel/${encodeURIComponent(jobId)}`,
+      apiKey,
+      { method: "POST" },
+    );
+    console.log(`AVANTIQO_MUSIC_BENCHMARK_JOB_CANCELLED=${jobId}`);
+  } catch (error) {
+    console.error(
+      `AVANTIQO_MUSIC_BENCHMARK_JOB_CANCEL_FAILED=${jobId}:${text(error?.message || error)}`,
+    );
   }
-  return {
-    body,
-    wallMs,
-    runpodExecutionMs: finite(body.executionTime ?? body.execution_time, null),
-    runpodDelayMs: finite(body.delayTime ?? body.delay_time, null),
-  };
+}
+
+async function runJob(endpointId, payload, apiKey, runNumber) {
+  const started = performance.now();
+  const submitted = await runpodRequest(
+    `${API_BASE}/${encodeURIComponent(endpointId)}/run`,
+    apiKey,
+    {
+      method: "POST",
+      body: JSON.stringify({ input: payload }),
+    },
+  );
+  const jobId = text(submitted?.id);
+  if (!jobId) throw new Error("RUNPOD_JOB_ID_REQUIRED");
+
+  console.log(`AVANTIQO_MUSIC_BENCHMARK_RUN=${runNumber}`);
+  console.log(`AVANTIQO_MUSIC_BENCHMARK_JOB_ID=${jobId}`);
+  console.log("AVANTIQO_MUSIC_BENCHMARK_TRANSPORT=QUEUED_RUN");
+
+  const submittedAt = Date.now();
+  let executionStartedAt = null;
+  let lastStatus = "";
+  let lastHeartbeatAt = 0;
+
+  while (true) {
+    const body = await runpodRequest(
+      `${API_BASE}/${encodeURIComponent(endpointId)}/status/${encodeURIComponent(jobId)}`,
+      apiKey,
+    );
+    const status = text(body?.status).toUpperCase();
+    const now = Date.now();
+
+    if (status && status !== lastStatus) {
+      console.log(`AVANTIQO_MUSIC_BENCHMARK_STATUS=${status}`);
+      lastStatus = status;
+    } else if (now - lastHeartbeatAt >= 60_000) {
+      console.log(`AVANTIQO_MUSIC_BENCHMARK_HEARTBEAT=${status || "UNKNOWN"}`);
+      lastHeartbeatAt = now;
+    }
+
+    if (status === "IN_PROGRESS" && executionStartedAt === null) {
+      executionStartedAt = now;
+    }
+
+    if (status === "COMPLETED") {
+      return {
+        body,
+        wallMs: Math.round(performance.now() - started),
+        runpodExecutionMs: finite(body.executionTime ?? body.execution_time, null),
+        runpodDelayMs: finite(body.delayTime ?? body.delay_time, null),
+        jobId,
+      };
+    }
+
+    if (["FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(status)) {
+      const detail = text(body?.error || body?.output?.error || body?.message).slice(0, 1000);
+      throw new Error(`RUNPOD_JOB_${status}:${detail || "NO_DETAIL"}`);
+    }
+
+    if (executionStartedAt === null && now - submittedAt > QUEUE_TIMEOUT_MS) {
+      await cancelJob(endpointId, jobId, apiKey);
+      throw new Error(`RUNPOD_QUEUE_TIMEOUT:${QUEUE_TIMEOUT_MS}`);
+    }
+
+    if (executionStartedAt !== null && now - executionStartedAt > EXECUTION_TIMEOUT_MS) {
+      await cancelJob(endpointId, jobId, apiKey);
+      throw new Error(`RUNPOD_EXECUTION_TIMEOUT:${EXECUTION_TIMEOUT_MS}`);
+    }
+
+    await sleep(POLL_INTERVAL_MS);
+  }
 }
 
 approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
@@ -107,6 +208,7 @@ for (let index = 0; index < runs; index += 1) {
     wallMs,
     runpodExecutionMs,
     runpodDelayMs,
+    jobId,
   } = await runJob(endpointId, {
     contract: CONTRACT,
     capability: "ai.music.generate",
@@ -132,7 +234,7 @@ for (let index = 0; index < runs; index += 1) {
       signed_url: upload.signedUrl,
       storage_reference: storageReference,
     },
-  }, apiKey);
+  }, apiKey, run);
 
   const output = body.output || {};
   const { data: review } = await supabase.storage
@@ -141,6 +243,7 @@ for (let index = 0; index < runs; index += 1) {
 
   observations.push({
     run,
+    runpod_job_id: jobId,
     usage_id: usageId,
     storage_reference: storageReference,
     review_url: review?.signedUrl || null,
@@ -190,6 +293,10 @@ const report = {
     controlled_spend_approved: true,
     runs,
     requested_duration_seconds: duration,
+    runpod_transport: "queued_run_status_polling",
+    poll_interval_ms: POLL_INTERVAL_MS,
+    queue_timeout_ms: QUEUE_TIMEOUT_MS,
+    execution_timeout_ms: EXECUTION_TIMEOUT_MS,
   },
   model: {
     provider: "avantiqo-audio",

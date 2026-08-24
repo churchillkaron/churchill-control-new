@@ -182,9 +182,37 @@ assert.ok(
   "selected refinement advance must intercept before the final legacy fallback",
 );
 
+const governedResponseStart = governedSource.indexOf(
+  "function governedRefinementResponse",
+);
+const bindingStart = governedSource.indexOf(
+  "function bindPreparedRefinement",
+  governedResponseStart,
+);
+assert.ok(governedResponseStart >= 0 && bindingStart > governedResponseStart);
+const governedResponseSource = governedSource.slice(
+  governedResponseStart,
+  bindingStart,
+);
+assert.ok(governedResponseSource.includes("execution_authorized: false"));
+assert.ok(governedResponseSource.includes("old_payload_reused: false"));
+assert.ok(governedResponseSource.includes("capability_freshly_validated: ready"));
+
 const governedPreparationStart = governedSource.indexOf(
   "export async function runGovernedRecommendationRefinementTurn",
+  bindingStart,
 );
+assert.ok(governedPreparationStart > bindingStart);
+const governedBindingSource = governedSource.slice(
+  bindingStart,
+  governedPreparationStart,
+);
+assert.ok(governedBindingSource.includes("result?.execution_authorized !== false"));
+assert.ok(governedBindingSource.includes("result?.old_payload_reused !== false"));
+assert.ok(governedBindingSource.includes("operatorRecommendationMatchesPendingExecution("));
+assert.ok(!governedBindingSource.includes("runOperatorTurnCore("));
+assert.ok(!governedBindingSource.includes("executeUbteCapability"));
+
 const legacyFunctionStart = governedSource.indexOf(
   "async function legacyRunOperatorTurn",
   governedPreparationStart,
@@ -196,11 +224,10 @@ const governedPreparationSource = governedSource.slice(
 assert.ok(!governedPreparationSource.includes("runOperatorTurnCore("));
 assert.ok(!governedPreparationSource.includes("executeUbteCapability"));
 assert.ok(governedPreparationSource.includes("prepareSelectedRefinementForGovernedBinding({"));
-assert.ok(governedPreparationSource.includes("execution_authorized: false"));
-assert.ok(governedPreparationSource.includes("old_payload_reused: false"));
 assert.ok(governedPreparationSource.includes("bindingFailed: true"));
 
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_AUDIT=PASS");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_RUNTIME=CANONICAL_TO_GOVERNED_PREPARATION_BINDING_RESPONSE");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_LANGUAGES=SV_DE_FR_ES_TH");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_SELECTED=CONTINUE_TO_GOVERNED_PREPARATION");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_ADVANCE_PREMATERIALIZED_EXECUTION=NONE");

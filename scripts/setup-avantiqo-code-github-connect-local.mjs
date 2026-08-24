@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const CONTRACT = "AVANTIQO_CODE_GITHUB_CONNECT_SETUP_V1";
+const CONTRACT = "AVANTIQO_CODE_GITHUB_CONNECT_SETUP_V2";
 const APPROVAL = "AVANTIQO_CODE_GITHUB_CONNECT_SETUP_APPROVED";
 const OUTPUT = resolve(
   process.env.AVANTIQO_CODE_GITHUB_CONNECT_SETUP_OUTPUT ||
@@ -220,7 +220,10 @@ async function createGitHubConnector(launcher) {
     "--yes",
   ]);
   if (result.signal) throw new Error(`AVANTIQO_CODE_GITHUB_CONNECT_CREATE_SIGNAL:${result.signal}`);
-  if (result.code !== 0) throw new Error(`AVANTIQO_CODE_GITHUB_CONNECT_CREATE_FAILED:${result.code}`);
+  return {
+    success: result.code === 0,
+    exit_code: result.code,
+  };
 }
 
 function envFileValue(source, name) {
@@ -306,13 +309,22 @@ const launcher = await resolveConnectLauncher();
 let connectors = await listConnectors(launcher);
 let connector = selectConnector(connectors);
 let connectorCreated = false;
+let connectorCreationAttempted = false;
+let connectorCreationRecoveredAfterNonzero = false;
+let connectorCreateExitCode = null;
 let developmentAttachPerformed = false;
 
 if (!connector) {
-  await createGitHubConnector(launcher);
-  connectorCreated = true;
+  connectorCreationAttempted = true;
+  const creation = await createGitHubConnector(launcher);
+  connectorCreateExitCode = creation.exit_code;
   connectors = await listConnectors(launcher);
   connector = selectConnector(connectors);
+  if (!connector) {
+    throw new Error(`AVANTIQO_CODE_GITHUB_CONNECT_CREATE_NOT_RECOVERED:${creation.exit_code}`);
+  }
+  connectorCreated = creation.success;
+  connectorCreationRecoveredAfterNonzero = !creation.success;
 }
 
 const connectorId = connectorIdentifier(connector);
@@ -348,6 +360,9 @@ const result = {
   connector_name: connector.name,
   connector_service: connector.service,
   connector_created: connectorCreated,
+  connector_creation_attempted: connectorCreationAttempted,
+  connector_create_exit_code: connectorCreateExitCode,
+  connector_creation_recovered_after_nonzero: connectorCreationRecoveredAfterNonzero,
   connect_cli_source: launcher.source,
   linked_vercel_project: project,
   development_attach_performed: developmentAttachPerformed,
@@ -368,6 +383,9 @@ console.log(JSON.stringify({
   output_path: OUTPUT,
   connector: result.connector,
   connector_created: result.connector_created,
+  connector_creation_attempted: result.connector_creation_attempted,
+  connector_create_exit_code: result.connector_create_exit_code,
+  connector_creation_recovered_after_nonzero: result.connector_creation_recovered_after_nonzero,
   connect_cli_source: result.connect_cli_source,
   development_attach_performed: result.development_attach_performed,
   app_token_exchange_verified: true,

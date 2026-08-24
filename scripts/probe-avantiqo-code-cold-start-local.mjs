@@ -9,6 +9,7 @@ const EXPECTED_MULTIPROC_METHOD = "spawn";
 const EXPECTED_IMAGE = "ghcr.io/churchillkaron/avantiqo-code-worker@sha256:398275050d3f160af627353a02de7e017a1089783c1a8a314b8c51b5bdabdddb";
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const DEFAULT_NO_WORKER_TIMEOUT_MS = 3 * 60 * 1000;
+const DEFAULT_DEGRADED_CONTROL_TIMEOUT_MS = 8 * 60 * 1000;
 const DEFAULT_COLD_START_TIMEOUT_MS = 12 * 60 * 1000;
 const DEFAULT_JOB_TIMEOUT_MS = 15 * 60 * 1000;
 const STATUS_POLL_MS = 1000;
@@ -150,13 +151,18 @@ function classifyLogEntries(entries) {
     entry_count: entries.length,
     pending_observed: lines.some((line) => /image pull: .*: pending/i.test(line)),
     transfer_observed: lines.some((line) => /Pulling from|Pulling fs layer|Downloading|Download complete|Pull complete|Downloaded newer image|Image is up to date/i.test(line)),
-    container_start_observed: entries.some((entry) => entry.source === "container") || lines.some((line) => /start(?:ing|ed)? container|container started|docker container start/i.test(line)),
+    container_start_observed:
+      entries.some((entry) => entry.source === "container") ||
+      lines.some((line) => /start(?:ing|ed)? container|container started|docker container start/i.test(line)),
     failure_codes: failureCodes,
   };
 }
 
 const apiKey = required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID");
+const existingJobId = text(
+  process.env.AVANTIQO_CODE_COLD_START_EXISTING_JOB_ID || process.argv[2],
+);
 const headers = {
   Authorization: `Bearer ${apiKey}`,
   "Content-Type": "application/json",
@@ -164,19 +170,41 @@ const headers = {
 };
 const requestTimeoutMs = Math.max(
   5000,
-  Math.min(60_000, number(process.env.AVANTIQO_CODE_COLD_START_REQUEST_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS)),
+  Math.min(
+    60_000,
+    number(process.env.AVANTIQO_CODE_COLD_START_REQUEST_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS),
+  ),
 );
 const noWorkerTimeoutMs = Math.max(
   30_000,
-  Math.min(10 * 60 * 1000, number(process.env.AVANTIQO_CODE_COLD_START_NO_WORKER_TIMEOUT_MS, DEFAULT_NO_WORKER_TIMEOUT_MS)),
+  Math.min(
+    10 * 60 * 1000,
+    number(process.env.AVANTIQO_CODE_COLD_START_NO_WORKER_TIMEOUT_MS, DEFAULT_NO_WORKER_TIMEOUT_MS),
+  ),
+);
+const degradedControlTimeoutMs = Math.max(
+  noWorkerTimeoutMs,
+  Math.min(
+    15 * 60 * 1000,
+    number(
+      process.env.AVANTIQO_CODE_COLD_START_DEGRADED_CONTROL_TIMEOUT_MS,
+      DEFAULT_DEGRADED_CONTROL_TIMEOUT_MS,
+    ),
+  ),
 );
 const coldStartTimeoutMs = Math.max(
   2 * 60 * 1000,
-  Math.min(20 * 60 * 1000, number(process.env.AVANTIQO_CODE_COLD_START_TIMEOUT_MS, DEFAULT_COLD_START_TIMEOUT_MS)),
+  Math.min(
+    20 * 60 * 1000,
+    number(process.env.AVANTIQO_CODE_COLD_START_TIMEOUT_MS, DEFAULT_COLD_START_TIMEOUT_MS),
+  ),
 );
 const jobTimeoutMs = Math.max(
   coldStartTimeoutMs,
-  Math.min(30 * 60 * 1000, number(process.env.AVANTIQO_CODE_COLD_START_JOB_TIMEOUT_MS, DEFAULT_JOB_TIMEOUT_MS)),
+  Math.min(
+    30 * 60 * 1000,
+    number(process.env.AVANTIQO_CODE_COLD_START_JOB_TIMEOUT_MS, DEFAULT_JOB_TIMEOUT_MS),
+  ),
 );
 
 async function healthSnapshot() {
@@ -194,16 +222,51 @@ async function healthSnapshot() {
   };
 }
 
-async function controlWorkerSnapshot() {
+async function jobStatus(jobId) {
   const response = await fetchWithTimeout(
-    `${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers`,
+    `${API_BASE}/${endpointId}/status/${encodeURIComponent(jobId)}`,
     { headers },
-    "RUNPOD_CODE_COLD_START_WORKERS",
+    "RUNPOD_CODE_COLD_START_STATUS",
     requestTimeoutMs,
   );
   const body = await responseBody(response);
-  if (!response.ok) throw new Error(`RUNPOD_CODE_COLD_START_WORKERS_HTTP_${response.status}`);
-  return activeControlWorkers(body);
+  if (!response.ok) {
+    throw new Error(`RUNPOD_CODE_COLD_START_STATUS_HTTP_${response.status}`);
+  }
+  return body;
+}
+
+async function controlWorkerSnapshot() {
+  try {
+    const response = await fetchWithTimeout(
+      `${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers`,
+      { headers },
+      "RUNPOD_CODE_COLD_START_WORKERS",
+      requestTimeoutMs,
+    );
+    const body = await responseBody(response);
+    if (!response.ok) {
+      return {
+        available: false,
+        http_status: response.status,
+        workers: [],
+        error: `RUNPOD_CODE_COLD_START_WORKERS_HTTP_${response.status}`,
+      };
+    }
+    return {
+      available: true,
+      http_status: response.status,
+      workers: activeControlWorkers(body),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      available: false,
+      http_status: null,
+      workers: [],
+      error: text(error?.message || error).slice(0, 500),
+    };
+  }
 }
 
 async function captureWorkerLogs(workerId) {
@@ -304,62 +367,79 @@ async function cancelJob(jobId, reason) {
   }
 }
 
-const initial = await healthSnapshot();
-if (initial.jobs.in_progress > 0 || initial.jobs.in_queue > 0) {
-  throw new Error(
-    `AVANTIQO_CODE_COLD_START_EXISTING_JOB_BLOCK:in_queue=${initial.jobs.in_queue}:in_progress=${initial.jobs.in_progress}`,
-  );
-}
+let body = null;
+let jobId = existingJobId;
+let attachedToExistingJob = Boolean(existingJobId);
 
-console.log(JSON.stringify({
-  event: "AVANTIQO_CODE_COLD_START_PROBE_START",
-  contract: "AVANTIQO_CODE_COLD_START_PROBE_V1",
-  endpoint_id: endpointId,
-  expected_image: EXPECTED_IMAGE,
-  initial_health: initial,
-  provider_job_submitted: false,
-  generation_performed: false,
-  production_deploy_performed: false,
-  secrets_in_output: false,
-}));
+if (attachedToExistingJob) {
+  body = await jobStatus(jobId);
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_COLD_START_ATTACHED_TO_EXISTING_JOB",
+    job_id: jobId,
+    status: text(body?.status).toUpperCase() || null,
+    provider_job_submitted: false,
+    generation_performed: false,
+  }));
+} else {
+  const initial = await healthSnapshot();
+  if (initial.jobs.in_progress > 0 || initial.jobs.in_queue > 0) {
+    throw new Error(
+      `AVANTIQO_CODE_COLD_START_EXISTING_JOB_BLOCK:in_queue=${initial.jobs.in_queue}:in_progress=${initial.jobs.in_progress}`,
+    );
+  }
 
-const submitResponse = await fetchWithTimeout(
-  `${API_BASE}/${endpointId}/run`,
-  {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      input: {
-        contract: CONTRACT,
-        capability: "ai.code.debug",
-        foundation_model: EXPECTED_FOUNDATION_MODEL,
-        organization_id: "benchmark-only",
-        organization_service_id: "benchmark-only",
-        usage_id: `code-cold-start-probe-${Date.now()}`,
-        instruction: "Report the deployed Avantiqo Code runtime metadata only.",
-        structured_specification: {
-          runtime_probe: true,
-          purpose: "DEPLOYED_RUNTIME_COLD_START_PROBE",
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_COLD_START_PROBE_START",
+    contract: "AVANTIQO_CODE_COLD_START_PROBE_V2",
+    endpoint_id: endpointId,
+    expected_image: EXPECTED_IMAGE,
+    initial_health: initial,
+    provider_job_submitted: false,
+    generation_performed: false,
+    production_deploy_performed: false,
+    secrets_in_output: false,
+  }));
+
+  const submitResponse = await fetchWithTimeout(
+    `${API_BASE}/${endpointId}/run`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        input: {
+          contract: CONTRACT,
+          capability: "ai.code.debug",
+          foundation_model: EXPECTED_FOUNDATION_MODEL,
+          organization_id: "benchmark-only",
+          organization_service_id: "benchmark-only",
+          usage_id: `code-cold-start-probe-${Date.now()}`,
+          instruction: "Report the deployed Avantiqo Code runtime metadata only.",
+          structured_specification: {
+            runtime_probe: true,
+            purpose: "DEPLOYED_RUNTIME_COLD_START_PROBE",
+          },
         },
-      },
-    }),
-  },
-  "RUNPOD_CODE_COLD_START_SUBMIT",
-  requestTimeoutMs,
-);
-let body = await responseBody(submitResponse);
-if (!submitResponse.ok) {
-  throw new Error(`RUNPOD_CODE_COLD_START_SUBMIT_HTTP_${submitResponse.status}:${text(body?.error || body?.message)}`);
-}
-const jobId = text(body?.id);
-if (!jobId) throw new Error("AVANTIQO_CODE_COLD_START_JOB_ID_REQUIRED");
+      }),
+    },
+    "RUNPOD_CODE_COLD_START_SUBMIT",
+    requestTimeoutMs,
+  );
+  body = await responseBody(submitResponse);
+  if (!submitResponse.ok) {
+    throw new Error(
+      `RUNPOD_CODE_COLD_START_SUBMIT_HTTP_${submitResponse.status}:${text(body?.error || body?.message)}`,
+    );
+  }
+  jobId = text(body?.id);
+  if (!jobId) throw new Error("AVANTIQO_CODE_COLD_START_JOB_ID_REQUIRED");
 
-console.log(JSON.stringify({
-  event: "AVANTIQO_CODE_COLD_START_SUBMITTED",
-  job_id: jobId,
-  provider_job_submitted: true,
-  generation_performed: false,
-}));
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_COLD_START_SUBMITTED",
+    job_id: jobId,
+    provider_job_submitted: true,
+    generation_performed: false,
+  }));
+}
 
 const startedAt = Date.now();
 const overallDeadline = startedAt + jobTimeoutMs;
@@ -369,6 +449,9 @@ let startupObservedAt = null;
 let lastActiveWorkers = [];
 let lastLogEvidence = null;
 let lastStatus = text(body?.status).toUpperCase();
+let controlAvailableEver = false;
+let controlUnavailableCount = 0;
+let lastControlError = null;
 
 while (Date.now() < overallDeadline) {
   const status = text(body?.status).toUpperCase();
@@ -380,11 +463,19 @@ while (Date.now() < overallDeadline) {
 
   const now = Date.now();
   if (now - lastHeartbeatAt >= HEARTBEAT_MS) {
-    const [health, activeWorkers] = await Promise.all([
+    const [health, control] = await Promise.all([
       healthSnapshot(),
       controlWorkerSnapshot(),
     ]);
+    const activeWorkers = control.workers;
     lastActiveWorkers = activeWorkers;
+    if (control.available) {
+      controlAvailableEver = true;
+    } else {
+      controlUnavailableCount += 1;
+      lastControlError = control.error;
+    }
+
     if (activeWorkers.length > 0 && startupObservedAt === null) {
       startupObservedAt = now;
     }
@@ -405,12 +496,15 @@ while (Date.now() < overallDeadline) {
       console.log(JSON.stringify({
         event: "AVANTIQO_CODE_COLD_START_WORKER_LOG_EVIDENCE",
         job_id: jobId,
-        worker: worker,
+        worker,
         logs: lastLogEvidence,
         generation_performed: false,
       }));
       if (lastLogEvidence?.classification?.failure_codes?.length) {
-        await cancelJob(jobId, `WORKER_START_FAILURE_${lastLogEvidence.classification.failure_codes.join("_")}`);
+        await cancelJob(
+          jobId,
+          `WORKER_START_FAILURE_${lastLogEvidence.classification.failure_codes.join("_")}`,
+        );
         throw new Error(
           `AVANTIQO_CODE_COLD_START_WORKER_START_FAILED:${lastLogEvidence.classification.failure_codes.join(",")}`,
         );
@@ -422,20 +516,41 @@ while (Date.now() < overallDeadline) {
       job_id: jobId,
       status,
       elapsed_seconds: Math.round((now - startedAt) / 1000),
+      attached_to_existing_job: attachedToExistingJob,
       startup_observed: startupObservedAt !== null,
-      seconds_since_startup_observed: startupObservedAt === null ? null : Math.round((now - startupObservedAt) / 1000),
+      seconds_since_startup_observed:
+        startupObservedAt === null ? null : Math.round((now - startupObservedAt) / 1000),
       health,
+      control_plane: {
+        available: control.available,
+        http_status: control.http_status,
+        unavailable_count: controlUnavailableCount,
+        error: control.error,
+      },
       active_control_workers: activeWorkers,
       last_log_classification: lastLogEvidence?.classification || null,
       generation_performed: false,
     }));
     lastHeartbeatAt = now;
 
-    if (status === "IN_QUEUE" && startupObservedAt === null && now - startedAt >= noWorkerTimeoutMs) {
-      await cancelJob(jobId, `NO_WORKER_ASSIGNED_${noWorkerTimeoutMs}MS`);
-      throw new Error(`AVANTIQO_CODE_COLD_START_NO_WORKER_ASSIGNED:${jobId}:${noWorkerTimeoutMs}MS`);
+    if (status === "IN_QUEUE" && startupObservedAt === null) {
+      const noWorkerLimit = control.available ? noWorkerTimeoutMs : degradedControlTimeoutMs;
+      if (now - startedAt >= noWorkerLimit) {
+        await cancelJob(
+          jobId,
+          `${control.available ? "NO_WORKER_ASSIGNED" : "CONTROL_UNAVAILABLE_NO_ACCEPTANCE"}_${noWorkerLimit}MS`,
+        );
+        throw new Error(
+          `AVANTIQO_CODE_COLD_START_NO_WORKER_ACCEPTANCE:${jobId}:${noWorkerLimit}MS:control_available=${control.available}:last_control_error=${lastControlError || "none"}`,
+        );
+      }
     }
-    if (status === "IN_QUEUE" && startupObservedAt !== null && now - startupObservedAt >= coldStartTimeoutMs) {
+
+    if (
+      status === "IN_QUEUE" &&
+      startupObservedAt !== null &&
+      now - startupObservedAt >= coldStartTimeoutMs
+    ) {
       await cancelJob(jobId, `COLD_START_TIMEOUT_${coldStartTimeoutMs}MS`);
       throw new Error(
         `AVANTIQO_CODE_COLD_START_TIMEOUT:${jobId}:${coldStartTimeoutMs}MS:${JSON.stringify(lastLogEvidence?.classification || {})}`,
@@ -444,16 +559,7 @@ while (Date.now() < overallDeadline) {
   }
 
   await delay(STATUS_POLL_MS);
-  const statusResponse = await fetchWithTimeout(
-    `${API_BASE}/${endpointId}/status/${jobId}`,
-    { headers },
-    "RUNPOD_CODE_COLD_START_STATUS",
-    requestTimeoutMs,
-  );
-  body = await responseBody(statusResponse);
-  if (!statusResponse.ok) {
-    throw new Error(`RUNPOD_CODE_COLD_START_STATUS_HTTP_${statusResponse.status}`);
-  }
+  body = await jobStatus(jobId);
 }
 
 if (text(body?.status).toUpperCase() !== "COMPLETED") {
@@ -473,7 +579,8 @@ const checks = {
   serving_runtime: text(output.serving_runtime).toLowerCase() === EXPECTED_SERVING_RUNTIME,
   quantization: text(output.quantization).toLowerCase() === EXPECTED_QUANTIZATION,
   cached_model_found: output.cached_model_found === true,
-  multiproc_method: text(output.vllm_worker_multiproc_method).toLowerCase() === EXPECTED_MULTIPROC_METHOD,
+  multiproc_method:
+    text(output.vllm_worker_multiproc_method).toLowerCase() === EXPECTED_MULTIPROC_METHOD,
   flashinfer_sampler_disabled: output.flashinfer_sampler_disabled === true,
   raw_reasoning_boundary: output.raw_reasoning_persisted === false,
 };
@@ -481,19 +588,23 @@ const passed = Object.values(checks).every(Boolean);
 
 console.log(JSON.stringify({
   success: passed,
-  contract: "AVANTIQO_CODE_COLD_START_PROBE_V1",
+  contract: "AVANTIQO_CODE_COLD_START_PROBE_V2",
   endpoint_id: endpointId,
   expected_image: EXPECTED_IMAGE,
   job_id: jobId,
+  attached_to_existing_job: attachedToExistingJob,
   wall_ms: Date.now() - startedAt,
   delay_ms: Number(body?.delayTime) || null,
   execution_ms: Number(body?.executionTime) || null,
   startup_observed: startupObservedAt !== null,
+  control_plane_available_ever: controlAvailableEver,
+  control_plane_unavailable_count: controlUnavailableCount,
+  last_control_error: lastControlError,
   last_active_control_workers: lastActiveWorkers,
   last_log_evidence: lastLogEvidence,
   checks,
   output,
-  provider_job_submitted: true,
+  provider_job_submitted: !attachedToExistingJob,
   generation_performed: false,
   production_deploy_performed: false,
   secrets_in_output: false,

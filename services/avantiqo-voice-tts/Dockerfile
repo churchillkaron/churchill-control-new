@@ -15,6 +15,7 @@ WORKDIR /app
 COPY requirements.txt ./requirements.txt
 RUN python -m pip install --upgrade pip && python -m pip install -r requirements.txt
 COPY handler.py ./handler.py
+COPY bootstrap.sh ./bootstrap.sh
 
 RUN python - <<'PY'
 import runpod
@@ -29,4 +30,4 @@ assert handler.FOUNDATION_MODEL == "resemble-ai/chatterbox:multilingual-v3"
 print("AVANTIQO_VOICE_TTS_IMAGE_IMPORT_SMOKE=PASS")
 PY
 
-CMD ["python", "-u", "handler.py"]
+CMD ["/bin/sh", "/app/bootstrap.sh"]

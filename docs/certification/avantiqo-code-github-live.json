@@ -1,0 +1,40 @@
+{
+  "contract": "AVANTIQO_CODE_GITHUB_LIVE_CERTIFICATION_ARTIFACT_V1",
+  "generated_at": "2026-08-24T09:14:25.692Z",
+  "repository": "churchillkaron/churchill-control-new",
+  "branch": "main",
+  "base_commit": "c151492a917b3e3871f410c8c46d64954ee1234e",
+  "governed_runtime_contract": "AVANTIQO_CODE_GITHUB_COMMIT_V1",
+  "evidence": {
+    "benchmark": {
+      "contract": "AVANTIQO_CODE_CERTIFICATION_BENCHMARK_V2",
+      "sha256": "217fc17a971d421dec1b7c2fbc43d912dceb5be1e3d178c48734209506b0e2d1"
+    },
+    "economics": {
+      "contract": "AVANTIQO_CODE_ECONOMICS_V1",
+      "sha256": "7dc83e4a0c6575047260b3ae86e4359556c2ef0afdcce72b2556148cab98aa49"
+    },
+    "promotion": {
+      "contract": "AVANTIQO_CODE_PROMOTION_PLAN_V1",
+      "sha256": "f0e2718c86fd231ba7acabb34e0e02b68508024e5d21b5ae988813fc7e65c1ac"
+    },
+    "sandbox": {
+      "contract": "AVANTIQO_CODE_SANDBOX_CERTIFICATION_EVIDENCE_V1",
+      "sha256": "d7a0a4d47fc597bf48cbcc2a850f6c148e01893ef729f72f501c31a11c53bca2"
+    }
+  },
+  "local_repository": {
+    "worktree_dirty": true,
+    "dirty_worktree_allowed_for_certification": true,
+    "worktree_status_sha256": "be9a876e35d1385203108ffb604ecada03eb182a3e798b0ab065dcfdcc275063"
+  },
+  "guarantees": {
+    "mission_attested": true,
+    "exact_base_required": true,
+    "force_forbidden": true,
+    "post_commit_verification_required": true,
+    "direct_git_push_used": false,
+    "local_worktree_not_modified_by_github_write": true,
+    "production_deploy_performed": false
+  }
+}

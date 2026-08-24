@@ -47,6 +47,10 @@ const state = createRecommendationRefinementInputState({
 });
 assert.ok(state);
 assert.equal(state.status, "AWAITING_REQUIRED_INPUTS");
+assert.equal(state.proposal_id, proposal.proposal_id);
+assert.equal(state.proposal_text, proposal.proposal_text);
+assert.equal(typeof state.capability_input_contract, "string");
+assert.ok(state.capability_input_contract.length > 20);
 assert.deepEqual(state.partial_payload, {
   description: proposal.proposal_text,
 });
@@ -67,6 +71,7 @@ assert.equal(state.requires_capability_revalidation, true);
 const validCustomerId = "2f1c9f57-5917-4b26-84d1-086de4d86f79";
 const partial = applyRecommendationRefinementInputAnswers({
   state,
+  proposal,
   capability,
   answers: {
     customer_id: validCustomerId,
@@ -90,6 +95,7 @@ assert.equal(partial.state.autonomous_run_created, false);
 
 const invalid = applyRecommendationRefinementInputAnswers({
   state,
+  proposal,
   capability,
   answers: {
     customer_id: "not-a-uuid",
@@ -118,6 +124,7 @@ assert.equal(invalid.state.execution_authorized, false);
 
 const completed = applyRecommendationRefinementInputAnswers({
   state: partial.state,
+  proposal,
   capability,
   answers: {
     due_date: "2026-08-24",
@@ -152,6 +159,7 @@ assert.equal(
 
 const mismatch = applyRecommendationRefinementInputAnswers({
   state,
+  proposal,
   capability: { ...capability, key: "finance.vendor_bill.write" },
   answers: { customer_id: validCustomerId },
 });
@@ -160,7 +168,61 @@ assert.equal(mismatch.reason, "REFINEMENT_INPUT_STATE_MISMATCH");
 assert.deepEqual(mismatch.rejected_fields, []);
 assert.deepEqual(mismatch.state, state);
 
+const staleProposal = applyRecommendationRefinementInputAnswers({
+  state,
+  proposal: {
+    proposal_id: "different_refinement",
+    proposal_text: "Different direction",
+  },
+  capability,
+  answers: { customer_id: validCustomerId },
+});
+assert.equal(staleProposal.accepted, false);
+assert.equal(staleProposal.reason, "REFINEMENT_INPUT_STATE_MISMATCH");
+assert.deepEqual(staleProposal.state, state);
+
+const schemaDrift = applyRecommendationRefinementInputAnswers({
+  state,
+  proposal,
+  capability: {
+    ...capability,
+    input_schema: {
+      ...capability.input_schema,
+      properties: {
+        ...capability.input_schema.properties,
+        currency: { type: "string", enum: ["THB", "USD"] },
+      },
+      required: [...capability.input_schema.required, "currency"],
+    },
+  },
+  answers: { customer_id: validCustomerId },
+});
+assert.equal(schemaDrift.accepted, false);
+assert.equal(schemaDrift.reason, "REFINEMENT_INPUT_SCHEMA_CHANGED");
+assert.deepEqual(schemaDrift.state, state);
+assert.equal(schemaDrift.state.execution_authorized, false);
+
+const enumSchemaDrift = applyRecommendationRefinementInputAnswers({
+  state,
+  proposal,
+  capability: {
+    ...capability,
+    input_schema: {
+      ...capability.input_schema,
+      properties: {
+        ...capability.input_schema.properties,
+        status: { type: "string", enum: ["FINAL"] },
+      },
+    },
+  },
+  answers: { customer_id: validCustomerId },
+});
+assert.equal(enumSchemaDrift.accepted, false);
+assert.equal(enumSchemaDrift.reason, "REFINEMENT_INPUT_SCHEMA_CHANGED");
+
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_INPUT_STATE_AUDIT=PASS");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_INPUT_STATE_PROPOSAL=EXACT_BOUND");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_INPUT_STATE_SCHEMA=EXACT_BOUND");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_INPUT_STATE_FIELDS=REQUESTED_ONLY");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_INPUT_STATE_TYPES=NO_COERCION");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_INPUT_STATE_ENUMS=EXACT_ONLY");

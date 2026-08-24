@@ -4,7 +4,8 @@ const REST_BASE = "https://rest.runpod.io/v1";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const AUDIO_TEMPLATE_NAME = "avantiqo-audio-v1";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-audio-worker-image.json";
-const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_ENDPOINT_PROVISION_V2";
+const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_ENDPOINT_PROVISION_V3";
+const EXPECTED_CUDA_RUNTIME = "12.8";
 const DEFAULT_GPU_TYPE_IDS = Object.freeze([
   "NVIDIA L4",
   "NVIDIA RTX A5000",
@@ -74,9 +75,12 @@ async function imageEvidence() {
   if (
     parsed?.source_sha_matches_trigger !== true ||
     text(parsed?.source_sha) !== text(parsed?.trigger_sha) ||
+    text(parsed?.cuda_runtime_expected) !== EXPECTED_CUDA_RUNTIME ||
     parsed?.cuda_enabled_torch_required !== true ||
     parsed?.owned_handler_import_smoke_required !== true ||
-    parsed?.cuda_import_smoke_passed_by_docker_build !== true
+    parsed?.native_audio_import_smoke_required !== true ||
+    parsed?.cuda_import_smoke_passed_by_docker_build !== true ||
+    parsed?.native_audio_import_smoke_passed_by_docker_build !== true
   ) {
     throw new Error("AVANTIQO_AUDIO_WORKER_IMAGE_RUNTIME_EVIDENCE_INVALID");
   }
@@ -92,7 +96,9 @@ async function imageEvidence() {
     image,
     source_sha: sourceSha,
     trigger_sha: text(parsed.trigger_sha),
+    cuda_runtime: EXPECTED_CUDA_RUNTIME,
     cuda_import_smoke_passed: true,
+    native_audio_import_smoke_passed: true,
   };
 }
 
@@ -185,7 +191,9 @@ if (endpointMatches.length === 1) {
     hardened_image_evidence_verified: true,
     image_source_sha: image.source_sha,
     image_source_matches_trigger: true,
+    cuda_runtime: image.cuda_runtime,
     cuda_import_smoke_passed: image.cuda_import_smoke_passed,
+    native_audio_import_smoke_passed: image.native_audio_import_smoke_passed,
     mutation_performed: false,
     next_action: "PROVISION_AUDIO_NETWORK_VOLUME_THEN_REPAIR_AND_FINGERPRINT",
     production_deploy_performed: false,
@@ -216,7 +224,9 @@ const plan = {
   source_sha: image.source_sha,
   trigger_sha: image.trigger_sha,
   source_sha_matches_trigger: true,
+  cuda_runtime: image.cuda_runtime,
   cuda_import_smoke_passed: image.cuda_import_smoke_passed,
+  native_audio_import_smoke_passed: image.native_audio_import_smoke_passed,
   existing_template: exactTemplates[0] ? safeTemplate(exactTemplates[0]) : null,
   template_creation_required: exactTemplates.length === 0,
   ghcr_registry_auth_found: Boolean(registryAuth),

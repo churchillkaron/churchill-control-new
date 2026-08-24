@@ -1,14 +1,23 @@
+import {
+  assertManagedVolumeCreationAllowed,
+  classifyManagedVolumeName,
+  resolveReusableGroupVolume,
+  sharedVolumeGroup,
+  sharedVolumePolicySummary,
+} from "./lib/avantiqo-runpod-shared-volumes.mjs";
+
 const REST_BASE = "https://rest.runpod.io/v1";
 const GRAPHQL_URL = "https://api.runpod.io/graphql";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
-const DEFAULT_VOLUME_NAME = "avantiqo-audio-model-cache";
+const SHARED_VOLUME_GROUP = sharedVolumeGroup("AUDIO_VOICE");
+const DEFAULT_VOLUME_NAME = SHARED_VOLUME_GROUP.canonical_name;
 const DEFAULT_VOLUME_SIZE_GB = 30;
 const MIN_VOLUME_SIZE_GB = 20;
 const MIN_GPU_MEMORY_GB = 24;
 const DEFAULT_STORAGE_USD_PER_GB_MONTH = 0.07;
 const NETWORK_VOLUME_MOUNT_ROOT = "/runpod-volume";
 const CHECKPOINT_ROOT = `${NETWORK_VOLUME_MOUNT_ROOT}/ace-step-checkpoints`;
-const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_STORAGE_V1";
+const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_STORAGE_V2";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -242,14 +251,22 @@ if (requestedSizeGb < MIN_VOLUME_SIZE_GB) {
     `AVANTIQO_AUDIO_NETWORK_VOLUME_TOO_SMALL:requested_gb=${requestedSizeGb}:minimum_gb=${MIN_VOLUME_SIZE_GB}`,
   );
 }
+const configuredVolumeName = text(process.env.AVANTIQO_AUDIO_NETWORK_VOLUME_NAME);
+if (configuredVolumeName && configuredVolumeName !== DEFAULT_VOLUME_NAME) {
+  throw new Error(
+    `AVANTIQO_AUDIO_NETWORK_VOLUME_NAME_FIXED_BY_SHARED_POLICY:expected=${DEFAULT_VOLUME_NAME}:actual=${configuredVolumeName}`,
+  );
+}
 const monthlyRate = finite(
   process.env.AVANTIQO_RUNPOD_NETWORK_VOLUME_USD_PER_GB_MONTH,
   DEFAULT_STORAGE_USD_PER_GB_MONTH,
 );
 const estimatedMonthlyUsd = Number((requestedSizeGb * monthlyRate).toFixed(2));
-const volumeName = text(process.env.AVANTIQO_AUDIO_NETWORK_VOLUME_NAME) || DEFAULT_VOLUME_NAME;
+const volumeName = DEFAULT_VOLUME_NAME;
 
 console.log(`AVANTIQO_AUDIO_STORAGE_MODE=${apply ? "APPLY" : "PLAN"}`);
+console.log(`AVANTIQO_AUDIO_STORAGE_SHARED_GROUP=${SHARED_VOLUME_GROUP.id}`);
+console.log(`AVANTIQO_AUDIO_STORAGE_CANONICAL_VOLUME_NAME=${volumeName}`);
 console.log(`AVANTIQO_AUDIO_STORAGE_REQUESTED_GB=${requestedSizeGb}`);
 console.log(`AVANTIQO_AUDIO_STORAGE_ESTIMATED_MONTHLY_USD=${estimatedMonthlyUsd.toFixed(2)}`);
 console.log(`AVANTIQO_AUDIO_STORAGE_EXPECTED_MOUNT_ROOT=${NETWORK_VOLUME_MOUNT_ROOT}`);
@@ -275,6 +292,17 @@ if (!endpointGpuTypes.length) throw new Error("AVANTIQO_AUDIO_ENDPOINT_GPU_TYPES
 const alreadyAttachedIds = endpointVolumeIds(endpoint);
 if (alreadyAttachedIds.length) {
   const attachedVolumes = volumes.filter((volume) => alreadyAttachedIds.includes(text(volume?.id)));
+  if (attachedVolumes.length !== alreadyAttachedIds.length) {
+    throw new Error("AVANTIQO_AUDIO_STORAGE_ATTACHED_VOLUME_LOOKUP_FAILED");
+  }
+  const wrongGroup = attachedVolumes.filter(
+    (volume) => classifyManagedVolumeName(volume?.name)?.id !== SHARED_VOLUME_GROUP.id,
+  );
+  if (wrongGroup.length) {
+    throw new Error(
+      `AVANTIQO_AUDIO_STORAGE_ATTACHED_VOLUME_WRONG_SHARED_GROUP:count=${wrongGroup.length}`,
+    );
+  }
   console.log("AVANTIQO_AUDIO_STORAGE_ALREADY_ATTACHED=true");
   console.log(JSON.stringify({
     success: true,
@@ -282,6 +310,8 @@ if (alreadyAttachedIds.length) {
     mode: apply ? "APPLY" : "PLAN",
     endpoint_resolution: resolved.resolution,
     endpoint: safeEndpoint(endpoint),
+    shared_volume_group: SHARED_VOLUME_GROUP.id,
+    shared_volume_policy: sharedVolumePolicySummary(volumes),
     attached_volumes: attachedVolumes.map(safeVolume),
     expected_serverless_mount_root: NETWORK_VOLUME_MOUNT_ROOT,
     checkpoints_dir: CHECKPOINT_ROOT,
@@ -298,23 +328,20 @@ if (!candidates.length) {
   throw new Error("AVANTIQO_AUDIO_STORAGE_NO_COMPATIBLE_STORAGE_DATACENTER_WITH_GPU_STOCK");
 }
 
-const sameNameVolumes = volumes.filter((volume) => text(volume?.name) === volumeName);
-if (sameNameVolumes.length > 1) {
-  throw new Error(`AVANTIQO_AUDIO_STORAGE_AMBIGUOUS_EXISTING_VOLUMES:count=${sameNameVolumes.length}`);
-}
-const sameNameVolume = sameNameVolumes[0] || null;
-if (sameNameVolume && finite(sameNameVolume.size, 0) < requestedSizeGb) {
+const reusable = resolveReusableGroupVolume(volumes, SHARED_VOLUME_GROUP);
+const sharedVolume = reusable.volume;
+if (sharedVolume && finite(sharedVolume.size, 0) < requestedSizeGb) {
   throw new Error(
-    `AVANTIQO_AUDIO_STORAGE_EXISTING_VOLUME_TOO_SMALL:id=${text(sameNameVolume.id)}:size_gb=${finite(sameNameVolume.size, 0)}:requested_gb=${requestedSizeGb}`,
+    `AVANTIQO_AUDIO_STORAGE_EXISTING_SHARED_VOLUME_TOO_SMALL:id=${text(sharedVolume.id)}:size_gb=${finite(sharedVolume.size, 0)}:requested_gb=${requestedSizeGb}`,
   );
 }
 
 let selectedDatacenter = candidates[0];
-if (sameNameVolume) {
-  const existingDc = candidates.find((candidate) => candidate.id === text(sameNameVolume.dataCenterId));
+if (sharedVolume) {
+  const existingDc = candidates.find((candidate) => candidate.id === text(sharedVolume.dataCenterId));
   if (!existingDc) {
     throw new Error(
-      `AVANTIQO_AUDIO_STORAGE_EXISTING_VOLUME_DATACENTER_INCOMPATIBLE:id=${text(sameNameVolume.id)}:data_center_id=${text(sameNameVolume.dataCenterId)}`,
+      `AVANTIQO_AUDIO_STORAGE_SHARED_VOLUME_DATACENTER_INCOMPATIBLE:id=${text(sharedVolume.id)}:data_center_id=${text(sharedVolume.dataCenterId)}`,
     );
   }
   selectedDatacenter = existingDc;
@@ -326,6 +353,8 @@ const plan = {
   mode: apply ? "APPLY" : "PLAN",
   endpoint_resolution: resolved.resolution,
   endpoint: safeEndpoint(endpoint),
+  shared_volume_group: SHARED_VOLUME_GROUP.id,
+  shared_volume_policy: sharedVolumePolicySummary(volumes),
   expected_serverless_mount_root: NETWORK_VOLUME_MOUNT_ROOT,
   checkpoints_dir: CHECKPOINT_ROOT,
   requested_volume: {
@@ -335,7 +364,8 @@ const plan = {
   },
   selected_datacenter: selectedDatacenter,
   compatible_datacenters: candidates,
-  reusable_existing_volume: sameNameVolume ? safeVolume(sameNameVolume) : null,
+  reusable_existing_volume: sharedVolume ? safeVolume(sharedVolume) : null,
+  reusable_volume_resolution: reusable.resolution,
   mutation_performed: false,
   generation_submitted: false,
   production_deploy_performed: false,
@@ -344,8 +374,10 @@ const plan = {
     automatic_delete_on_failure: false,
     endpoint_gpu_types_preserved: true,
     workers_min_preserved: true,
+    maximum_managed_cache_volumes: 3,
+    additional_audio_voice_volume_forbidden: true,
   },
-  next_action: apply ? "CREATE_OR_REUSE_VOLUME_AND_ATTACH_ENDPOINT" : "APPROVE_AUDIO_STORAGE_PROVISION",
+  next_action: apply ? "CREATE_OR_REUSE_SHARED_VOLUME_AND_ATTACH_ENDPOINT" : "APPROVE_AUDIO_STORAGE_PROVISION",
 };
 
 if (!apply) {
@@ -365,9 +397,20 @@ if (text(freshEndpoint.templateId || freshEndpoint.template?.id) !== text(endpoi
   throw new Error("AVANTIQO_AUDIO_STORAGE_CONCURRENT_TEMPLATE_CHANGE_DETECTED");
 }
 
-let volume = sameNameVolume;
+const freshVolumes = await rest("/networkvolumes", managementKey);
+if (!Array.isArray(freshVolumes)) throw new Error("RUNPOD_NETWORK_VOLUME_LIST_INVALID_BEFORE_WRITE");
+const freshReusable = resolveReusableGroupVolume(freshVolumes, SHARED_VOLUME_GROUP);
+if (Boolean(freshReusable.volume) !== Boolean(sharedVolume)) {
+  throw new Error("AVANTIQO_AUDIO_STORAGE_CONCURRENT_SHARED_VOLUME_CHANGE_DETECTED");
+}
+if (freshReusable.volume && text(freshReusable.volume.id) !== text(sharedVolume?.id)) {
+  throw new Error("AVANTIQO_AUDIO_STORAGE_CONCURRENT_SHARED_VOLUME_ID_CHANGE_DETECTED");
+}
+
+let volume = freshReusable.volume;
 let volumeAction = "REUSED";
 if (!volume) {
+  assertManagedVolumeCreationAllowed(freshVolumes, SHARED_VOLUME_GROUP);
   volume = await rest("/networkvolumes", managementKey, {
     method: "POST",
     body: {
@@ -376,7 +419,7 @@ if (!volume) {
       size: requestedSizeGb,
     },
   });
-  volumeAction = "CREATED";
+  volumeAction = "CREATED_SHARED_AUDIO_VOICE";
 }
 const volumeId = text(volume?.id);
 if (!volumeId) throw new Error("AVANTIQO_AUDIO_STORAGE_VOLUME_ID_REQUIRED");
@@ -403,6 +446,9 @@ const [verifiedEndpoint, verifiedVolume] = await Promise.all([
 if (!endpointVolumeIds(verifiedEndpoint).includes(volumeId)) {
   throw new Error("AVANTIQO_AUDIO_STORAGE_ATTACHMENT_VERIFICATION_FAILED");
 }
+if (classifyManagedVolumeName(verifiedVolume?.name)?.id !== SHARED_VOLUME_GROUP.id) {
+  throw new Error("AVANTIQO_AUDIO_STORAGE_SHARED_GROUP_VERIFICATION_FAILED");
+}
 if (text(verifiedVolume?.dataCenterId) !== selectedDatacenter.id) {
   throw new Error("AVANTIQO_AUDIO_STORAGE_DATACENTER_VERIFICATION_FAILED");
 }
@@ -418,5 +464,9 @@ console.log(JSON.stringify({
   volume: safeVolume(verifiedVolume),
   volume_action: volumeAction,
   mutation_performed: true,
+  shared_volume_policy_after: sharedVolumePolicySummary([
+    ...freshVolumes.filter((entry) => text(entry?.id) !== volumeId),
+    verifiedVolume,
+  ]),
   next_action: "REPAIR_AUDIO_TEMPLATE_FOR_RUNPOD_VOLUME_THEN_FINGERPRINT",
 }, null, 2));

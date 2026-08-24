@@ -1,8 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const CONTRACT = "AVANTIQO_MUSIC_ECONOMICS_V2";
-const EXPECTED_BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V4";
+const CONTRACT = "AVANTIQO_MUSIC_ECONOMICS_V1";
+const EXPECTED_BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3";
 const EXPECTED_PROVIDER = "avantiqo-audio";
 const EXPECTED_FOUNDATION_MODEL = "ACE-Step/Ace-Step1.5";
 const EXPECTED_FAMILY = "ACE_STEP_1_5";
@@ -55,10 +55,10 @@ function assertBenchmark(report = {}) {
     family: text(model.family) === EXPECTED_FAMILY,
     variant: text(model.variant) === EXPECTED_VARIANT,
     quality_profile: text(model.quality_profile) === EXPECTED_QUALITY_PROFILE,
-    lm_model: text(model.lm_model) === EXPECTED_LM_MODEL,
-    lm_backend: text(model.lm_backend) === EXPECTED_LM_BACKEND,
-    ace_step_lm_used: model.ace_step_lm_used === true,
-    thinking_enabled: model.thinking_enabled === true,
+    lm_required: model.ace_step_lm_required === true,
+    lm_model: text(model.ace_step_lm_model) === EXPECTED_LM_MODEL,
+    lm_backend: text(model.ace_step_lm_backend) === EXPECTED_LM_BACKEND,
+    thinking_required: model.thinking_required === true,
     capability: text(model.capability) === "ai.music.generate",
   };
   const failed = Object.entries(checks)
@@ -72,6 +72,8 @@ function assertBenchmark(report = {}) {
   if (!observations.length) throw new Error("MUSIC_ECONOMICS_OBSERVATIONS_REQUIRED");
   for (const item of observations) {
     if (item?.passed !== true) throw new Error(`MUSIC_ECONOMICS_FAILED_RUN:${item?.run || "UNKNOWN"}`);
+    if (item?.ace_step_lm_used !== true) throw new Error(`MUSIC_ECONOMICS_LM_RUN_REQUIRED:${item?.run || "UNKNOWN"}`);
+    if (item?.thinking_enabled !== true) throw new Error(`MUSIC_ECONOMICS_THINKING_RUN_REQUIRED:${item?.run || "UNKNOWN"}`);
     positive(item.runpod_execution_ms, `MUSIC_ECONOMICS_EXECUTION_TIME_REQUIRED:${item?.run || "UNKNOWN"}`);
     positive(item.duration_seconds, `MUSIC_ECONOMICS_AUDIO_DURATION_REQUIRED:${item?.run || "UNKNOWN"}`);
   }
@@ -140,9 +142,10 @@ async function main() {
     model_family: EXPECTED_FAMILY,
     model_variant: EXPECTED_VARIANT,
     quality_profile: EXPECTED_QUALITY_PROFILE,
-    lm_model: EXPECTED_LM_MODEL,
-    lm_backend: EXPECTED_LM_BACKEND,
     ace_step_lm_required: true,
+    ace_step_lm_model: EXPECTED_LM_MODEL,
+    ace_step_lm_backend: EXPECTED_LM_BACKEND,
+    thinking_required: true,
     capability: "ai.music.generate",
     source_benchmark_contract: benchmark.contract,
     source_benchmark_id: benchmark.benchmark_id || null,
@@ -184,6 +187,7 @@ async function main() {
   console.log(JSON.stringify({
     success: true,
     output_path: OUTPUT,
+    quality_profile: EXPECTED_QUALITY_PROFILE,
     summary: evidence.summary,
     benchmark_certified: true,
     economics_measured: true,

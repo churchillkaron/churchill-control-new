@@ -1,0 +1,13 @@
+{
+  "contract": "AVANTIQO_IMAGE_WORKER_IMAGE_REQUEST_V1",
+  "requested_for": "avantiqo-image-v1",
+  "source_path": "services/avantiqo-image-engine",
+  "entrypoint": "handler_v3.py",
+  "runtime_probe_contract": "AVANTIQO_IMAGE_RUNTIME_PROBE_V1",
+  "immutable_digest_required": true,
+  "exact_trigger_sha_binding_required": true,
+  "provider_job_submitted": false,
+  "image_generation_submitted": false,
+  "production_web_deploy": false,
+  "pricing_activation_performed": false
+}

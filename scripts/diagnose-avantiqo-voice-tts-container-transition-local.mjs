@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 const CONTROL_BASE = "https://api.runpod.io/v2";
-const CONTRACT = "AVANTIQO_VOICE_TTS_CONTAINER_TRANSITION_DIAGNOSTIC_V1";
+const CONTRACT = "AVANTIQO_VOICE_TTS_CONTAINER_TRANSITION_DIAGNOSTIC_V2";
 const DEFAULT_REPORT = "/tmp/avantiqo-voice-tts-container-transition-diagnostic.json";
 const LOG_TAIL = Math.max(100, Math.min(5000, Number(process.env.AVANTIQO_VOICE_TTS_CONTAINER_LOG_TAIL || 1500)));
 const CAPTURE_MS = Math.max(
@@ -102,7 +102,7 @@ function parseSseFrame(frame, workerId) {
 async function captureWorkerLogs(endpointId, workerId, credential) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CAPTURE_MS);
-  const url = `${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers/${encodeURIComponent(workerId)}/logs?tail=${LOG_TAIL}&source=both`;
+  const url = `${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers/${encodeURIComponent(workerId)}/logs?tail=${LOG_TAIL}`;
   const entries = [];
   let responseStatus = null;
   let contentType = null;

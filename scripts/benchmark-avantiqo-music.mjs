@@ -13,7 +13,10 @@ const EXPECTED_SHARED_VOLUME_NAME = "avantiqo-shared-audio-voice-cache";
 const EXPECTED_CHECKPOINT_ROOT = "/runpod-volume/ace-step-checkpoints";
 const EXPECTED_HF_CACHE_ROOT = `${EXPECTED_CHECKPOINT_ROOT}/.hf-cache`;
 const EXPECTED_FOUNDATION_MODEL = "ACE-Step/Ace-Step1.5";
-const EXPECTED_MODEL_VARIANT = "acestep-v15-turbo";
+const EXPECTED_MODEL_VARIANT = "acestep-v15-xl-turbo";
+const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
+const EXPECTED_LM_BACKEND = "vllm";
+const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
 const EXPECTED_CAPABILITY = "ai.music.generate";
 const POLL_INTERVAL_MS = Math.max(
   2_000,
@@ -116,8 +119,12 @@ function runRequiredPreflight() {
     ["hf_cache_root", result?.model_cache?.huggingface_cache_dir === EXPECTED_HF_CACHE_ROOT],
     ["foundation_model", result?.model_contract?.foundation_model === EXPECTED_FOUNDATION_MODEL],
     ["model_variant", result?.model_contract?.variant === EXPECTED_MODEL_VARIANT],
+    ["quality_profile", result?.model_contract?.quality_profile === EXPECTED_QUALITY_PROFILE],
     ["generation_capability", Array.isArray(result?.model_contract?.certified_capabilities) && result.model_contract.certified_capabilities.includes(EXPECTED_CAPABILITY)],
-    ["ace_step_lm_disabled", result?.model_contract?.ace_step_lm_enabled === false],
+    ["ace_step_lm_enabled", result?.model_contract?.ace_step_lm_enabled === true],
+    ["ace_step_lm_model", result?.model_contract?.ace_step_lm_model === EXPECTED_LM_MODEL],
+    ["ace_step_lm_backend", result?.model_contract?.ace_step_lm_backend === EXPECTED_LM_BACKEND],
+    ["thinking_enabled", result?.model_contract?.thinking_enabled === true],
     ["signed_upload_creation", result?.storage?.signed_upload_creation_passed === true],
     ["signed_read_creation", result?.storage?.signed_read_creation_passed === true],
     ["preflight_storage_object_not_written", result?.storage?.object_written === false],
@@ -143,6 +150,7 @@ function runRequiredPreflight() {
   console.log("AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT=PASS");
   console.log(`AVANTIQO_MUSIC_BENCHMARK_PREFLIGHT_CONTRACT=${result.contract}`);
   console.log(`AVANTIQO_MUSIC_BENCHMARK_SHARED_VOLUME_GROUP=${result.model_cache.shared_volume_group}`);
+  console.log(`AVANTIQO_MUSIC_BENCHMARK_QUALITY_PROFILE=${result.model_contract.quality_profile}`);
   console.log(`AVANTIQO_MUSIC_BENCHMARK_SHARED_VOLUME_POLICY_VERIFIED=${result.safety.shared_volume_policy_verified}`);
   return result;
 }
@@ -350,18 +358,27 @@ for (let index = 0; index < runs; index += 1) {
     model_family: text(output.model_family),
     model_variant: text(output.model_variant),
     foundation_model: text(output.foundation_model),
+    quality_profile: text(output.quality_profile),
+    ace_step_lm_used: output.ace_step_lm_used === true,
+    ace_step_lm_model: text(output.ace_step_lm_model) || null,
+    ace_step_lm_backend: text(output.ace_step_lm_backend) || null,
+    thinking_enabled: output.thinking_enabled === true,
     passed:
       text(output.capability) === EXPECTED_CAPABILITY &&
       text(output.foundation_model) === EXPECTED_FOUNDATION_MODEL &&
       text(output.model_family) === "ACE_STEP_1_5" &&
       text(output.model_variant) === EXPECTED_MODEL_VARIANT &&
+      text(output.quality_profile) === EXPECTED_QUALITY_PROFILE &&
       text(output.storage_reference) === storageReference &&
       Number(output.sample_rate) >= 44100 &&
       Number(output.size_bytes) > 10000 &&
       Number(output.duration_seconds) >= Math.max(9, duration - 2) &&
       Number.isFinite(runpodExecutionMs) &&
       runpodExecutionMs > 0 &&
-      output.ace_step_lm_used === false &&
+      output.ace_step_lm_used === true &&
+      text(output.ace_step_lm_model) === EXPECTED_LM_MODEL &&
+      text(output.ace_step_lm_backend) === EXPECTED_LM_BACKEND &&
+      output.thinking_enabled === true &&
       output.raw_reasoning_persisted === false &&
       output.generation_input_persisted === false,
   });
@@ -398,8 +415,12 @@ const report = {
     durable_model_cache: preflight.model_cache?.persistent === true,
     foundation_model: preflight.model_contract?.foundation_model,
     model_variant: preflight.model_contract?.variant,
+    quality_profile: preflight.model_contract?.quality_profile,
     certified_capabilities: preflight.model_contract?.certified_capabilities,
     ace_step_lm_enabled: preflight.model_contract?.ace_step_lm_enabled,
+    ace_step_lm_model: preflight.model_contract?.ace_step_lm_model,
+    ace_step_lm_backend: preflight.model_contract?.ace_step_lm_backend,
+    thinking_enabled: preflight.model_contract?.thinking_enabled,
     signed_upload_creation_passed: preflight.storage?.signed_upload_creation_passed === true,
     signed_read_creation_passed: preflight.storage?.signed_read_creation_passed === true,
     preflight_storage_object_written: preflight.storage?.object_written === true,
@@ -431,6 +452,11 @@ const report = {
     family: "ACE_STEP_1_5",
     foundation_model: EXPECTED_FOUNDATION_MODEL,
     variant: EXPECTED_MODEL_VARIANT,
+    quality_profile: EXPECTED_QUALITY_PROFILE,
+    ace_step_lm_required: true,
+    ace_step_lm_model: EXPECTED_LM_MODEL,
+    ace_step_lm_backend: EXPECTED_LM_BACKEND,
+    thinking_required: true,
     capability: EXPECTED_CAPABILITY,
   },
   summary: {
@@ -455,7 +481,7 @@ const report = {
     audio_edit_certified: false,
     extend_certified: false,
     stems_certified: false,
-    ace_step_internal_lm_allowed: false,
+    ace_step_internal_lm_required: true,
   },
 };
 

@@ -27,6 +27,9 @@ run_node() {
   node --env-file=.env.local "$@"
 }
 
+PREFLIGHT_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/avantiqo-music-preflight.XXXXXX")
+trap 'rm -f "$PREFLIGHT_OUTPUT"' EXIT HUP INT TERM
+
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 1: IMPORT CURRENT VERCEL MEDIA ENV LOCALLY"
 printf '%s\n' "========================================"
@@ -40,7 +43,23 @@ node scripts/music-studio-release-audit.mjs
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 3: ZERO-SPEND MUSIC PREFLIGHT"
 printf '%s\n' "========================================"
-run_node scripts/preflight-avantiqo-music-local.mjs
+run_node scripts/preflight-avantiqo-music-local.mjs | tee "$PREFLIGHT_OUTPUT"
+
+RESOLVED_GPU_USD_PER_HOUR=$(PREFLIGHT_OUTPUT="$PREFLIGHT_OUTPUT" node -e '
+  const fs = require("node:fs");
+  const report = JSON.parse(fs.readFileSync(process.env.PREFLIGHT_OUTPUT, "utf8"));
+  const value = Number(report?.economics?.gpu_usd_per_hour);
+  if (!Number.isFinite(value) || value <= 0) process.exit(2);
+  process.stdout.write(String(value));
+')
+RESOLVED_GPU_RATE_SOURCE=$(PREFLIGHT_OUTPUT="$PREFLIGHT_OUTPUT" node -e '
+  const fs = require("node:fs");
+  const report = JSON.parse(fs.readFileSync(process.env.PREFLIGHT_OUTPUT, "utf8"));
+  process.stdout.write(String(report?.economics?.gpu_rate_source || "UNKNOWN"));
+')
+
+echo "AVANTIQO_MUSIC_LOCAL_GPU_USD_PER_HOUR=$RESOLVED_GPU_USD_PER_HOUR"
+echo "AVANTIQO_MUSIC_LOCAL_GPU_RATE_SOURCE=$RESOLVED_GPU_RATE_SOURCE"
 
 if [ "$MODE" = "preflight" ]; then
   echo "AVANTIQO_MUSIC_LOCAL_CERTIFICATION=PREFLIGHT_COMPLETE"
@@ -64,6 +83,7 @@ REVIEW_OUTPUT="$RESULT_ROOT/music-human-review.json"
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 4: CONTROLLED OWNED MUSIC BENCHMARK"
 printf '%s\n' "========================================"
+AVANTIQO_AUDIO_GPU_USD_PER_HOUR="$RESOLVED_GPU_USD_PER_HOUR" \
 AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED=YES \
 AVANTIQO_AUDIO_BENCHMARK_RUNS=1 \
 AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS=12 \
@@ -73,6 +93,7 @@ node --env-file=.env.local scripts/benchmark-avantiqo-music.mjs
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 5: MEASURE MUSIC GPU ECONOMICS"
 printf '%s\n' "========================================"
+AVANTIQO_AUDIO_GPU_USD_PER_HOUR="$RESOLVED_GPU_USD_PER_HOUR" \
 AVANTIQO_AUDIO_BENCHMARK_OUTPUT="$BENCHMARK_OUTPUT" \
 AVANTIQO_AUDIO_ECONOMICS_OUTPUT="$ECONOMICS_OUTPUT" \
 node --env-file=.env.local scripts/avantiqo-music-economics.mjs
@@ -85,12 +106,11 @@ AVANTIQO_AUDIO_ECONOMICS_OUTPUT="$ECONOMICS_OUTPUT" \
 AVANTIQO_MUSIC_HUMAN_REVIEW_OUTPUT="$REVIEW_OUTPUT" \
 node --env-file=.env.local scripts/prepare-avantiqo-music-human-review.mjs
 
-printf '%s\n' "========================================"
-printf '%s\n' "AVANTIQO MUSIC LOCAL CERTIFICATION READY FOR HUMAN REVIEW"
-printf '%s\n' "========================================"
 echo "AVANTIQO_MUSIC_LOCAL_CERTIFICATION=BENCHMARK_COMPLETE"
 echo "AVANTIQO_MUSIC_LOCAL_BENCHMARK_RUNS=1"
 echo "AVANTIQO_MUSIC_LOCAL_BENCHMARK_DURATION_SECONDS=12"
+echo "AVANTIQO_MUSIC_LOCAL_GPU_USD_PER_HOUR=$RESOLVED_GPU_USD_PER_HOUR"
+echo "AVANTIQO_MUSIC_LOCAL_GPU_RATE_SOURCE=$RESOLVED_GPU_RATE_SOURCE"
 echo "AVANTIQO_MUSIC_LOCAL_BENCHMARK_OUTPUT=$BENCHMARK_OUTPUT"
 echo "AVANTIQO_MUSIC_LOCAL_ECONOMICS_OUTPUT=$ECONOMICS_OUTPUT"
 echo "AVANTIQO_MUSIC_LOCAL_HUMAN_REVIEW_OUTPUT=$REVIEW_OUTPUT"

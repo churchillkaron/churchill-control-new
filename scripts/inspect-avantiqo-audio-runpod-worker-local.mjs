@@ -75,10 +75,11 @@ function imageReferenceKind(imageName) {
 }
 
 function endpointVolumeIds(endpoint = {}) {
-  return [
-    text(endpoint.networkVolumeId),
-    ...list(endpoint.networkVolumeIds).map(text),
+  const ids = [
+    text(endpoint.networkVolumeId ?? endpoint.network_volume_id),
+    ...list(endpoint.networkVolumeIds ?? endpoint.network_volume_ids).map(text),
   ].filter(Boolean);
+  return [...new Set(ids)];
 }
 
 function safeWorker(worker = {}) {
@@ -229,7 +230,7 @@ if (selected?.endpoint?.id) {
   );
 }
 
-const attachedVolumeIds = selected ? [...new Set(endpointVolumeIds(selected.endpoint))] : [];
+const attachedVolumeIds = selected ? endpointVolumeIds(selected.endpoint) : [];
 const attachedVolumes = attachedVolumeIds.map((id) => ({
   id,
   found_in_account: volumeById.has(id),

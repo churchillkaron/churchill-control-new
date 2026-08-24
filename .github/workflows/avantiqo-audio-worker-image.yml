@@ -133,6 +133,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [ "$BUILD_JOB_RESULT" = "success" ]; then
+            test "$RELEASE_SHA" = "$TRIGGER_SHA"
+          fi
+
           node --input-type=module <<'NODE'
           import { writeFileSync } from "node:fs";
 
@@ -170,8 +174,13 @@ jobs:
             cuda_enabled_torch_required: true,
             owned_handler_import_smoke_required: true,
             native_audio_import_smoke_required: true,
-            cuda_import_smoke_passed_by_docker_build: success,
-            native_audio_import_smoke_passed_by_docker_build: success,
+            ...(success ? {
+              cuda_import_smoke_passed_by_docker_build: true,
+              native_audio_import_smoke_passed_by_docker_build: true,
+            } : {
+              cuda_import_smoke_passed_by_docker_build: false,
+              native_audio_import_smoke_passed_by_docker_build: false,
+            }),
             certified_capability_default: "ai.music.generate",
             failure: success ? null : {
               code: "AVANTIQO_AUDIO_WORKER_IMAGE_BUILD_FAILED",

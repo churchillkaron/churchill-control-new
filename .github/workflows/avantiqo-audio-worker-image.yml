@@ -43,14 +43,22 @@ jobs:
           grep -F 'ARG CUDA_VERSION=12.8.1' services/avantiqo-audio-engine/Dockerfile
           grep -F 'FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04' services/avantiqo-audio-engine/Dockerfile
           grep -F 'git checkout 14c0211d5a0653b0f63e27686f4c3f151b4d8629' services/avantiqo-audio-engine/Dockerfile
-          grep -F 'AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-turbo' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-xl-turbo' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_LM_MODEL=acestep-5Hz-lm-1.7B' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_LM_BACKEND=vllm' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'ACESTEP_INIT_LLM=true' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1"' services/avantiqo-audio-engine/handler.py
           grep -F 'DEFAULT_CERTIFIED_CAPABILITIES = {"ai.music.generate"}' services/avantiqo-audio-engine/handler.py
           grep -F 'AVANTIQO_AUDIO_IMAGE_IMPORT_SMOKE=PASS' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_XL_MODEL_REQUIRED' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_1_7B_LM_REQUIRED' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_LM_INIT_REQUIRED' services/avantiqo-audio-engine/Dockerfile
           grep -F 'AVANTIQO_AUDIO_CUDA_12_8_TORCH_REQUIRED' services/avantiqo-audio-engine/Dockerfile
           grep -F 'AVANTIQO_AUDIO_NATIVE_AUDIO_IMPORTS=PASS' services/avantiqo-audio-engine/Dockerfile
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PREFLIGHT=PASS'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_TRIGGER_SHA_BOUND=true'
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_XL_PLUS_1_7B_LM_REQUIRED=true'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_CUDA_12_8_REQUIRED=true'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_NATIVE_AUDIO_IMPORT_SMOKE_REQUIRED=true'
 
@@ -99,6 +107,7 @@ jobs:
         run: |
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_SOURCE_TRIGGER_MATCH=true'
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_XL_PLUS_1_7B_LM=PASS'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_CUDA_12_8=PASS'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_NATIVE_AUDIO_IMPORT_SMOKE=PASS'
           echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PRODUCTION_WEB_DEPLOY=false'
@@ -155,7 +164,7 @@ jobs:
 
           const report = {
             success,
-            contract: "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2",
+            contract: "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3",
             observable_result: true,
             build_job_result: buildJobResult || "unknown",
             preflight_outcome: preflightOutcome,
@@ -169,15 +178,23 @@ jobs:
             image_digest: digestValid ? digest : null,
             immutable_image_reference: success ? `${repository}@${digest}` : null,
             runtime: "ACE-Step-1.5",
-            runtime_variant: "acestep-v15-turbo",
+            runtime_variant: "acestep-v15-xl-turbo",
+            quality_profile: "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1",
+            lm_model: "acestep-5Hz-lm-1.7B",
+            lm_backend: "vllm",
+            ace_step_lm_required: true,
             cuda_runtime_expected: "12.8",
             cuda_enabled_torch_required: true,
             owned_handler_import_smoke_required: true,
             native_audio_import_smoke_required: true,
             ...(success ? {
+              xl_model_contract_passed_by_docker_build: true,
+              lm_contract_passed_by_docker_build: true,
               cuda_import_smoke_passed_by_docker_build: true,
               native_audio_import_smoke_passed_by_docker_build: true,
             } : {
+              xl_model_contract_passed_by_docker_build: false,
+              lm_contract_passed_by_docker_build: false,
               cuda_import_smoke_passed_by_docker_build: false,
               native_audio_import_smoke_passed_by_docker_build: false,
             }),

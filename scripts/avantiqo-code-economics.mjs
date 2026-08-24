@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 const CONTRACT = "AVANTIQO_CODE_ECONOMICS_V1";
 const EXPECTED_BENCHMARK_CONTRACT = "AVANTIQO_CODE_CERTIFICATION_BENCHMARK_V2";
+const EXPECTED_ENDPOINT_NAME = "avantiqo-code-v1";
 const EXPECTED_PROVIDER = "avantiqo-code";
 const EXPECTED_FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct";
 const EXPECTED_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
@@ -10,6 +11,8 @@ const EXPECTED_SERVING_RUNTIME = "vllm";
 const EXPECTED_QUANTIZATION = "fp8";
 const RUNPOD_REST = "https://rest.runpod.io/v1";
 const DEFAULT_BILLING_LOOKBACK_HOURS = 24;
+const DEFAULT_BENCHMARK_INPUT = "/tmp/avantiqo-code-certification-benchmark.json";
+const DEFAULT_RESCORED_INPUT = "/tmp/avantiqo-code-certification-benchmark-rescored.json";
 const APPROVED_GPU_TYPES = Object.freeze([
   "NVIDIA H100 80GB HBM3",
   "NVIDIA H200",
@@ -31,10 +34,6 @@ const REQUIRED_CAPABILITIES = Object.freeze([
   "ai.code.debug",
 ]);
 
-const INPUT = resolve(
-  process.env.AVANTIQO_CODE_CERTIFICATION_INPUT ||
-    "/tmp/avantiqo-code-certification-benchmark.json",
-);
 const OUTPUT = resolve(
   process.env.AVANTIQO_CODE_ECONOMICS_OUTPUT ||
     "/tmp/avantiqo-code-economics.json",
@@ -125,6 +124,99 @@ function assertBenchmark(report = {}) {
   }
 
   return REQUIRED_CASES.map((id) => byCase.get(id));
+}
+
+async function readJson(path) {
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
+async function resolveBenchmarkInput() {
+  const configured = text(process.env.AVANTIQO_CODE_CERTIFICATION_INPUT);
+  if (configured) {
+    const path = resolve(configured);
+    return {
+      path,
+      source: "environment",
+      report: await readJson(path),
+    };
+  }
+
+  const candidates = [DEFAULT_RESCORED_INPUT, DEFAULT_BENCHMARK_INPUT];
+  for (const candidate of candidates) {
+    const path = resolve(candidate);
+    try {
+      return {
+        path,
+        source: candidate === DEFAULT_RESCORED_INPUT
+          ? "certified_rescore_preferred"
+          : "benchmark_default",
+        report: await readJson(path),
+      };
+    } catch (error) {
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+  }
+  throw new Error("CODE_ECONOMICS_BENCHMARK_EVIDENCE_NOT_FOUND");
+}
+
+function endpointRows(body) {
+  if (Array.isArray(body)) return body;
+  if (Array.isArray(body?.endpoints)) return body.endpoints;
+  if (Array.isArray(body?.data)) return body.data;
+  return [];
+}
+
+async function resolveEndpoint() {
+  const configured = text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID);
+  if (configured) {
+    return {
+      id: configured,
+      name: null,
+      source: "environment",
+      management_discovery_performed: false,
+    };
+  }
+
+  const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
+  if (!managementKey) {
+    throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_OR_MANAGEMENT_KEY_REQUIRED_FOR_CODE_ECONOMICS");
+  }
+
+  const response = await fetch(`${RUNPOD_REST}/endpoints?includeTemplate=true`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${managementKey}`,
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let body = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch {
+    body = null;
+  }
+  if (!response.ok) {
+    throw new Error(
+      `CODE_ECONOMICS_RUNPOD_ENDPOINT_DISCOVERY_HTTP_${response.status}:${text(body?.message || body?.error || raw).slice(0, 500)}`,
+    );
+  }
+
+  const matches = endpointRows(body).filter(
+    (endpoint) => text(endpoint?.name).toLowerCase() === EXPECTED_ENDPOINT_NAME,
+  );
+  if (matches.length !== 1 || !text(matches[0]?.id)) {
+    throw new Error(`CODE_ECONOMICS_RUNPOD_ENDPOINT_EXACT_MATCH_REQUIRED:${matches.length}`);
+  }
+
+  return {
+    id: text(matches[0].id),
+    name: text(matches[0].name) || EXPECTED_ENDPOINT_NAME,
+    source: "runpod_management_read_only_discovery",
+    management_discovery_performed: true,
+  };
 }
 
 function billingRows(body) {
@@ -234,14 +326,30 @@ async function runpodBillingRate({ apiKey, endpointId }) {
   };
 }
 
-async function resolveRateEvidence() {
-  const apiKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
-  const endpointId = text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID);
-  const allowFallback = yes(process.env.AVANTIQO_CODE_ECONOMICS_ALLOW_OPERATOR_RATE_FALLBACK);
+function billingCredentials() {
+  const raw = [
+    { source: "runpod_management_key", apiKey: text(process.env.RUNPOD_MANAGEMENT_API_KEY) },
+    { source: "runpod_serverless_key", apiKey: text(process.env.RUNPOD_API_KEY) },
+  ].filter((item) => item.apiKey);
+  const seen = new Set();
+  return raw.filter((item) => {
+    if (seen.has(item.apiKey)) return false;
+    seen.add(item.apiKey);
+    return true;
+  });
+}
 
-  if (apiKey && endpointId) {
+async function resolveRateEvidence(endpoint) {
+  const allowFallback = yes(process.env.AVANTIQO_CODE_ECONOMICS_ALLOW_OPERATOR_RATE_FALLBACK);
+  const candidates = billingCredentials();
+  const failures = [];
+
+  for (const candidate of candidates) {
     try {
-      const billing = await runpodBillingRate({ apiKey, endpointId });
+      const billing = await runpodBillingRate({
+        apiKey: candidate.apiKey,
+        endpointId: endpoint.id,
+      });
       return {
         usd_per_hour: positive(
           billing.conservative_effective_usd_per_hour,
@@ -249,17 +357,23 @@ async function resolveRateEvidence() {
         ),
         billed_gpu_count: 1,
         source: billing.source,
+        billing_credential_source: candidate.source,
         provider_billing: billing,
+        endpoint_resolution: endpoint,
       };
     } catch (error) {
-      if (!allowFallback) throw error;
+      failures.push({
+        credential_source: candidate.source,
+        error: text(error?.message || error).slice(0, 500),
+      });
     }
   }
 
   if (!allowFallback) {
-    if (!apiKey) throw new Error("RUNPOD_API_KEY_REQUIRED_FOR_CODE_ECONOMICS");
-    if (!endpointId) throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_REQUIRED_FOR_CODE_ECONOMICS");
-    throw new Error("CODE_ECONOMICS_RUNPOD_BILLING_EVIDENCE_REQUIRED");
+    if (!candidates.length) throw new Error("RUNPOD_API_KEY_REQUIRED_FOR_CODE_ECONOMICS");
+    throw new Error(
+      `CODE_ECONOMICS_RUNPOD_BILLING_EVIDENCE_REQUIRED:${failures.map((item) => `${item.credential_source}=${item.error}`).join("|")}`,
+    );
   }
 
   return {
@@ -272,14 +386,18 @@ async function resolveRateEvidence() {
       "AVANTIQO_CODE_BILLED_GPU_COUNT_INVALID",
     ),
     source: "OPERATOR_SUPPLIED_RUNTIME_ECONOMICS_EXPLICIT_FALLBACK",
+    billing_credential_source: null,
     provider_billing: null,
+    endpoint_resolution: endpoint,
   };
 }
 
 async function main() {
-  const benchmark = JSON.parse(await readFile(INPUT, "utf8"));
+  const benchmarkEvidence = await resolveBenchmarkInput();
+  const benchmark = benchmarkEvidence.report;
   const observations = assertBenchmark(benchmark);
-  const rateEvidence = await resolveRateEvidence();
+  const endpoint = await resolveEndpoint();
+  const rateEvidence = await resolveRateEvidence(endpoint);
 
   const usdPerGpuHour = rateEvidence.usd_per_hour;
   const billedGpuCount = rateEvidence.billed_gpu_count;
@@ -332,21 +450,26 @@ async function main() {
     contract: CONTRACT,
     generated_at: new Date().toISOString(),
     provider: EXPECTED_PROVIDER,
-    product_model: benchmark?.model?.product_model || "avantiqo-code-v1",
+    product_model: benchmark?.model?.product_model || EXPECTED_ENDPOINT_NAME,
     foundation_model: EXPECTED_FOUNDATION_MODEL,
     runtime_model: EXPECTED_RUNTIME_MODEL,
     serving_runtime: EXPECTED_SERVING_RUNTIME,
     quantization: EXPECTED_QUANTIZATION,
     source_benchmark_contract: benchmark.contract,
+    source_benchmark_path: benchmarkEvidence.path,
+    source_benchmark_resolution: benchmarkEvidence.source,
+    source_benchmark_rescore_contract: text(benchmark?.rescore?.contract) || null,
     source_benchmark_passed: true,
     source_complete_suite: true,
     source_planner_protocol_passed: true,
+    endpoint_resolution: rateEvidence.endpoint_resolution,
     capabilities: [...REQUIRED_CAPABILITIES],
     assumptions: {
       gpu_usd_per_hour: usdPerGpuHour,
       billed_gpu_count: billedGpuCount,
       target_utilization: targetUtilization,
       source: rateEvidence.source,
+      billing_credential_source: rateEvidence.billing_credential_source,
       conservative_provider_rate: rateEvidence.source === "RUNPOD_SERVERLESS_BILLING_API",
     },
     provider_billing: rateEvidence.provider_billing,
@@ -382,7 +505,11 @@ async function main() {
   console.log(JSON.stringify({
     success: true,
     output_path: OUTPUT,
+    benchmark_input_path: benchmarkEvidence.path,
+    benchmark_input_source: benchmarkEvidence.source,
+    endpoint_resolution: rateEvidence.endpoint_resolution,
     rate_source: rateEvidence.source,
+    billing_credential_source: rateEvidence.billing_credential_source,
     conservative_gpu_usd_per_hour: usdPerGpuHour,
     provider_billing_evidence_verified:
       rateEvidence.source === "RUNPOD_SERVERLESS_BILLING_API",

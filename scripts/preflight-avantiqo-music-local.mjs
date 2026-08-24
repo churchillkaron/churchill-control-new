@@ -15,6 +15,13 @@ const STORAGE_BUCKET = "creative-assets";
 const NETWORK_VOLUME_CHECKPOINT_ROOT = "/runpod-volume/ace-step-checkpoints";
 const EXPECTED_FOUNDATION_MODEL = "ACE-Step/Ace-Step1.5";
 const EXPECTED_VARIANT = "acestep-v15-turbo";
+const RUNPOD_24GB_FLEX_USD_PER_SECOND = 0.00019;
+const RUNPOD_PUBLIC_PRICING_VERIFIED_AT = "2026-08-24";
+const RUNPOD_24GB_FLEX_GPU_TYPE_IDS = new Set([
+  "NVIDIA L4",
+  "NVIDIA RTX A5000",
+  "NVIDIA GeForce RTX 3090",
+]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -26,8 +33,10 @@ function required(name) {
   return value;
 }
 
-function positive(name) {
-  const value = Number(required(name));
+function positiveOptional(name) {
+  const raw = text(process.env[name]);
+  if (!raw) return null;
+  const value = Number(raw);
   if (!Number.isFinite(value) || value <= 0) throw new Error(`${name}_POSITIVE_REQUIRED`);
   return value;
 }
@@ -52,6 +61,46 @@ function endpointVolumeIds(endpoint = {}) {
     text(endpoint.networkVolumeId),
     ...(Array.isArray(endpoint.networkVolumeIds) ? endpoint.networkVolumeIds.map(text) : []),
   ].filter(Boolean);
+}
+
+function endpointGpuTypeIds(endpoint = {}) {
+  return Array.isArray(endpoint.gpuTypeIds)
+    ? endpoint.gpuTypeIds.map(text).filter(Boolean)
+    : [];
+}
+
+function resolveGpuEconomics(endpoint = {}) {
+  const override = positiveOptional("AVANTIQO_AUDIO_GPU_USD_PER_HOUR");
+  const gpuTypeIds = endpointGpuTypeIds(endpoint);
+  if (override !== null) {
+    return {
+      gpu_usd_per_hour: override,
+      gpu_usd_per_second: override / 3600,
+      gpu_rate_source: "AVANTIQO_AUDIO_GPU_USD_PER_HOUR",
+      gpu_rate_environment_override_used: true,
+      gpu_type_ids: gpuTypeIds,
+      public_pricing_verified_at: null,
+    };
+  }
+
+  if (!gpuTypeIds.length) {
+    throw new Error("AVANTIQO_MUSIC_PREFLIGHT_GPU_TYPE_IDS_REQUIRED_FOR_RATE_RESOLUTION");
+  }
+  const unsupported = gpuTypeIds.filter((gpuTypeId) => !RUNPOD_24GB_FLEX_GPU_TYPE_IDS.has(gpuTypeId));
+  if (unsupported.length) {
+    throw new Error(
+      `AVANTIQO_AUDIO_GPU_USD_PER_HOUR_REQUIRED_FOR_UNMAPPED_GPU_TYPES:${unsupported.join(",")}`,
+    );
+  }
+
+  return {
+    gpu_usd_per_hour: RUNPOD_24GB_FLEX_USD_PER_SECOND * 3600,
+    gpu_usd_per_second: RUNPOD_24GB_FLEX_USD_PER_SECOND,
+    gpu_rate_source: "RUNPOD_PUBLIC_SERVERLESS_24GB_FLEX_PRICING",
+    gpu_rate_environment_override_used: false,
+    gpu_type_ids: gpuTypeIds,
+    public_pricing_verified_at: RUNPOD_PUBLIC_PRICING_VERIFIED_AT,
+  };
 }
 
 async function runpodHealth(endpointId, apiKey) {
@@ -110,7 +159,6 @@ const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
 const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
 const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
-const gpuUsdPerHour = positive("AVANTIQO_AUDIO_GPU_USD_PER_HOUR");
 
 const otherEndpointIds = {
   image: text(process.env.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID),
@@ -142,6 +190,7 @@ if (finite(endpoint?.workersMin, -1) !== 0) {
 }
 if (!Array.isArray(volumes)) throw new Error("AVANTIQO_MUSIC_PREFLIGHT_NETWORK_VOLUME_LIST_INVALID");
 assertSharedVolumeInventoryCompatible(volumes);
+const gpuEconomics = resolveGpuEconomics(endpoint);
 
 const attachedVolumeIds = endpointVolumeIds(endpoint);
 if (!attachedVolumeIds.length) {
@@ -221,6 +270,7 @@ const result = {
     workers_min: 0,
     scale_to_zero: true,
     quiet_for_controlled_benchmark: true,
+    gpu_type_ids: gpuEconomics.gpu_type_ids,
     workers: health?.workers || {},
     jobs: health?.jobs || {},
   },
@@ -249,7 +299,12 @@ const result = {
   },
   economics: {
     gpu_usd_per_hour_present: true,
-    gpu_usd_per_hour: gpuUsdPerHour,
+    gpu_usd_per_hour: gpuEconomics.gpu_usd_per_hour,
+    gpu_usd_per_second: gpuEconomics.gpu_usd_per_second,
+    gpu_rate_source: gpuEconomics.gpu_rate_source,
+    gpu_rate_environment_override_used: gpuEconomics.gpu_rate_environment_override_used,
+    public_pricing_verified_at: gpuEconomics.public_pricing_verified_at,
+    gpu_type_ids: gpuEconomics.gpu_type_ids,
   },
   ready_for_controlled_benchmark: true,
   safety: {

@@ -47,6 +47,32 @@ function list(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeListResponse(value, candidateKeys = [], depth = 0) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object" || depth > 3) return null;
+
+  const keys = [
+    ...candidateKeys,
+    "data",
+    "items",
+    "results",
+  ];
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+    const nested = value[key];
+    if (Array.isArray(nested)) return nested;
+    const normalized = normalizeListResponse(nested, candidateKeys, depth + 1);
+    if (normalized) return normalized;
+  }
+  return null;
+}
+
+function requireRunpodList(value, candidateKeys, errorCode) {
+  const normalized = normalizeListResponse(value, candidateKeys);
+  if (!normalized) throw new Error(errorCode);
+  return normalized;
+}
+
 function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name}_REQUIRED`);
@@ -204,14 +230,32 @@ const gpuTypeIds = configuredGpuTypeIds.length ? configuredGpuTypeIds.slice(0, 3
 const workersMax = Math.max(1, Math.min(2, Number(process.env.AVANTIQO_VOICE_RUNPOD_WORKERS_MAX || 1)));
 const idleTimeout = Math.max(1, Math.min(3600, Number(process.env.AVANTIQO_VOICE_RUNPOD_IDLE_TIMEOUT_SECONDS || 10)));
 
-let [endpoints, templates, registryAuths] = await Promise.all([
+const [endpointsRaw, templatesRaw, registryAuthsRaw] = await Promise.all([
   rest("/endpoints?includeTemplate=true&includeWorkers=false", managementKey),
   rest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false", managementKey),
   rest("/containerregistryauth", managementKey),
 ]);
-if (!Array.isArray(endpoints)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
-if (!Array.isArray(templates)) throw new Error("RUNPOD_TEMPLATE_LIST_INVALID");
-if (!Array.isArray(registryAuths)) throw new Error("RUNPOD_REGISTRY_AUTH_LIST_INVALID");
+let endpoints = requireRunpodList(
+  endpointsRaw,
+  ["endpoints", "serverlessEndpoints"],
+  "RUNPOD_ENDPOINT_LIST_INVALID",
+);
+let templates = requireRunpodList(
+  templatesRaw,
+  ["templates"],
+  "RUNPOD_TEMPLATE_LIST_INVALID",
+);
+const registryAuths = requireRunpodList(
+  registryAuthsRaw,
+  [
+    "containerRegistryAuths",
+    "containerRegistryCreds",
+    "registryAuths",
+    "registryCredentials",
+    "credentials",
+  ],
+  "RUNPOD_REGISTRY_AUTH_LIST_INVALID",
+);
 
 const registryAuth = resolveRegistryAuth(registryAuths);
 const plan = {
@@ -296,15 +340,21 @@ for (const [laneName, lane] of Object.entries(LANES)) {
     throw new Error(`AVANTIQO_VOICE_${laneName.toUpperCase()}_TEMPLATE_IMAGE_MISMATCH_REPAIR_REQUIRED`);
   }
 
-  const freshEndpoints = await rest("/endpoints?includeTemplate=false&includeWorkers=false", managementKey);
-  const appeared = Array.isArray(freshEndpoints)
-    ? freshEndpoints.filter((item) => text(item?.name) === lane.endpointName)
-    : [];
+  const freshEndpoints = requireRunpodList(
+    await rest("/endpoints?includeTemplate=false&includeWorkers=false", managementKey),
+    ["endpoints", "serverlessEndpoints"],
+    "RUNPOD_ENDPOINT_LIST_INVALID",
+  );
+  const appeared = freshEndpoints.filter((item) => text(item?.name) === lane.endpointName);
   if (appeared.length > 1) {
     throw new Error(`AVANTIQO_VOICE_${laneName.toUpperCase()}_ENDPOINT_NAME_AMBIGUOUS:matches=${appeared.length}`);
   }
   if (appeared.length === 1) {
-    endpoints = await rest("/endpoints?includeTemplate=true&includeWorkers=false", managementKey);
+    endpoints = requireRunpodList(
+      await rest("/endpoints?includeTemplate=true&includeWorkers=false", managementKey),
+      ["endpoints", "serverlessEndpoints"],
+      "RUNPOD_ENDPOINT_LIST_INVALID",
+    );
     continue;
   }
 
@@ -327,7 +377,11 @@ for (const [laneName, lane] of Object.entries(LANES)) {
   });
   if (!text(endpoint?.id)) throw new Error(`AVANTIQO_VOICE_${laneName.toUpperCase()}_CREATED_ENDPOINT_ID_REQUIRED`);
   plan.mutation_performed = true;
-  endpoints = await rest("/endpoints?includeTemplate=true&includeWorkers=false", managementKey);
+  endpoints = requireRunpodList(
+    await rest("/endpoints?includeTemplate=true&includeWorkers=false", managementKey),
+    ["endpoints", "serverlessEndpoints"],
+    "RUNPOD_ENDPOINT_LIST_INVALID",
+  );
 }
 
 const bindings = {};

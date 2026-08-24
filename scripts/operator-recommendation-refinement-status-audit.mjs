@@ -20,6 +20,22 @@ for (const item of localizedStatus) {
   );
 }
 
+const localizedDecisionRecall = [
+  { language: "en", message: "what did we decide" },
+  { language: "sv", message: "vad beslutade vi" },
+  { language: "de", message: "was haben wir entschieden" },
+  { language: "fr", message: "qu’avons-nous décidé" },
+  { language: "es", message: "qué decidimos" },
+  { language: "th", message: "เราตัดสินใจอะไร" },
+];
+for (const item of localizedDecisionRecall) {
+  assert.equal(
+    isRecommendationRefinementStatusMessage(item.message),
+    true,
+    `${item.language} exact refinement decision recall must be recognized`,
+  );
+}
+
 for (const dangerous of [
   "do it",
   "gör det",
@@ -119,9 +135,28 @@ assert.ok(
 assert.ok(recommendationStatus > projectStatus);
 assert.ok(coreStart > statusReturn);
 
+const projectPatternStart = turnSource.indexOf("const PROJECT_STATUS_PATTERN");
+const recommendationPatternStart = turnSource.indexOf(
+  "const RECOMMENDATION_STATUS_PATTERN",
+  projectPatternStart,
+);
+const projectPatternSource = turnSource.slice(
+  projectPatternStart,
+  recommendationPatternStart,
+);
+assert.ok(
+  projectPatternSource.includes("what did we decide"),
+  "decision recall must continue to exist in generic project status",
+);
+assert.ok(
+  statusReturn < projectStatus,
+  "refinement-specific decision recall must take precedence when refinement state exists",
+);
+
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_AUDIT=PASS");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_LANGUAGES=SV_DE_FR_ES_TH");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS=EXACT_STATE_READ_ONLY");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_DECISION_RECALL=EXACT_REFINEMENT_PRECEDENCE");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_PROPOSED=NO_AUTHORITY");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_SELECTED=DIRECTION_ONLY");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_MATERIALIZED=ACTIVE_BINDING_CHECKED");

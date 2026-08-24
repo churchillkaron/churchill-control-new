@@ -6,6 +6,9 @@ import { NextResponse } from "next/server";
 
 import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import {
+  resolveCreativeProviderAssetUrl,
+} from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
+import {
   buildMusicGenerationPlan,
   normalizeMusicBrief,
 } from "@/lib/creative/runtime/engines/MusicEngine";
@@ -313,6 +316,40 @@ async function status(body) {
   }, asset);
 }
 
+async function resolveAsset(body) {
+  const organizationId = text(body.organization_id);
+  if (!organizationId) throw new Error("organization_id required");
+  const assetId = text(body.asset_id);
+  if (!assetId) throw new Error("asset_id required");
+
+  const asset = await CreativeAssetsRuntime.get(assetId);
+  if (!asset || text(asset.organization_id) !== organizationId) {
+    const error = new Error("CREATIVE_MUSIC_ASSET_NOT_FOUND");
+    error.code = "CREATIVE_MUSIC_ASSET_NOT_FOUND";
+    error.status = 404;
+    throw error;
+  }
+  const reference = text(asset.file_url || asset.metadata?.storage_reference);
+  if (!reference) throw new Error("CREATIVE_MUSIC_ASSET_URL_REQUIRED");
+  const url = await resolveCreativeProviderAssetUrl({
+    organization_id: organizationId,
+    value: reference,
+  });
+  return {
+    success: true,
+    pending: false,
+    failed: false,
+    asset: {
+      id: asset.id,
+      title: asset.title || asset.name || asset.file_name || "Audio asset",
+      file_url: reference,
+      playback_url: url,
+      asset_type: asset.asset_type || null,
+      metadata: asset.metadata || {},
+    },
+  };
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -327,7 +364,9 @@ export async function POST(request) {
       ? await compose(body)
       : action === "status"
         ? await status(body)
-        : null;
+        : action === "resolve_asset"
+          ? await resolveAsset(body)
+          : null;
 
     if (!result) {
       return NextResponse.json(

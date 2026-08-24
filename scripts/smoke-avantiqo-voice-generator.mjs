@@ -7,6 +7,7 @@ const REPORT_CONTRACT = "AVANTIQO_VOICE_GENERATOR_SMOKE_V1";
 const DEFAULT_STT_MODEL = "openai/whisper-large-v3-turbo";
 const DEFAULT_TTS_MODEL = "resemble-ai/chatterbox:multilingual-v3";
 const POLL_MS = 3000;
+const SUBMIT_TIMEOUT_MS = 12_000;
 const JOB_TIMEOUT_MS = Math.max(
   60_000,
   Math.min(20 * 60_000, Number(process.env.AVANTIQO_VOICE_SMOKE_TIMEOUT_MS || 12 * 60_000)),
@@ -52,6 +53,7 @@ function inferenceCandidates() {
 }
 
 async function rawRequest(endpointId, requestPath, apiKey, options = {}) {
+  const timeoutMs = Math.max(1000, Number(options.timeoutMs || 30_000));
   const response = await fetch(`${API_BASE}/${encodeURIComponent(endpointId)}${requestPath}`, {
     method: options.method || "GET",
     headers: {
@@ -60,7 +62,7 @@ async function rawRequest(endpointId, requestPath, apiKey, options = {}) {
       ...(options.body ? { "Content-Type": "application/json" } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const raw = await response.text();
   let body = null;
@@ -83,45 +85,69 @@ async function request(endpointId, requestPath, apiKey, options = {}) {
   return body;
 }
 
-async function probeEndpointAuthorization(endpointId, candidates) {
-  const probes = [];
-  for (const candidate of candidates) {
-    const { response } = await rawRequest(endpointId, "/health", candidate.value);
-    probes.push({
-      source: candidate.source,
-      key_kind: candidate.key_kind,
-      http_status: response.status,
-      read_authorized: response.ok,
-    });
-  }
-  return probes;
-}
-
-function authorizedCandidateOrder(candidates, probes) {
-  const authorizedSources = new Set(
-    probes.filter((probe) => probe.read_authorized).map((probe) => probe.source),
-  );
-  const readable = candidates.filter((candidate) => authorizedSources.has(candidate.source));
-  const unreadable = candidates.filter((candidate) => !authorizedSources.has(candidate.source));
-  return [...readable, ...unreadable];
-}
-
 async function submitJob(endpointId, payload, candidates, laneName) {
+  const lane = text(laneName).toUpperCase() || "ENDPOINT";
   const attempts = [];
+
   for (const candidate of candidates) {
-    const { response, body } = await rawRequest(endpointId, "/run", candidate.value, {
-      method: "POST",
-      body: { input: payload },
-    });
+    console.log(JSON.stringify({
+      event: "AVANTIQO_VOICE_SMOKE_SUBMIT_ATTEMPT",
+      lane,
+      credential_source: candidate.source,
+      credential_key_kind: candidate.key_kind,
+      secret_values_printed: false,
+    }));
+
+    let response;
+    let body;
+    try {
+      ({ response, body } = await rawRequest(endpointId, "/run", candidate.value, {
+        method: "POST",
+        body: { input: payload },
+        timeoutMs: SUBMIT_TIMEOUT_MS,
+      }));
+    } catch (error) {
+      attempts.push({
+        source: candidate.source,
+        key_kind: candidate.key_kind,
+        http_status: null,
+        write_authorized: false,
+        transport_error: error?.name === "TimeoutError" ? "TIMEOUT" : "REQUEST_FAILED",
+      });
+      console.log(JSON.stringify({
+        event: "AVANTIQO_VOICE_SMOKE_SUBMIT_RESULT",
+        lane,
+        credential_source: candidate.source,
+        http_status: null,
+        write_authorized: false,
+        transport_error: error?.name === "TimeoutError" ? "TIMEOUT" : "REQUEST_FAILED",
+      }));
+      continue;
+    }
+
     attempts.push({
       source: candidate.source,
       key_kind: candidate.key_kind,
       http_status: response.status,
       write_authorized: response.ok,
     });
+    console.log(JSON.stringify({
+      event: "AVANTIQO_VOICE_SMOKE_SUBMIT_RESULT",
+      lane,
+      credential_source: candidate.source,
+      http_status: response.status,
+      write_authorized: response.ok,
+    }));
+
     if (response.ok) {
       const jobId = text(body.id);
       if (!jobId) throw new Error("RUNPOD_JOB_ID_REQUIRED");
+      console.log(JSON.stringify({
+        event: "AVANTIQO_VOICE_SMOKE_JOB_SUBMITTED",
+        lane,
+        job_id: jobId,
+        credential_source: candidate.source,
+      }));
       return {
         jobId,
         apiKey: candidate.value,
@@ -130,20 +156,26 @@ async function submitJob(endpointId, payload, candidates, laneName) {
         authorization_attempts: attempts,
       };
     }
+
     if (![401, 403].includes(response.status)) {
-      throw new Error(`RUNPOD_HTTP_${response.status}`);
+      const error = new Error(`RUNPOD_HTTP_${response.status}`);
+      error.authorization_attempts = attempts;
+      throw error;
     }
   }
-  const lane = text(laneName).toUpperCase() || "ENDPOINT";
+
   const error = new Error(`AVANTIQO_VOICE_RUNPOD_${lane}_ENDPOINT_PERMISSION_REQUIRED`);
   error.authorization_attempts = attempts;
   throw error;
 }
 
 async function runJob(endpointId, payload, candidates, laneName) {
+  const lane = text(laneName).toUpperCase() || "ENDPOINT";
   const started = performance.now();
-  const submitted = await submitJob(endpointId, payload, candidates, laneName);
+  const submitted = await submitJob(endpointId, payload, candidates, lane);
   const deadline = Date.now() + JOB_TIMEOUT_MS;
+  let lastProgressAt = 0;
+
   while (Date.now() < deadline) {
     const body = await request(
       endpointId,
@@ -151,10 +183,23 @@ async function runJob(endpointId, payload, candidates, laneName) {
       submitted.apiKey,
     );
     const status = text(body.status).toUpperCase();
+    const elapsedMs = Math.round(performance.now() - started);
+
+    if (Date.now() - lastProgressAt >= 15_000 || status === "COMPLETED") {
+      console.log(JSON.stringify({
+        event: "AVANTIQO_VOICE_SMOKE_PROGRESS",
+        lane,
+        job_id: submitted.jobId,
+        status: status || "UNKNOWN",
+        elapsed_seconds: Math.round(elapsedMs / 1000),
+      }));
+      lastProgressAt = Date.now();
+    }
+
     if (status === "COMPLETED") {
       return {
         output: body.output || {},
-        wall_ms: Math.round(performance.now() - started),
+        wall_ms: elapsedMs,
         credential_source: submitted.credential_source,
         credential_key_kind: submitted.credential_key_kind,
         authorization_attempts: submitted.authorization_attempts,
@@ -207,24 +252,23 @@ try {
   const sttModel = text(process.env.AVANTIQO_VOICE_STT_FOUNDATION_MODEL) || DEFAULT_STT_MODEL;
   const phrase = "Avantiqo voice generator is working and ready.";
 
-  const [ttsProbes, sttProbes] = await Promise.all([
-    probeEndpointAuthorization(ttsEndpointId, candidates),
-    probeEndpointAuthorization(sttEndpointId, candidates),
-  ]);
   report.authorization = {
     candidate_count: candidates.length,
-    runpod_api_key_kind: candidates[0]?.key_kind || null,
-    management_key_available_as_distinct_fallback: candidates.length > 1,
-    tts: ttsProbes,
-    stt: sttProbes,
+    candidates: candidates.map((candidate) => ({
+      source: candidate.source,
+      key_kind: candidate.key_kind,
+    })),
   };
 
-  if (!ttsProbes.some((probe) => probe.read_authorized)) {
-    throw new Error("AVANTIQO_VOICE_RUNPOD_TTS_ENDPOINT_PERMISSION_REQUIRED");
-  }
-  if (!sttProbes.some((probe) => probe.read_authorized)) {
-    throw new Error("AVANTIQO_VOICE_RUNPOD_STT_ENDPOINT_PERMISSION_REQUIRED");
-  }
+  console.log(JSON.stringify({
+    event: "AVANTIQO_VOICE_SMOKE_START",
+    candidate_count: candidates.length,
+    tts_endpoint_configured: true,
+    stt_endpoint_configured: true,
+    submit_timeout_seconds: Math.round(SUBMIT_TIMEOUT_MS / 1000),
+    job_timeout_seconds: Math.round(JOB_TIMEOUT_MS / 1000),
+    secret_values_printed: false,
+  }));
 
   const ttsJob = await runJob(
     ttsEndpointId,
@@ -241,10 +285,11 @@ try {
         response_format: "wav",
       },
     },
-    authorizedCandidateOrder(candidates, ttsProbes),
+    candidates,
     "TTS",
   );
 
+  report.authorization.tts_write_attempts = ttsJob.authorization_attempts;
   const ttsOutput = ttsJob.output || {};
   const audioBase64 = text(ttsOutput.audio_base64);
   const audio = Buffer.from(audioBase64, "base64");
@@ -272,7 +317,6 @@ try {
     voice_cloning_used: ttsOutput.voice_cloning_used === true,
     inference_credential_source: ttsJob.credential_source,
     inference_credential_key_kind: ttsJob.credential_key_kind,
-    authorization_attempts: ttsJob.authorization_attempts,
   };
   if (!ttsPassed) throw new Error("AVANTIQO_VOICE_TTS_SMOKE_INVALID_OUTPUT");
 
@@ -292,10 +336,11 @@ try {
         vocabulary_context: "Avantiqo business operating system",
       },
     },
-    authorizedCandidateOrder(candidates, sttProbes),
+    candidates,
     "STT",
   );
 
+  report.authorization.stt_write_attempts = sttJob.authorization_attempts;
   const sttOutput = sttJob.output || {};
   const transcript = text(sttOutput.transcript || sttOutput.text);
   const normalized = transcript.toLowerCase();
@@ -316,7 +361,6 @@ try {
     foundation_model: text(sttOutput.foundation_model) || sttModel,
     inference_credential_source: sttJob.credential_source,
     inference_credential_key_kind: sttJob.credential_key_kind,
-    authorization_attempts: sttJob.authorization_attempts,
   };
   if (!sttPassed) throw new Error("AVANTIQO_VOICE_STT_SMOKE_INVALID_OUTPUT");
 
@@ -326,7 +370,7 @@ try {
   if (Array.isArray(error?.authorization_attempts)) {
     report.authorization = {
       ...(report.authorization || {}),
-      write_authorization_attempts: error.authorization_attempts,
+      failed_write_attempts: error.authorization_attempts,
     };
   }
   process.exitCode = 1;

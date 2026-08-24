@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-const runtimePath = "lib/operator/runtime/OperatorTurnRuntime.js";
+const runtimePath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
 const handoffPath =
   "lib/platform/capabilities/createProductPersistenceHandoffCapability.js";
 
@@ -131,6 +131,7 @@ requireFragments("stale-user-message", textBuilder, [
 ]);
 
 console.log("OPERATOR_PRODUCT_STALE_BASE_CONVERSATION_AUDIT=PASS");
+console.log("OPERATOR_PRODUCT_STALE_BASE_CONVERSATION_RUNTIME=LEGACY_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_PRODUCT_STALE_BASE_CONVERSATION=FRESH_OBJECTIVE_SURFACED");
 console.log("OPERATOR_PRODUCT_STALE_BASE_CONVERSATION_STAY_LOCAL=NOT_CONTINUED");
 console.log("OPERATOR_PRODUCT_STALE_BASE_CONVERSATION_AUTO_EXECUTION=DISABLED");

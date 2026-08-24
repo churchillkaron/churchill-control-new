@@ -33,14 +33,28 @@ printf '%s\n' "========================================"
 run_node scripts/discover-avantiqo-runpod-media-config.mjs
 
 printf '%s\n' "========================================"
-printf '%s\n' "STEP 3: INSPECT AUDIO WORKER READ ONLY"
+printf '%s\n' "STEP 3: PLAN AUDIO WORKER REPAIR"
 printf '%s\n' "========================================"
-run_node scripts/inspect-avantiqo-audio-runpod-worker-local.mjs
+set +e
+run_node scripts/repair-avantiqo-audio-runpod-worker-local.mjs
+REPAIR_PLAN_STATUS=$?
+set -e
+if [ "$REPAIR_PLAN_STATUS" -eq 2 ]; then
+  printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_ENDPOINT=MISSING_OR_REQUIRES_PROVISIONING"
+  printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_PREPARE=PROVISIONING_REQUIRED"
+  printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_MUTATION_PERFORMED=false"
+  printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_GENERATION_SUBMITTED=false"
+  printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_PRODUCTION_DEPLOY_PERFORMED=false"
+  exit 2
+fi
+if [ "$REPAIR_PLAN_STATUS" -ne 0 ]; then
+  exit "$REPAIR_PLAN_STATUS"
+fi
 
 printf '%s\n' "========================================"
-printf '%s\n' "STEP 4: PLAN AUDIO WORKER REPAIR"
+printf '%s\n' "STEP 4: INSPECT AUDIO WORKER READ ONLY"
 printf '%s\n' "========================================"
-run_node scripts/repair-avantiqo-audio-runpod-worker-local.mjs
+run_node scripts/inspect-avantiqo-audio-runpod-worker-local.mjs
 
 if [ "$MODE" = "plan" ]; then
   printf '%s\n' "AVANTIQO_MUSIC_RUNPOD_PREPARE=PLAN_COMPLETE"

@@ -23,11 +23,11 @@ WORKDIR /app
 # newest SDK whose FastAPI range remains compatible with vLLM 0.27.1.
 COPY services/avantiqo-code-engine/requirements.txt ./requirements.txt
 RUN uv pip install --system -r requirements.txt \
-    && python -c "from importlib.metadata import version; import runpod, vllm; assert version('runpod') == '1.10.0', version('runpod'); assert version('vllm') == '0.27.1', version('vllm'); print('AVANTIQO_CODE_VLLM_BUILD_CHECK=PASS')"
+    && python3 -c "from importlib.metadata import version; import runpod, vllm; assert version('runpod') == '1.10.0', version('runpod'); assert version('vllm') == '0.27.1', version('vllm'); print('AVANTIQO_CODE_VLLM_BUILD_CHECK=PASS')"
 COPY services/avantiqo-code-engine/handler.py ./handler.py
-RUN python -m py_compile handler.py
+RUN python3 -m py_compile handler.py
 
 # The upstream vllm-openai image has ENTRYPOINT ["vllm", "serve"]. Replace it
 # completely because RunPod invokes our bounded worker handler, not the generic
 # OpenAI-compatible HTTP server.
-ENTRYPOINT ["python", "-u", "handler.py"]
+ENTRYPOINT ["python3", "-u", "handler.py"]

@@ -53,8 +53,11 @@ for (const dangerous of [
   );
 }
 
-const turnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
-const turnSource = await readFile(turnPath, "utf8");
+const legacyPath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
+const governedPath = "lib/operator/runtime/OperatorTurnRuntimeGoverned.js";
+const legacySource = await readFile(legacyPath, "utf8");
+const governedSource = await readFile(governedPath, "utf8");
+
 for (const required of [
   "isRecommendationRefinementStatusMessage",
   "recommendationRefinementStatusTurn",
@@ -68,18 +71,27 @@ for (const required of [
   "that exact pending binding is no longer active",
   "I will not replay it from history or shorthand",
 ]) {
-  assert.ok(turnSource.includes(required), `${turnPath} missing ${required}`);
+  assert.ok(legacySource.includes(required), `${legacyPath} missing ${required}`);
 }
 
-const statusStart = turnSource.indexOf(
+assert.ok(
+  governedSource.includes("isRecommendationRefinementStatusMessage(options.message)"),
+  "governed router must recognize refinement status before normal governed preparation",
+);
+assert.ok(
+  governedSource.includes("return legacyRunOperatorTurn(options)"),
+  "refinement status must delegate to preserved read-only status semantics",
+);
+
+const statusStart = legacySource.indexOf(
   "function recommendationRefinementStatusTurn",
 );
-const mismatchStart = turnSource.indexOf(
+const mismatchStart = legacySource.indexOf(
   "function recommendationBindingMismatchTurn",
   statusStart,
 );
 assert.ok(statusStart >= 0 && mismatchStart > statusStart);
-const statusSource = turnSource.slice(statusStart, mismatchStart);
+const statusSource = legacySource.slice(statusStart, mismatchStart);
 for (const forbidden of [
   "runOperatorTurnCore(",
   "executeUbteCapability",
@@ -105,24 +117,24 @@ assert.ok(
   "materialized binding status must reject terminal runs",
 );
 
-const runTurnStart = turnSource.indexOf("export async function runOperatorTurn");
-const statusClassify = turnSource.indexOf(
+const runTurnStart = legacySource.indexOf("export async function runOperatorTurn");
+const statusClassify = legacySource.indexOf(
   "isRecommendationRefinementStatusMessage(options.message)",
   runTurnStart,
 );
-const statusReturn = turnSource.indexOf(
+const statusReturn = legacySource.indexOf(
   "return recommendationRefinementStatusTurn(options, refinementProposal)",
   statusClassify,
 );
-const projectStatus = turnSource.indexOf(
+const projectStatus = legacySource.indexOf(
   "if (isProjectStatusTurn(options.message))",
   statusReturn,
 );
-const recommendationStatus = turnSource.indexOf(
+const recommendationStatus = legacySource.indexOf(
   "if (isRecommendationStatusTurn(options.message))",
   projectStatus,
 );
-const coreStart = turnSource.indexOf(
+const coreStart = legacySource.indexOf(
   "const coreResult = await runOperatorTurnCore",
   recommendationStatus,
 );
@@ -135,12 +147,12 @@ assert.ok(
 assert.ok(recommendationStatus > projectStatus);
 assert.ok(coreStart > statusReturn);
 
-const projectPatternStart = turnSource.indexOf("const PROJECT_STATUS_PATTERN");
-const recommendationPatternStart = turnSource.indexOf(
+const projectPatternStart = legacySource.indexOf("const PROJECT_STATUS_PATTERN");
+const recommendationPatternStart = legacySource.indexOf(
   "const RECOMMENDATION_STATUS_PATTERN",
   projectPatternStart,
 );
-const projectPatternSource = turnSource.slice(
+const projectPatternSource = legacySource.slice(
   projectPatternStart,
   recommendationPatternStart,
 );
@@ -156,6 +168,7 @@ assert.ok(
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_AUDIT=PASS");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_LANGUAGES=SV_DE_FR_ES_TH");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS=EXACT_STATE_READ_ONLY");
+console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_ROUTING=GOVERNED_TO_LEGACY_READ_ONLY");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_DECISION_RECALL=EXACT_REFINEMENT_PRECEDENCE");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_PROPOSED=NO_AUTHORITY");
 console.log("OPERATOR_RECOMMENDATION_REFINEMENT_STATUS_SELECTED=DIRECTION_ONLY");

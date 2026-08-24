@@ -12,10 +12,18 @@ for (const fragment of [
   "MAX_DYNAMIC_EVIDENCE_FILES = 8",
   "MAX_PLANNED_EVIDENCE_SEARCHES = 6",
   "PLANNED_EVIDENCE_ALLOWED_PATHS",
+  "DYNAMIC_EVIDENCE_ALLOWED_PREFIXES",
+  "DYNAMIC_EVIDENCE_ALLOWED_EXTENSIONS",
   '"lib/intelligence"',
   '"lib/operator"',
   '"lib/platform"',
   '"lib/code"',
+  '"app"',
+  '"components"',
+  '"services"',
+  '"scripts"',
+  '"tests"',
+  '"supabase/migrations"',
   "EVIDENCE_SEARCHES",
   "evidencePlanningSystem",
   "normalizedPlannedEvidenceQueries",
@@ -26,6 +34,7 @@ for (const fragment of [
   "repository_evidence_query_planner_attempted: true",
   "intelligence_planned_repository_evidence",
   '"owned_intelligence_planner"',
+  "isAllowedDynamicEvidencePath",
   "parsedSearchMatch",
   "dynamicEvidenceCandidates",
   "readDynamicEvidenceFile",
@@ -33,6 +42,7 @@ for (const fragment of [
   'method: "CURRENT_MAIN_SEARCH_DISCOVERED_IMPLEMENTATION_READS"',
   "dynamic_evidence_expansion: dynamicEvidenceExpansion",
   "dynamic_repository_evidence: true",
+  "cross_surface_repository_evidence: true",
   "repository_evidence_expanded: true",
   'authorization_effect: "NONE"',
   "full_repository_certification: false",
@@ -41,9 +51,25 @@ for (const fragment of [
 }
 
 assert.ok(
-  source.includes('if (!filePath.startsWith("lib/")) return null;'),
-  "Dynamic repository evidence must remain scoped to implementation files",
+  source.includes("DYNAMIC_EVIDENCE_ALLOWED_PREFIXES.some((prefix) => normalized.startsWith(prefix))"),
+  "Dynamic repository evidence must remain scoped to approved tracked source prefixes",
 );
+assert.ok(
+  source.includes("DYNAMIC_EVIDENCE_ALLOWED_EXTENSIONS.some((extension) =>"),
+  "Dynamic repository evidence must remain scoped to approved source/document file types",
+);
+for (const forbiddenPathFragment of [
+  'normalized.startsWith(".env")',
+  'normalized.includes("/.env")',
+  'normalized.includes("/node_modules/")',
+  'normalized.includes("/.next/")',
+  'normalized.includes("/.git/")',
+]) {
+  assert.ok(
+    source.includes(forbiddenPathFragment),
+    `Dynamic repository evidence must preserve forbidden path guard ${forbiddenPathFragment}`,
+  );
+}
 assert.ok(
   source.includes(".slice(0, MAX_DYNAMIC_EVIDENCE_FILES)"),
   "Dynamic repository evidence must stay bounded",
@@ -57,10 +83,33 @@ for (const allowedPath of [
   "lib/operator",
   "lib/platform",
   "lib/code",
+  "app",
+  "components",
+  "services",
+  "scripts",
+  "tests",
+  "supabase/migrations",
 ]) {
   assert.ok(
     source.includes(`"${allowedPath}"`),
     `Owned intelligence evidence planner must retain approved source path ${allowedPath}`,
+  );
+}
+for (const extension of [
+  ".js",
+  ".jsx",
+  ".ts",
+  ".tsx",
+  ".mjs",
+  ".cjs",
+  ".py",
+  ".sql",
+  ".json",
+  ".md",
+]) {
+  assert.ok(
+    source.includes(`"${extension}"`),
+    `Dynamic repository evidence must retain approved extension ${extension}`,
   );
 }
 assert.ok(
@@ -109,9 +158,9 @@ assert.ok(
 );
 
 const plannerStart = source.indexOf("async function planRepositoryEvidenceQueries");
-const parserStart = source.indexOf("function parsedSearchMatch", plannerStart);
-assert.ok(plannerStart >= 0 && parserStart > plannerStart);
-const plannerSource = source.slice(plannerStart, parserStart);
+const pathGuardStart = source.indexOf("function isAllowedDynamicEvidencePath", plannerStart);
+assert.ok(plannerStart >= 0 && pathGuardStart > plannerStart);
+const plannerSource = source.slice(plannerStart, pathGuardStart);
 assert.ok(plannerSource.includes("AvantiqoStructuredIntelligenceSupervisorRuntime.run"));
 assert.ok(plannerSource.includes("tools: []"));
 assert.ok(plannerSource.includes('authorization: { allow_mutating_tools: false }'));
@@ -120,11 +169,23 @@ assert.ok(plannerSource.includes('status: "FALLBACK_DETERMINISTIC"'));
 assert.ok(plannerSource.includes('read_only: true'));
 assert.ok(plannerSource.includes('authorization_effect: "NONE"'));
 
+const pathGuardEnd = source.indexOf("function parsedSearchMatch", pathGuardStart);
+assert.ok(pathGuardStart >= 0 && pathGuardEnd > pathGuardStart);
+const pathGuardSource = source.slice(pathGuardStart, pathGuardEnd);
+assert.ok(pathGuardSource.includes("DYNAMIC_EVIDENCE_ALLOWED_PREFIXES"));
+assert.ok(pathGuardSource.includes("DYNAMIC_EVIDENCE_ALLOWED_EXTENSIONS"));
+assert.ok(pathGuardSource.includes("node_modules"));
+assert.ok(pathGuardSource.includes(".next"));
+assert.ok(pathGuardSource.includes(".git"));
+assert.ok(pathGuardSource.includes(".env"));
+
 const expansionStart = source.indexOf("async function expandDynamicEvidence");
 const assessmentStart = source.indexOf("function assessmentSystem", expansionStart);
 assert.ok(expansionStart >= 0 && assessmentStart > expansionStart);
 const expansionSource = source.slice(expansionStart, assessmentStart);
 assert.ok(expansionSource.includes("readDynamicEvidenceFile"));
+assert.ok(expansionSource.includes("allowed_prefixes"));
+assert.ok(expansionSource.includes("allowed_extensions"));
 assert.ok(expansionSource.includes("bounded: true"));
 assert.ok(expansionSource.includes("read_only: true"));
 assert.ok(expansionSource.includes('authorization_effect: "NONE"'));
@@ -132,11 +193,13 @@ assert.ok(expansionSource.includes('authorization_effect: "NONE"'));
 console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE_AUDIT=PASS");
 console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE=SEARCH_DISCOVERED_IMPLEMENTATION_READS");
 console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE_LIMIT=8_FILES");
-console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE_SCOPE=LIB_IMPLEMENTATION_ONLY");
+console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE_SCOPE=APP_API_UI_SERVICES_TESTS_SCRIPTS_MIGRATIONS_AND_LIB");
+console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE_FILE_TYPES=BOUNDED_SOURCE_AND_DOCUMENT_TYPES");
+console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE_FORBIDDEN=.ENV_NODE_MODULES_NEXT_GIT");
 console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE_AUTHORITY=READ_ONLY_NONE");
 console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER=AVANTIQO_OWNED_INTELLIGENCE");
 console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER_LIMIT=6_LITERAL_QUERIES");
-console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER_SCOPE=APPROVED_LIB_SUBTREES_ONLY");
+console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER_SCOPE=APPROVED_TRACKED_SOURCE_SURFACES_ONLY");
 console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER_TOOLS=NONE");
 console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE_PLANNER_FAILURE=DETERMINISTIC_FALLBACK");
 console.log("OPERATOR_PRODUCT_REPOSITORY_DYNAMIC_EVIDENCE_CERTIFICATION=BOUNDED_NOT_FULL_REPOSITORY");

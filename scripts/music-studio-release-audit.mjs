@@ -31,6 +31,9 @@ const router = read("components/creative/ProductionStudio/layout/WorkspaceCanvas
 const registry = read("lib/creative/registry/applyCreativeWorkspaceRegistry.js");
 const benchmark = read("scripts/benchmark-avantiqo-music.mjs");
 const economics = read("scripts/avantiqo-music-economics.mjs");
+const reviewPrep = read("scripts/prepare-avantiqo-music-human-review.mjs");
+const reviewFinalizer = read("scripts/finalize-avantiqo-music-human-review.mjs");
+const promotionPlan = read("scripts/plan-avantiqo-music-promotion.mjs");
 
 requirePattern(route, /UsageRuntime\.get\(usageId\)/, "music-status-must-resolve-governed-usage-server-side");
 requirePattern(route, /CreativeMusicFinishingRuntime\.ensureMaster/, "music-route-must-trigger-automatic-mastering");
@@ -89,6 +92,27 @@ requirePattern(economics, /human_audio_quality_certified:\s*false/, "music-econo
 requirePattern(economics, /pricing_activation_performed:\s*false/, "music-economics-must-not-activate-pricing");
 requirePattern(economics, /activation_allowed:\s*false/, "music-economics-must-remain-measurement-only");
 
+requirePattern(reviewPrep, /AVANTIQO_MUSIC_HUMAN_REVIEW_V1/, "music-human-review-contract-required");
+requirePattern(reviewPrep, /automatic_human_approval_forbidden:\s*true/, "music-human-review-must-forbid-automatic-approval");
+requirePattern(reviewPrep, /instrumental_integrity/, "music-human-review-must-check-unintended-vocals");
+requirePattern(reviewPrep, /commercial_release_readiness/, "music-human-review-must-check-release-readiness");
+requirePattern(reviewPrep, /review_status:\s*"PENDING"/, "music-human-review-must-start-pending");
+
+requirePattern(reviewFinalizer, /AVANTIQO_OWNED_MEDIA_CERTIFICATION_EVIDENCE_V1/, "music-human-review-must-produce-shared-media-evidence-contract");
+requirePattern(reviewFinalizer, /REVIEWER_REQUIRED/, "music-human-review-finalization-must-require-reviewer");
+requirePattern(reviewFinalizer, /score_0_100/, "music-human-review-finalization-must-validate-scores");
+requirePattern(reviewFinalizer, /production_certified:\s*false/, "music-human-review-must-not-self-certify-production");
+requirePattern(reviewFinalizer, /activation_allowed:\s*false/, "music-human-review-must-not-activate-routing");
+
+requirePattern(promotionPlan, /AVANTIQO_MUSIC_PROMOTION_PLAN_V1/, "music-promotion-plan-contract-required");
+requirePattern(promotionPlan, /human_quality_certified/, "music-promotion-plan-must-require-human-quality");
+requirePattern(promotionPlan, /human_quality_reviewer/, "music-promotion-plan-must-bind-reviewer");
+requirePattern(promotionPlan, /certified_capability:\s*CAPABILITY/, "music-promotion-plan-must-bind-capability");
+requirePattern(promotionPlan, /certified_model:\s*MODEL/, "music-promotion-plan-must-bind-model");
+requirePattern(promotionPlan, /automatic_activation_forbidden:\s*true/, "music-promotion-plan-must-forbid-automatic-activation");
+requirePattern(promotionPlan, /pricing_mutation_performed:\s*false/, "music-promotion-plan-must-not-mutate-pricing");
+requirePattern(promotionPlan, /ready_for_explicit_promotion:\s*false/, "music-promotion-plan-must-require-explicit-promotion-step");
+
 requirePattern(router, /music:\s*MusicWorkspace/, "creative-router-must-route-music-workspace");
 requirePattern(registry, /id:\s*"music"/, "creative-registry-must-own-music-workspace");
 
@@ -106,5 +130,7 @@ console.log("MUSIC_VERSION_HISTORY=REQUIRED");
 console.log("MUSIC_CLIENT_PROVIDER_SELECTION=HIDDEN");
 console.log("MUSIC_BENCHMARK=SPEND_GUARDED_AND_SYNTHETIC_SCOPE_ONLY");
 console.log("MUSIC_ECONOMICS=MEASUREMENT_REQUIRED_BEFORE_PRICING_PROMOTION");
+console.log("MUSIC_HUMAN_QUALITY=EXPLICIT_LISTENING_REVIEW_REQUIRED");
+console.log("MUSIC_PROMOTION=PLAN_ONLY_EXPLICIT_ACTIVATION_REQUIRED");
 console.log("MUSIC_REMIX_EDIT=IMPLEMENTED_BENCHMARK_GATED");
 console.log("MUSIC_EXTEND_STEMS=BASE_MODEL_GATED");

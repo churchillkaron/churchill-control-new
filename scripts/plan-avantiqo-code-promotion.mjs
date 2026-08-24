@@ -10,6 +10,8 @@ const ECONOMICS_CONTRACT = "AVANTIQO_CODE_ECONOMICS_V1";
 const PROVIDER = "avantiqo-code";
 const MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct";
 const RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
+const DEFAULT_BENCHMARK_INPUT = "/tmp/avantiqo-code-certification-benchmark.json";
+const DEFAULT_RESCORED_INPUT = "/tmp/avantiqo-code-certification-benchmark-rescored.json";
 const CAPABILITIES = Object.freeze([
   "ai.code.generate",
   "ai.code.edit",
@@ -18,10 +20,6 @@ const CAPABILITIES = Object.freeze([
   "ai.code.debug",
 ]);
 
-const BENCHMARK_INPUT = resolve(
-  process.env.AVANTIQO_CODE_CERTIFICATION_INPUT ||
-    "/tmp/avantiqo-code-certification-benchmark.json",
-);
 const ECONOMICS_INPUT = resolve(
   process.env.AVANTIQO_CODE_ECONOMICS_INPUT ||
     "/tmp/avantiqo-code-economics.json",
@@ -33,6 +31,40 @@ const OUTPUT = resolve(
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+async function readJson(path) {
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
+async function resolveBenchmarkInput() {
+  const configured = text(process.env.AVANTIQO_CODE_CERTIFICATION_INPUT);
+  if (configured) {
+    const path = resolve(configured);
+    return {
+      path,
+      source: "environment",
+      report: await readJson(path),
+    };
+  }
+
+  const candidates = [DEFAULT_RESCORED_INPUT, DEFAULT_BENCHMARK_INPUT];
+  for (const candidate of candidates) {
+    const path = resolve(candidate);
+    try {
+      return {
+        path,
+        source: candidate === DEFAULT_RESCORED_INPUT
+          ? "certified_rescore_preferred"
+          : "benchmark_default",
+        report: await readJson(path),
+      };
+    } catch (error) {
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+  }
+  throw new Error("AVANTIQO_CODE_PROMOTION_BENCHMARK_EVIDENCE_NOT_FOUND");
 }
 
 function approvedModel(capability) {
@@ -53,10 +85,11 @@ function allCapabilitiesObserved(benchmark = {}) {
   return CAPABILITIES.filter((capability) => !observed.has(capability));
 }
 
-const [benchmark, economics] = await Promise.all([
-  readFile(BENCHMARK_INPUT, "utf8").then(JSON.parse),
-  readFile(ECONOMICS_INPUT, "utf8").then(JSON.parse),
+const [benchmarkEvidence, economics] = await Promise.all([
+  resolveBenchmarkInput(),
+  readJson(ECONOMICS_INPUT),
 ]);
+const benchmark = benchmarkEvidence.report;
 
 const failures = [];
 
@@ -86,6 +119,9 @@ if (economics?.source_benchmark_passed !== true) failures.push("ECONOMICS_SOURCE
 if (economics?.source_complete_suite !== true) failures.push("ECONOMICS_COMPLETE_SUITE_REQUIRED");
 if (economics?.source_planner_protocol_passed !== true) failures.push("ECONOMICS_PLANNER_PROTOCOL_PASS_REQUIRED");
 if (economics?.certification?.economics_measured !== true) failures.push("ECONOMICS_MEASUREMENT_REQUIRED");
+if (economics?.certification?.provider_billing_evidence_verified !== true) {
+  failures.push("RUNPOD_PROVIDER_BILLING_EVIDENCE_REQUIRED");
+}
 if (!Number.isFinite(Number(economics?.summary?.utilization_adjusted_compute_usd))) {
   failures.push("ECONOMICS_TOTAL_COST_REQUIRED");
 }
@@ -153,12 +189,18 @@ const plan = {
   capabilities: [...CAPABILITIES],
   evidence: {
     benchmark_contract: BENCHMARK_CONTRACT,
+    benchmark_path: benchmarkEvidence.path,
+    benchmark_resolution: benchmarkEvidence.source,
+    benchmark_rescore_contract: text(benchmark?.rescore?.contract) || null,
     benchmark_passed: true,
     complete_suite: true,
     planner_protocol_passed: true,
     economics_contract: ECONOMICS_CONTRACT,
+    economics_path: ECONOMICS_INPUT,
     economics_measured: true,
     economics_certified: false,
+    provider_billing_evidence_verified: true,
+    provider_billing_source: text(economics?.assumptions?.source) || null,
     measured_total_compute_usd: measuredTotalUsd,
     measured_compute_usd_per_1m_tokens: measuredRateUsdPer1mTokens,
   },
@@ -185,6 +227,9 @@ await writeFile(OUTPUT, `${JSON.stringify(plan, null, 2)}\n`, "utf8");
 console.log(JSON.stringify({
   success: true,
   output_path: OUTPUT,
+  benchmark_input_path: benchmarkEvidence.path,
+  benchmark_input_source: benchmarkEvidence.source,
+  provider_billing_evidence_verified: true,
   capability_count: plan.capability_count,
   measured_compute_usd_per_1m_tokens: measuredRateUsdPer1mTokens,
   ready_for_explicit_pricing_review: true,

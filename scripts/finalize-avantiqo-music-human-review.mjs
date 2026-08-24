@@ -5,6 +5,10 @@ const REVIEW_CONTRACT = "AVANTIQO_MUSIC_HUMAN_REVIEW_V1";
 const EVIDENCE_CONTRACT = "AVANTIQO_OWNED_MEDIA_CERTIFICATION_EVIDENCE_V1";
 const EXPECTED_CAPABILITY = "ai.music.generate";
 const EXPECTED_MODEL = "ACE-Step/Ace-Step1.5";
+const EXPECTED_VARIANT = "acestep-v15-xl-turbo";
+const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
+const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
+const EXPECTED_LM_BACKEND = "vllm";
 
 const INPUT = resolve(
   process.env.AVANTIQO_MUSIC_HUMAN_REVIEW_OUTPUT ||
@@ -37,6 +41,16 @@ if (text(review?.capability) !== EXPECTED_CAPABILITY) {
 if (text(review?.model) !== EXPECTED_MODEL) {
   throw new Error("AVANTIQO_MUSIC_HUMAN_REVIEW_MODEL_INVALID");
 }
+if (
+  text(review?.model_variant) !== EXPECTED_VARIANT ||
+  text(review?.quality_profile) !== EXPECTED_QUALITY_PROFILE ||
+  review?.ace_step_lm_required !== true ||
+  text(review?.ace_step_lm_model) !== EXPECTED_LM_MODEL ||
+  text(review?.ace_step_lm_backend) !== EXPECTED_LM_BACKEND ||
+  review?.thinking_required !== true
+) {
+  throw new Error("AVANTIQO_MUSIC_HUMAN_REVIEW_XL_LM_CONTRACT_INVALID");
+}
 if (review?.automatic_human_approval_forbidden !== true || review?.activation_allowed !== false) {
   throw new Error("AVANTIQO_MUSIC_HUMAN_REVIEW_POLICY_INVALID");
 }
@@ -60,6 +74,11 @@ const reviewedItems = items.map((item) => {
   if (item.technical_benchmark_passed !== true) {
     failures.push(`RUN_${item.run || "UNKNOWN"}:TECHNICAL_BENCHMARK_REQUIRED`);
   }
+  if (text(item.quality_profile) !== EXPECTED_QUALITY_PROFILE) {
+    failures.push(`RUN_${item.run || "UNKNOWN"}:QUALITY_PROFILE_REQUIRED`);
+  }
+  if (item.ace_step_lm_used !== true) failures.push(`RUN_${item.run || "UNKNOWN"}:LM_REQUIRED`);
+  if (item.thinking_enabled !== true) failures.push(`RUN_${item.run || "UNKNOWN"}:THINKING_REQUIRED`);
   if (reviewStatus !== "PASS") failures.push(`RUN_${item.run || "UNKNOWN"}:PASS_REQUIRED`);
   if (!itemReviewer) failures.push(`RUN_${item.run || "UNKNOWN"}:REVIEWER_REQUIRED`);
   if (!validIso(itemReviewedAt)) failures.push(`RUN_${item.run || "UNKNOWN"}:REVIEWED_AT_REQUIRED`);
@@ -105,6 +124,9 @@ const reviewedItems = items.map((item) => {
     run: item.run || null,
     usage_id: item.usage_id || null,
     output_storage_reference: item.storage_reference || null,
+    quality_profile: item.quality_profile || null,
+    ace_step_lm_used: item.ace_step_lm_used === true,
+    thinking_enabled: item.thinking_enabled === true,
     review_status: reviewStatus,
     reviewer: itemReviewer,
     reviewed_at: itemReviewedAt,
@@ -113,6 +135,9 @@ const reviewedItems = items.map((item) => {
     criteria,
     human_quality_passed:
       item.technical_benchmark_passed === true &&
+      text(item.quality_profile) === EXPECTED_QUALITY_PROFILE &&
+      item.ace_step_lm_used === true &&
+      item.thinking_enabled === true &&
       reviewStatus === "PASS" &&
       criteria.length > 0 &&
       criteria.every((entry) => entry.passed) &&
@@ -142,7 +167,12 @@ const evidence = {
     capability: EXPECTED_CAPABILITY,
     model: EXPECTED_MODEL,
     model_family: "ACE_STEP_1_5",
-    model_variant: "acestep-v15-turbo",
+    model_variant: EXPECTED_VARIANT,
+    quality_profile: EXPECTED_QUALITY_PROFILE,
+    ace_step_lm_required: true,
+    ace_step_lm_model: EXPECTED_LM_MODEL,
+    ace_step_lm_backend: EXPECTED_LM_BACKEND,
+    thinking_required: true,
     reviewer,
     reviewed_at: reviewedAt,
     human_quality_passed: true,
@@ -158,6 +188,10 @@ const evidence = {
   final_certification_requirements: {
     model_license_gate: true,
     exact_reviewed_model_binding: true,
+    exact_model_variant_binding: true,
+    exact_quality_profile_binding: true,
+    ace_step_lm_binding: true,
+    thinking_binding: true,
     exact_capability_binding: true,
     capability_specific_quality_evidence: true,
     economics_evidence: true,
@@ -172,6 +206,7 @@ console.log(JSON.stringify({
   success: true,
   output_path: OUTPUT,
   capability: EXPECTED_CAPABILITY,
+  quality_profile: EXPECTED_QUALITY_PROFILE,
   human_quality_certified: true,
   economics_evidence_complete: true,
   production_certified: false,

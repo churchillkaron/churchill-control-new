@@ -10,7 +10,7 @@ register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 const paths = [
   "lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js",
   "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
-  "lib/operator/runtime/OperatorTurnRuntime.js",
+  "lib/operator/runtime/OperatorTurnRuntimeLegacy.js",
   "lib/platform/capabilities/createProductRepositoryAssessmentCapability.js",
   "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
   "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
@@ -221,7 +221,7 @@ requireFragments(
   ],
 );
 
-const operatorTurnPath = "lib/operator/runtime/OperatorTurnRuntime.js";
+const operatorTurnPath = "lib/operator/runtime/OperatorTurnRuntimeLegacy.js";
 requireFragments(operatorTurnPath, [
   "continuationCapabilityResult",
   "boundedContinuationHandoff",

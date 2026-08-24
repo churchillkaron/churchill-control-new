@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 
 const RUNPOD_REST_BASE = "https://rest.runpod.io/v1";
+const RUNPOD_QUEUE_BASE = "https://api.runpod.ai/v2";
 const IMAGE_ENDPOINT_NAME = "avantiqo-image-v1";
 const FIXTURE_PATH =
   process.env.AVANTIQO_MEDIA_CERTIFICATION_FIXTURES ||
@@ -31,6 +32,11 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function finite(value, fallback = null) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
 function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name}_REQUIRED`);
@@ -46,6 +52,21 @@ function runNode(args, env = {}) {
   if (result.error) throw result.error;
   if (result.signal) throw new Error(`AVANTIQO_IMAGE_QUALITY_CHILD_SIGNAL:${result.signal}`);
   if (result.status !== 0) process.exit(result.status || 1);
+}
+
+async function readJson(response, errorPrefix) {
+  const raw = await response.text();
+  let body = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch {
+    body = null;
+  }
+  if (!response.ok) {
+    const detail = text(body?.message || body?.error || body?.detail || raw).slice(0, 1000);
+    throw new Error(`${errorPrefix}_${response.status}:${detail || "EMPTY_BODY"}`);
+  }
+  return body;
 }
 
 async function resolveImageEndpointId() {
@@ -66,17 +87,7 @@ async function resolveImageEndpointId() {
       signal: AbortSignal.timeout(30_000),
     },
   );
-  const raw = await response.text();
-  let body = null;
-  try {
-    body = raw ? JSON.parse(raw) : null;
-  } catch {
-    body = null;
-  }
-  if (!response.ok) {
-    const detail = text(body?.message || body?.error || body?.detail || raw).slice(0, 1000);
-    throw new Error(`AVANTIQO_IMAGE_QUALITY_ENDPOINT_LOOKUP_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
-  }
+  const body = await readJson(response, "AVANTIQO_IMAGE_QUALITY_ENDPOINT_LOOKUP_HTTP");
   if (!Array.isArray(body)) throw new Error("AVANTIQO_IMAGE_QUALITY_ENDPOINT_LIST_INVALID");
 
   const matches = body.filter((endpoint) => text(endpoint?.name) === IMAGE_ENDPOINT_NAME);
@@ -92,6 +103,101 @@ async function resolveImageEndpointId() {
   console.log(`AVANTIQO_IMAGE_QUALITY_ENDPOINT_NAME=${IMAGE_ENDPOINT_NAME}`);
   console.log("AVANTIQO_IMAGE_QUALITY_ENDPOINT_SECRET_PRINTED=false");
   return endpointId;
+}
+
+async function ensureImageEndpointReadyForOneBenchmark(endpointId) {
+  const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
+  const inferenceKey =
+    text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
+
+  const healthResponse = await fetch(
+    `${RUNPOD_QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`,
+    {
+      headers: {
+        Authorization: `Bearer ${inferenceKey}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(30_000),
+    },
+  );
+  const health = await readJson(healthResponse, "AVANTIQO_IMAGE_QUALITY_HEALTH_HTTP");
+  const jobs = health?.jobs && typeof health.jobs === "object" ? health.jobs : {};
+  const inQueue = finite(jobs.inQueue ?? jobs.in_queue, 0);
+  const inProgress = finite(jobs.inProgress ?? jobs.in_progress, 0);
+  if (inQueue > 0 || inProgress > 0) {
+    throw new Error(
+      `AVANTIQO_IMAGE_QUALITY_EXISTING_JOB_BLOCKED:in_queue=${inQueue}:in_progress=${inProgress}`,
+    );
+  }
+
+  const endpointResponse = await fetch(
+    `${RUNPOD_REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=false&includeWorkers=true`,
+    {
+      headers: {
+        Authorization: `Bearer ${managementKey}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(30_000),
+    },
+  );
+  const endpoint = await readJson(
+    endpointResponse,
+    "AVANTIQO_IMAGE_QUALITY_ENDPOINT_READ_HTTP",
+  );
+  if (text(endpoint?.name) !== IMAGE_ENDPOINT_NAME) {
+    throw new Error(
+      `AVANTIQO_IMAGE_QUALITY_ENDPOINT_NAME_MISMATCH:actual=${text(endpoint?.name) || "NONE"}`,
+    );
+  }
+  const workersMin = finite(endpoint?.workersMin);
+  const workersMax = finite(endpoint?.workersMax);
+  if (workersMin !== 0 || ![0, 1].includes(workersMax)) {
+    throw new Error(
+      `AVANTIQO_IMAGE_QUALITY_ENDPOINT_SCALING_UNEXPECTED:min=${workersMin}:max=${workersMax}`,
+    );
+  }
+
+  if (workersMax === 0) {
+    console.log("AVANTIQO_IMAGE_QUALITY_ENDPOINT_UNPAUSE_REQUESTED=true");
+    const patchResponse = await fetch(
+      `${RUNPOD_REST_BASE}/endpoints/${encodeURIComponent(endpointId)}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${managementKey}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ workersMin: 0, workersMax: 1 }),
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+    await readJson(patchResponse, "AVANTIQO_IMAGE_QUALITY_ENDPOINT_UNPAUSE_HTTP");
+  }
+
+  const verifyResponse = await fetch(
+    `${RUNPOD_REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=false&includeWorkers=true`,
+    {
+      headers: {
+        Authorization: `Bearer ${managementKey}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(30_000),
+    },
+  );
+  const verified = await readJson(
+    verifyResponse,
+    "AVANTIQO_IMAGE_QUALITY_ENDPOINT_VERIFY_HTTP",
+  );
+  if (finite(verified?.workersMin) !== 0 || finite(verified?.workersMax) !== 1) {
+    throw new Error(
+      `AVANTIQO_IMAGE_QUALITY_ENDPOINT_UNPAUSE_VERIFY_FAILED:min=${finite(verified?.workersMin)}:max=${finite(verified?.workersMax)}`,
+    );
+  }
+
+  console.log("AVANTIQO_IMAGE_QUALITY_ENDPOINT_REST_READY=true");
+  console.log("AVANTIQO_IMAGE_QUALITY_EXISTING_ACTIVE_JOBS=0");
+  console.log("AVANTIQO_IMAGE_QUALITY_GENERATION_LIMIT=1");
 }
 
 if (!fs.existsSync(".env.local")) {
@@ -122,9 +228,12 @@ if (!text(target?.signed_url) || !text(target?.storage_reference)) {
   throw new Error("AVANTIQO_IMAGE_QUALITY_OUTPUT_TARGET_INVALID");
 }
 
+console.log("AVANTIQO_IMAGE_QUALITY_STAGE=ENDPOINT_READINESS");
+await ensureImageEndpointReadyForOneBenchmark(imageEndpointId);
+
 console.log("AVANTIQO_IMAGE_QUALITY_STAGE=GENERATION");
 runNode(
-  ["--env-file=.env.local", "scripts/benchmark-avantiqo-image.mjs"],
+  ["--env-file=.env.local", "scripts/benchmark-avantiqo-image-ready-local.mjs"],
   {
     RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID: imageEndpointId,
     AVANTIQO_IMAGE_BENCHMARK_RUNS: "1",

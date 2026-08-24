@@ -2,6 +2,8 @@ const REST = "https://rest.runpod.io/v1";
 const SERVERLESS = "https://api.runpod.ai/v2";
 const GQL = "https://api.runpod.io/graphql";
 const CONTRACT = "AVANTIQO_CODE_IMAGE_RUNPOD_LIVE_COMPARISON_V1";
+const CODE_ENDPOINT_NAME = "avantiqo-code-v1";
+const IMAGE_ENDPOINT_NAME = "avantiqo-image-v1";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -121,6 +123,24 @@ function safeEndpoint(endpoint = {}, volumeById, templateById) {
     version: finite(endpoint.version),
   };
 }
+function resolveEndpoint(endpoints, { envName, expectedName }) {
+  const explicitId = text(process.env[envName]);
+  if (explicitId) {
+    const matches = endpoints.filter((endpoint) => text(endpoint?.id) === explicitId);
+    if (matches.length !== 1) {
+      throw new Error(`${envName}_INVALID:matches=${matches.length}`);
+    }
+    if (text(matches[0]?.name) !== expectedName) {
+      throw new Error(`${envName}_NAME_MISMATCH:expected=${expectedName}:actual=${text(matches[0]?.name)}`);
+    }
+    return { endpoint: matches[0], source: "ENV_VERIFIED" };
+  }
+  const matches = endpoints.filter((endpoint) => text(endpoint?.name) === expectedName);
+  if (matches.length !== 1) {
+    throw new Error(`RUNPOD_ENDPOINT_EXACT_NAME_RESOLUTION_FAILED:name=${expectedName}:matches=${matches.length}`);
+  }
+  return { endpoint: matches[0], source: "EXACT_NAME" };
+}
 async function readJson(response, label) {
   const raw = await response.text();
   let body = null;
@@ -219,8 +239,6 @@ function diff(code, image, key, severity, note = null) {
 }
 
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
-const codeEndpointId = required("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID");
-const imageEndpointId = required("RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID");
 const codeApiKey = text(process.env.RUNPOD_AVANTIQO_CODE_API_KEY) || required("RUNPOD_API_KEY");
 const imageApiKey = text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
 
@@ -232,21 +250,35 @@ console.log("AVANTIQO_CODE_IMAGE_LIVE_COMPARISON_TEMPLATE_MUTATION=false");
 console.log("AVANTIQO_CODE_IMAGE_LIVE_COMPARISON_PRODUCTION_DEPLOY=false");
 console.log("AVANTIQO_CODE_IMAGE_LIVE_COMPARISON_SECRETS_PRINTED=false");
 
-const [endpoints, volumes, templates, codeHealthRaw, imageHealthRaw, dataCenters] = await Promise.all([
+const [endpoints, volumes, templates, dataCenters] = await Promise.all([
   rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
   rest("/networkvolumes", managementKey),
   rest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false", managementKey),
-  health(codeEndpointId, codeApiKey),
-  health(imageEndpointId, imageApiKey),
   availability(managementKey),
 ]);
 if (!Array.isArray(endpoints)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
 if (!Array.isArray(volumes)) throw new Error("RUNPOD_NETWORK_VOLUME_LIST_INVALID");
 if (!Array.isArray(templates)) throw new Error("RUNPOD_TEMPLATE_LIST_INVALID");
-const codeRaw = endpoints.find((endpoint) => text(endpoint?.id) === codeEndpointId);
-const imageRaw = endpoints.find((endpoint) => text(endpoint?.id) === imageEndpointId);
-if (!codeRaw) throw new Error("AVANTIQO_CODE_ENDPOINT_NOT_FOUND");
-if (!imageRaw) throw new Error("AVANTIQO_IMAGE_ENDPOINT_NOT_FOUND");
+
+const codeResolved = resolveEndpoint(endpoints, {
+  envName: "RUNPOD_AVANTIQO_CODE_ENDPOINT_ID",
+  expectedName: CODE_ENDPOINT_NAME,
+});
+const imageResolved = resolveEndpoint(endpoints, {
+  envName: "RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID",
+  expectedName: IMAGE_ENDPOINT_NAME,
+});
+const codeRaw = codeResolved.endpoint;
+const imageRaw = imageResolved.endpoint;
+const codeEndpointId = text(codeRaw?.id);
+const imageEndpointId = text(imageRaw?.id);
+if (!codeEndpointId) throw new Error("AVANTIQO_CODE_ENDPOINT_ID_MISSING_AFTER_RESOLUTION");
+if (!imageEndpointId) throw new Error("AVANTIQO_IMAGE_ENDPOINT_ID_MISSING_AFTER_RESOLUTION");
+
+const [codeHealthRaw, imageHealthRaw] = await Promise.all([
+  health(codeEndpointId, codeApiKey),
+  health(imageEndpointId, imageApiKey),
+]);
 
 const volumeById = new Map(volumes.map((volume) => [text(volume?.id), volume]).filter(([id]) => id));
 const templateById = new Map(templates.map((template) => [text(template?.id), template]).filter(([id]) => id));
@@ -293,6 +325,10 @@ const report = {
   mutation_performed: false,
   provider_job_submitted: false,
   production_deploy_performed: false,
+  endpoint_resolution: {
+    code: codeResolved.source,
+    image: imageResolved.source,
+  },
   code: {
     endpoint: code,
     health: codeHealth,
@@ -318,5 +354,7 @@ const report = {
   next_action: nextAction,
 };
 
+console.log(`AVANTIQO_CODE_IMAGE_LIVE_COMPARISON_CODE_ENDPOINT_SOURCE=${codeResolved.source}`);
+console.log(`AVANTIQO_CODE_IMAGE_LIVE_COMPARISON_IMAGE_ENDPOINT_SOURCE=${imageResolved.source}`);
 console.log("AVANTIQO_CODE_IMAGE_LIVE_COMPARISON_COMPLETE=YES");
 console.log(JSON.stringify(report, null, 2));

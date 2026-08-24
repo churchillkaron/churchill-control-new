@@ -123,6 +123,15 @@ assert.ok(
   "recommendation discussion must intercept contextual turns before legacy fallback",
 );
 
+const contextualStart = turnSource.indexOf(
+  "const CONTEXTUAL_RECOMMENDATION_PATTERN",
+);
+const contextualEnd = turnSource.indexOf("\n\nfunction text", contextualStart);
+assert.ok(
+  contextualStart >= 0 && contextualEnd > contextualStart,
+  "neutral discussion pattern must remain a bounded declaration",
+);
+const contextualSource = turnSource.slice(contextualStart, contextualEnd);
 for (const dangerous of [
   "gor det",
   "mach es",
@@ -130,12 +139,6 @@ for (const dangerous of [
   "hazlo",
   "ทำเลย",
 ]) {
-  const contextualStart = turnSource.indexOf("const CONTEXTUAL_RECOMMENDATION_PATTERN");
-  const alternativeStart = turnSource.indexOf(
-    "const RECOMMENDATION_ALTERNATIVE_PATTERN",
-    contextualStart,
-  );
-  const contextualSource = turnSource.slice(contextualStart, alternativeStart);
   assert.ok(
     !contextualSource.includes(dangerous),
     `multilingual neutral discussion must not absorb execution phrase ${dangerous}`,

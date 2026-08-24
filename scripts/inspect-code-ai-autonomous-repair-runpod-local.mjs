@@ -162,6 +162,14 @@ function classify({ status, health, capacity }) {
   return "NO_QUEUE_BLOCKER_DETECTED";
 }
 
+function classifyExecution(status, output = {}) {
+  if (status !== "COMPLETED") return "JOB_NOT_COMPLETED";
+  if (text(output?.status).toLowerCase() === "engine_load_failed") return "ENGINE_LOAD_FAILED_PAYLOAD";
+  if (text(output?.error_code)) return "WORKER_ERROR_PAYLOAD";
+  if (!text(output?.result)) return "COMPLETED_WITHOUT_RESULT";
+  return "RESULT_PRESENT";
+}
+
 const localEnvLoaded = loadLocalEnvironment();
 const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
 const apiKey = text(process.env.RUNPOD_AVANTIQO_CODE_API_KEY) || text(process.env.RUNPOD_API_KEY);
@@ -218,7 +226,10 @@ for (const dataCenterId of effectiveDataCenters) {
 }
 
 const status = text(job?.status).toUpperCase() || "UNKNOWN";
+const output = job?.output && typeof job.output === "object" ? job.output : {};
+const result = text(output?.result);
 const diagnosis = classify({ status, health, capacity });
+const executionDiagnosis = classifyExecution(status, output);
 
 console.log(JSON.stringify({
   success: true,
@@ -235,6 +246,25 @@ console.log(JSON.stringify({
     status,
     delay_ms: number(job?.delayTime, null),
     execution_ms: number(job?.executionTime, null),
+    output: {
+      status: text(output?.status) || null,
+      provider: text(output?.provider) || null,
+      model: text(output?.model) || null,
+      engine_contract: text(output?.engine_contract) || null,
+      capability: text(output?.capability) || null,
+      foundation_model: text(output?.foundation_model) || null,
+      runtime_model: text(output?.runtime_model) || null,
+      serving_runtime: text(output?.serving_runtime) || null,
+      quantization: text(output?.quantization) || null,
+      error_code: text(output?.error_code) || null,
+      error_type: text(output?.error_type) || null,
+      error_message: text(output?.error_message).slice(0, 1000) || null,
+      result_present: Boolean(result),
+      result_length: result.length,
+      result_preview: result ? result.slice(0, 400) : null,
+      usage: output?.usage && typeof output.usage === "object" ? output.usage : null,
+      raw_reasoning_persisted: output?.raw_reasoning_persisted ?? null,
+    },
   },
   endpoint: {
     id: endpointId,
@@ -253,4 +283,5 @@ console.log(JSON.stringify({
   health,
   bound_gpu_capacity: capacity,
   diagnosis,
+  execution_diagnosis: executionDiagnosis,
 }, null, 2));

@@ -1,0 +1,9 @@
+{
+  "contract": "AVANTIQO_VOICE_WORKER_IMAGES_REQUEST_V1",
+  "requested_for": "generator_roundtrip_verification",
+  "source_commit": "1d8b7e227e8cc75c146e041250e6faa179bf519b",
+  "build_stt": true,
+  "build_tts": true,
+  "production_web_deploy": false,
+  "pricing_activation": false
+}

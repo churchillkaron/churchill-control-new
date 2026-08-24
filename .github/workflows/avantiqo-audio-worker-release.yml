@@ -33,11 +33,15 @@ jobs:
           test -f services/avantiqo-audio-engine/handler.py
           grep -F 'ACE-Step-1.5.git' services/avantiqo-audio-engine/Dockerfile
           grep -F 'git checkout 14c0211d5a0653b0f63e27686f4c3f151b4d8629' services/avantiqo-audio-engine/Dockerfile
-          grep -F 'AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-turbo' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-xl-turbo' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_LM_MODEL=acestep-5Hz-lm-1.7B' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_LM_BACKEND=vllm' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'ACESTEP_INIT_LLM=true' services/avantiqo-audio-engine/Dockerfile
           grep -F 'AVANTIQO_AUDIO_ENGINE_V1' services/avantiqo-audio-engine/handler.py
-          grep -F 'ACE_STEP_1_5' services/avantiqo-audio-engine/handler.py
+          grep -F 'QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1"' services/avantiqo-audio-engine/handler.py
           grep -F 'DEFAULT_CERTIFIED_CAPABILITIES = {"ai.music.generate"}' services/avantiqo-audio-engine/handler.py
           echo 'AVANTIQO_AUDIO_WORKER_RELEASE_PREFLIGHT=PASS'
+          echo 'AVANTIQO_AUDIO_WORKER_RELEASE_XL_PLUS_1_7B_LM_REQUIRED=true'
 
       - name: Create immutable Audio worker release
         id: release
@@ -59,7 +63,7 @@ jobs:
             --repo "$GH_REPO" \
             --target "$release_sha" \
             --title "Avantiqo Audio Worker ${short_sha}" \
-            --notes "Avantiqo-owned Audio/Music RunPod worker release. Source-locked ACE-Step 1.5 turbo runtime. This release does not deploy the Avantiqo web application, submit provider jobs, change pricing, or modify production databases."; then
+            --notes "Avantiqo-owned Audio/Music RunPod worker release. Source-locked ACE-Step 1.5 XL Turbo + 1.7B LM quality runtime with thinking enabled for text-to-music. This release does not deploy the Avantiqo web application, submit provider jobs, change pricing, or modify production databases."; then
             status="CREATED"
           fi
 
@@ -89,13 +93,18 @@ jobs:
           import { writeFileSync } from "node:fs";
           const report = {
             success: ["CREATED", "EXISTS"].includes(process.env.RELEASE_STATUS || ""),
-            contract: "AVANTIQO_AUDIO_WORKER_RELEASE_RESULT_V1",
+            contract: "AVANTIQO_AUDIO_WORKER_RELEASE_RESULT_V2",
             release_status: process.env.RELEASE_STATUS || "NOT_RUN",
             release_tag: process.env.RELEASE_TAG || null,
             release_sha: process.env.RELEASE_SHA || null,
             github_run_id: process.env.RELEASE_RUN_ID || null,
             runtime: "ACE-Step-1.5",
-            runtime_variant: "acestep-v15-turbo",
+            runtime_variant: "acestep-v15-xl-turbo",
+            quality_profile: "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1",
+            ace_step_lm_required: true,
+            ace_step_lm_model: "acestep-5Hz-lm-1.7B",
+            ace_step_lm_backend: "vllm",
+            thinking_required: true,
             certified_capability_default: "ai.music.generate",
             production_web_deploy: false,
             database_migration: false,

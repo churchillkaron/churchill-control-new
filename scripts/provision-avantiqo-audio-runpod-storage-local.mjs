@@ -18,6 +18,7 @@ const DEFAULT_STORAGE_USD_PER_GB_MONTH = 0.07;
 const NETWORK_VOLUME_MOUNT_ROOT = "/runpod-volume";
 const CHECKPOINT_ROOT = `${NETWORK_VOLUME_MOUNT_ROOT}/ace-step-checkpoints`;
 const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_STORAGE_V2";
+const CAPACITY_STRATEGY = "EXISTING_POOL_FIRST_THEN_ANY_LIVE_24GB_PLUS_NON_MIG";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -41,6 +42,16 @@ function list(value) {
   if (Array.isArray(value)) return value.map(text).filter(Boolean);
   if (!text(value)) return [];
   return text(value).split(",").map((entry) => entry.trim()).filter(Boolean);
+}
+
+function unique(values) {
+  return [...new Set(values.map(text).filter(Boolean))];
+}
+
+function sameSet(left, right) {
+  const a = unique(left).sort();
+  const b = unique(right).sort();
+  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
 function required(name) {
@@ -130,7 +141,7 @@ async function discoverDatacenters(credential) {
 }
 
 function endpointVolumeIds(endpoint = {}) {
-  return [text(endpoint.networkVolumeId), ...list(endpoint.networkVolumeIds)].filter(Boolean);
+  return unique([endpoint.networkVolumeId, ...list(endpoint.networkVolumeIds)]);
 }
 
 function stockScore(status) {
@@ -159,13 +170,48 @@ function regionPreference(id) {
   return index < 0 ? 0 : order.length - index;
 }
 
-function safeGpu(gpu = {}) {
+function gpuPreference(gpu = {}, endpointGpuTypes = []) {
+  const gpuTypeId = text(gpu?.gpuTypeId);
+  const label = [gpuTypeId, gpu?.gpuTypeDisplayName, gpu?.displayName]
+    .map(text)
+    .filter(Boolean)
+    .join(" ");
+  if (!gpuTypeId || /\bMIG\b/i.test(label)) return 0;
+  if (endpointGpuTypes.includes(gpuTypeId)) return 100_000;
+  const preferences = [
+    [/\bL4\b/i, 9_000],
+    [/RTX\s*A5000/i, 8_800],
+    [/RTX.*3090/i, 8_600],
+    [/RTX.*4090/i, 8_500],
+    [/\bA40\b/i, 8_400],
+    [/RTX\s*A6000/i, 8_300],
+    [/\bL40S\b/i, 8_200],
+    [/\bL40\b/i, 8_100],
+    [/RTX.*6000.*Ada|Ada.*RTX.*6000/i, 8_000],
+    [/RTX.*PRO.*6000|6000.*PRO/i, 7_900],
+    [/\bA100\b/i, 6_000],
+    [/\bH100\b/i, 5_000],
+    [/\bH200\b/i, 4_000],
+    [/\bB200\b/i, 3_000],
+  ];
+  return preferences.find(([pattern]) => pattern.test(label))?.[1] || 1_000;
+}
+
+function safeGpu(gpu = {}, endpointGpuTypes = []) {
+  const gpuTypeId = text(gpu?.gpuTypeId);
+  const label = [gpuTypeId, gpu?.gpuTypeDisplayName, gpu?.displayName]
+    .map(text)
+    .filter(Boolean)
+    .join(" ");
   return {
-    gpu_type_id: text(gpu?.gpuTypeId) || null,
+    gpu_type_id: gpuTypeId || null,
     gpu_name: text(gpu?.gpuTypeDisplayName || gpu?.displayName) || null,
     available: gpu?.available === true,
     stock_status: text(gpu?.stockStatus) || null,
     stock_score: stockScore(gpu?.stockStatus),
+    existing_pool_match: endpointGpuTypes.includes(gpuTypeId),
+    mig_excluded: /\bMIG\b/i.test(label),
+    audio_preference: gpuPreference(gpu, endpointGpuTypes),
   };
 }
 
@@ -174,22 +220,36 @@ function evaluateDatacenters(dataCenters, endpointGpuTypes) {
     .filter((dc) => dc?.storageSupport === true)
     .map((dc) => {
       const compatible = (Array.isArray(dc?.gpuAvailability) ? dc.gpuAvailability : [])
-        .map(safeGpu)
-        .filter((gpu) => gpu.gpu_type_id && endpointGpuTypes.includes(gpu.gpu_type_id))
-        .filter((gpu) => gpu.stock_score > 0 && gpu.available !== false)
-        .sort((a, b) => b.stock_score - a.stock_score || a.gpu_type_id.localeCompare(b.gpu_type_id));
-      const bestGpu = compatible[0] || null;
+        .map((gpu) => safeGpu(gpu, endpointGpuTypes))
+        .filter((gpu) => gpu.gpu_type_id && !gpu.mig_excluded)
+        .filter((gpu) => gpu.stock_score > 0 && gpu.available === true)
+        .sort((a, b) =>
+          Number(b.existing_pool_match) - Number(a.existing_pool_match) ||
+          b.stock_score - a.stock_score ||
+          b.audio_preference - a.audio_preference ||
+          a.gpu_type_id.localeCompare(b.gpu_type_id)
+        );
+      const existingPoolRows = compatible.filter((gpu) => gpu.existing_pool_match);
+      const targetRows = existingPoolRows.length ? existingPoolRows : compatible.slice(0, 4);
+      const bestGpu = targetRows[0] || null;
       return {
         id: text(dc?.id) || null,
         name: text(dc?.name) || null,
         location: text(dc?.location) || null,
         storage_support: true,
+        capacity_strategy: CAPACITY_STRATEGY,
         compatible_gpus: compatible,
         best_gpu: bestGpu,
-        score: (bestGpu?.stock_score || 0) * 100 + regionPreference(dc?.id),
+        target_gpu_type_ids: targetRows.map((gpu) => gpu.gpu_type_id),
+        existing_endpoint_gpu_pool_preserved: existingPoolRows.length > 0,
+        score:
+          (bestGpu?.existing_pool_match ? 1_000_000_000 : 0) +
+          (bestGpu?.stock_score || 0) * 1_000_000 +
+          (bestGpu?.audio_preference || 0) * 100 +
+          regionPreference(dc?.id),
       };
     })
-    .filter((dc) => dc.id && dc.best_gpu)
+    .filter((dc) => dc.id && dc.best_gpu && dc.target_gpu_type_ids.length)
     .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
 }
 
@@ -295,6 +355,11 @@ function resolveEndpoint(endpoints, configuredId) {
   return { endpoint: matches[0], resolution: "EXACT_NAME" };
 }
 
+function selectDatacenter(candidates, sharedVolume = null) {
+  if (!sharedVolume) return candidates[0] || null;
+  return candidates.find((candidate) => candidate.id === text(sharedVolume.dataCenterId)) || null;
+}
+
 const apply = process.argv.includes("--apply");
 const approved = upper(process.env.AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED) === "YES";
 if (apply && !approved) {
@@ -332,6 +397,9 @@ console.log(`AVANTIQO_AUDIO_STORAGE_REQUESTED_GB=${requestedSizeGb}`);
 console.log(`AVANTIQO_AUDIO_STORAGE_ESTIMATED_MONTHLY_USD=${estimatedMonthlyUsd.toFixed(2)}`);
 console.log(`AVANTIQO_AUDIO_STORAGE_EXPECTED_MOUNT_ROOT=${NETWORK_VOLUME_MOUNT_ROOT}`);
 console.log(`AVANTIQO_AUDIO_STORAGE_CHECKPOINT_ROOT=${CHECKPOINT_ROOT}`);
+console.log(`AVANTIQO_AUDIO_STORAGE_CAPACITY_STRATEGY=${CAPACITY_STRATEGY}`);
+console.log("AVANTIQO_AUDIO_STORAGE_NETWORK_VOLUME_PLACEMENT_AUTHORITATIVE=true");
+console.log("AVANTIQO_AUDIO_STORAGE_EXPLICIT_DATACENTER_ENDPOINT_PATCH=false");
 console.log("AVANTIQO_AUDIO_STORAGE_SECRET_VALUES_PRINTED=false");
 console.log("AVANTIQO_AUDIO_STORAGE_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_AUDIO_STORAGE_PRODUCTION_DEPLOY_PERFORMED=false");
@@ -377,6 +445,8 @@ if (alreadyAttachedIds.length) {
     attached_volumes: attachedVolumes.map(safeVolume),
     expected_serverless_mount_root: NETWORK_VOLUME_MOUNT_ROOT,
     checkpoints_dir: CHECKPOINT_ROOT,
+    capacity_strategy: CAPACITY_STRATEGY,
+    network_volume_placement_authoritative: true,
     mutation_performed: false,
     generation_submitted: false,
     production_deploy_performed: false,
@@ -387,7 +457,7 @@ if (alreadyAttachedIds.length) {
 
 const candidates = evaluateDatacenters(dataCenters, endpointGpuTypes);
 if (!candidates.length) {
-  throw new Error("AVANTIQO_AUDIO_STORAGE_NO_COMPATIBLE_STORAGE_DATACENTER_WITH_GPU_STOCK");
+  throw new Error("AVANTIQO_AUDIO_STORAGE_NO_STORAGE_DATACENTER_WITH_24GB_PLUS_GPU_STOCK");
 }
 
 const reusable = resolveReusableGroupVolume(volumes, SHARED_VOLUME_GROUP);
@@ -411,15 +481,13 @@ const blockingSharedCacheDependencies = blockingSharedCacheGroups.map((groupId) 
   blockingDependencyState(groupId, endpoints, sharedPolicy),
 );
 
-let selectedDatacenter = candidates[0];
-if (sharedVolume) {
-  const existingDc = candidates.find((candidate) => candidate.id === text(sharedVolume.dataCenterId));
-  if (!existingDc) {
-    throw new Error(
-      `AVANTIQO_AUDIO_STORAGE_SHARED_VOLUME_DATACENTER_INCOMPATIBLE:id=${text(sharedVolume.id)}:data_center_id=${text(sharedVolume.dataCenterId)}`,
-    );
-  }
-  selectedDatacenter = existingDc;
+const selectedDatacenter = selectDatacenter(candidates, sharedVolume);
+if (!selectedDatacenter) {
+  throw new Error(
+    sharedVolume
+      ? `AVANTIQO_AUDIO_STORAGE_SHARED_VOLUME_DATACENTER_NO_LIVE_24GB_PLUS_GPU:id=${text(sharedVolume.id)}:data_center_id=${text(sharedVolume.dataCenterId)}`
+      : "AVANTIQO_AUDIO_STORAGE_NO_STORAGE_DATACENTER_WITH_24GB_PLUS_GPU_STOCK",
+  );
 }
 
 const plan = {
@@ -434,6 +502,8 @@ const plan = {
   blocking_shared_cache_dependencies: blockingSharedCacheDependencies,
   expected_serverless_mount_root: NETWORK_VOLUME_MOUNT_ROOT,
   checkpoints_dir: CHECKPOINT_ROOT,
+  capacity_strategy: CAPACITY_STRATEGY,
+  network_volume_placement_authoritative: true,
   requested_volume: {
     name: volumeName,
     size_gb: requestedSizeGb,
@@ -449,7 +519,12 @@ const plan = {
   safety: {
     approval_required: "AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED=YES",
     automatic_delete_on_failure: false,
-    endpoint_gpu_types_preserved: true,
+    endpoint_gpu_types_preserved: selectedDatacenter.existing_endpoint_gpu_pool_preserved,
+    endpoint_gpu_pool_rebind_allowed_for_live_capacity: true,
+    minimum_gpu_memory_gb: MIN_GPU_MEMORY_GB,
+    mig_gpu_forbidden: true,
+    network_volume_placement_authoritative: true,
+    explicit_datacenter_endpoint_patch_forbidden: true,
     workers_min_preserved: true,
     maximum_managed_cache_volumes: 3,
     additional_audio_voice_volume_forbidden: true,
@@ -480,8 +555,13 @@ if (creationBlockedBySharedInventory) {
   );
 }
 
-const freshEndpoints = await rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey);
+const [freshEndpoints, freshVolumes, freshDataCenters] = await Promise.all([
+  rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
+  rest("/networkvolumes", managementKey),
+  discoverDatacenters(managementKey),
+]);
 if (!Array.isArray(freshEndpoints)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID_BEFORE_WRITE");
+if (!Array.isArray(freshVolumes)) throw new Error("RUNPOD_NETWORK_VOLUME_LIST_INVALID_BEFORE_WRITE");
 const freshResolved = resolveEndpoint(freshEndpoints, endpointId);
 const freshEndpoint = freshResolved.endpoint;
 if (endpointVolumeIds(freshEndpoint).length) {
@@ -490,15 +570,26 @@ if (endpointVolumeIds(freshEndpoint).length) {
 if (text(freshEndpoint.templateId || freshEndpoint.template?.id) !== text(endpoint.templateId || endpoint.template?.id)) {
   throw new Error("AVANTIQO_AUDIO_STORAGE_CONCURRENT_TEMPLATE_CHANGE_DETECTED");
 }
+const freshEndpointGpuTypes = list(freshEndpoint.gpuTypeIds);
+if (!sameSet(freshEndpointGpuTypes, endpointGpuTypes)) {
+  throw new Error("AVANTIQO_AUDIO_STORAGE_CONCURRENT_GPU_POOL_CHANGE_DETECTED");
+}
 
-const freshVolumes = await rest("/networkvolumes", managementKey);
-if (!Array.isArray(freshVolumes)) throw new Error("RUNPOD_NETWORK_VOLUME_LIST_INVALID_BEFORE_WRITE");
 const freshReusable = resolveReusableGroupVolume(freshVolumes, SHARED_VOLUME_GROUP);
 if (Boolean(freshReusable.volume) !== Boolean(sharedVolume)) {
   throw new Error("AVANTIQO_AUDIO_STORAGE_CONCURRENT_SHARED_VOLUME_CHANGE_DETECTED");
 }
 if (freshReusable.volume && text(freshReusable.volume.id) !== text(sharedVolume?.id)) {
   throw new Error("AVANTIQO_AUDIO_STORAGE_CONCURRENT_SHARED_VOLUME_ID_CHANGE_DETECTED");
+}
+const freshCandidates = evaluateDatacenters(freshDataCenters, freshEndpointGpuTypes);
+const applyDatacenter = selectDatacenter(freshCandidates, freshReusable.volume);
+if (!applyDatacenter) {
+  throw new Error(
+    freshReusable.volume
+      ? `AVANTIQO_AUDIO_STORAGE_SHARED_VOLUME_DATACENTER_NO_LIVE_24GB_PLUS_GPU_BEFORE_WRITE:id=${text(freshReusable.volume.id)}:data_center_id=${text(freshReusable.volume.dataCenterId)}`
+      : "AVANTIQO_AUDIO_STORAGE_NO_STORAGE_DATACENTER_WITH_24GB_PLUS_GPU_STOCK_BEFORE_WRITE",
+  );
 }
 
 let volume = freshReusable.volume;
@@ -508,7 +599,7 @@ if (!volume) {
   volume = await rest("/networkvolumes", managementKey, {
     method: "POST",
     body: {
-      dataCenterId: selectedDatacenter.id,
+      dataCenterId: applyDatacenter.id,
       name: volumeName,
       size: requestedSizeGb,
     },
@@ -518,13 +609,17 @@ if (!volume) {
 const volumeId = text(volume?.id);
 if (!volumeId) throw new Error("AVANTIQO_AUDIO_STORAGE_VOLUME_ID_REQUIRED");
 console.log(`AVANTIQO_AUDIO_STORAGE_VOLUME_ACTION=${volumeAction}`);
+console.log(`AVANTIQO_AUDIO_STORAGE_APPLY_DATACENTER=${applyDatacenter.id}`);
+console.log(`AVANTIQO_AUDIO_STORAGE_APPLY_GPU_TYPES=${applyDatacenter.target_gpu_type_ids.join("|")}`);
 
 try {
   await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
     method: "PATCH",
     body: {
       networkVolumeId: volumeId,
-      dataCenterIds: [selectedDatacenter.id],
+      networkVolumeIds: [volumeId],
+      dataCenterIds: [],
+      gpuTypeIds: applyDatacenter.target_gpu_type_ids,
     },
   });
 } catch (error) {
@@ -540,10 +635,13 @@ const [verifiedEndpoint, verifiedVolume] = await Promise.all([
 if (!endpointVolumeIds(verifiedEndpoint).includes(volumeId)) {
   throw new Error("AVANTIQO_AUDIO_STORAGE_ATTACHMENT_VERIFICATION_FAILED");
 }
+if (!sameSet(list(verifiedEndpoint.gpuTypeIds), applyDatacenter.target_gpu_type_ids)) {
+  throw new Error("AVANTIQO_AUDIO_STORAGE_GPU_POOL_VERIFICATION_FAILED");
+}
 if (classifyManagedVolumeName(verifiedVolume?.name)?.id !== SHARED_VOLUME_GROUP.id) {
   throw new Error("AVANTIQO_AUDIO_STORAGE_SHARED_GROUP_VERIFICATION_FAILED");
 }
-if (text(verifiedVolume?.dataCenterId) !== selectedDatacenter.id) {
+if (text(verifiedVolume?.dataCenterId) !== applyDatacenter.id) {
   throw new Error("AVANTIQO_AUDIO_STORAGE_DATACENTER_VERIFICATION_FAILED");
 }
 if (finite(verifiedVolume?.size, 0) < requestedSizeGb) {
@@ -555,6 +653,7 @@ console.log(JSON.stringify({
   ...plan,
   mode: "APPLY",
   endpoint: safeEndpoint(verifiedEndpoint),
+  selected_datacenter: applyDatacenter,
   volume: safeVolume(verifiedVolume),
   volume_action: volumeAction,
   mutation_performed: true,

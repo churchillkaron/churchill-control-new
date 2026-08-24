@@ -120,7 +120,7 @@ const [
   readFile("lib/operator/runtime/OperatorReasoningRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorVerificationRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntimeCore.js", "utf8"),
-  readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorTurnRuntimeLegacy.js", "utf8"),
   readFile("lib/operator/runtime/OperatorHumanDecisionClassifier.js", "utf8"),
   readFile("lib/platform/capabilities/createOperatorReadChainCapability.js", "utf8"),
   readFile("lib/operator/runtime/OperatorCapabilityCatalog.js", "utf8"),
@@ -219,6 +219,7 @@ assert.match(decisionClassifierSource, /RECOMMENDATION_AGREE\.has\(clean\)/);
 assert.match(decisionClassifierSource, /REJECT\.has\(clean\)/);
 
 console.log("OPERATOR_GOAL_CONTINUITY_AUDIT=PASS");
+console.log("OPERATOR_GOAL_CONTINUITY_RUNTIME=LEGACY_PLUS_CORE_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_GOAL_COMPLETION=USER_CONFIRMATION_REQUIRED");
 console.log("OPERATOR_GOAL_MEMORY=DURABLE_PROJECT_STATE");
 console.log("OPERATOR_EXECUTION_GOVERNANCE=CONFIRMATION_APPROVAL_VERIFICATION");

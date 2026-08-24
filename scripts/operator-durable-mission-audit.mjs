@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 const [runSource, missionSource, turnWrapperSource, turnCoreSource, routeSource] = await Promise.all([
   readFile("lib/operator/contracts/OperatorAutonomousRun.js", "utf8"),
   readFile("lib/platform/capabilities/createOperatorMissionCapability.js", "utf8"),
-  readFile("lib/operator/runtime/OperatorTurnRuntime.js", "utf8"),
+  readFile("lib/operator/runtime/OperatorTurnRuntimeLegacy.js", "utf8"),
   readFile("lib/operator/runtime/OperatorTurnRuntimeCore.js", "utf8"),
   readFile("app/api/operator/turn/route.js", "utf8"),
 ]);
@@ -280,6 +280,7 @@ assert.ok(
 );
 
 console.log("OPERATOR_DURABLE_MISSION_AUDIT=PASS");
+console.log("OPERATOR_DURABLE_MISSION_RUNTIME=LEGACY_PLUS_CORE_BEHIND_GOVERNED_ROUTER");
 console.log("OPERATOR_MISSION_STATE=SERVER_PERSISTED_CONVERSATION");
 console.log("OPERATOR_MISSION_RESUME=EXACT_STEP_AND_PAYLOAD");
 console.log("OPERATOR_MISSION_RESUME_SCOPE=ORGANIZATION_ENTITY_PERIOD_PARTY_ACTOR_BOUND");

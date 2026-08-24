@@ -1,0 +1,137 @@
+name: Avantiqo Audio Worker Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-audio-worker-image-request.json
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-audio-worker-image
+  cancel-in-progress: false
+
+jobs:
+  build-audio-worker-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify Audio worker source lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-audio-engine/Dockerfile
+          test -f services/avantiqo-audio-engine/handler.py
+          grep -F 'git checkout 14c0211d5a0653b0f63e27686f4c3f151b4d8629' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-turbo' services/avantiqo-audio-engine/Dockerfile
+          grep -F 'DEFAULT_CERTIFIED_CAPABILITIES = {"ai.music.generate"}' services/avantiqo-audio-engine/handler.py
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PREFLIGHT=PASS'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-audio-worker"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_AUDIO_WORKER_IMAGE_TAG=$tag"
+
+      - name: Build and push immutable Audio worker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-audio-engine
+          file: services/avantiqo-audio-engine/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-audio-worker
+          cache-to: type=gha,mode=max,scope=avantiqo-audio-worker
+
+      - name: Record sanitized image evidence on main
+        env:
+          IMAGE_REPOSITORY: ${{ steps.image.outputs.image }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          RELEASE_SHA: ${{ steps.image.outputs.release_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$IMAGE_DIGEST"
+          case "$IMAGE_DIGEST" in
+            sha256:*) ;;
+            *) echo "AVANTIQO_AUDIO_WORKER_IMAGE_DIGEST_INVALID"; exit 1 ;;
+          esac
+          mkdir -p audits/results
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          const repository = process.env.IMAGE_REPOSITORY;
+          const digest = process.env.IMAGE_DIGEST;
+          const report = {
+            success: true,
+            contract: "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V1",
+            source_sha: process.env.RELEASE_SHA || null,
+            github_run_id: process.env.BUILD_RUN_ID || null,
+            image_repository: repository,
+            image_tag: process.env.IMAGE_TAG || null,
+            image_digest: digest,
+            immutable_image_reference: `${repository}@${digest}`,
+            runtime: "ACE-Step-1.5",
+            runtime_variant: "acestep-v15-turbo",
+            certified_capability_default: "ai.music.generate",
+            production_web_deploy: false,
+            provider_job_submitted: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false,
+          };
+          writeFileSync(
+            "audits/results/avantiqo-audio-worker-image.json",
+            `${JSON.stringify(report)}\n`,
+            "utf8",
+          );
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audits/results/avantiqo-audio-worker-image.json
+          git commit -m "Record Audio worker image result"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+      - name: Confirm no production application deployment
+        shell: bash
+        run: |
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_BUILD=PASS'
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PRODUCTION_WEB_DEPLOY=false'
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
+          echo 'AVANTIQO_AUDIO_WORKER_IMAGE_PRICING_ACTIVATION=false'

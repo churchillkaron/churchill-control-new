@@ -82,7 +82,7 @@ jobs:
           cache-from: type=gha,scope=avantiqo-audio-worker
           cache-to: type=gha,mode=max,scope=avantiqo-audio-worker
 
-      - name: Record sanitized image evidence on main
+      - name: Record sanitized image evidence on newest main
         env:
           IMAGE_REPOSITORY: ${{ steps.image.outputs.image }}
           IMAGE_TAG: ${{ steps.image.outputs.tag }}
@@ -99,6 +99,12 @@ jobs:
             sha256:*) ;;
             *) echo "AVANTIQO_AUDIO_WORKER_IMAGE_DIGEST_INVALID"; exit 1 ;;
           esac
+
+          # The immutable image has already been built from TRIGGER_SHA. Move to
+          # the newest main only for the evidence commit so concurrent chats or
+          # an older cancelled image run cannot create a rebase conflict here.
+          git fetch origin main
+          git checkout -B audio-image-evidence origin/main
           mkdir -p audits/results
           node --input-type=module <<'NODE'
           import { writeFileSync } from "node:fs";
@@ -140,8 +146,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add audits/results/avantiqo-audio-worker-image.json
           git commit -m "Record Audio worker image result"
-          git fetch origin main
-          git rebase origin/main
           git push origin HEAD:main
 
       - name: Confirm no production application deployment

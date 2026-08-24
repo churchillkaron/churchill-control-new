@@ -22,6 +22,10 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function yes(value) {
+  return ["1", "true", "yes", "on", "approved"].includes(text(value).toLowerCase());
+}
+
 function number(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -256,6 +260,22 @@ async function verifyNoLiveWorkAfterAbnormalExit(apiKey, endpointId) {
   }
 }
 
+async function recoverExactStaleJob(apiKey, endpointId, jobId) {
+  if (!/^[A-Za-z0-9-]+$/.test(jobId)) {
+    throw new Error("CODE_REGION_RECOVER_JOB_ID_INVALID");
+  }
+  console.error(JSON.stringify({
+    event: "AVANTIQO_CODE_REGION_EXACT_STALE_JOB_RECOVERY_START",
+    job_id: jobId,
+  }));
+  await cleanupKnownJobs(apiKey, endpointId, new Set([jobId]));
+  await verifyNoLiveWorkAfterAbnormalExit(apiKey, endpointId);
+  console.error(JSON.stringify({
+    event: "AVANTIQO_CODE_REGION_EXACT_STALE_JOB_RECOVERY_VERIFIED",
+    job_id: jobId,
+  }));
+}
+
 async function runMigration(apiKey, endpointId) {
   const knownJobIds = new Set();
   let stdoutBuffer = "";
@@ -311,15 +331,24 @@ async function runMigration(apiKey, endpointId) {
 async function main() {
   const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
   const apiKey = text(process.env.RUNPOD_API_KEY);
+  const recoverJobId = text(process.env.AVANTIQO_CODE_REGION_RECOVER_JOB_ID);
+  const recoverApproved = yes(process.env.AVANTIQO_CODE_REGION_RECOVER_JOB_APPROVED);
   if (!managementKey) throw new Error("RUNPOD_MANAGEMENT_API_KEY_REQUIRED");
   if (!apiKey) throw new Error("RUNPOD_API_KEY_REQUIRED");
+  if (recoverJobId && !recoverApproved) {
+    throw new Error("AVANTIQO_CODE_REGION_RECOVER_JOB_APPROVED=YES_REQUIRED");
+  }
 
   console.log("AVANTIQO_CODE_REGION_QUIESCENCE_WRAPPER=READ_ONLY_UNTIL_MIGRATION");
   console.log("AVANTIQO_CODE_REGION_QUIESCENCE_TRANSIENT_FETCH_RETRY=ACTIVE");
   console.log("AVANTIQO_CODE_REGION_QUIESCENCE_ABNORMAL_EXIT_CLEANUP=ACTIVE");
+  console.log(`AVANTIQO_CODE_REGION_EXACT_STALE_JOB_RECOVERY=${recoverJobId ? "REQUESTED" : "NOT_REQUESTED"}`);
   console.log("AVANTIQO_CODE_REGION_QUIESCENCE_PRODUCTION_DEPLOY_PERFORMED=false");
 
   const endpointId = await resolveEndpointId(managementKey);
+  if (recoverJobId) {
+    await recoverExactStaleJob(apiKey, endpointId, recoverJobId);
+  }
   await waitForQuiescence(apiKey, endpointId);
   await runMigration(apiKey, endpointId);
 }
@@ -327,7 +356,7 @@ async function main() {
 main().catch((error) => {
   console.error(JSON.stringify({
     success: false,
-    contract: "AVANTIQO_CODE_REGION_QUIESCENCE_WRAPPER_V2",
+    contract: "AVANTIQO_CODE_REGION_QUIESCENCE_WRAPPER_V3",
     error: text(error?.message || error),
     production_deploy_performed: false,
   }, null, 2));

@@ -131,6 +131,35 @@ function patchRelocationSource(source) {
       return candidatePool.length > sourcePool.length || candidateBestCost < sourceBestCost;
     })`;
 
+  const strictTargetStability = `selection = selectTarget({ capacity, sourceDcId, groupVolumes, endpoints });
+if (!selection.selected || selection.selected.data_center_id !== targetDcId) {
+  throw new Error(\`CODE_CAPACITY_RELOCATION_BEST_TARGET_CHANGED_REPLAN_REQUIRED:selected=\${selection.selected?.data_center_id || "NONE"}:planned=\${targetDcId}\`);
+}
+const freshTargetGpuTypes = unique(selection.selected.available_gpu_pool.slice(0, 4).map((row) => row.gpu_type_id));`;
+  const recoveryTargetStability = `selection = selectTarget({ capacity, sourceDcId, groupVolumes, endpoints });
+const refreshedBestTargetId = selection.selected?.data_center_id || null;
+const refreshedPlannedTarget = array(selection.candidates).find(
+  (region) => region.data_center_id === targetDcId,
+) || null;
+if (!refreshedPlannedTarget) {
+  throw new Error(
+    "CODE_CAPACITY_RELOCATION_PLANNED_TARGET_NO_LONGER_MATERIALLY_VALID:planned=" +
+    targetDcId +
+    ":fresh_best=" +
+    (refreshedBestTargetId || "NONE"),
+  );
+}
+if (refreshedBestTargetId !== targetDcId) {
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_CAPACITY_RELOCATION_VALID_TARGET_RETAINED_THROUGH_STOCK_CHURN",
+    planned_target: targetDcId,
+    fresh_best_target: refreshedBestTargetId,
+    planned_target_still_materially_valid: true,
+  }));
+}
+selection = { ...selection, selected: refreshedPlannedTarget };
+const freshTargetGpuTypes = unique(selection.selected.available_gpu_pool.slice(0, 4).map((row) => row.gpu_type_id));`;
+
   const strictLiveGuard = `  if (!liveTarget || liveTarget.best_stock_rank <= selection.sourceRank || !liveGpuTypes.length) {
     throw new Error("CODE_CAPACITY_RELOCATION_TARGET_STOCK_LOST_BEFORE_SWITCH");
   }`;
@@ -213,6 +242,7 @@ ${quiescenceAnchor}`;
 
   for (const [needle, code] of [
     [strictCandidate, "CODE_TIMEOUT_RECOVERY_SOURCE_SELECTION_FRAGMENT_CHANGED_REPLAN_REQUIRED"],
+    [strictTargetStability, "CODE_TIMEOUT_RECOVERY_SOURCE_TARGET_STABILITY_FRAGMENT_CHANGED_REPLAN_REQUIRED"],
     [strictLiveGuard, "CODE_TIMEOUT_RECOVERY_SOURCE_LIVE_GUARD_FRAGMENT_CHANGED_REPLAN_REQUIRED"],
     [quiescenceAnchor, "CODE_TIMEOUT_RECOVERY_SOURCE_QUIESCENCE_ANCHOR_CHANGED_REPLAN_REQUIRED"],
     [movedAnchor, "CODE_TIMEOUT_RECOVERY_SOURCE_RESUME_ANCHOR_CHANGED_REPLAN_REQUIRED"],
@@ -223,6 +253,7 @@ ${quiescenceAnchor}`;
 
   const patched = source
     .replace(strictCandidate, recoveryCandidate)
+    .replace(strictTargetStability, recoveryTargetStability)
     .replace(strictLiveGuard, recoveryLiveGuard)
     .replace(quiescenceAnchor, resumeHelper)
     .replace(movedAnchor, movedReplacement)
@@ -231,6 +262,7 @@ ${quiescenceAnchor}`;
   if (
     patched === source ||
     patched.includes(strictCandidate) ||
+    patched.includes(strictTargetStability) ||
     patched.includes(strictLiveGuard) ||
     patched.includes(movedAnchor) ||
     patched.includes(rollbackAnchor)
@@ -303,6 +335,7 @@ console.log(JSON.stringify({
   health,
   plan_safe_with_missing_historical_job_because_no_mutation_occurs: !apply,
   equal_stock_rank_recovery_requires_material_scheduler_advantage: true,
+  valid_planned_target_may_survive_best_target_churn: true,
   endpoint_resume_verified_before_provider_submission: true,
   rollback_resume_verified: true,
   minimum_gpu_memory_gb_preserved: 80,
@@ -332,6 +365,7 @@ try {
     failed_job_id: failedJobId,
     job_status_source: jobEvidence.source,
     equal_rank_recovery_path_used: true,
+    valid_planned_target_may_survive_best_target_churn: true,
     endpoint_resume_verified_before_provider_submission: true,
     production_deploy_performed: false,
     secrets_printed: false,

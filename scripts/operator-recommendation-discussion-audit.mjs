@@ -31,6 +31,24 @@ requireFragments(turnPath, turnSource, [
   "shorthand like “do it” will not run it",
 ]);
 
+requireFragments(turnPath, turnSource, [
+  "vad rekommenderade du",
+  "was hast du empfohlen",
+  "quelle était ta recommandation",
+  "qué recomendaste",
+  "คุณแนะนำอะไร",
+  "varför",
+  "vad menar du",
+  "warum",
+  "was meinst du",
+  "pourquoi",
+  "tu veux dire quoi",
+  "por qué",
+  "qué quieres decir",
+  "ทำไม",
+  "หมายความว่าอะไร",
+]);
+
 const discussionStart = turnSource.indexOf(
   "async function recommendationDiscussionTurn",
 );
@@ -67,6 +85,14 @@ const coreStart = turnSource.indexOf(
 );
 const discussionGuard = turnSource.slice(runTurnStart, coreStart);
 assert.ok(
+  discussionGuard.includes("isRecommendationStatusTurn(options.message)"),
+  "recommendation status must be classified before operator core execution",
+);
+assert.ok(
+  discussionGuard.includes("return recommendationStatusTurn(options, recommendation)"),
+  "recommendation status must return before operator core execution",
+);
+assert.ok(
   discussionGuard.includes("recommendationDiscussionKind(options.message)"),
   "discussion must be classified before operator core execution",
 );
@@ -80,6 +106,11 @@ requireFragments(fastPath, fastSource, [
   "strategic_project_context: strategic",
   "execution: null",
   "capability_key: null",
+  "varfor",
+  "warum",
+  "pourquoi",
+  "por que",
+  "ทำไม",
 ]);
 
 const oldBlindRepersist = `} else if (\n      !acceptedRecommendation &&\n      CONTEXTUAL_RECOMMENDATION_PATTERN.test(text(options.message))\n    ) {\n      nextAgreementState = agreementWithOperatorRecommendation(`;
@@ -92,9 +123,31 @@ assert.ok(
   "recommendation discussion must intercept contextual turns before legacy fallback",
 );
 
+for (const dangerous of [
+  "gor det",
+  "mach es",
+  "fais le",
+  "hazlo",
+  "ทำเลย",
+]) {
+  const contextualStart = turnSource.indexOf("const CONTEXTUAL_RECOMMENDATION_PATTERN");
+  const alternativeStart = turnSource.indexOf(
+    "const RECOMMENDATION_ALTERNATIVE_PATTERN",
+    contextualStart,
+  );
+  const contextualSource = turnSource.slice(contextualStart, alternativeStart);
+  assert.ok(
+    !contextualSource.includes(dangerous),
+    `multilingual neutral discussion must not absorb execution phrase ${dangerous}`,
+  );
+}
+
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION_AUDIT=PASS");
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION=THINKING_ONLY_NO_EXECUTION");
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION_NEUTRAL=EXACT_PENDING_PRESERVED");
+console.log("OPERATOR_RECOMMENDATION_DISCUSSION_MULTILINGUAL=SV_DE_FR_ES_TH_PRESERVED");
+console.log("OPERATOR_RECOMMENDATION_STATUS_MULTILINGUAL=SV_DE_FR_ES_TH_READ_ONLY");
+console.log("OPERATOR_RECOMMENDATION_DISCUSSION_CONTROL=EXECUTION_PHRASES_EXCLUDED");
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION_ALTERNATIVE=OLD_PENDING_DISARMED");
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION_OLD_RECOMMENDATION=VISIBLE_NOT_EXECUTABLE");
 console.log("OPERATOR_RECOMMENDATION_DISCUSSION_CORE_EXECUTION=BYPASSED");

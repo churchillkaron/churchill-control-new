@@ -4,6 +4,15 @@ import { pathToFileURL } from "node:url";
 
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
+const inertImportEnvironment = {
+  NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
+  SUPABASE_SERVICE_ROLE_KEY: "operator-runtime-audit-placeholder",
+};
+
+for (const [name, value] of Object.entries(inertImportEnvironment)) {
+  if (!process.env[name]) process.env[name] = value;
+}
+
 const OPERATOR_MISSION_KEY = "platform.operator_mission.execute";
 
 const { createOperatorMissionRun } = await import(

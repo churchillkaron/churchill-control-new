@@ -4,6 +4,11 @@ export const maxDuration = 300;
 
 import { NextResponse } from "next/server";
 
+import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
+import {
+  buildMusicGenerationPlan,
+  normalizeMusicBrief,
+} from "@/lib/creative/runtime/engines/MusicEngine";
 import {
   executeService,
   settlePendingService,
@@ -17,13 +22,6 @@ const EXECUTION_PERMISSIONS = Object.freeze([
   "creative.production.run",
   "creative.*",
 ]);
-
-const MASTERING_PROFILES = Object.freeze({
-  streaming: Object.freeze({ target_lufs: -14, true_peak_dbtp: -1 }),
-  cinematic: Object.freeze({ target_lufs: -16, true_peak_dbtp: -1 }),
-  broadcast: Object.freeze({ target_lufs: -23, true_peak_dbtp: -1 }),
-  club: Object.freeze({ target_lufs: -9, true_peak_dbtp: -0.8 }),
-});
 
 function text(value) {
   return String(value ?? "").trim();
@@ -63,70 +61,87 @@ async function requireAccess(request, organizationId) {
   return access;
 }
 
-function normalizedSession(body = {}) {
-  const style = text(body.style || body.genre || "cinematic modern").slice(0, 120);
-  const mood = text(body.mood || "premium, emotionally controlled").slice(0, 120);
-  const energy = text(body.energy || "balanced").slice(0, 80);
-  const instrumentation = text(body.instrumentation || "").slice(0, 240);
-  const structure = text(body.structure || "intro, development, lift, resolution").slice(0, 240);
-  const title = text(body.title || "Untitled composition").slice(0, 160);
-  const instrumental = body.instrumental !== false;
-  const lyrics = instrumental ? "" : text(body.lyrics).slice(0, 4096);
-  if (!instrumental && !lyrics) {
-    const error = new Error("CREATIVE_MUSIC_LYRICS_REQUIRED_FOR_VOCAL_MODE");
-    error.code = "CREATIVE_MUSIC_LYRICS_REQUIRED_FOR_VOCAL_MODE";
-    throw error;
-  }
-
-  const durationSeconds = clamp(body.duration_seconds, 10, 180, 30);
-  const bpm = Math.round(clamp(body.bpm, 30, 300, 96));
-  const keyscale = text(body.keyscale || body.key || "").slice(0, 32);
-  const rawTimeSignature = text(body.timesignature || body.time_signature || "4");
-  const timesignature = ({ "2/4": "2", "3/4": "3", "4/4": "4", "6/8": "6" })[rawTimeSignature] || rawTimeSignature;
-  if (!["2", "3", "4", "6"].includes(timesignature)) {
-    const error = new Error("CREATIVE_MUSIC_TIME_SIGNATURE_INVALID");
-    error.code = "CREATIVE_MUSIC_TIME_SIGNATURE_INVALID";
-    throw error;
-  }
-
-  const profileId = text(body.mastering_profile || "streaming").toLowerCase();
-  const validProfile = Object.hasOwn(MASTERING_PROFILES, profileId);
-  const mastering = validProfile ? MASTERING_PROFILES[profileId] : MASTERING_PROFILES.streaming;
-  const vocalLanguage = instrumental ? "unknown" : text(body.vocal_language || "english").toLowerCase().slice(0, 16);
-
-  const directionParts = [
-    `${style} music`,
-    `${mood} mood`,
-    `${energy} energy`,
-    instrumentation ? `instrumentation: ${instrumentation}` : null,
-    `arrangement: ${structure}`,
-    `${bpm} BPM`,
-    keyscale ? `key: ${keyscale}` : null,
-    instrumental ? "instrumental, no vocals" : `${vocalLanguage} vocals with supplied lyrics`,
-    "cohesive arrangement, professional dynamics, strong musical transitions, release-quality composition",
-  ].filter(Boolean);
-
-  return {
-    title,
-    style,
-    mood,
-    energy,
-    instrumentation,
-    structure,
-    instrumental,
-    lyrics,
-    duration_seconds: durationSeconds,
-    bpm,
-    keyscale,
-    timesignature,
-    vocal_language: vocalLanguage,
-    mastering_profile: validProfile ? profileId : "streaming",
-    mastering,
-    direction: directionParts.join("; "),
-  };
+function storageReference(output = {}) {
+  return text(output?.storage_reference || output?.storageReference);
 }
 
-function publicExecution(result, session = null, execution = {}) {
+function safeFileName(title, usageId) {
+  const stem = text(title || "avantiqo-music")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "avantiqo-music";
+  const suffix = text(usageId).slice(0, 8);
+  return `${stem}${suffix ? `-${suffix}` : ""}.wav`;
+}
+
+async function persistCompletedMusicAsset({
+  organizationId,
+  body,
+  result,
+  session = null,
+  usageId = null,
+}) {
+  if (!result || result.pending === true || result.failed === true) return null;
+  const output = result.output || {};
+  const reference = storageReference(output);
+  if (!reference) return null;
+
+  const projectId = text(body.creative_project_id) || null;
+  const missionId = text(body.creative_mission_id) || null;
+  const normalizedUsageId = text(usageId || result?.usage?.id) || null;
+  const assets = await CreativeAssetsRuntime.list({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    creative_mission_id: missionId,
+    limit: 300,
+  });
+  const existing = assets.find((asset) => (
+    text(asset.file_url) === reference ||
+    (normalizedUsageId && text(asset.metadata?.music_usage_id) === normalizedUsageId)
+  ));
+  if (existing) return existing;
+
+  const title = text(session?.title || body.title || "Avantiqo composition").slice(0, 160);
+  const masteringProfile = text(
+    session?.mastering_profile ||
+    body.mastering_profile ||
+    result?.usage?.metadata?.mastering_profile ||
+    "streaming",
+  );
+
+  return CreativeAssetsRuntime.create({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    creative_mission_id: missionId,
+    asset_type: "AUDIO",
+    file_url: reference,
+    file_name: safeFileName(title, normalizedUsageId),
+    name: title,
+    title,
+    description: "Original music generated by Avantiqo Music Studio.",
+    ai_generated: true,
+    provider: result.provider || "avantiqo-audio",
+    engine: "AVANTIQO_MUSIC",
+    prompt: null,
+    metadata: {
+      media_kind: "MUSIC",
+      mime_type: "audio/wav",
+      storage_reference: reference,
+      music_usage_id: normalizedUsageId,
+      music_provider_job_id: text(result.provider_job_id) || null,
+      mastering_profile: masteringProfile,
+      owned_engine: true,
+      engine_family: "ACE_STEP_1_5",
+      certified_capability: "ai.music.generate",
+      provider_selection_exposed: false,
+      user_prompt_surface: false,
+      generated_at: new Date().toISOString(),
+    },
+  });
+}
+
+function publicExecution(result, session = null, execution = {}, asset = null) {
   const output = result?.output || null;
   return {
     success: result?.success !== false,
@@ -142,6 +157,13 @@ function publicExecution(result, session = null, execution = {}) {
     started_at: result?.started_at || execution.started_at || null,
     settlement: result?.settlement || null,
     output,
+    asset: asset ? {
+      id: asset.id,
+      title: asset.title || asset.name || null,
+      file_url: asset.file_url || null,
+      asset_type: asset.asset_type || null,
+      metadata: asset.metadata || {},
+    } : null,
     ...(session ? {
       session: {
         title: session.title,
@@ -172,48 +194,28 @@ function publicExecution(result, session = null, execution = {}) {
 async function compose(body) {
   const organizationId = text(body.organization_id);
   if (!organizationId) throw new Error("organization_id required");
-  const session = normalizedSession(body);
+  const plan = buildMusicGenerationPlan(body);
+  const session = plan.session;
 
   const result = await executeService({
     organization_id: organizationId,
     bill_to_organization_id: organizationId,
     entity_id: text(body.entity_id) || null,
-    service_id: "ai.music.generate",
-    capability: "ai.music.generate",
+    service_id: plan.service_id,
+    capability: plan.capability,
     input: {
       title: session.title,
       description: session.direction,
       quantity: session.duration_seconds,
       currency: text(body.currency || "THB"),
-      generation: {
-        caption: session.direction,
-        lyrics: session.lyrics,
-        instrumental: session.instrumental,
-        bpm: session.bpm,
-        keyscale: session.keyscale,
-        timesignature: session.timesignature,
-        duration_seconds: session.duration_seconds,
-        vocal_language: session.vocal_language,
-        structure: session.structure,
-        style: session.style,
-        mood: session.mood,
-        energy: session.energy,
-        instrumentation: session.instrumentation,
-      },
+      generation: plan.generation,
       requirements: {
-        output_spec: {
-          duration_seconds: session.duration_seconds,
-          format: "wav",
-          sample_rate: 48000,
-          channels: 2,
-          mastering_profile: session.mastering_profile,
-          loudness: session.mastering,
-        },
+        output_spec: plan.output_spec,
       },
       output_spec: {
-        duration_seconds: session.duration_seconds,
-        format: "wav",
-        mastering_profile: session.mastering_profile,
+        duration_seconds: plan.output_spec.duration_seconds,
+        format: plan.output_spec.format,
+        mastering_profile: plan.output_spec.mastering_profile,
       },
       provider_parameters: {
         ...(body.seed !== undefined && body.seed !== null && body.seed !== ""
@@ -230,6 +232,20 @@ async function compose(body) {
       creative_mission_id: text(body.creative_mission_id) || null,
       mastering_profile: session.mastering_profile,
       audio_finishing_target: session.mastering,
+      music_session: {
+        title: session.title,
+        style: session.style,
+        mood: session.mood,
+        energy: session.energy,
+        duration_seconds: session.duration_seconds,
+        bpm: session.bpm,
+        keyscale: session.keyscale || null,
+        timesignature: session.timesignature,
+        instrumental: session.instrumental,
+        vocal_language: session.vocal_language,
+        structure: session.structure,
+        mastering_profile: session.mastering_profile,
+      },
       owned_engine_preferred: true,
       provider_selection_exposed: false,
       user_prompt_surface: false,
@@ -237,10 +253,17 @@ async function compose(body) {
     provider_policy: {
       preferred_providers: ["avantiqo-audio"],
     },
-    category: "AI",
+    category: plan.category,
   });
 
-  return publicExecution(result, session);
+  const asset = await persistCompletedMusicAsset({
+    organizationId,
+    body,
+    result,
+    session,
+    usageId: result?.usage?.id,
+  });
+  return publicExecution(result, session, {}, asset);
 }
 
 async function status(body) {
@@ -271,14 +294,23 @@ async function status(body) {
     },
   });
 
-  return publicExecution(result, null, {
+  const session = body.session ? normalizeMusicBrief(body.session) : null;
+  const asset = await persistCompletedMusicAsset({
+    organizationId,
+    body,
+    result,
+    session,
+    usageId,
+  });
+
+  return publicExecution(result, session, {
     provider,
     provider_job_id: providerJobId,
     usage_id: usageId,
     pricing: body.pricing || null,
     credential_id: text(body.credential_id) || null,
     started_at: text(body.started_at) || null,
-  });
+  }, asset);
 }
 
 export async function POST(request) {

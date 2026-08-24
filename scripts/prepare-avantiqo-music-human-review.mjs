@@ -4,6 +4,10 @@ import { resolve } from "node:path";
 const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3";
 const ECONOMICS_CONTRACT = "AVANTIQO_MUSIC_ECONOMICS_V1";
 const REVIEW_CONTRACT = "AVANTIQO_MUSIC_HUMAN_REVIEW_V1";
+const EXPECTED_VARIANT = "acestep-v15-xl-turbo";
+const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
+const EXPECTED_LM_BACKEND = "vllm";
+const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
 
 const BENCHMARK_INPUT = resolve(
   process.env.AVANTIQO_AUDIO_BENCHMARK_OUTPUT ||
@@ -29,6 +33,16 @@ const [benchmark, economics] = await Promise.all([
 
 if (text(benchmark?.contract) !== BENCHMARK_CONTRACT || benchmark?.summary?.passed !== true) {
   throw new Error("AVANTIQO_MUSIC_HUMAN_REVIEW_REQUIRES_PASSED_BENCHMARK_V3");
+}
+if (
+  text(benchmark?.model?.variant) !== EXPECTED_VARIANT ||
+  text(benchmark?.model?.quality_profile) !== EXPECTED_QUALITY_PROFILE ||
+  benchmark?.model?.ace_step_lm_required !== true ||
+  text(benchmark?.model?.ace_step_lm_model) !== EXPECTED_LM_MODEL ||
+  text(benchmark?.model?.ace_step_lm_backend) !== EXPECTED_LM_BACKEND ||
+  benchmark?.model?.thinking_required !== true
+) {
+  throw new Error("AVANTIQO_MUSIC_HUMAN_REVIEW_XL_LM_BENCHMARK_REQUIRED");
 }
 if (text(economics?.contract) !== ECONOMICS_CONTRACT || economics?.certification?.economics_measured !== true) {
   throw new Error("AVANTIQO_MUSIC_HUMAN_REVIEW_REQUIRES_MEASURED_ECONOMICS");
@@ -101,7 +115,12 @@ const review = {
   capability: "ai.music.generate",
   model: "ACE-Step/Ace-Step1.5",
   model_family: "ACE_STEP_1_5",
-  model_variant: "acestep-v15-turbo",
+  model_variant: EXPECTED_VARIANT,
+  quality_profile: EXPECTED_QUALITY_PROFILE,
+  ace_step_lm_required: true,
+  ace_step_lm_model: EXPECTED_LM_MODEL,
+  ace_step_lm_backend: EXPECTED_LM_BACKEND,
+  thinking_required: true,
   review_status: "PENDING",
   reviewer: "",
   reviewed_at: null,
@@ -116,6 +135,9 @@ const review = {
     duration_seconds: observation.duration_seconds || null,
     bpm: 92,
     technical_benchmark_passed: observation.passed === true,
+    quality_profile: observation.quality_profile || null,
+    ace_step_lm_used: observation.ace_step_lm_used === true,
+    thinking_enabled: observation.thinking_enabled === true,
     economics: measuredByRun.get(Number(observation.run)) || null,
     review_status: "PENDING",
     reviewer: "",
@@ -135,6 +157,7 @@ console.log(JSON.stringify({
   success: true,
   output_path: OUTPUT,
   contract: REVIEW_CONTRACT,
+  quality_profile: EXPECTED_QUALITY_PROFILE,
   runs: review.items.length,
   review_status: "PENDING",
   automatic_human_approval_forbidden: true,

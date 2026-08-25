@@ -12,6 +12,8 @@ const paths = {
   commitmentWorker: "app/api/internal/secretary/commitments/process/route.js",
   followUpRuntime: "lib/operator/secretary/SecretaryFollowUpExecutionRuntime.js",
   followUpWorker: "app/api/internal/secretary/follow-ups/process/route.js",
+  quietHoursRuntime: "lib/operator/secretary/SecretaryContactQuietHoursRuntime.js",
+  outboundCallRuntime: "lib/operator/secretary/SecretaryOutboundCallRuntime.js",
   dueWorker: "app/api/internal/secretary/due-work/process/route.js",
   platform: "lib/platform/runtime/PlatformDomainRuntime.js",
   core: "supabase/migrations/20260825062200_avantiqo_secretary_native_core.sql",
@@ -119,12 +121,24 @@ assert.match(source.followUpRuntime, /metadata\.execution_owner/);
 assert.match(source.followUpRuntime, /metadata\.execution_ready !== true/);
 assert.match(source.followUpRuntime, /allow_calls/);
 assert.match(source.followUpRuntime, /allow_messages/);
-assert.match(source.followUpRuntime, /do_not_disturb/);
 assert.match(source.followUpRuntime, /FOLLOW_UP_CONTENT_NOT_SELF_CONTAINED/);
 assert.match(source.followUpRuntime, /tools:\s*\[\]/);
 assert.match(source.followUpRuntime, /partyId:\s*null/);
 assert.match(source.followUpRuntime, /OUTBOUND_CALL_/);
 assert.match(source.followUpRuntime, /reconcileQueuedSecretaryFollowUpExecutions/);
+
+assert.match(source.quietHoursRuntime, /SECRETARY_CONTACT_QUIET_HOURS_CONTRACT/);
+assert.match(source.quietHoursRuntime, /Intl\.DateTimeFormat/);
+assert.match(source.quietHoursRuntime, /overnight windows are supported/);
+assert.match(source.quietHoursRuntime, /CONTACT_QUIET_HOURS/);
+assert.match(source.followUpRuntime, /evaluateSecretaryContactQuietHours/);
+assert.match(source.followUpRuntime, /status: "deferred"/);
+assert.match(source.followUpRuntime, /quiet_hours_deferred_until/);
+assert.match(source.appointmentRuntime, /evaluateSecretaryContactQuietHours/);
+assert.match(source.appointmentRuntime, /QUIET_HOURS_WOULD_MAKE_REMINDER_LATE/);
+assert.match(source.outboundCallRuntime, /evaluateSecretaryContactQuietHours/);
+assert.match(source.outboundCallRuntime, /quiet_hours_adjusted/);
+assert.match(source.outboundCallRuntime, /SECRETARY_OUTBOUND_CONTACT_DO_NOT_DISTURB/);
 
 for (const worker of [
   source.dueWorker,
@@ -160,5 +174,7 @@ console.log("SECRETARY_APPOINTMENT_NOTIFICATIONS=true");
 console.log("SECRETARY_COMMITMENT_CAPTURE=true");
 console.log("SECRETARY_AUTONOMOUS_FOLLOW_UP_EXECUTION=true");
 console.log("SECRETARY_NON_SECRETARY_PROMISE_AUTO_EXECUTION=false");
+console.log("SECRETARY_CONTACT_QUIET_HOURS=true");
+console.log("SECRETARY_CONTACT_TIMEZONE_AWARE=true");
 console.log("SECRETARY_REAL_CLOUD_JOBS=5");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

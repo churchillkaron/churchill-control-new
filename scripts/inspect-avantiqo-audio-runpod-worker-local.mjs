@@ -71,6 +71,7 @@ function imageReferenceKind(imageName) {
   const slash = value.lastIndexOf("/");
   const tail = slash >= 0 ? value.slice(slash + 1) : value;
   if (!tail.includes(":")) return "MUTABLE_DEFAULT_TAG";
+  if (/^ghcr\.io\/.+:sha-[a-f0-9]{12}$/i.test(value)) return "GHCR_SOURCE_SHA_TAG";
   return "MUTABLE_EXPLICIT_TAG";
 }
 
@@ -116,7 +117,7 @@ function safeEndpoint(endpoint = {}) {
   };
 }
 
-function safeTemplate(template = {}, expectedTemplateId = "") {
+function safeTemplate(template = {}, expectedTemplateId = "", resolution = "UNKNOWN") {
   const source = object(template);
   const templateId = text(source.id || expectedTemplateId);
   const imageName = text(source.imageName);
@@ -134,6 +135,7 @@ function safeTemplate(template = {}, expectedTemplateId = "") {
     container_registry_auth_configured: Boolean(text(source.containerRegistryAuthId)),
     env_keys: Object.keys(env).sort(),
     endpoint_bound_template_returned: found,
+    resolution,
   };
 }
 
@@ -202,12 +204,17 @@ const volumeById = new Map(
 
 const sanitizedEndpoints = endpoints.map((endpoint) => {
   const templateId = text(endpoint?.templateId || endpoint?.template?.id);
-  const resolvedTemplate = Object.keys(object(endpoint?.template)).length > 0
-    ? endpoint.template
+  const inline = object(endpoint?.template);
+  const resolvedTemplate = Object.keys(inline).length > 0
+    ? inline
     : templateById.get(templateId) || {};
   return {
     endpoint: safeEndpoint(endpoint),
-    template: safeTemplate(resolvedTemplate, templateId),
+    template: safeTemplate(
+      resolvedTemplate,
+      templateId,
+      Object.keys(inline).length > 0 ? "ENDPOINT_INLINE" : "ENDPOINT_BOUND_LIST",
+    ),
   };
 });
 
@@ -215,11 +222,30 @@ const matchesById = configuredEndpointId
   ? sanitizedEndpoints.filter((entry) => entry.endpoint.id === configuredEndpointId)
   : [];
 const matchesByName = sanitizedEndpoints.filter((entry) => entry.endpoint.name === endpointName);
-const selected = configuredEndpointId
+let selected = configuredEndpointId
   ? matchesById[0] || null
   : matchesByName.length === 1
     ? matchesByName[0]
     : null;
+
+let directTemplateRead = { ok: false, body: null, error: "AUDIO_ENDPOINT_NOT_SELECTED" };
+if (selected?.endpoint?.template_id && !selected.template.image_name) {
+  directTemplateRead = await optionalRequest(
+    `${REST_BASE}/templates/${encodeURIComponent(selected.endpoint.template_id)}`,
+    managementKey,
+    "management",
+  );
+  if (directTemplateRead.ok && object(directTemplateRead.body).id) {
+    selected = {
+      ...selected,
+      template: safeTemplate(
+        directTemplateRead.body,
+        selected.endpoint.template_id,
+        "DIRECT_TEMPLATE_READ",
+      ),
+    };
+  }
+}
 
 let healthRead = { ok: false, body: null, error: "AUDIO_ENDPOINT_NOT_SELECTED" };
 if (selected?.endpoint?.id) {
@@ -239,7 +265,7 @@ const attachedVolumes = attachedVolumeIds.map((id) => ({
 
 const result = {
   success: true,
-  contract: "AVANTIQO_AUDIO_RUNPOD_WORKER_INSPECT_V1",
+  contract: "AVANTIQO_AUDIO_RUNPOD_WORKER_INSPECT_V2",
   read_only: true,
   mutation_performed: false,
   inference_performed: false,
@@ -255,6 +281,11 @@ const result = {
       ? {
           endpoint: selected.endpoint,
           template: selected.template,
+          direct_template_read: {
+            attempted: Boolean(selected.endpoint.template_id),
+            ok: directTemplateRead.ok,
+            error: directTemplateRead.error,
+          },
           attached_network_volumes: attachedVolumes,
           health: healthRead.ok ? safeHealth(healthRead.body) : null,
           health_read: { ok: healthRead.ok, error: healthRead.error },
@@ -291,6 +322,11 @@ if (!selected) {
       : matchesByName.length > 1
         ? "AVANTIQO_AUDIO_ENDPOINT_NAME_AMBIGUOUS"
         : "AVANTIQO_AUDIO_ENDPOINT_NOT_FOUND",
+  );
+}
+if (!selected.template.image_name) {
+  throw new Error(
+    `AVANTIQO_AUDIO_TEMPLATE_IMAGE_UNRESOLVED:${directTemplateRead.error || "IMAGE_NAME_MISSING"}`,
   );
 }
 if (!healthRead.ok) {

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
   claimSecretaryFollowUpExecution,
   materializeSecretaryFollowUpExecutions,
@@ -46,7 +47,7 @@ export async function GET(request) {
         const retryAt = new Date(
           Date.now() + Math.min(300, 15 * 2 ** Math.min(attempt, 5)) * 1000,
         ).toISOString();
-        const { error: updateError } = await (await import("@/lib/shared/supabase/admin")).supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from("secretary_follow_up_executions")
           .update({
             status: exhausted ? "SKIPPED" : "FAILED",

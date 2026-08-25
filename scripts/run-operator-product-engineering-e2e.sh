@@ -326,9 +326,6 @@ if [ "$LOCAL_MAIN_AFTER" != "$MAIN_BEFORE" ]; then
   fail "LOCAL_MAIN_COMMIT_CHANGED_BY_E2E"
 fi
 
-# Concurrent agents are allowed to advance origin/main while this test runs.
-# That is not a test failure; the Product cycle must already have handled stale
-# base through its governed replan path if the move affected its mission.
 if [ "$REMOTE_MAIN_AFTER" != "$MAIN_BEFORE" ]; then
   echo "E2E_CONCURRENT_MAIN_ADVANCE=YES"
 else

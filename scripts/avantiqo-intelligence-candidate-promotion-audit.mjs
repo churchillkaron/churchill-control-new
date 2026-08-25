@@ -36,7 +36,7 @@ assert(inspector.includes("ADAPTER_MOE_LORA_TENSOR_NOT_3D"), "CANDIDATE_3D_TENSO
 assert(inspector.includes("ADAPTER_MOE_LORA_TARGET_INCOMPLETE"), "CANDIDATE_AB_TARGET_COVERAGE_REQUIRED");
 assert(inspector.includes('"layout": "MOE_3D_FUSED_PEFT"'), "CANDIDATE_3D_MOE_LAYOUT_REQUIRED");
 assert(inspector.includes('"is_3d_lora_weight": True'), "CANDIDATE_VLLM_3D_DECLARATION_REQUIRED");
-assert(inspector.includes("mixed_or_unknown_layout_allowed\": False"), "CANDIDATE_UNKNOWN_LAYOUT_FORBIDDEN");
+assert(inspector.includes('"mixed_or_unknown_layout_allowed": False'), "CANDIDATE_UNKNOWN_LAYOUT_FORBIDDEN");
 assert(!inspector.includes("MOE_2D_PER_EXPERT"), "CANDIDATE_LEGACY_2D_LAYOUT_FORBIDDEN");
 
 assert(startup.includes("AVANTIQO_INTELLIGENCE_CANDIDATE_ENABLED"), "CANDIDATE_STARTUP_ENABLE_GATE_REQUIRED");

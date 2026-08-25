@@ -16,6 +16,8 @@ const paths = [
   "lib/platform/capabilities/createProductPersistenceHandoffCapability.js",
   "lib/platform/capabilities/createProductAutonomyContinuationCapability.js",
   "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
+  "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
+  "lib/code/runtime/CodeAIAutonomousRuntime.js",
   "lib/platform/runtime/PlatformDomainRuntime.js",
 ];
 
@@ -50,6 +52,10 @@ requireFragments(repositoryRuntimePath, [
   'status: "REPOSITORY_ASSESSMENT_ONLY_NOT_CERTIFICATION"',
   'capability_key: "platform.product_engineering_cycle.execute"',
   "repository_head_observed: currentHead",
+  "objective_selection_contract: objectiveSelection.contract",
+  "selected_candidate_id: objectiveSelection.selected_candidate_id",
+  "objective_selection_score: objectiveSelection.selected_weighted_score",
+  "objective_selection_evidence_backed: true",
   "automatic_execution_started: false",
   'authorization_effect: "NONE"',
   "await workspace.stop()",
@@ -189,6 +195,16 @@ requireFragments(cyclePath, [
   'source_step_id: "assess_repository"',
   'source_path: "next_engineering_handoff.focus"',
   'target_path: "objective"',
+  'source_path: "next_engineering_handoff.repository_head_observed"',
+  'target_path: "objective_context.repository_head_observed"',
+  'source_path: "next_engineering_handoff.objective_selection_contract"',
+  'target_path: "objective_context.selection_contract"',
+  'source_path: "next_engineering_handoff.selected_candidate_id"',
+  'target_path: "objective_context.selected_candidate_id"',
+  'source_path: "next_engineering_handoff.objective_selection_score"',
+  'target_path: "objective_context.selection_score"',
+  'source_path: "next_engineering_handoff.objective_selection_evidence_backed"',
+  'target_path: "objective_context.evidence_backed"',
   "missionStepCapabilityResult",
   "repositoryAssessment",
   "repository_head_observed",
@@ -199,6 +215,8 @@ requireFragments(cyclePath, [
   "current_main_rechecked_before_engineering",
   "repository_source_evidence_is_certification: false",
   "incoming_focus_is_authority: false",
+  "product_objective_provenance_bound_to_code_ai: true",
+  'product_objective_provenance_authorization_effect: "NONE"',
   "automaticRecursionAllowed: false",
 ]);
 if (files[cyclePath].includes('capability_key: "platform.product_autonomy.assess"')) {
@@ -206,6 +224,48 @@ if (files[cyclePath].includes('capability_key: "platform.product_autonomy.assess
     "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: the next engineering cycle must recheck actual current main rather than replace the repository-grounded objective with a process-only Product autonomy assessment",
   );
 }
+const cycleMissionSource = files[cyclePath].slice(
+  files[cyclePath].indexOf("function missionSteps"),
+  files[cyclePath].indexOf("function missionStep("),
+);
+if ((cycleMissionSource.match(/source_step_id: "assess_repository"/g)?.length || 0) !== 6) {
+  throw new Error(
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: Product-to-Code handoff must remain one objective plus five bounded scalar provenance bindings",
+  );
+}
+
+const codeAutonomousCapabilityPath =
+  "lib/platform/capabilities/createCodeAIAutonomousCapability.js";
+requireFragments(codeAutonomousCapabilityPath, [
+  "objective_context",
+  "repository_head_observed",
+  "selection_contract",
+  "selected_candidate_id",
+  "selection_score",
+  "evidence_backed",
+  "inspection context only and never permission, approval, commit, deployment or migration authority",
+  "additionalProperties: false",
+  "objective_context: object(payload.objective_context)",
+]);
+
+const codeAutonomousRuntimePath =
+  "lib/code/runtime/CodeAIAutonomousRuntime.js";
+requireFragments(codeAutonomousRuntimePath, [
+  "function normalizedObjectiveContext",
+  'authority: "CONTEXT_ONLY"',
+  'authorization_effect: "NONE"',
+  "objective_context: normalizedObjectiveContext(source.objective_context)",
+  "objective_context is bounded Product Intelligence provenance only",
+  "If objective_context.repository_head_observed differs from the workspace base commit",
+  "objective_context: normalizedObjectiveContext(state?.objective_context)",
+  'product_objective_provenance_authorization_effect: "NONE"',
+  "resumeState.objective_context || objectiveContext",
+  "objective_context: normalizedObjectiveContext(objectiveContext)",
+  "objective_context = null",
+  "objective_context || resume_state?.objective_context",
+  "objective_context: objectiveContext",
+  'kind: "product_objective_provenance"',
+]);
 
 requireFragments(
   "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
@@ -305,6 +365,47 @@ if (
   );
 }
 
+const codeAutonomous = byKey.get("platform.code_ai_autonomous.execute");
+const objectiveContextSchema =
+  codeAutonomous?.input_schema?.properties?.objective_context;
+const codeAutonomousRequired = Array.isArray(codeAutonomous?.input_schema?.required)
+  ? codeAutonomous.input_schema.required
+  : [];
+if (
+  !codeAutonomous ||
+  !objectiveContextSchema ||
+  objectiveContextSchema.type !== "object" ||
+  objectiveContextSchema.additionalProperties !== false ||
+  codeAutonomousRequired.includes("objective_context") ||
+  Number(objectiveContextSchema.properties?.repository_head_observed?.maxLength) !== 160 ||
+  Number(objectiveContextSchema.properties?.selection_contract?.maxLength) !== 160 ||
+  Number(objectiveContextSchema.properties?.selected_candidate_id?.maxLength) !== 120 ||
+  objectiveContextSchema.properties?.selection_score?.type !== "number" ||
+  objectiveContextSchema.properties?.evidence_backed?.type !== "boolean"
+) {
+  throw new Error(
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: Code AI objective provenance must remain optional bounded non-authoritative context",
+  );
+}
+for (const forbiddenAuthorityField of [
+  "authorization",
+  "permissions",
+  "approval",
+  "approval_request_id",
+  "commit_message",
+  "deploy",
+  "migration",
+]) {
+  if (Object.prototype.hasOwnProperty.call(
+    objectiveContextSchema.properties || {},
+    forbiddenAuthorityField,
+  )) {
+    throw new Error(
+      `PRODUCT_REPOSITORY_CONTINUATION_AUDIT: objective_context must not carry authority field ${forbiddenAuthorityField}`,
+    );
+  }
+}
+
 const persistenceHandoff = byKey.get("platform.product_persistence_handoff.execute");
 if (
   !persistenceHandoff ||
@@ -359,6 +460,10 @@ console.log("OPERATOR_PRODUCT_REPOSITORY_EVIDENCE=FRESH_READ_ONLY_GITHUB_MAIN_CH
 console.log("OPERATOR_PRODUCT_REPOSITORY_HEAD=OBSERVED_AND_EXPLICIT");
 console.log("OPERATOR_PRODUCT_REPOSITORY_CONCURRENCY=NEWER_MAIN_PRESERVED");
 console.log("OPERATOR_PRODUCT_REPOSITORY_NEXT_OBJECTIVE=NONEMPTY_BOUNDED_HANDOFF_REQUIRED");
+console.log("OPERATOR_PRODUCT_OBJECTIVE_PROVENANCE=HEAD_CONTRACT_CANDIDATE_SCORE_EVIDENCE_FLAG");
+console.log("OPERATOR_PRODUCT_OBJECTIVE_PROVENANCE_BINDING=BOUNDED_SCALARS_ONLY");
+console.log("OPERATOR_PRODUCT_OBJECTIVE_PROVENANCE_CODE_STATE=PRESERVED_ACROSS_PLANNER_RESUME");
+console.log("OPERATOR_PRODUCT_OBJECTIVE_PROVENANCE_AUTHORITY=CONTEXT_ONLY_NONE");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY=REGISTERED_VERIFIER_BOUND_SCALARS_ONLY");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_CONTEXT=EXACT_DURABLE_MISSION_STEP_ONLY");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_ATTEMPT_MARKER=REQUIRED");

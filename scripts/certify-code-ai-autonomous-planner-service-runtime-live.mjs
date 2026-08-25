@@ -149,10 +149,18 @@ if (JSON.stringify(changedFiles) !== JSON.stringify(expectedFiles)) {
   throw new Error(`AVANTIQO_CODE_PLANNER_CERT_SCOPE_VIOLATION:${changedFiles.join(",")}`);
 }
 
-const verificationPassed = list(finalResult.state?.verification).some(
-  (entry) => entry?.passed === true &&
+const passedVerificationOperationIds = new Set(
+  list(finalResult.state?.verification)
+    .filter((entry) => entry?.passed === true)
+    .map((entry) => text(entry?.operation_id))
+    .filter(Boolean),
+);
+const verificationPassed = list(finalResult.state?.tests).some(
+  (entry) =>
+    passedVerificationOperationIds.has(text(entry?.operation_id)) &&
     text(entry?.command) === "node" &&
-    list(entry?.args).includes(VERIFIER),
+    list(entry?.args).includes(VERIFIER) &&
+    Number(entry?.exit_code) === 0,
 );
 if (!verificationPassed) throw new Error("AVANTIQO_CODE_PLANNER_CERT_VERIFICATION_EVIDENCE_REQUIRED");
 if (!text(finalResult.state?.patch)) throw new Error("AVANTIQO_CODE_PLANNER_CERT_DIFF_REQUIRED");

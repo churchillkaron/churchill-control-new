@@ -95,6 +95,18 @@ assert(
   slotManager.includes('text(process.env.AVANTIQO_ENV_FILE) || ".env.local"'),
   "CONTINUOUS_LEARNING_SLOT_MANAGER_ENV_FILE_REQUIRED",
 );
+assert(
+  slotManager.includes("const IDLE_WAIT_TIMEOUT_MS = 600_000"),
+  "CONTINUOUS_LEARNING_SLOT_IDLE_WAIT_BOUND_REQUIRED",
+);
+assert(
+  slotManager.includes("waitUntilIdleForDisable"),
+  "CONTINUOUS_LEARNING_SLOT_IDLE_WAIT_REQUIRED",
+);
+assert(
+  slotManager.includes("AVANTIQO_INTELLIGENCE_SLOT_WAITING_FOR_IDLE"),
+  "CONTINUOUS_LEARNING_SLOT_IDLE_WAIT_EVIDENCE_REQUIRED",
+);
 
 const cron = Array.isArray(vercel.crons)
   ? vercel.crons.find((item) => item.path === "/api/internal/intelligence/continuous-learning/process")
@@ -114,3 +126,4 @@ console.log("AVANTIQO_CONTINUOUS_LEARNING_DAILY_BUDGET_GUARD=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_HOURLY_CRON_READY=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_FAST_SLOT_LEASE_GUARDED=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_WAIT_BOUNDED=YES");
+console.log("AVANTIQO_CONTINUOUS_LEARNING_ACTIVE_JOB_DRAIN_GUARDED=YES");

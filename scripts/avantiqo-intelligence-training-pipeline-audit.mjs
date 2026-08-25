@@ -30,7 +30,6 @@ assert(candidate.includes("automatic_model_weight_mutation: false"), "TRAINING_C
 assert(dataset.includes("AVANTIQO_TRAINING_DATASET_V1"), "TRAINING_DATASET_CONTRACT_REQUIRED");
 assert(dataset.includes("MIN_READY_CANDIDATES = 8"), "TRAINING_DATASET_MIN_READY_REQUIRED");
 assert(dataset.includes("deterministic_holdout_split: true"), "TRAINING_DATASET_HOLDOUT_REQUIRED");
-assert(dataset.includes('preferred_method: "QLORA_OR_LORA"'), "TRAINING_DATASET_LORA_REQUIRED");
 assert(dataset.includes("base_weights_immutable: true"), "TRAINING_DATASET_IMMUTABLE_BASE_REQUIRED");
 assert(dataset.includes("raw_reasoning_training_allowed: false"), "TRAINING_DATASET_RAW_REASONING_FORBIDDEN");
 
@@ -53,6 +52,7 @@ assert(improvement.includes("AUTHORIZATION_FAILED"), "MODEL_IMPROVEMENT_AUTHORIZ
 assert(improvement.includes("automatic_production_promotion: false"), "MODEL_IMPROVEMENT_AUTO_PROMOTION_FORBIDDEN");
 
 assert(execution.includes("AVANTIQO_MODEL_TRAINING_EXECUTION_V1"), "TRAINING_EXECUTION_CONTRACT_REQUIRED");
+assert(execution.includes('TRAINING_METHOD = "LORA_BF16_PEFT_QWEN3_MOE"'), "TRAINING_EXECUTION_BF16_MOE_METHOD_REQUIRED");
 assert(execution.includes("AVANTIQO_INTELLIGENCE_TRAINER_ENABLED"), "TRAINING_EXECUTION_ENABLE_GATE_REQUIRED");
 assert(execution.includes("RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID"), "TRAINING_EXECUTION_DEDICATED_ENDPOINT_REQUIRED");
 assert(execution.includes("approved !== true"), "TRAINING_EXECUTION_EXPLICIT_APPROVAL_REQUIRED");
@@ -61,17 +61,22 @@ assert(execution.includes("foundation_weights_mutated !== false"), "TRAINING_EXE
 assert(execution.includes("production_model_promoted !== false"), "TRAINING_EXECUTION_PRODUCTION_INVARIANT_REQUIRED");
 assert(execution.includes("candidate_benchmark_required: true"), "TRAINING_EXECUTION_BENCHMARK_REQUIRED");
 assert(execution.includes("lora_dropout: 0"), "TRAINING_EXECUTION_MOE_DROPOUT_ZERO_REQUIRED");
+assert(execution.includes("output.base_precision !== \"BF16\""), "TRAINING_EXECUTION_BF16_RESULT_REQUIRED");
+assert(execution.includes("output.base_quantized !== false"), "TRAINING_EXECUTION_UNQUANTIZED_BASE_REQUIRED");
+assert(execution.includes("78 * 1024 * 1024 * 1024"), "TRAINING_EXECUTION_80GB_CLASS_GPU_REQUIRED");
 assert(execution.includes("AVANTIQO_INTELLIGENCE_TRAINER_MOE_ADAPTER_INVARIANT_FAILED"), "TRAINING_EXECUTION_MOE_COMPLETION_GATE_REQUIRED");
 assert(execution.includes("moe_adapter_attachment_verified !== true"), "TRAINING_EXECUTION_MOE_ATTACHMENT_REQUIRED");
-assert(execution.includes('"QLORA_NF4_PEFT_QWEN3_MOE"'), "TRAINING_EXECUTION_MOE_METHOD_REQUIRED");
+assert(execution.includes("moe_fused_expert_layout_verified !== true"), "TRAINING_EXECUTION_MOE_FUSED_LAYOUT_REQUIRED");
 
 assert(handler.includes('CONTRACT = "AVANTIQO_INTELLIGENCE_TRAINER_V1"'), "TRAINER_WORKER_CONTRACT_REQUIRED");
 assert(handler.includes('FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507"'), "TRAINER_FOUNDATION_ALLOWLIST_REQUIRED");
-assert(handler.includes("BitsAndBytesConfig"), "TRAINER_BITSANDBYTES_REQUIRED");
-assert(handler.includes('bnb_4bit_quant_type="nf4"'), "TRAINER_NF4_REQUIRED");
-assert(handler.includes("prepare_model_for_kbit_training"), "TRAINER_KBIT_PREPARATION_REQUIRED");
+assert(handler.includes("MIN_BF16_GPU_MEMORY_BYTES = 78 * 1024 * 1024 * 1024"), "TRAINER_BF16_80GB_CLASS_GPU_REQUIRED");
+assert(handler.includes("AutoModelForCausalLM.from_pretrained"), "TRAINER_MODEL_LOAD_REQUIRED");
+assert(handler.includes("torch_dtype=torch.bfloat16"), "TRAINER_BF16_MODEL_LOAD_REQUIRED");
+assert(!handler.includes("BitsAndBytesConfig"), "TRAINER_BITSANDBYTES_FORBIDDEN_FOR_FUSED_MOE");
+assert(!handler.includes("load_in_4bit"), "TRAINER_FAKE_QLORA_FORBIDDEN");
+assert(handler.includes("gradient_checkpointing_enable"), "TRAINER_GRADIENT_CHECKPOINTING_REQUIRED");
 assert(handler.includes("LoraConfig"), "TRAINER_LORA_REQUIRED");
-assert(handler.includes("gradient_checkpointing=True"), "TRAINER_GRADIENT_CHECKPOINTING_REQUIRED");
 assert(handler.includes("MOE_LORA_TARGET_PARAMETERS"), "TRAINER_MOE_TARGET_PARAMETERS_REQUIRED");
 assert(handler.includes('"mlp.experts.gate_up_proj"'), "TRAINER_MOE_GATE_UP_TARGET_REQUIRED");
 assert(handler.includes('"mlp.experts.down_proj"'), "TRAINER_MOE_DOWN_TARGET_REQUIRED");
@@ -80,10 +85,14 @@ assert(handler.includes('model_type != "qwen3_moe"'), "TRAINER_QWEN3_MOE_MODEL_T
 assert(handler.includes("effective_expert_rank = max(1, settings[\"lora_rank\"] // expert_count)"), "TRAINER_MOE_EXPERT_RANK_REQUIRED");
 assert(handler.includes("TRAINING_QWEN3_MOE_LORA_DROPOUT_MUST_BE_ZERO"), "TRAINER_MOE_DROPOUT_GUARD_REQUIRED");
 assert(handler.includes("lora_dropout=0.0"), "TRAINER_MOE_DROPOUT_ZERO_REQUIRED");
+assert(handler.includes("assert_bf16_fused_expert_weights"), "TRAINER_MOE_BF16_FUSED_EXPERT_PREFLIGHT_REQUIRED");
+assert(handler.includes("parameter.ndim != 3"), "TRAINER_MOE_3D_EXPERT_LAYOUT_REQUIRED");
+assert(handler.includes("parameter.dtype != torch.bfloat16"), "TRAINER_MOE_BF16_EXPERT_REQUIRED");
 assert(handler.includes('module.__class__.__name__ != "ParamWrapper"'), "TRAINER_MOE_PARAM_WRAPPER_VERIFICATION_REQUIRED");
 assert(handler.includes("TRAINING_QWEN3_MOE_EXPERT_LORA_NOT_TRAINABLE"), "TRAINER_MOE_TRAINABLE_EXPERT_REQUIRED");
 assert(handler.includes('"moe_adapter_attachment_verified": True'), "TRAINER_MOE_ATTACHMENT_EVIDENCE_REQUIRED");
-assert(handler.includes('"method": "QLORA_NF4_PEFT_QWEN3_MOE"'), "TRAINER_MOE_METHOD_REQUIRED");
+assert(handler.includes('"method": "LORA_BF16_PEFT_QWEN3_MOE"'), "TRAINER_MOE_METHOD_REQUIRED");
+assert(handler.includes('"base_quantized": False'), "TRAINER_BASE_QUANTIZATION_FALSE_REQUIRED");
 assert(handler.includes("AVANTIQO_INTELLIGENCE_TRAINER_ENABLED"), "TRAINER_ENABLE_GATE_REQUIRED");
 assert(handler.includes('payload.get("execute_training") is not True'), "TRAINER_EXPLICIT_EXECUTION_REQUIRED");
 assert(handler.includes('"foundation_weights_mutated": False'), "TRAINER_BASE_WEIGHT_MUTATION_FORBIDDEN");
@@ -99,7 +108,7 @@ assert(requirements.includes("runpod==1.12.0"), "TRAINER_RUNPOD_PIN_REQUIRED");
 assert(requirements.includes("transformers==5.15.0"), "TRAINER_TRANSFORMERS_PIN_REQUIRED");
 assert(requirements.includes("peft==0.20.0"), "TRAINER_PEFT_PIN_REQUIRED");
 assert(requirements.includes("accelerate==1.14.0"), "TRAINER_ACCELERATE_PIN_REQUIRED");
-assert(requirements.includes("bitsandbytes==0.50.0"), "TRAINER_BITSANDBYTES_PIN_REQUIRED");
+assert(!requirements.includes("bitsandbytes"), "TRAINER_BITSANDBYTES_DEPENDENCY_FORBIDDEN");
 
 assert(index.includes("AvantiqoTrainingExampleCompilerRuntime"), "TRAINING_COMPILER_EXPORT_REQUIRED");
 assert(index.includes("AvantiqoModelImprovementRuntime"), "MODEL_IMPROVEMENT_EXPORT_REQUIRED");
@@ -108,7 +117,9 @@ assert(index.includes("AvantiqoModelTrainingExecutionRuntime"), "TRAINING_EXECUT
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_PIPELINE_AUDIT=PASS");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_RAW_CUSTOMER_DATA=FORBIDDEN");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_RAW_REASONING=FORBIDDEN");
-console.log("AVANTIQO_INTELLIGENCE_TRAINING_METHOD=QLORA_PEFT_QWEN3_MOE");
+console.log("AVANTIQO_INTELLIGENCE_TRAINING_METHOD=LORA_BF16_PEFT_QWEN3_MOE");
+console.log("AVANTIQO_INTELLIGENCE_TRAINING_BASE_QUANTIZED=NO");
+console.log("AVANTIQO_INTELLIGENCE_TRAINING_GPU_CLASS=80GB");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_MOE_EXPERT_TARGETING=REQUIRED");
 console.log("AVANTIQO_INTELLIGENCE_TRAINING_MOE_DROPOUT=ZERO");
 console.log("AVANTIQO_INTELLIGENCE_TRAINER_DEFAULT_ENABLED=NO");

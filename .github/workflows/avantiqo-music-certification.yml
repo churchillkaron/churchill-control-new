@@ -49,7 +49,7 @@ jobs:
           mkdir -p artifacts
           node scripts/benchmark-avantiqo-music.mjs
 
-      - name: Verify certification remains measure-only
+      - name: Verify certification remains measure-only and XL plus LM bound
         if: success()
         run: |
           node --input-type=module <<'NODE'
@@ -60,7 +60,19 @@ jobs:
           if (report.summary?.passed !== true) throw new Error("MUSIC_CERTIFICATION_BENCHMARK_FAILED");
           if (report.benchmark_scope?.organization_record_created !== false) throw new Error("MUSIC_CERTIFICATION_MUST_NOT_CREATE_ORGANIZATION");
           if (!String(report.benchmark_scope?.organization_id || "").startsWith("benchmark-")) throw new Error("MUSIC_CERTIFICATION_SCOPE_MUST_BE_SYNTHETIC");
+          if (report.model?.variant !== "acestep-v15-xl-turbo") throw new Error("MUSIC_CERTIFICATION_XL_MODEL_REQUIRED");
+          if (report.model?.quality_profile !== "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1") throw new Error("MUSIC_CERTIFICATION_QUALITY_PROFILE_REQUIRED");
+          if (report.model?.ace_step_lm_required !== true) throw new Error("MUSIC_CERTIFICATION_LM_REQUIRED");
+          if (report.model?.ace_step_lm_model !== "acestep-5Hz-lm-1.7B") throw new Error("MUSIC_CERTIFICATION_LM_MODEL_INVALID");
+          if (report.model?.ace_step_lm_backend !== "vllm") throw new Error("MUSIC_CERTIFICATION_LM_BACKEND_INVALID");
+          if (report.model?.thinking_required !== true) throw new Error("MUSIC_CERTIFICATION_THINKING_REQUIRED");
+          if (report.observations?.length !== 1) throw new Error("MUSIC_CERTIFICATION_EXACTLY_ONE_RUN_REQUIRED");
+          const observation = report.observations[0];
+          if (observation?.ace_step_lm_used !== true) throw new Error("MUSIC_CERTIFICATION_LM_NOT_USED");
+          if (observation?.thinking_enabled !== true) throw new Error("MUSIC_CERTIFICATION_THINKING_NOT_USED");
+          if (observation?.quality_profile !== report.model.quality_profile) throw new Error("MUSIC_CERTIFICATION_OBSERVED_QUALITY_PROFILE_MISMATCH");
           console.log("MUSIC_CERTIFICATION_MEASURE_ONLY=PASS");
+          console.log("MUSIC_CERTIFICATION_XL_PLUS_1_7B_LM=PASS");
           console.log(`MUSIC_CERTIFICATION_RUNPOD_EXECUTION_MS=${report.summary?.p50_runpod_execution_ms ?? "unknown"}`);
           console.log(`MUSIC_CERTIFICATION_WALL_MS=${report.summary?.p50_wall_ms ?? "unknown"}`);
           NODE
@@ -88,6 +100,10 @@ jobs:
             console.log(`- Contract: ${report.contract}`);
             console.log(`- Benchmark passed: ${report.summary?.passed === true}`);
             console.log(`- Runs: ${report.summary?.runs || 0}`);
+            console.log(`- Model variant: ${report.model?.variant || "unknown"}`);
+            console.log(`- Quality profile: ${report.model?.quality_profile || "unknown"}`);
+            console.log(`- LM used: ${report.observations?.[0]?.ace_step_lm_used === true}`);
+            console.log(`- Thinking enabled: ${report.observations?.[0]?.thinking_enabled === true}`);
             console.log(`- RunPod execution ms: ${report.summary?.p50_runpod_execution_ms ?? "unknown"}`);
             console.log(`- Wall ms: ${report.summary?.p50_wall_ms ?? "unknown"}`);
             console.log(`- Human audio review required: ${report.certification_requirements?.human_audio_quality_review_required === true}`);

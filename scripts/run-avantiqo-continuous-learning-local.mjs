@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import { createConnection, createServer } from "node:net";
 import path from "node:path";
 import process from "node:process";
@@ -23,6 +24,7 @@ const SCOPES = Object.freeze([
 ]);
 const NEXT_START_TIMEOUT_MS = 90_000;
 const RESEARCH_TIMEOUT_MS = 600_000;
+const RESEARCH_RESPONSE_LIMIT = 2_000_000;
 const CHILD_TAIL_LIMIT = 12_000;
 
 function text(value, limit = 4000) {
@@ -282,26 +284,70 @@ function sanitizeBatch(body, httpStatus) {
 }
 
 async function invokeOneResearch(port, cronSecret) {
-  const response = await fetch(`http://127.0.0.1:${port}${ROUTE_PATH}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${cronSecret}`,
-      Accept: "application/json",
-    },
-    signal: AbortSignal.timeout(RESEARCH_TIMEOUT_MS),
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let raw = "";
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(overallTimer);
+      callback(value);
+    };
+    const request = httpRequest(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: ROUTE_PATH,
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${cronSecret}`,
+          Accept: "application/json",
+          Connection: "close",
+        },
+      },
+      (response) => {
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          raw += chunk;
+          if (raw.length > RESEARCH_RESPONSE_LIMIT) {
+            request.destroy(
+              new Error("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RESEARCH_RESPONSE_TOO_LARGE"),
+            );
+          }
+        });
+        response.once("aborted", () => {
+          finish(
+            reject,
+            new Error("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RESEARCH_RESPONSE_ABORTED"),
+          );
+        });
+        response.once("error", (error) => finish(reject, error));
+        response.once("end", () => {
+          let body = null;
+          try {
+            body = raw ? JSON.parse(raw) : null;
+          } catch {
+            body = { success: false, error: "NON_JSON_RESPONSE" };
+          }
+          const status = Number(response.statusCode || 0);
+          finish(resolve, {
+            ok: status >= 200 && status < 300,
+            status,
+            sanitized: sanitizeBatch(body, status),
+          });
+        });
+      },
+    );
+    const overallTimer = setTimeout(() => {
+      request.destroy(
+        new Error(
+          `AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RESEARCH_TIMEOUT:${RESEARCH_TIMEOUT_MS}`,
+        ),
+      );
+    }, RESEARCH_TIMEOUT_MS);
+    request.once("error", (error) => finish(reject, error));
+    request.end();
   });
-  const raw = await response.text();
-  let body = null;
-  try {
-    body = raw ? JSON.parse(raw) : null;
-  } catch {
-    body = { success: false, error: "NON_JSON_RESPONSE" };
-  }
-  return {
-    ok: response.ok,
-    status: response.status,
-    sanitized: sanitizeBatch(body, response.status),
-  };
 }
 
 assertNode24();
@@ -408,7 +454,18 @@ try {
     executionError = `AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RESEARCH_FAILED:http=${research.status}`;
   }
 } catch (error) {
-  executionError = redact(text(error?.message || error, 1800), secrets);
+  const causeCode = text(error?.cause?.code || error?.code, 160);
+  const causeMessage = text(error?.cause?.message, 700);
+  executionError = redact(
+    [
+      text(error?.message || error, 1200),
+      causeCode ? `cause_code=${causeCode}` : "",
+      causeMessage ? `cause=${causeMessage}` : "",
+    ]
+      .filter(Boolean)
+      .join(":"),
+    secrets,
+  );
   countsAfter = await snapshotCounts(organization.id).catch(() => null);
 } finally {
   await stopChild(child);

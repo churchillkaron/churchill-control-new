@@ -34,28 +34,33 @@ jobs:
           test -f services/avantiqo-image-engine/handler.py
           test -f services/avantiqo-image-engine/handler_v2.py
           test -f services/avantiqo-image-engine/handler_v3.py
-          grep -F 'CMD ["python", "-u", "handler_v3.py"]' services/avantiqo-image-engine/Dockerfile
+          test -f services/avantiqo-image-engine/handler_v4.py
+          grep -F 'COPY handler_v4.py ./handler_v4.py' services/avantiqo-image-engine/Dockerfile
+          grep -F 'CMD ["python", "-u", "handler_v4.py"]' services/avantiqo-image-engine/Dockerfile
+          grep -F 'RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V4_MULTI_FOUNDATION_CANDIDATE_V1"' services/avantiqo-image-engine/handler_v4.py
+          grep -F 'RUNTIME_REVISION = "AVANTIQO_IMAGE_MULTI_FOUNDATION_CANDIDATE_V1"' services/avantiqo-image-engine/handler_v4.py
+          grep -F 'PHOTOREAL_FOUNDATION_MODEL = "Tongyi-MAI/Z-Image"' services/avantiqo-image-engine/handler_v4.py
+          grep -F 'PHOTOREAL_PROFILE = "AVANTIQO_IMAGE_COMMERCIAL_PHOTOREAL_CANDIDATE_V1"' services/avantiqo-image-engine/handler_v4.py
+          grep -F 'PHOTOREAL_POLICY = "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V1"' services/avantiqo-image-engine/handler_v4.py
+          grep -F 'PHOTOREAL_CACHE_CONTRACT = "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1"' services/avantiqo-image-engine/handler_v4.py
+          grep -F 'CAPACITY_OPERATION = "inspect_foundation_capacity"' services/avantiqo-image-engine/handler_v4.py
+          grep -F '"automatic_production_routing_enabled": False' services/avantiqo-image-engine/handler_v4.py
+          grep -F '"model_download_performed": False' services/avantiqo-image-engine/handler_v4.py
+          grep -F '"generation_requested": False' services/avantiqo-image-engine/handler_v4.py
+          grep -F '"inference_performed": False' services/avantiqo-image-engine/handler_v4.py
           grep -F 'RUNTIME_PROBE_OPERATION = "runtime_probe"' services/avantiqo-image-engine/handler_v3.py
           grep -F 'RUNTIME_PROBE_CONTRACT = "AVANTIQO_IMAGE_RUNTIME_PROBE_V1"' services/avantiqo-image-engine/handler_v3.py
-          grep -F 'RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V3_QUALITY_COMPILER_V2"' services/avantiqo-image-engine/handler_v3.py
-          grep -F 'QUALITY_RUNTIME_REVISION = "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2"' services/avantiqo-image-engine/handler_v3.py
-          grep -F 'QUALITY_POLICY = "QWEN_IMAGE_2512_REALISM_IDENTITY_PHYSICS_V2"' services/avantiqo-image-engine/handler_v3.py
-          grep -F 'QUALITY_COMPILER_CONTRACT = "AVANTIQO_IMAGE_QUALITY_COMPILER_V2"' services/avantiqo-image-engine/handler_v3.py
-          grep -F '"identity_separation"' services/avantiqo-image-engine/handler_v3.py
-          grep -F '"requested_hand_visibility"' services/avantiqo-image-engine/handler_v3.py
-          grep -F '"physical_food_realism"' services/avantiqo-image-engine/handler_v3.py
-          grep -F '"photographic_naturalism"' services/avantiqo-image-engine/handler_v3.py
-          grep -F '"generation_requested": False' services/avantiqo-image-engine/handler_v3.py
-          grep -F '"inference_performed": False' services/avantiqo-image-engine/handler_v3.py
           python -m py_compile \
             services/avantiqo-image-engine/handler.py \
             services/avantiqo-image-engine/handler_v2.py \
-            services/avantiqo-image-engine/handler_v3.py
+            services/avantiqo-image-engine/handler_v3.py \
+            services/avantiqo-image-engine/handler_v4.py
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_PREFLIGHT=PASS'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_TRIGGER_SHA_BOUND=true'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_RUNTIME_PROBE_REQUIRED=true'
-          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_QUALITY_COMPILER_V2_LOCKED=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V4_PHOTOREAL_CANDIDATE_LOCKED=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_AUTOMATIC_PRODUCTION_ROUTING=false'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -124,7 +129,7 @@ jobs:
           const digest = process.env.IMAGE_DIGEST;
           const report = {
             success: true,
-            contract: "AVANTIQO_IMAGE_WORKER_IMAGE_RESULT_V1",
+            contract: "AVANTIQO_IMAGE_WORKER_IMAGE_RESULT_V2",
             source_sha: process.env.RELEASE_SHA || null,
             trigger_sha: process.env.TRIGGER_SHA || null,
             source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
@@ -133,20 +138,21 @@ jobs:
             image_tag: process.env.IMAGE_TAG || null,
             image_digest: digest,
             immutable_image_reference: `${repository}@${digest}`,
-            entrypoint: "handler_v3.py",
-            entrypoint_revision: "AVANTIQO_IMAGE_HANDLER_V3_QUALITY_COMPILER_V2",
+            entrypoint: "handler_v4.py",
+            entrypoint_revision: "AVANTIQO_IMAGE_HANDLER_V4_MULTI_FOUNDATION_CANDIDATE_V1",
             runtime_probe_contract: "AVANTIQO_IMAGE_RUNTIME_PROBE_V1",
-            runtime_revision: "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2",
-            quality_policy: "QWEN_IMAGE_2512_REALISM_IDENTITY_PHYSICS_V2",
-            quality_compiler_contract: "AVANTIQO_IMAGE_QUALITY_COMPILER_V2",
-            quality_compiler_rules: [
-              "identity_separation",
-              "requested_hand_visibility",
-              "physical_food_realism",
-              "photographic_naturalism",
-            ],
+            runtime_revision: "AVANTIQO_IMAGE_MULTI_FOUNDATION_CANDIDATE_V1",
+            qwen_runtime_revision: "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2",
+            photoreal_candidate_foundation: "Tongyi-MAI/Z-Image",
+            photoreal_candidate_profile: "AVANTIQO_IMAGE_COMMERCIAL_PHOTOREAL_CANDIDATE_V1",
+            photoreal_candidate_policy: "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V1",
+            photoreal_cache_contract: "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1",
+            capacity_probe_operation: "inspect_foundation_capacity",
+            automatic_production_routing_enabled: false,
+            qwen_replaced: false,
             provider_job_submitted: false,
             image_generation_submitted: false,
+            model_download_submitted: false,
             production_web_deploy: false,
             pricing_activation_performed: false,
             secrets_in_output: false,
@@ -172,8 +178,10 @@ jobs:
         run: |
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_SOURCE_TRIGGER_MATCH=true'
-          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_QUALITY_COMPILER_V2=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V4_PHOTOREAL_CANDIDATE=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_AUTOMATIC_PRODUCTION_ROUTING=false'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_MODEL_DOWNLOAD_SUBMITTED=false'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_PRODUCTION_WEB_DEPLOY=false'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_PRICING_ACTIVATION=false'

@@ -7,10 +7,10 @@ from typing import Any
 
 import runpod
 import torch
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from peft import LoraConfig, get_peft_model
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 CONTRACT = "AVANTIQO_INTELLIGENCE_TRAINER_V1"
 FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507"
@@ -24,6 +24,7 @@ MAX_SEQUENCE_LENGTH = 4096
 MAX_STEPS = 300
 MAX_EPOCHS = 3
 MAX_LORA_RANK = 64
+MIN_BF16_GPU_MEMORY_BYTES = 78 * 1024 * 1024 * 1024
 DENSE_LORA_TARGET_MODULES = [
     "q_proj",
     "k_proj",
@@ -217,6 +218,26 @@ def evaluate_loss(model, loader, device) -> float:
     return total / max(1, count)
 
 
+def gpu_memory_preflight() -> dict:
+    if not torch.cuda.is_available():
+        raise RuntimeError("TRAINING_CUDA_REQUIRED")
+    if not torch.cuda.is_bf16_supported():
+        raise RuntimeError("TRAINING_BF16_GPU_REQUIRED")
+    properties = torch.cuda.get_device_properties(0)
+    total_memory = int(properties.total_memory)
+    if total_memory < MIN_BF16_GPU_MEMORY_BYTES:
+        gib = total_memory / (1024 ** 3)
+        raise RuntimeError(
+            f"TRAINING_QWEN3_MOE_BF16_80GB_GPU_REQUIRED:{gib:.1f}GiB"
+        )
+    return {
+        "device_name": text(properties.name, 240),
+        "total_memory_bytes": total_memory,
+        "minimum_memory_bytes": MIN_BF16_GPU_MEMORY_BYTES,
+        "bf16_supported": True,
+    }
+
+
 def qwen3_moe_expert_count(model) -> int:
     model_type = text(getattr(model.config, "model_type", ""), 80)
     if model_type != "qwen3_moe":
@@ -233,6 +254,27 @@ def qwen3_moe_expert_count(model) -> int:
     if count < 2:
         raise RuntimeError("TRAINING_QWEN3_MOE_EXPERT_COUNT_REQUIRED")
     return count
+
+
+def assert_bf16_fused_expert_weights(model) -> dict:
+    expert_parameters = {
+        name: parameter
+        for name, parameter in model.named_parameters()
+        if name.endswith("mlp.experts.gate_up_proj")
+        or name.endswith("mlp.experts.down_proj")
+    }
+    if not expert_parameters:
+        raise RuntimeError("TRAINING_QWEN3_MOE_FUSED_EXPERT_PARAMETERS_REQUIRED")
+    if any(parameter.ndim != 3 for parameter in expert_parameters.values()):
+        raise RuntimeError("TRAINING_QWEN3_MOE_FUSED_EXPERT_LAYOUT_REQUIRED")
+    if any(parameter.dtype != torch.bfloat16 for parameter in expert_parameters.values()):
+        raise RuntimeError("TRAINING_QWEN3_MOE_BF16_EXPERT_WEIGHTS_REQUIRED")
+    return {
+        "fused_expert_parameter_tensor_count": len(expert_parameters),
+        "fused_expert_parameter_count": sum(
+            int(parameter.numel()) for parameter in expert_parameters.values()
+        ),
+    }
 
 
 def build_qwen3_moe_lora(model, settings: dict):
@@ -255,9 +297,10 @@ def build_qwen3_moe_lora(model, settings: dict):
 
 
 def assert_moe_lora_attached(model) -> dict:
-    peft_config = obj(getattr(model, "peft_config", {})).get("default")
+    peft_configs = getattr(model, "peft_config", {})
+    peft_config = peft_configs.get("default") if isinstance(peft_configs, dict) else None
     configured_targets = set(
-        arr(getattr(peft_config, "target_parameters", None))
+        getattr(peft_config, "target_parameters", None) or []
     )
     expected_targets = set(MOE_LORA_TARGET_PARAMETERS)
     if configured_targets != expected_targets:
@@ -302,35 +345,28 @@ def assert_moe_lora_attached(model) -> dict:
     }
 
 
-def execute_training(plan: dict) -> dict:
-    if not torch.cuda.is_available():
-        raise RuntimeError("TRAINING_CUDA_REQUIRED")
-    if not torch.cuda.is_bf16_supported():
-        raise RuntimeError("TRAINING_BF16_GPU_REQUIRED")
+def prepare_gradient_checkpointing(model) -> None:
+    model.config.use_cache = False
+    model.gradient_checkpointing_enable()
+    if hasattr(model, "enable_input_require_grads"):
+        model.enable_input_require_grads()
 
+
+def execute_training(plan: dict) -> dict:
+    gpu = gpu_memory_preflight()
     settings = plan["settings"]
     tokenizer = AutoTokenizer.from_pretrained(plan["foundation_model"], use_fast=True)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    quantization = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
-        bnb_4bit_use_double_quant=True,
-    )
     model = AutoModelForCausalLM.from_pretrained(
         plan["foundation_model"],
-        quantization_config=quantization,
         torch_dtype=torch.bfloat16,
         device_map={"": 0},
         low_cpu_mem_usage=True,
     )
-    model.config.use_cache = False
-    model = prepare_model_for_kbit_training(
-        model,
-        use_gradient_checkpointing=True,
-    )
+    fused_experts = assert_bf16_fused_expert_weights(model)
+    prepare_gradient_checkpointing(model)
     lora, expert_count, effective_expert_rank = build_qwen3_moe_lora(
         model,
         settings,
@@ -351,8 +387,13 @@ def execute_training(plan: dict) -> dict:
     train_loader = DataLoader(train_data, batch_size=1, shuffle=True, collate_fn=collator)
     holdout_loader = DataLoader(holdout_data, batch_size=1, shuffle=False, collate_fn=collator)
 
+    trainable_parameters = [
+        parameter for parameter in model.parameters() if parameter.requires_grad
+    ]
+    if not trainable_parameters:
+        raise RuntimeError("TRAINING_LORA_PARAMETERS_REQUIRED")
     optimizer = torch.optim.AdamW(
-        [parameter for parameter in model.parameters() if parameter.requires_grad],
+        trainable_parameters,
         lr=settings["learning_rate"],
     )
     gradient_accumulation = settings["gradient_accumulation_steps"]
@@ -372,10 +413,7 @@ def execute_training(plan: dict) -> dict:
             cumulative_loss += float(loss.detach().cpu()) * gradient_accumulation
             micro_steps += 1
             if micro_steps % gradient_accumulation == 0:
-                torch.nn.utils.clip_grad_norm_(
-                    [parameter for parameter in model.parameters() if parameter.requires_grad],
-                    max_norm=1.0,
-                )
+                torch.nn.utils.clip_grad_norm_(trainable_parameters, max_norm=1.0)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
                 optimizer_steps += 1
@@ -401,7 +439,19 @@ def execute_training(plan: dict) -> dict:
         "mean_training_loss": cumulative_loss / max(1, micro_steps),
         "holdout_loss": holdout_loss,
         "holdout_perplexity": math.exp(min(20.0, holdout_loss)),
-        "method": "QLORA_NF4_PEFT_QWEN3_MOE",
+        "method": "LORA_BF16_PEFT_QWEN3_MOE",
+        "base_precision": "BF16",
+        "base_quantized": False,
+        "bf16_gpu_preflight_verified": True,
+        "gpu_device_name": gpu["device_name"],
+        "gpu_total_memory_bytes": gpu["total_memory_bytes"],
+        "moe_fused_expert_layout_verified": True,
+        "moe_fused_expert_parameter_tensor_count": fused_experts[
+            "fused_expert_parameter_tensor_count"
+        ],
+        "moe_fused_expert_parameter_count": fused_experts[
+            "fused_expert_parameter_count"
+        ],
         "moe_adapter_attachment_verified": True,
         "moe_expert_count": expert_count,
         "moe_effective_rank": effective_expert_rank,
@@ -434,6 +484,8 @@ def handler(event):
             "train_example_count": len(plan["train_examples"]),
             "holdout_example_count": len(plan["holdout_examples"]),
             "settings": plan["settings"],
+            "method": "LORA_BF16_PEFT_QWEN3_MOE",
+            "minimum_gpu_memory_bytes": MIN_BF16_GPU_MEMORY_BYTES,
             "moe_target_parameters": MOE_LORA_TARGET_PARAMETERS,
             "training_started": False,
             "production_model_promoted": False,

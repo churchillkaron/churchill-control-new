@@ -12,7 +12,7 @@ loadAvantiqoEnv();
 const REST_BASE = "https://rest.runpod.io/v1";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_AUDIO_VOICE_SHARED_VOLUME_EXPANSION_V3";
+const CONTRACT = "AVANTIQO_AUDIO_VOICE_SHARED_VOLUME_EXPANSION_V4";
 const TARGET_SIZE_GB = 80;
 const CURRENT_MIN_SIZE_GB = 20;
 const STORAGE_RATE_USD_PER_GB_MONTH = 0.07;
@@ -57,14 +57,24 @@ function command(name, args, code) {
   }
   return text(result.stdout);
 }
-function requireCurrentMain() {
-  command("git", ["fetch", "origin", "main"], "AVANTIQO_AUDIO_VOICE_VOLUME_FETCH_MAIN_FAILED");
+function resolveOperationMainSha() {
   const branch = command("git", ["branch", "--show-current"], "AVANTIQO_AUDIO_VOICE_VOLUME_BRANCH_READ_FAILED");
   if (branch !== "main") throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_MAIN_REQUIRED:${branch || "DETACHED"}`);
   const head = command("git", ["rev-parse", "HEAD"], "AVANTIQO_AUDIO_VOICE_VOLUME_HEAD_READ_FAILED");
+  const pinned = text(process.env.AVANTIQO_AUDIO_VOICE_VOLUME_OPERATION_MAIN_SHA);
+  if (pinned) {
+    if (!/^[a-f0-9]{40}$/i.test(pinned)) {
+      throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_OPERATION_MAIN_SHA_INVALID");
+    }
+    if (head !== pinned) {
+      throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_OPERATION_MAIN_SHA_MISMATCH:head=${head}:pinned=${pinned}`);
+    }
+    return { sha: pinned, pinned: true };
+  }
+  command("git", ["fetch", "origin", "main"], "AVANTIQO_AUDIO_VOICE_VOLUME_FETCH_MAIN_FAILED");
   const origin = command("git", ["rev-parse", "origin/main"], "AVANTIQO_AUDIO_VOICE_VOLUME_ORIGIN_READ_FAILED");
   if (head !== origin) throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin=${origin}`);
-  return head;
+  return { sha: head, pinned: false };
 }
 async function parseResponse(response, label) {
   const raw = await response.text();
@@ -265,12 +275,15 @@ const managementCredentialRead = await proveManagementCredential(managementCandi
 const managementKey = managementCredentialRead.credential;
 const managementCredentialSource = managementCredentialRead.credential_source;
 const candidates = inferenceCandidates();
-const mainSha = requireCurrentMain();
+const operationMain = resolveOperationMainSha();
+const mainSha = operationMain.sha;
 const imageEvidence = validateImageEvidence();
 
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_CONTRACT=${CONTRACT}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_MODE=${apply ? "APPLY" : "PLAN"}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_TARGET_GB=${TARGET_SIZE_GB}`);
+console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_OPERATION_MAIN_SHA=${mainSha}`);
+console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_OPERATION_MAIN_PINNED=${operationMain.pinned}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_MANAGEMENT_CREDENTIAL_SOURCE=${managementCredentialSource}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_MANAGEMENT_CREDENTIAL_FALLBACK=${managementCredentialRead.fallback_used}`);
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_NEW_VOLUME_CREATED=false");
@@ -370,6 +383,7 @@ const plan = {
   contract: CONTRACT,
   mode: apply ? "APPLY" : "PLAN",
   main_sha: mainSha,
+  operation_main_pinned: operationMain.pinned,
   management_credential_source: managementCredentialSource,
   management_credential_fallback_used: managementCredentialRead.fallback_used,
   cause: "ACE_STEP_XL_LM_DOWNLOAD_DISK_QUOTA_EXCEEDED_AT_30GB",

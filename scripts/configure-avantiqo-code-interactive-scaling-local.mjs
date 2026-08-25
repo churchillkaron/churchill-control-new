@@ -6,7 +6,7 @@ const TARGET = Object.freeze({
   workersMax: 1,
   scalerType: "REQUEST_COUNT",
   scalerValue: 1,
-  idleTimeout: 600,
+  idleTimeout: 60,
 });
 const SCALING_PATCH = Object.freeze({
   scalerType: TARGET.scalerType,

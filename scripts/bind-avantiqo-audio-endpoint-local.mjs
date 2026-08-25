@@ -86,6 +86,26 @@ async function submitFingerprint(endpointId, apiKey) {
   return body.id;
 }
 
+async function cancelFingerprint(endpointId, jobId, apiKey) {
+  const { response, raw, body } = await requestText(
+    `${RUNPOD_API_BASE}/${encodeURIComponent(endpointId)}/cancel/${encodeURIComponent(jobId)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `AVANTIQO_AUDIO_ENDPOINT_FINGERPRINT_CANCEL_FAILED:${response.status}:${compactDetail(raw) || "EMPTY_BODY"}`,
+    );
+  }
+  console.log("FINGERPRINT_CLEANUP_CANCEL_REQUESTED=true");
+  return body || {};
+}
+
 async function waitForFingerprint(endpointId, jobId, apiKey) {
   const startedAt = Date.now();
   while (Date.now() - startedAt <= MAX_WAIT_MS) {
@@ -140,7 +160,17 @@ console.log("FINGERPRINT_MODEL_PIPELINE_REACHED=false");
 
 const jobId = await submitFingerprint(candidateId, apiKey);
 console.log(`FINGERPRINT_JOB_ID=${jobId}`);
-const result = await waitForFingerprint(candidateId, jobId, apiKey);
+let result = null;
+try {
+  result = await waitForFingerprint(candidateId, jobId, apiKey);
+} catch (error) {
+  try {
+    await cancelFingerprint(candidateId, jobId, apiKey);
+  } catch (cancelError) {
+    console.error(`FINGERPRINT_CLEANUP_ERROR=${compactDetail(cancelError?.message || cancelError)}`);
+  }
+  throw error;
+}
 const identity = fingerprintIdentity(result);
 console.log(`FINGERPRINT_IDENTITY=${identity}`);
 

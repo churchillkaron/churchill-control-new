@@ -33,83 +33,96 @@ resolve_vercel_cli() {
   command -v vercel 2>/dev/null || return 1
 }
 
-source_sandbox_auth_mode() {
-  node - "$SOURCE_ROOT/.env.local" <<'NODE'
-const fs = require("node:fs");
-const { parseEnv } = require("node:util");
-const sourcePath = process.argv[2];
-const parsed = parseEnv(fs.readFileSync(sourcePath, "utf8"));
-const direct = Boolean(
-  String(parsed.VERCEL_TOKEN || "").trim() &&
-  String(parsed.VERCEL_PROJECT_ID || "").trim() &&
-  String(parsed.VERCEL_TEAM_ID || parsed.VERCEL_ORG_ID || "").trim()
-);
-process.stdout.write(direct ? "DIRECT_TOKEN" : "OIDC_REFRESH");
-NODE
-}
-
 prepare_shadow_env() {
-  local auth_mode
   local source_env_hash_before
   local source_env_hash_after
   local vercel_cli
-  local oidc_env_file
+  local pulled_env_file
+  local env_preflight
 
   source_env_hash_before="$(git hash-object "$SOURCE_ROOT/.env.local" 2>/dev/null || true)"
   [ -n "$source_env_hash_before" ] || fail "SOURCE_ENV_LOCAL_HASH_FAILED"
+  [ -f "$SOURCE_ROOT/.vercel/project.json" ] || fail "SOURCE_VERCEL_PROJECT_LINK_MISSING"
+  vercel_cli="$(resolve_vercel_cli)" || fail "VERCEL_CLI_MISSING"
+  pulled_env_file="$SHADOW_PARENT/vercel-development.env"
 
-  auth_mode="$(source_sandbox_auth_mode)" || fail "SOURCE_ENV_LOCAL_PARSE_FAILED"
+  (
+    cd "$SOURCE_ROOT" || exit 1
+    "$vercel_cli" env pull "$pulled_env_file" --environment=development --yes >/dev/null 2>&1
+  ) || fail "VERCEL_DEVELOPMENT_ENV_PULL_FAILED"
 
-  if [ "$auth_mode" = "DIRECT_TOKEN" ]; then
-    cp "$SOURCE_ROOT/.env.local" "$SHADOW_ROOT/.env.local" || fail "SHADOW_ENV_LOCAL_COPY_FAILED"
-    chmod 600 "$SHADOW_ROOT/.env.local" 2>/dev/null || true
-    echo "E2E_VERCEL_SANDBOX_AUTH=DIRECT_TOKEN"
-    echo "E2E_VERCEL_OIDC_REFRESHED=NO"
-  else
-    [ -f "$SOURCE_ROOT/.vercel/project.json" ] || fail "SOURCE_VERCEL_PROJECT_LINK_MISSING"
-    vercel_cli="$(resolve_vercel_cli)" || fail "VERCEL_CLI_MISSING"
-    oidc_env_file="$SHADOW_PARENT/vercel-development.env"
-
-    (
-      cd "$SOURCE_ROOT" || exit 1
-      "$vercel_cli" env pull "$oidc_env_file" --environment=development --yes >/dev/null 2>&1
-    ) || fail "VERCEL_OIDC_REFRESH_FAILED"
-
-    node - "$SOURCE_ROOT/.env.local" "$oidc_env_file" "$SHADOW_ROOT/.env.local" <<'NODE'
+  env_preflight="$(
+    node - "$SOURCE_ROOT/.env.local" "$pulled_env_file" "$SHADOW_ROOT/.env.local" <<'NODE'
 const fs = require("node:fs");
 const { parseEnv } = require("node:util");
 
 const sourcePath = process.argv[2];
 const pulledPath = process.argv[3];
 const targetPath = process.argv[4];
-const source = fs.readFileSync(sourcePath, "utf8");
+const local = parseEnv(fs.readFileSync(sourcePath, "utf8"));
 const pulled = parseEnv(fs.readFileSync(pulledPath, "utf8"));
-const oidcToken = String(pulled.VERCEL_OIDC_TOKEN || "").trim();
-if (!oidcToken) process.exit(2);
+const merged = { ...pulled };
 
-const filtered = source
-  .split(/\r?\n/)
-  .filter((line) => !/^\s*(?:export\s+)?VERCEL_OIDC_TOKEN\s*=/.test(line))
-  .join("\n")
-  .replace(/\s*$/, "");
-const merged = `${filtered}\nVERCEL_OIDC_TOKEN=${JSON.stringify(oidcToken)}\n`;
-fs.writeFileSync(targetPath, merged, { mode: 0o600 });
+for (const [key, value] of Object.entries(local)) {
+  const normalized = String(value ?? "");
+  if (normalized.trim()) merged[key] = normalized;
+}
+
+const validEntries = Object.entries(merged)
+  .filter(([key]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(key))
+  .sort(([left], [right]) => left.localeCompare(right));
+
+const serialized = validEntries
+  .map(([key, value]) => `${key}=${JSON.stringify(String(value ?? ""))}`)
+  .join("\n") + "\n";
+fs.writeFileSync(targetPath, serialized, { mode: 0o600 });
+
+const truthy = (key) => Boolean(String(merged[key] ?? "").trim());
+const directSandbox = Boolean(
+  truthy("VERCEL_TOKEN") &&
+  truthy("VERCEL_PROJECT_ID") &&
+  (truthy("VERCEL_TEAM_ID") || truthy("VERCEL_ORG_ID"))
+);
+const oidc = truthy("VERCEL_OIDC_TOKEN");
+const runtimeKey = truthy("RUNPOD_API_KEY");
+const managementKey = truthy("RUNPOD_MANAGEMENT_API_KEY");
+const endpointId = truthy("RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID");
+const intelligenceEndpointResolvable = endpointId || managementKey || runtimeKey;
+
+process.stdout.write([
+  `SANDBOX_AUTH=${directSandbox ? "DIRECT_TOKEN" : oidc ? "FRESH_OIDC" : "MISSING"}`,
+  `OIDC=${oidc ? "YES" : "NO"}`,
+  `RUNPOD_API_KEY=${runtimeKey ? "YES" : "NO"}`,
+  `RUNPOD_MANAGEMENT_API_KEY=${managementKey ? "YES" : "NO"}`,
+  `INTELLIGENCE_ENDPOINT_ID=${endpointId ? "YES" : "NO"}`,
+  `INTELLIGENCE_ENDPOINT_RESOLVABLE=${intelligenceEndpointResolvable ? "YES" : "NO"}`,
+].join("\n"));
 NODE
-    [ "$?" -eq 0 ] || fail "VERCEL_OIDC_TOKEN_MISSING_AFTER_PULL"
-    rm -f "$oidc_env_file"
+  )" || fail "SHADOW_ENV_MERGE_FAILED"
 
-    echo "E2E_VERCEL_SANDBOX_AUTH=FRESH_OIDC"
-    echo "E2E_VERCEL_OIDC_REFRESHED=YES"
-  fi
+  rm -f "$pulled_env_file"
+
+  echo "E2E_VERCEL_SANDBOX_AUTH=$(printf '%s\n' "$env_preflight" | awk -F= '$1=="SANDBOX_AUTH" {print $2; exit}')"
+  echo "E2E_VERCEL_OIDC_CONFIGURED=$(printf '%s\n' "$env_preflight" | awk -F= '$1=="OIDC" {print $2; exit}')"
+  echo "E2E_INTELLIGENCE_RUNPOD_API_KEY_CONFIGURED=$(printf '%s\n' "$env_preflight" | awk -F= '$1=="RUNPOD_API_KEY" {print $2; exit}')"
+  echo "E2E_INTELLIGENCE_RUNPOD_MANAGEMENT_KEY_CONFIGURED=$(printf '%s\n' "$env_preflight" | awk -F= '$1=="RUNPOD_MANAGEMENT_API_KEY" {print $2; exit}')"
+  echo "E2E_INTELLIGENCE_ENDPOINT_ID_CONFIGURED=$(printf '%s\n' "$env_preflight" | awk -F= '$1=="INTELLIGENCE_ENDPOINT_ID" {print $2; exit}')"
+  echo "E2E_INTELLIGENCE_ENDPOINT_RESOLVABLE=$(printf '%s\n' "$env_preflight" | awk -F= '$1=="INTELLIGENCE_ENDPOINT_RESOLVABLE" {print $2; exit}')"
+
+  [ "$(printf '%s\n' "$env_preflight" | awk -F= '$1=="SANDBOX_AUTH" {print $2; exit}')" != "MISSING" ] || fail "VERCEL_SANDBOX_CREDENTIALS_MISSING_AFTER_ENV_MERGE"
+  [ "$(printf '%s\n' "$env_preflight" | awk -F= '$1=="RUNPOD_API_KEY" {print $2; exit}')" = "YES" ] || fail "INTELLIGENCE_RUNPOD_API_KEY_MISSING_AFTER_ENV_MERGE"
+  [ "$(printf '%s\n' "$env_preflight" | awk -F= '$1=="INTELLIGENCE_ENDPOINT_RESOLVABLE" {print $2; exit}')" = "YES" ] || fail "INTELLIGENCE_ENDPOINT_NOT_RESOLVABLE_AFTER_ENV_MERGE"
 
   source_env_hash_after="$(git hash-object "$SOURCE_ROOT/.env.local" 2>/dev/null || true)"
   [ "$source_env_hash_after" = "$source_env_hash_before" ] || fail "SOURCE_ENV_LOCAL_MUTATED"
   echo "E2E_SOURCE_ENV_LOCAL_MUTATED=NO"
-  echo "E2E_VERCEL_SECRET_OUTPUT=NO"
+  echo "E2E_VERCEL_DEVELOPMENT_ENV_MERGED=YES"
+  echo "E2E_SECRET_VALUES_PRINTED=NO"
 }
 
 command -v git >/dev/null 2>&1 || fail "GIT_MISSING"
 command -v node >/dev/null 2>&1 || fail "NODE_MISSING"
+command -v awk >/dev/null 2>&1 || fail "AWK_MISSING"
 [ -d "$SOURCE_ROOT/.git" ] || [ -f "$SOURCE_ROOT/.git" ] || fail "SOURCE_PROJECT_NOT_GIT_WORKTREE"
 [ -d "$SOURCE_ROOT/node_modules" ] || fail "SOURCE_NODE_MODULES_MISSING"
 [ -f "$SOURCE_ROOT/.env.local" ] || fail "SOURCE_ENV_LOCAL_MISSING"

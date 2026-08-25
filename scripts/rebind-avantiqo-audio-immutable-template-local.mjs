@@ -4,6 +4,7 @@ const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-audio-worker-image.json";
+const ENV_PATH = ".env.local";
 const EXPECTED_IMAGE_CONTRACT = "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3";
 const EXPECTED_VARIANT = "acestep-v15-xl-turbo";
 const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
@@ -29,8 +30,53 @@ function finite(value, fallback = null) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+async function parseLocalEnv() {
+  let source = "";
+  try {
+    source = await readFile(ENV_PATH, "utf8");
+  } catch {
+    return {};
+  }
+
+  const parsed = {};
+  for (const rawLine of source.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const match = rawLine.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!match) continue;
+    const [, name, rawValue] = match;
+    let value = rawValue.trim();
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      const quote = value[0];
+      value = value.slice(1, -1);
+      if (quote === '"') {
+        value = value
+          .replace(/\\n/g, "\n")
+          .replace(/\\r/g, "\r")
+          .replace(/\\t/g, "\t")
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, "\\");
+      }
+    }
+    parsed[name] = value;
+  }
+  return parsed;
+}
+
+const LOCAL_ENV = await parseLocalEnv();
+
+function runtimeEnv(name) {
+  const inherited = text(process.env[name]);
+  if (inherited) return inherited;
+  return text(LOCAL_ENV[name]);
+}
+
 function required(name, code = `${name}_REQUIRED`) {
-  const value = text(process.env[name]);
+  const value = runtimeEnv(name);
   if (!value) throw new Error(code);
   return value;
 }
@@ -184,7 +230,7 @@ function resolveTemplate(endpoint, templates) {
 
 function resolveRegistryAuth(registryAuths, currentTemplate) {
   if (!Array.isArray(registryAuths)) throw new Error("RUNPOD_REGISTRY_AUTH_LIST_INVALID");
-  const explicitId = text(process.env.AVANTIQO_AUDIO_RUNPOD_REGISTRY_AUTH_ID);
+  const explicitId = runtimeEnv("AVANTIQO_AUDIO_RUNPOD_REGISTRY_AUTH_ID");
   if (explicitId) {
     const matches = registryAuths.filter((item) => text(item?.id) === explicitId);
     if (matches.length !== 1) {
@@ -292,11 +338,15 @@ const managementKey = required(
   "RUNPOD_MANAGEMENT_API_KEY",
   "RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_AUDIO_IMMUTABLE_REBIND",
 );
-const apiKey = text(process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY) || required("RUNPOD_API_KEY");
+const apiKey =
+  runtimeEnv("RUNPOD_AVANTIQO_AUDIO_API_KEY") ||
+  runtimeEnv("RUNPOD_API_KEY") ||
+  managementKey;
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
 const evidence = await imageEvidence();
 
 console.log(`AVANTIQO_AUDIO_IMMUTABLE_REBIND_MODE=${apply ? "APPLY" : "PLAN"}`);
+console.log("AVANTIQO_AUDIO_IMMUTABLE_REBIND_ENV_EXECUTED=false");
 console.log("AVANTIQO_AUDIO_IMMUTABLE_REBIND_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_AUDIO_IMMUTABLE_REBIND_PRODUCTION_DEPLOY_PERFORMED=false");
 console.log("AVANTIQO_AUDIO_IMMUTABLE_REBIND_PRICING_ACTIVATION_PERFORMED=false");
@@ -347,6 +397,12 @@ const plan = {
   success: true,
   contract: "AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_REBIND_V2",
   mode: apply ? "APPLY" : "PLAN",
+  local_env: {
+    path: ENV_PATH,
+    parsed_without_execution: true,
+    malformed_non_assignment_lines_ignored: true,
+    secret_values_printed: false,
+  },
   endpoint: {
     id: endpointId,
     name: AUDIO_ENDPOINT_NAME,

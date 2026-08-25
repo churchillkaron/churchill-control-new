@@ -13,6 +13,9 @@ import {
   listOperatorNavigationTargets,
 } from "@/lib/operator/runtime/OperatorNavigationCatalog";
 
+const VOICE_LANGUAGE_COOKIE = "avantiqo_voice_language";
+const VOICE_LANGUAGE_COOKIE_MAX_AGE_SECONDS = 300;
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -146,6 +149,18 @@ function errorResponse(error, status = 500) {
   );
 }
 
+function voiceLanguageCookie(language) {
+  const value = text(language).toLowerCase();
+  if (!/^[a-z]{2,3}$/.test(value)) return null;
+  return [
+    `${VOICE_LANGUAGE_COOKIE}=${encodeURIComponent(value)}`,
+    "Path=/api/operator",
+    `Max-Age=${VOICE_LANGUAGE_COOKIE_MAX_AGE_SECONDS}`,
+    "HttpOnly",
+    "SameSite=Lax",
+  ].join("; ");
+}
+
 export async function POST(request) {
   const startedAt = Date.now();
 
@@ -276,7 +291,7 @@ export async function POST(request) {
       usage_id: execution?.usage?.id || null,
     });
 
-    return Response.json({
+    const response = Response.json({
       success: true,
       transcript,
       wake_detected: detected,
@@ -285,7 +300,16 @@ export async function POST(request) {
       detected_language: detectedLanguage || null,
       language_source: languageSource,
       ui_locale: locale,
+      voice_language_continuity_seconds: language
+        ? VOICE_LANGUAGE_COOKIE_MAX_AGE_SECONDS
+        : 0,
     });
+    const cookie = voiceLanguageCookie(language);
+    if (cookie) {
+      response.headers.append("Set-Cookie", cookie);
+      response.headers.set("X-Avantiqo-Detected-Language", language);
+    }
+    return response;
   } catch (error) {
     console.error("OPERATOR_TRANSCRIPTION_ERROR", error);
 

@@ -20,19 +20,15 @@ OUTPUT_ROOT = Path(os.getenv(
 ))
 MAX_TRAIN_EXAMPLES = 512
 MAX_HOLDOUT_EXAMPLES = 128
-MAX_SEQUENCE_LENGTH = 4096
+MAX_SEQUENCE_LENGTH = 2048
+DEFAULT_SEQUENCE_LENGTH = 1024
 MAX_STEPS = 300
 MAX_EPOCHS = 3
 MAX_LORA_RANK = 64
 MIN_BF16_GPU_MEMORY_BYTES = 78 * 1024 * 1024 * 1024
 DENSE_LORA_TARGET_MODULES = [
     "q_proj",
-    "k_proj",
     "v_proj",
-    "o_proj",
-    "gate_proj",
-    "up_proj",
-    "down_proj",
 ]
 MOE_LORA_TARGET_PARAMETERS = [
     "mlp.experts.gate_up_proj",
@@ -134,7 +130,10 @@ def training_plan(payload: dict) -> dict:
         "holdout_examples": holdout_examples,
         "settings": {
             "max_sequence_length": bounded_int(
-                settings.get("max_sequence_length"), 2048, 256, MAX_SEQUENCE_LENGTH
+                settings.get("max_sequence_length"),
+                DEFAULT_SEQUENCE_LENGTH,
+                256,
+                MAX_SEQUENCE_LENGTH,
             ),
             "epochs": bounded_int(settings.get("epochs"), 1, 1, MAX_EPOCHS),
             "max_steps": bounded_int(settings.get("max_steps"), 120, 1, MAX_STEPS),
@@ -306,6 +305,12 @@ def assert_moe_lora_attached(model) -> dict:
     if configured_targets != expected_targets:
         raise RuntimeError("TRAINING_QWEN3_MOE_TARGET_PARAMETERS_NOT_BOUND")
 
+    configured_modules = set(
+        getattr(peft_config, "target_modules", None) or []
+    )
+    if configured_modules != set(DENSE_LORA_TARGET_MODULES):
+        raise RuntimeError("TRAINING_QWEN3_MOE_DENSE_TARGET_MODULES_NOT_BOUND")
+
     wrapped_parameter_names = set()
     wrapper_count = 0
     for name, module in model.named_modules():
@@ -445,6 +450,8 @@ def execute_training(plan: dict) -> dict:
         "bf16_gpu_preflight_verified": True,
         "gpu_device_name": gpu["device_name"],
         "gpu_total_memory_bytes": gpu["total_memory_bytes"],
+        "max_sequence_length": settings["max_sequence_length"],
+        "dense_lora_target_modules": DENSE_LORA_TARGET_MODULES,
         "moe_fused_expert_layout_verified": True,
         "moe_fused_expert_parameter_tensor_count": fused_experts[
             "fused_expert_parameter_tensor_count"
@@ -486,6 +493,7 @@ def handler(event):
             "settings": plan["settings"],
             "method": "LORA_BF16_PEFT_QWEN3_MOE",
             "minimum_gpu_memory_bytes": MIN_BF16_GPU_MEMORY_BYTES,
+            "dense_lora_target_modules": DENSE_LORA_TARGET_MODULES,
             "moe_target_parameters": MOE_LORA_TARGET_PARAMETERS,
             "training_started": False,
             "production_model_promoted": False,

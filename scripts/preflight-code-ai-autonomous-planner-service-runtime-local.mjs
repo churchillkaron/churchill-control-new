@@ -10,6 +10,7 @@ const ORGANIZATION_ID = String(
 ).trim();
 const SERVICE_ID = "ai.code.debug";
 const PROVIDER = "avantiqo-code";
+const FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct";
 const CURRENCY = "THB";
 
 function required(name) {
@@ -18,10 +19,27 @@ function required(name) {
   return value;
 }
 
+function text(value) {
+  return String(value ?? "").trim();
+}
+
 if (!ORGANIZATION_ID) throw new Error("AVANTIQO_CODE_PLANNER_CERT_ORGANIZATION_ID_REQUIRED");
 if (String(process.env.NODE_ENV || "").trim().toLowerCase() !== "development") {
   throw new Error("AVANTIQO_CODE_PLANNER_PREFLIGHT_DEVELOPMENT_ENV_REQUIRED");
 }
+
+if (!text(process.env.RUNPOD_API_KEY)) {
+  const fallback = text(
+    process.env.RUNPOD_AVANTIQO_CODE_API_KEY ||
+    process.env.RUNPOD_MANAGEMENT_API_KEY,
+  );
+  if (fallback) process.env.RUNPOD_API_KEY = fallback;
+}
+if (!text(process.env.RUNPOD_API_KEY)) throw new Error("CODE_PLANNER_PREFLIGHT_RUNPOD_QUEUE_CREDENTIAL_REQUIRED");
+if (!text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID)) {
+  throw new Error("CODE_PLANNER_PREFLIGHT_RUNPOD_ENDPOINT_REQUIRED");
+}
+process.env.AVANTIQO_CODE_ENGINE_ENABLED = "true";
 
 const supabase = createClient(
   required("NEXT_PUBLIC_SUPABASE_URL"),
@@ -78,13 +96,33 @@ if (pricing.metadata?.production_routing_allowed !== false) throw new Error("COD
 const [
   { PricingRuntime },
   autonomousRuntime,
+  { getProvider },
 ] = await Promise.all([
   import("../lib/platform/service-runtime/pricing/PricingRuntime.js"),
   import("../lib/code/runtime/CodeAIAutonomousRuntime.js"),
+  import("../lib/platform/service-runtime/providers/ProviderRegistry.js"),
 ]);
 
 if (typeof autonomousRuntime.executeAutonomousCodeMission !== "function") {
   throw new Error("CODE_PLANNER_PREFLIGHT_AUTONOMOUS_RUNTIME_NOT_LOADABLE");
+}
+
+const registeredProvider = getProvider(PROVIDER);
+if (!registeredProvider) throw new Error("CODE_PLANNER_PREFLIGHT_PROVIDER_NOT_REGISTERED");
+if (registeredProvider.runtimeAvailable !== true) {
+  throw new Error("CODE_PLANNER_PREFLIGHT_PROVIDER_RUNTIME_UNAVAILABLE");
+}
+if (!registeredProvider.capabilities?.includes(SERVICE_ID)) {
+  throw new Error("CODE_PLANNER_PREFLIGHT_DEBUG_CAPABILITY_NOT_REGISTERED");
+}
+if (registeredProvider.metadata?.foundation_model !== FOUNDATION_MODEL) {
+  throw new Error(`CODE_PLANNER_PREFLIGHT_FOUNDATION_MODEL_MISMATCH:${registeredProvider.metadata?.foundation_model || "missing"}`);
+}
+if (registeredProvider.metadata?.foundation_model_source_locked !== true) {
+  throw new Error("CODE_PLANNER_PREFLIGHT_FOUNDATION_MODEL_SOURCE_LOCK_REQUIRED");
+}
+if (registeredProvider.metadata?.runtime_configuration?.foundation_model_env_matches !== true) {
+  throw new Error("CODE_PLANNER_PREFLIGHT_FOUNDATION_MODEL_ENV_CONFLICT");
 }
 
 const settlementProbe = await PricingRuntime.resolveById({
@@ -112,6 +150,10 @@ console.log(JSON.stringify({
   organization_id: ORGANIZATION_ID,
   service_id: SERVICE_ID,
   provider: PROVIDER,
+  provider_runtime_available: true,
+  registered_capability: SERVICE_ID,
+  foundation_model: FOUNDATION_MODEL,
+  foundation_model_source_locked: true,
   service_active: true,
   owned_only: true,
   billing_enabled: false,

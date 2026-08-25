@@ -5,6 +5,7 @@ export const maxDuration = 300;
 import {
   claimSecretarySipOutboundCall,
   dispatchSecretarySipOutboundCall,
+  reconcileStaleSecretarySipCalls,
   secretarySipGatewayReadiness,
 } from "@/lib/operator/secretary/SecretarySipGatewayTransportRuntime";
 
@@ -22,6 +23,7 @@ export async function GET(request) {
     );
   }
 
+  const reconciled = await reconcileStaleSecretarySipCalls({ limit: 100 });
   const readiness = secretarySipGatewayReadiness();
   if (!readiness.ready) {
     return Response.json(
@@ -31,6 +33,7 @@ export async function GET(request) {
         status: "not_configured",
         claimed_count: 0,
         dispatched_count: 0,
+        reconciled,
         readiness,
         external_authority_used: false,
       },
@@ -61,6 +64,7 @@ export async function GET(request) {
       dispatched_count: dispatched,
       retry_scheduled_count: retryScheduled,
       failed_count: failed,
+      reconciled,
       results,
       external_authority_used: false,
     },

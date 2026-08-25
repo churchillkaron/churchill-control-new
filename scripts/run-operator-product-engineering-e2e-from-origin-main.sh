@@ -21,7 +21,95 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+resolve_vercel_cli() {
+  if [ -n "${AVANTIQO_VERCEL_CLI:-}" ] && [ -x "${AVANTIQO_VERCEL_CLI}" ]; then
+    printf '%s' "$AVANTIQO_VERCEL_CLI"
+    return 0
+  fi
+  if [ -x "$SOURCE_ROOT/node_modules/.bin/vercel" ]; then
+    printf '%s' "$SOURCE_ROOT/node_modules/.bin/vercel"
+    return 0
+  fi
+  command -v vercel 2>/dev/null || return 1
+}
+
+source_sandbox_auth_mode() {
+  node - "$SOURCE_ROOT/.env.local" <<'NODE'
+const fs = require("node:fs");
+const { parseEnv } = require("node:util");
+const sourcePath = process.argv[2];
+const parsed = parseEnv(fs.readFileSync(sourcePath, "utf8"));
+const direct = Boolean(
+  String(parsed.VERCEL_TOKEN || "").trim() &&
+  String(parsed.VERCEL_PROJECT_ID || "").trim() &&
+  String(parsed.VERCEL_TEAM_ID || parsed.VERCEL_ORG_ID || "").trim()
+);
+process.stdout.write(direct ? "DIRECT_TOKEN" : "OIDC_REFRESH");
+NODE
+}
+
+prepare_shadow_env() {
+  local auth_mode
+  local source_env_hash_before
+  local source_env_hash_after
+  local vercel_cli
+  local oidc_env_file
+
+  source_env_hash_before="$(git hash-object "$SOURCE_ROOT/.env.local" 2>/dev/null || true)"
+  [ -n "$source_env_hash_before" ] || fail "SOURCE_ENV_LOCAL_HASH_FAILED"
+
+  auth_mode="$(source_sandbox_auth_mode)" || fail "SOURCE_ENV_LOCAL_PARSE_FAILED"
+
+  if [ "$auth_mode" = "DIRECT_TOKEN" ]; then
+    cp "$SOURCE_ROOT/.env.local" "$SHADOW_ROOT/.env.local" || fail "SHADOW_ENV_LOCAL_COPY_FAILED"
+    chmod 600 "$SHADOW_ROOT/.env.local" 2>/dev/null || true
+    echo "E2E_VERCEL_SANDBOX_AUTH=DIRECT_TOKEN"
+    echo "E2E_VERCEL_OIDC_REFRESHED=NO"
+  else
+    [ -f "$SOURCE_ROOT/.vercel/project.json" ] || fail "SOURCE_VERCEL_PROJECT_LINK_MISSING"
+    vercel_cli="$(resolve_vercel_cli)" || fail "VERCEL_CLI_MISSING"
+    oidc_env_file="$SHADOW_PARENT/vercel-development.env"
+
+    (
+      cd "$SOURCE_ROOT" || exit 1
+      "$vercel_cli" env pull "$oidc_env_file" --environment=development --yes >/dev/null 2>&1
+    ) || fail "VERCEL_OIDC_REFRESH_FAILED"
+
+    node - "$SOURCE_ROOT/.env.local" "$oidc_env_file" "$SHADOW_ROOT/.env.local" <<'NODE'
+const fs = require("node:fs");
+const { parseEnv } = require("node:util");
+
+const sourcePath = process.argv[2];
+const pulledPath = process.argv[3];
+const targetPath = process.argv[4];
+const source = fs.readFileSync(sourcePath, "utf8");
+const pulled = parseEnv(fs.readFileSync(pulledPath, "utf8"));
+const oidcToken = String(pulled.VERCEL_OIDC_TOKEN || "").trim();
+if (!oidcToken) process.exit(2);
+
+const filtered = source
+  .split(/\r?\n/)
+  .filter((line) => !/^\s*(?:export\s+)?VERCEL_OIDC_TOKEN\s*=/.test(line))
+  .join("\n")
+  .replace(/\s*$/, "");
+const merged = `${filtered}\nVERCEL_OIDC_TOKEN=${JSON.stringify(oidcToken)}\n`;
+fs.writeFileSync(targetPath, merged, { mode: 0o600 });
+NODE
+    [ "$?" -eq 0 ] || fail "VERCEL_OIDC_TOKEN_MISSING_AFTER_PULL"
+    rm -f "$oidc_env_file"
+
+    echo "E2E_VERCEL_SANDBOX_AUTH=FRESH_OIDC"
+    echo "E2E_VERCEL_OIDC_REFRESHED=YES"
+  fi
+
+  source_env_hash_after="$(git hash-object "$SOURCE_ROOT/.env.local" 2>/dev/null || true)"
+  [ "$source_env_hash_after" = "$source_env_hash_before" ] || fail "SOURCE_ENV_LOCAL_MUTATED"
+  echo "E2E_SOURCE_ENV_LOCAL_MUTATED=NO"
+  echo "E2E_VERCEL_SECRET_OUTPUT=NO"
+}
+
 command -v git >/dev/null 2>&1 || fail "GIT_MISSING"
+command -v node >/dev/null 2>&1 || fail "NODE_MISSING"
 [ -d "$SOURCE_ROOT/.git" ] || [ -f "$SOURCE_ROOT/.git" ] || fail "SOURCE_PROJECT_NOT_GIT_WORKTREE"
 [ -d "$SOURCE_ROOT/node_modules" ] || fail "SOURCE_NODE_MODULES_MISSING"
 [ -f "$SOURCE_ROOT/.env.local" ] || fail "SOURCE_ENV_LOCAL_MISSING"
@@ -53,7 +141,7 @@ echo "ISOLATED_MAIN_HEAD=$SHADOW_HEAD"
 echo "E2E_SOURCE_CHECKOUT_MUTATED=NO"
 
 ln -s "$SOURCE_ROOT/node_modules" "$SHADOW_ROOT/node_modules" || fail "NODE_MODULES_LINK_FAILED"
-ln -s "$SOURCE_ROOT/.env.local" "$SHADOW_ROOT/.env.local" || fail "ENV_LOCAL_LINK_FAILED"
+prepare_shadow_env
 
 if [ "$SHADOW_HEAD" != "$SOURCE_ORIGIN_MAIN" ]; then
   echo "E2E_CONCURRENT_MAIN_ADVANCE_DURING_CLONE=YES"

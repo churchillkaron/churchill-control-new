@@ -1,0 +1,10 @@
+{
+  "contract": "AVANTIQO_VOICE_TTS_BLACKWELL_SMOKE_REQUEST_V1",
+  "requested_for": "one_controlled_blackwell_tts_generation",
+  "source_commit": "5cf70481730c89b3a914a9fc2782f65afe21eea7",
+  "generation_limit": 1,
+  "tts_only": true,
+  "stt": false,
+  "production_web_deploy": false,
+  "pricing_activation": false
+}

@@ -5,6 +5,9 @@ const REST_BASE = "https://rest.runpod.io/v1";
 const REGISTRY_AUTH_NAME = "avantiqo-ghcr";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-audio-worker-image.json";
 const CONTRACT = "AVANTIQO_RUNPOD_GHCR_AUTH_V1";
+const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
+const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
+const EXPECTED_LM_BACKEND = "vllm";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -133,16 +136,33 @@ async function immutableAudioImage() {
   const parsed = JSON.parse(await readFile(IMAGE_EVIDENCE_PATH, "utf8"));
   if (
     parsed?.success !== true ||
-    parsed?.contract !== "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2" ||
+    parsed?.contract !== "AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3" ||
     parsed?.source_sha_matches_trigger !== true ||
-    text(parsed?.source_sha) !== text(parsed?.trigger_sha)
+    text(parsed?.source_sha) !== text(parsed?.trigger_sha) ||
+    text(parsed?.runtime_variant) !== "acestep-v15-xl-turbo" ||
+    text(parsed?.quality_profile) !== EXPECTED_QUALITY_PROFILE ||
+    parsed?.ace_step_lm_required !== true ||
+    text(parsed?.lm_model) !== EXPECTED_LM_MODEL ||
+    text(parsed?.lm_backend) !== EXPECTED_LM_BACKEND ||
+    parsed?.xl_model_contract_passed_by_docker_build !== true ||
+    parsed?.lm_contract_passed_by_docker_build !== true ||
+    parsed?.production_web_deploy !== false ||
+    parsed?.provider_job_submitted !== false ||
+    parsed?.pricing_activation_performed !== false
   ) {
     throw new Error("AVANTIQO_AUDIO_IMMUTABLE_WORKER_IMAGE_EVIDENCE_INVALID");
   }
   const reference = text(parsed?.immutable_image_reference);
   const match = reference.match(/^ghcr\.io\/(.+)@(sha256:[a-f0-9]{64})$/i);
   if (!match) throw new Error("AVANTIQO_AUDIO_IMMUTABLE_GHCR_REFERENCE_REQUIRED");
-  return { reference, repository: match[1], digest: match[2] };
+  return {
+    reference,
+    repository: match[1],
+    digest: match[2],
+    quality_profile: EXPECTED_QUALITY_PROFILE,
+    lm_model: EXPECTED_LM_MODEL,
+    lm_backend: EXPECTED_LM_BACKEND,
+  };
 }
 
 async function proveGhcrPull(username, githubToken, image) {
@@ -200,6 +220,9 @@ const baseResult = {
   registry_auth_exists: Boolean(existing.auth),
   registry_auth_resolution: existing.resolution,
   immutable_audio_image: image.reference,
+  quality_profile: image.quality_profile,
+  lm_model: image.lm_model,
+  lm_backend: image.lm_backend,
   ghcr_pull_proof_performed: false,
   ghcr_pull_proof_passed: false,
   runpod_registry_auth_created: false,

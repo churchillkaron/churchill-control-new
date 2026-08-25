@@ -42,12 +42,18 @@ RUN ./configure --with-pjproject-bundled --with-jansson-bundled \
     && test -f /opt/asterisk-root/usr/lib/asterisk/modules/chan_pjsip.so \
     && test -f /opt/asterisk-root/var/lib/asterisk/documentation/core-en_US.xml
 
-FROM node:24-bookworm-slim
+# Node is required only for the owned inbound AGI. Keep the Asterisk runtime on the
+# previously certified Debian base and copy the Node 24 executable in as an isolated
+# runtime dependency instead of changing Asterisk's operating-system image.
+FROM node:24-bookworm-slim AS node-runtime
+
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    libatomic1 \
     libcurl4 \
     libedit2 \
     libjansson4 \
@@ -55,6 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libspeexdsp1 \
     libsqlite3-0 \
     libssl3 \
+    libstdc++6 \
     libuuid1 \
     libxml2 \
     tini \
@@ -70,6 +77,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       /var/run/asterisk \
       /var/spool/asterisk
 
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+
 # Copy immutable Asterisk install artifacts and generated runtime data only. Never copy
 # staged /var/run or other mutable runtime filesystem paths over Debian's final-stage layout.
 COPY --from=builder /opt/asterisk-root/usr/ /usr/
@@ -79,7 +88,7 @@ COPY inbound-agi.mjs /opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs
 COPY container-entrypoint.sh /usr/local/bin/avantiqo-asterisk-entrypoint
 
 RUN test -x /usr/local/bin/node \
-    && node --version \
+    && test "$(node --version | cut -d. -f1)" = "v24" \
     && node --check /opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs \
     && test -x /usr/sbin/asterisk \
     && test -f /usr/lib/asterisk/modules/app_audiosocket.so \
@@ -132,7 +141,8 @@ RUN test -x /usr/local/bin/node \
       /var/lib/asterisk \
       /var/log/asterisk \
       /var/run/asterisk \
-      /var/spool/asterisk
+      /var/spool/asterisk \
+    && sh -eu -c '/usr/sbin/asterisk -f -U asterisk -G asterisk -vvv >/tmp/asterisk-startup.log 2>&1 & pid=$!; sleep 3; if ! kill -0 "$pid" 2>/dev/null; then cat /tmp/asterisk-startup.log; wait "$pid" || true; exit 1; fi; kill -TERM "$pid"; wait "$pid" || true; rm -f /tmp/asterisk-startup.log'
 
 EXPOSE 5038/tcp 5060/udp 5060/tcp
 

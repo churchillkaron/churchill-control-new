@@ -24,6 +24,11 @@ const requiredMarkers = [
   "const operationId = `autonomy_${iteration}_${decision.action}`",
   "Read freshness is source-bound",
   "The planner iteration budget is global across pending/resume cycles",
+  "TRANSIENT_WORKSPACE_RETRY_LIMIT = 1",
+  "isTransientWorkspaceTermination",
+  'kind: "autonomous_execution_retry"',
+  "same_operation_retried: true",
+  "new_planner_request_submitted: false",
 ];
 
 const missing = requiredMarkers.filter((marker) => !source.includes(marker));
@@ -42,9 +47,15 @@ if (pendingBranch < 0 || pendingIterationPersistence < pendingBranch) {
 }
 
 const duplicateGuard = source.indexOf("const duplicate = duplicateActionGuard(control, decision)");
-const missionExecution = source.indexOf("execution = await executeCodeAIMission", duplicateGuard);
+const missionExecution = source.indexOf("const executeOperation = () => executeCodeAIMission", duplicateGuard);
 if (duplicateGuard < 0 || missionExecution <= duplicateGuard) {
   throw new Error("CODE_AI_AUTONOMY_DUPLICATE_GUARD_MUST_PRECEDE_MISSION_EXECUTION");
+}
+
+const transientRetry = source.indexOf('kind: "autonomous_execution_retry"', missionExecution);
+const terminalExecutionFailure = source.indexOf('kind: "autonomous_execution_failure"', transientRetry);
+if (transientRetry <= missionExecution || terminalExecutionFailure <= transientRetry) {
+  throw new Error("CODE_AI_AUTONOMY_TRANSIENT_WORKSPACE_RETRY_MUST_PRECEDE_TERMINAL_FAILURE");
 }
 
 const budgetGuard = source.indexOf("control.planner_iterations_used >= maximum");
@@ -73,7 +84,7 @@ if (operationObservation < 0 || sourceAdvanceOnApply < operationObservation || s
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V2",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V3",
   verified: {
     duplicate_read_search_run_guarded_without_new_evidence: true,
     source_bound_read_freshness: true,
@@ -86,6 +97,10 @@ console.log(JSON.stringify({
     pending_resume_reuses_original_iteration: true,
     resumed_operation_ids_remain_globally_monotonic: true,
     legacy_per_invocation_iteration_reset_removed: true,
+    transient_workspace_termination_retried_once: true,
+    transient_workspace_retry_reuses_planner_decision: true,
+    transient_workspace_retry_does_not_submit_new_planner_request: true,
+    repeated_workspace_termination_remains_fail_closed: true,
   },
   provider_calls_executed: false,
   provider_spend_approved: false,

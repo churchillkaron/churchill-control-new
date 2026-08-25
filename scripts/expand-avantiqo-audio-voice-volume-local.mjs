@@ -7,8 +7,9 @@ import {
 } from "./lib/avantiqo-runpod-shared-volumes.mjs";
 
 const REST_BASE = "https://rest.runpod.io/v1";
+const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_AUDIO_VOICE_SHARED_VOLUME_EXPANSION_V1";
+const CONTRACT = "AVANTIQO_AUDIO_VOICE_SHARED_VOLUME_EXPANSION_V2";
 const TARGET_SIZE_GB = 80;
 const CURRENT_MIN_SIZE_GB = 20;
 const STORAGE_RATE_USD_PER_GB_MONTH = 0.07;
@@ -107,23 +108,43 @@ function inferenceCandidates() {
     return true;
   });
 }
-async function queueHealth(endpointId, candidates) {
+async function readWithCandidates(url, candidates, label) {
   const attempts = [];
   for (const candidate of candidates) {
     try {
       const body = await parseResponse(
-        await fetch(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`, {
+        await fetch(url, {
           headers: { Authorization: `Bearer ${candidate.credential}`, Accept: "application/json" },
           signal: AbortSignal.timeout(30_000),
         }),
-        "RUNPOD_QUEUE_HEALTH",
+        label,
       );
       return { body, credential_source: candidate.source };
     } catch (error) {
       attempts.push(`${candidate.source}:${text(error?.message || error)}`);
     }
   }
-  throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_HEALTH_UNREACHABLE:${attempts.join("|")}`);
+  throw new Error(`${label}_CREDENTIALS_FAILED:${attempts.join("|")}`);
+}
+async function queueHealth(endpointId, candidates) {
+  return readWithCandidates(
+    `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`,
+    candidates,
+    "RUNPOD_QUEUE_HEALTH",
+  );
+}
+async function controlWorkers(endpointId, candidates) {
+  return readWithCandidates(
+    `${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers`,
+    candidates,
+    "RUNPOD_CONTROL_WORKERS",
+  );
+}
+function activeControlWorkers(body = {}) {
+  return list(body?.workers).filter((worker) => {
+    const status = text(worker?.status).toUpperCase();
+    return !["EXITED", "STOPPED", "TERMINATED", "DELETED"].includes(status);
+  });
 }
 function endpointVolumeIds(endpoint = {}) {
   return unique([endpoint.networkVolumeId, ...list(endpoint.networkVolumeIds)]);
@@ -289,13 +310,20 @@ for (const user of users) {
   }
 }
 
-const healthRead = await queueHealth(audioEndpointId, candidates);
+const [healthRead, controlRead] = await Promise.all([
+  queueHealth(audioEndpointId, candidates),
+  controlWorkers(audioEndpointId, candidates),
+]);
 const health = healthCounters(healthRead.body);
+const controlLive = activeControlWorkers(controlRead.body);
 if (health.jobs.in_queue > 0 || health.jobs.in_progress > 0) {
   throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_LIVE_JOBS_BLOCKED:in_queue=${health.jobs.in_queue}:in_progress=${health.jobs.in_progress}`);
 }
-if (health.workers.running > 0 || health.workers.unhealthy > 0) {
-  throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_EXECUTING_WORKERS_BLOCKED:running=${health.workers.running}:unhealthy=${health.workers.unhealthy}`);
+if (health.workers.unhealthy > 0) {
+  throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_UNHEALTHY_WORKERS_BLOCKED:count=${health.workers.unhealthy}`);
+}
+if (controlLive.length > 0) {
+  throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_CONTROL_WORKERS_BLOCKED:count=${controlLive.length}`);
 }
 
 const deltaGb = Math.max(0, TARGET_SIZE_GB - currentSizeGb);
@@ -326,6 +354,9 @@ const plan = {
   attached_endpoints: users,
   health,
   health_credential_source: healthRead.credential_source,
+  control_credential_source: controlRead.credential_source,
+  active_control_worker_count: controlLive.length,
+  health_worker_counters_observational_only: true,
   model_contract: {
     quality_profile: EXPECTED_PROFILE,
     variant: EXPECTED_VARIANT,
@@ -374,9 +405,20 @@ if (currentSizeGb < TARGET_SIZE_GB) {
   if (!endpointVolumeIds(freshAudio).includes(volumeId)) {
     throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_FRESH_AUDIO_ATTACHMENT_CHANGED");
   }
-  const freshHealth = healthCounters((await queueHealth(audioEndpointId, candidates)).body);
-  if (freshHealth.jobs.in_queue > 0 || freshHealth.jobs.in_progress > 0 || freshHealth.workers.running > 0 || freshHealth.workers.unhealthy > 0) {
-    throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_FRESH_LIVE_STATE_BLOCKED");
+  const [freshHealthRead, freshControlRead] = await Promise.all([
+    queueHealth(audioEndpointId, candidates),
+    controlWorkers(audioEndpointId, candidates),
+  ]);
+  const freshHealth = healthCounters(freshHealthRead.body);
+  const freshControlLive = activeControlWorkers(freshControlRead.body);
+  if (freshHealth.jobs.in_queue > 0 || freshHealth.jobs.in_progress > 0) {
+    throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_FRESH_LIVE_JOBS_BLOCKED:in_queue=${freshHealth.jobs.in_queue}:in_progress=${freshHealth.jobs.in_progress}`);
+  }
+  if (freshHealth.workers.unhealthy > 0) {
+    throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_FRESH_UNHEALTHY_WORKER_BLOCKED:count=${freshHealth.workers.unhealthy}`);
+  }
+  if (freshControlLive.length > 0) {
+    throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_FRESH_CONTROL_WORKER_BLOCKED:count=${freshControlLive.length}`);
   }
   await rest(`/networkvolumes/${encodeURIComponent(volumeId)}/update`, managementKey, {
     method: "POST",

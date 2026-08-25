@@ -123,7 +123,7 @@ async function main() {
     .select("id,organization_id,service_id,status,usage_enabled,billing_enabled,default_provider_id,fallback_enabled,default_currency,metadata")
     .single();
   if (serviceError) throw serviceError;
-  if (stagedService.usage_enabled !== false) {
+  if (stagedService.usage_enabled !== false || stagedService.billing_enabled !== false) {
     throw new Error("CODE_AI_PLANNER_CERTIFICATION_SERVICE_MUST_STAGE_DISABLED");
   }
 
@@ -181,13 +181,13 @@ async function main() {
 
   const { data: service, error: enableError } = await supabase
     .from("organization_services")
-    .update({ usage_enabled: true })
+    .update({ usage_enabled: true, billing_enabled: true })
     .eq("organization_id", organization.id)
     .eq("service_id", SERVICE_ID)
     .select("id,organization_id,service_id,status,usage_enabled,billing_enabled,default_provider_id,fallback_enabled,default_currency,metadata")
     .single();
   if (enableError) throw enableError;
-  if (service.usage_enabled !== true) {
+  if (service.usage_enabled !== true || service.billing_enabled !== true) {
     throw new Error("CODE_AI_PLANNER_CERTIFICATION_SERVICE_ENABLE_FAILED");
   }
 

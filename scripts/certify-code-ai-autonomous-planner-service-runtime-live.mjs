@@ -58,13 +58,13 @@ async function disableCertificationService() {
 
   const { data, error } = await supabase
     .from("organization_services")
-    .update({ usage_enabled: false })
+    .update({ usage_enabled: false, billing_enabled: false })
     .eq("organization_id", ORGANIZATION_ID)
     .eq("service_id", SERVICE_ID)
-    .select("id,organization_id,service_id,status,usage_enabled")
+    .select("id,organization_id,service_id,status,usage_enabled,billing_enabled")
     .maybeSingle();
   if (error) throw error;
-  if (data && data.usage_enabled !== false) {
+  if (data && (data.usage_enabled !== false || data.billing_enabled !== false)) {
     throw new Error("AVANTIQO_CODE_PLANNER_CERT_SERVICE_DISABLE_FAILED");
   }
 
@@ -73,6 +73,7 @@ async function disableCertificationService() {
     service_id: SERVICE_ID,
     service_found: Boolean(data),
     usage_enabled: data?.usage_enabled ?? false,
+    billing_enabled: data?.billing_enabled ?? false,
     automatic_shutdown: true,
     new_provider_execution_submitted: false,
     production_deploy_performed: false,
@@ -320,6 +321,7 @@ try {
     production_deploy_performed: false,
     external_fallback_used: false,
     service_disable_finally_armed: true,
+    billing_disable_finally_armed: true,
     secrets_printed: false,
   }, null, 2));
 } finally {

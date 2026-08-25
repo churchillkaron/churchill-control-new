@@ -33,18 +33,30 @@ jobs:
           test -f services/avantiqo-video-engine/Dockerfile
           test -f services/avantiqo-video-engine/handler.py
           test -f services/avantiqo-video-engine/handler_v2.py
+          test -f services/avantiqo-video-engine/handler_v3.py
           test -f services/avantiqo-video-engine/requirements.txt
           grep -F 'COPY handler.py ./handler.py' services/avantiqo-video-engine/Dockerfile
           grep -F 'COPY handler_v2.py ./handler_v2.py' services/avantiqo-video-engine/Dockerfile
-          grep -F 'CMD ["python", "-u", "handler_v2.py"]' services/avantiqo-video-engine/Dockerfile
+          grep -F 'COPY handler_v3.py ./handler_v3.py' services/avantiqo-video-engine/Dockerfile
+          grep -F 'CMD ["python", "-u", "handler_v3.py"]' services/avantiqo-video-engine/Dockerfile
           grep -F 'ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1"' services/avantiqo-video-engine/handler.py
           grep -F 'DEFAULT_CERTIFIED_CAPABILITIES = {' services/avantiqo-video-engine/handler.py
           grep -F 'EXTEND_CAPABILITY = "ai.video.extend"' services/avantiqo-video-engine/handler_v2.py
           grep -F 'UPSCALE_CAPABILITY = "ai.video.upscale"' services/avantiqo-video-engine/handler_v2.py
           grep -F 'legacy.IMPLEMENTED_CAPABILITIES.update(SPECIAL_CAPABILITIES)' services/avantiqo-video-engine/handler_v2.py
+          grep -F 'RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_VIDEO_HANDLER_V3_WAN22_A14B_DEFAULT_ROUTING_V1"' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'RUNTIME_REVISION = "AVANTIQO_VIDEO_WAN22_A14B_DEFAULT_ROUTING_CACHE_V1"' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'DEFAULT_ROUTING_CONTRACT = "AVANTIQO_VIDEO_WAN22_A14B_DEFAULT_GENERATION_ROUTING_V1"' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'DEFAULT_T2V_MODEL = "Wan-AI/Wan2.2-T2V-A14B-Diffusers"' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'DEFAULT_I2V_MODEL = "Wan-AI/Wan2.2-I2V-A14B-Diffusers"' services/avantiqo-video-engine/handler_v3.py
+          grep -F '"generation_requested": False' services/avantiqo-video-engine/handler_v3.py
+          grep -F '"inference_performed": False' services/avantiqo-video-engine/handler_v3.py
+          grep -F '"model_download_performed": False' services/avantiqo-video-engine/handler_v3.py
+          grep -F '"storage_mutation_performed": False' services/avantiqo-video-engine/handler_v3.py
           python -m py_compile \
             services/avantiqo-video-engine/handler.py \
-            services/avantiqo-video-engine/handler_v2.py
+            services/avantiqo-video-engine/handler_v2.py \
+            services/avantiqo-video-engine/handler_v3.py
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_PREFLIGHT=PASS'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_TRIGGER_SHA_BOUND=true'
@@ -119,7 +131,8 @@ jobs:
           const digest = process.env.IMAGE_DIGEST;
           const report = {
             success: true,
-            contract: "AVANTIQO_VIDEO_WORKER_IMAGE_RESULT_V1",
+            contract: "AVANTIQO_VIDEO_WORKER_IMAGE_RESULT_V2",
+            evidence_revision: "AVANTIQO_VIDEO_WORKER_IMAGE_V3_WAN22_A14B_DEFAULT_ROUTING_V1",
             source_sha: process.env.RELEASE_SHA || null,
             trigger_sha: process.env.TRIGGER_SHA || null,
             source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
@@ -129,8 +142,17 @@ jobs:
             image_digest: digest,
             immutable_image_reference: `${repository}@${digest}`,
             source_path: "services/avantiqo-video-engine",
-            entrypoint: "handler_v2.py",
+            entrypoint: "handler_v3.py",
+            entrypoint_revision: "AVANTIQO_VIDEO_HANDLER_V3_WAN22_A14B_DEFAULT_ROUTING_V1",
+            runtime_revision: "AVANTIQO_VIDEO_WAN22_A14B_DEFAULT_ROUTING_CACHE_V1",
             engine_contract: "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V1",
+            default_generation_routing_contract: "AVANTIQO_VIDEO_WAN22_A14B_DEFAULT_GENERATION_ROUTING_V1",
+            default_generation_routing_enabled: true,
+            configured_text_to_video_foundation: "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+            configured_image_to_video_foundation: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
+            request_foundation_override_applied: false,
+            runtime_probe_contract: "AVANTIQO_VIDEO_RUNTIME_PROBE_V1",
+            cache_capacity_evidence_contract: "AVANTIQO_VIDEO_CACHE_CAPACITY_EVIDENCE_V1",
             default_certified_capabilities: [
               "ai.video.generate",
               "ai.video.image_to_video",
@@ -147,7 +169,9 @@ jobs:
             exact_trigger_sha_binding_required: true,
             provider_job_submitted: false,
             video_generation_submitted: false,
+            inference_performed: false,
             model_download_submitted: false,
+            storage_mutation_performed: false,
             runpod_endpoint_mutation_performed: false,
             automatic_production_routing_enabled: false,
             production_web_deploy: false,
@@ -207,6 +231,9 @@ jobs:
         run: |
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_SOURCE_TRIGGER_MATCH=true'
+          echo 'AVANTIQO_VIDEO_WORKER_IMAGE_ENTRYPOINT=handler_v3.py'
+          echo 'AVANTIQO_VIDEO_WORKER_IMAGE_T2V_FOUNDATION=Wan-AI/Wan2.2-T2V-A14B-Diffusers'
+          echo 'AVANTIQO_VIDEO_WORKER_IMAGE_I2V_FOUNDATION=Wan-AI/Wan2.2-I2V-A14B-Diffusers'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_GENERATION_SUBMITTED=false'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_MODEL_DOWNLOAD_SUBMITTED=false'

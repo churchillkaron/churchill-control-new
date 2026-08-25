@@ -1,0 +1,90 @@
+name: Avantiqo Intelligence Model Improvement Readiness
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-intelligence-model-improvement-readiness.yml
+      - scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs
+      - audits/avantiqo-intelligence-model-improvement-readiness-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-model-improvement-readiness
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID }}
+      RUNPOD_AVANTIQO_INTELLIGENCE_CANDIDATE_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_CANDIDATE_ENDPOINT_ID }}
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Verify exact checkout
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Syntax check readiness inspector
+        shell: bash
+        run: node --check scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs
+
+      - name: Verify read-only management credential
+        shell: bash
+        run: |
+          test -n "${RUNPOD_MANAGEMENT_API_KEY:-}" || {
+            echo "RUNPOD_MANAGEMENT_API_KEY secret is missing"
+            exit 1
+          }
+
+      - name: Inspect model improvement RunPod readiness
+        shell: bash
+        run: |
+          mkdir -p artifacts/intelligence-model-improvement-readiness
+          node scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs \
+            > artifacts/intelligence-model-improvement-readiness/readiness.json
+          cat artifacts/intelligence-model-improvement-readiness/readiness.json
+
+      - name: Verify inspection remained read-only
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const report = JSON.parse(
+            readFileSync("artifacts/intelligence-model-improvement-readiness/readiness.json", "utf8"),
+          );
+          const governance = report?.governance || {};
+          const violations = [];
+          if (report?.mode !== "READ_ONLY") violations.push("mode must be READ_ONLY");
+          if (governance.management_read_only !== true) violations.push("management must be read-only");
+          if (governance.provider_job_submitted !== false) violations.push("provider job submission forbidden");
+          if (governance.training_started !== false) violations.push("training start forbidden");
+          if (governance.endpoint_mutated !== false) violations.push("endpoint mutation forbidden");
+          if (governance.template_mutated !== false) violations.push("template mutation forbidden");
+          if (governance.network_volume_mutated !== false) violations.push("volume mutation forbidden");
+          if (governance.candidate_probe_submitted !== false) violations.push("candidate probe forbidden");
+          if (governance.production_model_promoted !== false) violations.push("production promotion forbidden");
+          if (governance.production_web_deploy !== false) violations.push("production deploy forbidden");
+          if (governance.secrets_in_output !== false) violations.push("secrets output forbidden");
+          if (violations.length) {
+            console.error(violations.join("; "));
+            process.exit(1);
+          }
+          console.log("AVANTIQO_INTELLIGENCE_MODEL_IMPROVEMENT_READINESS_READ_ONLY=PASS");
+          NODE
+
+      - name: Upload sanitized readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-model-improvement-readiness-${{ github.run_id }}
+          path: artifacts/intelligence-model-improvement-readiness/readiness.json
+          if-no-files-found: warn
+          retention-days: 14

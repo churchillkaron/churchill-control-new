@@ -12,6 +12,7 @@ const text = (v) => String(v ?? "").trim();
 const list = (v) => (Array.isArray(v) ? v : []);
 const obj = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
 const num = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function shell(name, args, code) {
   const r = spawnSync(name, args, { cwd: process.cwd(), encoding: "utf8", env: process.env });
@@ -139,6 +140,11 @@ function health(value) {
   };
 }
 
+const activeManagement = (endpoint) => list(endpoint?.workers).filter((worker) => {
+  const desired = text(worker?.desiredStatus || worker?.desired_status).toUpperCase();
+  return desired !== "EXITED";
+}).length;
+
 async function load(managementKey, queueKey) {
   const [endpoints, templates] = await Promise.all([
     rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
@@ -156,14 +162,104 @@ async function load(managementKey, queueKey) {
   return { endpoints, deep: d, fast: f, deepTemplate: dt, fastTemplate: ft, fastHealth: fh };
 }
 
+const parkedScaling = (state) =>
+  num(state.deep.workersMin, -1) === 0 && num(state.deep.workersMax, -1) === 1 &&
+  num(state.fast.workersMin, -1) === 0 && num(state.fast.workersMax, -1) === 0;
+
+const fastActiveScaling = (state) =>
+  num(state.deep.workersMin, -1) === 0 && num(state.deep.workersMax, -1) === 0 &&
+  num(state.fast.workersMin, -1) === 0 && num(state.fast.workersMax, -1) === 1;
+
 function assertParkedFastSafe(state) {
-  if (num(state.deep.workersMin, -1) !== 0 || num(state.deep.workersMax, -1) !== 1 || num(state.fast.workersMin, -1) !== 0 || num(state.fast.workersMax, -1) !== 0) {
+  if (!parkedScaling(state)) {
     throw new Error(`AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_PARKED_SCALING_REQUIRED:deep_max=${num(state.deep.workersMax, -1)}:fast_max=${num(state.fast.workersMax, -1)}`);
   }
   if (state.fastHealth.jobs.in_progress !== 0) throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_EXECUTING_JOB_PRESENT");
-  if (state.fastHealth.workers.initializing !== 0 || state.fastHealth.workers.running !== 0 || state.fastHealth.workers.unhealthy !== 0) {
+  if (state.fastHealth.workers.initializing !== 0 || state.fastHealth.workers.running !== 0 || state.fastHealth.workers.unhealthy !== 0 || activeManagement(state.fast) !== 0) {
     throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_ACTIVE_RUNTIME_PRESENT");
   }
+}
+
+async function purgeUnclaimedFastQueue(state, queueKey) {
+  if (state.fastHealth.jobs.in_progress !== 0) {
+    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_EXECUTING_JOB_PRESENT");
+  }
+  const queued = state.fastHealth.jobs.in_queue;
+  if (queued > 0) await queue(state.fast.id, queueKey, "/purge-queue", "POST");
+  return queued;
+}
+
+async function patchWorkers(endpointId, workersMax, managementKey) {
+  const verified = await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, "PATCH", {
+    workersMin: 0,
+    workersMax,
+  });
+  if (num(verified.workersMin, -1) !== 0 || num(verified.workersMax, -1) !== workersMax) {
+    throw new Error(`AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_SLOT_PATCH_VERIFY_FAILED:endpoint=${text(verified.name)}:max=${num(verified.workersMax, -1)}:expected=${workersMax}`);
+  }
+}
+
+async function waitForParkedFastSafe(managementKey, queueKey) {
+  const timeoutMs = Math.max(30_000, Math.min(180_000, num(process.env.AVANTIQO_INTELLIGENCE_FAST_RECOVERY_TIMEOUT_MS, 120_000)));
+  const startedAt = Date.now();
+  let state = await load(managementKey, queueKey);
+  while (Date.now() - startedAt <= timeoutMs) {
+    if (!parkedScaling(state)) {
+      throw new Error(`AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_RECOVERY_SLOT_CHANGED:deep_max=${num(state.deep.workersMax, -1)}:fast_max=${num(state.fast.workersMax, -1)}`);
+    }
+    if (state.fastHealth.jobs.in_progress !== 0) {
+      throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_RECOVERY_JOB_BECAME_IN_PROGRESS");
+    }
+    if (
+      state.fastHealth.jobs.in_queue === 0 &&
+      state.fastHealth.workers.initializing === 0 &&
+      state.fastHealth.workers.running === 0 &&
+      state.fastHealth.workers.unhealthy === 0 &&
+      activeManagement(state.fast) === 0
+    ) {
+      return state;
+    }
+    console.log(JSON.stringify({
+      event: "AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_WAITING_FOR_FAST_PARKED_SAFE",
+      elapsed_seconds: Math.floor((Date.now() - startedAt) / 1000),
+      deep_workers_max: num(state.deep.workersMax, -1),
+      fast_workers_max: num(state.fast.workersMax, -1),
+      fast_health: state.fastHealth,
+      fast_active_management_workers: activeManagement(state.fast),
+    }));
+    await sleep(2_000);
+    state = await load(managementKey, queueKey);
+  }
+  throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_RECOVERY_TIMEOUT");
+}
+
+async function recoverStaleFastActive(state, managementKey, queueKey) {
+  if (!fastActiveScaling(state)) {
+    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_STALE_ACTIVE_STATE_REQUIRED");
+  }
+  if (text(process.env.AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_RECOVER_STALE_ACTIVE_APPROVED).toUpperCase() !== "YES") {
+    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_RECOVER_STALE_ACTIVE_APPROVED=YES_REQUIRED");
+  }
+  if (state.fastHealth.jobs.in_progress !== 0) {
+    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_RECOVERY_EXECUTING_JOB_BLOCKED");
+  }
+
+  const purged = await purgeUnclaimedFastQueue(state, queueKey);
+  let afterPurge = await load(managementKey, queueKey);
+  if (afterPurge.fastHealth.jobs.in_progress !== 0) {
+    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_RECOVERY_JOB_BECAME_IN_PROGRESS");
+  }
+  if (afterPurge.fastHealth.jobs.in_queue !== 0) {
+    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_RECOVERY_QUEUE_PURGE_VERIFY_FAILED");
+  }
+
+  await patchWorkers(afterPurge.fast.id, 0, managementKey);
+  afterPurge = await load(managementKey, queueKey);
+  if (afterPurge.fastHealth.jobs.in_progress !== 0) {
+    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_RECOVERY_JOB_BECAME_IN_PROGRESS");
+  }
+  await patchWorkers(afterPurge.deep.id, 1, managementKey);
+  return { state: await waitForParkedFastSafe(managementKey, queueKey), purged };
 }
 
 const apply = process.argv.includes("--apply");
@@ -181,15 +277,49 @@ console.log("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_CONVERGENCE_PRODUCTION_DEPLOY_P
 console.log("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_CONVERGENCE_SECRETS_PRINTED=false");
 
 let state = await load(managementKey, queueKey);
-assertParkedFastSafe(state);
-let purged = 0;
-if (state.fastHealth.jobs.in_queue > 0) {
-  purged = state.fastHealth.jobs.in_queue;
-  await queue(state.fast.id, queueKey, "/purge-queue", "POST");
-  state = await load(managementKey, queueKey);
-  assertParkedFastSafe(state);
-  if (state.fastHealth.jobs.in_queue !== 0) throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_QUEUE_PURGE_VERIFY_FAILED");
+const initialFastActive = fastActiveScaling(state);
+if (!parkedScaling(state) && !initialFastActive) {
+  throw new Error(`AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_SLOT_STATE_UNSUPPORTED:deep_max=${num(state.deep.workersMax, -1)}:fast_max=${num(state.fast.workersMax, -1)}`);
 }
+
+const desiredInitial = desiredFast(state.deepTemplate);
+const currentInitialRuntime = runtime(state.fastTemplate);
+const desiredInitialRuntime = runtime(desiredInitial);
+const initialFields = Object.keys(desiredInitialRuntime).filter((k) => JSON.stringify(currentInitialRuntime[k]) !== JSON.stringify(desiredInitialRuntime[k]));
+
+if (!apply) {
+  console.log(JSON.stringify({
+    success: true,
+    contract: CONTRACT,
+    mode: "PLAN",
+    main_commit: mainCommit,
+    stale_fast_active_recovery_required: initialFastActive,
+    stale_fast_queue_jobs: state.fastHealth.jobs.in_queue,
+    fast_job_in_progress: state.fastHealth.jobs.in_progress,
+    drift_fields: initialFields,
+    mutation_required: initialFields.length > 0,
+    generation_submitted: false,
+    production_deploy_performed: false,
+    secrets_in_output: false,
+  }, null, 2));
+  process.exit();
+}
+
+let recoveredStaleFastActive = false;
+let purged = 0;
+if (initialFastActive) {
+  const recovered = await recoverStaleFastActive(state, managementKey, queueKey);
+  state = recovered.state;
+  purged += recovered.purged;
+  recoveredStaleFastActive = true;
+} else {
+  if (state.fastHealth.jobs.in_progress !== 0) {
+    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_EXECUTING_JOB_PRESENT");
+  }
+  purged += await purgeUnclaimedFastQueue(state, queueKey);
+  state = await waitForParkedFastSafe(managementKey, queueKey);
+}
+assertParkedFastSafe(state);
 
 const desired = desiredFast(state.deepTemplate);
 const currentRuntime = runtime(state.fastTemplate);
@@ -197,11 +327,6 @@ const desiredRuntime = runtime(desired);
 const fields = Object.keys(desiredRuntime).filter((k) => JSON.stringify(currentRuntime[k]) !== JSON.stringify(desiredRuntime[k]));
 const consumers = list(state.endpoints).filter((e) => text(e?.templateId || e?.template?.id) === text(state.fastTemplate.id));
 if (consumers.length !== 1 || text(consumers[0]?.id) !== text(state.fast.id)) throw new Error(`AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_SHARED_BLOCKED:consumers=${consumers.length}`);
-
-if (!apply) {
-  console.log(JSON.stringify({ success: true, contract: CONTRACT, mode: "PLAN", main_commit: mainCommit, drift_fields: fields, mutation_required: fields.length > 0, fast_queue_jobs_purged: purged, generation_submitted: false, production_deploy_performed: false, secrets_in_output: false }, null, 2));
-  process.exit();
-}
 
 validateMain();
 state = await load(managementKey, queueKey);
@@ -224,4 +349,21 @@ if (remaining.length) throw new Error(`AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_VERIF
 if (JSON.stringify(runtime(verified.deepTemplate)) !== deepRuntimeBefore) throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_VERIFY_DEEP_TEMPLATE_CHANGED");
 if (JSON.stringify({ id: text(verified.fast.id), templateId: text(verified.fast.templateId || verified.fast.template?.id), workersMin: num(verified.fast.workersMin, -1), workersMax: num(verified.fast.workersMax, -1) }) !== fastEndpointBefore) throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_VERIFY_FAST_ENDPOINT_CHANGED");
 
-console.log(JSON.stringify({ success: true, contract: CONTRACT, mode: "APPLY", main_commit: mainCommit, drift_fields_before: freshFields, drift_fields_after: [], mutation_required: freshFields.length > 0, mutation_performed: freshFields.length > 0, fast_queue_jobs_purged: purged, fast_parked_safe: true, verification_passed: true, next_action: "RUN_FAST_FIRST_RESPONSE_ONCE", generation_submitted: false, production_deploy_performed: false, secrets_in_output: false }, null, 2));
+console.log(JSON.stringify({
+  success: true,
+  contract: CONTRACT,
+  mode: "APPLY",
+  main_commit: mainCommit,
+  recovered_stale_fast_active: recoveredStaleFastActive,
+  drift_fields_before: freshFields,
+  drift_fields_after: [],
+  mutation_required: freshFields.length > 0,
+  mutation_performed: freshFields.length > 0,
+  fast_queue_jobs_purged: purged,
+  fast_parked_safe: true,
+  verification_passed: true,
+  next_action: "RUN_ENDPOINT_PARITY_DIAGNOSTIC",
+  generation_submitted: false,
+  production_deploy_performed: false,
+  secrets_in_output: false,
+}, null, 2));

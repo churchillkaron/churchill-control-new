@@ -190,7 +190,7 @@ echo "ROLE=${ROLE:-UNKNOWN}"
 
 echo ""
 echo "================ REAL NATURAL-LANGUAGE PRODUCT TURN ================"
-MESSAGE="Continue building Avantiqo end to end. Inspect actual current main, choose the single highest-impact repository-grounded product engineering gap, let Avantiqo Code AI implement it locally, run the required checks, repair failures, and satisfy every Product completion criterion with observed evidence. Then let Product Intelligence decide persistence. This is a local development test: do not commit, deploy production, publish, or run database migrations. Stop after the persistence decision or a prepared commit confirmation."
+MESSAGE="Continue building Avantiqo"
 
 REQUEST_BODY="$(
   ORGANIZATION_ID="$ORGANIZATION_ID" \

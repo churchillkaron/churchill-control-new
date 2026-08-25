@@ -122,6 +122,7 @@ try {
   if (!connectionId || !userName || !password) throw new Error("TELNYX_BOOTSTRAP_CREDENTIALS_INCOMPLETE");
 
   envText = upsertEnvValue(envText, "AVANTIQO_SECRETARY_TELNYX_CONNECTION_ID", connectionId);
+  envText = upsertEnvValue(envText, "ASTERISK_SECRETARY_TRUNK_ENABLED", "true");
   envText = upsertEnvValue(envText, "ASTERISK_SECRETARY_TRUNK_ENDPOINT", "avantiqo-trunk");
   envText = upsertEnvValue(envText, "ASTERISK_SECRETARY_TRUNK_HOST", "sip.telnyx.com");
   envText = upsertEnvValue(envText, "ASTERISK_SECRETARY_TRUNK_PORT", "5060");
@@ -144,6 +145,7 @@ try {
   console.log(`SECRETARY_MANAGED_TELEPHONY_CONNECTION_ID=${connectionId}`);
   console.log("SECRETARY_MANAGED_TELEPHONY_PROVIDER=telnyx");
   console.log("SECRETARY_MANAGED_TELEPHONY_TRUNK_HOST=sip.telnyx.com");
+  console.log("SECRETARY_MANAGED_TELEPHONY_TRUNK_ENABLED=true");
   console.log("SECRETARY_MANAGED_TELEPHONY_SECRET_PRINTED=false");
   console.log(`SECRETARY_MANAGED_TELEPHONY_PRICING_CONFIGURED=${Boolean(getEnvValue(envText, "AVANTIQO_SECRETARY_TELEPHONY_MARKUP_PERCENT"))}`);
   console.log("SECRETARY_MANAGED_TELEPHONY_CUSTOMER_CARRIER_CREDENTIALS_REQUIRED=false");

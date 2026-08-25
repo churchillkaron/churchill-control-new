@@ -7,6 +7,7 @@ const DEEP_NAME = "avantiqo-intelligence-v1";
 const FAST_NAME = "avantiqo-intelligence-fast-v1";
 const DEEP_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507";
 const FAST_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507";
+const SOURCE_PATH = "scripts/repair-avantiqo-intelligence-fast-template-convergence-v2-local.mjs";
 
 const text = (v) => String(v ?? "").trim();
 const list = (v) => (Array.isArray(v) ? v : []);
@@ -27,6 +28,25 @@ function validateMain() {
   const head = shell("git", ["rev-parse", "HEAD"], "AVANTIQO_FAST_TEMPLATE_GIT_HEAD_FAILED");
   const remote = shell("git", ["rev-parse", "origin/main"], "AVANTIQO_FAST_TEMPLATE_GIT_REMOTE_FAILED");
   if (head !== remote) throw new Error(`AVANTIQO_FAST_TEMPLATE_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin_main=${remote}`);
+  return head;
+}
+
+function validatePinnedMain(expectedHead) {
+  shell("git", ["fetch", "origin", "main"], "AVANTIQO_FAST_TEMPLATE_GIT_FETCH_FAILED");
+  const branch = shell("git", ["branch", "--show-current"], "AVANTIQO_FAST_TEMPLATE_GIT_BRANCH_FAILED");
+  if (branch !== "main") throw new Error(`AVANTIQO_FAST_TEMPLATE_MAIN_REQUIRED:actual=${branch || "DETACHED"}`);
+  const head = shell("git", ["rev-parse", "HEAD"], "AVANTIQO_FAST_TEMPLATE_GIT_HEAD_FAILED");
+  if (head !== expectedHead) {
+    throw new Error(`AVANTIQO_FAST_TEMPLATE_LOCAL_MAIN_CHANGED_DURING_RUN:start=${expectedHead}:head=${head}`);
+  }
+  const sourceChanged = shell(
+    "git",
+    ["diff", "--name-only", expectedHead, "origin/main", "--", SOURCE_PATH],
+    "AVANTIQO_FAST_TEMPLATE_REMOTE_SOURCE_DIFF_FAILED",
+  );
+  if (sourceChanged) {
+    throw new Error(`AVANTIQO_FAST_TEMPLATE_SOURCE_CHANGED_ON_REMOTE:${sourceChanged}`);
+  }
   return head;
 }
 
@@ -328,7 +348,7 @@ const fields = Object.keys(desiredRuntime).filter((k) => JSON.stringify(currentR
 const consumers = list(state.endpoints).filter((e) => text(e?.templateId || e?.template?.id) === text(state.fastTemplate.id));
 if (consumers.length !== 1 || text(consumers[0]?.id) !== text(state.fast.id)) throw new Error(`AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_SHARED_BLOCKED:consumers=${consumers.length}`);
 
-validateMain();
+validatePinnedMain(mainCommit);
 state = await load(managementKey, queueKey);
 assertParkedFastSafe(state);
 const deepRuntimeBefore = JSON.stringify(runtime(state.deepTemplate));

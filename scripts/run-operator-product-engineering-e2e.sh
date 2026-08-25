@@ -299,6 +299,30 @@ function fail(reason, details = null) {
   process.exit(2);
 }
 
+function missionDiagnostic() {
+  return {
+    execution_status: text(execution.status) || null,
+    execution_reason: text(execution.reason) || null,
+    cycle_status: text(cycle.status) || null,
+    mission_status: text(mission.status) || null,
+    mission_reason: text(mission.reason) || null,
+    mission_current_step_id: text(mission.current_step_id) || null,
+    mission_binding_count: Number.isFinite(Number(mission.binding_count))
+      ? Number(mission.binding_count)
+      : null,
+    mission_applied_binding_count: Number.isFinite(Number(mission.applied_binding_count))
+      ? Number(mission.applied_binding_count)
+      : null,
+    steps: steps.map((step) => ({
+      id: text(step?.id) || null,
+      status: text(step?.status) || null,
+      reason: text(step?.reason || step?.error) || null,
+      capability_key: text(step?.capability_key) || null,
+      verification_status: text(step?.verification?.status) || null,
+    })),
+  };
+}
+
 if (text(execution.reason) === "INSUFFICIENT_WALLET_BALANCE") fail("INSUFFICIENT_WALLET_BALANCE");
 if (capabilityKey !== "platform.product_engineering_cycle.execute") {
   fail("NATURAL_LANGUAGE_DID_NOT_ROUTE_TO_PRODUCT_ENGINEERING_CYCLE", {
@@ -308,16 +332,18 @@ if (capabilityKey !== "platform.product_engineering_cycle.execute") {
     response_text: responseText || null,
   });
 }
-if (!cycle.execution_key) fail("EXECUTION_KEY_MISSING");
-if (!cycle.repository_head_observed) fail("REPOSITORY_HEAD_NOT_OBSERVED");
-if (cycle.ref !== "main") fail("ENGINEERING_CYCLE_NOT_MAIN_ONLY");
-if (!selection.selected_candidate_id) fail("PRODUCT_OBJECTIVE_NOT_SELECTED");
-if (selection.evidence_backed !== true) fail("PRODUCT_OBJECTIVE_NOT_EVIDENCE_BACKED");
-if (!list(selection.selected_completion_criteria).length) fail("PRODUCT_COMPLETION_CRITERIA_MISSING");
-for (const id of ["assess_repository", "engineer_next_gap", "decide_persistence"]) {
-  if (!steps.some((step) => text(step?.id) === id)) fail(`MISSION_STEP_MISSING:${id}`);
+if (!cycle.execution_key) fail("EXECUTION_KEY_MISSING", missionDiagnostic());
+if (!cycle.repository_head_observed) {
+  fail("REPOSITORY_HEAD_NOT_OBSERVED", missionDiagnostic());
 }
-if (!text(decision.decision)) fail("PRODUCT_PERSISTENCE_DECISION_MISSING");
+if (cycle.ref !== "main") fail("ENGINEERING_CYCLE_NOT_MAIN_ONLY");
+if (!selection.selected_candidate_id) fail("PRODUCT_OBJECTIVE_NOT_SELECTED", missionDiagnostic());
+if (selection.evidence_backed !== true) fail("PRODUCT_OBJECTIVE_NOT_EVIDENCE_BACKED", missionDiagnostic());
+if (!list(selection.selected_completion_criteria).length) fail("PRODUCT_COMPLETION_CRITERIA_MISSING", missionDiagnostic());
+for (const id of ["assess_repository", "engineer_next_gap", "decide_persistence"]) {
+  if (!steps.some((step) => text(step?.id) === id)) fail(`MISSION_STEP_MISSING:${id}`, missionDiagnostic());
+}
+if (!text(decision.decision)) fail("PRODUCT_PERSISTENCE_DECISION_MISSING", missionDiagnostic());
 if (cycle.commit_completed !== false) fail("COMMIT_COMPLETED_DURING_LOCAL_E2E");
 if (cycle.persistent_source_changed !== false) fail("PERSISTENT_SOURCE_CHANGED_DURING_LOCAL_E2E");
 if (cycle.production_deployed !== false) fail("PRODUCTION_DEPLOYED_DURING_LOCAL_E2E");

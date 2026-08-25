@@ -77,9 +77,18 @@ command -v node >/dev/null 2>&1 || fail "NODE_MISSING"
 command -v curl >/dev/null 2>&1 || fail "CURL_MISSING"
 command -v git >/dev/null 2>&1 || fail "GIT_MISSING"
 
-if [ -n "$(git status --porcelain)" ]; then
-  git status --short
-  fail "WORKING_TREE_NOT_CLEAN"
+TRACKED_STATUS="$(git status --porcelain --untracked-files=no)"
+if [ -n "$TRACKED_STATUS" ]; then
+  printf '%s\n' "$TRACKED_STATUS"
+  fail "TRACKED_WORKING_TREE_NOT_CLEAN"
+fi
+
+PREEXISTING_STATUS="$(git status --porcelain --untracked-files=normal)"
+if [ -n "$PREEXISTING_STATUS" ]; then
+  echo "E2E_PREEXISTING_UNTRACKED=YES"
+  printf '%s\n' "$PREEXISTING_STATUS"
+else
+  echo "E2E_PREEXISTING_UNTRACKED=NO"
 fi
 
 echo "================ SYNC NEWEST MAIN ================"
@@ -87,6 +96,7 @@ git fetch origin main || fail "GIT_FETCH_MAIN_FAILED"
 git switch main || fail "GIT_SWITCH_MAIN_FAILED"
 git pull --ff-only origin main || fail "GIT_PULL_MAIN_FAILED"
 MAIN_BEFORE="$(git rev-parse HEAD)"
+BASELINE_STATUS="$(git status --porcelain --untracked-files=normal)"
 echo "MAIN_BEFORE=$MAIN_BEFORE"
 
 [ -f scripts/create-finance-smoke-session.mjs ] || fail "AUTH_SESSION_HELPER_MISSING"
@@ -285,9 +295,14 @@ LOCAL_MAIN_AFTER="$(git rev-parse HEAD)"
 echo "LOCAL_MAIN_AFTER=$LOCAL_MAIN_AFTER"
 echo "REMOTE_MAIN_AFTER=$REMOTE_MAIN_AFTER"
 
-DIRTY_EXCLUDING_E2E="$(git status --porcelain | grep -v "^?? ${E2E_DIST_DIR}/" || true)"
-if [ -n "$DIRTY_EXCLUDING_E2E" ]; then
-  printf '%s\n' "$DIRTY_EXCLUDING_E2E"
+FINAL_STATUS_EXCLUDING_E2E="$(git status --porcelain --untracked-files=normal | grep -v "^?? ${E2E_DIST_DIR}/" || true)"
+if [ "$FINAL_STATUS_EXCLUDING_E2E" != "$BASELINE_STATUS" ]; then
+  echo "E2E_BASELINE_STATUS_BEGIN"
+  printf '%s\n' "$BASELINE_STATUS"
+  echo "E2E_BASELINE_STATUS_END"
+  echo "E2E_FINAL_STATUS_BEGIN"
+  printf '%s\n' "$FINAL_STATUS_EXCLUDING_E2E"
+  echo "E2E_FINAL_STATUS_END"
   fail "LOCAL_WORKING_TREE_CHANGED_BY_E2E"
 fi
 if [ "$LOCAL_MAIN_AFTER" != "$MAIN_BEFORE" ]; then

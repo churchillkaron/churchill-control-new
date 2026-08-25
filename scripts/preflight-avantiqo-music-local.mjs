@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
+import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 import {
   assertSharedVolumeGroupCompatible,
@@ -7,6 +8,8 @@ import {
   resolveReusableGroupVolume,
   sharedVolumeGroup,
 } from "./lib/avantiqo-runpod-shared-volumes.mjs";
+
+loadAvantiqoEnv();
 
 const RUNPOD_API_BASE = "https://api.runpod.ai/v2";
 const RUNPOD_REST_BASE = "https://rest.runpod.io/v1";

@@ -1,6 +1,9 @@
 import process from "node:process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { createClient } from "@supabase/supabase-js";
+import { fileURLToPath } from "node:url";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
@@ -8,6 +11,8 @@ loadAvantiqoEnv();
 const CONTRACT = "AVANTIQO_CODE_AUTONOMOUS_PLANNER_SAFE_CERTIFICATION_RUNNER_V1";
 const ORGANIZATION_NAME = "Avantiqo Code Planner Certification";
 const SERVICE_ID = "ai.code.debug";
+const REQUIRED_NODE_MAJOR = 24;
+const THIS_SCRIPT = fileURLToPath(import.meta.url);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -19,10 +24,133 @@ function required(name) {
   return value;
 }
 
+function nodeMajor(version) {
+  const major = Number(String(version || "").replace(/^v/, "").split(".")[0]);
+  return Number.isFinite(major) ? major : 0;
+}
+
+function nodeVersion(candidate) {
+  if (!candidate) return null;
+  const result = spawnSync(candidate, ["-p", "process.versions.node"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  if (result.error || result.status !== 0) return null;
+  return text(result.stdout);
+}
+
+function versionedNodeCandidates(root, relativeNodePath) {
+  if (!root || !fs.existsSync(root)) return [];
+  try {
+    return fs.readdirSync(root)
+      .filter((entry) => /^v?24(?:\.|$)/.test(entry))
+      .map((entry) => path.join(root, entry, ...relativeNodePath));
+  } catch {
+    return [];
+  }
+}
+
+function node24Candidates() {
+  const home = os.homedir();
+  const candidates = [
+    text(process.env.AVANTIQO_NODE24_BIN),
+    "/opt/homebrew/opt/node@24/bin/node",
+    "/usr/local/opt/node@24/bin/node",
+    "/opt/homebrew/bin/node",
+    "/usr/local/bin/node",
+  ];
+
+  for (const directory of text(process.env.PATH).split(path.delimiter).filter(Boolean)) {
+    candidates.push(path.join(directory, "node"));
+  }
+
+  const nvmRoots = [
+    text(process.env.NVM_DIR),
+    path.join(home, ".nvm"),
+  ].filter(Boolean);
+  for (const root of new Set(nvmRoots)) {
+    candidates.push(...versionedNodeCandidates(
+      path.join(root, "versions", "node"),
+      ["bin", "node"],
+    ));
+  }
+
+  const fnmRoots = [
+    path.join(home, ".fnm", "node-versions"),
+    path.join(home, ".local", "share", "fnm", "node-versions"),
+  ];
+  for (const root of fnmRoots) {
+    candidates.push(...versionedNodeCandidates(
+      root,
+      ["installation", "bin", "node"],
+    ));
+  }
+
+  candidates.push(...versionedNodeCandidates(
+    path.join(home, ".volta", "tools", "image", "node"),
+    ["bin", "node"],
+  ));
+
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function ensureNode24Runtime() {
+  if (nodeMajor(process.versions.node) === REQUIRED_NODE_MAJOR) return;
+
+  if (process.env.AVANTIQO_CODE_CERT_NODE24_REEXEC === "1") {
+    throw new Error(`CODE_AI_CERTIFICATION_NODE_24_REEXEC_FAILED:current=${process.version}`);
+  }
+
+  const compatibleNode = node24Candidates().find(
+    (candidate) => nodeMajor(nodeVersion(candidate)) === REQUIRED_NODE_MAJOR,
+  );
+  if (!compatibleNode) {
+    throw new Error(
+      `CODE_AI_CERTIFICATION_NODE_24_REQUIRED:current=${process.version}:set_AVANTIQO_NODE24_BIN_or_activate_Node_24`,
+    );
+  }
+
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_CERTIFICATION_NODE_RUNTIME_REEXEC",
+    contract: CONTRACT,
+    current_node: process.version,
+    required_node_major: REQUIRED_NODE_MAJOR,
+    compatible_node_found: true,
+    production_deploy_performed: false,
+    secrets_printed: false,
+  }));
+
+  const relaunched = spawnSync(
+    compatibleNode,
+    [THIS_SCRIPT, ...process.argv.slice(2)],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        AVANTIQO_CODE_CERT_NODE24_REEXEC: "1",
+      },
+      stdio: "inherit",
+    },
+  );
+  if (relaunched.error) throw relaunched.error;
+  process.exit(Number.isInteger(relaunched.status) ? relaunched.status : 1);
+}
+
+ensureNode24Runtime();
+
+function node24ChildEnv(env = process.env) {
+  return {
+    ...env,
+    PATH: [path.dirname(process.execPath), text(env.PATH)]
+      .filter(Boolean)
+      .join(path.delimiter),
+  };
+}
+
 function run(command, args, { capture = false, env = process.env } = {}) {
   const result = spawnSync(command, args, {
     cwd: process.cwd(),
-    env,
+    env: node24ChildEnv(env),
     encoding: "utf8",
     stdio: capture ? ["ignore", "pipe", "inherit"] : "inherit",
   });
@@ -58,6 +186,7 @@ if (existingCertification.status === 0 && text(existingCertification.stdout)) {
   throw new Error("CODE_AI_CERTIFICATION_ALREADY_RUNNING");
 }
 
+const { createClient } = await import("@supabase/supabase-js");
 const supabase = createClient(
   required("NEXT_PUBLIC_SUPABASE_URL"),
   required("SUPABASE_SERVICE_ROLE_KEY"),
@@ -111,6 +240,7 @@ try {
   console.log(JSON.stringify({
     event: "AVANTIQO_CODE_CERTIFICATION_SOURCE_AUDIT_START",
     contract: CONTRACT,
+    node_runtime: process.version,
     service_usage_enabled: false,
     provider_spend_approved: true,
   }));
@@ -165,6 +295,7 @@ try {
     contract: CONTRACT,
     organization_id: organizationId,
     service_id: SERVICE_ID,
+    node_runtime: process.version,
     service_disabled: disabled,
     certification_succeeded: certificationSucceeded,
     new_provider_execution_outside_certification: false,

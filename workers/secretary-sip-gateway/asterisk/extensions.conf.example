@@ -1,0 +1,27 @@
+; Avantiqo Secretary owned Asterisk gateway dialplan template.
+; No carrier credentials or tokens belong in this file.
+;
+; Required runtime variables:
+;   AVANTIQO_PHONE_LINE_ID - native secretary_phone_lines.id for the inbound DID
+;   AVANTIQO_AUDIO_SERVICE - host:port of the owned AudioSocket gateway (for example 127.0.0.1:9019)
+;
+; Install inbound-agi.mjs as an executable AGI script and provide its secrets through
+; the Asterisk service environment, not through the dialplan.
+
+[avantiqo-secretary-inbound]
+exten => s,1,NoOp(Avantiqo Secretary inbound call)
+ same => n,AGI(/opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs,${AVANTIQO_PHONE_LINE_ID})
+ same => n,GotoIf($["${AVANTIQO_SECRETARY_ACCEPTED}"="1"]?accepted:rejected)
+ same => n(accepted),Answer()
+ same => n,AudioSocket(${AVANTIQO_AUDIO_UUID},${AVANTIQO_AUDIO_SERVICE})
+ same => n,Hangup()
+ same => n(rejected),Playback(ss-noservice)
+ same => n,Hangup()
+
+; The gateway originates the remote PJSIP channel and sends the answered channel here.
+; AVANTIQO_AUDIO_UUID and AVANTIQO_AUDIO_SERVICE are injected by AMI Originate.
+[avantiqo-secretary-outbound]
+exten => s,1,NoOp(Avantiqo Secretary outbound call)
+ same => n,Answer()
+ same => n,AudioSocket(${AVANTIQO_AUDIO_UUID},${AVANTIQO_AUDIO_SERVICE})
+ same => n,Hangup()

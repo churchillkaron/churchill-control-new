@@ -6,6 +6,10 @@ const paths = {
   callerBrain: "lib/operator/secretary/SecretaryCallerConversationRuntime.js",
   messageBrain: "lib/operator/secretary/SecretaryMessageConversationRuntime.js",
   messageWorker: "app/api/internal/secretary/messages/process/route.js",
+  voiceGateway: "lib/operator/secretary/SecretaryVoiceCallGatewayRuntime.js",
+  businessHoursRuntime: "lib/operator/secretary/SecretaryBusinessHoursRuntime.js",
+  afterHoursRuntime: "lib/operator/secretary/SecretaryAfterHoursConversationRuntime.js",
+  callbackAutonomyRuntime: "lib/operator/secretary/SecretaryAutonomousCallbackRuntime.js",
   appointmentRuntime: "lib/operator/secretary/SecretaryAppointmentNotificationRuntime.js",
   appointmentWorker: "app/api/internal/secretary/appointments/notifications/process/route.js",
   commitmentRuntime: "lib/operator/secretary/SecretaryCommitmentCaptureRuntime.js",
@@ -133,6 +137,8 @@ assert.match(source.quietHoursRuntime, /SECRETARY_CONTACT_QUIET_HOURS_CONTRACT/)
 assert.match(source.quietHoursRuntime, /Intl\.DateTimeFormat/);
 assert.match(source.quietHoursRuntime, /overnight windows are supported/);
 assert.match(source.quietHoursRuntime, /CONTACT_QUIET_HOURS/);
+assert.match(source.quietHoursRuntime, /enabled=true does not create a permanent block/);
+assert.doesNotMatch(source.quietHoursRuntime, /permanent_flags:\s*\[[^\]]*"enabled"/);
 assert.match(source.followUpRuntime, /evaluateSecretaryContactQuietHours/);
 assert.match(source.followUpRuntime, /status: "deferred"/);
 assert.match(source.followUpRuntime, /quiet_hours_deferred_until/);
@@ -141,6 +147,32 @@ assert.match(source.appointmentRuntime, /QUIET_HOURS_WOULD_MAKE_REMINDER_LATE/);
 assert.match(source.outboundCallRuntime, /evaluateSecretaryContactQuietHours/);
 assert.match(source.outboundCallRuntime, /quiet_hours_adjusted/);
 assert.match(source.outboundCallRuntime, /SECRETARY_OUTBOUND_CONTACT_DO_NOT_DISTURB/);
+
+assert.match(source.businessHoursRuntime, /SECRETARY_BUSINESS_HOURS_CONTRACT/);
+assert.match(source.businessHoursRuntime, /FULL_SERVICE_24_7/);
+assert.match(source.businessHoursRuntime, /FULL_SERVICE/);
+assert.match(source.businessHoursRuntime, /RECEPTION_ONLY/);
+assert.match(source.businessHoursRuntime, /CLOSED_REPLY/);
+assert.match(source.businessHoursRuntime, /secretaryAfterHoursAllowedDecisionActions/);
+assert.match(source.businessHoursRuntime, /overnight ranges supported/);
+assert.match(source.afterHoursRuntime, /resolveSecretaryBusinessHoursState/);
+assert.match(source.afterHoursRuntime, /secretaryAfterHoursAllowedDecisionActions/);
+assert.match(source.afterHoursRuntime, /allowedActions\.includes\(action\)/);
+assert.match(source.afterHoursRuntime, /Never attempt booking, rescheduling, cancellation, availability checks, appointment listing/);
+assert.match(source.afterHoursRuntime, /tools:\s*\[\]/);
+assert.match(source.afterHoursRuntime, /allow_mutating_tools:\s*false/);
+assert.match(source.afterHoursRuntime, /next_state_change_at/);
+assert.match(source.afterHoursRuntime, /execution_owner:\s*"SECRETARY"/);
+assert.match(source.afterHoursRuntime, /execution_ready:\s*true/);
+assert.match(source.callbackAutonomyRuntime, /callback_autonomy_promoted/);
+assert.match(source.callbackAutonomyRuntime, /execution_owner:\s*"SECRETARY"/);
+assert.match(source.callbackAutonomyRuntime, /execution_ready:\s*true/);
+assert.match(source.callbackAutonomyRuntime, /return updated \|\| row/);
+assert.match(source.messageWorker, /runSecretaryMessageReceptionAutonomous/);
+assert.match(source.messageWorker, /callback_autonomy_promoted/);
+assert.match(source.voiceGateway, /runSecretaryCallerTurnAutonomous/);
+assert.match(source.voiceGateway, /callback_autonomy_promoted/);
+assert.match(source.voiceGateway, /server_allowed_actions/);
 
 assert.match(source.followUpEscalation, /HUMAN_ATTENTION_REASONS/);
 assert.match(source.followUpEscalation, /FOLLOW_UP_CONTENT_NOT_SELF_CONTAINED/);
@@ -163,6 +195,10 @@ for (const worker of [
 ]) {
   assert.match(worker, /process\.env\.CRON_SECRET/);
   assert.match(worker, /maxDuration = 300/);
+}
+
+for (const runtime of [source.afterHoursRuntime, source.callbackAutonomyRuntime]) {
+  assert.doesNotMatch(runtime, /Google Calendar|Outlook|Microsoft Calendar|Calendly|Twilio/i);
 }
 
 const vercel = JSON.parse(source.vercel);
@@ -190,6 +226,10 @@ console.log("SECRETARY_AUTONOMOUS_FOLLOW_UP_EXECUTION=true");
 console.log("SECRETARY_NON_SECRETARY_PROMISE_AUTO_EXECUTION=false");
 console.log("SECRETARY_CONTACT_QUIET_HOURS=true");
 console.log("SECRETARY_CONTACT_TIMEZONE_AWARE=true");
+console.log("SECRETARY_BUSINESS_HOURS_ENFORCED=true");
+console.log("SECRETARY_AFTER_HOURS_RECEPTION=true");
+console.log("SECRETARY_AFTER_HOURS_CALENDAR_MUTATIONS_BLOCKED=true");
+console.log("SECRETARY_AUTONOMOUS_CALLBACKS=true");
 console.log("SECRETARY_BLOCKED_AUTONOMY_HUMAN_ESCALATION=true");
 console.log("SECRETARY_ESCALATION_AUTO_RESOLUTION=true");
 console.log("SECRETARY_REAL_CLOUD_JOBS=5");

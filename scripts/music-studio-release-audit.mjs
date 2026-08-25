@@ -74,12 +74,16 @@ requirePattern(finishing, /musicStorageReference/, "music-persistence-must-resol
 requirePattern(engine, /ai\.music\.generate/, "music-engine-must-own-generation-contract");
 requirePattern(engine, /ai\.audio\.remix/, "music-engine-must-model-remix-contract");
 requirePattern(engine, /ai\.audio\.edit/, "music-engine-must-model-edit-contract");
+requirePattern(engine, /acestep-v15-xl-turbo/, "music-engine-must-use-xl-transform-lane");
 requirePattern(engine, /acestep-v15-base/, "music-engine-must-declare-base-model-lane");
 requirePattern(engine, /BASE_MODEL_AND_BENCHMARK_REQUIRED/, "base-model-features-must-stay-gated");
 
 requirePattern(worker, /"ai\.audio\.remix":\s*"cover"/, "owned-audio-worker-must-map-remix-to-cover");
 requirePattern(worker, /"ai\.audio\.edit":\s*"repaint"/, "owned-audio-worker-must-map-edit-to-repaint");
 requirePattern(worker, /DEFAULT_CERTIFIED_CAPABILITIES\s*=\s*\{"ai\.music\.generate"\}/, "owned-audio-worker-default-certification-must-remain-generation-only");
+requirePattern(worker, /SUPPORTED_MODEL_VARIANTS = \{"acestep-v15-xl-turbo"\}/, "owned-audio-worker-must-require-xl-model");
+requirePattern(worker, /SUPPORTED_LM_MODELS = \{"acestep-5Hz-lm-1\.7B"\}/, "owned-audio-worker-must-require-1-7b-lm");
+requirePattern(worker, /thinking=use_lm/, "owned-audio-worker-must-enable-lm-thinking");
 requirePattern(worker, /AVANTIQO_AUDIO_CAPABILITY_NOT_CERTIFIED/, "owned-audio-worker-must-fail-closed-on-uncertified-capability");
 requirePattern(worker, /MAX_SOURCE_BYTES/, "owned-audio-worker-must-bound-source-downloads");
 requirePattern(worker, /allow_redirects=False/, "owned-audio-worker-source-download-must-not-follow-redirects");
@@ -88,11 +92,21 @@ requirePattern(audioDockerfile, /ARG CUDA_VERSION=12\.8\.1/, "music-worker-image
 requirePattern(audioDockerfile, /FROM nvidia\/cuda:\$\{CUDA_VERSION\}-runtime-ubuntu22\.04/, "music-worker-image-must-use-nvidia-cuda-runtime");
 requirePattern(audioDockerfile, /libsndfile1/, "music-worker-image-must-install-native-audio-runtime");
 requirePattern(audioDockerfile, /git checkout 14c0211d5a0653b0f63e27686f4c3f151b4d8629/, "music-worker-image-must-pin-ace-step-source");
+requirePattern(audioDockerfile, /AVANTIQO_AUDIO_MODEL_VARIANT=acestep-v15-xl-turbo/, "music-worker-image-must-pin-xl-model");
+requirePattern(audioDockerfile, /AVANTIQO_AUDIO_LM_MODEL=acestep-5Hz-lm-1\.7B/, "music-worker-image-must-pin-1-7b-lm");
+requirePattern(audioDockerfile, /AVANTIQO_AUDIO_LM_BACKEND=vllm/, "music-worker-image-must-pin-vllm-lm-backend");
+requirePattern(audioDockerfile, /ACESTEP_INIT_LLM=true/, "music-worker-image-must-initialize-lm");
 requirePattern(audioDockerfile, /AVANTIQO_AUDIO_IMAGE_IMPORT_SMOKE=PASS/, "music-worker-image-must-run-owned-handler-import-smoke");
 requirePattern(audioDockerfile, /AVANTIQO_AUDIO_CUDA_12_8_TORCH_REQUIRED/, "music-worker-image-must-fail-build-without-cuda-12-8-torch");
+requirePattern(audioDockerfile, /AVANTIQO_AUDIO_XL_MODEL_REQUIRED/, "music-worker-image-must-fail-build-without-xl-model-contract");
+requirePattern(audioDockerfile, /AVANTIQO_AUDIO_1_7B_LM_REQUIRED/, "music-worker-image-must-fail-build-without-lm-contract");
 requirePattern(audioDockerfile, /AVANTIQO_AUDIO_NATIVE_AUDIO_IMPORTS=PASS/, "music-worker-image-must-prove-native-audio-imports");
 
 requirePattern(registration, /DEFAULT_CERTIFIED_CAPABILITIES = Object\.freeze\(\["ai\.music\.generate"\]\)/, "audio-provider-default-certification-must-remain-generation-only");
+requirePattern(registration, /modelVariant === "acestep-v15-xl-turbo"/, "audio-provider-must-require-xl-runtime");
+requirePattern(registration, /lmModel === "acestep-5Hz-lm-1\.7B"/, "audio-provider-must-require-1-7b-lm");
+requirePattern(registration, /lmBackend === "vllm"/, "audio-provider-must-require-vllm");
+requirePattern(registration, /ace_step_lm_enabled:\s*true/, "audio-provider-must-advertise-lm-enabled");
 requirePattern(registration, /"ai\.audio\.remix"/, "audio-provider-must-register-implemented-remix-contract");
 requirePattern(registration, /"ai\.audio\.edit"/, "audio-provider-must-register-implemented-edit-contract");
 requirePattern(registration, /base_model_required_capabilities/, "audio-provider-must-declare-base-model-required-capabilities");
@@ -101,6 +115,9 @@ requirePattern(preflight, /assertSharedVolumeGroupCompatible\(volumes, AUDIO_VOI
 requirePattern(preflight, /resolveReusableGroupVolume\(volumes, AUDIO_VOICE_GROUP\)/, "music-preflight-must-resolve-reusable-audio-voice-cache");
 requirePattern(preflight, /AVANTIQO_MUSIC_PREFLIGHT_DURABLE_NETWORK_VOLUME_REQUIRED/, "music-preflight-must-require-durable-network-volume");
 requirePattern(preflight, /AVANTIQO_MUSIC_PREFLIGHT_SHARED_AUDIO_VOICE_VOLUME_NOT_ATTACHED/, "music-preflight-must-require-shared-audio-voice-cache-attachment");
+requirePattern(preflight, /EXPECTED_VARIANT = "acestep-v15-xl-turbo"/, "music-preflight-must-require-xl-model");
+requirePattern(preflight, /EXPECTED_LM_MODEL = "acestep-5Hz-lm-1\.7B"/, "music-preflight-must-require-1-7b-lm");
+requirePattern(preflight, /EXPECTED_LM_BACKEND = "vllm"/, "music-preflight-must-require-vllm-backend");
 requirePattern(preflight, /shared_volume_policy_scope:\s*AUDIO_VOICE_GROUP\.id/, "music-preflight-must-record-audio-voice-policy-scope");
 requirePattern(preflight, /shared_volume_policy_compliant:\s*true/, "music-preflight-must-record-shared-policy-compliance");
 requirePattern(preflight, /network_volume_attached:\s*true/, "music-preflight-must-record-network-volume-attachment");
@@ -130,8 +147,14 @@ requirePattern(benchmark, /result\?\.safety\?\.runpod_run_called === false/, "mu
 requirePattern(benchmark, /result\?\.safety\?\.runpod_runsync_called === false/, "music-benchmark-must-prove-preflight-did-not-submit-runsync");
 requirePattern(benchmark, /result\?\.storage\?\.signed_upload_creation_passed === true/, "music-benchmark-must-require-signed-upload-preflight");
 requirePattern(benchmark, /result\?\.storage\?\.signed_read_creation_passed === true/, "music-benchmark-must-require-signed-read-preflight");
-requirePattern(benchmark, /result\?\.model_contract\?\.ace_step_lm_enabled === false/, "music-benchmark-must-require-ace-step-lm-disabled");
+requirePattern(benchmark, /result\?\.model_contract\?\.ace_step_lm_enabled === true/, "music-benchmark-must-require-ace-step-lm-enabled");
+requirePattern(benchmark, /result\?\.model_contract\?\.variant === EXPECTED_MODEL_VARIANT/, "music-benchmark-must-require-xl-preflight-model");
+requirePattern(benchmark, /result\?\.model_contract\?\.ace_step_lm_model === EXPECTED_LM_MODEL/, "music-benchmark-must-bind-preflight-lm-model");
+requirePattern(benchmark, /result\?\.model_contract\?\.ace_step_lm_backend === EXPECTED_LM_BACKEND/, "music-benchmark-must-bind-preflight-lm-backend");
 requirePattern(benchmark, /AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3/, "music-benchmark-must-use-current-evidence-contract");
+requirePattern(benchmark, /quality_profile/, "music-benchmark-must-capture-quality-profile");
+requirePattern(benchmark, /ace_step_lm_used/, "music-benchmark-must-capture-lm-use");
+requirePattern(benchmark, /thinking_enabled/, "music-benchmark-must-capture-thinking-use");
 requirePattern(benchmark, /runpod_execution_ms/, "music-benchmark-must-capture-runpod-billed-execution-time");
 requirePattern(benchmark, /organization_record_created:\s*false/, "music-benchmark-must-not-create-business-organization-records");
 requirePattern(benchmark, /MUST_BE_SYNTHETIC/, "music-benchmark-must-reject-real-organization-scope");
@@ -187,8 +210,13 @@ requirePattern(endpointAutoBinder, /avantiqo-audio-v1/, "music-auto-binder-must-
 requirePattern(endpointAutoBinder, /bind-avantiqo-audio-endpoint-local\.mjs/, "music-auto-binder-must-delegate-to-fingerprint-binder");
 
 requirePattern(endpointProvisioner, /AVANTIQO_AUDIO_RUNPOD_ENDPOINT_PROVISION_V3/, "music-endpoint-provisioner-must-use-current-contract");
-requirePattern(endpointProvisioner, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2/, "music-endpoint-provisioner-must-require-hardened-worker-image-evidence");
+requirePattern(endpointProvisioner, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3/, "music-endpoint-provisioner-must-require-xl-lm-worker-image-evidence");
 requirePattern(endpointProvisioner, /EXPECTED_CUDA_RUNTIME = "12\.8"/, "music-endpoint-provisioner-must-require-cuda-12-8-image");
+requirePattern(endpointProvisioner, /EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1"/, "music-endpoint-provisioner-must-bind-quality-profile");
+requirePattern(endpointProvisioner, /text\(parsed\?\.lm_model\) !== "acestep-5Hz-lm-1\.7B"/, "music-endpoint-provisioner-must-bind-v3-lm-model");
+requirePattern(endpointProvisioner, /text\(parsed\?\.lm_backend\) !== "vllm"/, "music-endpoint-provisioner-must-bind-v3-lm-backend");
+requirePattern(endpointProvisioner, /xl_model_contract_passed_by_docker_build/, "music-endpoint-provisioner-must-require-xl-build-contract");
+requirePattern(endpointProvisioner, /lm_contract_passed_by_docker_build/, "music-endpoint-provisioner-must-require-lm-build-contract");
 requirePattern(endpointProvisioner, /source_sha_matches_trigger/, "music-endpoint-provisioner-must-bind-image-source-to-trigger");
 requirePattern(endpointProvisioner, /cuda_enabled_torch_required/, "music-endpoint-provisioner-must-require-cuda-enabled-torch-evidence");
 requirePattern(endpointProvisioner, /owned_handler_import_smoke_required/, "music-endpoint-provisioner-must-require-owned-handler-import-evidence");
@@ -197,7 +225,7 @@ requirePattern(endpointProvisioner, /native_audio_import_smoke_passed_by_docker_
 requirePattern(endpointProvisioner, /cuda_import_smoke_passed_by_docker_build/, "music-endpoint-provisioner-must-require-image-runtime-smoke");
 requirePattern(endpointProvisioner, /@sha256:/, "music-endpoint-provisioner-must-require-image-digest");
 requirePattern(endpointProvisioner, /workersMin:\s*0/, "music-endpoint-provisioner-must-scale-to-zero");
-requirePattern(endpointProvisioner, /ECONOMICAL_24GB_NO_LM_PRIORITY/, "music-endpoint-provisioner-must-prefer-economic-no-lm-gpus");
+requirePattern(endpointProvisioner, /ECONOMICAL_24GB_XL_LM_PRIORITY/, "music-endpoint-provisioner-must-prefer-economic-xl-lm-gpus");
 requirePattern(endpointProvisioner, /ACESTEP_CHECKPOINTS_DIR:\s*"\/opt\/ace-step\/checkpoints"/, "music-endpoint-provisioner-must-not-fake-persistent-cache-before-volume-attachment");
 requirePattern(endpointProvisioner, /containerRegistryAuthId/, "music-endpoint-provisioner-must-support-private-ghcr-auth");
 requirePattern(endpointProvisioner, /production_deploy_performed:\s*false/, "music-endpoint-provisioner-must-not-deploy-production");
@@ -237,6 +265,11 @@ requirePattern(sharedVolumePolicy, /resolveReusableGroupVolume/, "music-shared-v
 requirePattern(sharedVolumePolicy, /AVANTIQO_RUNPOD_SHARED_VOLUME_CONSOLIDATION_REQUIRED/, "music-shared-volume-policy-must-fail-on-duplicate-group-caches");
 
 requirePattern(workerRepair, /AUDIO_VOICE_VOLUME_NAME = "avantiqo-shared-audio-voice-cache"/, "music-worker-repair-must-bind-canonical-audio-voice-cache");
+requirePattern(workerRepair, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3/, "music-worker-repair-must-require-v3-image-evidence");
+requirePattern(workerRepair, /text\(parsed\?\.lm_model\) !== "acestep-5Hz-lm-1\.7B"/, "music-worker-repair-must-bind-v3-lm-model");
+requirePattern(workerRepair, /text\(parsed\?\.lm_backend\) !== "vllm"/, "music-worker-repair-must-bind-v3-lm-backend");
+requirePattern(workerRepair, /xl_model_contract_passed_by_docker_build/, "music-worker-repair-must-require-xl-build-contract");
+requirePattern(workerRepair, /lm_contract_passed_by_docker_build/, "music-worker-repair-must-require-lm-build-contract");
 requirePattern(workerRepair, /NETWORK_VOLUME_MOUNT_ROOT = "\/runpod-volume"/, "music-worker-repair-must-know-runpod-network-volume-root");
 requirePattern(workerRepair, /NETWORK_VOLUME_CHECKPOINT_ROOT/, "music-worker-repair-must-route-checkpoints-to-network-volume");
 requirePattern(workerRepair, /durableAudioVoiceVolumeReady/, "music-worker-repair-must-compute-durable-audio-voice-readiness");
@@ -255,12 +288,19 @@ requirePattern(runpodPrepare, /STEP 8: PROVE AUDIO IDENTITY AND BIND LOCALLY/, "
 requirePattern(runpodPrepare, /REAL_MUSIC_GENERATION_SUBMITTED=false/, "music-runpod-prepare-must-stop-before-real-benchmark-generation");
 
 requirePattern(imageWorkflow, /ref:\s*\$\{\{ github\.sha \}\}/, "music-worker-image-workflow-must-checkout-exact-trigger-sha");
-requirePattern(imageWorkflow, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2/, "music-worker-image-workflow-must-emit-current-evidence-contract");
+requirePattern(imageWorkflow, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3/, "music-worker-image-workflow-must-emit-xl-lm-evidence-contract");
+requirePattern(imageWorkflow, /runtime_variant:\s*"acestep-v15-xl-turbo"/, "music-worker-image-workflow-must-record-xl-model");
+requirePattern(imageWorkflow, /quality_profile:\s*"ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1"/, "music-worker-image-workflow-must-record-quality-profile");
+requirePattern(imageWorkflow, /lm_model:\s*"acestep-5Hz-lm-1\.7B"/, "music-worker-image-workflow-must-record-lm-model");
+requirePattern(imageWorkflow, /lm_backend:\s*"vllm"/, "music-worker-image-workflow-must-record-lm-backend");
+requirePattern(imageWorkflow, /ace_step_lm_required:\s*true/, "music-worker-image-workflow-must-record-lm-requirement");
+requirePattern(imageWorkflow, /xl_model_contract_passed_by_docker_build:\s*success/, "music-worker-image-workflow-must-record-xl-build-contract");
+requirePattern(imageWorkflow, /lm_contract_passed_by_docker_build:\s*success/, "music-worker-image-workflow-must-record-lm-build-contract");
 requirePattern(imageWorkflow, /source_sha_matches_trigger/, "music-worker-image-workflow-must-record-source-trigger-match");
 requirePattern(imageWorkflow, /cuda_runtime_expected:\s*"12\.8"/, "music-worker-image-workflow-must-record-cuda-12-8-runtime");
 requirePattern(imageWorkflow, /native_audio_import_smoke_required:\s*true/, "music-worker-image-workflow-must-record-native-audio-requirement");
-requirePattern(imageWorkflow, /native_audio_import_smoke_passed_by_docker_build:\s*true/, "music-worker-image-workflow-must-record-native-audio-smoke");
-requirePattern(imageWorkflow, /cuda_import_smoke_passed_by_docker_build:\s*true/, "music-worker-image-workflow-must-record-runtime-smoke");
+requirePattern(imageWorkflow, /native_audio_import_smoke_passed_by_docker_build:\s*success/, "music-worker-image-workflow-must-record-native-audio-smoke");
+requirePattern(imageWorkflow, /cuda_import_smoke_passed_by_docker_build:\s*success/, "music-worker-image-workflow-must-record-runtime-smoke");
 requirePattern(imageWorkflow, /test \"\$RELEASE_SHA\" = \"\$TRIGGER_SHA\"/, "music-worker-image-workflow-must-fail-on-source-trigger-mismatch");
 requirePattern(imageWorkflow, /AVANTIQO_AUDIO_WORKER_IMAGE_PRODUCTION_WEB_DEPLOY=false/, "music-worker-image-workflow-must-not-deploy-production-app");
 requirePattern(imageWorkflow, /AVANTIQO_AUDIO_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false/, "music-worker-image-workflow-must-not-submit-provider-generation");
@@ -286,18 +326,19 @@ if (failures.length) {
 
 console.log("MUSIC_STUDIO_RELEASE_AUDIT=PASS");
 console.log("MUSIC_GENERATION_CONTRACT=OWNED");
+console.log("MUSIC_QUALITY_PROFILE=ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1");
 console.log("MUSIC_ASSET_PERSISTENCE=DURABLE");
 console.log("MUSIC_AUTOMATIC_MASTERING=REQUIRED");
 console.log("MUSIC_VERSION_HISTORY=REQUIRED");
 console.log("MUSIC_CLIENT_PROVIDER_SELECTION=HIDDEN");
 console.log("MUSIC_PREFLIGHT=SCOPED_AUDIO_VOICE_CACHE_SIGNED_STORAGE_ZERO_MUTATION_REQUIRED");
-console.log("MUSIC_BENCHMARK=SPEND_GUARDED_FULL_PREFLIGHT_EVIDENCE_QUEUED_AND_SYNTHETIC_SCOPE_ONLY");
+console.log("MUSIC_BENCHMARK=XL_LM_SPEND_GUARDED_FULL_PREFLIGHT_EVIDENCE_QUEUED_AND_SYNTHETIC_SCOPE_ONLY");
 console.log("MUSIC_RUNPOD_INSPECTION=READ_ONLY_ENDPOINT_BOUND_TEMPLATE_AWARE");
-console.log("MUSIC_WORKER_IMAGE=EXACT_SOURCE_CUDA_12_8_NATIVE_AUDIO_SMOKE_REQUIRED");
-console.log("MUSIC_ENDPOINT_PROVISIONING=HARDENED_IMMUTABLE_IMAGE_PRIVATE_REGISTRY_SCALE_TO_ZERO");
+console.log("MUSIC_WORKER_IMAGE=EXACT_SOURCE_XL_1_7B_LM_CUDA_12_8_NATIVE_AUDIO_SMOKE_REQUIRED");
+console.log("MUSIC_ENDPOINT_PROVISIONING=V3_XL_LM_IMMUTABLE_IMAGE_PRIVATE_REGISTRY_SCALE_TO_ZERO");
 console.log("MUSIC_RUNPOD_CACHE=SHARED_AUDIO_VOICE_NETWORK_VOLUME_RUNPOD_VOLUME_ROOT");
 console.log("MUSIC_RUNPOD_SHARED_CACHE_POLICY=THREE_MANAGED_GROUPS_MAX_DUPLICATE_AUDIO_VOICE_FORBIDDEN");
-console.log("MUSIC_WORKER_REPAIR=DURABLE_AUDIO_VOICE_CACHE_REQUIRED_BEFORE_APPLY");
+console.log("MUSIC_WORKER_REPAIR=V3_XL_LM_DURABLE_AUDIO_VOICE_CACHE_REQUIRED_BEFORE_APPLY");
 console.log("MUSIC_ENDPOINT_BINDING=FINGERPRINT_PROVEN_LOCAL_ONLY");
 console.log("MUSIC_CERTIFICATION_WORKFLOW=DEDICATED_MEASURE_ONLY");
 console.log("MUSIC_ECONOMICS=MEASUREMENT_REQUIRED_BEFORE_PRICING_PROMOTION");

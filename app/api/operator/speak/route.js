@@ -9,6 +9,9 @@ import {
 import {
   ServiceExecutionRuntime,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import {
+  requireOperatorVoiceLanguage,
+} from "@/lib/operator/runtime/OperatorVoiceLanguagePolicy";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -38,11 +41,12 @@ function findAudioBase64(value, depth = 0) {
   return null;
 }
 
-function errorResponse(error, status = 500) {
+function errorResponse(error, status = 500, details = null) {
   return Response.json(
     {
       success: false,
       error,
+      ...(details ? { details } : {}),
     },
     { status },
   );
@@ -62,6 +66,12 @@ export async function POST(request) {
     ) || null;
     const voice = text(body?.voice) || null;
     const locale = text(body?.locale) || null;
+    const requestedLanguage = text(
+      body?.language || body?.requestedLanguage || body?.requested_language,
+    ) || null;
+    const detectedLanguage = text(
+      body?.detectedLanguage || body?.detected_language,
+    ) || null;
 
     if (!speechText) {
       return errorResponse("Speech text required", 400);
@@ -70,6 +80,12 @@ export async function POST(request) {
     if (!organizationId) {
       return errorResponse("Organization required", 400);
     }
+
+    const voiceLanguage = requireOperatorVoiceLanguage({
+      detectedLanguage,
+      requestedLanguage,
+      locale,
+    });
 
     const access = await requireOrganizationAccess({
       organizationId,
@@ -119,12 +135,18 @@ export async function POST(request) {
         voice: voice || undefined,
         response_format: "wav",
         quantity: estimatedMinutes,
-        locale: locale || undefined,
+        locale: voiceLanguage.language,
+        language: voiceLanguage.language,
       },
       metadata: {
         module: "OPERATOR",
         operation: "VOICE_RESPONSE",
         channel: "voice",
+        voice_language_contract: voiceLanguage.contract,
+        voice_language: voiceLanguage.language,
+        voice_language_source: voiceLanguage.language_source,
+        voice_quality: voiceLanguage.voice_quality,
+        low_quality_fallback_allowed: false,
       },
       category: "AI",
     });
@@ -133,6 +155,7 @@ export async function POST(request) {
     if (!audioBase64) {
       console.error("OPERATOR_SPEECH_NO_AUDIO", {
         duration_ms: Date.now() - startedAt,
+        language: voiceLanguage.language,
       });
       return errorResponse("Speech generation returned no audio", 502);
     }
@@ -146,6 +169,8 @@ export async function POST(request) {
       duration_ms: Date.now() - startedAt,
       bytes: audio.length,
       format: "wav",
+      language: voiceLanguage.language,
+      language_source: voiceLanguage.language_source,
     });
 
     return new Response(audio, {
@@ -155,6 +180,8 @@ export async function POST(request) {
         "Content-Length": String(audio.length),
         "Cache-Control": "no-store",
         "X-Avantiqo-Voice": "governed",
+        "X-Avantiqo-Voice-Language": voiceLanguage.language,
+        "X-Avantiqo-Voice-Quality": voiceLanguage.voice_quality,
       },
     });
   } catch (error) {
@@ -163,6 +190,16 @@ export async function POST(request) {
     return errorResponse(
       error?.message || "Voice response failed",
       error?.status || 500,
+      error?.voice_plan
+        ? {
+            language: error.voice_plan.language,
+            reply_language: error.voice_plan.reply_language,
+            voice_available: error.voice_plan.voice_available,
+            voice_quality: error.voice_plan.voice_quality,
+            low_quality_fallback_allowed:
+              error.voice_plan.low_quality_fallback_allowed,
+          }
+        : null,
     );
   }
 }

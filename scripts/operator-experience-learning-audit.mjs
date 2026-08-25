@@ -14,10 +14,14 @@ function assert(condition, code) {
 const policyPath = "lib/operator/runtime/IntelligenceFailureLearningPolicy.js";
 const runtimePath = "lib/operator/runtime/IntelligenceAdaptiveLearningRuntime.js";
 const conversationPath = "lib/operator/runtime/IntelligenceConversationRuntime.js";
+const trainingPath = "lib/intelligence/runtime/AvantiqoTrainingCandidateRuntime.js";
+const indexPath = "lib/intelligence/index.js";
 
 const policy = read(policyPath);
 const runtime = read(runtimePath);
 const conversation = read(conversationPath);
+const training = read(trainingPath);
+const index = read(indexPath);
 
 assert(policy.includes("observeVerifiedExecutionSuccess"), "EXPERIENCE_SUCCESS_OBSERVATION_REQUIRED");
 assert(policy.includes("deriveResolvedFailureLearning"), "EXPERIENCE_RECOVERY_DERIVATION_REQUIRED");
@@ -35,8 +39,20 @@ assert(runtime.includes("RECOVERY_LOOKBACK_DAYS"), "EXPERIENCE_LOOKBACK_BOUND_RE
 assert(conversation.includes("learnAdaptiveExecutionLesson"), "EXPERIENCE_EXISTING_PERSISTENCE_HOOK_REQUIRED");
 assert(conversation.includes("retireAdaptiveLessonsAfterVerifiedSuccess"), "EXPERIENCE_FAILURE_RETIREMENT_REQUIRED");
 
+assert(training.includes("AVANTIQO_TRAINING_CANDIDATE_V1"), "TRAINING_CANDIDATE_CONTRACT_REQUIRED");
+assert(training.includes("MIN_BENCHMARK_CASES = 20"), "TRAINING_CANDIDATE_MIN_CASES_REQUIRED");
+assert(training.includes("MIN_PASS_RATE = 0.95"), "TRAINING_CANDIDATE_PASS_RATE_REQUIRED");
+assert(training.includes("regression_count > 0"), "TRAINING_CANDIDATE_NO_REGRESSION_REQUIRED");
+assert(training.includes("privacy_passed"), "TRAINING_CANDIDATE_PRIVACY_GATE_REQUIRED");
+assert(training.includes("governance_passed"), "TRAINING_CANDIDATE_GOVERNANCE_GATE_REQUIRED");
+assert(training.includes("leakage_detected"), "TRAINING_CANDIDATE_LEAKAGE_GATE_REQUIRED");
+assert(training.includes("automatic_model_weight_mutation: false"), "TRAINING_CANDIDATE_NO_WEIGHT_MUTATION_REQUIRED");
+assert(training.includes('production_model_promotion_effect: "NONE"'), "TRAINING_CANDIDATE_NO_PRODUCTION_PROMOTION_REQUIRED");
+assert(index.includes("AvantiqoTrainingCandidateRuntime"), "TRAINING_CANDIDATE_EXPORT_REQUIRED");
+
 console.log("AVANTIQO_EXPERIENCE_LEARNING_AUDIT=PASS");
 console.log("AVANTIQO_EXPERIENCE_VERIFIED_SUCCESS_LEARNING=YES");
 console.log("AVANTIQO_EXPERIENCE_PRIVATE_SCOPE_PRESERVED=YES");
 console.log("AVANTIQO_EXPERIENCE_DEIDENTIFIED_TRAINING_CANDIDATES=YES");
 console.log("AVANTIQO_EXPERIENCE_BENCHMARK_GATE=YES");
+console.log("AVANTIQO_EXPERIENCE_AUTOMATIC_WEIGHT_MUTATION=NO");

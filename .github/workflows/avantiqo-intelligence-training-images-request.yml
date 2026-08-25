@@ -1,0 +1,213 @@
+name: Avantiqo Intelligence Training Images Request
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/requests/avantiqo-intelligence-training-images.json
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: avantiqo-intelligence-training-images-request
+  cancel-in-progress: false
+
+jobs:
+  validate-request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact request source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Validate isolated build request
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const path = ".github/requests/avantiqo-intelligence-training-images.json";
+          const request = JSON.parse(readFileSync(path, "utf8"));
+          const expected = {
+            contract: "AVANTIQO_INTELLIGENCE_TRAINING_IMAGE_BUILD_REQUEST_V1",
+            component: "both",
+            build_trainer: true,
+            build_candidate: true,
+            provider_execution_allowed: false,
+            runpod_endpoint_mutation_allowed: false,
+            production_deploy_allowed: false,
+          };
+          for (const [key, value] of Object.entries(expected)) {
+            if (request[key] !== value) throw new Error(`INVALID_BUILD_REQUEST:${key}`);
+          }
+          if (typeof request.nonce !== "string" || request.nonce.length < 8) {
+            throw new Error("INVALID_BUILD_REQUEST:nonce");
+          }
+          console.log("AVANTIQO_INTELLIGENCE_IMAGE_BUILD_REQUEST=VALID");
+          NODE
+
+  build-images:
+    needs: validate-request
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: trainer
+            dockerfile: services/avantiqo-intelligence-trainer/Dockerfile.runpod
+            image_name: avantiqo-intelligence-trainer
+            contract: AVANTIQO_INTELLIGENCE_TRAINER_V1
+          - component: candidate
+            dockerfile: services/avantiqo-intelligence-candidate/Dockerfile.runpod
+            image_name: avantiqo-intelligence-candidate
+            contract: AVANTIQO_INTELLIGENCE_CANDIDATE_STARTUP_V1
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify source contract
+        shell: bash
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          if [ "$COMPONENT" = "trainer" ]; then
+            test -f services/avantiqo-intelligence-trainer/Dockerfile.runpod
+            test -f services/avantiqo-intelligence-trainer/handler.py
+            test -f services/avantiqo-intelligence-trainer/requirements.txt
+            grep -F 'Qwen/Qwen3-30B-A3B-Thinking-2507' services/avantiqo-intelligence-trainer/handler.py
+            grep -F 'LORA_BF16_PEFT_QWEN3_MOE' services/avantiqo-intelligence-trainer/handler.py
+            grep -F 'MIN_BF16_GPU_MEMORY_BYTES = 78 * 1024 * 1024 * 1024' services/avantiqo-intelligence-trainer/handler.py
+            grep -F 'MAX_SEQUENCE_LENGTH = 2048' services/avantiqo-intelligence-trainer/handler.py
+            grep -F 'DEFAULT_SEQUENCE_LENGTH = 1024' services/avantiqo-intelligence-trainer/handler.py
+            grep -F 'target_parameters=MOE_LORA_TARGET_PARAMETERS' services/avantiqo-intelligence-trainer/handler.py
+            grep -F 'AVANTIQO_INTELLIGENCE_TRAINER_ENABLED=false' services/avantiqo-intelligence-trainer/Dockerfile.runpod
+            if grep -Fq 'BitsAndBytesConfig' services/avantiqo-intelligence-trainer/handler.py; then exit 1; fi
+            if grep -Fq 'load_in_4bit' services/avantiqo-intelligence-trainer/handler.py; then exit 1; fi
+            if grep -Fqi 'bitsandbytes' services/avantiqo-intelligence-trainer/requirements.txt; then exit 1; fi
+          else
+            test -f services/avantiqo-intelligence-candidate/Dockerfile.runpod
+            test -f services/avantiqo-intelligence-candidate/inspect_adapter.py
+            test -f services/avantiqo-intelligence-candidate/startup.py
+            grep -F 'runpod/worker-v1-vllm:v2.25.0' services/avantiqo-intelligence-candidate/Dockerfile.runpod
+            grep -F 'AVANTIQO_INTELLIGENCE_CANDIDATE_ENABLED=false' services/avantiqo-intelligence-candidate/Dockerfile.runpod
+            grep -F 'EXPECTED_TARGET_MODULES = {"q_proj", "v_proj"}' services/avantiqo-intelligence-candidate/inspect_adapter.py
+            grep -F 'MOE_3D_FUSED_PEFT' services/avantiqo-intelligence-candidate/inspect_adapter.py
+            grep -F 'PEFT_FUSED_EXPERT_FACTORS_2D' services/avantiqo-intelligence-candidate/inspect_adapter.py
+            grep -F 'ADAPTER_MOE_PER_EXPERT_LAYOUT_FORBIDDEN' services/avantiqo-intelligence-candidate/inspect_adapter.py
+          fi
+          echo "AVANTIQO_INTELLIGENCE_${COMPONENT^^}_REQUEST_PREFLIGHT=PASS"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$GITHUB_SHA"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/${{ matrix.image_name }}"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push immutable image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            io.avantiqo.contract=${{ matrix.contract }}
+            io.avantiqo.build-request=AVANTIQO_INTELLIGENCE_TRAINING_IMAGE_BUILD_REQUEST_V1
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.image_name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
+
+      - name: Create immutable build evidence
+        env:
+          COMPONENT: ${{ matrix.component }}
+          IMAGE_REPOSITORY: ${{ steps.image.outputs.image }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          RELEASE_SHA: ${{ steps.image.outputs.release_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$IMAGE_DIGEST"
+          case "$IMAGE_DIGEST" in sha256:*) ;; *) exit 1 ;; esac
+          mkdir -p "/tmp/avantiqo-intelligence-${COMPONENT}-request-image"
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          const component = process.env.COMPONENT;
+          const report = {
+            success: true,
+            contract: "AVANTIQO_INTELLIGENCE_TRAINING_IMAGE_BUILD_RESULT_V1",
+            component,
+            source_sha: process.env.RELEASE_SHA,
+            github_run_id: process.env.BUILD_RUN_ID,
+            image_repository: process.env.IMAGE_REPOSITORY,
+            image_tag: process.env.IMAGE_TAG,
+            image_digest: process.env.IMAGE_DIGEST,
+            immutable_image_reference: `${process.env.IMAGE_REPOSITORY}@${process.env.IMAGE_DIGEST}`,
+            provider_job_submitted: false,
+            training_started: false,
+            runpod_endpoint_mutated: false,
+            production_model_promoted: false,
+            production_web_deploy: false,
+            secrets_in_output: false,
+          };
+          writeFileSync(
+            `/tmp/avantiqo-intelligence-${component}-request-image/evidence.json`,
+            `${JSON.stringify(report, null, 2)}\n`,
+            "utf8",
+          );
+          console.log(JSON.stringify(report));
+          NODE
+
+      - name: Upload build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-${{ matrix.component }}-request-image-${{ steps.image.outputs.short_sha }}
+          path: /tmp/avantiqo-intelligence-${{ matrix.component }}-request-image/evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Confirm isolated build only
+        shell: bash
+        run: |
+          echo 'AVANTIQO_INTELLIGENCE_IMAGE_BUILD=PASS'
+          echo 'AVANTIQO_INTELLIGENCE_PROVIDER_JOB_SUBMITTED=false'
+          echo 'AVANTIQO_INTELLIGENCE_TRAINING_STARTED=false'
+          echo 'AVANTIQO_INTELLIGENCE_RUNPOD_ENDPOINT_MUTATED=false'
+          echo 'AVANTIQO_INTELLIGENCE_PRODUCTION_DEPLOY=false'

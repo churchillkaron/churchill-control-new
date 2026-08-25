@@ -35,31 +35,30 @@ jobs:
           test -f services/avantiqo-image-engine/handler_v2.py
           test -f services/avantiqo-image-engine/handler_v3.py
           test -f services/avantiqo-image-engine/handler_v4.py
-          grep -F 'COPY handler_v4.py ./handler_v4.py' services/avantiqo-image-engine/Dockerfile
-          grep -F 'CMD ["python", "-u", "handler_v4.py"]' services/avantiqo-image-engine/Dockerfile
-          grep -F 'RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V4_MULTI_FOUNDATION_CANDIDATE_V1"' services/avantiqo-image-engine/handler_v4.py
-          grep -F 'RUNTIME_REVISION = "AVANTIQO_IMAGE_MULTI_FOUNDATION_CANDIDATE_V1"' services/avantiqo-image-engine/handler_v4.py
+          test -f services/avantiqo-image-engine/handler_v5.py
+          grep -F 'COPY handler_v5.py ./handler_v5.py' services/avantiqo-image-engine/Dockerfile
+          grep -F 'AVANTIQO_IMAGE_NETWORK_VOLUME_QUOTA_GB=80' services/avantiqo-image-engine/Dockerfile
+          grep -F 'CMD ["python", "-u", "handler_v5.py"]' services/avantiqo-image-engine/Dockerfile
+          grep -F 'RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V5_VOLUME_QUOTA_GUARD_V1"' services/avantiqo-image-engine/handler_v5.py
+          grep -F 'RUNTIME_REVISION = "AVANTIQO_IMAGE_MULTI_FOUNDATION_VOLUME_QUOTA_GUARD_V1"' services/avantiqo-image-engine/handler_v5.py
+          grep -F 'NETWORK_VOLUME_ROOT = Path(' services/avantiqo-image-engine/handler_v5.py
+          grep -F 'NETWORK_VOLUME_QUOTA_GB = float(' services/avantiqo-image-engine/handler_v5.py
+          grep -F '"backing_filesystem_capacity_used_for_decision": False' services/avantiqo-image-engine/handler_v5.py
           grep -F 'PHOTOREAL_FOUNDATION_MODEL = "Tongyi-MAI/Z-Image"' services/avantiqo-image-engine/handler_v4.py
-          grep -F 'PHOTOREAL_PROFILE = "AVANTIQO_IMAGE_COMMERCIAL_PHOTOREAL_CANDIDATE_V1"' services/avantiqo-image-engine/handler_v4.py
-          grep -F 'PHOTOREAL_POLICY = "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V1"' services/avantiqo-image-engine/handler_v4.py
-          grep -F 'PHOTOREAL_CACHE_CONTRACT = "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1"' services/avantiqo-image-engine/handler_v4.py
-          grep -F 'CAPACITY_OPERATION = "inspect_foundation_capacity"' services/avantiqo-image-engine/handler_v4.py
           grep -F '"automatic_production_routing_enabled": False' services/avantiqo-image-engine/handler_v4.py
-          grep -F '"model_download_performed": False' services/avantiqo-image-engine/handler_v4.py
-          grep -F '"generation_requested": False' services/avantiqo-image-engine/handler_v4.py
-          grep -F '"inference_performed": False' services/avantiqo-image-engine/handler_v4.py
           grep -F 'RUNTIME_PROBE_OPERATION = "runtime_probe"' services/avantiqo-image-engine/handler_v3.py
           grep -F 'RUNTIME_PROBE_CONTRACT = "AVANTIQO_IMAGE_RUNTIME_PROBE_V1"' services/avantiqo-image-engine/handler_v3.py
           python -m py_compile \
             services/avantiqo-image-engine/handler.py \
             services/avantiqo-image-engine/handler_v2.py \
             services/avantiqo-image-engine/handler_v3.py \
-            services/avantiqo-image-engine/handler_v4.py
+            services/avantiqo-image-engine/handler_v4.py \
+            services/avantiqo-image-engine/handler_v5.py
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_PREFLIGHT=PASS'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_TRIGGER_SHA_BOUND=true'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_RUNTIME_PROBE_REQUIRED=true'
-          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V4_PHOTOREAL_CANDIDATE_LOCKED=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V5_VOLUME_QUOTA_GUARD_LOCKED=true'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_AUTOMATIC_PRODUCTION_ROUTING=false'
 
       - name: Set up Docker Buildx
@@ -129,7 +128,7 @@ jobs:
           const digest = process.env.IMAGE_DIGEST;
           const report = {
             success: true,
-            contract: "AVANTIQO_IMAGE_WORKER_IMAGE_RESULT_V2",
+            contract: "AVANTIQO_IMAGE_WORKER_IMAGE_RESULT_V3",
             source_sha: process.env.RELEASE_SHA || null,
             trigger_sha: process.env.TRIGGER_SHA || null,
             source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
@@ -138,16 +137,19 @@ jobs:
             image_tag: process.env.IMAGE_TAG || null,
             image_digest: digest,
             immutable_image_reference: `${repository}@${digest}`,
-            entrypoint: "handler_v4.py",
-            entrypoint_revision: "AVANTIQO_IMAGE_HANDLER_V4_MULTI_FOUNDATION_CANDIDATE_V1",
+            entrypoint: "handler_v5.py",
+            entrypoint_revision: "AVANTIQO_IMAGE_HANDLER_V5_VOLUME_QUOTA_GUARD_V1",
             runtime_probe_contract: "AVANTIQO_IMAGE_RUNTIME_PROBE_V1",
-            runtime_revision: "AVANTIQO_IMAGE_MULTI_FOUNDATION_CANDIDATE_V1",
+            runtime_revision: "AVANTIQO_IMAGE_MULTI_FOUNDATION_VOLUME_QUOTA_GUARD_V1",
             qwen_runtime_revision: "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2",
             photoreal_candidate_foundation: "Tongyi-MAI/Z-Image",
             photoreal_candidate_profile: "AVANTIQO_IMAGE_COMMERCIAL_PHOTOREAL_CANDIDATE_V1",
             photoreal_candidate_policy: "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V1",
             photoreal_cache_contract: "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1",
             capacity_probe_operation: "inspect_foundation_capacity",
+            volume_quota_guard_contract: "AVANTIQO_IMAGE_NETWORK_VOLUME_QUOTA_GUARD_V1",
+            network_volume_quota_gb: 80,
+            backing_filesystem_capacity_used_for_decision: false,
             automatic_production_routing_enabled: false,
             qwen_replaced: false,
             provider_job_submitted: false,
@@ -178,7 +180,7 @@ jobs:
         run: |
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_SOURCE_TRIGGER_MATCH=true'
-          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V4_PHOTOREAL_CANDIDATE=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V5_VOLUME_QUOTA_GUARD=true'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_AUTOMATIC_PRODUCTION_ROUTING=false'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_GENERATION_SUBMITTED=false'

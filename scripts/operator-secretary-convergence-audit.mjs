@@ -4,12 +4,17 @@ import { readFile } from "node:fs/promises";
 const paths = {
   caller: "lib/operator/secretary/SecretaryCallerRuntime.js",
   callerBrain: "lib/operator/secretary/SecretaryCallerConversationRuntime.js",
+  callStart: "app/api/internal/secretary/calls/start/route.js",
   messageBrain: "lib/operator/secretary/SecretaryMessageConversationRuntime.js",
   messageWorker: "app/api/internal/secretary/messages/process/route.js",
   voiceGateway: "lib/operator/secretary/SecretaryVoiceCallGatewayRuntime.js",
   businessHoursRuntime: "lib/operator/secretary/SecretaryBusinessHoursRuntime.js",
   afterHoursRuntime: "lib/operator/secretary/SecretaryAfterHoursConversationRuntime.js",
   callbackAutonomyRuntime: "lib/operator/secretary/SecretaryAutonomousCallbackRuntime.js",
+  sipTransportRuntime: "lib/operator/secretary/SecretarySipGatewayTransportRuntime.js",
+  sipWorker: "app/api/internal/secretary/calls/outbound/process/route.js",
+  outboundStatus: "app/api/internal/secretary/calls/outbound/status/route.js",
+  voiceTurn: "app/api/internal/secretary/calls/turn/route.js",
   appointmentRuntime: "lib/operator/secretary/SecretaryAppointmentNotificationRuntime.js",
   appointmentWorker: "app/api/internal/secretary/appointments/notifications/process/route.js",
   commitmentRuntime: "lib/operator/secretary/SecretaryCommitmentCaptureRuntime.js",
@@ -22,6 +27,7 @@ const paths = {
   dueWorker: "app/api/internal/secretary/due-work/process/route.js",
   platform: "lib/platform/runtime/PlatformDomainRuntime.js",
   core: "supabase/migrations/20260825062200_avantiqo_secretary_native_core.sql",
+  outboundCalls: "supabase/migrations/20260825064100_avantiqo_secretary_outbound_calls.sql",
   selfService: "supabase/migrations/20260825071000_secretary_contact_owned_appointment_mutations.sql",
   references: "supabase/migrations/20260825071100_secretary_appointment_self_service_reference.sql",
   notifications: "supabase/migrations/20260825071500_secretary_appointment_contact_notifications.sql",
@@ -80,6 +86,10 @@ assert.match(source.caller, /cancelOwnAppointment/);
 assert.match(source.messageBrain, /Preserve the sender's language/);
 assert.match(source.messageBrain, /secretary_reserve_message_reply/);
 assert.match(source.messageBrain, /contactAllowsMessages/);
+assert.match(source.callStart, /secretary_resolve_message_contact/);
+assert.match(source.callStart, /p_provider:\s*"pstn"/);
+assert.match(source.callStart, /p_channel_type:\s*"call"/);
+assert.match(source.callStart, /contact_created_or_resolved/);
 
 assert.match(source.selfService, /contact_party_id = p_contact_party_id/i);
 assert.match(source.selfService, /event_type = 'APPOINTMENT'/i);
@@ -168,11 +178,39 @@ assert.match(source.callbackAutonomyRuntime, /callback_autonomy_promoted/);
 assert.match(source.callbackAutonomyRuntime, /execution_owner:\s*"SECRETARY"/);
 assert.match(source.callbackAutonomyRuntime, /execution_ready:\s*true/);
 assert.match(source.callbackAutonomyRuntime, /return updated \|\| row/);
+assert.match(source.callbackAutonomyRuntime, /callback_superseded/);
+assert.match(source.callbackAutonomyRuntime, /status:\s*"CANCELLED"/);
 assert.match(source.messageWorker, /runSecretaryMessageReceptionAutonomous/);
 assert.match(source.messageWorker, /callback_autonomy_promoted/);
 assert.match(source.voiceGateway, /runSecretaryCallerTurnAutonomous/);
 assert.match(source.voiceGateway, /callback_autonomy_promoted/);
 assert.match(source.voiceGateway, /server_allowed_actions/);
+
+assert.match(source.outboundCalls, /secretary_outbound_call_requests/);
+assert.match(source.outboundCalls, /for update skip locked/i);
+assert.match(source.outboundCalls, /attempt_count < r\.max_attempts/);
+assert.match(source.sipTransportRuntime, /SECRETARY_SIP_GATEWAY_TRANSPORT_CONTRACT/);
+assert.match(source.sipTransportRuntime, /authority:\s*"TRANSPORT_ONLY"/);
+assert.match(source.sipTransportRuntime, /intelligence_owner:\s*"AVANTIQO"/);
+assert.match(source.sipTransportRuntime, /state_owner:\s*"AVANTIQO"/);
+assert.match(source.sipTransportRuntime, /AVANTIQO_SECRETARY_SIP_GATEWAY_V1/);
+assert.match(source.sipTransportRuntime, /secretarySipGatewayReadiness\(\)\.ready/);
+assert.match(source.sipTransportRuntime, /AVANTIQO_SECRETARY_SIP_GATEWAY_URL/);
+assert.match(source.sipTransportRuntime, /AVANTIQO_SECRETARY_PUBLIC_BASE_URL/);
+assert.match(source.sipTransportRuntime, /AVANTIQO_SECRETARY_SIP_GATEWAY_TOKEN/);
+assert.match(source.sipTransportRuntime, /AVANTIQO_SECRETARY_CALL_GATEWAY_TOKEN/);
+assert.match(source.sipTransportRuntime, /reconcileStaleSecretarySipCalls/);
+assert.match(source.sipTransportRuntime, /SIP_GATEWAY_DIAL_TIMEOUT/);
+assert.match(source.sipTransportRuntime, /SIP_GATEWAY_CONNECTED_TIMEOUT/);
+assert.match(source.sipWorker, /process\.env\.CRON_SECRET/);
+assert.match(source.sipWorker, /maxDuration = 300/);
+assert.match(source.sipWorker, /if \(!readiness\.ready\)/);
+assert.match(source.sipWorker, /reconcileStaleSecretarySipCalls/);
+assert.match(source.outboundStatus, /result\.data\.status === "CLAIMED"/);
+assert.match(source.outboundStatus, /2 \* 60 \* 60 \* 1000/);
+assert.match(source.outboundStatus, /createConnectedCall/);
+assert.match(source.outboundStatus, /claim_token:\s*null/);
+assert.match(source.voiceTurn, /runSecretaryVoiceCallChunk/);
 
 assert.match(source.followUpEscalation, /HUMAN_ATTENTION_REASONS/);
 assert.match(source.followUpEscalation, /FOLLOW_UP_CONTENT_NOT_SELF_CONTAINED/);
@@ -192,12 +230,13 @@ for (const worker of [
   source.appointmentWorker,
   source.commitmentWorker,
   source.followUpWorker,
+  source.sipWorker,
 ]) {
   assert.match(worker, /process\.env\.CRON_SECRET/);
   assert.match(worker, /maxDuration = 300/);
 }
 
-for (const runtime of [source.afterHoursRuntime, source.callbackAutonomyRuntime]) {
+for (const runtime of [source.afterHoursRuntime, source.callbackAutonomyRuntime, source.sipTransportRuntime]) {
   assert.doesNotMatch(runtime, /Google Calendar|Outlook|Microsoft Calendar|Calendly|Twilio/i);
 }
 
@@ -208,6 +247,7 @@ const expectedCrons = [
   "/api/internal/secretary/appointments/notifications/process",
   "/api/internal/secretary/commitments/process",
   "/api/internal/secretary/follow-ups/process",
+  "/api/internal/secretary/calls/outbound/process",
 ];
 for (const path of expectedCrons) {
   const job = (vercel.crons || []).find((entry) => entry.path === path);
@@ -230,7 +270,12 @@ console.log("SECRETARY_BUSINESS_HOURS_ENFORCED=true");
 console.log("SECRETARY_AFTER_HOURS_RECEPTION=true");
 console.log("SECRETARY_AFTER_HOURS_CALENDAR_MUTATIONS_BLOCKED=true");
 console.log("SECRETARY_AUTONOMOUS_CALLBACKS=true");
+console.log("SECRETARY_UNKNOWN_CALLER_NATIVE_RESOLUTION=true");
+console.log("SECRETARY_CALLBACK_CANONICALIZATION=true");
+console.log("SECRETARY_OWNED_SIP_TRANSPORT_BOUNDARY=true");
+console.log("SECRETARY_SIP_TRANSPORT_FAIL_CLOSED=true");
+console.log("SECRETARY_STALE_TRANSPORT_RECONCILIATION=true");
 console.log("SECRETARY_BLOCKED_AUTONOMY_HUMAN_ESCALATION=true");
 console.log("SECRETARY_ESCALATION_AUTO_RESOLUTION=true");
-console.log("SECRETARY_REAL_CLOUD_JOBS=5");
+console.log("SECRETARY_REAL_CLOUD_JOBS=6");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

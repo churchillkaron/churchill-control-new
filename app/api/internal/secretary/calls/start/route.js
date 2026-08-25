@@ -17,7 +17,7 @@ function text(value, limit = 1000) {
 
 async function resolveContactParty(phoneLineId, remoteAddress) {
   const phone = text(remoteAddress, 120);
-  if (!phone) return null;
+  if (!phone) return { party_id: null, created_or_resolved: false };
 
   const lineResult = await supabaseAdmin
     .from("secretary_phone_lines")
@@ -26,18 +26,33 @@ async function resolveContactParty(phoneLineId, remoteAddress) {
     .eq("active", true)
     .maybeSingle();
   if (lineResult.error) throw lineResult.error;
-  if (!lineResult.data?.organization_id) return null;
+  const organizationId = lineResult.data?.organization_id;
+  if (!organizationId) return { party_id: null, created_or_resolved: false };
 
   const partyResult = await supabaseAdmin
     .from("parties")
     .select("id")
-    .eq("organization_id", lineResult.data.organization_id)
+    .eq("organization_id", organizationId)
     .eq("phone", phone)
     .eq("status", "active")
     .limit(1)
     .maybeSingle();
   if (partyResult.error) throw partyResult.error;
-  return partyResult.data?.id || null;
+  if (partyResult.data?.id) {
+    return { party_id: partyResult.data.id, created_or_resolved: false };
+  }
+
+  const resolved = await supabaseAdmin.rpc("secretary_resolve_message_contact", {
+    p_organization_id: organizationId,
+    p_provider: "pstn",
+    p_channel_type: "call",
+    p_external_participant_id: phone,
+    p_external_address: phone,
+    p_display_name: null,
+  });
+  if (resolved.error) throw resolved.error;
+  const partyId = text(resolved.data, 120) || null;
+  return { party_id: partyId, created_or_resolved: Boolean(partyId) };
 }
 
 export async function POST(request) {
@@ -60,8 +75,10 @@ export async function POST(request) {
       );
     }
 
-    const contactPartyId = explicitContactPartyId ||
-      (await resolveContactParty(phoneLineId, remoteAddress));
+    const resolvedContact = explicitContactPartyId
+      ? { party_id: explicitContactPartyId, created_or_resolved: false }
+      : await resolveContactParty(phoneLineId, remoteAddress);
+    const contactPartyId = resolvedContact.party_id;
 
     const started = await beginInboundSecretaryCall({
       phoneLineId,
@@ -82,6 +99,7 @@ export async function POST(request) {
         default_language: started.default_language,
         timezone: started.timezone,
         contact_matched: Boolean(contactPartyId),
+        contact_created_or_resolved: resolvedContact.created_or_resolved,
         caller_authority: started.authority,
         internal_operator_capabilities_available: false,
       },

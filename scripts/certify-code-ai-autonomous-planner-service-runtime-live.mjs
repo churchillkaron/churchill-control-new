@@ -4,6 +4,7 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_CODE_AUTONOMOUS_PLANNER_SERVICE_RUNTIME_LIVE_CERTIFICATION_V1";
+const AUTONOMY_CONTROL_CONTRACT = "AVANTIQO_CODE_AI_AUTONOMY_CONTROL_V1";
 const ORGANIZATION_ID = String(
   process.argv[2] || process.env.AVANTIQO_CODE_PLANNER_CERT_ORGANIZATION_ID || "",
 ).trim();
@@ -56,7 +57,7 @@ if (!text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID)) {
 process.env.AVANTIQO_CODE_ENGINE_ENABLED = "true";
 
 const [
-  { executeAutonomousCodeMission },
+  autonomousRuntime,
   { WalletRuntime },
   { UsageRuntime },
 ] = await Promise.all([
@@ -64,6 +65,22 @@ const [
   import("../lib/platform/service-runtime/wallet/runtime/WalletRuntime.js"),
   import("../lib/platform/service-runtime/usage/UsageRuntime.js"),
 ]);
+
+const { executeAutonomousCodeMission, CodeAIAutonomousRuntime } = autonomousRuntime;
+if (typeof executeAutonomousCodeMission !== "function") {
+  throw new Error("AVANTIQO_CODE_PLANNER_CERT_AUTONOMOUS_RUNTIME_NOT_LOADABLE");
+}
+if (CodeAIAutonomousRuntime?.autonomy_control_contract !== AUTONOMY_CONTROL_CONTRACT) {
+  throw new Error("AVANTIQO_CODE_PLANNER_CERT_AUTONOMY_CONTROL_CONTRACT_REQUIRED");
+}
+for (const action of ["read", "search", "run"]) {
+  if (!list(CodeAIAutonomousRuntime?.duplicate_guarded_actions).includes(action)) {
+    throw new Error(`AVANTIQO_CODE_PLANNER_CERT_DUPLICATE_ACTION_GUARD_REQUIRED:${action}`);
+  }
+}
+if (Number(CodeAIAutonomousRuntime?.max_iterations || 0) !== 24) {
+  throw new Error("AVANTIQO_CODE_PLANNER_CERT_GLOBAL_ITERATION_LIMIT_MISMATCH");
+}
 
 const walletBefore = await WalletRuntime.prepaid({
   organization_id: ORGANIZATION_ID,
@@ -149,6 +166,17 @@ if (JSON.stringify(changedFiles) !== JSON.stringify(expectedFiles)) {
   throw new Error(`AVANTIQO_CODE_PLANNER_CERT_SCOPE_VIOLATION:${changedFiles.join(",")}`);
 }
 
+const control = finalResult.state?.autonomy_control || {};
+if (control.contract !== AUTONOMY_CONTROL_CONTRACT) {
+  throw new Error("AVANTIQO_CODE_PLANNER_CERT_FINAL_AUTONOMY_CONTROL_EVIDENCE_REQUIRED");
+}
+if (Number(control.planner_iterations_used || 0) > MAX_ITERATIONS_PER_CYCLE) {
+  throw new Error("AVANTIQO_CODE_PLANNER_CERT_GLOBAL_ITERATION_BUDGET_EXCEEDED");
+}
+if (control.pending_planner_iteration) {
+  throw new Error("AVANTIQO_CODE_PLANNER_CERT_PENDING_ITERATION_REMAINS");
+}
+
 const passedVerificationOperationIds = new Set(
   list(finalResult.state?.verification)
     .filter((entry) => entry?.passed === true)
@@ -223,6 +251,10 @@ console.log(JSON.stringify({
   planner_runtime: "CodeAIAutonomousRuntime",
   planner_execution_runtime: "CodeAIPlannerExecutionRuntime",
   service_execution_runtime: "ServiceExecutionRuntime",
+  autonomy_control_contract: AUTONOMY_CONTROL_CONTRACT,
+  duplicate_read_search_run_guard_verified: true,
+  global_iteration_budget_verified: true,
+  global_planner_iterations_used: Number(control.planner_iterations_used || 0),
   wallet_policy: "PREPAID",
   wallet_balance_before: Number(walletBefore.available_balance || 0),
   wallet_balance_after: Number(walletAfter.available_balance || 0),

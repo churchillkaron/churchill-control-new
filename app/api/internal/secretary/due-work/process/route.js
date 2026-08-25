@@ -25,17 +25,28 @@ export async function GET(request) {
       Math.min(1440, Number(url.searchParams.get("horizonMinutes")) || 60),
     );
     const now = new Date().toISOString();
-    const result = await supabaseAdmin.rpc("secretary_materialize_due_alerts", {
-      p_now: now,
-      p_horizon_minutes: horizonMinutes,
-    });
-    if (result.error) throw result.error;
+
+    const reconciliation = await supabaseAdmin.rpc(
+      "secretary_reconcile_stale_alerts",
+      { p_now: now },
+    );
+    if (reconciliation.error) throw reconciliation.error;
+
+    const materialization = await supabaseAdmin.rpc(
+      "secretary_materialize_due_alerts",
+      {
+        p_now: now,
+        p_horizon_minutes: horizonMinutes,
+      },
+    );
+    if (materialization.error) throw materialization.error;
 
     return Response.json(
       {
         success: true,
-        contract: "AVANTIQO_SECRETARY_DUE_WORK_PROCESS_V1",
-        result: result.data || null,
+        contract: "AVANTIQO_SECRETARY_DUE_WORK_PROCESS_V2",
+        reconciled: reconciliation.data || null,
+        materialized: materialization.data || null,
         external_authority_used: false,
       },
       { headers: { "Cache-Control": "no-store, private" } },

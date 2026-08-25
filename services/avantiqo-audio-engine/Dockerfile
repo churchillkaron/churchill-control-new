@@ -43,6 +43,8 @@ RUN uv sync --frozen --no-dev --python python3.11
 WORKDIR /app
 COPY requirements.txt ./requirements.txt
 RUN uv pip install --python /opt/ace-step/.venv/bin/python -r requirements.txt
+COPY cache_integrity.py ./cache_integrity.py
+COPY entrypoint.py ./entrypoint.py
 COPY handler.py ./handler.py
 
 RUN mkdir -p /tmp/avantiqo-audio /opt/ace-step/checkpoints
@@ -64,6 +66,11 @@ ENV PATH="/opt/ace-step/.venv/bin:${PATH}" \
 # that the locked environment contains the CUDA 12.8 PyTorch stack, native audio
 # libraries, XL DiT + 1.7B LM symbols, and the owned quality contract before an
 # immutable image can be accepted for RunPod.
-RUN /opt/ace-step/.venv/bin/python -c "import torch, torchaudio, soundfile; import handler; from acestep.handler import AceStepHandler; from acestep.inference import GenerationConfig, GenerationParams, generate_music; from acestep.llm_inference import LLMHandler; from acestep.model_downloader import ensure_lm_model; handler._validate_model_contract(); assert handler.MODEL_VARIANT == 'acestep-v15-xl-turbo', 'AVANTIQO_AUDIO_XL_MODEL_REQUIRED'; assert handler.LM_MODEL == 'acestep-5Hz-lm-1.7B', 'AVANTIQO_AUDIO_1_7B_LM_REQUIRED'; assert handler.INIT_LLM, 'AVANTIQO_AUDIO_LM_INIT_REQUIRED'; assert torch.version.cuda and str(torch.version.cuda).startswith('12.8'), 'AVANTIQO_AUDIO_CUDA_12_8_TORCH_REQUIRED'; print('AVANTIQO_AUDIO_IMAGE_IMPORT_SMOKE=PASS'); print('AVANTIQO_AUDIO_QUALITY_PROFILE=' + handler.QUALITY_PROFILE); print('AVANTIQO_AUDIO_TORCH_CUDA_RUNTIME=' + str(torch.version.cuda)); print('AVANTIQO_AUDIO_NATIVE_AUDIO_IMPORTS=PASS')"
+RUN /opt/ace-step/.venv/bin/python -c "import torch, torchaudio, soundfile; import entrypoint, handler; from acestep.handler import AceStepHandler; from acestep.inference import GenerationConfig, GenerationParams, generate_music; from acestep.llm_inference import LLMHandler; from acestep.model_downloader import download_submodel, ensure_lm_model; handler._validate_model_contract(); assert handler.MODEL_VARIANT == 'acestep-v15-xl-turbo', 'AVANTIQO_AUDIO_XL_MODEL_REQUIRED'; assert handler.LM_MODEL == 'acestep-5Hz-lm-1.7B', 'AVANTIQO_AUDIO_1_7B_LM_REQUIRED'; assert handler.INIT_LLM, 'AVANTIQO_AUDIO_LM_INIT_REQUIRED'; assert entrypoint.MODEL_VARIANT == handler.MODEL_VARIANT, 'AVANTIQO_AUDIO_CACHE_GUARD_MODEL_MISMATCH'; assert torch.version.cuda and str(torch.version.cuda).startswith('12.8'), 'AVANTIQO_AUDIO_CUDA_12_8_TORCH_REQUIRED'; print('AVANTIQO_AUDIO_IMAGE_IMPORT_SMOKE=PASS'); print('AVANTIQO_AUDIO_QUALITY_PROFILE=' + handler.QUALITY_PROFILE); print('AVANTIQO_AUDIO_TORCH_CUDA_RUNTIME=' + str(torch.version.cuda)); print('AVANTIQO_AUDIO_NATIVE_AUDIO_IMPORTS=PASS'); print('AVANTIQO_AUDIO_CACHE_GUARD_IMPORT=PASS')"
 
-CMD ["/opt/ace-step/.venv/bin/python", "-u", "/app/handler.py"]
+# Deterministic regression guard for the exact failure seen in the live XL
+# benchmark: an index exists but its final safetensors shard is absent. No model
+# download or network access is used in this smoke.
+RUN /opt/ace-step/.venv/bin/python -c "import json, tempfile; from pathlib import Path; from cache_integrity import missing_sharded_checkpoint_files; root=Path(tempfile.mkdtemp()); model=root/'acestep-v15-xl-turbo'; model.mkdir(); shard1='model-00001-of-00002.safetensors'; shard2='model-00002-of-00002.safetensors'; (model/shard1).write_bytes(b'ok'); (model/'model.safetensors.index.json').write_text(json.dumps({'weight_map': {'a': shard1, 'b': shard2}})); assert missing_sharded_checkpoint_files(root, 'acestep-v15-xl-turbo') == [shard2], 'AVANTIQO_AUDIO_CACHE_GUARD_MISSING_SHARD_NOT_DETECTED'; (model/shard2).write_bytes(b'ok'); assert missing_sharded_checkpoint_files(root, 'acestep-v15-xl-turbo') == [], 'AVANTIQO_AUDIO_CACHE_GUARD_COMPLETE_CACHE_REJECTED'; print('AVANTIQO_AUDIO_CACHE_INTEGRITY_SMOKE=PASS')"
+
+CMD ["/opt/ace-step/.venv/bin/python", "-u", "/app/entrypoint.py"]

@@ -4,7 +4,25 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
+INSPECTOR="scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs"
+LOCAL_ENV_FILE=${AVANTIQO_INTELLIGENCE_READINESS_ENV_FILE:-}
+if [ -z "$LOCAL_ENV_FILE" ] && [ -r "$ROOT/.env.local" ]; then
+  LOCAL_ENV_FILE="$ROOT/.env.local"
+fi
+
+if [ -n "$LOCAL_ENV_FILE" ]; then
+  [ -r "$LOCAL_ENV_FILE" ] || {
+    echo "AVANTIQO_INTELLIGENCE_READINESS_LOCAL_ENV_NOT_READABLE" >&2
+    exit 1
+  }
+  echo "AVANTIQO_INTELLIGENCE_READINESS_ENV_SOURCE=LOCAL_ENV_FILE"
+  echo "AVANTIQO_INTELLIGENCE_READINESS_SECRET_VALUES_PRINTED=false"
+  echo "AVANTIQO_INTELLIGENCE_READINESS_MODE=READ_ONLY"
+  exec node --env-file="$LOCAL_ENV_FILE" "$INSPECTOR"
+fi
+
 command -v vercel >/dev/null 2>&1 || {
+  echo "AVANTIQO_INTELLIGENCE_READINESS_LOCAL_ENV_UNAVAILABLE=true" >&2
   echo "AVANTIQO_INTELLIGENCE_READINESS_VERCEL_CLI_REQUIRED" >&2
   exit 1
 }
@@ -42,8 +60,8 @@ if [ "$nonempty_runpod_api_key_count" -eq 0 ]; then
   exit 1
 fi
 
-echo "AVANTIQO_INTELLIGENCE_READINESS_VERCEL_ENV_IMPORTED=true"
+echo "AVANTIQO_INTELLIGENCE_READINESS_ENV_SOURCE=VERCEL_PRODUCTION"
 echo "AVANTIQO_INTELLIGENCE_READINESS_RUNPOD_API_KEY_CANDIDATES_PRESENT=true"
 echo "AVANTIQO_INTELLIGENCE_READINESS_SECRET_VALUES_PRINTED=false"
 echo "AVANTIQO_INTELLIGENCE_READINESS_MODE=READ_ONLY"
-node scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs
+node "$INSPECTOR"

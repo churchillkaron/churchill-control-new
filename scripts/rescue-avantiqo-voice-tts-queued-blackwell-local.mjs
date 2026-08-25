@@ -55,6 +55,17 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeListResponse(value, candidateKeys = [], depth = 0) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object" || depth > 4) return null;
+  for (const key of [...candidateKeys, "data", "items", "results"]) {
+    if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+    const normalized = normalizeListResponse(value[key], candidateKeys, depth + 1);
+    if (normalized) return normalized;
+  }
+  return null;
+}
+
 async function readJsonResponse(response, label) {
   const raw = await response.text();
   let body = null;
@@ -96,6 +107,36 @@ async function queue(endpointId, inferenceKey, pathname) {
   ), "RUNPOD_VOICE_TTS_QUEUE_RESCUE_QUEUE");
 }
 
+async function endpointBoundTemplates(managementKey) {
+  const raw = await rest(
+    "/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false",
+    managementKey,
+  );
+  const templates = normalizeListResponse(raw, ["templates"]);
+  if (!templates) throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_TEMPLATE_LIST_INVALID");
+  return templates;
+}
+
+function resolveTemplate(endpoint, templates) {
+  const templateId = text(endpoint?.templateId || endpoint?.template?.id);
+  if (!templateId) throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_TEMPLATE_ID_REQUIRED");
+  const matches = templates.filter((template) => text(template?.id) === templateId);
+  if (matches.length !== 1) {
+    throw new Error(
+      `AVANTIQO_VOICE_TTS_QUEUE_RESCUE_TEMPLATE_RESOLUTION_FAILED:id=${templateId}:matches=${matches.length}`,
+    );
+  }
+  return matches[0];
+}
+
+async function readEndpointState(endpointId, managementKey) {
+  const [endpoint, templates] = await Promise.all([
+    rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey),
+    endpointBoundTemplates(managementKey),
+  ]);
+  return { endpoint, template: resolveTemplate(endpoint, templates) };
+}
+
 function healthSummary(body = {}) {
   const jobs = body?.jobs && typeof body.jobs === "object" ? body.jobs : {};
   const workers = body?.workers && typeof body.workers === "object" ? body.workers : {};
@@ -122,12 +163,13 @@ function workerCount(health) {
   return Object.values(health.workers).reduce((sum, value) => sum + Math.max(0, finite(value, 0)), 0);
 }
 
-function safeEndpoint(endpoint = {}) {
+function safeEndpoint(endpoint = {}, template = {}) {
   return {
     id: text(endpoint.id) || null,
     name: text(endpoint.name) || null,
     template_id: text(endpoint.templateId || endpoint.template?.id) || null,
-    template_image: text(endpoint.template?.imageName) || null,
+    template_image: text(template.imageName) || null,
+    template_name: text(template.name) || null,
     min_cuda_version: text(endpoint.minCudaVersion) || null,
     gpu_type_ids: list(endpoint.gpuTypeIds).map(text).filter(Boolean),
     data_center_ids: list(endpoint.dataCenterIds).map(text).filter(Boolean),
@@ -160,14 +202,15 @@ const apply = process.argv.includes("--apply");
 const approved = text(process.env.AVANTIQO_VOICE_TTS_QUEUE_RESCUE_APPROVED).toUpperCase() === "YES";
 if (apply && !approved) throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_APPROVED=YES_REQUIRED");
 
-const [endpoint, statusRaw, healthRaw] = await Promise.all([
-  rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey),
+const [state, statusRaw, healthRaw] = await Promise.all([
+  readEndpointState(endpointId, managementKey),
   queue(endpointId, inferenceKey, `/status/${encodeURIComponent(jobId)}`),
   queue(endpointId, inferenceKey, "/health"),
 ]);
+const { endpoint, template } = state;
 const status = text(statusRaw.status).toUpperCase();
 const health = healthSummary(healthRaw);
-const safe = safeEndpoint(endpoint);
+const safe = safeEndpoint(endpoint, template);
 const lockObservedMs = Date.parse(text(lock.observed_at));
 const queueAgeMs = Number.isFinite(lockObservedMs) ? Math.max(0, Date.now() - lockObservedMs) : null;
 
@@ -175,7 +218,9 @@ if (safe.id !== endpointId || safe.name !== ENDPOINT_NAME) {
   throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_ENDPOINT_BINDING_MISMATCH");
 }
 if (safe.template_image !== CERTIFIED_IMAGE) {
-  throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_IMAGE_MISMATCH");
+  throw new Error(
+    `AVANTIQO_VOICE_TTS_QUEUE_RESCUE_IMAGE_MISMATCH:actual=${safe.template_image || "missing"}`,
+  );
 }
 if (safe.min_cuda_version !== REQUIRED_CUDA) {
   throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_CUDA_MISMATCH");
@@ -237,15 +282,16 @@ if (!apply || !mutationRequired) {
   process.exit(0);
 }
 
-const [freshEndpoint, freshStatusRaw, freshHealthRaw] = await Promise.all([
-  rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey),
+const [freshState, freshStatusRaw, freshHealthRaw] = await Promise.all([
+  readEndpointState(endpointId, managementKey),
   queue(endpointId, inferenceKey, `/status/${encodeURIComponent(jobId)}`),
   queue(endpointId, inferenceKey, "/health"),
 ]);
-const fresh = safeEndpoint(freshEndpoint);
+const fresh = safeEndpoint(freshState.endpoint, freshState.template);
 const freshStatus = text(freshStatusRaw.status).toUpperCase();
 const freshHealth = healthSummary(freshHealthRaw);
 if (fresh.id !== endpointId || fresh.name !== ENDPOINT_NAME) throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_ENDPOINT_CHANGED");
+if (fresh.template_image !== CERTIFIED_IMAGE) throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_TEMPLATE_CHANGED");
 if (freshStatus !== "IN_QUEUE") throw new Error(`AVANTIQO_VOICE_TTS_QUEUE_RESCUE_JOB_CHANGED:${freshStatus || "UNKNOWN"}`);
 if (freshHealth.jobs.in_progress !== 0 || workerCount(freshHealth) !== 0) {
   throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_WORKER_STARTED_REPLAN_REQUIRED");
@@ -269,14 +315,17 @@ let finalStatus = freshStatus;
 let finalHealth = freshHealth;
 let workerStarted = false;
 while (Date.now() < deadline) {
-  const [endpointRead, statusRead, healthRead] = await Promise.all([
-    rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey),
+  const [endpointStateRead, statusRead, healthRead] = await Promise.all([
+    readEndpointState(endpointId, managementKey),
     queue(endpointId, inferenceKey, `/status/${encodeURIComponent(jobId)}`),
     queue(endpointId, inferenceKey, "/health"),
   ]);
-  finalEndpoint = safeEndpoint(endpointRead);
+  finalEndpoint = safeEndpoint(endpointStateRead.endpoint, endpointStateRead.template);
   finalStatus = text(statusRead.status).toUpperCase();
   finalHealth = healthSummary(healthRead);
+  if (finalEndpoint.template_image !== CERTIFIED_IMAGE) {
+    throw new Error("AVANTIQO_VOICE_TTS_QUEUE_RESCUE_TEMPLATE_CHANGED_DURING_OBSERVE");
+  }
   if (finalEndpoint.data_center_ids.length !== 0) {
     await sleep(POLL_MS);
     continue;

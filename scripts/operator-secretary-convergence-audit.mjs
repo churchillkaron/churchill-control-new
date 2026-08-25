@@ -10,6 +10,8 @@ const paths = {
   appointmentWorker: "app/api/internal/secretary/appointments/notifications/process/route.js",
   commitmentRuntime: "lib/operator/secretary/SecretaryCommitmentCaptureRuntime.js",
   commitmentWorker: "app/api/internal/secretary/commitments/process/route.js",
+  followUpRuntime: "lib/operator/secretary/SecretaryFollowUpExecutionRuntime.js",
+  followUpWorker: "app/api/internal/secretary/follow-ups/process/route.js",
   dueWorker: "app/api/internal/secretary/due-work/process/route.js",
   platform: "lib/platform/runtime/PlatformDomainRuntime.js",
   core: "supabase/migrations/20260825062200_avantiqo_secretary_native_core.sql",
@@ -18,6 +20,7 @@ const paths = {
   notifications: "supabase/migrations/20260825071500_secretary_appointment_contact_notifications.sql",
   notificationDelivery: "supabase/migrations/20260825071600_secretary_appointment_notification_delivery.sql",
   commitments: "supabase/migrations/20260825072000_secretary_commitment_capture.sql",
+  followUpExecutions: "supabase/migrations/20260825073300_secretary_follow_up_execution.sql",
   vercel: "vercel.json",
 };
 
@@ -95,11 +98,41 @@ assert.match(source.commitments, /secretary_commitment_extractions/);
 assert.match(source.commitments, /source_kind in \('CALL','MESSAGE'\)/i);
 assert.match(source.commitments, /for update skip locked/i);
 assert.match(source.commitmentRuntime, /Extract only obligations clearly stated in the evidence/);
+assert.match(source.commitmentRuntime, /execution_owner/);
+assert.match(source.commitmentRuntime, /SECRETARY/);
+assert.match(source.commitmentRuntime, /CONTACT/);
+assert.match(source.commitmentRuntime, /STAFF/);
+assert.match(source.commitmentRuntime, /UNKNOWN/);
+assert.match(source.commitmentRuntime, /execution_ready/);
 assert.match(source.commitmentRuntime, /explicit_commitment:\s*true/);
 assert.match(source.commitmentRuntime, /tools:\s*\[\]/);
 assert.match(source.commitmentRuntime, /allow_mutating_tools:\s*false/);
 
-for (const worker of [source.dueWorker, source.messageWorker, source.appointmentWorker, source.commitmentWorker]) {
+assert.match(source.followUpExecutions, /secretary_follow_up_executions/);
+assert.match(source.followUpExecutions, /execution_owner', ''\)\) = 'SECRETARY'/i);
+assert.match(source.followUpExecutions, /execution_ready', 'false'\)\) = 'true'/i);
+assert.match(source.followUpExecutions, /f\.action_type in \('CALL','MESSAGE','EMAIL'\)/i);
+assert.match(source.followUpExecutions, /for update skip locked/i);
+assert.match(source.followUpExecutions, /communication_messages_secretary_follow_up_execution_uidx/);
+assert.match(source.followUpExecutions, /secretary_outbound_call_follow_up_execution_uidx/);
+assert.match(source.followUpRuntime, /metadata\.execution_owner/);
+assert.match(source.followUpRuntime, /metadata\.execution_ready !== true/);
+assert.match(source.followUpRuntime, /allow_calls/);
+assert.match(source.followUpRuntime, /allow_messages/);
+assert.match(source.followUpRuntime, /do_not_disturb/);
+assert.match(source.followUpRuntime, /FOLLOW_UP_CONTENT_NOT_SELF_CONTAINED/);
+assert.match(source.followUpRuntime, /tools:\s*\[\]/);
+assert.match(source.followUpRuntime, /partyId:\s*null/);
+assert.match(source.followUpRuntime, /OUTBOUND_CALL_/);
+assert.match(source.followUpRuntime, /reconcileQueuedSecretaryFollowUpExecutions/);
+
+for (const worker of [
+  source.dueWorker,
+  source.messageWorker,
+  source.appointmentWorker,
+  source.commitmentWorker,
+  source.followUpWorker,
+]) {
   assert.match(worker, /process\.env\.CRON_SECRET/);
   assert.match(worker, /maxDuration = 300/);
 }
@@ -110,6 +143,7 @@ const expectedCrons = [
   "/api/internal/secretary/messages/process",
   "/api/internal/secretary/appointments/notifications/process",
   "/api/internal/secretary/commitments/process",
+  "/api/internal/secretary/follow-ups/process",
 ];
 for (const path of expectedCrons) {
   const job = (vercel.crons || []).find((entry) => entry.path === path);
@@ -124,5 +158,7 @@ console.log("SECRETARY_PHONE_SELF_SERVICE=true");
 console.log("SECRETARY_WRITTEN_MESSAGE_AUTONOMY=true");
 console.log("SECRETARY_APPOINTMENT_NOTIFICATIONS=true");
 console.log("SECRETARY_COMMITMENT_CAPTURE=true");
-console.log("SECRETARY_REAL_CLOUD_JOBS=4");
+console.log("SECRETARY_AUTONOMOUS_FOLLOW_UP_EXECUTION=true");
+console.log("SECRETARY_NON_SECRETARY_PROMISE_AUTO_EXECUTION=false");
+console.log("SECRETARY_REAL_CLOUD_JOBS=5");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

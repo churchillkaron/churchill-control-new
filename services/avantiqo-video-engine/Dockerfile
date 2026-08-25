@@ -14,9 +14,10 @@ COPY requirements.txt ./requirements.txt
 RUN python -m pip install --upgrade pip && python -m pip install -r requirements.txt
 COPY handler.py ./handler.py
 COPY handler_v2.py ./handler_v2.py
+COPY handler_v3.py ./handler_v3.py
 
 RUN mkdir -p /tmp/avantiqo-video
 ENV AVANTIQO_VIDEO_OUTPUT_DIR=/tmp/avantiqo-video \
     AVANTIQO_VIDEO_DEVICE=cuda
 
-CMD ["python", "-u", "handler_v2.py"]
+CMD ["python", "-u", "handler_v3.py"]

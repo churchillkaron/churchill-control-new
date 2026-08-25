@@ -10,13 +10,13 @@ CONTRACT = "AVANTIQO_INTELLIGENCE_ADAPTER_LAYOUT_V1"
 FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507"
 TRAINING_ROOT = Path("/runpod-volume/avantiqo-intelligence-training").resolve()
 MAX_LORA_RANK = 64
-PER_EXPERT_PATTERN = re.compile(
-    r"(?:^|\.)experts\.\d+\.(?:gate_proj|up_proj|down_proj)\.lora_[AB](?:\.default)?\.weight$"
+EXPECTED_TARGET_PARAMETERS = {
+    "mlp.experts.gate_up_proj",
+    "mlp.experts.down_proj",
+}
+EXPERT_LORA_KEY = re.compile(
+    r"experts.*(?:gate_up_proj|down_proj).*lora_[AB](?:\.default)?(?:\.weight)?$"
 )
-FUSED_3D_PATTERN = re.compile(
-    r"(?:^|\.)experts\.(?:gate_up_proj|down_proj)\.lora_[AB](?:\.default)?\.weight$"
-)
-MOE_LORA_HINT = re.compile(r"(?:^|\.)experts\..*\.lora_[AB](?:\.default)?\.weight$")
 
 
 def fail(code: str, detail: str | None = None) -> None:
@@ -53,9 +53,11 @@ def load_config(adapter: Path) -> dict:
         config = json.loads(config_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         fail("ADAPTER_CONFIG_INVALID", str(error))
+
     base = text(config.get("base_model_name_or_path"), 500)
     if base != FOUNDATION_MODEL:
         fail("ADAPTER_BASE_MODEL_MISMATCH", base or "missing")
+
     rank = config.get("r")
     try:
         rank = int(rank)
@@ -63,78 +65,123 @@ def load_config(adapter: Path) -> dict:
         fail("ADAPTER_LORA_RANK_INVALID")
     if rank < 1 or rank > MAX_LORA_RANK:
         fail("ADAPTER_LORA_RANK_OUT_OF_RANGE", str(rank))
+
     peft_type = text(config.get("peft_type"), 80).upper()
     if peft_type and peft_type != "LORA":
         fail("ADAPTER_PEFT_TYPE_UNSUPPORTED", peft_type)
-    return {"rank": rank, "base_model": base, "config": config}
+
+    target_parameters = {
+        text(value, 300)
+        for value in config.get("target_parameters", [])
+        if text(value, 300)
+    }
+    if target_parameters != EXPECTED_TARGET_PARAMETERS:
+        fail(
+            "ADAPTER_QWEN3_MOE_TARGET_PARAMETERS_MISMATCH",
+            json.dumps(sorted(target_parameters), separators=(",", ":")),
+        )
+
+    rank_pattern = config.get("rank_pattern") or {}
+    if not isinstance(rank_pattern, dict):
+        fail("ADAPTER_QWEN3_MOE_RANK_PATTERN_REQUIRED")
+    for key in ("experts.gate_up_proj", "experts.down_proj"):
+        try:
+            effective_rank = int(rank_pattern.get(key, 0))
+        except (TypeError, ValueError):
+            effective_rank = 0
+        if effective_rank < 1:
+            fail("ADAPTER_QWEN3_MOE_EFFECTIVE_RANK_INVALID", key)
+
+    try:
+        dropout = float(config.get("lora_dropout", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        fail("ADAPTER_LORA_DROPOUT_INVALID")
+    if dropout != 0.0:
+        fail("ADAPTER_QWEN3_MOE_LORA_DROPOUT_MUST_BE_ZERO")
+
+    return {
+        "rank": rank,
+        "base_model": base,
+        "config": config,
+        "target_parameters": sorted(target_parameters),
+    }
 
 
-def tensor_keys(adapter: Path) -> list[str]:
+def tensor_metadata(adapter: Path) -> dict[str, list[int]]:
     files = sorted(adapter.glob("*.safetensors"))
     if not files:
         fail("ADAPTER_SAFETENSORS_REQUIRED")
-    keys = []
+    metadata = {}
     for file_path in files:
         try:
             with safe_open(str(file_path), framework="pt", device="cpu") as handle:
-                keys.extend(handle.keys())
+                for key in handle.keys():
+                    metadata[key] = list(handle.get_slice(key).get_shape())
         except Exception as error:
             fail("ADAPTER_SAFETENSORS_INVALID", f"{file_path.name}:{error}")
-    if not keys:
+    if not metadata:
         fail("ADAPTER_SAFETENSORS_EMPTY")
-    return sorted(set(keys))
+    return metadata
 
 
-def classify_layout(keys: list[str]) -> dict:
-    per_expert = [key for key in keys if PER_EXPERT_PATTERN.search(key)]
-    fused_3d = [key for key in keys if FUSED_3D_PATTERN.search(key)]
-    moe_hints = [key for key in keys if MOE_LORA_HINT.search(key)]
+def classify_layout(metadata: dict[str, list[int]]) -> dict:
+    expert_items = {
+        key: shape
+        for key, shape in metadata.items()
+        if EXPERT_LORA_KEY.search(key)
+    }
+    if not expert_items:
+        fail("ADAPTER_MOE_LORA_TENSORS_REQUIRED")
 
-    if per_expert and fused_3d:
-        fail("ADAPTER_MOE_LAYOUT_MIXED")
-    if fused_3d:
-        unknown_moe = [key for key in moe_hints if key not in fused_3d]
-        if unknown_moe:
-            fail("ADAPTER_MOE_LAYOUT_UNKNOWN_KEYS", unknown_moe[0])
-        return {
-            "layout": "MOE_3D_FUSED_PEFT",
-            "is_3d_lora_weight": True,
-            "enable_mixed_moe_lora_format": True,
-            "matched_moe_key_count": len(fused_3d),
-        }
-    if per_expert:
-        unknown_moe = [key for key in moe_hints if key not in per_expert]
-        if unknown_moe:
-            fail("ADAPTER_MOE_LAYOUT_UNKNOWN_KEYS", unknown_moe[0])
-        return {
-            "layout": "MOE_2D_PER_EXPERT",
-            "is_3d_lora_weight": False,
-            "enable_mixed_moe_lora_format": True,
-            "matched_moe_key_count": len(per_expert),
-        }
+    target_coverage = {
+        "gate_up_proj": {"A": False, "B": False},
+        "down_proj": {"A": False, "B": False},
+    }
+    for key, shape in expert_items.items():
+        if len(shape) != 3:
+            fail("ADAPTER_MOE_LORA_TENSOR_NOT_3D", f"{key}:{shape}")
+        target = "gate_up_proj" if "gate_up_proj" in key else "down_proj"
+        side = "A" if "lora_A" in key else "B"
+        target_coverage[target][side] = True
 
-    # Qwen3-30B-A3B is MoE. An adapter with no recognizable expert LoRA layout
-    # cannot be safely declared 2D or 3D to vLLM, so candidate serving fails closed.
-    fail("ADAPTER_MOE_LAYOUT_UNRECOGNIZED")
+    for target, coverage in target_coverage.items():
+        if coverage != {"A": True, "B": True}:
+            fail(
+                "ADAPTER_MOE_LORA_TARGET_INCOMPLETE",
+                f"{target}:{json.dumps(coverage, separators=(',', ':'))}",
+            )
+
+    return {
+        "layout": "MOE_3D_FUSED_PEFT",
+        "is_3d_lora_weight": True,
+        "enable_mixed_moe_lora_format": True,
+        "matched_moe_tensor_count": len(expert_items),
+        "expert_target_coverage": target_coverage,
+    }
 
 
 def inspect(adapter_path: str) -> dict:
     adapter = resolve_adapter(adapter_path)
     config = load_config(adapter)
-    keys = tensor_keys(adapter)
-    layout = classify_layout(keys)
+    metadata = tensor_metadata(adapter)
+    layout = classify_layout(metadata)
     return {
         "contract": CONTRACT,
         "status": "CERTIFIED_FOR_CANDIDATE_STARTUP",
         "adapter_path": str(adapter),
         "base_model": config["base_model"],
         "lora_rank": config["rank"],
-        "tensor_key_count": len(keys),
+        "target_parameters": config["target_parameters"],
+        "tensor_key_count": len(metadata),
         **layout,
         "governance": {
             "training_root_enforced": True,
             "foundation_model_verified": True,
             "rank_bounded": True,
+            "target_parameters_verified": True,
+            "rank_pattern_verified": True,
+            "zero_dropout_verified": True,
+            "fused_3d_tensor_shapes_verified": True,
             "mixed_or_unknown_layout_allowed": False,
             "production_endpoint_effect": "NONE",
         },

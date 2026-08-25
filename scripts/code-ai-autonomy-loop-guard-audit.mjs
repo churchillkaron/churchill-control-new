@@ -12,12 +12,17 @@ const requiredMarkers = [
   "pending_planner_iteration",
   "planner_iterations_used",
   "evidence_revision",
+  "source_revision",
   "guarded_actions",
+  "normalizedReadInput",
+  "readRangeCovered",
+  "READ_RANGE_COVERED",
+  "advanceSourceRevision",
   "duplicateActionGuard(control, decision)",
   "control.planner_iterations_used >= maximum",
   "iteration = control.planner_iterations_used + 1",
   "const operationId = `autonomy_${iteration}_${decision.action}`",
-  "Equivalent completed read, search, or run actions are rejected",
+  "Read freshness is source-bound",
   "The planner iteration budget is global across pending/resume cycles",
 ];
 
@@ -48,11 +53,34 @@ if (budgetGuard < 0 || plannerCall <= budgetGuard) {
   throw new Error("CODE_AI_AUTONOMY_GLOBAL_BUDGET_GUARD_MUST_PRECEDE_NEW_PLANNER_CALL");
 }
 
+const sourceRevisionControl = source.indexOf("source_revision: nonNegativeInteger(source.source_revision)");
+const readSourceRevisionGuard = source.indexOf("entry.source_revision !== currentSourceRevision");
+if (sourceRevisionControl < 0 || readSourceRevisionGuard < sourceRevisionControl) {
+  throw new Error("CODE_AI_AUTONOMY_READ_GUARD_MUST_USE_SOURCE_REVISION");
+}
+
+const coveredReadGuard = source.indexOf("readRangeCovered(entry.normalized_input, normalizedInput)");
+if (coveredReadGuard < readSourceRevisionGuard) {
+  throw new Error("CODE_AI_AUTONOMY_COVERED_READ_GUARD_REQUIRED");
+}
+
+const operationObservation = source.indexOf("const operationObserved =");
+const sourceAdvanceOnApply = source.indexOf('decision.action === "apply_files"', operationObservation);
+const sourceAdvanceOnReplan = source.indexOf('execution.status === "replan_required"', sourceAdvanceOnApply);
+if (operationObservation < 0 || sourceAdvanceOnApply < operationObservation || sourceAdvanceOnReplan < sourceAdvanceOnApply) {
+  throw new Error("CODE_AI_AUTONOMY_SOURCE_REVISION_ADVANCE_POLICY_REQUIRED");
+}
+
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V1",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V2",
   verified: {
     duplicate_read_search_run_guarded_without_new_evidence: true,
+    source_bound_read_freshness: true,
+    covered_read_ranges_rejected_without_source_change: true,
+    unrelated_observations_do_not_refresh_source_reads: true,
+    apply_files_refreshes_source_reads: true,
+    main_replan_refreshes_source_reads: true,
     duplicate_guard_precedes_workspace_execution: true,
     global_iteration_budget_persisted_in_resume_state: true,
     pending_resume_reuses_original_iteration: true,

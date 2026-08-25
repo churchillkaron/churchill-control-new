@@ -446,17 +446,14 @@ async function ensureParkedState(managementKey, runtimeKey) {
 
   const deepMax = finite(state.deep.workersMax, -1);
   const fastMax = finite(state.fast.workersMax, -1);
-  if (fastMax !== 0) {
-    await patchWorkers(fastId, 0, managementKey);
-  }
-  if (deepMax !== 1) {
-    await patchWorkers(deepId, 1, managementKey);
+  const parked = deepMax === 1 && fastMax === 0;
+  const fastActive = deepMax === 0 && fastMax === 1;
+  if (!parked && !fastActive) {
+    throw new Error(
+      `AVANTIQO_INTELLIGENCE_SLOT_STATE_INVALID:deep_max=${deepMax}:fast_max=${fastMax}`,
+    );
   }
 
-  state = await loadState(managementKey);
-  if (finite(state.deep.workersMax, -1) !== 1 || finite(state.fast.workersMax, -1) !== 0) {
-    throw new Error("AVANTIQO_INTELLIGENCE_PARKED_STATE_VERIFY_FAILED");
-  }
   await persistFastEndpointId(state.fast.id);
   return state;
 }
@@ -465,6 +462,12 @@ async function activateFast(managementKey, runtimeKey) {
   let state = await ensureParkedState(managementKey, runtimeKey);
   const deepId = text(state.deep.id);
   const fastId = text(state.fast.id);
+  if (
+    finite(state.deep.workersMax, -1) === 0 &&
+    finite(state.fast.workersMax, -1) === 1
+  ) {
+    return state;
+  }
   await waitUntilIdleForDisable(
     state.deep,
     managementKey,
@@ -495,19 +498,47 @@ async function activateFast(managementKey, runtimeKey) {
   return state;
 }
 
-async function restoreDeep(managementKey) {
+async function restoreDeep(managementKey, runtimeKey) {
   let state = await loadState(managementKey);
   if (!state.fast) {
     throw new Error("AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_REQUIRED_FOR_RESTORE");
   }
   const fastId = text(state.fast.id);
   const deepId = text(state.deep.id);
-  if (finite(state.fast.workersMax, -1) !== 0) {
-    await patchWorkers(fastId, 0, managementKey);
+  const deepMax = finite(state.deep.workersMax, -1);
+  const fastMax = finite(state.fast.workersMax, -1);
+
+  if (deepMax === 1 && fastMax === 0) {
+    return state;
   }
-  if (finite(state.deep.workersMax, -1) !== 1) {
+  if (deepMax !== 0 || fastMax !== 1) {
+    throw new Error(
+      `AVANTIQO_INTELLIGENCE_RESTORE_SLOT_STATE_INVALID:deep_max=${deepMax}:fast_max=${fastMax}`,
+    );
+  }
+
+  await waitUntilIdleForDisable(
+    state.fast,
+    managementKey,
+    runtimeKey,
+    "AVANTIQO_INTELLIGENCE_FAST_DEEP_RESTORE",
+  );
+  await patchWorkers(fastId, 0, managementKey);
+  try {
     await patchWorkers(deepId, 1, managementKey);
+  } catch (error) {
+    let fastRestored = false;
+    try {
+      await patchWorkers(fastId, 1, managementKey);
+      fastRestored = true;
+    } catch {
+      fastRestored = false;
+    }
+    throw new Error(
+      `AVANTIQO_INTELLIGENCE_DEEP_RESTORE_FAILED:fast_restored=${fastRestored ? "YES" : "NO"}:${text(error?.message).slice(0, 700)}`,
+    );
   }
+
   state = await loadState(managementKey);
   if (finite(state.deep.workersMax, -1) !== 1 || finite(state.fast.workersMax, -1) !== 0) {
     throw new Error("AVANTIQO_INTELLIGENCE_DEEP_RESTORE_VERIFY_FAILED");
@@ -536,7 +567,7 @@ if (provision) {
   state = await activateFast(managementKey, runtimeKey);
 } else if (restore) {
   mode = "RESTORE_DEEP";
-  state = await restoreDeep(managementKey);
+  state = await restoreDeep(managementKey, runtimeKey);
 } else {
   state = await loadState(managementKey);
 }

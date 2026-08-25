@@ -8,9 +8,17 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HF_HOME=/runpod-volume/huggingface-cache \
     TRANSFORMERS_CACHE=/runpod-volume/huggingface-cache \
     AVANTIQO_INTELLIGENCE_TRAINER_OUTPUT_ROOT=/runpod-volume/avantiqo-intelligence-training \
-    AVANTIQO_INTELLIGENCE_TRAINER_ENABLED=false
+    AVANTIQO_INTELLIGENCE_TRAINER_ENABLED=false \
+    VIRTUAL_ENV=/opt/avantiqo-intelligence-trainer-venv
+
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-venv \
+    && rm -rf /var/lib/apt/lists/* \
+    && /usr/bin/python3 -m venv --system-site-packages "${VIRTUAL_ENV}"
 
 COPY services/avantiqo-intelligence-trainer/requirements.txt ./requirements.txt
 RUN python -m pip install --upgrade pip \

@@ -178,6 +178,8 @@ function runVerifiedSchedulabilityGate() {
     result?.success !== true ||
     result?.contract !== SCHEDULABILITY_CONTRACT ||
     result?.capacity_sufficient !== true ||
+    result?.resilience_ready !== true ||
+    result?.ready_for_controlled_benchmark !== true ||
     !Array.isArray(result?.current_region?.endpoint_schedulable_gpu_types) ||
     result.current_region.endpoint_schedulable_gpu_types.length < 1 ||
     result?.safety?.read_only !== true ||
@@ -188,7 +190,7 @@ function runVerifiedSchedulabilityGate() {
   ) {
     const repair = result?.repair || {};
     const action = repair.in_place_gpu_pool_expansion_possible
-      ? `IN_PLACE_GPU_POOL_EXPANSION:${(repair.in_place_gpu_types_to_add || []).join("|") || "UNKNOWN"}`
+      ? `IN_PLACE_GPU_POOL_EXPANSION:${(repair.recommended_in_place_gpu_pool || repair.in_place_gpu_types_to_add || []).join("|") || "UNKNOWN"}`
       : repair.shared_cache_region_migration_required
         ? `SHARED_CACHE_REGION_MIGRATION:${repair.recommended_migration_target?.data_center_id || "UNKNOWN"}`
         : "RUNPOD_CAPACITY_REPAIR_REQUIRED";
@@ -221,6 +223,7 @@ console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CACHE_CAPACITY=PASS");
 console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CACHE_DATACENTER=${schedulability.shared_cache.data_center_id}`);
 console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SCHEDULABLE_GPU_TYPES=${schedulability.current_region.endpoint_schedulable_gpu_types.join("|")}`);
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SCHEDULABILITY=PASS");
+console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_RESILIENCE=PASS");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SECRET_PRINTED=false");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PRODUCTION_DEPLOY_PERFORMED=false");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PRICING_ACTIVATION_PERFORMED=false");

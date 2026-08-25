@@ -18,6 +18,7 @@ const AUDIO_VOICE_GROUP = sharedVolumeGroup("AUDIO_VOICE");
 const STORAGE_BUCKET = "creative-assets";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-audio-worker-image.json";
 const NETWORK_VOLUME_CHECKPOINT_ROOT = "/runpod-volume/ace-step-checkpoints";
+const MIN_XL_LM_CACHE_GB = 80;
 const EXPECTED_FOUNDATION_MODEL = "ACE-Step/Ace-Step1.5";
 const EXPECTED_VARIANT = "acestep-v15-xl-turbo";
 const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
@@ -312,6 +313,12 @@ if (!reusableAudioVoiceVolume.volume) throw new Error("AVANTIQO_MUSIC_PREFLIGHT_
 if (!attachedVolumeIds.includes(text(reusableAudioVoiceVolume.volume.id))) {
   throw new Error("AVANTIQO_MUSIC_PREFLIGHT_SHARED_AUDIO_VOICE_VOLUME_NOT_ATTACHED");
 }
+const sharedVolumeSizeGb = finite(reusableAudioVoiceVolume.volume.size, -1);
+if (sharedVolumeSizeGb < MIN_XL_LM_CACHE_GB) {
+  throw new Error(
+    `AVANTIQO_MUSIC_PREFLIGHT_XL_LM_CACHE_CAPACITY_INSUFFICIENT:actual=${sharedVolumeSizeGb}:required=${MIN_XL_LM_CACHE_GB}`,
+  );
+}
 
 const template = await resolveEndpointTemplate(endpoint, managementKey);
 if (text(template?.imageName) !== imageEvidence.imageTag) {
@@ -394,6 +401,9 @@ const result = {
     shared_volume_resolution: reusableAudioVoiceVolume.resolution,
     shared_volume_policy_scope: AUDIO_VOICE_GROUP.id,
     shared_volume_policy_compliant: true,
+    size_gb: sharedVolumeSizeGb,
+    minimum_xl_lm_size_gb: MIN_XL_LM_CACHE_GB,
+    xl_lm_capacity_verified: true,
     checkpoints_dir: NETWORK_VOLUME_CHECKPOINT_ROOT,
     huggingface_cache_dir: `${NETWORK_VOLUME_CHECKPOINT_ROOT}/.hf-cache`,
     persistent: true,
@@ -431,6 +441,7 @@ const result = {
   safety: {
     read_only_except_signed_url_creation: true,
     shared_volume_policy_verified: true,
+    xl_lm_cache_capacity_verified: true,
     worker_image_binding_verified: true,
     registry_backed_endpoint_verified: true,
     runpod_generation_jobs_submitted: 0,

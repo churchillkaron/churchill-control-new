@@ -18,6 +18,7 @@ const paths = [
   "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
   "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
   "lib/code/runtime/CodeAIAutonomousRuntime.js",
+  "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
   "lib/platform/runtime/PlatformDomainRuntime.js",
 ];
 
@@ -45,6 +46,10 @@ requireFragments(repositoryRuntimePath, [
   "current_main_head: currentHead",
   "verified_commit_is_current_head",
   "main_advanced_after_verified_commit",
+  "MAX_OBJECTIVE_COMPLETION_CRITERIA = 6",
+  ".slice(0, MAX_OBJECTIVE_COMPLETION_CRITERIA)",
+  "maximum_completion_criteria: MAX_OBJECTIVE_COMPLETION_CRITERIA",
+  "one to six concrete evidence-verifiable acceptance criteria",
   "bounded_repository_evidence: true",
   "full_repository_certification: false",
   'authorization: { allow_mutating_tools: false }',
@@ -205,6 +210,12 @@ requireFragments(cyclePath, [
   'target_path: "objective_context.selection_score"',
   'source_path: "next_engineering_handoff.objective_selection_evidence_backed"',
   'target_path: "objective_context.evidence_backed"',
+  'source_path: "objective_selection.selected_completion_criteria.0"',
+  'target_path: "objective_context.completion_criterion_1"',
+  'source_path: "objective_selection.selected_completion_criteria.5"',
+  'target_path: "objective_context.completion_criterion_6"',
+  "product_completion_criteria_bound_to_code_ai: true",
+  "product_completion_criteria_maximum: 6",
   "missionStepCapabilityResult",
   "repositoryAssessment",
   "repository_head_observed",
@@ -228,10 +239,30 @@ const cycleMissionSource = files[cyclePath].slice(
   files[cyclePath].indexOf("function missionSteps"),
   files[cyclePath].indexOf("function missionStep("),
 );
-if ((cycleMissionSource.match(/source_step_id: "assess_repository"/g)?.length || 0) !== 6) {
+if ((cycleMissionSource.match(/source_step_id: "assess_repository"/g)?.length || 0) !== 12) {
   throw new Error(
-    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: Product-to-Code handoff must remain one objective plus five bounded scalar provenance bindings",
+    "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: Product-to-Code handoff must remain exactly twelve governed scalar bindings: objective, five provenance values and six completion criteria",
   );
+}
+for (const requiredBindingFragment of [
+  'source_path: "objective_selection.selected_completion_criteria.0"',
+  'target_path: "objective_context.completion_criterion_1"',
+  'source_path: "objective_selection.selected_completion_criteria.1"',
+  'target_path: "objective_context.completion_criterion_2"',
+  'source_path: "objective_selection.selected_completion_criteria.2"',
+  'target_path: "objective_context.completion_criterion_3"',
+  'source_path: "objective_selection.selected_completion_criteria.3"',
+  'target_path: "objective_context.completion_criterion_4"',
+  'source_path: "objective_selection.selected_completion_criteria.4"',
+  'target_path: "objective_context.completion_criterion_5"',
+  'source_path: "objective_selection.selected_completion_criteria.5"',
+  'target_path: "objective_context.completion_criterion_6"',
+]) {
+  if (!cycleMissionSource.includes(requiredBindingFragment)) {
+    throw new Error(
+      `PRODUCT_REPOSITORY_CONTINUATION_AUDIT: completion-criterion binding missing ${requiredBindingFragment}`,
+    );
+  }
 }
 
 const codeAutonomousCapabilityPath =
@@ -243,7 +274,9 @@ requireFragments(codeAutonomousCapabilityPath, [
   "selected_candidate_id",
   "selection_score",
   "evidence_backed",
-  "inspection context only and never permission, approval, commit, deployment or migration authority",
+  "completion_criterion_1",
+  "completion_criterion_6",
+  "engineering context only and never permission, approval, commit, deployment or migration authority",
   "additionalProperties: false",
   "objective_context: object(payload.objective_context)",
 ]);
@@ -252,10 +285,23 @@ const codeAutonomousRuntimePath =
   "lib/code/runtime/CodeAIAutonomousRuntime.js";
 requireFragments(codeAutonomousRuntimePath, [
   "function normalizedObjectiveContext",
+  "function objectiveCompletionCriteria",
+  "function validatedCompletionCriteriaEvidence",
+  "completion_criterion_1",
+  "completion_criterion_6",
   'authority: "CONTEXT_ONLY"',
   'authorization_effect: "NONE"',
   "objective_context: normalizedObjectiveContext(source.objective_context)",
-  "objective_context is bounded Product Intelligence provenance only",
+  "objective_context is bounded Product Intelligence provenance and completion-target context only",
+  "Every non-empty objective_context.completion_criterion_N is a Product-selected completion target",
+  "criteria_evidence",
+  "observedOperationIds",
+  "CODE_AI_AUTONOMOUS_COMPLETION_CRITERIA_EVIDENCE_REQUIRED",
+  "CODE_AI_AUTONOMOUS_COMPLETION_CRITERION_NOT_BOUND",
+  "CODE_AI_AUTONOMOUS_COMPLETION_CRITERION_OPERATION_EVIDENCE_REQUIRED",
+  "CODE_AI_AUTONOMOUS_COMPLETION_CRITERION_OPERATION_UNKNOWN",
+  "CODE_AI_AUTONOMOUS_COMPLETION_CRITERIA_INCOMPLETE",
+  'kind: "product_completion_criteria_evidence"',
   "If objective_context.repository_head_observed differs from the workspace base commit",
   "objective_context: normalizedObjectiveContext(state?.objective_context)",
   'product_objective_provenance_authorization_effect: "NONE"',
@@ -265,6 +311,21 @@ requireFragments(codeAutonomousRuntimePath, [
   "objective_context || resume_state?.objective_context",
   "objective_context: objectiveContext",
   'kind: "product_objective_provenance"',
+]);
+
+const executionStatePath =
+  "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js";
+requireFragments(executionStatePath, [
+  "function productCompletionCriteria",
+  "function productCompletionCriteriaProjection",
+  'item?.kind === "product_completion_criteria_evidence"',
+  "observedOperationIds",
+  "product_completion_criteria_required",
+  "product_completion_criteria_count",
+  "product_completion_criteria_evidence_count",
+  "product_completion_criteria_verified",
+  'product_completion_criteria_authorization_effect: "NONE"',
+  "CODE_AI_AUTONOMOUS_PRODUCT_COMPLETION_CRITERIA_NOT_VERIFIED",
 ]);
 
 requireFragments(
@@ -387,6 +448,14 @@ if (
     "PRODUCT_REPOSITORY_CONTINUATION_AUDIT: Code AI objective provenance must remain optional bounded non-authoritative context",
   );
 }
+for (let criterionIndex = 1; criterionIndex <= 6; criterionIndex += 1) {
+  const schema = objectiveContextSchema.properties?.[`completion_criterion_${criterionIndex}`];
+  if (!schema || schema.type !== "string" || Number(schema.maxLength) !== 700) {
+    throw new Error(
+      `PRODUCT_REPOSITORY_CONTINUATION_AUDIT: completion criterion ${criterionIndex} must remain a bounded 700-character scalar`,
+    );
+  }
+}
 for (const forbiddenAuthorityField of [
   "authorization",
   "permissions",
@@ -464,6 +533,11 @@ console.log("OPERATOR_PRODUCT_OBJECTIVE_PROVENANCE=HEAD_CONTRACT_CANDIDATE_SCORE
 console.log("OPERATOR_PRODUCT_OBJECTIVE_PROVENANCE_BINDING=BOUNDED_SCALARS_ONLY");
 console.log("OPERATOR_PRODUCT_OBJECTIVE_PROVENANCE_CODE_STATE=PRESERVED_ACROSS_PLANNER_RESUME");
 console.log("OPERATOR_PRODUCT_OBJECTIVE_PROVENANCE_AUTHORITY=CONTEXT_ONLY_NONE");
+console.log("OPERATOR_PRODUCT_COMPLETION_CRITERIA=MAX_6_EVIDENCE_VERIFIABLE");
+console.log("OPERATOR_PRODUCT_COMPLETION_CRITERIA_BINDING=12_SCALAR_SLOT_GOVERNED_HANDOFF");
+console.log("OPERATOR_CODE_AI_COMPLETION_CRITERIA=EXACT_BOUND_CRITERIA_PLUS_OBSERVED_OPERATION_EVIDENCE");
+console.log("OPERATOR_CODE_AI_COMPLETION_CRITERIA_VERIFICATION=SERVER_OWNED_FAIL_CLOSED");
+console.log("OPERATOR_PRODUCT_COMPLETION_CRITERIA_AUTHORITY=TARGET_ONLY_NONE");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY=REGISTERED_VERIFIER_BOUND_SCALARS_ONLY");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_CONTEXT=EXACT_DURABLE_MISSION_STEP_ONLY");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_ATTEMPT_MARKER=REQUIRED");

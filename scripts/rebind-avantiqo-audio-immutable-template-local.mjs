@@ -118,15 +118,34 @@ async function imageEvidence() {
   ) {
     throw new Error("AVANTIQO_AUDIO_WORKER_IMAGE_RUNTIME_EVIDENCE_INVALID");
   }
-  const image = text(parsed?.immutable_image_reference);
-  if (!/^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(image)) {
-    throw new Error("AVANTIQO_AUDIO_IMMUTABLE_WORKER_IMAGE_REFERENCE_INVALID");
+
+  const repository = text(parsed?.image_repository);
+  const sourceSha = text(parsed?.source_sha);
+  const imageTag = text(parsed?.image_tag);
+  const immutableReference = text(parsed?.immutable_image_reference);
+  const digest = text(parsed?.image_digest);
+  if (!/^ghcr\.io\/.+/i.test(repository)) {
+    throw new Error("AVANTIQO_AUDIO_GHCR_IMAGE_REPOSITORY_REQUIRED");
   }
-  const digest = text(parsed?.image_digest) || image.slice(image.indexOf("sha256:"));
+  if (!/^[a-f0-9]{40}$/i.test(sourceSha)) {
+    throw new Error("AVANTIQO_AUDIO_WORKER_IMAGE_SOURCE_SHA_INVALID");
+  }
+  if (imageTag !== `${repository}:sha-${sourceSha.slice(0, 12)}`) {
+    throw new Error("AVANTIQO_AUDIO_SOURCE_LOCKED_IMAGE_TAG_INVALID");
+  }
   if (!/^sha256:[a-f0-9]{64}$/i.test(digest)) {
     throw new Error("AVANTIQO_AUDIO_IMMUTABLE_WORKER_IMAGE_DIGEST_INVALID");
   }
-  return { image, digest };
+  if (immutableReference !== `${repository}@${digest}`) {
+    throw new Error("AVANTIQO_AUDIO_IMMUTABLE_WORKER_IMAGE_REFERENCE_INVALID");
+  }
+
+  return {
+    template_image: imageTag,
+    immutable_reference: immutableReference,
+    digest,
+    source_sha: sourceSha,
+  };
 }
 
 async function endpointBoundTemplates(managementKey) {
@@ -204,20 +223,42 @@ function desiredEnv(currentTemplate) {
   };
 }
 
-function assertTemplateContract(template, image, expectedEnv) {
-  if (text(template?.imageName) !== image) {
-    throw new Error("AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_IMAGE_MISMATCH");
-  }
-  if (template?.isServerless !== true) {
-    throw new Error("AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_SERVERLESS_REQUIRED");
-  }
+function templateContractIssues(template, evidence, expectedEnv, registryAuthId) {
   const env = normalizeEnv(template?.env);
-  const invalid = Object.entries(expectedEnv)
+  const invalidEnv = Object.entries(expectedEnv)
     .filter(([key, value]) => env[key] !== value)
     .map(([key]) => key);
-  if (invalid.length) {
-    throw new Error(`AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_ENV_MISMATCH:${invalid.join(",")}`);
+  const issues = [];
+  if (text(template?.imageName) !== evidence.template_image) issues.push("image_name");
+  if (template?.isServerless !== true) issues.push("serverless");
+  if (text(template?.containerRegistryAuthId) !== registryAuthId) issues.push("registry_auth");
+  if (finite(template?.containerDiskInGb, 0) < MIN_CONTAINER_DISK_GB) issues.push("container_disk");
+  if (invalidEnv.length) issues.push(`env:${invalidEnv.join(",")}`);
+  return issues;
+}
+
+function assertTemplateContract(template, evidence, expectedEnv, registryAuthId) {
+  const issues = templateContractIssues(template, evidence, expectedEnv, registryAuthId);
+  if (issues.length) {
+    throw new Error(`AVANTIQO_AUDIO_SOURCE_LOCKED_TEMPLATE_CONTRACT_MISMATCH:${issues.join("|")}`);
   }
+}
+
+function templateWriteBody(baseTemplate, evidence, env, registryAuthId, templateName) {
+  return {
+    containerDiskInGb: Math.max(MIN_CONTAINER_DISK_GB, finite(baseTemplate?.containerDiskInGb, 0)),
+    containerRegistryAuthId: registryAuthId,
+    dockerEntrypoint: list(baseTemplate?.dockerEntrypoint),
+    dockerStartCmd: list(baseTemplate?.dockerStartCmd),
+    env,
+    imageName: evidence.template_image,
+    isPublic: false,
+    name: templateName,
+    ports: list(baseTemplate?.ports),
+    readme: "Avantiqo-owned Audio/Music source-locked ACE-Step 1.5 XL Turbo + 1.7B LM worker template. The GHCR SHA tag is bound to immutable digest evidence in audits/results/avantiqo-audio-worker-image.json.",
+    volumeInGb: 0,
+    volumeMountPath: text(baseTemplate?.volumeMountPath) || "/workspace",
+  };
 }
 
 function managementWorkersExited(endpoint) {
@@ -284,6 +325,7 @@ if (management.non_exited > 0 || counters.workers.running > 0) {
 }
 
 const registryAuth = resolveRegistryAuth(registryAuths, currentTemplate);
+const registryAuthId = text(registryAuth?.id);
 const env = desiredEnv(currentTemplate);
 const digestSuffix = evidence.digest.slice("sha256:".length, "sha256:".length + 12);
 const templateName = `avantiqo-audio-immutable-xl-lm-${digestSuffix}`;
@@ -296,23 +338,23 @@ const namedTemplates = templates.filter((template) => text(template?.name) === t
 if (namedTemplates.length > 1) {
   throw new Error(`AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_NAME_AMBIGUOUS:matches=${namedTemplates.length}`);
 }
-let immutableTemplate = namedTemplates[0] || null;
-if (immutableTemplate) {
-  assertTemplateContract(immutableTemplate, evidence.image, env);
-}
+let sourceLockedTemplate = namedTemplates[0] || null;
+let sourceLockedIssues = sourceLockedTemplate
+  ? templateContractIssues(sourceLockedTemplate, evidence, env, registryAuthId)
+  : ["missing"];
 
 const plan = {
   success: true,
-  contract: "AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_REBIND_V1",
+  contract: "AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_REBIND_V2",
   mode: apply ? "APPLY" : "PLAN",
   endpoint: {
     id: endpointId,
     name: AUDIO_ENDPOINT_NAME,
     current_template_id: text(endpoint?.templateId) || null,
-    current_image_reference_kind: /^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(currentImage)
-      ? "IMMUTABLE_GHCR_DIGEST"
-      : currentImage.startsWith("registry.runpod.net/")
-        ? "RUNPOD_GITHUB_BUILD"
+    current_image_reference_kind: currentImage.startsWith("registry.runpod.net/")
+      ? "RUNPOD_GITHUB_BUILD"
+      : currentImage === evidence.template_image
+        ? "GHCR_SOURCE_SHA_TAG_WITH_DIGEST_EVIDENCE"
         : "OTHER",
     current_template_looks_github_managed: currentLooksGithubManaged,
     workers_min: finite(endpoint?.workersMin),
@@ -322,8 +364,11 @@ const plan = {
   },
   target: {
     template_name: templateName,
-    existing_template_found: Boolean(immutableTemplate),
-    image_reference_kind: "IMMUTABLE_GHCR_DIGEST",
+    existing_template_found: Boolean(sourceLockedTemplate),
+    existing_template_contract_issues: sourceLockedIssues,
+    image_reference_kind: "GHCR_SOURCE_SHA_TAG_WITH_DIGEST_EVIDENCE",
+    image_digest_evidence_present: true,
+    source_sha: evidence.source_sha,
     variant: EXPECTED_VARIANT,
     quality_profile: EXPECTED_QUALITY_PROFILE,
     lm_model: EXPECTED_LM_MODEL,
@@ -332,7 +377,10 @@ const plan = {
   queue: counters,
   management_workers: management,
   mutation_required:
-    !immutableTemplate || text(endpoint?.templateId) !== text(immutableTemplate?.id) || currentLooksGithubManaged,
+    !sourceLockedTemplate ||
+    sourceLockedIssues.length > 0 ||
+    text(endpoint?.templateId) !== text(sourceLockedTemplate?.id) ||
+    currentLooksGithubManaged,
   safety: {
     generation_jobs_submitted: 0,
     production_deploy_performed: false,
@@ -349,63 +397,76 @@ if (!apply) {
   process.exit(0);
 }
 
-if (!immutableTemplate) {
-  immutableTemplate = await rest("/templates", managementKey, {
+const templateBody = templateWriteBody(
+  sourceLockedTemplate || currentTemplate,
+  evidence,
+  env,
+  registryAuthId,
+  templateName,
+);
+
+if (!sourceLockedTemplate) {
+  const created = await rest("/templates", managementKey, {
     method: "POST",
     body: {
-      imageName: evidence.image,
-      name: templateName,
+      ...templateBody,
       category: "NVIDIA",
-      containerDiskInGb: Math.max(MIN_CONTAINER_DISK_GB, finite(currentTemplate?.containerDiskInGb, 0)),
-      containerRegistryAuthId: text(registryAuth?.id),
-      dockerEntrypoint: list(currentTemplate?.dockerEntrypoint),
-      dockerStartCmd: list(currentTemplate?.dockerStartCmd),
-      env,
-      isPublic: false,
       isServerless: true,
-      ports: list(currentTemplate?.ports),
-      readme: "Avantiqo-owned Audio/Music immutable ACE-Step 1.5 XL Turbo + 1.7B LM worker template. Managed by the governed local repair path; not by GitHub auto-deploy.",
-      volumeInGb: Math.max(0, finite(currentTemplate?.volumeInGb, 0)),
-      volumeMountPath: text(currentTemplate?.volumeMountPath) || "/workspace",
     },
   });
-  if (!text(immutableTemplate?.id)) {
-    throw new Error("AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_CREATE_ID_REQUIRED");
-  }
-  assertTemplateContract(immutableTemplate, evidence.image, env);
+  const createdId = text(created?.id);
+  if (!createdId) throw new Error("AVANTIQO_AUDIO_SOURCE_LOCKED_TEMPLATE_CREATE_ID_REQUIRED");
+  sourceLockedTemplate = await rest(`/templates/${encodeURIComponent(createdId)}`, managementKey);
+  sourceLockedIssues = templateContractIssues(sourceLockedTemplate, evidence, env, registryAuthId);
+} else if (sourceLockedIssues.length > 0) {
+  const templateId = text(sourceLockedTemplate?.id);
+  if (!templateId) throw new Error("AVANTIQO_AUDIO_SOURCE_LOCKED_TEMPLATE_ID_REQUIRED");
+  await rest(`/templates/${encodeURIComponent(templateId)}/update`, managementKey, {
+    method: "POST",
+    body: templateBody,
+  });
+  sourceLockedTemplate = await rest(`/templates/${encodeURIComponent(templateId)}`, managementKey);
+  sourceLockedIssues = templateContractIssues(sourceLockedTemplate, evidence, env, registryAuthId);
 }
 
-if (text(endpoint?.templateId) !== text(immutableTemplate?.id)) {
+assertTemplateContract(sourceLockedTemplate, evidence, env, registryAuthId);
+
+if (text(endpoint?.templateId) !== text(sourceLockedTemplate?.id)) {
   await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
     method: "PATCH",
-    body: { templateId: text(immutableTemplate.id) },
+    body: { templateId: text(sourceLockedTemplate.id) },
   });
 }
 
-const [verifiedEndpoints, verifiedTemplates] = await Promise.all([
-  rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
-  endpointBoundTemplates(managementKey),
-]);
-const verifiedEndpoint = resolveEndpoint(verifiedEndpoints, endpointId);
-const verifiedTemplate = resolveTemplate(verifiedEndpoint, verifiedTemplates);
-if (text(verifiedEndpoint?.templateId) !== text(immutableTemplate?.id)) {
-  throw new Error("AVANTIQO_AUDIO_IMMUTABLE_ENDPOINT_REBIND_VERIFY_TEMPLATE_ID_FAILED");
+const verifiedEndpoint = resolveEndpoint(
+  await rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
+  endpointId,
+);
+const verifiedTemplateId = text(verifiedEndpoint?.templateId);
+if (verifiedTemplateId !== text(sourceLockedTemplate?.id)) {
+  throw new Error("AVANTIQO_AUDIO_SOURCE_LOCKED_ENDPOINT_REBIND_VERIFY_TEMPLATE_ID_FAILED");
 }
-assertTemplateContract(verifiedTemplate, evidence.image, env);
+const verifiedTemplate = await rest(
+  `/templates/${encodeURIComponent(verifiedTemplateId)}`,
+  managementKey,
+);
+assertTemplateContract(verifiedTemplate, evidence, env, registryAuthId);
 if (text(verifiedTemplate?.name) !== templateName) {
-  throw new Error("AVANTIQO_AUDIO_IMMUTABLE_ENDPOINT_REBIND_VERIFY_TEMPLATE_NAME_FAILED");
+  throw new Error("AVANTIQO_AUDIO_SOURCE_LOCKED_ENDPOINT_REBIND_VERIFY_TEMPLATE_NAME_FAILED");
 }
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_REBIND_V1",
+  contract: "AVANTIQO_AUDIO_IMMUTABLE_TEMPLATE_REBIND_V2",
   applied: true,
   endpoint_id: endpointId,
   endpoint_name: AUDIO_ENDPOINT_NAME,
   endpoint_version: finite(verifiedEndpoint?.version),
-  template_id: text(verifiedTemplate?.id),
+  template_id: verifiedTemplateId,
   template_name: text(verifiedTemplate?.name),
-  image_reference_kind: "IMMUTABLE_GHCR_DIGEST",
+  image_reference_kind: "GHCR_SOURCE_SHA_TAG_WITH_DIGEST_EVIDENCE",
+  immutable_digest_evidence: evidence.digest,
+  source_sha: evidence.source_sha,
   variant: EXPECTED_VARIANT,
   quality_profile: EXPECTED_QUALITY_PROFILE,
   lm_model: EXPECTED_LM_MODEL,

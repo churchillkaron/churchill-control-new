@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs";
+
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_SHUTDOWN_V1";
+const CONTRACT = "AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_SHUTDOWN_V2";
 const LIVE_ENDPOINT_NAME = "avantiqo-audio-v1";
 const RETIRED_ENDPOINT_NAME = "avantiqo-audio-v1-github-retired";
+const ENV_PATH = ".env.local";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -21,8 +24,53 @@ function finite(value, fallback = null) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function parseLocalEnv() {
+  let source = "";
+  try {
+    source = readFileSync(ENV_PATH, "utf8");
+  } catch {
+    return {};
+  }
+
+  const parsed = {};
+  for (const rawLine of source.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const match = rawLine.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!match) continue;
+    const [, name, rawValue] = match;
+    let value = rawValue.trim();
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      const quote = value[0];
+      value = value.slice(1, -1);
+      if (quote === '"') {
+        value = value
+          .replace(/\\n/g, "\n")
+          .replace(/\\r/g, "\r")
+          .replace(/\\t/g, "\t")
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, "\\");
+      }
+    }
+    parsed[name] = value;
+  }
+  return parsed;
+}
+
+const LOCAL_ENV = parseLocalEnv();
+
+function runtimeEnv(name) {
+  const inherited = text(process.env[name]);
+  if (inherited) return inherited;
+  return text(LOCAL_ENV[name]);
+}
+
 function required(name, fallback = "") {
-  const value = text(process.env[name] || fallback);
+  const value = runtimeEnv(name) || text(fallback);
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
 }
@@ -101,6 +149,7 @@ function managementSummary(endpoint = {}) {
   return {
     count: workers.length,
     non_exited: workers.filter((worker) => worker.desired_status !== "EXITED").length,
+    all_desired_exited: workers.every((worker) => worker.desired_status === "EXITED"),
     workers,
   };
 }
@@ -130,15 +179,25 @@ function assertNoLiveJobs(health) {
   }
 }
 
+function assertRetirementSafe(health, management) {
+  assertNoLiveJobs(health);
+  if (management.non_exited !== 0) {
+    throw new Error(
+      `AVANTIQO_AUDIO_RETIRED_ENDPOINT_ACTIVE_MANAGEMENT_WORKERS_BLOCK:non_exited=${management.non_exited}`,
+    );
+  }
+}
+
 const apply = process.argv.includes("--apply");
 if (apply) approved("AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_SHUTDOWN_APPROVED");
 
-const managementKey = required("RUNPOD_MANAGEMENT_API_KEY", process.env.RUNPOD_API_KEY);
-const queueKey = text(process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY) || required("RUNPOD_API_KEY", managementKey);
+const managementKey = required("RUNPOD_MANAGEMENT_API_KEY", runtimeEnv("RUNPOD_API_KEY"));
+const queueKey = runtimeEnv("RUNPOD_AVANTIQO_AUDIO_API_KEY") || required("RUNPOD_API_KEY", managementKey);
 const liveEndpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
-const configuredRetiredId = text(process.env.RUNPOD_AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_ID);
+const configuredRetiredId = runtimeEnv("RUNPOD_AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_ID");
 
 console.log(`AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_SHUTDOWN_MODE=${apply ? "APPLY" : "PLAN"}`);
+console.log("AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_SHUTDOWN_ENV_EXECUTED=false");
 console.log("AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_SHUTDOWN_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_SHUTDOWN_ENDPOINT_DELETED=false");
 console.log("AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_SHUTDOWN_TEMPLATE_DELETED=false");
@@ -179,18 +238,32 @@ if (!retiredEndpointId || retiredEndpointId === liveEndpointId) {
 
 const health = healthSummary(await queueHealth(retiredEndpointId, queueKey));
 const management = managementSummary(retiredEndpoint);
-assertNoLiveJobs(health);
+assertRetirementSafe(health, management);
 
 const alreadyShutDown = finite(retiredEndpoint.workersMin, 0) === 0 && finite(retiredEndpoint.workersMax, 0) === 0;
+const staleInitializingCounterTolerated =
+  health.workers.initializing > 0 && management.non_exited === 0 && management.all_desired_exited;
 const plan = {
   success: true,
   contract: CONTRACT,
   mode: apply ? "APPLY" : "PLAN",
+  local_env: {
+    path: ENV_PATH,
+    parsed_without_execution: true,
+    malformed_non_assignment_lines_ignored: true,
+    secret_values_printed: false,
+  },
   live_endpoint: safeEndpoint(liveEndpoint),
   retired_endpoint_resolution: retiredResolution,
   retired_endpoint: safeEndpoint(retiredEndpoint),
   retired_health: health,
   retired_management_workers: management,
+  shutdown_preconditions: {
+    no_live_jobs: true,
+    management_non_exited_workers: management.non_exited,
+    all_management_workers_desired_exited: management.all_desired_exited,
+    stale_initializing_counter_tolerated: staleInitializingCounterTolerated,
+  },
   shutdown_required: !alreadyShutDown,
   shutdown_performed: false,
   rollback_endpoint_retained: true,
@@ -220,7 +293,8 @@ if (freshRetired.length !== 1 || text(freshRetired[0]?.name) !== RETIRED_ENDPOIN
   throw new Error("AVANTIQO_AUDIO_RETIRED_ENDPOINT_CHANGED_REPLAN_REQUIRED");
 }
 const freshHealth = healthSummary(await queueHealth(retiredEndpointId, queueKey));
-assertNoLiveJobs(freshHealth);
+const freshManagement = managementSummary(freshRetired[0]);
+assertRetirementSafe(freshHealth, freshManagement);
 
 await rest(`/endpoints/${encodeURIComponent(retiredEndpointId)}`, managementKey, {
   method: "PATCH",

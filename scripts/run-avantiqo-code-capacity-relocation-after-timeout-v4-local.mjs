@@ -118,17 +118,184 @@ const targetCreateRecovery = `  const volumeIdsBeforeCreate = new Set(volumes.ma
   targetVolumeCreated = true;
   console.log(\`AVANTIQO_CODE_CAPACITY_RELOCATION_TARGET_VOLUME_CREATED=\${text(targetVolume?.id) || "MISSING"}\`);`;
 
+const waitForJobAnchor = `async function waitForJob(endpointId, key, jobId, label) {
+  const started = Date.now();
+  let body = await serverless(endpointId, \`/status/\${encodeURIComponent(jobId)}\`, key);
+  let status = upper(body?.status);
+  let lastPrinted = 0;
+  while (!["COMPLETED", "FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(status)) {
+    const elapsed = Date.now() - started;
+    if (status === "IN_QUEUE" && elapsed >= QUEUE_TIMEOUT_MS) {
+      await serverless(endpointId, \`/cancel/\${encodeURIComponent(jobId)}\`, key, { method: "POST" }).catch(() => null);
+      throw new Error(\`\${label}_QUEUE_TIMEOUT:\${jobId}:\${Math.round(elapsed / 1000)}s\`);
+    }
+    if (elapsed >= JOB_TIMEOUT_MS) {
+      await serverless(endpointId, \`/cancel/\${encodeURIComponent(jobId)}\`, key, { method: "POST" }).catch(() => null);
+      throw new Error(\`\${label}_JOB_TIMEOUT:\${jobId}:\${Math.round(elapsed / 1000)}s\`);
+    }
+    if (Date.now() - lastPrinted >= 15_000) {
+      const health = await serverless(endpointId, "/health", key).catch(() => null);
+      console.log(JSON.stringify({
+        event: \`\${label}_PROGRESS\`,
+        job_id: jobId,
+        status,
+        elapsed_seconds: Math.round(elapsed / 1000),
+        health: health ? healthCounters(health) : null,
+      }));
+      lastPrinted = Date.now();
+    }
+    await sleep(POLL_MS);
+    body = await serverless(endpointId, \`/status/\${encodeURIComponent(jobId)}\`, key);
+    status = upper(body?.status);
+  }
+  if (status !== "COMPLETED") {
+    throw new Error(\`\${label}_\${status}:\${text(body?.error || body?.output?.error || body?.message)}\`);
+  }
+  return body;
+}`;
+
+const waitForJobRecovery = `async function waitForJob(endpointId, key, jobId, label) {
+  const started = Date.now();
+  let body = await serverless(endpointId, "/status/" + encodeURIComponent(jobId), key);
+  let status = upper(body?.status);
+  let lastPrinted = 0;
+  let cacheStartupObservedAt = null;
+  let cacheLastControl = null;
+
+  async function cacheControlSnapshot() {
+    try {
+      const response = await fetch(
+        "https://api.runpod.io/v2/serverless/" + encodeURIComponent(endpointId) + "/workers",
+        {
+          headers: { Authorization: "Bearer " + key, Accept: "application/json" },
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      const raw = await response.text();
+      let payload = null;
+      try { payload = raw ? JSON.parse(raw) : null; } catch { payload = null; }
+      if (!response.ok) {
+        return {
+          available: false,
+          http_status: response.status,
+          workers: [],
+          error: "RUNPOD_CODE_CACHE_CONTROL_HTTP_" + response.status,
+        };
+      }
+      const workers = array(payload?.workers)
+        .map((worker) => ({
+          id: text(worker?.id) || null,
+          status: upper(worker?.status) || null,
+          image: text(worker?.image) || null,
+          gpu_type_id: text(worker?.gpuTypeId) || null,
+          data_center_id: text(worker?.dataCenterId) || null,
+        }))
+        .filter((worker) => !["EXITED", "STOPPED", "TERMINATED", "DELETED"].includes(worker.status));
+      return { available: true, http_status: response.status, workers, error: null };
+    } catch (error) {
+      return {
+        available: false,
+        http_status: null,
+        workers: [],
+        error: text(error?.message || error).slice(0, 300),
+      };
+    }
+  }
+
+  while (!["COMPLETED", "FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(status)) {
+    const elapsed = Date.now() - started;
+    const isCacheJob = label === "AVANTIQO_CODE_CAPACITY_CACHE";
+
+    if (status === "IN_QUEUE" && isCacheJob) {
+      cacheLastControl = await cacheControlSnapshot();
+      if (cacheLastControl.available && cacheLastControl.workers.length > 0 && cacheStartupObservedAt === null) {
+        cacheStartupObservedAt = Date.now();
+      }
+
+      if (cacheStartupObservedAt === null) {
+        const noAcceptanceLimitMs = cacheLastControl.available ? 3 * 60 * 1000 : 8 * 60 * 1000;
+        if (elapsed >= noAcceptanceLimitMs) {
+          await serverless(endpointId, "/cancel/" + encodeURIComponent(jobId), key, { method: "POST" }).catch(() => null);
+          throw new Error(
+            label +
+            "_NO_WORKER_ACCEPTANCE:" +
+            jobId +
+            ":" +
+            Math.round(elapsed / 1000) +
+            "s:control_available=" +
+            cacheLastControl.available,
+          );
+        }
+      } else if (Date.now() - cacheStartupObservedAt >= 12 * 60 * 1000) {
+        await serverless(endpointId, "/cancel/" + encodeURIComponent(jobId), key, { method: "POST" }).catch(() => null);
+        throw new Error(
+          label +
+          "_COLD_START_TIMEOUT:" +
+          jobId +
+          ":" +
+          Math.round((Date.now() - cacheStartupObservedAt) / 1000) +
+          "s_since_control_worker_observed",
+        );
+      }
+    } else if (status === "IN_QUEUE" && elapsed >= QUEUE_TIMEOUT_MS) {
+      await serverless(endpointId, "/cancel/" + encodeURIComponent(jobId), key, { method: "POST" }).catch(() => null);
+      throw new Error(label + "_QUEUE_TIMEOUT:" + jobId + ":" + Math.round(elapsed / 1000) + "s");
+    }
+
+    if (elapsed >= JOB_TIMEOUT_MS) {
+      await serverless(endpointId, "/cancel/" + encodeURIComponent(jobId), key, { method: "POST" }).catch(() => null);
+      throw new Error(label + "_JOB_TIMEOUT:" + jobId + ":" + Math.round(elapsed / 1000) + "s");
+    }
+
+    if (Date.now() - lastPrinted >= 15_000) {
+      const health = await serverless(endpointId, "/health", key).catch(() => null);
+      console.log(JSON.stringify({
+        event: label + "_PROGRESS",
+        job_id: jobId,
+        status,
+        elapsed_seconds: Math.round(elapsed / 1000),
+        health: health ? healthCounters(health) : null,
+        cache_cold_start_policy: isCacheJob ? "CONTROL_AWARE" : null,
+        cache_startup_observed: isCacheJob ? cacheStartupObservedAt !== null : null,
+        cache_seconds_since_startup_observed:
+          isCacheJob && cacheStartupObservedAt !== null
+            ? Math.round((Date.now() - cacheStartupObservedAt) / 1000)
+            : null,
+        cache_control_plane: isCacheJob ? cacheLastControl : null,
+      }));
+      lastPrinted = Date.now();
+    }
+
+    await sleep(POLL_MS);
+    body = await serverless(endpointId, "/status/" + encodeURIComponent(jobId), key);
+    status = upper(body?.status);
+  }
+
+  if (status !== "COMPLETED") {
+    throw new Error(label + "_" + status + ":" + text(body?.error || body?.output?.error || body?.message));
+  }
+  return body;
+}`;
+
 let patchedRelocation = replaceExactlyOnce(
   relocationSource,
   targetCreateAnchor,
   targetCreateRecovery,
   "CODE_TIMEOUT_RECOVERY_V4_TARGET_CREATE",
 );
+patchedRelocation = replaceExactlyOnce(
+  patchedRelocation,
+  waitForJobAnchor,
+  waitForJobRecovery,
+  "CODE_TIMEOUT_RECOVERY_V4_CACHE_WAIT",
+);
 if (
   patchedRelocation.includes(targetCreateAnchor) ||
-  !patchedRelocation.includes('event: "AVANTIQO_CODE_CAPACITY_RELOCATION_TARGET_VOLUME_CREATE_RECONCILED"')
+  patchedRelocation.includes(waitForJobAnchor) ||
+  !patchedRelocation.includes('event: "AVANTIQO_CODE_CAPACITY_RELOCATION_TARGET_VOLUME_CREATE_RECONCILED"') ||
+  !patchedRelocation.includes('cache_cold_start_policy: isCacheJob ? "CONTROL_AWARE" : null')
 ) {
-  throw new Error("CODE_TIMEOUT_RECOVERY_V4_TARGET_CREATE_PATCH_VERIFY_FAILED");
+  throw new Error("CODE_TIMEOUT_RECOVERY_V4_PATCH_VERIFY_FAILED");
 }
 
 const tempRelocationName = `.avantiqo-code-capacity-timeout-recovery-v4-relocation-${process.pid}.mjs`;
@@ -156,6 +323,14 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   child_contract: "AVANTIQO_CODE_CAPACITY_TIMEOUT_RECOVERY_V3",
   ambiguous_network_volume_create_reconciliation: true,
+  cache_queue_monitoring: {
+    policy: "CONTROL_AWARE",
+    no_worker_timeout_seconds: 180,
+    degraded_control_timeout_seconds: 480,
+    cold_start_timeout_after_worker_observed_seconds: 720,
+    overall_job_timeout_seconds: 1200,
+    generic_probe_and_inference_queue_timeout_unchanged: true,
+  },
   reconciliation_contract: {
     canonical_name_required: true,
     exact_target_datacenter_required: true,
@@ -190,6 +365,7 @@ try {
     contract: CONTRACT,
     child_exit_code: 0,
     ambiguous_network_volume_create_reconciliation: true,
+    cache_queue_monitoring: "CONTROL_AWARE",
     production_deploy_performed: false,
     secrets_printed: false,
   }));

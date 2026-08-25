@@ -6,7 +6,7 @@ const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const RETIRED_ENDPOINT_NAME = "avantiqo-audio-v1-github-retired";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-audio-worker-image.json";
 const ENV_PATH = ".env.local";
-const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_REGISTRY_ENDPOINT_MIGRATION_V1";
+const CONTRACT = "AVANTIQO_AUDIO_RUNPOD_REGISTRY_ENDPOINT_MIGRATION_V2";
 const EXPECTED_VARIANT = "acestep-v15-xl-turbo";
 const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
 const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
@@ -211,33 +211,16 @@ function resolveRegistryAuth(registryAuths, currentTemplate) {
   throw new Error("AVANTIQO_AUDIO_GHCR_REGISTRY_AUTH_REQUIRED");
 }
 
-function findGithubTemplate(templates, endpointId) {
-  const candidates = templates.filter((template) => {
-    const name = text(template?.name);
-    const image = text(template?.imageName);
-    return (
-      name.startsWith(`${AUDIO_ENDPOINT_NAME}__template__`) &&
-      image.startsWith("registry.runpod.net/") &&
-      image.includes("services-avantiqo-audio-engine-dockerfile")
-    );
-  });
-  if (candidates.length !== 1) {
-    throw new Error(
-      `AVANTIQO_AUDIO_GITHUB_TEMPLATE_RESOLUTION_FAILED:endpoint=${endpointId}:matches=${candidates.length}`,
-    );
-  }
-  return candidates[0];
-}
-
 async function directTemplate(templateId, managementKey) {
   const template = await rest(`/templates/${encodeURIComponent(templateId)}`, managementKey);
   if (text(template?.id) !== templateId) throw new Error("AVANTIQO_AUDIO_TEMPLATE_DIRECT_READ_ID_MISMATCH");
   return template;
 }
 
-function assertRegistryTemplate(template, evidence, registryAuthId, templateName, env) {
+function templateIssues(template, evidence, registryAuthId, templateName, env) {
+  const templateEnv = normalizeEnv(template?.env);
   const invalidEnv = Object.entries(env)
-    .filter(([key, value]) => normalizeEnv(template?.env)[key] !== value)
+    .filter(([key, value]) => templateEnv[key] !== value)
     .map(([key]) => key);
   const failures = [];
   if (text(template?.name) !== templateName) failures.push("name");
@@ -246,9 +229,31 @@ function assertRegistryTemplate(template, evidence, registryAuthId, templateName
   if (template?.isServerless !== true) failures.push("serverless");
   if (finite(template?.containerDiskInGb, 0) < 30) failures.push("container_disk");
   if (invalidEnv.length) failures.push(`env:${invalidEnv.join(",")}`);
+  return failures;
+}
+
+function assertRegistryTemplate(template, evidence, registryAuthId, templateName, env) {
+  const failures = templateIssues(template, evidence, registryAuthId, templateName, env);
   if (failures.length) {
     throw new Error(`AVANTIQO_AUDIO_REGISTRY_TEMPLATE_VERIFY_FAILED:${failures.join("|")}`);
   }
+}
+
+function templateBody(baseTemplate, evidence, registryAuthId, templateName, env) {
+  return {
+    imageName: evidence.imageTag,
+    name: templateName,
+    containerDiskInGb: Math.max(30, finite(baseTemplate?.containerDiskInGb, 30)),
+    containerRegistryAuthId: registryAuthId,
+    dockerEntrypoint: list(baseTemplate?.dockerEntrypoint),
+    dockerStartCmd: list(baseTemplate?.dockerStartCmd),
+    env,
+    isPublic: false,
+    ports: list(baseTemplate?.ports),
+    readme: "Avantiqo-owned Audio/Music registry-backed ACE-Step 1.5 XL Turbo + 1.7B LM template. Detached from RunPod GitHub deployment automation. The source SHA tag is backed by immutable digest evidence in the repository.",
+    volumeInGb: 0,
+    volumeMountPath: text(baseTemplate?.volumeMountPath) || "/workspace",
+  };
 }
 
 function candidateEndpointBody(oldEndpoint, templateId, candidateName) {
@@ -266,8 +271,9 @@ function candidateEndpointBody(oldEndpoint, templateId, candidateName) {
     workersMax: finite(oldEndpoint?.workersMax, 1),
     workersMin: 0,
   };
-  const volumeId = text(oldEndpoint?.networkVolumeId) || endpointVolumeIds(oldEndpoint)[0] || "";
-  if (volumeId) body.networkVolumeId = volumeId;
+  const volumeIds = endpointVolumeIds(oldEndpoint);
+  if (volumeIds.length === 1) body.networkVolumeId = volumeIds[0];
+  if (volumeIds.length > 1) body.networkVolumeIds = volumeIds;
   const dataCenterIds = list(oldEndpoint?.dataCenterIds).map(text).filter(Boolean);
   if (dataCenterIds.length) body.dataCenterIds = dataCenterIds;
   const allowedCudaVersions = list(oldEndpoint?.allowedCudaVersions).map(text).filter(Boolean);
@@ -276,20 +282,24 @@ function candidateEndpointBody(oldEndpoint, templateId, candidateName) {
   return body;
 }
 
-async function updateLocalEndpointBinding(newEndpointId) {
+async function updateLocalEndpointBinding(newEndpointId, oldEndpointId) {
   let source = "";
   try {
     source = await readFile(ENV_PATH, "utf8");
   } catch {
     throw new Error("AVANTIQO_AUDIO_LOCAL_ENV_FILE_REQUIRED");
   }
-  const key = "RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID";
-  const regex = new RegExp(`^${key}=.*$`, "m");
-  const next = regex.test(source)
-    ? source.replace(regex, `${key}=${newEndpointId}`)
-    : `${source}${source.endsWith("\n") ? "" : "\n"}${key}=${newEndpointId}\n`;
+  const primaryKey = "RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID";
+  const retiredKey = "RUNPOD_AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_ID";
+  const primaryRegex = new RegExp(`^${primaryKey}=.*$`, "m");
+  const retiredRegex = new RegExp(`^${retiredKey}=.*$`, "m");
+  let next = primaryRegex.test(source)
+    ? source.replace(primaryRegex, `${primaryKey}=${newEndpointId}`)
+    : `${source}${source.endsWith("\n") ? "" : "\n"}${primaryKey}=${newEndpointId}\n`;
+  next = retiredRegex.test(next)
+    ? next.replace(retiredRegex, `${retiredKey}=${oldEndpointId}`)
+    : `${next}${next.endsWith("\n") ? "" : "\n"}${retiredKey}=${oldEndpointId}\n`;
   await writeFile(ENV_PATH, next, "utf8");
-  return true;
 }
 
 const apply = process.argv.includes("--apply");
@@ -348,7 +358,6 @@ if (management.non_exited > 0 || queue.workers.running > 0) {
   );
 }
 
-const githubTemplate = findGithubTemplate(templates, configuredEndpointId);
 const registryAuth = resolveRegistryAuth(registryAuths, currentTemplate);
 const registryAuthId = text(registryAuth?.id);
 const env = desiredEnv(currentTemplate);
@@ -379,10 +388,6 @@ const plan = {
     gpu_type_ids: list(currentEndpoint?.gpuTypeIds).map(text).filter(Boolean),
     network_volume_ids: endpointVolumeIds(currentEndpoint),
   },
-  github_template: {
-    id: text(githubTemplate?.id),
-    name: text(githubTemplate?.name),
-  },
   target: {
     registry_template_name: registryTemplateName,
     registry_template_exists: existingRegistryTemplates.length === 1,
@@ -403,6 +408,7 @@ const plan = {
     existing_endpoint_deleted: false,
     existing_template_deleted: false,
     old_endpoint_retained_for_rollback: true,
+    old_endpoint_template_untouched: true,
     local_env_only_binding_update: apply,
     vercel_environment_mutated: false,
     secrets_printed: false,
@@ -415,38 +421,36 @@ if (!apply) {
   process.exit(0);
 }
 
-// Put the GitHub-origin endpoint back onto its own GitHub-managed template before
-// creating any registry-backed resource. This prevents future GitHub builds from
-// overwriting the new registry template.
-if (currentTemplateId !== text(githubTemplate?.id)) {
-  await rest(`/endpoints/${encodeURIComponent(configuredEndpointId)}`, managementKey, {
-    method: "PATCH",
-    body: { templateId: text(githubTemplate.id) },
-  });
-}
-
 let registryTemplate = existingRegistryTemplates[0] || null;
+const desiredTemplateBody = templateBody(
+  registryTemplate || currentTemplate,
+  evidence,
+  registryAuthId,
+  registryTemplateName,
+  env,
+);
+
 if (!registryTemplate) {
   registryTemplate = await rest("/templates", managementKey, {
     method: "POST",
     body: {
-      imageName: evidence.imageTag,
-      name: registryTemplateName,
+      ...desiredTemplateBody,
       category: "NVIDIA",
-      containerDiskInGb: Math.max(30, finite(currentTemplate?.containerDiskInGb, 30)),
-      containerRegistryAuthId: registryAuthId,
-      dockerEntrypoint: list(currentTemplate?.dockerEntrypoint),
-      dockerStartCmd: list(currentTemplate?.dockerStartCmd),
-      env,
-      isPublic: false,
       isServerless: true,
-      ports: list(currentTemplate?.ports),
-      readme: "Avantiqo-owned Audio/Music registry-backed ACE-Step 1.5 XL Turbo + 1.7B LM template. Detached from RunPod GitHub deployment automation. Image SHA tag is backed by immutable digest evidence in the repository.",
-      volumeInGb: 0,
-      volumeMountPath: text(currentTemplate?.volumeMountPath) || "/workspace",
     },
   });
+} else {
+  const registryTemplateId = text(registryTemplate?.id);
+  if (!registryTemplateId) throw new Error("AVANTIQO_AUDIO_REGISTRY_TEMPLATE_ID_REQUIRED");
+  const direct = await directTemplate(registryTemplateId, managementKey);
+  if (templateIssues(direct, evidence, registryAuthId, registryTemplateName, env).length) {
+    await rest(`/templates/${encodeURIComponent(registryTemplateId)}/update`, managementKey, {
+      method: "POST",
+      body: desiredTemplateBody,
+    });
+  }
 }
+
 const registryTemplateId = text(registryTemplate?.id);
 if (!registryTemplateId) throw new Error("AVANTIQO_AUDIO_REGISTRY_TEMPLATE_ID_REQUIRED");
 registryTemplate = await directTemplate(registryTemplateId, managementKey);
@@ -469,13 +473,27 @@ let verifiedCandidate = await rest(
 if (text(verifiedCandidate?.templateId) !== registryTemplateId) {
   throw new Error("AVANTIQO_AUDIO_REGISTRY_CANDIDATE_TEMPLATE_BINDING_INVALID");
 }
-if (endpointVolumeIds(verifiedCandidate)[0] !== endpointVolumeIds(currentEndpoint)[0]) {
+if (JSON.stringify(endpointVolumeIds(verifiedCandidate)) !== JSON.stringify(endpointVolumeIds(currentEndpoint))) {
   throw new Error("AVANTIQO_AUDIO_REGISTRY_CANDIDATE_VOLUME_NOT_PRESERVED");
 }
-const candidateTemplate = await directTemplate(registryTemplateId, managementKey);
-assertRegistryTemplate(candidateTemplate, evidence, registryAuthId, registryTemplateName, env);
+if (JSON.stringify(list(verifiedCandidate?.gpuTypeIds)) !== JSON.stringify(list(currentEndpoint?.gpuTypeIds))) {
+  throw new Error("AVANTIQO_AUDIO_REGISTRY_CANDIDATE_GPU_TYPES_NOT_PRESERVED");
+}
+if (finite(verifiedCandidate?.workersMin, -1) !== 0) {
+  throw new Error("AVANTIQO_AUDIO_REGISTRY_CANDIDATE_WORKERS_MIN_INVALID");
+}
+if (finite(verifiedCandidate?.workersMax, -1) !== finite(currentEndpoint?.workersMax, -2)) {
+  throw new Error("AVANTIQO_AUDIO_REGISTRY_CANDIDATE_WORKERS_MAX_NOT_PRESERVED");
+}
+assertRegistryTemplate(
+  await directTemplate(registryTemplateId, managementKey),
+  evidence,
+  registryAuthId,
+  registryTemplateName,
+  env,
+);
 
-// Final name cutover only after the detached endpoint and template are verified.
+// Cut over names only after the fresh registry template and endpoint independently pass.
 await rest(`/endpoints/${encodeURIComponent(configuredEndpointId)}`, managementKey, {
   method: "PATCH",
   body: { name: RETIRED_ENDPOINT_NAME },
@@ -503,7 +521,7 @@ assertRegistryTemplate(
   env,
 );
 
-await updateLocalEndpointBinding(candidateId);
+await updateLocalEndpointBinding(candidateId, configuredEndpointId);
 
 console.log(JSON.stringify({
   success: true,
@@ -513,7 +531,7 @@ console.log(JSON.stringify({
     id: configuredEndpointId,
     name: RETIRED_ENDPOINT_NAME,
     retained_for_rollback: true,
-    rebound_to_github_template: true,
+    template_untouched: true,
   },
   new_endpoint: {
     id: candidateId,
@@ -521,18 +539,17 @@ console.log(JSON.stringify({
     template_id: registryTemplateId,
     template_name: registryTemplateName,
     deployment_source: "DOCKER_REGISTRY_TEMPLATE",
-    github_deploy_lineage: false,
     source_locked_image_tag: evidence.imageTag,
     immutable_digest_evidence: evidence.digest,
     shared_network_volume_preserved: true,
-    gpu_type_ids_preserved:
-      JSON.stringify(list(verifiedCandidate?.gpuTypeIds)) === JSON.stringify(list(currentEndpoint?.gpuTypeIds)),
-    workers_min_preserved: finite(verifiedCandidate?.workersMin) === 0,
-    workers_max_preserved: finite(verifiedCandidate?.workersMax) === finite(currentEndpoint?.workersMax),
+    gpu_type_ids_preserved: true,
+    workers_min_preserved: true,
+    workers_max_preserved: true,
   },
   local_binding: {
     env_file: ENV_PATH,
     key: "RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID",
+    retired_key: "RUNPOD_AVANTIQO_AUDIO_GITHUB_RETIRED_ENDPOINT_ID",
     updated: true,
   },
   quality_profile: EXPECTED_QUALITY_PROFILE,

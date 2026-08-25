@@ -2,11 +2,14 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
 import { sharedVolumeGroup } from "./lib/avantiqo-runpod-shared-volumes.mjs";
+import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+
+loadAvantiqoEnv();
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_AND_EXPAND_V2";
+const CONTRACT = "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_AND_EXPAND_V3";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const RETIRED_AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1-github-retired";
 const SHARED_GROUP = sharedVolumeGroup("AUDIO_VOICE");
@@ -121,17 +124,37 @@ async function rest(path, credential) {
     "RUNPOD_REST",
   );
 }
-function inferenceCandidates() {
-  const raw = [
-    { source: "AUDIO_DEDICATED", credential: text(process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY) },
-    { source: "ACCOUNT", credential: text(process.env.RUNPOD_API_KEY) },
-  ].filter((entry) => entry.credential);
+function credentialCandidates(entries, missingCode) {
   const seen = new Set();
-  return raw.filter((entry) => {
-    if (seen.has(entry.credential)) return false;
-    seen.add(entry.credential);
-    return true;
-  });
+  const candidates = entries
+    .map(([source, credential]) => ({ source, credential: text(credential) }))
+    .filter((entry) => entry.credential)
+    .filter((entry) => {
+      if (seen.has(entry.credential)) return false;
+      seen.add(entry.credential);
+      return true;
+    });
+  if (!candidates.length) throw new Error(missingCode);
+  return candidates;
+}
+function managementCandidates() {
+  return credentialCandidates(
+    [
+      ["DEDICATED_MANAGEMENT", process.env.RUNPOD_MANAGEMENT_API_KEY],
+      ["ACCOUNT", process.env.RUNPOD_API_KEY],
+    ],
+    "RUNPOD_MANAGEMENT_OR_ACCOUNT_API_KEY_REQUIRED",
+  );
+}
+function inferenceCandidates() {
+  return credentialCandidates(
+    [
+      ["AUDIO_DEDICATED", process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY],
+      ["ACCOUNT", process.env.RUNPOD_API_KEY],
+      ["DEDICATED_MANAGEMENT", process.env.RUNPOD_MANAGEMENT_API_KEY],
+    ],
+    "RUNPOD_AUDIO_INFERENCE_API_KEY_REQUIRED",
+  );
 }
 async function readWithCandidates(url, candidates, label) {
   const attempts = [];
@@ -144,7 +167,12 @@ async function readWithCandidates(url, candidates, label) {
         }),
         label,
       );
-      return { body, credential_source: candidate.source };
+      return {
+        body,
+        credential_source: candidate.source,
+        credential: candidate.credential,
+        fallback_used: candidate !== candidates[0],
+      };
     } catch (error) {
       attempts.push(`${candidate.source}:${text(error?.message || error)}`);
     }
@@ -164,6 +192,17 @@ async function controlWorkers(endpointId, candidates) {
     candidates,
     "RUNPOD_CONTROL_WORKERS",
   );
+}
+async function proveManagementCredential(candidates) {
+  const result = await readWithCandidates(
+    `${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`,
+    candidates,
+    "RUNPOD_MANAGEMENT_ENDPOINT_LIST",
+  );
+  if (!Array.isArray(result.body)) {
+    throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_ENDPOINT_LIST_INVALID");
+  }
+  return result;
 }
 function resolveAudioEndpoint(endpoints, configuredId) {
   const matches = endpoints.filter(
@@ -204,22 +243,24 @@ function activeManagementWorkers(consumers) {
   );
 }
 
-const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
+const managementCredentialRead = await proveManagementCredential(managementCandidates());
+const managementKey = managementCredentialRead.credential;
+const managementCredentialSource = managementCredentialRead.credential_source;
 const candidates = inferenceCandidates();
-if (!candidates.length) throw new Error("RUNPOD_AUDIO_INFERENCE_API_KEY_REQUIRED");
 
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_CONTRACT=${CONTRACT}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_TIMEOUT_MS=${DRAIN_TIMEOUT_MS}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_STABLE_OBSERVATIONS_REQUIRED=${REQUIRED_STABLE_DRAIN_OBSERVATIONS}`);
+console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_MANAGEMENT_CREDENTIAL_SOURCE=${managementCredentialSource}`);
+console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_MANAGEMENT_CREDENTIAL_FALLBACK=${managementCredentialRead.fallback_used}`);
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_FORCE_STOP_PERFORMED=false");
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_ENDPOINT_MUTATION_PERFORMED=false");
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_PRODUCTION_DEPLOY_PERFORMED=false");
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_SECRETS_PRINTED=false");
 
-const initialEndpoints = await rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey);
-if (!Array.isArray(initialEndpoints)) throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_ENDPOINT_LIST_INVALID");
+const initialEndpoints = managementCredentialRead.body;
 const initialAudio = resolveAudioEndpoint(initialEndpoints, endpointId);
 const volumeIds = endpointVolumeIds(initialAudio);
 if (volumeIds.length !== 1) {
@@ -303,6 +344,8 @@ console.log(JSON.stringify({
   endpoint_id: endpointId,
   shared_volume_id: volumeId,
   shared_volume_group: SHARED_GROUP.id,
+  management_credential_source: managementCredentialSource,
+  management_credential_fallback_used: managementCredentialRead.fallback_used,
   health: finalHealth,
   health_credential_source: finalHealthCredentialSource,
   control_credential_source: finalControlCredentialSource,
@@ -325,7 +368,10 @@ console.log(JSON.stringify({
 
 const child = spawnSync(process.execPath, [EXPANSION_SCRIPT, ...process.argv.slice(2)], {
   cwd: process.cwd(),
-  env: process.env,
+  env: {
+    ...process.env,
+    RUNPOD_MANAGEMENT_API_KEY: managementKey,
+  },
   stdio: "inherit",
 });
 if (child.error) throw child.error;

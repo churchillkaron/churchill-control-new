@@ -8,6 +8,7 @@ from typing import Any
 import runpod
 import torch
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+from transformers.models.whisper.tokenization_whisper import TO_LANGUAGE_CODE
 
 ENGINE_CONTRACT = "AVANTIQO_VOICE_ENGINE_V1"
 CAPABILITY = "ai.speech.to.text"
@@ -25,6 +26,40 @@ _PIPELINE: Any | None = None
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _language_code(value: Any) -> str | None:
+    language = _text(value).lower().replace("_", "-")
+    if not language:
+        return None
+    if language.startswith("<|") and language.endswith("|>"):
+        language = language[2:-2]
+    base = language.split("-")[0]
+    if base in TO_LANGUAGE_CODE.values():
+        return base
+    if language in TO_LANGUAGE_CODE:
+        return TO_LANGUAGE_CODE[language]
+    if base in TO_LANGUAGE_CODE:
+        return TO_LANGUAGE_CODE[base]
+    return None
+
+
+def _detected_language(result: Any) -> str | None:
+    if not isinstance(result, dict):
+        return None
+    direct = _language_code(result.get("language"))
+    if direct:
+        return direct
+    chunks = result.get("chunks")
+    if not isinstance(chunks, list):
+        return None
+    for chunk in chunks:
+        if not isinstance(chunk, dict):
+            continue
+        detected = _language_code(chunk.get("language"))
+        if detected:
+            return detected
+    return None
 
 
 def _recognizer():
@@ -88,15 +123,24 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             path = handle.name
 
         generate_kwargs: dict[str, Any] = {"task": "transcribe"}
-        language = _text(workload.get("language"))
-        if language:
-            generate_kwargs["language"] = language
+        requested_language = _language_code(workload.get("language"))
+        if requested_language:
+            generate_kwargs["language"] = requested_language
 
         runpod.serverless.progress_update(job, "transcribing Avantiqo voice")
-        result = recognizer(path, generate_kwargs=generate_kwargs)
+        result = recognizer(
+            path,
+            generate_kwargs=generate_kwargs,
+            return_language=True,
+        )
         transcript = _text(result.get("text") if isinstance(result, dict) else result)
         if not transcript:
             raise RuntimeError("AVANTIQO_VOICE_STT_TRANSCRIPT_REQUIRED")
+
+        detected_language = _detected_language(result)
+        language = requested_language or detected_language
+        if not language:
+            raise RuntimeError("AVANTIQO_VOICE_STT_LANGUAGE_REQUIRED")
 
         return {
             "status": "completed",
@@ -107,7 +151,11 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "capability": CAPABILITY,
             "text": transcript,
             "transcript": transcript,
-            "language": language or None,
+            "language": language,
+            "detected_language": detected_language,
+            "language_source": "requested" if requested_language else "detected",
+            "language_detection_requested": requested_language is None,
+            "language_detection_available": detected_language is not None,
             "vocabulary_context_received": bool(_text(workload.get("vocabulary_context"))),
             "vocabulary_context_applied": False,
             "generation_seconds": round(time.perf_counter() - started, 3),

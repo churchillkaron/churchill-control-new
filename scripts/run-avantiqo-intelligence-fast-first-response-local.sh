@@ -94,7 +94,8 @@ echo "ISOLATED_MAIN_HEAD=$ORIGIN_MAIN"
 echo "SOURCE_CHECKOUT_MUTATED=NO"
 
 echo ""
-echo "================ VERIFY FAST PROVIDER CONTRACT ================"n(
+echo "================ VERIFY FAST PROVIDER CONTRACT ================" 
+(
   cd "$SHADOW_ROOT"
   node --test tests/avantiqo-intelligence-fast-provider-contract.test.mjs
 ) || fail "FAST_PROVIDER_CONTRACT_FAILED"

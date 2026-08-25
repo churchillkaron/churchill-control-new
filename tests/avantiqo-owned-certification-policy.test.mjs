@@ -85,13 +85,18 @@ test("owned image model requires exact approved model identity", () => {
   );
 });
 
-test("ACE-Step is runtime compatible for owned music only", () => {
+test("ACE-Step XL plus 1.7B LM is runtime compatible for owned music only", () => {
   const model = AVANTIQO_OWNED_MODEL_CATALOG["avantiqo-audio"].models[
     "ACE-Step/Ace-Step1.5"
   ];
   assert.equal(model.runtime_compatible, true);
   assert.deepEqual(model.capabilities, ["ai.music.generate"]);
-  assert.equal(model.ace_step_lm_enabled, false);
+  assert.equal(model.runtime_variant, "acestep-v15-xl-turbo");
+  assert.equal(model.quality_profile, "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1");
+  assert.equal(model.ace_step_lm_enabled, true);
+  assert.equal(model.ace_step_lm_model, "acestep-5Hz-lm-1.7B");
+  assert.equal(model.ace_step_lm_backend, "vllm");
+  assert.equal(model.thinking_enabled, true);
 
   const music = ownedModelCertification({
     provider: provider("avantiqo-audio", "ACE-Step/Ace-Step1.5"),
@@ -195,6 +200,34 @@ test("owned media pricing requires explicit human quality certification", () => 
   assert.ok(result.failed_checks.includes("human_quality_evidence_contract"));
   assert.ok(result.failed_checks.includes("certified_capability_bound"));
   assert.ok(result.failed_checks.includes("certified_model_bound"));
+});
+
+test("owned music pricing also requires explicit human quality certification", () => {
+  const capability = "ai.music.generate";
+  const model = "ACE-Step/Ace-Step1.5";
+  const missingHumanReview = ownedPricingCertification({
+    provider: "avantiqo-audio",
+    capability,
+    pricing: {
+      ...certifiedPricing("avantiqo-audio"),
+      capability,
+      model,
+    },
+  });
+  assert.equal(missingHumanReview.eligible, false);
+  assert.equal(missingHumanReview.media_human_quality_required, true);
+  assert.ok(missingHumanReview.failed_checks.includes("human_quality_certified"));
+
+  const valid = ownedPricingCertification({
+    provider: "avantiqo-audio",
+    capability,
+    pricing: certifiedMediaPricing({
+      providerId: "avantiqo-audio",
+      capability,
+      model,
+    }),
+  });
+  assert.equal(valid.eligible, true);
 });
 
 test("owned media pricing requires exact reviewed capability and model bindings", () => {

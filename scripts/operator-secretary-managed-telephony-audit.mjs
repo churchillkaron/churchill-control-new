@@ -14,7 +14,7 @@ const migration = await readFile("supabase/migrations/20260825114500_secretary_m
 const resolver = await readFile("app/api/internal/secretary/phone-lines/resolve/route.js", "utf8");
 const agi = await readFile("workers/secretary-sip-gateway/asterisk/inbound-agi.mjs", "utf8");
 const dialplan = await readFile("workers/secretary-sip-gateway/asterisk/extensions.conf.example", "utf8");
-const bootstrap = await readFile("workers/secretary-sip-gateway/asterisk/bootstrap-managed-carrier-local.mjs", "utf8");
+const bootstrap = await readFile("scripts/bootstrap-secretary-managed-telephony-local.mjs", "utf8");
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 
 assert("organization_scoped_connection_state", migration.includes("organization_id uuid not null") && migration.includes("unique (organization_id, idempotency_key)"));
@@ -31,8 +31,8 @@ assert("did_resolved_inside_avantiqo", resolver.includes("secretary_phone_lines"
 assert("agi_routes_by_called_number", agi.includes("calledNumber") && agi.includes("/api/internal/secretary/phone-lines/resolve"));
 assert("dialplan_accepts_dynamic_did", dialplan.includes("exten => _X.") || dialplan.includes("${EXTEN}"));
 assert("single_platform_carrier_bootstrap", bootstrap.includes("AVANTIQO_SECRETARY_TELNYX_CONNECTION_ID") && bootstrap.includes("TELNYX_API_KEY"));
-assert("carrier_password_not_printed", bootstrap.includes("SECRETARY_MANAGED_CARRIER_SIP_PASSWORD_PRINTED=false"));
-assert("root_bootstrap_command_present", Boolean(packageJson.scripts?.["bootstrap:operator-secretary-managed-carrier"]));
+assert("carrier_secret_not_printed", bootstrap.includes("SECRETARY_MANAGED_TELEPHONY_SECRET_PRINTED=false"));
+assert("root_bootstrap_command_present", Boolean(packageJson.scripts?.["bootstrap:operator-secretary-managed-telephony"]));
 
 console.log("SECRETARY_MANAGED_TELEPHONY_AUDIT=PASS");
 for (const check of checks) console.log(`${check.name.toUpperCase()}=${check.pass ? "PASS" : "FAIL"}`);

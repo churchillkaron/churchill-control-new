@@ -1,0 +1,50 @@
+name: Avantiqo Intelligence Certified Image Binding Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-intelligence-certified-image-binding-audit.yml
+      - lib/intelligence/runtime/AvantiqoRunPodCertifiedImageBinding.js
+      - lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js
+      - lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js
+      - scripts/avantiqo-intelligence-certified-image-binding-audit.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-certified-image-binding-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Verify exact checkout
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Syntax check governed runtimes
+        shell: bash
+        run: |
+          node --check lib/intelligence/runtime/AvantiqoRunPodCertifiedImageBinding.js
+          node --check lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js
+          node --check scripts/avantiqo-intelligence-certified-image-binding-audit.mjs
+
+      - name: Verify certified image binding invariants
+        shell: bash
+        run: node scripts/avantiqo-intelligence-certified-image-binding-audit.mjs
+
+      - name: Confirm source-only execution
+        shell: bash
+        run: |
+          echo "AVANTIQO_INTELLIGENCE_PROVIDER_JOB_SUBMITTED=NO"
+          echo "AVANTIQO_INTELLIGENCE_RUNPOD_ENDPOINT_MUTATED=NO"
+          echo "AVANTIQO_INTELLIGENCE_PRODUCTION_DEPLOY=NO"

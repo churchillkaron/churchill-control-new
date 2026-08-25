@@ -221,13 +221,13 @@ async function disableCertificationService() {
 
   const { data, error } = await supabase
     .from("organization_services")
-    .update({ usage_enabled: false })
+    .update({ usage_enabled: false, billing_enabled: false })
     .eq("organization_id", resolvedOrganizationId)
     .eq("service_id", SERVICE_ID)
-    .select("usage_enabled")
+    .select("usage_enabled,billing_enabled")
     .maybeSingle();
   if (error) throw error;
-  if (data && data.usage_enabled !== false) {
+  if (data && (data.usage_enabled !== false || data.billing_enabled !== false)) {
     throw new Error("CODE_AI_CERTIFICATION_SERVICE_DISABLE_FAILED");
   }
   serviceEnabled = false;
@@ -242,6 +242,7 @@ try {
     contract: CONTRACT,
     node_runtime: process.version,
     service_usage_enabled: false,
+    service_billing_enabled: false,
     provider_spend_approved: true,
   }));
   run("npm", ["run", "audit:code-ai-autonomy"]);
@@ -257,7 +258,10 @@ try {
   if (!organizationId) {
     throw new Error("CODE_AI_CERTIFICATION_BOOTSTRAP_ORGANIZATION_REQUIRED");
   }
-  if (bootstrap?.service?.usage_enabled !== true) {
+  if (
+    bootstrap?.service?.usage_enabled !== true ||
+    bootstrap?.service?.billing_enabled !== true
+  ) {
     throw new Error("CODE_AI_CERTIFICATION_BOOTSTRAP_SERVICE_ENABLE_REQUIRED");
   }
   if (Number(bootstrap?.wallet?.reserved_balance || 0) !== 0) {
@@ -297,6 +301,8 @@ try {
     service_id: SERVICE_ID,
     node_runtime: process.version,
     service_disabled: disabled,
+    usage_enabled: false,
+    billing_enabled: false,
     certification_succeeded: certificationSucceeded,
     new_provider_execution_outside_certification: false,
     production_deploy_performed: false,

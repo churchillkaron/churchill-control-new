@@ -71,6 +71,9 @@
     },
     "app/api/internal/secretary/follow-ups/process/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/secretary/calls/outbound/process/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -180,6 +183,10 @@
     },
     {
       "path": "/api/internal/secretary/follow-ups/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/secretary/calls/outbound/process",
       "schedule": "* * * * *"
     },
     {

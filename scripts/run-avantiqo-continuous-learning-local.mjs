@@ -22,7 +22,7 @@ const SCOPES = Object.freeze([
   "platform_training_candidates",
 ]);
 const NEXT_START_TIMEOUT_MS = 90_000;
-const RESEARCH_TIMEOUT_MS = 295_000;
+const RESEARCH_TIMEOUT_MS = 600_000;
 const CHILD_TAIL_LIMIT = 12_000;
 
 function text(value, limit = 4000) {
@@ -306,6 +306,8 @@ async function invokeOneResearch(port, cronSecret) {
 
 assertNode24();
 const run = process.argv.includes("--run");
+const fastSlotActive =
+  run && yes(process.env.AVANTIQO_CONTINUOUS_LEARNING_FAST_SLOT_ACTIVE);
 if (run && !yes(process.env.AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RUN_APPROVED)) {
   throw new Error("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RUN_APPROVED=YES_REQUIRED");
 }
@@ -328,7 +330,8 @@ const plan = {
     maximum_research_topics: 1,
     local_next_server_only: true,
     ordinary_service_runtime_research_cost_possible: true,
-    runpod_used: false,
+    local_client_timeout_ms: RESEARCH_TIMEOUT_MS,
+    runpod_used: fastSlotActive,
     gpu_training_used: false,
   },
   scope_protection: {
@@ -341,7 +344,7 @@ const plan = {
   governance: {
     explicit_one_topic_research_approval_required: true,
     production_deploy: false,
-    runpod_access: false,
+    runpod_access: fastSlotActive,
     provider_training_job_submitted: false,
     gpu_job_submitted: false,
     training_started: false,
@@ -454,7 +457,7 @@ const report = {
     gpu_job_submitted: false,
     training_started: false,
     production_deploy: false,
-    runpod_access: false,
+    runpod_access: fastSlotActive,
     customer_memory_touched: false,
     platform_org_only: true,
     secrets_in_output: false,

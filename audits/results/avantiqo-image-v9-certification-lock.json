@@ -1,0 +1,92 @@
+{
+  "success": true,
+  "contract": "AVANTIQO_IMAGE_V9_CERTIFICATION_LOCK_V1",
+  "recorded_at": "2026-08-25T12:57:00.000Z",
+  "capability": "ai.image.generate",
+  "provider": "avantiqo-image",
+  "status": "PRODUCTION_CERTIFIED_NOT_DEPLOYED",
+  "production_certified": true,
+  "activation_allowed": true,
+  "activation_performed": false,
+  "pricing_activation_performed": false,
+  "production_web_deploy": false,
+  "certification_finalizer_contract": "AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_V2",
+  "build_evidence": {
+    "contract": "AVANTIQO_IMAGE_WORKER_IMAGE_RESULT_V4",
+    "evidence_revision": "AVANTIQO_IMAGE_WORKER_IMAGE_V9_Z_IMAGE_DEFAULT_ROUTING_V1",
+    "source_sha": "9e6e3b581c8f55a8d833fdac0d9d6f24e36315c6",
+    "github_run_id": "32841392486",
+    "image_digest": "sha256:dba91ed34b53d69db5e9edb0894293bd0837ece2676be14184b0bda61296f905",
+    "immutable_image_reference": "ghcr.io/churchillkaron/avantiqo-image-worker@sha256:dba91ed34b53d69db5e9edb0894293bd0837ece2676be14184b0bda61296f905",
+    "entrypoint": "handler_v9.py",
+    "entrypoint_revision": "AVANTIQO_IMAGE_HANDLER_V9_Z_IMAGE_DEFAULT_ROUTING_V1",
+    "runtime_revision": "AVANTIQO_IMAGE_MULTI_FOUNDATION_PHYSICAL_VOLUME_USAGE_QUALITY_V4"
+  },
+  "generation_default": {
+    "foundation_model": "Tongyi-MAI/Z-Image",
+    "default_generation_routing_contract": "AVANTIQO_IMAGE_Z_IMAGE_DEFAULT_GENERATION_ROUTING_V1",
+    "default_generation_routing_enabled": true,
+    "qwen_replaced_for_generate_default": true,
+    "quality_profile": "AVANTIQO_IMAGE_COMMERCIAL_PHOTOREAL_CANDIDATE_V3",
+    "quality_policy": "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V3",
+    "quality_compiler_contract": "AVANTIQO_IMAGE_Z_IMAGE_QUALITY_COMPILER_V2",
+    "antitext_policy_contract": "AVANTIQO_IMAGE_Z_IMAGE_ANTITEXT_POLICY_V1",
+    "default_inference_steps": 28,
+    "default_guidance_scale": 4,
+    "prompt_rewrite_applied": false,
+    "compiled_prompt_persisted": false
+  },
+  "runtime_certification": {
+    "passed": true,
+    "runtime_probe_reused_completed_jobs": true,
+    "new_probe_jobs_submitted_on_final_validation": 0,
+    "cache_ready": true,
+    "model_download_submitted": false,
+    "endpoint_mutation_performed": false
+  },
+  "default_routing_generation": {
+    "job_id": "1b91889d-2409-403d-8970-5073a3ede25a-e2",
+    "request_foundation_model_supplied": false,
+    "worker_selected_foundation": "Tongyi-MAI/Z-Image",
+    "default_generation_routing_applied": true,
+    "technical_result": "PASS",
+    "output_sha256": "799b96605d3bb8e0ebacf8e771650d21410610323d92cf8f288fca4c6e5f7847"
+  },
+  "human_review": {
+    "approved": true,
+    "reviewer": "OWNER_LOCAL_REVIEW",
+    "criteria": {
+      "no_fake_text_logo_or_pseudotext": "PASS",
+      "physically_plausible_food_geometry_and_texture": "PASS",
+      "natural_lighting_reflections_and_depth": "PASS",
+      "commercial_luxury_composition_quality": "PASS"
+    }
+  },
+  "economics": {
+    "ready": true,
+    "billing_attribution": "ENDPOINT_BILLING_EFFECTIVE_RATE",
+    "effective_hourly_usd": 3.490457,
+    "estimated_supplier_compute_cost_usd": 0.03737601,
+    "cost_method": "RUNPOD_BILLING_EFFECTIVE_RATE_X_EXACT_JOB_EXECUTION_TIME",
+    "customer_pricing_status": "NOT_ACTIVATED_BY_CERTIFICATION"
+  },
+  "safety": {
+    "new_generation_submitted_by_finalizer": false,
+    "model_download_submitted_by_finalizer": false,
+    "endpoint_mutation_performed_by_finalizer": false,
+    "storage_mutation_performed_by_finalizer": false,
+    "provider_selection_changed": false,
+    "pricing_activation_performed": false,
+    "production_web_deploy": false,
+    "secret_values_recorded": false,
+    "signed_urls_recorded": false
+  },
+  "release_gate": {
+    "image_runtime_certified": true,
+    "image_default_routing_certified": true,
+    "image_human_quality_certified": true,
+    "image_economics_certified": true,
+    "production_deploy_completed": false,
+    "production_release_remains_separate": true
+  }
+}

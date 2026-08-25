@@ -122,13 +122,8 @@ function patchRelocationSource(source) {
   const strictCandidate = ".filter((region) => region.best_stock_rank > sourceRank && region.available_gpu_pool.length)";
   const recoveryCandidate = `.filter((region) => {
       if (!region.available_gpu_pool.length) return false;
-      if (region.best_stock_rank > sourceRank) return true;
       if (region.best_stock_rank < sourceRank) return false;
-      const sourcePool = array(sourceRegion?.available_gpu_pool);
-      const candidatePool = array(region.available_gpu_pool);
-      const sourceBestCost = number(sourcePool[0]?.usd_per_hour_reference, Number.POSITIVE_INFINITY);
-      const candidateBestCost = number(candidatePool[0]?.usd_per_hour_reference, Number.POSITIVE_INFINITY);
-      return candidatePool.length > sourcePool.length || candidateBestCost < sourceBestCost;
+      return true;
     })`;
 
   const strictTargetStability = `selection = selectTarget({ capacity, sourceDcId, groupVolumes, endpoints });
@@ -204,18 +199,8 @@ if (targetCreateRequired && apply) {
   const strictLiveGuard = `  if (!liveTarget || liveTarget.best_stock_rank <= selection.sourceRank || !liveGpuTypes.length) {
     throw new Error("CODE_CAPACITY_RELOCATION_TARGET_STOCK_LOST_BEFORE_SWITCH");
   }`;
-  const recoveryLiveGuard = `  const sourcePoolForEvidence = array(selection.sourceRegion?.available_gpu_pool);
-  const sourceBestCostForEvidence = number(sourcePoolForEvidence[0]?.usd_per_hour_reference, Number.POSITIVE_INFINITY);
-  const livePool = array(liveTarget?.available_gpu_pool);
-  const liveBestCost = number(livePool[0]?.usd_per_hour_reference, Number.POSITIVE_INFINITY);
-  const liveTargetMateriallyBetter = Boolean(liveTarget) && (
-    liveTarget.best_stock_rank > selection.sourceRank ||
-    (
-      liveTarget.best_stock_rank === selection.sourceRank &&
-      (livePool.length > sourcePoolForEvidence.length || liveBestCost < sourceBestCostForEvidence)
-    )
-  );
-  if (!liveTargetMateriallyBetter || !liveGpuTypes.length) {
+  const recoveryLiveGuard = `  const liveTargetRecoveryEligible = Boolean(liveTarget) && liveTarget.best_stock_rank >= selection.sourceRank;
+  if (!liveTargetRecoveryEligible || !liveGpuTypes.length) {
     throw new Error("CODE_CAPACITY_RELOCATION_TARGET_STOCK_LOST_BEFORE_SWITCH");
   }`;
 
@@ -378,7 +363,9 @@ console.log(JSON.stringify({
   endpoint: { id: endpointId, name: text(endpoint?.name) || null },
   health,
   plan_safe_with_missing_historical_job_because_no_mutation_occurs: !apply,
-  equal_stock_rank_recovery_requires_material_scheduler_advantage: true,
+  equal_stock_rank_recovery_requires_material_scheduler_advantage: false,
+  equal_stock_rank_recovery_requires_distinct_datacenter_scheduler_pool: true,
+  worse_stock_rank_recovery_allowed: false,
   valid_planned_target_may_survive_best_target_churn: true,
   runpod_balance_preflight_before_storage_mutation: true,
   endpoint_resume_verified_before_provider_submission: true,
@@ -410,6 +397,8 @@ try {
     failed_job_id: failedJobId,
     job_status_source: jobEvidence.source,
     equal_rank_recovery_path_used: true,
+    equal_stock_rank_recovery_requires_distinct_datacenter_scheduler_pool: true,
+    worse_stock_rank_recovery_allowed: false,
     valid_planned_target_may_survive_best_target_churn: true,
     runpod_balance_preflight_before_storage_mutation: true,
     endpoint_resume_verified_before_provider_submission: true,

@@ -1,0 +1,15 @@
+{
+  "contract": "AVANTIQO_IMAGE_VIDEO_BIND_PLAN_REQUEST_V1",
+  "image_evidence_contract": "AVANTIQO_IMAGE_WORKER_IMAGE_RESULT_V4",
+  "image_entrypoint": "handler_v6.py",
+  "video_evidence_contract": "AVANTIQO_VIDEO_WORKER_IMAGE_RESULT_V1",
+  "video_entrypoint": "handler_v2.py",
+  "mode": "READ_ONLY_PLAN",
+  "runpod_mutation_allowed": false,
+  "image_generation_allowed": false,
+  "video_generation_allowed": false,
+  "model_download_allowed": false,
+  "production_web_deploy_allowed": false,
+  "pricing_activation_allowed": false,
+  "requested_at": "2026-08-25T04:57:30.000Z"
+}

@@ -1,11 +1,12 @@
+import hashlib
 import json
 import os
 import sys
 
 from inspect_adapter import FOUNDATION_MODEL, inspect
 
-CANDIDATE_MODEL = "avantiqo-intelligence-candidate-v1"
 WORKER_MAIN = "/src/main.py"
+MODEL_PREFIX = "avantiqo-intelligence-candidate"
 
 
 def text(value, limit=2000):
@@ -36,6 +37,11 @@ def append_extra_flag(existing: str, flag: str) -> str:
     return f"{source} {flag}".strip()
 
 
+def candidate_model_name(adapter_path: str) -> str:
+    fingerprint = hashlib.sha256(adapter_path.encode("utf-8")).hexdigest()[:16]
+    return f"{MODEL_PREFIX}-{fingerprint}"
+
+
 def configure_environment():
     if not enabled(os.getenv("AVANTIQO_INTELLIGENCE_CANDIDATE_ENABLED")):
         fail("CANDIDATE_ENDPOINT_DISABLED")
@@ -45,8 +51,9 @@ def configure_environment():
         fail("CANDIDATE_ADAPTER_PATH_REQUIRED")
 
     certification = inspect(adapter_path)
+    candidate_model = candidate_model_name(certification["adapter_path"])
     module = {
-        "name": CANDIDATE_MODEL,
+        "name": candidate_model,
         "path": certification["adapter_path"],
         "base_model_name": FOUNDATION_MODEL,
         "is_3d_lora_weight": certification["is_3d_lora_weight"],
@@ -74,7 +81,8 @@ def configure_environment():
                 "contract": "AVANTIQO_INTELLIGENCE_CANDIDATE_STARTUP_V1",
                 "status": "CONFIGURED",
                 "foundation_model": FOUNDATION_MODEL,
-                "candidate_model": CANDIDATE_MODEL,
+                "candidate_model": candidate_model,
+                "adapter_artifact_fingerprint": candidate_model.removeprefix(f"{MODEL_PREFIX}-"),
                 "adapter_layout": certification["layout"],
                 "is_3d_lora_weight": certification["is_3d_lora_weight"],
                 "lora_rank": certification["lora_rank"],

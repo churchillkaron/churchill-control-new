@@ -11,6 +11,7 @@ const paths = {
   commitmentRuntime: "lib/operator/secretary/SecretaryCommitmentCaptureRuntime.js",
   commitmentWorker: "app/api/internal/secretary/commitments/process/route.js",
   followUpRuntime: "lib/operator/secretary/SecretaryFollowUpExecutionRuntime.js",
+  followUpEscalation: "lib/operator/secretary/SecretaryFollowUpEscalationRuntime.js",
   followUpWorker: "app/api/internal/secretary/follow-ups/process/route.js",
   quietHoursRuntime: "lib/operator/secretary/SecretaryContactQuietHoursRuntime.js",
   outboundCallRuntime: "lib/operator/secretary/SecretaryOutboundCallRuntime.js",
@@ -23,6 +24,7 @@ const paths = {
   notificationDelivery: "supabase/migrations/20260825071600_secretary_appointment_notification_delivery.sql",
   commitments: "supabase/migrations/20260825072000_secretary_commitment_capture.sql",
   followUpExecutions: "supabase/migrations/20260825073300_secretary_follow_up_execution.sql",
+  alertReconciliation: "supabase/migrations/20260825064700_avantiqo_secretary_alert_reconciliation.sql",
   vercel: "vercel.json",
 };
 
@@ -140,6 +142,18 @@ assert.match(source.outboundCallRuntime, /evaluateSecretaryContactQuietHours/);
 assert.match(source.outboundCallRuntime, /quiet_hours_adjusted/);
 assert.match(source.outboundCallRuntime, /SECRETARY_OUTBOUND_CONTACT_DO_NOT_DISTURB/);
 
+assert.match(source.followUpEscalation, /HUMAN_ATTENTION_REASONS/);
+assert.match(source.followUpEscalation, /FOLLOW_UP_CONTENT_NOT_SELF_CONTAINED/);
+assert.match(source.followUpEscalation, /OUTBOUND_CALL_FAILED/);
+assert.match(source.followUpEscalation, /human_action_required:\s*true/);
+assert.match(source.followUpEscalation, /priority:\s*"HIGH"/);
+assert.match(source.followUpEscalation, /dedupeKey = `follow_up:\$\{followUp\.id\}:\$\{followUp\.due_at\}`/);
+assert.match(source.followUpWorker, /escalateSecretaryFollowUpExecution/);
+assert.match(source.followUpWorker, /AVANTIQO_SECRETARY_FOLLOW_UP_EXECUTION_V2/);
+assert.match(source.followUpWorker, /exhausted && secretaryFollowUpExecutionNeedsHumanAttention/);
+assert.match(source.alertReconciliation, /SOURCE_FOLLOW_UP_NO_LONGER_PENDING/);
+assert.match(source.alertReconciliation, /a\.dedupe_key = 'follow_up:' \|\| f\.id::text \|\| ':' \|\| f\.due_at::text/);
+
 for (const worker of [
   source.dueWorker,
   source.messageWorker,
@@ -176,5 +190,7 @@ console.log("SECRETARY_AUTONOMOUS_FOLLOW_UP_EXECUTION=true");
 console.log("SECRETARY_NON_SECRETARY_PROMISE_AUTO_EXECUTION=false");
 console.log("SECRETARY_CONTACT_QUIET_HOURS=true");
 console.log("SECRETARY_CONTACT_TIMEZONE_AWARE=true");
+console.log("SECRETARY_BLOCKED_AUTONOMY_HUMAN_ESCALATION=true");
+console.log("SECRETARY_ESCALATION_AUTO_RESOLUTION=true");
 console.log("SECRETARY_REAL_CLOUD_JOBS=5");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

@@ -127,8 +127,11 @@ function createFakeAmi() {
   const state = {
     loginCount: 0,
     originates: [],
+    sockets: new Set(),
   };
   const server = net.createServer((socket) => {
+    state.sockets.add(socket);
+    socket.once("close", () => state.sockets.delete(socket));
     socket.setEncoding("utf8");
     let buffer = "";
     let greetingHeld = true;
@@ -175,7 +178,13 @@ function createFakeAmi() {
       }
     });
   });
-  return { server, state };
+  return {
+    server,
+    state,
+    disconnectAll() {
+      for (const socket of [...state.sockets]) socket.destroy();
+    },
+  };
 }
 
 function createFakeAvantiqo() {
@@ -198,10 +207,9 @@ function createFakeAvantiqo() {
 
       if (request.method === "POST" && path === "/api/internal/secretary/calls/outbound/status") {
         state.outboundStatuses.push(body);
-        const callId = body.status === "CONNECTED" ? "smoke-outbound-call" : "smoke-outbound-call";
         return sendJson(response, 200, {
           success: true,
-          request: { id: body.requestId, status: body.status, call_id: callId },
+          request: { id: body.requestId, status: body.status, call_id: "smoke-outbound-call" },
         });
       }
 
@@ -258,6 +266,12 @@ async function postJson(url, token, body) {
   const parsed = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(`HTTP_${response.status}:${parsed.error || "request failed"}`);
   return parsed;
+}
+
+async function fetchHealth(gatewayBase) {
+  const response = await fetch(`${gatewayBase}/health`);
+  const body = await response.json();
+  return { status: response.status, body };
 }
 
 async function openAudioSocket(port, audioUuid) {
@@ -335,6 +349,7 @@ try {
       ASTERISK_AMI_PORT: String(amiPort),
       ASTERISK_AMI_USERNAME: AMI_USERNAME,
       ASTERISK_AMI_SECRET: AMI_SECRET,
+      ASTERISK_AMI_RECONNECT_MS: "500",
       ASTERISK_SECRETARY_OUTBOUND_CONTEXT: "avantiqo-secretary-outbound",
       ASTERISK_SECRETARY_OUTBOUND_EXTEN: "s",
       ASTERISK_SECRETARY_OUTBOUND_CHANNEL_TEMPLATE: "PJSIP/{destination}@smoke-trunk",
@@ -351,12 +366,11 @@ try {
 
   const health = await waitFor(async () => {
     if (gatewayExited) throw new Error(`gateway exited: ${gatewayStderr.join("").slice(-2000)}`);
-    const response = await fetch(`${gatewayBase}/health`).catch(() => null);
-    if (!response?.ok) return null;
-    const body = await response.json();
-    return body.ok ? body : null;
+    const result = await fetchHealth(gatewayBase).catch(() => null);
+    return result?.status === 200 && result.body.ok ? result.body : null;
   }, { label: "gateway health" });
   assert.deepEqual(health.missing, []);
+  assert.equal(health.ami_connected, true);
   assert.equal(health.contract, "AVANTIQO_SECRETARY_ASTERISK_GATEWAY_V1");
   assert.equal(health.raw_audio_persisted, false);
   assert.equal(fakeAmi.state.loginCount, 1, "Gateway must survive coalesced AMI greeting + Login response");
@@ -433,8 +447,25 @@ try {
   assert.equal(fakeAvantiqo.state.outboundStatuses.filter((item) => item.status === "COMPLETED").length, 1);
   assert.ok(fakeAvantiqo.state.turns.length >= 2);
 
+  fakeAmi.disconnectAll();
+  const disconnectedHealth = await waitFor(async () => {
+    const result = await fetchHealth(gatewayBase).catch(() => null);
+    return result?.status === 503 && result.body.ami_connected === false ? result.body : null;
+  }, { label: "AMI disconnected health" });
+  assert.equal(disconnectedHealth.ok, false);
+  assert.deepEqual(disconnectedHealth.missing, []);
+
+  const recoveredHealth = await waitFor(async () => {
+    const result = await fetchHealth(gatewayBase).catch(() => null);
+    return result?.status === 200 && result.body.ok && result.body.ami_connected === true ? result.body : null;
+  }, { timeoutMs: 10000, label: "AMI recovery health" });
+  assert.equal(recoveredHealth.ok, true);
+  assert.ok(fakeAmi.state.loginCount >= 2, "Gateway must authenticate again after AMI reconnect");
+
   console.log("SECRETARY_SIP_GATEWAY_LOCAL_SMOKE=PASS");
   console.log("SECRETARY_SIP_GATEWAY_AMI_GREETING_FRAMING=PASS");
+  console.log("SECRETARY_SIP_GATEWAY_AMI_FAIL_CLOSED=PASS");
+  console.log("SECRETARY_SIP_GATEWAY_AMI_AUTO_RECOVERY=PASS");
   console.log("SECRETARY_SIP_GATEWAY_OUTBOUND_AUDIOSOCKET=PASS");
   console.log("SECRETARY_SIP_GATEWAY_INBOUND_AUDIOSOCKET=PASS");
   console.log("SECRETARY_SIP_GATEWAY_VOICE_TURN_LOOP=PASS");
@@ -454,6 +485,7 @@ try {
     ]);
     if (!gatewayExited) gateway.kill("SIGKILL");
   }
+  fakeAmi.disconnectAll();
   await Promise.all([
     closeServer(fakeAmi.server),
     closeServer(fakeAvantiqo.server),

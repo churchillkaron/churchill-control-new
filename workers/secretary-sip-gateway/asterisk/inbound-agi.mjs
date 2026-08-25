@@ -7,6 +7,7 @@ const GATEWAY_TOKEN = String(process.env.AVANTIQO_SECRETARY_SIP_GATEWAY_TOKEN ||
 const AVANTIQO_BASE_URL = String(process.env.AVANTIQO_SECRETARY_PUBLIC_BASE_URL || "").replace(/\/+$/, "");
 const INGRESS_TOKEN = String(process.env.AVANTIQO_SECRETARY_CALL_GATEWAY_TOKEN || "").trim();
 const PHONE_LINE_ID = String(process.env.AVANTIQO_SECRETARY_PHONE_LINE_ID || "").trim() || null;
+const AUDIO_SERVICE = String(process.env.ASTERISK_SECRETARY_AUDIOSOCKET_SERVICE || "").trim();
 const LANGUAGE = String(process.argv[2] || "").trim() || null;
 
 function clean(value, limit = 2000) {
@@ -129,10 +130,14 @@ async function main() {
       environment.agi_dnid || environment.agi_extension || environment.agi_request || "",
     );
 
-    if (!GATEWAY_TOKEN || (!PHONE_LINE_ID && !calledNumber)) {
+    if (!GATEWAY_TOKEN || !AUDIO_SERVICE || (!PHONE_LINE_ID && !calledNumber)) {
       await setFailure(
         session,
-        !GATEWAY_TOKEN ? "GATEWAY_TOKEN_MISSING" : "CALLED_NUMBER_OR_PHONE_LINE_ID_MISSING",
+        !GATEWAY_TOKEN
+          ? "GATEWAY_TOKEN_MISSING"
+          : !AUDIO_SERVICE
+            ? "AUDIOSOCKET_SERVICE_MISSING"
+            : "CALLED_NUMBER_OR_PHONE_LINE_ID_MISSING",
       );
       return;
     }
@@ -156,6 +161,7 @@ async function main() {
       await session.setVariable("AVANTIQO_CALL_ID", body.call_id);
       await session.setVariable("AVANTIQO_PHONE_LINE_ID", line.phone_line_id);
       await session.setVariable("AVANTIQO_AUDIO_UUID", body.audio_uuid);
+      await session.setVariable("AVANTIQO_AUDIO_SERVICE", AUDIO_SERVICE);
       if (line.called_number) await session.setVariable("AVANTIQO_CALLED_NUMBER", line.called_number);
       if (body.default_language) await session.setVariable("AVANTIQO_DEFAULT_LANGUAGE", body.default_language);
       await session.setVariable("AVANTIQO_SECRETARY_ERROR", "");

@@ -9,7 +9,7 @@ loadAvantiqoEnv();
 const REST_BASE = "https://rest.runpod.io/v1";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_AND_EXPAND_V4";
+const CONTRACT = "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_AND_EXPAND_V5";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const RETIRED_AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1-github-retired";
 const SHARED_GROUP = sharedVolumeGroup("AUDIO_VOICE");
@@ -17,6 +17,7 @@ const EXPANSION_SCRIPT = resolve("scripts/expand-avantiqo-audio-voice-volume-loc
 const POLL_MS = 3_000;
 const REQUIRED_STABLE_DRAIN_OBSERVATIONS = 2;
 const DEFAULT_DRAIN_TIMEOUT_MS = 120_000;
+const CONTROL_TERMINAL_STATUSES = new Set(["EXITED", "STOPPED", "TERMINATED", "DELETED"]);
 const DRAIN_TIMEOUT_MS = Math.max(
   15_000,
   Math.min(
@@ -116,12 +117,23 @@ function safeControlWorkers(body = {}) {
   return list(body?.workers).map((worker) => ({
     id_present: Boolean(text(worker?.id)),
     status: text(worker?.status).toUpperCase() || null,
+    desired_status: text(worker?.desiredStatus ?? worker?.desired_status).toUpperCase() || null,
     is_stale: worker?.isStale === true,
   }));
 }
+function controlWorkerBlocksDrain(worker) {
+  if (CONTROL_TERMINAL_STATUSES.has(worker.status || "")) return false;
+  if (worker.desired_status === "EXITED") return false;
+  if (worker.is_stale === true) return false;
+  return true;
+}
 function activeControlWorkers(body = {}) {
-  return safeControlWorkers(body).filter(
-    (worker) => !["EXITED", "STOPPED", "TERMINATED", "DELETED"].includes(worker.status || ""),
+  return safeControlWorkers(body).filter(controlWorkerBlocksDrain);
+}
+function toleratedStaleControlWorkers(body = {}) {
+  return safeControlWorkers(body).filter((worker) =>
+    !CONTROL_TERMINAL_STATUSES.has(worker.status || "") &&
+    (worker.desired_status === "EXITED" || worker.is_stale === true),
   );
 }
 function allowedVolumeConsumer(name) {
@@ -304,6 +316,8 @@ let finalControlCredentialSource = null;
 let finalControlWorkers = null;
 let finalConsumers = null;
 let staleHealthCountersTolerated = false;
+let staleControlRowsTolerated = false;
+let maxToleratedStaleControlRows = 0;
 while (true) {
   observations += 1;
   const [healthRead, controlRead, endpoints] = await Promise.all([
@@ -330,18 +344,21 @@ while (true) {
   validateConsumers(consumers);
   const managementLive = activeManagementWorkers(consumers);
   const controlLive = activeControlWorkers(controlRead.body);
+  const toleratedControl = toleratedStaleControlWorkers(controlRead.body);
   const runtimeLive = activeRuntimeWorkers(health);
   const elapsedMs = Date.now() - startedAt;
 
   if (managementLive.length === 0 && controlLive.length === 0) {
     stableDrainObservations += 1;
     staleHealthCountersTolerated ||= runtimeLive > 0;
+    staleControlRowsTolerated ||= toleratedControl.length > 0;
+    maxToleratedStaleControlRows = Math.max(maxToleratedStaleControlRows, toleratedControl.length);
   } else {
     stableDrainObservations = 0;
   }
 
   console.log(
-    `AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_OBSERVE=health_workers:${runtimeLive}:management_workers:${managementLive.length}:control_workers:${controlLive.length}:stable:${stableDrainObservations}/${REQUIRED_STABLE_DRAIN_OBSERVATIONS}:elapsed_ms:${elapsedMs}`,
+    `AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_OBSERVE=health_workers:${runtimeLive}:management_workers:${managementLive.length}:control_workers:${controlLive.length}:tolerated_stale_control_rows:${toleratedControl.length}:stable:${stableDrainObservations}/${REQUIRED_STABLE_DRAIN_OBSERVATIONS}:elapsed_ms:${elapsedMs}`,
   );
 
   if (stableDrainObservations >= REQUIRED_STABLE_DRAIN_OBSERVATIONS) {
@@ -354,12 +371,13 @@ while (true) {
     console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_OBSERVATIONS=${observations}`);
     console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_WAITED_MS=${elapsedMs}`);
     console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_STALE_HEALTH_COUNTERS_TOLERATED=${staleHealthCountersTolerated}`);
+    console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_STALE_CONTROL_ROWS_TOLERATED=${staleControlRowsTolerated}`);
     break;
   }
 
   if (elapsedMs >= DRAIN_TIMEOUT_MS) {
     throw new Error(
-      `AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_TIMEOUT:health_workers=${runtimeLive}:management_workers=${managementLive.length}:control_workers=${controlLive.length}:stable=${stableDrainObservations}:elapsed_ms=${elapsedMs}`,
+      `AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_TIMEOUT:health_workers=${runtimeLive}:management_workers=${managementLive.length}:control_workers=${controlLive.length}:tolerated_stale_control_rows=${toleratedControl.length}:stable=${stableDrainObservations}:elapsed_ms=${elapsedMs}`,
     );
   }
   await sleep(POLL_MS);
@@ -383,6 +401,8 @@ console.log(JSON.stringify({
   management_worker_scale_to_zero_verified: true,
   health_worker_counters_observational_only: true,
   stale_health_worker_counters_tolerated: staleHealthCountersTolerated,
+  stale_control_rows_tolerated: staleControlRowsTolerated,
+  max_tolerated_stale_control_rows: maxToleratedStaleControlRows,
   stable_drain_observations: stableDrainObservations,
   safety: {
     read_only_drain: true,

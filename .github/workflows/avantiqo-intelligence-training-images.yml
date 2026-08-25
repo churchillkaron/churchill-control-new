@@ -44,11 +44,23 @@ jobs:
           grep -F 'Qwen/Qwen3-30B-A3B-Thinking-2507' services/avantiqo-intelligence-trainer/handler.py
           grep -F 'LORA_BF16_PEFT_QWEN3_MOE' services/avantiqo-intelligence-trainer/handler.py
           grep -F 'MIN_BF16_GPU_MEMORY_BYTES = 78 * 1024 * 1024 * 1024' services/avantiqo-intelligence-trainer/handler.py
+          grep -F 'MAX_SEQUENCE_LENGTH = 2048' services/avantiqo-intelligence-trainer/handler.py
+          grep -F 'DEFAULT_SEQUENCE_LENGTH = 1024' services/avantiqo-intelligence-trainer/handler.py
+          grep -F '"q_proj"' services/avantiqo-intelligence-trainer/handler.py
+          grep -F '"v_proj"' services/avantiqo-intelligence-trainer/handler.py
           grep -F 'mlp.experts.gate_up_proj' services/avantiqo-intelligence-trainer/handler.py
           grep -F 'mlp.experts.down_proj' services/avantiqo-intelligence-trainer/handler.py
           grep -F 'target_parameters=MOE_LORA_TARGET_PARAMETERS' services/avantiqo-intelligence-trainer/handler.py
           grep -F 'lora_dropout=0.0' services/avantiqo-intelligence-trainer/handler.py
           grep -F 'AVANTIQO_INTELLIGENCE_TRAINER_ENABLED=false' services/avantiqo-intelligence-trainer/Dockerfile.runpod
+          if grep -Fq '"k_proj",' services/avantiqo-intelligence-trainer/handler.py; then
+            echo 'AVANTIQO_INTELLIGENCE_TRAINER_DENSE_TARGET_PROFILE_WIDENED'
+            exit 1
+          fi
+          if grep -Fq '"o_proj",' services/avantiqo-intelligence-trainer/handler.py; then
+            echo 'AVANTIQO_INTELLIGENCE_TRAINER_DENSE_TARGET_PROFILE_WIDENED'
+            exit 1
+          fi
           if grep -Fq 'BitsAndBytesConfig' services/avantiqo-intelligence-trainer/handler.py; then
             echo 'AVANTIQO_INTELLIGENCE_TRAINER_FAKE_QLORA_DETECTED'
             exit 1
@@ -104,6 +116,8 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             io.avantiqo.contract=AVANTIQO_INTELLIGENCE_TRAINER_V1
             io.avantiqo.training-method=LORA_BF16_PEFT_QWEN3_MOE
+            io.avantiqo.max-sequence-length=2048
+            io.avantiqo.dense-lora-targets=q_proj,v_proj
           provenance: true
           sbom: true
           cache-from: type=gha,scope=avantiqo-intelligence-trainer
@@ -147,6 +161,9 @@ jobs:
             base_precision: "BF16",
             base_quantized: false,
             minimum_gpu_class: "80GB",
+            default_sequence_length: 1024,
+            maximum_sequence_length: 2048,
+            dense_lora_target_modules: ["q_proj", "v_proj"],
             trainer_enabled_by_default: false,
             provider_job_submitted: false,
             training_started: false,

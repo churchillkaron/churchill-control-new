@@ -19,6 +19,7 @@ const vercelPath = "vercel.json";
 const localLauncherPath = "scripts/run-avantiqo-continuous-learning-local.sh";
 const localRunnerPath = "scripts/run-avantiqo-continuous-learning-local.mjs";
 const slotManagerPath = "scripts/manage-avantiqo-intelligence-lane-slot-local.mjs";
+const fastE2EWrapperPath = "scripts/run-operator-product-engineering-fast-lane-e2e-local.sh";
 
 const runtime = read(runtimePath);
 const capability = read(capabilityPath);
@@ -28,6 +29,7 @@ const vercel = JSON.parse(read(vercelPath));
 const localLauncher = read(localLauncherPath);
 const localRunner = read(localRunnerPath);
 const slotManager = read(slotManagerPath);
+const fastE2EWrapper = read(fastE2EWrapperPath);
 
 assert(runtime.includes("AVANTIQO_CONTINUOUS_LEARNING_V1"), "CONTINUOUS_LEARNING_CONTRACT_REQUIRED");
 assert(runtime.includes('const MEMORY_TABLE = "intelligence_memories"'), "CONTINUOUS_LEARNING_MEMORY_TABLE_REQUIRED");
@@ -107,6 +109,22 @@ assert(
   slotManager.includes("AVANTIQO_INTELLIGENCE_SLOT_WAITING_FOR_IDLE"),
   "CONTINUOUS_LEARNING_SLOT_IDLE_WAIT_EVIDENCE_REQUIRED",
 );
+assert(
+  slotManager.includes("AVANTIQO_INTELLIGENCE_FAST_DEEP_RESTORE"),
+  "CONTINUOUS_LEARNING_SHARED_FAST_DRAIN_REQUIRED",
+);
+assert(
+  slotManager.includes("AVANTIQO_INTELLIGENCE_RESTORE_SLOT_STATE_INVALID"),
+  "CONTINUOUS_LEARNING_RESTORE_SLOT_STATE_GUARD_REQUIRED",
+);
+assert(
+  slotManager.includes("fast_restored="),
+  "CONTINUOUS_LEARNING_RESTORE_RECOVERY_REQUIRED",
+);
+assert(
+  fastE2EWrapper.includes("FAST_LANE_SAFE_SINGLE_SLOT_STATE=YES"),
+  "CONTINUOUS_LEARNING_FAST_E2E_SHARED_SLOT_REQUIRED",
+);
 
 const cron = Array.isArray(vercel.crons)
   ? vercel.crons.find((item) => item.path === "/api/internal/intelligence/continuous-learning/process")
@@ -127,3 +145,4 @@ console.log("AVANTIQO_CONTINUOUS_LEARNING_HOURLY_CRON_READY=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_FAST_SLOT_LEASE_GUARDED=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_WAIT_BOUNDED=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_ACTIVE_JOB_DRAIN_GUARDED=YES");
+console.log("AVANTIQO_CONTINUOUS_LEARNING_CONCURRENT_FAST_LEASE_GUARDED=YES");

@@ -12,6 +12,7 @@ const OUTBOUND_CONTEXT = String(env.ASTERISK_SECRETARY_OUTBOUND_CONTEXT || "avan
 const OUTBOUND_EXTEN = String(env.ASTERISK_SECRETARY_OUTBOUND_EXTEN || "s").trim();
 const TRUNK_ENDPOINT = String(env.ASTERISK_SECRETARY_TRUNK_ENDPOINT || "").trim();
 const REQUIRE_TRUNK = /^(1|true|yes)$/i.test(String(env.SECRETARY_ASTERISK_PREFLIGHT_REQUIRE_TRUNK || ""));
+const REQUIRE_REGISTERED = /^(1|true|yes)$/i.test(String(env.SECRETARY_ASTERISK_PREFLIGHT_REQUIRE_REGISTERED || ""));
 const CONNECT_TIMEOUT_MS = Math.max(1000, Number(env.SECRETARY_ASTERISK_PREFLIGHT_CONNECT_TIMEOUT_MS || 10000));
 const ACTION_TIMEOUT_MS = Math.max(1000, Number(env.SECRETARY_ASTERISK_PREFLIGHT_ACTION_TIMEOUT_MS || 10000));
 
@@ -34,7 +35,7 @@ function requireConfig() {
   if (!INBOUND_CONTEXT) missing.push("ASTERISK_SECRETARY_INBOUND_CONTEXT");
   if (!OUTBOUND_CONTEXT) missing.push("ASTERISK_SECRETARY_OUTBOUND_CONTEXT");
   if (!OUTBOUND_EXTEN) missing.push("ASTERISK_SECRETARY_OUTBOUND_EXTEN");
-  if (REQUIRE_TRUNK && !TRUNK_ENDPOINT) missing.push("ASTERISK_SECRETARY_TRUNK_ENDPOINT");
+  if ((REQUIRE_TRUNK || REQUIRE_REGISTERED) && !TRUNK_ENDPOINT) missing.push("ASTERISK_SECRETARY_TRUNK_ENDPOINT");
   return missing;
 }
 
@@ -159,31 +160,31 @@ function assertSuccess(frame, label) {
 async function checkModule(client, moduleName) {
   const result = await client.action({ Action: "ModuleCheck", Module: moduleName });
   assertSuccess(result, `Module ${moduleName}`);
-  return true;
 }
 
 async function checkDialplan(client, context, extension = "s") {
-  const result = await client.action({
-    Action: "ShowDialPlan",
-    Context: context,
-    Extension: extension,
-  });
+  const result = await client.action({ Action: "ShowDialPlan", Context: context, Extension: extension });
   assertSuccess(result, `Dialplan ${context}/${extension}`);
-  return true;
 }
 
 async function checkEndpoint(client, endpoint) {
-  const result = await client.action({
-    Action: "PJSIPShowEndpoint",
-    Endpoint: endpoint,
-  });
+  const result = await client.action({ Action: "PJSIPShowEndpoint", Endpoint: endpoint });
   assertSuccess(result, `PJSIP endpoint ${endpoint}`);
-  return true;
+}
+
+async function checkRegistration(client, endpoint) {
+  const result = await client.action({ Action: "Command", Command: "pjsip show registrations" });
+  const response = clean(result?.Response).toLowerCase();
+  assert.ok(response === "success" || response === "follows", `PJSIP registrations command failed: ${clean(result?.Message) || response}`);
+  const output = Array.isArray(result?.Output) ? result.Output : [result?.Output].filter(Boolean);
+  const line = output.map((item) => String(item)).find((item) => item.includes(`${endpoint}-registration`));
+  assert.ok(line, `PJSIP registration ${endpoint}-registration not found`);
+  assert.match(line, /\bRegistered\b/i, `PJSIP registration ${endpoint}-registration is not Registered`);
 }
 
 const missing = requireConfig();
 if (missing.length) {
-  console.error(`SECRETARY_ASTERISK_RUNTIME_PREFLIGHT=FAIL`);
+  console.error("SECRETARY_ASTERISK_RUNTIME_PREFLIGHT=FAIL");
   console.error(`SECRETARY_ASTERISK_PREFLIGHT_MISSING=${missing.join(",")}`);
   process.exit(1);
 }
@@ -192,27 +193,26 @@ const client = new AmiPreflightClient();
 
 try {
   await client.connect();
-  const login = await client.action({
-    Action: "Login",
-    Username: USERNAME,
-    Secret: SECRET,
-    Events: "off",
-  });
+  const login = await client.action({ Action: "Login", Username: USERNAME, Secret: SECRET, Events: "off" });
   assertSuccess(login, "AMI login");
 
   await checkModule(client, "app_audiosocket");
   await checkModule(client, "res_audiosocket");
   await checkModule(client, "res_pjsip");
   await checkModule(client, "chan_pjsip");
-
   await checkDialplan(client, INBOUND_CONTEXT, "s");
   await checkDialplan(client, OUTBOUND_CONTEXT, OUTBOUND_EXTEN);
 
   let trunkChecked = false;
+  let registrationChecked = false;
   if (TRUNK_ENDPOINT) {
     await checkEndpoint(client, TRUNK_ENDPOINT);
     trunkChecked = true;
-  } else if (REQUIRE_TRUNK) {
+    if (REQUIRE_REGISTERED) {
+      await checkRegistration(client, TRUNK_ENDPOINT);
+      registrationChecked = true;
+    }
+  } else if (REQUIRE_TRUNK || REQUIRE_REGISTERED) {
     throw new Error("ASTERISK_SECRETARY_TRUNK_ENDPOINT_REQUIRED");
   }
 
@@ -224,6 +224,8 @@ try {
   console.log("SECRETARY_ASTERISK_OUTBOUND_DIALPLAN=PASS");
   console.log(`SECRETARY_ASTERISK_TRUNK_ENDPOINT_CHECK=${trunkChecked ? "PASS" : "SKIPPED"}`);
   console.log(`SECRETARY_ASTERISK_TRUNK_REQUIRED=${REQUIRE_TRUNK}`);
+  console.log(`SECRETARY_ASTERISK_TRUNK_REGISTRATION_CHECK=${registrationChecked ? "PASS" : "SKIPPED"}`);
+  console.log(`SECRETARY_ASTERISK_REGISTERED_REQUIRED=${REQUIRE_REGISTERED}`);
   console.log("SECRETARY_ASTERISK_CARRIER_CALL_PERFORMED=false");
   console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");
 } catch (error) {

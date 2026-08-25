@@ -64,7 +64,8 @@ assert torch.version.cuda, "AVANTIQO_VOICE_TTS_CUDA_ENABLED_TORCH_REQUIRED"
 assert torch.__version__.startswith("2.7.0"), f"AVANTIQO_VOICE_TTS_TORCH_27_REQUIRED:{torch.__version__}"
 assert torchaudio.__version__.startswith("2.7.0"), f"AVANTIQO_VOICE_TTS_TORCHAUDIO_27_REQUIRED:{torchaudio.__version__}"
 assert torch.version.cuda.startswith("12.8"), f"AVANTIQO_VOICE_TTS_CUDA_128_REQUIRED:{torch.version.cuda}"
-assert "sm_120" in torch.cuda.get_arch_list(), f"AVANTIQO_VOICE_TTS_BLACKWELL_SM120_REQUIRED:{torch.cuda.get_arch_list()}"
+compiled_arches = (torch._C._cuda_getArchFlags() or "").split()
+assert "sm_120" in compiled_arches, f"AVANTIQO_VOICE_TTS_BLACKWELL_SM120_REQUIRED:{compiled_arches}"
 assert handler.FOUNDATION_MODEL == "resemble-ai/chatterbox:multilingual-v3"
 print("AVANTIQO_VOICE_TTS_CHATTERBOX_TORCH_OVERRIDE=PASS")
 print("AVANTIQO_VOICE_TTS_BLACKWELL_SM120=PASS")

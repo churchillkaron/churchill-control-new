@@ -17,6 +17,10 @@ import {
 import {
   synthesizeOperatorBusinessThesis,
 } from "@/lib/operator/runtime/OperatorBusinessThesisRuntime";
+import {
+  listSecretaryAlerts,
+  secretaryAlertsAsAttentionItems,
+} from "@/lib/operator/secretary/SecretaryAlertRuntime";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -166,7 +170,49 @@ export async function POST(request) {
       },
     });
 
-    const attention = object(execution?.result);
+    const baseAttention = object(execution?.result);
+    let secretaryAlerts = [];
+    try {
+      const alertResult = await listSecretaryAlerts({
+        context: {
+          organizationId: businessContext.organizationId,
+          entityId: businessContext.entityId,
+          actor,
+          metadata: { partyId },
+        },
+        payload: { status: "PENDING", limit: 20 },
+      });
+      secretaryAlerts = Array.isArray(alertResult?.alerts)
+        ? alertResult.alerts
+        : [];
+    } catch (secretaryAlertError) {
+      console.error(
+        "OPERATOR_SECRETARY_ALERT_LOAD_FAILED",
+        secretaryAlertError?.message || secretaryAlertError,
+      );
+    }
+
+    const secretaryItems = secretaryAlertsAsAttentionItems(secretaryAlerts);
+    const baseItems = Array.isArray(baseAttention.items) ? baseAttention.items : [];
+    const attention = {
+      ...baseAttention,
+      status:
+        secretaryItems.length > 0
+          ? "attention"
+          : baseAttention.status,
+      summary:
+        secretaryItems.length > 0
+          ? `${secretaryItems.length} Secretary item${secretaryItems.length === 1 ? "" : "s"} need attention.${text(baseAttention.summary) ? ` ${text(baseAttention.summary)}` : ""}`
+          : baseAttention.summary,
+      items: [...secretaryItems, ...baseItems].slice(0, 30),
+      secretary_alerts: {
+        pending_count: secretaryAlerts.length,
+        source: "avantiqo-native",
+        cloud_materialized: true,
+        external_authority_used: false,
+      },
+    };
+
     const thesisStartedAt = Date.now();
     const businessThesis = await synthesizeOperatorBusinessThesis({
       context: {
@@ -219,10 +265,11 @@ export async function POST(request) {
         entity_scoped: Boolean(businessContext.entityId),
         status: text(attention.status) || null,
         item_count: Array.isArray(attention.items) ? attention.items.length : 0,
+        secretary_alert_count: secretaryAlerts.length,
         thesis_attention_level: text(businessThesis?.attention_level) || null,
         thesis_change_material: businessThesis?.change?.material === true,
         thesis_interrupt: businessThesis?.interruption?.should_interrupt === true,
-        cache_hit: attention.cache_hit === true,
+        cache_hit: baseAttention.cache_hit === true,
         thesis_ms: thesisMs,
         total_ms: totalMs,
       }),

@@ -14,8 +14,13 @@ SERVER_LOG="/tmp/AVANTIQO_OPERATOR_PRODUCT_E2E_SERVER_${STAMP}.log"
 REPORT="/tmp/AVANTIQO_OPERATOR_PRODUCT_ENGINEERING_E2E_${STAMP}.json"
 E2E_DIST_DIR=".next-operator-product-e2e-${STAMP}"
 STARTED_SERVER_PID=""
+HEARTBEAT_PID=""
 
 cleanup() {
+  if [ -n "$HEARTBEAT_PID" ]; then
+    kill "$HEARTBEAT_PID" 2>/dev/null || true
+    wait "$HEARTBEAT_PID" 2>/dev/null || true
+  fi
   if [ -n "$STARTED_SERVER_PID" ]; then
     kill "$STARTED_SERVER_PID" 2>/dev/null || true
     wait "$STARTED_SERVER_PID" 2>/dev/null || true
@@ -212,6 +217,16 @@ process.stdout.write(JSON.stringify(body));
 NODE
 )"
 
+TURN_STARTED_AT="$(date +%s)"
+(
+  while true; do
+    sleep 15
+    NOW="$(date +%s)"
+    echo "E2E_PRODUCT_TURN_ACTIVE elapsed_seconds=$((NOW - TURN_STARTED_AT))"
+  done
+) &
+HEARTBEAT_PID=$!
+
 TURN_STATUS="$({
   printf '%s' "$REQUEST_BODY" |
     curl --silent --show-error --max-time 1200 \
@@ -222,6 +237,11 @@ TURN_STATUS="$({
       --data-binary @- \
       "$BASE_URL/api/operator/turn"
 })"
+
+kill "$HEARTBEAT_PID" 2>/dev/null || true
+wait "$HEARTBEAT_PID" 2>/dev/null || true
+HEARTBEAT_PID=""
+echo "E2E_PRODUCT_TURN_FINISHED elapsed_seconds=$(( $(date +%s) - TURN_STARTED_AT ))"
 
 cp "$TURN_FILE" "$REPORT"
 if [ "$TURN_STATUS" != "200" ]; then

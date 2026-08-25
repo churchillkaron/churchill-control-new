@@ -97,7 +97,7 @@ async function main() {
         throw new Error(`INBOUND_REGISTRATION_REJECTED:${response.status}:${clean(body?.error || body?.message, 1000)}`);
       }
 
-      await session.setVariable("AVANTIQ_CALL_ID", body.call_id);
+      await session.setVariable("AVANTIQO_CALL_ID", body.call_id);
       await session.setVariable("AVANTIQO_AUDIO_UUID", body.audio_uuid);
       if (body.default_language) await session.setVariable("AVANTIQO_DEFAULT_LANGUAGE", body.default_language);
       await session.setVariable("AVANTIQO_SECRETARY_ERROR", "");

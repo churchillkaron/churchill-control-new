@@ -25,7 +25,8 @@ trap 'rm -f "$TMP_VERCEL_ENV" "$TMP_LOCAL_ENV"' EXIT HUP INT TERM
 vercel env pull "$TMP_VERCEL_ENV" --environment=production --yes >/dev/null
 
 node_has_effective_local_value() {
-  AVANTIQO_ENV_CHECK_NAME="$1" node --env-file=.env.local -e '
+  name="$1"
+  env -u "$name" AVANTIQO_ENV_CHECK_NAME="$name" node --env-file=.env.local -e '
     const name = process.env.AVANTIQO_ENV_CHECK_NAME;
     const value = String(process.env[name] || "").trim();
     process.exit(value ? 0 : 1);

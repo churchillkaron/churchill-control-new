@@ -15,62 +15,104 @@ function agiEscape(value) {
   return clean(value, 4000).replaceAll("\\", "\\\\").replaceAll('"', '\\"').replace(/[\r\n]/g, " ");
 }
 
-async function readAgiEnvironment() {
-  const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
-  const environment = {};
-  for await (const line of input) {
-    if (!line) break;
-    const separator = line.indexOf(":");
-    if (separator < 0) continue;
-    environment[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+class AgiSession {
+  constructor() {
+    this.input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+    this.lines = this.input[Symbol.asyncIterator]();
   }
-  return environment;
+
+  async nextLine(label) {
+    const { value, done } = await this.lines.next();
+    if (done) throw new Error(`AGI_INPUT_CLOSED:${label}`);
+    return String(value ?? "").replace(/[\r\n]+$/, "");
+  }
+
+  async readEnvironment() {
+    const environment = {};
+    while (true) {
+      const line = await this.nextLine("ENVIRONMENT");
+      if (!line) break;
+      const separator = line.indexOf(":");
+      if (separator < 0) continue;
+      environment[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+    }
+    return environment;
+  }
+
+  async command(line) {
+    process.stdout.write(`${line}\n`);
+    const response = clean(await this.nextLine("COMMAND_RESPONSE"), 4000);
+    if (response === "HANGUP") throw new Error("AGI_CHANNEL_HUNG_UP");
+
+    const match = /^200\s+result=(-?\d+)(?:\s|$)/i.exec(response);
+    if (!match) throw new Error(`AGI_COMMAND_REJECTED:${response || "EMPTY_RESPONSE"}`);
+
+    const result = Number(match[1]);
+    if (!Number.isFinite(result) || result < 0) {
+      throw new Error(`AGI_COMMAND_FAILED:${response}`);
+    }
+    return { result, response };
+  }
+
+  async setVariable(name, value) {
+    return this.command(`SET VARIABLE ${name} "${agiEscape(value)}"`);
+  }
+
+  close() {
+    this.input.close();
+  }
 }
 
-function command(line) {
-  process.stdout.write(`${line}\n`);
-}
-
-function setVariable(name, value) {
-  command(`SET VARIABLE ${name} "${agiEscape(value)}"`);
+async function setFailure(session, code) {
+  await session.setVariable("AVANTIQO_SECRETARY_ACCEPTED", "0");
+  await session.setVariable("AVANTIQO_SECRETARY_ERROR", clean(code, 1000));
 }
 
 async function main() {
-  const environment = await readAgiEnvironment();
-  if (!GATEWAY_TOKEN || !PHONE_LINE_ID) {
-    setVariable("AVANTIQO_SECRETARY_ACCEPTED", "0");
-    setVariable("AVANTIQO_SECRETARY_ERROR", !GATEWAY_TOKEN ? "GATEWAY_TOKEN_MISSING" : "PHONE_LINE_ID_MISSING");
-    return;
-  }
-
-  const remoteAddress = clean(environment.agi_callerid || environment.agi_callingpres || "", 500) || null;
+  const session = new AgiSession();
   try {
-    const response = await fetch(`${GATEWAY_URL}/v1/secretary/inbound/start`, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${GATEWAY_TOKEN}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        phone_line_id: PHONE_LINE_ID,
-        remote_address: remoteAddress,
-        language: LANGUAGE,
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok || body?.accepted !== true || !body?.call_id || !body?.audio_uuid) {
-      throw new Error(`INBOUND_REGISTRATION_REJECTED:${response.status}:${clean(body?.error || body?.message, 1000)}`);
+    const environment = await session.readEnvironment();
+    if (!GATEWAY_TOKEN || !PHONE_LINE_ID) {
+      await setFailure(session, !GATEWAY_TOKEN ? "GATEWAY_TOKEN_MISSING" : "PHONE_LINE_ID_MISSING");
+      return;
     }
 
-    setVariable("AVANTIQO_SECRETARY_ACCEPTED", "1");
-    setVariable("AVANTIQO_CALL_ID", body.call_id);
-    setVariable("AVANTIQO_AUDIO_UUID", body.audio_uuid);
-    if (body.default_language) setVariable("AVANTIQO_DEFAULT_LANGUAGE", body.default_language);
-  } catch (error) {
-    setVariable("AVANTIQO_SECRETARY_ACCEPTED", "0");
-    setVariable("AVANTIQO_SECRETARY_ERROR", clean(error?.message || error, 1000));
+    const remoteAddress = clean(environment.agi_callerid || environment.agi_callingpres || "", 500) || null;
+    try {
+      const response = await fetch(`${GATEWAY_URL}/v1/secretary/inbound/start`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${GATEWAY_TOKEN}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          phone_line_id: PHONE_LINE_ID,
+          remote_address: remoteAddress,
+          language: LANGUAGE,
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.accepted !== true || !body?.call_id || !body?.audio_uuid) {
+        throw new Error(`INBOUND_REGISTRATION_REJECTED:${response.status}:${clean(body?.error || body?.message, 1000)}`);
+      }
+
+      await session.setVariable("AVANTIQ_CALL_ID", body.call_id);
+      await session.setVariable("AVANTIQO_AUDIO_UUID", body.audio_uuid);
+      if (body.default_language) await session.setVariable("AVANTIQO_DEFAULT_LANGUAGE", body.default_language);
+      await session.setVariable("AVANTIQO_SECRETARY_ERROR", "");
+      await session.setVariable("AVANTIQO_SECRETARY_ACCEPTED", "1");
+    } catch (error) {
+      await setFailure(session, clean(error?.message || error, 1000));
+    }
+  } finally {
+    session.close();
   }
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  console.error(`SECRETARY_INBOUND_AGI_ERROR=${clean(error?.message || error, 1000)}`);
+  process.exitCode = 1;
+}

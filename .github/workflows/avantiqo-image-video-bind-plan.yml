@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY || secrets.RUNPOD_API_KEY }}
       RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
       RUNPOD_AVANTIQO_IMAGE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_IMAGE_API_KEY }}
       RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID }}
@@ -52,11 +52,9 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           missing=()
-          for name in RUNPOD_MANAGEMENT_API_KEY; do
-            if [ -z "${!name:-}" ]; then
-              missing+=("$name")
-            fi
-          done
+          if [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ]; then
+            missing+=("RUNPOD_MANAGEMENT_API_KEY_OR_RUNPOD_API_KEY")
+          fi
           if [ -z "${RUNPOD_AVANTIQO_IMAGE_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ]; then
             missing+=("RUNPOD_AVANTIQO_IMAGE_API_KEY_OR_RUNPOD_API_KEY")
           fi

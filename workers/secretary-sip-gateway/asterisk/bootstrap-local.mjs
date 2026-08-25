@@ -43,6 +43,21 @@ function generatedToken() {
   return randomBytes(48).toString("base64url");
 }
 
+function dockerReachableBaseUrl(value) {
+  const normalized = clean(value, 2000);
+  if (!normalized) return DEFAULT_LOCAL_APP_URL;
+  try {
+    const url = new URL(normalized);
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+      url.hostname = "host.docker.internal";
+      return url.toString().replace(/\/$/, "");
+    }
+  } catch {
+    return normalized;
+  }
+  return normalized.replace(/\/$/, "");
+}
+
 function detectAsterisk() {
   const result = spawnSync("asterisk", ["-V"], { encoding: "utf8" });
   if (result.error?.code === "ENOENT") return { found: false, version: "" };
@@ -60,7 +75,7 @@ const username = existingUsername || DEFAULT_USERNAME;
 const secret = existingSecret || randomBytes(32).toString("hex");
 const gatewayToken = existingGatewayToken || generatedToken();
 const ingressToken = existingIngressToken || generatedToken();
-const baseUrl = existingBaseUrl || DEFAULT_LOCAL_APP_URL;
+const baseUrl = dockerReachableBaseUrl(existingBaseUrl);
 
 envText = upsertEnvValue(envText, "ASTERISK_AMI_USERNAME", username);
 envText = upsertEnvValue(envText, "ASTERISK_AMI_SECRET", secret);
@@ -92,6 +107,7 @@ console.log(`SECRETARY_GATEWAY_TOKEN_CREATED=${existingGatewayToken ? "false" : 
 console.log(`SECRETARY_CALL_GATEWAY_TOKEN_CREATED=${existingIngressToken ? "false" : "true"}`);
 console.log("SECRETARY_GATEWAY_TOKENS_PRINTED=false");
 console.log(`SECRETARY_GATEWAY_APP_BASE_URL_CONFIGURED=${Boolean(baseUrl)}`);
+console.log("SECRETARY_GATEWAY_APP_BASE_URL_DOCKER_REACHABLE=true");
 console.log(`SECRETARY_ASTERISK_ENV_PATH=${ENV_PATH}`);
 console.log(`SECRETARY_ASTERISK_MANAGER_FRAGMENT=${MANAGER_FRAGMENT_PATH}`);
 console.log(`SECRETARY_ASTERISK_LOCAL_BINARY=${asterisk.found ? "FOUND" : "MISSING"}`);

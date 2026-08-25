@@ -115,7 +115,11 @@ async function gpuAvailability(managementKey) {
 }
 
 function endpointVolumeIds(endpoint = {}) {
-  return [text(endpoint.networkVolumeId), ...list(endpoint.networkVolumeIds).map(text)].filter(Boolean);
+  return [
+    ...new Set(
+      [text(endpoint.networkVolumeId), ...list(endpoint.networkVolumeIds).map(text)].filter(Boolean),
+    ),
+  ];
 }
 
 const apply = process.argv.includes("--apply");

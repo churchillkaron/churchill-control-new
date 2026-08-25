@@ -65,6 +65,9 @@
     },
     "app/api/internal/secretary/appointments/notifications/process/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/secretary/commitments/process/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -166,6 +169,10 @@
     },
     {
       "path": "/api/internal/secretary/appointments/notifications/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/secretary/commitments/process",
       "schedule": "* * * * *"
     },
     {

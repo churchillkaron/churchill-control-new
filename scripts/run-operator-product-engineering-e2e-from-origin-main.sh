@@ -62,7 +62,7 @@ else
 fi
 
 echo ""
-echo "================ VERIFY LATEST PRODUCT CONTRACT ================"n
+echo "================ VERIFY LATEST PRODUCT CONTRACT ================"
 node --test "$SHADOW_ROOT/tests/avantiqo-intelligence-supervisor-contract.test.mjs" || fail "PRODUCT_SUPERVISOR_CONTRACT_TEST_FAILED"
 
 echo ""

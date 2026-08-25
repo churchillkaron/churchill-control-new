@@ -6,6 +6,7 @@ const DEEP_NAME = "avantiqo-intelligence-v1";
 const FAST_NAME = "avantiqo-intelligence-fast-v1";
 const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_PLACEMENT_REPAIR_V1";
 const APPROVAL = "AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_PLACEMENT_REPAIR_APPROVED";
+const SOURCE_PATH = "scripts/repair-avantiqo-intelligence-fast-endpoint-placement-local.mjs";
 
 const text = (value) => String(value ?? "").trim();
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -52,6 +53,39 @@ function validateCurrentMain() {
   if (head !== remote) {
     throw new Error(
       `AVANTIQO_FAST_PLACEMENT_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin_main=${remote}`,
+    );
+  }
+  return head;
+}
+
+function validatePinnedMain(expectedHead) {
+  shell("git", ["fetch", "origin", "main"], "AVANTIQO_FAST_PLACEMENT_GIT_FETCH_FAILED");
+  const branch = shell(
+    "git",
+    ["branch", "--show-current"],
+    "AVANTIQO_FAST_PLACEMENT_GIT_BRANCH_FAILED",
+  );
+  if (branch !== "main") {
+    throw new Error(`AVANTIQO_FAST_PLACEMENT_MAIN_REQUIRED:actual=${branch || "DETACHED"}`);
+  }
+  const head = shell(
+    "git",
+    ["rev-parse", "HEAD"],
+    "AVANTIQO_FAST_PLACEMENT_GIT_HEAD_FAILED",
+  );
+  if (head !== expectedHead) {
+    throw new Error(
+      `AVANTIQO_FAST_PLACEMENT_LOCAL_MAIN_CHANGED_DURING_RUN:start=${expectedHead}:head=${head}`,
+    );
+  }
+  const sourceChanged = shell(
+    "git",
+    ["diff", "--name-only", expectedHead, "origin/main", "--", SOURCE_PATH],
+    "AVANTIQO_FAST_PLACEMENT_REMOTE_SOURCE_DIFF_FAILED",
+  );
+  if (sourceChanged) {
+    throw new Error(
+      `AVANTIQO_FAST_PLACEMENT_SOURCE_CHANGED_ON_REMOTE:${sourceChanged}`,
     );
   }
   return head;
@@ -252,7 +286,7 @@ if (!apply) {
   process.exit(0);
 }
 
-validateCurrentMain();
+validatePinnedMain(mainCommit);
 state = await load(managementKey, runtimeKey);
 desired = targetPlacement(state.deep);
 before = targetPlacement(state.fast);

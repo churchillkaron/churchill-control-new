@@ -221,9 +221,10 @@ async function imageEvidence() {
     text(parsed?.runtime_variant) !== "acestep-v15-xl-turbo" ||
     text(parsed?.quality_profile) !== EXPECTED_QUALITY_PROFILE ||
     parsed?.ace_step_lm_required !== true ||
-    text(parsed?.ace_step_lm_model) !== "acestep-5Hz-lm-1.7B" ||
-    text(parsed?.ace_step_lm_backend) !== "vllm" ||
-    parsed?.thinking_required !== true ||
+    text(parsed?.lm_model) !== "acestep-5Hz-lm-1.7B" ||
+    text(parsed?.lm_backend) !== "vllm" ||
+    parsed?.xl_model_contract_passed_by_docker_build !== true ||
+    parsed?.lm_contract_passed_by_docker_build !== true ||
     parsed?.cuda_enabled_torch_required !== true ||
     parsed?.owned_handler_import_smoke_required !== true ||
     parsed?.native_audio_import_smoke_required !== true ||
@@ -249,6 +250,8 @@ async function imageEvidence() {
     trigger_sha: text(parsed.trigger_sha),
     digest: text(parsed.image_digest),
     quality_profile: EXPECTED_QUALITY_PROFILE,
+    lm_model: text(parsed.lm_model),
+    lm_backend: text(parsed.lm_backend),
   };
 }
 
@@ -413,6 +416,8 @@ if (!resolved.endpoint) {
     immutable_worker_image: immutableImage.image,
     image_source_sha: immutableImage.source_sha,
     quality_profile: immutableImage.quality_profile,
+    lm_model: immutableImage.lm_model,
+    lm_backend: immutableImage.lm_backend,
     mutation_performed: false,
     generation_submitted: false,
     production_deploy_performed: false,
@@ -519,9 +524,9 @@ if (!resolved.endpoint) {
       cuda_runtime: EXPECTED_CUDA_RUNTIME,
       quality_profile: immutableImage.quality_profile,
       model_variant: "acestep-v15-xl-turbo",
-      ace_step_lm_model: "acestep-5Hz-lm-1.7B",
-      ace_step_lm_backend: "vllm",
-      thinking_required: true,
+      lm_model: immutableImage.lm_model,
+      lm_backend: immutableImage.lm_backend,
+      ace_step_lm_required: true,
     },
     registry_auth: {
       ghcr_auth_found: Boolean(registryAuthId),
@@ -583,7 +588,9 @@ if (!resolved.endpoint) {
         freshImage.image !== immutableImage.image ||
         freshImage.source_sha !== immutableImage.source_sha ||
         freshImage.trigger_sha !== immutableImage.trigger_sha ||
-        freshImage.quality_profile !== immutableImage.quality_profile
+        freshImage.quality_profile !== immutableImage.quality_profile ||
+        freshImage.lm_model !== immutableImage.lm_model ||
+        freshImage.lm_backend !== immutableImage.lm_backend
       ) {
         throw new Error("AVANTIQO_AUDIO_IMAGE_EVIDENCE_CHANGED_REPLAN_REQUIRED");
       }

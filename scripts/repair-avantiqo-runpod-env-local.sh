@@ -26,6 +26,7 @@ command -v node >/dev/null 2>&1 || fail "NODE_REQUIRED"
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/avantiqo-runpod-env-repair.XXXXXX")" || fail "TEMP_DIRECTORY_CREATE_FAILED"
 chmod 700 "$TMP_ROOT"
 IMPORTER="$TMP_ROOT/import-runpod-shell-env-local.mjs"
+TRACE_RECOVERY="$TMP_ROOT/recover-avantiqo-runpod-env-from-local-sources.sh"
 
 if ! git -C "$ROOT" show origin/main:scripts/import-runpod-shell-env-local.mjs > "$IMPORTER" 2>/dev/null; then
   git -C "$ROOT" fetch origin main >/dev/null 2>&1 || fail "FETCH_MAIN_FAILED"
@@ -35,7 +36,7 @@ fi
 chmod 600 "$IMPORTER"
 
 echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR_SECRET_VALUES_PRINTED=false"
-echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR_SOURCE_ORDER=SHELL_OR_ENV_LOCAL_THEN_GITHUB_FALLBACK"
+echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR_SOURCE_ORDER=SHELL_OR_ENV_LOCAL_THEN_LOCAL_TRACES_THEN_GITHUB_FALLBACK"
 
 set +e
 node "$IMPORTER" "$ENV_LOCAL"
@@ -51,9 +52,26 @@ if [ "$IMPORT_STATUS" -ne 2 ]; then
   fail "LOCAL_RUNPOD_CREDENTIAL_PRESENT_BUT_INVALID"
 fi
 
+echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR_LOCAL_CREDENTIAL=NO"
+echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR_TRACE_RECOVERY=STARTING"
+
+if ! git -C "$ROOT" show origin/main:scripts/recover-avantiqo-runpod-env-from-local-sources.sh > "$TRACE_RECOVERY" 2>/dev/null; then
+  git -C "$ROOT" fetch origin main >/dev/null 2>&1 || fail "TRACE_RECOVERY_FETCH_MAIN_FAILED"
+  git -C "$ROOT" show origin/main:scripts/recover-avantiqo-runpod-env-from-local-sources.sh > "$TRACE_RECOVERY" 2>/dev/null \
+    || fail "TRACE_RECOVERY_SCRIPT_NOT_AVAILABLE_ON_MAIN"
+fi
+chmod 700 "$TRACE_RECOVERY"
+
+if AVANTIQO_PROJECT_ROOT="$ROOT" bash "$TRACE_RECOVERY"; then
+  echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR_TRACE_RECOVERY=PASS"
+  echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR=PASS"
+  exit 0
+fi
+
+echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR_TRACE_RECOVERY=MISS"
+
 command -v gh >/dev/null 2>&1 || fail "NO_LOCAL_RUNPOD_CREDENTIAL_AND_GITHUB_CLI_REQUIRED"
 
-echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR_LOCAL_CREDENTIAL=NO"
 echo "AVANTIQO_RUNPOD_ENV_LOCAL_REPAIR_GITHUB_FALLBACK=STARTING"
 
 SYNC_SCRIPT="$TMP_ROOT/sync-avantiqo-runpod-secrets-local.sh"

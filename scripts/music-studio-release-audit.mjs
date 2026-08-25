@@ -133,7 +133,7 @@ requirePattern(preflight, /endpoint_mutations_performed:\s*0/, "music-preflight-
 requirePattern(preflight, /production_deploy_performed:\s*false/, "music-preflight-must-not-deploy-production");
 
 requirePattern(benchmark, /AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED/, "music-benchmark-must-require-explicit-spend-approval");
-requirePattern(benchmark, /AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V2/, "music-benchmark-must-require-current-zero-generation-preflight");
+requirePattern(benchmark, /AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V3/, "music-benchmark-must-require-current-zero-generation-preflight");
 requirePattern(benchmark, /runRequiredPreflight\(\)/, "music-benchmark-must-run-preflight-before-paid-job");
 requirePattern(benchmark, /ready_for_controlled_benchmark/, "music-benchmark-must-require-preflight-readiness");
 requirePattern(benchmark, /EXPECTED_SHARED_VOLUME_GROUP = "AUDIO_VOICE"/, "music-benchmark-must-bind-audio-voice-shared-group");
@@ -238,8 +238,8 @@ requirePattern(storageProvisioner, /resolveReusableGroupVolume\(volumes, SHARED_
 requirePattern(storageProvisioner, /assertManagedVolumeCreationAllowed\(freshVolumes, SHARED_VOLUME_GROUP\)/, "music-storage-provisioner-must-enforce-shared-volume-creation-limit");
 requirePattern(storageProvisioner, /additional_audio_voice_volume_forbidden:\s*true/, "music-storage-provisioner-must-forbid-extra-audio-voice-cache");
 requirePattern(storageProvisioner, /AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED=YES_REQUIRED/, "music-storage-provisioner-must-require-explicit-apply-approval");
-requirePattern(storageProvisioner, /DEFAULT_VOLUME_SIZE_GB = 30/, "music-storage-provisioner-must-default-to-30gb-cache");
-requirePattern(storageProvisioner, /MIN_VOLUME_SIZE_GB = 20/, "music-storage-provisioner-must-protect-minimum-cache-headroom");
+requirePattern(storageProvisioner, /DEFAULT_VOLUME_SIZE_GB = 80/, "music-storage-provisioner-must-default-to-80gb-cache");
+requirePattern(storageProvisioner, /MIN_VOLUME_SIZE_GB = 80/, "music-storage-provisioner-must-protect-xl-lm-cache-headroom");
 requirePattern(storageProvisioner, /MIN_GPU_MEMORY_GB = 24/, "music-storage-provisioner-must-target-supported-24gb-gpu-lane");
 requirePattern(storageProvisioner, /NETWORK_VOLUME_MOUNT_ROOT = "\/runpod-volume"/, "music-storage-provisioner-must-use-runpod-serverless-network-volume-root");
 requirePattern(storageProvisioner, /\/networkvolumes/, "music-storage-provisioner-must-use-runpod-network-volume-api");

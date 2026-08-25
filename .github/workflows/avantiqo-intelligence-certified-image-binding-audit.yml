@@ -10,6 +10,8 @@ on:
       - lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js
       - lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js
       - scripts/avantiqo-intelligence-certified-image-binding-audit.mjs
+      - scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs
+      - scripts/run-avantiqo-intelligence-model-improvement-readiness-local.sh
 
 permissions:
   contents: read
@@ -37,6 +39,8 @@ jobs:
           node --check lib/intelligence/runtime/AvantiqoModelTrainingExecutionRuntime.js
           node --check lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js
           node --check scripts/avantiqo-intelligence-certified-image-binding-audit.mjs
+          node --check scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs
+          sh -n scripts/run-avantiqo-intelligence-model-improvement-readiness-local.sh
 
       - name: Verify certified image binding invariants
         shell: bash

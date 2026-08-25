@@ -12,7 +12,7 @@ services:
       AVANTIQO_SECRETARY_SIP_GATEWAY_TOKEN: ${AVANTIQO_SECRETARY_SIP_GATEWAY_TOKEN:?required}
       AVANTIQO_SECRETARY_PUBLIC_BASE_URL: ${AVANTIQO_SECRETARY_PUBLIC_BASE_URL:?required}
       AVANTIQO_SECRETARY_CALL_GATEWAY_TOKEN: ${AVANTIQO_SECRETARY_CALL_GATEWAY_TOKEN:?required}
-      ASTERISK_AMI_HOST: ${ASTERISK_AMI_HOST:-host.docker.internal}
+      ASTERISK_AMI_HOST: ${ASTERISK_AMI_HOST:-secretary-asterisk}
       ASTERISK_AMI_PORT: ${ASTERISK_AMI_PORT:-5038}
       ASTERISK_AMI_USERNAME: ${ASTERISK_AMI_USERNAME:?required}
       ASTERISK_AMI_SECRET: ${ASTERISK_AMI_SECRET:?required}
@@ -26,6 +26,12 @@ services:
       SECRETARY_GATEWAY_VAD_MAX_SPEECH_MS: ${SECRETARY_GATEWAY_VAD_MAX_SPEECH_MS:-12000}
     ports:
       - "127.0.0.1:${SECRETARY_GATEWAY_HTTP_PORT:-8787}:8787/tcp"
-      - "${SECRETARY_GATEWAY_AUDIO_BIND:-127.0.0.1}:${SECRETARY_GATEWAY_AUDIO_PORT:-9019}:9019/tcp"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - secretary-telephony
+
+networks:
+  secretary-telephony:
+    external: true
+    name: ${SECRETARY_TELEPHONY_DOCKER_NETWORK:-avantiqo-secretary-telephony}

@@ -391,7 +391,7 @@ const checks = {
   trainer_workers_min_zero: Number(endpoint?.workersMin || 0) === 0,
   trainer_workers_max_one: Number(endpoint?.workersMax || 0) === 1,
   execution_timeout_two_hours:
-    Number(endpoint?.executionTimeoutMs ?? endpoint?.executionTimeout || 0) === 7_200_000,
+    Number(endpoint?.executionTimeoutMs ?? endpoint?.executionTimeout ?? 0) === 7_200_000,
   runtime_runpod_api_key_present: Boolean(runtimeQueueKey),
   runtime_runpod_api_key_queue_read_authorized: runtimeQueueProbe.ok === true,
   queue_has_no_pending_job:

@@ -48,11 +48,13 @@ test("structured supervisor separates natural cognition from JSON boundary compi
   assert.match(structuredSupervisor, /INVALID_COMPILED_JSON/);
 });
 
-test("Product decisions use one private-thinking structured pass with benchmark-bounded compacted evidence", () => {
+test("Product decisions use one non-thinking fast structured pass with benchmark-bounded compacted evidence", () => {
   assert.match(structuredSupervisor, /PRODUCT_REPOSITORY_ASSESSMENT/);
   assert.match(structuredSupervisor, /PRODUCT_PERSISTENCE_DECISION/);
   assert.match(structuredSupervisor, /structured_supervisor_mode: "product_single_pass"/);
-  assert.match(structuredSupervisor, /private_reasoning_transport_expected: true/);
+  assert.match(structuredSupervisor, /execution_lane: "fast"/);
+  assert.match(structuredSupervisor, /private_reasoning_transport_expected: false/);
+  assert.match(structuredSupervisor, /bounded_non_thinking_fast_lane: true/);
   assert.match(structuredSupervisor, /raw_reasoning_persisted: false/);
   assert.match(structuredSupervisor, /single_pass_structured_reasoning: true/);
   assert.match(structuredSupervisor, /PRODUCT_REPOSITORY_ASSESSMENT"\s*\? 2200/);
@@ -81,9 +83,11 @@ test("reasoning loop exposes JSON mode only as an optional machine-boundary cont
   assert.match(reasoningLoop, /response_format \? \{ response_format: object\(response_format\) \} : \{\}/);
 });
 
-test("reasoning loop is locked to owned Avantiqo Intelligence", () => {
+test("reasoning loop is locked to owned Avantiqo Intelligence with explicit fast or deep lanes", () => {
   assert.match(reasoningLoop, /const OWNED_PROVIDER = "avantiqo-intelligence"/);
+  assert.match(reasoningLoop, /EXECUTION_LANES = new Set\(\["fast", "deep"\]\)/);
   assert.match(reasoningLoop, /allowed_providers:\s*\[OWNED_PROVIDER\]/);
+  assert.match(reasoningLoop, /execution_lane: executionLane/);
   assert.match(reasoningLoop, /AVANTIQO_INTELLIGENCE_TOOL_CALL_REPLAY_DETECTED/);
   assert.match(reasoningLoop, /AVANTIQO_INTELLIGENCE_TOOL_CALL_LIMIT_EXCEEDED/);
 });

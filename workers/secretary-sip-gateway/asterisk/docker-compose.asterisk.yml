@@ -1,0 +1,15 @@
+services:
+  secretary-asterisk:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ASTERISK_VERSION: ${ASTERISK_VERSION:-22.10.1}
+    restart: unless-stopped
+    environment:
+      ASTERISK_AMI_USERNAME: ${ASTERISK_AMI_USERNAME:?required}
+      ASTERISK_AMI_SECRET: ${ASTERISK_AMI_SECRET:?required}
+    ports:
+      - "127.0.0.1:${ASTERISK_AMI_PORT:-5038}:5038/tcp"
+      - "127.0.0.1:${ASTERISK_SIP_TCP_PORT:-5060}:5060/tcp"
+      - "127.0.0.1:${ASTERISK_SIP_UDP_PORT:-5060}:5060/udp"

@@ -317,8 +317,9 @@ LOCAL_MAIN_AFTER="$(git rev-parse HEAD)"
 echo "LOCAL_MAIN_AFTER=$LOCAL_MAIN_AFTER"
 echo "REMOTE_MAIN_AFTER=$REMOTE_MAIN_AFTER"
 
-if [ -n "$(git status --porcelain)" ]; then
-  git status --short
+DIRTY_EXCLUDING_E2E="$(git status --porcelain | grep -v "^?? ${E2E_DIST_DIR}/" || true)"
+if [ -n "$DIRTY_EXCLUDING_E2E" ]; then
+  printf '%s\n' "$DIRTY_EXCLUDING_E2E"
   fail "LOCAL_WORKING_TREE_CHANGED_BY_E2E"
 fi
 if [ "$LOCAL_MAIN_AFTER" != "$MAIN_BEFORE" ]; then

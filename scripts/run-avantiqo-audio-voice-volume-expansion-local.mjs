@@ -9,7 +9,7 @@ loadAvantiqoEnv();
 const REST_BASE = "https://rest.runpod.io/v1";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_AND_EXPAND_V3";
+const CONTRACT = "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_AND_EXPAND_V4";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const RETIRED_AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1-github-retired";
 const SHARED_GROUP = sharedVolumeGroup("AUDIO_VOICE");
@@ -45,6 +45,31 @@ function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
+}
+function command(name, args, code) {
+  const result = spawnSync(name, args, {
+    cwd: process.cwd(),
+    env: process.env,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.status !== 0) {
+    throw new Error(`${code}:${text(result.stderr || result.stdout).slice(0, 1200)}`);
+  }
+  return text(result.stdout);
+}
+function requireCurrentMainSnapshot() {
+  command("git", ["fetch", "origin", "main"], "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_FETCH_MAIN_FAILED");
+  const branch = command("git", ["branch", "--show-current"], "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_BRANCH_READ_FAILED");
+  if (branch !== "main") {
+    throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_MAIN_REQUIRED:${branch || "DETACHED"}`);
+  }
+  const head = command("git", ["rev-parse", "HEAD"], "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_HEAD_READ_FAILED");
+  const origin = command("git", ["rev-parse", "origin/main"], "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_ORIGIN_READ_FAILED");
+  if (head !== origin) {
+    throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin=${origin}`);
+  }
+  return head;
 }
 function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
@@ -243,6 +268,7 @@ function activeManagementWorkers(consumers) {
   );
 }
 
+const operationMainSha = requireCurrentMainSnapshot();
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
 const managementCredentialRead = await proveManagementCredential(managementCandidates());
 const managementKey = managementCredentialRead.credential;
@@ -250,6 +276,7 @@ const managementCredentialSource = managementCredentialRead.credential_source;
 const candidates = inferenceCandidates();
 
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_CONTRACT=${CONTRACT}`);
+console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_OPERATION_MAIN_SHA=${operationMainSha}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_TIMEOUT_MS=${DRAIN_TIMEOUT_MS}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_STABLE_OBSERVATIONS_REQUIRED=${REQUIRED_STABLE_DRAIN_OBSERVATIONS}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_MANAGEMENT_CREDENTIAL_SOURCE=${managementCredentialSource}`);
@@ -341,6 +368,7 @@ while (true) {
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
+  operation_main_sha: operationMainSha,
   endpoint_id: endpointId,
   shared_volume_id: volumeId,
   shared_volume_group: SHARED_GROUP.id,
@@ -371,6 +399,7 @@ const child = spawnSync(process.execPath, [EXPANSION_SCRIPT, ...process.argv.sli
   env: {
     ...process.env,
     RUNPOD_MANAGEMENT_API_KEY: managementKey,
+    AVANTIQO_AUDIO_VOICE_VOLUME_OPERATION_MAIN_SHA: operationMainSha,
   },
   stdio: "inherit",
 });

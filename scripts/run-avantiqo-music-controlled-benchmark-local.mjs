@@ -92,9 +92,11 @@ loadAvantiqoEnv();
 
 const PREFLIGHT_SCRIPT = resolve("scripts/preflight-avantiqo-music-local.mjs");
 const CAPACITY_SCRIPT = resolve("scripts/assert-avantiqo-music-xl-lm-storage-capacity-local.mjs");
+const SCHEDULABILITY_SCRIPT = resolve("scripts/assert-avantiqo-music-runpod-schedulability-local.mjs");
 const BENCHMARK_SCRIPT = resolve("scripts/benchmark-avantiqo-music.mjs");
 const PREFLIGHT_CONTRACT = "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V3";
 const CAPACITY_CONTRACT = "AVANTIQO_MUSIC_XL_LM_STORAGE_CAPACITY_V1";
+const SCHEDULABILITY_CONTRACT = "AVANTIQO_MUSIC_RUNPOD_SCHEDULABILITY_V1";
 const MINIMUM_CAPACITY_GB = 80;
 
 function required(name) {
@@ -167,8 +169,37 @@ function runVerifiedCapacityGate() {
   return result;
 }
 
+function runVerifiedSchedulabilityGate() {
+  const result = runJsonGate(
+    SCHEDULABILITY_SCRIPT,
+    "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SCHEDULABILITY_FAILED",
+  );
+  if (
+    result?.success !== true ||
+    result?.contract !== SCHEDULABILITY_CONTRACT ||
+    result?.capacity_sufficient !== true ||
+    !Array.isArray(result?.current_region?.endpoint_schedulable_gpu_types) ||
+    result.current_region.endpoint_schedulable_gpu_types.length < 1 ||
+    result?.safety?.read_only !== true ||
+    result?.safety?.endpoint_mutation_performed !== false ||
+    result?.safety?.network_volume_mutation_performed !== false ||
+    result?.safety?.generation_submitted !== false ||
+    result?.safety?.production_deploy_performed !== false
+  ) {
+    const repair = result?.repair || {};
+    const action = repair.in_place_gpu_pool_expansion_possible
+      ? `IN_PLACE_GPU_POOL_EXPANSION:${(repair.in_place_gpu_types_to_add || []).join("|") || "UNKNOWN"}`
+      : repair.shared_cache_region_migration_required
+        ? `SHARED_CACHE_REGION_MIGRATION:${repair.recommended_migration_target?.data_center_id || "UNKNOWN"}`
+        : "RUNPOD_CAPACITY_REPAIR_REQUIRED";
+    throw new Error(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_NOT_SCHEDULABLE:${action}`);
+  }
+  return result;
+}
+
 const preflight = runVerifiedPreflight();
 const capacity = runVerifiedCapacityGate();
+const schedulability = runVerifiedSchedulabilityGate();
 const credentialSource = text(preflight?.endpoint?.health_credential_source);
 let credentialName = "";
 if (credentialSource === "AUDIO_DEDICATED") {
@@ -187,6 +218,9 @@ console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CREDENTIAL_REUSED=true");
 console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CACHE_GB=${capacity.actual_size_gb}`);
 console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_MIN_CACHE_GB=${MINIMUM_CAPACITY_GB}`);
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CACHE_CAPACITY=PASS");
+console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CACHE_DATACENTER=${schedulability.shared_cache.data_center_id}`);
+console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SCHEDULABLE_GPU_TYPES=${schedulability.current_region.endpoint_schedulable_gpu_types.join("|")}`);
+console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SCHEDULABILITY=PASS");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SECRET_PRINTED=false");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PRODUCTION_DEPLOY_PERFORMED=false");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PRICING_ACTIVATION_PERFORMED=false");

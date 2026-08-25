@@ -306,7 +306,7 @@ ${quiescenceAnchor}`;
     patched === source ||
     patched.includes(strictCandidate) ||
     patched.includes(strictTargetStability) ||
-    patched.includes(strictStorageApproval) ||
+    !patched.includes('event: "AVANTIQO_CODE_CAPACITY_RELOCATION_BALANCE_PREFLIGHT"') ||
     patched.includes(strictLiveGuard) ||
     patched.includes(movedAnchor) ||
     patched.includes(rollbackAnchor)

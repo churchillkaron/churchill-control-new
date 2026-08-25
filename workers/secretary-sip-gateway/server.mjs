@@ -14,6 +14,7 @@ const AMI_HOST = env.ASTERISK_AMI_HOST || "127.0.0.1";
 const AMI_PORT = Number(env.ASTERISK_AMI_PORT || 5038);
 const AMI_USERNAME = String(env.ASTERISK_AMI_USERNAME || "").trim();
 const AMI_SECRET = String(env.ASTERISK_AMI_SECRET || "").trim();
+const AMI_RECONNECT_MS = Math.max(500, Number(env.ASTERISK_AMI_RECONNECT_MS || 5000));
 const OUTBOUND_CONTEXT = env.ASTERISK_SECRETARY_OUTBOUND_CONTEXT || "avantiqo-secretary-outbound";
 const OUTBOUND_EXTEN = env.ASTERISK_SECRETARY_OUTBOUND_EXTEN || "s";
 const OUTBOUND_CHANNEL_TEMPLATE = env.ASTERISK_SECRETARY_OUTBOUND_CHANNEL_TEMPLATE || "PJSIP/{destination}@avantiqo-trunk";
@@ -208,6 +209,8 @@ class AmiClient {
     this.listeners = new Set();
     this.connecting = null;
     this.greetingConsumed = false;
+    this.authenticated = false;
+    this.lastError = null;
   }
 
   onEvent(listener) {
@@ -215,35 +218,69 @@ class AmiClient {
     return () => this.listeners.delete(listener);
   }
 
+  isConnected() {
+    return Boolean(this.authenticated && this.socket && !this.socket.destroyed);
+  }
+
+  rejectPending(error) {
+    for (const pending of this.pending.values()) pending.reject(error);
+    this.pending.clear();
+  }
+
   async connect() {
-    if (this.socket && !this.socket.destroyed) return;
+    if (this.isConnected()) return;
     if (this.connecting) return this.connecting;
     this.connecting = new Promise((resolve, reject) => {
       const socket = net.createConnection({ host: AMI_HOST, port: AMI_PORT });
+      let settled = false;
+      const fail = (error) => {
+        const normalized = error instanceof Error ? error : new Error(clean(error) || "ASTERISK_AMI_CONNECTION_FAILED");
+        this.authenticated = false;
+        this.lastError = clean(normalized.message, 1000) || "ASTERISK_AMI_CONNECTION_FAILED";
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          reject(normalized);
+        }
+      };
       const timeout = setTimeout(() => {
-        socket.destroy();
-        reject(new Error("ASTERISK_AMI_CONNECT_TIMEOUT"));
+        const error = new Error("ASTERISK_AMI_CONNECT_TIMEOUT");
+        fail(error);
+        socket.destroy(error);
       }, 10000);
+
       socket.setEncoding("utf8");
+      socket.setKeepAlive(true, 30000);
       socket.on("data", (chunk) => this.consume(chunk));
       socket.on("error", (error) => {
-        for (const pending of this.pending.values()) pending.reject(error);
-        this.pending.clear();
+        this.rejectPending(error);
+        fail(error);
       });
       socket.on("close", () => {
-        this.socket = null;
+        if (this.socket === socket) this.socket = null;
+        this.authenticated = false;
         this.greetingConsumed = false;
+        const error = new Error("ASTERISK_AMI_CONNECTION_CLOSED");
+        this.rejectPending(error);
+        fail(error);
       });
       socket.once("connect", async () => {
-        clearTimeout(timeout);
         this.socket = socket;
+        this.buffer = "";
+        this.greetingConsumed = false;
         try {
           const login = await this.action({ Action: "Login", Username: AMI_USERNAME, Secret: AMI_SECRET, Events: "on" });
           if (clean(login.Response).toLowerCase() !== "success") throw new Error(`ASTERISK_AMI_LOGIN_FAILED:${clean(login.Message)}`);
-          resolve();
+          this.authenticated = true;
+          this.lastError = null;
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            resolve();
+          }
         } catch (error) {
+          fail(error);
           socket.destroy();
-          reject(error);
         }
       });
     }).finally(() => {
@@ -288,9 +325,8 @@ class AmiClient {
   }
 
   async action(fields) {
-    if (!this.socket || this.socket.destroyed) {
-      if (fields.Action !== "Login") await this.connect();
-    }
+    if (fields.Action !== "Login" && !this.isConnected()) await this.connect();
+    if (!this.socket || this.socket.destroyed) throw new Error("ASTERISK_AMI_NOT_CONNECTED");
     const actionId = clean(fields.ActionID, 200) || randomUUID();
     const lines = [];
     for (const [key, rawValue] of Object.entries({ ...fields, ActionID: actionId })) {
@@ -312,6 +348,10 @@ class AmiClient {
     });
     this.socket.write(`${lines.join("\r\n")}\r\n\r\n`);
     return promise;
+  }
+
+  close() {
+    if (this.socket && !this.socket.destroyed) this.socket.destroy();
   }
 }
 
@@ -603,10 +643,15 @@ const httpServer = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
     if (request.method === "GET" && url.pathname === "/health") {
-      return jsonResponse(response, 200, {
-        ok: requireRuntimeConfig().length === 0,
+      const missing = requireRuntimeConfig();
+      const amiConnected = ami.isConnected();
+      const ok = missing.length === 0 && amiConnected;
+      return jsonResponse(response, ok ? 200 : 503, {
+        ok,
         contract: "AVANTIQO_SECRETARY_ASTERISK_GATEWAY_V1",
-        missing: requireRuntimeConfig(),
+        missing,
+        ami_connected: amiConnected,
+        ami_error: ami.lastError,
         sessions: sessionsByAudioUuid.size,
         raw_audio_persisted: false,
       });
@@ -631,8 +676,18 @@ const httpServer = http.createServer(async (request, response) => {
   }
 });
 
+function reconnectAmi() {
+  if (requireRuntimeConfig().length || ami.isConnected() || ami.connecting) return;
+  void ami.connect().catch((error) => console.error("ASTERISK_AMI_RECONNECT_FAILED", error.message));
+}
+
+const amiReconnectTimer = setInterval(reconnectAmi, AMI_RECONNECT_MS);
+amiReconnectTimer.unref();
+
 async function shutdown(signal) {
   console.log("SECRETARY_ASTERISK_GATEWAY_SHUTDOWN", signal);
+  clearInterval(amiReconnectTimer);
+  ami.close();
   httpServer.close();
   audioServer.close();
   for (const session of sessionsByAudioUuid.values()) {
@@ -646,11 +701,11 @@ async function shutdown(signal) {
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));
 
-await ami.connect().catch((error) => console.error("ASTERISK_AMI_INITIAL_CONNECT_FAILED", error.message));
+void ami.connect().catch((error) => console.error("ASTERISK_AMI_INITIAL_CONNECT_FAILED", error.message));
 audioServer.listen(AUDIO_PORT, AUDIO_HOST, () => {
   console.log(`AVANTIQO_SECRETARY_AUDIOSOCKET_LISTEN=${AUDIO_HOST}:${AUDIO_PORT}`);
 });
 httpServer.listen(HTTP_PORT, HTTP_HOST, () => {
   console.log(`AVANTIQO_SECRETARY_GATEWAY_HTTP_LISTEN=${HTTP_HOST}:${HTTP_PORT}`);
-  console.log(`AVANTIQO_SECRETARY_ASTERISK_GATEWAY_READY=${requireRuntimeConfig().length === 0}`);
+  console.log(`AVANTIQO_SECRETARY_ASTERISK_GATEWAY_READY=${requireRuntimeConfig().length === 0 && ami.isConnected()}`);
 });

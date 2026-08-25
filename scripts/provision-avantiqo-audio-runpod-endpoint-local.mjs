@@ -80,9 +80,10 @@ async function imageEvidence() {
     text(parsed?.runtime_variant) !== "acestep-v15-xl-turbo" ||
     text(parsed?.quality_profile) !== EXPECTED_QUALITY_PROFILE ||
     parsed?.ace_step_lm_required !== true ||
-    text(parsed?.ace_step_lm_model) !== "acestep-5Hz-lm-1.7B" ||
-    text(parsed?.ace_step_lm_backend) !== "vllm" ||
-    parsed?.thinking_required !== true ||
+    text(parsed?.lm_model) !== "acestep-5Hz-lm-1.7B" ||
+    text(parsed?.lm_backend) !== "vllm" ||
+    parsed?.xl_model_contract_passed_by_docker_build !== true ||
+    parsed?.lm_contract_passed_by_docker_build !== true ||
     parsed?.cuda_enabled_torch_required !== true ||
     parsed?.owned_handler_import_smoke_required !== true ||
     parsed?.native_audio_import_smoke_required !== true ||
@@ -105,6 +106,8 @@ async function imageEvidence() {
     trigger_sha: text(parsed.trigger_sha),
     cuda_runtime: EXPECTED_CUDA_RUNTIME,
     quality_profile: EXPECTED_QUALITY_PROFILE,
+    lm_model: text(parsed.lm_model),
+    lm_backend: text(parsed.lm_backend),
     cuda_import_smoke_passed: true,
     native_audio_import_smoke_passed: true,
   };
@@ -200,6 +203,8 @@ if (endpointMatches.length === 1) {
     endpoint: safeEndpoint(endpointMatches[0]),
     hardened_image_evidence_verified: true,
     quality_profile: image.quality_profile,
+    lm_model: image.lm_model,
+    lm_backend: image.lm_backend,
     image_source_sha: image.source_sha,
     image_source_matches_trigger: true,
     cuda_runtime: image.cuda_runtime,
@@ -236,6 +241,8 @@ const plan = {
   trigger_sha: image.trigger_sha,
   source_sha_matches_trigger: true,
   quality_profile: image.quality_profile,
+  lm_model: image.lm_model,
+  lm_backend: image.lm_backend,
   cuda_runtime: image.cuda_runtime,
   cuda_import_smoke_passed: image.cuda_import_smoke_passed,
   native_audio_import_smoke_passed: image.native_audio_import_smoke_passed,

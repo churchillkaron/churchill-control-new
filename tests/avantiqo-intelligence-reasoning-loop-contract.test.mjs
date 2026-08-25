@@ -10,6 +10,14 @@ const registry = fs.readFileSync(
   new URL("../lib/intelligence/runtime/IntelligenceToolRegistry.js", import.meta.url),
   "utf8",
 );
+const provider = fs.readFileSync(
+  new URL("../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js", import.meta.url),
+  "utf8",
+);
+const providerRegistration = fs.readFileSync(
+  new URL("../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderRegistration.js", import.meta.url),
+  "utf8",
+);
 
 test("reasoning loop is pinned to owned Intelligence through Service Runtime", () => {
   assert.match(runtime, /ServiceExecutionRuntime\.execute/);
@@ -29,6 +37,29 @@ test("owned Intelligence review pricing is development-only and production stays
   assert.match(runtime, /external_fallback_allowed:\s*false/);
   assert.match(runtime, /production_certified:\s*false/);
   assert.match(runtime, /\.\.\.localReviewPolicy/);
+});
+
+test("owned Intelligence resolves its canonical RunPod endpoint without requiring a copied endpoint id", () => {
+  assert.match(provider, /const RUNPOD_REST_BASE = "https:\/\/rest\.runpod\.io\/v1"/);
+  assert.match(provider, /const CANONICAL_ENDPOINT_NAME = "avantiqo-intelligence-v1"/);
+  assert.match(provider, /RUNPOD_MANAGEMENT_API_KEY/);
+  assert.match(provider, /process\.env\.RUNPOD_API_KEY/);
+  assert.match(provider, /endpoints\?includeTemplate=false&includeWorkers=false/);
+  assert.match(provider, /text\(endpoint\?\.name\) === CANONICAL_ENDPOINT_NAME/);
+  assert.match(provider, /matches\.length !== 1/);
+  assert.match(provider, /RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID/);
+  assert.match(provider, /if \(explicit\) return validateEndpointId\(explicit\)/);
+  assert.match(provider, /const \{ baseUrl, apiKey \} = await config\(\)/);
+  assert.match(provider, /const \{ apiBase, apiKey \} = await config\(\)/);
+});
+
+test("provider registration permits only development review bypass of the engine enable switch", () => {
+  assert.match(providerRegistration, /localReviewRuntimeAllowed/);
+  assert.match(providerRegistration, /process\.env\.NODE_ENV/);
+  assert.match(providerRegistration, /toLowerCase\(\) === "development"/);
+  assert.match(providerRegistration, /runpodEndpointId \|\| runpodManagementKey/);
+  assert.match(providerRegistration, /engineEnabled \|\| localReviewRuntimeAllowed/);
+  assert.match(providerRegistration, /runpod_endpoint_discovery_configured/);
 });
 
 test("reasoning loop is bounded and rejects tool replay", () => {

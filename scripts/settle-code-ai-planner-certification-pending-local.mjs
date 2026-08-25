@@ -11,19 +11,26 @@ const PROVIDER = "avantiqo-code";
 const PROVIDER_JOB_ID = "c2417291-d126-40ae-85d7-aa4bde77afae-e1";
 const RUNPOD_REST = "https://rest.runpod.io/v1";
 const RUNPOD_SERVERLESS = "https://api.runpod.ai/v2";
+const MIN_ORPHAN_AGE_MS = 60 * 60_000;
 const MAX_WAIT_MS = 15 * 60_000;
 const POLL_MS = 5_000;
+const AMOUNT_EPSILON = 0.000001;
 
 function text(value) {
   return String(value ?? "").trim();
 }
 
-function list(value) {
-  return Array.isArray(value) ? value : [];
-}
-
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function amount(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function sameAmount(left, right) {
+  return Math.abs(amount(left) - amount(right)) <= AMOUNT_EPSILON;
 }
 
 async function runpodRequest(url, key) {
@@ -86,17 +93,26 @@ async function locateOwningEndpoint({ managementKey, apiKey, configuredEndpointI
     }
 
     return {
+      found: true,
       endpoint_id: endpointId,
       endpoint_name: text(endpoint?.name) || null,
       configured_endpoint_matched: endpointId === configuredEndpointId,
       probed_endpoint_count: probes.length,
       provider_status: text(result.body?.status).toUpperCase() || null,
+      all_probes_not_found: false,
     };
   }
 
-  throw new Error(
-    `AVANTIQO_CODE_PLANNER_PENDING_JOB_ENDPOINT_NOT_FOUND:probed=${probes.length}`,
-  );
+  return {
+    found: false,
+    endpoint_id: null,
+    endpoint_name: null,
+    configured_endpoint_matched: false,
+    probed_endpoint_count: probes.length,
+    provider_status: null,
+    all_probes_not_found:
+      probes.length > 0 && probes.every((probe) => probe.status_code === 404),
+  };
 }
 
 if (text(process.env.AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_APPROVED).toUpperCase() !== "YES") {
@@ -129,17 +145,22 @@ const endpointResolution = await locateOwningEndpoint({
   jobId: PROVIDER_JOB_ID,
 });
 
-process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID = endpointResolution.endpoint_id;
-process.env.AVANTIQO_CODE_ENGINE_ENABLED = "true";
+if (endpointResolution.found) {
+  process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID = endpointResolution.endpoint_id;
+  process.env.AVANTIQO_CODE_ENGINE_ENABLED = "true";
+}
 
 console.log(JSON.stringify({
-  event: "AVANTIQO_CODE_PLANNER_PENDING_ENDPOINT_RESOLVED",
+  event: endpointResolution.found
+    ? "AVANTIQO_CODE_PLANNER_PENDING_ENDPOINT_RESOLVED"
+    : "AVANTIQO_CODE_PLANNER_PENDING_ENDPOINT_ORPHAN_CANDIDATE",
   contract: CONTRACT,
   provider_job_id: PROVIDER_JOB_ID,
   endpoint_id: endpointResolution.endpoint_id,
   endpoint_name: endpointResolution.endpoint_name,
   configured_endpoint_matched: endpointResolution.configured_endpoint_matched,
   probed_endpoint_count: endpointResolution.probed_endpoint_count,
+  all_probes_not_found: endpointResolution.all_probes_not_found,
   provider_status: endpointResolution.provider_status,
   endpoint_mutation_performed: false,
   new_provider_execution_submitted: false,
@@ -169,7 +190,8 @@ if (text(usageBefore.provider) !== PROVIDER) {
 if (text(usageBefore.provider_request_id) !== PROVIDER_JOB_ID) {
   throw new Error("AVANTIQO_CODE_PLANNER_PENDING_USAGE_PROVIDER_JOB_MISMATCH");
 }
-if (!["PENDING", "SUCCESS", "FAILED"].includes(text(usageBefore.status).toUpperCase())) {
+const usageStatusBefore = text(usageBefore.status).toUpperCase();
+if (!["PENDING", "SUCCESS", "FAILED"].includes(usageStatusBefore)) {
   throw new Error(`AVANTIQO_CODE_PLANNER_PENDING_USAGE_STATUS_UNSAFE:${usageBefore.status}`);
 }
 
@@ -189,6 +211,11 @@ const walletBefore = await WalletRuntime.prepaid({
   currency: "THB",
   require_positive_balance: false,
 });
+const reservedAmount = amount(usageBefore.metadata?.reservation_pricing?.customer_price);
+const usageCreatedAtMs = Date.parse(text(usageBefore.created_at));
+const usageAgeMs = Number.isFinite(usageCreatedAtMs)
+  ? Math.max(0, Date.now() - usageCreatedAtMs)
+  : 0;
 
 console.log(JSON.stringify({
   event: "AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_START",
@@ -197,55 +224,156 @@ console.log(JSON.stringify({
   provider_job_id: PROVIDER_JOB_ID,
   endpoint_id: endpointResolution.endpoint_id,
   usage_status: usageBefore.status,
+  usage_age_ms: usageAgeMs,
   service_usage_enabled: organizationService.usage_enabled,
-  wallet_reserved_before: Number(walletBefore.reserved_balance || 0),
+  wallet_reserved_before: amount(walletBefore.reserved_balance),
+  reservation_customer_price: reservedAmount,
   new_provider_execution_submitted: false,
   service_reenabled: false,
   secrets_printed: false,
 }));
 
 let result = null;
-let terminal = ["SUCCESS", "FAILED"].includes(text(usageBefore.status).toUpperCase());
-const deadline = Date.now() + MAX_WAIT_MS;
+let orphanedJobReconciled = false;
+let terminal = ["SUCCESS", "FAILED"].includes(usageStatusBefore);
 
-while (!terminal && Date.now() < deadline) {
-  result = await ServiceExecutionRuntime.settle({
-    organization_id: ORGANIZATION_ID,
+if (!endpointResolution.found) {
+  if (!endpointResolution.all_probes_not_found) {
+    throw new Error("AVANTIQO_CODE_PLANNER_PENDING_ORPHAN_EVIDENCE_INCOMPLETE");
+  }
+  if (endpointResolution.probed_endpoint_count < 1) {
+    throw new Error("AVANTIQO_CODE_PLANNER_PENDING_ORPHAN_ENDPOINT_PROBE_REQUIRED");
+  }
+  if (usageAgeMs < MIN_ORPHAN_AGE_MS) {
+    throw new Error(
+      `AVANTIQO_CODE_PLANNER_PENDING_ORPHAN_MINIMUM_AGE_REQUIRED:${usageAgeMs}:${MIN_ORPHAN_AGE_MS}`,
+    );
+  }
+  if (reservedAmount <= 0) {
+    throw new Error("AVANTIQO_CODE_PLANNER_PENDING_ORPHAN_RESERVATION_REQUIRED");
+  }
+
+  if (usageStatusBefore === "SUCCESS") {
+    throw new Error("AVANTIQO_CODE_PLANNER_PENDING_ORPHAN_SUCCESS_USAGE_RECONCILIATION_REFUSED");
+  }
+
+  const walletReservedBefore = amount(walletBefore.reserved_balance);
+  if (walletReservedBefore > 0 && !sameAmount(walletReservedBefore, reservedAmount)) {
+    throw new Error(
+      `AVANTIQO_CODE_PLANNER_PENDING_ORPHAN_WALLET_SCOPE_UNSAFE:${walletReservedBefore}:${reservedAmount}`,
+    );
+  }
+
+  if (usageStatusBefore === "PENDING") {
+    const orphanError = new Error(
+      `AVANTIQO_CODE_PROVIDER_JOB_ORPHANED_ALL_CURRENT_ENDPOINTS_404:${PROVIDER_JOB_ID}`,
+    );
+    await UsageRuntime.fail({
+      usage_id: USAGE_ID,
+      error: orphanError,
+      latency_ms: usageAgeMs,
+      metadata: {
+        ...(usageBefore.metadata || {}),
+        certification_contract: CONTRACT,
+        certification_pending_reconciliation: true,
+        provider_job_id: PROVIDER_JOB_ID,
+        provider_status: "ORPHANED_NOT_FOUND",
+        orphaned_provider_job_reconciled: true,
+        all_current_endpoints_returned_404: true,
+        probed_endpoint_count: endpointResolution.probed_endpoint_count,
+        minimum_orphan_age_ms: MIN_ORPHAN_AGE_MS,
+        observed_usage_age_ms: usageAgeMs,
+        new_provider_execution_submitted: false,
+        service_reenabled: false,
+      },
+    });
+  }
+
+  if (walletReservedBefore > 0) {
+    await WalletRuntime.release({
+      organization_id: ORGANIZATION_ID,
+      amount: reservedAmount,
+      provider: PROVIDER,
+      reference: USAGE_ID,
+      currency: usageBefore.currency || "THB",
+      metadata: {
+        usage_id: USAGE_ID,
+        provider_job_id: PROVIDER_JOB_ID,
+        settlement: "ORPHANED_PROVIDER_JOB_RELEASE",
+        all_current_endpoints_returned_404: true,
+        probed_endpoint_count: endpointResolution.probed_endpoint_count,
+      },
+    });
+  }
+
+  orphanedJobReconciled = true;
+  terminal = true;
+  result = {
+    success: false,
+    pending: false,
+    failed: true,
+    orphaned: true,
     provider: PROVIDER,
     provider_job_id: PROVIDER_JOB_ID,
-    usage_id: USAGE_ID,
-    pricing: {},
-    quantity: Number(usageBefore.quantity || 1),
-    unit: text(usageBefore.unit) || "request",
-    metadata: {
-      certification_contract: CONTRACT,
-      certification_pending_reconciliation: true,
-      recovered_provider_endpoint_id: endpointResolution.endpoint_id,
-      new_provider_execution_submitted: false,
-      service_reenabled: false,
-    },
-    started_at: usageBefore.created_at || null,
-  });
+    provider_status: "ORPHANED_NOT_FOUND",
+    settlement: walletReservedBefore > 0 ? "RELEASED" : "ALREADY_RELEASED",
+  };
 
-  const usageNow = await UsageRuntime.get(USAGE_ID);
-  const status = text(usageNow?.status).toUpperCase() || "UNKNOWN";
   console.log(JSON.stringify({
-    event: "AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_PROGRESS",
+    event: "AVANTIQO_CODE_PLANNER_PENDING_ORPHAN_RECONCILED",
     contract: CONTRACT,
     usage_id: USAGE_ID,
     provider_job_id: PROVIDER_JOB_ID,
-    endpoint_id: endpointResolution.endpoint_id,
-    provider_pending: result?.pending === true,
-    provider_failed: result?.failed === true,
-    provider_status: result?.provider_status || null,
-    usage_status: status,
+    probed_endpoint_count: endpointResolution.probed_endpoint_count,
+    usage_age_ms: usageAgeMs,
+    reservation_released: walletReservedBefore > 0,
+    released_amount: walletReservedBefore > 0 ? reservedAmount : 0,
     new_provider_execution_submitted: false,
     service_reenabled: false,
     secrets_printed: false,
   }));
+} else {
+  const deadline = Date.now() + MAX_WAIT_MS;
 
-  terminal = ["SUCCESS", "FAILED"].includes(status);
-  if (!terminal) await sleep(POLL_MS);
+  while (!terminal && Date.now() < deadline) {
+    result = await ServiceExecutionRuntime.settle({
+      organization_id: ORGANIZATION_ID,
+      provider: PROVIDER,
+      provider_job_id: PROVIDER_JOB_ID,
+      usage_id: USAGE_ID,
+      pricing: {},
+      quantity: Number(usageBefore.quantity || 1),
+      unit: text(usageBefore.unit) || "request",
+      metadata: {
+        certification_contract: CONTRACT,
+        certification_pending_reconciliation: true,
+        recovered_provider_endpoint_id: endpointResolution.endpoint_id,
+        new_provider_execution_submitted: false,
+        service_reenabled: false,
+      },
+      started_at: usageBefore.created_at || null,
+    });
+
+    const usageNow = await UsageRuntime.get(USAGE_ID);
+    const status = text(usageNow?.status).toUpperCase() || "UNKNOWN";
+    console.log(JSON.stringify({
+      event: "AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_PROGRESS",
+      contract: CONTRACT,
+      usage_id: USAGE_ID,
+      provider_job_id: PROVIDER_JOB_ID,
+      endpoint_id: endpointResolution.endpoint_id,
+      provider_pending: result?.pending === true,
+      provider_failed: result?.failed === true,
+      provider_status: result?.provider_status || null,
+      usage_status: status,
+      new_provider_execution_submitted: false,
+      service_reenabled: false,
+      secrets_printed: false,
+    }));
+
+    terminal = ["SUCCESS", "FAILED"].includes(status);
+    if (!terminal) await sleep(POLL_MS);
+  }
 }
 
 const usageAfter = await UsageRuntime.get(USAGE_ID);
@@ -263,7 +391,7 @@ const finalStatus = text(usageAfter?.status).toUpperCase() || "UNKNOWN";
 if (!["SUCCESS", "FAILED"].includes(finalStatus)) {
   throw new Error(`AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_TIMEOUT:${finalStatus}`);
 }
-if (Number(walletAfter.reserved_balance || 0) !== 0) {
+if (!sameAmount(walletAfter.reserved_balance, 0)) {
   throw new Error(`AVANTIQO_CODE_PLANNER_PENDING_RESERVATION_REMAINS:${walletAfter.reserved_balance}`);
 }
 if (serviceAfter?.usage_enabled !== false) {
@@ -277,9 +405,13 @@ console.log(JSON.stringify({
   usage_id: USAGE_ID,
   provider: PROVIDER,
   provider_job_id: PROVIDER_JOB_ID,
+  endpoint_found: endpointResolution.found,
   endpoint_id: endpointResolution.endpoint_id,
   endpoint_name: endpointResolution.endpoint_name,
+  probed_endpoint_count: endpointResolution.probed_endpoint_count,
+  orphaned_job_reconciled: orphanedJobReconciled,
   usage_status: finalStatus,
+  provider_status: result?.provider_status || null,
   supplier_cost: Number(usageAfter?.supplier_cost || 0),
   customer_price: Number(usageAfter?.customer_price || 0),
   charged_amount: Number(usageAfter?.charged_amount || 0),

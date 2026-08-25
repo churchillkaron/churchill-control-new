@@ -63,8 +63,8 @@ const observationReplacement = `      cacheLastControl = await cacheControlSnaps
         cacheStartupObservedAt = Date.now();
       }`;
 
-const timeoutSuffixAnchor = `            "s_since_control_worker_observed",`;
-const timeoutSuffixReplacement = `            "s_since_worker_activity_observed",`;
+const timeoutSuffixAnchor = `          "s_since_control_worker_observed",`;
+const timeoutSuffixReplacement = `          "s_since_worker_activity_observed",`;
 
 const loggingAnchor = `        cache_cold_start_policy: isCacheJob ? "CONTROL_AWARE" : null,
         cache_startup_observed: isCacheJob ? cacheStartupObservedAt !== null : null,

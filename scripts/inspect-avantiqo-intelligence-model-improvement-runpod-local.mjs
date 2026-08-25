@@ -65,6 +65,71 @@ async function rest(pathname, credential) {
   );
 }
 
+function managementCredentialCandidates() {
+  const preferred = ["RUNPOD_MANAGEMENT_API_KEY", "RUNPOD_API_KEY"];
+  const discovered = Object.keys(process.env)
+    .filter((name) => /^RUNPOD_[A-Z0-9_]*API_KEY$/.test(name))
+    .sort();
+  const seenNames = new Set();
+  const seenValues = new Set();
+  const candidates = [];
+  for (const name of [...preferred, ...discovered]) {
+    if (seenNames.has(name)) continue;
+    seenNames.add(name);
+    const value = text(process.env[name], 4000);
+    if (!value || seenValues.has(value)) continue;
+    seenValues.add(value);
+    candidates.push({ name, value });
+  }
+  return candidates;
+}
+
+async function resolveManagementCredential() {
+  const candidates = managementCredentialCandidates();
+  if (!candidates.length) {
+    throw new Error(
+      "RUNPOD_MANAGEMENT_CREDENTIAL_REQUIRED_FOR_READ_ONLY_INTELLIGENCE_READINESS:NO_NONEMPTY_RUNPOD_API_KEYS",
+    );
+  }
+  const rejectedStatuses = [];
+  for (const candidate of candidates) {
+    const response = await fetch(
+      `${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=false`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${candidate.value}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+    if (response.ok) {
+      return {
+        credential: candidate.value,
+        source: candidate.name,
+        candidate_count: candidates.length,
+        endpoints_body: await readJson(
+          response,
+          "AVANTIQO_INTELLIGENCE_MODEL_IMPROVEMENT_READINESS_MANAGEMENT_PROBE",
+        ),
+      };
+    }
+    if (response.status === 401 || response.status === 403) {
+      await response.text().catch(() => "");
+      rejectedStatuses.push(response.status);
+      continue;
+    }
+    const detail = text(await response.text(), 500);
+    throw new Error(
+      `AVANTIQO_INTELLIGENCE_MODEL_IMPROVEMENT_READINESS_MANAGEMENT_PROBE_HTTP_${response.status}:${detail || "EMPTY_BODY"}`,
+    );
+  }
+  throw new Error(
+    `RUNPOD_MANAGEMENT_SCOPE_CREDENTIAL_NOT_FOUND:candidates=${candidates.length}:rejected_statuses=${rejectedStatuses.join(",") || "NONE"}`,
+  );
+}
+
 function resolveEndpoint(endpoints, configuredId, exactName) {
   const id = text(configuredId, 200);
   if (id) {
@@ -158,20 +223,16 @@ function safeVolume(volume = {}) {
   };
 }
 
-const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY, 2000);
-if (!managementKey) {
-  throw new Error("RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_READ_ONLY_INTELLIGENCE_READINESS");
-}
-
-const [endpointsBody, templatesBody, volumesBody] = await Promise.all([
-  rest("/endpoints?includeTemplate=true&includeWorkers=false", managementKey),
+const management = await resolveManagementCredential();
+const managementKey = management.credential;
+const [templatesBody, volumesBody] = await Promise.all([
   rest(
     "/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false",
     managementKey,
   ),
   rest("/networkvolumes", managementKey),
 ]);
-const endpoints = normalizeList(endpointsBody, "endpoints") || [];
+const endpoints = normalizeList(management.endpoints_body, "endpoints") || [];
 const templates = normalizeList(templatesBody, "templates") || [];
 const volumes = normalizeList(volumesBody, "networkVolumes") || [];
 
@@ -211,6 +272,12 @@ const report = {
   contract: CONTRACT,
   mode: "READ_ONLY",
   certified_source_sha: CERTIFIED_SOURCE_SHA,
+  management_credential: {
+    source_variable: management.source,
+    candidate_count: management.candidate_count,
+    scope_verified_by_read_only_endpoint_list: true,
+    value_exposed: false,
+  },
   trainer: {
     resolution: trainerResolution.resolution,
     match_count: trainerResolution.match_count,

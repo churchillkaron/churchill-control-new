@@ -3,6 +3,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNNER="$SCRIPT_DIR/run-avantiqo-continuous-learning-local.mjs"
+SLOT_MANAGER="$SCRIPT_DIR/manage-avantiqo-intelligence-lane-slot-local.mjs"
+
+run_requested() {
+  local argument
+  for argument in "$@"; do
+    if [ "$argument" = "--run" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
 
 is_node24() {
   local candidate="$1"
@@ -12,9 +23,62 @@ is_node24() {
 
 run_with() {
   local candidate="$1"
+  shift
   echo "AVANTIQO_CONTINUOUS_LEARNING_NODE_BIN=$candidate"
   echo "AVANTIQO_CONTINUOUS_LEARNING_NODE_VERSION=$($candidate -p 'process.versions.node')"
-  exec "$candidate" "$RUNNER" "$@"
+
+  if ! run_requested "$@"; then
+    exec "$candidate" "$RUNNER" "$@"
+  fi
+
+  if [ "${AVANTIQO_CONTINUOUS_LEARNING_FAST_SLOT_APPROVED:-}" != "YES" ]; then
+    echo "AVANTIQO_CONTINUOUS_LEARNING_FAST_SLOT_APPROVED=YES_REQUIRED" >&2
+    exit 2
+  fi
+  if [ -z "${AVANTIQO_ENV_FILE:-}" ] || [ ! -f "$AVANTIQO_ENV_FILE" ]; then
+    echo "AVANTIQO_CONTINUOUS_LEARNING_ENV_FILE_REQUIRED_FOR_FAST_SLOT" >&2
+    exit 2
+  fi
+  if [ ! -f "$SLOT_MANAGER" ]; then
+    echo "AVANTIQO_CONTINUOUS_LEARNING_SLOT_MANAGER_REQUIRED" >&2
+    exit 2
+  fi
+
+  local fast_slot_active="NO"
+  restore_deep_slot() {
+    local original_status="${1:-0}"
+    local restore_status=0
+    trap - EXIT INT TERM
+    if [ "$fast_slot_active" = "YES" ]; then
+      echo "AVANTIQO_CONTINUOUS_LEARNING_RESTORING_DEEP_SLOT=true"
+      set +e
+      AVANTIQO_INTELLIGENCE_FAST_SLOT_RESTORE_APPROVED=YES \
+        "$candidate" --env-file="$AVANTIQO_ENV_FILE" "$SLOT_MANAGER" --restore-deep
+      restore_status=$?
+      set -e
+      if [ "$restore_status" -ne 0 ]; then
+        echo "AVANTIQO_CONTINUOUS_LEARNING_DEEP_SLOT_RESTORE_FAILED:exit=$restore_status" >&2
+        if [ "$original_status" -eq 0 ]; then
+          original_status="$restore_status"
+        fi
+      fi
+    fi
+    exit "$original_status"
+  }
+  trap 'restore_deep_slot $?' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+
+  echo "AVANTIQO_CONTINUOUS_LEARNING_PREPARING_FAST_SLOT=true"
+  AVANTIQO_INTELLIGENCE_FAST_RUNPOD_PROVISION_APPROVED=YES \
+    "$candidate" --env-file="$AVANTIQO_ENV_FILE" "$SLOT_MANAGER" --provision
+  AVANTIQO_INTELLIGENCE_FAST_SLOT_SWAP_APPROVED=YES \
+    "$candidate" --env-file="$AVANTIQO_ENV_FILE" "$SLOT_MANAGER" --activate-fast
+  fast_slot_active="YES"
+
+  AVANTIQO_CONTINUOUS_LEARNING_FAST_SLOT_ACTIVE=YES \
+    "$candidate" "$RUNNER" "$@"
+  exit 0
 }
 
 if [ -n "${AVANTIQO_NODE_24_BIN:-}" ]; then

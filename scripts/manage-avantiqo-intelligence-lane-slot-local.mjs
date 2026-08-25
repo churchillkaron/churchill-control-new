@@ -3,7 +3,7 @@ import { chmod, readFile, writeFile } from "node:fs/promises";
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_INTELLIGENCE_LANE_SLOT_MANAGER_V1";
-const ENV_PATH = ".env.local";
+const ENV_PATH = text(process.env.AVANTIQO_ENV_FILE) || ".env.local";
 const DEEP_ENDPOINT_NAME = "avantiqo-intelligence-v1";
 const FAST_ENDPOINT_NAME = "avantiqo-intelligence-fast-v1";
 const FAST_TEMPLATE_NAME = "avantiqo-intelligence-fast-v1";

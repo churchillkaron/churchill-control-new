@@ -77,6 +77,7 @@ run_with() {
   fast_slot_active="YES"
 
   AVANTIQO_CONTINUOUS_LEARNING_FAST_SLOT_ACTIVE=YES \
+  AVANTIQO_INTELLIGENCE_FAST_TIMEOUT_MS=480000 \
     "$candidate" "$RUNNER" "$@"
   exit 0
 }

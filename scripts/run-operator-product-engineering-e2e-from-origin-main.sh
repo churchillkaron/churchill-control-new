@@ -67,8 +67,16 @@ node --test "$SHADOW_ROOT/tests/avantiqo-intelligence-supervisor-contract.test.m
 
 echo ""
 echo "================ RUN REAL PRODUCT E2E ================"
-AVANTIQO_PROJECT_ROOT="$SHADOW_ROOT" \
-  bash "$SHADOW_ROOT/scripts/run-operator-product-engineering-e2e.sh"
+if [ -z "${FINANCE_SMOKE_EMAIL:-}" ] || [ -z "${FINANCE_SMOKE_PASSWORD:-}" ]; then
+  [ -r /dev/tty ] || fail "INTERACTIVE_TTY_REQUIRED_FOR_AUTHENTICATION"
+  echo "E2E_AUTH_INPUT_SOURCE=TERMINAL"
+  AVANTIQO_PROJECT_ROOT="$SHADOW_ROOT" \
+    bash "$SHADOW_ROOT/scripts/run-operator-product-engineering-e2e.sh" </dev/tty
+else
+  echo "E2E_AUTH_INPUT_SOURCE=ENVIRONMENT"
+  AVANTIQO_PROJECT_ROOT="$SHADOW_ROOT" \
+    bash "$SHADOW_ROOT/scripts/run-operator-product-engineering-e2e.sh"
+fi
 E2E_STATUS=$?
 
 if [ "$E2E_STATUS" -ne 0 ]; then

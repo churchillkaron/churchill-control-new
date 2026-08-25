@@ -24,6 +24,7 @@ COPY handler_v5.py ./handler_v5.py
 COPY handler_v6.py ./handler_v6.py
 COPY handler_v7.py ./handler_v7.py
 COPY handler_v8.py ./handler_v8.py
+COPY handler_v9.py ./handler_v9.py
 
 RUN mkdir -p /tmp/avantiqo-image
 ENV AVANTIQO_IMAGE_OUTPUT_DIR=/tmp/avantiqo-image \
@@ -31,4 +32,4 @@ ENV AVANTIQO_IMAGE_OUTPUT_DIR=/tmp/avantiqo-image \
     AVANTIQO_IMAGE_NETWORK_VOLUME_ROOT=/runpod-volume \
     AVANTIQO_IMAGE_NETWORK_VOLUME_QUOTA_GB=80
 
-CMD ["python", "-u", "handler_v8.py"]
+CMD ["python", "-u", "handler_v9.py"]

@@ -1,0 +1,10 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_TRAINING_IMAGE_BUILD_REQUEST_V1",
+  "component": "both",
+  "build_trainer": true,
+  "build_candidate": true,
+  "provider_execution_allowed": false,
+  "runpod_endpoint_mutation_allowed": false,
+  "production_deploy_allowed": false,
+  "nonce": "20260825T1144ICT"
+}

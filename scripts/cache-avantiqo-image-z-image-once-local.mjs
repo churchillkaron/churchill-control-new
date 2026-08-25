@@ -8,17 +8,21 @@ import {
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_IMAGE_Z_IMAGE_CACHE_ONCE_V1";
+const CONTRACT = "AVANTIQO_IMAGE_Z_IMAGE_CACHE_ONCE_V2";
 const ENGINE_CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1";
 const CACHE_OPERATION = "cache_foundation_model";
 const TARGET_MODEL = "Tongyi-MAI/Z-Image";
 const ENDPOINT_NAME = "avantiqo-image-v1";
 const SOURCE_PATH = "services/avantiqo-image-engine";
 const EVIDENCE_PATH = "audits/results/avantiqo-image-worker-image.json";
-const EVIDENCE_CONTRACT = "AVANTIQO_IMAGE_WORKER_IMAGE_RESULT_V3";
-const EXPECTED_ENTRYPOINT = "handler_v5.py";
-const EXPECTED_RUNTIME = "AVANTIQO_IMAGE_MULTI_FOUNDATION_VOLUME_QUOTA_GUARD_V1";
+const EVIDENCE_CONTRACT = "AVANTIQO_IMAGE_WORKER_IMAGE_RESULT_V4";
+const EXPECTED_ENTRYPOINT = "handler_v6.py";
+const EXPECTED_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V6_PHYSICAL_VOLUME_USAGE_V1";
+const EXPECTED_RUNTIME = "AVANTIQO_IMAGE_MULTI_FOUNDATION_PHYSICAL_VOLUME_USAGE_V1";
 const EXPECTED_QUOTA_GUARD = "AVANTIQO_IMAGE_NETWORK_VOLUME_QUOTA_GUARD_V1";
+const EXPECTED_PHYSICAL_USAGE = "AVANTIQO_IMAGE_NETWORK_VOLUME_PHYSICAL_USAGE_V1";
+const EXPECTED_ALLOCATION_BASIS = "UNIQUE_INODE_ST_BLOCKS_512_WITH_ST_SIZE_FALLBACK";
+const EXPECTED_CACHE_CONTRACT = "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1";
 const EXPECTED_VOLUME_GB = 160;
 const EXPECTED_GPU_POOL = ["NVIDIA RTX PRO 6000 Blackwell Server Edition"];
 const EXPECTED_IDLE_TIMEOUT_SECONDS = 10;
@@ -57,8 +61,8 @@ function sameSet(left, right) {
 function yes(value) {
   return ["YES", "TRUE", "1", "APPROVED", "ON"].includes(text(value).toUpperCase());
 }
-function required(name) {
-  const value = text(process.env[name]);
+function required(name, fallback = "") {
+  const value = text(process.env[name] || fallback);
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
 }
@@ -108,9 +112,7 @@ async function readJson(response, label) {
     body = null;
   }
   if (!response.ok) {
-    throw new Error(
-      `${label}_HTTP_${response.status}:${text(body?.message || body?.error || body?.detail || raw).slice(0, 1200)}`,
-    );
+    throw new Error(`${label}_HTTP_${response.status}:${text(body?.message || body?.error || body?.detail || raw).slice(0, 1200)}`);
   }
   return body ?? {};
 }
@@ -137,6 +139,33 @@ async function queue(endpointId, path, key, options = {}) {
     }),
     "RUNPOD_QUEUE",
   );
+}
+async function queueCredentialWorks(endpointId, key) {
+  try {
+    const response = await fetch(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`, {
+      headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(30_000),
+    });
+    await response.arrayBuffer();
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+async function selectQueueCredential(endpointId, managementKey) {
+  const candidates = [
+    text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY)
+      ? { source: "RUNPOD_AVANTIQO_IMAGE_API_KEY", key: text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) }
+      : null,
+    text(process.env.RUNPOD_API_KEY)
+      ? { source: "RUNPOD_API_KEY", key: text(process.env.RUNPOD_API_KEY) }
+      : null,
+    { source: "RUNPOD_MANAGEMENT_API_KEY", key: managementKey },
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    if (await queueCredentialWorks(endpointId, candidate.key)) return candidate;
+  }
+  throw new Error("AVANTIQO_IMAGE_Z_CACHE_QUEUE_CREDENTIAL_NOT_FOUND");
 }
 async function endpointBoundTemplates(key) {
   const templates = await rest(
@@ -168,9 +197,7 @@ function endpointVolumeIds(endpoint = {}) {
   return unique([endpoint.networkVolumeId, ...list(endpoint.networkVolumeIds)]);
 }
 function normalizeEnv(value) {
-  return Object.fromEntries(
-    Object.entries(object(value)).map(([key, child]) => [String(key), String(child ?? "")]),
-  );
+  return Object.fromEntries(Object.entries(object(value)).map(([key, child]) => [String(key), String(child ?? "")]));
 }
 function healthCounters(body = {}) {
   const jobs = object(body.jobs);
@@ -199,14 +226,24 @@ function validateEvidence() {
     evidence.source_sha_matches_trigger !== true ||
     sourceSha !== text(evidence.trigger_sha) ||
     text(evidence.entrypoint) !== EXPECTED_ENTRYPOINT ||
+    text(evidence.entrypoint_revision) !== EXPECTED_ENTRYPOINT_REVISION ||
     text(evidence.runtime_revision) !== EXPECTED_RUNTIME ||
     text(evidence.volume_quota_guard_contract) !== EXPECTED_QUOTA_GUARD ||
+    text(evidence.physical_usage_contract) !== EXPECTED_PHYSICAL_USAGE ||
+    text(evidence.allocation_decision_basis) !== EXPECTED_ALLOCATION_BASIS ||
     evidence.backing_filesystem_capacity_used_for_decision !== false ||
+    evidence.logical_file_size_used_for_quota_decision !== false ||
+    evidence.hardlink_deduplication_enabled !== true ||
     text(evidence.photoreal_candidate_foundation) !== TARGET_MODEL ||
+    text(evidence.photoreal_cache_contract) !== EXPECTED_CACHE_CONTRACT ||
     evidence.automatic_production_routing_enabled !== false ||
-    evidence.qwen_replaced !== false
+    evidence.qwen_replaced !== false ||
+    evidence.provider_job_submitted !== false ||
+    evidence.image_generation_submitted !== false ||
+    evidence.model_download_submitted !== false ||
+    evidence.production_web_deploy !== false
   ) {
-    throw new Error("AVANTIQO_IMAGE_Z_CACHE_V5_EVIDENCE_INVALID");
+    throw new Error("AVANTIQO_IMAGE_Z_CACHE_V6_EVIDENCE_INVALID");
   }
   const image = text(evidence.immutable_image_reference);
   if (!/^ghcr\.io\/churchillkaron\/avantiqo-image-worker@sha256:[a-f0-9]{64}$/i.test(image)) {
@@ -221,6 +258,9 @@ function validateEvidence() {
   return { evidence, sourceSha, image };
 }
 function validateEndpoint(endpoint, template, expectedImage, volumeId) {
+  if (text(endpoint.id) === "" || text(endpoint.name) !== ENDPOINT_NAME) {
+    throw new Error("AVANTIQO_IMAGE_Z_CACHE_ENDPOINT_IDENTITY_INVALID");
+  }
   const gpuPool = unique(list(endpoint.gpuTypeIds));
   if (!sameSet(gpuPool, EXPECTED_GPU_POOL)) {
     throw new Error(`AVANTIQO_IMAGE_Z_CACHE_GPU_POOL_INVALID:${gpuPool.join("|")}`);
@@ -231,10 +271,8 @@ function validateEndpoint(endpoint, template, expectedImage, volumeId) {
   if (finite(endpoint.workersMin) !== 0 || finite(endpoint.workersMax) !== 1) {
     throw new Error(`AVANTIQO_IMAGE_Z_CACHE_SCALING_INVALID:min=${finite(endpoint.workersMin)}:max=${finite(endpoint.workersMax)}`);
   }
-  if (text(template.imageName) !== expectedImage) {
-    throw new Error(
-      `AVANTIQO_IMAGE_Z_CACHE_V5_BINDING_INVALID:live=${text(template.imageName) || "NONE"}:expected=${expectedImage}`,
-    );
+  if (text(template.imageName) !== expectedImage || !text(template.name).startsWith("avantiqo-image-immutable-")) {
+    throw new Error(`AVANTIQO_IMAGE_Z_CACHE_V6_BINDING_INVALID:template=${text(template.name) || "NONE"}`);
   }
   const quota = finite(normalizeEnv(template.env).AVANTIQO_IMAGE_NETWORK_VOLUME_QUOTA_GB);
   if (quota !== EXPECTED_VOLUME_GB) {
@@ -274,6 +312,12 @@ function validateOutput(output) {
   if (text(storage.quota_guard_contract) !== EXPECTED_QUOTA_GUARD) {
     throw new Error("AVANTIQO_IMAGE_Z_CACHE_QUOTA_GUARD_MISSING");
   }
+  if (text(storage.physical_usage_contract) !== EXPECTED_PHYSICAL_USAGE) {
+    throw new Error("AVANTIQO_IMAGE_Z_CACHE_PHYSICAL_USAGE_CONTRACT_MISSING");
+  }
+  if (text(storage.allocation_decision_basis) !== EXPECTED_ALLOCATION_BASIS) {
+    throw new Error("AVANTIQO_IMAGE_Z_CACHE_ALLOCATION_BASIS_INVALID");
+  }
   if (finite(storage.network_volume_quota_gb) !== EXPECTED_VOLUME_GB) {
     throw new Error(`AVANTIQO_IMAGE_Z_CACHE_RUNTIME_QUOTA_INVALID:${finite(storage.network_volume_quota_gb)}`);
   }
@@ -286,12 +330,12 @@ function validateOutput(output) {
     }
     return { result: "STORAGE_INSUFFICIENT", cacheReady: false, storage };
   }
-  if (output.cache_ready !== true) {
+  if (output.cache_ready !== true || text(output.foundation_model_source) !== "runpod-cache") {
     throw new Error("AVANTIQO_IMAGE_Z_CACHE_COMPLETION_NOT_READY");
   }
   const integrity = object(output.cache_integrity);
   if (
-    text(integrity.contract) !== "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1" ||
+    text(integrity.contract) !== EXPECTED_CACHE_CONTRACT ||
     integrity.completion_marker_valid !== true ||
     list(integrity.missing_required_files).length !== 0 ||
     !text(integrity.snapshot_revision)
@@ -312,8 +356,7 @@ if (!resumeJobId && (!apply || !yes(process.env.AVANTIQO_IMAGE_Z_IMAGE_CACHE_APP
   throw new Error("AVANTIQO_IMAGE_Z_IMAGE_CACHE_APPROVED=YES_AND_--apply_REQUIRED");
 }
 
-const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
-const inferenceKey = text(process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY) || required("RUNPOD_API_KEY");
+const managementKey = required("RUNPOD_MANAGEMENT_API_KEY", process.env.RUNPOD_API_KEY);
 const configuredEndpointId = text(process.env.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID);
 const plannedMain = requireCurrentMain("AVANTIQO_IMAGE_Z_CACHE");
 const local = validateEvidence();
@@ -322,6 +365,8 @@ console.log(`AVANTIQO_IMAGE_Z_CACHE_CONTRACT=${CONTRACT}`);
 console.log(`AVANTIQO_IMAGE_Z_CACHE_MODE=${resumeJobId ? "RESUME" : "APPLY"}`);
 console.log(`AVANTIQO_IMAGE_Z_CACHE_TARGET_MODEL=${TARGET_MODEL}`);
 console.log(`AVANTIQO_IMAGE_Z_CACHE_EXPECTED_VOLUME_GB=${EXPECTED_VOLUME_GB}`);
+console.log(`AVANTIQO_IMAGE_Z_CACHE_PHYSICAL_USAGE_CONTRACT=${EXPECTED_PHYSICAL_USAGE}`);
+console.log(`AVANTIQO_IMAGE_Z_CACHE_ALLOCATION_BASIS=${EXPECTED_ALLOCATION_BASIS}`);
 console.log("AVANTIQO_IMAGE_Z_CACHE_SINGLE_SUBMISSION=true");
 console.log("AVANTIQO_IMAGE_Z_CACHE_AUTOMATIC_RETRY=false");
 console.log("AVANTIQO_IMAGE_Z_CACHE_AUTOMATIC_DELETE=false");
@@ -331,6 +376,7 @@ console.log(`AVANTIQO_IMAGE_Z_CACHE_MODEL_DOWNLOAD=${resumeJobId ? "UNKNOWN_EXIS
 console.log(`AVANTIQO_IMAGE_Z_CACHE_STORAGE_MUTATION=${resumeJobId ? "UNKNOWN_EXISTING_JOB" : "APPROVED_CACHE_ONLY"}`);
 console.log("AVANTIQO_IMAGE_Z_CACHE_ENDPOINT_MUTATION=false");
 console.log("AVANTIQO_IMAGE_Z_CACHE_PRODUCTION_DEPLOY=false");
+console.log("AVANTIQO_IMAGE_Z_CACHE_SECRETS_PRINTED=false");
 
 const [endpoints, volumes] = await Promise.all([
   rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
@@ -341,9 +387,7 @@ if (!Array.isArray(endpoints) || !Array.isArray(volumes)) {
 }
 
 const endpointMatches = configuredEndpointId
-  ? endpoints.filter(
-      (endpoint) => text(endpoint.id) === configuredEndpointId && text(endpoint.name) === ENDPOINT_NAME,
-    )
+  ? endpoints.filter((endpoint) => text(endpoint.id) === configuredEndpointId && text(endpoint.name) === ENDPOINT_NAME)
   : endpoints.filter((endpoint) => text(endpoint.name) === ENDPOINT_NAME);
 if (endpointMatches.length !== 1) {
   throw new Error(`AVANTIQO_IMAGE_Z_CACHE_ENDPOINT_RESOLUTION_FAILED:matches=${endpointMatches.length}`);
@@ -364,22 +408,23 @@ if (
   !text(volume.id) ||
   !text(volume.dataCenterId)
 ) {
-  throw new Error(
-    `AVANTIQO_IMAGE_Z_CACHE_VOLUME_INVALID:name=${text(volume.name)}:size=${finite(volume.size)}:dc=${text(volume.dataCenterId)}`,
-  );
+  throw new Error(`AVANTIQO_IMAGE_Z_CACHE_VOLUME_INVALID:name=${text(volume.name)}:size=${finite(volume.size)}:dc=${text(volume.dataCenterId)}`);
 }
 validateEndpoint(state.endpoint, state.template, local.image, text(volume.id));
 
+const queueCredential = await selectQueueCredential(endpointId, managementKey);
+const inferenceKey = queueCredential.key;
+console.log(`AVANTIQO_IMAGE_Z_CACHE_QUEUE_CREDENTIAL_SOURCE=${queueCredential.source}`);
+console.log("AVANTIQO_IMAGE_Z_CACHE_QUEUE_CREDENTIAL_VALIDATED=true");
+console.log("AVANTIQO_IMAGE_Z_CACHE_QUEUE_CREDENTIAL_VALUE_PRINTED=false");
+console.log("AVANTIQO_IMAGE_Z_CACHE_QUEUE_CREDENTIAL_PERSISTED=false");
+
 const initialHealth = healthCounters(await queue(endpointId, "/health", inferenceKey));
 if (!resumeJobId && (initialHealth.jobs.in_queue !== 0 || initialHealth.jobs.in_progress !== 0)) {
-  throw new Error(
-    `AVANTIQO_IMAGE_Z_CACHE_EXISTING_JOB_BLOCKED:in_queue=${initialHealth.jobs.in_queue}:in_progress=${initialHealth.jobs.in_progress}`,
-  );
+  throw new Error(`AVANTIQO_IMAGE_Z_CACHE_EXISTING_JOB_BLOCKED:in_queue=${initialHealth.jobs.in_queue}:in_progress=${initialHealth.jobs.in_progress}`);
 }
 if (!resumeJobId && (initialHealth.workers.running || initialHealth.workers.throttled || initialHealth.workers.unhealthy)) {
-  throw new Error(
-    `AVANTIQO_IMAGE_Z_CACHE_WORKER_STATE_BLOCKED:running=${initialHealth.workers.running}:throttled=${initialHealth.workers.throttled}:unhealthy=${initialHealth.workers.unhealthy}`,
-  );
+  throw new Error(`AVANTIQO_IMAGE_Z_CACHE_WORKER_STATE_BLOCKED:running=${initialHealth.workers.running}:throttled=${initialHealth.workers.throttled}:unhealthy=${initialHealth.workers.unhealthy}`);
 }
 
 console.log(`AVANTIQO_IMAGE_Z_CACHE_ENDPOINT_ID=${endpointId}`);
@@ -419,9 +464,7 @@ if (resumeJobId) {
       timeoutMs: 30_000,
     });
   } catch (error) {
-    throw new Error(
-      `AVANTIQO_IMAGE_Z_CACHE_SUBMIT_RESULT_UNKNOWN_DO_NOT_RETRY:${text(error?.message).slice(0, 800)}`,
-    );
+    throw new Error(`AVANTIQO_IMAGE_Z_CACHE_SUBMIT_RESULT_UNKNOWN_DO_NOT_RETRY:${text(error?.message).slice(0, 800)}`);
   }
   jobId = text(submittedBody.id);
   if (!jobId) throw new Error("AVANTIQO_IMAGE_Z_CACHE_JOB_ID_MISSING_DO_NOT_RETRY_AUTOMATICALLY");
@@ -441,9 +484,7 @@ while (Date.now() - startedAt < MAX_WAIT_MS) {
   }
   if (status === "COMPLETED") break;
   if (terminalFailure(status)) {
-    throw new Error(
-      `AVANTIQO_IMAGE_Z_CACHE_JOB_FAILED:job_id=${jobId}:status=${status}:error=${text(statusBody?.error).slice(0, 1200)}`,
-    );
+    throw new Error(`AVANTIQO_IMAGE_Z_CACHE_JOB_FAILED:job_id=${jobId}:status=${status}:error=${text(statusBody?.error).slice(0, 1200)}`);
   }
   await sleep(POLL_MS);
   statusBody = await queue(endpointId, `/status/${encodeURIComponent(jobId)}`, inferenceKey);
@@ -451,7 +492,7 @@ while (Date.now() - startedAt < MAX_WAIT_MS) {
 
 if (text(statusBody?.status).toUpperCase() !== "COMPLETED") {
   throw new Error(
-    `AVANTIQO_IMAGE_Z_CACHE_WAIT_TIMEOUT_RESUME_WITH_JOB_ID:job_id=${jobId}:command=node --env-file=.env.local ${process.argv[1]} --job-id=${jobId}`,
+    `AVANTIQO_IMAGE_Z_CACHE_WAIT_TIMEOUT_RESUME_WITH_JOB_ID:job_id=${jobId}:command=node scripts/run-with-avantiqo-local-env.mjs scripts/cache-avantiqo-image-z-image-once-local.mjs --job-id=${jobId}`,
   );
 }
 
@@ -472,6 +513,10 @@ const report = {
   delay_time_ms: finite(statusBody.delayTime),
   worker_id: text(statusBody.workerId) || null,
   immutable_worker_image: local.image,
+  source_sha: local.sourceSha,
+  runtime_revision: EXPECTED_RUNTIME,
+  physical_usage_contract: EXPECTED_PHYSICAL_USAGE,
+  allocation_decision_basis: EXPECTED_ALLOCATION_BASIS,
   network_volume: {
     id: text(volume.id),
     name: text(volume.name),
@@ -485,6 +530,9 @@ const report = {
     workers_min: finite(state.endpoint.workersMin),
     workers_max: finite(state.endpoint.workersMax),
   },
+  queue_credential_source: queueCredential.source,
+  credential_value_printed: false,
+  credential_persisted: false,
   generation_submitted: false,
   inference_performed: false,
   endpoint_mutation_performed: false,
@@ -505,7 +553,7 @@ console.log(`AVANTIQO_IMAGE_Z_CACHE_OUTPUT=${OUTPUT_PATH}`);
 console.log(`AVANTIQO_IMAGE_Z_CACHE_RESULT=${report.result}`);
 console.log(`AVANTIQO_IMAGE_Z_CACHE_READY=${report.cache_ready ? "YES" : "NO"}`);
 console.log(`AVANTIQO_IMAGE_Z_CACHE_RUNTIME_QUOTA_GB=${finite(result.storage.network_volume_quota_gb)}`);
-console.log(`AVANTIQO_IMAGE_Z_CACHE_MEASURED_CONTENT_BYTES=${finite(result.storage.measured_network_volume_content_bytes)}`);
+console.log(`AVANTIQO_IMAGE_Z_CACHE_MEASURED_ALLOCATED_BYTES=${finite(result.storage.measured_network_volume_allocated_bytes)}`);
 console.log(`AVANTIQO_IMAGE_Z_CACHE_QUOTA_FREE_BYTES=${finite(result.storage.disk_free_bytes)}`);
 console.log(`AVANTIQO_IMAGE_Z_CACHE_NEXT_ACTION=${report.next_action}`);
 console.log("AVANTIQO_IMAGE_Z_CACHE_COMPLETE=YES");

@@ -1,7 +1,7 @@
 {
   "contract": "AVANTIQO_VOICE_TTS_WORKER_IMAGE_REFRESH_REQUEST_V1",
-  "requested_for": "tts_blackwell_sm120_runtime_compatibility_refresh",
-  "source_commit": "cd938b6f1c86d4b752c751617be3f95f85480cb6",
+  "requested_for": "tts_blackwell_sm120_dependency_install_repair",
+  "source_commit": "cb7ddeb3e55bd468061981d7191f6b98c6a64bcf",
   "build_tts": true,
   "build_stt": false,
   "platform": "linux/amd64",

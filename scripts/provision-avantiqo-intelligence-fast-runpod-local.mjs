@@ -12,30 +12,23 @@ const ENV_PATH = ".env.local";
 function text(value) {
   return String(value ?? "").trim();
 }
-
 function list(value) {
   return Array.isArray(value) ? value : [];
 }
-
 function object(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
-
-function requiredCredential() {
-  const value = text(
-    process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY,
-  );
-  if (!value) {
-    throw new Error("RUNPOD_MANAGEMENT_OR_API_KEY_REQUIRED");
-  }
+function credential() {
+  const value = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
+  if (!value) throw new Error("RUNPOD_MANAGEMENT_OR_API_KEY_REQUIRED");
   return value;
 }
 
-async function rest(path, credential, options = {}) {
+async function rest(path, key, options = {}) {
   const response = await fetch(`${REST_BASE}${path}`, {
     method: options.method || "GET",
     headers: {
-      Authorization: `Bearer ${credential}`,
+      Authorization: `Bearer ${key}`,
       Accept: "application/json",
       ...(options.body ? { "Content-Type": "application/json" } : {}),
     },
@@ -57,9 +50,7 @@ async function rest(path, credential, options = {}) {
 }
 
 function replaceModel(value) {
-  if (typeof value === "string") {
-    return value.split(DEEP_MODEL).join(FAST_MODEL);
-  }
+  if (typeof value === "string") return value.split(DEEP_MODEL).join(FAST_MODEL);
   if (Array.isArray(value)) return value.map(replaceModel);
   if (value && typeof value === "object") {
     return Object.fromEntries(
@@ -69,22 +60,19 @@ function replaceModel(value) {
   return value;
 }
 
-function stripReasoningParserFromArray(values) {
-  const output = [];
-  for (let index = 0; index < values.length; index += 1) {
-    const value = text(values[index]);
-    if (/^--reasoning-parser(?:=|$)/i.test(value)) {
-      if (/^--reasoning-parser$/i.test(value)) index += 1;
-      continue;
-    }
-    output.push(values[index]);
-  }
-  return output;
-}
-
 function stripReasoningParser(value) {
   if (Array.isArray(value)) {
-    return stripReasoningParserFromArray(value.map(replaceModel));
+    const source = value.map(replaceModel);
+    const output = [];
+    for (let index = 0; index < source.length; index += 1) {
+      const current = text(source[index]);
+      if (/^--reasoning-parser(?:=|$)/i.test(current)) {
+        if (/^--reasoning-parser$/i.test(current)) index += 1;
+        continue;
+      }
+      output.push(source[index]);
+    }
+    return output;
   }
   if (typeof value === "string") {
     return replaceModel(value)
@@ -101,20 +89,28 @@ function fastEnvironment(value) {
         const key = text(entry?.key || entry?.name).toUpperCase();
         return !key.includes("REASONING_PARSER");
       })
-      .map((entry) => replaceModel(entry));
+      .map(replaceModel);
   }
-  const env = object(value);
   return Object.fromEntries(
-    Object.entries(env)
+    Object.entries(object(value))
       .filter(([key]) => !key.toUpperCase().includes("REASONING_PARSER"))
       .map(([key, entry]) => [key, replaceModel(entry)]),
   );
 }
 
+function assertFastTemplate(template, code) {
+  const serialized = JSON.stringify(template || {});
+  if (!serialized.includes(FAST_MODEL) || serialized.includes(DEEP_MODEL)) {
+    throw new Error(`${code}_MODEL_MISMATCH`);
+  }
+  if (/reasoning[_-]?parser|--reasoning-parser/i.test(serialized)) {
+    throw new Error(`${code}_REASONING_PARSER_PRESENT`);
+  }
+}
+
 function templateBodyFromDeep(template = {}) {
   const source = object(template);
-  const original = JSON.stringify(source);
-  if (!original.includes(DEEP_MODEL)) {
+  if (!JSON.stringify(source).includes(DEEP_MODEL)) {
     throw new Error("AVANTIQO_INTELLIGENCE_DEEP_TEMPLATE_MODEL_BINDING_NOT_FOUND");
   }
   const body = {
@@ -132,20 +128,12 @@ function templateBodyFromDeep(template = {}) {
       "Avantiqo-owned fast Intelligence lane. Qwen3-30B-A3B-Instruct-2507; bounded non-thinking decisions only.",
     volumeInGb: Math.max(0, Number(source.volumeInGb || 0)),
     volumeMountPath: text(source.volumeMountPath) || "/workspace",
+    ...(text(source.containerRegistryAuthId)
+      ? { containerRegistryAuthId: text(source.containerRegistryAuthId) }
+      : {}),
   };
-  if (text(source.containerRegistryAuthId)) {
-    body.containerRegistryAuthId = text(source.containerRegistryAuthId);
-  }
-  if (!body.imageName) {
-    throw new Error("AVANTIQO_INTELLIGENCE_DEEP_TEMPLATE_IMAGE_REQUIRED");
-  }
-  const serialized = JSON.stringify(body);
-  if (!serialized.includes(FAST_MODEL) || serialized.includes(DEEP_MODEL)) {
-    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_MODEL_REWRITE_FAILED");
-  }
-  if (/reasoning[_-]?parser|--reasoning-parser/i.test(serialized)) {
-    throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_REASONING_PARSER_PRESENT");
-  }
+  if (!body.imageName) throw new Error("AVANTIQO_INTELLIGENCE_DEEP_TEMPLATE_IMAGE_REQUIRED");
+  assertFastTemplate(body, "AVANTIQO_INTELLIGENCE_FAST_TEMPLATE");
   return body;
 }
 
@@ -182,8 +170,8 @@ async function persistEndpointId(endpointId) {
     source = "";
   }
   const key = "RUNPOD_AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_ID";
-  const line = `${key}=${id}`;
   const pattern = new RegExp(`^${key}=.*$`, "m");
+  const line = `${key}=${id}`;
   const next = pattern.test(source)
     ? source.replace(pattern, line)
     : `${source.replace(/\s*$/, "")}\n${line}\n`;
@@ -214,51 +202,41 @@ if (apply && !approved) {
   throw new Error("AVANTIQO_INTELLIGENCE_FAST_RUNPOD_PROVISION_APPROVED=YES_REQUIRED");
 }
 
-const credential = requiredCredential();
+const key = credential();
 const [endpoints, templates] = await Promise.all([
-  rest("/endpoints?includeTemplate=true&includeWorkers=false", credential),
+  rest("/endpoints?includeTemplate=true&includeWorkers=false", key),
   rest(
     "/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false",
-    credential,
+    key,
   ),
 ]);
 if (!Array.isArray(endpoints)) throw new Error("RUNPOD_ENDPOINT_LIST_INVALID");
 if (!Array.isArray(templates)) throw new Error("RUNPOD_TEMPLATE_LIST_INVALID");
 
-const deepMatches = endpoints.filter(
-  (endpoint) => text(endpoint?.name) === DEEP_ENDPOINT_NAME,
-);
+const deepMatches = endpoints.filter((item) => text(item?.name) === DEEP_ENDPOINT_NAME);
 if (deepMatches.length !== 1) {
   throw new Error(`AVANTIQO_INTELLIGENCE_DEEP_ENDPOINT_RESOLUTION_FAILED:matches=${deepMatches.length}`);
 }
 const deepEndpoint = deepMatches[0];
 const deepTemplateId = text(deepEndpoint.templateId || deepEndpoint.template?.id);
 const deepTemplate =
-  deepEndpoint.template ||
-  templates.find((template) => text(template?.id) === deepTemplateId);
+  templates.find((item) => text(item?.id) === deepTemplateId) ||
+  deepEndpoint.template;
 if (!deepTemplate || !deepTemplateId) {
   throw new Error("AVANTIQO_INTELLIGENCE_DEEP_TEMPLATE_REQUIRED");
 }
 
-const fastMatches = endpoints.filter(
-  (endpoint) => text(endpoint?.name) === FAST_ENDPOINT_NAME,
-);
+const fastMatches = endpoints.filter((item) => text(item?.name) === FAST_ENDPOINT_NAME);
 if (fastMatches.length > 1) {
   throw new Error(`AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_AMBIGUOUS:matches=${fastMatches.length}`);
 }
-
 if (fastMatches.length === 1) {
   const existing = fastMatches[0];
-  const template =
-    existing.template ||
-    templates.find((item) => text(item?.id) === text(existing.templateId));
-  const serialized = JSON.stringify(template || {});
-  if (!serialized.includes(FAST_MODEL) || serialized.includes(DEEP_MODEL)) {
-    throw new Error("AVANTIQO_INTELLIGENCE_FAST_EXISTING_ENDPOINT_MODEL_MISMATCH");
-  }
-  if (/reasoning[_-]?parser|--reasoning-parser/i.test(serialized)) {
-    throw new Error("AVANTIQO_INTELLIGENCE_FAST_EXISTING_ENDPOINT_REASONING_PARSER_PRESENT");
-  }
+  const existingTemplateId = text(existing.templateId || existing.template?.id);
+  const existingTemplate =
+    templates.find((item) => text(item?.id) === existingTemplateId) ||
+    existing.template;
+  assertFastTemplate(existingTemplate, "AVANTIQO_INTELLIGENCE_FAST_EXISTING_ENDPOINT");
   if (apply) await persistEndpointId(existing.id);
   console.log(JSON.stringify({
     success: true,
@@ -278,10 +256,13 @@ if (fastMatches.length === 1) {
 
 const templateBody = templateBodyFromDeep(deepTemplate);
 const exactFastTemplates = templates.filter(
-  (template) => text(template?.name) === FAST_TEMPLATE_NAME,
+  (item) => text(item?.name) === FAST_TEMPLATE_NAME,
 );
 if (exactFastTemplates.length > 1) {
   throw new Error(`AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_AMBIGUOUS:matches=${exactFastTemplates.length}`);
+}
+if (exactFastTemplates[0]) {
+  assertFastTemplate(exactFastTemplates[0], "AVANTIQO_INTELLIGENCE_FAST_EXISTING_TEMPLATE");
 }
 
 const plan = {
@@ -300,7 +281,6 @@ const plan = {
   generation_submitted: false,
   production_deploy_performed: false,
 };
-
 if (!apply) {
   console.log(JSON.stringify(plan, null, 2));
   process.exit(0);
@@ -308,46 +288,31 @@ if (!apply) {
 
 let fastTemplate = exactFastTemplates[0] || null;
 if (!fastTemplate) {
-  fastTemplate = await rest("/templates", credential, {
-    method: "POST",
-    body: templateBody,
-  });
+  fastTemplate = await rest("/templates", key, { method: "POST", body: templateBody });
 }
 const fastTemplateId = text(fastTemplate?.id);
-if (!fastTemplateId) {
-  throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_ID_REQUIRED");
-}
-const serializedFastTemplate = JSON.stringify(fastTemplate);
-if (
-  (serializedFastTemplate.includes(DEEP_MODEL) ||
-    /reasoning[_-]?parser|--reasoning-parser/i.test(serializedFastTemplate)) &&
-  serializedFastTemplate.length > 2
-) {
-  throw new Error("AVANTIQO_INTELLIGENCE_FAST_CREATED_TEMPLATE_INVALID");
-}
+if (!fastTemplateId) throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_ID_REQUIRED");
 
 const freshEndpoints = await rest(
   "/endpoints?includeTemplate=false&includeWorkers=false",
-  credential,
+  key,
 );
 const appeared = Array.isArray(freshEndpoints)
-  ? freshEndpoints.filter((endpoint) => text(endpoint?.name) === FAST_ENDPOINT_NAME)
+  ? freshEndpoints.filter((item) => text(item?.name) === FAST_ENDPOINT_NAME)
   : [];
 if (appeared.length) {
   throw new Error(`AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_APPEARED_REPLAN_REQUIRED:matches=${appeared.length}`);
 }
 
-const created = await rest("/endpoints", credential, {
+const created = await rest("/endpoints", key, {
   method: "POST",
   body: endpointBodyFromDeep(deepEndpoint, fastTemplateId),
 });
 const endpointId = text(created?.id);
-if (!endpointId) {
-  throw new Error("AVANTIQO_INTELLIGENCE_FAST_CREATED_ENDPOINT_ID_REQUIRED");
-}
+if (!endpointId) throw new Error("AVANTIQO_INTELLIGENCE_FAST_CREATED_ENDPOINT_ID_REQUIRED");
 const verified = await rest(
   `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=false`,
-  credential,
+  key,
 );
 if (
   text(verified?.name) !== FAST_ENDPOINT_NAME ||
@@ -355,16 +320,11 @@ if (
 ) {
   throw new Error("AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_VERIFY_FAILED");
 }
-const verifiedTemplate = verified.template || fastTemplate;
-const verifiedSerialized = JSON.stringify(verifiedTemplate || {});
-if (
-  !verifiedSerialized.includes(FAST_MODEL) ||
-  verifiedSerialized.includes(DEEP_MODEL) ||
-  /reasoning[_-]?parser|--reasoning-parser/i.test(verifiedSerialized)
-) {
-  throw new Error("AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_MODEL_VERIFY_FAILED");
-}
-
+const verifiedTemplate =
+  templates.find((item) => text(item?.id) === fastTemplateId) ||
+  verified.template ||
+  fastTemplate;
+assertFastTemplate(verifiedTemplate, "AVANTIQO_INTELLIGENCE_FAST_ENDPOINT");
 await persistEndpointId(endpointId);
 
 console.log(JSON.stringify({

@@ -1,17 +1,20 @@
 {
-  "contract": "AVANTIQO_IMAGE_WORKER_IMAGE_REQUEST_V2",
+  "contract": "AVANTIQO_IMAGE_WORKER_IMAGE_REQUEST_V3",
   "requested_for": "avantiqo-image-v1",
   "source_path": "services/avantiqo-image-engine",
-  "entrypoint": "handler_v4.py",
-  "entrypoint_revision": "AVANTIQO_IMAGE_HANDLER_V4_MULTI_FOUNDATION_CANDIDATE_V1",
+  "entrypoint": "handler_v5.py",
+  "entrypoint_revision": "AVANTIQO_IMAGE_HANDLER_V5_VOLUME_QUOTA_GUARD_V1",
   "runtime_probe_contract": "AVANTIQO_IMAGE_RUNTIME_PROBE_V1",
-  "runtime_revision": "AVANTIQO_IMAGE_MULTI_FOUNDATION_CANDIDATE_V1",
+  "runtime_revision": "AVANTIQO_IMAGE_MULTI_FOUNDATION_VOLUME_QUOTA_GUARD_V1",
   "qwen_runtime_revision": "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2",
   "photoreal_candidate_foundation": "Tongyi-MAI/Z-Image",
   "photoreal_candidate_profile": "AVANTIQO_IMAGE_COMMERCIAL_PHOTOREAL_CANDIDATE_V1",
   "photoreal_candidate_policy": "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V1",
   "photoreal_cache_contract": "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1",
   "capacity_probe_operation": "inspect_foundation_capacity",
+  "volume_quota_guard_contract": "AVANTIQO_IMAGE_NETWORK_VOLUME_QUOTA_GUARD_V1",
+  "network_volume_quota_gb": 80,
+  "backing_filesystem_capacity_used_for_decision": false,
   "automatic_production_routing_enabled": false,
   "qwen_replaced": false,
   "immutable_digest_required": true,
@@ -21,5 +24,5 @@
   "model_download_submitted": false,
   "production_web_deploy": false,
   "pricing_activation_performed": false,
-  "refresh_requested_at": "2026-08-25T02:25:00.000Z"
+  "refresh_requested_at": "2026-08-25T02:53:45.000Z"
 }

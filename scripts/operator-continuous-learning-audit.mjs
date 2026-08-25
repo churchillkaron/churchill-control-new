@@ -65,6 +65,10 @@ for (const required of [
   "openai_used: false",
   "external_intelligence_provider_allowed: false",
   "internet_content_untrusted: true",
+  "OPEN_PUBLIC_EVIDENCE",
+  "PROHIBITED_OWNED_EVIDENCE_HOSTS",
+  "failed_sources",
+  "failures=",
 ]) {
   assert(
     ownedEvidence.includes(required),
@@ -73,6 +77,7 @@ for (const required of [
 }
 assert(!ownedEvidence.includes("ServiceExecutionRuntime"), "CONTINUOUS_LEARNING_SERVICE_PROVIDER_RESEARCH_FORBIDDEN");
 assert(!ownedEvidence.includes("OPENAI_API_KEY"), "CONTINUOUS_LEARNING_OPENAI_SECRET_FORBIDDEN");
+assert(!ownedEvidence.includes("https://www.iso.org"), "CONTINUOUS_LEARNING_ISO_EVIDENCE_FORBIDDEN");
 
 assert(capability.includes("runKnowledgeAwareWebResearch"), "WEB_RESEARCH_CAPABILITY_KNOWLEDGE_REUSE_REQUIRED");
 assert(capability.includes("knowledge-reuse"), "WEB_RESEARCH_CAPABILITY_KNOWLEDGE_TAG_REQUIRED");
@@ -200,5 +205,9 @@ console.log("AVANTIQO_CONTINUOUS_LEARNING_CONCURRENT_FAST_LEASE_GUARDED=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_FAST_COLD_START_BOUNDED=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_HTTP_HEADER_CEILING_REMOVED=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_OWNED_PUBLIC_EVIDENCE=YES");
+console.log("AVANTIQO_CONTINUOUS_LEARNING_OPEN_EVIDENCE_POLICY=YES");
+console.log("AVANTIQO_CONTINUOUS_LEARNING_SOURCE_REDUNDANCY=YES");
+console.log("AVANTIQO_CONTINUOUS_LEARNING_SOURCE_FAILURE_DIAGNOSTICS=YES");
+console.log("AVANTIQO_CONTINUOUS_LEARNING_ISO_CONTENT=BLOCKED");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_EXTERNAL_INTELLIGENCE_PROVIDER=NO");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_OPENAI_USED=NO");

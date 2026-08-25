@@ -36,18 +36,26 @@ jobs:
         shell: bash
         run: node --check scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs
 
-      - name: Verify read-only management credential
-        shell: bash
-        run: |
-          test -n "${RUNPOD_MANAGEMENT_API_KEY:-}" || {
-            echo "RUNPOD_MANAGEMENT_API_KEY or RUNPOD_API_KEY secret is missing"
-            exit 1
-          }
-
-      - name: Inspect model improvement RunPod readiness
+      - name: Resolve credential source
+        id: credential
         shell: bash
         run: |
           mkdir -p artifacts/intelligence-model-improvement-readiness
+          if [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ]; then
+            cat > artifacts/intelligence-model-improvement-readiness/readiness.json <<'JSON'
+          {"success":false,"contract":"AVANTIQO_INTELLIGENCE_MODEL_IMPROVEMENT_RUNPOD_READINESS_V1","status":"BLOCKED_EXTERNAL_CREDENTIAL_SOURCE","mode":"READ_ONLY","blocker":"RUNPOD_MANAGEMENT_API_KEY_OR_RUNPOD_API_KEY_NOT_AVAILABLE_IN_GITHUB_ACTIONS","local_vercel_env_bridge":"scripts/run-avantiqo-intelligence-model-improvement-readiness-local.sh","governance":{"management_read_only":true,"provider_job_submitted":false,"training_started":false,"endpoint_mutated":false,"template_mutated":false,"network_volume_mutated":false,"candidate_probe_submitted":false,"production_model_promoted":false,"production_web_deploy":false,"secrets_in_output":false}}
+          JSON
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "AVANTIQO_INTELLIGENCE_READINESS_BLOCKED_EXTERNAL_CREDENTIAL_SOURCE=true"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "AVANTIQO_INTELLIGENCE_READINESS_GITHUB_CREDENTIAL_SOURCE_AVAILABLE=true"
+          fi
+
+      - name: Inspect model improvement RunPod readiness
+        if: steps.credential.outputs.available == 'true'
+        shell: bash
+        run: |
           node scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs \
             > artifacts/intelligence-model-improvement-readiness/readiness.json
           cat artifacts/intelligence-model-improvement-readiness/readiness.json
@@ -77,7 +85,11 @@ jobs:
             console.error(violations.join("; "));
             process.exit(1);
           }
-          console.log("AVANTIQO_INTELLIGENCE_MODEL_IMPROVEMENT_READINESS_READ_ONLY=PASS");
+          if (report?.status === "BLOCKED_EXTERNAL_CREDENTIAL_SOURCE") {
+            console.log("AVANTIQO_INTELLIGENCE_MODEL_IMPROVEMENT_READINESS=BLOCKED_EXTERNAL_CREDENTIAL_SOURCE");
+          } else {
+            console.log("AVANTIQO_INTELLIGENCE_MODEL_IMPROVEMENT_READINESS_READ_ONLY=PASS");
+          }
           NODE
 
       - name: Upload sanitized readiness evidence
@@ -86,5 +98,5 @@ jobs:
         with:
           name: avantiqo-intelligence-model-improvement-readiness-${{ github.run_id }}
           path: artifacts/intelligence-model-improvement-readiness/readiness.json
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14

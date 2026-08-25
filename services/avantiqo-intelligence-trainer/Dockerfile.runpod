@@ -38,6 +38,7 @@ assert version("runpod") == "1.12.0", version("runpod")
 assert version("transformers") == "5.15.0", version("transformers")
 assert version("peft") == "0.20.0", version("peft")
 assert version("accelerate") == "1.14.0", version("accelerate")
+assert version("safetensors") == "0.8.0", version("safetensors")
 try:
     version("bitsandbytes")
 except PackageNotFoundError:
@@ -45,6 +46,7 @@ except PackageNotFoundError:
 else:
     raise AssertionError("bitsandbytes must not be installed in the fused Qwen3-MoE BF16 trainer")
 print("AVANTIQO_INTELLIGENCE_TRAINER_DEPENDENCY_CHECK=PASS")
+print("AVANTIQO_INTELLIGENCE_TRAINER_SAFETENSORS=0.8.0")
 print("AVANTIQO_INTELLIGENCE_TRAINER_METHOD=LORA_BF16_PEFT_QWEN3_MOE")
 PY
 

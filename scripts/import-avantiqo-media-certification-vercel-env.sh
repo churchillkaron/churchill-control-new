@@ -13,8 +13,8 @@ command -v vercel >/dev/null 2>&1 || {
   echo "AVANTIQO_MEDIA_CERTIFICATION_VERCEL_CLI_REQUIRED" >&2
   exit 1
 }
-command -v node >/dev/null 2>&1 || {
-  echo "AVANTIQO_MEDIA_CERTIFICATION_NODE_REQUIRED" >&2
+command -v sh >/dev/null 2>&1 || {
+  echo "AVANTIQO_MEDIA_CERTIFICATION_SHELL_REQUIRED" >&2
   exit 1
 }
 
@@ -24,18 +24,22 @@ trap 'rm -f "$TMP_VERCEL_ENV" "$TMP_LOCAL_ENV"' EXIT HUP INT TERM
 
 vercel env pull "$TMP_VERCEL_ENV" --environment=production --yes >/dev/null
 
-node_has_effective_local_value() {
-  name="$1"
-  env -u "$name" AVANTIQO_ENV_CHECK_NAME="$name" node --env-file=.env.local -e '
-    const name = process.env.AVANTIQO_ENV_CHECK_NAME;
-    const value = String(process.env[name] || "").trim();
-    process.exit(value ? 0 : 1);
-  ' >/dev/null 2>&1
+shell_env_has_effective_value() {
+  file="$1"
+  name="$2"
+  env -u "$name" sh -c '
+    set -a
+    . "$1"
+    set +a
+    value=$(printenv "$2" 2>/dev/null || true)
+    [ -n "$value" ]
+  ' avantiqo-env-check "$file" "$name" >/dev/null 2>&1
 }
 
 IMPORTED_COUNT=0
 REFRESHED_COUNT=0
 NOT_IN_VERCEL_COUNT=0
+VERCEL_EMPTY_COUNT=0
 
 for name in \
   RUNPOD_API_KEY \
@@ -51,15 +55,21 @@ for name in \
   AVANTIQO_AUDIO_GPU_USD_PER_HOUR \
   AVANTIQO_LIPSYNC_GPU_USD_PER_SECOND
 do
-  if node_has_effective_local_value "$name"; then
+  if shell_env_has_effective_value .env.local "$name"; then
     echo "AVANTIQO_MEDIA_CERTIFICATION_LOCAL_EFFECTIVE:${name}"
     continue
   fi
 
-  SOURCE_LINE=$(grep -E "^(export[[:space:]]+)?${name}=.+$" "$TMP_VERCEL_ENV" | tail -n 1 || true)
+  SOURCE_LINE=$(grep -E "^(export[[:space:]]+)?${name}=.*$" "$TMP_VERCEL_ENV" | tail -n 1 || true)
   if [ -z "$SOURCE_LINE" ]; then
     echo "AVANTIQO_MEDIA_CERTIFICATION_NOT_IN_VERCEL:${name}"
     NOT_IN_VERCEL_COUNT=$((NOT_IN_VERCEL_COUNT + 1))
+    continue
+  fi
+
+  if ! shell_env_has_effective_value "$TMP_VERCEL_ENV" "$name"; then
+    echo "AVANTIQO_MEDIA_CERTIFICATION_VERCEL_VALUE_EMPTY_OR_INEFFECTIVE:${name}"
+    VERCEL_EMPTY_COUNT=$((VERCEL_EMPTY_COUNT + 1))
     continue
   fi
 
@@ -73,7 +83,7 @@ do
   printf '%s\n' "$SOURCE_LINE" >> .env.local
   chmod 600 .env.local
 
-  if ! node_has_effective_local_value "$name"; then
+  if ! shell_env_has_effective_value .env.local "$name"; then
     echo "AVANTIQO_MEDIA_CERTIFICATION_IMPORTED_VALUE_NOT_EFFECTIVE:${name}" >&2
     exit 1
   fi
@@ -85,6 +95,7 @@ done
 echo "AVANTIQO_MEDIA_CERTIFICATION_IMPORTED_FROM_VERCEL_COUNT=${IMPORTED_COUNT}"
 echo "AVANTIQO_MEDIA_CERTIFICATION_REFRESHED_INEFFECTIVE_COUNT=${REFRESHED_COUNT}"
 echo "AVANTIQO_MEDIA_CERTIFICATION_NOT_IN_VERCEL_COUNT=${NOT_IN_VERCEL_COUNT}"
+echo "AVANTIQO_MEDIA_CERTIFICATION_VERCEL_EMPTY_OR_INEFFECTIVE_COUNT=${VERCEL_EMPTY_COUNT}"
 echo "AVANTIQO_MEDIA_CERTIFICATION_FACE_FIXTURES_LOCAL_ONLY=true"
 echo "AVANTIQO_MEDIA_CERTIFICATION_SECRET_VALUES_PRINTED=false"
 echo "AVANTIQO_MEDIA_CERTIFICATION_PRODUCTION_DEPLOY_PERFORMED=false"

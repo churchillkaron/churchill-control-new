@@ -11,10 +11,20 @@ const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const SHARED_VOLUME_NAME = "avantiqo-shared-audio-voice-cache";
 const MIN_SHARED_VOLUME_GB = 80;
 const MIN_GPU_MEMORY_GB = 24;
-const ECONOMIC_24GB_FLEX_GPU_TYPES = Object.freeze([
-  "NVIDIA L4",
-  "NVIDIA RTX A5000",
-  "NVIDIA GeForce RTX 3090",
+
+const GPU_PREFERENCES = Object.freeze([
+  { pattern: /\bL4\b/i, score: 1000 },
+  { pattern: /RTX\s*A5000/i, score: 980 },
+  { pattern: /RTX.*3090/i, score: 960 },
+  { pattern: /RTX.*4090/i, score: 950 },
+  { pattern: /\bA40\b/i, score: 940 },
+  { pattern: /RTX\s*A6000/i, score: 930 },
+  { pattern: /\bL40S\b/i, score: 920 },
+  { pattern: /\bL40\b/i, score: 910 },
+  { pattern: /RTX.*6000.*Ada|Ada.*RTX.*6000/i, score: 900 },
+  { pattern: /\bA100\b/i, score: 700 },
+  { pattern: /\bH100\b/i, score: 600 },
+  { pattern: /\bH200\b/i, score: 500 },
 ]);
 
 function text(value) {
@@ -73,6 +83,15 @@ function regionPreference(id) {
   return index < 0 ? 0 : order.length - index;
 }
 
+function gpuPreference(gpu = {}) {
+  const label = [gpu?.gpuTypeId, gpu?.gpuTypeDisplayName, gpu?.displayName]
+    .map(text)
+    .filter(Boolean)
+    .join(" ");
+  if (!label || /\bMIG\b/i.test(label)) return 0;
+  return GPU_PREFERENCES.find(({ pattern }) => pattern.test(label))?.score || 0;
+}
+
 async function rest(path, credential) {
   const response = await fetch(`${REST_BASE}${path}`, {
     headers: { Authorization: `Bearer ${credential}`, Accept: "application/json" },
@@ -80,11 +99,7 @@ async function rest(path, credential) {
   });
   const raw = await response.text();
   let body = null;
-  try {
-    body = raw ? JSON.parse(raw) : null;
-  } catch {
-    body = null;
-  }
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
   if (!response.ok) {
     const detail = text(body?.message || body?.error || body?.detail || raw).slice(0, 900);
     throw new Error(`RUNPOD_REST_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
@@ -128,11 +143,7 @@ async function discoverDatacenters(credential) {
   });
   const raw = await response.text();
   let body = null;
-  try {
-    body = raw ? JSON.parse(raw) : null;
-  } catch {
-    body = null;
-  }
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
   if (!response.ok || body?.errors?.length) {
     const detail = text(
       body?.errors?.map((entry) => entry?.message).filter(Boolean).join(" | ") || raw,
@@ -147,30 +158,33 @@ async function discoverDatacenters(credential) {
 
 function safeGpu(gpu = {}) {
   const gpuTypeId = text(gpu?.gpuTypeId);
+  const preference = gpuPreference(gpu);
   return {
     gpu_type_id: gpuTypeId || null,
     gpu_name: text(gpu?.gpuTypeDisplayName || gpu?.displayName) || null,
-    economic_24gb_flex: ECONOMIC_24GB_FLEX_GPU_TYPES.includes(gpuTypeId),
+    approved_24gb_plus: preference > 0,
+    preference,
     available: gpu?.available === true,
     stock_status: text(gpu?.stockStatus) || null,
     stock_rank: stockRank(gpu?.stockStatus),
   };
 }
 
-function economicCapacity(dataCenter = {}) {
+function approvedCapacity(dataCenter = {}) {
   return list(dataCenter?.gpuAvailability)
     .map(safeGpu)
-    .filter((gpu) => gpu.economic_24gb_flex)
+    .filter((gpu) => gpu.gpu_type_id && gpu.approved_24gb_plus)
     .sort(
       (left, right) =>
         Number(right.available) - Number(left.available) ||
         right.stock_rank - left.stock_rank ||
+        right.preference - left.preference ||
         left.gpu_type_id.localeCompare(right.gpu_type_id),
     );
 }
 
-function liveEconomicGpuTypes(dataCenter = {}) {
-  return economicCapacity(dataCenter)
+function liveApprovedGpuTypes(dataCenter = {}) {
+  return approvedCapacity(dataCenter)
     .filter((gpu) => gpu.available && gpu.stock_rank > 0)
     .map((gpu) => gpu.gpu_type_id);
 }
@@ -217,8 +231,8 @@ if (!currentDataCenter) {
   throw new Error(`AVANTIQO_MUSIC_SHARED_VOLUME_DATACENTER_NOT_FOUND:${dataCenterId}`);
 }
 
-const currentRegionCapacity = economicCapacity(currentDataCenter);
-const currentRegionLiveGpuTypes = liveEconomicGpuTypes(currentDataCenter);
+const currentRegionCapacity = approvedCapacity(currentDataCenter);
+const currentRegionLiveGpuTypes = liveApprovedGpuTypes(currentDataCenter);
 const schedulableGpuTypes = endpointGpuTypes.filter((gpuTypeId) =>
   currentRegionLiveGpuTypes.includes(gpuTypeId),
 );
@@ -229,25 +243,30 @@ const inPlaceExpansionGpuTypes = currentRegionLiveGpuTypes.filter(
 const migrationCandidates = dataCenters
   .filter((entry) => entry?.storageSupport === true && text(entry?.id) !== dataCenterId)
   .map((entry) => {
-    const liveGpuTypes = liveEconomicGpuTypes(entry);
-    const capacity = economicCapacity(entry);
+    const liveGpuTypes = liveApprovedGpuTypes(entry);
+    const capacity = approvedCapacity(entry);
     const highestStockRank = capacity
       .filter((gpu) => gpu.available && gpu.stock_rank > 0)
       .reduce((max, gpu) => Math.max(max, gpu.stock_rank), 0);
+    const highestPreference = capacity
+      .filter((gpu) => gpu.available && gpu.stock_rank > 0)
+      .reduce((max, gpu) => Math.max(max, gpu.preference), 0);
     return {
       data_center_id: text(entry?.id) || null,
       name: text(entry?.name) || null,
       location: text(entry?.location) || null,
-      live_economic_gpu_types: liveGpuTypes,
+      live_approved_gpu_types: liveGpuTypes,
       highest_stock_rank: highestStockRank,
+      highest_gpu_preference: highestPreference,
       region_preference: regionPreference(entry?.id),
     };
   })
-  .filter((entry) => entry.data_center_id && entry.live_economic_gpu_types.length)
+  .filter((entry) => entry.data_center_id && entry.live_approved_gpu_types.length)
   .sort(
     (left, right) =>
       right.highest_stock_rank - left.highest_stock_rank ||
-      right.live_economic_gpu_types.length - left.live_economic_gpu_types.length ||
+      right.highest_gpu_preference - left.highest_gpu_preference ||
+      right.live_approved_gpu_types.length - left.live_approved_gpu_types.length ||
       right.region_preference - left.region_preference ||
       left.data_center_id.localeCompare(right.data_center_id),
   );
@@ -260,6 +279,7 @@ console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   capacity_sufficient: capacitySufficient,
+  capacity_policy: "KNOWN_NON_MIG_CUDA_24GB_PLUS_LIVE_STOCK",
   endpoint: {
     id: endpointId,
     name: AUDIO_ENDPOINT_NAME,
@@ -276,13 +296,16 @@ console.log(JSON.stringify({
   current_region: {
     data_center_id: dataCenterId,
     storage_support: currentDataCenter?.storageSupport === true,
-    economic_capacity: currentRegionCapacity,
-    live_economic_gpu_types: currentRegionLiveGpuTypes,
+    approved_capacity: currentRegionCapacity,
+    live_approved_gpu_types: currentRegionLiveGpuTypes,
     endpoint_schedulable_gpu_types: schedulableGpuTypes,
   },
   repair: {
     in_place_gpu_pool_expansion_possible: inPlaceRepairPossible,
     in_place_gpu_types_to_add: inPlaceExpansionGpuTypes,
+    recommended_in_place_gpu_pool: inPlaceRepairPossible
+      ? unique([...endpointGpuTypes, ...inPlaceExpansionGpuTypes])
+      : endpointGpuTypes,
     shared_cache_region_migration_required: migrationRequired,
     recommended_migration_target: migrationCandidates[0] || null,
   },

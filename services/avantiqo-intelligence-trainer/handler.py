@@ -24,6 +24,19 @@ MAX_SEQUENCE_LENGTH = 4096
 MAX_STEPS = 300
 MAX_EPOCHS = 3
 MAX_LORA_RANK = 64
+DENSE_LORA_TARGET_MODULES = [
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj",
+]
+MOE_LORA_TARGET_PARAMETERS = [
+    "mlp.experts.gate_up_proj",
+    "mlp.experts.down_proj",
+]
 JOB_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,160}$")
 LEAKAGE_PATTERNS = [
     re.compile(r"https?://", re.I),
@@ -108,6 +121,11 @@ def training_plan(payload: dict) -> dict:
     train_examples = validate_examples(payload.get("train_examples"), MAX_TRAIN_EXAMPLES)
     holdout_examples = validate_examples(payload.get("holdout_examples"), MAX_HOLDOUT_EXAMPLES)
     settings = obj(payload.get("settings"))
+    requested_lora_dropout = bounded_float(
+        settings.get("lora_dropout"), 0.0, 0.0, 0.3
+    )
+    if requested_lora_dropout != 0.0:
+        raise ValueError("TRAINING_QWEN3_MOE_LORA_DROPOUT_MUST_BE_ZERO")
     return {
         "job_id": job_id,
         "foundation_model": model,
@@ -127,9 +145,7 @@ def training_plan(payload: dict) -> dict:
             ),
             "lora_rank": bounded_int(settings.get("lora_rank"), 16, 4, MAX_LORA_RANK),
             "lora_alpha": bounded_int(settings.get("lora_alpha"), 32, 8, 256),
-            "lora_dropout": bounded_float(
-                settings.get("lora_dropout"), 0.05, 0.0, 0.3
-            ),
+            "lora_dropout": 0.0,
         },
     }
 
@@ -201,6 +217,91 @@ def evaluate_loss(model, loader, device) -> float:
     return total / max(1, count)
 
 
+def qwen3_moe_expert_count(model) -> int:
+    model_type = text(getattr(model.config, "model_type", ""), 80)
+    if model_type != "qwen3_moe":
+        raise RuntimeError(f"TRAINING_QWEN3_MOE_MODEL_TYPE_REQUIRED:{model_type or 'unknown'}")
+    raw_count = (
+        getattr(model.config, "num_local_experts", None)
+        or getattr(model.config, "num_experts", None)
+        or 0
+    )
+    try:
+        count = int(raw_count)
+    except (TypeError, ValueError):
+        count = 0
+    if count < 2:
+        raise RuntimeError("TRAINING_QWEN3_MOE_EXPERT_COUNT_REQUIRED")
+    return count
+
+
+def build_qwen3_moe_lora(model, settings: dict):
+    expert_count = qwen3_moe_expert_count(model)
+    effective_expert_rank = max(1, settings["lora_rank"] // expert_count)
+    config = LoraConfig(
+        task_type="CAUSAL_LM",
+        r=settings["lora_rank"],
+        lora_alpha=settings["lora_alpha"],
+        lora_dropout=0.0,
+        bias="none",
+        target_modules=DENSE_LORA_TARGET_MODULES,
+        target_parameters=MOE_LORA_TARGET_PARAMETERS,
+        rank_pattern={
+            "experts.gate_up_proj": effective_expert_rank,
+            "experts.down_proj": effective_expert_rank,
+        },
+    )
+    return config, expert_count, effective_expert_rank
+
+
+def assert_moe_lora_attached(model) -> dict:
+    peft_config = obj(getattr(model, "peft_config", {})).get("default")
+    configured_targets = set(
+        arr(getattr(peft_config, "target_parameters", None))
+    )
+    expected_targets = set(MOE_LORA_TARGET_PARAMETERS)
+    if configured_targets != expected_targets:
+        raise RuntimeError("TRAINING_QWEN3_MOE_TARGET_PARAMETERS_NOT_BOUND")
+
+    wrapped_parameter_names = set()
+    wrapper_count = 0
+    for name, module in model.named_modules():
+        if module.__class__.__name__ != "ParamWrapper":
+            continue
+        if "experts" not in name:
+            continue
+        parameter_name = text(getattr(module, "parameter_name", ""), 120)
+        if parameter_name in {"gate_up_proj", "down_proj"}:
+            wrapper_count += 1
+            wrapped_parameter_names.add(parameter_name)
+
+    if wrapped_parameter_names != {"gate_up_proj", "down_proj"}:
+        raise RuntimeError("TRAINING_QWEN3_MOE_EXPERT_PARAM_WRAPPERS_REQUIRED")
+
+    expert_trainable_parameter_count = 0
+    total_trainable_parameter_count = 0
+    expert_trainable_names = []
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        parameter_count = int(parameter.numel())
+        total_trainable_parameter_count += parameter_count
+        lowered = name.lower()
+        if "experts" in lowered and "lora_" in lowered:
+            expert_trainable_parameter_count += parameter_count
+            expert_trainable_names.append(name)
+
+    if expert_trainable_parameter_count <= 0 or not expert_trainable_names:
+        raise RuntimeError("TRAINING_QWEN3_MOE_EXPERT_LORA_NOT_TRAINABLE")
+
+    return {
+        "expert_wrapper_count": wrapper_count,
+        "expert_parameter_names": sorted(wrapped_parameter_names),
+        "expert_trainable_parameter_count": expert_trainable_parameter_count,
+        "total_trainable_parameter_count": total_trainable_parameter_count,
+    }
+
+
 def execute_training(plan: dict) -> dict:
     if not torch.cuda.is_available():
         raise RuntimeError("TRAINING_CUDA_REQUIRED")
@@ -230,23 +331,12 @@ def execute_training(plan: dict) -> dict:
         model,
         use_gradient_checkpointing=True,
     )
-    lora = LoraConfig(
-        task_type="CAUSAL_LM",
-        r=settings["lora_rank"],
-        lora_alpha=settings["lora_alpha"],
-        lora_dropout=settings["lora_dropout"],
-        bias="none",
-        target_modules=[
-            "q_proj",
-            "k_proj",
-            "v_proj",
-            "o_proj",
-            "gate_proj",
-            "up_proj",
-            "down_proj",
-        ],
+    lora, expert_count, effective_expert_rank = build_qwen3_moe_lora(
+        model,
+        settings,
     )
     model = get_peft_model(model, lora)
+    attachment = assert_moe_lora_attached(model)
     device = torch.device("cuda:0")
 
     train_data = [
@@ -311,7 +401,19 @@ def execute_training(plan: dict) -> dict:
         "mean_training_loss": cumulative_loss / max(1, micro_steps),
         "holdout_loss": holdout_loss,
         "holdout_perplexity": math.exp(min(20.0, holdout_loss)),
-        "method": "QLORA_NF4_PEFT",
+        "method": "QLORA_NF4_PEFT_QWEN3_MOE",
+        "moe_adapter_attachment_verified": True,
+        "moe_expert_count": expert_count,
+        "moe_effective_rank": effective_expert_rank,
+        "moe_target_parameters": MOE_LORA_TARGET_PARAMETERS,
+        "moe_expert_wrapper_count": attachment["expert_wrapper_count"],
+        "moe_expert_trainable_parameter_count": attachment[
+            "expert_trainable_parameter_count"
+        ],
+        "total_trainable_parameter_count": attachment[
+            "total_trainable_parameter_count"
+        ],
+        "lora_dropout": 0.0,
         "foundation_weights_mutated": False,
         "production_model_promoted": False,
         "raw_reasoning_persisted": False,
@@ -332,6 +434,7 @@ def handler(event):
             "train_example_count": len(plan["train_examples"]),
             "holdout_example_count": len(plan["holdout_examples"]),
             "settings": plan["settings"],
+            "moe_target_parameters": MOE_LORA_TARGET_PARAMETERS,
             "training_started": False,
             "production_model_promoted": False,
         }

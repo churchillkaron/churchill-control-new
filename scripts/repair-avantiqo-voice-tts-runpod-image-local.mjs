@@ -6,12 +6,12 @@ const CONTRACT = "AVANTIQO_VOICE_TTS_RUNPOD_IMAGE_REPAIR_V1";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-voice-worker-images.json";
 const ENDPOINT_NAME = "avantiqo-voice-tts-v1";
 const FOUNDATION_MODEL = "resemble-ai/chatterbox:multilingual-v3";
-const REQUIRED_CUDA = "12.4";
+const REQUIRED_CUDA = "12.8";
 const OLD_FAILED_IMAGE = "ghcr.io/churchillkaron/avantiqo-voice-tts-worker@sha256:7f0d0310d4d2904c18fee4eee46b3bd04e928bd1ebe5d5af5adc7b3015247aa2";
 const DEFAULT_GPU_TYPE_IDS = Object.freeze([
-  "NVIDIA L4",
-  "NVIDIA RTX A5000",
-  "NVIDIA GeForce RTX 3090",
+  "NVIDIA GeForce RTX 5090",
+  "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
 ]);
 const DEFAULT_IDLE_TIMEOUT_SECONDS = 10;
 

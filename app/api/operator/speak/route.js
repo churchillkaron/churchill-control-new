@@ -13,6 +13,8 @@ import {
   requireOperatorVoiceLanguage,
 } from "@/lib/operator/runtime/OperatorVoiceLanguagePolicy";
 
+const VOICE_LANGUAGE_COOKIE = "avantiqo_voice_language";
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -69,9 +71,13 @@ export async function POST(request) {
     const requestedLanguage = text(
       body?.language || body?.requestedLanguage || body?.requested_language,
     ) || null;
-    const detectedLanguage = text(
+    const explicitDetectedLanguage = text(
       body?.detectedLanguage || body?.detected_language,
     ) || null;
+    const continuityLanguage = text(
+      request.cookies?.get?.(VOICE_LANGUAGE_COOKIE)?.value,
+    ) || null;
+    const detectedLanguage = explicitDetectedLanguage || continuityLanguage;
 
     if (!speechText) {
       return errorResponse("Speech text required", 400);
@@ -86,6 +92,10 @@ export async function POST(request) {
       requestedLanguage,
       locale,
     });
+    const continuityUsed =
+      !explicitDetectedLanguage &&
+      Boolean(continuityLanguage) &&
+      voiceLanguage.language_source === "detected";
 
     const access = await requireOrganizationAccess({
       organizationId,
@@ -144,7 +154,10 @@ export async function POST(request) {
         channel: "voice",
         voice_language_contract: voiceLanguage.contract,
         voice_language: voiceLanguage.language,
-        voice_language_source: voiceLanguage.language_source,
+        voice_language_source: continuityUsed
+          ? "detected_continuity"
+          : voiceLanguage.language_source,
+        voice_language_continuity_used: continuityUsed,
         voice_quality: voiceLanguage.voice_quality,
         low_quality_fallback_allowed: false,
       },
@@ -170,7 +183,10 @@ export async function POST(request) {
       bytes: audio.length,
       format: "wav",
       language: voiceLanguage.language,
-      language_source: voiceLanguage.language_source,
+      language_source: continuityUsed
+        ? "detected_continuity"
+        : voiceLanguage.language_source,
+      voice_language_continuity_used: continuityUsed,
     });
 
     return new Response(audio, {
@@ -181,6 +197,9 @@ export async function POST(request) {
         "Cache-Control": "no-store",
         "X-Avantiqo-Voice": "governed",
         "X-Avantiqo-Voice-Language": voiceLanguage.language,
+        "X-Avantiqo-Voice-Language-Source": continuityUsed
+          ? "detected-continuity"
+          : voiceLanguage.language_source,
         "X-Avantiqo-Voice-Quality": voiceLanguage.voice_quality,
       },
     });

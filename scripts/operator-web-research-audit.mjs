@@ -92,6 +92,10 @@ for (const required of [
 for (const required of [
   "COMPARE_EXTERNAL_EVIDENCE: 3200",
   "compilerTokenBudget(metadata, max_output_tokens)",
+  "const BOUNDED_FAST_STRUCTURED_OPERATIONS",
+  "bounded_fast_structured: true",
+  'execution_lane: "fast"',
+  "bounded_fast_structured_reasoning: true",
 ]) {
   if (!supervisorSource.includes(required)) {
     throw new Error(

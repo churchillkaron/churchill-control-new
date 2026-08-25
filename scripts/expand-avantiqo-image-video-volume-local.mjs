@@ -8,7 +8,7 @@ import {
 } from "./lib/avantiqo-runpod-shared-volumes.mjs";
 
 const REST_BASE = "https://rest.runpod.io/v1";
-const CONTRACT = "AVANTIQO_IMAGE_VIDEO_SHARED_VOLUME_EXPANSION_V1";
+const CONTRACT = "AVANTIQO_IMAGE_VIDEO_SHARED_VOLUME_EXPANSION_V2";
 const TARGET_SIZE_GB = 160;
 const MIN_CURRENT_SIZE_GB = 80;
 const STORAGE_RATE_USD_PER_GB_MONTH = 0.07;
@@ -219,6 +219,9 @@ function endpointUsers(endpoints, volumeId) {
 }
 function assertNoLiveWorkers(users) {
   for (const user of users) {
+    if (!SHARED_GROUP.endpoint_names.includes(user.name)) {
+      throw new Error(`AVANTIQO_IMAGE_VIDEO_VOLUME_UNEXPECTED_ENDPOINT_USER:${user.name || "MISSING"}`);
+    }
     if (user.workers_min !== 0) {
       throw new Error(`AVANTIQO_IMAGE_VIDEO_VOLUME_MIN_WORKER_BLOCKED:${user.name}:min=${user.workers_min}`);
     }
@@ -266,7 +269,16 @@ const imageEndpoint = imageMatches[0];
 validateImageCostGuard(imageEndpoint);
 
 const policy = sharedVolumePolicySummary(volumes);
-if (!policy.policy_compliant) throw new Error("AVANTIQO_IMAGE_VIDEO_VOLUME_SHARED_POLICY_INVALID");
+console.log(`AVANTIQO_IMAGE_VIDEO_VOLUME_GLOBAL_SHARED_POLICY_COMPLIANT=${policy.policy_compliant ? "true" : "false"}`);
+if (!policy.policy_compliant) {
+  console.log(`AVANTIQO_IMAGE_VIDEO_VOLUME_GLOBAL_SHARED_POLICY_WARNING=${JSON.stringify({
+    managed_cache_volume_count: policy.managed_cache_volume_count,
+    maximum_managed_cache_volumes: policy.maximum_managed_cache_volumes,
+    unknown_avantiqo_cache_volumes: policy.unknown_avantiqo_cache_volumes,
+    duplicate_groups: policy.duplicate_groups,
+  })}`);
+}
+
 const groupVolumes = groupCacheVolumes(volumes, SHARED_GROUP);
 if (groupVolumes.length !== 1) {
   throw new Error(`AVANTIQO_IMAGE_VIDEO_VOLUME_CANONICAL_COUNT_INVALID:${groupVolumes.length}`);
@@ -282,8 +294,9 @@ if (!volumeId || volumeName !== SHARED_GROUP.canonical_name || !dataCenterId) {
 if (currentSizeGb < MIN_CURRENT_SIZE_GB) {
   throw new Error(`AVANTIQO_IMAGE_VIDEO_VOLUME_CURRENT_SIZE_INVALID:${currentSizeGb}`);
 }
-if (!endpointVolumeIds(imageEndpoint).includes(volumeId)) {
-  throw new Error("AVANTIQO_IMAGE_VIDEO_VOLUME_IMAGE_ATTACHMENT_INVALID");
+const imageVolumeIds = endpointVolumeIds(imageEndpoint);
+if (imageVolumeIds.length !== 1 || imageVolumeIds[0] !== volumeId) {
+  throw new Error(`AVANTIQO_IMAGE_VIDEO_VOLUME_IMAGE_ATTACHMENT_INVALID:${imageVolumeIds.join("|") || "NONE"}`);
 }
 
 const state = await readImageState(text(imageEndpoint.id), managementKey);
@@ -328,6 +341,8 @@ const plan = {
     cost_guard_verified: true,
   },
   shared_volume_policy: policy,
+  target_scope_policy_compliant: true,
+  global_shared_policy_compliant: policy.policy_compliant,
   mutation_required: volumeMutationRequired || templateMutationRequired,
   volume_mutation_required: volumeMutationRequired,
   template_mutation_required: templateMutationRequired,
@@ -339,6 +354,7 @@ const plan = {
     no_generation: true,
     no_inference: true,
     no_model_download: true,
+    unrelated_shared_group_policy_does_not_block_target_resize: true,
     resize_before_quota_env_update: true,
     fail_closed_if_template_update_fails_after_resize: true,
     production_deploy: false,
@@ -399,7 +415,8 @@ try {
   if (text(freshState.template.imageName) !== image) {
     throw new Error("AVANTIQO_IMAGE_VIDEO_VOLUME_WORKER_CHANGED_BEFORE_TEMPLATE_UPDATE");
   }
-  if (!endpointVolumeIds(freshState.endpoint).includes(volumeId)) {
+  const freshVolumeIds = endpointVolumeIds(freshState.endpoint);
+  if (freshVolumeIds.length !== 1 || freshVolumeIds[0] !== volumeId) {
     throw new Error("AVANTIQO_IMAGE_VIDEO_VOLUME_ATTACHMENT_CHANGED_BEFORE_TEMPLATE_UPDATE");
   }
 

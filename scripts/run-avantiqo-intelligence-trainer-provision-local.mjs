@@ -3,10 +3,11 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const REST_BASE = "https://rest.runpod.io/v1";
-const CONTRACT = "AVANTIQO_INTELLIGENCE_TRAINER_GOVERNED_PROVISION_ENTRYPOINT_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_TRAINER_GOVERNED_PROVISION_ENTRYPOINT_V2";
 const CANONICAL_VOLUME_NAME = "avantiqo-shared-intelligence-code-cache";
 const REQUIRED_VOLUME_SIZE_GB = 160;
 const CORE_SCRIPT = "scripts/provision-avantiqo-intelligence-trainer-runpod-local.mjs";
+const RECOVERY_SCRIPT = "scripts/recover-avantiqo-intelligence-trainer-provision-local.mjs";
 const ENV_FILE_VARIABLES = [
   "AVANTIQO_INTELLIGENCE_RUNPOD_ENV_FILE",
   "AVANTIQO_INTELLIGENCE_READINESS_ENV_FILE",
@@ -172,6 +173,58 @@ async function resolveManagementCredential() {
   );
 }
 
+function runScript(script, args = [], env = process.env) {
+  return spawnSync(process.execPath, [script, ...args], {
+    cwd: process.cwd(),
+    env,
+    encoding: "utf8",
+    stdio: ["inherit", "pipe", "pipe"],
+  });
+}
+
+function parseJsonOutput(output) {
+  const raw = text(output, 200_000);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function recoveryProbe() {
+  const result = runScript(RECOVERY_SCRIPT);
+  const body = parseJsonOutput(result.stdout);
+  const stderr = text(result.stderr, 12_000);
+  const exactMissingEndpoint =
+    result.status !== 0 &&
+    /AVANTIQO_INTELLIGENCE_TRAINER_RECOVERY_ENDPOINT_RESOLUTION_FAILED:matches=0/.test(stderr);
+  return { result, body, stderr, exactMissingEndpoint };
+}
+
+function printChild(result) {
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+}
+
+function adoptVerifiedExistingTrainer() {
+  const result = runScript(
+    RECOVERY_SCRIPT,
+    ["--adopt"],
+    {
+      ...process.env,
+      AVANTIQO_INTELLIGENCE_TRAINER_LOCAL_BINDING_ADOPT_APPROVED: "YES",
+    },
+  );
+  printChild(result);
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(
+      `AVANTIQO_INTELLIGENCE_TRAINER_EXISTING_RECOVERY_ADOPT_FAILED:exit=${result.status}`,
+    );
+  }
+}
+
 const localEnv = loadRelevantLocalEnv();
 const apply = process.argv.includes("--apply");
 const management = await resolveManagementCredential();
@@ -211,11 +264,12 @@ const gate = {
     capacity_gate_passed: volumeSizeGb >= REQUIRED_VOLUME_SIZE_GB,
   },
   delegated_core_script: CORE_SCRIPT,
+  recovery_script: RECOVERY_SCRIPT,
   next_action:
     volumeSizeGb >= REQUIRED_VOLUME_SIZE_GB
       ? apply
-        ? "DELEGATE_TO_ZERO_SCALE_TRAINER_PROVISION_APPLY"
-        : "DELEGATE_TO_ZERO_SCALE_TRAINER_PROVISION_PLAN"
+        ? "VERIFY_OR_PROVISION_ZERO_SCALE_TRAINER"
+        : "VERIFY_OR_PLAN_ZERO_SCALE_TRAINER"
       : "EXPAND_INTELLIGENCE_CODE_SHARED_VOLUME_TO_160_GB_FIRST",
   governance: {
     volume_mutated: false,
@@ -234,19 +288,53 @@ if (!gate.success) {
 }
 
 console.log(JSON.stringify(gate, null, 2));
-const child = spawnSync(
-  process.execPath,
-  [CORE_SCRIPT, ...(apply ? ["--apply"] : [])],
-  {
-    cwd: process.cwd(),
-    env: process.env,
-    encoding: "utf8",
-    stdio: ["inherit", "pipe", "pipe"],
-  },
-);
-if (child.stdout) process.stdout.write(child.stdout);
-if (child.stderr) process.stderr.write(child.stderr);
+
+const before = recoveryProbe();
+if (before.result.error) throw before.result.error;
+if (before.result.status === 0 && before.body?.success === true) {
+  if (apply) {
+    adoptVerifiedExistingTrainer();
+  } else {
+    if (before.result.stdout) process.stdout.write(before.result.stdout);
+    if (before.result.stderr) process.stderr.write(before.result.stderr);
+  }
+  process.exit(0);
+}
+if (
+  !before.exactMissingEndpoint &&
+  (before.body?.success === false || before.result.status !== 0)
+) {
+  printChild(before.result);
+  throw new Error(
+    "AVANTIQO_INTELLIGENCE_TRAINER_EXISTING_STATE_REPAIR_REQUIRED_DO_NOT_CREATE_DUPLICATE",
+  );
+}
+
+const child = runScript(CORE_SCRIPT, apply ? ["--apply"] : []);
 if (child.error) throw child.error;
-if (child.status !== 0) {
+if (child.status === 0) {
+  printChild(child);
+  if (apply) adoptVerifiedExistingTrainer();
+  process.exit(0);
+}
+
+if (!apply) {
+  printChild(child);
   throw new Error(`AVANTIQO_INTELLIGENCE_TRAINER_CORE_PROVISION_FAILED:exit=${child.status}`);
 }
+
+const after = recoveryProbe();
+if (after.result.error) throw after.result.error;
+if (after.result.status === 0 && after.body?.success === true) {
+  console.log(
+    "AVANTIQO_INTELLIGENCE_TRAINER_CORE_VERIFY_FALSE_NEGATIVE_RECOVERED=true",
+  );
+  adoptVerifiedExistingTrainer();
+  process.exit(0);
+}
+
+printChild(child);
+printChild(after.result);
+throw new Error(
+  `AVANTIQO_INTELLIGENCE_TRAINER_CORE_PROVISION_FAILED_AND_RECOVERY_UNVERIFIED:exit=${child.status}`,
+);

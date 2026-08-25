@@ -23,6 +23,6 @@
     "stop:operator-secretary-asterisk": "docker compose --env-file .env.local -f workers/secretary-sip-gateway/asterisk/docker-compose.asterisk.yml down",
     "logs:operator-secretary-asterisk": "docker compose --env-file .env.local -f workers/secretary-sip-gateway/asterisk/docker-compose.asterisk.yml logs --tail=120 secretary-asterisk",
     "preflight:operator-secretary-asterisk": "node --env-file=.env.local workers/secretary-sip-gateway/asterisk/preflight.mjs",
-    "audit:operator-secretary-end-to-end": "node scripts/operator-secretary-after-hours-audit.mjs && node scripts/operator-secretary-sip-transport-audit.mjs && node workers/secretary-sip-gateway/smoke.mjs && node scripts/operator-secretary-convergence-audit.mjs"
+    "audit:operator-secretary-end-to-end": "node scripts/operator-secretary-after-hours-audit.mjs && node scripts/operator-secretary-sip-transport-audit.mjs && node scripts/operator-secretary-managed-telephony-audit.mjs && node workers/secretary-sip-gateway/smoke.mjs && node scripts/operator-secretary-convergence-audit.mjs"
   }
 }

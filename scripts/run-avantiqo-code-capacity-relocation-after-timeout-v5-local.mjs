@@ -58,7 +58,7 @@ function requireCurrentMain() {
     "git",
     ["diff", "--name-only", head + ".." + origin, "--", ...CODE_RELOCATION_PROTECTED_PATHS],
     "CODE_CAPACITY_RELOCATION_PROTECTED_DIFF_FAILED",
-  ).split("\\n").map((entry) => entry.trim()).filter(Boolean);
+  ).split(String.fromCharCode(10)).map((entry) => entry.trim()).filter(Boolean);
   if (changed.length) {
     throw new Error(
       "CODE_CAPACITY_RELOCATION_PROTECTED_MAIN_ADVANCE_REPLAN_REQUIRED:head=" +
@@ -202,6 +202,39 @@ const completeMetadataReplacement = `    cache_queue_monitoring: "CONTROL_OR_HEA
     inference_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",
     main_concurrency_guard: "PROTECTED_PATH_SCOPED",`;
 
+const generatedSyntaxAnchor = `  writeFileSync(tempRelocationPath, patchedRelocation, { encoding: "utf8", flag: "wx" });
+  writeFileSync(tempV2Path, patchedV2, { encoding: "utf8", flag: "wx" });
+  writeFileSync(tempV3Path, patchedV3, { encoding: "utf8", flag: "wx" });
+
+  const child = spawnSync(process.execPath, [tempV3Path, ...process.argv.slice(2)], {`;
+const generatedSyntaxReplacement = `  writeFileSync(tempRelocationPath, patchedRelocation, { encoding: "utf8", flag: "wx" });
+  writeFileSync(tempV2Path, patchedV2, { encoding: "utf8", flag: "wx" });
+  writeFileSync(tempV3Path, patchedV3, { encoding: "utf8", flag: "wx" });
+
+  for (const [candidatePath, code] of [
+    [tempRelocationPath, "CODE_TIMEOUT_RECOVERY_V5_GENERATED_RELOCATION_SYNTAX_FAILED"],
+    [tempV2Path, "CODE_TIMEOUT_RECOVERY_V5_GENERATED_V2_SYNTAX_FAILED"],
+    [tempV3Path, "CODE_TIMEOUT_RECOVERY_V5_GENERATED_V3_SYNTAX_FAILED"],
+  ]) {
+    const syntax = spawnSync(process.execPath, ["--check", candidatePath], {
+      cwd: process.cwd(),
+      env: process.env,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (syntax.error) throw syntax.error;
+    if (syntax.status !== 0) {
+      throw new Error(code + ":" + text(syntax.stderr || syntax.stdout).slice(0, 900));
+    }
+  }
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_CAPACITY_TIMEOUT_RECOVERY_V5_GENERATED_SYNTAX_VERIFIED",
+    generated_files_checked: 3,
+    runpod_mutation_performed_before_check: false,
+  }));
+
+  const child = spawnSync(process.execPath, [tempV3Path, ...process.argv.slice(2)], {`;
+
 let patchedV4 = replaceExactlyOnce(
   v4Source,
   relocationReadAnchor,
@@ -258,6 +291,12 @@ patchedV4 = replaceExactlyOnce(
 );
 patchedV4 = replaceExactlyOnce(
   patchedV4,
+  generatedSyntaxAnchor,
+  generatedSyntaxReplacement,
+  "CODE_TIMEOUT_RECOVERY_V5_GENERATED_SYNTAX",
+);
+patchedV4 = replaceExactlyOnce(
+  patchedV4,
   '"RUNPOD_CODE_CACHE_CONTROL_HTTP_" + response.status',
   '"RUNPOD_CODE_COLD_START_CONTROL_HTTP_" + response.status',
   "CODE_TIMEOUT_RECOVERY_V5_CONTROL_ERROR_LABEL",
@@ -270,8 +309,10 @@ if (
   patchedV4.includes(observationAnchor) ||
   patchedV4.includes(loggingAnchor) ||
   patchedV4.includes(startMetadataAnchor) ||
+  patchedV4.includes(generatedSyntaxAnchor) ||
   !patchedV4.includes("CODE_TIMEOUT_RECOVERY_V5_SCOPED_MAIN_GUARD_BOUNDARY_MISSING") ||
   !patchedV4.includes("AVANTIQO_CODE_CAPACITY_RELOCATION_UNRELATED_MAIN_ADVANCE_ACCEPTED") ||
+  !patchedV4.includes("AVANTIQO_CODE_CAPACITY_TIMEOUT_RECOVERY_V5_GENERATED_SYNTAX_VERIFIED") ||
   !patchedV4.includes('const isInferenceJob = label === "AVANTIQO_CODE_CAPACITY_INFERENCE";') ||
   !patchedV4.includes('inference_cold_start_policy: isInferenceJob ? "CONTROL_OR_HEALTH_AWARE" : null') ||
   !patchedV4.includes("serverless_health_worker_activity_counts_as_startup_evidence: true")
@@ -292,6 +333,7 @@ console.log(JSON.stringify({
   main_concurrency_guard: "PROTECTED_PATH_SCOPED",
   unrelated_main_advance_allowed: true,
   protected_code_runtime_change_requires_replan: true,
+  generated_child_syntax_preflight: true,
   no_worker_timeout_seconds: 180,
   degraded_control_timeout_seconds: 480,
   cold_start_timeout_after_worker_observed_seconds: 720,
@@ -306,6 +348,24 @@ console.log(JSON.stringify({
 
 try {
   writeFileSync(tempV4Path, patchedV4, { encoding: "utf8", flag: "wx" });
+  const v4Syntax = spawnSync(process.execPath, ["--check", tempV4Path], {
+    cwd: process.cwd(),
+    env: process.env,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (v4Syntax.error) throw v4Syntax.error;
+  if (v4Syntax.status !== 0) {
+    throw new Error(
+      "CODE_TIMEOUT_RECOVERY_V5_GENERATED_V4_SYNTAX_FAILED:" +
+      text(v4Syntax.stderr || v4Syntax.stdout).slice(0, 900),
+    );
+  }
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_CAPACITY_TIMEOUT_RECOVERY_V5_V4_SYNTAX_VERIFIED",
+    runpod_mutation_performed_before_check: false,
+  }));
+
   const child = spawnSync(process.execPath, [tempV4Path, ...process.argv.slice(2)], {
     cwd: process.cwd(),
     env: process.env,
@@ -323,6 +383,7 @@ try {
     cache_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",
     inference_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",
     main_concurrency_guard: "PROTECTED_PATH_SCOPED",
+    generated_child_syntax_preflight: true,
     production_deploy_performed: false,
     secrets_printed: false,
   }));

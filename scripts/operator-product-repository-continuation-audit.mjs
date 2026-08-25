@@ -10,6 +10,7 @@ register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 const paths = [
   "lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime.js",
   "lib/intelligence/runtime/AvantiqoProductAutonomyAssessmentRuntime.js",
+  "lib/intelligence/runtime/AvantiqoProductPersistenceDecisionRuntime.js",
   "lib/operator/runtime/OperatorTurnRuntimeLegacy.js",
   "lib/platform/capabilities/createProductRepositoryAssessmentCapability.js",
   "lib/platform/capabilities/createCodeAICommitStatusCapability.js",
@@ -317,15 +318,43 @@ const executionStatePath =
   "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js";
 requireFragments(executionStatePath, [
   "function productCompletionCriteria",
+  "function completionOperationEvidence",
   "function productCompletionCriteriaProjection",
   'item?.kind === "product_completion_criteria_evidence"',
   "observedOperationIds",
+  "criteria_evidence: criteriaEvidence",
+  "referenced_operations: referencedOperations",
+  "referenced_operation_count: referencedOperations.length",
   "product_completion_criteria_required",
   "product_completion_criteria_count",
   "product_completion_criteria_evidence_count",
+  "product_completion_criteria_evidence",
+  "product_completion_criteria_referenced_operations",
+  "product_completion_criteria_referenced_operation_count",
   "product_completion_criteria_verified",
   'product_completion_criteria_authorization_effect: "NONE"',
   "CODE_AI_AUTONOMOUS_PRODUCT_COMPLETION_CRITERIA_NOT_VERIFIED",
+]);
+
+const persistenceDecisionPath =
+  "lib/intelligence/runtime/AvantiqoProductPersistenceDecisionRuntime.js";
+requireFragments(persistenceDecisionPath, [
+  "verifyCompletedCodeAIAutonomousExecution(state)",
+  "When Product completion criteria are present, judge durability against the exact verified criteria and their bounded referenced-operation evidence",
+  "Do not replace the Product definition of done with a generic completed-status judgment",
+  "product_completion_criteria_required",
+  "product_completion_criteria",
+  "product_completion_criteria_count",
+  "product_completion_criteria_evidence_count",
+  "product_completion_criteria_verified",
+  "product_completion_criteria_evidence",
+  "product_completion_criteria_referenced_operations",
+  "product_completion_criteria_referenced_operation_count",
+  'product_completion_criteria_authorization_effect: "NONE"',
+  "completion_criteria_evidence_considered",
+  'completion_criteria_authorization_effect: "NONE"',
+  "require the persistence rationale to be consistent with the exact criteria and their referenced-operation evidence",
+  "generic completion status is not enough",
 ]);
 
 requireFragments(
@@ -537,6 +566,8 @@ console.log("OPERATOR_PRODUCT_COMPLETION_CRITERIA=MAX_6_EVIDENCE_VERIFIABLE");
 console.log("OPERATOR_PRODUCT_COMPLETION_CRITERIA_BINDING=12_SCALAR_SLOT_GOVERNED_HANDOFF");
 console.log("OPERATOR_CODE_AI_COMPLETION_CRITERIA=EXACT_BOUND_CRITERIA_PLUS_OBSERVED_OPERATION_EVIDENCE");
 console.log("OPERATOR_CODE_AI_COMPLETION_CRITERIA_VERIFICATION=SERVER_OWNED_FAIL_CLOSED");
+console.log("OPERATOR_PRODUCT_COMPLETION_CRITERIA_PERSISTENCE_EVIDENCE=CRITERIA_TO_OBSERVED_OPERATIONS");
+console.log("OPERATOR_PRODUCT_PERSISTENCE_DECISION=CRITERIA_GROUNDED_NOT_GENERIC_COMPLETION");
 console.log("OPERATOR_PRODUCT_COMPLETION_CRITERIA_AUTHORITY=TARGET_ONLY_NONE");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY=REGISTERED_VERIFIER_BOUND_SCALARS_ONLY");
 console.log("OPERATOR_PRODUCT_REPOSITORY_RECOVERY_CONTEXT=EXACT_DURABLE_MISSION_STEP_ONLY");

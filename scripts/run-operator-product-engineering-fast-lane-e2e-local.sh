@@ -5,6 +5,8 @@ set -euo pipefail
 SOURCE_ROOT="${AVANTIQO_PROJECT_ROOT:-$HOME/Projects/churchill-control-new}"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/avantiqo-product-fast-e2e.XXXXXX")"
 SLOT_MANAGER="$TMP_DIR/manage-avantiqo-intelligence-lane-slot-local.mjs"
+INNER_E2E_RUNNER="$TMP_DIR/run-operator-product-engineering-e2e-from-origin-main.sh"
+SMOKE_AUTH_ENV="$TMP_DIR/operator-product-smoke-auth.env"
 FAST_SLOT_ACTIVE=NO
 RESTORE_ATTEMPTED=NO
 
@@ -55,6 +57,82 @@ fail() {
   echo "AVANTIQO_PRODUCT_FAST_LANE_E2E=FAIL"
   echo "AVANTIQO_PRODUCT_FAST_LANE_REASON=$1"
   exit 1
+}
+
+prepare_smoke_auth_env() {
+  local local_status
+  local development_env
+  local vercel_cli
+  local merged_status
+
+  local_status="$(
+    node - "$SOURCE_ROOT/.env.local" "$SMOKE_AUTH_ENV" <<'NODE'
+const fs = require("node:fs");
+const { parseEnv } = require("node:util");
+const source = parseEnv(fs.readFileSync(process.argv[2], "utf8"));
+const email = String(source.FINANCE_SMOKE_EMAIL ?? "").trim();
+const password = String(source.FINANCE_SMOKE_PASSWORD ?? "");
+if (!email || !password) {
+  process.stdout.write("NO");
+  process.exit(0);
+}
+fs.writeFileSync(
+  process.argv[3],
+  `FINANCE_SMOKE_EMAIL=${JSON.stringify(email)}\nFINANCE_SMOKE_PASSWORD=${JSON.stringify(password)}\n`,
+  { mode: 0o600 },
+);
+process.stdout.write("YES");
+NODE
+  )" || return 1
+
+  if [ "$local_status" = "YES" ]; then
+    printf '%s' "LOCAL_ENV_LOCAL"
+    return 0
+  fi
+
+  development_env="$TMP_DIR/vercel-development-auth.env"
+  if [ -x "$SOURCE_ROOT/node_modules/.bin/vercel" ]; then
+    vercel_cli="$SOURCE_ROOT/node_modules/.bin/vercel"
+  else
+    vercel_cli="$(command -v vercel 2>/dev/null || true)"
+  fi
+  [ -n "$vercel_cli" ] || return 1
+  [ -f "$SOURCE_ROOT/.vercel/project.json" ] || return 1
+
+  (
+    cd "$SOURCE_ROOT" || exit 1
+    "$vercel_cli" env pull "$development_env" --environment=development --yes >/dev/null 2>&1
+  ) || return 1
+
+  merged_status="$(
+    node - "$SOURCE_ROOT/.env.local" "$development_env" "$SMOKE_AUTH_ENV" <<'NODE'
+const fs = require("node:fs");
+const { parseEnv } = require("node:util");
+const local = parseEnv(fs.readFileSync(process.argv[2], "utf8"));
+const development = parseEnv(fs.readFileSync(process.argv[3], "utf8"));
+const nonEmpty = (value) => Boolean(String(value ?? "").trim());
+const pick = (key) => nonEmpty(local[key]) ? String(local[key]) : String(development[key] ?? "");
+const email = pick("FINANCE_SMOKE_EMAIL").trim();
+const password = pick("FINANCE_SMOKE_PASSWORD");
+if (!email || !password) {
+  process.stdout.write("NO");
+  process.exit(0);
+}
+fs.writeFileSync(
+  process.argv[4],
+  `FINANCE_SMOKE_EMAIL=${JSON.stringify(email)}\nFINANCE_SMOKE_PASSWORD=${JSON.stringify(password)}\n`,
+  { mode: 0o600 },
+);
+process.stdout.write("YES");
+NODE
+  )" || {
+    rm -f "$development_env"
+    return 1
+  }
+  rm -f "$development_env"
+
+  [ "$merged_status" = "YES" ] || return 1
+  printf '%s' "VERCEL_DEVELOPMENT"
 }
 
 [ -d "$SOURCE_ROOT/.git" ] || [ -f "$SOURCE_ROOT/.git" ] || fail "SOURCE_PROJECT_NOT_GIT_WORKTREE"
@@ -116,6 +194,12 @@ echo "FAST_LANE_GENERATION_SUBMITTED_BY_SETUP=NO"
 echo "FAST_LANE_PRODUCTION_DEPLOY_PERFORMED=NO"
 
 echo ""
+echo "================ PREPARE NONINTERACTIVE AUTH ================"
+AUTH_SOURCE="$(prepare_smoke_auth_env)" || fail "PRODUCT_E2E_NONINTERACTIVE_AUTH_MISSING"
+echo "E2E_FAST_WRAPPER_AUTH_SOURCE=$AUTH_SOURCE"
+echo "E2E_FAST_WRAPPER_AUTH_VALUES_PRINTED=NO"
+
+echo ""
 echo "================ ACTIVATE FAST INTELLIGENCE SLOT ================"
 ACTIVATE_OUTPUT="$(
   cd "$SOURCE_ROOT"
@@ -132,12 +216,31 @@ FAST_SLOT_ACTIVE=YES
 echo ""
 echo "================ RUN PRODUCT E2E ================"
 git -C "$SOURCE_ROOT" fetch origin main || fail "GIT_REFETCH_BEFORE_PRODUCT_E2E_FAILED"
-set +e
 git -C "$SOURCE_ROOT" show origin/main:scripts/run-operator-product-engineering-e2e-from-origin-main.sh \
-  | bash
-PIPE_STATUSES=("${PIPESTATUS[@]}")
+  > "$INNER_E2E_RUNNER" || fail "PRODUCT_E2E_RUNNER_READ_FAILED"
+set +e
+node --env-file="$SMOKE_AUTH_ENV" - "$INNER_E2E_RUNNER" "$SOURCE_ROOT" <<'NODE'
+const { spawnSync } = require("node:child_process");
+const script = process.argv[2];
+const sourceRoot = process.argv[3];
+const email = String(process.env.FINANCE_SMOKE_EMAIL ?? "").trim();
+const password = String(process.env.FINANCE_SMOKE_PASSWORD ?? "");
+if (!email || !password) process.exit(2);
+const child = spawnSync("bash", [script], {
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    AVANTIQO_PROJECT_ROOT: sourceRoot,
+  },
+});
+if (child.error) {
+  console.error(`E2E_FAST_WRAPPER_CHILD_ERROR=${child.error.message}`);
+  process.exit(1);
+}
+process.exit(Number.isInteger(child.status) ? child.status : 1);
+NODE
+E2E_STATUS=$?
 set -e
-E2E_STATUS="${PIPE_STATUSES[1]:-1}"
 
 restore_deep_slot || fail "DEEP_INTELLIGENCE_SLOT_RESTORE_FAILED"
 

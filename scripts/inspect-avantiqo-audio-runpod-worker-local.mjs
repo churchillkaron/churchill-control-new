@@ -31,6 +31,21 @@ function normalizeEnv(value) {
   );
 }
 
+function inferenceCredentialCandidates() {
+  const raw = [
+    { source: "AUDIO_DEDICATED", credential: text(process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY) },
+    { source: "ACCOUNT", credential: text(process.env.RUNPOD_API_KEY) },
+  ].filter((entry) => entry.credential);
+  const seen = new Set();
+  const candidates = raw.filter((entry) => {
+    if (seen.has(entry.credential)) return false;
+    seen.add(entry.credential);
+    return true;
+  });
+  if (!candidates.length) throw new Error("RUNPOD_AUDIO_INFERENCE_API_KEY_REQUIRED");
+  return candidates;
+}
+
 async function request(url, credential, credentialKind) {
   const response = await fetch(url, {
     headers: {
@@ -62,6 +77,32 @@ async function optionalRequest(url, credential, credentialKind) {
   } catch (error) {
     return { ok: false, body: null, error: text(error?.message || error) };
   }
+}
+
+async function optionalInferenceRequest(url, candidates) {
+  const attempts = [];
+  for (const candidate of candidates) {
+    const result = await optionalRequest(url, candidate.credential, "inference");
+    attempts.push({ source: candidate.source, ok: result.ok, error: result.error });
+    if (result.ok) {
+      return {
+        ok: true,
+        body: result.body,
+        error: null,
+        credential_source: candidate.source,
+        fallback_used: candidate.source !== candidates[0].source,
+        attempts,
+      };
+    }
+  }
+  return {
+    ok: false,
+    body: null,
+    error: attempts.map((attempt) => `${attempt.source}:${attempt.error || "FAILED"}`).join(" | "),
+    credential_source: null,
+    fallback_used: false,
+    attempts,
+  };
 }
 
 function imageReferenceKind(imageName) {
@@ -170,7 +211,7 @@ function safeHealth(body = {}) {
   };
 }
 
-const inferenceKey = text(process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY) || required("RUNPOD_API_KEY");
+const inferenceCandidates = inferenceCredentialCandidates();
 const managementKey = required(
   "RUNPOD_MANAGEMENT_API_KEY",
   "RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_READ_ONLY_AUDIO_ENDPOINT_INSPECTION",
@@ -247,12 +288,18 @@ if (selected?.endpoint?.template_id && !selected.template.image_name) {
   }
 }
 
-let healthRead = { ok: false, body: null, error: "AUDIO_ENDPOINT_NOT_SELECTED" };
+let healthRead = {
+  ok: false,
+  body: null,
+  error: "AUDIO_ENDPOINT_NOT_SELECTED",
+  credential_source: null,
+  fallback_used: false,
+  attempts: [],
+};
 if (selected?.endpoint?.id) {
-  healthRead = await optionalRequest(
+  healthRead = await optionalInferenceRequest(
     `${QUEUE_BASE}/${encodeURIComponent(selected.endpoint.id)}/health`,
-    inferenceKey,
-    "inference",
+    inferenceCandidates,
   );
 }
 
@@ -265,7 +312,7 @@ const attachedVolumes = attachedVolumeIds.map((id) => ({
 
 const result = {
   success: true,
-  contract: "AVANTIQO_AUDIO_RUNPOD_WORKER_INSPECT_V2",
+  contract: "AVANTIQO_AUDIO_RUNPOD_WORKER_INSPECT_V3",
   read_only: true,
   mutation_performed: false,
   inference_performed: false,
@@ -288,7 +335,13 @@ const result = {
           },
           attached_network_volumes: attachedVolumes,
           health: healthRead.ok ? safeHealth(healthRead.body) : null,
-          health_read: { ok: healthRead.ok, error: healthRead.error },
+          health_read: {
+            ok: healthRead.ok,
+            credential_source: healthRead.credential_source,
+            fallback_used: healthRead.fallback_used,
+            attempted_sources: healthRead.attempts.map((attempt) => attempt.source),
+            error: healthRead.error,
+          },
           local_binding: selected.endpoint.id
             ? `RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID=${selected.endpoint.id}`
             : null,

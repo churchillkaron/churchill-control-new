@@ -77,16 +77,21 @@ command -v node >/dev/null 2>&1 || fail "NODE_MISSING"
 command -v curl >/dev/null 2>&1 || fail "CURL_MISSING"
 command -v git >/dev/null 2>&1 || fail "GIT_MISSING"
 
-TRACKED_STATUS="$(git status --porcelain --untracked-files=no)"
-if [ -n "$TRACKED_STATUS" ]; then
-  printf '%s\n' "$TRACKED_STATUS"
-  fail "TRACKED_WORKING_TREE_NOT_CLEAN"
+CURRENT_BRANCH="$(git branch --show-current)"
+[ "$CURRENT_BRANCH" = "main" ] || fail "LOCAL_BRANCH_NOT_MAIN"
+
+PREEXISTING_TRACKED_STATUS="$(git status --porcelain --untracked-files=no)"
+if [ -n "$PREEXISTING_TRACKED_STATUS" ]; then
+  echo "E2E_PREEXISTING_TRACKED=YES"
+  printf '%s\n' "$PREEXISTING_TRACKED_STATUS"
+else
+  echo "E2E_PREEXISTING_TRACKED=NO"
 fi
 
-PREEXISTING_STATUS="$(git status --porcelain --untracked-files=normal)"
-if [ -n "$PREEXISTING_STATUS" ]; then
+PREEXISTING_UNTRACKED_STATUS="$(git status --porcelain --untracked-files=normal | grep '^?? ' || true)"
+if [ -n "$PREEXISTING_UNTRACKED_STATUS" ]; then
   echo "E2E_PREEXISTING_UNTRACKED=YES"
-  printf '%s\n' "$PREEXISTING_STATUS"
+  printf '%s\n' "$PREEXISTING_UNTRACKED_STATUS"
 else
   echo "E2E_PREEXISTING_UNTRACKED=NO"
 fi
@@ -97,7 +102,10 @@ git switch main || fail "GIT_SWITCH_MAIN_FAILED"
 git pull --ff-only origin main || fail "GIT_PULL_MAIN_FAILED"
 MAIN_BEFORE="$(git rev-parse HEAD)"
 BASELINE_STATUS="$(git status --porcelain --untracked-files=normal)"
+BASELINE_TRACKED_DIFF_HASH="$(git diff --binary --no-ext-diff | git hash-object --stdin)"
+BASELINE_INDEX_DIFF_HASH="$(git diff --cached --binary --no-ext-diff | git hash-object --stdin)"
 echo "MAIN_BEFORE=$MAIN_BEFORE"
+echo "E2E_PREEXISTING_TRACKED_PRESERVED=YES"
 
 [ -f scripts/create-finance-smoke-session.mjs ] || fail "AUTH_SESSION_HELPER_MISSING"
 [ -f app/api/operator/turn/route.js ] || fail "OPERATOR_TURN_ROUTE_MISSING"
@@ -105,18 +113,19 @@ echo "MAIN_BEFORE=$MAIN_BEFORE"
 
 EXISTING_STATUS="$(http_status "$BASE_URL")"
 if [ -n "$EXISTING_STATUS" ] && [ "$EXISTING_STATUS" != "000" ]; then
-  echo "LOCAL_SERVER_REUSED=YES"
-  echo "LOCAL_SERVER_STATUS=$EXISTING_STATUS"
-else
   echo "LOCAL_SERVER_REUSED=NO"
-  echo "STARTING_ISOLATED_LOCAL_SERVER=YES"
-  AVANTIQO_NEXT_DIST_DIR="$E2E_DIST_DIR" ./node_modules/.bin/next dev -p "$PORT" >"$SERVER_LOG" 2>&1 &
-  STARTED_SERVER_PID=$!
-  wait_for_server || {
-    tail -n 80 "$SERVER_LOG" 2>/dev/null || true
-    fail "LOCAL_SERVER_START_FAILED"
-  }
+  echo "LOCAL_SERVER_STATUS=$EXISTING_STATUS"
+  fail "E2E_PORT_ALREADY_IN_USE"
 fi
+
+echo "LOCAL_SERVER_REUSED=NO"
+echo "STARTING_ISOLATED_LOCAL_SERVER=YES"
+AVANTIQO_NEXT_DIST_DIR="$E2E_DIST_DIR" ./node_modules/.bin/next dev -p "$PORT" >"$SERVER_LOG" 2>&1 &
+STARTED_SERVER_PID=$!
+wait_for_server || {
+  tail -n 80 "$SERVER_LOG" 2>/dev/null || true
+  fail "LOCAL_SERVER_START_FAILED"
+}
 
 echo ""
 echo "================ AUTHENTICATE ================"
@@ -296,6 +305,8 @@ echo "LOCAL_MAIN_AFTER=$LOCAL_MAIN_AFTER"
 echo "REMOTE_MAIN_AFTER=$REMOTE_MAIN_AFTER"
 
 FINAL_STATUS_EXCLUDING_E2E="$(git status --porcelain --untracked-files=normal | grep -v "^?? ${E2E_DIST_DIR}/" || true)"
+FINAL_TRACKED_DIFF_HASH="$(git diff --binary --no-ext-diff | git hash-object --stdin)"
+FINAL_INDEX_DIFF_HASH="$(git diff --cached --binary --no-ext-diff | git hash-object --stdin)"
 if [ "$FINAL_STATUS_EXCLUDING_E2E" != "$BASELINE_STATUS" ]; then
   echo "E2E_BASELINE_STATUS_BEGIN"
   printf '%s\n' "$BASELINE_STATUS"
@@ -304,6 +315,9 @@ if [ "$FINAL_STATUS_EXCLUDING_E2E" != "$BASELINE_STATUS" ]; then
   printf '%s\n' "$FINAL_STATUS_EXCLUDING_E2E"
   echo "E2E_FINAL_STATUS_END"
   fail "LOCAL_WORKING_TREE_CHANGED_BY_E2E"
+fi
+if [ "$FINAL_TRACKED_DIFF_HASH" != "$BASELINE_TRACKED_DIFF_HASH" ] || [ "$FINAL_INDEX_DIFF_HASH" != "$BASELINE_INDEX_DIFF_HASH" ]; then
+  fail "PREEXISTING_TRACKED_CHANGES_MODIFIED_BY_E2E"
 fi
 if [ "$LOCAL_MAIN_AFTER" != "$MAIN_BEFORE" ]; then
   fail "LOCAL_MAIN_COMMIT_CHANGED_BY_E2E"

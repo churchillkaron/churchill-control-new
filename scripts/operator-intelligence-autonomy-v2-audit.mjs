@@ -91,11 +91,14 @@ const SOURCE_REQUIREMENTS = {
     "verified-handoff",
     "OPERATOR_MISSION_BINDING_EXECUTION_CONTRACT",
   ],
-  "lib/platform/research/runtime/OperatorWebResearchRuntime.js": [
-    'type: "web_search"',
-    "WEB_RESEARCH_PROVIDER_SEARCH_EVIDENCE_REQUIRED",
-    "source_urls_provider_verified",
+  "lib/intelligence/runtime/AvantiqoOwnedWebEvidenceRuntime.js": [
+    "AVANTIQO_OWNED_WEB_EVIDENCE_V1",
+    "runOperatorWebSourceRead",
+    "AVANTIQO_OWNED_CURATED_PRIMARY_SOURCE_REGISTRY",
+    "external_intelligence_provider_used: false",
+    "openai_used: false",
     "internet_content_untrusted: true",
+    "owned_intelligence_only: true",
     'authorization_effect: "NONE"',
   ],
   "lib/platform/research/runtime/OperatorWebSourceReadRuntime.js": [

@@ -12,6 +12,7 @@ function assert(condition, code) {
 }
 
 const runtimePath = "lib/intelligence/runtime/AvantiqoContinuousLearningRuntime.js";
+const ownedEvidencePath = "lib/intelligence/runtime/AvantiqoOwnedWebEvidenceRuntime.js";
 const capabilityPath = "lib/platform/capabilities/createOperatorWebResearchCapability.js";
 const routePath = "app/api/internal/intelligence/continuous-learning/process/route.js";
 const indexPath = "lib/intelligence/index.js";
@@ -22,6 +23,7 @@ const slotManagerPath = "scripts/manage-avantiqo-intelligence-lane-slot-local.mj
 const fastE2EWrapperPath = "scripts/run-operator-product-engineering-fast-lane-e2e-local.sh";
 
 const runtime = read(runtimePath);
+const ownedEvidence = read(ownedEvidencePath);
 const capability = read(capabilityPath);
 const route = read(routePath);
 const index = read(indexPath);
@@ -39,7 +41,9 @@ assert(runtime.includes('const RUN_SCOPE = "platform_learning_runs"'), "CONTINUO
 assert(runtime.includes("AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID"), "CONTINUOUS_LEARNING_DEDICATED_ORGANIZATION_REQUIRED");
 assert(runtime.includes("AVANTIQO_CONTINUOUS_LEARNING_ENABLED"), "CONTINUOUS_LEARNING_ENABLE_GATE_REQUIRED");
 assert(runtime.includes("AVANTIQO_CONTINUOUS_LEARNING_DAILY_MAX_RUNS"), "CONTINUOUS_LEARNING_DAILY_BUDGET_REQUIRED");
-assert(runtime.includes("collectOperatorWebResearch"), "CONTINUOUS_LEARNING_WEB_EVIDENCE_REQUIRED");
+assert(runtime.includes("collectAvantiqoOwnedWebEvidence"), "CONTINUOUS_LEARNING_OWNED_WEB_EVIDENCE_REQUIRED");
+assert(!runtime.includes("collectOperatorWebResearch"), "CONTINUOUS_LEARNING_EXTERNAL_RESEARCH_PROVIDER_FORBIDDEN");
+assert(!runtime.includes("OperatorWebResearchRuntime"), "CONTINUOUS_LEARNING_OPENAI_RESEARCH_RUNTIME_FORBIDDEN");
 assert(runtime.includes("compareOperatorResearchEvidence"), "CONTINUOUS_LEARNING_EVIDENCE_RECONCILIATION_REQUIRED");
 assert(runtime.includes('claim.status === "SUPPORTED"'), "CONTINUOUS_LEARNING_SUPPORTED_CLAIMS_ONLY_REQUIRED");
 assert(runtime.includes("claim.support_count >= 2 || claim.official_primary"), "CONTINUOUS_LEARNING_CORROBORATION_REQUIRED");
@@ -50,6 +54,25 @@ assert(runtime.includes("followUpQueries"), "CONTINUOUS_LEARNING_SELF_EXPANDING_
 assert(runtime.includes("SKIPPED_CONCURRENT_CLAIM"), "CONTINUOUS_LEARNING_CONCURRENCY_GUARD_REQUIRED");
 assert(runtime.includes("KNOWLEDGE_REUSED"), "CONTINUOUS_LEARNING_REUSE_REQUIRED");
 assert(runtime.includes("FRESH_RESEARCH_REQUIRED"), "CONTINUOUS_LEARNING_STALE_RESEARCH_FALLBACK_REQUIRED");
+assert(runtime.includes("external_intelligence_provider_used: false"), "CONTINUOUS_LEARNING_EXTERNAL_INTELLIGENCE_EVIDENCE_REQUIRED");
+assert(runtime.includes("openai_used: false"), "CONTINUOUS_LEARNING_OPENAI_NEGATIVE_EVIDENCE_REQUIRED");
+
+for (const required of [
+  "AVANTIQO_OWNED_WEB_EVIDENCE_V1",
+  "runOperatorWebSourceRead",
+  "AVANTIQO_OWNED_CURATED_PRIMARY_SOURCE_REGISTRY",
+  "external_intelligence_provider_used: false",
+  "openai_used: false",
+  "external_intelligence_provider_allowed: false",
+  "internet_content_untrusted: true",
+]) {
+  assert(
+    ownedEvidence.includes(required),
+    `CONTINUOUS_LEARNING_OWNED_EVIDENCE_CONTRACT_REQUIRED:${required}`,
+  );
+}
+assert(!ownedEvidence.includes("ServiceExecutionRuntime"), "CONTINUOUS_LEARNING_SERVICE_PROVIDER_RESEARCH_FORBIDDEN");
+assert(!ownedEvidence.includes("OPENAI_API_KEY"), "CONTINUOUS_LEARNING_OPENAI_SECRET_FORBIDDEN");
 
 assert(capability.includes("runKnowledgeAwareWebResearch"), "WEB_RESEARCH_CAPABILITY_KNOWLEDGE_REUSE_REQUIRED");
 assert(capability.includes("knowledge-reuse"), "WEB_RESEARCH_CAPABILITY_KNOWLEDGE_TAG_REQUIRED");
@@ -176,3 +199,6 @@ console.log("AVANTIQO_CONTINUOUS_LEARNING_ACTIVE_JOB_DRAIN_GUARDED=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_CONCURRENT_FAST_LEASE_GUARDED=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_FAST_COLD_START_BOUNDED=YES");
 console.log("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_HTTP_HEADER_CEILING_REMOVED=YES");
+console.log("AVANTIQO_CONTINUOUS_LEARNING_OWNED_PUBLIC_EVIDENCE=YES");
+console.log("AVANTIQO_CONTINUOUS_LEARNING_EXTERNAL_INTELLIGENCE_PROVIDER=NO");
+console.log("AVANTIQO_CONTINUOUS_LEARNING_OPENAI_USED=NO");

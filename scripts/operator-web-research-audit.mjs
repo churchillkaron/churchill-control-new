@@ -14,7 +14,7 @@ const [
   comparisonSource,
   supervisorSource,
 ] = await Promise.all([
-  readFile("lib/platform/research/runtime/OperatorWebResearchRuntime.js", "utf8"),
+  readFile("lib/intelligence/runtime/AvantiqoOwnedWebEvidenceRuntime.js", "utf8"),
   readFile("lib/platform/capabilities/createOperatorWebResearchCapability.js", "utf8"),
   readFile("lib/platform/runtime/PlatformDomainRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js", "utf8"),
@@ -54,14 +54,17 @@ if (
 }
 
 for (const required of [
-  'service_id: "ai.reasoning.execute"',
-  'category: "INTELLIGENCE_RESEARCH"',
-  'type: "web_search"',
-  'include: ["web_search_call.action.sources"]',
-  "WEB_RESEARCH_PROVIDER_SEARCH_EVIDENCE_REQUIRED",
-  "WEB_RESEARCH_MINIMUM_SOURCES_NOT_MET",
-  "source_urls_provider_verified: true",
+  "AVANTIQO_OWNED_WEB_EVIDENCE_V1",
+  "runOperatorWebSourceRead",
+  "AVANTIQO_OWNED_CURATED_PRIMARY_SOURCE_REGISTRY",
+  "AVANTIQO_OWNED_WEB_EVIDENCE_MINIMUM_SOURCES_NOT_MET",
+  "public_web_sources_read: true",
+  "search_provider_used: false",
+  "external_intelligence_provider_used: false",
+  "openai_used: false",
   "internet_content_untrusted: true",
+  "owned_intelligence_only: true",
+  "external_intelligence_provider_allowed: false",
   'authorization_effect: "NONE"',
   'permission_effect: "NONE"',
   'scope_effect: "NONE"',
@@ -109,7 +112,9 @@ for (const forbidden of [
   "exec(",
   "spawn(",
   "file://",
-  "process.env.OPENAI_API_KEY",
+  "ServiceExecutionRuntime",
+  "AVANTIQO_WEB_RESEARCH_PROVIDER",
+  "OPENAI_API_KEY",
 ]) {
   if (runtimeSource.includes(forbidden)) {
     throw new Error(`OPERATOR_WEB_RESEARCH: forbidden direct execution/secret transport found: ${forbidden}`);
@@ -144,6 +149,8 @@ console.log("OPERATOR_WEB_RESEARCH_AUDIT=PASS");
 console.log(`OPERATOR_WEB_RESEARCH_KEY=${RESEARCH_KEY}`);
 console.log("OPERATOR_WEB_RESEARCH_ROLE=UNTRUSTED_EXTERNAL_EVIDENCE_ONLY");
 console.log("OPERATOR_WEB_RESEARCH_REASONER=AVANTIQO_OWNED_INTELLIGENCE");
-console.log("OPERATOR_WEB_RESEARCH_PROVIDER_TRANSPORT=SERVICE_RUNTIME_GOVERNED");
-console.log("OPERATOR_WEB_RESEARCH_SOURCE_VALIDATION=PROVIDER_SEARCH_EVIDENCE_REQUIRED");
+console.log("OPERATOR_WEB_RESEARCH_PROVIDER_TRANSPORT=AVANTIQO_OWNED_SOURCE_READER");
+console.log("OPERATOR_WEB_RESEARCH_SOURCE_VALIDATION=CURATED_PRIMARY_SOURCE_REGISTRY");
+console.log("OPERATOR_WEB_RESEARCH_EXTERNAL_INTELLIGENCE_PROVIDER=NO");
+console.log("OPERATOR_WEB_RESEARCH_OPENAI_USED=NO");
 console.log("OPERATOR_WEB_RESEARCH_EXTERNAL_ACTIONS=BLOCKED");

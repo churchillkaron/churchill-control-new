@@ -234,6 +234,8 @@ const child = spawnSync("bash", [script], {
   env: {
     ...process.env,
     AVANTIQO_PROJECT_ROOT: sourceRoot,
+    AVANTIQO_INTELLIGENCE_FAST_TIMEOUT_MS:
+      process.env.AVANTIQO_INTELLIGENCE_FAST_TIMEOUT_MS || "480000",
   },
 });
 if (child.error) {

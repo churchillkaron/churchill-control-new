@@ -4,7 +4,7 @@ const IMAGE_ENDPOINT_NAME = "avantiqo-image-v1";
 const TARGET = Object.freeze({
   workersMin: 0,
   workersMax: 1,
-  idleTimeout: 600,
+  idleTimeout: 10,
   scalerType: "REQUEST_COUNT",
   scalerValue: 1,
   flashboot: true,

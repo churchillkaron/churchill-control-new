@@ -18,6 +18,19 @@ test("reasoning loop is pinned to owned Intelligence through Service Runtime", (
   assert.match(runtime, /const OWNED_PROVIDER = "avantiqo-intelligence"/);
 });
 
+test("owned Intelligence review pricing is development-only and production stays fail-closed", () => {
+  assert.match(runtime, /const LOCAL_REVIEW_SCOPE = "BENCHMARK_REVIEW_PREVIEW"/);
+  assert.match(runtime, /function localDevelopmentOwnedReviewPolicy\(\)/);
+  assert.match(runtime, /process\.env\.NODE_ENV/);
+  assert.match(runtime, /toLowerCase\(\) !== "development"\) return \{\}/);
+  assert.match(runtime, /execution_scope:\s*LOCAL_REVIEW_SCOPE/);
+  assert.match(runtime, /benchmark_only:\s*true/);
+  assert.match(runtime, /owned_only_required:\s*true/);
+  assert.match(runtime, /external_fallback_allowed:\s*false/);
+  assert.match(runtime, /production_certified:\s*false/);
+  assert.match(runtime, /\.\.\.localReviewPolicy/);
+});
+
 test("reasoning loop is bounded and rejects tool replay", () => {
   assert.match(runtime, /MAX_TURNS = 20/);
   assert.match(runtime, /MAX_TOOL_CALLS = 64/);

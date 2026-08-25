@@ -78,6 +78,28 @@ function findTranscript(value, depth = 0) {
   return "";
 }
 
+function findVoiceField(value, field, depth = 0) {
+  if (depth > 7 || value === null || value === undefined) return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findVoiceField(item, field, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof value !== "object") return null;
+
+  const direct = text(value[field]);
+  if (direct) return direct;
+
+  for (const key of ["output", "result", "data", "response", "raw"]) {
+    const found = findVoiceField(value[key], field, depth + 1);
+    if (found) return found;
+  }
+
+  return null;
+}
+
 function commandVocabulary(organizationId) {
   const targets = listOperatorNavigationTargets({ organizationId });
   const labels = [];
@@ -137,6 +159,11 @@ export async function POST(request) {
       form.get("entityId") || form.get("entity_id"),
     ) || null;
     const locale = text(form.get("locale")) || null;
+    const speechLanguage = text(
+      form.get("speechLanguage") ||
+      form.get("speech_language") ||
+      form.get("language"),
+    ) || null;
     const mode = text(form.get("mode")).toLowerCase() === "wake"
       ? "wake"
       : "command";
@@ -196,8 +223,8 @@ export async function POST(request) {
         language:
           mode === "wake"
             ? undefined
-            : locale
-              ? locale.split("-")[0]
+            : speechLanguage
+              ? speechLanguage.split("-")[0]
               : undefined,
         prompt:
           mode === "wake"
@@ -218,6 +245,9 @@ export async function POST(request) {
             : "VOICE_TRANSCRIPTION",
         channel: "voice",
         transcription_mode: mode,
+        ui_locale: locale,
+        speech_language_override: speechLanguage,
+        automatic_language_detection: mode === "wake" || !speechLanguage,
       },
       category: "AI",
     });
@@ -227,6 +257,11 @@ export async function POST(request) {
       return errorResponse("Voice transcription returned no text", 502);
     }
 
+    const detectedLanguage = findVoiceField(execution, "detected_language");
+    const language = findVoiceField(execution, "language") || detectedLanguage;
+    const languageSource =
+      findVoiceField(execution, "language_source") ||
+      (speechLanguage ? "requested" : detectedLanguage ? "detected" : null);
     const detected = mode === "wake" ? wakeDetected(transcript) : false;
 
     console.log("OPERATOR_TRANSCRIPTION_COMPLETE", {
@@ -234,6 +269,10 @@ export async function POST(request) {
       duration_ms: Date.now() - startedAt,
       transcript_length: transcript.length,
       wake_detected: detected,
+      language: language || null,
+      detected_language: detectedLanguage || null,
+      language_source: languageSource,
+      ui_locale: locale,
       usage_id: execution?.usage?.id || null,
     });
 
@@ -242,10 +281,10 @@ export async function POST(request) {
       transcript,
       wake_detected: detected,
       mode,
-      language:
-        execution?.output?.output?.language ||
-        execution?.output?.language ||
-        null,
+      language: language || null,
+      detected_language: detectedLanguage || null,
+      language_source: languageSource,
+      ui_locale: locale,
     });
   } catch (error) {
     console.error("OPERATOR_TRANSCRIPTION_ERROR", error);

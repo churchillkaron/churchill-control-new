@@ -38,15 +38,17 @@ jobs:
           test -f services/avantiqo-image-engine/handler_v5.py
           test -f services/avantiqo-image-engine/handler_v6.py
           test -f services/avantiqo-image-engine/handler_v7.py
-          grep -F 'COPY handler_v7.py ./handler_v7.py' services/avantiqo-image-engine/Dockerfile
-          grep -F 'CMD ["python", "-u", "handler_v7.py"]' services/avantiqo-image-engine/Dockerfile
-          grep -F 'RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V7_Z_IMAGE_REALISM_COMPILER_V1"' services/avantiqo-image-engine/handler_v7.py
-          grep -F 'RUNTIME_REVISION = "AVANTIQO_IMAGE_MULTI_FOUNDATION_PHYSICAL_VOLUME_USAGE_QUALITY_V2"' services/avantiqo-image-engine/handler_v7.py
-          grep -F 'QUALITY_COMPILER_CONTRACT = "AVANTIQO_IMAGE_Z_IMAGE_QUALITY_COMPILER_V1"' services/avantiqo-image-engine/handler_v7.py
-          grep -F 'PHOTOREAL_POLICY = "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V2"' services/avantiqo-image-engine/handler_v7.py
-          grep -F 'DEFAULT_INFERENCE_STEPS = 28' services/avantiqo-image-engine/handler_v7.py
-          grep -F 'negative_policy_applied' services/avantiqo-image-engine/handler_v7.py
-          grep -F 'compiled_prompt_persisted' services/avantiqo-image-engine/handler_v7.py
+          test -f services/avantiqo-image-engine/handler_v8.py
+          grep -F 'COPY handler_v8.py ./handler_v8.py' services/avantiqo-image-engine/Dockerfile
+          grep -F 'CMD ["python", "-u", "handler_v8.py"]' services/avantiqo-image-engine/Dockerfile
+          grep -F 'RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V8_Z_IMAGE_ANTITEXT_COMPILER_V1"' services/avantiqo-image-engine/handler_v8.py
+          grep -F 'RUNTIME_REVISION = "AVANTIQO_IMAGE_MULTI_FOUNDATION_PHYSICAL_VOLUME_USAGE_QUALITY_V3"' services/avantiqo-image-engine/handler_v8.py
+          grep -F 'QUALITY_COMPILER_CONTRACT = "AVANTIQO_IMAGE_Z_IMAGE_QUALITY_COMPILER_V2"' services/avantiqo-image-engine/handler_v8.py
+          grep -F 'ANTITEXT_POLICY_CONTRACT = "AVANTIQO_IMAGE_Z_IMAGE_ANTITEXT_POLICY_V1"' services/avantiqo-image-engine/handler_v8.py
+          grep -F 'PHOTOREAL_POLICY = "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V3"' services/avantiqo-image-engine/handler_v8.py
+          grep -F 'DEFAULT_INFERENCE_STEPS = 28' services/avantiqo-image-engine/handler_v8.py
+          grep -F 'antitext_policy_applied' services/avantiqo-image-engine/handler_v8.py
+          grep -F 'compiled_prompt_persisted' services/avantiqo-image-engine/handler_v8.py
           grep -F 'PHYSICAL_USAGE_CONTRACT = "AVANTIQO_IMAGE_NETWORK_VOLUME_PHYSICAL_USAGE_V1"' services/avantiqo-image-engine/handler_v6.py
           grep -F 'st_blocks' services/avantiqo-image-engine/handler_v6.py
           grep -F 'hardlink_duplicate_count' services/avantiqo-image-engine/handler_v6.py
@@ -60,12 +62,14 @@ jobs:
             services/avantiqo-image-engine/handler_v4.py \
             services/avantiqo-image-engine/handler_v5.py \
             services/avantiqo-image-engine/handler_v6.py \
-            services/avantiqo-image-engine/handler_v7.py
+            services/avantiqo-image-engine/handler_v7.py \
+            services/avantiqo-image-engine/handler_v8.py
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_PREFLIGHT=PASS'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_TRIGGER_SHA_BOUND=true'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_RUNTIME_PROBE_REQUIRED=true'
-          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V7_REALISM_COMPILER_LOCKED=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V8_ANTITEXT_COMPILER_LOCKED=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V7_REALISM_COMPILER_PRESERVED=true'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V6_PHYSICAL_USAGE_PRESERVED=true'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_AUTOMATIC_PRODUCTION_ROUTING=false'
 
@@ -137,7 +141,7 @@ jobs:
           const report = {
             success: true,
             contract: "AVANTIQO_IMAGE_WORKER_IMAGE_RESULT_V4",
-            evidence_revision: "AVANTIQO_IMAGE_WORKER_IMAGE_V7_REALISM_COMPILER_V1",
+            evidence_revision: "AVANTIQO_IMAGE_WORKER_IMAGE_V8_ANTITEXT_COMPILER_V1",
             source_sha: process.env.RELEASE_SHA || null,
             trigger_sha: process.env.TRIGGER_SHA || null,
             source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
@@ -146,18 +150,20 @@ jobs:
             image_tag: process.env.IMAGE_TAG || null,
             image_digest: digest,
             immutable_image_reference: `${repository}@${digest}`,
-            entrypoint: "handler_v7.py",
-            entrypoint_revision: "AVANTIQO_IMAGE_HANDLER_V7_Z_IMAGE_REALISM_COMPILER_V1",
+            entrypoint: "handler_v8.py",
+            entrypoint_revision: "AVANTIQO_IMAGE_HANDLER_V8_Z_IMAGE_ANTITEXT_COMPILER_V1",
             runtime_probe_contract: "AVANTIQO_IMAGE_RUNTIME_PROBE_V1",
-            runtime_revision: "AVANTIQO_IMAGE_MULTI_FOUNDATION_PHYSICAL_VOLUME_USAGE_QUALITY_V2",
+            runtime_revision: "AVANTIQO_IMAGE_MULTI_FOUNDATION_PHYSICAL_VOLUME_USAGE_QUALITY_V3",
             qwen_runtime_revision: "AVANTIQO_IMAGE_QWEN_2512_QUALITY_V2",
             photoreal_candidate_foundation: "Tongyi-MAI/Z-Image",
-            photoreal_candidate_profile: "AVANTIQO_IMAGE_COMMERCIAL_PHOTOREAL_CANDIDATE_V2",
-            photoreal_candidate_policy: "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V2",
-            photoreal_quality_compiler_contract: "AVANTIQO_IMAGE_Z_IMAGE_QUALITY_COMPILER_V1",
+            photoreal_candidate_profile: "AVANTIQO_IMAGE_COMMERCIAL_PHOTOREAL_CANDIDATE_V3",
+            photoreal_candidate_policy: "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V3",
+            photoreal_quality_compiler_contract: "AVANTIQO_IMAGE_Z_IMAGE_QUALITY_COMPILER_V2",
+            photoreal_antitext_policy_contract: "AVANTIQO_IMAGE_Z_IMAGE_ANTITEXT_POLICY_V1",
             photoreal_default_inference_steps: 28,
             photoreal_default_guidance_scale: 4.0,
             photoreal_negative_policy_applied: true,
+            photoreal_antitext_policy_applied: true,
             photoreal_prompt_rewrite_applied: false,
             photoreal_compiled_prompt_persisted: false,
             photoreal_cache_contract: "AVANTIQO_IMAGE_PHOTOREAL_CACHE_COMPLETION_V1",
@@ -198,7 +204,8 @@ jobs:
         run: |
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_SOURCE_TRIGGER_MATCH=true'
-          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V7_REALISM_COMPILER=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V8_ANTITEXT_COMPILER=true'
+          echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V7_REALISM_COMPILER_PRESERVED=true'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_V6_PHYSICAL_USAGE_PRESERVED=true'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_AUTOMATIC_PRODUCTION_ROUTING=false'
           echo 'AVANTIQO_IMAGE_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'

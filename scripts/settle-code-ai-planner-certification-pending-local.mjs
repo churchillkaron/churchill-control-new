@@ -1,5 +1,7 @@
+import { register } from "node:module";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
+register("./next-alias-loader.mjs", import.meta.url);
 loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_CODE_PLANNER_CERT_PENDING_SETTLEMENT_V1";

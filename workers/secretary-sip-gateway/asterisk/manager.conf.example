@@ -1,0 +1,13 @@
+; Avantiqo Secretary AMI account template.
+; Copy this locally into Asterisk configuration and set a strong secret OUTSIDE git.
+; Restrict permit= to the gateway host/network in the real installation.
+;
+; [avantiqo-secretary]
+; secret = <set-outside-git>
+; deny = 0.0.0.0/0.0.0.0
+; permit = 127.0.0.1/255.255.255.255
+; read = system,call,log,verbose,command,agent,user,config,dtmf,reporting,cdr,dialplan
+; write = system,call,command,agent,user,config,originate,reporting,dialplan
+;
+; The gateway requires AMI Originate and OriginateResponse events only. In production,
+; reduce read/write classes further if your Asterisk version and policy allow it.

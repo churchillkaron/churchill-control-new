@@ -2,9 +2,11 @@ import { readFile } from "node:fs/promises";
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_VIDEO_RUNPOD_IMMUTABLE_IMAGE_BIND_V1";
-const ENDPOINT_NAME = "avantiqo-video-v1";
+const CONTRACT = "AVANTIQO_VIDEO_RUNPOD_IMMUTABLE_IMAGE_BIND_V2";
+const ENDPOINT_NAMES = new Set(["avantiqo-video-v1", "avantiqo-cinema-v1"]);
 const RESULT_PATH = "audits/results/avantiqo-video-worker-image.json";
+const DEFAULT_DRAIN_TIMEOUT_MS = 5 * 60 * 1000;
+const DEFAULT_POLL_MS = 3_000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -27,6 +29,10 @@ function required(name, fallback = "") {
   const value = text(process.env[name] || fallback);
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeEnv(value) {
@@ -103,6 +109,13 @@ async function endpointBoundTemplates(managementKey) {
   return templates;
 }
 
+function assertEndpointName(endpoint) {
+  const name = text(endpoint?.name);
+  if (!ENDPOINT_NAMES.has(name)) {
+    throw new Error(`AVANTIQO_VIDEO_IMAGE_BIND_ENDPOINT_NAME_INVALID:${name || "MISSING"}`);
+  }
+}
+
 function resolveEndpoint(endpoints) {
   const configuredId = text(process.env.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID);
   if (configuredId) {
@@ -110,13 +123,16 @@ function resolveEndpoint(endpoints) {
     if (matches.length !== 1) {
       throw new Error(`AVANTIQO_VIDEO_IMAGE_BIND_CONFIGURED_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
     }
+    assertEndpointName(matches[0]);
     return { endpoint: matches[0], resolution: "CONFIGURED_ID" };
   }
-  const matches = endpoints.filter((entry) => text(entry?.name) === ENDPOINT_NAME);
+  const matches = endpoints.filter((entry) => ENDPOINT_NAMES.has(text(entry?.name)));
   if (matches.length !== 1) {
-    throw new Error(`AVANTIQO_VIDEO_IMAGE_BIND_EXACT_NAME_RESOLUTION_FAILED:${matches.length}`);
+    throw new Error(
+      `AVANTIQO_VIDEO_IMAGE_BIND_CANONICAL_NAME_RESOLUTION_FAILED:${matches.length}`,
+    );
   }
-  return { endpoint: matches[0], resolution: "EXACT_NAME" };
+  return { endpoint: matches[0], resolution: "CANONICAL_NAME" };
 }
 
 function resolveTemplate(endpoint, templates) {
@@ -167,9 +183,54 @@ function healthSummary(value = {}) {
       initializing: finite(workers.initializing, 0),
       ready: finite(workers.ready, 0),
       running: finite(workers.running, 0),
+      throttled: finite(workers.throttled, 0),
       unhealthy: finite(workers.unhealthy, 0),
     },
   };
+}
+
+function managementSummary(endpoint = {}) {
+  const workers = list(endpoint.workers).map((worker) => ({
+    id_present: Boolean(text(worker?.id)),
+    desired_status: text(worker?.desiredStatus || worker?.desired_status).toUpperCase() || null,
+    status: text(worker?.status || worker?.workerStatus || worker?.runtimeStatus).toUpperCase() || null,
+  }));
+  return {
+    worker_count: workers.length,
+    non_exited_worker_count: workers.filter((worker) => worker.desired_status !== "EXITED").length,
+    workers,
+  };
+}
+
+function drained(snapshot) {
+  return (
+    snapshot.health.jobs.in_queue === 0 &&
+    snapshot.health.jobs.in_progress === 0 &&
+    snapshot.health.workers.idle === 0 &&
+    snapshot.health.workers.initializing === 0 &&
+    snapshot.health.workers.ready === 0 &&
+    snapshot.health.workers.running === 0 &&
+    snapshot.health.workers.throttled === 0 &&
+    snapshot.health.workers.unhealthy === 0 &&
+    snapshot.management.non_exited_worker_count === 0
+  );
+}
+
+function templatePreservationKey(template = {}) {
+  return JSON.stringify({
+    id: text(template.id),
+    name: text(template.name),
+    containerDiskInGb: finite(template.containerDiskInGb, 0),
+    containerRegistryAuthId: text(template.containerRegistryAuthId),
+    dockerEntrypoint: list(template.dockerEntrypoint),
+    dockerStartCmd: list(template.dockerStartCmd),
+    env: normalizeEnv(template.env),
+    ports: list(template.ports),
+    readme: text(template.readme),
+    volumeInGb: finite(template.volumeInGb, 0),
+    volumeMountPath: text(template.volumeMountPath),
+    isPublic: template.isPublic === true,
+  });
 }
 
 function templateUpdateBody(template, imageName) {
@@ -190,6 +251,56 @@ function templateUpdateBody(template, imageName) {
   if (registryAuthId) body.containerRegistryAuthId = registryAuthId;
   if (!body.name) throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_TEMPLATE_NAME_REQUIRED");
   return body;
+}
+
+async function snapshot(managementKey, queueKey, endpointId) {
+  const [endpoint, templates, healthRaw] = await Promise.all([
+    rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey),
+    endpointBoundTemplates(managementKey),
+    queueHealth(endpointId, queueKey),
+  ]);
+  assertEndpointName(endpoint);
+  return {
+    endpoint,
+    template: resolveTemplate(endpoint, templates),
+    health: healthSummary(healthRaw),
+    management: managementSummary(endpoint),
+  };
+}
+
+async function waitForDrain(managementKey, queueKey, endpointId) {
+  const timeoutMs = Math.max(
+    30_000,
+    Math.min(
+      10 * 60 * 1000,
+      finite(process.env.AVANTIQO_VIDEO_IMAGE_BIND_DRAIN_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS),
+    ),
+  );
+  const pollMs = Math.max(
+    1_000,
+    Math.min(15_000, finite(process.env.AVANTIQO_VIDEO_IMAGE_BIND_POLL_MS, DEFAULT_POLL_MS)),
+  );
+  const started = Date.now();
+  let stable = 0;
+  let latest = await snapshot(managementKey, queueKey, endpointId);
+  while (Date.now() - started < timeoutMs) {
+    if (drained(latest)) {
+      stable += 1;
+      if (stable >= 2) return latest;
+    } else {
+      stable = 0;
+    }
+    console.log(JSON.stringify({
+      event: "AVANTIQO_VIDEO_IMAGE_BIND_DRAIN_PROGRESS",
+      elapsed_seconds: Math.round((Date.now() - started) / 1000),
+      stable_drain_observations: stable,
+      health: latest.health,
+      management: latest.management,
+    }));
+    await sleep(pollMs);
+    latest = await snapshot(managementKey, queueKey, endpointId);
+  }
+  throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_DRAIN_TIMEOUT");
 }
 
 const evidence = JSON.parse(await readFile(RESULT_PATH, "utf8"));
@@ -215,28 +326,26 @@ const endpointsRaw = await rest("/endpoints?includeTemplate=true&includeWorkers=
 const endpoints = normalizeListResponse(endpointsRaw, ["endpoints", "serverlessEndpoints"]);
 if (!endpoints) throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_ENDPOINT_LIST_INVALID");
 const resolution = resolveEndpoint(endpoints);
-const endpoint = resolution.endpoint;
-const endpointId = text(endpoint.id);
-const templates = await endpointBoundTemplates(managementKey);
-const template = resolveTemplate(endpoint, templates);
-const templateId = text(template.id);
+const endpointId = text(resolution.endpoint.id);
+const initial = await snapshot(managementKey, queueKey, endpointId);
+const templateId = text(initial.template.id);
 const consumers = endpoints.filter(
   (entry) => text(entry?.templateId || entry?.template?.id) === templateId,
 );
 const templateExclusive = consumers.length === 1 && text(consumers[0]?.id) === endpointId;
-const health = healthSummary(await queueHealth(endpointId, queueKey));
-const mutationRequired = text(template.imageName) !== immutableImage;
+const mutationRequired = text(initial.template.imageName) !== immutableImage;
 
 const result = {
   success: templateExclusive,
   contract: CONTRACT,
   mode: apply ? "APPLY" : "PLAN",
   endpoint_resolution: resolution.resolution,
-  endpoint: safeEndpoint(endpoint),
-  template: safeTemplate(template),
+  endpoint: safeEndpoint(initial.endpoint),
+  template: safeTemplate(initial.template),
   template_consumer_count: consumers.length,
   template_exclusive_to_video_endpoint: templateExclusive,
-  health,
+  health: initial.health,
+  management: initial.management,
   immutable_image: {
     reference: immutableImage,
     digest: text(evidence.image_digest),
@@ -247,6 +356,7 @@ const result = {
   },
   mutation_required: mutationRequired,
   mutation_performed: false,
+  endpoint_temporarily_drained: false,
   provider_job_submitted: false,
   video_generation_submitted: false,
   model_download_submitted: false,
@@ -266,9 +376,9 @@ if (!apply) {
 if (!templateExclusive) {
   throw new Error(`AVANTIQO_VIDEO_IMAGE_BIND_SHARED_TEMPLATE_BLOCKED:${consumers.length}`);
 }
-if (health.jobs.in_queue > 0 || health.jobs.in_progress > 0) {
+if (initial.health.jobs.in_queue > 0 || initial.health.jobs.in_progress > 0) {
   throw new Error(
-    `AVANTIQO_VIDEO_IMAGE_BIND_LIVE_JOBS_BLOCK:in_queue=${health.jobs.in_queue}:in_progress=${health.jobs.in_progress}`,
+    `AVANTIQO_VIDEO_IMAGE_BIND_LIVE_JOBS_BLOCK:in_queue=${initial.health.jobs.in_queue}:in_progress=${initial.health.jobs.in_progress}`,
   );
 }
 if (!mutationRequired) {
@@ -276,33 +386,126 @@ if (!mutationRequired) {
   process.exit();
 }
 
-await rest(`/templates/${encodeURIComponent(templateId)}/update`, managementKey, {
-  method: "POST",
-  body: templateUpdateBody(template, immutableImage),
-});
+const originalWorkersMin = finite(initial.endpoint.workersMin, 0);
+const originalWorkersMax = finite(initial.endpoint.workersMax, 0);
+const originalImage = text(initial.template.imageName);
+const originalPreservationKey = templatePreservationKey(initial.template);
+let scalingChanged = false;
+let imageChanged = false;
 
-const verifiedEndpoint = await rest(
-  `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
-  managementKey,
-);
-const verifiedTemplates = await endpointBoundTemplates(managementKey);
-const verifiedTemplate = resolveTemplate(verifiedEndpoint, verifiedTemplates);
-if (text(verifiedTemplate.imageName) !== immutableImage) {
-  throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_VERIFY_IMAGE_FAILED");
+try {
+  await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
+    method: "PATCH",
+    body: { workersMin: 0, workersMax: 0 },
+  });
+  scalingChanged = originalWorkersMin !== 0 || originalWorkersMax !== 0;
+  console.log("AVANTIQO_VIDEO_IMMUTABLE_IMAGE_BIND_DRAIN_REQUESTED=true");
+  const drainedState = await waitForDrain(managementKey, queueKey, endpointId);
+
+  const freshEndpointsRaw = await rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey);
+  const freshEndpoints = normalizeListResponse(freshEndpointsRaw, ["endpoints", "serverlessEndpoints"]);
+  if (!freshEndpoints) throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_FRESH_ENDPOINT_LIST_INVALID");
+  const freshResolution = resolveEndpoint(freshEndpoints);
+  if (text(freshResolution.endpoint.id) !== endpointId) {
+    throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_ENDPOINT_MOVED_REPLAN_REQUIRED");
+  }
+  const fresh = await snapshot(managementKey, queueKey, endpointId);
+  if (!drained(fresh) || !drained(drainedState)) {
+    throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_DRAIN_NOT_STABLE");
+  }
+  if (text(fresh.template.id) !== templateId) {
+    throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_TEMPLATE_MOVED_REPLAN_REQUIRED");
+  }
+  if (text(fresh.template.imageName) !== originalImage) {
+    throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_TEMPLATE_IMAGE_CHANGED_REPLAN_REQUIRED");
+  }
+  if (templatePreservationKey(fresh.template) !== originalPreservationKey) {
+    throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_TEMPLATE_CONTENT_CHANGED_REPLAN_REQUIRED");
+  }
+  const freshConsumers = freshEndpoints.filter(
+    (entry) => text(entry?.templateId || entry?.template?.id) === templateId,
+  );
+  if (freshConsumers.length !== 1 || text(freshConsumers[0]?.id) !== endpointId) {
+    throw new Error(`AVANTIQO_VIDEO_IMAGE_BIND_TEMPLATE_SHARING_CHANGED:${freshConsumers.length}`);
+  }
+
+  await rest(`/templates/${encodeURIComponent(templateId)}/update`, managementKey, {
+    method: "POST",
+    body: templateUpdateBody(fresh.template, immutableImage),
+  });
+  imageChanged = true;
+
+  await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
+    method: "PATCH",
+    body: { workersMin: originalWorkersMin, workersMax: originalWorkersMax },
+  });
+  scalingChanged = false;
+
+  const verified = await snapshot(managementKey, queueKey, endpointId);
+  if (text(verified.template.imageName) !== immutableImage) {
+    throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_VERIFY_IMAGE_FAILED");
+  }
+  if (templatePreservationKey(verified.template) !== originalPreservationKey) {
+    throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_VERIFY_TEMPLATE_PRESERVATION_FAILED");
+  }
+  if (
+    finite(verified.endpoint.workersMin, 0) !== originalWorkersMin ||
+    finite(verified.endpoint.workersMax, 0) !== originalWorkersMax
+  ) {
+    throw new Error("AVANTIQO_VIDEO_IMAGE_BIND_VERIFY_SCALING_FAILED");
+  }
+
+  console.log(JSON.stringify({
+    ...result,
+    success: true,
+    mode: "APPLY",
+    endpoint: safeEndpoint(verified.endpoint),
+    template: safeTemplate(verified.template),
+    health_after: verified.health,
+    management_after: verified.management,
+    mutation_performed: true,
+    endpoint_temporarily_drained: true,
+    image_bind_verified: true,
+    provider_job_submitted: false,
+    video_generation_submitted: false,
+    model_download_submitted: false,
+    production_web_deploy: false,
+    secrets_in_output: false,
+    next_action: "RUN_RUNTIME_PROBE_THEN_ONE_BOUNDED_VIDEO_GENERATION",
+  }, null, 2));
+} catch (error) {
+  const rollbackErrors = [];
+  if (imageChanged) {
+    try {
+      const rollback = await snapshot(managementKey, queueKey, endpointId);
+      await rest(`/templates/${encodeURIComponent(templateId)}/update`, managementKey, {
+        method: "POST",
+        body: templateUpdateBody(rollback.template, originalImage),
+      });
+    } catch (rollbackError) {
+      rollbackErrors.push(`image:${text(rollbackError?.message || rollbackError)}`);
+    }
+  }
+  if (scalingChanged || originalWorkersMin !== 0 || originalWorkersMax !== 0) {
+    try {
+      await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
+        method: "PATCH",
+        body: { workersMin: originalWorkersMin, workersMax: originalWorkersMax },
+      });
+    } catch (rollbackError) {
+      rollbackErrors.push(`scaling:${text(rollbackError?.message || rollbackError)}`);
+    }
+  }
+  console.error(JSON.stringify({
+    success: false,
+    contract: CONTRACT,
+    error: text(error?.message || error),
+    rollback_attempted: imageChanged || scalingChanged,
+    rollback_errors: rollbackErrors,
+    provider_job_submitted: false,
+    video_generation_submitted: false,
+    production_web_deploy: false,
+    secrets_in_output: false,
+  }));
+  throw error;
 }
-
-console.log(JSON.stringify({
-  ...result,
-  success: true,
-  mode: "APPLY",
-  endpoint: safeEndpoint(verifiedEndpoint),
-  template: safeTemplate(verifiedTemplate),
-  mutation_performed: true,
-  image_bind_verified: true,
-  provider_job_submitted: false,
-  video_generation_submitted: false,
-  model_download_submitted: false,
-  production_web_deploy: false,
-  secrets_in_output: false,
-  next_action: "RUN_RUNTIME_PROBE_THEN_ONE_BOUNDED_VIDEO_GENERATION",
-}, null, 2));

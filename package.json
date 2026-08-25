@@ -18,6 +18,7 @@
     "audit:operator-intelligence-autonomy-v2": "node scripts/operator-intelligence-autonomy-v2-audit.mjs && node scripts/operator-product-repository-continuation-audit.mjs && node scripts/operator-product-next-objective-isolation-audit.mjs && npm run audit:operator-conversation-governance",
     "smoke:operator-secretary-sip-gateway": "node workers/secretary-sip-gateway/smoke.mjs",
     "bootstrap:operator-secretary-asterisk": "node workers/secretary-sip-gateway/asterisk/bootstrap-local.mjs",
+    "bootstrap:operator-secretary-managed-telephony": "node --env-file=.env.local scripts/bootstrap-secretary-managed-telephony-local.mjs",
     "start:operator-secretary-asterisk": "docker compose --env-file .env.local -f workers/secretary-sip-gateway/asterisk/docker-compose.asterisk.yml up -d --build",
     "stop:operator-secretary-asterisk": "docker compose --env-file .env.local -f workers/secretary-sip-gateway/asterisk/docker-compose.asterisk.yml down",
     "logs:operator-secretary-asterisk": "docker compose --env-file .env.local -f workers/secretary-sip-gateway/asterisk/docker-compose.asterisk.yml logs --tail=120 secretary-asterisk",

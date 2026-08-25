@@ -2,7 +2,8 @@
 
 set -u
 
-PROJECT_ROOT="${AVANTIQO_PROJECT_ROOT:-$HOME/Projects/churchill-control-new}"
+DEFAULT_PROJECT_ROOT="$HOME/Projects/churchill-control-new"
+PROJECT_ROOT="${AVANTIQO_PROJECT_ROOT:-$DEFAULT_PROJECT_ROOT}"
 PORT="${AVANTIQO_OPERATOR_E2E_PORT:-3017}"
 BASE_URL="${AVANTIQO_OPERATOR_E2E_BASE_URL:-http://127.0.0.1:${PORT}}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
@@ -38,6 +39,13 @@ fail() {
   echo "REPORT=$REPORT"
   [ -f "$SERVER_LOG" ] && echo "SERVER_LOG=$SERVER_LOG"
   exit 1
+}
+
+main_worktree_path() {
+  git -C "$1" worktree list --porcelain 2>/dev/null | awk '
+    /^worktree / { path = substr($0, 10) }
+    /^branch refs\/heads\/main$/ { print path; exit }
+  '
 }
 
 json_value() {
@@ -89,19 +97,36 @@ wait_for_server() {
 echo "============================================================"
 echo "AVANTIQO OPERATOR PRODUCT ENGINEERING REAL LOCAL E2E"
 echo "============================================================"
-echo "Project:      $PROJECT_ROOT"
-echo "Base URL:     $BASE_URL"
-echo "Conversation: $CONVERSATION_KEY"
-echo "Report:       $REPORT"
+echo "Requested project: $PROJECT_ROOT"
+echo "Base URL:          $BASE_URL"
+echo "Conversation:      $CONVERSATION_KEY"
+echo "Report:            $REPORT"
 echo ""
 
-cd "$PROJECT_ROOT" || fail "PROJECT_DIRECTORY_NOT_FOUND"
+[ -d "$PROJECT_ROOT/.git" ] || [ -f "$PROJECT_ROOT/.git" ] || fail "PROJECT_DIRECTORY_NOT_GIT_WORKTREE"
 command -v node >/dev/null 2>&1 || fail "NODE_MISSING"
 command -v curl >/dev/null 2>&1 || fail "CURL_MISSING"
 command -v git >/dev/null 2>&1 || fail "GIT_MISSING"
 
+CURRENT_BRANCH="$(git -C "$PROJECT_ROOT" branch --show-current)"
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  RESOLVED_MAIN_WORKTREE="$(main_worktree_path "$PROJECT_ROOT")"
+  if [ -n "$RESOLVED_MAIN_WORKTREE" ] && [ -d "$RESOLVED_MAIN_WORKTREE" ]; then
+    echo "E2E_REQUESTED_WORKTREE_BRANCH=$CURRENT_BRANCH"
+    echo "E2E_MAIN_WORKTREE_RESOLVED=YES"
+    echo "E2E_MAIN_WORKTREE=$RESOLVED_MAIN_WORKTREE"
+    PROJECT_ROOT="$RESOLVED_MAIN_WORKTREE"
+  else
+    echo "E2E_MAIN_WORKTREE_RESOLVED=NO"
+    git -C "$PROJECT_ROOT" switch main || fail "GIT_SWITCH_MAIN_FAILED"
+  fi
+fi
+
+cd "$PROJECT_ROOT" || fail "PROJECT_DIRECTORY_NOT_FOUND"
 CURRENT_BRANCH="$(git branch --show-current)"
 [ "$CURRENT_BRANCH" = "main" ] || fail "LOCAL_BRANCH_NOT_MAIN"
+echo "Project:            $PROJECT_ROOT"
+echo "E2E_EXECUTION_BRANCH=$CURRENT_BRANCH"
 
 PREEXISTING_TRACKED_STATUS="$(git status --porcelain --untracked-files=no)"
 if [ -n "$PREEXISTING_TRACKED_STATUS" ]; then
@@ -121,8 +146,7 @@ fi
 
 echo "================ SYNC NEWEST MAIN ================"
 git fetch origin main || fail "GIT_FETCH_MAIN_FAILED"
-git switch main || fail "GIT_SWITCH_MAIN_FAILED"
-git pull --ff-only origin main || fail "GIT_PULL_MAIN_FAILED"
+git merge --ff-only origin/main || fail "GIT_FAST_FORWARD_MAIN_FAILED"
 MAIN_BEFORE="$(git rev-parse HEAD)"
 BASELINE_STATUS="$(git status --porcelain --untracked-files=normal)"
 BASELINE_TRACKED_DIFF_HASH="$(git diff --binary --no-ext-diff | git hash-object --stdin)"
@@ -303,16 +327,11 @@ if (governance.code_ai_commit_capability_completed !== false) fail("CODE_AI_COMM
 if (governance.production_deployment_capability_invoked !== false) fail("PRODUCTION_DEPLOY_CAPABILITY_INVOKED");
 
 const engineerEntries = steps.filter((step) => text(step?.id) === "engineer_next_gap");
-const engineerAction = engineerEntries.find(
-  (step) => text(step?.status) === "action_completed" || Object.keys(object(step?.result)).length > 0,
-) || {};
 const engineerVerificationEntry = [...engineerEntries].reverse().find(
   (step) => Object.keys(object(step?.verification)).length > 0,
 ) || {};
 const verification = object(engineerVerificationEntry.verification);
 const verificationState = object(verification.execution_state);
-const engineerWrapped = object(engineerAction.result);
-const engineerResult = Object.keys(object(engineerWrapped.result)).length ? object(engineerWrapped.result) : engineerWrapped;
 if (text(mission.status) === "completed") {
   if (
     verification.verified !== true ||

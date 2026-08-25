@@ -7,7 +7,7 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 loadAvantiqoEnv();
 
 const REST = "https://rest.runpod.io/v1";
-const CONTRACT = "AVANTIQO_VOICE_TTS_FRESH_RECOVERY_FINISH_V1";
+const CONTRACT = "AVANTIQO_VOICE_TTS_FRESH_RECOVERY_FINISH_V2";
 const RECOVERY_ENDPOINT_NAME = "avantiqo-voice-tts-v1-recovery-20260825";
 const CERTIFIED_IMAGE = "ghcr.io/churchillkaron/avantiqo-voice-tts-worker@sha256:c9ce291cc27bb7de119cf1120a92dd6466962b6d79fd5728a1266a743bad1a06";
 const FOUNDATION = "resemble-ai/chatterbox:multilingual-v3";
@@ -67,24 +67,17 @@ async function rest(pathname, key, options = {}) {
   }), "RUNPOD_VOICE_TTS_FRESH_RECOVERY_FINISH_REST");
 }
 
-function safeEndpoint(endpoint = {}) {
-  return {
-    id: text(endpoint?.id) || null,
-    name: text(endpoint?.name) || null,
-    template_id: text(endpoint?.templateId || endpoint?.template?.id) || null,
-    template_image: text(endpoint?.template?.imageName) || null,
-    workers_min: Number.isFinite(Number(endpoint?.workersMin)) ? Number(endpoint.workersMin) : null,
-    workers_max: Number.isFinite(Number(endpoint?.workersMax)) ? Number(endpoint.workersMax) : null,
-    gpu_count: Number.isFinite(Number(endpoint?.gpuCount)) ? Number(endpoint.gpuCount) : null,
-    gpu_type_ids: list(endpoint?.gpuTypeIds).map(text).filter(Boolean),
-    min_cuda_version: text(endpoint?.minCudaVersion) || null,
-    data_center_ids: list(endpoint?.dataCenterIds).map(text).filter(Boolean),
-  };
-}
-
 async function listEndpoints(key) {
   const body = await rest("/endpoints?includeTemplate=true&includeWorkers=true", key);
   return normalizeList(body, ["endpoints", "serverlessEndpoints"]) || [];
+}
+
+async function listTemplates(key) {
+  const body = await rest(
+    "/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false",
+    key,
+  );
+  return normalizeList(body, ["templates"]) || [];
 }
 
 async function resolveRecoveryEndpoint(key) {
@@ -92,6 +85,19 @@ async function resolveRecoveryEndpoint(key) {
   const matches = endpoints.filter((endpoint) => text(endpoint?.name) === RECOVERY_ENDPOINT_NAME);
   if (matches.length !== 1) {
     throw new Error(`AVANTIQO_VOICE_TTS_FRESH_RECOVERY_ENDPOINT_RESOLUTION_FAILED:matches=${matches.length}`);
+  }
+  return matches[0];
+}
+
+async function resolveBoundTemplate(endpoint, key) {
+  const templateId = text(endpoint?.templateId || endpoint?.template?.id);
+  if (!templateId) {
+    throw new Error("AVANTIQO_VOICE_TTS_FRESH_RECOVERY_TEMPLATE_ID_REQUIRED");
+  }
+  const templates = await listTemplates(key);
+  const matches = templates.filter((template) => text(template?.id) === templateId);
+  if (matches.length !== 1) {
+    throw new Error(`AVANTIQO_VOICE_TTS_FRESH_RECOVERY_TEMPLATE_RESOLUTION_FAILED:matches=${matches.length}`);
   }
   return matches[0];
 }
@@ -124,7 +130,8 @@ let endpoint = await resolveRecoveryEndpoint(managementKey);
 const endpointId = text(endpoint?.id);
 if (!endpointId) throw new Error("AVANTIQO_VOICE_TTS_FRESH_RECOVERY_ENDPOINT_ID_REQUIRED");
 
-if (text(endpoint?.template?.imageName) !== CERTIFIED_IMAGE) {
+const boundTemplate = await resolveBoundTemplate(endpoint, managementKey);
+if (text(boundTemplate?.imageName || boundTemplate?.image) !== CERTIFIED_IMAGE) {
   throw new Error("AVANTIQO_VOICE_TTS_FRESH_RECOVERY_CERTIFIED_IMAGE_MISMATCH");
 }
 if (text(endpoint?.minCudaVersion) !== "12.8") {
@@ -137,8 +144,12 @@ if (Number(endpoint?.workersMax) !== 1 || Number(endpoint?.gpuCount) !== 1) {
 endpoint = await forceWorkersMinZero(endpointId, managementKey);
 console.log(JSON.stringify({
   event: "AVANTIQO_VOICE_TTS_FRESH_RECOVERY_COST_GUARD_VERIFIED",
-  endpoint: safeEndpoint(endpoint),
+  endpoint_id: endpointId,
+  template_id: text(boundTemplate?.id),
+  certified_image_verified: true,
+  cuda_runtime: text(endpoint?.minCudaVersion),
   workers_min: 0,
+  workers_max: Number(endpoint?.workersMax),
   always_on_billing_enabled: false,
   generation_submitted: false,
   secrets_printed: false,
@@ -161,7 +172,6 @@ process.env.AVANTIQO_VOICE_TTS_COLD_START_AUDIO_OUTPUT = AUDIO_PATH;
 process.env.AVANTIQO_VOICE_TTS_COLD_START_REPORT_OUTPUT = REPORT_PATH;
 process.env.AVANTIQO_VOICE_TTS_COLD_START_TIMEOUT_MS = String(20 * 60_000);
 
-let smoke = null;
 let importError = null;
 try {
   await import("./smoke-avantiqo-voice-tts-cold-start-local.mjs");
@@ -179,6 +189,7 @@ try {
   });
 }
 
+let smoke = null;
 try {
   smoke = JSON.parse(await readFile(REPORT_PATH, "utf8"));
 } catch {
@@ -193,7 +204,7 @@ if (Number(finalEndpoint?.workersMin) !== 0) {
 console.log(JSON.stringify({
   event: "AVANTIQO_VOICE_TTS_FRESH_RECOVERY_FINAL_COST_GUARD",
   endpoint_id: endpointId,
-  workers_min: Number(finalEndpoint?.workersMin),
+  workers_min: 0,
   always_on_billing_enabled: false,
   generation_submitted: smoke?.generation_submitted === true,
   generation_submission_outcome: text(smoke?.generation_submission_outcome) || null,

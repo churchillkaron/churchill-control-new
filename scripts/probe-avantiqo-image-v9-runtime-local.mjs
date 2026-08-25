@@ -9,6 +9,7 @@ const EVIDENCE_REVISION = "AVANTIQO_IMAGE_WORKER_IMAGE_V9_Z_IMAGE_DEFAULT_ROUTIN
 const EXPECTED_ENTRYPOINT = "handler_v9.py";
 const EXPECTED_ENTRYPOINT_REVISION = "AVANTIQO_IMAGE_HANDLER_V9_Z_IMAGE_DEFAULT_ROUTING_V1";
 const EXPECTED_RUNTIME = "AVANTIQO_IMAGE_MULTI_FOUNDATION_PHYSICAL_VOLUME_USAGE_QUALITY_V4";
+const EXPECTED_CAPACITY_RUNTIME = "AVANTIQO_IMAGE_MULTI_FOUNDATION_PHYSICAL_VOLUME_USAGE_QUALITY_V3";
 const TARGET_MODEL = "Tongyi-MAI/Z-Image";
 const EXPECTED_PROFILE = "AVANTIQO_IMAGE_COMMERCIAL_PHOTOREAL_CANDIDATE_V3";
 const EXPECTED_POLICY = "Z_IMAGE_RESTRAINED_PHOTOGRAPHIC_V3";
@@ -146,6 +147,19 @@ function terminalFailure(status) { return ["FAILED", "TIMED_OUT", "CANCELLED", "
 async function cancelJob(endpointId, jobId, key) {
   try { await queue(endpointId, `/cancel/${encodeURIComponent(jobId)}`, key, { method: "POST" }); } catch {}
 }
+async function waitExistingJob(endpointId, key, jobId, label) {
+  const startedAt = Date.now();
+  let body = await queue(endpointId, `/status/${encodeURIComponent(jobId)}`, key);
+  while (Date.now() - startedAt < MAX_WAIT_MS) {
+    const status = text(body?.status).toUpperCase();
+    if (status === "COMPLETED") return { body, jobId, submitted: false, reused: true };
+    if (terminalFailure(status)) throw new Error(`AVANTIQO_IMAGE_V9_${label}_REUSED_JOB_FAILED:${status}:${text(body?.error).slice(0, 500)}`);
+    console.log(JSON.stringify({ event: "AVANTIQO_IMAGE_V9_PROBE_REUSE_PROGRESS", label, job_id: jobId, status, elapsed_seconds: Math.round((Date.now() - startedAt) / 1000) }));
+    await sleep(POLL_MS);
+    body = await queue(endpointId, `/status/${encodeURIComponent(jobId)}`, key);
+  }
+  throw new Error(`AVANTIQO_IMAGE_V9_${label}_REUSED_JOB_TIMEOUT_NO_NEW_SUBMISSION`);
+}
 async function runOperation(endpointId, key, input, label) {
   let submitted;
   try { submitted = await queue(endpointId, "/run", key, { method: "POST", body: { input } }); }
@@ -157,7 +171,7 @@ async function runOperation(endpointId, key, input, label) {
   let body = submitted;
   while (Date.now() - startedAt < MAX_WAIT_MS) {
     const status = text(body?.status).toUpperCase();
-    if (status === "COMPLETED") return { body, jobId };
+    if (status === "COMPLETED") return { body, jobId, submitted: true, reused: false };
     if (terminalFailure(status)) throw new Error(`AVANTIQO_IMAGE_V9_${label}_FAILED:${status}:${text(body?.error).slice(0, 500)}`);
     await sleep(POLL_MS);
     body = await queue(endpointId, `/status/${encodeURIComponent(jobId)}`, key);
@@ -165,6 +179,14 @@ async function runOperation(endpointId, key, input, label) {
   }
   await cancelJob(endpointId, jobId, key);
   throw new Error(`AVANTIQO_IMAGE_V9_${label}_TIMEOUT_CANCELLED`);
+}
+async function runOrReuseOperation(endpointId, key, input, label, reuseEnv) {
+  const reusableId = text(process.env[reuseEnv]);
+  if (reusableId) {
+    console.log(`AVANTIQO_IMAGE_V9_${label}_REUSE_JOB_ID=${reusableId}`);
+    return waitExistingJob(endpointId, key, reusableId, label);
+  }
+  return runOperation(endpointId, key, input, label);
 }
 function validateRuntime(body) {
   const output = obj(body?.output);
@@ -183,12 +205,24 @@ function validateRuntime(body) {
 }
 function validateCapacity(body) {
   const output = obj(body?.output);
-  if (text(output.status) !== "completed" || text(output.engine_contract) !== ENGINE_CONTRACT || text(output.operation) !== "inspect_foundation_capacity" || text(output.runtime_revision) !== EXPECTED_RUNTIME || text(output.target_model) !== TARGET_MODEL || output.candidate_cache_ready !== true) throw new Error("AVANTIQO_IMAGE_V9_CAPACITY_BASE_CONTRACT_INVALID");
+  const baseValid = text(output.status) === "completed" &&
+    text(output.engine_contract) === ENGINE_CONTRACT &&
+    text(output.operation) === "inspect_foundation_capacity" &&
+    text(output.runtime_revision) === EXPECTED_CAPACITY_RUNTIME &&
+    text(output.target_model) === TARGET_MODEL &&
+    text(output.candidate_profile) === EXPECTED_PROFILE &&
+    output.candidate_cache_ready === true;
+  if (!baseValid) {
+    console.log(`AVANTIQO_IMAGE_V9_CAPACITY_SAFE_SUMMARY=${JSON.stringify({ runtime_revision: text(output.runtime_revision) || null, target_model: text(output.target_model) || null, candidate_profile: text(output.candidate_profile) || null, candidate_cache_ready: output.candidate_cache_ready === true })}`);
+    throw new Error("AVANTIQO_IMAGE_V9_CAPACITY_BASE_CONTRACT_INVALID");
+  }
   failIfTrue(output.download_requested, "AVANTIQO_IMAGE_V9_CAPACITY_DOWNLOAD_REQUEST_FORBIDDEN");
   failIfTrue(output.model_download_performed, "AVANTIQO_IMAGE_V9_CAPACITY_DOWNLOAD_FORBIDDEN");
   failIfTrue(output.generation_requested, "AVANTIQO_IMAGE_V9_CAPACITY_GENERATION_FORBIDDEN");
   failIfTrue(output.inference_performed, "AVANTIQO_IMAGE_V9_CAPACITY_INFERENCE_FORBIDDEN");
   failIfTrue(output.storage_mutation_performed, "AVANTIQO_IMAGE_V9_CAPACITY_STORAGE_MUTATION_FORBIDDEN");
+  const storage = obj(output.candidate_storage);
+  if (text(storage.physical_usage_contract) !== EXPECTED_PHYSICAL_USAGE || text(storage.allocation_decision_basis) !== EXPECTED_ALLOCATION_BASIS || storage.backing_filesystem_capacity_used_for_decision !== false) throw new Error("AVANTIQO_IMAGE_V9_CAPACITY_PHYSICAL_GUARD_INVALID");
   return output;
 }
 
@@ -211,7 +245,11 @@ const credential = await selectQueueCredential(endpointId, managementKey);
 const initialHealth = healthSummary(await queue(endpointId, "/health", credential.key));
 if (initialHealth.jobs.in_queue !== 0 || initialHealth.jobs.in_progress !== 0 || initialHealth.workers.running !== 0 || initialHealth.workers.unhealthy !== 0) throw new Error("AVANTIQO_IMAGE_V9_PROBE_EXISTING_ACTIVITY_BLOCK");
 
-console.log("AVANTIQO_IMAGE_V9_RUNTIME_PROBE_PROVIDER_JOBS_MAX=2");
+const runtimeReuseId = text(process.env.AVANTIQO_IMAGE_V9_RUNTIME_JOB_ID);
+const capacityReuseId = text(process.env.AVANTIQO_IMAGE_V9_CAPACITY_JOB_ID);
+console.log(`AVANTIQO_IMAGE_V9_RUNTIME_PROBE_PROVIDER_JOBS_MAX=${(runtimeReuseId ? 0 : 1) + (capacityReuseId ? 0 : 1)}`);
+console.log(`AVANTIQO_IMAGE_V9_RUNTIME_PROBE_REUSE_RUNTIME=${Boolean(runtimeReuseId)}`);
+console.log(`AVANTIQO_IMAGE_V9_RUNTIME_PROBE_REUSE_CAPACITY=${Boolean(capacityReuseId)}`);
 console.log("AVANTIQO_IMAGE_V9_RUNTIME_PROBE_GENERATION_REQUESTED=false");
 console.log("AVANTIQO_IMAGE_V9_RUNTIME_PROBE_INFERENCE_PERFORMED=false");
 console.log("AVANTIQO_IMAGE_V9_RUNTIME_PROBE_MODEL_DOWNLOAD_PERFORMED=false");
@@ -220,17 +258,22 @@ console.log("AVANTIQO_IMAGE_V9_RUNTIME_PROBE_ENDPOINT_MUTATION=false");
 console.log("AVANTIQO_IMAGE_V9_RUNTIME_PROBE_PRODUCTION_DEPLOY=false");
 console.log(`AVANTIQO_IMAGE_V9_RUNTIME_PROBE_QUEUE_CREDENTIAL_SOURCE=${credential.source}`);
 
-const runtime = validateRuntime((await runOperation(endpointId, credential.key, { contract: ENGINE_CONTRACT, operation: "runtime_probe" }, "RUNTIME")).body);
-const capacity = validateCapacity((await runOperation(endpointId, credential.key, { contract: ENGINE_CONTRACT, operation: "inspect_foundation_capacity", target_model: TARGET_MODEL }, "CAPACITY")).body);
+const runtimeRun = await runOrReuseOperation(endpointId, credential.key, { contract: ENGINE_CONTRACT, operation: "runtime_probe" }, "RUNTIME", "AVANTIQO_IMAGE_V9_RUNTIME_JOB_ID");
+const runtime = validateRuntime(runtimeRun.body);
+const capacityRun = await runOrReuseOperation(endpointId, credential.key, { contract: ENGINE_CONTRACT, operation: "inspect_foundation_capacity", target_model: TARGET_MODEL }, "CAPACITY", "AVANTIQO_IMAGE_V9_CAPACITY_JOB_ID");
+const capacity = validateCapacity(capacityRun.body);
 const finalHealth = healthSummary(await queue(endpointId, "/health", credential.key));
+const submittedThisRun = Number(runtimeRun.submitted) + Number(capacityRun.submitted);
 console.log(JSON.stringify({
   success: true,
   contract: "AVANTIQO_IMAGE_V9_RUNTIME_CERTIFICATION_PROBE_V1",
   endpoint: { id: endpointId, name: ENDPOINT_NAME, template_id: templateId, template_name: text(template.name), immutable_image: immutableImage },
-  source_evidence: { source_sha: text(evidence.source_sha), evidence_revision: EVIDENCE_REVISION, runtime_revision: EXPECTED_RUNTIME },
+  source_evidence: { source_sha: text(evidence.source_sha), evidence_revision: EVIDENCE_REVISION, runtime_revision: EXPECTED_RUNTIME, inherited_capacity_runtime_revision: EXPECTED_CAPACITY_RUNTIME },
   runtime_probe: runtime,
   foundation_capacity: capacity,
-  provider_jobs_submitted: 2,
+  provider_jobs_submitted: submittedThisRun,
+  provider_jobs_reused: 2 - submittedThisRun,
+  reused_job_ids: { runtime: runtimeRun.reused ? runtimeRun.jobId : null, capacity: capacityRun.reused ? capacityRun.jobId : null },
   image_generation_submitted: false,
   inference_performed: false,
   model_download_submitted: false,

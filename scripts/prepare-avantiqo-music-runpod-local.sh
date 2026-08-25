@@ -112,17 +112,15 @@ printf '%s\n' "========================================"
 run_node scripts/run-with-runpod-registry-auth-normalized-local.mjs scripts/repair-avantiqo-audio-runpod-worker-local.mjs --apply
 
 printf '%s\n' "========================================"
-printf '%s\n' "STEP 8: PROVE AUDIO IDENTITY AND BIND LOCALLY"
-printf '%s\n' "========================================"
-run_node scripts/bind-avantiqo-audio-endpoint-auto-local.mjs
-
-printf '%s\n' "========================================"
-printf '%s\n' "STEP 9: RE-INSPECT AUDIO WORKER"
+printf '%s\n' "STEP 8: VERIFY AUDIO IDENTITY READ ONLY"
 printf '%s\n' "========================================"
 run_node scripts/inspect-avantiqo-audio-runpod-worker-local.mjs
 
+echo "AVANTIQO_AUDIO_ENDPOINT_IDENTITY_PROOF=MANAGEMENT_EXACT_NAME_AND_CONFIGURED_ID"
+echo "AVANTIQO_AUDIO_ENDPOINT_FINGERPRINT_SUBMITTED=false"
+
 printf '%s\n' "========================================"
-printf '%s\n' "STEP 10: ZERO-GENERATION MUSIC PREFLIGHT"
+printf '%s\n' "STEP 9: ZERO-GENERATION MUSIC PREFLIGHT"
 printf '%s\n' "========================================"
 run_node scripts/preflight-avantiqo-music-local.mjs
 

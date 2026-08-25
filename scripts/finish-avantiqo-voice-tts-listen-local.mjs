@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -9,6 +9,11 @@ const QUEUE_BASE = "https://api.runpod.ai/v2";
 const ENDPOINT_NAME = "avantiqo-voice-tts-v1";
 const REQUIRED_CUDA = "12.8";
 const REQUIRED_TORCH = "2.7.0";
+const BLACKWELL_GPU_TYPE_IDS = Object.freeze([
+  "NVIDIA GeForce RTX 5090",
+  "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+]);
 const EVIDENCE_PATH = "audits/results/avantiqo-voice-worker-images.json";
 const REPAIR_SCRIPT = "scripts/repair-avantiqo-voice-tts-runpod-image-local.mjs";
 const SMOKE_SCRIPT = "scripts/smoke-avantiqo-voice-tts-cold-start-local.mjs";
@@ -29,6 +34,12 @@ function required(name) {
 
 function yes(value) {
   return ["YES", "TRUE", "1", "APPROVED"].includes(text(value).toUpperCase());
+}
+
+function sameList(left, right) {
+  const a = [...left].map(text).filter(Boolean).sort();
+  const b = [...right].map(text).filter(Boolean).sort();
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function sleep(ms) {
@@ -188,28 +199,34 @@ function managementDrained(endpoint = {}) {
   return workers.length === 0 || workers.every((worker) => text(worker?.desiredStatus ?? worker?.desired_status).toUpperCase() === "EXITED");
 }
 
-async function runCuda128ImageRepair() {
-  const original = await readFile(REPAIR_SCRIPT, "utf8");
-  let patched = original.replace('const REQUIRED_CUDA = "12.4";', 'const REQUIRED_CUDA = "12.8";');
-  if (!patched.includes('const REQUIRED_CUDA = "12.8";')) {
-    throw new Error("AVANTIQO_VOICE_TTS_LISTEN_REPAIR_SCRIPT_CUDA_PATCH_FAILED");
+async function runBlackwellImageRepair() {
+  const source = await readFile(REPAIR_SCRIPT, "utf8");
+  if (!source.includes('const REQUIRED_CUDA = "12.8";')) {
+    throw new Error("AVANTIQO_VOICE_TTS_LISTEN_REPAIR_SCRIPT_CUDA128_REQUIRED");
   }
-  const tempRepair = "/tmp/avantiqo-voice-tts-runpod-image-repair-cuda128.mjs";
-  await writeFile(tempRepair, patched, "utf8");
+  for (const gpuTypeId of BLACKWELL_GPU_TYPE_IDS) {
+    if (!source.includes(JSON.stringify(gpuTypeId))) {
+      throw new Error(`AVANTIQO_VOICE_TTS_LISTEN_REPAIR_SCRIPT_BLACKWELL_GPU_REQUIRED:${gpuTypeId}`);
+    }
+  }
+
   console.log(JSON.stringify({
     event: "AVANTIQO_VOICE_TTS_LISTEN_BIND_BLACKWELL_IMAGE",
     contract: CONTRACT,
     required_cuda: REQUIRED_CUDA,
+    gpu_type_ids: BLACKWELL_GPU_TYPE_IDS,
     generation_submitted: false,
     production_deploy_performed: false,
     secrets_printed: false,
   }));
-  command(process.execPath, [tempRepair, "--apply"], {
+
+  command(process.execPath, [resolve(REPAIR_SCRIPT), "--apply"], {
     inherit: true,
     errorCode: "AVANTIQO_VOICE_TTS_LISTEN_IMAGE_REPAIR_FAILED",
     env: {
       ...process.env,
       AVANTIQO_VOICE_TTS_RUNPOD_IMAGE_REPAIR_APPROVED: "YES",
+      AVANTIQO_VOICE_TTS_GPU_TYPE_IDS: BLACKWELL_GPU_TYPE_IDS.join(","),
     },
   });
 }
@@ -228,6 +245,10 @@ async function drainAndRestoreFreshWorker() {
   }
   if (text(endpoint.minCudaVersion) !== REQUIRED_CUDA) {
     throw new Error(`AVANTIQO_VOICE_TTS_LISTEN_ENDPOINT_CUDA_NOT_REPAIRED:${text(endpoint.minCudaVersion) || "MISSING"}`);
+  }
+  const currentGpuTypeIds = Array.isArray(endpoint.gpuTypeIds) ? endpoint.gpuTypeIds.map(text).filter(Boolean) : [];
+  if (!sameList(currentGpuTypeIds, BLACKWELL_GPU_TYPE_IDS)) {
+    throw new Error(`AVANTIQO_VOICE_TTS_LISTEN_ENDPOINT_BLACKWELL_POOL_NOT_REPAIRED:${JSON.stringify(currentGpuTypeIds)}`);
   }
 
   console.log(JSON.stringify({
@@ -252,17 +273,28 @@ async function drainAndRestoreFreshWorker() {
   if (!managementDrained(endpoint)) {
     await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
       method: "PATCH",
-      body: { workersMin: 0, workersMax: 1, minCudaVersion: REQUIRED_CUDA },
+      body: { workersMin: 0, workersMax: 1, minCudaVersion: REQUIRED_CUDA, gpuTypeIds: BLACKWELL_GPU_TYPE_IDS },
     }).catch(() => null);
     throw new Error("AVANTIQO_VOICE_TTS_LISTEN_WORKER_DRAIN_TIMEOUT");
   }
 
   await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
     method: "PATCH",
-    body: { workersMin: 0, workersMax: 1, minCudaVersion: REQUIRED_CUDA },
+    body: {
+      workersMin: 0,
+      workersMax: 1,
+      minCudaVersion: REQUIRED_CUDA,
+      gpuTypeIds: BLACKWELL_GPU_TYPE_IDS,
+    },
   });
   endpoint = await rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey);
-  if (Number(endpoint.workersMin ?? 0) !== 0 || Number(endpoint.workersMax ?? 0) !== 1 || text(endpoint.minCudaVersion) !== REQUIRED_CUDA) {
+  const restoredGpuTypeIds = Array.isArray(endpoint.gpuTypeIds) ? endpoint.gpuTypeIds.map(text).filter(Boolean) : [];
+  if (
+    Number(endpoint.workersMin ?? 0) !== 0 ||
+    Number(endpoint.workersMax ?? 0) !== 1 ||
+    text(endpoint.minCudaVersion) !== REQUIRED_CUDA ||
+    !sameList(restoredGpuTypeIds, BLACKWELL_GPU_TYPE_IDS)
+  ) {
     throw new Error("AVANTIQO_VOICE_TTS_LISTEN_ENDPOINT_RESTORE_VERIFY_FAILED");
   }
 
@@ -272,6 +304,7 @@ async function drainAndRestoreFreshWorker() {
     workers_min: 0,
     workers_max: 1,
     min_cuda_version: REQUIRED_CUDA,
+    gpu_type_ids: BLACKWELL_GPU_TYPE_IDS,
     generation_submitted: false,
     secrets_printed: false,
   }));
@@ -321,6 +354,7 @@ console.log(JSON.stringify({
   waits_for_blackwell_image: true,
   required_cuda: REQUIRED_CUDA,
   required_torch: REQUIRED_TORCH,
+  required_gpu_type_ids: BLACKWELL_GPU_TYPE_IDS,
   exactly_one_paid_generation_allowed: true,
   stt_submitted: false,
   production_deploy_performed: false,
@@ -329,7 +363,7 @@ console.log(JSON.stringify({
 }));
 
 await waitForBlackwellEvidence();
-await runCuda128ImageRepair();
+await runBlackwellImageRepair();
 await drainAndRestoreFreshWorker();
 await runOneSmokeAndPlay();
 

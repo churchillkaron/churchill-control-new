@@ -42,7 +42,7 @@ RUN ./configure --with-pjproject-bundled --with-jansson-bundled \
     && test -f /opt/asterisk-root/usr/lib/asterisk/modules/chan_pjsip.so \
     && test -f /opt/asterisk-root/var/lib/asterisk/documentation/core-en_US.xml
 
-FROM debian:bookworm-slim
+FROM node:24-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -61,16 +61,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system asterisk \
     && useradd --system --gid asterisk --home-dir /var/lib/asterisk --shell /usr/sbin/nologin asterisk \
-    && mkdir -p /etc/asterisk /var/cache/asterisk /var/lib/asterisk /var/log/asterisk /var/run/asterisk /var/spool/asterisk
+    && mkdir -p \
+      /etc/asterisk \
+      /opt/avantiqo/secretary-sip-gateway \
+      /var/cache/asterisk \
+      /var/lib/asterisk \
+      /var/log/asterisk \
+      /var/run/asterisk \
+      /var/spool/asterisk
 
 # Copy immutable Asterisk install artifacts and generated runtime data only. Never copy
 # staged /var/run or other mutable runtime filesystem paths over Debian's final-stage layout.
 COPY --from=builder /opt/asterisk-root/usr/ /usr/
 COPY --from=builder /opt/asterisk-root/var/lib/asterisk/ /var/lib/asterisk/
 COPY extensions.conf.example /etc/asterisk/extensions.conf
+COPY inbound-agi.mjs /opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs
 COPY container-entrypoint.sh /usr/local/bin/avantiqo-asterisk-entrypoint
 
-RUN test -x /usr/sbin/asterisk \
+RUN test -x /usr/local/bin/node \
+    && node --version \
+    && node --check /opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs \
+    && test -x /usr/sbin/asterisk \
     && test -f /usr/lib/asterisk/modules/app_audiosocket.so \
     && test -f /usr/lib/asterisk/modules/res_audiosocket.so \
     && test -f /usr/lib/asterisk/modules/res_pjsip.so \
@@ -111,8 +122,17 @@ RUN test -x /usr/sbin/asterisk \
       'type=global' \
       'user_agent=Avantiqo Secretary' \
       > /etc/asterisk/pjsip.conf \
-    && chmod 0755 /usr/local/bin/avantiqo-asterisk-entrypoint \
-    && chown -R asterisk:asterisk /etc/asterisk /var/cache/asterisk /var/lib/asterisk /var/log/asterisk /var/run/asterisk /var/spool/asterisk
+    && chmod 0755 \
+      /usr/local/bin/avantiqo-asterisk-entrypoint \
+      /opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs \
+    && chown -R asterisk:asterisk \
+      /etc/asterisk \
+      /opt/avantiqo \
+      /var/cache/asterisk \
+      /var/lib/asterisk \
+      /var/log/asterisk \
+      /var/run/asterisk \
+      /var/spool/asterisk
 
 EXPOSE 5038/tcp 5060/udp 5060/tcp
 

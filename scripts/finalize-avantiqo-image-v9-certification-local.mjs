@@ -5,8 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_V1";
-const ENGINE_CONTRACT = "AVANTIQO_IMAGE_ENGINE_V1";
+const CONTRACT = "AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_V2";
 const ENDPOINT_NAME = "avantiqo-image-v1";
 const EVIDENCE_PATH = "audits/results/avantiqo-image-worker-image.json";
 const EVIDENCE_REVISION = "AVANTIQO_IMAGE_WORKER_IMAGE_V9_Z_IMAGE_DEFAULT_ROUTING_V1";
@@ -24,12 +23,11 @@ const ALLOCATION_BASIS = "UNIQUE_INODE_ST_BLOCKS_512_WITH_ST_SIZE_FALLBACK";
 const BUCKET = "creative-assets";
 const STORAGE_PREFIX = `storage://${BUCKET}/`;
 const DEFAULT_OUTPUT = "/tmp/avantiqo-image-v9-final-certification.json";
-const BILLING_WAIT_MS = Math.max(0, Number(process.env.AVANTIQO_IMAGE_V9_BILLING_WAIT_MS || 2 * 60 * 1000));
+const BILLING_WAIT_MS = Math.max(0, Number(process.env.AVANTIQO_IMAGE_V9_BILLING_WAIT_MS || 0));
 const BILLING_POLL_MS = 10_000;
 
 const text = (value) => String(value ?? "").trim();
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
-const list = (value) => Array.isArray(value) ? value : [];
 const finite = (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const unique = (values) => [...new Set(values.map(text).filter(Boolean))];
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
@@ -66,7 +64,26 @@ function storageTimestamp(reference) {
 function hourWindow(timestampMs) {
   const start = new Date(timestampMs);
   start.setUTCMinutes(0, 0, 0);
-  return { start: start.toISOString(), end: new Date(start.getTime() + 60 * 60 * 1000).toISOString() };
+  const scheduledEnd = start.getTime() + 60 * 60 * 1000;
+  const endMs = Math.min(scheduledEnd, Date.now());
+  return {
+    bucket_size: "hour",
+    start: start.toISOString(),
+    end: new Date(Math.max(start.getTime() + 1000, endMs)).toISOString(),
+    source: "EXACT_JOB_UTC_HOUR",
+  };
+}
+function dayWindow(timestampMs) {
+  const start = new Date(timestampMs);
+  start.setUTCHours(0, 0, 0, 0);
+  const scheduledEnd = start.getTime() + 24 * 60 * 60 * 1000;
+  const endMs = Math.min(scheduledEnd, Date.now());
+  return {
+    bucket_size: "day",
+    start: start.toISOString(),
+    end: new Date(Math.max(start.getTime() + 1000, endMs)).toISOString(),
+    source: "JOB_UTC_DAY",
+  };
 }
 
 async function readJson(response, label) {
@@ -93,7 +110,7 @@ async function queue(endpointId, pathname, key) {
 async function billing(endpointId, grouping, key, window) {
   const url = new URL(`${REST_BASE}/billing/endpoints`);
   url.searchParams.set("endpointId", endpointId);
-  url.searchParams.set("bucketSize", "hour");
+  url.searchParams.set("bucketSize", window.bucket_size);
   url.searchParams.set("grouping", grouping);
   url.searchParams.set("startTime", window.start);
   url.searchParams.set("endTime", window.end);
@@ -105,31 +122,120 @@ async function billing(endpointId, grouping, key, window) {
 function safeBillingRows(raw) {
   const rows = normalizeListResponse(raw, ["records", "billing", "usage"]) || [];
   return rows.map((row) => ({
+    endpoint_id: text(row?.endpointId ?? row?.endpoint_id) || null,
     pod_id: text(row?.podId ?? row?.pod_id) || null,
     gpu_type_id: text(row?.gpuTypeId ?? row?.gpu_type_id) || null,
     amount_usd: finite(row?.amount ?? row?.amountUsd ?? row?.cost),
     time_billed_ms: finite(row?.timeBilledMs ?? row?.time_billed_ms),
   })).filter((row) => finite(row.amount_usd, 0) > 0 || finite(row.time_billed_ms, 0) > 0);
 }
-async function waitForBilling(endpointId, managementKey, window, workerId) {
+function aggregateBilling(rows) {
+  const amountUsd = rows.reduce((sum, row) => sum + finite(row.amount_usd, 0), 0);
+  const timeBilledMs = rows.reduce((sum, row) => sum + finite(row.time_billed_ms, 0), 0);
+  return {
+    amount_usd: Number(amountUsd.toFixed(8)),
+    time_billed_ms: timeBilledMs,
+    endpoint_ids: unique(rows.map((row) => row.endpoint_id)),
+    pod_ids: unique(rows.map((row) => row.pod_id)),
+    gpu_type_ids: unique(rows.map((row) => row.gpu_type_id)),
+    row_count: rows.length,
+  };
+}
+function usableRate(rows) {
+  const aggregate = aggregateBilling(rows);
+  return aggregate.amount_usd > 0 && aggregate.time_billed_ms > 0
+    ? {
+        ...aggregate,
+        effective_hourly_usd: Number((aggregate.amount_usd / (aggregate.time_billed_ms / 3_600_000)).toFixed(6)),
+      }
+    : null;
+}
+function selectBillingRate({ endpointId, workerId, podRows, endpointRows, gpuRows, window }) {
+  const exactPodRows = workerId ? podRows.filter((row) => row.pod_id === workerId) : [];
+  const exactPodRate = usableRate(exactPodRows);
+  if (exactPodRate) {
+    return {
+      ...exactPodRate,
+      attribution: "EXACT_JOB_WORKER_ID_BILLING_RATE",
+      window,
+    };
+  }
+
+  const podIds = unique(podRows.map((row) => row.pod_id));
+  if (podIds.length === 1) {
+    const uniquePodRate = usableRate(podRows);
+    if (uniquePodRate) {
+      return {
+        ...uniquePodRate,
+        attribution: "UNIQUE_ENDPOINT_BILLING_POD_RATE",
+        window,
+      };
+    }
+  }
+
+  const scopedEndpointRows = endpointRows.filter((row) => !row.endpoint_id || row.endpoint_id === endpointId);
+  const endpointRate = usableRate(scopedEndpointRows);
+  if (endpointRate) {
+    return {
+      ...endpointRate,
+      attribution: "ENDPOINT_BILLING_EFFECTIVE_RATE",
+      window,
+    };
+  }
+
+  const gpuTypeIds = unique(gpuRows.map((row) => row.gpu_type_id));
+  if (gpuTypeIds.length === 1) {
+    const gpuRate = usableRate(gpuRows);
+    if (gpuRate) {
+      return {
+        ...gpuRate,
+        attribution: "UNIQUE_ENDPOINT_GPU_BILLING_EFFECTIVE_RATE",
+        window,
+      };
+    }
+  }
+  return null;
+}
+async function readBillingWindow(endpointId, managementKey, window, workerId) {
+  const [podRaw, endpointRaw, gpuRaw] = await Promise.all([
+    billing(endpointId, "podId", managementKey, window),
+    billing(endpointId, "endpointId", managementKey, window),
+    billing(endpointId, "gpuTypeId", managementKey, window),
+  ]);
+  const podRows = safeBillingRows(podRaw);
+  const endpointRows = safeBillingRows(endpointRaw);
+  const gpuRows = safeBillingRows(gpuRaw);
+  return {
+    rate: selectBillingRate({ endpointId, workerId, podRows, endpointRows, gpuRows, window }),
+    safe_summary: {
+      window_source: window.source,
+      bucket_size: window.bucket_size,
+      pod_row_count: podRows.length,
+      endpoint_row_count: endpointRows.length,
+      gpu_row_count: gpuRows.length,
+      pod_candidates: unique(podRows.map((row) => row.pod_id)),
+      endpoint_candidates: unique(endpointRows.map((row) => row.endpoint_id)),
+      gpu_candidates: unique(gpuRows.map((row) => row.gpu_type_id)),
+    },
+  };
+}
+async function waitForBilling(endpointId, managementKey, timestampMs, workerId) {
   const deadline = Date.now() + BILLING_WAIT_MS;
   let attempt = 0;
+  let latest = null;
   while (true) {
     attempt += 1;
-    const [podRaw, gpuRaw] = await Promise.all([
-      billing(endpointId, "podId", managementKey, window),
-      billing(endpointId, "gpuTypeId", managementKey, window),
-    ]);
-    const podRows = safeBillingRows(podRaw);
-    const gpuRows = safeBillingRows(gpuRaw);
-    const podIds = unique(podRows.map((row) => row.pod_id));
-    const exactRows = workerId ? podRows.filter((row) => row.pod_id === workerId) : [];
-    const attributedRows = exactRows.length ? exactRows : podIds.length === 1 ? podRows : [];
-    if (attributedRows.length) return { attempt, podRows, gpuRows, attributedRows, attribution: exactRows.length ? "EXACT_JOB_WORKER_ID" : "UNIQUE_ENDPOINT_BILLING_POD" };
+    const hour = await readBillingWindow(endpointId, managementKey, hourWindow(timestampMs), workerId);
+    if (hour.rate) return { attempt, ...hour.rate, lookup: hour.safe_summary };
+
+    const day = await readBillingWindow(endpointId, managementKey, dayWindow(timestampMs), workerId);
+    if (day.rate) return { attempt, ...day.rate, lookup: day.safe_summary };
+
+    latest = { hour: hour.safe_summary, day: day.safe_summary };
+    console.log(`AVANTIQO_IMAGE_V9_FINAL_BILLING_LOOKUP=${JSON.stringify({ attempt, ...latest })}`);
     if (Date.now() >= deadline) {
-      throw new Error(`AVANTIQO_IMAGE_V9_BILLING_NOT_READY_RERUN_NO_GENERATION:pod_candidates=${podIds.join("|") || "NONE"}`);
+      throw new Error(`AVANTIQO_IMAGE_V9_BILLING_NOT_READY_RERUN_NO_GENERATION:${JSON.stringify(latest)}`);
     }
-    console.log(`AVANTIQO_IMAGE_V9_FINAL_BILLING_WAIT attempt=${attempt} pod_candidates=${podIds.join("|") || "NONE"}`);
     await sleep(BILLING_POLL_MS);
   }
 }
@@ -239,16 +345,15 @@ const sha256 = createHash("sha256").update(bytes).digest("hex");
 
 const timestampMs = storageTimestamp(storageReference);
 if (timestampMs == null) throw new Error("AVANTIQO_IMAGE_V9_FINAL_STORAGE_TIMESTAMP_REQUIRED");
-const window = hourWindow(timestampMs);
 const workerId = exactWorkerId(job) || null;
-const billingEvidence = await waitForBilling(endpointId, managementKey, window, workerId);
-const amountUsd = billingEvidence.attributedRows.reduce((sum, row) => sum + finite(row.amount_usd, 0), 0);
-const timeBilledMs = billingEvidence.attributedRows.reduce((sum, row) => sum + finite(row.time_billed_ms, 0), 0);
-const gpuTypeIds = unique(billingEvidence.attributedRows.map((row) => row.gpu_type_id));
-if (!(amountUsd >= 0) || !(timeBilledMs > 0)) throw new Error("AVANTIQO_IMAGE_V9_FINAL_ECONOMICS_INVALID");
-const effectiveHourlyUsd = amountUsd / (timeBilledMs / 3_600_000);
+const billingEvidence = await waitForBilling(endpointId, managementKey, timestampMs, workerId);
 const providerExecutionMs = finite(job.executionTime);
+if (providerExecutionMs == null || providerExecutionMs <= 0) throw new Error("AVANTIQO_IMAGE_V9_FINAL_JOB_EXECUTION_TIME_REQUIRED");
 const generationMs = finite(generation.generation_seconds) == null ? null : Math.round(Number(generation.generation_seconds) * 1000);
+const estimatedSupplierComputeCostUsd = (providerExecutionMs / 3_600_000) * billingEvidence.effective_hourly_usd;
+if (!Number.isFinite(estimatedSupplierComputeCostUsd) || estimatedSupplierComputeCostUsd <= 0) {
+  throw new Error("AVANTIQO_IMAGE_V9_FINAL_ECONOMICS_INVALID");
+}
 
 const review = {
   contract: "AVANTIQO_IMAGE_V9_HUMAN_REVIEW_V1",
@@ -311,12 +416,19 @@ const report = {
   economics: {
     ready: true,
     attribution: billingEvidence.attribution,
+    billing_window: billingEvidence.window,
     worker_id: workerId,
-    billing_window: window,
-    amount_usd: Number(amountUsd.toFixed(8)),
-    time_billed_ms: timeBilledMs,
-    effective_hourly_usd: Number(effectiveHourlyUsd.toFixed(6)),
-    gpu_type_ids: gpuTypeIds,
+    rate_basis_amount_usd: billingEvidence.amount_usd,
+    rate_basis_time_billed_ms: billingEvidence.time_billed_ms,
+    rate_basis_row_count: billingEvidence.row_count,
+    effective_hourly_usd: billingEvidence.effective_hourly_usd,
+    provider_execution_ms: providerExecutionMs,
+    estimated_supplier_compute_cost_usd: Number(estimatedSupplierComputeCostUsd.toFixed(8)),
+    gpu_type_ids: billingEvidence.gpu_type_ids,
+    pod_ids: billingEvidence.pod_ids,
+    endpoint_ids: billingEvidence.endpoint_ids,
+    cost_method: "RUNPOD_BILLING_EFFECTIVE_RATE_X_EXACT_JOB_EXECUTION_TIME",
+    full_worker_cycle_cost_claimed: false,
     customer_pricing_status: "NOT_ACTIVATED_BY_CERTIFICATION",
   },
   human_review: review,
@@ -348,8 +460,10 @@ await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 console.log(`AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_OUTPUT=${outputPath}`);
 console.log(`AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_JOB_ID=${jobId}`);
 console.log(`AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_OUTPUT_SHA256=${sha256}`);
-console.log(`AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_COST_USD=${report.economics.amount_usd}`);
+console.log(`AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_BILLING_ATTRIBUTION=${report.economics.attribution}`);
 console.log(`AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_EFFECTIVE_HOURLY_USD=${report.economics.effective_hourly_usd}`);
+console.log(`AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_ESTIMATED_SUPPLIER_COMPUTE_COST_USD=${report.economics.estimated_supplier_compute_cost_usd}`);
+console.log(`AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_COST_USD=${report.economics.estimated_supplier_compute_cost_usd}`);
 console.log("AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_PRODUCTION_CERTIFIED=true");
 console.log("AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_ACTIVATION_PERFORMED=false");
 console.log("AVANTIQO_IMAGE_V9_FINAL_CERTIFICATION_PRICING_ACTIVATION_PERFORMED=false");

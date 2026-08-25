@@ -24,6 +24,79 @@ if (!v4Source.includes('const CONTRACT = "AVANTIQO_CODE_CAPACITY_TIMEOUT_RECOVER
   throw new Error("CODE_TIMEOUT_RECOVERY_V5_V4_CONTRACT_CHANGED");
 }
 
+const relocationReadAnchor = `const relocationSource = readFileSync(relocationPath, "utf8");`;
+const relocationReadReplacement = `let relocationSource = readFileSync(relocationPath, "utf8");
+const scopedMainGuardAnchor = \`function requireCurrentMain() {
+  command("git", ["fetch", "origin", "main"], "CODE_CAPACITY_RELOCATION_FETCH_MAIN_FAILED");
+  const branch = command("git", ["branch", "--show-current"], "CODE_CAPACITY_RELOCATION_BRANCH_READ_FAILED");
+  if (branch !== "main") throw new Error(\\\`CODE_CAPACITY_RELOCATION_MAIN_REQUIRED:\\${branch || "DETACHED"}\\\`);
+  const head = command("git", ["rev-parse", "HEAD"], "CODE_CAPACITY_RELOCATION_HEAD_READ_FAILED");
+  const origin = command("git", ["rev-parse", "origin/main"], "CODE_CAPACITY_RELOCATION_ORIGIN_READ_FAILED");
+  if (head !== origin) {
+    throw new Error(\\\`CODE_CAPACITY_RELOCATION_LOCAL_MAIN_NOT_CURRENT:head=\\${head}:origin=\\${origin}\\\`);
+  }
+  return head;
+}\`;
+const scopedMainGuardReplacement = \`const CODE_RELOCATION_PROTECTED_PATHS = Object.freeze([
+  "scripts/relocate-avantiqo-code-runpod-capacity-local.mjs",
+  "scripts/run-avantiqo-code-capacity-relocation-after-timeout-v2-local.mjs",
+  "scripts/run-avantiqo-code-capacity-relocation-after-timeout-v3-local.mjs",
+  "scripts/run-avantiqo-code-capacity-relocation-after-timeout-v4-local.mjs",
+  "scripts/run-avantiqo-code-capacity-relocation-after-timeout-v5-local.mjs",
+  "scripts/lib/avantiqo-code-runpod-endpoint-ready-fetch-guard.mjs",
+  "scripts/lib/avantiqo-runpod-shared-volumes.mjs",
+  "services/avantiqo-code-engine/handler.py",
+  "services/avantiqo-code-engine/Dockerfile.runpod",
+]);
+
+function requireCurrentMain() {
+  command("git", ["fetch", "origin", "main"], "CODE_CAPACITY_RELOCATION_FETCH_MAIN_FAILED");
+  const branch = command("git", ["branch", "--show-current"], "CODE_CAPACITY_RELOCATION_BRANCH_READ_FAILED");
+  if (branch !== "main") throw new Error("CODE_CAPACITY_RELOCATION_MAIN_REQUIRED:" + (branch || "DETACHED"));
+  const head = command("git", ["rev-parse", "HEAD"], "CODE_CAPACITY_RELOCATION_HEAD_READ_FAILED");
+  const origin = command("git", ["rev-parse", "origin/main"], "CODE_CAPACITY_RELOCATION_ORIGIN_READ_FAILED");
+  if (head === origin) return head;
+
+  const mergeBase = command("git", ["merge-base", head, origin], "CODE_CAPACITY_RELOCATION_MERGE_BASE_FAILED");
+  if (mergeBase !== head) {
+    throw new Error("CODE_CAPACITY_RELOCATION_LOCAL_MAIN_DIVERGED:head=" + head + ":origin=" + origin + ":merge_base=" + mergeBase);
+  }
+
+  const changed = command(
+    "git",
+    ["diff", "--name-only", head + ".." + origin, "--", ...CODE_RELOCATION_PROTECTED_PATHS],
+    "CODE_CAPACITY_RELOCATION_PROTECTED_DIFF_FAILED",
+  ).split("\\n").map((entry) => entry.trim()).filter(Boolean);
+  if (changed.length) {
+    throw new Error(
+      "CODE_CAPACITY_RELOCATION_PROTECTED_MAIN_ADVANCE_REPLAN_REQUIRED:head=" +
+      head +
+      ":origin=" +
+      origin +
+      ":changed=" +
+      changed.join("|"),
+    );
+  }
+
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_CAPACITY_RELOCATION_UNRELATED_MAIN_ADVANCE_ACCEPTED",
+    local_head: head,
+    origin_main: origin,
+    protected_paths_changed: [],
+    local_head_is_ancestor_of_origin_main: true,
+  }));
+  return head;
+}\`;
+relocationSource = replaceExactlyOnce(
+  relocationSource,
+  scopedMainGuardAnchor,
+  scopedMainGuardReplacement,
+  "CODE_TIMEOUT_RECOVERY_V5_SCOPED_MAIN_GUARD",
+);
+if (!relocationSource.includes("AVANTIQO_CODE_CAPACITY_RELOCATION_UNRELATED_MAIN_ADVANCE_ACCEPTED")) {
+  throw new Error("CODE_TIMEOUT_RECOVERY_V5_SCOPED_MAIN_GUARD_VERIFY_FAILED");
+}`;
+
 const stateAnchor = `  let cacheStartupObservedAt = null;
   let cacheLastControl = null;`;
 const stateReplacement = `  let cacheStartupObservedAt = null;
@@ -127,14 +200,27 @@ const startMetadataReplacement = `  cache_queue_monitoring: {
     previous_blind_queue_timeout_seconds: 300,
     serverless_health_worker_activity_counts_as_startup_evidence: true,
     generic_probe_queue_timeout_unchanged: true,
+  },
+  main_concurrency_guard: {
+    policy: "PROTECTED_PATH_SCOPED",
+    unrelated_main_advance_allowed: true,
+    local_head_must_remain_ancestor: true,
+    protected_code_runtime_change_requires_replan: true,
   },`;
 
 const completeMetadataAnchor = `    cache_queue_monitoring: "CONTROL_AWARE",`;
 const completeMetadataReplacement = `    cache_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",
-    inference_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",`;
+    inference_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",
+    main_concurrency_guard: "PROTECTED_PATH_SCOPED",`;
 
 let patchedV4 = replaceExactlyOnce(
   v4Source,
+  relocationReadAnchor,
+  relocationReadReplacement,
+  "CODE_TIMEOUT_RECOVERY_V5_RELOCATION_READ",
+);
+patchedV4 = replaceExactlyOnce(
+  patchedV4,
   stateAnchor,
   stateReplacement,
   "CODE_TIMEOUT_RECOVERY_V5_STATE",
@@ -190,10 +276,13 @@ patchedV4 = replaceExactlyOnce(
 
 if (
   patchedV4 === v4Source ||
+  patchedV4.includes(relocationReadAnchor) ||
   patchedV4.includes(jobKindAnchor) ||
   patchedV4.includes(observationAnchor) ||
   patchedV4.includes(loggingAnchor) ||
   patchedV4.includes(startMetadataAnchor) ||
+  !patchedV4.includes("CODE_TIMEOUT_RECOVERY_V5_SCOPED_MAIN_GUARD") ||
+  !patchedV4.includes("AVANTIQO_CODE_CAPACITY_RELOCATION_UNRELATED_MAIN_ADVANCE_ACCEPTED") ||
   !patchedV4.includes('const isInferenceJob = label === "AVANTIQO_CODE_CAPACITY_INFERENCE";') ||
   !patchedV4.includes('inference_cold_start_policy: isInferenceJob ? "CONTROL_OR_HEALTH_AWARE" : null') ||
   !patchedV4.includes("serverless_health_worker_activity_counts_as_startup_evidence: true")
@@ -211,6 +300,9 @@ console.log(JSON.stringify({
   cache_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",
   inference_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",
   inference_serverless_health_startup_evidence: ["initializing", "ready", "running", "throttled"],
+  main_concurrency_guard: "PROTECTED_PATH_SCOPED",
+  unrelated_main_advance_allowed: true,
+  protected_code_runtime_change_requires_replan: true,
   no_worker_timeout_seconds: 180,
   degraded_control_timeout_seconds: 480,
   cold_start_timeout_after_worker_observed_seconds: 720,
@@ -241,6 +333,7 @@ try {
     child_exit_code: 0,
     cache_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",
     inference_queue_monitoring: "CONTROL_OR_HEALTH_AWARE",
+    main_concurrency_guard: "PROTECTED_PATH_SCOPED",
     production_deploy_performed: false,
     secrets_printed: false,
   }));

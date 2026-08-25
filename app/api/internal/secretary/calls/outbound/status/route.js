@@ -24,7 +24,11 @@ async function requestForUpdate(id, claimToken) {
     .maybeSingle();
   if (result.error) throw result.error;
   if (!result.data) throw new Error("SECRETARY_OUTBOUND_CLAIM_NOT_FOUND");
-  if (result.data.lease_expires_at && Date.parse(result.data.lease_expires_at) < Date.now() && !["CONNECTED", "COMPLETED"].includes(result.data.status)) {
+  if (
+    result.data.status === "CLAIMED" &&
+    result.data.lease_expires_at &&
+    Date.parse(result.data.lease_expires_at) < Date.now()
+  ) {
     const error = new Error("SECRETARY_OUTBOUND_CLAIM_EXPIRED");
     error.status = 409;
     throw error;
@@ -113,14 +117,15 @@ export async function POST(request) {
       await endSecretaryCall({ callId, status: "FAILED", summary: summary || errorMessage });
     }
 
+    const terminal = status === "COMPLETED" || status === "FAILED";
     const patch = {
       status,
       call_id: callId,
       last_error: status === "FAILED" ? errorMessage || "Outbound call failed" : null,
       updated_at: new Date().toISOString(),
-      ...(status === "COMPLETED" || status === "FAILED"
+      ...(terminal
         ? { lease_expires_at: null, claim_token: null }
-        : {}),
+        : { lease_expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() }),
     };
     const result = await supabaseAdmin
       .from("secretary_outbound_call_requests")
@@ -130,7 +135,7 @@ export async function POST(request) {
       .select("id,status,call_id,attempt_count,max_attempts,last_error,updated_at")
       .maybeSingle();
     if (result.error) throw result.error;
-    if (!result.data && !["COMPLETED", "FAILED"].includes(status)) {
+    if (!result.data && !terminal) {
       throw new Error("SECRETARY_OUTBOUND_STATUS_UPDATE_REJECTED");
     }
 

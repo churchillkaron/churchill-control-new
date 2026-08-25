@@ -40,6 +40,8 @@ export const AVANTIQO_RUNPOD_SHARED_VOLUME_POLICY = Object.freeze({
       canonical_name: "avantiqo-shared-intelligence-code-cache",
       endpoint_names: Object.freeze([
         "avantiqo-intelligence-v1",
+        "avantiqo-intelligence-trainer-v1",
+        "avantiqo-intelligence-candidate-v1",
         "avantiqo-code-v1",
       ]),
       root: "/runpod-volume/intelligence-code",

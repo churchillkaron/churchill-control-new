@@ -9,6 +9,8 @@ const FAST_ENDPOINT_NAME = "avantiqo-intelligence-fast-v1";
 const FAST_TEMPLATE_NAME = "avantiqo-intelligence-fast-v1";
 const DEEP_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507";
 const FAST_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507";
+const IDLE_WAIT_TIMEOUT_MS = 600_000;
+const IDLE_WAIT_POLL_MS = 10_000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -119,6 +121,54 @@ function assertIdleForDisable(endpoint, health, code) {
   if (summary.workers.initializing !== 0 || summary.workers.running !== 0) {
     throw new Error(`${code}_ACTIVE_RUNTIME_WORKERS`);
   }
+}
+
+async function waitUntilIdleForDisable(endpoint, managementKey, runtimeKey, code) {
+  const endpointId = text(endpoint?.id);
+  if (!endpointId) throw new Error(`${code}_ENDPOINT_ID_REQUIRED`);
+  const startedAt = Date.now();
+  let lastEndpoint = endpoint;
+  let lastHealth = {};
+
+  while (Date.now() - startedAt <= IDLE_WAIT_TIMEOUT_MS) {
+    [lastEndpoint, lastHealth] = await Promise.all([
+      rest(
+        `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
+        managementKey,
+      ),
+      queueHealth(endpointId, runtimeKey),
+    ]);
+    try {
+      assertIdleForDisable(lastEndpoint, lastHealth, code);
+      return { endpoint: lastEndpoint, health: lastHealth };
+    } catch (error) {
+      const message = text(error?.message);
+      const waitingAllowed = [
+        `${code}_ACTIVE_MANAGEMENT_WORKERS`,
+        `${code}_ACTIVE_JOBS`,
+        `${code}_ACTIVE_RUNTIME_WORKERS`,
+      ].includes(message);
+      if (!waitingAllowed) throw error;
+    }
+
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= IDLE_WAIT_TIMEOUT_MS) break;
+    console.log(
+      JSON.stringify({
+        event: "AVANTIQO_INTELLIGENCE_SLOT_WAITING_FOR_IDLE",
+        lane: text(lastEndpoint?.name) || code,
+        elapsed_seconds: Math.floor(elapsedMs / 1000),
+        health: healthSummary(lastHealth),
+        active_management_workers: managementNonExited(lastEndpoint),
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, IDLE_WAIT_POLL_MS));
+  }
+
+  const summary = healthSummary(lastHealth);
+  throw new Error(
+    `${code}_IDLE_WAIT_TIMEOUT:in_queue=${summary.jobs.in_queue}:in_progress=${summary.jobs.in_progress}:initializing=${summary.workers.initializing}:running=${summary.workers.running}:active_management_workers=${managementNonExited(lastEndpoint)}`,
+  );
 }
 
 function safeEndpoint(endpoint = {}) {
@@ -342,8 +392,12 @@ async function ensureParkedState(managementKey, runtimeKey) {
         `AVANTIQO_INTELLIGENCE_DEEP_SLOT_BASELINE_REQUIRED:min=${finite(state.deep.workersMin)}:max=${finite(state.deep.workersMax)}`,
       );
     }
-    const deepHealth = await queueHealth(deepId, runtimeKey);
-    assertIdleForDisable(state.deep, deepHealth, "AVANTIQO_INTELLIGENCE_DEEP_SLOT_BORROW");
+    await waitUntilIdleForDisable(
+      state.deep,
+      managementKey,
+      runtimeKey,
+      "AVANTIQO_INTELLIGENCE_DEEP_SLOT_BORROW",
+    );
     const fastTemplate = await ensureFastTemplate(state, managementKey);
     const fastTemplateId = text(fastTemplate.id);
     if (!fastTemplateId) throw new Error("AVANTIQO_INTELLIGENCE_FAST_TEMPLATE_ID_REQUIRED");
@@ -411,8 +465,12 @@ async function activateFast(managementKey, runtimeKey) {
   let state = await ensureParkedState(managementKey, runtimeKey);
   const deepId = text(state.deep.id);
   const fastId = text(state.fast.id);
-  const deepHealth = await queueHealth(deepId, runtimeKey);
-  assertIdleForDisable(state.deep, deepHealth, "AVANTIQO_INTELLIGENCE_DEEP_FAST_SWAP");
+  await waitUntilIdleForDisable(
+    state.deep,
+    managementKey,
+    runtimeKey,
+    "AVANTIQO_INTELLIGENCE_DEEP_FAST_SWAP",
+  );
 
   await patchWorkers(deepId, 0, managementKey);
   try {

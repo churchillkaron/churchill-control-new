@@ -174,8 +174,11 @@ PROVISION_OUTPUT="$(
     node --env-file=.env.local "$SLOT_MANAGER" --provision
 )" || fail "FAST_LANE_PROVISION_FAILED"
 printf '%s\n' "$PROVISION_OUTPUT"
-printf '%s\n' "$PROVISION_OUTPUT" | grep -q '"parked_state": true' \
-  || fail "FAST_LANE_PARKED_STATE_NOT_VERIFIED"
+if ! printf '%s\n' "$PROVISION_OUTPUT" | grep -q '"parked_state": true' && \
+   ! printf '%s\n' "$PROVISION_OUTPUT" | grep -q '"fast_active_state": true'; then
+  fail "FAST_LANE_SAFE_SINGLE_SLOT_STATE_NOT_VERIFIED"
+fi
+echo "FAST_LANE_SAFE_SINGLE_SLOT_STATE=YES"
 printf '%s\n' "$PROVISION_OUTPUT" | grep -q '"total_intelligence_workers_max": 1' \
   || fail "INTELLIGENCE_SLOT_TOTAL_NOT_PRESERVED_AFTER_PROVISION"
 

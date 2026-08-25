@@ -4,13 +4,15 @@ import { resolve } from "node:path";
 import { sharedVolumeGroup } from "./lib/avantiqo-runpod-shared-volumes.mjs";
 
 const REST_BASE = "https://rest.runpod.io/v1";
+const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_AND_EXPAND_V1";
+const CONTRACT = "AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_AND_EXPAND_V2";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const RETIRED_AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1-github-retired";
 const SHARED_GROUP = sharedVolumeGroup("AUDIO_VOICE");
 const EXPANSION_SCRIPT = resolve("scripts/expand-avantiqo-audio-voice-volume-local.mjs");
 const POLL_MS = 3_000;
+const REQUIRED_STABLE_DRAIN_OBSERVATIONS = 2;
 const DEFAULT_DRAIN_TIMEOUT_MS = 120_000;
 const DRAIN_TIMEOUT_MS = Math.max(
   15_000,
@@ -82,6 +84,18 @@ function activeRuntimeWorkers(health) {
     health.workers.throttled
   );
 }
+function safeControlWorkers(body = {}) {
+  return list(body?.workers).map((worker) => ({
+    id_present: Boolean(text(worker?.id)),
+    status: text(worker?.status).toUpperCase() || null,
+    is_stale: worker?.isStale === true,
+  }));
+}
+function activeControlWorkers(body = {}) {
+  return safeControlWorkers(body).filter(
+    (worker) => !["EXITED", "STOPPED", "TERMINATED", "DELETED"].includes(worker.status || ""),
+  );
+}
 function allowedVolumeConsumer(name) {
   return SHARED_GROUP.endpoint_names.includes(name) || name === RETIRED_AUDIO_ENDPOINT_NAME;
 }
@@ -119,23 +133,37 @@ function inferenceCandidates() {
     return true;
   });
 }
-async function queueHealth(endpointId, candidates) {
+async function readWithCandidates(url, candidates, label) {
   const attempts = [];
   for (const candidate of candidates) {
     try {
       const body = await parseResponse(
-        await fetch(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`, {
+        await fetch(url, {
           headers: { Authorization: `Bearer ${candidate.credential}`, Accept: "application/json" },
           signal: AbortSignal.timeout(30_000),
         }),
-        "RUNPOD_QUEUE_HEALTH",
+        label,
       );
       return { body, credential_source: candidate.source };
     } catch (error) {
       attempts.push(`${candidate.source}:${text(error?.message || error)}`);
     }
   }
-  throw new Error(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_HEALTH_UNREACHABLE:${attempts.join("|")}`);
+  throw new Error(`${label}_CREDENTIALS_FAILED:${attempts.join("|")}`);
+}
+async function queueHealth(endpointId, candidates) {
+  return readWithCandidates(
+    `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`,
+    candidates,
+    "RUNPOD_QUEUE_HEALTH",
+  );
+}
+async function controlWorkers(endpointId, candidates) {
+  return readWithCandidates(
+    `${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers`,
+    candidates,
+    "RUNPOD_CONTROL_WORKERS",
+  );
 }
 function resolveAudioEndpoint(endpoints, configuredId) {
   const matches = endpoints.filter(
@@ -183,6 +211,7 @@ if (!candidates.length) throw new Error("RUNPOD_AUDIO_INFERENCE_API_KEY_REQUIRED
 
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_CONTRACT=${CONTRACT}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_TIMEOUT_MS=${DRAIN_TIMEOUT_MS}`);
+console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_STABLE_OBSERVATIONS_REQUIRED=${REQUIRED_STABLE_DRAIN_OBSERVATIONS}`);
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_FORCE_STOP_PERFORMED=false");
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_ENDPOINT_MUTATION_PERFORMED=false");
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_GENERATION_SUBMITTED=false");
@@ -200,13 +229,18 @@ const volumeId = volumeIds[0];
 
 const startedAt = Date.now();
 let observations = 0;
+let stableDrainObservations = 0;
 let finalHealth = null;
-let finalCredentialSource = null;
+let finalHealthCredentialSource = null;
+let finalControlCredentialSource = null;
+let finalControlWorkers = null;
 let finalConsumers = null;
+let staleHealthCountersTolerated = false;
 while (true) {
   observations += 1;
-  const [healthRead, endpoints] = await Promise.all([
+  const [healthRead, controlRead, endpoints] = await Promise.all([
     queueHealth(endpointId, candidates),
+    controlWorkers(endpointId, candidates),
     rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
   ]);
   if (!Array.isArray(endpoints)) throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_ENDPOINT_LIST_INVALID");
@@ -227,25 +261,37 @@ while (true) {
   const consumers = consumersForVolume(endpoints, volumeId);
   validateConsumers(consumers);
   const managementLive = activeManagementWorkers(consumers);
+  const controlLive = activeControlWorkers(controlRead.body);
   const runtimeLive = activeRuntimeWorkers(health);
   const elapsedMs = Date.now() - startedAt;
 
-  if (runtimeLive === 0 && managementLive.length === 0) {
-    finalHealth = health;
-    finalCredentialSource = healthRead.credential_source;
-    finalConsumers = consumers;
-    console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN=PASS`);
-    console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_OBSERVATIONS=${observations}`);
-    console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_WAITED_MS=${elapsedMs}`);
-    break;
+  if (managementLive.length === 0 && controlLive.length === 0) {
+    stableDrainObservations += 1;
+    staleHealthCountersTolerated ||= runtimeLive > 0;
+  } else {
+    stableDrainObservations = 0;
   }
 
   console.log(
-    `AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_WAIT=runtime_workers:${runtimeLive}:management_workers:${managementLive.length}:elapsed_ms:${elapsedMs}`,
+    `AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_OBSERVE=health_workers:${runtimeLive}:management_workers:${managementLive.length}:control_workers:${controlLive.length}:stable:${stableDrainObservations}/${REQUIRED_STABLE_DRAIN_OBSERVATIONS}:elapsed_ms:${elapsedMs}`,
   );
+
+  if (stableDrainObservations >= REQUIRED_STABLE_DRAIN_OBSERVATIONS) {
+    finalHealth = health;
+    finalHealthCredentialSource = healthRead.credential_source;
+    finalControlCredentialSource = controlRead.credential_source;
+    finalControlWorkers = safeControlWorkers(controlRead.body);
+    finalConsumers = consumers;
+    console.log("AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN=PASS");
+    console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_OBSERVATIONS=${observations}`);
+    console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_WAITED_MS=${elapsedMs}`);
+    console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_STALE_HEALTH_COUNTERS_TOLERATED=${staleHealthCountersTolerated}`);
+    break;
+  }
+
   if (elapsedMs >= DRAIN_TIMEOUT_MS) {
     throw new Error(
-      `AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_TIMEOUT:runtime_workers=${runtimeLive}:management_workers=${managementLive.length}:elapsed_ms=${elapsedMs}`,
+      `AVANTIQO_AUDIO_VOICE_VOLUME_DRAIN_TIMEOUT:health_workers=${runtimeLive}:management_workers=${managementLive.length}:control_workers=${controlLive.length}:stable=${stableDrainObservations}:elapsed_ms=${elapsedMs}`,
     );
   }
   await sleep(POLL_MS);
@@ -258,9 +304,15 @@ console.log(JSON.stringify({
   shared_volume_id: volumeId,
   shared_volume_group: SHARED_GROUP.id,
   health: finalHealth,
-  health_credential_source: finalCredentialSource,
+  health_credential_source: finalHealthCredentialSource,
+  control_credential_source: finalControlCredentialSource,
+  control_workers: finalControlWorkers,
   attached_endpoints: finalConsumers,
-  worker_scale_to_zero_verified: true,
+  control_worker_scale_to_zero_verified: true,
+  management_worker_scale_to_zero_verified: true,
+  health_worker_counters_observational_only: true,
+  stale_health_worker_counters_tolerated: staleHealthCountersTolerated,
+  stable_drain_observations: stableDrainObservations,
   safety: {
     read_only_drain: true,
     force_stop_performed: false,

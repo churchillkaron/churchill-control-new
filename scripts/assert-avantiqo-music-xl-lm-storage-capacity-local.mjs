@@ -1,3 +1,7 @@
+import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+
+loadAvantiqoEnv();
+
 const REST_BASE = "https://rest.runpod.io/v1";
 const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const AUDIO_VOICE_VOLUME_NAME = "avantiqo-shared-audio-voice-cache";

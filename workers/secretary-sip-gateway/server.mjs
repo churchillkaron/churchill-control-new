@@ -207,6 +207,7 @@ class AmiClient {
     this.pending = new Map();
     this.listeners = new Set();
     this.connecting = null;
+    this.greetingConsumed = false;
   }
 
   onEvent(listener) {
@@ -231,6 +232,7 @@ class AmiClient {
       });
       socket.on("close", () => {
         this.socket = null;
+        this.greetingConsumed = false;
       });
       socket.once("connect", async () => {
         clearTimeout(timeout);
@@ -252,11 +254,17 @@ class AmiClient {
 
   consume(chunk) {
     this.buffer += chunk;
+    if (!this.greetingConsumed && this.buffer.startsWith("Asterisk Call Manager/")) {
+      const greetingEnd = this.buffer.indexOf("\r\n");
+      if (greetingEnd < 0) return;
+      this.buffer = this.buffer.slice(greetingEnd + 2);
+      this.greetingConsumed = true;
+    }
     let boundary;
     while ((boundary = this.buffer.indexOf("\r\n\r\n")) >= 0) {
       const raw = this.buffer.slice(0, boundary);
       this.buffer = this.buffer.slice(boundary + 4);
-      if (!raw.trim() || raw.startsWith("Asterisk Call Manager/")) continue;
+      if (!raw.trim()) continue;
       const frame = {};
       for (const line of raw.split("\r\n")) {
         const separator = line.indexOf(":");

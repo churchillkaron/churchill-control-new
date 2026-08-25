@@ -2,8 +2,11 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
 const PREFLIGHT_SCRIPT = resolve("scripts/preflight-avantiqo-music-local.mjs");
+const CAPACITY_SCRIPT = resolve("scripts/assert-avantiqo-music-xl-lm-storage-capacity-local.mjs");
 const BENCHMARK_SCRIPT = resolve("scripts/benchmark-avantiqo-music.mjs");
 const PREFLIGHT_CONTRACT = "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V3";
+const CAPACITY_CONTRACT = "AVANTIQO_MUSIC_XL_LM_STORAGE_CAPACITY_V1";
+const MINIMUM_CAPACITY_GB = 80;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -15,27 +18,33 @@ function required(name) {
   return value;
 }
 
-function runVerifiedPreflight() {
+function runJsonGate(script, failureCode, timeout = 60_000) {
   let raw = "";
   try {
-    raw = execFileSync(process.execPath, [PREFLIGHT_SCRIPT], {
+    raw = execFileSync(process.execPath, [script], {
       cwd: process.cwd(),
       env: process.env,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: 60_000,
+      timeout,
     });
   } catch (error) {
     const detail = text(error?.stderr || error?.stdout || error?.message).slice(0, 1600);
-    throw new Error(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PREFLIGHT_FAILED:${detail || "UNKNOWN"}`);
+    throw new Error(`${failureCode}:${detail || "UNKNOWN"}`);
   }
 
-  let result = null;
   try {
-    result = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
-    throw new Error("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PREFLIGHT_OUTPUT_INVALID");
+    throw new Error(`${failureCode}_OUTPUT_INVALID`);
   }
+}
+
+function runVerifiedPreflight() {
+  const result = runJsonGate(
+    PREFLIGHT_SCRIPT,
+    "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PREFLIGHT_FAILED",
+  );
 
   if (
     result?.success !== true ||
@@ -53,7 +62,28 @@ function runVerifiedPreflight() {
   return result;
 }
 
+function runVerifiedCapacityGate() {
+  const result = runJsonGate(
+    CAPACITY_SCRIPT,
+    "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CAPACITY_FAILED",
+  );
+  if (
+    result?.success !== true ||
+    result?.contract !== CAPACITY_CONTRACT ||
+    result?.capacity_sufficient !== true ||
+    Number(result?.actual_size_gb || 0) < MINIMUM_CAPACITY_GB ||
+    Number(result?.minimum_required_size_gb || 0) !== MINIMUM_CAPACITY_GB ||
+    result?.generation_submitted !== false ||
+    result?.endpoint_mutation_performed !== false ||
+    result?.production_deploy_performed !== false
+  ) {
+    throw new Error("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CAPACITY_NOT_READY");
+  }
+  return result;
+}
+
 const preflight = runVerifiedPreflight();
+const capacity = runVerifiedCapacityGate();
 const credentialSource = text(preflight?.endpoint?.health_credential_source);
 let credentialName = "";
 if (credentialSource === "AUDIO_DEDICATED") {
@@ -68,6 +98,9 @@ const verifiedCredential = required(credentialName);
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PREFLIGHT=PASS");
 console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CREDENTIAL_SOURCE=${credentialSource}`);
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CREDENTIAL_REUSED=true");
+console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CACHE_GB=${capacity.actual_size_gb}`);
+console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_MIN_CACHE_GB=${MINIMUM_CAPACITY_GB}`);
+console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CACHE_CAPACITY=PASS");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SECRET_PRINTED=false");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PRODUCTION_DEPLOY_PERFORMED=false");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PRICING_ACTIVATION_PERFORMED=false");

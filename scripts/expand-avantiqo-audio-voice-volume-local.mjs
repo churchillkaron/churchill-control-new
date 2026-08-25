@@ -181,15 +181,21 @@ function validateImageEvidence() {
   ) {
     throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_IMAGE_EVIDENCE_INVALID");
   }
-  const sourceTag = text(evidence?.source_locked_image_reference);
+  const repository = text(evidence?.image_repository);
+  const sourceSha = text(evidence?.source_sha);
+  const sourceTag = text(evidence?.image_tag);
+  const digest = text(evidence?.image_digest);
   const digestReference = text(evidence?.immutable_image_reference);
-  if (!/^ghcr\.io\/.+:sha-[a-f0-9]{12}$/i.test(sourceTag)) {
+  if (!/^ghcr\.io\/.+/i.test(repository) || !/^[a-f0-9]{40}$/i.test(sourceSha)) {
+    throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_IMAGE_IDENTITY_INVALID");
+  }
+  if (sourceTag !== `${repository}:sha-${sourceSha.slice(0, 12)}`) {
     throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_SOURCE_TAG_INVALID");
   }
-  if (!/^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(digestReference)) {
+  if (!/^sha256:[a-f0-9]{64}$/i.test(digest) || digestReference !== `${repository}@${digest}`) {
     throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_DIGEST_EVIDENCE_INVALID");
   }
-  return { sourceTag, digestReference, digest: text(evidence?.image_digest) };
+  return { sourceTag, digestReference, digest };
 }
 function allowedVolumeConsumer(name) {
   return SHARED_GROUP.endpoint_names.includes(name) || name === RETIRED_AUDIO_ENDPOINT_NAME;

@@ -86,7 +86,7 @@ const pricing = prices[0];
 
 if (service.status !== "ACTIVE" || service.usage_enabled !== true) throw new Error("CODE_PLANNER_PREFLIGHT_SERVICE_NOT_ACTIVE");
 if (service.default_provider_id !== PROVIDER || service.fallback_enabled !== false) throw new Error("CODE_PLANNER_PREFLIGHT_OWNED_ONLY_SERVICE_REQUIRED");
-if (service.billing_enabled !== false) throw new Error("CODE_PLANNER_PREFLIGHT_BILLING_MUST_REMAIN_DISABLED");
+if (service.billing_enabled !== true) throw new Error("CODE_PLANNER_PREFLIGHT_BILLING_REQUIRED_FOR_CONTROLLED_EXECUTION");
 if (String(wallet.currency || "").toUpperCase() !== CURRENCY) throw new Error("CODE_PLANNER_PREFLIGHT_WALLET_CURRENCY_MISMATCH");
 if (String(wallet.billing_policy || "").toUpperCase() !== "PREPAID") throw new Error("CODE_PLANNER_PREFLIGHT_PREPAID_WALLET_REQUIRED");
 if (String(wallet.status || "").toUpperCase() !== "ACTIVE") throw new Error("CODE_PLANNER_PREFLIGHT_ACTIVE_WALLET_REQUIRED");
@@ -171,7 +171,8 @@ console.log(JSON.stringify({
   foundation_model_source_locked: true,
   service_active: true,
   owned_only: true,
-  billing_enabled: false,
+  billing_enabled: true,
+  billing_temporarily_enabled_for_certification: true,
   wallet_policy: "PREPAID",
   wallet_available_balance: Number(wallet.available_balance || 0),
   wallet_reserved_balance: Number(wallet.reserved_balance || 0),

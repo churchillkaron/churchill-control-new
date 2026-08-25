@@ -479,12 +479,16 @@ async function runMusicBenchmark() {
     text(output.capability) === "ai.music.generate" &&
     text(output.foundation_model) === "ACE-Step/Ace-Step1.5" &&
     text(output.model_family) === "ACE_STEP_1_5" &&
-    text(output.model_variant) === "acestep-v15-turbo" &&
+    text(output.model_variant) === "acestep-v15-xl-turbo" &&
+    text(output.quality_profile) === "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1" &&
     Number(output.sample_rate) >= 44100 &&
     Number(output.duration_seconds) >= 9 &&
     Number(output.size_bytes) > 10000 &&
     actualBytes > 10000 &&
-    output.ace_step_lm_used === false &&
+    output.ace_step_lm_used === true &&
+    text(output.ace_step_lm_model) === "acestep-5Hz-lm-1.7B" &&
+    text(output.ace_step_lm_backend) === "vllm" &&
+    output.thinking_enabled === true &&
     output.raw_reasoning_persisted === false &&
     output.generation_input_persisted === false;
 
@@ -498,10 +502,19 @@ async function runMusicBenchmark() {
       sample_rate: Number(output.sample_rate) || null,
       reported_size_bytes: Number(output.size_bytes) || null,
       verified_storage_size_bytes: actualBytes,
+      model_variant: text(output.model_variant) || null,
+      quality_profile: text(output.quality_profile) || null,
+      ace_step_lm_used: output.ace_step_lm_used === true,
+      ace_step_lm_model: text(output.ace_step_lm_model) || null,
+      ace_step_lm_backend: text(output.ace_step_lm_backend) || null,
+      thinking_enabled: output.thinking_enabled === true,
     },
     certification_requirements: {
       human_audio_quality_review_required: true,
       measured_gpu_economics_required: true,
+      xl_model_required: true,
+      ace_step_internal_lm_required: true,
+      thinking_required: true,
       sfx_certified: false,
       audio_edit_certified: false,
     },

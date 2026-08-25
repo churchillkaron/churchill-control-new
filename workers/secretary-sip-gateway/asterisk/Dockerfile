@@ -34,7 +34,12 @@ RUN ./configure --with-pjproject-bundled --with-jansson-bundled \
     && make menuselect.makeopts \
     && menuselect/menuselect --enable app_audiosocket --enable res_audiosocket --enable res_pjsip --enable chan_pjsip menuselect.makeopts \
     && make -j"$(nproc)" \
-    && make install DESTDIR=/opt/asterisk-root
+    && make install DESTDIR=/opt/asterisk-root \
+    && test -x /opt/asterisk-root/usr/sbin/asterisk \
+    && test -f /opt/asterisk-root/usr/lib/asterisk/modules/app_audiosocket.so \
+    && test -f /opt/asterisk-root/usr/lib/asterisk/modules/res_audiosocket.so \
+    && test -f /opt/asterisk-root/usr/lib/asterisk/modules/res_pjsip.so \
+    && test -f /opt/asterisk-root/usr/lib/asterisk/modules/chan_pjsip.so
 
 FROM debian:bookworm-slim
 
@@ -57,11 +62,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --system --gid asterisk --home-dir /var/lib/asterisk --shell /usr/sbin/nologin asterisk \
     && mkdir -p /etc/asterisk /var/lib/asterisk /var/log/asterisk /var/run/asterisk /var/spool/asterisk
 
-COPY --from=builder /opt/asterisk-root/ /
+# Copy only immutable Asterisk install artifacts. Do not copy staged /var/run or other
+# runtime filesystem paths over Debian's final-stage symlinks/directories.
+COPY --from=builder /opt/asterisk-root/usr/ /usr/
 COPY extensions.conf.example /etc/asterisk/extensions.conf
 COPY container-entrypoint.sh /usr/local/bin/avantiqo-asterisk-entrypoint
 
-RUN printf '%s\n' \
+RUN test -x /usr/sbin/asterisk \
+    && test -f /usr/lib/asterisk/modules/app_audiosocket.so \
+    && test -f /usr/lib/asterisk/modules/res_audiosocket.so \
+    && test -f /usr/lib/asterisk/modules/res_pjsip.so \
+    && test -f /usr/lib/asterisk/modules/chan_pjsip.so \
+    && /usr/sbin/asterisk -V \
+    && printf '%s\n' \
       '[modules]' \
       'autoload=yes' \
       'load => res_audiosocket.so' \

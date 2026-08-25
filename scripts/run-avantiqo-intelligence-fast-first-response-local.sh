@@ -6,6 +6,7 @@ SOURCE_ROOT="${AVANTIQO_PROJECT_ROOT:-$HOME/Projects/churchill-control-new}"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/avantiqo-fast-first-response.XXXXXX")"
 SHADOW_ROOT="$TMP_DIR/repo"
 SLOT_MANAGER="$TMP_DIR/manage-avantiqo-intelligence-lane-slot-local.mjs"
+WARM_CONTROLLER="$TMP_DIR/manage-avantiqo-intelligence-fast-warm-probe-local.mjs"
 FAST_SLOT_ACTIVE=NO
 RESTORE_ATTEMPTED=NO
 
@@ -27,8 +28,9 @@ restore_deep_slot() {
   set +e
   (
     cd "$SOURCE_ROOT" || exit 1
-    AVANTIQO_INTELLIGENCE_FAST_SLOT_RESTORE_APPROVED=YES \
-      node --env-file=.env.local "$SLOT_MANAGER" --restore-deep
+    AVANTIQO_INTELLIGENCE_FAST_WARM_PROBE_RESTORE_APPROVED=YES \
+    AVANTIQO_INTELLIGENCE_FAST_QUEUE_PURGE_APPROVED=YES \
+      node --env-file=.env.local "$WARM_CONTROLLER" --restore-deep
   )
   local restore_status=$?
   set -e
@@ -83,7 +85,10 @@ echo "SOURCE_ORIGIN_MAIN=$ORIGIN_MAIN"
 
 git -C "$SOURCE_ROOT" show origin/main:scripts/manage-avantiqo-intelligence-lane-slot-local.mjs \
   > "$SLOT_MANAGER" || fail "INTELLIGENCE_SLOT_MANAGER_READ_FAILED"
+git -C "$SOURCE_ROOT" show origin/main:scripts/manage-avantiqo-intelligence-fast-warm-probe-local.mjs \
+  > "$WARM_CONTROLLER" || fail "INTELLIGENCE_WARM_CONTROLLER_READ_FAILED"
 node --check "$SLOT_MANAGER" || fail "INTELLIGENCE_SLOT_MANAGER_SYNTAX_FAILED"
+node --check "$WARM_CONTROLLER" || fail "INTELLIGENCE_WARM_CONTROLLER_SYNTAX_FAILED"
 
 echo ""
 echo "================ CREATE ISOLATED MAIN RUNTIME ================"
@@ -102,31 +107,37 @@ echo "SOURCE_CHECKOUT_MUTATED=NO"
 
 echo ""
 echo "================ PARK FAST LANE ================"
-(
+PARK_OUTPUT="$(
   cd "$SOURCE_ROOT"
   AVANTIQO_INTELLIGENCE_FAST_RUNPOD_PROVISION_APPROVED=YES \
     node --env-file=.env.local "$SLOT_MANAGER" --provision
-) || fail "FAST_LANE_PROVISION_FAILED"
+)" || fail "FAST_LANE_PROVISION_FAILED"
+printf '%s\n' "$PARK_OUTPUT"
+printf '%s\n' "$PARK_OUTPUT" | grep -q '"parked_state": true' \
+  || fail "FAST_LANE_PARKED_STATE_NOT_VERIFIED"
 
 echo ""
-echo "================ ACTIVATE FAST LANE ================"
-ACTIVATE_OUTPUT="$(
+echo "================ PURGE STALE QUEUE AND WARM FAST LANE ================"
+WARM_OUTPUT="$(
   cd "$SOURCE_ROOT"
-  AVANTIQO_INTELLIGENCE_FAST_SLOT_SWAP_APPROVED=YES \
-    node --env-file=.env.local "$SLOT_MANAGER" --activate-fast
-)" || fail "FAST_LANE_SLOT_ACTIVATION_FAILED"
-printf '%s\n' "$ACTIVATE_OUTPUT"
-printf '%s\n' "$ACTIVATE_OUTPUT" | grep -q '"fast_active_state": true' \
-  || fail "FAST_LANE_ACTIVE_STATE_NOT_VERIFIED"
-printf '%s\n' "$ACTIVATE_OUTPUT" | grep -q '"total_intelligence_workers_max": 1' \
+  AVANTIQO_INTELLIGENCE_FAST_WARM_PROBE_APPROVED=YES \
+  AVANTIQO_INTELLIGENCE_FAST_QUEUE_PURGE_APPROVED=YES \
+    node --env-file=.env.local "$WARM_CONTROLLER" --prepare-fast
+)" || fail "FAST_LANE_WARM_PREPARE_FAILED"
+printf '%s\n' "$WARM_OUTPUT"
+printf '%s\n' "$WARM_OUTPUT" | grep -q '"fast_warm_prepared_state": true' \
+  || fail "FAST_LANE_WARM_STATE_NOT_VERIFIED"
+printf '%s\n' "$WARM_OUTPUT" | grep -q '"total_intelligence_workers_max": 1' \
   || fail "INTELLIGENCE_SLOT_TOTAL_NOT_PRESERVED"
+printf '%s\n' "$WARM_OUTPUT" | grep -q '"total_intelligence_workers_min": 1' \
+  || fail "FAST_LANE_WARM_MIN_NOT_VERIFIED"
 FAST_SLOT_ACTIVE=YES
 
 echo ""
-echo "================ ASK AVANTIQO INTELLIGENCE ================"
-set +e
+echo "================ ASK AVANTIQO INTELLIGENCE ================"nset +e
 (
   cd "$SHADOW_ROOT" || exit 1
+  AVANTIQO_INTELLIGENCE_FAST_REQUIRE_WARM_WORKER=YES \
   node --env-file="$SOURCE_ROOT/.env.local" --input-type=module <<'NODE'
 const {
   AvantiqoIntelligenceProvider,
@@ -146,19 +157,27 @@ console.log(`AVANTIQO_FAST_RUNTIME_READY=${fastConfiguration.runtime_ready === t
 console.log("AVANTIQO_FAST_REASONING_MODE=NON_THINKING_ONLY");
 console.log("AVANTIQO_FAST_RAW_REASONING_PERSISTED=NO");
 
-try {
-  const health = await getAvantiqoIntelligenceEndpointHealthForLane({ execution_lane: "fast" });
-  console.log(
-    `AVANTIQO_FAST_HEALTH workers_running=${Number(health?.workers?.running || 0)} workers_idle=${Number(health?.workers?.idle || 0)} workers_initializing=${Number(health?.workers?.initializing || 0)} jobs_in_queue=${Number(health?.jobs?.inQueue || 0)} jobs_in_progress=${Number(health?.jobs?.inProgress || 0)}`,
-  );
-} catch (error) {
-  console.log(`AVANTIQO_FAST_HEALTH_READ=UNAVAILABLE reason=${String(error?.message || error).slice(0, 300)}`);
+const health = await getAvantiqoIntelligenceEndpointHealthForLane({ execution_lane: "fast" });
+console.log(
+  `AVANTIQO_FAST_PRE_REQUEST_HEALTH workers_running=${Number(health?.workers?.running || 0)} workers_idle=${Number(health?.workers?.idle || 0)} workers_ready=${Number(health?.workers?.ready || 0)} workers_initializing=${Number(health?.workers?.initializing || 0)} jobs_in_queue=${Number(health?.jobs?.inQueue || 0)} jobs_in_progress=${Number(health?.jobs?.inProgress || 0)}`,
+);
+const warmWorkers =
+  Number(health?.workers?.running || 0) +
+  Number(health?.workers?.idle || 0) +
+  Number(health?.workers?.ready || 0);
+if (
+  warmWorkers < 1 ||
+  Number(health?.workers?.initializing || 0) !== 0 ||
+  Number(health?.jobs?.inQueue || 0) !== 0 ||
+  Number(health?.jobs?.inProgress || 0) !== 0
+) {
+  throw new Error("AVANTIQO_FAST_PRE_REQUEST_NOT_WARM_AND_QUIESCENT");
 }
 
 const startedAt = Date.now();
 const heartbeat = setInterval(() => {
   console.log(`AVANTIQO_FAST_FIRST_RESPONSE_ACTIVE elapsed_seconds=${Math.floor((Date.now() - startedAt) / 1000)}`);
-}, 15000);
+}, 10_000);
 heartbeat.unref?.();
 
 try {
@@ -179,7 +198,7 @@ try {
     temperature: 0.2,
     top_p: 0.8,
     max_output_tokens: 360,
-    request_timeout_ms: 240000,
+    request_timeout_ms: 120000,
     context: {
       organization_id: "local-first-intelligence-probe",
       organization_service_id: "local-first-intelligence-probe",
@@ -208,6 +227,11 @@ try {
   console.log(`AVANTIQO_FAST_FIRST_RESPONSE_OUTPUT_TOKENS=${Number(response?.usage?.output_tokens || 0)}`);
   console.log("AVANTIQO_FAST_FIRST_RESPONSE_REASONING_TRANSPORT_DETECTED=NO");
   console.log("AVANTIQO_INTELLIGENCE_FAST_FIRST_RESPONSE=PASS");
+} catch (error) {
+  console.error(
+    `AVANTIQO_FAST_FIRST_RESPONSE_ERROR=${String(error?.message || error).replace(/\s+/g, " ").slice(0, 900)}`,
+  );
+  process.exitCode = 1;
 } finally {
   clearInterval(heartbeat);
 }

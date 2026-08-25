@@ -44,17 +44,35 @@ if (value !== undefined && value !== null) process.stdout.write(String(value));
 NODE
 }
 
-http_status() {
-  curl --silent --max-time 4 --output /dev/null --write-out '%{http_code}' "$1" 2>/dev/null || true
+tcp_ready() {
+  node - "$PORT" <<'NODE' >/dev/null 2>&1
+const net = require("net");
+const port = Number(process.argv[2]);
+if (!Number.isInteger(port) || port <= 0) process.exit(1);
+const socket = net.createConnection({ host: "127.0.0.1", port });
+socket.setTimeout(750);
+socket.once("connect", () => {
+  socket.end();
+  process.exit(0);
+});
+socket.once("timeout", () => {
+  socket.destroy();
+  process.exit(1);
+});
+socket.once("error", () => process.exit(1));
+NODE
 }
 
 wait_for_server() {
   local attempts=0
-  local status=""
   while [ "$attempts" -lt 90 ]; do
-    status="$(http_status "$BASE_URL")"
-    if [ -n "$status" ] && [ "$status" != "000" ]; then
-      echo "LOCAL_SERVER_STATUS=$status"
+    if [ -n "$STARTED_SERVER_PID" ] && ! kill -0 "$STARTED_SERVER_PID" 2>/dev/null; then
+      echo "LOCAL_SERVER_PROCESS_EXITED=YES"
+      tail -n 80 "$SERVER_LOG" 2>/dev/null || true
+      return 1
+    fi
+    if tcp_ready; then
+      echo "LOCAL_SERVER_STATUS=LISTENING"
       return 0
     fi
     sleep 1
@@ -111,10 +129,9 @@ echo "E2E_PREEXISTING_TRACKED_PRESERVED=YES"
 [ -f app/api/operator/turn/route.js ] || fail "OPERATOR_TURN_ROUTE_MISSING"
 [ -f lib/platform/capabilities/createProductEngineeringCycleCapability.js ] || fail "PRODUCT_ENGINEERING_CYCLE_CAPABILITY_MISSING"
 
-EXISTING_STATUS="$(http_status "$BASE_URL")"
-if [ -n "$EXISTING_STATUS" ] && [ "$EXISTING_STATUS" != "000" ]; then
+if tcp_ready; then
   echo "LOCAL_SERVER_REUSED=NO"
-  echo "LOCAL_SERVER_STATUS=$EXISTING_STATUS"
+  echo "LOCAL_SERVER_STATUS=LISTENING"
   fail "E2E_PORT_ALREADY_IN_USE"
 fi
 
@@ -265,17 +282,30 @@ if (governance.direct_commit_step_allowed_in_engineering_mission !== false) fail
 if (governance.code_ai_commit_capability_completed !== false) fail("CODE_AI_COMMIT_COMPLETED_DURING_ENGINEERING_MISSION");
 if (governance.production_deployment_capability_invoked !== false) fail("PRODUCTION_DEPLOY_CAPABILITY_INVOKED");
 
-const engineer = steps.find((step) => text(step?.id) === "engineer_next_gap") || {};
-const verification = object(engineer.verification);
-const engineerWrapped = object(engineer.result);
+const engineerEntries = steps.filter((step) => text(step?.id) === "engineer_next_gap");
+const engineerAction = engineerEntries.find(
+  (step) => text(step?.status) === "action_completed" || Object.keys(object(step?.result)).length > 0,
+) || {};
+const engineerVerificationEntry = [...engineerEntries].reverse().find(
+  (step) => Object.keys(object(step?.verification)).length > 0,
+) || {};
+const verification = object(engineerVerificationEntry.verification);
+const verificationState = object(verification.execution_state);
+const engineerWrapped = object(engineerAction.result);
 const engineerResult = Object.keys(object(engineerWrapped.result)).length ? object(engineerWrapped.result) : engineerWrapped;
-const state = object(engineerResult.state);
-const completionEvidence = [...list(state.evidence)].reverse().find(
-  (entry) => entry?.kind === "product_completion_criteria_evidence" && entry?.verified === true,
-);
 if (text(mission.status) === "completed") {
-  if (verification.passed !== true) fail("REGISTERED_CODE_VERIFICATION_NOT_PASSED", verification);
-  if (!completionEvidence) fail("PRODUCT_COMPLETION_CRITERIA_EVIDENCE_NOT_PRESENT_IN_CODE_STATE");
+  if (
+    verification.verified !== true ||
+    text(verification.status) !== "VERIFIED_COMPLETED"
+  ) {
+    fail("REGISTERED_CODE_VERIFICATION_NOT_PASSED", verification);
+  }
+  if (
+    Number(verificationState.product_completion_criteria_count || 0) > 0 &&
+    verificationState.product_completion_criteria_verified !== true
+  ) {
+    fail("PRODUCT_COMPLETION_CRITERIA_NOT_VERIFIED", verificationState);
+  }
 }
 
 console.log("E2E_RESULT=PASS");
@@ -286,6 +316,8 @@ console.log(`E2E_OBJECTIVE=${text(selection.selected_objective || assessment?.ne
 console.log(`E2E_OBJECTIVE_CANDIDATE=${selection.selected_candidate_id}`);
 console.log(`E2E_COMPLETION_CRITERIA=${list(selection.selected_completion_criteria).length}`);
 console.log(`E2E_MISSION_STATUS=${text(mission.status) || text(cycle.status) || "unknown"}`);
+console.log(`E2E_CODE_VERIFIED=${verification.verified === true ? "YES" : "NO"}`);
+console.log(`E2E_PRODUCT_CRITERIA_VERIFIED=${verificationState.product_completion_criteria_verified === true ? "YES" : "NO"}`);
 console.log(`E2E_PERSISTENCE_DECISION=${text(decision.decision) || "unknown"}`);
 console.log(`E2E_PERSISTENCE_STATE=${text(cycle.persistence_state) || "NONE"}`);
 console.log(`E2E_COMMIT_CONFIRMATION_PREPARED=${cycle.commit_requested === true ? "YES" : "NO"}`);

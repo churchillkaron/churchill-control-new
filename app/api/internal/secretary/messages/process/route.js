@@ -7,7 +7,7 @@ import {
   completeSecretaryInboundMessage,
   failSecretaryInboundMessage,
 } from "@/lib/operator/secretary/SecretaryMessageReceptionRuntime";
-import { runSecretaryMessageReceptionWithBusinessHours } from "@/lib/operator/secretary/SecretaryAfterHoursConversationRuntime";
+import { runSecretaryMessageReceptionAutonomous } from "@/lib/operator/secretary/SecretaryAutonomousCallbackRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -33,7 +33,7 @@ export async function GET(request) {
     if (!requestRow) break;
 
     try {
-      const result = await runSecretaryMessageReceptionWithBusinessHours(requestRow);
+      const result = await runSecretaryMessageReceptionAutonomous(requestRow);
       const completed = await completeSecretaryInboundMessage({
         requestId: requestRow.id,
         patch: {
@@ -45,6 +45,8 @@ export async function GET(request) {
             response_text: result.response_text,
             business_hours_state: result.business_hours_state || null,
             server_allowed_actions: result.server_allowed_actions || null,
+            callback_autonomy_promoted: result.callback_autonomy_promoted === true,
+            callback_follow_up_id: result.callback_follow_up_id || null,
             caller_authority: result.caller_authority,
             internal_operator_capabilities_available: result.internal_operator_capabilities_available,
             external_authority_used: result.external_authority_used,
@@ -58,6 +60,7 @@ export async function GET(request) {
         status: completed.status,
         action: result.action,
         after_hours_mode: result.business_hours_state?.after_hours_mode || null,
+        callback_autonomy_promoted: result.callback_autonomy_promoted === true,
         response_message_id: result.response_message?.id || null,
       });
     } catch (error) {

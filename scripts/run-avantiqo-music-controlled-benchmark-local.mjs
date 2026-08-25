@@ -1,7 +1,92 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+
+const REQUIRED_NODE_MAJOR = 24;
+const SELF_PATH = fileURLToPath(import.meta.url);
+
+function text(value) {
+  return String(value ?? "").trim();
+}
+
+function nodeMajor(version) {
+  const match = text(version).replace(/^v/i, "").match(/^(\d+)/);
+  return match ? Number(match[1]) : 0;
+}
+
+function probeNode(executable) {
+  const candidate = text(executable);
+  if (!candidate) return null;
+  const result = spawnSync(candidate, ["--version"], {
+    cwd: process.cwd(),
+    env: process.env,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  if (result.error || result.status !== 0) return null;
+  const version = text(result.stdout);
+  return nodeMajor(version) >= REQUIRED_NODE_MAJOR ? { executable: candidate, version } : null;
+}
+
+function resolveNode24() {
+  const candidates = [];
+  const explicit = text(process.env.AVANTIQO_NODE24_BIN);
+  if (explicit) candidates.push(explicit);
+
+  const nvm = spawnSync(
+    "/bin/zsh",
+    ["-lc", 'source "${NVM_DIR:-$HOME/.nvm}/nvm.sh" >/dev/null 2>&1 && nvm which 24'],
+    {
+      cwd: process.cwd(),
+      env: process.env,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    },
+  );
+  if (!nvm.error && nvm.status === 0 && text(nvm.stdout)) candidates.push(text(nvm.stdout));
+
+  candidates.push(
+    "/opt/homebrew/opt/node@24/bin/node",
+    "/usr/local/opt/node@24/bin/node",
+    "/opt/homebrew/bin/node",
+    "/usr/local/bin/node",
+    "node24",
+  );
+
+  for (const candidate of [...new Set(candidates)]) {
+    const resolved = probeNode(candidate);
+    if (resolved) return resolved;
+  }
+  return null;
+}
+
+const currentNodeMajor = nodeMajor(process.versions.node);
+if (currentNodeMajor < REQUIRED_NODE_MAJOR) {
+  if (process.env.AVANTIQO_MUSIC_NODE24_REEXEC === "1") {
+    throw new Error(
+      `AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_NODE24_REEXEC_FAILED:current=${process.version}:required=24`,
+    );
+  }
+  const node24 = resolveNode24();
+  if (!node24) {
+    throw new Error(
+      `AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_NODE24_REQUIRED:current=${process.version}:repo_nvmrc=24:next_action=nvm_use_24`,
+    );
+  }
+  console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_NODE_REEXEC=${process.version}->${node24.version}`);
+  const reexec = spawnSync(node24.executable, [SELF_PATH, ...process.argv.slice(2)], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      AVANTIQO_MUSIC_NODE24_REEXEC: "1",
+    },
+    stdio: "inherit",
+  });
+  if (reexec.error) throw reexec.error;
+  process.exit(Number.isInteger(reexec.status) ? reexec.status : 1);
+}
 
 loadAvantiqoEnv();
 
@@ -11,10 +96,6 @@ const BENCHMARK_SCRIPT = resolve("scripts/benchmark-avantiqo-music.mjs");
 const PREFLIGHT_CONTRACT = "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V3";
 const CAPACITY_CONTRACT = "AVANTIQO_MUSIC_XL_LM_STORAGE_CAPACITY_V1";
 const MINIMUM_CAPACITY_GB = 80;
-
-function text(value) {
-  return String(value ?? "").trim();
-}
 
 function required(name) {
   const value = text(process.env[name]);
@@ -99,6 +180,7 @@ if (credentialSource === "AUDIO_DEDICATED") {
 }
 const verifiedCredential = required(credentialName);
 
+console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_NODE=${process.version}`);
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PREFLIGHT=PASS");
 console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CREDENTIAL_SOURCE=${credentialSource}`);
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CREDENTIAL_REUSED=true");

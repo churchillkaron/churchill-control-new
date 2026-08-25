@@ -48,25 +48,28 @@ test("structured supervisor separates natural cognition from JSON boundary compi
   assert.match(structuredSupervisor, /INVALID_COMPILED_JSON/);
 });
 
-test("Product decisions use one private-thinking structured pass with compacted evidence and bounded completion budget", () => {
+test("Product decisions use one private-thinking structured pass with benchmark-bounded compacted evidence", () => {
   assert.match(structuredSupervisor, /PRODUCT_REPOSITORY_ASSESSMENT/);
   assert.match(structuredSupervisor, /PRODUCT_PERSISTENCE_DECISION/);
   assert.match(structuredSupervisor, /structured_supervisor_mode: "product_single_pass"/);
   assert.match(structuredSupervisor, /private_reasoning_transport_expected: true/);
   assert.match(structuredSupervisor, /raw_reasoning_persisted: false/);
   assert.match(structuredSupervisor, /single_pass_structured_reasoning: true/);
-  assert.match(structuredSupervisor, /PRODUCT_REPOSITORY_ASSESSMENT"\s*\? 8192/);
+  assert.match(structuredSupervisor, /PRODUCT_REPOSITORY_ASSESSMENT"\s*\? 2200/);
   assert.match(structuredSupervisor, /PRODUCT_PERSISTENCE_DECISION"\s*\? 8192/);
   assert.match(structuredSupervisor, /compactProductRepositoryAssessmentConversation/);
   assert.match(structuredSupervisor, /conversation: productConversation/);
   assert.match(structuredSupervisor, /Math\.min\(16384/);
 
-  assert.match(productAssessmentCompactor, /AVANTIQO_PRODUCT_REPOSITORY_ASSESSMENT_MODEL_INPUT_V1/);
+  assert.match(productAssessmentCompactor, /AVANTIQO_PRODUCT_REPOSITORY_ASSESSMENT_MODEL_INPUT_V2/);
   assert.match(productAssessmentCompactor, /OPERATION = "PRODUCT_REPOSITORY_ASSESSMENT"/);
-  assert.match(productAssessmentCompactor, /MAX_FIXED_EVIDENCE_CHARS = 8000/);
-  assert.match(productAssessmentCompactor, /MAX_DYNAMIC_EVIDENCE_CHARS = 6000/);
-  assert.match(productAssessmentCompactor, /MAX_SEARCH_MATCHES = 12/);
-  assert.match(productAssessmentCompactor, /MAX_TRACKED_FILE_SAMPLE = 80/);
+  assert.match(productAssessmentCompactor, /MAX_FIXED_EVIDENCE_CHARS = 1600/);
+  assert.match(productAssessmentCompactor, /MAX_DYNAMIC_EVIDENCE_CHARS = 2400/);
+  assert.match(productAssessmentCompactor, /MAX_MODEL_DYNAMIC_EVIDENCE_FILES = 6/);
+  assert.match(productAssessmentCompactor, /MAX_SEARCH_MATCHES = 3/);
+  assert.match(productAssessmentCompactor, /MAX_SEARCH_MATCH_CHARS = 260/);
+  assert.match(productAssessmentCompactor, /MAX_TRACKED_FILE_SAMPLE = 30/);
+  assert.match(productAssessmentCompactor, /MAX_INVENTORY_ARRAY = 30/);
   assert.match(productAssessmentCompactor, /full_runtime_snapshot_preserved: true/);
   assert.match(productAssessmentCompactor, /exact_evidence_paths_preserved: true/);
   assert.match(productAssessmentCompactor, /repository_head_preserved: true/);

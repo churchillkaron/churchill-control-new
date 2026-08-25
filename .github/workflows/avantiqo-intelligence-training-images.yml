@@ -220,17 +220,16 @@ jobs:
           grep -F 'runpod/worker-v1-vllm:v2.25.0' services/avantiqo-intelligence-candidate/Dockerfile.runpod
           grep -F 'AVANTIQO_INTELLIGENCE_CANDIDATE_ENABLED=false' services/avantiqo-intelligence-candidate/Dockerfile.runpod
           grep -F 'Qwen/Qwen3-30B-A3B-Thinking-2507' services/avantiqo-intelligence-candidate/inspect_adapter.py
+          grep -F 'EXPECTED_TARGET_MODULES = {"q_proj", "v_proj"}' services/avantiqo-intelligence-candidate/inspect_adapter.py
           grep -F 'mlp.experts.gate_up_proj' services/avantiqo-intelligence-candidate/inspect_adapter.py
           grep -F 'mlp.experts.down_proj' services/avantiqo-intelligence-candidate/inspect_adapter.py
           grep -F 'MOE_3D_FUSED_PEFT' services/avantiqo-intelligence-candidate/inspect_adapter.py
-          grep -F 'ADAPTER_MOE_LORA_TENSOR_NOT_3D' services/avantiqo-intelligence-candidate/inspect_adapter.py
+          grep -F 'PEFT_FUSED_EXPERT_FACTORS_2D' services/avantiqo-intelligence-candidate/inspect_adapter.py
+          grep -F 'ADAPTER_MOE_FUSED_FACTOR_NOT_2D' services/avantiqo-intelligence-candidate/inspect_adapter.py
+          grep -F 'ADAPTER_MOE_PER_EXPERT_LAYOUT_FORBIDDEN' services/avantiqo-intelligence-candidate/inspect_adapter.py
           grep -F 'candidate_model_name' services/avantiqo-intelligence-candidate/startup.py
           grep -F 'ENABLE_LORA' services/avantiqo-intelligence-candidate/startup.py
           grep -F -- '--enable-mixed-moe-lora-format' services/avantiqo-intelligence-candidate/startup.py
-          if grep -Fq 'MOE_2D_PER_EXPERT' services/avantiqo-intelligence-candidate/inspect_adapter.py; then
-            echo 'AVANTIQO_INTELLIGENCE_CANDIDATE_LEGACY_2D_LAYOUT_DETECTED'
-            exit 1
-          fi
           echo 'AVANTIQO_INTELLIGENCE_CANDIDATE_IMAGE_PREFLIGHT=PASS'
           echo 'AVANTIQO_INTELLIGENCE_CANDIDATE_IMAGE_TRIGGER_SHA_BOUND=true'
 
@@ -274,6 +273,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             io.avantiqo.contract=AVANTIQO_INTELLIGENCE_CANDIDATE_STARTUP_V1
             io.avantiqo.adapter-layout=MOE_3D_FUSED_PEFT
+            io.avantiqo.adapter-serialization=PEFT_FUSED_EXPERT_FACTORS_2D
           provenance: true
           sbom: true
           cache-from: type=gha,scope=avantiqo-intelligence-candidate
@@ -314,6 +314,7 @@ jobs:
             immutable_image_reference: `${repository}@${digest}`,
             foundation_model: "Qwen/Qwen3-30B-A3B-Thinking-2507",
             adapter_layout: "MOE_3D_FUSED_PEFT",
+            adapter_serialization: "PEFT_FUSED_EXPERT_FACTORS_2D",
             exact_adapter_inspection_required: true,
             candidate_enabled_by_default: false,
             provider_job_submitted: false,

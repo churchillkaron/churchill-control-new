@@ -7,6 +7,11 @@ const REPORT_CONTRACT = "AVANTIQO_VOICE_TTS_COLD_START_SMOKE_V1";
 const DEFAULT_TTS_MODEL = "resemble-ai/chatterbox:multilingual-v3";
 const POLL_MS = 3000;
 const SUBMIT_TIMEOUT_MS = 12_000;
+const GATEWAY_UNPAUSE_POLL_MS = 3000;
+const GATEWAY_UNPAUSE_TIMEOUT_MS = Math.max(
+  30_000,
+  Math.min(120_000, Number(process.env.AVANTIQO_VOICE_TTS_GATEWAY_UNPAUSE_TIMEOUT_MS || 90_000)),
+);
 const JOB_TIMEOUT_MS = Math.max(
   60_000,
   Math.min(20 * 60_000, Number(process.env.AVANTIQO_VOICE_TTS_COLD_START_TIMEOUT_MS || 15 * 60_000)),
@@ -49,6 +54,30 @@ function inferenceCandidates() {
     });
   }
   return candidates;
+}
+
+function runpodResponseText(body = {}) {
+  const parts = [
+    body?.code,
+    body?.errorCode,
+    body?.error_code,
+    typeof body?.error === "string" ? body.error : null,
+    body?.error?.code,
+    body?.error?.message,
+    body?.message,
+    body?.detail,
+  ];
+  return parts.map(text).filter(Boolean).join(" ").toUpperCase();
+}
+
+function isEndpointPausedConflict(response, body) {
+  if (response?.status !== 409) return false;
+  const detail = runpodResponseText(body);
+  return (
+    detail.includes("ENDPOINT_PAUSED") ||
+    detail.includes("ENDPOINT IS PAUSED") ||
+    detail.includes("ENDPOINT PAUSED")
+  );
 }
 
 async function rawRequest(endpointId, requestPath, apiKey, options = {}) {
@@ -126,68 +155,108 @@ function healthSummary(body = {}) {
 async function submitExactlyOne(endpointId, payload, candidates) {
   const attempts = [];
   for (const candidate of candidates) {
-    console.log(JSON.stringify({
-      event: "AVANTIQO_VOICE_TTS_COLD_START_SUBMIT_ATTEMPT",
-      credential_source: candidate.source,
-      credential_key_kind: candidate.key_kind,
-      secret_values_printed: false,
-    }));
+    const unpauseDeadline = Date.now() + GATEWAY_UNPAUSE_TIMEOUT_MS;
+    let gatewayRetry = 0;
 
-    let response;
-    let body;
-    try {
-      ({ response, body } = await rawRequest(endpointId, "/run", candidate.value, {
-        method: "POST",
-        body: { input: payload },
-        timeoutMs: SUBMIT_TIMEOUT_MS,
+    while (true) {
+      console.log(JSON.stringify({
+        event: "AVANTIQO_VOICE_TTS_COLD_START_SUBMIT_ATTEMPT",
+        credential_source: candidate.source,
+        credential_key_kind: candidate.key_kind,
+        gateway_retry: gatewayRetry,
+        secret_values_printed: false,
       }));
-    } catch (error) {
+
+      let response;
+      let body;
+      try {
+        ({ response, body } = await rawRequest(endpointId, "/run", candidate.value, {
+          method: "POST",
+          body: { input: payload },
+          timeoutMs: SUBMIT_TIMEOUT_MS,
+        }));
+      } catch (error) {
+        attempts.push({
+          source: candidate.source,
+          key_kind: candidate.key_kind,
+          http_status: null,
+          write_authorized: null,
+          submission_accepted: null,
+          submission_outcome_ambiguous: true,
+          transport_error: error?.name === "TimeoutError" ? "TIMEOUT" : "REQUEST_FAILED",
+        });
+        const ambiguous = new Error("AVANTIQO_VOICE_TTS_COLD_START_SUBMISSION_OUTCOME_AMBIGUOUS");
+        ambiguous.authorization_attempts = attempts;
+        ambiguous.submission_may_have_been_accepted = true;
+        throw ambiguous;
+      }
+
+      const pausedConflict = isEndpointPausedConflict(response, body);
+      const writeAuthorized = ![401, 403].includes(response.status);
       attempts.push({
         source: candidate.source,
         key_kind: candidate.key_kind,
-        http_status: null,
-        write_authorized: false,
-        transport_error: error?.name === "TimeoutError" ? "TIMEOUT" : "REQUEST_FAILED",
+        http_status: response.status,
+        write_authorized: writeAuthorized,
+        submission_accepted: response.ok,
+        conflict_code: pausedConflict ? "ENDPOINT_PAUSED" : null,
       });
-      continue;
-    }
 
-    attempts.push({
-      source: candidate.source,
-      key_kind: candidate.key_kind,
-      http_status: response.status,
-      write_authorized: response.ok,
-    });
-
-    console.log(JSON.stringify({
-      event: "AVANTIQO_VOICE_TTS_COLD_START_SUBMIT_RESULT",
-      credential_source: candidate.source,
-      http_status: response.status,
-      write_authorized: response.ok,
-    }));
-
-    if (response.ok) {
-      const jobId = text(body.id);
-      if (!jobId) throw new Error("RUNPOD_JOB_ID_REQUIRED");
       console.log(JSON.stringify({
-        event: "AVANTIQO_VOICE_TTS_COLD_START_JOB_SUBMITTED",
-        job_id: jobId,
+        event: "AVANTIQO_VOICE_TTS_COLD_START_SUBMIT_RESULT",
         credential_source: candidate.source,
-        new_job_count: 1,
+        http_status: response.status,
+        write_authorized: writeAuthorized,
+        submission_accepted: response.ok,
+        conflict_code: pausedConflict ? "ENDPOINT_PAUSED" : null,
       }));
-      return {
-        job_id: jobId,
-        api_key: candidate.value,
-        credential_source: candidate.source,
-        credential_key_kind: candidate.key_kind,
-        authorization_attempts: attempts,
-      };
-    }
 
-    if (![401, 403].includes(response.status)) {
-      const error = new Error(`RUNPOD_HTTP_${response.status}`);
-      error.authorization_attempts = attempts;
-      throw error;
+      if (response.ok) {
+        const jobId = text(body.id);
+        if (!jobId) {
+          const acceptedWithoutId = new Error("AVANTIQO_VOICE_TTS_COLD_START_ACCEPTED_WITHOUT_JOB_ID");
+          acceptedWithoutId.authorization_attempts = attempts;
+          acceptedWithoutId.submission_may_have_been_accepted = true;
+          throw acceptedWithoutId;
+        }
+        console.log(JSON.stringify({
+          event: "AVANTIQO_VOICE_TTS_COLD_START_JOB_SUBMITTED",
+          job_id: jobId,
+          credential_source: candidate.source,
+          new_job_count: 1,
+        }));
+        return {
+          job_id: jobId,
+          api_key: candidate.value,
+          credential_source: candidate.source,
+          credential_key_kind: candidate.key_kind,
+          authorization_attempts: attempts,
+        };
+      }
+
+      if (pausedConflict) {
+        if (Date.now() >= unpauseDeadline) {
+          const timeout = new Error("AVANTIQO_VOICE_TTS_COLD_START_ENDPOINT_GATEWAY_SYNC_TIMEOUT");
+          timeout.authorization_attempts = attempts;
+          throw timeout;
+        }
+        gatewayRetry += 1;
+        console.log(JSON.stringify({
+          event: "AVANTIQO_VOICE_TTS_COLD_START_WAITING_FOR_GATEWAY_UNPAUSE",
+          retry: gatewayRetry,
+          poll_ms: GATEWAY_UNPAUSE_POLL_MS,
+          generation_submitted: false,
+          secret_values_printed: false,
+        }));
+        await sleep(GATEWAY_UNPAUSE_POLL_MS);
+        continue;
+      }
+
+      if ([401, 403].includes(response.status)) break;
+
+      const requestError = new Error(`RUNPOD_HTTP_${response.status}`);
+      requestError.authorization_attempts = attempts;
+      throw requestError;
     }
   }
 
@@ -259,6 +328,7 @@ const report = {
   tts_only: true,
   new_job_limit: 1,
   generation_submitted: false,
+  generation_submission_outcome: "NOT_SUBMITTED",
   stt_submitted: false,
   production_web_deploy: false,
   pricing_activation_performed: false,
@@ -299,6 +369,7 @@ try {
     endpoint_configured: true,
     health_before: health,
     job_timeout_seconds: Math.round(JOB_TIMEOUT_MS / 1000),
+    gateway_unpause_timeout_seconds: Math.round(GATEWAY_UNPAUSE_TIMEOUT_MS / 1000),
     exactly_one_new_job_allowed: true,
     stt_submitted: false,
     production_web_deploy: false,
@@ -324,6 +395,7 @@ try {
     candidates,
   );
   report.generation_submitted = true;
+  report.generation_submission_outcome = "ACCEPTED";
   report.job_id = submitted.job_id;
   report.authorization.tts_write_attempts = submitted.authorization_attempts;
 
@@ -370,6 +442,9 @@ try {
   report.success = true;
 } catch (error) {
   report.error_code = safeErrorCode(error);
+  if (error?.submission_may_have_been_accepted === true) {
+    report.generation_submission_outcome = "AMBIGUOUS_FAIL_CLOSED";
+  }
   if (Array.isArray(error?.authorization_attempts)) {
     report.authorization = {
       ...(report.authorization || {}),
@@ -387,6 +462,7 @@ console.log(JSON.stringify({
   error_code: report.error_code,
   job_id: report.job_id,
   generation_submitted: report.generation_submitted,
+  generation_submission_outcome: report.generation_submission_outcome,
   new_job_limit: report.new_job_limit,
   stt_submitted: report.stt_submitted,
   authorization: report.authorization,

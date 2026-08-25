@@ -14,6 +14,10 @@ const worker = fs.readFileSync(
   new URL("../services/avantiqo-audio-engine/handler.py", import.meta.url),
   "utf8",
 );
+const ghcrAuthProvisioner = fs.readFileSync(
+  new URL("../scripts/provision-avantiqo-runpod-ghcr-auth-local.mjs", import.meta.url),
+  "utf8",
+);
 
 test("owned audio registration keeps generation certified while advanced transforms stay gated", () => {
   assert.match(
@@ -55,4 +59,16 @@ test("music worker uses ACE-Step LM reasoning internally without persisting raw 
   assert.match(worker, /"thinking_enabled": use_lm/);
   assert.match(worker, /"raw_reasoning_persisted": False/);
   assert.match(worker, /DEFAULT_CERTIFIED_CAPABILITIES = \{"ai\.music\.generate"\}/);
+});
+
+test("RunPod GHCR auth helper requires V3 XL plus LM immutable image evidence", () => {
+  assert.match(ghcrAuthProvisioner, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V3/);
+  assert.doesNotMatch(ghcrAuthProvisioner, /AVANTIQO_AUDIO_WORKER_IMAGE_RESULT_V2/);
+  assert.match(ghcrAuthProvisioner, /runtime_variant\) !== "acestep-v15-xl-turbo"/);
+  assert.match(ghcrAuthProvisioner, /quality_profile\) !== EXPECTED_QUALITY_PROFILE/);
+  assert.match(ghcrAuthProvisioner, /ace_step_lm_required !== true/);
+  assert.match(ghcrAuthProvisioner, /lm_model\) !== EXPECTED_LM_MODEL/);
+  assert.match(ghcrAuthProvisioner, /lm_backend\) !== EXPECTED_LM_BACKEND/);
+  assert.match(ghcrAuthProvisioner, /xl_model_contract_passed_by_docker_build !== true/);
+  assert.match(ghcrAuthProvisioner, /lm_contract_passed_by_docker_build !== true/);
 });

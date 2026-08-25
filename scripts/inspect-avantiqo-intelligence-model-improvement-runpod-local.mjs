@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 const REST_BASE = "https://rest.runpod.io/v1";
 const CONTRACT = "AVANTIQO_INTELLIGENCE_MODEL_IMPROVEMENT_RUNPOD_READINESS_V1";
 const TRAINER_NAME = "avantiqo-intelligence-trainer-v1";
@@ -7,6 +9,11 @@ const CERTIFIED_TRAINER_IMAGE =
   "ghcr.io/churchillkaron/avantiqo-intelligence-trainer@sha256:eb24423075767c15d476c2ad0c9695482addf68e28b2b85af4768dc6a606bb4f";
 const CERTIFIED_CANDIDATE_IMAGE =
   "ghcr.io/churchillkaron/avantiqo-intelligence-candidate@sha256:3e19d865a23567ae24bbef9ec562261cbceaa79bacaee71a36475cd911848ee7";
+const LOCAL_ENV_PATH_VARIABLE = "AVANTIQO_INTELLIGENCE_READINESS_ENV_FILE";
+const ENDPOINT_ENV_NAMES = new Set([
+  "RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID",
+  "RUNPOD_AVANTIQO_INTELLIGENCE_CANDIDATE_ENDPOINT_ID",
+]);
 
 function text(value, limit = 2000) {
   return String(value ?? "").trim().slice(0, limit);
@@ -23,6 +30,81 @@ function object(value) {
 function finite(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function decodeAssignmentValue(rawValue) {
+  let value = String(rawValue ?? "").trim();
+  if (
+    value.length >= 2 &&
+    ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'")))
+  ) {
+    const quote = value[0];
+    value = value.slice(1, -1);
+    if (quote === '"') {
+      value = value
+        .replace(/\\n/g, "\n")
+        .replace(/\\r/g, "\r")
+        .replace(/\\t/g, "\t")
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, "\\");
+    }
+  }
+  return value;
+}
+
+function relevantLocalEnvName(name) {
+  return /^RUNPOD_[A-Z0-9_]*API_KEY$/.test(name) || ENDPOINT_ENV_NAMES.has(name);
+}
+
+function hydrateRelevantRunpodEnvFromExplicitFile() {
+  const envPath = text(process.env[LOCAL_ENV_PATH_VARIABLE], 4000);
+  if (!envPath) {
+    return {
+      explicit_env_file_requested: false,
+      parsed_without_execution: false,
+      relevant_assignment_count: 0,
+      nonempty_runpod_api_key_count: 0,
+      secret_values_printed: false,
+    };
+  }
+
+  let source;
+  try {
+    source = readFileSync(envPath, "utf8");
+  } catch (error) {
+    throw new Error(
+      `AVANTIQO_INTELLIGENCE_READINESS_LOCAL_ENV_READ_FAILED:${text(error?.code || error?.message || error, 300)}`,
+    );
+  }
+
+  let relevantAssignmentCount = 0;
+  let nonemptyRunpodApiKeyCount = 0;
+  for (const rawLine of source.split(/\r?\n/)) {
+    const trimmed = rawLine.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const match = rawLine.match(
+      /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/,
+    );
+    if (!match) continue;
+    const [, name, rawValue] = match;
+    if (!relevantLocalEnvName(name)) continue;
+    relevantAssignmentCount += 1;
+    const value = decodeAssignmentValue(rawValue);
+    if (!text(process.env[name], 4000) && value) process.env[name] = value;
+    if (/^RUNPOD_[A-Z0-9_]*API_KEY$/.test(name) && text(value, 4000)) {
+      nonemptyRunpodApiKeyCount += 1;
+    }
+  }
+
+  return {
+    explicit_env_file_requested: true,
+    parsed_without_execution: true,
+    malformed_non_assignment_lines_ignored: true,
+    relevant_assignment_count: relevantAssignmentCount,
+    nonempty_runpod_api_key_count: nonemptyRunpodApiKeyCount,
+    secret_values_printed: false,
+  };
 }
 
 function normalizeList(value, candidateKey, depth = 0) {
@@ -223,6 +305,7 @@ function safeVolume(volume = {}) {
   };
 }
 
+const localEnv = hydrateRelevantRunpodEnvFromExplicitFile();
 const management = await resolveManagementCredential();
 const managementKey = management.credential;
 const [templatesBody, volumesBody] = await Promise.all([
@@ -272,6 +355,7 @@ const report = {
   contract: CONTRACT,
   mode: "READ_ONLY",
   certified_source_sha: CERTIFIED_SOURCE_SHA,
+  local_env: localEnv,
   management_credential: {
     source_variable: management.source,
     candidate_count: management.candidate_count,

@@ -59,6 +59,9 @@
     },
     "app/api/internal/secretary/due-work/process/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/secretary/messages/process/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -152,6 +155,10 @@
     },
     {
       "path": "/api/internal/secretary/due-work/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/secretary/messages/process",
       "schedule": "* * * * *"
     },
     {

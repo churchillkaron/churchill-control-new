@@ -1,7 +1,7 @@
 {
   "contract": "AVANTIQO_VOICE_TTS_WORKER_IMAGE_REFRESH_REQUEST_V1",
-  "requested_for": "tts_blackwell_baked_v3_preload_repair",
-  "source_commit": "418c10b0add9793db7267b99a66d8f83f9a6518e",
+  "requested_for": "tts_blackwell_resident_serving_process_repair",
+  "source_commit": "706fa940eb4043fe3c4256538faae7b070f65cc4",
   "build_tts": true,
   "build_stt": false,
   "platform": "linux/amd64",

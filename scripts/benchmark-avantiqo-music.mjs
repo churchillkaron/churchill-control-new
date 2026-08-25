@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
 const STORAGE_BUCKET = "creative-assets";
-const PREFLIGHT_CONTRACT = "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V2";
+const PREFLIGHT_CONTRACT = "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V3";
 const EXPECTED_SHARED_VOLUME_GROUP = "AUDIO_VOICE";
 const EXPECTED_SHARED_VOLUME_NAME = "avantiqo-shared-audio-voice-cache";
 const EXPECTED_CHECKPOINT_ROOT = "/runpod-volume/ace-step-checkpoints";
@@ -108,6 +108,9 @@ function runRequiredPreflight() {
     ["endpoint_workers_min_zero", result?.endpoint?.workers_min === 0],
     ["endpoint_scale_to_zero", result?.endpoint?.scale_to_zero === true],
     ["endpoint_quiet", result?.endpoint?.quiet_for_controlled_benchmark === true],
+    ["worker_image_dedicated_template", result?.worker_image?.dedicated_template_verified === true],
+    ["worker_image_registry_template", result?.worker_image?.registry_backed_template_verified === true],
+    ["worker_image_source_locked_tag", result?.worker_image?.source_locked_ghcr_tag_verified === true],
     ["network_volume_attached", result?.model_cache?.network_volume_attached === true],
     ["single_attached_volume", result?.model_cache?.attached_volume_count === 1],
     ["shared_volume_group", result?.model_cache?.shared_volume_group === EXPECTED_SHARED_VOLUME_GROUP],
@@ -133,6 +136,8 @@ function runRequiredPreflight() {
     ["gpu_second_rate_positive", finite(result?.economics?.gpu_usd_per_second, 0) > 0],
     ["preflight_read_only", result?.safety?.read_only_except_signed_url_creation === true],
     ["shared_volume_policy_verified", result?.safety?.shared_volume_policy_verified === true],
+    ["worker_image_binding_verified", result?.safety?.worker_image_binding_verified === true],
+    ["registry_backed_endpoint_verified", result?.safety?.registry_backed_endpoint_verified === true],
     ["generation_jobs_zero", result?.safety?.runpod_generation_jobs_submitted === 0],
     ["run_not_called", result?.safety?.runpod_run_called === false],
     ["runsync_not_called", result?.safety?.runpod_runsync_called === false],
@@ -152,6 +157,7 @@ function runRequiredPreflight() {
   console.log(`AVANTIQO_MUSIC_BENCHMARK_SHARED_VOLUME_GROUP=${result.model_cache.shared_volume_group}`);
   console.log(`AVANTIQO_MUSIC_BENCHMARK_QUALITY_PROFILE=${result.model_contract.quality_profile}`);
   console.log(`AVANTIQO_MUSIC_BENCHMARK_SHARED_VOLUME_POLICY_VERIFIED=${result.safety.shared_volume_policy_verified}`);
+  console.log(`AVANTIQO_MUSIC_BENCHMARK_REGISTRY_ENDPOINT_VERIFIED=${result.safety.registry_backed_endpoint_verified}`);
   return result;
 }
 
@@ -402,8 +408,14 @@ const report = {
     collision_with_other_owned_engine: preflight.endpoint?.collision_with_other_owned_engine === true,
     collision_free: preflight.endpoint?.collision_with_other_owned_engine === false,
     health_reachable: preflight.endpoint?.health_reachable === true,
+    health_credential_source: preflight.endpoint?.health_credential_source,
+    health_credential_fallback_used: preflight.endpoint?.health_credential_fallback_used === true,
     scale_to_zero: preflight.endpoint?.scale_to_zero === true,
     endpoint_quiet: preflight.endpoint?.quiet_for_controlled_benchmark === true,
+    registry_backed_template_verified: preflight.worker_image?.registry_backed_template_verified === true,
+    source_locked_ghcr_tag_verified: preflight.worker_image?.source_locked_ghcr_tag_verified === true,
+    worker_image_binding_verified: preflight.safety?.worker_image_binding_verified === true,
+    registry_backed_endpoint_verified: preflight.safety?.registry_backed_endpoint_verified === true,
     network_volume_attached: preflight.model_cache?.network_volume_attached === true,
     attached_volume_count: preflight.model_cache?.attached_volume_count,
     shared_volume_group: preflight.model_cache?.shared_volume_group,

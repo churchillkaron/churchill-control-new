@@ -4,6 +4,8 @@ import readline from "node:readline";
 
 const GATEWAY_URL = String(process.env.SECRETARY_GATEWAY_LOCAL_URL || "http://127.0.0.1:8787").replace(/\/+$/, "");
 const GATEWAY_TOKEN = String(process.env.AVANTIQO_SECRETARY_SIP_GATEWAY_TOKEN || "").trim();
+const AVANTIQO_BASE_URL = String(process.env.AVANTIQO_SECRETARY_PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+const INGRESS_TOKEN = String(process.env.AVANTIQO_SECRETARY_CALL_GATEWAY_TOKEN || "").trim();
 const PHONE_LINE_ID = String(process.env.AVANTIQO_SECRETARY_PHONE_LINE_ID || "").trim() || null;
 const LANGUAGE = String(process.argv[2] || "").trim() || null;
 
@@ -70,6 +72,50 @@ class AgiSession {
   }
 }
 
+async function postJson(url, authorization, body, timeoutMs = 15000) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      authorization,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const parsed = await response.json().catch(() => ({}));
+  if (!response.ok || parsed?.success === false) {
+    throw new Error(`HTTP_REJECTED:${response.status}:${clean(parsed?.error || parsed?.message, 1000)}`);
+  }
+  return parsed;
+}
+
+async function resolvePhoneLine(calledNumber) {
+  if (PHONE_LINE_ID) {
+    return {
+      phone_line_id: PHONE_LINE_ID,
+      called_number: calledNumber,
+      source: "STATIC_FALLBACK",
+    };
+  }
+  if (!calledNumber) throw new Error("CALLED_NUMBER_REQUIRED");
+  if (!AVANTIQO_BASE_URL || !INGRESS_TOKEN) {
+    throw new Error("AVANTIQO_DID_RESOLVER_CONFIG_MISSING");
+  }
+
+  const resolved = await postJson(
+    `${AVANTIQO_BASE_URL}/api/internal/secretary/phone-lines/resolve`,
+    `Bearer ${INGRESS_TOKEN}`,
+    { called_number: calledNumber },
+  );
+  const phoneLineId = clean(resolved?.phone_line_id, 120);
+  if (!phoneLineId) throw new Error("DID_RESOLVER_PHONE_LINE_MISSING");
+  return {
+    phone_line_id: phoneLineId,
+    called_number: normalizeCalledNumber(resolved?.called_number) || calledNumber,
+    source: "AVANTIQO_DID_RESOLVER",
+  };
+}
+
 async function setFailure(session, code) {
   await session.setVariable("AVANTIQO_SECRETARY_ACCEPTED", "0");
   await session.setVariable("AVANTIQO_SECRETARY_ERROR", clean(code, 1000));
@@ -93,29 +139,24 @@ async function main() {
 
     const remoteAddress = clean(environment.agi_callerid || environment.agi_callingpres || "", 500) || null;
     try {
-      const response = await fetch(`${GATEWAY_URL}/v1/secretary/inbound/start`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${GATEWAY_TOKEN}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          phone_line_id: PHONE_LINE_ID,
-          called_number: calledNumber,
+      const line = await resolvePhoneLine(calledNumber);
+      const body = await postJson(
+        `${GATEWAY_URL}/v1/secretary/inbound/start`,
+        `Bearer ${GATEWAY_TOKEN}`,
+        {
+          phone_line_id: line.phone_line_id,
           remote_address: remoteAddress,
           language: LANGUAGE,
-        }),
-        signal: AbortSignal.timeout(15000),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || body?.accepted !== true || !body?.call_id || !body?.audio_uuid || !body?.phone_line_id) {
-        throw new Error(`INBOUND_REGISTRATION_REJECTED:${response.status}:${clean(body?.error || body?.message, 1000)}`);
+        },
+      );
+      if (body?.accepted !== true || !body?.call_id || !body?.audio_uuid) {
+        throw new Error(`INBOUND_REGISTRATION_REJECTED:${clean(body?.error || body?.message, 1000)}`);
       }
 
       await session.setVariable("AVANTIQO_CALL_ID", body.call_id);
-      await session.setVariable("AVANTIQO_PHONE_LINE_ID", body.phone_line_id);
+      await session.setVariable("AVANTIQO_PHONE_LINE_ID", line.phone_line_id);
       await session.setVariable("AVANTIQO_AUDIO_UUID", body.audio_uuid);
-      if (body.called_number) await session.setVariable("AVANTIQO_CALLED_NUMBER", body.called_number);
+      if (line.called_number) await session.setVariable("AVANTIQO_CALLED_NUMBER", line.called_number);
       if (body.default_language) await session.setVariable("AVANTIQO_DEFAULT_LANGUAGE", body.default_language);
       await session.setVariable("AVANTIQO_SECRETARY_ERROR", "");
       await session.setVariable("AVANTIQO_SECRETARY_ACCEPTED", "1");

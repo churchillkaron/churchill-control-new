@@ -1,0 +1,286 @@
+name: Avantiqo Voice TTS Blackwell Smoke
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-voice-tts-blackwell-smoke-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-voice-tts-blackwell-smoke
+  cancel-in-progress: false
+
+jobs:
+  blackwell_tts_smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID }}
+      AVANTIQO_VOICE_TTS_GPU_TYPE_IDS: NVIDIA GeForce RTX 5090,NVIDIA RTX PRO 6000 Blackwell Server Edition,NVIDIA RTX PRO 6000 Blackwell Workstation Edition
+      AVANTIQO_VOICE_TTS_IDLE_TIMEOUT_SECONDS: "120"
+      AVANTIQO_VOICE_TTS_COLD_START_TIMEOUT_MS: "1200000"
+      AVANTIQO_VOICE_TTS_COLD_START_REPORT_OUTPUT: /tmp/avantiqo-voice-tts-blackwell-smoke.json
+      AVANTIQO_VOICE_TTS_COLD_START_AUDIO_OUTPUT: /tmp/avantiqo-voice-tts-blackwell-smoke.wav
+      AVANTIQO_VOICE_TTS_STARTUP_DIAGNOSTIC_OUTPUT: /tmp/avantiqo-voice-tts-blackwell-diagnostic.json
+      AVANTIQO_VOICE_TTS_BLACKWELL_RESULT_OUTPUT: /tmp/avantiqo-voice-tts-blackwell-result.json
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Verify certified image and credential bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNPOD_MANAGEMENT_API_KEY:-}"
+          test -n "${RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID:-}"
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("audits/results/avantiqo-voice-worker-images.json", "utf8"));
+          const tts = report?.tts || {};
+          if (
+            report?.success !== true ||
+            tts?.success !== true ||
+            tts?.build_outcome !== "success" ||
+            tts?.startup_probe_outcome !== "success" ||
+            tts?.blackwell_sm120_compiled !== true ||
+            tts?.cuda_runtime_expected !== "12.8" ||
+            tts?.torch_runtime_expected !== "2.7.0" ||
+            !/^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(String(tts?.immutable_image_reference || ""))
+          ) {
+            throw new Error("AVANTIQO_VOICE_TTS_BLACKWELL_IMAGE_NOT_CERTIFIED");
+          }
+          console.log(`AVANTIQO_VOICE_TTS_BLACKWELL_IMAGE_READY=${tts.image_digest}`);
+          NODE
+
+      - name: Prepare CUDA 12.8 RunPod repair helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+          const source = await readFile("scripts/repair-avantiqo-voice-tts-runpod-image-local.mjs", "utf8");
+          const patched = source.replace('const REQUIRED_CUDA = "12.4";', 'const REQUIRED_CUDA = "12.8";');
+          if (!patched.includes('const REQUIRED_CUDA = "12.8";')) {
+            throw new Error("AVANTIQO_VOICE_TTS_CUDA128_REPAIR_PATCH_FAILED");
+          }
+          await writeFile("/tmp/repair-avantiqo-voice-tts-runpod-image-cuda128.mjs", patched, "utf8");
+          NODE
+          node --check /tmp/repair-avantiqo-voice-tts-runpod-image-cuda128.mjs
+
+      - name: Bind certified immutable image to Blackwell-only endpoint
+        shell: bash
+        env:
+          AVANTIQO_VOICE_TTS_RUNPOD_IMAGE_REPAIR_APPROVED: "YES"
+        run: node /tmp/repair-avantiqo-voice-tts-runpod-image-cuda128.mjs --apply
+
+      - name: Drain old workers and restore one fresh worker slot
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const base = "https://rest.runpod.io/v1";
+          const key = process.env.RUNPOD_MANAGEMENT_API_KEY;
+          const endpointId = process.env.RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID;
+          const blackwell = [
+            "NVIDIA GeForce RTX 5090",
+            "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+            "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+          ];
+          const request = async (method, path, body) => {
+            const response = await fetch(`${base}${path}`, {
+              method,
+              headers: {
+                Authorization: `Bearer ${key}`,
+                Accept: "application/json",
+                ...(body ? { "Content-Type": "application/json" } : {}),
+              },
+              body: body ? JSON.stringify(body) : undefined,
+              signal: AbortSignal.timeout(30000),
+            });
+            const raw = await response.text();
+            const parsed = raw ? JSON.parse(raw) : {};
+            if (!response.ok) throw new Error(`RUNPOD_HTTP_${response.status}:${String(parsed?.message || parsed?.error || raw).slice(0, 300)}`);
+            return parsed;
+          };
+          let endpoint = await request("GET", `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`);
+          if (endpoint?.name !== "avantiqo-voice-tts-v1") throw new Error("AVANTIQO_VOICE_TTS_ENDPOINT_BINDING_MISMATCH");
+          if (String(endpoint?.minCudaVersion || "") !== "12.8") throw new Error("AVANTIQO_VOICE_TTS_CUDA128_ENDPOINT_REQUIRED");
+          await request("PATCH", `/endpoints/${encodeURIComponent(endpointId)}`, { workersMin: 0, workersMax: 0 });
+          const deadline = Date.now() + 5 * 60_000;
+          while (Date.now() < deadline) {
+            endpoint = await request("GET", `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`);
+            const workers = Array.isArray(endpoint?.workers) ? endpoint.workers : [];
+            if (workers.length === 0 || workers.every((worker) => String(worker?.desiredStatus || worker?.desired_status || "").toUpperCase() === "EXITED")) break;
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+          }
+          const remaining = Array.isArray(endpoint?.workers) ? endpoint.workers : [];
+          if (remaining.length && !remaining.every((worker) => String(worker?.desiredStatus || worker?.desired_status || "").toUpperCase() === "EXITED")) {
+            throw new Error("AVANTIQO_VOICE_TTS_BLACKWELL_DRAIN_TIMEOUT");
+          }
+          await request("PATCH", `/endpoints/${encodeURIComponent(endpointId)}`, {
+            workersMin: 0,
+            workersMax: 1,
+            idleTimeout: 120,
+            minCudaVersion: "12.8",
+            gpuTypeIds: blackwell,
+          });
+          console.log("AVANTIQO_VOICE_TTS_BLACKWELL_FRESH_SLOT=PASS");
+          NODE
+
+      - name: Submit exactly one TTS generation
+        id: tts_smoke
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/smoke-avantiqo-voice-tts-cold-start-local.mjs
+
+      - name: Inspect actual worker GPU and image
+        id: worker_diagnostic
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: node scripts/diagnose-avantiqo-voice-tts-startup-local.mjs
+
+      - name: Build sanitized Blackwell test result
+        if: always()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+          const readJson = async (path) => {
+            try { return JSON.parse(await readFile(path, "utf8")); }
+            catch { return null; }
+          };
+          const smoke = await readJson(process.env.AVANTIQO_VOICE_TTS_COLD_START_REPORT_OUTPUT);
+          const diagnostic = await readJson(process.env.AVANTIQO_VOICE_TTS_STARTUP_DIAGNOSTIC_OUTPUT);
+          const evidence = await readJson("audits/results/avantiqo-voice-worker-images.json");
+          const allowed = new Set([
+            "NVIDIA GeForce RTX 5090",
+            "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+            "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+          ]);
+          const workers = Array.isArray(diagnostic?.workers) ? diagnostic.workers : [];
+          const worker = workers.find((candidate) => allowed.has(String(candidate?.gpu_type_id || "")) && candidate?.is_stale !== true) || null;
+          const expectedImage = String(evidence?.tts?.immutable_image_reference || "");
+          const workerImage = String(worker?.image || "");
+          const imageMatch = Boolean(workerImage && expectedImage && workerImage === expectedImage);
+          const success = Boolean(
+            smoke?.success === true &&
+            smoke?.generation_submitted === true &&
+            smoke?.new_job_limit === 1 &&
+            smoke?.stt_submitted === false &&
+            smoke?.tts?.passed === true &&
+            worker &&
+            imageMatch &&
+            evidence?.tts?.blackwell_sm120_compiled === true
+          );
+          const result = {
+            success,
+            contract: "AVANTIQO_VOICE_TTS_BLACKWELL_SMOKE_V1",
+            github_run_id: process.env.GITHUB_RUN_ID || null,
+            trigger_sha: process.env.GITHUB_SHA || null,
+            exactly_one_generation_submitted: smoke?.generation_submitted === true && smoke?.new_job_limit === 1,
+            stt_submitted: false,
+            job_id: smoke?.job_id || null,
+            tts_passed: smoke?.tts?.passed === true,
+            wall_ms: smoke?.tts?.wall_ms ?? null,
+            worker_generation_seconds: smoke?.tts?.worker_generation_seconds ?? null,
+            audio_bytes: smoke?.tts?.audio_bytes ?? null,
+            sample_rate: smoke?.tts?.sample_rate ?? null,
+            foundation_model: smoke?.tts?.foundation_model || null,
+            image_digest: evidence?.tts?.image_digest || null,
+            image_sm120_compiled: evidence?.tts?.blackwell_sm120_compiled === true,
+            worker_gpu_type_id: worker?.gpu_type_id || null,
+            worker_image: workerImage || null,
+            immutable_image_match: imageMatch,
+            worker_status: worker?.status || null,
+            worker_data_center_id: worker?.data_center_id || null,
+            smoke_error_code: smoke?.error_code || null,
+            production_web_deploy: false,
+            pricing_activation_performed: false,
+            provider_selection_changed: false,
+            secrets_in_output: false,
+          };
+          await writeFile(process.env.AVANTIQO_VOICE_TTS_BLACKWELL_RESULT_OUTPUT, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+          console.log(JSON.stringify(result));
+          NODE
+
+      - name: Restore short idle timeout
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          AVANTIQO_VOICE_TTS_RUNPOD_IMAGE_REPAIR_APPROVED: "YES"
+          AVANTIQO_VOICE_TTS_IDLE_TIMEOUT_SECONDS: "10"
+        run: node /tmp/repair-avantiqo-voice-tts-runpod-image-cuda128.mjs --apply
+
+      - name: Upload WAV and sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-voice-tts-blackwell-smoke-${{ github.run_id }}
+          path: |
+            /tmp/avantiqo-voice-tts-blackwell-smoke.wav
+            /tmp/avantiqo-voice-tts-blackwell-smoke.json
+            /tmp/avantiqo-voice-tts-blackwell-diagnostic.json
+            /tmp/avantiqo-voice-tts-blackwell-result.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Record sanitized result on main
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "$AVANTIQO_VOICE_TTS_BLACKWELL_RESULT_OUTPUT" ]; then
+            printf '{"success":false,"contract":"AVANTIQO_VOICE_TTS_BLACKWELL_SMOKE_V1","github_run_id":"%s","trigger_sha":"%s","exactly_one_generation_submitted":false,"stt_submitted":false,"error":"RESULT_NOT_PRODUCED","production_web_deploy":false,"pricing_activation_performed":false,"provider_selection_changed":false,"secrets_in_output":false}\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" > "$AVANTIQO_VOICE_TTS_BLACKWELL_RESULT_OUTPUT"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B voice-tts-blackwell-smoke-evidence origin/main
+            mkdir -p audits/results
+            cp "$AVANTIQO_VOICE_TTS_BLACKWELL_RESULT_OUTPUT" audits/results/avantiqo-voice-tts-blackwell-smoke.json
+            git add audits/results/avantiqo-voice-tts-blackwell-smoke.json
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_VOICE_TTS_BLACKWELL_EVIDENCE_ALREADY_CURRENT=true'
+              break
+            fi
+            git commit -m "Record Blackwell Voice TTS smoke result"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_VOICE_TTS_BLACKWELL_EVIDENCE_RECORDED=true'
+              break
+            fi
+            sleep "$attempt"
+          done
+
+      - name: Enforce Blackwell Voice TTS result
+        if: always()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile(process.env.AVANTIQO_VOICE_TTS_BLACKWELL_RESULT_OUTPUT, "utf8"));
+          if (report.success !== true) {
+            console.error(`AVANTIQO_VOICE_TTS_BLACKWELL_SMOKE_FAILED:${report.smoke_error_code || report.error || "UNKNOWN"}`);
+            process.exit(1);
+          }
+          console.log("AVANTIQO_VOICE_TTS_BLACKWELL_SMOKE=PASS");
+          NODE

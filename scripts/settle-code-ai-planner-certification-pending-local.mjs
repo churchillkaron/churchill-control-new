@@ -36,6 +36,10 @@ if (!text(process.env.RUNPOD_API_KEY)) {
 if (!text(process.env.RUNPOD_API_KEY)) {
   throw new Error("RUNPOD_CODE_QUEUE_CREDENTIAL_REQUIRED");
 }
+if (!text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID)) {
+  throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_REQUIRED");
+}
+process.env.AVANTIQO_CODE_ENGINE_ENABLED = "true";
 
 const [
   { ServiceExecutionRuntime },

@@ -1,16 +1,41 @@
 ; Avantiqo Secretary owned Asterisk gateway dialplan template.
-; No carrier credentials or tokens belong in this file.
+; No carrier credentials or customer-specific phone-line IDs belong in this file.
 ;
-; Required runtime variables:
-;   AVANTIQO_PHONE_LINE_ID - native secretary_phone_lines.id for the inbound DID
-;   AVANTIQO_AUDIO_SERVICE - host:port of the owned AudioSocket gateway (for example 127.0.0.1:9019)
+; Inbound routing is dynamic: Asterisk exposes the called DID to inbound-agi.mjs and
+; Avantiqo resolves DID -> secretary_phone_lines -> organization. Adding a new customer
+; number therefore does not require a dialplan edit.
+;
+; Required runtime variable:
+;   AVANTIQO_AUDIO_SERVICE - host:port of the owned AudioSocket gateway
+;     (for example 127.0.0.1:9019)
 ;
 ; Install inbound-agi.mjs as an executable AGI script and provide its secrets through
 ; the Asterisk service environment, not through the dialplan.
 
 [avantiqo-secretary-inbound]
-exten => s,1,NoOp(Avantiqo Secretary inbound call)
- same => n,AGI(/opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs,${AVANTIQO_PHONE_LINE_ID})
+; Fallback for carriers that enter the context at s while still providing AGI DNID.
+exten => s,1,NoOp(Avantiqo Secretary inbound call DNID=${CALLERID(dnid)})
+ same => n,AGI(/opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs)
+ same => n,GotoIf($["${AVANTIQO_SECRETARY_ACCEPTED}"="1"]?accepted:rejected)
+ same => n(accepted),Answer()
+ same => n,AudioSocket(${AVANTIQO_AUDIO_UUID},${AVANTIQO_AUDIO_SERVICE})
+ same => n,Hangup()
+ same => n(rejected),Playback(ss-noservice)
+ same => n,Hangup()
+
+; Numeric DID request-user routing.
+exten => _X!,1,NoOp(Avantiqo Secretary inbound DID ${EXTEN})
+ same => n,AGI(/opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs)
+ same => n,GotoIf($["${AVANTIQO_SECRETARY_ACCEPTED}"="1"]?accepted:rejected)
+ same => n(accepted),Answer()
+ same => n,AudioSocket(${AVANTIQO_AUDIO_UUID},${AVANTIQO_AUDIO_SERVICE})
+ same => n,Hangup()
+ same => n(rejected),Playback(ss-noservice)
+ same => n,Hangup()
+
+; E.164 DID request-user routing when the carrier preserves the leading +.
+exten => _+X!,1,NoOp(Avantiqo Secretary inbound E164 DID ${EXTEN})
+ same => n,AGI(/opt/avantiqo/secretary-sip-gateway/inbound-agi.mjs)
  same => n,GotoIf($["${AVANTIQO_SECRETARY_ACCEPTED}"="1"]?accepted:rejected)
  same => n(accepted),Answer()
  same => n,AudioSocket(${AVANTIQO_AUDIO_UUID},${AVANTIQO_AUDIO_SERVICE})

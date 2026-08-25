@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: avantiqo-intelligence-training-images-request
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   validate-request:
@@ -93,6 +93,8 @@ jobs:
             grep -F 'DEFAULT_SEQUENCE_LENGTH = 1024' services/avantiqo-intelligence-trainer/handler.py
             grep -F 'target_parameters=MOE_LORA_TARGET_PARAMETERS' services/avantiqo-intelligence-trainer/handler.py
             grep -F 'AVANTIQO_INTELLIGENCE_TRAINER_ENABLED=false' services/avantiqo-intelligence-trainer/Dockerfile.runpod
+            grep -F 'python -m venv --system-site-packages' services/avantiqo-intelligence-trainer/Dockerfile.runpod
+            grep -F 'AVANTIQO_INTELLIGENCE_TRAINER_VENV_TORCH_INHERITANCE=PASS' services/avantiqo-intelligence-trainer/Dockerfile.runpod
             if grep -Fq 'BitsAndBytesConfig' services/avantiqo-intelligence-trainer/handler.py; then exit 1; fi
             if grep -Fq 'load_in_4bit' services/avantiqo-intelligence-trainer/handler.py; then exit 1; fi
             if grep -Fqi 'bitsandbytes' services/avantiqo-intelligence-trainer/requirements.txt; then exit 1; fi

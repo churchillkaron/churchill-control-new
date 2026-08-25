@@ -6,11 +6,26 @@ register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
 const RESEARCH_KEY = "platform.research.search";
 
-const [runtimeSource, capabilitySource, platformSource, bridgeSource] = await Promise.all([
+const [
+  runtimeSource,
+  capabilitySource,
+  platformSource,
+  bridgeSource,
+  comparisonSource,
+  supervisorSource,
+] = await Promise.all([
   readFile("lib/platform/research/runtime/OperatorWebResearchRuntime.js", "utf8"),
   readFile("lib/platform/capabilities/createOperatorWebResearchCapability.js", "utf8"),
   readFile("lib/platform/runtime/PlatformDomainRuntime.js", "utf8"),
   readFile("lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js", "utf8"),
+  readFile(
+    "lib/platform/research/runtime/OperatorResearchEvidenceComparisonRuntime.js",
+    "utf8",
+  ),
+  readFile(
+    "lib/intelligence/runtime/AvantiqoStructuredIntelligenceSupervisorRuntime.js",
+    "utf8",
+  ),
 ]);
 
 const { listOperatorCapabilities } = await import(
@@ -56,6 +71,32 @@ for (const required of [
 ]) {
   if (!runtimeSource.includes(required)) {
     throw new Error(`OPERATOR_WEB_RESEARCH: runtime missing governance/evidence contract ${required}`);
+  }
+}
+
+for (const required of [
+  "const MAX_EVIDENCE_CHARS = 2000",
+  "const COMPARISON_OUTPUT_TOKENS = 3200",
+  'mode: "balanced"',
+  "at most 10 claims",
+  "exactly one source assessment",
+  "max_output_tokens: COMPARISON_OUTPUT_TOKENS",
+]) {
+  if (!comparisonSource.includes(required)) {
+    throw new Error(
+      `OPERATOR_WEB_RESEARCH: bounded evidence comparison missing ${required}`,
+    );
+  }
+}
+
+for (const required of [
+  "COMPARE_EXTERNAL_EVIDENCE: 3200",
+  "compilerTokenBudget(metadata, max_output_tokens)",
+]) {
+  if (!supervisorSource.includes(required)) {
+    throw new Error(
+      `OPERATOR_WEB_RESEARCH: evidence compiler budget guard missing ${required}`,
+    );
   }
 }
 

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check asterisk/inbound-agi.mjs"
+    "check": "node --check server.mjs && node --check asterisk/inbound-agi.mjs && node --check smoke.mjs",
+    "smoke": "node smoke.mjs"
   }
 }

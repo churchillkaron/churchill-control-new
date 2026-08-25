@@ -5,6 +5,7 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_CODE_AUTONOMOUS_PLANNER_SERVICE_RUNTIME_PREFLIGHT_V1";
+const AUTONOMY_CONTROL_CONTRACT = "AVANTIQO_CODE_AI_AUTONOMY_CONTROL_V1";
 const ORGANIZATION_ID = String(
   process.argv[2] || process.env.AVANTIQO_CODE_PLANNER_CERT_ORGANIZATION_ID || "",
 ).trim();
@@ -106,6 +107,18 @@ const [
 if (typeof autonomousRuntime.executeAutonomousCodeMission !== "function") {
   throw new Error("CODE_PLANNER_PREFLIGHT_AUTONOMOUS_RUNTIME_NOT_LOADABLE");
 }
+if (autonomousRuntime.CodeAIAutonomousRuntime?.autonomy_control_contract !== AUTONOMY_CONTROL_CONTRACT) {
+  throw new Error("CODE_PLANNER_PREFLIGHT_AUTONOMY_CONTROL_CONTRACT_REQUIRED");
+}
+const duplicateGuardedActions = autonomousRuntime.CodeAIAutonomousRuntime?.duplicate_guarded_actions || [];
+for (const action of ["read", "search", "run"]) {
+  if (!duplicateGuardedActions.includes(action)) {
+    throw new Error(`CODE_PLANNER_PREFLIGHT_DUPLICATE_ACTION_GUARD_REQUIRED:${action}`);
+  }
+}
+if (Number(autonomousRuntime.CodeAIAutonomousRuntime?.max_iterations || 0) !== 24) {
+  throw new Error("CODE_PLANNER_PREFLIGHT_GLOBAL_ITERATION_LIMIT_MISMATCH");
+}
 
 const registeredProvider = getProvider(PROVIDER);
 if (!registeredProvider) throw new Error("CODE_PLANNER_PREFLIGHT_PROVIDER_NOT_REGISTERED");
@@ -165,6 +178,9 @@ console.log(JSON.stringify({
   actual_settlement_pricing_resolves: true,
   sample_actual_customer_price: Number(settlementProbe.customer_price || 0),
   autonomous_runtime_module_loads: true,
+  autonomy_control_contract: AUTONOMY_CONTROL_CONTRACT,
+  duplicate_read_search_run_guard_available: true,
+  global_iteration_budget_available: true,
   provider_job_submitted: false,
   wallet_mutation_performed: false,
   production_deploy_performed: false,

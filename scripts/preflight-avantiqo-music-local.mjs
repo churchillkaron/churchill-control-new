@@ -63,6 +63,21 @@ function normalizeEnv(value) {
   );
 }
 
+function inferenceCredentialCandidates() {
+  const raw = [
+    { source: "AUDIO_DEDICATED", credential: text(process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY) },
+    { source: "ACCOUNT", credential: text(process.env.RUNPOD_API_KEY) },
+  ].filter((entry) => entry.credential);
+  const seen = new Set();
+  const candidates = raw.filter((entry) => {
+    if (seen.has(entry.credential)) return false;
+    seen.add(entry.credential);
+    return true;
+  });
+  if (!candidates.length) throw new Error("RUNPOD_AUDIO_INFERENCE_API_KEY_REQUIRED");
+  return candidates;
+}
+
 function endpointVolumeIds(endpoint = {}) {
   return [...new Set([
     text(endpoint.networkVolumeId ?? endpoint.network_volume_id),
@@ -112,20 +127,43 @@ function resolveGpuEconomics(endpoint = {}) {
   };
 }
 
-async function runpodHealth(endpointId, apiKey) {
+async function runpodHealth(endpointId, candidate) {
   const response = await fetch(`${RUNPOD_API_BASE}/${encodeURIComponent(endpointId)}/health`, {
-    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+    headers: { Authorization: `Bearer ${candidate.credential}`, Accept: "application/json" },
     signal: AbortSignal.timeout(20_000),
   });
   const raw = await response.text();
   let body = {};
   try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
   if (!response.ok) {
-    throw new Error(
-      `AVANTIQO_MUSIC_RUNPOD_HEALTH_FAILED:${response.status}:${text(body?.error || body?.message || raw).slice(0, 500)}`,
-    );
+    return {
+      ok: false,
+      source: candidate.source,
+      status: response.status,
+      detail: text(body?.error || body?.message || body?.detail || raw).slice(0, 500),
+      body: null,
+    };
   }
-  return body;
+  return { ok: true, source: candidate.source, status: response.status, detail: null, body };
+}
+
+async function runpodHealthWithFallback(endpointId, candidates) {
+  const attempts = [];
+  for (const candidate of candidates) {
+    const result = await runpodHealth(endpointId, candidate);
+    attempts.push({ source: result.source, status: result.status, ok: result.ok });
+    if (result.ok) {
+      return {
+        body: result.body,
+        credential_source: result.source,
+        fallback_used: result.source !== candidates[0].source,
+        attempted_sources: attempts.map((attempt) => attempt.source),
+      };
+    }
+  }
+  throw new Error(
+    `AVANTIQO_MUSIC_RUNPOD_HEALTH_FAILED:${attempts.map((attempt) => `${attempt.source}:${attempt.status}`).join("|")}`,
+  );
 }
 
 async function runpodRest(path, managementKey) {
@@ -216,7 +254,7 @@ async function findExistingStorageObject(storageBucket) {
   throw new Error("AVANTIQO_MUSIC_SUPABASE_EXISTING_READ_OBJECT_REQUIRED");
 }
 
-const apiKey = text(process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY) || required("RUNPOD_API_KEY");
+const inferenceCandidates = inferenceCredentialCandidates();
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
 const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
@@ -236,12 +274,13 @@ const collisions = Object.entries(otherEndpointIds)
   .map(([name]) => name);
 if (collisions.length) throw new Error(`AVANTIQO_MUSIC_ENDPOINT_COLLISION:${collisions.join(",")}`);
 
-const [health, endpoint, volumes, imageEvidence] = await Promise.all([
-  runpodHealth(endpointId, apiKey),
+const [healthResolution, endpoint, volumes, imageEvidence] = await Promise.all([
+  runpodHealthWithFallback(endpointId, inferenceCandidates),
   runpodRest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey),
   runpodRest("/networkvolumes", managementKey),
   expectedImageEvidence(),
 ]);
+const health = healthResolution.body;
 if (text(endpoint?.id) !== endpointId) throw new Error("AVANTIQO_MUSIC_PREFLIGHT_ENDPOINT_ID_MISMATCH");
 if (text(endpoint?.name) !== AUDIO_ENDPOINT_NAME) {
   throw new Error(`AVANTIQO_MUSIC_PREFLIGHT_ENDPOINT_NAME_MISMATCH:${text(endpoint?.name) || "MISSING"}`);
@@ -275,8 +314,8 @@ const template = await resolveEndpointTemplate(endpoint, managementKey);
 if (text(template?.imageName) !== imageEvidence.imageTag) {
   throw new Error(`AVANTIQO_MUSIC_PREFLIGHT_AUDIO_IMAGE_MISMATCH:actual=${text(template?.imageName) || "MISSING"}`);
 }
-if (!text(template?.name).startsWith("avantiqo-audio-immutable-xl-lm-")) {
-  throw new Error("AVANTIQO_MUSIC_PREFLIGHT_AUDIO_DEDICATED_TEMPLATE_REQUIRED");
+if (!text(template?.name).startsWith("avantiqo-audio-registry-xl-lm-")) {
+  throw new Error("AVANTIQO_MUSIC_PREFLIGHT_AUDIO_REGISTRY_TEMPLATE_REQUIRED");
 }
 const env = normalizeEnv(template?.env);
 const requiredTemplateEnv = {
@@ -323,6 +362,9 @@ const result = {
     exact_audio_identity: true,
     collision_with_other_owned_engine: false,
     health_reachable: true,
+    health_credential_source: healthResolution.credential_source,
+    health_credential_fallback_used: healthResolution.fallback_used,
+    health_credential_attempted_sources: healthResolution.attempted_sources,
     workers_min: 0,
     scale_to_zero: true,
     quiet_for_controlled_benchmark: true,
@@ -332,6 +374,7 @@ const result = {
   },
   worker_image: {
     dedicated_template_verified: true,
+    registry_backed_template_verified: true,
     template_id: text(template?.id),
     template_name: text(template?.name),
     source_locked_ghcr_tag_verified: true,
@@ -386,6 +429,7 @@ const result = {
     read_only_except_signed_url_creation: true,
     shared_volume_policy_verified: true,
     worker_image_binding_verified: true,
+    registry_backed_endpoint_verified: true,
     runpod_generation_jobs_submitted: 0,
     runpod_run_called: false,
     runpod_runsync_called: false,

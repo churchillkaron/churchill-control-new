@@ -53,6 +53,9 @@
     },
     "app/api/internal/operator/autonomous-watch/process/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/intelligence/continuous-learning/process/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -143,6 +146,10 @@
     {
       "path": "/api/internal/operator/autonomous-watch/process",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/internal/intelligence/continuous-learning/process",
+      "schedule": "17 * * * *"
     }
   ]
 }

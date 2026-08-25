@@ -16,36 +16,34 @@ chmod 600 "$TMP_VERCEL_ENV" "$TMP_EXPORTS"
 
 vercel env pull "$TMP_VERCEL_ENV" --environment=production --yes >/dev/null
 
-required="RUNPOD_MANAGEMENT_API_KEY RUNPOD_API_KEY"
-optional="RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID RUNPOD_AVANTIQO_INTELLIGENCE_CANDIDATE_ENDPOINT_ID"
-
-found_management=false
-for name in $required $optional; do
-  line=$(grep -E "^(export[[:space:]]+)?${name}=.+$" "$TMP_VERCEL_ENV" | tail -n 1 || true)
-  if [ -n "$line" ]; then
-    printf '%s\n' "$line" >> "$TMP_EXPORTS"
-    if [ "$name" = "RUNPOD_MANAGEMENT_API_KEY" ] || [ "$name" = "RUNPOD_API_KEY" ]; then
-      found_management=true
-    fi
-  fi
+# Import only RunPod API credentials and the two governed Intelligence endpoint IDs.
+# The inspector probes candidate API keys with GET-only RunPod management requests and
+# never prints their values.
+grep -E '^(export[[:space:]]+)?RUNPOD_[A-Z0-9_]*API_KEY=' "$TMP_VERCEL_ENV" >> "$TMP_EXPORTS" || true
+for name in RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID RUNPOD_AVANTIQO_INTELLIGENCE_CANDIDATE_ENDPOINT_ID; do
+  grep -E "^(export[[:space:]]+)?${name}=" "$TMP_VERCEL_ENV" | tail -n 1 >> "$TMP_EXPORTS" || true
 done
-
-if [ "$found_management" != "true" ]; then
-  echo "AVANTIQO_INTELLIGENCE_READINESS_RUNPOD_CREDENTIAL_NOT_IN_VERCEL" >&2
-  exit 1
-fi
 
 set -a
 # shellcheck disable=SC1090
 . "$TMP_EXPORTS"
 set +a
 
-if [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ]; then
-  RUNPOD_MANAGEMENT_API_KEY=${RUNPOD_API_KEY:-}
-  export RUNPOD_MANAGEMENT_API_KEY
+nonempty_runpod_api_key_count=0
+for name in $(env | sed -n 's/^\(RUNPOD_[A-Z0-9_]*API_KEY\)=.*/\1/p'); do
+  eval "value=\${$name:-}"
+  if [ -n "$value" ]; then
+    nonempty_runpod_api_key_count=$((nonempty_runpod_api_key_count + 1))
+  fi
+done
+
+if [ "$nonempty_runpod_api_key_count" -eq 0 ]; then
+  echo "AVANTIQO_INTELLIGENCE_READINESS_RUNPOD_CREDENTIAL_NOT_IN_VERCEL" >&2
+  exit 1
 fi
 
 echo "AVANTIQO_INTELLIGENCE_READINESS_VERCEL_ENV_IMPORTED=true"
+echo "AVANTIQO_INTELLIGENCE_READINESS_RUNPOD_API_KEY_CANDIDATES_PRESENT=true"
 echo "AVANTIQO_INTELLIGENCE_READINESS_SECRET_VALUES_PRINTED=false"
 echo "AVANTIQO_INTELLIGENCE_READINESS_MODE=READ_ONLY"
 node scripts/inspect-avantiqo-intelligence-model-improvement-runpod-local.mjs

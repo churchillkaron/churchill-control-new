@@ -1,6 +1,10 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
+import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+
+loadAvantiqoEnv();
+
 const PREFLIGHT_SCRIPT = resolve("scripts/preflight-avantiqo-music-local.mjs");
 const CAPACITY_SCRIPT = resolve("scripts/assert-avantiqo-music-xl-lm-storage-capacity-local.mjs");
 const BENCHMARK_SCRIPT = resolve("scripts/benchmark-avantiqo-music.mjs");

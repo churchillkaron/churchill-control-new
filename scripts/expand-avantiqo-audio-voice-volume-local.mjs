@@ -5,11 +5,14 @@ import {
   sharedVolumeGroup,
   sharedVolumePolicySummary,
 } from "./lib/avantiqo-runpod-shared-volumes.mjs";
+import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+
+loadAvantiqoEnv();
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_AUDIO_VOICE_SHARED_VOLUME_EXPANSION_V2";
+const CONTRACT = "AVANTIQO_AUDIO_VOICE_SHARED_VOLUME_EXPANSION_V3";
 const TARGET_SIZE_GB = 80;
 const CURRENT_MIN_SIZE_GB = 20;
 const STORAGE_RATE_USD_PER_GB_MONTH = 0.07;
@@ -41,11 +44,6 @@ function unique(values) {
 }
 function yes(value) {
   return ["YES", "TRUE", "1", "APPROVED", "ON"].includes(text(value).toUpperCase());
-}
-function required(name) {
-  const value = text(process.env[name]);
-  if (!value) throw new Error(`${name}_REQUIRED`);
-  return value;
 }
 function command(name, args, code) {
   const result = spawnSync(name, args, {
@@ -96,17 +94,37 @@ async function rest(path, credential, options = {}) {
     "RUNPOD_REST",
   );
 }
-function inferenceCandidates() {
-  const raw = [
-    { source: "AUDIO_DEDICATED", credential: text(process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY) },
-    { source: "ACCOUNT", credential: text(process.env.RUNPOD_API_KEY) },
-  ].filter((entry) => entry.credential);
+function credentialCandidates(entries, missingCode) {
   const seen = new Set();
-  return raw.filter((entry) => {
-    if (seen.has(entry.credential)) return false;
-    seen.add(entry.credential);
-    return true;
-  });
+  const candidates = entries
+    .map(([source, credential]) => ({ source, credential: text(credential) }))
+    .filter((entry) => entry.credential)
+    .filter((entry) => {
+      if (seen.has(entry.credential)) return false;
+      seen.add(entry.credential);
+      return true;
+    });
+  if (!candidates.length) throw new Error(missingCode);
+  return candidates;
+}
+function managementCandidates() {
+  return credentialCandidates(
+    [
+      ["DEDICATED_MANAGEMENT", process.env.RUNPOD_MANAGEMENT_API_KEY],
+      ["ACCOUNT", process.env.RUNPOD_API_KEY],
+    ],
+    "RUNPOD_MANAGEMENT_OR_ACCOUNT_API_KEY_REQUIRED",
+  );
+}
+function inferenceCandidates() {
+  return credentialCandidates(
+    [
+      ["AUDIO_DEDICATED", process.env.RUNPOD_AVANTIQO_AUDIO_API_KEY],
+      ["ACCOUNT", process.env.RUNPOD_API_KEY],
+      ["DEDICATED_MANAGEMENT", process.env.RUNPOD_MANAGEMENT_API_KEY],
+    ],
+    "RUNPOD_AUDIO_INFERENCE_API_KEY_REQUIRED",
+  );
 }
 async function readWithCandidates(url, candidates, label) {
   const attempts = [];
@@ -119,7 +137,12 @@ async function readWithCandidates(url, candidates, label) {
         }),
         label,
       );
-      return { body, credential_source: candidate.source };
+      return {
+        body,
+        credential_source: candidate.source,
+        credential: candidate.credential,
+        fallback_used: candidate !== candidates[0],
+      };
     } catch (error) {
       attempts.push(`${candidate.source}:${text(error?.message || error)}`);
     }
@@ -139,6 +162,17 @@ async function controlWorkers(endpointId, candidates) {
     candidates,
     "RUNPOD_CONTROL_WORKERS",
   );
+}
+async function proveManagementCredential(candidates) {
+  const result = await readWithCandidates(
+    `${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`,
+    candidates,
+    "RUNPOD_MANAGEMENT_ENDPOINT_LIST",
+  );
+  if (!Array.isArray(result.body)) {
+    throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_ENDPOINT_LIST_INVALID");
+  }
+  return result;
 }
 function activeControlWorkers(body = {}) {
   return list(body?.workers).filter((worker) => {
@@ -226,16 +260,19 @@ const apply = process.argv.includes("--apply");
 if (apply && !yes(process.env.AVANTIQO_AUDIO_VOICE_VOLUME_EXPANSION_APPROVED)) {
   throw new Error("AVANTIQO_AUDIO_VOICE_VOLUME_EXPANSION_APPROVED=YES_REQUIRED");
 }
-const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const configuredEndpointId = text(process.env.RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID);
+const managementCredentialRead = await proveManagementCredential(managementCandidates());
+const managementKey = managementCredentialRead.credential;
+const managementCredentialSource = managementCredentialRead.credential_source;
 const candidates = inferenceCandidates();
-if (!candidates.length) throw new Error("RUNPOD_AUDIO_INFERENCE_API_KEY_REQUIRED");
 const mainSha = requireCurrentMain();
 const imageEvidence = validateImageEvidence();
 
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_CONTRACT=${CONTRACT}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_MODE=${apply ? "APPLY" : "PLAN"}`);
 console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_TARGET_GB=${TARGET_SIZE_GB}`);
+console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_MANAGEMENT_CREDENTIAL_SOURCE=${managementCredentialSource}`);
+console.log(`AVANTIQO_AUDIO_VOICE_VOLUME_MANAGEMENT_CREDENTIAL_FALLBACK=${managementCredentialRead.fallback_used}`);
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_NEW_VOLUME_CREATED=false");
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_MODEL_DOWNLOAD_SUBMITTED=false");
@@ -246,7 +283,7 @@ console.log("AVANTIQO_AUDIO_VOICE_VOLUME_PRICING_ACTIVATION=false");
 console.log("AVANTIQO_AUDIO_VOICE_VOLUME_SECRETS_PRINTED=false");
 
 const [endpoints, volumes] = await Promise.all([
-  rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
+  Promise.resolve(managementCredentialRead.body),
   rest("/networkvolumes", managementKey),
 ]);
 if (!Array.isArray(endpoints) || !Array.isArray(volumes)) {
@@ -333,6 +370,8 @@ const plan = {
   contract: CONTRACT,
   mode: apply ? "APPLY" : "PLAN",
   main_sha: mainSha,
+  management_credential_source: managementCredentialSource,
+  management_credential_fallback_used: managementCredentialRead.fallback_used,
   cause: "ACE_STEP_XL_LM_DOWNLOAD_DISK_QUOTA_EXCEEDED_AT_30GB",
   canonical_volume: {
     id: volumeId,

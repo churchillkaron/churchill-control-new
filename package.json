@@ -28,6 +28,7 @@
     "logs:operator-secretary-sip-gateway": "docker compose --env-file .env.local -f workers/secretary-sip-gateway/docker-compose.gateway.yml logs --tail=120 secretary-sip-gateway",
     "start:operator-secretary-telephony": "npm run start:operator-secretary-asterisk && npm run start:operator-secretary-sip-gateway",
     "preflight:operator-secretary-asterisk": "node --env-file=.env.local workers/secretary-sip-gateway/asterisk/preflight.mjs",
+    "preflight:operator-secretary-telephony-stack": "node --env-file=.env.local scripts/preflight-secretary-telephony-stack-local.mjs",
     "audit:operator-secretary-end-to-end": "node scripts/operator-secretary-after-hours-audit.mjs && node scripts/operator-secretary-sip-transport-audit.mjs && node scripts/operator-secretary-managed-telephony-audit.mjs && node workers/secretary-sip-gateway/smoke.mjs && node scripts/operator-secretary-convergence-audit.mjs"
   }
 }

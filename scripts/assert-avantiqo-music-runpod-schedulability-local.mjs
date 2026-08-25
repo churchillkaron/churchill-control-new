@@ -11,6 +11,7 @@ const AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 const SHARED_VOLUME_NAME = "avantiqo-shared-audio-voice-cache";
 const MIN_SHARED_VOLUME_GB = 80;
 const MIN_GPU_MEMORY_GB = 24;
+const MIN_SINGLE_GPU_STOCK_RANK = 3;
 
 const GPU_PREFERENCES = Object.freeze([
   { pattern: /\bL4\b/i, score: 1000 },
@@ -239,6 +240,13 @@ const schedulableGpuTypes = endpointGpuTypes.filter((gpuTypeId) =>
 const inPlaceExpansionGpuTypes = currentRegionLiveGpuTypes.filter(
   (gpuTypeId) => !endpointGpuTypes.includes(gpuTypeId),
 );
+const endpointLiveCapacity = currentRegionCapacity.filter(
+  (gpu) => gpu.available && gpu.stock_rank > 0 && schedulableGpuTypes.includes(gpu.gpu_type_id),
+);
+const highestEndpointStockRank = endpointLiveCapacity.reduce(
+  (max, gpu) => Math.max(max, gpu.stock_rank),
+  0,
+);
 
 const migrationCandidates = dataCenters
   .filter((entry) => entry?.storageSupport === true && text(entry?.id) !== dataCenterId)
@@ -272,14 +280,28 @@ const migrationCandidates = dataCenters
   );
 
 const capacitySufficient = schedulableGpuTypes.length > 0;
-const inPlaceRepairPossible = !capacitySufficient && inPlaceExpansionGpuTypes.length > 0;
-const migrationRequired = !capacitySufficient && !inPlaceRepairPossible;
+const resilienceReady =
+  schedulableGpuTypes.length >= 2 || highestEndpointStockRank >= MIN_SINGLE_GPU_STOCK_RANK;
+const resilienceExpansionRecommended =
+  capacitySufficient && !resilienceReady && inPlaceExpansionGpuTypes.length > 0;
+const inPlaceRepairPossible =
+  (!capacitySufficient || resilienceExpansionRecommended) && inPlaceExpansionGpuTypes.length > 0;
+const migrationRequired =
+  (!capacitySufficient && !inPlaceRepairPossible) ||
+  (capacitySufficient && !resilienceReady && inPlaceExpansionGpuTypes.length === 0);
+const recommendedInPlaceGpuPool = inPlaceRepairPossible
+  ? unique([...endpointGpuTypes, ...inPlaceExpansionGpuTypes])
+  : endpointGpuTypes;
+const readyForControlledBenchmark = capacitySufficient && resilienceReady;
 
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   capacity_sufficient: capacitySufficient,
+  resilience_ready: resilienceReady,
+  ready_for_controlled_benchmark: readyForControlledBenchmark,
   capacity_policy: "KNOWN_NON_MIG_CUDA_24GB_PLUS_LIVE_STOCK",
+  resilience_policy: "TWO_LIVE_ENDPOINT_GPU_TYPES_OR_SINGLE_MEDIUM_PLUS_STOCK",
   endpoint: {
     id: endpointId,
     name: AUDIO_ENDPOINT_NAME,
@@ -299,13 +321,13 @@ console.log(JSON.stringify({
     approved_capacity: currentRegionCapacity,
     live_approved_gpu_types: currentRegionLiveGpuTypes,
     endpoint_schedulable_gpu_types: schedulableGpuTypes,
+    endpoint_highest_stock_rank: highestEndpointStockRank,
   },
   repair: {
     in_place_gpu_pool_expansion_possible: inPlaceRepairPossible,
+    resilience_expansion_recommended: resilienceExpansionRecommended,
     in_place_gpu_types_to_add: inPlaceExpansionGpuTypes,
-    recommended_in_place_gpu_pool: inPlaceRepairPossible
-      ? unique([...endpointGpuTypes, ...inPlaceExpansionGpuTypes])
-      : endpointGpuTypes,
+    recommended_in_place_gpu_pool: recommendedInPlaceGpuPool,
     shared_cache_region_migration_required: migrationRequired,
     recommended_migration_target: migrationCandidates[0] || null,
   },

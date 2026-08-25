@@ -16,13 +16,19 @@ COPY services/avantiqo-intelligence-trainer/requirements.txt ./requirements.txt
 RUN python -m pip install --upgrade pip \
     && python -m pip install -r requirements.txt \
     && python - <<'PY'
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 assert version("runpod") == "1.12.0", version("runpod")
 assert version("transformers") == "5.15.0", version("transformers")
 assert version("peft") == "0.20.0", version("peft")
 assert version("accelerate") == "1.14.0", version("accelerate")
-assert version("bitsandbytes") == "0.50.0", version("bitsandbytes")
+try:
+    version("bitsandbytes")
+except PackageNotFoundError:
+    pass
+else:
+    raise AssertionError("bitsandbytes must not be installed in the fused Qwen3-MoE BF16 trainer")
 print("AVANTIQO_INTELLIGENCE_TRAINER_DEPENDENCY_CHECK=PASS")
+print("AVANTIQO_INTELLIGENCE_TRAINER_METHOD=LORA_BF16_PEFT_QWEN3_MOE")
 PY
 
 COPY services/avantiqo-intelligence-trainer/handler.py ./handler.py

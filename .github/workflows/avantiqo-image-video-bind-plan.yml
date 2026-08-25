@@ -1,0 +1,215 @@
+name: Avantiqo Image Video Bind Plan
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-image-video-bind-plan-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-image-video-bind-plan
+  cancel-in-progress: true
+
+jobs:
+  inspect-bindings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_AVANTIQO_IMAGE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_IMAGE_API_KEY }}
+      RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID }}
+      RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY }}
+      RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID }}
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Converge to newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin main
+
+      - name: Validate read-only planners
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/refresh-avantiqo-image-v6-runpod-worker-local.mjs
+          node --check scripts/bind-avantiqo-video-runpod-immutable-image-local.mjs
+          echo 'AVANTIQO_IMAGE_VIDEO_BIND_PLAN_SYNTAX=PASS'
+
+      - name: Validate read-only credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          missing=()
+          for name in RUNPOD_MANAGEMENT_API_KEY; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ -z "${RUNPOD_AVANTIQO_IMAGE_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ]; then
+            missing+=("RUNPOD_AVANTIQO_IMAGE_API_KEY_OR_RUNPOD_API_KEY")
+          fi
+          if [ -z "${RUNPOD_AVANTIQO_VIDEO_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ]; then
+            missing+=("RUNPOD_AVANTIQO_VIDEO_API_KEY_OR_RUNPOD_API_KEY")
+          fi
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf '{"success":false,"contract":"AVANTIQO_IMAGE_VIDEO_BIND_PLAN_V1","error":"CREDENTIAL_PREFLIGHT_FAILED","missing_binding":"%s","image_mutation_performed":false,"video_mutation_performed":false,"image_generation_submitted":false,"video_generation_submitted":false,"production_web_deploy":false,"secrets_in_output":false}\n' \
+              "${missing[0]}" > artifacts/avantiqo-image-video-bind-plan.json
+            exit 1
+          fi
+          echo 'AVANTIQO_IMAGE_VIDEO_BIND_PLAN_CREDENTIAL_PREFLIGHT=PASS'
+
+      - name: Inspect Image immutable binding
+        id: image
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/refresh-avantiqo-image-runpod-worker-canonical-local.mjs \
+            > /tmp/avantiqo-image-bind-plan.txt 2>&1
+          status=$?
+          cat /tmp/avantiqo-image-bind-plan.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Re-converge main before Video inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin main
+
+      - name: Inspect Video immutable binding
+        id: video
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/bind-avantiqo-video-runpod-immutable-image-local.mjs \
+            > /tmp/avantiqo-video-bind-plan.txt 2>&1
+          status=$?
+          cat /tmp/avantiqo-video-bind-plan.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Create sanitized audit result
+        env:
+          IMAGE_STATUS: ${{ steps.image.outputs.status }}
+          VIDEO_STATUS: ${{ steps.video.outputs.status }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const read = (path) => {
+            try { return readFileSync(path, "utf8"); } catch { return ""; }
+          };
+          const tail = (value, max = 12000) => value.length > max ? value.slice(-max) : value;
+          const imageOutput = tail(read("/tmp/avantiqo-image-bind-plan.txt"));
+          const videoOutput = tail(read("/tmp/avantiqo-video-bind-plan.txt"));
+          const imageStatus = Number(process.env.IMAGE_STATUS || 1);
+          const videoStatus = Number(process.env.VIDEO_STATUS || 1);
+          const report = {
+            success: imageStatus === 0 && videoStatus === 0,
+            contract: "AVANTIQO_IMAGE_VIDEO_BIND_PLAN_V1",
+            github_run_id: process.env.BUILD_RUN_ID || null,
+            mode: "READ_ONLY_PLAN",
+            image: {
+              success: imageStatus === 0,
+              exit_status: imageStatus,
+              sanitized_output: imageOutput,
+            },
+            video: {
+              success: videoStatus === 0,
+              exit_status: videoStatus,
+              sanitized_output: videoOutput,
+            },
+            image_mutation_performed: false,
+            video_mutation_performed: false,
+            image_generation_submitted: false,
+            video_generation_submitted: false,
+            model_download_submitted: false,
+            production_web_deploy: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false,
+          };
+          writeFileSync(
+            "artifacts/avantiqo-image-video-bind-plan.json",
+            `${JSON.stringify(report)}\n`,
+            "utf8",
+          );
+          NODE
+
+      - name: Upload sanitized audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-image-video-bind-plan-${{ github.run_id }}
+          path: artifacts/avantiqo-image-video-bind-plan.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Record sanitized audit on newest main
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f artifacts/avantiqo-image-video-bind-plan.json ]; then
+            printf '{"success":false,"contract":"AVANTIQO_IMAGE_VIDEO_BIND_PLAN_V1","error":"AUDIT_RESULT_NOT_PRODUCED","github_run_id":"%s","image_mutation_performed":false,"video_mutation_performed":false,"image_generation_submitted":false,"video_generation_submitted":false,"production_web_deploy":false,"secrets_in_output":false}\n' \
+              "$GITHUB_RUN_ID" > artifacts/avantiqo-image-video-bind-plan.json
+          fi
+          git fetch origin main
+          git checkout -B image-video-bind-plan-evidence origin/main
+          mkdir -p audits/results
+          cp artifacts/avantiqo-image-video-bind-plan.json audits/results/avantiqo-image-video-bind-plan.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audits/results/avantiqo-image-video-bind-plan.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Record Image Video bind plan"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              break
+            fi
+            git fetch origin main
+            git rebase origin/main
+          done
+          exit 1
+
+      - name: Enforce read-only plan success
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f artifacts/avantiqo-image-video-bind-plan.json
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const report = JSON.parse(readFileSync("artifacts/avantiqo-image-video-bind-plan.json", "utf8"));
+          if (report.success !== true) process.exit(1);
+          if (
+            report.image_mutation_performed !== false ||
+            report.video_mutation_performed !== false ||
+            report.image_generation_submitted !== false ||
+            report.video_generation_submitted !== false ||
+            report.production_web_deploy !== false
+          ) process.exit(2);
+          NODE
+          echo 'AVANTIQO_IMAGE_VIDEO_BIND_PLAN=PASS'

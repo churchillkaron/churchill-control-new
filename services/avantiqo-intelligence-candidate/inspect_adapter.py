@@ -10,12 +10,19 @@ CONTRACT = "AVANTIQO_INTELLIGENCE_ADAPTER_LAYOUT_V1"
 FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507"
 TRAINING_ROOT = Path("/runpod-volume/avantiqo-intelligence-training").resolve()
 MAX_LORA_RANK = 64
+EXPECTED_TARGET_MODULES = {"q_proj", "v_proj"}
 EXPECTED_TARGET_PARAMETERS = {
     "mlp.experts.gate_up_proj",
     "mlp.experts.down_proj",
 }
-EXPERT_LORA_KEY = re.compile(
-    r"experts.*(?:gate_up_proj|down_proj).*lora_[AB](?:\.default)?(?:\.weight)?$"
+FUSED_GATE_UP_KEY = re.compile(
+    r"^(?P<prefix>.+\.mlp\.experts)\.base_layer\.lora_(?P<side>[AB])(?:\.weight)?$"
+)
+FUSED_DOWN_KEY = re.compile(
+    r"^(?P<prefix>.+\.mlp\.experts)\.lora_(?P<side>[AB])(?:\.weight)?$"
+)
+PER_EXPERT_KEY = re.compile(
+    r"\.mlp\.experts\.\d+\.(?:gate_proj|up_proj|down_proj)\.lora_[AB](?:\.weight)?$"
 )
 
 
@@ -70,6 +77,17 @@ def load_config(adapter: Path) -> dict:
     if peft_type and peft_type != "LORA":
         fail("ADAPTER_PEFT_TYPE_UNSUPPORTED", peft_type)
 
+    target_modules = {
+        text(value, 300)
+        for value in config.get("target_modules", [])
+        if text(value, 300)
+    }
+    if target_modules != EXPECTED_TARGET_MODULES:
+        fail(
+            "ADAPTER_QWEN3_MOE_TARGET_MODULES_MISMATCH",
+            json.dumps(sorted(target_modules), separators=(",", ":")),
+        )
+
     target_parameters = {
         text(value, 300)
         for value in config.get("target_parameters", [])
@@ -103,6 +121,7 @@ def load_config(adapter: Path) -> dict:
         "rank": rank,
         "base_model": base,
         "config": config,
+        "target_modules": sorted(target_modules),
         "target_parameters": sorted(target_parameters),
     }
 
@@ -125,38 +144,60 @@ def tensor_metadata(adapter: Path) -> dict[str, list[int]]:
 
 
 def classify_layout(metadata: dict[str, list[int]]) -> dict:
-    expert_items = {
-        key: shape
-        for key, shape in metadata.items()
-        if EXPERT_LORA_KEY.search(key)
-    }
-    if not expert_items:
-        fail("ADAPTER_MOE_LORA_TENSORS_REQUIRED")
+    per_expert = sorted(key for key in metadata if PER_EXPERT_KEY.search(key))
+    if per_expert:
+        fail("ADAPTER_MOE_PER_EXPERT_LAYOUT_FORBIDDEN", per_expert[0])
 
-    target_coverage = {
-        "gate_up_proj": {"A": False, "B": False},
-        "down_proj": {"A": False, "B": False},
-    }
-    for key, shape in expert_items.items():
-        if len(shape) != 3:
-            fail("ADAPTER_MOE_LORA_TENSOR_NOT_3D", f"{key}:{shape}")
-        target = "gate_up_proj" if "gate_up_proj" in key else "down_proj"
-        side = "A" if "lora_A" in key else "B"
-        target_coverage[target][side] = True
+    layers = {}
+    matched_keys = []
+    for key, shape in metadata.items():
+        gate_match = FUSED_GATE_UP_KEY.match(key)
+        down_match = FUSED_DOWN_KEY.match(key)
+        match = gate_match or down_match
+        if not match:
+            continue
+        if len(shape) != 2 or any(int(dimension) <= 0 for dimension in shape):
+            fail("ADAPTER_MOE_FUSED_FACTOR_NOT_2D", f"{key}:{shape}")
+        target = "gate_up_proj" if gate_match else "down_proj"
+        side = match.group("side")
+        prefix = match.group("prefix")
+        coverage = layers.setdefault(
+            prefix,
+            {
+                "gate_up_proj": {"A": False, "B": False},
+                "down_proj": {"A": False, "B": False},
+            },
+        )
+        coverage[target][side] = True
+        matched_keys.append(key)
 
-    for target, coverage in target_coverage.items():
-        if coverage != {"A": True, "B": True}:
-            fail(
-                "ADAPTER_MOE_LORA_TARGET_INCOMPLETE",
-                f"{target}:{json.dumps(coverage, separators=(',', ':'))}",
-            )
+    if not layers or not matched_keys:
+        fail("ADAPTER_MOE_FUSED_PEFT_FACTORS_REQUIRED")
+
+    expected = {"A": True, "B": True}
+    for prefix, coverage in layers.items():
+        for target in ("gate_up_proj", "down_proj"):
+            if coverage[target] != expected:
+                fail(
+                    "ADAPTER_MOE_FUSED_LAYER_INCOMPLETE",
+                    f"{prefix}:{target}:{json.dumps(coverage[target], separators=(',', ':'))}",
+                )
+
+    expected_tensor_count = len(layers) * 4
+    if len(matched_keys) != expected_tensor_count:
+        fail(
+            "ADAPTER_MOE_FUSED_TENSOR_COUNT_MISMATCH",
+            f"matched={len(matched_keys)} expected={expected_tensor_count}",
+        )
 
     return {
         "layout": "MOE_3D_FUSED_PEFT",
+        "serialization": "PEFT_FUSED_EXPERT_FACTORS_2D",
         "is_3d_lora_weight": True,
         "enable_mixed_moe_lora_format": True,
-        "matched_moe_tensor_count": len(expert_items),
-        "expert_target_coverage": target_coverage,
+        "matched_moe_tensor_count": len(matched_keys),
+        "matched_moe_layer_count": len(layers),
+        "per_expert_tensor_count": 0,
     }
 
 
@@ -171,6 +212,7 @@ def inspect(adapter_path: str) -> dict:
         "adapter_path": str(adapter),
         "base_model": config["base_model"],
         "lora_rank": config["rank"],
+        "target_modules": config["target_modules"],
         "target_parameters": config["target_parameters"],
         "tensor_key_count": len(metadata),
         **layout,
@@ -178,10 +220,14 @@ def inspect(adapter_path: str) -> dict:
             "training_root_enforced": True,
             "foundation_model_verified": True,
             "rank_bounded": True,
+            "target_modules_verified": True,
             "target_parameters_verified": True,
             "rank_pattern_verified": True,
             "zero_dropout_verified": True,
-            "fused_3d_tensor_shapes_verified": True,
+            "fused_peft_key_topology_verified": True,
+            "serialized_factor_shapes_verified_2d": True,
+            "vllm_3d_format_declaration_verified": True,
+            "per_expert_layout_forbidden": True,
             "mixed_or_unknown_layout_allowed": False,
             "production_endpoint_effect": "NONE",
         },

@@ -9,6 +9,8 @@ const ORGANIZATION_ID = "916fd3e7-b00b-4dd6-aaf3-bd01dd588e94";
 const USAGE_ID = "3d3ee1b4-97be-4cb1-9f37-2b04acc375e4";
 const PROVIDER = "avantiqo-code";
 const PROVIDER_JOB_ID = "c2417291-d126-40ae-85d7-aa4bde77afae-e1";
+const RUNPOD_REST = "https://rest.runpod.io/v1";
+const RUNPOD_SERVERLESS = "https://api.runpod.ai/v2";
 const MAX_WAIT_MS = 15 * 60_000;
 const POLL_MS = 5_000;
 
@@ -16,8 +18,85 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function list(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runpodRequest(url, key) {
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${key}`,
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let body = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch {
+    body = null;
+  }
+  return { response, body, raw };
+}
+
+async function locateOwningEndpoint({ managementKey, apiKey, configuredEndpointId, jobId }) {
+  const endpointResponse = await runpodRequest(
+    `${RUNPOD_REST}/endpoints?includeTemplate=true&includeWorkers=false`,
+    managementKey,
+  );
+  if (!endpointResponse.response.ok || !Array.isArray(endpointResponse.body)) {
+    throw new Error(
+      `AVANTIQO_CODE_PLANNER_PENDING_ENDPOINT_LIST_FAILED:${endpointResponse.response.status}`,
+    );
+  }
+
+  const endpoints = endpointResponse.body;
+  const ordered = [
+    ...endpoints.filter((endpoint) => text(endpoint?.id) === configuredEndpointId),
+    ...endpoints.filter((endpoint) => text(endpoint?.id) !== configuredEndpointId),
+  ];
+  const seen = new Set();
+  const probes = [];
+
+  for (const endpoint of ordered) {
+    const endpointId = text(endpoint?.id);
+    if (!endpointId || seen.has(endpointId)) continue;
+    seen.add(endpointId);
+
+    const result = await runpodRequest(
+      `${RUNPOD_SERVERLESS}/${encodeURIComponent(endpointId)}/status/${encodeURIComponent(jobId)}`,
+      apiKey,
+    );
+    probes.push({
+      endpoint_id: endpointId,
+      endpoint_name: text(endpoint?.name) || null,
+      status_code: result.response.status,
+    });
+
+    if (result.response.status === 404) continue;
+    if (!result.response.ok) {
+      throw new Error(
+        `AVANTIQO_CODE_PLANNER_PENDING_ENDPOINT_PROBE_FAILED:${endpointId}:${result.response.status}`,
+      );
+    }
+
+    return {
+      endpoint_id: endpointId,
+      endpoint_name: text(endpoint?.name) || null,
+      configured_endpoint_matched: endpointId === configuredEndpointId,
+      probed_endpoint_count: probes.length,
+      provider_status: text(result.body?.status).toUpperCase() || null,
+    };
+  }
+
+  throw new Error(
+    `AVANTIQO_CODE_PLANNER_PENDING_JOB_ENDPOINT_NOT_FOUND:probed=${probes.length}`,
+  );
 }
 
 if (text(process.env.AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_APPROVED).toUpperCase() !== "YES") {
@@ -26,20 +105,46 @@ if (text(process.env.AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_APPROVED).toUpperC
 if (text(process.env.NODE_ENV).toLowerCase() !== "development") {
   throw new Error("AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_DEVELOPMENT_ENV_REQUIRED");
 }
-if (!text(process.env.RUNPOD_API_KEY)) {
-  const fallback = text(
-    process.env.RUNPOD_AVANTIQO_CODE_API_KEY ||
-    process.env.RUNPOD_MANAGEMENT_API_KEY,
-  );
-  if (fallback) process.env.RUNPOD_API_KEY = fallback;
+
+const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
+if (!managementKey) {
+  throw new Error("RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_CODE_PENDING_ENDPOINT_DISCOVERY");
 }
-if (!text(process.env.RUNPOD_API_KEY)) {
+
+const codeApiKey = text(
+  process.env.RUNPOD_AVANTIQO_CODE_API_KEY ||
+  process.env.RUNPOD_API_KEY ||
+  process.env.RUNPOD_MANAGEMENT_API_KEY,
+);
+if (!codeApiKey) {
   throw new Error("RUNPOD_CODE_QUEUE_CREDENTIAL_REQUIRED");
 }
-if (!text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID)) {
-  throw new Error("RUNPOD_AVANTIQO_CODE_ENDPOINT_ID_REQUIRED");
-}
+process.env.RUNPOD_API_KEY = codeApiKey;
+
+const configuredEndpointId = text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID);
+const endpointResolution = await locateOwningEndpoint({
+  managementKey,
+  apiKey: codeApiKey,
+  configuredEndpointId,
+  jobId: PROVIDER_JOB_ID,
+});
+
+process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID = endpointResolution.endpoint_id;
 process.env.AVANTIQO_CODE_ENGINE_ENABLED = "true";
+
+console.log(JSON.stringify({
+  event: "AVANTIQO_CODE_PLANNER_PENDING_ENDPOINT_RESOLVED",
+  contract: CONTRACT,
+  provider_job_id: PROVIDER_JOB_ID,
+  endpoint_id: endpointResolution.endpoint_id,
+  endpoint_name: endpointResolution.endpoint_name,
+  configured_endpoint_matched: endpointResolution.configured_endpoint_matched,
+  probed_endpoint_count: endpointResolution.probed_endpoint_count,
+  provider_status: endpointResolution.provider_status,
+  endpoint_mutation_performed: false,
+  new_provider_execution_submitted: false,
+  secrets_printed: false,
+}));
 
 const [
   { ServiceExecutionRuntime },
@@ -90,6 +195,7 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   usage_id: USAGE_ID,
   provider_job_id: PROVIDER_JOB_ID,
+  endpoint_id: endpointResolution.endpoint_id,
   usage_status: usageBefore.status,
   service_usage_enabled: organizationService.usage_enabled,
   wallet_reserved_before: Number(walletBefore.reserved_balance || 0),
@@ -114,6 +220,7 @@ while (!terminal && Date.now() < deadline) {
     metadata: {
       certification_contract: CONTRACT,
       certification_pending_reconciliation: true,
+      recovered_provider_endpoint_id: endpointResolution.endpoint_id,
       new_provider_execution_submitted: false,
       service_reenabled: false,
     },
@@ -127,6 +234,7 @@ while (!terminal && Date.now() < deadline) {
     contract: CONTRACT,
     usage_id: USAGE_ID,
     provider_job_id: PROVIDER_JOB_ID,
+    endpoint_id: endpointResolution.endpoint_id,
     provider_pending: result?.pending === true,
     provider_failed: result?.failed === true,
     provider_status: result?.provider_status || null,
@@ -169,6 +277,8 @@ console.log(JSON.stringify({
   usage_id: USAGE_ID,
   provider: PROVIDER,
   provider_job_id: PROVIDER_JOB_ID,
+  endpoint_id: endpointResolution.endpoint_id,
+  endpoint_name: endpointResolution.endpoint_name,
   usage_status: finalStatus,
   supplier_cost: Number(usageAfter?.supplier_cost || 0),
   customer_price: Number(usageAfter?.customer_price || 0),
@@ -177,6 +287,7 @@ console.log(JSON.stringify({
   wallet_available_after: Number(walletAfter.available_balance || 0),
   wallet_reserved_after: Number(walletAfter.reserved_balance || 0),
   service_usage_enabled: serviceAfter.usage_enabled,
+  endpoint_mutation_performed: false,
   new_provider_execution_submitted: false,
   service_reenabled: false,
   production_deploy_performed: false,

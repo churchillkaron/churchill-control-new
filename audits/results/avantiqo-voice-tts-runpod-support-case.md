@@ -75,6 +75,24 @@ We then safely restored `workersMin` to `0`.
 
 This means the issue occurs even without relying on queue-delay autoscaling.
 
+## Rolling release already exercised
+
+RunPod's current endpoint API documents that updating an endpoint triggers a rolling release.
+
+This endpoint has already gone through controlled endpoint PATCH operations while the same accepted job remained queued, including:
+
+- Blackwell GPU-pool normalization
+- temporary `workersMin: 1`
+- restoration to `workersMin: 0`
+
+Those accepted updates changed the endpoint version/configuration but still produced:
+
+- zero control-worker records
+- zero health workers
+- the same job remaining `IN_QUEUE`
+
+Therefore this case has already exercised RunPod's supported rolling-release path. There is no evidence that another ordinary endpoint update/restart would repair the scheduler state.
+
 ## Account / control-plane evidence
 
 At the time of diagnosis:
@@ -134,6 +152,7 @@ We already ruled out the following without submitting another job:
 - missing certified image binding
 - stale/deleted registry-auth object
 - queue-delay alone — `workersMin=1` also failed to create a worker
+- missing ordinary endpoint restart path — accepted endpoint PATCHes already triggered rolling releases without creating a worker
 
 ## Important safety constraint
 
@@ -150,7 +169,8 @@ The existing job ID must remain the certification job:
 Please inspect the Serverless scheduler/control-plane state for endpoint `a5a2evletdphds` and explain why:
 
 1. `QUEUE_DELAY=4` does not create a worker for the queued job, and
-2. an explicit `workersMin=1` PATCH is accepted but also creates no worker record.
+2. an explicit `workersMin=1` PATCH is accepted but also creates no worker record, and
+3. accepted endpoint updates/rolling releases do not reconcile the endpoint into a schedulable worker state.
 
 If the endpoint has an internal stale scheduler/deployment binding, please repair that binding **without purging the existing queued job** if possible.
 

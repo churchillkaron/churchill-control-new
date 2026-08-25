@@ -50,8 +50,9 @@ globalThis.fetch = async (input, init) => {
 
 console.log("AVANTIQO_IMAGE_BIND_CANONICAL_TEMPLATE_RESOLUTION=true");
 console.log("AVANTIQO_IMAGE_BIND_CANONICAL_TEMPLATE_SOURCE=ENDPOINT_BOUND_TEMPLATE_BY_ID");
+console.log("AVANTIQO_IMAGE_BIND_CANONICAL_V6_PHYSICAL_USAGE=true");
 console.log("AVANTIQO_IMAGE_BIND_CANONICAL_REBUILD=false");
 console.log("AVANTIQO_IMAGE_BIND_CANONICAL_GENERATION=false");
 console.log("AVANTIQO_IMAGE_BIND_CANONICAL_PRODUCTION_DEPLOY=false");
 
-await import("./refresh-avantiqo-image-runpod-worker-auto-local.mjs");
+await import("./refresh-avantiqo-image-v6-runpod-worker-local.mjs");

@@ -1,7 +1,9 @@
 import process from "node:process";
+import { register } from "node:module";
 import { createClient } from "@supabase/supabase-js";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
+register("./next-alias-loader.mjs", import.meta.url);
 loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_CODE_AUTONOMOUS_PLANNER_SERVICE_RUNTIME_PREFLIGHT_V1";

@@ -44,6 +44,17 @@ test("structured supervisor separates natural cognition from JSON boundary compi
   assert.match(structuredSupervisor, /INVALID_COMPILED_JSON/);
 });
 
+test("Product decisions use one private-thinking structured pass with enough completion budget", () => {
+  assert.match(structuredSupervisor, /PRODUCT_REPOSITORY_ASSESSMENT/);
+  assert.match(structuredSupervisor, /PRODUCT_PERSISTENCE_DECISION/);
+  assert.match(structuredSupervisor, /structured_supervisor_mode: "product_single_pass"/);
+  assert.match(structuredSupervisor, /private_reasoning_transport_expected: true/);
+  assert.match(structuredSupervisor, /raw_reasoning_persisted: false/);
+  assert.match(structuredSupervisor, /single_pass_structured_reasoning: true/);
+  assert.match(structuredSupervisor, /PRODUCT_REPOSITORY_ASSESSMENT"\s*\? 4096/);
+  assert.match(structuredSupervisor, /PRODUCT_PERSISTENCE_DECISION"\s*\? 3072/);
+});
+
 test("reasoning loop exposes JSON mode only as an optional machine-boundary control", () => {
   assert.match(reasoningLoop, /response_format = null/);
   assert.match(reasoningLoop, /response_format \? \{ response_format: object\(response_format\) \} : \{\}/);

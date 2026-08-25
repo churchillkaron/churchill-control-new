@@ -1,0 +1,30 @@
+FROM pytorch/pytorch:2.11.0-cuda12.8-cudnn9-runtime
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    TOKENIZERS_PARALLELISM=false \
+    HF_HOME=/runpod-volume/huggingface-cache \
+    TRANSFORMERS_CACHE=/runpod-volume/huggingface-cache \
+    AVANTIQO_INTELLIGENCE_BENCHMARK_ENABLED=false
+
+WORKDIR /app
+
+COPY services/avantiqo-intelligence-benchmark/requirements.txt ./requirements.txt
+RUN python -m pip install --upgrade pip \
+    && python -m pip install -r requirements.txt \
+    && python - <<'PY'
+from importlib.metadata import version
+assert version("runpod") == "1.12.0", version("runpod")
+assert version("transformers") == "5.15.0", version("transformers")
+assert version("peft") == "0.20.0", version("peft")
+assert version("accelerate") == "1.14.0", version("accelerate")
+assert version("bitsandbytes") == "0.50.0", version("bitsandbytes")
+print("AVANTIQO_INTELLIGENCE_BENCHMARK_DEPENDENCY_CHECK=PASS")
+PY
+
+COPY services/avantiqo-intelligence-benchmark/handler.py ./handler.py
+RUN python -m py_compile handler.py
+
+ENTRYPOINT ["python", "-u", "handler.py"]

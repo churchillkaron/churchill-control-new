@@ -29,6 +29,17 @@ const requiredMarkers = [
   'kind: "autonomous_execution_retry"',
   "same_operation_retried: true",
   "new_planner_request_submitted: false",
+  "MAX_SOURCE_READ_EVIDENCE = 8",
+  "MAX_DUPLICATE_REJECTION_STREAK = 3",
+  "source_read_evidence",
+  "rejected_duplicate_actions",
+  "duplicate_rejection_streak",
+  "trailingDuplicateRejectionStreak",
+  "CODE_AI_AUTONOMOUS_DUPLICATE_ACTION_STREAK_EXCEEDED",
+  "currentSourceRevision",
+  "Treat those file contents as observed current source and do not reread a covered range",
+  "max_duplicate_rejection_streak",
+  "source_read_evidence_limit",
 ];
 
 const missing = requiredMarkers.filter((marker) => !source.includes(marker));
@@ -47,9 +58,18 @@ if (pendingBranch < 0 || pendingIterationPersistence < pendingBranch) {
 }
 
 const duplicateGuard = source.indexOf("const duplicate = duplicateActionGuard(control, decision)");
+const duplicateStreak = source.indexOf("const duplicateRejectionStreak = trailingDuplicateRejectionStreak(state)", duplicateGuard);
+const duplicateStreakLimit = source.indexOf("duplicateRejectionStreak >= MAX_DUPLICATE_REJECTION_STREAK", duplicateStreak);
 const missionExecution = source.indexOf("const executeOperation = () => executeCodeAIMission", duplicateGuard);
 if (duplicateGuard < 0 || missionExecution <= duplicateGuard) {
   throw new Error("CODE_AI_AUTONOMY_DUPLICATE_GUARD_MUST_PRECEDE_MISSION_EXECUTION");
+}
+if (
+  duplicateStreak <= duplicateGuard ||
+  duplicateStreakLimit <= duplicateStreak ||
+  duplicateStreakLimit >= missionExecution
+) {
+  throw new Error("CODE_AI_AUTONOMY_DUPLICATE_REJECTION_STREAK_MUST_FAIL_CLOSED_BEFORE_EXECUTION");
 }
 
 const transientRetry = source.indexOf('kind: "autonomous_execution_retry"', missionExecution);
@@ -75,6 +95,35 @@ if (coveredReadGuard < readSourceRevisionGuard) {
   throw new Error("CODE_AI_AUTONOMY_COVERED_READ_GUARD_REQUIRED");
 }
 
+const compactState = source.indexOf("function compactState(state = {})");
+const compactSourceRevision = source.indexOf("const currentSourceRevision = nonNegativeInteger(control.source_revision)", compactState);
+const currentReadOperationIds = source.indexOf("const currentReadOperationIds = new Set", compactSourceRevision);
+const sourceReadEvidence = source.indexOf("const sourceReadEvidence = list(source.evidence)", currentReadOperationIds);
+const sourceReadRevisionFilter = source.indexOf("entry.source_revision === currentSourceRevision", currentReadOperationIds);
+const compactReadExport = source.indexOf("source_read_evidence: sourceReadEvidence", sourceReadEvidence);
+if (
+  compactState < 0 ||
+  compactSourceRevision <= compactState ||
+  currentReadOperationIds <= compactSourceRevision ||
+  sourceReadRevisionFilter <= currentReadOperationIds ||
+  sourceReadEvidence <= currentReadOperationIds ||
+  compactReadExport <= sourceReadEvidence
+) {
+  throw new Error("CODE_AI_AUTONOMY_SOURCE_READ_EVIDENCE_MUST_BE_BOUND_TO_CURRENT_SOURCE_REVISION");
+}
+
+const genericEvidenceWindow = source.indexOf("evidence: list(source.evidence).slice(-12)", compactReadExport);
+if (genericEvidenceWindow <= compactReadExport) {
+  throw new Error("CODE_AI_AUTONOMY_SOURCE_READ_EVIDENCE_MUST_BE_SEPARATE_FROM_ROLLING_EVIDENCE_WINDOW");
+}
+
+const plannerInstruction = source.indexOf("function plannerInstruction", compactState);
+const sourceReadInstruction = source.indexOf("source_read_evidence contains successful read results", plannerInstruction);
+const duplicateInstruction = source.indexOf("rejected_duplicate_actions lists recent planner decisions", sourceReadInstruction);
+if (sourceReadInstruction <= plannerInstruction || duplicateInstruction <= sourceReadInstruction) {
+  throw new Error("CODE_AI_AUTONOMY_PLANNER_MUST_RECEIVE_PERSISTED_READ_AND_DUPLICATE_FEEDBACK");
+}
+
 const operationObservation = source.indexOf("const operationObserved =");
 const sourceAdvanceOnApply = source.indexOf('decision.action === "apply_files"', operationObservation);
 const sourceAdvanceOnReplan = source.indexOf('execution.status === "replan_required"', sourceAdvanceOnApply);
@@ -84,11 +133,16 @@ if (operationObservation < 0 || sourceAdvanceOnApply < operationObservation || s
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V3",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V4",
   verified: {
     duplicate_read_search_run_guarded_without_new_evidence: true,
     source_bound_read_freshness: true,
     covered_read_ranges_rejected_without_source_change: true,
+    current_revision_read_evidence_retained_for_planner: true,
+    read_evidence_retention_independent_of_generic_evidence_window: true,
+    rejected_duplicate_actions_exposed_to_planner: true,
+    duplicate_rejection_streak_bounded: true,
+    duplicate_rejection_streak_fails_closed_before_workspace_execution: true,
     unrelated_observations_do_not_refresh_source_reads: true,
     apply_files_refreshes_source_reads: true,
     main_replan_refreshes_source_reads: true,

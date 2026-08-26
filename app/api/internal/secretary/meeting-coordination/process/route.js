@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { processNextSecretaryMeetingCoordinationSafely } from "@/lib/operator/secretary/SecretaryMeetingCoordinationEvidenceRuntime";
+import { processNextSecretaryMeetingCoordinationWithBookingGuard } from "@/lib/operator/secretary/SecretaryMeetingCoordinationBookingGuardRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -26,7 +26,7 @@ export async function GET(request) {
     const results = [];
 
     for (let index = 0; index < limit; index += 1) {
-      const outcome = await processNextSecretaryMeetingCoordinationSafely({ workerId, leaseSeconds: 180 });
+      const outcome = await processNextSecretaryMeetingCoordinationWithBookingGuard({ workerId, leaseSeconds: 180 });
       if (outcome.status === "idle") break;
       results.push(outcome);
     }
@@ -46,11 +46,12 @@ export async function GET(request) {
     return Response.json(
       {
         success: true,
-        contract: "AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V1",
+        contract: "AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V2",
         processed: results.length,
         active: Number(active.count || 0),
         needs_input: Number(needsInput.count || 0),
         results,
+        explicit_availability_evidence_required_for_booking: true,
         attendance_not_inferred: true,
         external_authority_used: false,
       },

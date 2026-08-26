@@ -5,6 +5,7 @@ import test from "node:test";
 const files = Object.freeze({
   director: "lib/creative/music/runtime/CreativeMusicAutoStudioRuntime.js",
   executor: "lib/creative/music/runtime/CreativeMusicAutoStudioExecutionRuntime.js",
+  vocal: "lib/creative/music/runtime/CreativeMusicVocalEngineeringRuntime.js",
   route: "app/api/creative/music/auto-studio/route.js",
   panel: "components/creative/ProductionStudio/workspaces/MusicAutoStudioPanel.jsx",
   workspace: "components/creative/ProductionStudio/workspaces/MusicStudioWorkspace.jsx",
@@ -42,8 +43,11 @@ test("Music Auto Studio is the default full-auto surface", async () => {
     "Full Auto Studio",
     "MAKE IT PROFESSIONAL",
     'action: "execute_local"',
-    "Local master complete",
-    "Full elite Auto Studio still requires",
+    "Restored master complete",
+    "Automatic restoration",
+    "Original preserved · V0",
+    "Restored source · V1",
+    "Remaining elite stages",
   ]);
   hasAll(workspace, [
     '{ id: "auto", label: "Auto Studio"',
@@ -51,22 +55,46 @@ test("Music Auto Studio is the default full-auto surface", async () => {
   ]);
 });
 
-test("local Auto Studio finishing stays provider-free and canonical", async () => {
-  const [executor, route] = await Promise.all([
+test("local Auto Studio restoration and finishing stay provider-free and canonical", async () => {
+  const [executor, vocal, route] = await Promise.all([
     source(files.executor),
+    source(files.vocal),
     source(files.route),
   ]);
 
   hasAll(executor, [
+    "AVANTIQO_MUSIC_AUTO_STUDIO_LOCAL_EXECUTION_V2",
+    "processMusicVocalEngineeringLocal",
     'type: "GENERATE_AUDIO"',
     'type: "EXECUTE_CAPABILITY"',
+    'capability: "creative.music.vocal-engineering.local"',
     'capability: "creative.audio.finish"',
+    "music_source_version: 0",
+    "music_source_version: 1",
     "dispatchAudioTask(finishTask)",
+    "local_restoration_complete",
     "local_execution: true",
     "runpod_used: false",
     "provider_job_submitted: false",
     "endpoint_mutation_performed: false",
+    "direct_workers_max_write: false",
     "safe_lease_required_for_this_execution: false",
+  ]);
+  hasAll(vocal, [
+    "AVANTIQO_MUSIC_VOCAL_ENGINEERING_LOCAL_V1",
+    "spectralSnapshot",
+    "spectral_denoise",
+    "adaptive_eq",
+    "de_esser",
+    "compression",
+    "safety_limiter",
+    "CERTIFIED_PITCH_LANE_REQUIRED",
+    "CERTIFIED_TIMING_LANE_REQUIRED",
+    "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+    "provider_job_submitted: false",
+    "runpod_used: false",
+    "endpoint_mutation_performed: false",
+    "direct_workers_max_write: false",
   ]);
   hasAll(route, [
     'action === "execute_local"',
@@ -76,9 +104,28 @@ test("local Auto Studio finishing stays provider-free and canonical", async () =
     "Cache-Control",
   ]);
 
-  assert.equal(/workersMax\s*[:=]\s*1/.test(executor), false);
-  assert.equal(/api\.runpod\.ai|rest\.runpod\.io/.test(executor), false);
-  assert.equal(/executeService\s*\(/.test(executor), false);
+  for (const content of [executor, vocal]) {
+    assert.equal(/workersMax\s*[:=]\s*1/.test(content), false);
+    assert.equal(/api\.runpod\.ai|rest\.runpod\.io/.test(content), false);
+    assert.equal(/executeService\s*\(/.test(content), false);
+  }
+});
+
+test("Auto Studio preserves the original and masters from the restored source", async () => {
+  const executor = await source(files.executor);
+  const original = executor.indexOf("const originalTask = await createSourceTask");
+  const restore = executor.indexOf("const restoration = await processMusicVocalEngineeringLocal");
+  const restoredTask = executor.indexOf("const restoredTask = await createRestoredSourceTask");
+  const finish = executor.indexOf("const finishTask = await createFinishTask");
+  assert.ok(original >= 0, "original source task required");
+  assert.ok(restore > original, "restoration must follow original preservation");
+  assert.ok(restoredTask > restore, "restored source task must follow restoration");
+  assert.ok(finish > restoredTask, "mastering must follow restored source creation");
+  hasAll(executor, [
+    "sourceTask: restoredTask",
+    "original_preserved: true",
+    "music_auto_studio_original_task_id",
+  ]);
 });
 
 test("Auto Studio accepts audio and performance-video sources without editing picture", async () => {

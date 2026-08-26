@@ -6,6 +6,7 @@ on:
     paths:
       - scripts/patch-code-certification-transient-orphan-recovery-once.mjs
       - .github/workflows/code-transient-orphan-recovery-convergence.yml
+      - .github/code-transient-orphan-recovery.trigger
   workflow_dispatch:
 
 permissions:
@@ -61,5 +62,3 @@ jobs:
             sleep $((attempt * 2))
           done
           exit 1
-
-# trigger corrected zero-GPU convergence

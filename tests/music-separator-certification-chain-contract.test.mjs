@@ -43,6 +43,8 @@ test("Music separator certification uses the proven local credential recovery pa
 });
 
 test("One-shot local Music separator certification is single-submission and fail-closed", () => {
+  assert.match(oneShotLocal, /ensure_music_runtime_dependencies/);
+  assert.match(oneShotLocal, /npm install --no-save --package-lock=false @next\/env@14\.2\.35 @supabase\/supabase-js@2\.105\.4/);
   assert.match(oneShotLocal, /repair-avantiqo-runpod-env-local\.sh/);
   assert.match(oneShotLocal, /provision-avantiqo-music-separator-runpod-local\.mjs --apply/);
   assert.match(oneShotLocal, /preflight-avantiqo-music-separator-runpod-local\.mjs/);

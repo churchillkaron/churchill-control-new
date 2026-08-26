@@ -22,18 +22,18 @@ function supabaseServiceRoleKey() {
   return required("SUPABASE_SERVICE_ROLE_KEY");
 }
 
-async function rpc(name, body) {
+async function supabaseRequest(pathname, options = {}) {
   const key = supabaseServiceRoleKey();
-  const response = await fetch(`${supabaseBaseUrl()}/rest/v1/rpc/${name}`, {
-    method: "POST",
+  const response = await fetch(`${supabaseBaseUrl()}${pathname}`, {
+    method: options.method || "GET",
     headers: {
       apikey: key,
       Authorization: `Bearer ${key}`,
       Accept: "application/json",
-      "Content-Type": "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
       "Cache-Control": "no-store",
     },
-    body: JSON.stringify(body),
+    body: options.body ? JSON.stringify(options.body) : undefined,
     signal: AbortSignal.timeout(15_000),
   });
 
@@ -49,14 +49,37 @@ async function rpc(name, body) {
     const code = text(parsed?.message || parsed?.details || parsed?.hint || parsed?.code || raw)
       .replace(/\s+/g, " ")
       .slice(0, 500);
-    throw new Error(`AVANTIQO_VOICE_DISTRIBUTED_LEASE_RPC_FAILED:${name}:${response.status}:${code || "UNKNOWN"}`);
+    throw new Error(`AVANTIQO_VOICE_DISTRIBUTED_LEASE_REQUEST_FAILED:${response.status}:${code || "UNKNOWN"}`);
   }
 
   return parsed;
 }
 
+async function rpc(name, body) {
+  return supabaseRequest(`/rest/v1/rpc/${name}`, {
+    method: "POST",
+    body,
+  });
+}
+
 export function isVoiceRunpodLane(lane) {
   return VOICE_LANES.has(text(lane));
+}
+
+export async function listActiveVoiceRunpodDistributedLeases() {
+  const now = encodeURIComponent(new Date().toISOString());
+  const rows = await supabaseRequest(
+    `/rest/v1/avantiqo_voice_runpod_leases?select=id,contract,lane,endpoint_id,endpoint_name,state,expires_at&state=eq.ACTIVE&expires_at=gt.${now}`,
+  );
+  if (!Array.isArray(rows)) {
+    throw new Error("AVANTIQO_VOICE_DISTRIBUTED_LEASE_LIST_INVALID");
+  }
+  return rows.filter((lease) =>
+    lease?.contract === CONTRACT &&
+    lease?.state === "ACTIVE" &&
+    isVoiceRunpodLane(lease?.lane) &&
+    text(lease?.endpoint_id)
+  );
 }
 
 export async function acquireVoiceRunpodDistributedLease({

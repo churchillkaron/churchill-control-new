@@ -11,7 +11,9 @@ loadAvantiqoEnv();
 const CONTRACT = "AVANTIQO_CODE_AUTONOMOUS_PLANNER_SAFE_CERTIFICATION_RUNNER_V1";
 const ORGANIZATION_NAME = "Avantiqo Code Planner Certification";
 const SERVICE_ID = "ai.code.debug";
+const PROVIDER = "avantiqo-code";
 const REQUIRED_NODE_MAJOR = 24;
+const RESERVATION_EPSILON = 0.000001;
 const THIS_SCRIPT = fileURLToPath(import.meta.url);
 
 function text(value) {
@@ -22,6 +24,15 @@ function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
+}
+
+function finite(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function sameAmount(left, right) {
+  return Math.abs(finite(left) - finite(right)) <= RESERVATION_EPSILON;
 }
 
 function nodeMajor(version) {
@@ -234,8 +245,137 @@ async function disableCertificationService() {
   return Boolean(data);
 }
 
+async function reconcilePendingCertificationReservation() {
+  const resolvedOrganizationId = organizationId || await resolveCertificationOrganization();
+  if (!resolvedOrganizationId) return false;
+
+  const { data: wallet, error: walletError } = await supabase
+    .from("organization_wallets")
+    .select("id,currency,reserved_balance")
+    .eq("organization_id", resolvedOrganizationId)
+    .maybeSingle();
+  if (walletError) throw walletError;
+  if (!wallet) return false;
+
+  const walletReserved = finite(wallet.reserved_balance);
+  if (walletReserved <= RESERVATION_EPSILON) return false;
+
+  const { data: organizationService, error: serviceError } = await supabase
+    .from("organization_services")
+    .select("id,managed_by,usage_enabled,billing_enabled,default_provider_id")
+    .eq("organization_id", resolvedOrganizationId)
+    .eq("service_id", SERVICE_ID)
+    .maybeSingle();
+  if (serviceError) throw serviceError;
+  if (!organizationService) {
+    throw new Error("CODE_AI_CERTIFICATION_PENDING_SETTLEMENT_SERVICE_REQUIRED");
+  }
+  if (organizationService.managed_by !== "AVANTIQO_CERTIFICATION") {
+    throw new Error("CODE_AI_CERTIFICATION_PENDING_SETTLEMENT_SERVICE_SCOPE_UNSAFE");
+  }
+  if (organizationService.usage_enabled !== false || organizationService.billing_enabled !== false) {
+    throw new Error("CODE_AI_CERTIFICATION_PENDING_SETTLEMENT_REQUIRES_DISABLED_SERVICE");
+  }
+  if (text(organizationService.default_provider_id) !== PROVIDER) {
+    throw new Error("CODE_AI_CERTIFICATION_PENDING_SETTLEMENT_PROVIDER_SCOPE_UNSAFE");
+  }
+
+  const { data: pendingUsages, error: pendingError } = await supabase
+    .from("platform_service_usage")
+    .select("id,provider,capability,provider_request_id,status,currency,metadata,created_at")
+    .eq("organization_id", resolvedOrganizationId)
+    .eq("status", "PENDING")
+    .eq("provider", PROVIDER)
+    .eq("capability", SERVICE_ID)
+    .order("created_at", { ascending: false });
+  if (pendingError) throw pendingError;
+
+  const candidates = (pendingUsages || []).filter((usage) => {
+    const reserved = finite(usage?.metadata?.reservation_pricing?.customer_price);
+    return Boolean(text(usage?.provider_request_id)) && reserved > RESERVATION_EPSILON;
+  });
+
+  if (candidates.length !== 1) {
+    throw new Error(
+      `CODE_AI_CERTIFICATION_PENDING_SETTLEMENT_EXACT_USAGE_REQUIRED:${candidates.length}:${walletReserved}`,
+    );
+  }
+
+  const target = candidates[0];
+  const reservationAmount = finite(target?.metadata?.reservation_pricing?.customer_price);
+  if (!sameAmount(walletReserved, reservationAmount)) {
+    throw new Error(
+      `CODE_AI_CERTIFICATION_PENDING_SETTLEMENT_WALLET_SCOPE_UNSAFE:${walletReserved}:${reservationAmount}`,
+    );
+  }
+
+  const providerJobId = text(target.provider_request_id);
+  if (!providerJobId) {
+    throw new Error("CODE_AI_CERTIFICATION_PENDING_SETTLEMENT_PROVIDER_JOB_REQUIRED");
+  }
+
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_CERTIFICATION_PENDING_SETTLEMENT_START",
+    contract: CONTRACT,
+    organization_id: resolvedOrganizationId,
+    usage_id: target.id,
+    provider_job_id: providerJobId,
+    wallet_reserved_before: walletReserved,
+    reservation_amount: reservationAmount,
+    service_usage_enabled: false,
+    service_billing_enabled: false,
+    new_provider_execution_submitted: false,
+    production_deploy_performed: false,
+    secrets_printed: false,
+  }));
+
+  run(
+    process.execPath,
+    ["scripts/settle-code-ai-planner-certification-pending-local.mjs"],
+    {
+      env: {
+        ...process.env,
+        AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_APPROVED: "YES",
+        AVANTIQO_CODE_PLANNER_PENDING_USAGE_ID: text(target.id),
+        AVANTIQO_CODE_PLANNER_PENDING_PROVIDER_JOB_ID: providerJobId,
+      },
+    },
+  );
+
+  const { data: walletAfter, error: walletAfterError } = await supabase
+    .from("organization_wallets")
+    .select("reserved_balance")
+    .eq("organization_id", resolvedOrganizationId)
+    .single();
+  if (walletAfterError) throw walletAfterError;
+
+  const walletReservedAfter = finite(walletAfter?.reserved_balance);
+  if (walletReservedAfter > RESERVATION_EPSILON) {
+    throw new Error(
+      `CODE_AI_CERTIFICATION_PENDING_SETTLEMENT_RESERVED_BALANCE_REMAINS:${walletReservedAfter}`,
+    );
+  }
+
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_CERTIFICATION_PENDING_SETTLEMENT_COMPLETE",
+    contract: CONTRACT,
+    organization_id: resolvedOrganizationId,
+    usage_id: target.id,
+    provider_job_id: providerJobId,
+    wallet_reserved_after: walletReservedAfter,
+    service_usage_enabled: false,
+    service_billing_enabled: false,
+    new_provider_execution_submitted: false,
+    production_deploy_performed: false,
+    secrets_printed: false,
+  }));
+
+  return true;
+}
+
 try {
   await disableCertificationService();
+  await reconcilePendingCertificationReservation();
 
   console.log(JSON.stringify({
     event: "AVANTIQO_CODE_CERTIFICATION_SOURCE_AUDIT_START",

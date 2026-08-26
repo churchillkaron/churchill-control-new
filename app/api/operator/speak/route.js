@@ -71,7 +71,19 @@ export async function POST(request) {
     const requestedEntityId = text(
       body?.entityId || body?.entity_id,
     ) || null;
-    const voice = text(body?.voice) || null;
+    const legacyVoice = text(body?.voice) || null;
+    const voiceLibraryProfileId = text(
+      body?.voiceLibraryProfileId ||
+      body?.voice_library_profile_id ||
+      body?.voiceIdentityProfileId ||
+      body?.voice_identity_profile_id,
+    ) || null;
+    const deliveryProfile = text(
+      body?.deliveryProfile ||
+      body?.delivery_profile ||
+      body?.voiceProfile ||
+      body?.voice_profile,
+    ) || null;
     const locale = text(body?.locale) || null;
     const requestedLanguage = text(
       body?.language || body?.requestedLanguage || body?.requested_language,
@@ -147,7 +159,9 @@ export async function POST(request) {
       service_id: "ai.text.to.speech",
       input: {
         input: speechText,
-        voice: voice || undefined,
+        voice: legacyVoice || undefined,
+        voice_library_profile_id: voiceLibraryProfileId || undefined,
+        voice_profile: deliveryProfile || undefined,
         response_format: "wav",
         quantity: estimatedMinutes,
         locale: voiceLanguage.language,
@@ -164,6 +178,8 @@ export async function POST(request) {
           : voiceLanguage.language_source,
         voice_language_continuity_used: continuityUsed,
         voice_quality: voiceLanguage.voice_quality,
+        voice_library_profile_requested: Boolean(voiceLibraryProfileId),
+        delivery_profile_requested: deliveryProfile || null,
         low_quality_fallback_allowed: false,
       },
       category: "AI",
@@ -203,6 +219,8 @@ export async function POST(request) {
         ? "detected_continuity"
         : voiceLanguage.language_source,
       voice_language_continuity_used: continuityUsed,
+      voice_library_profile_requested: Boolean(voiceLibraryProfileId),
+      delivery_profile_requested: deliveryProfile || null,
       usage_id: settledExecution?.usage?.id || execution?.usage?.id || null,
     });
 

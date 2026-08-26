@@ -111,19 +111,12 @@ create table if not exists public.communication_attachments (
   check (storage_path is not null or external_url is not null)
 );
 
-create table if not exists public.secretary_outbound_call_requests (
-  id uuid primary key default gen_random_uuid(),
-  organization_id uuid null references public.organizations(id) on delete cascade,
-  created_at timestamptz not null default now()
-);
-
 alter table public.organizations enable row level security;
 alter table public.parties enable row level security;
 alter table public.organization_channel_connections enable row level security;
 alter table public.communication_conversations enable row level security;
 alter table public.communication_messages enable row level security;
 alter table public.communication_attachments enable row level security;
-alter table public.secretary_outbound_call_requests enable row level security;
 
 grant select, insert, update, delete on public.organizations to service_role;
 grant select, insert, update, delete on public.parties to service_role;
@@ -131,6 +124,5 @@ grant select, insert, update, delete on public.organization_channel_connections 
 grant select, insert, update, delete on public.communication_conversations to service_role;
 grant select, insert, update, delete on public.communication_messages to service_role;
 grant select, insert, update, delete on public.communication_attachments to service_role;
-grant select, insert, update, delete on public.secretary_outbound_call_requests to service_role;
 
 commit;

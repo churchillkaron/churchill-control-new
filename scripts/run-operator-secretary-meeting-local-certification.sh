@@ -155,6 +155,7 @@ export SUPABASE_SERVICE_ROLE_KEY="$LOCAL_SERVICE_ROLE_KEY"
 echo "SECRETARY_MEETING_LOCAL_CREDENTIAL_DISCOVERY=PASS"
 echo "SECRETARY_MEETING_LOCAL_CREDENTIALS_PRINTED=false"
 
+node scripts/operator-secretary-supabase-await-audit.mjs
 npm run audit:operator-secretary-end-to-end
 node scripts/preflight-secretary-meeting-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-approval-local.mjs

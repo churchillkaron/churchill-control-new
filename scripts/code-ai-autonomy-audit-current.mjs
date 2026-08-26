@@ -14,6 +14,10 @@ const replacements = [
     '"service_runtime.execute(executionInput)"',
     '"serviceRuntime.execute(executionInput)"',
   ],
+  [
+    '"Choose exactly ONE next action"',
+    '"buildCodeAIPlannerPromptTransport"',
+  ],
 ];
 
 let adapted = source;

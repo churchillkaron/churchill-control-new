@@ -14,6 +14,7 @@ function assert(condition, code) {
 const runtimePath = "lib/intelligence/runtime/AvantiqoContinuousLearningRuntime.js";
 const ownedEvidencePath = "lib/intelligence/runtime/AvantiqoOwnedWebEvidenceRuntime.js";
 const capabilityPath = "lib/platform/capabilities/createOperatorWebResearchCapability.js";
+const mechanismRuntimePath = "lib/platform/research/runtime/OperatorMechanismResearchRuntime.js";
 const routePath = "app/api/internal/intelligence/continuous-learning/process/route.js";
 const indexPath = "lib/intelligence/index.js";
 const vercelPath = "vercel.json";
@@ -23,6 +24,7 @@ const localRunnerPath = "scripts/run-avantiqo-continuous-learning-local.mjs";
 const runtime = read(runtimePath);
 const ownedEvidence = read(ownedEvidencePath);
 const capability = read(capabilityPath);
+const mechanismRuntime = read(mechanismRuntimePath);
 const route = read(routePath);
 const index = read(indexPath);
 const vercel = JSON.parse(read(vercelPath));
@@ -86,8 +88,12 @@ assert(!ownedEvidence.includes("ServiceExecutionRuntime"), "CONTINUOUS_LEARNING_
 assert(!ownedEvidence.includes("OPENAI_API_KEY"), "CONTINUOUS_LEARNING_OPENAI_SECRET_FORBIDDEN");
 assert(!ownedEvidence.includes("https://www.iso.org"), "CONTINUOUS_LEARNING_ISO_EVIDENCE_FORBIDDEN");
 
-assert(capability.includes("runKnowledgeAwareWebResearch"), "WEB_RESEARCH_CAPABILITY_KNOWLEDGE_REUSE_REQUIRED");
+assert(capability.includes("runOperatorMechanismResearch"), "WEB_RESEARCH_CAPABILITY_GOVERNED_RESEARCH_ROUTER_REQUIRED");
 assert(capability.includes("knowledge-reuse"), "WEB_RESEARCH_CAPABILITY_KNOWLEDGE_TAG_REQUIRED");
+assert(mechanismRuntime.includes("runAvantiqoKnowledgeAwareResearch"), "WEB_RESEARCH_EVIDENCE_MODE_KNOWLEDGE_REUSE_REQUIRED");
+assert(mechanismRuntime.includes('mode === "evidence"'), "WEB_RESEARCH_EVIDENCE_MODE_ROUTING_REQUIRED");
+assert(mechanismRuntime.includes("runOperatorWebEvidenceResearch"), "WEB_RESEARCH_MECHANISM_PUBLIC_EVIDENCE_REQUIRED");
+assert(mechanismRuntime.includes("requireOperatorMechanismResearchSpendApproval"), "WEB_RESEARCH_MECHANISM_SYNTHESIS_SPEND_GUARD_REQUIRED");
 assert(route.includes("CRON_SECRET"), "CONTINUOUS_LEARNING_CRON_AUTH_REQUIRED");
 assert(route.includes("runAvantiqoContinuousLearningBatch"), "CONTINUOUS_LEARNING_CRON_RUNTIME_REQUIRED");
 assert(index.includes("AvantiqoContinuousLearningRuntime"), "CONTINUOUS_LEARNING_EXPORT_REQUIRED");

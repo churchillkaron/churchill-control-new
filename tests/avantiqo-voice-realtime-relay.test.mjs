@@ -24,7 +24,7 @@ const settleRoute = await readFile(
 
 test("Voice realtime relay is first-party authenticated and release-gated", () => {
   assert.match(relay, /AVANTIQO_VOICE_REALTIME_RELAY_V1/);
-  assert.match(relay, /AVANTIQO_VOICE_REALTIME_STT_REALTIME_V1/);
+  assert.match(relay, /AVANTIQO_VOICE_STT_REALTIME_V1/);
   assert.match(relay, /CLIENT_PROTOCOL = "avantiqo-voice-realtime-v1"/);
   assert.match(relay, /JWT_PROTOCOL_PREFIX = "jwt\."/);
   assert.match(relay, /admin\.auth\.getUser\(token\)/);

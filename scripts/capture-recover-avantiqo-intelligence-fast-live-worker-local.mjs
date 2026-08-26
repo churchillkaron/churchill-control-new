@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const CONTROL_BASE = "https://api.runpod.io/v2";
-const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_LIVE_WORKER_CAPTURE_RECOVERY_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_LIVE_WORKER_CAPTURE_RECOVERY_V2";
 const APPROVAL = "AVANTIQO_INTELLIGENCE_FAST_LIVE_WORKER_CAPTURE_RECOVERY_APPROVED";
 const DEEP_NAME = "avantiqo-intelligence-v1";
 const FAST_NAME = "avantiqo-intelligence-fast-v1";
@@ -38,16 +38,38 @@ function validateCurrentMain() {
   if (branch !== "main") {
     throw new Error(`AVANTIQO_FAST_LIVE_CAPTURE_MAIN_REQUIRED:actual=${branch || "DETACHED"}`);
   }
-  const head = shell("git", ["rev-parse", "HEAD"], "AVANTIQO_FAST_LIVE_CAPTURE_GIT_HEAD_FAILED");
+
+  let head = shell("git", ["rev-parse", "HEAD"], "AVANTIQO_FAST_LIVE_CAPTURE_GIT_HEAD_FAILED");
   const remote = shell("git", ["rev-parse", "origin/main"], "AVANTIQO_FAST_LIVE_CAPTURE_GIT_REMOTE_FAILED");
   if (head !== remote) {
-    throw new Error(`AVANTIQO_FAST_LIVE_CAPTURE_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin_main=${remote}`);
+    const dirty = shell(
+      "git",
+      ["status", "--porcelain", "--untracked-files=no"],
+      "AVANTIQO_FAST_LIVE_CAPTURE_GIT_STATUS_FAILED",
+    );
+    if (dirty) {
+      throw new Error("AVANTIQO_FAST_LIVE_CAPTURE_CURRENT_MAIN_DIRTY_CHECKOUT");
+    }
+    shell(
+      "git",
+      ["merge", "--ff-only", "origin/main"],
+      "AVANTIQO_FAST_LIVE_CAPTURE_GIT_FAST_FORWARD_FAILED",
+    );
+    head = shell(
+      "git",
+      ["rev-parse", "HEAD"],
+      "AVANTIQO_FAST_LIVE_CAPTURE_GIT_CONVERGED_HEAD_FAILED",
+    );
+    if (head !== remote) {
+      throw new Error(`AVANTIQO_FAST_LIVE_CAPTURE_MAIN_CONVERGENCE_FAILED:head=${head}:origin_main=${remote}`);
+    }
+    console.log(`AVANTIQO_INTELLIGENCE_FAST_LIVE_CAPTURE_MAIN_CONVERGED=${head}`);
   }
   return head;
 }
 
 async function request(url, key, options = {}) {
-  const response = await fetch(url, {
+  return fetch(url, {
     method: options.method || "GET",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -57,7 +79,6 @@ async function request(url, key, options = {}) {
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: options.signal || AbortSignal.timeout(options.timeoutMs || 30_000),
   });
-  return response;
 }
 
 async function requestJson(url, key, options = {}) {
@@ -136,6 +157,7 @@ async function captureWorkerLogs(endpointId, workerId, managementKey) {
   let buffer = "";
   let responseStatus = null;
   let error = null;
+
   try {
     const response = await request(
       `${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers/${encodeURIComponent(workerId)}/logs?tail=2000`,
@@ -150,6 +172,7 @@ async function captureWorkerLogs(endpointId, workerId, managementKey) {
     if (!response.body) {
       return { response_status: responseStatus, entries, error: "AVANTIQO_FAST_LIVE_CAPTURE_LOG_BODY_REQUIRED" };
     }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     while (true) {
@@ -175,6 +198,7 @@ async function captureWorkerLogs(endpointId, workerId, managementKey) {
   } finally {
     clearTimeout(timeout);
   }
+
   if (buffer.trim()) {
     const entry = parseSseFrame(buffer);
     if (entry) entries.push(entry);

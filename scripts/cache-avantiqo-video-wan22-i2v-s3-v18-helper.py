@@ -1,10 +1,10 @@
 import json
 import os
+import time
 from urllib.parse import quote
 
 import boto3
 import requests
-from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
 from huggingface_hub import HfApi
 
@@ -17,6 +17,10 @@ CONTRACT = os.environ["AVANTIQO_V18_COMPLETION_CONTRACT"]
 ACCESS = os.environ["AVANTIQO_V18_ACCESS_KEY"]
 SECRET = os.environ["AVANTIQO_V18_SECRET_KEY"]
 HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or None
+PART_SIZE = 64 * 1024 * 1024
+READ_CHUNK_SIZE = 8 * 1024 * 1024
+MAX_HTTP_ATTEMPTS = 8
+HTTP_TIMEOUT = (30, 180)
 
 s3 = boto3.client(
     "s3",
@@ -59,6 +63,162 @@ def head_size(key: str):
         raise
 
 
+def retry_delay(attempt: int) -> int:
+    return min(30, 2 ** max(0, attempt - 1))
+
+
+def fetch_exact_range(session, url: str, base_headers: dict, start: int, end: int, total: int, rel: str, part_number: int) -> bytes:
+    expected_bytes = end - start + 1
+    last_error = None
+    for attempt in range(1, MAX_HTTP_ATTEMPTS + 1):
+        try:
+            request_headers = {**base_headers, "Range": f"bytes={start}-{end}"}
+            with session.get(
+                url,
+                headers=request_headers,
+                stream=True,
+                timeout=HTTP_TIMEOUT,
+                allow_redirects=True,
+            ) as response:
+                if response.status_code != 206:
+                    raise RuntimeError(
+                        f"AVANTIQO_VIDEO_I2V_V18_RANGE_STATUS_INVALID:{rel}:part={part_number}:status={response.status_code}"
+                    )
+                expected_content_range = f"bytes {start}-{end}/{total}"
+                content_range = str(response.headers.get("content-range") or "").strip().lower()
+                if content_range != expected_content_range.lower():
+                    raise RuntimeError(
+                        f"AVANTIQO_VIDEO_I2V_V18_CONTENT_RANGE_INVALID:{rel}:part={part_number}:expected={expected_content_range}:actual={content_range or 'missing'}"
+                    )
+                payload = bytearray()
+                for chunk in response.iter_content(chunk_size=READ_CHUNK_SIZE):
+                    if not chunk:
+                        continue
+                    payload.extend(chunk)
+                    if len(payload) > expected_bytes:
+                        raise RuntimeError(
+                            f"AVANTIQO_VIDEO_I2V_V18_RANGE_TOO_LARGE:{rel}:part={part_number}:expected={expected_bytes}:actual>{expected_bytes}"
+                        )
+                if len(payload) != expected_bytes:
+                    raise RuntimeError(
+                        f"AVANTIQO_VIDEO_I2V_V18_RANGE_SIZE_INVALID:{rel}:part={part_number}:expected={expected_bytes}:actual={len(payload)}"
+                    )
+                return bytes(payload)
+        except Exception as exc:
+            last_error = exc
+            if attempt >= MAX_HTTP_ATTEMPTS:
+                break
+            print(
+                f"AVANTIQO_VIDEO_I2V_V18_PART_RETRY={rel}:part={part_number}:attempt={attempt + 1}/{MAX_HTTP_ATTEMPTS}:reason={type(exc).__name__}",
+                flush=True,
+            )
+            time.sleep(retry_delay(attempt))
+    raise RuntimeError(
+        f"AVANTIQO_VIDEO_I2V_V18_PART_DOWNLOAD_FAILED:{rel}:part={part_number}:attempts={MAX_HTTP_ATTEMPTS}"
+    ) from last_error
+
+
+def fetch_small_file(session, url: str, base_headers: dict, expected: int, rel: str) -> bytes:
+    last_error = None
+    for attempt in range(1, MAX_HTTP_ATTEMPTS + 1):
+        try:
+            with session.get(
+                url,
+                headers=base_headers,
+                stream=True,
+                timeout=HTTP_TIMEOUT,
+                allow_redirects=True,
+            ) as response:
+                response.raise_for_status()
+                payload = bytearray()
+                for chunk in response.iter_content(chunk_size=READ_CHUNK_SIZE):
+                    if not chunk:
+                        continue
+                    payload.extend(chunk)
+                    if len(payload) > expected:
+                        raise RuntimeError(
+                            f"AVANTIQO_VIDEO_I2V_V18_FILE_TOO_LARGE:{rel}:expected={expected}:actual>{expected}"
+                        )
+                if len(payload) != expected:
+                    raise RuntimeError(
+                        f"AVANTIQO_VIDEO_I2V_V18_FILE_SIZE_INVALID:{rel}:expected={expected}:actual={len(payload)}"
+                    )
+                return bytes(payload)
+        except Exception as exc:
+            last_error = exc
+            if attempt >= MAX_HTTP_ATTEMPTS:
+                break
+            print(
+                f"AVANTIQO_VIDEO_I2V_V18_FILE_RETRY={rel}:attempt={attempt + 1}/{MAX_HTTP_ATTEMPTS}:reason={type(exc).__name__}",
+                flush=True,
+            )
+            time.sleep(retry_delay(attempt))
+    raise RuntimeError(
+        f"AVANTIQO_VIDEO_I2V_V18_FILE_DOWNLOAD_FAILED:{rel}:attempts={MAX_HTTP_ATTEMPTS}"
+    ) from last_error
+
+
+def upload_resilient(session, url: str, base_headers: dict, key: str, expected: int, rel: str, index: int, total_files: int) -> None:
+    if expected <= PART_SIZE:
+        payload = fetch_small_file(session, url, base_headers, expected, rel)
+        s3.put_object(Bucket=BUCKET, Key=key, Body=payload)
+        return
+
+    created = s3.create_multipart_upload(Bucket=BUCKET, Key=key)
+    upload_id = created.get("UploadId")
+    if not upload_id:
+        raise RuntimeError(f"AVANTIQO_VIDEO_I2V_V18_MULTIPART_ID_REQUIRED:{rel}")
+    parts = []
+    part_count = (expected + PART_SIZE - 1) // PART_SIZE
+    try:
+        for part_number in range(1, part_count + 1):
+            start = (part_number - 1) * PART_SIZE
+            end = min(expected - 1, start + PART_SIZE - 1)
+            payload = fetch_exact_range(
+                session,
+                url,
+                base_headers,
+                start,
+                end,
+                expected,
+                rel,
+                part_number,
+            )
+            uploaded = s3.upload_part(
+                Bucket=BUCKET,
+                Key=key,
+                UploadId=upload_id,
+                PartNumber=part_number,
+                Body=payload,
+            )
+            etag = uploaded.get("ETag")
+            if not etag:
+                raise RuntimeError(
+                    f"AVANTIQO_VIDEO_I2V_V18_MULTIPART_ETAG_REQUIRED:{rel}:part={part_number}"
+                )
+            parts.append({"ETag": etag, "PartNumber": part_number})
+            print(
+                f"AVANTIQO_VIDEO_I2V_V18_PART_UPLOADED={index}/{total_files}:{rel}:part={part_number}/{part_count}:bytes={end - start + 1}",
+                flush=True,
+            )
+        s3.complete_multipart_upload(
+            Bucket=BUCKET,
+            Key=key,
+            UploadId=upload_id,
+            MultipartUpload={"Parts": parts},
+        )
+    except Exception:
+        try:
+            s3.abort_multipart_upload(
+                Bucket=BUCKET,
+                Key=key,
+                UploadId=upload_id,
+            )
+        except Exception:
+            pass
+        raise
+
+
 api = HfApi(token=HF_TOKEN)
 info = api.model_info(repo_id=MODEL, files_metadata=True)
 revision = str(info.sha or "").strip()
@@ -78,12 +238,6 @@ except Exception:
 
 session = requests.Session()
 headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
-transfer = TransferConfig(
-    multipart_threshold=64 * 1024 * 1024,
-    multipart_chunksize=64 * 1024 * 1024,
-    max_concurrency=1,
-    use_threads=False,
-)
 uploaded = 0
 skipped = 0
 uploaded_bytes = 0
@@ -93,11 +247,12 @@ for index, sibling in enumerate(siblings, start=1):
     rel = sibling.rfilename
     expected = getattr(sibling, "size", None)
     expected = int(expected) if expected is not None else None
-    if expected is not None:
-        manifest_bytes += expected
+    if expected is None:
+        raise RuntimeError(f"AVANTIQO_VIDEO_I2V_V18_HF_FILE_SIZE_REQUIRED:{rel}")
+    manifest_bytes += expected
     key = f"{snapshot_prefix}/{rel}"
     existing = head_size(key)
-    if expected is not None and existing == expected:
+    if existing == expected:
         skipped += 1
         print(
             f"AVANTIQO_VIDEO_I2V_V18_FILE_SKIP={index}/{len(siblings)}:{rel}:{expected}",
@@ -105,28 +260,23 @@ for index, sibling in enumerate(siblings, start=1):
         )
         continue
 
+    print(
+        f"AVANTIQO_VIDEO_I2V_V18_FILE_BEGIN={index}/{len(siblings)}:{rel}:{expected}",
+        flush=True,
+    )
     url = (
         f"https://huggingface.co/{quote(MODEL, safe='/')}/resolve/"
         f"{revision}/{quote(rel, safe='/')}?download=true"
     )
-    with session.get(
-        url,
-        headers=headers,
-        stream=True,
-        timeout=(30, 600),
-        allow_redirects=True,
-    ) as response:
-        response.raise_for_status()
-        response.raw.decode_content = True
-        s3.upload_fileobj(response.raw, BUCKET, key, Config=transfer)
+    upload_resilient(session, url, headers, key, expected, rel, index, len(siblings))
 
     actual = head_size(key)
-    if expected is not None and actual != expected:
+    if actual != expected:
         raise RuntimeError(
             f"AVANTIQO_VIDEO_I2V_V18_SIZE_VERIFY_FAILED:{rel}:expected={expected}:actual={actual}"
         )
     uploaded += 1
-    uploaded_bytes += int(actual or expected or 0)
+    uploaded_bytes += actual
     print(
         f"AVANTIQO_VIDEO_I2V_V18_FILE_UPLOADED={index}/{len(siblings)}:{rel}:{actual}",
         flush=True,
@@ -137,8 +287,10 @@ for sibling in siblings:
     rel = sibling.rfilename
     expected = getattr(sibling, "size", None)
     expected = int(expected) if expected is not None else None
+    if expected is None:
+        raise RuntimeError(f"AVANTIQO_VIDEO_I2V_V18_HF_FILE_SIZE_REQUIRED:{rel}")
     actual = head_size(f"{snapshot_prefix}/{rel}")
-    if actual is None or (expected is not None and actual != expected):
+    if actual != expected:
         raise RuntimeError(
             f"AVANTIQO_VIDEO_I2V_V18_FINAL_MANIFEST_VERIFY_FAILED:{rel}:expected={expected}:actual={actual}"
         )
@@ -181,6 +333,9 @@ print(
             "files_uploaded": uploaded,
             "files_skipped_existing": skipped,
             "uploaded_bytes_this_run": uploaded_bytes,
+            "transfer_contract": "RANGED_MULTIPART_64M_RETRY_V1",
+            "multipart_part_bytes": PART_SIZE,
+            "http_attempts_per_part": MAX_HTTP_ATTEMPTS,
             "t2v_preserved_untouched": True,
             "t2v_revalidation_deferred_to_runtime_probe": True,
             "completion_marker_published_last": True,

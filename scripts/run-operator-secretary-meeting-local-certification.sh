@@ -11,10 +11,6 @@ NODE_AUTO_SELECTED=false
 if [[ "$NODE_MAJOR" != "24" ]]; then
   NODE24_BIN=""
 
-  # The repo requires Node 24.x, but concurrent local work can leave the parent shell
-  # on another Node version. Prefer an already-installed Node 24 without mutating the
-  # user's global/default runtime. These cover the normal macOS Node managers used by
-  # development terminals (nvm, fnm, mise, asdf, Volta, n, and Homebrew).
   for candidate in \
     "$HOME"/.nvm/versions/node/v24*/bin \
     "$HOME"/.local/share/fnm/node-versions/v24*/installation/bin \
@@ -80,11 +76,6 @@ if [[ -f "$ROOT/supabase/roles.sql" ]]; then
   ln -s "$ROOT/supabase/roles.sql" "$WORKDIR/supabase/roles.sql"
 fi
 
-# The repository retains historical ERP migrations whose earliest canonical table
-# baselines are already represented in production history and therefore cannot all
-# be replayed from an empty database. Meeting Secretary certification must not fail
-# on unrelated Finance history. Supply only the minimal test foundation needed by
-# Secretary foreign keys, then replay the real Secretary migrations unchanged.
 cp \
   "$ROOT/scripts/fixtures/secretary-meeting-local-foundation.sql" \
   "$WORKDIR/supabase/migrations/20260825000000_secretary_local_foundation.sql"
@@ -103,6 +94,7 @@ SECRETARY_MIGRATIONS=(
   "20260826010000_secretary_meeting_audio_chunk_idempotency.sql"
   "20260826102000_secretary_multi_party_meeting_coordination.sql"
   "20260826190000_secretary_booked_meeting_changes.sql"
+  "20260826193000_secretary_recurring_meetings.sql"
 )
 
 for migration in "${SECRETARY_MIGRATIONS[@]}"; do
@@ -115,11 +107,6 @@ for migration in "${SECRETARY_MIGRATIONS[@]}"; do
   ln -s "$source_path" "$WORKDIR/supabase/migrations/$migration"
 done
 
-# The repository root .env.local can contain application/provider configuration that
-# the Supabase CLI does not need for this local schema certification. Running with a
-# clean temporary --workdir prevents that file from being parsed or printed.
-# config.toml references OPENAI_API_KEY for optional local Studio AI, so provide a
-# harmless local placeholder only when the caller did not already export one.
 export OPENAI_API_KEY="${OPENAI_API_KEY:-local-secretary-certification-disabled}"
 
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"
@@ -131,9 +118,6 @@ echo "SECRETARY_MEETING_ROOT_ENV_LOCAL_MUTATED=false"
 echo "SECRETARY_MEETING_SECRETS_PRINTED=false"
 echo "SECRETARY_MEETING_LOCAL_OPTIONAL_SERVICES_EXCLUDED=realtime,logflare,vector"
 
-# Secretary certification uses local Postgres + the REST/API surface only. Realtime,
-# Logflare analytics, and Vector are unrelated optional services and must not make a
-# Secretary behavior certification fail when one of their health checks is unstable.
 START_LOG="$WORKDIR/supabase-start.log"
 if ! supabase start --workdir "$WORKDIR" -x realtime,logflare,vector >"$START_LOG" 2>&1; then
   echo "SECRETARY_MEETING_LOCAL_SUPABASE_START=FAIL"
@@ -143,9 +127,6 @@ fi
 
 supabase db reset --local --workdir "$WORKDIR"
 
-# Supabase CLI documents `status -o env` as the local connection export surface.
-# Capture it without printing and expose only the local API URL + service-role key to
-# Secretary local certification scripts.
 STATUS_ENV="$(supabase status -o env --workdir "$WORKDIR" 2>/dev/null)"
 eval "$STATUS_ENV"
 LOCAL_API_URL="${API_URL:-${SUPABASE_URL:-}}"
@@ -176,6 +157,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-slot-optimization-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-candidate-generation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-booked-meeting-changes-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-recurring-meetings-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

@@ -13,30 +13,8 @@ VOCAL_AIFF="$FIXTURE_DIR/vocal-source.aiff"
 PROVISION_OUTPUT="$RUN_ROOT/music-separator-provision.json"
 PREFLIGHT_OUTPUT="$RUN_ROOT/music-separator-preflight.json"
 BENCHMARK_OUTPUT="$RUN_ROOT/music-separator-benchmark.json"
-BENCHMARK_LOG="$RUN_ROOT/music-separator-benchmark.log"
 ECONOMICS_OUTPUT="$RUN_ROOT/music-separator-economics.json"
 HUMAN_REVIEW_OUTPUT="$RUN_ROOT/music-separator-human-review.json"
-SUBMISSION_RECEIPT="$RUN_ROOT/music-separator-submission-receipt.json"
-SLOT_STATE_FILE="$RUN_ROOT/music-separator-slot-handoff.json"
-SLOT_ACQUIRE_OUTPUT="$RUN_ROOT/music-separator-slot-acquire.json"
-SLOT_RESTORE_OUTPUT="$RUN_ROOT/music-separator-slot-restore.json"
-MUSIC_SLOT_ACQUIRED=NO
-
-MUSIC_OWNED_PATHS=(
-  "services/avantiqo-music-separator-engine"
-  "scripts/run-avantiqo-music-separator-certification-local.sh"
-  "scripts/certify-avantiqo-music-separator-local.sh"
-  "scripts/run-avantiqo-music-separator-benchmark-local.mjs"
-  "scripts/benchmark-avantiqo-music-separator.mjs"
-  "scripts/avantiqo-music-separator-economics.mjs"
-  "scripts/prepare-avantiqo-music-separator-human-review.mjs"
-  "scripts/preflight-avantiqo-music-separator-runpod-local.mjs"
-  "scripts/provision-avantiqo-music-separator-runpod-local.mjs"
-  "scripts/handoff-avantiqo-music-generation-slot-to-separator-local.mjs"
-  "audits/results/avantiqo-music-separator-worker-image.json"
-  "lib/creative/runtime/engines/MusicEngine.js"
-  "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicSeparatorProvider.js"
-)
 
 fail() {
   echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_CERTIFICATION=FAIL"
@@ -44,6 +22,7 @@ fail() {
   echo "AVANTIQO_MUSIC_SEPARATOR_PROVIDER_JOB_SUBMITTED_BY_FAILURE_HANDLER=false"
   echo "AVANTIQO_MUSIC_SEPARATOR_PRODUCTION_DEPLOY_PERFORMED=false"
   echo "AVANTIQO_MUSIC_SEPARATOR_PRICING_ACTIVATION_PERFORMED=false"
+  echo "AVANTIQO_MUSIC_SEPARATOR_SECRET_VALUES_PRINTED=false"
   exit 1
 }
 
@@ -51,118 +30,38 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "$2"
 }
 
-ensure_music_runtime_dependencies() {
-  if node --input-type=module <<'NODE' >/dev/null 2>&1
-await import("@next/env");
-await import("@supabase/supabase-js");
-NODE
-  then
-    echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_DEPENDENCIES=READY"
-    return 0
-  fi
-
-  require_cmd npm "NPM_REQUIRED_FOR_MUSIC_RUNTIME_DEPENDENCIES"
-  echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_DEPENDENCIES=INSTALLING_TARGETED_NO_SAVE"
-  npm install --no-save --package-lock=false @next/env@14.2.35 @supabase/supabase-js@2.105.4 >/dev/null \
-    || fail "MUSIC_RUNTIME_DEPENDENCY_INSTALL_FAILED"
-
-  node --input-type=module <<'NODE' >/dev/null 2>&1
-await import("@next/env");
-await import("@supabase/supabase-js");
-NODE
-  [ "$?" -eq 0 ] || fail "MUSIC_RUNTIME_DEPENDENCY_IMPORT_FAILED"
-  echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_DEPENDENCIES=READY"
+approved() {
+  [ "${!1:-}" = "YES" ] || fail "$1=YES_REQUIRED"
 }
 
-sync_main_before_spend() {
-  git fetch origin main >/dev/null 2>&1 || fail "FETCH_MAIN_FAILED"
-  local branch head remote relation ahead changed
-  branch="$(git branch --show-current)"
-  [ "$branch" = "main" ] || fail "MAIN_BRANCH_REQUIRED:$branch"
-  head="$(git rev-parse HEAD)"
-  remote="$(git rev-parse origin/main)"
-  relation="$(git rev-list --left-right --count "$head...$remote")"
-  ahead="$(printf '%s\n' "$relation" | awk '{print $1}')"
-  [ "${ahead:-0}" = "0" ] || fail "LOCAL_MAIN_DIVERGED_FROM_ORIGIN_MAIN"
-  if [ "$head" != "$remote" ]; then
-    changed="$(git diff --name-only "$head" "$remote" -- "${MUSIC_OWNED_PATHS[@]}")"
-    [ -z "$changed" ] || fail "MUSIC_INPUTS_CHANGED_ON_MAIN:$changed"
-    git merge --ff-only origin/main >/dev/null 2>&1 || fail "FAST_FORWARD_MAIN_FAILED"
-  fi
-  git status --porcelain --untracked-files=no -- "${MUSIC_OWNED_PATHS[@]}" | grep -q . \
-    && fail "MUSIC_OWNED_FILES_HAVE_LOCAL_CHANGES" || true
-}
-
-write_submission_receipt() {
-  local status="$1"
-  local job_id=""
-  if [ -f "$BENCHMARK_LOG" ]; then
-    job_id="$(awk -F= '/^AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_JOB_ID=/{print $2; exit}' "$BENCHMARK_LOG" | tr -d '\r\n')"
-  fi
-  if [ -n "$job_id" ]; then
-    JOB_ID="$job_id" BENCHMARK_STATUS="$status" RECEIPT_PATH="$SUBMISSION_RECEIPT" node --input-type=module <<'NODE'
-import { writeFile } from "node:fs/promises";
-const receipt = {
-  success: true,
-  contract: "AVANTIQO_MUSIC_SEPARATOR_LOCAL_SUBMISSION_RECEIPT_V1",
-  created_at: new Date().toISOString(),
-  provider_job_submitted: true,
-  job_id: process.env.JOB_ID,
-  benchmark_exit_status: Number(process.env.BENCHMARK_STATUS || 0),
-  production_deploy_performed: false,
-  pricing_activation_performed: false,
-  secrets_printed: false,
-};
-await writeFile(process.env.RECEIPT_PATH, `${JSON.stringify(receipt, null, 2)}\n`, "utf8");
-NODE
-  fi
-}
-
-restore_music_slot() {
-  AVANTIQO_MUSIC_SEPARATOR_SLOT_HANDOFF_APPROVED=YES \
-  AVANTIQO_MUSIC_SEPARATOR_SLOT_STATE_FILE="$SLOT_STATE_FILE" \
-  node scripts/handoff-avantiqo-music-generation-slot-to-separator-local.mjs --restore | tee "$SLOT_RESTORE_OUTPUT"
-}
-
-restore_music_slot_on_exit() {
-  local original_status=$?
-  trap - EXIT
-  if [ "$MUSIC_SLOT_ACQUIRED" = "YES" ]; then
-    set +e
-    restore_music_slot
-    local restore_status=$?
-    set -e
-    if [ "$restore_status" -ne 0 ]; then
-      echo "AVANTIQO_MUSIC_SEPARATOR_SLOT_EMERGENCY_RESTORE=FAIL"
-      echo "AVANTIQO_MUSIC_SEPARATOR_SLOT_STATE_FILE=$SLOT_STATE_FILE"
-      exit 1
-    fi
-    echo "AVANTIQO_MUSIC_SEPARATOR_SLOT_EMERGENCY_RESTORE=PASS"
-  fi
-  exit "$original_status"
-}
-
+approved AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SPEND_APPROVED
+approved AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_RIGHTS_APPROVED
 require_cmd git "GIT_REQUIRED"
 require_cmd node "NODE_REQUIRED"
 require_cmd ffmpeg "FFMPEG_REQUIRED"
 require_cmd ffprobe "FFPROBE_REQUIRED"
+
+branch="$(git branch --show-current)"
+[ "$branch" = "main" ] || fail "MAIN_BRANCH_REQUIRED:$branch"
+git fetch origin main >/dev/null 2>&1 || fail "FETCH_MAIN_FAILED"
+git merge --ff-only origin/main >/dev/null 2>&1 || fail "FAST_FORWARD_MAIN_FAILED"
+
 mkdir -p "$RUN_ROOT" "$FIXTURE_DIR" "$OUTPUT_DIR"
 chmod 700 "$RUN_ROOT" "$FIXTURE_DIR" "$OUTPUT_DIR" 2>/dev/null || true
 
-if [ -f "$SUBMISSION_RECEIPT" ]; then
-  if node --input-type=module - "$SUBMISSION_RECEIPT" <<'NODE'
-import { readFile } from "node:fs/promises";
-const receipt = JSON.parse(await readFile(process.argv[2], "utf8"));
-process.exit(receipt?.provider_job_submitted === true ? 0 : 1);
+if ! node --input-type=module <<'NODE' >/dev/null 2>&1
+await import("@next/env");
+await import("@supabase/supabase-js");
 NODE
-  then
-    fail "EXISTING_PROVIDER_SUBMISSION_RECEIPT_REVIEW_REQUIRED:$SUBMISSION_RECEIPT"
-  fi
+then
+  require_cmd npm "NPM_REQUIRED"
+  npm install --no-save --package-lock=false @next/env@14.2.35 @supabase/supabase-js@2.105.4 >/dev/null \
+    || fail "MUSIC_RUNTIME_DEPENDENCY_INSTALL_FAILED"
 fi
 
-sync_main_before_spend
-ensure_music_runtime_dependencies
-AVANTIQO_PROJECT_ROOT="$ROOT_DIR" bash scripts/repair-avantiqo-runpod-env-local.sh
+AVANTIQO_PROJECT_ROOT="$ROOT_DIR" bash scripts/repair-avantiqo-runpod-env-local.sh >/tmp/avantiqo-music-separator-env-repair.log \
+  || fail "RUNPOD_ENV_REPAIR_FAILED"
+grep '^AVANTIQO_' /tmp/avantiqo-music-separator-env-repair.log || true
 
 rm -f "$VOCAL_WAV" "$VOCAL_AIFF" "$SOURCE_WAV"
 if command -v espeak-ng >/dev/null 2>&1; then
@@ -185,54 +84,37 @@ ffmpeg -loglevel error -y \
   -filter_complex "[0:a]atrim=0:32,volume=0.9[v];[1:a]volume=0.16[b];[2:a]volume=0.09[o1];[3:a]volume=0.07[o2];[4:a]highpass=f=1200,lowpass=f=9000,volume=0.035[n];[v][b][o1][o2][n]amix=inputs=5:duration=first:normalize=0,alimiter=limit=0.92,aresample=44100[a]" \
   -map "[a]" -ac 2 -c:a pcm_s24le "$SOURCE_WAV"
 
-SOURCE_DURATION="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SOURCE_WAV")"
-echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_FIXTURE_DURATION_SECONDS=$SOURCE_DURATION"
 echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_FIXTURE_RIGHTS_OWNED=true"
 
-echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_CERTIFICATION_PROVISION=START"
 AVANTIQO_MUSIC_SEPARATOR_PROVISION_APPROVED=YES \
 AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_QUOTA_MODE=YES \
 AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX=0 \
 AVANTIQO_MUSIC_SEPARATOR_RUNPOD_IDLE_TIMEOUT_SECONDS=5 \
-node scripts/provision-avantiqo-music-separator-runpod-local.mjs --apply | tee "$PROVISION_OUTPUT"
+node scripts/provision-avantiqo-music-separator-runpod-local.mjs --apply >"$PROVISION_OUTPUT"
 
-node scripts/preflight-avantiqo-music-separator-runpod-local.mjs | tee "$PREFLIGHT_OUTPUT"
+node --input-type=module "$PROVISION_OUTPUT" <<'NODE'
+import { readFileSync } from "node:fs";
+const result = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const endpoint = result.separator_endpoint || {};
+if (result.success !== true) throw new Error("AVANTIQO_MUSIC_SEPARATOR_PROVISION_REQUIRED");
+if (endpoint.workers_min !== 0 || endpoint.workers_max !== 0) throw new Error("AVANTIQO_MUSIC_SEPARATOR_ENDPOINT_MUST_REST_0_0");
+if ((endpoint.network_volume_ids || []).length !== 0) throw new Error("AVANTIQO_MUSIC_SEPARATOR_NETWORK_VOLUME_FORBIDDEN");
+if (result.provider_job_submitted !== false) throw new Error("AVANTIQO_MUSIC_SEPARATOR_PROVISION_JOB_FORBIDDEN");
+console.log("AVANTIQO_MUSIC_SEPARATOR_PARKED_ENDPOINT=PASS");
+NODE
 
-# The separator is deliberately created parked at max=0. Recheck main, then lend
-# exactly one idle capacity slot from the Music generation endpoint to the Music
-# separator. No non-Music endpoint participates in this certification handoff.
-sync_main_before_spend
-AVANTIQO_MUSIC_SEPARATOR_SLOT_HANDOFF_APPROVED=YES \
-AVANTIQO_MUSIC_SEPARATOR_SLOT_STATE_FILE="$SLOT_STATE_FILE" \
-node scripts/handoff-avantiqo-music-generation-slot-to-separator-local.mjs --acquire | tee "$SLOT_ACQUIRE_OUTPUT"
-MUSIC_SLOT_ACQUIRED=YES
-trap restore_music_slot_on_exit EXIT
+node scripts/preflight-avantiqo-music-separator-runpod-local.mjs >"$PREFLIGHT_OUTPUT"
 
-rm -f "$BENCHMARK_LOG" "$BENCHMARK_OUTPUT"
-set +e
+AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED=YES \
 AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SPEND_APPROVED=YES \
 AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_RIGHTS_APPROVED=YES \
 AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SOURCE_FILE="$SOURCE_WAV" \
 AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_OUTPUT="$BENCHMARK_OUTPUT" \
-node scripts/run-avantiqo-music-separator-benchmark-local.mjs 2>&1 | tee "$BENCHMARK_LOG"
-BENCHMARK_STATUS=${PIPESTATUS[0]}
-set -e
-write_submission_receipt "$BENCHMARK_STATUS"
-
-# Always return the borrowed Music generation slot before economics, review, or
-# surfacing a benchmark failure. Separator remains parked and uncertified.
-set +e
-restore_music_slot
-RESTORE_STATUS=$?
-set -e
-if [ "$RESTORE_STATUS" -ne 0 ]; then
-  fail "MUSIC_SLOT_RESTORE_FAILED:$SLOT_STATE_FILE"
-fi
-MUSIC_SLOT_ACQUIRED=NO
-trap - EXIT
-echo "AVANTIQO_MUSIC_SEPARATOR_SLOT_RESTORE=PASS"
-
-[ "$BENCHMARK_STATUS" -eq 0 ] || fail "CONTROLLED_BENCHMARK_FAILED:exit=$BENCHMARK_STATUS"
+node scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs \
+  --lane=music-separator \
+  --ttl-ms=1800000 \
+  -- \
+  node scripts/benchmark-avantiqo-music-separator-safe-lease-local.mjs
 
 AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_OUTPUT="$BENCHMARK_OUTPUT" \
 AVANTIQO_MUSIC_SEPARATOR_ECONOMICS_OUTPUT="$ECONOMICS_OUTPUT" \
@@ -249,7 +131,6 @@ BENCHMARK_PATH="$BENCHMARK_OUTPUT" OUTPUT_DIR="$OUTPUT_DIR" node --input-type=mo
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { loadAvantiqoEnv } from "./scripts/load-avantiqo-env.mjs";
 import { createClient } from "@supabase/supabase-js";
-
 loadAvantiqoEnv();
 const benchmark = JSON.parse(await readFile(process.env.BENCHMARK_PATH, "utf8"));
 const references = benchmark?.observations?.[0]?.storage_references || {};
@@ -257,19 +138,16 @@ if (!Object.keys(references).length) throw new Error("MUSIC_SEPARATOR_REVIEW_OUT
 const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
 const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 if (!supabaseUrl || !serviceRoleKey) throw new Error("MUSIC_SEPARATOR_REVIEW_SUPABASE_BINDINGS_REQUIRED");
-const supabase = createClient(supabaseUrl, serviceRoleKey, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-});
+const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 await mkdir(process.env.OUTPUT_DIR, { recursive: true });
 for (const [key, reference] of Object.entries(references)) {
   const prefix = "storage://creative-assets/";
   if (!String(reference).startsWith(prefix)) throw new Error(`MUSIC_SEPARATOR_REVIEW_REFERENCE_INVALID:${key}`);
-  const path = String(reference).slice(prefix.length);
-  const { data, error } = await supabase.storage.from("creative-assets").download(path);
+  const storagePath = String(reference).slice(prefix.length);
+  const { data, error } = await supabase.storage.from("creative-assets").download(storagePath);
   if (error) throw error;
-  const bytes = Buffer.from(await data.arrayBuffer());
   const extension = key.endsWith("mp3") ? "mp3" : "wav";
-  await writeFile(`${process.env.OUTPUT_DIR}/${key}.${extension}`, bytes);
+  await writeFile(`${process.env.OUTPUT_DIR}/${key}.${extension}`, Buffer.from(await data.arrayBuffer()));
 }
 NODE
 
@@ -285,16 +163,12 @@ if (review?.automatic_human_approval_forbidden !== true) throw new Error("MUSIC_
 if (benchmark?.certification?.production_certified !== false) throw new Error("MUSIC_SEPARATOR_BENCHMARK_MUST_NOT_CERTIFY_PRODUCTION");
 if (economics?.pricing_activation_performed !== false) throw new Error("MUSIC_SEPARATOR_PRICING_MUST_NOT_ACTIVATE");
 if (review?.activation_allowed !== false) throw new Error("MUSIC_SEPARATOR_REVIEW_MUST_NOT_ACTIVATE");
-console.log("AVANTIQO_MUSIC_SEPARATOR_TECHNICAL_BENCHMARK=PASS");
-console.log("AVANTIQO_MUSIC_SEPARATOR_ECONOMICS=MEASURED");
-console.log("AVANTIQO_MUSIC_SEPARATOR_HUMAN_REVIEW=PENDING");
-console.log("AVANTIQO_MUSIC_SEPARATOR_PRODUCTION_ACTIVATION=false");
 NODE
 
-echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_CERTIFICATION=HUMAN_REVIEW_REQUIRED"
-echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_CERTIFICATION_ROOT=$RUN_ROOT"
-echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_REVIEW_AUDIO_DIR=$OUTPUT_DIR"
-echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_HUMAN_REVIEW_FILE=$HUMAN_REVIEW_OUTPUT"
-echo "AVANTIQO_MUSIC_SEPARATOR_PRODUCTION_DEPLOY_PERFORMED=false"
-echo "AVANTIQO_MUSIC_SEPARATOR_PRICING_ACTIVATION_PERFORMED=false"
-echo "AVANTIQO_MUSIC_SEPARATOR_PROVIDER_CERTIFICATION_MUTATION_PERFORMED=false"
+echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_CERTIFICATION=PASS"
+echo "AVANTIQO_MUSIC_SEPARATOR_SAFE_LEASE_CONTRACT=AVANTIQO_RUNPOD_SAFE_LEASE_V2"
+echo "AVANTIQO_MUSIC_SEPARATOR_SAFE_LEASE_LANE=music-separator"
+echo "AVANTIQO_MUSIC_SEPARATOR_HUMAN_REVIEW=PENDING"
+echo "AVANTIQO_MUSIC_SEPARATOR_PRODUCTION_ACTIVATION=false"
+echo "AVANTIQO_MUSIC_SEPARATOR_PRICING_ACTIVATION=false"
+echo "AVANTIQO_MUSIC_SEPARATOR_SECRET_VALUES_PRINTED=false"

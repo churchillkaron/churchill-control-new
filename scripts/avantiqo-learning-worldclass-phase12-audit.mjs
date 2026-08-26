@@ -56,7 +56,10 @@ hasAll(content.policy, [
 
 hasAll(content.trainingCandidate, [
   "AVANTIQO_TRAINING_CANDIDATE_V1",
-  "training_ready: false",
+  "training_ready: metadata.training_ready === true",
+  "training_ready: decision.approved",
+  "training_ready_means_dataset_eligible_only: true",
+  "automatic_training_started: false",
   "automatic_model_weight_mutation: false",
 ], "training candidate boundary");
 
@@ -177,6 +180,9 @@ const result = {
     benchmark_matched_ab_single_provider_job: true,
     benchmark_global_one_job_per_lease_preserved: true,
     candidate_canary_inside_isolated_lease: true,
+    training_candidate_requires_explicit_true_readiness: true,
+    training_candidate_readiness_is_benchmark_decision_bound: true,
+    training_candidate_ready_is_dataset_eligibility_only: true,
     training_candidate_is_not_weight_mutation_authority: true,
     dataset_is_not_training_execution_authority: true,
     canary_is_not_production_release_authority: true,

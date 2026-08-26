@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import LocalHeyAvantiqoWakeBridge from "@/components/operator/LocalHeyAvantiqoWakeBridge";
 import SecretaryMeetingPresenceBridge from "@/components/operator/SecretaryMeetingPresenceBridge";
 import WorkspaceTopBar from "@/components/workspace/WorkspaceTopBar";
@@ -39,11 +41,30 @@ function restoreLegacyWakeTemplateTrust() {
 export default function PlatformShell({
   children,
 }) {
+  const [secretaryMeetingCaptureActive, setSecretaryMeetingCaptureActive] = useState(false);
+
   // This runs before the wake bridge mounts on the client. Older Avantiqo
   // templates were deliberately trained by the user but predate the later
   // verified_semantic metadata flag. Preserve that proven local training
   // instead of forcing every wake attempt through server transcription.
   restoreLegacyWakeTemplateTrust();
+
+  useEffect(() => {
+    function handleSecretaryMeetingCapture(event) {
+      setSecretaryMeetingCaptureActive(event?.detail?.active === true);
+    }
+
+    window.addEventListener(
+      "avantiqo:secretary-meeting-capture",
+      handleSecretaryMeetingCapture,
+    );
+    return () => {
+      window.removeEventListener(
+        "avantiqo:secretary-meeting-capture",
+        handleSecretaryMeetingCapture,
+      );
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -54,7 +75,7 @@ export default function PlatformShell({
       </main>
 
       <SecretaryMeetingPresenceBridge />
-      <LocalHeyAvantiqoWakeBridge />
+      {!secretaryMeetingCaptureActive ? <LocalHeyAvantiqoWakeBridge /> : null}
     </div>
   );
 }

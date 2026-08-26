@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V2";
+const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V3";
 
 const files = Object.freeze({
+  qualityPolicy: "lib/code/runtime/CodeAIWorldClassQualityPolicy.js",
   worldclass: "lib/code/runtime/CodeAIWorldClassRuntime.js",
   worldclassCommitGuard: "lib/code/runtime/CodeAIWorldClassCommitGuard.js",
   autonomousCapability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
@@ -16,21 +17,17 @@ const files = Object.freeze({
 });
 
 async function source(path) {
-  try {
-    return await readFile(path, "utf8");
-  } catch (error) {
-    throw new Error(`${CONTRACT}_FILE_MISSING:${path}:${error?.code || "READ_FAILED"}`);
-  }
+  try { return await readFile(path, "utf8"); }
+  catch (error) { throw new Error(`${CONTRACT}_FILE_MISSING:${path}:${error?.code || "READ_FAILED"}`); }
 }
 
 function requireMarkers(label, content, markers) {
   const missing = markers.filter((marker) => !content.includes(marker));
-  if (missing.length) {
-    throw new Error(`${CONTRACT}_${label}_MARKERS_MISSING:${missing.join("|")}`);
-  }
+  if (missing.length) throw new Error(`${CONTRACT}_${label}_MARKERS_MISSING:${missing.join("|")}`);
 }
 
 const [
+  qualityPolicy,
   worldclass,
   worldclassCommitGuard,
   autonomousCapability,
@@ -43,22 +40,30 @@ const [
   leasePolicySource,
 ] = await Promise.all(Object.values(files).map(source));
 
-requireMarkers("WORLDCLASS", worldclass, [
+requireMarkers("QUALITY_POLICY", qualityPolicy, [
   "AVANTIQO_CODE_AI_WORLDCLASS_QUALITY_V1",
   "CODE_AI_WORLDCLASS_FINAL_DIFF_REVIEW_REQUIRED",
   "CODE_AI_WORLDCLASS_FRESH_VERIFICATION_GATES_REQUIRED",
-  "lastEditPosition",
-  "lastDiffPosition",
   "freshVerificationEvidence",
-  "verificationFamily",
+  "codeAIVerificationFamily",
   "fresh_verification_family_count",
-  "requiredVerificationGateCount",
+  "requiredCodeAIVerificationGateCount",
   'if (risk === "critical") return 3',
   'if (risk === "high") return 2',
+  "source_manifest_matches_workspace",
+  "authorization_effect: \"NONE\"",
+]);
+if (/Sandbox|ServiceExecutionRuntime|RUNPOD|fetch\s*\(/.test(qualityPolicy)) {
+  throw new Error(`${CONTRACT}_QUALITY_POLICY_MUST_REMAIN_PURE`);
+}
+
+requireMarkers("WORLDCLASS_RUNTIME", worldclass, [
+  "executeAutonomousCodeMission",
+  "CodeAIWorldClassQualityPolicy.js",
+  "assessCodeAIWorldClassQuality",
   "MAX_QUALITY_CONVERGENCE_PASSES",
   "canAutoConverge",
-  "source_manifest_matches_workspace",
-  "executeAutonomousCodeMission",
+  "resume_state: state",
 ]);
 
 requireMarkers("WORLDCLASS_COMMIT_GUARD", worldclassCommitGuard, [
@@ -92,11 +97,7 @@ requireMarkers("COMMIT_CAPABILITY", commitCapability, [
 const commitScopeIndex = commitCapability.indexOf("assertMissionScope(missionState, context)");
 const worldclassCommitIndex = commitCapability.indexOf("assertCodeAIWorldClassCommitReady(missionState)");
 const recoveryIndex = commitCapability.indexOf("await recoverPriorAttempt");
-if (
-  commitScopeIndex < 0 ||
-  worldclassCommitIndex <= commitScopeIndex ||
-  recoveryIndex <= worldclassCommitIndex
-) {
+if (commitScopeIndex < 0 || worldclassCommitIndex <= commitScopeIndex || recoveryIndex <= worldclassCommitIndex) {
   throw new Error(`${CONTRACT}_WORLDCLASS_COMMIT_GUARD_MUST_PRECEDE_RECOVERY_OR_WRITE`);
 }
 
@@ -150,21 +151,11 @@ requireMarkers("LEASE", lease, [
 ]);
 
 const leasePolicy = JSON.parse(leasePolicySource);
-if (leasePolicy.contract !== "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2") {
-  throw new Error(`${CONTRACT}_LEASE_POLICY_CONTRACT_INVALID`);
-}
-if (leasePolicy.resting_workers_min !== 0 || leasePolicy.resting_workers_max !== 0) {
-  throw new Error(`${CONTRACT}_LEASE_REST_STATE_MUST_BE_0_0`);
-}
-if (leasePolicy.workers_min_one_allowed !== false) {
-  throw new Error(`${CONTRACT}_WORKERS_MIN_ONE_MUST_BE_FORBIDDEN`);
-}
-if (leasePolicy.parallel_work_allowed !== true || leasePolicy.max_concurrent_paid_leases < 2) {
-  throw new Error(`${CONTRACT}_BOUNDED_PARALLEL_WORK_REQUIRED`);
-}
-if (!leasePolicy.lanes?.code) {
-  throw new Error(`${CONTRACT}_CODE_LEASE_LANE_REQUIRED`);
-}
+if (leasePolicy.contract !== "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2") throw new Error(`${CONTRACT}_LEASE_POLICY_CONTRACT_INVALID`);
+if (leasePolicy.resting_workers_min !== 0 || leasePolicy.resting_workers_max !== 0) throw new Error(`${CONTRACT}_LEASE_REST_STATE_MUST_BE_0_0`);
+if (leasePolicy.workers_min_one_allowed !== false) throw new Error(`${CONTRACT}_WORKERS_MIN_ONE_MUST_BE_FORBIDDEN`);
+if (leasePolicy.parallel_work_allowed !== true || leasePolicy.max_concurrent_paid_leases < 2) throw new Error(`${CONTRACT}_BOUNDED_PARALLEL_WORK_REQUIRED`);
+if (!leasePolicy.lanes?.code) throw new Error(`${CONTRACT}_CODE_LEASE_LANE_REQUIRED`);
 
 const worldclassImport = autonomousCapability.indexOf("executeWorldClassCodeMission");
 const executionCall = autonomousCapability.indexOf("await executeWorldClassCodeMission");
@@ -172,15 +163,13 @@ const attestationCall = autonomousCapability.indexOf("result.state = attestCodeM
 if (worldclassImport < 0 || executionCall < 0 || attestationCall <= executionCall) {
   throw new Error(`${CONTRACT}_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
 }
-
-if (/workersMin\s*:\s*1/.test(leasePolicySource)) {
-  throw new Error(`${CONTRACT}_POLICY_MUST_NEVER_SET_WORKERS_MIN_1`);
-}
+if (/workersMin\s*:\s*1/.test(leasePolicySource)) throw new Error(`${CONTRACT}_POLICY_MUST_NEVER_SET_WORKERS_MIN_1`);
 
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   verified: {
+    pure_quality_policy_without_runtime_dependencies: true,
     mandatory_worldclass_autonomous_gate: true,
     stale_verification_rejected_by_position: true,
     final_diff_review_required: true,

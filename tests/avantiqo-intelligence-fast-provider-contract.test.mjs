@@ -10,20 +10,18 @@ const provider = fs.readFileSync(
   "utf8",
 );
 
-test("Fast Intelligence uses the owned Instruct lane and native RunPod vLLM proxy", () => {
+test("Fast Intelligence uses the owned Instruct lane and supported RunPod OpenAI transport", () => {
   assert.match(provider, /Qwen\/Qwen3-30B-A3B-Instruct-2507/);
   assert.match(provider, /CANONICAL_ENDPOINT_NAME = "avantiqo-intelligence-fast-v1"/);
   assert.match(provider, /execution_lane: "fast"/);
   assert.match(provider, /reasoning_mode: "NON_THINKING_ONLY"/);
   assert.match(provider, /raw_reasoning_persisted: false/);
-  assert.match(provider, /RUNPOD_NATIVE_ASYNC_VLLM_PROXY/);
-  assert.match(provider, /`\$\{apiBase\}\/run`/);
-  assert.match(provider, /route: "\/v1\/chat\/completions"/);
+  assert.match(provider, /RUNPOD_OPENAI_COMPATIBLE/);
+  assert.match(provider, /baseUrl: `\$\{RUNPOD_API_BASE\}\/\$\{endpointId\}\/openai\/v1`/);
+  assert.match(provider, /`\$\{baseUrl\}\/chat\/completions`/);
   assert.match(provider, /method: "POST"/);
-  assert.match(provider, /`\$\{apiBase\}\/status\/\$\{encodeURIComponent\(jobId\)\}`/);
-  assert.match(provider, /`\$\{apiBase\}\/cancel\/\$\{encodeURIComponent\(jobId\)\}`/);
-  assert.match(provider, /AVANTIQO_INTELLIGENCE_FAST_NATIVE_JOB_TIMEOUT/);
-  assert.match(provider, /openAiResponseFromProxyOutput/);
+  assert.doesNotMatch(provider, /`\$\{apiBase\}\/run`/);
+  assert.doesNotMatch(provider, /RUNPOD_NATIVE_ASYNC_VLLM_PROXY/);
 });
 
 test("Fast Intelligence fails closed on reasoning transport and requires governed context", () => {

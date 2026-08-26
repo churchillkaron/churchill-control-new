@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { MicOff, Music2, Scissors } from "lucide-react";
+import { MicOff, Music2, RefreshCw, Scissors } from "lucide-react";
 
 import MusicWorkspace from "./MusicWorkspace";
 import MusicBackingTrackPanel from "./MusicBackingTrackPanel";
 import MusicStemsPanel from "./MusicStemsPanel";
+import MusicRemixPanel from "./MusicRemixPanel";
 
 const MODES = Object.freeze([
   { id: "compose", label: "Compose", icon: Music2 },
+  { id: "remix", label: "Remix", icon: RefreshCw },
   { id: "stems", label: "Stems", icon: Scissors },
   { id: "backing", label: "Backing Track", icon: MicOff },
 ]);
@@ -25,7 +27,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-[9px] font-semibold uppercase tracking-[0.24em] text-[#d6a66a]/75">Avantiqo Music Studio</div>
-            <div className="mt-1 text-xs text-white/32">Compose original music, separate stems, or build performance backing tracks from confirmed source audio.</div>
+            <div className="mt-1 text-xs text-white/32">Compose, remix, separate stems, or build performance backing tracks with the owned Music engine.</div>
           </div>
           <div className="flex rounded-xl border border-white/8 bg-black/35 p-1">
             {MODES.map((item) => {
@@ -49,6 +51,14 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
 
       {mode === "compose" ? (
         <MusicWorkspace runtime={runtime} editor={editor} />
+      ) : mode === "remix" ? (
+        <div className="mx-auto max-w-6xl p-6">
+          <MusicRemixPanel
+            organizationId={organizationId}
+            projectId={project?.id || null}
+            missionId={mission?.id || null}
+          />
+        </div>
       ) : mode === "stems" ? (
         <div className="mx-auto max-w-6xl p-6">
           <MusicStemsPanel

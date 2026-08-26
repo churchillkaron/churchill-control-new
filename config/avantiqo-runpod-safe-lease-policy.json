@@ -19,10 +19,17 @@
   "workers_min_one_allowed": false,
   "production_deploy_required": false,
   "parallel_work_allowed": true,
-  "intelligence_lanes": {
-    "deep": "avantiqo-intelligence-v1",
-    "fast": "avantiqo-intelligence-fast-v1",
-    "trainer": "avantiqo-intelligence-trainer-v1",
-    "fast-candidate": "avantiqo-intelligence-fast-replacement-candidate-v1"
+  "lanes": {
+    "code": "avantiqo-code-v1",
+    "intelligence-deep": "avantiqo-intelligence-v1",
+    "intelligence-fast": "avantiqo-intelligence-fast-v1",
+    "intelligence-trainer": "avantiqo-intelligence-trainer-v1",
+    "intelligence-fast-candidate": "avantiqo-intelligence-fast-replacement-candidate-v1",
+    "image": "avantiqo-image-v1",
+    "audio": "avantiqo-audio-v1",
+    "voice-tts": "avantiqo-voice-tts-v1",
+    "voice-stt": "avantiqo-voice-stt-v1",
+    "lipsync": "avantiqo-lipsync-v1.",
+    "cinema": "avantiqo-cinema-v1"
   }
 }

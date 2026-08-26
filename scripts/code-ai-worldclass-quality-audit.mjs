@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V1";
+const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V2";
 
 const files = Object.freeze({
   worldclass: "lib/code/runtime/CodeAIWorldClassRuntime.js",
+  worldclassCommitGuard: "lib/code/runtime/CodeAIWorldClassCommitGuard.js",
   autonomousCapability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
+  commitCapability: "lib/platform/capabilities/createCodeAICommitCapability.js",
   autonomous: "lib/code/runtime/CodeAIAutonomousRuntime.js",
   mission: "lib/code/runtime/CodeAIMissionRuntime.js",
   workspace: "lib/code/runtime/CodeWorkspaceSandboxRuntime.js",
@@ -30,7 +32,9 @@ function requireMarkers(label, content, markers) {
 
 const [
   worldclass,
+  worldclassCommitGuard,
   autonomousCapability,
+  commitCapability,
   autonomous,
   mission,
   workspace,
@@ -46,11 +50,25 @@ requireMarkers("WORLDCLASS", worldclass, [
   "lastEditPosition",
   "lastDiffPosition",
   "freshVerificationEvidence",
+  "verificationFamily",
+  "fresh_verification_family_count",
   "requiredVerificationGateCount",
-  "critical",
-  "high",
+  'if (risk === "critical") return 3',
+  'if (risk === "high") return 2',
+  "MAX_QUALITY_CONVERGENCE_PASSES",
+  "canAutoConverge",
   "source_manifest_matches_workspace",
   "executeAutonomousCodeMission",
+]);
+
+requireMarkers("WORLDCLASS_COMMIT_GUARD", worldclassCommitGuard, [
+  "AVANTIQO_CODE_AI_WORLDCLASS_COMMIT_GUARD_V1",
+  "AVANTIQO_CODE_AI_WORLDCLASS_QUALITY_V1",
+  "CODE_AI_COMMIT_WORLDCLASS_QUALITY_EVIDENCE_REQUIRED",
+  "CODE_AI_COMMIT_WORLDCLASS_FINAL_DIFF_REVIEW_REQUIRED",
+  "CODE_AI_COMMIT_WORLDCLASS_SOURCE_MANIFEST_MISMATCH",
+  "fresh_verification_family_count",
+  "observedFamilies < required",
 ]);
 
 requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
@@ -61,6 +79,26 @@ requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
   "world-class-quality-gate",
   "Persistent GitHub commits remain a separate governed capability",
 ]);
+
+requireMarkers("COMMIT_CAPABILITY", commitCapability, [
+  "assertCodeAIWorldClassCommitReady",
+  "world-class-quality-required",
+  "fresh-verification-required",
+  "final-diff-review-required",
+  "worldclass_quality_verified: true",
+  "operatorRequiresConfirmation: true",
+]);
+
+const commitScopeIndex = commitCapability.indexOf("assertMissionScope(missionState, context)");
+const worldclassCommitIndex = commitCapability.indexOf("assertCodeAIWorldClassCommitReady(missionState)");
+const recoveryIndex = commitCapability.indexOf("await recoverPriorAttempt");
+if (
+  commitScopeIndex < 0 ||
+  worldclassCommitIndex <= commitScopeIndex ||
+  recoveryIndex <= worldclassCommitIndex
+) {
+  throw new Error(`${CONTRACT}_WORLDCLASS_COMMIT_GUARD_MUST_PRECEDE_RECOVERY_OR_WRITE`);
+}
 
 requireMarkers("AUTONOMOUS_RUNTIME", autonomous, [
   "Inspect/search/read before editing when evidence is insufficient.",
@@ -146,8 +184,13 @@ console.log(JSON.stringify({
     mandatory_worldclass_autonomous_gate: true,
     stale_verification_rejected_by_position: true,
     final_diff_review_required: true,
-    high_and_critical_double_verification_required: true,
+    standard_one_verification_family_required: true,
+    high_two_independent_verification_families_required: true,
+    critical_three_independent_verification_families_required: true,
+    autonomous_quality_convergence_enabled: true,
     source_manifest_workspace_convergence_required: true,
+    commit_defense_in_depth_worldclass_guard: true,
+    worldclass_commit_guard_precedes_recovery_or_write: true,
     bounded_isolated_node24_workspace: true,
     production_side_effect_commands_blocked: true,
     governed_non_force_github_commit_separated: true,

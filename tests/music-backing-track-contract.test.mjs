@@ -88,7 +88,7 @@ test("backing track uses dedicated four-stem separation and remains certificatio
   assert.deepEqual(plan.separation.backing_stems, ["drums", "bass", "other"]);
   assert.equal(plan.provider_parameters.remove_vocals, true);
   assert.equal(plan.executable, false);
-  assert.match(plan.certification, /BENCHMARK_REQUIRED/);
+  assert.equal(plan.certification, "BENCHMARK_AND_HUMAN_REVIEW_REQUIRED");
 });
 
 test("backing track normalization supports performance controls", () => {

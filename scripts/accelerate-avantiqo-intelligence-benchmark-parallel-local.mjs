@@ -10,7 +10,8 @@ const TRAINER_ENDPOINT_NAME = "avantiqo-intelligence-trainer-v1";
 const TARGET_WORKERS_MAX = 2;
 const STABILITY_DELAY_MS = 1000;
 const START_POLL_MS = 10_000;
-const START_MAX_POLLS = 30;
+const START_MAX_POLLS = 180;
+const MAX_SERVERLESS_CONCURRENCY = 10;
 const ALLOWED_SHARED_ENDPOINT_NAMES = new Set([
   "avantiqo-intelligence-v1",
   TRAINER_ENDPOINT_NAME,
@@ -60,10 +61,47 @@ function validateMain() {
   shell("git", ["fetch", "origin", "main"], "BENCHMARK_PARALLEL_GIT_FETCH_FAILED");
   const branch = shell("git", ["branch", "--show-current"], "BENCHMARK_PARALLEL_GIT_BRANCH_FAILED");
   if (branch !== "main") throw new Error(`BENCHMARK_PARALLEL_MAIN_REQUIRED:${branch || "DETACHED"}`);
-  const head = shell("git", ["rev-parse", "HEAD"], "BENCHMARK_PARALLEL_GIT_HEAD_FAILED");
-  const remote = shell("git", ["rev-parse", "origin/main"], "BENCHMARK_PARALLEL_GIT_REMOTE_FAILED");
+  let head = shell("git", ["rev-parse", "HEAD"], "BENCHMARK_PARALLEL_GIT_HEAD_FAILED");
+  let remote = shell("git", ["rev-parse", "origin/main"], "BENCHMARK_PARALLEL_GIT_REMOTE_FAILED");
   if (head !== remote) {
-    throw new Error(`BENCHMARK_PARALLEL_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin_main=${remote}`);
+    const ancestry = spawnSync("git", ["merge-base", "--is-ancestor", head, remote], {
+      cwd: process.cwd(),
+      env: process.env,
+      encoding: "utf8",
+    });
+    if (ancestry.status !== 0) {
+      throw new Error(`BENCHMARK_PARALLEL_MAIN_DIVERGED:head=${head}:origin_main=${remote}`);
+    }
+    const changed = shell(
+      "git",
+      ["diff", "--name-only", `${head}..${remote}`],
+      "BENCHMARK_PARALLEL_MAIN_DRIFT_DIFF_FAILED",
+    ).split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    const protectedPaths = new Set([
+      "scripts/accelerate-avantiqo-intelligence-benchmark-parallel-local.mjs",
+      "lib/intelligence/runtime/AvantiqoModelBenchmarkExecutionRuntime.js",
+      "lib/intelligence/runtime/AvantiqoSharedTrainerReservationGuard.js",
+      "services/avantiqo-intelligence-benchmark/handler.py",
+    ]);
+    const protectedMovement = changed.filter((path) => protectedPaths.has(path));
+    if (protectedMovement.length) {
+      throw new Error(`BENCHMARK_PARALLEL_RELEVANT_MAIN_MOVEMENT:${protectedMovement.join(",")}`);
+    }
+    shell("git", ["merge", "--ff-only", "origin/main"], "BENCHMARK_PARALLEL_MAIN_FAST_FORWARD_FAILED");
+    head = shell("git", ["rev-parse", "HEAD"], "BENCHMARK_PARALLEL_GIT_HEAD_AFTER_FAST_FORWARD_FAILED");
+    remote = shell("git", ["rev-parse", "origin/main"], "BENCHMARK_PARALLEL_GIT_REMOTE_AFTER_FAST_FORWARD_FAILED");
+    if (head !== remote) {
+      throw new Error(`BENCHMARK_PARALLEL_MAIN_FAST_FORWARD_VERIFY_FAILED:head=${head}:origin_main=${remote}`);
+    }
+    console.log(JSON.stringify({
+      contract: CONTRACT,
+      event: "AVANTIQO_INTELLIGENCE_BENCHMARK_PARALLEL_UNRELATED_MAIN_MOVEMENT_TOLERATED",
+      changed_paths: changed,
+      main_commit: head,
+      provider_jobs_submitted: false,
+      endpoint_mutation_performed: false,
+      secrets_printed: false,
+    }, null, 2));
   }
   return head;
 }
@@ -154,6 +192,25 @@ function liveManagementWorkers(endpoint = {}) {
     if (desired && !EXITED_WORKER_STATES.has(desired)) return true;
     return Boolean(status && !EXITED_WORKER_STATES.has(status));
   }).length;
+}
+async function accountConcurrencySnapshot() {
+  const endpoints = await rest("/endpoints?includeTemplate=false&includeWorkers=true");
+  if (!Array.isArray(endpoints)) throw new Error("BENCHMARK_PARALLEL_ACCOUNT_ENDPOINT_LIST_INVALID");
+  const active = endpoints
+    .map((endpoint) => ({
+      name: text(endpoint?.name, 240),
+      active_workers: liveManagementWorkers(endpoint),
+    }))
+    .filter((entry) => entry.active_workers > 0);
+  return {
+    max_serverless_concurrency: MAX_SERVERLESS_CONCURRENCY,
+    active_control_workers: active.reduce((sum, entry) => sum + entry.active_workers, 0),
+    concurrency_remaining: Math.max(
+      0,
+      MAX_SERVERLESS_CONCURRENCY - active.reduce((sum, entry) => sum + entry.active_workers, 0),
+    ),
+    active_endpoints: active,
+  };
 }
 function normalizedProviderStatus(body = {}) {
   const status = text(body?.status, 80).toUpperCase();
@@ -304,6 +361,7 @@ const beforeTemplateId = text(before?.templateId || before?.template?.id, 240);
 const beforeVolumeId = text(before?.networkVolumeId, 240);
 const beforeGpuTypeIds = list(before?.gpuTypeIds);
 const beforeWorkersMax = finite(before?.workersMax, -1);
+const accountBefore = await accountConcurrencySnapshot();
 
 console.log(JSON.stringify({
   success: true,
@@ -318,6 +376,7 @@ console.log(JSON.stringify({
   shared_peer_count: second.peers.length,
   non_benchmark_peers_parked_and_idle: true,
   stable_shared_peer_observations: 2,
+  account_concurrency: accountBefore,
   provider_jobs_submitted: false,
   provider_jobs_cancelled: false,
   production_model_promoted: false,
@@ -347,12 +406,14 @@ if (JSON.stringify(list(verified?.gpuTypeIds)) !== JSON.stringify(beforeGpuTypeI
 
 let observedBaseline = baselineStatus;
 let observedCandidate = candidateStatus;
+let lastConcurrency = accountBefore;
 for (let poll = 1; poll <= START_MAX_POLLS; poll += 1) {
   [observedBaseline, observedCandidate] = await Promise.all([
     providerStatus(baselineJobId),
     providerStatus(candidateJobId),
   ]);
   if (poll === 1 || poll % 3 === 0 || observedCandidate !== "queued") {
+    lastConcurrency = await accountConcurrencySnapshot();
     console.log(JSON.stringify({
       contract: CONTRACT,
       event: "AVANTIQO_INTELLIGENCE_BENCHMARK_PARALLEL_PROGRESS",
@@ -360,6 +421,7 @@ for (let poll = 1; poll <= START_MAX_POLLS; poll += 1) {
       workers_max: TARGET_WORKERS_MAX,
       baseline_status: observedBaseline,
       candidate_status: observedCandidate,
+      account_concurrency: lastConcurrency,
       provider_jobs_submitted: false,
       provider_jobs_cancelled: false,
       secrets_printed: false,
@@ -382,6 +444,7 @@ console.log(JSON.stringify({
   baseline_status: observedBaseline,
   candidate_status: observedCandidate,
   second_worker_started: observedCandidate !== "queued",
+  account_concurrency: lastConcurrency,
   provider_jobs_submitted: false,
   provider_jobs_cancelled: false,
   endpoint_mutation_performed: beforeWorkersMax !== TARGET_WORKERS_MAX,

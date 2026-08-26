@@ -23,7 +23,7 @@ let distributed = await readFile(distributedPath, "utf8");
 distributed = replaceRequired(
   distributed,
   `const MAX_CAS_ATTEMPTS = 4;`,
-  `const MAX_CAS_ATTEMPTS = 4;\nconst MAX_CODE_DISTRIBUTED_LEASE_TTL_MS = ${CODE_CERT_LEASE_TTL_MS.toLocaleString("en-US").replace(/,/g, "_")};`,
+  `const MAX_CAS_ATTEMPTS = 4;\nconst MAX_CODE_DISTRIBUTED_LEASE_TTL_MS = 3_600_000;`,
   "distributed-max-ttl-constant",
 );
 distributed = replaceRequired(
@@ -44,7 +44,8 @@ policy.lane_max_lease_ttl_ms = {
 await writeFile(policyPath, `${JSON.stringify(policy, null, 2)}\n`, "utf8");
 
 const packagePath = "package.json";
-let packageJson = await readFile(packagePath, "utf8");npackageJson = replaceRequired(
+let packageJson = await readFile(packagePath, "utf8");
+packageJson = replaceRequired(
   packageJson,
   `--lane=code --ttl-ms=1800000 -- node scripts/certify-code-ai-autonomous-planner-service-runtime-live.mjs`,
   `--lane=code --ttl-ms=${CODE_CERT_LEASE_TTL_MS} -- node scripts/certify-code-ai-autonomous-planner-service-runtime-live.mjs`,

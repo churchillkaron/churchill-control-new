@@ -19,6 +19,11 @@ jobs:
   certify-separator:
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,8 +34,35 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install separator certification dependencies
+        run: npm install --no-save --package-lock=false @next/env@14.2.35 @supabase/supabase-js@2.105.4
+
+      - name: Validate separator certification credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          missing=()
+          for name in \
+            RUNPOD_MANAGEMENT_API_KEY \
+            RUNPOD_API_KEY \
+            NEXT_PUBLIC_SUPABASE_URL \
+            SUPABASE_SERVICE_ROLE_KEY
+          do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            first="${missing[0]}"
+            printf '{"success":false,"contract":"AVANTIQO_MUSIC_SEPARATOR_CREDENTIAL_PREFLIGHT_V1","error":"CREDENTIAL_PREFLIGHT_FAILED","missing_binding":"%s","github_run_id":"%s","provider_job_submitted":false,"endpoint_mutation_performed":false,"production_deploy_performed":false,"secrets_in_output":false}\n' \
+              "$first" "$GITHUB_RUN_ID" > artifacts/music-separator-credential-preflight.json
+            echo "Music separator certification credential preflight failed: required binding missing: $first"
+            exit 1
+          fi
+          printf '{"success":true,"contract":"AVANTIQO_MUSIC_SEPARATOR_CREDENTIAL_PREFLIGHT_V1","github_run_id":"%s","required_bindings_present":true,"provider_job_submitted":false,"endpoint_mutation_performed":false,"production_deploy_performed":false,"secrets_in_output":false}\n' \
+            "$GITHUB_RUN_ID" > artifacts/music-separator-credential-preflight.json
+          echo "Music separator certification credentials are present."
 
       - name: Install audio fixture tools
         run: |
@@ -54,20 +86,16 @@ jobs:
 
       - name: Provision dedicated separator endpoint if missing
         env:
-          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           AVANTIQO_MUSIC_SEPARATOR_PROVISION_APPROVED: "YES"
           AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX: "1"
           AVANTIQO_MUSIC_SEPARATOR_RUNPOD_IDLE_TIMEOUT_SECONDS: "5"
+        shell: bash
         run: |
+          set -euo pipefail
           node scripts/provision-avantiqo-music-separator-runpod-local.mjs --apply | tee artifacts/music-separator-provision.json
 
       - name: Run one controlled separator benchmark
         env:
-          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SPEND_APPROVED: "YES"
           AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_RIGHTS_APPROVED: "YES"
           AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SOURCE_FILE: ${{ github.workspace }}/artifacts/review-audio/source-rights-owned.wav
@@ -90,9 +118,6 @@ jobs:
         run: node scripts/prepare-avantiqo-music-separator-human-review.mjs
 
       - name: Materialize private separator outputs for listening review
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           node --input-type=module <<'NODE'
           import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -144,6 +169,7 @@ jobs:
         with:
           name: avantiqo-music-separator-certification-${{ github.run_id }}
           path: |
+            artifacts/music-separator-credential-preflight.json
             artifacts/music-separator-provision.json
             artifacts/music-separator-benchmark.json
             artifacts/music-separator-economics.json

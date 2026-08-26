@@ -23,6 +23,11 @@ printf 'Economics: %s\n' "$ECONOMICS_OUTPUT"
 printf 'Review: %s\n' "$HUMAN_REVIEW_OUTPUT"
 printf 'Evidence: %s\n' "$CERTIFICATION_EVIDENCE_OUTPUT"
 
+# Use the same credential recovery path as the other owned RunPod engines.
+# It prefers the current shell/.env.local, then local traces, then the encrypted
+# GitHub fallback. Secret values are never printed or committed.
+AVANTIQO_PROJECT_ROOT="$ROOT_DIR" bash scripts/repair-avantiqo-runpod-env-local.sh
+
 node scripts/audit-avantiqo-music-separator-certification-readiness.mjs
 node scripts/preflight-avantiqo-music-separator-runpod-local.mjs
 
@@ -51,7 +56,7 @@ if [[ -z "${AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SOURCE_FILE:-}" ]]; then
   exit 2
 fi
 
-node scripts/benchmark-avantiqo-music-separator.mjs
+node scripts/run-avantiqo-music-separator-benchmark-local.mjs
 node scripts/avantiqo-music-separator-economics.mjs
 node scripts/prepare-avantiqo-music-separator-human-review.mjs
 

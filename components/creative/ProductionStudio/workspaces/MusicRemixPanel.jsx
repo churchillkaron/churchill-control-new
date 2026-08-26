@@ -25,7 +25,7 @@ const CONFIG = Object.freeze({
   extend: {
     label: "Extend",
     title: "Continue a source track beyond its current ending",
-    description: "Prepare a continuation plan using the owned Music engine while preserving source identity and musical direction.",
+    description: "Outpaint a new continuation from the source tail while preserving musical continuity and direction.",
     review: "Review extension",
     create: "Extend track",
     icon: WandSparkles,
@@ -51,6 +51,8 @@ export default function MusicRemixPanel({
   const [coverStrength, setCoverStrength] = useState(0.6);
   const [editStart, setEditStart] = useState(0);
   const [editEnd, setEditEnd] = useState(15);
+  const [extensionSeconds, setExtensionSeconds] = useState(30);
+  const [continuityOverlapSeconds, setContinuityOverlapSeconds] = useState(4);
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -60,7 +62,7 @@ export default function MusicRemixPanel({
   const modelLane = plan?.plan?.model_lane || null;
   const statusLabel = useMemo(() => {
     if (executionReady) return "Production ready";
-    if (mode === "extend") return "Base model + benchmark required";
+    if (mode === "extend") return "Temporal outpaint benchmark pending";
     return "Benchmark pending";
   }, [executionReady, mode]);
 
@@ -145,6 +147,10 @@ export default function MusicRemixPanel({
           repainting_start: Number(editStart),
           repainting_end: Number(editEnd),
         } : {}),
+        ...(mode === "extend" ? {
+          extension_seconds: Number(extensionSeconds),
+          continuity_overlap_seconds: Number(continuityOverlapSeconds),
+        } : {}),
       });
       setPlan(result);
     } catch (cause) {
@@ -182,9 +188,10 @@ export default function MusicRemixPanel({
         <label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Energy</span><select value={energy} onChange={(event) => { setEnergy(event.target.value); resetPlan(); }} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#090909] px-3 py-2.5 text-xs text-white/70 outline-none"><option value="low">Low</option><option value="balanced">Balanced</option><option value="high">High</option></select></label>
         {mode === "remix" ? <label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Cover strength</span><div className="mt-1.5 flex items-center gap-3 rounded-lg border border-white/8 bg-black/30 px-3 py-2"><input type="range" min="0" max="1" step="0.05" value={coverStrength} onChange={(event) => { setCoverStrength(Number(event.target.value)); resetPlan(); }} className="min-w-0 flex-1" /><span className="w-9 text-right text-[10px] text-white/55">{Math.round(coverStrength * 100)}%</span></div></label> : null}
         {mode === "edit" ? <><label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Edit start</span><input type="number" min="0" step="0.1" value={editStart} onChange={(event) => { setEditStart(event.target.value); resetPlan(); }} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-white/70 outline-none" /></label><label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Edit end</span><input type="number" min="0.1" step="0.1" value={editEnd} onChange={(event) => { setEditEnd(event.target.value); resetPlan(); }} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-white/70 outline-none" /></label></> : null}
+        {mode === "extend" ? <><label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Extend by seconds</span><input type="number" min="5" max="120" step="1" value={extensionSeconds} onChange={(event) => { setExtensionSeconds(event.target.value); resetPlan(); }} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-white/70 outline-none" /></label><label className="block"><span className="text-[9px] uppercase tracking-[0.16em] text-white/28">Continuity overlap</span><input type="number" min="1" max="12" step="0.5" value={continuityOverlapSeconds} onChange={(event) => { setContinuityOverlapSeconds(event.target.value); resetPlan(); }} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-white/70 outline-none" /><span className="mt-1 block text-[9px] leading-4 text-white/24">Seconds from the existing ending used to blend into the new continuation.</span></label></> : null}
       </div>
 
-      {plan ? <div className="mt-5 rounded-xl border border-white/8 bg-black/25 p-4"><div className="text-[9px] uppercase tracking-[0.18em] text-white/28">{config.label} plan</div><div className="mt-2 text-xs text-white/60">Avantiqo-owned Music engine{modelLane ? ` · ${modelLane}` : ""}</div><div className="mt-1 text-[10px] text-white/30">Status: {certification || "Pending certification"}</div>{mode === "extend" ? <div className="mt-2 text-[10px] text-amber-100/45">Extension remains blocked until the required ACE-Step base-model lane is available and benchmark-certified.</div> : null}</div> : null}
+      {plan ? <div className="mt-5 rounded-xl border border-white/8 bg-black/25 p-4"><div className="text-[9px] uppercase tracking-[0.18em] text-white/28">{config.label} plan</div><div className="mt-2 text-xs text-white/60">Avantiqo-owned Music engine{modelLane ? ` · ${modelLane}` : ""}</div><div className="mt-1 text-[10px] text-white/30">Status: {certification || "Pending certification"}</div>{mode === "extend" ? <div className="mt-2 text-[10px] text-amber-100/45">XL Turbo tail outpainting is implemented. Execution remains blocked until temporal extension is benchmark-certified and human-reviewed.</div> : null}</div> : null}
       {error ? <div className="mt-4 rounded-lg border border-red-400/15 bg-red-400/[0.05] px-3 py-2 text-xs text-red-200/70">{error}</div> : null}
 
       <div className="mt-5 flex gap-3"><button type="button" disabled={!storageReference || !rightsConfirmed || busy} onClick={reviewPlan} className="rounded-lg border border-[#d6a66a]/25 bg-[#d6a66a]/10 px-4 py-2.5 text-xs text-[#efd29f] disabled:opacity-35">{config.review}</button><button type="button" disabled={!executionReady} className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-white/55 disabled:opacity-30">{config.create}</button></div>

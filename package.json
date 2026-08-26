@@ -30,6 +30,7 @@
     "start:operator-secretary-telephony": "npm run start:operator-secretary-asterisk && npm run start:operator-secretary-sip-gateway && npm run ensure:operator-secretary-telephony-network",
     "preflight:operator-secretary-asterisk": "node --env-file=.env.local workers/secretary-sip-gateway/asterisk/preflight.mjs",
     "preflight:operator-secretary-telephony-stack": "node --env-file=.env.local scripts/preflight-secretary-telephony-stack-local.mjs",
+    "preflight:operator-secretary-meeting-local": "node scripts/operator-secretary-executive-autonomy-audit.mjs && node --env-file-if-exists=.env.development.local scripts/preflight-secretary-meeting-local.mjs",
     "audit:operator-secretary-end-to-end": "node scripts/operator-secretary-after-hours-audit.mjs && node scripts/operator-secretary-sip-transport-audit.mjs && node scripts/operator-secretary-managed-telephony-audit.mjs && node workers/secretary-sip-gateway/smoke.mjs && node scripts/operator-secretary-convergence-audit.mjs && node scripts/operator-secretary-executive-autonomy-audit.mjs"
   }
 }

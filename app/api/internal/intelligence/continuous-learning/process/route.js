@@ -12,6 +12,9 @@ import {
   syncAvantiqoInternalProductKnowledge,
 } from "@/lib/intelligence/runtime/AvantiqoInternalProductKnowledgeRuntime";
 import {
+  reconcileAvantiqoKnowledgeLifecycle,
+} from "@/lib/intelligence/runtime/AvantiqoKnowledgeLifecycleRuntime";
+import {
   reconcileAvantiqoLearningCoverage,
 } from "@/lib/intelligence/runtime/AvantiqoLearningCoverageRuntime";
 import {
@@ -63,37 +66,40 @@ export async function GET(request) {
 
     // Closed-loop Learning order:
     // 1. Synchronize Avantiqo's canonical product truth.
-    // 2. Discover product/evidence coverage gaps from that truth.
-    // 3. Evaluate whether prior research is productive and adapt priority/cadence.
-    // 4. Apply only anti-overfit eligible observational knowledge-utility feedback.
-    // 5. Bridge previously staged public-evidence candidates into adversarial
+    // 2. Classify learned external knowledge as fresh, aging, due or expired;
+    //    retire expired/exact-duplicate rows and regenerate relearning curriculum.
+    // 3. Discover product/evidence coverage gaps after lifecycle cleanup.
+    // 4. Evaluate whether prior research is productive and adapt priority/cadence.
+    // 5. Apply only anti-overfit eligible observational knowledge-utility feedback.
+    // 6. Bridge previously staged public-evidence candidates into adversarial
     //    mechanism review. Evidence candidates never become facts here.
-    // 6. Escalate weak/unsolved topics into provider-free mechanism, constraint,
+    // 7. Escalate weak/unsolved topics into provider-free mechanism, constraint,
     //    adjacent-domain and experiment-evidence discovery tracks.
-    // 7. Reconcile governed syntheses into hypotheses, experiment proposals,
+    // 8. Reconcile governed syntheses into hypotheses, experiment proposals,
     //    replication status and experimental knowledge candidates.
-    // 8. Adversarially reconcile mature experimental candidates against the
+    // 9. Adversarially reconcile mature experimental candidates against the
     //    durable Evidence Graph and create shadow-only provisional knowledge.
-    // 9. Evaluate non-influencing provisional shadow observations. Context
-    //    success is not treated as incremental utility.
-    // 10. Create immutable counterfactual A/B benchmark plans for mature shadow
+    // 10. Evaluate non-influencing provisional shadow observations. Context
+    //     success is not treated as incremental utility.
+    // 11. Create immutable counterfactual A/B benchmark plans for mature shadow
     //     candidates and reconcile only separately-recorded passing evaluations
     //     into final knowledge release review candidates. This stage performs no
     //     benchmark execution and never writes platform_knowledge.
-    // 11. Revalidate only knowledge that was previously released through the
+    // 12. Revalidate only knowledge that was previously released through the
     //     explicit final-release runtime. Conflict, stale evidence or missing
     //     source provenance quarantines it immediately; this cron cannot release
     //     or restore reusable knowledge.
-    // 12. Spend the existing bounded public-evidence research budget on the
+    // 13. Spend the existing bounded public-evidence research budget on the
     //     resulting agenda, including adversarial reconciliation work. Newly
     //     supported claims are staged as evidence candidates for the next cycle.
     // Any hypothesis/invention synthesis or counterfactual benchmark execution
     // that could wake owned RunPod Intelligence is deliberately outside this
     // cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
-    // Stages 1-11 never mutate model weights, authorize product actions, execute
+    // Stages 1-12 never mutate model weights, authorize product actions, execute
     // experiments, submit RunPod jobs, automatically release knowledge, or
-    // automatically restore quarantined knowledge.
+    // automatically restore quarantined/retired knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
+    const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
     const learningEffectiveness = await evaluateAvantiqoLearningEffectiveness();
     const knowledgeUtilityFeedback = await applyAvantiqoKnowledgeUtilityFeedback();
@@ -115,6 +121,7 @@ export async function GET(request) {
       {
         ...result,
         internal_product_knowledge: internalProductKnowledge,
+        knowledge_lifecycle: knowledgeLifecycle,
         learning_coverage: learningCoverage,
         learning_effectiveness: learningEffectiveness,
         knowledge_utility_feedback: knowledgeUtilityFeedback,

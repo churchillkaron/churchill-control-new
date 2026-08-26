@@ -117,11 +117,17 @@ try {
   assert.equal(secretaryJobInstructionRequiresHighAuthority("Research current Phuket to Singapore flight schedules and fares"), false);
   assert.equal(secretaryJobInstructionRequiresHighAuthority("Compare hotel room availability and rates near Marina Bay"), false);
   assert.equal(secretaryJobInstructionRequiresHighAuthority("Check airport transfer options and prices"), false);
+  assert.equal(secretaryJobInstructionRequiresHighAuthority("Confirm the cancellation fee and availability only"), false);
+  assert.equal(secretaryJobInstructionRequiresHighAuthority("Confirm the cancellation fee amount only"), false);
+  assert.equal(secretaryJobInstructionRequiresHighAuthority("Check the hotel rate and booking terms only"), false);
+
   assert.equal(secretaryJobInstructionRequiresHighAuthority("Book the selected hotel room"), true);
   assert.equal(secretaryJobInstructionRequiresHighAuthority("Reserve the airport transfer"), true);
   assert.equal(secretaryJobInstructionRequiresHighAuthority("Buy the airline ticket"), true);
   assert.equal(secretaryJobInstructionRequiresHighAuthority("Accept the quoted hotel rate"), true);
-  assert.equal(secretaryJobInstructionRequiresHighAuthority("Confirm the cancellation fee and availability only"), false);
+  assert.equal(secretaryJobInstructionRequiresHighAuthority("Accept the cancellation fee"), true);
+  assert.equal(secretaryJobInstructionRequiresHighAuthority("Commit to the cancellation fee"), true);
+  assert.equal(secretaryJobInstructionRequiresHighAuthority("Pay the cancellation fee"), true);
 
   const capability = createSecretaryTravelCapability();
   assert.equal(capability.manifest.domain, "platform");
@@ -137,8 +143,10 @@ try {
   console.log("SECRETARY_TRAVEL_ITINERARY_CANONICAL_STORE=true");
   console.log("SECRETARY_TRAVEL_BUDGET_IS_GUIDANCE_ONLY=true");
   console.log("SECRETARY_TRAVEL_RESEARCH_AUTONOMY=true");
+  console.log("SECRETARY_TRAVEL_INFORMATION_ONLY_NOT_GATED=true");
   console.log("SECRETARY_TRAVEL_BOOKING_EXACT_STEP_APPROVAL_REQUIRED=true");
   console.log("SECRETARY_TRAVEL_PAYMENT_EXACT_STEP_APPROVAL_REQUIRED=true");
+  console.log("SECRETARY_TRAVEL_CANCELLATION_FEE_COMMITMENT_GATED=true");
   console.log("SECRETARY_TRAVEL_RESERVATION_LANGUAGE_GATED=true");
   console.log("SECRETARY_TRAVEL_TICKET_PURCHASE_LANGUAGE_GATED=true");
   console.log("SECRETARY_PROVIDER_CALLS_PERFORMED=false");

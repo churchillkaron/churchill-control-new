@@ -28,6 +28,14 @@ function required(name) {
   return value;
 }
 
+function endpointWorkersMin(endpoint = {}) {
+  return finite(endpoint.workersMin ?? endpoint.workers_min, -1);
+}
+
+function endpointWorkersMax(endpoint = {}) {
+  return finite(endpoint.workersMax ?? endpoint.workers_max, -1);
+}
+
 function endpointVolumeIds(endpoint = {}) {
   return unique([
     endpoint.networkVolumeId ?? endpoint.network_volume_id,
@@ -38,13 +46,13 @@ function endpointVolumeIds(endpoint = {}) {
 function endpointTemplate(endpoint = {}, templates = []) {
   const embedded = endpoint.template && typeof endpoint.template === "object" ? endpoint.template : null;
   if (embedded) return embedded;
-  const templateId = text(endpoint.templateId);
+  const templateId = text(endpoint.templateId ?? endpoint.template_id);
   if (!templateId) return null;
   return templates.find((template) => text(template?.id) === templateId) || null;
 }
 
 function assertExactTemplateImage(template, immutableImage, code) {
-  if (!template || text(template.imageName) !== immutableImage) {
+  if (!template || text(template.imageName ?? template.image_name) !== immutableImage) {
     throw new Error(code);
   }
 }
@@ -53,12 +61,12 @@ function safeEndpoint(endpoint = {}) {
   return {
     id: text(endpoint.id) || null,
     name: text(endpoint.name) || null,
-    template_id: text(endpoint.templateId || endpoint.template?.id) || null,
-    gpu_type_ids: unique(list(endpoint.gpuTypeIds)),
-    workers_min: finite(endpoint.workersMin),
-    workers_max: finite(endpoint.workersMax),
-    idle_timeout_seconds: finite(endpoint.idleTimeout),
-    execution_timeout_ms: finite(endpoint.executionTimeoutMs),
+    template_id: text(endpoint.templateId ?? endpoint.template_id ?? endpoint.template?.id) || null,
+    gpu_type_ids: unique(list(endpoint.gpuTypeIds ?? endpoint.gpu_type_ids)),
+    workers_min: endpointWorkersMin(endpoint),
+    workers_max: endpointWorkersMax(endpoint),
+    idle_timeout_seconds: finite(endpoint.idleTimeout ?? endpoint.idle_timeout),
+    execution_timeout_ms: finite(endpoint.executionTimeoutMs ?? endpoint.execution_timeout_ms),
     network_volume_ids: endpointVolumeIds(endpoint),
   };
 }
@@ -67,10 +75,10 @@ function safeTemplate(template = {}) {
   return {
     id: text(template.id) || null,
     name: text(template.name) || null,
-    image_name: text(template.imageName) || null,
-    container_disk_gb: finite(template.containerDiskInGb),
-    local_volume_gb: finite(template.volumeInGb),
-    registry_auth_configured: Boolean(text(template.containerRegistryAuthId)),
+    image_name: text(template.imageName ?? template.image_name) || null,
+    container_disk_gb: finite(template.containerDiskInGb ?? template.container_disk_gb),
+    local_volume_gb: finite(template.volumeInGb ?? template.volume_in_gb),
+    registry_auth_configured: Boolean(text(template.containerRegistryAuthId ?? template.container_registry_auth_id)),
   };
 }
 
@@ -93,6 +101,43 @@ async function rest(path, credential, options = {}) {
     throw new Error(`RUNPOD_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
   }
   return body;
+}
+
+async function fetchEndpoint(endpointId, credential) {
+  return rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, credential);
+}
+
+async function parkEndpoint(endpoint, credential, expectedTemplateId) {
+  const endpointId = text(endpoint?.id);
+  if (!endpointId) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_ID_REQUIRED_FOR_PARK");
+  if (endpointVolumeIds(endpoint).length) {
+    throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_NETWORK_VOLUME_FORBIDDEN");
+  }
+
+  await rest(`/endpoints/${encodeURIComponent(endpointId)}`, credential, {
+    method: "PATCH",
+    body: {
+      workersMin: 0,
+      workersMax: 0,
+    },
+  });
+
+  const parked = await fetchEndpoint(endpointId, credential);
+  if (text(parked.name) !== ENDPOINT_NAME) {
+    throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_PARK_NAME_MISMATCH");
+  }
+  if (expectedTemplateId && text(parked.templateId ?? parked.template_id) !== expectedTemplateId) {
+    throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_PARK_TEMPLATE_MISMATCH");
+  }
+  if (endpointVolumeIds(parked).length) {
+    throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_PARK_NETWORK_VOLUME_FORBIDDEN");
+  }
+  if (endpointWorkersMin(parked) !== 0 || endpointWorkersMax(parked) !== 0) {
+    throw new Error(
+      `AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_PARK_VERIFY_FAILED:${endpointWorkersMin(parked)}/${endpointWorkersMax(parked)}`,
+    );
+  }
+  return parked;
 }
 
 async function imageEvidence() {
@@ -171,12 +216,9 @@ if (endpointMatches.length > 1) {
   throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_AMBIGUOUS:${endpointMatches.length}`);
 }
 if (endpointMatches.length === 1) {
-  const existing = endpointMatches[0];
+  let existing = endpointMatches[0];
   if (endpointVolumeIds(existing).length) {
     throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_NETWORK_VOLUME_FORBIDDEN");
-  }
-  if (finite(existing.workersMin, -1) !== 0 || finite(existing.workersMax, -1) !== 0) {
-    throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_MUST_REST_0_0:${finite(existing.workersMin)}/${finite(existing.workersMax)}`);
   }
   const existingTemplate = endpointTemplate(existing, templates);
   assertExactTemplateImage(
@@ -184,16 +226,49 @@ if (endpointMatches.length === 1) {
     image.image,
     "AVANTIQO_MUSIC_VOCAL_CORRECTION_EXISTING_ENDPOINT_IMAGE_DIGEST_MISMATCH",
   );
+  const existingTemplateId = text(existing.templateId ?? existing.template_id ?? existingTemplate?.id);
+  const parkingRequired = endpointWorkersMin(existing) !== 0 || endpointWorkersMax(existing) !== 0;
+
+  if (parkingRequired && !apply) {
+    console.log(JSON.stringify({
+      success: true,
+      contract: CONTRACT,
+      mode: "PLAN",
+      endpoint_exists: true,
+      endpoint: safeEndpoint(existing),
+      template: safeTemplate(existingTemplate),
+      immutable_image: image.image,
+      exact_image_digest_verified: true,
+      parking_required: true,
+      target_workers_min: 0,
+      target_workers_max: 0,
+      mutation_performed: false,
+      provider_job_submitted: false,
+      production_deploy_performed: false,
+      next_action: "PARK_EXISTING_ENDPOINT_0_0",
+    }, null, 2));
+    process.exit(0);
+  }
+
+  let parkingMutationPerformed = false;
+  if (parkingRequired) {
+    existing = await parkEndpoint(existing, managementKey, existingTemplateId);
+    parkingMutationPerformed = true;
+  }
+
   console.log(JSON.stringify({
     success: true,
     contract: CONTRACT,
     mode: apply ? "APPLY" : "PLAN",
     endpoint_exists: true,
     endpoint: safeEndpoint(existing),
-    template: safeTemplate(existingTemplate),
+    template: safeTemplate(endpointTemplate(existing, [existingTemplate, ...templates]) || existingTemplate),
     immutable_image: image.image,
     exact_image_digest_verified: true,
-    mutation_performed: false,
+    parking_required: false,
+    parking_mutation_performed: parkingMutationPerformed,
+    mutation_performed: parkingMutationPerformed,
+    workers_opened: false,
     provider_job_submitted: false,
     production_deploy_performed: false,
     next_action: "CERTIFY_ONLY_THROUGH_AVANTIQO_RUNPOD_SAFE_LEASE_V2",
@@ -311,13 +386,21 @@ const endpoint = await rest("/endpoints", managementKey, {
 });
 const endpointId = text(endpoint?.id);
 if (!endpointId) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_ID_REQUIRED");
-const verified = await rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey);
-if (text(verified.name) !== ENDPOINT_NAME || text(verified.templateId) !== templateId) {
+let verified = await fetchEndpoint(endpointId, managementKey);
+if (text(verified.name) !== ENDPOINT_NAME || text(verified.templateId ?? verified.template_id) !== templateId) {
   throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_VERIFY_FAILED");
 }
 if (endpointVolumeIds(verified).length) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_UNEXPECTED_NETWORK_VOLUME");
-if (finite(verified.workersMin, -1) !== 0 || finite(verified.workersMax, -1) !== 0) {
-  throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_NOT_PARKED_0_0");
+
+let explicitParkingMutationPerformed = false;
+if (endpointWorkersMin(verified) !== 0 || endpointWorkersMax(verified) !== 0) {
+  verified = await parkEndpoint(verified, managementKey, templateId);
+  explicitParkingMutationPerformed = true;
+}
+if (endpointWorkersMin(verified) !== 0 || endpointWorkersMax(verified) !== 0) {
+  throw new Error(
+    `AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_NOT_PARKED_0_0:${endpointWorkersMin(verified)}/${endpointWorkersMax(verified)}`,
+  );
 }
 const verifiedTemplate = endpointTemplate(verified, [template, ...templates]);
 assertExactTemplateImage(
@@ -335,6 +418,7 @@ console.log(JSON.stringify({
   template_created: templateMatches.length === 0,
   endpoint_created: true,
   exact_image_digest_verified: true,
+  parking_mutation_performed: explicitParkingMutationPerformed,
   mutation_performed: true,
   workers_opened: false,
   provider_job_submitted: false,

@@ -51,7 +51,11 @@ assert(router.includes("runKnowledgeAwareWebResearch"), "KNOWLEDGE_ROUTER_WEB_FA
 assert(router.includes("payload.force_refresh !== true"), "KNOWLEDGE_ROUTER_FORCE_REFRESH_REQUIRED");
 
 assert(route.includes("syncAvantiqoInternalProductKnowledge"), "CONTINUOUS_LEARNING_INTERNAL_SYNC_REQUIRED");
-assert(route.indexOf("syncAvantiqoInternalProductKnowledge") < route.indexOf("runAvantiqoContinuousLearningBatch"), "CONTINUOUS_LEARNING_INTERNAL_SYNC_BEFORE_WEB_LEARNING_REQUIRED");
+const internalSyncCall = route.indexOf("const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge()");
+const webLearningCall = route.indexOf("const result = await runAvantiqoContinuousLearningBatch({ limit })");
+assert(internalSyncCall >= 0, "CONTINUOUS_LEARNING_INTERNAL_SYNC_CALL_REQUIRED");
+assert(webLearningCall >= 0, "CONTINUOUS_LEARNING_WEB_BATCH_CALL_REQUIRED");
+assert(internalSyncCall < webLearningCall, "CONTINUOUS_LEARNING_INTERNAL_SYNC_BEFORE_WEB_LEARNING_REQUIRED");
 assert(route.includes("internal_product_knowledge"), "CONTINUOUS_LEARNING_INTERNAL_SYNC_EVIDENCE_REQUIRED");
 assert(capability.includes("runAvantiqoKnowledgeAwareResearch"), "OPERATOR_RESEARCH_KNOWLEDGE_ROUTER_REQUIRED");
 assert(capability.includes("canonical-product-knowledge"), "OPERATOR_RESEARCH_CANONICAL_TAG_REQUIRED");

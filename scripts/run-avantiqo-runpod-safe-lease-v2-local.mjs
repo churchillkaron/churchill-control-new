@@ -2,6 +2,11 @@ import { mkdir, open, readFile, readdir, unlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import {
+  acquireVoiceRunpodDistributedLease,
+  isVoiceRunpodLane,
+  releaseVoiceRunpodDistributedLease,
+} from "./avantiqo-voice-runpod-distributed-lease.mjs";
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
@@ -114,7 +119,7 @@ async function leases() {
   }
   return rows;
 }
-async function acquireLease(endpointId, endpointName, lane, ttlMs, maxLeases) {
+async function acquireLease(endpointId, endpointName, lane, ttlMs, maxLeases, expiresAt = null) {
   await mkdir(LEASE_DIR, { recursive: true });
   const lockPath = path.join(LEASE_DIR, ".acquire.lock");
   let lock = null;
@@ -127,7 +132,7 @@ async function acquireLease(endpointId, endpointName, lane, ttlMs, maxLeases) {
     const current = await leases();
     if (current.length >= maxLeases) throw new Error(`${CONTRACT}_PARALLEL_LEASE_LIMIT:${current.length}:max=${maxLeases}`);
     if (current.some((lease) => text(lease.endpoint_id) === endpointId)) throw new Error(`${CONTRACT}_ENDPOINT_ALREADY_LEASED:${endpointName}`);
-    const lease = { contract: CONTRACT, endpoint_id: endpointId, endpoint_name: endpointName, lane, pid: process.pid, hostname: os.hostname(), acquired_at: new Date().toISOString(), expires_at: new Date(Date.now() + ttlMs).toISOString() };
+    const lease = { contract: CONTRACT, endpoint_id: endpointId, endpoint_name: endpointName, lane, pid: process.pid, hostname: os.hostname(), acquired_at: new Date().toISOString(), expires_at: text(expiresAt) || new Date(Date.now() + ttlMs).toISOString() };
     const handle = await open(leaseFile(endpointId), "wx", 0o600);
     try { await handle.writeFile(`${JSON.stringify(lease, null, 2)}\n`, "utf8"); } finally { await handle.close(); }
     return lease;
@@ -220,6 +225,7 @@ const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const queueKey = text(process.env.RUNPOD_API_KEY) || managementKey;
 let targetId = null;
 let lease = null;
+let distributedVoiceLease = null;
 let failure = null;
 let childSucceeded = false;
 let release = null;
@@ -231,10 +237,25 @@ try {
   targetId = text(matches[0].id);
   const target = baseline.rows.find((row) => row.id === targetId);
   if (!target || target.workers_min !== 0 || target.workers_max !== 0 || target.jobs !== 0 || target.health_error) throw new Error(`${CONTRACT}_TARGET_MUST_START_CLEAN_0_0`);
-  lease = await acquireLease(targetId, laneName, args.lane, ttlMs, finite(policy.max_concurrent_paid_leases, 4));
+  if (isVoiceRunpodLane(args.lane)) {
+    distributedVoiceLease = await acquireVoiceRunpodDistributedLease({
+      lane: args.lane,
+      endpointId: targetId,
+      endpointName: laneName,
+      ttlMs,
+    });
+  }
+  lease = await acquireLease(
+    targetId,
+    laneName,
+    args.lane,
+    ttlMs,
+    finite(policy.max_concurrent_paid_leases, 4),
+    distributedVoiceLease?.expires_at || null,
+  );
   await patch(targetId, 1, managementKey);
   await enforce(await snapshot(managementKey, queueKey), policy, targetId, managementKey);
-  console.log(`${CONTRACT}_ACQUIRED=${JSON.stringify({ lane: args.lane, endpoint_name: laneName, workers_min: 0, workers_max: 1, expires_at: lease.expires_at })}`);
+  console.log(`${CONTRACT}_ACQUIRED=${JSON.stringify({ lane: args.lane, endpoint_name: laneName, workers_min: 0, workers_max: 1, expires_at: lease.expires_at, voice_distributed_lease: Boolean(distributedVoiceLease) })}`);
   await runChild(args.command, lease, managementKey, queueKey, policy);
   childSucceeded = true;
 } catch (error) {
@@ -253,9 +274,26 @@ try {
     }
     await releaseLease(targetId);
   }
+
+  if (distributedVoiceLease) {
+    try {
+      await releaseVoiceRunpodDistributedLease({
+        leaseId: distributedVoiceLease.id,
+        ownerRequestId: distributedVoiceLease.owner_request_id,
+        state: childSucceeded && release?.success === true && !failure ? "RELEASED" : "FAILED",
+        reason: failure
+          ? redact(failure.message).slice(0, 300)
+          : childSucceeded && release?.success === true
+            ? "LOCAL_V2_CHILD_COMPLETE"
+            : "LOCAL_V2_CLEANUP_INCOMPLETE",
+      });
+    } catch (error) {
+      if (!failure) failure = error;
+    }
+  }
 }
 
 const success = childSucceeded && release?.success === true && !failure;
-console.log(JSON.stringify({ success, contract: CONTRACT, lane: args.lane, endpoint_name: laneName, lease_acquired: Boolean(lease), child_succeeded: childSucceeded, failure: failure ? redact(failure.message).slice(0, 1200) : null, release, permanent_rest_state: "LEASE_ENDPOINT_0_0", parallel_work_allowed: true, workers_min_one_allowed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
+console.log(JSON.stringify({ success, contract: CONTRACT, lane: args.lane, endpoint_name: laneName, lease_acquired: Boolean(lease), child_succeeded: childSucceeded, failure: failure ? redact(failure.message).slice(0, 1200) : null, release, voice_distributed_lease_required: isVoiceRunpodLane(args.lane), voice_distributed_lease_acquired: Boolean(distributedVoiceLease), permanent_rest_state: "LEASE_ENDPOINT_0_0", parallel_work_allowed: true, workers_min_one_allowed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
 console.log(`${CONTRACT}=${success ? "PASS" : "FAIL"}`);
 if (!success) process.exit(3);

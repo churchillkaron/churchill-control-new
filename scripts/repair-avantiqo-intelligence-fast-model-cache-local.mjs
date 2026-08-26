@@ -267,26 +267,34 @@ function canonicalState(deep, fast) {
 }
 
 function saveInput(endpoint, refs) {
-  return {
+  const input = {
     id: text(endpoint?.id),
     name: text(endpoint?.name),
     templateId: text(endpoint?.templateId || endpoint?.template?.id),
-    gpuIds: text(endpoint?.gpuIds),
     gpuCount: Math.max(1, finite(endpoint?.gpuCount, 1)),
     instanceIds: list(endpoint?.instanceIds).map(text).filter(Boolean),
     workersMin: Math.max(0, finite(endpoint?.workersMin, 0)),
     workersMax: Math.max(0, finite(endpoint?.workersMax, 0)),
-    locations: text(endpoint?.locations),
-    networkVolumeId: text(endpoint?.networkVolumeId),
     networkVolumeIds: normalizedNetworkVolumeIds(endpoint),
     idleTimeout: Math.max(1, finite(endpoint?.idleTimeout, 5)),
-    scalerType: text(endpoint?.scalerType),
     scalerValue: Math.max(1, finite(endpoint?.scalerValue, 1)),
     executionTimeoutMs: Math.max(1, finite(endpoint?.executionTimeoutMs, 90_000)),
-    minCudaVersion: text(endpoint?.minCudaVersion),
-    flashBootType: text(endpoint?.flashBootType),
     modelReferences: [...refs],
   };
+
+  const optionalStrings = {
+    gpuIds: text(endpoint?.gpuIds),
+    locations: text(endpoint?.locations),
+    networkVolumeId: text(endpoint?.networkVolumeId),
+    scalerType: text(endpoint?.scalerType),
+    minCudaVersion: text(endpoint?.minCudaVersion),
+    flashBootType: text(endpoint?.flashBootType),
+  };
+  for (const [key, value] of Object.entries(optionalStrings)) {
+    if (value) input[key] = value;
+  }
+
+  return input;
 }
 
 function invariantSummary(endpoint) {

@@ -10,7 +10,7 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RUN_V1";
+const CONTRACT = "AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RUN_V2";
 const PLATFORM_ORG_NAME = "Avantiqo Platform";
 const PLATFORM_ORG_TYPE = "enterprise_group";
 const PLATFORM_ORG_STATUS = "active";
@@ -18,6 +18,7 @@ const PLATFORM_ORG_LIFECYCLE = "ACTIVE";
 const ROUTE_PATH = "/api/internal/intelligence/continuous-learning/process?limit=1";
 const SCOPES = Object.freeze([
   "platform_learning_agenda",
+  "platform_learning_evidence_candidates",
   "platform_knowledge",
   "platform_learning_runs",
   "platform_training_candidates",
@@ -49,10 +50,10 @@ function required(name) {
   return value;
 }
 
-function assertNode24() {
+function assertNode20Plus() {
   const major = Number.parseInt(process.versions.node.split(".")[0], 10);
-  if (!Number.isInteger(major) || major < 24) {
-    throw new Error(`AVANTIQO_CONTINUOUS_LEARNING_LOCAL_NODE_24_REQUIRED:current=${process.versions.node}`);
+  if (!Number.isInteger(major) || major < 20) {
+    throw new Error(`AVANTIQO_CONTINUOUS_LEARNING_LOCAL_NODE_20_PLUS_REQUIRED:current=${process.versions.node}`);
   }
 }
 
@@ -245,6 +246,15 @@ function sanitizeResultEntry(entry = {}) {
     claim_count: Number.isFinite(Number(source.claim_count ?? source.claimCount))
       ? Number(source.claim_count ?? source.claimCount)
       : null,
+    evidence_candidate_count: Number.isFinite(
+      Number(source.evidence_candidate_count ?? source.evidenceCandidateCount),
+    )
+      ? Number(source.evidence_candidate_count ?? source.evidenceCandidateCount)
+      : null,
+    reusable_platform_knowledge_written:
+      source.reusable_platform_knowledge_written === true,
+    prior_released_knowledge_retired:
+      source.prior_released_knowledge_retired === true,
     source_count: Number.isFinite(Number(source.source_count ?? source.sourceCount))
       ? Number(source.source_count ?? source.sourceCount)
       : null,
@@ -350,10 +360,8 @@ async function invokeOneResearch(port, cronSecret) {
   });
 }
 
-assertNode24();
+assertNode20Plus();
 const run = process.argv.includes("--run");
-const fastSlotActive =
-  run && yes(process.env.AVANTIQO_CONTINUOUS_LEARNING_FAST_SLOT_ACTIVE);
 if (run && !yes(process.env.AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RUN_APPROVED)) {
   throw new Error("AVANTIQO_CONTINUOUS_LEARNING_LOCAL_RUN_APPROVED=YES_REQUIRED");
 }
@@ -375,34 +383,37 @@ const plan = {
     route: ROUTE_PATH,
     maximum_research_topics: 1,
     local_next_server_only: true,
-    ordinary_service_runtime_research_cost_possible: true,
+    public_evidence_research_only: true,
     local_client_timeout_ms: RESEARCH_TIMEOUT_MS,
-    runpod_used: fastSlotActive,
+    runpod_used: false,
+    owned_model_inference_used: false,
     gpu_training_used: false,
   },
   scope_protection: {
     platform_organization_only: true,
     customer_organization_used: false,
     customer_private_memory_allowed: false,
+    evidence_candidate_creation_allowed: true,
+    reusable_platform_knowledge_creation_allowed: false,
     training_candidate_creation_requested: false,
     model_training_requested: false,
   },
   governance: {
     explicit_one_topic_research_approval_required: true,
     production_deploy: false,
-    runpod_access: fastSlotActive,
+    runpod_access: false,
     provider_training_job_submitted: false,
     gpu_job_submitted: false,
     training_started: false,
-    candidate_creation: false,
+    reusable_platform_knowledge_release_requested: false,
     customer_memory_touched: false,
     platform_org_only: true,
     provider_research_executions_max: run ? 1 : 0,
     secrets_in_output: false,
   },
   next_action: run
-    ? "START_ISOLATED_LOCAL_SERVER_AND_PROCESS_ONE_PLATFORM_RESEARCH_TOPIC"
-    : "APPROVE_ONE_LOCAL_PLATFORM_RESEARCH_TOPIC",
+    ? "START_ISOLATED_LOCAL_SERVER_AND_STAGE_ONE_PLATFORM_EVIDENCE_CANDIDATE_BATCH"
+    : "APPROVE_ONE_LOCAL_PLATFORM_EVIDENCE_RESEARCH_TOPIC",
 };
 
 if (!run) {
@@ -473,7 +484,18 @@ try {
 
 const knowledgeBefore = Number(countsBefore.platform_knowledge || 0);
 const knowledgeAfter = Number(countsAfter?.platform_knowledge || 0);
-const knowledgeIncreased = knowledgeAfter > knowledgeBefore;
+const platformKnowledgeUnchanged = knowledgeAfter === knowledgeBefore;
+const evidenceCandidateBefore = Number(countsBefore.platform_learning_evidence_candidates || 0);
+const evidenceCandidateAfter = Number(countsAfter?.platform_learning_evidence_candidates || 0);
+const evidenceCandidateIncreased = evidenceCandidateAfter > evidenceCandidateBefore;
+const learningRunIncreased =
+  Number(countsAfter?.platform_learning_runs || 0) >
+  Number(countsBefore.platform_learning_runs || 0);
+
+if (!executionError && !platformKnowledgeUnchanged) {
+  executionError = `AVANTIQO_CONTINUOUS_LEARNING_LOCAL_UNEXPECTED_PLATFORM_KNOWLEDGE_MUTATION:before=${knowledgeBefore}:after=${knowledgeAfter}`;
+}
+
 const report = {
   ...plan,
   success: !executionError,
@@ -496,17 +518,18 @@ const report = {
   },
   counts_after: countsAfter,
   evidence: {
-    platform_knowledge_count_increased: knowledgeIncreased,
-    platform_learning_run_count_increased:
-      Number(countsAfter?.platform_learning_runs || 0) >
-      Number(countsBefore.platform_learning_runs || 0),
+    platform_knowledge_count_unchanged: platformKnowledgeUnchanged,
+    platform_knowledge_count_increased: knowledgeAfter > knowledgeBefore,
+    evidence_candidate_count_increased: evidenceCandidateIncreased,
+    platform_learning_run_count_increased: learningRunIncreased,
     customer_memory_touched: false,
+    runpod_used: false,
   },
   next_action: executionError
-    ? "REPAIR_CONTINUOUS_LEARNING_RESEARCH_RUNTIME"
-    : knowledgeIncreased
-      ? "VERIFY_FIRST_PLATFORM_KNOWLEDGE_THEN_BUILD_RESEARCH_TRAINING_CANDIDATE_BRIDGE"
-      : "INSPECT_CONTINUOUS_LEARNING_NO_KNOWLEDGE_RESULT",
+    ? "REPAIR_CONTINUOUS_LEARNING_EVIDENCE_STAGING_RUNTIME"
+    : evidenceCandidateIncreased
+      ? "REVIEW_STAGED_EVIDENCE_CANDIDATES_THROUGH_EPISTEMIC_PIPELINE"
+      : "NO_NEW_EVIDENCE_CANDIDATE_STAGED",
   governance: {
     ...plan.governance,
     provider_research_executions_max: 1,
@@ -514,7 +537,10 @@ const report = {
     gpu_job_submitted: false,
     training_started: false,
     production_deploy: false,
-    runpod_access: fastSlotActive,
+    runpod_access: false,
+    reusable_platform_knowledge_written: false,
+    prior_released_knowledge_retired: false,
+    automatic_knowledge_promotion: false,
     customer_memory_touched: false,
     platform_org_only: true,
     secrets_in_output: false,

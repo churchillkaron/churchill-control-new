@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const BASE_REPAIR = "scripts/repair-avantiqo-video-wan22-stalled-active-probe-v2-local.mjs";
-const CONTRACT = "AVANTIQO_VIDEO_WAN22_SINGLE_GPU_STALE_BASELINE_RECOVERY_V2";
+const CONTRACT = "AVANTIQO_VIDEO_WAN22_SINGLE_GPU_STALE_BASELINE_RECOVERY_V3";
 const OLD_TEMP_POOL = 'const EXPECTED_TEMP_POOL = ["NVIDIA B200", ...ORIGINAL_BLACKWELL_POOL].sort();';
 const NEW_TEMP_POOL = 'const EXPECTED_TEMP_POOL = ["NVIDIA B200"];';
 const SCOPED_PATHS = [
@@ -101,6 +101,73 @@ const NEW_BASE_REQUIRE_MAIN = [
   "}",
 ].join("\n");
 
+const OLD_BASE_QUEUE_REQUEST = [
+  "async function queueRequest(endpointId, pathname, key) {",
+  "  return readJson(await fetch(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}${pathname}`, {",
+  "    headers: { Authorization: `Bearer ${key}`, Accept: \"application/json\" },",
+  "    signal: AbortSignal.timeout(30_000),",
+  "  }), \"AVANTIQO_VIDEO_STALLED_PROBE_V2_QUEUE\");",
+  "}",
+].join("\n");
+
+const NEW_BASE_QUEUE_REQUEST = [
+  "async function queueRequest(endpointId, pathname, key, options = {}) {",
+  "  const response = await fetch(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}${pathname}`, {",
+  "    headers: { Authorization: `Bearer ${key}`, Accept: \"application/json\" },",
+  "    signal: AbortSignal.timeout(30_000),",
+  "  });",
+  "  if (options.allow404 === true && response.status === 404) {",
+  "    await response.arrayBuffer();",
+  "    return { __not_found: true };",
+  "  }",
+  "  return readJson(response, \"AVANTIQO_VIDEO_STALLED_PROBE_V2_QUEUE\");",
+  "}",
+].join("\n");
+
+const OLD_BASE_INITIAL_STATUS = [
+  "const [job, healthRaw, control] = await Promise.all([",
+  "  queueRequest(text(owned.cinema.id), `/status/${encodeURIComponent(jobId)}`, queueCredential.key),",
+  "  queueRequest(text(owned.cinema.id), \"/health\", queueCredential.key),",
+  "  optionalControlWorkers(text(owned.cinema.id), controlCandidates),",
+  "]);",
+  "const health = healthSummary(healthRaw);",
+  "const jobStatus = text(job.status).toUpperCase();",
+  "const terminal = [\"CANCELLED\", \"CANCELED\", \"FAILED\", \"TIMED_OUT\", \"COMPLETED\"].includes(jobStatus);",
+].join("\n");
+
+const NEW_BASE_INITIAL_STATUS = [
+  "const [job, healthRaw, control] = await Promise.all([",
+  "  queueRequest(text(owned.cinema.id), `/status/${encodeURIComponent(jobId)}`, queueCredential.key, { allow404: true }),",
+  "  queueRequest(text(owned.cinema.id), \"/health\", queueCredential.key),",
+  "  optionalControlWorkers(text(owned.cinema.id), controlCandidates),",
+  "]);",
+  "const health = healthSummary(healthRaw);",
+  "const jobStatus = job.__not_found === true ? \"NOT_FOUND\" : text(job.status).toUpperCase();",
+  "const terminal = job.__not_found === true || [\"CANCELLED\", \"CANCELED\", \"FAILED\", \"TIMED_OUT\", \"COMPLETED\"].includes(jobStatus);",
+].join("\n");
+
+const OLD_BASE_FRESH_STATUS = [
+  "  const [freshJob, freshHealthRaw, freshControl] = await Promise.all([",
+  "    queueRequest(text(freshOwned.cinema.id), `/status/${encodeURIComponent(jobId)}`, queueCredential.key),",
+  "    queueRequest(text(freshOwned.cinema.id), \"/health\", queueCredential.key),",
+  "    optionalControlWorkers(text(freshOwned.cinema.id), controlCandidates),",
+  "  ]);",
+  "  const freshHealth = healthSummary(freshHealthRaw);",
+  "  const freshStatus = text(freshJob.status).toUpperCase();",
+  "  const freshTerminal = [\"CANCELLED\", \"CANCELED\", \"FAILED\", \"TIMED_OUT\", \"COMPLETED\"].includes(freshStatus);",
+].join("\n");
+
+const NEW_BASE_FRESH_STATUS = [
+  "  const [freshJob, freshHealthRaw, freshControl] = await Promise.all([",
+  "    queueRequest(text(freshOwned.cinema.id), `/status/${encodeURIComponent(jobId)}`, queueCredential.key, { allow404: true }),",
+  "    queueRequest(text(freshOwned.cinema.id), \"/health\", queueCredential.key),",
+  "    optionalControlWorkers(text(freshOwned.cinema.id), controlCandidates),",
+  "  ]);",
+  "  const freshHealth = healthSummary(freshHealthRaw);",
+  "  const freshStatus = freshJob.__not_found === true ? \"NOT_FOUND\" : text(freshJob.status).toUpperCase();",
+  "  const freshTerminal = freshJob.__not_found === true || [\"CANCELLED\", \"CANCELED\", \"FAILED\", \"TIMED_OUT\", \"COMPLETED\"].includes(freshStatus);",
+].join("\n");
+
 if (Number(process.versions.node.split(".")[0]) < 24) {
   throw new Error(`AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_NODE24_REQUIRED:${process.version}`);
 }
@@ -118,6 +185,24 @@ patched = replaceExactlyOnce(
   OLD_BASE_REQUIRE_MAIN,
   NEW_BASE_REQUIRE_MAIN,
   "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_MAIN_GUARD",
+);
+patched = replaceExactlyOnce(
+  patched,
+  OLD_BASE_QUEUE_REQUEST,
+  NEW_BASE_QUEUE_REQUEST,
+  "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_QUEUE_REQUEST",
+);
+patched = replaceExactlyOnce(
+  patched,
+  OLD_BASE_INITIAL_STATUS,
+  NEW_BASE_INITIAL_STATUS,
+  "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_INITIAL_JOB_STATUS",
+);
+patched = replaceExactlyOnce(
+  patched,
+  OLD_BASE_FRESH_STATUS,
+  NEW_BASE_FRESH_STATUS,
+  "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_FRESH_JOB_STATUS",
 );
 const dir = await mkdtemp(join(tmpdir(), "avantiqo-video-single-gpu-recovery-"));
 const path = join(dir, "repair-avantiqo-video-wan22-single-gpu-stale-baseline-compat.mjs");
@@ -144,7 +229,11 @@ try {
       workers_max: 1,
       execution_timeout_ms: 7200000,
     },
-    required_terminal_job: true,
+    terminal_job_policy: {
+      explicit_terminal_status_allowed: true,
+      purged_status_404_allowed: true,
+      purged_status_requires_zero_queue_workers_and_control_surfaces: true,
+    },
     required_zero_queue_and_workers: true,
     main_movement_policy: {
       unrelated_main_commits_tolerated: true,

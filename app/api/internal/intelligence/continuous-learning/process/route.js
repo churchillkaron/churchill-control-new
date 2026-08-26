@@ -61,6 +61,9 @@ import {
   reconcileAvantiqoLearningTransferRevisions,
 } from "@/lib/intelligence/runtime/AvantiqoLearningTransferRevisionRuntime";
 import {
+  reconcileAvantiqoExperimentOutcomeAssessorCalibration,
+} from "@/lib/intelligence/runtime/AvantiqoExperimentOutcomeAssessorCalibrationRuntime";
+import {
   reconcileAvantiqoExperimentEstimatorCalibration,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentEstimatorCalibrationRuntime";
 import {
@@ -69,6 +72,9 @@ import {
 import {
   reconcileAvantiqoEstimatorCalibratedSelectionGuard,
 } from "@/lib/intelligence/runtime/AvantiqoEstimatorCalibratedSelectionGuardRuntime";
+import {
+  reconcileAvantiqoAssessorCalibratedEstimatorSelectionGuard,
+} from "@/lib/intelligence/runtime/AvantiqoAssessorCalibratedEstimatorSelectionGuardRuntime";
 import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
@@ -81,52 +87,15 @@ function authorized(request) {
 
 export async function GET(request) {
   if (!authorized(request)) {
-    return Response.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
+    return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const url = new URL(request.url);
-    const limit = Math.max(
-      1,
-      Math.min(Number(url.searchParams.get("limit")) || 1, 3),
-    );
+    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 1, 3));
 
-    // Closed-loop Learning order:
-    // 1. Synchronize Avantiqo's canonical product truth.
-    // 2. Classify learned external knowledge as fresh, aging, due or expired.
-    // 3. Discover product/evidence coverage gaps after lifecycle cleanup.
-    // 4. Evaluate whether prior research is productive and adapt priority/cadence.
-    // 5. Apply only anti-overfit eligible observational knowledge-utility feedback.
-    // 6. Bridge staged public-evidence candidates into adversarial mechanism review.
-    // 7. Escalate weak/unsolved topics into mechanism and experiment discovery tracks.
-    // 8. Reconcile governed syntheses into hypotheses and experiment proposals.
-    // 9. Reconcile mature experimental candidates against the Evidence Graph.
-    // 10. Evaluate non-influencing provisional shadow observations.
-    // 11. Create counterfactual benchmark plans and final release review candidates.
-    // 12. Revalidate explicitly released knowledge; cron cannot release or restore it.
-    // 13. Propagate quarantine only through explicitly verified hard dependencies.
-    // 14. Reconcile evidence-backed mastery and a bounded learning frontier.
-    // 15. Generate bounded cross-domain transfer-discovery work.
-    // 16. Reconcile governed transfer experiment results and negative-transfer memory.
-    // 17. Reconcile replicated contradiction attribution into single-component revision requests.
-    // 18. Calibrate experiment estimators against immutable execution receipts and
-    //     independently assessed post-result uncertainty reduction. Calibration can
-    //     only reduce later selection qualification; it can never improve a score.
-    // 19. Select unresolved experiments by conservative information gain per cost.
-    //     Exact experiment versions require >=2 independent, method-diverse estimates.
-    //     Lowest information-gain, highest-cost and highest-risk estimates are used.
-    // 20. Apply the estimator-calibration guard. Unsafe optimistic estimators stop
-    //     counting toward estimator/method diversity, while their original numeric
-    //     estimates remain untouched. Failing selections are retired fail-closed.
-    // 21. Convert only surviving current selections into bounded execution-approval
-    //     requests. Explicit approval is never recorded by this cron. No request can
-    //     reserve wallet spend, call a provider, acquire a RunPod lease, or execute.
-    // 22. Spend the existing bounded public-evidence research budget on the resulting agenda.
-    // Stages 1-21 never authorize spend/provider execution, execute experiments,
-    // submit RunPod jobs, mutate model weights, release knowledge, or fabricate results.
+    // Closed-loop learning order. All trust/calibration stages are provider-free and
+    // can only remove qualification or create evidence/holds; none can authorize execution.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
@@ -142,27 +111,32 @@ export async function GET(request) {
       await reconcileAvantiqoKnowledgeCounterfactualBenchmarkPlans();
     const knowledgeFinalPromotionCandidates =
       await reconcileAvantiqoKnowledgeFinalPromotionCandidates();
-    const releasedKnowledgeLifecycle =
-      await reconcileAvantiqoReleasedKnowledgeLifecycle();
+    const releasedKnowledgeLifecycle = await reconcileAvantiqoReleasedKnowledgeLifecycle();
     const knowledgeDependencyCurriculum =
       await reconcileAvantiqoKnowledgeDependencyCurriculum();
-    const learningMasteryFrontier =
-      await reconcileAvantiqoLearningMasteryFrontier();
+    const learningMasteryFrontier = await reconcileAvantiqoLearningMasteryFrontier();
     const learningTransfer = await reconcileAvantiqoLearningTransfer();
-    const learningTransferValidation =
-      await reconcileAvantiqoLearningTransferValidation();
+    const learningTransferValidation = await reconcileAvantiqoLearningTransferValidation();
     const negativeTransferEvidenceClock =
       await reconcileAvantiqoNegativeTransferEvidenceClock();
-    const learningTransferRevision =
-      await reconcileAvantiqoLearningTransferRevisions();
+    const learningTransferRevision = await reconcileAvantiqoLearningTransferRevisions();
+
+    // Calibrate post-result assessors first, then estimator calibration can be
+    // independently guarded against assessor-backed false negatives.
+    const experimentOutcomeAssessorCalibration =
+      await reconcileAvantiqoExperimentOutcomeAssessorCalibration();
     const experimentEstimatorCalibration =
       await reconcileAvantiqoExperimentEstimatorCalibration();
-    const activeExperimentSelection =
-      await reconcileAvantiqoActiveExperimentSelection();
+
+    const activeExperimentSelection = await reconcileAvantiqoActiveExperimentSelection();
     const estimatorCalibratedSelectionGuard =
       await reconcileAvantiqoEstimatorCalibratedSelectionGuard();
-    const experimentExecutionRequests =
-      await reconcileAvantiqoExperimentExecutionRequests();
+    const assessorCalibratedEstimatorSelectionGuard =
+      await reconcileAvantiqoAssessorCalibratedEstimatorSelectionGuard();
+
+    // Execution requests are generated only after both calibration guards have
+    // had the opportunity to retire unsafe selections fail-closed.
+    const experimentExecutionRequests = await reconcileAvantiqoExperimentExecutionRequests();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -188,22 +162,20 @@ export async function GET(request) {
         learning_transfer_validation: learningTransferValidation,
         negative_transfer_evidence_clock: negativeTransferEvidenceClock,
         learning_transfer_revision: learningTransferRevision,
+        experiment_outcome_assessor_calibration: experimentOutcomeAssessorCalibration,
         experiment_estimator_calibration: experimentEstimatorCalibration,
         active_experiment_selection: activeExperimentSelection,
         estimator_calibrated_selection_guard: estimatorCalibratedSelectionGuard,
+        assessor_calibrated_estimator_selection_guard:
+          assessorCalibratedEstimatorSelectionGuard,
         experiment_execution_requests: experimentExecutionRequests,
       },
-      {
-        status: result.success === false ? 207 : 200,
-      },
+      { status: result.success === false ? 207 : 200 },
     );
   } catch (error) {
     console.error("AVANTIQO_CONTINUOUS_LEARNING_CRON_FAILED", error);
     return Response.json(
-      {
-        success: false,
-        error: error?.message || "Continuous learning failed",
-      },
+      { success: false, error: error?.message || "Continuous learning failed" },
       { status: 500 },
     );
   }

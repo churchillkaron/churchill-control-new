@@ -107,7 +107,10 @@ if (
 }
 
 const image = await imageEvidence();
-const endpoints = await requestJson(`${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`, managementKey);
+const [endpoints, templates] = await Promise.all([
+  requestJson(`${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`, managementKey),
+  requestJson(`${REST_BASE}/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false`, managementKey),
+]);
 const matches = list(endpoints).filter((endpoint) => text(endpoint?.name) === ENDPOINT_NAME);
 if (matches.length !== 1) {
   throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
@@ -124,7 +127,15 @@ if (endpointVolumeIds(endpoint).length) {
 if (activeWorkerCount(endpoint) !== 0) {
   throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ACTIVE_WORKER_FORBIDDEN_AT_PREFLIGHT");
 }
-const templateImage = text(endpoint?.template?.imageName || endpoint?.template?.image_name);
+
+const templateId = text(endpoint.templateId ?? endpoint.template_id ?? endpoint?.template?.id);
+if (!templateId) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_TEMPLATE_ID_REQUIRED");
+const templateMatches = list(templates).filter((template) => text(template?.id) === templateId);
+if (templateMatches.length !== 1) {
+  throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_TEMPLATE_RESOLUTION_FAILED:${templateMatches.length}`);
+}
+const authoritativeTemplate = templateMatches[0];
+const templateImage = text(authoritativeTemplate?.imageName ?? authoritativeTemplate?.image_name);
 if (!templateImage || templateImage !== image.immutable) {
   throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_TEMPLATE_IMAGE_MISMATCH");
 }
@@ -149,6 +160,7 @@ console.log(JSON.stringify({
   endpoint: {
     id: endpointId,
     name: ENDPOINT_NAME,
+    template_id: templateId,
     workers_min: 0,
     workers_max: 0,
     active_workers: 0,
@@ -156,6 +168,8 @@ console.log(JSON.stringify({
     in_progress: 0,
     network_volume_attached: false,
     template_image: templateImage,
+    template_resolution: "AUTHORITATIVE_TEMPLATE_ID_LOOKUP",
+    embedded_template_used_for_digest_decision: false,
   },
   immutable_image_reference: image.immutable,
   safe_lease: {

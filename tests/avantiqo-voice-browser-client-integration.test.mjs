@@ -32,7 +32,9 @@ test("Operator uses shared async STT and TTS clients for voice turns", async () 
   assert.match(operator, /transcribeRecordedAudio/);
   assert.match(operator, /AsyncSpeechClient/);
   assert.match(operator, /requestAsyncSpeechBlob/);
-  assert.match(operator, /source:\s*"voice"/);
+  assert.match(operator, /async function sendMessage\(rawValue, source = "text"\)/);
+  assert.match(operator, /if \(source === "voice" && assistantText\)/);
+  assert.match(operator, /sendMessage\(result\.transcript,\s*"voice"\)/);
   assert.match(operator, /spokenReplyAbortRef/);
   assert.doesNotMatch(operator, /fetch\("\/api\/operator\/transcribe"/);
   assert.doesNotMatch(operator, /fetch\("\/api\/operator\/speak\/jobs"/);

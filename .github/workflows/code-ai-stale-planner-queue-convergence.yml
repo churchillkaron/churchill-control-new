@@ -1,0 +1,63 @@
+name: Code Stale Planner Queue Convergence
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/patch-code-ai-stale-planner-queue-once.mjs"
+      - ".github/workflows/code-ai-stale-planner-queue-convergence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: code-stale-planner-queue-convergence-main
+  cancel-in-progress: false
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "NO"
+      AVANTIQO_CODE_WORLDCLASS_CI: "YES"
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Apply stale planner queue convergence
+        run: node scripts/patch-code-ai-stale-planner-queue-once.mjs
+
+      - name: Verify zero-GPU Code gates
+        run: |
+          node --check lib/code/runtime/CodeAICertificationResiliencePolicy.js
+          node --check lib/code/runtime/CodeAIPlannerExecutionRuntime.js
+          node --check lib/code/runtime/CodeAIAutonomousRuntime.js
+          node --check scripts/settle-code-ai-planner-certification-pending-local.mjs
+          npm run audit:code-ai-autonomy
+          test "${AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED}" = "NO"
+
+      - name: Commit convergence
+        run: |
+          if git diff --quiet -- lib/code/runtime/CodeAICertificationResiliencePolicy.js lib/code/runtime/CodeAIPlannerExecutionRuntime.js lib/code/runtime/CodeAIAutonomousRuntime.js scripts/settle-code-ai-planner-certification-pending-local.mjs scripts/code-ai-certification-resilience-selftest.mjs; then
+            echo "No convergence changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/code/runtime/CodeAICertificationResiliencePolicy.js lib/code/runtime/CodeAIPlannerExecutionRuntime.js lib/code/runtime/CodeAIAutonomousRuntime.js scripts/settle-code-ai-planner-certification-pending-local.mjs scripts/code-ai-certification-resilience-selftest.mjs
+          git commit -m "Recover stale Code planner queue jobs"
+          git push origin HEAD:main

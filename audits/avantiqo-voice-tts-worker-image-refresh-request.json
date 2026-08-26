@@ -1,7 +1,7 @@
 {
   "contract": "AVANTIQO_VOICE_TTS_WORKER_IMAGE_REFRESH_REQUEST_V1",
-  "requested_for": "tts_blackwell_direct_python_default_cmd_and_real_startup_probe",
-  "source_commit": "738aeb68ebe8d96ad12c93d7d2142cf5a46cd6fb",
+  "requested_for": "tts_blackwell_claim_job_before_model_load",
+  "source_commit": "eec9d2f3e620b5e75eb7911d721eeb910c3e4813",
   "build_tts": true,
   "build_stt": false,
   "platform": "linux/amd64",

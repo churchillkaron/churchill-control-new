@@ -160,6 +160,7 @@ npm run audit:operator-secretary-end-to-end
 node scripts/preflight-secretary-meeting-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-approval-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-review-controls-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-cancellation-normalization-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

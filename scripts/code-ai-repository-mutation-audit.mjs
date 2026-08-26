@@ -58,6 +58,8 @@ requireMarkers("REPOSITORY_INTELLIGENCE", repositoryIntelligence, [
   "command_conventions",
   "command_convention_policy",
   "monorepo",
+  "DISCOVERY_PATHSPEC_BATCH_SIZE",
+  "discovery_batch_count",
   'repository_content_authorization_effect: "NONE"',
 ]);
 
@@ -160,6 +162,7 @@ console.log(JSON.stringify({
     general_build_system_detection: true,
     nested_mixed_language_build_manifest_detection: true,
     nested_build_commands_bound_to_working_directory: true,
+    discovery_pathspecs_batched_below_sandbox_argument_limit: true,
     node_python_go_rust_java_dotnet_ruby_php_swift_c_cpp_bazel_supported: true,
     repository_declared_commands_preferred_over_conventional_candidates: true,
     conventional_commands_require_repository_verification_when_conditional: true,

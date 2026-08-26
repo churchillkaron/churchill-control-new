@@ -7,6 +7,11 @@ const source = await readFile(
   "utf8",
 );
 
+const worklet = await readFile(
+  new URL("../public/operator/voice/avantiqo-realtime-pcm-worklet.js", import.meta.url),
+  "utf8",
+);
+
 const publicClient = await readFile(
   new URL("../lib/operator/voice/RealtimeTranscriptionClient.js", import.meta.url),
   "utf8",
@@ -36,6 +41,7 @@ test("owned realtime browser client is bounded, cancelable and audio-memory-only
   assert.match(source, /TARGET_SAMPLE_RATE = 16000/);
   assert.match(source, /CONNECT_TIMEOUT_MS = 7000/);
   assert.match(source, /READY_TIMEOUT_MS = 65_000/);
+  assert.match(source, /CAPTURE_FLUSH_TIMEOUT_MS = 2000/);
   assert.match(source, /COMMIT_TIMEOUT_MS = 15_000/);
   assert.match(source, /MAX_SESSION_MS = 90_000/);
   assert.match(source, /audio\.append/);
@@ -57,6 +63,22 @@ test("owned realtime browser client waits for exact worker readiness before audi
   assert.match(source, /!workerReady \|\|\s*websocket\.readyState !== WebSocket\.OPEN/);
   assert.match(source, /if \(!deferAudioCapture\) startCapture\(\)/);
   assert.match(source, /async waitUntilReady\(\)/);
+});
+
+test("owned realtime browser client requires AudioWorklet and flushes before commit", () => {
+  assert.match(source, /audio_worklet_required:\s*true/);
+  assert.match(source, /script_processor_fallback:\s*false/);
+  assert.match(source, /audioContext\.audioWorklet\.addModule\(WORKLET_URL\)/);
+  assert.match(source, /new AudioWorkletNode\(audioContext, WORKLET_PROCESSOR/);
+  assert.match(source, /async function flushCapture\(\)/);
+  assert.match(source, /await flushCapture\(\);\s*committed = true/);
+  assert.doesNotMatch(source, /createScriptProcessor/);
+  assert.doesNotMatch(source, /onaudioprocess/);
+  assert.match(worklet, /registerProcessor\(PROCESSOR_NAME, AvantiqoRealtimePcmCaptureProcessor\)/);
+  assert.match(worklet, /TARGET_SAMPLE_RATE = 16000/);
+  assert.match(worklet, /FRAME_SAMPLES = 320/);
+  assert.match(worklet, /type: "audio\.pcm16"/);
+  assert.match(worklet, /type: "audio\.flushed"/);
 });
 
 test("owned realtime browser client supports partial and final transcripts", () => {

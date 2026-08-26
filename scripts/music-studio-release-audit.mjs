@@ -77,7 +77,7 @@ requirePattern(engine, /ai\.audio\.remix/, "music-engine-must-model-remix-contra
 requirePattern(engine, /ai\.audio\.edit/, "music-engine-must-model-edit-contract");
 requirePattern(engine, /ai\.audio\.extend/, "music-engine-must-model-extend-contract");
 requirePattern(engine, /acestep-v15-xl-turbo/, "music-engine-must-use-xl-transform-lane");
-requirePattern(engine, /XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1/, "music-engine-must-use-temporal-right-outpaint-strategy");
+requirePattern(engine, /XL_TURBO_REPAINT_RIGHT_OUTPAINT/, "music-engine-must-use-temporal-right-outpaint-strategy");
 requirePattern(engine, /extension_seconds/, "music-engine-extend-must-carry-extension-seconds");
 requirePattern(engine, /continuity_overlap_seconds/, "music-engine-extend-must-carry-continuity-overlap");
 forbidPattern(engine, /acestep-v15-base/, "music-engine-must-not-route-temporal-extend-to-base-model");
@@ -254,7 +254,7 @@ requirePattern(endpointProvisioner, /generation_submitted:\s*false/, "music-endp
 requirePattern(storageProvisioner, /AVANTIQO_AUDIO_RUNPOD_STORAGE_V2/, "music-storage-provisioner-contract-v2-required");
 requirePattern(storageProvisioner, /sharedVolumeGroup\("AUDIO_VOICE"\)/, "music-storage-provisioner-must-use-shared-audio-voice-group");
 requirePattern(storageProvisioner, /DEFAULT_VOLUME_NAME = SHARED_VOLUME_GROUP\.canonical_name/, "music-storage-provisioner-must-use-canonical-shared-volume-name");
-requirePattern(storageProvisioner, /resolveReusableGroupVolume\(volumes, SHARED_VOLUME_GROUP\)/, "music-storage-provisioner-must-reuse-existing-shared-audio-voice-volume");
+requirePattern(storageProvisioner, /resolveReusableGroupVolume\(volumes, SHARED_VOLUME_GROUP\)/, "music-storage-provisioner-must-reuse-existing-shared-audio-voice-cache");
 requirePattern(storageProvisioner, /assertManagedVolumeCreationAllowed\(freshVolumes, SHARED_VOLUME_GROUP\)/, "music-storage-provisioner-must-enforce-shared-volume-creation-limit");
 requirePattern(storageProvisioner, /additional_audio_voice_volume_forbidden:\s*true/, "music-storage-provisioner-must-forbid-extra-audio-voice-cache");
 requirePattern(storageProvisioner, /AVANTIQO_AUDIO_RUNPOD_STORAGE_APPROVED=YES_REQUIRED/, "music-storage-provisioner-must-require-explicit-apply-approval");

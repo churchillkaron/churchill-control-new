@@ -6,6 +6,7 @@ const files = {
   runtime: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationRuntime.js", "utf8"),
   evidence: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationEvidenceRuntime.js", "utf8"),
   bookingGuard: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationBookingGuardRuntime.js", "utf8"),
+  notification: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationNotificationRuntime.js", "utf8"),
   capability: await readFile("lib/platform/capabilities/createSecretaryMeetingCoordinationCapability.js", "utf8"),
   platform: await readFile("lib/platform/runtime/PlatformDomainRuntime.js", "utf8"),
   worker: await readFile("app/api/internal/secretary/meeting-coordination/process/route.js", "utf8"),
@@ -64,8 +65,29 @@ assert.match(files.bookingGuard, /booking_blocked_without_explicit_availability_
 assert.match(files.bookingGuard, /processNextSecretaryMeetingCoordinationWithBookingGuard/);
 assert.match(files.bookingGuard, /reconcileSecretaryMeetingCoordinationEvidence/);
 assert.match(files.bookingGuard, /processSecretaryMeetingCoordination\(coordination\)/);
+assert.match(files.bookingGuard, /ensureSecretaryMeetingBookingNotifications/);
+assert.match(files.bookingGuard, /booking_notifications_materialized:\s*true/);
+assert.match(files.bookingGuard, /rsvp_not_inferred:\s*true/);
+assert.match(files.bookingGuard, /booked_notification_pending_repair/);
 assert.match(files.bookingGuard, /attendance_not_inferred:\s*true/);
 assert.match(files.bookingGuard, /external_authority_used:\s*false/);
+
+assert.match(files.notification, /createHash/);
+assert.match(files.notification, /deterministicFollowUpId/);
+assert.match(files.notification, /avantiqo-secretary-meeting-booking-notification-v1/);
+assert.match(files.notification, /meeting_booking_notification:\s*true/);
+assert.match(files.notification, /execution_owner:\s*"SECRETARY"/);
+assert.match(files.notification, /execution_ready:\s*true/);
+assert.match(files.notification, /attendance_not_inferred:\s*true/);
+assert.match(files.notification, /rsvp_not_inferred:\s*true/);
+assert.match(files.notification, /Do not state or imply that they accepted the meeting, RSVP'd, or that attendance is confirmed/);
+assert.match(files.notification, /do not state or imply that their RSVP or attendance is confirmed/i);
+assert.match(files.notification, /reply if their availability has changed/i);
+assert.match(files.notification, /inserted\.error\.code !== "23505"/);
+assert.match(files.notification, /booking_notifications_materialized:\s*true/);
+assert.match(files.notification, /booking_notifications_include_all_participants:\s*true/);
+assert.match(files.notification, /repairSecretaryMeetingBookingNotifications/);
+assert.match(files.notification, /deterministic_follow_up_ids:\s*true/);
 
 assert.match(files.capability, /secretary_meeting_coordination/);
 assert.match(files.capability, /coordinate this meeting/i);
@@ -85,10 +107,15 @@ assert.match(files.platform, /cancel:\s*async\s*\(\)\s*=>\s*createSecretaryMeeti
 
 assert.match(files.worker, /CRON_SECRET/);
 assert.match(files.worker, /processNextSecretaryMeetingCoordinationWithBookingGuard/);
-assert.match(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V2/);
+assert.match(files.worker, /repairSecretaryMeetingBookingNotifications/);
+assert.match(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V3/);
+assert.match(files.worker, /booking_notifications_include_all_participants:\s*true/);
+assert.match(files.worker, /booking_notifications_deterministic_and_idempotent:\s*true/);
+assert.match(files.worker, /booking_notifications_rsvp_not_inferred:\s*true/);
 assert.match(files.worker, /explicit_availability_evidence_required_for_booking:\s*true/);
 assert.match(files.worker, /attendance_not_inferred:\s*true/);
 assert.match(files.worker, /external_authority_used:\s*false/);
+assert.doesNotMatch(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V2/);
 assert.doesNotMatch(files.worker, /processNextSecretaryMeetingCoordinationSafely/);
 
 const vercel = JSON.parse(files.vercel);
@@ -109,7 +136,12 @@ console.log("SECRETARY_MEETING_ATOMIC_BOOKING=true");
 console.log("SECRETARY_MEETING_SLOT_RACE_FAILS_CLOSED=true");
 console.log("SECRETARY_MEETING_BOOKING_GUARD=true");
 console.log("SECRETARY_MEETING_BOOKING_REQUIRES_EXPLICIT_RESPONSE_EVIDENCE=true");
-console.log("SECRETARY_MEETING_COORDINATION_WORKER_V2=true");
+console.log("SECRETARY_MEETING_BOOKING_NOTIFICATIONS=true");
+console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_ALL_PARTICIPANTS=true");
+console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_IDEMPOTENT=true");
+console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_REPAIR=true");
+console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_RSVP_NOT_INFERRED=true");
+console.log("SECRETARY_MEETING_COORDINATION_WORKER_V3=true");
 console.log("SECRETARY_MEETING_ATTENDANCE_NOT_INFERRED=true");
 console.log("SECRETARY_MEETING_COORDINATION_CRON_REGISTERED=true");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

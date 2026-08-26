@@ -61,6 +61,42 @@ test("Voice Library API is organization-authorized for every mutation", async ()
   assert.match(source, /Cache-Control": "no-store"/);
 });
 
+test("Voice provider automatically resolves organization Voice Library identity", async () => {
+  const source = await readFile(providerPath, "utf8");
+  assert.match(source, /resolveVoiceReferenceForExecution/);
+  assert.match(source, /async function resolveTtsVoiceSelection/);
+  assert.match(source, /voice_library_profile_id/);
+  assert.match(source, /organization_voice_library/);
+  assert.match(source, /avantiqo_builtin/);
+  assert.match(source, /voice_identity_profile_id/);
+  assert.match(source, /voice_delivery_profile/);
+});
+
+test("Direct authorized reference wins over stored Voice Library identity", async () => {
+  const source = await readFile(providerPath, "utf8");
+  const resolver = source.slice(
+    source.indexOf("async function resolveTtsVoiceSelection"),
+    source.indexOf("function runtimeApiKey"),
+  );
+  const direct = resolver.indexOf("if (directReference)");
+  const library = resolver.indexOf("resolveVoiceReferenceForExecution");
+  assert.ok(direct >= 0, "direct voice reference branch required");
+  assert.ok(library > direct, "library resolution must occur after direct reference branch");
+  assert.match(resolver, /identitySource: "request_reference"/);
+  assert.match(resolver, /identitySource: librarySelection/);
+});
+
+test("Explicit delivery style can override stored identity style without replacing identity", async () => {
+  const source = await readFile(providerPath, "utf8");
+  const resolver = source.slice(
+    source.indexOf("async function resolveTtsVoiceSelection"),
+    source.indexOf("function runtimeApiKey"),
+  );
+  assert.match(resolver, /explicitDeliveryProfile/);
+  assert.match(resolver, /explicitDeliveryProfile \|\|\s*librarySelection\?\.voice_profile/);
+  assert.match(resolver, /voiceReference: librarySelection\?\.voice_reference \|\| null/);
+});
+
 test("Voice provider cannot submit RunPod work without exact safe lease", async () => {
   const source = await readFile(providerPath, "utf8");
   const leaseGuard = source.indexOf("function requireSafeLeaseForSubmission");

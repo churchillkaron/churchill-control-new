@@ -97,6 +97,19 @@ test("Voice registration does not falsely certify realtime or cloning", async ()
   assert.match(source, /ai\.text\.to\.speech/);
 });
 
+test("Voice RunPod execution is durable across scale-to-zero cold starts", async () => {
+  const source = await readFile(
+    new URL("../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProvider.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /runpodRequest\(endpointId, "\/run"/);
+  assert.match(source, /async getStatus\(input = \{\}\)/);
+  assert.match(source, /provider_job_id:\s*submitted\.jobId/);
+  assert.match(source, /\/status\/\$\{encodeURIComponent\(jobId\)\}/);
+  assert.doesNotMatch(source, /\/runsync/);
+  assert.doesNotMatch(source, /AVANTIQO_VOICE_RUNSYNC_NOT_COMPLETED/);
+});
+
 test("Operator speech APIs remain capability-only and do not expose provider evidence", async () => {
   const transcribe = await readFile(
     new URL("../app/api/operator/transcribe/route.js", import.meta.url),

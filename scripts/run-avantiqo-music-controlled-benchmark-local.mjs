@@ -93,6 +93,7 @@ loadAvantiqoEnv();
 const PREFLIGHT_SCRIPT = resolve("scripts/preflight-avantiqo-music-local.mjs");
 const CAPACITY_SCRIPT = resolve("scripts/assert-avantiqo-music-xl-lm-storage-capacity-local.mjs");
 const SCHEDULABILITY_SCRIPT = resolve("scripts/assert-avantiqo-music-runpod-schedulability-local.mjs");
+const SAFE_LEASE_SCRIPT = resolve("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs");
 const BENCHMARK_SCRIPT = resolve("scripts/benchmark-avantiqo-music.mjs");
 const PREFLIGHT_CONTRACT = "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V3";
 const CAPACITY_CONTRACT = "AVANTIQO_MUSIC_XL_LM_STORAGE_CAPACITY_V1";
@@ -103,6 +104,12 @@ function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
+}
+
+function approved(name) {
+  if (text(process.env[name]).toUpperCase() !== "YES") {
+    throw new Error(`${name}=YES_REQUIRED`);
+  }
 }
 
 function runJsonGate(script, failureCode, timeout = 60_000) {
@@ -128,11 +135,7 @@ function runJsonGate(script, failureCode, timeout = 60_000) {
 }
 
 function runVerifiedPreflight() {
-  const result = runJsonGate(
-    PREFLIGHT_SCRIPT,
-    "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PREFLIGHT_FAILED",
-  );
-
+  const result = runJsonGate(PREFLIGHT_SCRIPT, "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PREFLIGHT_FAILED");
   if (
     result?.success !== true ||
     result?.contract !== PREFLIGHT_CONTRACT ||
@@ -145,15 +148,11 @@ function runVerifiedPreflight() {
   ) {
     throw new Error("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PREFLIGHT_NOT_READY");
   }
-
   return result;
 }
 
 function runVerifiedCapacityGate() {
-  const result = runJsonGate(
-    CAPACITY_SCRIPT,
-    "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CAPACITY_FAILED",
-  );
+  const result = runJsonGate(CAPACITY_SCRIPT, "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CAPACITY_FAILED");
   if (
     result?.success !== true ||
     result?.contract !== CAPACITY_CONTRACT ||
@@ -170,10 +169,7 @@ function runVerifiedCapacityGate() {
 }
 
 function runVerifiedSchedulabilityGate() {
-  const result = runJsonGate(
-    SCHEDULABILITY_SCRIPT,
-    "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SCHEDULABILITY_FAILED",
-  );
+  const result = runJsonGate(SCHEDULABILITY_SCRIPT, "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SCHEDULABILITY_FAILED");
   if (
     result?.success !== true ||
     result?.contract !== SCHEDULABILITY_CONTRACT ||
@@ -212,6 +208,7 @@ if (credentialSource === "AUDIO_DEDICATED") {
   throw new Error(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CREDENTIAL_SOURCE_INVALID:${credentialSource || "MISSING"}`);
 }
 const verifiedCredential = required(credentialName);
+approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
 
 console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_NODE=${process.version}`);
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PREFLIGHT=PASS");
@@ -224,18 +221,25 @@ console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_CACHE_DATACENTER=${schedulabili
 console.log(`AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SCHEDULABLE_GPU_TYPES=${schedulability.current_region.endpoint_schedulable_gpu_types.join("|")}`);
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SCHEDULABILITY=PASS");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_RESILIENCE=PASS");
+console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SAFE_LEASE=REQUIRED");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_SECRET_PRINTED=false");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PRODUCTION_DEPLOY_PERFORMED=false");
 console.log("AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_PRICING_ACTIVATION_PERFORMED=false");
 
-const child = spawnSync(process.execPath, [BENCHMARK_SCRIPT], {
-  cwd: process.cwd(),
-  env: {
-    ...process.env,
-    RUNPOD_API_KEY: verifiedCredential,
+const child = spawnSync(
+  process.execPath,
+  [SAFE_LEASE_SCRIPT, "--lane=audio", "--ttl-ms=1800000", "--", process.execPath, BENCHMARK_SCRIPT],
+  {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      RUNPOD_API_KEY: verifiedCredential,
+      AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES",
+      AVANTIQO_AUDIO_BENCHMARK_RUNS: "1",
+    },
+    stdio: "inherit",
   },
-  stdio: "inherit",
-});
+);
 
 if (child.error) throw child.error;
 if (child.status !== 0) {

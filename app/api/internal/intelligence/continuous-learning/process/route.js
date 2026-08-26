@@ -61,8 +61,14 @@ import {
   reconcileAvantiqoLearningTransferRevisions,
 } from "@/lib/intelligence/runtime/AvantiqoLearningTransferRevisionRuntime";
 import {
+  reconcileAvantiqoExperimentEstimatorCalibration,
+} from "@/lib/intelligence/runtime/AvantiqoExperimentEstimatorCalibrationRuntime";
+import {
   reconcileAvantiqoActiveExperimentSelection,
 } from "@/lib/intelligence/runtime/AvantiqoActiveExperimentSelectionRuntime";
+import {
+  reconcileAvantiqoEstimatorCalibratedSelectionGuard,
+} from "@/lib/intelligence/runtime/AvantiqoEstimatorCalibratedSelectionGuardRuntime";
 import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
@@ -106,15 +112,20 @@ export async function GET(request) {
     // 15. Generate bounded cross-domain transfer-discovery work.
     // 16. Reconcile governed transfer experiment results and negative-transfer memory.
     // 17. Reconcile replicated contradiction attribution into single-component revision requests.
-    // 18. Select unresolved experiments by conservative information gain per cost.
+    // 18. Calibrate experiment estimators against immutable execution receipts and
+    //     independently assessed post-result uncertainty reduction. Calibration can
+    //     only reduce later selection qualification; it can never improve a score.
+    // 19. Select unresolved experiments by conservative information gain per cost.
     //     Exact experiment versions require >=2 independent, method-diverse estimates.
     //     Lowest information-gain, highest-cost and highest-risk estimates are used.
-    //     Selection is short-lived review evidence only, never execution authorization.
-    // 19. Convert current selections into bounded execution-approval requests only.
-    //     Explicit approval is never recorded by this cron. No request can directly
+    // 20. Apply the estimator-calibration guard. Unsafe optimistic estimators stop
+    //     counting toward estimator/method diversity, while their original numeric
+    //     estimates remain untouched. Failing selections are retired fail-closed.
+    // 21. Convert only surviving current selections into bounded execution-approval
+    //     requests. Explicit approval is never recorded by this cron. No request can
     //     reserve wallet spend, call a provider, acquire a RunPod lease, or execute.
-    // 20. Spend the existing bounded public-evidence research budget on the resulting agenda.
-    // Stages 1-19 never authorize spend/provider execution, execute experiments,
+    // 22. Spend the existing bounded public-evidence research budget on the resulting agenda.
+    // Stages 1-21 never authorize spend/provider execution, execute experiments,
     // submit RunPod jobs, mutate model weights, release knowledge, or fabricate results.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
@@ -144,8 +155,12 @@ export async function GET(request) {
       await reconcileAvantiqoNegativeTransferEvidenceClock();
     const learningTransferRevision =
       await reconcileAvantiqoLearningTransferRevisions();
+    const experimentEstimatorCalibration =
+      await reconcileAvantiqoExperimentEstimatorCalibration();
     const activeExperimentSelection =
       await reconcileAvantiqoActiveExperimentSelection();
+    const estimatorCalibratedSelectionGuard =
+      await reconcileAvantiqoEstimatorCalibratedSelectionGuard();
     const experimentExecutionRequests =
       await reconcileAvantiqoExperimentExecutionRequests();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
@@ -173,7 +188,9 @@ export async function GET(request) {
         learning_transfer_validation: learningTransferValidation,
         negative_transfer_evidence_clock: negativeTransferEvidenceClock,
         learning_transfer_revision: learningTransferRevision,
+        experiment_estimator_calibration: experimentEstimatorCalibration,
         active_experiment_selection: activeExperimentSelection,
+        estimator_calibrated_selection_guard: estimatorCalibratedSelectionGuard,
         experiment_execution_requests: experimentExecutionRequests,
       },
       {

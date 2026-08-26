@@ -61,22 +61,11 @@ for (const table of [
   await tableReady(client, table);
 }
 
-const functionProbe = await client.rpc("claim_secretary_job", {
-  p_worker_id: `secretary-meeting-local-preflight-${crypto.randomUUID()}`,
-  p_lease_seconds: 60,
-});
-if (functionProbe.error) {
-  throw new Error(`SECRETARY_MEETING_LOCAL_JOB_CLAIM_NOT_READY:${functionProbe.error.code || "UNKNOWN"}`);
-}
-if (Array.isArray(functionProbe.data) && functionProbe.data.length > 0) {
-  throw new Error("SECRETARY_MEETING_LOCAL_PREFLIGHT_REFUSED_TO_CLAIM_EXISTING_JOB");
-}
-
 console.log("SECRETARY_MEETING_LOCAL_PREFLIGHT=PASS");
 console.log(`SECRETARY_MEETING_LOCAL_SUPABASE_HOST=${parsedUrl.hostname}`);
 console.log(`SECRETARY_MEETING_LOCAL_SUPABASE_PORT=${parsedUrl.port || "default"}`);
 console.log("SECRETARY_MEETING_LOCAL_SCHEMA=PASS");
-console.log("SECRETARY_MEETING_LOCAL_JOB_CLAIM=PASS");
+console.log("SECRETARY_MEETING_LOCAL_PREFLIGHT_READ_ONLY=true");
 console.log("SECRETARY_MEETING_LOCAL_SECRETS_PRINTED=false");
 console.log("SECRETARY_MEETING_LOCAL_MUTATION_PERFORMED=false");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

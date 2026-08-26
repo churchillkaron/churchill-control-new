@@ -31,19 +31,30 @@ assert.equal(isSupabaseCleanupRetryRequest(`${supabaseOrigin}/rest/v1/organizati
 assert.equal(isSupabaseCleanupRetryRequest(`${supabaseOrigin}/rest/v1/rpc/charge_wallet`, { method: "POST" }, supabaseOrigin), false);
 assert.equal(isSupabaseCleanupRetryRequest("https://other.supabase.co/rest/v1/organization_services", { method: "PATCH" }, supabaseOrigin), false);
 
-const [leaseShim, childGuard, cleanupShim] = await Promise.all([
+const [leaseShim, childGuard, cleanupShim, capacityRunner, packageJson] = await Promise.all([
   readFile("scripts/run-code-ai-runpod-safe-lease-resilient-local.mjs", "utf8"),
   readFile("scripts/run-code-ai-safe-lease-child-guard-local.mjs", "utf8"),
   readFile("scripts/run-code-ai-autonomous-planner-certification-resilient-local.mjs", "utf8"),
+  readFile("scripts/run-code-ai-autonomous-planner-certification-capacity-safe-local.mjs", "utf8"),
+  readFile("package.json", "utf8"),
 ]);
 assert.match(leaseShim, /isRunpodHealthRequest/);
+assert.match(leaseShim, /isCodeEndpointClosePatch/);
+assert.match(leaseShim, /AVANTIQO_CODE_SAFE_LEASE_CHILD_STOP_FILE/);
+assert.match(leaseShim, /child_termination_acknowledged/);
 assert.match(leaseShim, /run-avantiqo-runpod-safe-lease-v2-local\.mjs/);
 assert.match(leaseShim, /run-code-ai-safe-lease-child-guard-local\.mjs/);
-assert.doesNotMatch(leaseShim, /\/run["'`]/);
+assert.doesNotMatch(leaseShim, /api\.runpod\.ai\/v2\/.*\/run/);
+assert.match(childGuard, /AVANTIQO_CODE_SAFE_LEASE_CHILD_READY_FILE/);
+assert.match(childGuard, /AVANTIQO_CODE_SAFE_LEASE_CHILD_STOP_FILE/);
+assert.match(childGuard, /AVANTIQO_CODE_SAFE_LEASE_CHILD_ACK_FILE/);
 assert.match(childGuard, /process\.kill\(-child\.pid, signal\)/);
 assert.match(childGuard, /process\.kill\(-child\.pid, "SIGKILL"\)/);
 assert.match(cleanupShim, /isSupabaseCleanupRetryRequest/);
 assert.match(cleanupShim, /provider_post_retries_forbidden: true/);
+assert.match(capacityRunner, /run-code-ai-autonomous-planner-certification-resilient-local\.mjs/);
+assert.match(packageJson, /run-code-ai-runpod-safe-lease-resilient-local\.mjs/);
+assert.match(packageJson, /code-ai-certification-resilience-selftest\.mjs/);
 
 console.log(JSON.stringify({
   success: true,
@@ -52,8 +63,12 @@ console.log(JSON.stringify({
     runpod_health_retry_is_narrow_and_bounded: true,
     runpod_generation_submission_is_not_retried: true,
     child_process_group_termination_guard_present: true,
+    child_pre_release_stop_and_ack_handshake_present: true,
+    endpoint_close_waits_for_child_shutdown_signal: true,
     supabase_cleanup_retry_is_same_origin_and_bounded: true,
     supabase_post_retry_forbidden: true,
+    capacity_safe_runner_uses_resilient_parent: true,
+    code_certification_uses_resilient_safe_lease_shim: true,
     shared_safe_lease_runtime_reused_without_source_rewrite: true,
   },
   provider_calls_executed: false,

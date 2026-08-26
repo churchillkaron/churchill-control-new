@@ -1,0 +1,16 @@
+{
+  "contract": "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_REQUEST_V1",
+  "requested_for": "avantiqo-music-transform-candidate-v1",
+  "endpoint_name": "avantiqo-music-transform-candidate-v1",
+  "safe_lease_lane": "music-transform-candidate",
+  "expected_image_source_sha": "704840b72814a9b9935836c5d1bee5012b273334",
+  "expected_image_digest": "sha256:fe148b123a7c8ce95c639a22abf8f0e918cba5f0e28f71bc4e3fe254c893b56b",
+  "apply_approved": true,
+  "workers_min": 0,
+  "workers_max": 0,
+  "production_audio_endpoint_mutation_allowed": false,
+  "provider_job_submitted": false,
+  "production_deploy_allowed": false,
+  "pricing_activation_allowed": false,
+  "purpose": "CREATE_OR_VERIFY_PARKED_MUSIC_TRANSFORM_CERTIFICATION_CANDIDATE_AND_RUN_ZERO_SPEND_PREFLIGHT"
+}

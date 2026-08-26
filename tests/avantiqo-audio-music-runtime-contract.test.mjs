@@ -10,6 +10,10 @@ const registration = fs.readFileSync(
   new URL("../lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration.js", import.meta.url),
   "utf8",
 );
+const provider = fs.readFileSync(
+  new URL("../lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js", import.meta.url),
+  "utf8",
+);
 const worker = fs.readFileSync(
   new URL("../services/avantiqo-audio-engine/handler.py", import.meta.url),
   "utf8",
@@ -31,6 +35,25 @@ test("owned audio registration keeps generation certified while advanced transfo
   assert.match(registration, /lmBackend === "vllm"/);
   assert.match(registration, /ace_step_lm_enabled: true/);
   assert.match(registration, /thinking_enabled: true/);
+});
+
+test("Music provider owned-worker execution is protected by exact Safe Lease V2 audio lane", () => {
+  assert.match(provider, /const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2"/);
+  assert.match(provider, /const SAFE_LEASE_LANE = "audio"/);
+  assert.match(provider, /"ai\.music\.generate"/);
+  assert.match(provider, /"ai\.audio\.remix"/);
+  assert.match(provider, /"ai\.audio\.edit"/);
+  assert.match(provider, /"ai\.audio\.extend"/);
+  assert.match(provider, /"ai\.audio\.mix"/);
+  assert.match(provider, /"ai\.audio\.master"/);
+  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE/);
+  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT/);
+  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_LANE/);
+  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID/);
+  assert.match(provider, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID/);
+  assert.match(provider, /AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT/);
+  assert.match(provider, /AVANTIQO_MUSIC_PROVIDER_SAFE_LEASE_ENDPOINT_MISMATCH/);
+  assert.match(provider, /safe_lease: lease/);
 });
 
 test("Music separator is certifiable without becoming default-certified", () => {

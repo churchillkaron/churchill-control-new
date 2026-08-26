@@ -16,10 +16,11 @@ test("Voice Library enrollment is explicitly separate from Operator STT", async 
   const panel = await readFile(panelPath, "utf8");
 
   assert.match(operator, /AvantiqoVoiceLibraryPanel/);
-  assert.match(operator, /voiceLibraryOpen/);
+  assert.match(operator, /voiceLibraryOpenRef\.current/);
   assert.match(operator, /openVoiceLibrary/);
   assert.match(operator, /stopWakeRecognition\(\);/);
-  assert.match(operator, /disabled=\{busy \|\| voiceBusy \|\| voiceLibraryOpen\}/);
+  assert.match(operator, /disabled=\{busy \|\| voiceBusy \|\| recording \|\| speaking\}/);
+  assert.match(operator, /speakingRef\.current/);
 
   assert.match(panel, /This is separate from voice commands/);
   assert.match(panel, /navigator\.mediaDevices\.getUserMedia/);

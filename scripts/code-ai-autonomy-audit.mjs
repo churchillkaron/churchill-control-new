@@ -302,7 +302,7 @@ requireMarkers("PLATFORM", platform, [
 ]);
 
 requireMarkers("SHARED_RESEARCH", research, [
-  "Governed Web Research",
+  "Governed Knowledge & Web Research",
   "untrusted evidence",
   "source-backed",
   "operatorAutoExecute: true",

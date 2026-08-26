@@ -42,8 +42,8 @@ test("Music separator certification is bound to Demucs htdemucs_ft only", () => 
   assert.match(benchmark, /\["drums", "bass", "other"\]/);
 });
 
-test("Backing track and stems remain non-executable until certification is promoted", () => {
-  assert.match(engine, /stems:\s*Object\.freeze\([\s\S]*?certification:\s*"SEPARATOR_RUNTIME_AND_BENCHMARK_REQUIRED"/);
-  assert.match(engine, /backing_track:\s*Object\.freeze\([\s\S]*?certification:\s*"SEPARATOR_RUNTIME_AND_BENCHMARK_REQUIRED"/);
+test("Backing track and stems remain non-executable until benchmark and human review are promoted", () => {
+  assert.match(engine, /stems:\s*Object\.freeze\([\s\S]*?implementation:\s*"IMPLEMENTED"[\s\S]*?certification:\s*"BENCHMARK_AND_HUMAN_REVIEW_REQUIRED"/);
+  assert.match(engine, /backing_track:\s*Object\.freeze\([\s\S]*?implementation:\s*"IMPLEMENTED"[\s\S]*?certification:\s*"BENCHMARK_AND_HUMAN_REVIEW_REQUIRED"/);
   assert.match(engine, /implementation === "IMPLEMENTED" && certification === "CERTIFIED"/);
 });

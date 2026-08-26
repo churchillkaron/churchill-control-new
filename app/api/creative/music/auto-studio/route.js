@@ -1,10 +1,12 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { CreativeMusicAutoStudioRuntime } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioRuntime";
+import { executeMusicAutoStudioLocal } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioExecutionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
@@ -103,6 +105,14 @@ function buildPlan(body) {
   };
 }
 
+async function executeLocal(body) {
+  return executeMusicAutoStudioLocal({
+    ...body,
+    source_media: body.source_media || body.source_audio || body.audio,
+    source_rights_confirmed: body.source_rights_confirmed === true,
+  });
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -116,7 +126,9 @@ export async function POST(request) {
       ? await prepareSourceUpload(body)
       : action === "plan"
         ? buildPlan(body)
-        : null;
+        : action === "execute_local"
+          ? await executeLocal(body)
+          : null;
     if (!result) {
       return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_AUTO_STUDIO_ACTION_INVALID" }, { status: 400 });
     }

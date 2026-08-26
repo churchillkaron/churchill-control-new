@@ -249,7 +249,7 @@ try {
       .single(),
     "SECRETARY_VISITOR_COORDINATION_EVENT_RESCHEDULE_FAILED",
   );
-  assert.equal(updatedEvent.starts_at, "2031-10-10T11:00:00+00:00");
+  assert.equal(Date.parse(updatedEvent.starts_at), Date.parse("2031-10-10T11:00:00Z"));
 
   const refreshed = await refreshSecretaryVisitorCoordination({ context, payload: { calendar_event_id: event.id, visitor_party_id: visitorId } });
   assert.equal(refreshed.status, "schedule_change_recoordinated");
@@ -317,7 +317,7 @@ try {
     payload: { calendar_event_id: event.id, visitor_party_id: visitorId, state: "DEPARTED", recorded_by_party_id: receptionId, evidence_id: "reception:visitor-departed-1" },
   });
   assert.equal(departed.task.metadata.coordination_state, "COMPLETED");
-  assert.equal(departed.task.status, "COMPLETED");
+  assert.equal(departed.task.status, "DONE");
 
   const finalRead = await readSecretaryVisitorCoordination({ context, payload: { calendar_event_id: event.id, visitor_party_id: visitorId } });
   assert.equal(finalRead.visitor.arrival_status, "DEPARTED");

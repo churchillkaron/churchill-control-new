@@ -1,0 +1,18 @@
+{
+  "contract": "AVANTIQO_MUSIC_SEPARATOR_WORKER_IMAGE_REQUEST_V1",
+  "requested_at": "2026-08-26T03:40:00Z",
+  "capability": "ai.audio.stems",
+  "engine_contract": "AVANTIQO_MUSIC_SEPARATOR_ENGINE_V1",
+  "model": "demucs-htdemucs-ft",
+  "demucs_model": "htdemucs_ft",
+  "quality_profile": "DEMUCS_HTDEMUCS_FT_4STEM_V1",
+  "rights_attestation_contract": "AVANTIQO_SOURCE_AUDIO_RIGHTS_ATTESTATION_V1",
+  "content_restriction_policy": "USER_RIGHTS_ATTESTATION_ONLY",
+  "max_source_duration_seconds": 900,
+  "network_volume_required": false,
+  "build_only": true,
+  "runpod_endpoint_mutation_allowed": false,
+  "provider_job_submission_allowed": false,
+  "pricing_activation_allowed": false,
+  "production_web_deploy_allowed": false
+}

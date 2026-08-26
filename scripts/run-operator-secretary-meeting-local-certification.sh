@@ -88,7 +88,7 @@ supabase db reset --local --workdir "$WORKDIR"
 
 # Supabase CLI documents `status -o env` as the local connection export surface.
 # Capture it without printing and expose only the local API URL + service-role key to
-# the read-only Secretary schema preflight.
+# Secretary local certification scripts.
 STATUS_ENV="$(supabase status -o env --workdir "$WORKDIR" 2>/dev/null)"
 eval "$STATUS_ENV"
 LOCAL_API_URL="${API_URL:-${SUPABASE_URL:-}}"
@@ -106,6 +106,7 @@ echo "SECRETARY_MEETING_LOCAL_CREDENTIALS_PRINTED=false"
 
 npm run audit:operator-secretary-end-to-end
 node scripts/preflight-secretary-meeting-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-approval-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

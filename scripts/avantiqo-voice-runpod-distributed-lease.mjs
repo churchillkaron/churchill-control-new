@@ -49,7 +49,13 @@ async function supabaseRequest(pathname, options = {}) {
     const code = text(parsed?.message || parsed?.details || parsed?.hint || parsed?.code || raw)
       .replace(/\s+/g, " ")
       .slice(0, 500);
-    throw new Error(`AVANTIQO_VOICE_DISTRIBUTED_LEASE_REQUEST_FAILED:${response.status}:${code || "UNKNOWN"}`);
+    const error = new Error(
+      `AVANTIQO_VOICE_DISTRIBUTED_LEASE_REQUEST_FAILED:${response.status}:${code || "UNKNOWN"}`,
+    );
+    error.httpStatus = response.status;
+    error.supabaseCode = text(parsed?.code) || null;
+    error.detail = code || null;
+    throw error;
   }
 
   return parsed;
@@ -62,15 +68,36 @@ async function rpc(name, body) {
   });
 }
 
+function isSchemaNotInstalled(error) {
+  const code = text(error?.supabaseCode).toUpperCase();
+  const detail = text(error?.detail || error?.message).toLowerCase();
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    ((Number(error?.httpStatus) === 404 || Number(error?.httpStatus) === 400) &&
+      detail.includes("avantiqo_voice_runpod_leases") &&
+      (detail.includes("schema cache") || detail.includes("does not exist") || detail.includes("could not find")))
+  );
+}
+
 export function isVoiceRunpodLane(lane) {
   return VOICE_LANES.has(text(lane));
 }
 
 export async function listActiveVoiceRunpodDistributedLeases() {
   const now = encodeURIComponent(new Date().toISOString());
-  const rows = await supabaseRequest(
-    `/rest/v1/avantiqo_voice_runpod_leases?select=id,contract,lane,endpoint_id,endpoint_name,state,expires_at&state=eq.ACTIVE&expires_at=gt.${now}`,
-  );
+  let rows;
+  try {
+    rows = await supabaseRequest(
+      `/rest/v1/avantiqo_voice_runpod_leases?select=id,contract,lane,endpoint_id,endpoint_name,state,expires_at&state=eq.ACTIVE&expires_at=gt.${now}`,
+    );
+  } catch (error) {
+    // The migration is intentionally staged before final release. Until it is
+    // installed, there cannot be a web/distributed Voice lease to protect.
+    if (isSchemaNotInstalled(error)) return [];
+    throw error;
+  }
+
   if (!Array.isArray(rows)) {
     throw new Error("AVANTIQO_VOICE_DISTRIBUTED_LEASE_LIST_INVALID");
   }

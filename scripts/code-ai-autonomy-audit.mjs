@@ -8,6 +8,8 @@ const files = {
   mission: "lib/code/runtime/CodeAIMissionRuntime.js",
   plannerExecution: "lib/code/runtime/CodeAIPlannerExecutionRuntime.js",
   autonomous: "lib/code/runtime/CodeAIAutonomousRuntime.js",
+  worldclass: "lib/code/runtime/CodeAIWorldClassRuntime.js",
+  worldclassCommitGuard: "lib/code/runtime/CodeAIWorldClassCommitGuard.js",
   attestation: "lib/code/runtime/CodeMissionAttestationRuntime.js",
   githubCommit: "lib/code/runtime/CodeGitHubCommitRuntime.js",
   autonomousExecutionState: "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
@@ -46,6 +48,8 @@ const [
   mission,
   plannerExecution,
   autonomous,
+  worldclass,
+  worldclassCommitGuard,
   attestation,
   githubCommit,
   autonomousExecutionState,
@@ -153,6 +157,26 @@ requireMarkers("AUTONOMOUS_CONTROLLER", autonomous, [
   '"block"',
 ]);
 
+requireMarkers("WORLDCLASS_CONTROLLER", worldclass, [
+  "AVANTIQO_CODE_AI_WORLDCLASS_QUALITY_V1",
+  "executeAutonomousCodeMission",
+  "verificationFamily",
+  "CODE_AI_WORLDCLASS_FINAL_DIFF_REVIEW_REQUIRED",
+  "CODE_AI_WORLDCLASS_FRESH_VERIFICATION_GATES_REQUIRED",
+  'if (risk === "critical") return 3',
+  'if (risk === "high") return 2',
+  "fresh_verification_family_count",
+  "MAX_QUALITY_CONVERGENCE_PASSES",
+  "canAutoConverge",
+]);
+
+requireMarkers("WORLDCLASS_COMMIT_GUARD", worldclassCommitGuard, [
+  "AVANTIQO_CODE_AI_WORLDCLASS_COMMIT_GUARD_V1",
+  "CODE_AI_COMMIT_WORLDCLASS_QUALITY_EVIDENCE_REQUIRED",
+  "CODE_AI_COMMIT_WORLDCLASS_FINAL_DIFF_REVIEW_REQUIRED",
+  "fresh_verification_family_count",
+]);
+
 requireMarkers("ATTESTATION", attestation, [
   "AVANTIQO_CODE_MISSION_ATTESTATION_V1",
   "AVANTIQO_CODE_MISSION_ATTESTATION_SECRET",
@@ -223,7 +247,10 @@ requireMarkers("MISSION_CAPABILITY", missionCapability, [
 requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
   "code_ai_autonomous",
   "platform.code.ai.execute",
-  "executeAutonomousCodeMission",
+  "executeWorldClassCodeMission",
+  "world-class-quality-gate",
+  "fresh-verification",
+  "final-diff-review",
   "verifyCodeMissionStateAttestation",
   "attestCodeMissionState",
   "execution_key",
@@ -243,6 +270,7 @@ requireMarkers("COMMIT_CAPABILITY", commitCapability, [
   "loadCodeAICommitArtifact",
   "recoverVerifiedCodeMissionCommit",
   "recoverPriorAttempt",
+  "assertCodeAIWorldClassCommitReady",
   "markCodeAICommitArtifactAttempt",
   "persistCodeAICommitExecutionState",
   "retireCodeAICommitArtifact",
@@ -260,22 +288,25 @@ requireMarkers("COMMIT_CAPABILITY", commitCapability, [
   "commit_executed_this_invocation",
   "safe_to_retry_commit: false",
   "verification_read_required: true",
+  "worldclass_quality_verified: true",
   "operatorAutoExecute: false",
   "operatorRequiresConfirmation: true",
 ]);
 
+const worldclassCommitIndex = commitCapability.indexOf("assertCodeAIWorldClassCommitReady(missionState)");
 const recoverPriorIndex = commitCapability.indexOf("await recoverPriorAttempt");
 const markAttemptIndex = commitCapability.indexOf("await markCodeAICommitArtifactAttempt");
 const verifiedWriteIndex = commitCapability.indexOf("result = await commitVerifiedCodeMission");
 const postWriteStateIndex = commitCapability.indexOf("const commitState = await persistVerifiedCommitState");
 if (
-  recoverPriorIndex < 0 ||
+  worldclassCommitIndex < 0 ||
+  recoverPriorIndex <= worldclassCommitIndex ||
   markAttemptIndex <= recoverPriorIndex ||
   verifiedWriteIndex <= markAttemptIndex ||
   postWriteStateIndex <= verifiedWriteIndex
 ) {
   throw new Error(
-    "CODE_AI_AUDIT_COMMIT_SEQUENCE_MUST_BE_RECOVER_THEN_MARK_THEN_WRITE_THEN_PERSIST_VERIFICATION",
+    "CODE_AI_AUDIT_COMMIT_SEQUENCE_MUST_BE_QUALITY_THEN_RECOVER_THEN_MARK_THEN_WRITE_THEN_PERSIST_VERIFICATION",
   );
 }
 const postWriteHousekeeping = commitCapability.slice(postWriteStateIndex);
@@ -335,13 +366,13 @@ requireMarkers("SANDBOX_SMOKE", sandboxSmoke, [
   "provider_spend_approved: false",
 ]);
 
-if (/git\s+push|vercel\s+deploy|supabase\s+db\s+push/.test(mission + autonomous)) {
+if (/git\s+push|vercel\s+deploy|supabase\s+db\s+push/.test(mission + autonomous + worldclass)) {
   throw new Error("CODE_AI_AUTONOMOUS_RUNTIME_MUST_NOT_EMBED_PRODUCTION_SIDE_EFFECT_COMMANDS");
 }
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V7",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_SOURCE_AUDIT_V8",
   verified: {
     owned_code_worker: true,
     certified_capability_gate: true,
@@ -354,6 +385,11 @@ console.log(JSON.stringify({
     undeclared_source_mutation_blocked: true,
     concurrent_main_replan_guard: true,
     autonomous_inspect_plan_execute_repair_verify_loop: true,
+    mandatory_worldclass_quality_controller: true,
+    fresh_verification_after_final_edit_required: true,
+    independent_verification_families_risk_scaled: true,
+    final_diff_review_required: true,
+    autonomous_quality_convergence_enabled: true,
     durable_async_owned_planner_execution: true,
     duplicate_planner_job_on_resume_blocked_by_design: true,
     shared_governed_research_reused: true,
@@ -361,6 +397,7 @@ console.log(JSON.stringify({
     organization_actor_resume_scope: true,
     autonomous_execution_evidence_server_owned: true,
     full_commit_artifact_server_owned_and_non_recallable: true,
+    worldclass_quality_rechecked_before_commit: true,
     commit_attempt_marker_persisted_before_github_write: true,
     attempted_commit_artifact_immutable: true,
     recovery_before_commit_retry_required: true,

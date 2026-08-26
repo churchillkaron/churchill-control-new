@@ -1,5 +1,9 @@
 import { register } from "node:module";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+import {
+  CODE_AI_PLANNER_STALE_QUEUED_MIN_AGE_MS,
+  shouldRecoverStaleQueuedPlannerJob,
+} from "../lib/code/runtime/CodeAICertificationResiliencePolicy.js";
 
 register("./next-alias-loader.mjs", import.meta.url);
 loadAvantiqoEnv();
@@ -11,7 +15,7 @@ const PROVIDER = "avantiqo-code";
 const DEFAULT_PROVIDER_JOB_ID = "c2417291-d126-40ae-85d7-aa4bde77afae-e1";
 const RUNPOD_REST = "https://rest.runpod.io/v1";
 const RUNPOD_SERVERLESS = "https://api.runpod.ai/v2";
-const MIN_ORPHAN_AGE_MS = 60 * 60_000;
+const MIN_ORPHAN_AGE_MS = CODE_AI_PLANNER_STALE_QUEUED_MIN_AGE_MS;
 const MAX_WAIT_MS = 15 * 60_000;
 const POLL_MS = 5_000;
 const MAX_CONSECUTIVE_TRANSIENT_STATUS_ERRORS = 12;
@@ -79,8 +83,9 @@ function healthSummary(body = {}) {
   };
 }
 
-async function runpodRequest(url, key) {
+async function runpodRequest(url, key, options = {}) {
   const response = await fetch(url, {
+    method: options.method || "GET",
     headers: {
       Authorization: `Bearer ${key}`,
       Accept: "application/json",
@@ -286,6 +291,48 @@ let orphanedJobReconciled = false;
 let terminal = ["SUCCESS", "FAILED"].includes(usageStatusBefore);
 let consecutiveTransientStatusErrors = 0;
 let totalTransientStatusErrors = 0;
+let staleQueuedJobCanceled = false;
+
+if (endpointResolution.found && usageStatusBefore === "PENDING") {
+  const healthProbe = await runpodRequest(
+    `${RUNPOD_SERVERLESS}/${encodeURIComponent(endpointResolution.endpoint_id)}/health`,
+    codeApiKey,
+  );
+  const health = healthProbe.response.ok ? healthSummary(healthProbe.body) : null;
+  if (shouldRecoverStaleQueuedPlannerJob({
+    provider: PROVIDER,
+    providerStatus: endpointResolution.provider_status,
+    startedAt: usageBefore.created_at,
+    recoveryCount: 0,
+    health,
+  })) {
+    const cancel = await runpodRequest(
+      `${RUNPOD_SERVERLESS}/${encodeURIComponent(endpointResolution.endpoint_id)}/cancel/${encodeURIComponent(PROVIDER_JOB_ID)}`,
+      codeApiKey,
+      { method: "POST" },
+    );
+    if (!cancel.response.ok) {
+      throw new Error(
+        `AVANTIQO_CODE_PLANNER_PENDING_STALE_CANCEL_FAILED:${cancel.response.status}`,
+      );
+    }
+    staleQueuedJobCanceled = true;
+    console.log(JSON.stringify({
+      event: "AVANTIQO_CODE_PLANNER_PENDING_STALE_QUEUE_CANCELED",
+      contract: CONTRACT,
+      usage_id: USAGE_ID,
+      provider_job_id: PROVIDER_JOB_ID,
+      endpoint_id: endpointResolution.endpoint_id,
+      provider_status_before_cancel: endpointResolution.provider_status,
+      usage_age_ms: usageAgeMs,
+      exact_job_cancel_only: true,
+      blind_queue_purge_performed: false,
+      new_provider_execution_submitted: false,
+      service_reenabled: false,
+      secrets_printed: false,
+    }));
+  }
+}
 
 if (!endpointResolution.found) {
   if (!endpointResolution.all_probes_not_found) {
@@ -502,6 +549,7 @@ console.log(JSON.stringify({
   endpoint_name: endpointResolution.endpoint_name,
   probed_endpoint_count: endpointResolution.probed_endpoint_count,
   orphaned_job_reconciled: orphanedJobReconciled,
+  stale_queued_job_canceled: staleQueuedJobCanceled,
   usage_status: finalStatus,
   provider_status: result?.provider_status || null,
   total_transient_status_errors: totalTransientStatusErrors,

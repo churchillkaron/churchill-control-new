@@ -3,12 +3,16 @@ import { readFile } from "node:fs/promises";
 import {
   CHILD_TERMINATION_GRACE_MS,
   CODE_AI_CERTIFICATION_RESILIENCE_CONTRACT,
+  CODE_AI_PLANNER_STALE_QUEUED_MIN_AGE_MS,
+  CODE_AI_PLANNER_STALE_QUEUE_RECOVERY_LIMIT,
   RUNPOD_HEALTH_MAX_ATTEMPTS,
   SUPABASE_NETWORK_MAX_ATTEMPTS,
   boundedRetryDelayMs,
   isRunpodHealthRequest,
   isSupabaseCleanupRetryRequest,
   isTransientNetworkError,
+  shouldRecoverStaleQueuedPlannerJob,
+  staleCodePlannerQueueRecoveryExhausted,
 } from "../lib/code/runtime/CodeAICertificationResiliencePolicy.js";
 
 const supabaseOrigin = "https://example.supabase.co";
@@ -17,6 +21,15 @@ assert.equal(RUNPOD_HEALTH_MAX_ATTEMPTS, 4);
 assert.equal(SUPABASE_NETWORK_MAX_ATTEMPTS, 4);
 assert.ok(CHILD_TERMINATION_GRACE_MS > 0 && CHILD_TERMINATION_GRACE_MS <= 5000);
 assert.ok(boundedRetryDelayMs(0) >= 1 && boundedRetryDelayMs(20) <= 2000);
+assert.equal(CODE_AI_PLANNER_STALE_QUEUE_RECOVERY_LIMIT, 1);
+assert.ok(CODE_AI_PLANNER_STALE_QUEUED_MIN_AGE_MS >= 5 * 60_000);
+const stalledHealth = { jobs: { in_queue: 1, in_progress: 0 }, workers: { initializing: 0 } };
+const oldStartedAt = new Date(Date.now() - CODE_AI_PLANNER_STALE_QUEUED_MIN_AGE_MS - 1000).toISOString();
+assert.equal(shouldRecoverStaleQueuedPlannerJob({ provider: "avantiqo-code", providerStatus: "queued", startedAt: oldStartedAt, recoveryCount: 0, health: stalledHealth }), true);
+assert.equal(shouldRecoverStaleQueuedPlannerJob({ provider: "avantiqo-code", providerStatus: "processing", startedAt: oldStartedAt, recoveryCount: 0, health: stalledHealth }), false);
+assert.equal(shouldRecoverStaleQueuedPlannerJob({ provider: "avantiqo-code", providerStatus: "queued", startedAt: oldStartedAt, recoveryCount: 0, health: { jobs: { in_progress: 1 }, workers: { initializing: 0 } } }), false);
+assert.equal(shouldRecoverStaleQueuedPlannerJob({ provider: "avantiqo-code", providerStatus: "queued", startedAt: oldStartedAt, recoveryCount: 0, health: { jobs: { in_progress: 0 }, workers: { initializing: 1 } } }), false);
+assert.equal(staleCodePlannerQueueRecoveryExhausted({ provider: "avantiqo-code", providerStatus: "queued", startedAt: oldStartedAt, recoveryCount: 1 }), true);
 
 assert.equal(isTransientNetworkError(new Error("TypeError: fetch failed caused by write EPIPE")), true);
 assert.equal(isTransientNetworkError(Object.assign(new Error("socket reset"), { code: "ECONNRESET" })), true);
@@ -31,12 +44,15 @@ assert.equal(isSupabaseCleanupRetryRequest(`${supabaseOrigin}/rest/v1/organizati
 assert.equal(isSupabaseCleanupRetryRequest(`${supabaseOrigin}/rest/v1/rpc/charge_wallet`, { method: "POST" }, supabaseOrigin), false);
 assert.equal(isSupabaseCleanupRetryRequest("https://other.supabase.co/rest/v1/organization_services", { method: "PATCH" }, supabaseOrigin), false);
 
-const [leaseShim, childGuard, cleanupShim, capacityRunner, packageJson] = await Promise.all([
+const [leaseShim, childGuard, cleanupShim, capacityRunner, packageJson, plannerExecution, autonomousRuntime, pendingSettlement] = await Promise.all([
   readFile("scripts/run-code-ai-runpod-safe-lease-resilient-local.mjs", "utf8"),
   readFile("scripts/run-code-ai-safe-lease-child-guard-local.mjs", "utf8"),
   readFile("scripts/run-code-ai-autonomous-planner-certification-resilient-local.mjs", "utf8"),
   readFile("scripts/run-code-ai-autonomous-planner-certification-capacity-safe-local.mjs", "utf8"),
   readFile("package.json", "utf8"),
+  readFile("lib/code/runtime/CodeAIPlannerExecutionRuntime.js", "utf8"),
+  readFile("lib/code/runtime/CodeAIAutonomousRuntime.js", "utf8"),
+  readFile("scripts/settle-code-ai-planner-certification-pending-local.mjs", "utf8"),
 ]);
 assert.match(leaseShim, /isRunpodHealthRequest/);
 assert.match(leaseShim, /isCodeEndpointClosePatch/);
@@ -55,6 +71,15 @@ assert.match(cleanupShim, /provider_post_retries_forbidden: true/);
 assert.match(capacityRunner, /run-code-ai-autonomous-planner-certification-resilient-local\.mjs/);
 assert.match(packageJson, /run-code-ai-runpod-safe-lease-resilient-local\.mjs/);
 assert.match(packageJson, /code-ai-certification-resilience-selftest\.mjs/);
+assert.match(plannerExecution, /recoverStaleQueuedPlannerExecution/);
+assert.match(plannerExecution, /\/cancel\//);
+assert.match(plannerExecution, /CODE_AI_PLANNER_STALE_QUEUE_CANCEL_NOT_TERMINAL/);
+assert.match(plannerExecution, /stale_queue_recovery_count/);
+assert.match(autonomousRuntime, /const logicalIterations = new Set\(\)/);
+assert.match(autonomousRuntime, /stale_queue_recovery_count/);
+assert.match(pendingSettlement, /AVANTIQO_CODE_PLANNER_PENDING_STALE_QUEUE_CANCELED/);
+assert.match(pendingSettlement, /exact_job_cancel_only: true/);
+assert.doesNotMatch(pendingSettlement, /purge-queue/);
 
 console.log(JSON.stringify({
   success: true,
@@ -70,6 +95,11 @@ console.log(JSON.stringify({
     capacity_safe_runner_uses_resilient_parent: true,
     code_certification_uses_resilient_safe_lease_shim: true,
     shared_safe_lease_runtime_reused_without_source_rewrite: true,
+    stale_queued_provider_job_detected_by_age_and_health: true,
+    stale_queued_provider_job_exact_cancel_before_replacement: true,
+    stale_replacement_is_bounded_to_one: true,
+    logical_planner_iteration_deduplicates_replacement_job_ids: true,
+    stale_pending_certification_reservation_cleanup_supported: true,
   },
   provider_calls_executed: false,
   provider_spend_performed: false,

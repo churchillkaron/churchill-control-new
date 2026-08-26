@@ -3,7 +3,8 @@ import { dirname, resolve } from "node:path";
 
 const API_BASE = "https://api.runpod.ai/v2";
 const ENGINE_CONTRACT = "AVANTIQO_VOICE_ENGINE_V1";
-const REPORT_CONTRACT = "AVANTIQO_VOICE_TTS_COLD_START_SMOKE_V1";
+const REPORT_CONTRACT = "AVANTIQO_VOICE_TTS_COLD_START_SMOKE_V2";
+const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const DEFAULT_TTS_MODEL = "resemble-ai/chatterbox:multilingual-v3";
 const POLL_MS = 3000;
 const SUBMIT_TIMEOUT_MS = 12_000;
@@ -25,6 +26,30 @@ function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
+}
+
+function yes(value) {
+  return ["YES", "TRUE", "1", "APPROVED"].includes(text(value).toUpperCase());
+}
+
+function requireSafeLeaseV2(endpointId) {
+  if (!yes(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE)) {
+    throw new Error("AVANTIQO_VOICE_TTS_COLD_START_SAFE_LEASE_ACTIVE_REQUIRED");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT) !== SAFE_LEASE_CONTRACT) {
+    throw new Error("AVANTIQO_VOICE_TTS_COLD_START_SAFE_LEASE_V2_REQUIRED");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_LANE) !== "voice-tts") {
+    throw new Error("AVANTIQO_VOICE_TTS_COLD_START_SAFE_LEASE_LANE_MISMATCH");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID) !== endpointId) {
+    throw new Error("AVANTIQO_VOICE_TTS_COLD_START_SAFE_LEASE_ENDPOINT_MISMATCH");
+  }
+  const expiresAt = Date.parse(text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT));
+  if (!Number.isFinite(expiresAt) || expiresAt - Date.now() < 5000) {
+    throw new Error("AVANTIQO_VOICE_TTS_COLD_START_SAFE_LEASE_EXPIRY_INVALID");
+  }
+  return expiresAt;
 }
 
 function sleep(ms) {
@@ -153,14 +178,18 @@ function healthSummary(body = {}) {
 }
 
 async function submitExactlyOne(endpointId, payload, candidates) {
+  requireSafeLeaseV2(endpointId);
   const attempts = [];
   for (const candidate of candidates) {
     const unpauseDeadline = Date.now() + GATEWAY_UNPAUSE_TIMEOUT_MS;
     let gatewayRetry = 0;
 
     while (true) {
+      requireSafeLeaseV2(endpointId);
       console.log(JSON.stringify({
         event: "AVANTIQO_VOICE_TTS_COLD_START_SUBMIT_ATTEMPT",
+        safe_lease_contract: SAFE_LEASE_CONTRACT,
+        safe_lease_lane: "voice-tts",
         credential_source: candidate.source,
         credential_key_kind: candidate.key_kind,
         gateway_retry: gatewayRetry,
@@ -322,6 +351,8 @@ const audioPath = resolve(
 const report = {
   success: false,
   contract: REPORT_CONTRACT,
+  safe_lease_contract: SAFE_LEASE_CONTRACT,
+  safe_lease_lane: "voice-tts",
   generated_at: new Date().toISOString(),
   engine_contract: ENGINE_CONTRACT,
   purpose: "ONE_CONTROLLED_TTS_COLD_START_ONLY",
@@ -344,11 +375,13 @@ const report = {
 let submitted = null;
 try {
   const endpointId = required("RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID");
+  const leaseExpiresAt = requireSafeLeaseV2(endpointId);
   const model = text(process.env.AVANTIQO_VOICE_TTS_FOUNDATION_MODEL) || DEFAULT_TTS_MODEL;
   const candidates = inferenceCandidates();
   const healthRead = await readHealth(endpointId, candidates);
   const health = healthSummary(healthRead.body);
   report.health_before = health;
+  report.safe_lease_expires_at = new Date(leaseExpiresAt).toISOString();
   report.authorization = {
     candidate_count: candidates.length,
     candidates: candidates.map((candidate) => ({
@@ -366,6 +399,8 @@ try {
 
   console.log(JSON.stringify({
     event: "AVANTIQO_VOICE_TTS_COLD_START_BEGIN",
+    safe_lease_contract: SAFE_LEASE_CONTRACT,
+    safe_lease_lane: "voice-tts",
     endpoint_configured: true,
     health_before: health,
     job_timeout_seconds: Math.round(JOB_TIMEOUT_MS / 1000),
@@ -459,6 +494,8 @@ await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 console.log(JSON.stringify({
   success: report.success,
   contract: report.contract,
+  safe_lease_contract: report.safe_lease_contract,
+  safe_lease_lane: report.safe_lease_lane,
   error_code: report.error_code,
   job_id: report.job_id,
   generation_submitted: report.generation_submitted,

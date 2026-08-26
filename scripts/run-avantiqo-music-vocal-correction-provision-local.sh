@@ -14,6 +14,7 @@ fail() {
 
 [ -f scripts/import-avantiqo-media-certification-vercel-env.sh ] || fail "VERCEL_ENV_IMPORT_SCRIPT_REQUIRED"
 [ -f scripts/repair-avantiqo-runpod-env-local.sh ] || fail "RUNPOD_ENV_REPAIR_SCRIPT_REQUIRED"
+[ -f scripts/repair-avantiqo-music-vocal-correction-parked-binding-local.mjs ] || fail "MUSIC_PARKED_BINDING_REPAIR_REQUIRED"
 [ -f scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs ] || fail "MUSIC_PROVISIONER_REQUIRED"
 [ -f audits/results/avantiqo-music-vocal-correction-worker-image.json ] || fail "HARDENED_IMAGE_EVIDENCE_REQUIRED"
 
@@ -51,10 +52,10 @@ const envLocal = parseEnv(readFileSync(".env.local", "utf8"));
 const key = String(envLocal.RUNPOD_MANAGEMENT_API_KEY || envLocal.RUNPOD_API_KEY || "").trim();
 if (!key) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_RECOVERED_RUNPOD_CREDENTIAL_REQUIRED");
 
-function runProvisioner(args, outputPath, apply = false) {
+function runScript(script, args, outputPath, apply = false) {
   const child = spawnSync(
     process.execPath,
-    ["scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs", ...args],
+    [script, ...args],
     {
       cwd: process.cwd(),
       encoding: "utf8",
@@ -73,13 +74,18 @@ function runProvisioner(args, outputPath, apply = false) {
       .slice(-20)
       .join("\n");
     if (safeStderr) process.stderr.write(`${safeStderr}\n`);
-    throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISIONER_EXIT_${child.status ?? "UNKNOWN"}`);
+    throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_SCRIPT_EXIT_${child.status ?? "UNKNOWN"}:${script}`);
   }
   writeFileSync(outputPath, child.stdout, { mode: 0o600 });
 }
 
-runProvisioner([], planPath, false);
-runProvisioner(["--apply"], applyPath, true);
+runScript("scripts/repair-avantiqo-music-vocal-correction-parked-binding-local.mjs", [], planPath, false);
+const plan = JSON.parse(readFileSync(planPath, "utf8"));
+if (plan.endpoint_exists === true) {
+  runScript("scripts/repair-avantiqo-music-vocal-correction-parked-binding-local.mjs", ["--apply"], applyPath, true);
+} else {
+  runScript("scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs", ["--apply"], applyPath, true);
+}
 NODE
 
 node --input-type=module - "$APPLY" <<'NODE'

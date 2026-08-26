@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 
 const path = "lib/code/runtime/CodeAIAutonomousRuntime.js";
 const source = await readFile(path, "utf8");
+const workspacePath = "lib/code/runtime/CodeWorkspaceSandboxRuntime.js";
+const workspaceSource = await readFile(workspacePath, "utf8");
 
 const requiredMarkers = [
   "AVANTIQO_CODE_AI_AUTONOMY_CONTROL_V1",
@@ -42,9 +44,29 @@ const requiredMarkers = [
   "source_read_evidence_limit",
 ];
 
+const workspaceRequiredMarkers = [
+  "AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT",
+  "function certificationPinnedCommit(ref)",
+  "const pinnedCommit = certificationPinnedCommit(gitRef)",
+  'if (ref !== "main") return null',
+  '["fetch", "--depth", "1", "origin", pinnedCommit]',
+  '["checkout", "--detach", pinnedCommit]',
+  "CODE_AI_CERTIFICATION_PINNED_COMMIT_MISMATCH",
+  "certification_pinned_commit: pinnedCommit",
+];
+
 const missing = requiredMarkers.filter((marker) => !source.includes(marker));
 if (missing.length) {
   throw new Error(`CODE_AI_AUTONOMY_LOOP_GUARD_MARKERS_MISSING:${missing.join(",")}`);
+}
+
+const workspaceMissing = workspaceRequiredMarkers.filter(
+  (marker) => !workspaceSource.includes(marker),
+);
+if (workspaceMissing.length) {
+  throw new Error(
+    `CODE_AI_AUTONOMY_PINNED_WORKSPACE_MARKERS_MISSING:${workspaceMissing.join(",")}`,
+  );
 }
 
 if (/for\s*\(let\s+iteration\s*=\s*1\s*;\s*iteration\s*<=\s*maximum/.test(source)) {
@@ -131,9 +153,24 @@ if (operationObservation < 0 || sourceAdvanceOnApply < operationObservation || s
   throw new Error("CODE_AI_AUTONOMY_SOURCE_REVISION_ADVANCE_POLICY_REQUIRED");
 }
 
+const pinnedCommitResolver = workspaceSource.indexOf("function certificationPinnedCommit(ref)");
+const cloneOperation = workspaceSource.indexOf('["clone", "--depth", "1", "--branch", gitRef, "--single-branch", repositoryUrl, REPOSITORY_ROOT]');
+const pinnedFetch = workspaceSource.indexOf('["fetch", "--depth", "1", "origin", pinnedCommit]', cloneOperation);
+const pinnedCheckout = workspaceSource.indexOf('["checkout", "--detach", pinnedCommit]', pinnedFetch);
+const baselineInspection = workspaceSource.indexOf("const baseline = await inspectRepository(sandbox)", pinnedCheckout);
+if (
+  pinnedCommitResolver < 0 ||
+  cloneOperation < 0 ||
+  pinnedFetch <= cloneOperation ||
+  pinnedCheckout <= pinnedFetch ||
+  baselineInspection <= pinnedCheckout
+) {
+  throw new Error("CODE_AI_AUTONOMY_CERTIFICATION_PIN_MUST_PRECEDE_BASELINE_INSPECTION");
+}
+
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V4",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V5",
   verified: {
     duplicate_read_search_run_guarded_without_new_evidence: true,
     source_bound_read_freshness: true,
@@ -146,6 +183,8 @@ console.log(JSON.stringify({
     unrelated_observations_do_not_refresh_source_reads: true,
     apply_files_refreshes_source_reads: true,
     main_replan_refreshes_source_reads: true,
+    certification_workspace_pinned_to_preflight_main_commit: true,
+    parallel_main_commits_do_not_move_certification_workspace: true,
     duplicate_guard_precedes_workspace_execution: true,
     global_iteration_budget_persisted_in_resume_state: true,
     pending_resume_reuses_original_iteration: true,

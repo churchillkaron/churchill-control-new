@@ -6,6 +6,8 @@ const paths = {
   secretaryCapability: "lib/platform/capabilities/createSecretaryCapability.js",
   secretaryCorrespondenceCapability: "lib/platform/capabilities/createSecretaryCorrespondenceCapability.js",
   secretaryJobCapability: "lib/platform/capabilities/createSecretaryJobCapability.js",
+  secretaryTravelCapability: "lib/platform/capabilities/createSecretaryTravelCapability.js",
+  secretaryTravelRuntime: "lib/operator/secretary/SecretaryTravelCoordinationRuntime.js",
   secretaryJobIntake: "lib/operator/secretary/SecretaryJobIntakeRuntime.js",
   secretaryJobExecution: "lib/operator/secretary/SecretaryJobExecutionRuntime.js",
   secretaryJobApproval: "lib/operator/secretary/SecretaryJobApprovalRuntime.js",
@@ -48,6 +50,7 @@ for (const action of ["delegate", "list", "read", "approve"]) {
 }
 
 assert.match(source.platform, /createSecretaryExecutiveBriefingCapability\(\)/);
+assert.match(source.platform, /createSecretaryTravelCapability\(\)/);
 
 assert.match(source.secretaryCorrespondenceCapability, /getCommunicationInbox/);
 assert.match(source.secretaryCorrespondenceCapability, /getConversationTimeline/);
@@ -79,6 +82,16 @@ assert.match(source.secretaryJobCapability, /required:\s*\["job_id",\s*"step_id"
 assert.match(source.secretaryJobCapability, /EXECUTE_WITH_GATES/);
 assert.match(source.secretaryJobCapability, /EXECUTE_WITHIN_POLICY/);
 
+assert.match(source.secretaryTravelCapability, /secretary_travel/);
+assert.match(source.secretaryTravelCapability, /coordinate/);
+assert.match(source.secretaryTravelCapability, /arrange my trip/i);
+assert.match(source.secretaryTravelRuntime, /TRAVEL_COORDINATION/);
+assert.match(source.secretaryTravelRuntime, /travel_booking_requires_exact_step_approval:\s*true/);
+assert.match(source.secretaryTravelRuntime, /travel_payment_requires_exact_step_approval:\s*true/);
+assert.match(source.secretaryTravelRuntime, /budget_is_guidance_not_authority:\s*true/);
+assert.match(source.secretaryTravelRuntime, /external_booking_authority_created:\s*false/);
+assert.match(source.secretaryTravelRuntime, /payment_authority_created:\s*false/);
+
 assert.match(source.secretaryJobIntake, /source_kind:\s*"MANUAL"/);
 assert.match(source.secretaryJobIntake, /status:\s*"QUEUED"/);
 assert.match(source.secretaryJobIntake, /next_action_at:\s*now/);
@@ -103,6 +116,7 @@ for (const actionType of [
   assert.match(source.secretaryJobExecution, new RegExp(`\\"${actionType}\\"`));
 }
 assert.match(source.secretaryJobExecution, /HIGH_AUTHORITY_PATTERN/);
+assert.match(source.secretaryJobExecution, /TRAVEL_HIGH_AUTHORITY_PATTERN/);
 assert.match(source.secretaryJobExecution, /purchase_authority_created:\s*false/);
 assert.match(source.secretaryJobExecution, /acceptance_authority_created:\s*false/);
 assert.match(source.secretaryJobExecution, /runOperatorWebResearch/);
@@ -156,9 +170,17 @@ assert.match(source.secretaryBriefingCapability, /brief me/i);
 assert.match(source.secretaryBriefingCapability, /morning briefing/i);
 assert.match(source.secretaryBriefingCapability, /what needs my attention today/i);
 assert.match(source.secretaryBriefingCapability, /operatorAutoExecute:\s*true/);
+assert.match(source.secretaryBriefingRuntime, /AVANTIQO_EXECUTIVE_SECRETARY_DESK_BRIEFING_V2/);
 assert.match(source.secretaryBriefingRuntime, /readAgenda/);
 assert.match(source.secretaryBriefingRuntime, /scanSecretaryDueWork/);
 assert.match(source.secretaryBriefingRuntime, /listSecretaryJobs/);
+assert.match(source.secretaryBriefingRuntime, /readSecretaryJob/);
+assert.match(source.secretaryBriefingRuntime, /decisions_required/);
+assert.match(source.secretaryBriefingRuntime, /secretary_handling/);
+assert.match(source.secretaryBriefingRuntime, /at_risk/);
+assert.match(source.secretaryBriefingRuntime, /travel:/);
+assert.match(source.secretaryBriefingRuntime, /executive_attention_is_exception_based:\s*true/);
+assert.match(source.secretaryBriefingRuntime, /approval_extends_authority:\s*false/);
 assert.match(source.secretaryBriefingRuntime, /open_tasks/);
 assert.match(source.secretaryBriefingRuntime, /pending_follow_ups/);
 assert.match(source.secretaryBriefingRuntime, /recent_calls/);
@@ -175,6 +197,12 @@ console.log("OPERATOR_SECRETARY_HUMAN_ROLE_SOURCE_AUDIT=PASS");
 console.log("SECRETARY_DIRECT_DELEGATION=true");
 console.log("SECRETARY_DURABLE_JOB_OWNERSHIP=true");
 console.log("SECRETARY_EXECUTIVE_BRIEFING=true");
+console.log("SECRETARY_EXECUTIVE_DESK_V2=true");
+console.log("SECRETARY_EXECUTIVE_ATTENTION_EXCEPTION_BASED=true");
+console.log("SECRETARY_EXECUTIVE_DECISION_CARDS=true");
+console.log("SECRETARY_EXECUTIVE_SECRETARY_HANDLING_VIEW=true");
+console.log("SECRETARY_EXECUTIVE_AT_RISK_VIEW=true");
+console.log("SECRETARY_EXECUTIVE_TRAVEL_VIEW=true");
 console.log("SECRETARY_CALENDAR_ADMIN=true");
 console.log("SECRETARY_GOVERNED_CALENDAR_JOB_EXECUTION=true");
 console.log("SECRETARY_CALENDAR_AMBIGUITY_FAILS_CLOSED=true");
@@ -199,5 +227,9 @@ console.log("SECRETARY_APPROVAL_DOES_NOT_EXTEND_AUTHORITY=true");
 console.log("SECRETARY_OPERATIONAL_INPUT_CANNOT_BE_APPROVED_AWAY=true");
 console.log("SECRETARY_OPERATIONAL_REVIEW_PRECEDENCE=true");
 console.log("SECRETARY_HIGH_AUTHORITY_GATES=true");
+console.log("SECRETARY_TRAVEL_AND_VISIT_COORDINATION=true");
+console.log("SECRETARY_TRAVEL_BOOKING_EXACT_STEP_APPROVAL=true");
+console.log("SECRETARY_TRAVEL_PAYMENT_EXACT_STEP_APPROVAL=true");
+console.log("SECRETARY_TRAVEL_BUDGET_IS_NOT_AUTHORITY=true");
 console.log("SECRETARY_RUNTIME_CERTIFIED=false");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

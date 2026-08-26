@@ -95,6 +95,7 @@ SECRETARY_MIGRATIONS=(
   "20260826102000_secretary_multi_party_meeting_coordination.sql"
   "20260826190000_secretary_booked_meeting_changes.sql"
   "20260826193000_secretary_recurring_meetings.sql"
+  "20260826194000_secretary_recurring_future_cutoff_semantics.sql"
 )
 
 for migration in "${SECRETARY_MIGRATIONS[@]}"; do
@@ -144,6 +145,7 @@ echo "SECRETARY_MEETING_LOCAL_CREDENTIALS_PRINTED=false"
 
 node scripts/operator-secretary-supabase-await-audit.mjs
 npm run audit:operator-secretary-end-to-end
+node scripts/operator-secretary-recurring-meeting-audit.mjs
 node scripts/preflight-secretary-meeting-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-approval-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-review-controls-local.mjs

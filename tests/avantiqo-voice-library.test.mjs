@@ -107,7 +107,8 @@ test("Voice provider cannot submit RunPod work without exact safe lease", async 
   assert.ok(run > submit, "RunPod /run call must occur inside guarded submission path");
   assert.match(source, /AVANTIQO_VOICE_RUNPOD_SAFE_LEASE_REQUIRED/);
   assert.match(source, /AVANTIQO_VOICE_RUNPOD_SAFE_LEASE_ENDPOINT_MISMATCH/);
-  assert.match(source, /requireSafeLeaseForSubmission\(endpointId\);/);
+  assert.match(source, /await requireSafeLeaseForSubmission\(endpointId, capability, input\)/);
+  assert.match(source, /validateVoiceRunpodDistributedLease/);
 });
 
 test("Voice worker supports recorded identity separately from delivery style", async () => {

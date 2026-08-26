@@ -63,7 +63,16 @@ echo "SECRET_VALUES_PRINTED=NO"
 
 git fetch origin main || fail "GIT_FETCH_ORIGIN_MAIN_FAILED"
 [ "$(git branch --show-current)" = "main" ] || fail "LOCAL_MAIN_REQUIRED"
-[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "LOCAL_MAIN_NOT_CURRENT_RUN_GIT_PULL_FF_ONLY"
+HEAD_SHA="$(git rev-parse HEAD)"
+ORIGIN_MAIN_SHA="$(git rev-parse origin/main)"
+if [ "$HEAD_SHA" != "$ORIGIN_MAIN_SHA" ]; then
+  TRACKED_DIRTY="$(git status --porcelain --untracked-files=no)"
+  [ -z "$TRACKED_DIRTY" ] || fail "LOCAL_MAIN_DIRTY_CANNOT_FAST_FORWARD"
+  git merge --ff-only origin/main || fail "LOCAL_MAIN_FAST_FORWARD_FAILED"
+  HEAD_SHA="$(git rev-parse HEAD)"
+  [ "$HEAD_SHA" = "$ORIGIN_MAIN_SHA" ] || fail "LOCAL_MAIN_CONVERGENCE_FAILED"
+  echo "AVANTIQO_INTELLIGENCE_FAST_OPENAI_PREFLIGHT_MAIN_CONVERGED=$HEAD_SHA"
+fi
 
 node --check scripts/manage-avantiqo-intelligence-lane-slot-local.mjs || fail "SLOT_MANAGER_SYNTAX_FAILED"
 node --check scripts/diagnose-avantiqo-intelligence-fast-live-request-local.mjs || fail "LIVE_DIAGNOSTIC_SYNTAX_FAILED"

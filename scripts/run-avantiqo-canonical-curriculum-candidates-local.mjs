@@ -18,6 +18,11 @@ if (assemble && (!apply || !benchmark)) {
 }
 
 const {
+  ensureAvantiqoLearningOrganizationEnvironment,
+} = await import(
+  "@/lib/intelligence/runtime/AvantiqoLearningOrganizationRuntime"
+);
+const {
   buildAvantiqoCanonicalCurriculumCandidates,
   seedAvantiqoCanonicalCurriculumCandidates,
 } = await import(
@@ -34,6 +39,25 @@ const {
   "@/lib/intelligence/runtime/AvantiqoTrainingDatasetRuntime"
 );
 
+let learningOrganization = null;
+if (apply) {
+  learningOrganization = await ensureAvantiqoLearningOrganizationEnvironment();
+  console.log(JSON.stringify({
+    contract: learningOrganization.contract,
+    source: learningOrganization.source,
+    canonical_name: learningOrganization.canonical_name,
+    database_fallback_used: learningOrganization.database_fallback_used,
+    organization_created: learningOrganization.organization_created,
+    organization_id_resolved: Boolean(learningOrganization.organization_id),
+    organization_id_printed: false,
+    secrets_printed: false,
+  }, null, 2));
+  console.log("AVANTIQO_LEARNING_ORGANIZATION_RESOLUTION=PASS");
+  console.log(`AVANTIQO_LEARNING_ORGANIZATION_SOURCE=${learningOrganization.source}`);
+  console.log("AVANTIQO_LEARNING_ORGANIZATION_CREATED=NO");
+  console.log("AVANTIQO_LEARNING_ORGANIZATION_ID_PRINTED=NO");
+}
+
 const candidates = buildAvantiqoCanonicalCurriculumCandidates();
 const summary = {
   contract: "AVANTIQO_CANONICAL_CURRICULUM_CANDIDATE_LOCAL_V1",
@@ -42,6 +66,10 @@ const summary = {
     : apply
       ? (benchmark ? "APPLY_AND_BENCHMARK" : "APPLY")
       : "PLAN",
+  learning_organization_resolved: apply
+    ? Boolean(learningOrganization?.organization_id)
+    : null,
+  learning_organization_source: learningOrganization?.source || null,
   candidate_count: candidates.length,
   by_domain: candidates.reduce((accumulator, candidate) => {
     const domain = candidate.domain || "unknown";
@@ -55,6 +83,7 @@ const summary = {
   shared_trainer_mutated: false,
   model_training_started: false,
   production_deploy_performed: false,
+  organization_created: false,
   secrets_printed: false,
 };
 
@@ -79,6 +108,7 @@ console.log(JSON.stringify({
   shared_trainer_mutated: false,
   model_training_started: false,
   production_deploy_performed: false,
+  organization_created: false,
   secrets_printed: false,
 }, null, 2));
 

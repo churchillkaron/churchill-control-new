@@ -71,14 +71,14 @@ test("Extend uses XL temporal outpaint and remains benchmark gated", () => {
   assert.equal(plan.implementation, "IMPLEMENTED");
   assert.equal(plan.certification, "BENCHMARK_REQUIRED");
   assert.equal(plan.executable, false);
-  assert.equal(plan.temporal_extension.strategy, "XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1");
+  assert.equal(plan.temporal_extension.strategy, "XL_TURBO_REPAINT_RIGHT_OUTPAINT");
   assert.equal(plan.temporal_extension.source_duration_measured_by_worker, true);
   assert.equal(plan.temporal_extension.right_padding_outpaint_required, true);
   assert.equal(plan.temporal_extension.temporal_extension_proven, false);
   assert.deepEqual(plan.provider_parameters, {
     extension_seconds: 30,
     continuity_overlap_seconds: 4,
-    temporal_extend_strategy: "XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1",
+    temporal_extend_strategy: "XL_TURBO_REPAINT_RIGHT_OUTPAINT",
   });
   assert.equal(plan.output_spec.duration_rule, "SOURCE_DURATION_PLUS_EXTENSION_SECONDS_BOUNDED_BY_WORKER_MAX");
 });
@@ -86,7 +86,8 @@ test("Extend uses XL temporal outpaint and remains benchmark gated", () => {
 test("Shared transform route is plan-only for remix edit and extend", () => {
   assert.match(transformRoute, /new Set\(\["remix", "edit", "extend"\]\)/);
   assert.match(transformRoute, /buildTemporalExtendPlan/);
-  assert.match(transformRoute, /XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1/);
+  assert.match(transformRoute, /XL_TURBO_REPAINT_RIGHT_OUTPAINT/);
+  assert.doesNotMatch(transformRoute, /XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1/);
   assert.match(transformRoute, /execution_submitted: false/);
   assert.match(transformRoute, /execution_route_enabled: false/);
   assert.doesNotMatch(transformRoute, /executeService/);

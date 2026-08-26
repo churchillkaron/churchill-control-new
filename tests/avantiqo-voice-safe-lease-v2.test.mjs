@@ -21,7 +21,9 @@ test("Voice provider requires exact RunPod Safe Lease V2 before submission", asy
   assert.match(source, /AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT/);
   assert.match(source, /AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT/);
   assert.match(source, /AVANTIQO_VOICE_RUNPOD_SAFE_LEASE_EXPIRED_OR_EXPIRING/);
-  assert.match(source, /requireSafeLeaseForSubmission\(endpointId, capability\)/);
+  assert.match(source, /await requireSafeLeaseForSubmission\(endpointId, capability, input\)/);
+  assert.match(source, /input\.runpod_safe_lease \|\| input\.runpodSafeLease/);
+  assert.match(source, /validateVoiceRunpodDistributedLease/);
   assert.match(source, /submitJob\(\{\s*endpointId,\s*capability,/s);
 });
 

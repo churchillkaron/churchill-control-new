@@ -1,0 +1,15 @@
+{
+  "contract": "AVANTIQO_MUSIC_VOCAL_CORRECTION_WORKER_IMAGE_REQUEST_V1",
+  "requested_engine_contract": "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
+  "quality_profile": "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2",
+  "pitch_engine": "torchcrepe-0.0.24",
+  "timing_contract": "AVANTIQO_MUSIC_VOCAL_PHRASE_TIMING_V1",
+  "stretch_engine": "signalsmith-stretch-python-0.3.1",
+  "capability": "ai.audio.vocal-correct",
+  "source": "main",
+  "production_deploy_requested": false,
+  "runpod_endpoint_mutation_requested": false,
+  "provider_job_requested": false,
+  "pricing_activation_requested": false,
+  "human_listening_review_required_before_certification": true
+}

@@ -418,6 +418,21 @@ try {
     FAST_NAME,
     "AVANTIQO_FAST_STARTUP_FAST_ENDPOINT_RESOLUTION_FAILED",
   );
+  fastId = text(fast?.id);
+  const preexistingFastActive =
+    finite(deep?.workersMin, -1) === 0 &&
+    finite(deep?.workersMax, -1) === 0 &&
+    finite(fast?.workersMin, -1) >= 0 &&
+    finite(fast?.workersMax, -1) === 1;
+  if (preexistingFastActive) {
+    // Register cleanup before any health request or state assertion can fail.
+    // Setting Fast min=0 and restoring Deep lets any existing job drain without
+    // cancelling it while preventing the warm lease from remaining enabled.
+    fastActivated = true;
+    console.log(
+      "AVANTIQO_INTELLIGENCE_FAST_PREEXISTING_ACTIVE_STATE_RECOVERY=true",
+    );
+  }
   const [deepHealth, fastHealth] = await Promise.all([
     requestJson(`${QUEUE_BASE}/${encodeURIComponent(text(deep?.id))}/health`, runtimeKey),
     requestJson(`${QUEUE_BASE}/${encodeURIComponent(text(fast?.id))}/health`, runtimeKey),
@@ -433,6 +448,11 @@ try {
     beforeHealth.fast.jobs.in_progress !== 0
   ) {
     throw new Error("AVANTIQO_FAST_STARTUP_ACTIVE_JOB_BLOCKED");
+  }
+  if (preexistingFastActive) {
+    throw new Error(
+      "AVANTIQO_FAST_STARTUP_PREEXISTING_ACTIVE_STATE_RESTORING_DEEP",
+    );
   }
   if (
     finite(deep?.workersMin, -1) !== 0 ||

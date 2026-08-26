@@ -23,6 +23,9 @@ import {
 import {
   reconcileAvantiqoScientificLearningExperiments,
 } from "@/lib/intelligence/runtime/AvantiqoScientificLearningExperimentRuntime";
+import {
+  reconcileAvantiqoEpistemicPromotion,
+} from "@/lib/intelligence/runtime/AvantiqoEpistemicPromotionRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -56,19 +59,24 @@ export async function GET(request) {
     //    experiment proposals, replication status and experimental knowledge
     //    candidates. One experiment never establishes truth and no experiment
     //    is executed by this stage.
-    // 7. Spend the existing bounded public-evidence research budget on the
-    //    resulting agenda.
+    // 7. Adversarially reconcile mature experimental candidates against the
+    //    durable Evidence Graph. Contradiction/source-diversity gaps enqueue
+    //    fresh research; successful review creates shadow-only provisional
+    //    knowledge, never reusable platform knowledge.
+    // 8. Spend the existing bounded public-evidence research budget on the
+    //    resulting agenda, including adversarial reconciliation work.
     // Any hypothesis/invention synthesis that could wake owned RunPod
     // Intelligence is deliberately outside this cron and must execute through
     // AVANTIQO_RUNPOD_SAFE_LEASE_V2 on the intelligence-deep lane.
-    // Stages 1-6 never mutate model weights, authorize product actions, execute
-    // experiments or submit RunPod jobs.
+    // Stages 1-7 never mutate model weights, authorize product actions, execute
+    // experiments, submit RunPod jobs, or automatically promote knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
     const learningEffectiveness = await evaluateAvantiqoLearningEffectiveness();
     const knowledgeUtilityFeedback = await applyAvantiqoKnowledgeUtilityFeedback();
     const mechanismFirstLearning = await reconcileAvantiqoMechanismFirstLearning();
     const scientificLearning = await reconcileAvantiqoScientificLearningExperiments();
+    const epistemicPromotion = await reconcileAvantiqoEpistemicPromotion();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -80,6 +88,7 @@ export async function GET(request) {
         knowledge_utility_feedback: knowledgeUtilityFeedback,
         mechanism_first_learning: mechanismFirstLearning,
         scientific_learning: scientificLearning,
+        epistemic_promotion: epistemicPromotion,
       },
       {
         status: result.success === false ? 207 : 200,

@@ -1,14 +1,17 @@
 import { existsSync } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { parseEnv } from "node:util";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_VOICE_TTS_V3_ONE_PROOF_V1";
+const CONTRACT = "AVANTIQO_VOICE_TTS_V3_ONE_PROOF_V2";
 const READINESS_SCRIPT = resolve("scripts/check-avantiqo-voice-tts-v3-readiness-local.mjs");
 const SMOKE_SCRIPT = resolve("scripts/smoke-avantiqo-voice-tts-cold-start-local.mjs");
+const RUNPOD_ENV_REPAIR_SCRIPT = resolve("scripts/repair-avantiqo-runpod-env-local.sh");
+const ENV_LOCAL_PATH = resolve(".env.local");
 const AUDIO_PATH = resolve(
   process.env.AVANTIQO_VOICE_TTS_V3_ONE_PROOF_AUDIO_OUTPUT ||
   "/tmp/avantiqo-voice-tts-v3-one-proof.wav",
@@ -19,6 +22,11 @@ const REPORT_PATH = resolve(
 );
 const REQUIRED_MODEL = "resemble-ai/chatterbox:multilingual-v3";
 const QUEUE = "https://api.runpod.ai/v2";
+const RUNPOD_ENV_KEYS = Object.freeze([
+  "RUNPOD_API_KEY",
+  "RUNPOD_MANAGEMENT_API_KEY",
+  "RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID",
+]);
 
 function text(value) { return String(value ?? "").trim(); }
 function yes(value) { return ["YES", "TRUE", "1", "APPROVED"].includes(text(value).toUpperCase()); }
@@ -36,6 +44,49 @@ function runNode(script, env) {
   if (result.status !== 0) {
     throw new Error(`AVANTIQO_VOICE_TTS_V3_ONE_PROOF_CHILD_FAILED:${script}:exit=${result.status}`);
   }
+}
+
+function runRunpodEnvRepair() {
+  if (!existsSync(RUNPOD_ENV_REPAIR_SCRIPT)) {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_RUNPOD_ENV_REPAIR_REQUIRED");
+  }
+  const result = spawnSync("bash", [RUNPOD_ENV_REPAIR_SCRIPT], {
+    cwd: process.cwd(),
+    env: process.env,
+    encoding: "utf8",
+    stdio: "inherit",
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`AVANTIQO_VOICE_TTS_V3_ONE_PROOF_RUNPOD_ENV_REPAIR_FAILED:exit=${result.status}`);
+  }
+}
+
+async function reloadRunpodEnvFromLocal() {
+  if (!existsSync(ENV_LOCAL_PATH)) {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_ENV_LOCAL_REQUIRED");
+  }
+  const parsed = parseEnv(await readFile(ENV_LOCAL_PATH, "utf8"));
+  for (const key of RUNPOD_ENV_KEYS) {
+    const value = text(parsed[key]);
+    if (value) process.env[key] = value;
+  }
+  if (!text(process.env.RUNPOD_API_KEY)) {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_RUNPOD_API_KEY_NOT_REPAIRED");
+  }
+  if (!text(process.env.RUNPOD_MANAGEMENT_API_KEY)) {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_RUNPOD_MANAGEMENT_API_KEY_NOT_REPAIRED");
+  }
+  if (!text(process.env.RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID)) {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_ENDPOINT_ID_NOT_REPAIRED");
+  }
+  console.log(JSON.stringify({
+    event: "AVANTIQO_VOICE_TTS_V3_ONE_PROOF_LOCAL_RUNPOD_ENV_READY",
+    runpod_api_key_configured: true,
+    runpod_management_api_key_configured: true,
+    voice_tts_endpoint_configured: true,
+    secret_values_printed: false,
+  }));
 }
 
 function inferenceCandidates() {
@@ -95,6 +146,9 @@ if (!yes(process.env.AVANTIQO_VOICE_TTS_V3_ONE_PROOF_APPROVED)) {
   throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_APPROVED=YES_REQUIRED");
 }
 
+runRunpodEnvRepair();
+await reloadRunpodEnvFromLocal();
+
 const endpointId = required("RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID");
 if (!existsSync(READINESS_SCRIPT)) throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_READINESS_SCRIPT_REQUIRED");
 if (!existsSync(SMOKE_SCRIPT)) throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_SMOKE_SCRIPT_REQUIRED");
@@ -105,6 +159,7 @@ console.log(JSON.stringify({
   endpoint_id: endpointId,
   foundation_model: REQUIRED_MODEL,
   exactly_one_new_generation_max: true,
+  local_runpod_env_repair_performed: true,
   stt_submitted: false,
   production_deploy_performed: false,
   pricing_activation_performed: false,
@@ -164,6 +219,7 @@ console.log(JSON.stringify({
   audio_bytes: audioStat.size,
   audio_played: audioPlayed,
   exactly_one_new_generation_max: true,
+  local_runpod_env_repair_performed: true,
   stt_submitted: false,
   production_deploy_performed: false,
   pricing_activation_performed: false,

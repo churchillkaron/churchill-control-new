@@ -45,6 +45,9 @@ import {
 import {
   reconcileAvantiqoKnowledgeDependencyCurriculum,
 } from "@/lib/intelligence/runtime/AvantiqoKnowledgeDependencyCurriculumRuntime";
+import {
+  reconcileAvantiqoLearningMasteryFrontier,
+} from "@/lib/intelligence/runtime/AvantiqoLearningMasteryFrontierRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -96,13 +99,16 @@ export async function GET(request) {
     //     knowledge dependencies, place affected dependents on fail-closed hold,
     //     and regenerate bounded hierarchical curriculum. Semantic similarity
     //     never creates a dependency and soft relationships never disable reuse.
-    // 14. Spend the existing bounded public-evidence research budget on the
-    //     resulting agenda, including adversarial/dependency reconciliation work.
+    // 14. Reconcile evidence-backed competency mastery and a bounded learning
+    //     frontier. Mastery is never permanent, self-confidence is not evidence,
+    //     held knowledge cannot be mastered, and frontier priority is not truth confidence.
+    // 15. Spend the existing bounded public-evidence research budget on the
+    //     resulting agenda, including adversarial/dependency/frontier work.
     //     Newly supported claims are staged as evidence candidates for the next cycle.
     // Any hypothesis/invention synthesis or counterfactual benchmark execution
     // that could wake owned RunPod Intelligence is deliberately outside this
     // cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
-    // Stages 1-13 never mutate model weights, authorize product actions, execute
+    // Stages 1-14 never mutate model weights, authorize product actions, execute
     // experiments, submit RunPod jobs, automatically release knowledge, or
     // automatically restore quarantined/retired/dependency-held knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
@@ -124,6 +130,8 @@ export async function GET(request) {
       await reconcileAvantiqoReleasedKnowledgeLifecycle();
     const knowledgeDependencyCurriculum =
       await reconcileAvantiqoKnowledgeDependencyCurriculum();
+    const learningMasteryFrontier =
+      await reconcileAvantiqoLearningMasteryFrontier();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -144,6 +152,7 @@ export async function GET(request) {
         released_knowledge_revalidation: releasedKnowledgeLifecycle,
         released_knowledge_lifecycle: releasedKnowledgeLifecycle,
         knowledge_dependency_curriculum: knowledgeDependencyCurriculum,
+        learning_mastery_frontier: learningMasteryFrontier,
       },
       {
         status: result.success === false ? 207 : 200,

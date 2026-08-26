@@ -64,13 +64,15 @@ try {
   const optionalId = byName.get("Agenda Optional");
   assert.ok(executiveId && requiredId && optionalId);
 
-  await one(
+  const profiles = await many(
     supabaseAdmin.from("secretary_contact_profiles").insert([
       { organization_id: organizationId, party_id: requiredId, preferred_channel: "email", metadata: { local_certification: true } },
       { organization_id: organizationId, party_id: optionalId, preferred_channel: "email", metadata: { local_certification: true } },
-    ]).select("id").limit(1).single(),
+    ]).select("id,party_id"),
     "SECRETARY_MEETING_AGENDA_PROFILE_INSERT_FAILED",
   );
+  assert.equal(profiles.length, 2);
+  assert.deepEqual(profiles.map((row) => row.party_id).sort(), [requiredId, optionalId].sort());
 
   const event = await one(
     supabaseAdmin.from("secretary_calendar_events").insert({

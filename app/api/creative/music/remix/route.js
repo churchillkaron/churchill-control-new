@@ -19,6 +19,7 @@ const EXECUTION_PERMISSIONS = Object.freeze([
 const MUSIC_BUCKET = "creative-assets";
 const MAX_SOURCE_BYTES = 629145600;
 const AUDIO_EXTENSIONS = new Set(["wav", "mp3", "m4a", "aac", "flac", "ogg"]);
+const OPERATIONS = new Set(["remix", "edit", "extend"]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -29,6 +30,16 @@ function finite(value, fallback = null) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function resolveOperation(value) {
+  const key = text(value || "remix").toLowerCase();
+  if (!OPERATIONS.has(key)) {
+    const error = new Error(`CREATIVE_MUSIC_TRANSFORM_OPERATION_INVALID:${key || "MISSING"}`);
+    error.code = "CREATIVE_MUSIC_TRANSFORM_OPERATION_INVALID";
+    throw error;
+  }
+  return key;
+}
+
 async function requireAccess(request, organizationId) {
   const access = await requireOrganizationAccess({
     organizationId,
@@ -36,7 +47,7 @@ async function requireAccess(request, organizationId) {
     requiredAnyPermission: EXECUTION_PERMISSIONS,
   });
   if (!access.success) {
-    const error = new Error(access.error || "CREATIVE_MUSIC_REMIX_ACCESS_FORBIDDEN");
+    const error = new Error(access.error || "CREATIVE_MUSIC_TRANSFORM_ACCESS_FORBIDDEN");
     error.status = access.status || 403;
     throw error;
   }
@@ -57,6 +68,7 @@ function safeFileName(value) {
 
 async function prepareSourceUpload(body) {
   const organizationId = text(body.organization_id);
+  const operation = resolveOperation(body.operation);
   const fileName = safeFileName(body.file_name);
   const sizeBytes = finite(body.size_bytes, null);
   const contentType = text(body.content_type).toLowerCase();
@@ -64,7 +76,7 @@ async function prepareSourceUpload(body) {
     throw new Error(`CREATIVE_MUSIC_SOURCE_AUDIO_SIZE_INVALID:max=${MAX_SOURCE_BYTES}`);
   }
   if (contentType && !contentType.startsWith("audio/")) throw new Error("CREATIVE_MUSIC_SOURCE_AUDIO_CONTENT_TYPE_INVALID");
-  const path = `${organizationId}/source/music-remix/${randomUUID()}-${fileName}`;
+  const path = `${organizationId}/source/music-${operation}/${randomUUID()}-${fileName}`;
   const supabase = getServiceSupabase();
   const { data, error } = await supabase.storage
     .from(MUSIC_BUCKET)
@@ -73,6 +85,7 @@ async function prepareSourceUpload(body) {
   if (!data?.signedUrl) throw new Error("CREATIVE_MUSIC_SOURCE_UPLOAD_URL_REQUIRED");
   return {
     success: true,
+    operation,
     upload_url: data.signedUrl,
     storage_reference: `storage://${MUSIC_BUCKET}/${path}`,
     max_source_bytes: MAX_SOURCE_BYTES,
@@ -82,7 +95,8 @@ async function prepareSourceUpload(body) {
 }
 
 function plan(body) {
-  const remixPlan = buildMusicTransformationPlan("remix", {
+  const operation = resolveOperation(body.operation);
+  const transformPlan = buildMusicTransformationPlan(operation, {
     ...body,
     rights_attestation: {
       contract: MUSIC_SOURCE_AUDIO_RIGHTS_ATTESTATION_CONTRACT,
@@ -91,10 +105,15 @@ function plan(body) {
   });
   return {
     success: true,
-    plan: remixPlan,
-    ready_for_execution: remixPlan.executable === true,
-    production_certified: remixPlan.executable === true,
+    operation,
+    plan: transformPlan,
+    ready_for_execution: transformPlan.executable === true,
+    production_certified: transformPlan.executable === true,
+    execution_submitted: false,
+    execution_route_enabled: false,
     rights_confirmation_required: true,
+    content_restriction_policy: transformPlan.content_restriction_policy,
+    blocking_certification: transformPlan.executable === true ? null : transformPlan.certification,
   };
 }
 
@@ -113,12 +132,16 @@ export async function POST(request) {
         ? plan(body)
         : null;
     if (!result) {
-      return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_REMIX_ACTION_INVALID" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_TRANSFORM_ACTION_INVALID" }, { status: 400 });
     }
     return NextResponse.json(result, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error?.message || "Creative Music Remix failed" },
+      {
+        success: false,
+        error: error?.message || "Creative Music transformation failed",
+        code: error?.code || null,
+      },
       { status: error?.status || 400 },
     );
   }

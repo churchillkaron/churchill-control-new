@@ -5,6 +5,7 @@ export const maxDuration = 300;
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
+import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import { CreativeMusicAutoStudioRuntime } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioRuntime";
 import { executeMusicAutoStudioLocal } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioExecutionRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
@@ -105,12 +106,42 @@ function buildPlan(body) {
   };
 }
 
+async function playbackUrl(organizationId, value) {
+  if (!text(value)) return null;
+  return resolveCreativeProviderAssetUrl({
+    organization_id: organizationId,
+    value,
+  });
+}
+
+async function exposePrivateOutput(organizationId, result) {
+  const output = result?.output || {};
+  const files = Array.isArray(output.files) ? output.files : [];
+  const resolvedFiles = await Promise.all(files.map(async (file) => ({
+    ...file,
+    private_url: file.url || null,
+    url: file.url ? await playbackUrl(organizationId, file.url) : null,
+  })));
+  return {
+    ...result,
+    output: {
+      ...output,
+      private_master_url: output.master_url || null,
+      private_waveform_url: output.waveform_url || null,
+      master_url: await playbackUrl(organizationId, output.master_url),
+      waveform_url: await playbackUrl(organizationId, output.waveform_url),
+      files: resolvedFiles,
+    },
+  };
+}
+
 async function executeLocal(body) {
-  return executeMusicAutoStudioLocal({
+  const result = await executeMusicAutoStudioLocal({
     ...body,
     source_media: body.source_media || body.source_audio || body.audio,
     source_rights_confirmed: body.source_rights_confirmed === true,
   });
+  return exposePrivateOutput(text(body.organization_id), result);
 }
 
 export async function POST(request) {

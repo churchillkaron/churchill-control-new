@@ -1,0 +1,191 @@
+name: Avantiqo Music Vocal Correction Certification
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-music-vocal-correction-certification-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-music-vocal-correction-certification
+  cancel-in-progress: false
+
+jobs:
+  certify-music-vocal-correction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout exact requested source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install certification dependencies
+        run: npm install --no-save --package-lock=false @next/env@14.2.35 @supabase/supabase-js@2.105.4
+
+      - name: Validate explicit certification request
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const request = JSON.parse(readFileSync("audits/avantiqo-music-vocal-correction-certification-request.json", "utf8"));
+          const required = [
+            ["contract", request.contract === "AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_REQUEST_V1"],
+            ["engine", request.engine_contract === "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2"],
+            ["lane", request.safe_lease_lane === "music-vocal-correction"],
+            ["safe_lease", request.safe_lease_contract === "AVANTIQO_RUNPOD_SAFE_LEASE_V2"],
+            ["spend", request.spend_approved === true],
+            ["rights", request.rights_approved === true],
+            ["one_job", request.max_provider_jobs === 1],
+            ["human_review", request.human_listening_review_required === true],
+            ["production_false", request.production_activation_requested === false],
+            ["pricing_false", request.pricing_activation_requested === false],
+          ];
+          const failed = required.filter(([, ok]) => !ok).map(([name]) => name);
+          if (failed.length) throw new Error(`MUSIC_VOCAL_CORRECTION_CERTIFICATION_REQUEST_INVALID:${failed.join(",")}`);
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_REQUEST=PASS");
+          NODE
+
+      - name: Validate required credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in RUNPOD_MANAGEMENT_API_KEY RUNPOD_API_KEY NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_CREDENTIAL_MISSING=$name"
+              exit 1
+            fi
+          done
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_CREDENTIALS=PASS'
+
+      - name: Validate hardened immutable image evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const result = JSON.parse(readFileSync("audits/results/avantiqo-music-vocal-correction-worker-image.json", "utf8"));
+          const checks = [
+            result.success === true,
+            result.contract === "AVANTIQO_MUSIC_VOCAL_CORRECTION_WORKER_IMAGE_RESULT_V1",
+            result.source_sha_matches_trigger === true,
+            result.engine_contract === "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
+            result.quality_profile === "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2",
+            result.key_parser_contract === "AVANTIQO_MUSIC_VOCAL_KEY_PARSER_V1",
+            result.explicit_pitch_readiness === true,
+            result.torchcrepe_inference_smoke_required === true,
+            result.explicit_formant_compensation_configured === false,
+            result.unverified_formant_preservation_claimed === false,
+            result.network_volume_required === false,
+            result.production_certified === false,
+            result.human_listening_review_required === true,
+            /^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(String(result.immutable_image_reference || "")),
+          ];
+          if (!checks.every(Boolean)) throw new Error("MUSIC_VOCAL_CORRECTION_HARDENED_IMAGE_EVIDENCE_REQUIRED");
+          console.log(`AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_IMAGE=${result.immutable_image_reference}`);
+          NODE
+
+      - name: Install fixture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Build rights-owned deterministic isolated-vocal technical fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/review-audio
+          ffmpeg -y \
+            -f lavfi -i "sine=frequency=435:sample_rate=48000:duration=1.7" \
+            -f lavfi -i "sine=frequency=518:sample_rate=48000:duration=1.5" \
+            -f lavfi -i "sine=frequency=647:sample_rate=48000:duration=1.6" \
+            -f lavfi -i "sine=frequency=775:sample_rate=48000:duration=1.5" \
+            -filter_complex "[0:a]adelay=85|85,afade=t=in:st=0:d=0.04,afade=t=out:st=1.62:d=0.08[v0];[1:a]adelay=2090|2090,afade=t=in:st=0:d=0.04,afade=t=out:st=1.42:d=0.08[v1];[2:a]adelay=4080|4080,afade=t=in:st=0:d=0.04,afade=t=out:st=1.52:d=0.08[v2];[3:a]adelay=6085|6085,afade=t=in:st=0:d=0.04,afade=t=out:st=1.42:d=0.08[v3];[v0][v1][v2][v3]amix=inputs=4:duration=longest:normalize=0,volume=0.55,alimiter=limit=0.9[out]" \
+            -map "[out]" -ac 1 -ar 48000 -c:a pcm_s24le artifacts/review-audio/source-rights-owned.wav
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 artifacts/review-audio/source-rights-owned.wav
+
+      - name: Provision or verify dedicated endpoint parked at zero
+        env:
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_APPROVED: "YES"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs --apply | tee artifacts/music-vocal-correction-provision.json
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const result = JSON.parse(readFileSync("artifacts/music-vocal-correction-provision.json", "utf8"));
+          if (result.success !== true) throw new Error("MUSIC_VOCAL_CORRECTION_PROVISION_FAILED");
+          if (result.endpoint?.workers_min !== 0 || result.endpoint?.workers_max !== 0) throw new Error("MUSIC_VOCAL_CORRECTION_ENDPOINT_NOT_PARKED_0_0");
+          if (result.exact_image_digest_verified !== true) throw new Error("MUSIC_VOCAL_CORRECTION_EXACT_IMAGE_DIGEST_REQUIRED");
+          if ((result.endpoint?.network_volume_ids || []).length !== 0) throw new Error("MUSIC_VOCAL_CORRECTION_NETWORK_VOLUME_FORBIDDEN");
+          if (result.provider_job_submitted !== false) throw new Error("MUSIC_VOCAL_CORRECTION_PROVISION_MUST_NOT_SUBMIT_JOB");
+          NODE
+
+      - name: Run exactly one correction job through Safe Lease V2
+        env:
+          AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES"
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_SPEND_APPROVED: "YES"
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_RIGHTS_APPROVED: "YES"
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_SOURCE_FILE: ${{ github.workspace }}/artifacts/review-audio/source-rights-owned.wav
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_OUTPUT: ${{ github.workspace }}/artifacts/music-vocal-correction-certification.json
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_KEY: "Am"
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_BPM: "120"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs \
+            --lane=music-vocal-correction \
+            --ttl-ms=1500000 \
+            -- \
+            node scripts/certify-avantiqo-music-vocal-correction-safe-lease-local.mjs
+
+      - name: Verify certification remains fail-closed pending real listening review
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const result = JSON.parse(readFileSync("artifacts/music-vocal-correction-certification.json", "utf8"));
+          if (result.success !== true) throw new Error("MUSIC_VOCAL_CORRECTION_TECHNICAL_CERTIFICATION_REQUIRED");
+          if (result.job_count_submitted !== 1 || result.provider_job_count !== 1) throw new Error("MUSIC_VOCAL_CORRECTION_EXACTLY_ONE_JOB_REQUIRED");
+          if (result.safe_lease?.contract !== "AVANTIQO_RUNPOD_SAFE_LEASE_V2") throw new Error("MUSIC_VOCAL_CORRECTION_SAFE_LEASE_REQUIRED");
+          if (result.safe_lease?.lane !== "music-vocal-correction") throw new Error("MUSIC_VOCAL_CORRECTION_SAFE_LEASE_LANE_REQUIRED");
+          if (result.technical?.correction_pipeline_complete !== true) throw new Error("MUSIC_VOCAL_CORRECTION_PIPELINE_NOT_COMPLETE");
+          if (result.human_review?.status !== "PENDING") throw new Error("MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW_MUST_REMAIN_PENDING");
+          if (result.human_review?.automatic_approval_forbidden !== true) throw new Error("MUSIC_VOCAL_CORRECTION_AUTO_HUMAN_APPROVAL_FORBIDDEN");
+          if (result.production_certified !== false || result.production_activation_allowed !== false) throw new Error("MUSIC_VOCAL_CORRECTION_PRODUCTION_MUST_REMAIN_BLOCKED");
+          if (result.pricing_activation_performed !== false) throw new Error("MUSIC_VOCAL_CORRECTION_PRICING_MUST_REMAIN_BLOCKED");
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_TECHNICAL_CERTIFICATION=PASS");
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW=PENDING");
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_PRODUCTION_ACTIVATION=false");
+          NODE
+
+      - name: Upload certification evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-music-vocal-correction-certification-${{ github.run_id }}
+          path: |
+            artifacts/music-vocal-correction-provision.json
+            artifacts/music-vocal-correction-certification.json
+            artifacts/review-audio/source-rights-owned.wav
+          if-no-files-found: warn
+          retention-days: 14

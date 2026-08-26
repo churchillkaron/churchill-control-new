@@ -8,6 +8,10 @@ import {
   failSecretaryInboundMessage,
 } from "@/lib/operator/secretary/SecretaryMessageReceptionRuntime";
 import { runSecretaryMessageReceptionAutonomous } from "@/lib/operator/secretary/SecretaryAutonomousCallbackRuntime";
+import {
+  recordSecretaryInboundTriage,
+  reconcileSecretaryWaitingExternal,
+} from "@/lib/operator/secretary/SecretaryInboxTriageRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -25,8 +29,25 @@ export async function GET(request) {
 
   const url = new URL(request.url);
   const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 4, 12));
+  const waitHours = Math.max(1, Math.min(Number(url.searchParams.get("wait_hours")) || 24, 24 * 14));
   const workerId = `secretary-message:${crypto.randomUUID()}`;
   const results = [];
+  let waitingExternal = null;
+
+  try {
+    waitingExternal = await reconcileSecretaryWaitingExternal({
+      waitHours,
+      limit: Math.max(10, limit * 4),
+    });
+  } catch (error) {
+    waitingExternal = {
+      status: "failed",
+      error: error?.message || "Secretary waiting-external reconciliation failed",
+      processed_count: 0,
+      results: [],
+      external_authority_used: false,
+    };
+  }
 
   for (let index = 0; index < limit; index += 1) {
     const requestRow = await claimSecretaryInboundMessage({ workerId, leaseSeconds: 180 });
@@ -55,10 +76,19 @@ export async function GET(request) {
           response_message_id: result.response_message?.id || null,
         },
       });
+      const triage = await recordSecretaryInboundTriage({
+        request: { ...requestRow, ...completed },
+        result,
+      });
       results.push({
         request_id: requestRow.id,
         status: completed.status,
         action: result.action,
+        triage_category: triage.triage?.category || null,
+        triage_priority: triage.triage?.priority || null,
+        executive_attention_required: triage.executive_attention_required === true,
+        secretary_owns_follow_through: triage.secretary_owns_follow_through === true,
+        secretary_job_id: triage.secretary_job?.id || null,
         after_hours_mode: result.business_hours_state?.after_hours_mode || null,
         callback_autonomy_promoted: result.callback_autonomy_promoted === true,
         response_message_id: result.response_message?.id || null,
@@ -78,17 +108,26 @@ export async function GET(request) {
   }
 
   const failedCount = results.filter((item) => ["FAILED", "SKIPPED"].includes(String(item.status || "").toUpperCase())).length;
+  const reconcileFailed = waitingExternal?.status === "failed";
   return Response.json(
     {
-      success: failedCount === 0,
-      contract: "AVANTIQO_SECRETARY_MESSAGE_PROCESS_V1",
+      success: failedCount === 0 && !reconcileFailed,
+      contract: "AVANTIQO_SECRETARY_MESSAGE_PROCESS_V2",
       processed_count: results.length,
       failed_count: failedCount,
       results,
+      inbox_triage_enabled: true,
+      inbox_triage_executive_attention_is_exception_based: true,
+      inbox_triage_high_authority_fails_closed: true,
+      inbox_triage_secretary_job_follow_through: true,
+      waiting_external_reconciliation: waitingExternal,
+      waiting_external_reconciliation_server_side: true,
+      waiting_external_secretary_owned_chasing: true,
+      waiting_external_high_authority_auto_chase_blocked: true,
       external_authority_used: false,
     },
     {
-      status: failedCount > 0 ? 207 : 200,
+      status: failedCount > 0 || reconcileFailed ? 207 : 200,
       headers: { "Cache-Control": "no-store, private" },
     },
   );

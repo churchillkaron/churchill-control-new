@@ -36,6 +36,10 @@ function phaseCalls(calls) {
         tool_calls: calls.map((call, index) => ({
           id: call.id || `c${index + 1}`,
           name: call.name,
+          ...(typeof call.mutates === "boolean" ? { mutates: call.mutates } : {}),
+          ...(Array.isArray(call.epistemic_roles)
+            ? { epistemic_roles: call.epistemic_roles }
+            : {}),
           outcome: call.outcome || "succeeded",
           code: call.code || null,
         })),
@@ -130,6 +134,56 @@ test("blocked or failed research attempts never satisfy an evidence obligation",
   }
 });
 
+test("explicit research semantics can certify a generic tool name", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      research_status: "satisfied",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { research_required: true },
+      signals: {},
+      reasons: [],
+    },
+    phases: phaseCalls([{
+      name: "collect_context",
+      epistemic_roles: ["research"],
+      outcome: "succeeded",
+    }]),
+  });
+
+  assert.equal(gated.goal_status, "completed");
+  assert.equal(gated.epistemic_state.research_tool_observed, true);
+});
+
+test("explicit epistemic roles override misleading research-like names", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      research_status: "satisfied",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { research_required: true },
+      signals: {},
+      reasons: [],
+    },
+    phases: phaseCalls([{
+      name: "operator_web_research",
+      epistemic_roles: ["verification"],
+      outcome: "succeeded",
+    }]),
+  });
+
+  assert.equal(gated.goal_status, "in_progress");
+  assert.equal(gated.epistemic_state.research_tool_observed, false);
+});
+
 test("mutation completion requires successful mutation and later successful verification", () => {
   const result = baseResult({
     epistemic_state: {
@@ -176,6 +230,70 @@ test("mutation completion requires successful mutation and later successful veri
   assert.equal(verified.goal_status, "completed");
   assert.equal(verified.epistemic_state.gate_passed, true);
   assert.equal(verified.epistemic_state.post_mutation_verification_observed, true);
+});
+
+test("semantic mutation evidence works even when the tool name looks read-only", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      verification_status: "verified",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { verification_required: true },
+      signals: { mutation_intent: true },
+      reasons: [],
+    },
+    phases: phaseCalls([
+      { name: "perform_operation", mutates: true, outcome: "succeeded" },
+      {
+        name: "observe_operation",
+        mutates: false,
+        epistemic_roles: ["verification"],
+        outcome: "succeeded",
+      },
+    ]),
+  });
+
+  assert.equal(gated.goal_status, "completed");
+  assert.equal(gated.epistemic_state.mutation_tool_observed, true);
+  assert.equal(gated.epistemic_state.post_mutation_verification_observed, true);
+});
+
+test("explicit non-mutating semantics override misleading write-like names", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      verification_status: "verified",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { verification_required: true },
+      signals: { mutation_intent: true },
+      reasons: [],
+    },
+    phases: phaseCalls([
+      { name: "update_customer", mutates: false, outcome: "succeeded" },
+      {
+        name: "verify_customer",
+        mutates: false,
+        epistemic_roles: ["verification"],
+        outcome: "succeeded",
+      },
+    ]),
+  });
+
+  assert.equal(gated.goal_status, "in_progress");
+  assert.equal(gated.epistemic_state.mutation_tool_observed, false);
+  assert.ok(
+    gated.epistemic_state.gate_violations.includes(
+      "EPISTEMIC_POST_MUTATION_VERIFICATION_UNSATISFIED",
+    ),
+  );
 });
 
 test("unresolved conflicting evidence prevents a completed conclusion", () => {

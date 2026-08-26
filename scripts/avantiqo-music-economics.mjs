@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 const CONTRACT = "AVANTIQO_MUSIC_ECONOMICS_V1";
 const EXPECTED_BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3";
+const EXPECTED_WORKER_EVIDENCE_CONTRACT = "AVANTIQO_MUSIC_CONTROLLED_BENCHMARK_WORKER_EVIDENCE_V1";
 const EXPECTED_PROVIDER = "avantiqo-audio";
 const EXPECTED_FOUNDATION_MODEL = "ACE-Step/Ace-Step1.5";
 const EXPECTED_FAMILY = "ACE_STEP_1_5";
@@ -10,6 +11,13 @@ const EXPECTED_VARIANT = "acestep-v15-xl-turbo";
 const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
 const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
 const EXPECTED_LM_BACKEND = "vllm";
+const RUNPOD_PUBLIC_PRICING_VERIFIED_AT = "2026-08-26";
+const RUNPOD_SERVERLESS_USD_PER_HOUR_BY_GPU_TYPE = Object.freeze({
+  "NVIDIA L4": 0.69,
+  "NVIDIA RTX A5000": 0.69,
+  "NVIDIA GeForce RTX 3090": 0.69,
+  "NVIDIA GeForce RTX 4090": 1.10,
+});
 
 const INPUT = resolve(
   process.env.AVANTIQO_AUDIO_BENCHMARK_OUTPUT ||
@@ -28,6 +36,12 @@ function positive(value, code) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) throw new Error(code);
   return number;
+}
+
+function positiveOptional(value, code) {
+  const raw = text(value);
+  if (!raw) return null;
+  return positive(raw, code);
 }
 
 function finite(value, fallback = 0) {
@@ -80,13 +94,38 @@ function assertBenchmark(report = {}) {
   return observations;
 }
 
+function capturedWorkerRate(item, report) {
+  const worker = item?.runpod_worker || null;
+  const gpuTypeId = text(worker?.gpu_type_id);
+  const dataCenterId = text(worker?.data_center_id);
+  if (!gpuTypeId) {
+    throw new Error(`MUSIC_ECONOMICS_CAPTURED_WORKER_GPU_REQUIRED:${item?.run || "UNKNOWN"}`);
+  }
+  if (!Object.hasOwn(RUNPOD_SERVERLESS_USD_PER_HOUR_BY_GPU_TYPE, gpuTypeId)) {
+    throw new Error(`MUSIC_ECONOMICS_CAPTURED_WORKER_GPU_RATE_UNMAPPED:${gpuTypeId}`);
+  }
+  if (
+    text(report?.runtime_worker_evidence?.contract) !== EXPECTED_WORKER_EVIDENCE_CONTRACT ||
+    report?.runtime_worker_evidence?.captured !== true
+  ) {
+    throw new Error("MUSIC_ECONOMICS_WORKER_EVIDENCE_CONTRACT_REQUIRED");
+  }
+  return {
+    gpu_type_id: gpuTypeId,
+    data_center_id: dataCenterId || null,
+    usd_per_gpu_hour: RUNPOD_SERVERLESS_USD_PER_HOUR_BY_GPU_TYPE[gpuTypeId],
+    source: "CAPTURED_RUNPOD_WORKER_GPU_PUBLIC_SERVERLESS_RATE",
+    public_pricing_verified_at: RUNPOD_PUBLIC_PRICING_VERIFIED_AT,
+  };
+}
+
 async function main() {
   const benchmark = JSON.parse(await readFile(INPUT, "utf8"));
   const observations = assertBenchmark(benchmark);
 
-  const usdPerGpuHour = positive(
+  const operatorRateOverride = positiveOptional(
     process.env.AVANTIQO_AUDIO_GPU_USD_PER_HOUR,
-    "AVANTIQO_AUDIO_GPU_USD_PER_HOUR_REQUIRED",
+    "AVANTIQO_AUDIO_GPU_USD_PER_HOUR_INVALID",
   );
   const billedGpuCount = positive(
     process.env.AVANTIQO_AUDIO_BILLED_GPU_COUNT || 1,
@@ -100,8 +139,21 @@ async function main() {
     throw new Error("AVANTIQO_AUDIO_TARGET_UTILIZATION_MUST_NOT_EXCEED_ONE");
   }
 
-  const gpuUsdPerSecond = (usdPerGpuHour * billedGpuCount) / 3600;
-  const measured = observations.map((item) => {
+  const rateResolutions = observations.map((item) => {
+    if (operatorRateOverride !== null) {
+      return {
+        gpu_type_id: text(item?.runpod_worker?.gpu_type_id) || null,
+        data_center_id: text(item?.runpod_worker?.data_center_id) || null,
+        usd_per_gpu_hour: operatorRateOverride,
+        source: "OPERATOR_SUPPLIED_RUNPOD_GPU_RATE",
+        public_pricing_verified_at: null,
+      };
+    }
+    return capturedWorkerRate(item, benchmark);
+  });
+
+  const measured = observations.map((item, index) => {
+    const rate = rateResolutions[index];
     const executionMs = positive(
       item.runpod_execution_ms,
       `MUSIC_ECONOMICS_EXECUTION_TIME_REQUIRED:${item?.run || "UNKNOWN"}`,
@@ -111,11 +163,18 @@ async function main() {
       item.duration_seconds,
       `MUSIC_ECONOMICS_AUDIO_DURATION_REQUIRED:${item?.run || "UNKNOWN"}`,
     );
+    const gpuUsdPerSecond = (rate.usd_per_gpu_hour * billedGpuCount) / 3600;
     const rawComputeCost = executionSeconds * gpuUsdPerSecond;
     const utilizationAdjustedCost = rawComputeCost / targetUtilization;
 
     return {
       run: item.run || null,
+      runpod_job_id: text(item.runpod_job_id) || null,
+      gpu_type_id: rate.gpu_type_id,
+      data_center_id: rate.data_center_id,
+      gpu_usd_per_hour: rate.usd_per_gpu_hour,
+      gpu_rate_source: rate.source,
+      public_pricing_verified_at: rate.public_pricing_verified_at,
       runpod_execution_ms: executionMs,
       runpod_delay_ms: finite(item.runpod_delay_ms, null),
       worker_generation_seconds: finite(item.worker_generation_seconds, null),
@@ -132,6 +191,8 @@ async function main() {
   const totalAudioSeconds = measured.reduce((sum, item) => sum + item.audio_duration_seconds, 0);
   const totalRawCost = measured.reduce((sum, item) => sum + item.raw_gpu_compute_usd, 0);
   const totalAdjustedCost = measured.reduce((sum, item) => sum + item.utilization_adjusted_compute_usd, 0);
+  const uniqueGpuTypes = [...new Set(measured.map((item) => item.gpu_type_id).filter(Boolean))];
+  const uniqueGpuRates = [...new Set(measured.map((item) => item.gpu_usd_per_hour))];
 
   const evidence = {
     contract: CONTRACT,
@@ -150,15 +211,27 @@ async function main() {
     source_benchmark_contract: benchmark.contract,
     source_benchmark_id: benchmark.benchmark_id || null,
     source_benchmark_passed: true,
+    source_worker_evidence_contract: text(benchmark?.runtime_worker_evidence?.contract) || null,
     assumptions: {
-      gpu_usd_per_hour: usdPerGpuHour,
+      gpu_rate_resolution_mode: operatorRateOverride !== null
+        ? "OPERATOR_OVERRIDE"
+        : "CAPTURED_WORKER_GPU_PUBLIC_RATE",
+      operator_gpu_rate_override_used: operatorRateOverride !== null,
+      gpu_usd_per_hour: uniqueGpuRates.length === 1 ? uniqueGpuRates[0] : null,
+      gpu_type_ids: uniqueGpuTypes,
       billed_gpu_count: billedGpuCount,
       target_utilization: targetUtilization,
-      source: "OPERATOR_SUPPLIED_RUNPOD_GPU_RATE",
+      public_pricing_verified_at: operatorRateOverride === null
+        ? RUNPOD_PUBLIC_PRICING_VERIFIED_AT
+        : null,
+      source: operatorRateOverride !== null
+        ? "OPERATOR_SUPPLIED_RUNPOD_GPU_RATE"
+        : "CAPTURED_RUNPOD_WORKER_GPU_PUBLIC_SERVERLESS_RATE",
     },
     measured,
     summary: {
       runs: measured.length,
+      gpu_type_ids: uniqueGpuTypes,
       total_runpod_execution_ms: totalExecutionMs,
       average_runpod_execution_ms: Math.round(totalExecutionMs / measured.length),
       total_audio_seconds: round(totalAudioSeconds, 3),
@@ -170,6 +243,7 @@ async function main() {
     },
     certification: {
       benchmark_certified: true,
+      worker_gpu_evidence_captured: benchmark?.runtime_worker_evidence?.captured === true,
       economics_measured: true,
       economics_certified: false,
       human_audio_quality_certified: false,
@@ -188,8 +262,11 @@ async function main() {
     success: true,
     output_path: OUTPUT,
     quality_profile: EXPECTED_QUALITY_PROFILE,
+    gpu_rate_resolution_mode: evidence.assumptions.gpu_rate_resolution_mode,
+    gpu_type_ids: evidence.summary.gpu_type_ids,
     summary: evidence.summary,
     benchmark_certified: true,
+    worker_gpu_evidence_captured: evidence.certification.worker_gpu_evidence_captured,
     economics_measured: true,
     economics_certified: false,
     activation_allowed: false,

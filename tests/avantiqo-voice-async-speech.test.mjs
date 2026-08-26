@@ -11,6 +11,7 @@ const leaseRuntime = source("lib/platform/service-runtime/providers/avantiqo-voi
 const provider = source("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProvider.js");
 const asyncRuntime = source("lib/operator/runtime/OperatorVoiceAsyncSpeechRuntime.js");
 const jobsRoute = source("app/api/operator/speak/jobs/route.js");
+const speechClient = source("lib/operator/voice/AsyncSpeechClient.js");
 const reaperRoute = source("app/api/internal/voice/runpod-leases/process/route.js");
 const operator = source("components/operator/AvantiqoOperator.jsx");
 const vercel = source("vercel.json");
@@ -23,7 +24,8 @@ test("Voice distributed lease state is service-role-only and audio-free", () => 
   assert.match(migration, /grant .*service_role/is);
   assert.doesNotMatch(migration, /audio_base64\s+(text|bytea)/i);
   assert.match(migration, /where state = 'ACTIVE'/);
-  assert.match(migration, /p_lane in \('voice-tts', 'voice-stt'\)/);
+  assert.match(migration, /check \(lane in \('voice-tts', 'voice-stt'\)\)/);
+  assert.match(migration, /p_lane not in \('voice-tts', 'voice-stt'\)/);
 });
 
 test("web Voice lease opens and closes only the exact endpoint", () => {
@@ -73,7 +75,11 @@ test("voice turns speak while typed turns remain silent", () => {
   assert.match(operator, /sendMessage\(result\.transcript, "voice"\)/);
   assert.match(operator, /if \(source === "voice" && assistantText\)/);
   assert.match(operator, /await requestSpokenReply\(assistantText\)/);
-  assert.match(operator, /fetch\("\/api\/operator\/speak\/jobs"/);
+  assert.match(operator, /requestAsyncSpeechBlob/);
+  assert.match(operator, /signal: abortController\.signal/);
+  assert.match(speechClient, /\/api\/operator\/speak\/jobs/);
+  assert.match(speechClient, /method: "DELETE"/);
+  assert.doesNotMatch(speechClient, /https:\/\/api\.runpod\.ai/);
   assert.doesNotMatch(operator, /fetch\("https:\/\/api\.runpod\.ai/);
   assert.match(operator, /async function sendMessage\(rawValue, source = "text"\)/);
   assert.match(operator, /voiceLibraryOpenRef\.current/);

@@ -3,15 +3,18 @@ import { readFile } from "node:fs/promises";
 
 const files = {
   migration: await readFile("supabase/migrations/20260826102000_secretary_multi_party_meeting_coordination.sql", "utf8"),
+  bookedChangeMigration: await readFile("supabase/migrations/20260826190000_secretary_booked_meeting_changes.sql", "utf8"),
   runtime: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationRuntime.js", "utf8"),
   evidence: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationEvidenceRuntime.js", "utf8"),
   bookingGuard: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationBookingGuardRuntime.js", "utf8"),
   notification: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationNotificationRuntime.js", "utf8"),
+  bookedChange: await readFile("lib/operator/secretary/SecretaryBookedMeetingChangeRuntime.js", "utf8"),
   capability: await readFile("lib/platform/capabilities/createSecretaryMeetingCoordinationCapability.js", "utf8"),
   platform: await readFile("lib/platform/runtime/PlatformDomainRuntime.js", "utf8"),
   worker: await readFile("app/api/internal/secretary/meeting-coordination/process/route.js", "utf8"),
   harness: await readFile("scripts/run-operator-secretary-meeting-local-certification.sh", "utf8"),
   callClarificationCert: await readFile("scripts/certify-secretary-meeting-call-clarification-local.mjs", "utf8"),
+  bookedChangeCert: await readFile("scripts/certify-secretary-booked-meeting-changes-local.mjs", "utf8"),
   vercel: await readFile("vercel.json", "utf8"),
 };
 
@@ -29,6 +32,19 @@ assert.match(files.migration, /secretary_cancel_meeting_coordination/);
 assert.match(files.migration, /ALREADY_BOOKED_USE_CALENDAR_CHANGE/);
 assert.match(files.migration, /enable row level security/i);
 assert.match(files.migration, /revoke all on public\.secretary_meeting_coordinations from anon, authenticated/i);
+
+assert.match(files.bookedChangeMigration, /secretary_reschedule_booked_meeting_coordination/);
+assert.match(files.bookedChangeMigration, /secretary_cancel_booked_meeting_coordination/);
+assert.match(files.bookedChangeMigration, /security invoker/i);
+assert.match(files.bookedChangeMigration, /pg_advisory_xact_lock/);
+assert.match(files.bookedChangeMigration, /SECRETARY_BOOKED_MEETING_RESCHEDULE_SLOT_UNAVAILABLE/);
+assert.match(files.bookedChangeMigration, /stale_pending_notifications_cancelled/);
+assert.match(files.bookedChangeMigration, /schedule_change_history/);
+assert.match(files.bookedChangeMigration, /meeting_change_notifications_materialized', false/);
+assert.match(files.bookedChangeMigration, /attendance_not_inferred', true/);
+assert.match(files.bookedChangeMigration, /rsvp_not_inferred', true/);
+assert.match(files.bookedChangeMigration, /revoke all on function public\.secretary_reschedule_booked_meeting_coordination/);
+assert.match(files.bookedChangeMigration, /grant execute on function public\.secretary_cancel_booked_meeting_coordination/);
 
 assert.match(files.runtime, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_V1/);
 assert.match(files.runtime, /Candidate slots:/);
@@ -104,11 +120,29 @@ assert.match(files.notification, /booking_notifications_include_all_participants
 assert.match(files.notification, /repairSecretaryMeetingBookingNotifications/);
 assert.match(files.notification, /deterministic_follow_up_ids:\s*true/);
 
+assert.match(files.bookedChange, /AVANTIQO_EXECUTIVE_SECRETARY_BOOKED_MEETING_CHANGE_V1/);
+assert.match(files.bookedChange, /avantiqo-secretary-booked-meeting-change-notification-v1/);
+assert.match(files.bookedChange, /meeting_schedule_change_notification:\s*true/);
+assert.match(files.bookedChange, /rescheduleSecretaryBookedMeeting/);
+assert.match(files.bookedChange, /cancelSecretaryBookedMeeting/);
+assert.match(files.bookedChange, /repairSecretaryBookedMeetingChangeNotifications/);
+assert.match(files.bookedChange, /repair_candidates_selected_server_side:\s*true/);
+assert.match(files.bookedChange, /oldest_unfinished_first:\s*true/);
+assert.match(files.bookedChange, /repair_scan_not_limited_to_recent_changes:\s*true/);
+assert.match(files.bookedChange, /notifications_include_all_participants:\s*true/);
+assert.match(files.bookedChange, /attendance_not_inferred:\s*true/);
+assert.match(files.bookedChange, /rsvp_not_inferred:\s*true/);
+assert.match(files.bookedChange, /external_authority_used:\s*false/);
+
 assert.match(files.capability, /secretary_meeting_coordination/);
 assert.match(files.capability, /coordinate this meeting/i);
 assert.match(files.capability, /find a time for everyone/i);
 assert.match(files.capability, /who replied about the meeting/i);
 assert.match(files.capability, /stop arranging this meeting/i);
+assert.match(files.capability, /rescheduleBooked/);
+assert.match(files.capability, /cancelBooked/);
+assert.match(files.capability, /reschedule the booked meeting/i);
+assert.match(files.capability, /cancel the booked meeting/i);
 assert.match(files.capability, /enum:\s*\["MESSAGE", "EMAIL", "CALL"\]/);
 assert.match(files.capability, /operatorRequiresConfirmation:\s*config\.confirm/);
 assert.match(files.capability, /operatorAutoExecute:\s*config\.mode === "read"/);
@@ -119,26 +153,43 @@ assert.match(files.platform, /secretary_meeting_coordination/);
 assert.match(files.platform, /coordinate:\s*async\s*\(\)\s*=>\s*createSecretaryMeetingCoordinationCapability\("coordinate"\)/);
 assert.match(files.platform, /status:\s*async\s*\(\)\s*=>\s*createSecretaryMeetingCoordinationCapability\("status"\)/);
 assert.match(files.platform, /cancel:\s*async\s*\(\)\s*=>\s*createSecretaryMeetingCoordinationCapability\("cancel"\)/);
+assert.match(files.platform, /rescheduleBooked:\s*async\s*\(\)\s*=>\s*createSecretaryMeetingCoordinationCapability\("rescheduleBooked"\)/);
+assert.match(files.platform, /cancelBooked:\s*async\s*\(\)\s*=>\s*createSecretaryMeetingCoordinationCapability\("cancelBooked"\)/);
 
 assert.match(files.worker, /CRON_SECRET/);
 assert.match(files.worker, /processNextSecretaryMeetingCoordinationWithBookingGuard/);
 assert.match(files.worker, /repairSecretaryMeetingBookingNotifications/);
-assert.match(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V3/);
+assert.match(files.worker, /repairSecretaryBookedMeetingChangeNotifications/);
+assert.match(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V4/);
+assert.match(files.worker, /meeting_change_notification_repair_pending_count_server_side:\s*true/);
+assert.match(files.worker, /meeting_change_notification_repair_pending_count_starvation_free:\s*true/);
+assert.match(files.worker, /booked_meeting_change_notifications_include_all_participants:\s*true/);
+assert.match(files.worker, /booked_meeting_change_notifications_deterministic_and_idempotent:\s*true/);
+assert.match(files.worker, /booked_meeting_change_notifications_rsvp_not_inferred:\s*true/);
 assert.match(files.worker, /booking_notifications_include_all_participants:\s*true/);
 assert.match(files.worker, /booking_notifications_deterministic_and_idempotent:\s*true/);
 assert.match(files.worker, /booking_notifications_rsvp_not_inferred:\s*true/);
 assert.match(files.worker, /explicit_availability_evidence_required_for_booking:\s*true/);
 assert.match(files.worker, /attendance_not_inferred:\s*true/);
 assert.match(files.worker, /external_authority_used:\s*false/);
+assert.doesNotMatch(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V3/);
 assert.doesNotMatch(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V2/);
 assert.doesNotMatch(files.worker, /processNextSecretaryMeetingCoordinationSafely/);
 
+assert.match(files.harness, /20260826190000_secretary_booked_meeting_changes\.sql/);
 assert.match(files.harness, /certify-secretary-meeting-call-clarification-local\.mjs/);
+assert.match(files.harness, /certify-secretary-booked-meeting-changes-local\.mjs/);
 assert.match(files.callClarificationCert, /SECRETARY_MEETING_CALL_CLARIFICATION_LOCAL_CERTIFICATION=PASS/);
 assert.match(files.callClarificationCert, /SECRETARY_AMBIGUOUS_CALL_TRIGGERS_IMMEDIATE_CLARIFICATION=true/);
 assert.match(files.callClarificationCert, /SECRETARY_STALE_PRE_CLARIFICATION_EVIDENCE_CANNOT_BOOK=true/);
 assert.match(files.callClarificationCert, /SECRETARY_DISTINCT_POST_CLARIFICATION_EVIDENCE_CAN_QUALIFY=true/);
 assert.match(files.callClarificationCert, /SECRETARY_PROVIDER_CALLS_PERFORMED=false/);
+assert.match(files.bookedChangeCert, /SECRETARY_BOOKED_MEETING_CHANGE_LOCAL_CERTIFICATION=PASS/);
+assert.match(files.bookedChangeCert, /SECRETARY_BOOKED_MEETING_RESCHEDULE_CONFLICT_FAILS_CLOSED=true/);
+assert.match(files.bookedChangeCert, /SECRETARY_BOOKED_MEETING_CHANGE_NOTIFICATION_REPAIRABLE=true/);
+assert.match(files.bookedChangeCert, /SECRETARY_BOOKED_MEETING_CANCELS_CANONICAL_EVENT=true/);
+assert.match(files.bookedChangeCert, /SECRETARY_BOOKED_MEETING_PARTICIPANT_EVIDENCE_PRESERVED=true/);
+assert.match(files.bookedChangeCert, /SECRETARY_PROVIDER_CALLS_PERFORMED=false/);
 
 const vercel = JSON.parse(files.vercel);
 assert.equal(vercel.functions["app/api/internal/secretary/meeting-coordination/process/route.js"]?.maxDuration, 300);
@@ -167,7 +218,10 @@ console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_ALL_PARTICIPANTS=true");
 console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_IDEMPOTENT=true");
 console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_REPAIR=true");
 console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_RSVP_NOT_INFERRED=true");
-console.log("SECRETARY_MEETING_COORDINATION_WORKER_V3=true");
+console.log("SECRETARY_BOOKED_MEETING_RESCHEDULE_AND_CANCEL=true");
+console.log("SECRETARY_BOOKED_MEETING_CHANGE_NOTIFICATION_REPAIR=true");
+console.log("SECRETARY_BOOKED_MEETING_CHANGE_STALE_NOTICE_FENCING=true");
+console.log("SECRETARY_MEETING_COORDINATION_WORKER_V4=true");
 console.log("SECRETARY_MEETING_ATTENDANCE_NOT_INFERRED=true");
 console.log("SECRETARY_MEETING_COORDINATION_CRON_REGISTERED=true");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

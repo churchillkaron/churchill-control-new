@@ -74,11 +74,12 @@ test("Voice Library lifecycle patcher revokes the current recording URL and tear
   const patcher = await readFile(lifecyclePatcherPath, "utf8");
 
   assert.match(patcher, /AVANTIQO_VOICE_LIBRARY_RECORDING_LIFECYCLE_PATCH_V1/);
-  assert.match(patcher, /const recordingUrlRef = useRef\(""\);/);
-  assert.match(patcher, /function releaseRecordingUrl\(\)/);
+  assert.match(patcher, /const alreadyFixed/);
+  assert.match(patcher, /recordingUrlRef = useRef/);
+  assert.match(patcher, /function releaseRecordingUrl/);
   assert.match(patcher, /URL\.revokeObjectURL\(url\)/);
   assert.match(patcher, /recordingUrlRef\.current = url/);
-  assert.match(patcher, /function stopRecorderForCleanup\(\)/);
+  assert.match(patcher, /function stopRecorderForCleanup/);
   assert.match(patcher, /recorder\.onstop = null/);
   assert.match(patcher, /releaseRecordingStream\(\)/);
   assert.match(patcher, /previewAudio\.pause\?\.\(\)/);

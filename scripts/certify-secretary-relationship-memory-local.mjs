@@ -231,7 +231,7 @@ try {
   });
   assert.equal(interaction.status, "interaction_recorded");
   assert.equal(interaction.interaction.inferred, false);
-  assert.equal(interaction.last_contact_at, "2026-08-25T08:15:00.000Z");
+  assert.equal(Date.parse(interaction.last_contact_at), Date.parse("2026-08-25T08:15:00Z"));
 
   const interactionReplay = await recordSecretaryRelationshipInteraction({
     context,
@@ -260,7 +260,7 @@ try {
   assert.equal(nextTouch.status, "next_touch_set");
   assert.equal(nextTouch.follow_up.action_type, "EMAIL");
   assert.equal(nextTouch.follow_up.status, "PENDING");
-  assert.equal(nextTouch.profile.next_follow_up_at, "2031-09-10T03:00:00+00:00");
+  assert.equal(Date.parse(nextTouch.profile.next_follow_up_at), Date.parse("2031-09-10T03:00:00Z"));
 
   const nextTouchReplay = await setSecretaryRelationshipNextTouch({
     context,
@@ -300,7 +300,7 @@ try {
   assert.equal(followUpRows[0].metadata.secretary_relationship_next_touch, true);
 
   const finalRead = await readSecretaryRelationshipMemory({ context, payload: { party_id: contactId } });
-  assert.equal(finalRead.profile.last_contact_at, "2026-08-25T08:15:00+00:00");
+  assert.equal(Date.parse(finalRead.profile.last_contact_at), Date.parse("2026-08-25T08:15:00Z"));
   assert.equal(finalRead.profile.next_follow_up_at, null);
   assert.equal(finalRead.facts_not_inferred, true);
   assert.equal(finalRead.credentials_or_secrets_stored, false);

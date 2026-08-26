@@ -209,15 +209,17 @@ test("evidence-driven replanning remains bounded by the plan replan budget", () 
   assert.equal(revision.evidence_driven_replan, true);
 });
 
-test("canonical planning tool uses evidence-aware assessment and revision", () => {
+test("canonical planning tool preserves evidence-aware revision under recovery policy", () => {
   const source = fs.readFileSync(
     new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url),
     "utf8",
   );
 
   assert.match(source, /OperatorIntelligenceEvidenceRevisionRuntime/);
-  assert.match(source, /assessOperatorIntelligencePlanWithEvidenceRevision/);
-  assert.match(source, /reviseOperatorIntelligencePlanWithEvidenceRevision/);
+  assert.match(source, /OperatorIntelligenceRecoveryPolicyRuntime/);
+  assert.match(source, /assessOperatorIntelligencePlanWithRecoveryPolicy/);
+  assert.match(source, /reviseOperatorIntelligencePlanWithRecoveryPolicy/);
+  assert.match(source, /evidence_revision_contract: OperatorIntelligenceEvidenceRevisionRuntime\.contract/);
   assert.match(source, /successful_evidence_can_invalidate_plan: true/);
   assert.match(source, /unverified_evidence_cannot_invalidate_plan: true/);
 });

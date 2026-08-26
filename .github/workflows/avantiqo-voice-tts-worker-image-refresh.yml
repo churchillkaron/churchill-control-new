@@ -41,15 +41,14 @@ jobs:
           set -euo pipefail
           test -f services/avantiqo-voice-tts/Dockerfile
           test -f services/avantiqo-voice-tts/handler.py
-          test -f services/avantiqo-voice-tts/bootstrap.sh
           grep -F 'FROM pytorch/pytorch:2.7.0-cuda12.8-cudnn9-runtime' services/avantiqo-voice-tts/Dockerfile
           grep -F 'torch==2.7.0 torchaudio==2.7.0' services/avantiqo-voice-tts/Dockerfile
           grep -F 'AVANTIQO_VOICE_TTS_BLACKWELL_SM120=PASS' services/avantiqo-voice-tts/Dockerfile
           grep -F 'runpod==1.9.1' services/avantiqo-voice-tts/requirements.txt
           grep -F 'AVANTIQO_VOICE_TTS_IMAGE_IMPORT_SMOKE=PASS' services/avantiqo-voice-tts/Dockerfile
           grep -F 'EXPECTED_FOUNDATION_MODEL = "resemble-ai/chatterbox:multilingual-v3"' services/avantiqo-voice-tts/handler.py
-          grep -F 'AVANTIQO_VOICE_TTS_BOOTSTRAP' services/avantiqo-voice-tts/bootstrap.sh
-          grep -F 'CMD ["/bin/sh", "/app/bootstrap.sh"]' services/avantiqo-voice-tts/Dockerfile
+          grep -F 'AVANTIQO_VOICE_TTS_PYTHON_PROCESS' services/avantiqo-voice-tts/handler.py
+          grep -F 'CMD ["python", "-u", "/app/handler.py"]' services/avantiqo-voice-tts/Dockerfile
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_VOICE_TTS_REFRESH_PREFLIGHT=PASS'
           echo 'AVANTIQO_VOICE_TTS_REFRESH_PLATFORM=linux/amd64'
@@ -105,18 +104,47 @@ jobs:
           architecture="$(docker image inspect "$IMAGE_TAG" --format '{{.Architecture}}')"
           test "$architecture" = "amd64"
           cmd_json="$(docker image inspect "$IMAGE_TAG" --format '{{json .Config.Cmd}}')"
-          printf '%s' "$cmd_json" | grep -F '/bin/sh'
-          printf '%s' "$cmd_json" | grep -F '/app/bootstrap.sh'
+          printf '%s' "$cmd_json" | grep -F 'python'
+          printf '%s' "$cmd_json" | grep -F -- '-u'
+          printf '%s' "$cmd_json" | grep -F '/app/handler.py'
+
           docker run --rm --entrypoint /bin/sh "$IMAGE_TAG" -lc '
             set -eu
-            test -r /app/bootstrap.sh
-            grep -F AVANTIQO_VOICE_TTS_BOOTSTRAP /app/bootstrap.sh >/dev/null
             python --version
             python -c "import torch, torchaudio, chatterbox.mtl_tts; assert torch.__version__.startswith(\"2.7.0\"), torch.__version__; assert torch.version.cuda and torch.version.cuda.startswith(\"12.8\"), torch.version.cuda; compiled_arches=(torch._C._cuda_getArchFlags() or \"\").split(); assert \"sm_120\" in compiled_arches, compiled_arches; print(\"AVANTIQO_VOICE_TTS_STARTUP_PROBE=PASS\")"
           '
+
+          container_id="$(docker run -d "$IMAGE_TAG")"
+          cleanup() {
+            docker rm -f "$container_id" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          startup_seen=false
+          for attempt in $(seq 1 30); do
+            logs="$(docker logs "$container_id" 2>&1 || true)"
+            if printf '%s\n' "$logs" | grep -F '"event":"AVANTIQO_VOICE_TTS_PYTHON_PROCESS"' | grep -F '"phase":"process_started"' >/dev/null; then
+              startup_seen=true
+              break
+            fi
+            running="$(docker inspect "$container_id" --format '{{.State.Running}}' 2>/dev/null || printf 'false')"
+            if [ "$running" != "true" ]; then
+              printf '%s\n' "$logs"
+              echo 'AVANTIQO_VOICE_TTS_DEFAULT_CMD_EXITED_BEFORE_BREADCRUMB'
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "$startup_seen" != "true" ]; then
+            docker logs "$container_id" 2>&1 || true
+            echo 'AVANTIQO_VOICE_TTS_DEFAULT_CMD_BREADCRUMB_TIMEOUT'
+            exit 1
+          fi
+
           echo 'AVANTIQO_VOICE_TTS_IMAGE_PLATFORM_AMD64=PASS'
-          echo 'AVANTIQO_VOICE_TTS_IMAGE_CMD_BOOTSTRAP=PASS'
-          echo 'AVANTIQO_VOICE_TTS_IMAGE_CONTAINER_EXEC=PASS'
+          echo 'AVANTIQO_VOICE_TTS_IMAGE_CMD_DIRECT_PYTHON=PASS'
+          echo 'AVANTIQO_VOICE_TTS_IMAGE_DEFAULT_CMD_EXEC=PASS'
           echo 'AVANTIQO_VOICE_TTS_IMAGE_BLACKWELL_SM120=PASS'
 
       - name: Confirm refresh scope
@@ -214,7 +242,7 @@ jobs:
             runpod_fitness_sdk_required: "1.9.1",
             import_smoke_passed_by_docker_build: success,
             image_platform: "linux/amd64",
-            bootstrap_breadcrumb_baked: true,
+            python_process_breadcrumb_baked: true,
             container_startup_probe_passed_by_github_build: success,
           };
 

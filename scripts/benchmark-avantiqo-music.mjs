@@ -8,6 +8,8 @@ const API_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
 const STORAGE_BUCKET = "creative-assets";
 const PREFLIGHT_CONTRACT = "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V3";
+const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
+const SAFE_LEASE_LANE = "audio";
 const EXPECTED_SHARED_VOLUME_GROUP = "AUDIO_VOICE";
 const EXPECTED_SHARED_VOLUME_NAME = "avantiqo-shared-audio-voice-cache";
 const EXPECTED_CHECKPOINT_ROOT = "/runpod-volume/ace-step-checkpoints";
@@ -67,6 +69,32 @@ function percentile(values, fraction) {
 
 function sleep(ms) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
+}
+
+function assertSafeLease(endpointId) {
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE).toUpperCase() !== "YES") {
+    throw new Error("AVANTIQO_MUSIC_BENCHMARK_SAFE_LEASE_ACTIVE_REQUIRED");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT) !== SAFE_LEASE_CONTRACT) {
+    throw new Error("AVANTIQO_MUSIC_BENCHMARK_SAFE_LEASE_CONTRACT_INVALID");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_LANE) !== SAFE_LEASE_LANE) {
+    throw new Error("AVANTIQO_MUSIC_BENCHMARK_SAFE_LEASE_LANE_INVALID");
+  }
+  const leasedEndpointId = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID);
+  if (!leasedEndpointId || leasedEndpointId !== endpointId) {
+    throw new Error("AVANTIQO_MUSIC_BENCHMARK_SAFE_LEASE_ENDPOINT_MISMATCH");
+  }
+  const expiresAt = Date.parse(text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT));
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    throw new Error("AVANTIQO_MUSIC_BENCHMARK_SAFE_LEASE_EXPIRED");
+  }
+  return {
+    contract: SAFE_LEASE_CONTRACT,
+    lane: SAFE_LEASE_LANE,
+    endpoint_id: leasedEndpointId,
+    expires_at: new Date(expiresAt).toISOString(),
+  };
 }
 
 function runRequiredPreflight() {
@@ -278,10 +306,15 @@ const preflight = runRequiredPreflight();
 
 const apiKey = required("RUNPOD_API_KEY");
 const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
+const safeLease = assertSafeLease(endpointId);
 const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
 const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
 const foundationModel = text(process.env.AVANTIQO_AUDIO_FOUNDATION_MODEL) || EXPECTED_FOUNDATION_MODEL;
-const runs = Math.max(1, Math.min(5, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_RUNS || 1)));
+const requestedRuns = Number(process.env.AVANTIQO_AUDIO_BENCHMARK_RUNS || 1);
+if (!Number.isInteger(requestedRuns) || requestedRuns !== 1) {
+  throw new Error("AVANTIQO_MUSIC_BENCHMARK_SAFE_LEASE_ONE_JOB_REQUIRED");
+}
+const runs = 1;
 const duration = Math.max(10, Math.min(30, Number(process.env.AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS || 12)));
 const benchmarkId = safe(`music-${new Date().toISOString()}-${crypto.randomUUID().slice(0, 8)}`);
 const organizationId = text(process.env.AVANTIQO_MUSIC_BENCHMARK_ORGANIZATION_ID) || `benchmark-${crypto.randomUUID()}`;
@@ -400,6 +433,7 @@ const report = {
   generated_at: new Date().toISOString(),
   activation_allowed: false,
   purpose: "MEASURE_ONLY_DO_NOT_ACTIVATE_PRICING",
+  safe_lease: safeLease,
   preflight: {
     contract: preflight.contract,
     passed: true,
@@ -454,6 +488,8 @@ const report = {
     organization_record_created: false,
     storage_bucket: STORAGE_BUCKET,
     controlled_spend_approved: true,
+    safe_lease_required: true,
+    max_provider_jobs: 1,
     runs,
     requested_duration_seconds: duration,
     runpod_transport: "queued_run_status_polling",
@@ -475,7 +511,7 @@ const report = {
   },
   summary: {
     runs: observations.length,
-    passed: observations.length > 0 && observations.every((item) => item.passed),
+    passed: observations.length === 1 && observations.every((item) => item.passed),
     p50_wall_ms: percentile(wall, 0.5),
     p95_wall_ms: percentile(wall, 0.95),
     p50_runpod_execution_ms: percentile(runpodExecution, 0.5),
@@ -508,6 +544,9 @@ console.log(JSON.stringify({
   success: report.summary.passed,
   output_path: outputPath,
   benchmark_id: benchmarkId,
+  safe_lease_contract: safeLease.contract,
+  safe_lease_lane: safeLease.lane,
+  provider_job_count: observations.length,
   summary: report.summary,
   review_urls: observations.map((item) => item.review_url).filter(Boolean),
   activation_allowed: false,

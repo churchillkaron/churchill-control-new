@@ -104,12 +104,18 @@ assert.equal(/fetch\s*\(/.test(counterfactual), false,
   "counterfactual planning/reconciliation must not directly perform provider calls");
 
 hasAll(shadow, [
-  'status: "READY_FOR_COUNTERFACTUAL_BENCHMARK"',
+  'status = "READY_FOR_COUNTERFACTUAL_BENCHMARK";',
+  "status,",
   "context_stability_is_not_incremental_utility: true",
   "counterfactual_benchmark_required: status === \"READY_FOR_COUNTERFACTUAL_BENCHMARK\"",
   "final_promotion_candidate_created: false",
   "reusable_platform_knowledge: false",
 ], "provisional shadow validation");
+assert.match(
+  shadow,
+  /else if \(summary\.stable_context_observed\) \{\s*status = "READY_FOR_COUNTERFACTUAL_BENCHMARK";\s*\}/,
+  "stable shadow context must transition to counterfactual benchmark readiness",
+);
 
 hasAll(epistemic, [
   'status: "PROVISIONAL_SHADOW_ONLY"',

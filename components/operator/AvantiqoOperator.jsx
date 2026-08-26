@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import AvantiqoVoiceLibraryPanel from "@/components/operator/AvantiqoVoiceLibraryPanel";
 
 const WAKE_STORAGE_KEY = "avantiqo.wake.enabled";
 const WAKE_PHRASES = [
@@ -106,6 +107,7 @@ export default function AvantiqoOperator() {
   const voiceLastSoundAtRef = useRef(0);
 
   const [open, setOpen] = useState(false);
+  const [voiceLibraryOpen, setVoiceLibraryOpen] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -191,7 +193,7 @@ export default function AvantiqoOperator() {
 
   async function sendMessage(rawValue, source = "text") {
     const message = text(rawValue);
-    if (!message || busyRef.current || !organizationId) return;
+    if (!message || busyRef.current || !organizationId || voiceLibraryOpen) return;
 
     const nextUserMessage = userMessage(message);
     const priorConversation = messages.map(({ role, content }) => ({ role, content }));
@@ -361,12 +363,13 @@ export default function AvantiqoOperator() {
   }
 
   function resumeWakeMode(delay = 900) {
-    if (!wakeEnabledRef.current) return;
+    if (!wakeEnabledRef.current || voiceLibraryOpen) return;
 
     wakeSuspendedRef.current = false;
     window.setTimeout(() => {
       if (
         wakeEnabledRef.current &&
+        !voiceLibraryOpen &&
         !busyRef.current &&
         !voiceBusyRef.current &&
         !recordingRef.current
@@ -426,6 +429,7 @@ export default function AvantiqoOperator() {
 
   async function startVoice({ fromWake = false } = {}) {
     if (
+      voiceLibraryOpen ||
       busyRef.current ||
       voiceBusyRef.current ||
       recordingRef.current
@@ -540,6 +544,7 @@ export default function AvantiqoOperator() {
 
   async function handleWakePhrase() {
     if (
+      voiceLibraryOpen ||
       wakeTriggeringRef.current ||
       busyRef.current ||
       voiceBusyRef.current ||
@@ -564,6 +569,7 @@ export default function AvantiqoOperator() {
 
   function startWakeRecognition() {
     if (
+      voiceLibraryOpen ||
       !wakeEnabledRef.current ||
       wakeSuspendedRef.current ||
       busyRef.current ||
@@ -626,6 +632,7 @@ export default function AvantiqoOperator() {
       setWakeListening(false);
 
       if (
+        !voiceLibraryOpen &&
         wakeEnabledRef.current &&
         !wakeSuspendedRef.current &&
         !busyRef.current &&
@@ -695,6 +702,32 @@ export default function AvantiqoOperator() {
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }
 
+  function openVoiceLibrary() {
+    if (busyRef.current || voiceBusyRef.current || recordingRef.current) return;
+    wakeSuspendedRef.current = true;
+    stopWakeRecognition();
+    setError("");
+    setVoiceLibraryOpen(true);
+  }
+
+  function closeVoiceLibrary() {
+    setVoiceLibraryOpen(false);
+    if (wakeEnabledRef.current) {
+      wakeSuspendedRef.current = false;
+      window.setTimeout(() => startWakeRecognition(), 500);
+    }
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function closePanel() {
+    setVoiceLibraryOpen(false);
+    setOpen(false);
+    if (wakeEnabledRef.current) {
+      wakeSuspendedRef.current = false;
+      window.setTimeout(() => startWakeRecognition(), 500);
+    }
+  }
+
   if (!businessContext?.ready || !organizationId) return null;
 
   return (
@@ -754,27 +787,40 @@ export default function AvantiqoOperator() {
                 <div className="mt-2 truncate text-[12px] text-white/45">
                   {contextLabel}
                 </div>
-                <button
-                  type="button"
-                  onClick={toggleWakeMode}
-                  className={
-                    wakeEnabled
-                      ? "mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-emerald-200/70"
-                      : "mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.025] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-white/35"
-                  }
-                  aria-pressed={wakeEnabled}
-                >
-                  <Mic size={12} />
-                  {wakeEnabled
-                    ? wakeListening
-                      ? "Hey Avantiqo listening"
-                      : "Hey Avantiqo ready"
-                    : "Enable Hey Avantiqo"}
-                </button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleWakeMode}
+                    disabled={voiceLibraryOpen}
+                    className={
+                      wakeEnabled
+                        ? "inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-emerald-200/70 disabled:opacity-30"
+                        : "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.025] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-white/35 disabled:opacity-30"
+                    }
+                    aria-pressed={wakeEnabled}
+                  >
+                    <Mic size={12} />
+                    {wakeEnabled
+                      ? wakeListening
+                        ? "Hey Avantiqo listening"
+                        : "Hey Avantiqo ready"
+                      : "Enable Hey Avantiqo"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openVoiceLibrary}
+                    disabled={busy || voiceBusy || recording}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[#E7C48E]/75 transition hover:border-[#D6A66A]/40 disabled:opacity-30"
+                    aria-label="Open Voice Library"
+                  >
+                    <Mic size={12} />
+                    Voice Library
+                  </button>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closePanel}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.025] text-white/55 transition hover:bg-white/[0.07] hover:text-white"
                 aria-label="Close Avantiqo Operator"
               >
@@ -867,7 +913,7 @@ export default function AvantiqoOperator() {
                 ref={inputRef}
                 value={input}
                 rows={1}
-                disabled={busy || voiceBusy || recording}
+                disabled={busy || voiceBusy || recording || voiceLibraryOpen}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
@@ -882,7 +928,7 @@ export default function AvantiqoOperator() {
               <button
                 type="button"
                 onClick={recording ? stopVoice : () => startVoice()}
-                disabled={busy || voiceBusy}
+                disabled={busy || voiceBusy || voiceLibraryOpen}
                 aria-label={recording ? "Stop voice recording" : "Talk to Avantiqo"}
                 aria-pressed={recording}
                 className={
@@ -897,7 +943,7 @@ export default function AvantiqoOperator() {
               <button
                 type="button"
                 onClick={() => sendMessage(input)}
-                disabled={busy || voiceBusy || recording || !text(input)}
+                disabled={busy || voiceBusy || recording || voiceLibraryOpen || !text(input)}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6A66A] text-black transition hover:bg-[#E7C48E] disabled:cursor-not-allowed disabled:opacity-30"
                 aria-label="Send to Avantiqo"
               >
@@ -909,6 +955,14 @@ export default function AvantiqoOperator() {
               Hey Avantiqo · Voice + Text · Discuss · Navigate · Execute · Verify
             </div>
           </footer>
+
+          {voiceLibraryOpen ? (
+            <AvantiqoVoiceLibraryPanel
+              organizationId={organizationId}
+              entityId={entityId}
+              onClose={closeVoiceLibrary}
+            />
+          ) : null}
         </section>
       ) : null}
     </>

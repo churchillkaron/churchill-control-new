@@ -67,6 +67,7 @@ export default function AvantiqoVoiceLibraryPanel({
   const startedAtRef = useRef(0);
   const hardStopRef = useRef(null);
   const previewAudioRef = useRef(null);
+  const recordingUrlRef = useRef("");
 
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState("");
@@ -89,10 +90,21 @@ export default function AvantiqoVoiceLibraryPanel({
   useEffect(() => {
     loadLibrary();
     return () => {
-      if (hardStopRef.current) window.clearTimeout(hardStopRef.current);
-      for (const track of streamRef.current?.getTracks?.() || []) track.stop();
-      previewAudioRef.current?.pause?.();
-      if (recordingUrl) URL.revokeObjectURL(recordingUrl);
+      if (hardStopRef.current) {
+        window.clearTimeout(hardStopRef.current);
+        hardStopRef.current = null;
+      }
+      stopRecorderForCleanup();
+      releaseRecordingStream();
+      releaseRecordingUrl();
+      const previewAudio = previewAudioRef.current;
+      previewAudioRef.current = null;
+      if (previewAudio) {
+        previewAudio.onended = null;
+        previewAudio.onerror = null;
+        previewAudio.pause?.();
+        previewAudio.src = "";
+      }
     };
   }, [organizationId, entityId]);
 
@@ -128,8 +140,29 @@ export default function AvantiqoVoiceLibraryPanel({
     streamRef.current = null;
   }
 
+  function releaseRecordingUrl() {
+    const url = recordingUrlRef.current;
+    recordingUrlRef.current = "";
+    if (url) URL.revokeObjectURL(url);
+  }
+
+  function stopRecorderForCleanup() {
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    chunksRef.current = [];
+    if (!recorder || recorder.state === "inactive") return;
+    recorder.ondataavailable = null;
+    recorder.onerror = null;
+    recorder.onstop = null;
+    try {
+      recorder.stop();
+    } catch {
+      // Recorder may already be stopping while the panel unmounts.
+    }
+  }
+
   function clearRecording() {
-    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
+    releaseRecordingUrl();
     setRecordingBlob(null);
     setRecordingUrl("");
     setRecordingSeconds(0);
@@ -171,6 +204,11 @@ export default function AvantiqoVoiceLibraryPanel({
       };
 
       recorder.onerror = () => {
+        recorderRef.current = null;
+        if (hardStopRef.current) {
+          window.clearTimeout(hardStopRef.current);
+          hardStopRef.current = null;
+        }
         setRecording(false);
         releaseRecordingStream();
         setError("Voice recording failed");
@@ -185,6 +223,7 @@ export default function AvantiqoVoiceLibraryPanel({
           type: recorder.mimeType || mimeType || "audio/webm",
         });
         chunksRef.current = [];
+        recorderRef.current = null;
         setRecording(false);
         releaseRecordingStream();
         if (hardStopRef.current) {
@@ -201,7 +240,9 @@ export default function AvantiqoVoiceLibraryPanel({
           return;
         }
 
+        releaseRecordingUrl();
         const url = URL.createObjectURL(blob);
+        recordingUrlRef.current = url;
         setRecordingBlob(blob);
         setRecordingUrl(url);
         setRecordingSeconds(durationSeconds);

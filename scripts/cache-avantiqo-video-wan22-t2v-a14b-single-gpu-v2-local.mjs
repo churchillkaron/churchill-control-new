@@ -47,13 +47,49 @@ function replaceExactlyOnce(source, before, after, label) {
 }
 
 function compatibilitySource(baseSource) {
-  const oldWorkerHelpers = `function workerCount(health) {\n  return Object.values(health.workers).reduce((sum, value) => sum + Number(value || 0), 0);\n}\n\nfunction assertIdle(health, label) {\n  const workers = workerCount(health);\n  if (health.jobs.in_queue !== 0 || health.jobs.in_progress !== 0 || workers !== 0) {\n    throw new Error(\`${label}_NOT_IDLE:queue=\${health.jobs.in_queue}:progress=\${health.jobs.in_progress}:workers=\${workers}\`);\n  }\n}`;
+  const oldWorkerHelpers = [
+    "function workerCount(health) {",
+    "  return Object.values(health.workers).reduce((sum, value) => sum + Number(value || 0), 0);",
+    "}",
+    "",
+    "function assertIdle(health, label) {",
+    "  const workers = workerCount(health);",
+    "  if (health.jobs.in_queue !== 0 || health.jobs.in_progress !== 0 || workers !== 0) {",
+    "    throw new Error(`${label}_NOT_IDLE:queue=${health.jobs.in_queue}:progress=${health.jobs.in_progress}:workers=${workers}`);",
+    "  }",
+    "}",
+  ].join("\n");
 
-  const newWorkerHelpers = `function liveWorkerCount(health) {\n  return Number(health.workers.initializing || 0) + Number(health.workers.running || 0);\n}\n\nfunction assertIdle(health, label) {\n  const liveWorkers = liveWorkerCount(health);\n  if (\n    health.jobs.in_queue !== 0 ||\n    health.jobs.in_progress !== 0 ||\n    health.workers.unhealthy !== 0 ||\n    liveWorkers !== 0\n  ) {\n    throw new Error(\`${label}_NOT_QUIESCENT:queue=\${health.jobs.in_queue}:progress=\${health.jobs.in_progress}:initializing=\${health.workers.initializing}:running=\${health.workers.running}:unhealthy=\${health.workers.unhealthy}\`);\n  }\n}`;
+  const newWorkerHelpers = [
+    "function liveWorkerCount(health) {",
+    "  return Number(health.workers.initializing || 0) + Number(health.workers.running || 0);",
+    "}",
+    "",
+    "function assertIdle(health, label) {",
+    "  const liveWorkers = liveWorkerCount(health);",
+    "  if (",
+    "    health.jobs.in_queue !== 0 ||",
+    "    health.jobs.in_progress !== 0 ||",
+    "    health.workers.unhealthy !== 0 ||",
+    "    liveWorkers !== 0",
+    "  ) {",
+    "    throw new Error(`${label}_NOT_QUIESCENT:queue=${health.jobs.in_queue}:progress=${health.jobs.in_progress}:initializing=${health.workers.initializing}:running=${health.workers.running}:unhealthy=${health.workers.unhealthy}`);",
+    "  }",
+    "}",
+  ].join("\n");
 
-  const oldRestoreCondition = `      health.jobs.in_queue === 0 &&\n      health.jobs.in_progress === 0 &&\n      workerCount(health) === 0`;
+  const oldRestoreCondition = [
+    "      health.jobs.in_queue === 0 &&",
+    "      health.jobs.in_progress === 0 &&",
+    "      workerCount(health) === 0",
+  ].join("\n");
 
-  const newRestoreCondition = `      health.jobs.in_queue === 0 &&\n      health.jobs.in_progress === 0 &&\n      health.workers.unhealthy === 0 &&\n      liveWorkerCount(health) === 0`;
+  const newRestoreCondition = [
+    "      health.jobs.in_queue === 0 &&",
+    "      health.jobs.in_progress === 0 &&",
+    "      health.workers.unhealthy === 0 &&",
+    "      liveWorkerCount(health) === 0",
+  ].join("\n");
 
   let source = replaceExactlyOnce(
     baseSource,

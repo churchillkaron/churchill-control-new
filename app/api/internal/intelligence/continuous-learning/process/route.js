@@ -17,6 +17,9 @@ import {
 import {
   applyAvantiqoKnowledgeUtilityFeedback,
 } from "@/lib/intelligence/runtime/AvantiqoKnowledgeUtilityFeedbackRuntime";
+import {
+  reconcileAvantiqoMechanismFirstLearning,
+} from "@/lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -44,12 +47,20 @@ export async function GET(request) {
     // 2. Discover product/evidence coverage gaps from that truth.
     // 3. Evaluate whether prior research is productive and adapt priority/cadence.
     // 4. Apply only anti-overfit eligible observational knowledge-utility feedback.
-    // 5. Spend the existing bounded research budget on the resulting agenda.
-    // Stages 1-4 are provider-free and never mutate model weights or authorize actions.
+    // 5. Escalate weak/unsolved topics into provider-free mechanism, constraint,
+    //    adjacent-domain and experiment-evidence discovery tracks.
+    // 6. Spend the existing bounded public-evidence research budget on the
+    //    resulting agenda.
+    // Any hypothesis/invention synthesis that could wake owned RunPod
+    // Intelligence is deliberately outside this cron and must execute through
+    // AVANTIQO_RUNPOD_SAFE_LEASE_V2 on the intelligence-deep lane.
+    // Stages 1-5 never mutate model weights, authorize product actions or submit
+    // RunPod jobs.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
     const learningEffectiveness = await evaluateAvantiqoLearningEffectiveness();
     const knowledgeUtilityFeedback = await applyAvantiqoKnowledgeUtilityFeedback();
+    const mechanismFirstLearning = await reconcileAvantiqoMechanismFirstLearning();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -59,6 +70,7 @@ export async function GET(request) {
         learning_coverage: learningCoverage,
         learning_effectiveness: learningEffectiveness,
         knowledge_utility_feedback: knowledgeUtilityFeedback,
+        mechanism_first_learning: mechanismFirstLearning,
       },
       {
         status: result.success === false ? 207 : 200,

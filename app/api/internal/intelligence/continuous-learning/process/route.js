@@ -26,6 +26,9 @@ import {
 import {
   reconcileAvantiqoEpistemicPromotion,
 } from "@/lib/intelligence/runtime/AvantiqoEpistemicPromotionRuntime";
+import {
+  reconcileAvantiqoProvisionalKnowledgeShadow,
+} from "@/lib/intelligence/runtime/AvantiqoProvisionalKnowledgeShadowRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -63,12 +66,16 @@ export async function GET(request) {
     //    durable Evidence Graph. Contradiction/source-diversity gaps enqueue
     //    fresh research; successful review creates shadow-only provisional
     //    knowledge, never reusable platform knowledge.
-    // 8. Spend the existing bounded public-evidence research budget on the
+    // 8. Evaluate non-influencing provisional shadow observations. Context
+    //    success is explicitly not treated as incremental utility; sufficiently
+    //    stable, contradiction-free candidates only become eligible for a
+    //    separate counterfactual benchmark.
+    // 9. Spend the existing bounded public-evidence research budget on the
     //    resulting agenda, including adversarial reconciliation work.
     // Any hypothesis/invention synthesis that could wake owned RunPod
     // Intelligence is deliberately outside this cron and must execute through
     // AVANTIQO_RUNPOD_SAFE_LEASE_V2 on the intelligence-deep lane.
-    // Stages 1-7 never mutate model weights, authorize product actions, execute
+    // Stages 1-8 never mutate model weights, authorize product actions, execute
     // experiments, submit RunPod jobs, or automatically promote knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
@@ -77,6 +84,7 @@ export async function GET(request) {
     const mechanismFirstLearning = await reconcileAvantiqoMechanismFirstLearning();
     const scientificLearning = await reconcileAvantiqoScientificLearningExperiments();
     const epistemicPromotion = await reconcileAvantiqoEpistemicPromotion();
+    const provisionalKnowledgeShadow = await reconcileAvantiqoProvisionalKnowledgeShadow();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -89,6 +97,7 @@ export async function GET(request) {
         mechanism_first_learning: mechanismFirstLearning,
         scientific_learning: scientificLearning,
         epistemic_promotion: epistemicPromotion,
+        provisional_knowledge_shadow: provisionalKnowledgeShadow,
       },
       {
         status: result.success === false ? 207 : 200,

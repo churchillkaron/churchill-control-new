@@ -8,6 +8,12 @@ import {
   listActiveVoiceRunpodDistributedLeases,
   releaseVoiceRunpodDistributedLease,
 } from "./avantiqo-voice-runpod-distributed-lease.mjs";
+import {
+  acquireCodeRunpodDistributedLease,
+  isCodeRunpodLane,
+  listActiveCodeRunpodDistributedLeases,
+  releaseCodeRunpodDistributedLease,
+} from "./avantiqo-code-runpod-distributed-lease.mjs";
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
@@ -159,13 +165,15 @@ async function waitForZero(endpointId, managementKey, queueKey, timeoutMs, pollM
   throw new Error(`${CONTRACT}_RELEASE_TIMEOUT:${JSON.stringify(latest)}`);
 }
 async function enforce(snapshotValue, policy, targetId, managementKey) {
-  const [currentLeases, distributedVoiceLeases] = await Promise.all([
+  const [currentLeases, distributedVoiceLeases, distributedCodeLeases] = await Promise.all([
     leases(),
     listActiveVoiceRunpodDistributedLeases(),
+    listActiveCodeRunpodDistributedLeases(),
   ]);
   const leaseIds = new Set([
     ...currentLeases.map((lease) => text(lease.endpoint_id)),
     ...distributedVoiceLeases.map((lease) => text(lease.endpoint_id)),
+    ...distributedCodeLeases.map((lease) => text(lease.endpoint_id)),
   ].filter(Boolean));
   const badMin = snapshotValue.rows.filter((row) => row.workers_min !== 0);
   if (badMin.length) throw new Error(`${CONTRACT}_WORKERS_MIN_ZERO_REQUIRED:${badMin.map((row) => row.name).join(",")}`);
@@ -185,7 +193,7 @@ async function enforce(snapshotValue, policy, targetId, managementKey) {
   if (target.health_error) throw new Error(`${CONTRACT}_TARGET_HEALTH_UNKNOWN`);
   if (target.jobs > finite(policy.max_jobs_per_lease, 1)) throw new Error(`${CONTRACT}_TARGET_JOB_LIMIT:${target.jobs}`);
   if (target.hourly_cost_usd > finite(policy.default_max_worker_hourly_usd, 4)) throw new Error(`${CONTRACT}_WORKER_HOURLY_LIMIT:${target.hourly_cost_usd}`);
-  return { refreshed, currentLeases, distributedVoiceLeases, target };
+  return { refreshed, currentLeases, distributedVoiceLeases, distributedCodeLeases, target };
 }
 
 async function runChild(command, lease, managementKey, queueKey, policy) {
@@ -213,7 +221,12 @@ async function runChild(command, lease, managementKey, queueKey, policy) {
     } else {
       idleWorkerSince = null;
     }
-    console.log(`${CONTRACT}_WATCHDOG=${JSON.stringify({ elapsed_seconds: Math.floor((Date.now() - acquired) / 1000), lane: lease.lane, open_leases: state.currentLeases.length + state.distributedVoiceLeases.length, target_jobs: state.target.jobs, target_hourly_cost_usd: state.target.hourly_cost_usd, account_hourly_cost_usd: state.refreshed.hourly_cost_usd })}`);
+    const protectedEndpointIds = new Set([
+      ...state.currentLeases.map((entry) => text(entry.endpoint_id)),
+      ...state.distributedVoiceLeases.map((entry) => text(entry.endpoint_id)),
+      ...state.distributedCodeLeases.map((entry) => text(entry.endpoint_id)),
+    ].filter(Boolean));
+    console.log(`${CONTRACT}_WATCHDOG=${JSON.stringify({ elapsed_seconds: Math.floor((Date.now() - acquired) / 1000), lane: lease.lane, open_leases: protectedEndpointIds.size, target_jobs: state.target.jobs, target_hourly_cost_usd: state.target.hourly_cost_usd, account_hourly_cost_usd: state.refreshed.hourly_cost_usd })}`);
     await sleep(finite(policy.watchdog_poll_ms, 5000));
   }
   if (exit.signal) throw new Error(`${CONTRACT}_CHILD_SIGNAL:${exit.signal}`);
@@ -233,6 +246,7 @@ const queueKey = text(process.env.RUNPOD_API_KEY) || managementKey;
 let targetId = null;
 let lease = null;
 let distributedVoiceLease = null;
+let distributedCodeLease = null;
 let endpointOpened = false;
 let failure = null;
 let childSucceeded = false;
@@ -253,13 +267,21 @@ try {
       ttlMs,
     });
   }
+  if (isCodeRunpodLane(args.lane)) {
+    distributedCodeLease = await acquireCodeRunpodDistributedLease({
+      lane: args.lane,
+      endpointId: targetId,
+      endpointName: laneName,
+      ttlMs,
+    });
+  }
   lease = await acquireLease(
     targetId,
     laneName,
     args.lane,
     ttlMs,
     finite(policy.max_concurrent_paid_leases, 4),
-    distributedVoiceLease?.expires_at || null,
+    distributedVoiceLease?.expires_at || distributedCodeLease?.expires_at || null,
   );
   await patch(targetId, 1, managementKey);
   endpointOpened = true;
@@ -289,6 +311,22 @@ try {
     await releaseLease(targetId);
   }
 
+  if (distributedCodeLease) {
+    try {
+      await releaseCodeRunpodDistributedLease({
+        ownerRequestId: distributedCodeLease.owner_request_id,
+        state: childSucceeded && release?.success === true && !failure ? "RELEASED" : "FAILED",
+        reason: failure
+          ? redact(failure.message).slice(0, 300)
+          : childSucceeded && release?.success === true
+            ? "LOCAL_V2_CHILD_COMPLETE"
+            : "LOCAL_V2_CLEANUP_INCOMPLETE",
+      });
+    } catch (error) {
+      if (!failure) failure = error;
+    }
+  }
+
   if (distributedVoiceLease) {
     try {
       await releaseVoiceRunpodDistributedLease({
@@ -308,6 +346,6 @@ try {
 }
 
 const success = childSucceeded && release?.success === true && !failure;
-console.log(JSON.stringify({ success, contract: CONTRACT, lane: args.lane, endpoint_name: laneName, lease_acquired: Boolean(lease), child_succeeded: childSucceeded, failure: failure ? redact(failure.message).slice(0, 1200) : null, release, voice_distributed_lease_required: isVoiceRunpodLane(args.lane), voice_distributed_lease_acquired: Boolean(distributedVoiceLease), permanent_rest_state: "LEASE_ENDPOINT_0_0", parallel_work_allowed: true, workers_min_one_allowed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
+console.log(JSON.stringify({ success, contract: CONTRACT, lane: args.lane, endpoint_name: laneName, lease_acquired: Boolean(lease), child_succeeded: childSucceeded, failure: failure ? redact(failure.message).slice(0, 1200) : null, release, voice_distributed_lease_required: isVoiceRunpodLane(args.lane), voice_distributed_lease_acquired: Boolean(distributedVoiceLease), code_distributed_lease_required: isCodeRunpodLane(args.lane), code_distributed_lease_acquired: Boolean(distributedCodeLease), permanent_rest_state: "LEASE_ENDPOINT_0_0", parallel_work_allowed: true, workers_min_one_allowed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
 console.log(`${CONTRACT}=${success ? "PASS" : "FAIL"}`);
 if (!success) process.exit(3);

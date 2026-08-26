@@ -44,7 +44,7 @@ assert.equal(isSupabaseCleanupRetryRequest(`${supabaseOrigin}/rest/v1/organizati
 assert.equal(isSupabaseCleanupRetryRequest(`${supabaseOrigin}/rest/v1/rpc/charge_wallet`, { method: "POST" }, supabaseOrigin), false);
 assert.equal(isSupabaseCleanupRetryRequest("https://other.supabase.co/rest/v1/organization_services", { method: "PATCH" }, supabaseOrigin), false);
 
-const [leaseShim, childGuard, cleanupShim, capacityRunner, packageJson, plannerExecution, autonomousRuntime, pendingSettlement] = await Promise.all([
+const [leaseShim, childGuard, cleanupShim, capacityRunner, packageJson, plannerExecution, autonomousRuntime, pendingSettlement, sharedLease, codeDistributedLease] = await Promise.all([
   readFile("scripts/run-code-ai-runpod-safe-lease-resilient-local.mjs", "utf8"),
   readFile("scripts/run-code-ai-safe-lease-child-guard-local.mjs", "utf8"),
   readFile("scripts/run-code-ai-autonomous-planner-certification-resilient-local.mjs", "utf8"),
@@ -53,6 +53,8 @@ const [leaseShim, childGuard, cleanupShim, capacityRunner, packageJson, plannerE
   readFile("lib/code/runtime/CodeAIPlannerExecutionRuntime.js", "utf8"),
   readFile("lib/code/runtime/CodeAIAutonomousRuntime.js", "utf8"),
   readFile("scripts/settle-code-ai-planner-certification-pending-local.mjs", "utf8"),
+  readFile("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs", "utf8"),
+  readFile("scripts/avantiqo-code-runpod-distributed-lease.mjs", "utf8"),
 ]);
 assert.match(leaseShim, /isRunpodHealthRequest/);
 assert.match(leaseShim, /isCodeEndpointClosePatch/);
@@ -80,6 +82,15 @@ assert.match(autonomousRuntime, /stale_queue_recovery_count/);
 assert.match(pendingSettlement, /AVANTIQO_CODE_PLANNER_PENDING_STALE_QUEUE_CANCELED/);
 assert.match(pendingSettlement, /exact_job_cancel_only: true/);
 assert.doesNotMatch(pendingSettlement, /purge-queue/);
+assert.match(sharedLease, /listActiveCodeRunpodDistributedLeases/);
+assert.match(sharedLease, /acquireCodeRunpodDistributedLease/);
+assert.match(sharedLease, /releaseCodeRunpodDistributedLease/);
+assert.match(sharedLease, /code_distributed_lease_acquired/);
+assert.match(codeDistributedLease, /AVANTIQO_CODE_DISTRIBUTED_RUNPOD_LEASE_V1/);
+assert.match(codeDistributedLease, /updated_at=eq/);
+assert.match(codeDistributedLease, /AVANTIQO_CODE_DISTRIBUTED_LEASE_BUSY/);
+assert.match(codeDistributedLease, /owner_request_id/);
+assert.doesNotMatch(codeDistributedLease, /workersMax/);
 
 console.log(JSON.stringify({
   success: true,
@@ -100,6 +111,10 @@ console.log(JSON.stringify({
     stale_replacement_is_bounded_to_one: true,
     logical_planner_iteration_deduplicates_replacement_job_ids: true,
     stale_pending_certification_reservation_cleanup_supported: true,
+    code_distributed_lease_visible_across_hosts: true,
+    code_distributed_lease_compare_and_swap_owned: true,
+    code_endpoint_orphan_reaper_respects_distributed_ownership: true,
+    code_distributed_lease_does_not_mutate_endpoint_directly: true,
   },
   provider_calls_executed: false,
   provider_spend_performed: false,

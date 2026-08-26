@@ -29,6 +29,7 @@ test("Voice software certification covers the complete static Voice surface", ()
     "avantiqo-voice-realtime-owned.test.mjs",
     "avantiqo-voice-realtime-relay.test.mjs",
     "avantiqo-voice-realtime-relay-client.test.mjs",
+    "avantiqo-voice-realtime-relay-preflight.test.mjs",
     "avantiqo-voice-software-certification.test.mjs",
   ]) {
     assert.match(runner, new RegExp(required.replaceAll(".", "\\.")));
@@ -57,6 +58,7 @@ test("Voice software certification preserves implemented-but-unreleased realtime
   assert.match(runner, /realtime_relay_deployed:\s*false/);
   assert.match(runner, /realtime_relay_client_implemented:\s*true/);
   assert.match(runner, /realtime_relay_client_wired_to_operator:\s*false/);
+  assert.match(runner, /realtime_relay_preflight_implemented:\s*true/);
   assert.match(runner, /realtime_relay_required:\s*true/);
   assert.match(runner, /thai_synthesis:\s*"FAIL_CLOSED_UNTIL_CERTIFIED"/);
 });

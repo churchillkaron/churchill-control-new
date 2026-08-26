@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { register } from "node:module";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
-import {
+
+process.env.NEXT_PUBLIC_SUPABASE_URL ||= "https://audit.invalid";
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= "audit-service-role-key";
+register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
+
+const {
   rankAvantiqoKnowledgeRows,
-} from "../lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js";
+} = await import("../lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js");
 
 function row({
   id,

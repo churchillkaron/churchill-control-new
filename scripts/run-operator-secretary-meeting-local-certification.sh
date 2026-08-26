@@ -167,6 +167,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-document-filing-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-relationship-memory-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-deadline-coordination-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-absence-coverage-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

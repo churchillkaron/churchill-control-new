@@ -12,7 +12,8 @@ function sorted(values) {
 }
 
 const ttsSource = await readFile("services/avantiqo-voice-tts/handler.py", "utf8");
-const speakSource = await readFile("app/api/operator/speak/route.js", "utf8");
+const asyncSpeakSource = await readFile("app/api/operator/speak/jobs/route.js", "utf8");
+const legacySpeakSource = await readFile("app/api/operator/speak/route.js", "utf8");
 const supportedBlock = ttsSource.match(/SUPPORTED_LANGUAGES\s*=\s*\{([\s\S]*?)\}/)?.[1] || "";
 const workerLanguages = Array.from(
   supportedBlock.matchAll(/["']([a-z]{2,3})["']/g),
@@ -58,17 +59,22 @@ assert.throws(
     error?.code === "AVANTIQO_VOICE_TTS_LANGUAGE_NOT_CERTIFIED:th",
 );
 
-assert.match(speakSource, /requireOperatorVoiceLanguage/);
-assert.match(speakSource, /detectedLanguage/);
-assert.match(speakSource, /requestedLanguage/);
-assert.match(speakSource, /locale: voiceLanguage\.language/);
-assert.match(speakSource, /language: voiceLanguage\.language/);
-assert.match(speakSource, /low_quality_fallback_allowed: false/);
-assert.match(speakSource, /X-Avantiqo-Voice-Language/);
-assert.match(speakSource, /X-Avantiqo-Voice-Quality/);
+assert.match(asyncSpeakSource, /requireOperatorVoiceLanguage/);
+assert.match(asyncSpeakSource, /requestedLanguage/);
+assert.match(asyncSpeakSource, /explicitDetectedLanguage/);
+assert.match(asyncSpeakSource, /OperatorVoiceAsyncSpeechRuntime\.start/);
+assert.match(asyncSpeakSource, /language: voiceLanguage\.language/);
+assert.match(asyncSpeakSource, /low_quality_fallback_allowed: false/);
+assert.match(asyncSpeakSource, /X-Avantiqo-Voice-Language/);
+assert.match(asyncSpeakSource, /governed-async/);
+assert.match(legacySpeakSource, /AVANTIQO_OPERATOR_SPEAK_LEGACY_DISABLED/);
+assert.match(legacySpeakSource, /\/api\/operator\/speak\/jobs/);
+assert.doesNotMatch(legacySpeakSource, /ServiceExecutionRuntime\.execute/);
 
 console.log("OPERATOR_VOICE_LANGUAGE_POLICY_AUDIT=PASS");
 console.log(`OPERATOR_VOICE_CERTIFIED_LANGUAGE_COUNT=${workerLanguages.length}`);
 console.log("OPERATOR_VOICE_THAI_REPLY_LANGUAGE=th");
 console.log("OPERATOR_VOICE_THAI_SYNTHESIS=FAIL_CLOSED_UNTIL_CERTIFIED");
 console.log("OPERATOR_VOICE_LOW_QUALITY_FALLBACK=false");
+console.log("OPERATOR_VOICE_ASYNC_SPEAK_ROUTE=REQUIRED");
+console.log("OPERATOR_VOICE_LEGACY_SYNC_SPEAK_ROUTE=DISABLED");

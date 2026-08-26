@@ -28,6 +28,7 @@
     "image": "avantiqo-image-v1",
     "audio": "avantiqo-audio-v1",
     "music-vocal-correction": "avantiqo-music-vocal-correction-v1",
+    "music-separator": "avantiqo-music-separator-v1",
     "voice-tts": "avantiqo-voice-tts-v1",
     "voice-stt": "avantiqo-voice-stt-v1",
     "lipsync": "avantiqo-lipsync-v1.",

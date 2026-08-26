@@ -6,6 +6,7 @@ import {
   getSecretaryMeeting,
   startSecretaryMeeting,
 } from "@/lib/operator/secretary/SecretaryMeetingRuntime";
+import { mapSecretaryMeetingSpeaker } from "@/lib/operator/secretary/SecretaryMeetingSpeakerRuntime";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ function response(error, status = 500) {
 function statusFor(message) {
   if (/REQUIRED|INVALID|AUTHORIZATION/i.test(message)) return 400;
   if (/NOT_FOUND/i.test(message)) return 404;
-  if (/NOT_CAPTURING|NOT_FINALIZABLE/i.test(message)) return 409;
+  if (/NOT_CAPTURING|NOT_FINALIZABLE|ALREADY_MAPPED/i.test(message)) return 409;
   return 500;
 }
 
@@ -85,6 +86,26 @@ export async function POST(request) {
         },
       });
       return NextResponse.json({ success: true, organization_id: access.organizationId, ...result }, { status: 201, headers: { "Cache-Control": "no-store" } });
+    }
+
+    if (action === "MAP_SPEAKER") {
+      const meetingId = clean(body.meeting_id || body.meetingId, 120);
+      const speakerKey = clean(body.speaker_key || body.speakerKey, 300);
+      const participantId = clean(body.participant_id || body.participantId, 120);
+      const partyId = clean(body.party_id || body.partyId, 120);
+      if (!meetingId || !speakerKey || (!participantId && !partyId)) {
+        return response("meeting_id, speaker_key and participant_id or party_id required", 400);
+      }
+      const result = await mapSecretaryMeetingSpeaker({
+        context: context(access, body),
+        payload: {
+          meeting_id: meetingId,
+          speaker_key: speakerKey,
+          participant_id: participantId,
+          party_id: partyId,
+        },
+      });
+      return NextResponse.json({ success: true, organization_id: access.organizationId, ...result }, { headers: { "Cache-Control": "no-store" } });
     }
 
     if (action === "FINALIZE") {

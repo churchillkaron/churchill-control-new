@@ -48,6 +48,9 @@ import {
 import {
   reconcileAvantiqoLearningMasteryFrontier,
 } from "@/lib/intelligence/runtime/AvantiqoLearningMasteryFrontierRuntime";
+import {
+  reconcileAvantiqoLearningTransfer,
+} from "@/lib/intelligence/runtime/AvantiqoLearningTransferRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -102,13 +105,17 @@ export async function GET(request) {
     // 14. Reconcile evidence-backed competency mastery and a bounded learning
     //     frontier. Mastery is never permanent, self-confidence is not evidence,
     //     held knowledge cannot be mastered, and frontier priority is not truth confidence.
-    // 15. Spend the existing bounded public-evidence research budget on the
-    //     resulting agenda, including adversarial/dependency/frontier work.
+    // 15. Generate bounded cross-domain transfer-discovery work from stable
+    //     mastered sources toward active frontier targets. Analogy remains a
+    //     hypothesis only; verified transfer hypotheses require explicit mechanisms,
+    //     boundary conditions, falsifiers and discriminating experiments.
+    // 16. Spend the existing bounded public-evidence research budget on the
+    //     resulting agenda, including adversarial/dependency/frontier/transfer work.
     //     Newly supported claims are staged as evidence candidates for the next cycle.
-    // Any hypothesis/invention synthesis or counterfactual benchmark execution
-    // that could wake owned RunPod Intelligence is deliberately outside this
-    // cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
-    // Stages 1-14 never mutate model weights, authorize product actions, execute
+    // Any hypothesis/invention synthesis, transfer experiment execution, or
+    // counterfactual benchmark execution that could wake owned RunPod Intelligence
+    // is deliberately outside this cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
+    // Stages 1-15 never mutate model weights, authorize product actions, execute
     // experiments, submit RunPod jobs, automatically release knowledge, or
     // automatically restore quarantined/retired/dependency-held knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
@@ -132,6 +139,7 @@ export async function GET(request) {
       await reconcileAvantiqoKnowledgeDependencyCurriculum();
     const learningMasteryFrontier =
       await reconcileAvantiqoLearningMasteryFrontier();
+    const learningTransfer = await reconcileAvantiqoLearningTransfer();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -153,6 +161,7 @@ export async function GET(request) {
         released_knowledge_lifecycle: releasedKnowledgeLifecycle,
         knowledge_dependency_curriculum: knowledgeDependencyCurriculum,
         learning_mastery_frontier: learningMasteryFrontier,
+        learning_transfer: learningTransfer,
       },
       {
         status: result.success === false ? 207 : 200,

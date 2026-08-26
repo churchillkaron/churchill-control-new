@@ -6,7 +6,7 @@ const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const FAST_NAME = "avantiqo-intelligence-fast-v1";
-const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_LIVE_REQUEST_DIAGNOSTIC_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_LIVE_REQUEST_DIAGNOSTIC_V2";
 const DEFAULT_REPORT = "/tmp/avantiqo-intelligence-fast-live-request-diagnostic.json";
 const LOG_CAPTURE_MS = 8000;
 const READ_SLICE_MS = 1000;
@@ -206,15 +206,15 @@ function deriveSignals(entries) {
 function classify(health, workers, signals, captureErrors) {
   if (!workers.length) return "FAST_LIVE_REQUEST_NO_CONTROL_WORKER_VISIBLE";
   if (captureErrors.length === workers.length) return "FAST_LIVE_REQUEST_LOG_CAPTURE_UNAVAILABLE";
-  if (signals.model_not_found) return "FAST_OPENAI_MODEL_NAME_REJECTED_BY_VLLM";
-  if (signals.auth_failure) return "FAST_OPENAI_AUTH_OR_GATEWAY_FAILURE";
+  if (signals.model_not_found) return "FAST_SELF_HOSTED_MODEL_NAME_REJECTED_BY_VLLM";
+  if (signals.auth_failure) return "FAST_SELF_HOSTED_AUTH_OR_GATEWAY_FAILURE";
   if (signals.control_plane_failure) return "FAST_SERVERLESS_CONTROL_PLANE_FAILURE";
   if (signals.cuda_or_nvidia_failure) return "FAST_CUDA_OR_NVIDIA_RUNTIME_FAILURE";
   if (signals.memory_failure) return "FAST_MEMORY_OR_PROCESS_TERMINATION_FAILURE";
   if (signals.python_or_vllm_failure) return "FAST_PYTHON_OR_VLLM_RUNTIME_FAILURE";
-  if (signals.chat_completion_route_seen && signals.generation_signal) return "FAST_OPENAI_REQUEST_REACHED_VLLM_GENERATION_ACTIVE";
+  if (signals.chat_completion_route_seen && signals.generation_signal) return "FAST_SELF_HOSTED_REQUEST_REACHED_VLLM_GENERATION_ACTIVE";
   if (signals.chat_completion_route_seen || signals.http_post_seen || signals.request_received_signal) {
-    return "FAST_OPENAI_REQUEST_REACHED_WORKER_INSPECT_RUNTIME_LOGS";
+    return "FAST_SELF_HOSTED_REQUEST_REACHED_WORKER_INSPECT_RUNTIME_LOGS";
   }
   if (health.jobs.in_queue > 0 && health.workers.running > 0) {
     return "FAST_GATEWAY_REQUEST_WAITING_WHILE_WORKER_RUNNING_NO_REQUEST_LOG_SIGNATURE";
@@ -242,7 +242,8 @@ const [healthRaw, workersRaw] = await Promise.all([
   requestJson(`${CONTROL_BASE}/serverless/${encodeURIComponent(fastId)}/workers`, managementKey),
 ]);
 const health = healthSummary(healthRaw);
-const rawWorkers = list(workersRaw?.workers).filter((worker) => text(worker?.id));
+const rawWorkers = list(Array.isArray(workersRaw) ? workersRaw : workersRaw?.workers)
+  .filter((worker) => text(worker?.id));
 const workers = rawWorkers.map(safeWorker);
 
 const captures = [];
@@ -260,7 +261,7 @@ const relevantLogs = entries.filter((entry) =>
 const report = {
   success: true,
   contract: CONTRACT,
-  mode: "READ_ONLY_LIVE_REQUEST_INSPECTION",
+  mode: "READ_ONLY_SELF_HOSTED_LIVE_REQUEST_INSPECTION",
   main_commit: mainCommit,
   endpoint: {
     name: text(fast?.name),
@@ -287,5 +288,6 @@ const reportPath = resolve(process.env.AVANTIQO_INTELLIGENCE_FAST_LIVE_REQUEST_D
 await mkdir(dirname(reportPath), { recursive: true });
 await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
 console.log(JSON.stringify(report, null, 2));
+console.log(`AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_DIAGNOSIS=${diagnosis}`);
 console.log(`AVANTIQO_INTELLIGENCE_FAST_LIVE_REQUEST_DIAGNOSTIC_REPORT=${reportPath}`);
 console.log("AVANTIQO_INTELLIGENCE_FAST_LIVE_REQUEST_DIAGNOSTIC=PASS");

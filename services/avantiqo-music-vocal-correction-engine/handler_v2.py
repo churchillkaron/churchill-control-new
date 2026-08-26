@@ -6,11 +6,13 @@ import numpy as np
 import runpod
 
 import handler as base
+from key_parser import KEY_PARSER_CONTRACT, parse_music_key
 from timing import apply_phrase_timing_correction
 
 ENGINE_CONTRACT = "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2"
 QUALITY_PROFILE = "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2"
 REPORT_CONTRACT = "AVANTIQO_MUSIC_VOCAL_CORRECTION_REPORT_V2"
+MIN_VOICED_FRAME_RATIO = 0.02
 
 
 def _validated_input(job):
@@ -26,6 +28,32 @@ def _validated_input(job):
     validated["contract"] = ENGINE_CONTRACT
     validated["quality_profile"] = QUALITY_PROFILE
     return validated
+
+
+def _pitch_readiness(voiced_frame_ratio, event_count, applied_event_count):
+    if voiced_frame_ratio < MIN_VOICED_FRAME_RATIO:
+        return {
+            "status": "INSUFFICIENT_VOICING",
+            "complete": False,
+            "reason": "TOO_FEW_RELIABLY_VOICED_FRAMES_FOR_SAFE_PITCH_CORRECTION",
+        }
+    if event_count == 0:
+        return {
+            "status": "NO_CORRECTION_NEEDED",
+            "complete": True,
+            "reason": "NO_SAFE_OUT_OF_TUNE_NOTE_SEGMENTS_EXCEEDED_THE_CORRECTION_THRESHOLD",
+        }
+    if applied_event_count == event_count:
+        return {
+            "status": "APPLIED",
+            "complete": True,
+            "reason": None,
+        }
+    return {
+        "status": "FAILED",
+        "complete": False,
+        "reason": "ONE_OR_MORE_DETECTED_PITCH_EVENTS_WERE_NOT_RENDERED",
+    }
 
 
 def _handler(job):
@@ -51,7 +79,9 @@ def _handler(job):
         )
 
         times, midi, periodicity, analysis_sr = base._pitch_track(normalized)
-        requested_key = base._parse_key(correction["key"] or "") if correction["key"] else None
+        requested_key = parse_music_key(correction["key"] or "") if correction["key"] else None
+        if correction["key"] and requested_key is None:
+            raise ValueError("AVANTIQO_MUSIC_VOCAL_CORRECTION_KEY_INVALID")
         if requested_key:
             root_pc, mode = requested_key
             key_confidence = 1.0
@@ -82,8 +112,15 @@ def _handler(job):
         )
 
         voiced = np.isfinite(midi)
+        voiced_frame_ratio = float(np.mean(voiced.astype(np.float32))) if voiced.size else 0.0
         pitch_error = [abs(float(event["raw_error_cents"])) for event in events]
+        pitch_readiness = _pitch_readiness(
+            voiced_frame_ratio,
+            len(events),
+            int(pitch_render.get("applied_event_count", 0)),
+        )
         phrase_timing_ready = timing.get("phrase_timing_correction_complete") is True
+        correction_pipeline_complete = pitch_readiness["complete"] is True and phrase_timing_ready
         report = {
             "contract": REPORT_CONTRACT,
             "engine_contract": ENGINE_CONTRACT,
@@ -96,11 +133,9 @@ def _handler(job):
             "source_bytes": source_bytes,
             "analysis_sample_rate": analysis_sr,
             "analysis_hop_seconds": base.HOP_SECONDS,
-            "voiced_frame_ratio": round(
-                float(np.mean(voiced.astype(np.float32))) if voiced.size else 0.0,
-                6,
-            ),
+            "voiced_frame_ratio": round(voiced_frame_ratio, 6),
             "key": {
+                "parser_contract": KEY_PARSER_CONTRACT,
                 "root_pitch_class": root_pc,
                 "mode": mode,
                 "confidence": round(float(key_confidence), 6),
@@ -116,6 +151,9 @@ def _handler(job):
                 ) if pitch_error else 0.0,
                 "preserve_vibrato": correction["preserve_vibrato"],
                 "preserve_formants_requested": correction["preserve_formants"],
+                "formant_compensation_explicitly_configured": False,
+                "formant_preservation_claimed": False,
+                "readiness": pitch_readiness,
                 "events": events[:1200],
                 "render": pitch_render,
             },
@@ -126,14 +164,16 @@ def _handler(job):
                 "whole_phrase_timing_only": True,
                 "syllable_time_stretch_forbidden": True,
                 "unsafe_phrase_moves_skipped": True,
+                "unverified_formant_preservation_claim_forbidden": True,
                 "rights_contract": base.RIGHTS_CONTRACT,
                 "content_policy": base.CONTENT_POLICY,
             },
             "readiness": {
-                "pitch_correction_complete": pitch_render["applied_event_count"] >= 0,
+                "pitch_status": pitch_readiness["status"],
+                "pitch_correction_complete": pitch_readiness["complete"],
                 "timing_analysis_complete": timing.get("status") != "REFERENCE_REQUIRED",
                 "phrase_timing_correction_complete": phrase_timing_ready,
-                "correction_pipeline_complete": phrase_timing_ready,
+                "correction_pipeline_complete": correction_pipeline_complete,
                 "human_listening_review_required_for_certification": True,
                 "production_certified": False,
             },

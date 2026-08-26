@@ -54,6 +54,9 @@ import {
 import {
   reconcileAvantiqoLearningTransferValidation,
 } from "@/lib/intelligence/runtime/AvantiqoLearningTransferValidationRuntime";
+import {
+  reconcileAvantiqoNegativeTransferEvidenceClock,
+} from "@/lib/intelligence/runtime/AvantiqoNegativeTransferEvidenceClockRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -114,7 +117,9 @@ export async function GET(request) {
     //     boundary conditions, falsifiers and discriminating experiments.
     // 16. Reconcile separately recorded governed transfer experiment results into
     //     replication-aware SUPPORTED, BOUNDARY_LIMITED or REFUTED evidence.
-    //     Mature refutation creates expiring exact-mechanism negative-transfer memory.
+    //     Mature refutation creates exact-mechanism negative-transfer memory, then
+    //     its review and expiry clocks are anchored to the latest refutation evidence.
+    //     Reconciliation time itself can never extend a negative-transfer exclusion.
     //     This stage executes no experiments and writes no reusable platform knowledge.
     // 17. Spend the existing bounded public-evidence research budget on the
     //     resulting agenda, including adversarial/dependency/frontier/transfer work.
@@ -149,6 +154,8 @@ export async function GET(request) {
     const learningTransfer = await reconcileAvantiqoLearningTransfer();
     const learningTransferValidation =
       await reconcileAvantiqoLearningTransferValidation();
+    const negativeTransferEvidenceClock =
+      await reconcileAvantiqoNegativeTransferEvidenceClock();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -172,6 +179,7 @@ export async function GET(request) {
         learning_mastery_frontier: learningMasteryFrontier,
         learning_transfer: learningTransfer,
         learning_transfer_validation: learningTransferValidation,
+        negative_transfer_evidence_clock: negativeTransferEvidenceClock,
       },
       {
         status: result.success === false ? 207 : 200,

@@ -49,10 +49,37 @@ print("AVANTIQO_MUSIC_VOCAL_CORRECTION_DEPENDENCY_SMOKE=PASS")
 PY
 
 COPY services/avantiqo-music-vocal-correction-engine/handler.py /app/handler.py
+COPY services/avantiqo-music-vocal-correction-engine/key_parser.py /app/key_parser.py
 COPY services/avantiqo-music-vocal-correction-engine/timing.py /app/timing.py
 COPY services/avantiqo-music-vocal-correction-engine/handler_v2.py /app/handler_v2.py
 
-RUN python3 -m py_compile /app/handler.py /app/timing.py /app/handler_v2.py \
+RUN python3 -m py_compile /app/handler.py /app/key_parser.py /app/timing.py /app/handler_v2.py \
+    && python3 - <<'PY'
+import torch
+import torchcrepe
+from key_parser import key_parser_self_test
+
+key_result = key_parser_self_test()
+assert key_result["success"] is True, key_result
+sample_rate = 16000
+samples = torch.zeros((1, sample_rate), dtype=torch.float32)
+pitch, periodicity = torchcrepe.predict(
+    samples,
+    sample_rate,
+    160,
+    55.0,
+    1200.0,
+    "tiny",
+    batch_size=128,
+    device="cpu",
+    return_periodicity=True,
+    decoder=torchcrepe.decode.viterbi,
+)
+assert pitch.shape[-1] > 0
+assert periodicity.shape == pitch.shape
+print("AVANTIQO_MUSIC_VOCAL_CORRECTION_TORCHCREPE_INFERENCE_SMOKE=PASS")
+print("AVANTIQO_MUSIC_VOCAL_KEY_PARSER_SELF_TEST=PASS")
+PY
     && ffmpeg -version >/dev/null \
     && ffprobe -version >/dev/null
 

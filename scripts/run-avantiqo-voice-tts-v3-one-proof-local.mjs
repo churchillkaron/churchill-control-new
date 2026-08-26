@@ -8,6 +8,7 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_VOICE_TTS_V3_ONE_PROOF_V2";
+const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const READINESS_SCRIPT = resolve("scripts/check-avantiqo-voice-tts-v3-readiness-local.mjs");
 const SMOKE_SCRIPT = resolve("scripts/smoke-avantiqo-voice-tts-cold-start-local.mjs");
 const RUNPOD_ENV_REPAIR_SCRIPT = resolve("scripts/repair-avantiqo-runpod-env-local.sh");
@@ -142,6 +143,25 @@ function normalizeHealth(body = {}) {
   };
 }
 
+function requireSafeLeaseV2(endpointId) {
+  if (!yes(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE)) {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_SAFE_LEASE_ACTIVE_REQUIRED");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT) !== SAFE_LEASE_CONTRACT) {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_SAFE_LEASE_V2_REQUIRED");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_LANE) !== "voice-tts") {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_SAFE_LEASE_LANE_MISMATCH");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID) !== endpointId) {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_SAFE_LEASE_ENDPOINT_MISMATCH");
+  }
+  const expiresAt = Date.parse(text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT));
+  if (!Number.isFinite(expiresAt) || expiresAt - Date.now() < 5000) {
+    throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_SAFE_LEASE_EXPIRY_INVALID");
+  }
+}
+
 if (!yes(process.env.AVANTIQO_VOICE_TTS_V3_ONE_PROOF_APPROVED)) {
   throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_APPROVED=YES_REQUIRED");
 }
@@ -150,12 +170,15 @@ runRunpodEnvRepair();
 await reloadRunpodEnvFromLocal();
 
 const endpointId = required("RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID");
+requireSafeLeaseV2(endpointId);
 if (!existsSync(READINESS_SCRIPT)) throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_READINESS_SCRIPT_REQUIRED");
 if (!existsSync(SMOKE_SCRIPT)) throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_SMOKE_SCRIPT_REQUIRED");
 
 console.log(JSON.stringify({
   event: "AVANTIQO_VOICE_TTS_V3_ONE_PROOF_BEGIN",
   contract: CONTRACT,
+  safe_lease_contract: SAFE_LEASE_CONTRACT,
+  safe_lease_lane: "voice-tts",
   endpoint_id: endpointId,
   foundation_model: REQUIRED_MODEL,
   exactly_one_new_generation_max: true,
@@ -176,7 +199,6 @@ if (health.jobs.in_progress !== 0) blockers.push(`JOBS_IN_PROGRESS:${health.jobs
 if (health.workers.initializing !== 0) blockers.push(`INITIALIZING_WORKERS:${health.workers.initializing}`);
 if (health.workers.throttled !== 0) blockers.push(`THROTTLED_WORKERS:${health.workers.throttled}`);
 if (health.workers.unhealthy !== 0) blockers.push(`UNHEALTHY_WORKERS:${health.workers.unhealthy}`);
-if (health.workers.idle + health.workers.ready < 1) blockers.push("READY_WORKER_NOT_VISIBLE_IMMEDIATELY_BEFORE_SUBMIT");
 if (blockers.length) {
   throw new Error(`AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_HEALTH_BLOCKED:${blockers.join(",")}`);
 }
@@ -185,6 +207,7 @@ console.log(JSON.stringify({
   event: "AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_HEALTH_CLEAR",
   health,
   health_read_attempts: healthRead.attempts,
+  zero_ready_workers_allowed_for_serverless_cold_start: true,
   generation_submitted: false,
   secrets_printed: false,
 }));
@@ -213,6 +236,8 @@ if (process.platform === "darwin") {
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
+  safe_lease_contract: SAFE_LEASE_CONTRACT,
+  safe_lease_lane: "voice-tts",
   endpoint_id: endpointId,
   foundation_model: REQUIRED_MODEL,
   audio_path: AUDIO_PATH,

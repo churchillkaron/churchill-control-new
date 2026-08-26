@@ -69,10 +69,15 @@ function workersMax(endpoint = {}) {
 }
 
 function endpointVolumeIds(endpoint = {}) {
-  return unique([
-    endpoint.networkVolumeId ?? endpoint.network_volume_id,
-    ...list(endpoint.networkVolumeIds ?? endpoint.network_volume_ids),
-  ]);
+  const primary = text(endpoint.networkVolumeId ?? endpoint.network_volume_id);
+  const additional = list(endpoint.networkVolumeIds ?? endpoint.network_volume_ids)
+    .map((entry) => text(
+      typeof entry === "string"
+        ? entry
+        : entry?.networkVolumeId ?? entry?.network_volume_id ?? entry?.id,
+    ))
+    .filter(Boolean);
+  return unique([primary, ...additional]);
 }
 
 function endpointTemplate(endpoint = {}, templates = []) {
@@ -354,7 +359,7 @@ const endpoint = await rest("/endpoints", managementKey, {
     idleTimeout: 5,
     name: ENDPOINT_NAME,
     networkVolumeId: volume.id,
-    networkVolumeIds: [volume.id],
+    networkVolumeIds: [{ networkVolumeId: volume.id }],
     scalerType: "QUEUE_DELAY",
     scalerValue: 4,
     workersMax: 0,

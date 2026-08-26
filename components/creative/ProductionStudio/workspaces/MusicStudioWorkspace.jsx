@@ -24,6 +24,8 @@ const MODES = Object.freeze([
   { id: "auto", label: "Auto Studio", icon: Sparkles },
   { id: "compose", label: "Compose", icon: Music2 },
   { id: "remix", label: "Remix", icon: RefreshCw },
+  { id: "edit", label: "Edit / Repaint", icon: Scissors },
+  { id: "extend", label: "Extend", icon: RefreshCw },
   { id: "stems", label: "Stems", icon: Scissors },
   { id: "backing", label: "Backing Track", icon: MicOff },
   { id: "vocal", label: "Vocal Studio", icon: Mic2 },
@@ -76,7 +78,15 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
         <MusicWorkspace runtime={runtime} editor={editor} />
       ) : mode === "remix" ? (
         <div className="mx-auto max-w-6xl p-6">
-          <MusicRemixPanel {...specialistProps} />
+          <MusicRemixPanel operation="remix" {...specialistProps} />
+        </div>
+      ) : mode === "edit" ? (
+        <div className="mx-auto max-w-6xl p-6">
+          <MusicRemixPanel operation="edit" {...specialistProps} />
+        </div>
+      ) : mode === "extend" ? (
+        <div className="mx-auto max-w-6xl p-6">
+          <MusicRemixPanel operation="extend" {...specialistProps} />
         </div>
       ) : mode === "stems" ? (
         <div className="mx-auto max-w-6xl p-6">

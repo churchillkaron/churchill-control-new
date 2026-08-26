@@ -120,4 +120,13 @@ audit = replaceRequired(
 );
 await writeFile(auditPath, audit, "utf8");
 
-console.log(JSON.stringify({\n  success: true,\n  contract: "AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_PATCH_V1",\n  files_changed: [runtimePath, promptPath, behavioralTestPath, auditPath],\n  provider_calls_executed: false,\n  provider_spend_performed: false,\n  runpod_lease_opened: false,\n  production_deploy_performed: false,\n  secrets_printed: false,\n}, null, 2));
+console.log(JSON.stringify({
+  success: true,
+  contract: "AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_PATCH_V1",
+  files_changed: [runtimePath, promptPath, behavioralTestPath, auditPath],
+  provider_calls_executed: false,
+  provider_spend_performed: false,
+  runpod_lease_opened: false,
+  production_deploy_performed: false,
+  secrets_printed: false,
+}, null, 2));

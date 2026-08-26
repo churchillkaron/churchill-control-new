@@ -168,7 +168,7 @@ if (!leasePolicy.lanes?.code) {
 
 const worldclassImport = autonomousCapability.indexOf("executeWorldClassCodeMission");
 const executionCall = autonomousCapability.indexOf("await executeWorldClassCodeMission");
-const attestationCall = autonomousCapability.indexOf("attestCodeMissionState");
+const attestationCall = autonomousCapability.indexOf("result.state = attestCodeMissionState");
 if (worldclassImport < 0 || executionCall < 0 || attestationCall <= executionCall) {
   throw new Error(`${CONTRACT}_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
 }

@@ -1,0 +1,205 @@
+name: One-shot Code repository discovery batching convergence
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/code-repository-discovery-batching-convergence.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-code-repository-discovery-batching
+  cancel-in-progress: false
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Refetch current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+      - name: Patch trusted repository discovery batching
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          runtime_path = Path("lib/code/runtime/CodeRepositoryIntelligenceRuntime.js")
+          source = runtime_path.read_text()
+
+          if "const DISCOVERY_PATHSPEC_BATCH_SIZE = 60;" not in source:
+              marker = "const MAX_BUILD_SYSTEM_CONVENTIONS = 120;\n"
+              if marker not in source:
+                  raise SystemExit("CODE_REPOSITORY_DISCOVERY_BATCH_CONSTANT_MARKER_MISSING")
+              source = source.replace(
+                  marker,
+                  marker + "const DISCOVERY_PATHSPEC_BATCH_SIZE = 60;\n",
+                  1,
+              )
+
+          old_discovery = '''async function discoverPaths(workspace) {
+            const result = await workspace.run({
+              command: "git",
+              args: ["ls-files", "--", ...DISCOVERY_PATHSPECS],
+              cwd: ".",
+            });
+            if (result.exit_code !== 0) {
+              const error = new Error(`CODE_AI_REPOSITORY_INTELLIGENCE_DISCOVERY_FAILED:${result.exit_code}`);
+              error.details = result;
+              throw error;
+            }
+            const allPaths = unique(String(result.stdout || "").split("\\n"));
+          '''
+          new_discovery = '''async function discoverPaths(workspace) {
+            const outputs = [];
+            let batchCount = 0;
+            for (
+              let offset = 0;
+              offset < DISCOVERY_PATHSPECS.length;
+              offset += DISCOVERY_PATHSPEC_BATCH_SIZE
+            ) {
+              const pathspecBatch = DISCOVERY_PATHSPECS.slice(
+                offset,
+                offset + DISCOVERY_PATHSPEC_BATCH_SIZE,
+              );
+              const result = await workspace.run({
+                command: "git",
+                args: ["ls-files", "--", ...pathspecBatch],
+                cwd: ".",
+              });
+              batchCount += 1;
+              if (result.exit_code !== 0) {
+                const error = new Error(
+                  `CODE_AI_REPOSITORY_INTELLIGENCE_DISCOVERY_FAILED:${result.exit_code}:batch=${batchCount}`,
+                );
+                error.details = {
+                  ...result,
+                  discovery_batch: batchCount,
+                  discovery_pathspec_count: pathspecBatch.length,
+                };
+                throw error;
+              }
+              outputs.push(String(result.stdout || ""));
+            }
+            const allPaths = unique(outputs.join("\\n").split("\\n"));
+          '''
+          if old_discovery in source:
+              source = source.replace(old_discovery, new_discovery, 1)
+          elif "const outputs = [];\n  let batchCount = 0;" not in source:
+              raise SystemExit("CODE_REPOSITORY_DISCOVERY_BATCH_RUNTIME_MARKER_MISSING")
+
+          old_return = '''  return {
+            paths: prioritized.slice(0, MAX_DISCOVERED_PATHS),
+            discovered_count: allPaths.length,
+            truncated: allPaths.length > MAX_DISCOVERED_PATHS,
+          };
+          '''
+          new_return = '''  return {
+            paths: prioritized.slice(0, MAX_DISCOVERED_PATHS),
+            discovered_count: allPaths.length,
+            truncated: allPaths.length > MAX_DISCOVERED_PATHS,
+            discovery_batches: batchCount,
+          };
+          '''
+          if old_return in source:
+              source = source.replace(old_return, new_return, 1)
+          elif "discovery_batches: batchCount" not in source:
+              raise SystemExit("CODE_REPOSITORY_DISCOVERY_BATCH_RETURN_MARKER_MISSING")
+
+          old_export = '''      discovered_policy_and_convention_path_count: discovered.discovered_count,
+                discovery_truncated: discovered.truncated,
+          '''
+          new_export = '''      discovered_policy_and_convention_path_count: discovered.discovered_count,
+                discovery_batch_count: discovered.discovery_batches,
+                discovery_truncated: discovered.truncated,
+          '''
+          if old_export in source:
+              source = source.replace(old_export, new_export, 1)
+          elif "discovery_batch_count: discovered.discovery_batches" not in source:
+              raise SystemExit("CODE_REPOSITORY_DISCOVERY_BATCH_EXPORT_MARKER_MISSING")
+
+          runtime_path.write_text(source)
+
+          selftest_path = Path("scripts/code-ai-repository-intelligence-selftest.mjs")
+          selftest_path.write_text('''import { inspectCodeRepositoryIntelligence } from "../lib/code/runtime/CodeRepositoryIntelligenceRuntime.js";\n\nconst CONTRACT = "AVANTIQO_CODE_REPOSITORY_INTELLIGENCE_SELFTEST_V1";\nconst calls = [];\n\nconst workspace = {\n  async inspect() {\n    return {\n      head_sha: "selftest",\n      clean: true,\n      package_manager: "unknown",\n      tracked_file_count: 0,\n      tracked_files_sample: [],\n    };\n  },\n  async run(input) {\n    calls.push({\n      command: input?.command,\n      args: Array.isArray(input?.args) ? [...input.args] : [],\n      cwd: input?.cwd,\n    });\n    if (input?.command !== "git" || input?.args?.[0] !== "ls-files" || input?.args?.[1] !== "--") {\n      throw new Error(`UNEXPECTED_DISCOVERY_COMMAND:${JSON.stringify(input)}`);\n    }\n    if (input.args.length > 80) {\n      throw new Error(`DISCOVERY_ARGUMENT_LIMIT_EXCEEDED:${input.args.length}`);\n    }\n    return { exit_code: 0, stdout: "", stderr: "" };\n  },\n  async read() {\n    throw new Error("DISCOVERY_SELFTEST_READ_SHOULD_NOT_RUN");\n  },\n};\n\nconst result = await inspectCodeRepositoryIntelligence(workspace);\nconst discovery = result.repository_intelligence;\n\nfunction assert(condition, code, evidence = null) {\n  if (!condition) throw new Error(`${code}:${JSON.stringify(evidence)}`);\n}\n\nassert(calls.length >= 2, "DISCOVERY_MUST_BATCH_MORE_THAN_80_PATHSPECS", calls);\nassert(calls.every((entry) => entry.args.length <= 80), "DISCOVERY_BATCH_MUST_RESPECT_SANDBOX_ARGUMENT_LIMIT", calls);\nassert(calls.every((entry) => entry.args.length <= 62), "DISCOVERY_BATCH_SIZE_MUST_REMAIN_BOUNDED", calls);\nassert(discovery.discovery_batch_count === calls.length, "DISCOVERY_BATCH_COUNT_MUST_BE_REPORTED", discovery);\nassert(discovery.discovered_policy_and_convention_path_count === 0, "EMPTY_DISCOVERY_SHOULD_REMAIN_EMPTY", discovery);\n\nconsole.log(JSON.stringify({\n  success: true,\n  contract: CONTRACT,\n  verified: {\n    oversized_internal_pathspec_inventory_is_batched: true,\n    sandbox_command_argument_limit_preserved: true,\n    each_discovery_batch_stays_below_limit: true,\n    discovery_batch_count_reported: true,\n    provider_calls_executed: false,\n    provider_spend_performed: false,\n    runpod_lease_opened: false,\n    production_deploy_performed: false,\n  },\n}, null, 2));\nconsole.log(`${CONTRACT}=PASS`);\n''')
+
+          audit_path = Path("scripts/code-ai-repository-mutation-audit.mjs")
+          audit = audit_path.read_text()
+          marker = '  "monorepo",\n'
+          additions = '  "DISCOVERY_PATHSPEC_BATCH_SIZE",\n  "discovery_batch_count",\n'
+          if additions not in audit:
+              if marker not in audit:
+                  raise SystemExit("CODE_REPOSITORY_MUTATION_AUDIT_DISCOVERY_MARKER_MISSING")
+              audit = audit.replace(marker, marker + additions, 1)
+          verified_marker = "    nested_build_commands_bound_to_working_directory: true,\n"
+          verified_addition = "    discovery_pathspecs_batched_below_sandbox_argument_limit: true,\n"
+          if verified_addition not in audit:
+              if verified_marker not in audit:
+                  raise SystemExit("CODE_REPOSITORY_MUTATION_AUDIT_VERIFIED_MARKER_MISSING")
+              audit = audit.replace(verified_marker, verified_marker + verified_addition, 1)
+          audit_path.write_text(audit)
+
+          package_path = Path("package.json")
+          package = package_path.read_text()
+          old_script = '"audit:code-repository-mutations": "node scripts/code-ai-repository-mutation-audit.mjs && node scripts/code-ai-source-change-selftest.mjs"'
+          new_script = '"audit:code-repository-mutations": "node scripts/code-ai-repository-mutation-audit.mjs && node scripts/code-ai-repository-intelligence-selftest.mjs && node scripts/code-ai-source-change-selftest.mjs"'
+          if old_script in package:
+              package = package.replace(old_script, new_script, 1)
+          elif new_script not in package:
+              raise SystemExit("CODE_REPOSITORY_PACKAGE_AUDIT_SCRIPT_MARKER_MISSING")
+          package_path.write_text(package)
+          PY
+
+      - name: Verify zero-provider Code gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          node --check lib/code/runtime/CodeRepositoryIntelligenceRuntime.js
+          node scripts/code-ai-repository-intelligence-selftest.mjs
+          npm run audit:code-ai-autonomy
+
+      - name: Commit verified convergence and remove one-shot gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git rm .github/workflows/code-repository-discovery-batching-convergence.yml
+          git add lib/code/runtime/CodeRepositoryIntelligenceRuntime.js scripts/code-ai-repository-intelligence-selftest.mjs scripts/code-ai-repository-mutation-audit.mjs package.json
+          git commit -m "Batch Code repository discovery pathspecs"
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if ! git merge-base --is-ancestor origin/main HEAD; then
+              git rebase origin/main
+              npm run audit:code-ai-autonomy
+            fi
+            if git push origin HEAD:main; then
+              echo "CODE_REPOSITORY_DISCOVERY_BATCHING_PUSH=PASS"
+              exit 0
+            fi
+          done
+          echo "CODE_REPOSITORY_DISCOVERY_BATCHING_PUSH=FAIL" >&2
+          exit 1

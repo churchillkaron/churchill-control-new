@@ -49,9 +49,11 @@ print("AVANTIQO_MUSIC_VOCAL_CORRECTION_DEPENDENCY_SMOKE=PASS")
 PY
 
 COPY services/avantiqo-music-vocal-correction-engine/handler.py /app/handler.py
+COPY services/avantiqo-music-vocal-correction-engine/timing.py /app/timing.py
+COPY services/avantiqo-music-vocal-correction-engine/handler_v2.py /app/handler_v2.py
 
-RUN python3 -m py_compile /app/handler.py \
+RUN python3 -m py_compile /app/handler.py /app/timing.py /app/handler_v2.py \
     && ffmpeg -version >/dev/null \
     && ffprobe -version >/dev/null
 
-CMD ["python3", "/app/handler.py"]
+CMD ["python3", "/app/handler_v2.py"]

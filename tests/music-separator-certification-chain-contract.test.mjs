@@ -83,13 +83,15 @@ test("Music separator slot handoff is scoped to exact Music endpoints and restor
   assert.match(slotHandoff, /const SEPARATOR_NAME = "avantiqo-music-separator-v1"/);
   assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_HANDOFF_APPROVED=YES_REQUIRED/);
   assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_SEPARATOR_NETWORK_VOLUME_FORBIDDEN/);
-  assert.match(slotHandoff, /GENERATION_NOT_IDLE/);
-  assert.match(slotHandoff, /SEPARATOR_NOT_IDLE/);
+  assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_GENERATION_ACTIVE_WORK_FORBIDDEN/);
+  assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_SEPARATOR_NOT_PARKED_IDLE/);
+  assert.match(slotHandoff, /\["initializing", "running", "throttled", "unhealthy"\]/);
   assert.match(slotHandoff, /method:\s*"PATCH"/);
   assert.match(slotHandoff, /workersMax:\s*generationMax - 1/);
   assert.match(slotHandoff, /workersMax:\s*1/);
   assert.match(slotHandoff, /workersMax:\s*0/);
   assert.match(slotHandoff, /workersMax:\s*Number\(stateFile\.generation_workers_max\)/);
+  assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_GENERATION_CAPACITY_REDUCTION_TIMEOUT/);
   assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_SEPARATOR_DRAIN_TIMEOUT/);
   assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_GENERATION_RESTORE_TIMEOUT/);
   assert.match(slotHandoff, /provider_job_submitted:\s*false/);

@@ -5,6 +5,7 @@ import { Loader2, Mic } from "lucide-react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import { transcribeRecordedAudio } from "@/lib/operator/voice/AsyncRecordedTranscriptionClient";
 import {
   listOperatorNavigationTargets,
   resolveInstantOperatorNavigation,
@@ -594,43 +595,26 @@ export default function LocalHeyAvantiqoWakeBridge() {
   }
 
   async function transcribe(blob) {
-    const form = new FormData();
-    form.append("audio", blob, audioName(blob.type, "command"));
-    form.append("organizationId", organizationId);
-    if (entityId) form.append("entityId", entityId);
-    form.append("locale", navigator.language || "en-US");
-    form.append("mode", "command");
-
-    const response = await fetchWithTimeout(
-      "/api/operator/transcribe",
-      { method: "POST", credentials: "same-origin", body: form },
-      TRANSCRIBE_TIMEOUT_MS,
-      "Voice transcription timed out",
-    );
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result?.success === false) {
-      throw new Error(result?.error || "I couldn't understand that");
-    }
+    const result = await transcribeRecordedAudio({
+      audio: blob,
+      organizationId,
+      entityId,
+      locale: navigator.language || "en-US",
+      mode: "command",
+    });
     return text(result?.transcript);
   }
 
   async function transcribeWake(blob) {
-    const form = new FormData();
-    form.append("audio", blob, audioName(blob.type, "wake"));
-    form.append("organizationId", organizationId);
-    if (entityId) form.append("entityId", entityId);
-    form.append("mode", "wake");
-
-    const response = await fetchWithTimeout(
-      "/api/operator/transcribe",
-      { method: "POST", credentials: "same-origin", body: form },
-      WAKE_TRANSCRIBE_TIMEOUT_MS,
-      "Wake verification timed out",
-    );
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result?.success === false) {
-      throw new Error(result?.error || "Wake verification failed");
-    }
+    const result = await transcribeRecordedAudio({
+      audio: blob,
+      organizationId,
+      entityId,
+      locale: navigator.language || "en-US",
+      mode: "wake",
+      pollMs: 500,
+      timeoutMs: 30 * 60 * 1000,
+    });
     return {
       transcript: text(result?.transcript),
       wakeDetected: result?.wake_detected === true,

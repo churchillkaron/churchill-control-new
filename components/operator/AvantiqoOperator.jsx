@@ -15,6 +15,8 @@ import {
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AvantiqoVoiceLibraryPanel from "@/components/operator/AvantiqoVoiceLibraryPanel";
+import { transcribeRecordedAudio } from "@/lib/operator/voice/AsyncRecordedTranscriptionClient";
+import { requestAsyncSpeechBlob } from "@/lib/operator/voice/AsyncSpeechClient";
 
 const WAKE_STORAGE_KEY = "avantiqo.wake.enabled";
 const SPOKEN_REPLY_POLL_MS = 2000;
@@ -266,62 +268,14 @@ export default function AvantiqoOperator() {
 
     try {
       const locale = typeof navigator !== "undefined" ? navigator.language || null : null;
-      let response = await fetch("/api/operator/speak/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
+      const blob = await requestAsyncSpeechBlob({
+        organizationId,
+        entityId,
+        message: spokenText,
+        locale,
         signal: abortController.signal,
-        body: JSON.stringify({
-          organizationId,
-          entityId,
-          text: spokenText,
-          locale,
-        }),
       });
-
-      if ((response.headers.get("content-type") || "").includes("audio/wav")) {
-        await playSpokenBlob(await response.blob());
-        return;
-      }
-
-      let result = await response.json().catch(() => ({}));
-      if (!response.ok || result?.success === false || !result?.job_id) {
-        throw new Error(result?.error || "Voice reply could not start");
-      }
-
-      const deadline = Date.now() + SPOKEN_REPLY_TIMEOUT_MS;
-      const jobId = result.job_id;
-      while (Date.now() < deadline) {
-        await sleep(SPOKEN_REPLY_POLL_MS);
-        if (abortController.signal.aborted) throw new DOMException("Aborted", "AbortError");
-
-        const params = new URLSearchParams({
-          organizationId,
-          jobId,
-        });
-        response = await fetch(`/api/operator/speak/jobs?${params.toString()}`, {
-          method: "GET",
-          credentials: "same-origin",
-          cache: "no-store",
-          signal: abortController.signal,
-        });
-
-        if ((response.headers.get("content-type") || "").includes("audio/wav")) {
-          await playSpokenBlob(await response.blob());
-          return;
-        }
-
-        result = await response.json().catch(() => ({}));
-        if (response.status === 202 && result?.pending === true) continue;
-        if (!response.ok || result?.success === false) {
-          throw new Error(result?.error || "Voice reply failed");
-        }
-        if (result?.pending !== true) {
-          throw new Error("Voice reply completed without audio");
-        }
-      }
-      throw new Error("Voice reply timed out");
+      await playSpokenBlob(blob);
     } finally {
       if (spokenReplyAbortRef.current === abortController) {
         spokenReplyAbortRef.current = null;
@@ -554,26 +508,13 @@ export default function AvantiqoOperator() {
 
     try {
       const locale = navigator.language || "";
-      const form = new FormData();
-      form.append(
-        "audio",
-        blob,
-        blob.type.includes("mp4") ? "avantiqo-voice.m4a" : "avantiqo-voice.webm",
-      );
-      form.append("organizationId", organizationId);
-      if (entityId) form.append("entityId", entityId);
-      if (locale) form.append("locale", locale);
-
-      const response = await fetch("/api/operator/transcribe", {
-        method: "POST",
-        credentials: "same-origin",
-        body: form,
+      const result = await transcribeRecordedAudio({
+        audio: blob,
+        organizationId,
+        entityId,
+        locale,
+        mode: "command",
       });
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok || result?.success === false || !text(result?.transcript)) {
-        throw new Error(result?.error || "I couldn't understand the recording");
-      }
 
       await sendMessage(result.transcript, "voice");
     } catch (voiceError) {

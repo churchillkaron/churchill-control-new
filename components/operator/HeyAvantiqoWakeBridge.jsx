@@ -5,6 +5,8 @@ import { Loader2, Mic } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import { transcribeRecordedAudio } from "@/lib/operator/voice/AsyncRecordedTranscriptionClient";
+import { requestAsyncSpeechBlob } from "@/lib/operator/voice/AsyncSpeechClient";
 
 const LEGACY_WAKE_STORAGE_KEY = "avantiqo.wake.enabled";
 const WAKE_STORAGE_KEY = "avantiqo.wake.audio.enabled";
@@ -274,28 +276,13 @@ export default function HeyAvantiqoWakeBridge() {
       return { transcript: "", wakeDetected: false };
     }
 
-    const form = new FormData();
-    form.append("audio", blob, fileNameForMime(blob.type));
-    form.append("organizationId", organizationId);
-    if (entityId) form.append("entityId", entityId);
-    form.append("locale", navigator.language || "en-US");
-    form.append("mode", mode);
-
-    const response = await fetchWithTimeout(
-      "/api/operator/transcribe",
-      {
-        method: "POST",
-        credentials: "same-origin",
-        body: form,
-      },
-      TRANSCRIPTION_TIMEOUT_MS,
-    );
-
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok || result?.success === false) {
-      throw new Error(result?.error || "Voice transcription failed");
-    }
+    const result = await transcribeRecordedAudio({
+      audio: blob,
+      organizationId,
+      entityId,
+      locale: navigator.language || "en-US",
+      mode,
+    });
 
     return {
       transcript: text(result?.transcript),
@@ -308,57 +295,13 @@ export default function HeyAvantiqoWakeBridge() {
       throw new Error("Voice response context unavailable");
     }
 
-    const startedAt = Date.now();
-    let response = await fetchWithTimeout(
-      "/api/operator/speak/jobs",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-        body: JSON.stringify({
-          organizationId,
-          entityId,
-          text: text(message),
-          locale: navigator.language || "en-US",
-        }),
-      },
-      60000,
-    );
-
-    if ((response.headers.get("content-type") || "").includes("audio/wav")) {
-      return response.arrayBuffer();
-    }
-
-    let result = await response.json().catch(() => ({}));
-    if (!response.ok || result?.success === false || !result?.job_id) {
-      throw new Error(result?.error || "Voice response failed");
-    }
-
-    const jobId = result.job_id;
-    while (Date.now() - startedAt < SPEECH_TIMEOUT_MS) {
-      await sleep(SPEECH_POLL_MS);
-      const params = new URLSearchParams({ organizationId, jobId });
-      response = await fetchWithTimeout(
-        `/api/operator/speak/jobs?${params.toString()}`,
-        {
-          method: "GET",
-          credentials: "same-origin",
-          cache: "no-store",
-        },
-        60000,
-      );
-
-      if ((response.headers.get("content-type") || "").includes("audio/wav")) {
-        return response.arrayBuffer();
-      }
-
-      result = await response.json().catch(() => ({}));
-      if (response.status === 202 && result?.pending === true) continue;
-      throw new Error(result?.error || "Voice response completed without audio");
-    }
-
-    throw new Error("Voice response timed out");
+    const blob = await requestAsyncSpeechBlob({
+      organizationId,
+      entityId,
+      message: text(message),
+      locale: navigator.language || "en-US",
+    });
+    return blob.arrayBuffer();
   }
 
   async function playSpeech(message, nextStatus = "listening") {

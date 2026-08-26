@@ -1,6 +1,6 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 const CONTRACT = "AVANTIQO_VIDEO_WAN22_I2V_A14B_S3_DIRECT_CACHE_V18";
@@ -46,18 +46,62 @@ function finite(value, fallback = null) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-const apply = process.argv.includes("--apply");
-if (apply && !approved(process.env[APPROVAL_ENV])) {
-  throw new Error(`${APPROVAL_ENV}=YES_REQUIRED`);
+function parseAwsCredentials(raw) {
+  const profiles = new Map();
+  let current = null;
+  for (const sourceLine of String(raw || "").split(/\r?\n/)) {
+    const line = sourceLine.trim();
+    if (!line || line.startsWith("#") || line.startsWith(";")) continue;
+    const section = line.match(/^\[([^\]]+)\]$/);
+    if (section) {
+      current = section[1].trim();
+      if (!profiles.has(current)) profiles.set(current, {});
+      continue;
+    }
+    if (!current) continue;
+    const equals = line.indexOf("=");
+    if (equals < 1) continue;
+    profiles.get(current)[line.slice(0, equals).trim().toLowerCase()] = line.slice(equals + 1).trim();
+  }
+  return profiles;
 }
 
-const accessKey = text(process.env.RUNPOD_S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID);
-const secretKey = text(process.env.RUNPOD_S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY);
-const credentialSource = process.env.RUNPOD_S3_ACCESS_KEY_ID && process.env.RUNPOD_S3_SECRET_ACCESS_KEY
-  ? "RUNPOD_S3_*"
-  : process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
-    ? "AWS_*"
-    : null;
+async function resolveS3Credential() {
+  const runpodEnvAccess = text(process.env.RUNPOD_S3_ACCESS_KEY_ID);
+  const runpodEnvSecret = text(process.env.RUNPOD_S3_SECRET_ACCESS_KEY);
+  if (runpodEnvAccess && runpodEnvSecret) return { accessKey: runpodEnvAccess, secretKey: runpodEnvSecret, source: "RUNPOD_S3_*" };
+
+  const awsEnvAccess = text(process.env.AWS_ACCESS_KEY_ID);
+  const awsEnvSecret = text(process.env.AWS_SECRET_ACCESS_KEY);
+  if (awsEnvAccess && awsEnvSecret) return { accessKey: awsEnvAccess, secretKey: awsEnvSecret, source: "AWS_*" };
+
+  const raw = await readFile(join(homedir(), ".aws", "credentials"), "utf8").catch(() => "");
+  const profiles = parseAwsCredentials(raw);
+  const candidates = [];
+  for (const [name, profile] of profiles.entries()) {
+    const accessKey = text(profile.aws_access_key_id);
+    const secretKey = text(profile.aws_secret_access_key);
+    if (accessKey && secretKey) candidates.push({ name, accessKey, secretKey });
+  }
+  const requestedProfile = text(process.env.AWS_PROFILE || process.env.AWS_DEFAULT_PROFILE);
+  const selected = requestedProfile
+    ? candidates.find((entry) => entry.name === requestedProfile)
+    : candidates.find((entry) => entry.name === "default");
+  if (selected) return { accessKey: selected.accessKey, secretKey: selected.secretKey, source: `AWS_CREDENTIALS_FILE:${selected.name}` };
+
+  const runpodShaped = candidates.filter((entry) => entry.accessKey.startsWith("user_") && entry.secretKey.startsWith("rps_"));
+  if (runpodShaped.length === 1) return { accessKey: runpodShaped[0].accessKey, secretKey: runpodShaped[0].secretKey, source: `AWS_CREDENTIALS_FILE:${runpodShaped[0].name}` };
+  if (runpodShaped.length > 1) throw new Error("AVANTIQO_VIDEO_I2V_V18_MULTIPLE_RUNPOD_S3_PROFILES_SET_AWS_PROFILE");
+  return { accessKey: "", secretKey: "", source: null };
+}
+
+const apply = process.argv.includes("--apply");
+if (apply && !approved(process.env[APPROVAL_ENV])) throw new Error(`${APPROVAL_ENV}=YES_REQUIRED`);
+
+const s3Credential = await resolveS3Credential();
+const accessKey = s3Credential.accessKey;
+const secretKey = s3Credential.secretKey;
+const credentialSource = s3Credential.source;
 
 console.log(JSON.stringify({
   success: true,
@@ -87,7 +131,7 @@ if (!apply) {
 }
 
 if (!accessKey || !secretKey) {
-  throw new Error("AVANTIQO_VIDEO_I2V_V18_RUNPOD_S3_CREDENTIAL_REQUIRED:expected RUNPOD_S3_ACCESS_KEY_ID/RUNPOD_S3_SECRET_ACCESS_KEY or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY");
+  throw new Error("AVANTIQO_VIDEO_I2V_V18_RUNPOD_S3_CREDENTIAL_REQUIRED:create one in RunPod Console S3 API Keys, then set RUNPOD_S3_ACCESS_KEY_ID/RUNPOD_S3_SECRET_ACCESS_KEY or configure an AWS profile");
 }
 
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
@@ -101,8 +145,7 @@ const jobs = health.jobs || {};
 const workers = health.workers || {};
 const queue = finite(jobs.inQueue ?? jobs.in_queue, 0);
 const progress = finite(jobs.inProgress ?? jobs.in_progress, 0);
-const workerTotal = ["idle", "initializing", "ready", "running", "throttled", "unhealthy"]
-  .reduce((sum, key) => sum + finite(workers[key], 0), 0);
+const workerTotal = ["idle", "initializing", "ready", "running", "throttled", "unhealthy"].reduce((sum, key) => sum + finite(workers[key], 0), 0);
 if (queue !== 0 || progress !== 0 || workerTotal !== 0) {
   throw new Error(`AVANTIQO_VIDEO_I2V_V18_CINEMA_NOT_QUIESCENT:queue=${queue}:progress=${progress}:workers=${workerTotal}`);
 }
@@ -114,9 +157,7 @@ try {
   let result = spawnSync("python3", ["-m", "venv", venv], { cwd: process.cwd(), env: process.env, stdio: "inherit" });
   if (result.status !== 0) throw new Error(`AVANTIQO_VIDEO_I2V_V18_VENV_FAILED:exit=${result.status}`);
   const python = join(venv, "bin", "python");
-  result = spawnSync(python, ["-m", "pip", "install", "--quiet", "boto3>=1.34,<2", "huggingface_hub>=0.34,<1", "requests>=2.31,<3"], {
-    cwd: process.cwd(), env: process.env, stdio: "inherit",
-  });
+  result = spawnSync(python, ["-m", "pip", "install", "--quiet", "boto3>=1.34,<2", "huggingface_hub>=0.34,<1", "requests>=2.31,<3"], { cwd: process.cwd(), env: process.env, stdio: "inherit" });
   if (result.status !== 0) throw new Error(`AVANTIQO_VIDEO_I2V_V18_DEPENDENCY_INSTALL_FAILED:exit=${result.status}`);
 
   const env = {

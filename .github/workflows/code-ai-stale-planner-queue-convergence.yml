@@ -39,7 +39,15 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Apply stale planner queue convergence
-        run: node scripts/patch-code-ai-stale-planner-queue-once.mjs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/patch-code-ai-stale-planner-queue-once.mjs")
+          source = path.read_text()
+          source = source.replace("${RUNPOD_QUEUE_BASE}", "\\${RUNPOD_QUEUE_BASE}")
+          path.write_text(source)
+          PY
+          node scripts/patch-code-ai-stale-planner-queue-once.mjs
 
       - name: Verify zero-GPU Code gates
         run: |

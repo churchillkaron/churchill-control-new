@@ -26,6 +26,7 @@ const workspace = read("components/creative/ProductionStudio/workspaces/MusicWor
 const engine = read("lib/creative/runtime/engines/MusicEngine.js");
 const finishing = read("lib/creative/music/runtime/CreativeMusicFinishingRuntime.js");
 const worker = read("services/avantiqo-audio-engine/handler.py");
+const workerV2 = read("services/avantiqo-audio-engine/handler_v2.py");
 const audioDockerfile = read("services/avantiqo-audio-engine/Dockerfile");
 const registration = read("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration.js");
 const router = read("components/creative/ProductionStudio/layout/WorkspaceCanvasRouter.jsx");
@@ -74,9 +75,13 @@ requirePattern(finishing, /musicStorageReference/, "music-persistence-must-resol
 requirePattern(engine, /ai\.music\.generate/, "music-engine-must-own-generation-contract");
 requirePattern(engine, /ai\.audio\.remix/, "music-engine-must-model-remix-contract");
 requirePattern(engine, /ai\.audio\.edit/, "music-engine-must-model-edit-contract");
+requirePattern(engine, /ai\.audio\.extend/, "music-engine-must-model-extend-contract");
 requirePattern(engine, /acestep-v15-xl-turbo/, "music-engine-must-use-xl-transform-lane");
-requirePattern(engine, /acestep-v15-base/, "music-engine-must-declare-base-model-lane");
-requirePattern(engine, /BASE_MODEL_AND_BENCHMARK_REQUIRED/, "base-model-features-must-stay-gated");
+requirePattern(engine, /XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1/, "music-engine-must-use-temporal-right-outpaint-strategy");
+requirePattern(engine, /extension_seconds/, "music-engine-extend-must-carry-extension-seconds");
+requirePattern(engine, /continuity_overlap_seconds/, "music-engine-extend-must-carry-continuity-overlap");
+forbidPattern(engine, /acestep-v15-base/, "music-engine-must-not-route-temporal-extend-to-base-model");
+forbidPattern(engine, /BASE_MODEL_AND_BENCHMARK_REQUIRED/, "music-engine-must-not-retain-base-model-extend-gate");
 
 requirePattern(worker, /"ai\.audio\.remix":\s*"cover"/, "owned-audio-worker-must-map-remix-to-cover");
 requirePattern(worker, /"ai\.audio\.edit":\s*"repaint"/, "owned-audio-worker-must-map-edit-to-repaint");
@@ -87,6 +92,15 @@ requirePattern(worker, /thinking=use_lm/, "owned-audio-worker-must-enable-lm-thi
 requirePattern(worker, /AVANTIQO_AUDIO_CAPABILITY_NOT_CERTIFIED/, "owned-audio-worker-must-fail-closed-on-uncertified-capability");
 requirePattern(worker, /MAX_SOURCE_BYTES/, "owned-audio-worker-must-bound-source-downloads");
 requirePattern(worker, /allow_redirects=False/, "owned-audio-worker-source-download-must-not-follow-redirects");
+
+requirePattern(workerV2, /TEMPORAL_EXTEND_CAPABILITY = "ai\.audio\.extend"/, "owned-audio-worker-v2-must-own-temporal-extend");
+requirePattern(workerV2, /TEMPORAL_EXTEND_STRATEGY = "XL_TURBO_REPAINT_RIGHT_OUTPAINT"/, "owned-audio-worker-v2-must-use-right-outpaint");
+requirePattern(workerV2, /CAPABILITY_TASK_TYPES\[TEMPORAL_EXTEND_CAPABILITY\] = "repaint"/, "owned-audio-worker-v2-must-map-extend-to-repaint");
+requirePattern(workerV2, /source_duration \+ controls\["extension_seconds"\]/, "owned-audio-worker-v2-must-extend-beyond-source-duration");
+requirePattern(workerV2, /repainting_start = max\(0\.0, source_duration - overlap\)/, "owned-audio-worker-v2-must-use-tail-overlap");
+requirePattern(workerV2, /repaint_end = target_duration/, "owned-audio-worker-v2-must-outpaint-to-target-duration");
+requirePattern(workerV2, /actual_duration > float\(source_duration\) \+ 0\.5/, "owned-audio-worker-v2-must-observe-longer-output");
+requirePattern(workerV2, /"temporal_extension_proven": False/, "owned-audio-worker-v2-must-not-self-certify-extend");
 
 requirePattern(audioDockerfile, /ARG CUDA_VERSION=12\.8\.1/, "music-worker-image-must-pin-cuda-12-8-runtime");
 requirePattern(audioDockerfile, /FROM nvidia\/cuda:\$\{CUDA_VERSION\}-runtime-ubuntu22\.04/, "music-worker-image-must-use-nvidia-cuda-runtime");
@@ -101,6 +115,7 @@ requirePattern(audioDockerfile, /AVANTIQO_AUDIO_CUDA_12_8_TORCH_REQUIRED/, "musi
 requirePattern(audioDockerfile, /AVANTIQO_AUDIO_XL_MODEL_REQUIRED/, "music-worker-image-must-fail-build-without-xl-model-contract");
 requirePattern(audioDockerfile, /AVANTIQO_AUDIO_1_7B_LM_REQUIRED/, "music-worker-image-must-fail-build-without-lm-contract");
 requirePattern(audioDockerfile, /AVANTIQO_AUDIO_NATIVE_AUDIO_IMPORTS=PASS/, "music-worker-image-must-prove-native-audio-imports");
+requirePattern(audioDockerfile, /handler_v2/, "music-worker-image-must-package-v2-temporal-extend-worker");
 
 requirePattern(registration, /DEFAULT_CERTIFIED_CAPABILITIES = Object\.freeze\(\["ai\.music\.generate"\]\)/, "audio-provider-default-certification-must-remain-generation-only");
 requirePattern(registration, /modelVariant === "acestep-v15-xl-turbo"/, "audio-provider-must-require-xl-runtime");
@@ -109,7 +124,12 @@ requirePattern(registration, /lmBackend === "vllm"/, "audio-provider-must-requir
 requirePattern(registration, /ace_step_lm_enabled:\s*true/, "audio-provider-must-advertise-lm-enabled");
 requirePattern(registration, /"ai\.audio\.remix"/, "audio-provider-must-register-implemented-remix-contract");
 requirePattern(registration, /"ai\.audio\.edit"/, "audio-provider-must-register-implemented-edit-contract");
-requirePattern(registration, /base_model_required_capabilities/, "audio-provider-must-declare-base-model-required-capabilities");
+requirePattern(registration, /"ai\.audio\.extend"/, "audio-provider-must-register-implemented-extend-contract");
+requirePattern(registration, /base_model_required_capabilities:\s*\[\]/, "audio-provider-must-declare-no-base-model-required-capabilities");
+requirePattern(registration, /temporal_extend_runtime/, "audio-provider-must-describe-temporal-extend-runtime");
+requirePattern(registration, /task_type:\s*"repaint"/, "audio-provider-temporal-extend-must-use-repaint");
+requirePattern(registration, /strategy:\s*"XL_TURBO_REPAINT_RIGHT_OUTPAINT"/, "audio-provider-temporal-extend-must-use-right-outpaint");
+requirePattern(registration, /runtime_status:\s*"IMPLEMENTED_BENCHMARK_REQUIRED"/, "audio-provider-temporal-extend-must-remain-benchmark-gated");
 
 requirePattern(preflight, /assertSharedVolumeGroupCompatible\(volumes, AUDIO_VOICE_GROUP\)/, "music-preflight-must-validate-audio-voice-shared-group");
 requirePattern(preflight, /resolveReusableGroupVolume\(volumes, AUDIO_VOICE_GROUP\)/, "music-preflight-must-resolve-reusable-audio-voice-cache");
@@ -344,5 +364,6 @@ console.log("MUSIC_CERTIFICATION_WORKFLOW=DEDICATED_MEASURE_ONLY");
 console.log("MUSIC_ECONOMICS=MEASUREMENT_REQUIRED_BEFORE_PRICING_PROMOTION");
 console.log("MUSIC_HUMAN_QUALITY=EXPLICIT_LISTENING_REVIEW_REQUIRED");
 console.log("MUSIC_PROMOTION=PLAN_ONLY_EXPLICIT_ACTIVATION_REQUIRED");
-console.log("MUSIC_REMIX_EDIT=IMPLEMENTED_BENCHMARK_GATED");
-console.log("MUSIC_EXTEND_STEMS=BASE_MODEL_GATED");
+console.log("MUSIC_REMIX_EDIT_EXTEND=IMPLEMENTED_BENCHMARK_GATED");
+console.log("MUSIC_EXTEND=XL_TURBO_TEMPORAL_OUTPAINT_BENCHMARK_GATED");
+console.log("MUSIC_STEMS=DEMUCS_BENCHMARK_HUMAN_REVIEW_GATED");

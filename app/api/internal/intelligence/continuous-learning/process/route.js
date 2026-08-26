@@ -60,6 +60,9 @@ import {
 import {
   reconcileAvantiqoLearningTransferRevisions,
 } from "@/lib/intelligence/runtime/AvantiqoLearningTransferRevisionRuntime";
+import {
+  reconcileAvantiqoActiveExperimentSelection,
+} from "@/lib/intelligence/runtime/AvantiqoActiveExperimentSelectionRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -84,59 +87,29 @@ export async function GET(request) {
 
     // Closed-loop Learning order:
     // 1. Synchronize Avantiqo's canonical product truth.
-    // 2. Classify learned external knowledge as fresh, aging, due or expired;
-    //    retire expired/exact-duplicate rows and regenerate relearning curriculum.
+    // 2. Classify learned external knowledge as fresh, aging, due or expired.
     // 3. Discover product/evidence coverage gaps after lifecycle cleanup.
     // 4. Evaluate whether prior research is productive and adapt priority/cadence.
     // 5. Apply only anti-overfit eligible observational knowledge-utility feedback.
-    // 6. Bridge previously staged public-evidence candidates into adversarial
-    //    mechanism review. Evidence candidates never become facts here.
-    // 7. Escalate weak/unsolved topics into provider-free mechanism, constraint,
-    //    adjacent-domain and experiment-evidence discovery tracks.
-    // 8. Reconcile governed syntheses into hypotheses, experiment proposals,
-    //    replication status and experimental knowledge candidates.
-    // 9. Adversarially reconcile mature experimental candidates against the
-    //    durable Evidence Graph and create shadow-only provisional knowledge.
-    // 10. Evaluate non-influencing provisional shadow observations. Context
-    //     success is not treated as incremental utility.
-    // 11. Create immutable counterfactual A/B benchmark plans for mature shadow
-    //     candidates and reconcile only separately-recorded passing evaluations
-    //     into final knowledge release review candidates. This stage performs no
-    //     benchmark execution and never writes platform_knowledge.
-    // 12. Revalidate only knowledge previously released through the explicit
-    //     final-release runtime. Conflict, stale evidence or missing provenance
-    //     quarantines it immediately. Successful same-cycle revalidation renews
-    //     its bounded validity window; this cron cannot release or restore it.
-    // 13. Propagate quarantine/expiry only through explicitly verified hard
-    //     knowledge dependencies, place affected dependents on fail-closed hold,
-    //     and regenerate bounded hierarchical curriculum. Semantic similarity
-    //     never creates a dependency and soft relationships never disable reuse.
-    // 14. Reconcile evidence-backed competency mastery and a bounded learning
-    //     frontier. Mastery is never permanent, self-confidence is not evidence,
-    //     held knowledge cannot be mastered, and frontier priority is not truth confidence.
-    // 15. Generate bounded cross-domain transfer-discovery work from stable
-    //     mastered sources toward active frontier targets. Analogy remains a
-    //     hypothesis only; verified transfer hypotheses require explicit mechanisms,
-    //     boundary conditions, falsifiers and discriminating experiments.
-    // 16. Reconcile separately recorded governed transfer experiment results into
-    //     replication-aware SUPPORTED, BOUNDARY_LIMITED or REFUTED evidence.
-    //     Mature refutation creates exact-mechanism negative-transfer memory, then
-    //     its review and expiry clocks are anchored to the latest refutation evidence.
-    //     Reconciliation time itself can never extend a negative-transfer exclusion.
-    // 17. Reconcile independently attributed contradictions from mature failed or
-    //     boundary-limited transfers into at most one single-component mechanism
-    //     revision request per parent transfer. Equal-strength multi-assumption
-    //     contradictions remain blocked as ambiguous. This stage never fabricates
-    //     revised hypotheses or mutates the parent mechanism.
-    // 18. Spend the existing bounded public-evidence research budget on the
-    //     resulting agenda, including adversarial/dependency/frontier/transfer/revision work.
-    //     Newly supported claims are staged as evidence candidates for the next cycle.
-    // Any hypothesis/invention synthesis, transfer experiment execution, or
-    // counterfactual benchmark execution that could wake owned RunPod Intelligence
-    // is deliberately outside this cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
-    // Stages 1-17 never mutate model weights, authorize product actions, execute
-    // experiments, submit RunPod jobs, automatically release knowledge, fabricate
-    // revised transfer hypotheses, or automatically restore quarantined/retired knowledge.
+    // 6. Bridge staged public-evidence candidates into adversarial mechanism review.
+    // 7. Escalate weak/unsolved topics into mechanism and experiment discovery tracks.
+    // 8. Reconcile governed syntheses into hypotheses and experiment proposals.
+    // 9. Reconcile mature experimental candidates against the Evidence Graph.
+    // 10. Evaluate non-influencing provisional shadow observations.
+    // 11. Create counterfactual benchmark plans and final release review candidates.
+    // 12. Revalidate explicitly released knowledge; cron cannot release or restore it.
+    // 13. Propagate quarantine only through explicitly verified hard dependencies.
+    // 14. Reconcile evidence-backed mastery and a bounded learning frontier.
+    // 15. Generate bounded cross-domain transfer-discovery work.
+    // 16. Reconcile governed transfer experiment results and negative-transfer memory.
+    // 17. Reconcile replicated contradiction attribution into single-component revision requests.
+    // 18. Select unresolved experiments by conservative information gain per cost.
+    //     Exact experiment versions require >=2 independent, method-diverse estimates.
+    //     Lowest information-gain, highest-cost and highest-risk estimates are used.
+    //     Selection is short-lived review evidence only, never execution authorization.
+    // 19. Spend the existing bounded public-evidence research budget on the resulting agenda.
+    // Stages 1-18 never authorize spend/provider execution, execute experiments,
+    // submit RunPod jobs, mutate model weights, release knowledge, or fabricate results.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
@@ -165,6 +138,8 @@ export async function GET(request) {
       await reconcileAvantiqoNegativeTransferEvidenceClock();
     const learningTransferRevision =
       await reconcileAvantiqoLearningTransferRevisions();
+    const activeExperimentSelection =
+      await reconcileAvantiqoActiveExperimentSelection();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -190,6 +165,7 @@ export async function GET(request) {
         learning_transfer_validation: learningTransferValidation,
         negative_transfer_evidence_clock: negativeTransferEvidenceClock,
         learning_transfer_revision: learningTransferRevision,
+        active_experiment_selection: activeExperimentSelection,
       },
       {
         status: result.success === false ? 207 : 200,

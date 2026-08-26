@@ -5,6 +5,7 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
+const PREFLIGHT_SCRIPT = resolve("scripts/preflight-avantiqo-music-transform-candidate-local.mjs");
 const SAFE_LEASE_SCRIPT = resolve("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs");
 const BENCHMARK_SCRIPT = resolve("scripts/benchmark-avantiqo-music-transform.mjs");
 const SAFE_LEASE_LANE = "music-transform-candidate";
@@ -22,9 +23,13 @@ const selectedCapability = capability();
 approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
 approved("AVANTIQO_MUSIC_TRANSFORM_SOURCE_RIGHTS_APPROVED");
 required("RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID");
+required("RUNPOD_MANAGEMENT_API_KEY");
 
 console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_CONTRACT=AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_JOB_V1");
 console.log(`AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_CAPABILITY=${selectedCapability}`);
+console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_PREFLIGHT=AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_V1");
+console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_PREFLIGHT_PROVIDER_JOB_SUBMITTED=false");
+console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_PREFLIGHT_WORKERS_OPENED=false");
 console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_SAFE_LEASE=AVANTIQO_RUNPOD_SAFE_LEASE_V2");
 console.log(`AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_SAFE_LEASE_LANE=${SAFE_LEASE_LANE}`);
 console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_ENDPOINT_SCOPE=MUSIC_TRANSFORM_CANDIDATE_ONLY");
@@ -41,6 +46,16 @@ if (selectedCapability === "ai.audio.extend") {
   console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_TEMPORAL_EXTEND_STRATEGY=XL_TURBO_REPAINT_RIGHT_OUTPAINT");
   console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_LONGER_OUTPUT_REQUIRED=true");
   console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_TEMPORAL_EXTENSION_PROVEN_BEFORE_RUN=false");
+}
+
+const preflight = spawnSync(process.execPath, [PREFLIGHT_SCRIPT], {
+  cwd: process.cwd(),
+  env: process.env,
+  stdio: "inherit",
+});
+if (preflight.error) throw preflight.error;
+if (preflight.status !== 0) {
+  throw new Error(`AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_FAILED:exit=${preflight.status ?? "UNKNOWN"}`);
 }
 
 const child = spawnSync(

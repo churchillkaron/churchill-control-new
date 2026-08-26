@@ -12,16 +12,29 @@ fail() {
   exit 1
 }
 
-[ -f scripts/recover-avantiqo-runpod-env-from-local-sources.sh ] || fail "RUNPOD_RECOVERY_SCRIPT_REQUIRED"
+[ -f scripts/import-avantiqo-media-certification-vercel-env.sh ] || fail "VERCEL_ENV_IMPORT_SCRIPT_REQUIRED"
+[ -f scripts/repair-avantiqo-runpod-env-local.sh ] || fail "RUNPOD_ENV_REPAIR_SCRIPT_REQUIRED"
 [ -f scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs ] || fail "MUSIC_PROVISIONER_REQUIRED"
 [ -f audits/results/avantiqo-music-vocal-correction-worker-image.json ] || fail "HARDENED_IMAGE_EVIDENCE_REQUIRED"
 
-bash scripts/recover-avantiqo-runpod-env-from-local-sources.sh >/tmp/avantiqo-music-runpod-recovery.log || {
-  grep '^AVANTIQO_' /tmp/avantiqo-music-runpod-recovery.log || true
-  fail "RUNPOD_CREDENTIAL_RECOVERY_FAILED"
-}
+VERCEL_IMPORT_LOG="/tmp/avantiqo-music-vocal-correction-vercel-import.log"
+if bash scripts/import-avantiqo-media-certification-vercel-env.sh >"$VERCEL_IMPORT_LOG" 2>&1; then
+  grep '^AVANTIQO_' "$VERCEL_IMPORT_LOG" || true
+  echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_VERCEL_CREDENTIAL_IMPORT=PASS"
+else
+  grep '^AVANTIQO_' "$VERCEL_IMPORT_LOG" || true
+  echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_VERCEL_CREDENTIAL_IMPORT=FALLBACK_TO_LOCAL_REPAIR"
+fi
 
-grep '^AVANTIQO_' /tmp/avantiqo-music-runpod-recovery.log || true
+RUNPOD_REPAIR_LOG="/tmp/avantiqo-music-vocal-correction-runpod-repair.log"
+AVANTIQO_PROJECT_ROOT="$ROOT" bash scripts/repair-avantiqo-runpod-env-local.sh >"$RUNPOD_REPAIR_LOG" 2>&1 || {
+  grep '^AVANTIQO_' "$RUNPOD_REPAIR_LOG" || true
+  fail "RUNPOD_CREDENTIAL_REPAIR_FAILED"
+}
+grep '^AVANTIQO_' "$RUNPOD_REPAIR_LOG" || true
+
+echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_CREDENTIAL_PATH=VERCEL_THEN_CANONICAL_LOCAL_REPAIR"
+echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_CREDENTIAL_SECRET_VALUES_PRINTED=false"
 
 mkdir -p local-audit-output
 PLAN="local-audit-output/avantiqo-music-vocal-correction-provision-plan.json"

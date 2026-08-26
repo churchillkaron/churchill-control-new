@@ -10,6 +10,10 @@ const patcher = await readFile(
   new URL("../scripts/patch-avantiqo-voice-async-speech-clients-local.mjs", import.meta.url),
   "utf8",
 );
+const wakeBridge = await readFile(
+  new URL("../components/operator/HeyAvantiqoWakeBridge.jsx", import.meta.url),
+  "utf8",
+);
 
 test("Voice speech client polls async TTS and cancels exact abandoned job", () => {
   assert.match(client, /\/api\/operator\/speak\/jobs/);
@@ -35,4 +39,17 @@ test("Voice speech patcher requires verified STT patch and only targets TTS call
   assert.match(patcher, /requestAsyncSpeechBlob/);
   assert.match(patcher, /production_deploy_performed: false/);
   assert.match(patcher, /generation_submitted: false/);
+});
+
+test("Hey Avantiqo shutdown aborts active STT and TTS work", () => {
+  assert.match(wakeBridge, /const transcriptionAbortRef = useRef\(null\)/);
+  assert.match(wakeBridge, /const speechAbortRef = useRef\(null\)/);
+  assert.match(wakeBridge, /function cancelAsyncVoiceWork\(\)/);
+  assert.match(wakeBridge, /transcriptionAbortRef\.current\?\.abort\(\)/);
+  assert.match(wakeBridge, /speechAbortRef\.current\?\.abort\(\)/);
+  assert.match(wakeBridge, /cancelAsyncVoiceWork\(\)/);
+  assert.match(wakeBridge, /signal: abortController\.signal/);
+  assert.match(wakeBridge, /fetchSpeechAudio\(message, abortController\.signal\)/);
+  assert.match(wakeBridge, /stopActiveSpeechPlayback\(\)/);
+  assert.doesNotMatch(wakeBridge, /https:\/\/api\.runpod\.ai/);
 });

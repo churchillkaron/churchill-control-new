@@ -44,7 +44,8 @@ jobs:
           from pathlib import Path
           path = Path("scripts/patch-code-ai-stale-planner-queue-once.mjs")
           source = path.read_text()
-          source = source.replace("${RUNPOD_QUEUE_BASE}", "\\${RUNPOD_QUEUE_BASE}")
+          for name in ("RUNPOD_QUEUE_BASE", "RUNPOD_SERVERLESS"):
+              source = source.replace("${" + name + "}", "\\${" + name + "}")
           path.write_text(source)
           PY
           node scripts/patch-code-ai-stale-planner-queue-once.mjs
@@ -68,4 +69,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add lib/code/runtime/CodeAICertificationResiliencePolicy.js lib/code/runtime/CodeAIPlannerExecutionRuntime.js lib/code/runtime/CodeAIAutonomousRuntime.js scripts/settle-code-ai-planner-certification-pending-local.mjs scripts/code-ai-certification-resilience-selftest.mjs
           git commit -m "Recover stale Code planner queue jobs"
+          git pull --rebase origin main
           git push origin HEAD:main

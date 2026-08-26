@@ -10,6 +10,7 @@ import {
   listOperatorNavigationTargets,
 } from "@/lib/operator/runtime/OperatorNavigationCatalog";
 import {
+  cancelOperatorAsyncTranscription,
   pollOperatorAsyncTranscription,
   startOperatorAsyncTranscription,
 } from "@/lib/operator/runtime/OperatorVoiceAsyncTranscriptionRuntime";
@@ -35,25 +36,12 @@ function normalized(value) {
 function wakeDetected(value) {
   const candidate = normalized(value);
   if (!candidate) return false;
-
   const compact = candidate.replace(/\s+/g, "");
-  const hasName = [
-    "avantiqo",
-    "avantiq",
-    "avantico",
-    "avantigo",
-    "avantiko",
-    "avantiquo",
-    "avanti",
-  ].some((name) => compact.includes(name));
-
+  const hasName = ["avantiqo", "avantiq", "avantico", "avantigo", "avantiko", "avantiquo", "avanti"]
+    .some((name) => compact.includes(name));
   if (!hasName) return false;
-
   const words = candidate.split(" ").filter(Boolean);
-  const hasGreeting = words.some((word) =>
-    ["hey", "hay", "hei", "hi", "hello"].includes(word),
-  );
-
+  const hasGreeting = words.some((word) => ["hey", "hay", "hei", "hi", "hello"].includes(word));
   return hasGreeting || words.length <= 4;
 }
 
@@ -61,13 +49,8 @@ function commandVocabulary(organizationId) {
   const targets = listOperatorNavigationTargets({ organizationId });
   const labels = [];
   const seen = new Set();
-
   for (const target of targets) {
-    for (const candidate of [
-      target?.name,
-      target?.domain_id,
-      target?.group_name,
-    ]) {
+    for (const candidate of [target?.name, target?.domain_id, target?.group_name]) {
       const clean = text(candidate);
       const key = clean.toLowerCase();
       if (!clean || seen.has(key)) continue;
@@ -77,14 +60,12 @@ function commandVocabulary(organizationId) {
     }
     if (labels.length >= 120) break;
   }
-
   return labels.join(", ").slice(0, 2800);
 }
 
 function commandPrompt(organizationId) {
   const vocabulary = commandVocabulary(organizationId);
   if (!vocabulary) return undefined;
-
   return [
     "This is a spoken command to the Avantiqo business operating system.",
     "Preserve navigation phrases such as open, go to, take me to, show me, and navigate to.",
@@ -104,13 +85,7 @@ function wakePrompt() {
 }
 
 function errorResponse(error, status = 500) {
-  return Response.json(
-    {
-      success: false,
-      error,
-    },
-    { status },
-  );
+  return Response.json({ success: false, error }, { status });
 }
 
 function voiceLanguageCookie(language) {
@@ -128,14 +103,10 @@ function voiceLanguageCookie(language) {
 function completedResponse(result, { mode, locale, speechLanguage = null }) {
   const transcript = text(result?.transcript);
   if (!transcript) return errorResponse("Voice transcription returned no text", 502);
-
   const detectedLanguage = text(result?.detected_language) || null;
   const language = text(result?.language) || detectedLanguage;
-  const languageSource =
-    text(result?.language_source) ||
-    (speechLanguage ? "requested" : detectedLanguage ? "detected" : null);
+  const languageSource = text(result?.language_source) || (speechLanguage ? "requested" : detectedLanguage ? "detected" : null);
   const detected = mode === "wake" ? wakeDetected(transcript) : false;
-
   const response = Response.json({
     success: true,
     pending: false,
@@ -147,9 +118,7 @@ function completedResponse(result, { mode, locale, speechLanguage = null }) {
     detected_language: detectedLanguage,
     language_source: languageSource,
     ui_locale: locale,
-    voice_language_continuity_seconds: language
-      ? VOICE_LANGUAGE_COOKIE_MAX_AGE_SECONDS
-      : 0,
+    voice_language_continuity_seconds: language ? VOICE_LANGUAGE_COOKIE_MAX_AGE_SECONDS : 0,
   });
   const cookie = voiceLanguageCookie(language);
   if (cookie) {
@@ -160,89 +129,37 @@ function completedResponse(result, { mode, locale, speechLanguage = null }) {
 }
 
 async function authorizedContext({ request, organizationId, requestedEntityId = null }) {
-  if (!organizationId) {
-    return { error: errorResponse("Organization required", 400) };
-  }
-
-  const access = await requireOrganizationAccess({
-    organizationId,
-    request,
-  });
-  if (!access.success) {
-    return { error: errorResponse(access.error, access.status || 403) };
-  }
-
+  if (!organizationId) return { error: errorResponse("Organization required", 400) };
+  const access = await requireOrganizationAccess({ organizationId, request });
+  if (!access.success) return { error: errorResponse(access.error, access.status || 403) };
   const partyId = access.staff?.party_id || access.staff?.partyId || null;
-  if (!partyId) {
-    return {
-      error: errorResponse(
-        "Authenticated staff account is not linked to a party",
-        409,
-      ),
-    };
-  }
-
+  if (!partyId) return { error: errorResponse("Authenticated staff account is not linked to a party", 409) };
   const businessContext = await resolveBusinessContext({
     organizationId: access.organizationId,
     entityId: requestedEntityId,
     request,
     access,
   });
-  if (!businessContext.success) {
-    return {
-      error: errorResponse(
-        businessContext.error,
-        businessContext.status || 400,
-      ),
-    };
-  }
-
+  if (!businessContext.success) return { error: errorResponse(businessContext.error, businessContext.status || 400) };
   return { access, partyId, businessContext };
 }
 
 export async function POST(request) {
   const startedAt = Date.now();
-
   try {
     const form = await request.formData();
     const audio = form.get("audio");
-    const organizationId = text(
-      form.get("organizationId") || form.get("organization_id"),
-    );
-    const requestedEntityId = text(
-      form.get("entityId") || form.get("entity_id"),
-    ) || null;
+    const organizationId = text(form.get("organizationId") || form.get("organization_id"));
+    const requestedEntityId = text(form.get("entityId") || form.get("entity_id")) || null;
     const locale = text(form.get("locale")) || null;
-    const speechLanguage = text(
-      form.get("speechLanguage") ||
-      form.get("speech_language") ||
-      form.get("language"),
-    ) || null;
-    const mode = text(form.get("mode")).toLowerCase() === "wake"
-      ? "wake"
-      : "command";
+    const speechLanguage = text(form.get("speechLanguage") || form.get("speech_language") || form.get("language")) || null;
+    const mode = text(form.get("mode")).toLowerCase() === "wake" ? "wake" : "command";
+    if (!audio || typeof audio.arrayBuffer !== "function") return errorResponse("Audio file required", 400);
 
-    if (!audio || typeof audio.arrayBuffer !== "function") {
-      return errorResponse("Audio file required", 400);
-    }
-
-    const context = await authorizedContext({
-      request,
-      organizationId,
-      requestedEntityId,
-    });
+    const context = await authorizedContext({ request, organizationId, requestedEntityId });
     if (context.error) return context.error;
-
-    const language =
-      mode === "wake"
-        ? null
-        : speechLanguage
-          ? speechLanguage.split("-")[0]
-          : null;
-    const prompt =
-      mode === "wake"
-        ? wakePrompt()
-        : commandPrompt(context.businessContext.organizationId);
+    const language = mode === "wake" ? null : speechLanguage ? speechLanguage.split("-")[0] : null;
+    const prompt = mode === "wake" ? wakePrompt() : commandPrompt(context.businessContext.organizationId);
 
     const result = await startOperatorAsyncTranscription({
       organizationId: context.businessContext.organizationId,
@@ -271,21 +188,15 @@ export async function POST(request) {
         generation_submitted: true,
         async: true,
       });
-      return Response.json(
-        {
-          success: true,
-          pending: true,
-          job_id: result.job_id,
-          mode,
-          ui_locale: locale,
-          speech_language: speechLanguage,
-          expires_at: result.expires_at || null,
-        },
-        {
-          status: 202,
-          headers: { "Retry-After": "2" },
-        },
-      );
+      return Response.json({
+        success: true,
+        pending: true,
+        job_id: result.job_id,
+        mode,
+        ui_locale: locale,
+        speech_language: speechLanguage,
+        expires_at: result.expires_at || null,
+      }, { status: 202, headers: { "Retry-After": "2" } });
     }
 
     console.log("OPERATOR_TRANSCRIPTION_COMPLETE", {
@@ -297,68 +208,67 @@ export async function POST(request) {
     return completedResponse(result, { mode, locale, speechLanguage });
   } catch (error) {
     console.error("OPERATOR_TRANSCRIPTION_ERROR", error);
-    return errorResponse(
-      error?.message || "Voice transcription failed",
-      error?.status || 500,
-    );
+    return errorResponse(error?.message || "Voice transcription failed", error?.status || 500);
   }
 }
 
 export async function GET(request) {
   try {
     const url = new URL(request.url);
-    const organizationId = text(
-      url.searchParams.get("organizationId") || url.searchParams.get("organization_id"),
-    );
+    const organizationId = text(url.searchParams.get("organizationId") || url.searchParams.get("organization_id"));
     const jobId = text(url.searchParams.get("jobId") || url.searchParams.get("job_id"));
-    const mode = text(url.searchParams.get("mode")).toLowerCase() === "wake"
-      ? "wake"
-      : "command";
+    const mode = text(url.searchParams.get("mode")).toLowerCase() === "wake" ? "wake" : "command";
     const locale = text(url.searchParams.get("locale")) || null;
-    const speechLanguage = text(
-      url.searchParams.get("speechLanguage") || url.searchParams.get("speech_language"),
-    ) || null;
-
+    const speechLanguage = text(url.searchParams.get("speechLanguage") || url.searchParams.get("speech_language")) || null;
     if (!jobId) return errorResponse("Transcription job required", 400);
 
-    const context = await authorizedContext({
-      request,
-      organizationId,
-    });
+    const context = await authorizedContext({ request, organizationId });
     if (context.error) return context.error;
-
     const result = await pollOperatorAsyncTranscription({
       jobId,
       organizationId: context.businessContext.organizationId,
     });
 
     if (result.pending === true) {
-      return Response.json(
-        {
-          success: true,
-          pending: true,
-          job_id: result.job_id,
-          status: result.status || "PENDING",
-          provider_status: result.provider_status || null,
-          mode,
-        },
-        {
-          status: 202,
-          headers: { "Retry-After": "2" },
-        },
-      );
+      return Response.json({
+        success: true,
+        pending: true,
+        job_id: result.job_id,
+        status: result.status || "PENDING",
+        provider_status: result.provider_status || null,
+        mode,
+      }, { status: 202, headers: { "Retry-After": "2" } });
     }
-
-    if (result.success === false) {
-      return errorResponse(result.error || "Voice transcription failed", 502);
-    }
-
+    if (result.success === false) return errorResponse(result.error || "Voice transcription failed", 502);
     return completedResponse(result, { mode, locale, speechLanguage });
   } catch (error) {
     console.error("OPERATOR_TRANSCRIPTION_POLL_ERROR", error);
-    return errorResponse(
-      error?.message || "Voice transcription failed",
-      error?.status || 500,
+    return errorResponse(error?.message || "Voice transcription failed", error?.status || 500);
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const url = new URL(request.url);
+    let body = {};
+    try { body = await request.json(); } catch { body = {}; }
+    const organizationId = text(
+      body?.organizationId || body?.organization_id || url.searchParams.get("organizationId") || url.searchParams.get("organization_id"),
     );
+    const jobId = text(body?.jobId || body?.job_id || url.searchParams.get("jobId") || url.searchParams.get("job_id"));
+    const reason = text(body?.reason || url.searchParams.get("reason")) || null;
+    if (!jobId) return errorResponse("Transcription job required", 400);
+
+    const context = await authorizedContext({ request, organizationId });
+    if (context.error) return context.error;
+    const result = await cancelOperatorAsyncTranscription({
+      jobId,
+      organizationId: context.businessContext.organizationId,
+      reason,
+    });
+    return Response.json(result, { status: 200, headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    const message = error?.message || "Voice transcription cancellation failed";
+    return errorResponse(message, message.includes("NOT_FOUND") ? 404 : error?.status || 500);
   }
 }

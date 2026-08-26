@@ -18,7 +18,7 @@ function response(error, status = 500) {
 function statusFor(message) {
   if (/REQUIRED|INVALID|EMPTY|AUTHORIZATION/i.test(message)) return 400;
   if (/NOT_FOUND/i.test(message)) return 404;
-  if (/NOT_CAPTURING/i.test(message)) return 409;
+  if (/NOT_CAPTURING|CHUNK_IN_PROGRESS|CHUNK_CONFLICT/i.test(message)) return 409;
   return 500;
 }
 
@@ -52,7 +52,7 @@ export async function POST(request) {
 
     return NextResponse.json(
       { success: true, organization_id: access.organizationId, ...result },
-      { status: 201, headers: { "Cache-Control": "no-store" } },
+      { status: result.idempotent_replay === true ? 200 : 201, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     const message = error?.message || "Secretary meeting audio ingestion failed";

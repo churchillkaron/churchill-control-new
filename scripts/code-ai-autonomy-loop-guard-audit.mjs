@@ -34,6 +34,11 @@ const requiredMarkers = [
   "new_planner_request_submitted: false",
   "MAX_SOURCE_READ_EVIDENCE = 8",
   "MAX_DUPLICATE_REJECTION_STREAK = 3",
+  "MAX_SUPPRESSED_ACTION_REJECTION_STREAK = 2",
+  "recordSuppressedActionRejection",
+  "resetSuppressedActionRejection",
+  "CODE_AI_AUTONOMOUS_ACTION_NOT_CURRENTLY_ALLOWED",
+  "CODE_AI_AUTONOMOUS_SUPPRESSED_ACTION_STREAK_EXCEEDED",
   "source_read_evidence",
   "rejected_duplicate_actions",
   "duplicate_rejection_streak",
@@ -66,6 +71,9 @@ const promptRequiredMarkers = [
   "Use apply_files for every intentional source edit",
   "Use verify after source changes",
   "Never request push, deploy, publish, production, database mutation, credentials",
+  "CURRENT ALLOWED ACTION SHAPES",
+  "plannerRules(currentAllowedActions)",
+  "An action absent from CURRENT ALLOWED ACTIONS is invalid",
 ];
 
 const promptMissing = promptRequiredMarkers.filter((marker) => !promptSource.includes(marker));
@@ -111,7 +119,18 @@ if (pendingBranch < 0 || pendingIterationPersistence < pendingBranch) {
   throw new Error("CODE_AI_AUTONOMY_PENDING_ITERATION_NOT_PERSISTED");
 }
 
+const plannerDecision = source.indexOf("const { decision } = planned;");
+const dynamicAllowedGuard = source.indexOf("const currentAllowedActions = plannerAllowedActions(state)", plannerDecision);
+const dynamicAllowedReject = source.indexOf("status: \"rejected_suppressed_action\"", dynamicAllowedGuard);
 const duplicateGuard = source.indexOf("const duplicate = duplicateActionGuard(control, decision)");
+if (
+  plannerDecision < 0 ||
+  dynamicAllowedGuard <= plannerDecision ||
+  dynamicAllowedReject <= dynamicAllowedGuard ||
+  dynamicAllowedReject >= duplicateGuard
+) {
+  throw new Error("CODE_AI_AUTONOMY_DYNAMIC_ALLOWED_ACTION_GUARD_MUST_PRECEDE_DUPLICATE_AND_EXECUTION");
+}
 const duplicateProgressRecord = source.indexOf("control = recordDuplicateProgress(control, decision.action)", duplicateGuard);
 const duplicateProgressPersist = source.indexOf("state = withAutonomyControl(state, control)", duplicateProgressRecord);
 const duplicateStreak = source.indexOf("const duplicateRejectionStreak = nonNegativeInteger(control.duplicate_rejection_streak)", duplicateProgressPersist);
@@ -213,6 +232,9 @@ console.log(JSON.stringify({
     duplicate_rejection_streak_fails_closed_before_workspace_execution: true,
     duplicate_rejection_streak_persisted_in_autonomy_control: true,
     repeated_duplicate_action_temporarily_suppressed_after_second_rejection: true,
+    suppressed_action_shapes_removed_from_planner_prompt: true,
+    dynamic_allowed_action_guard_enforced_before_execution: true,
+    suppressed_action_rejections_bounded: true,
     unrelated_observations_do_not_refresh_source_reads: true,
     apply_files_refreshes_source_reads: true,
     main_replan_refreshes_source_reads: true,

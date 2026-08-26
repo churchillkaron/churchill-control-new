@@ -200,3 +200,49 @@ export async function GET(request) {
     );
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const url = new URL(request.url);
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+    const organizationId = text(
+      body?.organizationId ||
+      body?.organization_id ||
+      url.searchParams.get("organizationId") ||
+      url.searchParams.get("organization_id"),
+    );
+    const jobId = text(
+      body?.jobId ||
+      body?.job_id ||
+      url.searchParams.get("jobId") ||
+      url.searchParams.get("job_id"),
+    );
+    const reason = text(body?.reason || url.searchParams.get("reason")) || null;
+    if (!jobId) return errorResponse("Voice job required", 400);
+
+    const access = await organizationAccess(request, organizationId);
+    if (!access.success) return errorResponse(access.error, access.status || 403);
+
+    const result = await OperatorVoiceAsyncSpeechRuntime.cancel({
+      jobId,
+      organizationId: access.organizationId,
+      reason,
+    });
+
+    return Response.json(result, {
+      status: 200,
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    const message = error?.message || "Voice response cancellation failed";
+    return errorResponse(
+      message,
+      message.includes("NOT_FOUND") ? 404 : error?.status || 500,
+    );
+  }
+}

@@ -171,12 +171,9 @@ const concurrencyRemaining = finite(
   accountDiagnostic?.account_serverless_usage?.concurrency_remaining,
   -1,
 );
-const nonConcurrencyBlockers = hardBlockers.filter(
-  (blocker) => blocker !== "SERVERLESS_CONCURRENCY_LIMIT_EXHAUSTED",
-);
-if (nonConcurrencyBlockers.length > 0) {
+if (hardBlockers.length > 0) {
   throw new Error(
-    `AVANTIQO_CODE_CERTIFICATION_RUNPOD_ACCOUNT_BLOCKED:${nonConcurrencyBlockers.join(",")}`,
+    `AVANTIQO_CODE_CERTIFICATION_RUNPOD_ACCOUNT_BLOCKED:${hardBlockers.join(",")}`,
   );
 }
 if (concurrencyRemaining < 1 && !codeUsableActiveWorker) {

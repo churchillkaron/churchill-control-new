@@ -114,6 +114,18 @@ audit = replaceRequired(
 );
 audit = replaceRequired(
   audit,
+  `const duplicateStreak = source.indexOf("const duplicateRejectionStreak = trailingDuplicateRejectionStreak(state)", duplicateGuard);\nconst duplicateStreakLimit = source.indexOf("duplicateRejectionStreak >= MAX_DUPLICATE_REJECTION_STREAK", duplicateStreak);`,
+  `const duplicateProgressRecord = source.indexOf("control = recordDuplicateProgress(control, decision.action)", duplicateGuard);\nconst duplicateProgressPersist = source.indexOf("state = withAutonomyControl(state, control)", duplicateProgressRecord);\nconst duplicateStreak = source.indexOf("const duplicateRejectionStreak = nonNegativeInteger(control.duplicate_rejection_streak)", duplicateProgressPersist);\nconst duplicateStreakLimit = source.indexOf("duplicateRejectionStreak >= MAX_DUPLICATE_REJECTION_STREAK", duplicateStreak);`,
+  "audit-persisted-streak-source",
+);
+audit = replaceRequired(
+  audit,
+  `if (\n  duplicateStreak <= duplicateGuard ||\n  duplicateStreakLimit <= duplicateStreak ||\n  duplicateStreakLimit >= missionExecution\n) {`,
+  `if (\n  duplicateProgressRecord <= duplicateGuard ||\n  duplicateProgressPersist <= duplicateProgressRecord ||\n  duplicateStreak <= duplicateProgressPersist ||\n  duplicateStreakLimit <= duplicateStreak ||\n  duplicateStreakLimit >= missionExecution\n) {`,
+  "audit-persisted-streak-order",
+);
+audit = replaceRequired(
+  audit,
   `    duplicate_rejection_streak_fails_closed_before_workspace_execution: true,`,
   `    duplicate_rejection_streak_fails_closed_before_workspace_execution: true,\n    duplicate_rejection_streak_persisted_in_autonomy_control: true,\n    repeated_duplicate_action_temporarily_suppressed_after_second_rejection: true,`,
   "audit-forward-progress-evidence",

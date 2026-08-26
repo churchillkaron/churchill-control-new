@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+fail() {
+  echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_SAFE_LEASE_CERTIFICATION=FAIL"
+  echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_SAFE_LEASE_CERTIFICATION_REASON=$1"
+  echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_PRODUCTION_DEPLOY_PERFORMED=false"
+  echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_PRICING_ACTIVATION_PERFORMED=false"
+  exit 1
+}
+
+[ "$(git branch --show-current)" = "main" ] || fail "MAIN_BRANCH_REQUIRED"
+git fetch origin main >/dev/null 2>&1 || fail "FETCH_MAIN_FAILED"
+LOCAL_HEAD="$(git rev-parse HEAD)"
+REMOTE_HEAD="$(git rev-parse origin/main)"
+[ "$LOCAL_HEAD" = "$REMOTE_HEAD" ] || fail "LOCAL_MAIN_NOT_CURRENT:$LOCAL_HEAD:$REMOTE_HEAD"
+
+[ "${AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_SPEND_APPROVED:-}" = "YES" ] \
+  || fail "AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_SPEND_APPROVED=YES_REQUIRED"
+[ "${AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_RIGHTS_APPROVED:-}" = "YES" ] \
+  || fail "AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_RIGHTS_APPROVED=YES_REQUIRED"
+
+node scripts/preflight-avantiqo-music-vocal-correction-runpod-local.mjs \
+  || fail "READ_ONLY_PREFLIGHT_FAILED"
+
+AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED=YES \
+node scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs \
+  --lane=music-vocal-correction \
+  --ttl-ms=1800000 \
+  -- \
+  node scripts/run-avantiqo-music-vocal-correction-certification-local.mjs
+
+echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_SAFE_LEASE_CERTIFICATION=TECHNICAL_PASS_HUMAN_REVIEW_REQUIRED"
+echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_PRODUCTION_DEPLOY_PERFORMED=false"
+echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_PRICING_ACTIVATION_PERFORMED=false"

@@ -53,8 +53,9 @@ COPY services/avantiqo-music-vocal-correction-engine/key_parser.py /app/key_pars
 COPY services/avantiqo-music-vocal-correction-engine/timing.py /app/timing.py
 COPY services/avantiqo-music-vocal-correction-engine/handler_v2.py /app/handler_v2.py
 
-RUN python3 -m py_compile /app/handler.py /app/key_parser.py /app/timing.py /app/handler_v2.py \
-    && python3 - <<'PY'
+RUN python3 -m py_compile /app/handler.py /app/key_parser.py /app/timing.py /app/handler_v2.py
+
+RUN python3 - <<'PY'
 import torch
 import torchcrepe
 from key_parser import key_parser_self_test
@@ -80,7 +81,7 @@ assert periodicity.shape == pitch.shape
 print("AVANTIQO_MUSIC_VOCAL_CORRECTION_TORCHCREPE_INFERENCE_SMOKE=PASS")
 print("AVANTIQO_MUSIC_VOCAL_KEY_PARSER_SELF_TEST=PASS")
 PY
-    && ffmpeg -version >/dev/null \
-    && ffprobe -version >/dev/null
+
+RUN ffmpeg -version >/dev/null && ffprobe -version >/dev/null
 
 CMD ["python3", "/app/handler_v2.py"]

@@ -82,6 +82,19 @@ function activeSharedWork(health) {
   return (
     health.jobs.in_queue > 0 ||
     health.jobs.in_progress > 0 ||
+    health.workers.idle > 0 ||
+    health.workers.initializing > 0 ||
+    health.workers.ready > 0 ||
+    health.workers.running > 0 ||
+    health.workers.throttled > 0 ||
+    health.workers.unhealthy > 0
+  );
+}
+
+function codeExecutionActivity(health) {
+  return Boolean(health) && (
+    health.jobs.in_progress > 0 ||
+    health.workers.idle > 0 ||
     health.workers.initializing > 0 ||
     health.workers.ready > 0 ||
     health.workers.running > 0 ||
@@ -204,13 +217,17 @@ for (const peer of sharedPeers) {
   const id = text(peer.id);
   if (!id) continue;
   const health = await queueHealth(id, queueKey);
+  const name = text(peer.name) || null;
   peerHealth.push({
     id,
-    name: text(peer.name) || null,
+    name,
     workers_min: number(peer.workersMin, null),
     workers_max: number(peer.workersMax, null),
     health,
     active_shared_work: activeSharedWork(health),
+    code_execution_activity: name === CODE_ENDPOINT_NAME
+      ? codeExecutionActivity(health)
+      : null,
   });
 }
 
@@ -218,6 +235,8 @@ const blockingPeers = peerHealth.filter(
   (peer) => peer.name !== CODE_ENDPOINT_NAME && peer.active_shared_work,
 );
 const codeHealth = peerHealth.find((peer) => peer.name === CODE_ENDPOINT_NAME) || null;
+const codeResumeConflict = codeExecutionActivity(codeHealth?.health);
+const codeQueuedJobs = number(codeHealth?.health?.jobs?.in_queue);
 
 const plan = {
   success: true,
@@ -233,8 +252,11 @@ const plan = {
   },
   shared_peers: peerHealth,
   blocking_peer_count: blockingPeers.length,
+  code_queued_jobs: codeQueuedJobs,
+  code_execution_activity: codeResumeConflict,
+  own_queued_jobs_allowed_during_resume: true,
   paused: beforeWorkers.max === 0,
-  safe_to_resume: beforeWorkers.max === 0 && blockingPeers.length === 0 && !codeHealth?.active_shared_work,
+  safe_to_resume: beforeWorkers.max === 0 && blockingPeers.length === 0 && !codeResumeConflict,
   mutation_required: beforeWorkers.max === 0,
   provider_job_submitted: false,
   queue_mutation_performed: false,
@@ -261,8 +283,8 @@ if (blockingPeers.length) {
     `AVANTIQO_CODE_SHARED_RESUME_BLOCKED_BY_ACTIVE_PEER:${blockingPeers.map((peer) => peer.name).join("|")}`,
   );
 }
-if (codeHealth?.active_shared_work) {
-  throw new Error("AVANTIQO_CODE_SHARED_RESUME_CODE_HEALTH_NOT_QUIESCENT");
+if (codeResumeConflict) {
+  throw new Error("AVANTIQO_CODE_SHARED_RESUME_CODE_EXECUTION_ALREADY_ACTIVE");
 }
 
 endpoints = await managementEndpoints(managementKey);
@@ -285,10 +307,16 @@ const freshPeers = endpoints.filter((endpoint) =>
   endpointVolumeIds(endpoint).some((volumeId) => beforeStable.network_volume_ids.includes(volumeId)),
 );
 for (const peer of freshPeers) {
-  if (text(peer.name) === CODE_ENDPOINT_NAME) continue;
+  const peerName = text(peer.name);
   const health = await queueHealth(text(peer.id), queueKey);
+  if (peerName === CODE_ENDPOINT_NAME) {
+    if (codeExecutionActivity(health)) {
+      throw new Error("AVANTIQO_CODE_SHARED_RESUME_CODE_BECAME_ACTIVE_BEFORE_WRITE");
+    }
+    continue;
+  }
   if (activeSharedWork(health)) {
-    throw new Error(`AVANTIQO_CODE_SHARED_RESUME_PEER_BECAME_ACTIVE:${text(peer.name)}`);
+    throw new Error(`AVANTIQO_CODE_SHARED_RESUME_PEER_BECAME_ACTIVE:${peerName}`);
   }
 }
 
@@ -320,6 +348,7 @@ console.log(JSON.stringify({
   mutation_performed: true,
   before: { workers_min: 0, workers_max: 0 },
   after: { workers_min: 0, workers_max: 1 },
+  existing_queued_code_jobs_preserved: true,
   unrelated_endpoint_fields_preserved: true,
   provider_job_submitted: false,
   production_deploy_performed: false,

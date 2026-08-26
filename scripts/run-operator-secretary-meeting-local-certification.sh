@@ -102,6 +102,7 @@ SECRETARY_MIGRATIONS=(
   "20260826003000_secretary_job_waiting_claim_semantics.sql"
   "20260826010000_secretary_meeting_audio_chunk_idempotency.sql"
   "20260826102000_secretary_multi_party_meeting_coordination.sql"
+  "20260826190000_secretary_booked_meeting_changes.sql"
 )
 
 for migration in "${SECRETARY_MIGRATIONS[@]}"; do
@@ -174,6 +175,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-call-clarification-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-slot-optimization-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-candidate-generation-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-booked-meeting-changes-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

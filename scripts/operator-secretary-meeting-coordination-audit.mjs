@@ -5,6 +5,7 @@ const files = {
   migration: await readFile("supabase/migrations/20260826102000_secretary_multi_party_meeting_coordination.sql", "utf8"),
   runtime: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationRuntime.js", "utf8"),
   evidence: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationEvidenceRuntime.js", "utf8"),
+  bookingGuard: await readFile("lib/operator/secretary/SecretaryMeetingCoordinationBookingGuardRuntime.js", "utf8"),
   capability: await readFile("lib/platform/capabilities/createSecretaryMeetingCoordinationCapability.js", "utf8"),
   platform: await readFile("lib/platform/runtime/PlatformDomainRuntime.js", "utf8"),
   worker: await readFile("app/api/internal/secretary/meeting-coordination/process/route.js", "utf8"),
@@ -51,7 +52,20 @@ assert.match(files.evidence, /clarification_requires_fresh_evidence:\s*true/);
 assert.match(files.evidence, /Never infer attendance, acceptance, timezone or availability from silence, politeness, implication or prior messages/);
 assert.match(files.evidence, /latest_availability_evidence_id/);
 assert.match(files.evidence, /call_evidence_supported:\s*true/);
-assert.match(files.evidence, /processSecretaryMeetingCoordinationSafely/);
+assert.match(files.evidence, /reconcileSecretaryMeetingCoordinationEvidence/);
+
+assert.match(files.bookingGuard, /secretaryMeetingParticipantHasExplicitAvailabilityEvidence/);
+assert.match(files.bookingGuard, /explicit_response_evidence === true/);
+assert.match(files.bookingGuard, /INBOUND_MESSAGE/);
+assert.match(files.bookingGuard, /SECRETARY_CALL/);
+assert.match(files.bookingGuard, /latest_availability_evidence_id/);
+assert.match(files.bookingGuard, /SECRETARY_MEETING_COORDINATION_EXPLICIT_EVIDENCE_REQUIRED/);
+assert.match(files.bookingGuard, /booking_blocked_without_explicit_availability_evidence:\s*true/);
+assert.match(files.bookingGuard, /processNextSecretaryMeetingCoordinationWithBookingGuard/);
+assert.match(files.bookingGuard, /reconcileSecretaryMeetingCoordinationEvidence/);
+assert.match(files.bookingGuard, /processSecretaryMeetingCoordination\(coordination\)/);
+assert.match(files.bookingGuard, /attendance_not_inferred:\s*true/);
+assert.match(files.bookingGuard, /external_authority_used:\s*false/);
 
 assert.match(files.capability, /secretary_meeting_coordination/);
 assert.match(files.capability, /coordinate this meeting/i);
@@ -70,10 +84,12 @@ assert.match(files.platform, /status:\s*async\s*\(\)\s*=>\s*createSecretaryMeeti
 assert.match(files.platform, /cancel:\s*async\s*\(\)\s*=>\s*createSecretaryMeetingCoordinationCapability\("cancel"\)/);
 
 assert.match(files.worker, /CRON_SECRET/);
-assert.match(files.worker, /processNextSecretaryMeetingCoordinationSafely/);
-assert.match(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V1/);
+assert.match(files.worker, /processNextSecretaryMeetingCoordinationWithBookingGuard/);
+assert.match(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V2/);
+assert.match(files.worker, /explicit_availability_evidence_required_for_booking:\s*true/);
 assert.match(files.worker, /attendance_not_inferred:\s*true/);
 assert.match(files.worker, /external_authority_used:\s*false/);
+assert.doesNotMatch(files.worker, /processNextSecretaryMeetingCoordinationSafely/);
 
 const vercel = JSON.parse(files.vercel);
 assert.equal(vercel.functions["app/api/internal/secretary/meeting-coordination/process/route.js"]?.maxDuration, 300);
@@ -91,6 +107,9 @@ console.log("SECRETARY_MEETING_CLARIFICATION_REQUIRES_FRESH_EVIDENCE=true");
 console.log("SECRETARY_MEETING_REQUIRED_PARTICIPANTS_COMMON_SLOT=true");
 console.log("SECRETARY_MEETING_ATOMIC_BOOKING=true");
 console.log("SECRETARY_MEETING_SLOT_RACE_FAILS_CLOSED=true");
+console.log("SECRETARY_MEETING_BOOKING_GUARD=true");
+console.log("SECRETARY_MEETING_BOOKING_REQUIRES_EXPLICIT_RESPONSE_EVIDENCE=true");
+console.log("SECRETARY_MEETING_COORDINATION_WORKER_V2=true");
 console.log("SECRETARY_MEETING_ATTENDANCE_NOT_INFERRED=true");
 console.log("SECRETARY_MEETING_COORDINATION_CRON_REGISTERED=true");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

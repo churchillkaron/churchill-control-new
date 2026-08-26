@@ -256,6 +256,8 @@ const networkVolumes = networkVolumeListAvailable
     : list(networkVolumesBody?.networkVolumes || networkVolumesBody?.network_volumes)
   : [];
 const endpoint = endpoints.find((candidate) => text(candidate?.id) === endpointId) || null;
+const endpointWorkersMax = endpoint ? nullableNumber(endpoint.workersMax) : null;
+const endpointPaused = Boolean(endpoint && endpointWorkersMax !== null && endpointWorkersMax < 1);
 const templateId = text(endpoint?.templateId || endpoint?.template?.id);
 const endpointEmbeddedTemplate = object(endpoint?.template);
 const templateById = new Map(
@@ -339,25 +341,32 @@ const boundGpuStockReportedUnavailable = (
 );
 
 let readiness = "UNKNOWN";
-if (operationalWorkers > 0) readiness = "READY_OR_RUNNING";
+if (endpointPaused) readiness = "PAUSED_MAX_WORKERS_ZERO";
+else if (operationalWorkers > 0) readiness = "READY_OR_RUNNING";
 else if (initializingWorkers > 0) readiness = "WORKER_INITIALIZING_NO_READY_CAPACITY";
 else if (queuedJobs > 0 && boundGpuStockReportedUnavailable) readiness = "QUEUED_NO_BOUND_GPU_STOCK";
 else if (queuedJobs > 0) readiness = "QUEUED_NO_WORKER_CAPACITY";
 else if (endpoint && number(endpoint.workersMin) === 0) readiness = "SCALE_TO_ZERO_IDLE";
 else readiness = "NO_ACTIVE_WORKER_QUEUE_CLEAN";
 
-const success = !["QUEUED_NO_BOUND_GPU_STOCK", "QUEUED_NO_WORKER_CAPACITY"].includes(readiness);
-const nextAction = readiness === "QUEUED_NO_BOUND_GPU_STOCK"
-  ? "WIDEN_GPU_POOL_IN_ATTACHED_VOLUME_DATACENTER_OR_RELOCATE_STORAGE"
-  : readiness === "QUEUED_NO_WORKER_CAPACITY" && boundGpuStockReportedAvailable
-    ? "INSPECT_RUNPOD_SCHEDULER_OR_WORKER_START_FAILURE"
-    : readiness === "QUEUED_NO_WORKER_CAPACITY"
-      ? "RESOLVE_EFFECTIVE_DATACENTER_GPU_CAPACITY"
-      : null;
+const success = ![
+  "PAUSED_MAX_WORKERS_ZERO",
+  "QUEUED_NO_BOUND_GPU_STOCK",
+  "QUEUED_NO_WORKER_CAPACITY",
+].includes(readiness);
+const nextAction = readiness === "PAUSED_MAX_WORKERS_ZERO"
+  ? "RESUME_CODE_ENDPOINT_WORKERS_MAX_TO_ONE"
+  : readiness === "QUEUED_NO_BOUND_GPU_STOCK"
+    ? "WIDEN_GPU_POOL_IN_ATTACHED_VOLUME_DATACENTER_OR_RELOCATE_STORAGE"
+    : readiness === "QUEUED_NO_WORKER_CAPACITY" && boundGpuStockReportedAvailable
+      ? "INSPECT_RUNPOD_SCHEDULER_OR_WORKER_START_FAILURE"
+      : readiness === "QUEUED_NO_WORKER_CAPACITY"
+        ? "RESOLVE_EFFECTIVE_DATACENTER_GPU_CAPACITY"
+        : null;
 
 const report = {
   success,
-  contract: "AVANTIQO_CODE_RUNPOD_DIAGNOSTIC_V5",
+  contract: "AVANTIQO_CODE_RUNPOD_DIAGNOSTIC_V6",
   mutation_performed: false,
   provider_job_submitted: false,
   generation_performed: false,
@@ -446,6 +455,8 @@ const report = {
   },
   diagnosis: {
     readiness,
+    endpoint_paused: endpointPaused,
+    endpoint_accepting_new_work: Boolean(endpoint && endpointWorkersMax !== null && endpointWorkersMax >= 1),
     queue_is_clean: queuedJobs === 0,
     queued_job_requires_capacity: queuedJobs > 0,
     initialization_in_progress: initializingWorkers > 0,

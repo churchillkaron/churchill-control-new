@@ -10,6 +10,10 @@ const cognitionRouter = fs.readFileSync(
   new URL("../lib/intelligence/runtime/AvantiqoCognitionRouterRuntime.js", import.meta.url),
   "utf8",
 );
+const epistemicCompletionGate = fs.readFileSync(
+  new URL("../lib/intelligence/runtime/AvantiqoEpistemicCompletionGateRuntime.mjs", import.meta.url),
+  "utf8",
+);
 const structuredSupervisor = fs.readFileSync(
   new URL("../lib/intelligence/runtime/AvantiqoStructuredIntelligenceSupervisorRuntime.js", import.meta.url),
   "utf8",
@@ -40,10 +44,12 @@ test("cognition router is deterministic before model execution and has risk floo
   assert.match(cognitionRouter, /AVANTIQO_COGNITION_ROUTER_V1/);
   assert.match(cognitionRouter, /deterministic_pre_model_routing: true/);
   assert.match(cognitionRouter, /high_risk_safety_floor: true/);
+  assert.match(cognitionRouter, /verification_tracks_intent_not_tool_availability: true/);
   assert.match(cognitionRouter, /CURRENT_EXTERNAL_EVIDENCE/);
   assert.match(cognitionRouter, /MUTATING_TOOL_AVAILABLE/);
   assert.match(cognitionRouter, /CONFLICTING_EVIDENCE/);
   assert.match(cognitionRouter, /MEMORY_REQUIRES_LIVE_READ/);
+  assert.match(cognitionRouter, /mutation_capability_available/);
   assert.match(cognitionRouter, /irreversible_intent/);
   assert.match(cognitionRouter, /verification_required/);
   assert.match(cognitionRouter, /research_required/);
@@ -61,9 +67,26 @@ test("supervisor escalates weak fast cognition to deep instead of bluffing", () 
 
 test("supervisor repairs before completion claims in deep mode", () => {
   assert.match(supervisor, /incorrect completion claims/);
-  assert.match(supervisor, /If the goal is not genuinely complete, do not mark it completed/);
+  assert.match(supervisor, /If the goal is not genuinely complete or required epistemic evidence is missing, do not mark it completed/);
+  assert.match(supervisor, /information sufficiency/);
+  assert.match(supervisor, /unresolved contradictions/);
+  assert.match(supervisor, /critical assumptions/);
+  assert.match(supervisor, /applyAvantiqoEpistemicCompletionGate/);
   assert.match(supervisor, /repair_needed/);
   assert.match(supervisor, /needs_human/);
+});
+
+test("epistemic gate blocks unsupported completion and calibrates confidence", () => {
+  assert.match(epistemicCompletionGate, /AVANTIQO_EPISTEMIC_COMPLETION_GATE_V1/);
+  assert.match(epistemicCompletionGate, /successfulMatching/);
+  assert.match(epistemicCompletionGate, /call\.outcome === "succeeded"/);
+  assert.match(epistemicCompletionGate, /EPISTEMIC_RESEARCH_REQUIREMENT_UNSATISFIED/);
+  assert.match(epistemicCompletionGate, /EPISTEMIC_LIVE_READ_REQUIREMENT_UNSATISFIED/);
+  assert.match(epistemicCompletionGate, /EPISTEMIC_POST_MUTATION_VERIFICATION_UNSATISFIED/);
+  assert.match(epistemicCompletionGate, /EPISTEMIC_CONFLICT_UNRESOLVED/);
+  assert.match(epistemicCompletionGate, /EPISTEMIC_INFORMATION_INSUFFICIENT/);
+  assert.match(epistemicCompletionGate, /EPISTEMIC_RESEARCH_STOP_CONDITION_NOT_MET/);
+  assert.match(epistemicCompletionGate, /confidenceCapFor/);
 });
 
 test("structured supervisor separates natural cognition from JSON boundary compilation", () => {
@@ -119,6 +142,15 @@ test("reasoning loop is locked to owned Avantiqo Intelligence with explicit fast
   assert.match(reasoningLoop, /execution_lane: executionLane/);
   assert.match(reasoningLoop, /AVANTIQO_INTELLIGENCE_TOOL_CALL_REPLAY_DETECTED/);
   assert.match(reasoningLoop, /AVANTIQO_INTELLIGENCE_TOOL_CALL_LIMIT_EXCEEDED/);
+});
+
+test("reasoning transcript records safe tool outcomes for deterministic completion verification", () => {
+  assert.match(reasoningLoop, /function toolOutcome/);
+  assert.match(reasoningLoop, /function recordToolOutcome/);
+  assert.match(reasoningLoop, /outcome: "pending"/);
+  assert.match(reasoningLoop, /outcome: "blocked"/);
+  assert.match(reasoningLoop, /outcome: toolOutcome\(result\)/);
+  assert.match(reasoningLoop, /code: result\?\.code \|\| null/);
 });
 
 test("business intelligence agent uses supervisor and read-only tools", () => {

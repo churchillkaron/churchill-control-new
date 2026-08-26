@@ -12,7 +12,8 @@ const SPEECH_THRESHOLD = 0.028;
 const SILENCE_TO_FINISH_MS = 850;
 const MAX_UTTERANCE_MS = 9000;
 const TRANSCRIPTION_TIMEOUT_MS = 55000;
-const SPEECH_TIMEOUT_MS = 55000;
+const SPEECH_POLL_MS = 2000;
+const SPEECH_TIMEOUT_MS = 30 * 60 * 1000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -89,6 +90,10 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   } finally {
     window.clearTimeout(timer);
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 export default function HeyAvantiqoWakeBridge() {
@@ -303,12 +308,14 @@ export default function HeyAvantiqoWakeBridge() {
       throw new Error("Voice response context unavailable");
     }
 
-    const response = await fetchWithTimeout(
-      "/api/operator/speak",
+    const startedAt = Date.now();
+    let response = await fetchWithTimeout(
+      "/api/operator/speak/jobs",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
+        cache: "no-store",
         body: JSON.stringify({
           organizationId,
           entityId,
@@ -316,15 +323,42 @@ export default function HeyAvantiqoWakeBridge() {
           locale: navigator.language || "en-US",
         }),
       },
-      SPEECH_TIMEOUT_MS,
+      60000,
     );
 
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({}));
+    if ((response.headers.get("content-type") || "").includes("audio/wav")) {
+      return response.arrayBuffer();
+    }
+
+    let result = await response.json().catch(() => ({}));
+    if (!response.ok || result?.success === false || !result?.job_id) {
       throw new Error(result?.error || "Voice response failed");
     }
 
-    return response.arrayBuffer();
+    const jobId = result.job_id;
+    while (Date.now() - startedAt < SPEECH_TIMEOUT_MS) {
+      await sleep(SPEECH_POLL_MS);
+      const params = new URLSearchParams({ organizationId, jobId });
+      response = await fetchWithTimeout(
+        `/api/operator/speak/jobs?${params.toString()}`,
+        {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+        },
+        60000,
+      );
+
+      if ((response.headers.get("content-type") || "").includes("audio/wav")) {
+        return response.arrayBuffer();
+      }
+
+      result = await response.json().catch(() => ({}));
+      if (response.status === 202 && result?.pending === true) continue;
+      throw new Error(result?.error || "Voice response completed without audio");
+    }
+
+    throw new Error("Voice response timed out");
   }
 
   async function playSpeech(message, nextStatus = "listening") {
@@ -369,15 +403,37 @@ export default function HeyAvantiqoWakeBridge() {
 
   async function acknowledgeWake() {
     setStatus("acknowledging");
+    captureSuppressedRef.current = true;
+    speakingRef.current = true;
+    stopActiveRecorder();
+    setSpeaking(true);
 
     try {
-      await playSpeech("Yes?", "acknowledging");
+      if (window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined") {
+        await new Promise((resolve) => {
+          const utterance = new SpeechSynthesisUtterance("Yes?");
+          utterance.lang = navigator.language || "en-US";
+          utterance.rate = 1.05;
+          utterance.volume = 0.7;
+          utterance.onend = resolve;
+          utterance.onerror = resolve;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+          window.setTimeout(resolve, 1600);
+        });
+      }
     } catch (error) {
       console.error("HEY_AVANTIQO_ACKNOWLEDGEMENT_ERROR", error);
+    } finally {
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+      clearUtteranceState();
+      speakingRef.current = false;
+      setSpeaking(false);
+      captureSuppressedRef.current = false;
     }
 
     armedForCommandRef.current = true;
-    setStatus("listening");
+    if (enabledRef.current) setStatus("listening");
   }
 
   async function processUtterance(blob) {

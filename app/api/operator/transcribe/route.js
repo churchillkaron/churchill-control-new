@@ -7,15 +7,14 @@ import {
   resolveBusinessContext,
 } from "@/lib/business-context/resolveBusinessContext";
 import {
-  ServiceExecutionRuntime,
-} from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
-import {
   listOperatorNavigationTargets,
 } from "@/lib/operator/runtime/OperatorNavigationCatalog";
 import {
-  settleOperatorVoiceExecution,
-} from "@/lib/operator/runtime/OperatorVoiceServiceSettlement";
+  pollOperatorAsyncTranscription,
+  startOperatorAsyncTranscription,
+} from "@/lib/operator/runtime/OperatorVoiceAsyncTranscriptionRuntime";
 
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const VOICE_LANGUAGE_COOKIE = "avantiqo_voice_language";
@@ -41,8 +40,6 @@ function wakeDetected(value) {
   const hasName = [
     "avantiqo",
     "avantiq",
-    "avantiqo",
-    "avantiqo",
     "avantico",
     "avantigo",
     "avantiko",
@@ -58,54 +55,6 @@ function wakeDetected(value) {
   );
 
   return hasGreeting || words.length <= 4;
-}
-
-function findTranscript(value, depth = 0) {
-  if (depth > 8 || value === null || value === undefined) return "";
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = findTranscript(item, depth + 1);
-      if (found) return found;
-    }
-    return "";
-  }
-  if (typeof value !== "object") return "";
-
-  for (const key of ["text", "transcript", "output_text"]) {
-    if (typeof value[key] === "string" && value[key].trim()) {
-      return value[key].trim();
-    }
-  }
-
-  for (const key of ["output", "result", "data", "response", "raw"]) {
-    const found = findTranscript(value[key], depth + 1);
-    if (found) return found;
-  }
-
-  return "";
-}
-
-function findVoiceField(value, field, depth = 0) {
-  if (depth > 9 || value === null || value === undefined) return null;
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = findVoiceField(item, field, depth + 1);
-      if (found) return found;
-    }
-    return null;
-  }
-  if (typeof value !== "object") return null;
-
-  const direct = text(value[field]);
-  if (direct) return direct;
-
-  for (const key of ["output", "result", "data", "response", "raw"]) {
-    const found = findVoiceField(value[key], field, depth + 1);
-    if (found) return found;
-  }
-
-  return null;
 }
 
 function commandVocabulary(organizationId) {
@@ -144,6 +93,16 @@ function commandPrompt(organizationId) {
   ].join(" ");
 }
 
+function wakePrompt() {
+  return [
+    "This is wake-word detection for the assistant Avantiqo.",
+    "Avantiqo is spelled A-v-a-n-t-i-q-o.",
+    "The speaker can have any accent or language background.",
+    "Listen especially for pronunciations or transcriptions resembling Avantiqo, Avanti Q, Avanti Q O, Avanti Go, Avantico, Avantiko, Avanti Quo, or Avanti.",
+    "If that name is spoken, preserve it as Avantiqo in the transcript and preserve any words spoken immediately after it.",
+  ].join(" ");
+}
+
 function errorResponse(error, status = 500) {
   return Response.json(
     {
@@ -164,6 +123,81 @@ function voiceLanguageCookie(language) {
     "HttpOnly",
     "SameSite=Lax",
   ].join("; ");
+}
+
+function completedResponse(result, { mode, locale, speechLanguage = null }) {
+  const transcript = text(result?.transcript);
+  if (!transcript) return errorResponse("Voice transcription returned no text", 502);
+
+  const detectedLanguage = text(result?.detected_language) || null;
+  const language = text(result?.language) || detectedLanguage;
+  const languageSource =
+    text(result?.language_source) ||
+    (speechLanguage ? "requested" : detectedLanguage ? "detected" : null);
+  const detected = mode === "wake" ? wakeDetected(transcript) : false;
+
+  const response = Response.json({
+    success: true,
+    pending: false,
+    job_id: result?.job_id || null,
+    transcript,
+    wake_detected: detected,
+    mode,
+    language: language || null,
+    detected_language: detectedLanguage,
+    language_source: languageSource,
+    ui_locale: locale,
+    voice_language_continuity_seconds: language
+      ? VOICE_LANGUAGE_COOKIE_MAX_AGE_SECONDS
+      : 0,
+  });
+  const cookie = voiceLanguageCookie(language);
+  if (cookie) {
+    response.headers.append("Set-Cookie", cookie);
+    response.headers.set("X-Avantiqo-Detected-Language", language);
+  }
+  return response;
+}
+
+async function authorizedContext({ request, organizationId, requestedEntityId = null }) {
+  if (!organizationId) {
+    return { error: errorResponse("Organization required", 400) };
+  }
+
+  const access = await requireOrganizationAccess({
+    organizationId,
+    request,
+  });
+  if (!access.success) {
+    return { error: errorResponse(access.error, access.status || 403) };
+  }
+
+  const partyId = access.staff?.party_id || access.staff?.partyId || null;
+  if (!partyId) {
+    return {
+      error: errorResponse(
+        "Authenticated staff account is not linked to a party",
+        409,
+      ),
+    };
+  }
+
+  const businessContext = await resolveBusinessContext({
+    organizationId: access.organizationId,
+    entityId: requestedEntityId,
+    request,
+    access,
+  });
+  if (!businessContext.success) {
+    return {
+      error: errorResponse(
+        businessContext.error,
+        businessContext.status || 400,
+      ),
+    };
+  }
+
+  return { access, partyId, businessContext };
 }
 
 export async function POST(request) {
@@ -192,147 +226,136 @@ export async function POST(request) {
       return errorResponse("Audio file required", 400);
     }
 
-    if (!organizationId) {
-      return errorResponse("Organization required", 400);
-    }
-
-    const access = await requireOrganizationAccess({
+    const context = await authorizedContext({
+      request,
       organizationId,
-      request,
+      requestedEntityId,
     });
+    if (context.error) return context.error;
 
-    if (!access.success) {
-      return errorResponse(access.error, access.status || 403);
-    }
+    const language =
+      mode === "wake"
+        ? null
+        : speechLanguage
+          ? speechLanguage.split("-")[0]
+          : null;
+    const prompt =
+      mode === "wake"
+        ? wakePrompt()
+        : commandPrompt(context.businessContext.organizationId);
 
-    const partyId =
-      access.staff?.party_id ||
-      access.staff?.partyId ||
-      null;
-
-    if (!partyId) {
-      return errorResponse(
-        "Authenticated staff account is not linked to a party",
-        409,
-      );
-    }
-
-    const businessContext = await resolveBusinessContext({
-      organizationId: access.organizationId,
-      entityId: requestedEntityId,
-      request,
-      access,
-    });
-
-    if (!businessContext.success) {
-      return errorResponse(
-        businessContext.error,
-        businessContext.status || 400,
-      );
-    }
-
-    const execution = await ServiceExecutionRuntime.execute({
-      organization_id: businessContext.organizationId,
-      party_id: partyId,
-      entity_id: businessContext.entityId,
-      service_id: "ai.speech.to.text",
-      input: {
-        upload_file: audio,
-        file_name: audio.name || "avantiqo-voice.wav",
-        mime_type: audio.type || "audio/wav",
-        language:
-          mode === "wake"
-            ? undefined
-            : speechLanguage
-              ? speechLanguage.split("-")[0]
-              : undefined,
-        prompt:
-          mode === "wake"
-            ? [
-                "This is wake-word detection for the assistant Avantiqo.",
-                "Avantiqo is spelled A-v-a-n-t-i-q-o.",
-                "The speaker can have any accent or language background.",
-                "Listen especially for pronunciations or transcriptions resembling Avantiqo, Avanti Q, Avanti Q O, Avanti Go, Avantico, Avantiko, Avanti Quo, or Avanti.",
-                "If that name is spoken, preserve it as Avantiqo in the transcript and preserve any words spoken immediately after it.",
-              ].join(" ")
-            : commandPrompt(businessContext.organizationId),
-      },
+    const result = await startOperatorAsyncTranscription({
+      organizationId: context.businessContext.organizationId,
+      entityId: context.businessContext.entityId,
+      partyId: context.partyId,
+      audio,
+      fileName: audio.name || "avantiqo-voice.wav",
+      mimeType: audio.type || "audio/wav",
+      language,
+      prompt,
+      locale,
       metadata: {
-        module: "OPERATOR",
-        operation:
-          mode === "wake"
-            ? "WAKE_TRANSCRIPTION"
-            : "VOICE_TRANSCRIPTION",
-        channel: "voice",
+        operation: mode === "wake" ? "WAKE_TRANSCRIPTION" : "VOICE_TRANSCRIPTION",
         transcription_mode: mode,
         ui_locale: locale,
         speech_language_override: speechLanguage,
         automatic_language_detection: mode === "wake" || !speechLanguage,
       },
-      category: "AI",
     });
 
-    const settledExecution = await settleOperatorVoiceExecution({
-      execution,
-      organizationId: businessContext.organizationId,
-      capability: "ai.speech.to.text",
-      metadata: {
-        module: "OPERATOR",
-        operation:
-          mode === "wake"
-            ? "WAKE_TRANSCRIPTION"
-            : "VOICE_TRANSCRIPTION",
-        channel: "voice",
-        transcription_mode: mode,
-      },
-    });
-
-    const transcript = findTranscript(settledExecution);
-    if (!transcript) {
-      return errorResponse("Voice transcription returned no text", 502);
+    if (result.pending === true) {
+      console.log("OPERATOR_TRANSCRIPTION_STARTED", {
+        mode,
+        duration_ms: Date.now() - startedAt,
+        job_id: result.job_id,
+        generation_submitted: true,
+        async: true,
+      });
+      return Response.json(
+        {
+          success: true,
+          pending: true,
+          job_id: result.job_id,
+          mode,
+          ui_locale: locale,
+          speech_language: speechLanguage,
+          expires_at: result.expires_at || null,
+        },
+        {
+          status: 202,
+          headers: { "Retry-After": "2" },
+        },
+      );
     }
-
-    const detectedLanguage = findVoiceField(settledExecution, "detected_language");
-    const language = findVoiceField(settledExecution, "language") || detectedLanguage;
-    const languageSource =
-      findVoiceField(settledExecution, "language_source") ||
-      (speechLanguage ? "requested" : detectedLanguage ? "detected" : null);
-    const detected = mode === "wake" ? wakeDetected(transcript) : false;
 
     console.log("OPERATOR_TRANSCRIPTION_COMPLETE", {
       mode,
       duration_ms: Date.now() - startedAt,
-      transcript_length: transcript.length,
-      wake_detected: detected,
-      language: language || null,
-      detected_language: detectedLanguage || null,
-      language_source: languageSource,
-      ui_locale: locale,
-      usage_id: settledExecution?.usage?.id || execution?.usage?.id || null,
+      transcript_length: text(result.transcript).length,
+      async: true,
     });
-
-    const response = Response.json({
-      success: true,
-      transcript,
-      wake_detected: detected,
-      mode,
-      language: language || null,
-      detected_language: detectedLanguage || null,
-      language_source: languageSource,
-      ui_locale: locale,
-      voice_language_continuity_seconds: language
-        ? VOICE_LANGUAGE_COOKIE_MAX_AGE_SECONDS
-        : 0,
-    });
-    const cookie = voiceLanguageCookie(language);
-    if (cookie) {
-      response.headers.append("Set-Cookie", cookie);
-      response.headers.set("X-Avantiqo-Detected-Language", language);
-    }
-    return response;
+    return completedResponse(result, { mode, locale, speechLanguage });
   } catch (error) {
     console.error("OPERATOR_TRANSCRIPTION_ERROR", error);
+    return errorResponse(
+      error?.message || "Voice transcription failed",
+      error?.status || 500,
+    );
+  }
+}
 
+export async function GET(request) {
+  try {
+    const url = new URL(request.url);
+    const organizationId = text(
+      url.searchParams.get("organizationId") || url.searchParams.get("organization_id"),
+    );
+    const jobId = text(url.searchParams.get("jobId") || url.searchParams.get("job_id"));
+    const mode = text(url.searchParams.get("mode")).toLowerCase() === "wake"
+      ? "wake"
+      : "command";
+    const locale = text(url.searchParams.get("locale")) || null;
+    const speechLanguage = text(
+      url.searchParams.get("speechLanguage") || url.searchParams.get("speech_language"),
+    ) || null;
+
+    if (!jobId) return errorResponse("Transcription job required", 400);
+
+    const context = await authorizedContext({
+      request,
+      organizationId,
+    });
+    if (context.error) return context.error;
+
+    const result = await pollOperatorAsyncTranscription({
+      jobId,
+      organizationId: context.businessContext.organizationId,
+    });
+
+    if (result.pending === true) {
+      return Response.json(
+        {
+          success: true,
+          pending: true,
+          job_id: result.job_id,
+          status: result.status || "PENDING",
+          provider_status: result.provider_status || null,
+          mode,
+        },
+        {
+          status: 202,
+          headers: { "Retry-After": "2" },
+        },
+      );
+    }
+
+    if (result.success === false) {
+      return errorResponse(result.error || "Voice transcription failed", 502);
+    }
+
+    return completedResponse(result, { mode, locale, speechLanguage });
+  } catch (error) {
+    console.error("OPERATOR_TRANSCRIPTION_POLL_ERROR", error);
     return errorResponse(
       error?.message || "Voice transcription failed",
       error?.status || 500,

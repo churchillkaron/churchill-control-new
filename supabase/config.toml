@@ -25,7 +25,7 @@ enabled = false
 # key_path = "../certs/my-key.pem"
 
 [db]
-# Port to use for the API URL.
+# Port to use for the local database URL.
 port = 54322
 # Port used by db diff command to initialize the shadow database.
 shadow_port = 54320
@@ -39,12 +39,12 @@ major_version = 17
 enabled = false
 # Port to use for the local connection pooler.
 port = 54329
-# Specifies when a server connection can be reused by other users.
+# Specifies when a server connection can be reused by other clients.
 # Configure one of the supported pooler modes: `transaction`, `session`.
 pool_mode = "transaction"
 # How many server connections to allow per user/database pair.
 default_pool_size = 20
-# Maximum amount of client connections allowed.
+# Maximum number of client connections allowed.
 max_client_conn = 100
 
 # [db.vault]
@@ -306,7 +306,7 @@ otp_length = 6
 template = "Your code is {{ .Code }}"
 max_frequency = "5s"
 
-# Configure MFA via WebAuthn
+# Configure WebAuthn
 # [auth.mfa.web_authn]
 # enroll_enabled = true
 # verify_enabled = true

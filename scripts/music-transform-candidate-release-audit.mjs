@@ -32,7 +32,6 @@ const imageRequest = read("audits/avantiqo-audio-worker-image-request.json");
 const provisionWorkflow = read(".github/workflows/avantiqo-music-transform-candidate-provision.yml");
 
 requirePattern(policy, /"music-transform-candidate":\s*"avantiqo-music-transform-candidate-v1"/, "music-transform-safe-lease-policy-must-own-candidate-lane");
-
 requirePattern(worker, /SAFE_LEASE_LANE = os\.getenv\("AVANTIQO_AUDIO_CERTIFICATION_SAFE_LEASE_LANE", "audio"\)\.strip\(\)/, "music-transform-worker-must-bind-certification-lane-from-endpoint-env");
 requirePattern(worker, /safe_lease_lane": _text\(context\.get\("safe_lease_lane"\)\) == SAFE_LEASE_LANE/, "music-transform-worker-must-reject-wrong-safe-lease-lane");
 requirePattern(worker, /production_activation_allowed/, "music-transform-worker-must-require-production-activation-false");
@@ -47,11 +46,12 @@ requirePattern(provisioner, /REQUEST_CONTRACT = "AVANTIQO_AUDIO_WORKER_IMAGE_REQ
 requirePattern(provisioner, /AVANTIQO_AUDIO_CERTIFICATION_SAFE_LEASE_LANE: SAFE_LEASE_LANE/, "music-transform-template-must-bind-candidate-certification-lane");
 requirePattern(provisioner, /workersMax:\s*0/, "music-transform-candidate-must-be-created-parked");
 requirePattern(provisioner, /workersMin:\s*0/, "music-transform-candidate-min-workers-must-be-zero");
-requirePattern(provisioner, /body:\s*\{\s*workersMin:\s*0,\s*workersMax:\s*0\s*\}/, "music-transform-candidate-must-repair-existing-or-created-endpoint-to-parked-zero-zero");
-requirePattern(provisioner, /parking_repair_performed/, "music-transform-candidate-must-report-parking-repair");
-requirePattern(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PARK_VERIFY_FAILED/, "music-transform-candidate-must-verify-existing-endpoint-parking-repair");
-requirePattern(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_PARK_VERIFY_FAILED/, "music-transform-candidate-must-verify-new-endpoint-parking-repair");
-requirePattern(provisioner, /endpointTemplateId/, "music-transform-candidate-must-normalize-template-identity-shapes");
+requirePattern(provisioner, /body:\s*\{\s*workersMin:\s*0,\s*workersMax:\s*0\s*\}/, "music-transform-candidate-must-repair-endpoint-to-zero-zero");
+requirePattern(provisioner, /authoritativeTemplate/, "music-transform-candidate-must-resolve-authoritative-template-from-template-id");
+requirePattern(provisioner, /ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST/, "music-transform-candidate-must-report-authoritative-template-lookup");
+requirePattern(provisioner, /embedded_template_view_used_for_digest_decision:\s*false/, "music-transform-candidate-must-not-use-embedded-template-view-for-digest-decision");
+requirePattern(provisioner, /template_rebind_performed/, "music-transform-candidate-must-report-template-rebind");
+requirePattern(provisioner, /templateId:\s*targetTemplateId[\s\S]*workersMin:\s*0[\s\S]*workersMax:\s*0/, "music-transform-candidate-rebind-must-keep-endpoint-parked");
 requirePattern(provisioner, /networkVolumeId:\s*volume\.id/, "music-transform-candidate-must-bind-shared-cache-through-scalar-runpod-rest-field");
 forbidPattern(provisioner, /^\s*networkVolumeIds:\s*/m, "music-transform-candidate-rest-create-must-not-send-conflicting-network-volume-ids-field");
 requirePattern(provisioner, /entry\?\.networkVolumeId/, "music-transform-candidate-must-normalize-runpod-network-volume-object-responses");
@@ -111,7 +111,8 @@ if (failures.length) {
 console.log("MUSIC_TRANSFORM_CANDIDATE_RELEASE_AUDIT=PASS");
 console.log("MUSIC_TRANSFORM_CANDIDATE_ENDPOINT=ISOLATED_FROM_PRODUCTION_COMPOSE");
 console.log("MUSIC_TRANSFORM_CANDIDATE_RESTING_WORKERS=0_0");
-console.log("MUSIC_TRANSFORM_CANDIDATE_PARKING_RECOVERY=SAFE_IN_PLACE_ZERO_ZERO");
+console.log("MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_AUTHORITY=ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST");
+console.log("MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_CONVERGENCE=PARK_THEN_REBIND_IF_REQUIRED");
 console.log("MUSIC_TRANSFORM_CANDIDATE_NETWORK_VOLUME_BINDING=RUNPOD_REST_SCALAR_ONLY");
 console.log("MUSIC_TRANSFORM_CANDIDATE_PROVISION_CREDENTIAL_SCOPE=MANAGEMENT_ONLY_WITH_CANONICAL_FALLBACK");
 console.log("MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT=ZERO_SPEND_BEFORE_SAFE_LEASE");

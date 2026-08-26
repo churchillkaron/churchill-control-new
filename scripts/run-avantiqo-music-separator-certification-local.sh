@@ -46,6 +46,29 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "$2"
 }
 
+ensure_music_runtime_dependencies() {
+  if node --input-type=module <<'NODE' >/dev/null 2>&1
+await import("@next/env");
+await import("@supabase/supabase-js");
+NODE
+  then
+    echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_DEPENDENCIES=READY"
+    return 0
+  fi
+
+  require_cmd npm "NPM_REQUIRED_FOR_MUSIC_RUNTIME_DEPENDENCIES"
+  echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_DEPENDENCIES=INSTALLING_TARGETED_NO_SAVE"
+  npm install --no-save --package-lock=false @next/env@14.2.35 @supabase/supabase-js@2.105.4 >/dev/null \
+    || fail "MUSIC_RUNTIME_DEPENDENCY_INSTALL_FAILED"
+
+  node --input-type=module <<'NODE' >/dev/null 2>&1
+await import("@next/env");
+await import("@supabase/supabase-js");
+NODE
+  [ "$?" -eq 0 ] || fail "MUSIC_RUNTIME_DEPENDENCY_IMPORT_FAILED"
+  echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_DEPENDENCIES=READY"
+}
+
 sync_main_before_spend() {
   git fetch origin main >/dev/null 2>&1 || fail "FETCH_MAIN_FAILED"
   local branch head remote relation ahead changed
@@ -109,7 +132,7 @@ NODE
 fi
 
 sync_main_before_spend
-
+ensure_music_runtime_dependencies
 AVANTIQO_PROJECT_ROOT="$ROOT_DIR" bash scripts/repair-avantiqo-runpod-env-local.sh
 
 rm -f "$VOCAL_WAV" "$VOCAL_AIFF" "$SOURCE_WAV"

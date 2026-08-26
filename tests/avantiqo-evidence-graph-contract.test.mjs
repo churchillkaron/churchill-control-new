@@ -35,7 +35,7 @@ test("relevant conflicts or stale evidence can block external knowledge reuse", 
   assert.match(graph, /UNRESOLVED_RELEVANT_EVIDENCE_CONFLICT/);
   assert.match(graph, /RELEVANT_EVIDENCE_GRAPH_STALE/);
   assert.match(graph, /block_knowledge_reuse: blockKnowledgeReuse/);
-  assert.match(router, /AVANTIQO_KNOWLEDGE_ROUTER_V2/);
+  assert.match(router, /AVANTIQO_KNOWLEDGE_ROUTER_V3/);
   assert.match(router, /inspectAvantiqoEvidenceGraph/);
   assert.match(router, /evidenceGraph\.block_knowledge_reuse === true/);
   assert.match(router, /force_refresh: forceRefresh/);

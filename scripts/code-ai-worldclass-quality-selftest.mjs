@@ -1,4 +1,10 @@
-import { assessCodeAIWorldClassQuality } from "../lib/code/runtime/CodeAIWorldClassRuntime.js";
+import { register } from "node:module";
+import { pathToFileURL } from "node:url";
+
+register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
+const { assessCodeAIWorldClassQuality } = await import(
+  "@/lib/code/runtime/CodeAIWorldClassRuntime"
+);
 
 const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_QUALITY_SELFTEST_V2";
 

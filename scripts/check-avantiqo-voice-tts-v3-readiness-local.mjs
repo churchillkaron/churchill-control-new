@@ -6,9 +6,10 @@ loadAvantiqoEnv();
 const REST = "https://rest.runpod.io/v1";
 const CONTROL = "https://api.runpod.io/v2";
 const QUEUE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_VOICE_TTS_V3_READINESS_V2";
+const CONTRACT = "AVANTIQO_VOICE_TTS_V3_READINESS_V3";
 const EVIDENCE_PATH = "audits/results/avantiqo-voice-worker-images.json";
-const OBSERVATION_COUNT = 4;
+const REQUIRED_CONSECUTIVE_CLEAR = 3;
+const MAX_OBSERVATIONS = 8;
 const OBSERVATION_INTERVAL_MS = 5000;
 
 function text(value) { return String(value ?? "").trim(); }
@@ -114,6 +115,36 @@ function normalizeHealth(healthBody) {
     },
   };
 }
+function dynamicBlockers(health, workers, certifiedImage) {
+  const reasons = [];
+  if (health.jobs.in_queue !== 0) reasons.push(`JOBS_IN_QUEUE:${health.jobs.in_queue}`);
+  if (health.jobs.in_progress !== 0) reasons.push(`JOBS_IN_PROGRESS:${health.jobs.in_progress}`);
+  if (health.workers.unhealthy !== 0) reasons.push(`UNHEALTHY_WORKERS:${health.workers.unhealthy}`);
+  if (health.workers.throttled !== 0) reasons.push(`HEALTH_THROTTLED_WORKERS:${health.workers.throttled}`);
+  if (health.workers.initializing !== 0) reasons.push(`HEALTH_INITIALIZING_WORKERS:${health.workers.initializing}`);
+
+  const throttledWorkers = workers.filter((worker) => worker.status === "THROTTLED");
+  if (throttledWorkers.length) reasons.push(`CONTROL_THROTTLED_WORKERS:${throttledWorkers.length}`);
+  const unhealthyWorkers = workers.filter((worker) => worker.status === "UNHEALTHY");
+  if (unhealthyWorkers.length) reasons.push(`CONTROL_UNHEALTHY_WORKERS:${unhealthyWorkers.length}`);
+  const initializingWorkers = workers.filter((worker) => worker.status === "INITIALIZING");
+  if (initializingWorkers.length) reasons.push(`CONTROL_INITIALIZING_WORKERS:${initializingWorkers.length}`);
+  const mismatchedWorkers = workers.filter((worker) => worker.image && worker.image !== certifiedImage);
+  if (mismatchedWorkers.length) reasons.push("LIVE_WORKER_IMAGE_MISMATCH");
+  const staleWorkers = workers.filter((worker) => worker.is_stale);
+  if (staleWorkers.length) reasons.push("STALE_WORKER_PRESENT");
+
+  const healthClaimsReady = health.workers.idle > 0 || health.workers.ready > 0;
+  const controlClaimsReady = workers.some((worker) => ["IDLE", "READY"].includes(worker.status));
+  const controlClaimsBlocked = workers.some((worker) => ["THROTTLED", "UNHEALTHY", "INITIALIZING"].includes(worker.status));
+  if (healthClaimsReady && controlClaimsBlocked) reasons.push("WORKER_STATE_VIEW_DISAGREEMENT");
+  if (workers.length > 0 && healthClaimsReady !== controlClaimsReady && !controlClaimsBlocked) {
+    reasons.push("WORKER_READY_VIEW_DISAGREEMENT");
+  }
+  if (!healthClaimsReady || !controlClaimsReady) reasons.push("READY_WORKER_NOT_STABLY_VISIBLE");
+
+  return [...new Set(reasons)];
+}
 
 runGit(["fetch", "origin", "main", "--quiet"]);
 const evidence = JSON.parse(runGit(["show", `origin/main:${EVIDENCE_PATH}`]));
@@ -160,8 +191,10 @@ if (commandList(template?.dockerEntrypoint).length || commandList(template?.dock
 }
 
 const observations = [];
-const dynamicReasons = new Set();
-for (let index = 0; index < OBSERVATION_COUNT; index += 1) {
+const historicalDynamicBlockers = new Set();
+let consecutiveClear = 0;
+let stableWindowReached = false;
+for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
   const [healthBody, workers] = await Promise.all([
     queueRead(endpointId, "/health", credentials),
     controlWorkers(endpointId, credentials.management),
@@ -172,34 +205,15 @@ for (let index = 0; index < OBSERVATION_COUNT; index += 1) {
     counts[status] = (counts[status] || 0) + 1;
     return counts;
   }, {});
-
-  if (health.jobs.in_queue !== 0) dynamicReasons.add(`JOBS_IN_QUEUE:${health.jobs.in_queue}`);
-  if (health.jobs.in_progress !== 0) dynamicReasons.add(`JOBS_IN_PROGRESS:${health.jobs.in_progress}`);
-  if (health.workers.unhealthy !== 0) dynamicReasons.add(`UNHEALTHY_WORKERS:${health.workers.unhealthy}`);
-  if (health.workers.throttled !== 0) dynamicReasons.add(`HEALTH_THROTTLED_WORKERS:${health.workers.throttled}`);
-  if (health.workers.initializing !== 0) dynamicReasons.add(`HEALTH_INITIALIZING_WORKERS:${health.workers.initializing}`);
-
-  const throttledWorkers = workers.filter((worker) => worker.status === "THROTTLED");
-  if (throttledWorkers.length) dynamicReasons.add(`CONTROL_THROTTLED_WORKERS:${throttledWorkers.length}`);
-  const unhealthyWorkers = workers.filter((worker) => worker.status === "UNHEALTHY");
-  if (unhealthyWorkers.length) dynamicReasons.add(`CONTROL_UNHEALTHY_WORKERS:${unhealthyWorkers.length}`);
-  const initializingWorkers = workers.filter((worker) => worker.status === "INITIALIZING");
-  if (initializingWorkers.length) dynamicReasons.add(`CONTROL_INITIALIZING_WORKERS:${initializingWorkers.length}`);
-  const mismatchedWorkers = workers.filter((worker) => worker.image && worker.image !== certifiedImage);
-  if (mismatchedWorkers.length) dynamicReasons.add("LIVE_WORKER_IMAGE_MISMATCH");
-  const staleWorkers = workers.filter((worker) => worker.is_stale);
-  if (staleWorkers.length) dynamicReasons.add("STALE_WORKER_PRESENT");
-
-  const healthClaimsReady = health.workers.idle > 0 || health.workers.ready > 0;
-  const controlClaimsReady = workers.some((worker) => ["IDLE", "READY"].includes(worker.status));
-  const controlClaimsBlocked = workers.some((worker) => ["THROTTLED", "UNHEALTHY", "INITIALIZING"].includes(worker.status));
-  if (healthClaimsReady && controlClaimsBlocked) dynamicReasons.add("WORKER_STATE_VIEW_DISAGREEMENT");
-  if (workers.length > 0 && healthClaimsReady !== controlClaimsReady && !controlClaimsBlocked) {
-    dynamicReasons.add("WORKER_READY_VIEW_DISAGREEMENT");
-  }
+  const blockers = dynamicBlockers(health, workers, certifiedImage);
+  for (const blocker of blockers) historicalDynamicBlockers.add(blocker);
+  consecutiveClear = blockers.length === 0 ? consecutiveClear + 1 : 0;
 
   const observation = {
     observation: index + 1,
+    clear: blockers.length === 0,
+    consecutive_clear: consecutiveClear,
+    blockers,
     health,
     workers,
     control_status_counts: controlStatusCounts,
@@ -212,20 +226,35 @@ for (let index = 0; index < OBSERVATION_COUNT; index += 1) {
     mutation_performed: false,
     secrets_printed: false,
   }));
-  if (index + 1 < OBSERVATION_COUNT) await sleep(OBSERVATION_INTERVAL_MS);
+
+  if (consecutiveClear >= REQUIRED_CONSECUTIVE_CLEAR) {
+    stableWindowReached = true;
+    break;
+  }
+  if (index + 1 < MAX_OBSERVATIONS) await sleep(OBSERVATION_INTERVAL_MS);
 }
 
-const reasons = [...staticReasons, ...dynamicReasons];
-const finalObservation = observations.at(-1) || { health: null, workers: [] };
+const finalObservation = observations.at(-1) || { health: null, workers: [], blockers: [] };
+const reasons = [...staticReasons];
+if (!stableWindowReached) {
+  reasons.push("STABLE_CLEAR_WINDOW_NOT_REACHED");
+  reasons.push(...finalObservation.blockers);
+}
+const uniqueReasons = [...new Set(reasons)];
+const ready = uniqueReasons.length === 0 && stableWindowReached;
 const result = {
-  success: reasons.length === 0,
+  success: ready,
   contract: CONTRACT,
-  ready_for_controlled_generation: reasons.length === 0,
-  blockers: reasons,
+  ready_for_controlled_generation: ready,
+  blockers: uniqueReasons,
   stability: {
-    observation_count: OBSERVATION_COUNT,
+    required_consecutive_clear: REQUIRED_CONSECUTIVE_CLEAR,
+    max_observations: MAX_OBSERVATIONS,
+    observations_taken: observations.length,
     interval_ms: OBSERVATION_INTERVAL_MS,
-    all_observations_clear: dynamicReasons.size === 0,
+    consecutive_clear_observations: consecutiveClear,
+    stable_clear_window_reached: stableWindowReached,
+    historical_transient_blockers: [...historicalDynamicBlockers],
   },
   endpoint: {
     id: endpointId,

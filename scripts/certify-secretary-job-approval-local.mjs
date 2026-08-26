@@ -126,7 +126,7 @@ try {
 
   const exact = await createReviewJob({
     actorPartyId: actor.id,
-    firstInstruction: "Create an internal task documenting that payment approval was explicitly granted for this certification step only.",
+    firstInstruction: "Create an internal task directing staff to make a payment of 1 THB only under this exact step approval.",
   });
 
   const approved = await approveSecretaryJobStep({
@@ -176,14 +176,14 @@ try {
 
   const tampered = await createReviewJob({
     actorPartyId: actor.id,
-    firstInstruction: "Create an internal task documenting payment approval for the original exact instruction.",
+    firstInstruction: "Create an internal task directing staff to make a payment of 1 THB under this exact approved instruction.",
   });
   const tamperedApproval = await approveSecretaryJobStep({
     context,
     payload: { job_id: tampered.job.id, step_id: tampered.first.id },
   });
 
-  const changedInstruction = "Create an internal task documenting payment approval for a materially changed instruction.";
+  const changedInstruction = "Create an internal task directing staff to make a payment of 2 THB under a materially changed instruction.";
   await one(
     await supabaseAdmin
       .from("secretary_job_steps")

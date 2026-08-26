@@ -6,6 +6,8 @@ const CONTRACT = "AVANTIQO_MODEL_TRAINING_EXECUTION_LOCAL_V1";
 const TRAINING_SCOPE = "platform_model_training_jobs";
 const TRAINING_CONTRACT = "AVANTIQO_MODEL_IMPROVEMENT_V1";
 const FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507";
+const DEFAULT_TRAINER_WARMUP_RETRY_ATTEMPTS = 24;
+const DEFAULT_TRAINER_WARMUP_RETRY_DELAY_MS = 3_000;
 
 function text(value, limit = 4000) {
   return String(value ?? "").trim().slice(0, limit);
@@ -14,6 +16,25 @@ function text(value, limit = 4000) {
 function yes(value) {
   return ["YES", "TRUE", "1", "APPROVED", "ON"].includes(
     text(value, 40).toUpperCase(),
+  );
+}
+
+function boundedInteger(value, fallback, minimum, maximum) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(minimum, Math.min(maximum, Math.trunc(parsed)));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function transientTrainerWarmupGuardError(error) {
+  const message = text(error?.message || error, 2000);
+  return (
+    /^AVANTIQO_SHARED_TRAINER_RESERVATION_(?:BLOCKED|CHANGED):avantiqo-intelligence-trainer-v1:TRAINER_RUNTIME_BUSY$/.test(
+      message,
+    )
   );
 }
 
@@ -117,6 +138,18 @@ const job = jobs[0];
 const metadata = job?.metadata && typeof job.metadata === "object"
   ? job.metadata
   : {};
+const warmupRetryAttempts = boundedInteger(
+  process.env.AVANTIQO_MODEL_TRAINING_WARMUP_RETRY_ATTEMPTS,
+  DEFAULT_TRAINER_WARMUP_RETRY_ATTEMPTS,
+  1,
+  60,
+);
+const warmupRetryDelayMs = boundedInteger(
+  process.env.AVANTIQO_MODEL_TRAINING_WARMUP_RETRY_DELAY_MS,
+  DEFAULT_TRAINER_WARMUP_RETRY_DELAY_MS,
+  1_000,
+  10_000,
+);
 
 console.log(JSON.stringify({
   contract: CONTRACT,
@@ -138,6 +171,8 @@ console.log(JSON.stringify({
     : null,
   explicit_execution_approval_observed: true,
   trainer_enabled: true,
+  transient_trainer_warmup_retry_attempts: warmupRetryAttempts,
+  transient_trainer_warmup_retry_delay_ms: warmupRetryDelayMs,
   provider_job_submitted: false,
   model_weight_mutation_started: false,
   production_deploy_performed: false,
@@ -145,10 +180,41 @@ console.log(JSON.stringify({
   secrets_printed: false,
 }, null, 2));
 
-const result = await submitAvantiqoModelTrainingJob({
-  trainingJobId: job.id,
-  approved: true,
-});
+let result = null;
+for (let attempt = 1; attempt <= warmupRetryAttempts; attempt += 1) {
+  try {
+    result = await submitAvantiqoModelTrainingJob({
+      trainingJobId: job.id,
+      approved: true,
+    });
+    break;
+  } catch (error) {
+    if (
+      !transientTrainerWarmupGuardError(error) ||
+      attempt >= warmupRetryAttempts
+    ) {
+      throw error;
+    }
+    console.log(JSON.stringify({
+      contract: CONTRACT,
+      event: "AVANTIQO_MODEL_TRAINING_EXECUTION_TRANSIENT_TRAINER_WARMUP",
+      success: true,
+      attempt,
+      max_attempts: warmupRetryAttempts,
+      retry_delay_ms: warmupRetryDelayMs,
+      reason: "TRAINER_RUNTIME_BUSY_WITHOUT_JOB_OR_PEER_BLOCKER",
+      provider_job_submitted: false,
+      queue_mutation_performed: false,
+      production_deploy_performed: false,
+      secrets_printed: false,
+    }, null, 2));
+    await sleep(warmupRetryDelayMs);
+  }
+}
+
+if (!result) {
+  throw new Error("AVANTIQO_MODEL_TRAINING_EXECUTION_RESULT_REQUIRED");
+}
 
 const resultMetadata = result?.job?.metadata &&
   typeof result.job.metadata === "object"

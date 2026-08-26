@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import {
@@ -206,4 +207,17 @@ test("evidence-driven replanning remains bounded by the plan replan budget", () 
   assert.equal(revision.status, "REPLAN_BUDGET_EXHAUSTED");
   assert.equal(revision.blocked, true);
   assert.equal(revision.evidence_driven_replan, true);
+});
+
+test("canonical planning tool uses evidence-aware assessment and revision", () => {
+  const source = fs.readFileSync(
+    new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /OperatorIntelligenceEvidenceRevisionRuntime/);
+  assert.match(source, /assessOperatorIntelligencePlanWithEvidenceRevision/);
+  assert.match(source, /reviseOperatorIntelligencePlanWithEvidenceRevision/);
+  assert.match(source, /successful_evidence_can_invalidate_plan: true/);
+  assert.match(source, /unverified_evidence_cannot_invalidate_plan: true/);
 });

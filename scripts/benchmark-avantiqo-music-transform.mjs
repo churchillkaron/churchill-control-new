@@ -6,7 +6,7 @@ const API_BASE = "https://api.runpod.ai/v2";
 const ENGINE_CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
 const CERT_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_JOB_V1";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
-const SAFE_LEASE_LANE = "audio";
+const SAFE_LEASE_LANE = "music-transform-candidate";
 const BUCKET = "creative-assets";
 const SOURCE_DURATION_SECONDS = 12;
 const EXTEND_SECONDS = 8;
@@ -58,7 +58,7 @@ function makeWav(seconds = SOURCE_DURATION_SECONDS, sampleRate = 44100) {
 approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
 approved("AVANTIQO_MUSIC_TRANSFORM_SOURCE_RIGHTS_APPROVED");
 const selectedCapability = capability();
-const endpointId = required("RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID");
+const endpointId = required("RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID");
 const apiKey = required("RUNPOD_API_KEY");
 assertLease(endpointId);
 const supabase = createClient(required("NEXT_PUBLIC_SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false, autoRefreshToken: false } });
@@ -156,6 +156,9 @@ const report = {
   generated_at: new Date().toISOString(),
   capability: selectedCapability,
   provider_jobs_submitted: 1,
+  endpoint_scope: "MUSIC_TRANSFORM_CANDIDATE_ONLY",
+  endpoint_id: endpointId,
+  production_audio_endpoint_allowed: false,
   safe_lease_contract: SAFE_LEASE_CONTRACT,
   safe_lease_lane: SAFE_LEASE_LANE,
   source_rights_confirmed: true,
@@ -194,5 +197,5 @@ const report = {
 };
 const reportPath = resolve(process.env.AVANTIQO_MUSIC_TRANSFORM_BENCHMARK_OUTPUT || `/tmp/${id}.json`);
 await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-console.log(JSON.stringify({ success: passed, contract: report.contract, capability: selectedCapability, provider_job_count: 1, temporal_extension_technical_proven: temporalExtensionTechnicalProven, human_review_status: "PENDING", activation_allowed: false, output_path: reportPath }, null, 2));
+console.log(JSON.stringify({ success: passed, contract: report.contract, capability: selectedCapability, provider_job_count: 1, candidate_endpoint_only: true, temporal_extension_technical_proven: temporalExtensionTechnicalProven, human_review_status: "PENDING", activation_allowed: false, output_path: reportPath }, null, 2));
 if (!passed) process.exitCode = 1;

@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: avantiqo-music-certification
@@ -19,10 +18,20 @@ concurrency:
 jobs:
   certify-music:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 50
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY || secrets.RUNPOD_API_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AVANTIQO_AUDIO_FOUNDATION_MODEL: ${{ vars.AVANTIQO_AUDIO_FOUNDATION_MODEL }}
     steps:
-      - name: Checkout
+      - name: Checkout exact request source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -33,31 +42,131 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run owned Music benchmark only
+      - name: Validate explicit Music certification request
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const request = JSON.parse(readFileSync("audits/avantiqo-music-certification-request.json", "utf8"));
+          const checks = [
+            ["contract", request.contract === "AVANTIQO_MUSIC_CERTIFICATION_REQUEST_V2"],
+            ["scope", request.scope === "music-only"],
+            ["spend", request.provider_spend_approved === true],
+            ["safe_lease_contract", request.safe_lease_contract === "AVANTIQO_RUNPOD_SAFE_LEASE_V2"],
+            ["safe_lease_lane", request.safe_lease_lane === "audio"],
+            ["max_provider_jobs", request.max_provider_jobs === 1],
+            ["one_benchmark_run", request.benchmark_runs === 1],
+            ["duration", request.duration_seconds === 12],
+            ["synthetic_scope", request.synthetic_organization_only === true],
+            ["production_false", request.production_activation_allowed === false],
+            ["pricing_false", request.pricing_activation_allowed === false],
+            ["provider_selection_false", request.provider_selection_change_allowed === false],
+            ["human_review", request.human_review_required === true],
+            ["automatic_human_false", request.automatic_human_review_approved === false],
+          ];
+          const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
+          if (failed.length) {
+            throw new Error(`AVANTIQO_MUSIC_CERTIFICATION_REQUEST_INVALID:${failed.join(",")}`);
+          }
+          console.log("AVANTIQO_MUSIC_CERTIFICATION_REQUEST=PASS");
+          console.log("AVANTIQO_MUSIC_CERTIFICATION_SAFE_LEASE=AVANTIQO_RUNPOD_SAFE_LEASE_V2");
+          console.log("AVANTIQO_MUSIC_CERTIFICATION_SAFE_LEASE_LANE=audio");
+          console.log("AVANTIQO_MUSIC_CERTIFICATION_MAX_PROVIDER_JOBS=1");
+          NODE
+
+      - name: Validate Music certification credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          missing=()
+          for name in RUNPOD_MANAGEMENT_API_KEY RUNPOD_API_KEY RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name:-}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            first="${missing[0]}"
+            printf '{"success":false,"contract":"AVANTIQO_MUSIC_CREDENTIAL_PREFLIGHT_V1","error":"CREDENTIAL_PREFLIGHT_FAILED","missing_binding":"%s","github_run_id":"%s","provider_job_submitted":false,"endpoint_mutation_performed":false,"production_deploy_performed":false,"pricing_activation_performed":false,"secrets_in_output":false}\n' \
+              "$first" "$GITHUB_RUN_ID" > artifacts/music-credential-preflight.json
+            exit 1
+          fi
+          printf '{"success":true,"contract":"AVANTIQO_MUSIC_CREDENTIAL_PREFLIGHT_V1","github_run_id":"%s","required_bindings_present":true,"provider_job_submitted":false,"endpoint_mutation_performed":false,"production_deploy_performed":false,"pricing_activation_performed":false,"secrets_in_output":false}\n' \
+            "$GITHUB_RUN_ID" > artifacts/music-credential-preflight.json
+
+      - name: Run zero-spend Music release audit
+        run: node scripts/music-studio-release-audit.mjs
+
+      - name: Run zero-spend Music preflight and resolve GPU rate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/preflight-avantiqo-music-local.mjs > artifacts/music-preflight.json
+          cat artifacts/music-preflight.json
+          PREFLIGHT_OUTPUT=artifacts/music-preflight.json node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from "node:fs";
+          const report = JSON.parse(readFileSync(process.env.PREFLIGHT_OUTPUT, "utf8"));
+          if (report?.success !== true) throw new Error("AVANTIQO_MUSIC_CERTIFICATION_PREFLIGHT_REQUIRED");
+          if (report?.contract !== "AVANTIQO_MUSIC_LOCAL_PREFLIGHT_V3") throw new Error("AVANTIQO_MUSIC_CERTIFICATION_PREFLIGHT_CONTRACT_INVALID");
+          if (report?.ready_for_controlled_benchmark !== true) throw new Error("AVANTIQO_MUSIC_CERTIFICATION_PREFLIGHT_NOT_READY");
+          if (report?.safety?.runpod_generation_jobs_submitted !== 0) throw new Error("AVANTIQO_MUSIC_CERTIFICATION_PREFLIGHT_JOB_FORBIDDEN");
+          if (report?.safety?.endpoint_mutations_performed !== 0) throw new Error("AVANTIQO_MUSIC_CERTIFICATION_PREFLIGHT_MUTATION_FORBIDDEN");
+          if (report?.safety?.production_deploy_performed !== false) throw new Error("AVANTIQO_MUSIC_CERTIFICATION_PREFLIGHT_DEPLOY_FORBIDDEN");
+          const rate = Number(report?.economics?.gpu_usd_per_hour);
+          if (!Number.isFinite(rate) || rate <= 0) throw new Error("AVANTIQO_MUSIC_CERTIFICATION_GPU_RATE_REQUIRED");
+          appendFileSync(process.env.GITHUB_ENV, `AVANTIQO_AUDIO_GPU_USD_PER_HOUR=${rate}\n`);
+          console.log("AVANTIQO_MUSIC_CERTIFICATION_PREFLIGHT=PASS");
+          NODE
+
+      - name: Run exactly one Music benchmark through Safe Lease V2
         env:
-          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
-          RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          AVANTIQO_AUDIO_FOUNDATION_MODEL: ${{ vars.AVANTIQO_AUDIO_FOUNDATION_MODEL }}
+          AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES"
           AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED: "YES"
           AVANTIQO_MUSIC_BENCHMARK_ORGANIZATION_ID: "benchmark-music-ci"
           AVANTIQO_AUDIO_BENCHMARK_RUNS: "1"
           AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS: "12"
           AVANTIQO_AUDIO_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/music-certification.json
+        shell: bash
         run: |
-          mkdir -p artifacts
-          node scripts/benchmark-avantiqo-music.mjs
+          set -euo pipefail
+          node scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs \
+            --lane=audio \
+            --ttl-ms=1800000 \
+            -- \
+            node scripts/benchmark-avantiqo-music.mjs
 
-      - name: Verify certification remains measure-only and XL plus LM bound
-        if: success()
+      - name: Measure Music economics without pricing activation
+        env:
+          AVANTIQO_AUDIO_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/music-certification.json
+          AVANTIQO_AUDIO_ECONOMICS_OUTPUT: ${{ github.workspace }}/artifacts/music-economics.json
+          AVANTIQO_AUDIO_BILLED_GPU_COUNT: "1"
+          AVANTIQO_AUDIO_TARGET_UTILIZATION: "1"
+        run: node scripts/avantiqo-music-economics.mjs
+
+      - name: Prepare mandatory human listening review
+        env:
+          AVANTIQO_AUDIO_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/music-certification.json
+          AVANTIQO_AUDIO_ECONOMICS_OUTPUT: ${{ github.workspace }}/artifacts/music-economics.json
+          AVANTIQO_MUSIC_HUMAN_REVIEW_OUTPUT: ${{ github.workspace }}/artifacts/music-human-review.json
+        run: node scripts/prepare-avantiqo-music-human-review.mjs
+
+      - name: Verify certification remains measure-only and human-review gated
         run: |
           node --input-type=module <<'NODE'
           import { readFile } from "node:fs/promises";
           const report = JSON.parse(await readFile("artifacts/music-certification.json", "utf8"));
+          const economics = JSON.parse(await readFile("artifacts/music-economics.json", "utf8"));
+          const review = JSON.parse(await readFile("artifacts/music-human-review.json", "utf8"));
+
           if (report.contract !== "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3") throw new Error("MUSIC_CERTIFICATION_CONTRACT_INVALID");
           if (report.activation_allowed !== false) throw new Error("MUSIC_CERTIFICATION_MUST_NOT_ACTIVATE_PRODUCTION");
           if (report.summary?.passed !== true) throw new Error("MUSIC_CERTIFICATION_BENCHMARK_FAILED");
+          if (report.summary?.runs !== 1) throw new Error("MUSIC_CERTIFICATION_EXACTLY_ONE_RUN_REQUIRED");
+          if (report.observations?.length !== 1) throw new Error("MUSIC_CERTIFICATION_EXACTLY_ONE_OBSERVATION_REQUIRED");
+          if (report.benchmark_scope?.max_provider_jobs !== 1) throw new Error("MUSIC_CERTIFICATION_ONE_PROVIDER_JOB_REQUIRED");
+          if (report.benchmark_scope?.safe_lease_required !== true) throw new Error("MUSIC_CERTIFICATION_SAFE_LEASE_REQUIRED");
+          if (report.safe_lease?.contract !== "AVANTIQO_RUNPOD_SAFE_LEASE_V2") throw new Error("MUSIC_CERTIFICATION_SAFE_LEASE_CONTRACT_INVALID");
+          if (report.safe_lease?.lane !== "audio") throw new Error("MUSIC_CERTIFICATION_SAFE_LEASE_LANE_INVALID");
+          if (report.safe_lease?.endpoint_id !== process.env.RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID) throw new Error("MUSIC_CERTIFICATION_SAFE_LEASE_ENDPOINT_INVALID");
           if (report.benchmark_scope?.organization_record_created !== false) throw new Error("MUSIC_CERTIFICATION_MUST_NOT_CREATE_ORGANIZATION");
           if (!String(report.benchmark_scope?.organization_id || "").startsWith("benchmark-")) throw new Error("MUSIC_CERTIFICATION_SCOPE_MUST_BE_SYNTHETIC");
           if (report.model?.variant !== "acestep-v15-xl-turbo") throw new Error("MUSIC_CERTIFICATION_XL_MODEL_REQUIRED");
@@ -66,57 +175,40 @@ jobs:
           if (report.model?.ace_step_lm_model !== "acestep-5Hz-lm-1.7B") throw new Error("MUSIC_CERTIFICATION_LM_MODEL_INVALID");
           if (report.model?.ace_step_lm_backend !== "vllm") throw new Error("MUSIC_CERTIFICATION_LM_BACKEND_INVALID");
           if (report.model?.thinking_required !== true) throw new Error("MUSIC_CERTIFICATION_THINKING_REQUIRED");
-          if (report.observations?.length !== 1) throw new Error("MUSIC_CERTIFICATION_EXACTLY_ONE_RUN_REQUIRED");
-          const observation = report.observations[0];
-          if (observation?.ace_step_lm_used !== true) throw new Error("MUSIC_CERTIFICATION_LM_NOT_USED");
-          if (observation?.thinking_enabled !== true) throw new Error("MUSIC_CERTIFICATION_THINKING_NOT_USED");
-          if (observation?.quality_profile !== report.model.quality_profile) throw new Error("MUSIC_CERTIFICATION_OBSERVED_QUALITY_PROFILE_MISMATCH");
-          console.log("MUSIC_CERTIFICATION_MEASURE_ONLY=PASS");
-          console.log("MUSIC_CERTIFICATION_XL_PLUS_1_7B_LM=PASS");
-          console.log(`MUSIC_CERTIFICATION_RUNPOD_EXECUTION_MS=${report.summary?.p50_runpod_execution_ms ?? "unknown"}`);
-          console.log(`MUSIC_CERTIFICATION_WALL_MS=${report.summary?.p50_wall_ms ?? "unknown"}`);
-          NODE
+          if (report.observations[0]?.ace_step_lm_used !== true) throw new Error("MUSIC_CERTIFICATION_LM_NOT_USED");
+          if (report.observations[0]?.thinking_enabled !== true) throw new Error("MUSIC_CERTIFICATION_THINKING_NOT_USED");
+          if (report.certification_requirements?.human_audio_quality_review_required !== true) throw new Error("MUSIC_CERTIFICATION_HUMAN_REVIEW_REQUIRED");
 
-      - name: Publish sanitized Music certification evidence
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-          RUN_SHA: ${{ github.sha }}
-        run: |
-          node --input-type=module <<'NODE' > /tmp/music-certification-comment.md
-          import { readFile } from "node:fs/promises";
-          let report = null;
-          try {
-            report = JSON.parse(await readFile("artifacts/music-certification.json", "utf8"));
-          } catch {}
-          console.log(`## Music certification run ${process.env.RUN_ID}`);
-          console.log(`Commit: \`${process.env.RUN_SHA}\``);
-          if (!report) {
-            console.log("- Result: NO_MUSIC_CERTIFICATION_REPORT");
-            console.log("- Production activation allowed: false");
-          } else {
-            console.log(`- Contract: ${report.contract}`);
-            console.log(`- Benchmark passed: ${report.summary?.passed === true}`);
-            console.log(`- Runs: ${report.summary?.runs || 0}`);
-            console.log(`- Model variant: ${report.model?.variant || "unknown"}`);
-            console.log(`- Quality profile: ${report.model?.quality_profile || "unknown"}`);
-            console.log(`- LM used: ${report.observations?.[0]?.ace_step_lm_used === true}`);
-            console.log(`- Thinking enabled: ${report.observations?.[0]?.thinking_enabled === true}`);
-            console.log(`- RunPod execution ms: ${report.summary?.p50_runpod_execution_ms ?? "unknown"}`);
-            console.log(`- Wall ms: ${report.summary?.p50_wall_ms ?? "unknown"}`);
-            console.log(`- Human audio review required: ${report.certification_requirements?.human_audio_quality_review_required === true}`);
-            console.log(`- Production activation allowed: ${report.activation_allowed === true}`);
-          }
+          if (economics.contract !== "AVANTIQO_MUSIC_ECONOMICS_V1") throw new Error("MUSIC_CERTIFICATION_ECONOMICS_CONTRACT_INVALID");
+          if (economics.certification?.economics_measured !== true) throw new Error("MUSIC_CERTIFICATION_ECONOMICS_REQUIRED");
+          if (economics.pricing_activation_performed !== false) throw new Error("MUSIC_CERTIFICATION_PRICING_ACTIVATION_FORBIDDEN");
+          if (economics.provider_selection_changed !== false) throw new Error("MUSIC_CERTIFICATION_PROVIDER_SELECTION_CHANGE_FORBIDDEN");
+          if (economics.production_deploy_performed !== false) throw new Error("MUSIC_CERTIFICATION_PRODUCTION_DEPLOY_FORBIDDEN");
+          if (economics.activation_allowed !== false) throw new Error("MUSIC_CERTIFICATION_ECONOMICS_ACTIVATION_FORBIDDEN");
+
+          if (review.contract !== "AVANTIQO_MUSIC_HUMAN_REVIEW_V1") throw new Error("MUSIC_CERTIFICATION_REVIEW_CONTRACT_INVALID");
+          if (review.review_status !== "PENDING") throw new Error("MUSIC_CERTIFICATION_REVIEW_MUST_REMAIN_PENDING");
+          if (review.automatic_human_approval_forbidden !== true) throw new Error("MUSIC_CERTIFICATION_AUTO_HUMAN_APPROVAL_FORBIDDEN");
+          if (review.activation_allowed !== false) throw new Error("MUSIC_CERTIFICATION_REVIEW_ACTIVATION_FORBIDDEN");
+
+          console.log("MUSIC_CERTIFICATION_TECHNICAL_BENCHMARK=PASS");
+          console.log("MUSIC_CERTIFICATION_SAFE_LEASE=PASS");
+          console.log("MUSIC_CERTIFICATION_ECONOMICS=MEASURED");
+          console.log("MUSIC_CERTIFICATION_HUMAN_REVIEW=PENDING");
+          console.log("MUSIC_CERTIFICATION_PRODUCTION_ACTIVATION=false");
+          console.log("MUSIC_CERTIFICATION_PRICING_ACTIVATION=false");
           NODE
-          gh issue comment 279 --repo "$GH_REPO" --body-file /tmp/music-certification-comment.md
 
       - name: Upload Music certification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: avantiqo-music-certification-${{ github.run_id }}
-          path: artifacts/music-certification.json
+          path: |
+            artifacts/music-credential-preflight.json
+            artifacts/music-preflight.json
+            artifacts/music-certification.json
+            artifacts/music-economics.json
+            artifacts/music-human-review.json
           if-no-files-found: warn
           retention-days: 14

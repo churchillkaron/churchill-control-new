@@ -17,6 +17,10 @@ BENCHMARK_LOG="$RUN_ROOT/music-separator-benchmark.log"
 ECONOMICS_OUTPUT="$RUN_ROOT/music-separator-economics.json"
 HUMAN_REVIEW_OUTPUT="$RUN_ROOT/music-separator-human-review.json"
 SUBMISSION_RECEIPT="$RUN_ROOT/music-separator-submission-receipt.json"
+SLOT_STATE_FILE="$RUN_ROOT/music-separator-slot-handoff.json"
+SLOT_ACQUIRE_OUTPUT="$RUN_ROOT/music-separator-slot-acquire.json"
+SLOT_RESTORE_OUTPUT="$RUN_ROOT/music-separator-slot-restore.json"
+MUSIC_SLOT_ACQUIRED=NO
 
 MUSIC_OWNED_PATHS=(
   "services/avantiqo-music-separator-engine"
@@ -28,6 +32,7 @@ MUSIC_OWNED_PATHS=(
   "scripts/prepare-avantiqo-music-separator-human-review.mjs"
   "scripts/preflight-avantiqo-music-separator-runpod-local.mjs"
   "scripts/provision-avantiqo-music-separator-runpod-local.mjs"
+  "scripts/handoff-avantiqo-music-generation-slot-to-separator-local.mjs"
   "audits/results/avantiqo-music-separator-worker-image.json"
   "lib/creative/runtime/engines/MusicEngine.js"
   "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicSeparatorProvider.js"
@@ -113,6 +118,30 @@ NODE
   fi
 }
 
+restore_music_slot() {
+  AVANTIQO_MUSIC_SEPARATOR_SLOT_HANDOFF_APPROVED=YES \
+  AVANTIQO_MUSIC_SEPARATOR_SLOT_STATE_FILE="$SLOT_STATE_FILE" \
+  node scripts/handoff-avantiqo-music-generation-slot-to-separator-local.mjs --restore | tee "$SLOT_RESTORE_OUTPUT"
+}
+
+restore_music_slot_on_exit() {
+  local original_status=$?
+  trap - EXIT
+  if [ "$MUSIC_SLOT_ACQUIRED" = "YES" ]; then
+    set +e
+    restore_music_slot
+    local restore_status=$?
+    set -e
+    if [ "$restore_status" -ne 0 ]; then
+      echo "AVANTIQO_MUSIC_SEPARATOR_SLOT_EMERGENCY_RESTORE=FAIL"
+      echo "AVANTIQO_MUSIC_SEPARATOR_SLOT_STATE_FILE=$SLOT_STATE_FILE"
+      exit 1
+    fi
+    echo "AVANTIQO_MUSIC_SEPARATOR_SLOT_EMERGENCY_RESTORE=PASS"
+  fi
+  exit "$original_status"
+}
+
 require_cmd git "GIT_REQUIRED"
 require_cmd node "NODE_REQUIRED"
 require_cmd ffmpeg "FFMPEG_REQUIRED"
@@ -162,15 +191,22 @@ echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_FIXTURE_RIGHTS_OWNED=true"
 
 echo "AVANTIQO_MUSIC_SEPARATOR_LOCAL_CERTIFICATION_PROVISION=START"
 AVANTIQO_MUSIC_SEPARATOR_PROVISION_APPROVED=YES \
-AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX=1 \
+AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_QUOTA_MODE=YES \
+AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX=0 \
 AVANTIQO_MUSIC_SEPARATOR_RUNPOD_IDLE_TIMEOUT_SECONDS=5 \
 node scripts/provision-avantiqo-music-separator-runpod-local.mjs --apply | tee "$PROVISION_OUTPUT"
 
 node scripts/preflight-avantiqo-music-separator-runpod-local.mjs | tee "$PREFLIGHT_OUTPUT"
 
-# Recheck main immediately before the one permitted provider submission. Unrelated
-# concurrent work is fast-forwarded; any Music-owned change aborts before spend.
+# The separator is deliberately created parked at max=0. Recheck main, then lend
+# exactly one idle capacity slot from the Music generation endpoint to the Music
+# separator. No non-Music endpoint participates in this certification handoff.
 sync_main_before_spend
+AVANTIQO_MUSIC_SEPARATOR_SLOT_HANDOFF_APPROVED=YES \
+AVANTIQO_MUSIC_SEPARATOR_SLOT_STATE_FILE="$SLOT_STATE_FILE" \
+node scripts/handoff-avantiqo-music-generation-slot-to-separator-local.mjs --acquire | tee "$SLOT_ACQUIRE_OUTPUT"
+MUSIC_SLOT_ACQUIRED=YES
+trap restore_music_slot_on_exit EXIT
 
 rm -f "$BENCHMARK_LOG" "$BENCHMARK_OUTPUT"
 set +e
@@ -182,6 +218,20 @@ node scripts/run-avantiqo-music-separator-benchmark-local.mjs 2>&1 | tee "$BENCH
 BENCHMARK_STATUS=${PIPESTATUS[0]}
 set -e
 write_submission_receipt "$BENCHMARK_STATUS"
+
+# Always return the borrowed Music generation slot before economics, review, or
+# surfacing a benchmark failure. Separator remains parked and uncertified.
+set +e
+restore_music_slot
+RESTORE_STATUS=$?
+set -e
+if [ "$RESTORE_STATUS" -ne 0 ]; then
+  fail "MUSIC_SLOT_RESTORE_FAILED:$SLOT_STATE_FILE"
+fi
+MUSIC_SLOT_ACQUIRED=NO
+trap - EXIT
+echo "AVANTIQO_MUSIC_SEPARATOR_SLOT_RESTORE=PASS"
+
 [ "$BENCHMARK_STATUS" -eq 0 ] || fail "CONTROLLED_BENCHMARK_FAILED:exit=$BENCHMARK_STATUS"
 
 AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_OUTPUT="$BENCHMARK_OUTPUT" \

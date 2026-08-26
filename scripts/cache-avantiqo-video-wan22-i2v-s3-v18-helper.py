@@ -20,7 +20,28 @@ HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN"
 PART_SIZE = 64 * 1024 * 1024
 READ_CHUNK_SIZE = 8 * 1024 * 1024
 MAX_HTTP_ATTEMPTS = 8
+MAX_S3_ATTEMPTS = 10
 HTTP_TIMEOUT = (30, 180)
+TRANSIENT_S3_STATUSES = {408, 425, 429, 500, 502, 503, 504, 520, 522, 524}
+TRANSIENT_S3_CODES = {
+    "408",
+    "425",
+    "429",
+    "500",
+    "502",
+    "503",
+    "504",
+    "520",
+    "522",
+    "524",
+    "InternalError",
+    "RequestTimeout",
+    "RequestTimeoutException",
+    "ServiceUnavailable",
+    "SlowDown",
+    "Throttling",
+    "ThrottlingException",
+}
 
 s3 = boto3.client(
     "s3",
@@ -34,37 +55,86 @@ s3 = boto3.client(
         s3={"addressing_style": "path"},
     ),
 )
-s3.head_bucket(Bucket=BUCKET)
 
 
 def model_root(model_id: str) -> str:
     return f"{ROOT}/models--{model_id.replace('/', '--')}"
 
 
+def retry_delay(attempt: int) -> int:
+    return min(30, 2 ** max(0, attempt - 1))
+
+
+def s3_error_details(exc) -> tuple[str, int | None]:
+    response = getattr(exc, "response", {}) or {}
+    code = str((response.get("Error") or {}).get("Code") or "").strip()
+    raw_status = (response.get("ResponseMetadata") or {}).get("HTTPStatusCode")
+    try:
+        status = int(raw_status) if raw_status is not None else None
+    except (TypeError, ValueError):
+        status = None
+    return code, status
+
+
+def transient_s3_error(exc) -> bool:
+    code, status = s3_error_details(exc)
+    return status in TRANSIENT_S3_STATUSES or code in TRANSIENT_S3_CODES
+
+
+def s3_retry(label: str, operation):
+    last_error = None
+    for attempt in range(1, MAX_S3_ATTEMPTS + 1):
+        try:
+            return operation()
+        except Exception as exc:
+            if not transient_s3_error(exc):
+                raise
+            last_error = exc
+            code, status = s3_error_details(exc)
+            if attempt >= MAX_S3_ATTEMPTS:
+                break
+            print(
+                f"AVANTIQO_VIDEO_I2V_V18_S3_RETRY={label}:attempt={attempt + 1}/{MAX_S3_ATTEMPTS}:status={status if status is not None else 'unknown'}:code={code or 'unknown'}",
+                flush=True,
+            )
+            time.sleep(retry_delay(attempt))
+    raise RuntimeError(
+        f"AVANTIQO_VIDEO_I2V_V18_S3_RETRY_EXHAUSTED:{label}:attempts={MAX_S3_ATTEMPTS}"
+    ) from last_error
+
+
+s3_retry("head-bucket", lambda: s3.head_bucket(Bucket=BUCKET))
+
+
 def get_text(key: str) -> str:
-    return s3.get_object(Bucket=BUCKET, Key=key)["Body"].read().decode("utf-8").strip()
+    result = s3_retry(
+        f"get-object:{key.rsplit('/', 1)[-1]}",
+        lambda: s3.get_object(Bucket=BUCKET, Key=key),
+    )
+    return result["Body"].read().decode("utf-8").strip()
 
 
 def head_size(key: str):
     try:
-        return int(s3.head_object(Bucket=BUCKET, Key=key)["ContentLength"])
+        result = s3_retry(
+            f"head-object:{key.rsplit('/', 1)[-1]}",
+            lambda: s3.head_object(Bucket=BUCKET, Key=key),
+        )
+        return int(result["ContentLength"])
     except Exception as exc:
-        response = getattr(exc, "response", {})
-        code = response.get("Error", {}).get("Code", "")
-        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        code, status = s3_error_details(exc)
         if code in {"404", "NoSuchKey", "NotFound"} or status == 404:
             return None
         if code in {"403", "Forbidden", "AccessDenied"} or status == 403:
-            listing = s3.list_objects_v2(Bucket=BUCKET, Prefix=key, MaxKeys=2)
+            listing = s3_retry(
+                f"list-exact:{key.rsplit('/', 1)[-1]}",
+                lambda: s3.list_objects_v2(Bucket=BUCKET, Prefix=key, MaxKeys=2),
+            )
             for item in listing.get("Contents", []):
                 if item.get("Key") == key:
                     return int(item["Size"])
             return None
         raise
-
-
-def retry_delay(attempt: int) -> int:
-    return min(30, 2 ** max(0, attempt - 1))
 
 
 def fetch_exact_range(session, url: str, base_headers: dict, start: int, end: int, total: int, rel: str, part_number: int) -> bytes:
@@ -161,10 +231,16 @@ def fetch_small_file(session, url: str, base_headers: dict, expected: int, rel: 
 def upload_resilient(session, url: str, base_headers: dict, key: str, expected: int, rel: str, index: int, total_files: int) -> None:
     if expected <= PART_SIZE:
         payload = fetch_small_file(session, url, base_headers, expected, rel)
-        s3.put_object(Bucket=BUCKET, Key=key, Body=payload)
+        s3_retry(
+            f"put-small:{rel}",
+            lambda: s3.put_object(Bucket=BUCKET, Key=key, Body=payload),
+        )
         return
 
-    created = s3.create_multipart_upload(Bucket=BUCKET, Key=key)
+    created = s3_retry(
+        f"create-multipart:{rel}",
+        lambda: s3.create_multipart_upload(Bucket=BUCKET, Key=key),
+    )
     upload_id = created.get("UploadId")
     if not upload_id:
         raise RuntimeError(f"AVANTIQO_VIDEO_I2V_V18_MULTIPART_ID_REQUIRED:{rel}")
@@ -184,12 +260,15 @@ def upload_resilient(session, url: str, base_headers: dict, key: str, expected: 
                 rel,
                 part_number,
             )
-            uploaded = s3.upload_part(
-                Bucket=BUCKET,
-                Key=key,
-                UploadId=upload_id,
-                PartNumber=part_number,
-                Body=payload,
+            uploaded = s3_retry(
+                f"upload-part:{index}/{total_files}:{rel}:part={part_number}/{part_count}",
+                lambda: s3.upload_part(
+                    Bucket=BUCKET,
+                    Key=key,
+                    UploadId=upload_id,
+                    PartNumber=part_number,
+                    Body=payload,
+                ),
             )
             etag = uploaded.get("ETag")
             if not etag:
@@ -201,18 +280,24 @@ def upload_resilient(session, url: str, base_headers: dict, key: str, expected: 
                 f"AVANTIQO_VIDEO_I2V_V18_PART_UPLOADED={index}/{total_files}:{rel}:part={part_number}/{part_count}:bytes={end - start + 1}",
                 flush=True,
             )
-        s3.complete_multipart_upload(
-            Bucket=BUCKET,
-            Key=key,
-            UploadId=upload_id,
-            MultipartUpload={"Parts": parts},
-        )
-    except Exception:
-        try:
-            s3.abort_multipart_upload(
+        s3_retry(
+            f"complete-multipart:{rel}",
+            lambda: s3.complete_multipart_upload(
                 Bucket=BUCKET,
                 Key=key,
                 UploadId=upload_id,
+                MultipartUpload={"Parts": parts},
+            ),
+        )
+    except Exception:
+        try:
+            s3_retry(
+                f"abort-multipart:{rel}",
+                lambda: s3.abort_multipart_upload(
+                    Bucket=BUCKET,
+                    Key=key,
+                    UploadId=upload_id,
+                ),
             )
         except Exception:
             pass
@@ -232,7 +317,10 @@ root = model_root(MODEL)
 snapshot_prefix = f"{root}/snapshots/{revision}"
 marker_key = f"{snapshot_prefix}/.avantiqo-video-cache-complete.json"
 try:
-    s3.delete_object(Bucket=BUCKET, Key=marker_key)
+    s3_retry(
+        "delete-stale-completion-marker",
+        lambda: s3.delete_object(Bucket=BUCKET, Key=marker_key),
+    )
 except Exception:
     pass
 
@@ -295,11 +383,14 @@ for sibling in siblings:
             f"AVANTIQO_VIDEO_I2V_V18_FINAL_MANIFEST_VERIFY_FAILED:{rel}:expected={expected}:actual={actual}"
         )
 
-s3.put_object(
-    Bucket=BUCKET,
-    Key=f"{root}/refs/main",
-    Body=revision.encode("utf-8"),
-    ContentType="text/plain",
+s3_retry(
+    "publish-ref-main",
+    lambda: s3.put_object(
+        Bucket=BUCKET,
+        Key=f"{root}/refs/main",
+        Body=revision.encode("utf-8"),
+        ContentType="text/plain",
+    ),
 )
 marker = {
     "contract": CONTRACT,
@@ -307,11 +398,14 @@ marker = {
     "snapshot_revision": revision,
     "snapshot_download_completed": True,
 }
-s3.put_object(
-    Bucket=BUCKET,
-    Key=marker_key,
-    Body=json.dumps(marker, separators=(",", ":"), sort_keys=True).encode("utf-8"),
-    ContentType="application/json",
+s3_retry(
+    "publish-completion-marker",
+    lambda: s3.put_object(
+        Bucket=BUCKET,
+        Key=marker_key,
+        Body=json.dumps(marker, separators=(",", ":"), sort_keys=True).encode("utf-8"),
+        ContentType="application/json",
+    ),
 )
 verified_marker = json.loads(get_text(marker_key))
 if (
@@ -333,9 +427,10 @@ print(
             "files_uploaded": uploaded,
             "files_skipped_existing": skipped,
             "uploaded_bytes_this_run": uploaded_bytes,
-            "transfer_contract": "RANGED_MULTIPART_64M_RETRY_V1",
+            "transfer_contract": "RANGED_MULTIPART_64M_DUAL_RETRY_V2",
             "multipart_part_bytes": PART_SIZE,
             "http_attempts_per_part": MAX_HTTP_ATTEMPTS,
+            "s3_attempts_per_operation": MAX_S3_ATTEMPTS,
             "t2v_preserved_untouched": True,
             "t2v_revalidation_deferred_to_runtime_probe": True,
             "completion_marker_published_last": True,

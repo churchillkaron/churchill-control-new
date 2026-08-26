@@ -14,6 +14,7 @@ const TESTS = [
   "tests/avantiqo-voice-owned-engine.test.mjs",
   "tests/avantiqo-voice-safe-lease-v2.test.mjs",
   "tests/avantiqo-voice-realtime-owned.test.mjs",
+  "tests/avantiqo-voice-realtime-relay.test.mjs",
   "tests/avantiqo-voice-software-certification.test.mjs",
 ];
 
@@ -66,10 +67,13 @@ try {
     generation_submitted: false,
     production_deploy_performed: false,
     production_migration_applied: false,
+    production_function_deployed: false,
     engine_proof_performed: false,
     recorded_reference_engine_certified: false,
     realtime_streaming_implemented: true,
     realtime_streaming_certified: false,
+    realtime_relay_implemented: true,
+    realtime_relay_deployed: false,
     realtime_relay_required: true,
     thai_synthesis: "FAIL_CLOSED_UNTIL_CERTIFIED",
   }, null, 2));
@@ -83,6 +87,7 @@ try {
     generation_submitted: false,
     production_deploy_performed: false,
     production_migration_applied: false,
+    production_function_deployed: false,
     engine_proof_performed: false,
   }, null, 2));
   process.exitCode = Number(error?.exitCode) || 1;

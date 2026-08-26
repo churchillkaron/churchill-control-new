@@ -289,8 +289,8 @@ try {
     payload: { cadence: "WEEKLY", from, to: weeklyTo, limit: 100 },
   });
   assert.equal(weekly.cadence, "WEEKLY");
-  assert.equal(weekly.window.from, from);
-  assert.equal(weekly.window.to, weeklyTo);
+  assert.equal(Date.parse(weekly.window.from), Date.parse(from));
+  assert.equal(Date.parse(weekly.window.to), Date.parse(weeklyTo));
   assert.ok(weekly.executive_desk.absence_coverage.relevant.length >= 1);
   assert.equal(weekly.source_status.complete, true);
 

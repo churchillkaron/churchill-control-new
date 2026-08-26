@@ -1,6 +1,5 @@
 import process from "node:process";
 import { register } from "node:module";
-import { createClient } from "@supabase/supabase-js";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 register("./next-alias-loader.mjs", import.meta.url);
@@ -42,19 +41,11 @@ function event(name, details = {}) {
 async function disableCertificationService() {
   if (!ORGANIZATION_ID) return null;
 
-  const supabaseUrl = text(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const serviceRoleKey = text(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!text(process.env.NEXT_PUBLIC_SUPABASE_URL) || !text(process.env.SUPABASE_SERVICE_ROLE_KEY)) {
     throw new Error("AVANTIQO_CODE_PLANNER_CERT_SERVICE_DISABLE_CREDENTIAL_REQUIRED");
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
+  const { supabaseAdmin: supabase } = await import("../lib/shared/supabase/admin.js");
 
   const { data, error } = await supabase
     .from("organization_services")

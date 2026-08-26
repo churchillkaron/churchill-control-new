@@ -60,8 +60,8 @@ schema_paths = []
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
 enabled = true
-# Specifies an ordered list of seed files to load during db reset.
-# Supports glob patterns relative to supabase directory: "./seeds/*.sql"
+# Specifies an ordered list of seed files that describe your database.
+# Supports glob patterns relative to supabase directory: "./schemas/*.sql"
 sql_paths = ["./seed.sql"]
 
 [db.network_restrictions]
@@ -87,7 +87,7 @@ enabled = true
 
 [studio]
 enabled = true
-# Port to use for Supabase Studio.
+# Port to use for the Supabase Studio.
 port = 54323
 # External URL of the API server that frontend connects to.
 api_url = "http://127.0.0.1"
@@ -149,14 +149,13 @@ max_indexes = 5
 
 [auth]
 enabled = true
-# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails.
+# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used in emails.
 site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = ["https://127.0.0.1:3000"]
-# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
+# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (one week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
 # jwt_issuer = ""
@@ -194,7 +193,7 @@ password_requirements = ""
 email_sent = 2
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
-# Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
+# Number of anonymous sign-ins that can be made in a 5 minute interval per IP address.
 anonymous_users = 30
 # Number of sessions that can be refreshed in a 5 minute interval per IP address.
 token_refresh = 150
@@ -214,8 +213,7 @@ web3 = 30
 [auth.email]
 # Allow/disallow new user signups via email to your project.
 enable_signup = true
-# If enabled, a user will be required to confirm any email change on both the old, and new email
-# addresses. If disabled, only the new email is required to confirm.
+# If enabled, a user will be required to confirm any email change on both the old, and new email addresses.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
 enable_confirmations = false
@@ -366,6 +364,9 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+[functions.avantiqo-voice-realtime-relay]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
@@ -394,9 +395,9 @@ orioledb_version = ""
 s3_host = "env(S3_HOST)"
 # Configures S3 bucket region, eg. us-east-1
 s3_region = "env(S3_REGION)"
-# Configures AWS_ACCESS_KEY_ID for S3 bucket
+# Configures AWS_ACCESS_KEY_ID for S3 buckets
 s3_access_key = "env(S3_ACCESS_KEY)"
-# Configures AWS_SECRET_ACCESS_KEY for S3 bucket
+# Configures AWS_SECRET_ACCESS_KEY for S3 buckets
 s3_secret_key = "env(S3_SECRET_KEY)"
 
 # [experimental.pgdelta]

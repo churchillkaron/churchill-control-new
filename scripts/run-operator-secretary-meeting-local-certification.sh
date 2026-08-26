@@ -166,6 +166,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-cancellation-normalization-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-correspondence-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-follow-through-cancellation-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-travel-coordination-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

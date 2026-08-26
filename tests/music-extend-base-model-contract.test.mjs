@@ -12,6 +12,8 @@ const [
   preflight,
   extendProvider,
   audioProvider,
+  benchmark,
+  launcher,
 ] = await Promise.all([
   read("config/avantiqo-music-extend-engine.json"),
   read("config/avantiqo-runpod-safe-lease-policy.json"),
@@ -22,6 +24,8 @@ const [
   read("scripts/preflight-avantiqo-music-extend-runpod-local.mjs"),
   read("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicExtendProvider.js"),
   read("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js"),
+  read("scripts/benchmark-avantiqo-music-extend.mjs"),
+  read("scripts/run-avantiqo-music-extend-controlled-benchmark-local.mjs"),
 ]);
 
 const engine = JSON.parse(engineConfigRaw);
@@ -123,5 +127,29 @@ assert.match(audioProvider, /AVANTIQO_MUSIC_EXTEND_JOB_PREFIX/);
 assert.match(audioProvider, /isExtendCapability/);
 assert.match(audioProvider, /return AvantiqoMusicExtendProvider\.execute\(input\)/);
 assert.match(audioProvider, /return AvantiqoMusicExtendProvider\.getStatus\(input\)/);
+
+assert.match(benchmark, /AVANTIQO_MUSIC_EXTEND_BENCHMARK_SPEND_APPROVED/);
+assert.match(benchmark, /AVANTIQO_MUSIC_EXTEND_SOURCE_RIGHTS_APPROVED/);
+assert.match(benchmark, /SAFE_LEASE_LANE = "music-extend"/);
+assert.match(benchmark, /AVANTIQO_MUSIC_EXTEND_ONE_JOB_REQUIRED/);
+assert.match(benchmark, /max_provider_jobs: 1/);
+assert.match(benchmark, /benchmark_runs: 1/);
+assert.match(benchmark, /human_review_status: "PENDING"/);
+assert.match(benchmark, /arrangement_completion_tested: true/);
+assert.match(benchmark, /temporal_extension_tested: false/);
+assert.match(benchmark, /temporal_extension_proven: false/);
+assert.match(benchmark, /production_activation_allowed: false/);
+assert.match(benchmark, /pricing_activation_allowed: false/);
+
+assert.match(launcher, /preflight\(\)/);
+assert.match(launcher, /approved\("AVANTIQO_MUSIC_EXTEND_BENCHMARK_SPEND_APPROVED"\)/);
+assert.match(launcher, /approved\("AVANTIQO_MUSIC_EXTEND_SOURCE_RIGHTS_APPROVED"\)/);
+assert.match(launcher, /"--lane=music-extend"/);
+assert.match(launcher, /AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES"/);
+assert.match(launcher, /AVANTIQO_MUSIC_EXTEND_BENCHMARK_RUNS: "1"/);
+assert.match(launcher, /AVANTIQO_MUSIC_EXTEND_CONTROLLED_MAX_PROVIDER_JOBS=1/);
+assert.match(launcher, /AVANTIQO_MUSIC_EXTEND_CONTROLLED_HUMAN_REVIEW=PENDING/);
+assert.match(launcher, /AVANTIQO_MUSIC_EXTEND_CONTROLLED_PRODUCTION_ACTIVATION=false/);
+assert.match(launcher, /AVANTIQO_MUSIC_EXTEND_CONTROLLED_PRICING_ACTIVATION=false/);
 
 console.log("MUSIC_EXTEND_BASE_MODEL_CONTRACT=PASS");

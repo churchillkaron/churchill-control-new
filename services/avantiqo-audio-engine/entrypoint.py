@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(os.getenv("ACESTEP_PROJECT_ROOT", "/opt/ace-step")).resolve(
 CHECKPOINT_DIR = Path(
     os.getenv("ACESTEP_CHECKPOINTS_DIR", str(PROJECT_ROOT / "checkpoints"))
 ).resolve()
-HANDLER_PATH = Path("/app/handler.py").resolve()
+HANDLER_PATH = Path("/app/handler_v2.py").resolve()
 
 
 def _repair_partial_dit_cache() -> dict[str, object]:

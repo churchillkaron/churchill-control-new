@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import {
   acquireVoiceRunpodDistributedLease,
   isVoiceRunpodLane,
+  listActiveVoiceRunpodDistributedLeases,
   releaseVoiceRunpodDistributedLease,
 } from "./avantiqo-voice-runpod-distributed-lease.mjs";
 
@@ -158,8 +159,14 @@ async function waitForZero(endpointId, managementKey, queueKey, timeoutMs, pollM
   throw new Error(`${CONTRACT}_RELEASE_TIMEOUT:${JSON.stringify(latest)}`);
 }
 async function enforce(snapshotValue, policy, targetId, managementKey) {
-  const currentLeases = await leases();
-  const leaseIds = new Set(currentLeases.map((lease) => text(lease.endpoint_id)));
+  const [currentLeases, distributedVoiceLeases] = await Promise.all([
+    leases(),
+    listActiveVoiceRunpodDistributedLeases(),
+  ]);
+  const leaseIds = new Set([
+    ...currentLeases.map((lease) => text(lease.endpoint_id)),
+    ...distributedVoiceLeases.map((lease) => text(lease.endpoint_id)),
+  ].filter(Boolean));
   const badMin = snapshotValue.rows.filter((row) => row.workers_min !== 0);
   if (badMin.length) throw new Error(`${CONTRACT}_WORKERS_MIN_ZERO_REQUIRED:${badMin.map((row) => row.name).join(",")}`);
   const badMax = snapshotValue.rows.filter((row) => ![0, 1].includes(row.workers_max));
@@ -178,7 +185,7 @@ async function enforce(snapshotValue, policy, targetId, managementKey) {
   if (target.health_error) throw new Error(`${CONTRACT}_TARGET_HEALTH_UNKNOWN`);
   if (target.jobs > finite(policy.max_jobs_per_lease, 1)) throw new Error(`${CONTRACT}_TARGET_JOB_LIMIT:${target.jobs}`);
   if (target.hourly_cost_usd > finite(policy.default_max_worker_hourly_usd, 4)) throw new Error(`${CONTRACT}_WORKER_HOURLY_LIMIT:${target.hourly_cost_usd}`);
-  return { refreshed, currentLeases, target };
+  return { refreshed, currentLeases, distributedVoiceLeases, target };
 }
 
 async function runChild(command, lease, managementKey, queueKey, policy) {
@@ -206,7 +213,7 @@ async function runChild(command, lease, managementKey, queueKey, policy) {
     } else {
       idleWorkerSince = null;
     }
-    console.log(`${CONTRACT}_WATCHDOG=${JSON.stringify({ elapsed_seconds: Math.floor((Date.now() - acquired) / 1000), lane: lease.lane, open_leases: state.currentLeases.length, target_jobs: state.target.jobs, target_hourly_cost_usd: state.target.hourly_cost_usd, account_hourly_cost_usd: state.refreshed.hourly_cost_usd })}`);
+    console.log(`${CONTRACT}_WATCHDOG=${JSON.stringify({ elapsed_seconds: Math.floor((Date.now() - acquired) / 1000), lane: lease.lane, open_leases: state.currentLeases.length + state.distributedVoiceLeases.length, target_jobs: state.target.jobs, target_hourly_cost_usd: state.target.hourly_cost_usd, account_hourly_cost_usd: state.refreshed.hourly_cost_usd })}`);
     await sleep(finite(policy.watchdog_poll_ms, 5000));
   }
   if (exit.signal) throw new Error(`${CONTRACT}_CHILD_SIGNAL:${exit.signal}`);
@@ -226,6 +233,7 @@ const queueKey = text(process.env.RUNPOD_API_KEY) || managementKey;
 let targetId = null;
 let lease = null;
 let distributedVoiceLease = null;
+let endpointOpened = false;
 let failure = null;
 let childSucceeded = false;
 let release = null;
@@ -254,6 +262,7 @@ try {
     distributedVoiceLease?.expires_at || null,
   );
   await patch(targetId, 1, managementKey);
+  endpointOpened = true;
   await enforce(await snapshot(managementKey, queueKey), policy, targetId, managementKey);
   console.log(`${CONTRACT}_ACQUIRED=${JSON.stringify({ lane: args.lane, endpoint_name: laneName, workers_min: 0, workers_max: 1, expires_at: lease.expires_at, voice_distributed_lease: Boolean(distributedVoiceLease) })}`);
   await runChild(args.command, lease, managementKey, queueKey, policy);
@@ -261,7 +270,7 @@ try {
 } catch (error) {
   failure = error;
 } finally {
-  if (targetId) {
+  if (targetId && endpointOpened) {
     const purgeBefore = await purge(targetId, queueKey);
     try { await patch(targetId, 0, managementKey); } catch (error) { if (!failure) failure = error; }
     const purgeAfter = await purge(targetId, queueKey);
@@ -272,6 +281,11 @@ try {
       release = { success: false, error: redact(error.message).slice(0, 1200) };
       if (!failure) failure = error;
     }
+  } else if (targetId) {
+    release = { success: true, endpoint_was_not_opened: true };
+  }
+
+  if (targetId && lease) {
     await releaseLease(targetId);
   }
 

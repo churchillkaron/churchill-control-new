@@ -31,7 +31,7 @@ test("frontier research is mechanism-first rather than implementation-copy-first
   assert.match(bridgeSource, /adjacent science\/engineering/i);
   assert.match(bridgeSource, /falsifiable hypotheses/i);
   assert.match(bridgeSource, /discriminating experiments/i);
-  assert.match(capabilitySource, /implementation.*answer/i);
+  assert.match(capabilitySource, /instead of treating existing code as the answer/i);
 });
 
 test("owned mechanism research derives hypotheses experiments and alternatives", () => {

@@ -77,6 +77,9 @@
     },
     "app/api/internal/secretary/jobs/process/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/secretary/meeting-coordination/process/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -194,6 +197,10 @@
     },
     {
       "path": "/api/internal/secretary/jobs/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/secretary/meeting-coordination/process",
       "schedule": "* * * * *"
     },
     {

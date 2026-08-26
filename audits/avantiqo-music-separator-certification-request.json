@@ -11,5 +11,7 @@
   "provider_spend_approved": true,
   "production_activation_approved": false,
   "pricing_activation_approved": false,
-  "automatic_human_review_approved": false
+  "automatic_human_review_approved": false,
+  "retry": 2,
+  "retry_reason": "CI_DEPENDENCY_AND_CREDENTIAL_PREFLIGHT_REPAIR"
 }

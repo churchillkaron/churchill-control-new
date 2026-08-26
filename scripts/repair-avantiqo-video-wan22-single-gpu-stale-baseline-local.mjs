@@ -4,9 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const BASE_REPAIR = "scripts/repair-avantiqo-video-wan22-stalled-active-probe-v2-local.mjs";
-const CONTRACT = "AVANTIQO_VIDEO_WAN22_SINGLE_GPU_STALE_BASELINE_RECOVERY_V1";
+const CONTRACT = "AVANTIQO_VIDEO_WAN22_SINGLE_GPU_STALE_BASELINE_RECOVERY_V2";
 const OLD_TEMP_POOL = 'const EXPECTED_TEMP_POOL = ["NVIDIA B200", ...ORIGINAL_BLACKWELL_POOL].sort();';
 const NEW_TEMP_POOL = 'const EXPECTED_TEMP_POOL = ["NVIDIA B200"];';
+const SCOPED_PATHS = [
+  BASE_REPAIR,
+  "scripts/repair-avantiqo-video-wan22-single-gpu-stale-baseline-local.mjs",
+  "audits/results/avantiqo-video-worker-image.json",
+  "audits/results/avantiqo-image-v9-certification-lock.json",
+];
 
 const text = (value) => String(value ?? "").trim();
 
@@ -23,33 +29,96 @@ function shell(name, args, code) {
   return text(result.stdout);
 }
 
-function requireCurrentMain() {
+function requireScopedMain() {
   shell("git", ["fetch", "origin", "main"], "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_FETCH_MAIN_FAILED");
   const branch = shell("git", ["branch", "--show-current"], "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_BRANCH_READ_FAILED");
   if (branch !== "main") throw new Error(`AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_MAIN_REQUIRED:${branch || "DETACHED"}`);
   const head = shell("git", ["rev-parse", "HEAD"], "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_HEAD_READ_FAILED");
   const remote = shell("git", ["rev-parse", "origin/main"], "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_REMOTE_READ_FAILED");
-  if (head !== remote) throw new Error(`AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_MAIN_NOT_CURRENT:head=${head}:origin=${remote}`);
+  const counts = shell(
+    "git",
+    ["rev-list", "--left-right", "--count", `${head}...${remote}`],
+    "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_MAIN_RELATION_FAILED",
+  ).split(/\s+/).map(Number);
+  const localOnly = Number(counts[0] || 0);
+  if (localOnly !== 0) {
+    throw new Error(`AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_MAIN_DIVERGED:head=${head}:origin=${remote}:local_only=${localOnly}`);
+  }
+  if (head !== remote) {
+    const scopedChanges = shell(
+      "git",
+      ["diff", "--name-only", head, remote, "--", ...SCOPED_PATHS],
+      "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_SCOPED_DIFF_FAILED",
+    );
+    if (scopedChanges) {
+      throw new Error(`AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_VIDEO_INPUTS_CHANGED_ON_MAIN:${scopedChanges.replace(/\n/g, ",")}`);
+    }
+    console.log(`AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_UNRELATED_MAIN_MOVEMENT_TOLERATED=true head=${head} origin=${remote}`);
+  }
   const dirty = shell(
     "git",
-    ["status", "--porcelain", "--untracked-files=no", "--", BASE_REPAIR],
-    "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_BASE_STATUS_FAILED",
+    ["status", "--porcelain", "--untracked-files=no", "--", ...SCOPED_PATHS],
+    "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_SOURCE_STATUS_FAILED",
   );
-  if (dirty) throw new Error("AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_BASE_REPAIR_HAS_LOCAL_CHANGES");
+  if (dirty) throw new Error("AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_SCOPED_FILES_HAVE_LOCAL_CHANGES");
   return head;
 }
+
+function replaceExactlyOnce(source, before, after, label) {
+  const count = source.split(before).length - 1;
+  if (count !== 1) throw new Error(`${label}_ANCHOR_COUNT:${count}`);
+  return source.replace(before, after);
+}
+
+const OLD_BASE_REQUIRE_MAIN = [
+  "function requireCurrentMain() {",
+  "  shell(\"git\", [\"fetch\", \"origin\", \"main\"], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_FETCH_FAILED\");",
+  "  const branch = shell(\"git\", [\"branch\", \"--show-current\"], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_BRANCH_FAILED\");",
+  "  if (branch !== \"main\") throw new Error(`AVANTIQO_VIDEO_STALLED_PROBE_V2_MAIN_REQUIRED:${branch || \"DETACHED\"}`);",
+  "  const head = shell(\"git\", [\"rev-parse\", \"HEAD\"], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_HEAD_FAILED\");",
+  "  const remote = shell(\"git\", [\"rev-parse\", \"origin/main\"], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_REMOTE_FAILED\");",
+  "  if (head !== remote) throw new Error(`AVANTIQO_VIDEO_STALLED_PROBE_V2_MAIN_NOT_CURRENT:head=${head}:origin=${remote}`);",
+  "  return head;",
+  "}",
+].join("\n");
+
+const NEW_BASE_REQUIRE_MAIN = [
+  "function requireCurrentMain() {",
+  "  shell(\"git\", [\"fetch\", \"origin\", \"main\"], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_FETCH_FAILED\");",
+  "  const branch = shell(\"git\", [\"branch\", \"--show-current\"], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_BRANCH_FAILED\");",
+  "  if (branch !== \"main\") throw new Error(`AVANTIQO_VIDEO_STALLED_PROBE_V2_MAIN_REQUIRED:${branch || \"DETACHED\"}`);",
+  "  const head = shell(\"git\", [\"rev-parse\", \"HEAD\"], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_HEAD_FAILED\");",
+  "  const remote = shell(\"git\", [\"rev-parse\", \"origin/main\"], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_REMOTE_FAILED\");",
+  "  const relation = shell(\"git\", [\"rev-list\", \"--left-right\", \"--count\", `${head}...${remote}`], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_MAIN_RELATION_FAILED\").split(/\\s+/).map(Number);",
+  "  if (Number(relation[0] || 0) !== 0) throw new Error(`AVANTIQO_VIDEO_STALLED_PROBE_V2_MAIN_DIVERGED:head=${head}:origin=${remote}`);",
+  "  if (head !== remote) {",
+  "    const scopedPaths = [VIDEO_EVIDENCE_PATH, IMAGE_LOCK_PATH, \"scripts/repair-avantiqo-video-wan22-stalled-active-probe-v2-local.mjs\", \"scripts/repair-avantiqo-video-wan22-single-gpu-stale-baseline-local.mjs\"];",
+  "    const changed = shell(\"git\", [\"diff\", \"--name-only\", head, remote, \"--\", ...scopedPaths], \"AVANTIQO_VIDEO_STALLED_PROBE_V2_SCOPED_DIFF_FAILED\");",
+  "    if (changed) throw new Error(`AVANTIQO_VIDEO_STALLED_PROBE_V2_VIDEO_INPUTS_CHANGED_ON_MAIN:${changed.replace(/\\n/g, \",\")}`);",
+  "    console.log(`AVANTIQO_VIDEO_STALLED_PROBE_V2_UNRELATED_MAIN_MOVEMENT_TOLERATED=true head=${head} origin=${remote}`);",
+  "  }",
+  "  return head;",
+  "}",
+].join("\n");
 
 if (Number(process.versions.node.split(".")[0]) < 24) {
   throw new Error(`AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_NODE24_REQUIRED:${process.version}`);
 }
 
-const mainSha = requireCurrentMain();
+const mainSha = requireScopedMain();
 const source = await readFile(BASE_REPAIR, "utf8");
-const count = source.split(OLD_TEMP_POOL).length - 1;
-if (count !== 1) {
-  throw new Error(`AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_TEMP_POOL_ANCHOR_COUNT:${count}`);
-}
-const patched = source.replace(OLD_TEMP_POOL, NEW_TEMP_POOL);
+let patched = replaceExactlyOnce(
+  source,
+  OLD_TEMP_POOL,
+  NEW_TEMP_POOL,
+  "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_TEMP_POOL",
+);
+patched = replaceExactlyOnce(
+  patched,
+  OLD_BASE_REQUIRE_MAIN,
+  NEW_BASE_REQUIRE_MAIN,
+  "AVANTIQO_VIDEO_SINGLE_GPU_RECOVERY_MAIN_GUARD",
+);
 const dir = await mkdtemp(join(tmpdir(), "avantiqo-video-single-gpu-recovery-"));
 const path = join(dir, "repair-avantiqo-video-wan22-single-gpu-stale-baseline-compat.mjs");
 
@@ -77,6 +146,11 @@ try {
     },
     required_terminal_job: true,
     required_zero_queue_and_workers: true,
+    main_movement_policy: {
+      unrelated_main_commits_tolerated: true,
+      video_or_image_safety_input_changes_fail_closed: true,
+      local_only_main_commits_fail_closed: true,
+    },
     target_baseline: {
       workers_max: 0,
       execution_timeout_ms: 1800000,

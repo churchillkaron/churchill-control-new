@@ -27,6 +27,7 @@ test("Voice software certification covers the complete static Voice surface", ()
     "avantiqo-voice-owned-engine.test.mjs",
     "avantiqo-voice-safe-lease-v2.test.mjs",
     "avantiqo-voice-realtime-owned.test.mjs",
+    "avantiqo-voice-realtime-relay.test.mjs",
     "avantiqo-voice-software-certification.test.mjs",
   ]) {
     assert.match(runner, new RegExp(required.replaceAll(".", "\\.")));
@@ -38,18 +39,21 @@ test("Voice software certification cannot start engines, submit generations, dep
   assert.doesNotMatch(runner, /smoke-avantiqo-voice/);
   assert.doesNotMatch(runner, /run-avantiqo-runpod-safe-lease/);
   assert.doesNotMatch(runner, /vercel\s+(?:--prod|deploy|build)/i);
-  assert.doesNotMatch(runner, /supabase\s+(?:db\s+push|migration\s+up|link)/i);
+  assert.doesNotMatch(runner, /supabase\s+(?:db\s+push|migration\s+up|link|functions\s+deploy)/i);
   assert.match(runner, /gpu_started:\s*false/);
   assert.match(runner, /generation_submitted:\s*false/);
   assert.match(runner, /production_deploy_performed:\s*false/);
   assert.match(runner, /production_migration_applied:\s*false/);
+  assert.match(runner, /production_function_deployed:\s*false/);
   assert.match(runner, /engine_proof_performed:\s*false/);
 });
 
-test("Voice software certification preserves implemented-but-uncertified engine claims", () => {
+test("Voice software certification preserves implemented-but-unreleased realtime claims", () => {
   assert.match(runner, /recorded_reference_engine_certified:\s*false/);
   assert.match(runner, /realtime_streaming_implemented:\s*true/);
   assert.match(runner, /realtime_streaming_certified:\s*false/);
+  assert.match(runner, /realtime_relay_implemented:\s*true/);
+  assert.match(runner, /realtime_relay_deployed:\s*false/);
   assert.match(runner, /realtime_relay_required:\s*true/);
   assert.match(runner, /thai_synthesis:\s*"FAIL_CLOSED_UNTIL_CERTIFIED"/);
 });

@@ -1,0 +1,260 @@
+name: Avantiqo Music Vocal Correction RunPod Provision
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-music-vocal-correction-runpod-provision-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-music-vocal-correction-runpod-provision
+  cancel-in-progress: false
+
+jobs:
+  provision-parked-endpoint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    outputs:
+      endpoint_id: ${{ steps.verify.outputs.endpoint_id }}
+      endpoint_name: ${{ steps.verify.outputs.endpoint_name }}
+      template_id: ${{ steps.verify.outputs.template_id }}
+      immutable_image: ${{ steps.verify.outputs.immutable_image }}
+      exact_image_digest_verified: ${{ steps.verify.outputs.exact_image_digest_verified }}
+      workers_min: ${{ steps.verify.outputs.workers_min }}
+      workers_max: ${{ steps.verify.outputs.workers_max }}
+      endpoint_created: ${{ steps.verify.outputs.endpoint_created }}
+      template_created: ${{ steps.verify.outputs.template_created }}
+    steps:
+      - name: Checkout exact provisioning request source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install provisioning dependency
+        run: npm install --no-save --package-lock=false @next/env@14.2.35
+
+      - name: Validate explicit parked provisioning request and hardened image
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+
+          const request = JSON.parse(readFileSync("audits/avantiqo-music-vocal-correction-runpod-provision-request.json", "utf8"));
+          const image = JSON.parse(readFileSync("audits/results/avantiqo-music-vocal-correction-worker-image.json", "utf8"));
+          const failures = [];
+          const require = (name, passed) => { if (!passed) failures.push(name); };
+
+          require("request_contract", request.contract === "AVANTIQO_MUSIC_VOCAL_CORRECTION_RUNPOD_PROVISION_REQUEST_V1");
+          require("endpoint_name", request.endpoint_name === "avantiqo-music-vocal-correction-v1");
+          require("workers_min_zero", request.workers_min === 0);
+          require("workers_max_zero", request.workers_max === 0);
+          require("network_volume_false", request.network_volume_required === false);
+          require("provider_job_false", request.provider_job_requested === false);
+          require("production_false", request.production_activation_requested === false);
+          require("pricing_false", request.pricing_activation_requested === false);
+          require("safe_lease_next", request.certification_safe_lease_contract === "AVANTIQO_RUNPOD_SAFE_LEASE_V2");
+          require("safe_lease_lane", request.certification_safe_lease_lane === "music-vocal-correction");
+
+          require("image_success", image.success === true);
+          require("image_contract", image.contract === "AVANTIQO_MUSIC_VOCAL_CORRECTION_WORKER_IMAGE_RESULT_V1");
+          require("source_match", image.source_sha_matches_trigger === true && image.source_sha === image.trigger_sha);
+          require("request_source_sha", request.image_source_sha === image.source_sha);
+          require("request_digest", request.image_digest === image.image_digest);
+          require("request_image", request.immutable_image_reference === image.immutable_image_reference);
+          require("engine_v2", image.engine_contract === "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2");
+          require("key_parser", image.key_parser_contract === "AVANTIQO_MUSIC_VOCAL_KEY_PARSER_V1");
+          require("pitch_readiness", image.explicit_pitch_readiness === true);
+          require("torchcrepe_smoke", image.torchcrepe_inference_smoke_required === true);
+          require("formant_honesty", image.explicit_formant_compensation_configured === false && image.unverified_formant_preservation_claimed === false);
+          require("image_no_volume", image.network_volume_required === false);
+          require("human_review", image.human_listening_review_required === true);
+          require("production_not_certified", image.production_certified === false);
+          require("immutable_digest", /^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(String(image.immutable_image_reference || "")));
+
+          if (failures.length) {
+            throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_REQUEST_INVALID:${failures.join(",")}`);
+          }
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_REQUEST=PASS");
+          NODE
+
+      - name: Validate RunPod management credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ]; then
+            echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_CREDENTIAL_MISSING=RUNPOD_MANAGEMENT_API_KEY'
+            exit 1
+          fi
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_CREDENTIAL=PASS'
+
+      - name: Plan parked endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          node scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs \
+            | tee artifacts/music-vocal-correction-provision-plan.json
+
+      - name: Create or verify parked endpoint at zero
+        env:
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_APPROVED: "YES"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs --apply \
+            | tee artifacts/music-vocal-correction-provision-apply.json
+
+      - name: Verify parked endpoint invariants
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from "node:fs";
+
+          const result = JSON.parse(readFileSync("artifacts/music-vocal-correction-provision-apply.json", "utf8"));
+          const endpoint = result.endpoint || {};
+          const failures = [];
+          const require = (name, passed) => { if (!passed) failures.push(name); };
+          require("success", result.success === true);
+          require("contract", result.contract === "AVANTIQO_MUSIC_VOCAL_CORRECTION_RUNPOD_PROVISION_V2");
+          require("endpoint_exists", result.endpoint_exists === true);
+          require("endpoint_name", endpoint.name === "avantiqo-music-vocal-correction-v1");
+          require("workers_min_zero", endpoint.workers_min === 0);
+          require("workers_max_zero", endpoint.workers_max === 0);
+          require("network_volume_empty", Array.isArray(endpoint.network_volume_ids) && endpoint.network_volume_ids.length === 0);
+          require("digest_verified", result.exact_image_digest_verified === true);
+          require("immutable_image", /^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(String(result.immutable_image || "")));
+          require("provider_job_false", result.provider_job_submitted === false);
+          require("production_false", result.production_deploy_performed === false);
+          if (result.workers_opened !== undefined) require("workers_opened_false", result.workers_opened === false);
+          if (failures.length) throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_PARKED_ENDPOINT_VERIFY_FAILED:${failures.join(",")}`);
+
+          const output = process.env.GITHUB_OUTPUT;
+          appendFileSync(output, `endpoint_id=${String(endpoint.id || "")}\n`);
+          appendFileSync(output, `endpoint_name=${String(endpoint.name || "")}\n`);
+          appendFileSync(output, `template_id=${String(endpoint.template_id || "")}\n`);
+          appendFileSync(output, `immutable_image=${String(result.immutable_image || "")}\n`);
+          appendFileSync(output, `exact_image_digest_verified=true\n`);
+          appendFileSync(output, `workers_min=0\n`);
+          appendFileSync(output, `workers_max=0\n`);
+          appendFileSync(output, `endpoint_created=${result.endpoint_created === true ? "true" : "false"}\n`);
+          appendFileSync(output, `template_created=${result.template_created === true ? "true" : "false"}\n`);
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_PARKED_ENDPOINT=PASS");
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_WORKERS=0/0");
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVIDER_JOB_SUBMITTED=false");
+          NODE
+
+      - name: Upload parked provisioning evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-music-vocal-correction-runpod-provision-${{ github.run_id }}
+          path: |
+            artifacts/music-vocal-correction-provision-plan.json
+            artifacts/music-vocal-correction-provision-apply.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  record-provisioning-evidence:
+    needs: provision-parked-endpoint
+    if: ${{ always() && needs.provision-parked-endpoint.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest main for evidence only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Record sanitized provisioning result
+        env:
+          PROVISION_JOB_RESULT: ${{ needs.provision-parked-endpoint.result }}
+          ENDPOINT_ID: ${{ needs.provision-parked-endpoint.outputs.endpoint_id }}
+          ENDPOINT_NAME: ${{ needs.provision-parked-endpoint.outputs.endpoint_name }}
+          TEMPLATE_ID: ${{ needs.provision-parked-endpoint.outputs.template_id }}
+          IMMUTABLE_IMAGE: ${{ needs.provision-parked-endpoint.outputs.immutable_image }}
+          EXACT_IMAGE_DIGEST_VERIFIED: ${{ needs.provision-parked-endpoint.outputs.exact_image_digest_verified }}
+          WORKERS_MIN: ${{ needs.provision-parked-endpoint.outputs.workers_min }}
+          WORKERS_MAX: ${{ needs.provision-parked-endpoint.outputs.workers_max }}
+          ENDPOINT_CREATED: ${{ needs.provision-parked-endpoint.outputs.endpoint_created }}
+          TEMPLATE_CREATED: ${{ needs.provision-parked-endpoint.outputs.template_created }}
+          TRIGGER_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const image = JSON.parse(readFileSync("audits/results/avantiqo-music-vocal-correction-worker-image.json", "utf8"));
+          const ok = String(process.env.PROVISION_JOB_RESULT || "") === "success";
+          const report = {
+            success: ok,
+            contract: "AVANTIQO_MUSIC_VOCAL_CORRECTION_RUNPOD_PROVISION_RESULT_V1",
+            github_run_id: String(process.env.RUN_ID || "") || null,
+            trigger_sha: String(process.env.TRIGGER_SHA || "") || null,
+            provision_job_result: String(process.env.PROVISION_JOB_RESULT || "") || "unknown",
+            image_source_sha: image.source_sha || null,
+            image_digest: image.image_digest || null,
+            immutable_image_reference: String(process.env.IMMUTABLE_IMAGE || "") || image.immutable_image_reference || null,
+            exact_image_digest_verified: String(process.env.EXACT_IMAGE_DIGEST_VERIFIED || "") === "true",
+            endpoint: {
+              id: String(process.env.ENDPOINT_ID || "") || null,
+              name: String(process.env.ENDPOINT_NAME || "") || null,
+              template_id: String(process.env.TEMPLATE_ID || "") || null,
+              workers_min: Number(process.env.WORKERS_MIN || 0),
+              workers_max: Number(process.env.WORKERS_MAX || 0),
+              network_volume_required: false,
+            },
+            endpoint_created: String(process.env.ENDPOINT_CREATED || "") === "true",
+            template_created: String(process.env.TEMPLATE_CREATED || "") === "true",
+            workers_opened: false,
+            provider_job_submitted: false,
+            production_activation_performed: false,
+            pricing_activation_performed: false,
+            certification_required: true,
+            certification_safe_lease_contract: "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+            certification_safe_lease_lane: "music-vocal-correction",
+            human_listening_review_required: true,
+            failure: ok ? null : { code: "AVANTIQO_MUSIC_VOCAL_CORRECTION_RUNPOD_PROVISION_FAILED" },
+            secrets_in_output: false,
+          };
+          writeFileSync("/tmp/music-vocal-correction-runpod-provision.json", `${JSON.stringify(report)}\n`, "utf8");
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B music-vocal-correction-runpod-provision-evidence origin/main
+            mkdir -p audits/results
+            cp /tmp/music-vocal-correction-runpod-provision.json audits/results/avantiqo-music-vocal-correction-runpod-provision.json
+            git add audits/results/avantiqo-music-vocal-correction-runpod-provision.json
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_RUNPOD_PROVISION_EVIDENCE_ALREADY_CURRENT=true'
+              exit 0
+            fi
+            git commit -m "Record Music vocal correction RunPod provision result"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_RUNPOD_PROVISION_EVIDENCE_RECORDED=true'
+              exit 0
+            fi
+            sleep "$attempt"
+          done
+          exit 1

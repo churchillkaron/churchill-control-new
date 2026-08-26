@@ -1,0 +1,79 @@
+name: One-shot Code repository discovery batching finalize
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/code-repository-discovery-batching-finalize.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-code-repository-discovery-batching-finalize
+  cancel-in-progress: false
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Refetch current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+      - name: Apply patch and verify zero-provider Code gates
+        shell: bash
+        env:
+          AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "NO"
+        run: |
+          set -euo pipefail
+          node --check scripts/patch-code-repository-discovery-batching-once.mjs
+          node scripts/patch-code-repository-discovery-batching-once.mjs
+          npm ci --ignore-scripts
+          node --check lib/code/runtime/CodeRepositoryIntelligenceRuntime.js
+          node scripts/code-ai-repository-intelligence-selftest.mjs
+          npm run audit:code-ai-autonomy
+
+      - name: Commit verified convergence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git rm -f --ignore-unmatch .github/workflows/code-repository-discovery-batching-convergence.yml
+          git rm -f --ignore-unmatch .github/workflows/code-repository-discovery-batching-repair.yml
+          git rm -f --ignore-unmatch .github/workflows/code-repository-discovery-batching-finalize.yml
+          git rm -f --ignore-unmatch scripts/patch-code-repository-discovery-batching-once.mjs
+          git add lib/code/runtime/CodeRepositoryIntelligenceRuntime.js scripts/code-ai-repository-intelligence-selftest.mjs scripts/code-ai-repository-mutation-audit.mjs package.json
+          git commit -m "Batch Code repository discovery pathspecs"
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if ! git merge-base --is-ancestor origin/main HEAD; then
+              git rebase origin/main
+              npm run audit:code-ai-autonomy
+            fi
+            if git push origin HEAD:main; then
+              echo "AVANTIQO_CODE_REPOSITORY_DISCOVERY_BATCHING_PUSH=PASS"
+              exit 0
+            fi
+          done
+          echo "AVANTIQO_CODE_REPOSITORY_DISCOVERY_BATCHING_PUSH=FAIL" >&2
+          exit 1

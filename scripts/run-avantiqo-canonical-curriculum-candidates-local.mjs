@@ -109,13 +109,14 @@ if (benchmarkResult.rejected_count > 0) {
     `AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_REJECTED:${benchmarkResult.rejected_count}`,
   );
 }
-if (benchmarkResult.approved_count + Number(result.unchanged_count || 0) < 8) {
+if (Number(benchmarkResult.total_approved_count || 0) < 8) {
   throw new Error(
-    "AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_MINIMUM_APPROVED_NOT_REACHED",
+    `AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_MINIMUM_APPROVED_NOT_REACHED:${benchmarkResult.total_approved_count || 0}`,
   );
 }
 
 console.log("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK=PASS");
+console.log(`AVANTIQO_CANONICAL_CURRICULUM_TOTAL_APPROVED=${benchmarkResult.total_approved_count}`);
 console.log("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_PROVIDER_EXECUTION=NO");
 console.log("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_RUNPOD=NO");
 console.log("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_SHARED_TRAINER_MUTATED=NO");

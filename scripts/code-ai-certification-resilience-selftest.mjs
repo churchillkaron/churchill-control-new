@@ -25,6 +25,35 @@ assert.ok(CHILD_TERMINATION_GRACE_MS > 0 && CHILD_TERMINATION_GRACE_MS <= 5000);
 assert.ok(boundedRetryDelayMs(0) >= 1 && boundedRetryDelayMs(20) <= 2000);
 assert.equal(CODE_AI_PLANNER_STALE_QUEUE_RECOVERY_LIMIT, 1);
 assert.ok(CODE_AI_PLANNER_STALE_QUEUED_MIN_AGE_MS >= 5 * 60_000);
+
+function codeLaneAllowsInertUnboundedPeerPolicy(row, targetId, lane) {
+  return (
+    lane === "code" &&
+    row?.id !== targetId &&
+    row?.workers_min === 0 &&
+    Number(row?.workers_max) > 1 &&
+    row?.active_workers === 0 &&
+    row?.jobs === 0 &&
+    row?.hourly_cost_usd === 0 &&
+    !row?.health_error
+  );
+}
+const inertUnboundedPeer = {
+  id: "music-candidate",
+  workers_min: 0,
+  workers_max: 4,
+  active_workers: 0,
+  jobs: 0,
+  hourly_cost_usd: 0,
+  health_error: null,
+};
+assert.equal(codeLaneAllowsInertUnboundedPeerPolicy(inertUnboundedPeer, "code-endpoint", "code"), true);
+assert.equal(codeLaneAllowsInertUnboundedPeerPolicy(inertUnboundedPeer, "music-candidate", "code"), false);
+assert.equal(codeLaneAllowsInertUnboundedPeerPolicy(inertUnboundedPeer, "code-endpoint", "voice"), false);
+assert.equal(codeLaneAllowsInertUnboundedPeerPolicy({ ...inertUnboundedPeer, jobs: 1 }, "code-endpoint", "code"), false);
+assert.equal(codeLaneAllowsInertUnboundedPeerPolicy({ ...inertUnboundedPeer, active_workers: 1 }, "code-endpoint", "code"), false);
+assert.equal(codeLaneAllowsInertUnboundedPeerPolicy({ ...inertUnboundedPeer, hourly_cost_usd: 0.1 }, "code-endpoint", "code"), false);
+assert.equal(codeLaneAllowsInertUnboundedPeerPolicy({ ...inertUnboundedPeer, health_error: "unknown" }, "code-endpoint", "code"), false);
 const stalledHealth = { jobs: { in_queue: 1, in_progress: 0 }, workers: { initializing: 0 } };
 const oldStartedAt = new Date(Date.now() - CODE_AI_PLANNER_STALE_QUEUED_MIN_AGE_MS - 1000).toISOString();
 assert.equal(shouldRecoverStaleQueuedPlannerJob({ provider: "avantiqo-code", providerStatus: "queued", startedAt: oldStartedAt, recoveryCount: 0, health: stalledHealth }), true);
@@ -85,6 +114,8 @@ assert.match(leaseShim, /provider_post_retries_forbidden: true/);
 assert.match(leaseShim, /isCodeEndpointClosePatch/);
 assert.match(leaseShim, /AVANTIQO_CODE_SAFE_LEASE_CHILD_STOP_FILE/);
 assert.match(leaseShim, /child_termination_acknowledged/);
+assert.match(leaseShim, /shared_safe_lease_code_lane_inert_peer_isolation: true/);
+assert.match(leaseShim, /shared_safe_lease_runtime_mutation_performed: false/);
 assert.match(leaseShim, /run-avantiqo-runpod-safe-lease-v2-local\.mjs/);
 assert.match(leaseShim, /run-code-ai-safe-lease-child-guard-local\.mjs/);
 assert.doesNotMatch(leaseShim, /api\.runpod\.ai\/v2\/.*\/run/);
@@ -104,6 +135,12 @@ assert.equal(safeLeasePolicy.max_lease_ttl_ms, 1_800_000);
 assert.equal(safeLeasePolicy.lane_max_lease_ttl_ms?.code, 3_600_000);
 assert.match(sharedLease, /lane_max_lease_ttl_ms/);
 assert.match(sharedLease, /maxLeaseTtlMs/);
+assert.match(sharedLease, /function codeLaneAllowsInertUnboundedPeer\(row, targetId, lane\)/);
+assert.match(sharedLease, /text\(lane\) === "code"/);
+assert.match(sharedLease, /text\(row\?\.id\) !== text\(targetId\)/);
+assert.match(sharedLease, /!codeLaneAllowsInertUnboundedPeer\(row, targetId, lane\)/);
+assert.match(sharedLease, /lease\.lane/);
+assert.match(sharedLease, /args\.lane/);
 assert.match(codeDistributedLease, /MAX_CODE_DISTRIBUTED_LEASE_TTL_MS = 3_600_000/);
 assert.match(plannerExecution, /recoverStaleQueuedPlannerExecution/);
 assert.match(plannerExecution, /\/cancel\//);
@@ -141,7 +178,10 @@ console.log(JSON.stringify({
     supabase_post_retry_forbidden: true,
     capacity_safe_runner_uses_resilient_parent: true,
     code_certification_uses_resilient_safe_lease_shim: true,
-    shared_safe_lease_runtime_reused_without_source_rewrite: true,
+    shared_safe_lease_code_lane_isolates_inert_unbounded_peers: true,
+    inert_unbounded_peer_requires_zero_jobs_workers_and_cost: true,
+    non_code_lanes_keep_global_workers_max_guard: true,
+    code_target_remains_strictly_bounded: true,
     stale_queued_provider_job_detected_by_age_and_health: true,
     stale_queued_provider_job_exact_cancel_before_replacement: true,
     stale_replacement_is_bounded_to_one: true,

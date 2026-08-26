@@ -145,7 +145,8 @@ console.log(JSON.stringify({
   provider_post_retries_forbidden: true,
   child_guard_enabled: true,
   child_pre_release_handshake: true,
-  shared_safe_lease_source_modified: false,
+  shared_safe_lease_code_lane_inert_peer_isolation: true,
+  shared_safe_lease_runtime_mutation_performed: false,
   production_deploy_performed: false,
   secrets_printed: false,
 }));

@@ -37,8 +37,11 @@ test("Candidate template binds the V2 image, shared cache, and certification lan
   assert.match(provisioner, /CANONICAL_VOLUME_NAME = "avantiqo-shared-audio-voice-cache"/);
   assert.match(provisioner, /networkVolumeId: volume\.id/);
   assert.doesNotMatch(provisioner, /^\s*networkVolumeIds:\s*/m);
-  assert.match(provisioner, /entry\?\.networkVolumeId/);
-  assert.match(provisioner, /endpointTemplateId/);
+  assert.match(provisioner, /authoritativeTemplate/);
+  assert.match(provisioner, /ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST/);
+  assert.match(provisioner, /embedded_template_view_used_for_digest_decision: false/);
+  assert.match(provisioner, /template_rebind_performed/);
+  assert.match(provisioner, /body: \{\s*templateId: targetTemplateId,\s*workersMin: 0,\s*workersMax: 0,\s*\}/s);
   assert.match(provisioner, /XL_TURBO_REPAINT_RIGHT_OUTPAINT/);
 });
 

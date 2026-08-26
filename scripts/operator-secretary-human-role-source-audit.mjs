@@ -7,6 +7,7 @@ const paths = {
   secretaryJobCapability: "lib/platform/capabilities/createSecretaryJobCapability.js",
   secretaryJobIntake: "lib/operator/secretary/SecretaryJobIntakeRuntime.js",
   secretaryJobExecution: "lib/operator/secretary/SecretaryJobExecutionRuntime.js",
+  secretaryJobCalendar: "lib/operator/secretary/SecretaryJobCalendarRuntime.js",
   secretaryBriefingCapability: "lib/platform/capabilities/createSecretaryExecutiveBriefingCapability.js",
   secretaryBriefingRuntime: "lib/operator/secretary/SecretaryExecutiveBriefingRuntime.js",
   meetingRuntime: "lib/operator/secretary/SecretaryMeetingRuntime.js",
@@ -88,6 +89,17 @@ assert.match(source.secretaryJobExecution, /completePlanOnlyJob/);
 assert.match(source.secretaryJobExecution, /SECRETARY_JOB_PLAN_ONLY_NO_EXECUTION/);
 assert.match(source.secretaryJobExecution, /execution_performed:\s*false/);
 assert.match(source.secretaryJobExecution, /status:\s*"SKIPPED"/);
+assert.match(source.secretaryJobExecution, /executeSecretaryJobCalendarStep/);
+
+assert.match(source.secretaryJobCalendar, /createSecretaryCalendarEventAtomic/);
+assert.match(source.secretaryJobCalendar, /Never guess a missing date, time, duration or timezone/i);
+assert.match(source.secretaryJobCalendar, /EXACT_ISO_WITH_ZONE/);
+assert.match(source.secretaryJobCalendar, /SECRETARY_JOB_EVENT_TIME_REQUIRES_STRUCTURED_DATE/);
+assert.match(source.secretaryJobCalendar, /SECRETARY_CALENDAR_SLOT_UNAVAILABLE/);
+assert.match(source.secretaryJobCalendar, /SECRETARY_JOB_EVENT_SLOT_UNAVAILABLE/);
+assert.match(source.secretaryJobCalendar, /atomic_booking:\s*true/);
+assert.match(source.secretaryJobCalendar, /structured_by_existing_intelligence:\s*true/);
+assert.match(source.secretaryJobCalendar, /external_authority_used:\s*false/);
 
 assert.match(source.secretaryBriefingCapability, /brief me/i);
 assert.match(source.secretaryBriefingCapability, /morning briefing/i);
@@ -113,6 +125,8 @@ console.log("SECRETARY_DIRECT_DELEGATION=true");
 console.log("SECRETARY_DURABLE_JOB_OWNERSHIP=true");
 console.log("SECRETARY_EXECUTIVE_BRIEFING=true");
 console.log("SECRETARY_CALENDAR_ADMIN=true");
+console.log("SECRETARY_GOVERNED_CALENDAR_JOB_EXECUTION=true");
+console.log("SECRETARY_CALENDAR_AMBIGUITY_FAILS_CLOSED=true");
 console.log("SECRETARY_CONTACT_ADMIN=true");
 console.log("SECRETARY_TASK_ADMIN=true");
 console.log("SECRETARY_FOLLOW_UP_ADMIN=true");

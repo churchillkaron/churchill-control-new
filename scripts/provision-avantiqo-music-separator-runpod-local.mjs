@@ -192,6 +192,21 @@ if (apply && !approved(process.env.AVANTIQO_MUSIC_SEPARATOR_PROVISION_APPROVED))
   throw new Error("AVANTIQO_MUSIC_SEPARATOR_PROVISION_APPROVED=YES_REQUIRED");
 }
 
+const certificationQuotaMode = approved(process.env.AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_QUOTA_MODE);
+const requestedWorkersMax = Number(
+  process.env.AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX ?? (certificationQuotaMode ? 0 : 1),
+);
+if (!Number.isInteger(requestedWorkersMax)) {
+  throw new Error("AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX_INTEGER_REQUIRED");
+}
+if (certificationQuotaMode && requestedWorkersMax !== 0) {
+  throw new Error("AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_QUOTA_MODE_REQUIRES_WORKERS_MAX_0");
+}
+if (!certificationQuotaMode && (requestedWorkersMax < 1 || requestedWorkersMax > 2)) {
+  throw new Error("AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX_MUST_BE_1_OR_2");
+}
+const workersMax = certificationQuotaMode ? 0 : requestedWorkersMax;
+
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const image = await imageEvidence();
 const [endpoints, templates, registryAuths, capacity] = await Promise.all([
@@ -224,6 +239,7 @@ if (separatorMatches.length === 1) {
     contract: CONTRACT,
     mode: apply ? "APPLY" : "PLAN",
     endpoint_exists: true,
+    certification_quota_mode: certificationQuotaMode,
     separator_endpoint: safeEndpoint(existing),
     generation_endpoint: safeEndpoint(generationEndpoint),
     mutation_performed: false,
@@ -232,7 +248,9 @@ if (separatorMatches.length === 1) {
     provider_job_submitted: false,
     pricing_activation_performed: false,
     production_deploy_performed: false,
-    next_action: "VERIFY_EXISTING_SEPARATOR_BINDING_WITH_READ_ONLY_PREFLIGHT",
+    next_action: finite(existing.workersMax, 0) === 0
+      ? "HANDOFF_ONE_MUSIC_WORKER_SLOT_FOR_CONTROLLED_BENCHMARK"
+      : "VERIFY_EXISTING_SEPARATOR_BINDING_WITH_READ_ONLY_PREFLIGHT",
   }, null, 2));
   process.exit(0);
 }
@@ -261,13 +279,13 @@ if (exactTemplates[0] && text(exactTemplates[0].imageName) !== image.image) {
   throw new Error("AVANTIQO_MUSIC_SEPARATOR_TEMPLATE_IMAGE_MISMATCH");
 }
 
-const workersMax = Math.max(1, Math.min(2, Number(process.env.AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX || 1)));
 const idleTimeout = Math.max(1, Math.min(300, Number(process.env.AVANTIQO_MUSIC_SEPARATOR_RUNPOD_IDLE_TIMEOUT_SECONDS || 5)));
 const plan = {
   success: true,
   contract: CONTRACT,
   mode: apply ? "APPLY" : "PLAN",
   endpoint_exists: false,
+  certification_quota_mode: certificationQuotaMode,
   immutable_image: image.image,
   image_source_sha: image.source_sha,
   template_name: templateName,
@@ -276,6 +294,7 @@ const plan = {
   live_gpu_capacity: Object.fromEntries(gpuTypeIds.map((gpu) => [gpu, capacity.get(gpu)])),
   workers_min: 0,
   workers_max: workersMax,
+  endpoint_created_paused: workersMax === 0,
   idle_timeout_seconds: idleTimeout,
   execution_timeout_ms: 45 * 60 * 1000,
   network_volume_required: false,
@@ -287,7 +306,11 @@ const plan = {
   provider_job_submitted: false,
   pricing_activation_performed: false,
   production_deploy_performed: false,
-  next_action: apply ? "CREATE_DEDICATED_SEPARATOR_TEMPLATE_AND_ENDPOINT" : "APPROVE_DEDICATED_SEPARATOR_PROVISION",
+  next_action: apply
+    ? workersMax === 0
+      ? "CREATE_PARKED_SEPARATOR_THEN_HANDOFF_ONE_MUSIC_SLOT_FOR_BENCHMARK"
+      : "CREATE_DEDICATED_SEPARATOR_TEMPLATE_AND_ENDPOINT"
+    : "APPROVE_DEDICATED_SEPARATOR_PROVISION",
 };
 if (!apply) {
   console.log(JSON.stringify(plan, null, 2));
@@ -355,6 +378,9 @@ if (text(verified.name) !== ENDPOINT_NAME || text(verified.templateId) !== templ
 if (endpointVolumeIds(verified).length) {
   throw new Error("AVANTIQO_MUSIC_SEPARATOR_ENDPOINT_UNEXPECTED_NETWORK_VOLUME");
 }
+if (finite(verified.workersMin, -1) !== 0 || finite(verified.workersMax, -1) !== workersMax) {
+  throw new Error("AVANTIQO_MUSIC_SEPARATOR_ENDPOINT_SCALING_VERIFY_FAILED");
+}
 
 console.log(JSON.stringify({
   ...plan,
@@ -370,5 +396,7 @@ console.log(JSON.stringify({
   provider_job_submitted: false,
   pricing_activation_performed: false,
   production_deploy_performed: false,
-  next_action: "RUN_ZERO_GENERATION_SEPARATOR_PREFLIGHT_AND_CAPTURE_ENDPOINT_ID",
+  next_action: workersMax === 0
+    ? "HANDOFF_ONE_MUSIC_WORKER_SLOT_FOR_CONTROLLED_BENCHMARK"
+    : "RUN_ZERO_GENERATION_SEPARATOR_PREFLIGHT_AND_CAPTURE_ENDPOINT_ID",
 }, null, 2));

@@ -1,7 +1,7 @@
 {
   "contract": "AVANTIQO_VOICE_TTS_WORKER_IMAGE_REFRESH_REQUEST_V1",
-  "requested_for": "tts_blackwell_claim_job_before_model_load",
-  "source_commit": "eec9d2f3e620b5e75eb7911d721eeb910c3e4813",
+  "requested_for": "tts_chatterbox_v3_api_compatibility",
+  "source_commit": "a3fb1ad54db144c3bd27f1d4953c48fa1fb163b8",
   "build_tts": true,
   "build_stt": false,
   "platform": "linux/amd64",

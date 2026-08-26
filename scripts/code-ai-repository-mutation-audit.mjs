@@ -48,14 +48,34 @@ requireMarkers("MUTATION_RUNTIME", mutation, [
 ]);
 
 requireMarkers("REPOSITORY_INTELLIGENCE", repositoryIntelligence, [
-  "AVANTIQO_CODE_REPOSITORY_INTELLIGENCE_V1",
+  "AVANTIQO_CODE_REPOSITORY_INTELLIGENCE_V2",
   "AGENTS.md",
   "CONTRIBUTING",
   ".github/copilot-instructions.md",
   ".github/workflows",
+  "detected_build_systems",
+  "detected_languages",
   "command_conventions",
+  "command_convention_policy",
   "monorepo",
   'repository_content_authorization_effect: "NONE"',
+]);
+
+requireMarkers("GENERAL_BUILD_SYSTEMS", repositoryIntelligence, [
+  'id: "python-pytest"',
+  'id: "go"',
+  'id: "rust"',
+  'id: "maven"',
+  'id: "gradle"',
+  'id: "dotnet"',
+  'id: "ruby"',
+  'id: "php-composer"',
+  'id: "swift-package"',
+  'id: "cmake"',
+  'id: "make"',
+  'id: "bazel"',
+  "conventional_candidate_verify_before_execution",
+  "Repository-declared commands are preferred",
 ]);
 
 requireMarkers("SEARCH", workspace, [
@@ -125,10 +145,14 @@ if (!mission.match(/appendRepositoryGuidanceEvidence\(state\);[\s\S]{0,500}for \
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_REPOSITORY_MUTATION_SOURCE_AUDIT_V2",
+  contract: "AVANTIQO_CODE_REPOSITORY_MUTATION_SOURCE_AUDIT_V3",
   verified: {
     repository_instruction_discovery: true,
     repository_command_convention_discovery: true,
+    general_build_system_detection: true,
+    node_python_go_rust_java_dotnet_ruby_php_swift_c_cpp_bazel_supported: true,
+    repository_declared_commands_preferred_over_conventional_candidates: true,
+    conventional_commands_require_repository_verification_when_conditional: true,
     repository_guidance_persisted_in_mission_state: true,
     repository_guidance_reinjected_on_resume: true,
     repository_guidance_survives_bounded_operation_evidence: true,
@@ -150,4 +174,4 @@ console.log(JSON.stringify({
   runpod_lease_opened: false,
   production_deploy_performed: false,
 }, null, 2));
-console.log("AVANTIQO_CODE_REPOSITORY_MUTATION_SOURCE_AUDIT_V2=PASS");
+console.log("AVANTIQO_CODE_REPOSITORY_MUTATION_SOURCE_AUDIT_V3=PASS");

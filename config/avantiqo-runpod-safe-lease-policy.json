@@ -1,0 +1,26 @@
+{
+  "contract": "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V1",
+  "resting_workers_min": 0,
+  "resting_workers_max": 0,
+  "max_concurrent_paid_leases": 1,
+  "max_workers_per_lease": 1,
+  "max_jobs_per_lease": 1,
+  "default_lease_ttl_ms": 900000,
+  "max_lease_ttl_ms": 1800000,
+  "cleanup_timeout_ms": 180000,
+  "watchdog_poll_ms": 5000,
+  "default_max_worker_hourly_usd": 4,
+  "fail_closed": true,
+  "cancel_captured_jobs_on_failure": true,
+  "purge_pending_queue_on_release": true,
+  "verify_zero_account_baseline_before_acquire": true,
+  "verify_zero_account_baseline_after_release": true,
+  "workers_min_one_allowed": false,
+  "production_deploy_required": false,
+  "intelligence_lanes": {
+    "deep": "avantiqo-intelligence-v1",
+    "fast": "avantiqo-intelligence-fast-v1",
+    "trainer": "avantiqo-intelligence-trainer-v1",
+    "fast-candidate": "avantiqo-intelligence-fast-replacement-candidate-v1"
+  }
+}

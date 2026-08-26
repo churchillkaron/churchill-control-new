@@ -97,10 +97,14 @@ ref_path.write_text(revision, encoding="utf-8")
 if ref_path.read_text(encoding="utf-8") != revision:
     raise RuntimeError("AVANTIQO_VOICE_TTS_BAKED_MAIN_REF_INVALID")
 
+# Mirror ChatterboxMultilingualTTS.from_pretrained exactly: the upstream
+# runtime intentionally requests only these six files. Prove that identical
+# partial-snapshot lookup resolves from refs/main without network access.
 offline_snapshot = Path(snapshot_download(
     repo_id=repo_id,
     repo_type="model",
     revision="main",
+    allow_patterns=required_files,
     local_files_only=True,
 ))
 if offline_snapshot.resolve() != snapshot.resolve():

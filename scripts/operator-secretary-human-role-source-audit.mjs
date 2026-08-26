@@ -114,6 +114,8 @@ assert.match(source.secretaryJobApproval, /authority_not_extended:\s*true/);
 assert.match(source.secretaryJobApproval, /future_steps_authorized:\s*false/);
 assert.match(source.secretaryJobApproval, /SECRETARY_JOB_STEP_REQUIRES_INPUT_NOT_APPROVAL/);
 assert.match(source.secretaryJobApproval, /SECRETARY_JOB_REVIEW_STEP_NOT_EXECUTABLE_BY_APPROVAL/);
+assert.match(source.secretaryJobApproval, /const currentReason = text\(step\.last_error, 200\)/);
+assert.match(source.secretaryJobApproval, /if \(currentReason\) return APPROVAL_GATE_REASONS\.has\(currentReason\)/);
 assert.match(source.secretaryJobApproval, /\.eq\("organization_id", organization\)/);
 assert.match(source.secretaryJobApproval, /status:\s*"QUEUED"/);
 
@@ -165,6 +167,7 @@ console.log("SECRETARY_PLAN_ONLY_NO_EXECUTION=true");
 console.log("SECRETARY_STEP_BOUND_APPROVAL=true");
 console.log("SECRETARY_APPROVAL_DOES_NOT_EXTEND_AUTHORITY=true");
 console.log("SECRETARY_OPERATIONAL_INPUT_CANNOT_BE_APPROVED_AWAY=true");
+console.log("SECRETARY_OPERATIONAL_REVIEW_PRECEDENCE=true");
 console.log("SECRETARY_HIGH_AUTHORITY_GATES=true");
 console.log("SECRETARY_RUNTIME_CERTIFIED=false");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

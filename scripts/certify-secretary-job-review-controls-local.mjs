@@ -149,6 +149,8 @@ try {
   assert.equal(delegated.job.status, "QUEUED");
   assert.ok(delegated.job.id);
 
+  const staleWorkerJob = { ...delegated.job };
+
   const listed = await listSecretaryJobs({ context, payload: { limit: 100 } });
   assert.equal(listed.status, "completed");
   assert.equal(listed.jobs.some((row) => row.id === delegated.job.id), true);
@@ -195,6 +197,24 @@ try {
   assert.equal(cancelled.secretary_owns_follow_through, false);
   assert.equal(cancelled.external_authority_used, false);
 
+  const staleWorkerOutcome = await processSecretaryJob(staleWorkerJob);
+  assert.equal(staleWorkerOutcome.status, "cancelled");
+  assert.equal(staleWorkerOutcome.job.status, "CANCELLED");
+  assert.equal(staleWorkerOutcome.secretary_owns_follow_through, false);
+
+  const cancelledAfterStaleWorker = await one(
+    supabaseAdmin
+      .from("secretary_jobs")
+      .select("status,next_action_at,completed_at")
+      .eq("organization_id", organizationId)
+      .eq("id", delegated.job.id)
+      .single(),
+    "SECRETARY_REVIEW_LOCAL_CANCELLED_JOB_READ_FAILED",
+  );
+  assert.equal(cancelledAfterStaleWorker.status, "CANCELLED");
+  assert.equal(cancelledAfterStaleWorker.next_action_at, null);
+  assert.ok(cancelledAfterStaleWorker.completed_at);
+
   const cancelledSteps = await one(
     supabaseAdmin
       .from("secretary_job_steps")
@@ -207,6 +227,17 @@ try {
   assert.equal(cancelledSteps.length, 2);
   assert.equal(cancelledSteps.every((row) => row.status === "SKIPPED"), true);
   assert.equal(cancelledSteps.every((row) => row.requires_approval === false), true);
+
+  const cancelledTask = await one(
+    supabaseAdmin
+      .from("secretary_tasks")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("metadata->>secretary_job_id", delegated.job.id)
+      .maybeSingle(),
+    "SECRETARY_REVIEW_LOCAL_CANCELLED_TASK_READ_FAILED",
+  );
+  assert.equal(cancelledTask, null, "SECRETARY_REVIEW_LOCAL_STALE_WORKER_EXECUTED_CANCELLED_JOB");
 
   const rejectedCase = await createReviewJob({
     actorPartyId: actor.id,
@@ -321,6 +352,8 @@ try {
   console.log("SECRETARY_REVISION_INVALIDATES_PRIOR_APPROVAL=true");
   console.log("SECRETARY_REVISED_HIGH_AUTHORITY_REGATED=true");
   console.log("SECRETARY_JOB_CANCELLATION_RUNTIME=true");
+  console.log("SECRETARY_STALE_WORKER_CANNOT_RESURRECT_CANCELLED_JOB=true");
+  console.log("SECRETARY_CANCELLED_JOB_STARTS_NO_LATER_STEP=true");
   console.log("SECRETARY_PROVIDER_CALLS_PERFORMED=false");
   console.log("SECRETARY_EXTERNAL_AUTHORITY_USED=false");
   console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

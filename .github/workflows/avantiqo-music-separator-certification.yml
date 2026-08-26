@@ -20,13 +20,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 50
     env:
-      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY || secrets.RUNPOD_API_KEY }}
       RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
-      - name: Checkout
+      - name: Checkout exact request source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -37,32 +40,51 @@ jobs:
       - name: Install separator certification dependencies
         run: npm install --no-save --package-lock=false @next/env@14.2.35 @supabase/supabase-js@2.105.4
 
+      - name: Validate explicit Safe Lease certification request
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const request = JSON.parse(readFileSync("audits/avantiqo-music-separator-certification-request.json", "utf8"));
+          const checks = [
+            ["contract", request.contract === "AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_REQUEST_V1"],
+            ["capability", request.capability === "ai.audio.stems"],
+            ["model", request.model === "facebookresearch/demucs:htdemucs_ft"],
+            ["runtime_model", request.runtime_model === "demucs-htdemucs-ft"],
+            ["quality_profile", request.quality_profile === "DEMUCS_HTDEMUCS_FT_4STEM_V1"],
+            ["one_job", request.benchmark_runs === 1],
+            ["rights", request.rights_owned_fixture === true],
+            ["spend", request.provider_spend_approved === true],
+            ["safe_lease_contract", request.safe_lease_contract === "AVANTIQO_RUNPOD_SAFE_LEASE_V2"],
+            ["safe_lease_lane", request.safe_lease_lane === "music-separator"],
+            ["production_false", request.production_activation_approved === false],
+            ["pricing_false", request.pricing_activation_approved === false],
+            ["human_auto_false", request.automatic_human_review_approved === false],
+          ];
+          const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
+          if (failed.length) throw new Error(`AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_REQUEST_INVALID:${failed.join(",")}`);
+          console.log("AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_REQUEST=PASS");
+          console.log("AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_SAFE_LEASE=AVANTIQO_RUNPOD_SAFE_LEASE_V2");
+          NODE
+
       - name: Validate separator certification credentials
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts
           missing=()
-          for name in \
-            RUNPOD_MANAGEMENT_API_KEY \
-            RUNPOD_API_KEY \
-            NEXT_PUBLIC_SUPABASE_URL \
-            SUPABASE_SERVICE_ROLE_KEY
-          do
-            if [ -z "${!name:-}" ]; then
-              missing+=("$name")
-            fi
+          for name in RUNPOD_MANAGEMENT_API_KEY RUNPOD_API_KEY NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name:-}" ]; then missing+=("$name"); fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
             first="${missing[0]}"
             printf '{"success":false,"contract":"AVANTIQO_MUSIC_SEPARATOR_CREDENTIAL_PREFLIGHT_V1","error":"CREDENTIAL_PREFLIGHT_FAILED","missing_binding":"%s","github_run_id":"%s","provider_job_submitted":false,"endpoint_mutation_performed":false,"production_deploy_performed":false,"secrets_in_output":false}\n' \
               "$first" "$GITHUB_RUN_ID" > artifacts/music-separator-credential-preflight.json
-            echo "Music separator certification credential preflight failed: required binding missing: $first"
             exit 1
           fi
           printf '{"success":true,"contract":"AVANTIQO_MUSIC_SEPARATOR_CREDENTIAL_PREFLIGHT_V1","github_run_id":"%s","required_bindings_present":true,"provider_job_submitted":false,"endpoint_mutation_performed":false,"production_deploy_performed":false,"secrets_in_output":false}\n' \
             "$GITHUB_RUN_ID" > artifacts/music-separator-credential-preflight.json
-          echo "Music separator certification credentials are present."
 
       - name: Install audio fixture tools
         run: |
@@ -82,25 +104,43 @@ jobs:
             -f lavfi -i "anoisesrc=color=pink:sample_rate=44100:duration=32" \
             -filter_complex "[0:a]atrim=0:32,volume=0.9[v];[1:a]volume=0.16[b];[2:a]volume=0.09[o1];[3:a]volume=0.07[o2];[4:a]highpass=f=1200,lowpass=f=9000,volume=0.035[n];[v][b][o1][o2][n]amix=inputs=5:duration=first:normalize=0,alimiter=limit=0.92,aresample=44100[a]" \
             -map "[a]" -ac 2 -c:a pcm_s24le artifacts/review-audio/source-rights-owned.wav
-          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 artifacts/review-audio/source-rights-owned.wav
 
-      - name: Provision dedicated separator endpoint if missing
+      - name: Provision or verify separator endpoint parked at zero
         env:
           AVANTIQO_MUSIC_SEPARATOR_PROVISION_APPROVED: "YES"
-          AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX: "1"
+          AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_QUOTA_MODE: "YES"
+          AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX: "0"
           AVANTIQO_MUSIC_SEPARATOR_RUNPOD_IDLE_TIMEOUT_SECONDS: "5"
         shell: bash
         run: |
           set -euo pipefail
           node scripts/provision-avantiqo-music-separator-runpod-local.mjs --apply | tee artifacts/music-separator-provision.json
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const result = JSON.parse(readFileSync("artifacts/music-separator-provision.json", "utf8"));
+          const endpoint = result.separator_endpoint || {};
+          if (result.success !== true) throw new Error("AVANTIQO_MUSIC_SEPARATOR_PROVISION_REQUIRED");
+          if (endpoint.workers_min !== 0 || endpoint.workers_max !== 0) throw new Error("AVANTIQO_MUSIC_SEPARATOR_ENDPOINT_MUST_REST_0_0");
+          if ((endpoint.network_volume_ids || []).length !== 0) throw new Error("AVANTIQO_MUSIC_SEPARATOR_NETWORK_VOLUME_FORBIDDEN");
+          if (result.provider_job_submitted !== false) throw new Error("AVANTIQO_MUSIC_SEPARATOR_PROVISION_JOB_FORBIDDEN");
+          console.log("AVANTIQO_MUSIC_SEPARATOR_PARKED_ENDPOINT=PASS");
+          NODE
 
-      - name: Run one controlled separator benchmark
+      - name: Run exactly one separator benchmark through Safe Lease V2
         env:
+          AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES"
           AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SPEND_APPROVED: "YES"
           AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_RIGHTS_APPROVED: "YES"
           AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SOURCE_FILE: ${{ github.workspace }}/artifacts/review-audio/source-rights-owned.wav
           AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/music-separator-benchmark.json
-        run: node scripts/benchmark-avantiqo-music-separator.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs \
+            --lane=music-separator \
+            --ttl-ms=1800000 \
+            -- \
+            node scripts/benchmark-avantiqo-music-separator-safe-lease-local.mjs
 
       - name: Measure separator economics
         env:
@@ -122,10 +162,8 @@ jobs:
           node --input-type=module <<'NODE'
           import { mkdir, readFile, writeFile } from "node:fs/promises";
           import { createClient } from "@supabase/supabase-js";
-
           const benchmark = JSON.parse(await readFile("artifacts/music-separator-benchmark.json", "utf8"));
-          const observation = benchmark?.observations?.[0];
-          const references = observation?.storage_references || {};
+          const references = benchmark?.observations?.[0]?.storage_references || {};
           if (!Object.keys(references).length) throw new Error("MUSIC_SEPARATOR_REVIEW_OUTPUT_REFERENCES_REQUIRED");
           const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
             auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

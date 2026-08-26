@@ -117,6 +117,8 @@ trap cleanup EXIT INT TERM
 [ -d "$SOURCE_ROOT/node_modules" ] || fail "SOURCE_NODE_MODULES_MISSING"
 command -v git >/dev/null 2>&1 || fail "GIT_MISSING"
 command -v node >/dev/null 2>&1 || fail "NODE_MISSING"
+[ "${AVANTIQO_INTELLIGENCE_FAST_FIRST_RESPONSE_SPEND_APPROVED:-}" = "YES" ] \
+  || fail "FAST_FIRST_RESPONSE_SPEND_APPROVAL_REQUIRED"
 
 echo "============================================================"
 echo "AVANTIQO FAST INTELLIGENCE - FIRST REAL RESPONSE"
@@ -125,6 +127,7 @@ echo "PROBE_SCOPE=OWNED_PROVIDER_BOUNDARY"
 echo "APPLICATION_LOGIN_REQUIRED=NO"
 echo "PRODUCTION_DEPLOY_PERFORMED=NO"
 echo "SECRET_VALUES_PRINTED=NO"
+echo "SPEND_APPROVED=YES"
 echo "FAST_LIFECYCLE=PROVEN_FLEX_JOB_WAKE_V1"
 
 echo ""

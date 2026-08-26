@@ -23,9 +23,6 @@ printf 'Economics: %s\n' "$ECONOMICS_OUTPUT"
 printf 'Review: %s\n' "$HUMAN_REVIEW_OUTPUT"
 printf 'Evidence: %s\n' "$CERTIFICATION_EVIDENCE_OUTPUT"
 
-# Use the same credential recovery path as the other owned RunPod engines.
-# It prefers the current shell/.env.local, then local traces, then the encrypted
-# GitHub fallback. Secret values are never printed or committed.
 AVANTIQO_PROJECT_ROOT="$ROOT_DIR" bash scripts/repair-avantiqo-runpod-env-local.sh
 
 node scripts/audit-avantiqo-music-separator-certification-readiness.mjs
@@ -56,7 +53,15 @@ if [[ -z "${AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SOURCE_FILE:-}" ]]; then
   exit 2
 fi
 
-node scripts/run-avantiqo-music-separator-benchmark-local.mjs
+AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED=YES \
+AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SPEND_APPROVED=YES \
+AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_RIGHTS_APPROVED=YES \
+node scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs \
+  --lane=music-separator \
+  --ttl-ms=1800000 \
+  -- \
+  node scripts/benchmark-avantiqo-music-separator-safe-lease-local.mjs
+
 node scripts/avantiqo-music-separator-economics.mjs
 node scripts/prepare-avantiqo-music-separator-human-review.mjs
 
@@ -66,6 +71,8 @@ printf '%s\n' "Fill reviewer, reviewed_at, PASS statuses, scores and evidence no
 printf '%s\n' "Automatic human approval is forbidden."
 printf '%s\n' "After review: node scripts/finalize-avantiqo-music-separator-human-review.mjs"
 printf '%s\n' "Then plan only: node scripts/plan-avantiqo-music-separator-promotion.mjs"
+printf '%s\n' "AVANTIQO_MUSIC_SEPARATOR_SAFE_LEASE_CONTRACT=AVANTIQO_RUNPOD_SAFE_LEASE_V2"
+printf '%s\n' "AVANTIQO_MUSIC_SEPARATOR_SAFE_LEASE_LANE=music-separator"
 printf '%s\n' "AVANTIQO_MUSIC_SEPARATOR_PRICING_ACTIVATION_PERFORMED=false"
 printf '%s\n' "AVANTIQO_MUSIC_SEPARATOR_PROVIDER_CERTIFICATION_MUTATION_PERFORMED=false"
 printf '%s\n' "AVANTIQO_MUSIC_SEPARATOR_PRODUCTION_DEPLOY_PERFORMED=false"

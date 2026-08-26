@@ -5,6 +5,8 @@ import threading
 import time
 from typing import Any
 
+print('{"event":"AVANTIQO_VOICE_TTS_PYTHON_PROCESS","phase":"process_started","secrets_printed":false}', flush=True)
+
 import runpod
 import torch
 import torchaudio as ta

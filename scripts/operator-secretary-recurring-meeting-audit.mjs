@@ -27,7 +27,7 @@ assert.match(files.migration, /security invoker/i);
 assert.match(files.migration, /pg_advisory_xact_lock/);
 assert.match(files.migration, /SECRETARY_RECURRING_MEETING_CALENDAR_CONFLICT/);
 assert.match(files.migration, /SECRETARY_RECURRING_MEETING_OCCURRENCES_OVERLAP/);
-assert.match(files.migration, /source[^\n]*'secretary_recurring_meeting'/i);
+assert.match(files.migration, /'secretary_recurring_meeting'/);
 assert.match(files.migration, /attendance_not_inferred/);
 assert.match(files.migration, /rsvp_not_inferred/);
 

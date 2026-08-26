@@ -6,11 +6,12 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 loadAvantiqoEnv();
 
 const REST_BASE = "https://rest.runpod.io/v1";
-const CONTRACT = "AVANTIQO_MUSIC_VOCAL_CORRECTION_RUNPOD_PROVISION_V1";
+const CONTRACT = "AVANTIQO_MUSIC_VOCAL_CORRECTION_RUNPOD_PROVISION_V2";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-music-vocal-correction-worker-image.json";
 const IMAGE_CONTRACT = "AVANTIQO_MUSIC_VOCAL_CORRECTION_WORKER_IMAGE_RESULT_V1";
 const ENGINE_CONTRACT = "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2";
 const QUALITY_PROFILE = "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2";
+const KEY_PARSER_CONTRACT = "AVANTIQO_MUSIC_VOCAL_KEY_PARSER_V1";
 const ENDPOINT_NAME = "avantiqo-music-vocal-correction-v1";
 const TEMPLATE_PREFIX = "avantiqo-music-vocal-correction-";
 const APPROVAL_ENV = "AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_APPROVED";
@@ -32,6 +33,20 @@ function endpointVolumeIds(endpoint = {}) {
     endpoint.networkVolumeId ?? endpoint.network_volume_id,
     ...list(endpoint.networkVolumeIds ?? endpoint.network_volume_ids),
   ]);
+}
+
+function endpointTemplate(endpoint = {}, templates = []) {
+  const embedded = endpoint.template && typeof endpoint.template === "object" ? endpoint.template : null;
+  if (embedded) return embedded;
+  const templateId = text(endpoint.templateId);
+  if (!templateId) return null;
+  return templates.find((template) => text(template?.id) === templateId) || null;
+}
+
+function assertExactTemplateImage(template, immutableImage, code) {
+  if (!template || text(template.imageName) !== immutableImage) {
+    throw new Error(code);
+  }
 }
 
 function safeEndpoint(endpoint = {}) {
@@ -95,6 +110,11 @@ async function imageEvidence() {
     text(report.engine_contract) !== ENGINE_CONTRACT ||
     text(report.quality_profile) !== QUALITY_PROFILE ||
     text(report.timing_contract) !== "AVANTIQO_MUSIC_VOCAL_PHRASE_TIMING_V1" ||
+    text(report.key_parser_contract) !== KEY_PARSER_CONTRACT ||
+    report.explicit_pitch_readiness !== true ||
+    report.torchcrepe_inference_smoke_required !== true ||
+    report.explicit_formant_compensation_configured !== false ||
+    report.unverified_formant_preservation_claimed !== false ||
     report.network_volume_required !== false ||
     report.production_certified !== false ||
     report.human_listening_review_required !== true ||
@@ -158,17 +178,25 @@ if (endpointMatches.length === 1) {
   if (finite(existing.workersMin, -1) !== 0 || finite(existing.workersMax, -1) !== 0) {
     throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_MUST_REST_0_0:${finite(existing.workersMin)}/${finite(existing.workersMax)}`);
   }
+  const existingTemplate = endpointTemplate(existing, templates);
+  assertExactTemplateImage(
+    existingTemplate,
+    image.image,
+    "AVANTIQO_MUSIC_VOCAL_CORRECTION_EXISTING_ENDPOINT_IMAGE_DIGEST_MISMATCH",
+  );
   console.log(JSON.stringify({
     success: true,
     contract: CONTRACT,
     mode: apply ? "APPLY" : "PLAN",
     endpoint_exists: true,
     endpoint: safeEndpoint(existing),
+    template: safeTemplate(existingTemplate),
     immutable_image: image.image,
+    exact_image_digest_verified: true,
     mutation_performed: false,
     provider_job_submitted: false,
     production_deploy_performed: false,
-    next_action: "VERIFY_TEMPLATE_DIGEST_THEN_CERTIFY_ONLY_THROUGH_SAFE_LEASE_V2",
+    next_action: "CERTIFY_ONLY_THROUGH_AVANTIQO_RUNPOD_SAFE_LEASE_V2",
   }, null, 2));
   process.exit(0);
 }
@@ -177,8 +205,12 @@ const auth = registryAuth(registryAuths);
 const templateName = `${TEMPLATE_PREFIX}${image.digest.replace(/^sha256:/, "").slice(0, 12)}`;
 const templateMatches = templates.filter((template) => text(template.name) === templateName);
 if (templateMatches.length > 1) throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_TEMPLATE_AMBIGUOUS:${templateMatches.length}`);
-if (templateMatches[0] && text(templateMatches[0].imageName) !== image.image) {
-  throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_TEMPLATE_IMAGE_MISMATCH");
+if (templateMatches[0]) {
+  assertExactTemplateImage(
+    templateMatches[0],
+    image.image,
+    "AVANTIQO_MUSIC_VOCAL_CORRECTION_TEMPLATE_IMAGE_MISMATCH",
+  );
 }
 
 const gpuTypeIds = unique(
@@ -195,6 +227,7 @@ const plan = {
   endpoint_name: ENDPOINT_NAME,
   immutable_image: image.image,
   image_source_sha: image.source_sha,
+  exact_image_digest_required: true,
   template_name: templateName,
   existing_template: templateMatches[0] ? safeTemplate(templateMatches[0]) : null,
   gpu_type_ids: gpuTypeIds,
@@ -245,6 +278,11 @@ if (!template) {
     },
   });
 }
+assertExactTemplateImage(
+  template,
+  image.image,
+  "AVANTIQO_MUSIC_VOCAL_CORRECTION_CREATED_TEMPLATE_IMAGE_DIGEST_MISMATCH",
+);
 const templateId = text(template?.id);
 if (!templateId) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_TEMPLATE_ID_REQUIRED");
 
@@ -281,15 +319,22 @@ if (endpointVolumeIds(verified).length) throw new Error("AVANTIQO_MUSIC_VOCAL_CO
 if (finite(verified.workersMin, -1) !== 0 || finite(verified.workersMax, -1) !== 0) {
   throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_NOT_PARKED_0_0");
 }
+const verifiedTemplate = endpointTemplate(verified, [template, ...templates]);
+assertExactTemplateImage(
+  verifiedTemplate,
+  image.image,
+  "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENDPOINT_VERIFY_IMAGE_DIGEST_MISMATCH",
+);
 
 console.log(JSON.stringify({
   ...plan,
   mode: "APPLY",
   endpoint_exists: true,
   endpoint: safeEndpoint(verified),
-  template: safeTemplate(verified.template || template),
+  template: safeTemplate(verifiedTemplate),
   template_created: templateMatches.length === 0,
   endpoint_created: true,
+  exact_image_digest_verified: true,
   mutation_performed: true,
   workers_opened: false,
   provider_job_submitted: false,

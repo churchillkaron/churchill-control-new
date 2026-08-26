@@ -12,7 +12,6 @@ BUCKET = os.environ["AVANTIQO_V18_BUCKET"]
 ENDPOINT = os.environ["AVANTIQO_V18_S3_ENDPOINT"]
 REGION = os.environ["AVANTIQO_V18_REGION"]
 MODEL = os.environ["AVANTIQO_V18_MODEL"]
-T2V_MODEL = os.environ["AVANTIQO_V18_T2V_MODEL"]
 ROOT = os.environ["AVANTIQO_V18_CACHE_ROOT_KEY"].strip("/")
 CONTRACT = os.environ["AVANTIQO_V18_COMPLETION_CONTRACT"]
 ACCESS = os.environ["AVANTIQO_V18_ACCESS_KEY"]
@@ -53,20 +52,6 @@ def head_size(key: str):
             return None
         raise
 
-
-# Revalidate the already-cached T2V foundation before touching I2V.
-t2v_root = model_root(T2V_MODEL)
-t2v_revision = get_text(f"{t2v_root}/refs/main")
-t2v_marker_key = f"{t2v_root}/snapshots/{t2v_revision}/.avantiqo-video-cache-complete.json"
-t2v_marker = json.loads(get_text(t2v_marker_key))
-if not (
-    t2v_marker.get("contract") == CONTRACT
-    and t2v_marker.get("target_model") == T2V_MODEL
-    and t2v_marker.get("snapshot_revision") == t2v_revision
-    and t2v_marker.get("snapshot_download_completed") is True
-    and head_size(f"{t2v_root}/snapshots/{t2v_revision}/model_index.json") is not None
-):
-    raise RuntimeError("AVANTIQO_VIDEO_I2V_V18_T2V_S3_REVALIDATION_FAILED")
 
 api = HfApi(token=HF_TOKEN)
 info = api.model_info(repo_id=MODEL, files_metadata=True)
@@ -190,7 +175,8 @@ print(
             "files_uploaded": uploaded,
             "files_skipped_existing": skipped,
             "uploaded_bytes_this_run": uploaded_bytes,
-            "t2v_revalidated_before_write": True,
+            "t2v_preserved_untouched": True,
+            "t2v_revalidation_deferred_to_runtime_probe": True,
             "completion_marker_published_last": True,
             "serverless_job_submitted": False,
             "pod_created": False,

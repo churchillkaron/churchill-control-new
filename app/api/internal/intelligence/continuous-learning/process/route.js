@@ -63,6 +63,9 @@ import {
 import {
   reconcileAvantiqoActiveExperimentSelection,
 } from "@/lib/intelligence/runtime/AvantiqoActiveExperimentSelectionRuntime";
+import {
+  reconcileAvantiqoExperimentExecutionRequests,
+} from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -107,8 +110,11 @@ export async function GET(request) {
     //     Exact experiment versions require >=2 independent, method-diverse estimates.
     //     Lowest information-gain, highest-cost and highest-risk estimates are used.
     //     Selection is short-lived review evidence only, never execution authorization.
-    // 19. Spend the existing bounded public-evidence research budget on the resulting agenda.
-    // Stages 1-18 never authorize spend/provider execution, execute experiments,
+    // 19. Convert current selections into bounded execution-approval requests only.
+    //     Explicit approval is never recorded by this cron. No request can directly
+    //     reserve wallet spend, call a provider, acquire a RunPod lease, or execute.
+    // 20. Spend the existing bounded public-evidence research budget on the resulting agenda.
+    // Stages 1-19 never authorize spend/provider execution, execute experiments,
     // submit RunPod jobs, mutate model weights, release knowledge, or fabricate results.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
@@ -140,6 +146,8 @@ export async function GET(request) {
       await reconcileAvantiqoLearningTransferRevisions();
     const activeExperimentSelection =
       await reconcileAvantiqoActiveExperimentSelection();
+    const experimentExecutionRequests =
+      await reconcileAvantiqoExperimentExecutionRequests();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -166,6 +174,7 @@ export async function GET(request) {
         negative_transfer_evidence_clock: negativeTransferEvidenceClock,
         learning_transfer_revision: learningTransferRevision,
         active_experiment_selection: activeExperimentSelection,
+        experiment_execution_requests: experimentExecutionRequests,
       },
       {
         status: result.success === false ? 207 : 200,

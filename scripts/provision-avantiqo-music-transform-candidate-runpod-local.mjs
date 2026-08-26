@@ -68,6 +68,15 @@ function workersMax(endpoint = {}) {
   return finite(endpoint.workersMax ?? endpoint.workers_max, -1);
 }
 
+function endpointTemplateId(endpoint = {}) {
+  const embedded = endpoint?.template;
+  return text(
+    endpoint?.templateId ??
+    endpoint?.template_id ??
+    (typeof embedded === "string" ? embedded : embedded?.id),
+  );
+}
+
 function endpointVolumeIds(endpoint = {}) {
   const primary = text(endpoint.networkVolumeId ?? endpoint.network_volume_id);
   const additional = list(endpoint.networkVolumeIds ?? endpoint.network_volume_ids)
@@ -83,7 +92,7 @@ function endpointVolumeIds(endpoint = {}) {
 function endpointTemplate(endpoint = {}, templates = []) {
   const embedded = endpoint.template && typeof endpoint.template === "object" ? endpoint.template : null;
   if (embedded) return embedded;
-  const templateId = text(endpoint.templateId ?? endpoint.template_id);
+  const templateId = endpointTemplateId(endpoint);
   return templates.find((template) => text(template?.id) === templateId) || null;
 }
 
@@ -202,11 +211,21 @@ function assertTemplate(template, image) {
   }
 }
 
+function assertEndpointIdentity(endpoint, templateId, code) {
+  const actualName = text(endpoint?.name);
+  const actualTemplateId = endpointTemplateId(endpoint);
+  if (actualName !== ENDPOINT_NAME || actualTemplateId !== templateId) {
+    throw new Error(
+      `${code}:name=${actualName || "MISSING"}:template_id=${actualTemplateId || "MISSING"}:workers_min=${workersMin(endpoint)}:workers_max=${workersMax(endpoint)}`,
+    );
+  }
+}
+
 function safeEndpoint(endpoint = {}) {
   return {
     id: text(endpoint?.id) || null,
     name: text(endpoint?.name) || null,
-    template_id: text(endpoint?.templateId ?? endpoint?.template_id ?? endpoint?.template?.id) || null,
+    template_id: endpointTemplateId(endpoint) || null,
     workers_min: workersMin(endpoint),
     workers_max: workersMax(endpoint),
     network_volume_ids: endpointVolumeIds(endpoint),
@@ -239,27 +258,81 @@ if (candidateMatches.length === 1) {
   if (productionAudioMatches.some((item) => text(item?.id) === text(endpoint?.id))) {
     throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_COLLIDES_WITH_PRODUCTION_AUDIO");
   }
-  assertTemplate(endpointTemplate(endpoint, templates), image);
+  const template = endpointTemplate(endpoint, templates);
+  assertTemplate(template, image);
+  const templateId = text(template?.id);
+  if (!templateId) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_EXISTING_TEMPLATE_ID_REQUIRED");
+  assertEndpointIdentity(endpoint, templateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_EXISTING_IDENTITY_MISMATCH");
   const attached = endpointVolumeIds(endpoint);
   if (attached.length !== 1 || attached[0] !== volume.id) {
     throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_CACHE_BINDING_MISMATCH");
   }
-  if (workersMin(endpoint) !== 0 || workersMax(endpoint) !== 0) {
-    throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_NOT_PARKED_0_0");
+
+  const parkingRequired = workersMin(endpoint) !== 0 || workersMax(endpoint) !== 0;
+  if (parkingRequired && !apply) {
+    console.log(JSON.stringify({
+      success: true,
+      contract: CONTRACT,
+      mode: "PLAN",
+      endpoint_exists: true,
+      endpoint: safeEndpoint(endpoint),
+      exact_immutable_image_verified: true,
+      canonical_cache_volume: volume,
+      parking_required: true,
+      target_workers_min: 0,
+      target_workers_max: 0,
+      safe_lease_contract: SAFE_LEASE_CONTRACT,
+      safe_lease_lane: SAFE_LEASE_LANE,
+      production_audio_endpoint_count: productionAudioMatches.length,
+      production_audio_endpoint_mutation_performed: false,
+      mutation_performed: false,
+      workers_opened: false,
+      provider_job_submitted: false,
+      production_deploy_performed: false,
+      pricing_activation_performed: false,
+      next_action: "APPROVE_PARK_EXISTING_MUSIC_TRANSFORM_CANDIDATE",
+    }, null, 2));
+    process.exit(0);
   }
+
+  let verified = endpoint;
+  let parkingRepairPerformed = false;
+  if (parkingRequired) {
+    await rest(`/endpoints/${encodeURIComponent(text(endpoint?.id))}`, managementKey, {
+      method: "PATCH",
+      body: { workersMin: 0, workersMax: 0 },
+    });
+    verified = await rest(`/endpoints/${encodeURIComponent(text(endpoint?.id))}?includeTemplate=true&includeWorkers=true`, managementKey);
+    parkingRepairPerformed = true;
+  }
+
+  assertEndpointIdentity(verified, templateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_EXISTING_VERIFY_IDENTITY_FAILED");
+  if (workersMin(verified) !== 0 || workersMax(verified) !== 0) {
+    throw new Error(
+      `AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PARK_VERIFY_FAILED:workers_min=${workersMin(verified)}:workers_max=${workersMax(verified)}`,
+    );
+  }
+  const verifiedAttached = endpointVolumeIds(verified);
+  if (verifiedAttached.length !== 1 || verifiedAttached[0] !== volume.id) {
+    throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_CACHE_BINDING_MISMATCH_AFTER_PARK");
+  }
+  assertTemplate(endpointTemplate(verified, templates) || template, image);
+
   console.log(JSON.stringify({
     success: true,
     contract: CONTRACT,
     mode: apply ? "APPLY" : "PLAN",
     endpoint_exists: true,
-    endpoint: safeEndpoint(endpoint),
+    endpoint: safeEndpoint(verified),
     exact_immutable_image_verified: true,
     canonical_cache_volume: volume,
+    parking_required: false,
+    parking_repair_performed: parkingRepairPerformed,
     safe_lease_contract: SAFE_LEASE_CONTRACT,
     safe_lease_lane: SAFE_LEASE_LANE,
     production_audio_endpoint_count: productionAudioMatches.length,
     production_audio_endpoint_mutation_performed: false,
-    mutation_performed: false,
+    mutation_performed: parkingRepairPerformed,
     workers_opened: false,
     provider_job_submitted: false,
     production_deploy_performed: false,
@@ -372,14 +445,24 @@ if (productionAudioMatches.some((item) => text(item?.id) === endpointId)) {
   throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_CREATED_AS_PRODUCTION_AUDIO");
 }
 
-const verified = await rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey);
-if (
-  text(verified?.name) !== ENDPOINT_NAME ||
-  text(verified?.templateId ?? verified?.template?.id) !== templateId ||
-  workersMin(verified) !== 0 ||
-  workersMax(verified) !== 0
-) {
-  throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_VERIFY_FAILED");
+let verified = await rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey);
+assertEndpointIdentity(verified, templateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_CREATED_IDENTITY_MISMATCH");
+
+let parkingRepairPerformed = false;
+if (workersMin(verified) !== 0 || workersMax(verified) !== 0) {
+  await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
+    method: "PATCH",
+    body: { workersMin: 0, workersMax: 0 },
+  });
+  verified = await rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey);
+  parkingRepairPerformed = true;
+}
+
+assertEndpointIdentity(verified, templateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_VERIFY_IDENTITY_FAILED");
+if (workersMin(verified) !== 0 || workersMax(verified) !== 0) {
+  throw new Error(
+    `AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_PARK_VERIFY_FAILED:workers_min=${workersMin(verified)}:workers_max=${workersMax(verified)}`,
+  );
 }
 const attached = endpointVolumeIds(verified);
 if (attached.length !== 1 || attached[0] !== volume.id) {
@@ -394,6 +477,7 @@ console.log(JSON.stringify({
   endpoint: safeEndpoint(verified),
   template_created: matchingTemplates.length === 0,
   endpoint_created: true,
+  parking_repair_performed: parkingRepairPerformed,
   mutation_performed: true,
   workers_opened: false,
   provider_job_submitted: false,

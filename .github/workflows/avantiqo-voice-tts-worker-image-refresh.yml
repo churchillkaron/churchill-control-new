@@ -1,6 +1,7 @@
 name: Avantiqo Voice TTS Worker Image Refresh
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main

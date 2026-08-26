@@ -40,8 +40,8 @@ import {
   reconcileAvantiqoKnowledgeFinalPromotionCandidates,
 } from "@/lib/intelligence/runtime/AvantiqoKnowledgeCounterfactualBenchmarkRuntime";
 import {
-  reconcileAvantiqoReleasedKnowledgeRevalidation,
-} from "@/lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime";
+  reconcileAvantiqoReleasedKnowledgeLifecycle,
+} from "@/lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -85,10 +85,10 @@ export async function GET(request) {
     //     candidates and reconcile only separately-recorded passing evaluations
     //     into final knowledge release review candidates. This stage performs no
     //     benchmark execution and never writes platform_knowledge.
-    // 12. Revalidate only knowledge that was previously released through the
-    //     explicit final-release runtime. Conflict, stale evidence or missing
-    //     source provenance quarantines it immediately; this cron cannot release
-    //     or restore reusable knowledge.
+    // 12. Revalidate only knowledge previously released through the explicit
+    //     final-release runtime. Conflict, stale evidence or missing provenance
+    //     quarantines it immediately. Successful same-cycle revalidation renews
+    //     its bounded validity window; this cron cannot release or restore it.
     // 13. Spend the existing bounded public-evidence research budget on the
     //     resulting agenda, including adversarial reconciliation work. Newly
     //     supported claims are staged as evidence candidates for the next cycle.
@@ -113,8 +113,8 @@ export async function GET(request) {
       await reconcileAvantiqoKnowledgeCounterfactualBenchmarkPlans();
     const knowledgeFinalPromotionCandidates =
       await reconcileAvantiqoKnowledgeFinalPromotionCandidates();
-    const releasedKnowledgeRevalidation =
-      await reconcileAvantiqoReleasedKnowledgeRevalidation();
+    const releasedKnowledgeLifecycle =
+      await reconcileAvantiqoReleasedKnowledgeLifecycle();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -132,7 +132,8 @@ export async function GET(request) {
         provisional_knowledge_shadow: provisionalKnowledgeShadow,
         knowledge_counterfactual_benchmark_plans: knowledgeCounterfactualBenchmarkPlans,
         knowledge_final_promotion_candidates: knowledgeFinalPromotionCandidates,
-        released_knowledge_revalidation: releasedKnowledgeRevalidation,
+        released_knowledge_revalidation: releasedKnowledgeLifecycle,
+        released_knowledge_lifecycle: releasedKnowledgeLifecycle,
       },
       {
         status: result.success === false ? 207 : 200,

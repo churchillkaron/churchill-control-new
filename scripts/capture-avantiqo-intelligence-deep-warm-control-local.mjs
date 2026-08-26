@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 const REST_BASE = "https://rest.runpod.io/v1";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_WARM_CONTROL_V2";
+const GRAPHQL_URL = "https://api.runpod.io/graphql";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_WARM_CONTROL_V3";
 const APPROVAL = "AVANTIQO_INTELLIGENCE_DEEP_WARM_CONTROL_APPROVED";
 const DEEP_NAME = "avantiqo-intelligence-v1";
 const FAST_NAME = "avantiqo-intelligence-fast-v1";
@@ -58,6 +59,58 @@ async function requestJson(url, key, options = {}) {
     throw new Error(`RUNPOD_DEEP_WARM_CONTROL_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
   }
   return body ?? {};
+}
+
+async function accountFunding(managementKey) {
+  const query = `
+    query AvantiqoIntelligenceDeepWarmFundingGuard {
+      myself {
+        underBalance
+        minBalance
+        clientBalance
+      }
+    }
+  `;
+  const response = await fetch(GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${managementKey}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let body = null;
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+  if (!response.ok || body?.errors?.length || !body?.data?.myself) {
+    const detail = redact(text(
+      body?.errors?.map((entry) => entry?.message).filter(Boolean).join(" | ") || raw,
+    )).slice(0, 700);
+    throw new Error(`AVANTIQO_DEEP_WARM_CONTROL_ACCOUNT_READ_FAILED:${response.status}:${detail || "INVALID_RESPONSE"}`);
+  }
+  const account = body.data.myself;
+  return {
+    under_balance: account?.underBalance === true,
+    min_balance_usd: finite(account?.minBalance, null),
+    client_balance_usd: finite(account?.clientBalance, null),
+  };
+}
+
+function assertFundedForWarmControl(account) {
+  const balance = account.client_balance_usd;
+  const minimum = account.min_balance_usd;
+  const blocked =
+    account.under_balance ||
+    balance === null ||
+    balance <= 0 ||
+    (minimum !== null && balance < minimum);
+  if (blocked) {
+    throw new Error(
+      `AVANTIQO_DEEP_WARM_CONTROL_RUNPOD_BALANCE_REQUIRED:client_balance_usd=${balance}:min_balance_usd=${minimum}:under_balance=${account.under_balance}`,
+    );
+  }
 }
 
 function healthSummary(body) {
@@ -186,6 +239,11 @@ if (dualEnabledBefore) {
   }
 }
 
+const accountFundingState = await accountFunding(managementKey);
+assertFundedForWarmControl(accountFundingState);
+console.log(`AVANTIQO_INTELLIGENCE_DEEP_WARM_CONTROL_ACCOUNT_FUNDED=true`);
+console.log(`AVANTIQO_INTELLIGENCE_DEEP_WARM_CONTROL_BALANCE_USD=${accountFundingState.client_balance_usd}`);
+
 let cleanupPassed = false;
 let workerSeen = false;
 let workers = [];
@@ -232,7 +290,7 @@ const diagnosis = workerSeen
   : "NO_DEEP_WORKER_PROVISIONED_DURING_WARM_LEASE";
 const nextAction = workerSeen
   ? "FAST_ENDPOINT_SPECIFIC_SCHEDULER_FAILURE_CONFIRMED_REPAIR_OR_RECREATE_FAST_ENDPOINT"
-  : "SHARED_BLACKWELL_CAPACITY_OR_ACCOUNT_SCHEDULER_CONSTRAINT_LIKELY";
+  : "ACCOUNT_FUNDED_BUT_SHARED_BLACKWELL_SCHEDULER_CONSTRAINT_REMAINS";
 
 console.log(JSON.stringify({
   success: cleanupPassed,
@@ -242,6 +300,7 @@ console.log(JSON.stringify({
   timeout_ms: TIMEOUT_MS,
   elapsed_seconds: Math.floor((Date.now() - startedAt) / 1000),
   before,
+  account_funding: accountFundingState,
   slot_state_before: {
     deep_workers_min: deepMinBefore,
     deep_workers_max: deepMaxBefore,

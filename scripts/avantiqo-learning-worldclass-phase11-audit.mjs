@@ -71,8 +71,12 @@ assert.equal(/fetch\s*\(/.test(dependency), false,
   "dependency curriculum runtime must remain provider-free");
 assert.equal(dependency.includes('memory_scope: "platform_knowledge"'), false,
   "dependency curriculum runtime must not create platform_knowledge rows");
-assert.equal(dependency.includes("semantic similarity"), true,
-  "runtime must explicitly forbid semantic similarity as dependency evidence");
+assert.ok(
+  dependency.includes("semantic_similarity_inference_used: false") &&
+    dependency.includes("semantic_similarity_is_not_dependency_evidence: true") &&
+    dependency.includes("Do not infer dependencies from mere topical similarity."),
+  "runtime must explicitly forbid semantic/topical similarity as dependency evidence",
+);
 
 hasAll(releaseLifecycle, [
   "AVANTIQO_RELEASED_KNOWLEDGE_LIFECYCLE_V1",

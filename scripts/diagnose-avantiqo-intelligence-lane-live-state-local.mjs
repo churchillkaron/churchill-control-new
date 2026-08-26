@@ -6,6 +6,7 @@ const CONTROL_BASE = "https://api.runpod.io/v2";
 const DEEP_NAME = "avantiqo-intelligence-v1";
 const FAST_NAME = "avantiqo-intelligence-fast-v1";
 const CONTRACT = "AVANTIQO_INTELLIGENCE_LANE_LIVE_STATE_DIAGNOSTIC_V1";
+const EXPECTED_MAIN_ENV = "AVANTIQO_INTELLIGENCE_LANE_LIVE_STATE_EXPECTED_MAIN";
 
 const text = (value) => String(value ?? "").trim();
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -42,7 +43,13 @@ function shell(name, args, code) {
 }
 
 function validateCurrentMain() {
-  shell("git", ["fetch", "origin", "main"], "AVANTIQO_INTELLIGENCE_LIVE_STATE_GIT_FETCH_FAILED");
+  const expectedMain = text(process.env[EXPECTED_MAIN_ENV]);
+  if (expectedMain && !/^[0-9a-f]{40}$/i.test(expectedMain)) {
+    throw new Error(
+      `AVANTIQO_INTELLIGENCE_LIVE_STATE_EXPECTED_MAIN_INVALID:${expectedMain.slice(0, 80)}`,
+    );
+  }
+
   const branch = shell(
     "git",
     ["branch", "--show-current"],
@@ -58,6 +65,17 @@ function validateCurrentMain() {
     ["rev-parse", "HEAD"],
     "AVANTIQO_INTELLIGENCE_LIVE_STATE_GIT_HEAD_FAILED",
   );
+
+  if (expectedMain) {
+    if (head !== expectedMain) {
+      throw new Error(
+        `AVANTIQO_INTELLIGENCE_LIVE_STATE_PINNED_MAIN_MISMATCH:head=${head}:expected=${expectedMain}`,
+      );
+    }
+    return head;
+  }
+
+  shell("git", ["fetch", "origin", "main"], "AVANTIQO_INTELLIGENCE_LIVE_STATE_GIT_FETCH_FAILED");
   const remote = shell(
     "git",
     ["rev-parse", "origin/main"],
@@ -266,6 +284,7 @@ console.log(
       contract: CONTRACT,
       mode: "READ_ONLY_LIVE_STATE",
       main_commit: mainCommit,
+      pinned_main: Boolean(text(process.env[EXPECTED_MAIN_ENV])),
       deep_endpoint: deep,
       fast_endpoint: fast,
       total_intelligence_workers_max: deep.workers_max + fast.workers_max,

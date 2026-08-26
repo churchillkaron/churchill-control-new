@@ -57,35 +57,52 @@ test("Edit/Repaint remains benchmark gated", () => {
   assert.deepEqual(plan.provider_parameters, { repainting_start: 10, repainting_end: 20 });
 });
 
-test("Extend remains base-model and benchmark gated", () => {
+test("Extend uses XL temporal outpaint and remains benchmark gated", () => {
   const plan = buildMusicTransformationPlan("extend", {
     source_audio: source,
     source_rights_confirmed: true,
     instrumental: true,
+    extension_seconds: 30,
+    continuity_overlap_seconds: 4,
   });
   assert.equal(plan.capability, "ai.audio.extend");
-  assert.equal(plan.task_type, "complete");
-  assert.equal(plan.model_lane, "acestep-v15-base");
-  assert.equal(plan.implementation, "BASE_MODEL_LANE_REQUIRED");
-  assert.equal(plan.certification, "BASE_MODEL_AND_BENCHMARK_REQUIRED");
+  assert.equal(plan.task_type, "repaint");
+  assert.equal(plan.model_lane, "acestep-v15-xl-turbo");
+  assert.equal(plan.implementation, "IMPLEMENTED");
+  assert.equal(plan.certification, "BENCHMARK_REQUIRED");
   assert.equal(plan.executable, false);
+  assert.equal(plan.temporal_extension.strategy, "XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1");
+  assert.equal(plan.temporal_extension.source_duration_measured_by_worker, true);
+  assert.equal(plan.temporal_extension.right_padding_outpaint_required, true);
+  assert.equal(plan.temporal_extension.temporal_extension_proven, false);
+  assert.deepEqual(plan.provider_parameters, {
+    extension_seconds: 30,
+    continuity_overlap_seconds: 4,
+    temporal_extend_strategy: "XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1",
+  });
+  assert.equal(plan.output_spec.duration_rule, "SOURCE_DURATION_PLUS_EXTENSION_SECONDS_BOUNDED_BY_WORKER_MAX");
 });
 
 test("Shared transform route is plan-only for remix edit and extend", () => {
   assert.match(transformRoute, /new Set\(\["remix", "edit", "extend"\]\)/);
-  assert.match(transformRoute, /buildMusicTransformationPlan\(operation/);
+  assert.match(transformRoute, /buildTemporalExtendPlan/);
+  assert.match(transformRoute, /XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1/);
   assert.match(transformRoute, /execution_submitted: false/);
   assert.match(transformRoute, /execution_route_enabled: false/);
   assert.doesNotMatch(transformRoute, /executeService/);
   assert.doesNotMatch(transformRoute, /settlePendingService/);
 });
 
-test("Shared transform panel exposes structured repaint controls and truthful extension blocker", () => {
+test("Shared transform panel exposes repaint and temporal extension controls truthfully", () => {
   assert.match(transformPanel, /operation = "remix"/);
   assert.match(transformPanel, /repainting_start/);
   assert.match(transformPanel, /repainting_end/);
-  assert.match(transformPanel, /Base model \+ benchmark required/);
+  assert.match(transformPanel, /extension_seconds/);
+  assert.match(transformPanel, /continuity_overlap_seconds/);
+  assert.match(transformPanel, /Temporal outpaint benchmark pending/);
+  assert.match(transformPanel, /XL Turbo tail outpainting is implemented/);
   assert.match(transformPanel, /execution_route_enabled === true/);
+  assert.doesNotMatch(transformPanel, /Base model \+ benchmark required/);
   assert.doesNotMatch(transformPanel, /prompt/i);
 });
 

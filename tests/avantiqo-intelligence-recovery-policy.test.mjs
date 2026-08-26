@@ -74,17 +74,22 @@ function mutationStep(overrides = {}) {
 }
 
 function receipt({
+  plan,
   id = "tool-call-1",
+  stepId = "read-current-state",
   binding = READ_CAPABILITY,
   outcome = "failed",
   code = "UPSTREAM_UNAVAILABLE",
   mutates = false,
+  planId = plan?.plan_id,
 } = {}) {
   return {
     contract: GOVERNED_OUTCOME_CONTRACT,
     tool_call_id: id,
     tool_name: "operator_live_read",
     binding_key: binding,
+    plan_id: planId || null,
+    plan_step_id: stepId || null,
     outcome,
     code: outcome === "succeeded" ? null : code,
     mutates,
@@ -121,13 +126,14 @@ test("known transient non-mutating governed failure retries within explicit budg
   const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
     plan,
     observations: [failedObservation()],
-    governed_tool_outcomes: [receipt()],
+    governed_tool_outcomes: [receipt({ plan })],
   });
 
   assert.equal(assessment.status, "RETRY_REQUIRED");
   assert.equal(assessment.retry_required, true);
   assert.equal(assessment.requires_replan, false);
   assert.deepEqual(assessment.retry_step_ids, ["read-current-state"]);
+  assert.equal(assessment.recovery_decisions[0]?.governed_attempts, 1);
   assert.equal(assessment.recovery_decisions[0]?.remaining_retries, 2);
   assert.equal(assessment.recovery_decisions[0]?.failure_code_attested, true);
   assert.equal(
@@ -135,10 +141,7 @@ test("known transient non-mutating governed failure retries within explicit budg
     "ATTESTED_TRANSIENT_NON_MUTATING_FAILURE_RETRY_ALLOWED",
   );
   assert.equal(assessment.governance.retries_are_bounded, true);
-  assert.equal(
-    assessment.governance.retry_failure_codes_require_governed_attestation,
-    true,
-  );
+  assert.equal(assessment.governance.governed_attempt_history_controls_retry_budget, true);
 });
 
 test("model-provided transient code cannot authorize retry without governed attestation", () => {
@@ -162,6 +165,38 @@ test("model-provided transient code cannot authorize retry without governed atte
   );
 });
 
+test("missing or mismatched governed plan-step binding never authorizes retry", () => {
+  const plan = buildOperatorIntelligencePlan({
+    goal: "Fail closed on plan binding",
+    plan_steps: [readStep({ retry_budget: 3 })],
+  });
+  const cases = [
+    {
+      governed: receipt({ plan, planId: null }),
+      reason: "GOVERNED_PLAN_STEP_BINDING_REQUIRED",
+    },
+    {
+      governed: receipt({ plan, planId: "plan-other" }),
+      reason: "GOVERNED_PLAN_STEP_BINDING_MISMATCH",
+    },
+    {
+      governed: receipt({ plan, stepId: "other-step" }),
+      reason: "GOVERNED_PLAN_STEP_BINDING_MISMATCH",
+    },
+  ];
+
+  for (const item of cases) {
+    const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
+      plan,
+      observations: [failedObservation({ failure_code: "TIMEOUT" })],
+      governed_tool_outcomes: [item.governed],
+    });
+    assert.equal(assessment.retry_required, false);
+    assert.equal(assessment.recovery_decisions[0]?.retry_allowed, false);
+    assert.equal(assessment.recovery_decisions[0]?.reason, item.reason);
+  }
+});
+
 test("governed outcome overrides a conflicting model failure code", () => {
   const plan = buildOperatorIntelligencePlan({
     goal: "Trust governed failure evidence over model claims",
@@ -170,7 +205,7 @@ test("governed outcome overrides a conflicting model failure code", () => {
   const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
     plan,
     observations: [failedObservation({ failure_code: "TIMEOUT" })],
-    governed_tool_outcomes: [receipt({ code: "PERMISSION_DENIED" })],
+    governed_tool_outcomes: [receipt({ plan, code: "PERMISSION_DENIED" })],
   });
 
   assert.equal(assessment.retry_required, false);
@@ -186,17 +221,17 @@ test("missing capability binding, mismatched binding and succeeded receipts neve
   const cases = [
     {
       step: readStep({ capability_key: null }),
-      governed: receipt(),
+      receiptOptions: {},
       reason: "STEP_CAPABILITY_BINDING_REQUIRED",
     },
     {
       step: readStep(),
-      governed: receipt({ binding: "platform.other.read" }),
+      receiptOptions: { binding: "platform.other.read" },
       reason: "GOVERNED_TOOL_OUTCOME_BINDING_MISMATCH",
     },
     {
       step: readStep(),
-      governed: receipt({ outcome: "succeeded" }),
+      receiptOptions: { outcome: "succeeded" },
       reason: "GOVERNED_TOOL_OUTCOME_NOT_FAILURE",
     },
   ];
@@ -209,7 +244,7 @@ test("missing capability binding, mismatched binding and succeeded receipts neve
     const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
       plan,
       observations: [failedObservation({ failure_code: "TIMEOUT" })],
-      governed_tool_outcomes: [item.governed],
+      governed_tool_outcomes: [receipt({ plan, ...item.receiptOptions })],
     });
     assert.equal(assessment.retry_required, false);
     assert.equal(assessment.recovery_decisions[0]?.retry_allowed, false);
@@ -226,18 +261,18 @@ test("governance, unknown and blocked governed failures cannot auto-retry", () =
   const cases = [
     {
       observation: failedObservation({ failure_code: "PERMISSION_DENIED" }),
-      governed: receipt({ code: "PERMISSION_DENIED" }),
+      governed: receipt({ plan, code: "PERMISSION_DENIED" }),
     },
     {
       observation: failedObservation({ failure_code: "SOMETHING_UNCLASSIFIED" }),
-      governed: receipt({ code: "SOMETHING_UNCLASSIFIED" }),
+      governed: receipt({ plan, code: "SOMETHING_UNCLASSIFIED" }),
     },
     {
       observation: failedObservation({
         status: "blocked",
         failure_code: "UPSTREAM_UNAVAILABLE",
       }),
-      governed: receipt({ outcome: "blocked", code: "UPSTREAM_UNAVAILABLE" }),
+      governed: receipt({ plan, outcome: "blocked", code: "UPSTREAM_UNAVAILABLE" }),
     },
   ];
 
@@ -269,7 +304,9 @@ test("mutating steps are never auto-retried even with attested transient codes a
       attempts: 1,
     }],
     governed_tool_outcomes: [receipt({
+      plan,
       id: "tool-call-write",
+      stepId: "apply-change",
       binding: "finance.example.write",
       code: "TIMEOUT",
       mutates: true,
@@ -285,27 +322,55 @@ test("mutating steps are never auto-retried even with attested transient codes a
   );
 });
 
-test("retry budget exhaustion forces replan instead of an unbounded retry loop", () => {
+test("governed second failure exhausts one-retry budget even when model still claims attempts one", () => {
   const plan = buildOperatorIntelligencePlan({
-    goal: "Stop retry loops",
+    goal: "Stop retry loops from real governed history",
     plan_steps: [readStep({ retry_budget: 1 })],
   });
   const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
     plan,
     observations: [failedObservation({
+      tool_call_id: "tool-call-2",
       failure_code: "NETWORK_TIMEOUT",
-      attempts: 2,
+      attempts: 1,
     })],
-    governed_tool_outcomes: [receipt({ code: "NETWORK_TIMEOUT" })],
+    governed_tool_outcomes: [
+      receipt({ plan, id: "tool-call-1", code: "NETWORK_TIMEOUT" }),
+      receipt({ plan, id: "tool-call-2", code: "NETWORK_TIMEOUT" }),
+    ],
   });
 
   assert.equal(assessment.retry_required, false);
   assert.equal(assessment.requires_replan, true);
+  assert.equal(assessment.recovery_decisions[0]?.claimed_attempts, 1);
+  assert.equal(assessment.recovery_decisions[0]?.governed_attempts, 2);
   assert.equal(assessment.recovery_decisions[0]?.remaining_retries, 0);
   assert.equal(
     assessment.recovery_decisions[0]?.reason,
     "RETRY_BUDGET_EXHAUSTED",
   );
+});
+
+test("same capability on another step does not consume this step retry budget", () => {
+  const plan = buildOperatorIntelligencePlan({
+    goal: "Keep retry accounting step exact",
+    plan_steps: [
+      readStep({ retry_budget: 1 }),
+      readStep({ id: "read-other-state", title: "Read other state", retry_budget: 1 }),
+    ],
+  });
+  const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
+    plan,
+    observations: [failedObservation()],
+    governed_tool_outcomes: [
+      receipt({ plan, id: "other-call", stepId: "read-other-state" }),
+      receipt({ plan, id: "tool-call-1", stepId: "read-current-state" }),
+    ],
+  });
+
+  assert.equal(assessment.retry_required, true);
+  assert.equal(assessment.recovery_decisions[0]?.governed_attempts, 1);
+  assert.equal(assessment.recovery_decisions[0]?.remaining_retries, 1);
 });
 
 test("replanning is deterministically deferred while an attested safe retry remains", () => {
@@ -316,7 +381,7 @@ test("replanning is deterministically deferred while an attested safe retry rema
   const revised = reviseOperatorIntelligencePlanWithRecoveryPolicy({
     plan,
     observations: [failedObservation({ failure_code: "SERVICE_UNAVAILABLE" })],
-    governed_tool_outcomes: [receipt({ code: "SERVICE_UNAVAILABLE" })],
+    governed_tool_outcomes: [receipt({ plan, code: "SERVICE_UNAVAILABLE" })],
     revised_steps: [readStep({ id: "replacement-read" })],
   });
 

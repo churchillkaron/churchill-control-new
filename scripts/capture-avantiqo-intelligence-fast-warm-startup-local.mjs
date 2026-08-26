@@ -72,12 +72,33 @@ function validateCurrentMain() {
     ["rev-parse", "origin/main"],
     "AVANTIQO_FAST_STARTUP_GIT_REMOTE_FAILED",
   );
-  if (head !== remote) {
+  if (head === remote) return head;
+
+  const dirty = shell(
+    "git",
+    ["status", "--porcelain", "--untracked-files=no"],
+    "AVANTIQO_FAST_STARTUP_GIT_STATUS_FAILED",
+  );
+  if (dirty) {
+    throw new Error("AVANTIQO_FAST_STARTUP_CURRENT_MAIN_DIRTY_CHECKOUT");
+  }
+  shell(
+    "git",
+    ["merge", "--ff-only", "origin/main"],
+    "AVANTIQO_FAST_STARTUP_GIT_FAST_FORWARD_FAILED",
+  );
+  const converged = shell(
+    "git",
+    ["rev-parse", "HEAD"],
+    "AVANTIQO_FAST_STARTUP_GIT_CONVERGED_HEAD_FAILED",
+  );
+  if (converged !== remote) {
     throw new Error(
-      `AVANTIQO_FAST_STARTUP_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin_main=${remote}`,
+      `AVANTIQO_FAST_STARTUP_MAIN_CONVERGENCE_FAILED:head=${converged}:origin_main=${remote}`,
     );
   }
-  return head;
+  console.log(`AVANTIQO_INTELLIGENCE_FAST_STARTUP_MAIN_CONVERGED=${converged}`);
+  return converged;
 }
 
 function requiredCredential() {

@@ -24,6 +24,8 @@
     "intelligence-deep": "avantiqo-intelligence-v1",
     "intelligence-fast": "avantiqo-intelligence-fast-v1",
     "intelligence-trainer": "avantiqo-intelligence-trainer-v1",
+    "intelligence-benchmark": "avantiqo-intelligence-trainer-v1",
+    "intelligence-candidate": "avantiqo-intelligence-candidate-v1",
     "intelligence-fast-candidate": "avantiqo-intelligence-fast-replacement-candidate-v1",
     "image": "avantiqo-image-v1",
     "audio": "avantiqo-audio-v1",

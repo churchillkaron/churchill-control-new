@@ -47,12 +47,16 @@ jobs:
           grep -F 'RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_VIDEO_HANDLER_V3_WAN22_A14B_DEFAULT_ROUTING_V1"' services/avantiqo-video-engine/handler_v3.py
           grep -F 'RUNTIME_REVISION = "AVANTIQO_VIDEO_WAN22_A14B_DEFAULT_ROUTING_CACHE_V1"' services/avantiqo-video-engine/handler_v3.py
           grep -F 'DEFAULT_ROUTING_CONTRACT = "AVANTIQO_VIDEO_WAN22_A14B_DEFAULT_GENERATION_ROUTING_V1"' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'CACHE_OPERATION = "cache_foundation_model"' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'CACHE_AUTHORIZATION_CONTRACT = "AVANTIQO_VIDEO_WAN22_CACHE_AUTHORIZATION_V1"' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'CACHE_COMPLETION_CONTRACT = "AVANTIQO_VIDEO_WAN22_CACHE_COMPLETION_V1"' services/avantiqo-video-engine/handler_v3.py
           grep -F 'DEFAULT_T2V_MODEL = "Wan-AI/Wan2.2-T2V-A14B-Diffusers"' services/avantiqo-video-engine/handler_v3.py
           grep -F 'DEFAULT_I2V_MODEL = "Wan-AI/Wan2.2-I2V-A14B-Diffusers"' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'NETWORK_VOLUME_QUOTA_GB < 400' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'legacy._cached_model_path = _verified_cached_model_path' services/avantiqo-video-engine/handler_v3.py
+          grep -F 'snapshot_download(' services/avantiqo-video-engine/handler_v3.py
           grep -F '"generation_requested": False' services/avantiqo-video-engine/handler_v3.py
           grep -F '"inference_performed": False' services/avantiqo-video-engine/handler_v3.py
-          grep -F '"model_download_performed": False' services/avantiqo-video-engine/handler_v3.py
-          grep -F '"storage_mutation_performed": False' services/avantiqo-video-engine/handler_v3.py
           python -m py_compile \
             services/avantiqo-video-engine/handler.py \
             services/avantiqo-video-engine/handler_v2.py \
@@ -60,6 +64,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_PREFLIGHT=PASS'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_TRIGGER_SHA_BOUND=true'
+          echo 'AVANTIQO_VIDEO_WORKER_IMAGE_CACHE_OPERATION_LOCKED=true'
+          echo 'AVANTIQO_VIDEO_WORKER_IMAGE_PARTIAL_CACHE_FAIL_CLOSED=true'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_GENERATION_SUBMITTED=false'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_PRODUCTION_WEB_DEPLOY=false'
@@ -132,7 +138,7 @@ jobs:
           const report = {
             success: true,
             contract: "AVANTIQO_VIDEO_WORKER_IMAGE_RESULT_V2",
-            evidence_revision: "AVANTIQO_VIDEO_WORKER_IMAGE_V3_WAN22_A14B_DEFAULT_ROUTING_V1",
+            evidence_revision: "AVANTIQO_VIDEO_WORKER_IMAGE_V3_WAN22_A14B_DEFAULT_ROUTING_CACHE_V2",
             source_sha: process.env.RELEASE_SHA || null,
             trigger_sha: process.env.TRIGGER_SHA || null,
             source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
@@ -153,6 +159,11 @@ jobs:
             request_foundation_override_applied: false,
             runtime_probe_contract: "AVANTIQO_VIDEO_RUNTIME_PROBE_V1",
             cache_capacity_evidence_contract: "AVANTIQO_VIDEO_CACHE_CAPACITY_EVIDENCE_V1",
+            cache_operation: "cache_foundation_model",
+            cache_authorization_contract: "AVANTIQO_VIDEO_WAN22_CACHE_AUTHORIZATION_V1",
+            cache_completion_contract: "AVANTIQO_VIDEO_WAN22_CACHE_COMPLETION_V1",
+            minimum_network_volume_quota_gb_for_cache: 400,
+            partial_snapshot_satisfies_final_worker_fitness: false,
             default_certified_capabilities: [
               "ai.video.generate",
               "ai.video.image_to_video",
@@ -234,6 +245,9 @@ jobs:
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_ENTRYPOINT=handler_v3.py'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_T2V_FOUNDATION=Wan-AI/Wan2.2-T2V-A14B-Diffusers'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_I2V_FOUNDATION=Wan-AI/Wan2.2-I2V-A14B-Diffusers'
+          echo 'AVANTIQO_VIDEO_WORKER_IMAGE_CACHE_OPERATION=cache_foundation_model'
+          echo 'AVANTIQO_VIDEO_WORKER_IMAGE_CACHE_COMPLETION_CONTRACT=AVANTIQO_VIDEO_WAN22_CACHE_COMPLETION_V1'
+          echo 'AVANTIQO_VIDEO_WORKER_IMAGE_PARTIAL_CACHE_FAIL_CLOSED=true'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_GENERATION_SUBMITTED=false'
           echo 'AVANTIQO_VIDEO_WORKER_IMAGE_MODEL_DOWNLOAD_SUBMITTED=false'

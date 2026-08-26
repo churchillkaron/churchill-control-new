@@ -390,6 +390,17 @@ let fastActivated = false;
 let fastId = null;
 let report = null;
 let cleanup = { fast_min_zero: false, deep_restored: false, error: null };
+let stopSignal = null;
+const requestStop = (signal) => {
+  stopSignal ||= signal;
+  console.error(
+    `AVANTIQO_INTELLIGENCE_FAST_STARTUP_CAPTURE_STOP_REQUESTED=${signal}:cleanup_will_run`,
+  );
+};
+const onSigint = () => requestStop("SIGINT");
+const onSigterm = () => requestStop("SIGTERM");
+process.on("SIGINT", onSigint);
+process.on("SIGTERM", onSigterm);
 
 try {
   runSlotManager(
@@ -466,7 +477,7 @@ try {
   let releaseResult = { ok: true, body: null, error: null };
   let lastHealth = {};
   let workers = [];
-  while (Date.now() - startedAt <= WAIT_TIMEOUT_MS) {
+  while (!stopSignal && Date.now() - startedAt <= WAIT_TIMEOUT_MS) {
     [workersResult, releaseResult, lastHealth] = await Promise.all([
       optionalJson(
         `${CONTROL_BASE}/serverless/${encodeURIComponent(fastId)}/workers`,
@@ -498,7 +509,9 @@ try {
   }
   const entries = captures.flatMap((capture) => capture.entries);
   const laneSignals = signals(entries);
-  const classified = diagnosis(workers.length > 0, laneSignals, captures);
+  const classified = stopSignal
+    ? `CAPTURE_INTERRUPTED_${stopSignal}`
+    : diagnosis(workers.length > 0, laneSignals, captures);
   report = {
     success: true,
     contract: CONTRACT,
@@ -559,7 +572,8 @@ if (!report) {
   );
 }
 report.cleanup = cleanup;
-report.success = cleanup.fast_min_zero && cleanup.deep_restored;
+report.interrupted_signal = stopSignal;
+report.success = !stopSignal && cleanup.fast_min_zero && cleanup.deep_restored;
 report.next_action =
   report.diagnosis === "NO_WORKER_PROVISIONED_DURING_WARM_LEASE"
     ? "ESCALATE_RUNPOD_SERVERLESS_SCHEDULER_OR_ACCOUNT_CONSTRAINT_WITH_ENDPOINT_RELEASE_EVIDENCE"
@@ -579,4 +593,8 @@ console.log(`AVANTIQO_INTELLIGENCE_FAST_WARM_STARTUP_CAPTURE_REPORT=${reportPath
 console.log(
   `AVANTIQO_INTELLIGENCE_FAST_WARM_STARTUP_CAPTURE=${report.success ? "PASS" : "FAIL"}`,
 );
-if (!report.success) process.exitCode = 1;
+process.off("SIGINT", onSigint);
+process.off("SIGTERM", onSigterm);
+if (stopSignal === "SIGINT") process.exitCode = 130;
+else if (stopSignal === "SIGTERM") process.exitCode = 143;
+else if (!report.success) process.exitCode = 1;

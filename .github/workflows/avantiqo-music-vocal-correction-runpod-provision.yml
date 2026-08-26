@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY || secrets.RUNPOD_API_KEY }}
     outputs:
       endpoint_id: ${{ steps.verify.outputs.endpoint_id }}
       endpoint_name: ${{ steps.verify.outputs.endpoint_name }}
@@ -97,7 +97,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ]; then
-            echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_CREDENTIAL_MISSING=RUNPOD_MANAGEMENT_API_KEY'
+            echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_CREDENTIAL_MISSING=RUNPOD_MANAGEMENT_API_KEY_OR_RUNPOD_API_KEY'
             exit 1
           fi
           echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_CREDENTIAL=PASS'

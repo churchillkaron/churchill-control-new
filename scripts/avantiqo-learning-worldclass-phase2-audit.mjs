@@ -94,12 +94,22 @@ hasAll(evidenceGraph, [
   "evidence_never_authorizes_actions: true",
 ], "evidence graph");
 
+// Certify the Knowledge Router by its stable contract surface and fail-closed
+// behavior rather than pinning a version literal. Semantic upgrades (V3, V4,
+// ...) must not break this audit when the required safety behavior is preserved.
 hasAll(knowledgeRouter, [
-  "AVANTIQO_KNOWLEDGE_ROUTER_V2",
+  "AVANTIQO_KNOWLEDGE_ROUTER_CONTRACT",
   "inspectAvantiqoEvidenceGraph",
   "block_knowledge_reuse",
   "forced_fresh_research",
+  "force_refresh: forceRefresh",
+  'authorization_effect: "NONE"',
 ], "knowledge router");
+assert.match(
+  knowledgeRouter,
+  /AVANTIQO_KNOWLEDGE_ROUTER_V\d+/,
+  "knowledge router must expose a versioned runtime contract",
+);
 
 hasAll(index, [
   'export * from "./runtime/AvantiqoEvidenceGraphRuntime";',
@@ -115,6 +125,7 @@ const result = {
     durable_evidence_graph: true,
     conflicted_knowledge_reuse_blocked: true,
     fresh_research_for_stale_or_conflicted_evidence: true,
+    knowledge_router_version_resilient_certification: true,
     verified_product_outcome_capture: true,
     structural_deidentified_outcomes_only: true,
     outcome_feedback_into_learning_priority: true,

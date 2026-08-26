@@ -83,12 +83,13 @@ console.log(JSON.stringify({
   workers_min_one_allowed: false,
   paid_execution_policy: "RUNPOD_SAFE_LEASE_V2",
   parallel_work_allowed: true,
+  certification_resilience_wrapper: "AVANTIQO_CODE_AI_CERTIFICATION_RESILIENCE_V1",
   new_provider_execution_submitted: false,
   production_deploy_performed: false,
   secrets_printed: false,
 }));
 
-const result = spawnSync(process.execPath, ["scripts/run-code-ai-autonomous-planner-certification-local.mjs"], {
+const result = spawnSync(process.execPath, ["scripts/run-code-ai-autonomous-planner-certification-resilient-local.mjs"], {
   cwd: process.cwd(),
   env: process.env,
   stdio: "inherit",

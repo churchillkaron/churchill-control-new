@@ -47,14 +47,11 @@ export async function GET(request) {
 
     const pendingNotificationRepair = await supabaseAdmin
       .from("secretary_meeting_coordinations")
-      .select("id,metadata")
+      .select("id", { count: "exact", head: true })
       .eq("status", "BOOKED")
-      .order("completed_at", { ascending: false })
-      .limit(100);
+      .or("metadata->>booking_notifications_materialized.is.null,metadata->>booking_notifications_materialized.eq.false");
     if (pendingNotificationRepair.error) throw pendingNotificationRepair.error;
-    const notificationRepairPending = (pendingNotificationRepair.data || [])
-      .filter((row) => row?.metadata?.booking_notifications_materialized !== true)
-      .length;
+    const notificationRepairPending = Number(pendingNotificationRepair.count || 0);
 
     return Response.json(
       {
@@ -66,6 +63,8 @@ export async function GET(request) {
         results,
         notification_repair: notificationRepair,
         booking_notification_repair_pending: notificationRepairPending,
+        booking_notification_repair_pending_count_server_side: true,
+        booking_notification_repair_pending_count_starvation_free: true,
         booking_notifications_include_all_participants: true,
         booking_notifications_deterministic_and_idempotent: true,
         booking_notifications_rsvp_not_inferred: true,

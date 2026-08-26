@@ -10,6 +10,7 @@ const assert = (condition, code) => {
 const candidatePath = "lib/intelligence/runtime/AvantiqoCanonicalCurriculumCandidateRuntime.js";
 const benchmarkPath = "lib/intelligence/runtime/AvantiqoCanonicalCurriculumBenchmarkRuntime.js";
 const candidateReviewPath = "lib/intelligence/runtime/AvantiqoTrainingCandidateRuntime.js";
+const learningOrganizationPath = "lib/intelligence/runtime/AvantiqoLearningOrganizationRuntime.js";
 const guardPath = "lib/intelligence/runtime/AvantiqoSharedTrainerReservationGuard.js";
 const runnerPath = "scripts/run-avantiqo-canonical-curriculum-candidates-local.mjs";
 const datasetPath = "lib/intelligence/runtime/AvantiqoTrainingDatasetRuntime.js";
@@ -19,6 +20,7 @@ const indexPath = "lib/intelligence/index.js";
 const candidate = read(candidatePath);
 const benchmark = read(benchmarkPath);
 const candidateReview = read(candidateReviewPath);
+const learningOrganization = read(learningOrganizationPath);
 const guard = read(guardPath);
 const runner = read(runnerPath);
 const dataset = read(datasetPath);
@@ -59,6 +61,16 @@ assert(candidateReview.includes("source_fingerprint"), "LEARNING_CANDIDATE_SOURC
 assert(candidateReview.includes("candidate_contract"), "LEARNING_CANDIDATE_CONTRACT_EXPOSURE_REQUIRED");
 assert(candidateReview.includes("source_version_exposed_for_dataset_binding: true"), "LEARNING_CANDIDATE_DATASET_VERSION_BINDING_REQUIRED");
 
+assert(learningOrganization.includes("AVANTIQO_LEARNING_ORGANIZATION_V1"), "LEARNING_ORGANIZATION_RESOLVER_CONTRACT_REQUIRED");
+assert(learningOrganization.includes('CANONICAL_ORGANIZATION_NAME = "Avantiqo Platform"'), "LEARNING_ORGANIZATION_CANONICAL_NAME_REQUIRED");
+assert(learningOrganization.includes('CANONICAL_ORGANIZATION_TYPE = "enterprise_group"'), "LEARNING_ORGANIZATION_CANONICAL_TYPE_REQUIRED");
+assert(learningOrganization.includes("AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID"), "LEARNING_ORGANIZATION_ENV_OVERRIDE_REQUIRED");
+assert(learningOrganization.includes('source: "ENVIRONMENT_OVERRIDE"'), "LEARNING_ORGANIZATION_ENV_OVERRIDE_EVIDENCE_REQUIRED");
+assert(learningOrganization.includes('source: "CANONICAL_DATABASE_RECORD"'), "LEARNING_ORGANIZATION_DATABASE_FALLBACK_REQUIRED");
+assert(learningOrganization.includes("CANONICAL_RECORD_NOT_FOUND"), "LEARNING_ORGANIZATION_ZERO_MATCH_FAIL_CLOSED_REQUIRED");
+assert(learningOrganization.includes("CANONICAL_RECORD_AMBIGUOUS"), "LEARNING_ORGANIZATION_AMBIGUOUS_FAIL_CLOSED_REQUIRED");
+assert(learningOrganization.includes("organization_created: false"), "LEARNING_ORGANIZATION_AUTO_CREATE_FORBIDDEN");
+
 assert(guard.includes("AVANTIQO_SHARED_TRAINER_RESERVATION_GUARD_V1"), "LEARNING_SHARED_TRAINER_GUARD_CONTRACT_REQUIRED");
 assert(guard.includes('"avantiqo-code-v1"'), "LEARNING_SHARED_TRAINER_CODE_PEER_REQUIRED");
 assert(guard.includes('"avantiqo-intelligence-v1"'), "LEARNING_SHARED_TRAINER_INTELLIGENCE_PEER_REQUIRED");
@@ -70,6 +82,9 @@ assert(guard.includes("stable_observations: 2"), "LEARNING_SHARED_TRAINER_STABLE
 assert(guard.includes("endpoint_mutation_performed: false"), "LEARNING_SHARED_TRAINER_GUARD_READ_ONLY_REQUIRED");
 assert(guard.includes("provider_job_submitted: false"), "LEARNING_SHARED_TRAINER_GUARD_NO_SUBMIT_REQUIRED");
 
+assert(runner.includes("ensureAvantiqoLearningOrganizationEnvironment"), "LEARNING_RUNNER_ORGANIZATION_BOOTSTRAP_REQUIRED");
+assert(runner.includes("AVANTIQO_LEARNING_ORGANIZATION_RESOLUTION=PASS"), "LEARNING_RUNNER_ORGANIZATION_RESOLUTION_EVIDENCE_REQUIRED");
+assert(runner.includes("organization_id_printed: false"), "LEARNING_RUNNER_ORGANIZATION_ID_DISCLOSURE_FORBIDDEN");
 assert(runner.includes("AVANTIQO_CANONICAL_CURRICULUM_CANDIDATE_SEED_APPROVED=YES_REQUIRED"), "LEARNING_CANDIDATE_SEED_EXPLICIT_APPROVAL_REQUIRED");
 assert(runner.includes("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_APPROVED=YES_REQUIRED"), "LEARNING_CANDIDATE_BENCHMARK_EXPLICIT_APPROVAL_REQUIRED");
 assert(runner.includes("AVANTIQO_TRAINING_DATASET_ASSEMBLY_APPROVED=YES_REQUIRED"), "LEARNING_DATASET_ASSEMBLY_EXPLICIT_APPROVAL_REQUIRED");
@@ -112,6 +127,8 @@ assert(index.includes("AvantiqoCanonicalCurriculumBenchmarkRuntime"), "LEARNING_
 assert(index.includes("AvantiqoSharedTrainerReservationGuard"), "LEARNING_SHARED_TRAINER_GUARD_EXPORT_REQUIRED");
 
 console.log("AVANTIQO_LEARNING_CURRICULUM_SAFETY_AUDIT=PASS");
+console.log("AVANTIQO_LEARNING_ORGANIZATION_RESOLVER=FAIL_CLOSED");
+console.log("AVANTIQO_LEARNING_ORGANIZATION_AUTO_CREATE=NO");
 console.log("AVANTIQO_LEARNING_CANONICAL_CANDIDATE_PROVIDER_FREE=YES");
 console.log("AVANTIQO_LEARNING_CANONICAL_CANDIDATE_REVIEW_STATE_PRESERVED=YES");
 console.log("AVANTIQO_LEARNING_CANONICAL_CONTENT_CHANGE_REBENCHMARK=REQUIRED");

@@ -96,8 +96,31 @@ test("canonical Operator wrapper and execution governance enforce the guard befo
   assert.match(operatorWrapperSource, /stagedMutationRequiresCognitiveBlock/);
   assert.match(operatorWrapperSource, /pending_execution_created:\s*false/);
   assert.match(governanceSource, /enforceOperatorIntelligenceMutationGuard\(capability\)/);
-  assert.ok(
-    governanceSource.indexOf("enforceOperatorIntelligenceMutationGuard(capability)") <
-      governanceSource.indexOf("requiresDurableApproval(capability)"),
+
+  const approvalFunctionStart = governanceSource.indexOf(
+    "export async function resolveOperatorExecutionApproval",
   );
+  const auditFunctionStart = governanceSource.indexOf(
+    "export async function recordOperatorExecutionAudit",
+  );
+  assert.ok(approvalFunctionStart >= 0);
+  assert.ok(auditFunctionStart > approvalFunctionStart);
+
+  const approvalFunctionSource = governanceSource.slice(
+    approvalFunctionStart,
+    auditFunctionStart,
+  );
+  const guardIndex = approvalFunctionSource.indexOf(
+    "enforceOperatorIntelligenceMutationGuard(capability)",
+  );
+  const durableApprovalIndex = approvalFunctionSource.indexOf(
+    "if (!requiresDurableApproval(capability))",
+  );
+  const approvalCreationIndex = approvalFunctionSource.indexOf(
+    "createApprovalRequest({",
+  );
+
+  assert.ok(guardIndex >= 0);
+  assert.ok(durableApprovalIndex > guardIndex);
+  assert.ok(approvalCreationIndex > guardIndex);
 });

@@ -40,7 +40,7 @@ mkdir -p local-audit-output
 PLAN="local-audit-output/avantiqo-music-vocal-correction-provision-plan.json"
 APPLY="local-audit-output/avantiqo-music-vocal-correction-provision-apply.json"
 
-node --input-type=module "$PLAN" "$APPLY" <<'NODE'
+node --input-type=module - "$PLAN" "$APPLY" <<'NODE'
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseEnv } from "node:util";
@@ -82,7 +82,7 @@ runProvisioner([], planPath, false);
 runProvisioner(["--apply"], applyPath, true);
 NODE
 
-node --input-type=module "$APPLY" <<'NODE'
+node --input-type=module - "$APPLY" <<'NODE'
 import { readFileSync } from "node:fs";
 const path = process.argv[2];
 const result = JSON.parse(readFileSync(path, "utf8"));

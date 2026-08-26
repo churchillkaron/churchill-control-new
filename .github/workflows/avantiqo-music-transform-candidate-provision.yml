@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY || secrets.RUNPOD_API_KEY }}
       REQUEST_PATH: audits/avantiqo-music-transform-candidate-provision-request.json
       IMAGE_EVIDENCE_PATH: audits/results/avantiqo-audio-worker-image.json
       PROVISION_OUTPUT: artifacts/avantiqo-music-transform-candidate-provision.json

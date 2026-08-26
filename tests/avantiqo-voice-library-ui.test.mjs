@@ -10,6 +10,10 @@ const panelPath = new URL(
   "../components/operator/AvantiqoVoiceLibraryPanel.jsx",
   import.meta.url,
 );
+const lifecyclePatcherPath = new URL(
+  "../scripts/patch-avantiqo-voice-library-recording-lifecycle-local.mjs",
+  import.meta.url,
+);
 
 test("Voice Library enrollment is explicitly separate from Operator STT", async () => {
   const operator = await readFile(operatorPath, "utf8");
@@ -64,4 +68,21 @@ test("Voice Library UI uses authenticated organization-scoped API calls", async 
   assert.match(panel, /credentials: "same-origin"/);
   assert.match(panel, /\/api\/operator\/voice-library/);
   assert.match(panel, /preview: "true"/);
+});
+
+test("Voice Library lifecycle patcher revokes the current recording URL and tears down recording resources", async () => {
+  const patcher = await readFile(lifecyclePatcherPath, "utf8");
+
+  assert.match(patcher, /AVANTIQO_VOICE_LIBRARY_RECORDING_LIFECYCLE_PATCH_V1/);
+  assert.match(patcher, /const recordingUrlRef = useRef\(""\);/);
+  assert.match(patcher, /function releaseRecordingUrl\(\)/);
+  assert.match(patcher, /URL\.revokeObjectURL\(url\)/);
+  assert.match(patcher, /recordingUrlRef\.current = url/);
+  assert.match(patcher, /function stopRecorderForCleanup\(\)/);
+  assert.match(patcher, /recorder\.onstop = null/);
+  assert.match(patcher, /releaseRecordingStream\(\)/);
+  assert.match(patcher, /previewAudio\.pause\?\.\(\)/);
+  assert.match(patcher, /production_deploy_performed: false/);
+  assert.match(patcher, /generation_submitted: false/);
+  assert.match(patcher, /gpu_started: false/);
 });

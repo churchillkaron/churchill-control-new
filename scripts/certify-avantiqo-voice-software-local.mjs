@@ -15,6 +15,7 @@ const TESTS = [
   "tests/avantiqo-voice-safe-lease-v2.test.mjs",
   "tests/avantiqo-voice-realtime-owned.test.mjs",
   "tests/avantiqo-voice-realtime-relay.test.mjs",
+  "tests/avantiqo-voice-realtime-relay-client.test.mjs",
   "tests/avantiqo-voice-software-certification.test.mjs",
 ];
 
@@ -74,6 +75,8 @@ try {
     realtime_streaming_certified: false,
     realtime_relay_implemented: true,
     realtime_relay_deployed: false,
+    realtime_relay_client_implemented: true,
+    realtime_relay_client_wired_to_operator: false,
     realtime_relay_required: true,
     thai_synthesis: "FAIL_CLOSED_UNTIL_CERTIFIED",
   }, null, 2));

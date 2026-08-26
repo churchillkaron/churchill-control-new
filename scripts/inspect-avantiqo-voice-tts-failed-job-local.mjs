@@ -195,6 +195,16 @@ const relevant = logEntries.filter((entry) => relevantPatterns.some((pattern) =>
 const jobs = object(health?.jobs);
 const workersHealth = object(health?.workers);
 
+const jobSummary = {
+  id: jobId,
+  status: text(job?.status).toUpperCase() || "UNKNOWN",
+  delay_time_ms: finite(job?.delayTime),
+  execution_time_ms: finite(job?.executionTime),
+  worker_id: text(job?.workerId || job?.worker_id) || null,
+  error: redact(text(job?.error || job?.message)).slice(0, 5000) || null,
+  output: outputSummary(job?.output),
+};
+
 const report = {
   success: true,
   contract: CONTRACT,
@@ -203,15 +213,7 @@ const report = {
   generation_submitted: false,
   job_cancel_requested: false,
   endpoint_id: endpointId,
-  job: {
-    id: jobId,
-    status: text(job?.status).toUpperCase() || "UNKNOWN",
-    delay_time_ms: finite(job?.delayTime),
-    execution_time_ms: finite(job?.executionTime),
-    worker_id: text(job?.workerId || job?.worker_id) || null,
-    error: redact(text(job?.error || job?.message)).slice(0, 5000) || null,
-    output: outputSummary(job?.output),
-  },
+  job: jobSummary,
   health: {
     jobs: {
       in_queue: finite(jobs?.inQueue ?? jobs?.in_queue) ?? 0,
@@ -246,4 +248,5 @@ const report = {
 
 await writeFile(REPORT_PATH, `${JSON.stringify({ ...report, full_sanitized_logs: logEntries }, null, 2)}\n`, "utf8");
 console.log(JSON.stringify(report, null, 2));
+console.log(`AVANTIQO_VOICE_TTS_FAILED_JOB=${JSON.stringify(jobSummary)}`);
 console.log(`AVANTIQO_VOICE_TTS_FAILED_JOB_INSPECTION_REPORT=${REPORT_PATH}`);

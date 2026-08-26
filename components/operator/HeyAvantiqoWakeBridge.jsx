@@ -11,8 +11,8 @@ const WAKE_STORAGE_KEY = "avantiqo.wake.audio.enabled";
 const SPEECH_THRESHOLD = 0.028;
 const SILENCE_TO_FINISH_MS = 850;
 const MAX_UTTERANCE_MS = 9000;
-const TRANSCRIPTION_TIMEOUT_MS = 12000;
-const SPEECH_TIMEOUT_MS = 12000;
+const TRANSCRIPTION_TIMEOUT_MS = 55000;
+const SPEECH_TIMEOUT_MS = 55000;
 
 function text(value) {
   return String(value ?? "").trim();

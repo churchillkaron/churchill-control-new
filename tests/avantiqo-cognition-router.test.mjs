@@ -45,6 +45,40 @@ test("irreversible high-risk action cannot be forced onto Fast", () => {
   assert.equal(route.governance.high_risk_safety_floor, true);
 });
 
+test("mutating tool availability does not invent mutation intent or a verification obligation", () => {
+  const route = routeAvantiqoCognition({
+    goal: "Summarize the customer record already provided in context.",
+    requested_mode: "auto",
+    tools: [{
+      name: "customer_update",
+      operatorMode: "write",
+      transactional: true,
+    }],
+  });
+
+  assert.equal(route.signals.mutation_intent, false);
+  assert.equal(route.signals.mutation_capability_available, true);
+  assert.equal(route.requirements.verification_required, false);
+  assert.equal(
+    route.governance.verification_tracks_intent_not_tool_availability,
+    true,
+  );
+});
+
+test("explicit mutation intent requires verification", () => {
+  const route = routeAvantiqoCognition({
+    goal: "Update the customer record with the approved value.",
+    tools: [{
+      name: "customer_update",
+      mutates: true,
+    }],
+  });
+
+  assert.equal(route.signals.mutation_intent, true);
+  assert.equal(route.signals.mutation_capability_available, true);
+  assert.equal(route.requirements.verification_required, true);
+});
+
 test("memory requiring a live read propagates the live-evidence obligation", () => {
   const route = routeAvantiqoCognition({
     goal: "What is our current balance?",

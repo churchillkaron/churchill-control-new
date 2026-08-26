@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY || secrets.RUNPOD_API_KEY }}
       RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -178,6 +178,27 @@ jobs:
           console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_PRODUCTION_ACTIVATION=false");
           NODE
 
+      - name: Prepare explicit human listening review handoff
+        env:
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_OUTPUT: ${{ github.workspace }}/artifacts/music-vocal-correction-certification.json
+          AVANTIQO_MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW_OUTPUT: ${{ github.workspace }}/artifacts/music-vocal-correction-human-review.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/prepare-avantiqo-music-vocal-correction-human-review.mjs >/tmp/music-vocal-correction-human-review.log
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const review = JSON.parse(readFileSync("artifacts/music-vocal-correction-human-review.json", "utf8"));
+          if (review.success !== true) throw new Error("MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW_HANDOFF_REQUIRED");
+          if (review.contract !== "AVANTIQO_MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW_V1") throw new Error("MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW_CONTRACT_INVALID");
+          if (review.review_status !== "PENDING") throw new Error("MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW_MUST_BE_PENDING");
+          if (review.activation_allowed !== false || review.production_certified !== false || review.pricing_activation_allowed !== false) throw new Error("MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW_MUST_FAIL_CLOSED");
+          if (review.automatic_human_approval_forbidden !== true || review.minimum_policy?.automatic_approval_forbidden !== true) throw new Error("MUSIC_VOCAL_CORRECTION_AUTO_REVIEW_FORBIDDEN");
+          if (!Array.isArray(review.criteria) || review.criteria.length < 9 || review.criteria.some((criterion) => criterion.score_0_to_100 !== null)) throw new Error("MUSIC_VOCAL_CORRECTION_HUMAN_SCORES_MUST_BE_EMPTY");
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW_HANDOFF=PASS");
+          console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_HUMAN_REVIEW_STATUS=PENDING");
+          NODE
+
       - name: Upload certification evidence bundle
         if: always()
         uses: actions/upload-artifact@v4
@@ -186,6 +207,7 @@ jobs:
           path: |
             artifacts/music-vocal-correction-provision.json
             artifacts/music-vocal-correction-certification.json
+            artifacts/music-vocal-correction-human-review.json
             artifacts/review-audio/source-rights-owned.wav
           if-no-files-found: warn
           retention-days: 14

@@ -40,6 +40,9 @@ function phaseCalls(calls) {
           ...(Array.isArray(call.epistemic_roles)
             ? { epistemic_roles: call.epistemic_roles }
             : {}),
+          ...(call.epistemic_evidence
+            ? { epistemic_evidence: call.epistemic_evidence }
+            : {}),
           outcome: call.outcome || "succeeded",
           code: call.code || null,
         })),
@@ -182,6 +185,156 @@ test("explicit epistemic roles override misleading research-like names", () => {
 
   assert.equal(gated.goal_status, "in_progress");
   assert.equal(gated.epistemic_state.research_tool_observed, false);
+});
+
+test("diminishing returns cannot be claimed without safe evidence-quality proof", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      research_status: "satisfied",
+      stop_reason: "diminishing_returns",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { research_required: true },
+      signals: {},
+      reasons: [],
+    },
+    phases: phaseCalls([{
+      name: "operator_web_research",
+      epistemic_roles: ["research"],
+      outcome: "succeeded",
+    }]),
+  });
+
+  assert.equal(gated.goal_status, "in_progress");
+  assert.equal(gated.epistemic_state.research_stop_proven, false);
+  assert.equal(
+    gated.epistemic_state.research_stop_evidence_reason,
+    "NO_SAFE_RESEARCH_EVIDENCE_SUMMARY",
+  );
+  assert.ok(
+    gated.epistemic_state.gate_violations.includes(
+      "EPISTEMIC_RESEARCH_DIMINISHING_RETURNS_UNPROVEN",
+    ),
+  );
+});
+
+test("independent source support can prove a diminishing-returns research stop", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      research_status: "satisfied",
+      stop_reason: "diminishing_returns",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { research_required: true },
+      signals: {},
+      reasons: [],
+    },
+    phases: phaseCalls([{
+      name: "collect_context",
+      epistemic_roles: ["research"],
+      outcome: "succeeded",
+      epistemic_evidence: {
+        contract: "AVANTIQO_SAFE_EPISTEMIC_EVIDENCE_SUMMARY_V1",
+        source_count: 3,
+        independent_source_count: 3,
+        official_primary_source_count: 1,
+        claim_count: 2,
+        source_backed_claim_count: 2,
+        conflict_count: 0,
+        raw_research_persisted: false,
+      },
+    }]),
+  });
+
+  assert.equal(gated.goal_status, "completed");
+  assert.equal(gated.epistemic_state.gate_passed, true);
+  assert.equal(gated.epistemic_state.research_stop_proven, true);
+  assert.equal(
+    gated.epistemic_state.research_stop_evidence_reason,
+    "INDEPENDENT_SOURCE_SUPPORT",
+  );
+});
+
+test("conflicted research cannot prove diminishing returns even with many sources", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      research_status: "satisfied",
+      stop_reason: "diminishing_returns",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { research_required: true },
+      signals: {},
+      reasons: [],
+    },
+    phases: phaseCalls([{
+      name: "collect_context",
+      epistemic_roles: ["research"],
+      outcome: "succeeded",
+      epistemic_evidence: {
+        contract: "AVANTIQO_SAFE_EPISTEMIC_EVIDENCE_SUMMARY_V1",
+        source_count: 5,
+        independent_source_count: 5,
+        source_backed_claim_count: 4,
+        conflict_count: 1,
+        raw_research_persisted: false,
+      },
+    }]),
+  });
+
+  assert.equal(gated.goal_status, "in_progress");
+  assert.equal(gated.epistemic_state.research_stop_proven, false);
+  assert.equal(
+    gated.epistemic_state.research_stop_evidence_reason,
+    "RESEARCH_CONFLICT_REMAINS",
+  );
+});
+
+test("verified mechanism quality can prove diminishing returns without source-count heuristics", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      research_status: "satisfied",
+      stop_reason: "diminishing_returns",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { research_required: true },
+      signals: {},
+      reasons: [],
+    },
+    phases: phaseCalls([{
+      name: "mechanism_probe",
+      epistemic_roles: ["research"],
+      outcome: "succeeded",
+      epistemic_evidence: {
+        contract: "AVANTIQO_SAFE_EPISTEMIC_EVIDENCE_SUMMARY_V1",
+        quality_verified: true,
+        conflict_count: 0,
+        raw_research_persisted: false,
+      },
+    }]),
+  });
+
+  assert.equal(gated.goal_status, "completed");
+  assert.equal(gated.epistemic_state.research_stop_proven, true);
+  assert.equal(
+    gated.epistemic_state.research_stop_evidence_reason,
+    "MECHANISM_QUALITY_VERIFIED",
+  );
 });
 
 test("mutation completion requires successful mutation and later successful verification", () => {

@@ -10,12 +10,16 @@ import {
   buildOperatorIntelligencePlan,
 } from "../lib/operator/runtime/OperatorIntelligencePlanGraphRuntime.js";
 
+const GOVERNED_OUTCOME_CONTRACT = "AVANTIQO_GOVERNED_TOOL_OUTCOME_V1";
+const READ_CAPABILITY = "platform.example.read";
+
 function readStep(overrides = {}) {
   return {
     id: "read-current-state",
     title: "Read current state",
     kind: "read",
     depends_on: [],
+    capability_key: READ_CAPABILITY,
     mutates: false,
     retry_budget: 1,
     verification: {
@@ -69,6 +73,39 @@ function mutationStep(overrides = {}) {
   };
 }
 
+function receipt({
+  id = "tool-call-1",
+  binding = READ_CAPABILITY,
+  outcome = "failed",
+  code = "UPSTREAM_UNAVAILABLE",
+  mutates = false,
+} = {}) {
+  return {
+    contract: GOVERNED_OUTCOME_CONTRACT,
+    tool_call_id: id,
+    tool_name: "operator_live_read",
+    binding_key: binding,
+    outcome,
+    code: outcome === "succeeded" ? null : code,
+    mutates,
+    reasoning_turn: 1,
+    raw_result_persisted: false,
+    raw_error_persisted: false,
+  };
+}
+
+function failedObservation(overrides = {}) {
+  return {
+    step_id: "read-current-state",
+    status: "failed",
+    verification_status: "fail",
+    tool_call_id: "tool-call-1",
+    failure_code: "UPSTREAM_UNAVAILABLE",
+    attempts: 1,
+    ...overrides,
+  };
+}
+
 test("recovery policy exposes the canonical contract", () => {
   assert.equal(
     OPERATOR_INTELLIGENCE_RECOVERY_POLICY_CONTRACT,
@@ -76,20 +113,15 @@ test("recovery policy exposes the canonical contract", () => {
   );
 });
 
-test("known transient non-mutating failure retries within explicit budget", () => {
+test("known transient non-mutating governed failure retries within explicit budget", () => {
   const plan = buildOperatorIntelligencePlan({
     goal: "Read current state and continue safely",
     plan_steps: [readStep({ retry_budget: 2 }), analysisStep()],
   });
   const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
     plan,
-    observations: [{
-      step_id: "read-current-state",
-      status: "failed",
-      verification_status: "fail",
-      failure_code: "UPSTREAM_UNAVAILABLE",
-      attempts: 1,
-    }],
+    observations: [failedObservation()],
+    governed_tool_outcomes: [receipt()],
   });
 
   assert.equal(assessment.status, "RETRY_REQUIRED");
@@ -97,42 +129,123 @@ test("known transient non-mutating failure retries within explicit budget", () =
   assert.equal(assessment.requires_replan, false);
   assert.deepEqual(assessment.retry_step_ids, ["read-current-state"]);
   assert.equal(assessment.recovery_decisions[0]?.remaining_retries, 2);
+  assert.equal(assessment.recovery_decisions[0]?.failure_code_attested, true);
   assert.equal(
     assessment.recovery_decisions[0]?.reason,
-    "TRANSIENT_NON_MUTATING_FAILURE_RETRY_ALLOWED",
+    "ATTESTED_TRANSIENT_NON_MUTATING_FAILURE_RETRY_ALLOWED",
   );
   assert.equal(assessment.governance.retries_are_bounded, true);
+  assert.equal(
+    assessment.governance.retry_failure_codes_require_governed_attestation,
+    true,
+  );
 });
 
-test("governance, unknown and blocked failures cannot auto-retry", () => {
+test("model-provided transient code cannot authorize retry without governed attestation", () => {
+  const plan = buildOperatorIntelligencePlan({
+    goal: "Reject invented retry authority",
+    plan_steps: [readStep({ retry_budget: 3 })],
+  });
+  const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
+    plan,
+    observations: [failedObservation({ failure_code: "TIMEOUT" })],
+    governed_tool_outcomes: [],
+  });
+
+  assert.equal(assessment.retry_required, false);
+  assert.equal(assessment.requires_replan, true);
+  assert.equal(assessment.recovery_decisions[0]?.failure_code, null);
+  assert.equal(assessment.recovery_decisions[0]?.claimed_failure_code, "TIMEOUT");
+  assert.equal(
+    assessment.recovery_decisions[0]?.reason,
+    "GOVERNED_TOOL_OUTCOME_NOT_FOUND",
+  );
+});
+
+test("governed outcome overrides a conflicting model failure code", () => {
+  const plan = buildOperatorIntelligencePlan({
+    goal: "Trust governed failure evidence over model claims",
+    plan_steps: [readStep({ retry_budget: 3 })],
+  });
+  const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
+    plan,
+    observations: [failedObservation({ failure_code: "TIMEOUT" })],
+    governed_tool_outcomes: [receipt({ code: "PERMISSION_DENIED" })],
+  });
+
+  assert.equal(assessment.retry_required, false);
+  assert.equal(assessment.recovery_decisions[0]?.claimed_failure_code, "TIMEOUT");
+  assert.equal(assessment.recovery_decisions[0]?.failure_code, "PERMISSION_DENIED");
+  assert.equal(
+    assessment.recovery_decisions[0]?.reason,
+    "FAILURE_CODE_NOT_RETRYABLE",
+  );
+});
+
+test("missing capability binding, mismatched binding and succeeded receipts never authorize retry", () => {
+  const cases = [
+    {
+      step: readStep({ capability_key: null }),
+      governed: receipt(),
+      reason: "STEP_CAPABILITY_BINDING_REQUIRED",
+    },
+    {
+      step: readStep(),
+      governed: receipt({ binding: "platform.other.read" }),
+      reason: "GOVERNED_TOOL_OUTCOME_BINDING_MISMATCH",
+    },
+    {
+      step: readStep(),
+      governed: receipt({ outcome: "succeeded" }),
+      reason: "GOVERNED_TOOL_OUTCOME_NOT_FAILURE",
+    },
+  ];
+
+  for (const item of cases) {
+    const plan = buildOperatorIntelligencePlan({
+      goal: "Fail closed on invalid retry binding",
+      plan_steps: [item.step],
+    });
+    const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
+      plan,
+      observations: [failedObservation({ failure_code: "TIMEOUT" })],
+      governed_tool_outcomes: [item.governed],
+    });
+    assert.equal(assessment.retry_required, false);
+    assert.equal(assessment.recovery_decisions[0]?.retry_allowed, false);
+    assert.equal(assessment.recovery_decisions[0]?.reason, item.reason);
+  }
+});
+
+test("governance, unknown and blocked governed failures cannot auto-retry", () => {
   const plan = buildOperatorIntelligencePlan({
     goal: "Do not loop on non-transient failure",
     plan_steps: [readStep({ retry_budget: 3 })],
   });
 
-  for (const observation of [
+  const cases = [
     {
-      step_id: "read-current-state",
-      status: "failed",
-      failure_code: "PERMISSION_DENIED",
-      attempts: 1,
+      observation: failedObservation({ failure_code: "PERMISSION_DENIED" }),
+      governed: receipt({ code: "PERMISSION_DENIED" }),
     },
     {
-      step_id: "read-current-state",
-      status: "failed",
-      failure_code: "SOMETHING_UNCLASSIFIED",
-      attempts: 1,
+      observation: failedObservation({ failure_code: "SOMETHING_UNCLASSIFIED" }),
+      governed: receipt({ code: "SOMETHING_UNCLASSIFIED" }),
     },
     {
-      step_id: "read-current-state",
-      status: "blocked",
-      failure_code: "UPSTREAM_UNAVAILABLE",
-      attempts: 1,
+      observation: failedObservation({
+        status: "blocked",
+        failure_code: "UPSTREAM_UNAVAILABLE",
+      }),
+      governed: receipt({ outcome: "blocked", code: "UPSTREAM_UNAVAILABLE" }),
     },
-  ]) {
+  ];
+
+  for (const item of cases) {
     const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
       plan,
-      observations: [observation],
+      observations: [item.observation],
+      governed_tool_outcomes: [item.governed],
     });
     assert.equal(assessment.retry_required, false);
     assert.equal(assessment.requires_replan, true);
@@ -140,7 +253,7 @@ test("governance, unknown and blocked failures cannot auto-retry", () => {
   }
 });
 
-test("mutating steps are never auto-retried even with transient codes and retry budget", () => {
+test("mutating steps are never auto-retried even with attested transient codes and retry budget", () => {
   const plan = buildOperatorIntelligencePlan({
     goal: "Never repeat a write automatically",
     plan_steps: [mutationStep()],
@@ -151,9 +264,16 @@ test("mutating steps are never auto-retried even with transient codes and retry 
       step_id: "apply-change",
       status: "failed",
       verification_status: "fail",
+      tool_call_id: "tool-call-write",
       failure_code: "TIMEOUT",
       attempts: 1,
     }],
+    governed_tool_outcomes: [receipt({
+      id: "tool-call-write",
+      binding: "finance.example.write",
+      code: "TIMEOUT",
+      mutates: true,
+    })],
   });
 
   assert.equal(assessment.retry_required, false);
@@ -172,13 +292,11 @@ test("retry budget exhaustion forces replan instead of an unbounded retry loop",
   });
   const assessment = assessOperatorIntelligencePlanWithRecoveryPolicy({
     plan,
-    observations: [{
-      step_id: "read-current-state",
-      status: "failed",
-      verification_status: "fail",
+    observations: [failedObservation({
       failure_code: "NETWORK_TIMEOUT",
       attempts: 2,
-    }],
+    })],
+    governed_tool_outcomes: [receipt({ code: "NETWORK_TIMEOUT" })],
   });
 
   assert.equal(assessment.retry_required, false);
@@ -190,20 +308,15 @@ test("retry budget exhaustion forces replan instead of an unbounded retry loop",
   );
 });
 
-test("replanning is deterministically deferred while a safe retry remains", () => {
+test("replanning is deterministically deferred while an attested safe retry remains", () => {
   const plan = buildOperatorIntelligencePlan({
     goal: "Retry first, then replan only if needed",
     plan_steps: [readStep({ retry_budget: 2 })],
   });
   const revised = reviseOperatorIntelligencePlanWithRecoveryPolicy({
     plan,
-    observations: [{
-      step_id: "read-current-state",
-      status: "failed",
-      verification_status: "fail",
-      failure_code: "SERVICE_UNAVAILABLE",
-      attempts: 1,
-    }],
+    observations: [failedObservation({ failure_code: "SERVICE_UNAVAILABLE" })],
+    governed_tool_outcomes: [receipt({ code: "SERVICE_UNAVAILABLE" })],
     revised_steps: [readStep({ id: "replacement-read" })],
   });
 
@@ -213,7 +326,7 @@ test("replanning is deterministically deferred while a safe retry remains", () =
   assert.equal(revised.plan.plan_id, plan.plan_id);
 });
 
-test("canonical planning tool is wired to deterministic recovery policy", () => {
+test("canonical planning tool is wired to attested deterministic recovery policy", () => {
   const source = fs.readFileSync(
     new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url),
     "utf8",
@@ -221,6 +334,9 @@ test("canonical planning tool is wired to deterministic recovery policy", () => 
   assert.match(source, /OperatorIntelligenceRecoveryPolicyRuntime/);
   assert.match(source, /assessOperatorIntelligencePlanWithRecoveryPolicy/);
   assert.match(source, /reviseOperatorIntelligencePlanWithRecoveryPolicy/);
+  assert.match(source, /governed_tool_outcomes/);
+  assert.match(source, /retry_requires_governed_outcome_attestation: true/);
+  assert.match(source, /model_failure_codes_never_authorize_retry: true/);
   assert.match(source, /deterministic_bounded_recovery: true/);
   assert.match(source, /mutating_steps_never_auto_retry: true/);
 });

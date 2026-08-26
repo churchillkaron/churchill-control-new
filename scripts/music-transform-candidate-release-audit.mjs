@@ -29,6 +29,7 @@ const preflight = read("scripts/preflight-avantiqo-music-transform-candidate-loc
 const launcher = read("scripts/run-avantiqo-music-transform-certification-local.mjs");
 const benchmark = read("scripts/benchmark-avantiqo-music-transform.mjs");
 const imageRequest = read("audits/avantiqo-audio-worker-image-request.json");
+const provisionWorkflow = read(".github/workflows/avantiqo-music-transform-candidate-provision.yml");
 
 requirePattern(policy, /"music-transform-candidate":\s*"avantiqo-music-transform-candidate-v1"/, "music-transform-safe-lease-policy-must-own-candidate-lane");
 
@@ -51,6 +52,13 @@ requirePattern(provisioner, /networkVolumeIds:\s*\[volume\.id\]/, "music-transfo
 requirePattern(provisioner, /production_audio_endpoint_mutation_allowed:\s*false/, "music-transform-provisioner-must-forbid-production-compose-mutation");
 requirePattern(provisioner, /provider_job_submitted:\s*false/, "music-transform-provisioner-must-not-submit-provider-job");
 requirePattern(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_APPROVED/, "music-transform-provisioner-must-require-explicit-apply-approval");
+
+requirePattern(provisionWorkflow, /RUNPOD_MANAGEMENT_API_KEY:\s*\$\{\{\s*secrets\.RUNPOD_MANAGEMENT_API_KEY\s*\|\|\s*secrets\.RUNPOD_API_KEY\s*\}\}/, "music-transform-provision-workflow-must-use-canonical-management-key-fallback");
+forbidPattern(provisionWorkflow, /^\s*RUNPOD_API_KEY:\s*\$\{\{/m, "music-transform-provision-workflow-must-not-expose-inference-key-env");
+forbidPattern(provisionWorkflow, /^\s*NEXT_PUBLIC_SUPABASE_URL:\s*\$\{\{/m, "music-transform-provision-workflow-must-not-expose-supabase-url-env");
+forbidPattern(provisionWorkflow, /^\s*SUPABASE_SERVICE_ROLE_KEY:\s*\$\{\{/m, "music-transform-provision-workflow-must-not-expose-supabase-service-role-env");
+requirePattern(provisionWorkflow, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_MANAGEMENT_ONLY=true/, "music-transform-provision-workflow-must-assert-management-only-scope");
+requirePattern(provisionWorkflow, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVIDER_JOB_CAPABLE=false/, "music-transform-provision-workflow-must-assert-provider-job-incapable");
 
 requirePattern(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_V1/, "music-transform-candidate-preflight-contract-required");
 requirePattern(preflight, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID/, "music-transform-preflight-must-require-exact-candidate-endpoint-id");
@@ -97,6 +105,7 @@ if (failures.length) {
 console.log("MUSIC_TRANSFORM_CANDIDATE_RELEASE_AUDIT=PASS");
 console.log("MUSIC_TRANSFORM_CANDIDATE_ENDPOINT=ISOLATED_FROM_PRODUCTION_COMPOSE");
 console.log("MUSIC_TRANSFORM_CANDIDATE_RESTING_WORKERS=0_0");
+console.log("MUSIC_TRANSFORM_CANDIDATE_PROVISION_CREDENTIAL_SCOPE=MANAGEMENT_ONLY_WITH_CANONICAL_FALLBACK");
 console.log("MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT=ZERO_SPEND_BEFORE_SAFE_LEASE");
 console.log("MUSIC_TRANSFORM_CANDIDATE_BENCHMARK=ONE_JOB_EXPLICIT_SPEND_AND_RIGHTS_APPROVAL_REQUIRED");
 console.log("MUSIC_TRANSFORM_CANDIDATE_HUMAN_REVIEW=REQUIRED_BEFORE_ACTIVATION");

@@ -26,5 +26,13 @@
   "xl_turbo_fallback_allowed": false,
   "compose_endpoint_mutation_allowed": false,
   "provider_job_submitted": false,
-  "production_deploy_performed": false
+  "production_deploy_performed": false,
+  "semantic_scope": "ARRANGEMENT_COMPLETION_ONLY",
+  "arrangement_completion_implemented": true,
+  "temporal_extension_proven": false,
+  "temporal_extend_routing_allowed": false,
+  "superseded_for_temporal_extend": true,
+  "superseded_reason": "PINNED_ACE_STEP_BASE_COMPLETE_USES_SOURCE_AT_EXISTING_LENGTH_AND_DOES_NOT_RIGHT_PAD_TIMELINE",
+  "temporal_extend_replacement_strategy": "XL_TURBO_REPAINT_RIGHT_OUTPAINT",
+  "temporal_extend_replacement_lane": "audio"
 }

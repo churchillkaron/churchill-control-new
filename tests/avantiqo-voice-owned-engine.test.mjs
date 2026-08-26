@@ -63,6 +63,33 @@ test("realtime speech remains uncertified until a realtime worker is implemented
   assert.equal(result.eligible, false);
 });
 
+test("uncertified realtime Voice cannot open provider sessions or browser provider websockets", async () => {
+  const client = await readFile(
+    new URL("../lib/operator/voice/RealtimeTranscriptionClient.js", import.meta.url),
+    "utf8",
+  );
+  const session = await readFile(
+    new URL("../app/api/operator/transcribe/realtime/session/route.js", import.meta.url),
+    "utf8",
+  );
+  const settle = await readFile(
+    new URL("../app/api/operator/transcribe/realtime/settle/route.js", import.meta.url),
+    "utf8",
+  );
+
+  for (const source of [client, session, settle]) {
+    assert.match(source, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);
+    assert.match(source, /realtime_streaming_certified:\s*false/);
+    assert.match(source, /GOVERNED_ASYNC_STT/);
+    assert.doesNotMatch(source, /openai-insecure-api-key/);
+    assert.doesNotMatch(source, /provider:\s*"openai"/);
+  }
+  assert.match(session, /status:\s*410/);
+  assert.match(settle, /status:\s*410/);
+  assert.doesNotMatch(session, /ServiceExecutionRuntime\.execute/);
+  assert.doesNotMatch(settle, /LiveProviderSessionRuntime/);
+});
+
 test("owned Voice still requires measured production economics", () => {
   const provisional = ownedExecutionCertification({
     provider: voiceProvider,

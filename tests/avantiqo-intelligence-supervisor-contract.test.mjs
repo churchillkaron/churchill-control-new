@@ -30,6 +30,10 @@ const businessAgent = fs.readFileSync(
   new URL("../lib/intelligence/runtime/BusinessIntelligenceAgentRuntime.js", import.meta.url),
   "utf8",
 );
+const syntheticTurn = fs.readFileSync(
+  new URL("../lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js", import.meta.url),
+  "utf8",
+);
 
 test("supervisor implements adaptive owned fast and deep brain modes", () => {
   assert.match(supervisor, /AVANTIQO_INTELLIGENCE_SUPERVISOR_V3/);
@@ -151,6 +155,34 @@ test("reasoning transcript records safe tool outcomes for deterministic completi
   assert.match(reasoningLoop, /outcome: "blocked"/);
   assert.match(reasoningLoop, /outcome: toolOutcome\(result\)/);
   assert.match(reasoningLoop, /code: result\?\.code \|\| null/);
+});
+
+test("cognitive project-state compaction preserves long-horizon safety obligations", () => {
+  assert.match(syntheticTurn, /export function compactOperatorProjectStateForCognition/);
+  for (const field of [
+    "assumptions",
+    "risks",
+    "open_questions",
+    "recommended_next_move",
+    "recommendation_reason",
+    "last_system_snapshot",
+    "last_decision_supersession",
+    "organization_intelligence_state",
+  ]) {
+    assert.match(syntheticTurn, new RegExp(`\\b${field}\\b`));
+  }
+  assert.match(
+    syntheticTurn,
+    /verification_required:\s*snapshot\.verification_required === true/,
+  );
+  assert.match(
+    syntheticTurn,
+    /project_state:\s*compactOperatorProjectStateForCognition\(options\.projectState\)/,
+  );
+  assert.match(
+    syntheticTurn,
+    /prior system snapshot with verification_required=true[\s\S]*re-check current state before declaring the affected work complete/i,
+  );
 });
 
 test("business intelligence agent uses supervisor and read-only tools", () => {

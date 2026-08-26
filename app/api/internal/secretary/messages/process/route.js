@@ -11,6 +11,7 @@ import { runSecretaryMessageReceptionAutonomous } from "@/lib/operator/secretary
 import {
   recordSecretaryInboundTriage,
   reconcileSecretaryWaitingExternal,
+  repairSecretaryMissingInboundTriage,
 } from "@/lib/operator/secretary/SecretaryInboxTriageRuntime";
 
 function authorized(request) {
@@ -32,7 +33,20 @@ export async function GET(request) {
   const waitHours = Math.max(1, Math.min(Number(url.searchParams.get("wait_hours")) || 24, 24 * 14));
   const workerId = `secretary-message:${crypto.randomUUID()}`;
   const results = [];
+  let triageRepair = null;
   let waitingExternal = null;
+
+  try {
+    triageRepair = await repairSecretaryMissingInboundTriage({ limit: Math.max(10, limit * 4) });
+  } catch (error) {
+    triageRepair = {
+      status: "failed",
+      error: error?.message || "Secretary inbox triage repair failed",
+      repaired_count: 0,
+      results: [],
+      external_authority_used: false,
+    };
+  }
 
   try {
     waitingExternal = await reconcileSecretaryWaitingExternal({
@@ -76,10 +90,25 @@ export async function GET(request) {
           response_message_id: result.response_message?.id || null,
         },
       });
-      const triage = await recordSecretaryInboundTriage({
-        request: { ...requestRow, ...completed },
-        result,
-      });
+      let triage = null;
+      try {
+        triage = await recordSecretaryInboundTriage({
+          request: { ...requestRow, ...completed },
+          result,
+        });
+      } catch (triageError) {
+        results.push({
+          request_id: requestRow.id,
+          status: completed.status,
+          action: result.action,
+          triage_pending_repair: true,
+          triage_error: triageError?.message || "Secretary inbox triage persistence failed",
+          after_hours_mode: result.business_hours_state?.after_hours_mode || null,
+          callback_autonomy_promoted: result.callback_autonomy_promoted === true,
+          response_message_id: result.response_message?.id || null,
+        });
+        continue;
+      }
       results.push({
         request_id: requestRow.id,
         status: completed.status,
@@ -108,10 +137,12 @@ export async function GET(request) {
   }
 
   const failedCount = results.filter((item) => ["FAILED", "SKIPPED"].includes(String(item.status || "").toUpperCase())).length;
+  const pendingTriageRepairCount = results.filter((item) => item.triage_pending_repair === true).length;
+  const repairFailed = triageRepair?.status === "failed";
   const reconcileFailed = waitingExternal?.status === "failed";
   return Response.json(
     {
-      success: failedCount === 0 && !reconcileFailed,
+      success: failedCount === 0 && !repairFailed && !reconcileFailed,
       contract: "AVANTIQO_SECRETARY_MESSAGE_PROCESS_V2",
       processed_count: results.length,
       failed_count: failedCount,
@@ -119,15 +150,22 @@ export async function GET(request) {
       inbox_triage_enabled: true,
       inbox_triage_executive_attention_is_exception_based: true,
       inbox_triage_high_authority_fails_closed: true,
+      inbox_triage_business_decisions_fail_closed: true,
       inbox_triage_secretary_job_follow_through: true,
+      inbox_triage_repair: triageRepair,
+      inbox_triage_pending_repair_from_current_batch: pendingTriageRepairCount,
+      inbox_triage_completed_reception_not_lost: true,
+      inbox_triage_repair_candidates_server_side: true,
+      inbox_triage_repair_oldest_untriaged_first: true,
       waiting_external_reconciliation: waitingExternal,
       waiting_external_reconciliation_server_side: true,
       waiting_external_secretary_owned_chasing: true,
       waiting_external_high_authority_auto_chase_blocked: true,
+      waiting_external_business_decision_auto_chase_blocked: true,
       external_authority_used: false,
     },
     {
-      status: failedCount > 0 || reconcileFailed ? 207 : 200,
+      status: failedCount > 0 || repairFailed || reconcileFailed ? 207 : 200,
       headers: { "Cache-Control": "no-store, private" },
     },
   );

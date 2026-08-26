@@ -89,10 +89,9 @@ function endpointVolumeIds(endpoint = {}) {
   return unique([primary, ...additional]);
 }
 
-function endpointTemplate(endpoint = {}, templates = []) {
-  const embedded = endpoint.template && typeof endpoint.template === "object" ? endpoint.template : null;
-  if (embedded) return embedded;
+function authoritativeTemplate(endpoint = {}, templates = []) {
   const templateId = endpointTemplateId(endpoint);
+  if (!templateId) return null;
   return templates.find((template) => text(template?.id) === templateId) || null;
 }
 
@@ -199,15 +198,24 @@ function resolveRegistryAuth(registryAuths) {
   return matches[0];
 }
 
+function templateState(template, image) {
+  if (!template) return { exact: false, image_match: false, env_mismatches: ["TEMPLATE_MISSING"] };
+  const imageMatch = text(template.imageName ?? template.image_name) === image.image;
+  const env = normalizeEnv(template.env);
+  const envMismatches = Object.entries(desiredEnv())
+    .filter(([key, value]) => env[key] !== value)
+    .map(([key]) => key);
+  return { exact: imageMatch && envMismatches.length === 0, image_match: imageMatch, env_mismatches: envMismatches };
+}
+
 function assertTemplate(template, image) {
   if (!template) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_REQUIRED");
-  if (text(template.imageName ?? template.image_name) !== image.image) {
+  const state = templateState(template, image);
+  if (!state.image_match) {
     throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_IMAGE_MISMATCH");
   }
-  const env = normalizeEnv(template.env);
-  const mismatches = Object.entries(desiredEnv()).filter(([key, value]) => env[key] !== value).map(([key]) => key);
-  if (mismatches.length) {
-    throw new Error(`AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_ENV_MISMATCH:${mismatches.join(",")}`);
+  if (state.env_mismatches.length) {
+    throw new Error(`AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_ENV_MISMATCH:${state.env_mismatches.join(",")}`);
   }
 }
 
@@ -233,6 +241,46 @@ function safeEndpoint(endpoint = {}) {
   };
 }
 
+function safeTemplate(template = {}) {
+  return {
+    id: text(template?.id) || null,
+    name: text(template?.name) || null,
+    image_name: text(template?.imageName ?? template?.image_name) || null,
+    container_disk_gb: finite(template?.containerDiskInGb ?? template?.container_disk_gb),
+    registry_auth_configured: Boolean(text(template?.containerRegistryAuthId ?? template?.container_registry_auth_id)),
+  };
+}
+
+async function createTargetTemplate(managementKey, registryAuthId, image, templateName) {
+  const created = await rest("/templates", managementKey, {
+    method: "POST",
+    body: {
+      imageName: image.image,
+      name: templateName,
+      category: "NVIDIA",
+      containerDiskInGb: 30,
+      containerRegistryAuthId: registryAuthId,
+      dockerEntrypoint: [],
+      dockerStartCmd: [],
+      env: desiredEnv(),
+      isPublic: false,
+      isServerless: true,
+      ports: [],
+      readme: "Avantiqo Music transform certification candidate. Parked 0/0; never production Compose routing.",
+      volumeInGb: 0,
+      volumeMountPath: "/runpod-volume",
+    },
+  });
+  const id = text(created?.id);
+  if (!id) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TARGET_TEMPLATE_CREATE_ID_REQUIRED");
+  const verified = await rest(`/templates/${encodeURIComponent(id)}`, managementKey);
+  if (text(verified?.name) !== templateName) {
+    throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TARGET_TEMPLATE_NAME_VERIFY_FAILED");
+  }
+  assertTemplate(verified, image);
+  return verified;
+}
+
 const apply = process.argv.includes("--apply");
 if (apply && !approved(process.env[APPROVAL_ENV])) throw new Error(`${APPROVAL_ENV}=YES_REQUIRED`);
 
@@ -252,33 +300,45 @@ const productionAudioMatches = endpoints.filter((endpoint) => text(endpoint?.nam
 const candidateMatches = endpoints.filter((endpoint) => text(endpoint?.name) === ENDPOINT_NAME);
 if (candidateMatches.length > 1) throw new Error(`AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_AMBIGUOUS:${candidateMatches.length}`);
 const volume = resolveVolume(volumes);
+const digestSuffix = image.digest.replace(/^sha256:/, "").slice(0, 12);
+const templateName = `${TEMPLATE_PREFIX}${digestSuffix}`;
+const targetMatches = templates.filter((template) => text(template?.name) === templateName);
+if (targetMatches.length > 1) throw new Error(`AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_AMBIGUOUS:${targetMatches.length}`);
+let targetTemplate = targetMatches[0] || null;
+if (targetTemplate) assertTemplate(targetTemplate, image);
 
 if (candidateMatches.length === 1) {
-  const endpoint = candidateMatches[0];
+  let endpoint = candidateMatches[0];
   if (productionAudioMatches.some((item) => text(item?.id) === text(endpoint?.id))) {
     throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_COLLIDES_WITH_PRODUCTION_AUDIO");
   }
-  const template = endpointTemplate(endpoint, templates);
-  assertTemplate(template, image);
-  const templateId = text(template?.id);
-  if (!templateId) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_EXISTING_TEMPLATE_ID_REQUIRED");
-  assertEndpointIdentity(endpoint, templateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_EXISTING_IDENTITY_MISMATCH");
   const attached = endpointVolumeIds(endpoint);
   if (attached.length !== 1 || attached[0] !== volume.id) {
     throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_CACHE_BINDING_MISMATCH");
   }
 
+  let currentTemplate = authoritativeTemplate(endpoint, templates);
+  const currentState = templateState(currentTemplate, image);
   const parkingRequired = workersMin(endpoint) !== 0 || workersMax(endpoint) !== 0;
-  if (parkingRequired && !apply) {
+  const rebindRequired = !currentState.exact;
+
+  if (!apply) {
     console.log(JSON.stringify({
       success: true,
       contract: CONTRACT,
       mode: "PLAN",
       endpoint_exists: true,
       endpoint: safeEndpoint(endpoint),
-      exact_immutable_image_verified: true,
+      template: currentTemplate ? safeTemplate(currentTemplate) : null,
+      target_template: targetTemplate ? safeTemplate(targetTemplate) : null,
       canonical_cache_volume: volume,
-      parking_required: true,
+      authoritative_template_lookup: "ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST",
+      embedded_template_view_used_for_digest_decision: false,
+      exact_immutable_image_verified: currentState.exact,
+      current_template_image_match: currentState.image_match,
+      current_template_env_mismatches: currentState.env_mismatches,
+      parking_required: parkingRequired,
+      rebind_required: rebindRequired,
       target_workers_min: 0,
       target_workers_max: 0,
       safe_lease_contract: SAFE_LEASE_CONTRACT,
@@ -290,49 +350,94 @@ if (candidateMatches.length === 1) {
       provider_job_submitted: false,
       production_deploy_performed: false,
       pricing_activation_performed: false,
-      next_action: "APPROVE_PARK_EXISTING_MUSIC_TRANSFORM_CANDIDATE",
+      next_action: parkingRequired || rebindRequired
+        ? "CONVERGE_EXISTING_MUSIC_TRANSFORM_CANDIDATE"
+        : "PREFLIGHT_THEN_CERTIFY_ONLY_THROUGH_MUSIC_TRANSFORM_CANDIDATE_SAFE_LEASE",
     }, null, 2));
     process.exit(0);
   }
 
-  let verified = endpoint;
   let parkingRepairPerformed = false;
+  let templateCreated = false;
+  let templateRebindPerformed = false;
+
   if (parkingRequired) {
     await rest(`/endpoints/${encodeURIComponent(text(endpoint?.id))}`, managementKey, {
       method: "PATCH",
       body: { workersMin: 0, workersMax: 0 },
     });
-    verified = await rest(`/endpoints/${encodeURIComponent(text(endpoint?.id))}?includeTemplate=true&includeWorkers=true`, managementKey);
+    endpoint = await rest(`/endpoints/${encodeURIComponent(text(endpoint?.id))}?includeTemplate=true&includeWorkers=true`, managementKey);
+    if (workersMin(endpoint) !== 0 || workersMax(endpoint) !== 0) {
+      throw new Error(
+        `AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PARK_VERIFY_FAILED:workers_min=${workersMin(endpoint)}:workers_max=${workersMax(endpoint)}`,
+      );
+    }
     parkingRepairPerformed = true;
   }
 
-  assertEndpointIdentity(verified, templateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_EXISTING_VERIFY_IDENTITY_FAILED");
-  if (workersMin(verified) !== 0 || workersMax(verified) !== 0) {
+  if (rebindRequired) {
+    if (!targetTemplate) {
+      const auth = resolveRegistryAuth(registryAuths);
+      targetTemplate = await createTargetTemplate(managementKey, text(auth?.id), image, templateName);
+      templateCreated = true;
+    }
+    const targetTemplateId = text(targetTemplate?.id);
+    if (!targetTemplateId) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TARGET_TEMPLATE_ID_REQUIRED");
+    await rest(`/endpoints/${encodeURIComponent(text(endpoint?.id))}`, managementKey, {
+      method: "PATCH",
+      body: {
+        templateId: targetTemplateId,
+        workersMin: 0,
+        workersMax: 0,
+      },
+    });
+    templateRebindPerformed = true;
+  }
+
+  endpoint = await rest(`/endpoints/${encodeURIComponent(text(endpoint?.id))}?includeTemplate=true&includeWorkers=true`, managementKey);
+  const refreshedTemplates = await rest(
+    "/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false",
+    managementKey,
+  );
+  if (!Array.isArray(refreshedTemplates)) {
+    throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_REFRESH_INVALID");
+  }
+  currentTemplate = authoritativeTemplate(endpoint, refreshedTemplates);
+  assertTemplate(currentTemplate, image);
+  const currentTemplateId = text(currentTemplate?.id);
+  if (!currentTemplateId) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_EXISTING_TEMPLATE_ID_REQUIRED");
+  assertEndpointIdentity(endpoint, currentTemplateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_EXISTING_VERIFY_IDENTITY_FAILED");
+  if (workersMin(endpoint) !== 0 || workersMax(endpoint) !== 0) {
     throw new Error(
-      `AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PARK_VERIFY_FAILED:workers_min=${workersMin(verified)}:workers_max=${workersMax(verified)}`,
+      `AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_EXISTING_NOT_PARKED:workers_min=${workersMin(endpoint)}:workers_max=${workersMax(endpoint)}`,
     );
   }
-  const verifiedAttached = endpointVolumeIds(verified);
+  const verifiedAttached = endpointVolumeIds(endpoint);
   if (verifiedAttached.length !== 1 || verifiedAttached[0] !== volume.id) {
-    throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_CACHE_BINDING_MISMATCH_AFTER_PARK");
+    throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_CACHE_BINDING_MISMATCH_AFTER_CONVERGENCE");
   }
-  assertTemplate(endpointTemplate(verified, templates) || template, image);
 
   console.log(JSON.stringify({
     success: true,
     contract: CONTRACT,
-    mode: apply ? "APPLY" : "PLAN",
+    mode: "APPLY",
     endpoint_exists: true,
-    endpoint: safeEndpoint(verified),
-    exact_immutable_image_verified: true,
+    endpoint: safeEndpoint(endpoint),
+    template: safeTemplate(currentTemplate),
     canonical_cache_volume: volume,
+    authoritative_template_lookup: "ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST",
+    embedded_template_view_used_for_digest_decision: false,
+    exact_immutable_image_verified: true,
     parking_required: false,
+    rebind_required: false,
     parking_repair_performed: parkingRepairPerformed,
+    template_created: templateCreated,
+    template_rebind_performed: templateRebindPerformed,
     safe_lease_contract: SAFE_LEASE_CONTRACT,
     safe_lease_lane: SAFE_LEASE_LANE,
     production_audio_endpoint_count: productionAudioMatches.length,
     production_audio_endpoint_mutation_performed: false,
-    mutation_performed: parkingRepairPerformed,
+    mutation_performed: parkingRepairPerformed || templateCreated || templateRebindPerformed,
     workers_opened: false,
     provider_job_submitted: false,
     production_deploy_performed: false,
@@ -341,13 +446,6 @@ if (candidateMatches.length === 1) {
   }, null, 2));
   process.exit(0);
 }
-
-const auth = resolveRegistryAuth(registryAuths);
-const digestSuffix = image.digest.replace(/^sha256:/, "").slice(0, 12);
-const templateName = `${TEMPLATE_PREFIX}${digestSuffix}`;
-const matchingTemplates = templates.filter((template) => text(template?.name) === templateName);
-if (matchingTemplates.length > 1) throw new Error(`AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_AMBIGUOUS:${matchingTemplates.length}`);
-if (matchingTemplates[0]) assertTemplate(matchingTemplates[0], image);
 
 const gpuTypes = unique(text(process.env.AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_GPU_TYPE_IDS || DEFAULT_GPU_TYPES.join(",")).split(","));
 if (!gpuTypes.length) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_GPU_TYPE_IDS_REQUIRED");
@@ -390,31 +488,15 @@ if (!apply) {
   process.exit(0);
 }
 
-let template = matchingTemplates[0] || null;
-if (!template) {
-  template = await rest("/templates", managementKey, {
-    method: "POST",
-    body: {
-      imageName: image.image,
-      name: templateName,
-      category: "NVIDIA",
-      containerDiskInGb: 30,
-      containerRegistryAuthId: text(auth?.id),
-      dockerEntrypoint: [],
-      dockerStartCmd: [],
-      env: desiredEnv(),
-      isPublic: false,
-      isServerless: true,
-      ports: [],
-      readme: "Avantiqo Music transform certification candidate. Parked 0/0; never production Compose routing.",
-      volumeInGb: 0,
-      volumeMountPath: "/runpod-volume",
-    },
-  });
+let templateCreated = false;
+if (!targetTemplate) {
+  const auth = resolveRegistryAuth(registryAuths);
+  targetTemplate = await createTargetTemplate(managementKey, text(auth?.id), image, templateName);
+  templateCreated = true;
 }
-
-const templateId = text(template?.id);
+const templateId = text(targetTemplate?.id);
 if (!templateId) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_TEMPLATE_ID_REQUIRED");
+assertTemplate(targetTemplate, image);
 
 const freshEndpoints = await rest("/endpoints?includeTemplate=false&includeWorkers=true", managementKey);
 const freshCandidate = list(freshEndpoints).filter((endpoint) => text(endpoint?.name) === ENDPOINT_NAME);
@@ -446,8 +528,6 @@ if (productionAudioMatches.some((item) => text(item?.id) === endpointId)) {
 }
 
 let verified = await rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey);
-assertEndpointIdentity(verified, templateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_CREATED_IDENTITY_MISMATCH");
-
 let parkingRepairPerformed = false;
 if (workersMin(verified) !== 0 || workersMax(verified) !== 0) {
   await rest(`/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
@@ -458,7 +538,18 @@ if (workersMin(verified) !== 0 || workersMax(verified) !== 0) {
   parkingRepairPerformed = true;
 }
 
-assertEndpointIdentity(verified, templateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_VERIFY_IDENTITY_FAILED");
+const refreshedTemplates = await rest(
+  "/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false",
+  managementKey,
+);
+if (!Array.isArray(refreshedTemplates)) {
+  throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_TEMPLATE_REFRESH_INVALID");
+}
+const verifiedTemplate = authoritativeTemplate(verified, refreshedTemplates);
+assertTemplate(verifiedTemplate, image);
+const verifiedTemplateId = text(verifiedTemplate?.id);
+if (!verifiedTemplateId) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_TEMPLATE_ID_REQUIRED");
+assertEndpointIdentity(verified, verifiedTemplateId, "AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_VERIFY_IDENTITY_FAILED");
 if (workersMin(verified) !== 0 || workersMax(verified) !== 0) {
   throw new Error(
     `AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_PARK_VERIFY_FAILED:workers_min=${workersMin(verified)}:workers_max=${workersMax(verified)}`,
@@ -468,16 +559,20 @@ const attached = endpointVolumeIds(verified);
 if (attached.length !== 1 || attached[0] !== volume.id) {
   throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_CACHE_VERIFY_FAILED");
 }
-assertTemplate(endpointTemplate(verified, templates) || template, image);
 
 console.log(JSON.stringify({
   ...plan,
   mode: "APPLY",
   endpoint_exists: true,
   endpoint: safeEndpoint(verified),
-  template_created: matchingTemplates.length === 0,
+  template: safeTemplate(verifiedTemplate),
+  authoritative_template_lookup: "ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST",
+  embedded_template_view_used_for_digest_decision: false,
+  exact_immutable_image_verified: true,
+  template_created: templateCreated,
   endpoint_created: true,
   parking_repair_performed: parkingRepairPerformed,
+  template_rebind_performed: false,
   mutation_performed: true,
   workers_opened: false,
   provider_job_submitted: false,

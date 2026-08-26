@@ -50,6 +50,12 @@ def head_size(key: str):
         status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
         if code in {"404", "NoSuchKey", "NotFound"} or status == 404:
             return None
+        if code in {"403", "Forbidden", "AccessDenied"} or status == 403:
+            listing = s3.list_objects_v2(Bucket=BUCKET, Prefix=key, MaxKeys=2)
+            for item in listing.get("Contents", []):
+                if item.get("Key") == key:
+                    return int(item["Size"])
+            return None
         raise
 
 

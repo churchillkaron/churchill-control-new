@@ -39,7 +39,7 @@ function rawList(value) {
 }
 
 function unique(values) {
-  return [...new Set(values.map(text).filter(Boolean))];
+  return [...new Set(rawList(values).map(text).filter(Boolean))];
 }
 
 function sorted(values) {

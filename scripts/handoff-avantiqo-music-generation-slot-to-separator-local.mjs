@@ -51,6 +51,23 @@ function activeWorkers(health = {}) {
   return Object.values(health.workers || {}).reduce((sum, value) => sum + Math.max(0, finite(value)), 0);
 }
 
+function executionWorkers(health = {}) {
+  return ["initializing", "running", "throttled", "unhealthy"]
+    .reduce((sum, key) => sum + Math.max(0, finite(health?.workers?.[key])), 0);
+}
+
+function assertGenerationSafeForCapacityChange(health) {
+  if (health.jobs.in_queue !== 0 || health.jobs.in_progress !== 0 || executionWorkers(health) !== 0) {
+    throw new Error("AVANTIQO_MUSIC_SEPARATOR_SLOT_GENERATION_ACTIVE_WORK_FORBIDDEN");
+  }
+}
+
+function assertSeparatorParkedIdle(health) {
+  if (health.jobs.in_queue !== 0 || health.jobs.in_progress !== 0 || activeWorkers(health) !== 0) {
+    throw new Error("AVANTIQO_MUSIC_SEPARATOR_SLOT_SEPARATOR_NOT_PARKED_IDLE");
+  }
+}
+
 async function requestJson(url, key, options = {}) {
   const response = await fetch(url, {
     method: options.method || "GET",
@@ -109,14 +126,6 @@ async function snapshot(managementKey, queueKey) {
     health(text(separator.id), queueKey),
   ]);
   return { generation, separator, generationHealth, separatorHealth };
-}
-
-function assertQueuesIdle(state) {
-  for (const [label, h] of [["GENERATION", state.generationHealth], ["SEPARATOR", state.separatorHealth]]) {
-    if (h.jobs.in_queue !== 0 || h.jobs.in_progress !== 0 || activeWorkers(h) !== 0) {
-      throw new Error(`AVANTIQO_MUSIC_SEPARATOR_SLOT_${label}_NOT_IDLE`);
-    }
-  }
 }
 
 async function waitFor(managementKey, queueKey, predicate, code) {
@@ -178,9 +187,7 @@ if (action === "RESTORE") {
     (s) => finite(s.separator.workersMin, -1) === 0 && finite(s.separator.workersMax, -1) === 0 && activeWorkers(s.separatorHealth) === 0 && s.separatorHealth.jobs.in_queue === 0 && s.separatorHealth.jobs.in_progress === 0,
     "AVANTIQO_MUSIC_SEPARATOR_SLOT_SEPARATOR_DRAIN_TIMEOUT",
   );
-  if (current.generationHealth.jobs.in_queue !== 0 || current.generationHealth.jobs.in_progress !== 0 || activeWorkers(current.generationHealth) !== 0) {
-    throw new Error("AVANTIQO_MUSIC_SEPARATOR_SLOT_GENERATION_BECAME_BUSY_BEFORE_RESTORE");
-  }
+  assertGenerationSafeForCapacityChange(current.generationHealth);
   await patchEndpoint(text(current.generation.id), {
     workersMin: Number(stateFile.generation_workers_min),
     workersMax: Number(stateFile.generation_workers_max),
@@ -201,7 +208,8 @@ if (action === "RESTORE") {
 }
 
 const initial = await snapshot(managementKey, queueKey);
-assertQueuesIdle(initial);
+assertGenerationSafeForCapacityChange(initial.generationHealth);
+assertSeparatorParkedIdle(initial.separatorHealth);
 const generationMax = finite(initial.generation.workersMax, -1);
 const generationMin = finite(initial.generation.workersMin, -1);
 const separatorMax = finite(initial.separator.workersMax, -1);
@@ -224,7 +232,8 @@ report("PLAN", {
 if (action === "PLAN") process.exit(0);
 
 const fresh = await snapshot(managementKey, queueKey);
-assertQueuesIdle(fresh);
+assertGenerationSafeForCapacityChange(fresh.generationHealth);
+assertSeparatorParkedIdle(fresh.separatorHealth);
 if (
   text(fresh.generation.id) !== text(initial.generation.id) ||
   text(fresh.separator.id) !== text(initial.separator.id) ||
@@ -240,8 +249,8 @@ await patchEndpoint(text(fresh.generation.id), { workersMin: 0, workersMax: gene
 const generationReduced = await waitFor(
   managementKey,
   queueKey,
-  (s) => finite(s.generation.workersMin, -1) === 0 && finite(s.generation.workersMax, -1) === generationMax - 1 && s.generationHealth.jobs.in_queue === 0 && s.generationHealth.jobs.in_progress === 0 && activeWorkers(s.generationHealth) === 0,
-  "AVANTIQO_MUSIC_SEPARATOR_SLOT_GENERATION_DRAIN_TIMEOUT",
+  (s) => finite(s.generation.workersMin, -1) === 0 && finite(s.generation.workersMax, -1) === generationMax - 1 && s.generationHealth.jobs.in_queue === 0 && s.generationHealth.jobs.in_progress === 0 && executionWorkers(s.generationHealth) === 0,
+  "AVANTIQO_MUSIC_SEPARATOR_SLOT_GENERATION_CAPACITY_REDUCTION_TIMEOUT",
 );
 
 try {

@@ -70,7 +70,7 @@ try {
         source_kind: "MANUAL",
         objective: "Certify cancellation normalizes every non-terminal Secretary step state.",
         success_criteria: [],
-        status: "RUNNING",
+        status: "ACTIVE",
         autonomy_level: "EXECUTE_WITH_GATES",
         approval_policy: {},
         execution_plan: [],
@@ -81,6 +81,7 @@ try {
       .single(),
     "SECRETARY_CANCEL_NORMALIZATION_LOCAL_JOB_INSERT_FAILED",
   );
+  assert.equal(job.status, "ACTIVE");
 
   const statuses = ["PENDING", "RUNNING", "WAITING", "APPROVAL_REQUIRED", "FAILED"];
   await one(
@@ -136,6 +137,7 @@ try {
   assert.equal(steps.every((step) => Boolean(step.completed_at)), true);
 
   console.log("SECRETARY_JOB_CANCELLATION_NORMALIZATION_LOCAL_CERTIFICATION=PASS");
+  console.log("SECRETARY_CANCEL_ACTIVE_JOB_FIXTURE=true");
   console.log("SECRETARY_CANCELLED_PENDING_STEP_SKIPPED=true");
   console.log("SECRETARY_CANCELLED_RUNNING_STEP_SKIPPED=true");
   console.log("SECRETARY_CANCELLED_WAITING_STEP_SKIPPED=true");

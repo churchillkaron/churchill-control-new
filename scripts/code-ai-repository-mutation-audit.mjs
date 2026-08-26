@@ -76,6 +76,23 @@ requireMarkers("MISSION", mission, [
   'operation: "write"',
   "deletedPathAbsent",
   "codeAIChangedPathsFromDiff",
+  "AVANTIQO_CODE_APPLY_FILES_MUTATION_V2",
+  "AVANTIQO_CODE_PLANNER_REPOSITORY_CAPABILITIES_V1",
+]);
+
+requireMarkers("REPOSITORY_GUIDANCE", mission, [
+  "AVANTIQO_CODE_REPOSITORY_GUIDANCE_V1",
+  "plannerRepositoryGuidance",
+  "repository_guidance: object(prior.repository_guidance)",
+  "instructions_text",
+  "verification_commands_text",
+  "ci_workflows_text",
+  "monorepo_summary",
+  "instruction_scope_rule",
+  'kind: "repository_guidance"',
+  "appendRepositoryGuidanceEvidence(state)",
+  'authorization_effect: "NONE"',
+  'permission_effect: "NONE"',
 ]);
 
 requireMarkers("QUALITY", quality, [
@@ -102,14 +119,22 @@ if (mission.includes('operation: "delete",\n        content: ""')) {
 if (githubCommit.includes('force: true')) {
   throw new Error("CODE_AI_REPOSITORY_MUTATION_AUDIT_FORCE_PUSH_FORBIDDEN");
 }
+if (!mission.match(/appendRepositoryGuidanceEvidence\(state\);[\s\S]{0,500}for \(const operation of plan\)/)) {
+  throw new Error("CODE_AI_REPOSITORY_GUIDANCE_MUST_REFRESH_BEFORE_RESUMED_OPERATIONS");
+}
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_REPOSITORY_MUTATION_SOURCE_AUDIT_V1",
+  contract: "AVANTIQO_CODE_REPOSITORY_MUTATION_SOURCE_AUDIT_V2",
   verified: {
     repository_instruction_discovery: true,
     repository_command_convention_discovery: true,
+    repository_guidance_persisted_in_mission_state: true,
+    repository_guidance_reinjected_on_resume: true,
+    repository_guidance_survives_bounded_operation_evidence: true,
+    repository_guidance_has_no_authorization_or_permission_effect: true,
     literal_regex_path_glob_search: true,
+    autonomous_apply_files_supports_write_delete_rename: true,
     delete_is_first_class_source_change: true,
     rename_is_delete_plus_write: true,
     deleted_paths_survive_resume_state: true,
@@ -125,4 +150,4 @@ console.log(JSON.stringify({
   runpod_lease_opened: false,
   production_deploy_performed: false,
 }, null, 2));
-console.log("AVANTIQO_CODE_REPOSITORY_MUTATION_SOURCE_AUDIT_V1=PASS");
+console.log("AVANTIQO_CODE_REPOSITORY_MUTATION_SOURCE_AUDIT_V2=PASS");

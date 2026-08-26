@@ -24,13 +24,13 @@ const EXPECTED_VARIANT = "acestep-v15-xl-turbo";
 const EXPECTED_LM_MODEL = "acestep-5Hz-lm-1.7B";
 const EXPECTED_LM_BACKEND = "vllm";
 const EXPECTED_QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1";
-const RUNPOD_24GB_FLEX_USD_PER_SECOND = 0.00019;
-const RUNPOD_PUBLIC_PRICING_VERIFIED_AT = "2026-08-24";
-const RUNPOD_24GB_FLEX_GPU_TYPE_IDS = new Set([
-  "NVIDIA L4",
-  "NVIDIA RTX A5000",
-  "NVIDIA GeForce RTX 3090",
-]);
+const RUNPOD_PUBLIC_PRICING_VERIFIED_AT = "2026-08-26";
+const RUNPOD_SERVERLESS_FLEX_USD_PER_HOUR_BY_GPU_TYPE = Object.freeze({
+  "NVIDIA L4": 0.69,
+  "NVIDIA RTX A5000": 0.69,
+  "NVIDIA GeForce RTX 3090": 0.69,
+  "NVIDIA GeForce RTX 4090": 1.10,
+});
 const STORAGE_DISCOVERY_MAX_PREFIXES = 64;
 const STORAGE_DISCOVERY_LIST_LIMIT = 100;
 
@@ -93,7 +93,7 @@ function endpointVolumeIds(endpoint = {}) {
 
 function endpointGpuTypeIds(endpoint = {}) {
   return Array.isArray(endpoint.gpuTypeIds)
-    ? endpoint.gpuTypeIds.map(text).filter(Boolean)
+    ? [...new Set(endpoint.gpuTypeIds.map(text).filter(Boolean))]
     : [];
 }
 
@@ -106,7 +106,10 @@ function resolveGpuEconomics(endpoint = {}) {
       gpu_usd_per_second: override / 3600,
       gpu_rate_source: "AVANTIQO_AUDIO_GPU_USD_PER_HOUR",
       gpu_rate_environment_override_used: true,
+      gpu_rate_resolution_mode: "OPERATOR_OVERRIDE",
       gpu_type_ids: gpuTypeIds,
+      gpu_type_usd_per_hour: null,
+      conservative_pool_max_rate_used: false,
       public_pricing_verified_at: null,
     };
   }
@@ -114,19 +117,29 @@ function resolveGpuEconomics(endpoint = {}) {
     throw new Error("AVANTIQO_MUSIC_PREFLIGHT_GPU_TYPE_IDS_REQUIRED_FOR_RATE_RESOLUTION");
   }
   const unsupported = gpuTypeIds.filter(
-    (gpuTypeId) => !RUNPOD_24GB_FLEX_GPU_TYPE_IDS.has(gpuTypeId),
+    (gpuTypeId) => !Object.hasOwn(RUNPOD_SERVERLESS_FLEX_USD_PER_HOUR_BY_GPU_TYPE, gpuTypeId),
   );
   if (unsupported.length) {
     throw new Error(
       `AVANTIQO_AUDIO_GPU_USD_PER_HOUR_REQUIRED_FOR_UNMAPPED_GPU_TYPES:${unsupported.join(",")}`,
     );
   }
+  const gpuTypeUsdPerHour = Object.fromEntries(
+    gpuTypeIds.map((gpuTypeId) => [
+      gpuTypeId,
+      RUNPOD_SERVERLESS_FLEX_USD_PER_HOUR_BY_GPU_TYPE[gpuTypeId],
+    ]),
+  );
+  const poolMaxUsdPerHour = Math.max(...Object.values(gpuTypeUsdPerHour));
   return {
-    gpu_usd_per_hour: RUNPOD_24GB_FLEX_USD_PER_SECOND * 3600,
-    gpu_usd_per_second: RUNPOD_24GB_FLEX_USD_PER_SECOND,
-    gpu_rate_source: "RUNPOD_PUBLIC_SERVERLESS_24GB_FLEX_PRICING",
+    gpu_usd_per_hour: poolMaxUsdPerHour,
+    gpu_usd_per_second: poolMaxUsdPerHour / 3600,
+    gpu_rate_source: "RUNPOD_PUBLIC_SERVERLESS_FLEX_POOL_MAX_RATE",
     gpu_rate_environment_override_used: false,
+    gpu_rate_resolution_mode: "CONSERVATIVE_CONFIGURED_POOL_MAX",
     gpu_type_ids: gpuTypeIds,
+    gpu_type_usd_per_hour: gpuTypeUsdPerHour,
+    conservative_pool_max_rate_used: gpuTypeIds.length > 1,
     public_pricing_verified_at: RUNPOD_PUBLIC_PRICING_VERIFIED_AT,
   };
 }
@@ -434,8 +447,11 @@ const result = {
     gpu_usd_per_second: gpuEconomics.gpu_usd_per_second,
     gpu_rate_source: gpuEconomics.gpu_rate_source,
     gpu_rate_environment_override_used: gpuEconomics.gpu_rate_environment_override_used,
+    gpu_rate_resolution_mode: gpuEconomics.gpu_rate_resolution_mode,
     public_pricing_verified_at: gpuEconomics.public_pricing_verified_at,
     gpu_type_ids: gpuEconomics.gpu_type_ids,
+    gpu_type_usd_per_hour: gpuEconomics.gpu_type_usd_per_hour,
+    conservative_pool_max_rate_used: gpuEconomics.conservative_pool_max_rate_used,
   },
   ready_for_controlled_benchmark: true,
   safety: {

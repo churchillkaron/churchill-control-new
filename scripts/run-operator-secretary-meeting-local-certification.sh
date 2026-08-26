@@ -85,6 +85,7 @@ SECRETARY_MIGRATIONS=(
   "20260825063300_avantiqo_secretary_call_sessions.sql"
   "20260825063900_avantiqo_secretary_atomic_booking.sql"
   "20260825064100_avantiqo_secretary_outbound_calls.sql"
+  "20260825065700_avantiqo_secretary_message_reception.sql"
   "20260825073300_secretary_follow_up_execution.sql"
   "20260825150000_secretary_meeting_intelligence_and_jobs.sql"
   "20260825151000_secretary_job_execution_claim.sql"
@@ -119,9 +120,9 @@ echo "SECRETARY_MEETING_ROOT_ENV_LOCAL_MUTATED=false"
 echo "SECRETARY_MEETING_SECRETS_PRINTED=false"
 echo "SECRETARY_MEETING_LOCAL_OPTIONAL_SERVICES_EXCLUDED=realtime,storage-api,studio,logflare,vector"
 
-# Secretary meeting certification needs the local database and Data API, not
-# Storage or Studio. Excluding unrelated services prevents their health from
-# masking Secretary behavior while still keeping required API health checks live.
+# Secretary certification needs the local database and Data API, not Storage or
+# Studio. Excluding unrelated services prevents their health from masking Secretary
+# behavior while still keeping the required database/API health checks live.
 START_LOG="$WORKDIR/supabase-start.log"
 if ! supabase start --workdir "$WORKDIR" -x realtime,storage-api,studio,logflare,vector >"$START_LOG" 2>&1; then
   echo "SECRETARY_MEETING_LOCAL_SUPABASE_START=FAIL"
@@ -149,11 +150,13 @@ echo "SECRETARY_MEETING_LOCAL_CREDENTIALS_PRINTED=false"
 node scripts/operator-secretary-supabase-await-audit.mjs
 npm run audit:operator-secretary-end-to-end
 node scripts/operator-secretary-recurring-meeting-audit.mjs
+node scripts/operator-secretary-inbox-triage-audit.mjs
 node scripts/preflight-secretary-meeting-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-approval-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-review-controls-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-cancellation-normalization-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-correspondence-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-inbox-triage-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-follow-through-cancellation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-travel-coordination-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-coordination-local.mjs

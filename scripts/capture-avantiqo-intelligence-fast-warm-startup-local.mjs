@@ -14,6 +14,8 @@ const REPORT_PATH = "/tmp/avantiqo-intelligence-fast-warm-startup-capture.json";
 const WAIT_TIMEOUT_MS = 210_000;
 const POLL_MS = 5_000;
 const LOG_CAPTURE_MS = 15_000;
+const CLEANUP_IDLE_TIMEOUT_MS = 600_000;
+const CLEANUP_IDLE_POLL_MS = 10_000;
 
 const text = (value) => String(value ?? "").trim();
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -264,6 +266,55 @@ async function patchWorkers(endpointId, managementKey, workersMin, workersMax) {
   return verified;
 }
 
+function activeManagementWorkers(endpoint = {}) {
+  return list(endpoint?.workers).filter((worker) => {
+    const desired = text(worker?.desiredStatus || worker?.desired_status).toUpperCase();
+    return desired !== "EXITED";
+  }).length;
+}
+
+async function waitUntilFastIdleForDisable(endpointId, managementKey, runtimeKey) {
+  const startedAt = Date.now();
+  let lastEndpoint = {};
+  let lastHealth = {};
+  while (Date.now() - startedAt <= CLEANUP_IDLE_TIMEOUT_MS) {
+    [lastEndpoint, lastHealth] = await Promise.all([
+      requestJson(
+        `${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}?includeWorkers=true`,
+        managementKey,
+      ),
+      requestJson(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`, runtimeKey),
+    ]);
+    const health = healthSummary(lastHealth);
+    const managementWorkers = activeManagementWorkers(lastEndpoint);
+    if (
+      finite(lastEndpoint?.workersMin, -1) === 0 &&
+      managementWorkers === 0 &&
+      health.jobs.in_queue === 0 &&
+      health.jobs.in_progress === 0 &&
+      health.workers.initializing === 0 &&
+      health.workers.running === 0
+    ) {
+      return;
+    }
+    const elapsedMs = Date.now() - startedAt;
+    console.log(
+      JSON.stringify({
+        event: "AVANTIQO_INTELLIGENCE_FAST_STARTUP_CLEANUP_WAITING_FOR_IDLE",
+        elapsed_seconds: Math.floor(elapsedMs / 1000),
+        health,
+        active_management_workers: managementWorkers,
+      }),
+    );
+    if (elapsedMs >= CLEANUP_IDLE_TIMEOUT_MS) break;
+    await sleep(CLEANUP_IDLE_POLL_MS);
+  }
+  const health = healthSummary(lastHealth);
+  throw new Error(
+    `AVANTIQO_FAST_STARTUP_CLEANUP_IDLE_TIMEOUT:in_queue=${health.jobs.in_queue}:in_progress=${health.jobs.in_progress}:initializing=${health.workers.initializing}:running=${health.workers.running}:active_management_workers=${activeManagementWorkers(lastEndpoint)}`,
+  );
+}
+
 function parseSseFrame(frame, workerId) {
   const data = frame
     .split(/\r?\n/)
@@ -424,10 +475,114 @@ process.on("SIGINT", onSigint);
 process.on("SIGTERM", onSigterm);
 
 try {
-  runSlotManager(
-    "--provision",
-    "AVANTIQO_INTELLIGENCE_FAST_RUNPOD_PROVISION_APPROVED",
+  const initialState = await endpoints(managementKey);
+  const initialDeep = resolveOne(
+    initialState,
+    DEEP_NAME,
+    "AVANTIQO_FAST_STARTUP_DEEP_ENDPOINT_RESOLUTION_FAILED",
   );
+  const initialFast = resolveOne(
+    initialState,
+    FAST_NAME,
+    "AVANTIQO_FAST_STARTUP_FAST_ENDPOINT_RESOLUTION_FAILED",
+  );
+  fastId = text(initialFast?.id);
+  const initialDeepMax = finite(initialDeep?.workersMax, -1);
+  const initialFastMin = finite(initialFast?.workersMin, -1);
+  const initialFastMax = finite(initialFast?.workersMax, -1);
+  const initialFastRecoveryRequired =
+    Boolean(fastId) &&
+    (initialDeepMax === 0 || initialDeepMax === 1) &&
+    initialFastMin >= 0 &&
+    initialFastMin <= 1 &&
+    initialFastMax === 1;
+  if (initialFastRecoveryRequired) {
+    // Arm cleanup before the slot manager can reject a dual-active or
+    // pre-existing Fast state. The restore path lets active work drain.
+    fastActivated = true;
+    console.log(
+      `AVANTIQO_INTELLIGENCE_FAST_PREEXISTING_SLOT_RECOVERY=true:deep_max=${initialDeepMax}:fast_min=${initialFastMin}:fast_max=${initialFastMax}`,
+    );
+  }
+  const [initialDeepHealth, initialFastHealth] = await Promise.all([
+    requestJson(
+      `${QUEUE_BASE}/${encodeURIComponent(text(initialDeep?.id))}/health`,
+      runtimeKey,
+    ),
+    requestJson(
+      `${QUEUE_BASE}/${encodeURIComponent(text(initialFast?.id))}/health`,
+      runtimeKey,
+    ),
+  ]);
+  const initialHealth = {
+    deep: healthSummary(initialDeepHealth),
+    fast: healthSummary(initialFastHealth),
+  };
+  if (
+    initialHealth.deep.jobs.in_queue !== 0 ||
+    initialHealth.deep.jobs.in_progress !== 0 ||
+    initialHealth.fast.jobs.in_queue !== 0 ||
+    initialHealth.fast.jobs.in_progress !== 0
+  ) {
+    throw new Error("AVANTIQO_FAST_STARTUP_ACTIVE_JOB_BLOCKED");
+  }
+  if (initialFastRecoveryRequired) {
+    throw new Error(
+      "AVANTIQO_FAST_STARTUP_PREEXISTING_SLOT_STATE_RESTORING_DEEP",
+    );
+  }
+  if (
+    finite(initialDeep?.workersMin, -1) !== 0 ||
+    initialDeepMax !== 1 ||
+    initialFastMin !== 0 ||
+    initialFastMax !== 0
+  ) {
+    throw new Error("AVANTIQO_FAST_STARTUP_SAFE_PARKED_STATE_REQUIRED");
+  }
+
+  try {
+    runSlotManager(
+      "--provision",
+      "AVANTIQO_INTELLIGENCE_FAST_RUNPOD_PROVISION_APPROVED",
+    );
+  } catch (provisionError) {
+    // A concurrent slot swap can occur after the read-only preflight. If that
+    // happened, arm the same governed cleanup before propagating the error.
+    try {
+      const recoveryState = await endpoints(managementKey);
+      const recoveryDeep = resolveOne(
+        recoveryState,
+        DEEP_NAME,
+        "AVANTIQO_FAST_STARTUP_DEEP_ENDPOINT_RESOLUTION_FAILED",
+      );
+      const recoveryFast = resolveOne(
+        recoveryState,
+        FAST_NAME,
+        "AVANTIQO_FAST_STARTUP_FAST_ENDPOINT_RESOLUTION_FAILED",
+      );
+      const recoveryDeepMax = finite(recoveryDeep?.workersMax, -1);
+      const recoveryFastMin = finite(recoveryFast?.workersMin, -1);
+      const recoveryFastMax = finite(recoveryFast?.workersMax, -1);
+      if (
+        text(recoveryFast?.id) &&
+        (recoveryDeepMax === 0 || recoveryDeepMax === 1) &&
+        recoveryFastMin >= 0 &&
+        recoveryFastMin <= 1 &&
+        recoveryFastMax === 1
+      ) {
+        fastId = text(recoveryFast.id);
+        fastActivated = true;
+        console.log(
+          `AVANTIQO_INTELLIGENCE_FAST_CONCURRENT_SLOT_RECOVERY=true:deep_max=${recoveryDeepMax}:fast_min=${recoveryFastMin}:fast_max=${recoveryFastMax}`,
+        );
+      }
+    } catch (inspectionError) {
+      console.error(
+        `AVANTIQO_INTELLIGENCE_FAST_PROVISION_FAILURE_INSPECTION_ERROR=${redact(text(inspectionError?.message || inspectionError)).slice(0, 900)}`,
+      );
+    }
+    throw provisionError;
+  }
   let state = await endpoints(managementKey);
   let deep = resolveOne(
     state,
@@ -583,26 +738,78 @@ try {
     secrets_in_output: false,
   };
 } finally {
-  if (fastActivated && fastId) {
-    try {
-      await patchWorkers(fastId, managementKey, 0, 1);
-      cleanup.fast_min_zero = true;
-    } catch (error) {
-      cleanup.error = redact(text(error?.message || error)).slice(0, 900);
-    }
-  }
   if (fastActivated) {
     try {
-      runSlotManager(
-        "--restore-deep",
-        "AVANTIQO_INTELLIGENCE_FAST_SLOT_RESTORE_APPROVED",
+      let cleanupState = await endpoints(managementKey);
+      let cleanupDeep = resolveOne(
+        cleanupState,
+        DEEP_NAME,
+        "AVANTIQO_FAST_STARTUP_CLEANUP_DEEP_ENDPOINT_RESOLUTION_FAILED",
       );
-      cleanup.deep_restored = true;
+      let cleanupFast = resolveOne(
+        cleanupState,
+        FAST_NAME,
+        "AVANTIQO_FAST_STARTUP_CLEANUP_FAST_ENDPOINT_RESOLUTION_FAILED",
+      );
+      fastId = text(cleanupFast?.id) || fastId;
+      if (!fastId) throw new Error("AVANTIQO_FAST_STARTUP_CLEANUP_FAST_ID_REQUIRED");
+
+      let deepMax = finite(cleanupDeep?.workersMax, -1);
+      let fastMax = finite(cleanupFast?.workersMax, -1);
+      if (deepMax === 1 && fastMax === 0) {
+        if (finite(cleanupFast?.workersMin, -1) !== 0) {
+          await patchWorkers(fastId, managementKey, 0, 0);
+        }
+        cleanup.fast_min_zero = true;
+        cleanup.deep_restored = true;
+      } else {
+        if (fastMax !== 1 || (deepMax !== 0 && deepMax !== 1)) {
+          throw new Error(
+            `AVANTIQO_FAST_STARTUP_CLEANUP_SLOT_STATE_INVALID:deep_max=${deepMax}:fast_max=${fastMax}`,
+          );
+        }
+        await patchWorkers(fastId, managementKey, 0, 1);
+        cleanup.fast_min_zero = true;
+
+        if (deepMax === 1) {
+          // Both lanes were enabled by a concurrent workflow. Deep is already
+          // restored, so wait for Fast to drain and park only Fast.
+          await waitUntilFastIdleForDisable(fastId, managementKey, runtimeKey);
+          await patchWorkers(fastId, managementKey, 0, 0);
+        } else {
+          runSlotManager(
+            "--restore-deep",
+            "AVANTIQO_INTELLIGENCE_FAST_SLOT_RESTORE_APPROVED",
+          );
+        }
+
+        cleanupState = await endpoints(managementKey);
+        cleanupDeep = resolveOne(
+          cleanupState,
+          DEEP_NAME,
+          "AVANTIQO_FAST_STARTUP_CLEANUP_DEEP_ENDPOINT_RESOLUTION_FAILED",
+        );
+        cleanupFast = resolveOne(
+          cleanupState,
+          FAST_NAME,
+          "AVANTIQO_FAST_STARTUP_CLEANUP_FAST_ENDPOINT_RESOLUTION_FAILED",
+        );
+        deepMax = finite(cleanupDeep?.workersMax, -1);
+        fastMax = finite(cleanupFast?.workersMax, -1);
+        if (
+          deepMax !== 1 ||
+          finite(cleanupFast?.workersMin, -1) !== 0 ||
+          fastMax !== 0
+        ) {
+          throw new Error(
+            `AVANTIQO_FAST_STARTUP_CLEANUP_VERIFY_FAILED:deep_max=${deepMax}:fast_min=${finite(cleanupFast?.workersMin)}:fast_max=${fastMax}`,
+          );
+        }
+        cleanup.deep_restored = true;
+      }
       fastActivated = false;
     } catch (error) {
-      cleanup.error = [cleanup.error, redact(text(error?.message || error)).slice(0, 900)]
-        .filter(Boolean)
-        .join(" | ");
+      cleanup.error = redact(text(error?.message || error)).slice(0, 900);
     }
   }
 }

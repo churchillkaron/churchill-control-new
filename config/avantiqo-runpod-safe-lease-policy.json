@@ -37,5 +37,8 @@
     "voice-stt": "avantiqo-voice-stt-v1",
     "lipsync": "avantiqo-lipsync-v1.",
     "cinema": "avantiqo-cinema-v1"
+  },
+  "lane_max_lease_ttl_ms": {
+    "code": 3600000
   }
 }

@@ -98,6 +98,13 @@ assert.match(cleanupShim, /provider_post_retries_forbidden: true/);
 assert.match(capacityRunner, /run-code-ai-autonomous-planner-certification-resilient-local\.mjs/);
 assert.match(packageJson, /run-code-ai-runpod-safe-lease-resilient-local\.mjs/);
 assert.match(packageJson, /code-ai-certification-resilience-selftest\.mjs/);
+assert.match(packageJson, /--lane=code --ttl-ms=3600000 --/);
+const safeLeasePolicy = JSON.parse(await readFile("config/avantiqo-runpod-safe-lease-policy.json", "utf8"));
+assert.equal(safeLeasePolicy.max_lease_ttl_ms, 1_800_000);
+assert.equal(safeLeasePolicy.lane_max_lease_ttl_ms?.code, 3_600_000);
+assert.match(sharedLease, /lane_max_lease_ttl_ms/);
+assert.match(sharedLease, /maxLeaseTtlMs/);
+assert.match(codeDistributedLease, /MAX_CODE_DISTRIBUTED_LEASE_TTL_MS = 3_600_000/);
 assert.match(plannerExecution, /recoverStaleQueuedPlannerExecution/);
 assert.match(plannerExecution, /\/cancel\//);
 assert.match(plannerExecution, /CODE_AI_PLANNER_STALE_QUEUE_CANCEL_NOT_TERMINAL/);
@@ -145,6 +152,9 @@ console.log(JSON.stringify({
     code_distributed_lease_compare_and_swap_owned: true,
     code_endpoint_orphan_reaper_respects_distributed_ownership: true,
     code_distributed_lease_does_not_mutate_endpoint_directly: true,
+    code_certification_lease_budget_exceeds_observed_30_minute_cutoff: true,
+    non_code_default_max_lease_ttl_remains_30_minutes: true,
+    code_distributed_lease_matches_code_safe_lease_budget: true,
   },
   provider_calls_executed: false,
   provider_spend_performed: false,

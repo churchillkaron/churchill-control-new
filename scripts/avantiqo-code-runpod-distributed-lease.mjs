@@ -8,6 +8,7 @@ const SERVICE_ID = "ai.code.debug";
 const PROVIDER_ID = "avantiqo-code";
 const METADATA_KEY = "runpod_safe_lease_v2";
 const MAX_CAS_ATTEMPTS = 4;
+const MAX_CODE_DISTRIBUTED_LEASE_TTL_MS = 3_600_000;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -175,7 +176,7 @@ export async function acquireCodeRunpodDistributedLease({
     throw new Error("AVANTIQO_CODE_DISTRIBUTED_LEASE_ENDPOINT_NAME_INVALID");
   }
 
-  const ttl = Math.max(60_000, Math.min(Number(ttlMs || 900_000), 1_800_000));
+  const ttl = Math.max(60_000, Math.min(Number(ttlMs || 900_000), MAX_CODE_DISTRIBUTED_LEASE_TTL_MS));
 
   for (let attempt = 0; attempt < MAX_CAS_ATTEMPTS; attempt += 1) {
     const row = await readControlRow();

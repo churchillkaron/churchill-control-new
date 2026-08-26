@@ -240,7 +240,11 @@ if (policy.contract !== "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2" || policy.workers
 const laneName = text(policy?.lanes?.[args.lane]);
 if (!laneName) throw new Error(`${CONTRACT}_LANE_REQUIRED:${Object.keys(policy?.lanes || {}).join(",")}`);
 const ttlMs = args.ttlMs ?? finite(policy.default_lease_ttl_ms, 900_000);
-if (ttlMs < 60_000 || ttlMs > finite(policy.max_lease_ttl_ms, 1_800_000)) throw new Error(`${CONTRACT}_TTL_INVALID:${ttlMs}`);
+const maxLeaseTtlMs = finite(
+  policy?.lane_max_lease_ttl_ms?.[args.lane],
+  finite(policy.max_lease_ttl_ms, 1_800_000),
+);
+if (ttlMs < 60_000 || ttlMs > maxLeaseTtlMs) throw new Error(`${CONTRACT}_TTL_INVALID:${ttlMs}:max=${maxLeaseTtlMs}`);
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const queueKey = text(process.env.RUNPOD_API_KEY) || managementKey;
 let targetId = null;

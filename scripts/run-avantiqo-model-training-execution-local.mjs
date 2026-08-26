@@ -95,6 +95,20 @@ if (text(process.env.NODE_ENV, 40).toLowerCase() !== "development") {
 }
 
 const mainCommit = validateCurrentMain();
+const queueApiKey = text(process.env.RUNPOD_API_KEY, 4000);
+if (!queueApiKey) {
+  throw new Error("AVANTIQO_MODEL_TRAINING_EXECUTION_RUNPOD_API_KEY_REQUIRED");
+}
+const configuredManagementApiKey = text(
+  process.env.RUNPOD_MANAGEMENT_API_KEY,
+  4000,
+);
+const managementApiKeySource = configuredManagementApiKey
+  ? "RUNPOD_MANAGEMENT_API_KEY"
+  : "RUNPOD_API_KEY_FALLBACK";
+if (!configuredManagementApiKey) {
+  process.env.RUNPOD_MANAGEMENT_API_KEY = queueApiKey;
+}
 
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
@@ -171,6 +185,7 @@ console.log(JSON.stringify({
     : null,
   explicit_execution_approval_observed: true,
   trainer_enabled: true,
+  management_api_key_source: managementApiKeySource,
   transient_trainer_warmup_retry_attempts: warmupRetryAttempts,
   transient_trainer_warmup_retry_delay_ms: warmupRetryDelayMs,
   provider_job_submitted: false,

@@ -17,37 +17,57 @@ fail() {
 [ -f audits/results/avantiqo-music-vocal-correction-worker-image.json ] || fail "HARDENED_IMAGE_EVIDENCE_REQUIRED"
 
 bash scripts/recover-avantiqo-runpod-env-from-local-sources.sh >/tmp/avantiqo-music-runpod-recovery.log || {
-  cat /tmp/avantiqo-music-runpod-recovery.log | grep '^AVANTIQO_' || true
+  grep '^AVANTIQO_' /tmp/avantiqo-music-runpod-recovery.log || true
   fail "RUNPOD_CREDENTIAL_RECOVERY_FAILED"
 }
 
 grep '^AVANTIQO_' /tmp/avantiqo-music-runpod-recovery.log || true
 
-eval "$(node --input-type=module <<'NODE'
-import { readFileSync } from "node:fs";
-import { parseEnv } from "node:util";
-const env = parseEnv(readFileSync(".env.local", "utf8"));
-const key = String(env.RUNPOD_MANAGEMENT_API_KEY || env.RUNPOD_API_KEY || "").trim();
-if (!key) process.exit(2);
-const encoded = Buffer.from(key, "utf8").toString("base64");
-console.log(`export AVANTIQO_MUSIC_RUNPOD_KEY_B64='${encoded}'`);
-NODE
-)" || fail "RECOVERED_RUNPOD_CREDENTIAL_REQUIRED"
-
-if [ -z "${AVANTIQO_MUSIC_RUNPOD_KEY_B64:-}" ]; then
-  fail "RECOVERED_RUNPOD_CREDENTIAL_REQUIRED"
-fi
-export RUNPOD_MANAGEMENT_API_KEY="$(printf '%s' "$AVANTIQO_MUSIC_RUNPOD_KEY_B64" | base64 --decode)"
-unset AVANTIQO_MUSIC_RUNPOD_KEY_B64
-
 mkdir -p local-audit-output
 PLAN="local-audit-output/avantiqo-music-vocal-correction-provision-plan.json"
 APPLY="local-audit-output/avantiqo-music-vocal-correction-provision-apply.json"
 
-node scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs >"$PLAN"
+node --input-type=module "$PLAN" "$APPLY" <<'NODE'
+import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { parseEnv } from "node:util";
 
-AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_APPROVED=YES \
-  node scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs --apply >"$APPLY"
+const planPath = process.argv[2];
+const applyPath = process.argv[3];
+const envLocal = parseEnv(readFileSync(".env.local", "utf8"));
+const key = String(envLocal.RUNPOD_MANAGEMENT_API_KEY || envLocal.RUNPOD_API_KEY || "").trim();
+if (!key) throw new Error("AVANTIQO_MUSIC_VOCAL_CORRECTION_RECOVERED_RUNPOD_CREDENTIAL_REQUIRED");
+
+function runProvisioner(args, outputPath, apply = false) {
+  const child = spawnSync(
+    process.execPath,
+    ["scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs", ...args],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      maxBuffer: 4 * 1024 * 1024,
+      env: {
+        ...process.env,
+        RUNPOD_MANAGEMENT_API_KEY: key,
+        ...(apply ? { AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_APPROVED: "YES" } : {}),
+      },
+    },
+  );
+  if (child.status !== 0) {
+    const safeStderr = String(child.stderr || "")
+      .split("\n")
+      .filter((line) => !line.includes(key))
+      .slice(-20)
+      .join("\n");
+    if (safeStderr) process.stderr.write(`${safeStderr}\n`);
+    throw new Error(`AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISIONER_EXIT_${child.status ?? "UNKNOWN"}`);
+  }
+  writeFileSync(outputPath, child.stdout, { mode: 0o600 });
+}
+
+runProvisioner([], planPath, false);
+runProvisioner(["--apply"], applyPath, true);
+NODE
 
 node --input-type=module "$APPLY" <<'NODE'
 import { readFileSync } from "node:fs";
@@ -79,5 +99,3 @@ console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_PRODUCTION_ACTIVATION=false");
 console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_NEXT=CERTIFY_ONLY_THROUGH_AVANTIQO_RUNPOD_SAFE_LEASE_V2");
 console.log("AVANTIQO_MUSIC_VOCAL_CORRECTION_LOCAL_PROVISION_SECRET_VALUES_PRINTED=false");
 NODE
-
-unset RUNPOD_MANAGEMENT_API_KEY

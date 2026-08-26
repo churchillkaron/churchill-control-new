@@ -4,14 +4,61 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
+INITIAL_NODE_VERSION="$(node --version 2>/dev/null || echo unavailable)"
+NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+NODE_AUTO_SELECTED=false
+
+if [[ "$NODE_MAJOR" != "24" ]]; then
+  NODE24_BIN=""
+
+  # The repo requires Node 24.x, but concurrent local work can leave the parent shell
+  # on another Node version. Prefer an already-installed Node 24 without mutating the
+  # user's global/default runtime. These cover the normal macOS Node managers used by
+  # development terminals (nvm, fnm, mise, asdf, Volta, n, and Homebrew).
+  for candidate in \
+    "$HOME"/.nvm/versions/node/v24*/bin \
+    "$HOME"/.local/share/fnm/node-versions/v24*/installation/bin \
+    "$HOME"/.local/share/mise/installs/node/24*/bin \
+    "$HOME"/.asdf/installs/nodejs/24*/bin \
+    "$HOME"/.volta/tools/image/node/24*/bin \
+    /opt/homebrew/opt/node@24/bin \
+    /usr/local/opt/node@24/bin \
+    /opt/homebrew/Cellar/node@24/*/bin \
+    /usr/local/Cellar/node@24/*/bin \
+    /usr/local/n/versions/node/24*/bin; do
+    if [[ ! -x "$candidate/node" ]]; then
+      continue
+    fi
+    candidate_major="$("$candidate/node" -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+    if [[ "$candidate_major" == "24" ]]; then
+      NODE24_BIN="$candidate"
+      break
+    fi
+  done
+
+  if [[ -n "$NODE24_BIN" ]]; then
+    export PATH="$NODE24_BIN:$PATH"
+    hash -r
+    NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+    NODE_AUTO_SELECTED=true
+  fi
+fi
+
 if [[ "$NODE_MAJOR" != "24" ]]; then
   echo "SECRETARY_MEETING_LOCAL_NODE=FAIL"
   echo "SECRETARY_MEETING_LOCAL_NODE_REQUIRED=24.x"
-  echo "SECRETARY_MEETING_LOCAL_NODE_ACTUAL=$(node --version)"
+  echo "SECRETARY_MEETING_LOCAL_NODE_INITIAL=$INITIAL_NODE_VERSION"
+  echo "SECRETARY_MEETING_LOCAL_NODE_ACTUAL=$(node --version 2>/dev/null || echo unavailable)"
+  echo "SECRETARY_MEETING_LOCAL_NODE_AUTO_SELECTED=false"
   echo "SECRETARY_MEETING_LOCAL_FAILURE=NODE_VERSION_MISMATCH"
   exit 1
 fi
+
+echo "SECRETARY_MEETING_LOCAL_NODE=PASS"
+echo "SECRETARY_MEETING_LOCAL_NODE_REQUIRED=24.x"
+echo "SECRETARY_MEETING_LOCAL_NODE_INITIAL=$INITIAL_NODE_VERSION"
+echo "SECRETARY_MEETING_LOCAL_NODE_ACTUAL=$(node --version)"
+echo "SECRETARY_MEETING_LOCAL_NODE_AUTO_SELECTED=$NODE_AUTO_SELECTED"
 
 if ! command -v supabase >/dev/null 2>&1; then
   echo "SECRETARY_MEETING_LOCAL_SUPABASE_CLI=FAIL"

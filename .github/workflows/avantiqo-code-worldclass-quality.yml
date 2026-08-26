@@ -8,7 +8,12 @@ on:
     paths:
       - "lib/code/runtime/**"
       - "lib/platform/capabilities/createCodeAI*.js"
+      - "lib/platform/capabilities/createOperatorWebResearchCapability.js"
+      - "lib/platform/research/runtime/OperatorMechanismResearch*.js"
+      - "lib/platform/research/runtime/OperatorWebResearchRuntime.js"
+      - "lib/platform/research/runtime/OperatorWebEvidenceRuntime.js"
       - "scripts/code-ai-*.mjs"
+      - "scripts/operator-mechanism-research-*.mjs"
       - "scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs"
       - "config/avantiqo-runpod-safe-lease-policy.json"
       - "package.json"

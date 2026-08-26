@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { processNextSecretaryMeetingCoordinationWithBookingGuard } from "@/lib/operator/secretary/SecretaryMeetingCoordinationBookingGuardRuntime";
 import { repairSecretaryMeetingBookingNotifications } from "@/lib/operator/secretary/SecretaryMeetingCoordinationNotificationRuntime";
 import { repairSecretaryBookedMeetingChangeNotifications } from "@/lib/operator/secretary/SecretaryBookedMeetingChangeRuntime";
+import { repairSecretaryRecurringMeetingNotifications } from "@/lib/operator/secretary/SecretaryRecurringMeetingRepairRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -25,6 +26,7 @@ export async function GET(request) {
     const url = new URL(request.url);
     const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 3, 8));
     const workerId = `secretary-meeting-coordination:${crypto.randomUUID()}`;
+    const recurringNotificationRepair = await repairSecretaryRecurringMeetingNotifications({ limit });
     const changeNotificationRepair = await repairSecretaryBookedMeetingChangeNotifications({ limit });
     const notificationRepair = await repairSecretaryMeetingBookingNotifications({ limit });
     const results = [];
@@ -63,6 +65,19 @@ export async function GET(request) {
     if (pendingChangeNotificationRepair.error) throw pendingChangeNotificationRepair.error;
     const changeNotificationRepairPending = Number(pendingChangeNotificationRepair.count || 0);
 
+    const pendingRecurringSeriesRepair = await supabaseAdmin
+      .from("secretary_recurring_meeting_series")
+      .select("id", { count: "exact", head: true })
+      .eq("metadata->>recurring_notification_materialized", "false");
+    if (pendingRecurringSeriesRepair.error) throw pendingRecurringSeriesRepair.error;
+
+    const pendingRecurringOccurrenceRepair = await supabaseAdmin
+      .from("secretary_recurring_meeting_occurrences")
+      .select("id", { count: "exact", head: true })
+      .eq("metadata->>recurring_notification_materialized", "false");
+    if (pendingRecurringOccurrenceRepair.error) throw pendingRecurringOccurrenceRepair.error;
+    const recurringNotificationRepairPending = Number(pendingRecurringSeriesRepair.count || 0) + Number(pendingRecurringOccurrenceRepair.count || 0);
+
     return Response.json(
       {
         success: true,
@@ -79,6 +94,13 @@ export async function GET(request) {
         meeting_change_notification_repair_pending: changeNotificationRepairPending,
         meeting_change_notification_repair_pending_count_server_side: true,
         meeting_change_notification_repair_pending_count_starvation_free: true,
+        recurring_meeting_notification_repair: recurringNotificationRepair,
+        recurring_meeting_notification_repair_pending: recurringNotificationRepairPending,
+        recurring_meeting_notification_repair_pending_count_server_side: true,
+        recurring_meeting_notification_repair_oldest_unfinished_first: true,
+        recurring_meeting_notifications_include_all_participants: true,
+        recurring_meeting_notifications_deterministic_and_idempotent: true,
+        recurring_meeting_notifications_rsvp_not_inferred: true,
         booking_notifications_include_all_participants: true,
         booking_notifications_deterministic_and_idempotent: true,
         booking_notifications_rsvp_not_inferred: true,

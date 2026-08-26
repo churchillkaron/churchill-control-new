@@ -1,0 +1,154 @@
+name: Avantiqo Music Separator Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-music-separator-certification-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-music-separator-certification
+  cancel-in-progress: false
+
+jobs:
+  certify-separator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install audio fixture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng
+
+      - name: Build rights-owned separator benchmark fixture
+        run: |
+          mkdir -p artifacts/review-audio
+          espeak-ng -s 138 -p 46 -a 155 -w artifacts/review-audio/vocal-source.wav \
+            "Avantiqo music separator certification. Vocal isolation, backing track integrity, timing, drums, bass and accompaniment."
+          ffmpeg -y \
+            -stream_loop -1 -i artifacts/review-audio/vocal-source.wav \
+            -f lavfi -i "sine=frequency=110:sample_rate=44100:duration=32" \
+            -f lavfi -i "sine=frequency=220:sample_rate=44100:duration=32" \
+            -f lavfi -i "sine=frequency=330:sample_rate=44100:duration=32" \
+            -f lavfi -i "anoisesrc=color=pink:sample_rate=44100:duration=32" \
+            -filter_complex "[0:a]atrim=0:32,volume=0.9[v];[1:a]volume=0.16[b];[2:a]volume=0.09[o1];[3:a]volume=0.07[o2];[4:a]highpass=f=1200,lowpass=f=9000,volume=0.035[n];[v][b][o1][o2][n]amix=inputs=5:duration=first:normalize=0,alimiter=limit=0.92,aresample=44100[a]" \
+            -map "[a]" -ac 2 -c:a pcm_s24le artifacts/review-audio/source-rights-owned.wav
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 artifacts/review-audio/source-rights-owned.wav
+
+      - name: Provision dedicated separator endpoint if missing
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          AVANTIQO_MUSIC_SEPARATOR_PROVISION_APPROVED: "YES"
+          AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX: "1"
+          AVANTIQO_MUSIC_SEPARATOR_RUNPOD_IDLE_TIMEOUT_SECONDS: "5"
+        run: |
+          node scripts/provision-avantiqo-music-separator-runpod-local.mjs --apply | tee artifacts/music-separator-provision.json
+
+      - name: Run one controlled separator benchmark
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SPEND_APPROVED: "YES"
+          AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_RIGHTS_APPROVED: "YES"
+          AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SOURCE_FILE: ${{ github.workspace }}/artifacts/review-audio/source-rights-owned.wav
+          AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/music-separator-benchmark.json
+        run: node scripts/benchmark-avantiqo-music-separator.mjs
+
+      - name: Measure separator economics
+        env:
+          AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/music-separator-benchmark.json
+          AVANTIQO_MUSIC_SEPARATOR_ECONOMICS_OUTPUT: ${{ github.workspace }}/artifacts/music-separator-economics.json
+          AVANTIQO_MUSIC_SEPARATOR_BILLED_GPU_COUNT: "1"
+          AVANTIQO_MUSIC_SEPARATOR_TARGET_UTILIZATION: "1"
+        run: node scripts/avantiqo-music-separator-economics.mjs
+
+      - name: Prepare mandatory human listening review
+        env:
+          AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_OUTPUT: ${{ github.workspace }}/artifacts/music-separator-benchmark.json
+          AVANTIQO_MUSIC_SEPARATOR_ECONOMICS_OUTPUT: ${{ github.workspace }}/artifacts/music-separator-economics.json
+          AVANTIQO_MUSIC_SEPARATOR_HUMAN_REVIEW_OUTPUT: ${{ github.workspace }}/artifacts/music-separator-human-review.json
+        run: node scripts/prepare-avantiqo-music-separator-human-review.mjs
+
+      - name: Materialize private separator outputs for listening review
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { mkdir, readFile, writeFile } from "node:fs/promises";
+          import { createClient } from "@supabase/supabase-js";
+
+          const benchmark = JSON.parse(await readFile("artifacts/music-separator-benchmark.json", "utf8"));
+          const observation = benchmark?.observations?.[0];
+          const references = observation?.storage_references || {};
+          if (!Object.keys(references).length) throw new Error("MUSIC_SEPARATOR_REVIEW_OUTPUT_REFERENCES_REQUIRED");
+          const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+            auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+          });
+          await mkdir("artifacts/review-audio/outputs", { recursive: true });
+          for (const [key, reference] of Object.entries(references)) {
+            const prefix = "storage://creative-assets/";
+            if (!String(reference).startsWith(prefix)) throw new Error(`MUSIC_SEPARATOR_REVIEW_REFERENCE_INVALID:${key}`);
+            const path = String(reference).slice(prefix.length);
+            const { data, error } = await supabase.storage.from("creative-assets").download(path);
+            if (error) throw error;
+            const bytes = Buffer.from(await data.arrayBuffer());
+            const extension = key.endsWith("mp3") ? "mp3" : "wav";
+            await writeFile(`artifacts/review-audio/outputs/${key}.${extension}`, bytes);
+          }
+          NODE
+
+      - name: Verify certification remains fail-closed pending human review
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const benchmark = JSON.parse(await readFile("artifacts/music-separator-benchmark.json", "utf8"));
+          const economics = JSON.parse(await readFile("artifacts/music-separator-economics.json", "utf8"));
+          const review = JSON.parse(await readFile("artifacts/music-separator-human-review.json", "utf8"));
+          if (benchmark?.summary?.passed !== true) throw new Error("MUSIC_SEPARATOR_TECHNICAL_BENCHMARK_REQUIRED");
+          if (economics?.certification?.economics_measured !== true) throw new Error("MUSIC_SEPARATOR_ECONOMICS_REQUIRED");
+          if (review?.review_status !== "PENDING") throw new Error("MUSIC_SEPARATOR_HUMAN_REVIEW_MUST_REMAIN_PENDING");
+          if (review?.automatic_human_approval_forbidden !== true) throw new Error("MUSIC_SEPARATOR_AUTO_HUMAN_APPROVAL_MUST_BE_FORBIDDEN");
+          if (benchmark?.certification?.production_certified !== false) throw new Error("MUSIC_SEPARATOR_BENCHMARK_MUST_NOT_CERTIFY_PRODUCTION");
+          if (economics?.pricing_activation_performed !== false) throw new Error("MUSIC_SEPARATOR_PRICING_MUST_NOT_ACTIVATE");
+          if (review?.activation_allowed !== false) throw new Error("MUSIC_SEPARATOR_REVIEW_MUST_NOT_ACTIVATE");
+          console.log("MUSIC_SEPARATOR_TECHNICAL_BENCHMARK=PASS");
+          console.log("MUSIC_SEPARATOR_ECONOMICS=MEASURED");
+          console.log("MUSIC_SEPARATOR_HUMAN_REVIEW=PENDING");
+          console.log("MUSIC_SEPARATOR_PRODUCTION_ACTIVATION=false");
+          NODE
+
+      - name: Upload separator certification review bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-music-separator-certification-${{ github.run_id }}
+          path: |
+            artifacts/music-separator-provision.json
+            artifacts/music-separator-benchmark.json
+            artifacts/music-separator-economics.json
+            artifacts/music-separator-human-review.json
+            artifacts/review-audio/source-rights-owned.wav
+            artifacts/review-audio/outputs
+          if-no-files-found: warn
+          retention-days: 14

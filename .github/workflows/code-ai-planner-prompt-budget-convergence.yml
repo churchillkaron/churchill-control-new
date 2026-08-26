@@ -37,6 +37,7 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Apply bounded planner transport and run zero-provider gates
         run: |
+          node scripts/repair-code-ai-planner-prompt-minimal-profile-once.mjs
           node scripts/patch-code-ai-planner-prompt-budget-once.mjs
           node --check lib/code/runtime/CodeAIPlannerPromptRuntime.js
           node --check lib/code/runtime/CodeAIAutonomousRuntime.js
@@ -53,7 +54,7 @@ jobs:
       - name: Remove one-shot convergence files
         run: |
           git pull --rebase origin main
-          git rm scripts/patch-code-ai-planner-prompt-budget-once.mjs .github/workflows/code-ai-planner-prompt-budget-convergence.yml
+          git rm scripts/patch-code-ai-planner-prompt-budget-once.mjs scripts/repair-code-ai-planner-prompt-minimal-profile-once.mjs .github/workflows/code-ai-planner-prompt-budget-convergence.yml
           git commit -m "Remove Code prompt convergence tooling"
           git pull --rebase origin main
           git push origin HEAD:main

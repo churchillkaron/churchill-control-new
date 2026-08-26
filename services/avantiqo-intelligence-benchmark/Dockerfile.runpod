@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
+    PIP_BREAK_SYSTEM_PACKAGES=1 \
     TOKENIZERS_PARALLELISM=false \
     HF_HOME=/runpod-volume/huggingface-cache \
     TRANSFORMERS_CACHE=/runpod-volume/huggingface-cache \

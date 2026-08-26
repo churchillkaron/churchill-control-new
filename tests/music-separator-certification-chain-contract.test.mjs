@@ -6,6 +6,8 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), "
 
 const readiness = read("scripts/audit-avantiqo-music-separator-certification-readiness.mjs");
 const benchmark = read("scripts/benchmark-avantiqo-music-separator.mjs");
+const benchmarkLocal = read("scripts/run-avantiqo-music-separator-benchmark-local.mjs");
+const certificationLocal = read("scripts/certify-avantiqo-music-separator-local.sh");
 const economics = read("scripts/avantiqo-music-separator-economics.mjs");
 const prepareReview = read("scripts/prepare-avantiqo-music-separator-human-review.mjs");
 const finalizeReview = read("scripts/finalize-avantiqo-music-separator-human-review.mjs");
@@ -29,6 +31,14 @@ test("Music separator certification remains a fail-closed explicit chain", () =>
   assert.match(promotionPlan, /EXPLICIT_OPERATOR_PROMOTION_APPROVAL_REQUIRED/);
   assert.match(promotionPlan, /provider_certification_mutation_performed:\s*false/);
   assert.match(promotionPlan, /production_routing_mutation_performed:\s*false/);
+});
+
+test("Music separator certification uses the proven local credential recovery path", () => {
+  assert.match(certificationLocal, /repair-avantiqo-runpod-env-local\.sh/);
+  assert.match(certificationLocal, /run-avantiqo-music-separator-benchmark-local\.mjs/);
+  assert.doesNotMatch(certificationLocal, /node scripts\/benchmark-avantiqo-music-separator\.mjs/);
+  assert.match(benchmarkLocal, /loadAvantiqoEnv\(\)/);
+  assert.match(benchmarkLocal, /benchmark-avantiqo-music-separator\.mjs/);
 });
 
 test("Music separator certification is bound to Demucs htdemucs_ft only", () => {

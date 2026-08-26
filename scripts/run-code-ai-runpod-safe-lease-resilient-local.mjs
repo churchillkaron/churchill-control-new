@@ -6,9 +6,11 @@ import {
   CHILD_TERMINATION_GRACE_MS,
   CODE_AI_CERTIFICATION_RESILIENCE_CONTRACT,
   RUNPOD_HEALTH_MAX_ATTEMPTS,
+  SUPABASE_NETWORK_MAX_ATTEMPTS,
   boundedRetryDelayMs,
   isRetryableHttpStatus,
-  isRunpodHealthRequest,
+  isRunpodSafeLeaseReadRequest,
+  isSupabaseCleanupRetryRequest,
   isTransientNetworkError,
 } from "../lib/code/runtime/CodeAICertificationResiliencePolicy.js";
 
@@ -70,30 +72,40 @@ globalThis.fetch = async function codeCertificationResilientFetch(input, init = 
     return originalFetch(input, init);
   }
 
-  if (!isRunpodHealthRequest(input, init)) {
+  const supabaseOrigin = (() => {
+    try { return new URL(String(process.env.NEXT_PUBLIC_SUPABASE_URL || "")).origin; }
+    catch { return ""; }
+  })();
+  const runpodRead = isRunpodSafeLeaseReadRequest(input, init);
+  const supabaseSafeRequest = Boolean(supabaseOrigin) &&
+    isSupabaseCleanupRetryRequest(input, init, supabaseOrigin);
+  if (!runpodRead && !supabaseSafeRequest) {
     return originalFetch(input, init);
   }
 
+  const maxAttempts = runpodRead ? RUNPOD_HEALTH_MAX_ATTEMPTS : SUPABASE_NETWORK_MAX_ATTEMPTS;
+  const retryKind = runpodRead ? "RUNPOD_READ" : "SUPABASE_SAFE";
   let lastError = null;
-  for (let attempt = 0; attempt < RUNPOD_HEALTH_MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       const response = await originalFetch(input, init);
-      if (!isRetryableHttpStatus(response.status) || attempt === RUNPOD_HEALTH_MAX_ATTEMPTS - 1) {
+      if (!isRetryableHttpStatus(response.status) || attempt === maxAttempts - 1) {
         return response;
       }
-      lastError = new Error(`RUNPOD_HEALTH_HTTP_${response.status}`);
+      lastError = new Error(`${retryKind}_HTTP_${response.status}`);
     } catch (error) {
       lastError = error;
-      if (!isTransientNetworkError(error) || attempt === RUNPOD_HEALTH_MAX_ATTEMPTS - 1) {
+      if (!isTransientNetworkError(error) || attempt === maxAttempts - 1) {
         throw error;
       }
     }
 
     console.log(JSON.stringify({
-      event: "AVANTIQO_CODE_SAFE_LEASE_HEALTH_RETRY",
+      event: "AVANTIQO_CODE_SAFE_LEASE_TRANSIENT_RETRY",
       contract: CODE_AI_CERTIFICATION_RESILIENCE_CONTRACT,
+      retry_kind: retryKind,
       attempt: attempt + 1,
-      max_attempts: RUNPOD_HEALTH_MAX_ATTEMPTS,
+      max_attempts: maxAttempts,
       reason: String(lastError?.message || lastError).slice(0, 180),
       provider_execution_submitted: false,
       endpoint_mutation_performed: false,
@@ -103,7 +115,7 @@ globalThis.fetch = async function codeCertificationResilientFetch(input, init = 
     await sleep(boundedRetryDelayMs(attempt));
   }
 
-  throw lastError || new Error("CODE_AI_RUNPOD_HEALTH_RETRY_EXHAUSTED");
+  throw lastError || new Error(`CODE_AI_SAFE_LEASE_${retryKind}_RETRY_EXHAUSTED`);
 };
 
 const split = process.argv.indexOf("--");
@@ -128,6 +140,9 @@ console.log(JSON.stringify({
   event: "AVANTIQO_CODE_SAFE_LEASE_RESILIENCE_ACTIVE",
   contract: CODE_AI_CERTIFICATION_RESILIENCE_CONTRACT,
   runpod_health_max_attempts: RUNPOD_HEALTH_MAX_ATTEMPTS,
+  runpod_management_read_retry_enabled: true,
+  supabase_distributed_lease_retry_enabled: true,
+  provider_post_retries_forbidden: true,
   child_guard_enabled: true,
   child_pre_release_handshake: true,
   shared_safe_lease_source_modified: false,

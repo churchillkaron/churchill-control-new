@@ -2,6 +2,7 @@ import { register } from "node:module";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 import {
   CODE_AI_PLANNER_STALE_QUEUED_MIN_AGE_MS,
+  failedCodeSafeLeaseCoversUsage,
   shouldRecoverStaleQueuedPlannerJob,
 } from "../lib/code/runtime/CodeAICertificationResiliencePolicy.js";
 
@@ -269,6 +270,16 @@ const usageCreatedAtMs = Date.parse(text(usageBefore.created_at));
 const usageAgeMs = Number.isFinite(usageCreatedAtMs)
   ? Math.max(0, Date.now() - usageCreatedAtMs)
   : 0;
+const usageProviderEndpointId = text(
+  usageBefore.metadata?.provider_endpoint_id ||
+  usageBefore.metadata?.code_endpoint_preflight?.endpoint_id,
+);
+const sameRunFailedSafeLeaseEvidence = Boolean(explicitUsageId && explicitProviderJobId) &&
+  failedCodeSafeLeaseCoversUsage({
+    lease: organizationService.metadata?.runpod_safe_lease_v2,
+    providerEndpointId: usageProviderEndpointId,
+    usageCreatedAt: usageBefore.created_at,
+  });
 
 console.log(JSON.stringify({
   event: "AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_START",
@@ -281,6 +292,7 @@ console.log(JSON.stringify({
   service_usage_enabled: organizationService.usage_enabled,
   wallet_reserved_before: amount(walletBefore.reserved_balance),
   reservation_customer_price: reservedAmount,
+  same_run_failed_safe_lease_evidence: sameRunFailedSafeLeaseEvidence,
   new_provider_execution_submitted: false,
   service_reenabled: false,
   secrets_printed: false,
@@ -341,7 +353,24 @@ if (!endpointResolution.found) {
   if (endpointResolution.probed_endpoint_count < 1) {
     throw new Error("AVANTIQO_CODE_PLANNER_PENDING_ORPHAN_ENDPOINT_PROBE_REQUIRED");
   }
-  if (usageAgeMs < MIN_ORPHAN_AGE_MS) {
+  if (sameRunFailedSafeLeaseEvidence) {
+    console.log(JSON.stringify({
+      event: "AVANTIQO_CODE_PLANNER_PENDING_SAFE_LEASE_ORPHAN_PROVEN",
+      contract: CONTRACT,
+      usage_id: USAGE_ID,
+      provider_job_id: PROVIDER_JOB_ID,
+      provider_endpoint_id: usageProviderEndpointId,
+      usage_age_ms: usageAgeMs,
+      generic_minimum_orphan_age_ms: MIN_ORPHAN_AGE_MS,
+      minimum_age_waived_for_same_failed_safe_lease: usageAgeMs < MIN_ORPHAN_AGE_MS,
+      all_current_endpoints_returned_404: true,
+      explicit_target: true,
+      new_provider_execution_submitted: false,
+      service_reenabled: false,
+      secrets_printed: false,
+    }));
+  }
+  if (usageAgeMs < MIN_ORPHAN_AGE_MS && !sameRunFailedSafeLeaseEvidence) {
     throw new Error(
       `AVANTIQO_CODE_PLANNER_PENDING_ORPHAN_MINIMUM_AGE_REQUIRED:${usageAgeMs}:${MIN_ORPHAN_AGE_MS}`,
     );
@@ -380,6 +409,8 @@ if (!endpointResolution.found) {
         probed_endpoint_count: endpointResolution.probed_endpoint_count,
         minimum_orphan_age_ms: MIN_ORPHAN_AGE_MS,
         observed_usage_age_ms: usageAgeMs,
+        same_run_failed_safe_lease_evidence: sameRunFailedSafeLeaseEvidence,
+        minimum_orphan_age_waived: usageAgeMs < MIN_ORPHAN_AGE_MS && sameRunFailedSafeLeaseEvidence,
         new_provider_execution_submitted: false,
         service_reenabled: false,
       },

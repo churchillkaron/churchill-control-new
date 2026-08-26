@@ -8,7 +8,9 @@ import {
   RUNPOD_HEALTH_MAX_ATTEMPTS,
   SUPABASE_NETWORK_MAX_ATTEMPTS,
   boundedRetryDelayMs,
+  failedCodeSafeLeaseCoversUsage,
   isRunpodHealthRequest,
+  isRunpodSafeLeaseReadRequest,
   isSupabaseCleanupRetryRequest,
   isTransientNetworkError,
   shouldRecoverStaleQueuedPlannerJob,
@@ -38,11 +40,31 @@ assert.equal(isTransientNetworkError(new Error("CODE_AI_BAD_RESPONSE_SHAPE")), f
 assert.equal(isRunpodHealthRequest("https://api.runpod.ai/v2/code-endpoint/health"), true);
 assert.equal(isRunpodHealthRequest("https://api.runpod.ai/v2/code-endpoint/run", { method: "POST" }), false);
 assert.equal(isRunpodHealthRequest("https://rest.runpod.io/v1/endpoints", { method: "GET" }), false);
+assert.equal(isRunpodSafeLeaseReadRequest("https://api.runpod.ai/v2/code-endpoint/health"), true);
+assert.equal(isRunpodSafeLeaseReadRequest("https://rest.runpod.io/v1/endpoints?includeWorkers=true", { method: "GET" }), true);
+assert.equal(isRunpodSafeLeaseReadRequest("https://rest.runpod.io/v1/endpoints/code", { method: "PATCH" }), false);
 
 assert.equal(isSupabaseCleanupRetryRequest(`${supabaseOrigin}/rest/v1/organization_services?id=eq.1`, { method: "PATCH" }, supabaseOrigin), true);
 assert.equal(isSupabaseCleanupRetryRequest(`${supabaseOrigin}/rest/v1/organization_services?id=eq.1`, { method: "GET" }, supabaseOrigin), true);
 assert.equal(isSupabaseCleanupRetryRequest(`${supabaseOrigin}/rest/v1/rpc/charge_wallet`, { method: "POST" }, supabaseOrigin), false);
 assert.equal(isSupabaseCleanupRetryRequest("https://other.supabase.co/rest/v1/organization_services", { method: "PATCH" }, supabaseOrigin), false);
+
+const sameFailedLease = {
+  distributed_contract: "AVANTIQO_CODE_DISTRIBUTED_RUNPOD_LEASE_V1",
+  contract: "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+  lane: "code",
+  state: "FAILED",
+  endpoint_id: "code-endpoint",
+  owner_request_id: "owner-1",
+  acquired_at: "2026-08-26T13:54:32.681Z",
+  released_at: "2026-08-26T13:59:58.426Z",
+  expires_at: "2026-08-26T14:24:32.681Z",
+  release_reason: "fetch failed",
+};
+assert.equal(failedCodeSafeLeaseCoversUsage({ lease: sameFailedLease, providerEndpointId: "code-endpoint", usageCreatedAt: "2026-08-26T13:55:35.649Z" }), true);
+assert.equal(failedCodeSafeLeaseCoversUsage({ lease: sameFailedLease, providerEndpointId: "other-endpoint", usageCreatedAt: "2026-08-26T13:55:35.649Z" }), false);
+assert.equal(failedCodeSafeLeaseCoversUsage({ lease: { ...sameFailedLease, state: "ACTIVE" }, providerEndpointId: "code-endpoint", usageCreatedAt: "2026-08-26T13:55:35.649Z" }), false);
+assert.equal(failedCodeSafeLeaseCoversUsage({ lease: sameFailedLease, providerEndpointId: "code-endpoint", usageCreatedAt: "2026-08-26T13:53:35.649Z" }), false);
 
 const [leaseShim, childGuard, cleanupShim, capacityRunner, packageJson, plannerExecution, autonomousRuntime, pendingSettlement, sharedLease, codeDistributedLease] = await Promise.all([
   readFile("scripts/run-code-ai-runpod-safe-lease-resilient-local.mjs", "utf8"),
@@ -56,7 +78,10 @@ const [leaseShim, childGuard, cleanupShim, capacityRunner, packageJson, plannerE
   readFile("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs", "utf8"),
   readFile("scripts/avantiqo-code-runpod-distributed-lease.mjs", "utf8"),
 ]);
-assert.match(leaseShim, /isRunpodHealthRequest/);
+assert.match(leaseShim, /isRunpodSafeLeaseReadRequest/);
+assert.match(leaseShim, /isSupabaseCleanupRetryRequest/);
+assert.match(leaseShim, /AVANTIQO_CODE_SAFE_LEASE_TRANSIENT_RETRY/);
+assert.match(leaseShim, /provider_post_retries_forbidden: true/);
 assert.match(leaseShim, /isCodeEndpointClosePatch/);
 assert.match(leaseShim, /AVANTIQO_CODE_SAFE_LEASE_CHILD_STOP_FILE/);
 assert.match(leaseShim, /child_termination_acknowledged/);
@@ -80,6 +105,8 @@ assert.match(plannerExecution, /stale_queue_recovery_count/);
 assert.match(autonomousRuntime, /const logicalIterations = new Set\(\)/);
 assert.match(autonomousRuntime, /stale_queue_recovery_count/);
 assert.match(pendingSettlement, /AVANTIQO_CODE_PLANNER_PENDING_STALE_QUEUE_CANCELED/);
+assert.match(pendingSettlement, /AVANTIQO_CODE_PLANNER_PENDING_SAFE_LEASE_ORPHAN_PROVEN/);
+assert.match(pendingSettlement, /sameRunFailedSafeLeaseEvidence/);
 assert.match(pendingSettlement, /exact_job_cancel_only: true/);
 assert.doesNotMatch(pendingSettlement, /purge-queue/);
 assert.match(sharedLease, /listActiveCodeRunpodDistributedLeases/);
@@ -97,6 +124,8 @@ console.log(JSON.stringify({
   contract: CODE_AI_CERTIFICATION_RESILIENCE_CONTRACT,
   verified: {
     runpod_health_retry_is_narrow_and_bounded: true,
+    runpod_management_read_retry_is_bounded: true,
+    distributed_code_lease_supabase_retry_is_bounded: true,
     runpod_generation_submission_is_not_retried: true,
     child_process_group_termination_guard_present: true,
     child_pre_release_stop_and_ack_handshake_present: true,
@@ -111,6 +140,7 @@ console.log(JSON.stringify({
     stale_replacement_is_bounded_to_one: true,
     logical_planner_iteration_deduplicates_replacement_job_ids: true,
     stale_pending_certification_reservation_cleanup_supported: true,
+    failed_safe_lease_orphan_can_settle_without_generic_age_delay: true,
     code_distributed_lease_visible_across_hosts: true,
     code_distributed_lease_compare_and_swap_owned: true,
     code_endpoint_orphan_reaper_respects_distributed_ownership: true,

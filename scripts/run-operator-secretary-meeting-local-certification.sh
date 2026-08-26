@@ -92,6 +92,7 @@ cp \
 SECRETARY_MIGRATIONS=(
   "20260825062200_avantiqo_secretary_native_core.sql"
   "20260825063300_avantiqo_secretary_call_sessions.sql"
+  "20260825063900_avantiqo_secretary_atomic_booking.sql"
   "20260825064100_avantiqo_secretary_outbound_calls.sql"
   "20260825073300_secretary_follow_up_execution.sql"
   "20260825150000_secretary_meeting_intelligence_and_jobs.sql"
@@ -100,6 +101,7 @@ SECRETARY_MIGRATIONS=(
   "20260826002500_secretary_job_response_collection.sql"
   "20260826003000_secretary_job_waiting_claim_semantics.sql"
   "20260826010000_secretary_meeting_audio_chunk_idempotency.sql"
+  "20260826102000_secretary_multi_party_meeting_coordination.sql"
 )
 
 for migration in "${SECRETARY_MIGRATIONS[@]}"; do
@@ -167,6 +169,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-correspondence-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-follow-through-cancellation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-travel-coordination-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-coordination-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

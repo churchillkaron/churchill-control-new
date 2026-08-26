@@ -20,6 +20,7 @@ const MUSIC_BUCKET = "creative-assets";
 const MAX_SOURCE_BYTES = 629145600;
 const AUDIO_EXTENSIONS = new Set(["wav", "mp3", "m4a", "aac", "flac", "ogg"]);
 const OPERATIONS = new Set(["remix", "edit", "extend"]);
+const TEMPORAL_EXTEND_STRATEGY = "XL_TURBO_REPAINT_RIGHT_OUTPAINT";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -28,6 +29,11 @@ function text(value) {
 function finite(value, fallback = null) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function clamp(value, min, max, fallback) {
+  const number = finite(value, fallback);
+  return Math.max(min, Math.min(max, number));
 }
 
 function resolveOperation(value) {
@@ -94,15 +100,67 @@ async function prepareSourceUpload(body) {
   };
 }
 
-function plan(body) {
-  const operation = resolveOperation(body.operation);
-  const transformPlan = buildMusicTransformationPlan(operation, {
+function rightsInput(body) {
+  return {
     ...body,
     rights_attestation: {
       contract: MUSIC_SOURCE_AUDIO_RIGHTS_ATTESTATION_CONTRACT,
       confirmed: body.source_rights_confirmed === true || body.rights_attestation?.confirmed === true,
     },
+  };
+}
+
+function buildTemporalExtendPlan(body) {
+  const editPlan = buildMusicTransformationPlan("edit", {
+    ...rightsInput(body),
+    repainting_start: 0,
+    repainting_end: -1,
   });
+  const extensionSeconds = clamp(body.extension_seconds ?? body.extend_seconds, 5, 120, 30);
+  const continuityOverlapSeconds = clamp(
+    body.continuity_overlap_seconds ?? body.overlap_seconds,
+    1,
+    12,
+    4,
+  );
+  return {
+    ...editPlan,
+    operation: "extend",
+    service_id: "ai.audio.extend",
+    capability: "ai.audio.extend",
+    task_type: "repaint",
+    implementation: "IMPLEMENTED",
+    certification: "BENCHMARK_REQUIRED",
+    executable: false,
+    temporal_extension: {
+      strategy: TEMPORAL_EXTEND_STRATEGY,
+      source_duration_measured_by_worker: true,
+      right_padding_outpaint_required: true,
+      temporal_extension_proven: false,
+    },
+    generation: {
+      ...editPlan.generation,
+      duration_seconds: null,
+      source_duration_measured_by_worker: true,
+    },
+    provider_parameters: {
+      extension_seconds: extensionSeconds,
+      continuity_overlap_seconds: continuityOverlapSeconds,
+      temporal_extend_strategy: TEMPORAL_EXTEND_STRATEGY,
+    },
+    output_spec: {
+      ...editPlan.output_spec,
+      duration_seconds: null,
+      duration_rule: "SOURCE_DURATION_PLUS_EXTENSION_SECONDS_BOUNDED_BY_WORKER_MAX",
+    },
+  };
+}
+
+function plan(body) {
+  const operation = resolveOperation(body.operation);
+  const transformPlan = operation === "extend"
+    ? buildTemporalExtendPlan(body)
+    : buildMusicTransformationPlan(operation, rightsInput(body));
   return {
     success: true,
     operation,

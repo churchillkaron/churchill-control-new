@@ -4,6 +4,7 @@ export const maxDuration = 300;
 
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { processNextSecretaryJob } from "@/lib/operator/secretary/SecretaryJobExecutionRuntime";
+import { prepareSecretaryPaperworkExecution } from "@/lib/operator/secretary/SecretaryPaperworkExecutionPreparationRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -23,6 +24,7 @@ export async function GET(request) {
     const url = new URL(request.url);
     const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 3, 8));
     const workerId = `secretary-job:${crypto.randomUUID()}`;
+    const paperworkPreparation = await prepareSecretaryPaperworkExecution({ limit: 200 });
     const results = [];
 
     for (let index = 0; index < limit; index += 1) {
@@ -45,9 +47,17 @@ export async function GET(request) {
     return Response.json(
       {
         success: true,
-        contract: "AVANTIQO_SECRETARY_AUTONOMOUS_JOB_WORKER_V1",
+        contract: "AVANTIQO_SECRETARY_AUTONOMOUS_JOB_WORKER_V2",
         processed: results.length,
         review_required: reviewRequired.count || 0,
+        paperwork_preparation: {
+          contract: paperworkPreparation.contract,
+          inspected_jobs: paperworkPreparation.inspected_jobs,
+          gated_steps: paperworkPreparation.prepared.reduce(
+            (total, item) => total + Number(item.gated_steps || 0),
+            0,
+          ),
+        },
         results,
         external_authority_used: false,
       },

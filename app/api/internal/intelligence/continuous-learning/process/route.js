@@ -5,6 +5,9 @@ export const maxDuration = 300;
 import {
   runAvantiqoContinuousLearningBatch,
 } from "@/lib/intelligence/runtime/AvantiqoContinuousLearningRuntime";
+import {
+  syncAvantiqoInternalProductKnowledge,
+} from "@/lib/intelligence/runtime/AvantiqoInternalProductKnowledgeRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -26,10 +29,22 @@ export async function GET(request) {
       1,
       Math.min(Number(url.searchParams.get("limit")) || 1, 3),
     );
+
+    // Canonical product knowledge is deterministic, local and provider-free. Sync it
+    // independently of the bounded web-research budget so Intelligence always knows
+    // Avantiqo's current constitution and registry before it expands external knowledge.
+    const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
-    return Response.json(result, {
-      status: result.success === false ? 207 : 200,
-    });
+
+    return Response.json(
+      {
+        ...result,
+        internal_product_knowledge: internalProductKnowledge,
+      },
+      {
+        status: result.success === false ? 207 : 200,
+      },
+    );
   } catch (error) {
     console.error("AVANTIQO_CONTINUOUS_LEARNING_CRON_FAILED", error);
     return Response.json(

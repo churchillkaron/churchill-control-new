@@ -1,0 +1,233 @@
+name: Avantiqo Music Extend Worker Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-music-extend-worker-image-request.json
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-music-extend-worker-image
+  cancel-in-progress: true
+
+jobs:
+  build-music-extend-worker-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      image_repository: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.image.outputs.tag }}
+      source_sha: ${{ steps.image.outputs.release_sha }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      preflight_outcome: ${{ steps.preflight.outcome }}
+      build_outcome: ${{ steps.build.outcome }}
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify Music Extend source lock
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-music-extend-engine/Dockerfile
+          test -f services/avantiqo-music-extend-engine/handler.py
+          test -f config/avantiqo-music-extend-engine.json
+          grep -F 'git checkout 14c0211d5a0653b0f63e27686f4c3f151b4d8629' services/avantiqo-music-extend-engine/Dockerfile
+          grep -F 'AVANTIQO_MUSIC_EXTEND_MODEL_VARIANT=acestep-v15-base' services/avantiqo-music-extend-engine/Dockerfile
+          grep -F 'ACESTEP_INIT_LLM=false' services/avantiqo-music-extend-engine/Dockerfile
+          grep -F "QUALITY_PROFILE = \"ACE_STEP_1_5_BASE_COMPLETE_V1\"" services/avantiqo-music-extend-engine/handler.py
+          grep -F 'CERTIFICATION_JOB_CONTRACT = "AVANTIQO_MUSIC_EXTEND_CERTIFICATION_JOB_V1"' services/avantiqo-music-extend-engine/handler.py
+          grep -F '"model_variant": "acestep-v15-base"' config/avantiqo-music-extend-engine.json
+          grep -F '"safe_lease_lane": "music-extend"' config/avantiqo-music-extend-engine.json
+          grep -F '"production_certified": false' config/avantiqo-music-extend-engine.json
+          grep -F '"xl_turbo_fallback_allowed": false' config/avantiqo-music-extend-engine.json
+          grep -F 'AVANTIQO_MUSIC_EXTEND_BASE_COMPLETE_CONTRACT=PASS' services/avantiqo-music-extend-engine/Dockerfile
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_PREFLIGHT=PASS'
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_TRIGGER_SHA_BOUND=true'
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_BASE_COMPLETE_REQUIRED=true'
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_LM_DISABLED=true'
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_PRODUCTION_CERTIFIED=false'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$GITHUB_SHA"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-music-extend-worker"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_TAG=$tag"
+
+      - name: Build and push immutable Music Extend worker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-music-extend-engine
+          file: services/avantiqo-music-extend-engine/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-music-extend-worker
+          cache-to: type=gha,mode=max,scope=avantiqo-music-extend-worker
+
+      - name: Confirm non-activation image build
+        shell: bash
+        run: |
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_BUILD=PASS'
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_PRODUCTION_DEPLOY=false'
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_PRICING_ACTIVATION=false'
+
+  record-music-extend-worker-image-evidence:
+    needs: build-music-extend-worker-image
+    if: ${{ always() && needs.build-music-extend-worker-image.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest main for evidence only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Record sanitized PASS or FAIL evidence
+        env:
+          BUILD_JOB_RESULT: ${{ needs.build-music-extend-worker-image.result }}
+          PREFLIGHT_OUTCOME: ${{ needs.build-music-extend-worker-image.outputs.preflight_outcome }}
+          BUILD_OUTCOME: ${{ needs.build-music-extend-worker-image.outputs.build_outcome }}
+          IMAGE_REPOSITORY: ${{ needs.build-music-extend-worker-image.outputs.image_repository }}
+          IMAGE_TAG: ${{ needs.build-music-extend-worker-image.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.build-music-extend-worker-image.outputs.image_digest }}
+          RELEASE_SHA: ${{ needs.build-music-extend-worker-image.outputs.source_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+          TRIGGER_SHA: ${{ github.sha }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+
+          const text = (value) => String(value || "").trim();
+          const triggerSha = text(process.env.TRIGGER_SHA);
+          const sourceSha = text(process.env.RELEASE_SHA);
+          const digest = text(process.env.IMAGE_DIGEST);
+          const owner = text(process.env.REPOSITORY_OWNER).toLowerCase();
+          const repository = text(process.env.IMAGE_REPOSITORY) ||
+            (owner ? `ghcr.io/${owner}/avantiqo-music-extend-worker` : "");
+          const buildJobResult = text(process.env.BUILD_JOB_RESULT);
+          const preflightOutcome = text(process.env.PREFLIGHT_OUTCOME) || null;
+          const buildOutcome = text(process.env.BUILD_OUTCOME) || null;
+          const sourceMatchesTrigger = Boolean(sourceSha) && sourceSha === triggerSha;
+          const digestValid = /^sha256:[a-f0-9]{64}$/i.test(digest);
+          const success = buildJobResult === "success" && sourceMatchesTrigger && digestValid && Boolean(repository);
+
+          const report = {
+            success,
+            contract: "AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_RESULT_V1",
+            observable_result: true,
+            build_job_result: buildJobResult || "unknown",
+            preflight_outcome: preflightOutcome,
+            build_outcome: buildOutcome,
+            source_sha: sourceSha || null,
+            trigger_sha: triggerSha || null,
+            source_sha_matches_trigger: sourceMatchesTrigger,
+            github_run_id: text(process.env.BUILD_RUN_ID) || null,
+            image_repository: repository || null,
+            image_tag: text(process.env.IMAGE_TAG) || null,
+            image_digest: digestValid ? digest : null,
+            immutable_image_reference: success ? `${repository}@${digest}` : null,
+            engine_contract: "AVANTIQO_MUSIC_EXTEND_ENGINE_V1",
+            certification_job_contract: "AVANTIQO_MUSIC_EXTEND_CERTIFICATION_JOB_V1",
+            foundation_model: "ACE-Step/Ace-Step1.5",
+            model_family: "ACE_STEP_1_5",
+            model_variant: "acestep-v15-base",
+            task_type: "complete",
+            capability: "ai.audio.extend",
+            quality_profile: "ACE_STEP_1_5_BASE_COMPLETE_V1",
+            ace_step_lm_required: false,
+            direct_source_conditioning_required: true,
+            cuda_runtime_expected: "12.8",
+            source_audio_required: true,
+            source_rights_attestation_required: true,
+            arrangement_completion_implemented: true,
+            temporal_extension_proven: false,
+            production_certified: false,
+            benchmark_required: true,
+            human_listening_review_required: true,
+            safe_lease_contract: "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+            safe_lease_lane: "music-extend",
+            resting_workers_min: 0,
+            resting_workers_max: 0,
+            xl_turbo_fallback_allowed: false,
+            compose_endpoint_mutation_allowed: false,
+            provider_job_submitted: false,
+            production_web_deploy: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false,
+            failure: success ? null : {
+              code: "AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_BUILD_FAILED",
+              build_job_result: buildJobResult || "unknown",
+              preflight_outcome: preflightOutcome,
+              build_outcome: buildOutcome,
+            },
+          };
+
+          writeFileSync(
+            "/tmp/avantiqo-music-extend-worker-image.json",
+            `${JSON.stringify(report)}\n`,
+            "utf8",
+          );
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B music-extend-image-evidence origin/main
+            mkdir -p audits/results
+            cp /tmp/avantiqo-music-extend-worker-image.json audits/results/avantiqo-music-extend-worker-image.json
+            git add audits/results/avantiqo-music-extend-worker-image.json
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_EVIDENCE_ALREADY_CURRENT=true'
+              exit 0
+            fi
+            git commit -m "Record Music extend worker image result"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_EVIDENCE_RECORDED=true'
+              exit 0
+            fi
+            echo "AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_EVIDENCE_PUSH_RETRY=${attempt}"
+            sleep "$attempt"
+          done
+          echo 'AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_EVIDENCE_PUSH_FAILED'
+          exit 1

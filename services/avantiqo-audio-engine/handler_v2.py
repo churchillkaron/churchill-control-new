@@ -258,10 +258,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         base._cleanup_job_dir(job_output_dir)
 
 
-@runpod.serverless.register_fitness_check
-def check_worker():
-    base.check_worker()
-
+# Importing handler.py above registers the canonical worker fitness check.
+# Do not register a second check here; handler_v2 reuses the same CUDA/model validation.
 
 if __name__ == "__main__":
     runpod.serverless.start({"handler": handler})

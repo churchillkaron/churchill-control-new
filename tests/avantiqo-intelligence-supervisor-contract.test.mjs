@@ -6,6 +6,10 @@ const supervisor = fs.readFileSync(
   new URL("../lib/intelligence/runtime/AvantiqoIntelligenceSupervisorRuntime.js", import.meta.url),
   "utf8",
 );
+const cognitionRouter = fs.readFileSync(
+  new URL("../lib/intelligence/runtime/AvantiqoCognitionRouterRuntime.js", import.meta.url),
+  "utf8",
+);
 const structuredSupervisor = fs.readFileSync(
   new URL("../lib/intelligence/runtime/AvantiqoStructuredIntelligenceSupervisorRuntime.js", import.meta.url),
   "utf8",
@@ -23,11 +27,36 @@ const businessAgent = fs.readFileSync(
   "utf8",
 );
 
-test("supervisor implements shared fast and deep owned brain modes", () => {
-  assert.match(supervisor, /AVANTIQO_INTELLIGENCE_SUPERVISOR_V2/);
+test("supervisor implements adaptive owned fast and deep brain modes", () => {
+  assert.match(supervisor, /AVANTIQO_INTELLIGENCE_SUPERVISOR_V3/);
+  assert.match(supervisor, /AUTO_MODE = "auto"/);
   assert.match(supervisor, /FAST MODE:/);
   assert.match(supervisor, /DEEP MODE:/);
+  assert.match(supervisor, /AvantiqoCognitionRouterRuntime\.route/);
   assert.match(supervisor, /AvantiqoStructuredIntelligenceSupervisorRuntime\.run/);
+});
+
+test("cognition router is deterministic before model execution and has risk floors", () => {
+  assert.match(cognitionRouter, /AVANTIQO_COGNITION_ROUTER_V1/);
+  assert.match(cognitionRouter, /deterministic_pre_model_routing: true/);
+  assert.match(cognitionRouter, /high_risk_safety_floor: true/);
+  assert.match(cognitionRouter, /CURRENT_EXTERNAL_EVIDENCE/);
+  assert.match(cognitionRouter, /MUTATING_TOOL_AVAILABLE/);
+  assert.match(cognitionRouter, /CONFLICTING_EVIDENCE/);
+  assert.match(cognitionRouter, /MEMORY_REQUIRES_LIVE_READ/);
+  assert.match(cognitionRouter, /irreversible_intent/);
+  assert.match(cognitionRouter, /verification_required/);
+  assert.match(cognitionRouter, /research_required/);
+  assert.match(cognitionRouter, /from_fast_to_deep_if/);
+  assert.match(cognitionRouter, /never_downgrade_if/);
+});
+
+test("supervisor escalates weak fast cognition to deep instead of bluffing", () => {
+  assert.match(supervisor, /shouldEscalateFastResult/);
+  assert.match(supervisor, /confidence.*0\.72/s);
+  assert.match(supervisor, /AVANTIQO_FAST_TO_DEEP_ESCALATION_CONTEXT/);
+  assert.match(supervisor, /FAST_PASS_CONFIDENCE_OR_VERIFICATION_INSUFFICIENT/);
+  assert.match(supervisor, /cognition_escalated_from/);
 });
 
 test("supervisor repairs before completion claims in deep mode", () => {

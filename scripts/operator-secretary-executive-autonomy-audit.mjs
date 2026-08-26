@@ -105,9 +105,32 @@ assert.match(source.meetingPresence, /Retry failed audio upload/);
 assert.match(source.meetingPresence, /speaker identity/i);
 assert.match(source.meetingPresence, /Live meeting transcript/i);
 assert.match(source.meetingPresence, /Secretary Attend Meeting/i);
+assert.match(source.meetingPresence, /requestAnimationFrame/);
+
+const startMeetingSource = source.meetingPresence.slice(
+  source.meetingPresence.indexOf("async function startMeeting()"),
+  source.meetingPresence.indexOf("async function stopRecorderAndWait()"),
+);
+assert.ok(startMeetingSource.indexOf("notifyCaptureState(true)") >= 0);
+assert.ok(startMeetingSource.indexOf("notifyCaptureState(true)") < startMeetingSource.indexOf("navigator.mediaDevices.getUserMedia"));
+assert.ok(startMeetingSource.indexOf("requestAnimationFrame") < startMeetingSource.indexOf("navigator.mediaDevices.getUserMedia"));
+assert.ok(startMeetingSource.indexOf("notifyCaptureState(false)") > startMeetingSource.indexOf("navigator.mediaDevices.getUserMedia"));
+
+const endMeetingSource = source.meetingPresence.slice(
+  source.meetingPresence.indexOf("async function endMeeting()"),
+  source.meetingPresence.indexOf("async function retryUploads()"),
+);
+assert.ok(endMeetingSource.indexOf("await waitForUploads()") >= 0);
+assert.ok(endMeetingSource.indexOf("await waitForUploads()") < endMeetingSource.indexOf("releaseStream()"));
+assert.match(endMeetingSource, /meetingRef\.current\?\.status === "CAPTURING" && streamRef\.current/);
+assert.match(endMeetingSource, /startRecorderChunk\(\)/);
+
 assert.match(source.meetingPresenceBridge, /useBusinessContext/);
 assert.match(source.meetingPresenceBridge, /avantiqo:secretary-meeting-capture/);
 assert.match(source.platformShell, /SecretaryMeetingPresenceBridge/);
+assert.match(source.platformShell, /avantiqo:secretary-meeting-capture/);
+assert.match(source.platformShell, /secretaryMeetingCaptureActive/);
+assert.match(source.platformShell, /!secretaryMeetingCaptureActive \? <LocalHeyAvantiqoWakeBridge \/> : null/);
 
 assert.match(source.jobClaim, /for update skip locked/i);
 assert.match(source.waitingClaim, /status = 'WAITING' then attempt_count else attempt_count \+ 1/i);
@@ -159,6 +182,8 @@ console.log("SECRETARY_MEETING_CAPTURE_AUTHORIZATION_REQUIRED=true");
 console.log("SECRETARY_MEETING_RAW_AUDIO_PERSISTED=false");
 console.log("SECRETARY_MEETING_SILENT_CHUNKS_TOLERATED=true");
 console.log("SECRETARY_MEETING_AUDIO_CHUNK_IDEMPOTENCY=true");
+console.log("SECRETARY_MEETING_MICROPHONE_ARBITRATION=true");
+console.log("SECRETARY_MEETING_FINAL_UPLOAD_RECOVERY=true");
 console.log("SECRETARY_MEETING_SPEAKER_IDENTITY_INVENTED=false");
 console.log("SECRETARY_MEETING_USER_CONFIRMED_SPEAKER_MAPPING=true");
 console.log("SECRETARY_MEETING_PROTOCOL=true");

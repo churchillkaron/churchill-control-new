@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const provisioner = await readFile("scripts/provision-avantiqo-music-transform-candidate-runpod-local.mjs", "utf8");
+const preflight = await readFile("scripts/preflight-avantiqo-music-transform-candidate-local.mjs", "utf8");
 const benchmark = await readFile("scripts/benchmark-avantiqo-music-transform.mjs", "utf8");
 const launcher = await readFile("scripts/run-avantiqo-music-transform-certification-local.mjs", "utf8");
 const policy = await readFile("config/avantiqo-runpod-safe-lease-policy.json", "utf8");
@@ -36,10 +37,26 @@ test("Candidate template binds the V2 image, shared cache, and certification lan
   assert.match(provisioner, /XL_TURBO_REPAINT_RIGHT_OUTPAINT/);
 });
 
+test("Candidate preflight is zero-spend and proves endpoint identity before leasing", () => {
+  assert.match(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_V1/);
+  assert.match(preflight, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID/);
+  assert.match(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_NOT_PARKED_0_0/);
+  assert.match(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_TEMPLATE_IMAGE_MISMATCH/);
+  assert.match(preflight, /AVANTIQO_AUDIO_CERTIFICATION_SAFE_LEASE_LANE/);
+  assert.match(preflight, /runpod_run_called: false/);
+  assert.match(preflight, /runpod_runsync_called: false/);
+  assert.match(preflight, /provider_job_submitted: false/);
+  assert.match(preflight, /workers_opened: false/);
+  assert.match(preflight, /endpoint_mutation_performed: false/);
+});
+
 test("Benchmark and launcher can only address the candidate lane", () => {
   assert.match(benchmark, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID/);
   assert.doesNotMatch(benchmark, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID/);
   assert.match(benchmark, /SAFE_LEASE_LANE = "music-transform-candidate"/);
+  assert.match(launcher, /PREFLIGHT_SCRIPT/);
+  assert.match(launcher, /spawnSync\(process\.execPath, \[PREFLIGHT_SCRIPT\]/);
+  assert.match(launcher, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_FAILED/);
   assert.match(launcher, /SAFE_LEASE_LANE = "music-transform-candidate"/);
   assert.doesNotMatch(launcher, /--lane=audio/);
 });

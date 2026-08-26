@@ -14,6 +14,9 @@ from acestep.llm_inference import LLMHandler
 from acestep.model_downloader import ensure_lm_model
 
 ENGINE_CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1"
+CERTIFICATION_JOB_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_JOB_V1"
+SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2"
+SAFE_LEASE_LANE = "audio"
 PRODUCT_MODEL = "avantiqo-music-v1"
 QUALITY_PROFILE = "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1"
 MODEL_FAMILY = os.getenv("AVANTIQO_AUDIO_MODEL_FAMILY", "ACE_STEP_1_5").strip().upper()
@@ -53,6 +56,10 @@ IMPLEMENTED_CAPABILITIES = {
     "ai.audio.edit",
 }
 DEFAULT_CERTIFIED_CAPABILITIES = {"ai.music.generate"}
+CERTIFICATION_CANDIDATE_CAPABILITIES = {
+    "ai.audio.remix",
+    "ai.audio.edit",
+}
 CAPABILITY_TASK_TYPES = {
     "ai.music.generate": "text2music",
     "ai.audio.remix": "cover",
@@ -108,6 +115,59 @@ def _certified_capabilities() -> set[str]:
     if "ai.music.generate" not in configured:
         raise RuntimeError("AVANTIQO_AUDIO_MUSIC_GENERATION_CERTIFICATION_REQUIRED")
     return configured
+
+
+def _certification_access(
+    data: dict[str, Any],
+    capability: str,
+    certified_capabilities: set[str],
+) -> dict[str, Any]:
+    if capability in certified_capabilities:
+        return {
+            "candidate": False,
+            "production_certified": True,
+            "contract": None,
+            "human_review_required": False,
+            "activation_allowed": True,
+        }
+
+    if capability not in CERTIFICATION_CANDIDATE_CAPABILITIES:
+        raise ValueError("AVANTIQO_AUDIO_CAPABILITY_NOT_CERTIFIED")
+
+    context = _object(data.get("certification"))
+    checks = {
+        "contract": _text(context.get("contract")) == CERTIFICATION_JOB_CONTRACT,
+        "scope": _text(context.get("scope")) == "music-transform-only",
+        "capability": _text(context.get("capability")) == capability,
+        "candidate": context.get("candidate") is True,
+        "provider_spend_approved": context.get("provider_spend_approved") is True,
+        "source_rights_confirmed": context.get("source_rights_confirmed") is True,
+        "safe_lease_contract": _text(context.get("safe_lease_contract")) == SAFE_LEASE_CONTRACT,
+        "safe_lease_lane": _text(context.get("safe_lease_lane")) == SAFE_LEASE_LANE,
+        "max_provider_jobs": _integer(context.get("max_provider_jobs"), 0) == 1,
+        "benchmark_runs": _integer(context.get("benchmark_runs"), 0) == 1,
+        "human_review_required": context.get("human_review_required") is True,
+        "automatic_human_review_approved": context.get("automatic_human_review_approved") is False,
+        "production_activation_allowed": context.get("production_activation_allowed") is False,
+        "pricing_activation_allowed": context.get("pricing_activation_allowed") is False,
+        "provider_selection_change_allowed": context.get("provider_selection_change_allowed") is False,
+    }
+    failures = [name for name, passed in checks.items() if not passed]
+    if failures:
+        raise ValueError(
+            f"AVANTIQO_AUDIO_TRANSFORM_CERTIFICATION_CONTEXT_INVALID:{','.join(failures)}"
+        )
+
+    return {
+        "candidate": True,
+        "production_certified": False,
+        "contract": CERTIFICATION_JOB_CONTRACT,
+        "human_review_required": True,
+        "activation_allowed": False,
+        "safe_lease_contract": SAFE_LEASE_CONTRACT,
+        "safe_lease_lane": SAFE_LEASE_LANE,
+        "max_provider_jobs": 1,
+    }
 
 
 def _public_https_url(value: Any, *, upload: bool = False, creative_source: bool = False) -> str:
@@ -347,8 +407,8 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     capability = _text(data.get("capability"))
     if capability not in IMPLEMENTED_CAPABILITIES:
         raise ValueError("AVANTIQO_AUDIO_CAPABILITY_NOT_IMPLEMENTED")
-    if capability not in _certified_capabilities():
-        raise ValueError("AVANTIQO_AUDIO_CAPABILITY_NOT_CERTIFIED")
+    certified_capabilities = _certified_capabilities()
+    certification = _certification_access(data, capability, certified_capabilities)
     instruction = _text(data.get("instruction"))
     if len(instruction) > 12000:
         raise ValueError("AVANTIQO_AUDIO_INSTRUCTION_TOO_LONG")
@@ -360,6 +420,7 @@ def _validated_input(job: dict[str, Any]) -> dict[str, Any]:
     return {
         **data,
         "capability": capability,
+        "certification_access": certification,
         "storage_upload": {
             **storage,
             "signed_url": signed_url,
@@ -530,6 +591,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         runpod.serverless.progress_update(job, "storing private Avantiqo asset")
         _upload(path, data["storage_upload"])
         size_bytes = path.stat().st_size
+        certification_access = _object(data.get("certification_access"))
 
         return {
             "status": "completed",
@@ -556,6 +618,11 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "ace_step_lm_model": LM_MODEL if use_lm else None,
             "ace_step_lm_backend": LM_BACKEND if use_lm else None,
             "thinking_enabled": use_lm,
+            "certification_candidate": certification_access.get("candidate") is True,
+            "production_certified": certification_access.get("production_certified") is True,
+            "certification_contract": certification_access.get("contract"),
+            "human_review_required": certification_access.get("human_review_required") is True,
+            "activation_allowed": certification_access.get("activation_allowed") is True,
             "raw_reasoning_persisted": False,
             "generation_input_persisted": False,
         }

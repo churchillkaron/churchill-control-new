@@ -215,6 +215,9 @@ try {
   );
 
   const repaired = await repairSecretaryMeetingBookingNotifications({ limit: 8 });
+  assert.equal(repaired.repair_candidates_selected_server_side, true);
+  assert.equal(repaired.oldest_unfinished_first, true);
+  assert.equal(repaired.repair_scan_not_limited_to_recent_bookings, true);
   const repairedEntry = repaired.repaired.find((row) => row.coordination_id === booked.coordination.id);
   assert.ok(repairedEntry);
   assert.equal(repairedEntry.status, "materialized");
@@ -248,6 +251,9 @@ try {
   console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_DETERMINISTIC_IDS=true");
   console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_IDEMPOTENT=true");
   console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_REPAIRABLE=true");
+  console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_REPAIR_SERVER_SIDE_FILTER=true");
+  console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_OLDEST_UNFINISHED_FIRST=true");
+  console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_REPAIR_STARVATION_PREVENTED=true");
   console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_ATTENDANCE_NOT_INFERRED=true");
   console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_RSVP_NOT_INFERRED=true");
   console.log("SECRETARY_PROVIDER_CALLS_PERFORMED=false");

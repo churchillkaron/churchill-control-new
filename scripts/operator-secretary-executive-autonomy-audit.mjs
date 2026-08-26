@@ -8,6 +8,13 @@ const paths = {
   responseSchema: "supabase/migrations/20260826002500_secretary_job_response_collection.sql",
   waitingClaim: "supabase/migrations/20260826003000_secretary_job_waiting_claim_semantics.sql",
   meetingRuntime: "lib/operator/secretary/SecretaryMeetingRuntime.js",
+  meetingAudioRuntime: "lib/operator/secretary/SecretaryMeetingAudioRuntime.js",
+  meetingSpeakerRuntime: "lib/operator/secretary/SecretaryMeetingSpeakerRuntime.js",
+  meetingApi: "app/api/secretary/meetings/route.js",
+  meetingAudioApi: "app/api/secretary/meetings/audio/route.js",
+  meetingPresence: "components/operator/SecretaryMeetingPresence.jsx",
+  meetingPresenceBridge: "components/operator/SecretaryMeetingPresenceBridge.jsx",
+  platformShell: "components/platform/PlatformShell.jsx",
   jobRuntime: "lib/operator/secretary/SecretaryJobExecutionRuntime.js",
   prospectRuntime: "lib/operator/secretary/SecretaryProspectDiscoveryRuntime.js",
   responseRuntime: "lib/operator/secretary/SecretaryJobResponseRuntime.js",
@@ -30,6 +37,7 @@ for (const table of [
   assert.match(source.meetingSchema, new RegExp(`create table if not exists public\\.${table}`, "i"));
 }
 assert.match(source.meetingSchema, /capture_authorized boolean not null default false/i);
+assert.match(source.meetingSchema, /raw_audio_persisted boolean not null default false/i);
 assert.match(source.meetingSchema, /EXECUTE_WITH_GATES/);
 assert.match(source.meetingSchema, /owner_kind in \('SECRETARY','STAFF','CONTACT','UNKNOWN'\)/i);
 
@@ -43,6 +51,50 @@ assert.match(source.meetingRuntime, /secretary_tasks/);
 assert.match(source.meetingRuntime, /secretary_jobs/);
 assert.match(source.meetingRuntime, /executionReady/);
 assert.match(source.meetingRuntime, /external_authority_used:\s*false/);
+
+assert.match(source.meetingAudioRuntime, /service_id:\s*"ai\.speech\.to\.text"/);
+assert.match(source.meetingAudioRuntime, /MEETING_STT/);
+assert.match(source.meetingAudioRuntime, /silent_chunk:\s*true/);
+assert.match(source.meetingAudioRuntime, /raw_audio_persisted:\s*false/);
+assert.match(source.meetingAudioRuntime, /speaker_identity_invented:\s*false/);
+assert.match(source.meetingAudioRuntime, /provider_speaker_label/);
+assert.match(source.meetingAudioRuntime, /participantSpeakerMap/);
+
+assert.match(source.meetingSpeakerRuntime, /AVANTIQO_SECRETARY_MEETING_SPEAKER_MAPPING_V1/);
+assert.match(source.meetingSpeakerRuntime, /speaker_mapping_source:\s*"AUTHENTICATED_ORGANIZATION_USER"/);
+assert.match(source.meetingSpeakerRuntime, /provider_speaker_label/);
+assert.match(source.meetingSpeakerRuntime, /speaker_identity_mapped_by_user:\s*true/);
+assert.match(source.meetingSpeakerRuntime, /speaker_identity_invented:\s*false/);
+
+assert.match(source.meetingApi, /requireOrganizationAccess/);
+assert.match(source.meetingApi, /action === "START"/);
+assert.match(source.meetingApi, /capture_authorized/);
+assert.match(source.meetingApi, /action === "MAP_SPEAKER"/);
+assert.match(source.meetingApi, /mapSecretaryMeetingSpeaker/);
+assert.match(source.meetingApi, /action === "FINALIZE"/);
+assert.match(source.meetingAudioApi, /requireOrganizationAccess/);
+assert.match(source.meetingAudioApi, /ingestSecretaryMeetingAudio/);
+assert.match(source.meetingAudioApi, /chunk_number/);
+assert.match(source.meetingAudioApi, /chunk_started_offset_ms/);
+
+assert.match(source.meetingPresence, /navigator\.mediaDevices\.getUserMedia/);
+assert.match(source.meetingPresence, /new MediaRecorder/);
+assert.match(source.meetingPresence, /CHUNK_DURATION_MS = 25000/);
+assert.match(source.meetingPresence, /recorder\.start\(\)/);
+assert.match(source.meetingPresence, /\/api\/secretary\/meetings\/audio/);
+assert.match(source.meetingPresence, /action:\s*"START"/);
+assert.match(source.meetingPresence, /capture_authorized:\s*true/);
+assert.match(source.meetingPresence, /action:\s*"MAP_SPEAKER"/);
+assert.match(source.meetingPresence, /action:\s*"FINALIZE"/);
+assert.match(source.meetingPresence, /beforeunload/);
+assert.match(source.meetingPresence, /Raw meeting audio is not stored/i);
+assert.match(source.meetingPresence, /Retry failed audio upload/);
+assert.match(source.meetingPresence, /speaker identity/i);
+assert.match(source.meetingPresence, /Live meeting transcript/i);
+assert.match(source.meetingPresence, /Secretary Attend Meeting/i);
+assert.match(source.meetingPresenceBridge, /useBusinessContext/);
+assert.match(source.meetingPresenceBridge, /avantiqo:secretary-meeting-capture/);
+assert.match(source.platformShell, /SecretaryMeetingPresenceBridge/);
 
 assert.match(source.jobClaim, /for update skip locked/i);
 assert.match(source.waitingClaim, /status = 'WAITING' then attempt_count else attempt_count \+ 1/i);
@@ -89,6 +141,12 @@ for (const migration of [source.meetingSchema, source.prospectSchema, source.res
 }
 
 console.log("OPERATOR_SECRETARY_EXECUTIVE_AUTONOMY_AUDIT=PASS");
+console.log("SECRETARY_MEETING_LIVE_PRESENCE_SOURCE_COMPLETE=true");
+console.log("SECRETARY_MEETING_CAPTURE_AUTHORIZATION_REQUIRED=true");
+console.log("SECRETARY_MEETING_RAW_AUDIO_PERSISTED=false");
+console.log("SECRETARY_MEETING_SILENT_CHUNKS_TOLERATED=true");
+console.log("SECRETARY_MEETING_SPEAKER_IDENTITY_INVENTED=false");
+console.log("SECRETARY_MEETING_USER_CONFIRMED_SPEAKER_MAPPING=true");
 console.log("SECRETARY_MEETING_PROTOCOL=true");
 console.log("SECRETARY_MEETING_TASK_ASSIGNMENT=true");
 console.log("SECRETARY_OWNED_JOB_EXECUTION=true");
@@ -100,4 +158,5 @@ console.log("SECRETARY_SUPPLIER_COMPARISON=true");
 console.log("SECRETARY_PURCHASE_AUTHORITY_CREATED=false");
 console.log("SECRETARY_ACCEPTANCE_AUTHORITY_CREATED=false");
 console.log("SECRETARY_EXTERNAL_AUTHORITY_USED=false");
+console.log("SECRETARY_RUNTIME_CERTIFIED=false");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

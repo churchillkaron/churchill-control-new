@@ -6,9 +6,9 @@ loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_CODE_PLANNER_CERT_PENDING_SETTLEMENT_V1";
 const ORGANIZATION_ID = "916fd3e7-b00b-4dd6-aaf3-bd01dd588e94";
-const USAGE_ID = "3d3ee1b4-97be-4cb1-9f37-2b04acc375e4";
+const DEFAULT_USAGE_ID = "3d3ee1b4-97be-4cb1-9f37-2b04acc375e4";
 const PROVIDER = "avantiqo-code";
-const PROVIDER_JOB_ID = "c2417291-d126-40ae-85d7-aa4bde77afae-e1";
+const DEFAULT_PROVIDER_JOB_ID = "c2417291-d126-40ae-85d7-aa4bde77afae-e1";
 const RUNPOD_REST = "https://rest.runpod.io/v1";
 const RUNPOD_SERVERLESS = "https://api.runpod.ai/v2";
 const MIN_ORPHAN_AGE_MS = 60 * 60_000;
@@ -19,6 +19,14 @@ const AMOUNT_EPSILON = 0.000001;
 function text(value) {
   return String(value ?? "").trim();
 }
+
+const explicitUsageId = text(process.env.AVANTIQO_CODE_PLANNER_PENDING_USAGE_ID);
+const explicitProviderJobId = text(process.env.AVANTIQO_CODE_PLANNER_PENDING_PROVIDER_JOB_ID);
+if (Boolean(explicitUsageId) !== Boolean(explicitProviderJobId)) {
+  throw new Error("AVANTIQO_CODE_PLANNER_PENDING_SETTLEMENT_TARGET_PAIR_REQUIRED");
+}
+const USAGE_ID = explicitUsageId || DEFAULT_USAGE_ID;
+const PROVIDER_JOB_ID = explicitProviderJobId || DEFAULT_PROVIDER_JOB_ID;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -155,7 +163,9 @@ console.log(JSON.stringify({
     ? "AVANTIQO_CODE_PLANNER_PENDING_ENDPOINT_RESOLVED"
     : "AVANTIQO_CODE_PLANNER_PENDING_ENDPOINT_ORPHAN_CANDIDATE",
   contract: CONTRACT,
+  usage_id: USAGE_ID,
   provider_job_id: PROVIDER_JOB_ID,
+  explicit_target: Boolean(explicitUsageId),
   endpoint_id: endpointResolution.endpoint_id,
   endpoint_name: endpointResolution.endpoint_name,
   configured_endpoint_matched: endpointResolution.configured_endpoint_matched,

@@ -206,6 +206,14 @@ if (text(codeDiagnostic?.endpoint?.name) !== CODE_ENDPOINT_NAME) {
     `AVANTIQO_CODE_CERTIFICATION_CODE_ENDPOINT_MISMATCH:${text(codeDiagnostic?.endpoint?.name) || "MISSING"}`,
   );
 }
+if (finite(codeDiagnostic?.endpoint?.workers_max, -1) < 1) {
+  throw new Error(
+    `AVANTIQO_CODE_CERTIFICATION_CODE_ENDPOINT_PAUSED:max=${finite(codeDiagnostic?.endpoint?.workers_max, -1)}`,
+  );
+}
+if (codeDiagnostic?.diagnosis?.endpoint_accepting_new_work !== true) {
+  throw new Error("AVANTIQO_CODE_CERTIFICATION_CODE_ENDPOINT_NOT_ACCEPTING_WORK");
+}
 if (codeDiagnostic?.diagnosis?.queue_is_clean !== true) {
   throw new Error("AVANTIQO_CODE_CERTIFICATION_CODE_QUEUE_MUST_BE_CLEAN");
 }
@@ -333,6 +341,8 @@ console.log(JSON.stringify({
   preflight_main_restart_count: mainRestartCount(),
   code_endpoint_id: codeEndpointId || null,
   code_endpoint_name: CODE_ENDPOINT_NAME,
+  code_endpoint_accepting_work: true,
+  code_workers_max: finite(codeDiagnostic?.endpoint?.workers_max, null),
   code_queue_clean: true,
   code_template_resolved: true,
   code_network_volume_attached: true,

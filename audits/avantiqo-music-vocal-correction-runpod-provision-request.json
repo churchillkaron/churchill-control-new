@@ -1,0 +1,16 @@
+{
+  "contract": "AVANTIQO_MUSIC_VOCAL_CORRECTION_RUNPOD_PROVISION_REQUEST_V1",
+  "endpoint_name": "avantiqo-music-vocal-correction-v1",
+  "image_source_sha": "eb33274fbd0189bfab4030243c5b843090cd9927",
+  "image_digest": "sha256:30dd44c131b3b2d77127989fd6535be3fd09e2514d90d091c2ac75feb1df2744",
+  "immutable_image_reference": "ghcr.io/churchillkaron/avantiqo-music-vocal-correction-worker@sha256:30dd44c131b3b2d77127989fd6535be3fd09e2514d90d091c2ac75feb1df2744",
+  "workers_min": 0,
+  "workers_max": 0,
+  "network_volume_required": false,
+  "provider_job_requested": false,
+  "production_activation_requested": false,
+  "pricing_activation_requested": false,
+  "certification_safe_lease_contract": "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+  "certification_safe_lease_lane": "music-vocal-correction",
+  "human_listening_review_required": true
+}

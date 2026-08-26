@@ -1,0 +1,186 @@
+name: One-shot Code search identity convergence
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/code-search-identity-convergence.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: code-search-identity-convergence
+  cancel-in-progress: false
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "NO"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Refetch current main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Converge search identity runtime and audits
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"EXPECTED_ONE_MATCH:{path}:{count}:{old[:80]}")
+              p.write_text(text.replace(old, new, 1))
+
+          runtime = "lib/code/runtime/CodeAIAutonomousRuntime.js"
+          replace_once(
+              runtime,
+              'import { createHash } from "node:crypto";\n',
+              'import {\n  codeAIGuardedActionFingerprint,\n  normalizeCodeAIGuardedActionInput,\n} from "./CodeAIAutonomyActionIdentity.js";\n',
+          )
+          replace_once(runtime, 'const DEFAULT_READ_WINDOW = 400;\n', '')
+          replace_once(
+              runtime,
+              '''function positiveLineNumber(value) {
+            const parsed = Number(value);
+            return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+          }
+
+          ''',
+              '',
+          )
+          replace_once(
+              runtime,
+              '''function normalizedReadInput(input) {
+            const source = object(input);
+            const startLine = positiveLineNumber(source.start_line) || 1;
+            const requestedEndLine = positiveLineNumber(source.end_line);
+            return {
+              file_path: text(source.file_path, 1200),
+              start_line: startLine,
+              end_line: requestedEndLine || (startLine + DEFAULT_READ_WINDOW - 1),
+            };
+          }
+
+          function normalizedActionInput(action, input) {
+            const source = object(input);
+            if (action === "read") return normalizedReadInput(source);
+            if (action === "search") {
+              return {
+                query: text(source.query, 4000),
+                paths: [...new Set(
+                  list(source.paths)
+                    .map((item) => text(item, 1200))
+                    .filter(Boolean),
+                )].sort(),
+              };
+            }
+            if (action === "run") {
+              return {
+                command: text(source.command, 300),
+                args: list(source.args).map((item) => text(item, 1200)),
+                cwd: text(source.cwd, 1200) || ".",
+              };
+            }
+            return source;
+          }
+
+          function actionFingerprint(action, input) {
+            return createHash("sha256")
+              .update(JSON.stringify({
+                action,
+                input: normalizedActionInput(action, input),
+              }))
+              .digest("hex");
+          }
+
+          ''',
+              '''function normalizedReadInput(input) {
+            return normalizeCodeAIGuardedActionInput("read", input);
+          }
+
+          function normalizedActionInput(action, input) {
+            return normalizeCodeAIGuardedActionInput(action, input);
+          }
+
+          function actionFingerprint(action, input) {
+            return codeAIGuardedActionFingerprint(action, input);
+          }
+
+          ''',
+          )
+          replace_once(
+              runtime,
+              '- Equivalent completed search or run actions are rejected until a different execution or governed research step changes the evidence revision.\n',
+              '- Equivalent completed search or run actions are rejected until a different execution or governed research step changes the evidence revision. Search mode is part of action identity: literal, regex, path and glob searches are distinct evidence operations.\n',
+          )
+          replace_once(
+              runtime,
+              'search: {"action":"search","description":"...","input":{"query":"literal text","paths":["optional/path"]}}',
+              'search: {"action":"search","description":"...","input":{"mode":"literal|regex|path|glob","query":"text or path needle","paths":["optional/content-search/path"],"path_globs":["optional/**/*.js"]}}',
+          )
+
+          audit = "scripts/code-ai-autonomy-loop-guard-audit.mjs"
+          replace_once(
+              audit,
+              '  "normalizedReadInput",\n',
+              '  "normalizedReadInput",\n  "CodeAIAutonomyActionIdentity.js",\n  "Search mode is part of action identity",\n  "literal|regex|path|glob",\n  "path_globs",\n',
+          )
+          replace_once(
+              audit,
+              '    duplicate_read_search_run_guarded_without_new_evidence: true,\n',
+              '    duplicate_read_search_run_guarded_without_new_evidence: true,\n    search_fingerprint_distinguishes_literal_regex_path_glob: true,\n    planner_receives_expanded_search_contract: true,\n',
+          )
+
+          mutation = "scripts/code-ai-repository-mutation-audit.mjs"
+          replace_once(
+              mutation,
+              '  "Repository-declared commands are preferred",\n',
+              '  "Repository-declared commands are preferred",\n  "buildSystemRoots",\n  "working_directory",\n  "nested_build_root_count_observed",\n  "mixed_language",\n  ":(glob)**/pyproject.toml",\n  ":(glob)**/Cargo.toml",\n  ":(glob)**/go.mod",\n  ":(glob)**/pom.xml",\n',
+          )
+          replace_once(
+              mutation,
+              '    general_build_system_detection: true,\n',
+              '    general_build_system_detection: true,\n    nested_mixed_language_build_manifest_detection: true,\n    nested_build_commands_bound_to_working_directory: true,\n',
+          )
+
+          package = "package.json"
+          replace_once(
+              package,
+              'node scripts/code-ai-autonomy-loop-guard-audit.mjs && node scripts/code-ai-worldclass-quality-audit.mjs',
+              'node scripts/code-ai-autonomy-loop-guard-audit.mjs && node scripts/code-ai-autonomy-action-identity-selftest.mjs && node scripts/code-ai-worldclass-quality-audit.mjs',
+          )
+
+      - name: Verify zero-provider Code gates
+        run: |
+          node --check lib/code/runtime/CodeAIAutonomyActionIdentity.js
+          node --check lib/code/runtime/CodeAIAutonomousRuntime.js
+          node --check lib/code/runtime/CodeRepositoryIntelligenceRuntime.js
+          node scripts/code-ai-autonomy-action-identity-selftest.mjs
+          node scripts/code-ai-autonomy-loop-guard-audit.mjs
+          node scripts/code-ai-repository-mutation-audit.mjs
+          test "${AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED}" = "NO"
+
+      - name: Commit verified convergence and remove one-shot gate
+        run: |
+          git rm .github/workflows/code-search-identity-convergence.yml
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add lib/code/runtime/CodeAIAutonomousRuntime.js scripts/code-ai-autonomy-loop-guard-audit.mjs scripts/code-ai-repository-mutation-audit.mjs package.json
+          git commit -m "Harden Code mixed-repo search identity"
+          git push origin HEAD:main

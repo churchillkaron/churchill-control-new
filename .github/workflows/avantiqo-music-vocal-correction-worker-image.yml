@@ -1,0 +1,218 @@
+name: Avantiqo Music Vocal Correction Worker Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-music-vocal-correction-worker-image-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-music-vocal-correction-worker-image
+  cancel-in-progress: false
+
+jobs:
+  build-music-vocal-correction-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      image_repository: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.image.outputs.tag }}
+      source_sha: ${{ steps.image.outputs.release_sha }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      preflight_outcome: ${{ steps.preflight.outcome }}
+      build_outcome: ${{ steps.build.outcome }}
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify Music vocal correction V2 source contract
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-music-vocal-correction-engine/Dockerfile
+          test -f services/avantiqo-music-vocal-correction-engine/handler.py
+          test -f services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          test -f services/avantiqo-music-vocal-correction-engine/timing.py
+          test -f services/avantiqo-music-vocal-correction-engine/requirements.txt
+          grep -F 'AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'AVANTIQO_MUSIC_VOCAL_PHRASE_TIMING_V1' services/avantiqo-music-vocal-correction-engine/timing.py
+          grep -F 'WHOLE_PHRASE_TRANSLATION_WITH_LOCAL_COLLISION_GUARDS' services/avantiqo-music-vocal-correction-engine/timing.py
+          grep -F 'syllable_time_stretch_forbidden' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'human_listening_review_required_for_certification' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'production_certified": False' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'CMD ["python3", "/app/handler_v2.py"]' services/avantiqo-music-vocal-correction-engine/Dockerfile
+          grep -F 'torchcrepe==0.0.24' services/avantiqo-music-vocal-correction-engine/requirements.txt
+          grep -F 'python-stretch==0.3.1' services/avantiqo-music-vocal-correction-engine/requirements.txt
+          if grep -F 'runpod-volume' services/avantiqo-music-vocal-correction-engine/Dockerfile; then
+            echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_SHARED_VOLUME_REFERENCE_FORBIDDEN'
+            exit 1
+          fi
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_PREFLIGHT=PASS'
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_TRIGGER_SHA_BOUND=true'
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_SHARED_VOLUME_REQUIRED=false'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$GITHUB_SHA"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-music-vocal-correction-worker"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_TAG=$tag"
+
+      - name: Build and push immutable Music vocal correction image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/avantiqo-music-vocal-correction-engine/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-music-vocal-correction-worker
+          cache-to: type=gha,mode=max,scope=avantiqo-music-vocal-correction-worker
+
+      - name: Confirm build isolation
+        shell: bash
+        run: |
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_BUILD=PASS'
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_PRODUCTION_WEB_DEPLOY=false'
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_PROVIDER_JOB_SUBMITTED=false'
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_RUNPOD_ENDPOINT_MUTATION=false'
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_SHARED_VOLUME_MUTATION=false'
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_PRICING_ACTIVATION=false'
+
+  record-music-vocal-correction-image-evidence:
+    needs: build-music-vocal-correction-image
+    if: ${{ always() && needs.build-music-vocal-correction-image.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest main for evidence only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Record sanitized PASS or FAIL evidence
+        env:
+          BUILD_JOB_RESULT: ${{ needs.build-music-vocal-correction-image.result }}
+          PREFLIGHT_OUTCOME: ${{ needs.build-music-vocal-correction-image.outputs.preflight_outcome }}
+          BUILD_OUTCOME: ${{ needs.build-music-vocal-correction-image.outputs.build_outcome }}
+          IMAGE_REPOSITORY: ${{ needs.build-music-vocal-correction-image.outputs.image_repository }}
+          IMAGE_TAG: ${{ needs.build-music-vocal-correction-image.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.build-music-vocal-correction-image.outputs.image_digest }}
+          RELEASE_SHA: ${{ needs.build-music-vocal-correction-image.outputs.source_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+          TRIGGER_SHA: ${{ github.sha }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          const triggerSha = String(process.env.TRIGGER_SHA || "").trim();
+          const sourceSha = String(process.env.RELEASE_SHA || "").trim();
+          const digest = String(process.env.IMAGE_DIGEST || "").trim();
+          const owner = String(process.env.REPOSITORY_OWNER || "").trim().toLowerCase();
+          const repository = String(process.env.IMAGE_REPOSITORY || "").trim() ||
+            (owner ? `ghcr.io/${owner}/avantiqo-music-vocal-correction-worker` : null);
+          const buildJobResult = String(process.env.BUILD_JOB_RESULT || "").trim();
+          const sourceMatchesTrigger = Boolean(sourceSha) && sourceSha === triggerSha;
+          const digestValid = /^sha256:[a-f0-9]{64}$/i.test(digest);
+          const success = buildJobResult === "success" && sourceMatchesTrigger && digestValid && Boolean(repository);
+          const report = {
+            success,
+            contract: "AVANTIQO_MUSIC_VOCAL_CORRECTION_WORKER_IMAGE_RESULT_V1",
+            observable_result: true,
+            build_job_result: buildJobResult || "unknown",
+            preflight_outcome: String(process.env.PREFLIGHT_OUTCOME || "").trim() || null,
+            build_outcome: String(process.env.BUILD_OUTCOME || "").trim() || null,
+            source_sha: sourceSha || null,
+            trigger_sha: triggerSha || null,
+            source_sha_matches_trigger: sourceMatchesTrigger,
+            github_run_id: process.env.BUILD_RUN_ID || null,
+            image_repository: repository,
+            image_tag: String(process.env.IMAGE_TAG || "").trim() || null,
+            image_digest: digestValid ? digest : null,
+            immutable_image_reference: success ? `${repository}@${digest}` : null,
+            engine_contract: "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
+            model: "torchcrepe-full",
+            pitch_engine: "torchcrepe-0.0.24",
+            timing_contract: "AVANTIQO_MUSIC_VOCAL_PHRASE_TIMING_V1",
+            stretch_engine: "signalsmith-stretch-python-0.3.1",
+            quality_profile: "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2",
+            capability: "ai.audio.vocal-correct",
+            rights_attestation_contract: "AVANTIQO_SOURCE_AUDIO_RIGHTS_ATTESTATION_V1",
+            content_restriction_policy: "USER_RIGHTS_ATTESTATION_ONLY",
+            max_source_duration_seconds: 900,
+            network_volume_required: false,
+            production_certified: false,
+            human_listening_review_required: true,
+            failure: success ? null : {
+              code: "AVANTIQO_MUSIC_VOCAL_CORRECTION_WORKER_IMAGE_BUILD_FAILED",
+              build_job_result: buildJobResult || "unknown",
+            },
+            production_web_deploy: false,
+            provider_job_submitted: false,
+            runpod_endpoint_mutation_performed: false,
+            shared_volume_mutation_performed: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false,
+          };
+          writeFileSync("/tmp/avantiqo-music-vocal-correction-worker-image.json", `${JSON.stringify(report)}\n`, "utf8");
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B music-vocal-correction-image-evidence origin/main
+            mkdir -p audits/results
+            cp /tmp/avantiqo-music-vocal-correction-worker-image.json audits/results/avantiqo-music-vocal-correction-worker-image.json
+            git add audits/results/avantiqo-music-vocal-correction-worker-image.json
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_EVIDENCE_ALREADY_CURRENT=true'
+              exit 0
+            fi
+            git commit -m "Record Music vocal correction worker image result"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_EVIDENCE_RECORDED=true'
+              exit 0
+            fi
+            echo "AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_EVIDENCE_PUSH_RETRY=${attempt}"
+            sleep "$attempt"
+          done
+          echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_IMAGE_EVIDENCE_PUSH_FAILED'
+          exit 1

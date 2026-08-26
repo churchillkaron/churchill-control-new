@@ -12,6 +12,11 @@ import {
 import {
   requireOperatorVoiceLanguage,
 } from "@/lib/operator/runtime/OperatorVoiceLanguagePolicy";
+import {
+  settleOperatorVoiceExecution,
+} from "@/lib/operator/runtime/OperatorVoiceServiceSettlement";
+
+export const maxDuration = 60;
 
 const VOICE_LANGUAGE_COOKIE = "avantiqo_voice_language";
 
@@ -20,7 +25,7 @@ function text(value) {
 }
 
 function findAudioBase64(value, depth = 0) {
-  if (depth > 6 || !value) return null;
+  if (depth > 8 || !value) return null;
   if (typeof value !== "object") return null;
 
   if (typeof value.audio_base64 === "string" && value.audio_base64.trim()) {
@@ -164,7 +169,18 @@ export async function POST(request) {
       category: "AI",
     });
 
-    const audioBase64 = findAudioBase64(execution);
+    const settledExecution = await settleOperatorVoiceExecution({
+      execution,
+      organizationId: businessContext.organizationId,
+      capability: "ai.text.to.speech",
+      metadata: {
+        module: "OPERATOR",
+        operation: "VOICE_RESPONSE",
+        channel: "voice",
+      },
+    });
+
+    const audioBase64 = findAudioBase64(settledExecution);
     if (!audioBase64) {
       console.error("OPERATOR_SPEECH_NO_AUDIO", {
         duration_ms: Date.now() - startedAt,
@@ -187,6 +203,7 @@ export async function POST(request) {
         ? "detected_continuity"
         : voiceLanguage.language_source,
       voice_language_continuity_used: continuityUsed,
+      usage_id: settledExecution?.usage?.id || execution?.usage?.id || null,
     });
 
     return new Response(audio, {

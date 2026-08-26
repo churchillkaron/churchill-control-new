@@ -92,10 +92,29 @@ if sizes["s3gen.pt"] < 1_000_000_000:
 cache_root = snapshot.parents[1]
 refs_dir = cache_root / "refs"
 refs_dir.mkdir(parents=True, exist_ok=True)
-(refs_dir / "main").write_text(f"{revision}\n", encoding="utf-8")
+ref_path = refs_dir / "main"
+ref_path.write_text(revision, encoding="utf-8")
+if ref_path.read_text(encoding="utf-8") != revision:
+    raise RuntimeError("AVANTIQO_VOICE_TTS_BAKED_MAIN_REF_INVALID")
+
+offline_snapshot = Path(snapshot_download(
+    repo_id=repo_id,
+    repo_type="model",
+    revision="main",
+    local_files_only=True,
+))
+if offline_snapshot.resolve() != snapshot.resolve():
+    raise RuntimeError(
+        "AVANTIQO_VOICE_TTS_BAKED_OFFLINE_MAIN_MISMATCH:"
+        f"expected={snapshot}:actual={offline_snapshot}"
+    )
+offline_missing = [name for name in required_files if not (offline_snapshot / name).is_file()]
+if offline_missing:
+    raise RuntimeError(f"AVANTIQO_VOICE_TTS_BAKED_OFFLINE_FILES_MISSING:{offline_missing}")
 
 print(f"AVANTIQO_VOICE_TTS_BAKED_MODEL_REVISION={revision}")
 print(f"AVANTIQO_VOICE_TTS_BAKED_MODEL_BYTES={sum(sizes.values())}")
+print("AVANTIQO_VOICE_TTS_BAKED_OFFLINE_MAIN=PASS")
 print("AVANTIQO_VOICE_TTS_BAKED_MODEL=PASS")
 PY
 

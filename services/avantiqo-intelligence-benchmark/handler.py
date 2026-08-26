@@ -1,3 +1,4 @@
+import gc
 import json
 import os
 import re
@@ -93,6 +94,13 @@ def load_model(mode: str, adapter_path: str | None):
     return model
 
 
+def release_model(model) -> None:
+    del model
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.cuda.synchronize()
+
+
 def generate_response(model, tokenizer, prompt: str, max_new_tokens: int) -> str:
     messages = [{"role": "user", "content": prompt}]
     rendered = tokenizer.apply_chat_template(
@@ -119,6 +127,23 @@ def generate_response(model, tokenizer, prompt: str, max_new_tokens: int) -> str
     return text(tokenizer.decode(new_tokens, skip_special_tokens=True), 12000)
 
 
+def generate_arm(mode: str, tokenizer, cases: list, max_new_tokens: int, adapter_path: Any) -> list:
+    model = load_model(mode, adapter_path)
+    try:
+        outputs = []
+        for case in cases:
+            response = generate_response(model, tokenizer, case["prompt"], max_new_tokens)
+            outputs.append({
+                "id": case["id"],
+                "category": case["category"],
+                "capability_key": case["capability_key"],
+                "response": response,
+            })
+        return outputs
+    finally:
+        release_model(model)
+
+
 def handler(event):
     payload = obj(event.get("input"))
     if text(payload.get("contract"), 120) != CONTRACT:
@@ -131,7 +156,7 @@ def handler(event):
         raise RuntimeError("BENCHMARK_CUDA_REQUIRED")
 
     mode = text(payload.get("mode"), 40).lower()
-    if mode not in {"baseline", "candidate"}:
+    if mode not in {"baseline", "candidate", "paired"}:
         raise ValueError("BENCHMARK_MODE_INVALID")
     model_name = text(payload.get("foundation_model"), 300) or FOUNDATION_MODEL
     if model_name != FOUNDATION_MODEL:
@@ -144,30 +169,57 @@ def handler(event):
     tokenizer = AutoTokenizer.from_pretrained(FOUNDATION_MODEL, use_fast=True)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
-    model = load_model(mode, payload.get("adapter_artifact_reference"))
 
-    outputs = []
-    for case in cases:
-        response = generate_response(model, tokenizer, case["prompt"], max_new_tokens)
-        outputs.append({
-            "id": case["id"],
-            "category": case["category"],
-            "capability_key": case["capability_key"],
-            "response": response,
-        })
+    adapter_reference = text(payload.get("adapter_artifact_reference"), 1000)
+    if mode == "paired":
+        if not adapter_reference:
+            raise ValueError("BENCHMARK_PAIRED_ADAPTER_REQUIRED")
+        baseline_outputs = generate_arm(
+            "baseline", tokenizer, cases, max_new_tokens, None
+        )
+        candidate_outputs = generate_arm(
+            "candidate", tokenizer, cases, max_new_tokens, adapter_reference
+        )
+        return {
+            "status": "BENCHMARK_PAIRED_GENERATION_COMPLETED",
+            "contract": CONTRACT,
+            "mode": "paired",
+            "foundation_model": FOUNDATION_MODEL,
+            "adapter_artifact_reference": adapter_reference,
+            "case_count": len(cases),
+            "baseline_outputs": baseline_outputs,
+            "candidate_outputs": candidate_outputs,
+            "generation": {
+                "do_sample": False,
+                "max_new_tokens": max_new_tokens,
+                "matched_prompt_set": True,
+                "single_runpod_job": True,
+                "arms_executed_sequentially": True,
+            },
+            "governance": {
+                "customer_private_content_allowed": False,
+                "raw_reasoning_required": False,
+                "production_model_mutated": False,
+                "production_model_promoted": False,
+            },
+        }
 
+    outputs = generate_arm(
+        mode, tokenizer, cases, max_new_tokens, adapter_reference
+    )
     return {
         "status": "BENCHMARK_GENERATION_COMPLETED",
         "contract": CONTRACT,
         "mode": mode,
         "foundation_model": FOUNDATION_MODEL,
-        "adapter_artifact_reference": text(payload.get("adapter_artifact_reference"), 1000) if mode == "candidate" else None,
+        "adapter_artifact_reference": adapter_reference if mode == "candidate" else None,
         "case_count": len(outputs),
         "outputs": outputs,
         "generation": {
             "do_sample": False,
             "max_new_tokens": max_new_tokens,
             "matched_prompt_set": True,
+            "single_runpod_job": True,
         },
         "governance": {
             "customer_private_content_allowed": False,

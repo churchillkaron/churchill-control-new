@@ -324,10 +324,16 @@ export default function SecretaryMeetingPresence({
     setStarting(true);
     setError("");
     setUploadError("");
+    notifyCaptureState(true);
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
         throw new Error("This browser does not support meeting audio capture.");
       }
+
+      // Give PlatformShell one paint cycle to unmount the passive wake bridge
+      // and release its microphone before Secretary claims the meeting mic.
+      await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -375,11 +381,11 @@ export default function SecretaryMeetingPresence({
       capturingRef.current = true;
       setElapsedMs(0);
       setCapturing(true);
-      notifyCaptureState(true);
       startRecorderChunk();
       await refreshMeeting(result.meeting.id);
     } catch (startError) {
       releaseStream();
+      notifyCaptureState(false);
       const message = startError?.message || "Unable to start meeting capture";
       setError(message);
     } finally {
@@ -420,7 +426,6 @@ export default function SecretaryMeetingPresence({
     setCapturing(false);
     try {
       await stopRecorderAndWait();
-      releaseStream();
       await waitForUploads();
 
       const currentMeeting = meetingRef.current;
@@ -442,6 +447,7 @@ export default function SecretaryMeetingPresence({
       }
       setMeetingData(result);
       meetingRef.current = result.meeting || currentMeeting;
+      releaseStream();
       notifyCaptureState(false);
     } catch (endError) {
       const message = endError?.message || "Unable to finish Secretary meeting";
@@ -449,8 +455,10 @@ export default function SecretaryMeetingPresence({
       if (meetingRef.current?.status === "CAPTURING" && streamRef.current) {
         capturingRef.current = true;
         setCapturing(true);
+        notifyCaptureState(true);
         startRecorderChunk();
       } else {
+        releaseStream();
         notifyCaptureState(false);
       }
     } finally {

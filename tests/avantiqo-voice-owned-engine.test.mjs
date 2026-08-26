@@ -119,19 +119,39 @@ test("Voice RunPod execution is durable across scale-to-zero cold starts and V2 
   assert.doesNotMatch(source, /AVANTIQO_VOICE_RUNSYNC_NOT_COMPLETED/);
 });
 
-test("Operator speech APIs remain capability-only and do not expose provider evidence", async () => {
+test("Operator speech APIs delegate capability-only execution to async Voice runtimes", async () => {
   const transcribe = await readFile(
     new URL("../app/api/operator/transcribe/route.js", import.meta.url),
     "utf8",
   );
-  const speak = await readFile(
+  const speakJobs = await readFile(
+    new URL("../app/api/operator/speak/jobs/route.js", import.meta.url),
+    "utf8",
+  );
+  const legacySpeak = await readFile(
     new URL("../app/api/operator/speak/route.js", import.meta.url),
     "utf8",
   );
-  assert.match(transcribe, /service_id:\s*"ai\.speech\.to\.text"/);
-  assert.match(speak, /service_id:\s*"ai\.text\.to\.speech"/);
-  assert.doesNotMatch(transcribe, /provider_evidence/);
-  assert.doesNotMatch(speak, /provider_evidence/);
+  const transcriptionRuntime = await readFile(
+    new URL("../lib/operator/runtime/OperatorVoiceAsyncTranscriptionRuntime.js", import.meta.url),
+    "utf8",
+  );
+  const speechRuntime = await readFile(
+    new URL("../lib/operator/runtime/OperatorVoiceAsyncSpeechRuntime.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(transcribe, /startOperatorAsyncTranscription/);
+  assert.match(speakJobs, /OperatorVoiceAsyncSpeechRuntime\.start/);
+  assert.match(transcriptionRuntime, /const CAPABILITY = "ai\.speech\.to\.text"/);
+  assert.match(transcriptionRuntime, /service_id:\s*CAPABILITY/);
+  assert.match(speechRuntime, /const CAPABILITY = "ai\.text\.to\.speech"/);
+  assert.match(speechRuntime, /service_id:\s*CAPABILITY/);
+  assert.match(legacySpeak, /AVANTIQO_OPERATOR_SPEAK_LEGACY_DISABLED/);
+  assert.match(legacySpeak, /\/api\/operator\/speak\/jobs/);
+  for (const source of [transcribe, speakJobs, legacySpeak]) {
+    assert.doesNotMatch(source, /provider_evidence/);
+  }
 });
 
 test("TTS worker implements consented recorded-reference identity while Thai stays fail-closed", async () => {

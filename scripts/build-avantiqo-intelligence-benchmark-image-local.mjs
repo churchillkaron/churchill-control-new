@@ -125,6 +125,8 @@ if (runInfo.conclusion !== "success") {
   throw new Error(`BENCHMARK_IMAGE_WORKFLOW_FAILED:${runInfo.conclusion || "UNKNOWN"}:run=${runInfo.databaseId}`);
 }
 
+const shortSha = text(runInfo.headSha, 40).slice(0, 12);
+const artifactName = `avantiqo-intelligence-benchmark-image-${shortSha}`;
 const tempRoot = join("/tmp", `avantiqo-intelligence-benchmark-image-${nonce}`);
 rmSync(tempRoot, { recursive: true, force: true });
 mkdirSync(tempRoot, { recursive: true });
@@ -136,14 +138,15 @@ run(
     String(runInfo.databaseId),
     "--repo",
     REPOSITORY,
+    "--name",
+    artifactName,
     "--dir",
     tempRoot,
   ],
   "BENCHMARK_IMAGE_ARTIFACT_DOWNLOAD_FAILED",
 );
 
-const artifactDir = join(tempRoot, `avantiqo-intelligence-benchmark-image-${text(runInfo.headSha, 40).slice(0, 12)}`);
-const evidenceSource = join(artifactDir, "evidence.json");
+const evidenceSource = join(tempRoot, "evidence.json");
 const evidence = JSON.parse(readFileSync(evidenceSource, "utf8"));
 if (
   evidence?.success !== true ||

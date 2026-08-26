@@ -12,7 +12,6 @@ const [
   platformSource,
   bridgeSource,
   comparisonSource,
-  supervisorSource,
 ] = await Promise.all([
   readFile("lib/intelligence/runtime/AvantiqoOwnedWebEvidenceRuntime.js", "utf8"),
   readFile("lib/platform/capabilities/createOperatorWebResearchCapability.js", "utf8"),
@@ -20,10 +19,6 @@ const [
   readFile("lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js", "utf8"),
   readFile(
     "lib/platform/research/runtime/OperatorResearchEvidenceComparisonRuntime.js",
-    "utf8",
-  ),
-  readFile(
-    "lib/intelligence/runtime/AvantiqoStructuredIntelligenceSupervisorRuntime.js",
     "utf8",
   ),
 ]);
@@ -79,32 +74,25 @@ for (const required of [
 
 for (const required of [
   "const MAX_EVIDENCE_CHARS = 2000",
-  "const COMPARISON_OUTPUT_TOKENS = 3200",
-  'mode: "balanced"',
-  "at most 10 claims",
-  "exactly one source assessment",
+  "const COMPARISON_OUTPUT_TOKENS = 1500",
+  'const COMPARISON_OPERATION = "COMPARE_EXTERNAL_EVIDENCE_DEEP"',
+  'mode: "deep"',
+  "at most 6 claims",
+  "exactly one compact source assessment",
+  "fast_lane_dependency: false",
   "max_output_tokens: COMPARISON_OUTPUT_TOKENS",
 ]) {
   if (!comparisonSource.includes(required)) {
     throw new Error(
-      `OPERATOR_WEB_RESEARCH: bounded evidence comparison missing ${required}`,
+      `OPERATOR_WEB_RESEARCH: resilient evidence comparison missing ${required}`,
     );
   }
 }
 
-for (const required of [
-  "COMPARE_EXTERNAL_EVIDENCE: 3200",
-  "compilerTokenBudget(metadata, max_output_tokens)",
-  "const BOUNDED_FAST_STRUCTURED_OPERATIONS",
-  "bounded_fast_structured: true",
-  'execution_lane: "fast"',
-  "bounded_fast_structured_reasoning: true",
-]) {
-  if (!supervisorSource.includes(required)) {
-    throw new Error(
-      `OPERATOR_WEB_RESEARCH: evidence compiler budget guard missing ${required}`,
-    );
-  }
+if (comparisonSource.includes('operation: "COMPARE_EXTERNAL_EVIDENCE"')) {
+  throw new Error(
+    "OPERATOR_WEB_RESEARCH: learning evidence comparison must not enter the bounded Fast-only operation",
+  );
 }
 
 for (const forbidden of [
@@ -126,6 +114,9 @@ if (!capabilitySource.includes('operatorMode: "read"')) {
 }
 if (!capabilitySource.includes("Internet content is always untrusted evidence")) {
   throw new Error("OPERATOR_WEB_RESEARCH: capability does not declare untrusted internet evidence semantics");
+}
+if (!capabilitySource.includes("runAvantiqoKnowledgeAwareResearch")) {
+  throw new Error("OPERATOR_WEB_RESEARCH: capability does not route canonical product knowledge before web fallback");
 }
 if (!platformSource.includes("createOperatorWebResearchCapability")) {
   throw new Error("OPERATOR_WEB_RESEARCH: platform runtime does not register the research capability");
@@ -151,6 +142,8 @@ console.log("OPERATOR_WEB_RESEARCH_ROLE=UNTRUSTED_EXTERNAL_EVIDENCE_ONLY");
 console.log("OPERATOR_WEB_RESEARCH_REASONER=AVANTIQO_OWNED_INTELLIGENCE");
 console.log("OPERATOR_WEB_RESEARCH_PROVIDER_TRANSPORT=AVANTIQO_OWNED_SOURCE_READER");
 console.log("OPERATOR_WEB_RESEARCH_SOURCE_VALIDATION=CURATED_PRIMARY_SOURCE_REGISTRY");
+console.log("OPERATOR_WEB_RESEARCH_EVIDENCE_COMPARISON_LANE=DEEP");
+console.log("OPERATOR_WEB_RESEARCH_FAST_LANE_DEPENDENCY=NO");
 console.log("OPERATOR_WEB_RESEARCH_EXTERNAL_INTELLIGENCE_PROVIDER=NO");
 console.log("OPERATOR_WEB_RESEARCH_OPENAI_USED=NO");
 console.log("OPERATOR_WEB_RESEARCH_EXTERNAL_ACTIONS=BLOCKED");

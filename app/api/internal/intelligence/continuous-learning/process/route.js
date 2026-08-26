@@ -6,6 +6,9 @@ import {
   runAvantiqoContinuousLearningBatch,
 } from "@/lib/intelligence/runtime/AvantiqoContinuousLearningRuntime";
 import {
+  reconcileAvantiqoLearningEvidenceCandidates,
+} from "@/lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime";
+import {
   syncAvantiqoInternalProductKnowledge,
 } from "@/lib/intelligence/runtime/AvantiqoInternalProductKnowledgeRuntime";
 import {
@@ -60,29 +63,34 @@ export async function GET(request) {
     // 2. Discover product/evidence coverage gaps from that truth.
     // 3. Evaluate whether prior research is productive and adapt priority/cadence.
     // 4. Apply only anti-overfit eligible observational knowledge-utility feedback.
-    // 5. Escalate weak/unsolved topics into provider-free mechanism, constraint,
+    // 5. Bridge previously staged public-evidence candidates into adversarial
+    //    mechanism review. Evidence candidates never become facts here.
+    // 6. Escalate weak/unsolved topics into provider-free mechanism, constraint,
     //    adjacent-domain and experiment-evidence discovery tracks.
-    // 6. Reconcile governed syntheses into hypotheses, experiment proposals,
+    // 7. Reconcile governed syntheses into hypotheses, experiment proposals,
     //    replication status and experimental knowledge candidates.
-    // 7. Adversarially reconcile mature experimental candidates against the
+    // 8. Adversarially reconcile mature experimental candidates against the
     //    durable Evidence Graph and create shadow-only provisional knowledge.
-    // 8. Evaluate non-influencing provisional shadow observations. Context
+    // 9. Evaluate non-influencing provisional shadow observations. Context
     //    success is not treated as incremental utility.
-    // 9. Create immutable counterfactual A/B benchmark plans for mature shadow
-    //    candidates and reconcile only separately-recorded passing evaluations
-    //    into final knowledge release review candidates. This stage performs no
-    //    benchmark execution and never writes platform_knowledge.
-    // 10. Spend the existing bounded public-evidence research budget on the
-    //     resulting agenda, including adversarial reconciliation work.
+    // 10. Create immutable counterfactual A/B benchmark plans for mature shadow
+    //     candidates and reconcile only separately-recorded passing evaluations
+    //     into final knowledge release review candidates. This stage performs no
+    //     benchmark execution and never writes platform_knowledge.
+    // 11. Spend the existing bounded public-evidence research budget on the
+    //     resulting agenda, including adversarial reconciliation work. Newly
+    //     supported claims are staged as evidence candidates for the next cycle.
     // Any hypothesis/invention synthesis or counterfactual benchmark execution
     // that could wake owned RunPod Intelligence is deliberately outside this
     // cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
-    // Stages 1-9 never mutate model weights, authorize product actions, execute
+    // Stages 1-10 never mutate model weights, authorize product actions, execute
     // experiments, submit RunPod jobs, or automatically promote knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
     const learningEffectiveness = await evaluateAvantiqoLearningEffectiveness();
     const knowledgeUtilityFeedback = await applyAvantiqoKnowledgeUtilityFeedback();
+    const learningEvidenceCandidateBridge =
+      await reconcileAvantiqoLearningEvidenceCandidates();
     const mechanismFirstLearning = await reconcileAvantiqoMechanismFirstLearning();
     const scientificLearning = await reconcileAvantiqoScientificLearningExperiments();
     const epistemicPromotion = await reconcileAvantiqoEpistemicPromotion();
@@ -100,6 +108,7 @@ export async function GET(request) {
         learning_coverage: learningCoverage,
         learning_effectiveness: learningEffectiveness,
         knowledge_utility_feedback: knowledgeUtilityFeedback,
+        learning_evidence_candidate_bridge: learningEvidenceCandidateBridge,
         mechanism_first_learning: mechanismFirstLearning,
         scientific_learning: scientificLearning,
         epistemic_promotion: epistemicPromotion,

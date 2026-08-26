@@ -37,6 +37,10 @@ const requiredMarkers = [
   "source_read_evidence",
   "rejected_duplicate_actions",
   "duplicate_rejection_streak",
+  "last_duplicate_action",
+  "recordDuplicateProgress",
+  "resetDuplicateProgress",
+  "plannerAllowedActions",
   "trailingDuplicateRejectionStreak",
   "CODE_AI_AUTONOMOUS_DUPLICATE_ACTION_STREAK_EXCEEDED",
   "currentSourceRevision",
@@ -108,14 +112,18 @@ if (pendingBranch < 0 || pendingIterationPersistence < pendingBranch) {
 }
 
 const duplicateGuard = source.indexOf("const duplicate = duplicateActionGuard(control, decision)");
-const duplicateStreak = source.indexOf("const duplicateRejectionStreak = trailingDuplicateRejectionStreak(state)", duplicateGuard);
+const duplicateProgressRecord = source.indexOf("control = recordDuplicateProgress(control, decision.action)", duplicateGuard);
+const duplicateProgressPersist = source.indexOf("state = withAutonomyControl(state, control)", duplicateProgressRecord);
+const duplicateStreak = source.indexOf("const duplicateRejectionStreak = nonNegativeInteger(control.duplicate_rejection_streak)", duplicateProgressPersist);
 const duplicateStreakLimit = source.indexOf("duplicateRejectionStreak >= MAX_DUPLICATE_REJECTION_STREAK", duplicateStreak);
 const missionExecution = source.indexOf("const executeOperation = () => executeCodeAIMission", duplicateGuard);
 if (duplicateGuard < 0 || missionExecution <= duplicateGuard) {
   throw new Error("CODE_AI_AUTONOMY_DUPLICATE_GUARD_MUST_PRECEDE_MISSION_EXECUTION");
 }
 if (
-  duplicateStreak <= duplicateGuard ||
+  duplicateProgressRecord <= duplicateGuard ||
+  duplicateProgressPersist <= duplicateProgressRecord ||
+  duplicateStreak <= duplicateProgressPersist ||
   duplicateStreakLimit <= duplicateStreak ||
   duplicateStreakLimit >= missionExecution
 ) {
@@ -203,6 +211,8 @@ console.log(JSON.stringify({
     rejected_duplicate_actions_exposed_to_planner: true,
     duplicate_rejection_streak_bounded: true,
     duplicate_rejection_streak_fails_closed_before_workspace_execution: true,
+    duplicate_rejection_streak_persisted_in_autonomy_control: true,
+    repeated_duplicate_action_temporarily_suppressed_after_second_rejection: true,
     unrelated_observations_do_not_refresh_source_reads: true,
     apply_files_refreshes_source_reads: true,
     main_replan_refreshes_source_reads: true,

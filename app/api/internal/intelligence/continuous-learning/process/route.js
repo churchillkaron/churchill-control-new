@@ -51,6 +51,9 @@ import {
 import {
   reconcileAvantiqoLearningTransfer,
 } from "@/lib/intelligence/runtime/AvantiqoLearningTransferRuntime";
+import {
+  reconcileAvantiqoLearningTransferValidation,
+} from "@/lib/intelligence/runtime/AvantiqoLearningTransferValidationRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -109,13 +112,17 @@ export async function GET(request) {
     //     mastered sources toward active frontier targets. Analogy remains a
     //     hypothesis only; verified transfer hypotheses require explicit mechanisms,
     //     boundary conditions, falsifiers and discriminating experiments.
-    // 16. Spend the existing bounded public-evidence research budget on the
+    // 16. Reconcile separately recorded governed transfer experiment results into
+    //     replication-aware SUPPORTED, BOUNDARY_LIMITED or REFUTED evidence.
+    //     Mature refutation creates expiring exact-mechanism negative-transfer memory.
+    //     This stage executes no experiments and writes no reusable platform knowledge.
+    // 17. Spend the existing bounded public-evidence research budget on the
     //     resulting agenda, including adversarial/dependency/frontier/transfer work.
     //     Newly supported claims are staged as evidence candidates for the next cycle.
     // Any hypothesis/invention synthesis, transfer experiment execution, or
     // counterfactual benchmark execution that could wake owned RunPod Intelligence
     // is deliberately outside this cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
-    // Stages 1-15 never mutate model weights, authorize product actions, execute
+    // Stages 1-16 never mutate model weights, authorize product actions, execute
     // experiments, submit RunPod jobs, automatically release knowledge, or
     // automatically restore quarantined/retired/dependency-held knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
@@ -140,6 +147,8 @@ export async function GET(request) {
     const learningMasteryFrontier =
       await reconcileAvantiqoLearningMasteryFrontier();
     const learningTransfer = await reconcileAvantiqoLearningTransfer();
+    const learningTransferValidation =
+      await reconcileAvantiqoLearningTransferValidation();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -162,6 +171,7 @@ export async function GET(request) {
         knowledge_dependency_curriculum: knowledgeDependencyCurriculum,
         learning_mastery_frontier: learningMasteryFrontier,
         learning_transfer: learningTransfer,
+        learning_transfer_validation: learningTransferValidation,
       },
       {
         status: result.success === false ? 207 : 200,

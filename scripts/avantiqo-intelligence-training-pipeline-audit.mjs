@@ -24,7 +24,10 @@ const index = read("lib/intelligence/index.js");
 assert(candidate.includes("AVANTIQO_TRAINING_CANDIDATE_V1"), "TRAINING_CANDIDATE_CONTRACT_REQUIRED");
 assert(candidate.includes("MIN_BENCHMARK_CASES = 20"), "TRAINING_CANDIDATE_MIN_BENCHMARK_REQUIRED");
 assert(candidate.includes("MIN_PASS_RATE = 0.95"), "TRAINING_CANDIDATE_PASS_RATE_REQUIRED");
-assert(candidate.includes("training_ready: false"), "TRAINING_CANDIDATE_DEFAULT_NOT_READY_REQUIRED");
+assert(candidate.includes("training_ready: metadata.training_ready === true"), "TRAINING_CANDIDATE_EXPLICIT_READY_TRUE_REQUIRED");
+assert(candidate.includes("training_ready: decision.approved"), "TRAINING_CANDIDATE_BENCHMARK_DECISION_BOUND_REQUIRED");
+assert(candidate.includes("training_ready_means_dataset_eligible_only: true"), "TRAINING_CANDIDATE_READY_DATASET_ONLY_REQUIRED");
+assert(candidate.includes("automatic_training_started: false"), "TRAINING_CANDIDATE_AUTO_TRAINING_FORBIDDEN");
 assert(candidate.includes("automatic_model_weight_mutation: false"), "TRAINING_CANDIDATE_AUTO_WEIGHT_MUTATION_FORBIDDEN");
 
 assert(dataset.includes("AVANTIQO_TRAINING_DATASET_V1"), "TRAINING_DATASET_CONTRACT_REQUIRED");

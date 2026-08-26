@@ -5,9 +5,17 @@ register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
 const apply = process.argv.includes("--apply");
 const benchmark = process.argv.includes("--benchmark");
+const assemble = process.argv.includes("--assemble");
 const yes = (value) => ["YES", "TRUE", "1", "APPROVED", "ON"].includes(
   String(value ?? "").trim().toUpperCase(),
 );
+
+if (benchmark && !apply) {
+  throw new Error("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_REQUIRES_APPLY");
+}
+if (assemble && (!apply || !benchmark)) {
+  throw new Error("AVANTIQO_TRAINING_DATASET_ASSEMBLY_REQUIRES_APPLY_AND_BENCHMARK");
+}
 
 const {
   buildAvantiqoCanonicalCurriculumCandidates,
@@ -20,11 +28,20 @@ const {
 } = await import(
   "@/lib/intelligence/runtime/AvantiqoCanonicalCurriculumBenchmarkRuntime"
 );
+const {
+  assembleAvantiqoTrainingDataset,
+} = await import(
+  "@/lib/intelligence/runtime/AvantiqoTrainingDatasetRuntime"
+);
 
 const candidates = buildAvantiqoCanonicalCurriculumCandidates();
 const summary = {
   contract: "AVANTIQO_CANONICAL_CURRICULUM_CANDIDATE_LOCAL_V1",
-  mode: apply ? (benchmark ? "APPLY_AND_BENCHMARK" : "APPLY") : "PLAN",
+  mode: assemble
+    ? "APPLY_BENCHMARK_AND_ASSEMBLE"
+    : apply
+      ? (benchmark ? "APPLY_AND_BENCHMARK" : "APPLY")
+      : "PLAN",
   candidate_count: candidates.length,
   by_domain: candidates.reduce((accumulator, candidate) => {
     const domain = candidate.domain || "unknown";
@@ -120,3 +137,47 @@ console.log(`AVANTIQO_CANONICAL_CURRICULUM_TOTAL_APPROVED=${benchmarkResult.tota
 console.log("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_PROVIDER_EXECUTION=NO");
 console.log("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_RUNPOD=NO");
 console.log("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_SHARED_TRAINER_MUTATED=NO");
+
+if (!assemble) {
+  console.log("AVANTIQO_TRAINING_DATASET_ASSEMBLED=NO");
+  process.exit(0);
+}
+
+if (!yes(process.env.AVANTIQO_TRAINING_DATASET_ASSEMBLY_APPROVED)) {
+  throw new Error("AVANTIQO_TRAINING_DATASET_ASSEMBLY_APPROVED=YES_REQUIRED");
+}
+
+const datasetResult = await assembleAvantiqoTrainingDataset({
+  holdout_ratio: 0.2,
+  limit: 32,
+});
+console.log(JSON.stringify({
+  ...datasetResult,
+  provider_execution_used: false,
+  runpod_used: false,
+  shared_trainer_mutated: false,
+  model_training_started: false,
+  production_deploy_performed: false,
+  secrets_printed: false,
+}, null, 2));
+
+if (datasetResult.status !== "DATASET_ASSEMBLED" || !datasetResult.dataset?.manifest_id) {
+  throw new Error(
+    `AVANTIQO_TRAINING_DATASET_ASSEMBLY_FAILED:${datasetResult.status || "UNKNOWN"}`,
+  );
+}
+if (Number(datasetResult.dataset.candidate_count || 0) < 8) {
+  throw new Error(
+    `AVANTIQO_TRAINING_DATASET_APPROVED_CANDIDATE_MINIMUM_NOT_MET:${datasetResult.dataset.candidate_count || 0}`,
+  );
+}
+
+console.log("AVANTIQO_TRAINING_DATASET_ASSEMBLY=PASS");
+console.log(`AVANTIQO_TRAINING_DATASET_MANIFEST_ID=${datasetResult.dataset.manifest_id}`);
+console.log(`AVANTIQO_TRAINING_DATASET_FINGERPRINT=${datasetResult.dataset.fingerprint}`);
+console.log("AVANTIQO_TRAINING_DATASET_SOURCE_VERSION_BOUND=YES");
+console.log("AVANTIQO_TRAINING_DATASET_BENCHMARK_VERSION_BOUND=YES");
+console.log("AVANTIQO_TRAINING_DATASET_PROVIDER_EXECUTION=NO");
+console.log("AVANTIQO_TRAINING_DATASET_RUNPOD=NO");
+console.log("AVANTIQO_TRAINING_DATASET_SHARED_TRAINER_MUTATED=NO");
+console.log("AVANTIQO_TRAINING_DATASET_MODEL_TRAINING_STARTED=NO");

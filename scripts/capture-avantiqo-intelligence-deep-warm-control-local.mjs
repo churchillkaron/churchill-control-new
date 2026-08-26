@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 const REST_BASE = "https://rest.runpod.io/v1";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_WARM_CONTROL_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_WARM_CONTROL_V2";
 const APPROVAL = "AVANTIQO_INTELLIGENCE_DEEP_WARM_CONTROL_APPROVED";
 const DEEP_NAME = "avantiqo-intelligence-v1";
 const FAST_NAME = "avantiqo-intelligence-fast-v1";
@@ -113,29 +113,77 @@ async function patchDeepMin(id, key, min) {
   }
 }
 
+async function parkFast(id, key) {
+  await requestJson(`${REST_BASE}/endpoints/${encodeURIComponent(id)}`, key, {
+    method: "PATCH",
+    body: { workersMin: 0, workersMax: 0 },
+  });
+  const verified = await requestJson(`${REST_BASE}/endpoints/${encodeURIComponent(id)}?includeWorkers=true`, key);
+  if (finite(verified?.workersMin, -1) !== 0 || finite(verified?.workersMax, -1) !== 0) {
+    throw new Error(`AVANTIQO_DEEP_WARM_CONTROL_FAST_PARK_VERIFY_FAILED:min=${finite(verified?.workersMin, -1)}:max=${finite(verified?.workersMax, -1)}`);
+  }
+}
+
 const mainCommit = validateCurrentMain();
 if (text(process.env[APPROVAL]).toUpperCase() !== "YES") throw new Error(`${APPROVAL}=YES_REQUIRED`);
 const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
 const runtimeKey = text(process.env.RUNPOD_API_KEY || managementKey);
 if (!managementKey || !runtimeKey) throw new Error("RUNPOD_MANAGEMENT_OR_API_KEY_REQUIRED");
 
-const state = await endpoints(managementKey);
-const deep = resolveOne(state, DEEP_NAME);
-const fast = resolveOne(state, FAST_NAME);
+let state = await endpoints(managementKey);
+let deep = resolveOne(state, DEEP_NAME);
+let fast = resolveOne(state, FAST_NAME);
 const deepId = text(deep?.id);
 const fastId = text(fast?.id);
 if (!deepId || !fastId) throw new Error("AVANTIQO_DEEP_WARM_CONTROL_ENDPOINT_IDS_REQUIRED");
-if (finite(deep?.workersMin, -1) !== 0 || finite(deep?.workersMax, -1) !== 1 || finite(fast?.workersMin, -1) !== 0 || finite(fast?.workersMax, -1) !== 0) {
-  throw new Error(`AVANTIQO_DEEP_WARM_CONTROL_PARKED_STATE_REQUIRED:deep_min=${finite(deep?.workersMin, -1)}:deep_max=${finite(deep?.workersMax, -1)}:fast_min=${finite(fast?.workersMin, -1)}:fast_max=${finite(fast?.workersMax, -1)}`);
-}
 
-const [deepHealthBefore, fastHealthBefore] = await Promise.all([
+const [deepHealthBefore, fastHealthBefore, fastWorkersBodyBefore] = await Promise.all([
   requestJson(`${QUEUE_BASE}/${encodeURIComponent(deepId)}/health`, runtimeKey),
   requestJson(`${QUEUE_BASE}/${encodeURIComponent(fastId)}/health`, runtimeKey),
+  requestJson(`${CONTROL_BASE}/serverless/${encodeURIComponent(fastId)}/workers`, managementKey),
 ]);
 const before = { deep: healthSummary(deepHealthBefore), fast: healthSummary(fastHealthBefore) };
+const fastWorkersBeforeRecovery = safeWorkers(fastWorkersBodyBefore);
 if (before.deep.jobs.in_queue || before.deep.jobs.in_progress || before.fast.jobs.in_queue || before.fast.jobs.in_progress) {
   throw new Error("AVANTIQO_DEEP_WARM_CONTROL_ZERO_JOBS_REQUIRED");
+}
+
+const deepMinBefore = finite(deep?.workersMin, -1);
+const deepMaxBefore = finite(deep?.workersMax, -1);
+const fastMinBefore = finite(fast?.workersMin, -1);
+const fastMaxBefore = finite(fast?.workersMax, -1);
+const parkedBefore = deepMinBefore === 0 && deepMaxBefore === 1 && fastMinBefore === 0 && fastMaxBefore === 0;
+const dualEnabledBefore = deepMinBefore === 0 && deepMaxBefore === 1 && fastMinBefore === 0 && fastMaxBefore === 1;
+let recoveredDualEnabledSlot = false;
+
+if (!parkedBefore && !dualEnabledBefore) {
+  throw new Error(`AVANTIQO_DEEP_WARM_CONTROL_PARKED_OR_RECOVERABLE_STATE_REQUIRED:deep_min=${deepMinBefore}:deep_max=${deepMaxBefore}:fast_min=${fastMinBefore}:fast_max=${fastMaxBefore}`);
+}
+
+if (dualEnabledBefore) {
+  const activeFastRuntime =
+    before.fast.workers.initializing > 0 ||
+    before.fast.workers.running > 0 ||
+    before.fast.workers.unhealthy > 0 ||
+    fastWorkersBeforeRecovery.some((worker) => ["INITIALIZING", "RUNNING", "UNHEALTHY"].includes(worker.status));
+  if (activeFastRuntime) {
+    throw new Error(`AVANTIQO_DEEP_WARM_CONTROL_DUAL_SLOT_FAST_RUNTIME_ACTIVE:health=${JSON.stringify(before.fast.workers)}:workers=${JSON.stringify(fastWorkersBeforeRecovery)}`);
+  }
+  await parkFast(fastId, managementKey);
+  recoveredDualEnabledSlot = true;
+  console.log("AVANTIQO_INTELLIGENCE_DEEP_WARM_CONTROL_DUAL_SLOT_RECOVERED=true");
+  console.log("AVANTIQO_INTELLIGENCE_FAST_PARKED_BEFORE_DEEP_CONTROL=true");
+  state = await endpoints(managementKey);
+  deep = resolveOne(state, DEEP_NAME);
+  fast = resolveOne(state, FAST_NAME);
+  if (
+    finite(deep?.workersMin, -1) !== 0 ||
+    finite(deep?.workersMax, -1) !== 1 ||
+    finite(fast?.workersMin, -1) !== 0 ||
+    finite(fast?.workersMax, -1) !== 0
+  ) {
+    throw new Error("AVANTIQO_DEEP_WARM_CONTROL_RECOVERED_PARKED_STATE_VERIFY_FAILED");
+  }
 }
 
 let cleanupPassed = false;
@@ -194,6 +242,14 @@ console.log(JSON.stringify({
   timeout_ms: TIMEOUT_MS,
   elapsed_seconds: Math.floor((Date.now() - startedAt) / 1000),
   before,
+  slot_state_before: {
+    deep_workers_min: deepMinBefore,
+    deep_workers_max: deepMaxBefore,
+    fast_workers_min: fastMinBefore,
+    fast_workers_max: fastMaxBefore,
+  },
+  recovered_dual_enabled_slot: recoveredDualEnabledSlot,
+  fast_workers_before_recovery: fastWorkersBeforeRecovery,
   worker_seen: workerSeen,
   workers,
   final_deep_health: finalHealth,
@@ -201,6 +257,7 @@ console.log(JSON.stringify({
   diagnosis,
   next_action: nextAction,
   deep_min_reset_to_zero: cleanupPassed,
+  canonical_slot_state_expected_after: { deep_workers_max: 1, fast_workers_max: 0 },
   generation_submitted: false,
   inference_performed: false,
   endpoint_mutation_performed: true,

@@ -4,6 +4,7 @@ import test from "node:test";
 
 const files = Object.freeze({
   timing: "services/avantiqo-music-vocal-correction-engine/timing.py",
+  keyParser: "services/avantiqo-music-vocal-correction-engine/key_parser.py",
   handlerV2: "services/avantiqo-music-vocal-correction-engine/handler_v2.py",
   docker: "services/avantiqo-music-vocal-correction-engine/Dockerfile",
   provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionProvider.js",
@@ -47,12 +48,49 @@ test("Music vocal correction V2 adds conservative whole-phrase timing", async ()
   ], "V2 handler");
 });
 
-test("immutable Music correction image boots V2", async () => {
+test("Music vocal key parsing accepts compact major/minor keys and rejects unsupported modes", async () => {
+  const keyParser = await source(files.keyParser);
+  hasAll(keyParser, [
+    "AVANTIQO_MUSIC_VOCAL_KEY_PARSER_V1",
+    '"Am": (9, "minor")',
+    '"F#m": (6, "minor")',
+    '"Bb": (10, "major")',
+    '"Dbm": (1, "minor")',
+    '"C dorian"',
+    "key_parser_self_test",
+  ], "key parser");
+});
+
+test("V2 pitch readiness is explicit and cannot pass from a nonnegative event count", async () => {
+  const handler = await source(files.handlerV2);
+  hasAll(handler, [
+    '"INSUFFICIENT_VOICING"',
+    '"NO_CORRECTION_NEEDED"',
+    '"APPLIED"',
+    '"FAILED"',
+    '"pitch_status": pitch_readiness["status"]',
+    '"pitch_correction_complete": pitch_readiness["complete"]',
+    '"correction_pipeline_complete": correction_pipeline_complete',
+    '"formant_compensation_explicitly_configured": False',
+    '"formant_preservation_claimed": False',
+    '"unverified_formant_preservation_claim_forbidden": True',
+    "AVANTIQO_MUSIC_VOCAL_CORRECTION_KEY_INVALID",
+  ], "V2 readiness");
+  assert.equal(handler.includes('pitch_render["applied_event_count"] >= 0'), false);
+});
+
+test("immutable Music correction image boots V2 and performs real dependency smoke", async () => {
   const docker = await source(files.docker);
   hasAll(docker, [
+    "COPY services/avantiqo-music-vocal-correction-engine/key_parser.py /app/key_parser.py",
     "COPY services/avantiqo-music-vocal-correction-engine/timing.py /app/timing.py",
     "COPY services/avantiqo-music-vocal-correction-engine/handler_v2.py /app/handler_v2.py",
-    "python3 -m py_compile /app/handler.py /app/timing.py /app/handler_v2.py",
+    "python3 -m py_compile /app/handler.py /app/key_parser.py /app/timing.py /app/handler_v2.py",
+    "key_parser_self_test",
+    "torchcrepe.predict(",
+    '"tiny"',
+    "AVANTIQO_MUSIC_VOCAL_CORRECTION_TORCHCREPE_INFERENCE_SMOKE=PASS",
+    "AVANTIQO_MUSIC_VOCAL_KEY_PARSER_SELF_TEST=PASS",
     'CMD ["python3", "/app/handler_v2.py"]',
   ], "Dockerfile");
 });

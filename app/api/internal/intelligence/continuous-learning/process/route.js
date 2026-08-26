@@ -20,6 +20,9 @@ import {
 import {
   reconcileAvantiqoMechanismFirstLearning,
 } from "@/lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime";
+import {
+  reconcileAvantiqoScientificLearningExperiments,
+} from "@/lib/intelligence/runtime/AvantiqoScientificLearningExperimentRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -49,18 +52,23 @@ export async function GET(request) {
     // 4. Apply only anti-overfit eligible observational knowledge-utility feedback.
     // 5. Escalate weak/unsolved topics into provider-free mechanism, constraint,
     //    adjacent-domain and experiment-evidence discovery tracks.
-    // 6. Spend the existing bounded public-evidence research budget on the
+    // 6. Reconcile already-created governed syntheses into durable hypotheses,
+    //    experiment proposals, replication status and experimental knowledge
+    //    candidates. One experiment never establishes truth and no experiment
+    //    is executed by this stage.
+    // 7. Spend the existing bounded public-evidence research budget on the
     //    resulting agenda.
     // Any hypothesis/invention synthesis that could wake owned RunPod
     // Intelligence is deliberately outside this cron and must execute through
     // AVANTIQO_RUNPOD_SAFE_LEASE_V2 on the intelligence-deep lane.
-    // Stages 1-5 never mutate model weights, authorize product actions or submit
-    // RunPod jobs.
+    // Stages 1-6 never mutate model weights, authorize product actions, execute
+    // experiments or submit RunPod jobs.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
     const learningEffectiveness = await evaluateAvantiqoLearningEffectiveness();
     const knowledgeUtilityFeedback = await applyAvantiqoKnowledgeUtilityFeedback();
     const mechanismFirstLearning = await reconcileAvantiqoMechanismFirstLearning();
+    const scientificLearning = await reconcileAvantiqoScientificLearningExperiments();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -71,6 +79,7 @@ export async function GET(request) {
         learning_effectiveness: learningEffectiveness,
         knowledge_utility_feedback: knowledgeUtilityFeedback,
         mechanism_first_learning: mechanismFirstLearning,
+        scientific_learning: scientificLearning,
       },
       {
         status: result.success === false ? 207 : 200,

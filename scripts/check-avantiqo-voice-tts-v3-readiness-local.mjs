@@ -6,14 +6,17 @@ loadAvantiqoEnv();
 const REST = "https://rest.runpod.io/v1";
 const CONTROL = "https://api.runpod.io/v2";
 const QUEUE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_VOICE_TTS_V3_READINESS_V1";
+const CONTRACT = "AVANTIQO_VOICE_TTS_V3_READINESS_V2";
 const EVIDENCE_PATH = "audits/results/avantiqo-voice-worker-images.json";
+const OBSERVATION_COUNT = 4;
+const OBSERVATION_INTERVAL_MS = 5000;
 
 function text(value) { return String(value ?? "").trim(); }
 function list(value) { return Array.isArray(value) ? value : []; }
 function object(value) { return value && typeof value === "object" && !Array.isArray(value) ? value : {}; }
 function number(value) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
 function required(name) { const value = text(process.env[name]); if (!value) throw new Error(`${name}_REQUIRED`); return value; }
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function commandList(value) {
   if (Array.isArray(value)) return value.map((item) => text(item)).filter(Boolean);
   const scalar = text(value);
@@ -93,6 +96,24 @@ async function boundTemplates(key) {
   if (!templates) throw new Error("AVANTIQO_VOICE_TTS_READINESS_TEMPLATE_LIST_INVALID");
   return templates;
 }
+function normalizeHealth(healthBody) {
+  const jobs = object(healthBody?.jobs);
+  const workersHealth = object(healthBody?.workers);
+  return {
+    jobs: {
+      in_queue: number(jobs.inQueue ?? jobs.in_queue),
+      in_progress: number(jobs.inProgress ?? jobs.in_progress),
+    },
+    workers: {
+      idle: number(workersHealth.idle),
+      initializing: number(workersHealth.initializing),
+      ready: number(workersHealth.ready),
+      running: number(workersHealth.running),
+      throttled: number(workersHealth.throttled),
+      unhealthy: number(workersHealth.unhealthy),
+    },
+  };
+}
 
 runGit(["fetch", "origin", "main", "--quiet"]);
 const evidence = JSON.parse(runGit(["show", `origin/main:${EVIDENCE_PATH}`]));
@@ -130,47 +151,82 @@ const templateId = text(endpoint?.templateId || endpoint?.template?.id);
 const template = (await boundTemplates(credentials.management)).find((item) => text(item?.id) === templateId);
 if (!template) throw new Error("AVANTIQO_VOICE_TTS_READINESS_BOUND_TEMPLATE_NOT_FOUND");
 
-const [healthBody, workers] = await Promise.all([
-  queueRead(endpointId, "/health", credentials),
-  controlWorkers(endpointId, credentials.management),
-]);
-const jobs = object(healthBody?.jobs);
-const workersHealth = object(healthBody?.workers);
-const health = {
-  jobs: {
-    in_queue: number(jobs.inQueue ?? jobs.in_queue),
-    in_progress: number(jobs.inProgress ?? jobs.in_progress),
-  },
-  workers: {
-    idle: number(workersHealth.idle),
-    initializing: number(workersHealth.initializing),
-    ready: number(workersHealth.ready),
-    running: number(workersHealth.running),
-    throttled: number(workersHealth.throttled),
-    unhealthy: number(workersHealth.unhealthy),
-  },
-};
-
-const reasons = [];
-if (Number(endpoint?.workersMin) !== 0) reasons.push("WORKERS_MIN_NOT_ZERO");
-if (Number(endpoint?.workersMax) !== 1) reasons.push("WORKERS_MAX_NOT_ONE");
-if (health.jobs.in_queue !== 0) reasons.push(`JOBS_IN_QUEUE:${health.jobs.in_queue}`);
-if (health.jobs.in_progress !== 0) reasons.push(`JOBS_IN_PROGRESS:${health.jobs.in_progress}`);
-if (health.workers.unhealthy !== 0) reasons.push(`UNHEALTHY_WORKERS:${health.workers.unhealthy}`);
-if (text(template?.imageName) !== certifiedImage) reasons.push("BOUND_IMAGE_NOT_CERTIFIED_V3");
+const staticReasons = [];
+if (Number(endpoint?.workersMin) !== 0) staticReasons.push("WORKERS_MIN_NOT_ZERO");
+if (Number(endpoint?.workersMax) !== 1) staticReasons.push("WORKERS_MAX_NOT_ONE");
+if (text(template?.imageName) !== certifiedImage) staticReasons.push("BOUND_IMAGE_NOT_CERTIFIED_V3");
 if (commandList(template?.dockerEntrypoint).length || commandList(template?.dockerStartCmd).length) {
-  reasons.push("BOUND_TEMPLATE_LAUNCH_OVERRIDE_PRESENT");
+  staticReasons.push("BOUND_TEMPLATE_LAUNCH_OVERRIDE_PRESENT");
 }
-const mismatchedWorkers = workers.filter((worker) => worker.image && worker.image !== certifiedImage);
-if (mismatchedWorkers.length) reasons.push("LIVE_WORKER_IMAGE_MISMATCH");
-const staleWorkers = workers.filter((worker) => worker.is_stale);
-if (staleWorkers.length) reasons.push("STALE_WORKER_PRESENT");
 
+const observations = [];
+const dynamicReasons = new Set();
+for (let index = 0; index < OBSERVATION_COUNT; index += 1) {
+  const [healthBody, workers] = await Promise.all([
+    queueRead(endpointId, "/health", credentials),
+    controlWorkers(endpointId, credentials.management),
+  ]);
+  const health = normalizeHealth(healthBody);
+  const controlStatusCounts = workers.reduce((counts, worker) => {
+    const status = worker.status || "UNKNOWN";
+    counts[status] = (counts[status] || 0) + 1;
+    return counts;
+  }, {});
+
+  if (health.jobs.in_queue !== 0) dynamicReasons.add(`JOBS_IN_QUEUE:${health.jobs.in_queue}`);
+  if (health.jobs.in_progress !== 0) dynamicReasons.add(`JOBS_IN_PROGRESS:${health.jobs.in_progress}`);
+  if (health.workers.unhealthy !== 0) dynamicReasons.add(`UNHEALTHY_WORKERS:${health.workers.unhealthy}`);
+  if (health.workers.throttled !== 0) dynamicReasons.add(`HEALTH_THROTTLED_WORKERS:${health.workers.throttled}`);
+  if (health.workers.initializing !== 0) dynamicReasons.add(`HEALTH_INITIALIZING_WORKERS:${health.workers.initializing}`);
+
+  const throttledWorkers = workers.filter((worker) => worker.status === "THROTTLED");
+  if (throttledWorkers.length) dynamicReasons.add(`CONTROL_THROTTLED_WORKERS:${throttledWorkers.length}`);
+  const unhealthyWorkers = workers.filter((worker) => worker.status === "UNHEALTHY");
+  if (unhealthyWorkers.length) dynamicReasons.add(`CONTROL_UNHEALTHY_WORKERS:${unhealthyWorkers.length}`);
+  const initializingWorkers = workers.filter((worker) => worker.status === "INITIALIZING");
+  if (initializingWorkers.length) dynamicReasons.add(`CONTROL_INITIALIZING_WORKERS:${initializingWorkers.length}`);
+  const mismatchedWorkers = workers.filter((worker) => worker.image && worker.image !== certifiedImage);
+  if (mismatchedWorkers.length) dynamicReasons.add("LIVE_WORKER_IMAGE_MISMATCH");
+  const staleWorkers = workers.filter((worker) => worker.is_stale);
+  if (staleWorkers.length) dynamicReasons.add("STALE_WORKER_PRESENT");
+
+  const healthClaimsReady = health.workers.idle > 0 || health.workers.ready > 0;
+  const controlClaimsReady = workers.some((worker) => ["IDLE", "READY"].includes(worker.status));
+  const controlClaimsBlocked = workers.some((worker) => ["THROTTLED", "UNHEALTHY", "INITIALIZING"].includes(worker.status));
+  if (healthClaimsReady && controlClaimsBlocked) dynamicReasons.add("WORKER_STATE_VIEW_DISAGREEMENT");
+  if (workers.length > 0 && healthClaimsReady !== controlClaimsReady && !controlClaimsBlocked) {
+    dynamicReasons.add("WORKER_READY_VIEW_DISAGREEMENT");
+  }
+
+  const observation = {
+    observation: index + 1,
+    health,
+    workers,
+    control_status_counts: controlStatusCounts,
+  };
+  observations.push(observation);
+  console.log(JSON.stringify({
+    event: "AVANTIQO_VOICE_TTS_V3_READINESS_OBSERVATION",
+    ...observation,
+    generation_submitted: false,
+    mutation_performed: false,
+    secrets_printed: false,
+  }));
+  if (index + 1 < OBSERVATION_COUNT) await sleep(OBSERVATION_INTERVAL_MS);
+}
+
+const reasons = [...staticReasons, ...dynamicReasons];
+const finalObservation = observations.at(-1) || { health: null, workers: [] };
 const result = {
   success: reasons.length === 0,
   contract: CONTRACT,
   ready_for_controlled_generation: reasons.length === 0,
   blockers: reasons,
+  stability: {
+    observation_count: OBSERVATION_COUNT,
+    interval_ms: OBSERVATION_INTERVAL_MS,
+    all_observations_clear: dynamicReasons.size === 0,
+  },
   endpoint: {
     id: endpointId,
     name: text(endpoint?.name) || null,
@@ -188,8 +244,9 @@ const result = {
     runpod_fitness_sdk_required: text(tts?.runpod_fitness_sdk_required) || null,
   },
   bound_image: text(template?.imageName) || null,
-  health,
-  workers,
+  health: finalObservation.health,
+  workers: finalObservation.workers,
+  observations,
   read_only: true,
   mutation_performed: false,
   generation_submitted: false,

@@ -6,7 +6,8 @@ loadAvantiqoEnv();
 const REST = "https://rest.runpod.io/v1";
 const CONTROL = "https://api.runpod.io/v2";
 const QUEUE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_VOICE_TTS_V3_READINESS_V3";
+const CONTRACT = "AVANTIQO_VOICE_TTS_V3_READINESS_V4";
+const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const EVIDENCE_PATH = "audits/results/avantiqo-voice-worker-images.json";
 const REQUIRED_CONSECUTIVE_CLEAR = 3;
 const MAX_OBSERVATIONS = 8;
@@ -17,6 +18,7 @@ function list(value) { return Array.isArray(value) ? value : []; }
 function object(value) { return value && typeof value === "object" && !Array.isArray(value) ? value : {}; }
 function number(value) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
 function required(name) { const value = text(process.env[name]); if (!value) throw new Error(`${name}_REQUIRED`); return value; }
+function yes(value) { return ["YES", "TRUE", "1", "APPROVED"].includes(text(value).toUpperCase()); }
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function commandList(value) {
   if (Array.isArray(value)) return value.map((item) => text(item)).filter(Boolean);
@@ -37,6 +39,25 @@ function runGit(args) {
   const result = spawnSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   if (result.status !== 0) throw new Error(`GIT_${text(args[0]).toUpperCase()}_FAILED:${text(result.stderr).slice(0, 500)}`);
   return result.stdout;
+}
+function requireSafeLeaseV2(endpointId) {
+  if (!yes(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE)) {
+    throw new Error("AVANTIQO_VOICE_TTS_READINESS_SAFE_LEASE_ACTIVE_REQUIRED");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT) !== SAFE_LEASE_CONTRACT) {
+    throw new Error("AVANTIQO_VOICE_TTS_READINESS_SAFE_LEASE_V2_REQUIRED");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_LANE) !== "voice-tts") {
+    throw new Error("AVANTIQO_VOICE_TTS_READINESS_SAFE_LEASE_LANE_MISMATCH");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID) !== endpointId) {
+    throw new Error("AVANTIQO_VOICE_TTS_READINESS_SAFE_LEASE_ENDPOINT_MISMATCH");
+  }
+  const expiresAt = Date.parse(text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT));
+  if (!Number.isFinite(expiresAt) || expiresAt - Date.now() < 5000) {
+    throw new Error("AVANTIQO_VOICE_TTS_READINESS_SAFE_LEASE_EXPIRY_INVALID");
+  }
+  return expiresAt;
 }
 
 async function parseJson(response, label) {
@@ -134,14 +155,18 @@ function dynamicBlockers(health, workers, certifiedImage) {
   const staleWorkers = workers.filter((worker) => worker.is_stale);
   if (staleWorkers.length) reasons.push("STALE_WORKER_PRESENT");
 
-  const healthClaimsReady = health.workers.idle > 0 || health.workers.ready > 0;
-  const controlClaimsReady = workers.some((worker) => ["IDLE", "READY"].includes(worker.status));
-  const controlClaimsBlocked = workers.some((worker) => ["THROTTLED", "UNHEALTHY", "INITIALIZING"].includes(worker.status));
-  if (healthClaimsReady && controlClaimsBlocked) reasons.push("WORKER_STATE_VIEW_DISAGREEMENT");
-  if (workers.length > 0 && healthClaimsReady !== controlClaimsReady && !controlClaimsBlocked) {
-    reasons.push("WORKER_READY_VIEW_DISAGREEMENT");
+  const liveHealthyWorkers = workers.filter((worker) => ["IDLE", "READY", "RUNNING"].includes(worker.status));
+  const healthVisibleWorkers =
+    health.workers.idle + health.workers.ready + health.workers.running;
+  if (workers.length > 0 && liveHealthyWorkers.length === 0) {
+    reasons.push("CONTROL_WORKER_STATE_NOT_HEALTHY");
   }
-  if (!healthClaimsReady || !controlClaimsReady) reasons.push("READY_WORKER_NOT_STABLY_VISIBLE");
+  if (workers.length > 0 && healthVisibleWorkers === 0) {
+    reasons.push("WORKER_STATE_VIEW_DISAGREEMENT");
+  }
+  if (workers.length === 0 && healthVisibleWorkers > 0) {
+    reasons.push("WORKER_STATE_VIEW_DISAGREEMENT");
+  }
 
   return [...new Set(reasons)];
 }
@@ -165,6 +190,7 @@ if (
 }
 
 const endpointId = required("RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID");
+const leaseExpiresAt = requireSafeLeaseV2(endpointId);
 const credentials = {
   management: required("RUNPOD_MANAGEMENT_API_KEY"),
   inference: text(process.env.RUNPOD_API_KEY),
@@ -184,7 +210,7 @@ if (!template) throw new Error("AVANTIQO_VOICE_TTS_READINESS_BOUND_TEMPLATE_NOT_
 
 const staticReasons = [];
 if (Number(endpoint?.workersMin) !== 0) staticReasons.push("WORKERS_MIN_NOT_ZERO");
-if (Number(endpoint?.workersMax) !== 1) staticReasons.push("WORKERS_MAX_NOT_ONE");
+if (Number(endpoint?.workersMax) !== 1) staticReasons.push("WORKERS_MAX_NOT_ONE_UNDER_SAFE_LEASE");
 if (text(template?.imageName) !== certifiedImage) staticReasons.push("BOUND_IMAGE_NOT_CERTIFIED_V3");
 if (commandList(template?.dockerEntrypoint).length || commandList(template?.dockerStartCmd).length) {
   staticReasons.push("BOUND_TEMPLATE_LAUNCH_OVERRIDE_PRESENT");
@@ -217,11 +243,13 @@ for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
     health,
     workers,
     control_status_counts: controlStatusCounts,
+    zero_live_workers_valid: workers.length === 0,
   };
   observations.push(observation);
   console.log(JSON.stringify({
-    event: "AVANTIQO_VOICE_TTS_V3_READINESS_OBSERVATION",
+    event: "AVANTIQO_VOICE_TTS_V4_READINESS_OBSERVATION",
     ...observation,
+    safe_lease_contract: SAFE_LEASE_CONTRACT,
     generation_submitted: false,
     mutation_performed: false,
     secrets_printed: false,
@@ -245,7 +273,13 @@ const ready = uniqueReasons.length === 0 && stableWindowReached;
 const result = {
   success: ready,
   contract: CONTRACT,
+  safe_lease_contract: SAFE_LEASE_CONTRACT,
+  safe_lease_lane: "voice-tts",
+  safe_lease_endpoint_id: endpointId,
+  safe_lease_expires_at: new Date(leaseExpiresAt).toISOString(),
   ready_for_controlled_generation: ready,
+  serverless_cold_start_ready: ready,
+  zero_live_workers_allowed: true,
   blockers: uniqueReasons,
   stability: {
     required_consecutive_clear: REQUIRED_CONSECUTIVE_CLEAR,

@@ -29,6 +29,10 @@ import {
 import {
   reconcileAvantiqoProvisionalKnowledgeShadow,
 } from "@/lib/intelligence/runtime/AvantiqoProvisionalKnowledgeShadowRuntime";
+import {
+  reconcileAvantiqoKnowledgeCounterfactualBenchmarkPlans,
+  reconcileAvantiqoKnowledgeFinalPromotionCandidates,
+} from "@/lib/intelligence/runtime/AvantiqoKnowledgeCounterfactualBenchmarkRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -58,24 +62,22 @@ export async function GET(request) {
     // 4. Apply only anti-overfit eligible observational knowledge-utility feedback.
     // 5. Escalate weak/unsolved topics into provider-free mechanism, constraint,
     //    adjacent-domain and experiment-evidence discovery tracks.
-    // 6. Reconcile already-created governed syntheses into durable hypotheses,
-    //    experiment proposals, replication status and experimental knowledge
-    //    candidates. One experiment never establishes truth and no experiment
-    //    is executed by this stage.
+    // 6. Reconcile governed syntheses into hypotheses, experiment proposals,
+    //    replication status and experimental knowledge candidates.
     // 7. Adversarially reconcile mature experimental candidates against the
-    //    durable Evidence Graph. Contradiction/source-diversity gaps enqueue
-    //    fresh research; successful review creates shadow-only provisional
-    //    knowledge, never reusable platform knowledge.
+    //    durable Evidence Graph and create shadow-only provisional knowledge.
     // 8. Evaluate non-influencing provisional shadow observations. Context
-    //    success is explicitly not treated as incremental utility; sufficiently
-    //    stable, contradiction-free candidates only become eligible for a
-    //    separate counterfactual benchmark.
-    // 9. Spend the existing bounded public-evidence research budget on the
-    //    resulting agenda, including adversarial reconciliation work.
-    // Any hypothesis/invention synthesis that could wake owned RunPod
-    // Intelligence is deliberately outside this cron and must execute through
-    // AVANTIQO_RUNPOD_SAFE_LEASE_V2 on the intelligence-deep lane.
-    // Stages 1-8 never mutate model weights, authorize product actions, execute
+    //    success is not treated as incremental utility.
+    // 9. Create immutable counterfactual A/B benchmark plans for mature shadow
+    //    candidates and reconcile only separately-recorded passing evaluations
+    //    into final knowledge release review candidates. This stage performs no
+    //    benchmark execution and never writes platform_knowledge.
+    // 10. Spend the existing bounded public-evidence research budget on the
+    //     resulting agenda, including adversarial reconciliation work.
+    // Any hypothesis/invention synthesis or counterfactual benchmark execution
+    // that could wake owned RunPod Intelligence is deliberately outside this
+    // cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
+    // Stages 1-9 never mutate model weights, authorize product actions, execute
     // experiments, submit RunPod jobs, or automatically promote knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
@@ -85,6 +87,10 @@ export async function GET(request) {
     const scientificLearning = await reconcileAvantiqoScientificLearningExperiments();
     const epistemicPromotion = await reconcileAvantiqoEpistemicPromotion();
     const provisionalKnowledgeShadow = await reconcileAvantiqoProvisionalKnowledgeShadow();
+    const knowledgeCounterfactualBenchmarkPlans =
+      await reconcileAvantiqoKnowledgeCounterfactualBenchmarkPlans();
+    const knowledgeFinalPromotionCandidates =
+      await reconcileAvantiqoKnowledgeFinalPromotionCandidates();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -98,6 +104,8 @@ export async function GET(request) {
         scientific_learning: scientificLearning,
         epistemic_promotion: epistemicPromotion,
         provisional_knowledge_shadow: provisionalKnowledgeShadow,
+        knowledge_counterfactual_benchmark_plans: knowledgeCounterfactualBenchmarkPlans,
+        knowledge_final_promotion_candidates: knowledgeFinalPromotionCandidates,
       },
       {
         status: result.success === false ? 207 : 200,

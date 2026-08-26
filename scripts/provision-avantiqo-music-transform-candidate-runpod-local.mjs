@@ -359,7 +359,6 @@ const endpoint = await rest("/endpoints", managementKey, {
     idleTimeout: 5,
     name: ENDPOINT_NAME,
     networkVolumeId: volume.id,
-    networkVolumeIds: [{ networkVolumeId: volume.id }],
     scalerType: "QUEUE_DELAY",
     scalerValue: 4,
     workersMax: 0,

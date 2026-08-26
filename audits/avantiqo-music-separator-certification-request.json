@@ -1,0 +1,15 @@
+{
+  "contract": "AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_REQUEST_V1",
+  "requested_at": "2026-08-26T12:44:00+07:00",
+  "scope": "CONTROLLED_SEPARATOR_CERTIFICATION",
+  "capability": "ai.audio.stems",
+  "model": "facebookresearch/demucs:htdemucs_ft",
+  "runtime_model": "demucs-htdemucs-ft",
+  "quality_profile": "DEMUCS_HTDEMUCS_FT_4STEM_V1",
+  "benchmark_runs": 1,
+  "rights_owned_fixture": true,
+  "provider_spend_approved": true,
+  "production_activation_approved": false,
+  "pricing_activation_approved": false,
+  "automatic_human_review_approved": false
+}

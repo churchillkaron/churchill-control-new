@@ -122,22 +122,30 @@ jobs:
             -map "[out]" -ac 1 -ar 48000 -c:a pcm_s24le artifacts/review-audio/source-rights-owned.wav
           ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 artifacts/review-audio/source-rights-owned.wav
 
-      - name: Provision or verify dedicated endpoint parked at zero
+      - name: Repair and verify dedicated endpoint parked at zero
         env:
           AVANTIQO_MUSIC_VOCAL_CORRECTION_PROVISION_APPROVED: "YES"
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/provision-avantiqo-music-vocal-correction-runpod-local.mjs --apply | tee artifacts/music-vocal-correction-provision.json
+          node scripts/repair-avantiqo-music-vocal-correction-parked-binding-local.mjs --apply | tee artifacts/music-vocal-correction-provision.json
           node --input-type=module <<'NODE'
           import { readFileSync } from "node:fs";
           const result = JSON.parse(readFileSync("artifacts/music-vocal-correction-provision.json", "utf8"));
-          if (result.success !== true) throw new Error("MUSIC_VOCAL_CORRECTION_PROVISION_FAILED");
+          if (result.success !== true || result.endpoint_exists !== true) throw new Error("MUSIC_VOCAL_CORRECTION_DEDICATED_ENDPOINT_REQUIRED");
           if (result.endpoint?.workers_min !== 0 || result.endpoint?.workers_max !== 0) throw new Error("MUSIC_VOCAL_CORRECTION_ENDPOINT_NOT_PARKED_0_0");
           if (result.exact_image_digest_verified !== true) throw new Error("MUSIC_VOCAL_CORRECTION_EXACT_IMAGE_DIGEST_REQUIRED");
           if ((result.endpoint?.network_volume_ids || []).length !== 0) throw new Error("MUSIC_VOCAL_CORRECTION_NETWORK_VOLUME_FORBIDDEN");
-          if (result.provider_job_submitted !== false) throw new Error("MUSIC_VOCAL_CORRECTION_PROVISION_MUST_NOT_SUBMIT_JOB");
+          if (result.workers_opened !== false) throw new Error("MUSIC_VOCAL_CORRECTION_REPAIR_MUST_NOT_OPEN_WORKER");
+          if (result.provider_job_submitted !== false) throw new Error("MUSIC_VOCAL_CORRECTION_REPAIR_MUST_NOT_SUBMIT_JOB");
+          if (result.production_deploy_performed !== false) throw new Error("MUSIC_VOCAL_CORRECTION_REPAIR_MUST_NOT_DEPLOY_PRODUCTION");
           NODE
+
+      - name: Read-only preflight immediately before paid lease
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/preflight-avantiqo-music-vocal-correction-runpod-local.mjs
 
       - name: Run exactly one correction job through Safe Lease V2
         env:

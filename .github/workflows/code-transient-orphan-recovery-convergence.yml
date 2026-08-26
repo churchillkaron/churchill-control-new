@@ -40,7 +40,8 @@ jobs:
           node --check scripts/run-code-ai-runpod-safe-lease-resilient-local.mjs
           node --check scripts/settle-code-ai-planner-certification-pending-local.mjs
           node scripts/code-ai-certification-resilience-selftest.mjs
-          npm run audit:code-ai-worldclass-quality
+          node scripts/code-ai-worldclass-quality-audit.mjs
+          node scripts/code-ai-worldclass-quality-selftest.mjs
       - name: Commit convergence
         run: |
           git config user.name "github-actions[bot]"

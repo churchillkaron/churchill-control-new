@@ -91,6 +91,9 @@ cp \
 
 SECRETARY_MIGRATIONS=(
   "20260825062200_avantiqo_secretary_native_core.sql"
+  "20260825063300_avantiqo_secretary_call_sessions.sql"
+  "20260825064100_avantiqo_secretary_outbound_calls.sql"
+  "20260825073300_secretary_follow_up_execution.sql"
   "20260825150000_secretary_meeting_intelligence_and_jobs.sql"
   "20260825151000_secretary_job_execution_claim.sql"
   "20260826002000_secretary_prospect_discovery.sql"
@@ -162,6 +165,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-review-controls-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-cancellation-normalization-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-correspondence-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-follow-through-cancellation-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

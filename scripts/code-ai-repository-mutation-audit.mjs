@@ -76,6 +76,14 @@ requireMarkers("GENERAL_BUILD_SYSTEMS", repositoryIntelligence, [
   'id: "bazel"',
   "conventional_candidate_verify_before_execution",
   "Repository-declared commands are preferred",
+  "buildSystemRoots",
+  "working_directory",
+  "nested_build_root_count_observed",
+  "mixed_language",
+  ":(glob)**/pyproject.toml",
+  ":(glob)**/Cargo.toml",
+  ":(glob)**/go.mod",
+  ":(glob)**/pom.xml",
 ]);
 
 requireMarkers("SEARCH", workspace, [
@@ -150,6 +158,8 @@ console.log(JSON.stringify({
     repository_instruction_discovery: true,
     repository_command_convention_discovery: true,
     general_build_system_detection: true,
+    nested_mixed_language_build_manifest_detection: true,
+    nested_build_commands_bound_to_working_directory: true,
     node_python_go_rust_java_dotnet_ruby_php_swift_c_cpp_bazel_supported: true,
     repository_declared_commands_preferred_over_conventional_candidates: true,
     conventional_commands_require_repository_verification_when_conditional: true,

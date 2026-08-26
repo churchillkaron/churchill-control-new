@@ -4,6 +4,8 @@ const path = "lib/code/runtime/CodeAIAutonomousRuntime.js";
 const source = await readFile(path, "utf8");
 const workspacePath = "lib/code/runtime/CodeWorkspaceSandboxRuntime.js";
 const workspaceSource = await readFile(workspacePath, "utf8");
+const promptPath = "lib/code/runtime/CodeAIPlannerPromptRuntime.js";
+const promptSource = await readFile(promptPath, "utf8");
 
 const requiredMarkers = [
   "AVANTIQO_CODE_AI_AUTONOMY_CONTROL_V1",
@@ -18,9 +20,6 @@ const requiredMarkers = [
   "guarded_actions",
   "normalizedReadInput",
   "CodeAIAutonomyActionIdentity.js",
-  "Search mode is part of action identity",
-  "literal|regex|path|glob",
-  "path_globs",
   "readRangeCovered",
   "READ_RANGE_COVERED",
   "advanceSourceRevision",
@@ -28,8 +27,6 @@ const requiredMarkers = [
   "control.planner_iterations_used >= maximum",
   "iteration = control.planner_iterations_used + 1",
   "const operationId = `autonomy_${iteration}_${decision.action}`",
-  "Read freshness is source-bound",
-  "The planner iteration budget is global across pending/resume cycles",
   "TRANSIENT_WORKSPACE_RETRY_LIMIT = 1",
   "isTransientWorkspaceTermination",
   'kind: "autonomous_execution_retry"',
@@ -43,10 +40,37 @@ const requiredMarkers = [
   "trailingDuplicateRejectionStreak",
   "CODE_AI_AUTONOMOUS_DUPLICATE_ACTION_STREAK_EXCEEDED",
   "currentSourceRevision",
-  "Treat those file contents as observed current source and do not reread a covered range",
   "max_duplicate_rejection_streak",
   "source_read_evidence_limit",
 ];
+
+const promptRequiredMarkers = [
+  "AVANTIQO_CODE_AI_PLANNER_PROMPT_TRANSPORT_V1",
+  "CODE_AI_PLANNER_MAX_INSTRUCTION_CHARS = 24000",
+  "CODE_AI_PLANNER_MAX_STATE_CHARS = 14000",
+  "worker_instruction_hard_limit_chars: 30000",
+  "duplicate_objective_in_structured_specification: false",
+  "duplicate_state_in_structured_specification: false",
+  "CODE_AI_AUTONOMOUS_PLANNER_STATE_BUDGET_EXCEEDED",
+  "CODE_AI_AUTONOMOUS_PLANNER_INSTRUCTION_BUDGET_EXCEEDED",
+  "Search mode is part of action identity",
+  "literal|regex|path|glob",
+  "path_globs",
+  "Read freshness is source-bound",
+  "The planner iteration budget is global across pending/resume cycles",
+  "Treat those file contents as observed current source and do not reread a covered range",
+  "Use apply_files for every intentional source edit",
+  "Use verify after source changes",
+  "Never request push, deploy, publish, production, database mutation, credentials",
+];
+
+const promptMissing = promptRequiredMarkers.filter((marker) => !promptSource.includes(marker));
+if (promptMissing.length) {
+  throw new Error(`CODE_AI_AUTONOMY_PLANNER_PROMPT_MARKERS_MISSING:${promptMissing.join(",")}`);
+}
+if (!source.includes('buildCodeAIPlannerPromptTransport') || !source.includes('instruction: transport.instruction')) {
+  throw new Error("CODE_AI_AUTONOMY_PLANNER_BOUNDED_TRANSPORT_NOT_WIRED");
+}
 
 const workspaceRequiredMarkers = [
   "AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT",
@@ -143,13 +167,6 @@ if (genericEvidenceWindow <= compactReadExport) {
   throw new Error("CODE_AI_AUTONOMY_SOURCE_READ_EVIDENCE_MUST_BE_SEPARATE_FROM_ROLLING_EVIDENCE_WINDOW");
 }
 
-const plannerInstruction = source.indexOf("function plannerInstruction", compactState);
-const sourceReadInstruction = source.indexOf("source_read_evidence contains successful read results", plannerInstruction);
-const duplicateInstruction = source.indexOf("rejected_duplicate_actions lists recent planner decisions", sourceReadInstruction);
-if (sourceReadInstruction <= plannerInstruction || duplicateInstruction <= sourceReadInstruction) {
-  throw new Error("CODE_AI_AUTONOMY_PLANNER_MUST_RECEIVE_PERSISTED_READ_AND_DUPLICATE_FEEDBACK");
-}
-
 const operationObservation = source.indexOf("const operationObserved =");
 const sourceAdvanceOnApply = source.indexOf('decision.action === "apply_files"', operationObservation);
 const sourceAdvanceOnReplan = source.indexOf('execution.status === "replan_required"', sourceAdvanceOnApply);
@@ -200,6 +217,9 @@ console.log(JSON.stringify({
     transient_workspace_retry_reuses_planner_decision: true,
     transient_workspace_retry_does_not_submit_new_planner_request: true,
     repeated_workspace_termination_remains_fail_closed: true,
+    bounded_planner_prompt_transport: true,
+    planner_instruction_below_worker_hard_limit: true,
+    duplicate_objective_and_state_removed_from_structured_specification: true,
   },
   provider_calls_executed: false,
   provider_spend_approved: false,

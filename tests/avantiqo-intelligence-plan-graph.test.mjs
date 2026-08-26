@@ -65,6 +65,21 @@ test("plan graph orders dependencies and never auto-executes mutations", () => {
   assert.equal(plan.governance.mutation_requires_normal_operator_governance, true);
 });
 
+test("empty plan graphs are invalid at the core planner boundary", () => {
+  const plan = buildOperatorIntelligencePlan({
+    goal: "Reject empty planning",
+    brief: {},
+    plan_steps: [],
+  });
+
+  assert.equal(plan.valid, false);
+  assert.equal(plan.steps.length, 0);
+  assert.ok(
+    plan.issues.some((issue) => issue.code === "PLAN_REQUIRES_AT_LEAST_ONE_STEP"),
+  );
+  assert.equal(plan.governance.plan_requires_at_least_one_step, true);
+});
+
 test("mutation steps require exact candidate validation, payload completeness and verification", () => {
   const plan = buildOperatorIntelligencePlan({
     goal: "Unsafe mutation should be rejected",

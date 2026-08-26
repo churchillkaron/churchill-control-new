@@ -76,9 +76,13 @@ echo "SECRETARY_MEETING_REAL_MIGRATIONS_UNMODIFIED=true"
 echo "SECRETARY_MEETING_ROOT_ENV_LOCAL_READ=false"
 echo "SECRETARY_MEETING_ROOT_ENV_LOCAL_MUTATED=false"
 echo "SECRETARY_MEETING_SECRETS_PRINTED=false"
+echo "SECRETARY_MEETING_LOCAL_OPTIONAL_SERVICES_EXCLUDED=realtime,logflare,vector"
 
+# Secretary certification uses local Postgres + the REST/API surface only. Realtime,
+# Logflare analytics, and Vector are unrelated optional services and must not make a
+# Secretary behavior certification fail when one of their health checks is unstable.
 START_LOG="$WORKDIR/supabase-start.log"
-if ! supabase start --workdir "$WORKDIR" >"$START_LOG" 2>&1; then
+if ! supabase start --workdir "$WORKDIR" -x realtime,logflare,vector >"$START_LOG" 2>&1; then
   echo "SECRETARY_MEETING_LOCAL_SUPABASE_START=FAIL"
   grep -Ev '(ANON_KEY|SERVICE_ROLE_KEY|PUBLISHABLE|SECRET_KEY|JWT_SECRET|S3_|DB_URL|API key)' "$START_LOG" | tail -n 120 || true
   exit 1

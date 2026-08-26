@@ -15,12 +15,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY requirements.txt ./requirements.txt
 
-# chatterbox-tts 0.1.7 pins torch/torchaudio 2.6.0. The Blackwell image owns
-# the CUDA 12.8 / PyTorch 2.7 stack, so install Chatterbox without those two
-# incompatible pins, then resolve every other declared Chatterbox dependency.
+# Resemble's Multilingual V3 source still reports package version 0.1.7, while
+# the older PyPI 0.1.7 artifact does not expose the V3 t3_model loader argument.
+# Install the exact V3 source commit from requirements.txt, while retaining the
+# Blackwell-capable CUDA 12.8 / PyTorch 2.7 stack owned by this image.
 RUN python -m pip install --upgrade pip packaging \
     && python -m pip install "$(grep '^runpod==' requirements.txt)" \
-    && python -m pip install --no-deps "$(grep '^chatterbox-tts==' requirements.txt)"
+    && CHATTERBOX_SOURCE="$(sed -n 's/^chatterbox-tts @ //p' requirements.txt)" \
+    && test -n "$CHATTERBOX_SOURCE" \
+    && python -m pip install --no-deps "$CHATTERBOX_SOURCE"
 
 RUN python - <<'PY'
 from importlib.metadata import requires
@@ -104,10 +107,11 @@ COPY handler.py ./handler.py
 COPY bootstrap.sh ./bootstrap.sh
 
 RUN python - <<'PY'
+import inspect
 import runpod
 import torch
 import torchaudio
-import chatterbox.mtl_tts
+from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 import handler
 
 assert hasattr(runpod.serverless, "register_fitness_check")
@@ -117,7 +121,13 @@ assert torchaudio.__version__.startswith("2.7.0"), f"AVANTIQO_VOICE_TTS_TORCHAUD
 assert torch.version.cuda.startswith("12.8"), f"AVANTIQO_VOICE_TTS_CUDA_128_REQUIRED:{torch.version.cuda}"
 compiled_arches = (torch._C._cuda_getArchFlags() or "").split()
 assert "sm_120" in compiled_arches, f"AVANTIQO_VOICE_TTS_BLACKWELL_SM120_REQUIRED:{compiled_arches}"
+from_pretrained_parameters = inspect.signature(ChatterboxMultilingualTTS.from_pretrained).parameters
+assert "t3_model" in from_pretrained_parameters, (
+    "AVANTIQO_VOICE_TTS_CHATTERBOX_V3_API_REQUIRED:"
+    f"parameters={sorted(from_pretrained_parameters)}"
+)
 assert handler.FOUNDATION_MODEL == "resemble-ai/chatterbox:multilingual-v3"
+print("AVANTIQO_VOICE_TTS_CHATTERBOX_V3_API=PASS")
 print("AVANTIQO_VOICE_TTS_CHATTERBOX_TORCH_OVERRIDE=PASS")
 print("AVANTIQO_VOICE_TTS_BLACKWELL_SM120=PASS")
 print("AVANTIQO_VOICE_TTS_IMAGE_IMPORT_SMOKE=PASS")

@@ -11,6 +11,9 @@ import {
 import {
   reconcileAvantiqoLearningCoverage,
 } from "@/lib/intelligence/runtime/AvantiqoLearningCoverageRuntime";
+import {
+  evaluateAvantiqoLearningEffectiveness,
+} from "@/lib/intelligence/runtime/AvantiqoLearningEffectivenessRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -33,12 +36,15 @@ export async function GET(request) {
       Math.min(Number(url.searchParams.get("limit")) || 1, 3),
     );
 
-    // First synchronize Avantiqo's canonical product truth. Then recompute Learning
-    // coverage from that truth plus verified reusable evidence and runtime learning
-    // signals. Only after those provider-free steps do we spend the bounded research
-    // budget, ensuring external learning follows the current highest-value product gaps.
+    // Closed-loop Learning order:
+    // 1. Synchronize Avantiqo's canonical product truth.
+    // 2. Discover product/evidence coverage gaps from that truth.
+    // 3. Evaluate whether prior research is productive and adapt priority/cadence.
+    // 4. Spend the existing bounded research budget on the resulting agenda.
+    // These first three stages are provider-free and never mutate model weights.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
+    const learningEffectiveness = await evaluateAvantiqoLearningEffectiveness();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -46,6 +52,7 @@ export async function GET(request) {
         ...result,
         internal_product_knowledge: internalProductKnowledge,
         learning_coverage: learningCoverage,
+        learning_effectiveness: learningEffectiveness,
       },
       {
         status: result.success === false ? 207 : 200,

@@ -1,6 +1,7 @@
 "use client";
 
 import LocalHeyAvantiqoWakeBridge from "@/components/operator/LocalHeyAvantiqoWakeBridge";
+import SecretaryMeetingPresenceBridge from "@/components/operator/SecretaryMeetingPresenceBridge";
 import WorkspaceTopBar from "@/components/workspace/WorkspaceTopBar";
 
 const LEGACY_WAKE_TEMPLATE_KEY = "avantiqo.local-wake.template.v2";
@@ -52,6 +53,7 @@ export default function PlatformShell({
         {children}
       </main>
 
+      <SecretaryMeetingPresenceBridge />
       <LocalHeyAvantiqoWakeBridge />
     </div>
   );

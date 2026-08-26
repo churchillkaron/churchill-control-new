@@ -120,9 +120,6 @@ echo "SECRETARY_MEETING_ROOT_ENV_LOCAL_MUTATED=false"
 echo "SECRETARY_MEETING_SECRETS_PRINTED=false"
 echo "SECRETARY_MEETING_LOCAL_OPTIONAL_SERVICES_EXCLUDED=realtime,storage-api,studio,logflare,vector"
 
-# Secretary certification needs the local database and Data API, not Storage or
-# Studio. Excluding unrelated services prevents their health from masking Secretary
-# behavior while still keeping the required database/API health checks live.
 START_LOG="$WORKDIR/supabase-start.log"
 if ! supabase start --workdir "$WORKDIR" -x realtime,storage-api,studio,logflare,vector >"$START_LOG" 2>&1; then
   echo "SECRETARY_MEETING_LOCAL_SUPABASE_START=FAIL"
@@ -169,6 +166,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-expense-pack-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-document-filing-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-relationship-memory-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-deadline-coordination-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

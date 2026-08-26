@@ -9,6 +9,7 @@ const assert = (condition, code) => {
 
 const candidatePath = "lib/intelligence/runtime/AvantiqoCanonicalCurriculumCandidateRuntime.js";
 const benchmarkPath = "lib/intelligence/runtime/AvantiqoCanonicalCurriculumBenchmarkRuntime.js";
+const candidateReviewPath = "lib/intelligence/runtime/AvantiqoTrainingCandidateRuntime.js";
 const guardPath = "lib/intelligence/runtime/AvantiqoSharedTrainerReservationGuard.js";
 const runnerPath = "scripts/run-avantiqo-canonical-curriculum-candidates-local.mjs";
 const datasetPath = "lib/intelligence/runtime/AvantiqoTrainingDatasetRuntime.js";
@@ -17,6 +18,7 @@ const indexPath = "lib/intelligence/index.js";
 
 const candidate = read(candidatePath);
 const benchmark = read(benchmarkPath);
+const candidateReview = read(candidateReviewPath);
 const guard = read(guardPath);
 const runner = read(runnerPath);
 const dataset = read(datasetPath);
@@ -53,6 +55,10 @@ assert(benchmark.includes("provider_execution_used: false"), "LEARNING_CANONICAL
 assert(benchmark.includes("runpod_used: false"), "LEARNING_CANONICAL_BENCHMARK_RUNPOD_FORBIDDEN");
 assert(benchmark.includes("shared_trainer_mutated: false"), "LEARNING_CANONICAL_BENCHMARK_TRAINER_MUTATION_FORBIDDEN");
 
+assert(candidateReview.includes("source_fingerprint"), "LEARNING_CANDIDATE_SOURCE_FINGERPRINT_EXPOSURE_REQUIRED");
+assert(candidateReview.includes("candidate_contract"), "LEARNING_CANDIDATE_CONTRACT_EXPOSURE_REQUIRED");
+assert(candidateReview.includes("source_version_exposed_for_dataset_binding: true"), "LEARNING_CANDIDATE_DATASET_VERSION_BINDING_REQUIRED");
+
 assert(guard.includes("AVANTIQO_SHARED_TRAINER_RESERVATION_GUARD_V1"), "LEARNING_SHARED_TRAINER_GUARD_CONTRACT_REQUIRED");
 assert(guard.includes('"avantiqo-code-v1"'), "LEARNING_SHARED_TRAINER_CODE_PEER_REQUIRED");
 assert(guard.includes('"avantiqo-intelligence-v1"'), "LEARNING_SHARED_TRAINER_INTELLIGENCE_PEER_REQUIRED");
@@ -66,7 +72,11 @@ assert(guard.includes("provider_job_submitted: false"), "LEARNING_SHARED_TRAINER
 
 assert(runner.includes("AVANTIQO_CANONICAL_CURRICULUM_CANDIDATE_SEED_APPROVED=YES_REQUIRED"), "LEARNING_CANDIDATE_SEED_EXPLICIT_APPROVAL_REQUIRED");
 assert(runner.includes("AVANTIQO_CANONICAL_CURRICULUM_BENCHMARK_APPROVED=YES_REQUIRED"), "LEARNING_CANDIDATE_BENCHMARK_EXPLICIT_APPROVAL_REQUIRED");
+assert(runner.includes("AVANTIQO_TRAINING_DATASET_ASSEMBLY_APPROVED=YES_REQUIRED"), "LEARNING_DATASET_ASSEMBLY_EXPLICIT_APPROVAL_REQUIRED");
 assert(runner.includes("total_approved_count"), "LEARNING_CANDIDATE_RUNNER_TRUE_APPROVED_COUNT_REQUIRED");
+assert(runner.includes('const assemble = process.argv.includes("--assemble")'), "LEARNING_DATASET_ASSEMBLY_EXPLICIT_MODE_REQUIRED");
+assert(runner.includes("AVANTIQO_TRAINING_DATASET_SOURCE_VERSION_BOUND=YES"), "LEARNING_DATASET_RUNNER_SOURCE_VERSION_EVIDENCE_REQUIRED");
+assert(runner.includes("AVANTIQO_TRAINING_DATASET_BENCHMARK_VERSION_BOUND=YES"), "LEARNING_DATASET_RUNNER_BENCHMARK_VERSION_EVIDENCE_REQUIRED");
 assert(runner.includes("shared_trainer_mutated: false"), "LEARNING_CANDIDATE_RUNNER_TRAINER_MUTATION_FORBIDDEN");
 assert(runner.includes("model_training_started: false"), "LEARNING_CANDIDATE_RUNNER_TRAINING_FORBIDDEN");
 assert(runner.includes("runpod_used: false"), "LEARNING_CANDIDATE_RUNNER_RUNPOD_FORBIDDEN");
@@ -74,6 +84,13 @@ assert(runner.includes("runpod_used: false"), "LEARNING_CANDIDATE_RUNNER_RUNPOD_
 assert(dataset.includes("MIN_READY_CANDIDATES = 8"), "LEARNING_DATASET_MIN_APPROVED_CANDIDATES_REQUIRED");
 assert(dataset.includes('candidate.benchmark_status, 80) === "APPROVED"'), "LEARNING_DATASET_APPROVED_CANDIDATES_ONLY_REQUIRED");
 assert(dataset.includes("candidate.training_ready === true"), "LEARNING_DATASET_READY_CANDIDATES_ONLY_REQUIRED");
+assert(dataset.includes("candidate.source_fingerprint"), "LEARNING_DATASET_SOURCE_FINGERPRINT_REQUIRED");
+assert(dataset.includes("candidate?.benchmark?.benchmark_id"), "LEARNING_DATASET_BENCHMARK_ID_REQUIRED");
+assert(dataset.includes("candidate_bindings"), "LEARNING_DATASET_CANDIDATE_BINDINGS_REQUIRED");
+assert(dataset.includes("source_candidate_fingerprint"), "LEARNING_DATASET_SOURCE_BINDING_REQUIRED");
+assert(dataset.includes("source_benchmark_id"), "LEARNING_DATASET_BENCHMARK_BINDING_REQUIRED");
+assert(dataset.includes("source_version_bound: true"), "LEARNING_DATASET_SOURCE_VERSION_BOUND_REQUIRED");
+assert(dataset.includes("benchmark_version_bound: true"), "LEARNING_DATASET_BENCHMARK_VERSION_BOUND_REQUIRED");
 assert(dataset.includes("deterministic_holdout_split: true"), "LEARNING_DATASET_HOLDOUT_REQUIRED");
 
 assert(compiler.includes('"VERIFIED_FAILURE_RECOVERY"'), "LEARNING_COMPILER_RECOVERY_KIND_REQUIRED");
@@ -81,6 +98,13 @@ assert(compiler.includes('"CANONICAL_PRODUCT_GROUNDING"'), "LEARNING_COMPILER_CA
 assert(compiler.includes("curriculumInstruction"), "LEARNING_COMPILER_KIND_SPECIFIC_INSTRUCTION_REQUIRED");
 assert(compiler.includes("current canonical Product Constitution"), "LEARNING_COMPILER_CANONICAL_PRODUCT_GROUNDING_REQUIRED");
 assert(compiler.includes("prior evidence shows an approach repeatedly failed"), "LEARNING_COMPILER_RECOVERY_CURRICULUM_REQUIRED");
+assert(compiler.includes("AVANTIQO_TRAINING_COMPILER_DATASET_VERSION_BINDING_REQUIRED"), "LEARNING_COMPILER_DATASET_VERSION_GATE_REQUIRED");
+assert(compiler.includes("AVANTIQO_TRAINING_COMPILER_DATASET_CANDIDATE_BINDINGS_REQUIRED"), "LEARNING_COMPILER_CANDIDATE_BINDING_GATE_REQUIRED");
+assert(compiler.includes("source_candidate_fingerprint"), "LEARNING_COMPILER_SOURCE_FINGERPRINT_RECHECK_REQUIRED");
+assert(compiler.includes("source_benchmark_id"), "LEARNING_COMPILER_BENCHMARK_RECHECK_REQUIRED");
+assert(compiler.includes("AVANTIQO_TRAINING_COMPILER_DATASET_BINDING_MISMATCH"), "LEARNING_COMPILER_STALE_BINDING_FAIL_CLOSED_REQUIRED");
+assert(compiler.includes("dataset_source_version_binding_required: true"), "LEARNING_COMPILER_SOURCE_VERSION_GOVERNANCE_REQUIRED");
+assert(compiler.includes("dataset_benchmark_version_binding_required: true"), "LEARNING_COMPILER_BENCHMARK_VERSION_GOVERNANCE_REQUIRED");
 assert(compiler.includes("canonical_product_grounding_supported: true"), "LEARNING_COMPILER_CANONICAL_GOVERNANCE_EVIDENCE_REQUIRED");
 
 assert(index.includes("AvantiqoCanonicalCurriculumCandidateRuntime"), "LEARNING_CANONICAL_CANDIDATE_EXPORT_REQUIRED");
@@ -93,6 +117,9 @@ console.log("AVANTIQO_LEARNING_CANONICAL_CANDIDATE_REVIEW_STATE_PRESERVED=YES");
 console.log("AVANTIQO_LEARNING_CANONICAL_CONTENT_CHANGE_REBENCHMARK=REQUIRED");
 console.log("AVANTIQO_LEARNING_CANONICAL_BENCHMARK_CASES=20");
 console.log("AVANTIQO_LEARNING_CANONICAL_BENCHMARK_PROVIDER_EXECUTION=NO");
+console.log("AVANTIQO_LEARNING_DATASET_SOURCE_VERSION_BOUND=YES");
+console.log("AVANTIQO_LEARNING_DATASET_BENCHMARK_VERSION_BOUND=YES");
+console.log("AVANTIQO_LEARNING_COMPILER_STALE_DATASET_BINDING=FAIL_CLOSED");
 console.log("AVANTIQO_LEARNING_CANONICAL_COMPILER_BRANCH=READY");
 console.log("AVANTIQO_LEARNING_SHARED_TRAINER_GUARD=FAIL_CLOSED");
 console.log("AVANTIQO_LEARNING_SHARED_TRAINER_MUTATION_PERFORMED=NO");

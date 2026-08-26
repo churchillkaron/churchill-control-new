@@ -135,3 +135,35 @@ test("TTS worker keeps custom voice cloning and Thai fail-closed", async () => {
   assert.match(source, /"sv"/);
   assert.match(source, /voice_cloning_used": False/);
 });
+
+test("TTS image launches Python directly and emits a breadcrumb before heavy imports", async () => {
+  const dockerfile = await readFile(
+    new URL("../services/avantiqo-voice-tts/Dockerfile", import.meta.url),
+    "utf8",
+  );
+  const handler = await readFile(
+    new URL("../services/avantiqo-voice-tts/handler.py", import.meta.url),
+    "utf8",
+  );
+  assert.match(dockerfile, /CMD \["python", "-u", "\/app\/handler\.py"\]/);
+  const breadcrumb = handler.indexOf("AVANTIQO_VOICE_TTS_PYTHON_PROCESS");
+  const heavyImport = handler.indexOf("import runpod");
+  assert.ok(breadcrumb >= 0, "Voice Python startup breadcrumb must exist");
+  assert.ok(heavyImport >= 0, "RunPod import must exist");
+  assert.ok(breadcrumb < heavyImport, "Voice Python breadcrumb must precede heavy imports");
+});
+
+test("Voice TTS runtime binding repair is plan-first and refuses active work", async () => {
+  const source = await readFile(
+    new URL("../scripts/repair-avantiqo-voice-tts-runtime-binding-local.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /process\.argv\.includes\("--apply"\)/);
+  assert.match(source, /AVANTIQO_VOICE_TTS_RUNTIME_BINDING_REPAIR_APPROVED/);
+  assert.match(source, /JOBS_IN_QUEUE/);
+  assert.match(source, /JOBS_IN_PROGRESS/);
+  assert.match(source, /ACTIVE_EXECUTION_WORKER_PRESENT/);
+  assert.match(source, /python_process_breadcrumb_baked/);
+  assert.match(source, /startup_probe_outcome === "success"/);
+  assert.match(source, /generation_submitted:\s*false/);
+});

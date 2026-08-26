@@ -434,6 +434,25 @@ try {
     throw error;
   }
 
+  let pendingSettlementReconciled = false;
+  let pendingSettlementCleanupError = null;
+  try {
+    pendingSettlementReconciled = await reconcilePendingCertificationReservation();
+  } catch (error) {
+    pendingSettlementCleanupError = text(error?.message || error);
+    console.error(JSON.stringify({
+      event: "AVANTIQO_CODE_CERTIFICATION_PENDING_SETTLEMENT_CLEANUP_FAILED",
+      contract: CONTRACT,
+      organization_id: organizationId,
+      reason: pendingSettlementCleanupError,
+      service_usage_enabled: false,
+      service_billing_enabled: false,
+      new_provider_execution_submitted: false,
+      production_deploy_performed: false,
+      secrets_printed: false,
+    }));
+  }
+
   console.log(JSON.stringify({
     event: "AVANTIQO_CODE_CERTIFICATION_SERVICE_DISABLED",
     contract: CONTRACT,
@@ -444,6 +463,8 @@ try {
     usage_enabled: false,
     billing_enabled: false,
     certification_succeeded: certificationSucceeded,
+    pending_settlement_reconciled: pendingSettlementReconciled,
+    pending_settlement_cleanup_error: pendingSettlementCleanupError,
     new_provider_execution_outside_certification: false,
     production_deploy_performed: false,
     secrets_printed: false,

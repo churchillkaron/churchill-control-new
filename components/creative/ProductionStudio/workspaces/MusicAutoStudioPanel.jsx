@@ -19,6 +19,12 @@ function mediaLabel(file) {
   return file.type?.startsWith("video/") ? "Performance video" : "Audio recording";
 }
 
+function processorLabel(value) {
+  return String(value || "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export default function MusicAutoStudioPanel({ organizationId, projectId = null, missionId = null }) {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
@@ -121,6 +127,10 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
   const stages = Array.isArray(plan?.stages) ? plan.stages : [];
   const master = result?.output || null;
   const eliteBlockers = Array.isArray(result?.elite_studio_blockers) ? result.elite_studio_blockers : [];
+  const vocalEngineering = result?.vocal_engineering || null;
+  const decisions = Array.isArray(vocalEngineering?.engineering?.decisions)
+    ? vocalEngineering.engineering.decisions
+    : [];
 
   return (
     <section className="mx-auto max-w-6xl p-6">
@@ -133,7 +143,7 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
               </div>
               <h2 className="mt-3 text-2xl font-medium tracking-tight text-white/90">Make it professional</h2>
               <p className="mt-2 max-w-2xl text-xs leading-5 text-white/38">
-                Upload a song, vocal recording or performance video. Avantiqo chooses the studio chain automatically and runs every currently certified local finishing stage.
+                Upload a song, vocal recording or performance video. Avantiqo analyzes and restores the recording, then mixes, masters, validates and prepares release deliveries automatically.
               </p>
             </div>
             <div className="rounded-full border border-emerald-300/15 bg-emerald-300/[0.05] px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-emerald-100/65">
@@ -202,12 +212,36 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/30 bg-[#d6a66a]/14 px-5 py-3.5 text-sm font-medium text-[#f2d8aa] shadow-[0_0_40px_rgba(214,166,106,0.06)] disabled:opacity-30"
             >
               {busy ? <AudioLines className="h-4 w-4 animate-pulse" /> : <Sparkles className="h-4 w-4" />}
-              {busy ? "FINISHING..." : "MAKE IT PROFESSIONAL"}
+              {busy ? "RESTORING & MASTERING..." : "MAKE IT PROFESSIONAL"}
             </button>
+
+            {vocalEngineering ? (
+              <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.018] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-medium text-white/68">Automatic restoration</div>
+                  <div className="text-[8px] uppercase tracking-[0.14em] text-emerald-100/45">
+                    {result?.local_restoration_complete ? "Complete" : "Review"}
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {decisions.length ? decisions.map((decision, index) => (
+                    <span key={`${decision.processor}-${index}`} className="rounded-lg border border-white/7 bg-black/20 px-2.5 py-1.5 text-[9px] text-white/42">
+                      {processorLabel(decision.processor)}
+                    </span>
+                  )) : (
+                    <span className="text-[10px] text-white/30">No corrective processor was required beyond safe format preparation.</span>
+                  )}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] text-white/32">
+                  <div className="rounded-lg border border-white/6 p-2.5">Original preserved · V0</div>
+                  <div className="rounded-lg border border-white/6 p-2.5">Restored source · V1</div>
+                </div>
+              </div>
+            ) : null}
 
             {master?.master_url ? (
               <div className="mt-5 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.04] p-4">
-                <div className="flex items-center gap-2 text-xs font-medium text-emerald-100/70"><CheckCircle2 className="h-4 w-4" /> Local master complete</div>
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-100/70"><CheckCircle2 className="h-4 w-4" /> Restored master complete</div>
                 <audio className="mt-3 w-full" controls src={master.master_url} />
                 <div className="mt-3 flex flex-wrap gap-2">
                   {master.files?.filter((item) => item.url && /\.(wav|mp3)(?:$|\?)/i.test(item.name || item.url)).map((item) => (
@@ -218,7 +252,7 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
                 </div>
                 {eliteBlockers.length ? (
                   <div className="mt-3 text-[10px] leading-4 text-amber-100/50">
-                    Mastering is complete. Full elite Auto Studio still requires: {eliteBlockers.map((item) => item.stage.replaceAll("_", " ")).join(", ")}.
+                    Release master is complete. Remaining elite stages: {eliteBlockers.map((item) => item.stage.replaceAll("_", " ")).join(", ")}.
                   </div>
                 ) : null}
               </div>
@@ -239,8 +273,8 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
             <div className="mt-5 space-y-2">
               {(stages.length ? stages : [
                 { id: "analyze", label: "Analyze", description: "Recording quality, stream, loudness and risk", status: "READY" },
-                { id: "repair", label: "Repair", description: "Conservative recording preparation", status: "READY" },
-                { id: "vocal", label: "Vocal engineering", description: "Mic polish, de-ess, pitch/timing when needed", status: "ENGINE COMPLETION REQUIRED" },
+                { id: "repair", label: "Repair", description: "Adaptive mic/program restoration", status: "READY" },
+                { id: "vocal", label: "Vocal engineering", description: "Mic polish, de-ess, EQ and dynamics; pitch/timing when a certified lane is required", status: "PARTIAL" },
                 { id: "mix", label: "Mix", description: "Balance, hierarchy and gain structure", status: "READY" },
                 { id: "master", label: "Master", description: "Release loudness, true peak and final polish", status: "READY" },
                 { id: "delivery", label: "Delivery", description: "24-bit WAV, MP3 and evidence", status: "READY" },

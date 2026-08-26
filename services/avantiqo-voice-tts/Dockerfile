@@ -123,4 +123,4 @@ print("AVANTIQO_VOICE_TTS_BLACKWELL_SM120=PASS")
 print("AVANTIQO_VOICE_TTS_IMAGE_IMPORT_SMOKE=PASS")
 PY
 
-CMD ["/bin/sh", "/app/bootstrap.sh"]
+CMD ["python", "-u", "/app/handler.py"]

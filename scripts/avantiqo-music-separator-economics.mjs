@@ -17,6 +17,11 @@ const RUNPOD_SERVERLESS_USD_PER_HOUR_BY_GPU_TYPE = Object.freeze({
   "NVIDIA RTX A5000": 0.69,
   "NVIDIA GeForce RTX 3090": 0.69,
   "NVIDIA GeForce RTX 4090": 1.10,
+  "NVIDIA A40": 1.22,
+  "NVIDIA RTX A6000": 1.22,
+  "NVIDIA L40": 1.75,
+  "NVIDIA L40S": 1.75,
+  "NVIDIA RTX 6000 Ada": 1.75,
 });
 
 const INPUT = resolve(

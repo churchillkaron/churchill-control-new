@@ -129,10 +129,27 @@ assert.equal(/workersMax\s*[:=]/.test(child), false,
   "Learning synthesis child must not directly mutate workersMax");
 assert.equal(/workersMin\s*[:=]/.test(child), false,
   "Learning synthesis child must not directly mutate workersMin");
-const preparedIndex = child.indexOf('status: "SAFE_LEASE_SYNTHESIS_EXECUTING"');
-const providerPostIndex = child.indexOf('method: "POST"');
-assert.ok(preparedIndex >= 0 && providerPostIndex > preparedIndex,
-  "synthesis attempt must be durably prepared before provider POST");
+
+// Certify runtime execution order, not textual order of function definitions.
+// The provider POST lives inside callOwnedDeepIntelligence(), whose definition
+// naturally appears before the main execution block. What matters is that the
+// durable optimistic update is awaited and verified before that function is called.
+const preparedStatusIndex = child.indexOf('status: "SAFE_LEASE_SYNTHESIS_EXECUTING"');
+const preparedWriteIndex = child.indexOf("const prepared = await db", preparedStatusIndex);
+const preparedVerificationIndex = child.indexOf("if (!prepared.data?.id)", preparedWriteIndex);
+const providerCallIndex = child.indexOf("inference = await callOwnedDeepIntelligence", preparedVerificationIndex);
+assert.ok(
+  preparedStatusIndex >= 0 &&
+    preparedWriteIndex > preparedStatusIndex &&
+    preparedVerificationIndex > preparedWriteIndex &&
+    providerCallIndex > preparedVerificationIndex,
+  "synthesis attempt must be durably prepared and verified before provider call",
+);
+assert.match(
+  child.slice(child.indexOf("async function callOwnedDeepIntelligence"), preparedStatusIndex),
+  /method:\s*"POST"/,
+  "owned deep synthesis transport must contain the bounded provider POST",
+);
 
 const parsedLeasePolicy = JSON.parse(leasePolicy);
 assert.equal(parsedLeasePolicy.contract, "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2");

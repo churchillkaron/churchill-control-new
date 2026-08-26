@@ -7,6 +7,7 @@ const paths = {
   secretaryJobCapability: "lib/platform/capabilities/createSecretaryJobCapability.js",
   secretaryJobIntake: "lib/operator/secretary/SecretaryJobIntakeRuntime.js",
   secretaryJobExecution: "lib/operator/secretary/SecretaryJobExecutionRuntime.js",
+  secretaryJobApproval: "lib/operator/secretary/SecretaryJobApprovalRuntime.js",
   secretaryJobCalendar: "lib/operator/secretary/SecretaryJobCalendarRuntime.js",
   secretaryBriefingCapability: "lib/platform/capabilities/createSecretaryExecutiveBriefingCapability.js",
   secretaryBriefingRuntime: "lib/operator/secretary/SecretaryExecutiveBriefingRuntime.js",
@@ -37,7 +38,7 @@ for (const action of [
   assert.match(source.platform, new RegExp(`createSecretaryCapability\\(\\"${action}\\"\\)`));
 }
 
-for (const action of ["delegate", "list", "read"]) {
+for (const action of ["delegate", "list", "read", "approve"]) {
   assert.match(source.platform, new RegExp(`createSecretaryJobCapability\\(\\"${action}\\"\\)`));
 }
 
@@ -46,7 +47,12 @@ assert.match(source.platform, /createSecretaryExecutiveBriefingCapability\(\)/);
 assert.match(source.secretaryJobCapability, /secretary handle this for me/i);
 assert.match(source.secretaryJobCapability, /take care of this/i);
 assert.match(source.secretaryJobCapability, /what is my secretary working on/i);
+assert.match(source.secretaryJobCapability, /approve this secretary job step/i);
+assert.match(source.secretaryJobCapability, /risk:\s*"high"/);
+assert.match(source.secretaryJobCapability, /reversible:\s*false/);
 assert.match(source.secretaryJobCapability, /operatorRequiresConfirmation:\s*config\.confirm === true/);
+assert.match(source.secretaryJobCapability, /conversation_confirmation/);
+assert.match(source.secretaryJobCapability, /required:\s*\["job_id",\s*"step_id"\]/);
 assert.match(source.secretaryJobCapability, /EXECUTE_WITH_GATES/);
 assert.match(source.secretaryJobCapability, /EXECUTE_WITHIN_POLICY/);
 
@@ -90,6 +96,26 @@ assert.match(source.secretaryJobExecution, /SECRETARY_JOB_PLAN_ONLY_NO_EXECUTION
 assert.match(source.secretaryJobExecution, /execution_performed:\s*false/);
 assert.match(source.secretaryJobExecution, /status:\s*"SKIPPED"/);
 assert.match(source.secretaryJobExecution, /executeSecretaryJobCalendarStep/);
+assert.match(source.secretaryJobExecution, /hasExactStepApproval/);
+assert.match(source.secretaryJobExecution, /approval\.approved_job_id/);
+assert.match(source.secretaryJobExecution, /approval\.approved_step_id/);
+assert.match(source.secretaryJobExecution, /approval\.approved_action_type/);
+assert.match(source.secretaryJobExecution, /approval\.approved_instruction/);
+assert.match(source.secretaryJobExecution, /requiresHighAuthority\(step\.instruction\) && !exactApproval/);
+
+assert.match(source.secretaryJobApproval, /EXPLICIT_STEP_APPROVAL/);
+assert.match(source.secretaryJobApproval, /scope:\s*"THIS_STEP_ONLY"/);
+assert.match(source.secretaryJobApproval, /approved_job_id:\s*job\.id/);
+assert.match(source.secretaryJobApproval, /approved_step_id:\s*step\.id/);
+assert.match(source.secretaryJobApproval, /approved_action_type:\s*step\.action_type/);
+assert.match(source.secretaryJobApproval, /approved_instruction:\s*step\.instruction/);
+assert.match(source.secretaryJobApproval, /approved_by_party_id:\s*approvedByPartyId/);
+assert.match(source.secretaryJobApproval, /authority_not_extended:\s*true/);
+assert.match(source.secretaryJobApproval, /future_steps_authorized:\s*false/);
+assert.match(source.secretaryJobApproval, /SECRETARY_JOB_STEP_REQUIRES_INPUT_NOT_APPROVAL/);
+assert.match(source.secretaryJobApproval, /SECRETARY_JOB_REVIEW_STEP_NOT_EXECUTABLE_BY_APPROVAL/);
+assert.match(source.secretaryJobApproval, /\.eq\("organization_id", organization\)/);
+assert.match(source.secretaryJobApproval, /status:\s*"QUEUED"/);
 
 assert.match(source.secretaryJobCalendar, /createSecretaryCalendarEventAtomic/);
 assert.match(source.secretaryJobCalendar, /Never guess a missing date, time, duration or timezone/i);
@@ -136,6 +162,9 @@ console.log("SECRETARY_AUTONOMOUS_RESEARCH=true");
 console.log("SECRETARY_RESPONSE_COLLECTION_AND_CHASING=true");
 console.log("SECRETARY_CLOSE_LOOP_JOB_EXECUTION=true");
 console.log("SECRETARY_PLAN_ONLY_NO_EXECUTION=true");
+console.log("SECRETARY_STEP_BOUND_APPROVAL=true");
+console.log("SECRETARY_APPROVAL_DOES_NOT_EXTEND_AUTHORITY=true");
+console.log("SECRETARY_OPERATIONAL_INPUT_CANNOT_BE_APPROVED_AWAY=true");
 console.log("SECRETARY_HIGH_AUTHORITY_GATES=true");
 console.log("SECRETARY_RUNTIME_CERTIFIED=false");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

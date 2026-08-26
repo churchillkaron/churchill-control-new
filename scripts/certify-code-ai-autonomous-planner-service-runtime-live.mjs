@@ -18,7 +18,8 @@ const ALLOWED_FILES = [
   "tests/fixtures/code-ai-autonomous-multifile/normalize-money.mjs",
   "tests/fixtures/code-ai-autonomous-multifile/invoice-summary.mjs",
 ];
-const MAX_RESUME_CYCLES = 40;
+const MAX_PENDING_CYCLES_PER_PROVIDER_JOB = 48;
+const MAX_CERTIFICATION_RUNTIME_MS = 90 * 60 * 1000;
 const MAX_ITERATIONS_PER_CYCLE = 12;
 
 function text(value) {
@@ -146,13 +147,26 @@ try {
   let resumeState = null;
   let finalResult = null;
   let resumeCycles = 0;
+  let activePendingProviderJobId = null;
+  let pendingCyclesForActiveJob = 0;
+  let maxObservedPendingCyclesForJob = 0;
+  const certificationStartedAt = Date.now();
 
-  for (let cycle = 1; cycle <= MAX_RESUME_CYCLES; cycle += 1) {
+  for (let cycle = 1; ; cycle += 1) {
     resumeCycles = cycle;
+    const certificationElapsedMs = Date.now() - certificationStartedAt;
+    if (certificationElapsedMs >= MAX_CERTIFICATION_RUNTIME_MS) {
+      throw new Error(
+        `AVANTIQO_CODE_PLANNER_CERT_RUNTIME_LIMIT_EXCEEDED:${Math.round(certificationElapsedMs / 1000)}s`,
+      );
+    }
+
     event("CYCLE_START", {
       cycle,
       resume: Boolean(resumeState),
       pending_provider_job_id: resumeState?.planner_pending?.provider_job_id || null,
+      pending_cycles_for_provider_job: pendingCyclesForActiveJob,
+      elapsed_seconds: Math.round(certificationElapsedMs / 1000),
     });
 
     const result = await executeAutonomousCodeMission({
@@ -175,26 +189,57 @@ try {
       max_iterations: MAX_ITERATIONS_PER_CYCLE,
     });
 
+    const pendingProviderJobId = text(result.state?.planner_pending?.provider_job_id);
     event("CYCLE_RESULT", {
       cycle,
       status: result.status,
       success: result.success === true,
       reason: result.reason || null,
       iterations: result.iterations || 0,
-      pending_provider_job_id: result.state?.planner_pending?.provider_job_id || null,
+      pending_provider_job_id: pendingProviderJobId || null,
     });
 
     if (result.status === "planner_pending") {
+      if (!pendingProviderJobId) {
+        throw new Error("AVANTIQO_CODE_PLANNER_CERT_PENDING_PROVIDER_JOB_ID_REQUIRED");
+      }
+      if (pendingProviderJobId === activePendingProviderJobId) {
+        pendingCyclesForActiveJob += 1;
+      } else {
+        activePendingProviderJobId = pendingProviderJobId;
+        pendingCyclesForActiveJob = 1;
+      }
+      maxObservedPendingCyclesForJob = Math.max(
+        maxObservedPendingCyclesForJob,
+        pendingCyclesForActiveJob,
+      );
+
+      event("PENDING_WAIT", {
+        cycle,
+        pending_provider_job_id: pendingProviderJobId,
+        pending_cycles_for_provider_job: pendingCyclesForActiveJob,
+        max_pending_cycles_per_provider_job: MAX_PENDING_CYCLES_PER_PROVIDER_JOB,
+        new_provider_execution_submitted: false,
+      });
+
+      if (pendingCyclesForActiveJob > MAX_PENDING_CYCLES_PER_PROVIDER_JOB) {
+        throw new Error(
+          `AVANTIQO_CODE_PLANNER_CERT_PENDING_JOB_CYCLE_LIMIT_EXCEEDED:${pendingProviderJobId}:${pendingCyclesForActiveJob}`,
+        );
+      }
+
       resumeState = result.state;
       await new Promise((resolve) => setTimeout(resolve, 5000));
       continue;
     }
 
+    activePendingProviderJobId = null;
+    pendingCyclesForActiveJob = 0;
     finalResult = result;
     break;
   }
 
-  if (!finalResult) throw new Error("AVANTIQO_CODE_PLANNER_CERT_RESUME_CYCLE_LIMIT_EXCEEDED");
+  if (!finalResult) throw new Error("AVANTIQO_CODE_PLANNER_CERT_FINAL_RESULT_REQUIRED");
   if (!finalResult.success || finalResult.status !== "completed") {
     throw new Error(`AVANTIQO_CODE_PLANNER_CERT_MISSION_FAILED:${finalResult.reason || finalResult.status}`);
   }
@@ -303,6 +348,9 @@ try {
     provider_usage_count: usageRecords.length,
     usage_records: usageRecords,
     resume_cycles: resumeCycles,
+    max_pending_cycles_per_provider_job: MAX_PENDING_CYCLES_PER_PROVIDER_JOB,
+    max_observed_pending_cycles_for_provider_job: maxObservedPendingCyclesForJob,
+    certification_elapsed_ms: Date.now() - certificationStartedAt,
     planner_pending_reused: resumeCycles > 1,
     changed_files: changedFiles,
     verification_passed: true,

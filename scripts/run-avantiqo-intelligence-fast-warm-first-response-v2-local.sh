@@ -150,6 +150,7 @@ echo "AVANTIQO FAST INTELLIGENCE - VISIBLE WARM FIRST RESPONSE V2"
 echo "============================================================"
 echo "EXPECTED_MODEL=$EXPECTED_MODEL"
 echo "WARM_TIMEOUT_MS=$WARM_TIMEOUT_MS"
+echo "WARM_TRANSPORT=NODE_HTTPS_TOTAL_DEADLINE"
 echo "HOT_RESPONSE_TIMEOUT_MS=$RESPONSE_TIMEOUT_MS"
 echo "APPROVED_GENERATIONS=1"
 echo "PRODUCTION_DEPLOY_PERFORMED=NO"
@@ -201,6 +202,8 @@ rm -f "$WARM_STATUS"
   set +e
   EXPECTED_MODEL="$EXPECTED_MODEL" WARM_TIMEOUT_MS="$WARM_TIMEOUT_MS" \
     node --env-file=.env.local --input-type=module >"$WARM_RESULT" 2>&1 <<'NODE'
+import https from "node:https";
+
 const endpointId = String(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_ID || "").trim();
 const apiKey = String(process.env.RUNPOD_API_KEY || "").trim();
 const expectedModel = String(process.env.EXPECTED_MODEL || "").trim();
@@ -218,17 +221,67 @@ const progress = Number(health?.jobs?.inProgress || 0);
 if (queued !== 0 || progress !== 0) {
   throw new Error(`FAST_WARM_ZERO_JOB_REQUIRED:in_queue=${queued}:in_progress=${progress}`);
 }
+
+function longJsonRequest(url, requestHeaders, totalTimeoutMs) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let request;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      callback(value);
+    };
+    const deadline = setTimeout(() => {
+      if (request) request.destroy(new Error(`FAST_WARM_TOTAL_TIMEOUT_MS_${totalTimeoutMs}`));
+    }, totalTimeoutMs);
+    deadline.unref?.();
+
+    request = https.request(url, {
+      method: "GET",
+      headers: requestHeaders,
+    }, (response) => {
+      let raw = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        raw += chunk;
+        if (raw.length > 5_000_000) {
+          request.destroy(new Error("FAST_WARM_RESPONSE_TOO_LARGE"));
+        }
+      });
+      response.on("end", () => {
+        let body = null;
+        try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+        finish(resolve, {
+          status: Number(response.statusCode || 0),
+          body,
+          raw,
+        });
+      });
+      response.on("error", (error) => finish(reject, error));
+    });
+    request.on("error", (error) => finish(reject, error));
+    request.end();
+  });
+}
+
 const startedAt = Date.now();
-const response = await fetch(`https://api.runpod.ai/v2/${endpointId}/openai/v1/models`, {
+const modelsResult = await longJsonRequest(
+  `https://api.runpod.ai/v2/${endpointId}/openai/v1/models`,
   headers,
-  signal: AbortSignal.timeout(timeoutMs),
-});
-const raw = await response.text();
-let body = null;
-try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
-if (!response.ok || !body) throw new Error(`FAST_WARM_MODELS_HTTP_${response.status}`);
-const ids = Array.isArray(body?.data)
-  ? body.data.map((entry) => String(entry?.id || "").trim()).filter(Boolean)
+  timeoutMs,
+);
+if (modelsResult.status < 200 || modelsResult.status >= 300 || !modelsResult.body) {
+  const detail = String(
+    modelsResult.body?.error?.message ||
+      modelsResult.body?.message ||
+      modelsResult.raw ||
+      "EMPTY_BODY",
+  ).replace(/\s+/g, " ").slice(0, 500);
+  throw new Error(`FAST_WARM_MODELS_HTTP_${modelsResult.status}:${detail}`);
+}
+const ids = Array.isArray(modelsResult.body?.data)
+  ? modelsResult.body.data.map((entry) => String(entry?.id || "").trim()).filter(Boolean)
   : [];
 if (!ids.includes(expectedModel)) {
   throw new Error(`FAST_WARM_EXPECTED_MODEL_NOT_SERVED:expected=${expectedModel}:served=${ids.join(",") || "NONE"}`);
@@ -236,6 +289,7 @@ if (!ids.includes(expectedModel)) {
 console.log(`AVANTIQO_FAST_WARM_MODEL_ROUTE_LATENCY_MS=${Date.now() - startedAt}`);
 console.log(`AVANTIQO_FAST_WARM_MODEL_IDS=${JSON.stringify(ids)}`);
 console.log("AVANTIQO_FAST_WARM_EXPECTED_MODEL_SERVED=YES");
+console.log("AVANTIQO_FAST_WARM_TRANSPORT=NODE_HTTPS_TOTAL_DEADLINE");
 console.log("AVANTIQO_FAST_WARM_ROUTE=PASS");
 NODE
   echo "$?" >"$WARM_STATUS"

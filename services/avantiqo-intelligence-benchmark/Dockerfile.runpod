@@ -22,6 +22,7 @@ assert version("transformers") == "5.15.0", version("transformers")
 assert version("peft") == "0.20.0", version("peft")
 assert version("accelerate") == "1.14.0", version("accelerate")
 assert version("bitsandbytes") == "0.50.0", version("bitsandbytes")
+assert version("safetensors") == "0.8.0", version("safetensors")
 print("AVANTIQO_INTELLIGENCE_BENCHMARK_DEPENDENCY_CHECK=PASS")
 PY
 

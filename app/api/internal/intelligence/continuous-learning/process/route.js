@@ -42,6 +42,9 @@ import {
 import {
   reconcileAvantiqoReleasedKnowledgeLifecycle,
 } from "@/lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime";
+import {
+  reconcileAvantiqoKnowledgeDependencyCurriculum,
+} from "@/lib/intelligence/runtime/AvantiqoKnowledgeDependencyCurriculumRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -89,15 +92,19 @@ export async function GET(request) {
     //     final-release runtime. Conflict, stale evidence or missing provenance
     //     quarantines it immediately. Successful same-cycle revalidation renews
     //     its bounded validity window; this cron cannot release or restore it.
-    // 13. Spend the existing bounded public-evidence research budget on the
-    //     resulting agenda, including adversarial reconciliation work. Newly
-    //     supported claims are staged as evidence candidates for the next cycle.
+    // 13. Propagate quarantine/expiry only through explicitly verified hard
+    //     knowledge dependencies, place affected dependents on fail-closed hold,
+    //     and regenerate bounded hierarchical curriculum. Semantic similarity
+    //     never creates a dependency and soft relationships never disable reuse.
+    // 14. Spend the existing bounded public-evidence research budget on the
+    //     resulting agenda, including adversarial/dependency reconciliation work.
+    //     Newly supported claims are staged as evidence candidates for the next cycle.
     // Any hypothesis/invention synthesis or counterfactual benchmark execution
     // that could wake owned RunPod Intelligence is deliberately outside this
     // cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
-    // Stages 1-12 never mutate model weights, authorize product actions, execute
+    // Stages 1-13 never mutate model weights, authorize product actions, execute
     // experiments, submit RunPod jobs, automatically release knowledge, or
-    // automatically restore quarantined/retired knowledge.
+    // automatically restore quarantined/retired/dependency-held knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
@@ -115,6 +122,8 @@ export async function GET(request) {
       await reconcileAvantiqoKnowledgeFinalPromotionCandidates();
     const releasedKnowledgeLifecycle =
       await reconcileAvantiqoReleasedKnowledgeLifecycle();
+    const knowledgeDependencyCurriculum =
+      await reconcileAvantiqoKnowledgeDependencyCurriculum();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -134,6 +143,7 @@ export async function GET(request) {
         knowledge_final_promotion_candidates: knowledgeFinalPromotionCandidates,
         released_knowledge_revalidation: releasedKnowledgeLifecycle,
         released_knowledge_lifecycle: releasedKnowledgeLifecycle,
+        knowledge_dependency_curriculum: knowledgeDependencyCurriculum,
       },
       {
         status: result.success === false ? 207 : 200,

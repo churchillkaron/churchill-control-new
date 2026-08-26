@@ -12,6 +12,11 @@ import {
 import {
   listOperatorNavigationTargets,
 } from "@/lib/operator/runtime/OperatorNavigationCatalog";
+import {
+  settleOperatorVoiceExecution,
+} from "@/lib/operator/runtime/OperatorVoiceServiceSettlement";
+
+export const maxDuration = 60;
 
 const VOICE_LANGUAGE_COOKIE = "avantiqo_voice_language";
 const VOICE_LANGUAGE_COOKIE_MAX_AGE_SECONDS = 300;
@@ -56,7 +61,7 @@ function wakeDetected(value) {
 }
 
 function findTranscript(value, depth = 0) {
-  if (depth > 6 || value === null || value === undefined) return "";
+  if (depth > 8 || value === null || value === undefined) return "";
   if (typeof value === "string") return value;
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -82,7 +87,7 @@ function findTranscript(value, depth = 0) {
 }
 
 function findVoiceField(value, field, depth = 0) {
-  if (depth > 7 || value === null || value === undefined) return null;
+  if (depth > 9 || value === null || value === undefined) return null;
   if (Array.isArray(value)) {
     for (const item of value) {
       const found = findVoiceField(item, field, depth + 1);
@@ -267,15 +272,30 @@ export async function POST(request) {
       category: "AI",
     });
 
-    const transcript = findTranscript(execution);
+    const settledExecution = await settleOperatorVoiceExecution({
+      execution,
+      organizationId: businessContext.organizationId,
+      capability: "ai.speech.to.text",
+      metadata: {
+        module: "OPERATOR",
+        operation:
+          mode === "wake"
+            ? "WAKE_TRANSCRIPTION"
+            : "VOICE_TRANSCRIPTION",
+        channel: "voice",
+        transcription_mode: mode,
+      },
+    });
+
+    const transcript = findTranscript(settledExecution);
     if (!transcript) {
       return errorResponse("Voice transcription returned no text", 502);
     }
 
-    const detectedLanguage = findVoiceField(execution, "detected_language");
-    const language = findVoiceField(execution, "language") || detectedLanguage;
+    const detectedLanguage = findVoiceField(settledExecution, "detected_language");
+    const language = findVoiceField(settledExecution, "language") || detectedLanguage;
     const languageSource =
-      findVoiceField(execution, "language_source") ||
+      findVoiceField(settledExecution, "language_source") ||
       (speechLanguage ? "requested" : detectedLanguage ? "detected" : null);
     const detected = mode === "wake" ? wakeDetected(transcript) : false;
 
@@ -288,7 +308,7 @@ export async function POST(request) {
       detected_language: detectedLanguage || null,
       language_source: languageSource,
       ui_locale: locale,
-      usage_id: execution?.usage?.id || null,
+      usage_id: settledExecution?.usage?.id || execution?.usage?.id || null,
     });
 
     const response = Response.json({

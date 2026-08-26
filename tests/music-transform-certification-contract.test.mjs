@@ -6,9 +6,11 @@ const worker = await readFile("services/avantiqo-audio-engine/handler.py", "utf8
 const workerV2 = await readFile("services/avantiqo-audio-engine/handler_v2.py", "utf8");
 const benchmark = await readFile("scripts/benchmark-avantiqo-music-transform.mjs", "utf8");
 const launcher = await readFile("scripts/run-avantiqo-music-transform-certification-local.mjs", "utf8");
+const safeLeasePolicy = await readFile("config/avantiqo-runpod-safe-lease-policy.json", "utf8");
 
 test("Music transform candidate certification stays separate from production certification", () => {
   assert.match(worker, /CERTIFICATION_JOB_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_JOB_V1"/);
+  assert.match(worker, /AVANTIQO_AUDIO_CERTIFICATION_SAFE_LEASE_LANE/);
   assert.match(worker, /CERTIFICATION_CANDIDATE_CAPABILITIES = \{/);
   assert.match(worker, /"ai\.audio\.remix"/);
   assert.match(worker, /"ai\.audio\.edit"/);
@@ -20,13 +22,19 @@ test("Music transform candidate certification stays separate from production cer
   assert.match(worker, /automatic_human_review_approved/);
   assert.match(workerV2, /"production_certified": certification_access\.get\("production_certified"\) is True/);
   assert.match(workerV2, /"activation_allowed": certification_access\.get\("activation_allowed"\) is True/);
+  assert.match(safeLeasePolicy, /"music-transform-candidate": "avantiqo-music-transform-candidate-v1"/);
+  assert.match(safeLeasePolicy, /"audio": "avantiqo-audio-v1"/);
 });
 
-test("Music transform benchmark requires one Safe Lease audio job and explicit approvals", () => {
+test("Music transform benchmark requires one dedicated candidate Safe Lease job and explicit approvals", () => {
   assert.match(benchmark, /AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED/);
   assert.match(benchmark, /AVANTIQO_MUSIC_TRANSFORM_SOURCE_RIGHTS_APPROVED/);
   assert.match(benchmark, /AVANTIQO_RUNPOD_SAFE_LEASE_V2/);
-  assert.match(benchmark, /SAFE_LEASE_LANE = "audio"/);
+  assert.match(benchmark, /SAFE_LEASE_LANE = "music-transform-candidate"/);
+  assert.match(benchmark, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID/);
+  assert.doesNotMatch(benchmark, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID/);
+  assert.match(benchmark, /endpoint_scope: "MUSIC_TRANSFORM_CANDIDATE_ONLY"/);
+  assert.match(benchmark, /production_audio_endpoint_allowed: false/);
   assert.match(benchmark, /max_provider_jobs: 1/);
   assert.match(benchmark, /benchmark_runs: 1/);
   assert.match(benchmark, /human_review_required: true/);
@@ -52,13 +60,18 @@ test("Music Extend benchmark proves a longer output before technical certificati
   assert.match(benchmark, /human_review_status: "PENDING"/);
 });
 
-test("Music transform launcher uses Safe Lease audio and cannot bypass approval gates", () => {
+test("Music transform launcher uses dedicated candidate Safe Lease and cannot bypass approval gates", () => {
   assert.match(launcher, /AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED/);
   assert.match(launcher, /AVANTIQO_MUSIC_TRANSFORM_SOURCE_RIGHTS_APPROVED/);
+  assert.match(launcher, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID/);
   assert.match(launcher, /"ai\.audio\.extend"/);
-  assert.match(launcher, /--lane=audio/);
+  assert.match(launcher, /SAFE_LEASE_LANE = "music-transform-candidate"/);
+  assert.match(launcher, /--lane=\$\{SAFE_LEASE_LANE\}/);
+  assert.doesNotMatch(launcher, /--lane=audio/);
   assert.match(launcher, /--ttl-ms=1800000/);
   assert.match(launcher, /AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES"/);
+  assert.match(launcher, /ENDPOINT_SCOPE=MUSIC_TRANSFORM_CANDIDATE_ONLY/);
+  assert.match(launcher, /PRODUCTION_AUDIO_ENDPOINT_ALLOWED=false/);
   assert.match(launcher, /MAX_PROVIDER_JOBS=1/);
   assert.match(launcher, /HUMAN_REVIEW_REQUIRED=true/);
   assert.match(launcher, /PRODUCTION_ACTIVATION=false/);

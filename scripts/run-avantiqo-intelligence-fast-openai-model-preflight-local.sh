@@ -7,8 +7,8 @@ FAST_ACTIVE=NO
 RESTORED=NO
 
 fail() {
-  echo "AVANTIQO_INTELLIGENCE_FAST_OPENAI_MODEL_PREFLIGHT=FAIL"
-  echo "AVANTIQO_INTELLIGENCE_FAST_OPENAI_MODEL_PREFLIGHT_REASON=$1"
+  echo "AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_MODEL_PREFLIGHT=FAIL"
+  echo "AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_MODEL_PREFLIGHT_REASON=$1"
   exit 1
 }
 
@@ -29,10 +29,10 @@ restore_deep() {
   set -e
   if [ "$status" -eq 0 ]; then
     FAST_ACTIVE=NO
-    echo "AVANTIQO_INTELLIGENCE_FAST_OPENAI_MODEL_PREFLIGHT_RESTORE=PASS"
+    echo "AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_MODEL_PREFLIGHT_RESTORE=PASS"
     return 0
   fi
-  echo "AVANTIQO_INTELLIGENCE_FAST_OPENAI_MODEL_PREFLIGHT_RESTORE=FAIL"
+  echo "AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_MODEL_PREFLIGHT_RESTORE=FAIL"
   return "$status"
 }
 
@@ -50,12 +50,13 @@ trap cleanup EXIT INT TERM
 [ -d "$ROOT/.git" ] || [ -f "$ROOT/.git" ] || fail "PROJECT_NOT_GIT_WORKTREE"
 [ -f "$ROOT/.env.local" ] || fail "ENV_LOCAL_MISSING"
 [ "${AVANTIQO_INTELLIGENCE_FAST_OPENAI_PREFLIGHT_APPROVED:-}" = "YES" ] \
-  || fail "OPENAI_MODEL_PREFLIGHT_APPROVAL_REQUIRED"
+  || [ "${AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_PREFLIGHT_APPROVED:-}" = "YES" ] \
+  || fail "SELF_HOSTED_MODEL_PREFLIGHT_APPROVAL_REQUIRED"
 
 cd "$ROOT"
 
 echo "============================================================"
-echo "AVANTIQO FAST INTELLIGENCE - OPENAI MODEL PREFLIGHT"
+echo "AVANTIQO FAST INTELLIGENCE - SELF-HOSTED MODEL PREFLIGHT"
 echo "============================================================"
 echo "GENERATION_SUBMITTED=NO"
 echo "PRODUCTION_DEPLOY_PERFORMED=NO"
@@ -71,8 +72,9 @@ if [ "$HEAD_SHA" != "$ORIGIN_MAIN_SHA" ]; then
   git merge --ff-only origin/main || fail "LOCAL_MAIN_FAST_FORWARD_FAILED"
   HEAD_SHA="$(git rev-parse HEAD)"
   [ "$HEAD_SHA" = "$ORIGIN_MAIN_SHA" ] || fail "LOCAL_MAIN_CONVERGENCE_FAILED"
-  echo "AVANTIQO_INTELLIGENCE_FAST_OPENAI_PREFLIGHT_MAIN_CONVERGED=$HEAD_SHA"
 fi
+PINNED_MAIN_SHA="$HEAD_SHA"
+echo "AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_PREFLIGHT_MAIN=$PINNED_MAIN_SHA"
 
 node --check scripts/manage-avantiqo-intelligence-lane-slot-local.mjs || fail "SLOT_MANAGER_SYNTAX_FAILED"
 node --check scripts/diagnose-avantiqo-intelligence-fast-live-request-local.mjs || fail "LIVE_DIAGNOSTIC_SYNTAX_FAILED"
@@ -90,17 +92,22 @@ AVANTIQO_INTELLIGENCE_FAST_SLOT_SWAP_APPROVED=YES \
   || fail "FAST_SLOT_ACTIVATION_FAILED"
 FAST_ACTIVE=YES
 
-echo "AVANTIQO_INTELLIGENCE_FAST_OPENAI_MODEL_PREFLIGHT_GATEWAY_SETTLE_SECONDS=10"
+echo "AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_PREFLIGHT_GATEWAY_SETTLE_SECONDS=10"
 sleep 10
 
 echo ""
-echo "================ QUERY FAST OPENAI MODELS ================"
-set +e
-EXPECTED_MODEL="$EXPECTED_MODEL" node --env-file=.env.local --input-type=module <<'NODE'
+echo "================ QUERY FAST SELF-HOSTED MODEL ROUTE ================"
+MODEL_RESULT="$(mktemp /tmp/avantiqo-fast-self-hosted-model.XXXXXX)"
+MODEL_STATUS_FILE="$(mktemp /tmp/avantiqo-fast-self-hosted-status.XXXXXX)"
+rm -f "$MODEL_STATUS_FILE"
+
+(
+  set +e
+  EXPECTED_MODEL="$EXPECTED_MODEL" node --env-file=.env.local --input-type=module >"$MODEL_RESULT" 2>&1 <<'NODE'
 const endpointId = String(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_ID || "").trim();
 const apiKey = String(process.env.RUNPOD_API_KEY || "").trim();
 const expectedModel = String(process.env.EXPECTED_MODEL || "").trim();
-if (!endpointId || !apiKey || !expectedModel) throw new Error("AVANTIQO_FAST_OPENAI_PREFLIGHT_CONFIGURATION_REQUIRED");
+if (!endpointId || !apiKey || !expectedModel) throw new Error("AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_CONFIGURATION_REQUIRED");
 
 const healthUrl = `https://api.runpod.ai/v2/${endpointId}/health`;
 const modelsUrl = `https://api.runpod.ai/v2/${endpointId}/openai/v1/models`;
@@ -113,53 +120,71 @@ async function json(url, timeoutMs) {
   try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
   if (!response.ok) {
     const detail = String(body?.error?.message || body?.message || raw || "").replace(/\s+/g, " ").slice(0, 500);
-    throw new Error(`AVANTIQO_FAST_OPENAI_PREFLIGHT_HTTP_${response.status}:${detail}`);
+    throw new Error(`AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_HTTP_${response.status}:${detail}`);
   }
-  if (body === null) throw new Error("AVANTIQO_FAST_OPENAI_PREFLIGHT_NON_JSON_RESPONSE");
+  if (body === null) throw new Error("AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_NON_JSON_RESPONSE");
   return body;
 }
 
 try {
   const before = await json(healthUrl, 15000);
-  console.log(`AVANTIQO_FAST_OPENAI_PREFLIGHT_HEALTH_BEFORE=${JSON.stringify({ jobs: before?.jobs || {}, workers: before?.workers || {} })}`);
-
+  console.log(`AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_HEALTH_BEFORE=${JSON.stringify({ jobs: before?.jobs || {}, workers: before?.workers || {} })}`);
   const startedAt = Date.now();
   const models = await json(modelsUrl, 90000);
   const ids = Array.isArray(models?.data)
     ? models.data.map((entry) => String(entry?.id || "").trim()).filter(Boolean)
     : [];
-  console.log(`AVANTIQO_FAST_OPENAI_PREFLIGHT_MODELS_LATENCY_MS=${Date.now() - startedAt}`);
-  console.log(`AVANTIQO_FAST_OPENAI_PREFLIGHT_MODEL_IDS=${JSON.stringify(ids)}`);
-  console.log(`AVANTIQO_FAST_OPENAI_PREFLIGHT_EXPECTED_MODEL=${expectedModel}`);
+  console.log(`AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_MODELS_LATENCY_MS=${Date.now() - startedAt}`);
+  console.log(`AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_MODEL_IDS=${JSON.stringify(ids)}`);
+  console.log(`AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_EXPECTED_MODEL=${expectedModel}`);
   if (!ids.includes(expectedModel)) {
-    throw new Error(`AVANTIQO_FAST_OPENAI_PREFLIGHT_EXPECTED_MODEL_NOT_SERVED:expected=${expectedModel}:served=${ids.join(",") || "NONE"}`);
+    throw new Error(`AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_EXPECTED_MODEL_NOT_SERVED:expected=${expectedModel}:served=${ids.join(",") || "NONE"}`);
   }
-  console.log("AVANTIQO_FAST_OPENAI_PREFLIGHT_EXPECTED_MODEL_SERVED=YES");
-  console.log("AVANTIQO_INTELLIGENCE_FAST_OPENAI_MODEL_ROUTE=PASS");
+  console.log("AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_EXPECTED_MODEL_SERVED=YES");
+  console.log("AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_MODEL_ROUTE=PASS");
 } catch (error) {
   const detail = String(error?.message || error).replace(/\s+/g, " ").slice(0, 900);
-  console.error(`AVANTIQO_FAST_OPENAI_PREFLIGHT_ERROR=${detail}`);
+  console.error(`AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_ERROR=${detail}`);
   process.exitCode = 1;
 }
 NODE
-MODEL_STATUS=$?
-set -e
+  echo "$?" >"$MODEL_STATUS_FILE"
+) &
+MODEL_PID=$!
 
-if [ "$MODEL_STATUS" -ne 0 ]; then
+DIAGNOSTIC_RUNS=0
+while kill -0 "$MODEL_PID" 2>/dev/null; do
+  DIAGNOSTIC_RUNS=$((DIAGNOSTIC_RUNS + 1))
   echo ""
-  echo "================ CAPTURE FAST WORKER EVIDENCE ================"
+  echo "================ IN-FLIGHT FAST WORKER EVIDENCE $DIAGNOSTIC_RUNS ================"
   set +e
-  node --env-file=.env.local scripts/diagnose-avantiqo-intelligence-fast-live-request-local.mjs
+  AVANTIQO_INTELLIGENCE_FAST_LIVE_REQUEST_EXPECTED_MAIN="$PINNED_MAIN_SHA" \
+    node --env-file=.env.local scripts/diagnose-avantiqo-intelligence-fast-live-request-local.mjs
   DIAGNOSTIC_STATUS=$?
   set -e
-  echo "AVANTIQO_FAST_OPENAI_PREFLIGHT_DIAGNOSTIC_STATUS=$DIAGNOSTIC_STATUS"
+  echo "AVANTIQO_FAST_SELF_HOSTED_PREFLIGHT_DIAGNOSTIC_STATUS=$DIAGNOSTIC_STATUS"
+  if [ "$DIAGNOSTIC_RUNS" -ge 6 ]; then
+    break
+  fi
+  sleep 4
+ done
+
+wait "$MODEL_PID" || true
+cat "$MODEL_RESULT"
+MODEL_STATUS="1"
+if [ -f "$MODEL_STATUS_FILE" ]; then
+  MODEL_STATUS="$(cat "$MODEL_STATUS_FILE")"
+fi
+rm -f "$MODEL_RESULT" "$MODEL_STATUS_FILE"
+
+if [ "$MODEL_STATUS" -ne 0 ]; then
   restore_deep || fail "DEEP_RESTORE_AFTER_PREFLIGHT_FAILURE_FAILED"
-  fail "FAST_OPENAI_MODEL_ROUTE_FAILED"
+  fail "FAST_SELF_HOSTED_MODEL_ROUTE_FAILED"
 fi
 
 restore_deep || fail "DEEP_RESTORE_AFTER_PREFLIGHT_FAILED"
 
-echo "AVANTIQO_INTELLIGENCE_FAST_OPENAI_MODEL_PREFLIGHT=PASS"
+echo "AVANTIQO_INTELLIGENCE_FAST_SELF_HOSTED_MODEL_PREFLIGHT=PASS"
 echo "AVANTIQO_INTELLIGENCE_POST_TEST_STATE=DEEP_ACTIVE_FAST_PARKED"
 echo "GENERATION_SUBMITTED=NO"
 echo "PRODUCTION_DEPLOY_PERFORMED=NO"

@@ -14,6 +14,7 @@ const RUNPOD_SERVERLESS = "https://api.runpod.ai/v2";
 const MIN_ORPHAN_AGE_MS = 60 * 60_000;
 const MAX_WAIT_MS = 15 * 60_000;
 const POLL_MS = 5_000;
+const MAX_CONSECUTIVE_TRANSIENT_STATUS_ERRORS = 12;
 const AMOUNT_EPSILON = 0.000001;
 
 function text(value) {
@@ -39,6 +40,43 @@ function amount(value) {
 
 function sameAmount(left, right) {
   return Math.abs(amount(left) - amount(right)) <= AMOUNT_EPSILON;
+}
+
+function transientRunpodStatusError(error) {
+  const message = text(error?.message || error);
+  const match = message.match(/AVANTIQO_CODE_RUNPOD_REQUEST_FAILED:(\d{3}):/);
+  if (!match) return null;
+  const status = Number(match[1]);
+  if (status === 429 || (status >= 500 && status <= 599)) {
+    return { status, message: message.slice(0, 1200) };
+  }
+  return null;
+}
+
+function healthSummary(body = {}) {
+  const jobs = body?.jobs || {};
+  const workers = body?.workers || {};
+  const finite = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  return {
+    jobs: {
+      in_queue: finite(jobs.inQueue ?? jobs.in_queue),
+      in_progress: finite(jobs.inProgress ?? jobs.in_progress),
+      completed: finite(jobs.completed),
+      failed: finite(jobs.failed),
+      retried: finite(jobs.retried),
+    },
+    workers: {
+      idle: finite(workers.idle),
+      initializing: finite(workers.initializing),
+      ready: finite(workers.ready),
+      running: finite(workers.running),
+      throttled: finite(workers.throttled),
+      unhealthy: finite(workers.unhealthy),
+    },
+  };
 }
 
 async function runpodRequest(url, key) {
@@ -246,6 +284,8 @@ console.log(JSON.stringify({
 let result = null;
 let orphanedJobReconciled = false;
 let terminal = ["SUCCESS", "FAILED"].includes(usageStatusBefore);
+let consecutiveTransientStatusErrors = 0;
+let totalTransientStatusErrors = 0;
 
 if (!endpointResolution.found) {
   if (!endpointResolution.all_probes_not_found) {
@@ -346,23 +386,64 @@ if (!endpointResolution.found) {
   const deadline = Date.now() + MAX_WAIT_MS;
 
   while (!terminal && Date.now() < deadline) {
-    result = await ServiceExecutionRuntime.settle({
-      organization_id: ORGANIZATION_ID,
-      provider: PROVIDER,
-      provider_job_id: PROVIDER_JOB_ID,
-      usage_id: USAGE_ID,
-      pricing: {},
-      quantity: Number(usageBefore.quantity || 1),
-      unit: text(usageBefore.unit) || "request",
-      metadata: {
-        certification_contract: CONTRACT,
-        certification_pending_reconciliation: true,
-        recovered_provider_endpoint_id: endpointResolution.endpoint_id,
+    try {
+      result = await ServiceExecutionRuntime.settle({
+        organization_id: ORGANIZATION_ID,
+        provider: PROVIDER,
+        provider_job_id: PROVIDER_JOB_ID,
+        usage_id: USAGE_ID,
+        pricing: {},
+        quantity: Number(usageBefore.quantity || 1),
+        unit: text(usageBefore.unit) || "request",
+        metadata: {
+          certification_contract: CONTRACT,
+          certification_pending_reconciliation: true,
+          recovered_provider_endpoint_id: endpointResolution.endpoint_id,
+          new_provider_execution_submitted: false,
+          service_reenabled: false,
+        },
+        started_at: usageBefore.created_at || null,
+      });
+      consecutiveTransientStatusErrors = 0;
+    } catch (error) {
+      const transient = transientRunpodStatusError(error);
+      if (!transient) throw error;
+
+      consecutiveTransientStatusErrors += 1;
+      totalTransientStatusErrors += 1;
+      const healthProbe = await runpodRequest(
+        `${RUNPOD_SERVERLESS}/${encodeURIComponent(endpointResolution.endpoint_id)}/health`,
+        codeApiKey,
+      );
+      const health = healthProbe.response.ok
+        ? healthSummary(healthProbe.body)
+        : null;
+
+      console.log(JSON.stringify({
+        event: "AVANTIQO_CODE_PLANNER_PENDING_TRANSIENT_STATUS_ERROR",
+        contract: CONTRACT,
+        usage_id: USAGE_ID,
+        provider_job_id: PROVIDER_JOB_ID,
+        endpoint_id: endpointResolution.endpoint_id,
+        http_status: transient.status,
+        consecutive_transient_status_errors: consecutiveTransientStatusErrors,
+        transient_status_error_limit: MAX_CONSECUTIVE_TRANSIENT_STATUS_ERRORS,
+        endpoint_health_http_status: healthProbe.response.status,
+        endpoint_health: health,
         new_provider_execution_submitted: false,
         service_reenabled: false,
-      },
-      started_at: usageBefore.created_at || null,
-    });
+        reservation_preserved: true,
+        secrets_printed: false,
+      }));
+
+      if (consecutiveTransientStatusErrors >= MAX_CONSECUTIVE_TRANSIENT_STATUS_ERRORS) {
+        throw new Error(
+          `AVANTIQO_CODE_PLANNER_PENDING_TRANSIENT_STATUS_ERROR_LIMIT:${transient.status}:${consecutiveTransientStatusErrors}`,
+        );
+      }
+      await sleep(POLL_MS);
+      continue;
+    }
 
     const usageNow = await UsageRuntime.get(USAGE_ID);
     const status = text(usageNow?.status).toUpperCase() || "UNKNOWN";
@@ -376,6 +457,7 @@ if (!endpointResolution.found) {
       provider_failed: result?.failed === true,
       provider_status: result?.provider_status || null,
       usage_status: status,
+      total_transient_status_errors: totalTransientStatusErrors,
       new_provider_execution_submitted: false,
       service_reenabled: false,
       secrets_printed: false,
@@ -422,6 +504,7 @@ console.log(JSON.stringify({
   orphaned_job_reconciled: orphanedJobReconciled,
   usage_status: finalStatus,
   provider_status: result?.provider_status || null,
+  total_transient_status_errors: totalTransientStatusErrors,
   supplier_cost: Number(usageAfter?.supplier_cost || 0),
   customer_price: Number(usageAfter?.customer_price || 0),
   charged_amount: Number(usageAfter?.charged_amount || 0),

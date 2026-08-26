@@ -1,0 +1,40 @@
+name: Avantiqo Learning Trainer Claim
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-learning-trainer-claim.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-learning-trainer-claim
+  cancel-in-progress: false
+
+jobs:
+  claim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY || secrets.RUNPOD_API_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_TRAINER_ENDPOINT_ID }}
+      AVANTIQO_LEARNING_TRAINER_CLAIM_APPROVED: YES
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Verify exact checkout
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Syntax check guarded claim
+        shell: bash
+        run: node --check scripts/claim-avantiqo-learning-trainer-if-free.mjs
+
+      - name: Claim Trainer only if shared slot is already free
+        shell: bash
+        run: node scripts/claim-avantiqo-learning-trainer-if-free.mjs

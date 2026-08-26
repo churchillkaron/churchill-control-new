@@ -1,0 +1,13 @@
+{
+  "contract": "AVANTIQO_MUSIC_VOCAL_CORRECTION_CERTIFICATION_REQUEST_V1",
+  "engine_contract": "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2",
+  "safe_lease_contract": "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+  "safe_lease_lane": "music-vocal-correction",
+  "spend_approved": false,
+  "rights_approved": false,
+  "max_provider_jobs": 1,
+  "human_listening_review_required": true,
+  "production_activation_requested": false,
+  "pricing_activation_requested": false,
+  "notes": "Template only. Copy to audits/avantiqo-music-vocal-correction-certification-request.json only after explicit spend and rights approval. The real request path triggers exactly one Safe Lease V2 certification run."
+}

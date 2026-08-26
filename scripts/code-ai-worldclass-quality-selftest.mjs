@@ -1,10 +1,4 @@
-import { register } from "node:module";
-import { pathToFileURL } from "node:url";
-
-register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
-const { assessCodeAIWorldClassQuality } = await import(
-  "@/lib/code/runtime/CodeAIWorldClassRuntime"
-);
+import { assessCodeAIWorldClassQuality } from "../lib/code/runtime/CodeAIWorldClassQualityPolicy.js";
 
 const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_QUALITY_SELFTEST_V2";
 
@@ -37,9 +31,7 @@ function verifyState({ path, sequence, tests }) {
 }
 
 function assert(condition, code, evidence) {
-  if (!condition) {
-    throw new Error(`${code}:${JSON.stringify(evidence || null)}`);
-  }
+  if (!condition) throw new Error(`${code}:${JSON.stringify(evidence || null)}`);
 }
 
 const standardPass = assessCodeAIWorldClassQuality(verifyState({
@@ -65,11 +57,7 @@ const staleFail = assessCodeAIWorldClassQuality(verifyState({
   tests: [{ operation_id: "verify-old", command: "npm", args: ["test"] }],
 }));
 assert(staleFail.verified === false, "STALE_VERIFICATION_MUST_FAIL", staleFail);
-assert(
-  staleFail.blockers.some((item) => item.startsWith("CODE_AI_WORLDCLASS_FRESH_VERIFICATION_GATES_REQUIRED")),
-  "STALE_VERIFICATION_BLOCKER_REQUIRED",
-  staleFail,
-);
+assert(staleFail.blockers.some((item) => item.startsWith("CODE_AI_WORLDCLASS_FRESH_VERIFICATION_GATES_REQUIRED")), "STALE_VERIFICATION_BLOCKER_REQUIRED", staleFail);
 
 const highSingleFail = assessCodeAIWorldClassQuality(verifyState({
   path: "app/api/example/route.js",
@@ -148,11 +136,7 @@ const noReviewFail = assessCodeAIWorldClassQuality(verifyState({
   tests: [{ operation_id: "verify", command: "npm", args: ["test"] }],
 }));
 assert(noReviewFail.verified === false, "MISSING_FINAL_DIFF_REVIEW_MUST_FAIL", noReviewFail);
-assert(
-  noReviewFail.blockers.includes("CODE_AI_WORLDCLASS_FINAL_DIFF_REVIEW_REQUIRED"),
-  "FINAL_DIFF_REVIEW_BLOCKER_REQUIRED",
-  noReviewFail,
-);
+assert(noReviewFail.blockers.includes("CODE_AI_WORLDCLASS_FINAL_DIFF_REVIEW_REQUIRED"), "FINAL_DIFF_REVIEW_BLOCKER_REQUIRED", noReviewFail);
 
 console.log(JSON.stringify({
   success: true,
@@ -166,6 +150,7 @@ console.log(JSON.stringify({
     critical_three_independent_families_pass: true,
     missing_final_diff_review_rejected: true,
   },
+  pure_policy_import_only: true,
   provider_calls_executed: false,
   provider_spend_performed: false,
   endpoint_mutation_performed: false,

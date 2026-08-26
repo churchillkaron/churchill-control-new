@@ -20,7 +20,10 @@ test("Music transform candidate endpoint is distinct from production Compose", (
 test("Music transform candidate remains parked until Safe Lease opens it", () => {
   assert.match(provisioner, /workersMax: 0/);
   assert.match(provisioner, /workersMin: 0/);
-  assert.match(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_NOT_PARKED_0_0/);
+  assert.match(provisioner, /body: \{ workersMin: 0, workersMax: 0 \}/);
+  assert.match(provisioner, /parking_repair_performed/);
+  assert.match(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PARK_VERIFY_FAILED/);
+  assert.match(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_PARK_VERIFY_FAILED/);
   assert.match(provisioner, /workers_opened: false/);
   assert.match(provisioner, /provider_job_submitted: false/);
   assert.match(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_APPROVED/);
@@ -35,6 +38,7 @@ test("Candidate template binds the V2 image, shared cache, and certification lan
   assert.match(provisioner, /networkVolumeId: volume\.id/);
   assert.doesNotMatch(provisioner, /^\s*networkVolumeIds:\s*/m);
   assert.match(provisioner, /entry\?\.networkVolumeId/);
+  assert.match(provisioner, /endpointTemplateId/);
   assert.match(provisioner, /XL_TURBO_REPAINT_RIGHT_OUTPAINT/);
 });
 

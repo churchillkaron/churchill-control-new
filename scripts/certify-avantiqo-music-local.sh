@@ -84,12 +84,17 @@ REVIEW_OUTPUT="$RESULT_ROOT/music-human-review.json"
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 4: CONTROLLED OWNED MUSIC BENCHMARK"
 printf '%s\n' "========================================"
+AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED=YES \
 AVANTIQO_AUDIO_GPU_USD_PER_HOUR="$RESOLVED_GPU_USD_PER_HOUR" \
 AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED=YES \
 AVANTIQO_AUDIO_BENCHMARK_RUNS=1 \
 AVANTIQO_AUDIO_BENCHMARK_DURATION_SECONDS=12 \
 AVANTIQO_AUDIO_BENCHMARK_OUTPUT="$BENCHMARK_OUTPUT" \
-node --env-file=.env.local scripts/benchmark-avantiqo-music.mjs
+node --env-file=.env.local scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs \
+  --lane=audio \
+  --ttl-ms=1800000 \
+  -- \
+  node --env-file=.env.local scripts/benchmark-avantiqo-music.mjs
 
 printf '%s\n' "========================================"
 printf '%s\n' "STEP 5: MEASURE MUSIC GPU ECONOMICS"
@@ -108,6 +113,8 @@ AVANTIQO_MUSIC_HUMAN_REVIEW_OUTPUT="$REVIEW_OUTPUT" \
 node --env-file=.env.local scripts/prepare-avantiqo-music-human-review.mjs
 
 echo "AVANTIQO_MUSIC_LOCAL_CERTIFICATION=BENCHMARK_COMPLETE"
+echo "AVANTIQO_MUSIC_LOCAL_SAFE_LEASE_CONTRACT=AVANTIQO_RUNPOD_SAFE_LEASE_V2"
+echo "AVANTIQO_MUSIC_LOCAL_SAFE_LEASE_LANE=audio"
 echo "AVANTIQO_MUSIC_LOCAL_BENCHMARK_RUNS=1"
 echo "AVANTIQO_MUSIC_LOCAL_BENCHMARK_DURATION_SECONDS=12"
 echo "AVANTIQO_MUSIC_LOCAL_GPU_USD_PER_HOUR=$RESOLVED_GPU_USD_PER_HOUR"

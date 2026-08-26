@@ -5,6 +5,7 @@ export const maxDuration = 300;
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { processNextSecretaryMeetingCoordinationWithBookingGuard } from "@/lib/operator/secretary/SecretaryMeetingCoordinationBookingGuardRuntime";
 import { repairSecretaryMeetingBookingNotifications } from "@/lib/operator/secretary/SecretaryMeetingCoordinationNotificationRuntime";
+import { repairSecretaryBookedMeetingChangeNotifications } from "@/lib/operator/secretary/SecretaryBookedMeetingChangeRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -24,6 +25,7 @@ export async function GET(request) {
     const url = new URL(request.url);
     const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 3, 8));
     const workerId = `secretary-meeting-coordination:${crypto.randomUUID()}`;
+    const changeNotificationRepair = await repairSecretaryBookedMeetingChangeNotifications({ limit });
     const notificationRepair = await repairSecretaryMeetingBookingNotifications({ limit });
     const results = [];
 
@@ -53,10 +55,18 @@ export async function GET(request) {
     if (pendingNotificationRepair.error) throw pendingNotificationRepair.error;
     const notificationRepairPending = Number(pendingNotificationRepair.count || 0);
 
+    const pendingChangeNotificationRepair = await supabaseAdmin
+      .from("secretary_meeting_coordinations")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["BOOKED", "CANCELLED"])
+      .eq("metadata->>meeting_change_notifications_materialized", "false");
+    if (pendingChangeNotificationRepair.error) throw pendingChangeNotificationRepair.error;
+    const changeNotificationRepairPending = Number(pendingChangeNotificationRepair.count || 0);
+
     return Response.json(
       {
         success: true,
-        contract: "AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V3",
+        contract: "AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V4",
         processed: results.length,
         active: Number(active.count || 0),
         needs_input: Number(needsInput.count || 0),
@@ -65,9 +75,16 @@ export async function GET(request) {
         booking_notification_repair_pending: notificationRepairPending,
         booking_notification_repair_pending_count_server_side: true,
         booking_notification_repair_pending_count_starvation_free: true,
+        meeting_change_notification_repair: changeNotificationRepair,
+        meeting_change_notification_repair_pending: changeNotificationRepairPending,
+        meeting_change_notification_repair_pending_count_server_side: true,
+        meeting_change_notification_repair_pending_count_starvation_free: true,
         booking_notifications_include_all_participants: true,
         booking_notifications_deterministic_and_idempotent: true,
         booking_notifications_rsvp_not_inferred: true,
+        booked_meeting_change_notifications_include_all_participants: true,
+        booked_meeting_change_notifications_deterministic_and_idempotent: true,
+        booked_meeting_change_notifications_rsvp_not_inferred: true,
         explicit_availability_evidence_required_for_booking: true,
         attendance_not_inferred: true,
         external_authority_used: false,

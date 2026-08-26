@@ -10,6 +10,8 @@ const files = {
   capability: await readFile("lib/platform/capabilities/createSecretaryMeetingCoordinationCapability.js", "utf8"),
   platform: await readFile("lib/platform/runtime/PlatformDomainRuntime.js", "utf8"),
   worker: await readFile("app/api/internal/secretary/meeting-coordination/process/route.js", "utf8"),
+  harness: await readFile("scripts/run-operator-secretary-meeting-local-certification.sh", "utf8"),
+  callClarificationCert: await readFile("scripts/certify-secretary-meeting-call-clarification-local.mjs", "utf8"),
   vercel: await readFile("vercel.json", "utf8"),
 };
 
@@ -49,7 +51,12 @@ assert.match(files.evidence, /secretary_calls/);
 assert.match(files.evidence, /transcript/);
 assert.match(files.evidence, /clarification_follow_up_id/);
 assert.match(files.evidence, /firstFreshInbound/);
+assert.match(files.evidence, /ensureAmbiguousParticipantClarification/);
 assert.match(files.evidence, /clarification_requires_fresh_evidence:\s*true/);
+assert.match(files.evidence, /clarification_requested_after_evidence_id/);
+assert.match(files.evidence, /clarification_response_used:\s*false/);
+assert.match(files.evidence, /do not reuse the earlier ambiguous answer/i);
+assert.match(files.evidence, /ambiguous_call_triggers_immediate_clarification:\s*true/);
 assert.match(files.evidence, /Never infer attendance, acceptance, timezone or availability from silence, politeness, implication or prior messages/);
 assert.match(files.evidence, /latest_availability_evidence_id/);
 assert.match(files.evidence, /call_evidence_supported:\s*true/);
@@ -60,6 +67,11 @@ assert.match(files.bookingGuard, /explicit_response_evidence === true/);
 assert.match(files.bookingGuard, /INBOUND_MESSAGE/);
 assert.match(files.bookingGuard, /SECRETARY_CALL/);
 assert.match(files.bookingGuard, /latest_availability_evidence_id/);
+assert.match(files.bookingGuard, /clarification_requested_after_evidence_id/);
+assert.match(files.bookingGuard, /clarification_response_used === true/);
+assert.match(files.bookingGuard, /evidenceId !== ambiguousEvidenceId/);
+assert.match(files.bookingGuard, /SECRETARY_MEETING_COORDINATION_FRESH_CLARIFICATION_EVIDENCE_REQUIRED/);
+assert.match(files.bookingGuard, /booking_blocked_without_fresh_clarification_evidence/);
 assert.match(files.bookingGuard, /SECRETARY_MEETING_COORDINATION_EXPLICIT_EVIDENCE_REQUIRED/);
 assert.match(files.bookingGuard, /booking_blocked_without_explicit_availability_evidence:\s*true/);
 assert.match(files.bookingGuard, /processNextSecretaryMeetingCoordinationWithBookingGuard/);
@@ -118,6 +130,13 @@ assert.match(files.worker, /external_authority_used:\s*false/);
 assert.doesNotMatch(files.worker, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_COORDINATION_WORKER_V2/);
 assert.doesNotMatch(files.worker, /processNextSecretaryMeetingCoordinationSafely/);
 
+assert.match(files.harness, /certify-secretary-meeting-call-clarification-local\.mjs/);
+assert.match(files.callClarificationCert, /SECRETARY_MEETING_CALL_CLARIFICATION_LOCAL_CERTIFICATION=PASS/);
+assert.match(files.callClarificationCert, /SECRETARY_AMBIGUOUS_CALL_TRIGGERS_IMMEDIATE_CLARIFICATION=true/);
+assert.match(files.callClarificationCert, /SECRETARY_STALE_PRE_CLARIFICATION_EVIDENCE_CANNOT_BOOK=true/);
+assert.match(files.callClarificationCert, /SECRETARY_DISTINCT_POST_CLARIFICATION_EVIDENCE_CAN_QUALIFY=true/);
+assert.match(files.callClarificationCert, /SECRETARY_PROVIDER_CALLS_PERFORMED=false/);
+
 const vercel = JSON.parse(files.vercel);
 assert.equal(vercel.functions["app/api/internal/secretary/meeting-coordination/process/route.js"]?.maxDuration, 300);
 assert.ok(
@@ -130,7 +149,9 @@ console.log("SECRETARY_MULTI_PARTY_MEETING_COORDINATION=true");
 console.log("SECRETARY_MEETING_AVAILABILITY_EXPLICIT_EVIDENCE=true");
 console.log("SECRETARY_MEETING_CALL_AVAILABILITY_EVIDENCE=true");
 console.log("SECRETARY_MEETING_AMBIGUITY_CLARIFICATION=true");
+console.log("SECRETARY_MEETING_AMBIGUOUS_CALL_IMMEDIATE_CLARIFICATION=true");
 console.log("SECRETARY_MEETING_CLARIFICATION_REQUIRES_FRESH_EVIDENCE=true");
+console.log("SECRETARY_MEETING_STALE_PRE_CLARIFICATION_EVIDENCE_BLOCKED=true");
 console.log("SECRETARY_MEETING_REQUIRED_PARTICIPANTS_COMMON_SLOT=true");
 console.log("SECRETARY_MEETING_ATOMIC_BOOKING=true");
 console.log("SECRETARY_MEETING_SLOT_RACE_FAILS_CLOSED=true");

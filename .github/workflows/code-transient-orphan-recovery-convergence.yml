@@ -1,0 +1,62 @@
+name: Code Transient Orphan Recovery Convergence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/patch-code-certification-transient-orphan-recovery-once.mjs
+      - .github/workflows/code-transient-orphan-recovery-convergence.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: code-transient-orphan-recovery-convergence
+  cancel-in-progress: false
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    env:
+      AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "NO"
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply Code transient orphan recovery
+        run: node scripts/patch-code-certification-transient-orphan-recovery-once.mjs
+      - name: Verify zero-GPU Code gates
+        run: |
+          node --check lib/code/runtime/CodeAICertificationResiliencePolicy.js
+          node --check scripts/run-code-ai-runpod-safe-lease-resilient-local.mjs
+          node --check scripts/settle-code-ai-planner-certification-pending-local.mjs
+          node scripts/code-ai-certification-resilience-selftest.mjs
+          npm run audit:code-ai-worldclass-quality
+      - name: Commit convergence
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/code/runtime/CodeAICertificationResiliencePolicy.js scripts/run-code-ai-runpod-safe-lease-resilient-local.mjs scripts/settle-code-ai-planner-certification-pending-local.mjs scripts/code-ai-certification-resilience-selftest.mjs
+          if git diff --cached --quiet; then
+            echo "No convergence changes"
+            exit 0
+          fi
+          git commit -m "Recover Code certification transient orphan cleanup"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort || true
+            sleep $((attempt * 2))
+          done
+          exit 1

@@ -25,6 +25,7 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
   const [storageReference, setStorageReference] = useState("");
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [plan, setPlan] = useState(null);
+  const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -34,16 +35,21 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const result = await response.json();
-    if (!response.ok || result.success === false) {
-      throw new Error(result.error || "Auto Studio request failed");
+    const responseBody = await response.json();
+    if (!response.ok || responseBody.success === false) {
+      throw new Error(responseBody.error || "Auto Studio request failed");
     }
-    return result;
+    return responseBody;
+  }
+
+  function resetOutput() {
+    setPlan(null);
+    setResult(null);
   }
 
   function chooseFile(selected) {
     setError("");
-    setPlan(null);
+    resetOutput();
     setStorageReference("");
     if (!selected) {
       setFile(null);
@@ -60,6 +66,7 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
     if (!organizationId || !file) return;
     setBusy(true);
     setError("");
+    resetOutput();
     try {
       const target = await request({
         action: "prepare_source_upload",
@@ -84,11 +91,16 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
 
   async function makeProfessional() {
     if (!storageReference || !rightsConfirmed || !file) return;
+    if (!projectId) {
+      setError("Open or create a Music project before running Auto Studio.");
+      return;
+    }
     setBusy(true);
     setError("");
+    setResult(null);
     try {
-      const result = await request({
-        action: "plan",
+      const responseBody = await request({
+        action: "execute_local",
         organization_id: organizationId,
         creative_project_id: projectId,
         creative_mission_id: missionId,
@@ -97,15 +109,18 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
         mime_type: file.type || null,
         source_rights_confirmed: true,
       });
-      setPlan(result.plan);
+      setPlan(responseBody.plan);
+      setResult(responseBody);
     } catch (cause) {
-      setError(cause?.message || "Auto Studio could not prepare the session");
+      setError(cause?.message || "Auto Studio could not finish the recording");
     } finally {
       setBusy(false);
     }
   }
 
   const stages = Array.isArray(plan?.stages) ? plan.stages : [];
+  const master = result?.output || null;
+  const eliteBlockers = Array.isArray(result?.elite_studio_blockers) ? result.elite_studio_blockers : [];
 
   return (
     <section className="mx-auto max-w-6xl p-6">
@@ -118,7 +133,7 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
               </div>
               <h2 className="mt-3 text-2xl font-medium tracking-tight text-white/90">Make it professional</h2>
               <p className="mt-2 max-w-2xl text-xs leading-5 text-white/38">
-                Upload a song, vocal recording or performance video. Avantiqo chooses the studio chain automatically: analyze, repair, vocal engineering when required, mix, master, quality control and delivery.
+                Upload a song, vocal recording or performance video. Avantiqo chooses the studio chain automatically and runs every currently certified local finishing stage.
               </p>
             </div>
             <div className="rounded-full border border-emerald-300/15 bg-emerald-300/[0.05] px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-emerald-100/65">
@@ -170,7 +185,7 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
               <input
                 type="checkbox"
                 checked={rightsConfirmed}
-                onChange={(event) => { setRightsConfirmed(event.target.checked); setPlan(null); }}
+                onChange={(event) => { setRightsConfirmed(event.target.checked); resetOutput(); }}
                 className="mt-0.5 h-4 w-4 accent-[#d6a66a]"
               />
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#d6a66a]/70" />
@@ -186,8 +201,28 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
               onClick={makeProfessional}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/30 bg-[#d6a66a]/14 px-5 py-3.5 text-sm font-medium text-[#f2d8aa] shadow-[0_0_40px_rgba(214,166,106,0.06)] disabled:opacity-30"
             >
-              <Sparkles className="h-4 w-4" /> MAKE IT PROFESSIONAL
+              {busy ? <AudioLines className="h-4 w-4 animate-pulse" /> : <Sparkles className="h-4 w-4" />}
+              {busy ? "FINISHING..." : "MAKE IT PROFESSIONAL"}
             </button>
+
+            {master?.master_url ? (
+              <div className="mt-5 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.04] p-4">
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-100/70"><CheckCircle2 className="h-4 w-4" /> Local master complete</div>
+                <audio className="mt-3 w-full" controls src={master.master_url} />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {master.files?.filter((item) => item.url && /\.(wav|mp3)(?:$|\?)/i.test(item.name || item.url)).map((item) => (
+                    <a key={`${item.name}-${item.url}`} href={item.url} target="_blank" rel="noreferrer" className="rounded-lg border border-white/9 bg-white/[0.025] px-3 py-2 text-[10px] text-white/55">
+                      {item.name || "Audio delivery"}
+                    </a>
+                  ))}
+                </div>
+                {eliteBlockers.length ? (
+                  <div className="mt-3 text-[10px] leading-4 text-amber-100/50">
+                    Mastering is complete. Full elite Auto Studio still requires: {eliteBlockers.map((item) => item.stage.replaceAll("_", " ")).join(", ")}.
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             {error ? <div className="mt-4 rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3 text-xs text-red-200/70">{error}</div> : null}
           </div>
@@ -204,11 +239,11 @@ export default function MusicAutoStudioPanel({ organizationId, projectId = null,
             <div className="mt-5 space-y-2">
               {(stages.length ? stages : [
                 { id: "analyze", label: "Analyze", description: "Recording quality, stream, loudness and risk", status: "READY" },
-                { id: "repair", label: "Repair", description: "Noise, hum, clipping and dynamics preparation", status: "READY" },
-                { id: "vocal", label: "Vocal engineering", description: "Mic polish, de-ess, pitch/timing when needed", status: "AUTO" },
-                { id: "mix", label: "Mix", description: "Balance, hierarchy, space and stereo image", status: "READY" },
+                { id: "repair", label: "Repair", description: "Conservative recording preparation", status: "READY" },
+                { id: "vocal", label: "Vocal engineering", description: "Mic polish, de-ess, pitch/timing when needed", status: "ENGINE COMPLETION REQUIRED" },
+                { id: "mix", label: "Mix", description: "Balance, hierarchy and gain structure", status: "READY" },
                 { id: "master", label: "Master", description: "Release loudness, true peak and final polish", status: "READY" },
-                { id: "delivery", label: "Delivery", description: "24-bit WAV, MP3 and supporting outputs", status: "READY" },
+                { id: "delivery", label: "Delivery", description: "24-bit WAV, MP3 and evidence", status: "READY" },
               ]).map((item, index) => (
                 <div key={item.id} className="flex gap-3 rounded-xl border border-white/[0.06] bg-white/[0.018] p-3.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#d6a66a]/15 bg-[#d6a66a]/[0.05] text-[10px] text-[#d6a66a]/70">{index + 1}</div>

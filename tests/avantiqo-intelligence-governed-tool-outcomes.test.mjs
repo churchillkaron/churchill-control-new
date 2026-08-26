@@ -38,7 +38,11 @@ test("later tools receive only safe prior governed outcome receipts", async () =
 
   const failed = await registry.execute({
     name: "failing_read",
-    arguments: { capability_key: "platform.example.read" },
+    arguments: {
+      capability_key: "platform.example.read",
+      plan_id: "plan-example",
+      plan_step_id: "read-current-state",
+    },
     context: {
       tool_call_id: "call-1",
       reasoning_turn: 1,
@@ -69,6 +73,8 @@ test("later tools receive only safe prior governed outcome receipts", async () =
     tool_call_id: "call-1",
     tool_name: "failing_read",
     binding_key: "platform.example.read",
+    plan_id: "plan-example",
+    plan_step_id: "read-current-state",
     outcome: "failed",
     code: "NETWORK_TIMEOUT",
     mutates: false,
@@ -84,6 +90,41 @@ test("later tools receive only safe prior governed outcome receipts", async () =
     inspected.result.receipts.some((receipt) => receipt.tool_call_id === "call-2"),
     false,
   );
+});
+
+test("unbound calls remain usable but cannot invent a governed plan-step receipt", async () => {
+  const registry = createIntelligenceToolRegistry([
+    {
+      name: "plain_read",
+      mutates: false,
+      async execute() {
+        return { ok: true };
+      },
+    },
+    {
+      name: "inspect_receipts",
+      mutates: false,
+      async execute(_args, context) {
+        return context.governed_tool_outcomes;
+      },
+    },
+  ]);
+
+  const read = await registry.execute({
+    name: "plain_read",
+    arguments: { capability_key: "platform.example.read" },
+    context: { tool_call_id: "call-unbound", reasoning_turn: 1 },
+  });
+  assert.equal(read.ok, true);
+
+  const inspected = await registry.execute({
+    name: "inspect_receipts",
+    arguments: {},
+    context: { tool_call_id: "call-inspect", reasoning_turn: 1 },
+  });
+  assert.equal(inspected.ok, true);
+  assert.equal(inspected.result[0]?.plan_id, null);
+  assert.equal(inspected.result[0]?.plan_step_id, null);
 });
 
 test("model-facing tool arguments cannot inject governed outcome receipts", async () => {

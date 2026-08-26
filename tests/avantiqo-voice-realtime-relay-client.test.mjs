@@ -35,7 +35,8 @@ test("owned realtime browser client authenticates only to the Avantiqo relay", (
 test("owned realtime browser client is bounded, cancelable and audio-memory-only", () => {
   assert.match(source, /TARGET_SAMPLE_RATE = 16000/);
   assert.match(source, /CONNECT_TIMEOUT_MS = 7000/);
-  assert.match(source, /COMMIT_TIMEOUT_MS = 7000/);
+  assert.match(source, /READY_TIMEOUT_MS = 65_000/);
+  assert.match(source, /COMMIT_TIMEOUT_MS = 15_000/);
   assert.match(source, /MAX_SESSION_MS = 90_000/);
   assert.match(source, /audio\.append/);
   assert.match(source, /audio\.commit/);
@@ -45,6 +46,17 @@ test("owned realtime browser client is bounded, cancelable and audio-memory-only
   assert.doesNotMatch(source, /localStorage/);
   assert.doesNotMatch(source, /sessionStorage/);
   assert.doesNotMatch(source, /indexedDB/);
+});
+
+test("owned realtime browser client waits for exact worker readiness before audio", () => {
+  assert.match(source, /worker_ready_required_before_audio:\s*true/);
+  assert.match(source, /type === "relay\.connecting" \|\| type === "relay\.not_ready"/);
+  assert.match(source, /type === "session\.ready"/);
+  assert.match(source, /text\(payload\.contract\) !== REALTIME_CONTRACT/);
+  assert.match(source, /if \(closed \|\| committed \|\| !workerReady\) return false/);
+  assert.match(source, /!workerReady \|\|\s*websocket\.readyState !== WebSocket\.OPEN/);
+  assert.match(source, /if \(!deferAudioCapture\) startCapture\(\)/);
+  assert.match(source, /async waitUntilReady\(\)/);
 });
 
 test("owned realtime browser client supports partial and final transcripts", () => {

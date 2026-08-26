@@ -1,11 +1,15 @@
 import process from "node:process";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_CODE_AUTONOMOUS_PLANNER_CAPACITY_SAFE_RUNNER_V1";
 const CODE_ENDPOINT_NAME = "avantiqo-code-v1";
+const THIS_SCRIPT = fileURLToPath(import.meta.url);
+const MAIN_RESTART_ENV = "AVANTIQO_CODE_CERT_PREFLIGHT_MAIN_RESTART_COUNT";
+const MAX_MAIN_RESTARTS = 5;
 const USABLE_CODE_WORKER_STATUSES = new Set([
   "INITIALIZING",
   "IDLE",
@@ -33,31 +37,138 @@ function parseJsonOutput(output, code) {
   return JSON.parse(output.slice(start, end + 1));
 }
 
+function runGit(args, { capture = false } = {}) {
+  const result = spawnSync("git", args, {
+    cwd: process.cwd(),
+    env: process.env,
+    encoding: "utf8",
+    stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    const detail = capture ? text(`${result.stdout || ""}\n${result.stderr || ""}`) : "";
+    throw new Error(
+      `AVANTIQO_CODE_CERTIFICATION_GIT_FAILED:${args.join(" ")}:${result.status}${detail ? `:${detail.slice(0, 600)}` : ""}`,
+    );
+  }
+  return capture ? text(result.stdout) : "";
+}
+
+function gitHead(ref) {
+  return runGit(["rev-parse", ref], { capture: true });
+}
+
+function currentBranch() {
+  return runGit(["rev-parse", "--abbrev-ref", "HEAD"], { capture: true });
+}
+
+function mainRestartCount() {
+  const value = Number(process.env[MAIN_RESTART_ENV] || 0);
+  return Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function syncMainAndRelaunch(reason) {
+  const restartCount = mainRestartCount();
+  if (restartCount >= MAX_MAIN_RESTARTS) {
+    throw new Error(
+      `AVANTIQO_CODE_CERTIFICATION_MAIN_ADVANCE_RESTART_BUDGET_EXHAUSTED:${restartCount}:${reason}`,
+    );
+  }
+  if (currentBranch() !== "main") {
+    throw new Error("AVANTIQO_CODE_CERTIFICATION_MAIN_BRANCH_REQUIRED");
+  }
+
+  runGit(["fetch", "origin", "main"]);
+  const headBefore = gitHead("HEAD");
+  const originMain = gitHead("origin/main");
+  if (headBefore !== originMain) {
+    runGit(["merge", "--ff-only", "origin/main"]);
+  }
+  const headAfter = gitHead("HEAD");
+  if (headAfter !== gitHead("origin/main")) {
+    throw new Error(
+      `AVANTIQO_CODE_CERTIFICATION_MAIN_FAST_FORWARD_FAILED:head=${headAfter}:origin_main=${gitHead("origin/main")}`,
+    );
+  }
+
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_CERTIFICATION_MAIN_ADVANCED_RESTART",
+    contract: CONTRACT,
+    reason,
+    restart_count_before: restartCount,
+    restart_count_after: restartCount + 1,
+    head_before: headBefore,
+    head_after: headAfter,
+    provider_execution_submitted: false,
+    service_enabled: false,
+    production_deploy_performed: false,
+    secrets_printed: false,
+  }));
+
+  const relaunched = spawnSync(
+    process.execPath,
+    [THIS_SCRIPT, ...process.argv.slice(2)],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        [MAIN_RESTART_ENV]: String(restartCount + 1),
+      },
+      stdio: "inherit",
+    },
+  );
+  if (relaunched.error) throw relaunched.error;
+  process.exit(Number.isInteger(relaunched.status) ? relaunched.status : 1);
+}
+
+function ensureCurrentMainOrRestart(reason) {
+  if (currentBranch() !== "main") {
+    throw new Error("AVANTIQO_CODE_CERTIFICATION_MAIN_BRANCH_REQUIRED");
+  }
+  runGit(["fetch", "origin", "main"]);
+  const head = gitHead("HEAD");
+  const originMain = gitHead("origin/main");
+  if (head !== originMain) syncMainAndRelaunch(reason);
+  return head;
+}
+
 function runCapture(script) {
   const result = spawnSync(process.execPath, [script], {
     cwd: process.cwd(),
     env: process.env,
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "inherit"],
+    stdio: ["ignore", "pipe", "pipe"],
   });
   if (result.error) throw result.error;
+  const stdout = text(result.stdout);
+  const stderr = text(result.stderr);
+  if (stdout) process.stdout.write(`${stdout}\n`);
+  if (stderr) process.stderr.write(`${stderr}\n`);
   if (result.status !== 0) {
+    const combined = `${stdout}\n${stderr}`;
+    if (
+      combined.includes("LOCAL_MAIN_NOT_CURRENT") ||
+      combined.includes("MAIN_NOT_CURRENT")
+    ) {
+      syncMainAndRelaunch(`PRECHECK_MAIN_MOVED:${script}`);
+    }
     throw new Error(
       `AVANTIQO_CODE_CERTIFICATION_PREFLIGHT_CHILD_FAILED:${script}:${result.status}`,
     );
   }
-  const output = text(result.stdout);
-  process.stdout.write(`${output}\n`);
-  return output;
+  return stdout;
 }
 
-function runCertification() {
+function runCertification(expectedMainCommit) {
   const result = spawnSync(
     process.execPath,
     ["scripts/run-code-ai-autonomous-planner-certification-local.mjs"],
     {
       cwd: process.cwd(),
-      env: process.env,
+      env: {
+        ...process.env,
+        AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT: expectedMainCommit,
+      },
       stdio: "inherit",
     },
   );
@@ -71,6 +182,8 @@ if (text(process.env.NODE_ENV).toLowerCase() !== "development") {
 if (text(process.env.AVANTIQO_CODE_PLANNER_SPEND_APPROVED).toUpperCase() !== "YES") {
   throw new Error("AVANTIQO_CODE_PLANNER_SPEND_APPROVAL_REQUIRED");
 }
+
+ensureCurrentMainOrRestart("INITIAL_PREFLIGHT_MAIN_SYNC");
 
 const codeDiagnosticOutput = runCapture("scripts/diagnose-avantiqo-code-runpod.mjs");
 const codeDiagnostic = parseJsonOutput(
@@ -203,9 +316,21 @@ if (concurrencyRemaining < 1 && !codeUsableActiveWorker) {
   );
 }
 
+const stableMainCommit = ensureCurrentMainOrRestart("FINAL_PREFLIGHT_MAIN_SYNC");
+if (
+  text(accountDiagnostic?.main_commit) &&
+  text(accountDiagnostic.main_commit) !== stableMainCommit
+) {
+  syncMainAndRelaunch(
+    `ACCOUNT_DIAGNOSTIC_MAIN_CHANGED:diagnostic=${text(accountDiagnostic.main_commit)}:current=${stableMainCommit}`,
+  );
+}
+
 console.log(JSON.stringify({
   event: "AVANTIQO_CODE_CERTIFICATION_RUNPOD_PREFLIGHT_PASS",
   contract: CONTRACT,
+  main_commit: stableMainCommit,
+  preflight_main_restart_count: mainRestartCount(),
   code_endpoint_id: codeEndpointId || null,
   code_endpoint_name: CODE_ENDPOINT_NAME,
   code_queue_clean: true,
@@ -228,4 +353,4 @@ console.log(JSON.stringify({
   secrets_printed: false,
 }));
 
-process.exit(runCertification());
+process.exit(runCertification(stableMainCommit));

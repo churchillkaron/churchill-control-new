@@ -167,13 +167,34 @@ if (codeControlWorkers.length > 0 && !codeUsableActiveWorker) {
   );
 }
 
-const concurrencyRemaining = finite(
-  accountDiagnostic?.account_serverless_usage?.concurrency_remaining,
-  -1,
+const accountUsage = accountDiagnostic?.account_serverless_usage || {};
+const concurrencyRemaining = finite(accountUsage.concurrency_remaining, -1);
+const totalActiveControlWorkers = finite(accountUsage.total_active_control_workers, -1);
+const maxServerlessConcurrency = finite(accountUsage.max_serverless_concurrency, -1);
+const concurrencyAtLimit =
+  maxServerlessConcurrency > 0 && totalActiveControlWorkers === maxServerlessConcurrency;
+const concurrencyOverLimit =
+  maxServerlessConcurrency >= 0 && totalActiveControlWorkers > maxServerlessConcurrency;
+const nonConcurrencyBlockers = hardBlockers.filter(
+  (blocker) => blocker !== "SERVERLESS_CONCURRENCY_LIMIT_EXHAUSTED",
 );
-if (hardBlockers.length > 0) {
+
+if (nonConcurrencyBlockers.length > 0) {
   throw new Error(
-    `AVANTIQO_CODE_CERTIFICATION_RUNPOD_ACCOUNT_BLOCKED:${hardBlockers.join(",")}`,
+    `AVANTIQO_CODE_CERTIFICATION_RUNPOD_ACCOUNT_BLOCKED:${nonConcurrencyBlockers.join(",")}`,
+  );
+}
+if (concurrencyOverLimit || concurrencyRemaining < 0) {
+  throw new Error(
+    `AVANTIQO_CODE_CERTIFICATION_SERVERLESS_CAPACITY_OVER_LIMIT:active=${totalActiveControlWorkers}:max=${maxServerlessConcurrency}:remaining=${concurrencyRemaining}`,
+  );
+}
+if (
+  hardBlockers.includes("SERVERLESS_CONCURRENCY_LIMIT_EXHAUSTED") &&
+  (!concurrencyAtLimit || !codeUsableActiveWorker)
+) {
+  throw new Error(
+    `AVANTIQO_CODE_CERTIFICATION_SERVERLESS_CAPACITY_UNAVAILABLE:active=${totalActiveControlWorkers}:max=${maxServerlessConcurrency}:remaining=${concurrencyRemaining}:code_worker=${codeUsableActiveWorker}`,
   );
 }
 if (concurrencyRemaining < 1 && !codeUsableActiveWorker) {
@@ -192,7 +213,13 @@ console.log(JSON.stringify({
   code_network_volume_attached: true,
   bound_gpu_capacity_available: true,
   account_hard_blockers: hardBlockers,
+  account_active_control_workers: totalActiveControlWorkers,
+  account_max_serverless_concurrency: maxServerlessConcurrency,
   account_concurrency_remaining: concurrencyRemaining,
+  account_at_capacity: concurrencyAtLimit,
+  account_over_capacity: concurrencyOverLimit,
+  existing_code_worker_allows_at_capacity_execution:
+    concurrencyAtLimit && codeUsableActiveWorker,
   code_active_control_worker_present: codeControlWorkers.length > 0,
   code_usable_active_worker: codeUsableActiveWorker,
   new_provider_execution_submitted: false,

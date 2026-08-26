@@ -1,13 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { MicOff, Music2, RefreshCw, Scissors, Sparkles } from "lucide-react";
+import {
+  AudioLines,
+  Disc3,
+  Mic2,
+  MicOff,
+  Music2,
+  RefreshCw,
+  Scissors,
+  SlidersHorizontal,
+  Sparkles,
+} from "lucide-react";
 
 import MusicAutoStudioPanel from "./MusicAutoStudioPanel";
 import MusicWorkspace from "./MusicWorkspace";
 import MusicBackingTrackPanel from "./MusicBackingTrackPanel";
 import MusicStemsPanel from "./MusicStemsPanel";
 import MusicRemixPanel from "./MusicRemixPanel";
+import MusicSpecialistStudioPanel from "./MusicSpecialistStudioPanel";
 
 const MODES = Object.freeze([
   { id: "auto", label: "Auto Studio", icon: Sparkles },
@@ -15,6 +26,9 @@ const MODES = Object.freeze([
   { id: "remix", label: "Remix", icon: RefreshCw },
   { id: "stems", label: "Stems", icon: Scissors },
   { id: "backing", label: "Backing Track", icon: MicOff },
+  { id: "vocal", label: "Vocal Studio", icon: Mic2 },
+  { id: "mix", label: "Mix Studio", icon: SlidersHorizontal },
+  { id: "master", label: "Master Studio", icon: Disc3 },
 ]);
 
 export default function MusicStudioWorkspace({ runtime, editor }) {
@@ -22,6 +36,11 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
   const project = runtime.projectRuntime?.current || null;
   const mission = runtime.missionRuntime?.current || null;
   const organizationId = runtime.organizationId || null;
+  const specialistProps = {
+    organizationId,
+    projectId: project?.id || null,
+    missionId: mission?.id || null,
+  };
 
   return (
     <div className="min-h-full bg-[#080808]">
@@ -52,37 +71,36 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
       </div>
 
       {mode === "auto" ? (
-        <MusicAutoStudioPanel
-          organizationId={organizationId}
-          projectId={project?.id || null}
-          missionId={mission?.id || null}
-        />
+        <MusicAutoStudioPanel {...specialistProps} />
       ) : mode === "compose" ? (
         <MusicWorkspace runtime={runtime} editor={editor} />
       ) : mode === "remix" ? (
         <div className="mx-auto max-w-6xl p-6">
-          <MusicRemixPanel
-            organizationId={organizationId}
-            projectId={project?.id || null}
-            missionId={mission?.id || null}
-          />
+          <MusicRemixPanel {...specialistProps} />
         </div>
       ) : mode === "stems" ? (
         <div className="mx-auto max-w-6xl p-6">
-          <MusicStemsPanel
-            organizationId={organizationId}
-            projectId={project?.id || null}
-            missionId={mission?.id || null}
-          />
+          <MusicStemsPanel {...specialistProps} />
         </div>
-      ) : (
+      ) : mode === "backing" ? (
         <div className="mx-auto max-w-6xl p-6">
           <MusicBackingTrackPanel
-            organizationId={organizationId}
-            projectId={project?.id || null}
-            missionId={mission?.id || null}
+            {...specialistProps}
             onComplete={() => runtime.refresh?.()}
           />
+        </div>
+      ) : mode === "vocal" ? (
+        <MusicSpecialistStudioPanel mode="vocal" {...specialistProps} />
+      ) : mode === "mix" ? (
+        <MusicSpecialistStudioPanel mode="mix" {...specialistProps} />
+      ) : mode === "master" ? (
+        <MusicSpecialistStudioPanel mode="master" {...specialistProps} />
+      ) : (
+        <div className="mx-auto max-w-6xl p-6">
+          <div className="rounded-2xl border border-white/8 bg-black/25 p-6 text-xs text-white/40">
+            <AudioLines className="mb-3 h-5 w-5 text-[#d6a66a]/70" />
+            Music Studio mode unavailable.
+          </div>
         </div>
       )}
     </div>

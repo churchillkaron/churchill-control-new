@@ -9,6 +9,7 @@ const files = Object.freeze({
   autonomousCapability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
   commitCapability: "lib/platform/capabilities/createCodeAICommitCapability.js",
   autonomous: "lib/code/runtime/CodeAIAutonomousRuntime.js",
+  plannerPrompt: "lib/code/runtime/CodeAIPlannerPromptRuntime.js",
   mission: "lib/code/runtime/CodeAIMissionRuntime.js",
   workspace: "lib/code/runtime/CodeWorkspaceSandboxRuntime.js",
   commit: "lib/code/runtime/CodeGitHubCommitRuntime.js",
@@ -33,6 +34,7 @@ const [
   autonomousCapability,
   commitCapability,
   autonomous,
+  plannerPrompt,
   mission,
   workspace,
   commit,
@@ -102,12 +104,19 @@ if (commitScopeIndex < 0 || worldclassCommitIndex <= commitScopeIndex || recover
 }
 
 requireMarkers("AUTONOMOUS_RUNTIME", autonomous, [
+  "buildCodeAIPlannerPromptTransport",
+  "CODE_AI_AUTONOMOUS_CHANGED_MISSION_REQUIRES_VERIFICATION",
+  "CODE_AI_AUTONOMOUS_ITERATION_BUDGET_EXHAUSTED",
+]);
+
+requireMarkers("PLANNER_PROMPT", plannerPrompt, [
+  "AVANTIQO_CODE_AI_PLANNER_PROMPT_TRANSPORT_V1",
   "Inspect/search/read before editing when evidence is insufficient.",
   "When a command/test fails, inspect the failure and repair instead of claiming completion.",
   "Use verify after source changes.",
   "Use research only when current external technical evidence is genuinely needed.",
-  "CODE_AI_AUTONOMOUS_CHANGED_MISSION_REQUIRES_VERIFICATION",
-  "CODE_AI_AUTONOMOUS_ITERATION_BUDGET_EXHAUSTED",
+  "CODE_AI_PLANNER_MAX_INSTRUCTION_CHARS = 24000",
+  "worker_instruction_hard_limit_chars: 30000",
 ]);
 
 requireMarkers("MISSION", mission, [
@@ -171,6 +180,7 @@ console.log(JSON.stringify({
   verified: {
     pure_quality_policy_without_runtime_dependencies: true,
     mandatory_worldclass_autonomous_gate: true,
+    planner_rules_owned_by_bounded_prompt_transport: true,
     stale_verification_rejected_by_position: true,
     final_diff_review_required: true,
     standard_one_verification_family_required: true,

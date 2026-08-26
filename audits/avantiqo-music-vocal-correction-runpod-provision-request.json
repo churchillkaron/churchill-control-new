@@ -12,5 +12,6 @@
   "pricing_activation_requested": false,
   "certification_safe_lease_contract": "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
   "certification_safe_lease_lane": "music-vocal-correction",
-  "human_listening_review_required": true
+  "human_listening_review_required": true,
+  "retry_nonce": 2
 }

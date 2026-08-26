@@ -33,6 +33,17 @@ test("owned audio registration keeps generation certified while advanced transfo
   assert.match(registration, /thinking_enabled: true/);
 });
 
+test("Music separator is certifiable without becoming default-certified", () => {
+  assert.match(registration, /SEPARATOR_CAPABILITIES = Object\.freeze\(\["ai\.audio\.stems"\]\)/);
+  assert.match(registration, /CERTIFIABLE_CAPABILITIES/);
+  assert.match(registration, /certifiable_capabilities: CERTIFIABLE_CAPABILITIES/);
+  assert.match(registration, /benchmark_required_capabilities: CERTIFIABLE_CAPABILITIES\.filter/);
+  assert.match(registration, /production_routing_allowed: false/);
+  assert.match(registration, /runtime_status: "IMPLEMENTED_BENCHMARK_AND_CERTIFICATION_REQUIRED"/);
+  assert.match(registration, /model: STEM_SEPARATOR_MODEL/);
+  assert.match(registration, /facebookresearch\/demucs:htdemucs_ft/);
+});
+
 test("ACE-Step owned music model requires the XL plus 1.7B LM quality profile", () => {
   const model = AVANTIQO_OWNED_MODEL_CATALOG["avantiqo-audio"].models["ACE-Step/Ace-Step1.5"];
   assert.equal(model.license, "mit");
@@ -44,6 +55,22 @@ test("ACE-Step owned music model requires the XL plus 1.7B LM quality profile", 
   assert.equal(model.ace_step_lm_model, "acestep-5Hz-lm-1.7B");
   assert.equal(model.ace_step_lm_backend, "vllm");
   assert.equal(model.thinking_enabled, true);
+});
+
+test("Demucs htdemucs_ft is the owned four-stem separator model", () => {
+  const model = AVANTIQO_OWNED_MODEL_CATALOG["avantiqo-audio"].models[
+    "facebookresearch/demucs:htdemucs_ft"
+  ];
+  assert.equal(model.license, "mit");
+  assert.equal(model.license_verified, true);
+  assert.equal(model.runtime_compatible, true);
+  assert.equal(model.runtime_family, "DEMUCS");
+  assert.equal(model.runtime_variant, "htdemucs_ft");
+  assert.equal(model.quality_profile, "DEMUCS_HTDEMUCS_FT_4STEM_V1");
+  assert.deepEqual(model.capabilities, ["ai.audio.stems"]);
+  assert.deepEqual(model.stems, ["vocals", "drums", "bass", "other"]);
+  assert.match(registration, /foundation_models:/);
+  assert.match(registration, /STEM_SEPARATOR_MODEL/);
 });
 
 test("music worker uses ACE-Step LM reasoning internally without persisting raw reasoning", () => {

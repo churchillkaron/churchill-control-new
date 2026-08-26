@@ -1,0 +1,17 @@
+{
+  "contract": "AVANTIQO_MUSIC_EXTEND_WORKER_IMAGE_REQUEST_V1",
+  "scope": "MUSIC_ONLY",
+  "purpose": "BUILD_IMMUTABLE_BASE_COMPLETE_WORKER_IMAGE",
+  "engine_contract": "AVANTIQO_MUSIC_EXTEND_ENGINE_V1",
+  "foundation_model": "ACE-Step/Ace-Step1.5",
+  "model_variant": "acestep-v15-base",
+  "task_type": "complete",
+  "quality_profile": "ACE_STEP_1_5_BASE_COMPLETE_V1",
+  "safe_lease_lane": "music-extend",
+  "provider_job_submitted": false,
+  "runpod_endpoint_mutation_allowed": false,
+  "production_deploy_allowed": false,
+  "pricing_activation_allowed": false,
+  "production_certified": false,
+  "human_listening_review_required": true
+}

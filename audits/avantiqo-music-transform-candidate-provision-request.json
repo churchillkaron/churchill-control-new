@@ -12,6 +12,6 @@
   "provider_job_submitted": false,
   "production_deploy_allowed": false,
   "pricing_activation_allowed": false,
-  "request_nonce": "music-transform-management-fallback-20260826-01",
+  "request_nonce": "music-transform-management-fallback-20260826-02",
   "purpose": "CREATE_OR_VERIFY_PARKED_MUSIC_TRANSFORM_CERTIFICATION_CANDIDATE_AND_RUN_ZERO_SPEND_PREFLIGHT"
 }

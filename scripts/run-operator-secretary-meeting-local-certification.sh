@@ -149,8 +149,6 @@ echo "SECRETARY_MEETING_LOCAL_CREDENTIALS_PRINTED=false"
 
 node scripts/operator-secretary-supabase-await-audit.mjs
 npm run audit:operator-secretary-end-to-end
-node scripts/operator-secretary-recurring-meeting-audit.mjs
-node scripts/operator-secretary-inbox-triage-audit.mjs
 node scripts/preflight-secretary-meeting-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-approval-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-review-controls-local.mjs

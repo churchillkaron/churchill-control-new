@@ -16,11 +16,71 @@ fail() {
   exit 1
 }
 
+purge_unclaimed_fast_queue() {
+  (
+    cd "$SOURCE_ROOT" || exit 1
+    node --env-file=.env.local --input-type=module <<'NODE'
+const endpointId = String(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_ID || "").trim();
+const apiKey = String(process.env.RUNPOD_API_KEY || "").trim();
+if (!endpointId || !apiKey) throw new Error("AVANTIQO_FAST_QUEUE_CREDENTIAL_OR_ENDPOINT_MISSING");
+const base = `https://api.runpod.ai/v2/${endpointId}`;
+const request = async (path, method = "GET") => {
+  const response = await fetch(`${base}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(15000),
+  });
+  const raw = await response.text();
+  let body = {};
+  try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
+  if (!response.ok) throw new Error(`AVANTIQO_FAST_QUEUE_HTTP_${response.status}`);
+  return body;
+};
+const healthBefore = await request("/health");
+const queuedBefore = Number(healthBefore?.jobs?.inQueue || 0);
+const progressBefore = Number(healthBefore?.jobs?.inProgress || 0);
+if (progressBefore > 0) {
+  console.log(`AVANTIQO_FAST_QUEUE_PURGE_SKIPPED_ACTIVE_JOB=${progressBefore}`);
+  console.log(`AVANTIQO_FAST_QUEUE_QUEUED_WHILE_ACTIVE=${queuedBefore}`);
+  console.log("AVANTIQO_FAST_QUEUE_SECRET_VALUES_PRINTED=NO");
+  process.exit(0);
+}
+if (queuedBefore > 0) await request("/purge-queue", "POST");
+let healthAfter = healthBefore;
+for (let i = 0; i < 30; i += 1) {
+  healthAfter = await request("/health");
+  if (Number(healthAfter?.jobs?.inQueue || 0) === 0 && Number(healthAfter?.jobs?.inProgress || 0) === 0) break;
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+}
+const queuedAfter = Number(healthAfter?.jobs?.inQueue || 0);
+const progressAfter = Number(healthAfter?.jobs?.inProgress || 0);
+if (queuedAfter !== 0 || progressAfter !== 0) {
+  throw new Error(`AVANTIQO_FAST_QUEUE_PURGE_VERIFY_FAILED:in_queue=${queuedAfter}:in_progress=${progressAfter}`);
+}
+console.log(`AVANTIQO_FAST_QUEUE_PURGED=${queuedBefore}`);
+console.log("AVANTIQO_FAST_QUEUE_CLEAN=YES");
+console.log("AVANTIQO_FAST_QUEUE_SECRET_VALUES_PRINTED=NO");
+NODE
+  )
+}
+
 restore_deep() {
   if [ "$FAST_ACTIVE" != "YES" ] || [ "$RESTORED" = "YES" ]; then
     return 0
   fi
   RESTORED=YES
+  echo ""
+  echo "================ RECOVER UNCLAIMED FAST QUEUE ================"
+  set +e
+  purge_unclaimed_fast_queue
+  local queue_status=$?
+  set -e
+  if [ "$queue_status" -ne 0 ]; then
+    echo "AVANTIQO_INTELLIGENCE_FAST_RESTORE_QUEUE_RECOVERY=FAIL"
+    return "$queue_status"
+  fi
+  echo "AVANTIQO_INTELLIGENCE_FAST_RESTORE_QUEUE_RECOVERY=PASS"
+
   echo ""
   echo "================ RESTORE DEEP INTELLIGENCE SLOT ================"
   set +e
@@ -108,44 +168,7 @@ printf '%s\n' "$PARK_OUTPUT" | grep -q '"parked_state": true' || fail "FAST_LANE
 
 echo ""
 echo "================ PURGE PARKED FAST QUEUE ================"
-(
-  cd "$SOURCE_ROOT"
-  node --env-file=.env.local --input-type=module <<'NODE'
-const endpointId = String(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_ID || "").trim();
-const apiKey = String(process.env.RUNPOD_API_KEY || "").trim();
-if (!endpointId || !apiKey) throw new Error("AVANTIQO_FAST_QUEUE_CREDENTIAL_OR_ENDPOINT_MISSING");
-const base = `https://api.runpod.ai/v2/${endpointId}`;
-const request = async (path, method = "GET") => {
-  const response = await fetch(`${base}${path}`, {
-    method,
-    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-    signal: AbortSignal.timeout(15000),
-  });
-  const raw = await response.text();
-  let body = {};
-  try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
-  if (!response.ok) throw new Error(`AVANTIQO_FAST_QUEUE_HTTP_${response.status}`);
-  return body;
-};
-const healthBefore = await request("/health");
-const queuedBefore = Number(healthBefore?.jobs?.inQueue || 0);
-const progressBefore = Number(healthBefore?.jobs?.inProgress || 0);
-if (progressBefore !== 0) throw new Error(`AVANTIQO_FAST_QUEUE_IN_PROGRESS:${progressBefore}`);
-if (queuedBefore > 0) await request("/purge-queue", "POST");
-let healthAfter = healthBefore;
-for (let i = 0; i < 30; i += 1) {
-  healthAfter = await request("/health");
-  if (Number(healthAfter?.jobs?.inQueue || 0) === 0 && Number(healthAfter?.jobs?.inProgress || 0) === 0) break;
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-}
-if (Number(healthAfter?.jobs?.inQueue || 0) !== 0 || Number(healthAfter?.jobs?.inProgress || 0) !== 0) {
-  throw new Error("AVANTIQO_FAST_QUEUE_PURGE_VERIFY_FAILED");
-}
-console.log(`AVANTIQO_FAST_QUEUE_PURGED=${queuedBefore}`);
-console.log("AVANTIQO_FAST_QUEUE_CLEAN=YES");
-console.log("AVANTIQO_FAST_QUEUE_SECRET_VALUES_PRINTED=NO");
-NODE
-) || fail "FAST_LANE_QUEUE_PURGE_FAILED"
+purge_unclaimed_fast_queue || fail "FAST_LANE_QUEUE_PURGE_FAILED"
 
 echo ""
 echo "================ ACTIVATE FAST FLEX SLOT ================"

@@ -52,6 +52,20 @@ function phaseCalls(calls) {
   };
 }
 
+function safeResearchEvidence(overrides = {}) {
+  return {
+    contract: "AVANTIQO_SAFE_EPISTEMIC_EVIDENCE_SUMMARY_V1",
+    source_count: 3,
+    independent_source_count: 3,
+    official_primary_source_count: 1,
+    claim_count: 2,
+    source_backed_claim_count: 2,
+    conflict_count: 0,
+    raw_research_persisted: false,
+    ...overrides,
+  };
+}
+
 test("epistemic completion gate exposes the canonical contract", () => {
   assert.equal(
     AVANTIQO_EPISTEMIC_COMPLETION_GATE_CONTRACT,
@@ -87,11 +101,12 @@ test("required research cannot be certified from a model claim alone", () => {
   assert.ok(gated.confidence <= 0.58);
 });
 
-test("required research passes only after a successful governed research observation", () => {
+test("successful research without safe quality proof cannot certify sufficient evidence", () => {
   const result = baseResult({
     epistemic_state: {
       ...baseResult().epistemic_state,
       research_status: "satisfied",
+      stop_reason: "sufficient_evidence",
     },
   });
   const gated = applyAvantiqoEpistemicCompletionGate({
@@ -104,9 +119,84 @@ test("required research passes only after a successful governed research observa
     phases: phaseCalls([{ name: "operator_web_research", outcome: "succeeded" }]),
   });
 
+  assert.equal(gated.goal_status, "in_progress");
+  assert.equal(gated.epistemic_state.research_tool_observed, true);
+  assert.equal(gated.epistemic_state.research_stop_proven, false);
+  assert.equal(
+    gated.epistemic_state.research_stop_evidence_reason,
+    "NO_SAFE_RESEARCH_EVIDENCE_SUMMARY",
+  );
+  assert.ok(
+    gated.epistemic_state.gate_violations.includes(
+      "EPISTEMIC_RESEARCH_SUFFICIENT_EVIDENCE_UNPROVEN",
+    ),
+  );
+});
+
+test("source-backed governed research can certify sufficient evidence", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      research_status: "satisfied",
+      stop_reason: "sufficient_evidence",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { research_required: true },
+      signals: {},
+      reasons: [],
+    },
+    phases: phaseCalls([{
+      name: "operator_web_research",
+      outcome: "succeeded",
+      epistemic_evidence: safeResearchEvidence(),
+    }]),
+  });
+
   assert.equal(gated.goal_status, "completed");
   assert.equal(gated.epistemic_state.gate_passed, true);
   assert.equal(gated.epistemic_state.research_tool_observed, true);
+  assert.equal(gated.epistemic_state.research_stop_proven, true);
+});
+
+test("canonical authority can certify sufficient evidence without public source counts", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      research_status: "satisfied",
+      stop_reason: "sufficient_evidence",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { research_required: true },
+      signals: {},
+      reasons: [],
+    },
+    phases: phaseCalls([{
+      name: "collect_context",
+      epistemic_roles: ["research"],
+      outcome: "succeeded",
+      epistemic_evidence: safeResearchEvidence({
+        source_count: 0,
+        independent_source_count: 0,
+        official_primary_source_count: 0,
+        claim_count: 1,
+        source_backed_claim_count: 0,
+        canonical_authority: true,
+      }),
+    }]),
+  });
+
+  assert.equal(gated.goal_status, "completed");
+  assert.equal(gated.epistemic_state.research_stop_proven, true);
+  assert.equal(
+    gated.epistemic_state.research_stop_evidence_reason,
+    "VERIFIED_KNOWLEDGE_AUTHORITY",
+  );
 });
 
 test("blocked or failed research attempts never satisfy an evidence obligation", () => {
@@ -137,7 +227,7 @@ test("blocked or failed research attempts never satisfy an evidence obligation",
   }
 });
 
-test("explicit research semantics can certify a generic tool name", () => {
+test("explicit research semantics can certify a generic tool name with source-backed proof", () => {
   const result = baseResult({
     epistemic_state: {
       ...baseResult().epistemic_state,
@@ -154,6 +244,7 @@ test("explicit research semantics can certify a generic tool name", () => {
     phases: phaseCalls([{
       name: "collect_context",
       epistemic_roles: ["research"],
+      epistemic_evidence: safeResearchEvidence(),
       outcome: "succeeded",
     }]),
   });
@@ -179,6 +270,7 @@ test("explicit epistemic roles override misleading research-like names", () => {
     phases: phaseCalls([{
       name: "operator_web_research",
       epistemic_roles: ["verification"],
+      epistemic_evidence: safeResearchEvidence(),
       outcome: "succeeded",
     }]),
   });
@@ -241,16 +333,7 @@ test("independent source support can prove a diminishing-returns research stop",
       name: "collect_context",
       epistemic_roles: ["research"],
       outcome: "succeeded",
-      epistemic_evidence: {
-        contract: "AVANTIQO_SAFE_EPISTEMIC_EVIDENCE_SUMMARY_V1",
-        source_count: 3,
-        independent_source_count: 3,
-        official_primary_source_count: 1,
-        claim_count: 2,
-        source_backed_claim_count: 2,
-        conflict_count: 0,
-        raw_research_persisted: false,
-      },
+      epistemic_evidence: safeResearchEvidence(),
     }]),
   });
 
@@ -282,14 +365,12 @@ test("conflicted research cannot prove diminishing returns even with many source
       name: "collect_context",
       epistemic_roles: ["research"],
       outcome: "succeeded",
-      epistemic_evidence: {
-        contract: "AVANTIQO_SAFE_EPISTEMIC_EVIDENCE_SUMMARY_V1",
+      epistemic_evidence: safeResearchEvidence({
         source_count: 5,
         independent_source_count: 5,
         source_backed_claim_count: 4,
         conflict_count: 1,
-        raw_research_persisted: false,
-      },
+      }),
     }]),
   });
 
@@ -301,7 +382,7 @@ test("conflicted research cannot prove diminishing returns even with many source
   );
 });
 
-test("verified mechanism quality can prove diminishing returns without source-count heuristics", () => {
+test("quality verification without source proof cannot stop research", () => {
   const result = baseResult({
     epistemic_state: {
       ...baseResult().epistemic_state,
@@ -320,12 +401,48 @@ test("verified mechanism quality can prove diminishing returns without source-co
       name: "mechanism_probe",
       epistemic_roles: ["research"],
       outcome: "succeeded",
-      epistemic_evidence: {
-        contract: "AVANTIQO_SAFE_EPISTEMIC_EVIDENCE_SUMMARY_V1",
+      epistemic_evidence: safeResearchEvidence({
+        source_count: 0,
+        independent_source_count: 0,
+        official_primary_source_count: 0,
+        source_backed_claim_count: 0,
         quality_verified: true,
-        conflict_count: 0,
-        raw_research_persisted: false,
-      },
+      }),
+    }]),
+  });
+
+  assert.equal(gated.goal_status, "in_progress");
+  assert.equal(gated.epistemic_state.research_stop_proven, false);
+  assert.equal(
+    gated.epistemic_state.research_stop_evidence_reason,
+    "QUALITY_VERIFICATION_WITHOUT_SOURCE_PROOF",
+  );
+});
+
+test("source-backed mechanism quality can prove a research stop", () => {
+  const result = baseResult({
+    epistemic_state: {
+      ...baseResult().epistemic_state,
+      research_status: "satisfied",
+      stop_reason: "diminishing_returns",
+    },
+  });
+  const gated = applyAvantiqoEpistemicCompletionGate({
+    result,
+    route: {
+      requirements: { research_required: true },
+      signals: {},
+      reasons: [],
+    },
+    phases: phaseCalls([{
+      name: "mechanism_probe",
+      epistemic_roles: ["research"],
+      outcome: "succeeded",
+      epistemic_evidence: safeResearchEvidence({
+        independent_source_count: 1,
+        official_primary_source_count: 0,
+        quality_verified: true,
+      }),
     }]),
   });
 
@@ -333,7 +450,7 @@ test("verified mechanism quality can prove diminishing returns without source-co
   assert.equal(gated.epistemic_state.research_stop_proven, true);
   assert.equal(
     gated.epistemic_state.research_stop_evidence_reason,
-    "MECHANISM_QUALITY_VERIFIED",
+    "SOURCE_BACKED_MECHANISM_SUPPORT",
   );
 });
 

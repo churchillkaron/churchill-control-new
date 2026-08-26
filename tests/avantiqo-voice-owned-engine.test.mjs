@@ -100,7 +100,7 @@ test("Voice registration does not falsely certify realtime or recorded-reference
   assert.match(source, /ai\.text\.to\.speech/);
 });
 
-test("Voice RunPod execution is durable across scale-to-zero cold starts and lease-gated", async () => {
+test("Voice RunPod execution is durable across scale-to-zero cold starts and V2 lease-gated", async () => {
   const source = await readFile(
     new URL("../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProvider.js", import.meta.url),
     "utf8",
@@ -109,7 +109,11 @@ test("Voice RunPod execution is durable across scale-to-zero cold starts and lea
   assert.match(source, /async getStatus\(input = \{\}\)/);
   assert.match(source, /provider_job_id:\s*submitted\.jobId/);
   assert.match(source, /\/status\/\$\{encodeURIComponent\(jobId\)\}/);
-  assert.match(source, /requireSafeLeaseForSubmission\(endpointId\);/);
+  assert.match(source, /await requireSafeLeaseForSubmission\(endpointId, capability, input\)/);
+  assert.match(source, /validateVoiceRunpodDistributedLease/);
+  assert.match(source, /mode:\s*"DISTRIBUTED_DATABASE"/);
+  assert.match(source, /mode:\s*"LOCAL_CONTROLLER_ENV"/);
+  assert.match(source, /AVANTIQO_RUNPOD_SAFE_LEASE_V2/);
   assert.match(source, /AVANTIQO_VOICE_RUNPOD_SAFE_LEASE_REQUIRED/);
   assert.doesNotMatch(source, /\/runsync/);
   assert.doesNotMatch(source, /AVANTIQO_VOICE_RUNSYNC_NOT_COMPLETED/);

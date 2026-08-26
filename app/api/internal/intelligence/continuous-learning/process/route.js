@@ -36,6 +36,9 @@ import {
   reconcileAvantiqoKnowledgeCounterfactualBenchmarkPlans,
   reconcileAvantiqoKnowledgeFinalPromotionCandidates,
 } from "@/lib/intelligence/runtime/AvantiqoKnowledgeCounterfactualBenchmarkRuntime";
+import {
+  reconcileAvantiqoReleasedKnowledgeRevalidation,
+} from "@/lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -77,14 +80,19 @@ export async function GET(request) {
     //     candidates and reconcile only separately-recorded passing evaluations
     //     into final knowledge release review candidates. This stage performs no
     //     benchmark execution and never writes platform_knowledge.
-    // 11. Spend the existing bounded public-evidence research budget on the
+    // 11. Revalidate only knowledge that was previously released through the
+    //     explicit final-release runtime. Conflict, stale evidence or missing
+    //     source provenance quarantines it immediately; this cron cannot release
+    //     or restore reusable knowledge.
+    // 12. Spend the existing bounded public-evidence research budget on the
     //     resulting agenda, including adversarial reconciliation work. Newly
     //     supported claims are staged as evidence candidates for the next cycle.
     // Any hypothesis/invention synthesis or counterfactual benchmark execution
     // that could wake owned RunPod Intelligence is deliberately outside this
     // cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
-    // Stages 1-10 never mutate model weights, authorize product actions, execute
-    // experiments, submit RunPod jobs, or automatically promote knowledge.
+    // Stages 1-11 never mutate model weights, authorize product actions, execute
+    // experiments, submit RunPod jobs, automatically release knowledge, or
+    // automatically restore quarantined knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
     const learningEffectiveness = await evaluateAvantiqoLearningEffectiveness();
@@ -99,6 +107,8 @@ export async function GET(request) {
       await reconcileAvantiqoKnowledgeCounterfactualBenchmarkPlans();
     const knowledgeFinalPromotionCandidates =
       await reconcileAvantiqoKnowledgeFinalPromotionCandidates();
+    const releasedKnowledgeRevalidation =
+      await reconcileAvantiqoReleasedKnowledgeRevalidation();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -115,6 +125,7 @@ export async function GET(request) {
         provisional_knowledge_shadow: provisionalKnowledgeShadow,
         knowledge_counterfactual_benchmark_plans: knowledgeCounterfactualBenchmarkPlans,
         knowledge_final_promotion_candidates: knowledgeFinalPromotionCandidates,
+        released_knowledge_revalidation: releasedKnowledgeRevalidation,
       },
       {
         status: result.success === false ? 207 : 200,

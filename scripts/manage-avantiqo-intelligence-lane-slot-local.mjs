@@ -112,14 +112,24 @@ function assertIdleForDisable(endpoint, health, code) {
   if (finite(endpoint.workersMin, 0) !== 0) {
     throw new Error(`${code}_WORKERS_MIN_NOT_ZERO`);
   }
-  if (managementNonExited(endpoint) !== 0) {
-    throw new Error(`${code}_ACTIVE_MANAGEMENT_WORKERS`);
-  }
   if (summary.jobs.in_queue !== 0 || summary.jobs.in_progress !== 0) {
     throw new Error(`${code}_ACTIVE_JOBS`);
   }
-  if (summary.workers.initializing !== 0 || summary.workers.running !== 0) {
-    throw new Error(`${code}_ACTIVE_RUNTIME_WORKERS`);
+
+  const activeManagementWorkers = managementNonExited(endpoint);
+  if (
+    activeManagementWorkers !== 0 ||
+    summary.workers.initializing !== 0 ||
+    summary.workers.running !== 0
+  ) {
+    console.log(
+      JSON.stringify({
+        event: "AVANTIQO_INTELLIGENCE_SLOT_ZERO_JOB_LIFECYCLE_DRAIN_ALLOWED",
+        lane: text(endpoint?.name) || code,
+        health: summary,
+        active_management_workers: activeManagementWorkers,
+      }),
+    );
   }
 }
 
@@ -143,11 +153,7 @@ async function waitUntilIdleForDisable(endpoint, managementKey, runtimeKey, code
       return { endpoint: lastEndpoint, health: lastHealth };
     } catch (error) {
       const message = text(error?.message);
-      const waitingAllowed = [
-        `${code}_ACTIVE_MANAGEMENT_WORKERS`,
-        `${code}_ACTIVE_JOBS`,
-        `${code}_ACTIVE_RUNTIME_WORKERS`,
-      ].includes(message);
+      const waitingAllowed = [`${code}_ACTIVE_JOBS`].includes(message);
       if (!waitingAllowed) throw error;
     }
 

@@ -9,6 +9,8 @@ const benchmark = read("scripts/benchmark-avantiqo-music-separator.mjs");
 const benchmarkLocal = read("scripts/run-avantiqo-music-separator-benchmark-local.mjs");
 const certificationLocal = read("scripts/certify-avantiqo-music-separator-local.sh");
 const oneShotLocal = read("scripts/run-avantiqo-music-separator-certification-local.sh");
+const slotHandoff = read("scripts/handoff-avantiqo-music-generation-slot-to-separator-local.mjs");
+const provision = read("scripts/provision-avantiqo-music-separator-runpod-local.mjs");
 const economics = read("scripts/avantiqo-music-separator-economics.mjs");
 const prepareReview = read("scripts/prepare-avantiqo-music-separator-human-review.mjs");
 const finalizeReview = read("scripts/finalize-avantiqo-music-separator-human-review.mjs");
@@ -47,8 +49,14 @@ test("One-shot local Music separator certification is single-submission and fail
   assert.match(oneShotLocal, /npm install --no-save --package-lock=false @next\/env@14\.2\.35 @supabase\/supabase-js@2\.105\.4/);
   assert.match(oneShotLocal, /repair-avantiqo-runpod-env-local\.sh/);
   assert.match(oneShotLocal, /provision-avantiqo-music-separator-runpod-local\.mjs --apply/);
+  assert.match(oneShotLocal, /AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_QUOTA_MODE=YES/);
+  assert.match(oneShotLocal, /AVANTIQO_MUSIC_SEPARATOR_RUNPOD_WORKERS_MAX=0/);
   assert.match(oneShotLocal, /preflight-avantiqo-music-separator-runpod-local\.mjs/);
   assert.match(oneShotLocal, /sync_main_before_spend/);
+  assert.match(oneShotLocal, /handoff-avantiqo-music-generation-slot-to-separator-local\.mjs --acquire/);
+  assert.match(oneShotLocal, /trap restore_music_slot_on_exit EXIT/);
+  assert.match(oneShotLocal, /handoff-avantiqo-music-generation-slot-to-separator-local\.mjs --restore/);
+  assert.match(oneShotLocal, /AVANTIQO_MUSIC_SEPARATOR_SLOT_RESTORE=PASS/);
   assert.match(oneShotLocal, /AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SPEND_APPROVED=YES/);
   assert.match(oneShotLocal, /AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_RIGHTS_APPROVED=YES/);
   assert.match(oneShotLocal, /run-avantiqo-music-separator-benchmark-local\.mjs/);
@@ -59,6 +67,35 @@ test("One-shot local Music separator certification is single-submission and fail
   assert.match(oneShotLocal, /AVANTIQO_MUSIC_SEPARATOR_PRODUCTION_ACTIVATION=false/);
   assert.match(oneShotLocal, /AVANTIQO_MUSIC_SEPARATOR_PRICING_ACTIVATION_PERFORMED=false/);
   assert.match(oneShotLocal, /AVANTIQO_MUSIC_SEPARATOR_PROVIDER_CERTIFICATION_MUTATION_PERFORMED=false/);
+});
+
+test("Music separator quota mode creates a parked endpoint without reserving another worker", () => {
+  assert.match(provision, /AVANTIQO_MUSIC_SEPARATOR_CERTIFICATION_QUOTA_MODE/);
+  assert.match(provision, /CERTIFICATION_QUOTA_MODE_REQUIRES_WORKERS_MAX_0/);
+  assert.match(provision, /endpoint_created_paused:\s*workersMax === 0/);
+  assert.match(provision, /HANDOFF_ONE_MUSIC_WORKER_SLOT_FOR_CONTROLLED_BENCHMARK/);
+  assert.match(provision, /generation_endpoint_mutation_performed:\s*false/);
+  assert.match(provision, /production_deploy_performed:\s*false/);
+});
+
+test("Music separator slot handoff is scoped to exact Music endpoints and restores capacity", () => {
+  assert.match(slotHandoff, /const GENERATION_NAME = "avantiqo-audio-v1"/);
+  assert.match(slotHandoff, /const SEPARATOR_NAME = "avantiqo-music-separator-v1"/);
+  assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_HANDOFF_APPROVED=YES_REQUIRED/);
+  assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_SEPARATOR_NETWORK_VOLUME_FORBIDDEN/);
+  assert.match(slotHandoff, /GENERATION_NOT_IDLE/);
+  assert.match(slotHandoff, /SEPARATOR_NOT_IDLE/);
+  assert.match(slotHandoff, /method:\s*"PATCH"/);
+  assert.match(slotHandoff, /workersMax:\s*generationMax - 1/);
+  assert.match(slotHandoff, /workersMax:\s*1/);
+  assert.match(slotHandoff, /workersMax:\s*0/);
+  assert.match(slotHandoff, /workersMax:\s*Number\(stateFile\.generation_workers_max\)/);
+  assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_SEPARATOR_DRAIN_TIMEOUT/);
+  assert.match(slotHandoff, /AVANTIQO_MUSIC_SEPARATOR_SLOT_GENERATION_RESTORE_TIMEOUT/);
+  assert.match(slotHandoff, /provider_job_submitted:\s*false/);
+  assert.match(slotHandoff, /production_deploy_performed:\s*false/);
+  assert.match(slotHandoff, /pricing_activation_performed:\s*false/);
+  assert.doesNotMatch(slotHandoff, /avantiqo-(?:image|video|voice|code|intelligence)-v1/);
 });
 
 test("Music separator certification is bound to Demucs htdemucs_ft only", () => {

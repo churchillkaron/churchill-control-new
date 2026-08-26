@@ -48,6 +48,11 @@ def _model():
             return _MODEL
         if _MODEL_LOAD_ERROR is not None:
             raise RuntimeError("AVANTIQO_VOICE_TTS_MODEL_PRELOAD_FAILED") from _MODEL_LOAD_ERROR
+
+        print(
+            '{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"model_load_started","secrets_printed":false}',
+            flush=True,
+        )
         try:
             model = ChatterboxMultilingualTTS.from_pretrained(
                 device=DEVICE,
@@ -58,24 +63,18 @@ def _model():
             _MODEL = model
         except BaseException as error:
             _MODEL_LOAD_ERROR = error
+            print(
+                '{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"model_load_failed",'
+                f'"error_type":"{type(error).__name__}","secrets_printed":false}}',
+                flush=True,
+            )
             raise
-    return _MODEL
 
-
-def _preload_model() -> None:
-    print('{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"model_preload_started","secrets_printed":false}', flush=True)
-    try:
-        model = _model()
-        if model is None:
-            raise RuntimeError("AVANTIQO_VOICE_TTS_MODEL_PRELOAD_REQUIRED")
-    except BaseException as error:
         print(
-            '{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"model_preload_failed",'
-            f'"error_type":"{type(error).__name__}","secrets_printed":false}}',
+            '{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"model_load_completed","secrets_printed":false}',
             flush=True,
         )
-        return
-    print('{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"model_preload_completed","secrets_printed":false}', flush=True)
+        return _MODEL
 
 
 def _validated(job: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -109,8 +108,9 @@ def _wav_base64(wav: torch.Tensor, sample_rate: int) -> str:
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     data, workload = _validated(job)
     started = time.perf_counter()
-    runpod.serverless.progress_update(job, "generating Avantiqo voice")
+    runpod.serverless.progress_update(job, "loading Avantiqo voice model")
     model = _model()
+    runpod.serverless.progress_update(job, "generating Avantiqo voice")
     with torch.inference_mode():
         wav = model.generate(
             workload["text"],
@@ -145,17 +145,17 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 def check_worker():
     if FOUNDATION_MODEL != EXPECTED_FOUNDATION_MODEL:
         raise RuntimeError("AVANTIQO_VOICE_TTS_FOUNDATION_MODEL_UNSUPPORTED")
-    if DEVICE.startswith("cuda") and not torch.cuda.is_available():
-        raise RuntimeError("AVANTIQO_VOICE_TTS_CUDA_REQUIRED")
-    if _MODEL_LOAD_ERROR is not None:
-        raise RuntimeError("AVANTIQO_VOICE_TTS_MODEL_PRELOAD_FAILED")
+    if DEVICE.startswith("cuda"):
+        if not torch.cuda.is_available():
+            raise RuntimeError("AVANTIQO_VOICE_TTS_CUDA_REQUIRED")
+        probe = torch.empty(1, device="cuda")
+        del probe
+        torch.cuda.synchronize()
 
 
 if __name__ == "__main__":
-    print('{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"serverless_starting","secrets_printed":false}', flush=True)
-    threading.Thread(
-        target=_preload_model,
-        name="avantiqo-voice-model-preload",
-        daemon=True,
-    ).start()
+    print(
+        '{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"serverless_starting","model_load_deferred_until_job":true,"secrets_printed":false}',
+        flush=True,
+    )
     runpod.serverless.start({"handler": handler})

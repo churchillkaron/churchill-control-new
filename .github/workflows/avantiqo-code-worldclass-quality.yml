@@ -1,0 +1,54 @@
+name: Avantiqo Code World-Class Quality
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/code/runtime/**"
+      - "lib/platform/capabilities/createCodeAI*.js"
+      - "scripts/code-ai-*.mjs"
+      - "scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs"
+      - "config/avantiqo-runpod-safe-lease-policy.json"
+      - "package.json"
+      - ".github/workflows/avantiqo-code-worldclass-quality.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-worldclass-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Zero-GPU Code quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AVANTIQO_CODE_WORLDCLASS_CI: "YES"
+      AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "NO"
+    steps:
+      - name: Checkout main source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies without lifecycle side effects
+        run: npm ci --ignore-scripts
+
+      - name: Run Code autonomy and world-class quality gates
+        run: npm run audit:code-ai-autonomy
+
+      - name: Assert workflow remains zero-GPU
+        shell: bash
+        run: |
+          test "${AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED}" = "NO"
+          echo "AVANTIQO_CODE_WORLDCLASS_ZERO_GPU_CI=PASS"

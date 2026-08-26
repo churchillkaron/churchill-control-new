@@ -42,15 +42,31 @@ jobs:
           test -f services/avantiqo-music-vocal-correction-engine/Dockerfile
           test -f services/avantiqo-music-vocal-correction-engine/handler.py
           test -f services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          test -f services/avantiqo-music-vocal-correction-engine/key_parser.py
           test -f services/avantiqo-music-vocal-correction-engine/timing.py
           test -f services/avantiqo-music-vocal-correction-engine/requirements.txt
           grep -F 'AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2' services/avantiqo-music-vocal-correction-engine/handler_v2.py
           grep -F 'TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'AVANTIQO_MUSIC_VOCAL_KEY_PARSER_V1' services/avantiqo-music-vocal-correction-engine/key_parser.py
+          grep -F '"INSUFFICIENT_VOICING"' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F '"NO_CORRECTION_NEEDED"' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F '"APPLIED"' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F '"FAILED"' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'formant_compensation_explicitly_configured": False' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'formant_preservation_claimed": False' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          if grep -F 'applied_event_count"] >= 0' services/avantiqo-music-vocal-correction-engine/handler_v2.py; then
+            echo 'AVANTIQO_MUSIC_VOCAL_CORRECTION_INVALID_ALWAYS_TRUE_READINESS_FORBIDDEN'
+            exit 1
+          fi
           grep -F 'AVANTIQO_MUSIC_VOCAL_PHRASE_TIMING_V1' services/avantiqo-music-vocal-correction-engine/timing.py
           grep -F 'WHOLE_PHRASE_TRANSLATION_WITH_LOCAL_COLLISION_GUARDS' services/avantiqo-music-vocal-correction-engine/timing.py
           grep -F 'syllable_time_stretch_forbidden' services/avantiqo-music-vocal-correction-engine/handler_v2.py
           grep -F 'human_listening_review_required_for_certification' services/avantiqo-music-vocal-correction-engine/handler_v2.py
           grep -F 'production_certified": False' services/avantiqo-music-vocal-correction-engine/handler_v2.py
+          grep -F 'COPY services/avantiqo-music-vocal-correction-engine/key_parser.py /app/key_parser.py' services/avantiqo-music-vocal-correction-engine/Dockerfile
+          grep -F 'torchcrepe.predict(' services/avantiqo-music-vocal-correction-engine/Dockerfile
+          grep -F 'AVANTIQO_MUSIC_VOCAL_CORRECTION_TORCHCREPE_INFERENCE_SMOKE=PASS' services/avantiqo-music-vocal-correction-engine/Dockerfile
+          grep -F 'AVANTIQO_MUSIC_VOCAL_KEY_PARSER_SELF_TEST=PASS' services/avantiqo-music-vocal-correction-engine/Dockerfile
           grep -F 'CMD ["python3", "/app/handler_v2.py"]' services/avantiqo-music-vocal-correction-engine/Dockerfile
           grep -F 'torchcrepe==0.0.24' services/avantiqo-music-vocal-correction-engine/requirements.txt
           grep -F 'python-stretch==0.3.1' services/avantiqo-music-vocal-correction-engine/requirements.txt
@@ -177,6 +193,11 @@ jobs:
             rights_attestation_contract: "AVANTIQO_SOURCE_AUDIO_RIGHTS_ATTESTATION_V1",
             content_restriction_policy: "USER_RIGHTS_ATTESTATION_ONLY",
             max_source_duration_seconds: 900,
+            key_parser_contract: "AVANTIQO_MUSIC_VOCAL_KEY_PARSER_V1",
+            explicit_pitch_readiness: true,
+            torchcrepe_inference_smoke_required: true,
+            explicit_formant_compensation_configured: false,
+            unverified_formant_preservation_claimed: false,
             network_volume_required: false,
             production_certified: false,
             human_listening_review_required: true,

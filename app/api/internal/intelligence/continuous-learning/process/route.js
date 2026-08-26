@@ -57,6 +57,9 @@ import {
 import {
   reconcileAvantiqoNegativeTransferEvidenceClock,
 } from "@/lib/intelligence/runtime/AvantiqoNegativeTransferEvidenceClockRuntime";
+import {
+  reconcileAvantiqoLearningTransferRevisions,
+} from "@/lib/intelligence/runtime/AvantiqoLearningTransferRevisionRuntime";
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -120,16 +123,20 @@ export async function GET(request) {
     //     Mature refutation creates exact-mechanism negative-transfer memory, then
     //     its review and expiry clocks are anchored to the latest refutation evidence.
     //     Reconciliation time itself can never extend a negative-transfer exclusion.
-    //     This stage executes no experiments and writes no reusable platform knowledge.
-    // 17. Spend the existing bounded public-evidence research budget on the
-    //     resulting agenda, including adversarial/dependency/frontier/transfer work.
+    // 17. Reconcile independently attributed contradictions from mature failed or
+    //     boundary-limited transfers into at most one single-component mechanism
+    //     revision request per parent transfer. Equal-strength multi-assumption
+    //     contradictions remain blocked as ambiguous. This stage never fabricates
+    //     revised hypotheses or mutates the parent mechanism.
+    // 18. Spend the existing bounded public-evidence research budget on the
+    //     resulting agenda, including adversarial/dependency/frontier/transfer/revision work.
     //     Newly supported claims are staged as evidence candidates for the next cycle.
     // Any hypothesis/invention synthesis, transfer experiment execution, or
     // counterfactual benchmark execution that could wake owned RunPod Intelligence
     // is deliberately outside this cron and must execute through AVANTIQO_RUNPOD_SAFE_LEASE_V2.
-    // Stages 1-16 never mutate model weights, authorize product actions, execute
-    // experiments, submit RunPod jobs, automatically release knowledge, or
-    // automatically restore quarantined/retired/dependency-held knowledge.
+    // Stages 1-17 never mutate model weights, authorize product actions, execute
+    // experiments, submit RunPod jobs, automatically release knowledge, fabricate
+    // revised transfer hypotheses, or automatically restore quarantined/retired knowledge.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
@@ -156,6 +163,8 @@ export async function GET(request) {
       await reconcileAvantiqoLearningTransferValidation();
     const negativeTransferEvidenceClock =
       await reconcileAvantiqoNegativeTransferEvidenceClock();
+    const learningTransferRevision =
+      await reconcileAvantiqoLearningTransferRevisions();
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -180,6 +189,7 @@ export async function GET(request) {
         learning_transfer: learningTransfer,
         learning_transfer_validation: learningTransferValidation,
         negative_transfer_evidence_clock: negativeTransferEvidenceClock,
+        learning_transfer_revision: learningTransferRevision,
       },
       {
         status: result.success === false ? 207 : 200,

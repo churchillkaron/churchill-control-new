@@ -10,6 +10,8 @@ const [
   workflow,
   provisioner,
   preflight,
+  extendProvider,
+  audioProvider,
 ] = await Promise.all([
   read("config/avantiqo-music-extend-engine.json"),
   read("config/avantiqo-runpod-safe-lease-policy.json"),
@@ -18,6 +20,8 @@ const [
   read(".github/workflows/avantiqo-music-extend-worker-image.yml"),
   read("scripts/provision-avantiqo-music-extend-runpod-local.mjs"),
   read("scripts/preflight-avantiqo-music-extend-runpod-local.mjs"),
+  read("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicExtendProvider.js"),
+  read("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js"),
 ]);
 
 const engine = JSON.parse(engineConfigRaw);
@@ -100,5 +104,24 @@ assert.match(preflight, /volume_mutation_performed: false/);
 assert.match(preflight, /compose_endpoint_mutation_performed: false/);
 assert.match(preflight, /production_deploy_performed: false/);
 assert.match(preflight, /pricing_activation_performed: false/);
+
+assert.match(extendProvider, /const SAFE_LEASE_LANE = "music-extend"/);
+assert.match(extendProvider, /RUNPOD_AVANTIQO_MUSIC_EXTEND_ENDPOINT_ID/);
+assert.match(extendProvider, /AVANTIQO_MUSIC_EXTEND_ENGINE_CERTIFIED/);
+assert.match(extendProvider, /AVANTIQO_MUSIC_EXTEND_ENGINE_NOT_CERTIFIED/);
+assert.match(extendProvider, /AVANTIQO_MUSIC_EXTEND_SOURCE_RIGHTS_CONFIRMATION_REQUIRED/);
+assert.match(extendProvider, /contract: ENGINE_CONTRACT/);
+assert.match(extendProvider, /capability: CAPABILITY/);
+assert.match(extendProvider, /arrangement_completion: true/);
+assert.match(extendProvider, /temporal_extension_proven: false/);
+assert.match(extendProvider, /\$\{baseUrl\}\/run/);
+
+const workerSet = audioProvider.match(/const MUSIC_OWNED_WORKER_CAPABILITIES = new Set\(\[([\s\S]*?)\]\);/)?.[1] || "";
+assert.doesNotMatch(workerSet, /ai\.audio\.extend/);
+assert.match(audioProvider, /AvantiqoMusicExtendProvider/);
+assert.match(audioProvider, /AVANTIQO_MUSIC_EXTEND_JOB_PREFIX/);
+assert.match(audioProvider, /isExtendCapability/);
+assert.match(audioProvider, /return AvantiqoMusicExtendProvider\.execute\(input\)/);
+assert.match(audioProvider, /return AvantiqoMusicExtendProvider\.getStatus\(input\)/);
 
 console.log("MUSIC_EXTEND_BASE_MODEL_CONTRACT=PASS");

@@ -19,6 +19,8 @@ const DEMUCS_MODEL = "htdemucs_ft";
 const QUALITY_PROFILE = "DEMUCS_HTDEMUCS_FT_4STEM_V1";
 const RIGHTS_CONTRACT = "AVANTIQO_SOURCE_AUDIO_RIGHTS_ATTESTATION_V1";
 const CONTENT_POLICY = "USER_RIGHTS_ATTESTATION_ONLY";
+const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
+const SAFE_LEASE_LANE = "music-separator";
 const STEMS = Object.freeze(["vocals", "drums", "bass", "other"]);
 const BACKING_STEMS = Object.freeze(["drums", "bass", "other"]);
 const OUTPUTS = Object.freeze({
@@ -90,6 +92,32 @@ function exactList(value, expected) {
   return Array.isArray(value) &&
     value.length === expected.length &&
     expected.every((item, index) => value[index] === item);
+}
+
+function assertSafeLease(endpointId) {
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE).toUpperCase() !== "YES") {
+    throw new Error("AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SAFE_LEASE_ACTIVE_REQUIRED");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT) !== SAFE_LEASE_CONTRACT) {
+    throw new Error("AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SAFE_LEASE_CONTRACT_INVALID");
+  }
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_LANE) !== SAFE_LEASE_LANE) {
+    throw new Error("AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SAFE_LEASE_LANE_INVALID");
+  }
+  const leasedEndpointId = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID);
+  if (!leasedEndpointId || leasedEndpointId !== endpointId) {
+    throw new Error("AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SAFE_LEASE_ENDPOINT_MISMATCH");
+  }
+  const expiresAt = Date.parse(text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT));
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    throw new Error("AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SAFE_LEASE_EXPIRED");
+  }
+  return {
+    contract: SAFE_LEASE_CONTRACT,
+    lane: SAFE_LEASE_LANE,
+    endpoint_id: leasedEndpointId,
+    expires_at: new Date(expiresAt).toISOString(),
+  };
 }
 
 function runJsonScript(relativePath) {
@@ -276,6 +304,7 @@ assertPreflight(preflight);
 const apiKey = required("RUNPOD_API_KEY");
 const endpointId = text(process.env.RUNPOD_AVANTIQO_MUSIC_SEPARATOR_ENDPOINT_ID) || text(preflight?.separator_endpoint?.id);
 if (!endpointId) throw new Error("RUNPOD_AVANTIQO_MUSIC_SEPARATOR_ENDPOINT_ID_REQUIRED");
+const safeLease = assertSafeLease(endpointId);
 const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
 const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
 const sourceFile = resolve(required("AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SOURCE_FILE"));
@@ -397,6 +426,7 @@ const report = {
     preflight_passed: true,
     separator_endpoint_id: endpointId,
     endpoint_gpu_type_ids: preflight?.separator_endpoint?.gpu_type_ids || [],
+    safe_lease: safeLease,
   },
   rights_attestation: {
     contract: RIGHTS_CONTRACT,
@@ -427,6 +457,7 @@ const report = {
   safety: {
     explicit_spend_approval_required: true,
     explicit_rights_approval_required: true,
+    safe_lease_required: true,
     provider_job_submitted: true,
     database_rows_written: 0,
     endpoint_mutation_performed: false,
@@ -444,6 +475,8 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   benchmark_id: benchmarkId,
   runpod_job_id: job.job_id,
+  safe_lease_contract: safeLease.contract,
+  safe_lease_lane: safeLease.lane,
   source_duration_seconds: sourceDuration,
   realtime_factor: realtimeFactor,
   runtime_benchmark_passed: true,

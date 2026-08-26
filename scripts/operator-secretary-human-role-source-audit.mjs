@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 const paths = {
   platform: "lib/platform/runtime/PlatformDomainRuntime.js",
   secretaryCapability: "lib/platform/capabilities/createSecretaryCapability.js",
+  secretaryCorrespondenceCapability: "lib/platform/capabilities/createSecretaryCorrespondenceCapability.js",
   secretaryJobCapability: "lib/platform/capabilities/createSecretaryJobCapability.js",
   secretaryJobIntake: "lib/operator/secretary/SecretaryJobIntakeRuntime.js",
   secretaryJobExecution: "lib/operator/secretary/SecretaryJobExecutionRuntime.js",
@@ -38,11 +39,33 @@ for (const action of [
   assert.match(source.platform, new RegExp(`createSecretaryCapability\\(\\"${action}\\"\\)`));
 }
 
+for (const action of ["inbox", "read", "open", "draft", "sendDraft", "setStatus"]) {
+  assert.match(source.platform, new RegExp(`createSecretaryCorrespondenceCapability\\(\\"${action}\\"\\)`));
+}
+
 for (const action of ["delegate", "list", "read", "approve"]) {
   assert.match(source.platform, new RegExp(`createSecretaryJobCapability\\(\\"${action}\\"\\)`));
 }
 
 assert.match(source.platform, /createSecretaryExecutiveBriefingCapability\(\)/);
+
+assert.match(source.secretaryCorrespondenceCapability, /getCommunicationInbox/);
+assert.match(source.secretaryCorrespondenceCapability, /getConversationTimeline/);
+assert.match(source.secretaryCorrespondenceCapability, /openConversation/);
+assert.match(source.secretaryCorrespondenceCapability, /draftOutboundMessage/);
+assert.match(source.secretaryCorrespondenceCapability, /queueDraftOutboundMessage/);
+assert.match(source.secretaryCorrespondenceCapability, /deliverCommunicationMessage/);
+assert.match(source.secretaryCorrespondenceCapability, /setConversationStatus/);
+assert.match(source.secretaryCorrespondenceCapability, /commercial\.communications\.write/);
+assert.match(source.secretaryCorrespondenceCapability, /commercial\.communications\.send/);
+assert.match(source.secretaryCorrespondenceCapability, /operatorRequiresConfirmation:\s*config\.confirm === true/);
+assert.match(source.secretaryCorrespondenceCapability, /conversation_confirmation/);
+assert.match(source.secretaryCorrespondenceCapability, /draftSource:\s*"AVANTIQO_SECRETARY"/);
+assert.match(source.secretaryCorrespondenceCapability, /markRead:\s*false/);
+assert.match(source.secretaryCorrespondenceCapability, /sent:\s*false/);
+assert.match(source.secretaryCorrespondenceCapability, /messageId:\s*text\(payload\.message_id/);
+assert.match(source.secretaryCorrespondenceCapability, /contextScope:\s*"organization"/);
+assert.doesNotMatch(source.secretaryCorrespondenceCapability, /service_role/i);
 
 assert.match(source.secretaryJobCapability, /secretary handle this for me/i);
 assert.match(source.secretaryJobCapability, /take care of this/i);
@@ -159,6 +182,13 @@ console.log("SECRETARY_CONTACT_ADMIN=true");
 console.log("SECRETARY_TASK_ADMIN=true");
 console.log("SECRETARY_FOLLOW_UP_ADMIN=true");
 console.log("SECRETARY_CALL_AND_CORRESPONDENCE_ADMIN=true");
+console.log("SECRETARY_CORRESPONDENCE_INBOX=true");
+console.log("SECRETARY_CORRESPONDENCE_THREAD_READ=true");
+console.log("SECRETARY_CORRESPONDENCE_OPEN=true");
+console.log("SECRETARY_CORRESPONDENCE_DRAFT=true");
+console.log("SECRETARY_CORRESPONDENCE_EXACT_DRAFT_SEND=true");
+console.log("SECRETARY_CORRESPONDENCE_SEND_CONFIRMATION_REQUIRED=true");
+console.log("SECRETARY_CORRESPONDENCE_CANONICAL_STORE=true");
 console.log("SECRETARY_MEETING_ADMIN=true");
 console.log("SECRETARY_AUTONOMOUS_RESEARCH=true");
 console.log("SECRETARY_RESPONSE_COLLECTION_AND_CHASING=true");

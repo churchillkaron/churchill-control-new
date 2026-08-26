@@ -9,6 +9,7 @@ const files = {
   harness: await readFile("scripts/run-operator-secretary-meeting-local-certification.sh", "utf8"),
   certification: await readFile("scripts/certify-secretary-meeting-coordination-local.mjs", "utf8"),
   notificationCertification: await readFile("scripts/certify-secretary-meeting-booking-notifications-local.mjs", "utf8"),
+  slotOptimizationCertification: await readFile("scripts/certify-secretary-meeting-slot-optimization-local.mjs", "utf8"),
 };
 
 assert.match(files.guard, /secretaryMeetingParticipantHasExplicitAvailabilityEvidence/);
@@ -21,8 +22,16 @@ assert.match(files.guard, /SECRETARY_MEETING_COORDINATION_EXPLICIT_EVIDENCE_REQU
 assert.match(files.guard, /status: "NEEDS_INPUT"/);
 assert.match(files.guard, /selected_slot_id: null/);
 assert.match(files.guard, /booking_blocked_without_explicit_availability_evidence: true/);
+assert.match(files.guard, /prioritizeSecretaryMeetingSlotsForOptionalAvailability/);
+assert.match(files.guard, /MAX_OPTIONAL_EXPLICIT_AVAILABILITY_THEN_EARLIEST_START/);
+assert.match(files.guard, /EARLIEST_START_THEN_ORIGINAL_CANDIDATE_ORDER/);
+assert.match(files.guard, /requiredCompatible/);
+assert.match(files.guard, /optionalAvailableCount/);
+assert.match(files.guard, /required_explicit_compatibility_preserved: true/);
+assert.match(files.guard, /optional_availability_optimization_applied/);
+assert.match(files.guard, /slot_selection_policy/);
 assert.match(files.guard, /reconcileSecretaryMeetingCoordinationEvidence\(coordination\)/);
-assert.match(files.guard, /processSecretaryMeetingCoordination\(coordination\)/);
+assert.match(files.guard, /processSecretaryMeetingCoordination\(slotSelection\.coordination\)/);
 assert.match(files.guard, /ensureSecretaryMeetingBookingNotifications/);
 assert.match(files.guard, /booked_notification_pending_repair/);
 assert.match(files.guard, /booking_notifications_materialized: false/);
@@ -63,6 +72,7 @@ assert.match(files.harness, /20260825063900_avantiqo_secretary_atomic_booking\.s
 assert.match(files.harness, /20260826102000_secretary_multi_party_meeting_coordination\.sql/);
 assert.match(files.harness, /certify-secretary-meeting-coordination-local\.mjs/);
 assert.match(files.harness, /certify-secretary-meeting-booking-notifications-local\.mjs/);
+assert.match(files.harness, /certify-secretary-meeting-slot-optimization-local\.mjs/);
 
 assert.match(files.certification, /SECRETARY_MEETING_COORDINATION_LOCAL_CERTIFICATION=PASS/);
 assert.match(files.certification, /SECRETARY_EXPLICIT_AVAILABILITY_EVIDENCE_REQUIRED_FOR_BOOKING=true/);
@@ -84,11 +94,23 @@ assert.match(files.notificationCertification, /SECRETARY_MEETING_BOOKING_NOTIFIC
 assert.match(files.notificationCertification, /SECRETARY_PROVIDER_CALLS_PERFORMED=false/);
 assert.match(files.notificationCertification, /SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false/);
 
+assert.match(files.slotOptimizationCertification, /SECRETARY_MEETING_SLOT_OPTIMIZATION_LOCAL_CERTIFICATION=PASS/);
+assert.match(files.slotOptimizationCertification, /SECRETARY_REQUIRED_PARTICIPANTS_ALWAYS_PRESERVED=true/);
+assert.match(files.slotOptimizationCertification, /SECRETARY_OPTIONAL_ATTENDEE_AVAILABILITY_MAXIMIZED=true/);
+assert.match(files.slotOptimizationCertification, /SECRETARY_OPTIONAL_ATTENDEES_CANNOT_OVERRIDE_REQUIRED=true/);
+assert.match(files.slotOptimizationCertification, /SECRETARY_MEETING_SLOT_TIE_BREAKS_TO_EARLIEST=true/);
+assert.match(files.slotOptimizationCertification, /SECRETARY_PENDING_REQUIRED_RESPONSE_BLOCKS_OPTIMIZATION=true/);
+assert.match(files.slotOptimizationCertification, /SECRETARY_PROVIDER_CALLS_PERFORMED=false/);
+assert.match(files.slotOptimizationCertification, /SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false/);
+
 console.log("OPERATOR_SECRETARY_MEETING_COORDINATION_BOOKING_GUARD_AUDIT=PASS");
 console.log("SECRETARY_MEETING_BOOKING_EXPLICIT_EVIDENCE_GATE=true");
 console.log("SECRETARY_MEETING_FORGED_RESPONSE_FAILS_CLOSED=true");
 console.log("SECRETARY_MEETING_FRESH_CLARIFICATION_EVIDENCE=true");
 console.log("SECRETARY_MEETING_CALL_EVIDENCE_SUPPORTED=true");
+console.log("SECRETARY_MEETING_SLOT_REQUIRED_ATTENDEE_PRIORITY=true");
+console.log("SECRETARY_MEETING_SLOT_OPTIONAL_ATTENDANCE_OPTIMIZED=true");
+console.log("SECRETARY_MEETING_SLOT_TIE_BREAKS_TO_EARLIEST=true");
 console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_ALL_PARTICIPANTS=true");
 console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_DETERMINISTIC_IDS=true");
 console.log("SECRETARY_MEETING_BOOKING_NOTIFICATION_IDEMPOTENT=true");

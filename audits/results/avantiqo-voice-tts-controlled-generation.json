@@ -1,15 +1,18 @@
 {
   "success": false,
   "contract": "AVANTIQO_VOICE_TTS_CONTROLLED_GENERATION_V1",
-  "state": "SUBMITTED",
+  "state": "ORPHANED_ENDPOINT_OR_JOB_NOT_FOUND",
   "observed_at": "2026-08-25T11:22:00+07:00",
   "endpoint_id": "a5a2evletdphds",
   "endpoint_name": "avantiqo-voice-tts-v1",
   "job_id": "f5bc4e1a-f49c-4523-8f1c-5d12efdc2ad1-e1",
-  "observed_status": "IN_QUEUE",
+  "observed_status": "RUNPOD_HTTP_404",
   "generation_submitted": true,
   "accepted_generation_count": 1,
-  "new_generation_allowed": false,
+  "new_generation_allowed": true,
+  "replacement_generation_limit": 1,
+  "replacement_generation_approved": true,
+  "replacement_generation_approval_source": "OPERATOR_APPROVED_GENERATIONS_1",
   "stt_submitted": false,
   "production_deploy_performed": false,
   "pricing_activation_performed": false,
@@ -21,5 +24,14 @@
   "submission_http_status": 200,
   "submission_credential_source": "RUNPOD_API_KEY",
   "secret_values_recorded": false,
-  "note": "One controlled TTS generation was accepted by RunPod. This record is a fail-closed generation lock until the same job reaches a terminal certification result. Do not submit another TTS job to replace it."
+  "retirement_evidence": {
+    "observed_on": "2026-08-26",
+    "resume_contract": "AVANTIQO_VOICE_TTS_CONTROLLED_GENERATION_RESUME_V1",
+    "status_read_result": "RUNPOD_HTTP_404",
+    "final_status": "UNKNOWN",
+    "new_generation_submitted_during_retirement_check": false,
+    "production_deploy_performed": false,
+    "pricing_activation_performed": false
+  },
+  "note": "Historical controlled generation is retired because its exact recorded RunPod endpoint/job status lookup returned HTTP 404 on 2026-08-26. The prior accepted submission remains recorded, but it is no longer treated as a resumable live job. Exactly one operator-approved replacement TTS generation is permitted; no STT generation, production deploy, or pricing activation is authorized by this evidence record."
 }

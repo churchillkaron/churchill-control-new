@@ -6,7 +6,7 @@ const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const FAST_NAME = "avantiqo-intelligence-fast-v1";
-const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_LIVE_REQUEST_DIAGNOSTIC_V2";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_LIVE_REQUEST_DIAGNOSTIC_V3";
 const DEFAULT_REPORT = "/tmp/avantiqo-intelligence-fast-live-request-diagnostic.json";
 const LOG_CAPTURE_MS = 8000;
 const READ_SLICE_MS = 1000;
@@ -33,10 +33,17 @@ function shell(name, args, code) {
 }
 
 function validateCurrentMain() {
-  shell("git", ["fetch", "origin", "main"], "AVANTIQO_FAST_LIVE_REQUEST_GIT_FETCH_FAILED");
   const branch = shell("git", ["branch", "--show-current"], "AVANTIQO_FAST_LIVE_REQUEST_GIT_BRANCH_FAILED");
   if (branch !== "main") throw new Error(`AVANTIQO_FAST_LIVE_REQUEST_MAIN_REQUIRED:actual=${branch || "DETACHED"}`);
   const head = shell("git", ["rev-parse", "HEAD"], "AVANTIQO_FAST_LIVE_REQUEST_GIT_HEAD_FAILED");
+  const expected = text(process.env.AVANTIQO_INTELLIGENCE_FAST_LIVE_REQUEST_EXPECTED_MAIN);
+  if (expected) {
+    if (head !== expected) {
+      throw new Error(`AVANTIQO_FAST_LIVE_REQUEST_PINNED_MAIN_MISMATCH:head=${head}:expected=${expected}`);
+    }
+    return head;
+  }
+  shell("git", ["fetch", "origin", "main"], "AVANTIQO_FAST_LIVE_REQUEST_GIT_FETCH_FAILED");
   const remote = shell("git", ["rev-parse", "origin/main"], "AVANTIQO_FAST_LIVE_REQUEST_GIT_REMOTE_FAILED");
   if (head !== remote) throw new Error(`AVANTIQO_FAST_LIVE_REQUEST_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin_main=${remote}`);
   return head;

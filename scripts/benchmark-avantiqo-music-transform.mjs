@@ -8,6 +8,9 @@ const CERT_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_JOB_V1";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const SAFE_LEASE_LANE = "audio";
 const BUCKET = "creative-assets";
+const SOURCE_DURATION_SECONDS = 12;
+const EXTEND_SECONDS = 8;
+const EXTEND_OVERLAP_SECONDS = 3;
 
 function text(value) { return String(value ?? "").trim(); }
 function required(name) { const value = text(process.env[name]); if (!value) throw new Error(`${name}_REQUIRED`); return value; }
@@ -15,7 +18,7 @@ function approved(name) { if (text(process.env[name]).toUpperCase() !== "YES") t
 function sleep(ms) { return new Promise((resolvePromise) => setTimeout(resolvePromise, ms)); }
 function capability() {
   const value = text(process.env.AVANTIQO_MUSIC_TRANSFORM_CAPABILITY);
-  if (!["ai.audio.remix", "ai.audio.edit"].includes(value)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CAPABILITY_INVALID");
+  if (!["ai.audio.remix", "ai.audio.edit", "ai.audio.extend"].includes(value)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CAPABILITY_INVALID");
   return value;
 }
 function assertLease(endpointId) {
@@ -37,7 +40,7 @@ async function runpod(url, apiKey, options = {}) {
   if (!response.ok) throw new Error(`RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message || raw).slice(0, 600)}`);
   return body;
 }
-function makeWav(seconds = 12, sampleRate = 44100) {
+function makeWav(seconds = SOURCE_DURATION_SECONDS, sampleRate = 44100) {
   const frames = seconds * sampleRate;
   const buffer = Buffer.alloc(44 + frames * 2);
   buffer.write("RIFF", 0); buffer.writeUInt32LE(36 + frames * 2, 4); buffer.write("WAVEfmt ", 8);
@@ -63,7 +66,7 @@ const organizationId = `benchmark-${crypto.randomUUID()}`;
 const id = `music-transform-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 const sourcePath = `${organizationId}/benchmark/music-transform/${id}-source.wav`;
 const outputPath = `${organizationId}/benchmark/music-transform/${id}-output.wav`;
-const source = makeWav(12);
+const source = makeWav(SOURCE_DURATION_SECONDS);
 const { error: sourceError } = await supabase.storage.from(BUCKET).upload(sourcePath, source, { contentType: "audio/wav", upsert: false });
 if (sourceError) throw sourceError;
 const { data: sourceRead, error: readError } = await supabase.storage.from(BUCKET).createSignedUrl(sourcePath, 3600);
@@ -73,16 +76,23 @@ if (outputError || !outputUpload?.signedUrl) throw outputError || new Error("AVA
 const outputReference = `storage://${BUCKET}/${outputPath}`;
 const providerParameters = selectedCapability === "ai.audio.edit"
   ? { repainting_start: 3, repainting_end: 7, seed: 51001, inference_steps: 8, shift: 3 }
-  : { audio_cover_strength: 0.6, seed: 51001, inference_steps: 8, shift: 3 };
+  : selectedCapability === "ai.audio.extend"
+    ? { extension_seconds: EXTEND_SECONDS, continuity_overlap_seconds: EXTEND_OVERLAP_SECONDS, seed: 51001, inference_steps: 8, shift: 3 }
+    : { audio_cover_strength: 0.6, seed: 51001, inference_steps: 8, shift: 3 };
+const instruction = selectedCapability === "ai.audio.edit"
+  ? "Refine only the selected region while preserving continuity."
+  : selectedCapability === "ai.audio.extend"
+    ? "Continue naturally beyond the existing ending while preserving musical identity and continuity."
+    : "Create a polished alternate arrangement while preserving useful musical identity.";
 const payload = {
   contract: ENGINE_CONTRACT,
   capability: selectedCapability,
   organization_id: organizationId,
   usage_id: id,
-  instruction: selectedCapability === "ai.audio.edit" ? "Refine only the selected region while preserving continuity." : "Create a polished alternate arrangement while preserving useful musical identity.",
+  instruction,
   source_asset_roles: { source_audio: sourceRead.signedUrl },
   structured_specification: {
-    music: { caption: "Premium polished instrumental, balanced energy", instrumental: true, duration_seconds: 12, bpm: 96 },
+    music: { caption: "Premium polished instrumental, balanced energy", instrumental: true, duration_seconds: SOURCE_DURATION_SECONDS, bpm: 96 },
     provider_parameters: providerParameters,
   },
   storage_upload: { signed_url: outputUpload.signedUrl, storage_reference: outputReference },
@@ -118,7 +128,7 @@ while (Date.now() < deadline) {
 }
 if (!result) throw new Error("AVANTIQO_MUSIC_TRANSFORM_JOB_TIMEOUT");
 const output = result.output || {};
-const passed =
+const basePassed =
   text(output.capability) === selectedCapability &&
   output.certification_candidate === true &&
   output.production_certified === false &&
@@ -128,8 +138,21 @@ const passed =
   output.source_audio_used === true &&
   text(output.storage_reference) === outputReference &&
   Number(output.size_bytes) > 10000;
+const extendPassed = selectedCapability !== "ai.audio.extend" || (
+  text(output.task_type) === "repaint" &&
+  text(output.temporal_extend_strategy) === "XL_TURBO_REPAINT_RIGHT_OUTPAINT" &&
+  Number(output.source_duration_seconds) >= SOURCE_DURATION_SECONDS - 0.5 &&
+  Number(output.repainting_end) > Number(output.source_duration_seconds) &&
+  Number(output.duration_seconds) > Number(output.source_duration_seconds) + 1 &&
+  output.temporal_extension_observed === true &&
+  output.temporal_extension_proven === false &&
+  Number(output.extension_seconds_requested) === EXTEND_SECONDS &&
+  Number(output.continuity_overlap_seconds) === EXTEND_OVERLAP_SECONDS
+);
+const passed = basePassed && extendPassed;
+const temporalExtensionTechnicalProven = selectedCapability === "ai.audio.extend" && passed;
 const report = {
-  contract: "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V1",
+  contract: "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V2",
   generated_at: new Date().toISOString(),
   capability: selectedCapability,
   provider_jobs_submitted: 1,
@@ -137,6 +160,9 @@ const report = {
   safe_lease_lane: SAFE_LEASE_LANE,
   source_rights_confirmed: true,
   synthetic_source: true,
+  source_duration_seconds: SOURCE_DURATION_SECONDS,
+  temporal_extension_strategy: selectedCapability === "ai.audio.extend" ? "XL_TURBO_REPAINT_RIGHT_OUTPAINT" : null,
+  temporal_extension_technical_proven: temporalExtensionTechnicalProven,
   human_review_required: true,
   human_review_status: "PENDING",
   production_activation_allowed: false,
@@ -155,10 +181,18 @@ const report = {
     activation_allowed: output.activation_allowed,
     storage_reference: output.storage_reference,
     duration_seconds: output.duration_seconds,
+    source_duration_seconds: output.source_duration_seconds,
+    extension_seconds_requested: output.extension_seconds_requested,
+    extension_seconds_effective: output.extension_seconds_effective,
+    continuity_overlap_seconds: output.continuity_overlap_seconds,
+    repainting_start: output.repainting_start,
+    repainting_end: output.repainting_end,
+    temporal_extend_strategy: output.temporal_extend_strategy,
+    temporal_extension_observed: output.temporal_extension_observed,
     size_bytes: output.size_bytes,
   },
 };
 const reportPath = resolve(process.env.AVANTIQO_MUSIC_TRANSFORM_BENCHMARK_OUTPUT || `/tmp/${id}.json`);
 await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-console.log(JSON.stringify({ success: passed, contract: report.contract, capability: selectedCapability, provider_job_count: 1, human_review_status: "PENDING", activation_allowed: false, output_path: reportPath }, null, 2));
+console.log(JSON.stringify({ success: passed, contract: report.contract, capability: selectedCapability, provider_job_count: 1, temporal_extension_technical_proven: temporalExtensionTechnicalProven, human_review_status: "PENDING", activation_allowed: false, output_path: reportPath }, null, 2));
 if (!passed) process.exitCode = 1;

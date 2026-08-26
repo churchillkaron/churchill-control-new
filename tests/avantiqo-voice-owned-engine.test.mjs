@@ -86,18 +86,21 @@ test("owned Voice still requires measured production economics", () => {
   assert.equal(certified.eligible, true);
 });
 
-test("Voice registration does not falsely certify realtime or cloning", async () => {
+test("Voice registration does not falsely certify realtime or recorded-reference cloning", async () => {
   const source = await readFile(
     new URL("../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderRegistration.js", import.meta.url),
     "utf8",
   );
   assert.match(source, /realtime_streaming_certified:\s*false/);
   assert.match(source, /voice_cloning_certified:\s*false/);
+  assert.match(source, /recorded_reference_voice_implemented:\s*true/);
+  assert.match(source, /recorded_reference_voice_certified:\s*false/);
+  assert.match(source, /recorded_reference_requires_consent:\s*true/);
   assert.match(source, /ai\.speech\.to\.text/);
   assert.match(source, /ai\.text\.to\.speech/);
 });
 
-test("Voice RunPod execution is durable across scale-to-zero cold starts", async () => {
+test("Voice RunPod execution is durable across scale-to-zero cold starts and lease-gated", async () => {
   const source = await readFile(
     new URL("../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProvider.js", import.meta.url),
     "utf8",
@@ -106,6 +109,8 @@ test("Voice RunPod execution is durable across scale-to-zero cold starts", async
   assert.match(source, /async getStatus\(input = \{\}\)/);
   assert.match(source, /provider_job_id:\s*submitted\.jobId/);
   assert.match(source, /\/status\/\$\{encodeURIComponent\(jobId\)\}/);
+  assert.match(source, /requireSafeLeaseForSubmission\(endpointId\);/);
+  assert.match(source, /AVANTIQO_VOICE_RUNPOD_SAFE_LEASE_REQUIRED/);
   assert.doesNotMatch(source, /\/runsync/);
   assert.doesNotMatch(source, /AVANTIQO_VOICE_RUNSYNC_NOT_COMPLETED/);
 });
@@ -125,15 +130,21 @@ test("Operator speech APIs remain capability-only and do not expose provider evi
   assert.doesNotMatch(speak, /provider_evidence/);
 });
 
-test("TTS worker keeps custom voice cloning and Thai fail-closed", async () => {
+test("TTS worker implements consented recorded-reference identity while Thai stays fail-closed", async () => {
   const source = await readFile(
     new URL("../services/avantiqo-voice-tts/handler.py", import.meta.url),
     "utf8",
   );
-  assert.match(source, /AVANTIQO_VOICE_TTS_CUSTOM_VOICE_NOT_CERTIFIED/);
+  assert.match(source, /VOICE_REFERENCE_CONTRACT = "AVANTIQO_VOICE_REFERENCE_V1"/);
+  assert.match(source, /SELF/);
+  assert.match(source, /AUTHORIZED/);
+  assert.match(source, /LICENSED/);
+  assert.match(source, /prepare_conditionals\(reference_path/);
+  assert.match(source, /voice_cloning_used/);
+  assert.match(source, /voice_identity_source/);
+  assert.match(source, /recorded_reference/);
   assert.doesNotMatch(source, /"th"/);
   assert.match(source, /"sv"/);
-  assert.match(source, /voice_cloning_used": False/);
 });
 
 test("TTS image launches Python directly and emits a breadcrumb before heavy imports", async () => {

@@ -48,7 +48,9 @@ requirePattern(provisioner, /AVANTIQO_AUDIO_CERTIFICATION_SAFE_LEASE_LANE: SAFE_
 requirePattern(provisioner, /workersMax:\s*0/, "music-transform-candidate-must-be-created-parked");
 requirePattern(provisioner, /workersMin:\s*0/, "music-transform-candidate-min-workers-must-be-zero");
 requirePattern(provisioner, /networkVolumeId:\s*volume\.id/, "music-transform-candidate-must-bind-shared-cache");
-requirePattern(provisioner, /networkVolumeIds:\s*\[volume\.id\]/, "music-transform-candidate-must-bind-single-shared-cache");
+requirePattern(provisioner, /networkVolumeIds:\s*\[\{\s*networkVolumeId:\s*volume\.id\s*\}\]/, "music-transform-candidate-must-use-runpod-network-volume-input-object");
+forbidPattern(provisioner, /networkVolumeIds:\s*\[volume\.id\]/, "music-transform-candidate-must-not-use-obsolete-network-volume-string-shape");
+requirePattern(provisioner, /entry\?\.networkVolumeId/, "music-transform-candidate-must-normalize-runpod-network-volume-object-responses");
 requirePattern(provisioner, /production_audio_endpoint_mutation_allowed:\s*false/, "music-transform-provisioner-must-forbid-production-compose-mutation");
 requirePattern(provisioner, /provider_job_submitted:\s*false/, "music-transform-provisioner-must-not-submit-provider-job");
 requirePattern(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_APPROVED/, "music-transform-provisioner-must-require-explicit-apply-approval");
@@ -105,6 +107,7 @@ if (failures.length) {
 console.log("MUSIC_TRANSFORM_CANDIDATE_RELEASE_AUDIT=PASS");
 console.log("MUSIC_TRANSFORM_CANDIDATE_ENDPOINT=ISOLATED_FROM_PRODUCTION_COMPOSE");
 console.log("MUSIC_TRANSFORM_CANDIDATE_RESTING_WORKERS=0_0");
+console.log("MUSIC_TRANSFORM_CANDIDATE_NETWORK_VOLUME_SHAPE=RUNPOD_OBJECT_INPUT");
 console.log("MUSIC_TRANSFORM_CANDIDATE_PROVISION_CREDENTIAL_SCOPE=MANAGEMENT_ONLY_WITH_CANONICAL_FALLBACK");
 console.log("MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT=ZERO_SPEND_BEFORE_SAFE_LEASE");
 console.log("MUSIC_TRANSFORM_CANDIDATE_BENCHMARK=ONE_JOB_EXPLICIT_SPEND_AND_RIGHTS_APPROVAL_REQUIRED");

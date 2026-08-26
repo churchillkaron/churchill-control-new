@@ -12,7 +12,7 @@ function text(value) { return String(value ?? "").trim(); }
 function approved(name) { if (text(process.env[name]).toUpperCase() !== "YES") throw new Error(`${name}=YES_REQUIRED`); }
 function capability() {
   const value = text(process.env.AVANTIQO_MUSIC_TRANSFORM_CAPABILITY);
-  if (!["ai.audio.remix", "ai.audio.edit"].includes(value)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CAPABILITY_INVALID");
+  if (!["ai.audio.remix", "ai.audio.edit", "ai.audio.extend"].includes(value)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CAPABILITY_INVALID");
   return value;
 }
 
@@ -32,6 +32,11 @@ console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_PRODUCTION_ACTIVATION=false"
 console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_PRICING_ACTIVATION=false");
 console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_PROVIDER_SELECTION_CHANGE=false");
 console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_SECRET_PRINTED=false");
+if (selectedCapability === "ai.audio.extend") {
+  console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_TEMPORAL_EXTEND_STRATEGY=XL_TURBO_REPAINT_RIGHT_OUTPAINT");
+  console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_LONGER_OUTPUT_REQUIRED=true");
+  console.log("AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_TEMPORAL_EXTENSION_PROVEN_BEFORE_RUN=false");
+}
 
 const child = spawnSync(
   process.execPath,

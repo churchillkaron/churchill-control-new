@@ -2,7 +2,7 @@
   "contract": "AVANTIQO_AUDIO_WORKER_IMAGE_REQUEST_V10",
   "requested_for": "avantiqo-audio-v1",
   "source_path": "services/avantiqo-audio-engine",
-  "worker_source_sha": "e06a18e72e4e80838a0a685b4ce81bb4ecac6f57",
+  "worker_source_sha": "a1fe7a11eb9e131e2a503168005c13c3c5d8d47f",
   "runtime": "ACE-Step-1.5",
   "variant": "acestep-v15-xl-turbo",
   "quality_profile": "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1",

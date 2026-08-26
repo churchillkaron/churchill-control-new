@@ -17,6 +17,15 @@ const dialplan = await readFile("workers/secretary-sip-gateway/asterisk/extensio
 const bootstrap = await readFile("scripts/bootstrap-secretary-managed-telephony-local.mjs", "utf8");
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 
+const requestStart = runtime.indexOf("export async function requestManagedSecretaryNumber");
+const requestEnd = runtime.indexOf("export async function syncManagedSecretaryNumber");
+const requestRuntime = requestStart >= 0 && requestEnd > requestStart ? runtime.slice(requestStart, requestEnd) : "";
+const providerAcceptedGuard = requestRuntime.indexOf("if (providerOrderAccepted)");
+const postOrderReconciliation = requestRuntime.indexOf("markPostOrderReconciliationRequired", providerAcceptedGuard);
+const postOrderThrow = requestRuntime.indexOf("throw error;", providerAcceptedGuard);
+const walletReserveGuard = requestRuntime.indexOf("if (walletReserveAttempted)", providerAcceptedGuard);
+const preOrderRelease = requestRuntime.indexOf("WalletRuntime.release({", providerAcceptedGuard);
+
 assert("organization_scoped_connection_state", migration.includes("organization_id uuid not null") && migration.includes("unique (organization_id, idempotency_key)"));
 assert("carrier_secret_not_persisted", !migration.includes("provider_secret") && migration.includes("No carrier secret is stored in this table"));
 assert("managed_is_default_mode", migration.includes("default 'AVANTIQO_MANAGED'"));
@@ -25,7 +34,14 @@ assert("secretary_authority_remains_avantiqo", runtime.includes('secretary_autho
 assert("prepaid_wallet_required", runtime.includes("WalletRuntime.prepaid") && runtime.includes("WalletRuntime.reserve"));
 assert("provider_order_id_persisted", runtime.includes("provider_number_order_id"));
 assert("post_order_funds_held", runtime.includes("wallet_reservation_held: true") && runtime.includes("POST_ORDER_RECONCILIATION_REQUIRED"));
-assert("post_order_does_not_blind_release", runtime.includes("if (providerOrderAccepted)") && runtime.indexOf("if (providerOrderAccepted)") < runtime.indexOf("WalletRuntime.release({"));
+assert(
+  "post_order_does_not_blind_release",
+  providerAcceptedGuard >= 0 &&
+    postOrderReconciliation > providerAcceptedGuard &&
+    postOrderThrow > postOrderReconciliation &&
+    walletReserveGuard > postOrderThrow &&
+    preOrderRelease > walletReserveGuard,
+);
 assert("wallet_settlement_retriable", runtime.includes("wallet_settlement_pending") && runtime.includes("clearSettlementPending"));
 assert("did_resolved_inside_avantiqo", resolver.includes("secretary_phone_lines") && resolver.includes("line_address"));
 assert("agi_routes_by_called_number", agi.includes("calledNumber") && agi.includes("/api/internal/secretary/phone-lines/resolve"));

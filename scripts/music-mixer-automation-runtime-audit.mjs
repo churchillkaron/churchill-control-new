@@ -16,7 +16,7 @@ assert.match(runtime, /CREATIVE_MUSIC_AUTOMATION_DUPLICATE_TARGET/);
 assert.match(scheduler, /AVANTIQO_MUSIC_AUTOMATION_PREVIEW_V1/);
 assert.match(scheduler, /sample_clock_scheduled: true/);
 assert.match(scheduler, /exponentialRampToValueAtTime/);
-assert.match(preview, /AVANTIQO_MUSIC_MULTITRACK_BROWSER_PREVIEW_V12/);
+assert.match(preview, /AVANTIQO_MUSIC_MULTITRACK_BROWSER_PREVIEW_V14/);
 assert.match(preview, /synchronized_preload_before_clock: true/);
 assert.match(preview, /mixer_automation: true/);
 assert.match(preview, /master:bus-master:gain_db/);
@@ -31,3 +31,4 @@ assert.match(mixer, /MusicAutomationPanel/);
 assert.match(workstation, /playhead=\{playhead\}/);
 
 console.log("AVANTIQO_MUSIC_MIXER_AUTOMATION_RUNTIME_AUDIT=PASS");
+console.log("AVANTIQO_MUSIC_MIXER_AUTOMATION_PREVIEW=V14");

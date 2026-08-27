@@ -9,6 +9,8 @@ const paths = {
   api: "app/api/creative/music/vocal-timing-plan/route.js",
   panel: "components/creative/ProductionStudio/workspaces/MusicVocalTimingPlanPanel.jsx",
   stack: "components/creative/ProductionStudio/workspaces/MusicVocalPitchAnalysisPanel.jsx",
+  render: "app/api/creative/music/vocal-tuning-render/route.js",
+  renderPanel: "components/creative/ProductionStudio/workspaces/MusicVocalTuningPlanPanel.jsx",
   timing: "services/avantiqo-music-vocal-correction-engine/timing.py",
   engine: "services/avantiqo-music-vocal-correction-engine/handler_v2.py",
   provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionProvider.js",
@@ -33,6 +35,10 @@ assert.match(source.plan, /NEIGHBOR_PHRASE_COLLISION_RISK/);
 assert.match(source.plan, /musician_approval_required: true/);
 assert.match(source.plan, /all_phrases_reviewed/);
 assert.match(source.plan, /time_stretch_used: false/);
+assert.match(source.plan, /render_ready: render\.ready/);
+assert.match(source.plan, /MUSICIAN_TIMING_PLAN_REVIEW_INCOMPLETE/);
+assert.match(source.plan, /AVANTIQO_MUSIC_VOCAL_TUNING_RENDER_REQUEST_V1/);
+assert.doesNotMatch(source.plan, /MUSICIAN_TIMING_PLAN_RENDER_NOT_CONNECTED/);
 
 assert.match(source.api, /action === "analyze"/);
 assert.match(source.api, /action === "build"/);
@@ -43,9 +49,22 @@ assert.match(source.api, /provider_job_submitted: false/);
 
 assert.match(source.panel, /Analyze timing/);
 assert.match(source.panel, /Build review plan/);
-assert.match(source.panel, /Timing render is not connected yet/);
+assert.match(source.panel, /Reviewed timing is ready for governed vocal render/);
+assert.match(source.panel, /Render reviewed vocal/);
+assert.match(source.panel, /exact timing-plan fingerprint is included automatically/);
 assert.match(source.panel, /Internal consonant, note, vibrato and syllable timing remain unchanged/);
+assert.doesNotMatch(source.panel, /Timing render is not connected yet/);
 assert.match(source.stack, /MusicVocalTimingPlanPanel/);
+
+assert.match(source.render, /TIMING_PLAN_CONTRACT = "AVANTIQO_MUSIC_VOCAL_TIMING_PLAN_V1"/);
+assert.match(source.render, /approved_timing_plan: timingPlan \|\| null/);
+assert.match(source.render, /timing_plan_fingerprint/);
+assert.match(source.render, /CURRENT_TIMING_PLAN_CHANGED/);
+assert.match(source.render, /timing_strength: 0/);
+assert.match(source.render, /timing_auto_apply_forbidden: true/);
+assert.match(source.renderPanel, /Render reviewed vocal/);
+assert.match(source.renderPanel, /timingPlan\.all_phrases_reviewed === true/);
+assert.match(source.renderPanel, /Timing auto-correction remains forbidden/);
 
 assert.match(source.timing, /APPROVED_TIMING_CONTRACT = "AVANTIQO_MUSIC_VOCAL_TIMING_PLAN_V1"/);
 assert.match(source.timing, /apply_approved_phrase_timing_plan/);
@@ -62,6 +81,10 @@ assert.match(source.engine, /approved_timing_plan_exact_moves_required_when_supp
 assert.match(source.engine, /automatic_timing_forbidden_with_musician_plans/);
 assert.match(source.provider, /approved_timing_plan: approvedTimingPlan/);
 assert.match(source.provider, /timing_plan_contract/);
+
+for (const value of Object.values(source)) {
+  assert.doesNotMatch(value, /direct[_ -]?runpod[_ -]?call/i);
+}
 
 console.log("MUSIC_VOCAL_TIMING_PLAN_RUNTIME_AUDIT=PASS");
 console.log("MUSIC_VOCAL_TIMING_PLAN_AUDIO_CHANGED=false");

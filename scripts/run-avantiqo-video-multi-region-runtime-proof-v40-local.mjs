@@ -62,6 +62,13 @@ source = replaceExactlyOnce(
 
 source = replaceExactlyOnce(
   source,
+  '    const submitted = await queue(CINEMA_ID, "/run", credential.key, { method: "POST", body: { input: { operation: "runtime_probe" } } });',
+  '    let submitted = null;\n    let submitAttempt = 0;\n    const submitDeadline = Date.now() + 45_000;\n    while (!submitted) {\n      submitAttempt += 1;\n      const queueControlPlane = stablePlacement(await rest(`/endpoints/${CINEMA_ID}?includeTemplate=false&includeWorkers=false`, managementKey));\n      if (queueControlPlane.workers_min !== 0 || queueControlPlane.workers_max !== 1) {\n        throw new Error(`AVANTIQO_VIDEO_V40_QUEUE_CONTROL_PLANE_LEASE_STATE_INVALID:${queueControlPlane.workers_min}/${queueControlPlane.workers_max}`);\n      }\n      try {\n        submitted = await queue(CINEMA_ID, "/run", credential.key, { method: "POST", body: { input: { operation: "runtime_probe" } } });\n      } catch (error) {\n        const message = redact(error?.message || error);\n        const retryablePaused = message.startsWith("AVANTIQO_VIDEO_V40_HTTP_409:") && /Endpoint is paused/i.test(message) && /max_workers=0/i.test(message);\n        if (!retryablePaused) throw error;\n        if (Date.now() >= submitDeadline) {\n          throw new Error(`AVANTIQO_VIDEO_V40_QUEUE_CONTROL_PLANE_PROPAGATION_TIMEOUT:attempts=${submitAttempt}:${message}`);\n        }\n        console.log(`AVANTIQO_VIDEO_V40_QUEUE_CONTROL_PLANE_PROPAGATION_WAIT=${JSON.stringify({ attempt: submitAttempt, rest_workers_min: queueControlPlane.workers_min, rest_workers_max: queueControlPlane.workers_max, queue_reported_max_workers: 0, retry_in_ms: 1500 })}`);\n        await sleep(1_500);\n      }\n    }\n    console.log(`AVANTIQO_VIDEO_V40_RUNTIME_PROBE_ACCEPTED=${JSON.stringify({ submit_attempts: submitAttempt, queue_control_plane_propagation_retry_used: submitAttempt > 1 })}`);',
+  "QUEUE_CONTROL_PLANE_PROPAGATION_RETRY",
+);
+
+source = replaceExactlyOnce(
+  source,
   '    selected_eu_ro1_gpu: live.selected,\n    live_eu_ro1_candidates: live.candidates,',
   '    single_region_gpu_selector_used: false,\n    cached_datacenters: [text(sourceVolume.dataCenterId), text(destinationVolume.dataCenterId)],\n    scheduler_gpu_pool: original.gpu_type_ids,',
   "RESULT_CAPACITY_FIELDS",
@@ -77,7 +84,7 @@ source = replaceExactlyOnce(
 source = replaceExactlyOnce(
   source,
   '    target_datacenter: DESTINATION_DC,\n    placement_strategy: "TEMPORARY_EU_RO1_ONLY_VOLUME_PLUS_LIVE_CERTIFIED_BLACKWELL_PIN_INSIDE_SAFE_LEASE",\n    temporary_network_volume_ids: [DESTINATION_VOLUME_ID],',
-  '    target_datacenters: ["US-NC-2", DESTINATION_DC],\n    placement_strategy: "PRODUCTION_MULTI_REGION_TWO_CACHED_VOLUMES_PLUS_FULL_CERTIFIED_BLACKWELL_POOL",\n    temporary_network_volume_ids: [SOURCE_VOLUME_ID, DESTINATION_VOLUME_ID],',
+  '    target_datacenters: ["US-NC-2", DESTINATION_DC],\n    placement_strategy: "PRODUCTION_MULTI_REGION_TWO_CACHED_VOLUMES_PLUS_FULL_CERTIFIED_BLACKWELL_POOL",\n    temporary_network_volume_ids: [SOURCE_VOLUME_ID, DESTINATION_VOLUME_ID],\n    queue_control_plane_propagation_retry: "BOUNDED_45_SECONDS_EXACT_409_PAUSED_ONLY",',
   "PLAN_STRATEGY",
 );
 
@@ -89,6 +96,6 @@ source = replaceExactlyCount(
   "PROOF_METADATA",
 );
 
-console.log(`AVANTIQO_VIDEO_V40_SOURCE_TRANSFORM_ACTIVE=${JSON.stringify({ node: process.version, base: BASE, proof_basis: "PRODUCTION_MULTI_REGION_CACHED_VOLUME_SCHEDULING", mutation_scope: "IN_MEMORY_V38_TO_V40_MULTI_REGION_PROOF" })}`);
+console.log(`AVANTIQO_VIDEO_V40_SOURCE_TRANSFORM_ACTIVE=${JSON.stringify({ node: process.version, base: BASE, proof_basis: "PRODUCTION_MULTI_REGION_CACHED_VOLUME_SCHEDULING", queue_control_plane_propagation_retry: "EXACT_409_PAUSED_BOUNDED_45S", mutation_scope: "IN_MEMORY_V38_TO_V40_MULTI_REGION_PROOF" })}`);
 const encoded = Buffer.from(source, "utf8").toString("base64");
 await import(`data:text/javascript;base64,${encoded}`);

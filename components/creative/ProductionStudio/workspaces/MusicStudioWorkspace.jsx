@@ -27,8 +27,8 @@ import MusicProducerPanel from "./MusicProducerPanel";
 import MusicStemsPanel from "./MusicStemsPanel";
 import MusicRemixPanel from "./MusicRemixPanel";
 import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
-import MusicMultitrackStudioPanelV2 from "./MusicMultitrackStudioPanelV2";
 import MusicSpecialistStudioPanel from "./MusicSpecialistStudioPanel";
+import MusicUnifiedWorkstationShell from "./MusicUnifiedWorkstationShell";
 
 const MODES = Object.freeze([
   { id: "auto", label: "Auto Studio", icon: Sparkles },
@@ -92,7 +92,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
       ) : mode === "record" ? (
         <MusicRecordingStudioPanel {...specialistProps} onSaved={() => runtime.refresh?.()} />
       ) : mode === "workstation" ? (
-        <MusicMultitrackStudioPanelV2
+        <MusicUnifiedWorkstationShell
           organizationId={organizationId}
           projectId={project?.id || null}
           projectName={project?.name || project?.title || "Music Project"}

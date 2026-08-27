@@ -70,6 +70,7 @@ export async function POST(request) {
           url: await secureReference(organizationId, delivery.url),
         });
       }
+      const validation = asset.metadata?.technical_validation || null;
       releases.push({
         id: asset.id,
         kind,
@@ -90,6 +91,19 @@ export async function POST(request) {
         release_candidate: asset.metadata?.release_candidate === true,
         release_limiter_applied: asset.metadata?.release_limiter_applied === true,
         true_peak_certified: asset.metadata?.true_peak_certified === true,
+        technical_validation_available: kind === "MASTER" && Boolean(asset.metadata?.music_finish_task_id),
+        technical_validation_passed: asset.metadata?.technical_validation_passed === true,
+        technical_validated_at: asset.metadata?.technical_validated_at || null,
+        technical_validation_contract: text(asset.metadata?.technical_validation_contract) || null,
+        technical_validation_failures: Array.isArray(validation?.failures) ? validation.failures : [],
+        technical_validation_warnings: Array.isArray(validation?.warnings) ? validation.warnings : [],
+        validated_checksum_verified: validation?.checksum?.verified === true,
+        validation_observed_integrated_lufs: finite(validation?.observed?.integrated_lufs, null),
+        validation_observed_true_peak_dbtp: finite(validation?.observed?.true_peak_dbtp, null),
+        validation_observed_sample_rate: finite(validation?.observed?.sample_rate, null),
+        validation_observed_channels: finite(validation?.observed?.channels, null),
+        validation_observed_codec: text(validation?.observed?.codec_name) || null,
+        validation_current_revision: asset.metadata?.validation_project_revision_current === true,
         stem_stage: text(asset.metadata?.stem_stage) || null,
         target_id: text(asset.metadata?.target_id) || null,
         primary_url: primaryUrl,
@@ -100,7 +114,7 @@ export async function POST(request) {
     releases.sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
     return NextResponse.json({
       success: true,
-      contract: "AVANTIQO_MUSIC_MASTER_LIBRARY_V1",
+      contract: "AVANTIQO_MUSIC_MASTER_LIBRARY_V2",
       current_revision: currentRevision,
       releases,
       provider_job_submitted: false,

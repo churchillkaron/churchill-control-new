@@ -12,6 +12,7 @@ import {
   validateMusicMidiProject,
 } from "@/lib/creative/music/runtime/CreativeMusicMidiRuntime";
 import { createMusicMultitrackProject, validateMusicMultitrackProject } from "@/lib/creative/music/runtime/CreativeMusicMultitrackRuntime";
+import { ensureMusicTempoMap } from "@/lib/creative/music/runtime/CreativeMusicTempoMapRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 const PERMISSIONS = Object.freeze(["creative.execute", "creative.production.run", "creative.*"]);
@@ -32,7 +33,7 @@ function defaultSession(project) {
   return createMusicMultitrackProject({ id:`music-multitrack-${project.id}`, title:project.name || project.title || "Music Project", bpm:project.metadata?.music_bpm || 96, time_signature:project.metadata?.music_time_signature || "4/4", sample_rate:48000 });
 }
 function validParsed(value) {
-  return value?.contract === "AVANTIQO_MUSIC_STANDARD_MIDI_FILE_V1" && Array.isArray(value.tracks) && value.tracks.length <= 128;
+  return ["AVANTIQO_MUSIC_STANDARD_MIDI_FILE_V1","AVANTIQO_MUSIC_STANDARD_MIDI_FILE_V2"].includes(value?.contract) && Array.isArray(value.tracks) && value.tracks.length <= 128;
 }
 
 export async function POST(request) {
@@ -65,18 +66,26 @@ export async function POST(request) {
     });
     current.midi.ppq = Math.max(96, Math.min(3840, Math.round(finite(parsed.ppq, current.midi.ppq || 960))));
     current.midi.tracks = replace ? importedTracks : [...current.midi.tracks, ...importedTracks].slice(0,128);
-    const firstTempo = parsed.tempo_events?.[0]?.bpm;
-    if (body.apply_first_tempo === true && Number.isFinite(Number(firstTempo))) current.bpm = Math.max(30, Math.min(300, Math.round(Number(firstTempo))));
-    const firstSignature = parsed.time_signatures?.[0];
-    if (body.apply_first_time_signature === true && firstSignature) {
-      const signature = `${firstSignature.numerator}/${firstSignature.denominator}`;
-      if (["2/4","3/4","4/4","6/8"].includes(signature)) current.time_signature = signature;
+
+    let appliedTempoMap = false;
+    if (body.apply_tempo_map === true && parsed.tempo_map) {
+      const tempoMap = ensureMusicTempoMap(parsed.tempo_map, { bpm:current.bpm, time_signature:current.time_signature });
+      current.tempo_map = tempoMap;
+      current.bpm = tempoMap.tempo_events[0]?.bpm || current.bpm;
+      current.time_signature = tempoMap.meter_events[0]?.time_signature || current.time_signature;
+      appliedTempoMap = true;
+    } else {
+      const firstTempo = parsed.tempo_events?.[0]?.bpm;
+      if (body.apply_first_tempo === true && Number.isFinite(Number(firstTempo))) current.bpm = Math.max(30, Math.min(300, Number(firstTempo)));
+      const firstSignature = parsed.time_signatures?.[0];
+      if (body.apply_first_time_signature === true && firstSignature) current.time_signature = `${firstSignature.numerator}/${firstSignature.denominator}`;
     }
+
     current.revision = revision + 1;
     validateMusicMultitrackProject(current); validateMusicMidiProject(current.midi);
     const metadata = { ...(project.metadata || {}), [KEY]:current, music_bpm:current.bpm, music_time_signature:current.time_signature, music_midi_updated_at:new Date().toISOString(), music_multitrack_updated_at:new Date().toISOString() };
     await CreativeProjectRepository.update(project.id, { metadata });
-    return NextResponse.json({ success:true, contract:"AVANTIQO_MUSIC_STANDARD_MIDI_IMPORT_API_V1", revision:current.revision, imported_track_count:importedTracks.length, replace_existing:replace, source_ppq:parsed.ppq, provider_job_submitted:false, endpoint_mutation_performed:false }, {headers:{"Cache-Control":"no-store"}});
+    return NextResponse.json({ success:true, contract:"AVANTIQO_MUSIC_STANDARD_MIDI_IMPORT_API_V2", revision:current.revision, imported_track_count:importedTracks.length, replace_existing:replace, source_ppq:parsed.ppq, full_tempo_map_applied:appliedTempoMap, tempo_event_count:current.tempo_map?.tempo_events?.length || 0, meter_event_count:current.tempo_map?.meter_events?.length || 0, provider_job_submitted:false, endpoint_mutation_performed:false }, {headers:{"Cache-Control":"no-store"}});
   } catch (error) {
     return NextResponse.json({success:false,error:error?.message || "MIDI file import failed",provider_job_submitted:false,endpoint_mutation_performed:false},{status:error?.status || 400});
   }

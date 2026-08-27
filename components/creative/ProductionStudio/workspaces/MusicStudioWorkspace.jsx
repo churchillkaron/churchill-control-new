@@ -18,10 +18,12 @@ import MusicWorkspace from "./MusicWorkspace";
 import MusicBackingTrackPanel from "./MusicBackingTrackPanel";
 import MusicStemsPanel from "./MusicStemsPanel";
 import MusicRemixPanel from "./MusicRemixPanel";
+import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
 import MusicSpecialistStudioPanel from "./MusicSpecialistStudioPanel";
 
 const MODES = Object.freeze([
   { id: "auto", label: "Auto Studio", icon: Sparkles },
+  { id: "record", label: "Record", icon: Mic2 },
   { id: "compose", label: "Compose", icon: Music2 },
   { id: "remix", label: "Remix", icon: RefreshCw },
   { id: "edit", label: "Edit / Repaint", icon: Scissors },
@@ -50,7 +52,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-[9px] font-semibold uppercase tracking-[0.24em] text-[#d6a66a]/75">Avantiqo Music Studio</div>
-            <div className="mt-1 text-xs text-white/32">Full-auto recording repair, production, mix and mastering — with Compose and specialist tools when needed.</div>
+            <div className="mt-1 text-xs text-white/32">Record, produce, repair, mix and master real performances — or compose with the owned Music engine.</div>
           </div>
           <div className="flex flex-wrap rounded-xl border border-white/8 bg-black/35 p-1">
             {MODES.map((item) => {
@@ -74,6 +76,8 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
 
       {mode === "auto" ? (
         <MusicAutoStudioPanel {...specialistProps} />
+      ) : mode === "record" ? (
+        <MusicRecordingStudioPanel {...specialistProps} onSaved={() => runtime.refresh?.()} />
       ) : mode === "compose" ? (
         <MusicWorkspace runtime={runtime} editor={editor} />
       ) : mode === "remix" ? (

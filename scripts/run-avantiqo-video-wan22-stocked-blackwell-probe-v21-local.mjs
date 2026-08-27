@@ -19,6 +19,7 @@ const ORIGINAL_BLACKWELL_POOL = [
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const GRAPHQL_URL = "https://api.runpod.io/graphql";
+const CHILD_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 
 const text = (value) => String(value ?? "").trim();
 const list = (value) => Array.isArray(value) ? value : [];
@@ -43,6 +44,27 @@ function required(name) {
   const value = text(process.env[name]);
   if (!value) throw new Error(`${name}_REQUIRED`);
   return value;
+}
+
+function relayCaptured(result) {
+  const stdout = String(result?.stdout ?? "");
+  const stderr = String(result?.stderr ?? "");
+  if (stdout) process.stdout.write(stdout);
+  if (stderr) process.stderr.write(stderr);
+  return `${stdout}\n${stderr}`;
+}
+
+function diagnosticLine(raw, preferredMarkers = []) {
+  const lines = String(raw || "")
+    .split(/\r?\n/)
+    .map((line) => text(line))
+    .filter(Boolean);
+  const reversed = [...lines].reverse();
+  for (const marker of preferredMarkers) {
+    const found = reversed.find((line) => line.includes(marker));
+    if (found) return redact(found).slice(0, 1200);
+  }
+  return redact(reversed[0] || "UNKNOWN_CHILD_FAILURE").slice(0, 1200);
 }
 
 async function readJson(response, label) {
@@ -209,11 +231,24 @@ async function runLeased() {
           ...process.env,
           AVANTIQO_VIDEO_WAN22_RUNTIME_PROBE_APPROVED: "YES",
         },
-        stdio: "inherit",
+        encoding: "utf8",
+        maxBuffer: CHILD_MAX_BUFFER_BYTES,
+        stdio: ["ignore", "pipe", "pipe"],
       },
     );
+    const probeOutput = relayCaptured(probe);
     if (probe.error) throw probe.error;
-    if (probe.status !== 0) throw new Error(`AVANTIQO_VIDEO_V21_RUNTIME_PROBE_FAILED:exit=${probe.status}`);
+    if (probe.status !== 0) {
+      const inner = diagnosticLine(probeOutput, [
+        "Error: AVANTIQO_VIDEO_V19_",
+        "AVANTIQO_VIDEO_V19_RUNTIME_PROBE_TERMINAL_",
+        "AVANTIQO_VIDEO_V19_UNSCHEDULED_ZERO_WORKERS",
+        "AVANTIQO_VIDEO_V19_UNHEALTHY_WORKER",
+        "AVANTIQO_VIDEO_V19_STATUS_TIMEOUT",
+        "AVANTIQO_VIDEO_V19_HTTP_",
+      ]);
+      throw new Error(`AVANTIQO_VIDEO_V21_RUNTIME_PROBE_FAILED:exit=${probe.status}:inner=${inner}`);
+    }
   } catch (error) {
     probeError = error;
   } finally {
@@ -240,6 +275,8 @@ async function runLeased() {
     contract: CONTRACT,
     endpoint_id: endpointId,
     selected_gpu: stock,
+    preflight_stock_checked_before_safe_lease: true,
+    stock_revalidated_inside_safe_lease: true,
     temporary_gpu_pool_change_inside_safe_lease: true,
     original_blackwell_pool_restored_before_release: true,
     direct_workers_max_write: false,
@@ -271,6 +308,7 @@ if (!apply) {
     selected_gpu: STOCKED_GPU,
     required_datacenter: REQUIRED_DC,
     required_network_volume_id: REQUIRED_VOLUME_ID,
+    preflight_stock_checked_before_safe_lease: true,
     stock_revalidated_inside_lease: true,
     temporary_gpu_pool_change_inside_safe_lease: true,
     original_blackwell_pool_restore_required_before_release: true,
@@ -294,7 +332,11 @@ if (leased) {
   process.exit(0);
 }
 
-const cinemaQueueKey = text(process.env.RUNPOD_AVANTIQO_VIDEO_API_KEY) || text(process.env.RUNPOD_API_KEY) || text(process.env.RUNPOD_MANAGEMENT_API_KEY);
+const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
+const preflightStock = await assertStocked(managementKey);
+console.log(`AVANTIQO_VIDEO_V21_PREFLIGHT_STOCK=${JSON.stringify(preflightStock)}`);
+
+const cinemaQueueKey = text(process.env.RUNPOD_AVANTIQO_VIDEO_API_KEY) || text(process.env.RUNPOD_API_KEY) || managementKey;
 if (!cinemaQueueKey) throw new Error("AVANTIQO_VIDEO_V21_CINEMA_QUEUE_KEY_REQUIRED");
 const child = spawnSync(
   process.execPath,
@@ -308,9 +350,22 @@ const child = spawnSync(
       AVANTIQO_RUNPOD_SAFE_LEASE_INERT_PEER_ISOLATION_LANE: LANE,
       AVANTIQO_VIDEO_WAN22_RUNTIME_PROBE_APPROVED: "YES",
     },
-    stdio: "inherit",
+    encoding: "utf8",
+    maxBuffer: CHILD_MAX_BUFFER_BYTES,
+    stdio: ["ignore", "pipe", "pipe"],
   },
 );
+const safeLeaseOutput = relayCaptured(child);
 if (child.error) throw child.error;
-if (child.status !== 0) throw new Error(`AVANTIQO_VIDEO_V21_SAFE_LEASE_FAILED:exit=${child.status}`);
+if (child.status !== 0) {
+  const inner = diagnosticLine(safeLeaseOutput, [
+    "Error: AVANTIQO_VIDEO_V21_RUNTIME_PROBE_FAILED:",
+    "Error: AVANTIQO_VIDEO_V21_",
+    "AVANTIQO_VIDEO_V21_RUNTIME_PROBE_FAILED:",
+    "AVANTIQO_VIDEO_V19_",
+    "AVANTIQO_RUNPOD_SAFE_LEASE_V2_TARGET_",
+    "AVANTIQO_RUNPOD_SAFE_LEASE_V2_CHILD_",
+  ]);
+  throw new Error(`AVANTIQO_VIDEO_V21_SAFE_LEASE_FAILED:exit=${child.status}:inner=${inner}`);
+}
 console.log("AVANTIQO_VIDEO_WAN22_STOCKED_BLACKWELL_PROBE_V21_APPLIED=true");

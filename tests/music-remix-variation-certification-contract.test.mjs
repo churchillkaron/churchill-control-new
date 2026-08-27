@@ -20,6 +20,14 @@ test("Music Remix variation certification uses an original musical source and on
   assert.match(benchmark, /MUSICAL_VARIATION/);
 });
 
+test("Music Remix source replacement intercepts only the direct storage object upload", () => {
+  assert.match(benchmark, /isDirectStorageObjectPath/);
+  assert.match(benchmark, /!pathname\.includes\("\/storage\/v1\/object\/sign\/"\)/);
+  assert.match(benchmark, /!pathname\.includes\("\/storage\/v1\/object\/upload\/sign\/"\)/);
+  assert.match(benchmark, /method === "POST"/);
+  assert.match(benchmark, /-source\\\.wav\$\/i/);
+});
+
 test("Music Remix variation launcher stays isolated from production Audio", () => {
   assert.match(launcher, /avantiqo-music-transform-candidate-v1/);
   assert.match(launcher, /music-transform-candidate/);

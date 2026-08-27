@@ -9,6 +9,7 @@ import MusicMidiHarmonyPanel from "./MusicMidiHarmonyPanel";
 import MusicMidiInstrumentPreviewPanel from "./MusicMidiInstrumentPreviewPanel";
 import MusicMidiPianoRollPanel from "./MusicMidiPianoRollPanel";
 import MusicSamplerPanel from "./MusicSamplerPanel";
+import MusicTempoMapPanel from "./MusicTempoMapPanel";
 
 export default function MusicMidiStudioPanel({ organizationId, projectId }) {
   const [session, setSession] = useState(null);
@@ -23,27 +24,19 @@ export default function MusicMidiStudioPanel({ organizationId, projectId }) {
       const response = await fetch("/api/creative/music/midi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "load",
-          organization_id: organizationId,
-          creative_project_id: projectId,
-        }),
+        body: JSON.stringify({ action: "load", organization_id: organizationId, creative_project_id: projectId }),
       });
       const body = await response.json();
       if (!response.ok || body.success === false) throw new Error(body.error || "MIDI project could not load");
       setSession(body.session || null);
     } catch (cause) {
       setError(cause?.message || "MIDI project could not load");
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
   useEffect(() => { void load(); }, [organizationId, projectId]);
 
-  if (!projectId) {
-    return <div className="p-8 text-sm text-white/42">Open or create a Music project before using MIDI.</div>;
-  }
+  if (!projectId) return <div className="p-8 text-sm text-white/42">Open or create a Music project before using MIDI.</div>;
 
   return (
     <div className="mx-auto max-w-[1500px] p-6">
@@ -53,20 +46,17 @@ export default function MusicMidiStudioPanel({ organizationId, projectId }) {
         <div className="mt-1 text-[10px] text-white/28">Shared Music project · {session?.bpm || 0} BPM · {session?.time_signature || "4/4"} · revision {session?.revision || 0}</div>
       </div>
       {error ? <div className="mb-3 rounded-xl border border-red-300/10 bg-red-400/[0.02] px-3 py-2 text-xs text-red-100/55">{error}</div> : null}
-      {session ? (
-        <>
-          <MusicMidiFilePanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
-          <MusicMidiBouncePanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
-          <MusicMidiPianoRollPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
-          <MusicMidiHarmonyPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
-          <MusicMidiControlAutomationPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
-          <MusicMidiDrumSequencerPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
-          <MusicSamplerPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
-          <MusicMidiInstrumentPreviewPanel session={session} disabled={busy} />
-        </>
-      ) : (
-        <div className="rounded-2xl border border-white/8 bg-black/25 p-6 text-xs text-white/35">{busy ? "Loading MIDI project…" : "MIDI project unavailable."}</div>
-      )}
+      {session ? <>
+        <MusicTempoMapPanel organizationId={organizationId} projectId={projectId} session={session} onReload={load} />
+        <MusicMidiFilePanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+        <MusicMidiBouncePanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+        <MusicMidiPianoRollPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+        <MusicMidiHarmonyPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+        <MusicMidiControlAutomationPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+        <MusicMidiDrumSequencerPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+        <MusicSamplerPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+        <MusicMidiInstrumentPreviewPanel session={session} disabled={busy} />
+      </> : <div className="rounded-2xl border border-white/8 bg-black/25 p-6 text-xs text-white/35">{busy ? "Loading MIDI project…" : "MIDI project unavailable."}</div>}
     </div>
   );
 }

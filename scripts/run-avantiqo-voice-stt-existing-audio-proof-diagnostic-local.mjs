@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
@@ -9,6 +9,7 @@ const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const ENDPOINT_NAME = "avantiqo-voice-stt-v1";
 const EXPECTED_IMAGE = "registry.runpod.net/churchillkaron-churchill-control-new-main-services-avantiqo-voice-stt-dockerfile:3f300c60d";
 const PROOF_SCRIPT = resolve("scripts/run-avantiqo-voice-stt-existing-audio-proof-local.mjs");
+const LEASE_SCRIPT = resolve("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs");
 const REST = "https://rest.runpod.io/v1";
 const QUEUE = "https://api.runpod.ai/v2";
 const CONTROL = "https://api.runpod.io/v2";
@@ -170,9 +171,35 @@ async function resolveState(endpointId, managementKey, queueKey) {
 if (!yes(process.env.AVANTIQO_VOICE_STT_DIAGNOSTIC_APPROVED)) {
   throw new Error("AVANTIQO_VOICE_STT_DIAGNOSTIC_APPROVED=YES_REQUIRED");
 }
+
 if (!yes(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE)) {
-  throw new Error("AVANTIQO_VOICE_STT_DIAGNOSTIC_SAFE_LEASE_REQUIRED");
+  if (!yes(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED)) {
+    throw new Error("AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED=YES_REQUIRED");
+  }
+  required("RUNPOD_MANAGEMENT_API_KEY");
+  const result = spawnSync(
+    process.execPath,
+    [
+      LEASE_SCRIPT,
+      "--lane=voice-stt",
+      "--ttl-ms=1200000",
+      "--",
+      process.execPath,
+      resolve(process.argv[1]),
+    ],
+    {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: "inherit",
+      encoding: "utf8",
+    },
+  );
+  if (result.error) throw result.error;
+  if (result.signal) throw new Error(`${CONTRACT}_SAFE_LEASE_SIGNAL:${result.signal}`);
+  if (result.status !== 0) throw new Error(`${CONTRACT}_SAFE_LEASE_FAILED:exit=${result.status}`);
+  process.exit(0);
 }
+
 if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT) !== SAFE_LEASE_CONTRACT) {
   throw new Error("AVANTIQO_VOICE_STT_DIAGNOSTIC_SAFE_LEASE_V2_REQUIRED");
 }

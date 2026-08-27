@@ -114,7 +114,9 @@ const requiredMarkers = [
   "recordDuplicateProgress",
   "resetDuplicateProgress",
   "plannerAllowedActions",
-  "trailingDuplicateRejectionStreak",
+  "trailingDuplicateRejectionProgress",
+  "const sameAction = text(control?.last_duplicate_action, 80) === normalizedAction",
+  "recoveredDuplicateProgress.streak",
   "CODE_AI_AUTONOMOUS_DUPLICATE_ACTION_STREAK_EXCEEDED",
   "currentSourceRevision",
   "max_duplicate_rejection_streak",
@@ -324,7 +326,7 @@ if (
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V8",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V9",
   verified: {
     duplicate_read_search_run_guarded_without_new_evidence: true,
     search_fingerprint_distinguishes_literal_regex_path_glob: true,
@@ -337,6 +339,8 @@ console.log(JSON.stringify({
     duplicate_rejection_streak_bounded: true,
     duplicate_rejection_streak_fails_closed_before_workspace_execution: true,
     duplicate_rejection_streak_persisted_in_autonomy_control: true,
+    duplicate_rejection_streak_is_action_local: true,
+    resume_duplicate_recovery_is_action_local: true,
     repeated_duplicate_action_temporarily_suppressed_after_first_rejection: true,
     suppressed_action_shapes_removed_from_planner_prompt: true,
     dynamic_allowed_action_guard_enforced_before_execution: true,

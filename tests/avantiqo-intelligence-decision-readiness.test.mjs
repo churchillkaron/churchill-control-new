@@ -111,7 +111,7 @@ test("mutating recommendation can only become ready for current human governance
 
 test("planning tool exposes readiness synthesis without execution authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V11/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V12/);
   assert.match(source, /"assess_readiness"/);
   assert.match(source, /decision_readiness_contract/);
   assert.match(source, /raw_model_confidence_never_establishes_readiness/);

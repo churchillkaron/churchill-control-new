@@ -110,8 +110,24 @@ async function controlWorkers(endpointId, key) {
     is_stale: worker?.isStale === true,
   }));
 }
-function liveControlWorkers(workers) {
+function nonTerminalControlWorkers(workers) {
   return workers.filter((worker) => !TERMINAL_WORKER_STATUSES.has(text(worker?.status).toUpperCase()));
+}
+function managementWorkers(endpointState) {
+  return list(endpointState?.workers).map((worker) => ({
+    id: text(worker?.id) || null,
+    status: text(worker?.status ?? worker?.workerStatus ?? worker?.runtimeStatus).toUpperCase() || null,
+    desired_status: text(worker?.desiredStatus ?? worker?.desired_status).toUpperCase() || null,
+  }));
+}
+function activeManagementWorkers(workers) {
+  return workers.filter((worker) => {
+    const status = text(worker?.status).toUpperCase();
+    const desired = text(worker?.desired_status).toUpperCase();
+    if (status && !TERMINAL_WORKER_STATUSES.has(status)) return true;
+    if (desired && !TERMINAL_WORKER_STATUSES.has(desired)) return true;
+    return !status && !desired;
+  });
 }
 async function boundTemplates(key) {
   const raw = await rest(
@@ -140,7 +156,31 @@ function normalizeHealth(healthBody) {
     },
   };
 }
-function dynamicBlockers(health, workers, certifiedImage) {
+function healthWorkerTotal(health) {
+  return (
+    health.workers.idle +
+    health.workers.initializing +
+    health.workers.ready +
+    health.workers.running +
+    health.workers.throttled +
+    health.workers.unhealthy
+  );
+}
+function reconcileControlWorkers(workerRecords, managementActiveWorkers, health) {
+  const terminalWorkerRecords = workerRecords.filter((worker) =>
+    TERMINAL_WORKER_STATUSES.has(text(worker?.status).toUpperCase()),
+  );
+  const nonTerminalWorkers = nonTerminalControlWorkers(workerRecords);
+  const noLiveManagementWorker = managementActiveWorkers.length === 0;
+  const noHealthWorker = healthWorkerTotal(health) === 0;
+  const noJobs = health.jobs.in_queue === 0 && health.jobs.in_progress === 0;
+  const staleControlGhosts = nonTerminalWorkers.filter((worker) =>
+    worker.is_stale === true && noLiveManagementWorker && noHealthWorker && noJobs,
+  );
+  const liveWorkers = nonTerminalWorkers.filter((worker) => !staleControlGhosts.includes(worker));
+  return { terminalWorkerRecords, staleControlGhosts, liveWorkers };
+}
+function dynamicBlockers(health, workers, managementActiveWorkers, certifiedImage) {
   const reasons = [];
   if (health.jobs.in_queue !== 0) reasons.push(`JOBS_IN_QUEUE:${health.jobs.in_queue}`);
   if (health.jobs.in_progress !== 0) reasons.push(`JOBS_IN_PROGRESS:${health.jobs.in_progress}`);
@@ -160,16 +200,18 @@ function dynamicBlockers(health, workers, certifiedImage) {
   if (staleWorkers.length) reasons.push("STALE_WORKER_PRESENT");
 
   const liveHealthyWorkers = workers.filter((worker) => ["IDLE", "READY", "RUNNING"].includes(worker.status));
-  const healthVisibleWorkers =
-    health.workers.idle + health.workers.ready + health.workers.running;
+  const visibleHealthWorkers = healthWorkerTotal(health);
   if (workers.length > 0 && liveHealthyWorkers.length === 0) {
     reasons.push("CONTROL_WORKER_STATE_NOT_HEALTHY");
   }
-  if (workers.length > 0 && healthVisibleWorkers === 0) {
-    reasons.push("WORKER_STATE_VIEW_DISAGREEMENT");
+  if ((workers.length > 0) !== (visibleHealthWorkers > 0)) {
+    reasons.push("CONTROL_HEALTH_WORKER_STATE_DISAGREEMENT");
   }
-  if (workers.length === 0 && healthVisibleWorkers > 0) {
-    reasons.push("WORKER_STATE_VIEW_DISAGREEMENT");
+  if ((managementActiveWorkers.length > 0) !== (visibleHealthWorkers > 0)) {
+    reasons.push("MANAGEMENT_HEALTH_WORKER_STATE_DISAGREEMENT");
+  }
+  if ((workers.length > 0) !== (managementActiveWorkers.length > 0)) {
+    reasons.push("CONTROL_MANAGEMENT_WORKER_STATE_DISAGREEMENT");
   }
 
   return [...new Set(reasons)];
@@ -225,19 +267,22 @@ const historicalDynamicBlockers = new Set();
 let consecutiveClear = 0;
 let stableWindowReached = false;
 for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
-  const [healthBody, workerRecords] = await Promise.all([
+  const [healthBody, workerRecords, managementEndpoint] = await Promise.all([
     queueRead(endpointId, "/health", credentials),
     controlWorkers(endpointId, credentials.management),
+    rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=false&includeWorkers=true`, credentials.management),
   ]);
   const health = normalizeHealth(healthBody);
-  const workers = liveControlWorkers(workerRecords);
-  const terminalWorkerRecords = workerRecords.filter((worker) => TERMINAL_WORKER_STATUSES.has(text(worker?.status).toUpperCase()));
+  const managementWorkerRecords = managementWorkers(managementEndpoint);
+  const managementActiveWorkerRecords = activeManagementWorkers(managementWorkerRecords);
+  const reconciled = reconcileControlWorkers(workerRecords, managementActiveWorkerRecords, health);
+  const workers = reconciled.liveWorkers;
   const controlStatusCounts = workerRecords.reduce((counts, worker) => {
     const status = worker.status || "UNKNOWN";
     counts[status] = (counts[status] || 0) + 1;
     return counts;
   }, {});
-  const blockers = dynamicBlockers(health, workers, certifiedImage);
+  const blockers = dynamicBlockers(health, workers, managementActiveWorkerRecords, certifiedImage);
   for (const blocker of blockers) historicalDynamicBlockers.add(blocker);
   consecutiveClear = blockers.length === 0 ? consecutiveClear + 1 : 0;
 
@@ -248,9 +293,13 @@ for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
     blockers,
     health,
     workers,
+    management_workers: managementWorkerRecords,
+    management_active_workers: managementActiveWorkerRecords,
     control_status_counts: controlStatusCounts,
-    terminal_worker_records_ignored: terminalWorkerRecords.length,
-    zero_live_workers_valid: workers.length === 0,
+    terminal_worker_records_ignored: reconciled.terminalWorkerRecords.length,
+    stale_control_ghost_records_ignored: reconciled.staleControlGhosts.length,
+    zero_live_workers_observed: workers.length === 0 && managementActiveWorkerRecords.length === 0 && healthWorkerTotal(health) === 0,
+    live_worker_state_valid: blockers.length === 0,
   };
   observations.push(observation);
   console.log(JSON.stringify({
@@ -288,6 +337,7 @@ const result = {
   serverless_cold_start_ready: ready,
   zero_live_workers_allowed: true,
   terminal_worker_history_ignored: true,
+  stale_control_ghost_history_ignored_only_when_live_planes_are_zero: true,
   blockers: uniqueReasons,
   stability: {
     required_consecutive_clear: REQUIRED_CONSECUTIVE_CLEAR,
@@ -317,6 +367,8 @@ const result = {
   bound_image: text(template?.imageName) || null,
   health: finalObservation.health,
   workers: finalObservation.workers,
+  management_workers: finalObservation.management_workers || [],
+  management_active_workers: finalObservation.management_active_workers || [],
   observations,
   read_only: true,
   mutation_performed: false,

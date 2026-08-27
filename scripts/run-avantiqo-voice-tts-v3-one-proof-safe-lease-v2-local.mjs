@@ -8,7 +8,7 @@ loadAvantiqoEnv();
 const CONTRACT = "AVANTIQO_VOICE_TTS_V3_ONE_PROOF_SAFE_LEASE_V2";
 const LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const LEASE_SCRIPT = resolve("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs");
-const PROOF_SCRIPT = resolve("scripts/run-avantiqo-voice-tts-v3-one-proof-local.mjs");
+const PROOF_SCRIPT = resolve("scripts/run-avantiqo-voice-tts-v3-one-proof-certified-local.mjs");
 const LANE = "voice-tts";
 const DEFAULT_TTL_MS = 20 * 60_000;
 
@@ -47,6 +47,7 @@ console.log(JSON.stringify({
   safe_lease_contract: LEASE_CONTRACT,
   lane: LANE,
   ttl_ms: ttlMs,
+  proof_entrypoint: "V2_CERTIFIED",
   exactly_one_new_generation_max: true,
   production_deploy_performed: false,
   pricing_activation_performed: false,
@@ -85,6 +86,7 @@ console.log(JSON.stringify({
   safe_lease_contract: LEASE_CONTRACT,
   lane: LANE,
   permanent_rest_state: "VOICE_TTS_0_0",
+  proof_entrypoint: "V2_CERTIFIED",
   exactly_one_new_generation_max: true,
   production_deploy_performed: false,
   pricing_activation_performed: false,

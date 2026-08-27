@@ -173,6 +173,15 @@ test("latest successful research round controls diminishing-returns proof", () =
           source_count: 4,
           independent_source_count: 4,
           conflict_count: 0,
+          marginal_utility_contract: "AVANTIQO_RESEARCH_MARGINAL_UTILITY_V1",
+          research_round: 2,
+          marginal_comparison_available: true,
+          marginal_new_source_count: 0,
+          marginal_new_independent_source_count: 0,
+          marginal_new_source_backed_claim_count: 0,
+          marginal_uncertainty_reduction_count: 0,
+          marginal_follow_up_reduction_count: 0,
+          marginal_conflict_reduction_count: 0,
         }),
       },
     ]),
@@ -183,6 +192,6 @@ test("latest successful research round controls diminishing-returns proof", () =
   assert.equal(gated.epistemic_state.research_stop_proven, true);
   assert.equal(
     gated.epistemic_state.research_stop_evidence_reason,
-    "INDEPENDENT_SOURCE_SUPPORT",
+    "OBSERVED_ZERO_MARGINAL_RESEARCH_UTILITY",
   );
 });

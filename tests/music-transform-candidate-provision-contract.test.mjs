@@ -95,3 +95,19 @@ test("Music transform launcher resolves candidate endpoint by exact name", () =>
   assert.match(launcher, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID: candidateEndpointId/);
   assert.doesNotMatch(launcher, /required\("RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID"\)/);
 });
+
+test("Music transform submission only retries bounded RunPod endpoint-open propagation", () => {
+  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATION_TIMEOUT_MS = 45_000/);
+  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATION_POLL_MS = 2_000/);
+  assert.match(benchmark, /function endpointPausedPropagationError/);
+  assert.match(benchmark, /RUNPOD_HTTP_409/);
+  assert.match(benchmark, /ENDPOINT_PAUSED/);
+  assert.match(benchmark, /submitRunpodJob/);
+  assert.match(benchmark, /assertLease\(endpointId\)/);
+  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATION_TIMEOUT:rejected_attempts=/);
+  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATION_WAIT/);
+  assert.match(benchmark, /provider_jobs_submitted: 0/);
+  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATED/);
+  assert.match(benchmark, /provider_jobs_submitted: 1/);
+  assert.match(benchmark, /endpoint_open_propagation_rejections: endpointOpenPropagationRejections/);
+});

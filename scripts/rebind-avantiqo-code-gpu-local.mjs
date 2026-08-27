@@ -1,9 +1,10 @@
 const REST = "https://rest.runpod.io/v1";
 const GQL = "https://api.runpod.io/graphql";
 const SERVERLESS = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_CODE_GPU_REBIND_V2";
+const CONTRACT = "AVANTIQO_CODE_GPU_REBIND_V3";
 const MINIMUM_VRAM_GB = 80;
 const MAX_GPU_POOL_SIZE = 4;
+const MIN_ACCEPTABLE_STOCK_RANK = 3;
 
 const PROFILES = Object.freeze([
   Object.freeze({
@@ -14,8 +15,16 @@ const PROFILES = Object.freeze([
     production_certified: false,
   }),
   Object.freeze({
+    key: "H100_NVL_94GB",
+    match: /H100.*NVL|NVL.*H100/i,
+    usd_per_hour_reference: 4.79,
+    priority: 4600,
+    production_certified: false,
+  }),
+  Object.freeze({
     key: "H100_80GB",
     match: /\bH100\b/i,
+    exclude: /NVL|\bMIG\b/i,
     usd_per_hour_reference: 4.79,
     priority: 4500,
     production_certified: false,
@@ -23,6 +32,7 @@ const PROFILES = Object.freeze([
   Object.freeze({
     key: "H200_141GB",
     match: /\bH200\b/i,
+    exclude: /\bMIG\b/i,
     usd_per_hour_reference: 5.93,
     priority: 4400,
     production_certified: false,
@@ -30,6 +40,7 @@ const PROFILES = Object.freeze([
   Object.freeze({
     key: "B200_180GB",
     match: /\bB200\b/i,
+    exclude: /\bMIG\b/i,
     usd_per_hour_reference: 8.64,
     priority: 4300,
     production_certified: true,
@@ -46,6 +57,10 @@ function yes(value) {
 
 function stockRank(value) {
   return ({ HIGH: 4, MEDIUM: 3, LOW: 2 }[text(value).toUpperCase()] || 0);
+}
+
+function stockStatus(rank) {
+  return ({ 4: "HIGH", 3: "MEDIUM", 2: "LOW" }[Number(rank)] || "UNAVAILABLE");
 }
 
 function unique(values) {
@@ -251,6 +266,20 @@ function selectedPool(candidates) {
   return unique(candidates.slice(0, MAX_GPU_POOL_SIZE).map((candidate) => candidate.id));
 }
 
+function bestStockRank(candidates) {
+  return Math.max(0, ...candidates.map((candidate) => stockRank(candidate.stock)));
+}
+
+function assertAdequateSameDatacenterStock(candidates) {
+  const rank = bestStockRank(candidates);
+  if (rank < MIN_ACCEPTABLE_STOCK_RANK) {
+    throw new Error(
+      `CODE_GPU_POOL_LOW_STOCK_RELOCATION_REQUIRED:best_stock=${stockStatus(rank)}:next=run-avantiqo-code-capacity-relocation-after-timeout-v5-local.mjs`,
+    );
+  }
+  return rank;
+}
+
 async function main() {
   const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY);
   const apiKey = text(process.env.RUNPOD_AVANTIQO_CODE_API_KEY) || text(process.env.RUNPOD_API_KEY);
@@ -278,6 +307,7 @@ async function main() {
   const rows = await availability(managementKey, datacenterId);
   const candidates = rankedCandidates(rows, { certificationMode, currentGpuIds });
   const pool = selectedPool(candidates);
+  const currentBestStockRank = bestStockRank(candidates);
   const health = await endpointHealth(apiKey, endpointId);
 
   const plan = {
@@ -287,6 +317,9 @@ async function main() {
     certification_mode: certificationMode,
     minimum_vram_gb: MINIMUM_VRAM_GB,
     max_gpu_pool_size: MAX_GPU_POOL_SIZE,
+    minimum_acceptable_stock: stockStatus(MIN_ACCEPTABLE_STOCK_RANK),
+    best_available_stock: stockStatus(currentBestStockRank),
+    same_datacenter_rebind_recommended: currentBestStockRank >= MIN_ACCEPTABLE_STOCK_RANK,
     endpoint: {
       id: endpointId,
       gpu_type_ids: currentGpuIds,
@@ -307,6 +340,9 @@ async function main() {
     cache_job_submitted: false,
     network_volume_replacement_allowed: false,
     production_deploy_performed: false,
+    next_action: currentBestStockRank >= MIN_ACCEPTABLE_STOCK_RANK
+      ? "APPLY_SAME_DATACENTER_GPU_POOL"
+      : "RUN_CODE_CAPACITY_RELOCATION_V5_PLAN",
   };
 
   if (!pool.length) {
@@ -318,6 +354,7 @@ async function main() {
     return;
   }
 
+  assertAdequateSameDatacenterStock(candidates);
   assertNoLiveJobs(health);
   if (sameSet(currentGpuIds, pool)) {
     console.log(JSON.stringify({
@@ -343,6 +380,7 @@ async function main() {
     await availability(managementKey, datacenterId),
     { certificationMode, currentGpuIds: unique(freshEndpoint.gpuTypeIds) },
   );
+  assertAdequateSameDatacenterStock(freshCandidates);
   const freshPool = selectedPool(freshCandidates);
   if (!freshPool.length) throw new Error("CODE_GPU_POOL_STOCK_DISAPPEARED_REPLAN_REQUIRED");
 

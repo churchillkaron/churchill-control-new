@@ -5,7 +5,7 @@ class AvantiqoPcmRecorderProcessor extends AudioWorkletProcessor {
     this.pendingFrames = 0;
     this.flushFrames = 4096;
     this.port.onmessage = (event) => {
-      if (event?.data?.type === "flush") this.flush();
+      if (event?.data?.type === "flush") this.flush("manual");
     };
   }
 
@@ -13,9 +13,11 @@ class AvantiqoPcmRecorderProcessor extends AudioWorkletProcessor {
     while (this.channelChunks.length < count) this.channelChunks.push([]);
   }
 
-  flush() {
+  flush(reason = "chunk") {
     if (!this.pendingFrames || !this.channelChunks.length) {
-      this.port.postMessage({ type: "flushed", channels: [], frames: 0 });
+      if (reason === "manual") {
+        this.port.postMessage({ type: "flushed", reason, channels: 0, frames: 0 });
+      }
       return;
     }
 
@@ -36,7 +38,9 @@ class AvantiqoPcmRecorderProcessor extends AudioWorkletProcessor {
       { type: "pcm", channels: output, frames },
       output.map((channel) => channel.buffer),
     );
-    this.port.postMessage({ type: "flushed", channels: output.length, frames });
+    if (reason === "manual") {
+      this.port.postMessage({ type: "flushed", reason, channels: output.length, frames });
+    }
   }
 
   process(inputs) {
@@ -47,7 +51,7 @@ class AvantiqoPcmRecorderProcessor extends AudioWorkletProcessor {
       this.channelChunks[channel].push(Float32Array.from(input[channel]));
     }
     this.pendingFrames += input[0].length;
-    if (this.pendingFrames >= this.flushFrames) this.flush();
+    if (this.pendingFrames >= this.flushFrames) this.flush("chunk");
     return true;
   }
 }

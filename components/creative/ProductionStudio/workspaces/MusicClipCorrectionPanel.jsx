@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Gauge, Music2, RotateCcw, ShieldCheck } from "lucide-react";
 
+import MusicClipMusicalAnalysisPanel from "./MusicClipMusicalAnalysisPanel";
+
 function finite(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -139,6 +141,16 @@ export default function MusicClipCorrectionPanel({
       {error ? <div className="mt-2 rounded-lg border border-red-300/10 bg-red-400/[0.02] px-3 py-2 text-[8px] leading-4 text-red-100/55">{error}</div> : null}
 
       <div className="mt-3 text-[7px] leading-3 text-white/15">This is global clip pitch/timing correction, not note-by-note vocal tuning. Formant-preserving vocal tuning and transient-aware warp remain separate engineering stages and are not claimed here. Revert restores the previous preserved source without deleting the correction render.</div>
+
+      <MusicClipMusicalAnalysisPanel
+        organizationId={organizationId}
+        projectId={projectId}
+        sessionRevision={sessionRevision}
+        track={track}
+        clip={clip}
+        disabled={disabled || busy}
+        onReload={onReload}
+      />
     </div>
   );
 }

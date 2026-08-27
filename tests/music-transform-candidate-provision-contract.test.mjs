@@ -45,17 +45,22 @@ test("Candidate template binds the V2 image, shared cache, and certification lan
   assert.match(provisioner, /XL_TURBO_REPAINT_RIGHT_OUTPAINT/);
 });
 
-test("Candidate preflight is zero-spend and proves endpoint identity before leasing", () => {
+test("Candidate preflight is zero-spend and proves authoritative endpoint state before leasing", () => {
   assert.match(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_V1/);
   assert.match(preflight, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID/);
   assert.match(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_NOT_PARKED_0_0/);
   assert.match(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_TEMPLATE_IMAGE_MISMATCH/);
+  assert.match(preflight, /authoritativeTemplate/);
+  assert.match(preflight, /ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST/);
+  assert.match(preflight, /embedded_template_view_used_for_digest_decision: false/);
+  assert.doesNotMatch(preflight, /candidate\?\.template && typeof candidate\.template === "object"\s*\? candidate\.template/);
   assert.match(preflight, /AVANTIQO_AUDIO_CERTIFICATION_SAFE_LEASE_LANE/);
   assert.match(preflight, /runpod_run_called: false/);
   assert.match(preflight, /runpod_runsync_called: false/);
   assert.match(preflight, /provider_job_submitted: false/);
   assert.match(preflight, /workers_opened: false/);
   assert.match(preflight, /endpoint_mutation_performed: false/);
+  assert.match(preflight, /ready_for_safe_lease_certification: true/);
 });
 
 test("Benchmark and launcher can only address the candidate lane", () => {

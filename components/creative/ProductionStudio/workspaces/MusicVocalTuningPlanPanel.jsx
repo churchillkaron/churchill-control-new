@@ -8,6 +8,13 @@ function finite(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function currentSource(evidence, clip) {
+  return Boolean(evidence)
+    && evidence.source_asset_id === clip?.source_asset_id
+    && Math.abs(finite(evidence.source_offset_seconds, -1) - finite(clip?.source_offset_seconds, 0)) <= 0.001
+    && Math.abs(finite(evidence.source_duration_seconds, -1) - finite(clip?.duration_seconds, 0)) <= 0.01;
+}
+
 export default function MusicVocalTuningPlanPanel({
   organizationId,
   projectId,
@@ -46,16 +53,16 @@ export default function MusicVocalTuningPlanPanel({
   if (track?.type !== "vocal" || !clip) return null;
 
   const pitch = clip.vocal_pitch_analysis || null;
-  const pitchCurrent = Boolean(pitch)
-    && pitch.source_asset_id === clip.source_asset_id
-    && Math.abs(finite(pitch.source_offset_seconds, -1) - finite(clip.source_offset_seconds, 0)) <= 0.001
-    && Math.abs(finite(pitch.source_duration_seconds, -1) - finite(clip.duration_seconds, 0)) <= 0.01;
-  const plan = clip.vocal_tuning_plan?.source_asset_id === clip.source_asset_id ? clip.vocal_tuning_plan : null;
+  const pitchCurrent = currentSource(pitch, clip);
+  const plan = currentSource(clip.vocal_tuning_plan, clip) ? clip.vocal_tuning_plan : null;
+  const timingPlan = currentSource(clip.vocal_timing_plan, clip) ? clip.vocal_timing_plan : null;
+  const timingIncluded = Boolean(timingPlan);
+  const timingReviewed = !timingPlan || timingPlan.all_phrases_reviewed === true;
   const renderRequest = clip.vocal_tuning_render_request?.contract === "AVANTIQO_MUSIC_VOCAL_TUNING_RENDER_REQUEST_V1"
     ? clip.vocal_tuning_render_request
     : null;
   const renderPending = renderRequest?.status === "PENDING";
-  const allReviewed = plan?.all_segments_reviewed === true;
+  const allReviewed = plan?.all_segments_reviewed === true && timingReviewed;
 
   async function request(action, extra = {}) {
     if (!organizationId || !projectId || busy) return;
@@ -106,7 +113,7 @@ export default function MusicVocalTuningPlanPanel({
     if (!organizationId || !projectId || !plan || busy) return;
     setBusy(true);
     setError("");
-    setStatus(action === "submit" ? "SUBMITTING REVIEWED TUNING" : "CHECKING TUNING RENDER");
+    setStatus(action === "submit" ? "SUBMITTING REVIEWED VOCAL" : "CHECKING VOCAL RENDER");
     try {
       const response = await fetch("/api/creative/music/vocal-tuning-render", {
         method: "POST",
@@ -122,17 +129,17 @@ export default function MusicVocalTuningPlanPanel({
         }),
       });
       const body = await response.json();
-      if (!response.ok || body.success === false) throw new Error(body.error || "Vocal tuning render failed");
+      if (!response.ok || body.success === false) throw new Error(body.error || "Vocal correction render failed");
       if (body.pending === true) {
-        setStatus("TUNING RENDER PENDING");
+        setStatus("VOCAL RENDER PENDING");
       } else if (body.applied_to_current_clip === true) {
-        setStatus("TUNED VOCAL APPLIED");
+        setStatus(body.timing_correction_applied ? "PITCH + TIMING VOCAL APPLIED" : "PITCH-CORRECTED VOCAL APPLIED");
       } else {
-        setStatus(body.apply_blocker ? `RENDER SAVED · ${body.apply_blocker}` : "TUNING RENDER COMPLETE");
+        setStatus(body.apply_blocker ? `RENDER SAVED · ${body.apply_blocker}` : "VOCAL RENDER COMPLETE");
       }
       await onReload?.();
     } catch (cause) {
-      setError(cause?.message || "Vocal tuning render failed");
+      setError(cause?.message || "Vocal correction render failed");
       setStatus("RENDER BLOCKED");
     } finally {
       setBusy(false);
@@ -144,7 +151,7 @@ export default function MusicVocalTuningPlanPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-white/25"><SlidersHorizontal className="h-3 w-3" /> Tuning plan</div>
-          <div className="mt-1 text-[7px] leading-3 text-white/15">Key-aware note targets. Planning/review never changes audio; rendering creates a new derived vocal asset.</div>
+          <div className="mt-1 text-[7px] leading-3 text-white/15">Key-aware note targets. Planning/review never changes audio; rendering creates a new derived vocal asset and includes a current reviewed timing plan when present.</div>
         </div>
         <button type="button" disabled={disabled || busy || !pitchCurrent || renderPending} onClick={() => request("build")} className="rounded-lg border border-white/8 px-2 py-1.5 text-[8px] text-white/34 disabled:opacity-20">{busy ? status : plan ? "Rebuild plan" : "Build tuning plan"}</button>
       </div>
@@ -169,14 +176,16 @@ export default function MusicVocalTuningPlanPanel({
           ))}
         </div>
 
+        {timingIncluded && !timingReviewed ? <div className="rounded-lg border border-amber-300/10 bg-amber-300/[0.015] p-2 text-[7px] leading-3 text-amber-100/38">A timing plan exists for this vocal. Finish reviewing every suggested phrase move before the combined vocal render can run.</div> : null}
+
         {renderReadiness?.ready ? <div className="rounded-lg border border-emerald-300/10 bg-emerald-300/[0.015] p-2">
           <div className="flex items-start justify-between gap-3">
-            <div className="text-[7px] leading-3 text-emerald-100/40"><div>Vocal Correction V2 is certified and enabled for governed execution.</div><div className="mt-1 text-emerald-100/25">The worker consumes these exact reviewed note segments. Timing remains disabled until separately reviewed. Tone-preservation compensation is configured; formant preservation is not claimed.</div></div>
-            {renderPending ? <button type="button" disabled={disabled || busy} onClick={() => render("status")} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-white/8 px-2 py-1.5 text-[8px] text-white/38 disabled:opacity-20"><RefreshCw className={`h-3 w-3 ${busy ? "animate-spin" : ""}`} /> Check render</button> : <button type="button" disabled={disabled || busy || !allReviewed} onClick={() => render("submit")} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.03] px-2 py-1.5 text-[8px] text-emerald-100/50 disabled:opacity-20"><Sparkles className="h-3 w-3" /> Render reviewed tuning</button>}
+            <div className="text-[7px] leading-3 text-emerald-100/40"><div>Vocal Correction V2 is certified and enabled for governed execution.</div><div className="mt-1 text-emerald-100/25">The worker consumes these exact reviewed note segments{timingIncluded ? " plus the exact reviewed phrase-timing plan" : ""}. Timing auto-correction remains forbidden. Tone-preservation compensation is configured; formant preservation is not claimed.</div></div>
+            {renderPending ? <button type="button" disabled={disabled || busy} onClick={() => render("status")} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-white/8 px-2 py-1.5 text-[8px] text-white/38 disabled:opacity-20"><RefreshCw className={`h-3 w-3 ${busy ? "animate-spin" : ""}`} /> Check render</button> : <button type="button" disabled={disabled || busy || !allReviewed} onClick={() => render("submit")} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.03] px-2 py-1.5 text-[8px] text-emerald-100/50 disabled:opacity-20"><Sparkles className="h-3 w-3" /> Render reviewed vocal</button>}
           </div>
-        </div> : <div className="flex items-start gap-2 rounded-lg border border-amber-300/10 bg-amber-300/[0.015] p-2 text-[7px] leading-3 text-amber-100/40"><LockKeyhole className="mt-0.5 h-3 w-3 shrink-0" /><div><div>Audio render locked: {renderReadiness?.blocker || "VOCAL_CORRECTION_READINESS_UNAVAILABLE"}.</div><div className="mt-1 text-amber-100/28">The owned TorchCREPE + Signalsmith engine exists, but Workstation rendering stays fail-closed until its production certification gate is enabled. Reviewed targets remain saved.</div></div></div>}
+        </div> : <div className="flex items-start gap-2 rounded-lg border border-amber-300/10 bg-amber-300/[0.015] p-2 text-[7px] leading-3 text-amber-100/40"><LockKeyhole className="mt-0.5 h-3 w-3 shrink-0" /><div><div>Audio render locked: {renderReadiness?.blocker || "VOCAL_CORRECTION_READINESS_UNAVAILABLE"}.</div><div className="mt-1 text-amber-100/28">The owned TorchCREPE + Signalsmith engine exists, but Workstation rendering stays fail-closed until its production certification gate is enabled. Reviewed pitch and timing decisions remain saved.</div></div></div>}
 
-        {renderRequest ? <div className="text-[7px] text-white/14">Render request {renderRequest.status || "UNKNOWN"}{renderRequest.provider_status ? ` · provider ${renderRequest.provider_status}` : ""}{renderRequest.derived_asset_id ? ` · derived ${String(renderRequest.derived_asset_id).slice(0, 8)}…` : ""}</div> : null}
+        {renderRequest ? <div className="text-[7px] text-white/14">Render request {renderRequest.status || "UNKNOWN"}{renderRequest.timing_plan_fingerprint ? " · pitch + timing" : " · pitch"}{renderRequest.provider_status ? ` · provider ${renderRequest.provider_status}` : ""}{renderRequest.derived_asset_id ? ` · derived ${String(renderRequest.derived_asset_id).slice(0, 8)}…` : ""}</div> : null}
       </div> : null}
       {error ? <div className="mt-2 rounded-lg border border-red-300/10 bg-red-400/[0.02] px-2 py-1.5 text-[7px] text-red-100/50">{error}</div> : null}
     </div>

@@ -73,6 +73,9 @@ import {
   reconcileAvantiqoLongHorizonPolicyAdaptedExperimentPortfolio,
 } from "@/lib/intelligence/runtime/AvantiqoLongHorizonPolicyAdaptedExperimentPortfolioRuntime";
 import {
+  reconcileAvantiqoSelectionPolicyShadowChallenger,
+} from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyShadowChallengerRuntime";
+import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
 
@@ -138,6 +141,11 @@ export async function GET(request) {
       calibrationBackfilledExperimentPortfolio
         ?.final_assessor_calibrated_estimator_selection_guard || null;
 
+    const selectionPolicyShadowChallenger =
+      await reconcileAvantiqoSelectionPolicyShadowChallenger({
+        portfolio: longHorizonPolicyAdaptedExperimentPortfolio,
+      });
+
     const experimentExecutionRequests =
       longHorizonPolicyAdaptedExperimentPortfolio
         .execution_request_generation_allowed === true
@@ -181,6 +189,7 @@ export async function GET(request) {
         experiment_portfolio_performance: experimentPortfolioPerformance,
         long_horizon_policy_adapted_experiment_portfolio:
           longHorizonPolicyAdaptedExperimentPortfolio,
+        selection_policy_shadow_challenger: selectionPolicyShadowChallenger,
         calibration_backfilled_experiment_portfolio:
           calibrationBackfilledExperimentPortfolio,
         active_experiment_selection: activeExperimentSelection,
@@ -192,7 +201,8 @@ export async function GET(request) {
       {
         status:
           result.success === false ||
-          longHorizonPolicyAdaptedExperimentPortfolio.success === false
+          longHorizonPolicyAdaptedExperimentPortfolio.success === false ||
+          selectionPolicyShadowChallenger.success === false
             ? 207
             : 200,
       },

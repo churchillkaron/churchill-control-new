@@ -82,6 +82,9 @@ import {
   reconcileAvantiqoSelectionPolicyCanary,
 } from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyCanaryRuntime";
 import {
+  reconcileAvantiqoSelectionPolicyCanaryOutcomeCertification,
+} from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyCanaryOutcomeCertificationRuntime";
+import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
 
@@ -155,6 +158,8 @@ export async function GET(request) {
       await reconcileAvantiqoSelectionPolicyPromotionRequests();
     const selectionPolicyCanary =
       await reconcileAvantiqoSelectionPolicyCanary();
+    const selectionPolicyCanaryOutcomeCertification =
+      await reconcileAvantiqoSelectionPolicyCanaryOutcomeCertification();
 
     const experimentExecutionRequests =
       longHorizonPolicyAdaptedExperimentPortfolio
@@ -205,6 +210,8 @@ export async function GET(request) {
         selection_policy_shadow_challenger: selectionPolicyShadowChallenger,
         selection_policy_promotion_requests: selectionPolicyPromotionRequests,
         selection_policy_canary: selectionPolicyCanary,
+        selection_policy_canary_outcome_certification:
+          selectionPolicyCanaryOutcomeCertification,
         calibration_backfilled_experiment_portfolio:
           calibrationBackfilledExperimentPortfolio,
         active_experiment_selection: activeExperimentSelection,
@@ -219,7 +226,8 @@ export async function GET(request) {
           longHorizonPolicyAdaptedExperimentPortfolio.success === false ||
           selectionPolicyShadowChallenger.success === false ||
           selectionPolicyPromotionRequests.success === false ||
-          selectionPolicyCanary.success === false
+          selectionPolicyCanary.success === false ||
+          selectionPolicyCanaryOutcomeCertification.success === false
             ? 207
             : 200,
       },

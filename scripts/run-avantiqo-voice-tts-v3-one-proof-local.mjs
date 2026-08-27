@@ -68,7 +68,14 @@ async function reloadRunpodEnvFromLocal() {
     throw new Error("AVANTIQO_VOICE_TTS_V3_ONE_PROOF_ENV_LOCAL_REQUIRED");
   }
   const parsed = parseEnv(await readFile(ENV_LOCAL_PATH, "utf8"));
+  const safeLeaseEndpointId = yes(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE)
+    ? text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID)
+    : "";
   for (const key of RUNPOD_ENV_KEYS) {
+    if (key === "RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID" && safeLeaseEndpointId) {
+      process.env[key] = safeLeaseEndpointId;
+      continue;
+    }
     const value = text(parsed[key]);
     if (value) process.env[key] = value;
   }
@@ -86,6 +93,7 @@ async function reloadRunpodEnvFromLocal() {
     runpod_api_key_configured: true,
     runpod_management_api_key_configured: true,
     voice_tts_endpoint_configured: true,
+    safe_lease_endpoint_authoritative: Boolean(safeLeaseEndpointId),
     secret_values_printed: false,
   }));
 }

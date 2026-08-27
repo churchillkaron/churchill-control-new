@@ -91,6 +91,9 @@ import {
   reconcileAvantiqoPersistentOrderingPolicyPromotionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoPersistentOrderingPolicyPromotionGovernanceRuntime";
 import {
+  reconcileAvantiqoPersistentOrderingPolicyApplication,
+} from "@/lib/intelligence/runtime/AvantiqoPersistentOrderingPolicyAuthorityRuntime";
+import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
 
@@ -183,17 +186,33 @@ export async function GET(request) {
             request_count: 0,
           };
 
+    const persistentOrderingPolicyApplication =
+      selectionPolicyShadowChallenger.success !== false &&
+      selectionPolicyShadowEvaluationIntegrity.success !== false &&
+      selectionPolicyCanary.success !== false
+        ? await reconcileAvantiqoPersistentOrderingPolicyApplication()
+        : {
+            success: false,
+            status: "BLOCKED_BY_POLICY_ORDERING_PRECONDITION_FAIL_CLOSED",
+            application_performed: false,
+            live_policy_active: false,
+            execution_authorized: false,
+          };
+
     const experimentExecutionRequests =
       longHorizonPolicyAdaptedExperimentPortfolio
         .execution_request_generation_allowed === true &&
-      selectionPolicyCanary.success !== false
+      selectionPolicyCanary.success !== false &&
+      persistentOrderingPolicyApplication.success !== false
         ? await reconcileAvantiqoExperimentExecutionRequests()
         : {
             success: true,
             status:
-              selectionPolicyCanary.success === false
-                ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
-                : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
+              persistentOrderingPolicyApplication.success === false
+                ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_APPLICATION_FAIL_CLOSED"
+                : selectionPolicyCanary.success === false
+                  ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
+                  : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
             execution_request_count: 0,
             execution_authorized: false,
             spend_authorized: false,
@@ -238,6 +257,8 @@ export async function GET(request) {
           selectionPolicyCanaryOutcomeCertification,
         persistent_ordering_policy_promotion_requests:
           persistentOrderingPolicyPromotionRequests,
+        persistent_ordering_policy_application:
+          persistentOrderingPolicyApplication,
         calibration_backfilled_experiment_portfolio:
           calibrationBackfilledExperimentPortfolio,
         active_experiment_selection: activeExperimentSelection,
@@ -255,7 +276,8 @@ export async function GET(request) {
           selectionPolicyPromotionRequests.success === false ||
           selectionPolicyCanary.success === false ||
           selectionPolicyCanaryOutcomeCertification.success === false ||
-          persistentOrderingPolicyPromotionRequests.success === false
+          persistentOrderingPolicyPromotionRequests.success === false ||
+          persistentOrderingPolicyApplication.success === false
             ? 207
             : 200,
       },

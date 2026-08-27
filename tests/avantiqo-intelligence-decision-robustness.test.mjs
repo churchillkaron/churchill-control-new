@@ -141,7 +141,7 @@ test("planning tool exposes stress testing without gaining execution authority",
     new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url),
     "utf8",
   );
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V4/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V5/);
   assert.match(source, /"stress_test"/);
   assert.match(source, /decision_robustness_contract/);
   assert.match(source, /hypothetical_scenarios_never_become_live_evidence/);

@@ -122,6 +122,23 @@ test("Voice realtime relay Safe Lease patcher is guarded, local-only and queue-f
   assert.doesNotMatch(relaySafeLeasePatcher, /vercel\s+(?:--prod|deploy|build)/i);
 });
 
+test("Voice realtime relay on main is bound to the load-balanced Safe Lease", () => {
+  assert.match(relay, /from "\.\.\/_shared\/avantiqo-voice-realtime-safe-lease\.ts"/);
+  assert.match(relay, /realtimeLease = await acquireVoiceRealtimeSafeLease\(/);
+  assert.match(relay, /endpointId: realtimeEndpointIdFromWebSocketUrl\(runpodUrl\)/);
+  assert.match(relay, /ttlSeconds: 120/);
+  assert.match(relay, /leaseRefreshTimer = setInterval/);
+  assert.match(relay, /lease\.refresh\(\)/);
+  assert.match(relay, /await lease\.release\(reason\)/);
+  assert.match(relay, /await lease\.fail\(reason\)/);
+  assert.match(relay, /await failedLease\.fail\("relay setup failed"\)/);
+  assert.match(relay, /if \(finishPromise\) return finishPromise/);
+  assert.match(relay, /edgeRuntime\?\.waitUntil\?\.\(closedPromise\)/);
+  assert.doesNotMatch(relay, /\/run\b/);
+  assert.doesNotMatch(relay, /\/health\b/);
+  assert.doesNotMatch(relay, /purge-queue/);
+});
+
 test("uncertified realtime public entrypoints remain fail-closed while relay source exists", () => {
   assert.match(realtimeClient, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);
   assert.match(realtimeClient, /realtime_streaming_certified:\s*false/);

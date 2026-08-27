@@ -147,7 +147,7 @@ test("high or critical contingency failure modes must map to outcome criteria", 
 
 test("planning tool exposes outcome contracts without gaining execution or monitoring authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V10/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V11/);
   assert.match(source, /"build_outcome_contract"/);
   assert.match(source, /decision_outcome_contract/);
   assert.match(source, /deterministic_falsifiable_outcome_contract/);

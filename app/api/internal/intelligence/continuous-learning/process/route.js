@@ -97,6 +97,9 @@ import {
   reconcileAvantiqoPersistentOrderingPolicyRegressionMonitor,
 } from "@/lib/intelligence/runtime/AvantiqoPersistentOrderingPolicyRegressionMonitorRuntime";
 import {
+  reconcileAvantiqoSelectionPolicyResearchEpoch,
+} from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyResearchEpochRuntime";
+import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
 
@@ -162,6 +165,11 @@ export async function GET(request) {
       calibrationBackfilledExperimentPortfolio
         ?.final_assessor_calibrated_estimator_selection_guard || null;
 
+    const selectionPolicyResearchEpoch =
+      await reconcileAvantiqoSelectionPolicyResearchEpoch();
+    const legacyChallengerPromotionAllowed =
+      selectionPolicyResearchEpoch.legacy_challenger_promotion_allowed !== false;
+
     const selectionPolicyShadowChallenger =
       await reconcileAvantiqoSelectionPolicyShadowChallenger({
         portfolio: longHorizonPolicyAdaptedExperimentPortfolio,
@@ -169,27 +177,54 @@ export async function GET(request) {
     const selectionPolicyShadowEvaluationIntegrity =
       await reconcileAvantiqoSelectionPolicyShadowEvaluationIntegrity();
     const selectionPolicyPromotionRequests =
-      selectionPolicyShadowEvaluationIntegrity.success !== false
-        ? await reconcileAvantiqoSelectionPolicyPromotionRequests()
-        : {
+      selectionPolicyResearchEpoch.success === false
+        ? {
             success: false,
-            status: "BLOCKED_BY_SHADOW_EVALUATION_INTEGRITY_FAIL_CLOSED",
+            status: "BLOCKED_BY_SELECTION_POLICY_RESEARCH_EPOCH_FAIL_CLOSED",
             request_count: 0,
-          };
-    const selectionPolicyCanary =
-      await reconcileAvantiqoSelectionPolicyCanary();
+          }
+        : legacyChallengerPromotionAllowed === false
+          ? {
+              success: true,
+              status: "BLOCKED_BY_ACTIVE_PERSISTENT_POLICY_RESEARCH_EPOCH",
+              request_count: 0,
+              automatic_policy_promotion: false,
+            }
+          : selectionPolicyShadowEvaluationIntegrity.success !== false
+            ? await reconcileAvantiqoSelectionPolicyPromotionRequests()
+            : {
+                success: false,
+                status: "BLOCKED_BY_SHADOW_EVALUATION_INTEGRITY_FAIL_CLOSED",
+                request_count: 0,
+              };
+
+    const selectionPolicyCanary = await reconcileAvantiqoSelectionPolicyCanary();
     const selectionPolicyCanaryOutcomeCertification =
       await reconcileAvantiqoSelectionPolicyCanaryOutcomeCertification();
     const persistentOrderingPolicyPromotionRequests =
-      selectionPolicyShadowEvaluationIntegrity.success !== false
-        ? await reconcileAvantiqoPersistentOrderingPolicyPromotionRequests()
-        : {
+      selectionPolicyResearchEpoch.success === false
+        ? {
             success: false,
-            status: "BLOCKED_BY_SHADOW_EVALUATION_INTEGRITY_FAIL_CLOSED",
+            status: "BLOCKED_BY_SELECTION_POLICY_RESEARCH_EPOCH_FAIL_CLOSED",
             request_count: 0,
-          };
+          }
+        : legacyChallengerPromotionAllowed === false
+          ? {
+              success: true,
+              status: "BLOCKED_BY_ACTIVE_PERSISTENT_POLICY_RESEARCH_EPOCH",
+              request_count: 0,
+              automatic_policy_promotion: false,
+            }
+          : selectionPolicyShadowEvaluationIntegrity.success !== false
+            ? await reconcileAvantiqoPersistentOrderingPolicyPromotionRequests()
+            : {
+                success: false,
+                status: "BLOCKED_BY_SHADOW_EVALUATION_INTEGRITY_FAIL_CLOSED",
+                request_count: 0,
+              };
 
     const persistentOrderingPolicyApplication =
+      selectionPolicyResearchEpoch.success !== false &&
       selectionPolicyShadowChallenger.success !== false &&
       selectionPolicyShadowEvaluationIntegrity.success !== false &&
       selectionPolicyCanary.success !== false
@@ -215,6 +250,7 @@ export async function GET(request) {
     const experimentExecutionRequests =
       longHorizonPolicyAdaptedExperimentPortfolio
         .execution_request_generation_allowed === true &&
+      selectionPolicyResearchEpoch.success !== false &&
       selectionPolicyCanary.success !== false &&
       persistentOrderingPolicyApplication.success !== false &&
       persistentOrderingPolicyRegressionMonitor.success !== false &&
@@ -223,14 +259,16 @@ export async function GET(request) {
         : {
             success: true,
             status:
-              persistentOrderingPolicyRegressionMonitor.success === false ||
-              persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed === false
-                ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_REGRESSION_MONITOR"
-                : persistentOrderingPolicyApplication.success === false
-                  ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_APPLICATION_FAIL_CLOSED"
-                  : selectionPolicyCanary.success === false
-                    ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
-                    : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
+              selectionPolicyResearchEpoch.success === false
+                ? "BLOCKED_BY_SELECTION_POLICY_RESEARCH_EPOCH_FAIL_CLOSED"
+                : persistentOrderingPolicyRegressionMonitor.success === false ||
+                    persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed === false
+                  ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_REGRESSION_MONITOR"
+                  : persistentOrderingPolicyApplication.success === false
+                    ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_APPLICATION_FAIL_CLOSED"
+                    : selectionPolicyCanary.success === false
+                      ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
+                      : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
             execution_request_count: 0,
             execution_authorized: false,
             spend_authorized: false,
@@ -266,6 +304,7 @@ export async function GET(request) {
         experiment_portfolio_performance: experimentPortfolioPerformance,
         long_horizon_policy_adapted_experiment_portfolio:
           longHorizonPolicyAdaptedExperimentPortfolio,
+        selection_policy_research_epoch: selectionPolicyResearchEpoch,
         selection_policy_shadow_challenger: selectionPolicyShadowChallenger,
         selection_policy_shadow_evaluation_integrity:
           selectionPolicyShadowEvaluationIntegrity,
@@ -291,6 +330,7 @@ export async function GET(request) {
         status:
           result.success === false ||
           longHorizonPolicyAdaptedExperimentPortfolio.success === false ||
+          selectionPolicyResearchEpoch.success === false ||
           selectionPolicyShadowChallenger.success === false ||
           selectionPolicyShadowEvaluationIntegrity.success === false ||
           selectionPolicyPromotionRequests.success === false ||

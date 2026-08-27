@@ -71,7 +71,7 @@ test("owned realtime browser client requires AudioWorklet and flushes before com
   assert.match(source, /audioContext\.audioWorklet\.addModule\(WORKLET_URL\)/);
   assert.match(source, /new AudioWorkletNode\(audioContext, WORKLET_PROCESSOR/);
   assert.match(source, /async function flushCapture\(\)/);
-  assert.match(source, /await flushCapture\(\);\s*committed = true/);
+  assert.match(source, /await flushCapture\(\);\s*if \(closed\) throw new Error\("AVANTIQO_VOICE_REALTIME_BROWSER_SESSION_CLOSED"\);\s*committed = true/);
   assert.doesNotMatch(source, /createScriptProcessor/);
   assert.doesNotMatch(source, /onaudioprocess/);
   assert.match(worklet, /registerProcessor\(PROCESSOR_NAME, AvantiqoRealtimePcmCaptureProcessor\)/);
@@ -79,6 +79,25 @@ test("owned realtime browser client requires AudioWorklet and flushes before com
   assert.match(worklet, /FRAME_SAMPLES = 320/);
   assert.match(worklet, /type: "audio\.pcm16"/);
   assert.match(worklet, /type: "audio\.flushed"/);
+});
+
+test("owned realtime browser commit is single-flight across concurrent callers", () => {
+  assert.match(source, /single_flight_commit:\s*true/);
+  assert.match(source, /let commitOperationPromise = null/);
+  assert.match(source, /if \(!commitOperationPromise\)/);
+  assert.match(source, /commitOperationPromise = \(async \(\) =>/);
+  assert.match(source, /return commitOperationPromise/);
+  assert.match(source, /boundedSend\(\{ type: "audio\.commit" \}\)/);
+});
+
+test("owned realtime browser client bounds WebSocket backpressure", () => {
+  assert.match(source, /MAX_SOCKET_BUFFERED_BYTES = 262_144/);
+  assert.match(source, /websocket_backpressure_bounded:\s*true/);
+  assert.match(source, /max_websocket_buffered_bytes:\s*MAX_SOCKET_BUFFERED_BYTES/);
+  assert.match(source, /websocket\.bufferedAmount \+ message\.length > MAX_SOCKET_BUFFERED_BYTES/);
+  assert.match(source, /AVANTIQO_VOICE_REALTIME_BROWSER_BACKPRESSURE_LIMIT/);
+  assert.match(source, /closeSocket\(1013, "browser backpressure"\)/);
+  assert.match(source, /boundedSend\(\{\s*type: "audio\.append"/);
 });
 
 test("owned realtime browser client supports partial and final transcripts", () => {

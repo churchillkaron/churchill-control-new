@@ -55,7 +55,15 @@ const requiredMarkers = [
   "READ_RANGE_COVERED",
   "advanceSourceRevision",
   "duplicateActionGuard(control, decision)",
-  "control.planner_iterations_used >= maximum",
+  "control.planner_iterations_used >= MAX_ITERATIONS",
+  "productive_planner_iterations_used",
+  "recoveredProductivePlannerIterations",
+  "productiveIterationLimit",
+  "missionFinalizationEligible",
+  "consumeProductiveIteration",
+  "MAX_PRODUCTIVE_CONVERGENCE_RESERVE = 4",
+  "MAX_FINALIZATION_ATTEMPT_RESERVE = 2",
+  "CODE_AI_AUTONOMOUS_PLANNER_ATTEMPT_LIMIT_EXHAUSTED",
   "iteration = control.planner_iterations_used + 1",
   "const operationId = `autonomy_${iteration}_${decision.action}`",
   "TRANSIENT_WORKSPACE_RETRY_LIMIT = 1",
@@ -100,7 +108,9 @@ const promptRequiredMarkers = [
   "literal|regex|path|glob",
   "path_globs",
   "Read freshness is source-bound",
-  "The planner iteration budget is global across pending/resume cycles",
+  "The hard planner-attempt ceiling is global across pending/resume cycles",
+  "productive convergence budget",
+  "bounded post-edit reserve",
   "Treat those file contents as observed current source and do not reread a covered range",
   "Use apply_files for every intentional source edit",
   "Use verify after source changes",
@@ -190,10 +200,31 @@ if (transientRetry <= missionExecution || terminalExecutionFailure <= transientR
   throw new Error("CODE_AI_AUTONOMY_TRANSIENT_WORKSPACE_RETRY_MUST_PRECEDE_TERMINAL_FAILURE");
 }
 
-const budgetGuard = source.indexOf("control.planner_iterations_used >= maximum");
-const plannerCall = source.indexOf("planned = await planNext", budgetGuard);
-if (budgetGuard < 0 || plannerCall <= budgetGuard) {
-  throw new Error("CODE_AI_AUTONOMY_GLOBAL_BUDGET_GUARD_MUST_PRECEDE_NEW_PLANNER_CALL");
+const hardAttemptGuard = source.indexOf("control.planner_iterations_used >= MAX_ITERATIONS");
+const productiveBudgetGuard = source.indexOf("control.productive_planner_iterations_used", hardAttemptGuard);
+const finalizationGuard = source.indexOf("!missionFinalizationEligible(state)", productiveBudgetGuard);
+const plannerCall = source.indexOf("planned = await planNext", finalizationGuard);
+if (
+  hardAttemptGuard < 0 ||
+  productiveBudgetGuard <= hardAttemptGuard ||
+  finalizationGuard <= productiveBudgetGuard ||
+  plannerCall <= finalizationGuard
+) {
+  throw new Error("CODE_AI_AUTONOMY_DUAL_BUDGET_GUARDS_MUST_PRECEDE_NEW_PLANNER_CALL");
+}
+
+const duplicateContinue = source.indexOf("continue;", duplicateStreakLimit);
+const productiveConsumeAfterDuplicate = source.indexOf(
+  "control = consumeProductiveIteration(resetDuplicateProgress(control))",
+  duplicateContinue,
+);
+if (duplicateContinue < 0 || productiveConsumeAfterDuplicate <= duplicateContinue) {
+  throw new Error("CODE_AI_AUTONOMY_DUPLICATE_REJECTION_MUST_NOT_CONSUME_PRODUCTIVE_BUDGET");
+}
+
+const firstDuplicateSuppression = source.indexOf("if (streak < 1 || !DUPLICATE_GUARDED_ACTIONS.has(repeatedAction))");
+if (firstDuplicateSuppression < 0) {
+  throw new Error("CODE_AI_AUTONOMY_FIRST_DUPLICATE_MUST_SUPPRESS_REPEATED_ACTION_TYPE");
 }
 
 const sourceRevisionControl = source.indexOf("source_revision: nonNegativeInteger(source.source_revision)");
@@ -253,7 +284,7 @@ if (
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V6",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V7",
   verified: {
     duplicate_read_search_run_guarded_without_new_evidence: true,
     search_fingerprint_distinguishes_literal_regex_path_glob: true,
@@ -266,7 +297,7 @@ console.log(JSON.stringify({
     duplicate_rejection_streak_bounded: true,
     duplicate_rejection_streak_fails_closed_before_workspace_execution: true,
     duplicate_rejection_streak_persisted_in_autonomy_control: true,
-    repeated_duplicate_action_temporarily_suppressed_after_second_rejection: true,
+    repeated_duplicate_action_temporarily_suppressed_after_first_rejection: true,
     suppressed_action_shapes_removed_from_planner_prompt: true,
     dynamic_allowed_action_guard_enforced_before_execution: true,
     suppressed_action_rejections_bounded: true,
@@ -277,6 +308,11 @@ console.log(JSON.stringify({
     parallel_main_commits_do_not_move_certification_workspace: true,
     duplicate_guard_precedes_workspace_execution: true,
     global_iteration_budget_persisted_in_resume_state: true,
+    hard_planner_attempt_ceiling_remains_bounded_across_resume: true,
+    duplicate_and_suppressed_rejections_do_not_consume_productive_budget: true,
+    accepted_actions_consume_productive_budget: true,
+    successful_source_edit_unlocks_bounded_convergence_reserve: true,
+    verified_completion_can_use_terminal_attempt_headroom: true,
     pending_resume_reuses_original_iteration: true,
     resumed_operation_ids_remain_globally_monotonic: true,
     legacy_per_invocation_iteration_reset_removed: true,

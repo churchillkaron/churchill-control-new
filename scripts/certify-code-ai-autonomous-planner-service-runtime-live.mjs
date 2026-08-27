@@ -20,7 +20,7 @@ const ALLOWED_FILES = [
 ];
 const MAX_PENDING_CYCLES_PER_PROVIDER_JOB = 48;
 const MAX_CERTIFICATION_RUNTIME_MS = 90 * 60 * 1000;
-const MAX_ITERATIONS_PER_CYCLE = 12;
+const BASE_PRODUCTIVE_ITERATIONS = 12;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -186,7 +186,7 @@ try {
       repository_url: REPOSITORY_URL,
       ref: REF,
       resume_state: resumeState,
-      max_iterations: MAX_ITERATIONS_PER_CYCLE,
+      max_iterations: BASE_PRODUCTIVE_ITERATIONS,
     });
 
     const pendingProviderJobId = text(result.state?.planner_pending?.provider_job_id);
@@ -254,8 +254,14 @@ try {
   if (control.contract !== AUTONOMY_CONTROL_CONTRACT) {
     throw new Error("AVANTIQO_CODE_PLANNER_CERT_FINAL_AUTONOMY_CONTROL_EVIDENCE_REQUIRED");
   }
-  if (Number(control.planner_iterations_used || 0) > MAX_ITERATIONS_PER_CYCLE) {
-    throw new Error("AVANTIQO_CODE_PLANNER_CERT_GLOBAL_ITERATION_BUDGET_EXCEEDED");
+  if (Number(control.planner_iterations_used || 0) > Number(CodeAIAutonomousRuntime?.max_planner_attempts || 0)) {
+    throw new Error("AVANTIQO_CODE_PLANNER_CERT_HARD_ATTEMPT_BUDGET_EXCEEDED");
+  }
+  const productiveLimit =
+    BASE_PRODUCTIVE_ITERATIONS +
+    Number(CodeAIAutonomousRuntime?.productive_convergence_reserve || 0);
+  if (Number(control.productive_planner_iterations_used || 0) > productiveLimit) {
+    throw new Error("AVANTIQO_CODE_PLANNER_CERT_PRODUCTIVE_CONVERGENCE_BUDGET_EXCEEDED");
   }
   if (control.pending_planner_iteration) {
     throw new Error("AVANTIQO_CODE_PLANNER_CERT_PENDING_ITERATION_REMAINS");

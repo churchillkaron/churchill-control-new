@@ -19,7 +19,7 @@ assert.match(prompt, /An action absent from CURRENT ALLOWED ACTIONS is invalid/)
 const suppressedPrompt = CodeAIPlannerPromptRuntime.build({
   objective: "Repair a bounded fixture.",
   iteration: 4,
-  state: { autonomy_control: { duplicate_rejection_streak: 2, last_duplicate_action: "read" } },
+  state: { autonomy_control: { duplicate_rejection_streak: 1, last_duplicate_action: "read" } },
   allowed_actions: ["inspect", "search", "apply_files", "run", "verify", "diff", "research", "complete", "block"],
   autonomy_contract: "AVANTIQO_CODE_AI_AUTONOMOUS_RUNTIME_V1",
 });
@@ -38,7 +38,7 @@ function nextDuplicate(control, action = null) {
 }
 function allowed(control) {
   const base = ["inspect","search","read","apply_files","run","verify","diff","research","complete","block"];
-  if (Number(control.duplicate_rejection_streak || 0) < 2) return base;
+  if (Number(control.duplicate_rejection_streak || 0) < 1) return base;
   return base.filter((action) => action !== control.last_duplicate_action);
 }
 function rejectSuppressed(control, action) {
@@ -65,10 +65,10 @@ assert.equal(control.suppressed_action_rejection_streak, 2);
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V2",
+  contract: "AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V3",
   verified: {
     duplicate_streak_is_first_class_control_state: true,
-    second_duplicate_temporarily_suppresses_repeated_action_type: true,
+    first_duplicate_temporarily_suppresses_repeated_action_type: true,
     suppressed_read_shape_removed_from_prompt: true,
     apply_files_shape_remains_visible_under_read_suppression: true,
     dynamically_suppressed_action_is_hard_rejected_by_controller: true,
@@ -80,4 +80,4 @@ console.log(JSON.stringify({
   runpod_lease_opened: false,
   production_deploy_performed: false,
 }, null, 2));
-console.log("AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V2=PASS");
+console.log("AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V3=PASS");

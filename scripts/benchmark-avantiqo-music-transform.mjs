@@ -1,6 +1,5 @@
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
 
 const API_BASE = "https://api.runpod.ai/v2";
 const ENGINE_CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
@@ -40,6 +39,69 @@ async function runpod(url, apiKey, options = {}) {
   if (!response.ok) throw new Error(`RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message || raw).slice(0, 600)}`);
   return body;
 }
+function storageObjectPath(bucket, path) {
+  const parts = [bucket, ...text(path).split("/").filter(Boolean)];
+  return parts.map((part) => encodeURIComponent(part)).join("/");
+}
+function absoluteStorageUrl(storageBase, value) {
+  const url = text(value);
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${storageBase}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+async function storageJson(storageBase, serviceRoleKey, pathname, options = {}) {
+  const response = await fetch(`${storageBase}${pathname}`, {
+    method: options.method || "POST",
+    headers: {
+      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+      Accept: "application/json",
+      ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {}),
+    },
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let body = {};
+  try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
+  if (!response.ok) throw new Error(`SUPABASE_STORAGE_HTTP_${response.status}:${text(body?.error || body?.message || raw).slice(0, 600)}`);
+  return body;
+}
+async function storageUpload(storageBase, serviceRoleKey, bucket, path, buffer) {
+  const objectPath = storageObjectPath(bucket, path);
+  const response = await fetch(`${storageBase}/object/${objectPath}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+      Accept: "application/json",
+      "Content-Type": "audio/wav",
+      "x-upsert": "false",
+    },
+    body: buffer,
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let body = {};
+  try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
+  if (!response.ok) throw new Error(`SUPABASE_STORAGE_UPLOAD_HTTP_${response.status}:${text(body?.error || body?.message || raw).slice(0, 600)}`);
+  return body;
+}
+async function createStorageSignedReadUrl(storageBase, serviceRoleKey, bucket, path, expiresIn = 3600) {
+  const objectPath = storageObjectPath(bucket, path);
+  const body = await storageJson(storageBase, serviceRoleKey, `/object/sign/${objectPath}`, { body: { expiresIn } });
+  const signedUrl = absoluteStorageUrl(storageBase, body?.signedURL || body?.signedUrl || body?.url);
+  if (!signedUrl) throw new Error("AVANTIQO_MUSIC_TRANSFORM_SOURCE_SIGNED_URL_REQUIRED");
+  return signedUrl;
+}
+async function createStorageSignedUploadUrl(storageBase, serviceRoleKey, bucket, path) {
+  const objectPath = storageObjectPath(bucket, path);
+  const body = await storageJson(storageBase, serviceRoleKey, `/object/upload/sign/${objectPath}`, { body: {} });
+  const signedUrl = absoluteStorageUrl(storageBase, body?.url || body?.signedURL || body?.signedUrl);
+  if (!signedUrl) throw new Error("AVANTIQO_MUSIC_TRANSFORM_OUTPUT_SIGNED_URL_REQUIRED");
+  return signedUrl;
+}
 function makeWav(seconds = SOURCE_DURATION_SECONDS, sampleRate = 44100) {
   const frames = seconds * sampleRate;
   const buffer = Buffer.alloc(44 + frames * 2);
@@ -61,18 +123,17 @@ const selectedCapability = capability();
 const endpointId = required("RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID");
 const apiKey = required("RUNPOD_API_KEY");
 assertLease(endpointId);
-const supabase = createClient(required("NEXT_PUBLIC_SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false, autoRefreshToken: false } });
+const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL").replace(/\/+$/, "");
+const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
+const storageBase = `${supabaseUrl}/storage/v1`;
 const organizationId = `benchmark-${crypto.randomUUID()}`;
 const id = `music-transform-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 const sourcePath = `${organizationId}/benchmark/music-transform/${id}-source.wav`;
 const outputPath = `${organizationId}/benchmark/music-transform/${id}-output.wav`;
 const source = makeWav(SOURCE_DURATION_SECONDS);
-const { error: sourceError } = await supabase.storage.from(BUCKET).upload(sourcePath, source, { contentType: "audio/wav", upsert: false });
-if (sourceError) throw sourceError;
-const { data: sourceRead, error: readError } = await supabase.storage.from(BUCKET).createSignedUrl(sourcePath, 3600);
-if (readError || !sourceRead?.signedUrl) throw readError || new Error("AVANTIQO_MUSIC_TRANSFORM_SOURCE_SIGNED_URL_REQUIRED");
-const { data: outputUpload, error: outputError } = await supabase.storage.from(BUCKET).createSignedUploadUrl(outputPath, { upsert: false });
-if (outputError || !outputUpload?.signedUrl) throw outputError || new Error("AVANTIQO_MUSIC_TRANSFORM_OUTPUT_SIGNED_URL_REQUIRED");
+await storageUpload(storageBase, serviceRoleKey, BUCKET, sourcePath, source);
+const sourceSignedUrl = await createStorageSignedReadUrl(storageBase, serviceRoleKey, BUCKET, sourcePath, 3600);
+const outputSignedUrl = await createStorageSignedUploadUrl(storageBase, serviceRoleKey, BUCKET, outputPath);
 const outputReference = `storage://${BUCKET}/${outputPath}`;
 const providerParameters = selectedCapability === "ai.audio.edit"
   ? { repainting_start: 3, repainting_end: 7, seed: 51001, inference_steps: 8, shift: 3 }
@@ -90,12 +151,12 @@ const payload = {
   organization_id: organizationId,
   usage_id: id,
   instruction,
-  source_asset_roles: { source_audio: sourceRead.signedUrl },
+  source_asset_roles: { source_audio: sourceSignedUrl },
   structured_specification: {
     music: { caption: "Premium polished instrumental, balanced energy", instrumental: true, duration_seconds: SOURCE_DURATION_SECONDS, bpm: 96 },
     provider_parameters: providerParameters,
   },
-  storage_upload: { signed_url: outputUpload.signedUrl, storage_reference: outputReference },
+  storage_upload: { signed_url: outputSignedUrl, storage_reference: outputReference },
   certification: {
     contract: CERT_CONTRACT,
     scope: "music-transform-only",

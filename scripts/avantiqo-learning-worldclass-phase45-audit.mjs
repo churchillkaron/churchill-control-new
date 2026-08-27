@@ -68,7 +68,7 @@ assert(has(migration1, "PERSISTENT_POLICY_INTERVAL_RESOLVED"), "PERSISTENT_INTER
 assert(has(migration1, "verify_avantiqo_policy_outcome_attribution_v1"), "OUTCOME_INTEGRITY_RPC_MISSING");
 assert(has(migration1, "OUTCOME_ATTRIBUTION_CARDINALITY_MISMATCH_FAIL_CLOSED"), "ATTRIBUTION_CARDINALITY_CHECK_MISSING");
 assert(has(migration1, "OUTCOME_POLICY_INTERVAL_LINEAGE_MISMATCH_FAIL_CLOSED"), "ATTRIBUTION_LINEAGE_CHECK_MISSING");
-assert(has(migration1, "cross_interval_outcome_reuse_allowed', false"), "CROSS_INTERVAL_REUSE_NOT_BLOCKED");
+assert(/'cross_interval_outcome_reuse_allowed'\s*,\s*false/.test(migration1), "CROSS_INTERVAL_REUSE_NOT_BLOCKED");
 
 assert(has(migration2, "avantiqo_phase45_enforce_outcome_attribution_v1"), "ATOMIC_OUTCOME_TRIGGER_FUNCTION_MISSING");
 assert(has(migration2, "after insert or update of metadata on public.intelligence_memories"), "ATOMIC_OUTCOME_TRIGGER_MISSING");

@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 const paths = {
   runtime: "lib/operator/secretary/SecretaryTravelOperationsRuntime.js",
   correction: "lib/operator/secretary/SecretaryTravelConfirmationCorrectionRuntime.js",
+  cancellation: "lib/operator/secretary/SecretaryTravelCancellationRuntime.js",
+  readV2: "lib/operator/secretary/SecretaryTravelOperationsReadV2Runtime.js",
   capability: "lib/platform/capabilities/createSecretaryTravelOperationsCapability.js",
   platform: "lib/platform/runtime/PlatformDomainRuntime.js",
 };
@@ -52,11 +54,51 @@ assert.match(source.correction, /binding_authority_created:\s*false/);
 assert.match(source.correction, /approval_authority_delegated:\s*false/);
 assert.match(source.correction, /external_authority_used:\s*false/);
 
+assert.match(source.cancellation, /AVANTIQO_EXECUTIVE_SECRETARY_TRAVEL_CANCELLATION_V1/);
+assert.match(source.cancellation, /SECRETARY_TRAVEL_CANCELLATION_EVIDENCE_REQUIRED/);
+assert.match(source.cancellation, /SECRETARY_TRAVEL_CANCELLATION_CANCELLED_AT_REQUIRED/);
+assert.match(source.cancellation, /OUTCOMES = new Set\(\["CANCELLED", "VOIDED"\]\)/);
+assert.match(source.cancellation, /SECRETARY_TRAVEL_CANCELLATION_STALE_CONFIRMATION_REJECTED/);
+assert.match(source.cancellation, /CONFIRMATION_CANCELLED/);
+assert.match(source.cancellation, /CONFIRMATION_VOIDED/);
+assert.match(source.cancellation, /replay_safe:\s*true/);
+assert.match(source.cancellation, /cancellation_timestamp_inferred:\s*false/);
+assert.match(source.cancellation, /cancellation_inferred:\s*false/);
+assert.match(source.cancellation, /cancellation_intent_is_cancellation:\s*false/);
+assert.match(source.cancellation, /cancellation_request_sent:\s*false/);
+assert.match(source.cancellation, /cancellation_fee_commitment_created:\s*false/);
+assert.match(source.cancellation, /refund_settlement_authority_created:\s*false/);
+assert.match(source.cancellation, /rebooking_authority_created:\s*false/);
+assert.match(source.cancellation, /booking_authority_created:\s*false/);
+assert.match(source.cancellation, /payment_authority_created:\s*false/);
+assert.match(source.cancellation, /binding_authority_created:\s*false/);
+assert.match(source.cancellation, /approval_authority_delegated:\s*false/);
+assert.match(source.cancellation, /platform_permissions_mutated:\s*false/);
+assert.match(source.cancellation, /external_authority_used:\s*false/);
+assert.match(source.cancellation, /scope:\s*"TRAVEL_COORDINATION"/);
+
+assert.match(source.readV2, /AVANTIQO_EXECUTIVE_SECRETARY_TRAVEL_OPERATIONS_READ_V2/);
+assert.match(source.readV2, /readSecretaryTravelOperations/);
+assert.match(source.readV2, /row\.status === "CANCELLED" \|\| row\.status === "VOIDED"/);
+assert.match(source.readV2, /cancelled_confirmations:\s*cancelled/);
+assert.match(source.readV2, /cancellation_history:/);
+assert.match(source.readV2, /cancelled_items:/);
+assert.match(source.readV2, /voided_items:/);
+assert.match(source.readV2, /cancellation_intent_is_cancellation:\s*false/);
+assert.match(source.readV2, /cancellation_fee_commitment_created:\s*false/);
+assert.match(source.readV2, /refund_settlement_authority_created:\s*false/);
+assert.match(source.readV2, /rebooking_authority_created:\s*false/);
+
 assert.match(source.capability, /capability:\s*"secretary_travel_operations"/);
-for (const action of ["read", "recordConfirmation", "correctConfirmation", "recordDisruption", "createReminder"]) {
+for (const action of ["read", "recordConfirmation", "correctConfirmation", "recordCancellation", "recordDisruption", "createReminder"]) {
   assert.match(source.capability, new RegExp(`${action}:\\s*\\{`));
 }
-assert.match(source.capability, /Researched options are never treated as confirmations/i);
+assert.match(source.capability, /readSecretaryTravelOperationsV2/);
+assert.match(source.capability, /recordSecretaryTravelCancellation/);
+assert.match(source.capability, /cancellation intent are never treated as confirmations or completed cancellations/i);
+assert.match(source.capability, /does not send a cancellation request/i);
+assert.match(source.capability, /settle a refund/i);
+assert.match(source.capability, /replacement booking/i);
 assert.match(source.capability, /creates no booking, payment or commercial authority/i);
 assert.match(source.capability, /preserving the superseded confirmation and correction history/i);
 assert.match(source.capability, /No travel time, check-in time, transfer time or deadline is guessed/i);
@@ -65,6 +107,7 @@ assert.match(source.platform, /createSecretaryTravelOperationsCapability/);
 assert.match(source.platform, /secretary_travel_operations:\s*\{/);
 assert.match(source.platform, /recordConfirmation:\s*async \(\) => createSecretaryTravelOperationsCapability\("recordConfirmation"\)/);
 assert.match(source.platform, /correctConfirmation:\s*async \(\) => createSecretaryTravelOperationsCapability\("correctConfirmation"\)/);
+assert.match(source.platform, /recordCancellation:\s*async \(\) => createSecretaryTravelOperationsCapability\("recordCancellation"\)/);
 assert.match(source.platform, /recordDisruption:\s*async \(\) => createSecretaryTravelOperationsCapability\("recordDisruption"\)/);
 assert.match(source.platform, /createReminder:\s*async \(\) => createSecretaryTravelOperationsCapability\("createReminder"\)/);
 
@@ -78,6 +121,17 @@ console.log("SECRETARY_TRAVEL_OPERATIONS_CONFIRMATION_NOT_INFERRED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_TIMESTAMP_NOT_INFERRED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_DISRUPTION_IMPACT_NOT_INFERRED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_LIVE_COVERAGE_ROUTING=true");
+console.log("SECRETARY_TRAVEL_CANCELLATION_EVIDENCE_REQUIRED=true");
+console.log("SECRETARY_TRAVEL_CANCELLATION_TIMESTAMP_INFERRED=false");
+console.log("SECRETARY_TRAVEL_CANCELLATION_INTENT_IS_CANCELLATION=false");
+console.log("SECRETARY_TRAVEL_CANCELLATION_REQUEST_SENT=false");
+console.log("SECRETARY_TRAVEL_CANCELLATION_HISTORY_PRESERVED=true");
+console.log("SECRETARY_TRAVEL_CANCELLATION_STALE_CONFIRMATION_FENCED=true");
+console.log("SECRETARY_TRAVEL_CANCELLATION_REPLAY_SAFE=true");
+console.log("SECRETARY_TRAVEL_CANCELLATION_NOT_ACTIVE=true");
+console.log("SECRETARY_TRAVEL_CANCELLATION_FEE_COMMITMENT_CREATED=false");
+console.log("SECRETARY_TRAVEL_REFUND_SETTLEMENT_AUTHORITY_CREATED=false");
+console.log("SECRETARY_TRAVEL_REBOOKING_AUTHORITY_CREATED=false");
 console.log("SECRETARY_TRAVEL_OPERATIONS_PLATFORM_PERMISSIONS_MUTATED=false");
 console.log("SECRETARY_TRAVEL_OPERATIONS_BINDING_AUTHORITY_CREATED=false");
 console.log("SECRETARY_TRAVEL_OPERATIONS_APPROVAL_AUTHORITY_DELEGATED=false");

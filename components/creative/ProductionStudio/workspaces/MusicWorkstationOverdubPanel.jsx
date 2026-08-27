@@ -5,6 +5,7 @@ import { CircleStop, Headphones, Mic2, Radio, ShieldCheck } from "lucide-react";
 
 import { startMusicRawPcmCapture } from "@/lib/creative/music/client/MusicRawPcmCapture";
 import { startMusicMultitrackPreview } from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
+import MusicTakeLaneCompPanel from "./MusicTakeLaneCompPanel";
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -127,6 +128,24 @@ export default function MusicWorkstationOverdubPanel({
     return body;
   }
 
+  async function saveMultitrackSession(nextSession, errorCode) {
+    const response = await fetch("/api/creative/music/multitrack", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "save",
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        session: nextSession,
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok || body.success === false) {
+      throw new Error(body.error || errorCode);
+    }
+    return body;
+  }
+
   async function persistWorkstationBeforeRecording() {
     const submitted = structuredClone(session);
     submitted.timeline = {
@@ -136,21 +155,29 @@ export default function MusicWorkstationOverdubPanel({
       loop_start_seconds: loopStart,
       loop_end_seconds: loopEnd,
     };
-    const response = await fetch("/api/creative/music/multitrack", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "save",
-        organization_id: organizationId,
-        creative_project_id: projectId,
-        session: submitted,
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok || body.success === false) {
-      throw new Error(body.error || "CREATIVE_MUSIC_OVERDUB_PRE_RECORD_SAVE_FAILED");
+    return saveMultitrackSession(submitted, "CREATIVE_MUSIC_OVERDUB_PRE_RECORD_SAVE_FAILED");
+  }
+
+  async function persistCompTrack(nextTrack) {
+    if (!session || !nextTrack?.id) return;
+    setError("");
+    try {
+      const submitted = structuredClone(session);
+      const index = submitted.tracks.findIndex((track) => track.id === nextTrack.id);
+      if (index < 0) throw new Error("CREATIVE_MUSIC_COMP_TRACK_NOT_FOUND");
+      submitted.tracks[index] = nextTrack;
+      submitted.timeline = {
+        ...(submitted.timeline || {}),
+        playhead_seconds: playhead,
+        loop_enabled: loopEnabled,
+        loop_start_seconds: loopStart,
+        loop_end_seconds: loopEnd,
+      };
+      await saveMultitrackSession(submitted, "CREATIVE_MUSIC_COMP_SAVE_FAILED");
+      await onReload?.();
+    } catch (cause) {
+      setError(cause?.message || "Comp change could not be saved");
     }
-    return body;
   }
 
   async function savePass(take, passIndex, startSeconds) {
@@ -236,7 +263,6 @@ export default function MusicWorkstationOverdubPanel({
       await playCountIn({ bpm, bars: countInBars, signature });
       if (cancelledRef.current) return;
 
-      // Discard mic frames gathered while the device was opening/counting in.
       await capture.splitPass({ allowEmpty: true });
 
       if (loopEnabled) {
@@ -269,7 +295,6 @@ export default function MusicWorkstationOverdubPanel({
           await savePass(take, 0, region.start);
           setSavedPasses(1);
         } else {
-          // Open-ended overdub is stopped explicitly by the musician.
           return;
         }
       }
@@ -314,49 +339,58 @@ export default function MusicWorkstationOverdubPanel({
   }
 
   return (
-    <div className="rounded-2xl border border-red-400/15 bg-red-400/[0.025] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-red-200/70"><Mic2 className="h-3.5 w-3.5" /> Overdub recorder</div>
-          <div className="mt-1 text-xs text-white/55">{selectedTrack ? `${selectedTrack.name} · ${region.mode}` : "Select and arm a track"}</div>
+    <>
+      <div className="rounded-2xl border border-red-400/15 bg-red-400/[0.025] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-red-200/70"><Mic2 className="h-3.5 w-3.5" /> Overdub recorder</div>
+            <div className="mt-1 text-xs text-white/55">{selectedTrack ? `${selectedTrack.name} · ${region.mode}` : "Select and arm a track"}</div>
+          </div>
+          <div className={`rounded-lg border px-2 py-1 text-[9px] ${armed ? "border-red-300/20 text-red-100/70" : "border-white/8 text-white/25"}`}>{armed ? "ARMED" : "NOT ARMED"}</div>
         </div>
-        <div className={`rounded-lg border px-2 py-1 text-[9px] ${armed ? "border-red-300/20 text-red-100/70" : "border-white/8 text-white/25"}`}>{armed ? "ARMED" : "NOT ARMED"}</div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Input
+            <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-xs text-white/60">
+              {!devices.length ? <option value="">Default audio input</option> : devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `Audio input ${index + 1}`}</option>)}
+            </select>
+          </label>
+          <label className="block text-[9px] uppercase tracking-[0.14em] text-white/25">Count-in bars
+            <input type="number" min="0" max="8" value={countInBars} onChange={(event) => setCountInBars(Math.max(0, Math.min(8, Math.round(finite(event.target.value, 1)))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
+          </label>
+          {loopEnabled ? <label className="block text-[9px] uppercase tracking-[0.14em] text-white/25">Loop passes
+            <input type="number" min="1" max="20" value={loopPasses} onChange={(event) => setLoopPasses(Math.max(1, Math.min(20, Math.round(finite(event.target.value, 3)))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
+          </label> : <label className="flex items-center gap-2 self-end rounded-lg border border-white/8 px-2 py-2 text-[10px] text-white/45"><input type="checkbox" checked={punchEnabled} onChange={(event) => setPunchEnabled(event.target.checked)} disabled={recording} className="accent-red-300" /> Punch in/out</label>}
+          <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Recording offset (ms)
+            <input type="number" min="-500" max="500" step="1" value={latencyCompMs} onChange={(event) => setLatencyCompMs(Math.max(-500, Math.min(500, finite(event.target.value, 0))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
+            <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">Measured/manual compensation; 0 ms means no assumed microphone latency correction.</span>
+          </label>
+        </div>
+
+        {!loopEnabled && punchEnabled ? <div className="mt-3 grid grid-cols-2 gap-3"><input type="number" step="0.1" value={punchStart} onChange={(event) => setPunchStart(Math.max(0, finite(event.target.value, 0)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /><input type="number" step="0.1" value={punchEnd} onChange={(event) => setPunchEnd(Math.max(punchStart + 0.1, finite(event.target.value, punchStart + 1)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /></div> : null}
+
+        <div className="mt-4 rounded-xl border border-white/7 bg-black/25 p-3">
+          <div className="flex items-center justify-between text-[9px] text-white/30"><span>PEAK {formatDb(meter.peak_dbfs)}</span><span>RMS {formatDb(meter.rms_dbfs)}</span></div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full bg-current text-red-200/65 transition-all" style={{ width: `${Math.max(0, Math.min(100, ((finite(meter.peak_dbfs, -60) + 60) / 60) * 100))}%` }} /></div>
+          <div className="mt-2 flex items-center justify-between text-[9px]"><span className={meter.clipping ? "text-red-200" : "text-emerald-100/50"}>{meter.clipping ? "CLIPPING — lower input gain" : phase}</span><span className="text-white/22">{savedPasses ? `${savedPasses} take${savedPasses === 1 ? "" : "s"} saved` : "24-bit raw PCM"}</span></div>
+        </div>
+
+        {error ? <div className="mt-3 text-[10px] text-red-100/70">{error}</div> : null}
+
+        <div className="mt-4 flex gap-2">
+          {!recording ? <button type="button" disabled={!armed || !selectedTrack} onClick={begin} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/[0.09] px-3 py-2.5 text-xs font-medium text-red-100 disabled:opacity-25"><Radio className="h-4 w-4" /> Record / Overdub</button> : <button type="button" onClick={stopOpenEnded} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/30 bg-red-400/[0.12] px-3 py-2.5 text-xs font-medium text-red-100"><CircleStop className="h-4 w-4" /> Stop & save</button>}
+        </div>
+
+        <div className="mt-3 flex items-start gap-2 text-[9px] leading-4 text-white/25"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-100/40" />Project revision is persisted before capture. Each pass is a new immutable WAV/take; browser AGC, echo cancellation and noise suppression stay disabled.</div>
+        <div className="mt-2 flex items-center gap-2 text-[9px] text-white/20"><Headphones className="h-3.5 w-3.5" />Backing project playback follows the recording range; original recordings are never overwritten.</div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Input
-          <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-[#0a0a0a] px-2 py-2 text-xs text-white/60">
-            {!devices.length ? <option value="">Default audio input</option> : devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `Audio input ${index + 1}`}</option>)}
-          </select>
-        </label>
-        <label className="block text-[9px] uppercase tracking-[0.14em] text-white/25">Count-in bars
-          <input type="number" min="0" max="8" value={countInBars} onChange={(event) => setCountInBars(Math.max(0, Math.min(8, Math.round(finite(event.target.value, 1)))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
-        </label>
-        {loopEnabled ? <label className="block text-[9px] uppercase tracking-[0.14em] text-white/25">Loop passes
-          <input type="number" min="1" max="20" value={loopPasses} onChange={(event) => setLoopPasses(Math.max(1, Math.min(20, Math.round(finite(event.target.value, 3)))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
-        </label> : <label className="flex items-center gap-2 self-end rounded-lg border border-white/8 px-2 py-2 text-[10px] text-white/45"><input type="checkbox" checked={punchEnabled} onChange={(event) => setPunchEnabled(event.target.checked)} disabled={recording} className="accent-red-300" /> Punch in/out</label>}
-        <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Recording offset (ms)
-          <input type="number" min="-500" max="500" step="1" value={latencyCompMs} onChange={(event) => setLatencyCompMs(Math.max(-500, Math.min(500, finite(event.target.value, 0))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
-          <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">Measured/manual compensation; 0 ms means no assumed microphone latency correction.</span>
-        </label>
-      </div>
-
-      {!loopEnabled && punchEnabled ? <div className="mt-3 grid grid-cols-2 gap-3"><input type="number" step="0.1" value={punchStart} onChange={(event) => setPunchStart(Math.max(0, finite(event.target.value, 0)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /><input type="number" step="0.1" value={punchEnd} onChange={(event) => setPunchEnd(Math.max(punchStart + 0.1, finite(event.target.value, punchStart + 1)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /></div> : null}
-
-      <div className="mt-4 rounded-xl border border-white/7 bg-black/25 p-3">
-        <div className="flex items-center justify-between text-[9px] text-white/30"><span>PEAK {formatDb(meter.peak_dbfs)}</span><span>RMS {formatDb(meter.rms_dbfs)}</span></div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full bg-current text-red-200/65 transition-all" style={{ width: `${Math.max(0, Math.min(100, ((finite(meter.peak_dbfs, -60) + 60) / 60) * 100))}%` }} /></div>
-        <div className="mt-2 flex items-center justify-between text-[9px]"><span className={meter.clipping ? "text-red-200" : "text-emerald-100/50"}>{meter.clipping ? "CLIPPING — lower input gain" : phase}</span><span className="text-white/22">{savedPasses ? `${savedPasses} take${savedPasses === 1 ? "" : "s"} saved` : "24-bit raw PCM"}</span></div>
-      </div>
-
-      {error ? <div className="mt-3 text-[10px] text-red-100/70">{error}</div> : null}
-
-      <div className="mt-4 flex gap-2">
-        {!recording ? <button type="button" disabled={!armed || !selectedTrack} onClick={begin} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/[0.09] px-3 py-2.5 text-xs font-medium text-red-100 disabled:opacity-25"><Radio className="h-4 w-4" /> Record / Overdub</button> : <button type="button" onClick={stopOpenEnded} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/30 bg-red-400/[0.12] px-3 py-2.5 text-xs font-medium text-red-100"><CircleStop className="h-4 w-4" /> Stop & save</button>}
-      </div>
-
-      <div className="mt-3 flex items-start gap-2 text-[9px] leading-4 text-white/25"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-100/40" />Project revision is persisted before capture. Each pass is a new immutable WAV/take; browser AGC, echo cancellation and noise suppression stay disabled.</div>
-      <div className="mt-2 flex items-center gap-2 text-[9px] text-white/20"><Headphones className="h-3.5 w-3.5" />Backing project playback follows the recording range; original recordings are never overwritten.</div>
-    </div>
+      <MusicTakeLaneCompPanel
+        track={selectedTrack}
+        assetUrls={assetUrls}
+        disabled={recording}
+        onChange={persistCompTrack}
+      />
+    </>
   );
 }

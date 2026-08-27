@@ -79,6 +79,9 @@ try {
     realtime_relay_client_implemented: true,
     realtime_relay_client_wired_to_operator: false,
     realtime_relay_preflight_implemented: true,
+    realtime_safe_lease_implemented: true,
+    realtime_safe_lease_endpoint_type: "LOAD_BALANCER",
+    realtime_safe_lease_queue_api_allowed: false,
     realtime_relay_required: true,
     thai_synthesis: "FAIL_CLOSED_UNTIL_CERTIFIED",
   }, null, 2));

@@ -20,7 +20,7 @@ assert.match(graph, /AVANTIQO_MUSIC_GROUP_BUS_PREVIEW_GRAPH_V3/);
 assert.match(graph, /group_processing: true/);
 assert.match(graph, /createDynamicsCompressor/);
 assert.match(graph, /post_fader_metering: true/);
-assert.match(preview, /AVANTIQO_MUSIC_MULTITRACK_BROWSER_PREVIEW_V13/);
+assert.match(preview, /AVANTIQO_MUSIC_MULTITRACK_BROWSER_PREVIEW_V14/);
 assert.match(preview, /group_bus_metering: true/);
 assert.match(preview, /AVANTIQO_MUSIC_LIVE_ENGINEERING_METER_V6/);
 assert.match(panel, /Bus EQ/);

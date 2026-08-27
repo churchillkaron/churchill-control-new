@@ -50,12 +50,7 @@ export default function MusicReleaseRenderPanel({
     if (!organizationId || !projectId || !session) return;
     setError("");
     try {
-      const response = await request({
-        action: "plan",
-        organization_id: organizationId,
-        creative_project_id: projectId,
-        options,
-      });
+      const response = await request({ action: "plan", organization_id: organizationId, creative_project_id: projectId, options });
       setPlan(response.plan || null);
     } catch (cause) {
       setError(cause?.message || "Release plan could not be prepared.");
@@ -82,11 +77,7 @@ export default function MusicReleaseRenderPanel({
       }
 
       setStatus("OFFLINE RENDERING FULL MIX");
-      const rendered = await renderMusicMultitrackOffline({
-        session,
-        assetUrls,
-        expectedDurationSeconds: currentPlan.duration_seconds,
-      });
+      const rendered = await renderMusicMultitrackOffline({ session, assetUrls, expectedDurationSeconds: currentPlan.duration_seconds });
 
       const safeTitle = String(session.title || "music")
         .replace(/[^A-Za-z0-9._-]+/g, "-")
@@ -104,6 +95,7 @@ export default function MusicReleaseRenderPanel({
         size_bytes: rendered.blob.size,
         options,
       });
+      if (target.render_plan_fingerprint !== planned.render_plan_fingerprint) throw new Error("CREATIVE_MUSIC_RELEASE_PLAN_CHANGED_BEFORE_UPLOAD");
 
       setStatus("UPLOADING 24-BIT PRE-MASTER");
       const upload = await fetch(target.upload_url, {
@@ -119,6 +111,7 @@ export default function MusicReleaseRenderPanel({
         organization_id: organizationId,
         creative_project_id: projectId,
         expected_revision: revision,
+        render_plan_fingerprint: target.render_plan_fingerprint,
         storage_reference: target.storage_reference,
         file_name: fileName,
         title: `${session.title || "Music Project"} — Pre-master`,

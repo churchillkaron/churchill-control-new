@@ -84,3 +84,14 @@ test("Music transform benchmark is Node 20 safe and storage-only", () => {
   assert.match(benchmark, /source_asset_roles: \{ source_audio: sourceSignedUrl \}/);
   assert.match(benchmark, /storage_upload: \{ signed_url: outputSignedUrl, storage_reference: outputReference \}/);
 });
+
+test("Music transform launcher resolves candidate endpoint by exact name", () => {
+  assert.match(launcher, /CANDIDATE_ENDPOINT_NAME = "avantiqo-music-transform-candidate-v1"/);
+  assert.match(launcher, /PRODUCTION_AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1"/);
+  assert.match(launcher, /resolveCandidateEndpointId/);
+  assert.match(launcher, /CANDIDATE_ENDPOINT_RESOLUTION_FAILED:matches=/);
+  assert.match(launcher, /CANDIDATE_PRODUCTION_AUDIO_COLLISION/);
+  assert.match(launcher, /CANDIDATE_CONFIGURED_ENDPOINT_ID_STALE/);
+  assert.match(launcher, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID: candidateEndpointId/);
+  assert.doesNotMatch(launcher, /required\("RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID"\)/);
+});

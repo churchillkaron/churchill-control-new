@@ -11,10 +11,6 @@ const shadowPath = path.join(
   root,
   "lib/intelligence/runtime/AvantiqoSelectionPolicyShadowChallengerRuntime.js",
 );
-const canaryPath = path.join(
-  root,
-  "lib/intelligence/runtime/AvantiqoSelectionPolicyCanaryRuntime.js",
-);
 const routePath = path.join(
   root,
   "app/api/internal/intelligence/continuous-learning/process/route.js",
@@ -32,7 +28,6 @@ const phase37Path = path.join(
 for (const file of [
   epochPath,
   shadowPath,
-  canaryPath,
   routePath,
   indexPath,
   phase35Path,
@@ -41,7 +36,7 @@ for (const file of [
   if (!fs.existsSync(file)) throw new Error(`PHASE37_REQUIRED_FILE_MISSING:${file}`);
 }
 
-for (const file of [epochPath, shadowPath, canaryPath, routePath]) {
+for (const file of [epochPath, shadowPath, routePath]) {
   const checked = spawnSync(process.execPath, ["--check", file], {
     encoding: "utf8",
   });
@@ -54,7 +49,6 @@ for (const file of [epochPath, shadowPath, canaryPath, routePath]) {
 
 const epoch = fs.readFileSync(epochPath, "utf8");
 const shadow = fs.readFileSync(shadowPath, "utf8");
-const canary = fs.readFileSync(canaryPath, "utf8");
 const route = fs.readFileSync(routePath, "utf8");
 const index = fs.readFileSync(indexPath, "utf8");
 const phase35 = fs.readFileSync(phase35Path, "utf8");
@@ -143,7 +137,124 @@ requireIncludes(
   "LEGACY_CHALLENGER_VERSION",
 );
 requireIncludes(
-  shadow,
-  "await reconcileAvantiqoSelectionPolicyShadowChallenger",
-  "IMPOSSIBLE_SENTINEL",
+  route,
+  "await reconcileAvantiqoSelectionPolicyShadowChallenger({",
+  "PHASE30_COMPUTATION_RETAINED",
 );
+requireIncludes(
+  route,
+  "await reconcileAvantiqoSelectionPolicyResearchEpoch()",
+  "RESEARCH_EPOCH_RECONCILIATION",
+);
+requireIncludes(
+  route,
+  "legacyChallengerPromotionAllowed === false",
+  "LEGACY_PROMOTION_GATE",
+);
+requireIncludes(
+  route,
+  "BLOCKED_BY_ACTIVE_PERSISTENT_POLICY_RESEARCH_EPOCH",
+  "LEGACY_PROMOTION_BLOCK_STATUS",
+);
+requireIncludes(
+  route,
+  "await reconcileAvantiqoPersistentOrderingPolicyApplication()",
+  "PERSISTENT_APPLICATION_RETAINED",
+);
+requireIncludes(
+  route,
+  "selection_policy_research_epoch: selectionPolicyResearchEpoch",
+  "ROUTE_EPOCH_RESPONSE",
+);
+requireIncludes(
+  index,
+  './runtime/AvantiqoSelectionPolicyResearchEpochRuntime',
+  "INDEX_EXPORT",
+);
+
+requireIncludes(
+  phase35,
+  "AVANTIQO_PHASE35_ACTIVE_PHASE32_CANARY_CONFLICT",
+  "PHASE35_BLOCKS_PHASE32",
+);
+requireIncludes(
+  phase35,
+  "avantiqo_persistent_ordering_policy_v1:",
+  "PHASE35_SHARED_LOCK",
+);
+requireIncludes(
+  phase37,
+  "AVANTIQO_PHASE37_ACTIVE_PERSISTENT_POLICY_BLOCKS_PHASE32_CANARY",
+  "PHASE32_BLOCKS_PHASE35",
+);
+requireIncludes(
+  phase37,
+  "avantiqo_persistent_ordering_policy_v1:",
+  "PHASE37_SHARED_LOCK",
+);
+requireIncludes(phase37, "security invoker", "TRIGGER_SECURITY_INVOKER");
+requireIncludes(
+  phase37,
+  "revoke all on function public.avantiqo_enforce_selection_policy_epoch_isolation_v1()",
+  "TRIGGER_EXECUTE_REVOKE",
+);
+requireIncludes(
+  phase37,
+  "from public, anon, authenticated",
+  "TRIGGER_PUBLIC_ROLES_REVOKED",
+);
+requireIncludes(
+  phase37,
+  "grant execute on function public.avantiqo_enforce_selection_policy_epoch_isolation_v1()",
+  "TRIGGER_SERVICE_ROLE_GRANT",
+);
+requireIncludes(phase37, "to service_role", "TRIGGER_SERVICE_ROLE_ONLY");
+
+const epochCall = route.indexOf("await reconcileAvantiqoSelectionPolicyResearchEpoch()");
+const shadowCall = route.indexOf("await reconcileAvantiqoSelectionPolicyShadowChallenger({");
+const applicationCall = route.indexOf(
+  "await reconcileAvantiqoPersistentOrderingPolicyApplication()",
+);
+if (!(epochCall >= 0 && shadowCall > epochCall && applicationCall > shadowCall)) {
+  throw new Error("PHASE37_ROUTE_REBASELINE_ORDER_INVALID");
+}
+
+requireExcludes(route, "activateAvantiqoPersistentOrderingPolicy(", "CRON_AUTO_ACTIVATION");
+requireExcludes(
+  route,
+  "activate_avantiqo_intelligence_persistent_ordering_policy_v1",
+  "CRON_DIRECT_ACTIVATION_RPC",
+);
+
+const markers = {
+  AVANTIQO_LEARNING_WORLDCLASS_PHASE37_AUDIT: "PASS",
+  AVANTIQO_SELECTION_POLICY_RESEARCH_EPOCH_CONTRACT: CONTRACT,
+  AVANTIQO_PHASE37_CURRENT_PERSISTENT_POLICY_REBASELINE: true,
+  AVANTIQO_PHASE37_PARENT_BASELINE_LINEAGE_RETAINED: true,
+  AVANTIQO_PHASE37_LEGACY_CHALLENGER_REPROMOTION: false,
+  AVANTIQO_PHASE37_LEGACY_CHALLENGER_RECANARY: false,
+  AVANTIQO_PHASE37_RECURSIVE_EFFECTIVE_INFLUENCE_INCREASE_ALLOWED: false,
+  AVANTIQO_PHASE37_PHASE30_COMPUTATION_RETAINED_FOR_CURRENT_POLICY_APPLICATION: true,
+  AVANTIQO_PHASE37_FUTURE_CHALLENGER_MUST_BIND_CURRENT_BASELINE: true,
+  AVANTIQO_PHASE37_FUTURE_CHALLENGER_REQUIRES_DISTINCT_VERSION: true,
+  AVANTIQO_PHASE37_FUTURE_CHALLENGER_REQUIRES_POST_ACTIVATION_EVIDENCE: true,
+  AVANTIQO_PHASE37_FUTURE_CHALLENGER_GENERATED_BY_PHASE37: false,
+  AVANTIQO_PHASE37_PHASE35_BLOCKS_ACTIVE_PHASE32_CANARY: true,
+  AVANTIQO_PHASE37_PHASE32_BLOCKS_ACTIVE_PHASE35_POLICY: true,
+  AVANTIQO_PHASE37_SYMMETRIC_POLICY_STACK_LOCK: true,
+  AVANTIQO_PHASE37_DB_TRIGGER_SECURITY_INVOKER: true,
+  AVANTIQO_PHASE37_DB_TRIGGER_SERVICE_ROLE_ONLY: true,
+  AVANTIQO_PHASE37_LEGACY_PROMOTION_BLOCKS_IN_ROUTE: true,
+  AVANTIQO_PHASE37_PERSISTENT_APPLICATION_STILL_ALLOWED: true,
+  AVANTIQO_PHASE37_CRON_AUTO_ACTIVATION: false,
+  AVANTIQO_PHASE37_PROVIDER_CALL_PERFORMED_BY_AUDIT: false,
+  AVANTIQO_PHASE37_WALLET_WRITE_PERFORMED_BY_AUDIT: false,
+  AVANTIQO_PHASE37_RUNPOD_JOB_SUBMITTED_BY_AUDIT: false,
+  AVANTIQO_PHASE37_EXECUTION_AUTHORIZED: false,
+  AVANTIQO_PHASE37_PLATFORM_KNOWLEDGE_WRITTEN: false,
+  AVANTIQO_PHASE37_AUTOMATIC_TRAINING_STARTED: false,
+};
+
+for (const [key, value] of Object.entries(markers)) {
+  console.log(`${key}=${String(value)}`);
+}

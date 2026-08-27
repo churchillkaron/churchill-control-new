@@ -99,19 +99,26 @@ function topology(template = {}) {
   const startCmd = command(template?.dockerStartCmd);
   const env = safeEnvSummary(template?.env);
   const commandText = [...entrypoint, ...startCmd].join(" ");
-  const combinedSafeSignals = JSON.stringify({ commandText, env });
-  const runpodReference = /runpod/i.test(combinedSafeSignals);
-  const serverlessReference = /serverless/i.test(combinedSafeSignals);
-  const vllmReference = /vllm|api_server|openai/i.test(combinedSafeSignals);
+  const commandRunpodReference = /runpod/i.test(commandText);
+  const commandServerlessReference = /serverless/i.test(commandText);
   const pythonHandlerReference = /handler\.py|python\s+[^ ]*handler|python3\s+[^ ]*handler/i.test(commandText);
+  const envRunpodReference = env.some((item) => item.runpod_reference || /runpod/i.test(item.key));
+  const envServerlessReference = env.some((item) => item.serverless_reference || /serverless/i.test(item.key));
+  const envVllmReference = env.some((item) => item.vllm_reference || /vllm|api_server|openai/i.test(item.key));
+  const vllmReference = /vllm|api_server|openai/i.test(commandText) || envVllmReference;
+  const explicitServerlessStartup = commandRunpodReference || commandServerlessReference || pythonHandlerReference;
+  const deepModelBinding = commandText.includes(DEEP_MODEL) || env.some((item) => item.deep_model_binding);
+  const fastModelBinding = commandText.includes(FAST_MODEL) || env.some((item) => item.fast_model_binding);
+
   let classification = "CONTAINER_STARTUP_TOPOLOGY_AMBIGUOUS";
-  if (vllmReference && !runpodReference && !serverlessReference && !pythonHandlerReference) {
-    classification = "DIRECT_VLLM_STARTUP_NO_EXPLICIT_SERVERLESS_WRAPPER";
-  } else if (runpodReference || serverlessReference || pythonHandlerReference) {
-    classification = "EXPLICIT_SERVERLESS_OR_HANDLER_STARTUP_REFERENCE";
-  } else if (!entrypoint.length && !startCmd.length) {
+  if (!entrypoint.length && !startCmd.length) {
     classification = "IMAGE_DEFAULT_ENTRYPOINT_TOPOLOGY";
+  } else if (vllmReference && !explicitServerlessStartup) {
+    classification = "DIRECT_VLLM_STARTUP_NO_EXPLICIT_SERVERLESS_WRAPPER";
+  } else if (explicitServerlessStartup) {
+    classification = "EXPLICIT_SERVERLESS_OR_HANDLER_STARTUP_REFERENCE";
   }
+
   return {
     image_name: text(template?.imageName, 1000) || null,
     container_disk_gb: finite(template?.containerDiskInGb),
@@ -120,20 +127,23 @@ function topology(template = {}) {
     ports: list(template?.ports),
     volume_gb: finite(template?.volumeInGb),
     volume_mount_path: text(template?.volumeMountPath, 1000) || null,
-    env: env,
+    env,
     signals: {
-      runpod_reference: runpodReference,
-      serverless_reference: serverlessReference,
+      command_runpod_reference: commandRunpodReference,
+      command_serverless_reference: commandServerlessReference,
+      env_runpod_reference: envRunpodReference,
+      env_serverless_reference: envServerlessReference,
       vllm_reference: vllmReference,
       python_handler_reference: pythonHandlerReference,
-      deep_model_binding: combinedSafeSignals.includes(DEEP_MODEL),
-      fast_model_binding: combinedSafeSignals.includes(FAST_MODEL),
+      explicit_serverless_startup: explicitServerlessStartup,
+      deep_model_binding: deepModelBinding,
+      fast_model_binding: fastModelBinding,
     },
     classification,
   };
 }
 
-function differenceFields(left, right) {
+function computeDifferenceFields(left, right) {
   const fields = [
     "image_name",
     "docker_entrypoint",
@@ -157,7 +167,7 @@ const deepTemplate = resolveTemplate(deepEndpoint, templatesRaw);
 const fastTemplate = resolveTemplate(fastEndpoint, templatesRaw);
 const deep = topology(deepTemplate);
 const fast = topology(fastTemplate);
-const differenceFields = differenceFields(deep, fast);
+const topologyDifferenceFields = computeDifferenceFields(deep, fast);
 
 console.log(JSON.stringify({
   success: true,
@@ -177,7 +187,7 @@ console.log(JSON.stringify({
   },
   deep_template: deep,
   fast_template: fast,
-  topology_difference_fields: differenceFields,
+  topology_difference_fields: topologyDifferenceFields,
   image_identity_equal: deep.image_name === fast.image_name,
   deep_startup_classification: deep.classification,
   inference_performed: false,

@@ -67,14 +67,8 @@ import {
   reconcileAvantiqoExperimentEstimatorCalibration,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentEstimatorCalibrationRuntime";
 import {
-  reconcileAvantiqoActiveExperimentSelection,
-} from "@/lib/intelligence/runtime/AvantiqoActiveExperimentSelectionRuntime";
-import {
-  reconcileAvantiqoEstimatorCalibratedSelectionGuard,
-} from "@/lib/intelligence/runtime/AvantiqoEstimatorCalibratedSelectionGuardRuntime";
-import {
-  reconcileAvantiqoAssessorCalibratedEstimatorSelectionGuard,
-} from "@/lib/intelligence/runtime/AvantiqoAssessorCalibratedEstimatorSelectionGuardRuntime";
+  reconcileAvantiqoCalibrationBackfilledExperimentPortfolio,
+} from "@/lib/intelligence/runtime/AvantiqoCalibrationBackfilledExperimentPortfolioRuntime";
 import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
@@ -94,8 +88,6 @@ export async function GET(request) {
     const url = new URL(request.url);
     const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || 1, 3));
 
-    // Closed-loop learning order. All trust/calibration stages are provider-free and
-    // can only remove qualification or create evidence/holds; none can authorize execution.
     const internalProductKnowledge = await syncAvantiqoInternalProductKnowledge();
     const knowledgeLifecycle = await reconcileAvantiqoKnowledgeLifecycle();
     const learningCoverage = await reconcileAvantiqoLearningCoverage();
@@ -121,22 +113,31 @@ export async function GET(request) {
       await reconcileAvantiqoNegativeTransferEvidenceClock();
     const learningTransferRevision = await reconcileAvantiqoLearningTransferRevisions();
 
-    // Calibrate post-result assessors first, then estimator calibration can be
-    // independently guarded against assessor-backed false negatives.
     const experimentOutcomeAssessorCalibration =
       await reconcileAvantiqoExperimentOutcomeAssessorCalibration();
     const experimentEstimatorCalibration =
       await reconcileAvantiqoExperimentEstimatorCalibration();
 
-    const activeExperimentSelection = await reconcileAvantiqoActiveExperimentSelection();
+    const calibrationBackfilledExperimentPortfolio =
+      await reconcileAvantiqoCalibrationBackfilledExperimentPortfolio();
+    const activeExperimentSelection =
+      calibrationBackfilledExperimentPortfolio.final_active_experiment_selection || null;
     const estimatorCalibratedSelectionGuard =
-      await reconcileAvantiqoEstimatorCalibratedSelectionGuard();
+      calibrationBackfilledExperimentPortfolio.final_estimator_calibrated_selection_guard || null;
     const assessorCalibratedEstimatorSelectionGuard =
-      await reconcileAvantiqoAssessorCalibratedEstimatorSelectionGuard();
+      calibrationBackfilledExperimentPortfolio.final_assessor_calibrated_estimator_selection_guard || null;
 
-    // Execution requests are generated only after both calibration guards have
-    // had the opportunity to retire unsafe selections fail-closed.
-    const experimentExecutionRequests = await reconcileAvantiqoExperimentExecutionRequests();
+    const experimentExecutionRequests =
+      calibrationBackfilledExperimentPortfolio.execution_request_generation_allowed === true
+        ? await reconcileAvantiqoExperimentExecutionRequests()
+        : {
+            success: true,
+            status: "BLOCKED_PENDING_STABLE_SAFE_EXPERIMENT_PORTFOLIO",
+            execution_request_count: 0,
+            execution_authorized: false,
+            spend_authorized: false,
+          };
+
     const result = await runAvantiqoContinuousLearningBatch({ limit });
 
     return Response.json(
@@ -164,13 +165,21 @@ export async function GET(request) {
         learning_transfer_revision: learningTransferRevision,
         experiment_outcome_assessor_calibration: experimentOutcomeAssessorCalibration,
         experiment_estimator_calibration: experimentEstimatorCalibration,
+        calibration_backfilled_experiment_portfolio:
+          calibrationBackfilledExperimentPortfolio,
         active_experiment_selection: activeExperimentSelection,
         estimator_calibrated_selection_guard: estimatorCalibratedSelectionGuard,
         assessor_calibrated_estimator_selection_guard:
           assessorCalibratedEstimatorSelectionGuard,
         experiment_execution_requests: experimentExecutionRequests,
       },
-      { status: result.success === false ? 207 : 200 },
+      {
+        status:
+          result.success === false ||
+          calibrationBackfilledExperimentPortfolio.success === false
+            ? 207
+            : 200,
+      },
     );
   } catch (error) {
     console.error("AVANTIQO_CONTINUOUS_LEARNING_CRON_FAILED", error);

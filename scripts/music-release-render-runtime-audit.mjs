@@ -12,12 +12,15 @@ const stemPanel = fs.readFileSync("components/creative/ProductionStudio/workspac
 const workstation = fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicMultitrackStudioPanelV2.jsx", "utf8");
 const audioContract = fs.readFileSync("lib/creative/audio/runtime/AudioFinishingContractRuntime.js", "utf8");
 
-assert.match(plan, /AVANTIQO_MUSIC_RELEASE_RENDER_PLAN_V2/);
+assert.match(plan, /AVANTIQO_MUSIC_RELEASE_RENDER_PLAN_V3/);
 assert.match(plan, /AVANTIQO_MUSIC_OFFLINE_AUDIO_RENDERER_V1/);
 assert.match(plan, /SOLO_ACTIVE_RELEASE_BLOCKER/);
 assert.match(plan, /LOOP_CLIP_RELEASE_RENDER_PENDING/);
 assert.match(plan, /REVERSE_CLIP_RENDER_PARITY_PENDING/);
 assert.match(plan, /WARP_RELEASE_RENDER_PENDING/);
+assert.match(plan, /MIDI_TRACKS_REQUIRE_AUDIO_BOUNCE_FOR_RELEASE/);
+assert.match(plan, /explicit_bounce_required: true/);
+assert.match(plan, /silent_midi_omission_forbidden: true/);
 assert.match(plan, /track_stem_render_supported: true/);
 assert.match(plan, /group_stem_render_supported: true/);
 assert.match(plan, /instrumental_render_supported: true/);
@@ -86,3 +89,5 @@ assert.match(workstation, /disabled=\{recording \|\| dirty \|\| busy\}/);
 assert.match(workstation, /Save the Workstation before rendering a release master/);
 
 console.log("AVANTIQO_MUSIC_RELEASE_RENDER_RUNTIME_AUDIT=PASS");
+console.log("AVANTIQO_MUSIC_RELEASE_RENDER_PLAN=V3");
+console.log("AVANTIQO_MUSIC_RELEASE_MIDI_AUDIO_BOUNCE_REQUIRED=true");

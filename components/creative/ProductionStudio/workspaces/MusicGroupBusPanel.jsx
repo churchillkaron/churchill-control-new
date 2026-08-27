@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Layers3, Plus, Trash2 } from "lucide-react";
 import {
   createMusicGroupBus,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/creative/music/runtime/CreativeMusicMixerRoutingRuntime";
 
 const PRESETS = ["Drums", "Guitars", "Backing Vocals", "Keys", "Percussion", "Strings", "Synths"];
+const METER_EVENT = "avantiqo:music-meter";
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -32,11 +34,28 @@ function safeId(name, existingIds) {
   return id;
 }
 
+function meterWidth(peak) {
+  const value = finite(peak, -Infinity);
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, ((value + 60) / 60) * 100));
+}
+
 export default function MusicGroupBusPanel({ session, track, disabled = false, onChange }) {
+  const [liveGroups, setLiveGroups] = useState([]);
   if (!session || !track) return null;
   const normalized = ensureMusicEngineeringBuses(session);
   const groups = normalized.buses.filter((bus) => bus.type === "group");
   const currentTrack = normalized.tracks.find((entry) => entry.id === track.id) || track;
+
+  useEffect(() => {
+    const handle = (event) => {
+      const detail = event?.detail;
+      if (detail?.contract !== "AVANTIQO_MUSIC_LIVE_ENGINEERING_METER_V6") return;
+      setLiveGroups(Array.isArray(detail.groups) ? detail.groups : []);
+    };
+    globalThis.addEventListener?.(METER_EVENT, handle);
+    return () => globalThis.removeEventListener?.(METER_EVENT, handle);
+  }, []);
 
   function commit(mutator) {
     const next = ensureMusicEngineeringBuses(session);
@@ -106,13 +125,16 @@ export default function MusicGroupBusPanel({ session, track, disabled = false, o
         {groups.map((group) => {
           const memberCount = normalized.tracks.filter((entry) => (entry.output_bus_id || "bus-master") === group.id).length;
           const downstreamGroups = groups.filter((candidate) => candidate.id !== group.id);
+          const meter = liveGroups.find((entry) => entry.group_id === group.id) || null;
           return (
-            <div key={group.id} className="rounded-xl border border-white/7 bg-black/15 p-3">
+            <div key={group.id} className={`rounded-xl border p-3 ${meter?.clipping ? "border-red-300/15 bg-red-400/[0.02]" : "border-white/7 bg-black/15"}`}>
               <div className="flex items-center gap-2">
                 <input disabled={disabled} value={group.name} onChange={(event) => updateGroup(group.id, { name: event.target.value })} className="min-w-0 flex-1 rounded-lg border border-white/7 bg-black/20 px-2 py-1.5 text-[9px] text-white/52 disabled:opacity-25" />
                 <span className="text-[8px] text-white/20">{memberCount} track{memberCount === 1 ? "" : "s"}</span>
                 <button type="button" disabled={disabled} onClick={() => removeGroup(group.id)} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/7 text-white/25 hover:text-red-100 disabled:opacity-25"><Trash2 className="h-3 w-3" /></button>
               </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.05]"><div className={`h-full transition-[width] duration-75 ${meter?.clipping ? "bg-red-300/80" : "bg-current text-emerald-100/50"}`} style={{ width: `${meterWidth(meter?.peak_dbfs)}%` }} /></div>
+              <div className="mt-1.5 flex items-center justify-between text-[7px] text-white/20"><span>Peak {Number.isFinite(meter?.peak_dbfs) ? `${meter.peak_dbfs.toFixed(1)} dBFS` : "—"}</span><span>RMS {Number.isFinite(meter?.rms_dbfs) ? `${meter.rms_dbfs.toFixed(1)} dBFS` : "—"}</span><span className={meter?.clipping ? "text-red-200/70" : ""}>{Number.isFinite(meter?.headroom_db) ? `${meter.headroom_db.toFixed(1)} dB HR` : "—"}</span></div>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <label className="block text-[8px] uppercase tracking-[0.12em] text-white/20">Gain<div className="mt-1 flex items-center gap-2"><input type="range" min="-60" max="12" step="0.5" disabled={disabled} value={finite(group.gain_db, 0)} onChange={(event) => updateGroup(group.id, { gain_db: Number(event.target.value) })} className="min-w-0 flex-1 accent-[#d6a66a]" /><span className="w-10 text-right text-[8px] text-white/25">{finite(group.gain_db, 0).toFixed(1)}</span></div></label>
                 <label className="block text-[8px] uppercase tracking-[0.12em] text-white/20">Pan<div className="mt-1 flex items-center gap-2"><input type="range" min="-1" max="1" step="0.01" disabled={disabled} value={finite(group.pan, 0)} onChange={(event) => updateGroup(group.id, { pan: Number(event.target.value) })} className="min-w-0 flex-1 accent-[#d6a66a]" /><span className="w-10 text-right text-[8px] text-white/25">{finite(group.pan, 0).toFixed(2)}</span></div></label>
@@ -125,7 +147,7 @@ export default function MusicGroupBusPanel({ session, track, disabled = false, o
         {!groups.length ? <div className="rounded-xl border border-dashed border-white/8 px-3 py-5 text-center text-[9px] text-white/20">Create a subgroup, then route tracks into it. Example: all drum microphones → Drums → Master.</div> : null}
       </div>
 
-      <div className="mt-3 text-[8px] leading-4 text-white/18">Group routing is non-destructive project state. Nested groups are cycle-checked before Save. Group Solo is intentionally withheld until solo-safe nested routing is implemented.</div>
+      <div className="mt-3 text-[8px] leading-4 text-white/18">Group routing and metering are non-destructive project/runtime state. Nested groups are cycle-checked before Save. Group Solo is intentionally withheld until solo-safe nested routing is implemented.</div>
     </div>
   );
 }

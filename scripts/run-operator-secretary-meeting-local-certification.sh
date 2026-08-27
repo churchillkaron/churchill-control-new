@@ -180,6 +180,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-closeout-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-staff-delegation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-working-preferences-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-travel-operations-local.mjs
 
 echo "SECRETARY_MEETING_LOCAL_CERTIFICATION_WRAPPER=PASS"
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"

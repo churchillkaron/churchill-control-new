@@ -15,12 +15,14 @@ import {
   SlidersHorizontal,
   Sparkles,
   WandSparkles,
+  Waves,
 } from "lucide-react";
 
 import MusicArrangementPanel from "./MusicArrangementPanel";
 import MusicAutoStudioPanel from "./MusicAutoStudioPanel";
 import MusicWorkspace from "./MusicWorkspace";
 import MusicBackingTrackPanel from "./MusicBackingTrackPanel";
+import MusicElasticAudioPanel from "./MusicElasticAudioPanel";
 import MusicMasterStudioPanel from "./MusicMasterStudioPanel";
 import MusicMidiStudioPanel from "./MusicMidiStudioPanel";
 import MusicProducerPanel from "./MusicProducerPanel";
@@ -37,6 +39,7 @@ const MODES = Object.freeze([
   { id: "producer", label: "Producer", icon: WandSparkles },
   { id: "arrange", label: "Arrange", icon: LayoutGrid },
   { id: "midi", label: "MIDI / Piano Roll", icon: KeyboardMusic },
+  { id: "elastic", label: "Elastic Audio", icon: Waves },
   { id: "compose", label: "Compose", icon: Music2 },
   { id: "remix", label: "Remix", icon: RefreshCw },
   { id: "edit", label: "Edit / Repaint", icon: Scissors },
@@ -72,14 +75,8 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
               const Icon = item.icon;
               const active = mode === item.id;
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setMode(item.id)}
-                  className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs transition ${active ? "bg-[#d6a66a]/12 text-[#efd29f]" : "text-white/38 hover:bg-white/[0.04] hover:text-white/68"}`}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {item.label}
+                <button key={item.id} type="button" onClick={() => setMode(item.id)} className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs transition ${active ? "bg-[#d6a66a]/12 text-[#efd29f]" : "text-white/38 hover:bg-white/[0.04] hover:text-white/68"}`}>
+                  <Icon className="h-3.5 w-3.5" />{item.label}
                 </button>
               );
             })}
@@ -87,73 +84,23 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
         </div>
       </div>
 
-      {mode === "auto" ? (
-        <MusicAutoStudioPanel {...specialistProps} />
-      ) : mode === "record" ? (
-        <MusicRecordingStudioPanel {...specialistProps} onSaved={() => runtime.refresh?.()} />
-      ) : mode === "workstation" ? (
-        <MusicUnifiedWorkstationShell
-          organizationId={organizationId}
-          projectId={project?.id || null}
-          projectName={project?.name || project?.title || "Music Project"}
-        />
-      ) : mode === "producer" ? (
-        <MusicProducerPanel
-          organizationId={organizationId}
-          projectId={project?.id || null}
-        />
-      ) : mode === "arrange" ? (
-        <MusicArrangementPanel
-          organizationId={organizationId}
-          projectId={project?.id || null}
-        />
-      ) : mode === "midi" ? (
-        <MusicMidiStudioPanel
-          organizationId={organizationId}
-          projectId={project?.id || null}
-        />
-      ) : mode === "compose" ? (
-        <MusicWorkspace runtime={runtime} editor={editor} />
-      ) : mode === "remix" ? (
-        <div className="mx-auto max-w-6xl p-6">
-          <MusicRemixPanel operation="remix" {...specialistProps} />
-        </div>
-      ) : mode === "edit" ? (
-        <div className="mx-auto max-w-6xl p-6">
-          <MusicRemixPanel operation="edit" {...specialistProps} />
-        </div>
-      ) : mode === "extend" ? (
-        <div className="mx-auto max-w-6xl p-6">
-          <MusicRemixPanel operation="extend" {...specialistProps} />
-        </div>
-      ) : mode === "stems" ? (
-        <div className="mx-auto max-w-6xl p-6">
-          <MusicStemsPanel {...specialistProps} />
-        </div>
-      ) : mode === "backing" ? (
-        <div className="mx-auto max-w-6xl p-6">
-          <MusicBackingTrackPanel
-            {...specialistProps}
-            onComplete={() => runtime.refresh?.()}
-          />
-        </div>
-      ) : mode === "vocal" ? (
-        <MusicSpecialistStudioPanel mode="vocal" {...specialistProps} />
-      ) : mode === "mix" ? (
-        <MusicSpecialistStudioPanel mode="mix" {...specialistProps} />
-      ) : mode === "master" ? (
-        <MusicMasterStudioPanel
-          organizationId={organizationId}
-          projectId={project?.id || null}
-        />
-      ) : (
-        <div className="mx-auto max-w-6xl p-6">
-          <div className="rounded-2xl border border-white/8 bg-black/25 p-6 text-xs text-white/40">
-            <AudioLines className="mb-3 h-5 w-5 text-[#d6a66a]/70" />
-            Music Studio mode unavailable.
-          </div>
-        </div>
-      )}
+      {mode === "auto" ? <MusicAutoStudioPanel {...specialistProps} />
+      : mode === "record" ? <MusicRecordingStudioPanel {...specialistProps} onSaved={() => runtime.refresh?.()} />
+      : mode === "workstation" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} />
+      : mode === "producer" ? <MusicProducerPanel organizationId={organizationId} projectId={project?.id || null} />
+      : mode === "arrange" ? <MusicArrangementPanel organizationId={organizationId} projectId={project?.id || null} />
+      : mode === "midi" ? <MusicMidiStudioPanel organizationId={organizationId} projectId={project?.id || null} />
+      : mode === "elastic" ? <MusicElasticAudioPanel organizationId={organizationId} projectId={project?.id || null} />
+      : mode === "compose" ? <MusicWorkspace runtime={runtime} editor={editor} />
+      : mode === "remix" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="remix" {...specialistProps} /></div>
+      : mode === "edit" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="edit" {...specialistProps} /></div>
+      : mode === "extend" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="extend" {...specialistProps} /></div>
+      : mode === "stems" ? <div className="mx-auto max-w-6xl p-6"><MusicStemsPanel {...specialistProps} /></div>
+      : mode === "backing" ? <div className="mx-auto max-w-6xl p-6"><MusicBackingTrackPanel {...specialistProps} onComplete={() => runtime.refresh?.()} /></div>
+      : mode === "vocal" ? <MusicSpecialistStudioPanel mode="vocal" {...specialistProps} />
+      : mode === "mix" ? <MusicSpecialistStudioPanel mode="mix" {...specialistProps} />
+      : mode === "master" ? <MusicMasterStudioPanel organizationId={organizationId} projectId={project?.id || null} />
+      : <div className="mx-auto max-w-6xl p-6"><div className="rounded-2xl border border-white/8 bg-black/25 p-6 text-xs text-white/40"><AudioLines className="mb-3 h-5 w-5 text-[#d6a66a]/70" />Music Studio mode unavailable.</div></div>}
     </div>
   );
 }

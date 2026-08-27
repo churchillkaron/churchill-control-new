@@ -201,19 +201,17 @@ runNode(READINESS_SCRIPT, process.env);
 
 const healthRead = await readHealth(endpointId, inferenceCandidates());
 const health = normalizeHealth(healthRead.body);
-const blockers = [];
-if (health.jobs.in_queue !== 0) blockers.push(`JOBS_IN_QUEUE:${health.jobs.in_queue}`);
-if (health.jobs.in_progress !== 0) blockers.push(`JOBS_IN_PROGRESS:${health.jobs.in_progress}`);
-if (health.workers.initializing !== 0) blockers.push(`INITIALIZING_WORKERS:${health.workers.initializing}`);
-if (health.workers.throttled !== 0) blockers.push(`THROTTLED_WORKERS:${health.workers.throttled}`);
-if (health.workers.unhealthy !== 0) blockers.push(`UNHEALTHY_WORKERS:${health.workers.unhealthy}`);
-if (blockers.length) {
-  throw new Error(`AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_HEALTH_BLOCKED:${blockers.join(",")}`);
+const jobBlockers = [];
+if (health.jobs.in_queue !== 0) jobBlockers.push(`JOBS_IN_QUEUE:${health.jobs.in_queue}`);
+if (health.jobs.in_progress !== 0) jobBlockers.push(`JOBS_IN_PROGRESS:${health.jobs.in_progress}`);
+if (jobBlockers.length) {
+  throw new Error(`AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_JOB_HEALTH_BLOCKED:${jobBlockers.join(",")}`);
 }
 
 console.log(JSON.stringify({
-  event: "AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_HEALTH_CLEAR",
+  event: "AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_JOB_HEALTH_CLEAR",
   health,
+  worker_state_authority: "READINESS_THREE_PLANE_RECONCILIATION",
   health_read_attempts: healthRead.attempts,
   zero_ready_workers_allowed_for_serverless_cold_start: true,
   generation_submitted: false,

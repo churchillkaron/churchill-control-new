@@ -106,6 +106,9 @@ import {
   reconcileAvantiqoRebasedSelectionPolicyPromotionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoRebasedSelectionPolicyPromotionGovernanceRuntime";
 import {
+  reconcileAvantiqoRebasedSelectionPolicyCanary,
+} from "@/lib/intelligence/runtime/AvantiqoRebasedSelectionPolicyCanaryRuntime";
+import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
 
@@ -279,6 +282,21 @@ export async function GET(request) {
             automatic_policy_activation: false,
           };
 
+    const rebasedSelectionPolicyCanary =
+      persistentOrderingPolicyApplication.success !== false &&
+      persistentOrderingPolicyRegressionMonitor.success !== false &&
+      persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false &&
+      rebasedSelectionPolicyChallenger.success !== false &&
+      rebasedSelectionPolicyPromotionRequests.success !== false
+        ? await reconcileAvantiqoRebasedSelectionPolicyCanary()
+        : {
+            success: false,
+            status: "BLOCKED_BY_REBASED_CANARY_PRECONDITION_FAIL_CLOSED",
+            canary_active: false,
+            execution_request_generation_allowed: false,
+            automatic_activation: false,
+          };
+
     const experimentExecutionRequests =
       longHorizonPolicyAdaptedExperimentPortfolio
         .execution_request_generation_allowed === true &&
@@ -288,7 +306,9 @@ export async function GET(request) {
       persistentOrderingPolicyRegressionMonitor.success !== false &&
       persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false &&
       rebasedSelectionPolicyChallenger.success !== false &&
-      rebasedSelectionPolicyPromotionRequests.success !== false
+      rebasedSelectionPolicyPromotionRequests.success !== false &&
+      rebasedSelectionPolicyCanary.success !== false &&
+      rebasedSelectionPolicyCanary.execution_request_generation_allowed !== false
         ? await reconcileAvantiqoExperimentExecutionRequests()
         : {
             success: true,
@@ -304,9 +324,12 @@ export async function GET(request) {
                       ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CHALLENGER_FAIL_CLOSED"
                       : rebasedSelectionPolicyPromotionRequests.success === false
                         ? "BLOCKED_BY_REBASED_SELECTION_POLICY_PROMOTION_GOVERNANCE_FAIL_CLOSED"
-                        : selectionPolicyCanary.success === false
-                          ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
-                          : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
+                        : rebasedSelectionPolicyCanary.success === false ||
+                            rebasedSelectionPolicyCanary.execution_request_generation_allowed === false
+                          ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CANARY_FAIL_CLOSED"
+                          : selectionPolicyCanary.success === false
+                            ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
+                            : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
             execution_request_count: 0,
             execution_authorized: false,
             spend_authorized: false,
@@ -346,6 +369,7 @@ export async function GET(request) {
         rebased_selection_policy_challenger: rebasedSelectionPolicyChallenger,
         rebased_selection_policy_promotion_requests:
           rebasedSelectionPolicyPromotionRequests,
+        rebased_selection_policy_canary: rebasedSelectionPolicyCanary,
         selection_policy_shadow_challenger: selectionPolicyShadowChallenger,
         selection_policy_shadow_evaluation_integrity:
           selectionPolicyShadowEvaluationIntegrity,
@@ -374,6 +398,7 @@ export async function GET(request) {
           selectionPolicyResearchEpoch.success === false ||
           rebasedSelectionPolicyChallenger.success === false ||
           rebasedSelectionPolicyPromotionRequests.success === false ||
+          rebasedSelectionPolicyCanary.success === false ||
           selectionPolicyShadowChallenger.success === false ||
           selectionPolicyShadowEvaluationIntegrity.success === false ||
           selectionPolicyPromotionRequests.success === false ||

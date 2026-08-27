@@ -1,0 +1,32 @@
+FROM vllm/vllm-openai:v0.27.1
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    TOKENIZERS_PARALLELISM=false \
+    HF_HOME=/workspace/huggingface-cache \
+    VLLM_WORKER_MULTIPROC_METHOD=spawn \
+    VLLM_USE_FLASHINFER_SAMPLER=0 \
+    AVANTIQO_CODE_DEVICE=cuda \
+    AVANTIQO_CODE_QUANTIZATION=fp8 \
+    AVANTIQO_CODE_FOUNDATION_MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct \
+    AVANTIQO_CODE_RUNTIME_MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 \
+    AVANTIQO_CODE_HF_CACHE_ROOT=/workspace/huggingface-cache/hub \
+    AVANTIQO_CODE_MAX_MODEL_LEN=32768 \
+    AVANTIQO_CODE_GPU_MEMORY_UTILIZATION=0.90 \
+    AVANTIQO_CODE_MAX_NEW_TOKENS=4096 \
+    AVANTIQO_CODE_POD_PORT=8000
+
+WORKDIR /app
+
+COPY services/avantiqo-code-engine/requirements.txt ./requirements.txt
+RUN uv pip install --system -r requirements.txt \
+    && python3 -c "from importlib.metadata import version; import runpod, vllm, fastapi, uvicorn; assert version('runpod') == '1.10.0'; assert version('vllm') == '0.27.1'; print('AVANTIQO_CODE_POD_BUILD_CHECK=PASS')"
+
+COPY services/avantiqo-code-engine/handler.py ./handler.py
+COPY services/avantiqo-code-engine/pod_server.py ./pod_server.py
+RUN python3 -m py_compile handler.py pod_server.py
+
+EXPOSE 8000
+ENTRYPOINT ["python3", "-u", "pod_server.py"]

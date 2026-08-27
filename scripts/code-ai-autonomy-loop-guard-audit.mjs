@@ -8,6 +8,8 @@ const workspacePath = "lib/code/runtime/CodeWorkspaceSandboxRuntime.js";
 const workspaceSource = await readFile(workspacePath, "utf8");
 const promptPath = "lib/code/runtime/CodeAIPlannerPromptRuntime.js";
 const promptSource = await readFile(promptPath, "utf8");
+const parserPath = "lib/code/runtime/CodeAIPlannerDecisionParser.js";
+const parserSource = await readFile(parserPath, "utf8");
 
 const singlePlannerObject = parseCodeAIPlannerOutput('{"action":"read","description":"one","input":{"file_path":"a.js"}}');
 assert.equal(singlePlannerObject.parsed.action, "read");
@@ -22,6 +24,33 @@ assert.equal(liveOverEmission.normalization.mode, "same_guarded_action_over_emis
 assert.equal(liveOverEmission.normalization.object_count, 2);
 assert.equal(liveOverEmission.normalization.discarded_count, 1);
 assert.equal(liveOverEmission.normalization.action, "read");
+
+const liveTrailingBraceOverEmission = parseCodeAIPlannerOutput(
+  '{"action":"read","description":"Read the content of the first specified fixture file to understand its current state and identify issues.","input":{"file_path":"tests/fixtures/code-ai-autonomous-multifile/normalize-money.mjs","start_line":1,"end_line":400}}}',
+);
+assert.equal(liveTrailingBraceOverEmission.parsed.action, "read");
+assert.equal(
+  liveTrailingBraceOverEmission.parsed.input.file_path,
+  "tests/fixtures/code-ai-autonomous-multifile/normalize-money.mjs",
+);
+assert.equal(
+  liveTrailingBraceOverEmission.normalization.mode,
+  "single_guarded_trailing_brace_over_emission",
+);
+assert.equal(liveTrailingBraceOverEmission.normalization.discarded_trailing_brace_count, 1);
+
+assert.throws(
+  () => parseCodeAIPlannerOutput(
+    '{"action":"apply_files","description":"edit","input":{"files":[]}}}',
+  ),
+  /CODE_AI_AUTONOMOUS_PLANNER_JSON_INVALID/,
+);
+assert.throws(
+  () => parseCodeAIPlannerOutput(
+    '{"action":"read","description":"read","input":{"file_path":"a.js"}}}}',
+  ),
+  /CODE_AI_AUTONOMOUS_PLANNER_JSON_INVALID/,
+);
 
 assert.throws(
   () => parseCodeAIPlannerOutput(
@@ -125,6 +154,17 @@ const promptMissing = promptRequiredMarkers.filter((marker) => !promptSource.inc
 if (promptMissing.length) {
   throw new Error(`CODE_AI_AUTONOMY_PLANNER_PROMPT_MARKERS_MISSING:${promptMissing.join(",")}`);
 }
+
+const parserRequiredMarkers = [
+  "safeSingleTrailingBraceOverEmission",
+  "single_guarded_trailing_brace_over_emission",
+  "discarded_trailing_brace_count",
+];
+const parserMissing = parserRequiredMarkers.filter((marker) => !parserSource.includes(marker));
+if (parserMissing.length) {
+  throw new Error(`CODE_AI_AUTONOMY_PLANNER_PARSER_MARKERS_MISSING:${parserMissing.join(",")}`);
+}
+
 if (!source.includes('buildCodeAIPlannerPromptTransport') || !source.includes('instruction: transport.instruction')) {
   throw new Error("CODE_AI_AUTONOMY_PLANNER_BOUNDED_TRANSPORT_NOT_WIRED");
 }
@@ -284,7 +324,7 @@ if (
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V7",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V8",
   verified: {
     duplicate_read_search_run_guarded_without_new_evidence: true,
     search_fingerprint_distinguishes_literal_regex_path_glob: true,
@@ -327,6 +367,9 @@ console.log(JSON.stringify({
     mixed_multi_action_planner_output_fails_closed: true,
     mutating_multi_object_planner_output_fails_closed: true,
     planner_prompt_forbids_multi_object_output: true,
+    single_guarded_trailing_brace_over_emission_normalized: true,
+    mutating_trailing_brace_over_emission_fails_closed: true,
+    multiple_trailing_braces_fail_closed: true,
   },
   provider_calls_executed: false,
   provider_spend_approved: false,

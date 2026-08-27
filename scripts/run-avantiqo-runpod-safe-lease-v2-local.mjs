@@ -79,7 +79,7 @@ async function patch(endpointId, workersMax, key) {
   }
   return endpoint;
 }
-async function snapshot(managementKey, queueKey) {
+async function snapshot(managementKey, queueKey, targetId = null, targetQueueKey = null) {
   const endpoints = endpointsFrom(await rest("/endpoints?includeTemplate=false&includeWorkers=true", managementKey));
   const rows = [];
   for (const endpoint of endpoints) {
@@ -87,7 +87,8 @@ async function snapshot(managementKey, queueKey) {
     if (!id) continue;
     let health = null;
     let healthError = null;
-    try { health = healthSummary(await queue(id, "/health", queueKey)); } catch (error) { healthError = redact(error.message).slice(0, 250); }
+    const selectedQueueKey = targetId && id === text(targetId) && text(targetQueueKey) ? targetQueueKey : queueKey;
+    try { health = healthSummary(await queue(id, "/health", selectedQueueKey)); } catch (error) { healthError = redact(error.message).slice(0, 250); }
     rows.push({
       id,
       name: text(endpoint.name) || null,
@@ -154,11 +155,11 @@ async function purge(endpointId, key) {
   try { const result = await queue(endpointId, "/purge-queue", key, { method: "POST" }); return { success: true, removed: finite(result.removed, null) }; }
   catch (error) { return { success: false, error: redact(error.message).slice(0, 300) }; }
 }
-async function waitForZero(endpointId, managementKey, queueKey, timeoutMs, pollMs) {
+async function waitForZero(endpointId, managementKey, queueKey, targetQueueKey, timeoutMs, pollMs) {
   const deadline = Date.now() + timeoutMs;
   let latest = null;
   while (Date.now() < deadline) {
-    latest = (await snapshot(managementKey, queueKey)).rows.find((row) => row.id === endpointId) || null;
+    latest = (await snapshot(managementKey, queueKey, endpointId, targetQueueKey)).rows.find((row) => row.id === endpointId) || null;
     if (latest && latest.workers_min === 0 && latest.workers_max === 0 && latest.jobs === 0 && latest.active_workers === 0 && latest.hourly_cost_usd === 0) return latest;
     await sleep(pollMs);
   }
@@ -176,8 +177,22 @@ function codeLaneAllowsInertUnboundedPeer(row, targetId, lane) {
     !row?.health_error
   );
 }
+function scopedLaneAllowsInertUnboundedPeer(row, targetId, lane) {
+  const scopedLane = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_INERT_PEER_ISOLATION_LANE);
+  return (
+    Boolean(scopedLane) &&
+    text(lane) === scopedLane &&
+    text(row?.id) !== text(targetId) &&
+    row?.workers_min === 0 &&
+    finite(row?.workers_max, null) > 1 &&
+    row?.active_workers === 0 &&
+    row?.jobs === 0 &&
+    row?.hourly_cost_usd === 0 &&
+    !row?.health_error
+  );
+}
 
-async function enforce(snapshotValue, policy, targetId, managementKey, lane) {
+async function enforce(snapshotValue, policy, targetId, managementKey, lane, targetQueueKey) {
   const [currentLeases, distributedVoiceLeases, distributedCodeLeases] = await Promise.all([
     leases(),
     listActiveVoiceRunpodDistributedLeases(),
@@ -193,7 +208,8 @@ async function enforce(snapshotValue, policy, targetId, managementKey, lane) {
   const badMax = snapshotValue.rows.filter(
     (row) =>
       ![0, 1].includes(row.workers_max) &&
-      !codeLaneAllowsInertUnboundedPeer(row, targetId, lane),
+      !codeLaneAllowsInertUnboundedPeer(row, targetId, lane) &&
+      !scopedLaneAllowsInertUnboundedPeer(row, targetId, lane),
   );
   if (badMax.length) throw new Error(`${CONTRACT}_WORKERS_MAX_BOUNDED_REQUIRED:${badMax.map((row) => row.name).join(",")}`);
   for (const row of snapshotValue.rows.filter((row) => row.workers_max === 1 && !leaseIds.has(row.id))) {
@@ -201,7 +217,7 @@ async function enforce(snapshotValue, policy, targetId, managementKey, lane) {
     await patch(row.id, 0, managementKey);
     console.log(`${CONTRACT}_ORPHAN_REAP=${JSON.stringify({ endpoint_name: row.name })}`);
   }
-  const refreshed = await snapshot(managementKey, queueKey);
+  const refreshed = await snapshot(managementKey, queueKey, targetId, targetQueueKey);
   const open = refreshed.rows.filter((row) => row.workers_max === 1);
   if (open.length > finite(policy.max_concurrent_paid_leases, 1)) throw new Error(`${CONTRACT}_OPEN_ENDPOINT_LIMIT:${open.length}`);
   if (refreshed.hourly_cost_usd > finite(policy.default_max_account_hourly_usd, 4)) throw new Error(`${CONTRACT}_ACCOUNT_HOURLY_LIMIT:${refreshed.hourly_cost_usd}`);
@@ -213,7 +229,7 @@ async function enforce(snapshotValue, policy, targetId, managementKey, lane) {
   return { refreshed, currentLeases, distributedVoiceLeases, distributedCodeLeases, target };
 }
 
-async function runChild(command, lease, managementKey, queueKey, policy) {
+async function runChild(command, lease, managementKey, queueKey, targetQueueKey, policy) {
   if (!command.length) throw new Error(`${CONTRACT}_COMMAND_REQUIRED_AFTER_DOUBLE_DASH`);
   const child = spawn(command[0], command.slice(1), {
     cwd: process.cwd(),
@@ -228,11 +244,12 @@ async function runChild(command, lease, managementKey, queueKey, policy) {
   while (!exit) {
     if (Date.now() >= expires) { child.kill("SIGTERM"); await sleep(3000); if (!exit) child.kill("SIGKILL"); throw new Error(`${CONTRACT}_TTL_EXCEEDED`); }
     const state = await enforce(
-      await snapshot(managementKey, queueKey),
+      await snapshot(managementKey, queueKey, lease.endpoint_id, targetQueueKey),
       policy,
       lease.endpoint_id,
       managementKey,
       lease.lane,
+      targetQueueKey,
     );
     if (state.target.jobs === 0 && state.target.active_workers > 0) {
       idleWorkerSince ||= Date.now();
@@ -270,6 +287,11 @@ const maxLeaseTtlMs = finite(
 if (ttlMs < 60_000 || ttlMs > maxLeaseTtlMs) throw new Error(`${CONTRACT}_TTL_INVALID:${ttlMs}:max=${maxLeaseTtlMs}`);
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const queueKey = text(process.env.RUNPOD_API_KEY) || managementKey;
+const targetQueueKey = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_TARGET_QUEUE_API_KEY) || queueKey;
+const scopedInertPeerIsolationLane = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_INERT_PEER_ISOLATION_LANE);
+if (scopedInertPeerIsolationLane && scopedInertPeerIsolationLane !== args.lane) {
+  throw new Error(`${CONTRACT}_INERT_PEER_ISOLATION_LANE_MISMATCH:${scopedInertPeerIsolationLane}:${args.lane}`);
+}
 let targetId = null;
 let lease = null;
 let distributedVoiceLease = null;
@@ -284,7 +306,8 @@ try {
   const matches = baseline.endpoints.filter((endpoint) => text(endpoint.name) === laneName);
   if (matches.length !== 1) throw new Error(`${CONTRACT}_TARGET_RESOLUTION_FAILED:${laneName}:matches=${matches.length}`);
   targetId = text(matches[0].id);
-  const target = baseline.rows.find((row) => row.id === targetId);
+  const targetBaseline = await snapshot(managementKey, queueKey, targetId, targetQueueKey);
+  const target = targetBaseline.rows.find((row) => row.id === targetId);
   if (!target || target.workers_min !== 0 || target.workers_max !== 0 || target.jobs !== 0 || target.health_error) throw new Error(`${CONTRACT}_TARGET_MUST_START_CLEAN_0_0`);
   if (isVoiceRunpodLane(args.lane)) {
     distributedVoiceLease = await acquireVoiceRunpodDistributedLease({
@@ -313,24 +336,25 @@ try {
   await patch(targetId, 1, managementKey);
   endpointOpened = true;
   await enforce(
-    await snapshot(managementKey, queueKey),
+    await snapshot(managementKey, queueKey, targetId, targetQueueKey),
     policy,
     targetId,
     managementKey,
     args.lane,
+    targetQueueKey,
   );
-  console.log(`${CONTRACT}_ACQUIRED=${JSON.stringify({ lane: args.lane, endpoint_name: laneName, workers_min: 0, workers_max: 1, expires_at: lease.expires_at, voice_distributed_lease: Boolean(distributedVoiceLease) })}`);
-  await runChild(args.command, lease, managementKey, queueKey, policy);
+  console.log(`${CONTRACT}_ACQUIRED=${JSON.stringify({ lane: args.lane, endpoint_name: laneName, workers_min: 0, workers_max: 1, expires_at: lease.expires_at, voice_distributed_lease: Boolean(distributedVoiceLease), target_queue_key_override: targetQueueKey !== queueKey, scoped_inert_peer_isolation: scopedInertPeerIsolationLane === args.lane })}`);
+  await runChild(args.command, lease, managementKey, queueKey, targetQueueKey, policy);
   childSucceeded = true;
 } catch (error) {
   failure = error;
 } finally {
   if (targetId && endpointOpened) {
-    const purgeBefore = await purge(targetId, queueKey);
+    const purgeBefore = await purge(targetId, targetQueueKey);
     try { await patch(targetId, 0, managementKey); } catch (error) { if (!failure) failure = error; }
-    const purgeAfter = await purge(targetId, queueKey);
+    const purgeAfter = await purge(targetId, targetQueueKey);
     try {
-      const final = await waitForZero(targetId, managementKey, queueKey, finite(policy.cleanup_timeout_ms, 180_000), finite(policy.watchdog_poll_ms, 5000));
+      const final = await waitForZero(targetId, managementKey, queueKey, targetQueueKey, finite(policy.cleanup_timeout_ms, 180_000), finite(policy.watchdog_poll_ms, 5000));
       release = { success: true, purge_before: purgeBefore, purge_after: purgeAfter, workers_min: final.workers_min, workers_max: final.workers_max, jobs: final.jobs, active_workers: final.active_workers, hourly_cost_usd: final.hourly_cost_usd };
     } catch (error) {
       release = { success: false, error: redact(error.message).slice(0, 1200) };
@@ -379,6 +403,6 @@ try {
 }
 
 const success = childSucceeded && release?.success === true && !failure;
-console.log(JSON.stringify({ success, contract: CONTRACT, lane: args.lane, endpoint_name: laneName, lease_acquired: Boolean(lease), child_succeeded: childSucceeded, failure: failure ? redact(failure.message).slice(0, 1200) : null, release, voice_distributed_lease_required: isVoiceRunpodLane(args.lane), voice_distributed_lease_acquired: Boolean(distributedVoiceLease), code_distributed_lease_required: isCodeRunpodLane(args.lane), code_distributed_lease_acquired: Boolean(distributedCodeLease), permanent_rest_state: "LEASE_ENDPOINT_0_0", parallel_work_allowed: true, workers_min_one_allowed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
+console.log(JSON.stringify({ success, contract: CONTRACT, lane: args.lane, endpoint_name: laneName, lease_acquired: Boolean(lease), child_succeeded: childSucceeded, failure: failure ? redact(failure.message).slice(0, 1200) : null, release, voice_distributed_lease_required: isVoiceRunpodLane(args.lane), voice_distributed_lease_acquired: Boolean(distributedVoiceLease), code_distributed_lease_required: isCodeRunpodLane(args.lane), code_distributed_lease_acquired: Boolean(distributedCodeLease), target_queue_key_override: targetQueueKey !== queueKey, scoped_inert_peer_isolation_lane: scopedInertPeerIsolationLane || null, permanent_rest_state: "LEASE_ENDPOINT_0_0", parallel_work_allowed: true, workers_min_one_allowed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
 console.log(`${CONTRACT}=${success ? "PASS" : "FAIL"}`);
 if (!success) process.exit(3);

@@ -6,14 +6,26 @@ loadAvantiqoEnv();
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const CONTROL_BASE = "https://api.runpod.io/v2";
-const CONTRACT = "AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_DIAGNOSTIC_V1";
+const CONTRACT = "AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_DIAGNOSTIC_V2";
 const ENDPOINT_NAME = "avantiqo-voice-stt-v1";
 const REPORT_PATH = resolve(
   process.env.AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_REPORT ||
   "/tmp/avantiqo-voice-stt-unhealthy-worker-diagnostic.json",
 );
 const LOG_TAIL = Math.max(200, Math.min(5000, Number(process.env.AVANTIQO_VOICE_STT_LOG_TAIL || 1800)));
-const CAPTURE_MS = Math.max(10_000, Math.min(90_000, Number(process.env.AVANTIQO_VOICE_STT_LOG_CAPTURE_MS || 20_000)));
+const CAPTURE_MS = Math.max(5_000, Math.min(90_000, Number(process.env.AVANTIQO_VOICE_STT_LOG_CAPTURE_MS || 12_000)));
+const STATUS_PRIORITY = Object.freeze({
+  UNHEALTHY: 100,
+  INITIALIZING: 90,
+  RUNNING: 80,
+  READY: 70,
+  IDLE: 60,
+  THROTTLED: 50,
+  EXITED: 40,
+  STOPPED: 40,
+  TERMINATED: 40,
+  DELETED: 30,
+});
 
 function text(value) { return String(value ?? "").trim(); }
 function list(value) { return Array.isArray(value) ? value : []; }
@@ -34,6 +46,10 @@ function normalizeList(value, keys = [], depth = 0) {
   }
   return null;
 }
+function timestamp(value) {
+  const parsed = Date.parse(text(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 async function jsonRequest(url, credential) {
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${credential}`, Accept: "application/json" },
@@ -51,13 +67,31 @@ async function jsonRequest(url, credential) {
 function safeWorker(worker = {}) {
   return {
     id: text(worker?.id) || null,
-    status: text(worker?.status || worker?.desiredStatus).toUpperCase() || null,
-    gpu_type_id: text(worker?.gpuTypeId) || null,
-    data_center_id: text(worker?.dataCenterId) || null,
+    status: text(worker?.status || worker?.workerStatus || worker?.runtimeStatus || worker?.desiredStatus).toUpperCase() || null,
+    desired_status: text(worker?.desiredStatus || worker?.desired_status).toUpperCase() || null,
+    gpu_type_id: text(worker?.gpuTypeId || worker?.gpu?.displayName || worker?.machine?.gpuDisplayName) || null,
+    data_center_id: text(worker?.dataCenterId || worker?.machine?.dataCenterId) || null,
     image: text(worker?.image) || null,
-    started_at: text(worker?.startedAt) || null,
+    started_at: text(worker?.startedAt || worker?.started_at || worker?.createdAt || worker?.created_at) || null,
+    updated_at: text(worker?.updatedAt || worker?.updated_at || worker?.stoppedAt || worker?.stopped_at) || null,
     is_stale: worker?.isStale === true,
   };
+}
+function candidateScore(worker) {
+  const statusScore = STATUS_PRIORITY[worker?.status] || 0;
+  const stalePenalty = worker?.is_stale ? -10 : 0;
+  const recency = Math.max(timestamp(worker?.updated_at), timestamp(worker?.started_at));
+  return { statusScore: statusScore + stalePenalty, recency };
+}
+function recentCandidates(workers) {
+  return workers
+    .filter((worker) => worker?.id)
+    .sort((left, right) => {
+      const a = candidateScore(left);
+      const b = candidateScore(right);
+      return b.statusScore - a.statusScore || b.recency - a.recency || String(right.id).localeCompare(String(left.id));
+    })
+    .slice(0, 8);
 }
 function parseSseFrame(frame, workerId) {
   const data = frame.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart());
@@ -144,6 +178,7 @@ function classify(entries, worker) {
   if (/failed to start container|oci runtime|runc.*error|exec format error|permission denied|executable file not found/i.test(joined)) causes.push("CONTAINER_RUNTIME_START_FAILURE");
   if (/401|unauthorized|authentication required|pull access denied|manifest unknown/i.test(joined)) causes.push("IMAGE_PULL_OR_REGISTRY_FAILURE");
   if (!causes.length && worker?.status === "UNHEALTHY") causes.push("UNHEALTHY_CAUSE_REQUIRES_LOG_REVIEW");
+  if (!causes.length && entries.length === 0) causes.push("NO_LOG_LINES_RETURNED");
   return [...new Set(causes)];
 }
 
@@ -158,18 +193,18 @@ if (!endpointId) throw new Error("AVANTIQO_VOICE_STT_DIAGNOSTIC_ENDPOINT_ID_REQU
 
 const workersBeforeBody = await jsonRequest(`${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers`, managementKey);
 const workersBefore = list(workersBeforeBody?.workers).map(safeWorker);
-const candidates = workersBefore
-  .filter((worker) => worker.id && !worker.is_stale && ["INITIALIZING", "UNHEALTHY", "READY", "RUNNING"].includes(worker.status))
-  .slice(-4);
+const candidates = recentCandidates(workersBefore);
 
 console.log(JSON.stringify({
-  event: "AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_CAPTURE_START",
+  event: "AVANTIQO_VOICE_STT_RECENT_WORKER_LOG_CAPTURE_START",
   contract: CONTRACT,
   endpoint_name: ENDPOINT_NAME,
   endpoint_id_present: true,
   capture_seconds: Math.round(CAPTURE_MS / 1000),
+  worker_records_returned: workersBefore.length,
   workers: workersBefore.map(({ id, ...worker }) => ({ ...worker, id_present: Boolean(id) })),
   candidates: candidates.map(({ id, ...worker }) => ({ ...worker, id_present: Boolean(id) })),
+  includes_terminal_or_stale_history: true,
   read_only: true,
   generation_submitted: false,
   queue_mutation_performed: false,
@@ -178,52 +213,72 @@ console.log(JSON.stringify({
   secrets_printed: false,
 }, null, 2));
 
-if (!candidates.length) throw new Error("AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_NOT_CURRENTLY_PRESENT");
-
-const captures = await Promise.all(candidates.map((worker) => captureWorkerLogs(endpointId, worker.id, managementKey)));
-const workersAfterBody = await jsonRequest(`${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers`, managementKey).catch(() => ({ workers: [] }));
-const workersAfter = list(workersAfterBody?.workers).map(safeWorker);
-const afterById = new Map(workersAfter.map((worker) => [worker.id, worker]));
-
-const workerEvidence = captures.map((capture) => {
-  const before = workersBefore.find((worker) => worker.id === capture.worker_id) || null;
-  const after = afterById.get(capture.worker_id) || null;
-  return {
-    worker_id_present: Boolean(capture.worker_id),
-    status_before: before?.status || null,
-    status_after: after?.status || "NO_LONGER_LISTED",
-    gpu_type_id: before?.gpu_type_id || after?.gpu_type_id || null,
-    data_center_id: before?.data_center_id || after?.data_center_id || null,
-    response_status: capture.response_status,
-    content_type: capture.content_type,
-    entry_count: capture.entries.length,
-    container_output_count: capture.entries.filter((entry) => entry.source === "container").length,
-    likely_causes: classify(capture.entries, after || before),
-    relevant_log_lines: relevant(capture.entries),
-    error: capture.error,
+if (!candidates.length) {
+  const noHistory = {
+    success: false,
+    contract: CONTRACT,
+    endpoint_name: ENDPOINT_NAME,
+    endpoint_id_present: true,
+    read_only: true,
+    generation_submitted: false,
+    worker_records_returned: workersBefore.length,
+    reason: "RUNPOD_WORKER_HISTORY_NOT_RETURNED",
+    secrets_printed: false,
   };
-});
+  await mkdir(dirname(REPORT_PATH), { recursive: true });
+  await writeFile(REPORT_PATH, `${JSON.stringify(noHistory, null, 2)}\n`, "utf8");
+  console.log(JSON.stringify(noHistory, null, 2));
+  console.log(`AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_REPORT=${REPORT_PATH}`);
+  process.exitCode = 2;
+} else {
+  const captures = await Promise.all(candidates.map((worker) => captureWorkerLogs(endpointId, worker.id, managementKey)));
+  const workersAfterBody = await jsonRequest(`${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers`, managementKey).catch(() => ({ workers: [] }));
+  const workersAfter = list(workersAfterBody?.workers).map(safeWorker);
+  const afterById = new Map(workersAfter.map((worker) => [worker.id, worker]));
 
-const result = {
-  success: true,
-  contract: CONTRACT,
-  endpoint_name: ENDPOINT_NAME,
-  endpoint_id_present: true,
-  read_only: true,
-  mutation_performed: false,
-  generation_submitted: false,
-  queue_mutation_performed: false,
-  endpoint_mutation_performed: false,
-  tts_touched: false,
-  capture_seconds: Math.round(CAPTURE_MS / 1000),
-  workers_before: workersBefore.map(({ id, ...worker }) => ({ ...worker, id_present: Boolean(id) })),
-  workers_after: workersAfter.map(({ id, ...worker }) => ({ ...worker, id_present: Boolean(id) })),
-  worker_evidence: workerEvidence,
-  secrets_printed: false,
-};
+  const workerEvidence = captures.map((capture) => {
+    const before = workersBefore.find((worker) => worker.id === capture.worker_id) || null;
+    const after = afterById.get(capture.worker_id) || null;
+    return {
+      worker_id_present: Boolean(capture.worker_id),
+      status_before: before?.status || null,
+      status_after: after?.status || "NO_LONGER_LISTED",
+      stale_before: before?.is_stale === true,
+      gpu_type_id: before?.gpu_type_id || after?.gpu_type_id || null,
+      data_center_id: before?.data_center_id || after?.data_center_id || null,
+      response_status: capture.response_status,
+      content_type: capture.content_type,
+      entry_count: capture.entries.length,
+      container_output_count: capture.entries.filter((entry) => entry.source === "container").length,
+      likely_causes: classify(capture.entries, after || before),
+      relevant_log_lines: relevant(capture.entries),
+      error: capture.error,
+    };
+  });
 
-await mkdir(dirname(REPORT_PATH), { recursive: true });
-await writeFile(REPORT_PATH, `${JSON.stringify({ ...result, raw_captures: captures }, null, 2)}\n`, "utf8");
-console.log(JSON.stringify(result, null, 2));
-console.log(`AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_REPORT=${REPORT_PATH}`);
-console.log("AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_DIAGNOSTIC=PASS");
+  const result = {
+    success: true,
+    contract: CONTRACT,
+    endpoint_name: ENDPOINT_NAME,
+    endpoint_id_present: true,
+    read_only: true,
+    mutation_performed: false,
+    generation_submitted: false,
+    queue_mutation_performed: false,
+    endpoint_mutation_performed: false,
+    tts_touched: false,
+    capture_seconds: Math.round(CAPTURE_MS / 1000),
+    worker_records_returned: workersBefore.length,
+    candidates_attempted: candidates.length,
+    workers_before: workersBefore.map(({ id, ...worker }) => ({ ...worker, id_present: Boolean(id) })),
+    workers_after: workersAfter.map(({ id, ...worker }) => ({ ...worker, id_present: Boolean(id) })),
+    worker_evidence: workerEvidence,
+    secrets_printed: false,
+  };
+
+  await mkdir(dirname(REPORT_PATH), { recursive: true });
+  await writeFile(REPORT_PATH, `${JSON.stringify({ ...result, raw_captures: captures }, null, 2)}\n`, "utf8");
+  console.log(JSON.stringify(result, null, 2));
+  console.log(`AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_REPORT=${REPORT_PATH}`);
+  console.log("AVANTIQO_VOICE_STT_UNHEALTHY_WORKER_DIAGNOSTIC=PASS");
+}

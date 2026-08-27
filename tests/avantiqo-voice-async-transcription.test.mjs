@@ -77,7 +77,15 @@ test("Voice readiness models true 0\/1 serverless cold start", async () => {
   assert.match(readiness, /STALE_WORKER_PRESENT/);
   assert.match(readiness, /LIVE_WORKER_IMAGE_MISMATCH/);
   assert.match(readiness, /TERMINAL_WORKER_STATUSES = new Set\(\["EXITED", "STOPPED", "TERMINATED", "DELETED"\]\)/);
-  assert.match(readiness, /const workers = liveControlWorkers\(workerRecords\)/);
-  assert.match(readiness, /terminal_worker_records_ignored/);
+  assert.match(readiness, /function nonTerminalControlWorkers\(workers\)/);
+  assert.match(readiness, /function activeManagementWorkers\(workers\)/);
+  assert.match(readiness, /function reconcileControlWorkers\(workerRecords, managementActiveWorkers, health\)/);
+  assert.match(readiness, /worker\.is_stale === true && noLiveManagementWorker && noHealthWorker && noJobs/);
+  assert.match(readiness, /stale_control_ghost_records_ignored/);
+  assert.match(readiness, /zero_live_workers_observed/);
   assert.match(readiness, /terminal_worker_history_ignored: true/);
+  assert.match(readiness, /stale_control_ghost_history_ignored_only_when_live_planes_are_zero: true/);
+  assert.match(readiness, /CONTROL_HEALTH_WORKER_STATE_DISAGREEMENT/);
+  assert.match(readiness, /MANAGEMENT_HEALTH_WORKER_STATE_DISAGREEMENT/);
+  assert.match(readiness, /CONTROL_MANAGEMENT_WORKER_STATE_DISAGREEMENT/);
 });

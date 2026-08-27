@@ -158,7 +158,7 @@ export default function MusicTakeLaneCompPanel({
     }
   }
 
-  function useWholeTake(take) {
+  function chooseWholeTake(take) {
     const start = finite(take.start_seconds, 0);
     const end = start + finite(take.duration_seconds, 0);
     setRegions([{
@@ -265,7 +265,7 @@ export default function MusicTakeLaneCompPanel({
                   <div className="mt-1 text-[8px] text-white/22">{formatTime(take.start_seconds)} · {formatTime(take.duration_seconds)}</div>
                 </button>
                 <button type="button" disabled={disabled} onClick={() => audition(take)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 text-white/45 disabled:opacity-25">{auditioning === take.id ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}</button>
-                <button type="button" disabled={disabled} onClick={() => useWholeTake(take)} className="rounded-lg border border-white/8 px-2 py-1.5 text-[8px] text-white/38 disabled:opacity-25">Use all</button>
+                <button type="button" disabled={disabled} onClick={() => chooseWholeTake(take)} className="rounded-lg border border-white/8 px-2 py-1.5 text-[8px] text-white/38 disabled:opacity-25">Use all</button>
               </div>
               <div className="mt-2 flex items-center gap-1">
                 {Array.from({ length: 5 }, (_, rating) => (

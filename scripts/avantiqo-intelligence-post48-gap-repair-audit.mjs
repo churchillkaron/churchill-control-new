@@ -43,7 +43,10 @@ const paths = {
   reasoning: "lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js",
   readinessRoute:
     "app/api/internal/intelligence/model-improvement/readiness/process/route.js",
+  healthRuntime: "lib/intelligence/runtime/AvantiqoIntelligenceOperationalHealthRuntime.js",
+  healthRoute: "app/api/internal/intelligence/operational-health/route.js",
   continuousRoute: "app/api/internal/intelligence/continuous-learning/process/route.js",
+  index: "lib/intelligence/index.js",
   vercel: "vercel.json",
   gapLedger: "audits/avantiqo-intelligence-post48-gap-audit-20260827.json",
   experienceAudit: "scripts/operator-experience-learning-audit.mjs",
@@ -59,6 +62,8 @@ for (const relative of [
   paths.providerRegistration,
   paths.reasoning,
   paths.readinessRoute,
+  paths.healthRuntime,
+  paths.healthRoute,
   paths.continuousRoute,
   paths.experienceAudit,
   paths.trainingAudit,
@@ -71,7 +76,10 @@ const execution = read(paths.execution);
 const providerRegistration = read(paths.providerRegistration);
 const reasoning = read(paths.reasoning);
 const readinessRoute = read(paths.readinessRoute);
+const healthRuntime = read(paths.healthRuntime);
+const healthRoute = read(paths.healthRoute);
 const continuousRoute = read(paths.continuousRoute);
+const index = read(paths.index);
 const vercel = JSON.parse(read(paths.vercel));
 const gapLedger = JSON.parse(read(paths.gapLedger));
 
@@ -95,6 +103,7 @@ has(execution, "approved !== true", "EXECUTION_EXPLICIT_APPROVAL");
 
 has(reasoning, 'const OWNED_PROVIDER = "avantiqo-intelligence"', "OWNED_PROVIDER");
 has(reasoning, "allowed_providers: [OWNED_PROVIDER]", "OWNED_PROVIDER_PIN");
+has(reasoning, "intelligence_execution_lane: executionLane", "OWNED_LANE_TELEMETRY");
 has(providerRegistration, "external_provider_fallback_allowed: false", "OWNED_FALLBACK_FALSE");
 has(providerRegistration, 'supplier_type: "OWNED_INFERENCE"', "OWNED_SUPPLIER_TYPE");
 has(providerRegistration, 'data_control: "AVANTIQO"', "OWNED_DATA_CONTROL");
@@ -125,9 +134,35 @@ for (const forbidden of [
   "prepareAvantiqoModelPromotionReview",
 ]) forbid(readinessRoute, forbidden, "READINESS_EXPENSIVE_OR_MUTATING_STAGE");
 
+has(healthRuntime, "AVANTIQO_INTELLIGENCE_OPERATIONAL_HEALTH_V1", "HEALTH_CONTRACT");
+has(healthRuntime, 'const USAGE_TABLE = "platform_service_usage"', "HEALTH_EXISTING_USAGE_LEDGER");
+has(healthRuntime, 'const PROVIDER = "avantiqo-intelligence"', "HEALTH_OWNED_PROVIDER");
+has(healthRuntime, "metadata.intelligence_execution_lane", "HEALTH_LANE_TELEMETRY");
+has(healthRuntime, "provider_latency_p95_ms", "HEALTH_PROVIDER_P95");
+has(healthRuntime, "total_latency_p95_ms", "HEALTH_TOTAL_P95");
+has(healthRuntime, "INTELLIGENCE_FAILURE_RATE_SLO_BREACH", "HEALTH_FAILURE_ALERT");
+has(healthRuntime, "INTELLIGENCE_FAST_PROVIDER_P95_SLO_BREACH", "HEALTH_FAST_ALERT");
+has(healthRuntime, "INTELLIGENCE_DEEP_PROVIDER_P95_SLO_BREACH", "HEALTH_DEEP_ALERT");
+has(healthRuntime, "INTELLIGENCE_PENDING_AGE_SLO_BREACH", "HEALTH_PENDING_ALERT");
+has(healthRuntime, "aggregate_only: true", "HEALTH_AGGREGATE_ONLY");
+has(healthRuntime, "prompts_returned: false", "HEALTH_NO_PROMPTS");
+has(healthRuntime, "transcripts_returned: false", "HEALTH_NO_TRANSCRIPTS");
+has(healthRuntime, "raw_errors_returned: false", "HEALTH_NO_RAW_ERRORS");
+has(healthRuntime, "organization_ids_returned: false", "HEALTH_NO_ORG_IDS");
+has(healthRuntime, "customer_content_returned: false", "HEALTH_NO_CUSTOMER_CONTENT");
+has(healthRuntime, "provider_call_performed: false", "HEALTH_NO_PROVIDER_CALL");
+has(healthRuntime, "wallet_write_performed: false", "HEALTH_NO_WALLET_WRITE");
+has(healthRuntime, "runpod_job_submitted: false", "HEALTH_NO_RUNPOD");
+has(healthRuntime, "model_weight_mutation: false", "HEALTH_NO_WEIGHT_MUTATION");
+has(healthRoute, "CRON_SECRET", "HEALTH_AUTH");
+has(healthRoute, "getAvantiqoIntelligenceOperationalHealth", "HEALTH_ROUTE_RUNTIME");
+has(healthRoute, 'status: result.status === "SLO_ATTENTION_REQUIRED" ? 207 : 200', "HEALTH_ROUTE_SLO_STATUS");
+has(index, "AvantiqoIntelligenceOperationalHealthRuntime", "HEALTH_INDEX_EXPORT");
+
 // The final Phase48 scientific orchestration is intentionally untouched by this post-48 repair.
 forbid(continuousRoute, "model-improvement/readiness", "PHASE48_ROUTE_CROSS_WIRING");
 forbid(continuousRoute, "assembleAvantiqoTrainingDataset", "PHASE48_ROUTE_DATASET_ASSEMBLY");
+forbid(continuousRoute, "AvantiqoIntelligenceOperationalHealthRuntime", "PHASE48_ROUTE_HEALTH_CROSS_WIRING");
 
 const readinessPath = "/api/internal/intelligence/model-improvement/readiness/process";
 const readinessCron = Array.isArray(vercel.crons)
@@ -169,5 +204,9 @@ console.log("AVANTIQO_INTELLIGENCE_READINESS_TRAINING=false");
 console.log("AVANTIQO_INTELLIGENCE_READINESS_MODEL_BENCHMARK=false");
 console.log("AVANTIQO_INTELLIGENCE_READINESS_MODEL_CANARY=false");
 console.log("AVANTIQO_INTELLIGENCE_READINESS_MODEL_PROMOTION=false");
+console.log("AVANTIQO_INTELLIGENCE_OPERATIONAL_HEALTH_AGGREGATION=true");
+console.log("AVANTIQO_INTELLIGENCE_OPERATIONAL_HEALTH_FAST_DEEP_SLO=true");
+console.log("AVANTIQO_INTELLIGENCE_OPERATIONAL_HEALTH_CUSTOMER_CONTENT=false");
+console.log("AVANTIQO_INTELLIGENCE_OPERATIONAL_HEALTH_PROVIDER_CALL=false");
 console.log("AVANTIQO_INTELLIGENCE_PHASE48_ROUTE_UNCHANGED=true");
 console.log("AVANTIQO_INTELLIGENCE_PHASE49_CREATED=false");

@@ -9,6 +9,14 @@ import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAss
 import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import { CreativeMusicAutoStudioRuntime } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioRuntime";
 import { executeMusicAutoStudioLocal } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioExecutionRuntime";
+import {
+  createMusicClip,
+  createMusicMultitrackProject,
+  createMusicTake,
+  createMusicTrack,
+  validateMusicMultitrackProject,
+} from "@/lib/creative/music/runtime/CreativeMusicMultitrackRuntime";
+import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
@@ -19,6 +27,7 @@ const EXECUTION_PERMISSIONS = Object.freeze([
 ]);
 const MUSIC_BUCKET = "creative-assets";
 const MAX_SOURCE_BYTES = 1_073_741_824;
+const MULTITRACK_METADATA_KEY = "music_multitrack_project";
 const ALLOWED_EXTENSIONS = new Set([
   "wav", "mp3", "m4a", "aac", "flac", "ogg", "opus",
   "mp4", "mov", "m4v", "webm", "mkv",
@@ -91,6 +100,104 @@ async function prepareSourceUpload(body) {
   };
 }
 
+function multitrackType(trackRole) {
+  return ["vocal", "guitar", "bass", "keys", "drums", "instrument"].includes(trackRole)
+    ? trackRole
+    : "audio";
+}
+
+async function appendRecordedTakeToMultitrack({
+  organizationId,
+  projectId,
+  asset,
+  title,
+  trackRole,
+  durationSeconds,
+  body,
+}) {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    throw new Error("CREATIVE_MUSIC_RECORDING_DURATION_REQUIRED_FOR_MULTITRACK");
+  }
+  const project = await CreativeProjectRepository.getById(projectId);
+  if (!project || String(project.organization_id) !== String(organizationId)) {
+    const error = new Error("CREATIVE_MUSIC_RECORDING_PROJECT_NOT_FOUND");
+    error.status = 404;
+    throw error;
+  }
+
+  const current = project.metadata?.[MULTITRACK_METADATA_KEY] || createMusicMultitrackProject({
+    id: `music-multitrack-${project.id}`,
+    title: project.name || project.title || "Music Project",
+    bpm: project.metadata?.music_bpm || finite(body.bpm, 96),
+    time_signature: project.metadata?.music_time_signature || "4/4",
+    sample_rate: finite(body.sample_rate, 48000),
+  });
+  const next = structuredClone(current);
+  const requestedTrackId = text(body.multitrack_track_id);
+  let track = requestedTrackId
+    ? next.tracks.find((entry) => entry.id === requestedTrackId)
+    : null;
+  if (!track) {
+    track = createMusicTrack({
+      type: multitrackType(trackRole),
+      name: text(body.track_name || `${trackRole.charAt(0).toUpperCase()}${trackRole.slice(1)} take`),
+      armed: true,
+    });
+    next.tracks.push(track);
+  }
+
+  const startSeconds = Math.max(
+    0,
+    finite(body.timeline_start_seconds, finite(next.timeline?.playhead_seconds, 0)),
+  );
+  const take = createMusicTake({
+    source_asset_id: asset.id,
+    recorded_at: asset.created_at || new Date().toISOString(),
+    start_seconds: startSeconds,
+    duration_seconds: durationSeconds,
+    selected_for_comp: track.takes.length === 0,
+  });
+  const clip = createMusicClip({
+    source_asset_id: asset.id,
+    source_version: 0,
+    start_seconds: startSeconds,
+    duration_seconds: durationSeconds,
+    source_offset_seconds: 0,
+    gain_db: 0,
+    fade_in_seconds: 0,
+    fade_out_seconds: 0,
+  });
+  track.takes.push(take);
+  track.clips.push(clip);
+  next.revision = Math.max(0, Math.round(finite(current.revision, 0))) + 1;
+  next.timeline = {
+    ...(next.timeline || {}),
+    playhead_seconds: startSeconds + durationSeconds,
+  };
+  validateMusicMultitrackProject(next);
+
+  const metadata = {
+    ...(project.metadata || {}),
+    [MULTITRACK_METADATA_KEY]: next,
+    music_bpm: next.bpm,
+    music_time_signature: next.time_signature,
+    music_multitrack_updated_at: new Date().toISOString(),
+  };
+  await CreativeProjectRepository.update(project.id, { metadata });
+
+  return {
+    contract: "AVANTIQO_MUSIC_RECORDED_TAKE_MULTITRACK_LINK_V1",
+    revision: next.revision,
+    track_id: track.id,
+    take_id: take.id,
+    clip_id: clip.id,
+    start_seconds: startSeconds,
+    duration_seconds: durationSeconds,
+    immutable_source_asset_id: asset.id,
+    destructive_edit: false,
+  };
+}
+
 async function registerRecordedTake(body) {
   const organizationId = text(body.organization_id);
   const projectId = text(body.creative_project_id);
@@ -146,6 +253,16 @@ async function registerRecordedTake(body) {
     tags: ["music", "recording", "original-take", trackRole],
   });
 
+  const multitrack = await appendRecordedTakeToMultitrack({
+    organizationId,
+    projectId,
+    asset,
+    title: text(body.title || fileName),
+    trackRole,
+    durationSeconds,
+    body,
+  });
+
   return {
     success: true,
     contract: "AVANTIQO_MUSIC_RECORDED_TAKE_ASSET_V1",
@@ -156,7 +273,9 @@ async function registerRecordedTake(body) {
       playback_url: await playbackUrl(organizationId, asset.file_url),
       metadata: asset.metadata || {},
     },
+    multitrack,
     original_take_preserved: true,
+    added_to_multitrack: true,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
   };

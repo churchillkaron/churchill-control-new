@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Disc3, Download, RefreshCw, ShieldCheck, TriangleAlert, Waves } from "lucide-react";
+import { CheckCircle2, Disc3, Download, RefreshCw, ShieldCheck, TriangleAlert, Waves } from "lucide-react";
 
 function finite(value, fallback = null) {
   const number = Number(value);
@@ -34,6 +34,7 @@ function dateLabel(value) {
 export default function MusicMasterStudioPanel({ organizationId, projectId }) {
   const [library, setLibrary] = useState({ current_revision: 0, releases: [] });
   const [busy, setBusy] = useState(false);
+  const [validatingId, setValidatingId] = useState("");
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("ALL");
 
@@ -59,6 +60,34 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  async function validateMaster(assetId) {
+    if (!assetId || validatingId) return;
+    setValidatingId(assetId);
+    setError("");
+    try {
+      const response = await fetch("/api/creative/music/master-validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization_id: organizationId,
+          creative_project_id: projectId,
+          master_asset_id: assetId,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Master validation could not run");
+      await load();
+      if (body.validation?.passed !== true) {
+        const failures = body.validation?.failures?.join(", ") || body.error || "Technical validation failed";
+        setError(`Master revalidation failed: ${failures}`);
+      }
+    } catch (cause) {
+      setError(cause?.message || "Master validation could not run");
+    } finally {
+      setValidatingId("");
+    }
+  }
+
   const releases = useMemo(() => {
     const all = Array.isArray(library.releases) ? library.releases : [];
     return filter === "ALL" ? all : all.filter((item) => item.kind === filter);
@@ -76,16 +105,16 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
         <div>
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.22em] text-[#d6a66a]/70"><Disc3 className="h-4 w-4" /> Master Studio</div>
           <h2 className="mt-2 text-xl font-medium text-white/82">Release masters & QC</h2>
-          <p className="mt-1 max-w-2xl text-[10px] leading-5 text-white/30">Inspect saved pre-masters, certified release masters, stems and alternate mixes. LUFS and true-peak certification belongs to release masters only.</p>
+          <p className="mt-1 max-w-2xl text-[10px] leading-5 text-white/30">Inspect saved pre-masters, certified release masters, stems and alternate mixes. Revalidation independently reopens the stored master and measures checksum, codec, sample rate, channels, LUFS and true peak again.</p>
         </div>
-        <button type="button" disabled={busy} onClick={() => load()} className="inline-flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2 text-[9px] text-white/42 disabled:opacity-25"><RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} /> Refresh</button>
+        <button type="button" disabled={busy || Boolean(validatingId)} onClick={() => load()} className="inline-flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2 text-[9px] text-white/42 disabled:opacity-25"><RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} /> Refresh</button>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-white/8 bg-black/25 p-4">
           <div className="text-[8px] uppercase tracking-[0.14em] text-white/20">Current project</div>
           <div className="mt-2 text-lg font-medium text-white/60">Revision {library.current_revision || 0}</div>
-          <div className="mt-1 text-[8px] text-white/20">Masters from older revisions remain historical and are never presented as current.</div>
+          <div className="mt-1 text-[8px] text-white/20">Older masters remain historical. Their technical integrity can still be revalidated without making them current again.</div>
         </div>
         <div className={`rounded-2xl border p-4 ${currentPreMaster ? "border-emerald-300/10 bg-emerald-300/[0.02]" : "border-white/8 bg-black/25"}`}>
           <div className="text-[8px] uppercase tracking-[0.14em] text-white/20">Current pre-master</div>
@@ -96,6 +125,7 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
           <div className="flex items-center justify-between"><div className="text-[8px] uppercase tracking-[0.14em] text-white/20">Current master</div>{currentMaster?.release_candidate ? <ShieldCheck className="h-4 w-4 text-emerald-100/55" /> : null}</div>
           <div className="mt-2 text-sm font-medium text-white/60">{currentMaster ? currentMaster.name : "Not certified"}</div>
           <div className="mt-2 grid grid-cols-2 gap-2 text-[8px] text-white/28"><span>{db(currentMaster?.integrated_lufs, "LUFS")}</span><span>{db(currentMaster?.true_peak_dbtp, "dBTP")}</span></div>
+          <div className="mt-2 text-[8px] text-white/22">{currentMaster?.technical_validation_passed ? `Revalidated ${dateLabel(currentMaster.technical_validated_at)}` : "Independent revalidation not run"}</div>
         </div>
       </div>
 
@@ -116,11 +146,13 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
                   <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#d6a66a]/55">{kindLabel(item.kind)}</span>
                   <span className={`rounded-md border px-1.5 py-0.5 text-[7px] ${item.current_revision ? "border-emerald-300/12 text-emerald-100/45" : "border-amber-300/10 text-amber-100/40"}`}>{item.current_revision ? `CURRENT R${item.project_revision}` : `HISTORICAL R${item.project_revision}`}</span>
                   {item.release_candidate ? <span className="rounded-md border border-emerald-300/12 px-1.5 py-0.5 text-[7px] text-emerald-100/45">RELEASE CANDIDATE</span> : null}
+                  {item.kind === "MASTER" && item.technical_validation_passed ? <span className="rounded-md border border-emerald-300/14 px-1.5 py-0.5 text-[7px] text-emerald-100/55">REVALIDATED</span> : null}
                 </div>
                 <div className="mt-1 truncate text-sm font-medium text-white/65">{item.name}</div>
                 <div className="mt-1 text-[7px] text-white/17">{dateLabel(item.created_at)}{item.mastering_profile ? ` · ${item.mastering_profile}` : ""}{item.stem_stage ? ` · ${item.stem_stage}` : ""}</div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {item.kind === "MASTER" && item.technical_validation_available ? <button type="button" disabled={Boolean(validatingId)} onClick={() => validateMaster(item.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/10 px-2.5 py-1.5 text-[8px] text-emerald-100/45 disabled:opacity-25"><CheckCircle2 className="h-3 w-3" /> {validatingId === item.id ? "Validating…" : "Revalidate technical QC"}</button> : null}
                 {item.primary_url ? <a href={item.primary_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-white/8 px-2.5 py-1.5 text-[8px] text-white/38"><Download className="h-3 w-3" /> Audio</a> : null}
                 {item.waveform_url ? <a href={item.waveform_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-white/8 px-2.5 py-1.5 text-[8px] text-white/38"><Waves className="h-3 w-3" /> Waveform</a> : null}
               </div>
@@ -134,6 +166,10 @@ export default function MusicMasterStudioPanel({ organizationId, projectId }) {
               <div className="rounded-lg border border-white/6 p-2"><div className="text-[7px] uppercase text-white/15">Peak</div><div className="mt-1 text-white/42">{db(item.peak_dbfs, "dBFS")}</div></div>
               <div className="rounded-lg border border-white/6 p-2"><div className="text-[7px] uppercase text-white/15">Headroom</div><div className="mt-1 text-white/42">{db(item.headroom_db, "dB")}</div></div>
             </div>
+
+            {item.kind === "MASTER" && item.technical_validation_passed ? <div className="mt-3 rounded-xl border border-emerald-300/10 bg-emerald-300/[0.018] p-3"><div className="flex items-center gap-2 text-[8px] text-emerald-100/55"><CheckCircle2 className="h-3 w-3" /> Stored master independently revalidated</div><div className="mt-2 grid grid-cols-2 gap-2 text-[8px] text-white/28 sm:grid-cols-4"><span>Checksum {item.validated_checksum_verified ? "verified" : "unverified"}</span><span>{db(item.validation_observed_integrated_lufs, "LUFS")}</span><span>{db(item.validation_observed_true_peak_dbtp, "dBTP")}</span><span>{item.validation_observed_sample_rate ? `${item.validation_observed_sample_rate} Hz · ${item.validation_observed_channels || "?"} ch` : "format —"}</span></div><div className="mt-1 text-[7px] text-white/16">Validated {dateLabel(item.technical_validated_at)} · {item.validation_observed_codec || "codec unknown"}</div></div> : null}
+
+            {item.kind === "MASTER" && item.technical_validated_at && !item.technical_validation_passed ? <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-300/12 bg-red-400/[0.018] p-2 text-[8px] leading-4 text-red-100/55"><TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" /><div><div>Independent technical revalidation failed.</div><div className="mt-1 text-red-100/38">{item.technical_validation_failures?.join(", ") || "Technical evidence mismatch"}</div></div></div> : null}
 
             {item.kind === "MASTER" && (!item.release_limiter_applied || !item.true_peak_certified) ? <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-300/10 bg-amber-300/[0.015] p-2 text-[8px] leading-4 text-amber-100/50"><TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />This master record does not contain complete limiter/true-peak certification evidence.</div> : null}
 

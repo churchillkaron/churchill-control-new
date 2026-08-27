@@ -1,0 +1,138 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_POST48_GAP_AUDIT_V1",
+  "date": "2026-08-27",
+  "scope": "INTELLIGENCE_ONLY",
+  "phase_model": "POST_PHASE48_GAP_AUDIT_NOT_PHASE49",
+  "phase48_certification_status": "AWAITING_CLEAN_USER_RERUN_AFTER_AUDIT_REPAIR",
+  "summary": {
+    "blockers_to_current_operator_intelligence": 0,
+    "blockers_to_complete_owned_model_release_loop": 1,
+    "important_open_gaps": 2,
+    "gaps_fixed_during_audit": 2,
+    "already_complete_major_capabilities": 7
+  },
+  "already_complete": [
+    {
+      "area": "continuous_learning_schedule",
+      "status": "COMPLETE",
+      "evidence": "vercel.json schedules /api/internal/intelligence/continuous-learning/process at 17 * * * * with maxDuration 300"
+    },
+    {
+      "area": "knowledge_router_and_fresh_research_fallback",
+      "status": "COMPLETE",
+      "evidence": "AvantiqoKnowledgeRouterRuntime supports canonical internal product knowledge, hybrid released knowledge, evidence graph routing, and fresh research when reuse is unsafe"
+    },
+    {
+      "area": "normal_operator_research_reachability",
+      "status": "COMPLETE",
+      "evidence": "platform.research.search is exposed read-only through the Operator capability/tool bridge and promoted for current or unknown external facts, laws, standards, competitors, news, frontier and explicit web-research tasks"
+    },
+    {
+      "area": "owned_fast_deep_reasoning",
+      "status": "COMPLETE",
+      "evidence": "AvantiqoIntelligenceReasoningRuntime pins ServiceExecutionRuntime to provider avantiqo-intelligence; Fast and Deep lanes are explicit and Safe-Lease-bound"
+    },
+    {
+      "area": "verified_experience_to_training_candidate",
+      "status": "COMPLETE",
+      "evidence": "IntelligenceAdaptiveLearningRuntime emits de-identified benchmark-required platform_training_candidates with training_ready false and no automatic weight mutation"
+    },
+    {
+      "area": "governed_training_and_candidate_benchmark_stack",
+      "status": "COMPLETE",
+      "evidence": "TrainingCandidate, TrainingDataset, TrainingExampleCompiler, ModelImprovement, ModelTrainingExecution, ModelBenchmark, CandidateCanary and ModelPromotion runtimes exist with explicit execution/benchmark/canary gates"
+    },
+    {
+      "area": "safe_candidate_canary",
+      "status": "COMPLETE",
+      "evidence": "Candidate canary requires explicit approval, Safe Lease, certified immutable image, exact candidate-id and adapter binding, structured output and native tool-call verification; production endpoint remains untouched"
+    }
+  ],
+  "fixed_during_audit": [
+    {
+      "area": "training_recipe_source_of_truth",
+      "classification": "IMPORTANT_GAP",
+      "before": "TrainingDatasetRuntime advertised preferred_method QLORA_OR_LORA while the current trainer and model-improvement stack require unquantized BF16 Qwen3-MoE LoRA",
+      "after": "Dataset recipe is bound to LORA_BF16_PEFT_QWEN3_MOE, BF16, base_quantized false, RUNPOD_SERVERLESS_DEDICATED_TRAINER, explicit execution, immutable base weights",
+      "commits": [
+        "e9d7a07587aa9f58508260c9520b09c9c7236b0c",
+        "dcb2c9c2244f6e4078ccd56430dbc5b422885c3d",
+        "300b6dc3908507fcb15053ea7b1caa9679d070ad"
+      ],
+      "side_effects": "SOURCE_ONLY_NO_TRAINING_NO_RUNPOD_NO_WALLET_NO_WEIGHT_MUTATION"
+    },
+    {
+      "area": "owned_inference_fallback_metadata",
+      "classification": "IMPORTANT_GAP",
+      "before": "Provider registration advertised external_provider_fallback_allowed true while the reasoning loop is hard-pinned to allowed_providers [avantiqo-intelligence]",
+      "after": "Provider registration now advertises external_provider_fallback_allowed false and the reasoning-loop contract test guards the owned-only metadata",
+      "commits": [
+        "5f8225fcf805727641df82403e6b18280e5774d9",
+        "5ed5ac14715a710fb82cdeaf643bfa0cf8c31114"
+      ],
+      "side_effects": "SOURCE_ONLY_NO_PROVIDER_EXECUTION"
+    }
+  ],
+  "open_gaps": [
+    {
+      "area": "production_model_adapter_release_and_rollback",
+      "classification": "BLOCKER_TO_COMPLETE_OWNED_MODEL_RELEASE_LOOP",
+      "current_state": "ModelPromotionRuntime stops at CANARY_CERTIFIED_RELEASE_PENDING with explicit_production_release_required true and production_release_authorized false",
+      "root_cause": "Candidate worker has an explicit LoRA adapter startup contract using ENABLE_LORA, MAX_LORA_RANK, LORA_MODULES and mixed MoE LoRA format, but no equivalent governed production adapter-loading/release/rollback contract was found in the production Fast/Deep worker path",
+      "required_solution": [
+        "define immutable production adapter release artifact and exact base-model compatibility contract",
+        "add explicit release approval distinct from training, benchmark and canary approval",
+        "bind adapter only through existing Safe Lease and immutable endpoint/template controls",
+        "verify production worker supports exact Qwen3-MoE adapter load before traffic",
+        "perform bounded production canary with health, structured-output, native-tool-call and latency checks",
+        "retain exact previous production model/adapter binding for atomic rollback",
+        "record immutable release and rollback provenance",
+        "never auto-promote solely because benchmark/canary passed"
+      ],
+      "production_change_performed_by_this_audit": false
+    },
+    {
+      "area": "model_improvement_preparation_orchestration",
+      "classification": "IMPORTANT_GAP",
+      "current_state": "Continuous learning is scheduled hourly, but dataset assembly, synthetic example compilation, training-job preparation, benchmark submission and promotion review are primarily runtime/local-script entrypoints rather than one production reconciliation lane",
+      "safe_automation_boundary": {
+        "may_run_automatically_without_spend": [
+          "candidate hygiene and readiness reconciliation",
+          "deterministic canonical curriculum candidate discovery",
+          "deterministic benchmark/readiness checks that do not invoke inference",
+          "training dataset assembly from already benchmark-approved de-identified candidates"
+        ],
+        "must_remain_explicit_or_budget_gated": [
+          "synthetic example compilation because it invokes owned Intelligence",
+          "RunPod training",
+          "model benchmark inference",
+          "candidate canary inference",
+          "production release"
+        ]
+      },
+      "required_solution": "add a service-only model-improvement readiness reconciler to the existing continuous-learning process that advances only free/deterministic preparation and emits explicit pending gates for spend/training/benchmark/canary/release"
+    },
+    {
+      "area": "intelligence_operational_observability",
+      "classification": "IMPORTANT_GAP_REQUIRES_DEEPER_CERTIFICATION",
+      "current_state": "Fast/Deep providers expose endpoint health and latency and Service Runtime meters usage, but this audit has not yet found a unified Intelligence SLO/alert ledger covering queue age, cold-start latency, Fast-to-Deep escalation rate, tool failure rate, research freshness failures, learning-cron failures, trainer/candidate readiness and release rollback alarms",
+      "required_solution": "audit existing platform observability primitives and converge Intelligence metrics/alerts into one service-only health surface without duplicating provider-specific monitoring"
+    }
+  ],
+  "runpod_worker_rule": {
+    "canonical_diagnostic": "IN_QUEUE_WITHOUT_REAL_WORKER_IS_SCHEDULER_CAPACITY_PLACEMENT_FIRST; IN_PROGRESS_IS_RUNTIME_MODEL_INFERENCE_INVESTIGATION",
+    "safe_lease_owns_scaling": true,
+    "child_job_workersMax_mutation_allowed": false,
+    "runtime_probe_before_expensive_inference": true,
+    "worker_certification_separate_from_quality_certification": true
+  },
+  "safety": {
+    "provider_call_performed_by_gap_audit": false,
+    "wallet_write_performed_by_gap_audit": false,
+    "runpod_job_submitted_by_gap_audit": false,
+    "automatic_training_started": false,
+    "automatic_model_weight_mutation": false,
+    "production_model_promoted": false,
+    "phase49_created": false
+  }
+}

@@ -97,6 +97,7 @@ SECRETARY_MIGRATIONS=(
   "20260826190000_secretary_booked_meeting_changes.sql"
   "20260826193000_secretary_recurring_meetings.sql"
   "20260826194000_secretary_recurring_future_cutoff_semantics.sql"
+  "20260827194500_secretary_resource_reservations.sql"
 )
 
 for migration in "${SECRETARY_MIGRATIONS[@]}"; do
@@ -191,6 +192,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-contact-record-maintenance-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-document-preparation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-records-retrieval-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-resource-reservation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-closeout-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-minutes-revision-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-staff-delegation-local.mjs

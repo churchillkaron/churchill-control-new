@@ -1,0 +1,161 @@
+name: Avantiqo Voice STT Worker Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-voice-stt-worker-image-request.json
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-voice-stt-worker-image
+  cancel-in-progress: true
+
+jobs:
+  build_stt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      image_repository: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.image.outputs.tag }}
+      source_sha: ${{ steps.image.outputs.release_sha }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      preflight_outcome: ${{ steps.preflight.outcome }}
+      build_outcome: ${{ steps.build.outcome }}
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify Voice STT source lock
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-voice-stt/Dockerfile
+          test -f services/avantiqo-voice-stt/handler.py
+          grep -F 'FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime' services/avantiqo-voice-stt/Dockerfile
+          grep -F 'runpod==1.9.1' services/avantiqo-voice-stt/requirements.txt
+          grep -F 'EXPECTED_FOUNDATION_MODEL = "openai/whisper-large-v3-turbo"' services/avantiqo-voice-stt/handler.py
+          grep -F 'generate_kwargs["prompt_ids"] = prompt_ids' services/avantiqo-voice-stt/handler.py
+          grep -F '"vocabulary_context_applied": prompt_ids is not None' services/avantiqo-voice-stt/handler.py
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo 'AVANTIQO_VOICE_STT_IMAGE_PREFLIGHT=PASS'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable STT image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-voice-stt-worker"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push immutable Voice STT image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-voice-stt
+          file: services/avantiqo-voice-stt/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-voice-stt-worker
+          cache-to: type=gha,mode=max,scope=avantiqo-voice-stt-worker
+
+  record_evidence:
+    needs: build_stt
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest main for evidence only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Record sanitized STT image evidence
+        env:
+          JOB_RESULT: ${{ needs.build_stt.result }}
+          PREFLIGHT_OUTCOME: ${{ needs.build_stt.outputs.preflight_outcome }}
+          BUILD_OUTCOME: ${{ needs.build_stt.outputs.build_outcome }}
+          IMAGE_REPOSITORY: ${{ needs.build_stt.outputs.image_repository }}
+          IMAGE_TAG: ${{ needs.build_stt.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.build_stt.outputs.image_digest }}
+          SOURCE_SHA: ${{ needs.build_stt.outputs.source_sha }}
+          TRIGGER_SHA: ${{ github.sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          const text = (value) => String(value ?? "").trim();
+          const digest = text(process.env.IMAGE_DIGEST);
+          const sourceSha = text(process.env.SOURCE_SHA);
+          const triggerSha = text(process.env.TRIGGER_SHA);
+          const repository = text(process.env.IMAGE_REPOSITORY);
+          const success = process.env.JOB_RESULT === "success" && sourceSha === triggerSha && /^sha256:[a-f0-9]{64}$/i.test(digest);
+          const report = {
+            success,
+            contract: "AVANTIQO_VOICE_STT_WORKER_IMAGE_RESULT_V1",
+            github_run_id: process.env.BUILD_RUN_ID || null,
+            trigger_sha: triggerSha || null,
+            source_sha: sourceSha || null,
+            source_sha_matches_trigger: Boolean(sourceSha) && sourceSha === triggerSha,
+            build_job_result: process.env.JOB_RESULT || "unknown",
+            preflight_outcome: process.env.PREFLIGHT_OUTCOME || null,
+            build_outcome: process.env.BUILD_OUTCOME || null,
+            image_repository: repository || null,
+            image_tag: process.env.IMAGE_TAG || null,
+            image_digest: /^sha256:[a-f0-9]{64}$/i.test(digest) ? digest : null,
+            immutable_image_reference: success ? `${repository}@${digest}` : null,
+            foundation_model: "openai/whisper-large-v3-turbo",
+            cuda_runtime_expected: "12.8",
+            vocabulary_context_prompt_ids_baked: success,
+            production_web_deploy: false,
+            provider_job_submitted: false,
+            tts_image_built: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false
+          };
+          writeFileSync("/tmp/avantiqo-voice-stt-worker-image.json", `${JSON.stringify(report, null, 2)}\n`, "utf8");
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B voice-stt-image-evidence origin/main
+            mkdir -p audits/results
+            cp /tmp/avantiqo-voice-stt-worker-image.json audits/results/avantiqo-voice-stt-worker-image.json
+            git add audits/results/avantiqo-voice-stt-worker-image.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m "Record Voice STT worker image result"
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$attempt"
+          done
+          exit 1

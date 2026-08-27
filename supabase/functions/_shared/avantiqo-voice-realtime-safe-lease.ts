@@ -44,6 +44,19 @@ function supabaseSecretKey(): string {
   throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_SUPABASE_SECRET_REQUIRED");
 }
 
+function isLegacyJwtKey(value: string): boolean {
+  const parts = value.split(".");
+  return value.startsWith("eyJ") && parts.length === 3 && parts.every(Boolean);
+}
+
+function supabaseRpcHeaders(key: string): Record<string, string> {
+  return {
+    apikey: key,
+    "Cache-Control": "no-store",
+    ...(isLegacyJwtKey(key) ? { Authorization: `Bearer ${key}` } : {}),
+  };
+}
+
 function supabaseUrl(): string {
   const value = text(Deno.env.get("SUPABASE_URL"));
   if (!value) throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_SUPABASE_URL_REQUIRED");
@@ -104,11 +117,7 @@ async function rpc(name: string, body: Record<string, unknown>): Promise<Record<
   const key = supabaseSecretKey();
   return requestJson(`${supabaseUrl()}/rest/v1/rpc/${name}`, {
     method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Cache-Control": "no-store",
-    },
+    headers: supabaseRpcHeaders(key),
     body,
   });
 }

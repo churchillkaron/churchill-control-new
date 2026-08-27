@@ -91,7 +91,7 @@ test("model numeric priority scores are ignored", () => {
 
 test("planning tool exposes uncertainty prioritization without execution authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V11/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V12/);
   assert.match(source, /"prioritize_uncertainty"/);
   assert.match(source, /uncertainty_priority_contract/);
   assert.match(source, /model_numeric_uncertainty_priority_scores_never_trusted/);

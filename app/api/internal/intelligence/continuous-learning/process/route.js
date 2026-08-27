@@ -100,6 +100,9 @@ import {
   verifyAvantiqoPersistentPolicyGenerationIntegrity,
 } from "@/lib/intelligence/runtime/AvantiqoPersistentPolicyGenerationIntegrityRuntime";
 import {
+  verifyAvantiqoPersistentPolicyActivationGenerationIntegrity,
+} from "@/lib/intelligence/runtime/AvantiqoPersistentPolicyActivationGenerationIntegrityRuntime";
+import {
   reconcileAvantiqoSelectionPolicyResearchEpoch,
 } from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyResearchEpochRuntime";
 import {
@@ -180,8 +183,20 @@ export async function GET(request) {
       calibrationBackfilledExperimentPortfolio
         ?.final_assessor_calibrated_estimator_selection_guard || null;
 
+    const persistentPolicyActivationGenerationResearchIntegrity =
+      await verifyAvantiqoPersistentPolicyActivationGenerationIntegrity();
     const selectionPolicyResearchEpoch =
-      await reconcileAvantiqoSelectionPolicyResearchEpoch();
+      persistentPolicyActivationGenerationResearchIntegrity.success !== false &&
+      persistentPolicyActivationGenerationResearchIntegrity.research_generation_allowed !== false
+        ? await reconcileAvantiqoSelectionPolicyResearchEpoch()
+        : {
+            success: false,
+            status: "BLOCKED_BY_PERSISTENT_POLICY_ACTIVATION_GENERATION_INTEGRITY_FAIL_CLOSED",
+            persistent_policy_active:
+              persistentPolicyActivationGenerationResearchIntegrity.persistent_policy_active,
+            legacy_challenger_promotion_allowed: false,
+            execution_authorized: false,
+          };
     const legacyChallengerPromotionAllowed =
       selectionPolicyResearchEpoch.legacy_challenger_promotion_allowed !== false;
 
@@ -274,21 +289,43 @@ export async function GET(request) {
             read_only_integrity_verification: true,
           };
 
+    const persistentPolicyActivationGenerationIntegrity =
+      persistentOrderingPolicyApplication.success !== false &&
+      persistentOrderingPolicyRegressionMonitor.success !== false &&
+      persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false &&
+      persistentPolicyGenerationIntegrity.success !== false &&
+      persistentPolicyGenerationIntegrity.execution_request_generation_allowed !== false
+        ? await verifyAvantiqoPersistentPolicyActivationGenerationIntegrity()
+        : {
+            success: false,
+            status: "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_PRECONDITION_FAIL_CLOSED",
+            research_generation_allowed: false,
+            execution_request_generation_allowed: false,
+            read_only_integrity_verification: true,
+          };
+
     const rebasedSelectionPolicyChallenger =
       selectionPolicyResearchEpoch.success !== false &&
       persistentOrderingPolicyApplication.success !== false &&
       persistentOrderingPolicyRegressionMonitor.success !== false &&
       persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false &&
       persistentPolicyGenerationIntegrity.success !== false &&
-      persistentPolicyGenerationIntegrity.execution_request_generation_allowed !== false
+      persistentPolicyGenerationIntegrity.execution_request_generation_allowed !== false &&
+      persistentPolicyActivationGenerationIntegrity.success !== false &&
+      persistentPolicyActivationGenerationIntegrity.research_generation_allowed !== false &&
+      persistentPolicyActivationGenerationIntegrity.execution_request_generation_allowed !== false
         ? await reconcileAvantiqoRebasedSelectionPolicyChallenger()
         : {
             success: false,
             status:
-              persistentPolicyGenerationIntegrity.success === false ||
-              persistentPolicyGenerationIntegrity.execution_request_generation_allowed === false
-                ? "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_INTEGRITY_FAIL_CLOSED"
-                : "BLOCKED_BY_PERSISTENT_POLICY_RESEARCH_PRECONDITION_FAIL_CLOSED",
+              persistentPolicyActivationGenerationIntegrity.success === false ||
+              persistentPolicyActivationGenerationIntegrity.research_generation_allowed === false ||
+              persistentPolicyActivationGenerationIntegrity.execution_request_generation_allowed === false
+                ? "BLOCKED_BY_PERSISTENT_POLICY_ACTIVATION_GENERATION_INTEGRITY_FAIL_CLOSED"
+                : persistentPolicyGenerationIntegrity.success === false ||
+                    persistentPolicyGenerationIntegrity.execution_request_generation_allowed === false
+                  ? "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_INTEGRITY_FAIL_CLOSED"
+                  : "BLOCKED_BY_PERSISTENT_POLICY_RESEARCH_PRECONDITION_FAIL_CLOSED",
             proposal_ready: false,
             promotion_authorized: false,
             live_ordering_mutated: false,
@@ -312,16 +349,21 @@ export async function GET(request) {
       persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false &&
       persistentPolicyGenerationIntegrity.success !== false &&
       persistentPolicyGenerationIntegrity.execution_request_generation_allowed !== false &&
+      persistentPolicyActivationGenerationIntegrity.success !== false &&
+      persistentPolicyActivationGenerationIntegrity.execution_request_generation_allowed !== false &&
       rebasedSelectionPolicyChallenger.success !== false &&
       rebasedSelectionPolicyPromotionRequests.success !== false
         ? await reconcileAvantiqoRebasedSelectionPolicyCanary()
         : {
             success: false,
             status:
-              persistentPolicyGenerationIntegrity.success === false ||
-              persistentPolicyGenerationIntegrity.execution_request_generation_allowed === false
-                ? "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_INTEGRITY_FAIL_CLOSED"
-                : "BLOCKED_BY_REBASED_CANARY_PRECONDITION_FAIL_CLOSED",
+              persistentPolicyActivationGenerationIntegrity.success === false ||
+              persistentPolicyActivationGenerationIntegrity.execution_request_generation_allowed === false
+                ? "BLOCKED_BY_PERSISTENT_POLICY_ACTIVATION_GENERATION_INTEGRITY_FAIL_CLOSED"
+                : persistentPolicyGenerationIntegrity.success === false ||
+                    persistentPolicyGenerationIntegrity.execution_request_generation_allowed === false
+                  ? "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_INTEGRITY_FAIL_CLOSED"
+                  : "BLOCKED_BY_REBASED_CANARY_PRECONDITION_FAIL_CLOSED",
             canary_active: false,
             execution_request_generation_allowed: false,
             automatic_activation: false,
@@ -348,6 +390,8 @@ export async function GET(request) {
       persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false &&
       persistentPolicyGenerationIntegrity.success !== false &&
       persistentPolicyGenerationIntegrity.execution_request_generation_allowed !== false &&
+      persistentPolicyActivationGenerationIntegrity.success !== false &&
+      persistentPolicyActivationGenerationIntegrity.execution_request_generation_allowed !== false &&
       rebasedSelectionPolicyChallenger.success !== false &&
       rebasedSelectionPolicyPromotionRequests.success !== false &&
       rebasedSelectionPolicyCanary.success !== false &&
@@ -357,28 +401,34 @@ export async function GET(request) {
         : {
             success: true,
             status:
-              selectionPolicyResearchEpoch.success === false
-                ? "BLOCKED_BY_SELECTION_POLICY_RESEARCH_EPOCH_FAIL_CLOSED"
-                : persistentOrderingPolicyRegressionMonitor.success === false ||
-                    persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed === false
-                  ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_REGRESSION_MONITOR"
-                  : persistentOrderingPolicyApplication.success === false
-                    ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_APPLICATION_FAIL_CLOSED"
-                    : persistentPolicyGenerationIntegrity.success === false ||
-                        persistentPolicyGenerationIntegrity.execution_request_generation_allowed === false
-                      ? "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_INTEGRITY_FAIL_CLOSED"
-                      : rebasedSelectionPolicyChallenger.success === false
-                        ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CHALLENGER_FAIL_CLOSED"
-                        : rebasedSelectionPolicyPromotionRequests.success === false
-                          ? "BLOCKED_BY_REBASED_SELECTION_POLICY_PROMOTION_GOVERNANCE_FAIL_CLOSED"
-                          : rebasedSelectionPolicyCanary.success === false ||
-                              rebasedSelectionPolicyCanary.execution_request_generation_allowed === false
-                            ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CANARY_FAIL_CLOSED"
-                            : persistentPolicySuccessionRequests.success === false
-                              ? "BLOCKED_BY_PERSISTENT_POLICY_SUCCESSION_GOVERNANCE_FAIL_CLOSED"
-                              : selectionPolicyCanary.success === false
-                                ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
-                                : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
+              persistentPolicyActivationGenerationResearchIntegrity.success === false ||
+              persistentPolicyActivationGenerationResearchIntegrity.research_generation_allowed === false
+                ? "BLOCKED_BY_PERSISTENT_POLICY_ACTIVATION_GENERATION_INTEGRITY_FAIL_CLOSED"
+                : selectionPolicyResearchEpoch.success === false
+                  ? "BLOCKED_BY_SELECTION_POLICY_RESEARCH_EPOCH_FAIL_CLOSED"
+                  : persistentOrderingPolicyRegressionMonitor.success === false ||
+                      persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed === false
+                    ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_REGRESSION_MONITOR"
+                    : persistentOrderingPolicyApplication.success === false
+                      ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_APPLICATION_FAIL_CLOSED"
+                      : persistentPolicyGenerationIntegrity.success === false ||
+                          persistentPolicyGenerationIntegrity.execution_request_generation_allowed === false
+                        ? "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_INTEGRITY_FAIL_CLOSED"
+                        : persistentPolicyActivationGenerationIntegrity.success === false ||
+                            persistentPolicyActivationGenerationIntegrity.execution_request_generation_allowed === false
+                          ? "BLOCKED_BY_PERSISTENT_POLICY_ACTIVATION_GENERATION_INTEGRITY_FAIL_CLOSED"
+                          : rebasedSelectionPolicyChallenger.success === false
+                            ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CHALLENGER_FAIL_CLOSED"
+                            : rebasedSelectionPolicyPromotionRequests.success === false
+                              ? "BLOCKED_BY_REBASED_SELECTION_POLICY_PROMOTION_GOVERNANCE_FAIL_CLOSED"
+                              : rebasedSelectionPolicyCanary.success === false ||
+                                  rebasedSelectionPolicyCanary.execution_request_generation_allowed === false
+                                ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CANARY_FAIL_CLOSED"
+                                : persistentPolicySuccessionRequests.success === false
+                                  ? "BLOCKED_BY_PERSISTENT_POLICY_SUCCESSION_GOVERNANCE_FAIL_CLOSED"
+                                  : selectionPolicyCanary.success === false
+                                    ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
+                                    : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
             execution_request_count: 0,
             execution_authorized: false,
             spend_authorized: false,
@@ -414,6 +464,8 @@ export async function GET(request) {
         experiment_portfolio_performance: experimentPortfolioPerformance,
         long_horizon_policy_adapted_experiment_portfolio:
           longHorizonPolicyAdaptedExperimentPortfolio,
+        persistent_policy_activation_generation_research_integrity:
+          persistentPolicyActivationGenerationResearchIntegrity,
         selection_policy_research_epoch: selectionPolicyResearchEpoch,
         rebased_selection_policy_challenger: rebasedSelectionPolicyChallenger,
         rebased_selection_policy_promotion_requests:
@@ -421,6 +473,8 @@ export async function GET(request) {
         rebased_selection_policy_canary: rebasedSelectionPolicyCanary,
         persistent_policy_succession_requests: persistentPolicySuccessionRequests,
         persistent_policy_generation_integrity: persistentPolicyGenerationIntegrity,
+        persistent_policy_activation_generation_integrity:
+          persistentPolicyActivationGenerationIntegrity,
         selection_policy_shadow_challenger: selectionPolicyShadowChallenger,
         selection_policy_shadow_evaluation_integrity:
           selectionPolicyShadowEvaluationIntegrity,
@@ -446,12 +500,14 @@ export async function GET(request) {
         status:
           result.success === false ||
           longHorizonPolicyAdaptedExperimentPortfolio.success === false ||
+          persistentPolicyActivationGenerationResearchIntegrity.success === false ||
           selectionPolicyResearchEpoch.success === false ||
           rebasedSelectionPolicyChallenger.success === false ||
           rebasedSelectionPolicyPromotionRequests.success === false ||
           rebasedSelectionPolicyCanary.success === false ||
           persistentPolicySuccessionRequests.success === false ||
           persistentPolicyGenerationIntegrity.success === false ||
+          persistentPolicyActivationGenerationIntegrity.success === false ||
           selectionPolicyShadowChallenger.success === false ||
           selectionPolicyShadowEvaluationIntegrity.success === false ||
           selectionPolicyPromotionRequests.success === false ||

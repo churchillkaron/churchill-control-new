@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 const CONTRACT = "AVANTIQO_INTELLIGENCE_COGNITION_PLATFORM_SCOPE_V1";
 const CANONICAL_ORGANIZATION_NAME = "Avantiqo Platform";
 const CANONICAL_ORGANIZATION_TYPE = "enterprise_group";
+const PLATFORM_DEFAULT_MAX_PROJECTED_CUSTOMER_CHARGE = "10";
 const CHILD = resolve(
   "scripts/run-avantiqo-intelligence-cognition-runtime-certification-local.mjs",
 );
@@ -60,6 +61,11 @@ const child = spawnSync(
       AVANTIQO_INTELLIGENCE_COGNITION_CERT_ORGANIZATION_ID: organizationId,
       AVANTIQO_INTELLIGENCE_COGNITION_CERT_ORGANIZATION_SOURCE:
         organizationSource,
+      AVANTIQO_INTELLIGENCE_COGNITION_CERT_MAX_CUSTOMER_CHARGE:
+        text(
+          process.env.AVANTIQO_INTELLIGENCE_COGNITION_CERT_MAX_CUSTOMER_CHARGE,
+          80,
+        ) || PLATFORM_DEFAULT_MAX_PROJECTED_CUSTOMER_CHARGE,
     },
     stdio: "inherit",
   },
@@ -73,6 +79,9 @@ if (child.status !== 0) process.exit(child.status || 1);
 
 console.log(`${CONTRACT}=PASS`);
 console.log(`AVANTIQO_COGNITION_PLATFORM_SCOPE_SOURCE=${organizationSource}`);
+console.log(
+  `AVANTIQO_COGNITION_PLATFORM_SCOPE_DEFAULT_MAX_CUSTOMER_CHARGE=${PLATFORM_DEFAULT_MAX_PROJECTED_CUSTOMER_CHARGE}`,
+);
 console.log("AVANTIQO_COGNITION_PLATFORM_SCOPE_ORGANIZATION_ID_PRINTED=false");
 console.log("AVANTIQO_COGNITION_PLATFORM_SCOPE_ORGANIZATION_CREATED=false");
 console.log("AVANTIQO_COGNITION_PLATFORM_SCOPE_DATABASE_MUTATED=false");

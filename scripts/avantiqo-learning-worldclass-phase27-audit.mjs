@@ -151,7 +151,11 @@ requireMarker(
   "avantiqo_enforce_learning_execution_provenance",
   "PHASE23_DB_PROVENANCE_TRIGGER",
 );
-requireMarker(receiptEnforcementMigration, "BEFORE INSERT", "PHASE23_BEFORE_INSERT_GUARD");
+requireMarker(
+  receiptEnforcementMigration.toLowerCase(),
+  "before insert on public.intelligence_memories",
+  "PHASE23_BEFORE_INSERT_GUARD",
+);
 
 // Phase 21 + 22: observed result evidence calibrates estimators/assessors without score inflation.
 requireMarker(estimator, "AVANTIQO_EXPERIMENT_ESTIMATOR_CALIBRATION_V1", "PHASE21_CONTRACT");

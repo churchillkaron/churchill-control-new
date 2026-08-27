@@ -86,7 +86,10 @@ function sessionAssetIds(session = {}) {
 }
 
 function samplerAssetIds(sampler = {}) {
-  return new Set((sampler.kits || []).flatMap((kit) => (kit.pads || []).map((pad) => text(pad.sample_asset_id))).filter(Boolean));
+  return new Set((sampler.kits || []).flatMap((kit) => (kit.pads || []).flatMap((pad) => [
+    text(pad.sample_asset_id),
+    ...(pad.layers || []).map((layer) => text(layer.sample_asset_id)),
+  ])).filter(Boolean));
 }
 
 async function resolveAssetUrls(organizationId, projectId, requiredIds) {
@@ -131,6 +134,8 @@ async function publicSessionResult({ organizationId, projectId, project, session
     midi_track_count: midiTrackCount,
     midi_clip_count: midiClipCount,
     sampler_ready: true,
+    sampler_velocity_layers_ready: sampler.velocity_layers_supported === true,
+    sampler_round_robin_ready: sampler.round_robin_supported === true,
     mixer_aux_routing_ready: true,
     mixer_group_routing_ready: true,
     mixer_group_processing_ready: true,

@@ -79,6 +79,8 @@ export default function MusicWorkstationOverdubPanel({
   const [punchEnd, setPunchEnd] = useState(8);
   const [loopPasses, setLoopPasses] = useState(3);
   const [latencyCompMs, setLatencyCompMs] = useState(0);
+  const [monitorEnabled, setMonitorEnabled] = useState(false);
+  const [monitorGainDb, setMonitorGainDb] = useState(-18);
   const [recording, setRecording] = useState(false);
   const [phase, setPhase] = useState("IDLE");
   const [meter, setMeter] = useState({ peak_dbfs: -Infinity, rms_dbfs: -Infinity, clipping: false });
@@ -107,6 +109,14 @@ export default function MusicWorkstationOverdubPanel({
     captureRef.current?.cancel?.();
     backingRef.current?.stop?.();
   }, []);
+
+  useEffect(() => {
+    if (!recording || !captureRef.current?.setMonitor) return;
+    captureRef.current.setMonitor({
+      mode: monitorEnabled ? "software" : "off",
+      gainDb: monitorGainDb,
+    });
+  }, [recording, monitorEnabled, monitorGainDb]);
 
   const armed = selectedTrack?.armed === true;
   const bpm = Math.max(30, Math.min(300, finite(session?.bpm, 96)));
@@ -245,7 +255,12 @@ export default function MusicWorkstationOverdubPanel({
       setRecording(true);
       onRecordingChange?.(true);
       setPhase("OPENING INPUT");
-      const capture = await startMusicRawPcmCapture({ deviceId: deviceId || null, onLevel: setMeter });
+      const capture = await startMusicRawPcmCapture({
+        deviceId: deviceId || null,
+        onLevel: setMeter,
+        monitorMode: monitorEnabled ? "software" : "off",
+        monitorGainDb,
+      });
       captureRef.current = capture;
       setPhase("COUNT-IN");
       await playCountIn({ bpm, bars: countInBars, signature });
@@ -350,6 +365,14 @@ export default function MusicWorkstationOverdubPanel({
             <input type="number" min="-500" max="500" step="1" value={latencyCompMs} onChange={(event) => setLatencyCompMs(Math.max(-500, Math.min(500, finite(event.target.value, 0))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
             <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">Measured/manual compensation; 0 ms means no assumed microphone latency correction.</span>
           </label>
+          <div className="col-span-2 rounded-xl border border-white/8 bg-black/20 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-[10px] text-white/48"><input type="checkbox" checked={monitorEnabled} onChange={(event) => setMonitorEnabled(event.target.checked)} className="accent-[#d6a66a]" /> Software input monitor</label>
+              <span className={`text-[8px] ${monitorEnabled ? "text-[#efd29f]/60" : "text-white/20"}`}>{monitorEnabled ? `${monitorGainDb.toFixed(0)} dB` : "OFF"}</span>
+            </div>
+            {monitorEnabled ? <input type="range" min="-60" max="0" step="1" value={monitorGainDb} onChange={(event) => setMonitorGainDb(Math.max(-60, Math.min(0, finite(event.target.value, -18))))} className="mt-3 w-full accent-[#d6a66a]" /> : null}
+            <div className="mt-2 text-[8px] leading-4 text-white/20">Off by default. Use headphones when enabled to prevent acoustic feedback. Monitor gain changes only the live headphone path; recorded raw PCM remains unchanged.</div>
+          </div>
         </div>
 
         {!loopEnabled && punchEnabled ? <div className="mt-3 grid grid-cols-2 gap-3"><input type="number" step="0.1" value={punchStart} onChange={(event) => setPunchStart(Math.max(0, finite(event.target.value, 0)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /><input type="number" step="0.1" value={punchEnd} onChange={(event) => setPunchEnd(Math.max(punchStart + 0.1, finite(event.target.value, punchStart + 1)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /></div> : null}
@@ -365,7 +388,7 @@ export default function MusicWorkstationOverdubPanel({
           {!recording ? <button type="button" disabled={!armed || !selectedTrack} onClick={begin} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/[0.09] px-3 py-2.5 text-xs font-medium text-red-100 disabled:opacity-25"><Radio className="h-4 w-4" /> Record / Overdub</button> : <button type="button" onClick={stopOpenEnded} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/30 bg-red-400/[0.12] px-3 py-2.5 text-xs font-medium text-red-100"><CircleStop className="h-4 w-4" /> Stop & save</button>}
         </div>
         <div className="mt-3 flex items-start gap-2 text-[9px] leading-4 text-white/25"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-100/40" />Project revision is persisted before capture. Each pass is a new immutable WAV/take; browser AGC, echo cancellation and noise suppression stay disabled.</div>
-        <div className="mt-2 flex items-center gap-2 text-[9px] text-white/20"><Headphones className="h-3.5 w-3.5" />Backing project playback follows the recording range; original recordings are never overwritten.</div>
+        <div className="mt-2 flex items-center gap-2 text-[9px] text-white/20"><Headphones className="h-3.5 w-3.5" />Backing project playback follows the recording range. Software input monitoring is explicit and off by default; original recordings are never overwritten.</div>
       </div>
 
       <MusicTakeLaneCompPanel

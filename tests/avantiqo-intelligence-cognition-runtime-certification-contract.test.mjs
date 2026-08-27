@@ -95,3 +95,17 @@ test("certification has no production mutation or activation effect", () => {
   assert.match(source, /external_research_performed:\s*false/);
   assert.doesNotMatch(source, /vercel\s+(?:--prod|deploy)/);
 });
+
+test("main validation tolerates unrelated concurrent commits but fails closed on critical paths", () => {
+  assert.match(source, /CERTIFICATION_CRITICAL_PATHS/);
+  assert.match(source, /AvantiqoIntelligenceReasoningRuntime\.js/);
+  assert.match(source, /AvantiqoEpistemicCompletionGateRuntime\.mjs/);
+  assert.match(source, /ServiceExecutionRuntime\.js/);
+  assert.match(source, /run-avantiqo-runpod-safe-lease-v2-local\.mjs/);
+  assert.match(source, /merge-base/);
+  assert.match(source, /AVANTIQO_COGNITION_CERT_LOCAL_MAIN_DIVERGED/);
+  assert.match(source, /AVANTIQO_COGNITION_CERT_RELEVANT_MAIN_ADVANCED/);
+  assert.match(source, /main_irrelevant_remote_advance_tolerated/);
+  assert.match(source, /main_critical_paths_clean/);
+  assert.doesNotMatch(source, /AVANTIQO_COGNITION_CERT_LOCAL_MAIN_NOT_CURRENT/);
+});

@@ -17,7 +17,12 @@ import {
   Volume2,
 } from "lucide-react";
 
-import { startMusicMultitrackPreview } from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
+import {
+  resolveMusicTrackPreviewClips,
+  startMusicMultitrackPreview,
+} from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
+import MusicClipEditorPanel from "./MusicClipEditorPanel";
+import MusicWaveformClip from "./MusicWaveformClip";
 import MusicWorkstationOverdubPanel from "./MusicWorkstationOverdubPanel";
 
 const TRACK_TYPES = [
@@ -74,6 +79,7 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
   const [session, setSession] = useState(null);
   const [assetUrls, setAssetUrls] = useState({});
   const [selectedTrackId, setSelectedTrackId] = useState(null);
+  const [selectedClipId, setSelectedClipId] = useState(null);
   const [newTrackType, setNewTrackType] = useState("vocal");
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -121,9 +127,14 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
     try {
       const result = await request({ action: "load", organization_id: organizationId, creative_project_id: projectId });
       setSession(result.session); setAssetUrls(result.asset_urls || {});
-      const currentSelection = preserveSelection ? selectedTrackId : null;
-      const validSelection = result.session?.tracks?.some((track) => track.id === currentSelection) ? currentSelection : null;
-      setSelectedTrackId(validSelection || result.session?.tracks?.[0]?.id || null);
+      const currentTrackSelection = preserveSelection ? selectedTrackId : null;
+      const validTrackSelection = result.session?.tracks?.some((track) => track.id === currentTrackSelection) ? currentTrackSelection : null;
+      const nextTrackId = validTrackSelection || result.session?.tracks?.[0]?.id || null;
+      const nextTrack = result.session?.tracks?.find((track) => track.id === nextTrackId) || null;
+      const currentClipSelection = preserveSelection ? selectedClipId : null;
+      const validClipSelection = nextTrack?.clips?.some((clip) => clip.id === currentClipSelection) ? currentClipSelection : null;
+      setSelectedTrackId(nextTrackId);
+      setSelectedClipId(validClipSelection || nextTrack?.clips?.[0]?.id || null);
       setPlayhead(Number(result.session?.timeline?.playhead_seconds || playhead || 0));
       setDirty(false);
     } catch (cause) { setError(cause?.message || "Multitrack project could not load"); }
@@ -144,6 +155,22 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
     updateSession((draft) => { const track = draft.tracks.find((entry) => entry.id === trackId); if (track) mutator(track); });
   }
 
+  function replaceTrack(nextTrack) {
+    if (!nextTrack?.id) return;
+    updateSession((draft) => {
+      const index = draft.tracks.findIndex((track) => track.id === nextTrack.id);
+      if (index >= 0) draft.tracks[index] = nextTrack;
+    });
+  }
+
+  function selectTrack(track) {
+    if (recording) return;
+    setSelectedTrackId(track.id);
+    if (!track.clips?.some((clip) => clip.id === selectedClipId)) {
+      setSelectedClipId(track.clips?.[0]?.id || null);
+    }
+  }
+
   function armTrack(trackId) {
     if (recording) return;
     updateSession((draft) => {
@@ -155,7 +182,12 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
 
   function addTrack() {
     if (recording) return;
-    updateSession((draft) => { const track = makeTrack(newTrackType, draft.tracks.length); draft.tracks.push(track); setSelectedTrackId(track.id); });
+    updateSession((draft) => {
+      const track = makeTrack(newTrackType, draft.tracks.length);
+      draft.tracks.push(track);
+      setSelectedTrackId(track.id);
+      setSelectedClipId(null);
+    });
   }
 
   async function save() {
@@ -171,10 +203,21 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
   }
 
   const songLength = useMemo(() => {
-    const end = Math.max(0, ...(session?.tracks || []).flatMap((track) => (track.clips || []).map((clip) => Number(clip.start_seconds || 0) + Number(clip.duration_seconds || 0))));
+    const clipEnds = (session?.tracks || []).flatMap((track) => resolveMusicTrackPreviewClips(track).map((clip) => Number(clip.start_seconds || 0) + Number(clip.duration_seconds || 0)));
+    const end = Math.max(0, ...clipEnds);
     return Math.max(30, Math.ceil(end / 10) * 10 || 30);
   }, [session]);
   const selectedTrack = useMemo(() => session?.tracks?.find((track) => track.id === selectedTrackId) || session?.tracks?.[0] || null, [session, selectedTrackId]);
+  const selectedClip = useMemo(() => selectedTrack?.clips?.find((clip) => clip.id === selectedClipId) || null, [selectedTrack, selectedClipId]);
+
+  useEffect(() => {
+    if (!selectedTrack) {
+      setSelectedClipId(null);
+      return;
+    }
+    if (selectedClipId && selectedTrack.clips?.some((clip) => clip.id === selectedClipId)) return;
+    setSelectedClipId(selectedTrack.clips?.[0]?.id || null);
+  }, [selectedTrack, selectedClipId]);
 
   function tick() {
     const active = transportRef.current;
@@ -233,7 +276,7 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
     <section className="min-h-[760px] bg-[#070707] text-white">
       <div className="border-b border-white/8 bg-black/25 px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div><div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.24em] text-[#d6a66a]/75"><Layers3 className="h-3.5 w-3.5" /> Music Workstation V2</div><div className="mt-1 text-lg font-medium text-white/82">{session.title || projectName}</div><div className="mt-1 text-[10px] text-white/28">24-bit · non-destructive · synchronized transport · real overdub · revision {session.revision || 0}</div></div>
+          <div><div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.24em] text-[#d6a66a]/75"><Layers3 className="h-3.5 w-3.5" /> Music Workstation V2</div><div className="mt-1 text-lg font-medium text-white/82">{session.title || projectName}</div><div className="mt-1 text-[10px] text-white/28">24-bit · waveforms · non-destructive editing · real overdub · revision {session.revision || 0}</div></div>
           <div className="flex items-center gap-2">
             <button type="button" disabled={recording} onClick={() => playing ? stopTransport() : play()} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#d6a66a]/30 bg-[#d6a66a]/12 text-[#efd29f] disabled:opacity-25">{playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}</button>
             <button type="button" disabled={recording} onClick={() => stopTransport()} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/55 disabled:opacity-25"><Square className="h-4 w-4" /></button>
@@ -252,7 +295,7 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
         </div>
       </div>
 
-      <div className="grid min-h-[660px] xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-h-[660px] xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 border-r border-white/8">
           <div className="grid grid-cols-[220px_minmax(600px,1fr)] border-b border-white/7 bg-black/20 text-[9px] text-white/24"><div className="border-r border-white/7 px-4 py-2">TRACKS</div><button type="button" disabled={recording} onClick={timelineSeek} className="relative h-10 text-left disabled:cursor-not-allowed">
             {Array.from({length:7},(_,i) => <div key={i} className="absolute top-0 h-full border-l border-white/[0.06] px-1 pt-2" style={{left:`${i/6*100}%`}}>{formatTime(songLength/6*i)}</div>)}
@@ -261,13 +304,25 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
           </button></div>
 
           <div className="overflow-x-auto">
-            {session.tracks.map((track) => <div key={track.id} className={`grid min-w-[820px] grid-cols-[220px_minmax(600px,1fr)] border-b border-white/[0.055] ${selectedTrack?.id===track.id ? "bg-[#d6a66a]/[0.025]" : ""}`}>
-              <button type="button" disabled={recording} onClick={() => setSelectedTrackId(track.id)} className="border-r border-white/7 p-3 text-left disabled:cursor-not-allowed"><div className="flex items-center justify-between"><span className="text-xs font-medium text-white/68">{track.name}</span><span className="text-[8px] uppercase text-white/20">{track.type}</span></div><div className="mt-3 flex gap-1.5"><TinyButton disabled={recording} active={track.armed} onClick={() => armTrack(track.id)}>R</TinyButton><TinyButton disabled={recording} active={track.mute} onClick={() => updateTrack(track.id,d=>{d.mute=!d.mute;})}>M</TinyButton><TinyButton disabled={recording} active={track.solo} onClick={() => updateTrack(track.id,d=>{d.solo=!d.solo;})}>S</TinyButton><TinyButton disabled={recording} active={track.monitor!=="off"} onClick={() => updateTrack(track.id,d=>{d.monitor=d.monitor==="off"?"auto":"off";})}>I</TinyButton></div></button>
-              <button type="button" disabled={recording} onClick={timelineSeek} className="relative h-[88px] bg-[linear-gradient(to_right,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:10%_100%] text-left disabled:cursor-not-allowed">
-                {(track.clips||[]).map((clip) => { const left=clamp(Number(clip.start_seconds||0)/songLength*100,0,100); const width=Math.max(1,Math.min(100-left,Number(clip.duration_seconds||0)/songLength*100)); return <div key={clip.id} className="absolute top-3 h-[60px] overflow-hidden rounded-lg border border-[#d6a66a]/20 bg-[#d6a66a]/[0.08] px-2 py-2" style={{left:`${left}%`,width:`${width}%`}}><div className="truncate text-[9px] font-medium text-[#efd29f]/75">Take</div><div className="mt-1 text-[8px] text-white/25">{formatTime(clip.duration_seconds)}</div></div>; })}
-                <div className="absolute inset-y-0 w-px bg-[#d6a66a]/75" style={{left:`${Math.min(100,playhead/songLength*100)}%`}} />
-              </button>
-            </div>)}
+            {session.tracks.map((track) => {
+              const playbackClips = resolveMusicTrackPreviewClips(track);
+              return <div key={track.id} className={`grid min-w-[820px] grid-cols-[220px_minmax(600px,1fr)] border-b border-white/[0.055] ${selectedTrack?.id===track.id ? "bg-[#d6a66a]/[0.025]" : ""}`}>
+                <button type="button" disabled={recording} onClick={() => selectTrack(track)} className="border-r border-white/7 p-3 text-left disabled:cursor-not-allowed"><div className="flex items-center justify-between"><span className="text-xs font-medium text-white/68">{track.name}</span><span className="text-[8px] uppercase text-white/20">{track.type}</span></div><div className="mt-3 flex gap-1.5"><TinyButton disabled={recording} active={track.armed} onClick={() => armTrack(track.id)}>R</TinyButton><TinyButton disabled={recording} active={track.mute} onClick={() => updateTrack(track.id,d=>{d.mute=!d.mute;})}>M</TinyButton><TinyButton disabled={recording} active={track.solo} onClick={() => updateTrack(track.id,d=>{d.solo=!d.solo;})}>S</TinyButton><TinyButton disabled={recording} active={track.monitor!=="off"} onClick={() => updateTrack(track.id,d=>{d.monitor=d.monitor==="off"?"auto":"off";})}>I</TinyButton></div></button>
+                <button type="button" disabled={recording} onClick={timelineSeek} className="relative h-[88px] overflow-hidden bg-[linear-gradient(to_right,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:10%_100%] text-left disabled:cursor-not-allowed">
+                  {playbackClips.map((clip) => {
+                    const left=clamp(Number(clip.start_seconds||0)/songLength*100,0,100);
+                    const width=Math.max(1,Math.min(100-left,Number(clip.duration_seconds||0)/songLength*100));
+                    const editable = track.clips?.some((entry) => entry.id === clip.id);
+                    const activeClip = editable && selectedClipId === clip.id && selectedTrack?.id === track.id;
+                    return <span key={clip.id} role={editable ? "button" : undefined} tabIndex={editable ? 0 : undefined} onClick={(event) => { if (!editable) return; event.stopPropagation(); setSelectedTrackId(track.id); setSelectedClipId(clip.id); }} className={`absolute top-3 h-[60px] overflow-hidden rounded-lg border px-2 py-1.5 ${activeClip ? "border-[#efd29f]/45 bg-[#d6a66a]/[0.13]" : clip.derived_comp_preview ? "border-emerald-300/18 bg-emerald-300/[0.045]" : "border-[#d6a66a]/20 bg-[#d6a66a]/[0.07]"}`} style={{left:`${left}%`,width:`${width}%`}}>
+                      <MusicWaveformClip url={assetUrls?.[clip.source_asset_id]} sourceOffsetSeconds={clip.source_offset_seconds || 0} durationSeconds={clip.duration_seconds || 0} className={clip.derived_comp_preview ? "absolute inset-0 text-emerald-100/45" : "absolute inset-0 text-[#efd29f]/45"} />
+                      <span className="relative z-10 flex items-center justify-between gap-2"><span className="truncate text-[8px] font-medium text-white/58">{clip.derived_comp_preview ? "Comp" : "Take"}</span><span className="text-[7px] text-white/22">{formatTime(clip.duration_seconds)}</span></span>
+                    </span>;
+                  })}
+                  <div className="pointer-events-none absolute inset-y-0 w-px bg-[#d6a66a]/75" style={{left:`${Math.min(100,playhead/songLength*100)}%`}} />
+                </button>
+              </div>;
+            })}
           </div>
         </div>
 
@@ -285,6 +340,15 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
             onRecordingChange={handleRecordingChange}
             onReload={() => load({ preserveSelection: true })}
           />
+
+          {selectedTrack && selectedClip ? <MusicClipEditorPanel
+            track={selectedTrack}
+            clipId={selectedClip.id}
+            playhead={playhead}
+            disabled={recording}
+            onChange={replaceTrack}
+            onSelectClip={setSelectedClipId}
+          /> : null}
 
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-[#d6a66a]/65"><SlidersHorizontal className="h-3.5 w-3.5" /> Engineer channel</div>{selectedTrack ? <div className="space-y-4">
           <div className="rounded-2xl border border-white/8 bg-white/[0.018] p-4"><div className="text-sm font-medium text-white/70">{selectedTrack.name}</div><div className="mt-4 grid grid-cols-2 gap-3"><Field label="Input trim"><input disabled={recording} type="range" min="-24" max="24" step="0.5" value={selectedTrack.channel_strip?.input_trim_db||0} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.input_trim_db=Number(e.target.value);})} className="w-full accent-[#d6a66a] disabled:opacity-25"/></Field><Field label="High-pass"><input disabled={recording} type="range" min="20" max="400" value={selectedTrack.channel_strip?.high_pass_hz||20} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.high_pass_hz=Number(e.target.value);})} className="w-full accent-[#d6a66a] disabled:opacity-25"/></Field><Field label="Low shelf"><input disabled={recording} type="range" min="-12" max="12" step="0.5" value={selectedTrack.channel_strip?.low_shelf_db||0} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.low_shelf_db=Number(e.target.value);})} className="w-full accent-[#d6a66a] disabled:opacity-25"/></Field><Field label="Presence"><input disabled={recording} type="range" min="-12" max="12" step="0.5" value={selectedTrack.channel_strip?.presence_db||0} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.presence_db=Number(e.target.value);})} className="w-full accent-[#d6a66a] disabled:opacity-25"/></Field></div><label className="mt-4 flex items-center justify-between rounded-xl border border-white/7 px-3 py-2.5 text-xs text-white/48"><span className="flex items-center gap-2"><Radio className="h-3.5 w-3.5"/>Polarity invert</span><input disabled={recording} type="checkbox" checked={selectedTrack.channel_strip?.polarity_invert===true} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.polarity_invert=e.target.checked;})} className="accent-[#d6a66a] disabled:opacity-25"/></label></div>

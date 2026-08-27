@@ -18,6 +18,9 @@ FOUNDATION_MODEL = os.getenv(
     "AVANTIQO_VOICE_STT_FOUNDATION_MODEL",
     EXPECTED_FOUNDATION_MODEL,
 ).strip()
+RUNTIME_ENTRYPOINT = "handler.py"
+RUNTIME_REVISION = "AVANTIQO_VOICE_STT_HANDLER_RUNTIME_PROBE_V1"
+RUNTIME_PROBE_CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_V1"
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float16 if DEVICE.startswith("cuda") else torch.float32
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
@@ -61,6 +64,40 @@ def _detected_language(result: Any) -> str | None:
         if detected:
             return detected
     return None
+
+
+def _runtime_probe(data: dict[str, Any]) -> dict[str, Any]:
+    if data.get("contract") != ENGINE_CONTRACT:
+        raise ValueError("AVANTIQO_VOICE_ENGINE_CONTRACT_INVALID")
+    if _text(data.get("capability")) != CAPABILITY:
+        raise ValueError("AVANTIQO_VOICE_STT_CAPABILITY_INVALID")
+    if _text(data.get("foundation_model")) != FOUNDATION_MODEL:
+        raise ValueError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_MISMATCH")
+    return {
+        "status": "completed",
+        "provider": "avantiqo-voice",
+        "engine_contract": ENGINE_CONTRACT,
+        "operation": "runtime_probe",
+        "probe_contract": RUNTIME_PROBE_CONTRACT,
+        "entrypoint": RUNTIME_ENTRYPOINT,
+        "runtime_revision": RUNTIME_REVISION,
+        "model": PRODUCT_MODEL,
+        "foundation_model": FOUNDATION_MODEL,
+        "foundation_model_expected": FOUNDATION_MODEL == EXPECTED_FOUNDATION_MODEL,
+        "capability": CAPABILITY,
+        "device": DEVICE,
+        "cuda_available": torch.cuda.is_available(),
+        "torch_version": torch.__version__,
+        "torch_cuda_version": torch.version.cuda,
+        "recognizer_initialized": _PIPELINE is not None,
+        "generation_requested": False,
+        "transcription_requested": False,
+        "inference_performed": False,
+        "model_download_performed": False,
+        "storage_mutation_performed": False,
+        "raw_audio_persisted": False,
+        "raw_reasoning_persisted": False,
+    }
 
 
 def _recognizer():
@@ -120,6 +157,10 @@ def _validated(job: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
+    raw_data = job.get("input") or {}
+    if _text(raw_data.get("operation")) == "runtime_probe":
+        return _runtime_probe(raw_data)
+
     data, workload = _validated(job)
     started = time.perf_counter()
     recognizer = _recognizer()
@@ -169,6 +210,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "foundation_model": FOUNDATION_MODEL,
             "engine_contract": ENGINE_CONTRACT,
             "capability": CAPABILITY,
+            "entrypoint": RUNTIME_ENTRYPOINT,
+            "runtime_revision": RUNTIME_REVISION,
             "text": transcript,
             "transcript": transcript,
             "language": language,

@@ -8,6 +8,7 @@ import {
   validateMusicMixerRouting,
 } from "@/lib/creative/music/runtime/CreativeMusicMixerRoutingRuntime";
 import MusicEngineeringInsertsPanel from "./MusicEngineeringInsertsPanel";
+import MusicLiveEngineeringMeters from "./MusicLiveEngineeringMeters";
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -103,6 +104,8 @@ export default function MusicMixerSendsPanel({ session, track, disabled = false,
 
   return (
     <div className="space-y-4">
+      <MusicLiveEngineeringMeters trackId={currentTrack.id} />
+
       <MusicEngineeringInsertsPanel
         track={currentTrack}
         disabled={disabled}

@@ -14,10 +14,11 @@ import requests
 import runpod
 import soundfile as sf
 
-ENGINE_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_AUDIO_ENGINE_V1"
+ENGINE_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_AUDIO_ENGINE_V2"
 PLAN_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_WARP_PLAN_V1"
-REPORT_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_AUDIO_RENDER_REPORT_V1"
+REPORT_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_AUDIO_RENDER_REPORT_V2"
 STRETCH_ENGINE = "SIGNALSMITH_STRETCH_PYTHON_STRETCH_0_3_1"
+BOUNDARY_SMOOTHING = "SEAM_TAPER_NO_DUPLICATED_TRAJECTORY_V2"
 MAX_DURATION_SECONDS = 900.0
 MAX_MARKERS = 4096
 MIN_TIME_FACTOR = 0.5
@@ -115,16 +116,25 @@ def _stretch_segment(segment: np.ndarray, sr: int, target_samples: int) -> np.nd
     return _fit_length(processed, target_samples)
 
 
-def _smooth_join(previous: np.ndarray, current: np.ndarray, fade_samples: int) -> None:
+def _smooth_join(previous: np.ndarray, current: np.ndarray, fade_samples: int) -> dict[str, int | str]:
+    """Smooth a segment boundary without duplicating a crossfade trajectory.
+
+    The old implementation copied one identical left/right blend into both the
+    previous tail and current head. Concatenation therefore replayed the same
+    transition twice. V2 preserves the exact segment lengths and uses a single
+    shared seam value: the previous tail tapers toward the seam while the next
+    head independently tapers away from it.
+    """
     count = min(fade_samples, previous.shape[1] // 4, current.shape[1] // 4)
     if count <= 1:
-        return
-    ramp = np.linspace(0.0, 1.0, count, dtype=np.float32)
+        return {"contract": BOUNDARY_SMOOTHING, "smoothed_samples_per_side": 0}
+    ramp = np.linspace(0.0, 1.0, count, dtype=np.float32)[np.newaxis, :]
     left = previous[:, -count:].copy()
     right = current[:, :count].copy()
-    blend = left * (1.0 - ramp[np.newaxis, :]) + right * ramp[np.newaxis, :]
-    previous[:, -count:] = blend
-    current[:, :count] = blend
+    seam = ((left[:, -1:] + right[:, :1]) * 0.5).astype(np.float32, copy=False)
+    previous[:, -count:] = left * (1.0 - ramp) + seam * ramp
+    current[:, :count] = seam * (1.0 - ramp) + right * ramp
+    return {"contract": BOUNDARY_SMOOTHING, "smoothed_samples_per_side": count}
 
 
 def _validate_plan(plan: Any, source_duration: float, source_asset_id: str | None) -> tuple[list[dict[str, Any]], str]:
@@ -192,6 +202,7 @@ def _render(source_path: Path, destination_path: Path, markers: list[dict[str, A
 
     pieces: list[np.ndarray] = []
     evidence: list[dict[str, Any]] = []
+    boundary_evidence: list[dict[str, Any]] = []
     fade_samples = max(32, int(sr * 0.006))
     rendered_samples = 0
     for index in range(len(anchors) - 1):
@@ -208,7 +219,8 @@ def _render(source_path: Path, destination_path: Path, markers: list[dict[str, A
         segment = channels[:, source_start:source_end]
         rendered = _stretch_segment(segment, sr, target_count)
         if pieces:
-            _smooth_join(pieces[-1], rendered, fade_samples)
+            smoothing = _smooth_join(pieces[-1], rendered, fade_samples)
+            boundary_evidence.append({"boundary_index": index - 1, **smoothing})
         pieces.append(rendered)
         rendered_samples += rendered.shape[1]
         evidence.append({
@@ -237,9 +249,13 @@ def _render(source_path: Path, destination_path: Path, markers: list[dict[str, A
         "peak_after_safety": round(float(np.max(np.abs(output))) if output.size else 0.0, 6),
         "segment_count": len(evidence),
         "segments": evidence,
+        "boundary_count": len(boundary_evidence),
+        "boundaries": boundary_evidence,
         "pitch_preserving_time_stretch": True,
         "stretch_engine": STRETCH_ENGINE,
+        "boundary_smoothing_contract": BOUNDARY_SMOOTHING,
         "boundary_smoothing_ms": 6,
+        "duplicated_transition_trajectory": False,
     }
 
 

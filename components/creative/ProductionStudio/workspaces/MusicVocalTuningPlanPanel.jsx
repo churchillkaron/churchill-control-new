@@ -24,19 +24,6 @@ export default function MusicVocalTuningPlanPanel({
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [renderReadiness, setRenderReadiness] = useState(null);
-  if (track?.type !== "vocal" || !clip) return null;
-
-  const pitch = clip.vocal_pitch_analysis || null;
-  const pitchCurrent = Boolean(pitch)
-    && pitch.source_asset_id === clip.source_asset_id
-    && Math.abs(finite(pitch.source_offset_seconds, -1) - finite(clip.source_offset_seconds, 0)) <= 0.001
-    && Math.abs(finite(pitch.source_duration_seconds, -1) - finite(clip.duration_seconds, 0)) <= 0.01;
-  const plan = clip.vocal_tuning_plan?.source_asset_id === clip.source_asset_id ? clip.vocal_tuning_plan : null;
-  const renderRequest = clip.vocal_tuning_render_request?.contract === "AVANTIQO_MUSIC_VOCAL_TUNING_RENDER_REQUEST_V1"
-    ? clip.vocal_tuning_render_request
-    : null;
-  const renderPending = renderRequest?.status === "PENDING";
-  const allReviewed = plan?.all_segments_reviewed === true;
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +42,20 @@ export default function MusicVocalTuningPlanPanel({
       });
     return () => { cancelled = true; };
   }, [organizationId]);
+
+  if (track?.type !== "vocal" || !clip) return null;
+
+  const pitch = clip.vocal_pitch_analysis || null;
+  const pitchCurrent = Boolean(pitch)
+    && pitch.source_asset_id === clip.source_asset_id
+    && Math.abs(finite(pitch.source_offset_seconds, -1) - finite(clip.source_offset_seconds, 0)) <= 0.001
+    && Math.abs(finite(pitch.source_duration_seconds, -1) - finite(clip.duration_seconds, 0)) <= 0.01;
+  const plan = clip.vocal_tuning_plan?.source_asset_id === clip.source_asset_id ? clip.vocal_tuning_plan : null;
+  const renderRequest = clip.vocal_tuning_render_request?.contract === "AVANTIQO_MUSIC_VOCAL_TUNING_RENDER_REQUEST_V1"
+    ? clip.vocal_tuning_render_request
+    : null;
+  const renderPending = renderRequest?.status === "PENDING";
+  const allReviewed = plan?.all_segments_reviewed === true;
 
   async function request(action, extra = {}) {
     if (!organizationId || !projectId || busy) return;

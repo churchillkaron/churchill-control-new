@@ -146,6 +146,8 @@ console.log(JSON.stringify({
   destination_not_bound_to_cinema: true,
   t2v_revision: "5be7df9619b54f4e2667b2755bc6a756675b5cd7",
   i2v_revision: "596658fd9ca6b7b71d5057529bbf319ecbc61d74",
+  source_manifest_basis: "PINNED_HUGGING_FACE_REVISION_WITH_EXACT_S3_HEAD_VERIFICATION",
+  runpod_s3_list_sizes_used_for_payload_validation: false,
   bounded_memory_streaming: true,
   local_full_snapshot_staging: false,
   completion_markers_published_last: true,
@@ -171,7 +173,11 @@ try {
   let result = spawnSync("python3", ["-m", "venv", venv], { cwd: process.cwd(), env: process.env, stdio: "inherit" });
   if (result.status !== 0) throw new Error(`AVANTIQO_VIDEO_V31_VENV_FAILED:exit=${result.status}`);
   const python = join(venv, "bin", "python");
-  result = spawnSync(python, ["-m", "pip", "install", "--quiet", "boto3>=1.34,<2"], { cwd: process.cwd(), env: process.env, stdio: "inherit" });
+  result = spawnSync(
+    python,
+    ["-m", "pip", "install", "--quiet", "boto3>=1.34,<2", "huggingface_hub>=0.34,<1"],
+    { cwd: process.cwd(), env: process.env, stdio: "inherit" },
+  );
   if (result.status !== 0) throw new Error(`AVANTIQO_VIDEO_V31_DEPENDENCY_INSTALL_FAILED:exit=${result.status}`);
 
   const env = {

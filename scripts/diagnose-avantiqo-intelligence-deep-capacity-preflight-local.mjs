@@ -129,6 +129,11 @@ function templateSummary(template = {}) {
   };
 }
 
+function templateNotFound(error) {
+  const message = text(error?.message, 2000).toLowerCase();
+  return message.includes("_http_404:") && message.includes("template not found");
+}
+
 const CAPACITY_QUERY = `
 query AvantiqoIntelligenceDeepCapacityPreflight($input: GpuAvailabilityInput) {
   gpuTypes { id displayName memoryInGb }
@@ -167,10 +172,28 @@ const templateId = text(endpoint?.templateId || endpoint?.template?.id, 300);
 if (!endpointId) throw new Error(`${CONTRACT}_ENDPOINT_ID_REQUIRED`);
 if (!templateId) throw new Error(`${CONTRACT}_TEMPLATE_ID_REQUIRED`);
 
-const [healthRaw, template] = await Promise.all([
-  queue(endpointId, "/health", queueKey),
-  rest(`/templates/${encodeURIComponent(templateId)}`, managementKey),
-]);
+const healthRaw = await queue(endpointId, "/health", queueKey);
+let template = {
+  id: templateId,
+  ...object(endpoint?.template),
+};
+let templateLookupStatus = text(template?.imageName, 1200)
+  ? "EMBEDDED_ENDPOINT_TEMPLATE"
+  : "SECONDARY_LOOKUP_REQUIRED";
+if (!text(template?.imageName, 1200)) {
+  try {
+    template = await rest(`/templates/${encodeURIComponent(templateId)}`, managementKey);
+    templateLookupStatus = "SECONDARY_LOOKUP_SUCCEEDED";
+  } catch (error) {
+    if (!templateNotFound(error)) throw error;
+    templateLookupStatus = "MISSING_OR_STALE_TEMPLATE_REFERENCE";
+    template = {
+      id: templateId,
+      ...object(endpoint?.template),
+    };
+  }
+}
+
 const health = healthSummary(healthRaw);
 const configuredGpuTypes = unique(list(endpoint?.gpuTypeIds));
 const volumeIds = networkVolumeIds(endpoint);
@@ -235,6 +258,9 @@ if (!restingZeroZero) {
 } else if (!workerResting) {
   diagnosis = "ENDPOINT_WORKER_NOT_RESTING";
   nextAction = "WAIT_FOR_OR_CLEAN_STALE_WORKER_BEFORE_ANY_PROBE";
+} else if (templateLookupStatus === "MISSING_OR_STALE_TEMPLATE_REFERENCE") {
+  diagnosis = "STALE_OR_UNREADABLE_TEMPLATE_BINDING";
+  nextAction = "VERIFY_ENDPOINT_TEMPLATE_BINDING_AND_IMMUTABLE_IMAGE_BEFORE_ANY_PROBE";
 } else if (!templateRuntimePresent) {
   diagnosis = "IMMUTABLE_RUNTIME_TEMPLATE_INCOMPLETE";
   nextAction = "VERIFY_IMAGE_AND_RUNTIME_ENTRYPOINT_BEFORE_ANY_PROBE";
@@ -267,6 +293,7 @@ console.log(JSON.stringify({
     effective_data_center_ids: effectiveDataCenters,
     effective_placement_source: placementSource,
   },
+  template_lookup_status: templateLookupStatus,
   runtime_template: runtimeTemplate,
   health,
   safe_lease_resting_0_0: restingZeroZero,

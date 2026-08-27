@@ -20,8 +20,14 @@ const REPORT_PATH = resolve(
 );
 const FOUNDATION_MODEL = "openai/whisper-large-v3-turbo";
 const API_BASE = "https://api.runpod.ai/v2";
+const CONTROL_BASE = "https://api.runpod.io/v2";
 const POLL_MS = 3000;
 const TIMEOUT_MS = Math.max(60_000, Math.min(20 * 60_000, Number(process.env.AVANTIQO_VOICE_STT_EXISTING_AUDIO_TIMEOUT_MS || 15 * 60_000)));
+const NO_WORKER_STARTUP_TIMEOUT_MS = Math.max(
+  60_000,
+  Math.min(10 * 60_000, Number(process.env.AVANTIQO_VOICE_STT_NO_WORKER_STARTUP_TIMEOUT_MS || 4 * 60_000)),
+);
+const ACTIVE_WORKER_STATUSES = new Set(["IDLE", "READY", "RUNNING", "THROTTLED", "INITIALIZING", "UNHEALTHY"]);
 
 function text(value) { return String(value ?? "").trim(); }
 function yes(value) { return ["YES", "TRUE", "1", "APPROVED"].includes(text(value).toUpperCase()); }
@@ -46,13 +52,36 @@ async function request(endpointId, path, apiKey, options = {}) {
   return body || {};
 }
 
+async function controlWorkers(endpointId, managementKey) {
+  const response = await fetch(`${CONTROL_BASE}/serverless/${encodeURIComponent(endpointId)}/workers`, {
+    headers: { Authorization: `Bearer ${managementKey}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let body = null;
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+  if (!response.ok) throw new Error(`RUNPOD_CONTROL_HTTP_${response.status}`);
+  return Array.isArray(body?.workers) ? body.workers : [];
+}
+
+function activeWorkerCount(workers) {
+  return workers.filter((worker) => {
+    const status = text(worker?.status).toUpperCase();
+    return ACTIVE_WORKER_STATUSES.has(status) && worker?.isStale !== true;
+  }).length;
+}
+
 async function runProofInsideLease() {
-  const endpointId = required("RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID");
-  const apiKey = required("RUNPOD_API_KEY");
+  const endpointId = required("AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID");
+  const configuredEndpointId = text(process.env.RUNPOD_AVANTIQO_VOICE_STT_ENDPOINT_ID);
+  if (configuredEndpointId && configuredEndpointId !== endpointId) {
+    throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_CONFIGURED_ENDPOINT_MISMATCH:${configuredEndpointId}:${endpointId}`);
+  }
+  const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
+  const apiKey = text(process.env.RUNPOD_API_KEY) || managementKey;
   if (!yes(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE)) throw new Error("AVANTIQO_VOICE_STT_EXISTING_AUDIO_SAFE_LEASE_REQUIRED");
   if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT) !== SAFE_LEASE_CONTRACT) throw new Error("AVANTIQO_VOICE_STT_EXISTING_AUDIO_SAFE_LEASE_V2_REQUIRED");
   if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_LANE) !== "voice-stt") throw new Error("AVANTIQO_VOICE_STT_EXISTING_AUDIO_SAFE_LEASE_LANE_MISMATCH");
-  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID) !== endpointId) throw new Error("AVANTIQO_VOICE_STT_EXISTING_AUDIO_SAFE_LEASE_ENDPOINT_MISMATCH");
   if (!existsSync(AUDIO_PATH)) throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_REQUIRED:${AUDIO_PATH}`);
 
   const audio = await readFile(AUDIO_PATH);
@@ -87,8 +116,10 @@ async function runProofInsideLease() {
   const jobId = text(submission.id);
   if (!jobId) throw new Error("AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_ID_REQUIRED");
 
-  const deadline = Date.now() + TIMEOUT_MS;
+  const startedAt = Date.now();
+  const deadline = startedAt + TIMEOUT_MS;
   let completed = null;
+  let workerEverObserved = false;
   while (Date.now() < deadline) {
     const status = await request(endpointId, `/status/${encodeURIComponent(jobId)}`, apiKey);
     const state = text(status.status).toUpperCase();
@@ -98,6 +129,17 @@ async function runProofInsideLease() {
     }
     if (["FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(state)) {
       throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_${state}`);
+    }
+
+    const workers = await controlWorkers(endpointId, managementKey);
+    const activeWorkers = activeWorkerCount(workers);
+    if (activeWorkers > 0) workerEverObserved = true;
+    if (
+      !workerEverObserved &&
+      Date.now() - startedAt >= NO_WORKER_STARTUP_TIMEOUT_MS
+    ) {
+      await request(endpointId, `/cancel/${encodeURIComponent(jobId)}`, apiKey, { method: "POST" }).catch(() => null);
+      throw new Error("AVANTIQO_VOICE_STT_EXISTING_AUDIO_NO_WORKER_STARTUP_TIMEOUT");
     }
     await sleep(POLL_MS);
   }
@@ -110,11 +152,17 @@ async function runProofInsideLease() {
   const transcript = text(output.transcript || output.text);
   const normalized = transcript.toLowerCase();
   const keywordMatched = normalized.includes("avantiqo") && normalized.includes("voice") && normalized.includes("ready");
+  const vocabularyContextReceived = output.vocabulary_context_received === true;
+  const vocabularyContextApplied = output.vocabulary_context_applied === true;
+  const vocabularyContextTokenCount = Number(output.vocabulary_context_token_count) || 0;
   const passed =
     transcript.length > 0 &&
     keywordMatched &&
     text(output.capability) === "ai.speech.to.text" &&
     text(output.foundation_model) === FOUNDATION_MODEL &&
+    vocabularyContextReceived &&
+    vocabularyContextApplied &&
+    vocabularyContextTokenCount > 0 &&
     output.raw_audio_persisted === false &&
     output.raw_reasoning_persisted === false;
 
@@ -134,6 +182,10 @@ async function runProofInsideLease() {
     keyword_matched: keywordMatched,
     model: text(output.model) || null,
     foundation_model: text(output.foundation_model) || null,
+    vocabulary_context_received: vocabularyContextReceived,
+    vocabulary_context_applied: vocabularyContextApplied,
+    vocabulary_context_token_count: vocabularyContextTokenCount,
+    worker_ever_observed: workerEverObserved,
     raw_audio_persisted: output.raw_audio_persisted === true,
     raw_reasoning_persisted: output.raw_reasoning_persisted === true,
     production_deploy_performed: false,

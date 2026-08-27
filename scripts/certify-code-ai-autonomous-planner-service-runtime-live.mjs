@@ -21,6 +21,9 @@ const ALLOWED_FILES = [
 const MAX_PENDING_CYCLES_PER_PROVIDER_JOB = 48;
 const MAX_CERTIFICATION_RUNTIME_MS = 90 * 60 * 1000;
 const BASE_PRODUCTIVE_ITERATIONS = 12;
+const EXPECTED_MAIN_COMMIT = String(
+  process.env.AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT || "",
+).trim().toLowerCase();
 
 function text(value) {
   return String(value ?? "").trim();
@@ -82,6 +85,17 @@ try {
   if (text(process.env.NODE_ENV).toLowerCase() !== "development") {
     throw new Error("AVANTIQO_CODE_PLANNER_CERT_DEVELOPMENT_ENV_REQUIRED");
   }
+  if (!/^[0-9a-f]{40}$/.test(EXPECTED_MAIN_COMMIT)) {
+    throw new Error("AVANTIQO_CODE_PLANNER_CERT_EXPECTED_MAIN_COMMIT_REQUIRED");
+  }
+  event("PIN_ACTIVE", {
+    expected_main_commit: EXPECTED_MAIN_COMMIT,
+    ref: REF,
+    provider_job_submitted: false,
+    wallet_mutation_performed: false,
+    production_deploy_performed: false,
+    secrets_printed: false,
+  });
 
   if (!text(process.env.RUNPOD_API_KEY)) {
     const fallback = text(
@@ -189,6 +203,13 @@ try {
       max_iterations: BASE_PRODUCTIVE_ITERATIONS,
     });
 
+    const observedBaseCommit = text(result.state?.base_commit).toLowerCase();
+    if (observedBaseCommit !== EXPECTED_MAIN_COMMIT) {
+      throw new Error(
+        `AVANTIQO_CODE_PLANNER_CERT_PINNED_BASE_MISMATCH:${observedBaseCommit || "missing"}:${EXPECTED_MAIN_COMMIT}`,
+      );
+    }
+
     const pendingProviderJobId = text(result.state?.planner_pending?.provider_job_id);
     event("CYCLE_RESULT", {
       cycle,
@@ -196,6 +217,9 @@ try {
       success: result.success === true,
       reason: result.reason || null,
       iterations: result.iterations || 0,
+      expected_main_commit: EXPECTED_MAIN_COMMIT,
+      observed_base_commit: observedBaseCommit,
+      workspace_pin_verified: true,
       pending_provider_job_id: pendingProviderJobId || null,
     });
 

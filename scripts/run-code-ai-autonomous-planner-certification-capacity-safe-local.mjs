@@ -75,10 +75,16 @@ if (text(process.env.AVANTIQO_CODE_PLANNER_SPEND_APPROVED).toUpperCase() !== "YE
 }
 
 const mainCommit = ensureCurrentMain();
+const certificationEnv = {
+  ...process.env,
+  AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT: mainCommit,
+};
 console.log(JSON.stringify({
   event: "AVANTIQO_CODE_CERTIFICATION_SAFE_LEASE_HANDOFF",
   contract: CONTRACT,
   main_commit: mainCommit,
+  certification_expected_main_commit: mainCommit,
+  certification_workspace_pin_active: true,
   code_resting_state_required: "0/0",
   workers_min_one_allowed: false,
   paid_execution_policy: "RUNPOD_SAFE_LEASE_V2",
@@ -91,7 +97,7 @@ console.log(JSON.stringify({
 
 const result = spawnSync(process.execPath, ["scripts/run-code-ai-autonomous-planner-certification-resilient-local.mjs"], {
   cwd: process.cwd(),
-  env: process.env,
+  env: certificationEnv,
   stdio: "inherit",
 });
 if (result.error) throw result.error;

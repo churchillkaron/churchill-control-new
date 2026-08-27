@@ -36,7 +36,14 @@ assert.match(source.guard, /AVANTIQO_EXECUTIVE_SECRETARY_MEETING_MINUTES_REVISIO
 assert.match(source.guard, /correction_requests/);
 assert.match(source.guard, /SECRETARY_MEETING_MINUTES_REVISION_CORRECTION_EVIDENCE_NOT_RECORDED/);
 assert.match(source.guard, /SECRETARY_MEETING_MINUTES_REVISION_CORRECTION_EVIDENCE_AMBIGUOUS/);
+assert.match(source.guard, /SECRETARY_MEETING_MINUTES_REVISION_HISTORY_ENTRY_NOT_FOUND/);
+assert.match(source.guard, /SECRETARY_MEETING_MINUTES_REVISION_PROVENANCE_CONCURRENT_UPDATE_RETRY_REQUIRED/);
 assert.match(source.guard, /correction_evidence_verified:\s*true/);
+assert.match(source.guard, /correction_request_party_id/);
+assert.match(source.guard, /correction_request_text/);
+assert.match(source.guard, /correction_request_recorded_at/);
+assert.match(source.guard, /minutes_revision_history:\s*history/);
+assert.match(source.guard, /\.eq\("updated_at", task\.updated_at\)/);
 assert.match(source.guard, /reviseSecretaryMeetingMinutes/);
 assert.match(source.guard, /binding_authority_delegated:\s*false/);
 assert.match(source.guard, /approval_authority_delegated:\s*false/);
@@ -54,6 +61,7 @@ assert.match(source.platform, /reviseMinutes:\s*async \(\) => createSecretaryMee
 console.log("OPERATOR_SECRETARY_MEETING_MINUTES_REVISION_AUDIT=PASS");
 console.log("SECRETARY_MEETING_MINUTES_REVISION_EVIDENCE_REQUIRED=true");
 console.log("SECRETARY_MEETING_MINUTES_REVISION_CORRECTION_EVIDENCE_VERIFIED=true");
+console.log("SECRETARY_MEETING_MINUTES_REVISION_CORRECTION_PROVENANCE_DURABLE=true");
 console.log("SECRETARY_MEETING_MINUTES_REVISION_HISTORY_PRESERVED=true");
 console.log("SECRETARY_MEETING_MINUTES_REVISION_STALE_REVISION_FENCED=true");
 console.log("SECRETARY_MEETING_MINUTES_REVISION_STALE_DISTRIBUTION_FENCED=true");

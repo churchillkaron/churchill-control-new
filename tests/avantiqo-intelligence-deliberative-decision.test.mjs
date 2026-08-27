@@ -6,32 +6,10 @@ import {
   OPERATOR_INTELLIGENCE_DELIBERATIVE_DECISION_CONTRACT,
 } from "../lib/operator/runtime/OperatorIntelligenceDeliberativeDecisionRuntime.js";
 
-function safeEvidence(overrides = {}) {
-  return { id: "ev-current", trusted: true, current: true, ...overrides };
-}
-
-function safeReadCandidate(overrides = {}) {
-  return { id: "read-more", title: "Read current evidence", kind: "read", mutates: false, risk: "low", cost: "low", latency: "short", goal_progress: "medium", information_gain: "high", ...overrides };
-}
-
+function safeEvidence(overrides = {}) { return { id: "ev-current", trusted: true, current: true, ...overrides }; }
+function safeReadCandidate(overrides = {}) { return { id: "read-more", title: "Read current evidence", kind: "read", mutates: false, risk: "low", cost: "low", latency: "short", goal_progress: "medium", information_gain: "high", ...overrides }; }
 function reversibleAction(overrides = {}) {
-  return {
-    id: "reversible-action",
-    title: "Apply reversible action",
-    kind: "action",
-    capability_key: "example.change",
-    mutates: true,
-    reversible: true,
-    risk: "medium",
-    cost: "medium",
-    latency: "short",
-    goal_progress: "high",
-    information_gain: "none",
-    evidence_ids: ["ev-current"],
-    candidate_validation: { validated: true, payload_complete: true },
-    verification: { required: true, criteria: ["Current state proves the intended result."] },
-    ...overrides,
-  };
+  return { id: "reversible-action", title: "Apply reversible action", kind: "action", capability_key: "example.change", mutates: true, reversible: true, risk: "medium", cost: "medium", latency: "short", goal_progress: "high", information_gain: "none", evidence_ids: ["ev-current"], candidate_validation: { validated: true, payload_complete: true }, verification: { required: true, criteria: ["Current state proves the intended result."] }, ...overrides };
 }
 
 test("critical unresolved uncertainty prefers safe information gain before action", () => {
@@ -74,7 +52,7 @@ test("decision-critical choice refuses to pretend one feasible alternative is en
 
 test("planning tool exposes deliberation without gaining execution authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V6/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V7/);
   assert.match(source, /"deliberate"/);
   assert.match(source, /deliberative_decision_contract/);
   assert.match(source, /recommendations_are_not_execution_authority/);

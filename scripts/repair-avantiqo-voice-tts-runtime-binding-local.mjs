@@ -190,14 +190,15 @@ function safety(snapshotValue) {
   const activeExecutionWorkers = snapshotValue.workers.filter((worker) =>
     ["IDLE", "READY", "RUNNING", "THROTTLED", "INITIALIZING"].includes(worker.status),
   );
+  const workersMax = Number(snapshotValue.endpoint?.workersMax);
   const reasons = [];
   if (Number(snapshotValue.endpoint?.workersMin) !== 0) reasons.push("WORKERS_MIN_NOT_ZERO");
-  if (Number(snapshotValue.endpoint?.workersMax) !== 1) reasons.push("WORKERS_MAX_NOT_ONE");
+  if (![0, 1].includes(workersMax)) reasons.push("WORKERS_MAX_NOT_SAFE_REST_OR_SINGLE");
   if (snapshotValue.health.jobs.in_queue !== 0) reasons.push("JOBS_IN_QUEUE");
   if (snapshotValue.health.jobs.in_progress !== 0) reasons.push("JOBS_IN_PROGRESS");
   if (activeExecutionWorkers.length) reasons.push("ACTIVE_EXECUTION_WORKER_PRESENT");
   if (entrypoint.length || startCmd.length) reasons.push("BOUND_TEMPLATE_LAUNCH_OVERRIDE_PRESENT");
-  return { safe: reasons.length === 0, reasons, activeExecutionWorkers };
+  return { safe: reasons.length === 0, reasons, activeExecutionWorkers, workersMax };
 }
 
 async function patchScale(endpointId, key, workersMax) {
@@ -228,6 +229,7 @@ const credentials = {
 const certified = validateEvidence(newestEvidence());
 const initial = await snapshot(endpointId, credentials);
 const initialSafety = safety(initial);
+const restoreWorkersMax = Number(initial.endpoint?.workersMax);
 
 const plan = {
   success: true,
@@ -237,7 +239,7 @@ const plan = {
     id: endpointId,
     name: text(initial.endpoint?.name) || null,
     workers_min: Number(initial.endpoint?.workersMin),
-    workers_max: Number(initial.endpoint?.workersMax),
+    workers_max: restoreWorkersMax,
     template_id: initial.templateId,
   },
   current_image: text(initial.template?.imageName) || null,
@@ -247,6 +249,7 @@ const plan = {
   health: initial.health,
   workers: initial.workers,
   safety: initialSafety,
+  restore_workers_max: restoreWorkersMax,
   mutation_performed: false,
   generation_submitted: false,
   production_deploy_performed: false,
@@ -265,7 +268,7 @@ if (!initialSafety.safe) {
 let scaledDown = false;
 try {
   await patchScale(endpointId, credentials.management, 0);
-  scaledDown = true;
+  scaledDown = restoreWorkersMax !== 0;
 
   const deadline = Date.now() + DRAIN_TIMEOUT_MS;
   let stable = 0;
@@ -306,12 +309,15 @@ try {
     throw new Error("AVANTIQO_VOICE_TTS_RUNTIME_BINDING_COMMAND_OVERRIDE_VERIFY_FAILED");
   }
 
-  await patchScale(endpointId, credentials.management, 1);
+  await patchScale(endpointId, credentials.management, restoreWorkersMax);
   scaledDown = false;
 
   const finalState = await snapshot(endpointId, credentials);
   if (text(finalState.template?.imageName) !== certified.image) {
     throw new Error("AVANTIQO_VOICE_TTS_RUNTIME_BINDING_FINAL_IMAGE_MISMATCH");
+  }
+  if (Number(finalState.endpoint?.workersMin) !== 0 || Number(finalState.endpoint?.workersMax) !== restoreWorkersMax) {
+    throw new Error("AVANTIQO_VOICE_TTS_RUNTIME_BINDING_FINAL_SCALE_MISMATCH");
   }
   if (finalState.health.jobs.in_queue !== 0 || finalState.health.jobs.in_progress !== 0) {
     throw new Error("AVANTIQO_VOICE_TTS_RUNTIME_BINDING_FINAL_JOB_STATE_UNSAFE");
@@ -327,6 +333,7 @@ try {
     certified_source_sha: certified.sourceSha,
     workers_min: Number(finalState.endpoint?.workersMin),
     workers_max: Number(finalState.endpoint?.workersMax),
+    restored_workers_max: restoreWorkersMax,
     workers: finalState.workers,
     health: finalState.health,
     mutation_performed: true,
@@ -338,7 +345,7 @@ try {
 } finally {
   if (scaledDown) {
     try {
-      await patchScale(endpointId, credentials.management, 1);
+      await patchScale(endpointId, credentials.management, restoreWorkersMax);
     } catch (error) {
       console.error(`AVANTIQO_VOICE_TTS_RUNTIME_BINDING_SCALE_RESTORE_FAILED:${text(error?.message || error)}`);
     }

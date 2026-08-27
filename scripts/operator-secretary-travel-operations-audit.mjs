@@ -32,6 +32,10 @@ assert.match(source.runtime, /approval_authority_delegated:\s*false/);
 assert.match(source.runtime, /platform_permissions_mutated:\s*false/);
 assert.match(source.runtime, /external_authority_used:\s*false/);
 assert.match(source.runtime, /status === "APPROVAL_REQUIRED"/);
+assert.match(source.runtime, /filter\(\(row\) => row\.status === "CONFIRMED"\)/);
+assert.match(source.runtime, /superseded_confirmations:\s*supersededConfirmations/);
+assert.match(source.runtime, /confirmation_history:\s*ledger\.history/);
+assert.match(source.runtime, /superseded_items:\s*supersededConfirmations\.length/);
 
 assert.match(source.correction, /SECRETARY_TRAVEL_OPERATIONS_CORRECTION_EVIDENCE_REQUIRED/);
 assert.match(source.correction, /SECRETARY_TRAVEL_OPERATIONS_CORRECTION_REASON_REQUIRED/);
@@ -68,6 +72,7 @@ console.log("OPERATOR_SECRETARY_TRAVEL_OPERATIONS_AUDIT=PASS");
 console.log("SECRETARY_TRAVEL_OPERATIONS_EVIDENCE_REQUIRED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_CORRECTION_HISTORY_PRESERVED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_STALE_CORRECTION_FENCED=true");
+console.log("SECRETARY_TRAVEL_OPERATIONS_SUPERSEDED_NOT_ACTIVE=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_RESEARCH_NOT_CONFIRMATION=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_CONFIRMATION_NOT_INFERRED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_TIMESTAMP_NOT_INFERRED=true");

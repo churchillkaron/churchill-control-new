@@ -1,0 +1,218 @@
+name: Avantiqo Voice TTS V2 Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-voice-tts-v2-certification-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-voice-tts-v2-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AVANTIQO_VOICE_TTS_FOUNDATION_MODEL: resemble-ai/chatterbox:multilingual-v3
+      AVANTIQO_VOICE_TTS_V3_ONE_PROOF_REPORT_OUTPUT: /tmp/avantiqo-voice-tts-v3-one-proof.json
+      AVANTIQO_VOICE_TTS_V3_ONE_PROOF_AUDIO_OUTPUT: /tmp/avantiqo-voice-tts-v3-one-proof.wav
+      RESULT_PATH: /tmp/avantiqo-voice-tts-v2-certification.json
+
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate Voice certification credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in \
+            RUNPOD_API_KEY \
+            RUNPOD_MANAGEMENT_API_KEY \
+            RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID \
+            NEXT_PUBLIC_SUPABASE_URL \
+            SUPABASE_SERVICE_ROLE_KEY
+          do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf '{"success":false,"contract":"AVANTIQO_VOICE_TTS_V2_CERTIFICATION_V1","error_code":"CREDENTIAL_PREFLIGHT_FAILED","missing_binding":"%s","generation_submitted":false,"production_deploy_performed":false,"pricing_activation_performed":false,"secrets_printed":false}\n' "${missing[0]}" > "$RESULT_PATH"
+            exit 1
+          fi
+
+      - name: Validate Voice V2 source contracts
+        run: |
+          node --check scripts/repair-avantiqo-voice-tts-runtime-binding-local.mjs
+          node --check scripts/run-avantiqo-voice-tts-v3-one-proof-safe-lease-v2-local.mjs
+          node --check scripts/run-avantiqo-voice-tts-v3-one-proof-certified-local.mjs
+          node --check scripts/inspect-avantiqo-voice-tts-v2-proof-result-local.mjs
+          node --check scripts/inspect-avantiqo-voice-tts-v2-live-job-output-local.mjs
+          node scripts/audit-avantiqo-voice-tts-v2-contract-local.mjs
+
+      - name: Inspect current Voice TTS binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/repair-avantiqo-voice-tts-runtime-binding-local.mjs | tee /tmp/avantiqo-voice-tts-v2-binding-plan.log
+
+      - name: Bind exact certified immutable Voice image
+        env:
+          AVANTIQO_VOICE_TTS_RUNTIME_BINDING_REPAIR_APPROVED: "YES"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/repair-avantiqo-voice-tts-runtime-binding-local.mjs --apply | tee /tmp/avantiqo-voice-tts-v2-binding-apply.log
+
+      - name: Run exactly one certified secretary Voice proof under Safe Lease
+        env:
+          AVANTIQO_VOICE_TTS_V3_ONE_PROOF_APPROVED: "YES"
+          AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES"
+          AVANTIQO_VOICE_TTS_V3_ONE_PROOF_LEASE_TTL_MS: "1200000"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-voice-tts-v3-one-proof-safe-lease-v2-local.mjs | tee /tmp/avantiqo-voice-tts-v2-certification-proof.log
+
+      - name: Write sanitized certification result
+        if: success()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+          const proof = JSON.parse(await readFile(process.env.AVANTIQO_VOICE_TTS_V3_ONE_PROOF_REPORT_OUTPUT, "utf8"));
+          const result = {
+            success: proof.success === true,
+            contract: "AVANTIQO_VOICE_TTS_V2_CERTIFICATION_V1",
+            github_run_id: process.env.GITHUB_RUN_ID || null,
+            trigger_sha: process.env.GITHUB_SHA || null,
+            job_id: proof.job_id || null,
+            generation_submitted: proof.generation_submitted === true,
+            generation_submission_outcome: proof.generation_submission_outcome || null,
+            tts: proof.tts || null,
+            certified_profile: proof.tts?.voice_profile || null,
+            certified_model: proof.tts?.model || null,
+            certified_foundation_model: proof.tts?.foundation_model || null,
+            permanent_rest_state: "VOICE_TTS_0_0",
+            stt_submitted: false,
+            production_deploy_performed: false,
+            pricing_activation_performed: false,
+            secrets_printed: false,
+          };
+          await writeFile(process.env.RESULT_PATH, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+          NODE
+
+      - name: Force Voice TTS permanent rest state 0/0
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [ -n "${RUNPOD_MANAGEMENT_API_KEY:-}" ] && [ -n "${RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID:-}" ]; then
+            code=$(curl -sS -o /tmp/voice-rest-response.json -w '%{http_code}' \
+              -X PATCH \
+              -H "Authorization: Bearer ${RUNPOD_MANAGEMENT_API_KEY}" \
+              -H 'Accept: application/json' \
+              -H 'Content-Type: application/json' \
+              --data '{"workersMin":0,"workersMax":0}' \
+              "https://rest.runpod.io/v1/endpoints/${RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID}")
+            if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+              echo "AVANTIQO_VOICE_TTS_CERTIFICATION_REST_STATE_PATCH_FAILED:http=${code}"
+              exit 1
+            fi
+            echo 'AVANTIQO_VOICE_TTS_CERTIFICATION_PERMANENT_REST_STATE=0_0'
+          else
+            echo 'AVANTIQO_VOICE_TTS_CERTIFICATION_REST_STATE_CREDENTIALS_MISSING'
+            exit 1
+          fi
+
+      - name: Ensure result exists on failure
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f "$RESULT_PATH" ]; then
+            cat > "$RESULT_PATH" <<EOF
+          {"success":false,"contract":"AVANTIQO_VOICE_TTS_V2_CERTIFICATION_V1","github_run_id":"${GITHUB_RUN_ID}","trigger_sha":"${GITHUB_SHA}","error_code":"CERTIFICATION_STEP_FAILED","generation_submitted":false,"permanent_rest_state":"VOICE_TTS_0_0","stt_submitted":false,"production_deploy_performed":false,"pricing_activation_performed":false,"secrets_printed":false}
+          EOF
+          fi
+
+      - name: Upload Voice certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-voice-tts-v2-certification-${{ github.run_id }}
+          path: |
+            /tmp/avantiqo-voice-tts-v2-certification.json
+            /tmp/avantiqo-voice-tts-v3-one-proof.json
+            /tmp/avantiqo-voice-tts-v3-one-proof.wav
+            /tmp/avantiqo-voice-tts-v2-binding-plan.log
+            /tmp/avantiqo-voice-tts-v2-binding-apply.log
+            /tmp/avantiqo-voice-tts-v2-certification-proof.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Record sanitized Voice TTS V2 certification on main
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B voice-tts-v2-certification-evidence origin/main
+            mkdir -p audits/results
+            cp "$RESULT_PATH" audits/results/avantiqo-voice-tts-v2-certification.json
+            git add audits/results/avantiqo-voice-tts-v2-certification.json
+
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_VOICE_TTS_V2_CERTIFICATION_EVIDENCE_ALREADY_CURRENT=true'
+              exit 0
+            fi
+
+            git commit -m "Record Voice TTS V2 certification result"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_VOICE_TTS_V2_CERTIFICATION_EVIDENCE_RECORDED=true'
+              exit 0
+            fi
+            sleep "$attempt"
+          done
+
+          echo 'AVANTIQO_VOICE_TTS_V2_CERTIFICATION_EVIDENCE_PUSH_FAILED'
+          exit 1
+
+      - name: Fail workflow if Voice certification failed
+        if: always()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile(process.env.RESULT_PATH, "utf8"));
+          if (report.success !== true) {
+            console.error(`AVANTIQO_VOICE_TTS_V2_CERTIFICATION_FAILED:${report.error_code || "UNKNOWN"}`);
+            process.exit(1);
+          }
+          console.log("AVANTIQO_VOICE_TTS_V2_CERTIFICATION=PASS");
+          NODE

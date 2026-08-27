@@ -40,14 +40,16 @@ assert.match(runtime, /physical_access_authority_created:\s*false/);
 assert.match(runtime, /approval_extends_authority:\s*false/);
 assert.match(runtime, /external_authority_used:\s*false/);
 
-assert.match(capability, /SecretaryExecutiveBriefingV4Runtime/);
+// V4 remains the regression baseline, while the public secretary_briefing
+// capability intentionally routes through V5, which composes V4 underneath.
+assert.match(capability, /SecretaryExecutiveBriefingV5Runtime/);
 assert.match(capability, /give me my daily executive briefing/i);
 assert.match(capability, /give me my weekly executive briefing/i);
 assert.match(capability, /cadence:\s*\{\s*type:\s*"string",\s*enum:\s*\["DAILY",\s*"WEEKLY",\s*"CUSTOM"\]/s);
 assert.match(capability, /operatorAutoExecute:\s*true/);
 assert.match(capability, /operatorRequiresConfirmation:\s*false/);
 assert.match(capability, /transactional:\s*false/);
-assert.match(capability, /readSecretaryExecutiveBriefingV4/);
+assert.match(capability, /readSecretaryExecutiveBriefingV5/);
 assert.match(platform, /secretary_briefing:\s*\{\s*read:\s*async \(\) => createSecretaryExecutiveBriefingCapability\(\)/s);
 
 console.log("OPERATOR_SECRETARY_EXECUTIVE_BRIEFING_V4_AUDIT=PASS");

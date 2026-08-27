@@ -1,0 +1,92 @@
+{
+  "contract": "AVANTIQO_LEARNING_WORLDCLASS_PHASE48_FINAL_END_TO_END_CERTIFICATION_V1",
+  "observed_at": "2026-08-27T10:55:05.531146Z",
+  "database_project": "restaurant-control",
+  "live_state": {
+    "persistent_policy_count": 0,
+    "policy_generation_count": 0,
+    "activation_generation_count": 0,
+    "activation_closure_count": 0,
+    "outcome_attribution_count": 0,
+    "fabricated_policy_or_outcome_evidence": false
+  },
+  "integrity": {
+    "phase42": {
+      "success": true,
+      "status": "NO_ACTIVE_PERSISTENT_POLICY",
+      "contract": "AVANTIQO_PERSISTENT_POLICY_GENERATION_INTEGRITY_V1",
+      "execution_request_generation_allowed": true
+    },
+    "phase43": {
+      "success": true,
+      "status": "NO_ACTIVE_PERSISTENT_POLICY",
+      "contract": "AVANTIQO_PERSISTENT_POLICY_ACTIVATION_GENERATION_INTEGRITY_V1",
+      "research_generation_allowed": true,
+      "execution_request_generation_allowed": true
+    },
+    "phase44": {
+      "success": true,
+      "status": "NO_PERSISTENT_POLICY_ACTIVATION_INTERVALS",
+      "contract": "AVANTIQO_PERSISTENT_POLICY_ACTIVATION_INTERVAL_INTEGRITY_V1",
+      "activation_generation_count": 0,
+      "open_interval_count": 0,
+      "closed_interval_count": 0,
+      "historical_interval_attribution_allowed": true
+    },
+    "phase45": {
+      "success": true,
+      "status": "NO_PORTFOLIO_OUTCOMES_TO_ATTRIBUTE",
+      "contract": "AVANTIQO_EXPERIMENT_OUTCOME_POLICY_INTERVAL_INTEGRITY_V1",
+      "outcome_count": 0,
+      "attribution_count": 0,
+      "exact_policy_interval_attribution": true,
+      "cross_interval_outcome_reuse_allowed": false
+    }
+  },
+  "critical_function_acl": {
+    "security_invoker": true,
+    "service_role_execute": true,
+    "anon_execute": false,
+    "authenticated_execute": false,
+    "functions": [
+      "activate_avantiqo_policy_successor_v1",
+      "rollback_avantiqo_intelligence_persistent_ordering_policy_v1",
+      "avantiqo_phase45_enforce_execution_lineage_v1",
+      "avantiqo_phase45_enforce_outcome_attribution_v1",
+      "verify_avantiqo_persistent_policy_generation_v1",
+      "verify_avantiqo_policy_activation_generation_v1",
+      "verify_avantiqo_policy_activation_intervals_v1",
+      "verify_avantiqo_policy_outcome_attribution_v1"
+    ]
+  },
+  "immutable_ledger_acl": {
+    "rls_enabled": true,
+    "service_role_select": true,
+    "service_role_insert": true,
+    "service_role_update": false,
+    "service_role_delete": false,
+    "anon_select": false,
+    "authenticated_select": false,
+    "tables": [
+      "avantiqo_intelligence_persistent_policy_generations",
+      "avantiqo_intelligence_policy_activation_generations",
+      "avantiqo_intelligence_policy_activation_closures",
+      "avantiqo_intelligence_policy_outcome_attributions"
+    ]
+  },
+  "prior_dynamic_certification": {
+    "phase46_multi_generation_succession_rollback_delayed_outcome": true,
+    "phase47_transactional_failure_retry_recovery": true,
+    "phase47_fixture_rows_remaining": 0
+  },
+  "side_effects": {
+    "provider_call_performed": false,
+    "wallet_write_performed": false,
+    "runpod_job_submitted": false,
+    "policy_activation_performed_by_phase48": false,
+    "execution_authorized_by_phase48": false,
+    "platform_knowledge_written_by_phase48": false,
+    "automatic_training_started": false,
+    "automatic_model_weight_mutation": false
+  }
+}

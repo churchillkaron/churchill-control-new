@@ -12,6 +12,7 @@ const EVIDENCE_PATH = "audits/results/avantiqo-voice-worker-images.json";
 const REQUIRED_CONSECUTIVE_CLEAR = 3;
 const MAX_OBSERVATIONS = 8;
 const OBSERVATION_INTERVAL_MS = 5000;
+const TERMINAL_WORKER_STATUSES = new Set(["EXITED", "STOPPED", "TERMINATED", "DELETED"]);
 
 function text(value) { return String(value ?? "").trim(); }
 function list(value) { return Array.isArray(value) ? value : []; }
@@ -108,6 +109,9 @@ async function controlWorkers(endpointId, key) {
     data_center_id: text(worker?.dataCenterId) || null,
     is_stale: worker?.isStale === true,
   }));
+}
+function liveControlWorkers(workers) {
+  return workers.filter((worker) => !TERMINAL_WORKER_STATUSES.has(text(worker?.status).toUpperCase()));
 }
 async function boundTemplates(key) {
   const raw = await rest(
@@ -221,12 +225,14 @@ const historicalDynamicBlockers = new Set();
 let consecutiveClear = 0;
 let stableWindowReached = false;
 for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
-  const [healthBody, workers] = await Promise.all([
+  const [healthBody, workerRecords] = await Promise.all([
     queueRead(endpointId, "/health", credentials),
     controlWorkers(endpointId, credentials.management),
   ]);
   const health = normalizeHealth(healthBody);
-  const controlStatusCounts = workers.reduce((counts, worker) => {
+  const workers = liveControlWorkers(workerRecords);
+  const terminalWorkerRecords = workerRecords.filter((worker) => TERMINAL_WORKER_STATUSES.has(text(worker?.status).toUpperCase()));
+  const controlStatusCounts = workerRecords.reduce((counts, worker) => {
     const status = worker.status || "UNKNOWN";
     counts[status] = (counts[status] || 0) + 1;
     return counts;
@@ -243,6 +249,7 @@ for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
     health,
     workers,
     control_status_counts: controlStatusCounts,
+    terminal_worker_records_ignored: terminalWorkerRecords.length,
     zero_live_workers_valid: workers.length === 0,
   };
   observations.push(observation);
@@ -280,6 +287,7 @@ const result = {
   ready_for_controlled_generation: ready,
   serverless_cold_start_ready: ready,
   zero_live_workers_allowed: true,
+  terminal_worker_history_ignored: true,
   blockers: uniqueReasons,
   stability: {
     required_consecutive_clear: REQUIRED_CONSECUTIVE_CLEAR,

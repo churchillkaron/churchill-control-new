@@ -1,23 +1,61 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-function text(value) {
-  return String(value ?? "").trim();
-}
+const REST_BASE = "https://rest.runpod.io/v1";
+const PREFLIGHT_SCRIPT = resolve("scripts/preflight-avantiqo-music-transform-candidate-local.mjs");
+const SAFE_LEASE_SCRIPT = resolve("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs");
+const BENCHMARK_SCRIPT = resolve("scripts/benchmark-avantiqo-music-dynamic-metal-continuity.mjs");
+const SAFE_LEASE_LANE = "music-transform-candidate";
+const CANDIDATE_ENDPOINT_NAME = "avantiqo-music-transform-candidate-v1";
+const PRODUCTION_AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1";
 
-function approved(name) {
-  if (text(process.env[name]).toUpperCase() !== "YES") {
-    throw new Error(`${name}=YES_REQUIRED`);
+function text(value) { return String(value ?? "").trim(); }
+function approved(name) { if (text(process.env[name]).toUpperCase() !== "YES") throw new Error(`${name}=YES_REQUIRED`); }
+function required(name) { const value = text(process.env[name]); if (!value) throw new Error(`${name}_REQUIRED`); return value; }
+function endpointsFrom(body) {
+  if (Array.isArray(body)) return body;
+  for (const key of ["endpoints", "data", "items", "results"]) {
+    if (Array.isArray(body?.[key])) return body[key];
   }
+  return [];
+}
+async function resolveCandidateEndpointId(managementKey) {
+  const response = await fetch(`${REST_BASE}/endpoints?includeTemplate=false&includeWorkers=false`, {
+    headers: { Authorization: `Bearer ${managementKey}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let body = null;
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+  if (!response.ok) throw new Error(`AVANTIQO_MUSIC_DYNAMIC_METAL_ENDPOINT_RESOLUTION_HTTP_${response.status}:${text(body?.message || body?.error || raw).slice(0, 700)}`);
+  const endpoints = endpointsFrom(body);
+  const matches = endpoints.filter((endpoint) => text(endpoint?.name) === CANDIDATE_ENDPOINT_NAME);
+  if (matches.length !== 1) throw new Error(`AVANTIQO_MUSIC_DYNAMIC_METAL_CANDIDATE_ENDPOINT_RESOLUTION_FAILED:matches=${matches.length}`);
+  const endpointId = text(matches[0]?.id);
+  if (!endpointId) throw new Error("AVANTIQO_MUSIC_DYNAMIC_METAL_CANDIDATE_ENDPOINT_ID_MISSING");
+  if (endpoints.some((endpoint) => text(endpoint?.name) === PRODUCTION_AUDIO_ENDPOINT_NAME && text(endpoint?.id) === endpointId)) {
+    throw new Error("AVANTIQO_MUSIC_DYNAMIC_METAL_CANDIDATE_PRODUCTION_AUDIO_COLLISION");
+  }
+  return endpointId;
 }
 
 approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
 approved("AVANTIQO_MUSIC_TRANSFORM_SOURCE_RIGHTS_APPROVED");
+const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
+const candidateEndpointId = await resolveCandidateEndpointId(managementKey);
+const certificationEnv = {
+  ...process.env,
+  RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID: candidateEndpointId,
+  AVANTIQO_MUSIC_TRANSFORM_CAPABILITY: "ai.audio.extend",
+  AVANTIQO_MUSIC_TRANSFORM_SOURCE_MODE: "MUSICAL_CONTINUITY",
+  AVANTIQO_MUSIC_CONTINUITY_FIXTURE_PROFILE: "DYNAMIC_METAL",
+};
 
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_CERTIFICATION=START");
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_SOURCE=ORIGINAL_SYNTHETIC_COMPOSITION");
@@ -26,22 +64,31 @@ console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_ARTIST_IMITATION_REQUESTED=
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_CAPABILITY=ai.audio.extend");
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_SOURCE_MODE=MUSICAL_CONTINUITY");
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_FIXTURE_PROFILE=DYNAMIC_METAL");
+console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_ENDPOINT_SCOPE=MUSIC_TRANSFORM_CANDIDATE_ONLY");
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_MAX_PROVIDER_JOBS=1");
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_PRODUCTION_ACTIVATION=false");
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_PRICING_ACTIVATION=false");
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_PROVIDER_SELECTION_CHANGE=false");
 console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_HUMAN_REVIEW_REQUIRED=true");
 
+const preflight = spawnSync(process.execPath, [PREFLIGHT_SCRIPT], {
+  cwd: process.cwd(),
+  env: certificationEnv,
+  stdio: "inherit",
+});
+if (preflight.error) throw preflight.error;
+if (preflight.status !== 0) {
+  throw new Error(`AVANTIQO_MUSIC_DYNAMIC_METAL_PREFLIGHT_FAILED:exit=${preflight.status ?? "UNKNOWN"}`);
+}
+
 const result = spawnSync(
   process.execPath,
-  ["scripts/run-avantiqo-music-transform-certification-local.mjs"],
+  [SAFE_LEASE_SCRIPT, `--lane=${SAFE_LEASE_LANE}`, "--ttl-ms=1800000", "--", process.execPath, BENCHMARK_SCRIPT],
   {
     cwd: process.cwd(),
     env: {
-      ...process.env,
-      AVANTIQO_MUSIC_TRANSFORM_CAPABILITY: "ai.audio.extend",
-      AVANTIQO_MUSIC_TRANSFORM_SOURCE_MODE: "MUSICAL_CONTINUITY",
-      AVANTIQO_MUSIC_CONTINUITY_FIXTURE_PROFILE: "DYNAMIC_METAL",
+      ...certificationEnv,
+      AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES",
     },
     stdio: "inherit",
   },

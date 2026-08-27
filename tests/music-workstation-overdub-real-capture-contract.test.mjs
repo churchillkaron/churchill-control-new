@@ -20,6 +20,16 @@ test("raw Music capture preserves professional recording invariants", () => {
   assert.match(capture, /splitPass/);
 });
 
+test("raw Music capture exposes governed software monitoring without changing the recorded PCM", () => {
+  assert.match(capture, /AVANTIQO_MUSIC_RAW_PCM_CAPTURE_V3/);
+  assert.match(capture, /software_monitoring_supported:\s*true/);
+  assert.match(capture, /software_monitoring_default:\s*"off"/);
+  assert.match(capture, /function setMonitor/);
+  assert.match(capture, /raw_capture_unchanged:\s*true/);
+  assert.match(capture, /monitoring_post_capture_only:\s*true/);
+  assert.match(capture, /clamp\(gainDb,\s*-60,\s*0,\s*-18\)/);
+});
+
 test("Workstation overdub persists the track before microphone capture", () => {
   const saveIndex = overdub.indexOf('setPhase("SAVING PROJECT")');
   const persistIndex = overdub.indexOf("await persistWorkstationBeforeRecording()");

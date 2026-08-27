@@ -1,17 +1,26 @@
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import {
+  AVANTIQO_MUSIC_CONTINUITY_FIXTURE_BPM,
+  AVANTIQO_MUSIC_CONTINUITY_FIXTURE_SECONDS,
+  avantiqoMusicContinuityFixtureMetadata,
+  createAvantiqoMusicContinuityFixtureWav,
+} from "./avantiqo-music-continuity-fixture.mjs";
+
 const API_BASE = "https://api.runpod.ai/v2";
 const ENGINE_CONTRACT = "AVANTIQO_AUDIO_ENGINE_V1";
 const CERT_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_JOB_V1";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const SAFE_LEASE_LANE = "music-transform-candidate";
 const BUCKET = "creative-assets";
-const SOURCE_DURATION_SECONDS = 12;
+const TECHNICAL_SOURCE_DURATION_SECONDS = 12;
 const EXTEND_SECONDS = 8;
 const EXTEND_OVERLAP_SECONDS = 3;
 const ENDPOINT_OPEN_PROPAGATION_TIMEOUT_MS = 45_000;
 const ENDPOINT_OPEN_PROPAGATION_POLL_MS = 2_000;
+const SOURCE_MODE_TECHNICAL = "TECHNICAL_SYNTHETIC";
+const SOURCE_MODE_CONTINUITY = "MUSICAL_CONTINUITY";
 
 function text(value) { return String(value ?? "").trim(); }
 function required(name) { const value = text(process.env[name]); if (!value) throw new Error(`${name}_REQUIRED`); return value; }
@@ -20,6 +29,14 @@ function sleep(ms) { return new Promise((resolvePromise) => setTimeout(resolvePr
 function capability() {
   const value = text(process.env.AVANTIQO_MUSIC_TRANSFORM_CAPABILITY);
   if (!["ai.audio.remix", "ai.audio.edit", "ai.audio.extend"].includes(value)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_CAPABILITY_INVALID");
+  return value;
+}
+function sourceMode(selectedCapability) {
+  const value = text(process.env.AVANTIQO_MUSIC_TRANSFORM_SOURCE_MODE).toUpperCase() || SOURCE_MODE_TECHNICAL;
+  if (![SOURCE_MODE_TECHNICAL, SOURCE_MODE_CONTINUITY].includes(value)) throw new Error("AVANTIQO_MUSIC_TRANSFORM_SOURCE_MODE_INVALID");
+  if (value === SOURCE_MODE_CONTINUITY && selectedCapability !== "ai.audio.extend") {
+    throw new Error("AVANTIQO_MUSIC_TRANSFORM_MUSICAL_CONTINUITY_REQUIRES_EXTEND");
+  }
   return value;
 }
 function assertLease(endpointId) {
@@ -130,7 +147,7 @@ async function createStorageSignedUploadUrl(storageBase, serviceRoleKey, bucket,
   if (!signedUrl) throw new Error("AVANTIQO_MUSIC_TRANSFORM_OUTPUT_SIGNED_URL_REQUIRED");
   return signedUrl;
 }
-function makeWav(seconds = SOURCE_DURATION_SECONDS, sampleRate = 44100) {
+function makeTechnicalWav(seconds = TECHNICAL_SOURCE_DURATION_SECONDS, sampleRate = 44100) {
   const frames = seconds * sampleRate;
   const buffer = Buffer.alloc(44 + frames * 2);
   buffer.write("RIFF", 0); buffer.writeUInt32LE(36 + frames * 2, 4); buffer.write("WAVEfmt ", 8);
@@ -144,10 +161,35 @@ function makeWav(seconds = SOURCE_DURATION_SECONDS, sampleRate = 44100) {
   }
   return buffer;
 }
+function sourceFixture(mode) {
+  if (mode === SOURCE_MODE_CONTINUITY) {
+    return {
+      audio: createAvantiqoMusicContinuityFixtureWav(),
+      durationSeconds: AVANTIQO_MUSIC_CONTINUITY_FIXTURE_SECONDS,
+      bpm: AVANTIQO_MUSIC_CONTINUITY_FIXTURE_BPM,
+      metadata: avantiqoMusicContinuityFixtureMetadata(),
+      humanReviewKind: "MUSICAL_CONTINUITY",
+      eligibleForHumanReleaseReview: true,
+      caption: "Warm polished instrumental groove with chord progression, bass, melody and light drums",
+    };
+  }
+  return {
+    audio: makeTechnicalWav(TECHNICAL_SOURCE_DURATION_SECONDS),
+    durationSeconds: TECHNICAL_SOURCE_DURATION_SECONDS,
+    bpm: 96,
+    metadata: { contract: "AVANTIQO_MUSIC_TRANSFORM_TECHNICAL_SOURCE_V1", deterministic: true, musical_quality_review_eligible: false },
+    humanReviewKind: "TECHNICAL_ONLY",
+    eligibleForHumanReleaseReview: false,
+    caption: "Premium polished instrumental, balanced energy",
+  };
+}
 
 approved("AVANTIQO_AUDIO_BENCHMARK_SPEND_APPROVED");
 approved("AVANTIQO_MUSIC_TRANSFORM_SOURCE_RIGHTS_APPROVED");
 const selectedCapability = capability();
+const selectedSourceMode = sourceMode(selectedCapability);
+const fixture = sourceFixture(selectedSourceMode);
+const sourceDurationSeconds = fixture.durationSeconds;
 const endpointId = required("RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID");
 const apiKey = required("RUNPOD_API_KEY");
 assertLease(endpointId);
@@ -158,8 +200,7 @@ const organizationId = `benchmark-${crypto.randomUUID()}`;
 const id = `music-transform-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 const sourcePath = `${organizationId}/benchmark/music-transform/${id}-source.wav`;
 const outputPath = `${organizationId}/benchmark/music-transform/${id}-output.wav`;
-const source = makeWav(SOURCE_DURATION_SECONDS);
-await storageUpload(storageBase, serviceRoleKey, BUCKET, sourcePath, source);
+await storageUpload(storageBase, serviceRoleKey, BUCKET, sourcePath, fixture.audio);
 const sourceSignedUrl = await createStorageSignedReadUrl(storageBase, serviceRoleKey, BUCKET, sourcePath, 3600);
 const outputSignedUrl = await createStorageSignedUploadUrl(storageBase, serviceRoleKey, BUCKET, outputPath);
 const outputReference = `storage://${BUCKET}/${outputPath}`;
@@ -171,7 +212,7 @@ const providerParameters = selectedCapability === "ai.audio.edit"
 const instruction = selectedCapability === "ai.audio.edit"
   ? "Refine only the selected region while preserving continuity."
   : selectedCapability === "ai.audio.extend"
-    ? "Continue naturally beyond the existing ending while preserving musical identity and continuity."
+    ? "Continue naturally beyond the existing ending while preserving musical identity, harmony, pulse, instrumentation and continuity."
     : "Create a polished alternate arrangement while preserving useful musical identity.";
 const payload = {
   contract: ENGINE_CONTRACT,
@@ -181,7 +222,7 @@ const payload = {
   instruction,
   source_asset_roles: { source_audio: sourceSignedUrl },
   structured_specification: {
-    music: { caption: "Premium polished instrumental, balanced energy", instrumental: true, duration_seconds: SOURCE_DURATION_SECONDS, bpm: 96 },
+    music: { caption: fixture.caption, instrumental: true, duration_seconds: sourceDurationSeconds, bpm: fixture.bpm },
     provider_parameters: providerParameters,
   },
   storage_upload: { signed_url: outputSignedUrl, storage_reference: outputReference },
@@ -203,6 +244,8 @@ const payload = {
     provider_selection_change_allowed: false,
   },
 };
+console.log(`AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_SOURCE_MODE=${selectedSourceMode}`);
+console.log(`AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_HUMAN_REVIEW_KIND=${fixture.humanReviewKind}`);
 const { submitted, rejectedAttempts: endpointOpenPropagationRejections } = await submitRunpodJob(endpointId, apiKey, payload);
 const jobId = text(submitted?.id);
 if (!jobId) throw new Error("AVANTIQO_MUSIC_TRANSFORM_JOB_ID_REQUIRED");
@@ -230,7 +273,7 @@ const basePassed =
 const extendPassed = selectedCapability !== "ai.audio.extend" || (
   text(output.task_type) === "repaint" &&
   text(output.temporal_extend_strategy) === "XL_TURBO_REPAINT_RIGHT_OUTPAINT" &&
-  Number(output.source_duration_seconds) >= SOURCE_DURATION_SECONDS - 0.5 &&
+  Number(output.source_duration_seconds) >= sourceDurationSeconds - 0.5 &&
   Number(output.repainting_end) > Number(output.source_duration_seconds) &&
   Number(output.duration_seconds) > Number(output.source_duration_seconds) + 1 &&
   output.temporal_extension_observed === true &&
@@ -253,11 +296,15 @@ const report = {
   safe_lease_lane: SAFE_LEASE_LANE,
   source_rights_confirmed: true,
   synthetic_source: true,
-  source_duration_seconds: SOURCE_DURATION_SECONDS,
+  source_mode: selectedSourceMode,
+  source_fixture: fixture.metadata,
+  source_duration_seconds: sourceDurationSeconds,
   temporal_extension_strategy: selectedCapability === "ai.audio.extend" ? "XL_TURBO_REPAINT_RIGHT_OUTPAINT" : null,
   temporal_extension_technical_proven: temporalExtensionTechnicalProven,
   human_review_required: true,
   human_review_status: "PENDING",
+  human_review_kind: fixture.humanReviewKind,
+  eligible_for_human_release_review: fixture.eligibleForHumanReleaseReview && temporalExtensionTechnicalProven,
   production_activation_allowed: false,
   pricing_activation_allowed: false,
   provider_selection_change_allowed: false,
@@ -287,5 +334,5 @@ const report = {
 };
 const reportPath = resolve(process.env.AVANTIQO_MUSIC_TRANSFORM_BENCHMARK_OUTPUT || `/tmp/${id}.json`);
 await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-console.log(JSON.stringify({ success: passed, contract: report.contract, capability: selectedCapability, provider_job_count: 1, endpoint_open_propagation_rejections: endpointOpenPropagationRejections, candidate_endpoint_only: true, temporal_extension_technical_proven: temporalExtensionTechnicalProven, human_review_status: "PENDING", activation_allowed: false, output_path: reportPath }, null, 2));
+console.log(JSON.stringify({ success: passed, contract: report.contract, capability: selectedCapability, source_mode: selectedSourceMode, human_review_kind: fixture.humanReviewKind, eligible_for_human_release_review: report.eligible_for_human_release_review, provider_job_count: 1, endpoint_open_propagation_rejections: endpointOpenPropagationRejections, candidate_endpoint_only: true, temporal_extension_technical_proven: temporalExtensionTechnicalProven, human_review_status: "PENDING", activation_allowed: false, output_path: reportPath }, null, 2));
 if (!passed) process.exitCode = 1;

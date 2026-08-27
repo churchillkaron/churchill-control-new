@@ -7,6 +7,11 @@ const relay = await readFile(
   "utf8",
 );
 
+const safeLease = await readFile(
+  new URL("../supabase/functions/_shared/avantiqo-voice-realtime-safe-lease.ts", import.meta.url),
+  "utf8",
+);
+
 const realtimeClient = await readFile(
   new URL("../lib/operator/voice/RealtimeTranscriptionClient.js", import.meta.url),
   "utf8",
@@ -61,6 +66,29 @@ test("Voice realtime relay forwards only bounded audio lifecycle events", () => 
   assert.match(relay, /AVANTIQO_VOICE_REALTIME_CLIENT_EVENT_FORBIDDEN/);
   assert.match(relay, /AVANTIQO_VOICE_REALTIME_UPSTREAM_EVENT_TOO_LARGE/);
   assert.match(relay, /SESSION_HARD_TIMEOUT_MS = 90_000/);
+});
+
+test("Voice realtime load-balanced endpoint has its own Safe Lease controller", () => {
+  assert.match(safeLease, /AVANTIQO_VOICE_REALTIME_SAFE_LEASE_V1/);
+  assert.match(safeLease, /AVANTIQO_RUNPOD_SAFE_LEASE_V2/);
+  assert.match(safeLease, /CANONICAL_ENDPOINT_NAME = "avantiqo-voice-stt-v1-realtime"/);
+  assert.match(safeLease, /endpoint_type: "LOAD_BALANCER"/);
+  assert.match(safeLease, /resting_workers_min:\s*0/);
+  assert.match(safeLease, /resting_workers_max:\s*0/);
+  assert.match(safeLease, /leased_workers_min:\s*0/);
+  assert.match(safeLease, /leased_workers_max:\s*1/);
+  assert.match(safeLease, /max_active_workers:\s*1/);
+  assert.match(safeLease, /acquire_avantiqo_voice_runpod_lease_v2/);
+  assert.match(safeLease, /refresh_avantiqo_voice_runpod_lease_v2/);
+  assert.match(safeLease, /release_avantiqo_voice_runpod_lease_v2/);
+  assert.match(safeLease, /patchEndpointWorkers\(resolvedEndpointId, 1\)/);
+  assert.match(safeLease, /parkAndVerify\(resolvedEndpointId\)/);
+  assert.match(safeLease, /queue_api_allowed:\s*false/);
+  assert.match(safeLease, /purge_queue_allowed:\s*false/);
+  assert.match(safeLease, /direct_run_allowed:\s*false/);
+  assert.doesNotMatch(safeLease, /\/run\b/);
+  assert.doesNotMatch(safeLease, /\/health\b/);
+  assert.doesNotMatch(safeLease, /purge-queue/);
 });
 
 test("uncertified realtime public entrypoints remain fail-closed while relay source exists", () => {

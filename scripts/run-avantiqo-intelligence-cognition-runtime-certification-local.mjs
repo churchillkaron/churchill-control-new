@@ -26,6 +26,25 @@ const BENCHMARK_POLICY = Object.freeze({
   owned_only_required: true,
   external_fallback_allowed: false,
 });
+const CERTIFICATION_CRITICAL_PATHS = Object.freeze([
+  "scripts/run-avantiqo-intelligence-cognition-runtime-certification-local.mjs",
+  "scripts/run-avantiqo-intelligence-cognition-runtime-certification-platform-local.mjs",
+  "scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs",
+  "config/avantiqo-runpod-safe-lease-policy.json",
+  "lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js",
+  "lib/intelligence/runtime/AvantiqoEpistemicCompletionGateRuntime.mjs",
+  "lib/intelligence/runtime/AvantiqoInvocationEpistemicRoleRuntime.mjs",
+  "lib/intelligence/runtime/AvantiqoResearchEvidencePayloadRuntime.mjs",
+  "lib/intelligence/runtime/AvantiqoResearchMarginalUtilityRuntime.mjs",
+  "lib/intelligence/runtime/IntelligenceToolRegistry.js",
+  "lib/platform/service-runtime/execution/ServiceExecutionRuntime.js",
+  "lib/platform/service-runtime/providers/ProviderResolver.js",
+  "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js",
+  "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceSafeLeaseGuard.js",
+  "lib/platform/service-runtime/pricing/PricingRuntime.js",
+  "lib/platform/service-runtime/wallet/repositories/WalletRepository.js",
+]);
+let mainValidation = null;
 
 function text(value, limit = 4000) {
   return String(value ?? "").trim().slice(0, limit);
@@ -67,6 +86,16 @@ function shell(name, args, code) {
   return text(result.stdout, 1000);
 }
 
+function shellSucceeded(name, args) {
+  const result = spawnSync(name, args, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return result.status === 0;
+}
+
 function validateCurrentMain() {
   shell("git", ["fetch", "origin", "main"], "AVANTIQO_COGNITION_CERT_GIT_FETCH_FAILED");
   const branch = shell(
@@ -83,9 +112,47 @@ function validateCurrentMain() {
     ["rev-parse", "origin/main"],
     "AVANTIQO_COGNITION_CERT_GIT_REMOTE_FAILED",
   );
-  if (head !== remote) {
-    throw new Error("AVANTIQO_COGNITION_CERT_LOCAL_MAIN_NOT_CURRENT");
+  const localCriticalChanges = shell(
+    "git",
+    ["diff", "--name-only", "--", ...CERTIFICATION_CRITICAL_PATHS],
+    "AVANTIQO_COGNITION_CERT_LOCAL_CRITICAL_DIFF_FAILED",
+  );
+  const stagedCriticalChanges = shell(
+    "git",
+    ["diff", "--cached", "--name-only", "--", ...CERTIFICATION_CRITICAL_PATHS],
+    "AVANTIQO_COGNITION_CERT_STAGED_CRITICAL_DIFF_FAILED",
+  );
+  if (localCriticalChanges || stagedCriticalChanges) {
+    throw new Error("AVANTIQO_COGNITION_CERT_LOCAL_CRITICAL_PATHS_DIRTY");
   }
+  if (head !== remote) {
+    if (!shellSucceeded("git", ["merge-base", "--is-ancestor", head, remote])) {
+      throw new Error("AVANTIQO_COGNITION_CERT_LOCAL_MAIN_DIVERGED");
+    }
+    const relevantRemoteChanges = shell(
+      "git",
+      [
+        "diff",
+        "--name-only",
+        `${head}..${remote}`,
+        "--",
+        ...CERTIFICATION_CRITICAL_PATHS,
+      ],
+      "AVANTIQO_COGNITION_CERT_REMOTE_CRITICAL_DIFF_FAILED",
+    );
+    if (relevantRemoteChanges) {
+      throw new Error(
+        `AVANTIQO_COGNITION_CERT_RELEVANT_MAIN_ADVANCED:${relevantRemoteChanges.split("\n").filter(Boolean).length}`,
+      );
+    }
+  }
+  mainValidation = {
+    local_main_commit: head,
+    remote_main_commit_at_validation: remote,
+    exact_remote_match: head === remote,
+    irrelevant_remote_advance_tolerated: head !== remote,
+    critical_paths_clean: true,
+  };
   return head;
 }
 
@@ -518,6 +585,13 @@ const baseReport = {
   generated_at: new Date().toISOString(),
   mode,
   main_commit: mainCommit,
+  main_remote_commit_at_validation:
+    mainValidation?.remote_main_commit_at_validation || mainCommit,
+  main_exact_remote_match_at_validation:
+    mainValidation?.exact_remote_match === true,
+  main_irrelevant_remote_advance_tolerated:
+    mainValidation?.irrelevant_remote_advance_tolerated === true,
+  main_critical_paths_clean: mainValidation?.critical_paths_clean === true,
   provider: OWNED_PROVIDER,
   execution_lane: "deep",
   organization_scope_resolved: true,
@@ -558,6 +632,8 @@ if (mode === "PREFLIGHT") {
     ready_for_controlled_runtime_certification: true,
     provider_requests_submitted: 0,
     projected_max_customer_charge: projectedMaxCharge,
+    main_irrelevant_remote_advance_tolerated:
+      report.main_irrelevant_remote_advance_tolerated,
     output_path: OUTPUT,
     secrets_printed: false,
   }, null, 2));

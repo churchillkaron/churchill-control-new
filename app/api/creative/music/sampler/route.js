@@ -8,9 +8,11 @@ import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAss
 import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import {
+  assignMusicSamplerLayer,
   assignMusicSamplerSample,
   createMusicSamplerKit,
   ensureMusicSamplerProject,
+  removeMusicSamplerLayer,
   updateMusicSamplerPad,
   validateMusicSamplerProject,
 } from "@/lib/creative/music/runtime/CreativeMusicSamplerRuntime";
@@ -61,8 +63,15 @@ function samplerFromProject(project) {
   return sampler;
 }
 
+function samplerAssetIds(sampler) {
+  return new Set((sampler.kits || []).flatMap((kit) => (kit.pads || []).flatMap((pad) => [
+    text(pad.sample_asset_id),
+    ...(pad.layers || []).map((layer) => text(layer.sample_asset_id)),
+  ])).filter(Boolean));
+}
+
 async function sampleAssetUrls(organizationId, projectId, sampler) {
-  const ids = new Set((sampler.kits || []).flatMap((kit) => (kit.pads || []).map((pad) => text(pad.sample_asset_id))).filter(Boolean));
+  const ids = samplerAssetIds(sampler);
   if (!ids.size) return {};
   const assets = await CreativeAssetsRuntime.list({ organization_id: organizationId, creative_project_id: projectId, limit: Math.max(200, ids.size * 2) });
   const urls = {};
@@ -78,9 +87,11 @@ async function sampleAssetUrls(organizationId, projectId, sampler) {
 async function publicResult(organizationId, projectId, sampler, extra = {}) {
   return {
     success: true,
-    contract: "AVANTIQO_MUSIC_SAMPLER_API_V1",
+    contract: "AVANTIQO_MUSIC_SAMPLER_API_V2",
     sampler,
     sample_urls: await sampleAssetUrls(organizationId, projectId, sampler),
+    velocity_layers_supported: sampler.velocity_layers_supported === true,
+    round_robin_supported: sampler.round_robin_supported === true,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
     ...extra,
@@ -142,11 +153,11 @@ async function registerSample(body) {
     description: "Original user-owned sample for Avantiqo Music Sampler.",
     ai_generated: false,
     provider: "avantiqo-music-sampler",
-    engine: "AVANTIQO_MUSIC_SAMPLER_PROJECT_V1",
+    engine: "AVANTIQO_MUSIC_SAMPLER_PROJECT_V2",
     metadata: {
       media_kind: "MUSIC",
       music_asset_kind: "SAMPLER_SOURCE",
-      music_sampler_contract: "AVANTIQO_MUSIC_SAMPLER_PROJECT_V1",
+      music_sampler_contract: "AVANTIQO_MUSIC_SAMPLER_PROJECT_V2",
       immutable_original_sample: true,
       source_rights_confirmed: body.source_rights_confirmed === true,
       source_is_user_upload: true,
@@ -168,6 +179,14 @@ async function registerSample(body) {
   };
 }
 
+async function scopedSampleAsset(organizationId, projectId, sampleAssetId) {
+  const asset = await CreativeAssetsRuntime.get(text(sampleAssetId));
+  if (!asset || String(asset.organization_id) !== String(organizationId) || text(asset.creative_project_id || asset.metadata?.creative_project_id) !== String(projectId)) {
+    throw new Error("CREATIVE_MUSIC_SAMPLER_SAMPLE_ASSET_NOT_FOUND");
+  }
+  return asset;
+}
+
 async function mutate(body) {
   const organizationId = text(body.organization_id);
   const projectId = text(body.creative_project_id);
@@ -182,18 +201,19 @@ async function mutate(body) {
     const kitId = text(body.kit_id);
     if (!sampler.kits.some((kit) => kit.id === kitId)) throw new Error("CREATIVE_MUSIC_SAMPLER_KIT_NOT_FOUND");
     sampler.selected_kit_id = kitId;
-  } else if (action === "update_pad" || action === "assign_sample") {
+  } else if (["update_pad", "assign_sample", "assign_layer", "remove_layer"].includes(action)) {
     const kitId = text(body.kit_id || sampler.selected_kit_id);
     const index = sampler.kits.findIndex((kit) => kit.id === kitId);
     if (index < 0) throw new Error("CREATIVE_MUSIC_SAMPLER_KIT_NOT_FOUND");
     if (action === "update_pad") {
       sampler.kits[index] = updateMusicSamplerPad(sampler.kits[index], body.midi_pitch, body.pad || {});
+    } else if (action === "remove_layer") {
+      sampler.kits[index] = removeMusicSamplerLayer(sampler.kits[index], body.midi_pitch, body.layer_id);
     } else {
-      const asset = await CreativeAssetsRuntime.get(text(body.sample_asset_id));
-      if (!asset || String(asset.organization_id) !== String(organizationId) || text(asset.creative_project_id || asset.metadata?.creative_project_id) !== String(projectId)) {
-        throw new Error("CREATIVE_MUSIC_SAMPLER_SAMPLE_ASSET_NOT_FOUND");
-      }
-      sampler.kits[index] = assignMusicSamplerSample(sampler.kits[index], body.midi_pitch, asset);
+      const asset = await scopedSampleAsset(organizationId, projectId, body.sample_asset_id);
+      sampler.kits[index] = action === "assign_layer"
+        ? assignMusicSamplerLayer(sampler.kits[index], body.midi_pitch, asset, body.layer || {})
+        : assignMusicSamplerSample(sampler.kits[index], body.midi_pitch, asset);
       if (!sampler.sample_asset_ids.includes(asset.id)) sampler.sample_asset_ids.push(asset.id);
     }
   } else {

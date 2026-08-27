@@ -30,6 +30,17 @@ test("raw Music capture exposes governed software monitoring without changing th
   assert.match(capture, /clamp\(gainDb,\s*-60,\s*0,\s*-18\)/);
 });
 
+test("Workstation overdub exposes software monitoring as an explicit opt-in control", () => {
+  assert.match(overdub, /const \[monitorEnabled, setMonitorEnabled\] = useState\(false\)/);
+  assert.match(overdub, /const \[monitorGainDb, setMonitorGainDb\] = useState\(-18\)/);
+  assert.match(overdub, /Software input monitor/);
+  assert.match(overdub, /monitorMode:\s*monitorEnabled \? "software" : "off"/);
+  assert.match(overdub, /monitorGainDb/);
+  assert.match(overdub, /captureRef\.current\.setMonitor/);
+  assert.match(overdub, /Use headphones when enabled to prevent acoustic feedback/);
+  assert.match(overdub, /recorded raw PCM remains unchanged/);
+});
+
 test("Workstation overdub persists the track before microphone capture", () => {
   const saveIndex = overdub.indexOf('setPhase("SAVING PROJECT")');
   const persistIndex = overdub.indexOf("await persistWorkstationBeforeRecording()");

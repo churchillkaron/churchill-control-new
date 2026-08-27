@@ -14,7 +14,7 @@ const automationPanel = fs.readFileSync("components/creative/ProductionStudio/wo
 const mixer = fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicMixerSendsPanel.jsx", "utf8");
 const route = fs.readFileSync("app/api/creative/music/multitrack/route.js", "utf8");
 
-assert.match(preview, /AVANTIQO_MUSIC_MULTITRACK_BROWSER_PREVIEW_V13/);
+assert.match(preview, /AVANTIQO_MUSIC_MULTITRACK_BROWSER_PREVIEW_V14/);
 assert.match(preview, /AVANTIQO_MUSIC_LIVE_ENGINEERING_METER_V6/);
 assert.match(preview, /synchronized_preload_before_clock: true/);
 assert.match(preview, /group_bus_metering: true/);
@@ -49,4 +49,6 @@ assert.match(route, /validateMusicAutomation/);
 assert.match(route, /mixer_group_processing_ready: true/);
 assert.match(route, /mixer_automation_ready: true/);
 
-console.log("AVANTIQO_MUSIC_WORKSTATION_ENGINEERING_V13_RUNTIME_AUDIT=PASS");
+console.log("AVANTIQO_MUSIC_WORKSTATION_ENGINEERING_RUNTIME_AUDIT=PASS");
+console.log("AVANTIQO_MUSIC_WORKSTATION_PREVIEW=V14");
+console.log("AVANTIQO_MUSIC_WORKSTATION_ENGINEERING_METER=V6");

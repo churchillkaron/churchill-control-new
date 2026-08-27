@@ -79,6 +79,9 @@ import {
   reconcileAvantiqoSelectionPolicyPromotionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyPromotionGovernanceRuntime";
 import {
+  reconcileAvantiqoSelectionPolicyCanary,
+} from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyCanaryRuntime";
+import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
 
@@ -150,15 +153,20 @@ export async function GET(request) {
       });
     const selectionPolicyPromotionRequests =
       await reconcileAvantiqoSelectionPolicyPromotionRequests();
+    const selectionPolicyCanary =
+      await reconcileAvantiqoSelectionPolicyCanary();
 
     const experimentExecutionRequests =
       longHorizonPolicyAdaptedExperimentPortfolio
-        .execution_request_generation_allowed === true
+        .execution_request_generation_allowed === true &&
+      selectionPolicyCanary.success !== false
         ? await reconcileAvantiqoExperimentExecutionRequests()
         : {
             success: true,
             status:
-              "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
+              selectionPolicyCanary.success === false
+                ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
+                : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
             execution_request_count: 0,
             execution_authorized: false,
             spend_authorized: false,
@@ -196,6 +204,7 @@ export async function GET(request) {
           longHorizonPolicyAdaptedExperimentPortfolio,
         selection_policy_shadow_challenger: selectionPolicyShadowChallenger,
         selection_policy_promotion_requests: selectionPolicyPromotionRequests,
+        selection_policy_canary: selectionPolicyCanary,
         calibration_backfilled_experiment_portfolio:
           calibrationBackfilledExperimentPortfolio,
         active_experiment_selection: activeExperimentSelection,
@@ -209,7 +218,8 @@ export async function GET(request) {
           result.success === false ||
           longHorizonPolicyAdaptedExperimentPortfolio.success === false ||
           selectionPolicyShadowChallenger.success === false ||
-          selectionPolicyPromotionRequests.success === false
+          selectionPolicyPromotionRequests.success === false ||
+          selectionPolicyCanary.success === false
             ? 207
             : 200,
       },

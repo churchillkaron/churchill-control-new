@@ -227,7 +227,8 @@ if (!pull.success) {
 }
 const initial = await endpointSnapshot(managementKey, queueKey);
 assertClean(initial);
-if (text(initial.template?.imageName) !== image) throw new Error("AVANTIQO_VOICE_STT_GHCR_AUTH_REPAIR_CERTIFIED_IMAGE_NOT_BOUND");
+const initialImage = text(initial.template?.imageName);
+const initialAuthId = text(initial.template?.containerRegistryAuthId);
 
 const plan = {
   success: true,
@@ -236,13 +237,16 @@ const plan = {
   endpoint_name: ENDPOINT_NAME,
   endpoint_id_present: true,
   template_id_present: true,
+  current_image: initialImage || null,
   certified_image: image,
+  image_change_required: initialImage !== image,
   local_credential_source: credential.source,
   local_credential_can_pull_certified_image: true,
   ghcr_image_public: pull.public,
-  current_registry_auth_id_present: Boolean(text(initial.template?.containerRegistryAuthId)),
+  current_registry_auth_id_present: Boolean(initialAuthId),
   fresh_registry_auth_created: false,
   template_auth_rebound: false,
+  image_rebound: false,
   workers_min: 0,
   workers_max: 0,
   jobs: initial.jobs,
@@ -271,18 +275,20 @@ plan.fresh_registry_auth_created = true;
 const beforeWrite = await endpointSnapshot(managementKey, queueKey);
 assertClean(beforeWrite);
 if (beforeWrite.templateId !== initial.templateId) throw new Error("AVANTIQO_VOICE_STT_GHCR_AUTH_REPAIR_TEMPLATE_CHANGED_BEFORE_WRITE");
-if (text(beforeWrite.template?.imageName) !== image) throw new Error("AVANTIQO_VOICE_STT_GHCR_AUTH_REPAIR_IMAGE_CHANGED_BEFORE_WRITE");
+if (text(beforeWrite.template?.imageName) !== initialImage) throw new Error("AVANTIQO_VOICE_STT_GHCR_AUTH_REPAIR_CONCURRENT_IMAGE_CHANGE");
+if (text(beforeWrite.template?.containerRegistryAuthId) !== initialAuthId) throw new Error("AVANTIQO_VOICE_STT_GHCR_AUTH_REPAIR_CONCURRENT_AUTH_CHANGE");
 
 await rest(`/templates/${encodeURIComponent(beforeWrite.templateId)}/update`, managementKey, {
   method: "POST",
   body: templateUpdateBody(beforeWrite.template, image, freshAuthId),
 });
 plan.template_auth_rebound = true;
+plan.image_rebound = initialImage !== image;
 
 const verified = await endpointSnapshot(managementKey, queueKey);
 assertClean(verified);
 if (verified.templateId !== initial.templateId) throw new Error("AVANTIQO_VOICE_STT_GHCR_AUTH_REPAIR_TEMPLATE_CHANGED_DURING_APPLY");
-if (text(verified.template?.imageName) !== image) throw new Error("AVANTIQO_VOICE_STT_GHCR_AUTH_REPAIR_IMAGE_CHANGED_DURING_APPLY");
+if (text(verified.template?.imageName) !== image) throw new Error("AVANTIQO_VOICE_STT_GHCR_AUTH_REPAIR_CERTIFIED_IMAGE_BIND_VERIFY_FAILED");
 if (text(verified.template?.containerRegistryAuthId) !== freshAuthId) throw new Error("AVANTIQO_VOICE_STT_GHCR_AUTH_REPAIR_AUTH_BIND_VERIFY_FAILED");
 
 console.log(JSON.stringify({
@@ -290,7 +296,9 @@ console.log(JSON.stringify({
   mode: "APPLY",
   fresh_registry_auth_created: true,
   template_auth_rebound: true,
+  image_rebound: initialImage !== image,
   fresh_registry_auth_id_present: true,
+  certified_image_bound: true,
   verified_workers_min: Number(verified.endpoint?.workersMin),
   verified_workers_max: Number(verified.endpoint?.workersMax),
   verified_jobs: verified.jobs,

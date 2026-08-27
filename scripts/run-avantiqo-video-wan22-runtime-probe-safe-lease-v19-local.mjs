@@ -246,7 +246,8 @@ if (!apply) {
     direct_workers_max_write: false,
     exact_job_cancel_on_unscheduled_zero_workers: true,
     target_queue_key_scoped_to_cinema: true,
-    inert_unbounded_peers_allowed_only_if_zero_jobs_workers_cost_and_health_errors: true,
+    dormant_0_0_peer_queue_health_skipped: true,
+    runnable_peer_queue_health_required: true,
     production_web_deploy: false,
     secrets_printed: false,
   }, null, 2));
@@ -268,6 +269,7 @@ const env = {
   AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES",
   AVANTIQO_RUNPOD_SAFE_LEASE_TARGET_QUEUE_API_KEY: cinemaQueueKey,
   AVANTIQO_RUNPOD_SAFE_LEASE_INERT_PEER_ISOLATION_LANE: LANE,
+  AVANTIQO_RUNPOD_SAFE_LEASE_TARGET_AND_OPEN_HEALTH_LANE: LANE,
 };
 const child = spawnSync(
   process.execPath,
@@ -275,5 +277,8 @@ const child = spawnSync(
   { cwd: process.cwd(), env, stdio: "inherit" },
 );
 if (child.error) throw child.error;
-if (child.status !== 0) throw new Error(`AVANTIQO_VIDEO_V19_SAFE_LEASE_FAILED:exit=${child.status}`);
+if (child.status !== 0) {
+  console.log(`AVANTIQO_VIDEO_V19_SAFE_LEASE_FAILED=exit=${child.status}`);
+  process.exit(child.status || 3);
+}
 console.log("AVANTIQO_VIDEO_WAN22_RUNTIME_PROBE_SAFE_LEASE_V19_APPLIED=true");

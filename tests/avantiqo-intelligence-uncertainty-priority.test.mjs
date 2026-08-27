@@ -21,10 +21,7 @@ function uncertainty(overrides = {}) {
 }
 
 test("uncertainty priority exposes canonical contract without execution authority", () => {
-  const result = prioritizeOperatorIntelligenceUncertainties({
-    goal: "Resolve the most useful unknown",
-    uncertainties: [uncertainty()],
-  });
+  const result = prioritizeOperatorIntelligenceUncertainties({ goal: "Resolve the most useful unknown", uncertainties: [uncertainty()] });
   assert.equal(result.contract, OPERATOR_INTELLIGENCE_UNCERTAINTY_PRIORITY_CONTRACT);
   assert.equal(result.status, "RESOLVE_NEXT");
   assert.equal(result.selected_uncertainty?.id, "u-base");
@@ -93,11 +90,8 @@ test("model numeric priority scores are ignored", () => {
 });
 
 test("planning tool exposes uncertainty prioritization without execution authority", () => {
-  const source = fs.readFileSync(
-    new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url),
-    "utf8",
-  );
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V6/);
+  const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V7/);
   assert.match(source, /"prioritize_uncertainty"/);
   assert.match(source, /uncertainty_priority_contract/);
   assert.match(source, /model_numeric_uncertainty_priority_scores_never_trusted/);

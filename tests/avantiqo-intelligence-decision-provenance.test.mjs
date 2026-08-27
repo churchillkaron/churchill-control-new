@@ -150,7 +150,7 @@ test("invalid validity dependency becomes an explicit provenance invalidation tr
 
 test("planning tool exposes structured provenance without gaining execution authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V12/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V13/);
   assert.match(source, /"build_provenance"/);
   assert.match(source, /decision_provenance_contract/);
   assert.match(source, /deterministic_structured_decision_provenance/);

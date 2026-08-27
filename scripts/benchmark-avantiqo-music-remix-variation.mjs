@@ -54,9 +54,18 @@ let generationSubmitObserved = false;
 globalThis.fetch = async (input, init = {}) => {
   const url = typeof input === "string" ? input : String(input?.url || input);
   const method = text(init?.method || "GET").toUpperCase();
+  let pathname = url;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    pathname = url.split("?", 1)[0];
+  }
+  const isDirectStorageObjectPath = pathname.includes("/storage/v1/object/")
+    && !pathname.includes("/storage/v1/object/sign/")
+    && !pathname.includes("/storage/v1/object/upload/sign/");
   const isSourceUpload = method === "POST"
-    && /\/storage\/v1\/object\//i.test(url)
-    && /-source\.wav(?:\?|$)/i.test(url);
+    && isDirectStorageObjectPath
+    && /-source\.wav$/i.test(pathname);
 
   if (isSourceUpload) {
     sourceUploadReplaced = true;

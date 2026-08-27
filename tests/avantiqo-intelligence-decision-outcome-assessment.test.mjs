@@ -141,7 +141,7 @@ test("numeric comparators do not coerce model strings into numbers", () => {
 
 test("planning tool exposes verified outcome assessment without execution, recovery or learning authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V11/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V12/);
   assert.match(source, /"assess_outcome"/);
   assert.match(source, /decision_outcome_assessment_contract/);
   assert.match(source, /deterministic_verified_outcome_assessment/);

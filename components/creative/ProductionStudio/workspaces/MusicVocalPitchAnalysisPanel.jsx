@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AudioWaveform, Mic2 } from "lucide-react";
 
+import MusicVocalTimingPlanPanel from "./MusicVocalTimingPlanPanel";
 import MusicVocalTuningPlanPanel from "./MusicVocalTuningPlanPanel";
 
 function finite(value, fallback = 0) {
@@ -99,10 +100,20 @@ export default function MusicVocalPitchAnalysisPanel({
           {!segments.length ? <div className="rounded-lg border border-dashed border-white/7 p-3 text-center text-[7px] text-white/16">No stable note segments crossed the pitch-confidence gate.</div> : null}
         </div>
 
-        <div className="flex items-start gap-2 rounded-lg border border-white/6 bg-black/15 p-2 text-[7px] leading-3 text-white/16"><AudioWaveform className="mt-0.5 h-3 w-3 shrink-0" />This pitch map is evidence for a future formant-preserving note correction stage. `auto_tune_applied=false` and `formant_processing_applied=false` remain true for this analysis.</div>
+        <div className="flex items-start gap-2 rounded-lg border border-white/6 bg-black/15 p-2 text-[7px] leading-3 text-white/16"><AudioWaveform className="mt-0.5 h-3 w-3 shrink-0" />This pitch map is evidence for reviewed note correction. Analysis itself never alters the vocal; formant preservation is not claimed by the current renderer.</div>
       </div> : null}
 
       <MusicVocalTuningPlanPanel
+        organizationId={organizationId}
+        projectId={projectId}
+        sessionRevision={sessionRevision}
+        track={track}
+        clip={clip}
+        disabled={disabled || busy}
+        onReload={onReload}
+      />
+
+      <MusicVocalTimingPlanPanel
         organizationId={organizationId}
         projectId={projectId}
         sessionRevision={sessionRevision}

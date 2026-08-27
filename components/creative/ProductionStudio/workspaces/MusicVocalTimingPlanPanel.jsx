@@ -110,7 +110,7 @@ export default function MusicVocalTimingPlanPanel({
             </div>
           ))}
         </div>
-        <div className="flex items-start gap-2 rounded-lg border border-amber-300/10 bg-amber-300/[0.015] p-2 text-[7px] leading-3 text-amber-100/38"><LockKeyhole className="mt-0.5 h-3 w-3 shrink-0" /><div><div>Timing render is not connected yet.</div><div className="mt-1 text-amber-100/25">The plan preserves whole phrases, uses no time stretch and rejects collisions. The DSP worker will only receive these exact approved moves after the render contract is added.</div></div></div>
+        <div className={`flex items-start gap-2 rounded-lg border p-2 text-[7px] leading-3 ${plan.all_phrases_reviewed ? "border-emerald-300/10 bg-emerald-300/[0.015] text-emerald-100/40" : "border-amber-300/10 bg-amber-300/[0.015] text-amber-100/38"}`}><LockKeyhole className="mt-0.5 h-3 w-3 shrink-0" /><div><div>{plan.all_phrases_reviewed ? "Reviewed timing is ready for governed vocal render." : "Review every suggested phrase move before rendering."}</div><div className="mt-1 opacity-70">When you use Render reviewed vocal in the tuning section, this exact timing-plan fingerprint is included automatically. The worker uses whole-phrase translation only, no time stretch, and rejects unsafe collisions.</div></div></div>
         <div className="flex items-start gap-2 text-[7px] leading-3 text-white/14"><MoveHorizontal className="mt-0.5 h-3 w-3 shrink-0" />Moving a phrase changes only its placement inside a safe local pocket. Internal consonant, note, vibrato and syllable timing remain unchanged.</div>
       </div> : null}
 

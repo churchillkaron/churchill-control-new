@@ -94,7 +94,7 @@ async function queueRead(endpointId, pathname, credentials) {
     }
     last = new Error(`RUNPOD_VOICE_TTS_READINESS_QUEUE_HTTP_${response.status}`);
   }
-  throw last || new Error("AVANTIQO_VOICE_TTS_READINESS_QUEUE_CREDENTIAL_REQUIRED");
+  throw last || new Error("RUNPOD_VOICE_TTS_READINESS_QUEUE_CREDENTIAL_REQUIRED");
 }
 async function controlWorkers(endpointId, key) {
   const body = await parseJson(await fetch(
@@ -118,6 +118,7 @@ function managementWorkers(endpointState) {
     id: text(worker?.id) || null,
     status: text(worker?.status ?? worker?.workerStatus ?? worker?.runtimeStatus).toUpperCase() || null,
     desired_status: text(worker?.desiredStatus ?? worker?.desired_status).toUpperCase() || null,
+    hourly_cost_usd: Math.max(0, number(worker?.adjustedCostPerHr ?? worker?.costPerHr)),
   }));
 }
 function activeManagementWorkers(workers) {
@@ -128,6 +129,9 @@ function activeManagementWorkers(workers) {
     if (desired && !TERMINAL_WORKER_STATUSES.has(desired)) return true;
     return !status && !desired;
   });
+}
+function managementHourlyCost(workers) {
+  return workers.reduce((sum, worker) => sum + Math.max(0, number(worker?.hourly_cost_usd)), 0);
 }
 async function boundTemplates(key) {
   const raw = await rest(
@@ -177,6 +181,8 @@ function reconcileWorkerState(workerRecords, managementWorkerRecords, management
   );
   const nonTerminalWorkers = nonTerminalControlWorkers(workerRecords);
   const noLiveManagementWorker = managementActiveWorkers.length === 0;
+  const managementActiveHourlyCost = managementHourlyCost(managementActiveWorkers);
+  const managementPlaneClean = noLiveManagementWorker && managementActiveHourlyCost === 0;
   const noJobs = rawHealth.jobs.in_queue === 0 && rawHealth.jobs.in_progress === 0;
   const noHealthWorker = healthWorkerTotal(rawHealth) === 0;
   const healthHasOnlyIdleWorkers =
@@ -195,18 +201,20 @@ function reconcileWorkerState(workerRecords, managementWorkerRecords, management
   const idlePlaneCountsCompatible =
     noHealthWorker ||
     (healthHasOnlyIdleWorkers && rawHealth.workers.idle <= nonTerminalWorkers.length);
-  const explicitlyRetiredIdlePlane =
-    noLiveManagementWorker &&
+  const safeLeaseGuardedIdlePlane =
+    managementPlaneClean &&
     noJobs &&
-    managementHasOnlyTerminalHistory &&
     controlHasOnlyIdleWorkers &&
     idlePlaneCountsCompatible;
+  const explicitlyRetiredIdlePlane =
+    safeLeaseGuardedIdlePlane &&
+    (managementWorkerRecords.length === 0 || managementHasOnlyTerminalHistory);
   const managementById = new Map(
     managementWorkerRecords.filter((worker) => worker.id).map((worker) => [worker.id, worker]),
   );
 
   const staleControlGhosts = nonTerminalWorkers.filter((worker) =>
-    worker.is_stale === true && noLiveManagementWorker && noHealthWorker && noJobs,
+    worker.is_stale === true && managementPlaneClean && noHealthWorker && noJobs,
   );
   const matchedRetiredControlGhosts = nonTerminalWorkers.filter((worker) => {
     if (!worker.id || staleControlGhosts.includes(worker)) return false;
@@ -214,7 +222,7 @@ function reconcileWorkerState(workerRecords, managementWorkerRecords, management
     return Boolean(
       managementWorker &&
       terminalManagementRecord(managementWorker) &&
-      noLiveManagementWorker &&
+      managementPlaneClean &&
       noJobs,
     );
   });
@@ -238,10 +246,10 @@ function reconcileWorkerState(workerRecords, managementWorkerRecords, management
   const allNonTerminalControlWorkersExplicitlyRetired =
     nonTerminalWorkers.length > 0 && liveWorkers.length === 0;
   const retiredHealthIdleGhosts =
-    noLiveManagementWorker &&
+    managementPlaneClean &&
     noJobs &&
     healthHasOnlyIdleWorkers &&
-    managementHasOnlyTerminalHistory &&
+    explicitlyRetiredIdlePlane &&
     allNonTerminalControlWorkersExplicitlyRetired &&
     rawHealth.workers.idle <= retiredControlGhosts.length + staleControlGhosts.length
       ? rawHealth.workers.idle
@@ -257,6 +265,9 @@ function reconcileWorkerState(workerRecords, managementWorkerRecords, management
     retiredPlaneControlGhosts,
     retiredHealthIdleGhosts,
     explicitlyRetiredIdlePlane,
+    safeLeaseGuardedIdlePlane,
+    managementPlaneClean,
+    managementActiveHourlyCost,
     liveWorkers,
     health,
   };
@@ -383,12 +394,15 @@ for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
     workers,
     management_workers: managementWorkerRecords,
     management_active_workers: managementActiveWorkerRecords,
+    management_active_hourly_cost_usd: reconciled.managementActiveHourlyCost,
+    management_plane_clean: reconciled.managementPlaneClean,
     control_status_counts: controlStatusCounts,
     terminal_worker_records_ignored: reconciled.terminalWorkerRecords.length,
     stale_control_ghost_records_ignored: reconciled.staleControlGhosts.length,
     retired_control_ghost_records_ignored: reconciled.retiredControlGhosts.length,
     retired_control_plane_records_ignored: reconciled.retiredPlaneControlGhosts.length,
     retired_health_idle_records_ignored: reconciled.retiredHealthIdleGhosts,
+    safe_lease_guarded_idle_plane: reconciled.safeLeaseGuardedIdlePlane,
     explicitly_retired_idle_plane: reconciled.explicitlyRetiredIdlePlane,
     zero_live_workers_observed:
       workers.length === 0 &&
@@ -433,9 +447,9 @@ const result = {
   zero_live_workers_allowed: true,
   terminal_worker_history_ignored: true,
   stale_control_ghost_history_ignored_only_when_live_planes_are_zero: true,
-  retired_control_ghost_history_requires_terminal_management_evidence: true,
-  retired_idle_plane_history_requires_all_management_records_terminal: true,
-  retired_health_idle_history_ignored_only_with_explicit_retirement_evidence: true,
+  retired_control_ghost_history_requires_terminal_management_evidence_when_present: true,
+  safe_lease_management_plane_authoritative_for_idle_only_ghosts: true,
+  retired_health_idle_history_ignored_only_with_clean_management_and_zero_jobs: true,
   blockers: uniqueReasons,
   stability: {
     required_consecutive_clear: REQUIRED_CONSECUTIVE_CLEAR,

@@ -1,6 +1,6 @@
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
-const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_EAGER_CANDIDATE_PROBE_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_EAGER_CANDIDATE_PROBE_V2";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const SAFE_LEASE_LANE = "intelligence-deep-eager-candidate";
 const DEEP_NAME = "avantiqo-intelligence-v1";
@@ -79,6 +79,18 @@ function resolveOne(items, name, code) {
   return matches[0];
 }
 
+function templateId(endpoint = {}) {
+  return text(endpoint?.templateId || endpoint?.template?.id, 300);
+}
+
+function resolveBoundTemplate(endpoint, templates, code) {
+  const id = templateId(endpoint);
+  if (!id) throw new Error(`${code}_TEMPLATE_ID_REQUIRED`);
+  const matches = rows(templates).filter((entry) => text(entry?.id, 300) === id);
+  if (matches.length !== 1) throw new Error(`${code}_AUTHORITATIVE_TEMPLATE_RESOLUTION_FAILED:id=${id}:matches=${matches.length}`);
+  return matches[0];
+}
+
 function envMap(value) {
   const pairs = Array.isArray(value)
     ? value.map((entry) => [text(entry?.key || entry?.name, 300), String(entry?.value ?? "")])
@@ -113,8 +125,12 @@ const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.
 const runtimeKey = text(process.env.RUNPOD_API_KEY || managementKey, 2000);
 if (!managementKey || !runtimeKey) throw new Error("RUNPOD_MANAGEMENT_OR_API_KEY_REQUIRED");
 
-const endpointsRaw = await requestJson(`${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`, managementKey);
+const [endpointsRaw, templatesRaw] = await Promise.all([
+  requestJson(`${REST_BASE}/endpoints?includeTemplate=true&includeWorkers=true`, managementKey),
+  requestJson(`${REST_BASE}/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false`, managementKey),
+]);
 const endpoints = rows(endpointsRaw, ["endpoints", "serverlessEndpoints"]);
+const templates = rows(templatesRaw, ["templates"]);
 const candidate = resolveOne(endpoints, CANDIDATE_NAME, `${CONTRACT}_CANDIDATE_RESOLUTION_FAILED`);
 const deep = resolveOne(endpoints, DEEP_NAME, `${CONTRACT}_DEEP_RESOLUTION_FAILED`);
 if (text(candidate?.id, 300) !== endpointId) throw new Error(`${CONTRACT}_LEASE_ENDPOINT_MISMATCH`);
@@ -124,15 +140,18 @@ if (finite(candidate?.workersMin, -1) !== 0 || finite(candidate?.workersMax, -1)
 if (finite(deep?.workersMin, -1) !== 0 || finite(deep?.workersMax, -1) !== 0) {
   throw new Error(`${CONTRACT}_PRODUCTION_DEEP_MUST_REMAIN_PARKED_0_0`);
 }
-const candidateEnv = envMap(candidate?.template?.env);
-const deepEnv = envMap(deep?.template?.env);
+
+const candidateTemplate = resolveBoundTemplate(candidate, templates, `${CONTRACT}_CANDIDATE`);
+const deepTemplate = resolveBoundTemplate(deep, templates, `${CONTRACT}_DEEP`);
+const candidateEnv = envMap(candidateTemplate?.env);
+const deepEnv = envMap(deepTemplate?.env);
 if (text(candidateEnv.ENFORCE_EAGER, 40).toLowerCase() !== "true") {
   throw new Error(`${CONTRACT}_CANDIDATE_ENFORCE_EAGER_TRUE_REQUIRED`);
 }
 if (text(deepEnv.ENFORCE_EAGER, 40).toLowerCase() === "true") {
   throw new Error(`${CONTRACT}_PRODUCTION_DEEP_ALREADY_EAGER_UNEXPECTED`);
 }
-if (text(candidate?.template?.imageName, 1000) !== text(deep?.template?.imageName, 1000)) {
+if (!text(candidateTemplate?.imageName, 1000) || text(candidateTemplate?.imageName, 1000) !== text(deepTemplate?.imageName, 1000)) {
   throw new Error(`${CONTRACT}_IMAGE_PARITY_REQUIRED`);
 }
 if (text(candidateEnv.MODEL_NAME, 500) !== MODEL || text(deepEnv.MODEL_NAME, 500) !== MODEL) {
@@ -151,6 +170,7 @@ console.log(JSON.stringify({
   enforce_eager: true,
   same_image_as_production_deep: true,
   same_model_as_production_deep: true,
+  authoritative_template_collection_verified: true,
   production_deep_parked_0_0: true,
   max_observation_ms: OBSERVE_MS,
   generation_submitted: false,
@@ -233,6 +253,7 @@ console.log(JSON.stringify({
   runpod_delay_ms: finite(finalPayload?.delayTime, null),
   runpod_execution_ms: finite(finalPayload?.executionTime, null),
   enforce_eager: true,
+  authoritative_template_collection_verified: true,
   provider_timeout_reference_ms: 300000,
   completed_within_provider_timeout: completedMs !== null && completedMs < 300000,
   generation_submitted: true,

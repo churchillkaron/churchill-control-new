@@ -1,0 +1,28 @@
+FROM runpod/worker-v1-vllm:v2.25.0
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_ENABLED=false \
+    AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_PATH="" \
+    AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_FINGERPRINT="" \
+    AVANTIQO_INTELLIGENCE_PRODUCTION_MODEL_CANDIDATE_ID="" \
+    MODEL_NAME=Qwen/Qwen3-30B-A3B-Thinking-2507 \
+    ENABLE_AUTO_TOOL_CHOICE=true \
+    TOOL_CALL_PARSER=hermes \
+    REASONING_PARSER=qwen3 \
+    MAX_LORAS=1 \
+    MAX_CPU_LORAS=1 \
+    MAX_CONCURRENCY=4
+
+WORKDIR /production-adapter
+
+COPY services/avantiqo-intelligence-candidate/inspect_adapter.py ./inspect_adapter.py
+COPY services/avantiqo-intelligence-production-adapter/startup.py ./startup.py
+
+RUN python3 -m py_compile inspect_adapter.py startup.py \
+    && python3 - <<'PY'
+from importlib.metadata import version
+print("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_SAFETENSORS=" + version("safetensors"))
+PY
+
+ENTRYPOINT ["python3", "/production-adapter/startup.py"]

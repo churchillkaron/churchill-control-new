@@ -79,6 +79,42 @@ async function patch(endpointId, workersMax, key) {
   }
   return endpoint;
 }
+function endpointQueueKeyCandidates(endpoint, managementKey, queueKey, targetId = null, targetQueueKey = null) {
+  const id = text(endpoint?.id);
+  const name = text(endpoint?.name).toLowerCase();
+  const candidates = [];
+  const add = (source, value) => {
+    const key = text(value);
+    if (!key || candidates.some((entry) => entry.key === key)) return;
+    candidates.push({ source, key });
+  };
+  if (targetId && id === text(targetId)) add("TARGET_QUEUE_OVERRIDE", targetQueueKey);
+  if (name === "avantiqo-image-v1" || id === text(process.env.RUNPOD_AVANTIQO_IMAGE_ENDPOINT_ID)) {
+    add("RUNPOD_AVANTIQO_IMAGE_API_KEY", process.env.RUNPOD_AVANTIQO_IMAGE_API_KEY);
+  }
+  if (name === "avantiqo-cinema-v1" || id === text(process.env.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID)) {
+    add("RUNPOD_AVANTIQO_VIDEO_API_KEY", process.env.RUNPOD_AVANTIQO_VIDEO_API_KEY);
+  }
+  add("RUNPOD_API_KEY", queueKey);
+  add("RUNPOD_MANAGEMENT_API_KEY", managementKey);
+  return candidates;
+}
+async function endpointHealth(endpoint, managementKey, queueKey, targetId = null, targetQueueKey = null) {
+  const id = text(endpoint?.id);
+  const attempts = [];
+  for (const candidate of endpointQueueKeyCandidates(endpoint, managementKey, queueKey, targetId, targetQueueKey)) {
+    try {
+      return {
+        health: healthSummary(await queue(id, "/health", candidate.key)),
+        credentialSource: candidate.source,
+      };
+    } catch (error) {
+      attempts.push({ source: candidate.source, error: redact(error.message).slice(0, 180) });
+    }
+  }
+  const sources = attempts.map((entry) => entry.source).join(",") || "NONE";
+  throw new Error(`${CONTRACT}_PEER_HEALTH_UNREADABLE:${text(endpoint?.name) || id}:sources=${sources}`);
+}
 async function snapshot(managementKey, queueKey, targetId = null, targetQueueKey = null) {
   const endpoints = endpointsFrom(await rest("/endpoints?includeTemplate=false&includeWorkers=true", managementKey));
   const rows = [];
@@ -87,8 +123,14 @@ async function snapshot(managementKey, queueKey, targetId = null, targetQueueKey
     if (!id) continue;
     let health = null;
     let healthError = null;
-    const selectedQueueKey = targetId && id === text(targetId) && text(targetQueueKey) ? targetQueueKey : queueKey;
-    try { health = healthSummary(await queue(id, "/health", selectedQueueKey)); } catch (error) { healthError = redact(error.message).slice(0, 250); }
+    let healthCredentialSource = null;
+    try {
+      const result = await endpointHealth(endpoint, managementKey, queueKey, targetId, targetQueueKey);
+      health = result.health;
+      healthCredentialSource = result.credentialSource;
+    } catch (error) {
+      healthError = redact(error.message).slice(0, 250);
+    }
     rows.push({
       id,
       name: text(endpoint.name) || null,
@@ -97,6 +139,7 @@ async function snapshot(managementKey, queueKey, targetId = null, targetQueueKey
       active_workers: activeWorkers(endpoint).length,
       hourly_cost_usd: hourlyCost(endpoint),
       health,
+      health_credential_source: healthCredentialSource,
       health_error: healthError,
       jobs: health ? health.in_queue + health.in_progress : null,
     });
@@ -214,7 +257,7 @@ async function enforce(snapshotValue, policy, targetId, managementKey, lane, tar
   if (badMax.length) throw new Error(`${CONTRACT}_WORKERS_MAX_BOUNDED_REQUIRED:${badMax.map((row) => row.name).join(",")}`);
   for (const row of snapshotValue.rows.filter((row) => row.workers_max === 1 && !leaseIds.has(row.id))) {
     if (scopedLaneAllowsInertUnboundedPeer(row, targetId, lane)) {
-      console.log(`${CONTRACT}_INERT_PEER_PRESERVED=${JSON.stringify({ endpoint_name: row.name, workers_min: row.workers_min, workers_max: row.workers_max, active_workers: row.active_workers, jobs: row.jobs, hourly_cost_usd: row.hourly_cost_usd })}`);
+      console.log(`${CONTRACT}_INERT_PEER_PRESERVED=${JSON.stringify({ endpoint_name: row.name, workers_min: row.workers_min, workers_max: row.workers_max, active_workers: row.active_workers, jobs: row.jobs, hourly_cost_usd: row.hourly_cost_usd, health_credential_source: row.health_credential_source })}`);
       continue;
     }
     if (row.health_error || row.jobs !== 0) throw new Error(`${CONTRACT}_UNLEASED_ACTIVE_ENDPOINT:${row.name}`);

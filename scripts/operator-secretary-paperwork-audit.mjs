@@ -59,7 +59,9 @@ assert.match(source.jobExecution, /sign\b/);
 assert.match(source.jobExecution, /legal\s+commitment/);
 assert.match(source.jobExecution, /make\s+\(\?:a\s\+\)\?payment|make\\s\+\(\?:a\\s\+\)\?payment|payment/);
 assert.match(source.jobExecution, /hasExactStepApproval/);
-assert.match(source.jobExecution, /requiresHighAuthority\(step\.instruction\) && !exactApproval/);
+assert.match(source.jobExecution, /secretaryJobExactApprovalOwnedByCanonicalOwner/);
+assert.match(source.jobExecution, /const highAuthority = requiresHighAuthority\(step\.instruction\)/);
+assert.match(source.jobExecution, /if \(highAuthority && !exactApproval\)/);
 
 assert.match(source.jobApproval, /EXPLICIT_STEP_APPROVAL/);
 assert.match(source.jobApproval, /scope:\s*"THIS_STEP_ONLY"/);

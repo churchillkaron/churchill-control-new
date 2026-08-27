@@ -85,6 +85,9 @@ import {
   reconcileAvantiqoSelectionPolicyCanaryOutcomeCertification,
 } from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyCanaryOutcomeCertificationRuntime";
 import {
+  reconcileAvantiqoPersistentOrderingPolicyPromotionRequests,
+} from "@/lib/intelligence/runtime/AvantiqoPersistentOrderingPolicyPromotionGovernanceRuntime";
+import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
 
@@ -160,6 +163,8 @@ export async function GET(request) {
       await reconcileAvantiqoSelectionPolicyCanary();
     const selectionPolicyCanaryOutcomeCertification =
       await reconcileAvantiqoSelectionPolicyCanaryOutcomeCertification();
+    const persistentOrderingPolicyPromotionRequests =
+      await reconcileAvantiqoPersistentOrderingPolicyPromotionRequests();
 
     const experimentExecutionRequests =
       longHorizonPolicyAdaptedExperimentPortfolio
@@ -212,6 +217,8 @@ export async function GET(request) {
         selection_policy_canary: selectionPolicyCanary,
         selection_policy_canary_outcome_certification:
           selectionPolicyCanaryOutcomeCertification,
+        persistent_ordering_policy_promotion_requests:
+          persistentOrderingPolicyPromotionRequests,
         calibration_backfilled_experiment_portfolio:
           calibrationBackfilledExperimentPortfolio,
         active_experiment_selection: activeExperimentSelection,
@@ -227,7 +234,8 @@ export async function GET(request) {
           selectionPolicyShadowChallenger.success === false ||
           selectionPolicyPromotionRequests.success === false ||
           selectionPolicyCanary.success === false ||
-          selectionPolicyCanaryOutcomeCertification.success === false
+          selectionPolicyCanaryOutcomeCertification.success === false ||
+          persistentOrderingPolicyPromotionRequests.success === false
             ? 207
             : 200,
       },

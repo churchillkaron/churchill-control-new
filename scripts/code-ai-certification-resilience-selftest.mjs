@@ -146,6 +146,14 @@ assert.match(plannerExecution, /recoverStaleQueuedPlannerExecution/);
 assert.match(plannerExecution, /\/cancel\//);
 assert.match(plannerExecution, /CODE_AI_PLANNER_STALE_QUEUE_CANCEL_NOT_TERMINAL/);
 assert.match(plannerExecution, /stale_queue_recovery_count/);
+assert.match(plannerExecution, /runpodSafeReadResponse/);
+assert.match(plannerExecution, /RUNPOD_HEALTH_MAX_ATTEMPTS/);
+assert.match(plannerExecution, /boundedRetryDelayMs/);
+assert.match(plannerExecution, /isRetryableHttpStatus/);
+assert.match(plannerExecution, /isTransientNetworkError/);
+assert.match(plannerExecution, /AVANTIQO_CODE_PLANNER_SAFE_READ_RETRY/);
+assert.match(plannerExecution, /method === "GET"/);
+assert.match(plannerExecution, /provider_execution_submitted: false/);
 assert.match(autonomousRuntime, /const logicalIterations = new Set\(\)/);
 assert.match(autonomousRuntime, /stale_queue_recovery_count/);
 assert.match(pendingSettlement, /AVANTIQO_CODE_PLANNER_PENDING_STALE_QUEUE_CANCELED/);
@@ -183,6 +191,8 @@ console.log(JSON.stringify({
     non_code_lanes_keep_global_workers_max_guard: true,
     code_target_remains_strictly_bounded: true,
     stale_queued_provider_job_detected_by_age_and_health: true,
+    planner_in_child_runpod_safe_reads_retry_bounded: true,
+    planner_in_child_runpod_mutations_not_retried: true,
     stale_queued_provider_job_exact_cancel_before_replacement: true,
     stale_replacement_is_bounded_to_one: true,
     logical_planner_iteration_deduplicates_replacement_job_ids: true,

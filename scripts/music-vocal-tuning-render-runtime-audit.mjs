@@ -11,7 +11,9 @@ const files = {
   serviceCatalog: "lib/platform/service-runtime/ai/PlatformAIServiceCatalog.js",
   route: "app/api/creative/music/vocal-tuning-render/route.js",
   plan: "lib/creative/music/runtime/CreativeMusicVocalTuningPlanRuntime.js",
+  timingPlan: "lib/creative/music/runtime/CreativeMusicVocalTimingPlanRuntime.js",
   panel: "components/creative/ProductionStudio/workspaces/MusicVocalTuningPlanPanel.jsx",
+  timingPanel: "components/creative/ProductionStudio/workspaces/MusicVocalTimingPlanPanel.jsx",
 };
 
 const source = Object.fromEntries(
@@ -20,16 +22,20 @@ const source = Object.fromEntries(
 
 assert.match(source.engine, /AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_V2/);
 assert.match(source.engine, /AVANTIQO_MUSIC_VOCAL_TUNING_PLAN_V1/);
+assert.match(source.engine, /AVANTIQO_MUSIC_VOCAL_TIMING_PLAN_V1/);
 assert.match(source.engine, /MUSICIAN_APPROVED_PLAN/);
 assert.match(source.engine, /APPROVED_PLAN_SOURCE_CHECKSUM_MISMATCH/);
 assert.match(source.engine, /APPROVED_PLAN_SEGMENT_NOT_APPROVED/);
-assert.match(source.engine, /TIMING_REQUIRES_SEPARATE_MUSICIAN_REVIEW/);
+assert.match(source.engine, /approved_timing_plan/);
+assert.match(source.engine, /apply_approved_phrase_timing_plan/);
+assert.match(source.engine, /automatic_timing_forbidden_with_musician_plans/);
 assert.match(source.engine, /setTransposeSemitones\(float\(semitones\), tonality_limit\)/);
 assert.match(source.engine, /formant_preservation_claimed": False/);
 assert.match(source.engine, /human_listening_review_required_for_certification/);
 assert.match(source.engine, /production_certified": False/);
 
 assert.match(source.provider, /approved_tuning_plan: approvedTuningPlan/);
+assert.match(source.provider, /approved_timing_plan: approvedTimingPlan/);
 assert.match(source.provider, /source_window: sourceWindow/);
 assert.match(source.provider, /APPROVED_PLAN_SOURCE_WINDOW_REQUIRED/);
 assert.match(source.provider, /MUSICIAN_APPROVED_PLAN/);
@@ -48,23 +54,41 @@ assert.match(source.serviceCatalog, /id: "ai\.audio\.vocal-correct"/);
 
 assert.match(source.plan, /auto_apply_forbidden: true/);
 assert.match(source.plan, /musician_approval_required: true/);
+assert.match(source.timingPlan, /auto_apply_forbidden: true/);
+assert.match(source.timingPlan, /whole_phrase_translation_only: true/);
+assert.match(source.timingPlan, /render_ready: render\.ready/);
+
 assert.match(source.route, /executeService/);
 assert.match(source.route, /settlePendingService/);
 assert.match(source.route, /sourceRightsConfirmed/);
 assert.match(source.route, /VOCAL_TUNING_RENDER/);
 assert.match(source.route, /source_asset_history/);
+assert.match(source.route, /TIMING_PLAN_CONTRACT = "AVANTIQO_MUSIC_VOCAL_TIMING_PLAN_V1"/);
+assert.match(source.route, /approved_timing_plan: timingPlan \|\| null/);
+assert.match(source.route, /timing_plan_fingerprint/);
 assert.match(source.route, /CURRENT_CLIP_SOURCE_CHANGED/);
 assert.match(source.route, /CURRENT_TUNING_PLAN_CHANGED/);
+assert.match(source.route, /CURRENT_TIMING_PLAN_CHANGED/);
+assert.match(source.route, /timing_strength: 0/);
+assert.match(source.route, /timing_auto_apply_forbidden: true/);
 assert.match(source.route, /formant_preservation_claimed: false/);
-assert.match(source.route, /timing_correction_applied: false/);
-assert.match(source.panel, /Render reviewed tuning/);
+assert.match(source.route, /timing_correction_applied: report\.timing\?\.applied === true/);
+assert.match(source.route, /timing_correction_applied: output\.report\?\.timing\?\.applied === true/);
+
+assert.match(source.panel, /Render reviewed vocal/);
 assert.match(source.panel, /Check render/);
+assert.match(source.panel, /timingPlan\.all_phrases_reviewed === true/);
+assert.match(source.panel, /Timing auto-correction remains forbidden/);
 assert.match(source.panel, /formant preservation is not claimed/);
+assert.match(source.timingPanel, /Reviewed timing is ready for governed vocal render/);
+assert.match(source.timingPanel, /exact timing-plan fingerprint is included automatically/);
 
 for (const value of Object.values(source)) {
   assert.doesNotMatch(value, /direct[_ -]?runpod[_ -]?call/i);
 }
 
 console.log("MUSIC_VOCAL_TUNING_RENDER_RUNTIME_AUDIT=PASS");
+console.log("MUSIC_VOCAL_TUNING_RENDER_TIMING_PLAN_BOUND=true");
+console.log("MUSIC_VOCAL_TUNING_RENDER_AUTO_TIMING=false");
 console.log("MUSIC_VOCAL_TUNING_RENDER_PROVIDER_JOB_SUBMITTED=false");
 console.log("MUSIC_VOCAL_TUNING_RENDER_ENDPOINT_MUTATION_PERFORMED=false");

@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 
 const CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_HUMAN_REVIEW_RESULT_V1";
 const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V2";
+const CONTINUITY_FIXTURE_CONTRACT = "AVANTIQO_MUSIC_CONTINUITY_FIXTURE_V1";
 const EXPECTED_CAPABILITY = "ai.audio.extend";
 const SAFE_LEASE_LANE = "music-transform-candidate";
 
@@ -27,6 +28,12 @@ if (
   report?.temporal_extension_technical_proven !== true ||
   report?.human_review_required !== true ||
   text(report?.human_review_status) !== "PENDING" ||
+  text(report?.human_review_kind) !== "MUSICAL_CONTINUITY" ||
+  text(report?.source_mode) !== "MUSICAL_CONTINUITY" ||
+  report?.eligible_for_human_release_review !== true ||
+  text(report?.source_fixture?.contract) !== CONTINUITY_FIXTURE_CONTRACT ||
+  report?.source_fixture?.original_composition !== true ||
+  report?.source_fixture?.royalty_free !== true ||
   report?.production_activation_allowed !== false ||
   report?.pricing_activation_allowed !== false ||
   report?.provider_selection_change_allowed !== false ||
@@ -49,8 +56,13 @@ const result = {
   benchmark_job_id: text(report?.job_id),
   endpoint_id: text(report?.endpoint_id),
   safe_lease_lane: SAFE_LEASE_LANE,
+  source_mode: "MUSICAL_CONTINUITY",
+  source_fixture_contract: CONTINUITY_FIXTURE_CONTRACT,
+  source_fixture_progression: report?.source_fixture?.progression || null,
+  source_fixture_final_harmony: report?.source_fixture?.final_harmony || null,
   temporal_extension_technical_proven: true,
   human_review_required: true,
+  human_review_kind: "MUSICAL_CONTINUITY",
   human_review_status: verdict,
   reviewer,
   notes: notes || null,
@@ -71,6 +83,7 @@ await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
+  human_review_kind: "MUSICAL_CONTINUITY",
   human_review_status: verdict,
   eligible_for_later_release_decision: verdict === "APPROVED",
   provider_jobs_submitted: 0,

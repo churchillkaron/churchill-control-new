@@ -13,7 +13,6 @@ const CRITICAL_PATHS = [
 ];
 
 const text = (value) => String(value ?? "").trim();
-const list = (value) => Array.isArray(value) ? value : [];
 
 function runGit(args, code, { allowStatus = [] } = {}) {
   const result = spawnSync("git", args, {
@@ -85,18 +84,18 @@ if (expected) {
     })}`);
   }
 
-  // V2 performs its own fresh-main fetch immediately before mutations. The
-  // compatibility guard above has already proven any advance from the pinned
-  // experiment revision is unrelated to this experiment, so do not make V2
-  // reject that unrelated advancement solely because the SHA changed.
-  delete process.env[EXPECTED_MAIN_ENV];
+  // Keep V2 pinned to the newest main revision that this guard actually
+  // observed. If main moves again after this point, V2's own fresh-main checks
+  // fail closed before candidate mutation instead of silently accepting a
+  // second concurrent advance.
+  process.env[EXPECTED_MAIN_ENV] = remote;
 }
 
 // RunPod exposes some endpoint-bound templates in the templates collection
 // while GET /templates/{id} returns 404. V2 deliberately resolves templates by
-// exact bound template ID, so normalize only that documented live API shape:
-// on an item-route 404, resolve the same exact ID from the endpoint-bound
-// collection. Every other response and request passes through unchanged.
+// exact bound template ID, so normalize only that live API shape: on an
+// item-route 404, resolve the same exact ID from the endpoint-bound collection.
+// Every other response and request passes through unchanged.
 const nativeFetch = globalThis.fetch.bind(globalThis);
 globalThis.fetch = async (input, init) => {
   const rawUrl = typeof input === "string"

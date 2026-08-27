@@ -97,6 +97,9 @@ import {
   reconcileAvantiqoPersistentOrderingPolicyRegressionMonitor,
 } from "@/lib/intelligence/runtime/AvantiqoPersistentOrderingPolicyRegressionMonitorRuntime";
 import {
+  verifyAvantiqoPersistentPolicyGenerationIntegrity,
+} from "@/lib/intelligence/runtime/AvantiqoPersistentPolicyGenerationIntegrityRuntime";
+import {
   reconcileAvantiqoSelectionPolicyResearchEpoch,
 } from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyResearchEpochRuntime";
 import {
@@ -259,15 +262,33 @@ export async function GET(request) {
             execution_request_generation_allowed: false,
           };
 
+    const persistentPolicyGenerationIntegrity =
+      persistentOrderingPolicyApplication.success !== false &&
+      persistentOrderingPolicyRegressionMonitor.success !== false &&
+      persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false
+        ? await verifyAvantiqoPersistentPolicyGenerationIntegrity()
+        : {
+            success: false,
+            status: "BLOCKED_BY_PERSISTENT_POLICY_REGRESSION_PRECONDITION_FAIL_CLOSED",
+            execution_request_generation_allowed: false,
+            read_only_integrity_verification: true,
+          };
+
     const rebasedSelectionPolicyChallenger =
       selectionPolicyResearchEpoch.success !== false &&
       persistentOrderingPolicyApplication.success !== false &&
       persistentOrderingPolicyRegressionMonitor.success !== false &&
-      persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false
+      persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false &&
+      persistentPolicyGenerationIntegrity.success !== false &&
+      persistentPolicyGenerationIntegrity.execution_request_generation_allowed !== false
         ? await reconcileAvantiqoRebasedSelectionPolicyChallenger()
         : {
             success: false,
-            status: "BLOCKED_BY_PERSISTENT_POLICY_RESEARCH_PRECONDITION_FAIL_CLOSED",
+            status:
+              persistentPolicyGenerationIntegrity.success === false ||
+              persistentPolicyGenerationIntegrity.execution_request_generation_allowed === false
+                ? "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_INTEGRITY_FAIL_CLOSED"
+                : "BLOCKED_BY_PERSISTENT_POLICY_RESEARCH_PRECONDITION_FAIL_CLOSED",
             proposal_ready: false,
             promotion_authorized: false,
             live_ordering_mutated: false,
@@ -289,12 +310,18 @@ export async function GET(request) {
       persistentOrderingPolicyApplication.success !== false &&
       persistentOrderingPolicyRegressionMonitor.success !== false &&
       persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false &&
+      persistentPolicyGenerationIntegrity.success !== false &&
+      persistentPolicyGenerationIntegrity.execution_request_generation_allowed !== false &&
       rebasedSelectionPolicyChallenger.success !== false &&
       rebasedSelectionPolicyPromotionRequests.success !== false
         ? await reconcileAvantiqoRebasedSelectionPolicyCanary()
         : {
             success: false,
-            status: "BLOCKED_BY_REBASED_CANARY_PRECONDITION_FAIL_CLOSED",
+            status:
+              persistentPolicyGenerationIntegrity.success === false ||
+              persistentPolicyGenerationIntegrity.execution_request_generation_allowed === false
+                ? "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_INTEGRITY_FAIL_CLOSED"
+                : "BLOCKED_BY_REBASED_CANARY_PRECONDITION_FAIL_CLOSED",
             canary_active: false,
             execution_request_generation_allowed: false,
             automatic_activation: false,
@@ -319,6 +346,8 @@ export async function GET(request) {
       persistentOrderingPolicyApplication.success !== false &&
       persistentOrderingPolicyRegressionMonitor.success !== false &&
       persistentOrderingPolicyRegressionMonitor.execution_request_generation_allowed !== false &&
+      persistentPolicyGenerationIntegrity.success !== false &&
+      persistentPolicyGenerationIntegrity.execution_request_generation_allowed !== false &&
       rebasedSelectionPolicyChallenger.success !== false &&
       rebasedSelectionPolicyPromotionRequests.success !== false &&
       rebasedSelectionPolicyCanary.success !== false &&
@@ -335,18 +364,21 @@ export async function GET(request) {
                   ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_REGRESSION_MONITOR"
                   : persistentOrderingPolicyApplication.success === false
                     ? "BLOCKED_BY_PERSISTENT_ORDERING_POLICY_APPLICATION_FAIL_CLOSED"
-                    : rebasedSelectionPolicyChallenger.success === false
-                      ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CHALLENGER_FAIL_CLOSED"
-                      : rebasedSelectionPolicyPromotionRequests.success === false
-                        ? "BLOCKED_BY_REBASED_SELECTION_POLICY_PROMOTION_GOVERNANCE_FAIL_CLOSED"
-                        : rebasedSelectionPolicyCanary.success === false ||
-                            rebasedSelectionPolicyCanary.execution_request_generation_allowed === false
-                          ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CANARY_FAIL_CLOSED"
-                          : persistentPolicySuccessionRequests.success === false
-                            ? "BLOCKED_BY_PERSISTENT_POLICY_SUCCESSION_GOVERNANCE_FAIL_CLOSED"
-                            : selectionPolicyCanary.success === false
-                              ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
-                              : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
+                    : persistentPolicyGenerationIntegrity.success === false ||
+                        persistentPolicyGenerationIntegrity.execution_request_generation_allowed === false
+                      ? "BLOCKED_BY_PERSISTENT_POLICY_GENERATION_INTEGRITY_FAIL_CLOSED"
+                      : rebasedSelectionPolicyChallenger.success === false
+                        ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CHALLENGER_FAIL_CLOSED"
+                        : rebasedSelectionPolicyPromotionRequests.success === false
+                          ? "BLOCKED_BY_REBASED_SELECTION_POLICY_PROMOTION_GOVERNANCE_FAIL_CLOSED"
+                          : rebasedSelectionPolicyCanary.success === false ||
+                              rebasedSelectionPolicyCanary.execution_request_generation_allowed === false
+                            ? "BLOCKED_BY_REBASED_SELECTION_POLICY_CANARY_FAIL_CLOSED"
+                            : persistentPolicySuccessionRequests.success === false
+                              ? "BLOCKED_BY_PERSISTENT_POLICY_SUCCESSION_GOVERNANCE_FAIL_CLOSED"
+                              : selectionPolicyCanary.success === false
+                                ? "BLOCKED_BY_SELECTION_POLICY_CANARY_FAIL_CLOSED"
+                                : "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
             execution_request_count: 0,
             execution_authorized: false,
             spend_authorized: false,
@@ -388,6 +420,7 @@ export async function GET(request) {
           rebasedSelectionPolicyPromotionRequests,
         rebased_selection_policy_canary: rebasedSelectionPolicyCanary,
         persistent_policy_succession_requests: persistentPolicySuccessionRequests,
+        persistent_policy_generation_integrity: persistentPolicyGenerationIntegrity,
         selection_policy_shadow_challenger: selectionPolicyShadowChallenger,
         selection_policy_shadow_evaluation_integrity:
           selectionPolicyShadowEvaluationIntegrity,
@@ -418,6 +451,7 @@ export async function GET(request) {
           rebasedSelectionPolicyPromotionRequests.success === false ||
           rebasedSelectionPolicyCanary.success === false ||
           persistentPolicySuccessionRequests.success === false ||
+          persistentPolicyGenerationIntegrity.success === false ||
           selectionPolicyShadowChallenger.success === false ||
           selectionPolicyShadowEvaluationIntegrity.success === false ||
           selectionPolicyPromotionRequests.success === false ||

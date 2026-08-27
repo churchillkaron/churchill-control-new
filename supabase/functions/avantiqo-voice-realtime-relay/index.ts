@@ -1,4 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
+import {
+  acquireVoiceRealtimeSafeLease,
+  realtimeEndpointIdFromWebSocketUrl,
+} from "../_shared/avantiqo-voice-realtime-safe-lease.ts";
 
 const RELAY_CONTRACT = "AVANTIQO_VOICE_REALTIME_RELAY_V1";
 const ENGINE_CONTRACT = "AVANTIQO_VOICE_ENGINE_V1";
@@ -322,6 +326,7 @@ function responseError(error: unknown, status = 500): Response {
 }
 
 Deno.serve(async (request) => {
+  let realtimeLease: Awaited<ReturnType<typeof acquireVoiceRealtimeSafeLease>> | null = null;
   if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
     return responseError("AVANTIQO_VOICE_REALTIME_WEBSOCKET_REQUIRED", 426);
   }
@@ -345,6 +350,13 @@ Deno.serve(async (request) => {
       language,
     });
 
+    realtimeLease = await acquireVoiceRealtimeSafeLease({
+      organizationId,
+      endpointId: realtimeEndpointIdFromWebSocketUrl(runpodUrl),
+      ownerRequestId: sessionId,
+      ttlSeconds: 120,
+    });
+
     const { socket: client, response } = Deno.upgradeWebSocket(request, {
       protocol: CLIENT_PROTOCOL,
       idleTimeout: 60,
@@ -356,25 +368,38 @@ Deno.serve(async (request) => {
     let totalAudioChars = 0;
     let openTimer: number | null = null;
     let sessionTimer: number | null = null;
+    let leaseRefreshTimer: number | null = null;
+    let finishPromise: Promise<void> | null = null;
     let resolveClosed: (() => void) | null = null;
     const closedPromise = new Promise<void>((resolve) => {
       resolveClosed = resolve;
     });
 
     const finish = (code = 1000, reason = "complete") => {
-      if (closed) return;
-      closed = true;
-      if (openTimer !== null) clearTimeout(openTimer);
-      if (sessionTimer !== null) clearTimeout(sessionTimer);
-      try {
-        if (client.readyState === WebSocket.OPEN) client.close(code, reason);
-      } catch {}
-      try {
-        if (upstream?.readyState === WebSocket.OPEN) upstream.close(code, reason);
-      } catch {}
-      upstream = null;
-      resolveClosed?.();
-      resolveClosed = null;
+      if (finishPromise) return finishPromise;
+      finishPromise = (async () => {
+        if (closed) return;
+        closed = true;
+        if (openTimer !== null) clearTimeout(openTimer);
+        if (sessionTimer !== null) clearTimeout(sessionTimer);
+        if (leaseRefreshTimer !== null) clearInterval(leaseRefreshTimer);
+        try {
+          if (client.readyState === WebSocket.OPEN) client.close(code, reason);
+        } catch {}
+        try {
+          if (upstream?.readyState === WebSocket.OPEN) upstream.close(code, reason);
+        } catch {}
+        upstream = null;
+        const lease = realtimeLease;
+        realtimeLease = null;
+        if (lease) {
+          if (code === 1000) await lease.release(reason);
+          else await lease.fail(reason);
+        }
+        resolveClosed?.();
+        resolveClosed = null;
+      })();
+      return finishPromise;
     };
 
     const sendClient = (payload: Record<string, unknown>) => {
@@ -383,6 +408,19 @@ Deno.serve(async (request) => {
     };
 
     client.addEventListener("open", () => {
+      leaseRefreshTimer = setInterval(() => {
+        const lease = realtimeLease;
+        if (!lease || closed) return;
+        void lease.refresh().catch(() => {
+          sendClient({
+            type: "relay.error",
+            contract: RELAY_CONTRACT,
+            code: "AVANTIQO_VOICE_REALTIME_SAFE_LEASE_REFRESH_FAILED",
+          });
+          void finish(1011, "safe lease refresh failed");
+        });
+      }, 30_000);
+
       sendClient({
         type: "relay.connecting",
         contract: RELAY_CONTRACT,
@@ -503,6 +541,11 @@ Deno.serve(async (request) => {
 
     return response;
   } catch (error) {
+    const failedLease = realtimeLease;
+    realtimeLease = null;
+    if (failedLease) {
+      await failedLease.fail("relay setup failed").catch(() => null);
+    }
     const message = text(error instanceof Error ? error.message : error);
     const status = message.includes("AUTH") ? 401
       : message.includes("ACCESS_DENIED") ? 403

@@ -112,6 +112,41 @@ function publicResult(session, extra = {}) {
   };
 }
 
+function appendRecordedPerformance(clip, performance = {}) {
+  if (clip.quantization || Math.abs(finite(clip.transpose_semitones, 0)) > 0) {
+    throw new Error("CREATIVE_MUSIC_MIDI_RECORDING_RESTORE_ORIGINAL_REQUIRED");
+  }
+  const incomingNotes = Array.isArray(performance.notes) ? performance.notes : [];
+  const incomingEvents = Array.isArray(performance.control_events) ? performance.control_events : [];
+  if (!incomingNotes.length && !incomingEvents.length) throw new Error("CREATIVE_MUSIC_MIDI_RECORDED_PERFORMANCE_EMPTY");
+  if (incomingNotes.length > 10000 || incomingEvents.length > 50000) throw new Error("CREATIVE_MUSIC_MIDI_RECORDED_PERFORMANCE_LIMIT_EXCEEDED");
+  const notes = incomingNotes.map((note) => createMusicMidiNote(note));
+  const events = incomingEvents.map((event) => createMusicMidiControlEvent(event));
+  clip.notes = [...(clip.notes || []), ...notes].sort((a, b) => a.start_beat - b.start_beat || a.pitch - b.pitch);
+  clip.control_events = [...(clip.control_events || []), ...events].sort((a, b) => a.beat - b.beat);
+  clip.original_performance = {
+    notes: structuredClone(clip.notes),
+    control_events: structuredClone(clip.control_events),
+    immutable: true,
+    captured_at: new Date().toISOString(),
+    source: "WEB_MIDI_INPUT",
+  };
+  clip.last_recording = {
+    contract: "AVANTIQO_MUSIC_WEB_MIDI_RECORDING_V1",
+    note_count: notes.length,
+    control_event_count: events.length,
+    input_device_id: text(performance.input_device_id) || null,
+    input_device_name: text(performance.input_device_name) || null,
+    midi_channel: Math.max(1, Math.min(16, Math.round(finite(performance.midi_channel, 1)))),
+    started_at: text(performance.started_at) || null,
+    stopped_at: text(performance.stopped_at) || new Date().toISOString(),
+    raw_timing_preserved: true,
+    raw_velocity_preserved: true,
+    provider_job_submitted: false,
+  };
+  return { noteCount: notes.length, controlEventCount: events.length };
+}
+
 async function mutate(body) {
   const organizationId = text(body.organization_id);
   const projectId = text(body.creative_project_id);
@@ -126,6 +161,7 @@ async function mutate(body) {
   }
   const next = structuredClone(session);
   const action = text(body.action).toLowerCase();
+  let mutationEvidence = {};
 
   if (action === "add_track") {
     next.midi.tracks.push(createMusicMidiTrack(body.track || {}));
@@ -151,6 +187,16 @@ async function mutate(body) {
     const { clip } = selectMidiClip(next, text(body.track_id), text(body.clip_id));
     clip.control_events.push(createMusicMidiControlEvent(body.event || {}));
     clip.control_events.sort((a, b) => a.beat - b.beat);
+  } else if (action === "record_performance") {
+    const { clip } = selectMidiClip(next, text(body.track_id), text(body.clip_id));
+    const recorded = appendRecordedPerformance(clip, body.performance || {});
+    mutationEvidence = {
+      web_midi_recording: true,
+      recorded_note_count: recorded.noteCount,
+      recorded_control_event_count: recorded.controlEventCount,
+      raw_timing_preserved: true,
+      raw_velocity_preserved: true,
+    };
   } else if (action === "capture_original") {
     const selected = selectMidiClip(next, text(body.track_id), text(body.clip_id));
     const captured = captureMusicMidiOriginalPerformance(selected.clip);
@@ -181,7 +227,7 @@ async function mutate(body) {
 
   validateMusicMidiProject(next.midi);
   const saved = await persist(project, { ...next, revision });
-  return publicResult(saved, { action });
+  return publicResult(saved, { action, ...mutationEvidence });
 }
 
 export async function POST(request) {

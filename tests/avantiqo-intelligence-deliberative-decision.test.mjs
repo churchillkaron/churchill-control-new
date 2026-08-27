@@ -52,7 +52,7 @@ test("decision-critical choice refuses to pretend one feasible alternative is en
 
 test("planning tool exposes deliberation without gaining execution authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V7/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V8/);
   assert.match(source, /"deliberate"/);
   assert.match(source, /deliberative_decision_contract/);
   assert.match(source, /recommendations_are_not_execution_authority/);

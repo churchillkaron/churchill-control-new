@@ -140,9 +140,7 @@ export default function MusicWorkstationOverdubPanel({
       }),
     });
     const body = await response.json();
-    if (!response.ok || body.success === false) {
-      throw new Error(body.error || errorCode);
-    }
+    if (!response.ok || body.success === false) throw new Error(body.error || errorCode);
     return body;
   }
 
@@ -229,12 +227,7 @@ export default function MusicWorkstationOverdubPanel({
 
   async function startBacking(startSeconds, stopAtSeconds) {
     backingRef.current?.stop?.();
-    const backing = await startMusicMultitrackPreview({
-      session,
-      assetUrls,
-      startSeconds,
-      stopAtSeconds,
-    });
+    const backing = await startMusicMultitrackPreview({ session, assetUrls, startSeconds, stopAtSeconds });
     backingRef.current = backing;
     return backing;
   }
@@ -251,18 +244,12 @@ export default function MusicWorkstationOverdubPanel({
       await persistWorkstationBeforeRecording();
       setRecording(true);
       onRecordingChange?.(true);
-
       setPhase("OPENING INPUT");
-      const capture = await startMusicRawPcmCapture({
-        deviceId: deviceId || null,
-        onLevel: setMeter,
-      });
+      const capture = await startMusicRawPcmCapture({ deviceId: deviceId || null, onLevel: setMeter });
       captureRef.current = capture;
-
       setPhase("COUNT-IN");
       await playCountIn({ bpm, bars: countInBars, signature });
       if (cancelledRef.current) return;
-
       await capture.splitPass({ allowEmpty: true });
 
       if (loopEnabled) {
@@ -274,9 +261,7 @@ export default function MusicWorkstationOverdubPanel({
           await sleep(passDuration * 1000);
           backingRef.current?.stop?.();
           backingRef.current = null;
-          const pass = passIndex === loopPasses - 1
-            ? await capture.stop()
-            : await capture.splitPass();
+          const pass = passIndex === loopPasses - 1 ? await capture.stop() : await capture.splitPass();
           if (pass) {
             setPhase(`SAVING PASS ${passIndex + 1}`);
             await savePass(pass, passIndex, region.start);
@@ -376,11 +361,9 @@ export default function MusicWorkstationOverdubPanel({
         </div>
 
         {error ? <div className="mt-3 text-[10px] text-red-100/70">{error}</div> : null}
-
         <div className="mt-4 flex gap-2">
           {!recording ? <button type="button" disabled={!armed || !selectedTrack} onClick={begin} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/[0.09] px-3 py-2.5 text-xs font-medium text-red-100 disabled:opacity-25"><Radio className="h-4 w-4" /> Record / Overdub</button> : <button type="button" onClick={stopOpenEnded} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/30 bg-red-400/[0.12] px-3 py-2.5 text-xs font-medium text-red-100"><CircleStop className="h-4 w-4" /> Stop & save</button>}
         </div>
-
         <div className="mt-3 flex items-start gap-2 text-[9px] leading-4 text-white/25"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-100/40" />Project revision is persisted before capture. Each pass is a new immutable WAV/take; browser AGC, echo cancellation and noise suppression stay disabled.</div>
         <div className="mt-2 flex items-center gap-2 text-[9px] text-white/20"><Headphones className="h-3.5 w-3.5" />Backing project playback follows the recording range; original recordings are never overwritten.</div>
       </div>
@@ -390,6 +373,11 @@ export default function MusicWorkstationOverdubPanel({
         assetUrls={assetUrls}
         disabled={recording}
         onChange={persistCompTrack}
+        organizationId={organizationId}
+        projectId={projectId}
+        sessionRevision={session?.revision || 0}
+        sampleRate={session?.sample_rate || 48000}
+        onRendered={() => onReload?.()}
       />
     </>
   );

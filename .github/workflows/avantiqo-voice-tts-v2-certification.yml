@@ -28,7 +28,9 @@ jobs:
       AVANTIQO_VOICE_TTS_FOUNDATION_MODEL: resemble-ai/chatterbox:multilingual-v3
       AVANTIQO_VOICE_TTS_V3_ONE_PROOF_REPORT_OUTPUT: /tmp/avantiqo-voice-tts-v3-one-proof.json
       AVANTIQO_VOICE_TTS_V3_ONE_PROOF_AUDIO_OUTPUT: /tmp/avantiqo-voice-tts-v3-one-proof.wav
-      RESULT_PATH: /tmp/avantiqo-voice-tts-v2-certification.json
+      RESULT_PATH: /tmp/avantiqo-voice-tts-v2-certification-ci.json
+      CANONICAL_RESULT_PATH: audits/results/avantiqo-voice-tts-v2-certification.json
+      CI_RESULT_REPO_PATH: audits/results/avantiqo-voice-tts-v2-certification-ci.json
 
     steps:
       - name: Checkout exact triggering source
@@ -59,7 +61,7 @@ jobs:
             fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            printf '{"success":false,"contract":"AVANTIQO_VOICE_TTS_V2_CERTIFICATION_V1","error_code":"CREDENTIAL_PREFLIGHT_FAILED","missing_binding":"%s","generation_submitted":false,"production_deploy_performed":false,"pricing_activation_performed":false,"secrets_printed":false}\n' "${missing[0]}" > "$RESULT_PATH"
+            printf '{"success":false,"contract":"AVANTIQO_VOICE_TTS_V2_CERTIFICATION_V1","certification_state":"CI_PREFLIGHT_BLOCKED","evidence_scope":"CI_PREFLIGHT_ONLY","canonical_product_certification":false,"error_code":"CREDENTIAL_PREFLIGHT_FAILED","missing_binding":"%s","generation_submitted":false,"production_deploy_performed":false,"pricing_activation_performed":false,"secrets_printed":false}\n' "${missing[0]}" > "$RESULT_PATH"
             exit 1
           fi
 
@@ -106,6 +108,9 @@ jobs:
           const result = {
             success: proof.success === true,
             contract: "AVANTIQO_VOICE_TTS_V2_CERTIFICATION_V1",
+            certification_state: proof.success === true ? "CERTIFIED" : "CI_PROOF_REJECTED",
+            evidence_scope: "CI_COMPLETED_CERTIFICATION",
+            canonical_product_certification: proof.success === true,
             github_run_id: process.env.GITHUB_RUN_ID || null,
             trigger_sha: process.env.GITHUB_SHA || null,
             job_id: proof.job_id || null,
@@ -147,13 +152,13 @@ jobs:
             exit 1
           fi
 
-      - name: Ensure result exists on failure
+      - name: Ensure CI result exists on failure
         if: always()
         shell: bash
         run: |
           if [ ! -f "$RESULT_PATH" ]; then
             cat > "$RESULT_PATH" <<EOF
-          {"success":false,"contract":"AVANTIQO_VOICE_TTS_V2_CERTIFICATION_V1","github_run_id":"${GITHUB_RUN_ID}","trigger_sha":"${GITHUB_SHA}","error_code":"CERTIFICATION_STEP_FAILED","generation_submitted":false,"permanent_rest_state":"VOICE_TTS_0_0","stt_submitted":false,"production_deploy_performed":false,"pricing_activation_performed":false,"secrets_printed":false}
+          {"success":false,"contract":"AVANTIQO_VOICE_TTS_V2_CERTIFICATION_V1","certification_state":"CI_EXECUTION_FAILED","evidence_scope":"CI_EXECUTION_ONLY","canonical_product_certification":false,"github_run_id":"${GITHUB_RUN_ID}","trigger_sha":"${GITHUB_SHA}","error_code":"CERTIFICATION_STEP_FAILED","generation_submitted":false,"permanent_rest_state":"VOICE_TTS_0_0","stt_submitted":false,"production_deploy_performed":false,"pricing_activation_performed":false,"secrets_printed":false}
           EOF
           fi
 
@@ -163,7 +168,7 @@ jobs:
         with:
           name: avantiqo-voice-tts-v2-certification-${{ github.run_id }}
           path: |
-            /tmp/avantiqo-voice-tts-v2-certification.json
+            /tmp/avantiqo-voice-tts-v2-certification-ci.json
             /tmp/avantiqo-voice-tts-v3-one-proof.json
             /tmp/avantiqo-voice-tts-v3-one-proof.wav
             /tmp/avantiqo-voice-tts-v2-binding-plan.log
@@ -172,7 +177,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Record sanitized Voice TTS V2 certification on main
+      - name: Record Voice certification evidence without corrupting canonical truth
         if: always()
         shell: bash
         run: |
@@ -184,17 +189,34 @@ jobs:
             git fetch origin main
             git checkout -B voice-tts-v2-certification-evidence origin/main
             mkdir -p audits/results
-            cp "$RESULT_PATH" audits/results/avantiqo-voice-tts-v2-certification.json
-            git add audits/results/avantiqo-voice-tts-v2-certification.json
+
+            DESTINATION="$(node --input-type=module <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile(process.env.RESULT_PATH, "utf8"));
+          const destination = report.success === true && report.evidence_scope === "CI_COMPLETED_CERTIFICATION"
+            ? process.env.CANONICAL_RESULT_PATH
+            : process.env.CI_RESULT_REPO_PATH;
+          await writeFile(destination, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+          process.stdout.write(destination);
+          NODE
+            )"
+
+            git add -- "$DESTINATION"
 
             if git diff --cached --quiet; then
-              echo 'AVANTIQO_VOICE_TTS_V2_CERTIFICATION_EVIDENCE_ALREADY_CURRENT=true'
+              echo "AVANTIQO_VOICE_TTS_V2_CERTIFICATION_EVIDENCE_ALREADY_CURRENT=true"
+              echo "AVANTIQO_VOICE_TTS_V2_CERTIFICATION_EVIDENCE_DESTINATION=$DESTINATION"
               exit 0
             fi
 
-            git commit -m "Record Voice TTS V2 certification result"
+            if [ "$DESTINATION" = "$CANONICAL_RESULT_PATH" ]; then
+              git commit -m "Record completed Voice TTS V2 certification"
+            else
+              git commit -m "Record Voice TTS V2 CI certification status"
+            fi
             if git push origin HEAD:main; then
               echo 'AVANTIQO_VOICE_TTS_V2_CERTIFICATION_EVIDENCE_RECORDED=true'
+              echo "AVANTIQO_VOICE_TTS_V2_CERTIFICATION_EVIDENCE_DESTINATION=$DESTINATION"
               exit 0
             fi
             sleep "$attempt"

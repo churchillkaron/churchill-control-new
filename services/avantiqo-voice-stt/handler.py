@@ -21,6 +21,7 @@ FOUNDATION_MODEL = os.getenv(
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float16 if DEVICE.startswith("cuda") else torch.float32
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
+MAX_VOCABULARY_CONTEXT_CHARS = 512
 _PIPELINE: Any | None = None
 
 
@@ -108,7 +109,14 @@ def _validated(job: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         raise ValueError("AVANTIQO_VOICE_STT_AUDIO_BASE64_INVALID") from exc
     if not audio or len(audio) > MAX_AUDIO_BYTES:
         raise ValueError("AVANTIQO_VOICE_STT_AUDIO_SIZE_INVALID")
-    return data, {**workload, "audio_bytes": audio}
+    vocabulary_context = _text(workload.get("vocabulary_context"))
+    if len(vocabulary_context) > MAX_VOCABULARY_CONTEXT_CHARS:
+        raise ValueError("AVANTIQO_VOICE_STT_VOCABULARY_CONTEXT_TOO_LARGE")
+    return data, {
+        **workload,
+        "audio_bytes": audio,
+        "vocabulary_context": vocabulary_context,
+    }
 
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
@@ -126,6 +134,18 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         requested_language = _language_code(workload.get("language"))
         if requested_language:
             generate_kwargs["language"] = requested_language
+
+        vocabulary_context = _text(workload.get("vocabulary_context"))
+        prompt_ids = None
+        if vocabulary_context:
+            tokenizer = getattr(recognizer, "tokenizer", None)
+            get_prompt_ids = getattr(tokenizer, "get_prompt_ids", None)
+            if not callable(get_prompt_ids):
+                raise RuntimeError("AVANTIQO_VOICE_STT_VOCABULARY_PROMPT_UNAVAILABLE")
+            prompt_ids = get_prompt_ids(vocabulary_context)
+            if prompt_ids is None or len(prompt_ids) == 0:
+                raise RuntimeError("AVANTIQO_VOICE_STT_VOCABULARY_PROMPT_EMPTY")
+            generate_kwargs["prompt_ids"] = prompt_ids
 
         runpod.serverless.progress_update(job, "transcribing Avantiqo voice")
         result = recognizer(
@@ -156,8 +176,9 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "language_source": "requested" if requested_language else "detected",
             "language_detection_requested": requested_language is None,
             "language_detection_available": detected_language is not None,
-            "vocabulary_context_received": bool(_text(workload.get("vocabulary_context"))),
-            "vocabulary_context_applied": False,
+            "vocabulary_context_received": bool(vocabulary_context),
+            "vocabulary_context_applied": prompt_ids is not None,
+            "vocabulary_context_token_count": len(prompt_ids) if prompt_ids is not None else 0,
             "generation_seconds": round(time.perf_counter() - started, 3),
             "raw_audio_persisted": False,
             "raw_reasoning_persisted": False,

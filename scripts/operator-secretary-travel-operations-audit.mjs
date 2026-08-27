@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const paths = {
   runtime: "lib/operator/secretary/SecretaryTravelOperationsRuntime.js",
+  correction: "lib/operator/secretary/SecretaryTravelConfirmationCorrectionRuntime.js",
   capability: "lib/platform/capabilities/createSecretaryTravelOperationsCapability.js",
   platform: "lib/platform/runtime/PlatformDomainRuntime.js",
 };
@@ -32,22 +33,41 @@ assert.match(source.runtime, /platform_permissions_mutated:\s*false/);
 assert.match(source.runtime, /external_authority_used:\s*false/);
 assert.match(source.runtime, /status === "APPROVAL_REQUIRED"/);
 
+assert.match(source.correction, /SECRETARY_TRAVEL_OPERATIONS_CORRECTION_EVIDENCE_REQUIRED/);
+assert.match(source.correction, /SECRETARY_TRAVEL_OPERATIONS_CORRECTION_REASON_REQUIRED/);
+assert.match(source.correction, /SECRETARY_TRAVEL_OPERATIONS_STALE_CORRECTION_REJECTED/);
+assert.match(source.correction, /CONFIRMATION_CORRECTED/);
+assert.match(source.correction, /supersedes_confirmation_id/);
+assert.match(source.correction, /status:\s*"SUPERSEDED"/);
+assert.match(source.correction, /resolveSecretaryAdministrativeCoverage/);
+assert.match(source.correction, /scope:\s*"TRAVEL_COORDINATION"/);
+assert.match(source.correction, /confirmation_inferred:\s*false/);
+assert.match(source.correction, /booking_authority_created:\s*false/);
+assert.match(source.correction, /payment_authority_created:\s*false/);
+assert.match(source.correction, /binding_authority_created:\s*false/);
+assert.match(source.correction, /approval_authority_delegated:\s*false/);
+assert.match(source.correction, /external_authority_used:\s*false/);
+
 assert.match(source.capability, /capability:\s*"secretary_travel_operations"/);
-for (const action of ["read", "recordConfirmation", "recordDisruption", "createReminder"]) {
+for (const action of ["read", "recordConfirmation", "correctConfirmation", "recordDisruption", "createReminder"]) {
   assert.match(source.capability, new RegExp(`${action}:\\s*\\{`));
 }
 assert.match(source.capability, /Researched options are never treated as confirmations/i);
 assert.match(source.capability, /creates no booking, payment or commercial authority/i);
+assert.match(source.capability, /preserving the superseded confirmation and correction history/i);
 assert.match(source.capability, /No travel time, check-in time, transfer time or deadline is guessed/i);
 
 assert.match(source.platform, /createSecretaryTravelOperationsCapability/);
 assert.match(source.platform, /secretary_travel_operations:\s*\{/);
 assert.match(source.platform, /recordConfirmation:\s*async \(\) => createSecretaryTravelOperationsCapability\("recordConfirmation"\)/);
+assert.match(source.platform, /correctConfirmation:\s*async \(\) => createSecretaryTravelOperationsCapability\("correctConfirmation"\)/);
 assert.match(source.platform, /recordDisruption:\s*async \(\) => createSecretaryTravelOperationsCapability\("recordDisruption"\)/);
 assert.match(source.platform, /createReminder:\s*async \(\) => createSecretaryTravelOperationsCapability\("createReminder"\)/);
 
 console.log("OPERATOR_SECRETARY_TRAVEL_OPERATIONS_AUDIT=PASS");
 console.log("SECRETARY_TRAVEL_OPERATIONS_EVIDENCE_REQUIRED=true");
+console.log("SECRETARY_TRAVEL_OPERATIONS_CORRECTION_HISTORY_PRESERVED=true");
+console.log("SECRETARY_TRAVEL_OPERATIONS_STALE_CORRECTION_FENCED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_RESEARCH_NOT_CONFIRMATION=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_CONFIRMATION_NOT_INFERRED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_TIMESTAMP_NOT_INFERRED=true");

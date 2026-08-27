@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pause, Play, RefreshCw, Square } from "lucide-react";
 
-import { startMusicUnifiedWorkstationPreview } from "@/lib/creative/music/client/MusicUnifiedWorkstationTransport";
+import { startMusicUnifiedWorkstationPreviewV2 } from "@/lib/creative/music/client/MusicUnifiedWorkstationTransportV2";
 import { resolveMusicTrackPreviewClips } from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
 
 function finite(value, fallback = 0) {
@@ -39,6 +39,7 @@ export default function MusicUnifiedTimelinePanel({ organizationId, projectId, o
   const [loop, setLoop] = useState(false);
   const [loopStart, setLoopStart] = useState(0);
   const [loopEnd, setLoopEnd] = useState(8);
+  const [transportEvidence, setTransportEvidence] = useState(null);
   const transportRef = useRef(null);
   const tickRef = useRef(null);
 
@@ -101,7 +102,7 @@ export default function MusicUnifiedTimelinePanel({ organizationId, projectId, o
     const stopAt = loop ? clamp(loopEnd, start + 0.05, length) : length;
     setError("");
     try {
-      const transport = await startMusicUnifiedWorkstationPreview({
+      const transport = await startMusicUnifiedWorkstationPreviewV2({
         session: payload.session,
         assetUrls: payload.asset_urls || {},
         sampler: payload.sampler || null,
@@ -122,6 +123,13 @@ export default function MusicUnifiedTimelinePanel({ organizationId, projectId, o
         },
       });
       transportRef.current = transport;
+      setTransportEvidence({
+        contract: transport.contract,
+        synth_notes: transport.synth_note_count || 0,
+        sampler_hits: transport.sampler_hit_count || 0,
+        layered_hits: transport.sampler_layered_hit_count || 0,
+        round_robin_hits: transport.sampler_round_robin_hit_count || 0,
+      });
       setPlaying(true);
       setPlayhead(start);
       tickRef.current = requestAnimationFrame(tick);
@@ -147,7 +155,7 @@ export default function MusicUnifiedTimelinePanel({ organizationId, projectId, o
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <div className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#d6a66a]/75">Unified Workstation Timeline</div>
-          <div className="mt-1 text-[9px] text-white/28">Audio + MIDI + sampler share one transport clock · revision {payload?.revision || 0}</div>
+          <div className="mt-1 text-[9px] text-white/28">Audio + MIDI + velocity-layer sampler share one transport clock · revision {payload?.revision || 0}</div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <button type="button" disabled={!session || busy} onClick={() => playing ? stop() : void play()} className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#d6a66a]/30 bg-[#d6a66a]/10 text-[#efd29f] disabled:opacity-25">{playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}</button>
@@ -161,6 +169,7 @@ export default function MusicUnifiedTimelinePanel({ organizationId, projectId, o
         </div>
       </div>
 
+      {transportEvidence ? <div className="mt-2 text-[7px] text-emerald-100/30">Transport V2 · synth {transportEvidence.synth_notes} · sampler {transportEvidence.sampler_hits} · layered {transportEvidence.layered_hits} · round-robin {transportEvidence.round_robin_hits}</div> : null}
       {error ? <div className="mt-3 rounded-lg border border-red-300/10 bg-red-400/[0.02] px-3 py-2 text-[8px] text-red-100/55">{error}</div> : null}
 
       {session ? <div className="mt-4 overflow-x-auto rounded-xl border border-white/7 bg-black/20">
@@ -191,7 +200,7 @@ export default function MusicUnifiedTimelinePanel({ organizationId, projectId, o
         </div>
       </div> : <div className="mt-4 text-[8px] text-white/25">{busy ? "Loading unified timeline…" : "Timeline unavailable."}</div>}
 
-      <div className="mt-2 text-[7px] text-white/18">The unified transport schedules owned synth notes and sampler hits against the exact WebAudio clock used by the multitrack preview. Browser preview remains separate from release mastering.</div>
+      <div className="mt-2 text-[7px] text-white/18">Transport V2 schedules owned synth notes and velocity-layer/round-robin sampler hits against the exact WebAudio clock used by the multitrack preview. Browser preview remains separate from release mastering.</div>
     </section>
   );
 }

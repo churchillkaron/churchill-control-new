@@ -70,8 +70,8 @@ import {
   reconcileAvantiqoExperimentPortfolioPerformance,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentPortfolioPerformanceRuntime";
 import {
-  reconcileAvantiqoCalibrationBackfilledExperimentPortfolio,
-} from "@/lib/intelligence/runtime/AvantiqoCalibrationBackfilledExperimentPortfolioRuntime";
+  reconcileAvantiqoLongHorizonPolicyAdaptedExperimentPortfolio,
+} from "@/lib/intelligence/runtime/AvantiqoLongHorizonPolicyAdaptedExperimentPortfolioRuntime";
 import {
   reconcileAvantiqoExperimentExecutionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentExecutionGovernanceRuntime";
@@ -123,21 +123,29 @@ export async function GET(request) {
     const experimentPortfolioPerformance =
       await reconcileAvantiqoExperimentPortfolioPerformance();
 
+    const longHorizonPolicyAdaptedExperimentPortfolio =
+      await reconcileAvantiqoLongHorizonPolicyAdaptedExperimentPortfolio();
     const calibrationBackfilledExperimentPortfolio =
-      await reconcileAvantiqoCalibrationBackfilledExperimentPortfolio();
+      longHorizonPolicyAdaptedExperimentPortfolio
+        .final_calibration_backfilled_experiment_portfolio || null;
     const activeExperimentSelection =
-      calibrationBackfilledExperimentPortfolio.final_active_experiment_selection || null;
+      calibrationBackfilledExperimentPortfolio
+        ?.final_active_experiment_selection || null;
     const estimatorCalibratedSelectionGuard =
-      calibrationBackfilledExperimentPortfolio.final_estimator_calibrated_selection_guard || null;
+      calibrationBackfilledExperimentPortfolio
+        ?.final_estimator_calibrated_selection_guard || null;
     const assessorCalibratedEstimatorSelectionGuard =
-      calibrationBackfilledExperimentPortfolio.final_assessor_calibrated_estimator_selection_guard || null;
+      calibrationBackfilledExperimentPortfolio
+        ?.final_assessor_calibrated_estimator_selection_guard || null;
 
     const experimentExecutionRequests =
-      calibrationBackfilledExperimentPortfolio.execution_request_generation_allowed === true
+      longHorizonPolicyAdaptedExperimentPortfolio
+        .execution_request_generation_allowed === true
         ? await reconcileAvantiqoExperimentExecutionRequests()
         : {
             success: true,
-            status: "BLOCKED_PENDING_STABLE_SAFE_EXPERIMENT_PORTFOLIO",
+            status:
+              "BLOCKED_PENDING_STABLE_LONG_HORIZON_POLICY_ADAPTED_PORTFOLIO",
             execution_request_count: 0,
             execution_authorized: false,
             spend_authorized: false,
@@ -171,6 +179,8 @@ export async function GET(request) {
         experiment_outcome_assessor_calibration: experimentOutcomeAssessorCalibration,
         experiment_estimator_calibration: experimentEstimatorCalibration,
         experiment_portfolio_performance: experimentPortfolioPerformance,
+        long_horizon_policy_adapted_experiment_portfolio:
+          longHorizonPolicyAdaptedExperimentPortfolio,
         calibration_backfilled_experiment_portfolio:
           calibrationBackfilledExperimentPortfolio,
         active_experiment_selection: activeExperimentSelection,
@@ -182,7 +192,7 @@ export async function GET(request) {
       {
         status:
           result.success === false ||
-          calibrationBackfilledExperimentPortfolio.success === false
+          longHorizonPolicyAdaptedExperimentPortfolio.success === false
             ? 207
             : 200,
       },

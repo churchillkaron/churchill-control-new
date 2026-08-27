@@ -27,10 +27,13 @@ const SUBMIT_PROPAGATION_TIMEOUT_MS = Math.max(
   30_000,
   Math.min(3 * 60_000, Number(process.env.AVANTIQO_VOICE_STT_SUBMIT_PROPAGATION_TIMEOUT_MS || 90_000)),
 );
-const TIMEOUT_MS = Math.max(60_000, Math.min(20 * 60_000, Number(process.env.AVANTIQO_VOICE_STT_EXISTING_AUDIO_TIMEOUT_MS || 15 * 60_000)));
-const NO_WORKER_STARTUP_TIMEOUT_MS = Math.max(
+const TIMEOUT_MS = Math.max(
   60_000,
-  Math.min(10 * 60_000, Number(process.env.AVANTIQO_VOICE_STT_NO_WORKER_STARTUP_TIMEOUT_MS || 4 * 60_000)),
+  Math.min(20 * 60_000, Number(process.env.AVANTIQO_VOICE_STT_EXISTING_AUDIO_TIMEOUT_MS || 15 * 60_000)),
+);
+const NO_PROGRESS_STARTUP_TIMEOUT_MS = Math.max(
+  60_000,
+  Math.min(8 * 60_000, Number(process.env.AVANTIQO_VOICE_STT_NO_PROGRESS_STARTUP_TIMEOUT_MS || 3 * 60_000)),
 );
 const ACTIVE_WORKER_STATUSES = new Set(["IDLE", "READY", "RUNNING", "THROTTLED", "INITIALIZING", "UNHEALTHY"]);
 
@@ -55,6 +58,13 @@ function errorMessage(body, raw) {
     body?.error?.message ||
     raw;
   return safeDetail(candidate);
+}
+function healthJobs(body = {}) {
+  const jobs = body?.jobs && typeof body.jobs === "object" ? body.jobs : {};
+  return {
+    in_queue: Number(jobs.inQueue ?? jobs.in_queue ?? 0) || 0,
+    in_progress: Number(jobs.inProgress ?? jobs.in_progress ?? 0) || 0,
+  };
 }
 
 async function request(endpointId, path, apiKey, options = {}) {
@@ -170,10 +180,10 @@ async function runProofInsideLease() {
   const audio = await readFile(AUDIO_PATH);
   if (audio.length <= 1000) throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_TOO_SMALL:${audio.length}`);
 
-  const health = await request(endpointId, "/health", apiKey);
-  const inQueue = Number(health?.jobs?.inQueue ?? health?.jobs?.in_queue ?? 0) || 0;
-  const inProgress = Number(health?.jobs?.inProgress ?? health?.jobs?.in_progress ?? 0) || 0;
-  if (inQueue || inProgress) throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_BLOCKED:${inQueue}:${inProgress}`);
+  const initialJobs = healthJobs(await request(endpointId, "/health", apiKey));
+  if (initialJobs.in_queue || initialJobs.in_progress) {
+    throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_BLOCKED:${initialJobs.in_queue}:${initialJobs.in_progress}`);
+  }
 
   const submissionBody = {
     input: {
@@ -200,9 +210,14 @@ async function runProofInsideLease() {
   const deadline = startedAt + TIMEOUT_MS;
   let completed = null;
   let workerEverObserved = false;
+  let inProgressEverObserved = false;
+  let lastState = "UNKNOWN";
+  let lastJobs = { in_queue: 0, in_progress: 0 };
+
   while (Date.now() < deadline) {
     const status = await request(endpointId, `/status/${encodeURIComponent(jobId)}`, apiKey);
     const state = text(status.status).toUpperCase();
+    lastState = state || "UNKNOWN";
     if (state === "COMPLETED") {
       completed = status;
       break;
@@ -212,15 +227,25 @@ async function runProofInsideLease() {
       throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_${state}${detail ? `:${detail}` : ""}`);
     }
 
-    const workers = await controlWorkers(endpointId, managementKey);
+    const [workers, health] = await Promise.all([
+      controlWorkers(endpointId, managementKey),
+      request(endpointId, "/health", apiKey),
+    ]);
     const activeWorkers = activeWorkerCount(workers);
     if (activeWorkers > 0) workerEverObserved = true;
+    lastJobs = healthJobs(health);
     if (
-      !workerEverObserved &&
-      Date.now() - startedAt >= NO_WORKER_STARTUP_TIMEOUT_MS
+      ["IN_PROGRESS", "RUNNING", "PROCESSING"].includes(state) ||
+      lastJobs.in_progress > 0
     ) {
+      inProgressEverObserved = true;
+    }
+
+    if (!inProgressEverObserved && Date.now() - startedAt >= NO_PROGRESS_STARTUP_TIMEOUT_MS) {
       await request(endpointId, `/cancel/${encodeURIComponent(jobId)}`, apiKey, { method: "POST" }).catch(() => null);
-      throw new Error("AVANTIQO_VOICE_STT_EXISTING_AUDIO_NO_WORKER_STARTUP_TIMEOUT");
+      throw new Error(
+        `AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_NOT_CLAIMED:state=${lastState}:queue=${lastJobs.in_queue}:progress=${lastJobs.in_progress}:worker_seen=${workerEverObserved}`,
+      );
     }
     await sleep(POLL_MS);
   }
@@ -267,6 +292,7 @@ async function runProofInsideLease() {
     vocabulary_context_applied: vocabularyContextApplied,
     vocabulary_context_token_count: vocabularyContextTokenCount,
     worker_ever_observed: workerEverObserved,
+    in_progress_ever_observed: inProgressEverObserved,
     raw_audio_persisted: output.raw_audio_persisted === true,
     raw_reasoning_persisted: output.raw_reasoning_persisted === true,
     production_deploy_performed: false,

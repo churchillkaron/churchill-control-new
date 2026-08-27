@@ -1,0 +1,14 @@
+{
+  "contract": "AVANTIQO_VOICE_TTS_V2_CERTIFICATION_REQUEST_V1",
+  "requested_for": "certify_recorded_reference_profiles_quality_v2",
+  "certified_image_source_sha": "8890e8b7d424c93492440ce39d32db3d821beae0",
+  "certified_image_digest": "sha256:893f5fde88b6762d533df98749474dc6720fdcea451df81429b8d3c7a05bdaa4",
+  "tts_only": true,
+  "one_generation_max": 1,
+  "secretary_profile_required": true,
+  "safe_lease_required": true,
+  "permanent_rest_state": "VOICE_TTS_0_0",
+  "stt_generation": false,
+  "production_web_deploy": false,
+  "pricing_activation": false
+}

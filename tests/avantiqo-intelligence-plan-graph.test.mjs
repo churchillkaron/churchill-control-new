@@ -74,9 +74,9 @@ test("bounded replanning cannot rewrite completed history", () => {
   assert.equal(rejected.blocked, true);
 });
 
-test("planning runtime exposes decision cognition including structured provenance, contingency and outcome contracts without execution authority", () => {
+test("planning runtime exposes decision cognition through verified outcome assessment without execution authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V10/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V11/);
   assert.match(source, /operator_plan_graph/);
   assert.match(source, /buildOperatorIntelligencePlan/);
   assert.match(source, /assessOperatorIntelligencePlan/);
@@ -89,11 +89,13 @@ test("planning runtime exposes decision cognition including structured provenanc
   assert.match(source, /buildOperatorIntelligenceDecisionProvenance/);
   assert.match(source, /assessOperatorIntelligenceDecisionContingency/);
   assert.match(source, /buildOperatorIntelligenceDecisionOutcomeContract/);
+  assert.match(source, /assessOperatorIntelligenceDecisionOutcome/);
   assert.match(source, /deterministic_structured_decision_provenance/);
   assert.match(source, /deterministic_decision_contingency_assessment/);
   assert.match(source, /deterministic_falsifiable_outcome_contract/);
+  assert.match(source, /deterministic_verified_outcome_assessment/);
   assert.match(source, /raw_chain_of_thought_never_required_or_persisted/);
   assert.match(source, /recommendations_are_not_execution_authority/);
-  assert.match(source, /planning-only/);
+  assert.match(source, /planning-and-verification-only/);
   assert.match(source, /normal Operator governance/);
 });

@@ -7,8 +7,8 @@
   "summary": {
     "blockers_to_current_operator_intelligence": 0,
     "blockers_to_complete_owned_model_release_loop": 1,
-    "important_open_gaps": 2,
-    "gaps_fixed_during_audit": 2,
+    "important_open_gaps": 0,
+    "gaps_fixed_during_audit": 4,
     "already_complete_major_capabilities": 7
   },
   "already_complete": [
@@ -71,6 +71,38 @@
         "5ed5ac14715a710fb82cdeaf643bfa0cf8c31114"
       ],
       "side_effects": "SOURCE_ONLY_NO_PROVIDER_EXECUTION"
+    },
+    {
+      "area": "model_improvement_preparation_orchestration",
+      "classification": "IMPORTANT_GAP",
+      "before": "Free deterministic training-dataset readiness existed only as a runtime/local entrypoint",
+      "after": "A separate authenticated preparation-only readiness route assembles datasets from benchmark-approved de-identified candidates at 27 * * * *, ten minutes after the scientific learner; it explicitly forbids provider calls, spend, synthetic compilation, RunPod, training, model benchmark, candidate canary, weight mutation and promotion",
+      "commits": [
+        "9662a730812cacc199d05ef3119cecf78d8f7cd5",
+        "4c957bca28c784f71a1bd5593bf619c4e85a9de6",
+        "2c68cb98339bbb35054bb3de4f56834bbbd2a7f6"
+      ],
+      "remaining_explicit_gates": [
+        "synthetic example compilation because it invokes owned Intelligence",
+        "RunPod training",
+        "model benchmark inference",
+        "candidate canary inference",
+        "production release"
+      ],
+      "side_effects": "PREPARATION_ONLY_NO_PROVIDER_NO_SPEND_NO_RUNPOD_NO_TRAINING_NO_PROMOTION"
+    },
+    {
+      "area": "intelligence_operational_observability",
+      "classification": "IMPORTANT_GAP",
+      "before": "Service Runtime already recorded provider model and provider latency, but Intelligence had no unified aggregate Fast/Deep SLO health surface",
+      "after": "AvantiqoIntelligenceOperationalHealthRuntime aggregates existing platform_service_usage records into overall/Fast/Deep success, failure, pending age, p50/p95 provider and total latency plus configurable SLO alert candidates; the internal health endpoint exposes aggregates only with no prompts, transcripts, raw errors, organization IDs or customer content",
+      "commits": [
+        "dae09259e5451328e830d0c1414746b37cc26af9",
+        "c4827b077f2ea43c0c494272a49308dde3a6c9dd",
+        "1486da86afdcaae77258975b5eeb9ae931a82a12",
+        "bf3e4fbbfb37cf2c37528a859b52bfe4164606ae"
+      ],
+      "side_effects": "READ_ONLY_AGGREGATION_NO_PROVIDER_NO_WALLET_NO_RUNPOD_NO_TRAINING"
     }
   ],
   "open_gaps": [
@@ -79,44 +111,19 @@
       "classification": "BLOCKER_TO_COMPLETE_OWNED_MODEL_RELEASE_LOOP",
       "current_state": "ModelPromotionRuntime stops at CANARY_CERTIFIED_RELEASE_PENDING with explicit_production_release_required true and production_release_authorized false",
       "root_cause": "Candidate worker has an explicit LoRA adapter startup contract using ENABLE_LORA, MAX_LORA_RANK, LORA_MODULES and mixed MoE LoRA format, but no equivalent governed production adapter-loading/release/rollback contract was found in the production Fast/Deep worker path",
+      "foundation_compatibility_boundary": "The current trained adapter targets Qwen/Qwen3-30B-A3B-Thinking-2507 and therefore may target the Deep lane only. It must not be applied to the Fast Qwen3-30B-A3B-Instruct-2507 lane without a separately compatible trained and benchmarked artifact.",
       "required_solution": [
-        "define immutable production adapter release artifact and exact base-model compatibility contract",
+        "define immutable production Deep adapter release artifact and exact Thinking-foundation compatibility contract",
         "add explicit release approval distinct from training, benchmark and canary approval",
         "bind adapter only through existing Safe Lease and immutable endpoint/template controls",
-        "verify production worker supports exact Qwen3-MoE adapter load before traffic",
+        "verify production Deep worker supports exact Qwen3-MoE adapter load before traffic",
         "perform bounded production canary with health, structured-output, native-tool-call and latency checks",
         "retain exact previous production model/adapter binding for atomic rollback",
         "record immutable release and rollback provenance",
-        "never auto-promote solely because benchmark/canary passed"
+        "never auto-promote solely because benchmark/canary passed",
+        "leave Fast unchanged unless a separate Fast-compatible adapter is trained and certified"
       ],
       "production_change_performed_by_this_audit": false
-    },
-    {
-      "area": "model_improvement_preparation_orchestration",
-      "classification": "IMPORTANT_GAP",
-      "current_state": "Continuous learning is scheduled hourly, but dataset assembly, synthetic example compilation, training-job preparation, benchmark submission and promotion review are primarily runtime/local-script entrypoints rather than one production reconciliation lane",
-      "safe_automation_boundary": {
-        "may_run_automatically_without_spend": [
-          "candidate hygiene and readiness reconciliation",
-          "deterministic canonical curriculum candidate discovery",
-          "deterministic benchmark/readiness checks that do not invoke inference",
-          "training dataset assembly from already benchmark-approved de-identified candidates"
-        ],
-        "must_remain_explicit_or_budget_gated": [
-          "synthetic example compilation because it invokes owned Intelligence",
-          "RunPod training",
-          "model benchmark inference",
-          "candidate canary inference",
-          "production release"
-        ]
-      },
-      "required_solution": "add a service-only model-improvement readiness reconciler to the existing continuous-learning process that advances only free/deterministic preparation and emits explicit pending gates for spend/training/benchmark/canary/release"
-    },
-    {
-      "area": "intelligence_operational_observability",
-      "classification": "IMPORTANT_GAP_REQUIRES_DEEPER_CERTIFICATION",
-      "current_state": "Fast/Deep providers expose endpoint health and latency and Service Runtime meters usage, but this audit has not yet found a unified Intelligence SLO/alert ledger covering queue age, cold-start latency, Fast-to-Deep escalation rate, tool failure rate, research freshness failures, learning-cron failures, trainer/candidate readiness and release rollback alarms",
-      "required_solution": "audit existing platform observability primitives and converge Intelligence metrics/alerts into one service-only health surface without duplicating provider-specific monitoring"
     }
   ],
   "runpod_worker_rule": {

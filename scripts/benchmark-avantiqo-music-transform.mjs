@@ -10,6 +10,8 @@ const BUCKET = "creative-assets";
 const SOURCE_DURATION_SECONDS = 12;
 const EXTEND_SECONDS = 8;
 const EXTEND_OVERLAP_SECONDS = 3;
+const ENDPOINT_OPEN_PROPAGATION_TIMEOUT_MS = 45_000;
+const ENDPOINT_OPEN_PROPAGATION_POLL_MS = 2_000;
 
 function text(value) { return String(value ?? "").trim(); }
 function required(name) { const value = text(process.env[name]); if (!value) throw new Error(`${name}_REQUIRED`); return value; }
@@ -38,6 +40,32 @@ async function runpod(url, apiKey, options = {}) {
   const body = raw ? JSON.parse(raw) : {};
   if (!response.ok) throw new Error(`RUNPOD_HTTP_${response.status}:${text(body?.error || body?.message || raw).slice(0, 600)}`);
   return body;
+}
+function endpointPausedPropagationError(error) {
+  const message = text(error?.message);
+  return /^RUNPOD_HTTP_409:/i.test(message) && /(ENDPOINT_PAUSED|Endpoint is paused|max_workers=0)/i.test(message);
+}
+async function submitRunpodJob(endpointId, apiKey, payload) {
+  const deadline = Date.now() + ENDPOINT_OPEN_PROPAGATION_TIMEOUT_MS;
+  let rejectedAttempts = 0;
+  while (true) {
+    assertLease(endpointId);
+    try {
+      const submitted = await runpod(`${API_BASE}/${endpointId}/run`, apiKey, { method: "POST", body: JSON.stringify({ input: payload }) });
+      if (rejectedAttempts > 0) {
+        console.log(`AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_ENDPOINT_OPEN_PROPAGATED=${JSON.stringify({ rejected_attempts: rejectedAttempts, provider_jobs_submitted: 1 })}`);
+      }
+      return { submitted, rejectedAttempts };
+    } catch (error) {
+      if (!endpointPausedPropagationError(error)) throw error;
+      rejectedAttempts += 1;
+      if (Date.now() + ENDPOINT_OPEN_PROPAGATION_POLL_MS > deadline) {
+        throw new Error(`AVANTIQO_MUSIC_TRANSFORM_ENDPOINT_OPEN_PROPAGATION_TIMEOUT:rejected_attempts=${rejectedAttempts}`);
+      }
+      console.log(`AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_ENDPOINT_OPEN_PROPAGATION_WAIT=${JSON.stringify({ rejected_attempts: rejectedAttempts, provider_jobs_submitted: 0 })}`);
+      await sleep(ENDPOINT_OPEN_PROPAGATION_POLL_MS);
+    }
+  }
 }
 function storageObjectPath(bucket, path) {
   const parts = [bucket, ...text(path).split("/").filter(Boolean)];
@@ -175,7 +203,7 @@ const payload = {
     provider_selection_change_allowed: false,
   },
 };
-const submitted = await runpod(`${API_BASE}/${endpointId}/run`, apiKey, { method: "POST", body: JSON.stringify({ input: payload }) });
+const { submitted, rejectedAttempts: endpointOpenPropagationRejections } = await submitRunpodJob(endpointId, apiKey, payload);
 const jobId = text(submitted?.id);
 if (!jobId) throw new Error("AVANTIQO_MUSIC_TRANSFORM_JOB_ID_REQUIRED");
 let result = null;
@@ -217,6 +245,7 @@ const report = {
   generated_at: new Date().toISOString(),
   capability: selectedCapability,
   provider_jobs_submitted: 1,
+  endpoint_open_propagation_rejections: endpointOpenPropagationRejections,
   endpoint_scope: "MUSIC_TRANSFORM_CANDIDATE_ONLY",
   endpoint_id: endpointId,
   production_audio_endpoint_allowed: false,
@@ -258,5 +287,5 @@ const report = {
 };
 const reportPath = resolve(process.env.AVANTIQO_MUSIC_TRANSFORM_BENCHMARK_OUTPUT || `/tmp/${id}.json`);
 await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-console.log(JSON.stringify({ success: passed, contract: report.contract, capability: selectedCapability, provider_job_count: 1, candidate_endpoint_only: true, temporal_extension_technical_proven: temporalExtensionTechnicalProven, human_review_status: "PENDING", activation_allowed: false, output_path: reportPath }, null, 2));
+console.log(JSON.stringify({ success: passed, contract: report.contract, capability: selectedCapability, provider_job_count: 1, endpoint_open_propagation_rejections: endpointOpenPropagationRejections, candidate_endpoint_only: true, temporal_extension_technical_proven: temporalExtensionTechnicalProven, human_review_status: "PENDING", activation_allowed: false, output_path: reportPath }, null, 2));
 if (!passed) process.exitCode = 1;

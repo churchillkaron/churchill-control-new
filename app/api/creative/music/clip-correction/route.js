@@ -86,7 +86,8 @@ export async function POST(request) {
     if (!track || !clip) throw new Error("CREATIVE_MUSIC_CLIP_CORRECTION_CLIP_NOT_FOUND");
     if (clip.preserve_source_asset !== true || clip.destructive_edit === true) throw new Error("CREATIVE_MUSIC_CLIP_CORRECTION_NON_DESTRUCTIVE_SOURCE_REQUIRED");
     const sourceAsset = await CreativeAssetsRuntime.get(clip.source_asset_id);
-    if (!sourceAsset || String(sourceAsset.organization_id) !== String(organizationId) || String(sourceAsset.creative_project_id) !== String(projectId)) {
+    const sourceProjectId = text(sourceAsset?.creative_project_id || sourceAsset?.metadata?.creative_project_id);
+    if (!sourceAsset || String(sourceAsset.organization_id) !== String(organizationId) || String(sourceProjectId) !== String(projectId)) {
       throw new Error("CREATIVE_MUSIC_CLIP_CORRECTION_SOURCE_ASSET_NOT_FOUND");
     }
 

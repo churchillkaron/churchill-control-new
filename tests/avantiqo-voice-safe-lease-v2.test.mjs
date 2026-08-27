@@ -37,7 +37,8 @@ test("Voice capabilities map to dedicated V2 lease lanes", async () => {
   assert.equal(policy.contract, "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2");
   assert.equal(policy.parallel_work_allowed, true);
   assert.equal(policy.workers_min_one_allowed, false);
-  assert.equal(policy.lanes["voice-tts"], "avantiqo-voice-tts-v1");
+  assert.equal(policy.lanes["voice-tts"], "avantiqo-voice-tts-v1-recovery-20260825");
+  assert.notEqual(policy.lanes["voice-tts"], "avantiqo-voice-tts-v1");
   assert.equal(policy.lanes["voice-stt"], "avantiqo-voice-stt-v1");
 });
 

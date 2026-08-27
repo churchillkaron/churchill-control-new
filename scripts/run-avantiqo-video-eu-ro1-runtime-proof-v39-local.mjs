@@ -9,6 +9,12 @@ function replaceExactlyOnce(source, search, replacement, label) {
   return parts[0] + replacement + parts[1];
 }
 
+function replaceExactlyCount(source, search, replacement, expected, label) {
+  const occurrences = source.split(search).length - 1;
+  if (occurrences !== expected) throw new Error(`AVANTIQO_VIDEO_V39_SOURCE_TRANSFORM_${label}_MISMATCH:occurrences=${occurrences}:expected=${expected}`);
+  return source.replaceAll(search, replacement);
+}
+
 const major = Number(process.versions.node.split(".")[0]);
 if (!Number.isFinite(major) || major < 20) {
   throw new Error(`AVANTIQO_VIDEO_V39_NODE20_REQUIRED:${process.version}`);
@@ -74,13 +80,14 @@ source = replaceExactlyOnce(
   "PLAN_STRATEGY",
 );
 
-source = replaceExactlyOnce(
+source = replaceExactlyCount(
   source,
   '    worker_metadata_schema_dependency: false,',
   '    worker_metadata_schema_dependency: false,\n    datacenter_selector_dependency: false,\n    datacenter_proof: "SINGLE_NETWORK_VOLUME_CONSTRAINS_SERVERLESS_WORKER_TO_VOLUME_DATACENTER",',
-  "PLAN_PROOF",
+  2,
+  "PROOF_METADATA",
 );
 
-console.log(`AVANTIQO_VIDEO_V39_SOURCE_TRANSFORM_ACTIVE=${JSON.stringify({ node: process.version, base: BASE, proof_basis: "SINGLE_EU_RO1_NETWORK_VOLUME_CONSTRAINT", mutation_scope: "IN_MEMORY_V38_TO_V39_PROOF_CORRECTION" })}`);
+console.log(`AVANTIQO_VIDEO_V39_SOURCE_TRANSFORM_ACTIVE=${JSON.stringify({ node: process.version, base: BASE, proof_basis: "SINGLE_EU_RO1_NETWORK_VOLUME_CONSTRAINT", proof_metadata_occurrences: 2, mutation_scope: "IN_MEMORY_V38_TO_V39_PROOF_CORRECTION" })}`);
 const encoded = Buffer.from(source, "utf8").toString("base64");
 await import(`data:text/javascript;base64,${encoded}`);

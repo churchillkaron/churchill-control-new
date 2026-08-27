@@ -12,6 +12,7 @@ import { recordSecretaryWorkingPreference } from "../lib/operator/secretary/Secr
 const organizationId = randomUUID();
 const ownerPartyId = randomUUID();
 const externalEventId = randomUUID();
+const partnerEventId = randomUUID();
 const context = {
   organizationId,
   timezone: "Asia/Bangkok",
@@ -97,6 +98,7 @@ await one(supabaseAdmin.from("secretary_calendar_events").insert([
     metadata: { certification_fixture: true },
   },
   {
+    id: partnerEventId,
     organization_id: organizationId,
     owner_party_id: ownerPartyId,
     title: "Partner meeting",

@@ -13,13 +13,14 @@ const files = {
   runtime: path.join(root, "lib/intelligence/runtime/AvantiqoExperimentPolicyIntervalAttributionRuntime.js"),
   phase43Runtime: path.join(root, "lib/intelligence/runtime/AvantiqoPersistentPolicyActivationGenerationIntegrityRuntime.js"),
   phase29Runtime: path.join(root, "lib/intelligence/runtime/AvantiqoLongHorizonPolicyAdaptedExperimentPortfolioRuntime.js"),
+  route: path.join(root, "app/api/internal/intelligence/continuous-learning/process/route.js"),
   index: path.join(root, "lib/intelligence/index.js"),
 };
 
 for (const file of Object.values(files)) {
   if (!fs.existsSync(file)) throw new Error(`PHASE45_FILE_MISSING:${file}`);
 }
-for (const file of [files.runtime, files.phase43Runtime, files.phase29Runtime]) {
+for (const file of [files.runtime, files.phase43Runtime, files.phase29Runtime, files.route]) {
   execFileSync(process.execPath, ["--check", file], { stdio: "pipe" });
 }
 
@@ -33,6 +34,7 @@ const migration6 = read(files.migration6);
 const runtime = read(files.runtime);
 const phase43Runtime = read(files.phase43Runtime);
 const phase29Runtime = read(files.phase29Runtime);
+const route = read(files.route);
 const index = read(files.index);
 const allMigrations = [migration1, migration2, migration3, migration4, migration5, migration6].join("\n");
 const has = (source, value) => source.includes(value);
@@ -59,6 +61,9 @@ assert(!has(migration1, "grant update on table public.avantiqo_intelligence_poli
 assert(!has(migration1, "grant delete on table public.avantiqo_intelligence_policy_outcome_attributions"), "SERVICE_ROLE_DELETE_FORBIDDEN");
 assert(has(migration1, "before update or delete on public.avantiqo_intelligence_policy_outcome_attributions"), "APPEND_ONLY_TRIGGER_MISSING");
 assert(has(migration1, "AVANTIQO_PHASE45_OUTCOME_ATTRIBUTION_LEDGER_APPEND_ONLY"), "APPEND_ONLY_EXCEPTION_MISSING");
+assert(has(migration1, "unique (organization_id, outcome_memory_id)"), "OUTCOME_MEMORY_UNIQUENESS_MISSING");
+assert(has(migration1, "unique (organization_id, outcome_fingerprint)"), "OUTCOME_FINGERPRINT_UNIQUENESS_MISSING");
+assert(has(migration1, "unique (organization_id, attribution_fingerprint)"), "ATTRIBUTION_FINGERPRINT_UNIQUENESS_MISSING");
 
 assert(has(migration1, "resolve_avantiqo_policy_activation_interval_v1"), "INTERVAL_RESOLVER_MISSING");
 assert(has(migration1, "verify_avantiqo_policy_activation_intervals_v1"), "PHASE44_INTEGRITY_DEPENDENCY_MISSING");
@@ -72,8 +77,9 @@ assert(/'cross_interval_outcome_reuse_allowed'\s*,\s*false/.test(migration1), "C
 
 assert(has(migration2, "avantiqo_phase45_enforce_outcome_attribution_v1"), "ATOMIC_OUTCOME_TRIGGER_FUNCTION_MISSING");
 assert(has(migration2, "after insert or update of metadata on public.intelligence_memories"), "ATOMIC_OUTCOME_TRIGGER_MISSING");
-assert(has(migration2, "OUTCOME_POLICY_BINDING_MISSING_FAIL_CLOSED"), "OUTCOME_BINDING_REQUIRED_MISSING");
-assert(has(migration2, "OUTCOME_ATTRIBUTION_COLLISION_FAIL_CLOSED"), "OUTCOME_ATTRIBUTION_COLLISION_CHECK_MISSING");
+assert(has(migration2, "OUTCOME_BINDING_METADATA_INVALID_FAIL_CLOSED"), "OUTCOME_BINDING_REQUIRED_MISSING");
+assert(has(migration2, "OUTCOME_ATTRIBUTION_REPLAY_MISMATCH_FAIL_CLOSED"), "OUTCOME_REPLAY_MISMATCH_CHECK_MISSING");
+assert(has(migration2, "insert into public.avantiqo_intelligence_policy_outcome_attributions"), "ATOMIC_ATTRIBUTION_LEDGER_INSERT_MISSING");
 
 assert(has(migration3, "avantiqo_phase45_enforce_execution_lineage_v1"), "EXECUTION_LINEAGE_TRIGGER_MISSING");
 assert(has(migration3, "platform_learning_experiment_execution_requests"), "REQUEST_BINDING_MISSING");
@@ -88,25 +94,31 @@ assert(has(migration3, "STALE_CLAIM_CONSUMPTION_FORBIDDEN"), "STALE_CLAIM_CONSUM
 assert(has(migration3, "EXECUTION_START_CROSS_INTERVAL_FORBIDDEN"), "CROSS_INTERVAL_EXECUTION_START_NOT_BLOCKED");
 assert(has(migration3, "OUTCOME_REQUEST_RECEIPT_BINDING_MISMATCH_FAIL_CLOSED"), "OUTCOME_REQUEST_RECEIPT_BINDING_CHECK_MISSING");
 
-assert(has(migration4, "policy_activation_no_policy_epoch_fingerprint"), "NO_POLICY_EPOCH_FINGERPRINT_MISSING");
-assert(has(migration4, "no_policy_epoch_fingerprint"), "NO_POLICY_RESOLUTION_WATERMARK_MISSING");
-assert(has(migration4, "latest_activation_generation_index"), "NO_POLICY_LATEST_GENERATION_WATERMARK_MISSING");
-assert(has(migration4, "latest_activation_generation_fingerprint"), "NO_POLICY_LATEST_GENERATION_FINGERPRINT_MISSING");
-assert(has(migration4, "policy_activation_no_policy_epoch_fingerprint"), "NO_POLICY_BINDING_WATERMARK_MISSING");
+assert(has(migration4, "activation_history_watermark_index"), "NO_POLICY_RESOLUTION_WATERMARK_INDEX_MISSING");
+assert(has(migration4, "activation_history_watermark_fingerprint"), "NO_POLICY_RESOLUTION_WATERMARK_FINGERPRINT_MISSING");
+assert(has(migration4, "policy_activation_history_watermark_index"), "NO_POLICY_BINDING_WATERMARK_INDEX_MISSING");
+assert(has(migration4, "policy_activation_history_watermark_fingerprint"), "NO_POLICY_BINDING_WATERMARK_FINGERPRINT_MISSING");
+assert(has(migration4, "order by g.activation_generation_index desc"), "NO_POLICY_LATEST_GENERATION_WATERMARK_MISSING");
+assert(has(migration4, "no_policy_epoch_reentry_allowed"), "NO_POLICY_EPOCH_REENTRY_BLOCK_MISSING");
 
 assert(has(migration5, "avantiqo_phase45_copy_binding_metadata_v1"), "BINDING_COPY_HELPER_MISSING");
-assert(has(migration5, "policy_activation_no_policy_epoch_fingerprint"), "NO_POLICY_WATERMARK_PROPAGATION_MISSING");
+assert(has(migration5, "policy_activation_history_watermark_index"), "NO_POLICY_WATERMARK_INDEX_PROPAGATION_MISSING");
+assert(has(migration5, "policy_activation_history_watermark_fingerprint"), "NO_POLICY_WATERMARK_FINGERPRINT_PROPAGATION_MISSING");
+assert(has(migration5, "no_policy_epoch_reentry_allowed"), "NO_POLICY_REENTRY_GUARD_PROPAGATION_MISSING");
 assert(has(migration5, "activation_generation_fingerprint"), "PERSISTENT_GENERATION_PROPAGATION_MISSING");
 
 assert(has(migration6, "avantiqo_phase45_guard_long_horizon_mutation_v1"), "LONG_HORIZON_GUARD_MISSING");
 assert(has(migration6, "verify_avantiqo_policy_outcome_attribution_v1"), "LONG_HORIZON_GUARD_INTEGRITY_CALL_MISSING");
-assert(has(migration6, "PHASE45_OUTCOME_ATTRIBUTION_INTEGRITY_FAIL_CLOSED"), "LONG_HORIZON_FAIL_CLOSED_MISSING");
+assert(has(migration6, "LONG_HORIZON_MUTATION_BLOCKED_BY_OUTCOME_ATTRIBUTION_INTEGRITY"), "LONG_HORIZON_FAIL_CLOSED_MISSING");
+assert(has(migration6, "before insert or update of metadata on public.intelligence_memories"), "LONG_HORIZON_DB_TRIGGER_MISSING");
 
 assert(has(runtime, "resolveAvantiqoExperimentPolicyIntervalBinding"), "RUNTIME_RESOLVE_EXPORT_MISSING");
 assert(has(runtime, "assertAvantiqoExperimentPolicyIntervalBindingAt"), "RUNTIME_ASSERT_AT_MISSING");
 assert(has(runtime, "assertAvantiqoExperimentPolicyIntervalBindingCurrent"), "RUNTIME_ASSERT_CURRENT_MISSING");
 assert(has(runtime, "verifyAvantiqoExperimentOutcomePolicyIntervalIntegrity"), "RUNTIME_VERIFY_OUTCOME_INTEGRITY_MISSING");
-assert(has(runtime, "policy_activation_no_policy_epoch_fingerprint"), "RUNTIME_NO_POLICY_WATERMARK_MISSING");
+assert(has(runtime, "policy_activation_history_watermark_index"), "RUNTIME_NO_POLICY_WATERMARK_INDEX_MISSING");
+assert(has(runtime, "policy_activation_history_watermark_fingerprint"), "RUNTIME_NO_POLICY_WATERMARK_FINGERPRINT_MISSING");
+assert(has(runtime, "no_policy_epoch_reentry_allowed"), "RUNTIME_NO_POLICY_REENTRY_GUARD_MISSING");
 assert(has(runtime, "BINDING_STALE_OR_MISMATCH_FAIL_CLOSED"), "RUNTIME_STALE_BINDING_FAIL_CLOSED_MISSING");
 assert(count(runtime, ".insert(") === 0, "RUNTIME_INSERT_FORBIDDEN");
 assert(count(runtime, ".update(") === 0, "RUNTIME_UPDATE_FORBIDDEN");
@@ -114,16 +126,18 @@ assert(count(runtime, ".delete(") === 0, "RUNTIME_DELETE_FORBIDDEN");
 
 assert(has(phase43Runtime, "verifyAvantiqoExperimentOutcomePolicyIntervalIntegrity"), "PHASE43_PHASE45_CHAIN_IMPORT_MISSING");
 assert(has(phase43Runtime, "await verifyAvantiqoExperimentOutcomePolicyIntervalIntegrity()"), "PHASE43_PHASE45_CHAIN_CALL_MISSING");
-assert(has(phase43Runtime, "PERSISTENT_POLICY_OUTCOME_INTERVAL_ATTRIBUTION_INTEGRITY_FAIL_CLOSED"), "PHASE43_PHASE45_CHAIN_FAIL_CLOSED_MISSING");
-assert(has(phase43Runtime, "outcome_policy_interval_integrity"), "PHASE43_PHASE45_PAYLOAD_MISSING");
+assert(has(phase43Runtime, "EXPERIMENT_OUTCOME_POLICY_INTERVAL_ATTRIBUTION_INTEGRITY_FAIL_CLOSED"), "PHASE43_PHASE45_CHAIN_FAIL_CLOSED_MISSING");
+assert(has(phase43Runtime, "outcome_policy_interval_attribution_integrity"), "PHASE43_PHASE45_PAYLOAD_MISSING");
 
-assert(has(phase29Runtime, "verifyAvantiqoExperimentOutcomePolicyIntervalIntegrity"), "PHASE29_PHASE45_GUARD_IMPORT_MISSING");
-assert(has(phase29Runtime, "OUTCOME_POLICY_INTERVAL_ATTRIBUTION_INTEGRITY_FAIL_CLOSED"), "PHASE29_PHASE45_GUARD_STATUS_MISSING");
 assert(has(phase29Runtime, "execution_request_generation_allowed: false"), "PHASE29_FAIL_CLOSED_EXECUTION_BLOCK_MISSING");
+assert(has(route, "reconcileAvantiqoLongHorizonPolicyAdaptedExperimentPortfolio"), "ROUTE_PHASE29_CONSUMER_MISSING");
+assert(has(route, "reconcileAvantiqoExperimentExecutionRequests"), "ROUTE_EXECUTION_REQUEST_RECONCILER_MISSING");
+assert(has(route, "longHorizonPolicyAdaptedExperimentPortfolio"), "ROUTE_LONG_HORIZON_RESULT_MISSING");
+assert(/longHorizonPolicyAdaptedExperimentPortfolio\s*\n\s*\.execution_request_generation_allowed\s*===\s*true/.test(route), "ROUTE_EXECUTION_REQUEST_PHASE29_GATE_MISSING");
 
 assert(has(index, 'export * from "./runtime/AvantiqoExperimentPolicyIntervalAttributionRuntime";'), "INDEX_EXPORT_MISSING");
 
-for (const source of [allMigrations, runtime, phase43Runtime, phase29Runtime]) {
+for (const source of [allMigrations, runtime, phase43Runtime, phase29Runtime, route]) {
   assert(!has(source, "security definer"), "SECURITY_DEFINER_FORBIDDEN");
   assert(count(source, "provider_execution_authorized: true") === 0, "PROVIDER_EXECUTION_AUTHORIZED");
   assert(count(source, "spend_authorized: true") === 0, "SPEND_AUTHORIZED");

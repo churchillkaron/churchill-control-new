@@ -179,6 +179,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-coverage-execution-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-commitment-control-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-closeout-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-minutes-revision-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-staff-delegation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-working-preferences-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-travel-operations-local.mjs

@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const BASE = "scripts/bind-avantiqo-voice-stt-runtime-probe-native-image-local.mjs";
 const UNBUILT_SOURCE_SHA = "889c5e7e64aa20048e0b36edbdefa783eea12c63";
@@ -51,5 +52,15 @@ console.log(JSON.stringify({
   secrets_printed: false,
 }));
 
-const encoded = Buffer.from(source, "utf8").toString("base64");
-await import(`data:text/javascript;base64,${encoded}`);
+const generatedPath = resolve(
+  process.cwd(),
+  "scripts",
+  `.avantiqo-voice-stt-built-native-bind-${process.pid}-${Date.now()}.mjs`,
+);
+
+try {
+  await writeFile(generatedPath, source, { encoding: "utf8", flag: "wx" });
+  await import(`${pathToFileURL(generatedPath).href}?run=${Date.now()}`);
+} finally {
+  await unlink(generatedPath).catch(() => {});
+}

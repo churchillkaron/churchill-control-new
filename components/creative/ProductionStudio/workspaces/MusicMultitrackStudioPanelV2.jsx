@@ -23,6 +23,7 @@ import {
 } from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
 import MusicClipEditorPanel from "./MusicClipEditorPanel";
 import MusicMixerSendsPanel from "./MusicMixerSendsPanel";
+import MusicReleaseRenderPanel from "./MusicReleaseRenderPanel";
 import MusicWaveformClip from "./MusicWaveformClip";
 import MusicWorkstationOverdubPanel from "./MusicWorkstationOverdubPanel";
 
@@ -173,9 +174,7 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
   function selectTrack(track) {
     if (recording) return;
     setSelectedTrackId(track.id);
-    if (!track.clips?.some((clip) => clip.id === selectedClipId)) {
-      setSelectedClipId(track.clips?.[0]?.id || null);
-    }
+    if (!track.clips?.some((clip) => clip.id === selectedClipId)) setSelectedClipId(track.clips?.[0]?.id || null);
   }
 
   function armTrack(trackId) {
@@ -218,10 +217,7 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
   const selectedClip = useMemo(() => selectedTrack?.clips?.find((clip) => clip.id === selectedClipId) || null, [selectedTrack, selectedClipId]);
 
   useEffect(() => {
-    if (!selectedTrack) {
-      setSelectedClipId(null);
-      return;
-    }
+    if (!selectedTrack) { setSelectedClipId(null); return; }
     if (selectedClipId && selectedTrack.clips?.some((clip) => clip.id === selectedClipId)) return;
     setSelectedClipId(selectedTrack.clips?.[0]?.id || null);
   }, [selectedTrack, selectedClipId]);
@@ -364,6 +360,15 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
             disabled={recording}
             onChange={replaceSession}
           /> : null}
+
+          <MusicReleaseRenderPanel
+            organizationId={organizationId}
+            projectId={projectId}
+            session={session}
+            assetUrls={assetUrls}
+            disabled={recording || dirty || busy}
+          />
+          {dirty ? <div className="rounded-xl border border-amber-300/10 bg-amber-300/[0.02] px-3 py-2 text-[8px] leading-4 text-amber-100/50">Save the Workstation before rendering a release master. Release rendering is revision-bound and never uses unsaved mix state.</div> : null}
 
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-[#d6a66a]/65"><SlidersHorizontal className="h-3.5 w-3.5" /> Engineer channel</div>{selectedTrack ? <div className="space-y-4">
           <div className="rounded-2xl border border-white/8 bg-white/[0.018] p-4"><div className="text-sm font-medium text-white/70">{selectedTrack.name}</div><div className="mt-4 grid grid-cols-2 gap-3"><Field label="Input trim"><input disabled={recording} type="range" min="-24" max="24" step="0.5" value={selectedTrack.channel_strip?.input_trim_db||0} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.input_trim_db=Number(e.target.value);})} className="w-full accent-[#d6a66a] disabled:opacity-25"/></Field><Field label="High-pass"><input disabled={recording} type="range" min="20" max="400" value={selectedTrack.channel_strip?.high_pass_hz||20} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.high_pass_hz=Number(e.target.value);})} className="w-full accent-[#d6a66a] disabled:opacity-25"/></Field><Field label="Low shelf"><input disabled={recording} type="range" min="-12" max="12" step="0.5" value={selectedTrack.channel_strip?.low_shelf_db||0} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.low_shelf_db=Number(e.target.value);})} className="w-full accent-[#d6a66a] disabled:opacity-25"/></Field><Field label="Presence"><input disabled={recording} type="range" min="-12" max="12" step="0.5" value={selectedTrack.channel_strip?.presence_db||0} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.presence_db=Number(e.target.value);})} className="w-full accent-[#d6a66a] disabled:opacity-25"/></Field></div><label className="mt-4 flex items-center justify-between rounded-xl border border-white/7 px-3 py-2.5 text-xs text-white/48"><span className="flex items-center gap-2"><Radio className="h-3.5 w-3.5"/>Polarity invert</span><input disabled={recording} type="checkbox" checked={selectedTrack.channel_strip?.polarity_invert===true} onChange={e=>updateTrack(selectedTrack.id,d=>{d.channel_strip.polarity_invert=e.target.checked;})} className="accent-[#d6a66a] disabled:opacity-25"/></label></div>

@@ -174,7 +174,7 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
   }
 
   async function play(from = playhead) {
-    if (!session || playing) return;
+    if (!session || transportRef.current) return;
     setError("");
     const start = clamp(loopEnabled ? Math.max(loopStart, from) : from, 0, songLength);
     const stopAt = loopEnabled ? clamp(loopEnd, start + 0.05, songLength) : null;
@@ -194,7 +194,7 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
 
   function seek(seconds) {
     const next = clamp(seconds, 0, songLength);
-    const wasPlaying = playing;
+    const wasPlaying = Boolean(transportRef.current);
     if (wasPlaying) stopTransport({ keepPosition: false });
     setPlayhead(next);
     if (wasPlaying) void play(next);

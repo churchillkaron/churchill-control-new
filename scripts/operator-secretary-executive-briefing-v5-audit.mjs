@@ -32,10 +32,8 @@ assert.match(source.runtime, /approval_extends_authority:\s*false/);
 assert.match(source.runtime, /platform_permissions_mutated:\s*false/);
 assert.match(source.runtime, /external_authority_used:\s*false/);
 
-// V5 remains the regression baseline, while the public secretary_briefing
-// capability intentionally routes through V6, which composes V5 underneath.
-assert.match(source.capability, /readSecretaryExecutiveBriefingV6/);
-assert.doesNotMatch(source.capability, /readSecretaryExecutiveBriefingV5/);
+// V5 remains the regression baseline. The latest briefing audit owns the
+// version pin for the public secretary_briefing capability.
 assert.match(source.capability, /capability:\s*"secretary_briefing"/);
 assert.match(source.capability, /action:\s*"read"/);
 assert.match(source.capability, /operatorRequiresConfirmation:\s*false/);

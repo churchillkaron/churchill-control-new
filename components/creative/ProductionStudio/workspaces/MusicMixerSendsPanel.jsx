@@ -9,6 +9,7 @@ import {
 } from "@/lib/creative/music/runtime/CreativeMusicMixerRoutingRuntime";
 import MusicEngineeringInsertsPanel from "./MusicEngineeringInsertsPanel";
 import MusicLiveEngineeringMeters from "./MusicLiveEngineeringMeters";
+import MusicSourceCleanupPanel from "./MusicSourceCleanupPanel";
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -106,6 +107,12 @@ export default function MusicMixerSendsPanel({ session, track, disabled = false,
     <div className="space-y-4">
       <MusicLiveEngineeringMeters trackId={currentTrack.id} />
 
+      <MusicSourceCleanupPanel
+        track={currentTrack}
+        disabled={disabled}
+        onChange={replaceTrack}
+      />
+
       <MusicEngineeringInsertsPanel
         track={currentTrack}
         disabled={disabled}
@@ -165,7 +172,7 @@ export default function MusicMixerSendsPanel({ session, track, disabled = false,
           </div>
         </div>
 
-        <div className="mt-3 text-[8px] leading-4 text-white/18">Shared aux returns preserve mix cohesion and CPU. Inserts, compressor and sends remain editable project data; nothing is printed into the original take or dry comp asset.</div>
+        <div className="mt-3 text-[8px] leading-4 text-white/18">Shared aux returns preserve mix cohesion and CPU. Source cleanup, inserts, compressor and sends remain editable project data; nothing is printed into the original take or dry comp asset.</div>
       </div>
     </div>
   );

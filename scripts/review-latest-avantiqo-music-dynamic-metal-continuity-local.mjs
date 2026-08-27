@@ -13,8 +13,10 @@ const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V2"
 const CONTINUITY_CONTRACT = "AVANTIQO_MUSIC_CONTINUITY_FIXTURE_V1";
 const METAL_PROFILE_CONTRACT = "AVANTIQO_MUSIC_METAL_CONTINUITY_FIXTURE_V1";
 const REVIEW_SCRIPT = resolve("scripts/review-avantiqo-music-transform-certification-local.mjs");
+const RECORD_SCRIPT = resolve("scripts/record-avantiqo-music-transform-human-review-local.mjs");
 
 const text = (value) => String(value ?? "").trim();
+function arg(prefix) { return text(process.argv.slice(2).find((entry) => entry.startsWith(prefix))?.slice(prefix.length)); }
 
 function eligible(report) {
   return (
@@ -74,6 +76,10 @@ if (!selected) {
   throw new Error("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_ELIGIBLE_REPORT_NOT_FOUND");
 }
 
+const recordApproved = process.argv.includes("--record-approved");
+const reviewer = arg("--reviewer=");
+const notes = arg("--notes=");
+
 console.log(JSON.stringify({
   success: true,
   contract: "AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_REVIEW_LATEST_V1",
@@ -82,24 +88,45 @@ console.log(JSON.stringify({
   source_profile: text(selected.report?.source_fixture?.profile),
   source_profile_contract: text(selected.report?.source_fixture?.profile_contract),
   temporal_extension_technical_proven: true,
-  human_review_status: "PENDING",
+  human_review_status: recordApproved ? "APPROVAL_RECORD_REQUESTED" : "PENDING",
   provider_jobs_submitted: 0,
   runpod_lease_opened: false,
   production_activation_performed: false,
   pricing_activation_performed: false,
 }, null, 2));
 
-const child = spawnSync(
-  process.execPath,
-  [REVIEW_SCRIPT, `--report=${selected.path}`],
-  {
+if (recordApproved) {
+  if (!reviewer) throw new Error("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_REVIEWER_REQUIRED");
+  const args = [
+    RECORD_SCRIPT,
+    `--report=${selected.path}`,
+    "--verdict=APPROVED",
+    `--reviewer=${reviewer}`,
+  ];
+  if (notes) args.push(`--notes=${notes}`);
+  const child = spawnSync(process.execPath, args, {
     cwd: process.cwd(),
     env: process.env,
     stdio: "inherit",
-  },
-);
-
-if (child.error) throw child.error;
-if (child.status !== 0) {
-  throw new Error(`AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_REVIEW_OPEN_FAILED:exit=${child.status ?? "UNKNOWN"}`);
+  });
+  if (child.error) throw child.error;
+  if (child.status !== 0) {
+    throw new Error(`AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_APPROVAL_RECORD_FAILED:exit=${child.status ?? "UNKNOWN"}`);
+  }
+  console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_HUMAN_REVIEW=APPROVED");
+  console.log("AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_RELEASE_DECISION=PENDING");
+} else {
+  const child = spawnSync(
+    process.execPath,
+    [REVIEW_SCRIPT, `--report=${selected.path}`],
+    {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: "inherit",
+    },
+  );
+  if (child.error) throw child.error;
+  if (child.status !== 0) {
+    throw new Error(`AVANTIQO_MUSIC_DYNAMIC_METAL_CONTINUITY_REVIEW_OPEN_FAILED:exit=${child.status ?? "UNKNOWN"}`);
+  }
 }

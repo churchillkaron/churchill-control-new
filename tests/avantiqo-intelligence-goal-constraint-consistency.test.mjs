@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import {
   assessOperatorIntelligenceGoalConstraintConsistency,
@@ -167,4 +168,16 @@ test("lower-level optimization never overrides higher-level hard constraints", (
   assert.equal(result.consistency_policy.local_progress_never_overrides_ancestor_constraints, true);
   assert.equal(result.consistency_policy.lower_level_optimization_never_overrides_higher_level_hard_constraints, true);
   assert.equal(result.governance.hierarchy_consistency_is_not_execution_authority, true);
+});
+
+test("planning V13 exposes hierarchical consistency without mutation authority", () => {
+  const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V13/);
+  assert.match(source, /"assess_goal_constraints"/);
+  assert.match(source, /goal_constraint_consistency_contract/);
+  assert.match(source, /deterministic_hierarchical_goal_constraint_consistency/);
+  assert.match(source, /hard_ancestor_constraints_inherit_downward/);
+  assert.match(source, /rewrites_parent_goals: false/);
+  assert.match(source, /waives_hard_constraints: false/);
+  assert.match(source, /executes_business_actions: false/);
 });

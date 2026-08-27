@@ -118,36 +118,56 @@ async function endpointHealth(endpoint, managementKey, queueKey, targetId = null
   const sources = attempts.map((entry) => entry.source).join(",") || "NONE";
   throw new Error(`${CONTRACT}_PEER_HEALTH_UNREADABLE:${text(endpoint?.name) || id}:sources=${sources}`);
 }
+function scopedHealthChecksEnabled() {
+  return Boolean(text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_TARGET_AND_OPEN_HEALTH_LANE));
+}
+function endpointRequiresQueueHealth(endpoint, targetId = null) {
+  if (!scopedHealthChecksEnabled()) return true;
+  const id = text(endpoint?.id);
+  if (targetId && id === text(targetId)) return true;
+  const workersMin = finite(endpoint?.workersMin, 0);
+  const workersMax = finite(endpoint?.workersMax, 0);
+  const active = activeWorkers(endpoint).length;
+  const cost = hourlyCost(endpoint);
+  return workersMin > 0 || workersMax > 0 || active > 0 || cost > 0;
+}
 async function snapshot(managementKey, queueKey, targetId = null, targetQueueKey = null) {
   const endpoints = endpointsFrom(await rest("/endpoints?includeTemplate=false&includeWorkers=true", managementKey));
-  const rows = [];
-  for (const endpoint of endpoints) {
+  const rows = await Promise.all(endpoints.map(async (endpoint) => {
     const id = text(endpoint.id);
-    if (!id) continue;
+    if (!id) return null;
+    const workers = activeWorkers(endpoint);
+    const cost = hourlyCost(endpoint);
+    const healthRequired = endpointRequiresQueueHealth(endpoint, targetId);
     let health = null;
     let healthError = null;
     let healthCredentialSource = null;
-    try {
-      const result = await endpointHealth(endpoint, managementKey, queueKey, targetId, targetQueueKey);
-      health = result.health;
-      healthCredentialSource = result.credentialSource;
-    } catch (error) {
-      healthError = redact(error.message).slice(0, 250);
+    if (healthRequired) {
+      try {
+        const result = await endpointHealth(endpoint, managementKey, queueKey, targetId, targetQueueKey);
+        health = result.health;
+        healthCredentialSource = result.credentialSource;
+      } catch (error) {
+        healthError = redact(error.message).slice(0, 250);
+      }
     }
-    rows.push({
+    return {
       id,
       name: text(endpoint.name) || null,
       workers_min: finite(endpoint.workersMin, null),
       workers_max: finite(endpoint.workersMax, null),
-      active_workers: activeWorkers(endpoint).length,
-      hourly_cost_usd: hourlyCost(endpoint),
+      active_workers: workers.length,
+      hourly_cost_usd: cost,
       health,
+      health_required: healthRequired,
+      health_skipped_dormant_0_0: !healthRequired,
       health_credential_source: healthCredentialSource,
       health_error: healthError,
-      jobs: health ? health.in_queue + health.in_progress : null,
-    });
-  }
-  return { endpoints, rows, hourly_cost_usd: rows.reduce((sum, row) => sum + row.hourly_cost_usd, 0) };
+      jobs: health ? health.in_queue + health.in_progress : (healthRequired ? null : 0),
+    };
+  }));
+  const filtered = rows.filter(Boolean);
+  return { endpoints, rows: filtered, hourly_cost_usd: filtered.reduce((sum, row) => sum + row.hourly_cost_usd, 0) };
 }
 
 function leaseFile(endpointId) { return path.join(LEASE_DIR, `lease-${endpointId}.json`); }
@@ -342,8 +362,12 @@ const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const queueKey = text(process.env.RUNPOD_API_KEY) || managementKey;
 const targetQueueKey = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_TARGET_QUEUE_API_KEY) || queueKey;
 const scopedInertPeerIsolationLane = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_INERT_PEER_ISOLATION_LANE);
+const scopedTargetAndOpenHealthLane = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_TARGET_AND_OPEN_HEALTH_LANE);
 if (scopedInertPeerIsolationLane && scopedInertPeerIsolationLane !== args.lane) {
   throw new Error(`${CONTRACT}_INERT_PEER_ISOLATION_LANE_MISMATCH:${scopedInertPeerIsolationLane}:${args.lane}`);
+}
+if (scopedTargetAndOpenHealthLane && scopedTargetAndOpenHealthLane !== args.lane) {
+  throw new Error(`${CONTRACT}_TARGET_AND_OPEN_HEALTH_LANE_MISMATCH:${scopedTargetAndOpenHealthLane}:${args.lane}`);
 }
 let targetId = null;
 let lease = null;
@@ -396,7 +420,7 @@ try {
     args.lane,
     targetQueueKey,
   );
-  console.log(`${CONTRACT}_ACQUIRED=${JSON.stringify({ lane: args.lane, endpoint_name: laneName, workers_min: 0, workers_max: 1, expires_at: lease.expires_at, voice_distributed_lease: Boolean(distributedVoiceLease), target_queue_key_override: targetQueueKey !== queueKey, scoped_inert_peer_isolation: scopedInertPeerIsolationLane === args.lane })}`);
+  console.log(`${CONTRACT}_ACQUIRED=${JSON.stringify({ lane: args.lane, endpoint_name: laneName, workers_min: 0, workers_max: 1, expires_at: lease.expires_at, voice_distributed_lease: Boolean(distributedVoiceLease), target_queue_key_override: targetQueueKey !== queueKey, scoped_inert_peer_isolation: scopedInertPeerIsolationLane === args.lane, scoped_target_and_open_health: scopedTargetAndOpenHealthLane === args.lane })}`);
   await runChild(args.command, lease, managementKey, queueKey, targetQueueKey, policy);
   childSucceeded = true;
 } catch (error) {
@@ -456,7 +480,9 @@ try {
 }
 
 const success = childSucceeded && release?.success === true && !failure;
-if (failure) console.log(`${CONTRACT}_FAILURE=${redact(failure.message).slice(0, 1200)}`);
-console.log(JSON.stringify({ success, contract: CONTRACT, lane: args.lane, endpoint_name: laneName, lease_acquired: Boolean(lease), child_succeeded: childSucceeded, failure: failure ? redact(failure.message).slice(0, 1200) : null, release, voice_distributed_lease_required: isVoiceRunpodLane(args.lane), voice_distributed_lease_acquired: Boolean(distributedVoiceLease), code_distributed_lease_required: isCodeRunpodLane(args.lane), code_distributed_lease_acquired: Boolean(distributedCodeLease), target_queue_key_override: targetQueueKey !== queueKey, scoped_inert_peer_isolation_lane: scopedInertPeerIsolationLane || null, permanent_rest_state: "LEASE_ENDPOINT_0_0", parallel_work_allowed: true, workers_min_one_allowed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
+console.log(JSON.stringify({ success, contract: CONTRACT, lane: args.lane, endpoint_name: laneName, lease_acquired: Boolean(lease), child_succeeded: childSucceeded, failure: failure ? redact(failure.message).slice(0, 1200) : null, release, voice_distributed_lease_required: isVoiceRunpodLane(args.lane), voice_distributed_lease_acquired: Boolean(distributedVoiceLease), code_distributed_lease_required: isCodeRunpodLane(args.lane), code_distributed_lease_acquired: Boolean(distributedCodeLease), target_queue_key_override: targetQueueKey !== queueKey, scoped_inert_peer_isolation_lane: scopedInertPeerIsolationLane || null, scoped_target_and_open_health_lane: scopedTargetAndOpenHealthLane || null, permanent_rest_state: "LEASE_ENDPOINT_0_0", parallel_work_allowed: true, workers_min_one_allowed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
 console.log(`${CONTRACT}=${success ? "PASS" : "FAIL"}`);
-if (!success) process.exit(3);
+if (!success) {
+  console.log(`${CONTRACT}_FAILURE=${redact(failure?.message || release?.error || "UNKNOWN").slice(0, 1200)}`);
+  process.exit(3);
+}

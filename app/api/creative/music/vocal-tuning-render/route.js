@@ -16,6 +16,9 @@ import {
   executeService,
   settlePendingService,
 } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import { ownedProviderForCapability } from "@/lib/platform/service-runtime/providers/AvantiqoOwnedProviderPolicy";
+import { resolveProvider } from "@/lib/platform/service-runtime/providers/ProviderResolver";
+import { OrganizationServiceRuntime } from "@/lib/platform/service-runtime/services/runtime/OrganizationServiceRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 const EXECUTION_PERMISSIONS = Object.freeze(["creative.execute", "creative.production.run", "creative.*"]);
@@ -130,19 +133,107 @@ function currentTimingPlan(clip) {
   return plan;
 }
 
-function readiness() {
+function readinessBase() {
   const engineEnabled = enabled(process.env.AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_ENABLED);
   const engineCertified = enabled(process.env.AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_CERTIFIED);
-  const ready = engineEnabled && engineCertified;
   return {
-    ready,
+    ready: false,
     engine_enabled: engineEnabled,
     engine_certified: engineCertified,
     engine_contract: ENGINE_CONTRACT,
     quality_profile: QUALITY_PROFILE,
-    blocker: ready ? null : engineEnabled ? "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_NOT_CERTIFIED" : "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_DISABLED",
+    organization_service_enabled: false,
+    organization_service_active: false,
+    organization_usage_enabled: false,
+    owned_provider_required: ownedProviderForCapability(CAPABILITY),
+    owned_provider_selected: null,
+    production_pricing_ready: false,
+    pricing_id: null,
+    model: null,
+    currency: null,
+    blocker: !engineEnabled
+      ? "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_DISABLED"
+      : !engineCertified
+        ? "AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_NOT_CERTIFIED"
+        : null,
+    blocker_detail: null,
     human_listening_certification_required: !engineCertified,
     formant_preservation_claimed: false,
+  };
+}
+
+async function readiness({ organizationId, currency = "THB" } = {}) {
+  const state = readinessBase();
+  if (state.blocker) return state;
+  if (!organizationId) return { ...state, blocker: "AVANTIQO_MUSIC_VOCAL_CORRECTION_ORGANIZATION_REQUIRED" };
+
+  let organizationService;
+  try {
+    organizationService = await OrganizationServiceRuntime.get({ organization_id: organizationId, service_id: CAPABILITY });
+  } catch (error) {
+    return {
+      ...state,
+      blocker: "AVANTIQO_MUSIC_VOCAL_CORRECTION_SERVICE_LOOKUP_FAILED",
+      blocker_detail: text(error?.message) || null,
+    };
+  }
+
+  if (!organizationService) {
+    return { ...state, blocker: "AVANTIQO_MUSIC_VOCAL_CORRECTION_SERVICE_NOT_ENABLED" };
+  }
+  const serviceActive = text(organizationService.status).toUpperCase() === "ACTIVE";
+  const usageEnabled = organizationService.usage_enabled !== false;
+  const serviceState = {
+    ...state,
+    organization_service_enabled: true,
+    organization_service_active: serviceActive,
+    organization_usage_enabled: usageEnabled,
+  };
+  if (!serviceActive) return { ...serviceState, blocker: "AVANTIQO_MUSIC_VOCAL_CORRECTION_SERVICE_NOT_ACTIVE" };
+  if (!usageEnabled) return { ...serviceState, blocker: "AVANTIQO_MUSIC_VOCAL_CORRECTION_SERVICE_USAGE_DISABLED" };
+
+  const ownedProvider = state.owned_provider_required;
+  if (!ownedProvider) return { ...serviceState, blocker: "AVANTIQO_MUSIC_VOCAL_CORRECTION_OWNED_PROVIDER_POLICY_MISSING" };
+
+  let selected;
+  try {
+    selected = await resolveProvider({
+      organization_id: organizationId,
+      capability: CAPABILITY,
+      preferredProvider: ownedProvider,
+      currency: text(currency || "THB") || "THB",
+      policy: {
+        ...(object(organizationService.provider_policy)),
+        allowed_providers: [ownedProvider],
+        preferred_providers: [ownedProvider],
+      },
+    });
+  } catch (error) {
+    return {
+      ...serviceState,
+      blocker: "AVANTIQO_MUSIC_VOCAL_CORRECTION_PRODUCTION_PRICING_OR_PROVIDER_NOT_READY",
+      blocker_detail: text(error?.message) || null,
+    };
+  }
+
+  if (text(selected?.provider) !== ownedProvider) {
+    return {
+      ...serviceState,
+      owned_provider_selected: text(selected?.provider) || null,
+      blocker: "AVANTIQO_MUSIC_VOCAL_CORRECTION_OWNED_PROVIDER_NOT_SELECTED",
+    };
+  }
+
+  return {
+    ...serviceState,
+    ready: true,
+    owned_provider_selected: selected.provider,
+    production_pricing_ready: Boolean(selected.pricing_id && selected.pricing_record),
+    pricing_id: selected.pricing_id || null,
+    model: selected.model || null,
+    currency: selected.currency || text(currency || "THB") || "THB",
+    blocker: null,
+    blocker_detail: null,
   };
 }
 
@@ -379,6 +470,7 @@ async function submitRender(body) {
   const projectId = text(body.creative_project_id);
   const trackId = text(body.track_id);
   const clipId = text(body.clip_id);
+  const currency = text(body.currency || "THB") || "THB";
   const project = await projectInScope(organizationId, projectId);
   const session = normalizeSession(project.metadata?.[METADATA_KEY]);
   const revision = Math.max(0, Math.round(finite(session.revision, 0)));
@@ -393,15 +485,15 @@ async function submitRender(body) {
   const timingPlan = currentTimingPlan(clip);
   const planFingerprint = fingerprint(plan);
   const timingPlanFingerprint = timingPlan ? fingerprint(timingPlan) : null;
+  const gate = await readiness({ organizationId, currency });
   const existing = object(clip.vocal_tuning_render_request);
   if (
     existing.contract === RENDER_REQUEST_CONTRACT && existing.tuning_plan_fingerprint === planFingerprint &&
     (existing.timing_plan_fingerprint || null) === timingPlanFingerprint && existing.source_asset_id === clip.source_asset_id &&
     ["PENDING", "COMPLETED_PENDING_APPLY"].includes(existing.status)
   ) {
-    return { success: true, pending: existing.status === "PENDING", idempotent_existing_request: true, request: existing, readiness: readiness(), provider_job_submitted: Boolean(existing.provider_job_id), endpoint_mutation_performed: false };
+    return { success: true, pending: existing.status === "PENDING", idempotent_existing_request: true, request: existing, readiness: gate, provider_job_submitted: Boolean(existing.provider_job_id), endpoint_mutation_performed: false };
   }
-  const gate = readiness();
   if (!gate.ready) { const error = new Error(gate.blocker); error.status = 503; throw error; }
   const sourceAsset = await sourceAssetInScope(organizationId, projectId, clip.source_asset_id);
   if (!(await sourceRightsConfirmed(sourceAsset, organizationId, projectId))) throw new Error("CREATIVE_MUSIC_VOCAL_TUNING_RENDER_SOURCE_RIGHTS_CONFIRMATION_REQUIRED");
@@ -412,10 +504,11 @@ async function submitRender(body) {
     entity_id: text(body.entity_id) || null,
     service_id: CAPABILITY,
     capability: CAPABILITY,
+    provider_id: gate.owned_provider_selected,
     input: {
       source_audio: sourceAsset.file_url,
       quantity: finite(clip.duration_seconds, 1),
-      currency: text(body.currency || "THB"),
+      currency,
       provider_parameters: providerParameters({ session, clip, plan, timingPlan }),
     },
     metadata: {
@@ -431,6 +524,8 @@ async function submitRender(body) {
       timing_plan_fingerprint: timingPlanFingerprint,
       timing_plan_contract: timingPlan ? TIMING_PLAN_CONTRACT : null,
       timing_plan_included: Boolean(timingPlan),
+      readiness_pricing_id: gate.pricing_id,
+      readiness_model: gate.model,
       execution_mode: "MUSICIAN_APPROVED_PLAN",
       original_source_preserved: true,
       timing_auto_apply_forbidden: true,
@@ -491,7 +586,13 @@ export async function POST(request) {
     await requireAccess(request, organizationId);
     const action = text(body.action || "readiness").toLowerCase();
     const result = action === "readiness"
-      ? { success: true, contract: "AVANTIQO_MUSIC_VOCAL_TUNING_RENDER_READINESS_V1", readiness: readiness(), provider_job_submitted: false, endpoint_mutation_performed: false }
+      ? {
+          success: true,
+          contract: "AVANTIQO_MUSIC_VOCAL_TUNING_RENDER_READINESS_V2",
+          readiness: await readiness({ organizationId, currency: text(body.currency || "THB") || "THB" }),
+          provider_job_submitted: false,
+          endpoint_mutation_performed: false,
+        }
       : action === "submit" ? await submitRender(body)
         : action === "status" ? await checkRender(body) : null;
     if (!result) return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_VOCAL_TUNING_RENDER_ACTION_INVALID" }, { status: 400 });

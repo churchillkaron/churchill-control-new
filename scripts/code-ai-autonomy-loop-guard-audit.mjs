@@ -1,4 +1,6 @@
+import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { parseCodeAIPlannerOutput } from "../lib/code/runtime/CodeAIPlannerDecisionParser.js";
 
 const path = "lib/code/runtime/CodeAIAutonomousRuntime.js";
 const source = await readFile(path, "utf8");
@@ -6,6 +8,35 @@ const workspacePath = "lib/code/runtime/CodeWorkspaceSandboxRuntime.js";
 const workspaceSource = await readFile(workspacePath, "utf8");
 const promptPath = "lib/code/runtime/CodeAIPlannerPromptRuntime.js";
 const promptSource = await readFile(promptPath, "utf8");
+
+const singlePlannerObject = parseCodeAIPlannerOutput('{"action":"read","description":"one","input":{"file_path":"a.js"}}');
+assert.equal(singlePlannerObject.parsed.action, "read");
+assert.equal(singlePlannerObject.normalization.discarded_count, 0);
+
+const liveOverEmission = parseCodeAIPlannerOutput(
+  '{"action":"read","description":"first","input":{"file_path":"normalize-money.mjs"}}\n' +
+  '{"action":"read","description":"second","input":{"file_path":"invoice-summary.mjs"}}',
+);
+assert.equal(liveOverEmission.parsed.input.file_path, "normalize-money.mjs");
+assert.equal(liveOverEmission.normalization.mode, "same_guarded_action_over_emission");
+assert.equal(liveOverEmission.normalization.object_count, 2);
+assert.equal(liveOverEmission.normalization.discarded_count, 1);
+assert.equal(liveOverEmission.normalization.action, "read");
+
+assert.throws(
+  () => parseCodeAIPlannerOutput(
+    '{"action":"read","description":"read","input":{"file_path":"a.js"}}\n' +
+    '{"action":"apply_files","description":"edit","input":{"files":[]}}',
+  ),
+  /CODE_AI_AUTONOMOUS_PLANNER_MULTI_ACTION_CONFLICT:read,apply_files/,
+);
+assert.throws(
+  () => parseCodeAIPlannerOutput(
+    '{"action":"apply_files","description":"edit one","input":{"files":[]}}\n' +
+    '{"action":"apply_files","description":"edit two","input":{"files":[]}}',
+  ),
+  /CODE_AI_AUTONOMOUS_PLANNER_MULTI_ACTION_UNSAFE:apply_files:2/,
+);
 
 const requiredMarkers = [
   "AVANTIQO_CODE_AI_AUTONOMY_CONTROL_V1",
@@ -51,6 +82,9 @@ const requiredMarkers = [
   "currentSourceRevision",
   "max_duplicate_rejection_streak",
   "source_read_evidence_limit",
+  "parseCodeAIPlannerOutput",
+  "planner_output_normalization",
+  "output_normalization: decision.planner_output_normalization || null",
 ];
 
 const promptRequiredMarkers = [
@@ -74,6 +108,7 @@ const promptRequiredMarkers = [
   "CURRENT ALLOWED ACTION SHAPES",
   "plannerRules(currentAllowedActions)",
   "An action absent from CURRENT ALLOWED ACTIONS is invalid",
+  "Never emit more than one JSON object",
 ];
 
 const promptMissing = promptRequiredMarkers.filter((marker) => !promptSource.includes(marker));
@@ -218,7 +253,7 @@ if (
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V5",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V6",
   verified: {
     duplicate_read_search_run_guarded_without_new_evidence: true,
     search_fingerprint_distinguishes_literal_regex_path_glob: true,
@@ -252,6 +287,10 @@ console.log(JSON.stringify({
     bounded_planner_prompt_transport: true,
     planner_instruction_below_worker_hard_limit: true,
     duplicate_objective_and_state_removed_from_structured_specification: true,
+    same_guarded_multi_object_planner_output_normalized_without_new_provider_call: true,
+    mixed_multi_action_planner_output_fails_closed: true,
+    mutating_multi_object_planner_output_fails_closed: true,
+    planner_prompt_forbids_multi_object_output: true,
   },
   provider_calls_executed: false,
   provider_spend_approved: false,

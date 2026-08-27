@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Disc3, ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { renderMusicMultitrackOffline } from "@/lib/creative/music/client/MusicOfflineMixRenderRuntime";
+import MusicStemExportPanel from "./MusicStemExportPanel";
 
 const PROFILES = [
   ["streaming", "Streaming", "-14 LUFS · -1 dBTP"],
@@ -33,7 +34,7 @@ export default function MusicReleaseRenderPanel({
   const [result, setResult] = useState(null);
 
   const revision = Math.max(0, Math.round(finite(session?.revision, 0)));
-  const options = useMemo(() => ({ mastering: { profile }, release_mp3: releaseMp3, track_stems: false, group_stems: false }), [profile, releaseMp3]);
+  const options = useMemo(() => ({ mastering: { profile }, release_mp3: releaseMp3, track_stems: true, group_stems: true }), [profile, releaseMp3]);
 
   async function request(payload) {
     const response = await fetch("/api/creative/music/release-render", {
@@ -171,7 +172,16 @@ export default function MusicReleaseRenderPanel({
       {result ? <div className="mt-3 rounded-xl border border-emerald-300/12 bg-emerald-300/[0.025] p-3"><div className="flex items-center gap-2 text-[9px] text-emerald-100/65"><CheckCircle2 className="h-3.5 w-3.5" /> Certified release candidate</div><div className="mt-2 grid grid-cols-2 gap-2 text-[8px] text-white/30"><div>LUFS {Number.isFinite(result.integrated_lufs) ? result.integrated_lufs.toFixed(1) : "certified"}</div><div>True peak {Number.isFinite(result.true_peak_dbtp) ? `${result.true_peak_dbtp.toFixed(2)} dBTP` : "certified"}</div><div>Deliveries {result.deliveries?.length || 0}</div><div>Master asset saved</div></div></div> : null}
       {error ? <div className="mt-3 rounded-xl border border-red-300/12 bg-red-400/[0.025] px-3 py-2 text-[8px] leading-4 text-red-100/65">{error}</div> : null}
 
-      <div className="mt-3 text-[7px] leading-3 text-white/15">No provider generation is used. Original takes/assets remain immutable. Final limiter/loudness work happens only in the canonical local release finisher. Track/group stem export is the next release-render mode and is intentionally not presented as ready yet.</div>
+      {plan ? <div className="mt-4"><MusicStemExportPanel
+        organizationId={organizationId}
+        projectId={projectId}
+        session={session}
+        assetUrls={assetUrls}
+        plan={plan}
+        disabled={disabled || busy || !ready}
+      /></div> : null}
+
+      <div className="mt-3 text-[7px] leading-3 text-white/15">No provider generation is used. Original takes/assets remain immutable. Release masters alone receive final limiter/loudness and true-peak certification. Track/group stems are 24-bit pre-Master engineering exports; Instrumental/Acapella preserve the mix graph but remain un-limited derived alternates unless separately mastered.</div>
     </div>
   );
 }

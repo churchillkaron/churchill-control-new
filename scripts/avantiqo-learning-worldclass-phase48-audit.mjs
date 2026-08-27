@@ -63,7 +63,6 @@ function runAudit(phase) {
   return output;
 }
 
-// Re-run the two newest cumulative production-safety certifications against today's checkout.
 const phase46Output = runAudit(46);
 const phase47Output = runAudit(47);
 has(phase46Output, "AVANTIQO_PHASE46_MULTI_GENERATION_SUCCESSION_CONTRACT=true", "PHASE46_MULTI_GENERATION");
@@ -137,8 +136,6 @@ const attribution = read(files.attribution);
 const route = read(files.route);
 const index = read(files.index);
 
-// Core scientific closed loop: selection is not execution, explicit governance is required,
-// a single-use claim precedes immutable completed receipt/result evidence, then calibration.
 has(selector, "AVANTIQO_ACTIVE_EXPERIMENT_SELECTION_V1", "SELECTION_CONTRACT");
 has(selector, "selection_is_not_execution_authorization: true", "SELECTION_NOT_EXECUTION");
 has(portfolio, "AVANTIQO_CALIBRATION_BACKFILLED_EXPERIMENT_PORTFOLIO_V1", "PORTFOLIO_CONTRACT");
@@ -158,7 +155,6 @@ has(ingress, "platform_knowledge_written_directly: false", "NO_DIRECT_KNOWLEDGE_
 has(estimator, "AVANTIQO_EXPERIMENT_ESTIMATOR_CALIBRATION_V1", "ESTIMATOR_CALIBRATION");
 has(assessor, "AVANTIQO_EXPERIMENT_OUTCOME_ASSESSOR_CALIBRATION_V1", "ASSESSOR_CALIBRATION");
 
-// Long-horizon learning and bounded policy evolution.
 has(longHorizon, "execution_request_generation_allowed", "LONG_HORIZON_EXECUTION_GATE");
 has(shadow, "PROSPECTIVE_SHADOW_CHALLENGER_SNAPSHOT_RECORDED", "PROSPECTIVE_SHADOW");
 has(shadow, "challenger_score_can_exceed_baseline: false", "SHADOW_BOUND");
@@ -178,20 +174,17 @@ has(succession, "AVANTIQO_PERSISTENT_POLICY_SUCCESSION_V1", "SUCCESSION_CONTRACT
 has(succession, "activation_requires_separate_explicit_call: true", "SUCCESSION_EXPLICIT_ACTIVATION");
 has(succession, "automatic_policy_succession: false", "SUCCESSION_NOT_AUTOMATIC");
 
-// Generation, interval and exact outcome lineage must remain explicit and fail closed.
 has(generationIntegrity, "execution_request_generation_allowed", "GENERATION_INTEGRITY_GATE");
 has(activationIntegrity, "research_generation_allowed", "ACTIVATION_RESEARCH_GATE");
 has(activationIntegrity, "execution_request_generation_allowed", "ACTIVATION_EXECUTION_GATE");
 has(intervalIntegrity, "historical_interval_attribution_allowed", "INTERVAL_ATTRIBUTION_GATE");
 has(attribution, "AVANTIQO_EXPERIMENT_OUTCOME_POLICY_INTERVAL_ATTRIBUTION_V1", "ATTRIBUTION_CONTRACT");
-has(attribution, "cross_interval_outcome_reuse_allowed: false", "NO_CROSS_INTERVAL_REUSE");
+has(attribution, "cross_interval_policy_binding_reuse_allowed: false", "NO_CROSS_INTERVAL_REUSE");
 
-// Current cron is an authenticated orchestrator. It may reconcile request candidates, but must
-// never silently approve, claim, consume, execute, fabricate receipts/results, spend, or mutate weights.
 has(route, "CRON_SECRET", "CRON_SECRET_REQUIRED");
-has(route, 'status: 401', "CRON_UNAUTHORIZED_401");
-has(route, 'status: 500', "CRON_FATAL_500");
-has(route, '? 207', "CRON_PARTIAL_207");
+has(route, "status: 401", "CRON_UNAUTHORIZED_401");
+has(route, "status: 500", "CRON_FATAL_500");
+has(route, "? 207", "CRON_PARTIAL_207");
 has(route, "persistentPolicyActivationGenerationResearchIntegrity", "ROUTE_RESEARCH_INTEGRITY");
 has(route, "persistentOrderingPolicyRegressionMonitor", "ROUTE_REGRESSION_MONITOR");
 has(route, "persistentPolicyGenerationIntegrity", "ROUTE_GENERATION_INTEGRITY");
@@ -213,19 +206,19 @@ for (const marker of [
 ]) forbid(route, marker, "CRON_AUTONOMOUS_AUTHORITY");
 
 const ordering = [
-  "reconcileAvantiqoExperimentOutcomeAssessorCalibration",
-  "reconcileAvantiqoExperimentEstimatorCalibration",
-  "reconcileAvantiqoExperimentPortfolioPerformance",
-  "reconcileAvantiqoLongHorizonPolicyAdaptedExperimentPortfolio",
-  "reconcileAvantiqoSelectionPolicyResearchEpoch",
-  "reconcileAvantiqoPersistentOrderingPolicyApplication",
-  "reconcileAvantiqoPersistentOrderingPolicyRegressionMonitor",
-  "verifyAvantiqoPersistentPolicyGenerationIntegrity",
-  "reconcileAvantiqoRebasedSelectionPolicyChallenger",
-  "reconcileAvantiqoRebasedSelectionPolicyPromotionRequests",
-  "reconcileAvantiqoRebasedSelectionPolicyCanary",
-  "reconcileAvantiqoPersistentPolicySuccessionRequests",
-  "reconcileAvantiqoExperimentExecutionRequests",
+  "await reconcileAvantiqoExperimentOutcomeAssessorCalibration()",
+  "await reconcileAvantiqoExperimentEstimatorCalibration()",
+  "await reconcileAvantiqoExperimentPortfolioPerformance()",
+  "await reconcileAvantiqoLongHorizonPolicyAdaptedExperimentPortfolio()",
+  "await reconcileAvantiqoSelectionPolicyResearchEpoch()",
+  "await reconcileAvantiqoPersistentOrderingPolicyApplication()",
+  "await reconcileAvantiqoPersistentOrderingPolicyRegressionMonitor()",
+  "await verifyAvantiqoPersistentPolicyGenerationIntegrity()",
+  "await reconcileAvantiqoRebasedSelectionPolicyChallenger()",
+  "await reconcileAvantiqoRebasedSelectionPolicyPromotionRequests()",
+  "await reconcileAvantiqoRebasedSelectionPolicyCanary()",
+  "await reconcileAvantiqoPersistentPolicySuccessionRequests()",
+  "await reconcileAvantiqoExperimentExecutionRequests()",
 ];
 let cursor = -1;
 for (const marker of ordering) {
@@ -234,7 +227,6 @@ for (const marker of ordering) {
   cursor = next;
 }
 
-// Public Intelligence barrel must expose the full governed learning/evolution surface.
 for (const marker of [
   "AvantiqoActiveExperimentSelectionRuntime",
   "AvantiqoExperimentExecutionGovernanceRuntime",

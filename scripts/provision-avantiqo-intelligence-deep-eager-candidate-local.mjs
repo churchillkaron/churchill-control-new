@@ -1,3 +1,85 @@
-// Compatibility entrypoint. The V2 provisioner fixes candidate/deep verification
-// by fetching authoritative bound templates instead of trusting partial endpoint.template payloads.
+import { spawnSync } from "node:child_process";
+
+const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_EAGER_CANDIDATE_CONCURRENCY_GUARD_V1";
+const EXPECTED_MAIN_ENV = "AVANTIQO_INTELLIGENCE_DEEP_EAGER_CANDIDATE_EXPECTED_MAIN";
+const CRITICAL_PATHS = [
+  "scripts/provision-avantiqo-intelligence-deep-eager-candidate-local.mjs",
+  "scripts/provision-avantiqo-intelligence-deep-eager-candidate-v2-local.mjs",
+  "scripts/run-avantiqo-intelligence-deep-eager-candidate-probe-local.mjs",
+  "scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs",
+  "config/avantiqo-runpod-safe-lease-policy.json",
+];
+
+const text = (value) => String(value ?? "").trim();
+
+function runGit(args, code, { allowStatus = [] } = {}) {
+  const result = spawnSync("git", args, {
+    cwd: process.cwd(),
+    env: process.env,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.status !== 0 && !allowStatus.includes(result.status)) {
+    throw new Error(`${code}:${text(result.stderr || result.stdout).slice(0, 900)}`);
+  }
+  return result;
+}
+
+const expected = text(process.env[EXPECTED_MAIN_ENV]);
+if (expected) {
+  if (!/^[0-9a-f]{40}$/i.test(expected)) {
+    throw new Error(`${CONTRACT}_EXPECTED_MAIN_INVALID`);
+  }
+
+  const branch = text(runGit(["branch", "--show-current"], `${CONTRACT}_GIT_BRANCH_FAILED`).stdout);
+  if (branch !== "main") {
+    throw new Error(`${CONTRACT}_MAIN_REQUIRED:${branch || "DETACHED"}`);
+  }
+
+  runGit(["fetch", "origin", "main"], `${CONTRACT}_GIT_FETCH_FAILED`);
+  runGit(["cat-file", "-e", `${expected}^{commit}`], `${CONTRACT}_EXPECTED_COMMIT_MISSING`);
+  const remote = text(runGit(["rev-parse", "origin/main"], `${CONTRACT}_GIT_REMOTE_FAILED`).stdout);
+
+  if (remote !== expected) {
+    const ancestry = runGit(
+      ["merge-base", "--is-ancestor", expected, remote],
+      `${CONTRACT}_ANCESTRY_CHECK_FAILED`,
+      { allowStatus: [1] },
+    );
+    if (ancestry.status !== 0) {
+      throw new Error(`${CONTRACT}_PINNED_MAIN_NOT_ANCESTOR:expected=${expected}:actual=${remote}`);
+    }
+
+    const changed = text(
+      runGit(
+        ["diff", "--name-only", expected, remote, "--", ...CRITICAL_PATHS],
+        `${CONTRACT}_CRITICAL_DIFF_FAILED`,
+      ).stdout,
+    )
+      .split("\n")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+    if (changed.length) {
+      throw new Error(
+        `${CONTRACT}_CRITICAL_PATH_CHANGED:expected=${expected}:actual=${remote}:paths=${changed.join(",")}`,
+      );
+    }
+
+    console.log(`${CONTRACT}_UNRELATED_MAIN_ADVANCE_ALLOWED=${JSON.stringify({
+      pinned_main: expected,
+      observed_main: remote,
+      critical_paths_changed: false,
+    })}`);
+  }
+
+  // V2 performs its own fresh-main fetch immediately before mutations. The
+  // compatibility guard above has already proven any advance from the pinned
+  // experiment revision is unrelated to this experiment, so do not make V2
+  // reject that unrelated advancement solely because the SHA changed.
+  delete process.env[EXPECTED_MAIN_ENV];
+}
+
+// V2 fetches authoritative bound templates by templateId instead of trusting
+// partial endpoint.template payloads.
 await import("./provision-avantiqo-intelligence-deep-eager-candidate-v2-local.mjs");

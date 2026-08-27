@@ -14,6 +14,7 @@ import {
   Scissors,
   SlidersHorizontal,
   Sparkles,
+  WandSparkles,
 } from "lucide-react";
 
 import MusicArrangementPanel from "./MusicArrangementPanel";
@@ -22,6 +23,7 @@ import MusicWorkspace from "./MusicWorkspace";
 import MusicBackingTrackPanel from "./MusicBackingTrackPanel";
 import MusicMasterStudioPanel from "./MusicMasterStudioPanel";
 import MusicMidiStudioPanel from "./MusicMidiStudioPanel";
+import MusicProducerPanel from "./MusicProducerPanel";
 import MusicStemsPanel from "./MusicStemsPanel";
 import MusicRemixPanel from "./MusicRemixPanel";
 import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
@@ -32,6 +34,7 @@ const MODES = Object.freeze([
   { id: "auto", label: "Auto Studio", icon: Sparkles },
   { id: "record", label: "Record", icon: Mic2 },
   { id: "workstation", label: "Workstation", icon: Layers3 },
+  { id: "producer", label: "Producer", icon: WandSparkles },
   { id: "arrange", label: "Arrange", icon: LayoutGrid },
   { id: "midi", label: "MIDI / Piano Roll", icon: KeyboardMusic },
   { id: "compose", label: "Compose", icon: Music2 },
@@ -93,6 +96,11 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           organizationId={organizationId}
           projectId={project?.id || null}
           projectName={project?.name || project?.title || "Music Project"}
+        />
+      ) : mode === "producer" ? (
+        <MusicProducerPanel
+          organizationId={organizationId}
+          projectId={project?.id || null}
         />
       ) : mode === "arrange" ? (
         <MusicArrangementPanel

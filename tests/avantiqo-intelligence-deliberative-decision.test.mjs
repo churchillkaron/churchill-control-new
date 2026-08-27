@@ -184,7 +184,7 @@ test("planning tool exposes deliberation without gaining execution authority", (
     new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url),
     "utf8",
   );
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V3/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V4/);
   assert.match(source, /"deliberate"/);
   assert.match(source, /deliberative_decision_contract/);
   assert.match(source, /recommendations_are_not_execution_authority/);

@@ -245,6 +245,8 @@ if (!apply) {
     storage_mutation_performed: false,
     direct_workers_max_write: false,
     exact_job_cancel_on_unscheduled_zero_workers: true,
+    target_queue_key_scoped_to_cinema: true,
+    inert_unbounded_peers_allowed_only_if_zero_jobs_workers_cost_and_health_errors: true,
     production_web_deploy: false,
     secrets_printed: false,
   }, null, 2));
@@ -259,9 +261,13 @@ if (leased) {
   process.exit(0);
 }
 
+const cinemaQueueKey = text(process.env.RUNPOD_AVANTIQO_VIDEO_API_KEY) || text(process.env.RUNPOD_API_KEY) || text(process.env.RUNPOD_MANAGEMENT_API_KEY);
+if (!cinemaQueueKey) throw new Error("AVANTIQO_VIDEO_V19_CINEMA_QUEUE_KEY_REQUIRED");
 const env = {
   ...process.env,
   AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES",
+  AVANTIQO_RUNPOD_SAFE_LEASE_TARGET_QUEUE_API_KEY: cinemaQueueKey,
+  AVANTIQO_RUNPOD_SAFE_LEASE_INERT_PEER_ISOLATION_LANE: LANE,
 };
 const child = spawnSync(
   process.execPath,

@@ -190,8 +190,9 @@ test("latest successful research round controls diminishing-returns proof", () =
   assert.equal(gated.goal_status, "completed");
   assert.equal(gated.epistemic_state.research_evidence_sequence, 1);
   assert.equal(gated.epistemic_state.research_stop_proven, true);
+  assert.equal(gated.epistemic_state.diminishing_returns_proven, true);
   assert.equal(
-    gated.epistemic_state.research_stop_evidence_reason,
+    gated.epistemic_state.diminishing_returns_evidence_reason,
     "OBSERVED_ZERO_MARGINAL_RESEARCH_UTILITY",
   );
 });

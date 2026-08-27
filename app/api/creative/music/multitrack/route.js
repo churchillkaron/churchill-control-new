@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
+import { validateMusicAutomation } from "@/lib/creative/music/runtime/CreativeMusicAutomationRuntime";
 import {
   ensureMusicEngineeringBuses,
   validateMusicMixerRouting,
@@ -70,6 +71,7 @@ function normalizedSession(session) {
   const next = ensureMusicEngineeringBuses(session);
   validateMusicMultitrackProject(next);
   validateMusicMixerRouting(next);
+  validateMusicAutomation(next);
   return next;
 }
 
@@ -111,6 +113,8 @@ async function publicSessionResult({ organizationId, projectId, session, persist
     asset_urls: await playbackAssetUrls(organizationId, projectId, session),
     preview_transport_ready: true,
     mixer_aux_routing_ready: true,
+    mixer_group_routing_ready: true,
+    mixer_automation_ready: true,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
   };
@@ -120,12 +124,7 @@ async function loadSession(organizationId, projectId) {
   const project = await projectInScope(organizationId, projectId);
   const saved = project.metadata?.[METADATA_KEY] || null;
   const session = normalizedSession(saved || defaultSession(project));
-  return publicSessionResult({
-    organizationId,
-    projectId,
-    session,
-    persisted: Boolean(saved),
-  });
+  return publicSessionResult({ organizationId, projectId, session, persisted: Boolean(saved) });
 }
 
 async function saveSession(organizationId, projectId, submitted) {
@@ -152,12 +151,7 @@ async function saveSession(organizationId, projectId, submitted) {
     music_multitrack_updated_at: new Date().toISOString(),
   };
   await CreativeProjectRepository.update(project.id, { metadata });
-  return publicSessionResult({
-    organizationId,
-    projectId,
-    session: next,
-    persisted: true,
-  });
+  return publicSessionResult({ organizationId, projectId, session: next, persisted: true });
 }
 
 export async function POST(request) {

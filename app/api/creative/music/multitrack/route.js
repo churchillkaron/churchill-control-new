@@ -12,10 +12,12 @@ import {
   ensureMusicEngineeringBuses,
   validateMusicMixerRouting,
 } from "@/lib/creative/music/runtime/CreativeMusicMixerRoutingRuntime";
+import { ensureMusicMidiProject, validateMusicMidiProject } from "@/lib/creative/music/runtime/CreativeMusicMidiRuntime";
 import {
   createMusicMultitrackProject,
   validateMusicMultitrackProject,
 } from "@/lib/creative/music/runtime/CreativeMusicMultitrackRuntime";
+import { ensureMusicSamplerProject, validateMusicSamplerProject } from "@/lib/creative/music/runtime/CreativeMusicSamplerRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 
 const EXECUTION_PERMISSIONS = Object.freeze([
@@ -24,6 +26,7 @@ const EXECUTION_PERMISSIONS = Object.freeze([
   "creative.*",
 ]);
 const METADATA_KEY = "music_multitrack_project";
+const SAMPLER_METADATA_KEY = "music_sampler_project";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -66,10 +69,12 @@ function defaultSession(project) {
 
 function normalizedSession(session) {
   const next = ensureMusicEngineeringBuses(session);
+  next.midi = ensureMusicMidiProject(next.midi || {});
   validateMusicMultitrackProject(next);
   validateMusicMixerRouting(next);
   validateMusicGroupProcessing(next);
   validateMusicAutomation(next);
+  validateMusicMidiProject(next.midi);
   return next;
 }
 
@@ -80,10 +85,17 @@ function sessionAssetIds(session = {}) {
   ]).filter(Boolean));
 }
 
-async function playbackAssetUrls(organizationId, projectId, session) {
-  const requiredIds = sessionAssetIds(session);
+function samplerAssetIds(sampler = {}) {
+  return new Set((sampler.kits || []).flatMap((kit) => (kit.pads || []).map((pad) => text(pad.sample_asset_id))).filter(Boolean));
+}
+
+async function resolveAssetUrls(organizationId, projectId, requiredIds) {
   if (!requiredIds.size) return {};
-  const assets = await CreativeAssetsRuntime.list({ organization_id: organizationId, creative_project_id: projectId, limit: Math.max(200, requiredIds.size * 2) });
+  const assets = await CreativeAssetsRuntime.list({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    limit: Math.max(200, requiredIds.size * 2),
+  });
   const urls = {};
   for (const asset of assets) {
     const assetId = text(asset?.id || asset?.asset_id);
@@ -95,14 +107,30 @@ async function playbackAssetUrls(organizationId, projectId, session) {
   return urls;
 }
 
-async function publicSessionResult({ organizationId, projectId, session, persisted }) {
+async function publicSessionResult({ organizationId, projectId, project, session, persisted }) {
+  const sampler = ensureMusicSamplerProject(project.metadata?.[SAMPLER_METADATA_KEY] || {});
+  validateMusicSamplerProject(sampler);
+  const [assetUrls, sampleUrls] = await Promise.all([
+    resolveAssetUrls(organizationId, projectId, sessionAssetIds(session)),
+    resolveAssetUrls(organizationId, projectId, samplerAssetIds(sampler)),
+  ]);
+  const midiTrackCount = session.midi?.tracks?.length || 0;
+  const midiClipCount = (session.midi?.tracks || []).reduce((sum, track) => sum + (track.clips?.length || 0), 0);
   return {
     success: true,
     session,
     revision: Math.max(0, Math.round(finite(session.revision, 0))),
     persisted,
-    asset_urls: await playbackAssetUrls(organizationId, projectId, session),
+    asset_urls: assetUrls,
+    sampler,
+    sample_urls: sampleUrls,
     preview_transport_ready: true,
+    unified_transport_ready: true,
+    unified_transport_contract: "AVANTIQO_MUSIC_UNIFIED_WORKSTATION_TRANSPORT_V1",
+    midi_timeline_ready: true,
+    midi_track_count: midiTrackCount,
+    midi_clip_count: midiClipCount,
+    sampler_ready: true,
     mixer_aux_routing_ready: true,
     mixer_group_routing_ready: true,
     mixer_group_processing_ready: true,
@@ -116,7 +144,7 @@ async function loadSession(organizationId, projectId) {
   const project = await projectInScope(organizationId, projectId);
   const saved = project.metadata?.[METADATA_KEY] || null;
   const session = normalizedSession(saved || defaultSession(project));
-  return publicSessionResult({ organizationId, projectId, session, persisted: Boolean(saved) });
+  return publicSessionResult({ organizationId, projectId, project, session, persisted: Boolean(saved) });
 }
 
 async function saveSession(organizationId, projectId, submitted) {
@@ -138,7 +166,7 @@ async function saveSession(organizationId, projectId, submitted) {
     music_multitrack_updated_at: new Date().toISOString(),
   };
   await CreativeProjectRepository.update(project.id, { metadata });
-  return publicSessionResult({ organizationId, projectId, session: next, persisted: true });
+  return publicSessionResult({ organizationId, projectId, project: { ...project, metadata }, session: next, persisted: true });
 }
 
 export async function POST(request) {

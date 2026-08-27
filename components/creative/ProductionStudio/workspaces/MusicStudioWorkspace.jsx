@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   AudioLines,
   Disc3,
+  KeyboardMusic,
   Layers3,
   Mic2,
   MicOff,
@@ -18,6 +19,7 @@ import MusicAutoStudioPanel from "./MusicAutoStudioPanel";
 import MusicWorkspace from "./MusicWorkspace";
 import MusicBackingTrackPanel from "./MusicBackingTrackPanel";
 import MusicMasterStudioPanel from "./MusicMasterStudioPanel";
+import MusicMidiStudioPanel from "./MusicMidiStudioPanel";
 import MusicStemsPanel from "./MusicStemsPanel";
 import MusicRemixPanel from "./MusicRemixPanel";
 import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
@@ -28,6 +30,7 @@ const MODES = Object.freeze([
   { id: "auto", label: "Auto Studio", icon: Sparkles },
   { id: "record", label: "Record", icon: Mic2 },
   { id: "workstation", label: "Workstation", icon: Layers3 },
+  { id: "midi", label: "MIDI / Piano Roll", icon: KeyboardMusic },
   { id: "compose", label: "Compose", icon: Music2 },
   { id: "remix", label: "Remix", icon: RefreshCw },
   { id: "edit", label: "Edit / Repaint", icon: Scissors },
@@ -56,7 +59,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-[9px] font-semibold uppercase tracking-[0.24em] text-[#d6a66a]/75">Avantiqo Music Studio</div>
-            <div className="mt-1 text-xs text-white/32">Record, arrange, engineer, produce, repair, mix and master real performances — or compose with the owned Music engine.</div>
+            <div className="mt-1 text-xs text-white/32">Record, arrange, engineer, perform with MIDI, produce, repair, mix and master real music — or compose with the owned Music engine.</div>
           </div>
           <div className="flex flex-wrap rounded-xl border border-white/8 bg-black/35 p-1">
             {MODES.map((item) => {
@@ -87,6 +90,11 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           organizationId={organizationId}
           projectId={project?.id || null}
           projectName={project?.name || project?.title || "Music Project"}
+        />
+      ) : mode === "midi" ? (
+        <MusicMidiStudioPanel
+          organizationId={organizationId}
+          projectId={project?.id || null}
         />
       ) : mode === "compose" ? (
         <MusicWorkspace runtime={runtime} editor={editor} />

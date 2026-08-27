@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "../lib/shared/supabase/admin.js";
+import { correctSecretaryTravelConfirmation } from "../lib/operator/secretary/SecretaryTravelConfirmationCorrectionRuntime.js";
 import {
   createSecretaryTravelReminder,
   readSecretaryTravelOperations,
@@ -152,6 +153,42 @@ const flightReplay = await recordSecretaryTravelConfirmation({
 assert.equal(flightReplay.replay_safe, true);
 assert.equal(flightReplay.confirmation.confirmation_id, flight.confirmation.confirmation_id);
 
+const flightCorrected = await correctSecretaryTravelConfirmation({
+  context,
+  payload: {
+    job_id: jobId,
+    supersedes_confirmation_id: flight.confirmation.confirmation_id,
+    starts_at: "2035-04-10T03:30:00Z",
+    ends_at: "2035-04-10T05:30:00Z",
+    evidence_id: "travel-flight-correction-v2",
+    source_reference: "email:flight-confirmation-v2",
+    reason: "Carrier issued corrected departure and arrival times.",
+  },
+});
+assert.equal(flightCorrected.status, "corrected");
+assert.equal(flightCorrected.confirmation.supersedes_confirmation_id, flight.confirmation.confirmation_id);
+assert.equal(flightCorrected.confirmation.confirmation_inferred, false);
+assert.equal(flightCorrected.confirmation.starts_at, "2035-04-10T03:30:00.000Z");
+assert.notEqual(flightCorrected.confirmation.confirmation_id, flight.confirmation.confirmation_id);
+assert.equal(flightCorrected.booking_authority_created, false);
+assert.equal(flightCorrected.payment_authority_created, false);
+assert.equal(flightCorrected.binding_authority_created, false);
+assert.equal(flightCorrected.approval_authority_delegated, false);
+
+await expectError(
+  () => correctSecretaryTravelConfirmation({
+    context,
+    payload: {
+      job_id: jobId,
+      supersedes_confirmation_id: flight.confirmation.confirmation_id,
+      starts_at: "2035-04-10T04:00:00Z",
+      evidence_id: "travel-flight-stale-correction",
+      reason: "Stale correction attempt against superseded confirmation.",
+    },
+  }),
+  "SECRETARY_TRAVEL_OPERATIONS_STALE_CORRECTION_REJECTED",
+);
+
 const hotel = await recordSecretaryTravelConfirmation({
   context,
   payload: {
@@ -207,7 +244,7 @@ const disruption = await recordSecretaryTravelDisruption({
     evidence_id: "travel-disruption-v1",
     description: "Confirmed departure delay reported by carrier.",
     occurred_at: "2035-04-10T01:30:00Z",
-    affected_confirmation_id: flight.confirmation.confirmation_id,
+    affected_confirmation_id: flightCorrected.confirmation.confirmation_id,
     source_reference: "message:carrier-delay-v1",
   },
 });
@@ -225,10 +262,14 @@ assert.equal(read.payment_authority_created, false);
 assert.equal(read.binding_authority_created, false);
 assert.equal(read.external_authority_used, false);
 assert.equal(read.evidence_summary.confirmed_items, 2);
+assert.equal(read.evidence_summary.superseded_items, 1);
 assert.equal(read.evidence_summary.disruptions, 1);
 assert.equal(read.evidence_summary.reminders, 1);
 assert.equal(read.evidence_summary.approval_required_steps, 1);
-assert.equal(read.itinerary[0].confirmation_id, flight.confirmation.confirmation_id);
+assert.ok(read.itinerary.some((item) => item.confirmation_id === flightCorrected.confirmation.confirmation_id));
+assert.ok(!read.itinerary.some((item) => item.confirmation_id === flight.confirmation.confirmation_id));
+assert.ok(read.superseded_confirmations.some((item) => item.confirmation_id === flight.confirmation.confirmation_id));
+assert.ok(read.confirmation_history.some((item) => item.event === "CONFIRMATION_CORRECTED" && item.supersedes_confirmation_id === flight.confirmation.confirmation_id));
 assert.ok(read.approval_required_steps.some((step) => step.status === "APPROVAL_REQUIRED"));
 
 const storedJob = await one(
@@ -242,11 +283,17 @@ assert.equal(ledger.binding_authority_created, false);
 assert.equal(ledger.external_authority_used, false);
 assert.equal(storedJob.metadata.approval_authority_delegated, false);
 assert.equal(storedJob.metadata.platform_permissions_mutated, false);
+assert.ok(ledger.confirmations.some((item) => item.confirmation_id === flight.confirmation.confirmation_id && item.status === "SUPERSEDED"));
+assert.ok(ledger.confirmations.some((item) => item.confirmation_id === flightCorrected.confirmation.confirmation_id && item.status === "CONFIRMED"));
+assert.ok(ledger.history.some((item) => item.event === "CONFIRMATION_CORRECTED"));
 
 console.log("SECRETARY_TRAVEL_OPERATIONS_LOCAL_CERTIFICATION=PASS");
 console.log("SECRETARY_TRAVEL_OPERATIONS_EVIDENCE_REQUIRED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_CONFIRMATIONS_DURABLE=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_CONFIRMATION_REPLAY_SAFE=true");
+console.log("SECRETARY_TRAVEL_OPERATIONS_CORRECTION_HISTORY_PRESERVED=true");
+console.log("SECRETARY_TRAVEL_OPERATIONS_STALE_CORRECTION_FENCED=true");
+console.log("SECRETARY_TRAVEL_OPERATIONS_SUPERSEDED_NOT_ACTIVE=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_ITINERARY_EVIDENCE_SORTED=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_REMINDER_DETERMINISTIC=true");
 console.log("SECRETARY_TRAVEL_OPERATIONS_TIMESTAMP_NOT_INFERRED=true");

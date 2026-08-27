@@ -148,6 +148,7 @@ node scripts/operator-secretary-supabase-await-audit.mjs
 npm run audit:operator-secretary-end-to-end
 node scripts/preflight-secretary-meeting-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-approval-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-approval-owner-boundary-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-review-controls-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-job-cancellation-normalization-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-correspondence-local.mjs

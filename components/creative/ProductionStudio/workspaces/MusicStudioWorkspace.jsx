@@ -17,6 +17,7 @@ import {
 import MusicAutoStudioPanel from "./MusicAutoStudioPanel";
 import MusicWorkspace from "./MusicWorkspace";
 import MusicBackingTrackPanel from "./MusicBackingTrackPanel";
+import MusicMasterStudioPanel from "./MusicMasterStudioPanel";
 import MusicStemsPanel from "./MusicStemsPanel";
 import MusicRemixPanel from "./MusicRemixPanel";
 import MusicRecordingStudioPanel from "./MusicRecordingStudioPanel";
@@ -117,7 +118,10 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
       ) : mode === "mix" ? (
         <MusicSpecialistStudioPanel mode="mix" {...specialistProps} />
       ) : mode === "master" ? (
-        <MusicSpecialistStudioPanel mode="master" {...specialistProps} />
+        <MusicMasterStudioPanel
+          organizationId={organizationId}
+          projectId={project?.id || null}
+        />
       ) : (
         <div className="mx-auto max-w-6xl p-6">
           <div className="rounded-2xl border border-white/8 bg-black/25 p-6 text-xs text-white/40">

@@ -67,6 +67,9 @@ import {
   reconcileAvantiqoExperimentEstimatorCalibration,
 } from "@/lib/intelligence/runtime/AvantiqoExperimentEstimatorCalibrationRuntime";
 import {
+  reconcileAvantiqoExperimentPortfolioPerformance,
+} from "@/lib/intelligence/runtime/AvantiqoExperimentPortfolioPerformanceRuntime";
+import {
   reconcileAvantiqoCalibrationBackfilledExperimentPortfolio,
 } from "@/lib/intelligence/runtime/AvantiqoCalibrationBackfilledExperimentPortfolioRuntime";
 import {
@@ -117,6 +120,8 @@ export async function GET(request) {
       await reconcileAvantiqoExperimentOutcomeAssessorCalibration();
     const experimentEstimatorCalibration =
       await reconcileAvantiqoExperimentEstimatorCalibration();
+    const experimentPortfolioPerformance =
+      await reconcileAvantiqoExperimentPortfolioPerformance();
 
     const calibrationBackfilledExperimentPortfolio =
       await reconcileAvantiqoCalibrationBackfilledExperimentPortfolio();
@@ -165,6 +170,7 @@ export async function GET(request) {
         learning_transfer_revision: learningTransferRevision,
         experiment_outcome_assessor_calibration: experimentOutcomeAssessorCalibration,
         experiment_estimator_calibration: experimentEstimatorCalibration,
+        experiment_portfolio_performance: experimentPortfolioPerformance,
         calibration_backfilled_experiment_portfolio:
           calibrationBackfilledExperimentPortfolio,
         active_experiment_selection: activeExperimentSelection,

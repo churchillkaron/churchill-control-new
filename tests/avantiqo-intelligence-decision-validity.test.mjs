@@ -61,7 +61,7 @@ test("caller freshness setting can tighten but never loosen policy", () => {
 
 test("planning tool exposes decision validity without gaining execution authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V12/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V13/);
   assert.match(source, /"validate_decision"/);
   assert.match(source, /decision_validity_contract/);
   assert.match(source, /prior_approval_never_substitutes_for_current_governance/);

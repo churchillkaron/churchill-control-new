@@ -10,6 +10,7 @@ loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_HUMAN_REVIEW_PREP_V1";
 const BENCHMARK_CONTRACT = "AVANTIQO_MUSIC_TRANSFORM_CERTIFICATION_BENCHMARK_V2";
+const CONTINUITY_FIXTURE_CONTRACT = "AVANTIQO_MUSIC_CONTINUITY_FIXTURE_V1";
 const SAFE_LEASE_LANE = "music-transform-candidate";
 const EXPECTED_CAPABILITY = "ai.audio.extend";
 
@@ -35,6 +36,12 @@ if (
   report?.temporal_extension_technical_proven !== true ||
   report?.human_review_required !== true ||
   text(report?.human_review_status) !== "PENDING" ||
+  text(report?.human_review_kind) !== "MUSICAL_CONTINUITY" ||
+  text(report?.source_mode) !== "MUSICAL_CONTINUITY" ||
+  report?.eligible_for_human_release_review !== true ||
+  text(report?.source_fixture?.contract) !== CONTINUITY_FIXTURE_CONTRACT ||
+  report?.source_fixture?.original_composition !== true ||
+  report?.source_fixture?.royalty_free !== true ||
   report?.production_activation_allowed !== false ||
   report?.pricing_activation_allowed !== false ||
   report?.provider_selection_change_allowed !== false ||
@@ -81,15 +88,21 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   benchmark_contract: BENCHMARK_CONTRACT,
   capability: EXPECTED_CAPABILITY,
+  source_mode: "MUSICAL_CONTINUITY",
+  source_fixture_contract: CONTINUITY_FIXTURE_CONTRACT,
+  source_fixture_progression: report?.source_fixture?.progression || null,
+  source_fixture_final_harmony: report?.source_fixture?.final_harmony || null,
+  source_duration_seconds: report?.source_duration_seconds,
   report_path: reportPath,
   review_audio_path: reviewAudioPath,
   review_audio_size_bytes: audio.length,
   opened_for_review: opened,
   human_review_status: "PENDING",
+  human_review_kind: "MUSICAL_CONTINUITY",
   temporal_extension_technical_proven: true,
   provider_jobs_submitted: 0,
   runpod_lease_opened: false,
   production_activation_performed: false,
   pricing_activation_performed: false,
-  next_step: "LISTEN_THEN_RECORD_APPROVED_OR_REJECTED",
+  next_step: "LISTEN_FOR_SEAMLESS_HARMONY_RHYTHM_MELODY_AND_TIMBRE_CONTINUATION_THEN_RECORD_APPROVED_OR_REJECTED",
 }, null, 2));

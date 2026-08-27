@@ -86,7 +86,7 @@ test("mutating recovery remains human governed", () => {
 
 test("planning tool exposes contingency assessment without execution authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V11/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V12/);
   assert.match(source, /"assess_contingency"/);
   assert.match(source, /decision_contingency_contract/);
   assert.match(source, /deterministic_decision_contingency_assessment/);

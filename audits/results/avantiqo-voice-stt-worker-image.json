@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "contract": "AVANTIQO_VOICE_STT_WORKER_IMAGE_RESULT_V1",
+  "github_run_id": "33052161888",
+  "trigger_sha": "e7734a25b7a8f58a495eb1b1d8e32ee992b39748",
+  "source_sha": "e7734a25b7a8f58a495eb1b1d8e32ee992b39748",
+  "source_sha_matches_trigger": true,
+  "build_job_result": "success",
+  "preflight_outcome": "success",
+  "build_outcome": "success",
+  "image_repository": "ghcr.io/churchillkaron/avantiqo-voice-stt-worker",
+  "image_tag": "ghcr.io/churchillkaron/avantiqo-voice-stt-worker:sha-e7734a25b7a8",
+  "image_digest": "sha256:43f0ffd8da18054ab73913efc24dd1909db2fb00c3060d53405ec8458bdb955a",
+  "immutable_image_reference": "ghcr.io/churchillkaron/avantiqo-voice-stt-worker@sha256:43f0ffd8da18054ab73913efc24dd1909db2fb00c3060d53405ec8458bdb955a",
+  "foundation_model": "openai/whisper-large-v3-turbo",
+  "cuda_runtime_expected": "12.8",
+  "vocabulary_context_prompt_ids_baked": true,
+  "production_web_deploy": false,
+  "provider_job_submitted": false,
+  "tts_image_built": false,
+  "pricing_activation_performed": false,
+  "secrets_in_output": false
+}

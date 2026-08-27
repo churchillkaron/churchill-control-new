@@ -32,14 +32,18 @@ assert.match(source.runtime, /approval_extends_authority:\s*false/);
 assert.match(source.runtime, /platform_permissions_mutated:\s*false/);
 assert.match(source.runtime, /external_authority_used:\s*false/);
 
-assert.match(source.capability, /readSecretaryExecutiveBriefingV5/);
-assert.doesNotMatch(source.capability, /readSecretaryExecutiveBriefingV4/);
+// V5 remains the regression baseline, while the public secretary_briefing
+// capability intentionally routes through V6, which composes V5 underneath.
+assert.match(source.capability, /readSecretaryExecutiveBriefingV6/);
+assert.doesNotMatch(source.capability, /readSecretaryExecutiveBriefingV5/);
 assert.match(source.capability, /capability:\s*"secretary_briefing"/);
 assert.match(source.capability, /action:\s*"read"/);
 assert.match(source.capability, /operatorRequiresConfirmation:\s*false/);
 assert.match(source.capability, /commitments/);
 assert.match(source.capability, /current travel operations/);
 assert.match(source.capability, /explicit working preferences/);
+assert.match(source.capability, /durable executive decision register/);
+assert.match(source.capability, /evidenced cancellations and voids/);
 
 console.log("OPERATOR_SECRETARY_EXECUTIVE_BRIEFING_V5_AUDIT=PASS");
 console.log("SECRETARY_EXECUTIVE_BRIEFING_V5_WRAP_V4=true");

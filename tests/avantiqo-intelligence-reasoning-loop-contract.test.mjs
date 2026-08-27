@@ -53,13 +53,17 @@ test("owned Intelligence resolves its canonical RunPod endpoint without requirin
   assert.match(provider, /const \{ apiBase, apiKey \} = await config\(\)/);
 });
 
-test("provider registration permits only development review bypass of the engine enable switch", () => {
+test("provider registration permits only development review bypass and advertises owned-only inference", () => {
   assert.match(providerRegistration, /localReviewRuntimeAllowed/);
   assert.match(providerRegistration, /process\.env\.NODE_ENV/);
   assert.match(providerRegistration, /toLowerCase\(\) === "development"/);
   assert.match(providerRegistration, /runpodEndpointId \|\| runpodManagementKey/);
   assert.match(providerRegistration, /engineEnabled \|\| localReviewRuntimeAllowed/);
   assert.match(providerRegistration, /runpod_endpoint_discovery_configured/);
+  assert.match(providerRegistration, /external_provider_fallback_allowed:\s*false/);
+  assert.match(providerRegistration, /supplier_type:\s*"OWNED_INFERENCE"/);
+  assert.match(providerRegistration, /data_control:\s*"AVANTIQO"/);
+  assert.match(providerRegistration, /inference_control:\s*"AVANTIQO"/);
 });
 
 test("reasoning loop is bounded and rejects tool replay", () => {

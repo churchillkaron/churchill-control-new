@@ -4,18 +4,26 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_VOICE_STT_EXISTING_AUDIO_DIAGNOSTIC_V1";
+const CONTRACT = "AVANTIQO_VOICE_STT_EXISTING_AUDIO_DIAGNOSTIC_V2";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const ENDPOINT_NAME = "avantiqo-voice-stt-v1";
-const EXPECTED_IMAGE = "registry.runpod.net/churchillkaron-churchill-control-new-main-services-avantiqo-voice-stt-dockerfile:3f300c60d";
+const NATIVE_IMAGE_PREFIX = "registry.runpod.net/churchillkaron-churchill-control-new-main-services-avantiqo-voice-stt-dockerfile:";
+const STT_SOURCE = Object.freeze({
+  handler_path: "services/avantiqo-voice-stt/handler.py",
+  handler_blob_sha: "465da9267ababa6b2ded92f7ebb26e4bbeb34783",
+  dockerfile_path: "services/avantiqo-voice-stt/Dockerfile",
+  dockerfile_blob_sha: "fe1ceb09e246a3ad1d851bbba3aaa3f5822e9d2d",
+  requirements_path: "services/avantiqo-voice-stt/requirements.txt",
+  requirements_blob_sha: "9b1f4d662a7b13b65d192493ed738998d2172698",
+});
 const PROOF_SCRIPT = resolve("scripts/run-avantiqo-voice-stt-existing-audio-proof-local.mjs");
 const LEASE_SCRIPT = resolve("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs");
 const REST = "https://rest.runpod.io/v1";
 const QUEUE = "https://api.runpod.ai/v2";
 const CONTROL = "https://api.runpod.io/v2";
-const GQL = "https://api.runpod.io/graphql";
 const POLL_MS = 10_000;
 const FORBIDDEN_PREMIUM = /\b(?:B200|B300|H100|H200|A100)\b|RTX\s*PRO\s*6000.*BLACKWELL|L40S?\b/i;
+const ACTIVE_WORKER_STATUSES = new Set(["INITIALIZING", "READY", "RUNNING", "IDLE", "THROTTLED", "UNHEALTHY"]);
 
 function text(value) { return String(value ?? "").trim(); }
 function list(value) { return Array.isArray(value) ? value : []; }
@@ -74,15 +82,60 @@ function healthSummary(body = {}) {
     },
   };
 }
-function workerSummary(worker = {}) {
+function workerSummary(worker = {}, templateImage = "") {
+  const status = text(worker?.status || worker?.desiredStatus).toUpperCase() || null;
+  const workerImage = text(worker?.image);
   return {
-    status: text(worker?.status || worker?.desiredStatus).toUpperCase() || null,
+    status,
+    active: Boolean(status && ACTIVE_WORKER_STATUSES.has(status) && worker?.isStale !== true),
     gpu_type_id: text(worker?.gpuTypeId || worker?.gpu?.displayName || worker?.machine?.gpuDisplayName) || null,
     data_center_id: text(worker?.dataCenterId || worker?.machine?.dataCenterId) || null,
     cost_per_hr: finite(worker?.adjustedCostPerHr ?? worker?.costPerHr),
     stale: worker?.isStale === true,
-    image_matches_expected: !text(worker?.image) || text(worker?.image) === EXPECTED_IMAGE,
+    worker_image_present: Boolean(workerImage),
+    image_matches_template: workerImage ? workerImage === templateImage : null,
   };
+}
+function runGit(args) {
+  const result = spawnSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  if (result.status !== 0) {
+    throw new Error(`GIT_${text(args[0]).toUpperCase()}_FAILED:${safeDetail(result.stderr)}`);
+  }
+  return text(result.stdout);
+}
+function verifyNativeImageSource(image) {
+  const value = text(image);
+  const base = {
+    image: value || null,
+    native_registry_image: value.startsWith(NATIVE_IMAGE_PREFIX),
+    source_ref: null,
+    source_sha: null,
+    handler_blob_sha: null,
+    dockerfile_blob_sha: null,
+    requirements_blob_sha: null,
+    source_verified: false,
+  };
+  if (!base.native_registry_image) return base;
+  const sourceRef = value.slice(NATIVE_IMAGE_PREFIX.length);
+  base.source_ref = sourceRef || null;
+  if (!/^[a-f0-9]{7,40}$/i.test(sourceRef)) return base;
+  try {
+    const sourceSha = runGit(["rev-parse", `${sourceRef}^{commit}`]);
+    const handlerBlob = runGit(["rev-parse", `${sourceSha}:${STT_SOURCE.handler_path}`]);
+    const dockerfileBlob = runGit(["rev-parse", `${sourceSha}:${STT_SOURCE.dockerfile_path}`]);
+    const requirementsBlob = runGit(["rev-parse", `${sourceSha}:${STT_SOURCE.requirements_path}`]);
+    base.source_sha = sourceSha;
+    base.handler_blob_sha = handlerBlob;
+    base.dockerfile_blob_sha = dockerfileBlob;
+    base.requirements_blob_sha = requirementsBlob;
+    base.source_verified =
+      handlerBlob === STT_SOURCE.handler_blob_sha &&
+      dockerfileBlob === STT_SOURCE.dockerfile_blob_sha &&
+      requirementsBlob === STT_SOURCE.requirements_blob_sha;
+  } catch (error) {
+    base.source_error = safeDetail(error?.message);
+  }
+  return base;
 }
 
 async function parseJson(response, label) {
@@ -114,41 +167,6 @@ async function workers(endpointId, key) {
   }), "RUNPOD_VOICE_STT_DIAGNOSTIC_CONTROL");
   return list(body?.workers);
 }
-async function discoverCapacity(key) {
-  const queryText = `
-    query AvantiqoVoiceSttDiagnosticCapacity($input: GpuAvailabilityInput) {
-      dataCenters {
-        id
-        name
-        location
-        gpuAvailability(input: $input) {
-          available
-          stockStatus
-          gpuTypeId
-          gpuTypeDisplayName
-          displayName
-        }
-      }
-    }
-  `;
-  const response = await fetch(`${GQL}?api_key=${encodeURIComponent(key)}`, {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: queryText,
-      variables: { input: { gpuCount: 1, minDisk: 5, minMemoryInGb: 16, secureCloud: true } },
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  const raw = await response.text();
-  let body = null;
-  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
-  if (!response.ok || body?.errors?.length || !Array.isArray(body?.data?.dataCenters)) {
-    const detail = safeDetail(body?.errors?.map((entry) => entry?.message).filter(Boolean).join(" | ") || raw);
-    throw new Error(`AVANTIQO_VOICE_STT_DIAGNOSTIC_CAPACITY_FAILED:${response.status}:${detail || "INVALID_RESPONSE"}`);
-  }
-  return body.data.dataCenters;
-}
 async function resolveState(endpointId, managementKey, queueKey) {
   const endpoint = await rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`, managementKey);
   if (text(endpoint?.id) !== endpointId || text(endpoint?.name) !== ENDPOINT_NAME) {
@@ -161,11 +179,17 @@ async function resolveState(endpointId, managementKey, queueKey) {
   if (!templates) throw new Error("AVANTIQO_VOICE_STT_DIAGNOSTIC_TEMPLATE_LIST_INVALID");
   const template = templates.find((item) => text(item?.id) === templateId);
   if (!template) throw new Error("AVANTIQO_VOICE_STT_DIAGNOSTIC_TEMPLATE_NOT_FOUND");
+  const templateImage = text(template?.imageName);
   const [health, workerRows] = await Promise.all([
     queue(endpointId, queueKey),
     workers(endpointId, managementKey),
   ]);
-  return { endpoint, template, health: healthSummary(health), workers: workerRows.map(workerSummary) };
+  return {
+    endpoint,
+    template,
+    health: healthSummary(health),
+    workers: workerRows.map((worker) => workerSummary(worker, templateImage)),
+  };
 }
 
 if (!yes(process.env.AVANTIQO_VOICE_STT_DIAGNOSTIC_APPROVED)) {
@@ -179,20 +203,8 @@ if (!yes(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE)) {
   required("RUNPOD_MANAGEMENT_API_KEY");
   const result = spawnSync(
     process.execPath,
-    [
-      LEASE_SCRIPT,
-      "--lane=voice-stt",
-      "--ttl-ms=1200000",
-      "--",
-      process.execPath,
-      resolve(process.argv[1]),
-    ],
-    {
-      cwd: process.cwd(),
-      env: process.env,
-      stdio: "inherit",
-      encoding: "utf8",
-    },
+    [LEASE_SCRIPT, "--lane=voice-stt", "--ttl-ms=1200000", "--", process.execPath, resolve(process.argv[1])],
+    { cwd: process.cwd(), env: process.env, stdio: "inherit", encoding: "utf8" },
   );
   if (result.error) throw result.error;
   if (result.signal) throw new Error(`${CONTRACT}_SAFE_LEASE_SIGNAL:${result.signal}`);
@@ -210,33 +222,23 @@ const endpointId = required("AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID");
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const queueKey = text(process.env.RUNPOD_API_KEY) || managementKey;
 
-const [preflight, capacity] = await Promise.all([
-  resolveState(endpointId, managementKey, queueKey),
-  discoverCapacity(managementKey),
-]);
+runGit(["fetch", "origin", "main", "--quiet"]);
+const preflight = await resolveState(endpointId, managementKey, queueKey);
 const gpuPool = list(preflight.endpoint?.gpuTypeIds).map(text).filter(Boolean);
 const endpointDcs = dataCenters(preflight.endpoint);
 const endpointVolumes = volumeIds(preflight.endpoint);
-const liveCapacity = list(capacity).flatMap((dc) =>
-  list(dc?.gpuAvailability)
-    .filter((gpu) => gpu?.available === true && gpuPool.includes(text(gpu?.gpuTypeId)))
-    .map((gpu) => ({
-      data_center_id: text(dc?.id) || null,
-      location: text(dc?.location || dc?.name) || null,
-      gpu_type_id: text(gpu?.gpuTypeId) || null,
-      stock_status: text(gpu?.stockStatus).toUpperCase() || "UNKNOWN",
-    })),
-);
+const templateImage = text(preflight.template?.imageName);
+const nativeSource = verifyNativeImageSource(templateImage);
+const allocatedWorkers = preflight.workers.filter((worker) => worker.active);
 const preflightChecks = {
   endpoint_name: text(preflight.endpoint?.name) === ENDPOINT_NAME,
   lease_workers_min_zero: Number(preflight.endpoint?.workersMin) === 0,
   lease_workers_max_one: Number(preflight.endpoint?.workersMax) === 1,
   gpu_pool_present: gpuPool.length > 0,
   premium_gpu_absent: gpuPool.every((id) => !FORBIDDEN_PREMIUM.test(id)),
-  live_capacity_present: liveCapacity.length > 0,
   datacenter_unpinned: endpointDcs.length === 0,
   network_volume_absent: endpointVolumes.length === 0,
-  native_image_bound: text(preflight.template?.imageName) === EXPECTED_IMAGE,
+  native_image_source_verified: nativeSource.source_verified === true,
   docker_entrypoint_clear: commandList(preflight.template?.dockerEntrypoint).length === 0,
   docker_start_cmd_clear: commandList(preflight.template?.dockerStartCmd).length === 0,
   queue_clean: preflight.health.jobs.in_queue === 0 && preflight.health.jobs.in_progress === 0,
@@ -254,11 +256,24 @@ console.log(JSON.stringify({
     network_volume_present: endpointVolumes.length > 0,
   },
   template: {
-    image: text(preflight.template?.imageName) || null,
-    expected_native_image: EXPECTED_IMAGE,
+    image: templateImage || null,
+    native_image_prefix: NATIVE_IMAGE_PREFIX,
+    source_ref: nativeSource.source_ref,
+    source_sha: nativeSource.source_sha,
+    source_verified: nativeSource.source_verified,
+    handler_blob_sha: nativeSource.handler_blob_sha,
+    dockerfile_blob_sha: nativeSource.dockerfile_blob_sha,
+    requirements_blob_sha: nativeSource.requirements_blob_sha,
+    expected_handler_blob_sha: STT_SOURCE.handler_blob_sha,
+    expected_dockerfile_blob_sha: STT_SOURCE.dockerfile_blob_sha,
+    expected_requirements_blob_sha: STT_SOURCE.requirements_blob_sha,
     registry_auth_present_but_not_required_for_native_image: Boolean(text(preflight.template?.containerRegistryAuthId)),
   },
-  live_capacity: liveCapacity.slice(0, 40),
+  scheduler_observation: {
+    allocated_worker_observed: allocatedWorkers.length > 0,
+    allocated_workers: allocatedWorkers,
+    catalog_capacity_gate_used: false,
+  },
   health: preflight.health,
   workers: preflight.workers,
   extra_stt_jobs_submitted: 0,
@@ -290,7 +305,8 @@ while (!exit) {
       workers: state.workers,
       endpoint_gpu_type_ids: list(state.endpoint?.gpuTypeIds).map(text).filter(Boolean),
       endpoint_data_center_ids: dataCenters(state.endpoint),
-      native_image_bound: text(state.template?.imageName) === EXPECTED_IMAGE,
+      template_image: text(state.template?.imageName) || null,
+      template_image_same_as_preflight: text(state.template?.imageName) === templateImage,
       extra_stt_jobs_submitted: 0,
       tts_touched: false,
       secrets_printed: false,
@@ -313,6 +329,7 @@ console.log(JSON.stringify({
   child_signal: exit?.signal ?? null,
   final_health: finalState?.health || null,
   final_workers: finalState?.workers || [],
+  final_template_image: finalState?.template ? text(finalState.template?.imageName) || null : null,
   final_diagnostic_error: finalState?.diagnostic_error || null,
   extra_stt_jobs_submitted: 0,
   tts_touched: false,

@@ -181,20 +181,22 @@ requireMarker(
 );
 
 const performanceCall = route.indexOf(
-  "reconcileAvantiqoExperimentPortfolioPerformance()",
+  "await reconcileAvantiqoExperimentPortfolioPerformance()",
 );
 const phase29Call = route.indexOf(
-  "reconcileAvantiqoLongHorizonPolicyAdaptedExperimentPortfolio()",
+  "await reconcileAvantiqoLongHorizonPolicyAdaptedExperimentPortfolio()",
 );
-const requestCall = route.indexOf("reconcileAvantiqoExperimentExecutionRequests()");
+const requestCall = route.indexOf(
+  "await reconcileAvantiqoExperimentExecutionRequests()",
+);
 assert.ok(
   performanceCall >= 0 && phase29Call > performanceCall && requestCall > phase29Call,
   `${CONTRACT}_ROUTE_ORDER_INVALID`,
 );
-requireMarker(
+assert.match(
   route,
-  "longHorizonPolicyAdaptedExperimentPortfolio.execution_request_generation_allowed === true",
-  "ROUTE_PHASE29_REQUEST_GATE",
+  /longHorizonPolicyAdaptedExperimentPortfolio\s*\.execution_request_generation_allowed\s*===\s*true/,
+  `${CONTRACT}_ROUTE_PHASE29_REQUEST_GATE_MISSING`,
 );
 requireMarker(
   route,

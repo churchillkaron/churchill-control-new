@@ -73,3 +73,14 @@ test("Benchmark and launcher can only address the candidate lane", () => {
   assert.match(launcher, /SAFE_LEASE_LANE = "music-transform-candidate"/);
   assert.doesNotMatch(launcher, /--lane=audio/);
 });
+
+test("Music transform benchmark is Node 20 safe and storage-only", () => {
+  assert.doesNotMatch(benchmark, /@supabase\/supabase-js/);
+  assert.doesNotMatch(benchmark, /createClient\(/);
+  assert.match(benchmark, /\/storage\/v1/);
+  assert.match(benchmark, /\/object\/sign\//);
+  assert.match(benchmark, /\/object\/upload\/sign\//);
+  assert.match(benchmark, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(benchmark, /source_asset_roles: \{ source_audio: sourceSignedUrl \}/);
+  assert.match(benchmark, /storage_upload: \{ signed_url: outputSignedUrl, storage_reference: outputReference \}/);
+});

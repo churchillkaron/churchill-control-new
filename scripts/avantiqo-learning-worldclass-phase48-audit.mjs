@@ -160,7 +160,10 @@ has(shadow, "PROSPECTIVE_SHADOW_CHALLENGER_SNAPSHOT_RECORDED", "PROSPECTIVE_SHAD
 has(shadow, "challenger_score_can_exceed_baseline: false", "SHADOW_BOUND");
 has(shadowIntegrity, "exactly_one_authoritative_evaluation_per_selection_cycle: true", "SHADOW_INTEGRITY");
 has(promotion, "automatic_policy_promotion: false", "PROMOTION_NOT_AUTOMATIC");
-has(canary, "automatic_activation: false", "CANARY_NOT_AUTOMATIC");
+has(canary, "recordAvantiqoSelectionPolicyCanaryActivation", "CANARY_EXPLICIT_ACTIVATION_ENTRYPOINT");
+has(canary, "explicit_activation_review_completed !== true", "CANARY_EXPLICIT_ACTIVATION_REVIEW");
+has(canary, "rollback_readiness_confirmed !== true", "CANARY_ROLLBACK_READINESS");
+has(canary, "same_actor_as_policy_promotion_approver !== false", "CANARY_ACTIVATOR_INDEPENDENCE");
 has(canaryOutcome, "AVANTIQO_SELECTION_POLICY_CANARY_OUTCOME_CERTIFICATION_V1", "CANARY_OUTCOME");
 has(persistentPromotion, "ORDERING_WITHIN_ALREADY_SELECTED_PORTFOLIO_ONLY", "PERSISTENT_ORDERING_SCOPE");
 has(persistentAuthority, "AVANTIQO_PERSISTENT_ORDERING_POLICY_AUTHORITY_V1", "PERSISTENT_AUTHORITY");
@@ -202,6 +205,7 @@ for (const marker of [
   "recordAvantiqoExperimentExecutionReceipt(",
   "recordAvantiqoGovernedScientificExperimentResult(",
   "recordAvantiqoGovernedTransferExperimentResult(",
+  "recordAvantiqoSelectionPolicyCanaryActivation(",
   "activateAvantiqoPersistentPolicySuccessor(",
 ]) forbid(route, marker, "CRON_AUTONOMOUS_AUTHORITY");
 

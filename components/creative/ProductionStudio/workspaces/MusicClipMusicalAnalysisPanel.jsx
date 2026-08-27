@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { AudioLines, Check, Gauge, Music2 } from "lucide-react";
 
+function finite(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
 function pct(value) {
   const number = Number(value);
   return Number.isFinite(number) ? `${Math.round(number * 100)}%` : "—";
@@ -20,7 +25,12 @@ export default function MusicClipMusicalAnalysisPanel({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
-  const analysis = clip?.musical_analysis || null;
+  const storedAnalysis = clip?.musical_analysis || null;
+  const analysisMatchesCurrentSource = Boolean(storedAnalysis)
+    && storedAnalysis.source_asset_id === clip?.source_asset_id
+    && Math.abs(finite(storedAnalysis.source_offset_seconds, -1) - finite(clip?.source_offset_seconds, 0)) <= 0.001
+    && Math.abs(finite(storedAnalysis.source_duration_seconds, -1) - finite(clip?.duration_seconds, 0)) <= 0.01;
+  const analysis = analysisMatchesCurrentSource ? storedAnalysis : null;
   const bpmAccepted = Number.isFinite(Number(analysis?.accepted?.bpm));
   const keyAccepted = Boolean(analysis?.accepted?.key && analysis?.accepted?.mode);
 
@@ -64,6 +74,8 @@ export default function MusicClipMusicalAnalysisPanel({
         </div>
         <button type="button" disabled={disabled || busy} onClick={() => request("analyze")} className="rounded-lg border border-white/8 px-2.5 py-1.5 text-[8px] text-white/38 disabled:opacity-25">{busy ? status : analysis ? "Analyze again" : "Analyze clip"}</button>
       </div>
+
+      {storedAnalysis && !analysisMatchesCurrentSource ? <div className="mt-2 text-[7px] leading-3 text-amber-100/35">Previous analysis belongs to an older clip source or edit range. Analyze this source before applying BPM or key.</div> : null}
 
       {analysis ? <div className="mt-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">

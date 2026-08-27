@@ -76,6 +76,9 @@ import {
   reconcileAvantiqoSelectionPolicyShadowChallenger,
 } from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyShadowChallengerRuntime";
 import {
+  reconcileAvantiqoSelectionPolicyShadowEvaluationIntegrity,
+} from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyShadowEvaluationIntegrityRuntime";
+import {
   reconcileAvantiqoSelectionPolicyPromotionRequests,
 } from "@/lib/intelligence/runtime/AvantiqoSelectionPolicyPromotionGovernanceRuntime";
 import {
@@ -157,14 +160,28 @@ export async function GET(request) {
       await reconcileAvantiqoSelectionPolicyShadowChallenger({
         portfolio: longHorizonPolicyAdaptedExperimentPortfolio,
       });
+    const selectionPolicyShadowEvaluationIntegrity =
+      await reconcileAvantiqoSelectionPolicyShadowEvaluationIntegrity();
     const selectionPolicyPromotionRequests =
-      await reconcileAvantiqoSelectionPolicyPromotionRequests();
+      selectionPolicyShadowEvaluationIntegrity.success !== false
+        ? await reconcileAvantiqoSelectionPolicyPromotionRequests()
+        : {
+            success: false,
+            status: "BLOCKED_BY_SHADOW_EVALUATION_INTEGRITY_FAIL_CLOSED",
+            request_count: 0,
+          };
     const selectionPolicyCanary =
       await reconcileAvantiqoSelectionPolicyCanary();
     const selectionPolicyCanaryOutcomeCertification =
       await reconcileAvantiqoSelectionPolicyCanaryOutcomeCertification();
     const persistentOrderingPolicyPromotionRequests =
-      await reconcileAvantiqoPersistentOrderingPolicyPromotionRequests();
+      selectionPolicyShadowEvaluationIntegrity.success !== false
+        ? await reconcileAvantiqoPersistentOrderingPolicyPromotionRequests()
+        : {
+            success: false,
+            status: "BLOCKED_BY_SHADOW_EVALUATION_INTEGRITY_FAIL_CLOSED",
+            request_count: 0,
+          };
 
     const experimentExecutionRequests =
       longHorizonPolicyAdaptedExperimentPortfolio
@@ -213,6 +230,8 @@ export async function GET(request) {
         long_horizon_policy_adapted_experiment_portfolio:
           longHorizonPolicyAdaptedExperimentPortfolio,
         selection_policy_shadow_challenger: selectionPolicyShadowChallenger,
+        selection_policy_shadow_evaluation_integrity:
+          selectionPolicyShadowEvaluationIntegrity,
         selection_policy_promotion_requests: selectionPolicyPromotionRequests,
         selection_policy_canary: selectionPolicyCanary,
         selection_policy_canary_outcome_certification:
@@ -232,6 +251,7 @@ export async function GET(request) {
           result.success === false ||
           longHorizonPolicyAdaptedExperimentPortfolio.success === false ||
           selectionPolicyShadowChallenger.success === false ||
+          selectionPolicyShadowEvaluationIntegrity.success === false ||
           selectionPolicyPromotionRequests.success === false ||
           selectionPolicyCanary.success === false ||
           selectionPolicyCanaryOutcomeCertification.success === false ||

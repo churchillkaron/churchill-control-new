@@ -138,7 +138,9 @@ assert.match(source.secretaryJobExecution, /approval\.approved_job_id/);
 assert.match(source.secretaryJobExecution, /approval\.approved_step_id/);
 assert.match(source.secretaryJobExecution, /approval\.approved_action_type/);
 assert.match(source.secretaryJobExecution, /approval\.approved_instruction/);
-assert.match(source.secretaryJobExecution, /requiresHighAuthority\(step\.instruction\) && !exactApproval/);
+assert.match(source.secretaryJobExecution, /secretaryJobExactApprovalOwnedByCanonicalOwner/);
+assert.match(source.secretaryJobExecution, /const highAuthority = requiresHighAuthority\(step\.instruction\)/);
+assert.match(source.secretaryJobExecution, /if \(highAuthority && !exactApproval\)/);
 
 assert.match(source.secretaryJobApproval, /EXPLICIT_STEP_APPROVAL/);
 assert.match(source.secretaryJobApproval, /scope:\s*"THIS_STEP_ONLY"/);

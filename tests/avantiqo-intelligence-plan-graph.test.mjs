@@ -8,33 +8,10 @@ import {
 } from "../lib/operator/runtime/OperatorIntelligencePlanGraphRuntime.js";
 
 function safeReadStep(overrides = {}) {
-  return {
-    id: "read-current-state",
-    title: "Read current state",
-    kind: "read",
-    depends_on: [],
-    mutates: false,
-    verification: { required: true, criteria: ["Current scoped evidence was returned."] },
-    ...overrides,
-  };
+  return { id: "read-current-state", title: "Read current state", kind: "read", depends_on: [], mutates: false, verification: { required: true, criteria: ["Current scoped evidence was returned."] }, ...overrides };
 }
-
 function validatedMutationStep(overrides = {}) {
-  return {
-    id: "apply-change",
-    title: "Apply governed change",
-    kind: "action_candidate",
-    depends_on: ["read-current-state"],
-    capability_key: "finance.example.write",
-    payload: { value: 1 },
-    mutates: true,
-    risk: "medium",
-    reversible: true,
-    candidate_validation: { validated: true, payload_complete: true, missing_required_fields: [], normal_operator_governance_required: true },
-    verification: { required: true, criteria: ["Live read proves the intended change exists."] },
-    rollback: { available: true, strategy: "Restore the previous verified value through the registered rollback path." },
-    ...overrides,
-  };
+  return { id: "apply-change", title: "Apply governed change", kind: "action_candidate", depends_on: ["read-current-state"], capability_key: "finance.example.write", payload: { value: 1 }, mutates: true, risk: "medium", reversible: true, candidate_validation: { validated: true, payload_complete: true, missing_required_fields: [], normal_operator_governance_required: true }, verification: { required: true, criteria: ["Live read proves the intended change exists."] }, rollback: { available: true, strategy: "Restore the previous verified value through the registered rollback path." }, ...overrides };
 }
 
 test("plan graph orders dependencies and never auto-executes mutations", () => {
@@ -97,9 +74,9 @@ test("bounded replanning cannot rewrite completed history", () => {
   assert.equal(rejected.blocked, true);
 });
 
-test("planning runtime exposes plan graph, deliberation, robustness, validity and uncertainty priority without execution authority", () => {
+test("planning runtime exposes plan graph, deliberation, robustness, validity, uncertainty priority and readiness without execution authority", () => {
   const source = fs.readFileSync(new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url), "utf8");
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V6/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V7/);
   assert.match(source, /operator_plan_graph/);
   assert.match(source, /buildOperatorIntelligencePlan/);
   assert.match(source, /assessOperatorIntelligencePlan/);
@@ -108,7 +85,8 @@ test("planning runtime exposes plan graph, deliberation, robustness, validity an
   assert.match(source, /stressTestOperatorIntelligenceDecision/);
   assert.match(source, /assessOperatorIntelligenceDecisionValidity/);
   assert.match(source, /prioritizeOperatorIntelligenceUncertainties/);
-  assert.match(source, /deterministic_uncertainty_prioritization/);
+  assert.match(source, /assessOperatorIntelligenceDecisionReadiness/);
+  assert.match(source, /deterministic_decision_readiness_synthesis/);
   assert.match(source, /recommendations_are_not_execution_authority/);
   assert.match(source, /planning-only/);
   assert.match(source, /never executes business actions/);

@@ -3,6 +3,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
+import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
+import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import {
   createMusicMultitrackProject,
@@ -60,19 +62,59 @@ function defaultSession(project) {
   });
 }
 
+function sessionAssetIds(session = {}) {
+  return new Set((session.tracks || []).flatMap((track) => [
+    ...(track.clips || []).map((clip) => text(clip.source_asset_id)),
+    ...(track.takes || []).map((take) => text(take.source_asset_id)),
+  ]).filter(Boolean));
+}
+
+async function playbackAssetUrls(organizationId, projectId, session) {
+  const requiredIds = sessionAssetIds(session);
+  if (!requiredIds.size) return {};
+  const assets = await CreativeAssetsRuntime.list({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    limit: Math.max(200, requiredIds.size * 2),
+  });
+  const urls = {};
+  for (const asset of assets) {
+    const assetId = text(asset?.id || asset?.asset_id);
+    if (!requiredIds.has(assetId)) continue;
+    const source = text(asset?.file_url || asset?.url);
+    if (!source) continue;
+    urls[assetId] = await resolveCreativeProviderAssetUrl({
+      organization_id: organizationId,
+      value: source,
+    });
+  }
+  return urls;
+}
+
+async function publicSessionResult({ organizationId, projectId, session, persisted }) {
+  return {
+    success: true,
+    session,
+    revision: Math.max(0, Math.round(finite(session.revision, 0))),
+    persisted,
+    asset_urls: await playbackAssetUrls(organizationId, projectId, session),
+    preview_transport_ready: true,
+    provider_job_submitted: false,
+    endpoint_mutation_performed: false,
+  };
+}
+
 async function loadSession(organizationId, projectId) {
   const project = await projectInScope(organizationId, projectId);
   const saved = project.metadata?.[METADATA_KEY] || null;
   const session = saved || defaultSession(project);
   validateMusicMultitrackProject(session);
-  return {
-    success: true,
+  return publicSessionResult({
+    organizationId,
+    projectId,
     session,
-    revision: Math.max(0, Math.round(finite(session.revision, 0))),
     persisted: Boolean(saved),
-    provider_job_submitted: false,
-    endpoint_mutation_performed: false,
-  };
+  });
 }
 
 async function saveSession(organizationId, projectId, submitted) {
@@ -100,14 +142,12 @@ async function saveSession(organizationId, projectId, submitted) {
     music_multitrack_updated_at: new Date().toISOString(),
   };
   await CreativeProjectRepository.update(project.id, { metadata });
-  return {
-    success: true,
+  return publicSessionResult({
+    organizationId,
+    projectId,
     session: next,
-    revision: next.revision,
     persisted: true,
-    provider_job_submitted: false,
-    endpoint_mutation_performed: false,
-  };
+  });
 }
 
 export async function POST(request) {

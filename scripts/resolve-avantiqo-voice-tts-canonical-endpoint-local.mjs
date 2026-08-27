@@ -3,9 +3,10 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_VOICE_TTS_CANONICAL_ENDPOINT_RESOLUTION_V1";
+const CONTRACT = "AVANTIQO_VOICE_TTS_CANONICAL_ENDPOINT_RESOLUTION_V2";
 const REST = "https://rest.runpod.io/v1";
 const POLICY_PATH = "config/avantiqo-runpod-safe-lease-policy.json";
+const SAFE_ENDPOINT_NAME = /^avantiqo-voice-tts-v1(?:$|-recovery-\d{8})$/;
 
 function text(value) { return String(value ?? "").trim(); }
 function list(value) { return Array.isArray(value) ? value : []; }
@@ -24,8 +25,8 @@ if (text(policy?.contract) !== "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2") {
   throw new Error(`${CONTRACT}_SAFE_LEASE_POLICY_V2_REQUIRED`);
 }
 const endpointName = text(policy?.lanes?.["voice-tts"]);
-if (endpointName !== "avantiqo-voice-tts-v1") {
-  throw new Error(`${CONTRACT}_CANONICAL_NAME_INVALID:${endpointName || "NONE"}`);
+if (!SAFE_ENDPOINT_NAME.test(endpointName)) {
+  throw new Error(`${CONTRACT}_POLICY_ENDPOINT_NAME_UNSAFE:${endpointName || "NONE"}`);
 }
 
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
@@ -56,8 +57,9 @@ if (process.argv.includes("--id-only")) {
     contract: CONTRACT,
     endpoint_id: endpointId,
     endpoint_name: endpointName,
-    configured_endpoint_matches_canonical: configuredEndpointId === endpointId,
-    canonical_endpoint_authoritative_for_certification: true,
+    configured_endpoint_matches_policy_target: configuredEndpointId === endpointId,
+    safe_lease_policy_endpoint_authoritative_for_certification: true,
+    accepted_endpoint_name_family: "avantiqo-voice-tts-v1 OR dated recovery",
     mutation_performed: false,
     generation_submitted: false,
     production_deploy_performed: false,

@@ -118,6 +118,9 @@ const requiredMarkers = [
   "recordDuplicateProgress",
   "resetDuplicateProgress",
   "plannerAllowedActions",
+  "plannerInspectionRequired",
+  'text(source.status, 100) === "replan_required"',
+  "!text(source.repository_guidance?.contract, 160)",
   "trailingDuplicateRejectionProgress",
   "const sameAction = text(control?.last_duplicate_action, 80) === normalizedAction",
   "recoveredDuplicateProgress.streak",
@@ -153,6 +156,7 @@ const promptRequiredMarkers = [
   "CURRENT ALLOWED ACTION SHAPES",
   "plannerRules(currentAllowedActions)",
   "An action absent from CURRENT ALLOWED ACTIONS is invalid",
+  "inspect is bootstrap/replan-only",
   "Never emit more than one JSON object",
 ];
 
@@ -244,7 +248,14 @@ if (pendingBranch < 0 || pendingIterationPersistence < pendingBranch) {
   throw new Error("CODE_AI_AUTONOMY_PENDING_ITERATION_NOT_PERSISTED");
 }
 
+const inspectionPolicy = source.indexOf("function plannerInspectionRequired(state)");
+const inspectReplanGate = source.indexOf('text(source.status, 100) === "replan_required"', inspectionPolicy);
+const inspectGuidanceGate = source.indexOf("!text(source.repository_guidance?.contract, 160)", inspectReplanGate);
+const inspectRemoval = source.indexOf('allowedActions = allowedActions.filter((action) => action !== "inspect")', inspectGuidanceGate);
 const plannerDecision = source.indexOf("const { decision } = planned;");
+if (inspectionPolicy < 0 || inspectReplanGate <= inspectionPolicy || inspectGuidanceGate <= inspectReplanGate || inspectRemoval <= inspectGuidanceGate) {
+  throw new Error("CODE_AI_AUTONOMY_INSPECT_MUST_BE_BOOTSTRAP_OR_REPLAN_ONLY");
+}
 const dynamicAllowedGuard = source.indexOf("const currentAllowedActions = plannerAllowedActions(state)", plannerDecision);
 const dynamicAllowedReject = source.indexOf("status: \"rejected_suppressed_action\"", dynamicAllowedGuard);
 const duplicateGuard = source.indexOf("const duplicate = duplicateActionGuard(control, decision)");
@@ -406,7 +417,7 @@ if (
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V10",
+  contract: "AVANTIQO_CODE_AI_AUTONOMY_LOOP_GUARD_AUDIT_V11",
   verified: {
     duplicate_read_search_run_guarded_without_new_evidence: true,
     search_fingerprint_distinguishes_literal_regex_path_glob: true,
@@ -424,6 +435,8 @@ console.log(JSON.stringify({
     repeated_duplicate_action_temporarily_suppressed_after_first_rejection: true,
     suppressed_action_shapes_removed_from_planner_prompt: true,
     dynamic_allowed_action_guard_enforced_before_execution: true,
+    planner_inspect_is_bootstrap_or_replan_only: true,
+    post_edit_inspect_escape_hatch_closed: true,
     suppressed_action_rejections_bounded: true,
     unrelated_observations_do_not_refresh_source_reads: true,
     apply_files_refreshes_source_reads: true,

@@ -7,6 +7,10 @@ const prompt = await readFile("lib/code/runtime/CodeAIPlannerPromptRuntime.js", 
 
 assert.match(runtime, /duplicate_rejection_streak: recoveredDuplicateAvailable/);
 assert.match(runtime, /last_duplicate_action: recoveredDuplicateAvailable/);
+assert.match(runtime, /function plannerInspectionRequired\(state\)/);
+assert.match(runtime, /text\(source\.status, 100\) === "replan_required"/);
+assert.match(runtime, /!text\(source\.repository_guidance\?\.contract, 160\)/);
+assert.match(runtime, /allowedActions = allowedActions\.filter\(\(action\) => action !== "inspect"\)/);
 assert.match(runtime, /function plannerAllowedActions\(state\)/);
 assert.match(runtime, /MAX_SUPPRESSED_ACTION_REJECTION_STREAK = 2/);
 assert.match(runtime, /function recordSuppressedActionRejection\(control, action\)/);
@@ -16,6 +20,7 @@ assert.match(runtime, /CODE_AI_AUTONOMOUS_SUPPRESSED_ACTION_STREAK_EXCEEDED/);
 assert.match(prompt, /CURRENT ALLOWED ACTION SHAPES/);
 assert.match(prompt, /plannerRules\(currentAllowedActions\)/);
 assert.match(prompt, /An action absent from CURRENT ALLOWED ACTIONS is invalid/);
+assert.match(prompt, /inspect is bootstrap\/replan-only/);
 
 const suppressedPrompt = CodeAIPlannerPromptRuntime.build({
   objective: "Repair a bounded fixture.",
@@ -54,8 +59,14 @@ function trailingDuplicateProgress(evidence) {
   }
   return { streak, action };
 }
-function allowed(control) {
-  const base = ["inspect","search","read","apply_files","run","verify","diff","research","complete","block"];
+function inspectionRequired(state) {
+  if (!state?.base_commit) return true;
+  if (state?.status === "replan_required") return true;
+  return !state?.repository_guidance?.contract;
+}
+function allowed(control, state = {}) {
+  let base = ["inspect","search","read","apply_files","run","verify","diff","research","complete","block"];
+  if (!inspectionRequired(state)) base = base.filter((action) => action !== "inspect");
   if (Number(control.duplicate_rejection_streak || 0) < 1) return base;
   return base.filter((action) => action !== control.last_duplicate_action);
 }
@@ -69,6 +80,25 @@ function rejectSuppressed(control, action) {
     last_suppressed_action: action,
   };
 }
+
+const inspectedState = {
+  base_commit: "a".repeat(40),
+  status: "completed",
+  repository_guidance: { contract: "AVANTIQO_CODE_REPOSITORY_GUIDANCE_V1" },
+};
+const postEditState = {
+  ...inspectedState,
+  status: "verification_required",
+  files_changed: ["tests/fixtures/example.mjs"],
+};
+const replanState = { ...postEditState, status: "replan_required" };
+const legacyState = { ...inspectedState, repository_guidance: {} };
+assert.equal(allowed({}, inspectedState).includes("inspect"), false);
+assert.equal(allowed({}, postEditState).includes("inspect"), false);
+assert.equal(allowed({}, replanState).includes("inspect"), true);
+assert.equal(allowed({}, legacyState).includes("inspect"), true);
+assert.equal(allowed({}, postEditState).includes("apply_files"), true);
+assert.equal(allowed({}, postEditState).includes("verify"), true);
 
 let control = { duplicate_rejection_streak: 0, last_duplicate_action: null };
 control = nextDuplicate(control, "read");
@@ -108,7 +138,7 @@ assert.match(runtime, /entryAction === action/);
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V4",
+  contract: "AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V5",
   verified: {
     duplicate_streak_is_first_class_control_state: true,
     first_duplicate_temporarily_suppresses_repeated_action_type: true,
@@ -120,10 +150,14 @@ console.log(JSON.stringify({
     duplicate_streak_is_action_local: true,
     mixed_duplicate_action_types_do_not_accumulate_one_streak: true,
     resume_duplicate_recovery_is_action_local: true,
+    initial_completed_inspection_is_not_repeated: true,
+    post_edit_inspect_escape_hatch_closed: true,
+    replan_required_can_reinspect_repository: true,
+    legacy_state_without_repository_guidance_can_inspect: true,
   },
   provider_calls_executed: false,
   provider_spend_performed: false,
   runpod_lease_opened: false,
   production_deploy_performed: false,
 }, null, 2));
-console.log("AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V4=PASS");
+console.log("AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V5=PASS");

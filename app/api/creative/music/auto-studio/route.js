@@ -5,6 +5,7 @@ export const maxDuration = 300;
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
+import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
 import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import { CreativeMusicAutoStudioRuntime } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioRuntime";
 import { executeMusicAutoStudioLocal } from "@/lib/creative/music/runtime/CreativeMusicAutoStudioExecutionRuntime";
@@ -90,6 +91,77 @@ async function prepareSourceUpload(body) {
   };
 }
 
+async function registerRecordedTake(body) {
+  const organizationId = text(body.organization_id);
+  const projectId = text(body.creative_project_id);
+  const missionId = text(body.creative_mission_id) || null;
+  const storageReference = text(body.storage_reference);
+  if (!projectId) throw new Error("creative_project_id required");
+  if (!storageReference.startsWith(`storage://${MUSIC_BUCKET}/${organizationId}/`)) {
+    throw new Error("CREATIVE_MUSIC_RECORDING_STORAGE_REFERENCE_INVALID");
+  }
+  const fileName = safeFileName(body.file_name || "recording-take.wav");
+  const durationSeconds = finite(body.duration_seconds, null);
+  const sampleRate = finite(body.sample_rate, null);
+  const channels = finite(body.channels, null);
+  const peakDbfs = finite(body.peak_dbfs, null);
+  const rmsDbfs = finite(body.rms_dbfs, null);
+  const trackRole = text(body.track_role || "other").toLowerCase();
+  const allowedRoles = new Set(["vocal", "guitar", "bass", "keys", "drums", "instrument", "room", "other"]);
+  if (!allowedRoles.has(trackRole)) throw new Error("CREATIVE_MUSIC_RECORDING_TRACK_ROLE_INVALID");
+
+  const asset = await CreativeAssetsRuntime.create({
+    organization_id: organizationId,
+    creative_project_id: projectId,
+    creative_mission_id: missionId,
+    asset_type: "AUDIO",
+    file_url: storageReference,
+    file_name: fileName,
+    name: text(body.title || fileName),
+    title: text(body.title || fileName),
+    description: `Original ${trackRole} recording take captured in Avantiqo Music Studio.`,
+    ai_generated: false,
+    provider: "avantiqo-music-recorder",
+    engine: "AVANTIQO_MUSIC_RECORDING_STUDIO_V1",
+    metadata: {
+      media_kind: "MUSIC",
+      music_asset_kind: "RECORDED_TAKE",
+      music_recording_contract: "AVANTIQO_MUSIC_RECORDING_STUDIO_V1",
+      immutable_original_take: true,
+      destructive_processing_during_capture: false,
+      browser_processing_disabled: body.browser_processing_disabled === true,
+      recording_track_role: trackRole,
+      duration_seconds: durationSeconds,
+      sample_rate: sampleRate,
+      channels,
+      bit_depth: 24,
+      peak_dbfs: peakDbfs,
+      rms_dbfs: rmsDbfs,
+      clipping_detected: body.clipping_detected === true,
+      recording_qc_status: text(body.recording_qc_status) || null,
+      source_rights_confirmed: body.source_rights_confirmed === true,
+      source_is_user_recording: true,
+      source_version: 0,
+    },
+    tags: ["music", "recording", "original-take", trackRole],
+  });
+
+  return {
+    success: true,
+    contract: "AVANTIQO_MUSIC_RECORDED_TAKE_ASSET_V1",
+    asset: {
+      id: asset.id,
+      title: asset.title || asset.name || fileName,
+      file_url: asset.file_url,
+      playback_url: await playbackUrl(organizationId, asset.file_url),
+      metadata: asset.metadata || {},
+    },
+    original_take_preserved: true,
+    provider_job_submitted: false,
+    endpoint_mutation_performed: false,
+  };
+}
+
 function buildPlan(body) {
   const plan = CreativeMusicAutoStudioRuntime.plan({
     ...body,
@@ -155,11 +227,13 @@ export async function POST(request) {
     const action = text(body.action || "plan").toLowerCase();
     const result = action === "prepare_source_upload"
       ? await prepareSourceUpload(body)
-      : action === "plan"
-        ? buildPlan(body)
-        : action === "execute_local"
-          ? await executeLocal(body)
-          : null;
+      : action === "register_recorded_take"
+        ? await registerRecordedTake(body)
+        : action === "plan"
+          ? buildPlan(body)
+          : action === "execute_local"
+            ? await executeLocal(body)
+            : null;
     if (!result) {
       return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_AUTO_STUDIO_ACTION_INVALID" }, { status: 400 });
     }

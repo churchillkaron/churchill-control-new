@@ -6,8 +6,9 @@ import sys
 from inspect_adapter import FOUNDATION_MODEL, inspect
 
 WORKER_MAIN = "/src/main.py"
-MODEL_PREFIX = "avantiqo-intelligence-deep-adapter"
-CONTRACT = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_STARTUP_V1"
+BASE_MODEL_ALIAS = "avantiqo-intelligence-deep-base"
+RELEASE_LABEL_PREFIX = "avantiqo-intelligence-deep-adapter"
+CONTRACT = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_STARTUP_V2"
 
 
 def text(value, limit=2000):
@@ -42,8 +43,8 @@ def adapter_fingerprint(adapter_path: str) -> str:
     return hashlib.sha256(adapter_path.encode("utf-8")).hexdigest()[:16]
 
 
-def production_model_name(adapter_path: str) -> str:
-    return f"{MODEL_PREFIX}-{adapter_fingerprint(adapter_path)}"
+def production_release_label(adapter_path: str) -> str:
+    return f"{RELEASE_LABEL_PREFIX}-{adapter_fingerprint(adapter_path)}"
 
 
 def configure_environment():
@@ -76,16 +77,20 @@ def configure_environment():
     if actual_fingerprint != expected_fingerprint:
         fail("PRODUCTION_ADAPTER_FINGERPRINT_MISMATCH")
 
-    production_model = production_model_name(certification["adapter_path"])
+    release_label = production_release_label(certification["adapter_path"])
     module = {
-        "name": production_model,
+        # Ordinary Deep callers already request FOUNDATION_MODEL.  The production
+        # adapter therefore owns that public model id while the unadapted base is
+        # deliberately retained under a separate internal alias for rollback and
+        # diagnostics.  No provider/Vercel routing mutation is required.
+        "name": FOUNDATION_MODEL,
         "path": certification["adapter_path"],
-        "base_model_name": FOUNDATION_MODEL,
+        "base_model_name": BASE_MODEL_ALIAS,
         "is_3d_lora_weight": certification["is_3d_lora_weight"],
     }
 
     os.environ["MODEL_NAME"] = FOUNDATION_MODEL
-    os.environ["OPENAI_SERVED_MODEL_NAME_OVERRIDE"] = "avantiqo-intelligence-deep-base"
+    os.environ["OPENAI_SERVED_MODEL_NAME_OVERRIDE"] = BASE_MODEL_ALIAS
     os.environ["ENABLE_LORA"] = "true"
     os.environ["MAX_LORA_RANK"] = str(certification["lora_rank"])
     os.environ["MAX_LORAS"] = "1"
@@ -106,7 +111,10 @@ def configure_environment():
                 "contract": CONTRACT,
                 "status": "CONFIGURED",
                 "foundation_model": FOUNDATION_MODEL,
-                "production_model": production_model,
+                "production_model": FOUNDATION_MODEL,
+                "base_model_alias": BASE_MODEL_ALIAS,
+                "release_label": release_label,
+                "canonical_deep_request_uses_adapter": True,
                 "model_candidate_id": model_candidate_id,
                 "adapter_artifact_fingerprint": actual_fingerprint,
                 "adapter_layout": certification["layout"],
@@ -116,6 +124,7 @@ def configure_environment():
                 "tool_call_parser": "hermes",
                 "reasoning_parser": "qwen3",
                 "fast_lane_effect": "NONE",
+                "provider_routing_mutation_required": False,
                 "automatic_promotion": False,
                 "activation_authority": "EXTERNAL_EXPLICIT_RELEASE_BINDER_ONLY",
             },

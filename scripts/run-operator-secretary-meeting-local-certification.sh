@@ -185,6 +185,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-directive-follow-through-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-calendar-stewardship-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-mail-courier-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-office-administration-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-closeout-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-meeting-minutes-revision-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-staff-delegation-local.mjs

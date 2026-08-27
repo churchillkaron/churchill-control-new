@@ -58,6 +58,19 @@ assert.match(source.timingPlan, /auto_apply_forbidden: true/);
 assert.match(source.timingPlan, /whole_phrase_translation_only: true/);
 assert.match(source.timingPlan, /render_ready: render\.ready/);
 
+assert.match(source.route, /OrganizationServiceRuntime/);
+assert.match(source.route, /resolveProvider/);
+assert.match(source.route, /ownedProviderForCapability/);
+assert.match(source.route, /AVANTIQO_MUSIC_VOCAL_CORRECTION_SERVICE_NOT_ENABLED/);
+assert.match(source.route, /AVANTIQO_MUSIC_VOCAL_CORRECTION_SERVICE_NOT_ACTIVE/);
+assert.match(source.route, /AVANTIQO_MUSIC_VOCAL_CORRECTION_SERVICE_USAGE_DISABLED/);
+assert.match(source.route, /AVANTIQO_MUSIC_VOCAL_CORRECTION_PRODUCTION_PRICING_OR_PROVIDER_NOT_READY/);
+assert.match(source.route, /allowed_providers: \[ownedProvider\]/);
+assert.match(source.route, /preferred_providers: \[ownedProvider\]/);
+assert.match(source.route, /production_pricing_ready: Boolean\(selected\.pricing_id && selected\.pricing_record\)/);
+assert.match(source.route, /AVANTIQO_MUSIC_VOCAL_TUNING_RENDER_READINESS_V2/);
+assert.match(source.route, /provider_id: gate\.owned_provider_selected/);
+assert.match(source.route, /readiness_pricing_id: gate\.pricing_id/);
 assert.match(source.route, /executeService/);
 assert.match(source.route, /settlePendingService/);
 assert.match(source.route, /sourceRightsConfirmed/);
@@ -88,6 +101,9 @@ for (const value of Object.values(source)) {
 }
 
 console.log("MUSIC_VOCAL_TUNING_RENDER_RUNTIME_AUDIT=PASS");
+console.log("MUSIC_VOCAL_TUNING_RENDER_READINESS_V2=true");
+console.log("MUSIC_VOCAL_TUNING_RENDER_OWNED_PROVIDER_REQUIRED=true");
+console.log("MUSIC_VOCAL_TUNING_RENDER_PRODUCTION_PRICING_REQUIRED=true");
 console.log("MUSIC_VOCAL_TUNING_RENDER_TIMING_PLAN_BOUND=true");
 console.log("MUSIC_VOCAL_TUNING_RENDER_AUTO_TIMING=false");
 console.log("MUSIC_VOCAL_TUNING_RENDER_PROVIDER_JOB_SUBMITTED=false");

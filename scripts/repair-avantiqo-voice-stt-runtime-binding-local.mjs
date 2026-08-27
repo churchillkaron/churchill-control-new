@@ -35,6 +35,78 @@ function normalizeList(value, keys = [], depth = 0) {
   return null;
 }
 
+function registryAuthDescriptor(item = {}) {
+  return [
+    item?.name,
+    item?.registry,
+    item?.registryUrl,
+    item?.registry_url,
+    item?.serverAddress,
+    item?.server_address,
+    item?.url,
+    item?.host,
+  ]
+    .map(text)
+    .filter(Boolean)
+    .join(" ");
+}
+
+function looksLikeRegistryAuthRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (!text(value.id)) return false;
+  return Boolean(
+    registryAuthDescriptor(value) ||
+    Object.prototype.hasOwnProperty.call(value, "username") ||
+    Object.prototype.hasOwnProperty.call(value, "password") ||
+    Object.prototype.hasOwnProperty.call(value, "credential") ||
+    Object.prototype.hasOwnProperty.call(value, "credentials")
+  );
+}
+
+function normalizeRegistryAuthResponse(value) {
+  const preferred = normalizeList(value, [
+    "containerRegistryAuths",
+    "containerRegistryCreds",
+    "registryAuths",
+    "registryCredentials",
+    "credentials",
+    "auths",
+  ]);
+  if (preferred) return preferred;
+
+  const records = [];
+  const seen = new Set();
+  function visit(node, depth = 0) {
+    if (!node || typeof node !== "object" || depth > 8 || seen.has(node)) return;
+    seen.add(node);
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item, depth + 1);
+      return;
+    }
+    if (looksLikeRegistryAuthRecord(node)) records.push(node);
+    for (const nested of Object.values(node)) visit(nested, depth + 1);
+  }
+  visit(value);
+  return records;
+}
+
+function resolveRegistryAuth(registryAuths) {
+  const explicitId = text(process.env.AVANTIQO_VOICE_RUNPOD_REGISTRY_AUTH_ID);
+  if (explicitId) {
+    const matches = registryAuths.filter((item) => text(item?.id) === explicitId);
+    if (matches.length !== 1) {
+      throw new Error(`AVANTIQO_VOICE_STT_RUNTIME_BINDING_REGISTRY_AUTH_ID_NOT_FOUND:matches=${matches.length}`);
+    }
+    return { record: matches[0], source: "EXPLICIT_ENV" };
+  }
+  const candidates = registryAuths.filter((item) => /ghcr|github/i.test(registryAuthDescriptor(item)));
+  if (candidates.length === 1) return { record: candidates[0], source: "ACCOUNT_GHCR_AUTO" };
+  if (candidates.length > 1) {
+    throw new Error(`AVANTIQO_VOICE_STT_RUNTIME_BINDING_GHCR_AUTH_AMBIGUOUS:matches=${candidates.length}`);
+  }
+  return { record: null, source: "NONE" };
+}
+
 function runGit(args) {
   const result = spawnSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   if (result.status !== 0) throw new Error(`GIT_${args[0].toUpperCase()}_FAILED:${text(result.stderr).slice(0, 500)}`);
@@ -172,8 +244,19 @@ async function snapshot(credentials) {
   return { endpoint, endpointId, template, templateId, health, workers };
 }
 
-function templateUpdateBody(template, imageName) {
-  const authId = text(template?.containerRegistryAuthId);
+async function registryAuthForTemplate(template, managementKey) {
+  const existingId = text(template?.containerRegistryAuthId);
+  if (existingId) return { id: existingId, source: "BOUND_TEMPLATE" };
+
+  const raw = await rest("/containerregistryauth", managementKey);
+  const { record, source } = resolveRegistryAuth(normalizeRegistryAuthResponse(raw));
+  const id = text(record?.id);
+  if (!id) throw new Error("AVANTIQO_VOICE_STT_RUNTIME_BINDING_GHCR_AUTH_REQUIRED");
+  return { id, source };
+}
+
+function templateUpdateBody(template, imageName, registryAuthId) {
+  const authId = text(registryAuthId);
   if (!authId) throw new Error("AVANTIQO_VOICE_STT_RUNTIME_BINDING_GHCR_AUTH_REQUIRED");
   return {
     containerDiskInGb: Math.max(1, Number(template?.containerDiskInGb) || 30),
@@ -235,6 +318,13 @@ const credentials = {
 const certified = validateEvidence(newestEvidence());
 const initial = await snapshot(credentials);
 const initialSafety = safety(initial);
+const registryAuth =
+  text(initial.template?.imageName) !== certified.image
+    ? await registryAuthForTemplate(initial.template, credentials.management)
+    : {
+        id: text(initial.template?.containerRegistryAuthId) || null,
+        source: text(initial.template?.containerRegistryAuthId) ? "BOUND_TEMPLATE" : "NOT_REQUIRED",
+      };
 
 const plan = {
   success: true,
@@ -251,6 +341,8 @@ const plan = {
   certified_image: certified.image,
   certified_source_sha: certified.sourceSha,
   image_change_required: text(initial.template?.imageName) !== certified.image,
+  registry_auth_resolved: Boolean(registryAuth.id),
+  registry_auth_source: registryAuth.source,
   health: initial.health,
   workers: initial.workers,
   safety: initialSafety,
@@ -300,7 +392,7 @@ if (drained.health.jobs.in_queue !== 0 || drained.health.jobs.in_progress !== 0)
 if (text(drained.template?.imageName) !== certified.image) {
   await rest(`/templates/${encodeURIComponent(drained.templateId)}/update`, credentials.management, {
     method: "POST",
-    body: templateUpdateBody(drained.template, certified.image),
+    body: templateUpdateBody(drained.template, certified.image, registryAuth.id),
   });
   plan.mutation_performed = true;
 }
@@ -309,6 +401,9 @@ const templatesAfter = await boundTemplates(credentials.management);
 const boundAfter = templatesAfter.find((item) => text(item?.id) === drained.templateId);
 if (text(boundAfter?.imageName) !== certified.image) {
   throw new Error("AVANTIQO_VOICE_STT_RUNTIME_BINDING_IMAGE_VERIFY_FAILED");
+}
+if (registryAuth.id && text(boundAfter?.containerRegistryAuthId) !== registryAuth.id) {
+  throw new Error("AVANTIQO_VOICE_STT_RUNTIME_BINDING_REGISTRY_AUTH_VERIFY_FAILED");
 }
 if (commandList(boundAfter?.dockerEntrypoint).length || commandList(boundAfter?.dockerStartCmd).length) {
   throw new Error("AVANTIQO_VOICE_STT_RUNTIME_BINDING_COMMAND_OVERRIDE_VERIFY_FAILED");
@@ -336,6 +431,8 @@ console.log(JSON.stringify({
   certified_image: certified.image,
   certified_source_sha: certified.sourceSha,
   image_change_performed: plan.mutation_performed,
+  registry_auth_resolved: Boolean(registryAuth.id),
+  registry_auth_source: registryAuth.source,
   workers_min: 0,
   workers_max: 0,
   permanent_rest_state: "VOICE_STT_0_0",

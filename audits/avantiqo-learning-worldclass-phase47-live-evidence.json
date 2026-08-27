@@ -1,0 +1,53 @@
+{
+  "contract": "AVANTIQO_LEARNING_WORLDCLASS_PHASE47_PRODUCTION_READINESS_V1",
+  "observed_at": "2026-08-27T10:40:12Z",
+  "fixture_scope": "isolated_random_organization_only",
+  "production_fixture_rows_remaining": 0,
+  "forced_mid_transition_failure": {
+    "error": "AVANTIQO_PHASE42_SUCCESSOR_AUTHORITY_BOUNDARY_INVALID",
+    "root_state_after_failure": "ACTIVE",
+    "policy_count_after_failure": 1,
+    "activation_generation_count_after_failure": 1,
+    "closure_count_after_failure": 0,
+    "partial_commit_observed": false
+  },
+  "recovery": {
+    "valid_successor_activation_generation": 2,
+    "valid_successor_policy_generation": 1,
+    "rollback_reactivated_parent_generation": 3,
+    "phase42_integrity": true,
+    "phase43_integrity": true,
+    "phase44_integrity": true,
+    "phase45_integrity": true
+  },
+  "retry_safety": {
+    "rollback_retry_idempotent": true,
+    "rollback_timestamp_preserved": true,
+    "rollback_reason_preserved": true,
+    "stale_execution_request_retry_rejected": true,
+    "stale_execution_request_error": "AVANTIQO_PHASE45_STALE_EXECUTION_REQUEST_REBIND_FORBIDDEN"
+  },
+  "final_interval_state_before_cleanup": {
+    "activation_generation_count": 3,
+    "closed_interval_count": 2,
+    "open_interval_count": 1,
+    "active_generation_index": 3,
+    "phase42_generation_history_count": 1
+  },
+  "cleanup": {
+    "policies": 0,
+    "applications": 0,
+    "policy_generations": 0,
+    "activation_generations": 0,
+    "closures": 0,
+    "attributions": 0,
+    "memories": 0
+  },
+  "side_effects": {
+    "provider_call_performed": false,
+    "wallet_write_performed": false,
+    "runpod_job_submitted": false,
+    "automatic_training_started": false,
+    "automatic_model_weight_mutation": false
+  }
+}

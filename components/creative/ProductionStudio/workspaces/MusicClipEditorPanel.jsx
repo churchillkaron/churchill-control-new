@@ -23,13 +23,32 @@ function Field({ label, children }) {
   return <label className="block"><div className="mb-1 text-[8px] uppercase tracking-[0.14em] text-white/22">{label}</div>{children}</label>;
 }
 
-export default function MusicClipEditorPanel({ track, clipId, playhead = 0, disabled = false, onChange, onSelectClip }) {
+function snappedSeconds(value, bpm, snap) {
+  const seconds = Math.max(0, finite(value, 0));
+  if (String(snap || "off").toLowerCase() !== "beat") return seconds;
+  const beatSeconds = 60 / Math.max(30, Math.min(300, finite(bpm, 96)));
+  return Math.max(0, Math.round(seconds / beatSeconds) * beatSeconds);
+}
+
+export default function MusicClipEditorPanel({
+  track,
+  clipId,
+  playhead = 0,
+  bpm = 96,
+  snap = "off",
+  disabled = false,
+  onChange,
+  onSelectClip,
+}) {
   const clip = track?.clips?.find((entry) => entry.id === clipId) || null;
   if (!track || !clip) return null;
   const start = finite(clip.start_seconds, 0);
   const duration = Math.max(0.001, finite(clip.duration_seconds, 0.001));
   const end = start + duration;
-  const playheadInside = playhead > start && playhead < end;
+  const editPlayhead = snappedSeconds(playhead, bpm, snap);
+  const playheadInside = editPlayhead > start && editPlayhead < end;
+  const beatSeconds = 60 / Math.max(30, Math.min(300, finite(bpm, 96)));
+  const beatSnap = String(snap || "off").toLowerCase() === "beat";
 
   function commit(replacement, selectId = null) {
     const next = replaceClipInTrack(track, clip.id, replacement);
@@ -48,17 +67,17 @@ export default function MusicClipEditorPanel({ track, clipId, playhead = 0, disa
 
   function trimLeft() {
     if (!playheadInside) return;
-    updateDirect(trimMusicClipStart(clip, playhead));
+    updateDirect(trimMusicClipStart(clip, editPlayhead));
   }
 
   function trimRight() {
     if (!playheadInside) return;
-    updateDirect(trimMusicClipEnd(clip, playhead));
+    updateDirect(trimMusicClipEnd(clip, editPlayhead));
   }
 
   function split() {
     if (!playheadInside) return;
-    const { left, right } = splitMusicClip(clip, playhead);
+    const { left, right } = splitMusicClip(clip, editPlayhead);
     commit([left, right], right.id);
   }
 
@@ -82,9 +101,11 @@ export default function MusicClipEditorPanel({ track, clipId, playhead = 0, disa
         <label className="flex items-center gap-2 text-[9px] text-white/35"><input type="checkbox" checked={clip.muted === true} disabled={disabled} onChange={(event) => setMuted(event.target.checked)} className="accent-[#d6a66a]" /> Mute</label>
       </div>
 
+      <div className="mt-3 rounded-lg border border-white/6 bg-black/15 px-3 py-2 text-[8px] text-white/25">Grid: {beatSnap ? `Beat · ${finite(bpm, 96)} BPM · ${beatSeconds.toFixed(3)}s` : "Free seconds"}{beatSnap && Math.abs(editPlayhead - finite(playhead, 0)) > 0.0005 ? ` · playhead snaps ${finite(playhead, 0).toFixed(3)} → ${editPlayhead.toFixed(3)}s` : ""}</div>
+
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Field label="Timeline start">
-          <input type="number" step="0.01" min="0" disabled={disabled} value={Number(start.toFixed(3))} onChange={(event) => updateDirect(moveMusicClip(clip, Math.max(0, finite(event.target.value, start))))} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[10px] text-white/55 disabled:opacity-25" />
+          <input type="number" step={beatSnap ? beatSeconds : 0.01} min="0" disabled={disabled} value={Number(start.toFixed(3))} onChange={(event) => updateDirect(moveMusicClip(clip, snappedSeconds(event.target.value, bpm, snap)))} className="w-full rounded-lg border border-white/8 bg-black/25 px-2 py-2 text-[10px] text-white/55 disabled:opacity-25" />
         </Field>
         <Field label="Source offset">
           <div className="rounded-lg border border-white/6 bg-black/15 px-2 py-2 text-[10px] text-white/30">{finite(clip.source_offset_seconds, 0).toFixed(3)} s</div>
@@ -112,13 +133,13 @@ export default function MusicClipEditorPanel({ track, clipId, playhead = 0, disa
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <button type="button" disabled={disabled || !playheadInside} onClick={trimLeft} className="rounded-lg border border-white/8 px-2 py-2 text-[9px] text-white/42 disabled:opacity-20">Trim left → playhead</button>
-        <button type="button" disabled={disabled || !playheadInside} onClick={trimRight} className="rounded-lg border border-white/8 px-2 py-2 text-[9px] text-white/42 disabled:opacity-20">Trim right ← playhead</button>
-        <button type="button" disabled={disabled || !playheadInside} onClick={split} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/8 px-2 py-2 text-[9px] text-white/42 disabled:opacity-20"><Scissors className="h-3 w-3" /> Split at playhead</button>
+        <button type="button" disabled={disabled || !playheadInside} onClick={trimLeft} className="rounded-lg border border-white/8 px-2 py-2 text-[9px] text-white/42 disabled:opacity-20">Trim left → {beatSnap ? "grid" : "playhead"}</button>
+        <button type="button" disabled={disabled || !playheadInside} onClick={trimRight} className="rounded-lg border border-white/8 px-2 py-2 text-[9px] text-white/42 disabled:opacity-20">Trim right ← {beatSnap ? "grid" : "playhead"}</button>
+        <button type="button" disabled={disabled || !playheadInside} onClick={split} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/8 px-2 py-2 text-[9px] text-white/42 disabled:opacity-20"><Scissors className="h-3 w-3" /> Split at {beatSnap ? "grid" : "playhead"}</button>
         <button type="button" disabled={disabled} onClick={duplicate} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/8 px-2 py-2 text-[9px] text-white/42 disabled:opacity-20"><Copy className="h-3 w-3" /> Duplicate after</button>
       </div>
 
-      <div className="mt-3 flex items-start gap-2 text-[8px] leading-4 text-white/18"><MoveHorizontal className="mt-0.5 h-3 w-3 shrink-0" />Move changes timeline position only. Trim/split change source offsets and references; the original WAV asset is never rewritten.</div>
+      <div className="mt-3 flex items-start gap-2 text-[8px] leading-4 text-white/18"><MoveHorizontal className="mt-0.5 h-3 w-3 shrink-0" />Move changes timeline position only. Trim/split change source offsets and references; the original WAV asset is never rewritten. Beat snap quantizes edit positions only and never time-stretches the source.</div>
     </div>
   );
 }

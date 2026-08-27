@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { AudioWaveform, Mic2 } from "lucide-react";
 
+import MusicVocalTuningPlanPanel from "./MusicVocalTuningPlanPanel";
+
 function finite(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -99,6 +101,16 @@ export default function MusicVocalPitchAnalysisPanel({
 
         <div className="flex items-start gap-2 rounded-lg border border-white/6 bg-black/15 p-2 text-[7px] leading-3 text-white/16"><AudioWaveform className="mt-0.5 h-3 w-3 shrink-0" />This pitch map is evidence for a future formant-preserving note correction stage. `auto_tune_applied=false` and `formant_processing_applied=false` remain true for this analysis.</div>
       </div> : null}
+
+      <MusicVocalTuningPlanPanel
+        organizationId={organizationId}
+        projectId={projectId}
+        sessionRevision={sessionRevision}
+        track={track}
+        clip={clip}
+        disabled={disabled || busy}
+        onReload={onReload}
+      />
 
       {error ? <div className="mt-2 rounded-lg border border-red-300/10 bg-red-400/[0.02] px-3 py-2 text-[8px] leading-4 text-red-100/55">{error}</div> : null}
     </div>

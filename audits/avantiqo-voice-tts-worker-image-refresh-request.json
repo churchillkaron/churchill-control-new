@@ -1,7 +1,7 @@
 {
   "contract": "AVANTIQO_VOICE_TTS_WORKER_IMAGE_REFRESH_REQUEST_V1",
-  "requested_for": "tts_chatterbox_v3_offline_main_cache_fix",
-  "source_commit": "176945ef061a857b12fc4a5d1a8cbfc56eae42b4",
+  "requested_for": "tts_recorded_reference_profiles_quality_v2",
+  "source_commit": "b4b974ad3d43d339dc867cca96ba4b11d429330c",
   "build_tts": true,
   "build_stt": false,
   "platform": "linux/amd64",

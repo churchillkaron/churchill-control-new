@@ -35,3 +35,10 @@ test("resolved organization id is passed only through child environment and neve
   assert.match(source, /AVANTIQO_COGNITION_PLATFORM_SCOPE_ORGANIZATION_ID_PRINTED=false/);
   assert.doesNotMatch(source, /console\.log\([^\n]*organizationId/);
 });
+
+test("platform scope charge ceiling is bounded and overrideable", () => {
+  assert.match(source, /PLATFORM_DEFAULT_MAX_PROJECTED_CUSTOMER_CHARGE = "10"/);
+  assert.match(source, /AVANTIQO_INTELLIGENCE_COGNITION_CERT_MAX_CUSTOMER_CHARGE/);
+  assert.match(source, /\|\| PLATFORM_DEFAULT_MAX_PROJECTED_CUSTOMER_CHARGE/);
+  assert.doesNotMatch(source, /MAX_PROVIDER_REQUESTS\s*=\s*[6-9]/);
+});

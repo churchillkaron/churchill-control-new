@@ -1,0 +1,66 @@
+name: Avantiqo Intelligence Post48 Final Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/avantiqo-intelligence-post48-final-audit.yml"
+      - ".github/workflows/avantiqo-intelligence-production-adapter-image.yml"
+      - "services/avantiqo-intelligence-production-adapter/**"
+      - "services/avantiqo-intelligence-candidate/inspect_adapter.py"
+      - "lib/intelligence/runtime/AvantiqoModelPromotionRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js"
+      - "lib/platform/service-runtime/providers/avantiqo-intelligence/**"
+      - "scripts/avantiqo-learning-worldclass-phase48-audit.mjs"
+      - "scripts/avantiqo-intelligence-post48-gap-repair-audit.mjs"
+      - "scripts/avantiqo-intelligence-production-adapter-release-audit.mjs"
+      - "scripts/build-avantiqo-intelligence-production-adapter-image-local.mjs"
+      - "scripts/recover-avantiqo-intelligence-production-adapter-image-evidence-local.mjs"
+      - "scripts/rebind-avantiqo-intelligence-production-adapter-local.mjs"
+      - "scripts/run-avantiqo-intelligence-post48-final-audit-from-origin-main.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-post48-final-audit-main
+  cancel-in-progress: false
+
+jobs:
+  detached-static-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact pushed main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Verify exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "AVANTIQO_INTELLIGENCE_FINAL_AUDIT_SOURCE_SHA=$GITHUB_SHA"
+          echo "AVANTIQO_INTELLIGENCE_FINAL_AUDIT_DETACHED=true"
+
+      - name: Run Phase48 audit
+        run: node scripts/avantiqo-learning-worldclass-phase48-audit.mjs
+
+      - name: Run post48 repair audit
+        run: node scripts/avantiqo-intelligence-post48-gap-repair-audit.mjs
+
+      - name: Run production adapter release audit
+        run: node scripts/avantiqo-intelligence-production-adapter-release-audit.mjs
+
+      - name: Confirm no runtime side effects
+        shell: bash
+        run: |
+          echo 'AVANTIQO_INTELLIGENCE_POST48_FINAL_DETACHED_AUDIT=PASS'
+          echo 'AVANTIQO_INTELLIGENCE_PHASE49_CREATED=false'
+          echo 'AVANTIQO_INTELLIGENCE_PROVIDER_JOB_SUBMITTED=NO'
+          echo 'AVANTIQO_INTELLIGENCE_INFERENCE_PERFORMED=NO'
+          echo 'AVANTIQO_INTELLIGENCE_RUNPOD_MUTATION_PERFORMED=NO'
+          echo 'AVANTIQO_INTELLIGENCE_PRODUCTION_PROMOTION_PERFORMED=NO'

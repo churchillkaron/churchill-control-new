@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 
 const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_EAGER_CANDIDATE_CONCURRENCY_GUARD_V1";
 const EXPECTED_MAIN_ENV = "AVANTIQO_INTELLIGENCE_DEEP_EAGER_CANDIDATE_EXPECTED_MAIN";
+const RUNPOD_REST_ORIGIN = "https://rest.runpod.io";
+const TEMPLATE_COLLECTION_URL = `${RUNPOD_REST_ORIGIN}/v1/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false`;
 const CRITICAL_PATHS = [
   "scripts/provision-avantiqo-intelligence-deep-eager-candidate-local.mjs",
   "scripts/provision-avantiqo-intelligence-deep-eager-candidate-v2-local.mjs",
@@ -11,6 +13,7 @@ const CRITICAL_PATHS = [
 ];
 
 const text = (value) => String(value ?? "").trim();
+const list = (value) => Array.isArray(value) ? value : [];
 
 function runGit(args, code, { allowStatus = [] } = {}) {
   const result = spawnSync("git", args, {
@@ -23,6 +26,15 @@ function runGit(args, code, { allowStatus = [] } = {}) {
     throw new Error(`${code}:${text(result.stderr || result.stdout).slice(0, 900)}`);
   }
   return result;
+}
+
+function collectionRows(value) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return [];
+  for (const key of ["templates", "data", "items", "results"]) {
+    if (Array.isArray(value[key])) return value[key];
+  }
+  return [];
 }
 
 const expected = text(process.env[EXPECTED_MAIN_ENV]);
@@ -80,6 +92,52 @@ if (expected) {
   delete process.env[EXPECTED_MAIN_ENV];
 }
 
-// V2 fetches authoritative bound templates by templateId instead of trusting
-// partial endpoint.template payloads.
+// RunPod exposes some endpoint-bound templates in the templates collection
+// while GET /templates/{id} returns 404. V2 deliberately resolves templates by
+// exact bound template ID, so normalize only that documented live API shape:
+// on an item-route 404, resolve the same exact ID from the endpoint-bound
+// collection. Every other response and request passes through unchanged.
+const nativeFetch = globalThis.fetch.bind(globalThis);
+globalThis.fetch = async (input, init) => {
+  const rawUrl = typeof input === "string"
+    ? input
+    : input instanceof URL
+      ? input.href
+      : text(input?.url);
+
+  const response = await nativeFetch(input, init);
+  if (response.status !== 404 || !rawUrl) return response;
+
+  let parsed;
+  try { parsed = new URL(rawUrl); } catch { return response; }
+  if (parsed.origin !== RUNPOD_REST_ORIGIN) return response;
+
+  const match = parsed.pathname.match(/^\/v1\/templates\/([^/]+)$/);
+  if (!match) return response;
+
+  const templateId = decodeURIComponent(match[1]);
+  if (!templateId) return response;
+
+  const collectionResponse = await nativeFetch(TEMPLATE_COLLECTION_URL, {
+    method: "GET",
+    headers: init?.headers,
+    signal: init?.signal,
+  });
+  if (!collectionResponse.ok) return response;
+
+  let payload = null;
+  try { payload = await collectionResponse.json(); } catch { return response; }
+  const matches = collectionRows(payload).filter((entry) => text(entry?.id) === templateId);
+  if (matches.length !== 1) return response;
+
+  console.log(`${CONTRACT}_ENDPOINT_BOUND_TEMPLATE_COLLECTION_FALLBACK=USED`);
+  return new Response(JSON.stringify(matches[0]), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+};
+
+// V2 verifies candidate/deep runtime parity by exact bound template ID and the
+// shim above makes endpoint-bound collection records available to that verifier
+// without weakening any parity or mutation checks.
 await import("./provision-avantiqo-intelligence-deep-eager-candidate-v2-local.mjs");

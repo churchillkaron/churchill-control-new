@@ -208,16 +208,18 @@ test("bounded replanning cannot rewrite completed history", () => {
   assert.equal(rejected.blocked, true);
 });
 
-test("planning runtime exposes plan graph without gaining business execution authority", () => {
+test("planning runtime exposes plan graph and deliberation without gaining business execution authority", () => {
   const source = fs.readFileSync(
     new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url),
     "utf8",
   );
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V2/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V3/);
   assert.match(source, /operator_plan_graph/);
   assert.match(source, /buildOperatorIntelligencePlan/);
   assert.match(source, /assessOperatorIntelligencePlan/);
   assert.match(source, /reviseOperatorIntelligencePlan/);
+  assert.match(source, /deliberateOperatorIntelligenceDecision/);
+  assert.match(source, /recommendations_are_not_execution_authority/);
   assert.match(source, /planning-only/);
   assert.match(source, /never executes business actions/);
   assert.match(source, /normal Operator governance/);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import MusicMidiBouncePanel from "./MusicMidiBouncePanel";
 import MusicMidiControlAutomationPanel from "./MusicMidiControlAutomationPanel";
 import MusicMidiDrumSequencerPanel from "./MusicMidiDrumSequencerPanel";
 import MusicMidiFilePanel from "./MusicMidiFilePanel";
@@ -54,48 +55,13 @@ export default function MusicMidiStudioPanel({ organizationId, projectId }) {
       {error ? <div className="mb-3 rounded-xl border border-red-300/10 bg-red-400/[0.02] px-3 py-2 text-xs text-red-100/55">{error}</div> : null}
       {session ? (
         <>
-          <MusicMidiFilePanel
-            organizationId={organizationId}
-            projectId={projectId}
-            session={session}
-            disabled={busy}
-            onReload={load}
-          />
-          <MusicMidiPianoRollPanel
-            organizationId={organizationId}
-            projectId={projectId}
-            session={session}
-            disabled={busy}
-            onReload={load}
-          />
-          <MusicMidiHarmonyPanel
-            organizationId={organizationId}
-            projectId={projectId}
-            session={session}
-            disabled={busy}
-            onReload={load}
-          />
-          <MusicMidiControlAutomationPanel
-            organizationId={organizationId}
-            projectId={projectId}
-            session={session}
-            disabled={busy}
-            onReload={load}
-          />
-          <MusicMidiDrumSequencerPanel
-            organizationId={organizationId}
-            projectId={projectId}
-            session={session}
-            disabled={busy}
-            onReload={load}
-          />
-          <MusicSamplerPanel
-            organizationId={organizationId}
-            projectId={projectId}
-            session={session}
-            disabled={busy}
-            onReload={load}
-          />
+          <MusicMidiFilePanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+          <MusicMidiBouncePanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+          <MusicMidiPianoRollPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+          <MusicMidiHarmonyPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+          <MusicMidiControlAutomationPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+          <MusicMidiDrumSequencerPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
+          <MusicSamplerPanel organizationId={organizationId} projectId={projectId} session={session} disabled={busy} onReload={load} />
           <MusicMidiInstrumentPreviewPanel session={session} disabled={busy} />
         </>
       ) : (

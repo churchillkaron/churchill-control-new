@@ -60,6 +60,7 @@ assert.match(source.platform, /createSecretaryStaffDelegationCapability/);
 assert.match(source.platform, /secretary_staff_delegation:\s*\{/);
 assert.match(source.platform, /recordProgress:\s*async \(\) => createSecretaryStaffDelegationCapability\("recordProgress"\)/);
 assert.match(source.platform, /complete:\s*async \(\) => createSecretaryStaffDelegationCapability\("complete"\)/);
+assert.match(source.commitment, /source === "secretary_staff_delegation"[^\n]*return "STAFF_DELEGATION"/);
 
 console.log("OPERATOR_SECRETARY_STAFF_DELEGATION_AUDIT=PASS");
 console.log("SECRETARY_STAFF_DELEGATION_DURABLE_TASK=true");
@@ -69,6 +70,7 @@ console.log("SECRETARY_STAFF_DELEGATION_COMPLETION_EVIDENCE_REQUIRED=true");
 console.log("SECRETARY_STAFF_DELEGATION_SILENCE_NOT_ACCEPTANCE=true");
 console.log("SECRETARY_STAFF_DELEGATION_TEMPORAL_OVERDUE_ONLY=true");
 console.log("SECRETARY_STAFF_DELEGATION_CANONICAL_OWNER_PRESERVED=true");
+console.log("SECRETARY_STAFF_DELEGATION_COMMITMENT_CONTROL_INTEGRATED=true");
 console.log("SECRETARY_STAFF_DELEGATION_PLATFORM_PERMISSIONS_MUTATED=false");
 console.log("SECRETARY_STAFF_DELEGATION_BINDING_AUTHORITY_DELEGATED=false");
 console.log("SECRETARY_STAFF_DELEGATION_APPROVAL_AUTHORITY_DELEGATED=false");

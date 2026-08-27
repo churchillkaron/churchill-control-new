@@ -8,6 +8,7 @@ from typing import Any
 
 import boto3
 from botocore.config import Config
+from huggingface_hub import HfApi
 
 CONTRACT = "AVANTIQO_VIDEO_WAN22_CROSS_REGION_S3_REPLICATION_V31"
 CACHE_COMPLETION_CONTRACT = "AVANTIQO_VIDEO_WAN22_CACHE_COMPLETION_V1"
@@ -20,6 +21,7 @@ SOURCE_REGION = os.environ["AVANTIQO_V31_SOURCE_REGION"]
 DESTINATION_REGION = os.environ["AVANTIQO_V31_DESTINATION_REGION"]
 ACCESS_KEY = os.environ["AVANTIQO_V31_ACCESS_KEY"]
 SECRET_KEY = os.environ["AVANTIQO_V31_SECRET_KEY"]
+HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or None
 PART_SIZE = 64 * 1024 * 1024
 MAX_ATTEMPTS = 8
 
@@ -58,6 +60,7 @@ def client(endpoint: str, region: str):
 
 source = client(SOURCE_ENDPOINT, SOURCE_REGION)
 destination = client(DESTINATION_ENDPOINT, DESTINATION_REGION)
+hf = HfApi(token=HF_TOKEN)
 
 
 def model_root(model: str) -> str:
@@ -82,23 +85,36 @@ def retry(label: str, fn):
     raise RuntimeError(f"AVANTIQO_VIDEO_V31_RETRY_EXHAUSTED:{label}") from last
 
 
-def list_objects(s3, bucket: str, prefix: str) -> list[dict[str, Any]]:
-    objects: list[dict[str, Any]] = []
-    token = None
-    while True:
-        kwargs: dict[str, Any] = {"Bucket": bucket, "Prefix": prefix, "MaxKeys": 1000}
-        if token:
-            kwargs["ContinuationToken"] = token
-        page = retry("list-objects", lambda: s3.list_objects_v2(**kwargs))
-        for item in page.get("Contents", []) or []:
-            key = str(item.get("Key") or "")
-            if key:
-                objects.append({"Key": key, "Size": int(item.get("Size") or 0)})
-        if not page.get("IsTruncated"):
-            return objects
-        token = page.get("NextContinuationToken")
-        if not token:
-            raise RuntimeError("AVANTIQO_VIDEO_V31_LIST_CONTINUATION_TOKEN_MISSING")
+def error_details(exc):
+    response = getattr(exc, "response", {}) or {}
+    code = str((response.get("Error") or {}).get("Code") or "").strip()
+    status = (response.get("ResponseMetadata") or {}).get("HTTPStatusCode")
+    return code, status
+
+
+def head_size(s3, bucket: str, key: str) -> int | None:
+    try:
+        result = retry(
+            f"head:{key.rsplit('/', 1)[-1]}",
+            lambda: s3.head_object(Bucket=bucket, Key=key),
+        )
+        return int(result["ContentLength"])
+    except Exception as exc:
+        code, status = error_details(exc)
+        if code in {"404", "NoSuchKey", "NotFound"} or status == 404:
+            return None
+        if code in {"403", "Forbidden", "AccessDenied"} or status == 403:
+            page = retry(
+                f"list-exact:{key.rsplit('/', 1)[-1]}",
+                lambda: s3.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=2),
+            )
+            for item in page.get("Contents", []) or []:
+                if item.get("Key") == key:
+                    # LIST size may describe a symlink object on RunPod. Do not use it
+                    # as model payload evidence; this fallback is existence-only.
+                    return -1
+            return None
+        raise
 
 
 def read_bytes(s3, bucket: str, key: str, byte_range: str | None = None) -> bytes:
@@ -115,18 +131,6 @@ def read_text(s3, bucket: str, key: str) -> str:
     return read_bytes(s3, bucket, key).decode("utf-8").strip()
 
 
-def head_size(s3, bucket: str, key: str) -> int | None:
-    try:
-        return int(retry(f"head:{key.rsplit('/', 1)[-1]}", lambda: s3.head_object(Bucket=bucket, Key=key))["ContentLength"])
-    except Exception as exc:
-        response = getattr(exc, "response", {}) or {}
-        code = str((response.get("Error") or {}).get("Code") or "")
-        status = (response.get("ResponseMetadata") or {}).get("HTTPStatusCode")
-        if code in {"404", "NoSuchKey", "NotFound"} or status == 404:
-            return None
-        raise
-
-
 def put_bytes(s3, bucket: str, key: str, payload: bytes, content_type: str | None = None):
     kwargs: dict[str, Any] = {"Bucket": bucket, "Key": key, "Body": payload}
     if content_type:
@@ -134,27 +138,91 @@ def put_bytes(s3, bucket: str, key: str, payload: bytes, content_type: str | Non
     retry(f"put:{key.rsplit('/', 1)[-1]}", lambda: s3.put_object(**kwargs))
 
 
-def copy_object_streamed(key: str, expected_size: int, index: int, total: int) -> str:
+def build_hf_manifest(spec: dict[str, Any]) -> list[dict[str, Any]]:
+    info = retry(
+        f"hf-manifest:{spec['label']}",
+        lambda: hf.model_info(
+            repo_id=spec["model"],
+            revision=spec["revision"],
+            files_metadata=True,
+        ),
+    )
+    resolved_revision = str(info.sha or "").strip()
+    if resolved_revision != spec["revision"]:
+        raise RuntimeError(
+            f"AVANTIQO_VIDEO_V31_HF_REVISION_MISMATCH:{spec['label']}:expected={spec['revision']}:actual={resolved_revision}"
+        )
+    manifest: list[dict[str, Any]] = []
+    root = model_root(spec["model"])
+    snapshot_prefix = f"{root}/snapshots/{spec['revision']}/"
+    for sibling in info.siblings or []:
+        rel = str(getattr(sibling, "rfilename", None) or "").strip()
+        if not rel:
+            continue
+        raw_size = getattr(sibling, "size", None)
+        if raw_size is None:
+            raise RuntimeError(f"AVANTIQO_VIDEO_V31_HF_FILE_SIZE_MISSING:{spec['label']}:{rel}")
+        manifest.append({
+            "Key": f"{snapshot_prefix}{rel}",
+            "Relative": rel,
+            "Size": int(raw_size),
+        })
+    manifest.sort(key=lambda item: item["Relative"])
+    file_count = len(manifest)
+    total_bytes = sum(item["Size"] for item in manifest)
+    if file_count != spec["expected_snapshot_file_count"]:
+        raise RuntimeError(
+            f"AVANTIQO_VIDEO_V31_HF_FILE_COUNT_INVALID:{spec['label']}:expected={spec['expected_snapshot_file_count']}:actual={file_count}"
+        )
+    if total_bytes != spec["expected_snapshot_bytes"]:
+        raise RuntimeError(
+            f"AVANTIQO_VIDEO_V31_HF_BYTES_INVALID:{spec['label']}:expected={spec['expected_snapshot_bytes']}:actual={total_bytes}"
+        )
+    if not any(item["Relative"] == "model_index.json" for item in manifest):
+        raise RuntimeError(f"AVANTIQO_VIDEO_V31_HF_MODEL_INDEX_MISSING:{spec['label']}")
+    return manifest
+
+
+def verify_source_manifest(spec: dict[str, Any], manifest: list[dict[str, Any]]):
+    verified_bytes = 0
+    for index, item in enumerate(manifest, start=1):
+        actual = head_size(source, SOURCE_BUCKET, item["Key"])
+        if actual != item["Size"]:
+            raise RuntimeError(
+                f"AVANTIQO_VIDEO_V31_SOURCE_HEAD_SIZE_INVALID:{spec['label']}:{item['Relative']}:expected={item['Size']}:actual={actual}"
+            )
+        verified_bytes += actual
+        print(
+            f"AVANTIQO_VIDEO_V31_SOURCE_FILE_VERIFIED={spec['label']}:{index}/{len(manifest)}:{item['Relative']}:{actual}",
+            flush=True,
+        )
+    if verified_bytes != spec["expected_snapshot_bytes"]:
+        raise RuntimeError(
+            f"AVANTIQO_VIDEO_V31_SOURCE_VERIFIED_BYTES_INVALID:{spec['label']}:expected={spec['expected_snapshot_bytes']}:actual={verified_bytes}"
+        )
+
+
+def copy_object_streamed(key: str, relative: str, expected_size: int, label: str, index: int, total: int) -> str:
     existing = head_size(destination, DESTINATION_BUCKET, key)
     if existing == expected_size:
-        print(f"AVANTIQO_VIDEO_V31_OBJECT_SKIP={index}/{total}:{key}:{expected_size}", flush=True)
+        print(f"AVANTIQO_VIDEO_V31_OBJECT_SKIP={label}:{index}/{total}:{relative}:{expected_size}", flush=True)
         return "SKIPPED"
 
     if expected_size <= PART_SIZE:
         payload = read_bytes(source, SOURCE_BUCKET, key)
         if len(payload) != expected_size:
             raise RuntimeError(
-                f"AVANTIQO_VIDEO_V31_SOURCE_SMALL_SIZE_MISMATCH:{key}:expected={expected_size}:actual={len(payload)}"
+                f"AVANTIQO_VIDEO_V31_SOURCE_SMALL_SIZE_MISMATCH:{label}:{relative}:expected={expected_size}:actual={len(payload)}"
             )
         put_bytes(destination, DESTINATION_BUCKET, key, payload)
     else:
         created = retry(
-            f"multipart-create:{key.rsplit('/', 1)[-1]}",
+            f"multipart-create:{label}:{relative}",
             lambda: destination.create_multipart_upload(Bucket=DESTINATION_BUCKET, Key=key),
         )
         upload_id = str(created.get("UploadId") or "")
         if not upload_id:
-            raise RuntimeError(f"AVANTIQO_VIDEO_V31_MULTIPART_UPLOAD_ID_MISSING:{key}")
+            raise RuntimeError(f"AVANTIQO_VIDEO_V31_MULTIPART_UPLOAD_ID_MISSING:{label}:{relative}")
         parts = []
         part_count = math.ceil(expected_size / PART_SIZE)
         try:
@@ -165,10 +233,10 @@ def copy_object_streamed(key: str, expected_size: int, index: int, total: int) -
                 payload = read_bytes(source, SOURCE_BUCKET, key, f"bytes={start}-{end}")
                 if len(payload) != expected_part:
                     raise RuntimeError(
-                        f"AVANTIQO_VIDEO_V31_SOURCE_RANGE_SIZE_MISMATCH:{key}:part={part_number}:expected={expected_part}:actual={len(payload)}"
+                        f"AVANTIQO_VIDEO_V31_SOURCE_RANGE_SIZE_MISMATCH:{label}:{relative}:part={part_number}:expected={expected_part}:actual={len(payload)}"
                     )
                 uploaded = retry(
-                    f"multipart-part:{key.rsplit('/', 1)[-1]}:{part_number}/{part_count}",
+                    f"multipart-part:{label}:{relative}:{part_number}/{part_count}",
                     lambda payload=payload, part_number=part_number: destination.upload_part(
                         Bucket=DESTINATION_BUCKET,
                         Key=key,
@@ -179,14 +247,16 @@ def copy_object_streamed(key: str, expected_size: int, index: int, total: int) -
                 )
                 etag = uploaded.get("ETag")
                 if not etag:
-                    raise RuntimeError(f"AVANTIQO_VIDEO_V31_MULTIPART_ETAG_MISSING:{key}:part={part_number}")
+                    raise RuntimeError(
+                        f"AVANTIQO_VIDEO_V31_MULTIPART_ETAG_MISSING:{label}:{relative}:part={part_number}"
+                    )
                 parts.append({"ETag": etag, "PartNumber": part_number})
                 print(
-                    f"AVANTIQO_VIDEO_V31_PART={index}/{total}:{key}:part={part_number}/{part_count}:bytes={expected_part}",
+                    f"AVANTIQO_VIDEO_V31_PART={label}:{index}/{total}:{relative}:part={part_number}/{part_count}:bytes={expected_part}",
                     flush=True,
                 )
             retry(
-                f"multipart-complete:{key.rsplit('/', 1)[-1]}",
+                f"multipart-complete:{label}:{relative}",
                 lambda: destination.complete_multipart_upload(
                     Bucket=DESTINATION_BUCKET,
                     Key=key,
@@ -208,9 +278,12 @@ def copy_object_streamed(key: str, expected_size: int, index: int, total: int) -
     actual = head_size(destination, DESTINATION_BUCKET, key)
     if actual != expected_size:
         raise RuntimeError(
-            f"AVANTIQO_VIDEO_V31_DESTINATION_SIZE_VERIFY_FAILED:{key}:expected={expected_size}:actual={actual}"
+            f"AVANTIQO_VIDEO_V31_DESTINATION_SIZE_VERIFY_FAILED:{label}:{relative}:expected={expected_size}:actual={actual}"
         )
-    print(f"AVANTIQO_VIDEO_V31_OBJECT_COPIED={index}/{total}:{key}:{actual}", flush=True)
+    print(
+        f"AVANTIQO_VIDEO_V31_OBJECT_COPIED={label}:{index}/{total}:{relative}:{actual}",
+        flush=True,
+    )
     return "COPIED"
 
 
@@ -225,7 +298,7 @@ def validate_marker(payload: dict[str, Any], spec: dict[str, Any], side: str):
         raise RuntimeError(f"AVANTIQO_VIDEO_V31_{side}_MARKER_INCOMPLETE:{spec['label']}")
 
 
-def destination_complete(spec: dict[str, Any], source_manifest: list[dict[str, Any]]) -> bool:
+def destination_complete(spec: dict[str, Any], manifest: list[dict[str, Any]]) -> bool:
     root = model_root(spec["model"])
     snapshot_prefix = f"{root}/snapshots/{spec['revision']}/"
     marker_key = f"{snapshot_prefix}.avantiqo-video-cache-complete.json"
@@ -235,7 +308,7 @@ def destination_complete(spec: dict[str, Any], source_manifest: list[dict[str, A
             return False
         marker = json.loads(read_text(destination, DESTINATION_BUCKET, marker_key))
         validate_marker(marker, spec, "DESTINATION")
-        for item in source_manifest:
+        for item in manifest:
             if head_size(destination, DESTINATION_BUCKET, item["Key"]) != item["Size"]:
                 return False
         return True
@@ -261,43 +334,26 @@ for spec in MODEL_SPECS:
     source_marker = json.loads(read_text(source, SOURCE_BUCKET, marker_key))
     validate_marker(source_marker, spec, "SOURCE")
 
-    listed = list_objects(source, SOURCE_BUCKET, snapshot_prefix)
-    source_manifest = sorted(
-        [item for item in listed if item["Key"] != marker_key],
-        key=lambda item: item["Key"],
-    )
-    source_file_count = len(source_manifest)
-    source_bytes = sum(int(item["Size"]) for item in source_manifest)
-    if source_file_count != spec["expected_snapshot_file_count"]:
-        raise RuntimeError(
-            f"AVANTIQO_VIDEO_V31_SOURCE_FILE_COUNT_INVALID:{spec['label']}:expected={spec['expected_snapshot_file_count']}:actual={source_file_count}"
-        )
-    if source_bytes != spec["expected_snapshot_bytes"]:
-        raise RuntimeError(
-            f"AVANTIQO_VIDEO_V31_SOURCE_BYTES_INVALID:{spec['label']}:expected={spec['expected_snapshot_bytes']}:actual={source_bytes}"
-        )
-    model_index_key = f"{snapshot_prefix}model_index.json"
-    if not any(item["Key"] == model_index_key for item in source_manifest):
-        raise RuntimeError(f"AVANTIQO_VIDEO_V31_SOURCE_MODEL_INDEX_MISSING:{spec['label']}")
+    manifest = build_hf_manifest(spec)
+    verify_source_manifest(spec, manifest)
+    source_file_count = len(manifest)
+    source_bytes = sum(item["Size"] for item in manifest)
 
-    if destination_complete(spec, source_manifest):
+    if destination_complete(spec, manifest):
         print(f"AVANTIQO_VIDEO_V31_MODEL_ALREADY_COMPLETE={spec['label']}:{spec['revision']}", flush=True)
-        results.append(
-            {
-                "label": spec["label"],
-                "model": spec["model"],
-                "revision": spec["revision"],
-                "source_file_count": source_file_count,
-                "source_bytes": source_bytes,
-                "copied_files": 0,
-                "skipped_files": source_file_count,
-                "destination_complete": True,
-                "mutation_performed": False,
-            }
-        )
+        results.append({
+            "label": spec["label"],
+            "model": spec["model"],
+            "revision": spec["revision"],
+            "source_file_count": source_file_count,
+            "source_bytes": source_bytes,
+            "copied_files": 0,
+            "skipped_files": source_file_count,
+            "destination_complete": True,
+            "mutation_performed": False,
+        })
         continue
 
-    # A partial destination must never advertise completion while replication is running.
     retry(
         f"delete-destination-marker:{spec['label']}",
         lambda: destination.delete_object(Bucket=DESTINATION_BUCKET, Key=marker_key),
@@ -305,26 +361,37 @@ for spec in MODEL_SPECS:
 
     copied = 0
     skipped = 0
-    for index, item in enumerate(source_manifest, start=1):
-        action = copy_object_streamed(item["Key"], int(item["Size"]), index, source_file_count)
+    for index, item in enumerate(manifest, start=1):
+        action = copy_object_streamed(
+            item["Key"],
+            item["Relative"],
+            int(item["Size"]),
+            spec["label"],
+            index,
+            source_file_count,
+        )
         if action == "COPIED":
             copied += 1
         else:
             skipped += 1
 
-    # Verify every model object before refs/main or the completion marker are published.
-    for item in source_manifest:
+    verified_destination_bytes = 0
+    for item in manifest:
         actual = head_size(destination, DESTINATION_BUCKET, item["Key"])
         if actual != item["Size"]:
             raise RuntimeError(
-                f"AVANTIQO_VIDEO_V31_FINAL_DESTINATION_OBJECT_VERIFY_FAILED:{spec['label']}:{item['Key']}:expected={item['Size']}:actual={actual}"
+                f"AVANTIQO_VIDEO_V31_FINAL_DESTINATION_OBJECT_VERIFY_FAILED:{spec['label']}:{item['Relative']}:expected={item['Size']}:actual={actual}"
             )
+        verified_destination_bytes += actual
+    if verified_destination_bytes != spec["expected_snapshot_bytes"]:
+        raise RuntimeError(
+            f"AVANTIQO_VIDEO_V31_DESTINATION_BYTES_INVALID:{spec['label']}:expected={spec['expected_snapshot_bytes']}:actual={verified_destination_bytes}"
+        )
 
     put_bytes(destination, DESTINATION_BUCKET, ref_key, spec["revision"].encode("utf-8"), "text/plain")
     if read_text(destination, DESTINATION_BUCKET, ref_key) != spec["revision"]:
         raise RuntimeError(f"AVANTIQO_VIDEO_V31_DESTINATION_REF_VERIFY_FAILED:{spec['label']}")
 
-    # Completion marker is the final write for each model.
     marker_payload = json.dumps(
         source_marker,
         separators=(",", ":"),
@@ -334,22 +401,20 @@ for spec in MODEL_SPECS:
     destination_marker = json.loads(read_text(destination, DESTINATION_BUCKET, marker_key))
     validate_marker(destination_marker, spec, "DESTINATION")
 
-    if not destination_complete(spec, source_manifest):
+    if not destination_complete(spec, manifest):
         raise RuntimeError(f"AVANTIQO_VIDEO_V31_DESTINATION_COMPLETION_VERIFY_FAILED:{spec['label']}")
 
-    results.append(
-        {
-            "label": spec["label"],
-            "model": spec["model"],
-            "revision": spec["revision"],
-            "source_file_count": source_file_count,
-            "source_bytes": source_bytes,
-            "copied_files": copied,
-            "skipped_files": skipped,
-            "destination_complete": True,
-            "mutation_performed": copied > 0 or skipped < source_file_count,
-        }
-    )
+    results.append({
+        "label": spec["label"],
+        "model": spec["model"],
+        "revision": spec["revision"],
+        "source_file_count": source_file_count,
+        "source_bytes": source_bytes,
+        "copied_files": copied,
+        "skipped_files": skipped,
+        "destination_complete": True,
+        "mutation_performed": copied > 0,
+    })
 
 report = {
     "success": True,
@@ -359,6 +424,9 @@ report = {
     "source_endpoint": SOURCE_ENDPOINT,
     "destination_endpoint": DESTINATION_ENDPOINT,
     "models": results,
+    "source_manifest_basis": "PINNED_HUGGING_FACE_REVISION_WITH_EXACT_S3_HEAD_VERIFICATION",
+    "runpod_s3_list_sizes_used_for_payload_validation": False,
+    "source_symlink_layout_flattened_to_destination_snapshot_files": True,
     "source_mutation_performed": False,
     "completion_markers_published_last": True,
     "bounded_memory_streaming": True,

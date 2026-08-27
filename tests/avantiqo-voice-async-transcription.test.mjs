@@ -76,4 +76,8 @@ test("Voice readiness models true 0\/1 serverless cold start", async () => {
   assert.match(readiness, /JOBS_IN_PROGRESS/);
   assert.match(readiness, /STALE_WORKER_PRESENT/);
   assert.match(readiness, /LIVE_WORKER_IMAGE_MISMATCH/);
+  assert.match(readiness, /TERMINAL_WORKER_STATUSES = new Set\(\["EXITED", "STOPPED", "TERMINATED", "DELETED"\]\)/);
+  assert.match(readiness, /const workers = liveControlWorkers\(workerRecords\)/);
+  assert.match(readiness, /terminal_worker_records_ignored/);
+  assert.match(readiness, /terminal_worker_history_ignored: true/);
 });

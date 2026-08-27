@@ -7,6 +7,7 @@ import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAss
 import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import { validateMusicAutomation } from "@/lib/creative/music/runtime/CreativeMusicAutomationRuntime";
+import { validateMusicGroupProcessing } from "@/lib/creative/music/runtime/CreativeMusicBusProcessingRuntime";
 import {
   ensureMusicEngineeringBuses,
   validateMusicMixerRouting,
@@ -34,11 +35,7 @@ function finite(value, fallback = 0) {
 }
 
 async function requireAccess(request, organizationId) {
-  const access = await requireOrganizationAccess({
-    organizationId,
-    request,
-    requiredAnyPermission: EXECUTION_PERMISSIONS,
-  });
+  const access = await requireOrganizationAccess({ organizationId, request, requiredAnyPermission: EXECUTION_PERMISSIONS });
   if (!access.success) {
     const error = new Error(access.error || "CREATIVE_MUSIC_MULTITRACK_ACCESS_FORBIDDEN");
     error.status = access.status || 403;
@@ -71,6 +68,7 @@ function normalizedSession(session) {
   const next = ensureMusicEngineeringBuses(session);
   validateMusicMultitrackProject(next);
   validateMusicMixerRouting(next);
+  validateMusicGroupProcessing(next);
   validateMusicAutomation(next);
   return next;
 }
@@ -85,21 +83,14 @@ function sessionAssetIds(session = {}) {
 async function playbackAssetUrls(organizationId, projectId, session) {
   const requiredIds = sessionAssetIds(session);
   if (!requiredIds.size) return {};
-  const assets = await CreativeAssetsRuntime.list({
-    organization_id: organizationId,
-    creative_project_id: projectId,
-    limit: Math.max(200, requiredIds.size * 2),
-  });
+  const assets = await CreativeAssetsRuntime.list({ organization_id: organizationId, creative_project_id: projectId, limit: Math.max(200, requiredIds.size * 2) });
   const urls = {};
   for (const asset of assets) {
     const assetId = text(asset?.id || asset?.asset_id);
     if (!requiredIds.has(assetId)) continue;
     const source = text(asset?.file_url || asset?.url);
     if (!source) continue;
-    urls[assetId] = await resolveCreativeProviderAssetUrl({
-      organization_id: organizationId,
-      value: source,
-    });
+    urls[assetId] = await resolveCreativeProviderAssetUrl({ organization_id: organizationId, value: source });
   }
   return urls;
 }
@@ -114,6 +105,7 @@ async function publicSessionResult({ organizationId, projectId, session, persist
     preview_transport_ready: true,
     mixer_aux_routing_ready: true,
     mixer_group_routing_ready: true,
+    mixer_group_processing_ready: true,
     mixer_automation_ready: true,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
@@ -137,12 +129,7 @@ async function saveSession(organizationId, projectId, submitted) {
     error.status = 409;
     throw error;
   }
-  const next = normalizedSession({
-    ...submitted,
-    revision: currentRevision + 1,
-    non_destructive_editing: true,
-    preserve_original_sources: true,
-  });
+  const next = normalizedSession({ ...submitted, revision: currentRevision + 1, non_destructive_editing: true, preserve_original_sources: true });
   const metadata = {
     ...(project.metadata || {}),
     [METADATA_KEY]: next,
@@ -170,9 +157,6 @@ export async function POST(request) {
     if (!result) return NextResponse.json({ success: false, error: "CREATIVE_MUSIC_MULTITRACK_ACTION_INVALID" }, { status: 400 });
     return NextResponse.json(result, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error?.message || "Creative Music multitrack failed" },
-      { status: error?.status || 400 },
-    );
+    return NextResponse.json({ success: false, error: error?.message || "Creative Music multitrack failed" }, { status: error?.status || 400 });
   }
 }

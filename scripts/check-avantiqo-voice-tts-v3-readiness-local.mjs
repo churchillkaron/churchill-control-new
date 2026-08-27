@@ -94,7 +94,7 @@ async function queueRead(endpointId, pathname, credentials) {
     }
     last = new Error(`RUNPOD_VOICE_TTS_READINESS_QUEUE_HTTP_${response.status}`);
   }
-  throw last || new Error("RUNPOD_VOICE_TTS_READINESS_QUEUE_CREDENTIAL_REQUIRED");
+  throw last || new Error("AVANTIQO_VOICE_TTS_READINESS_QUEUE_CREDENTIAL_REQUIRED");
 }
 async function controlWorkers(endpointId, key) {
   const body = await parseJson(await fetch(
@@ -166,19 +166,67 @@ function healthWorkerTotal(health) {
     health.workers.unhealthy
   );
 }
-function reconcileControlWorkers(workerRecords, managementActiveWorkers, health) {
+function terminalManagementRecord(worker) {
+  const status = text(worker?.status).toUpperCase();
+  const desired = text(worker?.desired_status).toUpperCase();
+  return TERMINAL_WORKER_STATUSES.has(status) || TERMINAL_WORKER_STATUSES.has(desired);
+}
+function reconcileWorkerState(workerRecords, managementWorkerRecords, managementActiveWorkers, rawHealth) {
   const terminalWorkerRecords = workerRecords.filter((worker) =>
     TERMINAL_WORKER_STATUSES.has(text(worker?.status).toUpperCase()),
   );
   const nonTerminalWorkers = nonTerminalControlWorkers(workerRecords);
   const noLiveManagementWorker = managementActiveWorkers.length === 0;
-  const noHealthWorker = healthWorkerTotal(health) === 0;
-  const noJobs = health.jobs.in_queue === 0 && health.jobs.in_progress === 0;
+  const noJobs = rawHealth.jobs.in_queue === 0 && rawHealth.jobs.in_progress === 0;
+  const noHealthWorker = healthWorkerTotal(rawHealth) === 0;
+  const managementById = new Map(
+    managementWorkerRecords.filter((worker) => worker.id).map((worker) => [worker.id, worker]),
+  );
+
   const staleControlGhosts = nonTerminalWorkers.filter((worker) =>
     worker.is_stale === true && noLiveManagementWorker && noHealthWorker && noJobs,
   );
-  const liveWorkers = nonTerminalWorkers.filter((worker) => !staleControlGhosts.includes(worker));
-  return { terminalWorkerRecords, staleControlGhosts, liveWorkers };
+  const retiredControlGhosts = nonTerminalWorkers.filter((worker) => {
+    if (!worker.id || staleControlGhosts.includes(worker)) return false;
+    const managementWorker = managementById.get(worker.id);
+    return Boolean(
+      managementWorker &&
+      terminalManagementRecord(managementWorker) &&
+      noLiveManagementWorker &&
+      noJobs,
+    );
+  });
+  const ignoredControlWorkers = new Set([...staleControlGhosts, ...retiredControlGhosts]);
+  const liveWorkers = nonTerminalWorkers.filter((worker) => !ignoredControlWorkers.has(worker));
+
+  const healthHasOnlyIdleWorkers =
+    rawHealth.workers.idle > 0 &&
+    rawHealth.workers.initializing === 0 &&
+    rawHealth.workers.ready === 0 &&
+    rawHealth.workers.running === 0 &&
+    rawHealth.workers.throttled === 0 &&
+    rawHealth.workers.unhealthy === 0;
+  const allNonTerminalControlWorkersExplicitlyRetired =
+    nonTerminalWorkers.length > 0 && liveWorkers.length === 0;
+  const retiredHealthIdleGhosts =
+    noLiveManagementWorker &&
+    noJobs &&
+    healthHasOnlyIdleWorkers &&
+    allNonTerminalControlWorkersExplicitlyRetired
+      ? rawHealth.workers.idle
+      : 0;
+  const health = retiredHealthIdleGhosts > 0
+    ? { ...rawHealth, workers: { ...rawHealth.workers, idle: 0 } }
+    : rawHealth;
+
+  return {
+    terminalWorkerRecords,
+    staleControlGhosts,
+    retiredControlGhosts,
+    retiredHealthIdleGhosts,
+    liveWorkers,
+    health,
+  };
 }
 function dynamicBlockers(health, workers, managementActiveWorkers, certifiedImage) {
   const reasons = [];
@@ -272,10 +320,16 @@ for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
     controlWorkers(endpointId, credentials.management),
     rest(`/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=false&includeWorkers=true`, credentials.management),
   ]);
-  const health = normalizeHealth(healthBody);
+  const rawHealth = normalizeHealth(healthBody);
   const managementWorkerRecords = managementWorkers(managementEndpoint);
   const managementActiveWorkerRecords = activeManagementWorkers(managementWorkerRecords);
-  const reconciled = reconcileControlWorkers(workerRecords, managementActiveWorkerRecords, health);
+  const reconciled = reconcileWorkerState(
+    workerRecords,
+    managementWorkerRecords,
+    managementActiveWorkerRecords,
+    rawHealth,
+  );
+  const health = reconciled.health;
   const workers = reconciled.liveWorkers;
   const controlStatusCounts = workerRecords.reduce((counts, worker) => {
     const status = worker.status || "UNKNOWN";
@@ -292,13 +346,19 @@ for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
     consecutive_clear: consecutiveClear,
     blockers,
     health,
+    raw_health: rawHealth,
     workers,
     management_workers: managementWorkerRecords,
     management_active_workers: managementActiveWorkerRecords,
     control_status_counts: controlStatusCounts,
     terminal_worker_records_ignored: reconciled.terminalWorkerRecords.length,
     stale_control_ghost_records_ignored: reconciled.staleControlGhosts.length,
-    zero_live_workers_observed: workers.length === 0 && managementActiveWorkerRecords.length === 0 && healthWorkerTotal(health) === 0,
+    retired_control_ghost_records_ignored: reconciled.retiredControlGhosts.length,
+    retired_health_idle_records_ignored: reconciled.retiredHealthIdleGhosts,
+    zero_live_workers_observed:
+      workers.length === 0 &&
+      managementActiveWorkerRecords.length === 0 &&
+      healthWorkerTotal(health) === 0,
     live_worker_state_valid: blockers.length === 0,
   };
   observations.push(observation);
@@ -338,6 +398,8 @@ const result = {
   zero_live_workers_allowed: true,
   terminal_worker_history_ignored: true,
   stale_control_ghost_history_ignored_only_when_live_planes_are_zero: true,
+  retired_control_ghost_history_requires_matching_terminal_management_record: true,
+  retired_health_idle_history_ignored_only_with_explicit_retirement_evidence: true,
   blockers: uniqueReasons,
   stability: {
     required_consecutive_clear: REQUIRED_CONSECUTIVE_CLEAR,
@@ -366,6 +428,7 @@ const result = {
   },
   bound_image: text(template?.imageName) || null,
   health: finalObservation.health,
+  raw_health: finalObservation.raw_health || finalObservation.health,
   workers: finalObservation.workers,
   management_workers: finalObservation.management_workers || [],
   management_active_workers: finalObservation.management_active_workers || [],

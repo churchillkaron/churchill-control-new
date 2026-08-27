@@ -59,6 +59,9 @@ test("Voice software certification preserves implemented-but-unreleased realtime
   assert.match(runner, /realtime_relay_client_implemented:\s*true/);
   assert.match(runner, /realtime_relay_client_wired_to_operator:\s*false/);
   assert.match(runner, /realtime_relay_preflight_implemented:\s*true/);
+  assert.match(runner, /realtime_safe_lease_implemented:\s*true/);
+  assert.match(runner, /realtime_safe_lease_endpoint_type:\s*"LOAD_BALANCER"/);
+  assert.match(runner, /realtime_safe_lease_queue_api_allowed:\s*false/);
   assert.match(runner, /realtime_relay_required:\s*true/);
   assert.match(runner, /thai_synthesis:\s*"FAIL_CLOSED_UNTIL_CERTIFIED"/);
 });

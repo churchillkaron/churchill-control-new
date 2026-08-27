@@ -12,6 +12,11 @@ const safeLease = await readFile(
   "utf8",
 );
 
+const relaySafeLeasePatcher = await readFile(
+  new URL("../scripts/patch-avantiqo-voice-realtime-relay-safe-lease-local.mjs", import.meta.url),
+  "utf8",
+);
+
 const realtimeClient = await readFile(
   new URL("../lib/operator/voice/RealtimeTranscriptionClient.js", import.meta.url),
   "utf8",
@@ -89,6 +94,32 @@ test("Voice realtime load-balanced endpoint has its own Safe Lease controller", 
   assert.doesNotMatch(safeLease, /\/run\b/);
   assert.doesNotMatch(safeLease, /\/health\b/);
   assert.doesNotMatch(safeLease, /purge-queue/);
+});
+
+test("Voice realtime Safe Lease uses current Supabase secret-key header semantics", () => {
+  assert.match(safeLease, /function isLegacyJwtKey\(value: string\)/);
+  assert.match(safeLease, /function supabaseRpcHeaders\(key: string\)/);
+  assert.match(safeLease, /apikey: key/);
+  assert.match(safeLease, /isLegacyJwtKey\(key\) \? \{ Authorization: `Bearer \$\{key\}` \} : \{\}/);
+  assert.match(safeLease, /headers: supabaseRpcHeaders\(key\)/);
+});
+
+test("Voice realtime relay Safe Lease patcher is guarded, local-only and queue-free", () => {
+  assert.match(relaySafeLeasePatcher, /AVANTIQO_VOICE_REALTIME_RELAY_SAFE_LEASE_PATCH_V1/);
+  assert.match(relaySafeLeasePatcher, /IMPORT_ANCHOR_CHANGED/);
+  assert.match(relaySafeLeasePatcher, /SETUP_ANCHOR_CHANGED/);
+  assert.match(relaySafeLeasePatcher, /FINISH_ANCHOR_CHANGED/);
+  assert.match(relaySafeLeasePatcher, /acquireVoiceRealtimeSafeLease/);
+  assert.match(relaySafeLeasePatcher, /realtimeEndpointIdFromWebSocketUrl\(runpodUrl\)/);
+  assert.match(relaySafeLeasePatcher, /lease\.refresh\(\)/);
+  assert.match(relaySafeLeasePatcher, /await lease\.release\(reason\)/);
+  assert.match(relaySafeLeasePatcher, /await lease\.fail\(reason\)/);
+  assert.match(relaySafeLeasePatcher, /if \(finishPromise\) return finishPromise/);
+  assert.match(relaySafeLeasePatcher, /production_deploy_performed:\s*false/);
+  assert.match(relaySafeLeasePatcher, /production_migration_applied:\s*false/);
+  assert.match(relaySafeLeasePatcher, /production_function_deployed:\s*false/);
+  assert.doesNotMatch(relaySafeLeasePatcher, /supabase\s+functions\s+deploy/i);
+  assert.doesNotMatch(relaySafeLeasePatcher, /vercel\s+(?:--prod|deploy|build)/i);
 });
 
 test("uncertified realtime public entrypoints remain fail-closed while relay source exists", () => {

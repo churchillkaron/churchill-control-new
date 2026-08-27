@@ -21,6 +21,7 @@ import { getServiceSupabase } from "@/lib/shared/supabase/service";
 
 const EXECUTION_PERMISSIONS = Object.freeze(["creative.execute", "creative.production.run", "creative.*"]);
 const METADATA_KEY = "music_sampler_project";
+const MULTITRACK_METADATA_KEY = "music_multitrack_project";
 const BUCKET = "creative-assets";
 const MAX_SAMPLE_BYTES = 100 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["wav", "flac", "mp3", "m4a", "aac", "ogg", "opus"]);
@@ -98,16 +99,45 @@ async function publicResult(organizationId, projectId, sampler, extra = {}) {
   };
 }
 
-async function persist(project, sampler) {
-  validateMusicSamplerProject(sampler);
-  await CreativeProjectRepository.update(project.id, {
+function invalidateSamplerReleaseBounces(metadata = {}) {
+  const session = metadata?.[MULTITRACK_METADATA_KEY];
+  if (!session?.midi?.tracks?.length) return { metadata, invalidated: 0 };
+  const next = structuredClone(session);
+  let invalidated = 0;
+  for (const midiTrack of next.midi.tracks) {
+    const kind = text(midiTrack.instrument?.kind).toLowerCase();
+    if (!["drum_machine", "sampler", "drum_rack"].includes(kind)) continue;
+    if (!midiTrack.release_bounce) continue;
+    midiTrack.release_bounce = {
+      ...midiTrack.release_bounce,
+      stale: true,
+      stale_reason: "SAMPLER_STATE_CHANGED",
+      invalidated_at: new Date().toISOString(),
+    };
+    invalidated += 1;
+  }
+  if (!invalidated) return { metadata, invalidated: 0 };
+  next.revision = Math.max(0, Math.round(finite(next.revision, 0))) + 1;
+  return {
+    invalidated,
     metadata: {
-      ...(project.metadata || {}),
-      [METADATA_KEY]: sampler,
-      music_sampler_updated_at: new Date().toISOString(),
+      ...metadata,
+      [MULTITRACK_METADATA_KEY]: next,
+      music_multitrack_updated_at: new Date().toISOString(),
     },
-  });
-  return sampler;
+  };
+}
+
+async function persist(project, sampler, { invalidateMidiBounces = false } = {}) {
+  validateMusicSamplerProject(sampler);
+  const baseMetadata = {
+    ...(project.metadata || {}),
+    [METADATA_KEY]: sampler,
+    music_sampler_updated_at: new Date().toISOString(),
+  };
+  const invalidation = invalidateMidiBounces ? invalidateSamplerReleaseBounces(baseMetadata) : { metadata: baseMetadata, invalidated: 0 };
+  await CreativeProjectRepository.update(project.id, { metadata: invalidation.metadata });
+  return { sampler, invalidated_midi_bounce_count: invalidation.invalidated };
 }
 
 async function prepareUpload(body) {
@@ -219,8 +249,8 @@ async function mutate(body) {
   } else {
     throw new Error("CREATIVE_MUSIC_SAMPLER_ACTION_INVALID");
   }
-  const saved = await persist(project, sampler);
-  return publicResult(organizationId, projectId, saved, { action });
+  const saved = await persist(project, sampler, { invalidateMidiBounces: true });
+  return publicResult(organizationId, projectId, saved.sampler, { action, invalidated_midi_bounce_count: saved.invalidated_midi_bounce_count });
 }
 
 export async function POST(request) {

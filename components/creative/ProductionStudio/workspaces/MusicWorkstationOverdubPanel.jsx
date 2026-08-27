@@ -77,6 +77,7 @@ export default function MusicWorkstationOverdubPanel({
   const [punchStart, setPunchStart] = useState(0);
   const [punchEnd, setPunchEnd] = useState(8);
   const [loopPasses, setLoopPasses] = useState(3);
+  const [latencyCompMs, setLatencyCompMs] = useState(0);
   const [recording, setRecording] = useState(false);
   const [phase, setPhase] = useState("IDLE");
   const [meter, setMeter] = useState({ peak_dbfs: -Infinity, rms_dbfs: -Infinity, clipping: false });
@@ -126,6 +127,32 @@ export default function MusicWorkstationOverdubPanel({
     return body;
   }
 
+  async function persistWorkstationBeforeRecording() {
+    const submitted = structuredClone(session);
+    submitted.timeline = {
+      ...(submitted.timeline || {}),
+      playhead_seconds: playhead,
+      loop_enabled: loopEnabled,
+      loop_start_seconds: loopStart,
+      loop_end_seconds: loopEnd,
+    };
+    const response = await fetch("/api/creative/music/multitrack", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "save",
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        session: submitted,
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok || body.success === false) {
+      throw new Error(body.error || "CREATIVE_MUSIC_OVERDUB_PRE_RECORD_SAVE_FAILED");
+    }
+    return body;
+  }
+
   async function savePass(take, passIndex, startSeconds) {
     const base = `${selectedTrack?.name || "track"}-take-${String(Date.now()).slice(-6)}-${passIndex + 1}`
       .replace(/[^A-Za-z0-9._-]+/g, "-")
@@ -145,6 +172,8 @@ export default function MusicWorkstationOverdubPanel({
       body: take.blob,
     });
     if (!upload.ok) throw new Error(`CREATIVE_MUSIC_OVERDUB_UPLOAD_${upload.status}`);
+    const latencyCompensationSeconds = Math.max(-0.5, Math.min(0.5, finite(latencyCompMs, 0) / 1000));
+    const compensatedStart = Math.max(0, startSeconds - latencyCompensationSeconds);
     return request({
       action: "register_recorded_take",
       organization_id: organizationId,
@@ -163,8 +192,9 @@ export default function MusicWorkstationOverdubPanel({
       browser_processing_disabled: true,
       source_rights_confirmed: true,
       multitrack_track_id: selectedTrack.id,
-      timeline_start_seconds: startSeconds,
+      timeline_start_seconds: compensatedStart,
       capture_base_latency_seconds: take.capture_base_latency_seconds || 0,
+      latency_compensation_seconds: latencyCompensationSeconds,
       overdub_mode: region.mode,
       overdub_pass_index: passIndex,
     });
@@ -189,9 +219,12 @@ export default function MusicWorkstationOverdubPanel({
     cancelledRef.current = false;
     setError("");
     setSavedPasses(0);
-    setRecording(true);
-    onRecordingChange?.(true);
     try {
+      setPhase("SAVING PROJECT");
+      await persistWorkstationBeforeRecording();
+      setRecording(true);
+      onRecordingChange?.(true);
+
       setPhase("OPENING INPUT");
       const capture = await startMusicRawPcmCapture({
         deviceId: deviceId || null,
@@ -302,6 +335,10 @@ export default function MusicWorkstationOverdubPanel({
         {loopEnabled ? <label className="block text-[9px] uppercase tracking-[0.14em] text-white/25">Loop passes
           <input type="number" min="1" max="20" value={loopPasses} onChange={(event) => setLoopPasses(Math.max(1, Math.min(20, Math.round(finite(event.target.value, 3)))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
         </label> : <label className="flex items-center gap-2 self-end rounded-lg border border-white/8 px-2 py-2 text-[10px] text-white/45"><input type="checkbox" checked={punchEnabled} onChange={(event) => setPunchEnabled(event.target.checked)} disabled={recording} className="accent-red-300" /> Punch in/out</label>}
+        <label className="col-span-2 block text-[9px] uppercase tracking-[0.14em] text-white/25">Recording offset (ms)
+          <input type="number" min="-500" max="500" step="1" value={latencyCompMs} onChange={(event) => setLatencyCompMs(Math.max(-500, Math.min(500, finite(event.target.value, 0))))} disabled={recording} className="mt-1.5 w-full rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" />
+          <span className="mt-1 block normal-case tracking-normal text-[8px] text-white/18">Measured/manual compensation; 0 ms means no assumed microphone latency correction.</span>
+        </label>
       </div>
 
       {!loopEnabled && punchEnabled ? <div className="mt-3 grid grid-cols-2 gap-3"><input type="number" step="0.1" value={punchStart} onChange={(event) => setPunchStart(Math.max(0, finite(event.target.value, 0)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /><input type="number" step="0.1" value={punchEnd} onChange={(event) => setPunchEnd(Math.max(punchStart + 0.1, finite(event.target.value, punchStart + 1)))} disabled={recording} className="rounded-lg border border-white/8 bg-black/30 px-2 py-2 text-xs text-white/60" /></div> : null}
@@ -318,8 +355,8 @@ export default function MusicWorkstationOverdubPanel({
         {!recording ? <button type="button" disabled={!armed || !selectedTrack} onClick={begin} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/25 bg-red-400/[0.09] px-3 py-2.5 text-xs font-medium text-red-100 disabled:opacity-25"><Radio className="h-4 w-4" /> Record / Overdub</button> : <button type="button" onClick={stopOpenEnded} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/30 bg-red-400/[0.12] px-3 py-2.5 text-xs font-medium text-red-100"><CircleStop className="h-4 w-4" /> Stop & save</button>}
       </div>
 
-      <div className="mt-3 flex items-start gap-2 text-[9px] leading-4 text-white/25"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-100/40" />Each pass is a new immutable WAV/take. Browser AGC, echo cancellation and noise suppression stay disabled; originals are never overwritten.</div>
-      <div className="mt-2 flex items-center gap-2 text-[9px] text-white/20"><Headphones className="h-3.5 w-3.5" />Backing project playback follows the recording range.</div>
+      <div className="mt-3 flex items-start gap-2 text-[9px] leading-4 text-white/25"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-100/40" />Project revision is persisted before capture. Each pass is a new immutable WAV/take; browser AGC, echo cancellation and noise suppression stay disabled.</div>
+      <div className="mt-2 flex items-center gap-2 text-[9px] text-white/20"><Headphones className="h-3.5 w-3.5" />Backing project playback follows the recording range; original recordings are never overwritten.</div>
     </div>
   );
 }

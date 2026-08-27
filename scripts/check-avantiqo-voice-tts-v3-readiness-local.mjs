@@ -179,6 +179,28 @@ function reconcileWorkerState(workerRecords, managementWorkerRecords, management
   const noLiveManagementWorker = managementActiveWorkers.length === 0;
   const noJobs = rawHealth.jobs.in_queue === 0 && rawHealth.jobs.in_progress === 0;
   const noHealthWorker = healthWorkerTotal(rawHealth) === 0;
+  const healthHasOnlyIdleWorkers =
+    rawHealth.workers.idle > 0 &&
+    rawHealth.workers.initializing === 0 &&
+    rawHealth.workers.ready === 0 &&
+    rawHealth.workers.running === 0 &&
+    rawHealth.workers.throttled === 0 &&
+    rawHealth.workers.unhealthy === 0;
+  const controlHasOnlyIdleWorkers =
+    nonTerminalWorkers.length > 0 &&
+    nonTerminalWorkers.every((worker) => text(worker?.status).toUpperCase() === "IDLE");
+  const managementHasOnlyTerminalHistory =
+    managementWorkerRecords.length > 0 &&
+    managementWorkerRecords.every((worker) => terminalManagementRecord(worker));
+  const idlePlaneCountsCompatible =
+    noHealthWorker ||
+    (healthHasOnlyIdleWorkers && rawHealth.workers.idle <= nonTerminalWorkers.length);
+  const explicitlyRetiredIdlePlane =
+    noLiveManagementWorker &&
+    noJobs &&
+    managementHasOnlyTerminalHistory &&
+    controlHasOnlyIdleWorkers &&
+    idlePlaneCountsCompatible;
   const managementById = new Map(
     managementWorkerRecords.filter((worker) => worker.id).map((worker) => [worker.id, worker]),
   );
@@ -186,7 +208,7 @@ function reconcileWorkerState(workerRecords, managementWorkerRecords, management
   const staleControlGhosts = nonTerminalWorkers.filter((worker) =>
     worker.is_stale === true && noLiveManagementWorker && noHealthWorker && noJobs,
   );
-  const retiredControlGhosts = nonTerminalWorkers.filter((worker) => {
+  const matchedRetiredControlGhosts = nonTerminalWorkers.filter((worker) => {
     if (!worker.id || staleControlGhosts.includes(worker)) return false;
     const managementWorker = managementById.get(worker.id);
     return Boolean(
@@ -196,23 +218,32 @@ function reconcileWorkerState(workerRecords, managementWorkerRecords, management
       noJobs,
     );
   });
-  const ignoredControlWorkers = new Set([...staleControlGhosts, ...retiredControlGhosts]);
+  const retiredPlaneControlGhosts = explicitlyRetiredIdlePlane
+    ? nonTerminalWorkers.filter(
+        (worker) =>
+          !staleControlGhosts.includes(worker) &&
+          !matchedRetiredControlGhosts.includes(worker),
+      )
+    : [];
+  const retiredControlGhosts = [
+    ...matchedRetiredControlGhosts,
+    ...retiredPlaneControlGhosts,
+  ];
+  const ignoredControlWorkers = new Set([
+    ...staleControlGhosts,
+    ...retiredControlGhosts,
+  ]);
   const liveWorkers = nonTerminalWorkers.filter((worker) => !ignoredControlWorkers.has(worker));
 
-  const healthHasOnlyIdleWorkers =
-    rawHealth.workers.idle > 0 &&
-    rawHealth.workers.initializing === 0 &&
-    rawHealth.workers.ready === 0 &&
-    rawHealth.workers.running === 0 &&
-    rawHealth.workers.throttled === 0 &&
-    rawHealth.workers.unhealthy === 0;
   const allNonTerminalControlWorkersExplicitlyRetired =
     nonTerminalWorkers.length > 0 && liveWorkers.length === 0;
   const retiredHealthIdleGhosts =
     noLiveManagementWorker &&
     noJobs &&
     healthHasOnlyIdleWorkers &&
-    allNonTerminalControlWorkersExplicitlyRetired
+    managementHasOnlyTerminalHistory &&
+    allNonTerminalControlWorkersExplicitlyRetired &&
+    rawHealth.workers.idle <= retiredControlGhosts.length + staleControlGhosts.length
       ? rawHealth.workers.idle
       : 0;
   const health = retiredHealthIdleGhosts > 0
@@ -223,7 +254,9 @@ function reconcileWorkerState(workerRecords, managementWorkerRecords, management
     terminalWorkerRecords,
     staleControlGhosts,
     retiredControlGhosts,
+    retiredPlaneControlGhosts,
     retiredHealthIdleGhosts,
+    explicitlyRetiredIdlePlane,
     liveWorkers,
     health,
   };
@@ -354,7 +387,9 @@ for (let index = 0; index < MAX_OBSERVATIONS; index += 1) {
     terminal_worker_records_ignored: reconciled.terminalWorkerRecords.length,
     stale_control_ghost_records_ignored: reconciled.staleControlGhosts.length,
     retired_control_ghost_records_ignored: reconciled.retiredControlGhosts.length,
+    retired_control_plane_records_ignored: reconciled.retiredPlaneControlGhosts.length,
     retired_health_idle_records_ignored: reconciled.retiredHealthIdleGhosts,
+    explicitly_retired_idle_plane: reconciled.explicitlyRetiredIdlePlane,
     zero_live_workers_observed:
       workers.length === 0 &&
       managementActiveWorkerRecords.length === 0 &&
@@ -398,7 +433,8 @@ const result = {
   zero_live_workers_allowed: true,
   terminal_worker_history_ignored: true,
   stale_control_ghost_history_ignored_only_when_live_planes_are_zero: true,
-  retired_control_ghost_history_requires_matching_terminal_management_record: true,
+  retired_control_ghost_history_requires_terminal_management_evidence: true,
+  retired_idle_plane_history_requires_all_management_records_terminal: true,
   retired_health_idle_history_ignored_only_with_explicit_retirement_evidence: true,
   blockers: uniqueReasons,
   stability: {

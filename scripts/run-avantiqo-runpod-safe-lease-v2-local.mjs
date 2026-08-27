@@ -95,6 +95,9 @@ function endpointQueueKeyCandidates(endpoint, managementKey, queueKey, targetId 
   if (name === "avantiqo-cinema-v1" || id === text(process.env.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID)) {
     add("RUNPOD_AVANTIQO_VIDEO_API_KEY", process.env.RUNPOD_AVANTIQO_VIDEO_API_KEY);
   }
+  for (const envName of Object.keys(process.env).filter((key) => /^RUNPOD_[A-Z0-9_]*API_KEY$/.test(key)).sort()) {
+    add(envName, process.env[envName]);
+  }
   add("RUNPOD_API_KEY", queueKey);
   add("RUNPOD_MANAGEMENT_API_KEY", managementKey);
   return candidates;
@@ -265,7 +268,10 @@ async function enforce(snapshotValue, policy, targetId, managementKey, lane, tar
     console.log(`${CONTRACT}_ORPHAN_REAP=${JSON.stringify({ endpoint_name: row.name })}`);
   }
   const refreshed = await snapshot(managementKey, queueKey, targetId, targetQueueKey);
-  const open = refreshed.rows.filter((row) => row.workers_max === 1);
+  const open = refreshed.rows.filter((row) =>
+    row.workers_max === 1 &&
+    (leaseIds.has(row.id) || !scopedLaneAllowsInertUnboundedPeer(row, targetId, lane))
+  );
   if (open.length > finite(policy.max_concurrent_paid_leases, 1)) throw new Error(`${CONTRACT}_OPEN_ENDPOINT_LIMIT:${open.length}`);
   if (refreshed.hourly_cost_usd > finite(policy.default_max_account_hourly_usd, 4)) throw new Error(`${CONTRACT}_ACCOUNT_HOURLY_LIMIT:${refreshed.hourly_cost_usd}`);
   const target = refreshed.rows.find((row) => row.id === targetId);
@@ -450,6 +456,7 @@ try {
 }
 
 const success = childSucceeded && release?.success === true && !failure;
+if (failure) console.log(`${CONTRACT}_FAILURE=${redact(failure.message).slice(0, 1200)}`);
 console.log(JSON.stringify({ success, contract: CONTRACT, lane: args.lane, endpoint_name: laneName, lease_acquired: Boolean(lease), child_succeeded: childSucceeded, failure: failure ? redact(failure.message).slice(0, 1200) : null, release, voice_distributed_lease_required: isVoiceRunpodLane(args.lane), voice_distributed_lease_acquired: Boolean(distributedVoiceLease), code_distributed_lease_required: isCodeRunpodLane(args.lane), code_distributed_lease_acquired: Boolean(distributedCodeLease), target_queue_key_override: targetQueueKey !== queueKey, scoped_inert_peer_isolation_lane: scopedInertPeerIsolationLane || null, permanent_rest_state: "LEASE_ENDPOINT_0_0", parallel_work_allowed: true, workers_min_one_allowed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
 console.log(`${CONTRACT}=${success ? "PASS" : "FAIL"}`);
 if (!success) process.exit(3);

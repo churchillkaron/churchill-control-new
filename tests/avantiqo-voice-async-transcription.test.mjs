@@ -61,6 +61,9 @@ test("Voice proof, readiness and smoke all require exact Safe Lease V2", async (
   }
 
   assert.match(smoke, /requireSafeLeaseV2\(endpointId\);[\s\S]*?rawRequest\(endpointId, "\/run"/);
+  assert.match(proof, /AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_JOB_HEALTH_CLEAR/);
+  assert.match(proof, /worker_state_authority: "READINESS_THREE_PLANE_RECONCILIATION"/);
+  assert.doesNotMatch(proof, /AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_HEALTH_BLOCKED/);
 });
 
 test("Voice readiness models true 0\/1 serverless cold start", async () => {
@@ -83,20 +86,20 @@ test("Voice readiness models true 0\/1 serverless cold start", async () => {
   assert.match(readiness, /function terminalManagementRecord\(worker\)/);
   assert.match(readiness, /function reconcileWorkerState\(workerRecords, managementWorkerRecords, managementActiveWorkers, rawHealth\)/);
   assert.match(readiness, /managementPlaneClean/);
-  assert.match(readiness, /safeLeaseGuardedIdlePlane/);
-  assert.match(readiness, /managementWorkerRecords\.length === 0 \|\| managementHasOnlyTerminalHistory/);
-  assert.match(readiness, /controlHasOnlyIdleWorkers/);
-  assert.match(readiness, /retired_control_plane_records_ignored/);
-  assert.match(readiness, /retired_health_idle_records_ignored/);
+  assert.match(readiness, /managementHasOnlyTerminalHistory/);
+  assert.match(readiness, /allObservedControlWorkersRetired/);
+  assert.match(readiness, /retiredWorkerPlane/);
+  assert.match(readiness, /retiredHealthWorkerTelemetry/);
+  assert.match(readiness, /retired_health_worker_telemetry_ignored/);
+  assert.match(readiness, /retired_worker_plane/);
   assert.match(readiness, /management_active_hourly_cost_usd/);
   assert.match(readiness, /management_plane_clean/);
-  assert.match(readiness, /safe_lease_guarded_idle_plane/);
   assert.match(readiness, /zero_live_workers_observed/);
   assert.match(readiness, /terminal_worker_history_ignored: true/);
   assert.match(readiness, /stale_control_ghost_history_ignored_only_when_live_planes_are_zero: true/);
-  assert.match(readiness, /retired_control_ghost_history_requires_terminal_management_evidence_when_present: true/);
-  assert.match(readiness, /safe_lease_management_plane_authoritative_for_idle_only_ghosts: true/);
-  assert.match(readiness, /retired_health_idle_history_ignored_only_with_clean_management_and_zero_jobs: true/);
+  assert.match(readiness, /retired_control_ghost_history_requires_terminal_management_evidence: true/);
+  assert.match(readiness, /retired_worker_health_telemetry_ignored_only_when_all_control_workers_are_retired: true/);
+  assert.match(readiness, /management_plane_authoritative_for_retired_worker_history: true/);
   assert.match(readiness, /CONTROL_HEALTH_WORKER_STATE_DISAGREEMENT/);
   assert.match(readiness, /MANAGEMENT_HEALTH_WORKER_STATE_DISAGREEMENT/);
   assert.match(readiness, /CONTROL_MANAGEMENT_WORKER_STATE_DISAGREEMENT/);

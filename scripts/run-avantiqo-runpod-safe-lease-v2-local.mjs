@@ -184,7 +184,7 @@ function scopedLaneAllowsInertUnboundedPeer(row, targetId, lane) {
     text(lane) === scopedLane &&
     text(row?.id) !== text(targetId) &&
     row?.workers_min === 0 &&
-    finite(row?.workers_max, null) > 1 &&
+    finite(row?.workers_max, null) >= 1 &&
     row?.active_workers === 0 &&
     row?.jobs === 0 &&
     row?.hourly_cost_usd === 0 &&
@@ -213,6 +213,10 @@ async function enforce(snapshotValue, policy, targetId, managementKey, lane, tar
   );
   if (badMax.length) throw new Error(`${CONTRACT}_WORKERS_MAX_BOUNDED_REQUIRED:${badMax.map((row) => row.name).join(",")}`);
   for (const row of snapshotValue.rows.filter((row) => row.workers_max === 1 && !leaseIds.has(row.id))) {
+    if (scopedLaneAllowsInertUnboundedPeer(row, targetId, lane)) {
+      console.log(`${CONTRACT}_INERT_PEER_PRESERVED=${JSON.stringify({ endpoint_name: row.name, workers_min: row.workers_min, workers_max: row.workers_max, active_workers: row.active_workers, jobs: row.jobs, hourly_cost_usd: row.hourly_cost_usd })}`);
+      continue;
+    }
     if (row.health_error || row.jobs !== 0) throw new Error(`${CONTRACT}_UNLEASED_ACTIVE_ENDPOINT:${row.name}`);
     await patch(row.id, 0, managementKey);
     console.log(`${CONTRACT}_ORPHAN_REAP=${JSON.stringify({ endpoint_name: row.name })}`);

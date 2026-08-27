@@ -21,6 +21,7 @@ import {
   resolveMusicTrackPreviewClips,
   startMusicMultitrackPreview,
 } from "@/lib/creative/music/client/MusicMultitrackPreviewEngine";
+import MusicClipCorrectionPanel from "./MusicClipCorrectionPanel";
 import MusicClipEditorPanel from "./MusicClipEditorPanel";
 import MusicMixerSendsPanel from "./MusicMixerSendsPanel";
 import MusicReleaseRenderPanel from "./MusicReleaseRenderPanel";
@@ -352,6 +353,17 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
             onChange={replaceTrack}
             onSelectClip={setSelectedClipId}
           /> : null}
+
+          {selectedTrack && selectedClip ? <MusicClipCorrectionPanel
+            organizationId={organizationId}
+            projectId={projectId}
+            sessionRevision={session.revision || 0}
+            track={selectedTrack}
+            clip={selectedClip}
+            disabled={recording || dirty || busy}
+            onReload={() => load({ preserveSelection: true })}
+          /> : null}
+          {dirty && selectedClip ? <div className="rounded-xl border border-amber-300/10 bg-amber-300/[0.02] px-3 py-2 text-[8px] leading-4 text-amber-100/50">Save the Workstation before rendering pitch or timing correction. Correction is revision-bound and never uses stale unsaved clip state.</div> : null}
 
           {selectedTrack ? <MusicMixerSendsPanel
             session={session}

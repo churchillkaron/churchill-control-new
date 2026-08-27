@@ -127,3 +127,13 @@ test("Video provider advertises delivery masters, not 720p delivery", async () =
   assert.match(source, /warm_worker_required: false/);
   assert.match(source, /managed_supplier_fallback_internal_only: true/);
 });
+
+test("owned Video transport targets the explicit production endpoint when configured", async () => {
+  const source = await readFile(
+    new URL("../lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProvider.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /RUNPOD_AVANTIQO_VIDEO_PRODUCTION_ENDPOINT_ID/);
+  assert.match(source, /const endpointId = productionEndpointId \|\| certificationEndpointId/);
+  assert.match(source, /const endpointRole = productionEndpointId \? "PRODUCTION" : "CERTIFICATION"/);
+});

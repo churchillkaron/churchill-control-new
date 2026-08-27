@@ -237,7 +237,6 @@ const extraFitnessModels = fitnessModels.filter((model) => !approvedCachedNow.ha
 const imageMatches = text(template.imageName) === immutableImage;
 const capacityClean = finite(endpoint.workersMin, -1) === 0 && finite(endpoint.workersMax, -1) === 0;
 const queueClean = health.jobs.in_queue === 0 && health.jobs.in_progress === 0 && health.worker_total === 0;
-const requireCachedModel = text(rawEnv.AVANTIQO_VIDEO_REQUIRE_CACHED_MODEL || "1").toLowerCase() not in [];
 const requireCachedNormalized = !["0", "false", "no", "off"].includes(text(rawEnv.AVANTIQO_VIDEO_REQUIRE_CACHED_MODEL || "1").toLowerCase());
 const certificationExecutionEnabled = ["1", "true", "yes", "on"].includes(text(rawEnv.AVANTIQO_VIDEO_CERTIFICATION_EXECUTION_ENABLED || "0").toLowerCase());
 

@@ -7,6 +7,10 @@ import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAss
 import { resolveCreativeProviderAssetUrl } from "@/lib/creative/assets/storage/resolveCreativeProviderAssetUrl";
 import * as CreativeProjectRepository from "@/lib/creative/projects/repositories/CreativeProjectRepository";
 import {
+  ensureMusicEngineeringBuses,
+  validateMusicMixerRouting,
+} from "@/lib/creative/music/runtime/CreativeMusicMixerRoutingRuntime";
+import {
   createMusicMultitrackProject,
   validateMusicMultitrackProject,
 } from "@/lib/creative/music/runtime/CreativeMusicMultitrackRuntime";
@@ -62,6 +66,13 @@ function defaultSession(project) {
   });
 }
 
+function normalizedSession(session) {
+  const next = ensureMusicEngineeringBuses(session);
+  validateMusicMultitrackProject(next);
+  validateMusicMixerRouting(next);
+  return next;
+}
+
 function sessionAssetIds(session = {}) {
   return new Set((session.tracks || []).flatMap((track) => [
     ...(track.clips || []).map((clip) => text(clip.source_asset_id)),
@@ -99,6 +110,7 @@ async function publicSessionResult({ organizationId, projectId, session, persist
     persisted,
     asset_urls: await playbackAssetUrls(organizationId, projectId, session),
     preview_transport_ready: true,
+    mixer_aux_routing_ready: true,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
   };
@@ -107,8 +119,7 @@ async function publicSessionResult({ organizationId, projectId, session, persist
 async function loadSession(organizationId, projectId) {
   const project = await projectInScope(organizationId, projectId);
   const saved = project.metadata?.[METADATA_KEY] || null;
-  const session = saved || defaultSession(project);
-  validateMusicMultitrackProject(session);
+  const session = normalizedSession(saved || defaultSession(project));
   return publicSessionResult({
     organizationId,
     projectId,
@@ -119,7 +130,7 @@ async function loadSession(organizationId, projectId) {
 
 async function saveSession(organizationId, projectId, submitted) {
   const project = await projectInScope(organizationId, projectId);
-  const current = project.metadata?.[METADATA_KEY] || defaultSession(project);
+  const current = normalizedSession(project.metadata?.[METADATA_KEY] || defaultSession(project));
   const currentRevision = Math.max(0, Math.round(finite(current.revision, 0)));
   const expectedRevision = Math.max(0, Math.round(finite(submitted?.revision, 0)));
   if (expectedRevision !== currentRevision) {
@@ -127,13 +138,12 @@ async function saveSession(organizationId, projectId, submitted) {
     error.status = 409;
     throw error;
   }
-  const next = {
+  const next = normalizedSession({
     ...submitted,
     revision: currentRevision + 1,
     non_destructive_editing: true,
     preserve_original_sources: true,
-  };
-  validateMusicMultitrackProject(next);
+  });
   const metadata = {
     ...(project.metadata || {}),
     [METADATA_KEY]: next,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const runtime = await readFile("lib/operator/secretary/SecretaryExecutiveDecisionRegisterRuntime.js", "utf8");
+const governed = await readFile("lib/operator/secretary/SecretaryExecutiveDecisionRegisterGovernedRuntime.js", "utf8");
 const capability = await readFile("lib/platform/capabilities/createSecretaryExecutiveDecisionRegisterCapability.js", "utf8");
 const platform = await readFile("lib/platform/runtime/PlatformDomainRuntime.js", "utf8");
 
@@ -39,6 +40,21 @@ assert.match(runtime, /platform_permissions_mutated:\s*false/);
 assert.match(runtime, /external_authority_used:\s*false/);
 assert.match(runtime, /scope:\s*"TASK_ROUTING"/);
 
+assert.match(governed, /AVANTIQO_EXECUTIVE_SECRETARY_DECISION_REGISTER_GOVERNED_V1/);
+assert.match(governed, /supersedeSecretaryExecutiveDecisionGoverned/);
+assert.match(governed, /old\?\.state === "SUPERSEDED"/);
+assert.match(governed, /old\?\.superseded_by_version_id === current\.version_id/);
+assert.match(governed, /old\?\.supersession_evidence_id === evidenceId/);
+assert.match(governed, /current\.decision_text_sha256 === sha256\(replacementText\)/);
+assert.match(governed, /replay_safe:\s*true/);
+assert.match(governed, /supersedeSecretaryExecutiveDecision\(\{ context, payload \}\)/);
+assert.match(governed, /decision_inferred:\s*false/);
+assert.match(governed, /decision_made_by_secretary:\s*false/);
+assert.match(governed, /decision_authority_created:\s*false/);
+
+assert.match(capability, /SecretaryExecutiveDecisionRegisterGovernedRuntime/);
+assert.match(capability, /execute:\s*supersedeSecretaryExecutiveDecisionGoverned/);
+assert.doesNotMatch(capability, /execute:\s*supersedeSecretaryExecutiveDecision\b/);
 assert.match(capability, /capability:\s*"secretary_decision_register"/);
 for (const action of ["record", "syncMeeting", "supersede", "retract", "linkFollowThrough", "read", "list"]) {
   assert.match(capability, new RegExp(`${action}:\\s*\\{`));
@@ -53,19 +69,16 @@ assert.match(capability, /aiEnabled:\s*false/);
 
 assert.match(platform, /createSecretaryExecutiveDecisionRegisterCapability/);
 assert.match(platform, /secretary_decision_register:\s*\{/);
-assert.match(platform, /record:\s*async \(\) => createSecretaryExecutiveDecisionRegisterCapability\("record"\)/);
-assert.match(platform, /syncMeeting:\s*async \(\) => createSecretaryExecutiveDecisionRegisterCapability\("syncMeeting"\)/);
-assert.match(platform, /supersede:\s*async \(\) => createSecretaryExecutiveDecisionRegisterCapability\("supersede"\)/);
-assert.match(platform, /retract:\s*async \(\) => createSecretaryExecutiveDecisionRegisterCapability\("retract"\)/);
-assert.match(platform, /linkFollowThrough:\s*async \(\) => createSecretaryExecutiveDecisionRegisterCapability\("linkFollowThrough"\)/);
-assert.match(platform, /read:\s*async \(\) => createSecretaryExecutiveDecisionRegisterCapability\("read"\)/);
-assert.match(platform, /list:\s*async \(\) => createSecretaryExecutiveDecisionRegisterCapability\("list"\)/);
+for (const action of ["record", "syncMeeting", "supersede", "retract", "linkFollowThrough", "read", "list"]) {
+  assert.match(platform, new RegExp(`${action}:\\s*async \\(\\) => createSecretaryExecutiveDecisionRegisterCapability\\("${action}"\\)`));
+}
 
 console.log("OPERATOR_SECRETARY_DECISION_REGISTER_AUDIT=PASS");
 console.log("SECRETARY_DECISION_REGISTER_DURABLE=true");
 console.log("SECRETARY_DECISION_REGISTER_EVIDENCE_REQUIRED=true");
 console.log("SECRETARY_DECISION_REGISTER_MEETING_DECISIONS_EXPLICIT_ONLY=true");
 console.log("SECRETARY_DECISION_REGISTER_VERSION_HISTORY_PRESERVED=true");
+console.log("SECRETARY_DECISION_REGISTER_SUPERSESSION_REPLAY_SAFE=true");
 console.log("SECRETARY_DECISION_REGISTER_STALE_SUPERSESSION_FENCED=true");
 console.log("SECRETARY_DECISION_REGISTER_STALE_RETRACTION_FENCED=true");
 console.log("SECRETARY_DECISION_REGISTER_FOLLOW_THROUGH_EXPLICIT=true");

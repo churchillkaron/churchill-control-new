@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import {
   AvantiqoInvocationEpistemicRoleRuntime,
   resolveAvantiqoInvocationEpistemicRoles,
 } from "../lib/intelligence/runtime/AvantiqoInvocationEpistemicRoleRuntime.mjs";
+
+const reasoningLoop = fs.readFileSync(
+  new URL("../lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js", import.meta.url),
+  "utf8",
+);
 
 test("invocation epistemic role resolver exposes the canonical contract", () => {
   assert.equal(
@@ -62,4 +68,16 @@ test("existing governed static roles remain intact", () => {
   });
 
   assert.deepEqual(roles, ["verification"]);
+});
+
+test("reasoning loop applies invocation roles before marginal research tracking", () => {
+  assert.match(reasoningLoop, /resolveAvantiqoInvocationEpistemicRoles/);
+  assert.match(reasoningLoop, /function invocationEpistemicRoles/);
+  assert.match(reasoningLoop, /capability_key:\s*object\(args\)\.capability_key/);
+  assert.match(reasoningLoop, /const invocationRoles = invocationEpistemicRoles/);
+  assert.match(
+    reasoningLoop,
+    /toolOutcome\(result\) === "succeeded" && invocationRoles\.includes\("research"\)/,
+  );
+  assert.match(reasoningLoop, /epistemicRoles:\s*invocationRoles/);
 });

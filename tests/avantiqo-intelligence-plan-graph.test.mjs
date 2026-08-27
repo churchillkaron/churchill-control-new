@@ -74,9 +74,7 @@ test("empty plan graphs are invalid at the core planner boundary", () => {
 
   assert.equal(plan.valid, false);
   assert.equal(plan.steps.length, 0);
-  assert.ok(
-    plan.issues.some((issue) => issue.code === "PLAN_REQUIRES_AT_LEAST_ONE_STEP"),
-  );
+  assert.ok(plan.issues.some((issue) => issue.code === "PLAN_REQUIRES_AT_LEAST_ONE_STEP"));
   assert.equal(plan.governance.plan_requires_at_least_one_step, true);
 });
 
@@ -111,10 +109,7 @@ test("mutation steps require exact candidate validation, payload completeness an
 test("dependency cycles are rejected", () => {
   const plan = buildOperatorIntelligencePlan({
     goal: "Reject cyclic planning",
-    plan_steps: [
-      safeReadStep({ id: "a", depends_on: ["b"] }),
-      safeReadStep({ id: "b", depends_on: ["a"] }),
-    ],
+    plan_steps: [safeReadStep({ id: "a", depends_on: ["b"] }), safeReadStep({ id: "b", depends_on: ["a"] })],
   });
 
   assert.equal(plan.valid, false);
@@ -122,50 +117,28 @@ test("dependency cycles are rejected", () => {
 });
 
 test("completion is not proven without required verification evidence", () => {
-  const plan = buildOperatorIntelligencePlan({
-    goal: "Verify before completion",
-    plan_steps: [safeReadStep()],
-  });
+  const plan = buildOperatorIntelligencePlan({ goal: "Verify before completion", plan_steps: [safeReadStep()] });
 
   const incomplete = assessOperatorIntelligencePlan({
     plan,
-    observations: [{
-      step_id: "read-current-state",
-      status: "completed",
-      verification_status: "unknown",
-      evidence: ["read returned data"],
-    }],
+    observations: [{ step_id: "read-current-state", status: "completed", verification_status: "unknown", evidence: ["read returned data"] }],
   });
   assert.equal(incomplete.completion_proven, false);
   assert.ok(incomplete.verification_proof_gaps.length > 0);
 
   const complete = assessOperatorIntelligencePlan({
     plan,
-    observations: [{
-      step_id: "read-current-state",
-      status: "verified",
-      verification_status: "pass",
-      evidence: ["verified current state"],
-    }],
+    observations: [{ step_id: "read-current-state", status: "verified", verification_status: "pass", evidence: ["verified current state"] }],
   });
   assert.equal(complete.status, "COMPLETION_PROVEN");
   assert.equal(complete.completion_proven, true);
 });
 
 test("failed dependencies require replan and block dependent steps", () => {
-  const plan = buildOperatorIntelligencePlan({
-    goal: "Handle a failed prerequisite",
-    plan_steps: [safeReadStep(), validatedMutationStep()],
-  });
-
+  const plan = buildOperatorIntelligencePlan({ goal: "Handle a failed prerequisite", plan_steps: [safeReadStep(), validatedMutationStep()] });
   const assessment = assessOperatorIntelligencePlan({
     plan,
-    observations: [{
-      step_id: "read-current-state",
-      status: "failed",
-      verification_status: "fail",
-      error: "live read unavailable",
-    }],
+    observations: [{ step_id: "read-current-state", status: "failed", verification_status: "fail", error: "live read unavailable" }],
   });
 
   assert.equal(assessment.status, "REPLAN_REQUIRED");
@@ -175,52 +148,37 @@ test("failed dependencies require replan and block dependent steps", () => {
 });
 
 test("bounded replanning cannot rewrite completed history", () => {
-  const plan = buildOperatorIntelligencePlan({
-    goal: "Preserve completed work",
-    max_replans: 2,
-    plan_steps: [safeReadStep(), validatedMutationStep()],
-  });
+  const plan = buildOperatorIntelligencePlan({ goal: "Preserve completed work", max_replans: 2, plan_steps: [safeReadStep(), validatedMutationStep()] });
   const observations = [
-    {
-      step_id: "read-current-state",
-      status: "verified",
-      verification_status: "pass",
-      evidence: ["current state verified"],
-    },
-    {
-      step_id: "apply-change",
-      status: "failed",
-      verification_status: "fail",
-      error: "write rejected by governance",
-    },
+    { step_id: "read-current-state", status: "verified", verification_status: "pass", evidence: ["current state verified"] },
+    { step_id: "apply-change", status: "failed", verification_status: "fail", error: "write rejected by governance" },
   ];
 
   const rejected = reviseOperatorIntelligencePlan({
     plan,
     observations,
-    revised_steps: [
-      safeReadStep({ title: "Rewrite completed history" }),
-      validatedMutationStep({ id: "replacement-change" }),
-    ],
+    revised_steps: [safeReadStep({ title: "Rewrite completed history" }), validatedMutationStep({ id: "replacement-change" })],
   });
 
   assert.equal(rejected.status, "REPLAN_REJECTED_COMPLETED_HISTORY_MUTATION");
   assert.equal(rejected.blocked, true);
 });
 
-test("planning runtime exposes plan graph, deliberation and robustness without gaining business execution authority", () => {
+test("planning runtime exposes plan graph, deliberation, robustness and decision validity without execution authority", () => {
   const source = fs.readFileSync(
     new URL("../lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js", import.meta.url),
     "utf8",
   );
-  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V4/);
+  assert.match(source, /AVANTIQO_OPERATOR_INTELLIGENCE_PLANNING_TOOLS_V5/);
   assert.match(source, /operator_plan_graph/);
   assert.match(source, /buildOperatorIntelligencePlan/);
   assert.match(source, /assessOperatorIntelligencePlan/);
   assert.match(source, /reviseOperatorIntelligencePlan/);
   assert.match(source, /deliberateOperatorIntelligenceDecision/);
   assert.match(source, /stressTestOperatorIntelligenceDecision/);
+  assert.match(source, /assessOperatorIntelligenceDecisionValidity/);
   assert.match(source, /hypothetical_scenarios_never_become_live_evidence/);
+  assert.match(source, /stale_or_unverified_decision_dependencies_require_revalidation/);
   assert.match(source, /recommendations_are_not_execution_authority/);
   assert.match(source, /planning-only/);
   assert.match(source, /never executes business actions/);

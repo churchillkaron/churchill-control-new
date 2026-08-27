@@ -46,6 +46,30 @@ export default function MusicAutomationPanel({ session, track, playhead = 0, dis
   useEffect(() => { setCaptureFader(finite(track?.gain_db, 0)); setCapturePan(finite(track?.pan, 0)); latchFader.current = false; latchPan.current = false; touchFader.current = false; touchPan.current = false; lastCaptureTime.current = -Infinity; }, [track?.id]);
   useEffect(() => { if (writeMode === "READ" || writeMode === "TOUCH") { latchFader.current = false; latchPan.current = false; } }, [writeMode]);
 
+  useEffect(() => {
+    if (!session || !track || disabled || writeMode === "READ" || writeMode === "TOUCH") return;
+    const targets = targetOptions(session, track);
+    const selectedTarget = targets[0];
+    const time = finite(playhead, 0);
+    if (Math.abs(time - lastCaptureTime.current) < MIN_CAPTURE_INTERVAL_SECONDS) return;
+    let next = session;
+    const capturePoint = (parameter, value, overwrite = true) => {
+      next = withPoint(next, selectedTarget, parameter, playhead, value, overwrite);
+    };
+    if (writeMode === "WRITE") {
+      capturePoint("gain_db", captureFader);
+      capturePoint("pan", capturePan);
+    } else if (writeMode === "LATCH") {
+      if (latchFader.current) capturePoint("gain_db", captureFader);
+      if (latchPan.current) capturePoint("pan", capturePan);
+    }
+    if (next !== session) {
+      validateMusicAutomation(next);
+      onChange?.(next);
+      lastCaptureTime.current = time;
+    }
+  }, [session, track, playhead, writeMode, captureFader, capturePan, disabled, onChange]);
+
   if (!session || !track) return null;
   const targets = targetOptions(session, track);
   const selectedTarget = targets[0];
@@ -76,19 +100,6 @@ export default function MusicAutomationPanel({ session, track, playhead = 0, dis
     if (writeMode === "LATCH") { if (parameter === "gain_db") latchFader.current = true; else latchPan.current = true; capture([[parameter, safe]], false); }
     if (writeMode === "WRITE") capture([[parameter, safe]], true);
   }
-
-  useEffect(() => {
-    if (disabled || writeMode === "READ" || writeMode === "TOUCH") return;
-    const time = finite(playhead, 0);
-    if (Math.abs(time - lastCaptureTime.current) < MIN_CAPTURE_INTERVAL_SECONDS) return;
-    if (writeMode === "WRITE") capture([["gain_db", captureFader], ["pan", capturePan]], true);
-    else if (writeMode === "LATCH") {
-      const points = [];
-      if (latchFader.current) points.push(["gain_db", captureFader]);
-      if (latchPan.current) points.push(["pan", capturePan]);
-      if (points.length) capture(points, true);
-    }
-  }, [playhead, writeMode, captureFader, capturePan, disabled]);
 
   function LaneEditor({ target, parameter }) {
     const lane = findLane(target, parameter); const points = lane?.points || []; const writeValue = baseValue(session, target, parameter); const label = parameter === "pan" ? "Pan" : "Fader"; const unit = parameter === "pan" ? "" : " dB";

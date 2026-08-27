@@ -42,10 +42,30 @@ async function rest(path, credential) {
 }
 
 function endpointVolumeIds(endpoint = {}) {
-  return unique([
-    endpoint.networkVolumeId ?? endpoint.network_volume_id,
-    ...list(endpoint.networkVolumeIds ?? endpoint.network_volume_ids),
-  ]);
+  const primary = text(endpoint.networkVolumeId ?? endpoint.network_volume_id);
+  const additional = list(endpoint.networkVolumeIds ?? endpoint.network_volume_ids)
+    .map((entry) => text(
+      typeof entry === "string"
+        ? entry
+        : entry?.networkVolumeId ?? entry?.network_volume_id ?? entry?.id,
+    ))
+    .filter(Boolean);
+  return unique([primary, ...additional]);
+}
+
+function endpointTemplateId(endpoint = {}) {
+  const embedded = endpoint?.template;
+  return text(
+    endpoint?.templateId ??
+    endpoint?.template_id ??
+    (typeof embedded === "string" ? embedded : embedded?.id),
+  );
+}
+
+function authoritativeTemplate(endpoint = {}, templates = []) {
+  const templateId = endpointTemplateId(endpoint);
+  if (!templateId) return null;
+  return templates.find((item) => text(item?.id) === templateId) || null;
 }
 
 function workersMin(endpoint = {}) {
@@ -127,10 +147,11 @@ if (!volumeId || attached.length !== 1 || attached[0] !== volumeId) {
   throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_CACHE_BINDING_INVALID");
 }
 
-const templateId = text(candidate?.templateId ?? candidate?.template_id ?? candidate?.template?.id);
-const template = candidate?.template && typeof candidate.template === "object"
-  ? candidate.template
-  : templates.find((item) => text(item?.id) === templateId);
+const templateId = endpointTemplateId(candidate);
+if (!templateId) {
+  throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_TEMPLATE_ID_REQUIRED");
+}
+const template = authoritativeTemplate(candidate, templates);
 if (!template || text(template?.imageName ?? template?.image_name) !== text(evidence?.immutable_image_reference)) {
   throw new Error("AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_TEMPLATE_IMAGE_MISMATCH");
 }
@@ -159,6 +180,8 @@ console.log(JSON.stringify({
   },
   immutable_image_verified: true,
   shared_audio_voice_cache_verified: true,
+  authoritative_template_lookup: "ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST",
+  embedded_template_view_used_for_digest_decision: false,
   certification_safe_lease_lane: SAFE_LEASE_LANE,
   production_audio_endpoint_collision: false,
   production_audio_endpoint_mutation_performed: false,

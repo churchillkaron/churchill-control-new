@@ -22,6 +22,11 @@ const FOUNDATION_MODEL = "openai/whisper-large-v3-turbo";
 const API_BASE = "https://api.runpod.ai/v2";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const POLL_MS = 3000;
+const SUBMIT_RETRY_MS = 2500;
+const SUBMIT_PROPAGATION_TIMEOUT_MS = Math.max(
+  30_000,
+  Math.min(3 * 60_000, Number(process.env.AVANTIQO_VOICE_STT_SUBMIT_PROPAGATION_TIMEOUT_MS || 90_000)),
+);
 const TIMEOUT_MS = Math.max(60_000, Math.min(20 * 60_000, Number(process.env.AVANTIQO_VOICE_STT_EXISTING_AUDIO_TIMEOUT_MS || 15 * 60_000)));
 const NO_WORKER_STARTUP_TIMEOUT_MS = Math.max(
   60_000,
@@ -33,6 +38,24 @@ function text(value) { return String(value ?? "").trim(); }
 function yes(value) { return ["YES", "TRUE", "1", "APPROVED"].includes(text(value).toUpperCase()); }
 function required(name) { const value = text(process.env[name]); if (!value) throw new Error(`${name}_REQUIRED`); return value; }
 function sleep(ms) { return new Promise((resolveSleep) => setTimeout(resolveSleep, ms)); }
+function safeDetail(value) {
+  return text(value)
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]{8,}/gi, "Bearer [REDACTED]")
+    .replace(/((?:api[_-]?key|token|password|secret|authorization)\s*[=:]\s*)[^\s,;]+/gi, "$1[REDACTED]")
+    .slice(0, 400);
+}
+function errorCode(body) {
+  return text(body?.code || body?.errorCode || body?.error_code || body?.statusCode || body?.status_code).toUpperCase();
+}
+function errorMessage(body, raw) {
+  const candidate =
+    (typeof body?.error === "string" ? body.error : null) ||
+    body?.message ||
+    body?.detail ||
+    body?.error?.message ||
+    raw;
+  return safeDetail(candidate);
+}
 
 async function request(endpointId, path, apiKey, options = {}) {
   const response = await fetch(`${API_BASE}/${encodeURIComponent(endpointId)}${path}`, {
@@ -48,7 +71,15 @@ async function request(endpointId, path, apiKey, options = {}) {
   const raw = await response.text();
   let body = null;
   try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
-  if (!response.ok) throw new Error(`RUNPOD_HTTP_${response.status}`);
+  if (!response.ok) {
+    const code = errorCode(body);
+    const detail = errorMessage(body, raw);
+    const error = new Error(`RUNPOD_HTTP_${response.status}${code ? `:${code}` : ""}${detail ? `:${detail}` : ""}`);
+    error.status = response.status;
+    error.runpodCode = code;
+    error.runpodDetail = detail;
+    throw error;
+  }
   return body || {};
 }
 
@@ -60,7 +91,7 @@ async function controlWorkers(endpointId, managementKey) {
   const raw = await response.text();
   let body = null;
   try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
-  if (!response.ok) throw new Error(`RUNPOD_CONTROL_HTTP_${response.status}`);
+  if (!response.ok) throw new Error(`RUNPOD_CONTROL_HTTP_${response.status}:${safeDetail(body?.message || body?.error || raw)}`);
   return Array.isArray(body?.workers) ? body.workers : [];
 }
 
@@ -69,6 +100,58 @@ function activeWorkerCount(workers) {
     const status = text(worker?.status).toUpperCase();
     return ACTIVE_WORKER_STATUSES.has(status) && worker?.isStale !== true;
   }).length;
+}
+
+function isEndpointPausedConflict(error) {
+  if (Number(error?.status) !== 409) return false;
+  const code = text(error?.runpodCode).toUpperCase();
+  const detail = text(error?.runpodDetail).toUpperCase();
+  return code === "ENDPOINT_PAUSED" || detail.includes("ENDPOINT_PAUSED") || detail.includes("ENDPOINT PAUSED") || detail.includes("PAUSED");
+}
+
+async function submitAfterGatewayPropagation(endpointId, apiKey, body) {
+  const startedAt = Date.now();
+  const deadline = startedAt + SUBMIT_PROPAGATION_TIMEOUT_MS;
+  let attempts = 0;
+  let lastPausedDetail = null;
+
+  while (Date.now() < deadline) {
+    attempts += 1;
+    try {
+      const submission = await request(endpointId, "/run", apiKey, {
+        method: "POST",
+        body,
+        timeoutMs: 15_000,
+      });
+      console.log(JSON.stringify({
+        event: "AVANTIQO_VOICE_STT_SUBMIT_ACCEPTED",
+        attempts,
+        propagation_wait_ms: Date.now() - startedAt,
+        generation_submitted: false,
+        stt_jobs_submitted: 1,
+        secrets_printed: false,
+      }));
+      return submission;
+    } catch (error) {
+      if (!isEndpointPausedConflict(error)) throw error;
+      lastPausedDetail = safeDetail(error?.runpodDetail || error?.message);
+      console.log(JSON.stringify({
+        event: "AVANTIQO_VOICE_STT_GATEWAY_PROPAGATION_WAIT",
+        attempts,
+        elapsed_ms: Date.now() - startedAt,
+        runpod_status: 409,
+        runpod_code: text(error?.runpodCode) || "ENDPOINT_PAUSED",
+        generation_submitted: false,
+        stt_jobs_submitted: 0,
+        secrets_printed: false,
+      }));
+      await sleep(SUBMIT_RETRY_MS);
+    }
+  }
+
+  throw new Error(
+    `AVANTIQO_VOICE_STT_EXISTING_AUDIO_GATEWAY_PROPAGATION_TIMEOUT${lastPausedDetail ? `:${lastPausedDetail}` : ""}`,
+  );
 }
 
 async function runProofInsideLease() {
@@ -92,26 +175,23 @@ async function runProofInsideLease() {
   const inProgress = Number(health?.jobs?.inProgress ?? health?.jobs?.in_progress ?? 0) || 0;
   if (inQueue || inProgress) throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_BLOCKED:${inQueue}:${inProgress}`);
 
-  const submission = await request(endpointId, "/run", apiKey, {
-    method: "POST",
-    body: {
-      input: {
-        contract: ENGINE_CONTRACT,
-        capability: "ai.speech.to.text",
-        foundation_model: FOUNDATION_MODEL,
-        organization_id: "benchmark-only",
-        usage_id: `voice-stt-existing-audio-${Date.now()}`,
-        workload: {
-          audio_base64: audio.toString("base64"),
-          file_name: basename(AUDIO_PATH),
-          mime_type: "audio/wav",
-          language: "en",
-          vocabulary_context: "Avantiqo voice generator is working and ready",
-        },
+  const submissionBody = {
+    input: {
+      contract: ENGINE_CONTRACT,
+      capability: "ai.speech.to.text",
+      foundation_model: FOUNDATION_MODEL,
+      organization_id: "benchmark-only",
+      usage_id: `voice-stt-existing-audio-${Date.now()}`,
+      workload: {
+        audio_base64: audio.toString("base64"),
+        file_name: basename(AUDIO_PATH),
+        mime_type: "audio/wav",
+        language: "en",
+        vocabulary_context: "Avantiqo voice generator is working and ready",
       },
     },
-    timeoutMs: 15_000,
-  });
+  };
+  const submission = await submitAfterGatewayPropagation(endpointId, apiKey, submissionBody);
 
   const jobId = text(submission.id);
   if (!jobId) throw new Error("AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_ID_REQUIRED");
@@ -128,7 +208,8 @@ async function runProofInsideLease() {
       break;
     }
     if (["FAILED", "TIMED_OUT", "CANCELLED", "CANCELED"].includes(state)) {
-      throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_${state}`);
+      const detail = safeDetail(status?.error || status?.message || status?.output?.error || "");
+      throw new Error(`AVANTIQO_VOICE_STT_EXISTING_AUDIO_JOB_${state}${detail ? `:${detail}` : ""}`);
     }
 
     const workers = await controlWorkers(endpointId, managementKey);

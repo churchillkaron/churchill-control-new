@@ -94,8 +94,14 @@ assert(!has(migration, "create or replace function public.apply_avantiqo_policy_
 assert(has(phase41Migration, "create or replace function public.activate_avantiqo_policy_successor_v1"), "CERTIFIED_PHASE41_ACTIVATION_AUTHORITY_MISSING");
 assert(has(phase41Migration, "create or replace function public.apply_avantiqo_policy_successor_v1"), "CERTIFIED_PHASE41_APPLICATION_AUTHORITY_MISSING");
 assert(has(phase41Migration, "avantiqo_phase41_composite_score_v1"), "PHASE41_COMPOSITE_SCORER_DEPENDENCY_MISSING");
-assert(has(phase41Migration, "p_include_last_layer => false"), "PHASE41_PARENT_SCORE_USE_MISSING");
-assert(has(phase41Migration, "p_include_last_layer => true"), "PHASE41_SUCCESSOR_SCORE_USE_MISSING");
+assert(
+  /public\.avantiqo_phase41_composite_score_v1\(\s*root_baseline_score,\s*root_legacy_challenger_score,\s*candidate_family,\s*v_policy\.metadata,\s*false\s*\)\s+as parent_persistent_score/s.test(phase41Migration),
+  "PHASE41_PARENT_SCORE_USE_MISSING",
+);
+assert(
+  /public\.avantiqo_phase41_composite_score_v1\(\s*root_baseline_score,\s*root_legacy_challenger_score,\s*candidate_family,\s*v_policy\.metadata,\s*true\s*\)\s+as successor_persistent_score/s.test(phase41Migration),
+  "PHASE41_SUCCESSOR_SCORE_USE_MISSING",
+);
 
 assert(has(migration, "verify_avantiqo_persistent_policy_generation_v1"), "INTEGRITY_RPC_MISSING");
 assert(has(migration, "ACTIVE_PERSISTENT_POLICY_AMBIGUOUS_FAIL_CLOSED"), "ACTIVE_POLICY_AMBIGUITY_NOT_FAIL_CLOSED");

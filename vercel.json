@@ -57,6 +57,9 @@
     "app/api/internal/intelligence/continuous-learning/process/route.js": {
       "maxDuration": 300
     },
+    "app/api/internal/intelligence/model-improvement/readiness/process/route.js": {
+      "maxDuration": 300
+    },
     "app/api/internal/secretary/due-work/process/route.js": {
       "maxDuration": 300
     },
@@ -209,6 +212,10 @@
     {
       "path": "/api/internal/intelligence/continuous-learning/process",
       "schedule": "17 * * * *"
+    },
+    {
+      "path": "/api/internal/intelligence/model-improvement/readiness/process",
+      "schedule": "27 * * * *"
     },
     {
       "path": "/api/internal/voice/runpod-leases/process",

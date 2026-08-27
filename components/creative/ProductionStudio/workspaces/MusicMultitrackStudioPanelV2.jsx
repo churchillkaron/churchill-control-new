@@ -349,6 +349,8 @@ export default function MusicMultitrackStudioPanelV2({ organizationId, projectId
             track={selectedTrack}
             clipId={selectedClip.id}
             playhead={playhead}
+            bpm={session.bpm || 96}
+            snap={session.timeline?.snap || "beat"}
             disabled={recording}
             onChange={replaceTrack}
             onSelectClip={setSelectedClipId}

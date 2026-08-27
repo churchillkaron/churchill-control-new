@@ -42,15 +42,26 @@ assert.match(source.drums,/AVANTIQO_MUSIC_MIDI_DRUM_PATTERN_V1/);
 assert.match(source.drumApi,/midi_channel: 10/);
 assert.match(source.drumApi,/midi_notes_updated: true/);
 
-assert.match(source.sampler,/AVANTIQO_MUSIC_SAMPLER_PROJECT_V1/);
+assert.match(source.sampler,/AVANTIQO_MUSIC_SAMPLER_PROJECT_V2/);
+assert.match(source.sampler,/AVANTIQO_MUSIC_SAMPLER_LAYER_V1/);
+assert.match(source.sampler,/velocity_layers_supported: true/);
+assert.match(source.sampler,/round_robin_supported: true/);
 assert.match(source.sampler,/preserve_source_asset: true/);
 assert.match(source.sampler,/choke_group/);
+assert.match(source.samplerApi,/AVANTIQO_MUSIC_SAMPLER_API_V2/);
 assert.match(source.samplerApi,/SAMPLER_SOURCE/);
 assert.match(source.samplerApi,/immutable_original_sample: true/);
-assert.match(source.samplerEngine,/AVANTIQO_MUSIC_BROWSER_SAMPLER_ENGINE_V1/);
+assert.match(source.samplerApi,/assign_layer/);
+assert.match(source.samplerApi,/remove_layer/);
+assert.match(source.samplerEngine,/AVANTIQO_MUSIC_BROWSER_SAMPLER_ENGINE_V2/);
+assert.match(source.samplerEngine,/selectMusicSamplerLayer/);
+assert.match(source.samplerEngine,/velocity_layers: true/);
+assert.match(source.samplerEngine,/round_robin: true/);
 assert.match(source.samplerEngine,/source_assets_preserved: true/);
+assert.match(source.samplerPanel,/Sampler & Drum Rack V2/);
 assert.match(source.samplerPanel,/Play pattern/);
-assert.match(source.samplerPanel,/Load sample/);
+assert.match(source.samplerPanel,/Replace/);
+assert.match(source.samplerPanel,/Add layer/);
 
 assert.match(source.controls,/AVANTIQO_MUSIC_MIDI_CONTROL_API_V1/);
 assert.match(source.controls,/replace_lane/);
@@ -92,6 +103,7 @@ for (const value of Object.values(source)) {
 }
 
 console.log("MUSIC_DAW_MIDI_SAMPLER_ARRANGEMENT_PRODUCER_AUDIT=PASS");
+console.log("MUSIC_DAW_SAMPLER=V2_VELOCITY_LAYERS_ROUND_ROBIN");
 console.log("MUSIC_DAW_PROVIDER_JOB_SUBMITTED=false");
 console.log("MUSIC_DAW_ENDPOINT_MUTATION_PERFORMED=false");
 console.log("MUSIC_DAW_SOURCE_ASSETS_PRESERVED=true");

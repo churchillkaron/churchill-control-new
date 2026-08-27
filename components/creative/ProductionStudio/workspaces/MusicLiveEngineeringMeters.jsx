@@ -8,6 +8,7 @@ const CONTRACTS = new Set([
   "AVANTIQO_MUSIC_LIVE_ENGINEERING_METER_V1",
   "AVANTIQO_MUSIC_LIVE_ENGINEERING_METER_V2",
   "AVANTIQO_MUSIC_LIVE_ENGINEERING_METER_V3",
+  "AVANTIQO_MUSIC_LIVE_ENGINEERING_METER_V4",
 ]);
 
 function finite(value, fallback = -Infinity) {
@@ -53,21 +54,22 @@ function SourceDiagnostics({ track }) {
   const floorReady = available && floorWindows >= 4 && Number.isFinite(track?.background_floor_estimate_dbfs);
   const humWarning = track?.hum_warning === true;
   const dcWarning = track?.dc_offset_warning === true;
+  const cleanupActive = track?.source_cleanup_active === true;
   const warning = humWarning || dcWarning;
   return (
     <div className={`mt-3 rounded-xl border p-3 ${warning ? "border-amber-300/15 bg-amber-300/[0.02]" : "border-white/7 bg-black/20"}`}>
-      <div className="flex items-center justify-between gap-3 text-[9px]"><span className="flex items-center gap-2 font-medium text-white/45"><ShieldAlert className="h-3 w-3" /> Source diagnostics</span><span className={warning ? "text-amber-100/70" : "text-white/28"}>{available ? "PRE-INSERT" : "Unavailable"}</span></div>
+      <div className="flex items-center justify-between gap-3 text-[9px]"><span className="flex items-center gap-2 font-medium text-white/45"><ShieldAlert className="h-3 w-3" /> Source diagnostics</span><span className={warning ? "text-amber-100/70" : "text-white/28"}>{available ? cleanupActive ? "PRE-CLEANUP · CLEANUP ON" : "PRE-CLEANUP" : "Unavailable"}</span></div>
       <div className="mt-2 grid grid-cols-2 gap-2 text-[8px] text-white/24">
         <div>Floor {floorReady ? `${track.background_floor_estimate_dbfs.toFixed(1)} dBFS` : available ? "Learning…" : "—"}</div>
         <div>History {available ? `${floorWindows} windows` : "—"}</div>
         <div>50 Hz {Number.isFinite(track?.hum_50_relative_db) ? `${track.hum_50_relative_db.toFixed(1)} dB rel` : "—"}</div>
         <div>60 Hz {Number.isFinite(track?.hum_60_relative_db) ? `${track.hum_60_relative_db.toFixed(1)} dB rel` : "—"}</div>
         <div>DC {Number.isFinite(track?.dc_offset) ? track.dc_offset.toFixed(4) : "—"}</div>
-        <div>{humWarning ? `${track.dominant_hum_hz || "?"} Hz HUM` : dcWarning ? "DC OFFSET" : available ? "Source clean" : "—"}</div>
+        <div>{track?.dc_blocker_enabled ? "DC blocker ON" : track?.hum_notch_enabled ? "Hum notch ON" : humWarning ? `${track.dominant_hum_hz || "?"} Hz HUM` : dcWarning ? "DC OFFSET" : available ? "Source clean" : "—"}</div>
       </div>
-      {humWarning ? <div className="mt-2 text-[8px] leading-4 text-amber-100/65">Mains hum is elevated before processing. Check power, cables, grounding, DI/interface gain and nearby electrical equipment before trying to EQ it away.</div> : null}
-      {dcWarning ? <div className="mt-2 text-[8px] leading-4 text-amber-100/65">DC offset is elevated in the source. Correct the recording/interface path or use a dedicated non-destructive correction stage before mastering.</div> : null}
-      <div className="mt-2 text-[7px] leading-3 text-white/15">Background floor is an estimate from the quietest recent source windows, not an exact room-noise measurement during active performance.</div>
+      {humWarning ? <div className="mt-2 text-[8px] leading-4 text-amber-100/65">Mains hum is elevated before cleanup. Check power, cables, grounding, DI/interface gain and nearby electrical equipment before relying on notches.</div> : null}
+      {dcWarning ? <div className="mt-2 text-[8px] leading-4 text-amber-100/65">DC offset is elevated before cleanup. Correct the recording/interface path when possible; the project DC blocker remains reversible.</div> : null}
+      <div className="mt-2 text-[7px] leading-3 text-white/15">Background floor is an estimate from the quietest recent source windows. Diagnostics intentionally remain before cleanup so correction never hides the evidence.</div>
     </div>
   );
 }
@@ -107,7 +109,7 @@ export default function MusicLiveEngineeringMeters({ trackId = null }) {
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#d6a66a]/65"><Activity className="h-3.5 w-3.5" /> Live engineering meters</div>
-          <div className="mt-1 text-[8px] text-white/20">Post-fader level, dynamics, stereo/phase and pre-insert source health</div>
+          <div className="mt-1 text-[8px] text-white/20">Post-fader level, dynamics, stereo/phase and raw pre-cleanup source health</div>
         </div>
         <div className={`rounded-lg border px-2 py-1 text-[8px] ${snapshot.active ? "border-emerald-300/15 text-emerald-100/50" : "border-white/7 text-white/20"}`}>{snapshot.active ? "LIVE" : "IDLE"}</div>
       </div>

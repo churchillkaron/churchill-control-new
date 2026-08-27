@@ -37,9 +37,8 @@ assert.match(runtime, /approval_authority_delegated:\s*false/);
 assert.match(runtime, /platform_permissions_mutated:\s*false/);
 assert.match(runtime, /external_authority_used:\s*false/);
 
-assert.match(capability, /SecretaryExecutiveBriefingV6Runtime/);
-assert.match(capability, /readSecretaryExecutiveBriefingV6/);
-assert.doesNotMatch(capability, /readSecretaryExecutiveBriefingV5/);
+// V6 remains the regression baseline. The latest briefing audit owns the
+// version pin for the public secretary_briefing capability.
 assert.match(capability, /durable executive decision register/);
 assert.match(capability, /evidenced cancellations and voids/);
 assert.match(capability, /capability:\s*"secretary_briefing"/);

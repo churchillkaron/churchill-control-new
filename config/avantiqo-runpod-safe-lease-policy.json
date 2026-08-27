@@ -11,7 +11,7 @@
   "watchdog_poll_ms": 5000,
   "idle_open_endpoint_grace_ms": 90000,
   "default_max_worker_hourly_usd": 4,
-  "default_max_account_hourly_usd": 4,
+  "default_max_account_hourly_usd": 16,
   "fail_closed": true,
   "cancel_captured_jobs_on_failure": true,
   "purge_pending_queue_on_release": true,
@@ -38,6 +38,26 @@
     "voice-stt": "avantiqo-voice-stt-v1",
     "lipsync": "avantiqo-lipsync-v1.",
     "cinema": "avantiqo-cinema-v1"
+  },
+  "lane_max_worker_hourly_usd": {
+    "code": 10,
+    "intelligence-deep": 10,
+    "intelligence-fast": 10,
+    "intelligence-trainer": 10,
+    "intelligence-benchmark": 10,
+    "intelligence-candidate": 10,
+    "intelligence-fast-candidate": 10,
+    "intelligence-deep-eager-candidate": 10,
+    "image": 10,
+    "cinema": 10,
+    "audio": 6,
+    "music-transform-candidate": 6,
+    "music-extend": 6,
+    "music-vocal-correction": 6,
+    "music-separator": 6,
+    "voice-tts": 6,
+    "voice-stt": 6,
+    "lipsync": 6
   },
   "lane_max_lease_ttl_ms": {
     "code": 3600000

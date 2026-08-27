@@ -170,6 +170,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-deadline-coordination-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-absence-coverage-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-call-screening-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-call-screening-coverage-routing-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-executive-briefing-v4-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-coverage-routing-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-administrative-coverage-routing-local.mjs

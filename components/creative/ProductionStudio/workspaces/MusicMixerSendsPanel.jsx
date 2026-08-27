@@ -8,6 +8,7 @@ import {
   validateMusicMixerRouting,
 } from "@/lib/creative/music/runtime/CreativeMusicMixerRoutingRuntime";
 import MusicEngineeringInsertsPanel from "./MusicEngineeringInsertsPanel";
+import MusicGroupBusPanel from "./MusicGroupBusPanel";
 import MusicLiveEngineeringMeters from "./MusicLiveEngineeringMeters";
 import MusicSourceCleanupPanel from "./MusicSourceCleanupPanel";
 
@@ -107,6 +108,13 @@ export default function MusicMixerSendsPanel({ session, track, disabled = false,
     <div className="space-y-4">
       <MusicLiveEngineeringMeters trackId={currentTrack.id} />
 
+      <MusicGroupBusPanel
+        session={normalized}
+        track={currentTrack}
+        disabled={disabled}
+        onChange={onChange}
+      />
+
       <MusicSourceCleanupPanel
         track={currentTrack}
         disabled={disabled}
@@ -172,7 +180,7 @@ export default function MusicMixerSendsPanel({ session, track, disabled = false,
           </div>
         </div>
 
-        <div className="mt-3 text-[8px] leading-4 text-white/18">Shared aux returns preserve mix cohesion and CPU. Source cleanup, inserts, compressor and sends remain editable project data; nothing is printed into the original take or dry comp asset.</div>
+        <div className="mt-3 text-[8px] leading-4 text-white/18">Shared aux returns preserve mix cohesion and CPU. Group buses, source cleanup, inserts, compressor and sends remain editable project data; nothing is printed into the original take or dry comp asset.</div>
       </div>
     </div>
   );

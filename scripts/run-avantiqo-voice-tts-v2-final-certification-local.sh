@@ -14,7 +14,7 @@ fail() {
 command -v node >/dev/null 2>&1 || fail "NODE_REQUIRED"
 [ -f ".env.local" ] || fail "ENV_LOCAL_REQUIRED"
 [ -f "scripts/audit-avantiqo-voice-tts-v2-contract-local.mjs" ] || fail "V2_CONTRACT_AUDIT_REQUIRED"
-[ -f "scripts/resolve-avantiqo-voice-tts-canonical-endpoint-local.mjs" ] || fail "CANONICAL_ENDPOINT_RESOLVER_REQUIRED"
+[ -f "scripts/resolve-avantiqo-voice-tts-canonical-endpoint-local.mjs" ] || fail "LEASE_POLICY_ENDPOINT_RESOLVER_REQUIRED"
 [ -f "scripts/repair-avantiqo-voice-tts-runtime-binding-local.mjs" ] || fail "RUNTIME_BINDING_REPAIR_REQUIRED"
 [ -f "scripts/run-avantiqo-voice-tts-v3-one-proof-safe-lease-v2-local.mjs" ] || fail "SAFE_LEASE_PROOF_REQUIRED"
 
@@ -24,11 +24,11 @@ export AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED=YES
 
 node scripts/audit-avantiqo-voice-tts-v2-contract-local.mjs
 
-CANONICAL_VOICE_TTS_ENDPOINT_ID="$(node scripts/resolve-avantiqo-voice-tts-canonical-endpoint-local.mjs --id-only)"
-[ -n "$CANONICAL_VOICE_TTS_ENDPOINT_ID" ] || fail "CANONICAL_ENDPOINT_ID_REQUIRED"
-export RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID="$CANONICAL_VOICE_TTS_ENDPOINT_ID"
+LEASE_VOICE_TTS_ENDPOINT_ID="$(node scripts/resolve-avantiqo-voice-tts-canonical-endpoint-local.mjs --id-only)"
+[ -n "$LEASE_VOICE_TTS_ENDPOINT_ID" ] || fail "LEASE_POLICY_ENDPOINT_ID_REQUIRED"
+export RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID="$LEASE_VOICE_TTS_ENDPOINT_ID"
 
-echo "AVANTIQO_VOICE_TTS_V2_FINAL_CERTIFICATION_ENDPOINT_SOURCE=SAFE_LEASE_POLICY_CANONICAL"
+echo "AVANTIQO_VOICE_TTS_V2_FINAL_CERTIFICATION_ENDPOINT_SOURCE=SAFE_LEASE_POLICY_TARGET"
 echo "AVANTIQO_VOICE_TTS_V2_FINAL_CERTIFICATION_ENDPOINT_ID_RESOLVED=YES"
 
 node scripts/repair-avantiqo-voice-tts-runtime-binding-local.mjs --apply

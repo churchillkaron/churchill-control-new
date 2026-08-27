@@ -1,0 +1,9 @@
+{
+  "contract": "AVANTIQO_VOICE_STT_WORKER_IMAGE_REQUEST_V1",
+  "requested_for": "vocabulary_context_prompt_ids_brand_name_fix",
+  "build_stt": true,
+  "build_tts": false,
+  "production_web_deploy": false,
+  "provider_job_submitted": false,
+  "pricing_activation": false
+}

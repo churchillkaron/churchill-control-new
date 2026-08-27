@@ -1,6 +1,6 @@
 const REST_BASE = "https://rest.runpod.io/v1";
 const GRAPHQL_URL = "https://api.runpod.io/graphql";
-const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_BLACKWELL_CAPACITY_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_DEEP_BLACKWELL_CAPACITY_V2";
 const DEEP_NAME = "avantiqo-intelligence-v1";
 const CANDIDATE_NAME = "avantiqo-intelligence-deep-eager-candidate-v1";
 
@@ -128,11 +128,11 @@ const availableRows = configuredRows.filter((row) => row.available && row.stock_
 const seenGpuTypes = unique(configuredRows.map((row) => row.gpu_type_id));
 const missingGpuTypes = deepGpuTypes.filter((id) => !seenGpuTypes.includes(id));
 
-let diagnosis = "CONFIGURED_BLACKWELL_CAPACITY_REPORTED_ENDPOINT_ADMISSION_STALLED";
+let diagnosis = "GENERAL_GPU_STOCK_REPORTED_SERVERLESS_CAPACITY_UNPROVEN";
 if (availableRows.length === 0 && missingGpuTypes.length === deepGpuTypes.length) {
-  diagnosis = "CONFIGURED_BLACKWELL_TYPES_NOT_RETURNED_BY_LIVE_AVAILABILITY_API";
+  diagnosis = "CONFIGURED_BLACKWELL_TYPES_NOT_RETURNED_BY_GENERAL_AVAILABILITY_API";
 } else if (availableRows.length === 0) {
-  diagnosis = "NO_LIVE_CONFIGURED_BLACKWELL_STOCK_REPORTED";
+  diagnosis = "NO_GENERAL_CONFIGURED_BLACKWELL_STOCK_REPORTED";
 }
 
 console.log(JSON.stringify({
@@ -140,7 +140,8 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   mode: "READ_ONLY",
   diagnosis,
-  placement_source: "GLOBAL_SERVERLESS_PLACEMENT",
+  availability_scope: "GENERAL_GPU_DATACENTER_NOT_PRODUCT_SCOPED",
+  serverless_capacity_proven: false,
   gpu_count: finite(deep?.gpuCount),
   configured_gpu_type_ids: deepGpuTypes,
   configured_types_seen_by_availability_api: seenGpuTypes,
@@ -148,8 +149,8 @@ console.log(JSON.stringify({
   configured_capacity_rows: configuredRows.map(({ stock_rank, ...row }) => row),
   available_configured_capacity_count: availableRows.length,
   available_configured_capacity_rows: availableRows.map(({ stock_rank, ...row }) => row),
-  candidate_placement_parity_required: true,
   candidate_gpu_type_parity_verified: true,
+  next_action: "RUN_SERVERLESS_V2_CAPACITY_DIAGNOSTIC",
   inference_performed: false,
   generation_submitted: false,
   gpu_activation_performed: false,

@@ -2,6 +2,11 @@ function dbToGain(db) {
   return 10 ** (Number(db || 0) / 20);
 }
 
+function gainToReductionDb(gain) {
+  const safe = Math.max(0.000001, Math.min(1, Number(gain || 0)));
+  return Math.max(0, -20 * Math.log10(safe));
+}
+
 function coefficient(milliseconds) {
   const seconds = Math.max(0.0001, Number(milliseconds || 1) / 1000);
   return Math.exp(-1 / (seconds * sampleRate));
@@ -18,6 +23,7 @@ class AvantiqoGateProcessor extends AudioWorkletProcessor {
     this.holdFrames = Math.max(0, Math.round((Number(config.hold_ms ?? 35) / 1000) * sampleRate));
     this.holdRemaining = 0;
     this.gain = 1;
+    this.meterFrames = 0;
   }
 
   process(inputs, outputs) {
@@ -44,6 +50,16 @@ class AvantiqoGateProcessor extends AudioWorkletProcessor {
         output[channel][frame] = (input[channel]?.[frame] || input[0]?.[frame] || 0) * this.gain;
       }
     }
+    this.meterFrames += frames;
+    if (this.meterFrames >= sampleRate / 20) {
+      this.meterFrames = 0;
+      this.port.postMessage({
+        type: "meter",
+        processor: "gate",
+        reduction_db: gainToReductionDb(this.gain),
+        open: this.gain > 0.985,
+      });
+    }
     return true;
   }
 }
@@ -62,6 +78,7 @@ class AvantiqoDeEsserProcessor extends AudioWorkletProcessor {
     this.gain = 1;
     this.previousInput = [];
     this.previousHighpass = [];
+    this.meterFrames = 0;
     const rc = 1 / (2 * Math.PI * this.frequency);
     const dt = 1 / sampleRate;
     this.highpassAlpha = rc / (rc + dt);
@@ -100,6 +117,15 @@ class AvantiqoDeEsserProcessor extends AudioWorkletProcessor {
       for (let channel = 0; channel < output.length; channel += 1) {
         output[channel][frame] = (input[channel]?.[frame] || input[0]?.[frame] || 0) * this.gain;
       }
+    }
+    this.meterFrames += frames;
+    if (this.meterFrames >= sampleRate / 20) {
+      this.meterFrames = 0;
+      this.port.postMessage({
+        type: "meter",
+        processor: "deesser",
+        reduction_db: gainToReductionDb(this.gain),
+      });
     }
     return true;
   }

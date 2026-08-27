@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Headphones, Layers3, Play, Plus, Scissors, Square, Star } from "lucide-react";
+import { Check, Disc3, Headphones, Layers3, Play, Plus, Scissors, Square, Star } from "lucide-react";
 
+import { renderMusicCompToWav24 } from "@/lib/creative/music/client/MusicCompRender";
 import {
   applyMusicCompToTrack,
   buildMusicComp,
@@ -20,7 +21,17 @@ function formatTime(seconds) {
   return `${minutes}:${remainder.toFixed(2).padStart(5, "0")}`;
 }
 
-export default function MusicTakeLaneCompPanel({ track, assetUrls, disabled = false, onChange }) {
+export default function MusicTakeLaneCompPanel({
+  track,
+  assetUrls,
+  disabled = false,
+  onChange,
+  organizationId = null,
+  projectId = null,
+  sessionRevision = 0,
+  sampleRate = 48000,
+  onRendered,
+}) {
   const takes = Array.isArray(track?.takes) ? track.takes : [];
   const [selectedTakeId, setSelectedTakeId] = useState(takes[0]?.id || "");
   const [regionStart, setRegionStart] = useState(takes[0]?.start_seconds || 0);
@@ -30,6 +41,8 @@ export default function MusicTakeLaneCompPanel({ track, assetUrls, disabled = fa
   const [regions, setRegions] = useState(track?.comp?.regions || []);
   const [error, setError] = useState("");
   const [auditioning, setAuditioning] = useState("");
+  const [rendering, setRendering] = useState(false);
+  const [renderStatus, setRenderStatus] = useState("");
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -130,6 +143,7 @@ export default function MusicTakeLaneCompPanel({ track, assetUrls, disabled = fa
 
   function buildComp() {
     setError("");
+    setRenderStatus("");
     try {
       const comp = buildMusicComp({
         track_id: track.id,
@@ -158,6 +172,75 @@ export default function MusicTakeLaneCompPanel({ track, assetUrls, disabled = fa
       fade_out_seconds: 0.01,
     }]);
     setSelectedTakeId(take.id);
+  }
+
+  async function compRequest(payload) {
+    const response = await fetch("/api/creative/music/comp-render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (!response.ok || body.success === false) throw new Error(body.error || "Comp render request failed");
+    return body;
+  }
+
+  async function renderComp() {
+    if (!track?.comp || !organizationId || !projectId || rendering) return;
+    setError("");
+    setRendering(true);
+    setRenderStatus("RENDERING DRY COMP");
+    try {
+      const rendered = await renderMusicCompToWav24({
+        track,
+        assetUrls,
+        sampleRate,
+      });
+      const safeTrack = String(track.name || "track-comp")
+        .replace(/[^A-Za-z0-9._-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "track-comp";
+      const fileName = `${safeTrack}-comp.wav`;
+      setRenderStatus("UPLOADING 24-BIT COMP");
+      const target = await compRequest({
+        action: "prepare_upload",
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        file_name: fileName,
+        size_bytes: rendered.blob.size,
+      });
+      const upload = await fetch(target.upload_url, {
+        method: "PUT",
+        headers: { "Content-Type": "audio/wav" },
+        body: rendered.blob,
+      });
+      if (!upload.ok) throw new Error(`CREATIVE_MUSIC_COMP_RENDER_UPLOAD_${upload.status}`);
+
+      setRenderStatus("REGISTERING DERIVED ASSET");
+      const registered = await compRequest({
+        action: "register",
+        organization_id: organizationId,
+        creative_project_id: projectId,
+        track_id: track.id,
+        comp_id: track.comp.id,
+        expected_revision: sessionRevision,
+        storage_reference: target.storage_reference,
+        file_name: fileName,
+        title: `${track.name || "Track"} Comp`,
+        duration_seconds: rendered.duration_seconds,
+        sample_rate: rendered.sample_rate,
+        channels: rendered.channels,
+        source_take_ids: rendered.source_take_ids,
+        source_asset_ids: rendered.source_asset_ids,
+      });
+      setRenderStatus("24-BIT COMP SAVED");
+      await onRendered?.(registered);
+    } catch (cause) {
+      setError(cause?.message || "Comp could not be rendered.");
+      setRenderStatus("RENDER FAILED");
+    } finally {
+      setRendering(false);
+    }
   }
 
   if (!track) return null;
@@ -216,10 +299,14 @@ export default function MusicTakeLaneCompPanel({ track, assetUrls, disabled = fa
         </div>
 
         <button type="button" disabled={disabled || !regions.length} onClick={buildComp} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#d6a66a]/25 bg-[#d6a66a]/[0.07] px-3 py-2.5 text-[10px] font-medium text-[#efd29f]/75 disabled:opacity-25"><Headphones className="h-3.5 w-3.5" /> Build non-destructive comp</button>
+
+        {track.comp ? <button type="button" disabled={disabled || rendering || !organizationId || !projectId} onClick={renderComp} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.035] px-3 py-2.5 text-[10px] font-medium text-emerald-100/65 disabled:opacity-25"><Disc3 className="h-3.5 w-3.5" /> {rendering ? renderStatus || "Rendering…" : track.comp.rendered_asset_id ? "Render new 24-bit comp version" : "Render 24-bit comp asset"}</button> : null}
+        {track.comp?.rendered_asset_id ? <div className="mt-2 text-center text-[8px] text-emerald-100/35">Derived comp asset saved · mixer processing remains live/non-destructive</div> : null}
       </> : null}
 
+      {renderStatus && !rendering ? <div className="mt-2 text-center text-[8px] text-white/25">{renderStatus}</div> : null}
       {error ? <div className="mt-3 text-[9px] leading-4 text-red-100/65">{error}</div> : null}
-      <div className="mt-3 text-[8px] leading-4 text-white/18">Comp regions reference immutable source takes. Release output must be rendered to a new derived asset; source recordings are never modified.</div>
+      <div className="mt-3 text-[8px] leading-4 text-white/18">Comp regions reference immutable source takes. Render creates a new dry 24-bit derived asset; EQ/compression/fader remain editable in the mixer and source recordings are never modified.</div>
     </div>
   );
 }

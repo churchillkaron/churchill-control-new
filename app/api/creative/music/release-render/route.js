@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { CreativeAssetsRuntime } from "@/lib/creative/assets/runtime/CreativeAssetsRuntime";
@@ -21,6 +21,7 @@ const MAX_RENDER_BYTES = 2_147_483_648;
 function text(value) { return String(value ?? "").trim(); }
 function finite(value, fallback = null) { const number = Number(value); return Number.isFinite(number) ? number : fallback; }
 function sortedUnique(values = []) { return [...new Set(values.map(text).filter(Boolean))].sort(); }
+function planFingerprint(plan) { return createHash("sha256").update(JSON.stringify(plan)).digest("hex"); }
 
 function safeWavName(value) {
   const original = text(value || "music-premaster.wav");
@@ -74,8 +75,9 @@ async function planRelease(body) {
   const plan = buildMusicReleaseRenderPlan(session, body.options || body);
   return {
     success: true,
-    contract: "AVANTIQO_MUSIC_RELEASE_PLAN_RESPONSE_V1",
+    contract: "AVANTIQO_MUSIC_RELEASE_PLAN_RESPONSE_V2",
     plan,
+    render_plan_fingerprint: planFingerprint(plan),
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
   };
@@ -89,22 +91,24 @@ async function prepareUpload(body) {
   const revision = assertRevision(session, body.expected_revision);
   const plan = buildMusicReleaseRenderPlan(session, body.options || body);
   if (!plan.readiness.release_render_ready) throw new Error(`CREATIVE_MUSIC_RELEASE_RENDER_BLOCKED:${plan.readiness.blockers.map((item) => item.code).join(",") || "NOT_READY"}`);
+  const fingerprint = planFingerprint(plan);
   const sizeBytes = finite(body.size_bytes, null);
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_RENDER_BYTES) throw new Error(`CREATIVE_MUSIC_RELEASE_SIZE_INVALID:max=${MAX_RENDER_BYTES}`);
   const fileName = safeWavName(body.file_name);
-  const path = `${organizationId}/derived/music-mix/${projectId}/r${revision}/${randomUUID()}-${fileName}`;
+  const path = `${organizationId}/derived/music-mix/${projectId}/r${revision}/${fingerprint.slice(0, 16)}-${randomUUID()}-${fileName}`;
   const supabase = getServiceSupabase();
   const { data, error } = await supabase.storage.from(MUSIC_BUCKET).createSignedUploadUrl(path, { upsert: false });
   if (error) throw error;
   if (!data?.signedUrl) throw new Error("CREATIVE_MUSIC_RELEASE_UPLOAD_URL_REQUIRED");
   return {
     success: true,
-    contract: "AVANTIQO_MUSIC_PREMASTER_UPLOAD_V1",
+    contract: "AVANTIQO_MUSIC_PREMASTER_UPLOAD_V2",
     upload_url: data.signedUrl,
     storage_reference: `storage://${MUSIC_BUCKET}/${path}`,
     project_revision: revision,
     source_asset_ids: plan.source_asset_ids,
     renderer: plan.renderer,
+    render_plan_fingerprint: fingerprint,
     provider_job_submitted: false,
     endpoint_mutation_performed: false,
   };
@@ -118,8 +122,10 @@ async function registerMix(body) {
   const revision = assertRevision(session, body.expected_revision);
   const plan = buildMusicReleaseRenderPlan(session, body.options || body);
   if (!plan.readiness.release_render_ready) throw new Error(`CREATIVE_MUSIC_RELEASE_RENDER_BLOCKED:${plan.readiness.blockers.map((item) => item.code).join(",") || "NOT_READY"}`);
+  const fingerprint = planFingerprint(plan);
+  if (text(body.render_plan_fingerprint) !== fingerprint) throw new Error("CREATIVE_MUSIC_RELEASE_PLAN_FINGERPRINT_MISMATCH");
   const storageReference = text(body.storage_reference);
-  const expectedPrefix = `storage://${MUSIC_BUCKET}/${organizationId}/derived/music-mix/${projectId}/r${revision}/`;
+  const expectedPrefix = `storage://${MUSIC_BUCKET}/${organizationId}/derived/music-mix/${projectId}/r${revision}/${fingerprint.slice(0, 16)}-`;
   if (!storageReference.startsWith(expectedPrefix)) throw new Error("CREATIVE_MUSIC_RELEASE_STORAGE_REFERENCE_INVALID");
   const submittedSourceIds = sortedUnique(body.source_asset_ids || []);
   const expectedSourceIds = sortedUnique(plan.source_asset_ids);
@@ -157,6 +163,7 @@ async function registerMix(body) {
       music_asset_kind: "MIX_RENDER",
       release_render_contract: plan.contract,
       offline_render_contract: text(body.offline_render_contract || "AVANTIQO_MUSIC_OFFLINE_MIX_RENDER_V1"),
+      render_plan_fingerprint: fingerprint,
       project_revision: revision,
       program_duration_seconds: durationSeconds,
       render_duration_seconds: renderDurationSeconds,
@@ -182,10 +189,11 @@ async function registerMix(body) {
 
   return {
     success: true,
-    contract: "AVANTIQO_MUSIC_PREMASTER_ASSET_V1",
+    contract: "AVANTIQO_MUSIC_PREMASTER_ASSET_V2",
     asset_id: asset.id,
     storage_reference: asset.file_url,
     project_revision: revision,
+    render_plan_fingerprint: fingerprint,
     release_limiter_applied: false,
     true_peak_certified: false,
     provider_job_submitted: false,
@@ -205,6 +213,8 @@ async function finishRelease(body) {
   if (text(asset.metadata?.music_asset_kind) !== "MIX_RENDER") throw new Error("CREATIVE_MUSIC_RELEASE_MIX_ASSET_INVALID");
   const revision = assertRevision(session, asset.metadata?.project_revision, "CREATIVE_MUSIC_RELEASE_MIX_STALE");
   const plan = buildMusicReleaseRenderPlan(session, body.options || { mastering: asset.metadata?.mastering || {} });
+  const fingerprint = planFingerprint(plan);
+  if (text(asset.metadata?.render_plan_fingerprint) !== fingerprint) throw new Error("CREATIVE_MUSIC_RELEASE_MIX_PLAN_STALE");
   const currentSourceIds = sortedUnique(plan.source_asset_ids);
   if (JSON.stringify(currentSourceIds) !== JSON.stringify(sortedUnique(asset.metadata?.source_asset_ids || []))) throw new Error("CREATIVE_MUSIC_RELEASE_MIX_LINEAGE_STALE");
   if (!plan.readiness.release_render_ready) throw new Error("CREATIVE_MUSIC_RELEASE_CURRENT_PROJECT_NOT_READY");
@@ -234,6 +244,7 @@ async function finishRelease(body) {
         audio_role: "program",
         music_pipeline_role: "PREMASTER_SOURCE",
         music_mix_asset_id: mixAssetId,
+        render_plan_fingerprint: fingerprint,
         project_revision: revision,
       },
     });
@@ -302,6 +313,7 @@ async function finishRelease(body) {
         music_pipeline_role: "RELEASE_MASTER",
         music_mix_asset_id: mixAssetId,
         source_task_id: sourceTask.id,
+        render_plan_fingerprint: fingerprint,
         project_revision: revision,
         mastering_profile: mastering.profile,
         storage_policy: { bucket: MUSIC_BUCKET },
@@ -337,6 +349,7 @@ async function finishRelease(body) {
         music_asset_kind: "MASTER",
         source_mix_asset_id: mixAssetId,
         project_revision: revision,
+        render_plan_fingerprint: fingerprint,
         music_finish_task_id: finishTask.id,
         mastering_profile: mastering.profile,
         integrated_lufs: finite(report.master?.integrated_lufs, null),
@@ -357,10 +370,11 @@ async function finishRelease(body) {
 
   return {
     success: true,
-    contract: "AVANTIQO_MUSIC_RELEASE_MASTER_V1",
+    contract: "AVANTIQO_MUSIC_RELEASE_MASTER_V2",
     mix_asset_id: mixAssetId,
     master_asset_id: masterAsset.id,
     finish_task_id: finishTask.id,
+    render_plan_fingerprint: fingerprint,
     release_candidate: output.release_candidate === true,
     master_report: output.master_report || null,
     deliveries: masterAsset.metadata?.deliveries || [],

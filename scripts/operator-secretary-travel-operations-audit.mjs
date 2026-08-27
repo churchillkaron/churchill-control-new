@@ -56,7 +56,7 @@ assert.match(source.correction, /external_authority_used:\s*false/);
 
 assert.match(source.cancellation, /AVANTIQO_EXECUTIVE_SECRETARY_TRAVEL_CANCELLATION_V1/);
 assert.match(source.cancellation, /SECRETARY_TRAVEL_CANCELLATION_EVIDENCE_REQUIRED/);
-assert.match(source.cancellation, /SECRETARY_TRAVEL_CANCELLATION_CANCELLED_AT_REQUIRED/);
+assert.match(source.cancellation, /iso\(payload\.cancelled_at \|\| payload\.cancelledAt, "cancelled_at", \{ required: true \}\)/);
 assert.match(source.cancellation, /OUTCOMES = new Set\(\["CANCELLED", "VOIDED"\]\)/);
 assert.match(source.cancellation, /SECRETARY_TRAVEL_CANCELLATION_STALE_CONFIRMATION_REJECTED/);
 assert.match(source.cancellation, /CONFIRMATION_CANCELLED/);

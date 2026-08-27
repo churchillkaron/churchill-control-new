@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Gauge, Music2, ShieldCheck } from "lucide-react";
+import { Gauge, Music2, RotateCcw, ShieldCheck } from "lucide-react";
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -26,6 +26,8 @@ export default function MusicClipCorrectionPanel({
 
   const totalPitch = useMemo(() => finite(semitones, 0) + finite(cents, 0) / 100, [semitones, cents]);
   const changed = Math.abs(totalPitch) >= 0.0001 || Math.abs(finite(timingPercent, 100) - 100) >= 0.0001;
+  const correctionHistory = Array.isArray(clip?.source_asset_history) ? clip.source_asset_history : [];
+  const canRevert = correctionHistory.length > 0 && Boolean(clip?.correction_asset_id || clip?.correction);
 
   async function applyCorrection() {
     if (!track?.id || !clip?.id || !organizationId || !projectId || !changed || busy) return;
@@ -64,6 +66,38 @@ export default function MusicClipCorrectionPanel({
     }
   }
 
+  async function revertCorrection() {
+    if (!track?.id || !clip?.id || !organizationId || !projectId || !canRevert || busy) return;
+    setBusy(true);
+    setError("");
+    setStatus("RESTORING PREVIOUS SOURCE");
+    try {
+      const response = await fetch("/api/creative/music/clip-correction-revert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization_id: organizationId,
+          creative_project_id: projectId,
+          track_id: track.id,
+          clip_id: clip.id,
+          expected_revision: sessionRevision,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok || body.success === false) throw new Error(body.error || "Correction revert failed");
+      setStatus("PREVIOUS SOURCE RESTORED");
+      setSemitones(0);
+      setCents(0);
+      setTimingPercent(100);
+      await onReload?.();
+    } catch (cause) {
+      setError(cause?.message || "Correction revert failed");
+      setStatus("REVERT BLOCKED");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!track || !clip) return null;
 
   return (
@@ -97,10 +131,14 @@ export default function MusicClipCorrectionPanel({
         Pitch: {totalPitch >= 0 ? "+" : ""}{totalPitch.toFixed(2)} semitones · Timing: {finite(timingPercent, 100).toFixed(1)}%
       </div>
 
-      <button type="button" disabled={disabled || busy || !changed} onClick={applyCorrection} className="mt-3 w-full rounded-xl border border-[#d6a66a]/25 bg-[#d6a66a]/8 px-3 py-2.5 text-[9px] font-medium text-[#efd29f]/75 disabled:opacity-25">{busy ? status : "Render corrected clip"}</button>
+      <div className={`mt-3 grid gap-2 ${canRevert ? "grid-cols-2" : "grid-cols-1"}`}>
+        <button type="button" disabled={disabled || busy || !changed} onClick={applyCorrection} className="rounded-xl border border-[#d6a66a]/25 bg-[#d6a66a]/8 px-3 py-2.5 text-[9px] font-medium text-[#efd29f]/75 disabled:opacity-25">{busy ? status : "Render corrected clip"}</button>
+        {canRevert ? <button type="button" disabled={disabled || busy} onClick={revertCorrection} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2.5 text-[9px] text-white/42 disabled:opacity-25"><RotateCcw className="h-3.5 w-3.5" /> Revert correction</button> : null}
+      </div>
+      {canRevert ? <div className="mt-2 text-[7px] text-white/16">{correctionHistory.length} preserved source step{correctionHistory.length === 1 ? "" : "s"} available in correction lineage.</div> : null}
       {error ? <div className="mt-2 rounded-lg border border-red-300/10 bg-red-400/[0.02] px-3 py-2 text-[8px] leading-4 text-red-100/55">{error}</div> : null}
 
-      <div className="mt-3 text-[7px] leading-3 text-white/15">This is global clip pitch/timing correction, not note-by-note vocal tuning. Formant-preserving vocal tuning and transient-aware warp remain separate engineering stages and are not claimed here.</div>
+      <div className="mt-3 text-[7px] leading-3 text-white/15">This is global clip pitch/timing correction, not note-by-note vocal tuning. Formant-preserving vocal tuning and transient-aware warp remain separate engineering stages and are not claimed here. Revert restores the previous preserved source without deleting the correction render.</div>
     </div>
   );
 }

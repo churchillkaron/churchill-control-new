@@ -76,8 +76,11 @@ try {
   await one(
     supabaseAdmin.from("secretary_settings").insert({
       organization_id: organizationId,
-      owner_party_id: ownerId,
-      metadata: { local_certification: true },
+      default_timezone: "Asia/Bangkok",
+      appointment_duration_minutes: 30,
+      business_hours: {},
+      booking_policy: { owner_party_id: ownerId },
+      metadata: { owner_party_id: ownerId, local_certification: true },
     }).select("organization_id").single(),
     "SECRETARY_WRITTEN_ACTION_SETTINGS_INSERT_FAILED",
   );
@@ -144,14 +147,8 @@ try {
   assert.equal(startReplay.replay_safe, true);
   assert.equal(startReplay.written_action.id, started.written_action.id);
 
-  const refresh1 = await refreshSecretaryWrittenActionAdministration({
-    context,
-    payload: { action_id: started.written_action.id },
-  });
-  const refresh2 = await refreshSecretaryWrittenActionAdministration({
-    context,
-    payload: { action_id: started.written_action.id },
-  });
+  const refresh1 = await refreshSecretaryWrittenActionAdministration({ context, payload: { action_id: started.written_action.id } });
+  const refresh2 = await refreshSecretaryWrittenActionAdministration({ context, payload: { action_id: started.written_action.id } });
   assert.equal(refresh1.follow_up_count, 2);
   assert.equal(refresh2.follow_up_count, 2);
   assert.deepEqual([...refresh1.follow_up_ids].sort(), [...refresh2.follow_up_ids].sort());
@@ -230,14 +227,8 @@ try {
   assert.deepEqual(revised.record.frozen_versions.map((row) => row.source_document.version), [1, 2]);
   assert.ok(revised.record.participants.every((row) => row.response_status === "PENDING"));
 
-  const revisedRefresh1 = await refreshSecretaryWrittenActionAdministration({
-    context,
-    payload: { action_id: started.written_action.id },
-  });
-  const revisedRefresh2 = await refreshSecretaryWrittenActionAdministration({
-    context,
-    payload: { action_id: started.written_action.id },
-  });
+  const revisedRefresh1 = await refreshSecretaryWrittenActionAdministration({ context, payload: { action_id: started.written_action.id } });
+  const revisedRefresh2 = await refreshSecretaryWrittenActionAdministration({ context, payload: { action_id: started.written_action.id } });
   assert.equal(revisedRefresh1.follow_up_count, 2);
   assert.deepEqual([...revisedRefresh1.follow_up_ids].sort(), [...revisedRefresh2.follow_up_ids].sort());
   assert.notDeepEqual([...refresh1.follow_up_ids].sort(), [...revisedRefresh1.follow_up_ids].sort());
@@ -332,10 +323,7 @@ try {
   assert.equal(filed.record.final_filing.document.version, 1);
   assert.equal(filed.filing_performed_by_runtime, false);
 
-  const finalRead = await readSecretaryWrittenActionAdministration({
-    context,
-    payload: { action_id: started.written_action.id },
-  });
+  const finalRead = await readSecretaryWrittenActionAdministration({ context, payload: { action_id: started.written_action.id } });
   assert.equal(finalRead.record.state, "FILED");
   assert.equal(finalRead.record.frozen_versions.length, 2);
   assert.equal(finalRead.quorum_determined, false);

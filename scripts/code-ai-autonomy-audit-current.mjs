@@ -18,6 +18,10 @@ const replacements = [
     '"Choose exactly ONE next action"',
     '"buildCodeAIPlannerPromptTransport"',
   ],
+  [
+    '"executeWorldClassCodeMission"',
+    '"executeCodeAIEmployeeMission"',
+  ],
 ];
 
 let adapted = source;

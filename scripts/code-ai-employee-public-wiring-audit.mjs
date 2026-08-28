@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V5";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V6";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
   fastStart: "lib/code/runtime/CodeAIEmployeeFastStartRuntime.js",
   workerSession: "lib/code/runtime/CodeAIWorkerSessionRuntime.js",
+  planner: "lib/code/runtime/CodeAIPlannerExecutionRuntime.js",
   provider: "lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProvider.js",
   employee: "lib/code/runtime/CodeAIEmployeeRuntime.js",
   packages: "lib/code/runtime/CodeAIWorkPackageRuntime.js",
@@ -78,6 +79,24 @@ requireMarkers("WORKER_SESSION", source.workerSession, [
   "resolveCodeAIWorkerSessionTransport",
   "contains_worker_token: false",
 ]);
+
+requireMarkers("PLANNER_WARM_TRANSPORT", source.planner, [
+  "AVANTIQO_CODE_AI_PLANNER_EXECUTION_V2",
+  "AVANTIQO_CODE_WORKER_SESSION_ENABLED",
+  "resolveCodeAIWorkerSessionTransport",
+  "CODE_AI_PLANNER_WARM_SESSION_NOT_READY",
+  'transport: "DURABLE_WARM_SESSION"',
+  'serverless_endpoint_required: false',
+  'transport: "RUNPOD_SERVERLESS"',
+  'if (executionTransport && executionTransport !== "RUNPOD_SERVERLESS") return null;',
+]);
+const workerModeIndex = source.planner.indexOf("AVANTIQO_CODE_WORKER_SESSION_ENABLED");
+const serverlessEndpointLookupIndex = source.planner.indexOf("const endpointId = text(", workerModeIndex);
+assert.ok(workerModeIndex >= 0, "planner must recognize worker-session mode");
+assert.ok(
+  serverlessEndpointLookupIndex > workerModeIndex,
+  "serverless endpoint capacity check must be fallback after warm-session resolution",
+);
 
 requireMarkers("PROVIDER_WARM_SESSION", source.provider, [
   "resolveCodeAIWorkerSessionTransport",
@@ -172,6 +191,8 @@ console.log(JSON.stringify({
     worker_warming_is_resumable_without_reasoning_call: true,
     model_call_not_required_to_start: true,
     bounded_warm_worker_session: true,
+    planner_warm_session_precedes_serverless_capacity_check: true,
+    planner_warm_session_disables_serverless_stale_queue_recovery: true,
     warm_session_provider_transport_wired: true,
     independent_minute_reaper_wired: true,
     cleanup_failure_is_fail_closed: true,

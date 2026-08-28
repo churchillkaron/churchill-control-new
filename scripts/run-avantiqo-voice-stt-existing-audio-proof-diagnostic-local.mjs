@@ -4,13 +4,13 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_VOICE_STT_EXISTING_AUDIO_DIAGNOSTIC_V2";
+const CONTRACT = "AVANTIQO_VOICE_STT_EXISTING_AUDIO_DIAGNOSTIC_V3";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const ENDPOINT_NAME = "avantiqo-voice-stt-v1";
 const NATIVE_IMAGE_PREFIX = "registry.runpod.net/churchillkaron-churchill-control-new-main-services-avantiqo-voice-stt-dockerfile:";
 const STT_SOURCE = Object.freeze({
   handler_path: "services/avantiqo-voice-stt/handler.py",
-  handler_blob_sha: "465da9267ababa6b2ded92f7ebb26e4bbeb34783",
+  handler_blob_sha: "d9d24ff5e2cde494cebde0d2df0a333d74ad0d91",
   dockerfile_path: "services/avantiqo-voice-stt/Dockerfile",
   dockerfile_blob_sha: "fe1ceb09e246a3ad1d851bbba3aaa3f5822e9d2d",
   requirements_path: "services/avantiqo-voice-stt/requirements.txt",
@@ -103,6 +103,22 @@ function runGit(args) {
   }
   return text(result.stdout);
 }
+function gitSucceeds(args) {
+  const result = spawnSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  return result.status === 0;
+}
+function sourceBlobs(ref) {
+  return {
+    handler_blob_sha: runGit(["rev-parse", `${ref}:${STT_SOURCE.handler_path}`]),
+    dockerfile_blob_sha: runGit(["rev-parse", `${ref}:${STT_SOURCE.dockerfile_path}`]),
+    requirements_blob_sha: runGit(["rev-parse", `${ref}:${STT_SOURCE.requirements_path}`]),
+  };
+}
+function correctedSource(blobs) {
+  return blobs.handler_blob_sha === STT_SOURCE.handler_blob_sha &&
+    blobs.dockerfile_blob_sha === STT_SOURCE.dockerfile_blob_sha &&
+    blobs.requirements_blob_sha === STT_SOURCE.requirements_blob_sha;
+}
 function verifyNativeImageSource(image) {
   const value = text(image);
   const base = {
@@ -110,9 +126,14 @@ function verifyNativeImageSource(image) {
     native_registry_image: value.startsWith(NATIVE_IMAGE_PREFIX),
     source_ref: null,
     source_sha: null,
+    source_is_ancestor_of_main: false,
+    newest_main_voice_equivalent: false,
     handler_blob_sha: null,
     dockerfile_blob_sha: null,
     requirements_blob_sha: null,
+    newest_main_handler_blob_sha: null,
+    newest_main_dockerfile_blob_sha: null,
+    newest_main_requirements_blob_sha: null,
     source_verified: false,
   };
   if (!base.native_registry_image) return base;
@@ -121,17 +142,25 @@ function verifyNativeImageSource(image) {
   if (!/^[a-f0-9]{7,40}$/i.test(sourceRef)) return base;
   try {
     const sourceSha = runGit(["rev-parse", `${sourceRef}^{commit}`]);
-    const handlerBlob = runGit(["rev-parse", `${sourceSha}:${STT_SOURCE.handler_path}`]);
-    const dockerfileBlob = runGit(["rev-parse", `${sourceSha}:${STT_SOURCE.dockerfile_path}`]);
-    const requirementsBlob = runGit(["rev-parse", `${sourceSha}:${STT_SOURCE.requirements_path}`]);
+    const imageBlobs = sourceBlobs(sourceSha);
+    const mainBlobs = sourceBlobs("origin/main");
     base.source_sha = sourceSha;
-    base.handler_blob_sha = handlerBlob;
-    base.dockerfile_blob_sha = dockerfileBlob;
-    base.requirements_blob_sha = requirementsBlob;
+    base.source_is_ancestor_of_main = gitSucceeds(["merge-base", "--is-ancestor", sourceSha, "origin/main"]);
+    base.handler_blob_sha = imageBlobs.handler_blob_sha;
+    base.dockerfile_blob_sha = imageBlobs.dockerfile_blob_sha;
+    base.requirements_blob_sha = imageBlobs.requirements_blob_sha;
+    base.newest_main_handler_blob_sha = mainBlobs.handler_blob_sha;
+    base.newest_main_dockerfile_blob_sha = mainBlobs.dockerfile_blob_sha;
+    base.newest_main_requirements_blob_sha = mainBlobs.requirements_blob_sha;
+    base.newest_main_voice_equivalent =
+      imageBlobs.handler_blob_sha === mainBlobs.handler_blob_sha &&
+      imageBlobs.dockerfile_blob_sha === mainBlobs.dockerfile_blob_sha &&
+      imageBlobs.requirements_blob_sha === mainBlobs.requirements_blob_sha;
     base.source_verified =
-      handlerBlob === STT_SOURCE.handler_blob_sha &&
-      dockerfileBlob === STT_SOURCE.dockerfile_blob_sha &&
-      requirementsBlob === STT_SOURCE.requirements_blob_sha;
+      base.source_is_ancestor_of_main &&
+      base.newest_main_voice_equivalent &&
+      correctedSource(imageBlobs) &&
+      correctedSource(mainBlobs);
   } catch (error) {
     base.source_error = safeDetail(error?.message);
   }
@@ -239,6 +268,8 @@ const preflightChecks = {
   datacenter_unpinned: endpointDcs.length === 0,
   network_volume_absent: endpointVolumes.length === 0,
   native_image_source_verified: nativeSource.source_verified === true,
+  native_image_source_on_main: nativeSource.source_is_ancestor_of_main === true,
+  newest_main_voice_equivalent: nativeSource.newest_main_voice_equivalent === true,
   docker_entrypoint_clear: commandList(preflight.template?.dockerEntrypoint).length === 0,
   docker_start_cmd_clear: commandList(preflight.template?.dockerStartCmd).length === 0,
   queue_clean: preflight.health.jobs.in_queue === 0 && preflight.health.jobs.in_progress === 0,
@@ -261,9 +292,14 @@ console.log(JSON.stringify({
     source_ref: nativeSource.source_ref,
     source_sha: nativeSource.source_sha,
     source_verified: nativeSource.source_verified,
+    source_is_ancestor_of_main: nativeSource.source_is_ancestor_of_main,
+    newest_main_voice_equivalent: nativeSource.newest_main_voice_equivalent,
     handler_blob_sha: nativeSource.handler_blob_sha,
     dockerfile_blob_sha: nativeSource.dockerfile_blob_sha,
     requirements_blob_sha: nativeSource.requirements_blob_sha,
+    newest_main_handler_blob_sha: nativeSource.newest_main_handler_blob_sha,
+    newest_main_dockerfile_blob_sha: nativeSource.newest_main_dockerfile_blob_sha,
+    newest_main_requirements_blob_sha: nativeSource.newest_main_requirements_blob_sha,
     expected_handler_blob_sha: STT_SOURCE.handler_blob_sha,
     expected_dockerfile_blob_sha: STT_SOURCE.dockerfile_blob_sha,
     expected_requirements_blob_sha: STT_SOURCE.requirements_blob_sha,

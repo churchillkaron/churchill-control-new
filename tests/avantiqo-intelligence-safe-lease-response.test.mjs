@@ -31,10 +31,20 @@ test("Intelligence response probe verifies the exact self-hosted Qwen lane model
   assert.match(source, /MODEL_MISMATCH/);
 });
 
+test("Deep response proof follows Qwen3 Thinking sampling with bounded final-answer budget", () => {
+  assert.match(source, /const DEEP_MAX_OUTPUT_TOKENS = 1024/);
+  assert.match(source, /const FAST_MAX_OUTPUT_TOKENS = 64/);
+  assert.match(source, /const QWEN3_THINKING_TEMPERATURE = 0\.6/);
+  assert.match(source, /const QWEN3_THINKING_TOP_P = 0\.95/);
+  assert.match(source, /QWEN3_THINKING_2507_RECOMMENDED/);
+  assert.match(source, /reasoning_content/);
+  assert.match(source, /reasoning_transport_detected/);
+  assert.match(source, /EMPTY_FINAL_COMPLETION/);
+});
+
 test("Intelligence response probe bounds paid inference and begins from a zero-job baseline", () => {
   assert.match(source, /ZERO_JOB_BASELINE_REQUIRED/);
-  assert.match(source, /max_tokens: MAX_OUTPUT_TOKENS/);
-  assert.match(source, /const MAX_OUTPUT_TOKENS = 64/);
+  assert.match(source, /max_tokens: maxOutputTokens/);
   assert.match(source, /approved_generation_count: 1/);
   assert.match(source, /JOB_BOUND_EXCEEDED/);
 });

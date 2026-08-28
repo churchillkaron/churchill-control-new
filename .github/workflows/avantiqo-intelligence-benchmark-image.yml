@@ -39,7 +39,11 @@ jobs:
           grep -F 'CONTRACT = "AVANTIQO_INTELLIGENCE_BENCHMARK_WORKER_V1"' services/avantiqo-intelligence-benchmark/handler.py
           grep -F 'FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507"' services/avantiqo-intelligence-benchmark/handler.py
           grep -F 'BENCHMARK_MINIMUM_50_CASES_REQUIRED' services/avantiqo-intelligence-benchmark/handler.py
-          grep -F 'mode not in {"baseline", "candidate"}' services/avantiqo-intelligence-benchmark/handler.py
+          grep -F 'mode not in {"baseline", "candidate", "paired"}' services/avantiqo-intelligence-benchmark/handler.py
+          grep -F 'if mode == "paired"' services/avantiqo-intelligence-benchmark/handler.py
+          grep -F '"baseline_outputs": baseline_outputs' services/avantiqo-intelligence-benchmark/handler.py
+          grep -F '"candidate_outputs": candidate_outputs' services/avantiqo-intelligence-benchmark/handler.py
+          grep -F '"single_runpod_job": True' services/avantiqo-intelligence-benchmark/handler.py
           grep -F 'PeftModel.from_pretrained' services/avantiqo-intelligence-benchmark/handler.py
           grep -F 'do_sample=False' services/avantiqo-intelligence-benchmark/handler.py
           grep -F 'AVANTIQO_INTELLIGENCE_BENCHMARK_ENABLED=false' services/avantiqo-intelligence-benchmark/Dockerfile.runpod
@@ -48,6 +52,7 @@ jobs:
           grep -F 'peft==0.20.0' services/avantiqo-intelligence-benchmark/requirements.txt
           node scripts/avantiqo-intelligence-model-benchmark-audit.mjs
           echo 'AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_PREFLIGHT=PASS'
+          echo 'AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_PAIRED_SINGLE_JOB=true'
           echo 'AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_TRIGGER_SHA_BOUND=true'
 
       - name: Set up Docker Buildx
@@ -91,6 +96,7 @@ jobs:
             io.avantiqo.contract=AVANTIQO_INTELLIGENCE_BENCHMARK_WORKER_V1
             io.avantiqo.foundation-model=Qwen/Qwen3-30B-A3B-Thinking-2507
             io.avantiqo.matched-baseline-candidate=true
+            io.avantiqo.paired-single-job=true
             io.avantiqo.production-promotion=false
           provenance: true
           sbom: true
@@ -122,7 +128,7 @@ jobs:
           const digest = process.env.IMAGE_DIGEST;
           const report = {
             success: true,
-            contract: "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_RESULT_V1",
+            contract: "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_RESULT_V2",
             request_nonce: process.env.REQUEST_NONCE,
             source_sha: process.env.RELEASE_SHA,
             trigger_sha: process.env.TRIGGER_SHA,
@@ -135,6 +141,9 @@ jobs:
             foundation_model: "Qwen/Qwen3-30B-A3B-Thinking-2507",
             worker_contract: "AVANTIQO_INTELLIGENCE_BENCHMARK_WORKER_V1",
             matched_baseline_candidate_prompts: true,
+            paired_baseline_candidate_execution: true,
+            provider_job_count: 1,
+            single_runpod_job: true,
             minimum_case_count: 50,
             canonical_case_count: 60,
             benchmark_enabled_by_default: false,
@@ -165,6 +174,7 @@ jobs:
         shell: bash
         run: |
           echo 'AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_BUILD=PASS'
+          echo 'AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_PAIRED_SINGLE_JOB=true'
           echo 'AVANTIQO_INTELLIGENCE_BENCHMARK_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_INTELLIGENCE_BENCHMARK_RUNPOD_ENDPOINT_MUTATED=false'
           echo 'AVANTIQO_INTELLIGENCE_BENCHMARK_PRODUCTION_PROMOTION=false'

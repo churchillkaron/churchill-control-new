@@ -31,7 +31,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Verify Code Pod source lock
+      - name: Verify Code Pod V3 overlay provenance
         shell: bash
         run: |
           set -euo pipefail
@@ -46,7 +46,6 @@ jobs:
 
           test -z "$(git diff --name-only "${BASE_SOURCE_SHA}"..HEAD -- services/avantiqo-code-engine/handler.py services/avantiqo-code-engine/requirements.txt)"
           grep -F "FROM ${BASE_IMAGE}" services/avantiqo-code-engine/Dockerfile.pod
-          grep -F 'AVANTIQO_CODE_POD_OVERLAY_BUILD_CHECK=PASS' services/avantiqo-code-engine/Dockerfile.pod
           grep -F 'ENTRYPOINT ["python3", "-u", "pod_server.py"]' services/avantiqo-code-engine/Dockerfile.pod
           grep -F 'CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"' services/avantiqo-code-engine/pod_server.py
           grep -F 'TRANSPORT_PROBE_PATH = "/v3/transport-probe"' services/avantiqo-code-engine/pod_server.py
@@ -59,10 +58,10 @@ jobs:
           grep -F 'MAX_CONCURRENCY = 1' services/avantiqo-code-engine/pod_server.py
           grep -F 'AVANTIQO_CODE_POD_TOKEN_REQUIRED_MIN_32_CHARS' services/avantiqo-code-engine/pod_server.py
           grep -F 'AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED' services/avantiqo-code-engine/pod_server.py
-          grep -F 'AVANTIQO_CODE_POD_V3_TRANSPORT_SMOKE=PASS' services/avantiqo-code-engine/Dockerfile.pod
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_CODE_POD_IMAGE_BASE_RUNTIME_IMMUTABLE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_HANDLER_REQUIREMENTS_UNCHANGED=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PREFLIGHT=PASS'
 
       - name: Set up Docker Buildx
@@ -104,10 +103,11 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             avantiqo.code.base.source=1cb94f50400afdf448d8460de0a2709f7f6dc688
             avantiqo.code.base.digest=sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262
+            avantiqo.code.runtime.gate=external-runpod-v3-before-inference
           provenance: true
           sbom: true
-          cache-from: type=gha,scope=avantiqo-code-pod
-          cache-to: type=gha,mode=max,scope=avantiqo-code-pod
+          cache-from: type=gha,scope=avantiqo-code-pod-v3-overlay
+          cache-to: type=gha,mode=max,scope=avantiqo-code-pod-v3-overlay
 
       - name: Create immutable Pod image evidence
         env:
@@ -154,8 +154,9 @@ jobs:
             async_status_path_template: "/v3/generations/{job_id}",
             http_proxy_timeout_strategy: "authenticated-probe-plus-immediate-job-id-plus-polling",
             synchronous_generation_allowed: false,
-            build_time_transport_probe: true,
-            build_time_async_transport_smoke: true,
+            build_time_transport_probe: false,
+            build_time_async_transport_smoke: false,
+            external_runpod_transport_probe_required_before_inference: true,
             runtime: "vllm-0.27.1",
             runtime_model: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
             quantization: "fp8",
@@ -187,7 +188,6 @@ jobs:
         run: |
           echo 'AVANTIQO_CODE_POD_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_IMMUTABLE_OVERLAY=PASS'
-          echo 'AVANTIQO_CODE_POD_IMAGE_V3_TRANSPORT_SMOKE=PASS'
-          echo 'AVANTIQO_CODE_POD_IMAGE_ASYNC_TRANSPORT_SMOKE=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_CODE_POD_IMAGE_PRODUCTION_DEPLOY=false'

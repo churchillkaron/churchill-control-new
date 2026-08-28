@@ -152,7 +152,8 @@ const passportCorrected = await recordSecretaryTravelDocumentStatus({ context, p
   occurred_at: "2035-03-06T02:00:00Z",
 } });
 assert.equal(passportCorrected.item.expires_before_departure, false);
-assert.equal(passportCorrected.item.history.length, 1);
+assert.equal(passportCorrected.item.history.length, 2);
+assert.ok(passportCorrected.item.history.some((entry) => entry.expiry_date === "2035-04-01" && entry.evidence_id === "travel-doc-passport-v1"));
 assert.equal(passportCorrected.register.version, 6);
 
 const finalizedV2 = await finalizeSecretaryTravelDocumentReadiness({ context, payload: {

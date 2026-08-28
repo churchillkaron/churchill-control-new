@@ -35,13 +35,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          BASE_SOURCE_SHA='1cb94f50400afdf448d8460de0a2709f7f6dc688'
+          BASE_IMAGE='ghcr.io/churchillkaron/avantiqo-code-pod@sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262'
+
           test -f services/avantiqo-code-engine/Dockerfile.pod
           test -f services/avantiqo-code-engine/pod_server.py
           test -f services/avantiqo-code-engine/handler.py
-          grep -F 'FROM vllm/vllm-openai:v0.27.1' services/avantiqo-code-engine/Dockerfile.pod
-          grep -F 'AVANTIQO_CODE_HF_CACHE_ROOT=/workspace/huggingface-cache/hub' services/avantiqo-code-engine/Dockerfile.pod
-          grep -F 'VLLM_WORKER_MULTIPROC_METHOD=spawn' services/avantiqo-code-engine/Dockerfile.pod
-          grep -F 'VLLM_USE_FLASHINFER_SAMPLER=0' services/avantiqo-code-engine/Dockerfile.pod
+          test -f services/avantiqo-code-engine/requirements.txt
+          git cat-file -e "${BASE_SOURCE_SHA}^{commit}"
+
+          test -z "$(git diff --name-only "${BASE_SOURCE_SHA}"..HEAD -- services/avantiqo-code-engine/handler.py services/avantiqo-code-engine/requirements.txt)"
+          grep -F "FROM ${BASE_IMAGE}" services/avantiqo-code-engine/Dockerfile.pod
+          grep -F 'AVANTIQO_CODE_POD_OVERLAY_BUILD_CHECK=PASS' services/avantiqo-code-engine/Dockerfile.pod
           grep -F 'ENTRYPOINT ["python3", "-u", "pod_server.py"]' services/avantiqo-code-engine/Dockerfile.pod
           grep -F 'CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"' services/avantiqo-code-engine/pod_server.py
           grep -F 'TRANSPORT_PROBE_PATH = "/v3/transport-probe"' services/avantiqo-code-engine/pod_server.py
@@ -56,6 +61,8 @@ jobs:
           grep -F 'AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED' services/avantiqo-code-engine/pod_server.py
           grep -F 'AVANTIQO_CODE_POD_V3_TRANSPORT_SMOKE=PASS' services/avantiqo-code-engine/Dockerfile.pod
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo 'AVANTIQO_CODE_POD_IMAGE_BASE_RUNTIME_IMMUTABLE=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_HANDLER_REQUIREMENTS_UNCHANGED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PREFLIGHT=PASS'
 
       - name: Set up Docker Buildx
@@ -95,6 +102,8 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+            avantiqo.code.base.source=1cb94f50400afdf448d8460de0a2709f7f6dc688
+            avantiqo.code.base.digest=sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262
           provenance: true
           sbom: true
           cache-from: type=gha,scope=avantiqo-code-pod
@@ -133,6 +142,10 @@ jobs:
             image_tag: process.env.IMAGE_TAG,
             image_digest: digest,
             immutable_image_reference: `${repository}@${digest}`,
+            base_source_sha: "1cb94f50400afdf448d8460de0a2709f7f6dc688",
+            base_image_digest: "sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262",
+            base_runtime_reused_immutably: true,
+            handler_requirements_unchanged_from_base: true,
             transport: "pod-http",
             pod_http_contract: "AVANTIQO_CODE_POD_HTTP_V3",
             transport_mode: "async-job-polling",
@@ -173,6 +186,7 @@ jobs:
         shell: bash
         run: |
           echo 'AVANTIQO_CODE_POD_IMAGE_BUILD=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_IMMUTABLE_OVERLAY=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_V3_TRANSPORT_SMOKE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_ASYNC_TRANSPORT_SMOKE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PROVIDER_JOB_SUBMITTED=false'

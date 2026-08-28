@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
+import CodeAILiveProgressPanel from "@/components/operator/CodeAILiveProgressPanel";
 import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
 import SyntheticIntelligenceControlCenter from "@/components/operator/SyntheticIntelligenceControlCenter";
 import SyntheticIntelligenceForecastTrackRecord from "@/components/operator/SyntheticIntelligenceForecastTrackRecord";
@@ -122,7 +123,10 @@ export default function OrganizationWorkspacePage() {
           </div>
         </div>
 
-        <HomeAvantiqoIntelligence organizationId={organizationId} />
+        <div className="space-y-4">
+          <CodeAILiveProgressPanel organizationId={organizationId} />
+          <HomeAvantiqoIntelligence organizationId={organizationId} />
+        </div>
       </div>
     </div>
   );

@@ -15,6 +15,8 @@ const ALLOWED_CUDA_VERSIONS = ["12.8", "12.9", "13.0"];
 const REST = "https://rest.runpod.io/v1";
 const READY_TIMEOUT_MS = 12 * 60_000;
 const POLL_MS = 5_000;
+const TRANSIENT_WARMUP_POLL_HTTP_STATUSES = new Set([404, 502, 503, 504]);
+const MAX_CONSECUTIVE_TRANSIENT_WARMUP_POLLS = 12;
 
 const text = (value) => String(value ?? "").trim();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -73,6 +75,15 @@ async function podRequest(pathname, options = {}) {
   const raw = await response.text();
   let body = null;
   try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+  if (
+    options.allowTransientStatus === true &&
+    TRANSIENT_WARMUP_POLL_HTTP_STATUSES.has(response.status)
+  ) {
+    return {
+      transient_http_status: response.status,
+      transient_detail: text(body?.detail || body?.error_message || raw).slice(0, 700) || null,
+    };
+  }
   if (!response.ok) {
     throw new Error(`${CONTRACT}_POD_HTTP_${response.status}:${text(body?.detail || body?.error_message || raw).slice(0, 700)}`);
   }
@@ -109,16 +120,119 @@ async function waitForHealth() {
   throw new Error(`${CONTRACT}_POD_HEALTH_TIMEOUT`);
 }
 
+async function inspectWarmupContinuity(transientStatus, transientDetail) {
+  let healthEvidence = {
+    http_status: null,
+    contract_valid: false,
+    engine_loaded: false,
+    jobs_queued: null,
+    jobs_running: null,
+    error_type: null,
+  };
+  try {
+    const response = await fetch(`${podBaseUrl}/health`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+    const body = await response.json().catch(() => null);
+    healthEvidence = {
+      http_status: response.status,
+      contract_valid: Boolean(
+        response.ok &&
+        body?.success === true &&
+        body?.contract === POD_HTTP_CONTRACT &&
+        body?.transport === "pod-http" &&
+        body?.raw_reasoning_persisted === false
+      ),
+      engine_loaded: body?.engine_loaded === true,
+      jobs_queued: Number.isFinite(Number(body?.jobs_queued)) ? Number(body.jobs_queued) : null,
+      jobs_running: Number.isFinite(Number(body?.jobs_running)) ? Number(body.jobs_running) : null,
+      error_type: null,
+    };
+  } catch (error) {
+    healthEvidence.error_type = text(error?.name || error?.message).slice(0, 120) || "UNKNOWN";
+  }
+
+  let podEvidence = {
+    present: null,
+    desired_status: null,
+    status: null,
+    runtime_status: null,
+    error_type: null,
+  };
+  try {
+    const pod = await rest(`/pods/${encodeURIComponent(podId)}`, {
+      allow404: true,
+      timeout_ms: 15_000,
+    });
+    podEvidence = {
+      present: Boolean(pod),
+      desired_status: text(pod?.desiredStatus || pod?.desired_status) || null,
+      status: text(pod?.status) || null,
+      runtime_status: text(pod?.runtimeStatus || pod?.runtime_status) || null,
+      error_type: null,
+    };
+  } catch (error) {
+    podEvidence.error_type = text(error?.name || error?.message).slice(0, 120) || "UNKNOWN";
+  }
+
+  console.log(JSON.stringify({
+    event: "AVANTIQO_CODE_WARMUP_CANDIDATE_POLL_CONTINUITY",
+    contract: CONTRACT,
+    transient_http_status: transientStatus,
+    transient_detail: transientDetail || null,
+    health: healthEvidence,
+    pod: podEvidence,
+    customer_inference_performed: false,
+    reasoning_calls_used: 0,
+    wallet_mutation_performed: false,
+    production_deploy_performed: false,
+    secrets_printed: false,
+  }));
+
+  return { health: healthEvidence, pod: podEvidence };
+}
+
 async function waitForWarmup(jobId) {
   const deadline = Date.now() + READY_TIMEOUT_MS;
+  let consecutiveTransientPolls = 0;
+  let lastContinuity = null;
+
   while (Date.now() < deadline) {
-    const body = await podRequest(`/v3/generations/${encodeURIComponent(jobId)}`);
+    await sleep(POLL_MS);
+    const body = await podRequest(`/v3/generations/${encodeURIComponent(jobId)}`, {
+      allowTransientStatus: true,
+    });
+    if (body?.transient_http_status) {
+      consecutiveTransientPolls += 1;
+      if (
+        consecutiveTransientPolls === 1 ||
+        consecutiveTransientPolls % 3 === 0 ||
+        consecutiveTransientPolls >= MAX_CONSECUTIVE_TRANSIENT_WARMUP_POLLS
+      ) {
+        lastContinuity = await inspectWarmupContinuity(
+          body.transient_http_status,
+          body.transient_detail,
+        );
+      }
+      if (consecutiveTransientPolls >= MAX_CONSECUTIVE_TRANSIENT_WARMUP_POLLS) {
+        throw new Error(
+          `${CONTRACT}_WARMUP_STATUS_CONTINUITY_LOST:` +
+          `http=${body.transient_http_status}:` +
+          `health_contract_valid=${lastContinuity?.health?.contract_valid === true}:` +
+          `health_engine_loaded=${lastContinuity?.health?.engine_loaded === true}:` +
+          `pod_present=${lastContinuity?.pod?.present === true}`,
+        );
+      }
+      continue;
+    }
+
+    consecutiveTransientPolls = 0;
     const status = text(body.status).toUpperCase();
     if (status === "FAILED") {
       throw new Error(`${CONTRACT}_WARMUP_FAILED:${text(body.error_type || body.error_message) || "UNKNOWN"}`);
     }
     if (status === "SUCCEEDED") return body;
-    await sleep(POLL_MS);
   }
   throw new Error(`${CONTRACT}_WARMUP_TIMEOUT`);
 }

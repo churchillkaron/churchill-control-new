@@ -20,7 +20,7 @@ const replacements = [
   ],
   [
     '"executeWorldClassCodeMission"',
-    '"executeCodeAIEmployeeMission"',
+    '"executeCodeAIEmployeeFastStartMission"',
   ],
   [
     '"Persistent GitHub commits remain a separate governed capability"',

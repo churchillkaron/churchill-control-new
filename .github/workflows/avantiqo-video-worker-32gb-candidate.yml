@@ -1,0 +1,191 @@
+name: Avantiqo Video 32GB Candidate Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-worker-32gb-candidate-request.json
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-video-worker-32gb-candidate
+  cancel-in-progress: true
+
+jobs:
+  build-video-worker-32gb-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify isolated candidate source lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-video-engine/Dockerfile.v5
+          test -f services/avantiqo-video-engine/handler_v5.py
+          grep -F 'CMD ["python", "-u", "handler_v5.py"]' services/avantiqo-video-engine/Dockerfile.v5
+          grep -F 'RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_VIDEO_HANDLER_V5_WAN22_32GB_GROUP_OFFLOAD_V1"' services/avantiqo-video-engine/handler_v5.py
+          grep -F 'MEMORY_CONTRACT = "AVANTIQO_VIDEO_WAN22_A14B_32GB_MEMORY_PROFILE_V1"' services/avantiqo-video-engine/handler_v5.py
+          grep -F 'TARGET_MINIMUM_VRAM_GB = 32' services/avantiqo-video-engine/handler_v5.py
+          grep -F 'GROUP_OFFLOAD_TYPE = "leaf_level"' services/avantiqo-video-engine/handler_v5.py
+          grep -F 'GROUP_OFFLOAD_STREAM = True' services/avantiqo-video-engine/handler_v5.py
+          grep -F 'QUANTIZATION_ENABLED = False' services/avantiqo-video-engine/handler_v5.py
+          grep -F 'LAYERWISE_CASTING_ENABLED = False' services/avantiqo-video-engine/handler_v5.py
+          grep -F 'pipe.enable_group_offload(' services/avantiqo-video-engine/handler_v5.py
+          grep -F 'torch_dtype=torch.float32' services/avantiqo-video-engine/handler_v5.py
+          python -m py_compile \
+            services/avantiqo-video-engine/handler.py \
+            services/avantiqo-video-engine/handler_v2.py \
+            services/avantiqo-video-engine/handler_v3.py \
+            services/avantiqo-video-engine/handler_v4.py \
+            services/avantiqo-video-engine/handler_v5.py
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo 'AVANTIQO_VIDEO_32GB_CANDIDATE_PREFLIGHT=PASS'
+          echo 'AVANTIQO_VIDEO_32GB_CANDIDATE_PRODUCTION_REBIND=false'
+          echo 'AVANTIQO_VIDEO_32GB_CANDIDATE_RUNPOD_MUTATION=false'
+          echo 'AVANTIQO_VIDEO_32GB_CANDIDATE_GENERATION_SUBMITTED=false'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$GITHUB_SHA"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-video-worker-32gb-candidate"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push immutable candidate image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-video-engine
+          file: services/avantiqo-video-engine/Dockerfile.v5
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-video-worker-32gb-candidate
+          cache-to: type=gha,mode=max,scope=avantiqo-video-worker-32gb-candidate
+
+      - name: Create sanitized candidate evidence
+        env:
+          IMAGE_REPOSITORY: ${{ steps.image.outputs.image }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          RELEASE_SHA: ${{ steps.image.outputs.release_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+          TRIGGER_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$IMAGE_DIGEST"
+          mkdir -p /tmp/avantiqo-video-worker-32gb-candidate
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          const repository = process.env.IMAGE_REPOSITORY;
+          const digest = process.env.IMAGE_DIGEST;
+          const report = {
+            success: true,
+            contract: "AVANTIQO_VIDEO_32GB_CANDIDATE_IMAGE_RESULT_V1",
+            source_sha: process.env.RELEASE_SHA || null,
+            trigger_sha: process.env.TRIGGER_SHA || null,
+            source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
+            github_run_id: process.env.BUILD_RUN_ID || null,
+            image_repository: repository,
+            image_tag: process.env.IMAGE_TAG || null,
+            image_digest: digest,
+            immutable_image_reference: `${repository}@${digest}`,
+            entrypoint: "handler_v5.py",
+            runtime_revision: "AVANTIQO_VIDEO_WAN22_A14B_32GB_GROUP_OFFLOAD_V1",
+            memory_contract: "AVANTIQO_VIDEO_WAN22_A14B_32GB_MEMORY_PROFILE_V1",
+            target_minimum_vram_gb: 32,
+            group_offload_type: "leaf_level",
+            group_offload_stream: true,
+            quantization_enabled: false,
+            layerwise_casting_enabled: false,
+            diffusion_dtype: "bfloat16",
+            vae_decode_dtype: "float32",
+            quality_contract_preserved: "AVANTIQO_VIDEO_WAN22_A14B_CINEMA_QUALITY_V1",
+            configured_text_to_video_foundation: "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+            configured_image_to_video_foundation: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
+            candidate_only: true,
+            production_rebind_performed: false,
+            runpod_endpoint_mutation_performed: false,
+            runpod_worker_mutation_performed: false,
+            video_generation_submitted: false,
+            external_paid_provider_contacted: false,
+            pricing_activation_performed: false,
+            secrets_in_output: false,
+          };
+          if (!report.source_sha_matches_trigger) throw new Error("AVANTIQO_VIDEO_32GB_CANDIDATE_SOURCE_TRIGGER_MISMATCH");
+          writeFileSync(
+            "/tmp/avantiqo-video-worker-32gb-candidate/avantiqo-video-worker-32gb-candidate.json",
+            `${JSON.stringify(report)}\n`,
+            "utf8",
+          );
+          NODE
+
+      - name: Upload immutable candidate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-worker-32gb-candidate-${{ steps.image.outputs.short_sha }}
+          path: /tmp/avantiqo-video-worker-32gb-candidate/avantiqo-video-worker-32gb-candidate.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Record sanitized candidate evidence on newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B video-worker-32gb-candidate-evidence origin/main
+          mkdir -p audits/results
+          cp /tmp/avantiqo-video-worker-32gb-candidate/avantiqo-video-worker-32gb-candidate.json \
+            audits/results/avantiqo-video-worker-32gb-candidate.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audits/results/avantiqo-video-worker-32gb-candidate.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Record Video 32GB candidate image result"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              break
+            fi
+            git fetch origin main
+            git rebase origin/main
+          done
+          exit 1

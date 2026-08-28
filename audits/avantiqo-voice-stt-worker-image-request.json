@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_VOICE_STT_WORKER_IMAGE_REQUEST_V1",
-  "requested_for": "prompt_ids_tensor_type_fix_final_transcription",
+  "requested_for": "bake_whisper_snapshot_for_offline_cold_start",
   "build_stt": true,
   "build_tts": false,
   "production_web_deploy": false,

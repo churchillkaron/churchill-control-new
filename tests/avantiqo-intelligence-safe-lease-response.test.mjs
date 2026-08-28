@@ -42,6 +42,16 @@ test("Deep response proof follows Qwen3 Thinking sampling with bounded final-ans
   assert.match(source, /EMPTY_FINAL_COMPLETION/);
 });
 
+test("Intelligence response proof uses one native HTTPS transport with explicit deadlines", () => {
+  assert.match(source, /import https from "node:https"/);
+  assert.match(source, /function nativeJsonRequest/);
+  assert.doesNotMatch(source, /\bfetch\s*\(/);
+  assert.doesNotMatch(source, /AbortSignal\.timeout/);
+  assert.match(source, /NODE_HTTPS_ALL_ROUTES_ABSOLUTE_DEADLINE_V1/);
+  assert.match(source, /NATIVE_HTTPS_DEADLINE_EXCEEDED/);
+  assert.match(source, /ambiguous_timeout_retry_performed: false/);
+});
+
 test("Intelligence response probe bounds paid inference and begins from a zero-job baseline", () => {
   assert.match(source, /ZERO_JOB_BASELINE_REQUIRED/);
   assert.match(source, /max_tokens: maxOutputTokens/);

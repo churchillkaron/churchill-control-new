@@ -46,6 +46,10 @@ jobs:
           grep -F 'import handler as code_engine' services/avantiqo-code-engine/pod_server.py
           grep -F 'MAX_CONCURRENCY = 1' services/avantiqo-code-engine/pod_server.py
           grep -F 'AVANTIQO_CODE_POD_TOKEN_REQUIRED_MIN_32_CHARS' services/avantiqo-code-engine/pod_server.py
+          grep -F '@app.post("/jobs")' services/avantiqo-code-engine/pod_server.py
+          grep -F '@app.get("/jobs/{job_id}")' services/avantiqo-code-engine/pod_server.py
+          grep -F 'AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED' services/avantiqo-code-engine/pod_server.py
+          grep -F 'AVANTIQO_CODE_POD_ASYNC_TRANSPORT_SMOKE=PASS' services/avantiqo-code-engine/Dockerfile.pod
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_CODE_POD_IMAGE_PREFLIGHT=PASS'
 
@@ -115,7 +119,7 @@ jobs:
           const digest = process.env.IMAGE_DIGEST;
           const report = {
             success: true,
-            contract: "AVANTIQO_CODE_POD_IMAGE_RESULT_V1",
+            contract: "AVANTIQO_CODE_POD_IMAGE_RESULT_V2",
             source_sha: process.env.RELEASE_SHA,
             trigger_sha: process.env.TRIGGER_SHA,
             source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
@@ -125,6 +129,10 @@ jobs:
             image_digest: digest,
             immutable_image_reference: `${repository}@${digest}`,
             transport: "pod-http",
+            transport_mode: "async-job-polling",
+            http_proxy_timeout_strategy: "immediate-job-id-plus-polling",
+            synchronous_generation_allowed: false,
+            build_time_async_transport_smoke: true,
             runtime: "vllm-0.27.1",
             runtime_model: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
             quantization: "fp8",
@@ -155,5 +163,6 @@ jobs:
         shell: bash
         run: |
           echo 'AVANTIQO_CODE_POD_IMAGE_BUILD=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_ASYNC_TRANSPORT_SMOKE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_CODE_POD_IMAGE_PRODUCTION_DEPLOY=false'

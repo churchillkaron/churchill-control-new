@@ -28,5 +28,113 @@ COPY services/avantiqo-code-engine/handler.py ./handler.py
 COPY services/avantiqo-code-engine/pod_server.py ./pod_server.py
 RUN python3 -m py_compile handler.py pod_server.py
 
+# Start the real Pod HTTP server during the image build and prove the async
+# transport end to end without CUDA inference. The smoke job uses the engine's
+# benchmark-only runtime probe, so it validates auth, queueing, polling, vLLM
+# metadata, and Uvicorn port binding without loading model weights.
+RUN AVANTIQO_CODE_POD_TOKEN=avantiqo-code-build-smoke-token-0123456789abcdef python3 - <<'PY'
+import json
+import os
+import subprocess
+import time
+import urllib.request
+
+token = os.environ["AVANTIQO_CODE_POD_TOKEN"]
+log_path = "/tmp/avantiqo-code-pod-smoke.log"
+log = open(log_path, "w", encoding="utf-8")
+process = subprocess.Popen(
+    ["python3", "-u", "pod_server.py"],
+    env=os.environ.copy(),
+    stdout=log,
+    stderr=subprocess.STDOUT,
+)
+try:
+    deadline = time.time() + 45
+    health = None
+    while time.time() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError(f"pod server exited early: {process.returncode}")
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=2) as response:
+                health = json.load(response)
+            if health.get("success") is True:
+                break
+        except Exception:
+            time.sleep(1)
+    if not health or health.get("success") is not True:
+        raise RuntimeError("pod health smoke timeout")
+    assert health["contract"] == "AVANTIQO_CODE_POD_HTTP_V2"
+    assert health["transport_mode"] == "async-job-polling"
+    assert health["async_jobs_enabled"] is True
+    assert health["synchronous_generation_allowed"] is False
+    assert health["engine_loaded"] is False
+
+    payload = json.dumps(
+        {
+            "id": "build-smoke-runtime-probe",
+            "input": {
+                "contract": "AVANTIQO_CODE_ENGINE_V1",
+                "capability": "ai.code.debug",
+                "organization_id": "benchmark-only",
+                "instruction": "Validate the Pod async transport without loading the model.",
+                "structured_specification": {"runtime_probe": True},
+            },
+        }
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        "http://127.0.0.1:8000/jobs",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=5) as response:
+        assert response.status == 202
+        accepted = json.load(response)
+    assert accepted["proxy_timeout_safe"] is True
+    job_id = accepted["job_id"]
+
+    result = None
+    deadline = time.time() + 45
+    while time.time() < deadline:
+        request = urllib.request.Request(
+            f"http://127.0.0.1:8000/jobs/{job_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            status = json.load(response)
+        if status["status"] == "FAILED":
+            raise RuntimeError(json.dumps(status))
+        if status["status"] == "SUCCEEDED":
+            result = status
+            break
+        time.sleep(0.25)
+    if result is None:
+        raise RuntimeError("pod async job smoke timeout")
+    output = result["output"]
+    assert output["status"] == "runtime_probe"
+    assert output["provider"] == "avantiqo-code"
+    assert output["runtime_model"] == "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+    assert output["quantization"] == "fp8"
+    assert output["engine_loaded"] is False
+    assert output["raw_reasoning_persisted"] is False
+    print("AVANTIQO_CODE_POD_ASYNC_TRANSPORT_SMOKE=PASS")
+except Exception:
+    log.flush()
+    with open(log_path, "r", encoding="utf-8") as handle:
+        print(handle.read())
+    raise
+finally:
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=5)
+    log.close()
+PY
+
 EXPOSE 8000
 ENTRYPOINT ["python3", "-u", "pod_server.py"]

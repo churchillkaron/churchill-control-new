@@ -2,8 +2,10 @@ import asyncio
 import hmac
 import json
 import os
+import time
 import traceback
 from typing import Any
+from uuid import uuid4
 
 # Pods mount RunPod network volumes at /workspace, while Serverless mounts the
 # same volume at /runpod-volume. Override the cache path before importing the
@@ -18,23 +20,28 @@ import uvicorn
 
 import handler as code_engine
 
-CONTRACT = "AVANTIQO_CODE_POD_HTTP_V1"
+CONTRACT = "AVANTIQO_CODE_POD_HTTP_V2"
 HOST = "0.0.0.0"
 PORT = int(os.getenv("AVANTIQO_CODE_POD_PORT", "8000"))
 POD_TOKEN = os.getenv("AVANTIQO_CODE_POD_TOKEN", "").strip()
 MAX_CONCURRENCY = 1
+JOB_HISTORY_LIMIT = 32
+TERMINAL_JOB_STATES = {"SUCCEEDED", "FAILED"}
 
 if len(POD_TOKEN) < 32:
     raise RuntimeError("AVANTIQO_CODE_POD_TOKEN_REQUIRED_MIN_32_CHARS")
 
 app = FastAPI(
     title="Avantiqo Code Pod",
-    version="1",
+    version="2",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
 )
 _request_gate = asyncio.Semaphore(MAX_CONCURRENCY)
+_jobs_lock = asyncio.Lock()
+_jobs: dict[str, dict[str, Any]] = {}
+_job_tasks: set[asyncio.Task[Any]] = set()
 
 
 def _text(value: Any) -> str:
@@ -73,24 +80,171 @@ def _pod_progress(job: dict[str, Any], message: str) -> None:
 code_engine.runpod.serverless.progress_update = _pod_progress
 
 
+def _job_public(job: dict[str, Any]) -> dict[str, Any]:
+    payload = {
+        "success": True,
+        "contract": CONTRACT,
+        "transport": "pod-http",
+        "job_id": job["job_id"],
+        "status": job["status"],
+        "created_at": job["created_at"],
+        "started_at": job.get("started_at"),
+        "completed_at": job.get("completed_at"),
+        "raw_reasoning_persisted": False,
+    }
+    if job.get("output") is not None:
+        payload["output"] = job["output"]
+    if job.get("error_type"):
+        payload["error_type"] = job["error_type"]
+        payload["error_message"] = job.get("error_message")
+    return payload
+
+
+async def _prune_jobs_locked() -> None:
+    if len(_jobs) <= JOB_HISTORY_LIMIT:
+        return
+    completed = sorted(
+        (
+            item
+            for item in _jobs.values()
+            if item.get("status") in TERMINAL_JOB_STATES
+        ),
+        key=lambda item: float(item.get("completed_at") or item.get("created_at") or 0),
+    )
+    while len(_jobs) > JOB_HISTORY_LIMIT and completed:
+        stale = completed.pop(0)
+        _jobs.pop(stale["job_id"], None)
+
+
+async def _execute_async_job(job_id: str, engine_job: dict[str, Any]) -> None:
+    async with _request_gate:
+        async with _jobs_lock:
+            current = _jobs.get(job_id)
+            if current is None:
+                return
+            current["status"] = "RUNNING"
+            current["started_at"] = time.time()
+        try:
+            output = await asyncio.to_thread(code_engine.handler, engine_job)
+        except Exception as error:
+            traceback.print_exc()
+            async with _jobs_lock:
+                current = _jobs.get(job_id)
+                if current is not None:
+                    current["status"] = "FAILED"
+                    current["completed_at"] = time.time()
+                    current["error_type"] = type(error).__name__
+                    current["error_message"] = _text(error)[:800]
+                    await _prune_jobs_locked()
+            return
+
+        async with _jobs_lock:
+            current = _jobs.get(job_id)
+            if current is None:
+                return
+            current["status"] = "SUCCEEDED"
+            current["completed_at"] = time.time()
+            current["output"] = output
+            await _prune_jobs_locked()
+
+
+def _track_task(task: asyncio.Task[Any]) -> None:
+    _job_tasks.add(task)
+    task.add_done_callback(_job_tasks.discard)
+
+
 @app.get("/health")
 async def health() -> dict[str, Any]:
     code_engine.check_worker()
     cached_path = code_engine._cached_model_path(code_engine.RUNTIME_MODEL)
+    async with _jobs_lock:
+        statuses = [item.get("status") for item in _jobs.values()]
     return {
         "success": True,
         "contract": CONTRACT,
         "provider": "avantiqo-code",
         "engine_contract": code_engine.ENGINE_CONTRACT,
         "transport": "pod-http",
+        "transport_mode": "async-job-polling",
         "runtime_model": code_engine.RUNTIME_MODEL,
         "foundation_model": code_engine.FOUNDATION_MODEL,
         "quantization": code_engine.QUANTIZATION,
         "cached_model_found": bool(cached_path),
         "engine_loaded": code_engine._ENGINE is not None,
         "max_concurrency": MAX_CONCURRENCY,
+        "async_jobs_enabled": True,
+        "synchronous_generation_allowed": False,
+        "jobs_queued": statuses.count("QUEUED"),
+        "jobs_running": statuses.count("RUNNING"),
         "raw_reasoning_persisted": False,
     }
+
+
+@app.post("/jobs")
+async def create_job(
+    payload: dict[str, Any],
+    authorization: str | None = Header(default=None),
+):
+    _authorize(authorization)
+    if not isinstance(payload, dict) or not isinstance(payload.get("input"), dict):
+        raise HTTPException(status_code=400, detail="AVANTIQO_CODE_POD_INPUT_REQUIRED")
+
+    requested_id = _text(payload.get("id"))
+    if len(requested_id) > 160:
+        raise HTTPException(status_code=400, detail="AVANTIQO_CODE_POD_JOB_ID_TOO_LONG")
+    job_id = requested_id or f"pod-http-{uuid4().hex}"
+    now = time.time()
+
+    async with _jobs_lock:
+        if job_id in _jobs:
+            raise HTTPException(status_code=409, detail="AVANTIQO_CODE_POD_JOB_ID_CONFLICT")
+        _jobs[job_id] = {
+            "job_id": job_id,
+            "status": "QUEUED",
+            "created_at": now,
+            "started_at": None,
+            "completed_at": None,
+            "output": None,
+            "error_type": None,
+            "error_message": None,
+        }
+        await _prune_jobs_locked()
+
+    engine_job = {
+        "id": job_id,
+        "input": payload["input"],
+    }
+    task = asyncio.create_task(_execute_async_job(job_id, engine_job))
+    _track_task(task)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "success": True,
+            "contract": CONTRACT,
+            "transport": "pod-http",
+            "transport_mode": "async-job-polling",
+            "job_id": job_id,
+            "status": "QUEUED",
+            "poll_path": f"/jobs/{job_id}",
+            "proxy_timeout_safe": True,
+            "raw_reasoning_persisted": False,
+        },
+    )
+
+
+@app.get("/jobs/{job_id}")
+async def get_job(
+    job_id: str,
+    authorization: str | None = Header(default=None),
+):
+    _authorize(authorization)
+    normalized = _text(job_id)
+    async with _jobs_lock:
+        job = _jobs.get(normalized)
+        if job is None:
+            raise HTTPException(status_code=404, detail="AVANTIQO_CODE_POD_JOB_NOT_FOUND")
+        return _job_public(job)
 
 
 @app.post("/run")
@@ -102,11 +256,29 @@ async def run(
     if not isinstance(payload, dict) or not isinstance(payload.get("input"), dict):
         raise HTTPException(status_code=400, detail="AVANTIQO_CODE_POD_INPUT_REQUIRED")
 
+    specification = payload["input"].get("structured_specification") or {}
+    short_control_request = (
+        specification.get("runtime_probe") is True
+        or specification.get("cache_runtime_model") is True
+    )
+    if not short_control_request:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "contract": CONTRACT,
+                "transport": "pod-http",
+                "error_type": "AsyncJobRequired",
+                "error_message": "AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED",
+                "async_jobs_path": "/jobs",
+                "raw_reasoning_persisted": False,
+            },
+        )
+
     job = {
-        "id": _text(payload.get("id")) or "pod-http",
+        "id": _text(payload.get("id")) or "pod-http-control",
         "input": payload["input"],
     }
-
     async with _request_gate:
         try:
             result = await asyncio.to_thread(code_engine.handler, job)
@@ -154,7 +326,9 @@ if __name__ == "__main__":
                 "port": PORT,
                 "cache_root": str(code_engine.HF_CACHE_ROOT),
                 "max_concurrency": MAX_CONCURRENCY,
-                "model_load": "LAZY",
+                "model_load": "LAZY_ASYNC_JOB",
+                "transport_mode": "async-job-polling",
+                "synchronous_generation_allowed": False,
                 "secrets_printed": False,
             },
             separators=(",", ":"),

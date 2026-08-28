@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V2";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V3";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
+  fastStart: "lib/code/runtime/CodeAIEmployeeFastStartRuntime.js",
   employee: "lib/code/runtime/CodeAIEmployeeRuntime.js",
   packages: "lib/code/runtime/CodeAIWorkPackageRuntime.js",
   spend: "lib/code/runtime/CodeAIPlannerSpendPolicy.js",
@@ -27,9 +28,12 @@ function requireMarkers(label, content, markers) {
 }
 
 requireMarkers("CAPABILITY", source.capability, [
-  "executeCodeAIEmployeeMission",
+  "executeCodeAIEmployeeFastStartMission",
+  "CODE_AI_EMPLOYEE_FAST_START_CONTRACT",
   "CODE_AI_EMPLOYEE_RUNTIME_CONTRACT",
   "CODE_AI_EMPLOYEE_MISSION_CONTRACT",
+  "deterministic-fast-start",
+  "warm_session_idle_ms",
   "reasoning_call_budget",
   "max_employee_passes",
   "owner_intent",
@@ -39,8 +43,23 @@ requireMarkers("CAPABILITY", source.capability, [
   "persistCodeAICommitArtifact",
 ]);
 assert.equal(source.capability.includes("executeWorldClassCodeMission({"), false);
+assert.equal(source.capability.includes("executeCodeAIEmployeeMission({"), false);
 assert.equal(source.capability.includes("commitVerifiedCodeMission"), false);
 assert.equal(source.capability.includes("createCodeAICommitCapability"), false);
+
+requireMarkers("FAST_START", source.fastStart, [
+  "AVANTIQO_CODE_AI_EMPLOYEE_FAST_START_V1",
+  "model_call_required_to_start: false",
+  "employee_fast_start_inspect",
+  "employee_fast_start_read_",
+  "resolveCodeAIEmployeeFastStartSeedPaths",
+  "evidence_path_1",
+  "evidence_path_4",
+  "DEFAULT_WARM_SESSION_IDLE_MS = 10 * 60 * 1000",
+  "MAX_WARM_SESSION_IDLE_MS = 30 * 60 * 1000",
+  "first_reasoning_call_should_prefer_implementation",
+  "executeCodeAIEmployeeMission",
+]);
 
 requireMarkers("EMPLOYEE", source.employee, [
   "AVANTIQO_CODE_AI_EMPLOYEE_RUNTIME_V1",
@@ -91,7 +110,11 @@ console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   verified: {
-    public_code_capability_uses_employee_runtime: true,
+    public_code_capability_uses_fast_start_employee_runtime: true,
+    deterministic_repository_work_precedes_first_model_call: true,
+    known_source_evidence_can_be_seeded_before_reasoning: true,
+    model_call_not_required_to_start: true,
+    bounded_warm_session_policy_exposed: true,
     micro_step_public_execution_removed: true,
     batched_multi_operation_packages_required: true,
     default_reasoning_call_budget: 4,

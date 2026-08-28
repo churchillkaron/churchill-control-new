@@ -15,6 +15,7 @@ const QUALITY_PROFILE = "SIGNALSMITH_REVIEWED_TRANSIENT_WARP_V1";
 const ENDPOINT_NAME = "avantiqo-music-elastic-audio-v1";
 const TEMPLATE_PREFIX = "avantiqo-music-elastic-audio-";
 const APPROVAL_ENV = "AVANTIQO_MUSIC_ELASTIC_PROVISION_APPROVED";
+const CANONICAL_REGISTRY_AUTH_NAME = "avantiqo-ghcr";
 
 const text = (value) => String(value ?? "").trim();
 const list = (value) => Array.isArray(value) ? value : [];
@@ -45,10 +46,12 @@ function endpointVolumeIds(endpoint = {}) {
 
 function endpointTemplate(endpoint = {}, templates = []) {
   const embedded = endpoint.template && typeof endpoint.template === "object" ? endpoint.template : null;
-  if (embedded) return embedded;
-  const templateId = text(endpoint.templateId ?? endpoint.template_id);
-  if (!templateId) return null;
-  return templates.find((template) => text(template?.id) === templateId) || null;
+  const templateId = text(endpoint.templateId ?? endpoint.template_id ?? embedded?.id);
+  if (templateId) {
+    const authoritative = templates.find((template) => text(template?.id) === templateId) || null;
+    if (authoritative) return authoritative;
+  }
+  return embedded;
 }
 
 function assertExactTemplateImage(template, immutableImage, code) {
@@ -172,6 +175,11 @@ function registryAuth(registryAuths) {
     if (matches.length !== 1) throw new Error(`AVANTIQO_MUSIC_ELASTIC_REGISTRY_AUTH_NOT_FOUND:${matches.length}`);
     return matches[0];
   }
+  const canonical = registryAuths.filter((item) => text(item?.name) === CANONICAL_REGISTRY_AUTH_NAME);
+  if (canonical.length > 1) {
+    throw new Error(`AVANTIQO_MUSIC_ELASTIC_CANONICAL_GHCR_AUTH_AMBIGUOUS:matches=${canonical.length}`);
+  }
+  if (canonical.length === 1) return canonical[0];
   const candidates = registryAuths.filter((item) => /ghcr|github/i.test(text(item?.name)));
   if (candidates.length !== 1) throw new Error(`AVANTIQO_MUSIC_ELASTIC_GHCR_AUTH_REQUIRED:matches=${candidates.length}`);
   return candidates[0];

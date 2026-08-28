@@ -5,7 +5,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const root = process.cwd();
-const CONTRACT = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_AUDIT_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_AUDIT_V2";
 const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
 const exists = (relative) => fs.existsSync(path.join(root, relative));
 const has = (source, marker, code) => assert.ok(source.includes(marker), `${CONTRACT}_${code}_MISSING:${marker}`);
@@ -31,12 +31,13 @@ const files = {
   recover: "scripts/recover-avantiqo-intelligence-production-adapter-image-evidence-local.mjs",
   binder: "scripts/rebind-avantiqo-intelligence-production-adapter-local.mjs",
   promotion: "lib/intelligence/runtime/AvantiqoModelPromotionRuntime.js",
+  learningOrganization: "lib/intelligence/runtime/AvantiqoLearningOrganizationRuntime.js",
   canary: "lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js",
   deep: "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js",
   fast: "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js",
 };
 for (const relative of Object.values(files)) assert.ok(exists(relative), `${CONTRACT}_MISSING_FILE:${relative}`);
-for (const relative of [files.build, files.recover, files.binder, files.promotion, files.canary, files.deep, files.fast]) nodeSyntax(relative);
+for (const relative of [files.build, files.recover, files.binder, files.promotion, files.learningOrganization, files.canary, files.deep, files.fast]) nodeSyntax(relative);
 pythonSyntax(files.startup);
 pythonSyntax(files.inspector);
 
@@ -48,6 +49,7 @@ const build = read(files.build);
 const recover = read(files.recover);
 const binder = read(files.binder);
 const promotion = read(files.promotion);
+const learningOrganization = read(files.learningOrganization);
 const canary = read(files.canary);
 const deep = read(files.deep);
 const fast = read(files.fast);
@@ -96,11 +98,22 @@ for (const source of [build, recover]) {
   has(source, 'fast_lane_effect: "NONE"', "LOCAL_IMAGE_FAST_NONE");
 }
 
-has(binder, 'AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_BINDER_V1', "BINDER_CONTRACT");
+has(learningOrganization, 'CANONICAL_ORGANIZATION_NAME = "Avantiqo Platform"', "CANONICAL_LEARNING_ORGANIZATION_NAME");
+has(learningOrganization, 'CANONICAL_ORGANIZATION_TYPE = "enterprise_group"', "CANONICAL_LEARNING_ORGANIZATION_TYPE");
+has(learningOrganization, 'source: "CANONICAL_DATABASE_RECORD"', "CANONICAL_LEARNING_ORGANIZATION_DB_FALLBACK");
+
+has(binder, 'AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_BINDER_V2', "BINDER_CONTRACT_V2");
 has(binder, 'const apply = process.argv.includes("--apply")', "PLAN_DEFAULT");
 has(binder, 'const rollback = process.argv.includes("--rollback")', "ROLLBACK_MODE");
 has(binder, 'AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_APPROVED', "RELEASE_GATE");
 has(binder, 'AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_ROLLBACK_APPROVED', "ROLLBACK_GATE");
+has(binder, 'LEARNING_ORGANIZATION_NAME = "Avantiqo Platform"', "BINDER_CANONICAL_ORG_NAME");
+has(binder, 'LEARNING_ORGANIZATION_TYPE = "enterprise_group"', "BINDER_CANONICAL_ORG_TYPE");
+has(binder, 'source: "CANONICAL_DATABASE_RECORD"', "BINDER_CANONICAL_ORG_FALLBACK");
+has(binder, 'resolveGovernedSelection', "BINDER_GOVERNED_SELECTION");
+has(binder, 'UNIQUE_GOVERNED_REVIEW', "BINDER_UNIQUE_PENDING_REVIEW");
+has(binder, 'candidate_env_required: false', "BINDER_CANDIDATE_ENV_OPTIONAL");
+has(binder, 'adapter_path_env_required: false', "BINDER_ADAPTER_PATH_ENV_OPTIONAL");
 has(binder, 'CANARY_CERTIFIED_RELEASE_PENDING', "CANARY_RELEASE_STATE_REQUIRED");
 has(binder, 'structured_output_ok !== true', "CANARY_STRUCTURED_OUTPUT_REQUIRED");
 has(binder, 'native_tool_call_ok !== true', "CANARY_TOOL_CALL_REQUIRED");
@@ -109,6 +122,11 @@ has(binder, 'requireIdle(deep, deepHealth, "PRODUCTION_ADAPTER_DEEP")', "DEEP_ID
 has(binder, '_RESTING_0_0_REQUIRED', "DEEP_ZERO_ZERO_GATE");
 has(binder, '_QUEUE_NOT_DRAINED', "DEEP_DRAIN_GATE");
 has(binder, '_WORKERS_NOT_RESTING', "DEEP_WORKER_GATE");
+has(binder, 'dockerEntrypoint: []', "IMAGE_OWNED_ENTRYPOINT");
+has(binder, 'dockerStartCmd: []', "IMAGE_OWNED_START_CMD");
+has(binder, 'docker_entrypoint_override', "EXISTING_TARGET_ENTRYPOINT_OVERRIDE_REJECTED");
+has(binder, 'docker_start_cmd_override', "EXISTING_TARGET_START_CMD_OVERRIDE_REJECTED");
+has(binder, 'image_owned_entrypoint_required: true', "PLAN_REPORTS_IMAGE_OWNED_ENTRYPOINT");
 has(binder, 'rollback_provenance_required_before_endpoint_patch: true', "ROLLBACK_PROVENANCE_BEFORE_PATCH");
 has(binder, 'previous_template_id: previousTemplateId', "PREVIOUS_TEMPLATE_CAPTURE");
 has(binder, 'body: { templateId: targetTemplateId }', "RELEASE_TEMPLATE_ONLY_PATCH");
@@ -122,10 +140,15 @@ has(binder, 'automatic_production_promotion: false', "BINDER_NO_AUTOPROMOTION");
 has(binder, 'automatic_rollback: false', "BINDER_NO_AUTOROLLBACK");
 has(binder, 'wallet_operation_performed: false', "BINDER_NO_WALLET");
 has(binder, 'web_deploy_performed: false', "BINDER_NO_WEB_DEPLOY");
+forbid(binder, 'const learningOrganizationId = required("AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID")', "NO_REQUIRED_ORG_ENV");
+forbid(binder, 'const candidateId = required("AVANTIQO_INTELLIGENCE_PRODUCTION_MODEL_CANDIDATE_ID")', "NO_REQUIRED_CANDIDATE_ENV");
+forbid(binder, 'const adapterPath = required("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_PATH")', "NO_REQUIRED_ADAPTER_PATH_ENV");
 forbid(binder, 'AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_APPROVED=YES', "NO_HARDCODED_RELEASE_APPROVAL");
 forbid(binder, 'AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_ROLLBACK_APPROVED=YES', "NO_HARDCODED_ROLLBACK_APPROVAL");
 
 has(promotion, 'status: "CANARY_CERTIFIED_RELEASE_PENDING"', "PROMOTION_RUNTIME_STOPS_BEFORE_RELEASE");
+has(promotion, 'adapter_artifact_reference: text(candidateMetadata.adapter_artifact_reference', "PROMOTION_REVIEW_OWNS_ADAPTER_PATH");
+has(promotion, 'model_candidate_id: candidate.id', "PROMOTION_REVIEW_OWNS_CANDIDATE_ID");
 has(promotion, 'automatic_production_promotion: false', "PROMOTION_RUNTIME_NO_AUTO");
 has(canary, 'production_endpoint_mutated: false', "CANARY_NO_PROD_MUTATION");
 has(canary, 'ordinary_provider_routing_enabled: false', "CANARY_ISOLATION");
@@ -136,6 +159,9 @@ has(fast, 'avantiqo-intelligence-fast-v1', "FAST_SEPARATE_ENDPOINT");
 console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_AUDIT=PASS");
 console.log(`AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_AUDIT_CONTRACT=${CONTRACT}`);
 console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_CANONICAL_DEEP_MODEL_BOUND=true");
+console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_CANONICAL_ORGANIZATION_RESOLUTION=true");
+console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_GOVERNED_CANDIDATE_SELECTION=true");
+console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_IMAGE_OWNED_ENTRYPOINT=true");
 console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_IMMUTABLE_IMAGE_WORKFLOW=true");
 console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_PLAN_DEFAULT=true");
 console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_EXPLICIT_RELEASE_GATE=true");

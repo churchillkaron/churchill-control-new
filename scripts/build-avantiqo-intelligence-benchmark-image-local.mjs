@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
-const CONTRACT = "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_LOCAL_BUILD_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_LOCAL_BUILD_V2";
 const WORKFLOW = "avantiqo-intelligence-benchmark-image.yml";
 const EVIDENCE_PATH = "audits/results/avantiqo-intelligence-benchmark-image.json";
 const REPOSITORY = "churchillkaron/churchill-control-new";
@@ -68,6 +68,7 @@ console.log(JSON.stringify({
   event: "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_DISPATCHED",
   main_commit: mainCommit,
   request_nonce: nonce,
+  paired_single_job_required: true,
   provider_job_submitted: false,
   runpod_endpoint_mutated: false,
   production_model_promoted: false,
@@ -150,20 +151,23 @@ const evidenceSource = join(tempRoot, "evidence.json");
 const evidence = JSON.parse(readFileSync(evidenceSource, "utf8"));
 if (
   evidence?.success !== true ||
-  evidence?.contract !== "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_RESULT_V1" ||
+  evidence?.contract !== "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_RESULT_V2" ||
   evidence?.request_nonce !== nonce ||
   evidence?.source_sha !== runInfo.headSha ||
   evidence?.source_sha_matches_trigger !== true ||
   evidence?.worker_contract !== "AVANTIQO_INTELLIGENCE_BENCHMARK_WORKER_V1" ||
   evidence?.foundation_model !== "Qwen/Qwen3-30B-A3B-Thinking-2507" ||
   evidence?.canonical_case_count !== 60 ||
+  evidence?.paired_baseline_candidate_execution !== true ||
+  evidence?.provider_job_count !== 1 ||
+  evidence?.single_runpod_job !== true ||
   evidence?.provider_job_submitted !== false ||
   evidence?.runpod_endpoint_mutated !== false ||
   evidence?.production_model_promoted !== false ||
   evidence?.production_web_deploy !== false ||
   !/^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(text(evidence?.immutable_image_reference, 1200))
 ) {
-  throw new Error("BENCHMARK_IMAGE_EVIDENCE_INVALID");
+  throw new Error("BENCHMARK_IMAGE_PAIRED_EVIDENCE_INVALID");
 }
 
 mkdirSync("audits/results", { recursive: true });
@@ -176,6 +180,9 @@ console.log(JSON.stringify({
   run_id: runInfo.databaseId,
   source_sha: evidence.source_sha,
   immutable_image_reference: evidence.immutable_image_reference,
+  paired_baseline_candidate_execution: evidence.paired_baseline_candidate_execution,
+  provider_job_count: evidence.provider_job_count,
+  single_runpod_job: evidence.single_runpod_job,
   evidence_path: EVIDENCE_PATH,
   provider_job_submitted: false,
   runpod_endpoint_mutated: false,
@@ -184,3 +191,4 @@ console.log(JSON.stringify({
   secrets_printed: false,
 }, null, 2));
 console.log("AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_LOCAL_BUILD=PASS");
+console.log("AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_PAIRED_SINGLE_JOB=YES");

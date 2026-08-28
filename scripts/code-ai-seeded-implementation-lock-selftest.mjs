@@ -8,8 +8,15 @@ import {
 } from "../lib/code/runtime/CodeAIWorkPackageRuntime.js";
 
 const CONTRACT = "AVANTIQO_CODE_AI_SEEDED_IMPLEMENTATION_LOCK_SELFTEST_V1";
-const runtimePath = "lib/code/runtime/CodeAIWorkPackageRuntime.js";
-const runtimeSource = await readFile(runtimePath, "utf8");
+const runtimePaths = [
+  "lib/code/runtime/CodeAIWorkPackageRuntime.js",
+  "lib/code/runtime/CodeAIWorkPackageCoreRuntime.js",
+  "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js",
+  "lib/code/runtime/CodeAIWorkPackagePromptRuntime.js",
+];
+const runtimeSource = (
+  await Promise.all(runtimePaths.map((runtimePath) => readFile(runtimePath, "utf8")))
+).join("\n\n");
 
 function completedRead(filePath, content = "export const observed = true;\n") {
   return {
@@ -73,6 +80,28 @@ assert.equal(partialPolicy.all_declared_evidence_loaded, false);
 assert.equal(partialPolicy.discovery_locked, false);
 assert.equal(partialPolicy.allowed_actions.includes("read"), true);
 assert.equal(partialPolicy.allowed_actions.includes("search"), true);
+
+const longSessionEvidence = [
+  completedRead(objectiveContext.evidence_path_1),
+  completedRead(objectiveContext.evidence_path_2),
+  ...Array.from({ length: 40 }, (_, index) => ({
+    kind: "operation",
+    operation_id: `later:${index + 1}`,
+    action: "diff",
+    status: "completed",
+    result: { status: [], patch_bytes: index + 1 },
+  })),
+];
+const longSessionPolicy = resolveCodeAIWorkPackageActionPolicy({
+  objective_context: objectiveContext,
+  state: {
+    ...seededState,
+    evidence: longSessionEvidence,
+  },
+});
+assert.equal(longSessionPolicy.all_declared_evidence_loaded, true);
+assert.equal(longSessionPolicy.discovery_locked, true);
+assert.deepEqual(longSessionPolicy.allowed_actions, ["apply_files", "verify", "diff"]);
 
 const controllerCompletedMutation = parseCodeAIWorkPackage(
   JSON.stringify({
@@ -179,12 +208,15 @@ assert.equal(repairPolicy.discovery_locked, true);
 assert.deepEqual(repairPolicy.allowed_actions, ["apply_files", "verify", "diff"]);
 
 for (const marker of [
+  "executeBatchedAutonomousCodeMissionLive as executeBatchedAutonomousCodeMission",
   "CODE_AI_WORK_PACKAGE_ACTION_NOT_ALLOWED_FOR_PHASE",
   "CODE_AI_WORK_PACKAGE_IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY",
-  "DISCOVERY IS COMPLETE AND LOCKED FOR THIS CALL.",
+  "DISCOVERY IS LOCKED.",
   "Allowed package actions for THIS call",
   "APPEND_CONTROLLER_AUTHORITATIVE_VERIFY",
   "APPEND_CONTROLLER_FINAL_DIFF",
+  "CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS = 24000",
+  "CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS = 30000",
 ]) {
   assert.equal(runtimeSource.includes(marker), true, `runtime marker missing: ${marker}`);
 }
@@ -197,11 +229,13 @@ console.log(JSON.stringify({
   verified: {
     declared_source_evidence_locks_discovery: true,
     partial_source_evidence_keeps_batched_discovery_available: true,
+    long_session_history_preserves_declared_evidence_lock: true,
     seeded_phase_allows_only_apply_verify_diff: true,
     redundant_discovery_is_forbidden_by_phase_policy: true,
     implementation_is_required_after_seeded_discovery: true,
     authoritative_verification_is_controller_owned_when_omitted: true,
     final_diff_is_controller_owned_when_omitted: true,
+    bounded_planner_transport_is_public_runtime_dependency: true,
     repair_state_locks_discovery: true,
     model_provider_call_performed: false,
     reasoning_call_consumed: false,

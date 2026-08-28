@@ -191,6 +191,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-signature-routing-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-contact-record-maintenance-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-document-preparation-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-office-artifact-preparation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-records-retrieval-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-resource-reservation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-event-guest-coordination-local.mjs

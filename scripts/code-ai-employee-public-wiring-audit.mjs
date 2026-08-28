@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V6";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V7";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
@@ -125,7 +125,9 @@ requireMarkers("WORK_PACKAGE", source.packages, [
   "verify",
   "diff",
   "CODE_AI_WORK_PACKAGE_MUTATION_REQUIRES_LATER_VERIFICATION",
-  "CODE_AI_WORK_PACKAGE_MUTATION_REQUIRES_LATER_DIFF",
+  "PROMOTE_POST_MUTATION_RUN_TO_VERIFY",
+  "APPEND_CONTROLLER_FINAL_DIFF",
+  "deterministic_final_diff_controller_owned: true",
 ]);
 
 requireMarkers("SPEND", source.spend, [
@@ -200,6 +202,9 @@ console.log(JSON.stringify({
     preflight_loads_code_provider_registration_before_registry_validation: true,
     micro_step_public_execution_removed: true,
     batched_multi_operation_packages_required: true,
+    post_mutation_run_can_be_recovered_as_verification_without_new_reasoning: true,
+    controller_owned_final_diff_recovery: true,
+    missing_post_mutation_verification_still_fails_closed: true,
     default_reasoning_call_budget: 4,
     absolute_reasoning_call_budget: 8,
     worldclass_quality_preserved: true,

@@ -9,7 +9,7 @@ const FAST_ENDPOINT_NAME = "avantiqo-intelligence-fast-v1";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-intelligence-production-adapter-image.json";
 const RELEASE_STATE_PATH = "audits/results/avantiqo-intelligence-production-adapter-release-state.json";
 const ENV_PATH = ".env.local";
-const CONTRACT = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_BINDER_V1";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_BINDER_V2";
 const EXPECTED_IMAGE_CONTRACT = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_IMAGE_RESULT_V1";
 const EXPECTED_STARTUP_CONTRACT = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_STARTUP_V2";
 const FOUNDATION_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507";
@@ -19,6 +19,9 @@ const MEMORY_TABLE = "intelligence_memories";
 const TRAINING_ROOT = "/runpod-volume/avantiqo-intelligence-training";
 const RELEASE_APPROVAL = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_APPROVED";
 const ROLLBACK_APPROVAL = "AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_ROLLBACK_APPROVED";
+const LEARNING_ORGANIZATION_NAME = "Avantiqo Platform";
+const LEARNING_ORGANIZATION_TYPE = "enterprise_group";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function text(value, limit = 4000) {
   return String(value ?? "").trim().slice(0, limit);
@@ -37,6 +40,9 @@ function normalizeEnv(value) {
 }
 function approved(name) {
   if (text(process.env[name], 20).toUpperCase() !== "YES") throw new Error(`${name}_YES_REQUIRED`);
+}
+function validUuid(value) {
+  return UUID_PATTERN.test(text(value, 160));
 }
 function adapterFingerprint(adapterPath) {
   return createHash("sha256").update(adapterPath).digest("hex").slice(0, 16);
@@ -213,6 +219,27 @@ function supabase() {
   const key = required("SUPABASE_SERVICE_ROLE_KEY");
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 }
+async function resolveLearningOrganization(client) {
+  const configuredId = runtimeEnv("AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID");
+  if (configuredId) {
+    if (!validUuid(configuredId)) throw new Error("AVANTIQO_LEARNING_ORGANIZATION_ENV_ID_INVALID");
+    return { organizationId: configuredId, source: "ENVIRONMENT_OVERRIDE" };
+  }
+  const result = await client.from("organizations")
+    .select("id,name,organization_type,status,organization_status")
+    .eq("name", LEARNING_ORGANIZATION_NAME)
+    .eq("organization_type", LEARNING_ORGANIZATION_TYPE)
+    .eq("status", "active")
+    .eq("organization_status", "ACTIVE")
+    .limit(3);
+  if (result.error) throw result.error;
+  const matches = list(result.data);
+  if (matches.length === 0) throw new Error("AVANTIQO_LEARNING_ORGANIZATION_CANONICAL_RECORD_NOT_FOUND");
+  if (matches.length !== 1) throw new Error(`AVANTIQO_LEARNING_ORGANIZATION_CANONICAL_RECORD_AMBIGUOUS:${matches.length}`);
+  const organizationId = text(matches[0]?.id, 160);
+  if (!validUuid(organizationId)) throw new Error("AVANTIQO_LEARNING_ORGANIZATION_CANONICAL_ID_INVALID");
+  return { organizationId, source: "CANONICAL_DATABASE_RECORD" };
+}
 async function loadGovernance(client, organizationId, candidateId) {
   const candidateResult = await client.from(MEMORY_TABLE)
     .select("id,memory_key,subject,content,metadata,active,updated_at")
@@ -229,6 +256,70 @@ async function loadGovernance(client, organizationId, candidateId) {
   const reviews = list(reviewResult.data);
   if (reviews.length !== 1) throw new Error(`PRODUCTION_ADAPTER_PROMOTION_REVIEW_RESOLUTION_FAILED:matches=${reviews.length}`);
   return { candidate: candidateResult.data, review: reviews[0] };
+}
+async function resolveGovernedSelection(client, organizationId, operation) {
+  const configuredCandidateId = runtimeEnv("AVANTIQO_INTELLIGENCE_PRODUCTION_MODEL_CANDIDATE_ID");
+  const configuredAdapterPath = runtimeEnv("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_PATH");
+  if (configuredCandidateId) {
+    const governance = await loadGovernance(client, organizationId, configuredCandidateId);
+    const reviewMetadata = object(governance.review?.metadata);
+    const governedAdapterPath = text(reviewMetadata.adapter_artifact_reference, 1200);
+    if (!governedAdapterPath) throw new Error("PRODUCTION_ADAPTER_GOVERNED_ADAPTER_PATH_REQUIRED");
+    if (configuredAdapterPath && configuredAdapterPath !== governedAdapterPath) {
+      throw new Error("PRODUCTION_ADAPTER_CONFIGURED_ADAPTER_PATH_MISMATCH");
+    }
+    return {
+      candidateId: configuredCandidateId,
+      adapterPath: governedAdapterPath,
+      governance,
+      source: configuredAdapterPath ? "ENVIRONMENT_CANDIDATE_AND_PATH_CROSSCHECKED" : "ENVIRONMENT_CANDIDATE_GOVERNED_PATH",
+    };
+  }
+
+  const targetStatus = operation === "RELEASE" ? "CANARY_CERTIFIED_RELEASE_PENDING" : "PRODUCTION_RELEASED";
+  const result = await client.from(MEMORY_TABLE)
+    .select("id,memory_key,subject,content,metadata,active,updated_at")
+    .eq("organization_id", organizationId)
+    .eq("memory_scope", PROMOTION_REVIEW_SCOPE)
+    .eq("active", true)
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  if (result.error) throw result.error;
+  const matches = list(result.data).filter((row) => {
+    const metadata = object(row?.metadata);
+    if (metadata.contract !== "AVANTIQO_MODEL_PROMOTION_V1") return false;
+    if (metadata.status !== targetStatus) return false;
+    if (text(row?.subject, 200) !== text(metadata.model_candidate_id, 200)) return false;
+    if (operation === "RELEASE") {
+      return metadata.release_ready === true &&
+        metadata.explicit_production_release_required === true &&
+        metadata.production_release_authorized === false &&
+        metadata.production_model_promoted === false;
+    }
+    return metadata.production_model_promoted === true;
+  });
+  if (matches.length !== 1) {
+    throw new Error(`PRODUCTION_ADAPTER_GOVERNED_REVIEW_RESOLUTION_FAILED:operation=${operation}:status=${targetStatus}:matches=${matches.length}`);
+  }
+  const review = matches[0];
+  const reviewMetadata = object(review.metadata);
+  const candidateId = text(review.subject, 200);
+  const governedAdapterPath = text(reviewMetadata.adapter_artifact_reference, 1200);
+  if (!candidateId) throw new Error("PRODUCTION_ADAPTER_GOVERNED_CANDIDATE_ID_REQUIRED");
+  if (!governedAdapterPath) throw new Error("PRODUCTION_ADAPTER_GOVERNED_ADAPTER_PATH_REQUIRED");
+  if (configuredAdapterPath && configuredAdapterPath !== governedAdapterPath) {
+    throw new Error("PRODUCTION_ADAPTER_CONFIGURED_ADAPTER_PATH_MISMATCH");
+  }
+  const governance = await loadGovernance(client, organizationId, candidateId);
+  if (text(governance.review?.id, 200) !== text(review?.id, 200)) {
+    throw new Error("PRODUCTION_ADAPTER_GOVERNED_REVIEW_ID_MISMATCH");
+  }
+  return {
+    candidateId,
+    adapterPath: governedAdapterPath,
+    governance,
+    source: configuredAdapterPath ? "UNIQUE_GOVERNED_REVIEW_PATH_CROSSCHECKED" : "UNIQUE_GOVERNED_REVIEW",
+  };
 }
 function validateGovernance({ candidate, review, candidateId, adapterPath, fingerprint, operation }) {
   const candidateMetadata = object(candidate?.metadata);
@@ -305,6 +396,8 @@ function templateIssues(template, evidence, desiredEnv, registryAuthId, template
   if (text(template?.imageName, 1400) !== evidence.imageTag) issues.push("image_name");
   if (template?.isServerless !== true) issues.push("serverless");
   if (text(template?.containerRegistryAuthId, 300) !== registryAuthId) issues.push("registry_auth");
+  if (list(template?.dockerEntrypoint).length !== 0) issues.push("docker_entrypoint_override");
+  if (list(template?.dockerStartCmd).length !== 0) issues.push("docker_start_cmd_override");
   for (const [key, value] of Object.entries(desiredEnv)) if (env[key] !== value) issues.push(`env:${key}`);
   return issues;
 }
@@ -312,14 +405,14 @@ function templateBody(baseTemplate, evidence, env, registryAuthId, templateName)
   return {
     containerDiskInGb: Math.max(5, finite(baseTemplate?.containerDiskInGb, 0)),
     containerRegistryAuthId: registryAuthId,
-    dockerEntrypoint: list(baseTemplate?.dockerEntrypoint),
-    dockerStartCmd: list(baseTemplate?.dockerStartCmd),
+    dockerEntrypoint: [],
+    dockerStartCmd: [],
     env,
     imageName: evidence.imageTag,
     isPublic: false,
     name: templateName,
     ports: list(baseTemplate?.ports),
-    readme: `Avantiqo governed production Deep adapter release. Source-SHA image tag is bound to immutable digest ${evidence.digest}; adapter bytes remain on governed Intelligence training storage and are re-inspected at worker startup.`,
+    readme: `Avantiqo governed production Deep adapter release. Source-SHA image tag is bound to immutable digest ${evidence.digest}; image-owned ENTRYPOINT is mandatory; adapter bytes remain on governed Intelligence training storage and are re-inspected at worker startup.`,
     volumeInGb: finite(baseTemplate?.volumeInGb, 0),
     volumeMountPath: text(baseTemplate?.volumeMountPath, 800) || "/runpod-volume",
   };
@@ -346,16 +439,17 @@ if (apply) approved(rollback ? ROLLBACK_APPROVAL : RELEASE_APPROVAL);
 
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY", "RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_PRODUCTION_ADAPTER_RELEASE");
 const runtimeKey = runtimeEnv("RUNPOD_API_KEY") || managementKey;
-const learningOrganizationId = required("AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID");
-const candidateId = required("AVANTIQO_INTELLIGENCE_PRODUCTION_MODEL_CANDIDATE_ID");
-const adapterPath = required("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_PATH");
+const db = supabase();
+const learningOrganization = await resolveLearningOrganization(db);
+const selection = await resolveGovernedSelection(db, learningOrganization.organizationId, operation);
+const candidateId = selection.candidateId;
+const adapterPath = selection.adapterPath;
 if (!adapterPath.startsWith(`${TRAINING_ROOT}/`) || !adapterPath.endsWith("/adapter")) throw new Error("PRODUCTION_ADAPTER_PATH_GOVERNANCE_INVALID");
 const fingerprint = adapterFingerprint(adapterPath);
 const configuredFingerprint = runtimeEnv("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_FINGERPRINT");
 if (configuredFingerprint && configuredFingerprint.toLowerCase() !== fingerprint) throw new Error("PRODUCTION_ADAPTER_CONFIGURED_FINGERPRINT_MISMATCH");
 const evidence = await loadImageEvidence();
-const db = supabase();
-const governance = await loadGovernance(db, learningOrganizationId, candidateId);
+const governance = selection.governance;
 const validated = validateGovernance({ ...governance, candidateId, adapterPath, fingerprint, operation });
 
 const configuredEndpointId = required("RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID");
@@ -395,13 +489,35 @@ if (operation === "RELEASE") {
   if (!previousTemplateId) throw new Error("PRODUCTION_ADAPTER_PREVIOUS_TEMPLATE_ID_REQUIRED");
 
   const plan = {
-    success: true, contract: CONTRACT, mode: apply ? "APPLY" : "PLAN", operation,
-    candidate_id: candidateId, adapter_artifact_reference: adapterPath, adapter_artifact_fingerprint: fingerprint,
+    success: true,
+    contract: CONTRACT,
+    mode: apply ? "APPLY" : "PLAN",
+    operation,
+    learning_organization: { id: learningOrganization.organizationId, source: learningOrganization.source },
+    selection: { source: selection.source, candidate_env_required: false, adapter_path_env_required: false },
+    candidate_id: candidateId,
+    adapter_artifact_reference: adapterPath,
+    adapter_artifact_fingerprint: fingerprint,
     image: { source_sha: evidence.sourceSha, image_tag: evidence.imageTag, immutable_image_reference: evidence.immutable, digest: evidence.digest },
     deep: { before: deepBefore, health: deepHealth, current_template_id: previousTemplateId, current_template_name: text(currentTemplate?.name, 500) || null },
     fast: { before: fastBefore, mutation_allowed: false },
-    target: { template_name: targetTemplateName, existing_template_found: Boolean(targetTemplate), existing_template_contract_issues: targetTemplateIssues },
-    governance: { canary_certified_release_pending: true, explicit_release_approval_required: true, automatic_production_promotion: false, startup_reinspection_required: true, rollback_provenance_required_before_endpoint_patch: true },
+    target: {
+      template_name: targetTemplateName,
+      existing_template_found: Boolean(targetTemplate),
+      existing_template_contract_issues: targetTemplateIssues,
+      image_owned_entrypoint_required: true,
+      docker_entrypoint: [],
+      docker_start_cmd: [],
+    },
+    governance: {
+      canary_certified_release_pending: true,
+      explicit_release_approval_required: true,
+      automatic_production_promotion: false,
+      startup_reinspection_required: true,
+      rollback_provenance_required_before_endpoint_patch: true,
+      canonical_learning_organization_resolution: true,
+      governed_candidate_selection: true,
+    },
     safety: { generation_submitted: false, inference_performed: false, training_started: false, wallet_operation_performed: false, web_deploy_performed: false, fast_lane_effect: "NONE", endpoint_id_preserved: true, gpu_pool_preserved: true, network_volume_preserved: true, workers_min_max_preserved: true, existing_template_deleted: false, secrets_printed: false },
   };
   console.log(JSON.stringify(plan, null, 2));
@@ -419,12 +535,25 @@ if (operation === "RELEASE") {
   const targetTemplateId = text(targetTemplate?.id, 300);
   const now = new Date().toISOString();
   const releaseProvenance = {
-    contract: CONTRACT, state: "APPLYING", candidate_id: candidateId, adapter_artifact_reference: adapterPath,
-    adapter_artifact_fingerprint: fingerprint, image_source_sha: evidence.sourceSha, image_digest: evidence.digest,
-    immutable_image_reference: evidence.immutable, previous_template_id: previousTemplateId,
-    previous_template_name: text(currentTemplate?.name, 500) || null, previous_image_name: text(currentTemplate?.imageName, 1400) || null,
-    target_template_id: targetTemplateId, target_template_name: targetTemplateName, target_image_name: evidence.imageTag,
-    deep_before: deepBefore, fast_before: fastBefore, prepared_at: now,
+    contract: CONTRACT,
+    state: "APPLYING",
+    learning_organization_id: learningOrganization.organizationId,
+    candidate_id: candidateId,
+    adapter_artifact_reference: adapterPath,
+    adapter_artifact_fingerprint: fingerprint,
+    image_source_sha: evidence.sourceSha,
+    image_digest: evidence.digest,
+    immutable_image_reference: evidence.immutable,
+    image_owned_entrypoint: true,
+    previous_template_id: previousTemplateId,
+    previous_template_name: text(currentTemplate?.name, 500) || null,
+    previous_image_name: text(currentTemplate?.imageName, 1400) || null,
+    target_template_id: targetTemplateId,
+    target_template_name: targetTemplateName,
+    target_image_name: evidence.imageTag,
+    deep_before: deepBefore,
+    fast_before: fastBefore,
+    prepared_at: now,
   };
   await persistLocalState({ ...releaseProvenance, local_state_only: true, endpoint_patch_performed: false });
   await updateReview(db, governance.review, {
@@ -466,7 +595,7 @@ if (operation === "RELEASE") {
     production_release_completed_at: completedAt,
   }, `Candidate ${candidateId} is the explicitly released production Deep adapter. Automatic promotion remains disabled.`);
   await persistLocalState({ ...completedRelease, local_state_only: false, endpoint_patch_performed: true });
-  console.log(JSON.stringify({ success: true, contract: CONTRACT, mode: "APPLY", operation, status: "PRODUCTION_RELEASED", candidate_id: candidateId, template_id: targetTemplateId, rollback_template_id: previousTemplateId, immutable_image_reference: evidence.immutable, adapter_artifact_fingerprint: fingerprint, canonical_deep_model: FOUNDATION_MODEL, fast_lane_effect: "NONE", generation_submitted: false, inference_performed: false, training_started: false, wallet_operation_performed: false, web_deploy_performed: false, automatic_production_promotion: false, secrets_printed: false }, null, 2));
+  console.log(JSON.stringify({ success: true, contract: CONTRACT, mode: "APPLY", operation, status: "PRODUCTION_RELEASED", learning_organization_id: learningOrganization.organizationId, candidate_id: candidateId, template_id: targetTemplateId, rollback_template_id: previousTemplateId, immutable_image_reference: evidence.immutable, adapter_artifact_fingerprint: fingerprint, canonical_deep_model: FOUNDATION_MODEL, image_owned_entrypoint: true, fast_lane_effect: "NONE", generation_submitted: false, inference_performed: false, training_started: false, wallet_operation_performed: false, web_deploy_performed: false, automatic_production_promotion: false, secrets_printed: false }, null, 2));
   console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_RELEASE_APPLIED=true");
   process.exit(0);
 }
@@ -477,11 +606,18 @@ const releasedTemplateId = text(release.target_template_id, 300);
 if (!previousTemplateId || !releasedTemplateId) throw new Error("PRODUCTION_ADAPTER_ROLLBACK_TEMPLATE_PROVENANCE_REQUIRED");
 if (deepBefore.template_id !== releasedTemplateId) throw new Error("PRODUCTION_ADAPTER_ROLLBACK_CURRENT_TEMPLATE_MISMATCH");
 const plan = {
-  success: true, contract: CONTRACT, mode: apply ? "APPLY" : "PLAN", operation,
-  candidate_id: candidateId, adapter_artifact_reference: adapterPath, adapter_artifact_fingerprint: fingerprint,
+  success: true,
+  contract: CONTRACT,
+  mode: apply ? "APPLY" : "PLAN",
+  operation,
+  learning_organization: { id: learningOrganization.organizationId, source: learningOrganization.source },
+  selection: { source: selection.source, candidate_env_required: false, adapter_path_env_required: false },
+  candidate_id: candidateId,
+  adapter_artifact_reference: adapterPath,
+  adapter_artifact_fingerprint: fingerprint,
   deep: { before: deepBefore, health: deepHealth, released_template_id: releasedTemplateId, rollback_template_id: previousTemplateId },
   fast: { before: fastBefore, mutation_allowed: false },
-  governance: { explicit_rollback_approval_required: true, release_provenance_verified: true, automatic_rollback: false, candidate_requires_new_promotion_review_after_rollback: true },
+  governance: { explicit_rollback_approval_required: true, release_provenance_verified: true, automatic_rollback: false, candidate_requires_new_promotion_review_after_rollback: true, canonical_learning_organization_resolution: true, governed_candidate_selection: true },
   safety: { generation_submitted: false, inference_performed: false, training_started: false, wallet_operation_performed: false, web_deploy_performed: false, fast_lane_effect: "NONE", endpoint_id_preserved: true, gpu_pool_preserved: true, network_volume_preserved: true, workers_min_max_preserved: true, existing_template_deleted: false, secrets_printed: false },
 };
 console.log(JSON.stringify(plan, null, 2));
@@ -522,5 +658,5 @@ await updateCandidate(db, governance.candidate, {
   production_rollback_completed_at: rollbackCompletedAt,
 }, `Candidate ${candidateId} was rolled back from production Deep and requires a new explicit promotion review before re-release.`);
 await persistLocalState({ ...completedRelease, local_state_only: false, endpoint_patch_performed: true });
-console.log(JSON.stringify({ success: true, contract: CONTRACT, mode: "APPLY", operation, status: "PRODUCTION_ROLLED_BACK", candidate_id: candidateId, restored_template_id: previousTemplateId, released_template_id: releasedTemplateId, fast_lane_effect: "NONE", generation_submitted: false, inference_performed: false, training_started: false, wallet_operation_performed: false, web_deploy_performed: false, automatic_rollback: false, secrets_printed: false }, null, 2));
+console.log(JSON.stringify({ success: true, contract: CONTRACT, mode: "APPLY", operation, status: "PRODUCTION_ROLLED_BACK", learning_organization_id: learningOrganization.organizationId, candidate_id: candidateId, restored_template_id: previousTemplateId, released_template_id: releasedTemplateId, fast_lane_effect: "NONE", generation_submitted: false, inference_performed: false, training_started: false, wallet_operation_performed: false, web_deploy_performed: false, automatic_rollback: false, secrets_printed: false }, null, 2));
 console.log("AVANTIQO_INTELLIGENCE_PRODUCTION_ADAPTER_ROLLBACK_APPLIED=true");

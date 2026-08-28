@@ -33,9 +33,24 @@ ASYNC_SUBMIT_PATH = "/v3/generations"
 ASYNC_STATUS_PATH_TEMPLATE = "/v3/generations/{job_id}"
 LEGACY_ASYNC_SUBMIT_PATH = "/jobs"
 LEGACY_ASYNC_STATUS_PATH_TEMPLATE = "/jobs/{job_id}"
+NETWORK_SAFETENSORS_LOAD_STRATEGY = "eager"
 
 if len(POD_TOKEN) < 32:
     raise RuntimeError("AVANTIQO_CODE_POD_TOKEN_REQUIRED_MIN_32_CHARS")
+
+# The Code model is cached on a RunPod network volume. vLLM 0.27.x supports an
+# eager safetensors loading strategy specifically for network filesystems to
+# avoid slow random mmap reads. Keep the certified engine source unchanged and
+# inject only this storage-transport optimization into its LLM constructor.
+_original_llm = code_engine.LLM
+
+
+def _network_volume_llm(*args: Any, **kwargs: Any):
+    kwargs.setdefault("safetensors_load_strategy", NETWORK_SAFETENSORS_LOAD_STRATEGY)
+    return _original_llm(*args, **kwargs)
+
+
+code_engine.LLM = _network_volume_llm
 
 app = FastAPI(
     title="Avantiqo Code Pod",
@@ -152,6 +167,7 @@ def _ensure_engine_loaded() -> None:
                     "event": "AVANTIQO_CODE_POD_BOOT_ENGINE_LOAD_START",
                     "contract": CONTRACT,
                     "cached_model_found": bool(code_engine._cached_model_path(code_engine.RUNTIME_MODEL)),
+                    "safetensors_load_strategy": NETWORK_SAFETENSORS_LOAD_STRATEGY,
                     "inference_performed": False,
                     "generation_performed": False,
                     "reasoning_call_consumed": False,
@@ -172,6 +188,7 @@ def _ensure_engine_loaded() -> None:
                         "event": "AVANTIQO_CODE_POD_BOOT_ENGINE_LOAD_COMPLETE",
                         "contract": CONTRACT,
                         "engine_loaded": code_engine._ENGINE is not None,
+                        "safetensors_load_strategy": NETWORK_SAFETENSORS_LOAD_STRATEGY,
                         "inference_performed": False,
                         "generation_performed": False,
                         "reasoning_call_consumed": False,
@@ -215,6 +232,7 @@ def _engine_warmup_output(engine_job: dict[str, Any]) -> dict[str, Any]:
         "serving_runtime": "vllm",
         "quantization": code_engine.QUANTIZATION,
         "engine_loaded": code_engine._ENGINE is not None,
+        "safetensors_load_strategy": NETWORK_SAFETENSORS_LOAD_STRATEGY,
         "inference_performed": False,
         "generation_performed": False,
         "customer_work": False,
@@ -276,6 +294,7 @@ async def _boot_preload_engine() -> None:
                     "contract": CONTRACT,
                     "error_type": type(error).__name__,
                     "error_message": _text(error)[:400],
+                    "safetensors_load_strategy": NETWORK_SAFETENSORS_LOAD_STRATEGY,
                     "inference_performed": False,
                     "generation_performed": False,
                     "reasoning_call_consumed": False,
@@ -320,6 +339,7 @@ async def health() -> dict[str, Any]:
         "engine_load_completed_at": _engine_load_completed_at,
         "engine_load_error_type": _engine_load_error_type,
         "engine_load_error_message": _engine_load_error_message,
+        "safetensors_load_strategy": NETWORK_SAFETENSORS_LOAD_STRATEGY,
         "max_concurrency": MAX_CONCURRENCY,
         "async_jobs_enabled": True,
         "synchronous_generation_allowed": False,
@@ -524,6 +544,7 @@ if __name__ == "__main__":
                 "cache_root": str(code_engine.HF_CACHE_ROOT),
                 "max_concurrency": MAX_CONCURRENCY,
                 "model_load": "BOOT_BACKGROUND_GENERATION_FREE",
+                "safetensors_load_strategy": NETWORK_SAFETENSORS_LOAD_STRATEGY,
                 "transport_mode": "async-job-polling",
                 "transport_probe_path": TRANSPORT_PROBE_PATH,
                 "async_submit_path": ASYNC_SUBMIT_PATH,

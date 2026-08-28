@@ -3,12 +3,29 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
-const CONTRACT = "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_LOCAL_BUILD_V2";
+const CONTRACT = "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_LOCAL_BUILD_V3";
 const WORKFLOW = "avantiqo-intelligence-benchmark-image.yml";
 const EVIDENCE_PATH = "audits/results/avantiqo-intelligence-benchmark-image.json";
 const REPOSITORY = "churchillkaron/churchill-control-new";
 const POLL_MS = 5000;
 const MAX_POLLS = 720;
+const MAX_MAIN_CONVERGENCE_ATTEMPTS = 8;
+const PROTECTED_EXACT_PATHS = new Set([
+  ".github/workflows/avantiqo-intelligence-benchmark-image.yml",
+  "scripts/build-avantiqo-intelligence-benchmark-image-local.mjs",
+  "scripts/avantiqo-intelligence-model-benchmark-audit.mjs",
+  "lib/intelligence/runtime/AvantiqoModelBenchmarkExecutionRuntime.js",
+  "lib/intelligence/runtime/AvantiqoModelBenchmarkEvaluationRuntime.js",
+  "lib/intelligence/runtime/AvantiqoModelBenchmarkReadinessRuntime.js",
+  "lib/intelligence/runtime/AvantiqoModelBenchmarkSuiteRuntime.js",
+  "lib/intelligence/runtime/AvantiqoModelImprovementRuntime.js",
+  "lib/intelligence/runtime/AvantiqoModelImprovementSafeLeaseGuard.js",
+  "lib/intelligence/index.js",
+  "config/avantiqo-runpod-safe-lease-policy.json",
+]);
+const PROTECTED_PREFIXES = [
+  "services/avantiqo-intelligence-benchmark/",
+];
 
 function text(value, limit = 4000) {
   return String(value ?? "").trim().slice(0, limit);
@@ -31,16 +48,67 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function protectedMovement(paths) {
+  return paths.filter((path) =>
+    PROTECTED_EXACT_PATHS.has(path) ||
+    PROTECTED_PREFIXES.some((prefix) => path.startsWith(prefix)),
+  );
+}
+
 function currentMain() {
-  run("git", ["fetch", "origin", "main"], "BENCHMARK_IMAGE_GIT_FETCH_FAILED");
   const branch = run("git", ["branch", "--show-current"], "BENCHMARK_IMAGE_GIT_BRANCH_FAILED");
   if (branch !== "main") throw new Error(`BENCHMARK_IMAGE_MAIN_REQUIRED:${branch || "DETACHED"}`);
-  const head = run("git", ["rev-parse", "HEAD"], "BENCHMARK_IMAGE_GIT_HEAD_FAILED");
-  const remote = run("git", ["rev-parse", "origin/main"], "BENCHMARK_IMAGE_GIT_REMOTE_FAILED");
-  if (head !== remote) {
-    throw new Error(`BENCHMARK_IMAGE_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin_main=${remote}`);
+
+  const toleratedPaths = new Set();
+  for (let attempt = 1; attempt <= MAX_MAIN_CONVERGENCE_ATTEMPTS; attempt += 1) {
+    run("git", ["fetch", "origin", "main"], "BENCHMARK_IMAGE_GIT_FETCH_FAILED");
+    const head = run("git", ["rev-parse", "HEAD"], "BENCHMARK_IMAGE_GIT_HEAD_FAILED");
+    const remote = run("git", ["rev-parse", "origin/main"], "BENCHMARK_IMAGE_GIT_REMOTE_FAILED");
+
+    if (head === remote) {
+      if (toleratedPaths.size) {
+        console.log(JSON.stringify({
+          contract: CONTRACT,
+          event: "AVANTIQO_INTELLIGENCE_BENCHMARK_IMAGE_UNRELATED_MAIN_MOVEMENT_TOLERATED",
+          convergence_attempts: attempt,
+          changed_paths: [...toleratedPaths].sort(),
+          main_commit: head,
+          provider_job_submitted: false,
+          runpod_endpoint_mutated: false,
+          production_model_promoted: false,
+          secrets_printed: false,
+        }, null, 2));
+      }
+      return head;
+    }
+
+    const ancestry = spawnSync("git", ["merge-base", "--is-ancestor", head, remote], {
+      cwd: process.cwd(),
+      env: process.env,
+      encoding: "utf8",
+    });
+    if (ancestry.status !== 0) {
+      throw new Error(`BENCHMARK_IMAGE_MAIN_DIVERGED:head=${head}:origin_main=${remote}`);
+    }
+
+    const changed = run(
+      "git",
+      ["diff", "--name-only", `${head}..${remote}`],
+      "BENCHMARK_IMAGE_MAIN_DRIFT_DIFF_FAILED",
+    )
+      .split(/\r?\n/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const relevant = protectedMovement(changed);
+    if (relevant.length) {
+      throw new Error(`BENCHMARK_IMAGE_RELEVANT_MAIN_MOVEMENT:${relevant.join(",")}`);
+    }
+    for (const path of changed) toleratedPaths.add(path);
+
+    run("git", ["merge", "--ff-only", "origin/main"], "BENCHMARK_IMAGE_MAIN_FAST_FORWARD_FAILED");
   }
-  return head;
+
+  throw new Error(`BENCHMARK_IMAGE_MAIN_CONVERGENCE_LIMIT:${MAX_MAIN_CONVERGENCE_ATTEMPTS}`);
 }
 
 const mainCommit = currentMain();

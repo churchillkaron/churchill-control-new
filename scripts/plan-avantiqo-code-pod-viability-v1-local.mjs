@@ -339,7 +339,7 @@ const plannedCreateShape = {
   volumeMountPath: "/workspace",
   ports: ["8000/http"],
   env_keys_only: [
-    "AVANTIQO_CODE_POD_SHARED_SECRET",
+    "AVANTIQO_CODE_POD_TOKEN",
     "AVANTIQO_CODE_FOUNDATION_MODEL",
     "AVANTIQO_CODE_RUNTIME_MODEL",
     "AVANTIQO_CODE_QUANTIZATION",

@@ -121,6 +121,40 @@ async def _prune_jobs_locked() -> None:
         _jobs.pop(stale["job_id"], None)
 
 
+def _engine_warmup_requested(engine_job: dict[str, Any]) -> bool:
+    data = engine_job.get("input") or {}
+    specification = data.get("structured_specification") or {}
+    return (
+        specification.get("infrastructure_warmup") is True
+        and specification.get("customer_work") is False
+        and _text(data.get("organization_id")) == "benchmark-only"
+    )
+
+
+def _engine_warmup_output(engine_job: dict[str, Any]) -> dict[str, Any]:
+    code_engine._validate_runtime_contract()
+    code_engine._load_engine()
+    data = engine_job.get("input") or {}
+    return {
+        "status": "engine_ready",
+        "provider": "avantiqo-code",
+        "model": code_engine.PRODUCT_MODEL,
+        "engine_contract": code_engine.ENGINE_CONTRACT,
+        "capability": _text(data.get("capability")),
+        "foundation_model": code_engine.FOUNDATION_MODEL,
+        "runtime_model": code_engine.RUNTIME_MODEL,
+        "serving_runtime": "vllm",
+        "quantization": code_engine.QUANTIZATION,
+        "engine_loaded": code_engine._ENGINE is not None,
+        "inference_performed": False,
+        "generation_performed": False,
+        "customer_work": False,
+        "reasoning_call_consumed": False,
+        "wallet_mutation_performed": False,
+        "raw_reasoning_persisted": False,
+    }
+
+
 async def _execute_async_job(job_id: str, engine_job: dict[str, Any]) -> None:
     async with _request_gate:
         async with _jobs_lock:
@@ -130,7 +164,10 @@ async def _execute_async_job(job_id: str, engine_job: dict[str, Any]) -> None:
             current["status"] = "RUNNING"
             current["started_at"] = time.time()
         try:
-            output = await asyncio.to_thread(code_engine.handler, engine_job)
+            if _engine_warmup_requested(engine_job):
+                output = await asyncio.to_thread(_engine_warmup_output, engine_job)
+            else:
+                output = await asyncio.to_thread(code_engine.handler, engine_job)
         except Exception as error:
             traceback.print_exc()
             async with _jobs_lock:
@@ -382,11 +419,12 @@ if __name__ == "__main__":
                 "port": PORT,
                 "cache_root": str(code_engine.HF_CACHE_ROOT),
                 "max_concurrency": MAX_CONCURRENCY,
-                "model_load": "LAZY_ASYNC_JOB",
+                "model_load": "LAZY_ASYNC_ENGINE_WARMUP",
                 "transport_mode": "async-job-polling",
                 "transport_probe_path": TRANSPORT_PROBE_PATH,
                 "async_submit_path": ASYNC_SUBMIT_PATH,
                 "async_status_path_template": ASYNC_STATUS_PATH_TEMPLATE,
+                "engine_warmup_generation_performed": False,
                 "synchronous_generation_allowed": False,
                 "secrets_printed": False,
             },

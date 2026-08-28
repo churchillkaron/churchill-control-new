@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V4";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V5";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
@@ -15,6 +15,7 @@ const files = {
   commitArtifact: "lib/code/runtime/CodeAICommitArtifactRuntime.js",
   commitGuard: "lib/code/runtime/CodeAIWorldClassCommitGuard.js",
   reaper: "app/api/internal/code/worker-session/process/route.js",
+  preflight: "scripts/preflight-code-ai-employee-service-runtime-local.mjs",
   vercel: "vercel.json",
 };
 
@@ -144,6 +145,23 @@ requireMarkers("VERCEL_CRON", source.vercel, [
   '"schedule": "* * * * *"',
 ]);
 
+requireMarkers("PREFLIGHT_PROVIDER_REGISTRATION", source.preflight, [
+  "AVANTIQO_CODE_EMPLOYEE_SERVICE_RUNTIME_PREFLIGHT_V3",
+  "RUNPOD_AVANTIQO_CODE_API_KEY || process.env.RUNPOD_MANAGEMENT_API_KEY",
+  "process.env.RUNPOD_API_KEY = runtimeCredential",
+  "AvantiqoCodeProviderRegistration.js",
+  "provider_registration_loaded_explicitly: true",
+  "runpod_runtime_credential_normalized: true",
+  "CODE_EMPLOYEE_PREFLIGHT_PROVIDER_NOT_REGISTERED",
+  "CODE_EMPLOYEE_PREFLIGHT_PROVIDER_RUNTIME_UNAVAILABLE",
+]);
+const envNormalizeIndex = source.preflight.indexOf("process.env.RUNPOD_API_KEY = runtimeCredential");
+const registrationIndex = source.preflight.indexOf("AvantiqoCodeProviderRegistration.js");
+const registryCheckIndex = source.preflight.indexOf("const registeredProvider = getProvider(PROVIDER)");
+assert.ok(envNormalizeIndex >= 0, "preflight must normalize runtime credential");
+assert.ok(registrationIndex > envNormalizeIndex, "registration must load after env normalization");
+assert.ok(registryCheckIndex > registrationIndex, "registry validation must follow registration");
+
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
@@ -157,6 +175,8 @@ console.log(JSON.stringify({
     warm_session_provider_transport_wired: true,
     independent_minute_reaper_wired: true,
     cleanup_failure_is_fail_closed: true,
+    preflight_normalizes_code_runtime_credential: true,
+    preflight_loads_code_provider_registration_before_registry_validation: true,
     micro_step_public_execution_removed: true,
     batched_multi_operation_packages_required: true,
     default_reasoning_call_budget: 4,

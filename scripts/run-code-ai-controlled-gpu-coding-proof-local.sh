@@ -35,6 +35,7 @@ echo "${CONTRACT}_REASONING_CALL_BUDGET=4"
 echo "${CONTRACT}_TARGET_REASONING_CALLS=1-2"
 echo "${CONTRACT}_CANDIDATE_DIGEST=sha256:${NEW_DIGEST}"
 echo "${CONTRACT}_SINGLE_WORKER_WARMUP_AND_CODING=true"
+echo "${CONTRACT}_ACTIVE_ENGINE_LOAD_LIMIT_MS=240000"
 
 if [ ! -f "$ROOT/.env.local" ]; then
   echo "${CONTRACT}_ENV_LOCAL_REQUIRED=true"
@@ -118,10 +119,22 @@ for (const path of paths) {
   if (!after.includes(newDigest)) throw new Error(`AVANTIQO_CODE_GPU_PROOF_NEW_DIGEST_NOT_BOUND:${path}`);
   await writeFile(path, after, "utf8");
 }
+
+const certPath = "scripts/certify-code-ai-employee-fast-start-live.mjs";
+const certBefore = await readFile(certPath, "utf8");
+const oldWatchdog = "const MAX_WORKER_WARMING_MS = 90 * 1000;";
+const newWatchdog = "const MAX_WORKER_WARMING_MS = 4 * 60 * 1000;";
+if (!certBefore.includes(oldWatchdog)) {
+  throw new Error("AVANTIQO_CODE_GPU_PROOF_CERT_WATCHDOG_MARKER_NOT_FOUND");
+}
+await writeFile(certPath, certBefore.replace(oldWatchdog, newWatchdog), "utf8");
+
 console.log(JSON.stringify({
   success: true,
   contract: "AVANTIQO_CODE_GPU_PROOF_TEMPORARY_BINDING_V1",
   candidate_digest: `sha256:${newDigest}`,
+  active_engine_load_limit_ms: 240000,
+  duplicate_warmup_pod_created: false,
   persistent_source_mutation_performed: false,
   github_write_performed: false,
   production_deploy_performed: false,
@@ -137,6 +150,10 @@ if ! printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "lib/code/runtime/CodeAIWorkerS
 fi
 if ! printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "scripts/code-ai-worker-session-audit.mjs"; then
   echo "${CONTRACT}_TEMP_BINDING_AUDIT_CHANGE_REQUIRED=true"
+  exit 1
+fi
+if ! printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "scripts/certify-code-ai-employee-fast-start-live.mjs"; then
+  echo "${CONTRACT}_TEMP_CERT_WATCHDOG_CHANGE_REQUIRED=true"
   exit 1
 fi
 

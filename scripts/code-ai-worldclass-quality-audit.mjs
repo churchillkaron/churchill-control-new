@@ -1,9 +1,10 @@
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V3";
+const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V4";
 
 const files = Object.freeze({
   qualityPolicy: "lib/code/runtime/CodeAIWorldClassQualityPolicy.js",
+  employee: "lib/code/runtime/CodeAIEmployeeRuntime.js",
   worldclass: "lib/code/runtime/CodeAIWorldClassRuntime.js",
   worldclassCommitGuard: "lib/code/runtime/CodeAIWorldClassCommitGuard.js",
   autonomousCapability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
@@ -29,6 +30,7 @@ function requireMarkers(label, content, markers) {
 
 const [
   qualityPolicy,
+  employee,
   worldclass,
   worldclassCommitGuard,
   autonomousCapability,
@@ -59,7 +61,19 @@ if (/Sandbox|ServiceExecutionRuntime|RUNPOD|fetch\s*\(/.test(qualityPolicy)) {
   throw new Error(`${CONTRACT}_QUALITY_POLICY_MUST_REMAIN_PURE`);
 }
 
-requireMarkers("WORLDCLASS_RUNTIME", worldclass, [
+requireMarkers("EMPLOYEE_RUNTIME", employee, [
+  "AVANTIQO_CODE_AI_EMPLOYEE_RUNTIME_V1",
+  "assessCodeAIWorldClassQuality",
+  "const worldClass = assessCodeAIWorldClassQuality(source)",
+  "worldclass_quality: worldClass",
+  "worldclass_quality_required: true",
+  "CODE_AI_EMPLOYEE_FINAL_DIFF_REVIEW_REQUIRED",
+  "CODE_AI_EMPLOYEE_SUCCESSFUL_VERIFICATION_REQUIRED",
+  "continue_until_verified_complete",
+  "required_next_actions",
+]);
+
+requireMarkers("WORLDCLASS_LEGACY_RUNTIME", worldclass, [
   "executeAutonomousCodeMission",
   "CodeAIWorldClassQualityPolicy.js",
   "assessCodeAIWorldClassQuality",
@@ -79,13 +93,18 @@ requireMarkers("WORLDCLASS_COMMIT_GUARD", worldclassCommitGuard, [
 ]);
 
 requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
-  "executeWorldClassCodeMission",
+  "executeCodeAIEmployeeMission",
+  "CODE_AI_EMPLOYEE_RUNTIME_CONTRACT",
   "fresh-verification",
   "final-diff-review",
   "risk-sensitive-quality",
   "world-class-quality-gate",
-  "Persistent GitHub commits remain a separate governed capability",
+  "persistCodeAICommitArtifact",
+  "reasoning_call_budget",
 ]);
+if (autonomousCapability.includes("executeWorldClassCodeMission({")) {
+  throw new Error(`${CONTRACT}_PUBLIC_CAPABILITY_MUST_USE_EMPLOYEE_RUNTIME`);
+}
 
 requireMarkers("COMMIT_CAPABILITY", commitCapability, [
   "assertCodeAIWorldClassCommitReady",
@@ -166,11 +185,22 @@ if (leasePolicy.workers_min_one_allowed !== false) throw new Error(`${CONTRACT}_
 if (leasePolicy.parallel_work_allowed !== true || leasePolicy.max_concurrent_paid_leases < 2) throw new Error(`${CONTRACT}_BOUNDED_PARALLEL_WORK_REQUIRED`);
 if (!leasePolicy.lanes?.code) throw new Error(`${CONTRACT}_CODE_LEASE_LANE_REQUIRED`);
 
-const worldclassImport = autonomousCapability.indexOf("executeWorldClassCodeMission");
-const executionCall = autonomousCapability.indexOf("await executeWorldClassCodeMission");
+const employeeImport = autonomousCapability.indexOf("executeCodeAIEmployeeMission");
+const executionCall = autonomousCapability.indexOf("await executeCodeAIEmployeeMission");
 const attestationCall = autonomousCapability.indexOf("result.state = attestCodeMissionState");
-if (worldclassImport < 0 || executionCall < 0 || attestationCall <= executionCall) {
-  throw new Error(`${CONTRACT}_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
+if (employeeImport < 0 || executionCall < 0 || attestationCall <= executionCall) {
+  throw new Error(`${CONTRACT}_EMPLOYEE_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
+}
+const employeeQualityImport = employee.indexOf("assessCodeAIWorldClassQuality");
+const employeeQualityCall = employee.indexOf("const worldClass = assessCodeAIWorldClassQuality(source)");
+const employeeCompletionDecision = employee.indexOf("completion.complete === true");
+if (
+  employeeQualityImport < 0 ||
+  employeeQualityCall < 0 ||
+  employeeCompletionDecision < 0 ||
+  employeeCompletionDecision <= employeeQualityCall
+) {
+  throw new Error(`${CONTRACT}_EMPLOYEE_COMPLETION_MUST_FOLLOW_WORLDCLASS_ASSESSMENT`);
 }
 if (/workersMin\s*:\s*1/.test(leasePolicySource)) throw new Error(`${CONTRACT}_POLICY_MUST_NEVER_SET_WORKERS_MIN_1`);
 
@@ -179,14 +209,16 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   verified: {
     pure_quality_policy_without_runtime_dependencies: true,
-    mandatory_worldclass_autonomous_gate: true,
+    mandatory_worldclass_employee_gate: true,
+    public_employee_execution_precedes_attestation: true,
+    legacy_worldclass_runtime_retained_as_non_public_compatibility: true,
     planner_rules_owned_by_bounded_prompt_transport: true,
     stale_verification_rejected_by_position: true,
     final_diff_review_required: true,
     standard_one_verification_family_required: true,
     high_two_independent_verification_families_required: true,
     critical_three_independent_verification_families_required: true,
-    autonomous_quality_convergence_enabled: true,
+    employee_quality_convergence_enabled: true,
     source_manifest_workspace_convergence_required: true,
     commit_defense_in_depth_worldclass_guard: true,
     worldclass_commit_guard_precedes_recovery_or_write: true,

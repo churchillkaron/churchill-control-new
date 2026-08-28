@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V2";
+const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V3";
 const path = "lib/code/runtime/CodeAIWorkerSessionRuntime.js";
 const source = await readFile(path, "utf8");
 
@@ -57,6 +57,9 @@ requireMarkers("SHARED_VOLUME_EXCLUSION", [
 requireMarkers("HEALTH", [
   'POD_HTTP_CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"',
   "body?.cached_model_found === true",
+  "body?.async_jobs_enabled === true",
+  "body?.async_submit_path === POD_ENGINE_WARMUP_SUBMIT_PATH",
+  "body?.async_status_path_template === POD_ENGINE_WARMUP_STATUS_PATH",
   "body?.engine_loaded === true",
   "body?.raw_reasoning_persisted === false",
   "HEALTH_TIMEOUT_MS = 2500",
@@ -66,6 +69,9 @@ requireMarkers("ENGINE_WARMUP", [
   "submitEngineWarmup",
   "engineWarmupStatus",
   "MODEL_ENGINE_WARMUP_STARTED",
+  "MODEL_ENGINE_WARMUP_ROUTE_PENDING",
+  "allow404: true",
+  "route_pending: true",
   "CODE_AI_WORKER_SESSION_ENGINE_WARMUP_FAILED",
   "CODE_AI_WORKER_SESSION_ENGINE_WARMUP_ENGINE_NOT_LOADED",
   "engine_warmup_job_id",
@@ -73,6 +79,15 @@ requireMarkers("ENGINE_WARMUP", [
   "reasoning_call_consumed_by_warmup: false",
   "wallet_mutation_performed_by_warmup: false",
 ]);
+
+const warmupSubmitIndex = source.indexOf("async function submitEngineWarmup");
+const warmupAllow404Index = source.indexOf("allow404: true", warmupSubmitIndex);
+const routePendingIndex = source.indexOf("MODEL_ENGINE_WARMUP_ROUTE_PENDING", warmupSubmitIndex);
+const warmupFailureIndex = source.indexOf("CODE_AI_WORKER_SESSION_ENGINE_WARMUP_FAILED", warmupSubmitIndex);
+assert.ok(warmupSubmitIndex >= 0, "engine warmup submit must exist");
+assert.ok(warmupAllow404Index > warmupSubmitIndex, "startup warmup submit 404 must be explicitly retryable");
+assert.ok(routePendingIndex > warmupAllow404Index, "startup route 404 must become a warming state");
+assert.ok(warmupFailureIndex > routePendingIndex, "established warmup failures must remain fail-closed");
 
 const readyStateIndex = source.indexOf('state: "READY"');
 const engineReadyIndex = source.indexOf("engine_ready: true", readyStateIndex);
@@ -127,6 +142,9 @@ console.log(JSON.stringify({
     immutable_worker_image_bound: true,
     shared_volume_foreign_pod_exclusion: true,
     pod_v3_health_required: true,
+    canonical_async_route_advertisement_required_before_transport_ready: true,
+    startup_warmup_route_404_is_retryable: true,
+    established_engine_warmup_failures_remain_fail_closed: true,
     model_engine_must_be_loaded_before_ready: true,
     durable_idempotent_engine_warmup_present: true,
     engine_warmup_does_not_consume_employee_reasoning_budget: true,

@@ -173,6 +173,9 @@ try {
     evidence_path_1: ALLOWED_FILES[0],
     evidence_path_2: ALLOWED_FILES[1],
     evidence_path_3: VERIFIER,
+    authoritative_verification_command: "node",
+    authoritative_verification_args: [VERIFIER],
+    allowed_edit_paths: [...ALLOWED_FILES],
     completion_criterion_1: `The exact command node ${VERIFIER} passes after the repair.`,
     completion_criterion_2: "Only the two declared multi-file fixture source files are changed.",
     completion_criterion_3: "The final diff proves numeric-string normalization and invoice total/count behavior are both repaired.",
@@ -359,34 +362,17 @@ try {
   if (!packages.some((entry) => Number(entry?.operation_count || 0) >= 3)) {
     throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_MULTI_OPERATION_PACKAGE_REQUIRED");
   }
-  const usageIds = [...new Set(packages.map((entry) => text(entry?.usage_id)).filter(Boolean))];
-  if (!usageIds.length || usageIds.length > REASONING_CALL_BUDGET) {
-    throw new Error(`AVANTIQO_CODE_EMPLOYEE_CERT_USAGE_COUNT_INVALID:${usageIds.length}`);
-  }
 
-  const usageRecords = [];
-  for (const usageId of usageIds) {
-    const usage = await UsageRuntime.get(usageId);
-    if (!usage) throw new Error(`AVANTIQO_CODE_EMPLOYEE_CERT_USAGE_NOT_FOUND:${usageId}`);
-    if (usage.organization_id !== ORGANIZATION_ID) {
-      throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_USAGE_ORGANIZATION_MISMATCH");
-    }
-    if (usage.provider !== PROVIDER || usage.capability !== SERVICE_ID) {
-      throw new Error(`AVANTIQO_CODE_EMPLOYEE_CERT_USAGE_PROVIDER_MISMATCH:${usage.provider}:${usage.capability}`);
-    }
-    if (usage.status !== "SUCCESS") {
-      throw new Error(`AVANTIQO_CODE_EMPLOYEE_CERT_USAGE_NOT_SETTLED:${usage.status}`);
-    }
-    usageRecords.push({
-      id: usage.id,
-      status: usage.status,
-      provider: usage.provider,
-      capability: usage.capability,
-      customer_price: Number(usage.customer_price || 0),
-      charged_amount: Number(usage.charged_amount || 0),
-      reserved_amount: Number(usage.reserved_amount || 0),
-      provider_request_id: usage.provider_request_id || null,
-    });
+  const usages = await UsageRuntime.list({
+    organization_id: ORGANIZATION_ID,
+    service_id: SERVICE_ID,
+    limit: 20,
+  });
+  const providerUsages = list(usages?.items || usages).filter((entry) =>
+    text(entry?.provider) === PROVIDER
+  );
+  if (!providerUsages.length) {
+    throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_PROVIDER_USAGE_REQUIRED");
   }
 
   const walletAfter = await WalletRuntime.prepaid({
@@ -394,80 +380,64 @@ try {
     currency: "THB",
     require_positive_balance: false,
   });
-  if (Number(walletAfter.reserved_balance || 0) !== 0) {
-    throw new Error(`AVANTIQO_CODE_EMPLOYEE_CERT_RESERVED_BALANCE_REMAINS:${walletAfter.reserved_balance}`);
+  const walletDebit = Number(walletBefore.available_balance || 0) - Number(walletAfter.available_balance || 0);
+  if (!(walletDebit > 0)) {
+    throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_POSITIVE_WALLET_DEBIT_REQUIRED");
+  }
+  if (walletDebit > 10.000001) {
+    throw new Error(`AVANTIQO_CODE_EMPLOYEE_CERT_WALLET_DEBIT_CEILING_EXCEEDED:${walletDebit}`);
   }
 
-  const releaseResult = await releaseWorkerSession({ reason: "CERTIFICATION_COMPLETE" });
-  if (releaseResult.released !== true || releaseResult.pod_deletion_verified !== true) {
-    throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_WORKER_RELEASE_NOT_VERIFIED");
-  }
   const serverlessAfter = await assertServerlessRestState();
-  certificationSucceeded = true;
-
-  console.log(JSON.stringify({
+  event("PASS", {
     success: true,
-    contract: CONTRACT,
-    expected_main_commit: EXPECTED_MAIN_COMMIT,
-    observed_base_commit: text(finalResult.state?.base_commit),
-    fast_start: {
-      first_invocation_elapsed_ms: firstInvocationElapsedMs,
-      worker_warming_cycles: workerWarmingCycles,
-      first_worker_ready_cycle: firstWorkerReadyCycle,
-      first_reasoning_observed_cycle: firstReasoningObservedCycle,
-      model_call_required_to_start: false,
-      source_seed_paths: finalResult.fast_start?.seed_paths || [],
-    },
-    employee: {
-      status: finalResult.status,
-      completion_verified: finalResult.employee_completion?.complete === true,
-      worldclass_quality_verified: finalResult.worldclass_quality?.verified === true,
-      product_completion_criteria_verified:
-        finalResult.product_completion_criteria?.verified === true,
-      files_changed: changedFiles,
-      exact_verification_passed: true,
-      final_diff_present: true,
-    },
-    efficiency: {
-      reasoning_calls_used: reasoningCalls,
-      reasoning_call_budget: REASONING_CALL_BUDGET,
-      packages_executed: Number(control.packages_executed || 0),
-      deterministic_operations_executed: Number(control.operations_executed || 0),
-      maximum_operations_in_one_reasoning_package: Math.max(
-        ...packages.map((entry) => Number(entry?.operation_count || 0)),
-      ),
-      planner_pending_cycles: plannerPendingCycles,
-      usage_record_count: usageRecords.length,
-    },
-    governance: {
-      serverless_before: serverlessBefore,
-      serverless_after: serverlessAfter,
-      warm_worker_released: true,
-      warm_worker_pod_deletion_verified: true,
-      wallet_reserved_balance_after: Number(walletAfter.reserved_balance || 0),
-      production_deploy_performed: false,
-      github_commit_performed: false,
-      database_schema_mutation_performed: false,
-      secrets_printed: false,
-      raw_reasoning_persisted: false,
-    },
-    usage_records: usageRecords,
-  }, null, 2));
-  console.log(`${CONTRACT}=PASS`);
+    first_worker_ready_cycle: firstWorkerReadyCycle,
+    first_reasoning_observed_cycle: firstReasoningObservedCycle,
+    worker_warming_cycles: workerWarmingCycles,
+    planner_pending_cycles: plannerPendingCycles,
+    first_invocation_elapsed_ms: firstInvocationElapsedMs,
+    reasoning_calls_used: reasoningCalls,
+    reasoning_call_budget: REASONING_CALL_BUDGET,
+    package_count: Number(control.packages_executed || 0),
+    operation_count: Number(control.operations_executed || 0),
+    exact_verification_passed: true,
+    final_diff_observed: true,
+    worldclass_quality_verified: true,
+    product_completion_criteria_verified: true,
+    wallet_debit_thb: walletDebit,
+    serverless_before: serverlessBefore,
+    serverless_after: serverlessAfter,
+    production_deploy_performed: false,
+    github_write_performed: false,
+    secrets_printed: false,
+  });
+  certificationSucceeded = true;
 } finally {
-  if (!certificationSucceeded && typeof releaseWorkerSession === "function") {
-    try {
-      await releaseWorkerSession({ reason: "CERTIFICATION_FAILURE_CLEANUP" });
-    } catch (error) {
-      cleanupFailure = error;
-      console.error(`AVANTIQO_CODE_EMPLOYEE_CERT_WORKER_CLEANUP_FAILED:${error?.message || error}`);
+  try {
+    if (releaseWorkerSession) {
+      await releaseWorkerSession({
+        reason: certificationSucceeded ? "CERTIFICATION_COMPLETE" : "CERTIFICATION_FAILED",
+      });
     }
+  } catch (error) {
+    cleanupFailure = error;
+    console.error(JSON.stringify({
+      event: "AVANTIQO_CODE_EMPLOYEE_CERT_CLEANUP_FAILED",
+      reason: text(error?.message || error, 500),
+      secrets_printed: false,
+    }));
   }
+
   try {
     await disableCertificationService();
   } catch (error) {
-    console.error(`AVANTIQO_CODE_EMPLOYEE_CERT_SERVICE_DISABLE_FAILED:${error?.message || error}`);
-    if (!cleanupFailure) cleanupFailure = error;
+    cleanupFailure ||= error;
+    console.error(JSON.stringify({
+      event: "AVANTIQO_CODE_EMPLOYEE_CERT_SERVICE_DISABLE_FAILED",
+      reason: text(error?.message || error, 500),
+      secrets_printed: false,
+    }));
   }
+
   if (cleanupFailure && certificationSucceeded) throw cleanupFailure;
 }

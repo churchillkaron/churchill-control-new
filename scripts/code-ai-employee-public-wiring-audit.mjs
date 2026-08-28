@@ -138,23 +138,16 @@ requireMarkers("EMPLOYEE", source.employee, [
   "CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED",
 ]);
 
-// Public behavior is authoritative; source markers are checked only in the files
-// that own their implementation after the WorkPackage runtime was split into
-// facade/core/live/prompt modules.
 assert.equal(CODE_AI_WORK_PACKAGE_CONTRACT, "AVANTIQO_CODE_AI_WORK_PACKAGE_V1");
 assert.equal(typeof executeBatchedAutonomousCodeMission, "function");
 assert.equal(CodeAIWorkPackageRuntime.execute, executeBatchedAutonomousCodeMission);
 assert.equal(CodeAIWorkPackageRuntime.live_progress, true);
 assert.equal(Number(CodeAIWorkPackageRuntime.max_package_operations || 0), 12);
-assert.deepEqual(
-  CodeAIWorkPackageRuntime.implementation_actions,
-  ["apply_files", "verify", "diff"],
-);
+assert.deepEqual(CodeAIWorkPackageRuntime.implementation_actions, ["apply_files", "verify", "diff"]);
 assert.equal(CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS, 24000);
 assert.equal(CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS, 30000);
 assert.ok(
-  CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS -
-    CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS >= 6000,
+  CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS - CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS >= 6000,
 );
 
 requireMarkers("WORK_PACKAGE_FACADE", source.packageFacade, [
@@ -189,7 +182,8 @@ requireMarkers("WORK_PACKAGE_PROMPT", source.packagePrompt, [
 ]);
 requireMarkers("LIVE_PROGRESS", source.liveProgress, [
   "AVANTIQO_CODE_AI_LIVE_PROGRESS_V1",
-  "refreshActiveCodeWorkerLease",
+  "refreshActiveWorkerLease",
+  "active_work_refreshes_worker_lease: true",
   "raw_reasoning_persisted: false",
   "source_content_persisted: false",
   "secrets_persisted: false",
@@ -257,7 +251,7 @@ console.log(JSON.stringify({
     deterministic_repository_work_overlaps_worker_warmup: true,
     known_source_evidence_can_be_seeded_before_reasoning: true,
     worker_warming_is_resumable_without_reasoning_call: true,
-    model_call_not_required_to_start: false,
+    model_call_not_required_to_start: true,
     bounded_warm_worker_session: true,
     planner_warm_session_precedes_serverless_capacity_check: true,
     planner_warm_session_disables_serverless_stale_queue_recovery: true,
@@ -274,8 +268,7 @@ console.log(JSON.stringify({
     planner_instruction_limit_chars: CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,
     worker_instruction_hard_limit_chars: CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS,
     worker_instruction_headroom_chars:
-      CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS -
-      CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,
+      CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS - CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,
     post_mutation_run_can_be_recovered_as_verification_without_new_reasoning: true,
     controller_owned_final_diff_recovery: true,
     missing_post_mutation_verification_still_fails_closed: true,

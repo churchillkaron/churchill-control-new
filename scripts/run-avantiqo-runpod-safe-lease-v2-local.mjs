@@ -14,6 +14,9 @@ import {
   listActiveCodeRunpodDistributedLeases,
   releaseCodeRunpodDistributedLease,
 } from "./avantiqo-code-runpod-distributed-lease.mjs";
+import {
+  listActiveVideoRunpodDistributedLeases,
+} from "./avantiqo-video-runpod-distributed-lease.mjs";
 
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
@@ -373,15 +376,17 @@ function scopedLaneAllowsInertUnboundedPeer(row, targetId, lane) {
 }
 
 async function enforce(snapshotValue, policy, targetId, managementKey, lane, targetQueueKey) {
-  const [currentLeases, distributedVoiceLeases, distributedCodeLeases] = await Promise.all([
+  const [currentLeases, distributedVoiceLeases, distributedCodeLeases, distributedVideoLeases] = await Promise.all([
     leases(),
     listActiveVoiceRunpodDistributedLeases(),
     listActiveCodeRunpodDistributedLeases(),
+    listActiveVideoRunpodDistributedLeases(),
   ]);
   const leaseIds = new Set(unique([
     ...currentLeases.map((lease) => lease.endpoint_id),
     ...distributedVoiceLeases.map((lease) => lease.endpoint_id),
     ...distributedCodeLeases.map((lease) => lease.endpoint_id),
+    ...distributedVideoLeases.map((lease) => lease.endpoint_id),
   ]));
   const badMin = snapshotValue.rows.filter((row) => row.workers_min !== 0);
   if (badMin.length) {
@@ -437,7 +442,14 @@ async function enforce(snapshotValue, policy, targetId, managementKey, lane, tar
   if (target.hourly_cost_usd > workerLimit) {
     throw new Error(`${CONTRACT}_WORKER_HOURLY_LIMIT:${target.hourly_cost_usd}:limit=${workerLimit}:lane=${lane}`);
   }
-  return { refreshed, currentLeases, distributedVoiceLeases, distributedCodeLeases, target };
+  return {
+    refreshed,
+    currentLeases,
+    distributedVoiceLeases,
+    distributedCodeLeases,
+    distributedVideoLeases,
+    target,
+  };
 }
 
 async function runChild(command, lease, managementKey, queueKey, targetQueueKey, policy) {
@@ -489,6 +501,7 @@ async function runChild(command, lease, managementKey, queueKey, targetQueueKey,
       ...state.currentLeases.map((entry) => entry.endpoint_id),
       ...state.distributedVoiceLeases.map((entry) => entry.endpoint_id),
       ...state.distributedCodeLeases.map((entry) => entry.endpoint_id),
+      ...state.distributedVideoLeases.map((entry) => entry.endpoint_id),
     ]));
     console.log(`${CONTRACT}_WATCHDOG=${JSON.stringify({
       elapsed_seconds: Math.floor((Date.now() - acquired) / 1000),

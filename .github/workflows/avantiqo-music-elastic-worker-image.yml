@@ -1,0 +1,226 @@
+name: Avantiqo Music Elastic Worker Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-music-elastic-worker-image-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-music-elastic-worker-image
+  cancel-in-progress: false
+
+jobs:
+  build-music-elastic-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      image_repository: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.image.outputs.tag }}
+      source_sha: ${{ steps.image.outputs.release_sha }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      preflight_outcome: ${{ steps.preflight.outcome }}
+      build_outcome: ${{ steps.build.outcome }}
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify Music Elastic worker source contract
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-music-elastic-engine/Dockerfile
+          test -f services/avantiqo-music-elastic-engine/handler.py
+          test -f services/avantiqo-music-elastic-engine/requirements.txt
+          grep -F 'AVANTIQO_MUSIC_ELASTIC_AUDIO_ENGINE_V1' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'AVANTIQO_MUSIC_ELASTIC_RUNTIME_PROBE_V1' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'SIGNALSMITH_STRETCH_PYTHON_STRETCH_0_3_1' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'SEAM_TAPER_NO_DUPLICATED_TRAJECTORY_V2' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'source_download_performed": False' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'render_performed": False' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'output_upload_performed": False' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'provider_job_submitted": False' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'production_certified": False' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'human_listening_review_required": True' services/avantiqo-music-elastic-engine/handler.py
+          grep -F 'python-stretch==0.3.1' services/avantiqo-music-elastic-engine/requirements.txt
+          grep -F 'runpod==1.9.1' services/avantiqo-music-elastic-engine/requirements.txt
+          grep -F 'CMD ["python", "handler.py"]' services/avantiqo-music-elastic-engine/Dockerfile
+          if grep -F 'runpod-volume' services/avantiqo-music-elastic-engine/Dockerfile; then
+            echo 'AVANTIQO_MUSIC_ELASTIC_SHARED_VOLUME_REFERENCE_FORBIDDEN'
+            exit 1
+          fi
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('services/avantiqo-music-elastic-engine/handler.py').read_text()
+          probe = source.index('if _text(data.get("mode")).lower() == "runtime_probe":')
+          source_url = source.index('source_url = _text(data.get("source_audio_url"))')
+          if not probe < source_url:
+              raise SystemExit('AVANTIQO_MUSIC_ELASTIC_RUNTIME_PROBE_MUST_PRECEDE_SOURCE_HANDLING')
+          PY
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_PREFLIGHT=PASS'
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_TRIGGER_SHA_BOUND=true'
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_SHARED_VOLUME_REQUIRED=false'
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_PRODUCTION_CERTIFIED=false'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$GITHUB_SHA"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-music-elastic-worker"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_MUSIC_ELASTIC_IMAGE_TAG=$tag"
+
+      - name: Build and push immutable Music Elastic image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/avantiqo-music-elastic-engine/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-music-elastic-worker
+          cache-to: type=gha,mode=max,scope=avantiqo-music-elastic-worker
+
+      - name: Confirm build isolation
+        shell: bash
+        run: |
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_BUILD=PASS'
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_PROVIDER_JOB_SUBMITTED=false'
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_RUNPOD_ENDPOINT_MUTATION=false'
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_SHARED_VOLUME_MUTATION=false'
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_PRODUCTION_CERTIFIED=false'
+
+  record-music-elastic-image-evidence:
+    needs: build-music-elastic-image
+    if: ${{ always() && needs.build-music-elastic-image.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest main for evidence only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Record sanitized PASS or FAIL evidence
+        env:
+          BUILD_JOB_RESULT: ${{ needs.build-music-elastic-image.result }}
+          PREFLIGHT_OUTCOME: ${{ needs.build-music-elastic-image.outputs.preflight_outcome }}
+          BUILD_OUTCOME: ${{ needs.build-music-elastic-image.outputs.build_outcome }}
+          IMAGE_REPOSITORY: ${{ needs.build-music-elastic-image.outputs.image_repository }}
+          IMAGE_TAG: ${{ needs.build-music-elastic-image.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.build-music-elastic-image.outputs.image_digest }}
+          RELEASE_SHA: ${{ needs.build-music-elastic-image.outputs.source_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+          TRIGGER_SHA: ${{ github.sha }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          const triggerSha = String(process.env.TRIGGER_SHA || "").trim();
+          const sourceSha = String(process.env.RELEASE_SHA || "").trim();
+          const digest = String(process.env.IMAGE_DIGEST || "").trim();
+          const owner = String(process.env.REPOSITORY_OWNER || "").trim().toLowerCase();
+          const repository = String(process.env.IMAGE_REPOSITORY || "").trim() ||
+            (owner ? `ghcr.io/${owner}/avantiqo-music-elastic-worker` : null);
+          const buildJobResult = String(process.env.BUILD_JOB_RESULT || "").trim();
+          const sourceMatchesTrigger = Boolean(sourceSha) && sourceSha === triggerSha;
+          const digestValid = /^sha256:[a-f0-9]{64}$/i.test(digest);
+          const success = buildJobResult === "success" && sourceMatchesTrigger && digestValid && Boolean(repository);
+          const report = {
+            success,
+            contract: "AVANTIQO_MUSIC_ELASTIC_WORKER_IMAGE_RESULT_V1",
+            observable_result: true,
+            build_job_result: buildJobResult || "unknown",
+            preflight_outcome: String(process.env.PREFLIGHT_OUTCOME || "").trim() || null,
+            build_outcome: String(process.env.BUILD_OUTCOME || "").trim() || null,
+            source_sha: sourceSha || null,
+            trigger_sha: triggerSha || null,
+            source_sha_matches_trigger: sourceMatchesTrigger,
+            github_run_id: process.env.BUILD_RUN_ID || null,
+            image_repository: repository,
+            image_tag: String(process.env.IMAGE_TAG || "").trim() || null,
+            image_digest: digestValid ? digest : null,
+            immutable_image_reference: success ? `${repository}@${digest}` : null,
+            engine_contract: "AVANTIQO_MUSIC_ELASTIC_AUDIO_ENGINE_V1",
+            runtime_probe_contract: "AVANTIQO_MUSIC_ELASTIC_RUNTIME_PROBE_V1",
+            model: "signalsmith-stretch",
+            stretch_engine: "SIGNALSMITH_STRETCH_PYTHON_STRETCH_0_3_1",
+            boundary_smoothing_contract: "SEAM_TAPER_NO_DUPLICATED_TRAJECTORY_V2",
+            capability: "ai.audio.elastic-warp",
+            network_volume_required: false,
+            runtime_probe_no_inference: true,
+            runtime_probe_source_download: false,
+            runtime_probe_render: false,
+            runtime_probe_upload: false,
+            production_certified: false,
+            human_listening_review_required: true,
+            failure: success ? null : {
+              code: "AVANTIQO_MUSIC_ELASTIC_WORKER_IMAGE_BUILD_FAILED",
+              build_job_result: buildJobResult || "unknown",
+            },
+            provider_job_submitted: false,
+            runpod_endpoint_mutation_performed: false,
+            shared_volume_mutation_performed: false,
+            production_deploy_performed: false,
+            secrets_in_output: false,
+          };
+          writeFileSync("/tmp/avantiqo-music-elastic-worker-image.json", `${JSON.stringify(report)}\n`, "utf8");
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B music-elastic-image-evidence origin/main
+            mkdir -p audits/results
+            cp /tmp/avantiqo-music-elastic-worker-image.json audits/results/avantiqo-music-elastic-worker-image.json
+            git add audits/results/avantiqo-music-elastic-worker-image.json
+            if git diff --cached --quiet; then
+              echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_EVIDENCE_ALREADY_CURRENT=true'
+              exit 0
+            fi
+            git commit -m "Record Music Elastic worker image result"
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_EVIDENCE_RECORDED=true'
+              exit 0
+            fi
+            echo "AVANTIQO_MUSIC_ELASTIC_IMAGE_EVIDENCE_PUSH_RETRY=${attempt}"
+            sleep "$attempt"
+          done
+          echo 'AVANTIQO_MUSIC_ELASTIC_IMAGE_EVIDENCE_PUSH_FAILED'
+          exit 1

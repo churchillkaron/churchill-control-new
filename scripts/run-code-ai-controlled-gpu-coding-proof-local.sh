@@ -5,7 +5,7 @@ CONTRACT="AVANTIQO_CODE_AI_CONTROLLED_GPU_CODING_PROOF_LOCAL_V1"
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 WT="/tmp/avantiqo-code-controlled-gpu-proof-$$"
 OLD_DIGEST="1b6ac20925085104ac00c09dde3073e32e5934543bd16b9a346b2dca3fa7bb27"
-NEW_DIGEST="764bcb2ce3636adc68ada7ce2a51d41de995e5e0d54e543b41044d76e5686535"
+NEW_DIGEST="c636b7fc23ab2cd433978cf0ba0470acff7df0df6747b3a64b5e71d1ec762a41"
 RC=1
 
 cleanup() {

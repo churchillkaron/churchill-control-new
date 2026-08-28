@@ -53,13 +53,11 @@ function redact(value) {
 }
 
 function parseResponse(raw) {
-  let parsed = null;
   try {
-    parsed = raw ? JSON.parse(raw) : null;
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    parsed = null;
+    return null;
   }
-  return parsed;
 }
 
 function assertSuccessfulJson(statusCode, parsed, raw) {
@@ -74,22 +72,11 @@ function assertSuccessfulJson(statusCode, parsed, raw) {
   return parsed;
 }
 
-async function jsonRequest(url, apiKey, { method = "GET", body = null, timeoutMs = HEALTH_TIMEOUT_MS } = {}) {
-  const response = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-      ...(body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  const raw = await response.text();
-  return assertSuccessfulJson(response.status, parseResponse(raw), raw);
-}
-
-function longJsonRequest(url, apiKey, { method = "POST", body = null, timeoutMs = RESPONSE_TIMEOUT_MS } = {}) {
+function nativeJsonRequest(
+  url,
+  apiKey,
+  { method = "GET", body = null, timeoutMs = HEALTH_TIMEOUT_MS } = {},
+) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : "";
     const target = new URL(url);
@@ -143,7 +130,9 @@ function longJsonRequest(url, apiKey, { method = "POST", body = null, timeoutMs 
         }
       });
       response.on("error", (error) => {
-        finishReject(new Error(`${CONTRACT}_NATIVE_HTTPS_RESPONSE_FAILED:${redact(error?.message)}`));
+        finishReject(
+          new Error(`${CONTRACT}_NATIVE_HTTPS_RESPONSE_FAILED:${redact(error?.message)}`),
+        );
       });
     });
 
@@ -212,7 +201,11 @@ const topP = deepThinking ? QWEN3_THINKING_TOP_P : null;
 const samplingPolicy = deepThinking ? "QWEN3_THINKING_2507_RECOMMENDED" : "FAST_CERTIFICATION_DETERMINISTIC";
 const base = `https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}`;
 
-const beforeHealth = await jsonRequest(`${base}/health`, apiKey);
+const beforeHealth = await nativeJsonRequest(
+  `${base}/health`,
+  apiKey,
+  { timeoutMs: HEALTH_TIMEOUT_MS },
+);
 const beforeJobs = healthJobs(beforeHealth);
 if (beforeJobs.in_queue !== 0 || beforeJobs.in_progress !== 0) {
   throw new Error(
@@ -221,7 +214,7 @@ if (beforeJobs.in_queue !== 0 || beforeJobs.in_progress !== 0) {
 }
 
 const modelStartedAt = Date.now();
-const models = await jsonRequest(
+const models = await nativeJsonRequest(
   `${base}/openai/v1/models`,
   apiKey,
   { timeoutMs: RESPONSE_TIMEOUT_MS },
@@ -254,7 +247,7 @@ const requestBody = {
 };
 
 const generationStartedAt = Date.now();
-const completion = await longJsonRequest(
+const completion = await nativeJsonRequest(
   `${base}/openai/v1/chat/completions`,
   apiKey,
   {
@@ -278,7 +271,11 @@ if (responseModel !== expectedModel) {
   throw new Error(`${CONTRACT}_MODEL_MISMATCH:expected=${expectedModel}:actual=${responseModel}`);
 }
 
-const afterHealth = await jsonRequest(`${base}/health`, apiKey);
+const afterHealth = await nativeJsonRequest(
+  `${base}/health`,
+  apiKey,
+  { timeoutMs: HEALTH_TIMEOUT_MS },
+);
 const afterJobs = healthJobs(afterHealth);
 if (afterJobs.in_queue > 1 || afterJobs.in_progress > 1) {
   throw new Error(
@@ -299,7 +296,7 @@ const result = {
   sampling_policy: samplingPolicy,
   temperature,
   top_p: topP,
-  response_transport: "NODE_HTTPS_ABSOLUTE_DEADLINE_V1",
+  response_transport: "NODE_HTTPS_ALL_ROUTES_ABSOLUTE_DEADLINE_V1",
   response_timeout_ms: RESPONSE_TIMEOUT_MS,
   ambiguous_timeout_retry_performed: false,
   model_route_latency_ms: modelRouteLatencyMs,

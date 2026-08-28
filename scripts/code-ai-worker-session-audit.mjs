@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V1";
+const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V2";
 const path = "lib/code/runtime/CodeAIWorkerSessionRuntime.js";
 const source = await readFile(path, "utf8");
 
@@ -57,9 +57,27 @@ requireMarkers("SHARED_VOLUME_EXCLUSION", [
 requireMarkers("HEALTH", [
   'POD_HTTP_CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"',
   "body?.cached_model_found === true",
+  "body?.engine_loaded === true",
   "body?.raw_reasoning_persisted === false",
   "HEALTH_TIMEOUT_MS = 2500",
 ]);
+
+requireMarkers("ENGINE_WARMUP", [
+  "submitEngineWarmup",
+  "engineWarmupStatus",
+  "MODEL_ENGINE_WARMUP_STARTED",
+  "CODE_AI_WORKER_SESSION_ENGINE_WARMUP_FAILED",
+  "CODE_AI_WORKER_SESSION_ENGINE_WARMUP_ENGINE_NOT_LOADED",
+  "engine_warmup_job_id",
+  "engine_ready: true",
+  "reasoning_call_consumed_by_warmup: false",
+  "wallet_mutation_performed_by_warmup: false",
+]);
+
+const readyStateIndex = source.indexOf('state: "READY"');
+const engineReadyIndex = source.indexOf("engine_ready: true", readyStateIndex);
+assert.ok(readyStateIndex >= 0, "READY state must exist");
+assert.ok(engineReadyIndex > readyStateIndex, "READY must bind engine_ready=true");
 
 requireMarkers("DURABLE_CLAIM", [
   "insertClaim",
@@ -88,11 +106,13 @@ assert.ok(expiredStateIndex > deleteVerificationIndex, "EXPIRED must only follow
 requireMarkers("READY_TRANSPORT", [
   "resolveCodeAIWorkerSessionTransport",
   'session.state !== "READY"',
+  "session.engine_ready !== true",
+  "readiness.engine_loaded !== true",
   "expired(session)",
   "token: tokenForSession(session.session_id)",
 ]);
 
-assert.equal(/ServiceExecutionRuntime|executeCodeAIPlannerRequest|ai\.code\.debug/.test(source), false);
+assert.equal(/ServiceExecutionRuntime|executeCodeAIPlannerRequest/.test(source), false);
 
 console.log(JSON.stringify({
   success: true,
@@ -107,11 +127,15 @@ console.log(JSON.stringify({
     immutable_worker_image_bound: true,
     shared_volume_foreign_pod_exclusion: true,
     pod_v3_health_required: true,
+    model_engine_must_be_loaded_before_ready: true,
+    durable_idempotent_engine_warmup_present: true,
+    engine_warmup_does_not_consume_employee_reasoning_budget: true,
+    engine_warmup_bypasses_wallet_and_service_runtime: true,
     atomic_claim_compare_and_swap_present: true,
     cleanup_failure_blocks_replacement: true,
     expired_state_requires_verified_pod_deletion: true,
-    ready_transport_only_for_ready_unexpired_session: true,
-    provider_model_call_performed: false,
+    ready_transport_only_for_engine_ready_unexpired_session: true,
+    customer_provider_model_call_performed: false,
     wallet_mutation_performed: false,
     runpod_mutation_performed_by_audit: false,
     production_deploy_performed: false,

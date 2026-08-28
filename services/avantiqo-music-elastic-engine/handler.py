@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import math
 import subprocess
@@ -17,6 +18,7 @@ import soundfile as sf
 ENGINE_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_AUDIO_ENGINE_V1"
 PLAN_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_WARP_PLAN_V1"
 REPORT_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_AUDIO_RENDER_REPORT_V1"
+PROBE_CONTRACT = "AVANTIQO_MUSIC_ELASTIC_RUNTIME_PROBE_V1"
 STRETCH_ENGINE = "SIGNALSMITH_STRETCH_PYTHON_STRETCH_0_3_1"
 BOUNDARY_SMOOTHING = "SEAM_TAPER_NO_DUPLICATED_TRAJECTORY_V2"
 MAX_DURATION_SECONDS = 900.0
@@ -259,10 +261,47 @@ def _render(source_path: Path, destination_path: Path, markers: list[dict[str, A
     }
 
 
+def _runtime_probe() -> dict[str, Any]:
+    python_stretch_version = importlib.metadata.version("python-stretch")
+    completed = subprocess.run(
+        ["ffmpeg", "-version"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        text=True,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr[-1000:]
+        raise RuntimeError(f"AVANTIQO_MUSIC_ELASTIC_RUNTIME_PROBE_FFMPEG_FAILED:{detail}")
+    ffmpeg_version = (completed.stdout.splitlines() or ["unknown"])[0].strip()
+    stretch = ps.Signalsmith.Stretch()
+    stretch.preset(2, 48000)
+    return {
+        "success": True,
+        "contract": PROBE_CONTRACT,
+        "engine_contract": ENGINE_CONTRACT,
+        "stretch_engine": STRETCH_ENGINE,
+        "python_stretch_version": python_stretch_version,
+        "signalsmith_initialization": True,
+        "ffmpeg_available": True,
+        "ffmpeg_version": ffmpeg_version,
+        "boundary_smoothing_contract": BOUNDARY_SMOOTHING,
+        "source_download_performed": False,
+        "render_performed": False,
+        "output_upload_performed": False,
+        "automatic_apply_performed": False,
+        "provider_job_submitted": False,
+        "production_certified": False,
+        "human_listening_review_required": True,
+    }
+
+
 def handler(job):
     data = dict((job or {}).get("input") or {})
     if _text(data.get("contract")) != ENGINE_CONTRACT:
         raise ValueError("AVANTIQO_MUSIC_ELASTIC_ENGINE_CONTRACT_INVALID")
+    if _text(data.get("mode")).lower() == "runtime_probe":
+        return _runtime_probe()
     source_url = _text(data.get("source_audio_url"))
     output_upload_url = _text(data.get("output_upload_url"))
     source_asset_id = _text(data.get("source_asset_id")) or None

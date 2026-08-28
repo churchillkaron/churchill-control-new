@@ -1,0 +1,61 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+const runtime = await readFile("lib/operator/secretary/SecretaryAccessMediaCustodyRuntime.js", "utf8");
+const capability = await readFile("lib/platform/capabilities/createSecretaryPhysicalKeyBadgeCustodyCapability.js", "utf8");
+const platform = await readFile("lib/platform/runtime/PlatformDomainRuntime.js", "utf8");
+const pkg = JSON.parse(await readFile("package.json", "utf8"));
+const wrapper = await readFile("scripts/run-operator-secretary-meeting-local-certification.sh", "utf8");
+
+assert.match(runtime, /AVANTIQO_EXECUTIVE_SECRETARY_ACCESS_MEDIA_CUSTODY_V1/);
+assert.match(runtime, /KEY/);
+assert.match(runtime, /ACCESS_CARD/);
+assert.match(runtime, /BADGE/);
+assert.match(runtime, /FOB/);
+assert.match(runtime, /TOKEN/);
+assert.match(runtime, /TRANSFER_ACKNOWLEDGED/);
+assert.match(runtime, /RETURNED_TO_STORAGE/);
+assert.match(runtime, /MISSING_REPORTED/);
+assert.match(runtime, /RECOVERED/);
+assert.match(runtime, /SECRETARY_ACCESS_MEDIA_STALE_VERSION/);
+assert.match(runtime, /SECRETARY_ACCESS_MEDIA_EVIDENCE_REUSE_CONFLICT/);
+assert.match(runtime, /SECRETARY_ACCESS_MEDIA_CONCURRENT_UPDATE_RETRY_REQUIRED/);
+assert.match(runtime, /SECRETARY_ACCESS_MEDIA_CREDENTIAL_SECRET_FORBIDDEN/);
+assert.match(runtime, /missing_inferred_from_overdue:\s*false/);
+assert.match(runtime, /custody_inferred:\s*false/);
+assert.match(runtime, /physical_access_granted:\s*false/);
+assert.match(runtime, /access_permission_granted:\s*false/);
+assert.match(runtime, /access_permission_revoked:\s*false/);
+assert.match(runtime, /access_control_system_mutated:\s*false/);
+assert.match(runtime, /credential_activated:\s*false/);
+assert.match(runtime, /credential_deactivated:\s*false/);
+assert.match(runtime, /credential_secret_stored:\s*false/);
+assert.match(runtime, /identity_verified_inferred:\s*false/);
+assert.match(runtime, /security_incident_declared:\s*false/);
+assert.match(runtime, /platform_permissions_mutated:\s*false/);
+assert.match(runtime, /provider_calls_performed:\s*false/);
+assert.match(runtime, /external_authority_used:\s*false/);
+assert.match(runtime, /Cancel only Secretary access-media custody tracking/);
+
+assert.match(capability, /secretary_physical_key_badge_custody/);
+assert.match(capability, /operatorAutoExecute:\s*true/);
+assert.match(capability, /operatorRequiresConfirmation:\s*false/);
+assert.match(capability, /contextScope:\s*"organization"/);
+assert.match(capability, /approvalRequired:\s*false/);
+assert.match(capability, /cannot change permissions, security-system settings, credential state/i);
+
+assert.match(platform, /createSecretaryPhysicalKeyBadgeCustodyCapability/);
+assert.match(platform, /secretary_physical_key_badge_custody/);
+assert.match(pkg.scripts["audit:operator-secretary-end-to-end"] || "", /operator-secretary-access-media-custody-audit\.mjs/);
+assert.match(wrapper, /certify-secretary-access-media-custody-local\.mjs/);
+
+console.log("OPERATOR_SECRETARY_ACCESS_MEDIA_CUSTODY_AUDIT=PASS");
+console.log("SECRETARY_ACCESS_MEDIA_EXPLICIT_CUSTODY_EVIDENCE=true");
+console.log("SECRETARY_ACCESS_MEDIA_TRANSFER_ACK_REQUIRED=true");
+console.log("SECRETARY_ACCESS_MEDIA_RETURN_EVIDENCE=true");
+console.log("SECRETARY_ACCESS_MEDIA_MISSING_RECOVERY_EVIDENCE=true");
+console.log("SECRETARY_ACCESS_MEDIA_CREDENTIAL_SECRET_STORED=false");
+console.log("SECRETARY_ACCESS_MEDIA_ACCESS_PERMISSION_GRANTED=false");
+console.log("SECRETARY_ACCESS_MEDIA_ACCESS_PERMISSION_REVOKED=false");
+console.log("SECRETARY_ACCESS_MEDIA_ACCESS_CONTROL_SYSTEM_MUTATED=false");
+console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

@@ -265,7 +265,7 @@ function desiredDeepFromFast(fastTemplate) {
     isServerless: true,
     ports: list(fastTemplate?.ports),
     readme: "Avantiqo-owned Deep Intelligence base runtime recovered from the proven Fast peer. Qwen3-30B-A3B-Thinking-2507 with qwen3 reasoning parser.",
-    volumeInGb: Math.max(0, finite(fastTemplate?.volumeInGb, 0)),
+    ...(fastRuntime.volume_gb === null ? {} : { volumeInGb: Math.max(0, fastRuntime.volume_gb) }),
     volumeMountPath: text(fastTemplate?.volumeMountPath) || "/workspace",
     ...(text(fastTemplate?.containerRegistryAuthId, 300) ? { containerRegistryAuthId: text(fastTemplate?.containerRegistryAuthId, 300) } : {}),
   };

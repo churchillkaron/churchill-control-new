@@ -1,9 +1,10 @@
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V4";
+const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V5";
 
 const files = Object.freeze({
   qualityPolicy: "lib/code/runtime/CodeAIWorldClassQualityPolicy.js",
+  fastStart: "lib/code/runtime/CodeAIEmployeeFastStartRuntime.js",
   employee: "lib/code/runtime/CodeAIEmployeeRuntime.js",
   worldclass: "lib/code/runtime/CodeAIWorldClassRuntime.js",
   worldclassCommitGuard: "lib/code/runtime/CodeAIWorldClassCommitGuard.js",
@@ -30,6 +31,7 @@ function requireMarkers(label, content, markers) {
 
 const [
   qualityPolicy,
+  fastStart,
   employee,
   worldclass,
   worldclassCommitGuard,
@@ -60,6 +62,14 @@ requireMarkers("QUALITY_POLICY", qualityPolicy, [
 if (/Sandbox|ServiceExecutionRuntime|RUNPOD|fetch\s*\(/.test(qualityPolicy)) {
   throw new Error(`${CONTRACT}_QUALITY_POLICY_MUST_REMAIN_PURE`);
 }
+
+requireMarkers("FAST_START", fastStart, [
+  "AVANTIQO_CODE_AI_EMPLOYEE_FAST_START_V1",
+  "executeCodeAIEmployeeMission",
+  "model_call_required_to_start: false",
+  "employee_fast_start_inspect",
+  "employee_fast_start_read_",
+]);
 
 requireMarkers("EMPLOYEE_RUNTIME", employee, [
   "AVANTIQO_CODE_AI_EMPLOYEE_RUNTIME_V1",
@@ -93,7 +103,8 @@ requireMarkers("WORLDCLASS_COMMIT_GUARD", worldclassCommitGuard, [
 ]);
 
 requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
-  "executeCodeAIEmployeeMission",
+  "executeCodeAIEmployeeFastStartMission",
+  "CODE_AI_EMPLOYEE_FAST_START_CONTRACT",
   "CODE_AI_EMPLOYEE_RUNTIME_CONTRACT",
   "fresh-verification",
   "final-diff-review",
@@ -102,8 +113,11 @@ requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
   "persistCodeAICommitArtifact",
   "reasoning_call_budget",
 ]);
-if (autonomousCapability.includes("executeWorldClassCodeMission({")) {
-  throw new Error(`${CONTRACT}_PUBLIC_CAPABILITY_MUST_USE_EMPLOYEE_RUNTIME`);
+if (
+  autonomousCapability.includes("executeWorldClassCodeMission({") ||
+  autonomousCapability.includes("executeCodeAIEmployeeMission({")
+) {
+  throw new Error(`${CONTRACT}_PUBLIC_CAPABILITY_MUST_USE_FAST_START_EMPLOYEE_RUNTIME`);
 }
 
 requireMarkers("COMMIT_CAPABILITY", commitCapability, [
@@ -185,11 +199,15 @@ if (leasePolicy.workers_min_one_allowed !== false) throw new Error(`${CONTRACT}_
 if (leasePolicy.parallel_work_allowed !== true || leasePolicy.max_concurrent_paid_leases < 2) throw new Error(`${CONTRACT}_BOUNDED_PARALLEL_WORK_REQUIRED`);
 if (!leasePolicy.lanes?.code) throw new Error(`${CONTRACT}_CODE_LEASE_LANE_REQUIRED`);
 
-const employeeImport = autonomousCapability.indexOf("executeCodeAIEmployeeMission");
-const executionCall = autonomousCapability.indexOf("await executeCodeAIEmployeeMission");
+const fastStartImport = autonomousCapability.indexOf("executeCodeAIEmployeeFastStartMission");
+const executionCall = autonomousCapability.indexOf("await executeCodeAIEmployeeFastStartMission");
 const attestationCall = autonomousCapability.indexOf("result.state = attestCodeMissionState");
-if (employeeImport < 0 || executionCall < 0 || attestationCall <= executionCall) {
-  throw new Error(`${CONTRACT}_EMPLOYEE_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
+if (fastStartImport < 0 || executionCall < 0 || attestationCall <= executionCall) {
+  throw new Error(`${CONTRACT}_FAST_START_EMPLOYEE_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
+}
+const fastStartEmployeeCall = fastStart.indexOf("await executeCodeAIEmployeeMission({");
+if (fastStartEmployeeCall < 0) {
+  throw new Error(`${CONTRACT}_FAST_START_MUST_DELEGATE_TO_EMPLOYEE_RUNTIME`);
 }
 const employeeQualityImport = employee.indexOf("assessCodeAIWorldClassQuality");
 const employeeQualityCall = employee.indexOf("const worldClass = assessCodeAIWorldClassQuality(source)");
@@ -209,8 +227,9 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   verified: {
     pure_quality_policy_without_runtime_dependencies: true,
+    deterministic_fast_start_precedes_reasoning: true,
     mandatory_worldclass_employee_gate: true,
-    public_employee_execution_precedes_attestation: true,
+    public_fast_start_employee_execution_precedes_attestation: true,
     legacy_worldclass_runtime_retained_as_non_public_compatibility: true,
     planner_rules_owned_by_bounded_prompt_transport: true,
     stale_verification_rejected_by_position: true,

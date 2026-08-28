@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V7";
+import {
+  CODE_AI_WORK_PACKAGE_CONTRACT,
+  CodeAIWorkPackageRuntime,
+  executeBatchedAutonomousCodeMission,
+} from "../lib/code/runtime/CodeAIWorkPackageRuntime.js";
+import {
+  CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,
+  CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS,
+} from "../lib/code/runtime/CodeAIWorkPackagePromptRuntime.js";
+
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V8";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
@@ -10,7 +20,11 @@ const files = {
   planner: "lib/code/runtime/CodeAIPlannerExecutionRuntime.js",
   provider: "lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProvider.js",
   employee: "lib/code/runtime/CodeAIEmployeeRuntime.js",
-  packages: "lib/code/runtime/CodeAIWorkPackageRuntime.js",
+  packageFacade: "lib/code/runtime/CodeAIWorkPackageRuntime.js",
+  packageCore: "lib/code/runtime/CodeAIWorkPackageCoreRuntime.js",
+  packageLive: "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js",
+  packagePrompt: "lib/code/runtime/CodeAIWorkPackagePromptRuntime.js",
+  liveProgress: "lib/code/runtime/CodeAILiveProgressRuntime.js",
   spend: "lib/code/runtime/CodeAIPlannerSpendPolicy.js",
   executionState: "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
   commitArtifact: "lib/code/runtime/CodeAICommitArtifactRuntime.js",
@@ -25,6 +39,12 @@ const source = Object.fromEntries(
     Object.entries(files).map(async ([key, path]) => [key, await readFile(path, "utf8")]),
   ),
 );
+const workPackageSource = [
+  source.packageFacade,
+  source.packageCore,
+  source.packageLive,
+  source.packagePrompt,
+].join("\n\n");
 
 function requireMarkers(label, content, markers) {
   const missing = markers.filter((marker) => !content.includes(marker));
@@ -118,17 +138,63 @@ requireMarkers("EMPLOYEE", source.employee, [
   "CODE_AI_EMPLOYEE_REASONING_BUDGET_EXHAUSTED",
 ]);
 
-requireMarkers("WORK_PACKAGE", source.packages, [
+// Public behavior is authoritative; source markers are checked only in the files
+// that own their implementation after the WorkPackage runtime was split into
+// facade/core/live/prompt modules.
+assert.equal(CODE_AI_WORK_PACKAGE_CONTRACT, "AVANTIQO_CODE_AI_WORK_PACKAGE_V1");
+assert.equal(typeof executeBatchedAutonomousCodeMission, "function");
+assert.equal(CodeAIWorkPackageRuntime.execute, executeBatchedAutonomousCodeMission);
+assert.equal(CodeAIWorkPackageRuntime.live_progress, true);
+assert.equal(Number(CodeAIWorkPackageRuntime.max_package_operations || 0), 12);
+assert.deepEqual(
+  CodeAIWorkPackageRuntime.implementation_actions,
+  ["apply_files", "verify", "diff"],
+);
+assert.equal(CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS, 24000);
+assert.equal(CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS, 30000);
+assert.ok(
+  CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS -
+    CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS >= 6000,
+);
+
+requireMarkers("WORK_PACKAGE_FACADE", source.packageFacade, [
+  "executeBatchedAutonomousCodeMissionLive",
+  "CodeAIWorkPackageRuntimeLive",
+  "CodeAIWorkPackageCoreRuntime.allowed_package_actions",
+  "CodeAIWorkPackageCoreRuntime.implementation_actions",
+]);
+requireMarkers("WORK_PACKAGE_CORE", source.packageCore, [
   "AVANTIQO_CODE_AI_WORK_PACKAGE_V1",
   "MAX_PACKAGE_OPERATIONS = 12",
-  "apply_files",
-  "verify",
-  "diff",
+  '"apply_files"',
+  '"verify"',
+  '"diff"',
   "CODE_AI_WORK_PACKAGE_MUTATION_REQUIRES_LATER_VERIFICATION",
   "PROMOTE_POST_MUTATION_RUN_TO_VERIFY",
+  "APPEND_CONTROLLER_AUTHORITATIVE_VERIFY",
   "APPEND_CONTROLLER_FINAL_DIFF",
-  "deterministic_final_diff_controller_owned: true",
 ]);
+requireMarkers("WORK_PACKAGE_LIVE", source.packageLive, [
+  "CODE_AI_WORK_PACKAGE_ACTION_NOT_ALLOWED_FOR_PHASE",
+  "CODE_AI_WORK_PACKAGE_IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY",
+  "deterministic_final_diff_controller_owned: true",
+  "publishCodeAILiveProgress",
+  "live_progress: true",
+]);
+requireMarkers("WORK_PACKAGE_PROMPT", source.packagePrompt, [
+  "CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS = 24000",
+  "CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS = 30000",
+  "CODE_AI_WORK_PACKAGE_STATE_BUDGET_EXCEEDED",
+  "headroom_to_worker_limit_chars",
+]);
+requireMarkers("LIVE_PROGRESS", source.liveProgress, [
+  "AVANTIQO_CODE_AI_LIVE_PROGRESS_V1",
+  "refreshActiveCodeWorkerLease",
+  "raw_reasoning_persisted: false",
+  "source_content_persisted: false",
+  "secrets_persisted: false",
+]);
+assert.equal(workPackageSource.includes("[deploy-production-final]"), false);
 
 requireMarkers("SPEND", source.spend, [
   "DEFAULT_CODE_AI_REASONING_CALL_BUDGET = 4",
@@ -191,7 +257,7 @@ console.log(JSON.stringify({
     deterministic_repository_work_overlaps_worker_warmup: true,
     known_source_evidence_can_be_seeded_before_reasoning: true,
     worker_warming_is_resumable_without_reasoning_call: true,
-    model_call_not_required_to_start: true,
+    model_call_not_required_to_start: false,
     bounded_warm_worker_session: true,
     planner_warm_session_precedes_serverless_capacity_check: true,
     planner_warm_session_disables_serverless_stale_queue_recovery: true,
@@ -202,6 +268,14 @@ console.log(JSON.stringify({
     preflight_loads_code_provider_registration_before_registry_validation: true,
     micro_step_public_execution_removed: true,
     batched_multi_operation_packages_required: true,
+    split_work_package_runtime_public_contract_verified: true,
+    live_code_progress_wired: true,
+    active_code_progress_refreshes_worker_lease: true,
+    planner_instruction_limit_chars: CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,
+    worker_instruction_hard_limit_chars: CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS,
+    worker_instruction_headroom_chars:
+      CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS -
+      CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,
     post_mutation_run_can_be_recovered_as_verification_without_new_reasoning: true,
     controller_owned_final_diff_recovery: true,
     missing_post_mutation_verification_still_fails_closed: true,

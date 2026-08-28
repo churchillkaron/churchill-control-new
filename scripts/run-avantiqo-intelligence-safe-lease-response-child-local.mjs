@@ -14,7 +14,10 @@ const RESPONSE_TIMEOUT_MS = boundedInteger(
   600_000,
 );
 const HEALTH_TIMEOUT_MS = 15_000;
-const MAX_OUTPUT_TOKENS = 64;
+const FAST_MAX_OUTPUT_TOKENS = 64;
+const DEEP_MAX_OUTPUT_TOKENS = 1024;
+const QWEN3_THINKING_TEMPERATURE = 0.6;
+const QWEN3_THINKING_TOP_P = 0.95;
 
 function text(value, limit = 4000) {
   return String(value ?? "").trim().slice(0, limit);
@@ -97,6 +100,11 @@ function completionText(body = {}) {
   return "";
 }
 
+function reasoningTransportDetected(body = {}) {
+  const message = body?.choices?.[0]?.message || {};
+  return Boolean(text(message.reasoning_content || message.reasoning, 1));
+}
+
 function assertSafeLease() {
   if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE, 40).toUpperCase() !== "YES") {
     throw new Error(`${CONTRACT}_SAFE_LEASE_ACTIVE_REQUIRED`);
@@ -118,6 +126,11 @@ const lane = assertSafeLease();
 const endpointId = required("AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID");
 const apiKey = text(process.env.RUNPOD_API_KEY, 8000) || required("RUNPOD_MANAGEMENT_API_KEY");
 const expectedModel = ALLOWED_LANES[lane];
+const deepThinking = lane === "intelligence-deep";
+const maxOutputTokens = deepThinking ? DEEP_MAX_OUTPUT_TOKENS : FAST_MAX_OUTPUT_TOKENS;
+const temperature = deepThinking ? QWEN3_THINKING_TEMPERATURE : 0;
+const topP = deepThinking ? QWEN3_THINKING_TOP_P : null;
+const samplingPolicy = deepThinking ? "QWEN3_THINKING_2507_RECOMMENDED" : "FAST_CERTIFICATION_DETERMINISTIC";
 const base = `https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}`;
 
 const beforeHealth = await jsonRequest(`${base}/health`, apiKey);
@@ -156,8 +169,9 @@ const requestBody = {
       content: "Reply with a short statement that confirms the intelligence route is responsive.",
     },
   ],
-  temperature: 0,
-  max_tokens: MAX_OUTPUT_TOKENS,
+  temperature,
+  ...(topP === null ? {} : { top_p: topP }),
+  max_tokens: maxOutputTokens,
 };
 
 const generationStartedAt = Date.now();
@@ -173,7 +187,14 @@ const completion = await jsonRequest(
 const generationLatencyMs = Date.now() - generationStartedAt;
 const responseModel = text(completion?.model, 300) || expectedModel;
 const output = completionText(completion);
-if (!output) throw new Error(`${CONTRACT}_EMPTY_COMPLETION`);
+const reasoningDetected = reasoningTransportDetected(completion);
+const finishReason = text(completion?.choices?.[0]?.finish_reason, 120) || null;
+const completionTokens = finite(completion?.usage?.completion_tokens, 0);
+if (!output) {
+  throw new Error(
+    `${CONTRACT}_EMPTY_FINAL_COMPLETION:reasoning_transport_detected=${reasoningDetected}:finish_reason=${finishReason || "NONE"}:completion_tokens=${completionTokens}`,
+  );
+}
 if (responseModel !== expectedModel) {
   throw new Error(`${CONTRACT}_MODEL_MISMATCH:expected=${expectedModel}:actual=${responseModel}`);
 }
@@ -193,14 +214,20 @@ const result = {
   safe_lease_active: true,
   lane,
   provider: "avantiqo-intelligence",
-  execution_route: lane.includes("deep") ? "deep" : "fast",
+  execution_route: deepThinking ? "deep" : "fast",
   expected_model: expectedModel,
   response_model: responseModel,
+  sampling_policy: samplingPolicy,
+  temperature,
+  top_p: topP,
   model_route_latency_ms: modelRouteLatencyMs,
   generation_latency_ms: generationLatencyMs,
   generation_submitted: true,
   approved_generation_count: 1,
-  max_output_tokens: MAX_OUTPUT_TOKENS,
+  max_output_tokens: maxOutputTokens,
+  completion_tokens: completionTokens,
+  finish_reason: finishReason,
+  reasoning_transport_detected: reasoningDetected,
   response_chars: output.length,
   response_sha256: sha256(output),
   raw_response_persisted: false,

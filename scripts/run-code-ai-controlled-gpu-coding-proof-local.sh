@@ -5,7 +5,7 @@ CONTRACT="AVANTIQO_CODE_AI_CONTROLLED_GPU_CODING_PROOF_LOCAL_V1"
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 WT="/tmp/avantiqo-code-controlled-gpu-proof-$$"
 OLD_DIGEST="1b6ac20925085104ac00c09dde3073e32e5934543bd16b9a346b2dca3fa7bb27"
-NEW_DIGEST="c636b7fc23ab2cd433978cf0ba0470acff7df0df6747b3a64b5e71d1ec762a41"
+NEW_DIGEST="3b2efdb6269a26d2bd443be9aaedf996478efd2771afd6d751a1fc9fe3d842a9"
 RC=1
 
 cleanup() {
@@ -35,7 +35,9 @@ echo "${CONTRACT}_REASONING_CALL_BUDGET=4"
 echo "${CONTRACT}_TARGET_REASONING_CALLS=1-2"
 echo "${CONTRACT}_CANDIDATE_DIGEST=sha256:${NEW_DIGEST}"
 echo "${CONTRACT}_SINGLE_WORKER_WARMUP_AND_CODING=true"
-echo "${CONTRACT}_ACTIVE_ENGINE_LOAD_LIMIT_MS=240000"
+echo "${CONTRACT}_BOOT_PRELOAD=true"
+echo "${CONTRACT}_SAFETENSORS_LOAD_STRATEGY=eager"
+echo "${CONTRACT}_WARMING_PHASE_LIMIT_MS=240000"
 
 if [ ! -f "$ROOT/.env.local" ]; then
   echo "${CONTRACT}_ENV_LOCAL_REQUIRED=true"
@@ -55,13 +57,11 @@ ln -s "$ROOT/node_modules" "$WT/node_modules"
 ln -s "$ROOT/.env.local" "$WT/.env.local"
 cd "$WT" || exit 1
 
-# Phase 1: zero-spend deterministic gates. No RunPod mutation and no model call.
 echo "${CONTRACT}_PHASE=ZERO_SPEND_LOCAL_GATES"
 node scripts/code-ai-seeded-implementation-lock-selftest.mjs || exit 1
 node scripts/code-ai-operator-prewarm-audit.mjs || exit 1
 node scripts/code-ai-work-package-recovery-selftest.mjs || exit 1
 
-# Refuse to share the exact Code model volume with any active GPU Pod.
 echo "${CONTRACT}_PHASE=SHARED_VOLUME_IDLE_PREFLIGHT"
 NODE_ENV=development node --env-file="$ROOT/.env.local" --input-type=module - <<'NODE' || exit 1
 const key = String(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY || "").trim();
@@ -97,11 +97,6 @@ console.log(JSON.stringify({
 }, null, 2));
 NODE
 
-# Bind the candidate digest only inside this detached temporary worktree.
-# Nothing is committed, pushed, deployed, or written to the user's root checkout.
-# The real employee worker below performs its own generation-free engine warmup
-# before the first reasoning call, so we intentionally do not create and delete
-# a separate duplicate warmup Pod here.
 echo "${CONTRACT}_PHASE=TEMPORARY_LOCAL_CANDIDATE_BINDING"
 node --input-type=module - "$OLD_DIGEST" "$NEW_DIGEST" <<'NODE' || exit 1
 import { readFile, writeFile } from "node:fs/promises";
@@ -122,18 +117,77 @@ for (const path of paths) {
 
 const certPath = "scripts/certify-code-ai-employee-fast-start-live.mjs";
 const certBefore = await readFile(certPath, "utf8");
+let certAfter = certBefore;
+
 const oldWatchdog = "const MAX_WORKER_WARMING_MS = 90 * 1000;";
 const newWatchdog = "const MAX_WORKER_WARMING_MS = 4 * 60 * 1000;";
-if (!certBefore.includes(oldWatchdog)) {
+if (!certAfter.includes(oldWatchdog)) {
   throw new Error("AVANTIQO_CODE_GPU_PROOF_CERT_WATCHDOG_MARKER_NOT_FOUND");
 }
-await writeFile(certPath, certBefore.replace(oldWatchdog, newWatchdog), "utf8");
+certAfter = certAfter.replace(oldWatchdog, newWatchdog);
+
+const oldPhaseDeclaration = "  let workerWarmingStartedAt = null;";
+const newPhaseDeclaration = [
+  "  let workerWarmingStartedAt = null;",
+  "  let workerWarmingPhase = null;",
+].join("\n");
+if (!certAfter.includes(oldPhaseDeclaration)) {
+  throw new Error("AVANTIQO_CODE_GPU_PROOF_CERT_PHASE_DECLARATION_MARKER_NOT_FOUND");
+}
+certAfter = certAfter.replace(oldPhaseDeclaration, newPhaseDeclaration);
+
+const oldPhaseBlock = [
+  "    const workerWarming = result.status === \"worker_warming\";",
+  "    if (workerWarming && workerWarmingStartedAt === null) {",
+  "      workerWarmingStartedAt = Date.now();",
+  "    }",
+  "    const workerWarmingElapsedMs = workerWarming && workerWarmingStartedAt !== null",
+  "      ? Date.now() - workerWarmingStartedAt",
+  "      : 0;",
+].join("\n");
+const newPhaseBlock = [
+  "    const workerWarming = result.status === \"worker_warming\";",
+  "    const warmupStatus = text(result.worker_session?.engine_warmup_status, 120).toUpperCase();",
+  "    const nextWorkerWarmingPhase = !workerWarming",
+  "      ? null",
+  "      : warmupStatus === \"RUNNING\" || result.worker_session?.engine_loading === true",
+  "        ? \"ENGINE_LOADING\"",
+  "        : result.worker_session?.transport_ready === true",
+  "          ? \"TRANSPORT_READY\"",
+  "          : \"POD_STARTUP\";",
+  "    if (workerWarming && (workerWarmingStartedAt === null || workerWarmingPhase !== nextWorkerWarmingPhase)) {",
+  "      workerWarmingStartedAt = Date.now();",
+  "      workerWarmingPhase = nextWorkerWarmingPhase;",
+  "    }",
+  "    const workerWarmingElapsedMs = workerWarming && workerWarmingStartedAt !== null",
+  "      ? Date.now() - workerWarmingStartedAt",
+  "      : 0;",
+].join("\n");
+if (!certAfter.includes(oldPhaseBlock)) {
+  throw new Error("AVANTIQO_CODE_GPU_PROOF_CERT_PHASE_BLOCK_MARKER_NOT_FOUND");
+}
+certAfter = certAfter.replace(oldPhaseBlock, newPhaseBlock);
+
+const oldEventMarker = "      worker_warming_limit_ms: MAX_WORKER_WARMING_MS,";
+const newEventMarker = [
+  "      worker_warming_limit_ms: MAX_WORKER_WARMING_MS,",
+  "      worker_warming_phase: workerWarmingPhase,",
+].join("\n");
+if (!certAfter.includes(oldEventMarker)) {
+  throw new Error("AVANTIQO_CODE_GPU_PROOF_CERT_PHASE_EVENT_MARKER_NOT_FOUND");
+}
+certAfter = certAfter.replace(oldEventMarker, newEventMarker);
+
+await writeFile(certPath, certAfter, "utf8");
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_GPU_PROOF_TEMPORARY_BINDING_V1",
+  contract: "AVANTIQO_CODE_GPU_PROOF_TEMPORARY_BINDING_V2",
   candidate_digest: `sha256:${newDigest}`,
-  active_engine_load_limit_ms: 240000,
+  boot_preload: true,
+  safetensors_load_strategy: "eager",
+  per_warming_phase_limit_ms: 240000,
+  watchdog_resets_on_phase_progress: true,
   duplicate_warmup_pod_created: false,
   persistent_source_mutation_performed: false,
   github_write_performed: false,
@@ -157,10 +211,6 @@ if ! printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "scripts/certify-code-ai-employ
   exit 1
 fi
 
-# Phase 2: one real employee coding mission through one candidate GPU worker.
-# The worker-session runtime performs a generation-free engine warmup first.
-# No reasoning call is allowed while the worker is warming. The same warmed
-# worker is then reused for the bounded employee coding mission and cleaned up.
 echo "${CONTRACT}_PHASE=GENERATION_FREE_WARMUP_PLUS_REAL_GPU_EMPLOYEE_CODING_PROOF"
 NODE_ENV=development \
 AVANTIQO_CODE_EMPLOYEE_CERT_SPEND_APPROVED=YES \

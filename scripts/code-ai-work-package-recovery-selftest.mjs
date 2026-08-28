@@ -80,10 +80,11 @@ assert.throws(() => parseCodeAIWorkPackage(JSON.stringify({
 await import("./code-ai-repair-convergence-selftest.mjs");
 await import("./code-ai-seeded-implementation-lock-selftest.mjs");
 await import("./code-ai-operator-prewarm-audit.mjs");
+await import("./code-ai-live-bounded-work-package-selftest.mjs");
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_WORK_PACKAGE_RECOVERY_SELFTEST_V4",
+  contract: "AVANTIQO_CODE_AI_WORK_PACKAGE_RECOVERY_SELFTEST_V5",
   verified: {
     post_mutation_run_promoted_to_verify_without_new_reasoning_call: true,
     controller_owned_final_diff_appended_without_new_reasoning_call: true,
@@ -91,6 +92,7 @@ console.log(JSON.stringify({
     repair_convergence_selftest_included: true,
     seeded_implementation_lock_selftest_included: true,
     operator_prewarm_audit_included: true,
+    live_bounded_work_package_selftest_included: true,
     quality_gate_weakened: false,
     provider_calls_executed: false,
     reasoning_calls_consumed: false,

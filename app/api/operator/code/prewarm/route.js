@@ -6,7 +6,7 @@ import {
   CODE_AI_WORKER_SESSION_CONTRACT,
 } from "@/lib/code/runtime/CodeAIWorkerSessionRuntime";
 
-const DEFAULT_IDLE_MS = 10 * 60 * 1000;
+const DEFAULT_IDLE_MS = 30 * 60 * 1000;
 const MAX_IDLE_MS = 30 * 60 * 1000;
 
 function text(value) {

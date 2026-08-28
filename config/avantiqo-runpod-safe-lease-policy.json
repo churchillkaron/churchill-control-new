@@ -34,6 +34,7 @@
     "music-extend": "avantiqo-music-extend-v1",
     "music-vocal-correction": "avantiqo-music-vocal-correction-v1",
     "music-separator": "avantiqo-music-separator-v1",
+    "music-elastic-audio": "avantiqo-music-elastic-audio-v1",
     "voice-tts": "avantiqo-voice-tts-v1-recovery-20260825",
     "voice-stt": "avantiqo-voice-stt-v1",
     "lipsync": "avantiqo-lipsync-v1.",
@@ -55,6 +56,7 @@
     "music-extend": 6,
     "music-vocal-correction": 6,
     "music-separator": 6,
+    "music-elastic-audio": 6,
     "voice-tts": 6,
     "voice-stt": 6,
     "lipsync": 6

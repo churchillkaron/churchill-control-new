@@ -43,13 +43,18 @@ jobs:
           grep -F 'VLLM_WORKER_MULTIPROC_METHOD=spawn' services/avantiqo-code-engine/Dockerfile.pod
           grep -F 'VLLM_USE_FLASHINFER_SAMPLER=0' services/avantiqo-code-engine/Dockerfile.pod
           grep -F 'ENTRYPOINT ["python3", "-u", "pod_server.py"]' services/avantiqo-code-engine/Dockerfile.pod
+          grep -F 'CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"' services/avantiqo-code-engine/pod_server.py
+          grep -F 'TRANSPORT_PROBE_PATH = "/v3/transport-probe"' services/avantiqo-code-engine/pod_server.py
+          grep -F 'ASYNC_SUBMIT_PATH = "/v3/generations"' services/avantiqo-code-engine/pod_server.py
+          grep -F 'ASYNC_STATUS_PATH_TEMPLATE = "/v3/generations/{job_id}"' services/avantiqo-code-engine/pod_server.py
+          grep -F '@app.post(TRANSPORT_PROBE_PATH)' services/avantiqo-code-engine/pod_server.py
+          grep -F '@app.post(ASYNC_SUBMIT_PATH)' services/avantiqo-code-engine/pod_server.py
+          grep -F '@app.get(ASYNC_STATUS_PATH_TEMPLATE)' services/avantiqo-code-engine/pod_server.py
           grep -F 'import handler as code_engine' services/avantiqo-code-engine/pod_server.py
           grep -F 'MAX_CONCURRENCY = 1' services/avantiqo-code-engine/pod_server.py
           grep -F 'AVANTIQO_CODE_POD_TOKEN_REQUIRED_MIN_32_CHARS' services/avantiqo-code-engine/pod_server.py
-          grep -F '@app.post("/jobs")' services/avantiqo-code-engine/pod_server.py
-          grep -F '@app.get("/jobs/{job_id}")' services/avantiqo-code-engine/pod_server.py
           grep -F 'AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED' services/avantiqo-code-engine/pod_server.py
-          grep -F 'AVANTIQO_CODE_POD_ASYNC_TRANSPORT_SMOKE=PASS' services/avantiqo-code-engine/Dockerfile.pod
+          grep -F 'AVANTIQO_CODE_POD_V3_TRANSPORT_SMOKE=PASS' services/avantiqo-code-engine/Dockerfile.pod
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_CODE_POD_IMAGE_PREFLIGHT=PASS'
 
@@ -119,7 +124,7 @@ jobs:
           const digest = process.env.IMAGE_DIGEST;
           const report = {
             success: true,
-            contract: "AVANTIQO_CODE_POD_IMAGE_RESULT_V2",
+            contract: "AVANTIQO_CODE_POD_IMAGE_RESULT_V3",
             source_sha: process.env.RELEASE_SHA,
             trigger_sha: process.env.TRIGGER_SHA,
             source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
@@ -129,9 +134,14 @@ jobs:
             image_digest: digest,
             immutable_image_reference: `${repository}@${digest}`,
             transport: "pod-http",
+            pod_http_contract: "AVANTIQO_CODE_POD_HTTP_V3",
             transport_mode: "async-job-polling",
-            http_proxy_timeout_strategy: "immediate-job-id-plus-polling",
+            transport_probe_path: "/v3/transport-probe",
+            async_submit_path: "/v3/generations",
+            async_status_path_template: "/v3/generations/{job_id}",
+            http_proxy_timeout_strategy: "authenticated-probe-plus-immediate-job-id-plus-polling",
             synchronous_generation_allowed: false,
+            build_time_transport_probe: true,
             build_time_async_transport_smoke: true,
             runtime: "vllm-0.27.1",
             runtime_model: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
@@ -163,6 +173,7 @@ jobs:
         shell: bash
         run: |
           echo 'AVANTIQO_CODE_POD_IMAGE_BUILD=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_V3_TRANSPORT_SMOKE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_ASYNC_TRANSPORT_SMOKE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_CODE_POD_IMAGE_PRODUCTION_DEPLOY=false'

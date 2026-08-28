@@ -7,6 +7,10 @@ const source = await readFile(sourcePath, "utf8");
 
 const replacements = [
   [
+    '"AVANTIQO_CODE_AI_PLANNER_EXECUTION_V1"',
+    '"AVANTIQO_CODE_AI_PLANNER_EXECUTION_V2"',
+  ],
+  [
     '"service_runtime = ServiceExecutionRuntime"',
     '"serviceRuntime = service_runtime || await defaultServiceRuntime()"',
   ],

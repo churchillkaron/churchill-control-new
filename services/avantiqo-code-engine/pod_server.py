@@ -2,6 +2,7 @@ import asyncio
 import hmac
 import json
 import os
+import threading
 import time
 import traceback
 from typing import Any
@@ -47,6 +48,12 @@ _request_gate = asyncio.Semaphore(MAX_CONCURRENCY)
 _jobs_lock = asyncio.Lock()
 _jobs: dict[str, dict[str, Any]] = {}
 _job_tasks: set[asyncio.Task[Any]] = set()
+_engine_load_lock = threading.Lock()
+_engine_load_in_progress = False
+_engine_load_started_at: float | None = None
+_engine_load_completed_at: float | None = None
+_engine_load_error_type: str | None = None
+_engine_load_error_message: str | None = None
 
 
 def _text(value: Any) -> str:
@@ -121,6 +128,69 @@ async def _prune_jobs_locked() -> None:
         _jobs.pop(stale["job_id"], None)
 
 
+def _ensure_engine_loaded() -> None:
+    global _engine_load_in_progress
+    global _engine_load_started_at
+    global _engine_load_completed_at
+    global _engine_load_error_type
+    global _engine_load_error_message
+
+    if code_engine._ENGINE is not None:
+        return
+
+    with _engine_load_lock:
+        if code_engine._ENGINE is not None:
+            return
+        _engine_load_in_progress = True
+        _engine_load_started_at = time.time()
+        _engine_load_completed_at = None
+        _engine_load_error_type = None
+        _engine_load_error_message = None
+        print(
+            json.dumps(
+                {
+                    "event": "AVANTIQO_CODE_POD_BOOT_ENGINE_LOAD_START",
+                    "contract": CONTRACT,
+                    "cached_model_found": bool(code_engine._cached_model_path(code_engine.RUNTIME_MODEL)),
+                    "inference_performed": False,
+                    "generation_performed": False,
+                    "reasoning_call_consumed": False,
+                    "wallet_mutation_performed": False,
+                    "secrets_printed": False,
+                },
+                separators=(",", ":"),
+            ),
+            flush=True,
+        )
+        try:
+            code_engine._validate_runtime_contract()
+            code_engine._load_engine()
+            _engine_load_completed_at = time.time()
+            print(
+                json.dumps(
+                    {
+                        "event": "AVANTIQO_CODE_POD_BOOT_ENGINE_LOAD_COMPLETE",
+                        "contract": CONTRACT,
+                        "engine_loaded": code_engine._ENGINE is not None,
+                        "inference_performed": False,
+                        "generation_performed": False,
+                        "reasoning_call_consumed": False,
+                        "wallet_mutation_performed": False,
+                        "secrets_printed": False,
+                    },
+                    separators=(",", ":"),
+                ),
+                flush=True,
+            )
+        except Exception as error:
+            _engine_load_error_type = type(error).__name__
+            _engine_load_error_message = _text(error)[:800]
+            traceback.print_exc()
+            raise
+        finally:
+            _engine_load_in_progress = False
+
+
 def _engine_warmup_requested(engine_job: dict[str, Any]) -> bool:
     data = engine_job.get("input") or {}
     specification = data.get("structured_specification") or {}
@@ -132,8 +202,7 @@ def _engine_warmup_requested(engine_job: dict[str, Any]) -> bool:
 
 
 def _engine_warmup_output(engine_job: dict[str, Any]) -> dict[str, Any]:
-    code_engine._validate_runtime_contract()
-    code_engine._load_engine()
+    _ensure_engine_loaded()
     data = engine_job.get("input") or {}
     return {
         "status": "engine_ready",
@@ -167,6 +236,7 @@ async def _execute_async_job(job_id: str, engine_job: dict[str, Any]) -> None:
             if _engine_warmup_requested(engine_job):
                 output = await asyncio.to_thread(_engine_warmup_output, engine_job)
             else:
+                await asyncio.to_thread(_ensure_engine_loaded)
                 output = await asyncio.to_thread(code_engine.handler, engine_job)
         except Exception as error:
             traceback.print_exc()
@@ -195,6 +265,35 @@ def _track_task(task: asyncio.Task[Any]) -> None:
     task.add_done_callback(_job_tasks.discard)
 
 
+async def _boot_preload_engine() -> None:
+    try:
+        await asyncio.to_thread(_ensure_engine_loaded)
+    except Exception as error:
+        print(
+            json.dumps(
+                {
+                    "event": "AVANTIQO_CODE_POD_BOOT_ENGINE_LOAD_FAILED",
+                    "contract": CONTRACT,
+                    "error_type": type(error).__name__,
+                    "error_message": _text(error)[:400],
+                    "inference_performed": False,
+                    "generation_performed": False,
+                    "reasoning_call_consumed": False,
+                    "wallet_mutation_performed": False,
+                    "secrets_printed": False,
+                },
+                separators=(",", ":"),
+            ),
+            flush=True,
+        )
+
+
+@app.on_event("startup")
+async def start_boot_engine_preload() -> None:
+    task = asyncio.create_task(_boot_preload_engine())
+    _track_task(task)
+
+
 @app.get("/health")
 async def health() -> dict[str, Any]:
     code_engine.check_worker()
@@ -216,6 +315,11 @@ async def health() -> dict[str, Any]:
         "quantization": code_engine.QUANTIZATION,
         "cached_model_found": bool(cached_path),
         "engine_loaded": code_engine._ENGINE is not None,
+        "engine_loading": _engine_load_in_progress,
+        "engine_load_started_at": _engine_load_started_at,
+        "engine_load_completed_at": _engine_load_completed_at,
+        "engine_load_error_type": _engine_load_error_type,
+        "engine_load_error_message": _engine_load_error_message,
         "max_concurrency": MAX_CONCURRENCY,
         "async_jobs_enabled": True,
         "synchronous_generation_allowed": False,
@@ -419,7 +523,7 @@ if __name__ == "__main__":
                 "port": PORT,
                 "cache_root": str(code_engine.HF_CACHE_ROOT),
                 "max_concurrency": MAX_CONCURRENCY,
-                "model_load": "LAZY_ASYNC_ENGINE_WARMUP",
+                "model_load": "BOOT_BACKGROUND_GENERATION_FREE",
                 "transport_mode": "async-job-polling",
                 "transport_probe_path": TRANSPORT_PROBE_PATH,
                 "async_submit_path": ASYNC_SUBMIT_PATH,

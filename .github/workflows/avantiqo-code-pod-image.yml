@@ -23,7 +23,7 @@ concurrency:
 jobs:
   build-code-pod-image:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - name: Checkout exact triggering source
         uses: actions/checkout@v4
@@ -62,6 +62,7 @@ jobs:
           echo 'AVANTIQO_CODE_POD_IMAGE_BASE_RUNTIME_IMMUTABLE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_HANDLER_REQUIREMENTS_UNCHANGED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_THIN_OVERLAY_PUBLICATION=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PREFLIGHT=PASS'
 
       - name: Set up Docker Buildx
@@ -104,10 +105,9 @@ jobs:
             avantiqo.code.base.source=1cb94f50400afdf448d8460de0a2709f7f6dc688
             avantiqo.code.base.digest=sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262
             avantiqo.code.runtime.gate=external-runpod-v3-before-inference
-          provenance: true
-          sbom: true
-          cache-from: type=gha,scope=avantiqo-code-pod-v3-overlay
-          cache-to: type=gha,mode=max,scope=avantiqo-code-pod-v3-overlay
+            avantiqo.code.publication.mode=thin-overlay-no-base-scan
+          provenance: false
+          sbom: false
 
       - name: Create immutable Pod image evidence
         env:
@@ -146,6 +146,9 @@ jobs:
             base_image_digest: "sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262",
             base_runtime_reused_immutably: true,
             handler_requirements_unchanged_from_base: true,
+            publication_mode: "thin-overlay-no-base-scan",
+            registry_provenance_attestation_generated: false,
+            registry_sbom_generated: false,
             transport: "pod-http",
             pod_http_contract: "AVANTIQO_CODE_POD_HTTP_V3",
             transport_mode: "async-job-polling",
@@ -188,6 +191,7 @@ jobs:
         run: |
           echo 'AVANTIQO_CODE_POD_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_IMMUTABLE_OVERLAY=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_THIN_OVERLAY_PUBLICATION=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_CODE_POD_IMAGE_PRODUCTION_DEPLOY=false'

@@ -86,6 +86,9 @@
     },
     "app/api/internal/voice/runpod-leases/process/route.js": {
       "maxDuration": 300
+    },
+    "app/api/internal/code/worker-session/process/route.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -219,6 +222,10 @@
     },
     {
       "path": "/api/internal/voice/runpod-leases/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/code/worker-session/process",
       "schedule": "* * * * *"
     }
   ]

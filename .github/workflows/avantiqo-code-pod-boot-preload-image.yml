@@ -1,0 +1,93 @@
+name: Avantiqo Code Pod Boot Preload Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-code-pod-boot-preload-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: avantiqo-code-pod-boot-preload-image
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUNTIME_SOURCE_SHA: 325b201d9278999638380ffe506b9cc01ee38622
+      BASE_IMAGE: ghcr.io/churchillkaron/avantiqo-code-pod@sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify boot-preload runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "${RUNTIME_SOURCE_SHA}^{commit}"
+          test -z "$(git diff --name-only "${RUNTIME_SOURCE_SHA}"..HEAD -- services/avantiqo-code-engine/pod_server.py)"
+          server="$(git show "${RUNTIME_SOURCE_SHA}:services/avantiqo-code-engine/pod_server.py")"
+          grep -F 'CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"' <<<"${server}"
+          grep -F '@app.on_event("startup")' <<<"${server}"
+          grep -F 'async def start_boot_engine_preload' <<<"${server}"
+          grep -F '"model_load": "BOOT_BACKGROUND_GENERATION_FREE"' <<<"${server}"
+          grep -F '"inference_performed": False' <<<"${server}"
+          grep -F '"generation_performed": False' <<<"${server}"
+          grep -F '"reasoning_call_consumed": False' <<<"${server}"
+          grep -F '"wallet_mutation_performed": False' <<<"${server}"
+          mkdir -p /tmp/code-preload-check
+          printf '%s\n' "${server}" > /tmp/code-preload-check/pod_server.py
+          python3 -m py_compile /tmp/code-preload-check/pod_server.py
+          echo AVANTIQO_CODE_BOOT_PRELOAD_SOURCE=PASS
+
+      - uses: imjasonh/setup-crane@v0.7
+
+      - name: Authenticate GHCR
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${GHCR_TOKEN}" | crane auth login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Publish immutable overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-code-pod"
+          tag="${image}:boot-preload-${RUNTIME_SOURCE_SHA:0:12}"
+          rm -rf /tmp/code-preload-layer
+          mkdir -p /tmp/code-preload-layer/app
+          git show "${RUNTIME_SOURCE_SHA}:services/avantiqo-code-engine/pod_server.py" > /tmp/code-preload-layer/app/pod_server.py
+          chmod 0644 /tmp/code-preload-layer/app/pod_server.py
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -C /tmp/code-preload-layer -cf /tmp/code-preload-layer.tar app/pod_server.py
+          crane mutate --platform linux/amd64 "${BASE_IMAGE}" \
+            --append /tmp/code-preload-layer.tar \
+            --entrypoint=python3,-u,pod_server.py \
+            --workdir=/app \
+            --env AVANTIQO_CODE_POD_PORT=8000 \
+            --exposed-ports=8000/tcp \
+            --label org.opencontainers.image.revision="${RUNTIME_SOURCE_SHA}" \
+            --label avantiqo.code.engine.warmup=boot-background-generation-free \
+            --label avantiqo.code.runtime.gate=external-runpod-before-inference \
+            --tag "${tag}"
+          digest="$(crane digest "${tag}")"
+          case "${digest}" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "AVANTIQO_CODE_BOOT_PRELOAD_DIGEST_INVALID:${digest}"; exit 1 ;;
+          esac
+          echo "AVANTIQO_CODE_BOOT_PRELOAD_IMAGE=${image}@${digest}"
+          echo "AVANTIQO_CODE_BOOT_PRELOAD_DIGEST=${digest}"
+          echo "AVANTIQO_CODE_BOOT_PRELOAD_GENERATION_PERFORMED=false"
+          echo "AVANTIQO_CODE_BOOT_PRELOAD_INFERENCE_PERFORMED=false"
+          echo "AVANTIQO_CODE_BOOT_PRELOAD_BUILD=PASS"

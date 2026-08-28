@@ -1,0 +1,13 @@
+{
+  "contract": "AVANTIQO_VIDEO_32GB_CANDIDATE_BUILD_REQUEST_V1",
+  "requested_at": "2026-08-28T03:55:00Z",
+  "candidate_runtime": "AVANTIQO_VIDEO_WAN22_A14B_32GB_GROUP_OFFLOAD_V1",
+  "target_gpu_primary": "NVIDIA RTX PRO 4500 Blackwell",
+  "target_gpu_secondary": "NVIDIA GeForce RTX 5090",
+  "target_region": "EU-RO-1",
+  "target_vram_gb": 32,
+  "production_rebind_authorized": false,
+  "runpod_mutation_authorized": false,
+  "video_generation_authorized": false,
+  "external_paid_provider_authorized": false
+}

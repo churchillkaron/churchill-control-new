@@ -4,16 +4,19 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_RUNNER_V4";
+const CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_RUNNER_V5";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const LANE = "voice-stt";
 const ENDPOINT_NAME = "avantiqo-voice-stt-v1";
-const TARGET_SOURCE_SHA = "ff11761b2876c70b74b0eaa45081dcaac592e9bc";
 const NATIVE_IMAGE_PREFIX = "registry.runpod.net/churchillkaron-churchill-control-new-main-services-avantiqo-voice-stt-dockerfile:";
-const TARGET_IMAGE = `${NATIVE_IMAGE_PREFIX}${TARGET_SOURCE_SHA.slice(0, 9)}`;
-const EXPECTED_HANDLER_BLOB = "d9d24ff5e2cde494cebde0d2df0a333d74ad0d91";
-const EXPECTED_DOCKERFILE_BLOB = "fe1ceb09e246a3ad1d851bbba3aaa3f5822e9d2d";
-const EXPECTED_REQUIREMENTS_BLOB = "9b1f4d662a7b13b65d192493ed738998d2172698";
+const STT_SOURCE = Object.freeze({
+  handler_path: "services/avantiqo-voice-stt/handler.py",
+  handler_blob: "d9d24ff5e2cde494cebde0d2df0a333d74ad0d91",
+  dockerfile_path: "services/avantiqo-voice-stt/Dockerfile",
+  dockerfile_blob: "fe1ceb09e246a3ad1d851bbba3aaa3f5822e9d2d",
+  requirements_path: "services/avantiqo-voice-stt/requirements.txt",
+  requirements_blob: "9b1f4d662a7b13b65d192493ed738998d2172698",
+});
 const EXPECTED_RUNTIME_REVISION = "AVANTIQO_VOICE_STT_HANDLER_RUNTIME_PROBE_V1";
 const EXPECTED_PROBE_CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_V1";
 const EXPECTED_FOUNDATION = "openai/whisper-large-v3-turbo";
@@ -47,6 +50,10 @@ function runGit(args) {
   const result = spawnSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   if (result.status !== 0) throw new Error(`GIT_${args[0].toUpperCase()}_FAILED:${redact(result.stderr || result.stdout)}`);
   return text(result.stdout);
+}
+function gitSucceeds(args) {
+  const result = spawnSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  return result.status === 0;
 }
 async function readJson(response, label) {
   const raw = await response.text();
@@ -101,27 +108,58 @@ function healthSummary(body = {}) {
     },
   };
 }
+function voiceBlobs(ref) {
+  return {
+    handler_blob: runGit(["rev-parse", `${ref}:${STT_SOURCE.handler_path}`]),
+    dockerfile_blob: runGit(["rev-parse", `${ref}:${STT_SOURCE.dockerfile_path}`]),
+    requirements_blob: runGit(["rev-parse", `${ref}:${STT_SOURCE.requirements_path}`]),
+  };
+}
+function assertCorrectedVoiceBlobs(blobs, label) {
+  if (blobs.handler_blob !== STT_SOURCE.handler_blob) {
+    throw new Error(`AVANTIQO_VOICE_STT_PROBE_${label}_HANDLER_SOURCE_CHANGED:${blobs.handler_blob}`);
+  }
+  if (blobs.dockerfile_blob !== STT_SOURCE.dockerfile_blob) {
+    throw new Error(`AVANTIQO_VOICE_STT_PROBE_${label}_DOCKERFILE_SOURCE_CHANGED:${blobs.dockerfile_blob}`);
+  }
+  if (blobs.requirements_blob !== STT_SOURCE.requirements_blob) {
+    throw new Error(`AVANTIQO_VOICE_STT_PROBE_${label}_REQUIREMENTS_SOURCE_CHANGED:${blobs.requirements_blob}`);
+  }
+}
 function verifyNativeSource(image) {
   const value = text(image);
-  if (value !== TARGET_IMAGE) {
-    throw new Error(`AVANTIQO_VOICE_STT_PROBE_CORRECTED_NATIVE_IMAGE_REQUIRED:${value || "MISSING"}`);
+  if (!value.startsWith(NATIVE_IMAGE_PREFIX)) {
+    throw new Error(`AVANTIQO_VOICE_STT_PROBE_RUNPOD_NATIVE_IMAGE_REQUIRED:${value || "MISSING"}`);
   }
+  const sourceRef = value.slice(NATIVE_IMAGE_PREFIX.length);
+  if (!/^[a-f0-9]{7,40}$/i.test(sourceRef)) {
+    throw new Error(`AVANTIQO_VOICE_STT_PROBE_NATIVE_IMAGE_SOURCE_REF_INVALID:${sourceRef || "MISSING"}`);
+  }
+
   runGit(["fetch", "origin", "main", "--quiet"]);
-  const sourceSha = runGit(["rev-parse", `${TARGET_SOURCE_SHA}^{commit}`]);
-  if (sourceSha !== TARGET_SOURCE_SHA) throw new Error(`AVANTIQO_VOICE_STT_PROBE_SOURCE_SHA_INVALID:${sourceSha}`);
-  const handlerBlob = runGit(["rev-parse", `${sourceSha}:services/avantiqo-voice-stt/handler.py`]);
-  const dockerfileBlob = runGit(["rev-parse", `${sourceSha}:services/avantiqo-voice-stt/Dockerfile`]);
-  const requirementsBlob = runGit(["rev-parse", `${sourceSha}:services/avantiqo-voice-stt/requirements.txt`]);
-  if (handlerBlob !== EXPECTED_HANDLER_BLOB) throw new Error(`AVANTIQO_VOICE_STT_PROBE_HANDLER_SOURCE_NOT_CURRENT:${handlerBlob}`);
-  if (dockerfileBlob !== EXPECTED_DOCKERFILE_BLOB) throw new Error(`AVANTIQO_VOICE_STT_PROBE_DOCKERFILE_SOURCE_CHANGED:${dockerfileBlob}`);
-  if (requirementsBlob !== EXPECTED_REQUIREMENTS_BLOB) throw new Error(`AVANTIQO_VOICE_STT_PROBE_REQUIREMENTS_SOURCE_CHANGED:${requirementsBlob}`);
+  const sourceSha = runGit(["rev-parse", `${sourceRef}^{commit}`]);
+  if (!/^[a-f0-9]{40}$/i.test(sourceSha)) throw new Error(`AVANTIQO_VOICE_STT_PROBE_SOURCE_SHA_INVALID:${sourceSha}`);
+  if (!gitSucceeds(["merge-base", "--is-ancestor", sourceSha, "origin/main"])) {
+    throw new Error(`AVANTIQO_VOICE_STT_PROBE_NATIVE_IMAGE_SOURCE_NOT_ON_MAIN:${sourceSha}`);
+  }
+
+  const imageBlobs = voiceBlobs(sourceSha);
+  assertCorrectedVoiceBlobs(imageBlobs, "IMAGE");
+  const mainBlobs = voiceBlobs("origin/main");
+  assertCorrectedVoiceBlobs(mainBlobs, "NEWEST_MAIN");
+
   return {
+    source_ref: sourceRef,
     source_sha: sourceSha,
-    source_ref: TARGET_SOURCE_SHA.slice(0, 9),
-    handler_blob: handlerBlob,
-    dockerfile_blob: dockerfileBlob,
-    requirements_blob: requirementsBlob,
-    native_image: TARGET_IMAGE,
+    source_is_ancestor_of_main: true,
+    handler_blob: imageBlobs.handler_blob,
+    dockerfile_blob: imageBlobs.dockerfile_blob,
+    requirements_blob: imageBlobs.requirements_blob,
+    newest_main_voice_equivalent: imageBlobs.handler_blob === mainBlobs.handler_blob &&
+      imageBlobs.dockerfile_blob === mainBlobs.dockerfile_blob &&
+      imageBlobs.requirements_blob === mainBlobs.requirements_blob,
+    native_image: value,
+    fixed_tag_required: false,
   };
 }
 async function inventory(managementKey) {

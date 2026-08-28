@@ -22,6 +22,10 @@ const replacements = [
     '"executeWorldClassCodeMission"',
     '"executeCodeAIEmployeeMission"',
   ],
+  [
+    '"Persistent GitHub commits remain a separate governed capability"',
+    '"persistCodeAICommitArtifact"',
+  ],
 ];
 
 let adapted = source;

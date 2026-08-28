@@ -6,7 +6,7 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 register("./next-alias-loader.mjs", import.meta.url);
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_CODE_EMPLOYEE_SERVICE_RUNTIME_PREFLIGHT_V2";
+const CONTRACT = "AVANTIQO_CODE_EMPLOYEE_SERVICE_RUNTIME_PREFLIGHT_V3";
 const ORGANIZATION_ID = String(
   process.argv[2] || process.env.AVANTIQO_CODE_PLANNER_CERT_ORGANIZATION_ID || "",
 ).trim();
@@ -41,7 +41,24 @@ if (!text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY)) 
 if (!text(process.env.RUNPOD_AVANTIQO_CODE_ENDPOINT_ID)) {
   throw new Error("CODE_EMPLOYEE_PREFLIGHT_RUNPOD_ENDPOINT_REQUIRED");
 }
+
+if (!text(process.env.RUNPOD_API_KEY)) {
+  const runtimeCredential = text(
+    process.env.RUNPOD_AVANTIQO_CODE_API_KEY || process.env.RUNPOD_MANAGEMENT_API_KEY,
+  );
+  if (runtimeCredential) process.env.RUNPOD_API_KEY = runtimeCredential;
+}
+if (!text(process.env.RUNPOD_API_KEY)) {
+  throw new Error("CODE_EMPLOYEE_PREFLIGHT_RUNPOD_RUNTIME_CREDENTIAL_REQUIRED");
+}
 process.env.AVANTIQO_CODE_ENGINE_ENABLED = "true";
+
+// ProviderRegistry is populated by registration modules at runtime. Import the
+// Code registration only after the certification environment has been normalized
+// so runtimeAvailable is evaluated against the same credentials used by Service Runtime.
+await import(
+  "../lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProviderRegistration.js"
+);
 
 const supabase = createClient(
   required("NEXT_PUBLIC_SUPABASE_URL"),
@@ -208,6 +225,9 @@ if (registeredProvider.metadata?.foundation_model_source_locked !== true) {
 if (registeredProvider.metadata?.runtime_configuration?.foundation_model_env_matches !== true) {
   throw new Error("CODE_EMPLOYEE_PREFLIGHT_FOUNDATION_MODEL_ENV_CONFLICT");
 }
+if (registeredProvider.metadata?.runtime_configuration?.runpod_api_key_configured !== true) {
+  throw new Error("CODE_EMPLOYEE_PREFLIGHT_PROVIDER_RUNTIME_CREDENTIAL_NOT_BOUND");
+}
 
 const settlementProbe = await PricingRuntime.resolveById({
   pricing_id: pricing.id,
@@ -238,8 +258,12 @@ console.log(JSON.stringify({
   organization_id: ORGANIZATION_ID,
   worker_control_organization_id_present: true,
   worker_session_secret_present: true,
+  provider_registration_loaded_explicitly: true,
+  runpod_runtime_credential_normalized: true,
   service_id: SERVICE_ID,
   provider: PROVIDER,
+  provider_registered: true,
+  provider_runtime_available: true,
   foundation_model: FOUNDATION_MODEL,
   service_active: true,
   owned_only: true,

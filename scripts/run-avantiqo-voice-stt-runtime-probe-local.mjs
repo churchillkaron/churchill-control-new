@@ -4,7 +4,7 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_RUNNER_V3";
+const CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_RUNNER_V4";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const LANE = "voice-stt";
 const ENDPOINT_NAME = "avantiqo-voice-stt-v1";
@@ -20,8 +20,9 @@ const EXPECTED_FOUNDATION = "openai/whisper-large-v3-turbo";
 const REST = "https://rest.runpod.io/v1";
 const QUEUE = "https://api.runpod.ai/v2";
 const POLL_MS = 2000;
-const CLAIM_TIMEOUT_MS = 90_000;
-const COMPLETE_TIMEOUT_MS = 180_000;
+const CLAIM_TIMEOUT_MS = 180_000;
+const COMPLETE_TIMEOUT_MS = 240_000;
+const SAFE_LEASE_TTL_MS = 300_000;
 const SAFE_LEASE_SCRIPT = resolve("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs");
 
 const text = (value) => String(value ?? "").trim();
@@ -167,7 +168,7 @@ if (!approved(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE)) {
   }
   const result = spawnSync(
     process.execPath,
-    [SAFE_LEASE_SCRIPT, "--lane=voice-stt", "--ttl-ms=240000", "--", process.execPath, resolve(process.argv[1])],
+    [SAFE_LEASE_SCRIPT, "--lane=voice-stt", `--ttl-ms=${SAFE_LEASE_TTL_MS}`, "--", process.execPath, resolve(process.argv[1])],
     { cwd: process.cwd(), env: process.env, stdio: "inherit", encoding: "utf8" },
   );
   if (result.error) throw result.error;
@@ -206,6 +207,9 @@ console.log(JSON.stringify({
   registry_auth_present: false,
   queue_credential_source: credential.source,
   queue_before: before,
+  claim_timeout_seconds: Math.round(CLAIM_TIMEOUT_MS / 1000),
+  completion_timeout_seconds: Math.round(COMPLETE_TIMEOUT_MS / 1000),
+  safe_lease_ttl_seconds: Math.round(SAFE_LEASE_TTL_MS / 1000),
   transcription_requested: false,
   inference_requested: false,
   tts_touched: false,

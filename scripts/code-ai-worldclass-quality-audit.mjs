@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V5";
+const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V6";
 
 const files = Object.freeze({
   qualityPolicy: "lib/code/runtime/CodeAIWorldClassQualityPolicy.js",
@@ -64,7 +64,10 @@ if (/Sandbox|ServiceExecutionRuntime|RUNPOD|fetch\s*\(/.test(qualityPolicy)) {
 }
 
 requireMarkers("FAST_START", fastStart, [
-  "AVANTIQO_CODE_AI_EMPLOYEE_FAST_START_V1",
+  "AVANTIQO_CODE_AI_EMPLOYEE_FAST_START_V2",
+  "ensureCodeAIWorkerSession",
+  "Promise.all([preparationPromise, workerPromise])",
+  'status: "worker_warming"',
   "executeCodeAIEmployeeMission",
   "model_call_required_to_start: false",
   "employee_fast_start_inspect",
@@ -205,9 +208,10 @@ const attestationCall = autonomousCapability.indexOf("result.state = attestCodeM
 if (fastStartImport < 0 || executionCall < 0 || attestationCall <= executionCall) {
   throw new Error(`${CONTRACT}_FAST_START_EMPLOYEE_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
 }
+const workerGate = fastStart.indexOf("if (worker?.ready !== true)");
 const fastStartEmployeeCall = fastStart.indexOf("await executeCodeAIEmployeeMission({");
-if (fastStartEmployeeCall < 0) {
-  throw new Error(`${CONTRACT}_FAST_START_MUST_DELEGATE_TO_EMPLOYEE_RUNTIME`);
+if (workerGate < 0 || fastStartEmployeeCall <= workerGate) {
+  throw new Error(`${CONTRACT}_WORKER_READINESS_MUST_PRECEDE_EMPLOYEE_REASONING`);
 }
 const employeeQualityImport = employee.indexOf("assessCodeAIWorldClassQuality");
 const employeeQualityCall = employee.indexOf("const worldClass = assessCodeAIWorldClassQuality(source)");
@@ -227,7 +231,8 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   verified: {
     pure_quality_policy_without_runtime_dependencies: true,
-    deterministic_fast_start_precedes_reasoning: true,
+    deterministic_fast_start_overlaps_worker_warmup: true,
+    worker_readiness_precedes_paid_employee_reasoning: true,
     mandatory_worldclass_employee_gate: true,
     public_fast_start_employee_execution_precedes_attestation: true,
     legacy_worldclass_runtime_retained_as_non_public_compatibility: true,

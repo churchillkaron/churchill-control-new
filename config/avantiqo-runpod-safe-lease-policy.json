@@ -62,6 +62,7 @@
     "lipsync": 6
   },
   "lane_max_lease_ttl_ms": {
-    "code": 3600000
+    "code": 3600000,
+    "intelligence-benchmark": 8100000
   }
 }

@@ -20,20 +20,25 @@ import uvicorn
 
 import handler as code_engine
 
-CONTRACT = "AVANTIQO_CODE_POD_HTTP_V2"
+CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"
 HOST = "0.0.0.0"
 PORT = int(os.getenv("AVANTIQO_CODE_POD_PORT", "8000"))
 POD_TOKEN = os.getenv("AVANTIQO_CODE_POD_TOKEN", "").strip()
 MAX_CONCURRENCY = 1
 JOB_HISTORY_LIMIT = 32
 TERMINAL_JOB_STATES = {"SUCCEEDED", "FAILED"}
+TRANSPORT_PROBE_PATH = "/v3/transport-probe"
+ASYNC_SUBMIT_PATH = "/v3/generations"
+ASYNC_STATUS_PATH_TEMPLATE = "/v3/generations/{job_id}"
+LEGACY_ASYNC_SUBMIT_PATH = "/jobs"
+LEGACY_ASYNC_STATUS_PATH_TEMPLATE = "/jobs/{job_id}"
 
 if len(POD_TOKEN) < 32:
     raise RuntimeError("AVANTIQO_CODE_POD_TOKEN_REQUIRED_MIN_32_CHARS")
 
 app = FastAPI(
     title="Avantiqo Code Pod",
-    version="2",
+    version="3",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -166,6 +171,9 @@ async def health() -> dict[str, Any]:
         "engine_contract": code_engine.ENGINE_CONTRACT,
         "transport": "pod-http",
         "transport_mode": "async-job-polling",
+        "transport_probe_path": TRANSPORT_PROBE_PATH,
+        "async_submit_path": ASYNC_SUBMIT_PATH,
+        "async_status_path_template": ASYNC_STATUS_PATH_TEMPLATE,
         "runtime_model": code_engine.RUNTIME_MODEL,
         "foundation_model": code_engine.FOUNDATION_MODEL,
         "quantization": code_engine.QUANTIZATION,
@@ -180,10 +188,25 @@ async def health() -> dict[str, Any]:
     }
 
 
-@app.post("/jobs")
-async def create_job(
-    payload: dict[str, Any],
+@app.post(TRANSPORT_PROBE_PATH)
+async def transport_probe(
     authorization: str | None = Header(default=None),
+):
+    _authorize(authorization)
+    return {
+        "success": True,
+        "contract": CONTRACT,
+        "transport": "pod-http",
+        "transport_mode": "async-job-polling",
+        "proxy_timeout_safe": True,
+        "inference_performed": False,
+        "raw_reasoning_persisted": False,
+    }
+
+
+async def _create_generation(
+    payload: dict[str, Any],
+    authorization: str | None,
 ):
     _authorize(authorization)
     if not isinstance(payload, dict) or not isinstance(payload.get("input"), dict):
@@ -226,18 +249,33 @@ async def create_job(
             "transport_mode": "async-job-polling",
             "job_id": job_id,
             "status": "QUEUED",
-            "poll_path": f"/jobs/{job_id}",
+            "poll_path": ASYNC_STATUS_PATH_TEMPLATE.replace("{job_id}", job_id),
             "proxy_timeout_safe": True,
             "raw_reasoning_persisted": False,
         },
     )
 
 
-@app.get("/jobs/{job_id}")
-async def get_job(
-    job_id: str,
+@app.post(ASYNC_SUBMIT_PATH)
+async def create_generation(
+    payload: dict[str, Any],
     authorization: str | None = Header(default=None),
 ):
+    return await _create_generation(payload, authorization)
+
+
+# Backward-compatible alias. The V3 transport advertises and certifies only the
+# versioned canonical route so external proxy behavior cannot be confused with
+# application routing.
+@app.post(LEGACY_ASYNC_SUBMIT_PATH, include_in_schema=False)
+async def create_generation_legacy(
+    payload: dict[str, Any],
+    authorization: str | None = Header(default=None),
+):
+    return await _create_generation(payload, authorization)
+
+
+async def _get_generation(job_id: str, authorization: str | None):
     _authorize(authorization)
     normalized = _text(job_id)
     async with _jobs_lock:
@@ -245,6 +283,22 @@ async def get_job(
         if job is None:
             raise HTTPException(status_code=404, detail="AVANTIQO_CODE_POD_JOB_NOT_FOUND")
         return _job_public(job)
+
+
+@app.get(ASYNC_STATUS_PATH_TEMPLATE)
+async def get_generation(
+    job_id: str,
+    authorization: str | None = Header(default=None),
+):
+    return await _get_generation(job_id, authorization)
+
+
+@app.get(LEGACY_ASYNC_STATUS_PATH_TEMPLATE, include_in_schema=False)
+async def get_generation_legacy(
+    job_id: str,
+    authorization: str | None = Header(default=None),
+):
+    return await _get_generation(job_id, authorization)
 
 
 @app.post("/run")
@@ -270,7 +324,9 @@ async def run(
                 "transport": "pod-http",
                 "error_type": "AsyncJobRequired",
                 "error_message": "AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED",
-                "async_jobs_path": "/jobs",
+                "transport_probe_path": TRANSPORT_PROBE_PATH,
+                "async_submit_path": ASYNC_SUBMIT_PATH,
+                "async_status_path_template": ASYNC_STATUS_PATH_TEMPLATE,
                 "raw_reasoning_persisted": False,
             },
         )
@@ -328,6 +384,9 @@ if __name__ == "__main__":
                 "max_concurrency": MAX_CONCURRENCY,
                 "model_load": "LAZY_ASYNC_JOB",
                 "transport_mode": "async-job-polling",
+                "transport_probe_path": TRANSPORT_PROBE_PATH,
+                "async_submit_path": ASYNC_SUBMIT_PATH,
+                "async_status_path_template": ASYNC_STATUS_PATH_TEMPLATE,
                 "synchronous_generation_allowed": False,
                 "secrets_printed": False,
             },

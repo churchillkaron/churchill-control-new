@@ -21,6 +21,11 @@ assert.match(prompt, /CURRENT ALLOWED ACTION SHAPES/);
 assert.match(prompt, /plannerRules\(currentAllowedActions\)/);
 assert.match(prompt, /An action absent from CURRENT ALLOWED ACTIONS is invalid/);
 assert.match(prompt, /inspect is bootstrap\/replan-only/);
+assert.match(prompt, /function plannerForwardProgressDirective\(state, allowedActions = \[\]\)/);
+assert.match(prompt, /FORWARD PROGRESS DIRECTIVE/);
+assert.match(prompt, /forbidden_actions: forwardProgress\.forbidden_actions/);
+assert.match(prompt, /allowed_actions_contract: "STRICT_ENUM"/);
+assert.match(prompt, /forward_progress_recovery_active: forwardProgress\.active/);
 
 const suppressedPrompt = CodeAIPlannerPromptRuntime.build({
   objective: "Repair a bounded fixture.",
@@ -33,6 +38,63 @@ assert.equal(suppressedPrompt.structured_specification.allowed_actions.includes(
 assert.equal(suppressedPrompt.instruction.includes('read: {"action":"read"'), false);
 assert.equal(suppressedPrompt.instruction.includes('apply_files: {"action":"apply_files"'), true);
 assert.equal(suppressedPrompt.instruction.includes("CURRENT ALLOWED ACTION SHAPES"), true);
+
+const liveSuppressedReadState = {
+  base_commit: "f".repeat(40),
+  status: "repair_required",
+  repository_guidance: { contract: "AVANTIQO_CODE_REPOSITORY_GUIDANCE_V1" },
+  source_read_evidence: [{
+    kind: "operation",
+    operation_id: "autonomy_15_read",
+    action: "read",
+    status: "completed",
+    result: {
+      file_path: "tests/fixtures/code-ai-autonomous-multifile/invoice-summary.mjs",
+      start_line: 1,
+      end_line: 10,
+      total_lines: 10,
+      content: "export function summarizeInvoice(lines) { return lines; }",
+    },
+  }],
+  autonomy_control: {
+    duplicate_rejection_streak: 1,
+    last_duplicate_action: "read",
+    suppressed_action_rejection_streak: 1,
+    last_suppressed_action: "read",
+  },
+};
+const liveRecoveryPrompt = CodeAIPlannerPromptRuntime.build({
+  objective: "Repair the remaining invoice summary defect.",
+  iteration: 18,
+  state: liveSuppressedReadState,
+  allowed_actions: ["search", "apply_files", "run", "verify", "diff", "research", "complete", "block"],
+  autonomy_contract: "AVANTIQO_CODE_AI_AUTONOMOUS_RUNTIME_V1",
+});
+assert.equal(liveRecoveryPrompt.structured_specification.allowed_actions.includes("read"), false);
+assert.equal(liveRecoveryPrompt.structured_specification.forbidden_actions.includes("read"), true);
+assert.equal(liveRecoveryPrompt.structured_specification.allowed_actions_contract, "STRICT_ENUM");
+assert.equal(liveRecoveryPrompt.structured_specification.forward_progress_recovery_active, true);
+assert.match(liveRecoveryPrompt.instruction, /HARD RECOVERY:/);
+assert.match(liveRecoveryPrompt.instruction, /Do not emit "read" again/);
+assert.match(liveRecoveryPrompt.instruction, /source_read_evidence is already valid/);
+assert.match(liveRecoveryPrompt.instruction, /choose apply_files now/);
+assert.equal(liveRecoveryPrompt.instruction.includes('read: {"action":"read"'), false);
+assert.equal(liveRecoveryPrompt.instruction.includes('apply_files: {"action":"apply_files"'), true);
+
+const verifiedCompletionPrompt = CodeAIPlannerPromptRuntime.build({
+  objective: "Finish the verified bounded repair.",
+  iteration: 19,
+  state: {
+    ...liveSuppressedReadState,
+    status: "completed",
+    verification: [{ passed: true, operation_id: "autonomy_14_verify" }],
+  },
+  allowed_actions: ["search", "apply_files", "run", "verify", "diff", "research", "complete", "block"],
+  autonomy_contract: "AVANTIQO_CODE_AI_AUTONOMOUS_RUNTIME_V1",
+});
+assert.match(verifiedCompletionPrompt.instruction, /Successful verification is already observed/);
+assert.match(verifiedCompletionPrompt.instruction, /choose complete now/);
+assert.match(verifiedCompletionPrompt.instruction, /do not reopen satisfied investigation/);
 
 function nextDuplicate(control, action = null) {
   if (!action) return { ...control, duplicate_rejection_streak: 0, last_duplicate_action: null };
@@ -138,7 +200,7 @@ assert.match(runtime, /entryAction === action/);
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V5",
+  contract: "AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V6",
   verified: {
     duplicate_streak_is_first_class_control_state: true,
     first_duplicate_temporarily_suppresses_repeated_action_type: true,
@@ -154,10 +216,15 @@ console.log(JSON.stringify({
     post_edit_inspect_escape_hatch_closed: true,
     replan_required_can_reinspect_repository: true,
     legacy_state_without_repository_guidance_can_inspect: true,
+    suppressed_action_gets_explicit_recovery_directive: true,
+    forbidden_actions_are_structured: true,
+    read_recovery_reuses_current_source_evidence: true,
+    repair_state_directs_apply_files_forward_progress: true,
+    verified_completion_converges_without_reopening_investigation: true,
   },
   provider_calls_executed: false,
   provider_spend_performed: false,
   runpod_lease_opened: false,
   production_deploy_performed: false,
 }, null, 2));
-console.log("AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V5=PASS");
+console.log("AVANTIQO_CODE_AI_DUPLICATE_FORWARD_PROGRESS_SELFTEST_V6=PASS");

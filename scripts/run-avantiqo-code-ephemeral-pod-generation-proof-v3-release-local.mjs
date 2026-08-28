@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 const CONTRACT = "AVANTIQO_CODE_EPHEMERAL_POD_GENERATION_PROOF_V3_RELEASE_LAUNCHER";
 const SOURCE_PATH = "scripts/run-avantiqo-code-ephemeral-pod-generation-proof-v3-local.mjs";
 const OLD_RELEASE_SHA = "0ae554d2cee35b16a9e94af5d957d85b07995945";
-const RELEASE_SHA = "4e163cb3d476577a003cb67df264cc67b5c31d4f";
+const RELEASE_SHA = "65ed9ca05c7af1e45908989a84a535fdcd9e5258";
 const RELEASE_TAG = `sha-${RELEASE_SHA.slice(0, 12)}`;
 const IMAGE_REPOSITORY_PATH = "churchillkaron/avantiqo-code-pod";
 const IMAGE_READY_TIMEOUT_MS = 30 * 60_000;

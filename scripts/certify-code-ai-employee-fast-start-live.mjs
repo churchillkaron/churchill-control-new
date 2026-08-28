@@ -22,6 +22,7 @@ const ALLOWED_FILES = Object.freeze([
 const REASONING_CALL_BUDGET = 4;
 const WARM_IDLE_MS = 10 * 60 * 1000;
 const POLL_DELAY_MS = 5000;
+const MAX_WORKER_WARMING_MS = 90 * 1000;
 const MAX_RESUME_CYCLES = 180;
 const MAX_CERTIFICATION_RUNTIME_MS = 30 * 60 * 1000;
 const REST = "https://rest.runpod.io/v1";
@@ -184,6 +185,7 @@ try {
   let workerWarmingCycles = 0;
   let plannerPendingCycles = 0;
   let firstInvocationElapsedMs = null;
+  let workerWarmingStartedAt = null;
   const startedAt = Date.now();
 
   for (let cycle = 1; cycle <= MAX_RESUME_CYCLES; cycle += 1) {
@@ -232,6 +234,14 @@ try {
       firstReasoningObservedCycle = cycle;
     }
 
+    const workerWarming = result.status === "worker_warming";
+    if (workerWarming && workerWarmingStartedAt === null) {
+      workerWarmingStartedAt = Date.now();
+    }
+    const workerWarmingElapsedMs = workerWarming && workerWarmingStartedAt !== null
+      ? Date.now() - workerWarmingStartedAt
+      : 0;
+
     event("CYCLE", {
       cycle,
       status: result.status,
@@ -240,7 +250,17 @@ try {
       total_elapsed_ms: elapsed,
       fast_start_elapsed_ms: result.fast_start?.deterministic_start_elapsed_ms ?? null,
       worker_ready: result.worker_session?.ready === true,
-      worker_warming: result.status === "worker_warming",
+      worker_warming: workerWarming,
+      worker_warming_elapsed_ms: workerWarmingElapsedMs,
+      worker_warming_limit_ms: MAX_WORKER_WARMING_MS,
+      worker_state: result.worker_session?.state || null,
+      worker_reason: result.worker_session?.reason || null,
+      worker_transport_ready: result.worker_session?.transport_ready === true,
+      worker_cached_model_found: result.worker_session?.cached_model_found === true,
+      worker_engine_loaded: result.worker_session?.engine_loaded === true,
+      worker_engine_warmup_job_present: result.worker_session?.engine_warmup_job_present === true,
+      worker_engine_warmup_status: result.worker_session?.engine_warmup_status || null,
+      worker_pod_id_present: result.worker_session?.pod_id_present === true,
       reasoning_calls_used: reasoningCalls,
       reasoning_call_budget: REASONING_CALL_BUDGET,
       package_count: Number(result.state?.work_package_control?.packages_executed || 0),
@@ -248,10 +268,22 @@ try {
       provider_job_pending: Boolean(result.state?.planner_pending?.provider_job_id),
     });
 
-    if (result.status === "worker_warming") {
+    if (workerWarming) {
       workerWarmingCycles += 1;
       if (reasoningCalls !== 0) {
         throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_WARMING_MUST_NOT_SPEND_REASONING_CALL");
+      }
+      if (workerWarmingElapsedMs >= MAX_WORKER_WARMING_MS) {
+        throw new Error(
+          `AVANTIQO_CODE_EMPLOYEE_CERT_WORKER_WARMING_LIMIT_EXCEEDED:` +
+          `elapsed_ms=${workerWarmingElapsedMs}:` +
+          `state=${text(result.worker_session?.state, 120) || "UNKNOWN"}:` +
+          `reason=${text(result.worker_session?.reason, 200) || "UNKNOWN"}:` +
+          `transport_ready=${result.worker_session?.transport_ready === true}:` +
+          `cached_model_found=${result.worker_session?.cached_model_found === true}:` +
+          `engine_loaded=${result.worker_session?.engine_loaded === true}:` +
+          `warmup_status=${text(result.worker_session?.engine_warmup_status, 120) || "UNKNOWN"}`,
+        );
       }
       resumeState = result.state;
       await new Promise((resolve) => setTimeout(resolve, POLL_DELAY_MS));

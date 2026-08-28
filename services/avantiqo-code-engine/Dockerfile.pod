@@ -28,10 +28,12 @@ COPY services/avantiqo-code-engine/handler.py ./handler.py
 COPY services/avantiqo-code-engine/pod_server.py ./pod_server.py
 RUN python3 -m py_compile handler.py pod_server.py
 
-# Start the real Pod HTTP server during the image build and prove the async
-# transport end to end without CUDA inference. The smoke job uses the engine's
-# benchmark-only runtime probe, so it validates auth, queueing, polling, vLLM
-# metadata, and Uvicorn port binding without loading model weights.
+# Start the real Pod HTTP server during the image build and prove the canonical
+# V3 transport end to end without CUDA inference. The authenticated transport
+# probe proves the POST path separately from generation. The queued job then
+# uses the engine's benchmark-only runtime probe, so auth, canonical routing,
+# queueing, polling, metadata and Uvicorn binding are all covered without
+# loading model weights.
 RUN AVANTIQO_CODE_POD_TOKEN=avantiqo-code-build-smoke-token-0123456789abcdef python3 - <<'PY'
 import json
 import os
@@ -40,6 +42,10 @@ import time
 import urllib.request
 
 token = os.environ["AVANTIQO_CODE_POD_TOKEN"]
+base = "http://127.0.0.1:8000"
+transport_probe_path = "/v3/transport-probe"
+async_submit_path = "/v3/generations"
+async_status_template = "/v3/generations/{job_id}"
 log_path = "/tmp/avantiqo-code-pod-smoke.log"
 log = open(log_path, "w", encoding="utf-8")
 process = subprocess.Popen(
@@ -55,7 +61,7 @@ try:
         if process.poll() is not None:
             raise RuntimeError(f"pod server exited early: {process.returncode}")
         try:
-            with urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=2) as response:
+            with urllib.request.urlopen(f"{base}/health", timeout=2) as response:
                 health = json.load(response)
             if health.get("success") is True:
                 break
@@ -63,11 +69,31 @@ try:
             time.sleep(1)
     if not health or health.get("success") is not True:
         raise RuntimeError("pod health smoke timeout")
-    assert health["contract"] == "AVANTIQO_CODE_POD_HTTP_V2"
+    assert health["contract"] == "AVANTIQO_CODE_POD_HTTP_V3"
     assert health["transport_mode"] == "async-job-polling"
+    assert health["transport_probe_path"] == transport_probe_path
+    assert health["async_submit_path"] == async_submit_path
+    assert health["async_status_path_template"] == async_status_template
     assert health["async_jobs_enabled"] is True
     assert health["synchronous_generation_allowed"] is False
     assert health["engine_loaded"] is False
+
+    probe_request = urllib.request.Request(
+        f"{base}{transport_probe_path}",
+        data=b"",
+        headers={"Authorization": f"Bearer {token}"},
+        method="POST",
+    )
+    with urllib.request.urlopen(probe_request, timeout=5) as response:
+        assert response.status == 200
+        probe = json.load(response)
+    assert probe["success"] is True
+    assert probe["contract"] == "AVANTIQO_CODE_POD_HTTP_V3"
+    assert probe["transport"] == "pod-http"
+    assert probe["transport_mode"] == "async-job-polling"
+    assert probe["proxy_timeout_safe"] is True
+    assert probe["inference_performed"] is False
+    assert probe["raw_reasoning_persisted"] is False
 
     payload = json.dumps(
         {
@@ -76,13 +102,13 @@ try:
                 "contract": "AVANTIQO_CODE_ENGINE_V1",
                 "capability": "ai.code.debug",
                 "organization_id": "benchmark-only",
-                "instruction": "Validate the Pod async transport without loading the model.",
+                "instruction": "Validate the Pod V3 async transport without loading the model.",
                 "structured_specification": {"runtime_probe": True},
             },
         }
     ).encode("utf-8")
     request = urllib.request.Request(
-        "http://127.0.0.1:8000/jobs",
+        f"{base}{async_submit_path}",
         data=payload,
         headers={
             "Authorization": f"Bearer {token}",
@@ -93,18 +119,22 @@ try:
     with urllib.request.urlopen(request, timeout=5) as response:
         assert response.status == 202
         accepted = json.load(response)
+    assert accepted["contract"] == "AVANTIQO_CODE_POD_HTTP_V3"
     assert accepted["proxy_timeout_safe"] is True
     job_id = accepted["job_id"]
+    assert accepted["poll_path"] == async_status_template.replace("{job_id}", job_id)
 
     result = None
     deadline = time.time() + 45
     while time.time() < deadline:
+        status_path = async_status_template.replace("{job_id}", job_id)
         request = urllib.request.Request(
-            f"http://127.0.0.1:8000/jobs/{job_id}",
+            f"{base}{status_path}",
             headers={"Authorization": f"Bearer {token}"},
         )
         with urllib.request.urlopen(request, timeout=5) as response:
             status = json.load(response)
+        assert status["contract"] == "AVANTIQO_CODE_POD_HTTP_V3"
         if status["status"] == "FAILED":
             raise RuntimeError(json.dumps(status))
         if status["status"] == "SUCCEEDED":
@@ -112,7 +142,7 @@ try:
             break
         time.sleep(0.25)
     if result is None:
-        raise RuntimeError("pod async job smoke timeout")
+        raise RuntimeError("pod V3 async job smoke timeout")
     output = result["output"]
     assert output["status"] == "runtime_probe"
     assert output["provider"] == "avantiqo-code"
@@ -120,6 +150,7 @@ try:
     assert output["quantization"] == "fp8"
     assert output["engine_loaded"] is False
     assert output["raw_reasoning_persisted"] is False
+    print("AVANTIQO_CODE_POD_V3_TRANSPORT_SMOKE=PASS")
     print("AVANTIQO_CODE_POD_ASYNC_TRANSPORT_SMOKE=PASS")
 except Exception:
     log.flush()

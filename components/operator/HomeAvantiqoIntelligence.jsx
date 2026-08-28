@@ -7,6 +7,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 const OPERATOR_TURN_TIMEOUT_MS = 30000;
+const CODE_PREWARM_POLL_MS = 5000;
+const CODE_PREWARM_MAX_POLLS = 90;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -118,6 +120,43 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    if (!organizationId) return undefined;
+
+    const controller = new AbortController();
+    let timer = null;
+    let polls = 0;
+
+    async function advanceCodePrewarm() {
+      if (controller.signal.aborted || polls >= CODE_PREWARM_MAX_POLLS) return;
+      polls += 1;
+      try {
+        const response = await fetch("/api/operator/code/prewarm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          signal: controller.signal,
+          body: JSON.stringify({ organizationId }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (controller.signal.aborted) return;
+        if (response.ok && (result?.ready === true || result?.status === "disabled")) {
+          return;
+        }
+      } catch (prewarmError) {
+        if (prewarmError?.name === "AbortError") return;
+        console.debug("AVANTIQO_CODE_PREWARM_BACKGROUND_RETRY", prewarmError?.message || prewarmError);
+      }
+      timer = window.setTimeout(advanceCodePrewarm, CODE_PREWARM_POLL_MS);
+    }
+
+    advanceCodePrewarm();
+    return () => {
+      controller.abort();
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [organizationId]);
 
   useEffect(() => {
     if (!organizationId) {

@@ -4,11 +4,13 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_RUNNER_V2";
+const CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_RUNNER_V3";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const LANE = "voice-stt";
 const ENDPOINT_NAME = "avantiqo-voice-stt-v1";
-const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-voice-stt-worker-image.json";
+const TARGET_SOURCE_SHA = "ff11761b2876c70b74b0eaa45081dcaac592e9bc";
+const NATIVE_IMAGE_PREFIX = "registry.runpod.net/churchillkaron-churchill-control-new-main-services-avantiqo-voice-stt-dockerfile:";
+const TARGET_IMAGE = `${NATIVE_IMAGE_PREFIX}${TARGET_SOURCE_SHA.slice(0, 9)}`;
 const EXPECTED_HANDLER_BLOB = "d9d24ff5e2cde494cebde0d2df0a333d74ad0d91";
 const EXPECTED_DOCKERFILE_BLOB = "fe1ceb09e246a3ad1d851bbba3aaa3f5822e9d2d";
 const EXPECTED_REQUIREMENTS_BLOB = "9b1f4d662a7b13b65d192493ed738998d2172698";
@@ -98,24 +100,14 @@ function healthSummary(body = {}) {
     },
   };
 }
-function verifyCertifiedSource(image) {
+function verifyNativeSource(image) {
   const value = text(image);
-  runGit(["fetch", "origin", "main", "--quiet"]);
-  const evidence = JSON.parse(runGit(["show", `origin/main:${IMAGE_EVIDENCE_PATH}`]));
-  const certifiedImage = text(evidence?.immutable_image_reference);
-  const sourceSha = text(evidence?.source_sha);
-  const validEvidence =
-    evidence?.success === true &&
-    evidence?.contract === "AVANTIQO_VOICE_STT_WORKER_IMAGE_RESULT_V1" &&
-    evidence?.source_sha_matches_trigger === true &&
-    evidence?.vocabulary_context_prompt_ids_baked === true &&
-    text(evidence?.foundation_model) === EXPECTED_FOUNDATION &&
-    /^ghcr\.io\/.+@sha256:[a-f0-9]{64}$/i.test(certifiedImage) &&
-    /^[a-f0-9]{40}$/i.test(sourceSha);
-  if (!validEvidence) throw new Error("AVANTIQO_VOICE_STT_PROBE_CERTIFIED_IMAGE_EVIDENCE_REQUIRED");
-  if (value !== certifiedImage) {
-    throw new Error(`AVANTIQO_VOICE_STT_PROBE_CERTIFIED_IMAGE_NOT_BOUND:${value || "MISSING"}`);
+  if (value !== TARGET_IMAGE) {
+    throw new Error(`AVANTIQO_VOICE_STT_PROBE_CORRECTED_NATIVE_IMAGE_REQUIRED:${value || "MISSING"}`);
   }
+  runGit(["fetch", "origin", "main", "--quiet"]);
+  const sourceSha = runGit(["rev-parse", `${TARGET_SOURCE_SHA}^{commit}`]);
+  if (sourceSha !== TARGET_SOURCE_SHA) throw new Error(`AVANTIQO_VOICE_STT_PROBE_SOURCE_SHA_INVALID:${sourceSha}`);
   const handlerBlob = runGit(["rev-parse", `${sourceSha}:services/avantiqo-voice-stt/handler.py`]);
   const dockerfileBlob = runGit(["rev-parse", `${sourceSha}:services/avantiqo-voice-stt/Dockerfile`]);
   const requirementsBlob = runGit(["rev-parse", `${sourceSha}:services/avantiqo-voice-stt/requirements.txt`]);
@@ -124,12 +116,11 @@ function verifyCertifiedSource(image) {
   if (requirementsBlob !== EXPECTED_REQUIREMENTS_BLOB) throw new Error(`AVANTIQO_VOICE_STT_PROBE_REQUIREMENTS_SOURCE_CHANGED:${requirementsBlob}`);
   return {
     source_sha: sourceSha,
+    source_ref: TARGET_SOURCE_SHA.slice(0, 9),
     handler_blob: handlerBlob,
     dockerfile_blob: dockerfileBlob,
     requirements_blob: requirementsBlob,
-    immutable_image_reference: certifiedImage,
-    image_digest: text(evidence?.image_digest) || null,
-    github_run_id: text(evidence?.github_run_id) || null,
+    native_image: TARGET_IMAGE,
   };
 }
 async function inventory(managementKey) {
@@ -196,9 +187,9 @@ if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID) !== endpointId) thr
 if (finite(endpoint.workersMin, -1) !== 0 || finite(endpoint.workersMax, -1) !== 1) {
   throw new Error(`AVANTIQO_VOICE_STT_RUNTIME_PROBE_LEASE_CAPACITY_REQUIRED:${finite(endpoint.workersMin)}/${finite(endpoint.workersMax)}`);
 }
-if (!text(template.containerRegistryAuthId)) throw new Error("AVANTIQO_VOICE_STT_PROBE_CERTIFIED_REGISTRY_AUTH_REQUIRED");
+if (text(template.containerRegistryAuthId)) throw new Error("AVANTIQO_VOICE_STT_PROBE_NATIVE_REGISTRY_AUTH_MUST_BE_EMPTY");
 if (list(template.dockerEntrypoint).length || list(template.dockerStartCmd).length) throw new Error("AVANTIQO_VOICE_STT_RUNTIME_PROBE_LAUNCH_OVERRIDE_PRESENT");
-const source = verifyCertifiedSource(text(template.imageName));
+const source = verifyNativeSource(text(template.imageName));
 const credential = await selectQueueCredential(endpointId, managementKey);
 const before = healthSummary(await queue(endpointId, "/health", credential.key));
 if (before.jobs.in_queue !== 0 || before.jobs.in_progress !== 0) throw new Error(`AVANTIQO_VOICE_STT_RUNTIME_PROBE_QUEUE_NOT_CLEAN:${JSON.stringify(before.jobs)}`);
@@ -212,7 +203,7 @@ console.log(JSON.stringify({
   template_image: text(template.imageName),
   source_verified: true,
   source,
-  registry_auth_present: true,
+  registry_auth_present: false,
   queue_credential_source: credential.source,
   queue_before: before,
   transcription_requested: false,
@@ -263,7 +254,7 @@ try {
     if (!claimed && Date.now() - started > CLAIM_TIMEOUT_MS) {
       throw new Error(`AVANTIQO_VOICE_STT_RUNTIME_PROBE_NOT_CLAIMED:state=${state || "UNKNOWN"}`);
     }
-    if (["COMPLETED"].includes(state)) {
+    if (state === "COMPLETED") {
       terminal = status;
       completed = true;
       break;

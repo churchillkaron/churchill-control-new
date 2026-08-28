@@ -3,20 +3,32 @@ import { readFile } from "node:fs/promises";
 
 import {
   CODE_AI_WORK_PACKAGE_CONTRACT,
+  CodeAIWorkPackageRuntime,
+  executeBatchedAutonomousCodeMission,
   parseCodeAIWorkPackage,
   resolveCodeAIWorkPackageActionPolicy,
 } from "../lib/code/runtime/CodeAIWorkPackageRuntime.js";
+import {
+  CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,
+  CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS,
+} from "../lib/code/runtime/CodeAIWorkPackagePromptRuntime.js";
 
-const CONTRACT = "AVANTIQO_CODE_AI_SEEDED_IMPLEMENTATION_LOCK_SELFTEST_V1";
-const runtimePaths = [
-  "lib/code/runtime/CodeAIWorkPackageRuntime.js",
-  "lib/code/runtime/CodeAIWorkPackageCoreRuntime.js",
-  "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js",
-  "lib/code/runtime/CodeAIWorkPackagePromptRuntime.js",
-];
-const runtimeSource = (
-  await Promise.all(runtimePaths.map((runtimePath) => readFile(runtimePath, "utf8")))
-).join("\n\n");
+const CONTRACT = "AVANTIQO_CODE_AI_SEEDED_IMPLEMENTATION_LOCK_SELFTEST_V2";
+const runtimePaths = {
+  facade: "lib/code/runtime/CodeAIWorkPackageRuntime.js",
+  core: "lib/code/runtime/CodeAIWorkPackageCoreRuntime.js",
+  live: "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js",
+  prompt: "lib/code/runtime/CodeAIWorkPackagePromptRuntime.js",
+};
+const runtimeSources = Object.fromEntries(
+  await Promise.all(
+    Object.entries(runtimePaths).map(async ([name, runtimePath]) => [
+      name,
+      await readFile(runtimePath, "utf8"),
+    ]),
+  ),
+);
+const allRuntimeSource = Object.values(runtimeSources).join("\n\n");
 
 function completedRead(filePath, content = "export const observed = true;\n") {
   return {
@@ -54,6 +66,21 @@ const seededState = {
     completedRead(objectiveContext.evidence_path_2),
   ],
 };
+
+assert.equal(typeof executeBatchedAutonomousCodeMission, "function");
+assert.equal(CodeAIWorkPackageRuntime.execute, executeBatchedAutonomousCodeMission);
+assert.equal(CodeAIWorkPackageRuntime.live_progress, true);
+assert.equal(CodeAIWorkPackageRuntime.max_package_operations, 12);
+assert.deepEqual(
+  CodeAIWorkPackageRuntime.implementation_actions,
+  ["apply_files", "verify", "diff"],
+);
+assert.equal(CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS, 24000);
+assert.equal(CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS, 30000);
+assert.ok(
+  CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS -
+    CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS >= 6000,
+);
 
 const seededPolicy = resolveCodeAIWorkPackageActionPolicy({
   objective_context: objectiveContext,
@@ -143,10 +170,7 @@ assert.deepEqual(
   controllerCompletedMutation.controller_normalizations.map((entry) => entry.kind),
   ["APPEND_CONTROLLER_AUTHORITATIVE_VERIFY", "APPEND_CONTROLLER_FINAL_DIFF"],
 );
-assert.equal(
-  controllerCompletedMutation.operations[1]?.input?.command,
-  "node",
-);
+assert.equal(controllerCompletedMutation.operations[1]?.input?.command, "node");
 assert.deepEqual(
   controllerCompletedMutation.operations[1]?.input?.args,
   ["scripts/code-ai-autonomous-multifile-fixture-test.mjs"],
@@ -207,26 +231,29 @@ assert.equal(repairPolicy.repair_state, true);
 assert.equal(repairPolicy.discovery_locked, true);
 assert.deepEqual(repairPolicy.allowed_actions, ["apply_files", "verify", "diff"]);
 
-for (const marker of [
-  "executeBatchedAutonomousCodeMissionLive as executeBatchedAutonomousCodeMission",
-  "CODE_AI_WORK_PACKAGE_ACTION_NOT_ALLOWED_FOR_PHASE",
-  "CODE_AI_WORK_PACKAGE_IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY",
-  "DISCOVERY IS LOCKED.",
-  "Allowed package actions for THIS call",
-  "APPEND_CONTROLLER_AUTHORITATIVE_VERIFY",
-  "APPEND_CONTROLLER_FINAL_DIFF",
-  "CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS = 24000",
-  "CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS = 30000",
-]) {
-  assert.equal(runtimeSource.includes(marker), true, `runtime marker missing: ${marker}`);
+const implementationOwnedMarkers = [
+  [runtimeSources.live, "CODE_AI_WORK_PACKAGE_ACTION_NOT_ALLOWED_FOR_PHASE", "live action guard"],
+  [runtimeSources.live, "CODE_AI_WORK_PACKAGE_IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY", "live implementation guard"],
+  [runtimeSources.live, "DISCOVERY IS LOCKED.", "live discovery-lock instruction"],
+  [runtimeSources.live, "Allowed package actions for THIS call", "live action contract"],
+  [runtimeSources.core, "APPEND_CONTROLLER_AUTHORITATIVE_VERIFY", "core verification normalization"],
+  [runtimeSources.core, "APPEND_CONTROLLER_FINAL_DIFF", "core diff normalization"],
+  [runtimeSources.facade, "executeBatchedAutonomousCodeMissionLive", "public live-executor binding"],
+  [runtimeSources.prompt, "CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS", "bounded prompt transport"],
+  [runtimeSources.prompt, "CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS", "worker hard-limit contract"],
+];
+for (const [source, marker, label] of implementationOwnedMarkers) {
+  assert.equal(source.includes(marker), true, `${label} missing: ${marker}`);
 }
 
-assert.equal(runtimeSource.includes("[deploy-production-final]"), false);
+assert.equal(allRuntimeSource.includes("[deploy-production-final]"), false);
 
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   verified: {
+    public_runtime_routes_to_live_executor: true,
+    live_progress_enabled: true,
     declared_source_evidence_locks_discovery: true,
     partial_source_evidence_keeps_batched_discovery_available: true,
     long_session_history_preserves_declared_evidence_lock: true,
@@ -235,6 +262,11 @@ console.log(JSON.stringify({
     implementation_is_required_after_seeded_discovery: true,
     authoritative_verification_is_controller_owned_when_omitted: true,
     final_diff_is_controller_owned_when_omitted: true,
+    planner_instruction_limit_chars: CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,
+    worker_instruction_hard_limit_chars: CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS,
+    worker_instruction_headroom_chars:
+      CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS -
+      CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,
     bounded_planner_transport_is_public_runtime_dependency: true,
     repair_state_locks_discovery: true,
     model_provider_call_performed: false,

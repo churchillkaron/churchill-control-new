@@ -21,111 +21,184 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-code-pod-image:
+  publish-code-pod-image:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    env:
+      RUNTIME_SOURCE_SHA: 9bd988af574236c3b775ec3850ea1338cb46e991
+      BASE_SOURCE_SHA: 1cb94f50400afdf448d8460de0a2709f7f6dc688
+      BASE_IMAGE: ghcr.io/churchillkaron/avantiqo-code-pod@sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262
+
     steps:
-      - name: Checkout exact triggering source
+      - name: Checkout publisher source
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Verify Code Pod V3 overlay provenance
+      - name: Verify pinned Code V3 runtime source
         shell: bash
         run: |
           set -euo pipefail
-          BASE_SOURCE_SHA='1cb94f50400afdf448d8460de0a2709f7f6dc688'
-          BASE_IMAGE='ghcr.io/churchillkaron/avantiqo-code-pod@sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262'
 
-          test -f services/avantiqo-code-engine/Dockerfile.pod
-          test -f services/avantiqo-code-engine/pod_server.py
-          test -f services/avantiqo-code-engine/handler.py
-          test -f services/avantiqo-code-engine/requirements.txt
+          git cat-file -e "${RUNTIME_SOURCE_SHA}^{commit}"
           git cat-file -e "${BASE_SOURCE_SHA}^{commit}"
 
-          test -z "$(git diff --name-only "${BASE_SOURCE_SHA}"..HEAD -- services/avantiqo-code-engine/handler.py services/avantiqo-code-engine/requirements.txt)"
-          grep -F "FROM ${BASE_IMAGE}" services/avantiqo-code-engine/Dockerfile.pod
-          grep -F 'ENTRYPOINT ["python3", "-u", "pod_server.py"]' services/avantiqo-code-engine/Dockerfile.pod
-          grep -F 'CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"' services/avantiqo-code-engine/pod_server.py
-          grep -F 'TRANSPORT_PROBE_PATH = "/v3/transport-probe"' services/avantiqo-code-engine/pod_server.py
-          grep -F 'ASYNC_SUBMIT_PATH = "/v3/generations"' services/avantiqo-code-engine/pod_server.py
-          grep -F 'ASYNC_STATUS_PATH_TEMPLATE = "/v3/generations/{job_id}"' services/avantiqo-code-engine/pod_server.py
-          grep -F '@app.post(TRANSPORT_PROBE_PATH)' services/avantiqo-code-engine/pod_server.py
-          grep -F '@app.post(ASYNC_SUBMIT_PATH)' services/avantiqo-code-engine/pod_server.py
-          grep -F '@app.get(ASYNC_STATUS_PATH_TEMPLATE)' services/avantiqo-code-engine/pod_server.py
-          grep -F 'import handler as code_engine' services/avantiqo-code-engine/pod_server.py
-          grep -F 'MAX_CONCURRENCY = 1' services/avantiqo-code-engine/pod_server.py
-          grep -F 'AVANTIQO_CODE_POD_TOKEN_REQUIRED_MIN_32_CHARS' services/avantiqo-code-engine/pod_server.py
-          grep -F 'AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED' services/avantiqo-code-engine/pod_server.py
-          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          # Publisher-only workflow changes are allowed after the runtime pin.
+          # Runtime inputs must remain exactly the pinned 9bd988af release.
+          test -z "$(git diff --name-only "${RUNTIME_SOURCE_SHA}"..HEAD -- \
+            services/avantiqo-code-engine/Dockerfile.pod \
+            services/avantiqo-code-engine/pod_server.py \
+            services/avantiqo-code-engine/handler.py \
+            services/avantiqo-code-engine/requirements.txt)"
+
+          # V3 changes transport only; the engine and dependencies remain the
+          # already-certified immutable V2 runtime.
+          test -z "$(git diff --name-only "${BASE_SOURCE_SHA}".."${RUNTIME_SOURCE_SHA}" -- \
+            services/avantiqo-code-engine/handler.py \
+            services/avantiqo-code-engine/requirements.txt)"
+
+          dockerfile="$(git show "${RUNTIME_SOURCE_SHA}:services/avantiqo-code-engine/Dockerfile.pod")"
+          server="$(git show "${RUNTIME_SOURCE_SHA}:services/avantiqo-code-engine/pod_server.py")"
+
+          grep -F "FROM ${BASE_IMAGE}" <<<"${dockerfile}"
+          grep -F 'ENTRYPOINT ["python3", "-u", "pod_server.py"]' <<<"${dockerfile}"
+          grep -F 'CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"' <<<"${server}"
+          grep -F 'TRANSPORT_PROBE_PATH = "/v3/transport-probe"' <<<"${server}"
+          grep -F 'ASYNC_SUBMIT_PATH = "/v3/generations"' <<<"${server}"
+          grep -F 'ASYNC_STATUS_PATH_TEMPLATE = "/v3/generations/{job_id}"' <<<"${server}"
+          grep -F '@app.post(TRANSPORT_PROBE_PATH)' <<<"${server}"
+          grep -F '@app.post(ASYNC_SUBMIT_PATH)' <<<"${server}"
+          grep -F '@app.get(ASYNC_STATUS_PATH_TEMPLATE)' <<<"${server}"
+          grep -F 'import handler as code_engine' <<<"${server}"
+          grep -F 'MAX_CONCURRENCY = 1' <<<"${server}"
+          grep -F 'AVANTIQO_CODE_POD_TOKEN_REQUIRED_MIN_32_CHARS' <<<"${server}"
+          grep -F 'AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED' <<<"${server}"
+
+          mkdir -p /tmp/avantiqo-code-v3-source
+          printf '%s\n' "${server}" > /tmp/avantiqo-code-v3-source/pod_server.py
+          python3 -m py_compile /tmp/avantiqo-code-v3-source/pod_server.py
+
+          echo 'AVANTIQO_CODE_POD_IMAGE_RUNTIME_SOURCE_PINNED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_BASE_RUNTIME_IMMUTABLE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_HANDLER_REQUIREMENTS_UNCHANGED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
-          echo 'AVANTIQO_CODE_POD_IMAGE_THIN_OVERLAY_PUBLICATION=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PREFLIGHT=PASS'
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Set up crane
+        uses: imjasonh/setup-crane@v0.7
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+      - name: Authenticate GHCR
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${GHCR_TOKEN}" | crane auth login ghcr.io \
+            --username "${GITHUB_ACTOR}" \
+            --password-stdin
 
-      - name: Resolve immutable image coordinates
+      - name: Publish immutable V3 registry overlay
         id: image
         shell: bash
         run: |
           set -euo pipefail
-          release_sha="$(git rev-parse HEAD)"
-          short_sha="${release_sha:0:12}"
+
           owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           image="ghcr.io/${owner}/avantiqo-code-pod"
+          short_sha="${RUNTIME_SOURCE_SHA:0:12}"
           tag="${image}:sha-${short_sha}"
-          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
-          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "AVANTIQO_CODE_POD_IMAGE_TAG=$tag"
 
-      - name: Build and push immutable Code Pod image
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: services/avantiqo-code-engine/Dockerfile.pod
-          push: true
-          tags: ${{ steps.image.outputs.tag }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            avantiqo.code.base.source=1cb94f50400afdf448d8460de0a2709f7f6dc688
-            avantiqo.code.base.digest=sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262
-            avantiqo.code.runtime.gate=external-runpod-v3-before-inference
-            avantiqo.code.publication.mode=thin-overlay-no-base-scan
-          provenance: false
-          sbom: false
+          rm -rf /tmp/avantiqo-code-v3-layer
+          mkdir -p /tmp/avantiqo-code-v3-layer/app
+          git show "${RUNTIME_SOURCE_SHA}:services/avantiqo-code-engine/pod_server.py" \
+            > /tmp/avantiqo-code-v3-layer/app/pod_server.py
+          chmod 0644 /tmp/avantiqo-code-v3-layer/app/pod_server.py
+
+          tar \
+            --sort=name \
+            --mtime='UTC 1970-01-01' \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -C /tmp/avantiqo-code-v3-layer \
+            -cf /tmp/avantiqo-code-v3-layer.tar \
+            app/pod_server.py
+
+          base_platform_digest="$(crane digest --platform linux/amd64 "${BASE_IMAGE}")"
+
+          crane mutate \
+            --platform linux/amd64 \
+            "${BASE_IMAGE}" \
+            --append /tmp/avantiqo-code-v3-layer.tar \
+            --entrypoint=python3,-u,pod_server.py \
+            --workdir=/app \
+            --env AVANTIQO_CODE_POD_PORT=8000 \
+            --exposed-ports=8000/tcp \
+            --label org.opencontainers.image.source="https://github.com/${{ github.repository }}" \
+            --label org.opencontainers.image.revision="${RUNTIME_SOURCE_SHA}" \
+            --label avantiqo.code.base.source="${BASE_SOURCE_SHA}" \
+            --label avantiqo.code.base.digest="${BASE_IMAGE#*@}" \
+            --label avantiqo.code.runtime.gate=external-runpod-v3-before-inference \
+            --label avantiqo.code.publication.mode=registry-mutation-no-base-materialization \
+            --tag "${tag}"
+
+          digest="$(crane digest "${tag}")"
+          case "${digest}" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "AVANTIQO_CODE_POD_IMAGE_DIGEST_INVALID:${digest}"; exit 1 ;;
+          esac
+
+          crane config "${tag}" > /tmp/avantiqo-code-v3-config.json
+          crane manifest --platform linux/amd64 "${BASE_IMAGE}" > /tmp/avantiqo-code-v2-base-manifest.json
+          crane manifest "${tag}" > /tmp/avantiqo-code-v3-manifest.json
+
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const config = JSON.parse(readFileSync('/tmp/avantiqo-code-v3-config.json', 'utf8'));
+          const base = JSON.parse(readFileSync('/tmp/avantiqo-code-v2-base-manifest.json', 'utf8'));
+          const next = JSON.parse(readFileSync('/tmp/avantiqo-code-v3-manifest.json', 'utf8'));
+          const fail = (message) => { throw new Error(message); };
+          const entrypoint = config?.config?.Entrypoint ?? [];
+          if (JSON.stringify(entrypoint) !== JSON.stringify(['python3', '-u', 'pod_server.py'])) fail('ENTRYPOINT_MISMATCH');
+          if (config?.config?.WorkingDir !== '/app') fail('WORKDIR_MISMATCH');
+          if (!(config?.config?.Env ?? []).includes('AVANTIQO_CODE_POD_PORT=8000')) fail('PORT_ENV_MISSING');
+          if (!config?.config?.ExposedPorts?.['8000/tcp']) fail('EXPOSED_PORT_MISSING');
+          const baseLayers = (base.layers ?? []).map((layer) => layer.digest);
+          const nextLayers = (next.layers ?? []).map((layer) => layer.digest);
+          if (nextLayers.length !== baseLayers.length + 1) fail('OVERLAY_LAYER_COUNT_MISMATCH');
+          if (JSON.stringify(nextLayers.slice(0, baseLayers.length)) !== JSON.stringify(baseLayers)) fail('BASE_LAYER_SEQUENCE_CHANGED');
+          console.log('AVANTIQO_CODE_POD_IMAGE_BASE_LAYERS_REUSED=PASS');
+          console.log('AVANTIQO_CODE_POD_IMAGE_V3_CONFIG=PASS');
+          NODE
+
+          echo "release_sha=${RUNTIME_SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "publisher_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "base_platform_digest=${base_platform_digest}" >> "$GITHUB_OUTPUT"
+
+          echo "AVANTIQO_CODE_POD_IMAGE_TAG=${tag}"
+          echo "AVANTIQO_CODE_POD_IMAGE_DIGEST=${digest}"
+          echo 'AVANTIQO_CODE_POD_IMAGE_REGISTRY_MUTATION=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_BASE_MATERIALIZATION=false'
 
       - name: Create immutable Pod image evidence
         env:
           IMAGE_REPOSITORY: ${{ steps.image.outputs.image }}
           IMAGE_TAG: ${{ steps.image.outputs.tag }}
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           RELEASE_SHA: ${{ steps.image.outputs.release_sha }}
+          PUBLISHER_SHA: ${{ steps.image.outputs.publisher_sha }}
+          BASE_PLATFORM_DIGEST: ${{ steps.image.outputs.base_platform_digest }}
           BUILD_RUN_ID: ${{ github.run_id }}
-          TRIGGER_SHA: ${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
           test -n "$IMAGE_DIGEST"
-          test "$RELEASE_SHA" = "$TRIGGER_SHA"
-          case "$IMAGE_DIGEST" in
-            sha256:*) ;;
-            *) echo "AVANTIQO_CODE_POD_IMAGE_DIGEST_INVALID"; exit 1 ;;
-          esac
+          test "$RELEASE_SHA" = "$RUNTIME_SOURCE_SHA"
           mkdir -p /tmp/avantiqo-code-pod-image
           node --input-type=module <<'NODE'
           import { writeFileSync } from "node:fs";
@@ -135,20 +208,20 @@ jobs:
             success: true,
             contract: "AVANTIQO_CODE_POD_IMAGE_RESULT_V3",
             source_sha: process.env.RELEASE_SHA,
-            trigger_sha: process.env.TRIGGER_SHA,
-            source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
+            publisher_workflow_sha: process.env.PUBLISHER_SHA,
+            source_sha_pinned_independently_from_publisher: true,
             github_run_id: process.env.BUILD_RUN_ID,
             image_repository: repository,
             image_tag: process.env.IMAGE_TAG,
             image_digest: digest,
             immutable_image_reference: `${repository}@${digest}`,
-            base_source_sha: "1cb94f50400afdf448d8460de0a2709f7f6dc688",
-            base_image_digest: "sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262",
+            base_source_sha: process.env.BASE_SOURCE_SHA,
+            base_image_digest: process.env.BASE_IMAGE.split('@')[1],
+            base_platform_digest: process.env.BASE_PLATFORM_DIGEST,
             base_runtime_reused_immutably: true,
+            base_layers_reused_without_materialization: true,
             handler_requirements_unchanged_from_base: true,
-            publication_mode: "thin-overlay-no-base-scan",
-            registry_provenance_attestation_generated: false,
-            registry_sbom_generated: false,
+            publication_mode: "registry-mutation-no-base-materialization",
             transport: "pod-http",
             pod_http_contract: "AVANTIQO_CODE_POD_HTTP_V3",
             transport_mode: "async-job-polling",
@@ -157,8 +230,6 @@ jobs:
             async_status_path_template: "/v3/generations/{job_id}",
             http_proxy_timeout_strategy: "authenticated-probe-plus-immediate-job-id-plus-polling",
             synchronous_generation_allowed: false,
-            build_time_transport_probe: false,
-            build_time_async_transport_smoke: false,
             external_runpod_transport_probe_required_before_inference: true,
             runtime: "vllm-0.27.1",
             runtime_model: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
@@ -186,12 +257,13 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Confirm isolated Pod image build
+      - name: Confirm registry-level Pod image publication
         shell: bash
         run: |
           echo 'AVANTIQO_CODE_POD_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_IMMUTABLE_OVERLAY=PASS'
-          echo 'AVANTIQO_CODE_POD_IMAGE_THIN_OVERLAY_PUBLICATION=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_REGISTRY_MUTATION=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_BASE_MATERIALIZATION=false'
           echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_CODE_POD_IMAGE_PRODUCTION_DEPLOY=false'

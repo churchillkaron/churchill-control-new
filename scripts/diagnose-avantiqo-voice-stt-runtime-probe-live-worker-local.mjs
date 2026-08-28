@@ -5,18 +5,20 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_LIVE_LOG_DIAGNOSTIC_V1";
+const CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_LIVE_LOG_DIAGNOSTIC_V2";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const LANE = "voice-stt";
 const ENDPOINT_NAME = "avantiqo-voice-stt-v1";
 const SAFE_LEASE_SCRIPT = resolve("scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs");
 const PROBE_SCRIPT = resolve("scripts/run-avantiqo-voice-stt-runtime-probe-local.mjs");
 const CONTROL_BASE = "https://api.runpod.io/v2";
+const SAFE_LEASE_TTL_MS = 360_000;
 const POLL_MS = Math.max(1000, Math.min(5000, Number(process.env.AVANTIQO_VOICE_STT_LIVE_LOG_POLL_MS || 1500)));
 const CAPTURE_MS = Math.max(10_000, Math.min(45_000, Number(process.env.AVANTIQO_VOICE_STT_LIVE_LOG_CAPTURE_MS || 35_000)));
 const LOG_TAIL = Math.max(500, Math.min(5000, Number(process.env.AVANTIQO_VOICE_STT_LIVE_LOG_TAIL || 5000)));
 const MAX_CAPTURED_WORKERS = Math.max(1, Math.min(4, Number(process.env.AVANTIQO_VOICE_STT_LIVE_LOG_MAX_WORKERS || 3)));
-const MAX_DIAGNOSTIC_MS = Math.max(100_000, Math.min(190_000, Number(process.env.AVANTIQO_VOICE_STT_LIVE_LOG_MAX_MS || 150_000)));
+const MAX_DIAGNOSTIC_MS = Math.max(240_000, Math.min(330_000, Number(process.env.AVANTIQO_VOICE_STT_LIVE_LOG_MAX_MS || 285_000)));
+const CHILD_OUTPUT_LIMIT = Math.max(20_000, Math.min(200_000, Number(process.env.AVANTIQO_VOICE_STT_CHILD_OUTPUT_LIMIT || 120_000)));
 const REPORT_PATH = resolve(
   process.env.AVANTIQO_VOICE_STT_LIVE_LOG_REPORT ||
   "/tmp/avantiqo-voice-stt-runtime-probe-live-worker-diagnostic.json",
@@ -39,6 +41,11 @@ function redact(value) {
     .replace(/Bearer\s+[A-Za-z0-9._~+\/-]{8,}/gi, "Bearer [REDACTED]")
     .replace(/((?:api[_-]?key|token|password|secret|authorization)\s*[=:]\s*)[^\s,;]+/gi, "$1[REDACTED]")
     .replace(/([?&](?:token|key|api_key|apikey|sig|signature)=)[^&\s]+/gi, "$1[REDACTED]");
+}
+
+function appendTail(current, chunk) {
+  const next = `${current}${String(chunk ?? "")}`;
+  return next.length <= CHILD_OUTPUT_LIMIT ? next : next.slice(-CHILD_OUTPUT_LIMIT);
 }
 
 async function readJson(response, label) {
@@ -196,7 +203,7 @@ if (!yes(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE)) {
   required("RUNPOD_MANAGEMENT_API_KEY", process.env.RUNPOD_API_KEY);
   const result = spawnSync(
     process.execPath,
-    [SAFE_LEASE_SCRIPT, "--lane=voice-stt", "--ttl-ms=240000", "--", process.execPath, resolve(process.argv[1])],
+    [SAFE_LEASE_SCRIPT, "--lane=voice-stt", `--ttl-ms=${SAFE_LEASE_TTL_MS}`, "--", process.execPath, resolve(process.argv[1])],
     { cwd: process.cwd(), env: process.env, stdio: "inherit", encoding: "utf8" },
   );
   if (result.error) throw result.error;
@@ -222,12 +229,16 @@ const captured = new Set();
 const workerEvidence = [];
 let latestWorkers = [];
 let childResult = null;
+let childStdout = "";
+let childStderr = "";
 
 console.log(JSON.stringify({
   event: "AVANTIQO_VOICE_STT_RUNTIME_PROBE_LIVE_LOG_ACTIVE",
   contract: CONTRACT,
   endpoint_name: ENDPOINT_NAME,
   safe_lease_contract: SAFE_LEASE_CONTRACT,
+  safe_lease_ttl_seconds: Math.round(SAFE_LEASE_TTL_MS / 1000),
+  diagnostic_window_seconds: Math.round(MAX_DIAGNOSTIC_MS / 1000),
   capture_seconds_per_worker: Math.round(CAPTURE_MS / 1000),
   max_workers_to_capture: MAX_CAPTURED_WORKERS,
   canonical_probe_runner: "scripts/run-avantiqo-voice-stt-runtime-probe-local.mjs",
@@ -241,12 +252,21 @@ console.log(JSON.stringify({
 const child = spawn(process.execPath, [PROBE_SCRIPT], {
   cwd: process.cwd(),
   env: process.env,
-  stdio: ["ignore", "inherit", "inherit"],
+  stdio: ["ignore", "pipe", "pipe"],
 });
 
-const childExit = new Promise((resolveExit, rejectExit) => {
-  child.once("error", rejectExit);
-  child.once("exit", (code, signal) => resolveExit({ code, signal }));
+child.stdout.on("data", (chunk) => {
+  process.stdout.write(chunk);
+  childStdout = appendTail(childStdout, chunk);
+});
+child.stderr.on("data", (chunk) => {
+  process.stderr.write(chunk);
+  childStderr = appendTail(childStderr, chunk);
+});
+
+const childExit = new Promise((resolveExit) => {
+  child.once("error", (error) => resolveExit({ code: null, signal: null, error: redact(error?.message || error) }));
+  child.once("exit", (code, signal) => resolveExit({ code, signal, error: null }));
 });
 childExit.then((result) => { childResult = result; }).catch(() => {});
 
@@ -301,7 +321,21 @@ while (Date.now() - started < MAX_DIAGNOSTIC_MS) {
 if (childResult === null) {
   childResult = await Promise.race([
     childExit,
-    sleep(15_000).then(() => null),
+    sleep(10_000).then(() => null),
+  ]);
+}
+if (childResult === null) {
+  child.kill("SIGTERM");
+  childResult = await Promise.race([
+    childExit,
+    sleep(5_000).then(() => null),
+  ]);
+}
+if (childResult === null) {
+  child.kill("SIGKILL");
+  childResult = await Promise.race([
+    childExit,
+    sleep(5_000).then(() => ({ code: null, signal: "SIGKILL", error: "DIAGNOSTIC_TIMEOUT_CHILD_KILLED" })),
   ]);
 }
 
@@ -326,18 +360,24 @@ if (workerEvidence.length < MAX_CAPTURED_WORKERS) {
   }
 }
 
+const probePassed = childResult?.code === 0;
+const captureSucceeded = workerEvidence.length > 0 || Boolean(text(childStdout)) || Boolean(text(childStderr));
 const result = {
-  success: workerEvidence.length > 0,
+  success: probePassed,
+  diagnostic_capture_succeeded: captureSucceeded,
   contract: CONTRACT,
   endpoint_name: ENDPOINT_NAME,
   safe_lease_contract: SAFE_LEASE_CONTRACT,
   probe_runner_invocations: 1,
   probe_exit_code: childResult?.code ?? null,
   probe_exit_signal: childResult?.signal ?? null,
-  runtime_probe_passed: childResult?.code === 0,
+  probe_process_error: childResult?.error || null,
+  runtime_probe_passed: probePassed,
   workers_captured: workerEvidence.length,
   workers_final_observed: latestWorkers.map(({ id, ...worker }) => ({ ...worker, id_present: Boolean(id) })),
   worker_evidence: workerEvidence,
+  probe_stdout_tail: redact(childStdout),
+  probe_stderr_tail: redact(childStderr),
   additional_provider_jobs_submitted_by_diagnostic: 0,
   transcription_jobs_submitted_by_diagnostic: 0,
   endpoint_mutation_performed_by_diagnostic: false,
@@ -351,9 +391,12 @@ await writeFile(REPORT_PATH, `${JSON.stringify(result, null, 2)}\n`, "utf8");
 console.log(JSON.stringify(result, null, 2));
 console.log(`AVANTIQO_VOICE_STT_RUNTIME_PROBE_LIVE_LOG_REPORT=${REPORT_PATH}`);
 
-if (!result.success) {
-  console.log("AVANTIQO_VOICE_STT_RUNTIME_PROBE_LIVE_LOG_DIAGNOSTIC=NO_WORKER_EVIDENCE");
-  process.exitCode = 2;
-} else {
+if (probePassed) {
   console.log("AVANTIQO_VOICE_STT_RUNTIME_PROBE_LIVE_LOG_DIAGNOSTIC=PASS");
+} else if (captureSucceeded) {
+  console.log("AVANTIQO_VOICE_STT_RUNTIME_PROBE_LIVE_LOG_DIAGNOSTIC=PROBE_FAILED_EVIDENCE_CAPTURED");
+  process.exitCode = 3;
+} else {
+  console.log("AVANTIQO_VOICE_STT_RUNTIME_PROBE_LIVE_LOG_DIAGNOSTIC=NO_EVIDENCE");
+  process.exitCode = 2;
 }

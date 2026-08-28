@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      RUNTIME_SOURCE_SHA: 9bd988af574236c3b775ec3850ea1338cb46e991
+      RUNTIME_SOURCE_SHA: bcf72c8e11f4a73925c92508d1bc071244ce704d
       BASE_SOURCE_SHA: 1cb94f50400afdf448d8460de0a2709f7f6dc688
       BASE_IMAGE: ghcr.io/churchillkaron/avantiqo-code-pod@sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262
 
@@ -36,7 +36,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Verify pinned Code V3 runtime source
+      - name: Verify pinned Code V3 warmup runtime source
         shell: bash
         run: |
           set -euo pipefail
@@ -45,7 +45,7 @@ jobs:
           git cat-file -e "${BASE_SOURCE_SHA}^{commit}"
 
           # Publisher-only workflow changes are allowed after the runtime pin.
-          # Runtime inputs must remain exactly the pinned 9bd988af release.
+          # Runtime inputs must remain exactly the pinned generation-free warmup release.
           test -z "$(git diff --name-only "${RUNTIME_SOURCE_SHA}"..HEAD -- \
             services/avantiqo-code-engine/Dockerfile.pod \
             services/avantiqo-code-engine/pod_server.py \
@@ -74,6 +74,15 @@ jobs:
           grep -F 'MAX_CONCURRENCY = 1' <<<"${server}"
           grep -F 'AVANTIQO_CODE_POD_TOKEN_REQUIRED_MIN_32_CHARS' <<<"${server}"
           grep -F 'AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED' <<<"${server}"
+          grep -F 'def _engine_warmup_requested' <<<"${server}"
+          grep -F 'def _engine_warmup_output' <<<"${server}"
+          grep -F 'code_engine._load_engine()' <<<"${server}"
+          grep -F '"inference_performed": False' <<<"${server}"
+          grep -F '"generation_performed": False' <<<"${server}"
+          grep -F '"reasoning_call_consumed": False' <<<"${server}"
+          grep -F '"wallet_mutation_performed": False' <<<"${server}"
+          grep -F '"model_load": "LAZY_ASYNC_ENGINE_WARMUP"' <<<"${server}"
+          grep -F '"engine_warmup_generation_performed": False' <<<"${server}"
 
           mkdir -p /tmp/avantiqo-code-v3-source
           printf '%s\n' "${server}" > /tmp/avantiqo-code-v3-source/pod_server.py
@@ -82,6 +91,7 @@ jobs:
           echo 'AVANTIQO_CODE_POD_IMAGE_RUNTIME_SOURCE_PINNED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_BASE_RUNTIME_IMMUTABLE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_HANDLER_REQUIREMENTS_UNCHANGED=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_ENGINE_WARMUP_GENERATION_FREE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PREFLIGHT=PASS'
 
@@ -140,6 +150,7 @@ jobs:
             --label avantiqo.code.base.source="${BASE_SOURCE_SHA}" \
             --label avantiqo.code.base.digest="${BASE_IMAGE#*@}" \
             --label avantiqo.code.runtime.gate=external-runpod-v3-before-inference \
+            --label avantiqo.code.engine.warmup=generation-free \
             --label avantiqo.code.publication.mode=registry-mutation-no-base-materialization \
             --tag "${tag}"
 
@@ -164,12 +175,15 @@ jobs:
           if (config?.config?.WorkingDir !== '/app') fail('WORKDIR_MISMATCH');
           if (!(config?.config?.Env ?? []).includes('AVANTIQO_CODE_POD_PORT=8000')) fail('PORT_ENV_MISSING');
           if (!config?.config?.ExposedPorts?.['8000/tcp']) fail('EXPOSED_PORT_MISSING');
+          const labels = config?.config?.Labels ?? {};
+          if (labels['avantiqo.code.engine.warmup'] !== 'generation-free') fail('ENGINE_WARMUP_LABEL_MISSING');
           const baseLayers = (base.layers ?? []).map((layer) => layer.digest);
           const nextLayers = (next.layers ?? []).map((layer) => layer.digest);
           if (nextLayers.length !== baseLayers.length + 1) fail('OVERLAY_LAYER_COUNT_MISMATCH');
           if (JSON.stringify(nextLayers.slice(0, baseLayers.length)) !== JSON.stringify(baseLayers)) fail('BASE_LAYER_SEQUENCE_CHANGED');
           console.log('AVANTIQO_CODE_POD_IMAGE_BASE_LAYERS_REUSED=PASS');
           console.log('AVANTIQO_CODE_POD_IMAGE_V3_CONFIG=PASS');
+          console.log('AVANTIQO_CODE_POD_IMAGE_ENGINE_WARMUP_GENERATION_FREE=PASS');
           NODE
 
           echo "release_sha=${RUNTIME_SOURCE_SHA}" >> "$GITHUB_OUTPUT"
@@ -183,6 +197,7 @@ jobs:
           echo "AVANTIQO_CODE_POD_IMAGE_TAG=${tag}"
           echo "AVANTIQO_CODE_POD_IMAGE_DIGEST=${digest}"
           echo 'AVANTIQO_CODE_POD_IMAGE_REGISTRY_MUTATION=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_ENGINE_WARMUP_GENERATION_FREE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_BASE_MATERIALIZATION=false'
 
       - name: Create immutable Pod image evidence
@@ -230,6 +245,10 @@ jobs:
             async_status_path_template: "/v3/generations/{job_id}",
             http_proxy_timeout_strategy: "authenticated-probe-plus-immediate-job-id-plus-polling",
             synchronous_generation_allowed: false,
+            engine_warmup_generation_free: true,
+            engine_warmup_inference_performed: false,
+            engine_warmup_reasoning_call_consumed: false,
+            engine_warmup_wallet_mutation_performed: false,
             external_runpod_transport_probe_required_before_inference: true,
             runtime: "vllm-0.27.1",
             runtime_model: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
@@ -263,6 +282,7 @@ jobs:
           echo 'AVANTIQO_CODE_POD_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_IMMUTABLE_OVERLAY=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_REGISTRY_MUTATION=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_ENGINE_WARMUP_GENERATION_FREE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_BASE_MATERIALIZATION=false'
           echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PROVIDER_JOB_SUBMITTED=false'

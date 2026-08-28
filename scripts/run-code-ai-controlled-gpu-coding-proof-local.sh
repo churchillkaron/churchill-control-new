@@ -34,6 +34,7 @@ echo "${CONTRACT}_REAL_CODE_GPU_INFERENCE_ALLOWED=true"
 echo "${CONTRACT}_REASONING_CALL_BUDGET=4"
 echo "${CONTRACT}_TARGET_REASONING_CALLS=1-2"
 echo "${CONTRACT}_CANDIDATE_DIGEST=sha256:${NEW_DIGEST}"
+echo "${CONTRACT}_SINGLE_WORKER_WARMUP_AND_CODING=true"
 
 if [ ! -f "$ROOT/.env.local" ]; then
   echo "${CONTRACT}_ENV_LOCAL_REQUIRED=true"
@@ -95,15 +96,11 @@ console.log(JSON.stringify({
 }, null, 2));
 NODE
 
-# Phase 2: prove the new immutable runtime warms the model engine without generation.
-echo "${CONTRACT}_PHASE=GENERATION_FREE_CANDIDATE_PROOF"
-NODE_ENV=development \
-AVANTIQO_CODE_GENERATION_FREE_WARMUP_CANDIDATE_APPROVED=YES \
-node --env-file="$ROOT/.env.local" \
-  scripts/certify-avantiqo-code-generation-free-warmup-candidate-local.mjs || exit 1
-
 # Bind the candidate digest only inside this detached temporary worktree.
 # Nothing is committed, pushed, deployed, or written to the user's root checkout.
+# The real employee worker below performs its own generation-free engine warmup
+# before the first reasoning call, so we intentionally do not create and delete
+# a separate duplicate warmup Pod here.
 echo "${CONTRACT}_PHASE=TEMPORARY_LOCAL_CANDIDATE_BINDING"
 node --input-type=module - "$OLD_DIGEST" "$NEW_DIGEST" <<'NODE' || exit 1
 import { readFile, writeFile } from "node:fs/promises";
@@ -143,11 +140,11 @@ if ! printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "scripts/code-ai-worker-session
   exit 1
 fi
 
-# Phase 3: one real employee coding mission through the actual Code GPU.
-# The safe runner executes the no-spend autonomy audit and preflight first, then creates
-# one governed ephemeral worker, caps reasoning at four calls, verifies the fixture repair,
-# releases the worker, and disables the temporary certification service in finally blocks.
-echo "${CONTRACT}_PHASE=REAL_GPU_EMPLOYEE_CODING_PROOF"
+# Phase 2: one real employee coding mission through one candidate GPU worker.
+# The worker-session runtime performs a generation-free engine warmup first.
+# No reasoning call is allowed while the worker is warming. The same warmed
+# worker is then reused for the bounded employee coding mission and cleaned up.
+echo "${CONTRACT}_PHASE=GENERATION_FREE_WARMUP_PLUS_REAL_GPU_EMPLOYEE_CODING_PROOF"
 NODE_ENV=development \
 AVANTIQO_CODE_EMPLOYEE_CERT_SPEND_APPROVED=YES \
 node --env-file="$ROOT/.env.local" \
@@ -158,6 +155,7 @@ echo "${CONTRACT}_PASS=true"
 echo "${CONTRACT}_ZERO_SPEND_GATES_PASSED=true"
 echo "${CONTRACT}_GENERATION_FREE_WARMUP_PROVED=true"
 echo "${CONTRACT}_REAL_GPU_EMPLOYEE_CODING_PROVED=true"
+echo "${CONTRACT}_SINGLE_WORKER_REUSED_FOR_WARMUP_AND_CODING=true"
 echo "${CONTRACT}_CANDIDATE_BINDING_PERSISTED=false"
 echo "${CONTRACT}_ROOT_SOURCE_MUTATION_PERFORMED=false"
 echo "${CONTRACT}_GITHUB_WRITE_PERFORMED=false"

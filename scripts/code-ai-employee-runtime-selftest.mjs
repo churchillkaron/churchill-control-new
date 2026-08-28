@@ -12,7 +12,7 @@ import {
   CodeAIWorkPackageRuntime,
 } from "../lib/code/runtime/CodeAIWorkPackageRuntime.js";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_RUNTIME_SELFTEST_V1";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_RUNTIME_SELFTEST_V2";
 
 function completedOperation(action, operationId, result = {}) {
   return {
@@ -22,6 +22,10 @@ function completedOperation(action, operationId, result = {}) {
     status: "completed",
     result,
   };
+}
+
+function sourceChanges(paths) {
+  return paths.map((path) => ({ path, operation: "write", content: "export default true;\n" }));
 }
 
 assert.equal(CodeAIEmployeeRuntime.contract, CODE_AI_EMPLOYEE_RUNTIME_CONTRACT);
@@ -37,6 +41,7 @@ assert.ok(CodeAIWorkPackageRuntime.allowed_package_actions.includes("diff"));
 const inspectionOnly = assessCodeAIEmployeeCompletion({
   status: "completed",
   files_changed: [],
+  source_changes: [],
   verification: [],
   patch: null,
   evidence: [completedOperation("inspect", "inspect_1")],
@@ -47,7 +52,9 @@ assert.ok(inspectionOnly.blockers.includes("CODE_AI_EMPLOYEE_IMPLEMENTATION_REQU
 const changedUnverified = assessCodeAIEmployeeCompletion({
   status: "completed",
   files_changed: ["lib/example.js"],
+  source_changes: sourceChanges(["lib/example.js"]),
   verification: [],
+  tests: [],
   patch: "diff --git a/lib/example.js b/lib/example.js",
   evidence: [
     completedOperation("apply_files", "apply_1"),
@@ -60,7 +67,9 @@ assert.ok(changedUnverified.blockers.includes("CODE_AI_EMPLOYEE_SUCCESSFUL_VERIF
 const verifiedWithoutFinalDiff = assessCodeAIEmployeeCompletion({
   status: "completed",
   files_changed: ["lib/example.js"],
+  source_changes: sourceChanges(["lib/example.js"]),
   verification: [{ operation_id: "verify_1", passed: true }],
+  tests: [{ operation_id: "verify_1", command: "node", args: ["--check", "lib/example.js"], exit_code: 0 }],
   patch: "diff --git a/lib/example.js b/lib/example.js",
   evidence: [
     completedOperation("apply_files", "apply_1"),
@@ -69,11 +78,14 @@ const verifiedWithoutFinalDiff = assessCodeAIEmployeeCompletion({
 });
 assert.equal(verifiedWithoutFinalDiff.complete, false);
 assert.ok(verifiedWithoutFinalDiff.blockers.includes("CODE_AI_EMPLOYEE_FINAL_DIFF_REVIEW_REQUIRED"));
+assert.ok(verifiedWithoutFinalDiff.blockers.includes("CODE_AI_WORLDCLASS_FINAL_DIFF_REVIEW_REQUIRED"));
 
 const verifiedEngineeringCompletion = assessCodeAIEmployeeCompletion({
   status: "completed",
-  files_changed: ["lib/example.js", "tests/example.test.js"],
+  files_changed: ["lib/example.js"],
+  source_changes: sourceChanges(["lib/example.js"]),
   verification: [{ operation_id: "verify_1", passed: true }],
+  tests: [{ operation_id: "verify_1", command: "node", args: ["--check", "lib/example.js"], exit_code: 0 }],
   patch: "diff --git a/lib/example.js b/lib/example.js",
   evidence: [
     completedOperation("apply_files", "apply_1"),
@@ -86,13 +98,44 @@ assert.deepEqual(verifiedEngineeringCompletion.blockers, []);
 assert.equal(verifiedEngineeringCompletion.changed, true);
 assert.equal(verifiedEngineeringCompletion.verified, true);
 assert.equal(verifiedEngineeringCompletion.final_diff_observed, true);
+assert.equal(verifiedEngineeringCompletion.worldclass_quality.verified, true);
+assert.equal(verifiedEngineeringCompletion.worldclass_quality.risk, "standard");
+assert.equal(verifiedEngineeringCompletion.worldclass_quality.required_verification_gates, 1);
+
+const highRiskNeedsMultipleFamilies = assessCodeAIEmployeeCompletion({
+  status: "completed",
+  files_changed: ["lib/platform/example.js"],
+  source_changes: sourceChanges(["lib/platform/example.js"]),
+  verification: [{ operation_id: "verify_1", passed: true }],
+  tests: [{ operation_id: "verify_1", command: "node", args: ["--check", "lib/platform/example.js"], exit_code: 0 }],
+  patch: "diff --git a/lib/platform/example.js b/lib/platform/example.js",
+  evidence: [
+    completedOperation("apply_files", "apply_1"),
+    completedOperation("verify", "verify_1", { exit_code: 0 }),
+    completedOperation("diff", "diff_1", { patch: "diff" }),
+  ],
+});
+assert.equal(highRiskNeedsMultipleFamilies.complete, false);
+assert.equal(highRiskNeedsMultipleFamilies.worldclass_quality.risk, "high");
+assert.equal(highRiskNeedsMultipleFamilies.worldclass_quality.required_verification_gates, 2);
+assert.ok(
+  highRiskNeedsMultipleFamilies.blockers.some((item) =>
+    item.startsWith("CODE_AI_WORLDCLASS_FRESH_VERIFICATION_GATES_REQUIRED:"),
+  ),
+);
 
 const lowLevelIncomplete = assessCodeAIEmployeeCompletion({
   status: "repair_required",
   files_changed: ["lib/example.js"],
+  source_changes: sourceChanges(["lib/example.js"]),
   verification: [{ operation_id: "verify_1", passed: true }],
+  tests: [{ operation_id: "verify_1", command: "node", args: ["--check", "lib/example.js"], exit_code: 0 }],
   patch: "diff",
-  evidence: [completedOperation("diff", "diff_1", { patch: "diff" })],
+  evidence: [
+    completedOperation("apply_files", "apply_1"),
+    completedOperation("verify", "verify_1", { exit_code: 0 }),
+    completedOperation("diff", "diff_1", { patch: "diff" }),
+  ],
 });
 assert.equal(lowLevelIncomplete.complete, false);
 assert.ok(
@@ -108,6 +151,8 @@ console.log(JSON.stringify({
     successful_verification_required: true,
     explicit_final_diff_review_required: true,
     low_level_completion_required: true,
+    worldclass_quality_required: true,
+    high_risk_requires_multiple_verification_families: true,
     default_reasoning_call_budget: CodeAIEmployeeRuntime.default_reasoning_call_budget,
     absolute_reasoning_call_budget: CodeAIPlannerSpendPolicy.max_reasoning_call_budget,
     batched_work_package_max_operations: CodeAIWorkPackageRuntime.max_package_operations,

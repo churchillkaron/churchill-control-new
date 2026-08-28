@@ -12,6 +12,8 @@ const OLD_SOURCE_SHA = "875627667bc055c78ed79d3b837c1e9566503ad9";
 const NEW_SOURCE_SHA = "1cb94f50400afdf448d8460de0a2709f7f6dc688";
 const OLD_DIGEST = "sha256:22d34b892d2718c8381557bc45e092063d66a47b8278dccd31b29eb360c2f4dc";
 const NEW_DIGEST = "sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262";
+const LEGACY_POD_HTTP_CONTRACT = "AVANTIQO_CODE_POD_HTTP_V1";
+const POD_HTTP_CONTRACT = "AVANTIQO_CODE_POD_HTTP_V2";
 const ASYNC_TIMEOUT_MS = 15 * 60_000;
 const POLL_MS = 5_000;
 
@@ -32,24 +34,38 @@ function git(args, code) {
 }
 
 function requiredSourceTransform(source) {
-  const required = [OLD_CONTRACT, OLD_APPROVAL, OLD_SOURCE_SHA, OLD_DIGEST, "async function runOneGeneration(podId, token)"];
+  const required = [
+    OLD_CONTRACT,
+    OLD_APPROVAL,
+    OLD_SOURCE_SHA,
+    OLD_DIGEST,
+    LEGACY_POD_HTTP_CONTRACT,
+    "async function runOneGeneration(podId, token)",
+  ];
   for (const marker of required) {
     if (!source.includes(marker)) {
       throw new Error(`${WRAPPER_CONTRACT}_CORE_V1_MARKER_MISSING:${marker}`);
     }
   }
-  let transformed = source
+
+  const transformed = source
     .replaceAll(OLD_CONTRACT, NEW_CONTRACT)
     .replaceAll(OLD_APPROVAL, NEW_APPROVAL)
     .replaceAll(OLD_SOURCE_SHA, NEW_SOURCE_SHA)
-    .replaceAll(OLD_DIGEST, NEW_DIGEST);
+    .replaceAll(OLD_DIGEST, NEW_DIGEST)
+    .replaceAll(LEGACY_POD_HTTP_CONTRACT, POD_HTTP_CONTRACT);
 
-  for (const marker of [OLD_CONTRACT, OLD_APPROVAL, OLD_SOURCE_SHA, OLD_DIGEST]) {
+  for (const marker of [OLD_CONTRACT, OLD_APPROVAL, OLD_SOURCE_SHA, OLD_DIGEST, LEGACY_POD_HTTP_CONTRACT]) {
     if (transformed.includes(marker)) {
       throw new Error(`${WRAPPER_CONTRACT}_TRANSFORM_INCOMPLETE:${marker}`);
     }
   }
-  if (!transformed.includes(NEW_CONTRACT) || !transformed.includes(NEW_SOURCE_SHA) || !transformed.includes(NEW_DIGEST)) {
+  if (
+    !transformed.includes(NEW_CONTRACT) ||
+    !transformed.includes(NEW_SOURCE_SHA) ||
+    !transformed.includes(NEW_DIGEST) ||
+    !transformed.includes(POD_HTTP_CONTRACT)
+  ) {
     throw new Error(`${WRAPPER_CONTRACT}_TRANSFORM_TARGETS_MISSING`);
   }
   return transformed;
@@ -104,7 +120,7 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
   if (
     submitResponse.status !== 202 ||
     submitBody?.success !== true ||
-    submitBody?.contract !== "AVANTIQO_CODE_POD_HTTP_V1" ||
+    submitBody?.contract !== POD_HTTP_CONTRACT ||
     submitBody?.transport !== "pod-http" ||
     submitBody?.transport_mode !== "async-job-polling" ||
     submitBody?.proxy_timeout_safe !== true ||
@@ -113,7 +129,7 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
     return jsonResponse(
       {
         success: false,
-        contract: "AVANTIQO_CODE_POD_HTTP_V1",
+        contract: POD_HTTP_CONTRACT,
         transport: "pod-http",
         error_type: "AsyncSubmissionContractInvalid",
         error_message: `${WRAPPER_CONTRACT}_ASYNC_SUBMISSION_CONTRACT_INVALID`,
@@ -126,6 +142,7 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
   console.log(JSON.stringify({
     event: "AVANTIQO_CODE_EPHEMERAL_POD_GENERATION_PROGRESS",
     phase: "ASYNC_JOB_SUBMITTED",
+    pod_http_contract: POD_HTTP_CONTRACT,
     job_id_present: true,
     proxy_timeout_safe: true,
     secrets_printed: false,
@@ -148,7 +165,7 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
       return jsonResponse(
         {
           success: false,
-          contract: "AVANTIQO_CODE_POD_HTTP_V1",
+          contract: POD_HTTP_CONTRACT,
           transport: "pod-http",
           error_type: typeName(error),
           error_message: `${WRAPPER_CONTRACT}_ASYNC_POLL_TRANSPORT_FAILED:${text(error?.message).slice(0, 600)}`,
@@ -164,14 +181,14 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
     }
     if (
       pollBody?.success !== true ||
-      pollBody?.contract !== "AVANTIQO_CODE_POD_HTTP_V1" ||
+      pollBody?.contract !== POD_HTTP_CONTRACT ||
       pollBody?.transport !== "pod-http" ||
       text(pollBody?.job_id) !== jobId
     ) {
       return jsonResponse(
         {
           success: false,
-          contract: "AVANTIQO_CODE_POD_HTTP_V1",
+          contract: POD_HTTP_CONTRACT,
           transport: "pod-http",
           error_type: "AsyncPollContractInvalid",
           error_message: `${WRAPPER_CONTRACT}_ASYNC_POLL_CONTRACT_INVALID`,
@@ -201,7 +218,7 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
         return jsonResponse(
           {
             success: false,
-            contract: "AVANTIQO_CODE_POD_HTTP_V1",
+            contract: POD_HTTP_CONTRACT,
             transport: "pod-http",
             error_type: "AsyncOutputMissing",
             error_message: `${WRAPPER_CONTRACT}_ASYNC_OUTPUT_REQUIRED`,
@@ -213,7 +230,7 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
       asyncSucceeded = true;
       return jsonResponse({
         success: true,
-        contract: "AVANTIQO_CODE_POD_HTTP_V1",
+        contract: POD_HTTP_CONTRACT,
         transport: "pod-http",
         output: pollBody.output,
       });
@@ -223,7 +240,7 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
       return jsonResponse(
         {
           success: false,
-          contract: "AVANTIQO_CODE_POD_HTTP_V1",
+          contract: POD_HTTP_CONTRACT,
           transport: "pod-http",
           error_type: text(pollBody?.error_type) || "AsyncJobFailed",
           error_message: text(pollBody?.error_message) || `${WRAPPER_CONTRACT}_ASYNC_JOB_FAILED`,
@@ -237,7 +254,7 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
       return jsonResponse(
         {
           success: false,
-          contract: "AVANTIQO_CODE_POD_HTTP_V1",
+          contract: POD_HTTP_CONTRACT,
           transport: "pod-http",
           error_type: "AsyncJobStatusInvalid",
           error_message: `${WRAPPER_CONTRACT}_ASYNC_JOB_STATUS_INVALID:${status}`,
@@ -251,7 +268,7 @@ async function proxyTimeoutSafeFetch(input, init = undefined) {
   return jsonResponse(
     {
       success: false,
-      contract: "AVANTIQO_CODE_POD_HTTP_V1",
+      contract: POD_HTTP_CONTRACT,
       transport: "pod-http",
       error_type: "AsyncJobTimeout",
       error_message: `${WRAPPER_CONTRACT}_ASYNC_JOB_TIMEOUT:${lastStatus}`,
@@ -268,6 +285,7 @@ function typeName(error) {
 console.log(`${WRAPPER_CONTRACT}_MODE=APPLY_ONLY`);
 console.log(`${WRAPPER_CONTRACT}_IMMUTABLE_SOURCE_SHA=${NEW_SOURCE_SHA}`);
 console.log(`${WRAPPER_CONTRACT}_IMMUTABLE_DIGEST=${NEW_DIGEST}`);
+console.log(`${WRAPPER_CONTRACT}_POD_HTTP_CONTRACT=${POD_HTTP_CONTRACT}`);
 console.log(`${WRAPPER_CONTRACT}_ASYNC_SUBMIT_MAX=1`);
 console.log(`${WRAPPER_CONTRACT}_SYNCHRONOUS_GENERATION_NETWORK_CALL=false`);
 console.log(`${WRAPPER_CONTRACT}_SECRETS_PRINTED=false`);

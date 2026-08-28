@@ -186,6 +186,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             prompt_ids = get_prompt_ids(vocabulary_context)
             if prompt_ids is None or len(prompt_ids) == 0:
                 raise RuntimeError("AVANTIQO_VOICE_STT_VOCABULARY_PROMPT_EMPTY")
+            model_device = getattr(getattr(recognizer, "model", None), "device", torch.device(DEVICE))
+            prompt_ids = torch.as_tensor(prompt_ids, dtype=torch.long, device=model_device)
             generate_kwargs["prompt_ids"] = prompt_ids
 
         runpod.serverless.progress_update(job, "transcribing Avantiqo voice")

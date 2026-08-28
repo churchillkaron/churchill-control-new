@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V1";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V2";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
@@ -37,9 +37,10 @@ requireMarkers("CAPABILITY", source.capability, [
   "verifyCodeMissionStateAttestation",
   "persistCodeAIAutonomousExecutionState",
   "persistCodeAICommitArtifact",
-  "Persistent GitHub commits remain a separate governed capability",
 ]);
 assert.equal(source.capability.includes("executeWorldClassCodeMission({"), false);
+assert.equal(source.capability.includes("commitVerifiedCodeMission"), false);
+assert.equal(source.capability.includes("createCodeAICommitCapability"), false);
 
 requireMarkers("EMPLOYEE", source.employee, [
   "AVANTIQO_CODE_AI_EMPLOYEE_RUNTIME_V1",
@@ -101,6 +102,7 @@ console.log(JSON.stringify({
     server_owned_execution_evidence_preserved: true,
     commit_artifact_preserved: true,
     persistent_commit_still_separate: true,
+    public_capability_has_no_inline_commit_runtime: true,
     paid_provider_call_performed: false,
     runpod_lease_acquired: false,
     wallet_mutation_performed: false,

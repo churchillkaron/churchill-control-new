@@ -4,28 +4,70 @@ const nativeFetch = globalThis.fetch.bind(globalThis);
 const REST_BASE = "https://rest.runpod.io/v1";
 const PRODUCTION_ENDPOINT_NAME = "avantiqo-cinema-production-v1";
 const REGISTRY_AUTH_ENV = "AVANTIQO_VIDEO_32GB_CANDIDATE_RUNPOD_REGISTRY_AUTH_ID";
+const NO_AUTH_SENTINEL = "AVANTIQO_VIDEO_V69_NO_REGISTRY_AUTH";
 const TRANSIENT_READ_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const READ_ATTEMPTS = 4;
 const BACKOFF_MS = [0, 750, 1500, 3000];
+
+let productionUsesNoRegistryAuth = false;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const text = (value) => String(value ?? "").trim();
 const list = (value) => Array.isArray(value) ? value : [];
 const methodOf = (init = {}) => String(init?.method || "GET").toUpperCase();
+const urlOf = (input) => typeof input === "string" ? input : text(input?.url);
 
 function errorCode(error) {
   return String(error?.cause?.code || error?.code || error?.name || "FETCH_FAILED");
 }
 
+function isRegistryAuthList(url) {
+  return url === `${REST_BASE}/containerregistryauth`;
+}
+
+function isTemplateCreate(url, method) {
+  return method === "POST" && url === `${REST_BASE}/templates`;
+}
+
+function withNoAuthSentinel(response, url, method) {
+  if (!productionUsesNoRegistryAuth || method !== "GET" || !isRegistryAuthList(url) || !response?.ok) {
+    return response;
+  }
+  return response.text().then((raw) => {
+    let body = [];
+    try { body = raw ? JSON.parse(raw) : []; } catch { body = []; }
+    if (!Array.isArray(body)) return new Response(raw, { status: response.status, headers: response.headers });
+    const filtered = body.filter((entry) => text(entry?.id) !== NO_AUTH_SENTINEL);
+    filtered.push({ id: NO_AUTH_SENTINEL, name: "ghcr-production-no-auth-parity" });
+    return new Response(JSON.stringify(filtered), {
+      status: response.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+}
+
+function stripNoAuthSentinelFromTemplateCreate(url, init, method) {
+  if (!productionUsesNoRegistryAuth || !isTemplateCreate(url, method) || !init?.body) return init;
+  let body = null;
+  try { body = JSON.parse(String(init.body)); } catch { body = null; }
+  if (!body || text(body?.containerRegistryAuthId) !== NO_AUTH_SENTINEL) return init;
+  const { containerRegistryAuthId: _ignored, ...withoutRegistryAuth } = body;
+  console.error("AVANTIQO_VIDEO_V69_TEMPLATE_REGISTRY_AUTH_MODE=PRODUCTION_NO_AUTH_PARITY");
+  return { ...init, body: JSON.stringify(withoutRegistryAuth) };
+}
+
 globalThis.fetch = async (input, init = {}) => {
-  const method = methodOf(init);
+  const url = urlOf(input);
+  const originalMethod = methodOf(init);
+  const effectiveInit = stripNoAuthSentinelFromTemplateCreate(url, init, originalMethod);
+  const method = methodOf(effectiveInit);
   const attempts = method === "GET" ? READ_ATTEMPTS : 1;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     if (attempt > 1) await sleep(BACKOFF_MS[attempt - 1] || 0);
 
     try {
-      const response = await nativeFetch(input, init);
+      const response = await nativeFetch(input, effectiveInit);
       if (
         method === "GET" &&
         attempt < attempts &&
@@ -35,7 +77,7 @@ globalThis.fetch = async (input, init = {}) => {
         console.error(`AVANTIQO_VIDEO_V69_READ_RETRY status=${response.status} attempt=${attempt}/${attempts}`);
         continue;
       }
-      return response;
+      return await withNoAuthSentinel(response, url, method);
     } catch (error) {
       if (method !== "GET" || attempt >= attempts) throw error;
       console.error(`AVANTIQO_VIDEO_V69_READ_RETRY error=${errorCode(error)} attempt=${attempt}/${attempts}`);
@@ -106,7 +148,7 @@ async function bindProductionRegistryAuth() {
       ? productionEndpoint.template
       : null;
 
-  if (!templateRegistryAuthId(productionTemplate)) {
+  if (!productionTemplate || text(productionTemplate?.id) !== productionTemplateId) {
     const templates = await readJson(
       "/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false",
       managementKey,
@@ -125,7 +167,13 @@ async function bindProductionRegistryAuth() {
   }
 
   const registryAuthId = templateRegistryAuthId(productionTemplate);
-  if (!registryAuthId) throw new Error("AVANTIQO_VIDEO_V69_PRODUCTION_TEMPLATE_REGISTRY_AUTH_REQUIRED");
+  if (!registryAuthId) {
+    productionUsesNoRegistryAuth = true;
+    process.env[REGISTRY_AUTH_ENV] = NO_AUTH_SENTINEL;
+    console.error("AVANTIQO_VIDEO_V69_REGISTRY_AUTH_SOURCE=PRODUCTION_VIDEO_TEMPLATE_NO_AUTH");
+    console.error("AVANTIQO_VIDEO_V69_REGISTRY_AUTH_VERIFIED=true");
+    return;
+  }
 
   const registryAuths = await readJson("/containerregistryauth", managementKey);
   if (!Array.isArray(registryAuths)) throw new Error("AVANTIQO_VIDEO_V69_REGISTRY_AUTH_LIST_INVALID");

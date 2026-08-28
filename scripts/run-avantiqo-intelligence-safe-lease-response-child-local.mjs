@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import https from "node:https";
 
 const CONTRACT = "AVANTIQO_INTELLIGENCE_SAFE_LEASE_RESPONSE_V1";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
@@ -18,6 +19,7 @@ const FAST_MAX_OUTPUT_TOKENS = 64;
 const DEEP_MAX_OUTPUT_TOKENS = 1024;
 const QWEN3_THINKING_TEMPERATURE = 0.6;
 const QWEN3_THINKING_TOP_P = 0.95;
+const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 
 function text(value, limit = 4000) {
   return String(value ?? "").trim().slice(0, limit);
@@ -50,6 +52,28 @@ function redact(value) {
     .replace(/((?:api[_-]?key|token|password|secret|authorization)\s*[=:]\s*)[^\s,;]+/gi, "$1[REDACTED]");
 }
 
+function parseResponse(raw) {
+  let parsed = null;
+  try {
+    parsed = raw ? JSON.parse(raw) : null;
+  } catch {
+    parsed = null;
+  }
+  return parsed;
+}
+
+function assertSuccessfulJson(statusCode, parsed, raw) {
+  if (statusCode < 200 || statusCode >= 300) {
+    throw new Error(
+      `${CONTRACT}_HTTP_${statusCode}:${redact(parsed?.error?.message || parsed?.message || raw)}`,
+    );
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error(`${CONTRACT}_INVALID_JSON_RESPONSE`);
+  }
+  return parsed;
+}
+
 async function jsonRequest(url, apiKey, { method = "GET", body = null, timeoutMs = HEALTH_TIMEOUT_MS } = {}) {
   const response = await fetch(url, {
     method,
@@ -62,21 +86,76 @@ async function jsonRequest(url, apiKey, { method = "GET", body = null, timeoutMs
     signal: AbortSignal.timeout(timeoutMs),
   });
   const raw = await response.text();
-  let parsed = null;
-  try {
-    parsed = raw ? JSON.parse(raw) : null;
-  } catch {
-    parsed = null;
-  }
-  if (!response.ok) {
-    throw new Error(
-      `${CONTRACT}_HTTP_${response.status}:${redact(parsed?.error?.message || parsed?.message || raw)}`,
-    );
-  }
-  if (!parsed || typeof parsed !== "object") {
-    throw new Error(`${CONTRACT}_INVALID_JSON_RESPONSE`);
-  }
-  return parsed;
+  return assertSuccessfulJson(response.status, parseResponse(raw), raw);
+}
+
+function longJsonRequest(url, apiKey, { method = "POST", body = null, timeoutMs = RESPONSE_TIMEOUT_MS } = {}) {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : "";
+    const target = new URL(url);
+    let timer = null;
+    let settled = false;
+
+    const finishReject = (error) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      reject(error);
+    };
+    const finishResolve = (value) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve(value);
+    };
+
+    const request = https.request(target, {
+      method,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+        ...(payload ? {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        } : {}),
+      },
+    }, (response) => {
+      let raw = "";
+      let receivedBytes = 0;
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        receivedBytes += Buffer.byteLength(chunk);
+        if (receivedBytes > MAX_RESPONSE_BYTES) {
+          request.destroy(new Error(`${CONTRACT}_RESPONSE_TOO_LARGE`));
+          return;
+        }
+        raw += chunk;
+      });
+      response.on("end", () => {
+        try {
+          finishResolve(assertSuccessfulJson(
+            Number(response.statusCode || 0),
+            parseResponse(raw),
+            raw,
+          ));
+        } catch (error) {
+          finishReject(error);
+        }
+      });
+      response.on("error", (error) => {
+        finishReject(new Error(`${CONTRACT}_NATIVE_HTTPS_RESPONSE_FAILED:${redact(error?.message)}`));
+      });
+    });
+
+    request.on("error", (error) => {
+      finishReject(new Error(`${CONTRACT}_NATIVE_HTTPS_FAILED:${redact(error?.message)}`));
+    });
+    timer = setTimeout(() => {
+      request.destroy(new Error(`${CONTRACT}_NATIVE_HTTPS_DEADLINE_EXCEEDED:${timeoutMs}`));
+    }, timeoutMs);
+    if (payload) request.write(payload);
+    request.end();
+  });
 }
 
 function healthJobs(body = {}) {
@@ -175,7 +254,7 @@ const requestBody = {
 };
 
 const generationStartedAt = Date.now();
-const completion = await jsonRequest(
+const completion = await longJsonRequest(
   `${base}/openai/v1/chat/completions`,
   apiKey,
   {
@@ -220,6 +299,9 @@ const result = {
   sampling_policy: samplingPolicy,
   temperature,
   top_p: topP,
+  response_transport: "NODE_HTTPS_ABSOLUTE_DEADLINE_V1",
+  response_timeout_ms: RESPONSE_TIMEOUT_MS,
+  ambiguous_timeout_retry_performed: false,
   model_route_latency_ms: modelRouteLatencyMs,
   generation_latency_ms: generationLatencyMs,
   generation_submitted: true,

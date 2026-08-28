@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      RUNTIME_SOURCE_SHA: 325b201d9278999638380ffe506b9cc01ee38622
+      RUNTIME_SOURCE_SHA: 28dd1b26b3e0d5801804388e2ed8eb6df51967b2
       BASE_IMAGE: ghcr.io/churchillkaron/avantiqo-code-pod@sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +39,8 @@ jobs:
           grep -F 'CONTRACT = "AVANTIQO_CODE_POD_HTTP_V3"' <<<"${server}"
           grep -F '@app.on_event("startup")' <<<"${server}"
           grep -F 'async def start_boot_engine_preload' <<<"${server}"
+          grep -F 'NETWORK_SAFETENSORS_LOAD_STRATEGY = "eager"' <<<"${server}"
+          grep -F 'safetensors_load_strategy' <<<"${server}"
           grep -F '"model_load": "BOOT_BACKGROUND_GENERATION_FREE"' <<<"${server}"
           grep -F '"inference_performed": False' <<<"${server}"
           grep -F '"generation_performed": False' <<<"${server}"
@@ -79,6 +81,7 @@ jobs:
             --exposed-ports=8000/tcp \
             --label org.opencontainers.image.revision="${RUNTIME_SOURCE_SHA}" \
             --label avantiqo.code.engine.warmup=boot-background-generation-free \
+            --label avantiqo.code.model.load=eager-safetensors-network-volume \
             --label avantiqo.code.runtime.gate=external-runpod-before-inference \
             --tag "${tag}"
           digest="$(crane digest "${tag}")"
@@ -88,6 +91,7 @@ jobs:
           esac
           echo "AVANTIQO_CODE_BOOT_PRELOAD_IMAGE=${image}@${digest}"
           echo "AVANTIQO_CODE_BOOT_PRELOAD_DIGEST=${digest}"
+          echo "AVANTIQO_CODE_BOOT_PRELOAD_SAFETENSORS_LOAD_STRATEGY=eager"
           echo "AVANTIQO_CODE_BOOT_PRELOAD_GENERATION_PERFORMED=false"
           echo "AVANTIQO_CODE_BOOT_PRELOAD_INFERENCE_PERFORMED=false"
           echo "AVANTIQO_CODE_BOOT_PRELOAD_BUILD=PASS"

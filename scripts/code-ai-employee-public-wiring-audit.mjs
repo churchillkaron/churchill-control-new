@@ -1,17 +1,21 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V3";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V4";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
   fastStart: "lib/code/runtime/CodeAIEmployeeFastStartRuntime.js",
+  workerSession: "lib/code/runtime/CodeAIWorkerSessionRuntime.js",
+  provider: "lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProvider.js",
   employee: "lib/code/runtime/CodeAIEmployeeRuntime.js",
   packages: "lib/code/runtime/CodeAIWorkPackageRuntime.js",
   spend: "lib/code/runtime/CodeAIPlannerSpendPolicy.js",
   executionState: "lib/code/runtime/CodeAIAutonomousExecutionStateRuntime.js",
   commitArtifact: "lib/code/runtime/CodeAICommitArtifactRuntime.js",
   commitGuard: "lib/code/runtime/CodeAIWorldClassCommitGuard.js",
+  reaper: "app/api/internal/code/worker-session/process/route.js",
+  vercel: "vercel.json",
 };
 
 const source = Object.fromEntries(
@@ -48,7 +52,11 @@ assert.equal(source.capability.includes("commitVerifiedCodeMission"), false);
 assert.equal(source.capability.includes("createCodeAICommitCapability"), false);
 
 requireMarkers("FAST_START", source.fastStart, [
-  "AVANTIQO_CODE_AI_EMPLOYEE_FAST_START_V1",
+  "AVANTIQO_CODE_AI_EMPLOYEE_FAST_START_V2",
+  "ensureCodeAIWorkerSession",
+  "Promise.all([preparationPromise, workerPromise])",
+  'status: "worker_warming"',
+  "CODE_AI_EMPLOYEE_WORKER_WARMING",
   "model_call_required_to_start: false",
   "employee_fast_start_inspect",
   "employee_fast_start_read_",
@@ -59,6 +67,23 @@ requireMarkers("FAST_START", source.fastStart, [
   "MAX_WARM_SESSION_IDLE_MS = 30 * 60 * 1000",
   "first_reasoning_call_should_prefer_implementation",
   "executeCodeAIEmployeeMission",
+]);
+
+requireMarkers("WORKER_SESSION", source.workerSession, [
+  "AVANTIQO_CODE_AI_WORKER_SESSION_V2",
+  'state: "CLEANUP_REQUIRED"',
+  "deletePodVerified",
+  "verifyPodDeleted",
+  "resolveCodeAIWorkerSessionTransport",
+  "contains_worker_token: false",
+]);
+
+requireMarkers("PROVIDER_WARM_SESSION", source.provider, [
+  "resolveCodeAIWorkerSessionTransport",
+  "CODE_AI_WORKER_SESSION_CONTRACT",
+  'source,',
+  '"DURABLE_WARM_SESSION"',
+  'pod.source === "DURABLE_WARM_SESSION" ? "RUNPOD_WARM_SESSION_V1" : "RUNPOD_POD_V3"',
 ]);
 
 requireMarkers("EMPLOYEE", source.employee, [
@@ -106,15 +131,32 @@ requireMarkers("COMMIT_GUARD", source.commitGuard, [
   "fresh_verification_family_count",
 ]);
 
+requireMarkers("REAPER", source.reaper, [
+  "reapExpiredCodeAIWorkerSession",
+  'runtime = "nodejs"',
+  "CRON_SECRET",
+  "AVANTIQO_CODE_AI_WORKER_SESSION_REAPER_V1",
+  "cleanup_failure_hidden: false",
+]);
+requireMarkers("VERCEL_CRON", source.vercel, [
+  '"app/api/internal/code/worker-session/process/route.js"',
+  '"path": "/api/internal/code/worker-session/process"',
+  '"schedule": "* * * * *"',
+]);
+
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   verified: {
     public_code_capability_uses_fast_start_employee_runtime: true,
-    deterministic_repository_work_precedes_first_model_call: true,
+    deterministic_repository_work_overlaps_worker_warmup: true,
     known_source_evidence_can_be_seeded_before_reasoning: true,
+    worker_warming_is_resumable_without_reasoning_call: true,
     model_call_not_required_to_start: true,
-    bounded_warm_session_policy_exposed: true,
+    bounded_warm_worker_session: true,
+    warm_session_provider_transport_wired: true,
+    independent_minute_reaper_wired: true,
+    cleanup_failure_is_fail_closed: true,
     micro_step_public_execution_removed: true,
     batched_multi_operation_packages_required: true,
     default_reasoning_call_budget: 4,
@@ -127,7 +169,7 @@ console.log(JSON.stringify({
     persistent_commit_still_separate: true,
     public_capability_has_no_inline_commit_runtime: true,
     paid_provider_call_performed: false,
-    runpod_lease_acquired: false,
+    runpod_mutation_performed_by_audit: false,
     wallet_mutation_performed: false,
     source_mutation_performed_by_audit: false,
     production_deploy_performed: false,

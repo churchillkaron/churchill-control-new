@@ -1,4 +1,5 @@
 const PRESERVE = "PRESERVE_ACTIVE_PEER";
+const PRESERVE_IDLE = "PRESERVE_INTENTIONAL_IDLE_CAPACITY";
 const REAP = "REAP_IDLE_ORPHAN";
 const BLOCK = "BLOCK_UNSAFE_PEER";
 
@@ -9,6 +10,21 @@ function text(value) {
 function finite(value, fallback = null) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function laneForEndpoint(policy = {}, endpointName = null) {
+  const name = text(endpointName);
+  const match = Object.entries(policy?.lanes || {}).find(([, value]) => text(value) === name);
+  return match?.[0] || null;
+}
+
+function intentionalRestingWorkersMax(policy = {}, endpointName = null) {
+  const lane = laneForEndpoint(policy, endpointName);
+  if (!lane) return finite(policy?.resting_workers_max, 0);
+  return finite(
+    policy?.lane_resting_workers_max?.[lane],
+    finite(policy?.resting_workers_max, 0),
+  );
 }
 
 export function classifyAvantiqoRunpodUnleasedPeer({
@@ -55,6 +71,16 @@ export function classifyAvantiqoRunpodUnleasedPeer({
     };
   }
   if (!active) {
+    const expectedRestingWorkersMax = intentionalRestingWorkersMax(policy, row.name);
+    if (expectedRestingWorkersMax === 1) {
+      return {
+        action: PRESERVE_IDLE,
+        reason: "INTENTIONAL_LANE_RESTING_CAPACITY",
+        lane: laneForEndpoint(policy, row.name),
+        workers_min: workersMin,
+        workers_max: workersMax,
+      };
+    }
     return { action: REAP, reason: "IDLE_UNLEASED_ORPHAN" };
   }
   if (!parallelAllowed) {
@@ -100,6 +126,7 @@ export async function readAvantiqoDistributedLeaseRegistryBestEffort({
 
 export const AVANTIQO_RUNPOD_SAFE_LEASE_PEER_GOVERNANCE = Object.freeze({
   PRESERVE_ACTIVE_PEER: PRESERVE,
+  PRESERVE_INTENTIONAL_IDLE_CAPACITY: PRESERVE_IDLE,
   REAP_IDLE_ORPHAN: REAP,
   BLOCK_UNSAFE_PEER: BLOCK,
 });

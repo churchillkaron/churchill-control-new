@@ -70,7 +70,16 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 mkdir -p "$WORKDIR/supabase/migrations"
-ln -s "$ROOT/supabase/config.toml" "$WORKDIR/supabase/config.toml"
+awk '
+  /^\[functions\./ { skip = 1; next }
+  skip && /^\[/ { skip = 0 }
+  !skip { print }
+' "$ROOT/supabase/config.toml" > "$WORKDIR/supabase/config.toml"
+if grep -q '^\[functions\.' "$WORKDIR/supabase/config.toml"; then
+  echo "SECRETARY_MEETING_LOCAL_CONFIG_SCOPE=FAIL"
+  echo "SECRETARY_MEETING_LOCAL_FAILURE=NON_SECRETARY_FUNCTION_CONFIG_PRESENT"
+  exit 1
+fi
 : > "$WORKDIR/supabase/seed.sql"
 if [[ -f "$ROOT/supabase/roles.sql" ]]; then
   ln -s "$ROOT/supabase/roles.sql" "$WORKDIR/supabase/roles.sql"
@@ -113,16 +122,18 @@ done
 export OPENAI_API_KEY="${OPENAI_API_KEY:-local-secretary-certification-disabled}"
 
 echo "SECRETARY_MEETING_LOCAL_SUPABASE_WORKDIR_ISOLATED=true"
+echo "SECRETARY_MEETING_LOCAL_CONFIG_SCOPE=SECRETARY_ONLY"
+echo "SECRETARY_MEETING_LOCAL_NON_SECRETARY_FUNCTION_CONFIG_LOADED=false"
 echo "SECRETARY_MEETING_LOCAL_MIGRATION_SCOPE=SECRETARY_ONLY"
 echo "SECRETARY_MEETING_LOCAL_FOUNDATION_TEST_ONLY=true"
 echo "SECRETARY_MEETING_REAL_MIGRATIONS_UNMODIFIED=true"
 echo "SECRETARY_MEETING_ROOT_ENV_LOCAL_READ=false"
 echo "SECRETARY_MEETING_ROOT_ENV_LOCAL_MUTATED=false"
 echo "SECRETARY_MEETING_SECRETS_PRINTED=false"
-echo "SECRETARY_MEETING_LOCAL_OPTIONAL_SERVICES_EXCLUDED=realtime,storage-api,studio,logflare,vector"
+echo "SECRETARY_MEETING_LOCAL_OPTIONAL_SERVICES_EXCLUDED=realtime,storage-api,studio,edge-runtime,logflare,vector"
 
 START_LOG="$WORKDIR/supabase-start.log"
-if ! supabase start --workdir "$WORKDIR" -x realtime,storage-api,studio,logflare,vector >"$START_LOG" 2>&1; then
+if ! supabase start --workdir "$WORKDIR" -x realtime,storage-api,studio,edge-runtime,logflare,vector >"$START_LOG" 2>&1; then
   echo "SECRETARY_MEETING_LOCAL_SUPABASE_START=FAIL"
   grep -Ev '(ANON_KEY|SERVICE_ROLE_KEY|PUBLISHABLE|SECRET_KEY|JWT_SECRET|S3_|DB_URL|API key)' "$START_LOG" | tail -n 120 || true
   exit 1

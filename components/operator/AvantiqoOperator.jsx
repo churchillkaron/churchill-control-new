@@ -17,6 +17,7 @@ import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AvantiqoVoiceLibraryPanel from "@/components/operator/AvantiqoVoiceLibraryPanel";
 import { transcribeRecordedAudio } from "@/lib/operator/voice/AsyncRecordedTranscriptionClient";
 import { requestAsyncSpeechBlob } from "@/lib/operator/voice/AsyncSpeechClient";
+import { startOwnedRealtimeRelayTranscription } from "@/lib/operator/voice/OwnedRealtimeTranscriptionRelayClient";
 
 const WAKE_STORAGE_KEY = "avantiqo.wake.enabled";
 const SPOKEN_REPLY_POLL_MS = 2000;
@@ -118,6 +119,9 @@ export default function AvantiqoOperator() {
   const voiceHardStopTimerRef = useRef(null);
   const voiceHasSpeechRef = useRef(false);
   const voiceLastSoundAtRef = useRef(0);
+  const voiceRealtimeSessionRef = useRef(null);
+  const voiceRealtimeAudioContextRef = useRef(null);
+  const voiceRealtimeAbortRef = useRef(null);
 
   const [open, setOpen] = useState(false);
   const [voiceLibraryOpen, setVoiceLibraryOpen] = useState(false);
@@ -197,6 +201,7 @@ export default function AvantiqoOperator() {
       spokenReplyAbortRef.current?.abort();
       spokenReplyAbortRef.current = null;
       releaseSpokenAudio();
+      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_OPERATOR_UNMOUNT");
       try {
         wakeRecognitionRef.current?.abort?.();
       } catch {
@@ -389,6 +394,63 @@ export default function AvantiqoOperator() {
     mediaStreamRef.current = null;
   }
 
+  function releaseRealtimeVoice(cancelReason = null) {
+    const abortController = voiceRealtimeAbortRef.current;
+    voiceRealtimeAbortRef.current = null;
+    if (cancelReason) abortController?.abort();
+
+    const session = voiceRealtimeSessionRef.current;
+    voiceRealtimeSessionRef.current = null;
+    if (cancelReason && session) {
+      session.cancel(cancelReason).catch(() => null);
+    }
+
+    const audioContext = voiceRealtimeAudioContextRef.current;
+    voiceRealtimeAudioContextRef.current = null;
+    if (audioContext?.close) {
+      audioContext.close().catch(() => null);
+    }
+  }
+
+  async function prepareRealtimeVoice(stream) {
+    const AudioContextConstructor =
+      window.AudioContext || window.webkitAudioContext || null;
+    if (!AudioContextConstructor) return null;
+
+    const audioContext = new AudioContextConstructor();
+    if (!audioContext.audioWorklet) {
+      audioContext.close().catch(() => null);
+      return null;
+    }
+
+    const abortController = new AbortController();
+    voiceRealtimeAbortRef.current = abortController;
+    voiceRealtimeAudioContextRef.current = audioContext;
+
+    try {
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+      const session = await startOwnedRealtimeRelayTranscription({
+        organizationId,
+        language: navigator.language || null,
+        audioContext,
+        stream,
+        deferAudioCapture: true,
+        signal: abortController.signal,
+      });
+      voiceRealtimeSessionRef.current = session;
+      await session.waitUntilReady();
+      if (!session.startCapture()) {
+        throw new Error("AVANTIQO_VOICE_REALTIME_CAPTURE_NOT_STARTED");
+      }
+      return session;
+    } catch {
+      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_OPERATOR_FALLBACK");
+      return null;
+    }
+  }
+
   function stopSilenceDetection() {
     if (voiceAnalyserFrameRef.current) {
       window.cancelAnimationFrame(voiceAnalyserFrameRef.current);
@@ -498,6 +560,8 @@ export default function AvantiqoOperator() {
 
   async function transcribeVoice(blob) {
     if (!blob?.size || !organizationId) {
+      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_EMPTY_RECORDING");
+      releaseVoiceStream();
       resumeWakeMode();
       return;
     }
@@ -507,17 +571,39 @@ export default function AvantiqoOperator() {
     setError("");
 
     try {
-      const locale = navigator.language || "";
-      const result = await transcribeRecordedAudio({
-        audio: blob,
-        organizationId,
-        entityId,
-        locale,
-        mode: "command",
-      });
+      let transcript = "";
+      const realtimeSession = voiceRealtimeSessionRef.current;
 
-      await sendMessage(result.transcript, "voice");
+      if (realtimeSession?.ready) {
+        try {
+          transcript = text(await realtimeSession.commit());
+          releaseRealtimeVoice();
+        } catch {
+          releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_COMMIT_FALLBACK");
+        }
+      } else {
+        releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_NOT_READY_FALLBACK");
+      }
+
+      releaseVoiceStream();
+
+      if (!transcript) {
+        const locale = navigator.language || "";
+        const result = await transcribeRecordedAudio({
+          audio: blob,
+          organizationId,
+          entityId,
+          locale,
+          mode: "command",
+        });
+        transcript = text(result.transcript);
+      }
+
+      if (!transcript) throw new Error("Voice transcription returned no text");
+      await sendMessage(transcript, "voice");
     } catch (voiceError) {
+      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_OPERATOR_FAILED");
+      releaseVoiceStream();
       const messageText = voiceError?.message || "Voice input failed";
       setError(messageText);
       setMessages((current) => [
@@ -572,7 +658,10 @@ export default function AvantiqoOperator() {
         recordingRef.current = false;
         setRecording(false);
         stopSilenceDetection();
+        releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_MEDIA_RECORDER_FAILED");
         releaseVoiceStream();
+        setVoiceBusy(false);
+        voiceBusyRef.current = false;
         setError("Voice recording failed");
         resumeWakeMode();
       };
@@ -587,14 +676,19 @@ export default function AvantiqoOperator() {
         recordingRef.current = false;
         setRecording(false);
         stopSilenceDetection();
-        releaseVoiceStream();
         transcribeVoice(blob);
       };
+
+      setVoiceBusy(true);
+      voiceBusyRef.current = true;
+      setError("");
+      await prepareRealtimeVoice(stream);
+      setVoiceBusy(false);
+      voiceBusyRef.current = false;
 
       recorder.start(250);
       recordingRef.current = true;
       setRecording(true);
-      setError("");
       startSilenceDetection(stream);
 
       if (fromWake) {
@@ -603,8 +697,11 @@ export default function AvantiqoOperator() {
     } catch (voiceError) {
       recordingRef.current = false;
       stopSilenceDetection();
+      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_START_FAILED");
       releaseVoiceStream();
       setRecording(false);
+      setVoiceBusy(false);
+      voiceBusyRef.current = false;
       setError(voiceError?.message || "Microphone access failed");
       resumeWakeMode();
     }
@@ -1019,7 +1116,7 @@ export default function AvantiqoOperator() {
                   : speaking
                     ? "Speaking with your Avantiqo voice..."
                     : voiceBusy
-                      ? "Understanding your voice message..."
+                      ? "Starting or understanding your voice message..."
                       : "Thinking and checking Avantiqo..."}
               </div>
             ) : null}

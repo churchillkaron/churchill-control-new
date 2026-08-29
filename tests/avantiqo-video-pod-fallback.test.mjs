@@ -9,6 +9,8 @@ test("Pod control is exact RTX PRO 4500 Secure Cloud EU-RO-1 on certified cache"
   assert.match(s, /cloudType: "SECURE"/); assert.match(s, /minRAMPerGPU: 128/);
   assert.match(s, /avantiqo-video-cache-eu-ro-1/); assert.match(s, /volumeMountPath: "\/runpod-volume"/);
   assert.match(s, /sha256:44ef09f27a402b2890007a3620b772240913e68fa6ceafcc06436af2c1023adc/);
+  assert.match(s, /if \(current && !TERMINAL\.has\(current\)\) return true/);
+  assert.match(s, /if \(current\) return TERMINAL\.has\(current\)/);
 });
 
 test("Pod readiness refuses low capacity and busy shared cache", async () => {

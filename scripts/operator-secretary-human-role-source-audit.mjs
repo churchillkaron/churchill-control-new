@@ -205,11 +205,13 @@ for (const format of ["PDF", "DOCX", "PPTX", "XLSX"]) {
 // Physical access-media custody records possession only. It must never grant,
 // revoke, activate or deactivate access credentials or mutate security systems.
 for (const boundary of [
-  /access_grant_performed:\s*false/,
-  /access_revoke_performed:\s*false/,
-  /security_system_mutation_performed:\s*false/,
-  /credential_activation_performed:\s*false/,
-  /credential_deactivation_performed:\s*false/,
+  /physical_access_granted:\s*false/,
+  /access_permission_granted:\s*false/,
+  /access_permission_revoked:\s*false/,
+  /access_control_system_mutated:\s*false/,
+  /credential_activated:\s*false/,
+  /credential_deactivated:\s*false/,
+  /credential_secret_stored:\s*false/,
   /external_authority_used:\s*false/,
 ]) {
   assert.match(source.accessMedia, boundary);
@@ -224,18 +226,23 @@ assert.match(source.travel, /external_booking_authority_created:\s*false/);
 assert.match(source.travel, /payment_authority_created:\s*false/);
 
 // Expense administration remains evidence/pack coordination, never accounting
-// posting or payment authority.
-assert.match(source.expensePack, /finance_posting_performed:\s*false/);
+// posting, reimbursement approval or payment authority.
+assert.match(source.expensePack, /accounting_posting_authority_created:\s*false/);
+assert.match(source.expensePack, /reimbursement_authority_created:\s*false/);
 assert.match(source.expensePack, /payment_authority_created:\s*false/);
 
-// Signature routing records the process; it cannot manufacture signing power.
+// Signature routing records the process; it cannot manufacture signing power
+// or apply a signature on the Secretary's own authority.
 assert.match(source.signatureRouting, /signing_authority_created:\s*false/);
-assert.match(source.signatureRouting, /signature_applied:\s*false/);
+assert.match(source.signatureRouting, /signature_performed_by_secretary:\s*false/);
+assert.match(source.signatureRouting, /signature_authority_created:\s*false/);
 
 // Written-action administration may chase, record outcomes and filing evidence,
 // but it cannot create legal validity or binding authority on its own.
 assert.match(source.writtenAction, /binding_authority_delegated:\s*false/);
-assert.match(source.writtenAction, /legal_accuracy_verified:\s*false/);
+assert.match(source.writtenAction, /legal_validity_inferred:\s*false/);
+assert.match(source.writtenAction, /legal_effect_inferred:\s*false/);
+assert.match(source.writtenAction, /corporate_authority_created:\s*false/);
 
 console.log("OPERATOR_SECRETARY_HUMAN_ROLE_SOURCE_AUDIT=PASS");
 console.log("SECRETARY_HUMAN_ROLE_COVERAGE_MATRIX=PASS");

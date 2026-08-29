@@ -1,0 +1,57 @@
+name: Avantiqo Intelligence Deep Parser Repair
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-intelligence-deep-parser-repair-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-deep-parser-repair
+  cancel-in-progress: false
+
+jobs:
+  repair-deep-parser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail closed if RunPod credential is unavailable
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: |
+          test -n "$RUNPOD_API_KEY" || { echo "RUNPOD_API_KEY_MISSING"; exit 1; }
+          echo "INTELLIGENCE_DEEP_PARSER_REPAIR_CREDENTIAL_BOUNDARY=PASS"
+
+      - name: Repair Deep Intelligence parser only
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          AVANTIQO_INTELLIGENCE_DEEP_LEGACY_PARSER_TO_QWEN3_APPROVED: "YES"
+        run: |
+          node scripts/repair-avantiqo-intelligence-deep-legacy-parser-to-qwen3-local.mjs --apply
+
+      - name: Verify no inference or scaling mutation was requested
+        if: always()
+        run: |
+          echo "GENERATION_SUBMITTED=false"
+          echo "WORKERS_SCALING_MUTATION_PERFORMED=false"
+          echo "FAST_LANE_MUTATION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

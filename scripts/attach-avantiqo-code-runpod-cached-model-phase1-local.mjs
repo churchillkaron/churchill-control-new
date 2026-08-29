@@ -210,7 +210,7 @@ function saveInput(endpoint) {
     gpuCount: finite(endpoint.gpuCount, 1),
     instanceIds: list(endpoint.instanceIds),
     workersMin: finite(endpoint.workersMin, 0),
-    workersMax: finite(endpoint.workersMax, 1),
+    workersMax: 1,
     locations: text(endpoint.locations),
     networkVolumeId: text(endpoint.networkVolumeId) || REQUIRED_NETWORK_VOLUME_ID,
     networkVolumeIds: volumes,
@@ -224,17 +224,28 @@ function saveInput(endpoint) {
   };
 }
 
-function assertRestPolicy(endpoint, template, label) {
+function assertRestPolicy(endpoint, template, label, { allowParkedZero = false } = {}) {
   if (text(endpoint.id) !== ENDPOINT_ID || text(endpoint.name) !== ENDPOINT_NAME) throw new Error(`${label}_IDENTITY`);
   if (text(endpoint.templateId || endpoint.template?.id) !== text(template?.id)) throw new Error(`${label}_TEMPLATE_ID`);
   if (text(template?.imageName) !== IMMUTABLE_IMAGE) throw new Error(`${label}_IMAGE:${text(template?.imageName)}`);
-  if (finite(endpoint.workersMin) !== 0 || finite(endpoint.workersMax) !== 1) throw new Error(`${label}_WORKERS`);
+  const workersMin = finite(endpoint.workersMin);
+  const workersMax = finite(endpoint.workersMax);
+  if (workersMin !== 0 || (workersMax !== 1 && !(allowParkedZero && workersMax === 0))) {
+    throw new Error(`${label}_WORKERS:${workersMin}/${workersMax}`);
+  }
   const flash = endpoint.flashboot === true || endpoint.flashBoot === true || text(endpoint.flashBootType).toUpperCase() === "FLASHBOOT";
   if (!flash) throw new Error(`${label}_FLASHBOOT`);
   if (text(endpoint.scalerType) !== "QUEUE_DELAY" || finite(endpoint.scalerValue) !== 1) throw new Error(`${label}_SCALER`);
   if (!sameMembers(stringList(endpoint.gpuTypeIds), TARGET_GPUS)) throw new Error(`${label}_GPU_POOL:${JSON.stringify(stringList(endpoint.gpuTypeIds))}`);
   if (text(endpoint.minCudaVersion) !== "12.8" || !sameMembers(stringList(endpoint.allowedCudaVersions), TARGET_CUDA)) throw new Error(`${label}_CUDA`);
   if (!volumeIds(endpoint).includes(REQUIRED_NETWORK_VOLUME_ID)) throw new Error(`${label}_NETWORK_VOLUME`);
+}
+
+async function restoreZeroIdleCapacity(key) {
+  return rest(`/endpoints/${ENDPOINT_ID}`, key, {
+    method: "PATCH",
+    body: { workersMin: 0, workersMax: 1 },
+  });
 }
 
 const apply = process.argv.includes("--apply");
@@ -244,12 +255,49 @@ const queueKey = text(process.env.RUNPOD_AVANTIQO_CODE_API_KEY || process.env.RU
 if (!managementKey || !queueKey) throw new Error(`${CONTRACT}_RUNPOD_CREDENTIAL_REQUIRED`);
 
 const validatedOriginMain = sourceGate();
-const beforeRest = await rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey);
-const beforeTemplate = await resolveTemplate(beforeRest, managementKey);
+let beforeRest = await rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey);
+let beforeTemplate = await resolveTemplate(beforeRest, managementKey);
 const beforeHealth = counters(await health(queueKey));
-const beforeGql = await gqlEndpoint(managementKey);
+let beforeGql = await gqlEndpoint(managementKey);
 assertIdle(beforeHealth, `${CONTRACT}_PREFLIGHT`);
-assertRestPolicy(beforeRest, beforeTemplate, `${CONTRACT}_PREFLIGHT`);
+assertRestPolicy(beforeRest, beforeTemplate, `${CONTRACT}_PREFLIGHT`, { allowParkedZero: true });
+
+let restCapacityRepaired = false;
+if (finite(beforeRest.workersMax) === 0) {
+  if (!apply) {
+    console.log(JSON.stringify({
+      success: true,
+      contract: CONTRACT,
+      mode: "PLAN",
+      endpoint_id: ENDPOINT_ID,
+      current_workers_min: finite(beforeRest.workersMin),
+      current_workers_max: finite(beforeRest.workersMax),
+      required_workers_min: 0,
+      required_workers_max: 1,
+      queue_and_workers_idle: true,
+      zero_idle_capacity_repair_required: true,
+      network_volume_preserved: true,
+      network_volume_detach_performed: false,
+      generation_submitted: false,
+      provider_inference_performed: false,
+      reasoning_call_consumed: false,
+      wallet_mutation_performed: false,
+      production_deploy_performed: false,
+      secrets_printed: false,
+    }, null, 2));
+    process.exit(0);
+  }
+  sourceGate();
+  await restoreZeroIdleCapacity(managementKey);
+  restCapacityRepaired = true;
+  beforeRest = await rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey);
+  beforeTemplate = await resolveTemplate(beforeRest, managementKey);
+  beforeGql = await gqlEndpoint(managementKey);
+  const repairedHealth = counters(await health(queueKey));
+  assertIdle(repairedHealth, `${CONTRACT}_CAPACITY_REPAIR`);
+  assertRestPolicy(beforeRest, beforeTemplate, `${CONTRACT}_CAPACITY_REPAIR`);
+}
+
 const existingRefs = list(beforeGql.modelReferences).map(text).filter(Boolean);
 if (existingRefs.some((r) => r !== MODEL_REFERENCE)) throw new Error(`${CONTRACT}_UNEXPECTED_MODEL_REFERENCE:${JSON.stringify(existingRefs)}`);
 
@@ -264,6 +312,7 @@ const base = {
   model_reference: MODEL_REFERENCE,
   model_revision: MODEL_REVISION,
   model_reference_already_present: existingRefs.includes(MODEL_REFERENCE),
+  rest_capacity_repaired: restCapacityRepaired,
   network_volume_preserved: true,
   network_volume_detach_performed: false,
   generation_submitted: false,
@@ -276,7 +325,12 @@ const base = {
 };
 
 if (!apply || existingRefs.includes(MODEL_REFERENCE)) {
-  console.log(JSON.stringify({ ...base, mutation_performed: false, next_action: "VERIFY_RUNPOD_CACHED_MODEL_READINESS_BEFORE_VOLUME_DETACH" }, null, 2));
+  console.log(JSON.stringify({
+    ...base,
+    mutation_performed: restCapacityRepaired,
+    zero_idle_policy_preserved: true,
+    next_action: "VERIFY_RUNPOD_CACHED_MODEL_READINESS_BEFORE_VOLUME_DETACH",
+  }, null, 2));
   process.exit(0);
 }
 
@@ -321,6 +375,7 @@ console.log(JSON.stringify({
   mode: "APPLY",
   validated_origin_main: finalOriginMain,
   mutation_performed: true,
+  rest_capacity_repaired: restCapacityRepaired,
   model_reference_after: afterRefs,
   health_after: afterHealth,
   network_volume_preserved: true,

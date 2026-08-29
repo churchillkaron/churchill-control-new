@@ -26,6 +26,10 @@ const APPROVAL_ENV = "AVANTIQO_MUSIC_PRODUCTION_PRICING_APPLY_APPROVED";
 const text = (value) => String(value ?? "").trim();
 const finite = (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const sha256 = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
+const round = (value, digits = 10) => {
+  const scale = 10 ** digits;
+  return Math.round(value * scale) / scale;
+};
 
 function required(name) {
   const value = text(process.env[name]);
@@ -97,6 +101,8 @@ check("lm_backend", text(plan?.ace_step_lm_backend) === LM_BACKEND);
 check("thinking", plan?.thinking_required === true);
 check("benchmark_passed", evidence?.benchmark_passed === true);
 check("economics_measured", evidence?.economics_measured === true);
+check("fresh_usd_per_second", finite(evidence?.measured_compute_usd_per_audio_second, 0) > 0);
+check("fresh_usd_per_minute", finite(evidence?.measured_compute_usd_per_audio_minute, 0) > 0);
 check("human_quality", evidence?.human_quality_certified === true);
 check("human_reviewer", Boolean(text(evidence?.human_quality_reviewer)));
 check("human_reviewed_at", validIso(evidence?.human_quality_reviewed_at));
@@ -157,16 +163,33 @@ const before = rows[0];
 if (before.active !== false) throw new Error(`${CONTRACT}_CURRENT_ROW_MUST_BE_INACTIVE`);
 if (text(before.unit) !== "second") throw new Error(`${CONTRACT}_CURRENT_UNIT_INVALID`);
 if (text(before.currency) !== "THB") throw new Error(`${CONTRACT}_CURRENT_CURRENCY_INVALID`);
-if (!(finite(before.cost_per_unit, 0) > 0)) throw new Error(`${CONTRACT}_CURRENT_COST_PER_UNIT_REQUIRED`);
-if (finite(before.markup_percent, null) === null || finite(before.markup_percent, -1) < 0) {
-  throw new Error(`${CONTRACT}_CURRENT_MARKUP_INVALID`);
-}
+const oldCostPerUnit = finite(before.cost_per_unit, null);
+const oldMarkupPercent = finite(before.markup_percent, null);
+if (!(oldCostPerUnit > 0)) throw new Error(`${CONTRACT}_CURRENT_COST_PER_UNIT_REQUIRED`);
+if (!(oldMarkupPercent >= 0)) throw new Error(`${CONTRACT}_CURRENT_MARKUP_INVALID`);
 
 const currentMetadata = before.metadata && typeof before.metadata === "object" ? before.metadata : {};
 if (currentMetadata.owned_inference !== true) throw new Error(`${CONTRACT}_CURRENT_ROW_NOT_OWNED`);
 if (currentMetadata.production_routing_allowed === true) {
   throw new Error(`${CONTRACT}_CURRENT_ROW_ALREADY_ROUTABLE_WITHOUT_CERTIFICATION`);
 }
+
+const fxToThb = finite(currentMetadata.fx_to_thb, null);
+if (!(fxToThb > 0)) throw new Error(`${CONTRACT}_CURRENT_FX_TO_THB_REQUIRED`);
+const freshUsdPerSecond = finite(evidence.measured_compute_usd_per_audio_second, null);
+const freshUsdPerMinute = finite(evidence.measured_compute_usd_per_audio_minute, null);
+if (!(freshUsdPerSecond > 0) || !(freshUsdPerMinute > 0)) {
+  throw new Error(`${CONTRACT}_FRESH_ECONOMICS_REQUIRED`);
+}
+
+const existingCustomerPriceThbPerSecond = round(oldCostPerUnit * (1 + (oldMarkupPercent / 100)), 10);
+const freshCostPerUnitThb = round(freshUsdPerSecond * fxToThb, 10);
+if (!(freshCostPerUnitThb > 0)) throw new Error(`${CONTRACT}_FRESH_THB_COST_INVALID`);
+if (freshCostPerUnitThb > existingCustomerPriceThbPerSecond) {
+  throw new Error(`${CONTRACT}_FRESH_COST_EXCEEDS_CURRENT_CUSTOMER_PRICE_EXPLICIT_REPRICING_REQUIRED`);
+}
+const freshMarkupPercent = round(((existingCustomerPriceThbPerSecond / freshCostPerUnitThb) - 1) * 100, 6);
+if (!(freshMarkupPercent >= 0)) throw new Error(`${CONTRACT}_FRESH_MARKUP_INVALID`);
 
 const appliedAt = new Date().toISOString();
 const finalMetadata = {
@@ -195,6 +218,14 @@ const finalMetadata = {
   runtime_compatible: true,
   recalibration_required: false,
   production_routing_allowed: true,
+  supplier_cost_source: text(evidence.benchmark_contract) || "AVANTIQO_MUSIC_CERTIFICATION_BENCHMARK_V3",
+  supplier_cost_benchmark_id: text(evidence.benchmark_id) || null,
+  supplier_cost_usd_per_second: freshUsdPerSecond,
+  supplier_cost_usd_per_audio_minute: freshUsdPerMinute,
+  measured_compute_usd_per_audio_second: freshUsdPerSecond,
+  measured_compute_usd_per_audio_minute: freshUsdPerMinute,
+  customer_price_thb_per_second: existingCustomerPriceThbPerSecond,
+  customer_price_preserved_during_certification: true,
   provider_certification_performed: true,
   pricing_promotion_performed: true,
   pricing_promotion_plan_contract: PLAN_CONTRACT,
@@ -204,6 +235,8 @@ const finalMetadata = {
 
 const staged = {
   ...before,
+  cost_per_unit: freshCostPerUnitThb,
+  markup_percent: freshMarkupPercent,
   metadata: finalMetadata,
   active: false,
 };
@@ -211,13 +244,25 @@ const stagedCertification = requireCertified(staged, "INACTIVE_STAGE_CANDIDATE")
 
 const { data: stagedRow, error: stageError } = await supabase
   .from("provider_pricing")
-  .update({ metadata: finalMetadata, active: false, updated_at: appliedAt })
+  .update({
+    cost_per_unit: freshCostPerUnitThb,
+    markup_percent: freshMarkupPercent,
+    metadata: finalMetadata,
+    active: false,
+    updated_at: appliedAt,
+  })
   .eq("id", before.id)
   .eq("active", false)
   .select("*")
   .single();
 if (stageError) throw new Error(`${CONTRACT}_STAGE_FAILED:${stageError.message}`);
 requireCertified(stagedRow, "INACTIVE_STAGE_READBACK");
+if (
+  Math.abs(finite(stagedRow.cost_per_unit, 0) - freshCostPerUnitThb) > 1e-10 ||
+  Math.abs(finite(stagedRow.markup_percent, -1) - freshMarkupPercent) > 1e-6
+) {
+  throw new Error(`${CONTRACT}_FRESH_ECONOMICS_READBACK_MISMATCH`);
+}
 
 const { data: activated, error: activateError } = await supabase
   .from("provider_pricing")
@@ -243,8 +288,11 @@ console.log(JSON.stringify({
   quality_profile: QUALITY_PROFILE,
   pricing_row_id: activated.id,
   pricing_plan_sha256: planSha,
-  preserved_cost_per_unit: finite(activated.cost_per_unit, null),
-  preserved_markup_percent: finite(activated.markup_percent, null),
+  fresh_supplier_cost_usd_per_audio_second: freshUsdPerSecond,
+  fresh_supplier_cost_thb_per_audio_second: freshCostPerUnitThb,
+  customer_price_thb_per_audio_second: existingCustomerPriceThbPerSecond,
+  recalculated_markup_percent: freshMarkupPercent,
+  customer_price_preserved: true,
   human_quality_reviewer: text(evidence.human_quality_reviewer),
   human_quality_reviewed_at: text(evidence.human_quality_reviewed_at),
   pricing_activation_performed: true,
@@ -259,6 +307,8 @@ console.log(JSON.stringify({
 
 console.log("AVANTIQO_MUSIC_PRODUCTION_PRICING_APPLY=PASS");
 console.log("AVANTIQO_MUSIC_PRODUCTION_PRICING_ACTIVE=true");
+console.log("AVANTIQO_MUSIC_FRESH_ECONOMICS_BOUND=true");
+console.log("AVANTIQO_MUSIC_CUSTOMER_PRICE_PRESERVED=true");
 console.log("AVANTIQO_MUSIC_PROVIDER_JOB_SUBMITTED=false");
 console.log("AVANTIQO_MUSIC_ENDPOINT_MUTATION_PERFORMED=false");
 console.log("AVANTIQO_MUSIC_PRODUCTION_DEPLOY_PERFORMED=false");

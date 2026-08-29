@@ -7,6 +7,7 @@ import path from "node:path";
 const CONTRACT = "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1";
 const ROOT = process.cwd();
 const CERTIFIED_VIDEO_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-worker-gpu-only@sha256:2f477f95fcc46fdcb7aff1dda03944ad282eb3a7d33c95098bd13d00a76c3425";
+const CERTIFIED_FLASHVSR_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:55919408e355960cf35f3c87a8d2c875c92a9e586ea43bb207dfcb93dc4d20fc";
 
 const NON_VIDEO_PAID_WORKER_ROOTS = [
   "services/avantiqo-image-engine",
@@ -45,6 +46,7 @@ const ACTIVE_VIDEO_WIRING_FILES = {
   studioMaster: "lib/creative/video/runtime/CreativeVideoStudioMasterRuntime.js",
   studioFlashVsr: "lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js",
   flashVsrPodRuntime: "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js",
+  volumeCpuBridge: "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoRunpodVolumeCpuBridge.js",
 };
 
 const GENERAL_FORBIDDEN = [
@@ -127,7 +129,7 @@ for (const file of [...ACTIVE_VIDEO_GPU_FILES, ...ACTIVE_VIDEO_FLASHVSR_GPU_FILE
   }
 }
 
-const [dockerfile, gpuCore, gpuHandler, podRuntime, podRunpod, workflowV3, studioFoundation, studioMaster, flashDocker, flashWorker, studioFlashVsr, flashVsrPodRuntime] = await Promise.all([
+const [dockerfile, gpuCore, gpuHandler, podRuntime, podRunpod, workflowV3, studioFoundation, studioMaster, flashDocker, flashWorker, studioFlashVsr, flashVsrPodRuntime, volumeCpuBridge] = await Promise.all([
   source(ACTIVE_VIDEO_GPU_FILES[0]),
   source(ACTIVE_VIDEO_GPU_FILES[1]),
   source(ACTIVE_VIDEO_GPU_FILES[2]),
@@ -140,6 +142,7 @@ const [dockerfile, gpuCore, gpuHandler, podRuntime, podRunpod, workflowV3, studi
   source(ACTIVE_VIDEO_FLASHVSR_GPU_FILES[1]),
   source(ACTIVE_VIDEO_WIRING_FILES.studioFlashVsr),
   source(ACTIVE_VIDEO_WIRING_FILES.flashVsrPodRuntime),
+  source(ACTIVE_VIDEO_WIRING_FILES.volumeCpuBridge),
 ]);
 
 const requiredChecks = [
@@ -169,13 +172,26 @@ const requiredChecks = [
   ["VIDEO_FLASHVSR_GPU_ONLY", flashWorker.includes('COMPUTE_BOUNDARY = "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1"') && flashWorker.includes('video_encoded_on_paid_worker": False') && flashWorker.includes('final_artifact_persisted_on_paid_worker": False') && flashWorker.includes('ffmpeg_used_on_paid_worker": False')],
   ["VIDEO_FLASHVSR_PINNED_MODEL", flashWorker.includes('MODEL_REVISION = "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb"')],
   ["VIDEO_FLASHVSR_A100_BUILD", flashDocker.includes("BLOCK_SPARSE_ATTN_CUDA_ARCHS=80") && flashDocker.includes("TORCH_CUDA_ARCH_LIST=8.0") && flashVsrPodRuntime.includes('AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"')],
+  ["VIDEO_FLASHVSR_IMMUTABLE_IMAGE", flashVsrPodRuntime.includes(CERTIFIED_FLASHVSR_IMAGE)],
   ["VIDEO_FLASHVSR_STUDIO_FINAL_ENCODING", studioFlashVsr.includes('backend: "OWNED_GPU_FLASHVSR_V1_1_STUDIO_4K"') && studioFlashVsr.includes("studio_final_encoding: true") && studioFlashVsr.includes("gpu_video_encoding_used: false")],
-  ["VIDEO_FLASHVSR_DELETE_BEFORE_STUDIO", (() => {
-    const branch = flashVsrPodRuntime.indexOf("if (receipt) {");
-    const deletion = flashVsrPodRuntime.indexOf("await deleteVideoPod(podId)", branch);
-    const studio = flashVsrPodRuntime.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", branch);
-    return branch >= 0 && deletion > branch && studio > deletion;
+  ["VIDEO_FLASHVSR_S3_SECRET_FREE", studioFlashVsr.includes('s3_credentials_required: false') && flashVsrPodRuntime.includes('s3_credentials_required: false') && !/presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/.test(studioFlashVsr + flashVsrPodRuntime)],
+  ["VIDEO_FLASHVSR_CPU_BRIDGE_TRANSPORT_ONLY", volumeCpuBridge.includes('computeType: "CPU"') && volumeCpuBridge.includes('model_inference_used: false') && volumeCpuBridge.includes('ffmpeg_used: false') && !/torch|cuda|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai\//i.test(volumeCpuBridge)],
+  ["VIDEO_FLASHVSR_CPU_BRIDGE_DELETE_CONFIRMED", volumeCpuBridge.includes("confirmed_terminal: true") && volumeCpuBridge.includes("_DELETE_TIMEOUT")],
+  ["VIDEO_FLASHVSR_UPLOAD_BRIDGE_DELETE_BEFORE_GPU", (() => {
+    const prep = flashVsrPodRuntime.indexOf("prepared = await prepareCreativeVideoFlashVsrInput");
+    const bridgeDelete = flashVsrPodRuntime.indexOf("const uploadBridgeDelete = await deleteAvantiqoVideoVolumeCpuBridge", prep);
+    const lease = flashVsrPodRuntime.indexOf("lease = await acquireVideoPodLease", bridgeDelete);
+    const gpu = flashVsrPodRuntime.indexOf("const pod = await createMasterPod", lease);
+    return prep >= 0 && bridgeDelete > prep && lease > bridgeDelete && gpu > lease;
   })()],
+  ["VIDEO_FLASHVSR_NO_CONCURRENT_VOLUME_WRITERS", flashVsrPodRuntime.includes('transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE_SEQUENTIAL"') && flashVsrPodRuntime.includes("upload_bridge_deleted_before_gpu: true") && flashVsrPodRuntime.includes("concurrent_volume_writers: false")],
+  ["VIDEO_FLASHVSR_GPU_DELETE_BEFORE_RETRIEVAL", (() => {
+    const terminal = flashVsrPodRuntime.indexOf("if (!pod || podTerminal(pod)) {");
+    const deletion = flashVsrPodRuntime.indexOf("await deleteVideoPod(podId)", terminal);
+    const retrieve = flashVsrPodRuntime.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", deletion);
+    return terminal >= 0 && deletion > terminal && retrieve > deletion;
+  })()],
+  ["VIDEO_FLASHVSR_STUDIO_AFTER_GPU", flashVsrPodRuntime.includes("const final = await finalizeCreativeVideoFlashVsrMaster") && flashVsrPodRuntime.includes("gpu_deleted_before_studio_encode: true")],
 ];
 for (const [code, passed] of requiredChecks) {
   if (!passed) violations.push(violation(code, "ACTIVE_VIDEO_ARCHITECTURE", "Required Studio-first Video invariant is missing"));
@@ -197,6 +213,7 @@ console.log(JSON.stringify({
   ],
   video_enforcement: "STRICT_ACTIVE_CLOSURE",
   certified_video_gpu_image: CERTIFIED_VIDEO_IMAGE,
+  certified_video_flashvsr_image: CERTIFIED_FLASHVSR_IMAGE,
   active_video_gpu_files: ACTIVE_VIDEO_GPU_FILES,
   active_video_flashvsr_gpu_files: ACTIVE_VIDEO_FLASHVSR_GPU_FILES,
   historical_video_files_retained_but_inactive: historicalVideoFiles.length,

@@ -1,0 +1,78 @@
+name: Avantiqo Video FlashVSR Revision Repair
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-flashvsr-revision-repair-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-flashvsr-revision-repair
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Repair exact FlashVSR model revision on newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          old='a258bf2d5b99bf54cf048d901edc866591d5ea0b'
+          new='a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb'
+          files=(
+            'scripts/preload-avantiqo-video-flashvsr-v11-cache-helper.py'
+            'scripts/preload-avantiqo-video-flashvsr-v11-cache-local.mjs'
+            'scripts/run-avantiqo-video-v72-flashvsr-4k-quality-final-local.mjs'
+            'services/avantiqo-video-flashvsr/flashvsr_worker.py'
+            'lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js'
+            'tests/avantiqo-video-studio-first-boundary.test.mjs'
+            'scripts/studio-first-compute-boundary-audit.mjs'
+            '.github/workflows/avantiqo-video-flashvsr-worker.yml'
+          )
+
+          git fetch origin main
+          git checkout -B video-flashvsr-revision-repair origin/main
+
+          for file in "${files[@]}"; do
+            test -f "$file"
+            grep -Fq "$old" "$file"
+            sed -i "s/$old/$new/g" "$file"
+            grep -Fq "$new" "$file"
+            if grep -Fq "$old" "$file"; then
+              echo "Old revision remains in $file" >&2
+              exit 1
+            fi
+          done
+
+          node --test tests/avantiqo-video-studio-first-boundary.test.mjs
+          node scripts/studio-first-compute-boundary-audit.mjs
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "${files[@]}"
+          git diff --cached --check
+          git commit -m 'Fix FlashVSR v1.1 model revision'
+
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_VIDEO_FLASHVSR_REVISION_REPAIR=PASS'
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            git fetch origin main
+            git rebase origin/main
+          done

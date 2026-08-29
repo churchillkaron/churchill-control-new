@@ -1,0 +1,11 @@
+{
+  "contract": "AVANTIQO_VOICE_REALTIME_STT_WORKER_IMAGE_REQUEST_V1",
+  "requested_for": "offline_realtime_streaming_certification",
+  "build_realtime_stt": true,
+  "build_batch_stt": false,
+  "build_tts": false,
+  "production_web_deploy": false,
+  "provider_job_submitted": false,
+  "realtime_session_started": false,
+  "pricing_activation": false
+}

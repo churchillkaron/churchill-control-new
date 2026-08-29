@@ -32,6 +32,10 @@ const ACTIVE_VIDEO_GPU_FILES = [
   "services/avantiqo-video-engine/handler_v6.py",
   "services/avantiqo-video-engine/requirements.gpu-only.txt",
 ];
+const ACTIVE_VIDEO_FLASHVSR_GPU_FILES = [
+  "services/avantiqo-video-flashvsr/Dockerfile",
+  "services/avantiqo-video-flashvsr/flashvsr_worker.py",
+];
 
 const ACTIVE_VIDEO_WIRING_FILES = {
   podRuntime: "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js",
@@ -39,6 +43,8 @@ const ACTIVE_VIDEO_WIRING_FILES = {
   workflowV3: "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoWorkflowRuntimeV3.js",
   studioFoundation: "lib/creative/video/runtime/CreativeVideoStudioFoundationRuntime.js",
   studioMaster: "lib/creative/video/runtime/CreativeVideoStudioMasterRuntime.js",
+  studioFlashVsr: "lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js",
+  flashVsrPodRuntime: "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js",
 };
 
 const GENERAL_FORBIDDEN = [
@@ -113,7 +119,7 @@ for (const root of NON_VIDEO_PAID_WORKER_ROOTS) {
   }
 }
 
-for (const file of ACTIVE_VIDEO_GPU_FILES) {
+for (const file of [...ACTIVE_VIDEO_GPU_FILES, ...ACTIVE_VIDEO_FLASHVSR_GPU_FILES]) {
   const body = await source(file);
   scanned.push(file);
   for (const [code, pattern] of VIDEO_GPU_FORBIDDEN) {
@@ -121,7 +127,7 @@ for (const file of ACTIVE_VIDEO_GPU_FILES) {
   }
 }
 
-const [dockerfile, gpuCore, gpuHandler, podRuntime, podRunpod, workflowV3, studioFoundation, studioMaster] = await Promise.all([
+const [dockerfile, gpuCore, gpuHandler, podRuntime, podRunpod, workflowV3, studioFoundation, studioMaster, flashDocker, flashWorker, studioFlashVsr, flashVsrPodRuntime] = await Promise.all([
   source(ACTIVE_VIDEO_GPU_FILES[0]),
   source(ACTIVE_VIDEO_GPU_FILES[1]),
   source(ACTIVE_VIDEO_GPU_FILES[2]),
@@ -130,6 +136,10 @@ const [dockerfile, gpuCore, gpuHandler, podRuntime, podRunpod, workflowV3, studi
   source(ACTIVE_VIDEO_WIRING_FILES.workflowV3),
   source(ACTIVE_VIDEO_WIRING_FILES.studioFoundation),
   source(ACTIVE_VIDEO_WIRING_FILES.studioMaster),
+  source(ACTIVE_VIDEO_FLASHVSR_GPU_FILES[0]),
+  source(ACTIVE_VIDEO_FLASHVSR_GPU_FILES[1]),
+  source(ACTIVE_VIDEO_WIRING_FILES.studioFlashVsr),
+  source(ACTIVE_VIDEO_WIRING_FILES.flashVsrPodRuntime),
 ]);
 
 const requiredChecks = [
@@ -151,9 +161,21 @@ const requiredChecks = [
   })()],
   ["VIDEO_IMMUTABLE_GPU_ONLY_IMAGE", podRunpod.includes(CERTIFIED_VIDEO_IMAGE)],
   ["VIDEO_V3_FAL_FREE", !/FAL_KEY|FAL_API_KEY|queue\.fal\.run|fal-ai\/bytedance-upscaler/i.test(workflowV3)],
+  ["VIDEO_V3_V6_GENERATION_LABEL", workflowV3.includes('generation_backend: "OWNED_RUNPOD_POD_V6"')],
   ["VIDEO_V3_STUDIO_MASTER", workflowV3.includes("renderCreativeVideoStudioMaster") && workflowV3.includes("studio_compute_only_mastering = true")],
+  ["VIDEO_V3_4K_LEARNED_SR", workflowV3.includes('state.master_resolution === "4k"') && workflowV3.includes("submitAvantiqoVideoFlashVsrMaster") && workflowV3.includes("learned_super_resolution_used = true")],
   ["VIDEO_STUDIO_FOUNDATION_FFMPEG", studioFoundation.includes('ffmpeg_location: "STUDIO"') && studioFoundation.includes("gpu_compute_used: false")],
   ["VIDEO_STUDIO_MASTER_FFMPEG", studioMaster.includes('backend: "STUDIO_CPU_FFMPEG_LANCZOS"') && studioMaster.includes("gpu_compute_used: false") && studioMaster.includes("fal_contacted: false")],
+  ["VIDEO_FLASHVSR_GPU_ONLY", flashWorker.includes('COMPUTE_BOUNDARY = "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1"') && flashWorker.includes('video_encoded_on_paid_worker": False') && flashWorker.includes('final_artifact_persisted_on_paid_worker": False') && flashWorker.includes('ffmpeg_used_on_paid_worker": False')],
+  ["VIDEO_FLASHVSR_PINNED_MODEL", flashWorker.includes('MODEL_REVISION = "a258bf2d5b99bf54cf048d901edc866591d5ea0b"')],
+  ["VIDEO_FLASHVSR_A100_BUILD", flashDocker.includes("BLOCK_SPARSE_ATTN_CUDA_ARCHS=80") && flashDocker.includes("TORCH_CUDA_ARCH_LIST=8.0") && flashVsrPodRuntime.includes('AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"')],
+  ["VIDEO_FLASHVSR_STUDIO_FINAL_ENCODING", studioFlashVsr.includes('backend: "OWNED_GPU_FLASHVSR_V1_1_STUDIO_4K"') && studioFlashVsr.includes("studio_final_encoding: true") && studioFlashVsr.includes("gpu_video_encoding_used: false")],
+  ["VIDEO_FLASHVSR_DELETE_BEFORE_STUDIO", (() => {
+    const branch = flashVsrPodRuntime.indexOf("if (receipt) {");
+    const deletion = flashVsrPodRuntime.indexOf("await deleteVideoPod(podId)", branch);
+    const studio = flashVsrPodRuntime.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", branch);
+    return branch >= 0 && deletion > branch && studio > deletion;
+  })()],
 ];
 for (const [code, passed] of requiredChecks) {
   if (!passed) violations.push(violation(code, "ACTIVE_VIDEO_ARCHITECTURE", "Required Studio-first Video invariant is missing"));
@@ -176,6 +198,7 @@ console.log(JSON.stringify({
   video_enforcement: "STRICT_ACTIVE_CLOSURE",
   certified_video_gpu_image: CERTIFIED_VIDEO_IMAGE,
   active_video_gpu_files: ACTIVE_VIDEO_GPU_FILES,
+  active_video_flashvsr_gpu_files: ACTIVE_VIDEO_FLASHVSR_GPU_FILES,
   historical_video_files_retained_but_inactive: historicalVideoFiles.length,
   cross_domain_migration_debt_policy: "EXACT_GIT_BLOB_PIN_ONLY_NO_NEW_OR_CHANGED_DEBT",
   pinned_cross_domain_migration_debt_count: pinnedMigrationDebt.length,

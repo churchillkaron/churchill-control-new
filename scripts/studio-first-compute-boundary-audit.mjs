@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import crypto from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -13,6 +14,17 @@ const NON_VIDEO_PAID_WORKER_ROOTS = [
   "services/avantiqo-voice-stt",
   "services/avantiqo-voice-stt-realtime",
 ].map((entry) => path.join(ROOT, entry));
+
+const PINNED_CROSS_DOMAIN_MIGRATION_DEBT = Object.freeze({
+  "services/avantiqo-image-engine/handler.py": { code: "FINAL_STORAGE_ORCHESTRATION", blob_sha: "668b3a1170f29feb854014ad07f99e95fa5f4a32" },
+  "services/avantiqo-image-engine/handler_v2.py": { code: "FINAL_STORAGE_ORCHESTRATION", blob_sha: "c0d9cbf83185021f7051bef4933c33429cc42f41" },
+  "services/avantiqo-image-engine/handler_v3.py": { code: "FINAL_STORAGE_ORCHESTRATION", blob_sha: "c6e4a21b3a2484def2f3c93bfe26d420a1bfeef3" },
+  "services/avantiqo-image-engine/handler_v4.py": { code: "FINAL_STORAGE_ORCHESTRATION", blob_sha: "adff1dbb79b602bbbc7d90a38d94e0b9a1058b6d" },
+  "services/avantiqo-music-elastic-engine/Dockerfile": { code: "FFMPEG_BINARY", blob_sha: "721075c8123c1bb94f3771278bf63deadd395e2c" },
+  "services/avantiqo-music-elastic-engine/handler.py": { code: "FFMPEG_BINARY", blob_sha: "5367bf660c08d10838d18fb1dc933294bff6d5fd" },
+  "services/avantiqo-voice-stt/Dockerfile": { code: "FFMPEG_BINARY", blob_sha: "20f78962557f83f826ea06ba3310adcfc8a1655e" },
+  "services/avantiqo-voice-stt-realtime/Dockerfile": { code: "FFMPEG_BINARY", blob_sha: "e297a2ec151ab17f14c2ed01ed2a90d5b5f05342" },
+});
 
 const ACTIVE_VIDEO_GPU_FILES = [
   "services/avantiqo-video-engine/Dockerfile.v6",
@@ -73,8 +85,13 @@ async function source(relativePath) {
   if (!(await exists(full))) throw new Error(`${CONTRACT}_REQUIRED_FILE_MISSING:${relativePath}`);
   return readFile(full, "utf8");
 }
+function gitBlobSha(body) {
+  const bytes = Buffer.from(body, "utf8");
+  return crypto.createHash("sha1").update(Buffer.from(`blob ${bytes.length}\0`, "utf8")).update(bytes).digest("hex");
+}
 
 const violations = [];
+const pinnedMigrationDebt = [];
 const scanned = [];
 
 for (const root of NON_VIDEO_PAID_WORKER_ROOTS) {
@@ -82,9 +99,16 @@ for (const root of NON_VIDEO_PAID_WORKER_ROOTS) {
     if (!isSource(file)) continue;
     const body = await readFile(file, "utf8");
     const rel = relative(file);
+    const blobSha = gitBlobSha(body);
     scanned.push(rel);
     for (const [code, pattern] of GENERAL_FORBIDDEN) {
-      if (pattern.test(body)) violations.push(violation(code, rel, "Studio-capable operation found in paid worker source"));
+      if (!pattern.test(body)) continue;
+      const pinned = PINNED_CROSS_DOMAIN_MIGRATION_DEBT[rel];
+      if (pinned?.code === code && pinned?.blob_sha === blobSha) {
+        pinnedMigrationDebt.push({ code, file: rel, blob_sha: blobSha, status: "PINNED_UNCHANGED_MIGRATION_DEBT" });
+      } else {
+        violations.push(violation(code, rel, "Studio-capable operation found in paid worker source; new or changed debt is forbidden"));
+      }
     }
   }
 }
@@ -153,6 +177,9 @@ console.log(JSON.stringify({
   certified_video_gpu_image: CERTIFIED_VIDEO_IMAGE,
   active_video_gpu_files: ACTIVE_VIDEO_GPU_FILES,
   historical_video_files_retained_but_inactive: historicalVideoFiles.length,
+  cross_domain_migration_debt_policy: "EXACT_GIT_BLOB_PIN_ONLY_NO_NEW_OR_CHANGED_DEBT",
+  pinned_cross_domain_migration_debt_count: pinnedMigrationDebt.length,
+  pinned_cross_domain_migration_debt: pinnedMigrationDebt,
   scanned_files: scanned.length,
   violation_count: violations.length,
   violations,

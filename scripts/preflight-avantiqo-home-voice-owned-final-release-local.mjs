@@ -11,6 +11,8 @@ const paths = Object.freeze({
   operatorTurn: "lib/operator/runtime/OperatorTurnRuntime.js",
   asyncTranscription:
     "lib/operator/runtime/OperatorVoiceAsyncTranscriptionRuntime.js",
+  asyncSpeech:
+    "lib/operator/runtime/OperatorVoiceAsyncSpeechRuntime.js",
   certificationPolicy:
     "lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js",
   voiceRegistration:
@@ -107,6 +109,7 @@ const [
   publicErrorPolicy,
   operatorTurn,
   asyncTranscription,
+  asyncSpeech,
   certificationPolicy,
   voiceRegistration,
   voiceMigration,
@@ -118,6 +121,7 @@ const [
   source(paths.publicErrorPolicy),
   source(paths.operatorTurn),
   source(paths.asyncTranscription),
+  source(paths.asyncSpeech),
   source(paths.certificationPolicy),
   source(paths.voiceRegistration),
   source(paths.voiceMigration),
@@ -159,26 +163,31 @@ requireText(
   "shouldSanitizeOperatorRuntimeError",
   "FINAL_RELEASE_OPERATOR_ERROR_BOUNDARY_REQUIRED",
 );
-requireText(
-  asyncTranscription,
-  'const OWNED_PROVIDER = "avantiqo-voice"',
-  "FINAL_RELEASE_ASYNC_STT_OWNED_PROVIDER_REQUIRED",
-);
-requireText(
-  asyncTranscription,
-  "await assertOwnedSttProviderReady(organization)",
-  "FINAL_RELEASE_ASYNC_STT_PROVIDER_PREFLIGHT_REQUIRED",
-);
-requireText(
-  asyncTranscription,
-  "provider_id: OWNED_PROVIDER",
-  "FINAL_RELEASE_ASYNC_STT_PROVIDER_PIN_REQUIRED",
-);
-requireText(
-  asyncTranscription,
-  "external_fallback_allowed: false",
-  "FINAL_RELEASE_ASYNC_STT_EXTERNAL_FALLBACK_FALSE_REQUIRED",
-);
+for (const [sourceValue, prefix, assertionName] of [
+  [asyncTranscription, "Stt", "STT"],
+  [asyncSpeech, "Tts", "TTS"],
+]) {
+  requireText(
+    sourceValue,
+    'const OWNED_PROVIDER = "avantiqo-voice"',
+    `FINAL_RELEASE_ASYNC_${assertionName}_OWNED_PROVIDER_REQUIRED`,
+  );
+  requireText(
+    sourceValue,
+    `await assertOwned${prefix}ProviderReady(organization)`,
+    `FINAL_RELEASE_ASYNC_${assertionName}_PROVIDER_PREFLIGHT_REQUIRED`,
+  );
+  requireText(
+    sourceValue,
+    "provider_id: OWNED_PROVIDER",
+    `FINAL_RELEASE_ASYNC_${assertionName}_PROVIDER_PIN_REQUIRED`,
+  );
+  requireText(
+    sourceValue,
+    "external_fallback_allowed: false",
+    `FINAL_RELEASE_ASYNC_${assertionName}_EXTERNAL_FALLBACK_FALSE_REQUIRED`,
+  );
+}
 requireText(
   certificationPolicy,
   '"Qwen/Qwen3-30B-A3B-Instruct-2507"',

@@ -1,6 +1,9 @@
 import {
   reapExpiredCodeAIWorkerSession,
 } from "@/lib/code/runtime/CodeAIWorkerSessionRuntime";
+import {
+  reapIdleCodeAIServerlessWorker,
+} from "@/lib/code/runtime/CodeAIServerlessZeroIdleLifecycleRuntime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,12 +24,16 @@ export async function GET(request) {
   }
 
   try {
-    const result = await reapExpiredCodeAIWorkerSession();
+    const [workerSession, zeroIdleServerless] = await Promise.all([
+      reapExpiredCodeAIWorkerSession(),
+      reapIdleCodeAIServerlessWorker(),
+    ]);
     return Response.json(
       {
         success: true,
-        contract: "AVANTIQO_CODE_AI_WORKER_SESSION_REAPER_V1",
-        ...result,
+        contract: "AVANTIQO_CODE_AI_WORKER_SESSION_REAPER_V2",
+        worker_session: workerSession,
+        zero_idle_serverless: zeroIdleServerless,
         provider_model_call_performed: false,
         wallet_mutation_performed: false,
         production_deploy_performed: false,
@@ -38,8 +45,8 @@ export async function GET(request) {
     return Response.json(
       {
         success: false,
-        contract: "AVANTIQO_CODE_AI_WORKER_SESSION_REAPER_V1",
-        error: error?.message || "Code worker session cleanup failed",
+        contract: "AVANTIQO_CODE_AI_WORKER_SESSION_REAPER_V2",
+        error: error?.message || "Code worker cleanup failed",
         cleanup_failure_hidden: false,
         provider_model_call_performed: false,
         wallet_mutation_performed: false,

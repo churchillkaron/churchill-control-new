@@ -5,7 +5,6 @@ import { useEffect, useRef } from "react";
 import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
 
 const LATEST_THRESHOLD_PX = 96;
-const VOICE_REPLY_INTENT_TTL_MS = 5 * 60 * 1000;
 
 function normalizedSpeech(value) {
   return String(value ?? "")
@@ -55,7 +54,6 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   useEffect(() => {
     let lastSpokenMessage = "";
     let spokenEchoGuardUntil = 0;
-    let lastExplicitVoiceCommandAt = 0;
 
     function gateAndRememberSpokenOutput(event) {
       const detail = event?.detail;
@@ -72,19 +70,13 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
 
       const urgent = String(detail.priority ?? "").trim().toLowerCase() === "urgent";
       const explicitlyVoiceInitiated = detail.voice_initiated === true;
-      const followsExplicitVoiceCommand =
-        lastExplicitVoiceCommandAt > 0 &&
-        Date.now() - lastExplicitVoiceCommandAt <= VOICE_REPLY_INTENT_TTL_MS;
 
-      // Ordinary typed Home replies are silent. A spoken reply is allowed only
-      // when Voice intent is explicit (or an urgent governed alert says so).
-      if (!urgent && !explicitlyVoiceInitiated && !followsExplicitVoiceCommand) {
+      // Typed Secretary turns are always silent. There is no carry-over voice
+      // intent window: only the exact turn explicitly marked as voice may speak.
+      if (!urgent && !explicitlyVoiceInitiated) {
         event.stopImmediatePropagation();
         return;
       }
-
-      detail.voice_initiated = urgent ? detail.voice_initiated === true : true;
-      if (!urgent) lastExplicitVoiceCommandAt = 0;
 
       lastSpokenMessage = message;
       const words = normalizedSpeech(message).split(" ").filter(Boolean).length;
@@ -98,25 +90,19 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       const detail = event?.detail;
       if (!detail || typeof detail !== "object") return;
 
-      // Home chat is silent by default. Only an explicitly marked Voice command
-      // may trigger TTS. Missing, stale or arbitrary event sources are text.
+      // Only an explicit Voice command is voice. Missing, stale or arbitrary
+      // event sources are normalized to text and can never authorize TTS.
       const source = String(detail.source ?? "").trim().toLowerCase();
       detail.source = source === "voice" ? "voice" : "text";
 
-      // Do not let the wake microphone feed Avantiqo's own just-spoken answer
-      // back into Home as another Voice command. This guard compares content,
-      // so unrelated human speech is not suppressed merely because TTS ran.
+      // Do not let Avantiqo's own spoken answer feed back into Home as another
+      // Voice command. Unrelated human speech remains unaffected.
       if (
         detail.source === "voice" &&
         Date.now() < spokenEchoGuardUntil &&
         likelySpokenEcho(detail.message, lastSpokenMessage)
       ) {
         event.stopImmediatePropagation();
-        return;
-      }
-
-      if (detail.source === "voice") {
-        lastExplicitVoiceCommandAt = Date.now();
       }
     }
 

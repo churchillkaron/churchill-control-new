@@ -62,6 +62,9 @@ if ! command -v supabase >/dev/null 2>&1; then
   exit 1
 fi
 
+# Fail fast on the complete human-role surface before starting local services.
+node scripts/operator-secretary-deep-human-role-audit.mjs
+
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/avantiqo-secretary-supabase.XXXXXX")"
 cleanup() {
   supabase stop --workdir "$WORKDIR" >/dev/null 2>&1 || true
@@ -207,6 +210,7 @@ node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secre
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-resource-reservation-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-event-guest-coordination-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-hospitality-coordination-local.mjs
+node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-final-human-role-gaps-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-appointment-attendance-stewardship-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-physical-records-custody-local.mjs
 node --import ./scripts/register-node-next-alias-hooks.mjs scripts/certify-secretary-access-media-custody-local.mjs

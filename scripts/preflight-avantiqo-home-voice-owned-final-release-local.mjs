@@ -154,6 +154,21 @@ requireText(
   "FINAL_RELEASE_VOICE_SELF_ECHO_GUARD_REQUIRED",
 );
 requireText(
+  homeDock,
+  "VOICE_REPLY_INTENT_TTL_MS",
+  "FINAL_RELEASE_HOME_EXPLICIT_VOICE_INTENT_TTL_REQUIRED",
+);
+requireText(
+  homeDock,
+  "followsExplicitVoiceCommand",
+  "FINAL_RELEASE_HOME_EXPLICIT_VOICE_REPLY_GATE_REQUIRED",
+);
+requireText(
+  homeDock,
+  "detail.voice_initiated = urgent ? detail.voice_initiated === true : true",
+  "FINAL_RELEASE_HOME_VOICE_INITIATED_MARKER_REQUIRED",
+);
+requireText(
   publicErrorPolicy,
   "raw_provider_errors_exposed: false",
   "FINAL_RELEASE_PUBLIC_ERROR_POLICY_REQUIRED",

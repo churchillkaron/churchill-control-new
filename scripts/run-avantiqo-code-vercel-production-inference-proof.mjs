@@ -1,12 +1,14 @@
 import process from "node:process";
 
-const CONTRACT = "AVANTIQO_CODE_VERCEL_PRODUCTION_INFERENCE_PROOF_V2";
+const CONTRACT = "AVANTIQO_CODE_VERCEL_PRODUCTION_INFERENCE_PROOF_V3";
 const ENDPOINT_ID = "r79dtnjnrilrlc";
 const ENDPOINT_NAME = "avantiqo-code-v1";
 const EXPECTED_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
 const QUEUE_BASE = `https://api.runpod.ai/v2/${ENDPOINT_ID}`;
 const REST_BASE = "https://rest.runpod.io/v1";
 const TARGET_IDLE_TIMEOUT_SECONDS = 60;
+const SUBMISSION_PROPAGATION_ATTEMPTS = 24;
+const SUBMISSION_PROPAGATION_DELAY_MS = 5000;
 const text = (value, max = 4000) => String(value ?? "").trim().slice(0, max);
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const finite = (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -18,11 +20,20 @@ function required(name) {
   return value;
 }
 
-async function readJson(response, label) {
+async function parseJsonResponse(response) {
   const raw = await response.text();
   let body = {};
   try { body = raw ? JSON.parse(raw) : {}; } catch { body = { message: raw }; }
-  if (!response.ok) throw new Error(`${label}_HTTP_${response.status}:${text(body?.detail || body?.error?.message || body?.error || body?.message || raw, 1200)}`);
+  return { raw, body };
+}
+
+function responseDetail(body, raw) {
+  return text(body?.detail || body?.error?.message || body?.error || body?.message || raw, 1200);
+}
+
+async function readJson(response, label) {
+  const { raw, body } = await parseJsonResponse(response);
+  if (!response.ok) throw new Error(`${label}_HTTP_${response.status}:${responseDetail(body, raw)}`);
   return body;
 }
 
@@ -99,6 +110,13 @@ function assertEndpointIdentity(summary, phase) {
   }
   if (summary.workers_min !== 0 || ![0, 1].includes(summary.workers_max)) {
     throw new Error(`${CONTRACT}_${phase}_UNEXPECTED_WORKER_POLICY:${summary.workers_min}/${summary.workers_max}`);
+  }
+}
+
+function assertAcceptingRestPolicy(summary, phase) {
+  assertEndpointIdentity(summary, phase);
+  if (summary.workers_min !== 0 || summary.workers_max !== 1 || summary.idle_timeout_seconds !== TARGET_IDLE_TIMEOUT_SECONDS) {
+    throw new Error(`${CONTRACT}_${phase}_REST_POLICY_NOT_ACCEPTING:${JSON.stringify(summary)}`);
   }
 }
 
@@ -193,9 +211,7 @@ async function reconcileZeroIdlePolicy(key) {
           workersMax: 1,
           idleTimeout: TARGET_IDLE_TIMEOUT_SECONDS,
         }, "RESTORE");
-        if (restored.workers_min !== 0 || restored.workers_max !== 1 || restored.idle_timeout_seconds !== TARGET_IDLE_TIMEOUT_SECONDS) {
-          throw new Error(`${CONTRACT}_RESTORE_VERIFY_FAILED:${JSON.stringify(restored)}`);
-        }
+        assertAcceptingRestPolicy(restored, "RESTORE");
       } catch (error) {
         restoreError = error;
       }
@@ -205,10 +221,7 @@ async function reconcileZeroIdlePolicy(key) {
   if (!settled) throw new Error(`${CONTRACT}_PARKED_SETTLEMENT_REQUIRED`);
 
   const afterEndpoint = endpointSummary(await restRequest(`/endpoints/${ENDPOINT_ID}?includeTemplate=false&includeWorkers=true`, key));
-  assertEndpointIdentity(afterEndpoint, "RECONCILE_AFTER");
-  if (afterEndpoint.workers_max !== 1 || afterEndpoint.idle_timeout_seconds !== TARGET_IDLE_TIMEOUT_SECONDS) {
-    throw new Error(`${CONTRACT}_ZERO_IDLE_POLICY_NOT_RESTORED:${JSON.stringify(afterEndpoint)}`);
-  }
+  assertAcceptingRestPolicy(afterEndpoint, "RECONCILE_AFTER");
   const afterHealth = healthSummary(await queueRequest("/health", key));
   if (!isZeroIdle(afterHealth)) throw new Error(`${CONTRACT}_ZERO_IDLE_NOT_CLEAN_AFTER_RESTORE:${JSON.stringify(afterHealth)}`);
 
@@ -221,6 +234,60 @@ async function reconcileZeroIdlePolicy(key) {
     settled,
     health_after_restore: afterHealth,
   };
+}
+
+async function submitProductionJob(key, body) {
+  for (let attempt = 1; attempt <= SUBMISSION_PROPAGATION_ATTEMPTS; attempt += 1) {
+    const restState = endpointSummary(await restRequest(`/endpoints/${ENDPOINT_ID}?includeTemplate=false&includeWorkers=true`, key));
+    assertAcceptingRestPolicy(restState, `SUBMIT_ATTEMPT_${attempt}`);
+
+    let response;
+    try {
+      response = await fetch(`${QUEUE_BASE}/run`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (error) {
+      throw new Error(`${CONTRACT}_SUBMISSION_TRANSPORT_AMBIGUOUS:${text(error?.message || error, 800)}`);
+    }
+
+    const { raw, body: responseBody } = await parseJsonResponse(response);
+    if (response.ok) {
+      return { submission: responseBody, propagation_retries: attempt - 1 };
+    }
+
+    const detail = responseDetail(responseBody, raw);
+    const exactPausedPropagation =
+      response.status === 409 &&
+      detail.includes("Endpoint is paused") &&
+      detail.includes("max_workers=0");
+    if (!exactPausedPropagation) {
+      throw new Error(`${CONTRACT}_SUBMISSION_HTTP_${response.status}:${detail}`);
+    }
+
+    console.log(JSON.stringify({
+      event: "AVANTIQO_CODE_QUEUE_POLICY_PROPAGATION_WAIT",
+      contract: CONTRACT,
+      attempt,
+      max_attempts: SUBMISSION_PROPAGATION_ATTEMPTS,
+      endpoint_rest: restState,
+      job_accepted: false,
+      provider_inference_performed: false,
+      secrets_printed: false,
+    }));
+
+    if (attempt === SUBMISSION_PROPAGATION_ATTEMPTS) {
+      throw new Error(`${CONTRACT}_QUEUE_POLICY_PROPAGATION_TIMEOUT`);
+    }
+    await sleep(SUBMISSION_PROPAGATION_DELAY_MS);
+  }
+  throw new Error(`${CONTRACT}_QUEUE_POLICY_PROPAGATION_TIMEOUT`);
 }
 
 if (text(process.env.VERCEL_ENV).toLowerCase() !== "production") {
@@ -243,25 +310,29 @@ if (!isZeroIdle(beforeSubmission)) {
   throw new Error(`${CONTRACT}_ENDPOINT_NOT_ZERO_IDLE_BEFORE_SUBMISSION:${JSON.stringify(beforeSubmission)}`);
 }
 
-const submission = await queueRequest("/run", apiKey, {
-  method: "POST",
-  body: {
-    input: {
-      contract: "AVANTIQO_CODE_ENGINE_V1",
-      capability: "ai.code.review",
-      organization_id: "production-proof",
-      instruction: "Review this JavaScript function for production use and return exactly three concise bullets covering correctness, robustness, and maintainability: function normalizeName(value) { return String(value ?? '').trim(); }",
-      structured_specification: {
-        production_proof: true,
-        repository_write_allowed: false,
-        expected_response: "three concise review bullets",
-      },
+const submitted = await submitProductionJob(apiKey, {
+  input: {
+    contract: "AVANTIQO_CODE_ENGINE_V1",
+    capability: "ai.code.review",
+    organization_id: "production-proof",
+    instruction: "Review this JavaScript function for production use and return exactly three concise bullets covering correctness, robustness, and maintainability: function normalizeName(value) { return String(value ?? '').trim(); }",
+    structured_specification: {
+      production_proof: true,
+      repository_write_allowed: false,
+      expected_response: "three concise review bullets",
     },
   },
 });
+const submission = submitted.submission;
 const jobId = text(submission?.id);
 if (!jobId) throw new Error(`${CONTRACT}_JOB_ID_REQUIRED`);
-console.log(JSON.stringify({ event: "AVANTIQO_CODE_PRODUCTION_JOB_SUBMITTED", contract: CONTRACT, job_id: jobId, secrets_printed: false }));
+console.log(JSON.stringify({
+  event: "AVANTIQO_CODE_PRODUCTION_JOB_SUBMITTED",
+  contract: CONTRACT,
+  job_id: jobId,
+  queue_policy_propagation_retries: submitted.propagation_retries,
+  secrets_printed: false,
+}));
 
 const completed = await waitForJob(jobId, apiKey);
 const runpodStatus = text(completed.status?.status).toUpperCase();
@@ -281,10 +352,7 @@ if (text(output.result).length < 20) throw new Error(`${CONTRACT}_RESULT_REQUIRE
 
 const settledAfter = await waitForZeroIdle(apiKey, "AFTER", 180_000);
 const finalEndpoint = endpointSummary(await restRequest(`/endpoints/${ENDPOINT_ID}?includeTemplate=false&includeWorkers=true`, apiKey));
-assertEndpointIdentity(finalEndpoint, "FINAL");
-if (finalEndpoint.workers_max !== 1 || finalEndpoint.idle_timeout_seconds !== TARGET_IDLE_TIMEOUT_SECONDS) {
-  throw new Error(`${CONTRACT}_FINAL_ZERO_IDLE_POLICY:${JSON.stringify(finalEndpoint)}`);
-}
+assertAcceptingRestPolicy(finalEndpoint, "FINAL");
 
 const evidence = {
   success: true,
@@ -295,6 +363,7 @@ const evidence = {
   zero_idle_reconciliation: reconciliation,
   endpoint_before_submission: finalEndpoint,
   health_before_submission: beforeSubmission,
+  queue_policy_propagation_retries: submitted.propagation_retries,
   job_id: jobId,
   runpod_status: runpodStatus,
   delay_time_ms: finite(completed.status?.delayTime),

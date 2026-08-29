@@ -1,0 +1,71 @@
+name: Avantiqo Voice Production Service Runtime Certification
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/requests/avantiqo-voice-production-service-runtime-certification.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-voice-production-service-runtime-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID }}
+      AVANTIQO_VOICE_TTS_FOUNDATION_MODEL: resemble-ai/chatterbox:multilingual-v3
+      AVANTIQO_VOICE_PRODUCTION_SERVICE_RUNTIME_CERT_ORGANIZATION_ID: 9a148429-b6a0-4bc6-ac83-a35c64fb7045
+      AVANTIQO_VOICE_PRODUCTION_SERVICE_RUNTIME_CERT_OUTPUT: /tmp/avantiqo-voice-production-service-runtime-certification.json
+
+    steps:
+      - name: Checkout exact triggering main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate certification bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY RUNPOD_API_KEY RUNPOD_MANAGEMENT_API_KEY RUNPOD_AVANTIQO_VOICE_TTS_ENDPOINT_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "VOICE_SERVICE_RUNTIME_CERT_MISSING_BINDING=$name"
+              exit 1
+            fi
+          done
+          node --check scripts/run-avantiqo-voice-production-service-runtime-certification-local.mjs
+          node --check lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceRunpodLeaseRuntime.js
+
+      - name: Run one owned Voice Service Runtime transaction
+        run: node scripts/run-avantiqo-voice-production-service-runtime-certification-local.mjs
+
+      - name: Upload sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-voice-production-service-runtime-certification-${{ github.run_id }}
+          path: /tmp/avantiqo-voice-production-service-runtime-certification.json
+          if-no-files-found: warn
+          retention-days: 14

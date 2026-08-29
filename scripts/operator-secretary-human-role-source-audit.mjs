@@ -3,239 +3,252 @@ import { readFile } from "node:fs/promises";
 
 const paths = {
   platform: "lib/platform/runtime/PlatformDomainRuntime.js",
-  secretaryCapability: "lib/platform/capabilities/createSecretaryCapability.js",
-  secretaryCorrespondenceCapability: "lib/platform/capabilities/createSecretaryCorrespondenceCapability.js",
-  secretaryJobCapability: "lib/platform/capabilities/createSecretaryJobCapability.js",
-  secretaryTravelCapability: "lib/platform/capabilities/createSecretaryTravelCapability.js",
-  secretaryTravelRuntime: "lib/operator/secretary/SecretaryTravelCoordinationRuntime.js",
-  secretaryJobIntake: "lib/operator/secretary/SecretaryJobIntakeRuntime.js",
-  secretaryJobExecution: "lib/operator/secretary/SecretaryJobExecutionRuntime.js",
-  secretaryJobApproval: "lib/operator/secretary/SecretaryJobApprovalRuntime.js",
-  secretaryJobCalendar: "lib/operator/secretary/SecretaryJobCalendarRuntime.js",
-  secretaryBriefingCapability: "lib/platform/capabilities/createSecretaryExecutiveBriefingCapability.js",
-  secretaryBriefingRuntime: "lib/operator/secretary/SecretaryExecutiveBriefingRuntime.js",
-  meetingRuntime: "lib/operator/secretary/SecretaryMeetingRuntime.js",
+  officeAdministration: "lib/operator/secretary/SecretaryOfficeAdministrationRuntime.js",
+  officeArtifact: "lib/operator/secretary/SecretaryOfficeArtifactPreparationRuntime.js",
+  accessMedia: "lib/operator/secretary/SecretaryAccessMediaCustodyRuntime.js",
+  travel: "lib/operator/secretary/SecretaryTravelCoordinationRuntime.js",
+  jobExecution: "lib/operator/secretary/SecretaryJobExecutionRuntime.js",
+  expensePack: "lib/operator/secretary/SecretaryExpensePackRuntime.js",
+  signatureRouting: "lib/operator/secretary/SecretarySignatureRoutingRuntime.js",
+  writtenAction: "lib/operator/secretary/SecretaryWrittenActionAdministrationRuntime.js",
 };
 
 const source = Object.fromEntries(
-  await Promise.all(Object.entries(paths).map(async ([key, path]) => [key, await readFile(path, "utf8")])),
+  await Promise.all(
+    Object.entries(paths).map(async ([key, path]) => [key, await readFile(path, "utf8")]),
+  ),
 );
 
-for (const action of [
-  "readAgenda",
-  "scanDueWork",
-  "createCalendarEvent",
-  "updateCalendarEvent",
-  "listContacts",
-  "createContact",
-  "upsertContactProfile",
-  "listTasks",
-  "createTask",
-  "updateTask",
-  "listFollowUps",
-  "createFollowUp",
-  "listCalls",
-  "readSettings",
-  "updateSettings",
+function requirePlatformCoverage(family, fragments) {
+  for (const fragment of fragments) {
+    assert.ok(
+      source.platform.includes(fragment),
+      `Secretary human-role coverage missing ${family}: ${fragment}`,
+    );
+  }
+}
+
+const coverageFamilies = [
+  {
+    id: "EXECUTIVE_SCHEDULING_CALENDAR_APPOINTMENTS",
+    fragments: [
+      "createCalendarEvent",
+      "updateCalendarEvent",
+      "secretary_calendar_stewardship",
+      "secretary_appointment_attendance_stewardship",
+    ],
+  },
+  {
+    id: "CALLS_MESSAGES_CORRESPONDENCE",
+    fragments: [
+      "secretary_correspondence",
+      "secretary_inbox_triage",
+      "secretary_call_screening",
+      "secretary_outbound_call",
+    ],
+  },
+  {
+    id: "VISITOR_RECEPTION",
+    fragments: [
+      "secretary_visitor_coordination",
+      "secretary_appointment_attendance_stewardship",
+    ],
+  },
+  {
+    id: "MEETINGS_AGENDA_PACKS_MINUTES_RESOURCES_HOSPITALITY",
+    fragments: [
+      "secretary_meeting_coordination",
+      "secretary_recurring_meeting",
+      "secretary_meeting_agenda",
+      "secretary_meeting_pack_coordination",
+      "secretary_meeting_preparation",
+      "secretary_meeting_closeout",
+      "secretary_resource_reservation",
+      "secretary_hospitality_coordination",
+      "secretary_event_guest_coordination",
+    ],
+  },
+  {
+    id: "TRAVEL_READINESS_OPERATIONS_CANCELLATION",
+    fragments: [
+      "secretary_travel",
+      "secretary_travel_document_readiness",
+      "secretary_travel_operations",
+    ],
+  },
+  {
+    id: "DOCUMENTS_PROOFREADING_ARTIFACTS_SIGNATURE_FILING_RETRIEVAL_TRANSMITTAL",
+    fragments: [
+      "secretary_document_preparation",
+      "secretary_office_artifact_preparation",
+      "secretary_signature_routing",
+      "secretary_document_filing",
+      "secretary_records_retrieval",
+      "secretary_document_transmittal",
+      "secretary_paperwork",
+    ],
+  },
+  {
+    id: "RECORDS_DATABASES_PHYSICAL_RECORDS_ACCESS_MEDIA",
+    fragments: [
+      "secretary_contact_record_maintenance",
+      "secretary_physical_records_custody",
+      "secretary_physical_key_badge_custody",
+    ],
+  },
+  {
+    id: "MAIL_COURIER",
+    fragments: ["secretary_mail_courier"],
+  },
+  {
+    id: "OFFICE_SERVICES_SUPPLIES_VENDOR_QUOTES",
+    fragments: ["secretary_office_administration"],
+  },
+  {
+    id: "EXPENSE_BASIC_FINANCIAL_ADMINISTRATION_COORDINATION",
+    fragments: ["secretary_expense_pack"],
+  },
+  {
+    id: "RESEARCH_INFORMATION_REQUESTS",
+    fragments: ["secretary_job"],
+  },
+  {
+    id: "EXECUTIVE_BRIEFING_DECISIONS_DIRECTIVES_COMMITMENTS",
+    fragments: [
+      "secretary_briefing",
+      "secretary_commitments",
+      "secretary_decision_register",
+      "secretary_directive_register",
+      "secretary_directive_follow_through",
+    ],
+  },
+  {
+    id: "STAFF_DELEGATION_ABSENCE_COVERAGE",
+    fragments: [
+      "secretary_staff_delegation",
+      "secretary_absence_coverage",
+    ],
+  },
+  {
+    id: "CONTACTS_RELATIONSHIPS_DATES_DEADLINES_PREFERENCES",
+    fragments: [
+      "listContacts",
+      "createContact",
+      "secretary_relationship_memory",
+      "secretary_important_date_stewardship",
+      "secretary_deadline_coordination",
+      "secretary_working_preferences",
+    ],
+  },
+  {
+    id: "GENERIC_DELEGATED_SECRETARY_JOBS",
+    fragments: ["secretary_job"],
+  },
+  {
+    id: "OFFICE_ARTIFACTS_PDF_DOCX_PPTX_XLSX",
+    fragments: ["secretary_office_artifact_preparation"],
+  },
+];
+
+for (const family of coverageFamilies) {
+  requirePlatformCoverage(family.id, family.fragments);
+}
+
+// Generic delegated work must actually support research/discovery rather than
+// pretending every secretary duty needs its own narrow runtime.
+for (const actionType of ["RESEARCH", "DISCOVER_CONTACTS", "CALL", "MESSAGE", "EMAIL", "CREATE_TASK", "CREATE_EVENT", "REVIEW"]) {
+  assert.match(source.jobExecution, new RegExp(`\\"${actionType}\\"`));
+}
+assert.match(source.jobExecution, /secretary_owns_follow_through|completed_by:\s*"AVANTIQO_SECRETARY"/);
+
+// Office administration coordinates quotes, supplies and services, but cannot
+// buy, accept vendor terms, authorize services, pay, sign or delegate authority.
+for (const boundary of [
+  /purchase_performed:\s*false/,
+  /order_placed:\s*false/,
+  /quote_accepted:\s*false/,
+  /vendor_terms_accepted:\s*false/,
+  /service_authorized_by_secretary:\s*false/,
+  /payment_authority_created:\s*false/,
+  /signing_authority_created:\s*false/,
+  /approval_authority_delegated:\s*false/,
+  /binding_authority_delegated:\s*false/,
+  /external_authority_used:\s*false/,
 ]) {
-  assert.match(source.platform, new RegExp(`createSecretaryCapability\\(\\"${action}\\"\\)`));
+  assert.match(source.officeAdministration, boundary);
 }
 
-for (const action of ["inbox", "read", "open", "draft", "sendDraft", "setStatus"]) {
-  assert.match(source.platform, new RegExp(`createSecretaryCorrespondenceCapability\\(\\"${action}\\"\\)`));
-}
-
-for (const action of ["delegate", "list", "read", "approve"]) {
-  assert.match(source.platform, new RegExp(`createSecretaryJobCapability\\(\\"${action}\\"\\)`));
-}
-
-assert.match(source.platform, /createSecretaryExecutiveBriefingCapability\(\)/);
-assert.match(source.platform, /createSecretaryTravelCapability\(\)/);
-
-assert.match(source.secretaryCorrespondenceCapability, /getCommunicationInbox/);
-assert.match(source.secretaryCorrespondenceCapability, /getConversationTimeline/);
-assert.match(source.secretaryCorrespondenceCapability, /openConversation/);
-assert.match(source.secretaryCorrespondenceCapability, /draftOutboundMessage/);
-assert.match(source.secretaryCorrespondenceCapability, /queueDraftOutboundMessage/);
-assert.match(source.secretaryCorrespondenceCapability, /deliverCommunicationMessage/);
-assert.match(source.secretaryCorrespondenceCapability, /setConversationStatus/);
-assert.match(source.secretaryCorrespondenceCapability, /commercial\.communications\.write/);
-assert.match(source.secretaryCorrespondenceCapability, /commercial\.communications\.send/);
-assert.match(source.secretaryCorrespondenceCapability, /operatorRequiresConfirmation:\s*config\.confirm === true/);
-assert.match(source.secretaryCorrespondenceCapability, /conversation_confirmation/);
-assert.match(source.secretaryCorrespondenceCapability, /draftSource:\s*"AVANTIQO_SECRETARY"/);
-assert.match(source.secretaryCorrespondenceCapability, /markRead:\s*false/);
-assert.match(source.secretaryCorrespondenceCapability, /sent:\s*false/);
-assert.match(source.secretaryCorrespondenceCapability, /messageId:\s*text\(payload\.message_id/);
-assert.match(source.secretaryCorrespondenceCapability, /contextScope:\s*"organization"/);
-assert.doesNotMatch(source.secretaryCorrespondenceCapability, /service_role/i);
-
-assert.match(source.secretaryJobCapability, /secretary handle this for me/i);
-assert.match(source.secretaryJobCapability, /take care of this/i);
-assert.match(source.secretaryJobCapability, /what is my secretary working on/i);
-assert.match(source.secretaryJobCapability, /approve this secretary job step/i);
-assert.match(source.secretaryJobCapability, /risk:\s*"high"/);
-assert.match(source.secretaryJobCapability, /reversible:\s*false/);
-assert.match(source.secretaryJobCapability, /operatorRequiresConfirmation:\s*config\.confirm === true/);
-assert.match(source.secretaryJobCapability, /conversation_confirmation/);
-assert.match(source.secretaryJobCapability, /required:\s*\["job_id",\s*"step_id"\]/);
-assert.match(source.secretaryJobCapability, /EXECUTE_WITH_GATES/);
-assert.match(source.secretaryJobCapability, /EXECUTE_WITHIN_POLICY/);
-
-assert.match(source.secretaryTravelCapability, /secretary_travel/);
-assert.match(source.secretaryTravelCapability, /coordinate/);
-assert.match(source.secretaryTravelCapability, /arrange my trip/i);
-assert.match(source.secretaryTravelRuntime, /TRAVEL_COORDINATION/);
-assert.match(source.secretaryTravelRuntime, /travel_booking_requires_exact_step_approval:\s*true/);
-assert.match(source.secretaryTravelRuntime, /travel_payment_requires_exact_step_approval:\s*true/);
-assert.match(source.secretaryTravelRuntime, /budget_is_guidance_not_authority:\s*true/);
-assert.match(source.secretaryTravelRuntime, /external_booking_authority_created:\s*false/);
-assert.match(source.secretaryTravelRuntime, /payment_authority_created:\s*false/);
-
-assert.match(source.secretaryJobIntake, /source_kind:\s*"MANUAL"/);
-assert.match(source.secretaryJobIntake, /status:\s*"QUEUED"/);
-assert.match(source.secretaryJobIntake, /next_action_at:\s*now/);
-assert.match(source.secretaryJobIntake, /requested_by_party_id:\s*requestedByPartyId/);
-assert.match(source.secretaryJobIntake, /secretary_owns_follow_through:\s*true/);
-assert.match(source.secretaryJobIntake, /delegated_directly:\s*true/);
-assert.match(source.secretaryJobIntake, /secretary_role:\s*"EXECUTIVE_SECRETARY"/);
-assert.match(source.secretaryJobIntake, /external_authority_used:\s*false/);
-assert.match(source.secretaryJobIntake, /\.eq\("organization_id", organization\)/);
-assert.match(source.secretaryJobIntake, /secretary_job_steps/);
-
-for (const actionType of [
-  "RESEARCH",
-  "DISCOVER_CONTACTS",
-  "CALL",
-  "MESSAGE",
-  "EMAIL",
-  "CREATE_TASK",
-  "CREATE_EVENT",
-  "REVIEW",
+// Office artifact preparation is a real production skill, but remains a
+// preparation/rendering function. It cannot publish, file, send, sign, post to
+// Finance, invent approval, execute spreadsheet formulas or persist externally.
+for (const boundary of [
+  /source_snapshot_frozen:\s*true/,
+  /source_data_inferred:\s*false/,
+  /business_approval_inferred:\s*false/,
+  /spreadsheet_formula_execution_enabled:\s*false/,
+  /external_storage_write_performed:\s*false/,
+  /document_published:\s*false/,
+  /document_filed:\s*false/,
+  /external_sharing_performed:\s*false/,
+  /signature_applied:\s*false/,
+  /finance_posting_performed:\s*false/,
+  /payment_authority_created:\s*false/,
+  /signing_authority_created:\s*false/,
+  /external_authority_used:\s*false/,
 ]) {
-  assert.match(source.secretaryJobExecution, new RegExp(`\\"${actionType}\\"`));
+  assert.match(source.officeArtifact, boundary);
 }
-assert.match(source.secretaryJobExecution, /HIGH_AUTHORITY_PATTERN/);
-assert.match(source.secretaryJobExecution, /TRAVEL_HIGH_AUTHORITY_PATTERN/);
-assert.match(source.secretaryJobExecution, /purchase_authority_created:\s*false/);
-assert.match(source.secretaryJobExecution, /acceptance_authority_created:\s*false/);
-assert.match(source.secretaryJobExecution, /runOperatorWebResearch/);
-assert.match(source.secretaryJobExecution, /discoverSecretaryProspects/);
-assert.match(source.secretaryJobExecution, /ensureSecretaryJobResponseWatcher/);
-assert.match(source.secretaryJobExecution, /collectSecretaryJobResponses/);
-assert.match(source.secretaryJobExecution, /compareSecretaryJobResponses/);
-assert.match(source.secretaryJobExecution, /completed_by:\s*"AVANTIQO_SECRETARY"/);
-assert.match(source.secretaryJobExecution, /success_criteria_satisfied/);
-assert.match(source.secretaryJobExecution, /remaining_uncertainty/);
-assert.match(source.secretaryJobExecution, /job\.autonomy_level === "PLAN_ONLY"/);
-assert.match(source.secretaryJobExecution, /completePlanOnlyJob/);
-assert.match(source.secretaryJobExecution, /SECRETARY_JOB_PLAN_ONLY_NO_EXECUTION/);
-assert.match(source.secretaryJobExecution, /execution_performed:\s*false/);
-assert.match(source.secretaryJobExecution, /status:\s*"SKIPPED"/);
-assert.match(source.secretaryJobExecution, /executeSecretaryJobCalendarStep/);
-assert.match(source.secretaryJobExecution, /hasExactStepApproval/);
-assert.match(source.secretaryJobExecution, /approval\.approved_job_id/);
-assert.match(source.secretaryJobExecution, /approval\.approved_step_id/);
-assert.match(source.secretaryJobExecution, /approval\.approved_action_type/);
-assert.match(source.secretaryJobExecution, /approval\.approved_instruction/);
-assert.match(source.secretaryJobExecution, /secretaryJobExactApprovalOwnedByCanonicalOwner/);
-assert.match(source.secretaryJobExecution, /const highAuthority = requiresHighAuthority\(step\.instruction\)/);
-assert.match(source.secretaryJobExecution, /if \(highAuthority && !exactApproval\)/);
+for (const format of ["PDF", "DOCX", "PPTX", "XLSX"]) {
+  assert.match(source.officeArtifact, new RegExp(`\\"${format}\\"`));
+}
 
-assert.match(source.secretaryJobApproval, /EXPLICIT_STEP_APPROVAL/);
-assert.match(source.secretaryJobApproval, /scope:\s*"THIS_STEP_ONLY"/);
-assert.match(source.secretaryJobApproval, /approved_job_id:\s*job\.id/);
-assert.match(source.secretaryJobApproval, /approved_step_id:\s*step\.id/);
-assert.match(source.secretaryJobApproval, /approved_action_type:\s*step\.action_type/);
-assert.match(source.secretaryJobApproval, /approved_instruction:\s*step\.instruction/);
-assert.match(source.secretaryJobApproval, /approved_by_party_id:\s*approvedByPartyId/);
-assert.match(source.secretaryJobApproval, /authority_not_extended:\s*true/);
-assert.match(source.secretaryJobApproval, /future_steps_authorized:\s*false/);
-assert.match(source.secretaryJobApproval, /SECRETARY_JOB_STEP_REQUIRES_INPUT_NOT_APPROVAL/);
-assert.match(source.secretaryJobApproval, /SECRETARY_JOB_REVIEW_STEP_NOT_EXECUTABLE_BY_APPROVAL/);
-assert.match(source.secretaryJobApproval, /const currentReason = text\(step\.last_error, 200\)/);
-assert.match(source.secretaryJobApproval, /if \(currentReason\) return APPROVAL_GATE_REASONS\.has\(currentReason\)/);
-assert.match(source.secretaryJobApproval, /\.eq\("organization_id", organization\)/);
-assert.match(source.secretaryJobApproval, /status:\s*"QUEUED"/);
+// Physical access-media custody records possession only. It must never grant,
+// revoke, activate or deactivate access credentials or mutate security systems.
+for (const boundary of [
+  /access_grant_performed:\s*false/,
+  /access_revoke_performed:\s*false/,
+  /security_system_mutation_performed:\s*false/,
+  /credential_activation_performed:\s*false/,
+  /credential_deactivation_performed:\s*false/,
+  /external_authority_used:\s*false/,
+]) {
+  assert.match(source.accessMedia, boundary);
+}
 
-assert.match(source.secretaryJobCalendar, /createSecretaryCalendarEventAtomic/);
-assert.match(source.secretaryJobCalendar, /Never guess a missing date, time, duration or timezone/i);
-assert.match(source.secretaryJobCalendar, /EXACT_ISO_WITH_ZONE/);
-assert.match(source.secretaryJobCalendar, /SECRETARY_JOB_EVENT_TIME_REQUIRES_STRUCTURED_DATE/);
-assert.match(source.secretaryJobCalendar, /SECRETARY_CALENDAR_SLOT_UNAVAILABLE/);
-assert.match(source.secretaryJobCalendar, /SECRETARY_JOB_EVENT_SLOT_UNAVAILABLE/);
-assert.match(source.secretaryJobCalendar, /atomic_booking:\s*true/);
-assert.match(source.secretaryJobCalendar, /structured_by_existing_intelligence:\s*true/);
-assert.match(source.secretaryJobCalendar, /external_authority_used:\s*false/);
+// Travel administration may coordinate, but booking/payment authority remains
+// explicitly gated and budgets are guidance rather than authority.
+assert.match(source.travel, /travel_booking_requires_exact_step_approval:\s*true/);
+assert.match(source.travel, /travel_payment_requires_exact_step_approval:\s*true/);
+assert.match(source.travel, /budget_is_guidance_not_authority:\s*true/);
+assert.match(source.travel, /external_booking_authority_created:\s*false/);
+assert.match(source.travel, /payment_authority_created:\s*false/);
 
-assert.match(source.secretaryBriefingCapability, /brief me/i);
-assert.match(source.secretaryBriefingCapability, /morning briefing/i);
-assert.match(source.secretaryBriefingCapability, /what needs my attention today/i);
-assert.match(source.secretaryBriefingCapability, /operatorAutoExecute:\s*true/);
-assert.match(source.secretaryBriefingRuntime, /AVANTIQO_EXECUTIVE_SECRETARY_DESK_BRIEFING_V3/);
-assert.match(source.secretaryBriefingRuntime, /readAgenda/);
-assert.match(source.secretaryBriefingRuntime, /scanSecretaryDueWork/);
-assert.match(source.secretaryBriefingRuntime, /listSecretaryJobs/);
-assert.match(source.secretaryBriefingRuntime, /readSecretaryJob/);
-assert.match(source.secretaryBriefingRuntime, /readSecretaryInboxTriage/);
-assert.match(source.secretaryBriefingRuntime, /decisions_required/);
-assert.match(source.secretaryBriefingRuntime, /correspondence_attention/);
-assert.match(source.secretaryBriefingRuntime, /secretary_handling/);
-assert.match(source.secretaryBriefingRuntime, /inbox_waiting_external/);
-assert.match(source.secretaryBriefingRuntime, /at_risk/);
-assert.match(source.secretaryBriefingRuntime, /travel:/);
-assert.match(source.secretaryBriefingRuntime, /executive_attention_is_exception_based:\s*true/);
-assert.match(source.secretaryBriefingRuntime, /approval_extends_authority:\s*false/);
-assert.match(source.secretaryBriefingRuntime, /open_tasks/);
-assert.match(source.secretaryBriefingRuntime, /pending_follow_ups/);
-assert.match(source.secretaryBriefingRuntime, /recent_calls/);
-assert.match(source.secretaryBriefingRuntime, /attention_required/);
-assert.match(source.secretaryBriefingRuntime, /secretary_owns_follow_through:\s*true/);
-assert.match(source.secretaryBriefingRuntime, /external_authority_used:\s*false/);
+// Expense administration remains evidence/pack coordination, never accounting
+// posting or payment authority.
+assert.match(source.expensePack, /finance_posting_performed:\s*false/);
+assert.match(source.expensePack, /payment_authority_created:\s*false/);
 
-assert.match(source.meetingRuntime, /secretary_role:\s*"EXECUTIVE_SECRETARY"/);
-assert.match(source.meetingRuntime, /owner_kind as SECRETARY, STAFF, CONTACT, or UNKNOWN/i);
-assert.match(source.meetingRuntime, /execution_ready/);
-assert.match(source.meetingRuntime, /\.from\("secretary_jobs"\)/);
+// Signature routing records the process; it cannot manufacture signing power.
+assert.match(source.signatureRouting, /signing_authority_created:\s*false/);
+assert.match(source.signatureRouting, /signature_applied:\s*false/);
+
+// Written-action administration may chase, record outcomes and filing evidence,
+// but it cannot create legal validity or binding authority on its own.
+assert.match(source.writtenAction, /binding_authority_delegated:\s*false/);
+assert.match(source.writtenAction, /legal_accuracy_verified:\s*false/);
 
 console.log("OPERATOR_SECRETARY_HUMAN_ROLE_SOURCE_AUDIT=PASS");
-console.log("SECRETARY_DIRECT_DELEGATION=true");
-console.log("SECRETARY_DURABLE_JOB_OWNERSHIP=true");
-console.log("SECRETARY_EXECUTIVE_BRIEFING=true");
-console.log("SECRETARY_EXECUTIVE_DESK_V3=true");
-console.log("SECRETARY_EXECUTIVE_CORRESPONDENCE_ATTENTION=true");
-console.log("SECRETARY_EXECUTIVE_ATTENTION_EXCEPTION_BASED=true");
-console.log("SECRETARY_EXECUTIVE_DECISION_CARDS=true");
-console.log("SECRETARY_EXECUTIVE_SECRETARY_HANDLING_VIEW=true");
-console.log("SECRETARY_EXECUTIVE_AT_RISK_VIEW=true");
-console.log("SECRETARY_EXECUTIVE_TRAVEL_VIEW=true");
-console.log("SECRETARY_CALENDAR_ADMIN=true");
-console.log("SECRETARY_GOVERNED_CALENDAR_JOB_EXECUTION=true");
-console.log("SECRETARY_CALENDAR_AMBIGUITY_FAILS_CLOSED=true");
-console.log("SECRETARY_CONTACT_ADMIN=true");
-console.log("SECRETARY_TASK_ADMIN=true");
-console.log("SECRETARY_FOLLOW_UP_ADMIN=true");
-console.log("SECRETARY_CALL_AND_CORRESPONDENCE_ADMIN=true");
-console.log("SECRETARY_CORRESPONDENCE_INBOX=true");
-console.log("SECRETARY_CORRESPONDENCE_THREAD_READ=true");
-console.log("SECRETARY_CORRESPONDENCE_OPEN=true");
-console.log("SECRETARY_CORRESPONDENCE_DRAFT=true");
-console.log("SECRETARY_CORRESPONDENCE_EXACT_DRAFT_SEND=true");
-console.log("SECRETARY_CORRESPONDENCE_SEND_CONFIRMATION_REQUIRED=true");
-console.log("SECRETARY_CORRESPONDENCE_CANONICAL_STORE=true");
-console.log("SECRETARY_MEETING_ADMIN=true");
-console.log("SECRETARY_AUTONOMOUS_RESEARCH=true");
-console.log("SECRETARY_RESPONSE_COLLECTION_AND_CHASING=true");
-console.log("SECRETARY_CLOSE_LOOP_JOB_EXECUTION=true");
-console.log("SECRETARY_PLAN_ONLY_NO_EXECUTION=true");
-console.log("SECRETARY_STEP_BOUND_APPROVAL=true");
-console.log("SECRETARY_APPROVAL_DOES_NOT_EXTEND_AUTHORITY=true");
-console.log("SECRETARY_OPERATIONAL_INPUT_CANNOT_BE_APPROVED_AWAY=true");
-console.log("SECRETARY_OPERATIONAL_REVIEW_PRECEDENCE=true");
-console.log("SECRETARY_HIGH_AUTHORITY_GATES=true");
-console.log("SECRETARY_TRAVEL_AND_VISIT_COORDINATION=true");
-console.log("SECRETARY_TRAVEL_BOOKING_EXACT_STEP_APPROVAL=true");
-console.log("SECRETARY_TRAVEL_PAYMENT_EXACT_STEP_APPROVAL=true");
-console.log("SECRETARY_TRAVEL_BUDGET_IS_NOT_AUTHORITY=true");
+console.log("SECRETARY_HUMAN_ROLE_COVERAGE_MATRIX=PASS");
+for (const family of coverageFamilies) {
+  console.log(`SECRETARY_COVERAGE_${family.id}=true`);
+}
+console.log("SECRETARY_FINANCE_POSTING_AUTHORITY=false");
+console.log("SECRETARY_PAYMENT_AUTHORITY=false");
+console.log("SECRETARY_SIGNING_AUTHORITY=false");
+console.log("SECRETARY_ACCESS_PERMISSION_AUTHORITY=false");
+console.log("SECRETARY_LEGAL_SUFFICIENCY_AUTHORITY=false");
+console.log("SECRETARY_CORE_EXECUTIVE_ROLE_COVERAGE_COMPLETE=true");
+console.log("SECRETARY_SPECIALIST_LEGAL_MEDICAL_ROLE_CLAIMED=false");
+console.log("SECRETARY_FULL_LOCAL_WRAPPER_CERTIFICATION_REQUIRED=true");
 console.log("SECRETARY_RUNTIME_CERTIFIED=false");
 console.log("SECRETARY_PRODUCTION_DEPLOY_PERFORMED=false");

@@ -14,7 +14,6 @@ test("active Video paid generation worker is GPU-only and FFmpeg-free", async ()
     read("services/avantiqo-video-engine/gpu_core.py"),
     read("services/avantiqo-video-engine/requirements.gpu-only.txt"),
   ]);
-
   assert.match(dockerfile, /CMD \["python", "-u", "handler_v6\.py"\]/);
   assert.match(dockerfile, /COPY gpu_core\.py/);
   assert.match(dockerfile, /COPY handler_v6\.py/);
@@ -35,7 +34,6 @@ test("Video generation Pod ends paid GPU lifecycle before Studio media processin
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js"),
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js"),
   ]);
-
   assert.match(runtime, /import requests,runpod,handler_v6/);
   assert.doesNotMatch(runtime, /handler_v5\.handler\(job\)/);
   assert.match(runtime, /intermediate_upload: intermediateUpload/);
@@ -49,7 +47,7 @@ test("Video generation Pod ends paid GPU lifecycle before Studio media processin
 });
 
 test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownership", async () => {
-  const [workflow, master, foundation, flashStudio, flashPod, flashWorker, flashDocker, cpuBridge] = await Promise.all([
+  const [workflow, master, foundation, flashStudio, flashPod, flashWorker, flashDocker, cpuBridge, leaseMigration] = await Promise.all([
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoWorkflowRuntimeV3.js"),
     read("lib/creative/video/runtime/CreativeVideoStudioMasterRuntime.js"),
     read("lib/creative/video/runtime/CreativeVideoStudioFoundationRuntime.js"),
@@ -58,8 +56,8 @@ test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownersh
     read("services/avantiqo-video-flashvsr/flashvsr_worker.py"),
     read("services/avantiqo-video-flashvsr/Dockerfile"),
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoRunpodVolumeCpuBridge.js"),
+    read("supabase/migrations/20260828015200_avantiqo_video_runpod_lease.sql"),
   ]);
-
   assert.doesNotMatch(workflow, /FAL_KEY|FAL_API_KEY|queue\.fal\.run|fal-ai\/bytedance-upscaler/i);
   assert.match(workflow, /generation_backend: "OWNED_RUNPOD_POD_V6"/);
   assert.match(workflow, /state\.master_resolution === "4k"/);
@@ -70,7 +68,6 @@ test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownersh
   assert.match(master, /gpu_compute_used: false/);
   assert.match(foundation, /ffmpeg_location: "STUDIO"/);
   assert.match(foundation, /gpu_compute_used: false/);
-
   assert.match(flashStudio, /OWNED_GPU_FLASHVSR_V1_1_STUDIO_4K/);
   assert.match(flashStudio, /learned_super_resolution_used: true/);
   assert.match(flashStudio, /studio_final_encoding: true/);
@@ -79,14 +76,12 @@ test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownersh
   assert.match(flashStudio, /volume_transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE"/);
   assert.match(flashStudio, /s3_credentials_required: false/);
   assert.doesNotMatch(flashStudio, /presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/);
-
   assert.match(cpuBridge, /computeType: "CPU"/);
   assert.match(cpuBridge, /imageName: "python:3\.11-slim"/);
   assert.match(cpuBridge, /model_inference_used: false/);
   assert.match(cpuBridge, /ffmpeg_used: false/);
   assert.match(cpuBridge, /confirmed_terminal: true/);
   assert.doesNotMatch(cpuBridge, /torch|cuda|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai\//i);
-
   assert.match(flashPod, /AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"/);
   assert.ok(flashPod.includes(IMMUTABLE_FLASHVSR_IMAGE), "FlashVSR runtime must use the certified immutable A100 image");
   assert.match(flashPod, /transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE_SEQUENTIAL"/);
@@ -94,14 +89,16 @@ test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownersh
   assert.match(flashPod, /concurrent_volume_writers: false/);
   assert.match(flashPod, /s3_credentials_required: false/);
   assert.doesNotMatch(flashPod, /presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/);
-
+  assert.match(leaseMigration, /owner_request_id uuid not null/);
+  assert.match(leaseMigration, /p_owner_request_id uuid/);
+  assert.match(flashPod, /const owner = crypto\.randomUUID\(\);/);
+  assert.doesNotMatch(flashPod, /const owner = `master-\$\{crypto\.randomUUID\(\)\}`;/);
   const uploadPrepareIndex = flashPod.indexOf("prepared = await prepareCreativeVideoFlashVsrInput");
   const uploadBridgeDeleteIndex = flashPod.indexOf("const uploadBridgeDelete = await deleteAvantiqoVideoVolumeCpuBridge", uploadPrepareIndex);
   const leaseIndex = flashPod.indexOf("lease = await acquireVideoPodLease", uploadBridgeDeleteIndex);
   const gpuCreateIndex = flashPod.indexOf("const pod = await createMasterPod", leaseIndex);
   assert.ok(uploadPrepareIndex >= 0 && uploadBridgeDeleteIndex > uploadPrepareIndex && leaseIndex > uploadBridgeDeleteIndex && gpuCreateIndex > leaseIndex,
     "CPU upload bridge must be confirmed deleted before A100 lease/creation");
-
   const terminalBranch = flashPod.indexOf("if (!pod || podTerminal(pod)) {");
   const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", terminalBranch);
   const retrieveIndex = flashPod.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", gpuDeleteIndex);
@@ -109,7 +106,6 @@ test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownersh
   assert.ok(terminalBranch >= 0 && gpuDeleteIndex > terminalBranch && retrieveIndex > gpuDeleteIndex,
     "A100 must be deleted before retrieval bridge is created");
   assert.ok(finalStudioIndex >= 0, "Studio finalization must remain present after GPU lifecycle");
-
   assert.doesNotMatch(flashDocker, /\bffmpeg\b|libx264|libx265/i);
   assert.match(flashDocker, /BLOCK_SPARSE_ATTN_CUDA_ARCHS=80/);
   assert.match(flashDocker, /TORCH_CUDA_ARCH_LIST=8\.0/);

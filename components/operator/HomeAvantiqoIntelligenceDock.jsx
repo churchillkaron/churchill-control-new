@@ -69,10 +69,12 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       }
 
       const urgent = String(detail.priority ?? "").trim().toLowerCase() === "urgent";
-      const explicitlyVoiceInitiated = detail.voice_initiated === true;
+      const explicitlyVoiceInitiated =
+        detail.voice_initiated === true || detail.source === "operator";
 
       // Typed Secretary turns are always silent. There is no carry-over voice
       // intent window: only the exact turn explicitly marked as voice may speak.
+      // Home's operator source is emitted only from its source === "voice" branch.
       if (!urgent && !explicitlyVoiceInitiated) {
         event.stopImmediatePropagation();
         return;

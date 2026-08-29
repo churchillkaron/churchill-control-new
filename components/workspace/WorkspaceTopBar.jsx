@@ -20,7 +20,7 @@ import {
   getErpDomains,
   getPlatformBrand,
   getPlatformHeaderItems,
-} from "@/lib/platform/registry/erpRegistry";
+} from "@/lib/platform/registry/erpRegistry.base.js";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
 
 const ICONS = {

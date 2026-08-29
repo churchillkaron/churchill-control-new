@@ -66,7 +66,7 @@ async function json(relative, missingCode) {
 
 function requireOwnedProof(proof, {
   provider,
-  capabilityFamily,
+  requiredCapabilities,
   contractCode,
 }) {
   if (proof?.success !== true) fail(`${contractCode}:SUCCESS_REQUIRED`);
@@ -88,11 +88,15 @@ function requireOwnedProof(proof, {
   if (proof?.wallet_settlement_verified !== true) {
     fail(`${contractCode}:WALLET_SETTLEMENT_REQUIRED`);
   }
-  const capabilities = Array.isArray(proof?.capabilities)
-    ? proof.capabilities.map((value) => String(value))
-    : [];
-  if (!capabilities.some((value) => value.startsWith(capabilityFamily))) {
-    fail(`${contractCode}:CAPABILITY_PROOF_REQUIRED`);
+  const capabilities = new Set(
+    Array.isArray(proof?.capabilities)
+      ? proof.capabilities.map((value) => String(value).trim()).filter(Boolean)
+      : [],
+  );
+  for (const capability of requiredCapabilities) {
+    if (!capabilities.has(capability)) {
+      fail(`${contractCode}:CAPABILITY_PROOF_REQUIRED:${capability}`);
+    }
   }
 }
 
@@ -234,17 +238,24 @@ const [voiceProof, intelligenceProof] = await Promise.all([
 
 requireOwnedProof(voiceProof, {
   provider: "avantiqo-voice",
-  capabilityFamily: "ai.",
+  requiredCapabilities: [
+    "ai.speech.to.text",
+    "ai.text.to.speech",
+  ],
   contractCode: "FINAL_RELEASE_VOICE_PROOF",
 });
 requireOwnedProof(intelligenceProof, {
   provider: "avantiqo-intelligence",
-  capabilityFamily: "ai.",
+  requiredCapabilities: [
+    "ai.text.generate",
+    "ai.reasoning.execute",
+  ],
   contractCode: "FINAL_RELEASE_INTELLIGENCE_PROOF",
 });
 
 console.log("AVANTIQO_HOME_VOICE_OWNED_FINAL_RELEASE_PREFLIGHT=GREEN");
 console.log(`VOICE_PROOF=${voiceProofPath}`);
 console.log(`INTELLIGENCE_PROOF=${intelligenceProofPath}`);
+console.log("VOICE_REALTIME_CERTIFICATION_REQUIRED=false");
 console.log("EXTERNAL_AI_FALLBACK_ALLOWED=false");
 console.log("PRODUCTION_DEPLOY_PERFORMED=false");

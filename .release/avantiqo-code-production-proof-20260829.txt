@@ -1,11 +1,13 @@
-AVANTIQO_CODE_PRODUCTION_PROOF_V3
+AVANTIQO_CODE_PRODUCTION_PROOF_V4
 scope=production_only
 endpoint=r79dtnjnrilrlc
 runtime_model=Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
-proof_attempt=4
-repair_zero_idle_policy=true
+proof_attempt=5
+owned_zero_idle_lifecycle=true
+provider_wake=true
+provider_terminal_reap=true
+cron_backstop=true
 target_workers=0/1
 target_idle_timeout_seconds=60
-queue_policy_propagation_retry=exact_409_only
 require_real_inference=true
 require_zero_idle_after=true

@@ -6,15 +6,13 @@ const GQL = "https://api.runpod.io/graphql";
 const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_VOLUME_LOCAL_CAPACITY_REPAIR_V1";
 const ENDPOINT_NAME = "avantiqo-intelligence-fast-v1";
 const MINIMUM_VRAM_GB = 80;
-const MAX_GPU_FALLBACKS = 6;
+const MAX_GPU_FALLBACKS = 4;
 
 const PROFILES = Object.freeze([
-  Object.freeze({ key: "RTX_PRO_6000_BLACKWELL_96GB", match: /RTX\s*PRO\s*6000/i, exclude: /MIG/i, priority: 6000 }),
-  Object.freeze({ key: "H100_NVL_94GB", match: /H100.*NVL|NVL.*H100/i, exclude: /MIG/i, priority: 5900 }),
-  Object.freeze({ key: "H100_80GB", match: /\bH100\b/i, exclude: /NVL|MIG/i, priority: 5800 }),
-  Object.freeze({ key: "H200_141GB", match: /\bH200\b/i, exclude: /MIG/i, priority: 5700 }),
-  Object.freeze({ key: "B200_180GB", match: /\bB200\b/i, exclude: /MIG/i, priority: 5600 }),
-  Object.freeze({ key: "A100_80GB", match: /A100.*80|80.*A100/i, exclude: /MIG/i, priority: 5500 }),
+  Object.freeze({ key: "RTX_PRO_6000_BLACKWELL_SERVER_96GB", match: /RTX\s*PRO\s*6000.*Blackwell.*Server|Blackwell.*Server.*RTX\s*PRO\s*6000/i, exclude: /MIG|Max-Q|Workstation/i, priority: 6000 }),
+  Object.freeze({ key: "H200_141GB", match: /\bH200\b/i, exclude: /MIG/i, priority: 5900 }),
+  Object.freeze({ key: "B200_180GB", match: /\bB200\b/i, exclude: /MIG/i, priority: 5800 }),
+  Object.freeze({ key: "A100_80GB_PCIE", match: /A100.*80.*PCIe|PCIe.*A100.*80|A100.*PCIe.*80/i, exclude: /MIG/i, priority: 5700 }),
 ]);
 
 const text = (value) => String(value ?? "").trim();

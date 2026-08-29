@@ -6,6 +6,7 @@ const GRAPHQL_BASE = "https://api.runpod.io/graphql";
 const PRODUCTION_ENDPOINT_NAME = "avantiqo-cinema-production-v1";
 const CANDIDATE_ENDPOINT_NAME = "avantiqo-video-32gb-candidate-v1";
 const CANDIDATE_GPU_TYPE = "NVIDIA RTX PRO 4500 Blackwell";
+const CANDIDATE_SERVERLESS_POOL_ID = "ADA_32_PRO";
 const CANDIDATE_DATA_CENTER = "EU-RO-1";
 const REGISTRY_AUTH_ENV = "AVANTIQO_VIDEO_32GB_CANDIDATE_RUNPOD_REGISTRY_AUTH_ID";
 const NO_AUTH_SENTINEL = "AVANTIQO_VIDEO_V69_NO_REGISTRY_AUTH";
@@ -59,17 +60,6 @@ function errorCode(error) {
   return String(error?.cause?.code || error?.code || error?.name || "FETCH_FAILED");
 }
 
-function normalizePoolGpuTypeIds(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => text(typeof entry === "string" ? entry : entry?.id ?? entry?.gpuTypeId))
-      .filter(Boolean);
-  }
-  const raw = text(value);
-  if (!raw) return [];
-  return raw.split(/[,|]/).map((entry) => entry.trim()).filter(Boolean);
-}
-
 function isRegistryAuthList(url) {
   return url === `${REST_BASE}/containerregistryauth`;
 }
@@ -121,6 +111,28 @@ function stripNoAuthSentinelFromTemplateCreate(url, init, method) {
   return { ...init, body: JSON.stringify(withoutRegistryAuth) };
 }
 
+async function nativeJson(url, managementKey, options = {}) {
+  const response = await nativeFetch(url, {
+    method: options.method || "GET",
+    headers: {
+      Authorization: `Bearer ${managementKey}`,
+      Accept: "application/json",
+      "User-Agent": "Mozilla/5.0 AvantiqoVideoV69",
+      ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    signal: AbortSignal.timeout(options.timeoutMs || 30_000),
+  });
+  const raw = await response.text();
+  let body = null;
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+  if (!response.ok) {
+    const detail = text(body?.message || body?.error || body?.detail || raw).slice(0, 800);
+    throw new Error(`AVANTIQO_VIDEO_V69_NATIVE_HTTP_${response.status}:${detail || "EMPTY_BODY"}`);
+  }
+  return body;
+}
+
 async function nativeGraphql(query, variables, managementKey) {
   const response = await nativeFetch(`${GRAPHQL_BASE}?api_key=${encodeURIComponent(managementKey)}`, {
     method: "POST",
@@ -151,7 +163,6 @@ async function resolveCandidateGpuPoolId(managementKey, requestedGpuType) {
   if (requestedGpuType !== CANDIDATE_GPU_TYPE) {
     throw new Error(`AVANTIQO_VIDEO_V69_GPU_TYPE_UNEXPECTED:${requestedGpuType || "MISSING"}`);
   }
-
   if (resolvedCandidateGpu?.pool_id) return resolvedCandidateGpu.pool_id;
 
   const response = await nativeGraphql(
@@ -200,18 +211,16 @@ async function resolveCandidateGpuPoolId(managementKey, requestedGpuType) {
   }
 
   const pools = list(data.serverlessGpuPools);
-  const matchingPools = pools.filter((entry) =>
-    normalizePoolGpuTypeIds(entry?.gpuTypeIds).includes(canonicalGpuTypeId),
-  );
-  if (!matchingPools.length) {
-    const availablePoolIds = pools.map((entry) => text(entry?.id)).filter(Boolean).sort().join(",");
-    throw new Error(
-      `AVANTIQO_VIDEO_V69_SERVERLESS_POOL_RESOLUTION_FAILED:${canonicalGpuTypeId}:available_pool_ids=${availablePoolIds}`,
-    );
+  const poolMatches = pools.filter((entry) => text(entry?.id) === CANDIDATE_SERVERLESS_POOL_ID);
+  if (poolMatches.length !== 1) {
+    throw new Error(`AVANTIQO_VIDEO_V69_32GB_SERVERLESS_POOL_REQUIRED:matches=${poolMatches.length}`);
   }
-  const sortedPools = [...matchingPools].sort((left, right) => text(left?.id).localeCompare(text(right?.id)));
-  const poolId = text(sortedPools[0]?.id);
-  if (!poolId) throw new Error(`AVANTIQO_VIDEO_V69_GPU_POOL_ID_REQUIRED:${canonicalGpuTypeId}`);
+  const live32GbPoolIds = pools
+    .map((entry) => text(entry?.id))
+    .filter((id) => /(?:^|_)32(?:_|$)/.test(id));
+  if (live32GbPoolIds.length !== 1 || live32GbPoolIds[0] !== CANDIDATE_SERVERLESS_POOL_ID) {
+    throw new Error(`AVANTIQO_VIDEO_V69_32GB_SERVERLESS_POOL_DRIFT:${live32GbPoolIds.join(",") || "MISSING"}`);
+  }
 
   resolvedCandidateGpu = {
     type_id: canonicalGpuTypeId,
@@ -219,17 +228,34 @@ async function resolveCandidateGpuPoolId(managementKey, requestedGpuType) {
     memory_gb: memoryGb,
     data_center_id: CANDIDATE_DATA_CENTER,
     stock_status: text(live?.stockStatus).toUpperCase() || "AVAILABLE",
-    pool_id: poolId,
-    matching_pool_count: matchingPools.length,
+    pool_id: CANDIDATE_SERVERLESS_POOL_ID,
   };
 
   console.error(`AVANTIQO_VIDEO_V69_GPU_TYPE_ID_RESOLVED=${canonicalGpuTypeId}`);
   console.error(`AVANTIQO_VIDEO_V69_GPU_DISPLAY_NAME=${displayName}`);
   console.error(`AVANTIQO_VIDEO_V69_GPU_TARGET_DC=${CANDIDATE_DATA_CENTER}`);
   console.error(`AVANTIQO_VIDEO_V69_GPU_TARGET_DC_STOCK=${resolvedCandidateGpu.stock_status}`);
-  console.error(`AVANTIQO_VIDEO_V69_GPU_POOL_ID=${poolId}`);
+  console.error(`AVANTIQO_VIDEO_V69_GPU_POOL_ID=${CANDIDATE_SERVERLESS_POOL_ID}`);
+  console.error("AVANTIQO_VIDEO_V69_GPU_POOL_MAPPING=RUNPOD_32GB_SERVERLESS_TIER");
   console.error("AVANTIQO_VIDEO_V69_GPU_POOL_RESOLVED=true");
-  return poolId;
+  return CANDIDATE_SERVERLESS_POOL_ID;
+}
+
+async function deleteCreatedCandidate(endpointId, managementKey) {
+  try {
+    await nativeFetch(`${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${managementKey}`,
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 AvantiqoVideoV69",
+      },
+      signal: AbortSignal.timeout(30_000),
+    });
+    console.error("AVANTIQO_VIDEO_V69_FAILED_CREATE_ROLLBACK=ENDPOINT_DELETE_ATTEMPTED");
+  } catch {
+    console.error("AVANTIQO_VIDEO_V69_FAILED_CREATE_ROLLBACK=ENDPOINT_DELETE_FAILED");
+  }
 }
 
 async function createCandidateEndpointViaGraphql(init) {
@@ -259,8 +285,8 @@ async function createCandidateEndpointViaGraphql(init) {
     templateId,
     gpuIds: gpuPoolId,
     gpuCount: 1,
-    workersMin: finite(restBody?.workersMin, 0),
-    workersMax: finite(restBody?.workersMax, 0),
+    workersMin: 0,
+    workersMax: 0,
     networkVolumeId,
     networkVolumeIds: [{ networkVolumeId }],
     flashBootType: restBody?.flashboot === false ? "DISABLED" : "FLASHBOOT",
@@ -276,13 +302,28 @@ async function createCandidateEndpointViaGraphql(init) {
   if (executionTimeoutMs !== null && executionTimeoutMs >= 0) input.executionTimeoutMs = executionTimeoutMs;
 
   console.error("AVANTIQO_VIDEO_V69_ENDPOINT_CREATE_TRANSPORT=RUNPOD_GRAPHQL_SAVE_ENDPOINT");
-
   const saved = await nativeGraphql(SAVE_ENDPOINT_MUTATION, { input }, managementKey);
   const endpoint = saved?.data?.saveEndpoint;
   const endpointId = text(endpoint?.id);
   if (!endpointId) throw new Error("AVANTIQO_VIDEO_V69_GRAPHQL_CREATE_ID_REQUIRED");
   if (text(endpoint?.name) !== CANDIDATE_ENDPOINT_NAME) {
+    await deleteCreatedCandidate(endpointId, managementKey);
     throw new Error("AVANTIQO_VIDEO_V69_GRAPHQL_CREATE_NAME_INVALID");
+  }
+
+  try {
+    await nativeJson(`${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}`, managementKey, {
+      method: "PATCH",
+      body: {
+        gpuTypeIds: [CANDIDATE_GPU_TYPE],
+        workersMin: 0,
+        workersMax: 0,
+      },
+    });
+    console.error("AVANTIQO_VIDEO_V69_EXACT_GPU_TYPE_PATCHED=true");
+  } catch (error) {
+    await deleteCreatedCandidate(endpointId, managementKey);
+    throw error;
   }
 
   return new Response(JSON.stringify(endpoint), {
@@ -304,7 +345,6 @@ globalThis.fetch = async (input, init = {}) => {
   const attempts = method === "GET" ? READ_ATTEMPTS : 1;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     if (attempt > 1) await sleep(BACKOFF_MS[attempt - 1] || 0);
-
     try {
       const response = await nativeFetch(input, effectiveInit);
       if (method === "GET" && attempt < attempts && shouldRetryReadStatus(url, response?.status)) {
@@ -318,7 +358,6 @@ globalThis.fetch = async (input, init = {}) => {
       console.error(`AVANTIQO_VIDEO_V69_READ_RETRY error=${errorCode(error)} attempt=${attempt}/${attempts}`);
     }
   }
-
   throw new Error("AVANTIQO_VIDEO_V69_READ_RETRY_EXHAUSTED");
 };
 

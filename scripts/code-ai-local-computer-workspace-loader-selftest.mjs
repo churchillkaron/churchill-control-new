@@ -6,7 +6,7 @@ import {
   resolve,
 } from "./code-ai-local-computer-workspace-loader.mjs";
 
-const CONTRACT = "AVANTIQO_CODE_AI_LOCAL_COMPUTER_WORKSPACE_LOADER_SELFTEST_V1";
+const CONTRACT = "AVANTIQO_CODE_AI_LOCAL_COMPUTER_WORKSPACE_LOADER_SELFTEST_V2";
 
 const aliasUrl = CodeAILocalComputerWorkspaceLoader.resolveRepositoryAlias(
   "@/lib/shared/supabase/admin",
@@ -16,6 +16,18 @@ assert.equal(
   path.basename(fileURLToPath(aliasUrl)),
   "admin.js",
   "SUPABASE_ADMIN_ALIAS_TARGET_REQUIRED",
+);
+
+const adminParent = new URL("../lib/shared/supabase/admin.js", import.meta.url).href;
+const extensionlessRelative = CodeAILocalComputerWorkspaceLoader.resolveRepositoryRelative(
+  "./serverFetch",
+  adminParent,
+);
+assert.ok(extensionlessRelative?.startsWith("file:"), "EXTENSIONLESS_RELATIVE_MUST_RESOLVE");
+assert.equal(
+  path.basename(fileURLToPath(extensionlessRelative)),
+  "serverFetch.js",
+  "SUPABASE_SERVER_FETCH_TARGET_REQUIRED",
 );
 
 const missionParent = new URL(
@@ -43,12 +55,17 @@ const regular = await resolve(
 );
 assert.deepEqual(regular, { url: "node:path", delegated: true });
 
+const adminModule = await import("@/lib/shared/supabase/admin");
+assert.ok(adminModule.supabaseAdmin, "SUPABASE_ADMIN_IMPORT_CHAIN_REQUIRED");
+
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   repository_root: CodeAILocalComputerWorkspaceLoader.repository_root,
   app_alias_resolution_verified: true,
   exact_failing_alias_verified: "@/lib/shared/supabase/admin",
+  extensionless_relative_resolution_verified: "./serverFetch -> serverFetch.js",
+  admin_dependency_chain_import_verified: true,
   local_workspace_redirect_verified: true,
   delegated_resolution_preserved: true,
   provider_call_performed: false,

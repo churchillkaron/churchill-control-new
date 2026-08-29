@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 const CONTRACT = "AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_FAST_ASSESSMENT_V1";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const SAFE_LEASE_LANE = "intelligence-fast";
+const FAST_RUNTIME_PROBE = "scripts/run-avantiqo-intelligence-safe-lease-models-probe-local.mjs";
 const REPOSITORY_URL = "https://github.com/churchillkaron/churchill-control-new.git";
 const MISSION_OBJECTIVE = [
   "Evaluate how Avantiqo should carry significant cross-system architecture and impact context from General Intelligence into Code Intelligence",
@@ -83,6 +84,21 @@ function requireSafeLease() {
     throw new Error(`${CONTRACT}_SAFE_LEASE_EXPIRY_INSUFFICIENT`);
   }
 }
+function runFastRuntimeProbe() {
+  const result = spawnSync(process.execPath, [FAST_RUNTIME_PROBE], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      AVANTIQO_INTELLIGENCE_MODELS_PROBE_LANE: "fast",
+    },
+    stdio: "inherit",
+  });
+  if (result.error) throw result.error;
+  if (result.signal) throw new Error(`${CONTRACT}_FAST_RUNTIME_PROBE_SIGNAL:${result.signal}`);
+  if (result.status !== 0) {
+    throw new Error(`${CONTRACT}_FAST_RUNTIME_PROBE_FAILED_RC:${result.status}`);
+  }
+}
 
 let phase = "BOOTSTRAP";
 try {
@@ -101,6 +117,9 @@ try {
 
   phase = "SAFE_LEASE_VALIDATION";
   requireSafeLease();
+
+  phase = "FAST_RUNTIME_READINESS_PROBE";
+  runFastRuntimeProbe();
 
   process.env.AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT = head;
   process.env.AVANTIQO_CODE_WORKSPACE_TARGET = "LOCAL_COMPUTER";
@@ -155,6 +174,8 @@ try {
     local_workspace_certification_pin_active: true,
     moving_origin_main_race_removed: true,
     vercel_sandbox_required: false,
+    fast_runtime_readiness_probe_passed: true,
+    generation_free_runtime_probe: true,
     assessment_contract: assessment.contract,
     assessment_status: assessment.status,
     output_path: outputPath,

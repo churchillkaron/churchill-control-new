@@ -1,0 +1,10 @@
+{
+  "contract": "AVANTIQO_CODE_PRODUCTION_PROOF_REQUEST_V1",
+  "requested_at": "2026-08-29",
+  "scope": "PRODUCTION_ONLY",
+  "production_inference_required": true,
+  "local_test_required": false,
+  "network_volume_detach_required": false,
+  "expected_endpoint_id": "r79dtnjnrilrlc",
+  "expected_runtime_model": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+}

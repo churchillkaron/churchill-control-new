@@ -104,6 +104,7 @@ assert.throws(() => parseCodeAIWorkPackage(JSON.stringify({
 })), /CODE_AI_WORK_PACKAGE_MUTATION_REQUIRES_LATER_VERIFICATION/);
 
 await import("./code-ai-repair-convergence-selftest.mjs");
+await import("./code-ai-repair-failure-delta-audit.mjs");
 await import("./code-ai-seeded-implementation-lock-selftest.mjs");
 await import("./code-ai-operator-prewarm-audit.mjs");
 await import("./code-ai-live-bounded-work-package-selftest.mjs");
@@ -113,13 +114,17 @@ await import("./code-ai-ready-transport-resilience-audit.mjs");
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_WORK_PACKAGE_RECOVERY_SELFTEST_V9",
+  contract: "AVANTIQO_CODE_AI_WORK_PACKAGE_RECOVERY_SELFTEST_V10",
   verified: {
     post_mutation_run_promoted_to_verify_without_new_reasoning_call: true,
     controller_owned_final_diff_appended_without_new_reasoning_call: true,
     structured_authoritative_mjs_verifier_preserved_exactly: true,
     missing_post_mutation_verification_still_rejected: true,
     repair_convergence_selftest_included: true,
+    repair_failure_delta_audit_v1_included: true,
+    verifier_failure_drives_materially_changed_repair_included: true,
+    repeated_equivalent_failed_patch_forbidden_included: true,
+    reasoning_budget_not_increased_for_repair_included: true,
     seeded_implementation_lock_selftest_v3_included: true,
     deterministic_verify_diff_before_more_reasoning_included: true,
     historical_failed_verification_cleared_by_later_success_included: true,

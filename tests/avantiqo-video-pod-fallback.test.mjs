@@ -3,10 +3,11 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("Pod control is exact RTX PRO 4500 Secure Cloud EU-RO-1 on certified cache", async () => {
+test("Pod control is exact RTX PRO 4500 Secure Cloud EU-RO-1 on certified cache with availability placement", async () => {
   const s = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js");
   assert.match(s, /NVIDIA RTX PRO 4500 Blackwell/); assert.match(s, /EU-RO-1/);
-  assert.match(s, /cloudType: "SECURE"/); assert.match(s, /minRAMPerGPU: 128/);
+  assert.match(s, /cloudType: "SECURE"/); assert.match(s, /POD_PLACEMENT_RAM_GB = Object\.freeze\(\[96, 64\]\)/);
+  assert.match(s, /dataCenterPriority: "availability"/); assert.match(s, /gpuTypePriority: "availability"/);
   assert.match(s, /avantiqo-video-cache-eu-ro-1/); assert.ok(s.includes('volumeMountPath: "/runpod-volume"'));
   assert.match(s, /sha256:44ef09f27a402b2890007a3620b772240913e68fa6ceafcc06436af2c1023adc/);
   assert.match(s, /if \(current && !TERMINAL\.has\(current\)\) return true/);
@@ -23,17 +24,25 @@ test("Pod readiness reuses V69 response normalization and authoritative template
   assert.match(api, /Authorization: `Bearer \$\{key\(\)\}`/); assert.match(api, /AvantiqoVideoPodV72/);
 });
 
-test("Pod readiness resolves private GHCR auth using the same fallback contract as V69", async () => {
+test("Pod readiness preserves V69 production registry-auth parity", async () => {
   const api = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js");
   assert.match(api, /function templateRegistryAuthId/);
-  assert.match(api, /async function resolveRegistryAuthId/);
-  assert.match(api, /\/templates\/\$\{encodeURIComponent\(templateId\)\}/);
+  assert.match(api, /async function resolveRegistryAuthParity/);
+  assert.match(api, /PRODUCTION_VIDEO_TEMPLATE/);
+  assert.match(api, /PRODUCTION_VIDEO_TEMPLATE_NO_AUTH/);
   assert.match(api, /podRest\("\/containerregistryauth"\)/);
   assert.match(api, /AVANTIQO_VIDEO_32GB_CANDIDATE_RUNPOD_REGISTRY_AUTH_ID/);
-  assert.match(api, /\/ghcr\|github\/i/);
-  assert.match(api, /AVANTIQO_VIDEO_POD_GHCR_AUTH_AMBIGUOUS/);
-  assert.match(api, /const registryAuthId = await resolveRegistryAuthId\(template\)/);
-  assert.match(api, /containerRegistryAuthId: snapshot\.registryAuthId/);
+  assert.match(api, /const registryAuth = await resolveRegistryAuthParity/);
+  assert.match(api, /snapshot\.registryAuthId \? \{ containerRegistryAuthId: snapshot\.registryAuthId \} : \{\}/);
+});
+
+test("Pod create retries only the specific no-instance placement failure and checks for partial create", async () => {
+  const api = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js");
+  assert.match(api, /NO_INSTANCE_PATTERN = \/no instances currently available\/i/);
+  assert.match(api, /placementUnavailable/);
+  assert.match(api, /findExistingOwnerPod/);
+  assert.match(api, /AVANTIQO_VIDEO_POD_PLACEMENT_EXHAUSTED/);
+  assert.match(api, /for \(const minRAMPerGPU of POD_PLACEMENT_RAM_GB\)/);
 });
 
 test("Pod readiness refuses low capacity and busy shared cache", async () => {

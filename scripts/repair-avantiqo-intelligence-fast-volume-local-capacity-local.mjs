@@ -7,11 +7,13 @@ const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_VOLUME_LOCAL_CAPACITY_REPAIR_V1";
 const ENDPOINT_NAME = "avantiqo-intelligence-fast-v1";
 const MINIMUM_VRAM_GB = 80;
 const MAX_GPU_FALLBACKS = 4;
+const PAID_CERTIFICATION_MIN_STOCK_RANK = 3;
 
 const PROFILES = Object.freeze([
   Object.freeze({ key: "RTX_PRO_6000_BLACKWELL_SERVER_96GB", match: /RTX\s*PRO\s*6000.*Blackwell.*Server|Blackwell.*Server.*RTX\s*PRO\s*6000/i, exclude: /MIG|Max-Q|Workstation/i, priority: 6000 }),
   Object.freeze({ key: "H200_141GB", match: /\bH200\b/i, exclude: /MIG|NVL/i, priority: 5900 }),
   Object.freeze({ key: "B200_180GB", match: /\bB200\b/i, exclude: /MIG/i, priority: 5800 }),
+  Object.freeze({ key: "H100_80GB_OR_LARGER", match: /\bH100\b/i, exclude: /MIG/i, priority: 5750 }),
   Object.freeze({ key: "A100_80GB_PCIE", match: /A100.*80.*PCIe|PCIe.*A100.*80|A100.*PCIe.*80/i, exclude: /MIG/i, priority: 5700 }),
 ]);
 
@@ -385,18 +387,32 @@ const availability = availabilityForPlacement(placement);
 const compatible = list(gpuInventory.gpuTypes)
   .map((row) => {
     const profile = profileFor(row);
+    const id = text(row.id);
+    const liveRows = availability.get(id) || [];
+    const best = bestAvailability(liveRows) || {};
+    const liveAvailable = liveRows.some(
+      (entry) => entry?.available === true && stockRank(entry?.stockStatus) > 0,
+    );
     return {
-      id: text(row.id),
+      id,
       display_name: text(row.displayName) || null,
       memory_gb: finite(row.memoryInGb),
       secure_cloud: row.secureCloud === true,
       profile: profile?.key || null,
       priority: profile?.priority || 0,
+      live_available: liveAvailable,
+      live_stock_status: text(best.stockStatus).toUpperCase() || "NOT_LISTED",
+      live_stock_rank: liveAvailable ? stockRank(best.stockStatus) : 0,
     };
   })
   .filter((row) => row.id && row.profile && row.memory_gb >= MINIMUM_VRAM_GB && row.secure_cloud)
   .filter((row) => availability.has(row.id))
-  .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
+  .sort((a, b) =>
+    Number(b.live_available) - Number(a.live_available) ||
+    b.live_stock_rank - a.live_stock_rank ||
+    b.priority - a.priority ||
+    a.id.localeCompare(b.id)
+  );
 const targetPool = compatible.slice(0, MAX_GPU_FALLBACKS).map((row) => row.id);
 if (!targetPool.length) throw new Error(`${CONTRACT}_NO_COMPATIBLE_GPU_TYPES_IN_EFFECTIVE_PLACEMENT:${placement.source}`);
 const poolRows = targetPool.map((id) => {
@@ -423,6 +439,8 @@ const stocked = poolRows.filter((row) => row.available && row.stock_rank > 0);
 if (!stocked.length) {
   throw new Error(`${CONTRACT}_NO_CURRENT_STOCKED_COMPATIBLE_GPU_IN_EFFECTIVE_PLACEMENT:${placement.source}`);
 }
+const strongStocked = stocked.filter((row) => row.stock_rank >= PAID_CERTIFICATION_MIN_STOCK_RANK);
+const paidCertificationReady = strongStocked.length > 0;
 
 const currentPool = unique(endpoint.gpuTypeIds);
 const mutationRequired = !sameSet(currentPool, targetPool);
@@ -439,9 +457,14 @@ const plan = {
   effective_placement_source: placement.source,
   effective_data_center_ids: placement.data_center_ids,
   scheduler_rule: placement.scheduler_rule,
+  gpu_pool_selection_policy: "LIVE_STOCK_THEN_VALIDATED_HARDWARE_PRIORITY_V2",
+  minimum_vram_gb: MINIMUM_VRAM_GB,
+  paid_certification_minimum_stock_status: "MEDIUM",
   current_gpu_type_ids: currentPool,
   target_gpu_type_ids: targetPool,
   stocked_compatible_targets: stocked,
+  strong_stocked_compatible_targets: strongStocked,
+  paid_certification_ready: paidCertificationReady,
   mutation_required: mutationRequired,
   endpoint_scaling_mutation_performed: false,
   queue_mutation_performed: false,
@@ -457,6 +480,7 @@ const plan = {
 
 if (!apply || !mutationRequired) {
   console.log(JSON.stringify(plan, null, 2));
+  console.log(`${CONTRACT}_PAID_CERTIFICATION_READY=${paidCertificationReady}`);
   console.log(`${CONTRACT}=PASS`);
   process.exit(0);
 }
@@ -527,4 +551,5 @@ console.log(JSON.stringify({
   immediate_prepatch_rest_state_verified: true,
   rollback_available_if_verification_fails: true,
 }, null, 2));
+console.log(`${CONTRACT}_PAID_CERTIFICATION_READY=${paidCertificationReady}`);
 console.log(`${CONTRACT}=PASS`);

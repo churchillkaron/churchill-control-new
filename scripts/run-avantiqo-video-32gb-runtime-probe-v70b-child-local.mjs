@@ -15,11 +15,6 @@ const POLL_MS = 5_000;
 const APPROVED_RUNTIME_GPUS = Object.freeze([
   "NVIDIA GeForce RTX 5090",
   "NVIDIA RTX 5000 Ada Generation",
-  "NVIDIA L40S",
-]);
-const EXACT_32GB_GPUS = new Set([
-  "NVIDIA GeForce RTX 5090",
-  "NVIDIA RTX 5000 Ada Generation",
 ]);
 const TERMINAL = new Set(["FAILED", "CANCELLED", "CANCELED", "TIMED_OUT"]);
 
@@ -169,12 +164,10 @@ function validateProbe(output) {
     throw new Error(`AVANTIQO_VIDEO_V70B_PHYSICAL_GPU_NOT_APPROVED:${text(memory?.device_name) || "MISSING"}`);
   }
   const vram = finite(memory?.device_total_memory_gb, null);
-  const exact32 = EXACT_32GB_GPUS.has(physicalGpu);
-  const expectedVram = exact32 ? (vram >= 30 && vram < 40) : (vram >= 45 && vram < 55);
   if (
     finite(memory?.target_minimum_vram_gb, null) !== 32 ||
     memory?.cuda_available !== true ||
-    !expectedVram ||
+    !(vram >= 30 && vram < 40) ||
     memory?.bfloat16_supported !== true ||
     memory?.group_offload_enabled !== true ||
     text(memory?.group_offload_type) !== "leaf_level" ||
@@ -194,8 +187,7 @@ function validateProbe(output) {
     reported_device_name: text(memory?.device_name),
     device_total_memory_gb: vram,
     system_memory_gb: systemMemory,
-    exact_32gb_profile_proved: exact32,
-    fallback_48gb_runtime_only: !exact32,
+    exact_32gb_profile_proved: true,
     bfloat16_supported: true,
     group_offload_type: "leaf_level",
   };
@@ -306,8 +298,7 @@ console.log(JSON.stringify({
   endpoint_id: endpointId,
   endpoint_name: ENDPOINT_NAME,
   runtime_probe: evidence,
-  exact_32gb_profile_proved: evidence.exact_32gb_profile_proved,
-  fallback_48gb_runtime_only: evidence.fallback_48gb_runtime_only,
+  exact_32gb_profile_proved: true,
   generation_requested: false,
   inference_performed: false,
   model_load_performed: false,
@@ -318,8 +309,6 @@ console.log(JSON.stringify({
   external_paid_provider_contacted: false,
   image_endpoint_mutated: false,
   secrets_printed: false,
-  next_action: evidence.exact_32gb_profile_proved
-    ? "V71_MODEL_LOAD_PROBE_ON_PROVEN_32GB_RUNTIME"
-    : "RETRY_32GB_PLACEMENT_OR_CERTIFY_48GB_PROFILE_SEPARATELY",
+  next_action: "V71_MODEL_LOAD_PROBE_ON_PROVEN_32GB_RUNTIME",
 }, null, 2));
 console.log(`${CONTRACT}=PASS`);

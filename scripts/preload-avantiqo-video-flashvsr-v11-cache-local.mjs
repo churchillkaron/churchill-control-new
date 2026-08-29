@@ -54,7 +54,7 @@ async function resolveS3Credential() {
   return { accessKey: "", secretKey: "", source: null };
 }
 
-if (Number(process.versions.node.split(".")[0]) < 24) throw new Error(`AVANTIQO_VIDEO_FLASHVSR_NODE24_REQUIRED:${process.version}`);
+if (Number(process.versions.node.split(".")[0]) < 20) throw new Error(`AVANTIQO_VIDEO_FLASHVSR_NODE20_REQUIRED:${process.version}`);
 const apply = process.argv.includes("--apply");
 if (apply && !approved(process.env[APPROVAL])) throw new Error(`${APPROVAL}=YES_REQUIRED`);
 

@@ -102,7 +102,7 @@ function voiceLanguageCookie(language) {
 
 function completedResponse(result, { mode, locale, speechLanguage = null }) {
   const transcript = text(result?.transcript);
-  if (!transcript) return errorResponse("Voice transcription returned no text", 502);
+  if (!transcript && mode !== "wake") return errorResponse("No speech detected", 422);
   const detectedLanguage = text(result?.detected_language) || null;
   const language = text(result?.language) || detectedLanguage;
   const languageSource = text(result?.language_source) || (speechLanguage ? "requested" : detectedLanguage ? "detected" : null);

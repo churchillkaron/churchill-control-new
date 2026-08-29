@@ -38,7 +38,8 @@
     "voice-tts": "avantiqo-voice-tts-v1-recovery-20260825",
     "voice-stt": "avantiqo-voice-stt-v1",
     "lipsync": "avantiqo-lipsync-v1.",
-    "cinema": "avantiqo-cinema-v1"
+    "cinema": "avantiqo-cinema-v1",
+    "video-32gb-candidate": "avantiqo-video-32gb-candidate-v1"
   },
   "lane_max_worker_hourly_usd": {
     "code": 10,
@@ -51,6 +52,7 @@
     "intelligence-deep-eager-candidate": 10,
     "image": 10,
     "cinema": 10,
+    "video-32gb-candidate": 10,
     "audio": 6,
     "music-transform-candidate": 6,
     "music-extend": 6,

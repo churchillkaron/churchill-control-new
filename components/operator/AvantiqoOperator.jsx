@@ -22,6 +22,9 @@ import { startOwnedRealtimeRelayTranscription } from "@/lib/operator/voice/Owned
 const WAKE_STORAGE_KEY = "avantiqo.wake.enabled";
 const SPOKEN_REPLY_POLL_MS = 2000;
 const SPOKEN_REPLY_TIMEOUT_MS = 30 * 60 * 1000;
+const OPERATOR_SPOKEN_REPLY_TIMEOUT_MS = 20 * 1000;
+const OPERATOR_RECORDED_STT_TIMEOUT_MS = 20 * 1000;
+const KEYBOARD_WAKE_BLOCK_MS = 3000;
 const WAKE_PHRASES = [
   "avantiqo",
   "avanti qo",
@@ -101,6 +104,20 @@ function speechRecognitionConstructor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
+function humanVoiceError(error) {
+  const message = text(error?.message || error);
+  if (message.includes("AVANTIQO_VOICE_RUNPOD_LEASE_TARGET_BUSY")) {
+    return "Voice is temporarily busy. I kept the answer in the conversation.";
+  }
+  if (message.includes("AVANTIQO_VOICE_RUNPOD_LEASE_TARGET_MUST_START_0_0")) {
+    return "Voice is recovering from an earlier session. I kept the answer in the conversation.";
+  }
+  if (message.toLowerCase().includes("timed out")) {
+    return "Voice took too long, so I cancelled the late reply. The written answer is still here.";
+  }
+  return `Voice reply unavailable: ${message || "speech generation failed"}`;
+}
+
 export default function AvantiqoOperator() {
   const router = useRouter();
   const pathname = usePathname();
@@ -141,6 +158,7 @@ export default function AvantiqoOperator() {
   const [wakeSupported, setWakeSupported] = useState(false);
   const [wakeEnabled, setWakeEnabled] = useState(false);
   const [wakeListening, setWakeListening] = useState(false);
+  const [wakeHeard, setWakeHeard] = useState(false);
   const [error, setError] = useState("");
   const [agreementState, setAgreementState] = useState({});
   const [messages, setMessages] = useState([
@@ -194,7 +212,7 @@ export default function AvantiqoOperator() {
         target instanceof HTMLTextAreaElement ||
         target?.isContentEditable === true;
       if (!editable) return;
-      wakeKeyboardBlockedUntilRef.current = Date.now() + 1400;
+      wakeKeyboardBlockedUntilRef.current = Date.now() + KEYBOARD_WAKE_BLOCK_MS;
     }
 
     window.addEventListener("keydown", noteKeyboardActivity, true);
@@ -204,12 +222,14 @@ export default function AvantiqoOperator() {
   useEffect(() => {
     function receiveSpokenReply(event) {
       const message = text(event?.detail?.message);
-      if (!message || voiceLibraryOpenRef.current) return;
+      const voiceInitiated = event?.detail?.voice_initiated === true;
+      const urgent = text(event?.detail?.priority).toLowerCase() === "urgent";
+      if (!message || voiceLibraryOpenRef.current || (!voiceInitiated && !urgent)) return;
 
       requestSpokenReply(message)
         .catch((speechError) => {
           if (speechError?.name !== "AbortError") {
-            setError(`Voice reply unavailable: ${speechError?.message || "speech generation failed"}`);
+            setError(humanVoiceError(speechError));
           }
         })
         .finally(() => resumeWakeMode(400));
@@ -320,6 +340,7 @@ export default function AvantiqoOperator() {
         message: spokenText,
         locale,
         signal: abortController.signal,
+        timeoutMs: OPERATOR_SPOKEN_REPLY_TIMEOUT_MS,
       });
       await playSpokenBlob(blob);
     } finally {
@@ -431,7 +452,7 @@ export default function AvantiqoOperator() {
           await requestSpokenReply(assistantText);
         } catch (speechError) {
           if (speechError?.name !== "AbortError") {
-            setError(`Voice reply unavailable: ${speechError?.message || "speech generation failed"}`);
+            setError(humanVoiceError(speechError));
           }
         }
       }
@@ -657,6 +678,7 @@ export default function AvantiqoOperator() {
           entityId,
           locale,
           mode: "command",
+          timeoutMs: OPERATOR_RECORDED_STT_TIMEOUT_MS,
         });
         transcript = text(result.transcript);
       }
@@ -748,6 +770,7 @@ export default function AvantiqoOperator() {
       recorder.start(250);
       recordingRef.current = true;
       setRecording(true);
+      setWakeHeard(false);
       startSilenceDetection(stream);
       void prepareRealtimeVoice(stream);
 
@@ -756,6 +779,7 @@ export default function AvantiqoOperator() {
       }
     } catch (voiceError) {
       recordingRef.current = false;
+      setWakeHeard(false);
       stopSilenceDetection();
       releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_START_FAILED");
       releaseVoiceStream();
@@ -802,6 +826,7 @@ export default function AvantiqoOperator() {
 
     wakeTriggeringRef.current = true;
     wakeSuspendedRef.current = true;
+    setWakeHeard(true);
     stopWakeRecognition();
     setError("");
 
@@ -815,6 +840,7 @@ export default function AvantiqoOperator() {
       await startVoice({ fromWake: true });
     } finally {
       wakeTriggeringRef.current = false;
+      if (!recordingRef.current) setWakeHeard(false);
     }
   }
 
@@ -941,6 +967,7 @@ export default function AvantiqoOperator() {
   }
 
   function disableWakeMode() {
+    setWakeHeard(false);
     wakeEnabledRef.current = false;
     wakeSuspendedRef.current = true;
     setWakeEnabled(false);
@@ -958,8 +985,30 @@ export default function AvantiqoOperator() {
     enableWakeMode();
   }
 
-  function openPanel() {
+  async function restorePrimaryConversationIntoPanel() {
+    if (!organizationId) return;
+    try {
+      const query = new URLSearchParams({ organizationId, conversationKey: "primary" });
+      const response = await fetch(`/api/operator/turn?${query.toString()}`, { method: "GET", credentials: "same-origin", cache: "no-store" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result?.success === false) return;
+      setAgreementState(result?.agreement_state || {});
+      const restored = Array.isArray(result?.turns) ? result.turns.filter((turn) => text(turn?.content)).map((turn) => turn.role === "assistant" ? assistantMessage(turn.content, { id: turn.id || undefined, options: Array.isArray(turn?.decision?.clarification?.options) ? turn.decision.clarification.options : [] }) : { ...userMessage(turn.content), id: turn.id || undefined }) : [];
+      if (restored.length) setMessages(restored);
+    } catch {
+      // Server-side primary conversation remains authoritative.
+    }
+  }
+
+  async function openPanel() {
+    const primaryChat = typeof document !== "undefined" ? document.querySelector('[data-avantiqo-home-intelligence="true"]') : null;
+    if (primaryChat) {
+      primaryChat.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => document.querySelector('[data-avantiqo-home-input="true"]')?.focus?.(), 0);
+      return;
+    }
     setOpen(true);
+    await restorePrimaryConversationIntoPanel();
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }
 
@@ -1029,7 +1078,9 @@ export default function AvantiqoOperator() {
             <span className="text-[10px] font-medium uppercase tracking-[0.12em]">
               {recording
                 ? "Listening…"
-                : wakeEnabled
+                : wakeHeard
+                  ? "Avantiqo · Heard you"
+                  : wakeEnabled
                   ? wakeListening
                     ? "Avantiqo · Listening"
                     : "Avantiqo · Ready"

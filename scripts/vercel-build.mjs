@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import process from "node:process";
 
 const marker = "[code-production-proof]";
@@ -61,6 +61,41 @@ if (production) {
     }
   }
 
+  function reportManifestReferences(leakedFile) {
+    const chunkName = basename(leakedFile);
+    for (const manifestName of [
+      "app-build-manifest.json",
+      "build-manifest.json",
+      "react-loadable-manifest.json",
+    ]) {
+      const manifestPath = join(process.cwd(), ".next", manifestName);
+      if (!existsSync(manifestPath)) continue;
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      const references = [];
+
+      function walk(value, path = []) {
+        if (typeof value === "string") {
+          if (value.includes(chunkName)) references.push(path.join("."));
+          return;
+        }
+        if (Array.isArray(value)) {
+          value.forEach((item, index) => walk(item, [...path, String(index)]));
+          return;
+        }
+        if (value && typeof value === "object") {
+          for (const [key, item] of Object.entries(value)) walk(item, [...path, key]);
+        }
+      }
+
+      walk(manifest);
+      if (references.length > 0) {
+        console.error(
+          `AVANTIQO_CLIENT_BUNDLE_MANIFEST_REFERENCE manifest=${manifestName} chunk=${chunkName} refs=${references.slice(0, 80).join(",")}`,
+        );
+      }
+    }
+  }
+
   scanDirectory(clientChunksRoot);
 
   if (leakedFiles.length > 0) {
@@ -69,6 +104,7 @@ if (production) {
         `AVANTIQO_CLIENT_BUNDLE_PRIVILEGED_ENV_DIAGNOSTIC file=${diagnostic.file} token=${diagnostic.token} context=${diagnostic.context}`,
       );
     }
+    for (const leakedFile of [...new Set(leakedFiles)]) reportManifestReferences(leakedFile);
     console.error(
       `AVANTIQO_CLIENT_BUNDLE_PRIVILEGED_ENV_LEAK_FAILED files=${[...new Set(leakedFiles)].join(",")}`,
     );

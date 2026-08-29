@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
 import CodeAILiveProgressPanel from "@/components/operator/CodeAILiveProgressPanel";
-import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
+import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
 import SyntheticIntelligenceControlCenter from "@/components/operator/SyntheticIntelligenceControlCenter";
 import SyntheticIntelligenceForecastTrackRecord from "@/components/operator/SyntheticIntelligenceForecastTrackRecord";
 import SyntheticIntelligenceDeliveryControl from "@/components/operator/SyntheticIntelligenceDeliveryControl";
@@ -42,7 +42,7 @@ export default function OrganizationWorkspacePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white p-10">
+      <div className="min-h-screen bg-black p-10 text-white">
         Loading workspace...
       </div>
     );
@@ -52,34 +52,39 @@ export default function OrganizationWorkspacePage() {
     <div className="min-h-screen bg-black text-white">
       <AutonomousWatchAlertBridge organizationId={organizationId} />
 
-      <div className="space-y-4 p-6 pb-0">
-        <SyntheticIntelligenceControlCenter
-          organizationId={organizationId}
-          role={role}
-        />
-        <SyntheticIntelligenceForecastTrackRecord
-          organizationId={organizationId}
-        />
-        <SyntheticIntelligenceDeliveryControl
-          organizationId={organizationId}
-          role={role}
-        />
-      </div>
+      <div className="grid grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(480px,1.1fr)] xl:items-start">
+        <aside className="order-1 min-w-0 xl:order-2 xl:sticky xl:top-[132px] xl:self-start">
+          <HomeAvantiqoIntelligenceDock organizationId={organizationId} />
+        </aside>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-        <div className="space-y-6">
+        <div className="order-2 min-w-0 space-y-6 xl:order-1">
+          <div className="space-y-4">
+            <SyntheticIntelligenceControlCenter
+              organizationId={organizationId}
+              role={role}
+            />
+            <SyntheticIntelligenceForecastTrackRecord
+              organizationId={organizationId}
+            />
+            <SyntheticIntelligenceDeliveryControl
+              organizationId={organizationId}
+              role={role}
+            />
+            <CodeAILiveProgressPanel organizationId={organizationId} />
+          </div>
+
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
             <div className="text-2xl font-light">
               {greeting}
             </div>
 
-            <div className="mt-3 text-white/50 text-sm">
+            <div className="mt-3 text-sm text-white/50">
               {briefing?.summary || "Waiting for live operational data..."}
             </div>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
+            <div className="mb-4 text-sm uppercase tracking-[0.2em] text-white/40">
               Live Business State
             </div>
 
@@ -93,11 +98,11 @@ export default function OrganizationWorkspacePage() {
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
+            <div className="mb-4 text-sm uppercase tracking-[0.2em] text-white/40">
               Priority Signals
             </div>
 
-            <div className="space-y-2 text-white/70 text-sm">
+            <div className="space-y-2 text-sm text-white/70">
               {(alerts || []).length === 0 ? (
                 <div className="text-white/40">No active alerts</div>
               ) : (
@@ -109,7 +114,7 @@ export default function OrganizationWorkspacePage() {
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="text-sm uppercase tracking-[0.2em] text-white/40 mb-4">
+            <div className="mb-4 text-sm uppercase tracking-[0.2em] text-white/40">
               Live Activity
             </div>
 
@@ -121,11 +126,6 @@ export default function OrganizationWorkspacePage() {
               ))}
             </div>
           </div>
-        </div>
-
-        <div className="space-y-4">
-          <CodeAILiveProgressPanel organizationId={organizationId} />
-          <HomeAvantiqoIntelligence organizationId={organizationId} />
         </div>
       </div>
     </div>

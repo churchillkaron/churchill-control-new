@@ -34,6 +34,7 @@ if (production) {
   const clientChunksRoot = join(process.cwd(), ".next", "static", "chunks");
   const forbiddenClientTokens = ["SUPABASE_SERVICE_ROLE_KEY"];
   const leakedFiles = [];
+  const diagnostics = [];
 
   function scanDirectory(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -44,8 +45,18 @@ if (production) {
       }
       if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
       const source = readFileSync(absolutePath, "utf8");
-      if (forbiddenClientTokens.some((token) => source.includes(token))) {
-        leakedFiles.push(absolutePath.replace(`${process.cwd()}/`, ""));
+      for (const token of forbiddenClientTokens) {
+        const index = source.indexOf(token);
+        if (index === -1) continue;
+        const relativePath = absolutePath.replace(`${process.cwd()}/`, "");
+        leakedFiles.push(relativePath);
+        const start = Math.max(0, index - 220);
+        const end = Math.min(source.length, index + token.length + 220);
+        const context = source
+          .slice(start, end)
+          .replace(/\s+/g, " ")
+          .replace(/[^\x20-\x7E]/g, "?");
+        diagnostics.push({ file: relativePath, token, context });
       }
     }
   }
@@ -53,8 +64,13 @@ if (production) {
   scanDirectory(clientChunksRoot);
 
   if (leakedFiles.length > 0) {
+    for (const diagnostic of diagnostics) {
+      console.error(
+        `AVANTIQO_CLIENT_BUNDLE_PRIVILEGED_ENV_DIAGNOSTIC file=${diagnostic.file} token=${diagnostic.token} context=${diagnostic.context}`,
+      );
+    }
     console.error(
-      `AVANTIQO_CLIENT_BUNDLE_PRIVILEGED_ENV_LEAK_FAILED files=${leakedFiles.join(",")}`,
+      `AVANTIQO_CLIENT_BUNDLE_PRIVILEGED_ENV_LEAK_FAILED files=${[...new Set(leakedFiles)].join(",")}`,
     );
     process.exit(1);
   }

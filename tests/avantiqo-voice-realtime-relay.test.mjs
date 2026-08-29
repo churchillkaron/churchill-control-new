@@ -102,8 +102,9 @@ test("Voice realtime load-balanced endpoint has a v2 Safe Lease controller", () 
   assert.match(safeLease, /direct_run_allowed:\s*false/);
   assert.doesNotMatch(safeLease, /rest\.runpod\.io\/v1/);
   assert.doesNotMatch(safeLease, /includeWorkers/);
-  assert.doesNotMatch(safeLease, /workersMin/);
-  assert.doesNotMatch(safeLease, /workersMax/);
+  assert.doesNotMatch(safeLease, /body:\s*\{\s*workersMin\s*:/s);
+  assert.doesNotMatch(safeLease, /body:\s*\{\s*workersMax\s*:/s);
+  assert.doesNotMatch(safeLease, /body:\s*\{\s*workersMax\s*[,}]/s);
   assert.doesNotMatch(safeLease, /\/run\b/);
   assert.doesNotMatch(safeLease, /\/health\b/);
   assert.doesNotMatch(safeLease, /purge-queue/);

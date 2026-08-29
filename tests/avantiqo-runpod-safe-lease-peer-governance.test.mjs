@@ -10,6 +10,9 @@ import {
 const POLICY = Object.freeze({
   parallel_work_allowed: true,
   max_jobs_per_lease: 1,
+  resting_workers_max: 0,
+  lane_resting_workers_max: Object.freeze({ code: 1 }),
+  lanes: Object.freeze({ code: "avantiqo-code-v1" }),
 });
 
 function row(overrides = {}) {
@@ -39,9 +42,28 @@ test("bounded active unleased peer is classified for preservation, never orphan 
   assert.equal(result.reason, "BOUNDED_ACTIVE_PARALLEL_PEER");
 });
 
-test("idle unleased 0/1 peer remains eligible for base Safe Lease orphan reap", () => {
+test("intentional Code 0/1 resting capacity is preserved, never mislabeled as orphan", () => {
   const result = classifyAvantiqoRunpodUnleasedPeer({
     row: row({ active_workers: 0, jobs: 0, hourly_cost_usd: 0 }),
+    policy: POLICY,
+    targetId: "deep-1",
+  });
+  assert.equal(
+    result.action,
+    AVANTIQO_RUNPOD_SAFE_LEASE_PEER_GOVERNANCE.PRESERVE_INTENTIONAL_IDLE_CAPACITY,
+  );
+  assert.equal(result.reason, "INTENTIONAL_LANE_RESTING_CAPACITY");
+  assert.equal(result.lane, "code");
+});
+
+test("ordinary idle unleased 0/1 peer remains eligible for canonical orphan reap", () => {
+  const result = classifyAvantiqoRunpodUnleasedPeer({
+    row: row({
+      name: "unregistered-idle-endpoint",
+      active_workers: 0,
+      jobs: 0,
+      hourly_cost_usd: 0,
+    }),
     policy: POLICY,
     targetId: "deep-1",
   });

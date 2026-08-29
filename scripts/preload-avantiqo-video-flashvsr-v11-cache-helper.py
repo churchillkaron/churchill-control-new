@@ -10,7 +10,7 @@ from huggingface_hub import HfApi, hf_hub_download
 
 CONTRACT = "AVANTIQO_VIDEO_FLASHVSR_CACHE_PRELOAD_V1"
 REPO_ID = "JunhaoZhuang/FlashVSR-v1.1"
-REVISION = "a258bf2d5b99bf54cf048d901edc866591d5ea0b"
+REVISION = "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb"
 REQUIRED = (
     "diffusion_pytorch_model_streaming_dmd.safetensors",
     "LQ_proj_in.ckpt",

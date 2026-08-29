@@ -74,7 +74,7 @@ console.log(JSON.stringify({
   s3_credentials_present: Boolean(credential.accessKey && credential.secretKey),
   s3_credential_source: credential.source,
   flashvsr_repo: "JunhaoZhuang/FlashVSR-v1.1",
-  flashvsr_revision: "a258bf2d5b99bf54cf048d901edc866591d5ea0b",
+  flashvsr_revision: "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb",
   required_weight_files: 3,
   gpu_compute_used: false,
   runpod_pod_created: false,

@@ -43,7 +43,7 @@ const [
 if (!AVANTIQO_VIDEO_FLASHVSR_IMAGE.includes("@sha256:")) throw new Error(`${CONTRACT}_IMMUTABLE_FLASHVSR_IMAGE_REQUIRED`);
 if (AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE !== "NVIDIA A100 80GB PCIe") throw new Error(`${CONTRACT}_A100_CERTIFIED_TARGET_REQUIRED`);
 if (AVANTIQO_VIDEO_FLASHVSR_MODEL !== "JunhaoZhuang/FlashVSR-v1.1") throw new Error(`${CONTRACT}_MODEL_DRIFT`);
-if (AVANTIQO_VIDEO_FLASHVSR_MODEL_REVISION !== "a258bf2d5b99bf54cf048d901edc866591d5ea0b") throw new Error(`${CONTRACT}_MODEL_REVISION_DRIFT`);
+if (AVANTIQO_VIDEO_FLASHVSR_MODEL_REVISION !== "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb") throw new Error(`${CONTRACT}_MODEL_REVISION_DRIFT`);
 
 const supabase = getServiceSupabase();
 const { data: foundationBlob, error: foundationError } = await supabase.storage.from(BUCKET).download(FOUNDATION_PATH);

@@ -84,7 +84,7 @@ test("Video 4K uses learned FlashVSR while lower masters stay Studio-owned", asy
   assert.match(flashDocker, /BLOCK_SPARSE_ATTN_CUDA_ARCHS=80/);
   assert.match(flashDocker, /TORCH_CUDA_ARCH_LIST=8\.0/);
   assert.doesNotMatch(flashWorker, /\bffmpeg\b|libx264|libx265|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai\//i);
-  assert.match(flashWorker, /MODEL_REVISION = "a258bf2d5b99bf54cf048d901edc866591d5ea0b"/);
+  assert.match(flashWorker, /MODEL_REVISION = "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb"/);
   assert.match(flashWorker, /video_encoded_on_paid_worker": False/);
   assert.match(flashWorker, /final_artifact_persisted_on_paid_worker": False/);
   assert.match(flashWorker, /ffmpeg_used_on_paid_worker": False/);

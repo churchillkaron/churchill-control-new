@@ -167,7 +167,7 @@ const requiredChecks = [
   ["VIDEO_STUDIO_FOUNDATION_FFMPEG", studioFoundation.includes('ffmpeg_location: "STUDIO"') && studioFoundation.includes("gpu_compute_used: false")],
   ["VIDEO_STUDIO_MASTER_FFMPEG", studioMaster.includes('backend: "STUDIO_CPU_FFMPEG_LANCZOS"') && studioMaster.includes("gpu_compute_used: false") && studioMaster.includes("fal_contacted: false")],
   ["VIDEO_FLASHVSR_GPU_ONLY", flashWorker.includes('COMPUTE_BOUNDARY = "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1"') && flashWorker.includes('video_encoded_on_paid_worker": False') && flashWorker.includes('final_artifact_persisted_on_paid_worker": False') && flashWorker.includes('ffmpeg_used_on_paid_worker": False')],
-  ["VIDEO_FLASHVSR_PINNED_MODEL", flashWorker.includes('MODEL_REVISION = "a258bf2d5b99bf54cf048d901edc866591d5ea0b"')],
+  ["VIDEO_FLASHVSR_PINNED_MODEL", flashWorker.includes('MODEL_REVISION = "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb"')],
   ["VIDEO_FLASHVSR_A100_BUILD", flashDocker.includes("BLOCK_SPARSE_ATTN_CUDA_ARCHS=80") && flashDocker.includes("TORCH_CUDA_ARCH_LIST=8.0") && flashVsrPodRuntime.includes('AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"')],
   ["VIDEO_FLASHVSR_STUDIO_FINAL_ENCODING", studioFlashVsr.includes('backend: "OWNED_GPU_FLASHVSR_V1_1_STUDIO_4K"') && studioFlashVsr.includes("studio_final_encoding: true") && studioFlashVsr.includes("gpu_video_encoding_used: false")],
   ["VIDEO_FLASHVSR_DELETE_BEFORE_STUDIO", (() => {

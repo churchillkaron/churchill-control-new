@@ -1,1 +1,1 @@
-{"requested_at":"2026-08-29T19:15:00+07:00","contract":"AVANTIQO_VIDEO_FLASHVSR_IMAGE_RESULT_V1","mode":"BUILD_ONLY","target_gpu_arch":"sm80","inference_performed":false,"runpod_mutation_performed":false,"production_deploy_performed":false}
+{"requested_at":"2026-08-29T19:39:00+07:00","contract":"AVANTIQO_VIDEO_FLASHVSR_IMAGE_RESULT_V1","mode":"BUILD_ONLY_CORRECTED_REVISION","target_gpu_arch":"sm80","model_revision":"a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb","inference_performed":false,"runpod_mutation_performed":false,"production_deploy_performed":false}

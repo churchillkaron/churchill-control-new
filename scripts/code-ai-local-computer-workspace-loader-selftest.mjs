@@ -6,7 +6,7 @@ import {
   resolve,
 } from "./code-ai-local-computer-workspace-loader.mjs";
 
-const CONTRACT = "AVANTIQO_CODE_AI_LOCAL_COMPUTER_WORKSPACE_LOADER_SELFTEST_V2";
+const CONTRACT = "AVANTIQO_CODE_AI_LOCAL_COMPUTER_WORKSPACE_LOADER_SELFTEST_V3";
 
 const aliasUrl = CodeAILocalComputerWorkspaceLoader.resolveRepositoryAlias(
   "@/lib/shared/supabase/admin",
@@ -55,8 +55,29 @@ const regular = await resolve(
 );
 assert.deepEqual(regular, { url: "node:path", delegated: true });
 
-const adminModule = await import("@/lib/shared/supabase/admin");
-assert.ok(adminModule.supabaseAdmin, "SUPABASE_ADMIN_IMPORT_CHAIN_REQUIRED");
+const originalFetch = globalThis.fetch;
+let networkCalls = 0;
+globalThis.fetch = async () => {
+  networkCalls += 1;
+  throw new Error("CODE_AI_LOCAL_LOADER_SELFTEST_NETWORK_FORBIDDEN");
+};
+process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+process.env.SUPABASE_SERVICE_ROLE_KEY = "local-loader-selftest-service-role-key";
+
+try {
+  const adminModule = await import("@/lib/shared/supabase/admin");
+  assert.ok(adminModule.supabaseAdmin, "SUPABASE_ADMIN_IMPORT_CHAIN_REQUIRED");
+
+  const fastStartModule = await import("../lib/code/runtime/CodeAIEmployeeFastStartRuntime.js");
+  assert.equal(
+    typeof fastStartModule.executeCodeAIEmployeeFastStartMission,
+    "function",
+    "CODE_AI_FAST_START_RUNTIME_IMPORT_REQUIRED",
+  );
+  assert.equal(networkCalls, 0, "SELFTEST_IMPORTS_MUST_NOT_PERFORM_NETWORK_CALLS");
+} finally {
+  globalThis.fetch = originalFetch;
+}
 
 console.log(JSON.stringify({
   success: true,
@@ -66,8 +87,12 @@ console.log(JSON.stringify({
   exact_failing_alias_verified: "@/lib/shared/supabase/admin",
   extensionless_relative_resolution_verified: "./serverFetch -> serverFetch.js",
   admin_dependency_chain_import_verified: true,
+  fast_start_dependency_chain_import_verified: true,
+  safe_dummy_supabase_environment_used: true,
+  real_environment_required_for_selftest: false,
   local_workspace_redirect_verified: true,
   delegated_resolution_preserved: true,
+  network_call_performed: false,
   provider_call_performed: false,
   reasoning_call_performed: false,
   wallet_mutation_performed: false,

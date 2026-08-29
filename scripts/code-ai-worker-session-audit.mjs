@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V5";
+const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V6";
 const path = "lib/code/runtime/CodeAIWorkerSessionRuntime.js";
 const source = await readFile(path, "utf8");
 
@@ -69,6 +69,25 @@ requireMarkers("HEALTH", [
   "body?.engine_loaded === true",
   "body?.raw_reasoning_persisted === false",
   "HEALTH_TIMEOUT_MS = 2500",
+]);
+
+requireMarkers("POD_STARTUP_LIFECYCLE", [
+  "POD_LIFECYCLE_REFRESH_MS = 5000",
+  'REQUIRED_HTTP_PORT = "8000/http"',
+  "inspectPodLifecycle",
+  "podLifecycleSnapshot",
+  '"POD_PROVISIONING"',
+  '"POD_NETWORKING"',
+  '"POD_HTTP_STARTUP"',
+  "pod_desired_status",
+  "pod_runtime_status",
+  "pod_machine_present",
+  "pod_public_ip_present",
+  "pod_http_port_exposed",
+  "pod_last_started_at",
+  "pod_last_status_change",
+  "pod_proxy_http_status",
+  "CODE_AI_WORKER_SESSION_POD_TERMINAL",
 ]);
 
 requireMarkers("READY_TRANSPORT_HEALTH", [
@@ -171,6 +190,10 @@ console.log(JSON.stringify({
     unsupported_a100_not_added_to_fp8_code_pool: true,
     shared_volume_foreign_pod_exclusion: true,
     pod_v3_health_required: true,
+    pod_management_lifecycle_visible_during_proxy_startup: true,
+    pod_provisioning_networking_http_startup_distinguished: true,
+    terminal_pod_fails_closed_and_is_cleaned: true,
+    proxy_404_no_longer_hides_pod_lifecycle: true,
     ready_transport_health_confirmation_is_bounded: true,
     ready_transport_health_retry_is_non_mutating: true,
     ready_transport_health_retry_does_not_consume_reasoning: true,

@@ -15,6 +15,7 @@ const POLICY_PATH = "config/avantiqo-runpod-safe-lease-policy.json";
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const TERMINAL = new Set(["EXITED", "STOPPED", "TERMINATED", "DELETED"]);
+const BASE_FAILURE_PREFIX = `${SAFE_LEASE_CONTRACT}_FAILURE=`;
 
 function text(value) { return String(value ?? "").trim(); }
 function list(value) { return Array.isArray(value) ? value : []; }
@@ -125,6 +126,7 @@ async function inspectPeers({ lane, policy, managementKey }) {
   const targetId = text(targets[0]?.id);
   const keys = queueKeyCandidates(managementKey);
   const preserved = [];
+  const intentionalIdle = [];
   const idleOrphans = [];
   const unsafe = [];
 
@@ -153,13 +155,15 @@ async function inspectPeers({ lane, policy, managementKey }) {
     const item = { ...row, classification };
     if (classification.action === AVANTIQO_RUNPOD_SAFE_LEASE_PEER_GOVERNANCE.PRESERVE_ACTIVE_PEER) {
       preserved.push(item);
+    } else if (classification.action === AVANTIQO_RUNPOD_SAFE_LEASE_PEER_GOVERNANCE.PRESERVE_INTENTIONAL_IDLE_CAPACITY) {
+      intentionalIdle.push(item);
     } else if (classification.action === AVANTIQO_RUNPOD_SAFE_LEASE_PEER_GOVERNANCE.REAP_IDLE_ORPHAN) {
       idleOrphans.push(item);
     } else {
       unsafe.push(item);
     }
   }
-  return { targetId, targetName, preserved, idleOrphans, unsafe };
+  return { targetId, targetName, preserved, intentionalIdle, idleOrphans, unsafe };
 }
 async function createObserverLeaseDirectory(peers, ttlMs) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "avantiqo-safe-lease-parallel-"));
@@ -188,24 +192,51 @@ async function createObserverLeaseDirectory(peers, ttlMs) {
   }
   return directory;
 }
+function baseEnvironment(args, leaseDirectory) {
+  const env = {
+    ...process.env,
+    AVANTIQO_RUNPOD_SAFE_LEASE_DIR: leaseDirectory,
+  };
+  if (
+    args.lane === "intelligence-fast" &&
+    text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY)
+  ) {
+    env.AVANTIQO_RUNPOD_SAFE_LEASE_TARGET_QUEUE_API_KEY =
+      text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY);
+  }
+  return env;
+}
 async function runBase(args, leaseDirectory) {
   return await new Promise((resolvePromise, rejectPromise) => {
+    let pending = "";
+    let baseFailure = null;
     const child = spawn(
       process.execPath,
       [BASE_RUNNER, ...args.control, "--", ...args.command],
       {
         cwd: process.cwd(),
-        env: {
-          ...process.env,
-          AVANTIQO_RUNPOD_SAFE_LEASE_DIR: leaseDirectory,
-        },
-        stdio: "inherit",
+        env: baseEnvironment(args, leaseDirectory),
+        stdio: ["inherit", "pipe", "inherit"],
       },
     );
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      process.stdout.write(chunk);
+      pending = `${pending}${chunk}`.slice(-5000);
+      const lines = pending.split(/\r?\n/);
+      pending = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith(BASE_FAILURE_PREFIX)) continue;
+        baseFailure = redact(line.slice(BASE_FAILURE_PREFIX.length)).slice(0, 1200) || "UNKNOWN";
+      }
+    });
     child.on("error", rejectPromise);
     child.on("exit", (code, signal) => {
+      if (pending.startsWith(BASE_FAILURE_PREFIX)) {
+        baseFailure = redact(pending.slice(BASE_FAILURE_PREFIX.length)).slice(0, 1200) || "UNKNOWN";
+      }
       if (signal) return rejectPromise(new Error(`${CONTRACT}_BASE_RUNNER_SIGNAL:${signal}`));
-      resolvePromise(Number(code || 0));
+      resolvePromise({ exitCode: Number(code || 0), baseFailure });
     });
   });
 }
@@ -256,13 +287,23 @@ console.log(`${CONTRACT}_PRESERVED_ACTIVE_PEERS=${JSON.stringify(peers.preserved
   hourly_cost_usd: item.hourly_cost_usd,
   classification: item.classification?.reason || null,
 })))}`);
+console.log(`${CONTRACT}_PRESERVED_INTENTIONAL_IDLE_PEERS=${JSON.stringify(peers.intentionalIdle.map((item) => ({
+  endpoint_name: item.name,
+  workers_min: item.workers_min,
+  workers_max: item.workers_max,
+  jobs: item.jobs,
+  classification: item.classification?.reason || null,
+})))} `);
 console.log(`${CONTRACT}_IDLE_ORPHANS_LEFT_FOR_CANONICAL_V2=${JSON.stringify(peers.idleOrphans.map((item) => item.name))}`);
 
 let observerDirectory = null;
 let exitCode = 1;
+let baseFailure = null;
 try {
   observerDirectory = await createObserverLeaseDirectory(peers.preserved, ttlMs);
-  exitCode = await runBase(args, observerDirectory);
+  const baseResult = await runBase(args, observerDirectory);
+  exitCode = baseResult.exitCode;
+  baseFailure = baseResult.baseFailure;
 } finally {
   if (observerDirectory) await rm(observerDirectory, { recursive: true, force: true });
 }
@@ -274,15 +315,21 @@ console.log(JSON.stringify({
   lane: args.lane,
   target_name: peers.targetName,
   preserved_active_peer_count: peers.preserved.length,
+  preserved_intentional_idle_peer_count: peers.intentionalIdle.length,
   idle_orphan_count: peers.idleOrphans.length,
   unsafe_peer_count: peers.unsafe.length,
   peer_mutation_performed: false,
   peer_queue_mutation_performed: false,
   peer_ownership_claimed: false,
   observer_state_persisted_after_exit: false,
+  fast_target_queue_override_used: args.lane === "intelligence-fast" && Boolean(text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY)),
   base_runner_exit_code: exitCode,
+  base_runner_failure: exitCode === 0 ? null : (baseFailure || "BASE_FAILURE_MARKER_NOT_CAPTURED"),
   canonical_v2_exclusively_owns_scaling: true,
   secrets_printed: false,
 }, null, 2));
 console.log(`${CONTRACT}=${exitCode === 0 ? "PASS" : "FAIL"}`);
-if (exitCode !== 0) process.exit(exitCode);
+if (exitCode !== 0) {
+  console.log(`${CONTRACT}_DELEGATED_FAILURE=${baseFailure || "BASE_FAILURE_MARKER_NOT_CAPTURED"}`);
+  process.exit(exitCode);
+}

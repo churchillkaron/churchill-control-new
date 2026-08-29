@@ -1,0 +1,156 @@
+name: Avantiqo Video FlashVSR Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-flashvsr-worker-request.json
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-video-flashvsr-worker
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify FlashVSR GPU-only boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f services/avantiqo-video-flashvsr/Dockerfile
+          test -f services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'CONTRACT = "AVANTIQO_VIDEO_FLASHVSR_GPU_MASTER_V1"' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'COMPUTE_BOUNDARY = "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1"' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'MODEL_REVISION = "a258bf2d5b99bf54cf048d901edc866591d5ea0b"' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'video_encoded_on_paid_worker": False' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'final_artifact_persisted_on_paid_worker": False' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          if grep -Eiq '\bffmpeg\b|libx264|libx265|export_to_video|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai/' services/avantiqo-video-flashvsr/Dockerfile services/avantiqo-video-flashvsr/flashvsr_worker.py; then
+            echo 'Forbidden Video mastering operation/provider found in FlashVSR GPU image' >&2
+            exit 1
+          fi
+          python -m py_compile services/avantiqo-video-flashvsr/flashvsr_worker.py
+          echo 'AVANTIQO_VIDEO_FLASHVSR_SOURCE_PREFLIGHT=PASS'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-video-flashvsr-v11"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push immutable FlashVSR image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-video-flashvsr
+          file: services/avantiqo-video-flashvsr/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-video-flashvsr-v11
+          cache-to: type=gha,mode=max,scope=avantiqo-video-flashvsr-v11
+
+      - name: Record sanitized image evidence
+        env:
+          IMAGE_REPOSITORY: ${{ steps.image.outputs.image }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          RELEASE_SHA: ${{ steps.image.outputs.release_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$IMAGE_DIGEST"
+          mkdir -p /tmp/avantiqo-video-flashvsr
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          const repository = process.env.IMAGE_REPOSITORY;
+          const digest = process.env.IMAGE_DIGEST;
+          const report = {
+            success: true,
+            contract: "AVANTIQO_VIDEO_FLASHVSR_IMAGE_RESULT_V1",
+            source_sha: process.env.RELEASE_SHA,
+            github_run_id: process.env.BUILD_RUN_ID,
+            image_repository: repository,
+            image_tag: process.env.IMAGE_TAG,
+            image_digest: digest,
+            immutable_image_reference: `${repository}@${digest}`,
+            flashvsr_source_commit: "0ef95713cd336ee89a921fc2fbc2933aaf9e5f4a",
+            flashvsr_model_revision: "a258bf2d5b99bf54cf048d901edc866591d5ea0b",
+            block_sparse_attention_commit: "49d6c39e4dc0303442cda3bb758b3925d4399c49",
+            compute_boundary_contract: "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1",
+            ffmpeg_in_image_source: false,
+            video_encoding_on_paid_worker: false,
+            final_storage_on_paid_worker: false,
+            fal_dependency: false,
+            model_weights_baked_into_image: false,
+            runpod_mutation_performed: false,
+            inference_performed: false,
+            production_deploy_performed: false,
+            secrets_in_output: false,
+          };
+          writeFileSync('/tmp/avantiqo-video-flashvsr/result.json', `${JSON.stringify(report)}\n`);
+          NODE
+
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-flashvsr-${{ steps.image.outputs.short_sha }}
+          path: /tmp/avantiqo-video-flashvsr/result.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Record evidence on newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B video-flashvsr-evidence origin/main
+          mkdir -p audits/results
+          cp /tmp/avantiqo-video-flashvsr/result.json audits/results/avantiqo-video-flashvsr-worker.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audits/results/avantiqo-video-flashvsr-worker.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Record Video FlashVSR worker image"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            git fetch origin main
+            git rebase origin/main
+          done

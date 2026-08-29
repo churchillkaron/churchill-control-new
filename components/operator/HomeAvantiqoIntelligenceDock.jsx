@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
 
 const LATEST_THRESHOLD_PX = 96;
+const VOICE_REPLY_INTENT_TTL_MS = 120_000;
 
 function normalizedSpeech(value) {
   return String(value ?? "")
@@ -54,6 +55,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   useEffect(() => {
     let lastSpokenMessage = "";
     let spokenEchoGuardUntil = 0;
+    let voiceReplyIntentUntil = 0;
 
     function gateAndRememberSpokenOutput(event) {
       const detail = event?.detail;
@@ -68,18 +70,25 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         return;
       }
 
-      const urgent = String(detail.priority ?? "").trim().toLowerCase() === "urgent";
-      const explicitlyVoiceInitiated =
-        detail.voice_initiated === true || detail.source === "operator";
+      const source = String(detail.source ?? "").trim().toLowerCase();
+      const explicitlyVoiceInitiated = detail.voice_initiated === true;
+      const homeVoiceReply =
+        source === "operator" &&
+        Date.now() <= voiceReplyIntentUntil;
 
-      // Typed Secretary turns are always silent. There is no carry-over voice
-      // intent window. The Home "operator" speech event is emitted only inside
-      // Home's source === "voice" branches, so it authorizes only that exact turn.
-      if (!urgent && !explicitlyVoiceInitiated) {
+      // Home speech is opt-in only. A typed turn, restored conversation,
+      // background thesis interruption, stale Operator event, or arbitrary
+      // urgent event can never authorize TTS. The only accepted cases are an
+      // explicitly voice-marked event or the single reply to the latest
+      // explicit Home voice command.
+      if (!explicitlyVoiceInitiated && !homeVoiceReply) {
         event.stopImmediatePropagation();
         return;
       }
 
+      // Consume Home voice intent exactly once so it cannot bleed into a later
+      // typed or background event.
+      voiceReplyIntentUntil = 0;
       lastSpokenMessage = message;
       const words = normalizedSpeech(message).split(" ").filter(Boolean).length;
       spokenEchoGuardUntil = Date.now() + Math.min(
@@ -92,10 +101,16 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       const detail = event?.detail;
       if (!detail || typeof detail !== "object") return;
 
-      // Only an explicit Voice command is voice. Missing, stale or arbitrary
-      // event sources are normalized to text and can never authorize TTS.
+      // Only the literal explicit Voice source is Voice. Everything else is
+      // text and immediately cancels any unconsumed speech permission.
       const source = String(detail.source ?? "").trim().toLowerCase();
       detail.source = source === "voice" ? "voice" : "text";
+
+      if (detail.source === "voice") {
+        voiceReplyIntentUntil = Date.now() + VOICE_REPLY_INTENT_TTL_MS;
+      } else {
+        voiceReplyIntentUntil = 0;
+      }
 
       // Do not let Avantiqo's own spoken answer feed back into Home as another
       // Voice command. Unrelated human speech remains unaffected.
@@ -104,6 +119,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         Date.now() < spokenEchoGuardUntil &&
         likelySpokenEcho(detail.message, lastSpokenMessage)
       ) {
+        voiceReplyIntentUntil = 0;
         event.stopImmediatePropagation();
       }
     }

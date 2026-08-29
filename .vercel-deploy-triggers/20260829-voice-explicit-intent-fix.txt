@@ -1,0 +1,2 @@
+Deploy explicit Voice intent gate so typed Home chat cannot trigger TTS.
+Source includes commit 338daf8ba0eba7847e4a6026f912999c80e0608c.

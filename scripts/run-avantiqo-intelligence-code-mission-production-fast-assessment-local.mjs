@@ -20,6 +20,11 @@ function text(value, limit = 4000) {
 function yes(value) {
   return ["YES", "TRUE", "1", "APPROVED", "ON"].includes(text(value, 40).toUpperCase());
 }
+function redact(value) {
+  return text(value, 2000)
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]{8,}/gi, "Bearer [REDACTED]")
+    .replace(/((?:api[_-]?key|token|password|secret|authorization)\s*[=:]\s*)[^\s,;]+/gi, "$1[REDACTED]");
+}
 function shell(name, args, code) {
   const result = spawnSync(name, args, {
     cwd: process.cwd(),
@@ -79,79 +84,98 @@ function requireSafeLease() {
   }
 }
 
-const organizationId = text(
-  process.env.AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_ORGANIZATION_ID,
-  200,
-);
-const outputPath = resolve(
-  text(process.env.AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_ASSESSMENT_PATH, 1000) ||
-    "/tmp/avantiqo-intelligence-code-mission-production-assessment.json",
-);
-if (!organizationId) throw new Error(`${CONTRACT}_ORGANIZATION_ID_REQUIRED`);
-const head = expectedMain();
-requireSafeLease();
+let phase = "BOOTSTRAP";
+try {
+  const organizationId = text(
+    process.env.AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_ORGANIZATION_ID,
+    200,
+  );
+  const outputPath = resolve(
+    text(process.env.AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_ASSESSMENT_PATH, 1000) ||
+      "/tmp/avantiqo-intelligence-code-mission-production-assessment.json",
+  );
+  if (!organizationId) throw new Error(`${CONTRACT}_ORGANIZATION_ID_REQUIRED`);
 
-process.env.AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT = head;
-process.env.AVANTIQO_CODE_WORKSPACE_TARGET = "LOCAL_COMPUTER";
-process.env.AVANTIQO_CODE_LOCAL_REPOSITORY_ROOT = process.cwd();
-register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
-const { assessAvantiqoCurrentRepository } = await import(
-  "@/lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime"
-);
+  phase = "PINNED_MAIN_VALIDATION";
+  const head = expectedMain();
 
-const assessment = await assessAvantiqoCurrentRepository({
-  context: {
-    organizationId,
-    metadata: {
-      production_service_certification: true,
+  phase = "SAFE_LEASE_VALIDATION";
+  requireSafeLease();
+
+  process.env.AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT = head;
+  process.env.AVANTIQO_CODE_WORKSPACE_TARGET = "LOCAL_COMPUTER";
+  process.env.AVANTIQO_CODE_LOCAL_REPOSITORY_ROOT = process.cwd();
+
+  phase = "RUNTIME_IMPORT";
+  register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
+  const { assessAvantiqoCurrentRepository } = await import(
+    "@/lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime"
+  );
+
+  phase = "PINNED_LOCAL_REPOSITORY_ASSESSMENT";
+  const assessment = await assessAvantiqoCurrentRepository({
+    context: {
+      organizationId,
+      metadata: {
+        production_service_certification: true,
+      },
     },
-  },
-  repositoryUrl: REPOSITORY_URL,
-  ref: head,
-  verifiedCommitSha: head,
-  focus: MISSION_OBJECTIVE,
-  workspaceTarget: "LOCAL_COMPUTER",
-});
+    repositoryUrl: REPOSITORY_URL,
+    ref: head,
+    verifiedCommitSha: head,
+    focus: MISSION_OBJECTIVE,
+    workspaceTarget: "LOCAL_COMPUTER",
+  });
 
-if (assessment?.contract !== "AVANTIQO_PRODUCT_REPOSITORY_ASSESSMENT_V1") {
-  throw new Error(`${CONTRACT}_ASSESSMENT_CONTRACT_INVALID`);
-}
-if (text(assessment?.repository_snapshot?.current_main_head, 160).toLowerCase() !== head) {
-  throw new Error(`${CONTRACT}_ASSESSMENT_HEAD_MISMATCH`);
-}
-if (assessment?.repository_snapshot?.clean_checkout !== true) {
-  throw new Error(`${CONTRACT}_ASSESSMENT_CLEAN_CHECKOUT_REQUIRED`);
-}
-if (text(assessment?.repository_snapshot?.workspace_target, 80).toUpperCase() !== "LOCAL_COMPUTER") {
-  throw new Error(`${CONTRACT}_LOCAL_WORKSPACE_REQUIRED`);
-}
-if (!text(assessment?.objective_selection?.selected_objective, 4000)) {
-  throw new Error(`${CONTRACT}_ASSESSMENT_OBJECTIVE_REQUIRED`);
-}
+  phase = "ASSESSMENT_CONTRACT_VERIFICATION";
+  if (assessment?.contract !== "AVANTIQO_PRODUCT_REPOSITORY_ASSESSMENT_V1") {
+    throw new Error(`${CONTRACT}_ASSESSMENT_CONTRACT_INVALID`);
+  }
+  if (text(assessment?.repository_snapshot?.current_main_head, 160).toLowerCase() !== head) {
+    throw new Error(`${CONTRACT}_ASSESSMENT_HEAD_MISMATCH`);
+  }
+  if (assessment?.repository_snapshot?.clean_checkout !== true) {
+    throw new Error(`${CONTRACT}_ASSESSMENT_CLEAN_CHECKOUT_REQUIRED`);
+  }
+  if (text(assessment?.repository_snapshot?.workspace_target, 80).toUpperCase() !== "LOCAL_COMPUTER") {
+    throw new Error(`${CONTRACT}_LOCAL_WORKSPACE_REQUIRED`);
+  }
+  if (!text(assessment?.objective_selection?.selected_objective, 4000)) {
+    throw new Error(`${CONTRACT}_ASSESSMENT_OBJECTIVE_REQUIRED`);
+  }
 
-await writeFile(outputPath, `${JSON.stringify(assessment, null, 2)}\n`, "utf8");
-console.log(JSON.stringify({
-  success: true,
-  contract: CONTRACT,
-  repository_head: head,
-  repository_ref: head,
-  repository_ref_semantics: "PINNED_MAIN_COMMIT",
-  local_workspace_certification_pin_active: true,
-  moving_origin_main_race_removed: true,
-  vercel_sandbox_required: false,
-  assessment_contract: assessment.contract,
-  assessment_status: assessment.status,
-  output_path: outputPath,
-  expected_service_accounted_provider_requests: 1,
-  expected_execution_lane: "fast",
-  source_mutation_performed: false,
-  code_execution_performed: false,
-  production_deploy_performed: false,
-  learning_knowledge_promoted: false,
-  direct_endpoint_scaling_performed: false,
-  safe_lease_exclusively_owns_scaling: true,
-  raw_reasoning_persisted: false,
-  organization_id_printed: false,
-  secrets_printed: false,
-}, null, 2));
-console.log(`${CONTRACT}=PASS`);
+  phase = "ASSESSMENT_PERSISTENCE";
+  await writeFile(outputPath, `${JSON.stringify(assessment, null, 2)}\n`, "utf8");
+  console.log(JSON.stringify({
+    success: true,
+    contract: CONTRACT,
+    repository_head: head,
+    repository_ref: head,
+    repository_ref_semantics: "PINNED_MAIN_COMMIT",
+    local_workspace_certification_pin_active: true,
+    moving_origin_main_race_removed: true,
+    vercel_sandbox_required: false,
+    assessment_contract: assessment.contract,
+    assessment_status: assessment.status,
+    output_path: outputPath,
+    expected_service_accounted_provider_requests: 1,
+    expected_execution_lane: "fast",
+    source_mutation_performed: false,
+    code_execution_performed: false,
+    production_deploy_performed: false,
+    learning_knowledge_promoted: false,
+    direct_endpoint_scaling_performed: false,
+    safe_lease_exclusively_owns_scaling: true,
+    raw_reasoning_persisted: false,
+    organization_id_printed: false,
+    secrets_printed: false,
+  }, null, 2));
+  console.log(`${CONTRACT}=PASS`);
+} catch (error) {
+  console.log(`${CONTRACT}_FAILURE_PHASE=${phase}`);
+  console.log(`${CONTRACT}_FAILURE=${redact(error?.message || error)}`);
+  if (error?.details?.stderr) {
+    console.log(`${CONTRACT}_FAILURE_DETAIL=${redact(error.details.stderr)}`);
+  }
+  process.exitCode = 1;
+}

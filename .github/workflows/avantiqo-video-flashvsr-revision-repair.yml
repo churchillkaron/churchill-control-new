@@ -39,7 +39,6 @@ jobs:
             'lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js'
             'tests/avantiqo-video-studio-first-boundary.test.mjs'
             'scripts/studio-first-compute-boundary-audit.mjs'
-            '.github/workflows/avantiqo-video-flashvsr-worker.yml'
           )
 
           git fetch origin main

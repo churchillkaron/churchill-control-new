@@ -1,4 +1,3 @@
-import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 import {
   acquireVoiceRealtimeSafeLease,
   realtimeEndpointIdFromWebSocketUrl,
@@ -82,6 +81,50 @@ function supabaseSecretKey(): string {
   throw new Error("AVANTIQO_VOICE_REALTIME_SUPABASE_SECRET_KEY_REQUIRED");
 }
 
+function supabaseUrl(): string {
+  const value = text(Deno.env.get("SUPABASE_URL"));
+  if (!value) {
+    throw new Error("AVANTIQO_VOICE_REALTIME_SUPABASE_URL_REQUIRED");
+  }
+  return value.replace(/\/+$/, "");
+}
+
+function isLegacyJwtKey(value: string): boolean {
+  const parts = value.split(".");
+  return value.startsWith("eyJ") && parts.length === 3 && parts.every(Boolean);
+}
+
+function supabaseAdminHeaders(key: string): Record<string, string> {
+  return {
+    apikey: key,
+    Accept: "application/json",
+    "Cache-Control": "no-store",
+    ...(isLegacyJwtKey(key) ? { Authorization: `Bearer ${key}` } : {}),
+  };
+}
+
+async function jsonRequest(
+  url: string,
+  options: { headers: Record<string, string>; failure: string },
+): Promise<unknown> {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: options.headers,
+    signal: AbortSignal.timeout(20_000),
+  });
+  const raw = await response.text();
+  let parsed: unknown = null;
+  try {
+    parsed = raw ? JSON.parse(raw) : null;
+  } catch {
+    parsed = null;
+  }
+  if (!response.ok) {
+    throw new Error(options.failure);
+  }
+  return parsed;
+}
+
 function upstreamUrl(): string {
   const raw = text(Deno.env.get("AVANTIQO_VOICE_REALTIME_RUNPOD_WS_URL"));
   if (!raw) {
@@ -156,36 +199,38 @@ async function requireOrganizationMembership(
     throw new Error("AVANTIQO_VOICE_REALTIME_AUTH_REQUIRED");
   }
 
-  const supabaseUrl = text(Deno.env.get("SUPABASE_URL"));
-  if (!supabaseUrl) {
-    throw new Error("AVANTIQO_VOICE_REALTIME_SUPABASE_URL_REQUIRED");
-  }
+  const baseUrl = supabaseUrl();
+  const secretKey = supabaseSecretKey();
 
-  const admin = createClient(supabaseUrl, supabaseSecretKey(), {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
+  const authData = await jsonRequest(`${baseUrl}/auth/v1/user`, {
+    headers: {
+      apikey: secretKey,
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Cache-Control": "no-store",
     },
-  });
+    failure: "AVANTIQO_VOICE_REALTIME_AUTH_INVALID",
+  }) as Record<string, unknown> | null;
 
-  const { data: authData, error: authError } = await admin.auth.getUser(token);
-  const userId = text(authData?.user?.id);
-  if (authError || !userId) {
+  const userId = text(authData?.id);
+  if (!userId) {
     throw new Error("AVANTIQO_VOICE_REALTIME_AUTH_INVALID");
   }
 
-  const { data: staffRows, error: staffError } = await admin
-    .from("staff_accounts")
-    .select("*")
-    .eq("auth_user_id", userId)
-    .limit(1000);
+  const staffUrl = new URL(`${baseUrl}/rest/v1/staff_accounts`);
+  staffUrl.searchParams.set("select", "*");
+  staffUrl.searchParams.set("auth_user_id", `eq.${userId}`);
+  staffUrl.searchParams.set("limit", "1000");
 
-  if (staffError) {
+  const staffRowsRaw = await jsonRequest(staffUrl.toString(), {
+    headers: supabaseAdminHeaders(secretKey),
+    failure: "AVANTIQO_VOICE_REALTIME_STAFF_LOOKUP_FAILED",
+  });
+  if (!Array.isArray(staffRowsRaw)) {
     throw new Error("AVANTIQO_VOICE_REALTIME_STAFF_LOOKUP_FAILED");
   }
-
-  const activeStaff = (staffRows || []).filter((row) => activeRecord(row));
+  const staffRows = staffRowsRaw as Array<Record<string, any>>;
+  const activeStaff = staffRows.filter((row) => activeRecord(row));
   const direct = activeStaff.find((row) =>
     [
       row.organization_id,
@@ -204,18 +249,21 @@ async function requireOrganizationMembership(
     throw new Error("AVANTIQO_VOICE_REALTIME_ORGANIZATION_ACCESS_DENIED");
   }
 
-  const { data: membershipRows, error: membershipError } = await admin
-    .from("organization_users")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .in("staff_account_id", staffIds)
-    .limit(1000);
+  const membershipUrl = new URL(`${baseUrl}/rest/v1/organization_users`);
+  membershipUrl.searchParams.set("select", "*");
+  membershipUrl.searchParams.set("organization_id", `eq.${organizationId}`);
+  membershipUrl.searchParams.set("staff_account_id", `in.(${staffIds.join(",")})`);
+  membershipUrl.searchParams.set("limit", "1000");
 
-  if (membershipError) {
+  const membershipRowsRaw = await jsonRequest(membershipUrl.toString(), {
+    headers: supabaseAdminHeaders(secretKey),
+    failure: "AVANTIQO_VOICE_REALTIME_MEMBERSHIP_LOOKUP_FAILED",
+  });
+  if (!Array.isArray(membershipRowsRaw)) {
     throw new Error("AVANTIQO_VOICE_REALTIME_MEMBERSHIP_LOOKUP_FAILED");
   }
-
-  const membership = (membershipRows || []).find((row) => activeRecord(row));
+  const membershipRows = membershipRowsRaw as Array<Record<string, unknown>>;
+  const membership = membershipRows.find((row) => activeRecord(row));
   const staffAccountId = text(membership?.staff_account_id);
   if (!staffAccountId) {
     throw new Error("AVANTIQO_VOICE_REALTIME_ORGANIZATION_ACCESS_DENIED");
@@ -428,8 +476,6 @@ Deno.serve(async (request) => {
         realtime_streaming_certified: false,
       });
 
-      // Deno 2 supports custom headers on outbound WebSocket handshakes.
-      // Browsers never receive the restricted RunPod key.
       upstream = new WebSocket(runpodUrl, {
         headers: new Headers({
           Authorization: `Bearer ${runpodKey}`,

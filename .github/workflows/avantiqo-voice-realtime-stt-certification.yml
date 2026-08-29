@@ -1,0 +1,412 @@
+name: Avantiqo Voice Realtime STT Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-voice-realtime-stt-certification-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-voice-realtime-stt-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RESULT_PATH: /tmp/avantiqo-voice-realtime-stt-certification.json
+      CANONICAL_RESULT_PATH: audits/results/avantiqo-voice-realtime-stt-certification.json
+      ENDPOINT_NAME: avantiqo-voice-stt-realtime-v1
+      REALTIME_CONTRACT: AVANTIQO_VOICE_STT_REALTIME_V1
+      ENGINE_CONTRACT: AVANTIQO_VOICE_ENGINE_V1
+      CAPABILITY: ai.speech.to.text.realtime
+      FOUNDATION_MODEL: openai/whisper-large-v3-turbo
+
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Validate credentials and source lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in RUNPOD_API_KEY RUNPOD_MANAGEMENT_API_KEY; do
+            if [ -z "${!name:-}" ]; then
+              printf '{"success":false,"contract":"AVANTIQO_VOICE_REALTIME_STT_CERTIFICATION_V1","certification_state":"CI_PREFLIGHT_BLOCKED","error_code":"%s_REQUIRED","workers_restored_0_0":false,"generation_submitted":false,"secrets_printed":false}\n' "$name" > "$RESULT_PATH"
+              exit 1
+            fi
+          done
+          test -f services/avantiqo-voice-stt-realtime/app.py
+          test -f audits/results/avantiqo-voice-stt-realtime-worker-image.json
+          grep -F 'REALTIME_CONTRACT = "AVANTIQO_VOICE_STT_REALTIME_V1"' services/avantiqo-voice-stt-realtime/app.py
+          grep -F '@app.websocket("/v1/realtime/transcribe")' services/avantiqo-voice-stt-realtime/app.py
+          grep -F 'MAX_SESSION_SECONDS = 30' services/avantiqo-voice-stt-realtime/app.py
+          grep -F 'raw_audio_persisted' services/avantiqo-voice-stt-realtime/app.py
+
+      - name: Install proof-only local tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq espeak-ng ffmpeg
+          python -m pip install --quiet 'websockets>=13,<16'
+
+      - name: Generate deterministic local speech fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          espeak-ng -s 145 -w /tmp/voice-realtime-proof.wav 'Avantiqo realtime voice test works correctly'
+          ffmpeg -loglevel error -y -i /tmp/voice-realtime-proof.wav -ac 1 -ar 16000 -f s16le /tmp/voice-realtime-proof.pcm
+          test -s /tmp/voice-realtime-proof.pcm
+
+      - name: Run exactly one realtime STT proof
+        id: proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import asyncio
+          import base64
+          import hashlib
+          import hmac
+          import json
+          import os
+          import time
+          import uuid
+          import urllib.request
+          import urllib.error
+          import websockets
+
+          RESULT_PATH = os.environ['RESULT_PATH']
+          MGMT = os.environ['RUNPOD_MANAGEMENT_API_KEY']
+          WS_KEY = os.environ['RUNPOD_API_KEY']
+          ENDPOINT_NAME = os.environ['ENDPOINT_NAME']
+          REALTIME_CONTRACT = os.environ['REALTIME_CONTRACT']
+          ENGINE_CONTRACT = os.environ['ENGINE_CONTRACT']
+          CAPABILITY = os.environ['CAPABILITY']
+          FOUNDATION_MODEL = os.environ['FOUNDATION_MODEL']
+          BASE = 'https://api.runpod.io/v2'
+
+          def request_json(url, *, method='GET', body=None):
+              data = None if body is None else json.dumps(body).encode()
+              req = urllib.request.Request(url, data=data, method=method)
+              req.add_header('Authorization', f'Bearer {MGMT}')
+              req.add_header('Accept', 'application/json')
+              if data is not None:
+                  req.add_header('Content-Type', 'application/json')
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  raw = response.read()
+              return json.loads(raw or b'{}')
+
+          def rows(value, key):
+              if isinstance(value, list):
+                  return value
+              if isinstance(value, dict):
+                  if isinstance(value.get(key), list):
+                      return value[key]
+                  data = value.get('data')
+                  if isinstance(data, dict) and isinstance(data.get(key), list):
+                      return data[key]
+              return []
+
+          def endpoint_bounds(endpoint):
+              workers = endpoint.get('workers') or {}
+              return workers.get('min'), workers.get('max'), workers.get('idleTimeout')
+
+          endpoints_raw = request_json(f'{BASE}/serverless')
+          matches = [row for row in rows(endpoints_raw, 'endpoints') if str(row.get('name') or '').strip() == ENDPOINT_NAME]
+          if len(matches) != 1:
+              raise RuntimeError(f'REALTIME_ENDPOINT_RESOLUTION_FAILED:{len(matches)}')
+          endpoint_id = str(matches[0].get('id') or '').strip()
+          if not endpoint_id:
+              raise RuntimeError('REALTIME_ENDPOINT_ID_REQUIRED')
+
+          endpoint = request_json(f'{BASE}/serverless/{endpoint_id}')
+          workers_before = request_json(f'{BASE}/serverless/{endpoint_id}/workers')
+          worker_rows_before = rows(workers_before, 'workers')
+          wmin, wmax, idle = endpoint_bounds(endpoint)
+          if (wmin, wmax, idle) != (0, 0, 5) or worker_rows_before:
+              raise RuntimeError('REALTIME_ENDPOINT_NOT_IN_REQUIRED_REST_STATE')
+          if str(endpoint.get('type') or '') != 'LOAD_BALANCER':
+              raise RuntimeError('REALTIME_ENDPOINT_TYPE_INVALID')
+          gpu = endpoint.get('gpu') or {}
+          if gpu.get('pools') != ['AMPERE_16'] or int(gpu.get('count') or 0) != 1:
+              raise RuntimeError('REALTIME_ENDPOINT_GPU_CONFIG_INVALID')
+
+          evidence = json.load(open('audits/results/avantiqo-voice-stt-realtime-worker-image.json', 'r', encoding='utf-8'))
+          expected_image = str(evidence.get('immutable_image_reference') or '').strip()
+          if not expected_image or str(endpoint.get('image') or '').strip() != expected_image:
+              raise RuntimeError('REALTIME_ENDPOINT_IMAGE_MISMATCH')
+
+          relay_secret = str((endpoint.get('env') or {}).get('AVANTIQO_VOICE_REALTIME_RELAY_SECRET') or '').strip()
+          if len(relay_secret) < 32:
+              raise RuntimeError('REALTIME_RELAY_SECRET_NOT_BOUND_TO_ENDPOINT')
+
+          request_json(
+              f'{BASE}/serverless/{endpoint_id}',
+              method='PATCH',
+              body={'workers': {'min': 0, 'max': 1, 'idleTimeout': 5}},
+          )
+
+          async def run_proof():
+              pcm = open('/tmp/voice-realtime-proof.pcm', 'rb').read()
+              session_id = str(uuid.uuid4())
+              organization_id = 'avantiqo-voice-realtime-certification'
+              expires_at = int(time.time()) + 60
+              signed = f'{REALTIME_CONTRACT}|{session_id}|{organization_id}|{expires_at}'.encode()
+              signature = hmac.new(relay_secret.encode(), signed, hashlib.sha256).hexdigest()
+              start = {
+                  'type': 'session.start',
+                  'contract': REALTIME_CONTRACT,
+                  'engine_contract': ENGINE_CONTRACT,
+                  'capability': CAPABILITY,
+                  'foundation_model': FOUNDATION_MODEL,
+                  'session_id': session_id,
+                  'organization_id': organization_id,
+                  'expires_at': expires_at,
+                  'signature': signature,
+                  'sample_rate': 16000,
+                  'language': 'en',
+              }
+              ws_url = f'wss://{endpoint_id}.api.runpod.ai/v1/realtime/transcribe'
+              deadline = time.monotonic() + 600
+              last_error = 'NOT_ATTEMPTED'
+              ws = None
+              while time.monotonic() < deadline:
+                  try:
+                      ws = await websockets.connect(
+                          ws_url,
+                          additional_headers={'Authorization': f'Bearer {WS_KEY}'},
+                          open_timeout=25,
+                          close_timeout=10,
+                          max_size=131072,
+                      )
+                      break
+                  except Exception as exc:
+                      last_error = type(exc).__name__
+                      await asyncio.sleep(8)
+              if ws is None:
+                  raise RuntimeError(f'REALTIME_WEBSOCKET_NOT_READY:{last_error}')
+
+              partial_seen = False
+              ready_seen = False
+              final = None
+              try:
+                  await ws.send(json.dumps(start, separators=(',', ':')))
+                  ready = json.loads(await asyncio.wait_for(ws.recv(), timeout=30))
+                  if ready.get('type') != 'session.ready' or ready.get('contract') != REALTIME_CONTRACT:
+                      raise RuntimeError('REALTIME_SESSION_READY_INVALID')
+                  ready_seen = True
+
+                  chunk_bytes = 16000
+                  for offset in range(0, len(pcm), chunk_bytes):
+                      chunk = pcm[offset:offset + chunk_bytes]
+                      await ws.send(json.dumps({
+                          'type': 'audio.append',
+                          'audio': base64.b64encode(chunk).decode(),
+                      }, separators=(',', ':')))
+                      await asyncio.sleep(0.22)
+
+                  await ws.send('{"type":"audio.commit"}')
+                  end = time.monotonic() + 90
+                  while time.monotonic() < end:
+                      payload = json.loads(await asyncio.wait_for(ws.recv(), timeout=30))
+                      if payload.get('contract') != REALTIME_CONTRACT:
+                          raise RuntimeError('REALTIME_RESPONSE_CONTRACT_INVALID')
+                      if payload.get('raw_audio_persisted') is True:
+                          raise RuntimeError('REALTIME_RAW_AUDIO_PERSISTENCE_FORBIDDEN')
+                      if payload.get('type') == 'transcript.partial':
+                          partial_seen = bool(str(payload.get('transcript') or '').strip()) or partial_seen
+                      elif payload.get('type') == 'transcript.final':
+                          final = payload
+                          break
+                      elif payload.get('type') == 'session.error':
+                          raise RuntimeError(f"REALTIME_SESSION_ERROR:{payload.get('code') or 'UNKNOWN'}")
+                  if not final:
+                      raise RuntimeError('REALTIME_FINAL_TRANSCRIPT_TIMEOUT')
+                  transcript = str(final.get('transcript') or '').strip()
+                  if not transcript:
+                      raise RuntimeError('REALTIME_FINAL_TRANSCRIPT_EMPTY')
+                  normalized = transcript.lower().replace('-', ' ')
+                  if 'voice' not in normalized or 'test' not in normalized:
+                      raise RuntimeError('REALTIME_FINAL_TRANSCRIPT_CONTENT_MISMATCH')
+                  return {
+                      'ready_seen': ready_seen,
+                      'partial_seen': partial_seen,
+                      'final_seen': True,
+                      'transcript_nonempty': True,
+                      'content_check': True,
+                      'detected_language': final.get('detected_language'),
+                      'audio_ms': final.get('audio_ms'),
+                      'generation_seconds': final.get('generation_seconds'),
+                  }
+              finally:
+                  try:
+                      await ws.close()
+                  except Exception:
+                      pass
+
+          proof = asyncio.run(run_proof())
+          result = {
+              'success': True,
+              'contract': 'AVANTIQO_VOICE_REALTIME_STT_CERTIFICATION_V1',
+              'certification_state': 'CERTIFIED',
+              'github_run_id': os.environ.get('GITHUB_RUN_ID'),
+              'trigger_sha': os.environ.get('GITHUB_SHA'),
+              'endpoint_id_present': True,
+              'endpoint_name': ENDPOINT_NAME,
+              'endpoint_type': 'LOAD_BALANCER',
+              'foundation_model': FOUNDATION_MODEL,
+              'realtime_contract': REALTIME_CONTRACT,
+              'immutable_image_match': True,
+              'session_ready_seen': proof['ready_seen'],
+              'partial_transcript_seen': proof['partial_seen'],
+              'final_transcript_seen': proof['final_seen'],
+              'final_transcript_nonempty': proof['transcript_nonempty'],
+              'fixture_content_check': proof['content_check'],
+              'detected_language': proof['detected_language'],
+              'audio_ms': proof['audio_ms'],
+              'generation_seconds': proof['generation_seconds'],
+              'raw_audio_persisted': False,
+              'one_worker_max': True,
+              'generation_submitted': True,
+              'secrets_printed': False,
+          }
+          with open(RESULT_PATH, 'w', encoding='utf-8') as handle:
+              json.dump(result, handle, indent=2)
+              handle.write('\n')
+          PY
+
+      - name: Force realtime Voice permanent rest state 0/0
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          import time
+
+          key = os.environ.get('RUNPOD_MANAGEMENT_API_KEY', '').strip()
+          if not key:
+              raise SystemExit('RUNPOD_MANAGEMENT_API_KEY_REQUIRED_FOR_CLEANUP')
+          base = 'https://api.runpod.io/v2'
+          endpoint_name = os.environ['ENDPOINT_NAME']
+
+          def request_json(url, *, method='GET', body=None):
+              data = None if body is None else json.dumps(body).encode()
+              req = urllib.request.Request(url, data=data, method=method)
+              req.add_header('Authorization', f'Bearer {key}')
+              req.add_header('Accept', 'application/json')
+              if data is not None:
+                  req.add_header('Content-Type', 'application/json')
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.loads(response.read() or b'{}')
+
+          def rows(value, key_name):
+              if isinstance(value, list): return value
+              if isinstance(value, dict):
+                  if isinstance(value.get(key_name), list): return value[key_name]
+                  data = value.get('data')
+                  if isinstance(data, dict) and isinstance(data.get(key_name), list): return data[key_name]
+              return []
+
+          endpoints = rows(request_json(f'{base}/serverless'), 'endpoints')
+          matches = [row for row in endpoints if str(row.get('name') or '').strip() == endpoint_name]
+          if len(matches) != 1:
+              raise SystemExit(f'REALTIME_CLEANUP_ENDPOINT_RESOLUTION_FAILED:{len(matches)}')
+          endpoint_id = str(matches[0].get('id') or '').strip()
+          request_json(f'{base}/serverless/{endpoint_id}', method='PATCH', body={'workers': {'min': 0, 'max': 0, 'idleTimeout': 5}})
+
+          deadline = time.monotonic() + 180
+          clean = False
+          while time.monotonic() < deadline:
+              endpoint = request_json(f'{base}/serverless/{endpoint_id}')
+              inventory = request_json(f'{base}/serverless/{endpoint_id}/workers')
+              workers = endpoint.get('workers') or {}
+              active = rows(inventory, 'workers')
+              if workers.get('min') == 0 and workers.get('max') == 0 and workers.get('idleTimeout') == 5 and not active:
+                  clean = True
+                  break
+              time.sleep(5)
+          if not clean:
+              raise SystemExit('REALTIME_CLEANUP_0_0_TIMEOUT')
+
+          result_path = os.environ['RESULT_PATH']
+          try:
+              result = json.load(open(result_path, 'r', encoding='utf-8'))
+          except Exception:
+              result = {
+                  'success': False,
+                  'contract': 'AVANTIQO_VOICE_REALTIME_STT_CERTIFICATION_V1',
+                  'certification_state': 'CI_EXECUTION_FAILED',
+                  'error_code': 'PROOF_FAILED_BEFORE_RESULT',
+                  'generation_submitted': False,
+                  'secrets_printed': False,
+              }
+          result['workers_restored_0_0'] = True
+          with open(result_path, 'w', encoding='utf-8') as handle:
+              json.dump(result, handle, indent=2)
+              handle.write('\n')
+          print('AVANTIQO_VOICE_REALTIME_STT_PERMANENT_REST_STATE=0_0')
+          PY
+
+      - name: Ensure result exists
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f "$RESULT_PATH" ]; then
+            printf '{"success":false,"contract":"AVANTIQO_VOICE_REALTIME_STT_CERTIFICATION_V1","certification_state":"CI_EXECUTION_FAILED","error_code":"RESULT_MISSING","generation_submitted":false,"workers_restored_0_0":false,"secrets_printed":false}\n' > "$RESULT_PATH"
+          fi
+
+      - name: Upload realtime Voice proof evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-voice-realtime-stt-certification-${{ github.run_id }}
+          path: /tmp/avantiqo-voice-realtime-stt-certification.json
+          retention-days: 14
+
+      - name: Record sanitized realtime Voice certification
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B voice-realtime-stt-certification-evidence origin/main
+            mkdir -p audits/results
+            cp "$RESULT_PATH" "$CANONICAL_RESULT_PATH"
+            git add "$CANONICAL_RESULT_PATH"
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'Record realtime Voice STT certification result'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$attempt"
+          done
+          exit 1
+
+      - name: Fail workflow unless certified and parked
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          report = json.load(open(os.environ['RESULT_PATH'], 'r', encoding='utf-8'))
+          if report.get('success') is not True or report.get('workers_restored_0_0') is not True:
+              raise SystemExit(f"AVANTIQO_VOICE_REALTIME_STT_CERTIFICATION_FAILED:{report.get('error_code') or report.get('certification_state')}")
+          print('AVANTIQO_VOICE_REALTIME_STT_CERTIFICATION=PASS')
+          PY

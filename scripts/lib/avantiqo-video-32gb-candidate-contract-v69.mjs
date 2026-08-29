@@ -221,6 +221,101 @@ export async function runpodGraphql(managementKey, query, variables = {}) {
   return body.data;
 }
 
+export async function reassertVideo32gbCandidatePool({ managementKey, inspected }) {
+  const candidate = inspected?.candidate_endpoint;
+  const endpointId = text(candidate?.id);
+  const endpointName = text(candidate?.name);
+  const templateId = endpointTemplateId(candidate);
+  const volumeIds = endpointVolumeIds(candidate);
+  if (!endpointId || endpointName !== VIDEO_32GB_CANDIDATE_ENDPOINT_NAME || !templateId) {
+    throw new Error("AVANTIQO_VIDEO_32GB_POOL_REASSERT_CANDIDATE_IDENTITY_INVALID");
+  }
+  if (workersMin(candidate) !== 0 || workersMax(candidate) !== 0) {
+    throw new Error("AVANTIQO_VIDEO_32GB_POOL_REASSERT_REQUIRES_PARKED_0_0");
+  }
+  if (activeManagementWorkers(candidate).length !== 0 || managementHourlyCost(candidate) !== 0) {
+    throw new Error("AVANTIQO_VIDEO_32GB_POOL_REASSERT_ACTIVE_WORKER_FORBIDDEN");
+  }
+  if (volumeIds.length !== 1 || volumeIds[0] !== text(inspected?.cache_volume?.id)) {
+    throw new Error("AVANTIQO_VIDEO_32GB_POOL_REASSERT_CACHE_BINDING_INVALID");
+  }
+
+  const input = {
+    id: endpointId,
+    name: VIDEO_32GB_CANDIDATE_ENDPOINT_NAME,
+    templateId,
+    gpuIds: VIDEO_32GB_CANDIDATE_POOL_ID,
+    workersMin: 0,
+    workersMax: 0,
+    networkVolumeId: volumeIds[0],
+  };
+  const idleTimeout = finite(candidate?.idleTimeout ?? candidate?.idle_timeout, null);
+  if (idleTimeout !== null && idleTimeout >= 0) input.idleTimeout = idleTimeout;
+  const scalerType = text(candidate?.scalerType ?? candidate?.scaler_type);
+  if (scalerType) input.scalerType = scalerType;
+  const scalerValue = finite(candidate?.scalerValue ?? candidate?.scaler_value, null);
+  if (scalerValue !== null && scalerValue > 0) input.scalerValue = scalerValue;
+
+  const mutation = `
+    mutation AvantiqoVideo32GbPoolReassert($input: EndpointInput!) {
+      saveEndpoint(input: $input) {
+        id
+        name
+        gpuIds
+        templateId
+        workersMin
+        workersMax
+      }
+    }
+  `;
+  const data = await runpodGraphql(managementKey, mutation, { input });
+  const saved = data?.saveEndpoint;
+  if (
+    text(saved?.id) !== endpointId ||
+    text(saved?.name) !== VIDEO_32GB_CANDIDATE_ENDPOINT_NAME ||
+    text(saved?.gpuIds) !== VIDEO_32GB_CANDIDATE_POOL_ID ||
+    text(saved?.templateId) !== templateId ||
+    workersMin(saved) !== 0 ||
+    workersMax(saved) !== 0
+  ) {
+    throw new Error(`AVANTIQO_VIDEO_32GB_POOL_REASSERT_RESPONSE_INVALID:${JSON.stringify({
+      id: text(saved?.id) || null,
+      name: text(saved?.name) || null,
+      gpu_ids: text(saved?.gpuIds) || null,
+      template_id: text(saved?.templateId) || null,
+      workers_min: workersMin(saved),
+      workers_max: workersMax(saved),
+    })}`);
+  }
+
+  const after = await runpodRest(
+    managementKey,
+    `/endpoints/${encodeURIComponent(endpointId)}?includeTemplate=true&includeWorkers=true`,
+  );
+  if (
+    text(after?.id) !== endpointId ||
+    text(after?.name) !== VIDEO_32GB_CANDIDATE_ENDPOINT_NAME ||
+    endpointTemplateId(after) !== templateId ||
+    workersMin(after) !== 0 ||
+    workersMax(after) !== 0 ||
+    endpointVolumeIds(after).length !== 1 ||
+    endpointVolumeIds(after)[0] !== volumeIds[0] ||
+    activeManagementWorkers(after).length !== 0 ||
+    managementHourlyCost(after) !== 0
+  ) {
+    throw new Error("AVANTIQO_VIDEO_32GB_POOL_REASSERT_POST_STATE_INVALID");
+  }
+
+  return {
+    pool_id: VIDEO_32GB_CANDIDATE_POOL_ID,
+    control_plane_verified_by_mutation_response: true,
+    endpoint_id: endpointId,
+    workers_min: 0,
+    workers_max: 0,
+    rest_after: stableEndpointSnapshot(after),
+  };
+}
+
 async function imageEvidence() {
   let evidence = null;
   try {
@@ -349,6 +444,10 @@ export async function inspectVideo32gbCandidate({ managementKey, productionEndpo
   if (activeManagementWorkers(candidate).length !== 0 || managementHourlyCost(candidate) !== 0) {
     throw new Error("AVANTIQO_VIDEO_32GB_CANDIDATE_ACTIVE_WORKER_PRESENT");
   }
+  const restGpuTypes = endpointGpuTypeIds(candidate);
+  if (restGpuTypes.some((gpuType) => !VIDEO_32GB_CANDIDATE_APPROVED_GPUS.includes(gpuType))) {
+    throw new Error(`AVANTIQO_VIDEO_32GB_REST_GPU_TYPE_NOT_APPROVED:${restGpuTypes.join(",")}`);
+  }
 
   const candidateTemplateId = endpointTemplateId(candidate);
   const candidateTemplate = templates.find((template) => text(template?.id) === candidateTemplateId) || null;
@@ -392,8 +491,8 @@ export async function inspectVideo32gbCandidate({ managementKey, productionEndpo
     throw new Error("AVANTIQO_VIDEO_32GB_GRAPHQL_CACHE_BINDING_INVALID");
   }
   const gpuPoolId = text(gqlCandidate?.gpuIds);
-  if (gpuPoolId !== VIDEO_32GB_CANDIDATE_POOL_ID) {
-    throw new Error(`AVANTIQO_VIDEO_32GB_SERVERLESS_POOL_INVALID:${gpuPoolId || "MISSING"}`);
+  if (gpuPoolId && gpuPoolId !== VIDEO_32GB_CANDIDATE_POOL_ID) {
+    throw new Error(`AVANTIQO_VIDEO_32GB_SERVERLESS_POOL_INVALID:${gpuPoolId}`);
   }
   const poolMatches = list(capacity?.serverlessGpuPools).filter((pool) => text(pool?.id) === VIDEO_32GB_CANDIDATE_POOL_ID);
   if (poolMatches.length !== 1) {
@@ -427,7 +526,9 @@ export async function inspectVideo32gbCandidate({ managementKey, productionEndpo
     candidate_endpoint: candidate,
     candidate_endpoint_summary: stableEndpointSnapshot(candidate),
     candidate_graphql: gqlCandidate,
-    candidate_serverless_pool_id: gpuPoolId,
+    candidate_serverless_pool_id: gpuPoolId || null,
+    candidate_serverless_pool_readback_supported: Boolean(gpuPoolId),
+    candidate_serverless_pool_reassert_required: gpuPoolId !== VIDEO_32GB_CANDIDATE_POOL_ID,
     candidate_template: candidateTemplate,
     candidate_template_summary: templateSummary(candidateTemplate),
     immutable_image: image,

@@ -11,11 +11,16 @@ import {
   CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS,
 } from "../lib/code/runtime/CodeAIWorkPackagePromptRuntime.js";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V9";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V10";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
   fastStart: "lib/code/runtime/CodeAIEmployeeFastStartRuntime.js",
+  zeroIdleFastStart: "lib/code/runtime/CodeAIEmployeeZeroIdleFastStartRuntime.js",
+  repositoryHeadGuard: "lib/code/runtime/CodeAIRepositoryHeadReconciliationRuntime.js",
+  intelligenceBinding: "lib/intelligence/runtime/AvantiqoIntelligenceCodeMissionExecutionBindingRuntime.js",
+  learningHandoff: "lib/intelligence/runtime/AvantiqoCodeMissionLearningHandoffRuntime.js",
+  intelligenceIndex: "lib/intelligence/index.js",
   workerSession: "lib/code/runtime/CodeAIWorkerSessionRuntime.js",
   planner: "lib/code/runtime/CodeAIPlannerExecutionRuntime.js",
   provider: "lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProvider.js",
@@ -57,6 +62,7 @@ function requireMarkers(label, content, markers) {
 
 requireMarkers("CAPABILITY", source.capability, [
   "executeCodeAIEmployeeFastStartMission",
+  "executeCodeAIEmployeeZeroIdleFastStartMission",
   "CODE_AI_EMPLOYEE_FAST_START_CONTRACT",
   "CODE_AI_EMPLOYEE_RUNTIME_CONTRACT",
   "CODE_AI_EMPLOYEE_MISSION_CONTRACT",
@@ -65,6 +71,15 @@ requireMarkers("CAPABILITY", source.capability, [
   "reasoning_call_budget",
   "max_employee_passes",
   "owner_intent",
+  "intelligence_mission_context",
+  "bindAvantiqoIntelligenceCodeMissionExecution",
+  "handoffVerifiedCodeMissionToLearning",
+  "mission_context: unifiedBinding.mission_context",
+  "code_result: result",
+  "additional_reasoning_call_required: false",
+  "NOT_ELIGIBLE_CODE_RESULT_NOT_VERIFIED_COMPLETE",
+  "automatic_knowledge_promotion: false",
+  "trusted_knowledge_written: false",
   "attestCodeMissionState",
   "verifyCodeMissionStateAttestation",
   "persistCodeAIAutonomousExecutionState",
@@ -74,6 +89,11 @@ assert.equal(source.capability.includes("executeWorldClassCodeMission({"), false
 assert.equal(source.capability.includes("executeCodeAIEmployeeMission({"), false);
 assert.equal(source.capability.includes("commitVerifiedCodeMission"), false);
 assert.equal(source.capability.includes("createCodeAICommitCapability"), false);
+assert.equal(
+  source.capability.includes("automatic_knowledge_promotion: true"),
+  false,
+  "public Code capability must never automatically promote Learning evidence",
+);
 
 requireMarkers("FAST_START", source.fastStart, [
   "AVANTIQO_CODE_AI_EMPLOYEE_FAST_START_V2",
@@ -85,12 +105,90 @@ requireMarkers("FAST_START", source.fastStart, [
   "employee_fast_start_inspect",
   "employee_fast_start_read_",
   "resolveCodeAIEmployeeFastStartSeedPaths",
+  "reconcileCodeAIEmployeeFastStartRepositoryHead",
+  "CODE_AI_REPOSITORY_HEAD_RECONCILIATION_CONTRACT",
+  "repository_head_reconciled",
   "evidence_path_1",
   "evidence_path_4",
-  "DEFAULT_WARM_SESSION_IDLE_MS = 10 * 60 * 1000",
+  "DEFAULT_WARM_SESSION_IDLE_MS = 30 * 60 * 1000",
   "MAX_WARM_SESSION_IDLE_MS = 30 * 60 * 1000",
   "first_reasoning_call_should_prefer_implementation",
   "executeCodeAIEmployeeMission",
+]);
+const durableReconcileIndex = source.fastStart.indexOf(
+  "const headReconciliation = reconcileCodeAIEmployeeFastStartRepositoryHead",
+);
+const durableEmployeeExecuteIndex = source.fastStart.indexOf(
+  "const result = await executeCodeAIEmployeeMission",
+);
+assert.ok(durableReconcileIndex >= 0, "durable Code must reconcile repository HEAD");
+assert.ok(
+  durableEmployeeExecuteIndex > durableReconcileIndex,
+  "durable repository HEAD reconciliation must happen before employee mutation/reasoning loop",
+);
+
+requireMarkers("ZERO_IDLE_FAST_START", source.zeroIdleFastStart, [
+  "AVANTIQO_CODE_AI_EMPLOYEE_ZERO_IDLE_FAST_START_V1",
+  "SERVERLESS_ZERO_IDLE",
+  "serverless_worker_requested_by_fast_start: false",
+  "reconcileCodeAIEmployeeFastStartRepositoryHead",
+  "CODE_AI_REPOSITORY_HEAD_RECONCILIATION_CONTRACT",
+  "repository_head_reconciled",
+  "executeCodeAIEmployeeMission",
+]);
+const zeroIdleReconcileIndex = source.zeroIdleFastStart.indexOf(
+  "const headReconciliation = reconcileCodeAIEmployeeFastStartRepositoryHead",
+);
+const zeroIdleEmployeeExecuteIndex = source.zeroIdleFastStart.indexOf(
+  "const result = await executeCodeAIEmployeeMission",
+);
+assert.ok(zeroIdleReconcileIndex >= 0, "zero-idle Code must reconcile repository HEAD");
+assert.ok(
+  zeroIdleEmployeeExecuteIndex > zeroIdleReconcileIndex,
+  "zero-idle repository HEAD reconciliation must happen before employee mutation/reasoning loop",
+);
+
+requireMarkers("REPOSITORY_HEAD_GUARD", source.repositoryHeadGuard, [
+  "AVANTIQO_CODE_AI_REPOSITORY_HEAD_RECONCILIATION_V1",
+  "CODE_AI_REPOSITORY_HEAD_CHANGED_BEFORE_MUTATION",
+  "CODE_AI_REPOSITORY_HEAD_EXPECTED_FULL_SHA_REQUIRED",
+  "CODE_AI_REPOSITORY_HEAD_ACTUAL_FULL_SHA_REQUIRED",
+  'status: "MATCHED"',
+  'status: "NOT_REQUESTED"',
+  'authorization_effect: "NONE"',
+]);
+
+requireMarkers("INTELLIGENCE_EXECUTION_BINDING", source.intelligenceBinding, [
+  "AVANTIQO_INTELLIGENCE_CODE_MISSION_EXECUTION_BINDING_V1",
+  "createAvantiqoIntelligenceCodeMissionContext",
+  "AVANTIQO UNIFIED INTELLIGENCE CONTEXT",
+  "Verified reusable knowledge",
+  "repository_head_observed: expectedHead",
+  "AVANTIQO_INTELLIGENCE_CODE_MISSION_EXECUTION_FULL_REPOSITORY_HEAD_REQUIRED",
+  "general_system_reasoning_consumed",
+  "additional_reasoning_call_required: false",
+  "current_repository_is_execution_authority: true",
+  "knowledge_authorizes_execution: false",
+  "model_call_performed: false",
+  "provider_call_performed: false",
+  "database_write_performed: false",
+  "automatic_knowledge_promotion: false",
+]);
+
+requireMarkers("LEARNING_HANDOFF", source.learningHandoff, [
+  "AVANTIQO_CODE_MISSION_LEARNING_HANDOFF_V1",
+  "NOT_ELIGIBLE_CODE_RESULT_NOT_VERIFIED_COMPLETE",
+  "MISSION_REPOSITORY_HEAD_MISMATCH",
+  "STRUCTURAL_VERIFICATION_EVIDENCE_REQUIRED",
+  "STRUCTURAL_FINAL_DIFF_EVIDENCE_REQUIRED",
+  "ingestAvantiqoCodeMissionLearningFeedback",
+  "reusable_platform_knowledge_written: false",
+  "automatic_knowledge_promotion: false",
+  "trusted_knowledge_written: false",
+]);
+requireMarkers("INTELLIGENCE_INDEX", source.intelligenceIndex, [
+  'export * from "./runtime/AvantiqoIntelligenceCodeMissionExecutionBindingRuntime";',
+  'export * from "./runtime/AvantiqoCodeMissionLearningHandoffRuntime";',
 ]);
 
 requireMarkers("WORKER_SESSION", source.workerSession, [
@@ -266,6 +364,14 @@ console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   verified: {
+    unified_intelligence_mission_context_is_publicly_bindable: true,
+    shared_learning_and_general_context_consumed_without_extra_reasoning_call: true,
+    repository_head_reconciled_before_code_employee_mutation: true,
+    durable_and_zero_idle_transports_share_head_guard: true,
+    verified_code_completion_can_handoff_structural_learning_evidence: true,
+    incomplete_code_completion_cannot_handoff_learning_evidence: true,
+    learning_handoff_does_not_directly_write_trusted_knowledge: true,
+    learning_handoff_does_not_automatically_promote_knowledge: true,
     public_code_capability_uses_fast_start_employee_runtime: true,
     deterministic_repository_work_overlaps_worker_warmup: true,
     known_source_evidence_can_be_seeded_before_reasoning: true,

@@ -1,0 +1,2 @@
+One-shot governed Secretary Voice STT repair and production deployment.
+Repair sequence: corrected RunPod-native image rebind -> no-transcription runtime probe under Safe Lease -> cleanup to 0/0 -> deploy.

@@ -55,8 +55,12 @@ function healthSummary(body = {}) {
   };
 }
 
-function activeWorkers(summary) {
-  return Object.values(summary.workers).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+function hasAnyWorker(summary) {
+  return Object.values(summary.workers).some((value) => Math.max(0, Number(value) || 0) > 0);
+}
+
+function isZeroIdle(summary) {
+  return summary.jobs.in_queue === 0 && summary.jobs.in_progress === 0 && !hasAnyWorker(summary);
 }
 
 async function waitForJob(jobId, key) {
@@ -79,15 +83,20 @@ async function waitForJob(jobId, key) {
   throw new Error(`${CONTRACT}_JOB_TIMEOUT:${jobId}`);
 }
 
-async function waitForZeroIdle(key) {
+async function waitForZeroIdle(key, phase) {
   const deadline = Date.now() + 4 * 60_000;
+  const samples = [];
   while (Date.now() < deadline) {
     const summary = healthSummary(await request("/health", key));
-    if (summary.jobs.in_queue === 0 && summary.jobs.in_progress === 0 && activeWorkers(summary) === 0) return summary;
+    samples.push({ elapsed_ms: Date.now() - startedAt, ...summary });
+    if (isZeroIdle(summary)) return { health: summary, samples };
+    if (summary.jobs.in_queue !== 0 || summary.jobs.in_progress !== 0) {
+      throw new Error(`${CONTRACT}_${phase}_UNEXPECTED_LIVE_JOB:${JSON.stringify(summary.jobs)}`);
+    }
     await sleep(5000);
   }
   const summary = healthSummary(await request("/health", key));
-  throw new Error(`${CONTRACT}_SCALE_DOWN_NOT_VERIFIED:${JSON.stringify(summary)}`);
+  throw new Error(`${CONTRACT}_${phase}_SCALE_DOWN_NOT_VERIFIED:${JSON.stringify(summary)}`);
 }
 
 if (text(process.env.VERCEL_ENV).toLowerCase() !== "production") {
@@ -104,10 +113,13 @@ if (engineEnabled && !["1", "true", "yes", "on"].includes(engineEnabled)) {
 }
 
 const startedAt = Date.now();
-const before = healthSummary(await request("/health", apiKey));
-if (before.jobs.in_queue !== 0 || before.jobs.in_progress !== 0 || activeWorkers(before) !== 0) {
-  throw new Error(`${CONTRACT}_ENDPOINT_NOT_ZERO_IDLE_BEFORE:${JSON.stringify(before)}`);
+const initiallyObserved = healthSummary(await request("/health", apiKey));
+if (initiallyObserved.jobs.in_queue !== 0 || initiallyObserved.jobs.in_progress !== 0) {
+  throw new Error(`${CONTRACT}_UNEXPECTED_LIVE_JOB_BEFORE:${JSON.stringify(initiallyObserved.jobs)}`);
 }
+const settledBefore = isZeroIdle(initiallyObserved)
+  ? { health: initiallyObserved, samples: [{ elapsed_ms: 0, ...initiallyObserved }] }
+  : await waitForZeroIdle(apiKey, "BEFORE");
 
 const submission = await request("/run", apiKey, {
   method: "POST",
@@ -145,7 +157,7 @@ if (text(output.runtime_model_source) !== "runpod-cache") throw new Error(`${CON
 if (output.raw_reasoning_persisted !== false) throw new Error(`${CONTRACT}_RAW_REASONING_BOUNDARY_FAILED`);
 if (text(output.result).length < 20) throw new Error(`${CONTRACT}_RESULT_REQUIRED`);
 
-const after = await waitForZeroIdle(apiKey);
+const settledAfter = await waitForZeroIdle(apiKey, "AFTER");
 const evidence = {
   success: true,
   contract: CONTRACT,
@@ -172,10 +184,14 @@ const evidence = {
     raw_reasoning_persisted: false,
   },
   status_timeline: completed.timeline,
-  health_before: before,
-  health_after: after,
-  zero_running_workers_after: activeWorkers(after) === 0,
+  health_initially_observed: initiallyObserved,
+  pre_proof_scale_down_samples: settledBefore.samples,
+  health_before_submission: settledBefore.health,
+  post_proof_scale_down_samples: settledAfter.samples,
+  health_after: settledAfter.health,
+  zero_running_workers_after: isZeroIdle(settledAfter.health),
   production_inference_performed: true,
+  endpoint_mutation_performed: false,
   repository_write_performed: false,
   secrets_printed: false,
 };

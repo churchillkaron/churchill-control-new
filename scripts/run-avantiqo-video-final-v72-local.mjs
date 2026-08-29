@@ -12,12 +12,17 @@ const DEFAULT_USAGE_ID = "video-v72-ephemeral-pod-final-20260829";
 const POLL_MS = 15_000;
 const TIMEOUT_MS = 115 * 60 * 1000;
 const POD_LEASE_PREFIX = "pod-fallback:";
-const CERTIFIED_GPU_POOL = Object.freeze([
+const CERTIFIED_PRIMARY_GPU_POOL = Object.freeze([
   "NVIDIA RTX PRO 4500 Blackwell",
   "NVIDIA B200",
   "NVIDIA RTX PRO 6000 Blackwell Server Edition",
   "NVIDIA A100 80GB PCIe",
 ]);
+const CERTIFIED_PLACEMENT_DCS = new Set(["EU-RO-1", "US-NC-2"]);
+const CERTIFIED_VOLUME_BY_DC = Object.freeze({
+  "EU-RO-1": "avantiqo-video-cache-eu-ro-1",
+  "US-NC-2": "avantiqo-shared-image-video-cache",
+});
 
 function text(value) { return String(value ?? "").trim(); }
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
@@ -77,9 +82,9 @@ console.log(`AVANTIQO_VIDEO_V72_POD_PREFLIGHT=${JSON.stringify({
 if (readiness.ready !== true) {
   throw new Error(`${CONTRACT}_POD_NOT_READY:${readiness.reason || "UNKNOWN"}:${readiness.error || "NO_DETAIL"}`);
 }
-if (!sameSet(readiness.capacity?.gpu_type_pool || [], CERTIFIED_GPU_POOL)) throw new Error(`${CONTRACT}_GPU_POOL_DRIFT`);
-if ((readiness.data_center_id || readiness.capacity?.data_center_id) !== "EU-RO-1") throw new Error(`${CONTRACT}_DATA_CENTER_DRIFT`);
-if ((readiness.capacity?.stock_rank ?? 0) < 3) throw new Error(`${CONTRACT}_CAPACITY_BELOW_MEDIUM`);
+if (!sameSet(readiness.capacity?.gpu_type_pool || [], CERTIFIED_PRIMARY_GPU_POOL)) throw new Error(`${CONTRACT}_GPU_POOL_DRIFT`);
+if ((readiness.data_center_id || readiness.capacity?.data_center_id) !== "EU-RO-1") throw new Error(`${CONTRACT}_PRIMARY_DATA_CENTER_DRIFT`);
+if ((readiness.capacity?.stock_rank ?? 0) < 3) throw new Error(`${CONTRACT}_PRIMARY_CAPACITY_BELOW_MEDIUM`);
 
 const supabase = getServiceSupabase();
 async function readState() {
@@ -143,6 +148,15 @@ if (!state) throw new Error(`${CONTRACT}_FINAL_STATE_MISSING`);
 if (state.prompt_persisted !== false) throw new Error(`${CONTRACT}_PROMPT_PERSISTENCE_CONTRACT_FAILED`);
 if (state.pod_lease_active === true) throw new Error(`${CONTRACT}_POD_LEASE_ACTIVE_AT_COMPLETION`);
 if (state.stage !== "COMPLETED") throw new Error(`${CONTRACT}_PERSISTED_STAGE_NOT_COMPLETED`);
+const podJob = state.pod_job || {};
+const selectedDc = text(podJob.data_center_id);
+const selectedVolumeName = text(podJob.network_volume_name);
+const selectedGpu = text(podJob.gpu_type_id) || null;
+const eligibleGpuTypes = Array.isArray(podJob.eligible_gpu_type_ids) ? podJob.eligible_gpu_type_ids.map(text).filter(Boolean) : [];
+const placementMode = text(podJob.placement_mode) || null;
+if (!CERTIFIED_PLACEMENT_DCS.has(selectedDc)) throw new Error(`${CONTRACT}_SELECTED_DATA_CENTER_NOT_CERTIFIED:${selectedDc || "MISSING"}`);
+if (selectedVolumeName !== CERTIFIED_VOLUME_BY_DC[selectedDc]) throw new Error(`${CONTRACT}_SELECTED_CACHE_VOLUME_NOT_CERTIFIED:${selectedDc}:${selectedVolumeName || "MISSING"}`);
+if (podJob.gpu_type_certified !== true) throw new Error(`${CONTRACT}_SELECTED_GPU_NOT_CERTIFIED`);
 
 await reconcileAvantiqoVideoPodLeases({ limit: 25 });
 const { data: activePodLeases, error: leaseError } = await supabaseAdmin
@@ -160,10 +174,14 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   route: "OWNED_POD_FALLBACK",
   generation_backend: "OWNED_RUNPOD_POD_V5",
-  gpu_type_pool: CERTIFIED_GPU_POOL,
-  data_center_id: "EU-RO-1",
+  selected_gpu_type_id: selectedGpu,
+  eligible_gpu_type_ids: eligibleGpuTypes,
+  selected_data_center_id: selectedDc,
+  selected_cache_volume: selectedVolumeName,
+  placement_mode: placementMode,
+  primary_gpu_type_pool: CERTIFIED_PRIMARY_GPU_POOL,
+  primary_preflight_data_center: "EU-RO-1",
   immutable_v5_image: readiness.immutable_image,
-  cache_volume: readiness.network_volume_name,
   internal_generation_resolution: "720p",
   cinema_quality_profile_preserved: true,
   final_master_resolution: "4k",

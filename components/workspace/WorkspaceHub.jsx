@@ -10,7 +10,7 @@ import MetricCard from "@/components/workspace/MetricCard";
 
 import {
   getWorkspaceGroups,
-} from "@/lib/platform/registry/erpRegistry";
+} from "@/lib/platform/registry/erpRegistry.base.js";
 
 import {
   resolveWorkspaceRoute,
@@ -146,96 +146,71 @@ export default function WorkspaceHub({
           }
         />
 
-        {error && (
-          <div className="mb-5 rounded-3xl border border-red-400/25 bg-red-500/10 p-5 text-sm text-red-200">
+        {error ? (
+          <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 text-sm text-red-200">
             {error}
           </div>
-        )}
+        ) : null}
 
-        {resolvedMetrics.length > 0 && (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {resolvedMetrics.length ? (
+          <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {resolvedMetrics.map(metric => (
               <MetricCard
-                key={metric.label}
-                label={metric.label}
+                key={metric.key}
+                title={metric.label}
                 value={metric.value}
+                subtitle={metric.subtitle}
               />
             ))}
           </section>
-        )}
+        ) : null}
 
-        {resolvedAttention.length > 0 && (
-          <section className="mt-5 rounded-[30px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.055] p-6 shadow-2xl shadow-black/20">
-            <div className="mb-4 text-xs uppercase tracking-[0.30em] text-[#D6A66A]">
-              Attention Required
+        {resolvedAttention.length ? (
+          <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.025] p-5">
+            <div className="mb-4 text-xs uppercase tracking-[0.2em] text-white/35">
+              Attention
             </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {resolvedAttention.map(item => (
                 <div
-                  key={item.label}
-                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4 text-sm"
+                  key={item.key}
+                  className="rounded-2xl border border-white/10 bg-black/30 p-4"
                 >
-                  <span className="text-white/65">
-                    {item.label}
-                  </span>
-
-                  <span className="text-white">
-                    {item.value}
-                  </span>
+                  <div className="text-xs text-white/40">{item.label}</div>
+                  <div className="mt-2 text-2xl font-light text-white">{item.value}</div>
                 </div>
               ))}
             </div>
           </section>
-        )}
+        ) : null}
 
-        <section className="mt-5 rounded-[30px] border border-white/10 bg-white/[0.035] p-6 shadow-2xl shadow-black/20">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <div className="text-xs uppercase tracking-[0.30em] text-white/35">
-                Work Centers
-              </div>
+        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {items.map(item => {
+            const href = resolveWorkspaceRoute({
+              organizationId,
+              moduleId: workspaceId,
+              route: item.route,
+            });
 
-              <h2 className="mt-2 text-2xl font-light text-white">
-                {group?.name || "Modules"}
-              </h2>
-            </div>
-
-            <div className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs text-white/35">
-              {items.length}
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {items.map(item => (
+            return (
               <Link
                 key={item.id}
-                href={resolveWorkspaceRoute({
-                  organizationId,
-                  moduleId: item.id,
-                  route: item.route,
-                })}
-                className="group rounded-2xl border border-white/10 bg-black/20 p-5 transition hover:border-[#D6A66A]/40 hover:bg-[#D6A66A]/10"
+                href={href}
+                className="group rounded-3xl border border-white/10 bg-white/[0.025] p-5 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/[0.06]"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-base font-semibold text-white">
-                      {item.name}
-                    </div>
-
-                    <div className="mt-2 text-sm leading-6 text-white/42">
-                      {item.description || "Open this work center."}
-                    </div>
+                    <div className="text-lg font-light text-white">{item.name}</div>
+                    <div className="mt-2 text-sm leading-6 text-white/45">{item.description}</div>
                   </div>
-
                   <ArrowRight
                     size={17}
-                    className="mt-1 text-white/25 transition group-hover:translate-x-1 group-hover:text-[#D6A66A]"
+                    className="mt-1 shrink-0 text-white/25 transition group-hover:translate-x-1 group-hover:text-[#D6A66A]"
                   />
                 </div>
               </Link>
-            ))}
-          </div>
+            );
+          })}
         </section>
       </div>
     </main>

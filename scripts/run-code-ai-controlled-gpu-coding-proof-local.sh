@@ -4,8 +4,9 @@ set -u
 CONTRACT="AVANTIQO_CODE_AI_CONTROLLED_GPU_CODING_PROOF_LOCAL_V1"
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 WT="/tmp/avantiqo-code-controlled-gpu-proof-$$"
-OLD_DIGEST="1b6ac20925085104ac00c09dde3073e32e5934543bd16b9a346b2dca3fa7bb27"
-NEW_DIGEST="3b2efdb6269a26d2bd443be9aaedf996478efd2771afd6d751a1fc9fe3d842a9"
+LEGACY_DIGEST="1b6ac20925085104ac00c09dde3073e32e5934543bd16b9a346b2dca3fa7bb27"
+PREVIOUS_CANDIDATE_DIGEST="3b2efdb6269a26d2bd443be9aaedf996478efd2771afd6d751a1fc9fe3d842a9"
+NEW_DIGEST="daba714fde0b149cb82d779a3a114fd10e701de03722a36b1e2041c4adc19b3e"
 RC=1
 
 cleanup() {
@@ -98,21 +99,36 @@ console.log(JSON.stringify({
 NODE
 
 echo "${CONTRACT}_PHASE=TEMPORARY_LOCAL_CANDIDATE_BINDING"
-node --input-type=module - "$OLD_DIGEST" "$NEW_DIGEST" <<'NODE' || exit 1
+node --input-type=module - "$LEGACY_DIGEST" "$PREVIOUS_CANDIDATE_DIGEST" "$NEW_DIGEST" <<'NODE' || exit 1
 import { readFile, writeFile } from "node:fs/promises";
-const oldDigest = process.argv[2];
-const newDigest = process.argv[3];
-const paths = [
-  "lib/code/runtime/CodeAIWorkerSessionRuntime.js",
-  "scripts/code-ai-worker-session-audit.mjs",
-];
-for (const path of paths) {
-  const before = await readFile(path, "utf8");
-  const occurrences = before.split(oldDigest).length - 1;
-  if (occurrences < 1) throw new Error(`AVANTIQO_CODE_GPU_PROOF_OLD_DIGEST_NOT_FOUND:${path}`);
-  const after = before.split(oldDigest).join(newDigest);
-  if (!after.includes(newDigest)) throw new Error(`AVANTIQO_CODE_GPU_PROOF_NEW_DIGEST_NOT_BOUND:${path}`);
-  await writeFile(path, after, "utf8");
+const legacyDigest = process.argv[2];
+const previousCandidateDigest = process.argv[3];
+const newDigest = process.argv[4];
+const runtimePath = "lib/code/runtime/CodeAIWorkerSessionRuntime.js";
+const runtimeBefore = await readFile(runtimePath, "utf8");
+const digestMatch = runtimeBefore.match(/ghcr\.io\/churchillkaron\/avantiqo-code-pod@sha256:([a-f0-9]{64})/);
+const currentDigest = digestMatch?.[1] || "";
+if (!currentDigest) {
+  throw new Error("AVANTIQO_CODE_GPU_PROOF_RUNTIME_DIGEST_NOT_FOUND");
+}
+
+let runtimeAfter = runtimeBefore;
+let runtimeMutationPerformed = false;
+let bindingSource = "CURRENT_MAIN_ALREADY_CANDIDATE";
+if (currentDigest === newDigest) {
+  // Current main is already bound to the image under certification. No detached source rewrite required.
+} else if (currentDigest === legacyDigest || currentDigest === previousCandidateDigest) {
+  runtimeAfter = runtimeBefore.replace(currentDigest, newDigest);
+  runtimeMutationPerformed = true;
+  bindingSource = currentDigest === legacyDigest
+    ? "APPROVED_LEGACY_PREDECESSOR"
+    : "APPROVED_PREVIOUS_CANDIDATE";
+  await writeFile(runtimePath, runtimeAfter, "utf8");
+} else {
+  throw new Error(`AVANTIQO_CODE_GPU_PROOF_UNAPPROVED_RUNTIME_DIGEST:${currentDigest}`);
+}
+if (!runtimeAfter.includes(`sha256:${newDigest}`)) {
+  throw new Error("AVANTIQO_CODE_GPU_PROOF_NEW_DIGEST_NOT_BOUND");
 }
 
 const certPath = "scripts/certify-code-ai-employee-fast-start-live.mjs";
@@ -182,8 +198,12 @@ await writeFile(certPath, certAfter, "utf8");
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_GPU_PROOF_TEMPORARY_BINDING_V2",
+  contract: "AVANTIQO_CODE_GPU_PROOF_TEMPORARY_BINDING_V3",
   candidate_digest: `sha256:${newDigest}`,
+  observed_main_digest: `sha256:${currentDigest}`,
+  binding_source: bindingSource,
+  detached_runtime_mutation_performed: runtimeMutationPerformed,
+  current_main_already_candidate: currentDigest === newDigest,
   boot_preload: true,
   safetensors_load_strategy: "eager",
   per_warming_phase_limit_ms: 240000,
@@ -198,18 +218,25 @@ NODE
 node scripts/code-ai-worker-session-audit.mjs || exit 1
 
 EXPECTED_STATUS="$(git status --short --untracked-files=no)"
-if ! printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "lib/code/runtime/CodeAIWorkerSessionRuntime.js"; then
-  echo "${CONTRACT}_TEMP_BINDING_RUNTIME_CHANGE_REQUIRED=true"
-  exit 1
-fi
-if ! printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "scripts/code-ai-worker-session-audit.mjs"; then
-  echo "${CONTRACT}_TEMP_BINDING_AUDIT_CHANGE_REQUIRED=true"
-  exit 1
-fi
 if ! printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "scripts/certify-code-ai-employee-fast-start-live.mjs"; then
   echo "${CONTRACT}_TEMP_CERT_WATCHDOG_CHANGE_REQUIRED=true"
   exit 1
 fi
+if printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "scripts/code-ai-worker-session-audit.mjs"; then
+  echo "${CONTRACT}_TEMP_BINDING_AUDIT_MUST_REMAIN_UNCHANGED=true"
+  exit 1
+fi
+RUNTIME_STATUS_CHANGED=false
+if printf '%s\n' "$EXPECTED_STATUS" | grep -Fq "lib/code/runtime/CodeAIWorkerSessionRuntime.js"; then
+  RUNTIME_STATUS_CHANGED=true
+fi
+CURRENT_RUNTIME_DIGEST="$(grep -Eo 'ghcr\.io/churchillkaron/avantiqo-code-pod@sha256:[a-f0-9]{64}' lib/code/runtime/CodeAIWorkerSessionRuntime.js | head -n 1 | sed 's/.*sha256://')"
+if [ "$CURRENT_RUNTIME_DIGEST" != "$NEW_DIGEST" ]; then
+  echo "${CONTRACT}_TEMP_BINDING_RUNTIME_DIGEST_MISMATCH=true"
+  exit 1
+fi
+echo "${CONTRACT}_TEMP_BINDING_RUNTIME_CHANGE_PERFORMED=$RUNTIME_STATUS_CHANGED"
+echo "${CONTRACT}_TEMP_BINDING_CURRENT_MAIN_ALREADY_CANDIDATE=$([ "$RUNTIME_STATUS_CHANGED" = false ] && echo true || echo false)"
 
 echo "${CONTRACT}_PHASE=GENERATION_FREE_WARMUP_PLUS_REAL_GPU_EMPLOYEE_CODING_PROOF"
 NODE_ENV=development \

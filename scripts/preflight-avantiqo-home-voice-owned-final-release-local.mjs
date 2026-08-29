@@ -9,6 +9,10 @@ const paths = Object.freeze({
   homeDock: "components/operator/HomeAvantiqoIntelligenceDock.jsx",
   publicErrorPolicy: "lib/operator/runtime/OperatorPublicErrorPolicy.js",
   operatorTurn: "lib/operator/runtime/OperatorTurnRuntime.js",
+  asyncTranscription:
+    "lib/operator/runtime/OperatorVoiceAsyncTranscriptionRuntime.js",
+  certificationPolicy:
+    "lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js",
   voiceRegistration:
     "lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderRegistration.js",
   voiceMigration:
@@ -98,6 +102,8 @@ const [
   homeDock,
   publicErrorPolicy,
   operatorTurn,
+  asyncTranscription,
+  certificationPolicy,
   voiceRegistration,
   voiceMigration,
   intelligenceMigration,
@@ -107,6 +113,8 @@ const [
   source(paths.homeDock),
   source(paths.publicErrorPolicy),
   source(paths.operatorTurn),
+  source(paths.asyncTranscription),
+  source(paths.certificationPolicy),
   source(paths.voiceRegistration),
   source(paths.voiceMigration),
   source(paths.intelligenceMigration),
@@ -146,6 +154,36 @@ requireText(
   operatorTurn,
   "shouldSanitizeOperatorRuntimeError",
   "FINAL_RELEASE_OPERATOR_ERROR_BOUNDARY_REQUIRED",
+);
+requireText(
+  asyncTranscription,
+  'const OWNED_PROVIDER = "avantiqo-voice"',
+  "FINAL_RELEASE_ASYNC_STT_OWNED_PROVIDER_REQUIRED",
+);
+requireText(
+  asyncTranscription,
+  "await assertOwnedSttProviderReady(organization)",
+  "FINAL_RELEASE_ASYNC_STT_PROVIDER_PREFLIGHT_REQUIRED",
+);
+requireText(
+  asyncTranscription,
+  "provider_id: OWNED_PROVIDER",
+  "FINAL_RELEASE_ASYNC_STT_PROVIDER_PIN_REQUIRED",
+);
+requireText(
+  asyncTranscription,
+  "external_fallback_allowed: false",
+  "FINAL_RELEASE_ASYNC_STT_EXTERNAL_FALLBACK_FALSE_REQUIRED",
+);
+requireText(
+  certificationPolicy,
+  '"Qwen/Qwen3-30B-A3B-Instruct-2507"',
+  "FINAL_RELEASE_INTELLIGENCE_INSTRUCT_CATALOG_REQUIRED",
+);
+requireText(
+  certificationPolicy,
+  "intelligence_pricing_model_bound",
+  "FINAL_RELEASE_INTELLIGENCE_EXACT_MODEL_CERTIFICATION_REQUIRED",
 );
 requireText(
   voiceRegistration,

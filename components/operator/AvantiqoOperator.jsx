@@ -98,6 +98,7 @@ export default function AvantiqoOperator() {
   const voiceHardStopTimerRef = useRef(null);
   const voiceHasSpeechRef = useRef(false);
   const voiceLastSoundAtRef = useRef(0);
+  const voiceTranscriptionSuppressedRef = useRef(false);
 
   const [open, setOpen] = useState(false);
   const [voiceLibraryOpen, setVoiceLibraryOpen] = useState(false);
@@ -149,11 +150,24 @@ export default function AvantiqoOperator() {
   }, [recording]);
 
   useEffect(() => {
+    function cancelVoiceForTextInput(event) {
+      if (!recordingRef.current) return;
+      const target = event?.target;
+      if (!target?.matches?.('[data-avantiqo-home-input="true"]')) return;
+      cancelVoice();
+    }
+
+    document.addEventListener("focusin", cancelVoiceForTextInput);
+    return () => document.removeEventListener("focusin", cancelVoiceForTextInput);
+  }, []);
+
+  useEffect(() => {
     function receiveSpokenReply(event) {
       const message = text(event?.detail?.message);
-      const voiceInitiated = event?.detail?.voice_initiated === true;
-      const urgent = text(event?.detail?.priority).toLowerCase() === "urgent";
-      if (!message || voiceLibraryOpenRef.current || (!voiceInitiated && !urgent)) {
+      const voiceInitiated =
+        event?.detail?.voice_initiated === true ||
+        text(event?.detail?.source).toLowerCase() === "operator";
+      if (!message || voiceLibraryOpenRef.current || !voiceInitiated) {
         return;
       }
 
@@ -170,6 +184,15 @@ export default function AvantiqoOperator() {
 
   useEffect(() => {
     return () => {
+      voiceTranscriptionSuppressedRef.current = true;
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        try {
+          recorder.stop();
+        } catch {
+          // Best-effort recorder shutdown.
+        }
+      }
       spokenReplyAbortRef.current?.abort();
       releaseSpokenAudio();
       stopSilenceDetection();
@@ -512,12 +535,14 @@ export default function AvantiqoOperator() {
       mediaStreamRef.current = stream;
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
+      voiceTranscriptionSuppressedRef.current = false;
 
       recorder.ondataavailable = (event) => {
         if (event.data?.size) audioChunksRef.current.push(event.data);
       };
 
       recorder.onerror = () => {
+        voiceTranscriptionSuppressedRef.current = false;
         recordingRef.current = false;
         setRecording(false);
         stopSilenceDetection();
@@ -528,6 +553,8 @@ export default function AvantiqoOperator() {
       };
 
       recorder.onstop = () => {
+        const suppressTranscription = voiceTranscriptionSuppressedRef.current;
+        voiceTranscriptionSuppressedRef.current = false;
         const chunks = audioChunksRef.current;
         audioChunksRef.current = [];
         const blob = new Blob(chunks, {
@@ -536,6 +563,10 @@ export default function AvantiqoOperator() {
         recordingRef.current = false;
         setRecording(false);
         stopSilenceDetection();
+        if (suppressTranscription) {
+          releaseVoiceStream();
+          return;
+        }
         void transcribeVoice(blob);
       };
 
@@ -545,6 +576,7 @@ export default function AvantiqoOperator() {
       setRecording(true);
       startSilenceDetection(stream);
     } catch (voiceError) {
+      voiceTranscriptionSuppressedRef.current = false;
       recordingRef.current = false;
       stopSilenceDetection();
       releaseVoiceStream();
@@ -559,6 +591,19 @@ export default function AvantiqoOperator() {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state === "inactive") return;
     recorder.stop();
+  }
+
+  function cancelVoice() {
+    voiceTranscriptionSuppressedRef.current = true;
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+      return;
+    }
+    recordingRef.current = false;
+    setRecording(false);
+    stopSilenceDetection();
+    releaseVoiceStream();
   }
 
   async function restorePrimaryConversationIntoPanel() {
@@ -634,6 +679,7 @@ export default function AvantiqoOperator() {
   function closePanel() {
     voiceLibraryOpenRef.current = false;
     setVoiceLibraryOpen(false);
+    if (recordingRef.current) cancelVoice();
     setOpen(false);
     spokenReplyAbortRef.current?.abort();
     releaseSpokenAudio();

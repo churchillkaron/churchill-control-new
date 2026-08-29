@@ -1,1 +1,1 @@
-{"requested_at":"2026-08-29T18:30:00+07:00","contract":"AVANTIQO_VIDEO_FLASHVSR_IMAGE_RESULT_V1","mode":"BUILD_ONLY","inference_performed":false,"runpod_mutation_performed":false,"production_deploy_performed":false}
+{"requested_at":"2026-08-29T19:15:00+07:00","contract":"AVANTIQO_VIDEO_FLASHVSR_IMAGE_RESULT_V1","mode":"BUILD_ONLY","target_gpu_arch":"sm80","inference_performed":false,"runpod_mutation_performed":false,"production_deploy_performed":false}

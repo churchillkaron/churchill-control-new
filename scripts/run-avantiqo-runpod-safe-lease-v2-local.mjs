@@ -56,6 +56,33 @@ function nodeOptionsWithReadyGuard() {
   if (existing.includes(READY_GUARD_PATH)) return existing;
   return [guardOption, existing].filter(Boolean).join(" ");
 }
+function laneRestingWorkersMax(policy, lane) {
+  const value = finite(
+    policy?.lane_resting_workers_max?.[text(lane)],
+    finite(policy?.resting_workers_max, 0),
+  );
+  if (![0, 1].includes(value)) {
+    throw new Error(`${CONTRACT}_LANE_RESTING_WORKERS_MAX_INVALID:${text(lane)}:${value}`);
+  }
+  return value;
+}
+function endpointLane(policy, endpointName) {
+  const name = text(endpointName);
+  const match = Object.entries(policy?.lanes || {}).find(([, value]) => text(value) === name);
+  return match?.[0] || null;
+}
+function endpointRestingWorkersMax(policy, endpointName) {
+  const lane = endpointLane(policy, endpointName);
+  return lane ? laneRestingWorkersMax(policy, lane) : finite(policy?.resting_workers_max, 0);
+}
+function intentionalIdleCapacity(row, policy) {
+  const expected = endpointRestingWorkersMax(policy, row?.name);
+  return (
+    expected === 1 && row?.workers_min === 0 && row?.workers_max === 1 &&
+    row?.active_workers === 0 && row?.jobs === 0 && row?.hourly_cost_usd === 0 &&
+    !row?.health_error
+  );
+}
 
 async function requestJson(url, key, options = {}) {
   const response = await fetch(url, {
@@ -345,14 +372,14 @@ async function purge(endpointId, key) {
     return { success: false, error: redact(error.message).slice(0, 300) };
   }
 }
-async function waitForZero(endpointId, managementKey, queueKey, targetQueueKey, timeoutMs, pollMs) {
+async function waitForRestingState(endpointId, managementKey, queueKey, targetQueueKey, workersMax, timeoutMs, pollMs) {
   const deadline = Date.now() + timeoutMs;
   let latest = null;
   while (Date.now() < deadline) {
     latest = (await snapshot(managementKey, queueKey, endpointId, targetQueueKey)).rows
       .find((row) => row.id === endpointId) || null;
     if (
-      latest && latest.workers_min === 0 && latest.workers_max === 0 && latest.jobs === 0 &&
+      latest && latest.workers_min === 0 && latest.workers_max === workersMax && latest.jobs === 0 &&
       latest.active_workers === 0 && latest.hourly_cost_usd === 0
     ) return latest;
     await sleep(pollMs);
@@ -401,6 +428,18 @@ async function enforce(snapshotValue, policy, targetId, managementKey, lane, tar
     throw new Error(`${CONTRACT}_WORKERS_MAX_BOUNDED_REQUIRED:${badMax.map((row) => row.name).join(",")}`);
   }
   for (const row of snapshotValue.rows.filter((row) => row.workers_max === 1 && !leaseIds.has(row.id))) {
+    if (intentionalIdleCapacity(row, policy)) {
+      console.log(`${CONTRACT}_IDLE_CAPACITY_PRESERVED=${JSON.stringify({
+        endpoint_name: row.name,
+        workers_min: row.workers_min,
+        workers_max: row.workers_max,
+        active_workers: row.active_workers,
+        jobs: row.jobs,
+        hourly_cost_usd: row.hourly_cost_usd,
+        reason: "LANE_RESTING_CAPACITY",
+      })}`);
+      continue;
+    }
     if (scopedLaneAllowsInertUnboundedPeer(row, targetId, lane)) {
       console.log(`${CONTRACT}_INERT_PEER_PRESERVED=${JSON.stringify({
         endpoint_name: row.name,
@@ -415,13 +454,17 @@ async function enforce(snapshotValue, policy, targetId, managementKey, lane, tar
     if (row.health_error || row.jobs !== 0) {
       throw new Error(`${CONTRACT}_UNLEASED_ACTIVE_ENDPOINT:${row.name}`);
     }
-    await patch(row.id, 0, managementKey);
-    console.log(`${CONTRACT}_ORPHAN_REAP=${JSON.stringify({ endpoint_name: row.name })}`);
+    const restingMax = endpointRestingWorkersMax(policy, row.name);
+    await patch(row.id, restingMax, managementKey);
+    console.log(`${CONTRACT}_ORPHAN_REAP=${JSON.stringify({
+      endpoint_name: row.name,
+      restored_workers_max: restingMax,
+    })}`);
   }
 
   const refreshed = await snapshot(managementKey, targetQueueKey, targetId, targetQueueKey);
   const open = refreshed.rows.filter((row) =>
-    row.workers_max === 1 &&
+    row.workers_max === 1 && !intentionalIdleCapacity(row, policy) &&
     (leaseIds.has(row.id) || !scopedLaneAllowsInertUnboundedPeer(row, targetId, lane))
   );
   if (open.length > finite(policy.max_concurrent_paid_leases, 1)) {
@@ -528,11 +571,17 @@ if (
   policy.workers_min_one_allowed !== false ||
   policy.parallel_work_allowed !== true
 ) throw new Error(`${CONTRACT}_POLICY_INVALID`);
+for (const [lane, value] of Object.entries(policy?.lane_resting_workers_max || {})) {
+  if (![0, 1].includes(finite(value, -1))) {
+    throw new Error(`${CONTRACT}_LANE_RESTING_WORKERS_MAX_INVALID:${lane}:${value}`);
+  }
+}
 
 const laneName = text(policy?.lanes?.[args.lane]);
 if (!laneName) {
   throw new Error(`${CONTRACT}_LANE_REQUIRED:${Object.keys(policy?.lanes || {}).join(",")}`);
 }
+const restWorkersMax = laneRestingWorkersMax(policy, args.lane);
 const ttlMs = args.ttlMs ?? finite(policy.default_lease_ttl_ms, 900_000);
 const maxLeaseTtlMs = finite(
   policy?.lane_max_lease_ttl_ms?.[args.lane],
@@ -573,8 +622,13 @@ try {
   const targetBaseline = await snapshot(managementKey, queueKey, targetId, targetQueueKey);
   const target = targetBaseline.rows.find((row) => row.id === targetId);
   if (
-    !target || target.workers_min !== 0 || target.workers_max !== 0 || target.jobs !== 0 || target.health_error
-  ) throw new Error(`${CONTRACT}_TARGET_MUST_START_CLEAN_0_0`);
+    !target || target.workers_min !== 0 || target.workers_max !== restWorkersMax ||
+    target.jobs !== 0 || target.active_workers !== 0 || target.hourly_cost_usd !== 0 || target.health_error
+  ) {
+    throw new Error(
+      `${CONTRACT}_TARGET_MUST_START_CLEAN_REST_STATE:expected=0/${restWorkersMax}:actual=${target?.workers_min}/${target?.workers_max}:jobs=${target?.jobs}:workers=${target?.active_workers}`,
+    );
+  }
 
   if (isVoiceRunpodLane(args.lane)) {
     distributedVoiceLease = await acquireVoiceRunpodDistributedLease({
@@ -615,6 +669,7 @@ try {
     endpoint_name: laneName,
     workers_min: 0,
     workers_max: 1,
+    resting_workers_max: restWorkersMax,
     expires_at: lease.expires_at,
     voice_distributed_lease: Boolean(distributedVoiceLease),
     code_distributed_lease: Boolean(distributedCodeLease),
@@ -636,14 +691,28 @@ try {
     catch (error) { if (!failure) failure = error; }
     const purgeAfter = await purge(targetId, targetQueueKey);
     try {
-      const final = await waitForZero(
+      const parked = await waitForRestingState(
         targetId,
         managementKey,
         queueKey,
         targetQueueKey,
+        0,
         finite(policy.cleanup_timeout_ms, 180_000),
         finite(policy.watchdog_poll_ms, 5000),
       );
+      let final = parked;
+      if (restWorkersMax !== 0) {
+        await patch(targetId, restWorkersMax, managementKey);
+        final = await waitForRestingState(
+          targetId,
+          managementKey,
+          queueKey,
+          targetQueueKey,
+          restWorkersMax,
+          finite(policy.cleanup_timeout_ms, 180_000),
+          finite(policy.watchdog_poll_ms, 5000),
+        );
+      }
       release = {
         success: true,
         purge_before: purgeBefore,
@@ -653,6 +722,7 @@ try {
         jobs: final.jobs,
         active_workers: final.active_workers,
         hourly_cost_usd: final.hourly_cost_usd,
+        lane_resting_workers_max: restWorkersMax,
       };
     } catch (error) {
       release = { success: false, error: redact(error.message).slice(0, 1200) };
@@ -718,7 +788,9 @@ console.log(JSON.stringify({
   lane_worker_hourly_limit_usd: laneWorkerHourlyLimit(policy, args.lane),
   scoped_inert_peer_isolation_lane: scopedInertPeerIsolationLane || null,
   scoped_target_and_open_health_lane: scopedTargetAndOpenHealthLane || null,
-  permanent_rest_state: "LEASE_ENDPOINT_0_0",
+  permanent_rest_state: `LEASE_ENDPOINT_0_${restWorkersMax}`,
+  lane_resting_workers_max: restWorkersMax,
+  zero_paid_gpu_when_no_active_worker: true,
   parallel_work_allowed: true,
   workers_min_one_allowed: false,
   production_deploy_performed: false,

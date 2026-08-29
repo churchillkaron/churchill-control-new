@@ -10,6 +10,10 @@ const MODELS_PROBE = new URL(
   "../scripts/run-avantiqo-intelligence-safe-lease-models-probe-local.mjs",
   import.meta.url,
 );
+const GPU_PRIORITY_REPAIR = new URL(
+  "../scripts/repair-avantiqo-intelligence-fast-gpu-priority-order-local.mjs",
+  import.meta.url,
+);
 
 test("Fast service certification proves runtime readiness inside the existing Safe Lease before assessment", async () => {
   const source = await readFile(FAST_CHILD, "utf8");
@@ -27,16 +31,42 @@ test("Fast service certification proves runtime readiness inside the existing Sa
   assert.match(source, /generation_free_runtime_probe:\s*true/);
 });
 
-test("shared Intelligence models probe binds Fast to the exact Instruct model without inference", async () => {
+test("shared Intelligence models probe uses a scheduler-backed zero-token Fast worker proof", async () => {
   const source = await readFile(MODELS_PROBE, "utf8");
 
+  assert.match(source, /AVANTIQO_INTELLIGENCE_SAFE_LEASE_MODELS_PROBE_V2/);
   assert.match(source, /fast:\s*Object\.freeze\(\{/);
   assert.match(source, /leaseLane:\s*"intelligence-fast"/);
   assert.match(source, /expectedModel:\s*"Qwen\/Qwen3-30B-A3B-Instruct-2507"/);
   assert.match(source, /endpointEnv:\s*"RUNPOD_AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_ID"/);
+  assert.match(source, /openai_route:\s*"\/v1\/models"/);
+  assert.match(source, /`\$\{base\}\/run`/);
+  assert.match(source, /`\$\{base\}\/status\/\$\{encodeURIComponent\(jobId\)\}`/);
+  assert.match(source, /scheduler_probe_job_submitted:\s*true/);
+  assert.match(source, /scheduler_probe_job_completed:\s*true/);
+  assert.match(source, /scheduler_probe_worker_observed:\s*true/);
   assert.match(source, /inference_performed:\s*false/);
   assert.match(source, /generation_submitted:\s*false/);
   assert.match(source, /completion_request_performed:\s*false/);
+  assert.match(source, /token_generation_performed:\s*false/);
   assert.match(source, /direct_endpoint_scaling_performed:\s*false/);
   assert.match(source, /workers_max_mutation_performed:\s*false/);
+});
+
+test("Fast GPU priority repair reuses the canonical capacity plan and changes order only", async () => {
+  const source = await readFile(GPU_PRIORITY_REPAIR, "utf8");
+
+  assert.match(source, /repair-avantiqo-intelligence-fast-volume-local-capacity-local\.mjs/);
+  assert.match(source, /AVANTIQO_INTELLIGENCE_FAST_VOLUME_LOCAL_CAPACITY_REPAIR_V1/);
+  assert.match(source, /sameOrder\(currentPool, targetPool\)/);
+  assert.match(source, /POOL_MEMBERSHIP_REPAIR_MUST_RUN_FIRST/);
+  assert.match(source, /body:\s*\{ gpuTypeIds: targetPool \}/);
+  assert.match(source, /TARGET_PRIORITY_ORDER_NOT_PERSISTED/);
+  assert.match(source, /body:\s*\{ gpuTypeIds: currentPool \}/);
+  assert.match(source, /inference_performed:\s*false/);
+  assert.match(source, /token_generation_performed:\s*false/);
+  assert.match(source, /provider_job_submitted:\s*false/);
+  assert.match(source, /database_mutation_performed:\s*false/);
+  assert.match(source, /wallet_mutation_performed:\s*false/);
+  assert.match(source, /production_deploy_performed:\s*false/);
 });

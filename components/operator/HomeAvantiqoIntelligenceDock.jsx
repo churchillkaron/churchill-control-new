@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
 
 const LATEST_THRESHOLD_PX = 96;
+const VOICE_REPLY_INTENT_TTL_MS = 5 * 60 * 1000;
 
 function normalizedSpeech(value) {
   return String(value ?? "")
@@ -54,10 +55,37 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   useEffect(() => {
     let lastSpokenMessage = "";
     let spokenEchoGuardUntil = 0;
+    let lastExplicitVoiceCommandAt = 0;
 
-    function rememberSpokenOutput(event) {
-      const message = String(event?.detail?.message ?? "").trim();
-      if (!message) return;
+    function gateAndRememberSpokenOutput(event) {
+      const detail = event?.detail;
+      if (!detail || typeof detail !== "object") {
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      const message = String(detail.message ?? "").trim();
+      if (!message) {
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      const urgent = String(detail.priority ?? "").trim().toLowerCase() === "urgent";
+      const explicitlyVoiceInitiated = detail.voice_initiated === true;
+      const followsExplicitVoiceCommand =
+        lastExplicitVoiceCommandAt > 0 &&
+        Date.now() - lastExplicitVoiceCommandAt <= VOICE_REPLY_INTENT_TTL_MS;
+
+      // Ordinary typed Home replies are silent. A spoken reply is allowed only
+      // when Voice intent is explicit (or an urgent governed alert says so).
+      if (!urgent && !explicitlyVoiceInitiated && !followsExplicitVoiceCommand) {
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      detail.voice_initiated = urgent ? detail.voice_initiated === true : true;
+      if (!urgent) lastExplicitVoiceCommandAt = 0;
+
       lastSpokenMessage = message;
       const words = normalizedSpeech(message).split(" ").filter(Boolean).length;
       spokenEchoGuardUntil = Date.now() + Math.min(
@@ -84,17 +112,26 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         likelySpokenEcho(detail.message, lastSpokenMessage)
       ) {
         event.stopImmediatePropagation();
+        return;
+      }
+
+      if (detail.source === "voice") {
+        lastExplicitVoiceCommandAt = Date.now();
       }
     }
 
-    window.addEventListener("avantiqo:speak", rememberSpokenOutput, true);
+    window.addEventListener("avantiqo:speak", gateAndRememberSpokenOutput, true);
     window.addEventListener(
       "avantiqo:home-command",
       normalizeHomeCommandSource,
       true,
     );
     return () => {
-      window.removeEventListener("avantiqo:speak", rememberSpokenOutput, true);
+      window.removeEventListener(
+        "avantiqo:speak",
+        gateAndRememberSpokenOutput,
+        true,
+      );
       window.removeEventListener(
         "avantiqo:home-command",
         normalizeHomeCommandSource,

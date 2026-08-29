@@ -36,6 +36,7 @@ import MusicSpecialistStudioPanel from "./MusicSpecialistStudioPanel";
 import MusicUnifiedWorkstationShell from "./MusicUnifiedWorkstationShell";
 
 const MODES = Object.freeze([
+  { id: "compose", label: "Generator", icon: Music2, group: "studio" },
   { id: "auto", label: "Auto", icon: Sparkles, group: "studio" },
   { id: "record", label: "Record", icon: Mic2, group: "studio" },
   { id: "workstation", label: "Workstation", icon: Layers3, group: "studio" },
@@ -43,7 +44,6 @@ const MODES = Object.freeze([
   { id: "arrange", label: "Arrange", icon: LayoutGrid, group: "studio" },
   { id: "midi", label: "MIDI", icon: KeyboardMusic, group: "studio" },
   { id: "elastic", label: "Elastic", icon: Waves, group: "studio" },
-  { id: "compose", label: "Compose", icon: Music2, group: "ai" },
   { id: "remix", label: "Remix", icon: RefreshCw, group: "ai", planningOnly: true },
   { id: "edit", label: "Edit", icon: Scissors, group: "ai", planningOnly: true },
   { id: "extend", label: "Extend", icon: RefreshCw, group: "ai", planningOnly: true },
@@ -68,8 +68,59 @@ function statusLabel(status) {
   return "Checking";
 }
 
+function MusicGeneratorGate({ status }) {
+  return (
+    <section className="mx-auto max-w-6xl p-6 lg:p-8">
+      <div className="overflow-hidden rounded-3xl border border-[#d6a66a]/20 bg-[radial-gradient(circle_at_top_right,rgba(214,166,106,0.11),transparent_38%)]">
+        <div className="border-b border-white/7 px-6 py-7 sm:px-8">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#d6a66a]">
+                <Music2 className="h-4 w-4" /> Avantiqo Music Generator
+              </div>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/90">Create original music</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/42">
+                Build original music from musical direction, structure, instrumentation, mood, tempo and vocal intent. The generator stays visible even when execution is temporarily certification-gated.
+              </p>
+            </div>
+            <div className="rounded-full border border-amber-300/20 bg-amber-300/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-amber-100/70">
+              {statusLabel(status)}
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-4 p-6 sm:p-8 lg:grid-cols-3">
+          <div className="rounded-2xl border border-white/8 bg-black/25 p-5">
+            <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">Direction</div>
+            <div className="mt-2 text-sm font-medium text-white/72">Style, mood & energy</div>
+            <div className="mt-2 text-xs leading-5 text-white/32">Define the musical result without exposing provider prompts.</div>
+          </div>
+          <div className="rounded-2xl border border-white/8 bg-black/25 p-5">
+            <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">Composition</div>
+            <div className="mt-2 text-sm font-medium text-white/72">Structure, BPM & instrumentation</div>
+            <div className="mt-2 text-xs leading-5 text-white/32">Control duration, arrangement, key, meter, instruments and vocals.</div>
+          </div>
+          <div className="rounded-2xl border border-white/8 bg-black/25 p-5">
+            <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">Delivery</div>
+            <div className="mt-2 text-sm font-medium text-white/72">Generate, master & preserve</div>
+            <div className="mt-2 text-xs leading-5 text-white/32">Owned generation, private assets, version history and automatic release mastering.</div>
+          </div>
+        </div>
+        <div className="border-t border-white/7 px-6 py-5 sm:px-8">
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.035] p-4 text-amber-100/70">
+            <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <div className="text-sm font-medium">Generation execution is still fail-closed</div>
+              <div className="mt-1 text-xs leading-5 opacity-65">The generator is now visible and easy to find. The Generate action will unlock only when the owned ACE-Step runtime and production certification gates report ready.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function MusicStudioWorkspace({ runtime, editor }) {
-  const [mode, setMode] = useState("auto");
+  const [mode, setMode] = useState("compose");
   const [readiness, setReadiness] = useState(null);
   const [readinessError, setReadinessError] = useState("");
   const project = runtime.projectRuntime?.current || null;
@@ -119,9 +170,9 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
 
   const modeState = useMemo(() => Object.fromEntries(MODES.map((item) => {
     if (item.planningOnly) return [item.id, { enabled: false, status: "PLANNING_ONLY" }];
-    if (item.id === "compose") return [item.id, { enabled: composeReady, status: composeStatus }];
+    if (item.id === "compose") return [item.id, { enabled: true, status: composeStatus }];
     return [item.id, { enabled: true, status: "STUDIO_TOOL" }];
-  })), [composeReady, composeStatus]);
+  })), [composeStatus]);
 
   return (
     <div className="min-h-full bg-[#070707] text-white">
@@ -132,8 +183,8 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
               <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.28em] text-[#d6a66a]/80">
                 <AudioLines className="h-3.5 w-3.5" /> Avantiqo Music Studio
               </div>
-              <div className="mt-1.5 text-lg font-medium tracking-[-0.02em] text-white/88">One studio. Real tools. Owned generation.</div>
-              <div className="mt-1 max-w-xl text-xs leading-5 text-white/32">Record, arrange, produce, edit, separate, mix and master from one workspace. AI execution stays fail-closed until its owned runtime is production-ready.</div>
+              <div className="mt-1.5 text-lg font-medium tracking-[-0.02em] text-white/88">Generate, record, produce and finish music.</div>
+              <div className="mt-1 max-w-xl text-xs leading-5 text-white/32">The Music Generator is the primary studio view. Owned AI execution remains fail-closed until its runtime is production-ready.</div>
             </div>
 
             <div className="grid min-w-[320px] grid-cols-3 gap-2 text-[10px]">
@@ -144,7 +195,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
               </div>
               <div className={`rounded-xl border px-3 py-2.5 ${composeReady ? "border-emerald-300/15 bg-emerald-300/[0.045] text-emerald-100/72" : "border-amber-300/15 bg-amber-300/[0.035] text-amber-100/65"}`}>
                 {composeReady ? <CircleDot className="mb-1.5 h-3.5 w-3.5" /> : <LockKeyhole className="mb-1.5 h-3.5 w-3.5" />}
-                <div className="font-medium">Compose</div>
+                <div className="font-medium">Generator</div>
                 <div className="mt-0.5 text-[9px] opacity-60">{statusLabel(composeStatus)}</div>
               </div>
               <div className="rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2.5 text-white/42">
@@ -168,7 +219,7 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
                   const active = mode === item.id;
                   const state = modeState[item.id];
                   const enabled = state?.enabled !== false;
-                  const showGate = !enabled;
+                  const showGate = !enabled || (item.id === "compose" && !composeReady);
                   return (
                     <button
                       key={item.id}
@@ -191,14 +242,16 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
         </div>
       </div>
 
-      {mode === "auto" ? <MusicAutoStudioPanel {...specialistProps} />
+      {mode === "compose" ? (composeReady
+        ? <MusicWorkspace runtime={runtime} editor={editor} />
+        : <MusicGeneratorGate status={composeStatus} />)
+      : mode === "auto" ? <MusicAutoStudioPanel {...specialistProps} />
       : mode === "record" ? <MusicRecordingStudioPanel {...specialistProps} onSaved={() => runtime.refresh?.()} />
       : mode === "workstation" ? <MusicUnifiedWorkstationShell organizationId={organizationId} projectId={project?.id || null} projectName={project?.name || project?.title || "Music Project"} />
       : mode === "producer" ? <MusicProducerPanel organizationId={organizationId} projectId={project?.id || null} />
       : mode === "arrange" ? <MusicArrangementPanel organizationId={organizationId} projectId={project?.id || null} />
       : mode === "midi" ? <MusicMidiStudioPanel organizationId={organizationId} projectId={project?.id || null} />
       : mode === "elastic" ? <MusicElasticAudioPanel organizationId={organizationId} projectId={project?.id || null} />
-      : mode === "compose" && composeReady ? <MusicWorkspace runtime={runtime} editor={editor} />
       : mode === "remix" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="remix" {...specialistProps} /></div>
       : mode === "edit" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="edit" {...specialistProps} /></div>
       : mode === "extend" ? <div className="mx-auto max-w-6xl p-6"><MusicRemixPanel operation="extend" {...specialistProps} /></div>

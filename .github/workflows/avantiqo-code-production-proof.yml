@@ -1,0 +1,70 @@
+name: Avantiqo Code Production Proof
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-production-proof-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-production-proof
+  cancel-in-progress: false
+
+jobs:
+  prove-production-code:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+      AVANTIQO_CODE_PRODUCTION_PROOF_REPORT: /tmp/avantiqo-code-production-proof.json
+
+    steps:
+      - name: Checkout exact production proof commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate production credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ]; then
+            echo 'RUNPOD_MANAGEMENT_API_KEY_REQUIRED'
+            exit 1
+          fi
+          if [ -z "${RUNPOD_AVANTIQO_CODE_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ]; then
+            echo 'RUNPOD_CODE_RUNTIME_KEY_REQUIRED'
+            exit 1
+          fi
+
+      - name: Run one live Code production proof
+        env:
+          AVANTIQO_CODE_PRODUCTION_PROOF_APPROVED: "YES"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-code-production-proof-ci.mjs | tee /tmp/avantiqo-code-production-proof.log
+
+      - name: Upload production proof evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-production-proof-${{ github.run_id }}
+          path: |
+            /tmp/avantiqo-code-production-proof.json
+            /tmp/avantiqo-code-production-proof.log
+            /tmp/avantiqo-code-production-proof-job-id
+          if-no-files-found: warn
+          retention-days: 14

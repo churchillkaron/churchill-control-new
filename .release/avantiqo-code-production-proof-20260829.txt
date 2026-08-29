@@ -2,7 +2,7 @@ AVANTIQO_CODE_PRODUCTION_PROOF_V4
 scope=production_only
 endpoint=r79dtnjnrilrlc
 runtime_model=Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
-proof_attempt=5
+proof_attempt=6
 owned_zero_idle_lifecycle=true
 provider_wake=true
 provider_terminal_reap=true
@@ -11,3 +11,4 @@ target_workers=0/1
 target_idle_timeout_seconds=60
 require_real_inference=true
 require_zero_idle_after=true
+base_main=4631332e76efb0a7ffd1696b23c006de1a568c97

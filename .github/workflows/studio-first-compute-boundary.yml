@@ -1,0 +1,38 @@
+name: Studio First Compute Boundary
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "services/**"
+      - "scripts/studio-first-compute-boundary-audit.mjs"
+      - "docs/STUDIO_FIRST_COMPUTE.md"
+      - "docs/ENGINEERING_RULES.md"
+      - ".github/workflows/studio-first-compute-boundary.yml"
+  pull_request:
+    paths:
+      - "services/**"
+      - "scripts/studio-first-compute-boundary-audit.mjs"
+      - "docs/STUDIO_FIRST_COMPUTE.md"
+      - "docs/ENGINEERING_RULES.md"
+      - ".github/workflows/studio-first-compute-boundary.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  studio-first-compute-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enforce Studio-first compute boundary
+        run: node scripts/studio-first-compute-boundary-audit.mjs

@@ -2,6 +2,9 @@
   "contract": "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2",
   "resting_workers_min": 0,
   "resting_workers_max": 0,
+  "lane_resting_workers_max": {
+    "code": 1
+  },
   "max_concurrent_paid_leases": 4,
   "max_workers_per_lease": 1,
   "max_jobs_per_lease": 1,

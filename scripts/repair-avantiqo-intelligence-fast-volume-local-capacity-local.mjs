@@ -10,7 +10,7 @@ const MAX_GPU_FALLBACKS = 4;
 
 const PROFILES = Object.freeze([
   Object.freeze({ key: "RTX_PRO_6000_BLACKWELL_SERVER_96GB", match: /RTX\s*PRO\s*6000.*Blackwell.*Server|Blackwell.*Server.*RTX\s*PRO\s*6000/i, exclude: /MIG|Max-Q|Workstation/i, priority: 6000 }),
-  Object.freeze({ key: "H200_141GB", match: /\bH200\b/i, exclude: /MIG/i, priority: 5900 }),
+  Object.freeze({ key: "H200_141GB", match: /\bH200\b/i, exclude: /MIG|NVL/i, priority: 5900 }),
   Object.freeze({ key: "B200_180GB", match: /\bB200\b/i, exclude: /MIG/i, priority: 5800 }),
   Object.freeze({ key: "A100_80GB_PCIE", match: /A100.*80.*PCIe|PCIe.*A100.*80|A100.*PCIe.*80/i, exclude: /MIG/i, priority: 5700 }),
 ]);

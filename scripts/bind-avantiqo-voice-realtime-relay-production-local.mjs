@@ -23,11 +23,21 @@ const REQUEST_COUNT_TARGET = 1;
 const FOUNDATION_MODEL = "openai/whisper-large-v3-turbo";
 const WS_PATH = "/v1/realtime/transcribe";
 const RUNPOD_V2_BASE = "https://api.runpod.io/v2";
+const BINDER_PATH = "scripts/bind-avantiqo-voice-realtime-relay-production-local.mjs";
+const ENV_LOADER_PATH = "scripts/load-avantiqo-env.mjs";
 const IMAGE_EVIDENCE_PATH = "audits/results/avantiqo-voice-stt-realtime-worker-image.json";
 const RELAY_SOURCE_PATH = "supabase/functions/avantiqo-voice-realtime-relay/index.ts";
 const SAFE_LEASE_PATH = "supabase/functions/_shared/avantiqo-voice-realtime-safe-lease.ts";
 const SUPABASE_CONFIG_PATH = "supabase/config.toml";
 const APPROVAL_ENV = "AVANTIQO_VOICE_REALTIME_RELAY_PRODUCTION_BIND_APPROVED";
+const VOICE_CRITICAL_PATHS = [
+  BINDER_PATH,
+  ENV_LOADER_PATH,
+  IMAGE_EVIDENCE_PATH,
+  RELAY_SOURCE_PATH,
+  SAFE_LEASE_PATH,
+  SUPABASE_CONFIG_PATH,
+];
 
 const text = (value) => String(value ?? "").trim();
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -82,14 +92,29 @@ function runCommand(command, args, label, { quietSuccess = true } = {}) {
   return stdout;
 }
 
-function fetchNewestMainAndRequireCheckoutMatch(label) {
+function gitBlob(ref, path) {
+  return runGit(["rev-parse", `${ref}:${path}`]);
+}
+
+function fetchNewestMainAndRequireVoiceEquivalent(label) {
   runGit(["fetch", "origin", "main", "--quiet"]);
   const head = runGit(["rev-parse", "HEAD"]);
   const newest = runGit(["rev-parse", "origin/main"]);
-  if (head !== newest) {
-    throw new Error(`${CONTRACT}_${label}_CHECKOUT_NOT_NEWEST_MAIN:head=${head}:origin_main=${newest}`);
+  const changedCriticalPaths = VOICE_CRITICAL_PATHS.filter(
+    (path) => gitBlob(head, path) !== gitBlob(newest, path),
+  );
+  if (changedCriticalPaths.length) {
+    throw new Error(
+      `${CONTRACT}_${label}_VOICE_CRITICAL_SOURCE_CHANGED:` +
+      `head=${head}:origin_main=${newest}:paths=${changedCriticalPaths.join(",")}`,
+    );
   }
-  return newest;
+  return {
+    head,
+    newest,
+    main_advanced: head !== newest,
+    voice_critical_source_equivalent: true,
+  };
 }
 
 function gitShow(path) {
@@ -345,7 +370,8 @@ if (apply && text(process.env[APPROVAL_ENV]).toUpperCase() !== "YES") {
   throw new Error(`${APPROVAL_ENV}=YES_REQUIRED`);
 }
 
-const newestMainSha = fetchNewestMainAndRequireCheckoutMatch("PREFLIGHT");
+const preflightSource = fetchNewestMainAndRequireVoiceEquivalent("PREFLIGHT");
+const newestMainSha = preflightSource.newest;
 assertRelaySourceContracts();
 const evidence = certifiedImage();
 
@@ -373,7 +399,10 @@ const plan = {
   success: true,
   contract: CONTRACT,
   mode: apply ? "APPLY" : "PLAN_READ_ONLY",
+  checkout_sha: preflightSource.head,
   newest_main_sha: newestMainSha,
+  parallel_main_advance_tolerated: preflightSource.main_advanced,
+  voice_critical_source_equivalent: true,
   production_project_ref: PRODUCTION_PROJECT_REF,
   production_project_match: true,
   supabase_cli_version: cliVersion || "present",
@@ -435,7 +464,7 @@ if (!apply) {
 } else {
   let secretsFile = "";
   try {
-    fetchNewestMainAndRequireCheckoutMatch("BEFORE_SECRET_WRITE");
+    fetchNewestMainAndRequireVoiceEquivalent("BEFORE_SECRET_WRITE");
     const runpodBeforeSecretWrite = await runpodSnapshot(managementKey, evidence.image, relaySecret);
     if (runpodBeforeSecretWrite.endpoint_id !== runpodBefore.endpoint_id) {
       throw new Error(`${CONTRACT}_ENDPOINT_CHANGED_BEFORE_SECRET_WRITE`);
@@ -461,7 +490,7 @@ if (!apply) {
     await rm(secretsFile, { force: true });
     secretsFile = "";
 
-    fetchNewestMainAndRequireCheckoutMatch("BEFORE_FUNCTION_DEPLOY");
+    fetchNewestMainAndRequireVoiceEquivalent("BEFORE_FUNCTION_DEPLOY");
     const functionListImmediatelyBeforeDeploy = listRemoteFunctions();
     if (remoteFunctionPresent(functionListImmediatelyBeforeDeploy)) {
       throw new Error(`${CONTRACT}_CONCURRENT_FUNCTION_DEPLOY_DETECTED`);

@@ -1,0 +1,9 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_DEEP_LEGACY_PARSER_TO_QWEN3_V1",
+  "requested_at": "2026-08-29T14:20:00Z",
+  "reason": "Production Deep Intelligence returns HTTP 500 after lease acquisition; converge legacy reasoning parser to canonical qwen3 using the guarded repository repair script.",
+  "scope": "deep_parser_only",
+  "generation_submitted": false,
+  "workers_scaling_mutation_performed": false,
+  "fast_lane_mutation_performed": false
+}

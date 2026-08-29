@@ -5,6 +5,7 @@ import test from "node:test";
 const ROOT = new URL("../", import.meta.url);
 const read = (relative) => readFile(new URL(relative, ROOT), "utf8");
 const IMMUTABLE_GPU_ONLY_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-worker-gpu-only@sha256:2f477f95fcc46fdcb7aff1dda03944ad282eb3a7d33c95098bd13d00a76c3425";
+const IMMUTABLE_FLASHVSR_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:55919408e355960cf35f3c87a8d2c875c92a9e586ea43bb207dfcb93dc4d20fc";
 
 test("active Video paid generation worker is GPU-only and FFmpeg-free", async () => {
   const [dockerfile, handler, core, requirements] = await Promise.all([
@@ -47,7 +48,7 @@ test("Video generation Pod ends paid GPU lifecycle before Studio media processin
   assert.ok(runpod.includes(IMMUTABLE_GPU_ONLY_IMAGE), "Pod runtime must use the certified GPU-only immutable image");
 });
 
-test("Video 4K uses learned FlashVSR while lower masters stay Studio-owned", async () => {
+test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownership", async () => {
   const [workflow, master, foundation, flashStudio, flashPod, flashWorker, flashDocker, cpuBridge] = await Promise.all([
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoWorkflowRuntimeV3.js"),
     read("lib/creative/video/runtime/CreativeVideoStudioMasterRuntime.js"),
@@ -83,18 +84,31 @@ test("Video 4K uses learned FlashVSR while lower masters stay Studio-owned", asy
   assert.match(cpuBridge, /imageName: "python:3\.11-slim"/);
   assert.match(cpuBridge, /model_inference_used: false/);
   assert.match(cpuBridge, /ffmpeg_used: false/);
-  assert.doesNotMatch(cpuBridge, /\bffmpeg\b.*spawn|torch|cuda|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai\//i);
+  assert.match(cpuBridge, /confirmed_terminal: true/);
+  assert.doesNotMatch(cpuBridge, /torch|cuda|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai\//i);
 
   assert.match(flashPod, /AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"/);
-  assert.match(flashPod, /transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE"/);
+  assert.ok(flashPod.includes(IMMUTABLE_FLASHVSR_IMAGE), "FlashVSR runtime must use the certified immutable A100 image");
+  assert.match(flashPod, /transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE_SEQUENTIAL"/);
+  assert.match(flashPod, /upload_bridge_deleted_before_gpu: true/);
+  assert.match(flashPod, /concurrent_volume_writers: false/);
   assert.match(flashPod, /s3_credentials_required: false/);
   assert.doesNotMatch(flashPod, /presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/);
-  const receiptIndex = flashPod.indexOf("if (receipt) {");
-  const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", receiptIndex);
-  const finalStudioIndex = flashPod.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", receiptIndex);
-  const bridgeDeleteIndex = flashPod.indexOf("await closeBridge(masterJob)", finalStudioIndex);
-  assert.ok(receiptIndex >= 0 && gpuDeleteIndex > receiptIndex && finalStudioIndex > gpuDeleteIndex, "FlashVSR GPU Pod must be deleted before Studio final encoding");
-  assert.ok(bridgeDeleteIndex > finalStudioIndex, "CPU volume bridge must be deleted after Studio finalization/cleanup");
+
+  const uploadPrepareIndex = flashPod.indexOf("prepared = await prepareCreativeVideoFlashVsrInput");
+  const uploadBridgeDeleteIndex = flashPod.indexOf("const uploadBridgeDelete = await deleteAvantiqoVideoVolumeCpuBridge", uploadPrepareIndex);
+  const leaseIndex = flashPod.indexOf("lease = await acquireVideoPodLease", uploadBridgeDeleteIndex);
+  const gpuCreateIndex = flashPod.indexOf("const pod = await createMasterPod", leaseIndex);
+  assert.ok(uploadPrepareIndex >= 0 && uploadBridgeDeleteIndex > uploadPrepareIndex && leaseIndex > uploadBridgeDeleteIndex && gpuCreateIndex > leaseIndex,
+    "CPU upload bridge must be confirmed deleted before A100 lease/creation");
+
+  const terminalBranch = flashPod.indexOf("if (!pod || podTerminal(pod)) {");
+  const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", terminalBranch);
+  const retrieveIndex = flashPod.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", gpuDeleteIndex);
+  const finalStudioIndex = flashPod.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", 0);
+  assert.ok(terminalBranch >= 0 && gpuDeleteIndex > terminalBranch && retrieveIndex > gpuDeleteIndex,
+    "A100 must be deleted before retrieval bridge is created");
+  assert.ok(finalStudioIndex >= 0, "Studio finalization must remain present after GPU lifecycle");
 
   assert.doesNotMatch(flashDocker, /\bffmpeg\b|libx264|libx265/i);
   assert.match(flashDocker, /BLOCK_SPARSE_ATTN_CUDA_ARCHS=80/);

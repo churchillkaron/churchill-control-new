@@ -17,34 +17,13 @@ import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AvantiqoVoiceLibraryPanel from "@/components/operator/AvantiqoVoiceLibraryPanel";
 import { transcribeRecordedAudio } from "@/lib/operator/voice/AsyncRecordedTranscriptionClient";
 import { requestAsyncSpeechBlob } from "@/lib/operator/voice/AsyncSpeechClient";
-import { startOwnedRealtimeRelayTranscription } from "@/lib/operator/voice/OwnedRealtimeTranscriptionRelayClient";
 
-const WAKE_STORAGE_KEY = "avantiqo.wake.enabled";
-const SPOKEN_REPLY_POLL_MS = 2000;
-const SPOKEN_REPLY_TIMEOUT_MS = 30 * 60 * 1000;
 const OPERATOR_SPOKEN_REPLY_TIMEOUT_MS = 20 * 1000;
 const OPERATOR_RECORDED_STT_TIMEOUT_MS = 20 * 1000;
-const KEYBOARD_WAKE_BLOCK_MS = 3000;
-const WAKE_PHRASES = [
-  "avantiqo",
-  "avanti qo",
-  "avanti co",
-  "avanti go",
-  "avantico",
-  "avantigo",
-  "avantiko",
-  "hey avantiqo",
-  "hey avanti qo",
-  "hey avanti co",
-  "hey avanti go",
-];
+const VOICE_HARD_STOP_MS = 18 * 1000;
 
 function text(value) {
   return String(value ?? "").trim();
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function assistantMessage(content, extra = {}) {
@@ -74,7 +53,6 @@ function resultCount(execution) {
 
 function preferredAudioMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
-
   for (const type of [
     "audio/webm;codecs=opus",
     "audio/webm",
@@ -82,26 +60,7 @@ function preferredAudioMimeType() {
   ]) {
     if (MediaRecorder.isTypeSupported?.(type)) return type;
   }
-
   return "";
-}
-
-function normalizedWakeTranscript(value) {
-  return text(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function hasWakePhrase(value) {
-  const normalized = normalizedWakeTranscript(value);
-  return WAKE_PHRASES.some((phrase) => normalized.includes(phrase));
-}
-
-function speechRecognitionConstructor() {
-  if (typeof window === "undefined") return null;
-  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
 function humanVoiceError(error) {
@@ -126,11 +85,6 @@ export default function AvantiqoOperator() {
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const wakeRecognitionRef = useRef(null);
-  const wakeEnabledRef = useRef(false);
-  const wakeSuspendedRef = useRef(false);
-  const wakeTriggeringRef = useRef(false);
-  const wakeKeyboardBlockedUntilRef = useRef(0);
   const recordingRef = useRef(false);
   const busyRef = useRef(false);
   const voiceBusyRef = useRef(false);
@@ -144,9 +98,6 @@ export default function AvantiqoOperator() {
   const voiceHardStopTimerRef = useRef(null);
   const voiceHasSpeechRef = useRef(false);
   const voiceLastSoundAtRef = useRef(0);
-  const voiceRealtimeSessionRef = useRef(null);
-  const voiceRealtimeAudioContextRef = useRef(null);
-  const voiceRealtimeAbortRef = useRef(null);
 
   const [open, setOpen] = useState(false);
   const [voiceLibraryOpen, setVoiceLibraryOpen] = useState(false);
@@ -155,15 +106,11 @@ export default function AvantiqoOperator() {
   const [recording, setRecording] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [wakeSupported, setWakeSupported] = useState(false);
-  const [wakeEnabled, setWakeEnabled] = useState(false);
-  const [wakeListening, setWakeListening] = useState(false);
-  const [wakeHeard, setWakeHeard] = useState(false);
   const [error, setError] = useState("");
   const [agreementState, setAgreementState] = useState({});
   const [messages, setMessages] = useState([
     assistantMessage(
-      "I’m Avantiqo Operator. Tell me what you want to understand, open, decide or get done.",
+      "I’m Avantiqo. Tell me what you want to understand, open, decide or get done.",
     ),
   ]);
 
@@ -182,7 +129,8 @@ export default function AvantiqoOperator() {
 
   const contextLabel = useMemo(() => {
     const organization = businessContext?.organization?.name || "Avantiqo";
-    const entity = businessContext?.entity?.name || businessContext?.entity?.legal_name || "";
+    const entity =
+      businessContext?.entity?.name || businessContext?.entity?.legal_name || "";
     return entity && entity !== organization
       ? `${organization} · ${entity}`
       : organization;
@@ -201,38 +149,19 @@ export default function AvantiqoOperator() {
   }, [recording]);
 
   useEffect(() => {
-    wakeEnabledRef.current = wakeEnabled;
-  }, [wakeEnabled]);
-
-  useEffect(() => {
-    function noteKeyboardActivity(event) {
-      const target = event?.target;
-      const editable =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target?.isContentEditable === true;
-      if (!editable) return;
-      wakeKeyboardBlockedUntilRef.current = Date.now() + KEYBOARD_WAKE_BLOCK_MS;
-    }
-
-    window.addEventListener("keydown", noteKeyboardActivity, true);
-    return () => window.removeEventListener("keydown", noteKeyboardActivity, true);
-  }, []);
-
-  useEffect(() => {
     function receiveSpokenReply(event) {
       const message = text(event?.detail?.message);
       const voiceInitiated = event?.detail?.voice_initiated === true;
       const urgent = text(event?.detail?.priority).toLowerCase() === "urgent";
-      if (!message || voiceLibraryOpenRef.current || (!voiceInitiated && !urgent)) return;
+      if (!message || voiceLibraryOpenRef.current || (!voiceInitiated && !urgent)) {
+        return;
+      }
 
-      requestSpokenReply(message)
-        .catch((speechError) => {
-          if (speechError?.name !== "AbortError") {
-            setError(humanVoiceError(speechError));
-          }
-        })
-        .finally(() => resumeWakeMode(400));
+      requestSpokenReply(message).catch((speechError) => {
+        if (speechError?.name !== "AbortError") {
+          setError(humanVoiceError(speechError));
+        }
+      });
     }
 
     window.addEventListener("avantiqo:speak", receiveSpokenReply);
@@ -240,36 +169,9 @@ export default function AvantiqoOperator() {
   }, [organizationId, entityId]);
 
   useEffect(() => {
-    const Recognition = speechRecognitionConstructor();
-    setWakeSupported(Boolean(Recognition));
-
-    if (!Recognition) return undefined;
-
-    const storedEnabled =
-      typeof window !== "undefined" &&
-      window.localStorage.getItem(WAKE_STORAGE_KEY) === "true";
-
-    if (storedEnabled) {
-      wakeEnabledRef.current = true;
-      setWakeEnabled(true);
-      window.setTimeout(() => startWakeRecognition(), 700);
-    }
-
     return () => {
-      wakeEnabledRef.current = false;
-      wakeSuspendedRef.current = true;
-      voiceLibraryOpenRef.current = false;
       spokenReplyAbortRef.current?.abort();
-      spokenReplyAbortRef.current = null;
       releaseSpokenAudio();
-      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_OPERATOR_UNMOUNT");
-      try {
-        wakeRecognitionRef.current?.abort?.();
-      } catch {
-        // Best-effort shutdown during unmount.
-      }
-      wakeRecognitionRef.current = null;
-      setWakeListening(false);
       stopSilenceDetection();
       releaseVoiceStream();
     };
@@ -329,8 +231,6 @@ export default function AvantiqoOperator() {
     spokenReplyAbortRef.current = abortController;
     speakingRef.current = true;
     setSpeaking(true);
-    wakeSuspendedRef.current = true;
-    stopWakeRecognition();
 
     try {
       const locale = typeof navigator !== "undefined" ? navigator.language || null : null;
@@ -363,7 +263,7 @@ export default function AvantiqoOperator() {
     if (message && primaryChat) {
       window.dispatchEvent(
         new CustomEvent("avantiqo:home-command", {
-          detail: { message, source },
+          detail: { message, source: source === "voice" ? "voice" : "text" },
         }),
       );
       setOpen(false);
@@ -381,7 +281,9 @@ export default function AvantiqoOperator() {
       speakingRef.current ||
       !organizationId ||
       voiceLibraryOpenRef.current
-    ) return;
+    ) {
+      return;
+    }
 
     const nextUserMessage = userMessage(message);
     const priorConversation = messages.map(({ role, content }) => ({ role, content }));
@@ -404,11 +306,9 @@ export default function AvantiqoOperator() {
           conversationKey: "primary",
           pathname,
           message,
-          source,
+          source: source === "voice" ? "voice" : "text",
           locale:
-            typeof navigator !== "undefined"
-              ? navigator.language || null
-              : null,
+            typeof navigator !== "undefined" ? navigator.language || null : null,
           agreementState,
           conversation: priorConversation,
         }),
@@ -416,7 +316,7 @@ export default function AvantiqoOperator() {
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success === false) {
-        throw new Error(result?.error || "Avantiqo Operator could not complete the request");
+        throw new Error(result?.error || "Avantiqo could not complete the request");
       }
 
       const decision = result?.decision || {};
@@ -427,25 +327,20 @@ export default function AvantiqoOperator() {
       setAgreementState(result?.agreement_state || decision?.agreement_state || {});
       setMessages((current) => [
         ...current,
-        assistantMessage(
-          assistantText,
-          {
-            options: decision?.clarification?.options || [],
-            navigation: result?.navigation || null,
-            execution: executionLabel
-              ? {
-                  key: executionLabel,
-                  status: result?.execution?.status || null,
-                  count: executionCount,
-                }
-              : null,
-          },
-        ),
+        assistantMessage(assistantText, {
+          options: decision?.clarification?.options || [],
+          navigation: result?.navigation || null,
+          execution: executionLabel
+            ? {
+                key: executionLabel,
+                status: result?.execution?.status || null,
+                count: executionCount,
+              }
+            : null,
+        }),
       ]);
 
-      if (result?.navigation?.href) {
-        router.push(result.navigation.href);
-      }
+      if (result?.navigation?.href) router.push(result.navigation.href);
 
       if (source === "voice" && assistantText) {
         try {
@@ -457,12 +352,20 @@ export default function AvantiqoOperator() {
         }
       }
     } catch (sendError) {
-      const messageText = sendError?.message || "Avantiqo Operator failed";
+      const messageText = sendError?.message || "Avantiqo failed";
+      const responseText = `I couldn't complete that: ${messageText}`;
       setError(messageText);
       setMessages((current) => [
         ...current,
-        assistantMessage(`I couldn't complete that: ${messageText}`),
+        assistantMessage(responseText),
       ]);
+      if (source === "voice") {
+        try {
+          await requestSpokenReply(responseText);
+        } catch {
+          // Written error remains authoritative.
+        }
+      }
     } finally {
       setBusy(false);
       busyRef.current = false;
@@ -471,67 +374,8 @@ export default function AvantiqoOperator() {
   }
 
   function releaseVoiceStream() {
-    for (const track of mediaStreamRef.current?.getTracks?.() || []) {
-      track.stop();
-    }
+    for (const track of mediaStreamRef.current?.getTracks?.() || []) track.stop();
     mediaStreamRef.current = null;
-  }
-
-  function releaseRealtimeVoice(cancelReason = null) {
-    const abortController = voiceRealtimeAbortRef.current;
-    voiceRealtimeAbortRef.current = null;
-    if (cancelReason) abortController?.abort();
-
-    const session = voiceRealtimeSessionRef.current;
-    voiceRealtimeSessionRef.current = null;
-    if (cancelReason && session) {
-      session.cancel(cancelReason).catch(() => null);
-    }
-
-    const audioContext = voiceRealtimeAudioContextRef.current;
-    voiceRealtimeAudioContextRef.current = null;
-    if (audioContext?.close) {
-      audioContext.close().catch(() => null);
-    }
-  }
-
-  async function prepareRealtimeVoice(stream) {
-    const AudioContextConstructor =
-      window.AudioContext || window.webkitAudioContext || null;
-    if (!AudioContextConstructor) return null;
-
-    const audioContext = new AudioContextConstructor();
-    if (!audioContext.audioWorklet) {
-      audioContext.close().catch(() => null);
-      return null;
-    }
-
-    const abortController = new AbortController();
-    voiceRealtimeAbortRef.current = abortController;
-    voiceRealtimeAudioContextRef.current = audioContext;
-
-    try {
-      if (audioContext.state === "suspended") {
-        await audioContext.resume();
-      }
-      const session = await startOwnedRealtimeRelayTranscription({
-        organizationId,
-        language: navigator.language || null,
-        audioContext,
-        stream,
-        deferAudioCapture: true,
-        signal: abortController.signal,
-      });
-      voiceRealtimeSessionRef.current = session;
-      await session.waitUntilReady();
-      if (!session.startCapture()) {
-        throw new Error("AVANTIQO_VOICE_REALTIME_CAPTURE_NOT_STARTED");
-      }
-      return session;
-    } catch {
-      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_OPERATOR_FALLBACK");
-      return null;
-    }
   }
 
   function stopSilenceDetection() {
@@ -539,28 +383,22 @@ export default function AvantiqoOperator() {
       window.cancelAnimationFrame(voiceAnalyserFrameRef.current);
       voiceAnalyserFrameRef.current = null;
     }
-
     if (voiceHardStopTimerRef.current) {
       window.clearTimeout(voiceHardStopTimerRef.current);
       voiceHardStopTimerRef.current = null;
     }
-
     const audioContext = voiceAudioContextRef.current;
     voiceAudioContextRef.current = null;
-    if (audioContext?.close) {
-      audioContext.close().catch(() => null);
-    }
+    if (audioContext?.close) audioContext.close().catch(() => null);
   }
 
   function startSilenceDetection(stream) {
     stopSilenceDetection();
-
-    const AudioContextConstructor =
-      window.AudioContext || window.webkitAudioContext || null;
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext || null;
 
     voiceHardStopTimerRef.current = window.setTimeout(() => {
       stopVoice();
-    }, 18000);
+    }, VOICE_HARD_STOP_MS);
 
     if (!AudioContextConstructor) return;
 
@@ -579,73 +417,38 @@ export default function AvantiqoOperator() {
 
       const monitor = () => {
         if (!recordingRef.current) return;
-
         analyser.getByteTimeDomainData(samples);
         let sum = 0;
-
         for (const sample of samples) {
           const centered = (sample - 128) / 128;
           sum += centered * centered;
         }
-
         const rms = Math.sqrt(sum / samples.length);
         const now = Date.now();
-
         if (rms > 0.035) {
           voiceHasSpeechRef.current = true;
           voiceLastSoundAtRef.current = now;
         }
-
-        const hasSpeech = voiceHasSpeechRef.current;
-        const silentFor = now - voiceLastSoundAtRef.current;
         const elapsed = now - startedAt;
-
-        if (hasSpeech && elapsed > 900 && silentFor > 1300) {
+        const silentFor = now - voiceLastSoundAtRef.current;
+        if (
+          (voiceHasSpeechRef.current && elapsed > 900 && silentFor > 1300) ||
+          (!voiceHasSpeechRef.current && elapsed > 8000)
+        ) {
           stopVoice();
           return;
         }
-
-        if (!hasSpeech && elapsed > 8000) {
-          stopVoice();
-          return;
-        }
-
         voiceAnalyserFrameRef.current = window.requestAnimationFrame(monitor);
       };
-
       voiceAnalyserFrameRef.current = window.requestAnimationFrame(monitor);
     } catch {
-      // The hard-stop timer still protects the recording if Web Audio is unavailable.
+      // Hard stop still protects the recording.
     }
-  }
-
-  function resumeWakeMode(delay = 900) {
-    if (
-      !wakeEnabledRef.current ||
-      voiceLibraryOpenRef.current ||
-      speakingRef.current
-    ) return;
-
-    wakeSuspendedRef.current = false;
-    window.setTimeout(() => {
-      if (
-        wakeEnabledRef.current &&
-        !voiceLibraryOpenRef.current &&
-        !speakingRef.current &&
-        !busyRef.current &&
-        !voiceBusyRef.current &&
-        !recordingRef.current
-      ) {
-        startWakeRecognition();
-      }
-    }, delay);
   }
 
   async function transcribeVoice(blob) {
     if (!blob?.size || !organizationId) {
-      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_EMPTY_RECORDING");
       releaseVoiceStream();
-      resumeWakeMode();
       return;
     }
 
@@ -654,39 +457,19 @@ export default function AvantiqoOperator() {
     setError("");
 
     try {
-      let transcript = "";
-      const realtimeSession = voiceRealtimeSessionRef.current;
-
-      if (realtimeSession?.ready) {
-        try {
-          transcript = text(await realtimeSession.commit());
-          releaseRealtimeVoice();
-        } catch {
-          releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_COMMIT_FALLBACK");
-        }
-      } else {
-        releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_NOT_READY_FALLBACK");
-      }
-
       releaseVoiceStream();
-
-      if (!transcript) {
-        const locale = navigator.language || "";
-        const result = await transcribeRecordedAudio({
-          audio: blob,
-          organizationId,
-          entityId,
-          locale,
-          mode: "command",
-          timeoutMs: OPERATOR_RECORDED_STT_TIMEOUT_MS,
-        });
-        transcript = text(result.transcript);
-      }
-
+      const result = await transcribeRecordedAudio({
+        audio: blob,
+        organizationId,
+        entityId,
+        locale: navigator.language || "",
+        mode: "command",
+        timeoutMs: OPERATOR_RECORDED_STT_TIMEOUT_MS,
+      });
+      const transcript = text(result.transcript);
       if (!transcript) throw new Error("Voice transcription returned no text");
       await sendMessage(transcript, "voice");
     } catch (voiceError) {
-      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_OPERATOR_FAILED");
       releaseVoiceStream();
       const messageText = voiceError?.message || "Voice input failed";
       setError(messageText);
@@ -697,11 +480,10 @@ export default function AvantiqoOperator() {
     } finally {
       setVoiceBusy(false);
       voiceBusyRef.current = false;
-      resumeWakeMode();
     }
   }
 
-  async function startVoice({ fromWake = false } = {}) {
+  async function startVoice() {
     if (
       voiceLibraryOpenRef.current ||
       speakingRef.current ||
@@ -721,9 +503,6 @@ export default function AvantiqoOperator() {
         throw new Error("Voice recording is not supported by this browser");
       }
 
-      wakeSuspendedRef.current = true;
-      stopWakeRecognition();
-
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = preferredAudioMimeType();
       const recorder = mimeType
@@ -742,12 +521,10 @@ export default function AvantiqoOperator() {
         recordingRef.current = false;
         setRecording(false);
         stopSilenceDetection();
-        releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_MEDIA_RECORDER_FAILED");
         releaseVoiceStream();
         setVoiceBusy(false);
         voiceBusyRef.current = false;
         setError("Voice recording failed");
-        resumeWakeMode();
       };
 
       recorder.onstop = () => {
@@ -756,38 +533,25 @@ export default function AvantiqoOperator() {
         const blob = new Blob(chunks, {
           type: recorder.mimeType || mimeType || "audio/webm",
         });
-
         recordingRef.current = false;
         setRecording(false);
         stopSilenceDetection();
-        transcribeVoice(blob);
+        void transcribeVoice(blob);
       };
 
       setError("");
-
-      // Capture the human immediately. Realtime/GPU warmup is opportunistic
-      // and may never block the start of speech recording.
       recorder.start(250);
       recordingRef.current = true;
       setRecording(true);
-      setWakeHeard(false);
       startSilenceDetection(stream);
-      void prepareRealtimeVoice(stream);
-
-      if (fromWake) {
-        window.setTimeout(() => inputRef.current?.focus(), 0);
-      }
     } catch (voiceError) {
       recordingRef.current = false;
-      setWakeHeard(false);
       stopSilenceDetection();
-      releaseRealtimeVoice("AVANTIQO_VOICE_REALTIME_START_FAILED");
       releaseVoiceStream();
       setRecording(false);
       setVoiceBusy(false);
       voiceBusyRef.current = false;
       setError(voiceError?.message || "Microphone access failed");
-      resumeWakeMode();
     }
   }
 
@@ -797,203 +561,32 @@ export default function AvantiqoOperator() {
     recorder.stop();
   }
 
-  function stopWakeRecognition() {
-    const recognition = wakeRecognitionRef.current;
-    wakeRecognitionRef.current = null;
-    setWakeListening(false);
-
-    if (!recognition) return;
-
-    try {
-      recognition.onend = null;
-      recognition.stop();
-    } catch {
-      // Recognition may already be stopped by the browser.
-    }
-  }
-
-  async function handleWakePhrase() {
-    if (
-      voiceLibraryOpenRef.current ||
-      speakingRef.current ||
-      wakeTriggeringRef.current ||
-      busyRef.current ||
-      voiceBusyRef.current ||
-      recordingRef.current
-    ) {
-      return;
-    }
-
-    wakeTriggeringRef.current = true;
-    wakeSuspendedRef.current = true;
-    setWakeHeard(true);
-    stopWakeRecognition();
-    setError("");
-
-    const primaryChat =
-      typeof document !== "undefined"
-        ? document.querySelector('[data-avantiqo-home-intelligence="true"]')
-        : null;
-    if (!primaryChat) setOpen(true);
-
-    try {
-      await startVoice({ fromWake: true });
-    } finally {
-      wakeTriggeringRef.current = false;
-      if (!recordingRef.current) setWakeHeard(false);
-    }
-  }
-
-  function startWakeRecognition() {
-    if (
-      voiceLibraryOpenRef.current ||
-      speakingRef.current ||
-      !wakeEnabledRef.current ||
-      wakeSuspendedRef.current ||
-      busyRef.current ||
-      voiceBusyRef.current ||
-      recordingRef.current ||
-      wakeRecognitionRef.current
-    ) {
-      return;
-    }
-
-    const Recognition = speechRecognitionConstructor();
-    if (!Recognition) {
-      setWakeSupported(false);
-      setWakeListening(false);
-      return;
-    }
-
-    const recognition = new Recognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = navigator.language || "en-US";
-
-    recognition.onstart = () => {
-      setWakeListening(true);
-      setError("");
-    };
-
-    recognition.onresult = (event) => {
-      // Keyboard clicks can be misheard by browser speech recognition. Never
-      // allow typing activity or an interim hypothesis to trigger the wake path.
-      if (Date.now() < wakeKeyboardBlockedUntilRef.current) return;
-
-      let transcript = "";
-      let hasFinalResult = false;
-
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        if (!result?.isFinal) continue;
-        hasFinalResult = true;
-        transcript += ` ${result[0]?.transcript || ""}`;
-      }
-
-      if (hasFinalResult && hasWakePhrase(transcript)) {
-        handleWakePhrase();
-      }
-    };
-
-    recognition.onerror = (event) => {
-      setWakeListening(false);
-
-      if (event?.error === "not-allowed" || event?.error === "service-not-allowed") {
-        wakeEnabledRef.current = false;
-        setWakeEnabled(false);
-        window.localStorage.removeItem(WAKE_STORAGE_KEY);
-        setError("Microphone permission is required for Hey Avantiqo.");
-        return;
-      }
-
-      if (event?.error === "audio-capture") {
-        setError("Hey Avantiqo cannot access the microphone.");
-      }
-    };
-
-    recognition.onend = () => {
-      if (wakeRecognitionRef.current === recognition) {
-        wakeRecognitionRef.current = null;
-      }
-      setWakeListening(false);
-
-      if (
-        !voiceLibraryOpenRef.current &&
-        !speakingRef.current &&
-        wakeEnabledRef.current &&
-        !wakeSuspendedRef.current &&
-        !busyRef.current &&
-        !voiceBusyRef.current &&
-        !recordingRef.current
-      ) {
-        window.setTimeout(() => startWakeRecognition(), 600);
-      }
-    };
-
-    wakeRecognitionRef.current = recognition;
-
-    try {
-      recognition.start();
-    } catch {
-      wakeRecognitionRef.current = null;
-      setWakeListening(false);
-    }
-  }
-
-  async function enableWakeMode() {
-    if (!wakeSupported) {
-      setError(
-        "This browser does not expose foreground wake-word recognition. You can still use the microphone button.",
-      );
-      return;
-    }
-
-    try {
-      const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      for (const track of permissionStream.getTracks()) track.stop();
-
-      wakeSuspendedRef.current = false;
-      wakeEnabledRef.current = true;
-      setWakeEnabled(true);
-      window.localStorage.setItem(WAKE_STORAGE_KEY, "true");
-      setError("");
-      startWakeRecognition();
-    } catch (wakeError) {
-      wakeEnabledRef.current = false;
-      setWakeEnabled(false);
-      window.localStorage.removeItem(WAKE_STORAGE_KEY);
-      setError(wakeError?.message || "Microphone permission is required for Hey Avantiqo.");
-    }
-  }
-
-  function disableWakeMode() {
-    setWakeHeard(false);
-    wakeEnabledRef.current = false;
-    wakeSuspendedRef.current = true;
-    setWakeEnabled(false);
-    setWakeListening(false);
-    window.localStorage.removeItem(WAKE_STORAGE_KEY);
-    stopWakeRecognition();
-  }
-
-  function toggleWakeMode() {
-    if (wakeEnabled) {
-      disableWakeMode();
-      return;
-    }
-
-    enableWakeMode();
-  }
-
   async function restorePrimaryConversationIntoPanel() {
     if (!organizationId) return;
     try {
       const query = new URLSearchParams({ organizationId, conversationKey: "primary" });
-      const response = await fetch(`/api/operator/turn?${query.toString()}`, { method: "GET", credentials: "same-origin", cache: "no-store" });
+      const response = await fetch(`/api/operator/turn?${query.toString()}`, {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success === false) return;
       setAgreementState(result?.agreement_state || {});
-      const restored = Array.isArray(result?.turns) ? result.turns.filter((turn) => text(turn?.content)).map((turn) => turn.role === "assistant" ? assistantMessage(turn.content, { id: turn.id || undefined, options: Array.isArray(turn?.decision?.clarification?.options) ? turn.decision.clarification.options : [] }) : { ...userMessage(turn.content), id: turn.id || undefined }) : [];
+      const restored = Array.isArray(result?.turns)
+        ? result.turns
+            .filter((turn) => text(turn?.content))
+            .map((turn) =>
+              turn.role === "assistant"
+                ? assistantMessage(turn.content, {
+                    id: turn.id || undefined,
+                    options: Array.isArray(turn?.decision?.clarification?.options)
+                      ? turn.decision.clarification.options
+                      : [],
+                  })
+                : { ...userMessage(turn.content), id: turn.id || undefined },
+            )
+        : [];
       if (restored.length) setMessages(restored);
     } catch {
       // Server-side primary conversation remains authoritative.
@@ -1001,10 +594,16 @@ export default function AvantiqoOperator() {
   }
 
   async function openPanel() {
-    const primaryChat = typeof document !== "undefined" ? document.querySelector('[data-avantiqo-home-intelligence="true"]') : null;
+    const primaryChat =
+      typeof document !== "undefined"
+        ? document.querySelector('[data-avantiqo-home-intelligence="true"]')
+        : null;
     if (primaryChat) {
       primaryChat.scrollIntoView?.({ behavior: "smooth", block: "center" });
-      window.setTimeout(() => document.querySelector('[data-avantiqo-home-input="true"]')?.focus?.(), 0);
+      window.setTimeout(
+        () => document.querySelector('[data-avantiqo-home-input="true"]')?.focus?.(),
+        0,
+      );
       return;
     }
     setOpen(true);
@@ -1018,10 +617,10 @@ export default function AvantiqoOperator() {
       voiceBusyRef.current ||
       recordingRef.current ||
       speakingRef.current
-    ) return;
+    ) {
+      return;
+    }
     voiceLibraryOpenRef.current = true;
-    wakeSuspendedRef.current = true;
-    stopWakeRecognition();
     setError("");
     setVoiceLibraryOpen(true);
   }
@@ -1029,10 +628,6 @@ export default function AvantiqoOperator() {
   function closeVoiceLibrary() {
     voiceLibraryOpenRef.current = false;
     setVoiceLibraryOpen(false);
-    if (wakeEnabledRef.current) {
-      wakeSuspendedRef.current = false;
-      window.setTimeout(() => startWakeRecognition(), 500);
-    }
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }
 
@@ -1044,10 +639,6 @@ export default function AvantiqoOperator() {
     releaseSpokenAudio();
     speakingRef.current = false;
     setSpeaking(false);
-    if (wakeEnabledRef.current) {
-      wakeSuspendedRef.current = false;
-      window.setTimeout(() => startWakeRecognition(), 500);
-    }
   }
 
   if (!businessContext?.ready || !organizationId) return null;
@@ -1060,33 +651,19 @@ export default function AvantiqoOperator() {
         <div className="fixed bottom-6 right-6 z-[80] flex items-center gap-2">
           <button
             type="button"
-            onClick={toggleWakeMode}
-            disabled={speaking}
+            onClick={recording ? stopVoice : startVoice}
+            disabled={interactionDisabled || voiceLibraryOpen}
             className={
-              wakeEnabled
-                ? "flex h-11 items-center gap-2 rounded-full border border-emerald-400/25 bg-[#07100B]/95 px-4 text-emerald-200 shadow-[0_20px_70px_rgba(0,0,0,.55)] backdrop-blur-2xl transition hover:border-emerald-300/45 disabled:opacity-30"
-                : "flex h-11 items-center gap-2 rounded-full border border-white/10 bg-[#0A0A0A]/95 px-4 text-white/45 shadow-[0_20px_70px_rgba(0,0,0,.55)] backdrop-blur-2xl transition hover:border-[#D6A66A]/35 hover:text-white/70 disabled:opacity-30"
+              recording
+                ? "flex h-11 items-center gap-2 rounded-full border border-red-400/25 bg-[#100707]/95 px-4 text-red-200 shadow-[0_20px_70px_rgba(0,0,0,.55)] backdrop-blur-2xl disabled:opacity-30"
+                : "flex h-11 items-center gap-2 rounded-full border border-white/10 bg-[#0A0A0A]/95 px-4 text-white/55 shadow-[0_20px_70px_rgba(0,0,0,.55)] backdrop-blur-2xl transition hover:border-[#D6A66A]/35 hover:text-white/80 disabled:opacity-30"
             }
-            aria-label={wakeEnabled ? "Disable Hey Avantiqo" : "Enable Hey Avantiqo"}
-            aria-pressed={wakeEnabled}
+            aria-label={recording ? "Stop voice recording" : "Talk to Avantiqo"}
+            aria-pressed={recording}
           >
-            {wakeEnabled && !wakeListening ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <Mic size={13} />
-            )}
+            {recording ? <Square size={13} /> : <Mic size={13} />}
             <span className="text-[10px] font-medium uppercase tracking-[0.12em]">
-              {recording
-                ? "Listening…"
-                : wakeHeard
-                  ? "Avantiqo · Heard you"
-                  : wakeEnabled
-                  ? wakeListening
-                    ? "Avantiqo · Listening"
-                    : "Avantiqo · Ready"
-                  : wakeSupported
-                  ? "Enable Hey Avantiqo"
-                  : "Voice Wake Unavailable"}
+              {recording ? "Listening…" : voiceBusy ? "Understanding…" : "Talk to Avantiqo"}
             </span>
           </button>
 
@@ -1094,7 +671,7 @@ export default function AvantiqoOperator() {
             type="button"
             onClick={openPanel}
             className="flex h-14 items-center gap-3 rounded-full border border-[#D6A66A]/35 bg-[#0A0A0A]/95 px-5 text-white shadow-[0_20px_70px_rgba(0,0,0,.75)] backdrop-blur-2xl transition hover:border-[#D6A66A]/65 hover:bg-[#15110B]"
-            aria-label="Open Avantiqo Operator"
+            aria-label="Open Avantiqo"
           >
             <Sparkles size={17} className="text-[#D6A66A]" />
             <span className="text-[12px] font-medium uppercase tracking-[0.14em]">
@@ -1111,7 +688,7 @@ export default function AvantiqoOperator() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-[#D6A66A]">
                   <Sparkles size={13} />
-                  Avantiqo Operator
+                  Avantiqo Secretary
                 </div>
                 <div className="mt-2 truncate text-[12px] text-white/45">
                   {contextLabel}
@@ -1119,27 +696,18 @@ export default function AvantiqoOperator() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={toggleWakeMode}
-                    disabled={voiceLibraryOpen || speaking}
-                    className={
-                      wakeEnabled
-                        ? "inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-emerald-200/70 disabled:opacity-30"
-                        : "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.025] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-white/35 disabled:opacity-30"
-                    }
-                    aria-pressed={wakeEnabled}
+                    onClick={recording ? stopVoice : startVoice}
+                    disabled={interactionDisabled || voiceLibraryOpen}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[#E7C48E]/75 transition hover:border-[#D6A66A]/40 disabled:opacity-30"
                   >
-                    <Mic size={12} />
-                    {wakeEnabled
-                      ? wakeListening
-                        ? "Hey Avantiqo listening"
-                        : "Hey Avantiqo ready"
-                      : "Enable Hey Avantiqo"}
+                    {recording ? <Square size={12} /> : <Mic size={12} />}
+                    {recording ? "Stop listening" : "Talk"}
                   </button>
                   <button
                     type="button"
                     onClick={openVoiceLibrary}
                     disabled={busy || voiceBusy || recording || speaking}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[#E7C48E]/75 transition hover:border-[#D6A66A]/40 disabled:opacity-30"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.025] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-white/45 transition hover:border-[#D6A66A]/30 disabled:opacity-30"
                     aria-label="Open Voice Library"
                   >
                     <Mic size={12} />
@@ -1151,7 +719,7 @@ export default function AvantiqoOperator() {
                 type="button"
                 onClick={closePanel}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.025] text-white/55 transition hover:bg-white/[0.07] hover:text-white"
-                aria-label="Close Avantiqo Operator"
+                aria-label="Close Avantiqo"
               >
                 <X size={16} />
               </button>
@@ -1201,7 +769,7 @@ export default function AvantiqoOperator() {
                         key={option.id}
                         type="button"
                         disabled={busy || voiceBusy || recording || speaking}
-                        onClick={() => sendMessage(option.label)}
+                        onClick={() => sendMessage(option.label, "text")}
                         className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[11px] text-white/65 transition hover:border-[#D6A66A]/35 hover:text-white disabled:opacity-40"
                         title={option.description || option.label}
                       >
@@ -1225,7 +793,7 @@ export default function AvantiqoOperator() {
                   : speaking
                     ? "Speaking with your Avantiqo voice..."
                     : voiceBusy
-                      ? "Starting or understanding your voice message..."
+                      ? "Understanding your voice message..."
                       : "Thinking and checking Avantiqo..."}
               </div>
             ) : null}
@@ -1249,16 +817,22 @@ export default function AvantiqoOperator() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    sendMessage(input);
+                    sendMessage(input, "text");
                   }
                 }}
-                placeholder={recording ? "Listening..." : speaking ? "Avantiqo is speaking..." : "Tell Avantiqo what you need..."}
+                placeholder={
+                  recording
+                    ? "Listening..."
+                    : speaking
+                      ? "Avantiqo is speaking..."
+                      : "Tell Avantiqo what you need..."
+                }
                 className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-1 py-2.5 text-[13px] leading-5 text-white outline-none placeholder:text-white/25 disabled:opacity-50"
               />
 
               <button
                 type="button"
-                onClick={recording ? stopVoice : () => startVoice()}
+                onClick={recording ? stopVoice : startVoice}
                 disabled={interactionDisabled || voiceLibraryOpen}
                 aria-label={recording ? "Stop voice recording" : "Talk to Avantiqo"}
                 aria-pressed={recording}
@@ -1273,7 +847,7 @@ export default function AvantiqoOperator() {
 
               <button
                 type="button"
-                onClick={() => sendMessage(input)}
+                onClick={() => sendMessage(input, "text")}
                 disabled={interactionDisabled || recording || voiceLibraryOpen || !text(input)}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6A66A] text-black transition hover:bg-[#E7C48E] disabled:cursor-not-allowed disabled:opacity-30"
                 aria-label="Send to Avantiqo"
@@ -1283,7 +857,7 @@ export default function AvantiqoOperator() {
             </div>
 
             <div className="mt-2 px-1 text-[9px] uppercase tracking-[0.14em] text-white/20">
-              Hey Avantiqo · Voice + Text · Discuss · Navigate · Execute · Verify
+              Avantiqo-owned Voice + Text · Discuss · Navigate · Execute · Verify
             </div>
           </footer>
 

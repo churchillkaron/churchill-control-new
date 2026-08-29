@@ -1,0 +1,62 @@
+name: Avantiqo Intelligence Fast Service Certification
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-intelligence-fast-service-certification-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-fast-service-certification
+  cancel-in-progress: false
+
+jobs:
+  certify-fast-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail closed if protected credentials are unavailable
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          test -n "$RUNPOD_API_KEY" || { echo "RUNPOD_API_KEY_MISSING"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "SUPABASE_SERVICE_ROLE_KEY_MISSING"; exit 1; }
+          echo "OWNED_INTELLIGENCE_FAST_CERTIFICATION_CREDENTIAL_BOUNDARY=PASS"
+
+      - name: Run one owned Fast service certification
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_EXPECTED_MAIN_COMMIT: ${{ github.sha }}
+          AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_SPEND_APPROVED: "YES"
+          AVANTIQO_INTELLIGENCE_CODE_MISSION_FAST_CERT_MAX_CUSTOMER_CHARGE: "3"
+        run: |
+          node scripts/run-avantiqo-intelligence-code-mission-production-fast-service-certification-local.mjs --execute
+
+      - name: Verify production stayed unchanged
+        if: always()
+        run: |
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "PRICING_ACTIVATION_PERFORMED=false"
+          echo "EXTERNAL_FALLBACK_ALLOWED=false"

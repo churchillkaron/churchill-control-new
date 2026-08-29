@@ -1,9 +1,12 @@
 import process from "node:process";
 
-const CONTRACT = "AVANTIQO_CODE_VERCEL_PRODUCTION_INFERENCE_PROOF_V1";
+const CONTRACT = "AVANTIQO_CODE_VERCEL_PRODUCTION_INFERENCE_PROOF_V2";
 const ENDPOINT_ID = "r79dtnjnrilrlc";
+const ENDPOINT_NAME = "avantiqo-code-v1";
 const EXPECTED_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
-const BASE = `https://api.runpod.ai/v2/${ENDPOINT_ID}`;
+const QUEUE_BASE = `https://api.runpod.ai/v2/${ENDPOINT_ID}`;
+const REST_BASE = "https://rest.runpod.io/v1";
+const TARGET_IDLE_TIMEOUT_SECONDS = 60;
 const text = (value, max = 4000) => String(value ?? "").trim().slice(0, max);
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const finite = (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -19,12 +22,12 @@ async function readJson(response, label) {
   const raw = await response.text();
   let body = {};
   try { body = raw ? JSON.parse(raw) : {}; } catch { body = { message: raw }; }
-  if (!response.ok) throw new Error(`${label}_HTTP_${response.status}:${text(body?.error || body?.message || raw, 1200)}`);
+  if (!response.ok) throw new Error(`${label}_HTTP_${response.status}:${text(body?.detail || body?.error?.message || body?.error || body?.message || raw, 1200)}`);
   return body;
 }
 
-async function request(pathname, key, options = {}) {
-  return readJson(await fetch(`${BASE}${pathname}`, {
+async function queueRequest(pathname, key, options = {}) {
+  return readJson(await fetch(`${QUEUE_BASE}${pathname}`, {
     method: options.method || "GET",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -33,7 +36,20 @@ async function request(pathname, key, options = {}) {
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
     signal: AbortSignal.timeout(30_000),
-  }), CONTRACT);
+  }), `${CONTRACT}_QUEUE`);
+}
+
+async function restRequest(pathname, key, options = {}) {
+  return readJson(await fetch(`${REST_BASE}${pathname}`, {
+    method: options.method || "GET",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: AbortSignal.timeout(30_000),
+  }), `${CONTRACT}_REST`);
 }
 
 function healthSummary(body = {}) {
@@ -63,11 +79,34 @@ function isZeroIdle(summary) {
   return summary.jobs.in_queue === 0 && summary.jobs.in_progress === 0 && !hasAnyWorker(summary);
 }
 
+function endpointSummary(endpoint = {}) {
+  return {
+    id: text(endpoint.id),
+    name: text(endpoint.name),
+    workers_min: finite(endpoint.workersMin),
+    workers_max: finite(endpoint.workersMax),
+    idle_timeout_seconds: finite(endpoint.idleTimeout),
+    scaler_type: text(endpoint.scalerType),
+    scaler_value: finite(endpoint.scalerValue),
+    flashboot: endpoint.flashboot === true || endpoint.flashBoot === true || text(endpoint.flashBootType).toUpperCase() === "FLASHBOOT",
+    network_volume_id: text(endpoint.networkVolumeId) || null,
+  };
+}
+
+function assertEndpointIdentity(summary, phase) {
+  if (summary.id !== ENDPOINT_ID || summary.name !== ENDPOINT_NAME) {
+    throw new Error(`${CONTRACT}_${phase}_ENDPOINT_IDENTITY:${summary.id}/${summary.name}`);
+  }
+  if (summary.workers_min !== 0 || ![0, 1].includes(summary.workers_max)) {
+    throw new Error(`${CONTRACT}_${phase}_UNEXPECTED_WORKER_POLICY:${summary.workers_min}/${summary.workers_max}`);
+  }
+}
+
 async function waitForJob(jobId, key) {
   const deadline = Date.now() + 20 * 60_000;
   const timeline = [];
   while (Date.now() < deadline) {
-    const status = await request(`/status/${encodeURIComponent(jobId)}`, key);
+    const status = await queueRequest(`/status/${encodeURIComponent(jobId)}`, key);
     const normalized = text(status?.status).toUpperCase();
     timeline.push({
       elapsed_ms: Date.now() - startedAt,
@@ -83,11 +122,11 @@ async function waitForJob(jobId, key) {
   throw new Error(`${CONTRACT}_JOB_TIMEOUT:${jobId}`);
 }
 
-async function waitForZeroIdle(key, phase) {
-  const deadline = Date.now() + 4 * 60_000;
+async function waitForZeroIdle(key, phase, timeoutMs = 180_000) {
+  const deadline = Date.now() + timeoutMs;
   const samples = [];
   while (Date.now() < deadline) {
-    const summary = healthSummary(await request("/health", key));
+    const summary = healthSummary(await queueRequest("/health", key));
     samples.push({ elapsed_ms: Date.now() - startedAt, ...summary });
     if (isZeroIdle(summary)) return { health: summary, samples };
     if (summary.jobs.in_queue !== 0 || summary.jobs.in_progress !== 0) {
@@ -95,8 +134,93 @@ async function waitForZeroIdle(key, phase) {
     }
     await sleep(5000);
   }
-  const summary = healthSummary(await request("/health", key));
+  const summary = healthSummary(await queueRequest("/health", key));
   throw new Error(`${CONTRACT}_${phase}_SCALE_DOWN_NOT_VERIFIED:${JSON.stringify(summary)}`);
+}
+
+async function patchEndpoint(key, body, phase) {
+  await restRequest(`/endpoints/${ENDPOINT_ID}`, key, { method: "PATCH", body });
+  const after = endpointSummary(await restRequest(`/endpoints/${ENDPOINT_ID}?includeTemplate=false&includeWorkers=true`, key));
+  if (after.id !== ENDPOINT_ID || after.name !== ENDPOINT_NAME) {
+    throw new Error(`${CONTRACT}_${phase}_PATCH_IDENTITY_VERIFY_FAILED`);
+  }
+  return after;
+}
+
+async function reconcileZeroIdlePolicy(key) {
+  const beforeEndpoint = endpointSummary(await restRequest(`/endpoints/${ENDPOINT_ID}?includeTemplate=false&includeWorkers=true`, key));
+  assertEndpointIdentity(beforeEndpoint, "RECONCILE_BEFORE");
+  const beforeHealth = healthSummary(await queueRequest("/health", key));
+  if (beforeHealth.jobs.in_queue !== 0 || beforeHealth.jobs.in_progress !== 0) {
+    throw new Error(`${CONTRACT}_RECONCILE_LIVE_JOB_PRESENT:${JSON.stringify(beforeHealth.jobs)}`);
+  }
+
+  const needsRepair =
+    beforeEndpoint.workers_max !== 1 ||
+    beforeEndpoint.idle_timeout_seconds !== TARGET_IDLE_TIMEOUT_SECONDS ||
+    hasAnyWorker(beforeHealth);
+
+  if (!needsRepair) {
+    return {
+      mutation_performed: false,
+      before_endpoint: beforeEndpoint,
+      after_endpoint: beforeEndpoint,
+      health_before: beforeHealth,
+      settled: { health: beforeHealth, samples: [{ elapsed_ms: Date.now() - startedAt, ...beforeHealth }] },
+    };
+  }
+
+  let parked = false;
+  let parkedEndpoint = null;
+  let settled = null;
+  let restoreError = null;
+  try {
+    parkedEndpoint = await patchEndpoint(key, {
+      workersMin: 0,
+      workersMax: 0,
+      idleTimeout: TARGET_IDLE_TIMEOUT_SECONDS,
+    }, "PARK");
+    parked = true;
+    if (parkedEndpoint.workers_min !== 0 || parkedEndpoint.workers_max !== 0 || parkedEndpoint.idle_timeout_seconds !== TARGET_IDLE_TIMEOUT_SECONDS) {
+      throw new Error(`${CONTRACT}_PARK_VERIFY_FAILED:${JSON.stringify(parkedEndpoint)}`);
+    }
+    settled = await waitForZeroIdle(key, "PARKED", 180_000);
+  } finally {
+    if (parked) {
+      try {
+        const restored = await patchEndpoint(key, {
+          workersMin: 0,
+          workersMax: 1,
+          idleTimeout: TARGET_IDLE_TIMEOUT_SECONDS,
+        }, "RESTORE");
+        if (restored.workers_min !== 0 || restored.workers_max !== 1 || restored.idle_timeout_seconds !== TARGET_IDLE_TIMEOUT_SECONDS) {
+          throw new Error(`${CONTRACT}_RESTORE_VERIFY_FAILED:${JSON.stringify(restored)}`);
+        }
+      } catch (error) {
+        restoreError = error;
+      }
+    }
+  }
+  if (restoreError) throw restoreError;
+  if (!settled) throw new Error(`${CONTRACT}_PARKED_SETTLEMENT_REQUIRED`);
+
+  const afterEndpoint = endpointSummary(await restRequest(`/endpoints/${ENDPOINT_ID}?includeTemplate=false&includeWorkers=true`, key));
+  assertEndpointIdentity(afterEndpoint, "RECONCILE_AFTER");
+  if (afterEndpoint.workers_max !== 1 || afterEndpoint.idle_timeout_seconds !== TARGET_IDLE_TIMEOUT_SECONDS) {
+    throw new Error(`${CONTRACT}_ZERO_IDLE_POLICY_NOT_RESTORED:${JSON.stringify(afterEndpoint)}`);
+  }
+  const afterHealth = healthSummary(await queueRequest("/health", key));
+  if (!isZeroIdle(afterHealth)) throw new Error(`${CONTRACT}_ZERO_IDLE_NOT_CLEAN_AFTER_RESTORE:${JSON.stringify(afterHealth)}`);
+
+  return {
+    mutation_performed: true,
+    before_endpoint: beforeEndpoint,
+    parked_endpoint: parkedEndpoint,
+    after_endpoint: afterEndpoint,
+    health_before: beforeHealth,
+    settled,
+    health_after_restore: afterHealth,
+  };
 }
 
 if (text(process.env.VERCEL_ENV).toLowerCase() !== "production") {
@@ -113,15 +237,13 @@ if (engineEnabled && !["1", "true", "yes", "on"].includes(engineEnabled)) {
 }
 
 const startedAt = Date.now();
-const initiallyObserved = healthSummary(await request("/health", apiKey));
-if (initiallyObserved.jobs.in_queue !== 0 || initiallyObserved.jobs.in_progress !== 0) {
-  throw new Error(`${CONTRACT}_UNEXPECTED_LIVE_JOB_BEFORE:${JSON.stringify(initiallyObserved.jobs)}`);
+const reconciliation = await reconcileZeroIdlePolicy(apiKey);
+const beforeSubmission = healthSummary(await queueRequest("/health", apiKey));
+if (!isZeroIdle(beforeSubmission)) {
+  throw new Error(`${CONTRACT}_ENDPOINT_NOT_ZERO_IDLE_BEFORE_SUBMISSION:${JSON.stringify(beforeSubmission)}`);
 }
-const settledBefore = isZeroIdle(initiallyObserved)
-  ? { health: initiallyObserved, samples: [{ elapsed_ms: 0, ...initiallyObserved }] }
-  : await waitForZeroIdle(apiKey, "BEFORE");
 
-const submission = await request("/run", apiKey, {
+const submission = await queueRequest("/run", apiKey, {
   method: "POST",
   body: {
     input: {
@@ -157,13 +279,22 @@ if (text(output.runtime_model_source) !== "runpod-cache") throw new Error(`${CON
 if (output.raw_reasoning_persisted !== false) throw new Error(`${CONTRACT}_RAW_REASONING_BOUNDARY_FAILED`);
 if (text(output.result).length < 20) throw new Error(`${CONTRACT}_RESULT_REQUIRED`);
 
-const settledAfter = await waitForZeroIdle(apiKey, "AFTER");
+const settledAfter = await waitForZeroIdle(apiKey, "AFTER", 180_000);
+const finalEndpoint = endpointSummary(await restRequest(`/endpoints/${ENDPOINT_ID}?includeTemplate=false&includeWorkers=true`, apiKey));
+assertEndpointIdentity(finalEndpoint, "FINAL");
+if (finalEndpoint.workers_max !== 1 || finalEndpoint.idle_timeout_seconds !== TARGET_IDLE_TIMEOUT_SECONDS) {
+  throw new Error(`${CONTRACT}_FINAL_ZERO_IDLE_POLICY:${JSON.stringify(finalEndpoint)}`);
+}
+
 const evidence = {
   success: true,
   contract: CONTRACT,
   vercel_environment: "production",
   vercel_git_commit_sha: text(process.env.VERCEL_GIT_COMMIT_SHA) || null,
   endpoint_id: ENDPOINT_ID,
+  zero_idle_reconciliation: reconciliation,
+  endpoint_before_submission: finalEndpoint,
+  health_before_submission: beforeSubmission,
   job_id: jobId,
   runpod_status: runpodStatus,
   delay_time_ms: finite(completed.status?.delayTime),
@@ -184,14 +315,12 @@ const evidence = {
     raw_reasoning_persisted: false,
   },
   status_timeline: completed.timeline,
-  health_initially_observed: initiallyObserved,
-  pre_proof_scale_down_samples: settledBefore.samples,
-  health_before_submission: settledBefore.health,
   post_proof_scale_down_samples: settledAfter.samples,
   health_after: settledAfter.health,
+  endpoint_after: finalEndpoint,
   zero_running_workers_after: isZeroIdle(settledAfter.health),
   production_inference_performed: true,
-  endpoint_mutation_performed: false,
+  endpoint_mutation_performed: reconciliation.mutation_performed,
   repository_write_performed: false,
   secrets_printed: false,
 };

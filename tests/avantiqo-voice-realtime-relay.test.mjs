@@ -73,11 +73,20 @@ test("Voice realtime relay forwards only bounded audio lifecycle events", () => 
   assert.match(relay, /SESSION_HARD_TIMEOUT_MS = 90_000/);
 });
 
-test("Voice realtime load-balanced endpoint has its own Safe Lease controller", () => {
+test("Voice realtime load-balanced endpoint has a v2 Safe Lease controller", () => {
   assert.match(safeLease, /AVANTIQO_VOICE_REALTIME_SAFE_LEASE_V1/);
   assert.match(safeLease, /AVANTIQO_RUNPOD_SAFE_LEASE_V2/);
-  assert.match(safeLease, /CANONICAL_ENDPOINT_NAME = "avantiqo-voice-stt-v1-realtime"/);
-  assert.match(safeLease, /endpoint_type: "LOAD_BALANCER"/);
+  assert.match(safeLease, /CANONICAL_ENDPOINT_NAME = "avantiqo-voice-stt-realtime-v1"/);
+  assert.match(safeLease, /CANONICAL_ENDPOINT_TYPE = "LOAD_BALANCER"/);
+  assert.match(safeLease, /CANONICAL_GPU_POOL = "AMPERE_16"/);
+  assert.match(safeLease, /REST_BASE = "https:\/\/api\.runpod\.io\/v2"/);
+  assert.match(safeLease, /endpointWorkersUrl\(endpointId: string\)/);
+  assert.match(safeLease, /`\$\{endpointUrl\(endpointId\)\}\/workers`/);
+  assert.match(safeLease, /body:\s*\{\s*workers:\s*\{\s*min:\s*0,\s*max:\s*workersMax,/s);
+  assert.match(safeLease, /endpoint_type: CANONICAL_ENDPOINT_TYPE/);
+  assert.match(safeLease, /runpod_control_api: "v2"/);
+  assert.match(safeLease, /worker_inventory_api: "\/v2\/serverless\/\{id\}\/workers"/);
+  assert.match(safeLease, /scaler_type: "REQUEST_COUNT"/);
   assert.match(safeLease, /resting_workers_min:\s*0/);
   assert.match(safeLease, /resting_workers_max:\s*0/);
   assert.match(safeLease, /leased_workers_min:\s*0/);
@@ -91,9 +100,23 @@ test("Voice realtime load-balanced endpoint has its own Safe Lease controller", 
   assert.match(safeLease, /queue_api_allowed:\s*false/);
   assert.match(safeLease, /purge_queue_allowed:\s*false/);
   assert.match(safeLease, /direct_run_allowed:\s*false/);
+  assert.doesNotMatch(safeLease, /rest\.runpod\.io\/v1/);
+  assert.doesNotMatch(safeLease, /includeWorkers/);
+  assert.doesNotMatch(safeLease, /workersMin/);
+  assert.doesNotMatch(safeLease, /workersMax/);
   assert.doesNotMatch(safeLease, /\/run\b/);
   assert.doesNotMatch(safeLease, /\/health\b/);
   assert.doesNotMatch(safeLease, /purge-queue/);
+});
+
+test("Voice realtime Safe Lease validates v2 load-balancer identity before scaling", () => {
+  assert.match(safeLease, /text\(endpoint\.type\) !== CANONICAL_ENDPOINT_TYPE/);
+  assert.match(safeLease, /text\(scaling\.type\) !== "REQUEST_COUNT"/);
+  assert.match(safeLease, /pools\.length !== 1/);
+  assert.match(safeLease, /pools\[0\] !== CANONICAL_GPU_POOL/);
+  assert.match(safeLease, /finite\(gpu\.count, -1\) !== CANONICAL_GPU_COUNT/);
+  assert.match(safeLease, /activeWorkers\(state\.workerInventory\)\.length !== 0/);
+  assert.match(safeLease, /activeWorkers\(state\.workerInventory\)\.length > 1/);
 });
 
 test("Voice realtime Safe Lease uses current Supabase secret-key header semantics", () => {

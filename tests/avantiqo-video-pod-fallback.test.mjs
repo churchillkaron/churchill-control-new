@@ -7,10 +7,20 @@ test("Pod control is exact RTX PRO 4500 Secure Cloud EU-RO-1 on certified cache"
   const s = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js");
   assert.match(s, /NVIDIA RTX PRO 4500 Blackwell/); assert.match(s, /EU-RO-1/);
   assert.match(s, /cloudType: "SECURE"/); assert.match(s, /minRAMPerGPU: 128/);
-  assert.match(s, /avantiqo-video-cache-eu-ro-1/); assert.match(s, /volumeMountPath: "\/runpod-volume"/);
+  assert.match(s, /avantiqo-video-cache-eu-ro-1/); assert.ok(s.includes('volumeMountPath: "/runpod-volume"'));
   assert.match(s, /sha256:44ef09f27a402b2890007a3620b772240913e68fa6ceafcc06436af2c1023adc/);
   assert.match(s, /if \(current && !TERMINAL\.has\(current\)\) return true/);
   assert.match(s, /if \(current\) return TERMINAL\.has\(current\)/);
+});
+
+test("Pod readiness reuses V69 response normalization and authoritative template inventory", async () => {
+  const api = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js");
+  assert.match(api, /function normalizeRows/); assert.match(api, /function normalizeEnv/);
+  assert.match(api, /\/templates\?includeEndpointBoundTemplates=true/);
+  assert.match(api, /normalizeRows\(rawVolumes, \["networkVolumes", "networkvolumes"\]\)/);
+  assert.match(api, /normalizeRows\(rawPods, \["pods"\]\)/);
+  assert.match(api, /const template = templates\.find/); assert.match(api, /normalizeEnv\(template\.env\)/);
+  assert.match(api, /Authorization: `Bearer \$\{key\(\)\}`/); assert.match(api, /AvantiqoVideoPodV72/);
 });
 
 test("Pod readiness refuses low capacity and busy shared cache", async () => {
@@ -66,4 +76,5 @@ test("V72 is exactly one final full path certification and proves zero Pods", as
   assert.match(s, /AVANTIQO_VIDEO_FINAL_V72_APPROVED/); assert.match(s, /duration_seconds: 2/);
   assert.match(s, /OWNED_POD_FALLBACK/); assert.match(s, /OWNED_RUNPOD_POD_V5/); assert.match(s, /FINAL_MASTER_NOT_4K/);
   assert.match(s, /listActiveAvantiqoVideoPods/); assert.match(s, /ACTIVE_VIDEO_POD_REMAINS/); assert.match(s, /active_video_pods_after: 0/);
+  assert.match(s, /error_code: readiness\.error/); assert.match(s, /readiness\.error \|\| "NO_DETAIL"/);
 });

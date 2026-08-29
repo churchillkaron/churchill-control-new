@@ -54,6 +54,7 @@ const readiness = await inspectAvantiqoVideoPodReadiness();
 console.log(`AVANTIQO_VIDEO_V72_POD_PREFLIGHT=${JSON.stringify({
   ready: readiness.ready === true,
   reason: readiness.reason || null,
+  error_code: readiness.error || null,
   gpu_type_id: readiness.gpu_type_id || readiness.capacity?.gpu_type_id || null,
   data_center_id: readiness.data_center_id || readiness.capacity?.data_center_id || null,
   stock: readiness.capacity?.stock || null,
@@ -61,7 +62,9 @@ console.log(`AVANTIQO_VIDEO_V72_POD_PREFLIGHT=${JSON.stringify({
   network_volume_name: readiness.network_volume_name || null,
   immutable_image: readiness.immutable_image || null,
 })}`);
-if (readiness.ready !== true) throw new Error(`${CONTRACT}_POD_NOT_READY:${readiness.reason || "UNKNOWN"}`);
+if (readiness.ready !== true) {
+  throw new Error(`${CONTRACT}_POD_NOT_READY:${readiness.reason || "UNKNOWN"}:${readiness.error || "NO_DETAIL"}`);
+}
 if ((readiness.gpu_type_id || readiness.capacity?.gpu_type_id) !== "NVIDIA RTX PRO 4500 Blackwell") throw new Error(`${CONTRACT}_GPU_DRIFT`);
 if ((readiness.data_center_id || readiness.capacity?.data_center_id) !== "EU-RO-1") throw new Error(`${CONTRACT}_DATA_CENTER_DRIFT`);
 if ((readiness.capacity?.stock_rank ?? 0) < 3) throw new Error(`${CONTRACT}_CAPACITY_BELOW_MEDIUM`);

@@ -26,9 +26,11 @@ COPY services/avantiqo-code-engine/requirements.txt ./requirements.txt
 RUN uv pip install --system -r requirements.txt \
     && python3 -c "from importlib.metadata import version; import runpod, vllm; assert version('runpod') == '1.10.0', version('runpod'); assert version('vllm') == '0.27.1', version('vllm'); print('AVANTIQO_CODE_VLLM_BUILD_CHECK=PASS')"
 COPY services/avantiqo-code-engine/handler.py ./handler.py
-RUN python3 -m py_compile handler.py
+COPY services/avantiqo-code-engine/serverless_boot.py ./serverless_boot.py
+RUN python3 -m py_compile handler.py serverless_boot.py
 
-# The upstream vllm-openai image has ENTRYPOINT ["vllm", "serve"]. Replace it
-# completely because RunPod invokes our bounded worker handler, not the generic
-# OpenAI-compatible HTTP server.
-ENTRYPOINT ["python3", "-u", "handler.py"]
+# Serverless uses a dedicated boot entrypoint that loads the already-certified
+# Code engine before RunPod begins accepting work. This allows FlashBoot to
+# snapshot a model-resident worker after scale-down instead of a model-free
+# Python process. The shared handler remains unchanged for the certified Pod lane.
+ENTRYPOINT ["python3", "-u", "serverless_boot.py"]

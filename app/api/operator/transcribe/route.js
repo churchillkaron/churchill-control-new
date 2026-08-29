@@ -14,6 +14,9 @@ import {
   pollOperatorAsyncTranscription,
   startOperatorAsyncTranscription,
 } from "@/lib/operator/runtime/OperatorVoiceAsyncTranscriptionRuntime";
+import {
+  inspectOperatorVoiceTranscript,
+} from "@/lib/operator/voice/OperatorVoiceTranscriptSafety";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -88,6 +91,21 @@ function errorResponse(error, status = 500) {
   return Response.json({ success: false, error }, { status });
 }
 
+function rejectedTranscriptResponse(inspection, mode) {
+  console.warn("OPERATOR_TRANSCRIPTION_REJECTED", {
+    mode,
+    reason: inspection?.reason || "AVANTIQO_VOICE_TRANSCRIPT_REJECTED",
+    raw_transcript_returned: false,
+  });
+
+  const error = inspection?.reason === "AVANTIQO_VOICE_INTERNAL_PROMPT_ECHO_REJECTED"
+    ? "Voice transcription matched internal recognition context. Please speak again."
+    : inspection?.reason === "AVANTIQO_VOICE_TRANSCRIPT_EMPTY"
+      ? "No speech detected"
+      : "Voice transcription was rejected as invalid. Please speak again.";
+  return errorResponse(error, 422);
+}
+
 function voiceLanguageCookie(language) {
   const value = text(language).toLowerCase();
   if (!/^[a-z]{2,3}$/.test(value)) return null;
@@ -101,8 +119,9 @@ function voiceLanguageCookie(language) {
 }
 
 function completedResponse(result, { mode, locale, speechLanguage = null }) {
-  const transcript = text(result?.transcript);
-  if (!transcript && mode !== "wake") return errorResponse("No speech detected", 422);
+  const inspection = inspectOperatorVoiceTranscript(result?.transcript, { mode });
+  if (!inspection.safe) return rejectedTranscriptResponse(inspection, mode);
+  const transcript = inspection.transcript;
   const detectedLanguage = text(result?.detected_language) || null;
   const language = text(result?.language) || detectedLanguage;
   const languageSource = text(result?.language_source) || (speechLanguage ? "requested" : detectedLanguage ? "detected" : null);

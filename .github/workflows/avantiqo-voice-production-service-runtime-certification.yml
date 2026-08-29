@@ -1,11 +1,7 @@
 name: Avantiqo Voice Production Service Runtime Certification
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/requests/avantiqo-voice-production-service-runtime-certification.json
+  workflow_dispatch:
 
 permissions:
   contents: read

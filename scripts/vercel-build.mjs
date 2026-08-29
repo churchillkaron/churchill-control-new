@@ -5,6 +5,11 @@ const marker = "[code-production-proof]";
 const message = String(process.env.VERCEL_GIT_COMMIT_MESSAGE || "").toLowerCase();
 const production = String(process.env.VERCEL_ENV || "").toLowerCase() === "production";
 
+if (production && !String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim()) {
+  console.error("AVANTIQO_PRODUCTION_ENV_PREFLIGHT_FAILED missing=SUPABASE_SERVICE_ROLE_KEY");
+  process.exit(1);
+}
+
 if (production && message.includes(marker)) {
   const proof = spawnSync(process.execPath, ["scripts/run-avantiqo-code-vercel-production-inference-proof.mjs"], {
     cwd: process.cwd(),

@@ -36,6 +36,23 @@ Never:
 
 ---
 
+# Studio-First Compute Boundary
+
+Canonical contract:
+- `docs/STUDIO_FIRST_COMPUTE.md`
+- `AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1`
+
+Rule:
+- if an operation can run correctly inside Avantiqo Studio without paid external compute or paid GPU execution, it MUST run in Studio
+- paid workers execute only the smallest irreducible GPU/model/external-side-effect operation
+- existing worker lifetime, existing container dependencies, implementation convenience, or avoiding Studio engineering work are never valid reasons to place Studio-capable work on paid compute
+- CPU media work such as FFmpeg, encode, transcode, mux/demux, frame extraction, ordinary resize/crop, storage finalization, metadata, validation, packaging and cleanup belongs in Studio whenever technically possible
+- paid workers must return control as soon as the irreducible paid operation is complete
+
+Every paid-worker change must pass `scripts/studio-first-compute-boundary-audit.mjs`.
+
+---
+
 # API Rules
 
 Routes:

@@ -390,14 +390,20 @@ try {
     throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_MULTI_OPERATION_PACKAGE_REQUIRED");
   }
 
-  const usages = await UsageRuntime.list({
+  const usages = await UsageRuntime.provider({
     organization_id: ORGANIZATION_ID,
-    service_id: SERVICE_ID,
-    limit: 20,
+    provider: PROVIDER,
   });
-  const providerUsages = list(usages?.items || usages).filter((entry) =>
-    text(entry?.provider) === PROVIDER
-  );
+  const providerUsages = list(usages).filter((entry) => {
+    const createdAtMs = Date.parse(text(entry?.created_at, 120));
+    return (
+      text(entry?.provider) === PROVIDER &&
+      text(entry?.capability) === SERVICE_ID &&
+      text(entry?.status).toUpperCase() === "SUCCESS" &&
+      Number.isFinite(createdAtMs) &&
+      createdAtMs >= startedAt
+    );
+  });
   if (!providerUsages.length) {
     throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_PROVIDER_USAGE_REQUIRED");
   }
@@ -431,6 +437,8 @@ try {
     final_diff_observed: true,
     worldclass_quality_verified: true,
     product_completion_criteria_verified: true,
+    provider_usage_count: providerUsages.length,
+    provider_usage_current_certification_only: true,
     wallet_debit_thb: walletDebit,
     serverless_before: serverlessBefore,
     serverless_after: serverlessAfter,

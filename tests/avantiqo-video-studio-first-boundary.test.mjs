@@ -40,10 +40,11 @@ test("Video Pod runtime ends paid GPU lifecycle before Studio media processing",
   assert.match(runtime, /intermediate_upload: intermediateUpload/);
   assert.doesNotMatch(runtime, /storage_upload: upload/);
   assert.match(runtime, /assembleCreativeVideoStudioFoundation/);
-  const deleteIndex = runtime.indexOf("await deleteVideoPod(podId)");
-  const studioIndex = runtime.indexOf("finalizeStudioFoundation({ organizationId, podJob, saved })");
-  assert.ok(deleteIndex >= 0 && studioIndex >= 0 && deleteIndex < studioIndex, "Pod must be deleted before Studio foundation assembly");
-  assert.match(runpod, new RegExp(IMMUTABLE_GPU_ONLY_IMAGE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  const receiptBranch = runtime.indexOf("if (saved) {");
+  const deleteIndex = runtime.indexOf("await deleteVideoPod(podId)", receiptBranch);
+  const studioIndex = runtime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", receiptBranch);
+  assert.ok(receiptBranch >= 0 && deleteIndex > receiptBranch && studioIndex > deleteIndex, "Pod must be deleted before Studio foundation assembly");
+  assert.ok(runpod.includes(IMMUTABLE_GPU_ONLY_IMAGE), "Pod runtime must use the certified GPU-only immutable image");
 });
 
 test("Video mastering is Studio-owned and FAL-free", async () => {

@@ -79,6 +79,8 @@ def read_input(job):
 
 
 def write_output(video, output_path):
+    if video.ndim != 4:
+        raise RuntimeError(f"AVANTIQO_VIDEO_FLASHVSR_OUTPUT_RANK_INVALID:{video.ndim}")
     frames = rearrange(video, "C T H W -> T H W C")
     frames = ((frames.float() + 1.0) * 127.5).clamp(0, 255).to(torch.uint8).cpu().numpy()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -126,7 +128,7 @@ def main():
             local_range=11,
             color_fix=True,
         )
-        output_frames, output_width, output_height, output_bytes = write_output(video[0], output_path)
+        output_frames, output_width, output_height, output_bytes = write_output(video, output_path)
         receipt.update({
             "success": True,
             "status": "completed",

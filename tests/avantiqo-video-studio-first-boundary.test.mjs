@@ -6,7 +6,7 @@ const ROOT = new URL("../", import.meta.url);
 const read = (relative) => readFile(new URL(relative, ROOT), "utf8");
 const IMMUTABLE_GPU_ONLY_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-worker-gpu-only@sha256:2f477f95fcc46fdcb7aff1dda03944ad282eb3a7d33c95098bd13d00a76c3425";
 
-test("active Video paid worker is GPU-only and FFmpeg-free", async () => {
+test("active Video paid generation worker is GPU-only and FFmpeg-free", async () => {
   const [dockerfile, handler, core, requirements] = await Promise.all([
     read("services/avantiqo-video-engine/Dockerfile.v6"),
     read("services/avantiqo-video-engine/handler_v6.py"),
@@ -29,7 +29,7 @@ test("active Video paid worker is GPU-only and FFmpeg-free", async () => {
   assert.match(handler, /COMPUTE_BOUNDARY_CONTRACT = "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1"/);
 });
 
-test("Video Pod runtime ends paid GPU lifecycle before Studio media processing", async () => {
+test("Video generation Pod ends paid GPU lifecycle before Studio media processing", async () => {
   const [runtime, runpod] = await Promise.all([
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js"),
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js"),
@@ -47,19 +47,45 @@ test("Video Pod runtime ends paid GPU lifecycle before Studio media processing",
   assert.ok(runpod.includes(IMMUTABLE_GPU_ONLY_IMAGE), "Pod runtime must use the certified GPU-only immutable image");
 });
 
-test("Video mastering is Studio-owned and FAL-free", async () => {
-  const [workflow, master, foundation] = await Promise.all([
+test("Video 4K uses learned FlashVSR while lower masters stay Studio-owned", async () => {
+  const [workflow, master, foundation, flashStudio, flashPod, flashWorker, flashDocker] = await Promise.all([
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoWorkflowRuntimeV3.js"),
     read("lib/creative/video/runtime/CreativeVideoStudioMasterRuntime.js"),
     read("lib/creative/video/runtime/CreativeVideoStudioFoundationRuntime.js"),
+    read("lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js"),
+    read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js"),
+    read("services/avantiqo-video-flashvsr/flashvsr_worker.py"),
+    read("services/avantiqo-video-flashvsr/Dockerfile"),
   ]);
 
   assert.doesNotMatch(workflow, /FAL_KEY|FAL_API_KEY|queue\.fal\.run|fal-ai\/bytedance-upscaler/i);
-  assert.match(workflow, /renderCreativeVideoStudioMaster/);
-  assert.match(workflow, /studio_compute_only_mastering = true/);
+  assert.match(workflow, /generation_backend: "OWNED_RUNPOD_POD_V6"/);
+  assert.match(workflow, /state\.master_resolution === "4k"/);
+  assert.match(workflow, /submitAvantiqoVideoFlashVsrMaster/);
+  assert.match(workflow, /learned_super_resolution_used = true/);
+  assert.match(workflow, /gpu_deleted_before_studio_encode/);
   assert.match(master, /STUDIO_CPU_FFMPEG_LANCZOS/);
   assert.match(master, /gpu_compute_used: false/);
-  assert.match(master, /fal_contacted: false/);
   assert.match(foundation, /ffmpeg_location: "STUDIO"/);
   assert.match(foundation, /gpu_compute_used: false/);
+
+  assert.match(flashStudio, /OWNED_GPU_FLASHVSR_V1_1_STUDIO_4K/);
+  assert.match(flashStudio, /learned_super_resolution_used: true/);
+  assert.match(flashStudio, /studio_final_encoding: true/);
+  assert.match(flashStudio, /gpu_video_encoding_used: false/);
+  assert.match(flashStudio, /-frames:v", String\(prepared\.source_frame_count\)/);
+  assert.match(flashPod, /AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"/);
+  const receiptIndex = flashPod.indexOf("if (receipt) {");
+  const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", receiptIndex);
+  const finalStudioIndex = flashPod.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", receiptIndex);
+  assert.ok(receiptIndex >= 0 && gpuDeleteIndex > receiptIndex && finalStudioIndex > gpuDeleteIndex, "FlashVSR GPU Pod must be deleted before Studio final encoding");
+
+  assert.doesNotMatch(flashDocker, /\bffmpeg\b|libx264|libx265/i);
+  assert.match(flashDocker, /BLOCK_SPARSE_ATTN_CUDA_ARCHS=80/);
+  assert.match(flashDocker, /TORCH_CUDA_ARCH_LIST=8\.0/);
+  assert.doesNotMatch(flashWorker, /\bffmpeg\b|libx264|libx265|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai\//i);
+  assert.match(flashWorker, /MODEL_REVISION = "a258bf2d5b99bf54cf048d901edc866591d5ea0b"/);
+  assert.match(flashWorker, /video_encoded_on_paid_worker": False/);
+  assert.match(flashWorker, /final_artifact_persisted_on_paid_worker": False/);
+  assert.match(flashWorker, /ffmpeg_used_on_paid_worker": False/);
 });

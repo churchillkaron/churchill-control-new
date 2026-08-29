@@ -10,6 +10,8 @@ const FAST_BINDING = "OWNED_INTELLIGENCE_FAST_V1";
 const FAST_ASSESSMENT_CONTRACT = "AVANTIQO_PRODUCT_REPOSITORY_ASSESSMENT_V1";
 const PARALLEL_SAFE_LEASE = "scripts/run-avantiqo-runpod-safe-lease-v2-parallel-local.mjs";
 const FAST_CHILD = "scripts/run-avantiqo-intelligence-code-mission-production-fast-assessment-local.mjs";
+const FAST_CAPACITY_REPAIR = "scripts/repair-avantiqo-intelligence-fast-volume-local-capacity-local.mjs";
+const FAST_CAPACITY_CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_VOLUME_LOCAL_CAPACITY_REPAIR_V1";
 const CANONICAL_ORGANIZATION_NAME = "Avantiqo Platform";
 const CANONICAL_ORGANIZATION_TYPE = "enterprise_group";
 const DEFAULT_MAX_CUSTOMER_CHARGE = 3;
@@ -79,6 +81,37 @@ function requireExecutionApproval() {
   if (text(process.env.NODE_ENV, 40).toLowerCase() !== "development") {
     throw new Error(`${CONTRACT}_DEVELOPMENT_ENV_REQUIRED`);
   }
+}
+function runFastCapacityGate(env) {
+  const result = spawnSync(
+    process.execPath,
+    [FAST_CAPACITY_REPAIR, "--apply"],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...env,
+        AVANTIQO_INTELLIGENCE_FAST_CAPACITY_REPAIR_APPROVED: "YES",
+      },
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  const stdout = text(result.stdout, 200000);
+  const stderr = text(result.stderr, 12000);
+  if (stdout) process.stdout.write(`${stdout}\n`);
+  if (stderr) process.stderr.write(`${stderr}\n`);
+  if (result.error) throw result.error;
+  if (result.signal) throw new Error(`${CONTRACT}_FAST_CAPACITY_GATE_SIGNAL:${result.signal}`);
+  if (result.status !== 0) {
+    throw new Error(`${CONTRACT}_FAST_CAPACITY_GATE_FAILED_RC:${result.status}`);
+  }
+  if (!stdout.includes(`${FAST_CAPACITY_CONTRACT}=PASS`)) {
+    throw new Error(`${CONTRACT}_FAST_CAPACITY_GATE_CONTRACT_NOT_PROVEN`);
+  }
+  if (!stdout.includes(`${FAST_CAPACITY_CONTRACT}_PAID_CERTIFICATION_READY=true`)) {
+    throw new Error(`${CONTRACT}_FAST_CAPACITY_NOT_STRONG_ENOUGH_FOR_PAID_CERTIFICATION`);
+  }
+  return true;
 }
 function runFastChild(env) {
   const result = spawnSync(
@@ -216,6 +249,8 @@ console.log(JSON.stringify({
   deep_provider_requests_allowed: 0,
   projected_max_customer_charge: projectedMaxCharge,
   configured_max_customer_charge: configuredMaxCharge,
+  live_capacity_gate_required: true,
+  live_capacity_minimum_stock_status: "MEDIUM",
   runpod_mutation_performed: false,
   provider_requests_submitted: 0,
   production_deploy_performed: false,
@@ -223,7 +258,6 @@ console.log(JSON.stringify({
 }, null, 2));
 console.log(`${CONTRACT}_PREFLIGHT=PASS`);
 
-const executionStartedAt = new Date().toISOString();
 const assessmentPath = `/tmp/avantiqo-intelligence-code-mission-fast-cert-assessment-${process.pid}.json`;
 const commonEnv = {
   ...process.env,
@@ -235,6 +269,11 @@ const commonEnv = {
   AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_ASSESSMENT_PATH: assessmentPath,
 };
 
+console.log("=== FAST LIVE CAPACITY GATE ===");
+runFastCapacityGate(commonEnv);
+console.log(`${CONTRACT}_FAST_LIVE_CAPACITY_GATE=PASS`);
+
+const executionStartedAt = new Date().toISOString();
 console.log("=== SINGLE FAST SERVICE-ACCOUNTED REPOSITORY ASSESSMENT ===");
 runFastChild(commonEnv);
 const executionFinishedAt = new Date().toISOString();
@@ -330,6 +369,7 @@ console.log(JSON.stringify({
     direct_endpoint_scaling_performed_by_child: false,
     provider_selection_changed: false,
     pricing_activation_performed: false,
+    live_capacity_gate_passed_before_paid_inference: true,
   },
   secrets_printed: false,
 }, null, 2));

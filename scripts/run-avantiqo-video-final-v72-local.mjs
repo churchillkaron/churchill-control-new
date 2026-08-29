@@ -12,6 +12,7 @@ const DEFAULT_USAGE_ID = "video-v72-ephemeral-pod-final-20260829";
 const POLL_MS = 15_000;
 const TIMEOUT_MS = 115 * 60 * 1000;
 const POD_LEASE_PREFIX = "pod-fallback:";
+const CERTIFIED_IMMUTABLE_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-worker-32gb-candidate@sha256:44ef09f27a402b2890007a3620b772240913e68fa6ceafcc06436af2c1023adc";
 const CERTIFIED_PRIMARY_GPU_POOL = Object.freeze([
   "NVIDIA RTX PRO 4500 Blackwell",
   "NVIDIA B200",
@@ -66,26 +67,6 @@ const [
   import("../lib/shared/supabase/admin.js"),
 ]);
 
-const readiness = await inspectAvantiqoVideoPodReadiness();
-console.log(`AVANTIQO_VIDEO_V72_POD_PREFLIGHT=${JSON.stringify({
-  ready: readiness.ready === true,
-  reason: readiness.reason || null,
-  error_code: readiness.error || null,
-  gpu_type_id: readiness.gpu_type_id || readiness.capacity?.gpu_type_id || null,
-  gpu_type_pool: readiness.capacity?.gpu_type_pool || null,
-  data_center_id: readiness.data_center_id || readiness.capacity?.data_center_id || null,
-  stock: readiness.capacity?.stock || null,
-  stock_rank: readiness.capacity?.stock_rank ?? null,
-  network_volume_name: readiness.network_volume_name || null,
-  immutable_image: readiness.immutable_image || null,
-})}`);
-if (readiness.ready !== true) {
-  throw new Error(`${CONTRACT}_POD_NOT_READY:${readiness.reason || "UNKNOWN"}:${readiness.error || "NO_DETAIL"}`);
-}
-if (!sameSet(readiness.capacity?.gpu_type_pool || [], CERTIFIED_PRIMARY_GPU_POOL)) throw new Error(`${CONTRACT}_GPU_POOL_DRIFT`);
-if ((readiness.data_center_id || readiness.capacity?.data_center_id) !== "EU-RO-1") throw new Error(`${CONTRACT}_PRIMARY_DATA_CENTER_DRIFT`);
-if ((readiness.capacity?.stock_rank ?? 0) < 3) throw new Error(`${CONTRACT}_PRIMARY_CAPACITY_BELOW_MEDIUM`);
-
 const supabase = getServiceSupabase();
 async function readState() {
   const { data, error } = await supabase.storage.from(BUCKET).download(statePath);
@@ -99,7 +80,42 @@ async function readState() {
 }
 
 let state = await readState();
-if (!state) {
+const resumedExistingState = Boolean(state);
+let readiness = null;
+if (state) {
+  console.log(`AVANTIQO_VIDEO_V72_RESUME=${JSON.stringify({
+    existing_state: true,
+    stage: state.stage || null,
+    status: state.status || null,
+    generation_backend: state.generation_backend || null,
+    pod_id: state.pod_job?.pod_id || null,
+    placement_mode: state.pod_job?.placement_mode || null,
+    data_center_id: state.pod_job?.data_center_id || null,
+    network_volume_name: state.pod_job?.network_volume_name || null,
+    new_pod_preflight_skipped: true,
+    new_generation_submitted: false,
+  })}`);
+} else {
+  readiness = await inspectAvantiqoVideoPodReadiness();
+  console.log(`AVANTIQO_VIDEO_V72_POD_PREFLIGHT=${JSON.stringify({
+    ready: readiness.ready === true,
+    reason: readiness.reason || null,
+    error_code: readiness.error || null,
+    gpu_type_id: readiness.gpu_type_id || readiness.capacity?.gpu_type_id || null,
+    gpu_type_pool: readiness.capacity?.gpu_type_pool || null,
+    data_center_id: readiness.data_center_id || readiness.capacity?.data_center_id || null,
+    stock: readiness.capacity?.stock || null,
+    stock_rank: readiness.capacity?.stock_rank ?? null,
+    network_volume_name: readiness.network_volume_name || null,
+    immutable_image: readiness.immutable_image || null,
+  })}`);
+  if (readiness.ready !== true) {
+    throw new Error(`${CONTRACT}_POD_NOT_READY:${readiness.reason || "UNKNOWN"}:${readiness.error || "NO_DETAIL"}`);
+  }
+  if (!sameSet(readiness.capacity?.gpu_type_pool || [], CERTIFIED_PRIMARY_GPU_POOL)) throw new Error(`${CONTRACT}_GPU_POOL_DRIFT`);
+  if ((readiness.data_center_id || readiness.capacity?.data_center_id) !== "EU-RO-1") throw new Error(`${CONTRACT}_PRIMARY_DATA_CENTER_DRIFT`);
+  if ((readiness.capacity?.stock_rank ?? 0) < 3) throw new Error(`${CONTRACT}_PRIMARY_CAPACITY_BELOW_MEDIUM`);
+
   const executeResult = await AvantiqoVideoProviderV2.execute({
     capability: "ai.video.generate",
     context: { organization_id: ORGANIZATION_ID, usage_id: usageId },
@@ -154,6 +170,8 @@ const selectedVolumeName = text(podJob.network_volume_name);
 const selectedGpu = text(podJob.gpu_type_id) || null;
 const eligibleGpuTypes = Array.isArray(podJob.eligible_gpu_type_ids) ? podJob.eligible_gpu_type_ids.map(text).filter(Boolean) : [];
 const placementMode = text(podJob.placement_mode) || null;
+const immutableV5Image = text(podJob.immutable_image);
+if (immutableV5Image !== CERTIFIED_IMMUTABLE_IMAGE) throw new Error(`${CONTRACT}_IMMUTABLE_IMAGE_DRIFT`);
 if (!CERTIFIED_PLACEMENT_DCS.has(selectedDc)) throw new Error(`${CONTRACT}_SELECTED_DATA_CENTER_NOT_CERTIFIED:${selectedDc || "MISSING"}`);
 if (selectedVolumeName !== CERTIFIED_VOLUME_BY_DC[selectedDc]) throw new Error(`${CONTRACT}_SELECTED_CACHE_VOLUME_NOT_CERTIFIED:${selectedDc}:${selectedVolumeName || "MISSING"}`);
 if (podJob.gpu_type_certified !== true) throw new Error(`${CONTRACT}_SELECTED_GPU_NOT_CERTIFIED`);
@@ -174,14 +192,16 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   route: "OWNED_POD_FALLBACK",
   generation_backend: "OWNED_RUNPOD_POD_V5",
+  resumed_existing_state: resumedExistingState,
+  new_generation_submitted: !resumedExistingState,
   selected_gpu_type_id: selectedGpu,
   eligible_gpu_type_ids: eligibleGpuTypes,
   selected_data_center_id: selectedDc,
   selected_cache_volume: selectedVolumeName,
   placement_mode: placementMode,
   primary_gpu_type_pool: CERTIFIED_PRIMARY_GPU_POOL,
-  primary_preflight_data_center: "EU-RO-1",
-  immutable_v5_image: readiness.immutable_image,
+  primary_preflight_data_center: resumedExistingState ? null : "EU-RO-1",
+  immutable_v5_image: immutableV5Image,
   internal_generation_resolution: "720p",
   cinema_quality_profile_preserved: true,
   final_master_resolution: "4k",

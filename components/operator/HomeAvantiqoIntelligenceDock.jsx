@@ -65,13 +65,22 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
     section.addEventListener("keydown", handleKeyDown, true);
     section.addEventListener("click", handleClick, true);
 
-    const observer = new MutationObserver(() => {
-      if (pinnedToLatest) scheduleLatest("smooth");
+    // Only follow direct conversation-row additions/removals. The scroller also
+    // contains live thesis/attention cards whose text can refresh independently;
+    // observing their subtree made those background updates pull the transcript
+    // to the bottom even when no chat message changed.
+    const observer = new MutationObserver((mutations) => {
+      if (!pinnedToLatest) return;
+      const conversationRowsChanged = mutations.some(
+        (mutation) =>
+          mutation.type === "childList" &&
+          mutation.target === scroller &&
+          (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0),
+      );
+      if (conversationRowsChanged) scheduleLatest("smooth");
     });
     observer.observe(scroller, {
       childList: true,
-      subtree: true,
-      characterData: true,
     });
 
     scheduleLatest("auto");

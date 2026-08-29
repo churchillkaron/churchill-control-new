@@ -92,6 +92,8 @@ const head = expectedMain();
 requireSafeLease();
 
 process.env.AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT = head;
+process.env.AVANTIQO_CODE_WORKSPACE_TARGET = "LOCAL_COMPUTER";
+process.env.AVANTIQO_CODE_LOCAL_REPOSITORY_ROOT = process.cwd();
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 const { assessAvantiqoCurrentRepository } = await import(
   "@/lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime"
@@ -108,6 +110,7 @@ const assessment = await assessAvantiqoCurrentRepository({
   ref: "main",
   verifiedCommitSha: head,
   focus: MISSION_OBJECTIVE,
+  workspaceTarget: "LOCAL_COMPUTER",
 });
 
 if (assessment?.contract !== "AVANTIQO_PRODUCT_REPOSITORY_ASSESSMENT_V1") {
@@ -119,6 +122,9 @@ if (text(assessment?.repository_snapshot?.current_main_head, 160).toLowerCase() 
 if (assessment?.repository_snapshot?.clean_checkout !== true) {
   throw new Error(`${CONTRACT}_ASSESSMENT_CLEAN_CHECKOUT_REQUIRED`);
 }
+if (text(assessment?.repository_snapshot?.workspace_target, 80).toUpperCase() !== "LOCAL_COMPUTER") {
+  throw new Error(`${CONTRACT}_LOCAL_WORKSPACE_REQUIRED`);
+}
 if (!text(assessment?.objective_selection?.selected_objective, 4000)) {
   throw new Error(`${CONTRACT}_ASSESSMENT_OBJECTIVE_REQUIRED`);
 }
@@ -129,7 +135,8 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   repository_head: head,
   repository_ref: "main",
-  sandbox_certification_pin_active: true,
+  local_workspace_certification_pin_active: true,
+  vercel_sandbox_required: false,
   assessment_contract: assessment.contract,
   assessment_status: assessment.status,
   output_path: outputPath,

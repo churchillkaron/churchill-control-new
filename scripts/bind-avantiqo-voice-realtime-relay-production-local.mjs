@@ -425,6 +425,7 @@ const plan = {
   },
   production_function: {
     existed_before: functionPresentBefore,
+    reconcile_existing: functionPresentBefore,
     expected_verify_jwt: false,
   },
   secret_binding: {
@@ -439,7 +440,7 @@ const plan = {
     engine_certified: false,
     release_approved: "NO",
   },
-  apply_ready: !functionPresentBefore,
+  apply_ready: true,
   explicit_apply_approval_required: true,
   secrets_updated: false,
   production_function_deployed: false,
@@ -453,10 +454,6 @@ const plan = {
   music_touched: false,
   secrets_printed: false,
 };
-
-if (functionPresentBefore) {
-  throw new Error(`${CONTRACT}_PRODUCTION_FUNCTION_ALREADY_EXISTS_RECONCILIATION_REQUIRED`);
-}
 
 if (!apply) {
   console.log(JSON.stringify(plan, null, 2));
@@ -492,7 +489,7 @@ if (!apply) {
 
     fetchNewestMainAndRequireVoiceEquivalent("BEFORE_FUNCTION_DEPLOY");
     const functionListImmediatelyBeforeDeploy = listRemoteFunctions();
-    if (remoteFunctionPresent(functionListImmediatelyBeforeDeploy)) {
+    if (text(functionListImmediatelyBeforeDeploy) !== text(remoteFunctionsBefore)) {
       throw new Error(`${CONTRACT}_CONCURRENT_FUNCTION_DEPLOY_DETECTED`);
     }
 

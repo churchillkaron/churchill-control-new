@@ -8,7 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONPATH=/opt/FlashVSR:/opt/FlashVSR/examples/WanVSR \
-    AVANTIQO_FLASHVSR_WEIGHTS_ROOT=/runpod-volume/flashvsr/FlashVSR-v1.1
+    AVANTIQO_FLASHVSR_WEIGHTS_ROOT=/runpod-volume/flashvsr/FlashVSR-v1.1 \
+    BLOCK_SPARSE_ATTN_CUDA_ARCHS=80 \
+    TORCH_CUDA_ARCH_LIST=8.0 \
+    MAX_JOBS=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \

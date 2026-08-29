@@ -1,0 +1,12 @@
+{
+  "contract": "AVANTIQO_VOICE_REALTIME_STT_CERTIFICATION_REQUEST_V1",
+  "requested_at": "2026-08-29T07:56:00Z",
+  "scope": "voice-realtime-stt-only",
+  "proofs_requested": 1,
+  "max_active_workers": 1,
+  "required_rest_state": "0/0",
+  "production_web_deploy": false,
+  "tts_touched": false,
+  "music_touched": false,
+  "secrets_printed": false
+}

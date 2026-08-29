@@ -255,7 +255,7 @@ console.log(`${CONTRACT}_PRESERVED_ACTIVE_PEERS=${JSON.stringify(peers.preserved
   jobs: item.jobs,
   hourly_cost_usd: item.hourly_cost_usd,
   classification: item.classification?.reason || null,
-}))}`);
+})))}`);
 console.log(`${CONTRACT}_IDLE_ORPHANS_LEFT_FOR_CANONICAL_V2=${JSON.stringify(peers.idleOrphans.map((item) => item.name))}`);
 
 let observerDirectory = null;

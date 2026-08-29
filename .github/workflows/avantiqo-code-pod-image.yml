@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      RUNTIME_SOURCE_SHA: bcf72c8e11f4a73925c92508d1bc071244ce704d
+      RUNTIME_SOURCE_SHA: 28dd1b26b3e0d5801804388e2ed8eb6df51967b2
       BASE_SOURCE_SHA: 1cb94f50400afdf448d8460de0a2709f7f6dc688
       BASE_IMAGE: ghcr.io/churchillkaron/avantiqo-code-pod@sha256:21075fc9457c5d6638d9a6a7f04ab748bd4ac50a65fed19e0fd57540a1325262
 
@@ -76,12 +76,17 @@ jobs:
           grep -F 'AVANTIQO_CODE_POD_ASYNC_JOB_REQUIRED' <<<"${server}"
           grep -F 'def _engine_warmup_requested' <<<"${server}"
           grep -F 'def _engine_warmup_output' <<<"${server}"
-          grep -F 'code_engine._load_engine()' <<<"${server}"
+          grep -F 'def _ensure_engine_loaded' <<<"${server}"
+          grep -F 'async def _boot_preload_engine' <<<"${server}"
+          grep -F '@app.on_event("startup")' <<<"${server}"
+          grep -F 'NETWORK_SAFETENSORS_LOAD_STRATEGY = "eager"' <<<"${server}"
+          grep -F 'await asyncio.to_thread(_ensure_engine_loaded)' <<<"${server}"
+          grep -F '"safetensors_load_strategy": NETWORK_SAFETENSORS_LOAD_STRATEGY' <<<"${server}"
           grep -F '"inference_performed": False' <<<"${server}"
           grep -F '"generation_performed": False' <<<"${server}"
           grep -F '"reasoning_call_consumed": False' <<<"${server}"
           grep -F '"wallet_mutation_performed": False' <<<"${server}"
-          grep -F '"model_load": "LAZY_ASYNC_ENGINE_WARMUP"' <<<"${server}"
+          grep -F '"model_load": "BOOT_BACKGROUND_GENERATION_FREE"' <<<"${server}"
           grep -F '"engine_warmup_generation_performed": False' <<<"${server}"
 
           mkdir -p /tmp/avantiqo-code-v3-source
@@ -92,6 +97,8 @@ jobs:
           echo 'AVANTIQO_CODE_POD_IMAGE_BASE_RUNTIME_IMMUTABLE=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_HANDLER_REQUIREMENTS_UNCHANGED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_ENGINE_WARMUP_GENERATION_FREE=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_EAGER_BOOT_PRELOAD=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_NETWORK_SAFETENSORS_EAGER=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PREFLIGHT=PASS'
 
@@ -151,6 +158,8 @@ jobs:
             --label avantiqo.code.base.digest="${BASE_IMAGE#*@}" \
             --label avantiqo.code.runtime.gate=external-runpod-v3-before-inference \
             --label avantiqo.code.engine.warmup=generation-free \
+            --label avantiqo.code.engine.preload=boot-background \
+            --label avantiqo.code.safetensors.load-strategy=eager \
             --label avantiqo.code.publication.mode=registry-mutation-no-base-materialization \
             --tag "${tag}"
 
@@ -177,6 +186,8 @@ jobs:
           if (!config?.config?.ExposedPorts?.['8000/tcp']) fail('EXPOSED_PORT_MISSING');
           const labels = config?.config?.Labels ?? {};
           if (labels['avantiqo.code.engine.warmup'] !== 'generation-free') fail('ENGINE_WARMUP_LABEL_MISSING');
+          if (labels['avantiqo.code.engine.preload'] !== 'boot-background') fail('ENGINE_PRELOAD_LABEL_MISSING');
+          if (labels['avantiqo.code.safetensors.load-strategy'] !== 'eager') fail('SAFETENSORS_LOAD_STRATEGY_LABEL_MISSING');
           const baseLayers = (base.layers ?? []).map((layer) => layer.digest);
           const nextLayers = (next.layers ?? []).map((layer) => layer.digest);
           if (nextLayers.length !== baseLayers.length + 1) fail('OVERLAY_LAYER_COUNT_MISMATCH');
@@ -184,6 +195,8 @@ jobs:
           console.log('AVANTIQO_CODE_POD_IMAGE_BASE_LAYERS_REUSED=PASS');
           console.log('AVANTIQO_CODE_POD_IMAGE_V3_CONFIG=PASS');
           console.log('AVANTIQO_CODE_POD_IMAGE_ENGINE_WARMUP_GENERATION_FREE=PASS');
+          console.log('AVANTIQO_CODE_POD_IMAGE_EAGER_BOOT_PRELOAD=PASS');
+          console.log('AVANTIQO_CODE_POD_IMAGE_NETWORK_SAFETENSORS_EAGER=PASS');
           NODE
 
           echo "release_sha=${RUNTIME_SOURCE_SHA}" >> "$GITHUB_OUTPUT"
@@ -198,6 +211,8 @@ jobs:
           echo "AVANTIQO_CODE_POD_IMAGE_DIGEST=${digest}"
           echo 'AVANTIQO_CODE_POD_IMAGE_REGISTRY_MUTATION=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_ENGINE_WARMUP_GENERATION_FREE=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_EAGER_BOOT_PRELOAD=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_NETWORK_SAFETENSORS_EAGER=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_BASE_MATERIALIZATION=false'
 
       - name: Create immutable Pod image evidence
@@ -249,6 +264,8 @@ jobs:
             engine_warmup_inference_performed: false,
             engine_warmup_reasoning_call_consumed: false,
             engine_warmup_wallet_mutation_performed: false,
+            eager_boot_engine_preload: true,
+            network_safetensors_load_strategy: "eager",
             external_runpod_transport_probe_required_before_inference: true,
             runtime: "vllm-0.27.1",
             runtime_model: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
@@ -283,6 +300,8 @@ jobs:
           echo 'AVANTIQO_CODE_POD_IMAGE_IMMUTABLE_OVERLAY=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_REGISTRY_MUTATION=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_ENGINE_WARMUP_GENERATION_FREE=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_EAGER_BOOT_PRELOAD=PASS'
+          echo 'AVANTIQO_CODE_POD_IMAGE_NETWORK_SAFETENSORS_EAGER=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_BASE_MATERIALIZATION=false'
           echo 'AVANTIQO_CODE_POD_IMAGE_EXTERNAL_RUNTIME_GATE_REQUIRED=PASS'
           echo 'AVANTIQO_CODE_POD_IMAGE_PROVIDER_JOB_SUBMITTED=false'

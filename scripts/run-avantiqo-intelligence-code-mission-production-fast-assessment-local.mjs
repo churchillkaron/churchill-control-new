@@ -104,7 +104,7 @@ const assessment = await assessAvantiqoCurrentRepository({
     },
   },
   repositoryUrl: REPOSITORY_URL,
-  ref: "main",
+  ref: head,
   verifiedCommitSha: head,
   focus: MISSION_OBJECTIVE,
 });
@@ -127,6 +127,7 @@ console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   repository_head: head,
+  repository_ref_pinned_to_head: true,
   assessment_contract: assessment.contract,
   assessment_status: assessment.status,
   output_path: outputPath,

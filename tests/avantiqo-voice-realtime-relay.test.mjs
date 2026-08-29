@@ -32,14 +32,18 @@ const settleRoute = await readFile(
   "utf8",
 );
 
-test("Voice realtime relay is first-party authenticated and release-gated", () => {
+test("Voice realtime relay is first-party authenticated, lean and release-gated", () => {
   assert.match(relay, /AVANTIQO_VOICE_REALTIME_RELAY_V1/);
   assert.match(relay, /AVANTIQO_VOICE_STT_REALTIME_V1/);
   assert.match(relay, /CLIENT_PROTOCOL = "avantiqo-voice-realtime-v1"/);
   assert.match(relay, /JWT_PROTOCOL_PREFIX = "jwt\."/);
-  assert.match(relay, /admin\.auth\.getUser\(token\)/);
-  assert.match(relay, /from\("staff_accounts"\)/);
-  assert.match(relay, /from\("organization_users"\)/);
+  assert.match(relay, /`${baseUrl}\/auth\/v1\/user`/);
+  assert.match(relay, /`${baseUrl}\/rest\/v1\/staff_accounts`/);
+  assert.match(relay, /`${baseUrl}\/rest\/v1\/organization_users`/);
+  assert.match(relay, /function supabaseAdminHeaders\(key: string\)/);
+  assert.match(relay, /headers: supabaseAdminHeaders\(secretKey\)/);
+  assert.doesNotMatch(relay, /npm:@supabase\/supabase-js/);
+  assert.doesNotMatch(relay, /createClient\(/);
   assert.match(relay, /AVANTIQO_VOICE_REALTIME_RELAY_ENABLED/);
   assert.match(relay, /AVANTIQO_VOICE_REALTIME_ENGINE_CERTIFIED/);
   assert.match(relay, /AVANTIQO_VOICE_REALTIME_RELEASE_APPROVED/);
@@ -163,7 +167,7 @@ test("Voice realtime relay on main is bound to the load-balanced Safe Lease", ()
   assert.doesNotMatch(relay, /purge-queue/);
 });
 
-test("uncertified realtime public entrypoints remain fail-closed while relay source exists", () => {
+test("uncertified public realtime session routes remain fail-closed while the Operator uses the owned relay client", () => {
   assert.match(realtimeClient, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);
   assert.match(realtimeClient, /realtime_streaming_certified:\s*false/);
   assert.match(sessionRoute, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);

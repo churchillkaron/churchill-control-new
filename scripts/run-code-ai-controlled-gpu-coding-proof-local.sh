@@ -38,7 +38,8 @@ echo "${CONTRACT}_CANDIDATE_DIGEST=sha256:${NEW_DIGEST}"
 echo "${CONTRACT}_SINGLE_WORKER_WARMUP_AND_CODING=true"
 echo "${CONTRACT}_BOOT_PRELOAD=true"
 echo "${CONTRACT}_SAFETENSORS_LOAD_STRATEGY=eager"
-echo "${CONTRACT}_WARMING_PHASE_LIMIT_MS=240000"
+echo "${CONTRACT}_ENGINE_LOADING_PHASE_LIMIT_MS=480000"
+echo "${CONTRACT}_POD_STARTUP_PHASE_LIMIT_MS=900000"
 
 if [ ! -f "$ROOT/.env.local" ]; then
   echo "${CONTRACT}_ENV_LOCAL_REQUIRED=true"
@@ -136,11 +137,18 @@ const certBefore = await readFile(certPath, "utf8");
 let certAfter = certBefore;
 
 const oldWatchdog = "const MAX_WORKER_WARMING_MS = 90 * 1000;";
-const newWatchdog = "const MAX_WORKER_WARMING_MS = 4 * 60 * 1000;";
+const newWatchdog = "const MAX_WORKER_WARMING_MS = 8 * 60 * 1000;";
 if (!certAfter.includes(oldWatchdog)) {
   throw new Error("AVANTIQO_CODE_GPU_PROOF_CERT_WATCHDOG_MARKER_NOT_FOUND");
 }
 certAfter = certAfter.replace(oldWatchdog, newWatchdog);
+
+const oldResumeCycles = "const MAX_RESUME_CYCLES = 180;";
+const newResumeCycles = "const MAX_RESUME_CYCLES = 900;";
+if (!certAfter.includes(oldResumeCycles)) {
+  throw new Error("AVANTIQO_CODE_GPU_PROOF_CERT_RESUME_CYCLES_MARKER_NOT_FOUND");
+}
+certAfter = certAfter.replace(oldResumeCycles, newResumeCycles);
 
 const oldPhaseDeclaration = "  let workerWarmingStartedAt = null;";
 const newPhaseDeclaration = [
@@ -206,7 +214,9 @@ console.log(JSON.stringify({
   current_main_already_candidate: currentDigest === newDigest,
   boot_preload: true,
   safetensors_load_strategy: "eager",
-  per_warming_phase_limit_ms: 240000,
+  engine_loading_phase_limit_ms: 480000,
+  pod_startup_phase_limit_ms: 900000,
+  max_resume_cycles: 900,
   watchdog_resets_on_phase_progress: true,
   duplicate_warmup_pod_created: false,
   persistent_source_mutation_performed: false,

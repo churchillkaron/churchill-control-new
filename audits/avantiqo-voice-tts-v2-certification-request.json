@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_VOICE_TTS_V2_CERTIFICATION_REQUEST_V1",
-  "requested_for": "certify_recorded_reference_profiles_quality_v2",
+  "requested_for": "final_home_voice_owned_only_release_20260829T1109Z",
   "certified_image_source_sha": "8890e8b7d424c93492440ce39d32db3d821beae0",
   "certified_image_digest": "sha256:893f5fde88b6762d533df98749474dc6720fdcea451df81429b8d3c7a05bdaa4",
   "tts_only": true,
@@ -10,5 +10,6 @@
   "permanent_rest_state": "VOICE_TTS_0_0",
   "stt_generation": false,
   "production_web_deploy": false,
-  "pricing_activation": false
+  "pricing_activation": false,
+  "requested_at": "2026-08-29T11:09:00Z"
 }

@@ -1,0 +1,4 @@
+Production hotfix release evidence for the Avantiqo login/Supabase bootstrap failure.
+Validated preview deployment: dpl_k3WenRFJLg8fSuChgZADEE3yR3ZF READY.
+Fix: browser-safe canonical Supabase public config fallback plus lazy privileged host-resolution import.
+No service-role secret is committed.

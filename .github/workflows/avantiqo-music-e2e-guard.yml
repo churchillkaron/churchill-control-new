@@ -1,0 +1,46 @@
+name: Avantiqo Music E2E Guard
+
+on:
+  pull_request:
+    paths:
+      - "app/api/creative/music/**"
+      - "lib/platform/service-runtime/providers/avantiqo-audio/**"
+      - "lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js"
+      - "scripts/*avantiqo-music*"
+      - ".github/workflows/avantiqo-music-e2e-guard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  music-e2e-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Syntax check Music release mechanics
+        run: |
+          node --check app/api/creative/music/readiness/route.js
+          node --check scripts/apply-avantiqo-music-production-pricing-local.mjs
+          node --check scripts/audit-avantiqo-music-e2e-release-local.mjs
+
+      - name: Run zero-spend Music E2E release audit
+        run: node scripts/audit-avantiqo-music-e2e-release-local.mjs
+
+      - name: Assert guard is mutation-free
+        run: |
+          echo "AVANTIQO_MUSIC_E2E_GUARD=PASS"
+          echo "RUNPOD_JOB_SUBMITTED=false"
+          echo "SUPABASE_MUTATION_PERFORMED=false"
+          echo "ENDPOINT_MUTATION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

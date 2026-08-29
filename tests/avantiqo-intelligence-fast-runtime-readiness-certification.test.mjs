@@ -42,9 +42,12 @@ test("shared Intelligence models probe uses a scheduler-backed zero-token Fast w
   assert.match(source, /openai_route:\s*"\/v1\/models"/);
   assert.match(source, /`\$\{base\}\/run`/);
   assert.match(source, /`\$\{base\}\/status\/\$\{encodeURIComponent\(jobId\)\}`/);
+  assert.match(source, /workerVisible\(health/);
   assert.match(source, /scheduler_probe_job_submitted:\s*true/);
   assert.match(source, /scheduler_probe_job_completed:\s*true/);
-  assert.match(source, /scheduler_probe_worker_observed:\s*true/);
+  assert.match(source, /scheduler_probe_worker_observed:\s*workerObserved/);
+  assert.match(source, /scheduler_worker_execution_proven:\s*true/);
+  assert.match(source, /COMPLETED_EXACT_MODEL_RESPONSE/);
   assert.match(source, /inference_performed:\s*false/);
   assert.match(source, /generation_submitted:\s*false/);
   assert.match(source, /completion_request_performed:\s*false/);

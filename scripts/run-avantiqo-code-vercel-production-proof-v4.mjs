@@ -4,7 +4,7 @@ import {
   reapIdleCodeAIServerlessWorker,
 } from "../lib/code/runtime/CodeAIServerlessZeroIdleLifecycleRuntime.js";
 
-const CONTRACT = "AVANTIQO_CODE_VERCEL_PRODUCTION_PROOF_V4";
+const CONTRACT = "AVANTIQO_CODE_VERCEL_PRODUCTION_PROOF_V5";
 const ENDPOINT_ID = "r79dtnjnrilrlc";
 const EXPECTED_RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
 const QUEUE_BASE = `https://api.runpod.ai/v2/${ENDPOINT_ID}`;
@@ -74,6 +74,14 @@ function zeroIdle(summary) {
   return summary.jobs.in_queue === 0 &&
     summary.jobs.in_progress === 0 &&
     Object.values(summary.workers).every((value) => Number(value) === 0);
+}
+
+function endpointSummary(raw = {}) {
+  return {
+    workers_min: finite(raw.workersMin),
+    workers_max: finite(raw.workersMax),
+    idle_timeout_seconds: finite(raw.idleTimeout),
+  };
 }
 
 async function submit(key) {
@@ -150,10 +158,19 @@ if (configuredEndpoint && configuredEndpoint !== ENDPOINT_ID) {
 
 const startedAt = Date.now();
 const cleanupBefore = await reapIdleCodeAIServerlessWorker();
+const parkedHealthBefore = healthSummary(await queue("/health", key));
+const parkedEndpointBefore = endpointSummary(await endpoint(key));
+if (!zeroIdle(parkedHealthBefore)) {
+  throw new Error(`${CONTRACT}_NOT_ZERO_IDLE_BEFORE:${JSON.stringify(parkedHealthBefore)}`);
+}
+if (parkedEndpointBefore.workers_min !== 0 || parkedEndpointBefore.workers_max !== 0) {
+  throw new Error(`${CONTRACT}_NOT_PARKED_BEFORE:${JSON.stringify(parkedEndpointBefore)}`);
+}
+
 const accepting = await ensureCodeAIServerlessAcceptingWork();
-const healthBefore = healthSummary(await queue("/health", key));
-if (!zeroIdle(healthBefore)) {
-  throw new Error(`${CONTRACT}_NOT_ZERO_IDLE_BEFORE:${JSON.stringify(healthBefore)}`);
+const activeEndpointBeforeSubmit = endpointSummary(await endpoint(key));
+if (activeEndpointBeforeSubmit.workers_min !== 0 || activeEndpointBeforeSubmit.workers_max !== 1) {
+  throw new Error(`${CONTRACT}_WAKE_CAPACITY_NOT_READY:${JSON.stringify(activeEndpointBeforeSubmit)}`);
 }
 
 const submitted = await submit(key);
@@ -184,17 +201,12 @@ if (text(output.result).length < 20) throw new Error(`${CONTRACT}_RESULT_REQUIRE
 
 const cleanupAfter = await reapIdleCodeAIServerlessWorker();
 const healthAfter = healthSummary(await queue("/health", key));
+const endpointAfter = endpointSummary(await endpoint(key));
 if (!zeroIdle(healthAfter)) {
   throw new Error(`${CONTRACT}_NOT_ZERO_IDLE_AFTER:${JSON.stringify(healthAfter)}`);
 }
-const endpointAfterRaw = await endpoint(key);
-const endpointAfter = {
-  workers_min: finite(endpointAfterRaw.workersMin),
-  workers_max: finite(endpointAfterRaw.workersMax),
-  idle_timeout_seconds: finite(endpointAfterRaw.idleTimeout),
-};
-if (endpointAfter.workers_min !== 0 || endpointAfter.workers_max !== 1 || endpointAfter.idle_timeout_seconds !== 60) {
-  throw new Error(`${CONTRACT}_FINAL_CAPACITY:${JSON.stringify(endpointAfter)}`);
+if (endpointAfter.workers_min !== 0 || endpointAfter.workers_max !== 0 || endpointAfter.idle_timeout_seconds !== 60) {
+  throw new Error(`${CONTRACT}_FINAL_PARKED_CAPACITY:${JSON.stringify(endpointAfter)}`);
 }
 
 const evidence = {
@@ -204,8 +216,10 @@ const evidence = {
   vercel_git_commit_sha: text(process.env.VERCEL_GIT_COMMIT_SHA) || null,
   endpoint_id: ENDPOINT_ID,
   cleanup_before: cleanupBefore,
+  parked_health_before: parkedHealthBefore,
+  parked_endpoint_before: parkedEndpointBefore,
   accepting_before_submission: accepting,
-  health_before: healthBefore,
+  active_endpoint_before_submission: activeEndpointBeforeSubmit,
   job_id: jobId,
   wake_propagation_retries: submitted.retries,
   runpod_status: "COMPLETED",
@@ -231,6 +245,9 @@ const evidence = {
   health_after: healthAfter,
   endpoint_after: endpointAfter,
   zero_idle_verified_after: true,
+  idle_capacity_verified_0_0: true,
+  active_capacity_verified_0_1: true,
+  wake_on_real_request_verified: true,
   production_inference_performed: true,
   repository_write_performed: false,
   secrets_printed: false,

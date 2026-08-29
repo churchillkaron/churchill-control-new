@@ -6,10 +6,66 @@ import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntellig
 
 const LATEST_THRESHOLD_PX = 96;
 
+function normalizedSpeech(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function speechTokens(value) {
+  return new Set(
+    normalizedSpeech(value)
+      .split(" ")
+      .filter((token) => token.length > 2),
+  );
+}
+
+function likelySpokenEcho(command, spoken) {
+  const candidate = normalizedSpeech(command);
+  const reference = normalizedSpeech(spoken);
+  if (!candidate || !reference) return false;
+
+  if (
+    Math.min(candidate.length, reference.length) >= 12 &&
+    (reference.includes(candidate) || candidate.includes(reference))
+  ) {
+    return true;
+  }
+
+  const candidateTokens = speechTokens(candidate);
+  const referenceTokens = speechTokens(reference);
+  if (candidateTokens.size < 3 || referenceTokens.size < 3) return false;
+
+  let shared = 0;
+  for (const token of candidateTokens) {
+    if (referenceTokens.has(token)) shared += 1;
+  }
+  return shared / candidateTokens.size >= 0.7;
+}
+
 export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   const rootRef = useRef(null);
 
   useEffect(() => {
+    let lastSpokenMessage = "";
+    let spokenEchoGuardUntil = 0;
+
+    function rememberSpokenOutput(event) {
+      const message = String(event?.detail?.message ?? "").trim();
+      if (!message) return;
+      lastSpokenMessage = message;
+      const words = normalizedSpeech(message).split(" ").filter(Boolean).length;
+      spokenEchoGuardUntil = Date.now() + Math.min(
+        90_000,
+        Math.max(12_000, 8_000 + words * 650),
+      );
+    }
+
     function normalizeHomeCommandSource(event) {
       const detail = event?.detail;
       if (!detail || typeof detail !== "object") return;
@@ -18,14 +74,27 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       // may trigger TTS. Missing, stale or arbitrary event sources are text.
       const source = String(detail.source ?? "").trim().toLowerCase();
       detail.source = source === "voice" ? "voice" : "text";
+
+      // Do not let the wake microphone feed Avantiqo's own just-spoken answer
+      // back into Home as another Voice command. This guard compares content,
+      // so unrelated human speech is not suppressed merely because TTS ran.
+      if (
+        detail.source === "voice" &&
+        Date.now() < spokenEchoGuardUntil &&
+        likelySpokenEcho(detail.message, lastSpokenMessage)
+      ) {
+        event.stopImmediatePropagation();
+      }
     }
 
+    window.addEventListener("avantiqo:speak", rememberSpokenOutput, true);
     window.addEventListener(
       "avantiqo:home-command",
       normalizeHomeCommandSource,
       true,
     );
     return () => {
+      window.removeEventListener("avantiqo:speak", rememberSpokenOutput, true);
       window.removeEventListener(
         "avantiqo:home-command",
         normalizeHomeCommandSource,

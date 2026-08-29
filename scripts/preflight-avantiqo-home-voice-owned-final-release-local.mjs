@@ -7,6 +7,7 @@ const paths = Object.freeze({
   transcriptSafety: "lib/operator/voice/OperatorVoiceTranscriptSafety.js",
   transcribeRoute: "app/api/operator/transcribe/route.js",
   homeDock: "components/operator/HomeAvantiqoIntelligenceDock.jsx",
+  globalOperator: "components/operator/AvantiqoOperator.jsx",
   publicErrorPolicy: "lib/operator/runtime/OperatorPublicErrorPolicy.js",
   operatorTurn: "lib/operator/runtime/OperatorTurnRuntime.js",
   asyncTranscription:
@@ -106,6 +107,7 @@ const [
   transcriptSafety,
   transcribeRoute,
   homeDock,
+  globalOperator,
   publicErrorPolicy,
   operatorTurn,
   asyncTranscription,
@@ -118,6 +120,7 @@ const [
   source(paths.transcriptSafety),
   source(paths.transcribeRoute),
   source(paths.homeDock),
+  source(paths.globalOperator),
   source(paths.publicErrorPolicy),
   source(paths.operatorTurn),
   source(paths.asyncTranscription),
@@ -167,6 +170,21 @@ requireText(
   homeDock,
   "detail.voice_initiated = urgent ? detail.voice_initiated === true : true",
   "FINAL_RELEASE_HOME_VOICE_INITIATED_MARKER_REQUIRED",
+);
+requireText(
+  globalOperator,
+  "const voiceInitiated = event?.detail?.voice_initiated === true",
+  "FINAL_RELEASE_GLOBAL_OPERATOR_EXPLICIT_VOICE_INTENT_REQUIRED",
+);
+requireText(
+  globalOperator,
+  "(!voiceInitiated && !urgent)",
+  "FINAL_RELEASE_GLOBAL_OPERATOR_TYPED_TTS_FORBIDDEN",
+);
+requireText(
+  globalOperator,
+  "KEYBOARD_WAKE_BLOCK_MS = 3000",
+  "FINAL_RELEASE_GLOBAL_OPERATOR_KEYBOARD_WAKE_GUARD_REQUIRED",
 );
 requireText(
   publicErrorPolicy,

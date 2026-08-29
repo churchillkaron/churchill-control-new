@@ -34,7 +34,7 @@ jobs:
           test -f services/avantiqo-video-flashvsr/flashvsr_worker.py
           grep -F 'CONTRACT = "AVANTIQO_VIDEO_FLASHVSR_GPU_MASTER_V1"' services/avantiqo-video-flashvsr/flashvsr_worker.py
           grep -F 'COMPUTE_BOUNDARY = "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1"' services/avantiqo-video-flashvsr/flashvsr_worker.py
-          grep -F 'MODEL_REVISION = "a258bf2d5b99bf54cf048d901edc866591d5ea0b"' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'MODEL_REVISION = "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb"' services/avantiqo-video-flashvsr/flashvsr_worker.py
           grep -F 'video_encoded_on_paid_worker": False' services/avantiqo-video-flashvsr/flashvsr_worker.py
           grep -F 'final_artifact_persisted_on_paid_worker": False' services/avantiqo-video-flashvsr/flashvsr_worker.py
           if grep -Eiq '\bffmpeg\b|libx264|libx265|export_to_video|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai/' services/avantiqo-video-flashvsr/Dockerfile services/avantiqo-video-flashvsr/flashvsr_worker.py; then
@@ -111,7 +111,7 @@ jobs:
             image_digest: digest,
             immutable_image_reference: `${repository}@${digest}`,
             flashvsr_source_commit: "0ef95713cd336ee89a921fc2fbc2933aaf9e5f4a",
-            flashvsr_model_revision: "a258bf2d5b99bf54cf048d901edc866591d5ea0b",
+            flashvsr_model_revision: "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb",
             block_sparse_attention_commit: "49d6c39e4dc0303442cda3bb758b3925d4399c49",
             compute_boundary_contract: "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1",
             ffmpeg_in_image_source: false,

@@ -91,6 +91,7 @@ if (!organizationId) throw new Error(`${CONTRACT}_ORGANIZATION_ID_REQUIRED`);
 const head = expectedMain();
 requireSafeLease();
 
+process.env.AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT = head;
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 const { assessAvantiqoCurrentRepository } = await import(
   "@/lib/intelligence/runtime/AvantiqoProductRepositoryAssessmentRuntime"
@@ -104,7 +105,7 @@ const assessment = await assessAvantiqoCurrentRepository({
     },
   },
   repositoryUrl: REPOSITORY_URL,
-  ref: head,
+  ref: "main",
   verifiedCommitSha: head,
   focus: MISSION_OBJECTIVE,
 });
@@ -127,7 +128,8 @@ console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   repository_head: head,
-  repository_ref_pinned_to_head: true,
+  repository_ref: "main",
+  sandbox_certification_pin_active: true,
   assessment_contract: assessment.contract,
   assessment_status: assessment.status,
   output_path: outputPath,

@@ -12,11 +12,22 @@ const DEFAULT_USAGE_ID = "video-v72-ephemeral-pod-final-20260829";
 const POLL_MS = 15_000;
 const TIMEOUT_MS = 115 * 60 * 1000;
 const POD_LEASE_PREFIX = "pod-fallback:";
+const CERTIFIED_GPU_POOL = Object.freeze([
+  "NVIDIA RTX PRO 4500 Blackwell",
+  "NVIDIA B200",
+  "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "NVIDIA A100 80GB PCIe",
+]);
 
 function text(value) { return String(value ?? "").trim(); }
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function approved(name) {
   if (text(process.env[name]).toUpperCase() !== "YES") throw new Error(`${name}=YES_REQUIRED`);
+}
+function sameSet(left = [], right = []) {
+  const a = [...new Set(left.map(text).filter(Boolean))].sort();
+  const b = [...new Set(right.map(text).filter(Boolean))].sort();
+  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 function safeResult(result = {}) {
   return {
@@ -56,6 +67,7 @@ console.log(`AVANTIQO_VIDEO_V72_POD_PREFLIGHT=${JSON.stringify({
   reason: readiness.reason || null,
   error_code: readiness.error || null,
   gpu_type_id: readiness.gpu_type_id || readiness.capacity?.gpu_type_id || null,
+  gpu_type_pool: readiness.capacity?.gpu_type_pool || null,
   data_center_id: readiness.data_center_id || readiness.capacity?.data_center_id || null,
   stock: readiness.capacity?.stock || null,
   stock_rank: readiness.capacity?.stock_rank ?? null,
@@ -65,7 +77,7 @@ console.log(`AVANTIQO_VIDEO_V72_POD_PREFLIGHT=${JSON.stringify({
 if (readiness.ready !== true) {
   throw new Error(`${CONTRACT}_POD_NOT_READY:${readiness.reason || "UNKNOWN"}:${readiness.error || "NO_DETAIL"}`);
 }
-if ((readiness.gpu_type_id || readiness.capacity?.gpu_type_id) !== "NVIDIA RTX PRO 4500 Blackwell") throw new Error(`${CONTRACT}_GPU_DRIFT`);
+if (!sameSet(readiness.capacity?.gpu_type_pool || [], CERTIFIED_GPU_POOL)) throw new Error(`${CONTRACT}_GPU_POOL_DRIFT`);
 if ((readiness.data_center_id || readiness.capacity?.data_center_id) !== "EU-RO-1") throw new Error(`${CONTRACT}_DATA_CENTER_DRIFT`);
 if ((readiness.capacity?.stock_rank ?? 0) < 3) throw new Error(`${CONTRACT}_CAPACITY_BELOW_MEDIUM`);
 
@@ -148,7 +160,7 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   route: "OWNED_POD_FALLBACK",
   generation_backend: "OWNED_RUNPOD_POD_V5",
-  gpu_type_id: "NVIDIA RTX PRO 4500 Blackwell",
+  gpu_type_pool: CERTIFIED_GPU_POOL,
   data_center_id: "EU-RO-1",
   immutable_v5_image: readiness.immutable_image,
   cache_volume: readiness.network_volume_name,

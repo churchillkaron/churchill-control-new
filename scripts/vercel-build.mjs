@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import process from "node:process";
 
 const marker = "[code-production-proof]";
@@ -26,4 +28,38 @@ const build = spawnSync(process.execPath, ["node_modules/next/dist/bin/next", "b
   encoding: "utf8",
   stdio: "inherit",
 });
-process.exit(build.status || 0);
+if (build.status !== 0) process.exit(build.status || 1);
+
+if (production) {
+  const clientChunksRoot = join(process.cwd(), ".next", "static", "chunks");
+  const forbiddenClientTokens = ["SUPABASE_SERVICE_ROLE_KEY"];
+  const leakedFiles = [];
+
+  function scanDirectory(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        scanDirectory(absolutePath);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
+      const source = readFileSync(absolutePath, "utf8");
+      if (forbiddenClientTokens.some((token) => source.includes(token))) {
+        leakedFiles.push(absolutePath.replace(`${process.cwd()}/`, ""));
+      }
+    }
+  }
+
+  scanDirectory(clientChunksRoot);
+
+  if (leakedFiles.length > 0) {
+    console.error(
+      `AVANTIQO_CLIENT_BUNDLE_PRIVILEGED_ENV_LEAK_FAILED files=${leakedFiles.join(",")}`,
+    );
+    process.exit(1);
+  }
+
+  console.log("AVANTIQO_CLIENT_BUNDLE_PRIVILEGED_ENV_LEAK_CHECK=PASS");
+}
+
+process.exit(0);

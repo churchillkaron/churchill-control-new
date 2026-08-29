@@ -19,43 +19,23 @@ if (production && message.includes(voiceSttRepairMarker)) {
     process.exit(1);
   }
 
-  console.log("AVANTIQO_VOICE_STT_PRODUCTION_REPAIR state=REBIND_START");
-  const rebind = spawnSync(
+  console.log("AVANTIQO_VOICE_STT_PRODUCTION_REPAIR state=START");
+  const repair = spawnSync(
     process.execPath,
-    ["scripts/rebind-avantiqo-voice-stt-corrected-native-runtime-local.mjs", "--apply"],
+    ["scripts/run-avantiqo-voice-stt-vercel-production-repair.mjs"],
     {
       cwd: process.cwd(),
       env: {
         ...process.env,
-        AVANTIQO_VOICE_STT_CORRECTED_NATIVE_RUNTIME_REBIND_APPROVED: "YES",
+        AVANTIQO_VOICE_STT_VERCEL_PRODUCTION_REPAIR_APPROVED: "YES",
       },
       encoding: "utf8",
       stdio: "inherit",
     },
   );
-  if (rebind.status !== 0) {
-    console.error(`AVANTIQO_VOICE_STT_PRODUCTION_REPAIR state=REBIND_FAILED exit=${rebind.status ?? "unknown"}`);
-    process.exit(rebind.status || 1);
-  }
-
-  console.log("AVANTIQO_VOICE_STT_PRODUCTION_REPAIR state=RUNTIME_PROBE_START");
-  const probe = spawnSync(
-    process.execPath,
-    ["scripts/run-avantiqo-voice-stt-runtime-probe-local.mjs"],
-    {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        AVANTIQO_VOICE_STT_RUNTIME_PROBE_APPROVED: "YES",
-        AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES",
-      },
-      encoding: "utf8",
-      stdio: "inherit",
-    },
-  );
-  if (probe.status !== 0) {
-    console.error(`AVANTIQO_VOICE_STT_PRODUCTION_REPAIR state=RUNTIME_PROBE_FAILED exit=${probe.status ?? "unknown"}`);
-    process.exit(probe.status || 1);
+  if (repair.status !== 0) {
+    console.error(`AVANTIQO_VOICE_STT_PRODUCTION_REPAIR state=FAILED exit=${repair.status ?? "unknown"}`);
+    process.exit(repair.status || 1);
   }
   console.log("AVANTIQO_VOICE_STT_PRODUCTION_REPAIR=PASS");
 }

@@ -6,6 +6,7 @@ const ROOT = process.cwd();
 const paths = Object.freeze({
   transcriptSafety: "lib/operator/voice/OperatorVoiceTranscriptSafety.js",
   transcribeRoute: "app/api/operator/transcribe/route.js",
+  home: "components/operator/HomeAvantiqoIntelligence.jsx",
   homeDock: "components/operator/HomeAvantiqoIntelligenceDock.jsx",
   globalOperator: "components/operator/AvantiqoOperator.jsx",
   publicErrorPolicy: "lib/operator/runtime/OperatorPublicErrorPolicy.js",
@@ -51,6 +52,10 @@ function requireText(contents, expected, code) {
 
 function forbidText(contents, forbidden, code) {
   if (contents.includes(forbidden)) fail(code);
+}
+
+function countText(contents, expected) {
+  return contents.split(expected).length - 1;
 }
 
 async function json(relative, missingCode) {
@@ -106,6 +111,7 @@ function requireOwnedProof(proof, {
 const [
   transcriptSafety,
   transcribeRoute,
+  home,
   homeDock,
   globalOperator,
   publicErrorPolicy,
@@ -119,6 +125,7 @@ const [
 ] = await Promise.all([
   source(paths.transcriptSafety),
   source(paths.transcribeRoute),
+  source(paths.home),
   source(paths.homeDock),
   source(paths.globalOperator),
   source(paths.publicErrorPolicy),
@@ -156,21 +163,37 @@ requireText(
   "stopImmediatePropagation",
   "FINAL_RELEASE_VOICE_SELF_ECHO_GUARD_REQUIRED",
 );
-requireText(
+forbidText(
   homeDock,
   "VOICE_REPLY_INTENT_TTL_MS",
-  "FINAL_RELEASE_HOME_EXPLICIT_VOICE_INTENT_TTL_REQUIRED",
+  "FINAL_RELEASE_HOME_VOICE_INTENT_TTL_FORBIDDEN",
 );
-requireText(
+forbidText(
   homeDock,
   "followsExplicitVoiceCommand",
-  "FINAL_RELEASE_HOME_EXPLICIT_VOICE_REPLY_GATE_REQUIRED",
+  "FINAL_RELEASE_HOME_VOICE_INTENT_CARRYOVER_FORBIDDEN",
 );
 requireText(
   homeDock,
-  "detail.voice_initiated = urgent ? detail.voice_initiated === true : true",
-  "FINAL_RELEASE_HOME_VOICE_INITIATED_MARKER_REQUIRED",
+  'detail.voice_initiated === true || detail.source === "operator"',
+  "FINAL_RELEASE_HOME_EXACT_VOICE_REPLY_GATE_REQUIRED",
 );
+requireText(
+  home,
+  'function speakResponse(message)',
+  "FINAL_RELEASE_HOME_SPEECH_EMITTER_REQUIRED",
+);
+requireText(
+  home,
+  'source: "operator"',
+  "FINAL_RELEASE_HOME_VOICE_REPLY_SOURCE_REQUIRED",
+);
+if (countText(home, 'if (source === "voice")') < 2) {
+  fail("FINAL_RELEASE_HOME_VOICE_BRANCH_REQUIRED");
+}
+if (countText(home, "speakResponse(responseText);") !== 2) {
+  fail("FINAL_RELEASE_HOME_SPEECH_CALL_COUNT_INVALID");
+}
 requireText(
   globalOperator,
   "const voiceInitiated = event?.detail?.voice_initiated === true",
@@ -181,10 +204,25 @@ requireText(
   "(!voiceInitiated && !urgent)",
   "FINAL_RELEASE_GLOBAL_OPERATOR_TYPED_TTS_FORBIDDEN",
 );
+forbidText(
+  globalOperator,
+  "window.SpeechRecognition",
+  "FINAL_RELEASE_BROWSER_SPEECH_RECOGNITION_FORBIDDEN",
+);
+forbidText(
+  globalOperator,
+  "window.webkitSpeechRecognition",
+  "FINAL_RELEASE_BROWSER_WEBKIT_SPEECH_RECOGNITION_FORBIDDEN",
+);
 requireText(
   globalOperator,
-  "KEYBOARD_WAKE_BLOCK_MS = 3000",
-  "FINAL_RELEASE_GLOBAL_OPERATOR_KEYBOARD_WAKE_GUARD_REQUIRED",
+  "new MediaRecorder",
+  "FINAL_RELEASE_EXPLICIT_MIC_MEDIA_RECORDER_REQUIRED",
+);
+requireText(
+  globalOperator,
+  "transcribeRecordedAudio",
+  "FINAL_RELEASE_EXPLICIT_MIC_OWNED_STT_REQUIRED",
 );
 requireText(
   publicErrorPolicy,

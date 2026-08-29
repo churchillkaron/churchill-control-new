@@ -1,0 +1,8 @@
+{
+  "contract": "AVANTIQO_VOICE_PRODUCTION_SERVICE_RUNTIME_CERTIFICATION_V1",
+  "requested_at": "2026-08-29T12:30:00Z",
+  "scope": "owned_tts_service_runtime_wallet_settlement_only",
+  "max_provider_jobs": 1,
+  "external_provider_allowed": false,
+  "production_deploy_allowed": false
+}

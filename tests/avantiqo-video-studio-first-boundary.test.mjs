@@ -48,7 +48,7 @@ test("Video generation Pod ends paid GPU lifecycle before Studio media processin
 });
 
 test("Video 4K uses learned FlashVSR while lower masters stay Studio-owned", async () => {
-  const [workflow, master, foundation, flashStudio, flashPod, flashWorker, flashDocker] = await Promise.all([
+  const [workflow, master, foundation, flashStudio, flashPod, flashWorker, flashDocker, cpuBridge] = await Promise.all([
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoWorkflowRuntimeV3.js"),
     read("lib/creative/video/runtime/CreativeVideoStudioMasterRuntime.js"),
     read("lib/creative/video/runtime/CreativeVideoStudioFoundationRuntime.js"),
@@ -56,6 +56,7 @@ test("Video 4K uses learned FlashVSR while lower masters stay Studio-owned", asy
     read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js"),
     read("services/avantiqo-video-flashvsr/flashvsr_worker.py"),
     read("services/avantiqo-video-flashvsr/Dockerfile"),
+    read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoRunpodVolumeCpuBridge.js"),
   ]);
 
   assert.doesNotMatch(workflow, /FAL_KEY|FAL_API_KEY|queue\.fal\.run|fal-ai\/bytedance-upscaler/i);
@@ -74,11 +75,26 @@ test("Video 4K uses learned FlashVSR while lower masters stay Studio-owned", asy
   assert.match(flashStudio, /studio_final_encoding: true/);
   assert.match(flashStudio, /gpu_video_encoding_used: false/);
   assert.match(flashStudio, /-frames:v", String\(prepared\.source_frame_count\)/);
+  assert.match(flashStudio, /volume_transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE"/);
+  assert.match(flashStudio, /s3_credentials_required: false/);
+  assert.doesNotMatch(flashStudio, /presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/);
+
+  assert.match(cpuBridge, /computeType: "CPU"/);
+  assert.match(cpuBridge, /imageName: "python:3\.11-slim"/);
+  assert.match(cpuBridge, /model_inference_used: false/);
+  assert.match(cpuBridge, /ffmpeg_used: false/);
+  assert.doesNotMatch(cpuBridge, /\bffmpeg\b.*spawn|torch|cuda|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai\//i);
+
   assert.match(flashPod, /AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"/);
+  assert.match(flashPod, /transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE"/);
+  assert.match(flashPod, /s3_credentials_required: false/);
+  assert.doesNotMatch(flashPod, /presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/);
   const receiptIndex = flashPod.indexOf("if (receipt) {");
   const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", receiptIndex);
   const finalStudioIndex = flashPod.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", receiptIndex);
+  const bridgeDeleteIndex = flashPod.indexOf("await closeBridge(masterJob)", finalStudioIndex);
   assert.ok(receiptIndex >= 0 && gpuDeleteIndex > receiptIndex && finalStudioIndex > gpuDeleteIndex, "FlashVSR GPU Pod must be deleted before Studio final encoding");
+  assert.ok(bridgeDeleteIndex > finalStudioIndex, "CPU volume bridge must be deleted after Studio finalization/cleanup");
 
   assert.doesNotMatch(flashDocker, /\bffmpeg\b|libx264|libx265/i);
   assert.match(flashDocker, /BLOCK_SPARSE_ATTN_CUDA_ARCHS=80/);

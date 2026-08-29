@@ -23,6 +23,7 @@ const REASONING_CALL_BUDGET = 4;
 const WARM_IDLE_MS = 10 * 60 * 1000;
 const POLL_DELAY_MS = 1000;
 const MAX_WORKER_WARMING_MS = 90 * 1000;
+const MAX_POD_STARTUP_WARMING_MS = 15 * 60 * 1000;
 const MAX_RESUME_CYCLES = 180;
 const MAX_CERTIFICATION_RUNTIME_MS = 30 * 60 * 1000;
 const REST = "https://rest.runpod.io/v1";
@@ -244,6 +245,16 @@ try {
     const workerWarmingElapsedMs = workerWarming && workerWarmingStartedAt !== null
       ? Date.now() - workerWarmingStartedAt
       : 0;
+    const podLifecyclePhase = text(result.worker_session?.pod_lifecycle_phase, 120).toUpperCase();
+    const workerWarmingLimitMs = workerWarming && result.worker_session?.transport_ready !== true && [
+      "POD_ID_PENDING",
+      "POD_RECORD_PENDING",
+      "POD_PROVISIONING",
+      "POD_NETWORKING",
+      "POD_HTTP_STARTUP",
+    ].includes(podLifecyclePhase)
+      ? MAX_POD_STARTUP_WARMING_MS
+      : MAX_WORKER_WARMING_MS;
 
     event("CYCLE", {
       cycle,
@@ -256,14 +267,25 @@ try {
       worker_warming: workerWarming,
       worker_warming_elapsed_ms: workerWarmingElapsedMs,
       worker_warming_limit_ms: MAX_WORKER_WARMING_MS,
+      worker_effective_warming_limit_ms: workerWarmingLimitMs,
       worker_state: result.worker_session?.state || null,
       worker_reason: result.worker_session?.reason || null,
       worker_transport_ready: result.worker_session?.transport_ready === true,
       worker_cached_model_found: result.worker_session?.cached_model_found === true,
       worker_engine_loaded: result.worker_session?.engine_loaded === true,
+      worker_engine_loading: result.worker_session?.engine_loading === true,
       worker_engine_warmup_job_present: result.worker_session?.engine_warmup_job_present === true,
       worker_engine_warmup_status: result.worker_session?.engine_warmup_status || null,
       worker_pod_id_present: result.worker_session?.pod_id_present === true,
+      worker_pod_lifecycle_phase: result.worker_session?.pod_lifecycle_phase || null,
+      worker_pod_desired_status: result.worker_session?.pod_desired_status || null,
+      worker_pod_runtime_status: result.worker_session?.pod_runtime_status || null,
+      worker_pod_machine_present: result.worker_session?.pod_machine_present ?? null,
+      worker_pod_public_ip_present: result.worker_session?.pod_public_ip_present ?? null,
+      worker_pod_http_port_exposed: result.worker_session?.pod_http_port_exposed ?? null,
+      worker_pod_last_started_at: result.worker_session?.pod_last_started_at || null,
+      worker_pod_last_status_change: result.worker_session?.pod_last_status_change || null,
+      worker_pod_proxy_http_status: result.worker_session?.pod_proxy_http_status ?? null,
       reasoning_calls_used: reasoningCalls,
       reasoning_call_budget: REASONING_CALL_BUDGET,
       package_count: Number(result.state?.work_package_control?.packages_executed || 0),
@@ -276,12 +298,17 @@ try {
       if (reasoningCalls !== 0) {
         throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_WARMING_MUST_NOT_SPEND_REASONING_CALL");
       }
-      if (workerWarmingElapsedMs >= MAX_WORKER_WARMING_MS) {
+      if (workerWarmingElapsedMs >= workerWarmingLimitMs) {
         throw new Error(
           `AVANTIQO_CODE_EMPLOYEE_CERT_WORKER_WARMING_LIMIT_EXCEEDED:` +
           `elapsed_ms=${workerWarmingElapsedMs}:` +
+          `limit_ms=${workerWarmingLimitMs}:` +
           `state=${text(result.worker_session?.state, 120) || "UNKNOWN"}:` +
           `reason=${text(result.worker_session?.reason, 200) || "UNKNOWN"}:` +
+          `pod_phase=${podLifecyclePhase || "UNKNOWN"}:` +
+          `pod_desired=${text(result.worker_session?.pod_desired_status, 120) || "UNKNOWN"}:` +
+          `pod_runtime=${text(result.worker_session?.pod_runtime_status, 120) || "UNKNOWN"}:` +
+          `proxy_http=${result.worker_session?.pod_proxy_http_status ?? "UNKNOWN"}:` +
           `transport_ready=${result.worker_session?.transport_ready === true}:` +
           `cached_model_found=${result.worker_session?.cached_model_found === true}:` +
           `engine_loaded=${result.worker_session?.engine_loaded === true}:` +

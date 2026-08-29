@@ -1,18 +1,15 @@
 const CONTROLLER_CONTRACT = "AVANTIQO_VOICE_REALTIME_SAFE_LEASE_V1";
 const DISTRIBUTED_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
 const LANE = "voice-stt";
-const CANONICAL_ENDPOINT_NAME = "avantiqo-voice-stt-v1-realtime";
-const REST_BASE = "https://rest.runpod.io/v1";
+const CANONICAL_ENDPOINT_NAME = "avantiqo-voice-stt-realtime-v1";
+const CANONICAL_ENDPOINT_TYPE = "LOAD_BALANCER";
+const CANONICAL_GPU_POOL = "AMPERE_16";
+const CANONICAL_GPU_COUNT = 1;
+const CANONICAL_IDLE_TIMEOUT_SECONDS = 5;
+const REST_BASE = "https://api.runpod.io/v2";
 const DEFAULT_TTL_SECONDS = 120;
 const CLEANUP_TIMEOUT_MS = 180_000;
 const WATCHDOG_POLL_MS = 5_000;
-const MAX_WORKER_HOURLY_USD = 4;
-const TERMINAL_WORKER_STATES = new Set([
-  "EXITED",
-  "STOPPED",
-  "TERMINATED",
-  "DELETED",
-]);
 
 function text(value: unknown): string {
   return String(value ?? "").trim();
@@ -21,6 +18,12 @@ function text(value: unknown): string {
 function finite(value: unknown, fallback: number | null = null): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
 function supabaseSecretKey(): string {
@@ -123,76 +126,141 @@ async function rpc(name: string, body: Record<string, unknown>): Promise<Record<
 }
 
 function endpointUrl(endpointId: string): string {
-  return `${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}`;
+  return `${REST_BASE}/serverless/${encodeURIComponent(endpointId)}`;
+}
+
+function endpointWorkersUrl(endpointId: string): string {
+  return `${endpointUrl(endpointId)}/workers`;
+}
+
+function runpodHeaders(): Record<string, string> {
+  return { Authorization: `Bearer ${runpodManagementKey()}` };
 }
 
 async function getEndpoint(endpointId: string): Promise<Record<string, unknown>> {
-  return requestJson(`${endpointUrl(endpointId)}?includeTemplate=false&includeWorkers=true`, {
-    headers: { Authorization: `Bearer ${runpodManagementKey()}` },
+  return requestJson(endpointUrl(endpointId), {
+    headers: runpodHeaders(),
   });
+}
+
+async function getEndpointWorkers(endpointId: string): Promise<Record<string, unknown>> {
+  return requestJson(endpointWorkersUrl(endpointId), {
+    headers: runpodHeaders(),
+  });
+}
+
+type EndpointState = {
+  endpoint: Record<string, unknown>;
+  workerInventory: Record<string, unknown>;
+};
+
+async function getEndpointState(endpointId: string): Promise<EndpointState> {
+  const [endpoint, workerInventory] = await Promise.all([
+    getEndpoint(endpointId),
+    getEndpointWorkers(endpointId),
+  ]);
+  return { endpoint, workerInventory };
 }
 
 async function patchEndpointWorkers(
   endpointId: string,
   workersMax: 0 | 1,
-): Promise<Record<string, unknown>> {
+): Promise<EndpointState> {
   await requestJson(endpointUrl(endpointId), {
     method: "PATCH",
-    headers: { Authorization: `Bearer ${runpodManagementKey()}` },
-    body: { workersMin: 0, workersMax },
+    headers: runpodHeaders(),
+    body: {
+      workers: {
+        min: 0,
+        max: workersMax,
+        idleTimeout: CANONICAL_IDLE_TIMEOUT_SECONDS,
+      },
+    },
   });
-  return getEndpoint(endpointId);
+  return getEndpointState(endpointId);
 }
 
-function workers(endpoint: Record<string, unknown>): Record<string, unknown>[] {
-  return Array.isArray(endpoint.workers)
-    ? endpoint.workers.filter((worker) => worker && typeof worker === "object") as Record<string, unknown>[]
+function endpointWorkerBounds(endpoint: Record<string, unknown>): {
+  min: number | null;
+  max: number | null;
+  idleTimeout: number | null;
+} {
+  const config = record(endpoint.workers);
+  return {
+    min: finite(config.min),
+    max: finite(config.max),
+    idleTimeout: finite(config.idleTimeout),
+  };
+}
+
+function activeWorkers(workerInventory: Record<string, unknown>): Record<string, unknown>[] {
+  return Array.isArray(workerInventory.workers)
+    ? workerInventory.workers.filter((worker) => worker && typeof worker === "object") as Record<string, unknown>[]
     : [];
-}
-
-function activeWorkers(endpoint: Record<string, unknown>): Record<string, unknown>[] {
-  return workers(endpoint).filter((worker) => {
-    const status = text(worker.status ?? worker.workerStatus ?? worker.runtimeStatus).toUpperCase();
-    const desired = text(worker.desiredStatus ?? worker.desired_status).toUpperCase();
-    if (status && !TERMINAL_WORKER_STATES.has(status)) return true;
-    if (desired && !TERMINAL_WORKER_STATES.has(desired)) return true;
-    return !status && !desired;
-  });
-}
-
-function endpointHourlyCost(endpoint: Record<string, unknown>): number {
-  return activeWorkers(endpoint).reduce((sum, worker) => {
-    const cost = finite(worker.adjustedCostPerHr ?? worker.costPerHr, 0) || 0;
-    return sum + Math.max(0, cost);
-  }, 0);
 }
 
 function assertEndpointIdentity(endpoint: Record<string, unknown>, endpointId: string): void {
   if (text(endpoint.id) !== endpointId || text(endpoint.name) !== configuredEndpointName()) {
     throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_ENDPOINT_IDENTITY_INVALID");
   }
+  if (text(endpoint.type) !== CANONICAL_ENDPOINT_TYPE) {
+    throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_ENDPOINT_TYPE_INVALID");
+  }
+
+  const scaling = record(endpoint.scaling);
+  if (text(scaling.type) !== "REQUEST_COUNT") {
+    throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_SCALER_INVALID");
+  }
+
+  const gpu = record(endpoint.gpu);
+  const pools = Array.isArray(gpu.pools) ? gpu.pools.map(text).filter(Boolean) : [];
+  if (
+    pools.length !== 1 ||
+    pools[0] !== CANONICAL_GPU_POOL ||
+    finite(gpu.count, -1) !== CANONICAL_GPU_COUNT
+  ) {
+    throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_GPU_CONFIG_INVALID");
+  }
 }
 
-function assertRestingEndpoint(endpoint: Record<string, unknown>, endpointId: string): void {
-  assertEndpointIdentity(endpoint, endpointId);
-  if (finite(endpoint.workersMin, -1) !== 0 || finite(endpoint.workersMax, -1) !== 0) {
+function assertWorkerInventory(workerInventory: Record<string, unknown>): void {
+  const rows = activeWorkers(workerInventory);
+  const summary = record(workerInventory.summary);
+  const total = finite(summary.total);
+  if (total !== null && total !== rows.length) {
+    throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_WORKER_INVENTORY_INCONSISTENT");
+  }
+}
+
+function assertRestingEndpoint(state: EndpointState, endpointId: string): void {
+  assertEndpointIdentity(state.endpoint, endpointId);
+  assertWorkerInventory(state.workerInventory);
+  const bounds = endpointWorkerBounds(state.endpoint);
+  if (
+    bounds.min !== 0 ||
+    bounds.max !== 0 ||
+    bounds.idleTimeout !== CANONICAL_IDLE_TIMEOUT_SECONDS
+  ) {
     throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_REST_STATE_REQUIRED");
   }
-  if (activeWorkers(endpoint).length !== 0 || endpointHourlyCost(endpoint) !== 0) {
+  if (activeWorkers(state.workerInventory).length !== 0) {
     throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_REST_WORKER_PRESENT");
   }
 }
 
-function assertOpenEndpoint(endpoint: Record<string, unknown>, endpointId: string): void {
-  assertEndpointIdentity(endpoint, endpointId);
-  if (finite(endpoint.workersMin, -1) !== 0 || finite(endpoint.workersMax, -1) !== 1) {
+function assertOpenEndpoint(state: EndpointState, endpointId: string): void {
+  assertEndpointIdentity(state.endpoint, endpointId);
+  assertWorkerInventory(state.workerInventory);
+  const bounds = endpointWorkerBounds(state.endpoint);
+  if (
+    bounds.min !== 0 ||
+    bounds.max !== 1 ||
+    bounds.idleTimeout !== CANONICAL_IDLE_TIMEOUT_SECONDS
+  ) {
     throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_OPEN_STATE_INVALID");
   }
-  if (activeWorkers(endpoint).length > 1) {
+  if (activeWorkers(state.workerInventory).length > 1) {
     throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_WORKER_LIMIT");
-  }
-  if (endpointHourlyCost(endpoint) > MAX_WORKER_HOURLY_USD) {
-    throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_WORKER_COST_LIMIT");
   }
 }
 
@@ -218,20 +286,22 @@ async function releaseDistributedLease({
 async function parkAndVerify(endpointId: string): Promise<Record<string, unknown>> {
   await patchEndpointWorkers(endpointId, 0);
   const deadline = Date.now() + CLEANUP_TIMEOUT_MS;
-  let latest = await getEndpoint(endpointId);
+  let latest = await getEndpointState(endpointId);
 
   while (Date.now() < deadline) {
-    assertEndpointIdentity(latest, endpointId);
+    assertEndpointIdentity(latest.endpoint, endpointId);
+    assertWorkerInventory(latest.workerInventory);
+    const bounds = endpointWorkerBounds(latest.endpoint);
     if (
-      finite(latest.workersMin, -1) === 0 &&
-      finite(latest.workersMax, -1) === 0 &&
-      activeWorkers(latest).length === 0 &&
-      endpointHourlyCost(latest) === 0
+      bounds.min === 0 &&
+      bounds.max === 0 &&
+      bounds.idleTimeout === CANONICAL_IDLE_TIMEOUT_SECONDS &&
+      activeWorkers(latest.workerInventory).length === 0
     ) {
-      return latest;
+      return latest.endpoint;
     }
     await new Promise((resolve) => setTimeout(resolve, WATCHDOG_POLL_MS));
-    latest = await getEndpoint(endpointId);
+    latest = await getEndpointState(endpointId);
   }
 
   throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_CLEANUP_TIMEOUT");
@@ -264,7 +334,12 @@ export function voiceRealtimeSafeLeaseCertification() {
     distributed_contract: DISTRIBUTED_CONTRACT,
     lane: LANE,
     endpoint_name: CANONICAL_ENDPOINT_NAME,
-    endpoint_type: "LOAD_BALANCER",
+    endpoint_type: CANONICAL_ENDPOINT_TYPE,
+    runpod_control_api: "v2",
+    worker_inventory_api: "/v2/serverless/{id}/workers",
+    gpu_pool: CANONICAL_GPU_POOL,
+    gpu_count: CANONICAL_GPU_COUNT,
+    scaler_type: "REQUEST_COUNT",
     resting_workers_min: 0,
     resting_workers_max: 0,
     leased_workers_min: 0,
@@ -299,7 +374,7 @@ export async function acquireVoiceRealtimeSafeLease({
     throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_INPUT_REQUIRED");
   }
 
-  const resting = await getEndpoint(resolvedEndpointId);
+  const resting = await getEndpointState(resolvedEndpointId);
   assertRestingEndpoint(resting, resolvedEndpointId);
 
   const lease = await rpc("acquire_avantiqo_voice_runpod_lease_v2", {
@@ -323,11 +398,11 @@ export async function acquireVoiceRealtimeSafeLease({
 
   let endpointOpened = false;
   try {
-    const rechecked = await getEndpoint(resolvedEndpointId);
+    const rechecked = await getEndpointState(resolvedEndpointId);
     assertRestingEndpoint(rechecked, resolvedEndpointId);
 
-    const opened = await patchEndpointWorkers(resolvedEndpointId, 1);
     endpointOpened = true;
+    const opened = await patchEndpointWorkers(resolvedEndpointId, 1);
     assertOpenEndpoint(opened, resolvedEndpointId);
 
     let released = false;
@@ -338,7 +413,7 @@ export async function acquireVoiceRealtimeSafeLease({
       ownerRequestId: resolvedOwnerRequestId,
       async refresh() {
         if (released) throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_ALREADY_RELEASED");
-        const current = await getEndpoint(resolvedEndpointId);
+        const current = await getEndpointState(resolvedEndpointId);
         assertOpenEndpoint(current, resolvedEndpointId);
         const refreshed = await rpc("refresh_avantiqo_voice_runpod_lease_v2", {
           p_lease_id: leaseId,
@@ -348,7 +423,7 @@ export async function acquireVoiceRealtimeSafeLease({
         if (text(refreshed.id) !== leaseId || text(refreshed.state) !== "ACTIVE") {
           throw new Error("AVANTIQO_VOICE_REALTIME_SAFE_LEASE_REFRESH_INVALID");
         }
-        return current;
+        return current.endpoint;
       },
       async release(reason = "REALTIME_SESSION_COMPLETE") {
         if (released) return;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V4";
+const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V5";
 const path = "lib/code/runtime/CodeAIWorkerSessionRuntime.js";
 const source = await readFile(path, "utf8");
 
@@ -41,7 +41,6 @@ requireMarkers("IMMUTABLE_WORKER", [
   "r79dtnjnrilrlc",
   "7obluigbr0",
   "US-CA-2",
-  "sha256:1b6ac20925085104ac00c09dde3073e32e5934543bd16b9a346b2dca3fa7bb27",
   "NVIDIA H100 80GB HBM3",
   "NVIDIA H100 NVL",
   "NVIDIA H200",
@@ -52,6 +51,7 @@ requireMarkers("IMMUTABLE_WORKER", [
   'gpuTypePriority: "availability"',
   'Object.freeze(["12.8", "12.9", "13.0"])',
 ]);
+assert.match(source, /ghcr\.io\/churchillkaron\/avantiqo-code-pod@sha256:[a-f0-9]{64}/);
 assert.equal(source.includes("NVIDIA A100 80GB PCIe"), false);
 
 requireMarkers("SHARED_VOLUME_EXCLUSION", [
@@ -70,6 +70,24 @@ requireMarkers("HEALTH", [
   "body?.raw_reasoning_persisted === false",
   "HEALTH_TIMEOUT_MS = 2500",
 ]);
+
+requireMarkers("READY_TRANSPORT_HEALTH", [
+  "READY_TRANSPORT_HEALTH_TIMEOUT_MS = 5000",
+  "READY_TRANSPORT_HEALTH_ATTEMPTS = 3",
+  "READY_TRANSPORT_HEALTH_RETRY_DELAY_MS = 500",
+  "confirmReadyTransportHealth",
+  "AVANTIQO_CODE_READY_TRANSPORT_HEALTH_RETRY",
+  "worker_lifecycle_mutation_performed: false",
+  "provider_execution_submitted: false",
+  "reasoning_call_consumed: false",
+  "ready_health_attempts_max: READY_TRANSPORT_HEALTH_ATTEMPTS",
+]);
+const transportResolveIndex = source.indexOf("export async function resolveCodeAIWorkerSessionTransport");
+const confirmReadyIndex = source.indexOf("confirmReadyTransportHealth(session)", transportResolveIndex);
+const tokenReturnIndex = source.indexOf("token: tokenForSession(session.session_id)", transportResolveIndex);
+assert.ok(transportResolveIndex >= 0, "ready transport resolver must exist");
+assert.ok(confirmReadyIndex > transportResolveIndex, "ready transport must confirm health before returning transport");
+assert.ok(tokenReturnIndex > confirmReadyIndex, "worker token must only be returned after bounded ready-health confirmation");
 
 requireMarkers("ENGINE_WARMUP", [
   "submitEngineWarmup",
@@ -93,7 +111,7 @@ const warmupFailureIndex = source.indexOf("CODE_AI_WORKER_SESSION_ENGINE_WARMUP_
 assert.ok(warmupSubmitIndex >= 0, "engine warmup submit must exist");
 assert.ok(warmupAllow404Index > warmupSubmitIndex, "startup warmup submit 404 must be explicitly retryable");
 assert.ok(routePendingIndex > warmupAllow404Index, "startup route 404 must become a warming state");
-assert.ok(warmupFailureIndex > routePendingIndex, "established warmup failures must remain fail-closed");
+assert.ok(warmupFailureIndex > routePendingIndex, "established engine warmup failures must remain fail-closed");
 
 const readyStateIndex = source.indexOf('state: "READY"');
 const engineReadyIndex = source.indexOf("engine_ready: true", readyStateIndex);
@@ -145,7 +163,7 @@ console.log(JSON.stringify({
     worker_token_hmac_derived_not_persisted: true,
     default_warm_idle_minutes: 10,
     maximum_warm_idle_minutes: 30,
-    immutable_worker_image_bound: true,
+    immutable_worker_image_bound_by_digest: true,
     single_gpu_limit_preserved: true,
     availability_priority_preserved: true,
     approved_code_gpu_pool_includes_h100_nvl: true,
@@ -153,6 +171,10 @@ console.log(JSON.stringify({
     unsupported_a100_not_added_to_fp8_code_pool: true,
     shared_volume_foreign_pod_exclusion: true,
     pod_v3_health_required: true,
+    ready_transport_health_confirmation_is_bounded: true,
+    ready_transport_health_retry_is_non_mutating: true,
+    ready_transport_health_retry_does_not_consume_reasoning: true,
+    worker_transport_token_return_requires_confirmed_engine_health: true,
     canonical_async_route_advertisement_required_before_transport_ready: true,
     startup_warmup_route_404_is_retryable: true,
     established_engine_warmup_failures_remain_fail_closed: true,

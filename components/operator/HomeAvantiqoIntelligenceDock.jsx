@@ -69,12 +69,11 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       }
 
       const urgent = String(detail.priority ?? "").trim().toLowerCase() === "urgent";
-      const explicitlyVoiceInitiated =
-        detail.voice_initiated === true || detail.source === "operator";
+      const explicitlyVoiceInitiated = detail.voice_initiated === true;
 
       // Typed Secretary turns are always silent. There is no carry-over voice
-      // intent window: only the exact turn explicitly marked as voice may speak.
-      // Home's operator source is emitted only from its source === "voice" branch.
+      // intent window and no source-name shortcut: only the exact turn carrying
+      // voice_initiated=true may speak, except a governed urgent interruption.
       if (!urgent && !explicitlyVoiceInitiated) {
         event.stopImmediatePropagation();
         return;
@@ -184,10 +183,6 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
     section.addEventListener("keydown", handleKeyDown, true);
     section.addEventListener("click", handleClick, true);
 
-    // Only follow direct conversation-row additions/removals. The scroller also
-    // contains live thesis/attention cards whose text can refresh independently;
-    // observing their subtree made those background updates pull the transcript
-    // to the bottom even when no chat message changed.
     const observer = new MutationObserver((mutations) => {
       if (!pinnedToLatest) return;
       const conversationRowsChanged = mutations.some(
@@ -198,9 +193,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       );
       if (conversationRowsChanged) scheduleLatest("smooth");
     });
-    observer.observe(scroller, {
-      childList: true,
-    });
+    observer.observe(scroller, { childList: true });
 
     scheduleLatest("auto");
     const settleTimer = window.setTimeout(() => {

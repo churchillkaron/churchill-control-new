@@ -6,15 +6,27 @@ const GRAPHQL_BASE = "https://api.runpod.io/graphql";
 const PRODUCTION_ENDPOINT_NAME = "avantiqo-cinema-production-v1";
 const CANDIDATE_ENDPOINT_NAME = "avantiqo-video-32gb-candidate-v1";
 const CANDIDATE_GPU_TYPE = "NVIDIA RTX PRO 4500 Blackwell";
+const CANDIDATE_DATA_CENTER = "EU-RO-1";
 const REGISTRY_AUTH_ENV = "AVANTIQO_VIDEO_32GB_CANDIDATE_RUNPOD_REGISTRY_AUTH_ID";
 const NO_AUTH_SENTINEL = "AVANTIQO_VIDEO_V69_NO_REGISTRY_AUTH";
 const TRANSIENT_READ_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const READ_ATTEMPTS = 4;
 const BACKOFF_MS = [0, 750, 1500, 3000];
 
-const GPU_POOLS_QUERY = `
-query AvantiqoVideoV69GpuPools {
+const GPU_RESOLUTION_QUERY = `
+query AvantiqoVideoV69GpuResolution($input: GpuAvailabilityInput) {
+  gpuTypes { id displayName memoryInGb secureCloud communityCloud }
   serverlessGpuPools { id gpuTypeIds }
+  dataCenters {
+    id
+    gpuAvailability(input: $input) {
+      available
+      stockStatus
+      gpuTypeId
+      gpuTypeDisplayName
+      displayName
+    }
+  }
 }`;
 
 const SAVE_ENDPOINT_MUTATION = `
@@ -33,6 +45,7 @@ mutation AvantiqoVideoV69SaveEndpoint($input: EndpointInput!) {
 }`;
 
 let productionUsesNoRegistryAuth = false;
+let resolvedCandidateGpu = null;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const text = (value) => String(value ?? "").trim();
@@ -40,9 +53,21 @@ const list = (value) => Array.isArray(value) ? value : [];
 const finite = (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const methodOf = (init = {}) => String(init?.method || "GET").toUpperCase();
 const urlOf = (input) => typeof input === "string" ? input : text(input?.url);
+const normalizedLabel = (value) => text(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
 
 function errorCode(error) {
   return String(error?.cause?.code || error?.code || error?.name || "FETCH_FAILED");
+}
+
+function normalizePoolGpuTypeIds(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => text(typeof entry === "string" ? entry : entry?.id ?? entry?.gpuTypeId))
+      .filter(Boolean);
+  }
+  const raw = text(value);
+  if (!raw) return [];
+  return raw.split(/[,|]/).map((entry) => entry.trim()).filter(Boolean);
 }
 
 function isRegistryAuthList(url) {
@@ -103,7 +128,7 @@ async function nativeGraphql(query, variables, managementKey) {
       Authorization: `Bearer ${managementKey}`,
       Accept: "application/json",
       "Content-Type": "application/json",
-      "User-Agent": "AvantiqoVideoV69",
+      "User-Agent": "Mozilla/5.0 AvantiqoVideoV69",
     },
     body: JSON.stringify({ query, variables }),
     signal: AbortSignal.timeout(30_000),
@@ -122,15 +147,88 @@ async function nativeGraphql(query, variables, managementKey) {
   return body;
 }
 
-async function resolveCandidateGpuPoolId(managementKey, gpuType) {
-  if (gpuType !== CANDIDATE_GPU_TYPE) {
-    throw new Error(`AVANTIQO_VIDEO_V69_GPU_TYPE_UNEXPECTED:${gpuType || "MISSING"}`);
+async function resolveCandidateGpuPoolId(managementKey, requestedGpuType) {
+  if (requestedGpuType !== CANDIDATE_GPU_TYPE) {
+    throw new Error(`AVANTIQO_VIDEO_V69_GPU_TYPE_UNEXPECTED:${requestedGpuType || "MISSING"}`);
   }
-  const response = await nativeGraphql(GPU_POOLS_QUERY, {}, managementKey);
-  const pools = list(response?.data?.serverlessGpuPools);
-  const pool = pools.find((entry) => list(entry?.gpuTypeIds).map(text).includes(gpuType));
-  const poolId = text(pool?.id);
-  if (!poolId) throw new Error(`AVANTIQO_VIDEO_V69_GPU_POOL_RESOLUTION_FAILED:${gpuType}`);
+
+  if (resolvedCandidateGpu?.pool_id) return resolvedCandidateGpu.pool_id;
+
+  const response = await nativeGraphql(
+    GPU_RESOLUTION_QUERY,
+    { input: { gpuCount: 1, minDisk: 5, minMemoryInGb: 32, secureCloud: true } },
+    managementKey,
+  );
+  const data = response?.data || {};
+  const gpuTypes = list(data.gpuTypes);
+  const exactIdMatches = gpuTypes.filter((entry) => text(entry?.id) === requestedGpuType);
+  const labelMatches = gpuTypes.filter((entry) =>
+    normalizedLabel(entry?.displayName) === normalizedLabel(requestedGpuType) ||
+    normalizedLabel(entry?.id) === normalizedLabel(requestedGpuType),
+  );
+  const matches = exactIdMatches.length ? exactIdMatches : labelMatches;
+  if (matches.length !== 1) {
+    throw new Error(`AVANTIQO_VIDEO_V69_GPU_TYPE_ID_RESOLUTION_FAILED:matches=${matches.length}`);
+  }
+
+  const meta = matches[0];
+  const canonicalGpuTypeId = text(meta?.id);
+  const displayName = text(meta?.displayName) || canonicalGpuTypeId;
+  const memoryGb = finite(meta?.memoryInGb, null);
+  if (!canonicalGpuTypeId) throw new Error("AVANTIQO_VIDEO_V69_GPU_TYPE_ID_REQUIRED");
+  if (canonicalGpuTypeId !== CANDIDATE_GPU_TYPE) {
+    throw new Error(`AVANTIQO_VIDEO_V69_GPU_TYPE_CONTRACT_DRIFT:${canonicalGpuTypeId}`);
+  }
+  if (meta?.secureCloud !== true) {
+    throw new Error(`AVANTIQO_VIDEO_V69_GPU_TYPE_NOT_SECURE_CLOUD:${canonicalGpuTypeId}`);
+  }
+  if (!(memoryGb >= 32 && memoryGb < 40)) {
+    throw new Error(`AVANTIQO_VIDEO_V69_GPU_TYPE_MEMORY_INVALID:${memoryGb}`);
+  }
+
+  const dataCenter = list(data.dataCenters).find((entry) => text(entry?.id) === CANDIDATE_DATA_CENTER);
+  if (!dataCenter) throw new Error(`AVANTIQO_VIDEO_V69_DATA_CENTER_REQUIRED:${CANDIDATE_DATA_CENTER}`);
+  const liveRows = list(dataCenter?.gpuAvailability).filter(
+    (entry) => text(entry?.gpuTypeId) === canonicalGpuTypeId,
+  );
+  if (liveRows.length !== 1) {
+    throw new Error(`AVANTIQO_VIDEO_V69_GPU_AVAILABILITY_ROW_FAILED:matches=${liveRows.length}`);
+  }
+  const live = liveRows[0];
+  if (live?.available !== true) {
+    throw new Error(`AVANTIQO_VIDEO_V69_GPU_NOT_AVAILABLE_IN_${CANDIDATE_DATA_CENTER}`);
+  }
+
+  const pools = list(data.serverlessGpuPools);
+  const matchingPools = pools.filter((entry) =>
+    normalizePoolGpuTypeIds(entry?.gpuTypeIds).includes(canonicalGpuTypeId),
+  );
+  if (!matchingPools.length) {
+    const availablePoolIds = pools.map((entry) => text(entry?.id)).filter(Boolean).sort().join(",");
+    throw new Error(
+      `AVANTIQO_VIDEO_V69_SERVERLESS_POOL_RESOLUTION_FAILED:${canonicalGpuTypeId}:available_pool_ids=${availablePoolIds}`,
+    );
+  }
+  const sortedPools = [...matchingPools].sort((left, right) => text(left?.id).localeCompare(text(right?.id)));
+  const poolId = text(sortedPools[0]?.id);
+  if (!poolId) throw new Error(`AVANTIQO_VIDEO_V69_GPU_POOL_ID_REQUIRED:${canonicalGpuTypeId}`);
+
+  resolvedCandidateGpu = {
+    type_id: canonicalGpuTypeId,
+    display_name: displayName,
+    memory_gb: memoryGb,
+    data_center_id: CANDIDATE_DATA_CENTER,
+    stock_status: text(live?.stockStatus).toUpperCase() || "AVAILABLE",
+    pool_id: poolId,
+    matching_pool_count: matchingPools.length,
+  };
+
+  console.error(`AVANTIQO_VIDEO_V69_GPU_TYPE_ID_RESOLVED=${canonicalGpuTypeId}`);
+  console.error(`AVANTIQO_VIDEO_V69_GPU_DISPLAY_NAME=${displayName}`);
+  console.error(`AVANTIQO_VIDEO_V69_GPU_TARGET_DC=${CANDIDATE_DATA_CENTER}`);
+  console.error(`AVANTIQO_VIDEO_V69_GPU_TARGET_DC_STOCK=${resolvedCandidateGpu.stock_status}`);
+  console.error(`AVANTIQO_VIDEO_V69_GPU_POOL_ID=${poolId}`);
+  console.error("AVANTIQO_VIDEO_V69_GPU_POOL_RESOLVED=true");
   return poolId;
 }
 
@@ -178,7 +276,6 @@ async function createCandidateEndpointViaGraphql(init) {
   if (executionTimeoutMs !== null && executionTimeoutMs >= 0) input.executionTimeoutMs = executionTimeoutMs;
 
   console.error("AVANTIQO_VIDEO_V69_ENDPOINT_CREATE_TRANSPORT=RUNPOD_GRAPHQL_SAVE_ENDPOINT");
-  console.error("AVANTIQO_VIDEO_V69_GPU_POOL_RESOLVED=true");
 
   const saved = await nativeGraphql(SAVE_ENDPOINT_MUTATION, { input }, managementKey);
   const endpoint = saved?.data?.saveEndpoint;

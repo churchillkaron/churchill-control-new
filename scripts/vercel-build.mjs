@@ -13,7 +13,7 @@ if (production && !String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim()) {
 }
 
 if (production && message.includes(marker)) {
-  const proof = spawnSync(process.execPath, ["scripts/run-avantiqo-code-vercel-production-inference-proof.mjs"], {
+  const proof = spawnSync(process.execPath, ["scripts/run-avantiqo-code-vercel-production-proof-v4.mjs"], {
     cwd: process.cwd(),
     env: process.env,
     encoding: "utf8",

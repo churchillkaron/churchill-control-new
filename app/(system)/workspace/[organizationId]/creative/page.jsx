@@ -16,7 +16,7 @@ export default async function CreativePage({ params }) {
         title={workspace?.title || "Creative"}
         description={
           workspace?.description ||
-          "Marketing, design, music and creative production in one domain."
+          "One front door for design, image, video, voice, music, code, web and marketing work."
         }
       />
       <WorkspaceModuleGrid

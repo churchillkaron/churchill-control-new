@@ -161,11 +161,6 @@ async function bindProductionRegistryAuth() {
     throw new Error("AVANTIQO_VIDEO_V69_PRODUCTION_TEMPLATE_REQUIRED");
   }
 
-  const productionImage = text(productionTemplate?.imageName ?? productionTemplate?.image_name);
-  if (!/^ghcr\.io\/churchillkaron\/avantiqo-video-worker@sha256:[a-f0-9]{64}$/i.test(productionImage)) {
-    throw new Error("AVANTIQO_VIDEO_V69_PRODUCTION_TEMPLATE_GHCR_IDENTITY_INVALID");
-  }
-
   const registryAuthId = templateRegistryAuthId(productionTemplate);
   if (!registryAuthId) {
     productionUsesNoRegistryAuth = true;

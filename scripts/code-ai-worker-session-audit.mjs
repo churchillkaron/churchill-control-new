@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V3";
+const CONTRACT = "AVANTIQO_CODE_AI_WORKER_SESSION_SOURCE_AUDIT_V4";
 const path = "lib/code/runtime/CodeAIWorkerSessionRuntime.js";
 const source = await readFile(path, "utf8");
 
@@ -43,10 +43,16 @@ requireMarkers("IMMUTABLE_WORKER", [
   "US-CA-2",
   "sha256:1b6ac20925085104ac00c09dde3073e32e5934543bd16b9a346b2dca3fa7bb27",
   "NVIDIA H100 80GB HBM3",
+  "NVIDIA H100 NVL",
   "NVIDIA H200",
   "NVIDIA B200",
+  "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  'gpuCount: 1',
+  'gpuTypeIds: GPU_TYPE_IDS',
+  'gpuTypePriority: "availability"',
   'Object.freeze(["12.8", "12.9", "13.0"])',
 ]);
+assert.equal(source.includes("NVIDIA A100 80GB PCIe"), false);
 
 requireMarkers("SHARED_VOLUME_EXCLUSION", [
   "assertNoForeignCodePod",
@@ -140,6 +146,11 @@ console.log(JSON.stringify({
     default_warm_idle_minutes: 10,
     maximum_warm_idle_minutes: 30,
     immutable_worker_image_bound: true,
+    single_gpu_limit_preserved: true,
+    availability_priority_preserved: true,
+    approved_code_gpu_pool_includes_h100_nvl: true,
+    approved_code_gpu_pool_includes_rtx_pro_6000_blackwell: true,
+    unsupported_a100_not_added_to_fp8_code_pool: true,
     shared_volume_foreign_pod_exclusion: true,
     pod_v3_health_required: true,
     canonical_async_route_advertisement_required_before_transport_ready: true,

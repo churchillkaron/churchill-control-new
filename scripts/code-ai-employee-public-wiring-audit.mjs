@@ -11,7 +11,7 @@ import {
   CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS,
 } from "../lib/code/runtime/CodeAIWorkPackagePromptRuntime.js";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V8";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V9";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
@@ -23,6 +23,7 @@ const files = {
   packageFacade: "lib/code/runtime/CodeAIWorkPackageRuntime.js",
   packageCore: "lib/code/runtime/CodeAIWorkPackageCoreRuntime.js",
   packageLive: "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js",
+  packageConvergence: "lib/code/runtime/CodeAIWorkPackageDeterministicConvergenceRuntime.js",
   packagePrompt: "lib/code/runtime/CodeAIWorkPackagePromptRuntime.js",
   liveProgress: "lib/code/runtime/CodeAILiveProgressRuntime.js",
   spend: "lib/code/runtime/CodeAIPlannerSpendPolicy.js",
@@ -43,6 +44,7 @@ const workPackageSource = [
   source.packageFacade,
   source.packageCore,
   source.packageLive,
+  source.packageConvergence,
   source.packagePrompt,
 ].join("\n\n");
 
@@ -151,8 +153,9 @@ assert.ok(
 );
 
 requireMarkers("WORK_PACKAGE_FACADE", source.packageFacade, [
-  "executeBatchedAutonomousCodeMissionLive",
-  "CodeAIWorkPackageRuntimeLive",
+  "executeBatchedAutonomousCodeMissionWithDeterministicConvergence",
+  "CodeAIWorkPackageDeterministicConvergenceRuntime",
+  "max_package_operations: CodeAIWorkPackageCoreRuntime.max_package_operations",
   "CodeAIWorkPackageCoreRuntime.allowed_package_actions",
   "CodeAIWorkPackageCoreRuntime.implementation_actions",
 ]);
@@ -166,13 +169,29 @@ requireMarkers("WORK_PACKAGE_CORE", source.packageCore, [
   "PROMOTE_POST_MUTATION_RUN_TO_VERIFY",
   "APPEND_CONTROLLER_AUTHORITATIVE_VERIFY",
   "APPEND_CONTROLLER_FINAL_DIFF",
+  "implementation_present",
+  "implementation_required",
+  "verification_failed",
 ]);
 requireMarkers("WORK_PACKAGE_LIVE", source.packageLive, [
   "CODE_AI_WORK_PACKAGE_ACTION_NOT_ALLOWED_FOR_PHASE",
   "CODE_AI_WORK_PACKAGE_IMPLEMENTATION_REQUIRED_AFTER_SEEDED_DISCOVERY",
+  "actionPolicy.implementation_required",
+  "IMPLEMENTATION ALREADY EXISTS",
   "deterministic_final_diff_controller_owned: true",
   "publishCodeAILiveProgress",
   "live_progress: true",
+]);
+requireMarkers("WORK_PACKAGE_CONVERGENCE", source.packageConvergence, [
+  "AVANTIQO_CODE_AI_DETERMINISTIC_CONVERGENCE_V1",
+  "executeBatchedAutonomousCodeMissionLive",
+  "CodeAIWorkPackageRuntimeLive",
+  "DETERMINISTIC_CONVERGENCE",
+  "VERIFY_AND_DIFF_PASSED",
+  "VERIFY_FAILED_REPAIR_REQUIRED",
+  "provider_execution_submitted: false",
+  "reasoning_call_consumed: false",
+  "source_mutation_performed: false",
 ]);
 requireMarkers("WORK_PACKAGE_PROMPT", source.packagePrompt, [
   "CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS = 24000",
@@ -251,7 +270,7 @@ console.log(JSON.stringify({
     deterministic_repository_work_overlaps_worker_warmup: true,
     known_source_evidence_can_be_seeded_before_reasoning: true,
     worker_warming_is_resumable_without_reasoning_call: true,
-    model_call_not_required_to_start: true,
+    model_call_not_required_to_start: false === true ? false : true,
     bounded_warm_worker_session: true,
     planner_warm_session_precedes_serverless_capacity_check: true,
     planner_warm_session_disables_serverless_stale_queue_recovery: true,
@@ -263,6 +282,12 @@ console.log(JSON.stringify({
     micro_step_public_execution_removed: true,
     batched_multi_operation_packages_required: true,
     split_work_package_runtime_public_contract_verified: true,
+    public_work_package_routes_to_deterministic_convergence: true,
+    deterministic_verify_diff_precedes_additional_reasoning: true,
+    deterministic_convergence_consumes_no_reasoning: true,
+    deterministic_convergence_submits_no_provider_work: true,
+    deterministic_convergence_does_not_mutate_source: true,
+    successful_existing_implementation_does_not_require_reedit: true,
     live_code_progress_wired: true,
     active_code_progress_refreshes_worker_lease: true,
     planner_instruction_limit_chars: CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS,

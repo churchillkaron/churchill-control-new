@@ -1,4 +1,3 @@
-import io
 import os
 import struct
 import tempfile
@@ -12,10 +11,7 @@ import runpod
 import torch
 from diffusers.utils import load_image
 
-import handler as legacy
-import handler_v3 as v3
-import handler_v4 as v4
-import handler_v5 as v5
+import gpu_core as core
 
 RUNTIME_ENTRYPOINT = "handler_v6.py"
 RUNTIME_ENTRYPOINT_REVISION = "AVANTIQO_VIDEO_HANDLER_V6_GPU_ONLY_FRAME_EGRESS_V1"
@@ -37,7 +33,7 @@ def _object(value: Any) -> dict[str, Any]:
 
 def _validate(job: dict[str, Any]) -> dict[str, Any]:
     data = _object(job.get("input"))
-    if data.get("contract") != legacy.ENGINE_CONTRACT:
+    if data.get("contract") != core.ENGINE_CONTRACT:
         raise ValueError("AVANTIQO_VIDEO_ENGINE_CONTRACT_INVALID")
     capability = _text(data.get("capability"))
     if capability not in SUPPORTED_CAPABILITIES:
@@ -84,7 +80,6 @@ def _validate(job: dict[str, Any]) -> dict[str, Any]:
 
 def _npy_header(shape: tuple[int, int, int, int]) -> bytes:
     header = str({"descr": "|u1", "fortran_order": False, "shape": shape})
-    header = header.replace("False", "False")
     prefix = b"\x93NUMPY" + bytes([1, 0])
     raw = header.encode("latin1")
     padding = (16 - ((len(prefix) + 2 + len(raw) + 1) % 16)) % 16
@@ -153,11 +148,11 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     data = _validate(job)
     started_at = time.perf_counter()
     capability = data["capability"]
-    model_id = v3.DEFAULT_I2V_MODEL if capability == "ai.video.image_to_video" else v3.DEFAULT_T2V_MODEL
-    pipe = legacy._pipeline(model_id)
-    width, height = v4._native_720_dimensions(data["aspect_ratio"])
+    model_id = core.I2V_MODEL if capability == "ai.video.image_to_video" else core.T2V_MODEL
+    pipe = core.pipeline(model_id)
+    width, height = core.native_720_dimensions(data["aspect_ratio"])
     fps = int(data["fps"])
-    frame_count = legacy._frame_count(int(data["duration_seconds"]), fps)
+    frames = core.frame_count(int(data["duration_seconds"]), fps)
     seed = data.get("seed")
     if seed is None:
         seed = int.from_bytes(os.urandom(4), "big")
@@ -165,18 +160,18 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     if seed < 0 or seed > 4294967295:
         raise ValueError("AVANTIQO_VIDEO_SEED_INVALID")
     generator = torch.Generator(device="cuda").manual_seed(seed)
-    settings = v4._quality_settings(model_id)
+    settings = core.quality_settings(model_id)
     kwargs: dict[str, Any] = {
-        "prompt": legacy._cinematic_instruction(data),
+        "prompt": core.cinematic_instruction(data),
         "width": width,
         "height": height,
-        "num_frames": frame_count,
+        "num_frames": frames,
         "num_inference_steps": settings["inference_steps"],
         "guidance_scale": settings["guidance_scale"],
         "guidance_scale_2": settings["guidance_scale_2"],
         "generator": generator,
     }
-    negative = v4._negative_prompt(data)
+    negative = core.negative_prompt(data)
     if negative:
         kwargs["negative_prompt"] = negative
     if capability == "ai.video.image_to_video":
@@ -184,13 +179,13 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
     runpod.serverless.progress_update(job, "gpu inference")
     result = pipe(**kwargs)
-    frames = result.frames[0]
-    if not isinstance(frames, list):
-        frames = list(frames)
+    video_frames = result.frames[0]
+    if not isinstance(video_frames, list):
+        video_frames = list(video_frames)
 
     with tempfile.TemporaryDirectory(prefix="avantiqo-video-gpu-result-") as root:
         path = Path(root) / "frames.npy"
-        shape = _write_frame_tensor(frames, path)
+        shape = _write_frame_tensor(video_frames, path)
         runpod.serverless.progress_update(job, "minimal gpu result egress")
         _upload_intermediate(path, data["intermediate_upload"]["signed_url"])
         size_bytes = path.stat().st_size
@@ -199,13 +194,14 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         "status": "completed",
         "provider": "avantiqo-video",
         "model": "avantiqo-cinema-v1",
-        "engine_contract": legacy.ENGINE_CONTRACT,
+        "engine_contract": core.ENGINE_CONTRACT,
         "compute_boundary_contract": COMPUTE_BOUNDARY_CONTRACT,
         "gpu_result_contract": GPU_RESULT_CONTRACT,
         "entrypoint": RUNTIME_ENTRYPOINT,
         "entrypoint_revision": RUNTIME_ENTRYPOINT_REVISION,
         "runtime_revision": RUNTIME_REVISION,
-        "quality_contract": v4.QUALITY_CONTRACT,
+        "quality_contract": core.QUALITY_CONTRACT,
+        "memory_contract": core.MEMORY_CONTRACT,
         "capability": capability,
         "foundation_model": model_id,
         "seed": seed,
@@ -232,9 +228,9 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 def check_gpu_only_runtime():
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VIDEO_GPU_ONLY_CUDA_REQUIRED")
-    if v5.QUANTIZATION_ENABLED or v5.LAYERWISE_CASTING_ENABLED:
+    if core.QUANTIZATION_ENABLED or core.LAYERWISE_CASTING_ENABLED:
         raise RuntimeError("AVANTIQO_VIDEO_GPU_ONLY_QUALITY_PROFILE_REQUIRED")
-    if legacy.DTYPE != torch.bfloat16:
+    if core.DTYPE != torch.bfloat16:
         raise RuntimeError("AVANTIQO_VIDEO_GPU_ONLY_BFLOAT16_REQUIRED")
 
 

@@ -5,6 +5,9 @@ import {
   ensureCodeAIWorkerSession,
   CODE_AI_WORKER_SESSION_CONTRACT,
 } from "@/lib/code/runtime/CodeAIWorkerSessionRuntime";
+import {
+  codeAIZeroIdleServerlessEnabled,
+} from "@/lib/code/runtime/CodeAIZeroIdlePolicyRuntime";
 
 const DEFAULT_IDLE_MS = 30 * 60 * 1000;
 const MAX_IDLE_MS = 30 * 60 * 1000;
@@ -42,7 +45,7 @@ export async function POST(request) {
       );
     }
 
-    if (enabled(process.env.AVANTIQO_CODE_ZERO_IDLE_SERVERLESS_ENABLED)) {
+    if (codeAIZeroIdleServerlessEnabled()) {
       return Response.json({
         success: true,
         contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V2",

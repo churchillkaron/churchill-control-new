@@ -1,8 +1,34 @@
 const CONTRACT = "AVANTIQO_INTELLIGENCE_SAFE_LEASE_MODELS_PROBE_V1";
 const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
-const REQUIRED_LANE = "intelligence-deep";
-const EXPECTED_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507";
-const REQUEST_TIMEOUT_MS = Math.max(60_000, Math.min(600_000, Number.parseInt(process.env.AVANTIQO_INTELLIGENCE_MODELS_PROBE_TIMEOUT_MS || "360000", 10) || 360_000));
+const PROFILES = Object.freeze({
+  deep: Object.freeze({
+    leaseLane: "intelligence-deep",
+    expectedModel: "Qwen/Qwen3-30B-A3B-Thinking-2507",
+    endpointEnv: "RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID",
+    queueKeyEnvs: [
+      "RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY",
+      "RUNPOD_API_KEY",
+      "RUNPOD_MANAGEMENT_API_KEY",
+    ],
+  }),
+  fast: Object.freeze({
+    leaseLane: "intelligence-fast",
+    expectedModel: "Qwen/Qwen3-30B-A3B-Instruct-2507",
+    endpointEnv: "RUNPOD_AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_ID",
+    queueKeyEnvs: [
+      "RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY",
+      "RUNPOD_API_KEY",
+      "RUNPOD_MANAGEMENT_API_KEY",
+    ],
+  }),
+});
+const REQUEST_TIMEOUT_MS = Math.max(
+  60_000,
+  Math.min(
+    600_000,
+    Number.parseInt(process.env.AVANTIQO_INTELLIGENCE_MODELS_PROBE_TIMEOUT_MS || "360000", 10) || 360_000,
+  ),
+);
 
 const text = (value, limit = 4000) => String(value ?? "").trim().slice(0, limit);
 const finite = (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -37,7 +63,14 @@ async function requestJson(url, apiKey, timeoutMs = REQUEST_TIMEOUT_MS) {
   return parsed;
 }
 
-function assertSafeLease() {
+function probeProfile() {
+  const key = text(process.env.AVANTIQO_INTELLIGENCE_MODELS_PROBE_LANE, 40).toLowerCase() || "deep";
+  const profile = PROFILES[key];
+  if (!profile) throw new Error(`${CONTRACT}_PROBE_LANE_INVALID:${key || "NONE"}`);
+  return { key, ...profile };
+}
+
+function assertSafeLease(profile) {
   if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE, 40).toUpperCase() !== "YES") {
     throw new Error(`${CONTRACT}_SAFE_LEASE_ACTIVE_REQUIRED`);
   }
@@ -45,7 +78,7 @@ function assertSafeLease() {
     throw new Error(`${CONTRACT}_SAFE_LEASE_V2_REQUIRED`);
   }
   const lane = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_LANE, 120);
-  if (lane !== REQUIRED_LANE) throw new Error(`${CONTRACT}_LANE_MISMATCH:${lane || "NONE"}`);
+  if (lane !== profile.leaseLane) throw new Error(`${CONTRACT}_LANE_MISMATCH:${lane || "NONE"}:expected=${profile.leaseLane}`);
   const expiresAt = Date.parse(text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT, 160));
   if (!Number.isFinite(expiresAt) || expiresAt - Date.now() < 120_000) {
     throw new Error(`${CONTRACT}_SAFE_LEASE_EXPIRY_INSUFFICIENT`);
@@ -72,14 +105,17 @@ function healthSummary(body = {}) {
   };
 }
 
-const lease = assertSafeLease();
+const profile = probeProfile();
+const lease = assertSafeLease(profile);
 const endpointId = required("AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID");
-const configuredEndpointId = text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID, 300);
+const configuredEndpointId = text(process.env[profile.endpointEnv], 300);
 if (configuredEndpointId && configuredEndpointId !== endpointId) {
-  throw new Error(`${CONTRACT}_ENDPOINT_MISMATCH`);
+  throw new Error(`${CONTRACT}_ENDPOINT_MISMATCH:${profile.key}`);
 }
-const apiKey = text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY || process.env.RUNPOD_API_KEY || process.env.RUNPOD_MANAGEMENT_API_KEY, 8000);
-if (!apiKey) throw new Error("RUNPOD_INTELLIGENCE_OR_API_KEY_REQUIRED");
+const apiKey = profile.queueKeyEnvs
+  .map((name) => text(process.env[name], 8000))
+  .find(Boolean);
+if (!apiKey) throw new Error(`${CONTRACT}_QUEUE_CREDENTIAL_REQUIRED:${profile.key}`);
 const base = `https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}`;
 
 const beforeHealth = healthSummary(await requestJson(`${base}/health`, apiKey, 20_000));
@@ -93,8 +129,8 @@ const latencyMs = Date.now() - startedAt;
 const modelIds = Array.isArray(models?.data)
   ? models.data.map((entry) => text(entry?.id, 300)).filter(Boolean)
   : [];
-if (!modelIds.includes(EXPECTED_MODEL)) {
-  throw new Error(`${CONTRACT}_EXPECTED_MODEL_NOT_SERVED:expected=${EXPECTED_MODEL}:served=${modelIds.join(",") || "NONE"}`);
+if (!modelIds.includes(profile.expectedModel)) {
+  throw new Error(`${CONTRACT}_EXPECTED_MODEL_NOT_SERVED:expected=${profile.expectedModel}:served=${modelIds.join(",") || "NONE"}`);
 }
 
 const afterHealth = healthSummary(await requestJson(`${base}/health`, apiKey, 20_000));
@@ -106,10 +142,11 @@ console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   safe_lease_contract: SAFE_LEASE_CONTRACT,
+  probe_lane: profile.key,
   lane: lease.lane,
   lease_expires_at: lease.expiresAt,
   endpoint_id_present: Boolean(endpointId),
-  expected_model: EXPECTED_MODEL,
+  expected_model: profile.expectedModel,
   expected_model_served: true,
   served_model_count: modelIds.length,
   models_route_latency_ms: latencyMs,

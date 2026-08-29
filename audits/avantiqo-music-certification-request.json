@@ -1,9 +1,18 @@
 {
-  "contract": "AVANTIQO_MUSIC_CERTIFICATION_REQUEST_V1",
-  "requested_at": "2026-08-24T04:48:30Z",
+  "contract": "AVANTIQO_MUSIC_CERTIFICATION_REQUEST_V2",
+  "requested_at": "2026-08-29T05:50:00Z",
   "scope": "music-only",
+  "provider_spend_approved": true,
+  "safe_lease_contract": "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+  "safe_lease_lane": "audio",
+  "max_provider_jobs": 1,
   "benchmark_runs": 1,
   "duration_seconds": 12,
+  "synthetic_organization_only": true,
   "production_activation_allowed": false,
-  "purpose": "Controlled owned Music benchmark with synthetic storage scope and no pricing activation"
+  "pricing_activation_allowed": false,
+  "provider_selection_change_allowed": false,
+  "human_review_required": true,
+  "automatic_human_review_approved": false,
+  "purpose": "Final controlled Avantiqo-owned ACE-Step Music certification benchmark after owned-only routing hardening; exactly one synthetic 12-second provider job, no production activation, no pricing activation, no provider-selection change"
 }

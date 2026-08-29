@@ -46,6 +46,11 @@ ln -s "$ROOT/.env.local" "$WT/.env.local"
 
 cd "$WT" || exit 1
 
+echo "${CONTRACT}_ZERO_SPEND_LOADER_SELFTEST_START=true"
+NODE_OPTIONS="--loader=$WT/scripts/code-ai-local-computer-workspace-loader.mjs" \
+node scripts/code-ai-local-computer-workspace-loader-selftest.mjs || exit 1
+echo "${CONTRACT}_ZERO_SPEND_LOADER_SELFTEST_PASS=true"
+
 NODE_ENV=development \
 AVANTIQO_CODE_LOCAL_REPOSITORY_ROOT="$ROOT" \
 AVANTIQO_CODE_LOCAL_COMPUTER_LANDING_APPROVED=YES \

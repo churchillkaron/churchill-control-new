@@ -10,6 +10,31 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   const rootRef = useRef(null);
 
   useEffect(() => {
+    function normalizeHomeCommandSource(event) {
+      const detail = event?.detail;
+      if (!detail || typeof detail !== "object") return;
+
+      // Home chat is silent by default. Only an explicitly marked Voice command
+      // may trigger TTS. Missing, stale or arbitrary event sources are text.
+      const source = String(detail.source ?? "").trim().toLowerCase();
+      detail.source = source === "voice" ? "voice" : "text";
+    }
+
+    window.addEventListener(
+      "avantiqo:home-command",
+      normalizeHomeCommandSource,
+      true,
+    );
+    return () => {
+      window.removeEventListener(
+        "avantiqo:home-command",
+        normalizeHomeCommandSource,
+        true,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
     const root = rootRef.current;
     const section = root?.querySelector(
       '[data-avantiqo-home-intelligence="true"]',

@@ -23,6 +23,13 @@ const WAKE_STORAGE_KEY = "avantiqo.wake.enabled";
 const SPOKEN_REPLY_POLL_MS = 2000;
 const SPOKEN_REPLY_TIMEOUT_MS = 30 * 60 * 1000;
 const WAKE_PHRASES = [
+  "avantiqo",
+  "avanti qo",
+  "avanti co",
+  "avanti go",
+  "avantico",
+  "avantigo",
+  "avantiko",
   "hey avantiqo",
   "hey avanti qo",
   "hey avanti co",
@@ -106,6 +113,7 @@ export default function AvantiqoOperator() {
   const wakeEnabledRef = useRef(false);
   const wakeSuspendedRef = useRef(false);
   const wakeTriggeringRef = useRef(false);
+  const wakeKeyboardBlockedUntilRef = useRef(0);
   const recordingRef = useRef(false);
   const busyRef = useRef(false);
   const voiceBusyRef = useRef(false);
@@ -177,6 +185,39 @@ export default function AvantiqoOperator() {
   useEffect(() => {
     wakeEnabledRef.current = wakeEnabled;
   }, [wakeEnabled]);
+
+  useEffect(() => {
+    function noteKeyboardActivity(event) {
+      const target = event?.target;
+      const editable =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable === true;
+      if (!editable) return;
+      wakeKeyboardBlockedUntilRef.current = Date.now() + 1400;
+    }
+
+    window.addEventListener("keydown", noteKeyboardActivity, true);
+    return () => window.removeEventListener("keydown", noteKeyboardActivity, true);
+  }, []);
+
+  useEffect(() => {
+    function receiveSpokenReply(event) {
+      const message = text(event?.detail?.message);
+      if (!message || voiceLibraryOpenRef.current) return;
+
+      requestSpokenReply(message)
+        .catch((speechError) => {
+          if (speechError?.name !== "AbortError") {
+            setError(`Voice reply unavailable: ${speechError?.message || "speech generation failed"}`);
+          }
+        })
+        .finally(() => resumeWakeMode(400));
+    }
+
+    window.addEventListener("avantiqo:speak", receiveSpokenReply);
+    return () => window.removeEventListener("avantiqo:speak", receiveSpokenReply);
+  }, [organizationId, entityId]);
 
   useEffect(() => {
     const Recognition = speechRecognitionConstructor();
@@ -293,6 +334,26 @@ export default function AvantiqoOperator() {
 
   async function sendMessage(rawValue, source = "text") {
     const message = text(rawValue);
+    const primaryChat =
+      typeof document !== "undefined"
+        ? document.querySelector('[data-avantiqo-home-intelligence="true"]')
+        : null;
+
+    if (message && primaryChat) {
+      window.dispatchEvent(
+        new CustomEvent("avantiqo:home-command", {
+          detail: { message, source },
+        }),
+      );
+      setOpen(false);
+      setInput("");
+      window.setTimeout(() => {
+        primaryChat.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        document.querySelector('[data-avantiqo-home-input="true"]')?.focus?.();
+      }, 0);
+      return;
+    }
+
     if (
       !message ||
       busyRef.current ||
@@ -319,6 +380,7 @@ export default function AvantiqoOperator() {
           organizationId,
           entityId,
           periodId,
+          conversationKey: "primary",
           pathname,
           message,
           source,
@@ -679,17 +741,15 @@ export default function AvantiqoOperator() {
         transcribeVoice(blob);
       };
 
-      setVoiceBusy(true);
-      voiceBusyRef.current = true;
       setError("");
-      await prepareRealtimeVoice(stream);
-      setVoiceBusy(false);
-      voiceBusyRef.current = false;
 
+      // Capture the human immediately. Realtime/GPU warmup is opportunistic
+      // and may never block the start of speech recording.
       recorder.start(250);
       recordingRef.current = true;
       setRecording(true);
       startSilenceDetection(stream);
+      void prepareRealtimeVoice(stream);
 
       if (fromWake) {
         window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -728,22 +788,6 @@ export default function AvantiqoOperator() {
     }
   }
 
-  async function speakWakeAcknowledgement() {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-
-    await new Promise((resolve) => {
-      const utterance = new SpeechSynthesisUtterance("Yes?");
-      utterance.lang = navigator.language || "en-US";
-      utterance.rate = 1.05;
-      utterance.volume = 0.7;
-      utterance.onend = resolve;
-      utterance.onerror = resolve;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-      window.setTimeout(resolve, 1600);
-    });
-  }
-
   async function handleWakePhrase() {
     if (
       voiceLibraryOpenRef.current ||
@@ -759,11 +803,15 @@ export default function AvantiqoOperator() {
     wakeTriggeringRef.current = true;
     wakeSuspendedRef.current = true;
     stopWakeRecognition();
-    setOpen(true);
     setError("");
 
+    const primaryChat =
+      typeof document !== "undefined"
+        ? document.querySelector('[data-avantiqo-home-intelligence="true"]')
+        : null;
+    if (!primaryChat) setOpen(true);
+
     try {
-      await speakWakeAcknowledgement();
       await startVoice({ fromWake: true });
     } finally {
       wakeTriggeringRef.current = false;
@@ -802,13 +850,21 @@ export default function AvantiqoOperator() {
     };
 
     recognition.onresult = (event) => {
+      // Keyboard clicks can be misheard by browser speech recognition. Never
+      // allow typing activity or an interim hypothesis to trigger the wake path.
+      if (Date.now() < wakeKeyboardBlockedUntilRef.current) return;
+
       let transcript = "";
+      let hasFinalResult = false;
 
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        transcript += ` ${event.results[index][0]?.transcript || ""}`;
+        const result = event.results[index];
+        if (!result?.isFinal) continue;
+        hasFinalResult = true;
+        transcript += ` ${result[0]?.transcript || ""}`;
       }
 
-      if (hasWakePhrase(transcript)) {
+      if (hasFinalResult && hasWakePhrase(transcript)) {
         handleWakePhrase();
       }
     };
@@ -971,11 +1027,13 @@ export default function AvantiqoOperator() {
               <Mic size={13} />
             )}
             <span className="text-[10px] font-medium uppercase tracking-[0.12em]">
-              {wakeEnabled
-                ? wakeListening
-                  ? "Hey Avantiqo · Listening"
-                  : "Hey Avantiqo · Ready"
-                : wakeSupported
+              {recording
+                ? "Listening…"
+                : wakeEnabled
+                  ? wakeListening
+                    ? "Avantiqo · Listening"
+                    : "Avantiqo · Ready"
+                  : wakeSupported
                   ? "Enable Hey Avantiqo"
                   : "Voice Wake Unavailable"}
             </span>

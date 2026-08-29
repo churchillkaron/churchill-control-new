@@ -37,20 +37,39 @@ function parseAwsCredentials(raw) {
 }
 
 async function resolveS3Credential() {
-  const directAccess = text(process.env.RUNPOD_S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID);
-  const directSecret = text(process.env.RUNPOD_S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY);
-  if (directAccess && directSecret) return { accessKey: directAccess, secretKey: directSecret, source: "ENV" };
+  const runpodAccess = text(process.env.RUNPOD_S3_ACCESS_KEY_ID || process.env.RUNPOD_S3_ACCESS_KEY);
+  const runpodSecret = text(process.env.RUNPOD_S3_SECRET_ACCESS_KEY || process.env.RUNPOD_S3_SECRET_KEY);
+  if (runpodAccess && runpodSecret) {
+    return { accessKey: runpodAccess, secretKey: runpodSecret, source: "RUNPOD_S3_ENV" };
+  }
+
+  const awsAccess = text(process.env.AWS_ACCESS_KEY_ID);
+  const awsSecret = text(process.env.AWS_SECRET_ACCESS_KEY);
+  if (awsAccess && awsSecret) {
+    return { accessKey: awsAccess, secretKey: awsSecret, source: "AWS_ENV" };
+  }
+
   const raw = await readFile(join(homedir(), ".aws", "credentials"), "utf8").catch(() => "");
   const profiles = parseAwsCredentials(raw);
+  const candidates = [...profiles.entries()]
+    .map(([name, profile]) => ({
+      name,
+      accessKey: text(profile.aws_access_key_id),
+      secretKey: text(profile.aws_secret_access_key),
+    }))
+    .filter((entry) => entry.accessKey && entry.secretKey);
+
   const requested = text(process.env.AWS_PROFILE || process.env.AWS_DEFAULT_PROFILE || "default");
-  const selected = profiles.get(requested);
-  if (selected?.aws_access_key_id && selected?.aws_secret_access_key) {
-    return { accessKey: selected.aws_access_key_id, secretKey: selected.aws_secret_access_key, source: `AWS_CREDENTIALS_FILE:${requested}` };
+  const selected = candidates.find((entry) => entry.name === requested);
+  if (selected) {
+    return { accessKey: selected.accessKey, secretKey: selected.secretKey, source: `AWS_CREDENTIALS_FILE:${requested}` };
   }
-  const shaped = [...profiles.entries()]
-    .map(([name, profile]) => ({ name, accessKey: text(profile.aws_access_key_id), secretKey: text(profile.aws_secret_access_key) }))
-    .filter((entry) => entry.accessKey.startsWith("user_") && entry.secretKey.startsWith("rps_"));
-  if (shaped.length === 1) return { accessKey: shaped[0].accessKey, secretKey: shaped[0].secretKey, source: `AWS_CREDENTIALS_FILE:${shaped[0].name}` };
+
+  const shaped = candidates.filter((entry) => entry.accessKey.startsWith("user_") && entry.secretKey.startsWith("rps_"));
+  if (shaped.length === 1) {
+    return { accessKey: shaped[0].accessKey, secretKey: shaped[0].secretKey, source: `AWS_CREDENTIALS_FILE:${shaped[0].name}` };
+  }
+  if (shaped.length > 1) throw new Error("AVANTIQO_VIDEO_FLASHVSR_MULTIPLE_RUNPOD_S3_PROFILES_SET_AWS_PROFILE");
   return { accessKey: "", secretKey: "", source: null };
 }
 
@@ -73,6 +92,12 @@ console.log(JSON.stringify({
   s3_endpoint: S3_ENDPOINT,
   s3_credentials_present: Boolean(credential.accessKey && credential.secretKey),
   s3_credential_source: credential.source,
+  accepted_s3_env_shapes: [
+    "RUNPOD_S3_ACCESS_KEY_ID + RUNPOD_S3_SECRET_ACCESS_KEY",
+    "RUNPOD_S3_ACCESS_KEY + RUNPOD_S3_SECRET_KEY",
+    "AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY",
+    "~/.aws/credentials",
+  ],
   flashvsr_repo: "JunhaoZhuang/FlashVSR-v1.1",
   flashvsr_revision: "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb",
   required_weight_files: 3,

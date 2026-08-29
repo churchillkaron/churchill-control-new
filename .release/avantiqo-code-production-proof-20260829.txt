@@ -2,3 +2,6 @@ AVANTIQO_CODE_PRODUCTION_PROOF_V1
 scope=production_only
 endpoint=r79dtnjnrilrlc
 runtime_model=Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
+proof_attempt=2
+require_natural_zero_idle_before=true
+require_natural_zero_idle_after=true

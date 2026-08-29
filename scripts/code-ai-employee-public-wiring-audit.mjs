@@ -11,7 +11,7 @@ import {
   CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS,
 } from "../lib/code/runtime/CodeAIWorkPackagePromptRuntime.js";
 
-const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V10";
+const CONTRACT = "AVANTIQO_CODE_AI_EMPLOYEE_PUBLIC_WIRING_AUDIT_V11";
 
 const files = {
   capability: "lib/platform/capabilities/createCodeAIAutonomousCapability.js",
@@ -19,6 +19,7 @@ const files = {
   zeroIdleFastStart: "lib/code/runtime/CodeAIEmployeeZeroIdleFastStartRuntime.js",
   repositoryHeadGuard: "lib/code/runtime/CodeAIRepositoryHeadReconciliationRuntime.js",
   intelligenceBinding: "lib/intelligence/runtime/AvantiqoIntelligenceCodeMissionExecutionBindingRuntime.js",
+  intelligencePreparation: "lib/intelligence/runtime/AvantiqoIntelligenceCodeMissionPreparationRuntime.js",
   learningHandoff: "lib/intelligence/runtime/AvantiqoCodeMissionLearningHandoffRuntime.js",
   intelligenceIndex: "lib/intelligence/index.js",
   workerSession: "lib/code/runtime/CodeAIWorkerSessionRuntime.js",
@@ -71,12 +72,20 @@ requireMarkers("CAPABILITY", source.capability, [
   "reasoning_call_budget",
   "max_employee_passes",
   "owner_intent",
+  "intelligence_mission_preparation",
   "intelligence_mission_context",
+  "prepareAvantiqoIntelligenceCodeMission",
+  "createAvantiqoIntelligenceCodeMissionResumeCapsule",
+  "bindAvantiqoIntelligenceCodeMissionResumeCapsuleToState",
+  "inspectAvantiqoIntelligenceCodeMissionResumeCapsule",
+  "ATTESTED_RESUME_CAPSULE_REUSED",
+  "REPREPARED_AFTER_REPOSITORY_MOVE",
   "bindAvantiqoIntelligenceCodeMissionExecution",
   "handoffVerifiedCodeMissionToLearning",
   "mission_context: unifiedBinding.mission_context",
   "code_result: result",
-  "additional_reasoning_call_required: false",
+  "additional_code_reasoning_call_required: false",
+  "repeated_learning_or_general_for_ordinary_resume: false",
   "NOT_ELIGIBLE_CODE_RESULT_NOT_VERIFIED_COMPLETE",
   "automatic_knowledge_promotion: false",
   "trusted_knowledge_written: false",
@@ -85,6 +94,7 @@ requireMarkers("CAPABILITY", source.capability, [
   "persistCodeAIAutonomousExecutionState",
   "persistCodeAICommitArtifact",
 ]);
+assert.equal(source.capability.includes("additional_reasoning_call_required: false"), false);
 assert.equal(source.capability.includes("executeWorldClassCodeMission({"), false);
 assert.equal(source.capability.includes("executeCodeAIEmployeeMission({"), false);
 assert.equal(source.capability.includes("commitVerifiedCodeMission"), false);
@@ -175,6 +185,25 @@ requireMarkers("INTELLIGENCE_EXECUTION_BINDING", source.intelligenceBinding, [
   "automatic_knowledge_promotion: false",
 ]);
 
+requireMarkers("INTELLIGENCE_PREPARATION", source.intelligencePreparation, [
+  "AVANTIQO_INTELLIGENCE_CODE_MISSION_PREPARATION_V1",
+  "AVANTIQO_INTELLIGENCE_CODE_MISSION_RESUME_CAPSULE_V1",
+  "prepareAvantiqoIntelligenceCodeMission",
+  "createAvantiqoIntelligenceCodeMissionResumeCapsule",
+  "bindAvantiqoIntelligenceCodeMissionResumeCapsuleToState",
+  "inspectAvantiqoIntelligenceCodeMissionResumeCapsule",
+  "ACTIVE_REUSABLE",
+  "STALE_REPREPARE_REQUIRED",
+  "prepared_context_can_resume_without_repeating_learning: true",
+  "prepared_context_can_resume_without_repeating_general: true",
+  "general_reasoning_repeat_without_repository_change: false",
+  "repository_move_requires_repreparation: true",
+  "raw_reasoning_persisted: false",
+  "source_code_persisted: false",
+  "authorization_effect: \"NONE\"",
+  "automatic_knowledge_promotion: false",
+]);
+
 requireMarkers("LEARNING_HANDOFF", source.learningHandoff, [
   "AVANTIQO_CODE_MISSION_LEARNING_HANDOFF_V1",
   "NOT_ELIGIBLE_CODE_RESULT_NOT_VERIFIED_COMPLETE",
@@ -188,6 +217,7 @@ requireMarkers("LEARNING_HANDOFF", source.learningHandoff, [
 ]);
 requireMarkers("INTELLIGENCE_INDEX", source.intelligenceIndex, [
   'export * from "./runtime/AvantiqoIntelligenceCodeMissionExecutionBindingRuntime";',
+  'export * from "./runtime/AvantiqoIntelligenceCodeMissionPreparationRuntime";',
   'export * from "./runtime/AvantiqoCodeMissionLearningHandoffRuntime";',
 ]);
 
@@ -365,7 +395,11 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   verified: {
     unified_intelligence_mission_context_is_publicly_bindable: true,
-    shared_learning_and_general_context_consumed_without_extra_reasoning_call: true,
+    shared_learning_and_general_context_adds_no_extra_code_reasoning_call: true,
+    unified_mission_preparation_is_publicly_available: true,
+    attested_preparation_capsule_is_resumable: true,
+    ordinary_resume_does_not_repeat_learning_or_general: true,
+    repository_move_marks_preparation_stale_for_repreparation: true,
     repository_head_reconciled_before_code_employee_mutation: true,
     durable_and_zero_idle_transports_share_head_guard: true,
     verified_code_completion_can_handoff_structural_learning_evidence: true,

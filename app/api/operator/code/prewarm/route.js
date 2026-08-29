@@ -42,10 +42,34 @@ export async function POST(request) {
       );
     }
 
+    if (enabled(process.env.AVANTIQO_CODE_ZERO_IDLE_SERVERLESS_ENABLED)) {
+      return Response.json({
+        success: true,
+        contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V2",
+        status: "zero_idle_ready",
+        ready: true,
+        warming: false,
+        reason: null,
+        execution_transport_mode: "SERVERLESS_ZERO_IDLE",
+        deterministic_repository_work_available: true,
+        gpu_worker_started: false,
+        serverless_worker_requested: false,
+        worker_session_created: false,
+        scale_to_zero_required: true,
+        reasoning_calls_used: 0,
+        customer_inference_performed: false,
+        wallet_mutation_performed: false,
+        source_mutation_performed: false,
+        github_write_performed: false,
+        production_deploy_performed: false,
+        raw_reasoning_persisted: false,
+      });
+    }
+
     if (!enabled(process.env.AVANTIQO_CODE_WORKER_SESSION_ENABLED)) {
       return Response.json({
         success: true,
-        contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V1",
+        contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V2",
         status: "disabled",
         ready: false,
         warming: false,
@@ -65,12 +89,13 @@ export async function POST(request) {
 
     return Response.json({
       success: true,
-      contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V1",
+      contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V2",
       worker_session_contract: worker?.contract || CODE_AI_WORKER_SESSION_CONTRACT,
       status: worker?.ready === true ? "ready" : "warming",
       ready: worker?.ready === true,
       warming: worker?.warming === true,
       reason: worker?.reason || null,
+      execution_transport_mode: "DURABLE_WARM_SESSION",
       engine_loaded: worker?.engine_loaded === true,
       cached_model_found: worker?.cached_model_found === true,
       expires_at: worker?.expires_at || null,
@@ -88,7 +113,7 @@ export async function POST(request) {
     return Response.json(
       {
         success: false,
-        contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V1",
+        contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V2",
         status: "failed",
         error: text(error?.message || error).slice(0, 700) || "CODE_PREWARM_FAILED",
         reasoning_calls_used: 0,

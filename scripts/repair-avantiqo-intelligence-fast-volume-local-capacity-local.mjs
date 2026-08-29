@@ -85,6 +85,23 @@ async function queueHealth(key, endpointId) {
   }), `${CONTRACT}_QUEUE`);
 }
 
+async function graphqlBody(key, query, variables, label) {
+  const response = await fetch(`${GQL}?api_key=${encodeURIComponent(key)}`, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+    signal: AbortSignal.timeout(30000),
+  });
+  const raw = await response.text();
+  let body = null;
+  try { body = raw ? JSON.parse(raw) : null; } catch {}
+  const errors = list(body?.errors).map((entry) => text(entry?.message)).filter(Boolean);
+  if (!response.ok || body === null || errors.length) {
+    throw new Error(`${label}:${response.status}:${redact(errors.join(" | ") || raw)}`);
+  }
+  return body;
+}
+
 async function inventory(key) {
   const query = `
     query AvantiqoFastCapacityRepair($input: GpuAvailabilityInput) {
@@ -97,23 +114,36 @@ async function inventory(key) {
       }
     }
   `;
-  const response = await fetch(`${GQL}?api_key=${encodeURIComponent(key)}`, {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query,
-      variables: { input: { gpuCount: 1, minDisk: 5, minMemoryInGb: MINIMUM_VRAM_GB, secureCloud: true } },
-    }),
-    signal: AbortSignal.timeout(30000),
-  });
-  const raw = await response.text();
-  let body = null;
-  try { body = raw ? JSON.parse(raw) : null; } catch {}
-  const errors = list(body?.errors).map((entry) => text(entry?.message)).filter(Boolean);
-  if (!response.ok || errors.length || !Array.isArray(body?.data?.gpuTypes) || !Array.isArray(body?.data?.dataCenters)) {
-    throw new Error(`${CONTRACT}_GRAPHQL_FAILED:${response.status}:${redact(errors.join(" | ") || raw)}`);
+  const body = await graphqlBody(
+    key,
+    query,
+    { input: { gpuCount: 1, minDisk: 5, minMemoryInGb: MINIMUM_VRAM_GB, secureCloud: true } },
+    `${CONTRACT}_GRAPHQL_INVENTORY_FAILED`,
+  );
+  if (!Array.isArray(body?.data?.gpuTypes) || !Array.isArray(body?.data?.dataCenters)) {
+    throw new Error(`${CONTRACT}_GRAPHQL_INVENTORY_INVALID`);
   }
   return body.data;
+}
+
+async function endpointTopology(key, endpointId = null) {
+  const query = `
+    query AvantiqoFastEndpointTopology {
+      myself {
+        endpoints {
+          id name locations networkVolumeId
+          networkVolumeIds { networkVolumeId dataCenterId }
+        }
+      }
+    }
+  `;
+  const body = await graphqlBody(key, query, {}, `${CONTRACT}_GRAPHQL_ENDPOINT_FAILED`);
+  const rows = list(body?.data?.myself?.endpoints);
+  const matches = endpointId
+    ? rows.filter((endpoint) => text(endpoint?.id) === endpointId && text(endpoint?.name) === ENDPOINT_NAME)
+    : rows.filter((endpoint) => text(endpoint?.name) === ENDPOINT_NAME);
+  if (matches.length !== 1) throw new Error(`${CONTRACT}_GRAPHQL_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
+  return matches[0];
 }
 
 function profileFor(row = {}) {
@@ -220,8 +250,115 @@ async function loadEndpoint(managementKey, queueKey, endpointId = null) {
   const endpoint = matches[0];
   const id = text(endpoint.id);
   if (!id) throw new Error(`${CONTRACT}_ENDPOINT_ID_REQUIRED`);
-  const health = healthSummary(await queueHealth(queueKey, id));
-  return { endpoint, endpointId: id, health };
+  const [healthRaw, topology] = await Promise.all([
+    queueHealth(queueKey, id),
+    endpointTopology(managementKey, id),
+  ]);
+  const health = healthSummary(healthRaw);
+  return { endpoint, topology, endpointId: id, health };
+}
+
+function resolveVolumeBinding(endpoint, topology, volumeRows) {
+  const restIds = endpointVolumes(endpoint);
+  const graphqlIds = endpointVolumes(topology);
+  if (restIds.length && graphqlIds.length && !sameSet(restIds, graphqlIds)) {
+    throw new Error(`${CONTRACT}_REST_GRAPHQL_VOLUME_BINDING_MISMATCH:${restIds.join(",")}:${graphqlIds.join(",")}`);
+  }
+  const volumeIds = graphqlIds.length ? graphqlIds : restIds;
+  if (volumeIds.length > 1) throw new Error(`${CONTRACT}_MULTIPLE_NETWORK_VOLUMES_UNSUPPORTED:${volumeIds.length}`);
+  if (!volumeIds.length) {
+    return {
+      volume_ids: [],
+      volume: null,
+      datacenter_id: null,
+      source: "NO_NETWORK_VOLUME",
+      rest_volume_ids: restIds,
+      graphql_volume_ids: graphqlIds,
+    };
+  }
+  const volume = volumeRows.find((row) => text(row.id) === volumeIds[0]);
+  if (!volume) throw new Error(`${CONTRACT}_VOLUME_NOT_FOUND:${volumeIds[0]}`);
+  const datacenterId = text(volume.dataCenterId ?? volume.data_center_id);
+  if (!datacenterId) throw new Error(`${CONTRACT}_VOLUME_DATACENTER_REQUIRED:${volumeIds[0]}`);
+  const graphqlHints = unique(list(topology?.networkVolumeIds)
+    .filter((entry) => text(entry?.networkVolumeId || entry?.id) === volumeIds[0])
+    .map((entry) => entry?.dataCenterId));
+  if (graphqlHints.length > 1 || (graphqlHints.length === 1 && graphqlHints[0] !== datacenterId)) {
+    throw new Error(`${CONTRACT}_VOLUME_DATACENTER_MISMATCH:${datacenterId}:${graphqlHints.join(",")}`);
+  }
+  return {
+    volume_ids: volumeIds,
+    volume,
+    datacenter_id: datacenterId,
+    source: graphqlIds.length ? (restIds.length ? "REST_AND_GRAPHQL_ENDPOINT" : "GRAPHQL_ENDPOINT") : "REST_ENDPOINT",
+    rest_volume_ids: restIds,
+    graphql_volume_ids: graphqlIds,
+  };
+}
+
+function resolveEffectivePlacement(endpoint, volumeBinding, gpuInventory) {
+  const dataCenters = list(gpuInventory.dataCenters);
+  if (volumeBinding.volume_ids.length === 1) {
+    const dc = dataCenters.find((row) => text(row.id) === volumeBinding.datacenter_id);
+    if (!dc) throw new Error(`${CONTRACT}_DATACENTER_NOT_FOUND:${volumeBinding.datacenter_id}`);
+    if (dc.storageSupport !== true) throw new Error(`${CONTRACT}_DATACENTER_STORAGE_UNSUPPORTED:${volumeBinding.datacenter_id}`);
+    return {
+      source: "NETWORK_VOLUME_DATACENTER",
+      data_center_ids: [volumeBinding.datacenter_id],
+      data_centers: [dc],
+      scheduler_rule: "ATTACHED_VOLUME_REQUIRES_STOCK_IN_EFFECTIVE_VOLUME_DATACENTER",
+    };
+  }
+
+  const explicitIds = sorted(endpoint.dataCenterIds);
+  if (explicitIds.length) {
+    const matched = explicitIds.map((id) => dataCenters.find((row) => text(row.id) === id)).filter(Boolean);
+    if (matched.length !== explicitIds.length) {
+      const found = new Set(matched.map((row) => text(row.id)));
+      const missing = explicitIds.filter((id) => !found.has(id));
+      throw new Error(`${CONTRACT}_ENDPOINT_DATACENTER_NOT_FOUND:${missing.join(",")}`);
+    }
+    return {
+      source: "ENDPOINT_DATACENTER_RESTRICTION",
+      data_center_ids: explicitIds,
+      data_centers: matched,
+      scheduler_rule: "ENDPOINT_DATACENTER_RESTRICTION_REQUIRES_STOCK_IN_CONFIGURED_DATACENTER",
+    };
+  }
+
+  if (!dataCenters.length) throw new Error(`${CONTRACT}_NO_DATACENTERS_RETURNED`);
+  return {
+    source: "GLOBAL_SERVERLESS_PLACEMENT",
+    data_center_ids: [],
+    data_centers: dataCenters,
+    scheduler_rule: "NO_VOLUME_OR_DATACENTER_RESTRICTION_REQUIRES_CURRENT_GLOBAL_SERVERLESS_STOCK",
+  };
+}
+
+function availabilityForPlacement(placement) {
+  const map = new Map();
+  for (const dc of placement.data_centers) {
+    for (const row of list(dc?.gpuAvailability)) {
+      const id = text(row?.gpuTypeId);
+      if (!id) continue;
+      if (!map.has(id)) map.set(id, []);
+      map.get(id).push({
+        ...row,
+        data_center_id: text(dc?.id) || null,
+        data_center_name: text(dc?.name) || null,
+        data_center_location: text(dc?.location) || null,
+      });
+    }
+  }
+  return map;
+}
+
+function bestAvailability(rows) {
+  return [...list(rows)].sort((a, b) => {
+    const aAvailable = a?.available === true && stockRank(a?.stockStatus) > 0 ? 1 : 0;
+    const bAvailable = b?.available === true && stockRank(b?.stockStatus) > 0 ? 1 : 0;
+    return bAvailable - aAvailable || stockRank(b?.stockStatus) - stockRank(a?.stockStatus) || text(a?.data_center_id).localeCompare(text(b?.data_center_id));
+  })[0] || null;
 }
 
 const apply = process.argv.includes("--apply");
@@ -232,7 +369,7 @@ const head = validateMain();
 const managementKey = credential();
 const queueKey = runtimeCredential(managementKey);
 
-const [{ endpoint, endpointId, health }, volumeRows, gpuInventory] = await Promise.all([
+const [{ endpoint, topology, endpointId, health }, volumeRows, gpuInventory] = await Promise.all([
   loadEndpoint(managementKey, queueKey),
   rest(managementKey, "/networkvolumes"),
   inventory(managementKey),
@@ -240,17 +377,11 @@ const [{ endpoint, endpointId, health }, volumeRows, gpuInventory] = await Promi
 if (!Array.isArray(volumeRows)) throw new Error(`${CONTRACT}_VOLUME_LIST_INVALID`);
 assertParked(endpoint, health, `${CONTRACT}_PRECHECK`);
 
-const volumeIds = endpointVolumes(endpoint);
-if (volumeIds.length !== 1) throw new Error(`${CONTRACT}_EXACTLY_ONE_VOLUME_REQUIRED:${volumeIds.length}`);
-const volume = volumeRows.find((row) => text(row.id) === volumeIds[0]);
-if (!volume) throw new Error(`${CONTRACT}_VOLUME_NOT_FOUND`);
-const datacenterId = text(volume.dataCenterId ?? volume.data_center_id);
-if (!datacenterId) throw new Error(`${CONTRACT}_VOLUME_DATACENTER_REQUIRED`);
-const dc = list(gpuInventory.dataCenters).find((row) => text(row.id) === datacenterId);
-if (!dc) throw new Error(`${CONTRACT}_DATACENTER_NOT_FOUND:${datacenterId}`);
-if (dc.storageSupport !== true) throw new Error(`${CONTRACT}_DATACENTER_STORAGE_UNSUPPORTED:${datacenterId}`);
+const volumeBinding = resolveVolumeBinding(endpoint, topology, volumeRows);
+const volumeIds = volumeBinding.volume_ids;
+const placement = resolveEffectivePlacement(endpoint, volumeBinding, gpuInventory);
+const availability = availabilityForPlacement(placement);
 
-const availability = new Map(list(dc.gpuAvailability).map((row) => [text(row.gpuTypeId), row]));
 const compatible = list(gpuInventory.gpuTypes)
   .map((row) => {
     const profile = profileFor(row);
@@ -267,23 +398,30 @@ const compatible = list(gpuInventory.gpuTypes)
   .filter((row) => availability.has(row.id))
   .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
 const targetPool = compatible.slice(0, MAX_GPU_FALLBACKS).map((row) => row.id);
-if (!targetPool.length) throw new Error(`${CONTRACT}_NO_COMPATIBLE_GPU_TYPES_IN_VOLUME_DATACENTER:${datacenterId}`);
+if (!targetPool.length) throw new Error(`${CONTRACT}_NO_COMPATIBLE_GPU_TYPES_IN_EFFECTIVE_PLACEMENT:${placement.source}`);
 const poolRows = targetPool.map((id) => {
   const global = compatible.find((row) => row.id === id);
-  const live = availability.get(id) || {};
+  const liveRows = availability.get(id) || [];
+  const best = bestAvailability(liveRows) || {};
+  const stockedDataCenters = liveRows
+    .filter((row) => row?.available === true && stockRank(row?.stockStatus) > 0)
+    .map((row) => row.data_center_id)
+    .filter(Boolean);
   return {
     gpu_type_id: id,
-    gpu_name: global?.display_name || text(live.gpuTypeDisplayName || live.displayName) || null,
+    gpu_name: global?.display_name || text(best.gpuTypeDisplayName || best.displayName) || null,
     profile: global?.profile || null,
     memory_gb: global?.memory_gb ?? null,
-    available: live.available === true,
-    stock_status: text(live.stockStatus).toUpperCase() || "NOT_LISTED",
-    stock_rank: stockRank(live.stockStatus),
+    available: stockedDataCenters.length > 0,
+    stock_status: text(best.stockStatus).toUpperCase() || "NOT_LISTED",
+    stock_rank: stockRank(best.stockStatus),
+    best_data_center_id: best.data_center_id || null,
+    stocked_data_center_ids: unique(stockedDataCenters),
   };
 });
 const stocked = poolRows.filter((row) => row.available && row.stock_rank > 0);
 if (!stocked.length) {
-  throw new Error(`${CONTRACT}_NO_CURRENT_STOCKED_COMPATIBLE_GPU_IN_VOLUME_DATACENTER:${datacenterId}`);
+  throw new Error(`${CONTRACT}_NO_CURRENT_STOCKED_COMPATIBLE_GPU_IN_EFFECTIVE_PLACEMENT:${placement.source}`);
 }
 
 const currentPool = unique(endpoint.gpuTypeIds);
@@ -295,8 +433,12 @@ const plan = {
   mode: apply ? "APPLY" : "PLAN",
   repository_head: head,
   endpoint_name: ENDPOINT_NAME,
-  volume_datacenter_id: datacenterId,
-  scheduler_rule: "ATTACHED_VOLUME_REQUIRES_STOCK_IN_EFFECTIVE_VOLUME_DATACENTER",
+  network_volume_ids: volumeIds,
+  network_volume_resolution_source: volumeBinding.source,
+  volume_datacenter_id: volumeBinding.datacenter_id,
+  effective_placement_source: placement.source,
+  effective_data_center_ids: placement.data_center_ids,
+  scheduler_rule: placement.scheduler_rule,
   current_gpu_type_ids: currentPool,
   target_gpu_type_ids: targetPool,
   stocked_compatible_targets: stocked,
@@ -323,7 +465,8 @@ const immediate = await loadEndpoint(managementKey, queueKey, endpointId);
 assertParked(immediate.endpoint, immediate.health, `${CONTRACT}_IMMEDIATE_PREPATCH`);
 if (!sameStableSnapshot(beforeStable, immediate.endpoint)) throw new Error(`${CONTRACT}_NON_GPU_ENDPOINT_CHANGED_DURING_PREFLIGHT`);
 if (!sameSet(currentPool, unique(immediate.endpoint.gpuTypeIds))) throw new Error(`${CONTRACT}_GPU_POOL_CHANGED_DURING_PREFLIGHT`);
-if (!sameSet(volumeIds, endpointVolumes(immediate.endpoint))) throw new Error(`${CONTRACT}_VOLUME_BINDING_CHANGED_DURING_PREFLIGHT`);
+const immediateVolumeBinding = resolveVolumeBinding(immediate.endpoint, immediate.topology, volumeRows);
+if (!sameSet(volumeIds, immediateVolumeBinding.volume_ids)) throw new Error(`${CONTRACT}_VOLUME_BINDING_CHANGED_DURING_PREFLIGHT`);
 
 await rest(managementKey, `/endpoints/${encodeURIComponent(endpointId)}`, {
   method: "PATCH",
@@ -337,7 +480,8 @@ try {
   assertParked(verified.endpoint, verified.health, `${CONTRACT}_POSTPATCH`);
   if (!sameSet(unique(verified.endpoint.gpuTypeIds), targetPool)) throw new Error(`${CONTRACT}_TARGET_POOL_NOT_PERSISTED`);
   if (!sameStableSnapshot(beforeStable, verified.endpoint)) throw new Error(`${CONTRACT}_NON_GPU_ENDPOINT_INVARIANT_CHANGED`);
-  if (!sameSet(volumeIds, endpointVolumes(verified.endpoint))) throw new Error(`${CONTRACT}_VOLUME_BINDING_CHANGED`);
+  const verifiedVolumeBinding = resolveVolumeBinding(verified.endpoint, verified.topology, volumeRows);
+  if (!sameSet(volumeIds, verifiedVolumeBinding.volume_ids)) throw new Error(`${CONTRACT}_VOLUME_BINDING_CHANGED`);
 } catch (error) {
   verifyFailure = error;
 }
@@ -350,13 +494,20 @@ if (verifyFailure) {
     if (!sameStableSnapshot(beforeStable, rollbackPrecheck.endpoint)) {
       throw new Error(`${CONTRACT}_ROLLBACK_BLOCKED_NON_GPU_ENDPOINT_CHANGED`);
     }
+    const rollbackVolumeBinding = resolveVolumeBinding(rollbackPrecheck.endpoint, rollbackPrecheck.topology, volumeRows);
+    if (!sameSet(volumeIds, rollbackVolumeBinding.volume_ids)) {
+      throw new Error(`${CONTRACT}_ROLLBACK_BLOCKED_VOLUME_BINDING_CHANGED`);
+    }
     await rest(managementKey, `/endpoints/${encodeURIComponent(endpointId)}`, {
       method: "PATCH",
       body: { gpuTypeIds: currentPool },
     });
     const rolledBack = await loadEndpoint(managementKey, queueKey, endpointId);
     assertParked(rolledBack.endpoint, rolledBack.health, `${CONTRACT}_ROLLBACK_VERIFY`);
-    rollback = sameStableSnapshot(beforeStable, rolledBack.endpoint) && sameSet(unique(rolledBack.endpoint.gpuTypeIds), currentPool)
+    const rolledBackVolumeBinding = resolveVolumeBinding(rolledBack.endpoint, rolledBack.topology, volumeRows);
+    rollback = sameStableSnapshot(beforeStable, rolledBack.endpoint)
+      && sameSet(unique(rolledBack.endpoint.gpuTypeIds), currentPool)
+      && sameSet(volumeIds, rolledBackVolumeBinding.volume_ids)
       ? "PASS"
       : "FAIL_VERIFICATION";
   } catch (rollbackError) {
@@ -372,6 +523,7 @@ console.log(JSON.stringify({
   gpu_pool_mutation_performed: true,
   final_gpu_type_ids: unique(verified.endpoint.gpuTypeIds),
   non_gpu_endpoint_invariants_preserved: true,
+  effective_placement_preserved: true,
   immediate_prepatch_rest_state_verified: true,
   rollback_available_if_verification_fails: true,
 }, null, 2));

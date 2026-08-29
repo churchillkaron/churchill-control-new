@@ -8,6 +8,9 @@ set
       'execution_lane', 'fast',
       'configured_lane_model', 'Qwen/Qwen3-30B-A3B-Instruct-2507',
       'lane_model_binding', 'OWNED_INTELLIGENCE_FAST_V1',
+      'estimated_input_tokens_per_request', 131072,
+      'estimated_output_tokens_per_request', 8192,
+      'reservation_policy', 'CONFIGURED_TOKEN_CEILING_ACTUAL_SETTLEMENT',
       'updated_reason', 'OWNED_INTELLIGENCE_FAST_LANE_MODEL_BINDING'
     )
 where provider = 'avantiqo-intelligence'

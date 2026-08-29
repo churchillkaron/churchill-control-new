@@ -270,7 +270,7 @@ console.log(JSON.stringify({
     deterministic_repository_work_overlaps_worker_warmup: true,
     known_source_evidence_can_be_seeded_before_reasoning: true,
     worker_warming_is_resumable_without_reasoning_call: true,
-    model_call_not_required_to_start: false === true ? false : true,
+    model_call_not_required_to_start: true,
     bounded_warm_worker_session: true,
     planner_warm_session_precedes_serverless_capacity_check: true,
     planner_warm_session_disables_serverless_stale_queue_recovery: true,

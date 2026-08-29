@@ -24,9 +24,16 @@ const yes = (value) => ["YES", "TRUE", "1", "APPROVED", "ON"].includes(text(valu
 const unique = (values) => [...new Set(list(values).map(text).filter(Boolean))];
 const sorted = (values) => [...unique(values)].sort();
 
+function redact(value) {
+  return text(value)
+    .slice(0, 1600)
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]{8,}/gi, "Bearer [REDACTED]")
+    .replace(/((?:api[_-]?key|token|password|secret|authorization)\s*[=:]\s*)[^\s,;]+/gi, "$1[REDACTED]");
+}
+
 function shell(name, args, code) {
   const result = spawnSync(name, args, { cwd: process.cwd(), encoding: "utf8", env: process.env });
-  if (result.status !== 0) throw new Error(`${code}:${text(result.stderr || result.stdout).slice(0, 1000)}`);
+  if (result.status !== 0) throw new Error(`${code}:${redact(result.stderr || result.stdout)}`);
   return text(result.stdout);
 }
 
@@ -55,7 +62,7 @@ async function readJson(response, label) {
   let body = null;
   try { body = raw ? JSON.parse(raw) : null; } catch {}
   if (!response.ok || body === null) {
-    throw new Error(`${label}_HTTP_${response.status}:${text(body?.message || body?.error || body?.detail || raw).slice(0, 900)}`);
+    throw new Error(`${label}_HTTP_${response.status}:${redact(body?.message || body?.error || body?.detail || raw)}`);
   }
   return body;
 }
@@ -106,7 +113,7 @@ async function inventory(key) {
   try { body = raw ? JSON.parse(raw) : null; } catch {}
   const errors = list(body?.errors).map((entry) => text(entry?.message)).filter(Boolean);
   if (!response.ok || errors.length || !Array.isArray(body?.data?.gpuTypes) || !Array.isArray(body?.data?.dataCenters)) {
-    throw new Error(`${CONTRACT}_GRAPHQL_FAILED:${response.status}:${errors.join(" | ") || text(raw).slice(0, 900)}`);
+    throw new Error(`${CONTRACT}_GRAPHQL_FAILED:${response.status}:${redact(errors.join(" | ") || raw)}`);
   }
   return body.data;
 }
@@ -156,7 +163,10 @@ function activeWorkers(endpoint = {}) {
 }
 
 function endpointVolumes(endpoint = {}) {
-  return unique([endpoint.networkVolumeId, ...list(endpoint.networkVolumeIds).map((entry) => typeof entry === "string" ? entry : entry?.id || entry?.networkVolumeId)]);
+  return unique([
+    endpoint.networkVolumeId,
+    ...list(endpoint.networkVolumeIds).map((entry) => typeof entry === "string" ? entry : entry?.id || entry?.networkVolumeId),
+  ]);
 }
 
 function stableEndpoint(endpoint = {}) {
@@ -180,14 +190,40 @@ function stableEndpoint(endpoint = {}) {
   };
 }
 
-function sameStableEndpoint(left, right) {
-  return JSON.stringify(stableEndpoint(left)) === JSON.stringify(stableEndpoint(right));
+function sameStableSnapshot(snapshot, endpoint) {
+  return JSON.stringify(snapshot) === JSON.stringify(stableEndpoint(endpoint));
 }
 
 function sameSet(left, right) {
   const a = sorted(left);
   const b = sorted(right);
   return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+function assertParked(endpoint, health, label) {
+  if (finite(endpoint.workersMin, -1) !== 0 || finite(endpoint.workersMax, -1) !== 0) {
+    throw new Error(`${label}_RESTING_0_0_REQUIRED:${endpoint.workersMin}:${endpoint.workersMax}`);
+  }
+  if (health.jobs.in_queue || health.jobs.in_progress) {
+    throw new Error(`${label}_EMPTY_QUEUE_REQUIRED:${health.jobs.in_queue}:${health.jobs.in_progress}`);
+  }
+  if (Object.values(health.workers).some((value) => value > 0) || activeWorkers(endpoint).length) {
+    throw new Error(`${label}_NO_ACTIVE_WORKER_REQUIRED`);
+  }
+}
+
+async function loadEndpoint(managementKey, queueKey, endpointId = null) {
+  const endpointRows = await rest(managementKey, "/endpoints?includeTemplate=true&includeWorkers=true");
+  if (!Array.isArray(endpointRows)) throw new Error(`${CONTRACT}_ENDPOINT_LIST_INVALID`);
+  const matches = endpointId
+    ? endpointRows.filter((endpoint) => text(endpoint.id) === endpointId && text(endpoint.name) === ENDPOINT_NAME)
+    : endpointRows.filter((endpoint) => text(endpoint.name) === ENDPOINT_NAME);
+  if (matches.length !== 1) throw new Error(`${CONTRACT}_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
+  const endpoint = matches[0];
+  const id = text(endpoint.id);
+  if (!id) throw new Error(`${CONTRACT}_ENDPOINT_ID_REQUIRED`);
+  const health = healthSummary(await queueHealth(queueKey, id));
+  return { endpoint, endpointId: id, health };
 }
 
 const apply = process.argv.includes("--apply");
@@ -198,27 +234,14 @@ const head = validateMain();
 const managementKey = credential();
 const queueKey = runtimeCredential(managementKey);
 
-const [endpointRows, volumeRows, gpuInventory] = await Promise.all([
-  rest(managementKey, "/endpoints?includeTemplate=true&includeWorkers=true"),
+const [{ endpoint, endpointId, health }, volumeRows, gpuInventory] = await Promise.all([
+  loadEndpoint(managementKey, queueKey),
   rest(managementKey, "/networkvolumes"),
   inventory(managementKey),
 ]);
-if (!Array.isArray(endpointRows)) throw new Error(`${CONTRACT}_ENDPOINT_LIST_INVALID`);
 if (!Array.isArray(volumeRows)) throw new Error(`${CONTRACT}_VOLUME_LIST_INVALID`);
-const matches = endpointRows.filter((endpoint) => text(endpoint.name) === ENDPOINT_NAME);
-if (matches.length !== 1) throw new Error(`${CONTRACT}_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
-const endpoint = matches[0];
-const endpointId = text(endpoint.id);
-const health = healthSummary(await queueHealth(queueKey, endpointId));
-if (finite(endpoint.workersMin, -1) !== 0 || finite(endpoint.workersMax, -1) !== 0) {
-  throw new Error(`${CONTRACT}_RESTING_0_0_REQUIRED:${endpoint.workersMin}:${endpoint.workersMax}`);
-}
-if (health.jobs.in_queue || health.jobs.in_progress) {
-  throw new Error(`${CONTRACT}_EMPTY_QUEUE_REQUIRED:${health.jobs.in_queue}:${health.jobs.in_progress}`);
-}
-if (Object.values(health.workers).some((value) => value > 0) || activeWorkers(endpoint).length) {
-  throw new Error(`${CONTRACT}_NO_ACTIVE_WORKER_REQUIRED`);
-}
+assertParked(endpoint, health, `${CONTRACT}_PRECHECK`);
+
 const volumeIds = endpointVolumes(endpoint);
 if (volumeIds.length !== 1) throw new Error(`${CONTRACT}_EXACTLY_ONE_VOLUME_REQUIRED:${volumeIds.length}`);
 const volume = volumeRows.find((row) => text(row.id) === volumeIds[0]);
@@ -286,6 +309,9 @@ const plan = {
   volume_mutation_performed: false,
   inference_performed: false,
   provider_job_submitted: false,
+  database_mutation_performed: false,
+  wallet_mutation_performed: false,
+  production_deploy_performed: false,
   secrets_printed: false,
 };
 
@@ -295,26 +321,60 @@ if (!apply || !mutationRequired) {
   process.exit(0);
 }
 
+const immediate = await loadEndpoint(managementKey, queueKey, endpointId);
+assertParked(immediate.endpoint, immediate.health, `${CONTRACT}_IMMEDIATE_PREPATCH`);
+if (!sameStableSnapshot(beforeStable, immediate.endpoint)) throw new Error(`${CONTRACT}_NON_GPU_ENDPOINT_CHANGED_DURING_PREFLIGHT`);
+if (!sameSet(currentPool, unique(immediate.endpoint.gpuTypeIds))) throw new Error(`${CONTRACT}_GPU_POOL_CHANGED_DURING_PREFLIGHT`);
+if (!sameSet(volumeIds, endpointVolumes(immediate.endpoint))) throw new Error(`${CONTRACT}_VOLUME_BINDING_CHANGED_DURING_PREFLIGHT`);
+
 await rest(managementKey, `/endpoints/${encodeURIComponent(endpointId)}`, {
   method: "PATCH",
   body: { gpuTypeIds: targetPool },
 });
-const verifyRows = await rest(managementKey, "/endpoints?includeTemplate=true&includeWorkers=true");
-const verified = list(verifyRows).find((row) => text(row.id) === endpointId);
-if (!verified) throw new Error(`${CONTRACT}_POST_PATCH_ENDPOINT_NOT_FOUND`);
-if (!sameSet(unique(verified.gpuTypeIds), targetPool)) throw new Error(`${CONTRACT}_TARGET_POOL_NOT_PERSISTED`);
-if (!sameStableEndpoint(beforeStable, verified)) throw new Error(`${CONTRACT}_NON_GPU_ENDPOINT_INVARIANT_CHANGED`);
-const verifiedHealth = healthSummary(await queueHealth(queueKey, endpointId));
-if (finite(verified.workersMin, -1) !== 0 || finite(verified.workersMax, -1) !== 0) throw new Error(`${CONTRACT}_POST_PATCH_RESTING_0_0_REQUIRED`);
-if (verifiedHealth.jobs.in_queue || verifiedHealth.jobs.in_progress || Object.values(verifiedHealth.workers).some((value) => value > 0) || activeWorkers(verified).length) {
-  throw new Error(`${CONTRACT}_POST_PATCH_REST_STATE_INVALID`);
+
+let verifyFailure = null;
+let verified = null;
+try {
+  verified = await loadEndpoint(managementKey, queueKey, endpointId);
+  assertParked(verified.endpoint, verified.health, `${CONTRACT}_POSTPATCH`);
+  if (!sameSet(unique(verified.endpoint.gpuTypeIds), targetPool)) throw new Error(`${CONTRACT}_TARGET_POOL_NOT_PERSISTED`);
+  if (!sameStableSnapshot(beforeStable, verified.endpoint)) throw new Error(`${CONTRACT}_NON_GPU_ENDPOINT_INVARIANT_CHANGED`);
+  if (!sameSet(volumeIds, endpointVolumes(verified.endpoint))) throw new Error(`${CONTRACT}_VOLUME_BINDING_CHANGED`);
+} catch (error) {
+  verifyFailure = error;
 }
+
+if (verifyFailure) {
+  let rollback = "NOT_ATTEMPTED";
+  try {
+    const rollbackPrecheck = await loadEndpoint(managementKey, queueKey, endpointId);
+    assertParked(rollbackPrecheck.endpoint, rollbackPrecheck.health, `${CONTRACT}_ROLLBACK_PRECHECK`);
+    if (!sameStableSnapshot(beforeStable, rollbackPrecheck.endpoint)) {
+      throw new Error(`${CONTRACT}_ROLLBACK_BLOCKED_NON_GPU_ENDPOINT_CHANGED`);
+    }
+    await rest(managementKey, `/endpoints/${encodeURIComponent(endpointId)}`, {
+      method: "PATCH",
+      body: { gpuTypeIds: currentPool },
+    });
+    const rolledBack = await loadEndpoint(managementKey, queueKey, endpointId);
+    assertParked(rolledBack.endpoint, rolledBack.health, `${CONTRACT}_ROLLBACK_VERIFY`);
+    rollback = sameStableSnapshot(beforeStable, rolledBack.endpoint) && sameSet(unique(rolledBack.endpoint.gpuTypeIds), currentPool)
+      ? "PASS"
+      : "FAIL_VERIFICATION";
+  } catch (rollbackError) {
+    rollback = `FAIL:${redact(rollbackError?.message || rollbackError)}`;
+  }
+  throw new Error(`${CONTRACT}_POSTPATCH_VERIFY_FAILED:${redact(verifyFailure?.message || verifyFailure)}:rollback=${rollback}`);
+}
+
 console.log(JSON.stringify({
   ...plan,
   mode: "APPLY",
   mutation_required: true,
   gpu_pool_mutation_performed: true,
-  final_gpu_type_ids: unique(verified.gpuTypeIds),
+  final_gpu_type_ids: unique(verified.endpoint.gpuTypeIds),
   non_gpu_endpoint_invariants_preserved: true,
+  immediate_prepatch_rest_state_verified: true,
+  rollback_available_if_verification_fails: true,
 }, null, 2));
 console.log(`${CONTRACT}=PASS`);

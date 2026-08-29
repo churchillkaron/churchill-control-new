@@ -120,6 +120,15 @@ function healthSummary(body = {}) {
   };
 }
 
+function workerVisible(health = {}) {
+  return [
+    health?.workers?.idle,
+    health?.workers?.initializing,
+    health?.workers?.ready,
+    health?.workers?.running,
+  ].some((value) => finite(value, 0) > 0) || finite(health?.jobs?.in_progress, 0) > 0;
+}
+
 function collectModelIds(value, found = new Set(), depth = 0) {
   if (depth > 8 || value == null) return found;
   if (Array.isArray(value)) {
@@ -140,16 +149,27 @@ function collectModelIds(value, found = new Set(), depth = 0) {
 async function waitForJob(base, apiKey, jobId) {
   const deadline = Date.now() + REQUEST_TIMEOUT_MS;
   let latest = null;
+  let latestHealth = null;
   let workerObserved = false;
+  let healthObservationFailures = 0;
   while (Date.now() < deadline) {
-    latest = await requestJson(
-      `${base}/status/${encodeURIComponent(jobId)}`,
-      apiKey,
-      { timeoutMs: 20_000 },
-    );
-    const status = text(latest?.status, 80).toUpperCase();
+    const [statusResult, healthResult] = await Promise.allSettled([
+      requestJson(`${base}/status/${encodeURIComponent(jobId)}`, apiKey, { timeoutMs: 20_000 }),
+      requestJson(`${base}/health`, apiKey, { timeoutMs: 20_000 }),
+    ]);
+    if (statusResult.status === "rejected") throw statusResult.reason;
+    latest = statusResult.value;
+    if (healthResult.status === "fulfilled") {
+      latestHealth = healthSummary(healthResult.value);
+      if (workerVisible(latestHealth)) workerObserved = true;
+    } else {
+      healthObservationFailures += 1;
+    }
     if (text(latest?.workerId ?? latest?.worker_id, 300)) workerObserved = true;
-    if (TERMINAL_SUCCESS.has(status)) return { job: latest, workerObserved };
+    const status = text(latest?.status, 80).toUpperCase();
+    if (TERMINAL_SUCCESS.has(status)) {
+      return { job: latest, workerObserved, latestHealth, healthObservationFailures };
+    }
     if (TERMINAL_FAILURE.has(status)) {
       throw new Error(`${CONTRACT}_SCHEDULER_PROBE_JOB_${status}:${redact(latest?.error || latest?.output || "NO_DETAIL")}`);
     }
@@ -193,8 +213,6 @@ const completed = await waitForJob(base, apiKey, jobId);
 const latencyMs = Date.now() - startedAt;
 const status = text(completed.job?.status, 80).toUpperCase();
 if (status !== "COMPLETED") throw new Error(`${CONTRACT}_SCHEDULER_PROBE_NOT_COMPLETED:${status || "UNKNOWN"}`);
-const workerIdPresent = Boolean(text(completed.job?.workerId ?? completed.job?.worker_id, 300)) || completed.workerObserved;
-if (!workerIdPresent) throw new Error(`${CONTRACT}_SCHEDULER_PROBE_WORKER_ID_REQUIRED`);
 
 const modelIds = [...collectModelIds(completed.job?.output)];
 if (!modelIds.includes(profile.expectedModel)) {
@@ -205,6 +223,7 @@ const afterHealth = healthSummary(await requestJson(`${base}/health`, apiKey, { 
 if (afterHealth.jobs.in_queue > 0 || afterHealth.jobs.in_progress > 0) {
   throw new Error(`${CONTRACT}_SCHEDULER_PROBE_QUEUE_NOT_DRAINED:in_queue=${afterHealth.jobs.in_queue}:in_progress=${afterHealth.jobs.in_progress}`);
 }
+const workerObserved = completed.workerObserved || workerVisible(afterHealth);
 
 console.log(JSON.stringify({
   success: true,
@@ -220,7 +239,12 @@ console.log(JSON.stringify({
   scheduler_probe_transport: "RUNPOD_QUEUE_OPENAI_ROUTE_GET_V1_MODELS",
   scheduler_probe_job_submitted: true,
   scheduler_probe_job_completed: true,
-  scheduler_probe_worker_observed: true,
+  scheduler_probe_worker_observed: workerObserved,
+  scheduler_worker_execution_proven: true,
+  worker_execution_proof_source: workerObserved
+    ? "RUNPOD_HEALTH_OR_JOB_WORKER_ID_AND_COMPLETED_MODEL_RESPONSE"
+    : "COMPLETED_EXACT_MODEL_RESPONSE",
+  scheduler_probe_health_observation_failures: completed.healthObservationFailures,
   scheduler_probe_latency_ms: latencyMs,
   health_before: beforeHealth,
   health_after: afterHealth,

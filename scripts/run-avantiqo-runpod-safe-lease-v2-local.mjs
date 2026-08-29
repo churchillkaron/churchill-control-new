@@ -158,7 +158,7 @@ function laneQueueKeyCandidates(lane) {
     "voice-stt": ["RUNPOD_AVANTIQO_VOICE_STT_API_KEY", "RUNPOD_AVANTIQO_VOICE_API_KEY"],
     lipsync: ["RUNPOD_AVANTIQO_LIPSYNC_API_KEY", "RUNPOD_AVANTIQO_VIDEO_API_KEY"],
     "intelligence-deep": ["RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY"],
-    "intelligence-fast": ["RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY"],
+    "intelligence-fast": ["RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY"],
     "intelligence-trainer": ["RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY"],
     "intelligence-benchmark": ["RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY"],
     "intelligence-candidate": ["RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY"],

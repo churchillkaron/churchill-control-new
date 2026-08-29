@@ -23,6 +23,19 @@ test("Pod readiness reuses V69 response normalization and authoritative template
   assert.match(api, /Authorization: `Bearer \$\{key\(\)\}`/); assert.match(api, /AvantiqoVideoPodV72/);
 });
 
+test("Pod readiness resolves private GHCR auth using the same fallback contract as V69", async () => {
+  const api = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js");
+  assert.match(api, /function templateRegistryAuthId/);
+  assert.match(api, /async function resolveRegistryAuthId/);
+  assert.match(api, /\/templates\/\$\{encodeURIComponent\(templateId\)\}/);
+  assert.match(api, /podRest\("\/containerregistryauth"\)/);
+  assert.match(api, /AVANTIQO_VIDEO_32GB_CANDIDATE_RUNPOD_REGISTRY_AUTH_ID/);
+  assert.match(api, /\/ghcr\|github\/i/);
+  assert.match(api, /AVANTIQO_VIDEO_POD_GHCR_AUTH_AMBIGUOUS/);
+  assert.match(api, /const registryAuthId = await resolveRegistryAuthId\(template\)/);
+  assert.match(api, /containerRegistryAuthId: snapshot\.registryAuthId/);
+});
+
 test("Pod readiness refuses low capacity and busy shared cache", async () => {
   const api = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js");
   const runtime = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js");

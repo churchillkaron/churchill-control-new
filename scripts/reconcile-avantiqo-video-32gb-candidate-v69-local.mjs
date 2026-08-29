@@ -35,8 +35,10 @@ console.log(JSON.stringify({
   endpoint_name: VIDEO_32GB_CANDIDATE_ENDPOINT_NAME,
   endpoint_id: text(inspected.candidate_endpoint?.id),
   endpoint_parked_0_0: true,
-  serverless_pool_id: inspected.candidate_serverless_pool_id,
-  serverless_pool_verified: inspected.candidate_serverless_pool_id === VIDEO_32GB_CANDIDATE_POOL_ID,
+  serverless_pool_expected: VIDEO_32GB_CANDIDATE_POOL_ID,
+  serverless_pool_readback: inspected.candidate_serverless_pool_id,
+  serverless_pool_readback_supported: inspected.candidate_serverless_pool_readback_supported,
+  serverless_pool_reassert_required_before_worker_open: inspected.candidate_serverless_pool_reassert_required,
   approved_runtime_gpu_types: [...VIDEO_32GB_CANDIDATE_APPROVED_GPUS],
   live_gpu_evidence: inspected.live_gpu_evidence,
   physical_gpu_runtime_verification_required: true,
@@ -57,6 +59,6 @@ console.log(JSON.stringify({
   image_endpoint_mutated: false,
   safe_lease_modified: false,
   secrets_printed: false,
-  next_action: "V70_RUNTIME_PROBE_ONLY",
+  next_action: "V70_REASSERT_POOL_THEN_RUNTIME_PROBE_ONLY",
 }, null, 2));
 console.log("AVANTIQO_VIDEO_32GB_CANDIDATE_RECONCILIATION_V69=PASS");

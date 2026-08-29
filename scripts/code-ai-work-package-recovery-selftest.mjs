@@ -109,10 +109,11 @@ await import("./code-ai-operator-prewarm-audit.mjs");
 await import("./code-ai-live-bounded-work-package-selftest.mjs");
 await import("./code-ai-live-progress-lease-audit.mjs");
 await import("./code-ai-worker-session-release-audit.mjs");
+await import("./code-ai-ready-transport-resilience-audit.mjs");
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_WORK_PACKAGE_RECOVERY_SELFTEST_V7",
+  contract: "AVANTIQO_CODE_AI_WORK_PACKAGE_RECOVERY_SELFTEST_V8",
   verified: {
     post_mutation_run_promoted_to_verify_without_new_reasoning_call: true,
     controller_owned_final_diff_appended_without_new_reasoning_call: true,
@@ -125,6 +126,8 @@ console.log(JSON.stringify({
     live_progress_lease_audit_included: true,
     worker_session_release_audit_included: true,
     failed_session_without_pod_cleanup_regression_included: true,
+    ready_transport_resilience_audit_included: true,
+    warm_transport_miss_does_not_consume_reasoning_regression_included: true,
     quality_gate_weakened: false,
     provider_calls_executed: false,
     reasoning_calls_consumed: false,

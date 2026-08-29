@@ -113,14 +113,17 @@ await import("./code-ai-ready-transport-resilience-audit.mjs");
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_WORK_PACKAGE_RECOVERY_SELFTEST_V8",
+  contract: "AVANTIQO_CODE_AI_WORK_PACKAGE_RECOVERY_SELFTEST_V9",
   verified: {
     post_mutation_run_promoted_to_verify_without_new_reasoning_call: true,
     controller_owned_final_diff_appended_without_new_reasoning_call: true,
     structured_authoritative_mjs_verifier_preserved_exactly: true,
     missing_post_mutation_verification_still_rejected: true,
     repair_convergence_selftest_included: true,
-    seeded_implementation_lock_selftest_included: true,
+    seeded_implementation_lock_selftest_v3_included: true,
+    deterministic_verify_diff_before_more_reasoning_included: true,
+    historical_failed_verification_cleared_by_later_success_included: true,
+    successful_existing_implementation_does_not_require_reedit_included: true,
     operator_prewarm_audit_included: true,
     live_bounded_work_package_selftest_included: true,
     live_progress_lease_audit_included: true,

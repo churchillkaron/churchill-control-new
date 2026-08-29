@@ -40,6 +40,8 @@ echo "${CONTRACT}_BOOT_PRELOAD=true"
 echo "${CONTRACT}_SAFETENSORS_LOAD_STRATEGY=eager"
 echo "${CONTRACT}_ENGINE_LOADING_PHASE_LIMIT_MS=480000"
 echo "${CONTRACT}_POD_STARTUP_PHASE_LIMIT_MS=900000"
+echo "${CONTRACT}_FAILURE_POSTMORTEM_ENABLED=true"
+echo "${CONTRACT}_AMBIGUOUS_FIXTURE_WORDING_REMOVED=true"
 
 if [ ! -f "$ROOT/.env.local" ]; then
   echo "${CONTRACT}_ENV_LOCAL_REQUIRED=true"
@@ -150,6 +152,15 @@ if (!certAfter.includes(oldResumeCycles)) {
 }
 certAfter = certAfter.replace(oldResumeCycles, newResumeCycles);
 
+const oldInvoiceObjective =
+  '    "Invoice summary must use line.total and count only totals that are valid finite numeric values after normalization.",';
+const newInvoiceObjective =
+  '    "Invoice summary must use line.total. Invalid original money values contribute zero to total. Increment valid_line_count only when the original line.total itself is a finite number or a numeric string that converts to a finite number; invalid original totals must not increment the count.",';
+if (!certAfter.includes(oldInvoiceObjective)) {
+  throw new Error("AVANTIQO_CODE_GPU_PROOF_CERT_INVOICE_OBJECTIVE_MARKER_NOT_FOUND");
+}
+certAfter = certAfter.replace(oldInvoiceObjective, newInvoiceObjective);
+
 const oldPhaseDeclaration = "  let workerWarmingStartedAt = null;";
 const newPhaseDeclaration = [
   "  let workerWarmingStartedAt = null;",
@@ -202,11 +213,83 @@ if (!certAfter.includes(oldEventMarker)) {
 }
 certAfter = certAfter.replace(oldEventMarker, newEventMarker);
 
+const oldFailureBlock = [
+  '  if (!finalResult) throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_FINAL_RESULT_REQUIRED");',
+  '  if (finalResult.success !== true || finalResult.status !== "completed") {',
+  '    throw new Error(`AVANTIQO_CODE_EMPLOYEE_CERT_MISSION_FAILED:${finalResult.reason || finalResult.status}`);',
+  '  }',
+].join("\n");
+const newFailureBlock = [
+  '  if (!finalResult) throw new Error("AVANTIQO_CODE_EMPLOYEE_CERT_FINAL_RESULT_REQUIRED");',
+  '  if (finalResult.success !== true || finalResult.status !== "completed") {',
+  '    const failedState = finalResult.state || {};',
+  '    const recentPackages = list(failedState.evidence)',
+  '      .filter((entry) => entry?.kind === "batched_reasoning_package")',
+  '      .slice(-4)',
+  '      .map((entry) => ({',
+  '        reasoning_call: entry.reasoning_call ?? null,',
+  '        phase: entry.phase || null,',
+  '        summary: text(entry.summary, 500) || null,',
+  '        operation_count: Number(entry.operation_count || 0),',
+  '        operation_actions: list(entry.operation_actions).slice(0, 12),',
+  '        implementation_required: entry.implementation_required === true,',
+  '        verification_failed: entry.verification_failed === true,',
+  '        source_quality_repair_required: entry.source_quality_repair_required === true,',
+  '      }));',
+  '    const recentTests = list(failedState.tests).slice(-4).map((entry) => ({',
+  '      operation_id: entry.operation_id || null,',
+  '      command: entry.command || null,',
+  '      args: list(entry.args).slice(0, 24),',
+  '      exit_code: Number.isFinite(Number(entry.exit_code)) ? Number(entry.exit_code) : null,',
+  '      stdout: text(entry.stdout, 1200) || null,',
+  '      stderr: text(entry.stderr, 1200) || null,',
+  '    }));',
+  '    const recentFailures = list(failedState.failures).slice(-4).map((entry) => ({',
+  '      operation_id: entry.operation_id || null,',
+  '      action: entry.action || null,',
+  '      message: text(entry.message, 500) || null,',
+  '      diff_check: entry?.result?.diff_check ? {',
+  '        exit_code: Number.isFinite(Number(entry.result.diff_check.exit_code))',
+  '          ? Number(entry.result.diff_check.exit_code)',
+  '          : null,',
+  '        stdout: text(entry.result.diff_check.stdout, 1200) || null,',
+  '        stderr: text(entry.result.diff_check.stderr, 1200) || null,',
+  '      } : null,',
+  '    }));',
+  '    event("FAILURE_POSTMORTEM", {',
+  '      success: false,',
+  '      status: finalResult.status || null,',
+  '      reason: finalResult.reason || null,',
+  '      reasoning_calls_used: Number(failedState.work_package_control?.reasoning_calls_used || 0),',
+  '      reasoning_call_budget: REASONING_CALL_BUDGET,',
+  '      package_count: Number(failedState.work_package_control?.packages_executed || 0),',
+  '      operation_count: Number(failedState.work_package_control?.operations_executed || 0),',
+  '      recent_packages: recentPackages,',
+  '      recent_tests: recentTests,',
+  '      recent_failures: recentFailures,',
+  '      employee_completion_blockers: list(finalResult.employee_completion?.blockers).slice(0, 20),',
+  '      worldclass_blockers: list(finalResult.worldclass_quality?.blockers).slice(0, 20),',
+  '      product_completion_verified: finalResult.product_completion_criteria?.verified === true,',
+  '      product_completion_evidence_count: Number(finalResult.product_completion_criteria?.evidence_count || 0),',
+  '      files_changed: list(failedState.files_changed).slice(0, 40),',
+  '      source_contents_printed: false,',
+  '      patch_printed: false,',
+  '      raw_reasoning_printed: false,',
+  '      secrets_printed: false,',
+  '    });',
+  '    throw new Error(`AVANTIQO_CODE_EMPLOYEE_CERT_MISSION_FAILED:${finalResult.reason || finalResult.status}`);',
+  '  }',
+].join("\n");
+if (!certAfter.includes(oldFailureBlock)) {
+  throw new Error("AVANTIQO_CODE_GPU_PROOF_CERT_FAILURE_POSTMORTEM_MARKER_NOT_FOUND");
+}
+certAfter = certAfter.replace(oldFailureBlock, newFailureBlock);
+
 await writeFile(certPath, certAfter, "utf8");
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_GPU_PROOF_TEMPORARY_BINDING_V3",
+  contract: "AVANTIQO_CODE_GPU_PROOF_TEMPORARY_BINDING_V4",
   candidate_digest: `sha256:${newDigest}`,
   observed_main_digest: `sha256:${currentDigest}`,
   binding_source: bindingSource,
@@ -218,6 +301,8 @@ console.log(JSON.stringify({
   pod_startup_phase_limit_ms: 900000,
   max_resume_cycles: 900,
   watchdog_resets_on_phase_progress: true,
+  certification_objective_ambiguity_removed: true,
+  failure_postmortem_enabled: true,
   duplicate_warmup_pod_created: false,
   persistent_source_mutation_performed: false,
   github_write_performed: false,

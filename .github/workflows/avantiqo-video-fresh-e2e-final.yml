@@ -6,6 +6,11 @@ on:
       - main
     paths:
       - audits/avantiqo-video-fresh-e2e-final-request.json
+  workflow_run:
+    workflows:
+      - Avantiqo Video V72 FlashVSR 4K Quality Final
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -16,6 +21,11 @@ concurrency:
 
 jobs:
   prove:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.id == 33287878330 &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 170
     env:
@@ -28,10 +38,10 @@ jobs:
       AVANTIQO_VIDEO_FRESH_E2E_REPORT: /tmp/avantiqo-video-fresh-e2e-final.json
 
     steps:
-      - name: Checkout exact proof commit
+      - name: Checkout newest main
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: main
           fetch-depth: 0
 
       - name: Setup Node 24

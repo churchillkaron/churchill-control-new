@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/avantiqo-video-ltx25-scene1-proof.yml
+      - scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+      - assets/video/proofs/scene1_frame.part-*.b64
 
 permissions:
   contents: read

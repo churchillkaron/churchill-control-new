@@ -6,11 +6,6 @@ on:
       - main
     paths:
       - audits/avantiqo-video-fresh-e2e-final-request.json
-  workflow_run:
-    workflows:
-      - Avantiqo Video V72 FlashVSR 4K Quality Final
-    types:
-      - completed
 
 permissions:
   contents: read
@@ -21,11 +16,6 @@ concurrency:
 
 jobs:
   prove:
-    if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.id == 33287878330 &&
-       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 170
     env:

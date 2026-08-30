@@ -62,7 +62,8 @@ markers("BUSINESS_PARTNER_UI", source.dock, [
   '"/api/operator/developer-attachments"',
   '"x-avantiqo-developer-attachment-set"',
   '"/api/operator/turn/live"',
-  "slice(0, 4)",
+  "const MAX_DEVELOPER_FILES = 4",
+  ".slice(0, MAX_DEVELOPER_FILES)",
   '"/api/operator/live-execution"',
   "requestStop",
 ]);

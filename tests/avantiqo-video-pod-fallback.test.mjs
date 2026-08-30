@@ -91,10 +91,25 @@ test("V3 uses Serverless first, Pod fallback and Studio-owned FAL-free mastering
   assert.match(s, /prompt_persisted: false/);
 });
 
-test("Provider routes new generation through V3 while preserving V2 and legacy status", async () => {
+test("Provider routes new generation through V4 while preserving V2 and legacy status", async () => {
   const s = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js");
-  assert.match(s, /AvantiqoVideoWorkflowRuntimeV3\.execute/); assert.match(s, /workflowV3Job/);
+  assert.match(s, /AvantiqoVideoWorkflowRuntimeV4\.execute/); assert.match(s, /workflowV4Job/);
   assert.match(s, /AvantiqoVideoWorkflowRuntimeV2\.getStatus/); assert.match(s, /AvantiqoVideoWorkflowRuntime\.getStatus/);
+});
+
+test("V4 resolves private foundation storage before Studio recovery and persists final signed result", async () => {
+  const s = await source("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoWorkflowRuntimeV4.js");
+  assert.match(s, /AVANTIQO_VIDEO_MASTERING_RECOVERY_WORKFLOW_V4/);
+  assert.match(s, /resolveCreativeProviderAssetUrl/);
+  assert.match(s, /value: state\.foundation_storage_reference/);
+  assert.match(s, /AVANTIQO_VIDEO_WORKFLOW_V4_FOUNDATION_URL_REQUIRED/);
+  assert.match(s, /source_url: foundationUrl/);
+  assert.match(s, /persistFinalBuffer/);
+  assert.match(s, /storage:\/\/\$\{BUCKET\}\/\$\{path\}/);
+  assert.match(s, /final_video_url = persisted\.videoUrl/);
+  assert.match(s, /learned_mastering_attempted = true/);
+  assert.match(s, /learned_super_resolution_used = false/);
+  assert.match(s, /gpu_mastering_used = false/);
 });
 
 test("one-minute cron reconciles orphan Pods", async () => {

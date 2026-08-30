@@ -37,14 +37,31 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          parts=(assets/video/proofs/scene1_frame.part-*.b64)
-          test "${#parts[@]}" = "6"
-          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}"
-          test "$(wc -c < "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}")" = "31376"
-          test "$(sha256sum "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}" | awk '{print $1}')" = "cbf4437d77f74b2fd0193f9039ef64c511b597712fe08c466c30d4c231aeb0c5"
-          test "$(od -An -tx1 -N2 "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}" | tr -d ' \n')" = "ffd8"
-          test "$(tail -c 2 "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}" | od -An -tx1 | tr -d ' \n')" = "ffd9"
-          echo 'AVANTIQO_VIDEO_SCENE1_APPROVED_FRAME=PASS'
+          python3 - <<'PY'
+          import base64, hashlib, os, pathlib, re
+          root = pathlib.Path('assets/video/proofs')
+          parts = sorted(root.glob('scene1_frame.part-*.b64'))
+          if len(parts) != 6:
+              raise SystemExit(f'AVANTIQO_VIDEO_SCENE1_FRAME_PART_COUNT_INVALID:{len(parts)}')
+          text = ''.join(p.read_text(encoding='utf-8') for p in parts)
+          compact = re.sub(r'[^A-Za-z0-9+/=]', '', text)
+          if len(compact) % 4:
+              compact += '=' * (-len(compact) % 4)
+          raw = base64.b64decode(compact, validate=False)
+          target = pathlib.Path(os.environ['AVANTIQO_VIDEO_SCENE1_OPENING_FRAME'])
+          target.write_bytes(raw)
+          digest = hashlib.sha256(raw).hexdigest()
+          print(f'AVANTIQO_VIDEO_SCENE1_FRAME_B64_CHARS={len(compact)}')
+          print(f'AVANTIQO_VIDEO_SCENE1_FRAME_BYTES={len(raw)}')
+          print(f'AVANTIQO_VIDEO_SCENE1_FRAME_SHA256={digest}')
+          if len(raw) != 31376:
+              raise SystemExit(f'AVANTIQO_VIDEO_SCENE1_FRAME_SIZE_INVALID:{len(raw)}')
+          if digest != 'cbf4437d77f74b2fd0193f9039ef64c511b597712fe08c466c30d4c231aeb0c5':
+              raise SystemExit('AVANTIQO_VIDEO_SCENE1_FRAME_DIGEST_INVALID')
+          if raw[:2] != b'\xff\xd8' or raw[-2:] != b'\xff\xd9':
+              raise SystemExit('AVANTIQO_VIDEO_SCENE1_FRAME_JPEG_BOUNDARY_INVALID')
+          print('AVANTIQO_VIDEO_SCENE1_APPROVED_FRAME=PASS')
+          PY
 
       - name: Set up Node 24
         uses: actions/setup-node@v4

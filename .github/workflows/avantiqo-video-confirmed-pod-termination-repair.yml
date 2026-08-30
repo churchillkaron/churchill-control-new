@@ -19,13 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout triggering source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Confirm Video Pod termination on every ownership release path
+      - name: Patch all Video Pod delete paths
         shell: bash
         run: |
           set -euo pipefail
@@ -35,104 +34,49 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          pod_runtime = Path('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js')
-          flash_runtime = Path('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js')
-          tests = Path('tests/avantiqo-video-studio-first-boundary.test.mjs')
-          audit = Path('scripts/studio-first-compute-boundary-audit.mjs')
+          normal = Path('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js')
+          flash = Path('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js')
 
-          def replace_once(path, old, new):
+          def once(path, old, new):
               body = path.read_text()
-              count = body.count(old)
-              if count != 1:
-                  raise SystemExit(f'{path}: expected exactly one match, got {count}: {old[:120]}')
+              if old not in body:
+                  raise SystemExit(f'missing patch target in {path}: {old[:100]}')
               path.write_text(body.replace(old, new, 1))
 
-          # Normal generation submit failure: do not release lease/storage ownership until Pod absence is verified.
-          replace_once(
-              pod_runtime,
-              '    if (podId) await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: text(error.message).split(":")[0] }).catch(() => null);',
-              '    if (podId) {\n      await deleteVideoPod(podId).catch(() => null);\n      await confirmAvantiqoVideoPodTerminal(podId);\n    }\n    await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: text(error.message).split(":")[0] }).catch(() => null);',
-          )
+          once(normal,
+            '    if (podId) await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: text(error.message).split(":")[0] }).catch(() => null);',
+            '    if (podId) { await deleteVideoPod(podId).catch(() => null); await confirmAvantiqoVideoPodTerminal(podId); }\n    await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: text(error.message).split(":")[0] }).catch(() => null);')
+          once(normal,
+            '  if (!pod || podTerminal(pod)) { if (pod) await deleteVideoPod(podId).catch(() => null); await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: "VIDEO_POD_EXITED_WITHOUT_RECEIPT" }).catch(() => null); return { status: "failed", error: "AVANTIQO_VIDEO_POD_EXITED_WITHOUT_RECEIPT" }; }',
+            '  if (!pod || podTerminal(pod)) { if (pod) { await deleteVideoPod(podId).catch(() => null); await confirmAvantiqoVideoPodTerminal(podId); } await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: "VIDEO_POD_EXITED_WITHOUT_RECEIPT" }).catch(() => null); return { status: "failed", error: "AVANTIQO_VIDEO_POD_EXITED_WITHOUT_RECEIPT" }; }')
+          once(normal,
+            '    await deleteVideoPod(podId).catch(() => null); await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
+            '    await deleteVideoPod(podId).catch(() => null); await confirmAvantiqoVideoPodTerminal(podId); await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);')
+          once(normal,
+            '  if (podJob?.pod_id) await deleteVideoPod(text(podJob.pod_id)).catch(() => null);\n  if (podJob?.lease_id && podJob?.lease_owner_request_id) await releaseVideoPodLease',
+            '  if (podJob?.pod_id) { await deleteVideoPod(text(podJob.pod_id)).catch(() => null); await confirmAvantiqoVideoPodTerminal(text(podJob.pod_id)); }\n  if (podJob?.lease_id && podJob?.lease_owner_request_id) await releaseVideoPodLease')
+          once(normal,
+            '        if (pod?.id) await deleteVideoPod(text(pod.id)).catch(() => null);\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: "VIDEO_POD_RECONCILED_RECEIPT" });',
+            '        if (pod?.id) { await deleteVideoPod(text(pod.id)).catch(() => null); await confirmAvantiqoVideoPodTerminal(text(pod.id)); }\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: "VIDEO_POD_RECONCILED_RECEIPT" });')
+          once(normal,
+            '        await deleteVideoPod(text(pod.id)).catch(() => null);\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: age >= HARD_TIMEOUT ? "VIDEO_POD_RECONCILED_HARD_TIMEOUT" : "VIDEO_POD_RECONCILED_TERMINAL" });',
+            '        await deleteVideoPod(text(pod.id)).catch(() => null);\n        await confirmAvantiqoVideoPodTerminal(text(pod.id));\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: age >= HARD_TIMEOUT ? "VIDEO_POD_RECONCILED_HARD_TIMEOUT" : "VIDEO_POD_RECONCILED_TERMINAL" });')
 
-          # Normal generation terminal-without-receipt path.
-          replace_once(
-              pod_runtime,
-              '  if (!pod || podTerminal(pod)) { if (pod) await deleteVideoPod(podId).catch(() => null); await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: "VIDEO_POD_EXITED_WITHOUT_RECEIPT" }).catch(() => null); return { status: "failed", error: "AVANTIQO_VIDEO_POD_EXITED_WITHOUT_RECEIPT" }; }',
-              '  if (!pod || podTerminal(pod)) { if (pod) { await deleteVideoPod(podId).catch(() => null); await confirmAvantiqoVideoPodTerminal(podId); } await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: "VIDEO_POD_EXITED_WITHOUT_RECEIPT" }).catch(() => null); return { status: "failed", error: "AVANTIQO_VIDEO_POD_EXITED_WITHOUT_RECEIPT" }; }',
-          )
-
-          # Normal generation timeout path.
-          replace_once(
-              pod_runtime,
-              '    await deleteVideoPod(podId).catch(() => null); await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
-              '    await deleteVideoPod(podId).catch(() => null); await confirmAvantiqoVideoPodTerminal(podId); await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
-          )
-
-          # Explicit normal generation abort.
-          replace_once(
-              pod_runtime,
-              '  if (podJob?.pod_id) await deleteVideoPod(text(podJob.pod_id)).catch(() => null);\n  if (podJob?.lease_id && podJob?.lease_owner_request_id) await releaseVideoPodLease',
-              '  if (podJob?.pod_id) { await deleteVideoPod(text(podJob.pod_id)).catch(() => null); await confirmAvantiqoVideoPodTerminal(text(podJob.pod_id)); }\n  if (podJob?.lease_id && podJob?.lease_owner_request_id) await releaseVideoPodLease',
-          )
-
-          # Reconciler receipt path.
-          replace_once(
-              pod_runtime,
-              '        if (pod?.id) await deleteVideoPod(text(pod.id)).catch(() => null);\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: "VIDEO_POD_RECONCILED_RECEIPT" });',
-              '        if (pod?.id) { await deleteVideoPod(text(pod.id)).catch(() => null); await confirmAvantiqoVideoPodTerminal(text(pod.id)); }\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: "VIDEO_POD_RECONCILED_RECEIPT" });',
-          )
-
-          # Reconciler timeout/terminal path.
-          replace_once(
-              pod_runtime,
-              '        await deleteVideoPod(text(pod.id)).catch(() => null);\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: age >= HARD_TIMEOUT ? "VIDEO_POD_RECONCILED_HARD_TIMEOUT" : "VIDEO_POD_RECONCILED_TERMINAL" });',
-              '        await deleteVideoPod(text(pod.id)).catch(() => null);\n        await confirmAvantiqoVideoPodTerminal(text(pod.id));\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: age >= HARD_TIMEOUT ? "VIDEO_POD_RECONCILED_HARD_TIMEOUT" : "VIDEO_POD_RECONCILED_TERMINAL" });',
-          )
-
-          # FlashVSR wrong-GPU create cleanup.
-          replace_once(
-              flash_runtime,
-              '  if (gpu && gpu !== AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE) {\n    await deleteVideoPod(id).catch(() => null);\n    throw new Error(`AVANTIQO_VIDEO_FLASHVSR_GPU_UNCERTIFIED:${gpu}`);\n  }',
-              '  if (gpu && gpu !== AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE) {\n    await deleteVideoPod(id).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(id);\n    throw new Error(`AVANTIQO_VIDEO_FLASHVSR_GPU_UNCERTIFIED:${gpu}`);\n  }',
-          )
-
-          # FlashVSR submit failure after Pod creation.
-          replace_once(
-              flash_runtime,
-              '    if (podId) await deleteVideoPod(podId).catch(() => null);\n    if (lease) await releaseVideoPodLease',
-              '    if (podId) {\n      await deleteVideoPod(podId).catch(() => null);\n      await confirmAvantiqoVideoPodTerminal(podId);\n    }\n    if (lease) await releaseVideoPodLease',
-          )
-
-          # FlashVSR timeout before cleanup bridge.
-          replace_once(
-              flash_runtime,
-              '    await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
-              '    await deleteVideoPod(podId).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(podId);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
-          )
-
-          # Explicit FlashVSR abort before any fresh shared-volume cleanup bridge.
-          replace_once(
-              flash_runtime,
-              '  if (masterJob.pod_id) await deleteVideoPod(text(masterJob.pod_id)).catch(() => null);\n  if (masterJob.lease_id && masterJob.owner_request_id) {',
-              '  if (masterJob.pod_id) {\n    await deleteVideoPod(text(masterJob.pod_id)).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(text(masterJob.pod_id));\n  }\n  if (masterJob.lease_id && masterJob.owner_request_id) {',
-          )
-
-          test_block = '''\n\ntest("Video failure paths confirm Pod termination before releasing shared-volume ownership", async () => {\n  const podRuntime = await fs.readFile(path.join(root, "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js"), "utf8");\n  const flashRuntime = await fs.readFile(path.join(root, "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js"), "utf8");\n  const normalDeletes = [...podRuntime.matchAll(/deleteVideoPod\\([^\\n]+/g)].map((match) => match.index);\n  const normalConfirms = [...podRuntime.matchAll(/confirmAvantiqoVideoPodTerminal\\([^\\n]+/g)].map((match) => match.index);\n  const flashDeletes = [...flashRuntime.matchAll(/deleteVideoPod\\([^\\n]+/g)].map((match) => match.index);\n  const flashConfirms = [...flashRuntime.matchAll(/confirmAvantiqoVideoPodTerminal\\([^\\n]+/g)].map((match) => match.index);\n  assert.ok(normalDeletes.length >= 7 && normalConfirms.length >= 7, "all normal Video Pod delete paths must have confirmation coverage");\n  assert.ok(flashDeletes.length >= 5 && flashConfirms.length >= 5, "all FlashVSR Pod delete paths must have confirmation coverage");\n  for (const index of normalDeletes) assert.ok(normalConfirms.some((confirm) => confirm > index && confirm - index < 500), "normal Video delete must be followed by nearby terminal confirmation");\n  for (const index of flashDeletes) assert.ok(flashConfirms.some((confirm) => confirm > index && confirm - index < 500), "FlashVSR delete must be followed by nearby terminal confirmation");\n});\n'''
-          body = tests.read_text()
-          marker = 'test("Video failure paths confirm Pod termination before releasing shared-volume ownership"'
-          if marker not in body:
-              tests.write_text(body + test_block)
-
-          audit_block = '''\nconst allDeletePathsConfirmed = (body) => {\n  const deletes = [...body.matchAll(/deleteVideoPod\\([^\\n]+/g)].map((match) => match.index);\n  const confirms = [...body.matchAll(/confirmAvantiqoVideoPodTerminal\\([^\\n]+/g)].map((match) => match.index);\n  return deletes.length > 0 && deletes.every((index) => confirms.some((confirm) => confirm > index && confirm - index < 500));\n};\nif (!allDeletePathsConfirmed(podRuntime)) violations.push({ code: "VIDEO_POD_DELETE_WITHOUT_CONFIRMED_TERMINATION", file: "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js" });\nif (!allDeletePathsConfirmed(flashVsrPodRuntime)) violations.push({ code: "VIDEO_FLASHVSR_DELETE_WITHOUT_CONFIRMED_TERMINATION", file: "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js" });\n'''
-          audit_body = audit.read_text()
-          audit_marker = 'VIDEO_POD_DELETE_WITHOUT_CONFIRMED_TERMINATION'
-          if audit_marker not in audit_body:
-              insertion = audit_body.rfind('const result =')
-              if insertion < 0:
-                  raise SystemExit('audit result marker not found')
-              audit.write_text(audit_body[:insertion] + audit_block + audit_body[insertion:])
+          once(flash,
+            '  if (gpu && gpu !== AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE) {\n    await deleteVideoPod(id).catch(() => null);\n    throw new Error(`AVANTIQO_VIDEO_FLASHVSR_GPU_UNCERTIFIED:${gpu}`);\n  }',
+            '  if (gpu && gpu !== AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE) {\n    await deleteVideoPod(id).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(id);\n    throw new Error(`AVANTIQO_VIDEO_FLASHVSR_GPU_UNCERTIFIED:${gpu}`);\n  }')
+          once(flash,
+            '    if (podId) await deleteVideoPod(podId).catch(() => null);\n    if (lease) await releaseVideoPodLease',
+            '    if (podId) { await deleteVideoPod(podId).catch(() => null); await confirmAvantiqoVideoPodTerminal(podId); }\n    if (lease) await releaseVideoPodLease')
+          once(flash,
+            '    await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
+            '    await deleteVideoPod(podId).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(podId);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);')
+          once(flash,
+            '  if (masterJob.pod_id) await deleteVideoPod(text(masterJob.pod_id)).catch(() => null);\n  if (masterJob.lease_id && masterJob.owner_request_id) {',
+            '  if (masterJob.pod_id) { await deleteVideoPod(text(masterJob.pod_id)).catch(() => null); await confirmAvantiqoVideoPodTerminal(text(masterJob.pod_id)); }\n  if (masterJob.lease_id && masterJob.owner_request_id) {')
           PY
 
+          node --test tests/avantiqo-video-pod-termination-coverage.test.mjs
           node --test tests/avantiqo-video-studio-first-boundary.test.mjs
           node scripts/studio-first-compute-boundary-audit.mjs
           git diff --check
@@ -141,19 +85,15 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
             lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js \
-            lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js \
-            tests/avantiqo-video-studio-first-boundary.test.mjs \
-            scripts/studio-first-compute-boundary-audit.mjs
-          git commit -m 'Confirm Video Pod termination on failure paths'
+            lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js
+          git commit -m 'Confirm Video Pod termination on all cleanup paths'
 
           for attempt in 1 2 3; do
             if git push origin HEAD:main; then
               echo 'AVANTIQO_VIDEO_CONFIRMED_POD_TERMINATION_FAILURE_PATHS=PASS'
               exit 0
             fi
-            if [ "$attempt" -eq 3 ]; then
-              exit 1
-            fi
+            [ "$attempt" -eq 3 ] && exit 1
             git fetch origin main
             git rebase origin/main
           done

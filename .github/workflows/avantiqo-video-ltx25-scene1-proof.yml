@@ -3,8 +3,7 @@ name: Avantiqo Video LTX-2.5 Scene 1 Proof
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - .github/workflows/avantiqo-video-ltx25-scene1-proof.yml
 
@@ -34,71 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: Reconstruct exact approved Scene 1 opening frame
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import base64, hashlib, os, pathlib, re
-          root = pathlib.Path('assets/video/proofs')
-          parts = sorted(root.glob('scene1_frame.part-*.b64'))
-          if len(parts) != 6:
-              raise SystemExit(f'AVANTIQO_VIDEO_SCENE1_FRAME_PART_COUNT_INVALID:{len(parts)}')
-          expected_part_lengths = [7000, 7000, 7000, 7000, 7000, 6836]
-          for part, expected in zip(parts, expected_part_lengths):
-              value = re.sub(r'[^A-Za-z0-9+/=]', '', part.read_text(encoding='utf-8'))
-              print(f'AVANTIQO_VIDEO_SCENE1_PART={part.name}:{len(value)}:{expected}')
-          text = ''.join(p.read_text(encoding='utf-8') for p in parts)
-          compact = re.sub(r'[^A-Za-z0-9+/=]', '', text)
-          target_digest = 'cbf4437d77f74b2fd0193f9039ef64c511b597712fe08c466c30d4c231aeb0c5'
-          expected_b64_chars = 41836
-          expected_bytes = 31376
-
-          def exact(value):
-              try:
-                  raw = base64.b64decode(value, validate=True)
-              except Exception:
-                  return None
-              if len(raw) != expected_bytes:
-                  return None
-              if hashlib.sha256(raw).hexdigest() != target_digest:
-                  return None
-              return raw
-
-          raw = exact(compact)
-          if raw is None and len(compact) > expected_b64_chars:
-              delta = len(compact) - expected_b64_chars
-              print(f'AVANTIQO_VIDEO_SCENE1_FRAME_SURPLUS_CHARS={delta}')
-              if delta > 512:
-                  raise SystemExit('AVANTIQO_VIDEO_SCENE1_FRAME_SURPLUS_TOO_LARGE')
-              found = None
-              for offset in range(0, len(compact) - delta + 1, 4):
-                  candidate = compact[:offset] + compact[offset + delta:]
-                  if exact(candidate) is not None:
-                      found = (offset, candidate)
-                      break
-              if found is None:
-                  for offset in range(0, len(compact) - delta + 1):
-                      if offset % 4 == 0:
-                          continue
-                      candidate = compact[:offset] + compact[offset + delta:]
-                      if exact(candidate) is not None:
-                          found = (offset, candidate)
-                          break
-              if found is not None:
-                  offset, compact = found
-                  raw = exact(compact)
-                  print(f'AVANTIQO_VIDEO_SCENE1_FRAME_INSERTION_RECOVERED_AT={offset}')
-          if raw is None:
-              raise SystemExit('AVANTIQO_VIDEO_SCENE1_FRAME_EXACT_RECOVERY_FAILED')
-          target = pathlib.Path(os.environ['AVANTIQO_VIDEO_SCENE1_OPENING_FRAME'])
-          target.write_bytes(raw)
-          print(f'AVANTIQO_VIDEO_SCENE1_FRAME_B64_CHARS={len(compact)}')
-          print(f'AVANTIQO_VIDEO_SCENE1_FRAME_BYTES={len(raw)}')
-          print(f'AVANTIQO_VIDEO_SCENE1_FRAME_SHA256={hashlib.sha256(raw).hexdigest()}')
-          if raw[:2] != b'\xff\xd8' or raw[-2:] != b'\xff\xd9':
-              raise SystemExit('AVANTIQO_VIDEO_SCENE1_FRAME_JPEG_BOUNDARY_INVALID')
-          print('AVANTIQO_VIDEO_SCENE1_APPROVED_FRAME=PASS')
-          PY
+        run: python3 scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
 
       - name: Set up Node 24
         uses: actions/setup-node@v4
@@ -115,8 +50,8 @@ jobs:
           set -euo pipefail
           git fetch --no-tags origin "${V5_SOURCE_SHA}"
           git cat-file -e "${V5_SOURCE_SHA}^{commit}"
-          test "$(git show "${V5_SOURCE_SHA}:services/avantiqo-video-engine/Dockerfile.ltx25" | grep -c 'LTX2_COMMIT=a95ab856bf29407b6b066ede0abe1846050db56c')" = "1"
-          test "$(git show "${V5_SOURCE_SHA}:services/avantiqo-video-engine/ltx25_worker_v2.py" | grep -c 'RUNTIME_CONTRACT = "AVANTIQO_VIDEO_LTX25_BLACKWELL_V1"')" = "1"
+          git show "${V5_SOURCE_SHA}:services/avantiqo-video-engine/Dockerfile.ltx25" | grep -F 'LTX2_COMMIT=a95ab856bf29407b6b066ede0abe1846050db56c'
+          git show "${V5_SOURCE_SHA}:services/avantiqo-video-engine/ltx25_worker_v2.py" | grep -F 'RUNTIME_CONTRACT = "AVANTIQO_VIDEO_LTX25_BLACKWELL_V1"'
           echo 'AVANTIQO_VIDEO_LTX25_V5_SOURCE_PIN=PASS'
 
       - name: Prepare immutable V5 build context
@@ -190,8 +125,7 @@ jobs:
           new_env = """        AVANTIQO_VIDEO_LTX25_MODEL_ROOT: \"/runpod-volume/ltx-2.5\",\n        ...(process.env.HF_TOKEN ? { HF_TOKEN: process.env.HF_TOKEN } : {}),\n      },\n      command: [\"python\", \"-u\", \"-c\", preloadPython()],"""
           if old_env not in s:
               raise SystemExit('AVANTIQO_VIDEO_LTX25_HF_FORWARD_PATCH_TARGET_MISSING')
-          s = s.replace(old_env, new_env, 1)
-          p.write_text(s)
+          p.write_text(s.replace(old_env, new_env, 1))
           print('AVANTIQO_VIDEO_LTX25_OFFICIAL_MODEL_SOURCE_PATCH=PASS')
           PY
           node --check scripts/run-avantiqo-video-ltx25-scene1-proof-ci.mjs
@@ -209,7 +143,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}"
           node scripts/run-avantiqo-video-ltx25-scene1-proof-ci.mjs
           test -s "${AVANTIQO_VIDEO_SCENE1_OUTPUT}"
           test -s "${AVANTIQO_VIDEO_SCENE1_REPORT}"

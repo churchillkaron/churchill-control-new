@@ -41,10 +41,26 @@ jobs:
           if (!response.ok) throw new Error(`AVANTIQO_VIDEO_MASTER_LINK_HTTP_${response.status}`);
           const raw = body.signedURL || body.signedUrl || body.signed_url;
           if (!raw) throw new Error('AVANTIQO_VIDEO_MASTER_LINK_MISSING');
-          const signedUrl = /^https?:\/\//i.test(raw) ? raw : `${base}${raw.startsWith('/') ? '' : '/'}${raw}`;
+
+          let signedUrl;
+          if (/^https?:\/\//i.test(raw)) {
+            signedUrl = raw;
+          } else if (raw.startsWith('/storage/v1/')) {
+            signedUrl = `${base}${raw}`;
+          } else if (raw.startsWith('/object/')) {
+            signedUrl = `${base}/storage/v1${raw}`;
+          } else {
+            signedUrl = `${base}/storage/v1/${raw.replace(/^\/+/, '')}`;
+          }
+
+          const parsed = new URL(signedUrl);
+          if (!parsed.pathname.startsWith('/storage/v1/object/sign/')) {
+            throw new Error('AVANTIQO_VIDEO_MASTER_LINK_INVALID_PATH');
+          }
+
           const report = {
             success: true,
-            contract: 'AVANTIQO_VIDEO_MASTER_SIGNED_LINK_V1',
+            contract: 'AVANTIQO_VIDEO_MASTER_SIGNED_LINK_V2',
             master: `storage://${bucket}/${path}`,
             signed_url: signedUrl,
             expires_in_seconds: 86400,

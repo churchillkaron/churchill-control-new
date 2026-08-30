@@ -1,6 +1,7 @@
 name: Avantiqo Video V72 FlashVSR 4K Quality Final
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main

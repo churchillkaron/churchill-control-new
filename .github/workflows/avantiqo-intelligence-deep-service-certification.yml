@@ -80,12 +80,13 @@ jobs:
           NODE_ENV: development
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-          RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY || secrets.RUNPOD_API_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AVANTIQO_INTELLIGENCE_DEEP_CERT_EXPECTED_MAIN_COMMIT: ${{ github.sha }}
           AVANTIQO_INTELLIGENCE_DEEP_CERT_SPEND_APPROVED: "YES"
           AVANTIQO_INTELLIGENCE_DEEP_CERT_MAX_CUSTOMER_CHARGE: "10"
           AVANTIQO_INTELLIGENCE_DEEP_CERT_OUTPUT: ${{ github.workspace }}/deep-certification.json
+          AVANTIQO_INTELLIGENCE_FAST_ASSESSMENT_EXPLICIT_EXIT: "YES"
         run: |
           node scripts/run-avantiqo-intelligence-deep-production-service-certification-local.mjs --execute
 

@@ -25,7 +25,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Wire confirmed Video Pod termination on newest main
+      - name: Confirm Video Pod termination on every ownership release path
         shell: bash
         run: |
           set -euo pipefail
@@ -44,62 +44,99 @@ jobs:
               body = path.read_text()
               count = body.count(old)
               if count != 1:
-                  raise SystemExit(f'{path}: expected exactly one match, got {count}: {old[:100]}')
+                  raise SystemExit(f'{path}: expected exactly one match, got {count}: {old[:120]}')
               path.write_text(body.replace(old, new, 1))
 
-          # Generation runtime: require confirmed terminal state before lease release + Studio CPU work.
+          # Normal generation submit failure: do not release lease/storage ownership until Pod absence is verified.
           replace_once(
               pod_runtime,
-              'import { createVideoPodWithCertifiedVolumeFailover } from "./AvantiqoVideoPodVolumeFailover.js";\n',
-              'import { createVideoPodWithCertifiedVolumeFailover } from "./AvantiqoVideoPodVolumeFailover.js";\nimport { confirmAvantiqoVideoPodTerminal } from "./AvantiqoVideoPodTermination.js";\n',
+              '    if (podId) await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: text(error.message).split(":")[0] }).catch(() => null);',
+              '    if (podId) {\n      await deleteVideoPod(podId).catch(() => null);\n      await confirmAvantiqoVideoPodTerminal(podId);\n    }\n    await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: text(error.message).split(":")[0] }).catch(() => null);',
           )
+
+          # Normal generation terminal-without-receipt path.
           replace_once(
               pod_runtime,
-              '    await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: saved.success ? "VIDEO_GPU_RESULT_RECEIPT_COMPLETED" : text(saved.error_code) || "VIDEO_POD_RECEIPT_FAILED" }).catch(() => null);',
-              '    await deleteVideoPod(podId).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(podId);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: saved.success ? "VIDEO_GPU_RESULT_RECEIPT_COMPLETED" : text(saved.error_code) || "VIDEO_POD_RECEIPT_FAILED" }).catch(() => null);',
+              '  if (!pod || podTerminal(pod)) { if (pod) await deleteVideoPod(podId).catch(() => null); await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: "VIDEO_POD_EXITED_WITHOUT_RECEIPT" }).catch(() => null); return { status: "failed", error: "AVANTIQO_VIDEO_POD_EXITED_WITHOUT_RECEIPT" }; }',
+              '  if (!pod || podTerminal(pod)) { if (pod) { await deleteVideoPod(podId).catch(() => null); await confirmAvantiqoVideoPodTerminal(podId); } await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: "VIDEO_POD_EXITED_WITHOUT_RECEIPT" }).catch(() => null); return { status: "failed", error: "AVANTIQO_VIDEO_POD_EXITED_WITHOUT_RECEIPT" }; }',
           )
 
-          # FlashVSR runtime: require confirmed A100 teardown before shared-volume retrieval bridge.
+          # Normal generation timeout path.
+          replace_once(
+              pod_runtime,
+              '    await deleteVideoPod(podId).catch(() => null); await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
+              '    await deleteVideoPod(podId).catch(() => null); await confirmAvantiqoVideoPodTerminal(podId); await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
+          )
+
+          # Explicit normal generation abort.
+          replace_once(
+              pod_runtime,
+              '  if (podJob?.pod_id) await deleteVideoPod(text(podJob.pod_id)).catch(() => null);\n  if (podJob?.lease_id && podJob?.lease_owner_request_id) await releaseVideoPodLease',
+              '  if (podJob?.pod_id) { await deleteVideoPod(text(podJob.pod_id)).catch(() => null); await confirmAvantiqoVideoPodTerminal(text(podJob.pod_id)); }\n  if (podJob?.lease_id && podJob?.lease_owner_request_id) await releaseVideoPodLease',
+          )
+
+          # Reconciler receipt path.
+          replace_once(
+              pod_runtime,
+              '        if (pod?.id) await deleteVideoPod(text(pod.id)).catch(() => null);\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: "VIDEO_POD_RECONCILED_RECEIPT" });',
+              '        if (pod?.id) { await deleteVideoPod(text(pod.id)).catch(() => null); await confirmAvantiqoVideoPodTerminal(text(pod.id)); }\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: "VIDEO_POD_RECONCILED_RECEIPT" });',
+          )
+
+          # Reconciler timeout/terminal path.
+          replace_once(
+              pod_runtime,
+              '        await deleteVideoPod(text(pod.id)).catch(() => null);\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: age >= HARD_TIMEOUT ? "VIDEO_POD_RECONCILED_HARD_TIMEOUT" : "VIDEO_POD_RECONCILED_TERMINAL" });',
+              '        await deleteVideoPod(text(pod.id)).catch(() => null);\n        await confirmAvantiqoVideoPodTerminal(text(pod.id));\n        await releaseVideoPodLease({ leaseId: lease.id, ownerRequestId: owner, state: "FAILED", reason: age >= HARD_TIMEOUT ? "VIDEO_POD_RECONCILED_HARD_TIMEOUT" : "VIDEO_POD_RECONCILED_TERMINAL" });',
+          )
+
+          # FlashVSR wrong-GPU create cleanup.
           replace_once(
               flash_runtime,
-              '} from "./AvantiqoVideoPodLease.js";\nimport {\n  createAvantiqoVideoVolumeCpuBridge,',
-              '} from "./AvantiqoVideoPodLease.js";\nimport { confirmAvantiqoVideoPodTerminal } from "./AvantiqoVideoPodTermination.js";\nimport {\n  createAvantiqoVideoVolumeCpuBridge,',
+              '  if (gpu && gpu !== AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE) {\n    await deleteVideoPod(id).catch(() => null);\n    throw new Error(`AVANTIQO_VIDEO_FLASHVSR_GPU_UNCERTIFIED:${gpu}`);\n  }',
+              '  if (gpu && gpu !== AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE) {\n    await deleteVideoPod(id).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(id);\n    throw new Error(`AVANTIQO_VIDEO_FLASHVSR_GPU_UNCERTIFIED:${gpu}`);\n  }',
           )
+
+          # FlashVSR submit failure after Pod creation.
           replace_once(
               flash_runtime,
-              '    if (pod) await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({',
-              '    if (pod) await deleteVideoPod(podId).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(podId);\n    await releaseVideoPodLease({',
+              '    if (podId) await deleteVideoPod(podId).catch(() => null);\n    if (lease) await releaseVideoPodLease',
+              '    if (podId) {\n      await deleteVideoPod(podId).catch(() => null);\n      await confirmAvantiqoVideoPodTerminal(podId);\n    }\n    if (lease) await releaseVideoPodLease',
           )
 
-          # Static regression test now verifies confirmed termination, not merely DELETE ordering.
+          # FlashVSR timeout before cleanup bridge.
           replace_once(
-              tests,
-              '  const deleteIndex = runtime.indexOf("await deleteVideoPod(podId)", receiptBranch);\n  const studioIndex = runtime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", receiptBranch);\n  assert.ok(receiptBranch >= 0 && deleteIndex > receiptBranch && studioIndex > deleteIndex, "Pod must be deleted before Studio foundation assembly");',
-              '  const deleteIndex = runtime.indexOf("await deleteVideoPod(podId)", receiptBranch);\n  const confirmIndex = runtime.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", deleteIndex);\n  const studioIndex = runtime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", receiptBranch);\n  assert.ok(receiptBranch >= 0 && deleteIndex > receiptBranch && confirmIndex > deleteIndex && studioIndex > confirmIndex, "Pod termination must be confirmed before Studio foundation assembly");',
-          )
-          replace_once(
-              tests,
-              '  const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", terminalBranch);\n  const retrieveIndex = flashPod.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", gpuDeleteIndex);\n  const finalStudioIndex = flashPod.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", 0);\n  assert.ok(terminalBranch >= 0 && gpuDeleteIndex > terminalBranch && retrieveIndex > gpuDeleteIndex,\n    "A100 must be deleted before retrieval bridge is created");',
-              '  const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", terminalBranch);\n  const gpuConfirmIndex = flashPod.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", gpuDeleteIndex);\n  const retrieveIndex = flashPod.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", gpuConfirmIndex);\n  const finalStudioIndex = flashPod.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", 0);\n  assert.ok(terminalBranch >= 0 && gpuDeleteIndex > terminalBranch && gpuConfirmIndex > gpuDeleteIndex && retrieveIndex > gpuConfirmIndex,\n    "A100 termination must be confirmed before retrieval bridge is created");',
+              flash_runtime,
+              '    await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
+              '    await deleteVideoPod(podId).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(podId);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: "FAILED", reason: code }).catch(() => null);',
           )
 
-          # Architecture audit enforces the same ordering permanently.
+          # Explicit FlashVSR abort before any fresh shared-volume cleanup bridge.
           replace_once(
-              audit,
-              '    const deletion = podRuntime.indexOf("await deleteVideoPod(podId)", branch);\n    const studio = podRuntime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", branch);\n    return branch >= 0 && deletion > branch && studio > deletion;',
-              '    const deletion = podRuntime.indexOf("await deleteVideoPod(podId)", branch);\n    const confirmation = podRuntime.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", deletion);\n    const studio = podRuntime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", branch);\n    return branch >= 0 && deletion > branch && confirmation > deletion && studio > confirmation;',
+              flash_runtime,
+              '  if (masterJob.pod_id) await deleteVideoPod(text(masterJob.pod_id)).catch(() => null);\n  if (masterJob.lease_id && masterJob.owner_request_id) {',
+              '  if (masterJob.pod_id) {\n    await deleteVideoPod(text(masterJob.pod_id)).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(text(masterJob.pod_id));\n  }\n  if (masterJob.lease_id && masterJob.owner_request_id) {',
           )
-          replace_once(
-              audit,
-              '    const deletion = flashVsrPodRuntime.indexOf("await deleteVideoPod(podId)", terminal);\n    const retrieve = flashVsrPodRuntime.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", deletion);\n    return terminal >= 0 && deletion > terminal && retrieve > deletion;',
-              '    const deletion = flashVsrPodRuntime.indexOf("await deleteVideoPod(podId)", terminal);\n    const confirmation = flashVsrPodRuntime.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", deletion);\n    const retrieve = flashVsrPodRuntime.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", confirmation);\n    return terminal >= 0 && deletion > terminal && confirmation > deletion && retrieve > confirmation;',
-          )
+
+          test_block = '''\n\ntest("Video failure paths confirm Pod termination before releasing shared-volume ownership", async () => {\n  const podRuntime = await fs.readFile(path.join(root, "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js"), "utf8");\n  const flashRuntime = await fs.readFile(path.join(root, "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js"), "utf8");\n  const normalDeletes = [...podRuntime.matchAll(/deleteVideoPod\\([^\\n]+/g)].map((match) => match.index);\n  const normalConfirms = [...podRuntime.matchAll(/confirmAvantiqoVideoPodTerminal\\([^\\n]+/g)].map((match) => match.index);\n  const flashDeletes = [...flashRuntime.matchAll(/deleteVideoPod\\([^\\n]+/g)].map((match) => match.index);\n  const flashConfirms = [...flashRuntime.matchAll(/confirmAvantiqoVideoPodTerminal\\([^\\n]+/g)].map((match) => match.index);\n  assert.ok(normalDeletes.length >= 7 && normalConfirms.length >= 7, "all normal Video Pod delete paths must have confirmation coverage");\n  assert.ok(flashDeletes.length >= 5 && flashConfirms.length >= 5, "all FlashVSR Pod delete paths must have confirmation coverage");\n  for (const index of normalDeletes) assert.ok(normalConfirms.some((confirm) => confirm > index && confirm - index < 500), "normal Video delete must be followed by nearby terminal confirmation");\n  for (const index of flashDeletes) assert.ok(flashConfirms.some((confirm) => confirm > index && confirm - index < 500), "FlashVSR delete must be followed by nearby terminal confirmation");\n});\n'''
+          body = tests.read_text()
+          marker = 'test("Video failure paths confirm Pod termination before releasing shared-volume ownership"'
+          if marker not in body:
+              tests.write_text(body + test_block)
+
+          audit_block = '''\nconst allDeletePathsConfirmed = (body) => {\n  const deletes = [...body.matchAll(/deleteVideoPod\\([^\\n]+/g)].map((match) => match.index);\n  const confirms = [...body.matchAll(/confirmAvantiqoVideoPodTerminal\\([^\\n]+/g)].map((match) => match.index);\n  return deletes.length > 0 && deletes.every((index) => confirms.some((confirm) => confirm > index && confirm - index < 500));\n};\nif (!allDeletePathsConfirmed(podRuntime)) violations.push({ code: "VIDEO_POD_DELETE_WITHOUT_CONFIRMED_TERMINATION", file: "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js" });\nif (!allDeletePathsConfirmed(flashVsrPodRuntime)) violations.push({ code: "VIDEO_FLASHVSR_DELETE_WITHOUT_CONFIRMED_TERMINATION", file: "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js" });\n'''
+          audit_body = audit.read_text()
+          audit_marker = 'VIDEO_POD_DELETE_WITHOUT_CONFIRMED_TERMINATION'
+          if audit_marker not in audit_body:
+              insertion = audit_body.rfind('const result =')
+              if insertion < 0:
+                  raise SystemExit('audit result marker not found')
+              audit.write_text(audit_body[:insertion] + audit_block + audit_body[insertion:])
           PY
 
           node --test tests/avantiqo-video-studio-first-boundary.test.mjs
           node scripts/studio-first-compute-boundary-audit.mjs
-
           git diff --check
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
@@ -107,11 +144,11 @@ jobs:
             lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js \
             tests/avantiqo-video-studio-first-boundary.test.mjs \
             scripts/studio-first-compute-boundary-audit.mjs
-          git commit -m 'Confirm Video Pod termination before Studio handoff'
+          git commit -m 'Confirm Video Pod termination on failure paths'
 
           for attempt in 1 2 3; do
             if git push origin HEAD:main; then
-              echo 'AVANTIQO_VIDEO_CONFIRMED_POD_TERMINATION_REPAIR=PASS'
+              echo 'AVANTIQO_VIDEO_CONFIRMED_POD_TERMINATION_FAILURE_PATHS=PASS'
               exit 0
             fi
             if [ "$attempt" -eq 3 ]; then

@@ -41,8 +41,9 @@ test("Video generation Pod ends paid GPU lifecycle before Studio media processin
   assert.match(runtime, /assembleCreativeVideoStudioFoundation/);
   const receiptBranch = runtime.indexOf("if (saved) {");
   const deleteIndex = runtime.indexOf("await deleteVideoPod(podId)", receiptBranch);
+  const confirmIndex = runtime.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", deleteIndex);
   const studioIndex = runtime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", receiptBranch);
-  assert.ok(receiptBranch >= 0 && deleteIndex > receiptBranch && studioIndex > deleteIndex, "Pod must be deleted before Studio foundation assembly");
+  assert.ok(receiptBranch >= 0 && deleteIndex > receiptBranch && confirmIndex > deleteIndex && studioIndex > confirmIndex, "Pod termination must be confirmed before Studio foundation assembly");
   assert.ok(runpod.includes(IMMUTABLE_GPU_ONLY_IMAGE), "Pod runtime must use the certified GPU-only immutable image");
 });
 
@@ -101,10 +102,11 @@ test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownersh
     "CPU upload bridge must be confirmed deleted before A100 lease/creation");
   const terminalBranch = flashPod.indexOf("if (!pod || podTerminal(pod)) {");
   const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", terminalBranch);
-  const retrieveIndex = flashPod.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", gpuDeleteIndex);
+  const gpuConfirmIndex = flashPod.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", gpuDeleteIndex);
+  const retrieveIndex = flashPod.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", gpuConfirmIndex);
   const finalStudioIndex = flashPod.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", 0);
-  assert.ok(terminalBranch >= 0 && gpuDeleteIndex > terminalBranch && retrieveIndex > gpuDeleteIndex,
-    "A100 must be deleted before retrieval bridge is created");
+  assert.ok(terminalBranch >= 0 && gpuDeleteIndex > terminalBranch && gpuConfirmIndex > gpuDeleteIndex && retrieveIndex > gpuConfirmIndex,
+    "A100 termination must be confirmed before retrieval bridge is created");
   assert.ok(finalStudioIndex >= 0, "Studio finalization must remain present after GPU lifecycle");
   assert.doesNotMatch(flashDocker, /\bffmpeg\b|libx264|libx265/i);
   assert.match(flashDocker, /BLOCK_SPARSE_ATTN_CUDA_ARCHS=80/);

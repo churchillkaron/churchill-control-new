@@ -159,8 +159,9 @@ const requiredChecks = [
   ["VIDEO_POD_DELETE_BEFORE_STUDIO", (() => {
     const branch = podRuntime.indexOf("if (saved) {");
     const deletion = podRuntime.indexOf("await deleteVideoPod(podId)", branch);
+    const confirmation = podRuntime.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", deletion);
     const studio = podRuntime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", branch);
-    return branch >= 0 && deletion > branch && studio > deletion;
+    return branch >= 0 && deletion > branch && confirmation > deletion && studio > confirmation;
   })()],
   ["VIDEO_IMMUTABLE_GPU_ONLY_IMAGE", podRunpod.includes(CERTIFIED_VIDEO_IMAGE)],
   ["VIDEO_V3_FAL_FREE", !/FAL_KEY|FAL_API_KEY|queue\.fal\.run|fal-ai\/bytedance-upscaler/i.test(workflowV3)],
@@ -188,8 +189,9 @@ const requiredChecks = [
   ["VIDEO_FLASHVSR_GPU_DELETE_BEFORE_RETRIEVAL", (() => {
     const terminal = flashVsrPodRuntime.indexOf("if (!pod || podTerminal(pod)) {");
     const deletion = flashVsrPodRuntime.indexOf("await deleteVideoPod(podId)", terminal);
-    const retrieve = flashVsrPodRuntime.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", deletion);
-    return terminal >= 0 && deletion > terminal && retrieve > deletion;
+    const confirmation = flashVsrPodRuntime.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", deletion);
+    const retrieve = flashVsrPodRuntime.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", confirmation);
+    return terminal >= 0 && deletion > terminal && confirmation > deletion && retrieve > confirmation;
   })()],
   ["VIDEO_FLASHVSR_STUDIO_AFTER_GPU", flashVsrPodRuntime.includes("const final = await finalizeCreativeVideoFlashVsrMaster") && flashVsrPodRuntime.includes("gpu_deleted_before_studio_encode: true")],
 ];

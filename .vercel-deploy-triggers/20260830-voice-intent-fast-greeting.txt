@@ -1,0 +1,1 @@
+Production release: remove canned Fast greeting and require explicit user Voice intent before STT. No Voice endpoint repair marker.

@@ -1,0 +1,119 @@
+name: Avantiqo Video V72 FlashDreams 4K Final
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-v72-flashdreams-4k-final-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-v72-flashdreams-4k-final
+  cancel-in-progress: false
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AVANTIQO_VIDEO_V72_FLASHDREAMS_CI_REPORT: /tmp/avantiqo-video-v72-flashdreams-ci.json
+
+    steps:
+      - name: Checkout exact proof commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate Video proof credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in RUNPOD_MANAGEMENT_API_KEY NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name:-}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "AVANTIQO_VIDEO_V72_FLASHDREAMS_CI_CREDENTIAL_MISSING=${missing[0]}"
+            exit 1
+          fi
+
+      - name: Install application dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+
+      - name: Install Studio media tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+      - name: Validate FlashDreams Video boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f audits/results/avantiqo-video-flashdreams-flashvsr-worker.json
+          node --check scripts/run-avantiqo-video-v72-flashdreams-4k-final-ci.mjs
+          node --check lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashDreamsPodRuntime.js
+          grep -F '"NVIDIA B200"' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashDreamsPodRuntime.js
+          grep -F '"NVIDIA RTX PRO 6000 Blackwell Server Edition"' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashDreamsPodRuntime.js
+          if grep -F '"NVIDIA A100 80GB PCIe"' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashDreamsPodRuntime.js | grep -v 'A100 80GB PCIe"))'; then
+            echo 'A100 appeared in FlashDreams placement runtime' >&2
+            exit 1
+          fi
+          node --test tests/avantiqo-video-studio-first-boundary.test.mjs
+          node scripts/studio-first-compute-boundary-audit.mjs
+
+      - name: Confirm shared Video volume is idle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const { videoPodCandidateSnapshot } = await import("./lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js");
+          const snapshot = await videoPodCandidateSnapshot();
+          console.log(JSON.stringify({
+            success: true,
+            contract: "AVANTIQO_VIDEO_V72_FLASHDREAMS_SHARED_VOLUME_IDLE_PREFLIGHT_V1",
+            network_volume_id: snapshot.volume?.id || null,
+            network_volume_name: snapshot.volume?.name || null,
+            mutation_performed: false,
+            production_deploy_performed: false,
+          }));
+          NODE
+
+      - name: Run one bounded FlashDreams 4K mastering proof
+        env:
+          AVANTIQO_VIDEO_V72_FLASHDREAMS_4K_CI_APPROVED: "YES"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-video-v72-flashdreams-4k-final-ci.mjs | tee /tmp/avantiqo-video-v72-flashdreams-ci.log
+
+      - name: Upload sanitized Video proof evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-v72-flashdreams-4k-${{ github.run_id }}
+          path: |
+            /tmp/avantiqo-video-v72-flashdreams-ci.json
+            /tmp/avantiqo-video-v72-flashdreams-ci.log
+          if-no-files-found: warn
+          retention-days: 14

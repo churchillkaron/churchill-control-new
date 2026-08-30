@@ -13,12 +13,26 @@ const POLL_MS = 15_000;
 const TIMEOUT_MS = 150 * 60 * 1000;
 const EXPECTED_GENERATION_BACKEND = "OWNED_RUNPOD_POD_V6";
 const EXPECTED_MASTER_BACKEND = "OWNED_GPU_FLASHVSR_V1_1_STUDIO_4K";
+const EXPECTED_GENERATION_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-worker-gpu-only@sha256:2f477f95fcc46fdcb7aff1dda03944ad282eb3a7d33c95098bd13d00a76c3425";
+const EXPECTED_FLASHVSR_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:55919408e355960cf35f3c87a8d2c875c92a9e586ea43bb207dfcb93dc4d20fc";
+const EXPECTED_FLASHVSR_MODEL = "JunhaoZhuang/FlashVSR-v1.1";
+const EXPECTED_FLASHVSR_MODEL_REVISION = "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb";
+const EXPECTED_FLASHVSR_GPU = "NVIDIA A100 80GB PCIe";
+const EXPECTED_GENERATION_DC = "EU-RO-1";
+const EXPECTED_GENERATION_CACHE = "avantiqo-video-cache-eu-ro-1";
+const EXPECTED_GENERATION_GPU_POOL = Object.freeze([
+  "NVIDIA RTX PRO 4500 Blackwell",
+  "NVIDIA B200",
+  "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "NVIDIA A100 80GB PCIe",
+]);
 
 const text = (value) => String(value ?? "").trim();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const approved = (name) => {
   if (text(process.env[name]).toUpperCase() !== "YES") throw new Error(`${name}=YES_REQUIRED`);
 };
+const sameList = (left, right) => JSON.stringify(Array.from(left || [])) === JSON.stringify(Array.from(right || []));
 const safe = (result = {}) => ({
   provider_job_id: result?.provider_job_id || result?.output?.provider_job_id || null,
   status: result?.status || result?.output?.status || null,
@@ -51,14 +65,34 @@ const [
   { resolveAvantiqoVideoRoute },
   { inspectAvantiqoVideoPodReadiness, listActiveAvantiqoVideoPods, reconcileAvantiqoVideoPodLeases },
   { activeVideoPodLeases },
+  {
+    AVANTIQO_VIDEO_POD_CACHE_VOLUME,
+    AVANTIQO_VIDEO_POD_DC,
+    AVANTIQO_VIDEO_POD_GPU_POOL,
+    AVANTIQO_VIDEO_POD_IMAGE,
+  },
+  { AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE, AVANTIQO_VIDEO_FLASHVSR_IMAGE },
+  { AVANTIQO_VIDEO_FLASHVSR_MODEL, AVANTIQO_VIDEO_FLASHVSR_MODEL_REVISION },
   { getServiceSupabase },
 ] = await Promise.all([
   import("../lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js"),
   import("../lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoCapacityRouter.js"),
   import("../lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js"),
   import("../lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodLease.js"),
+  import("../lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js"),
+  import("../lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js"),
+  import("../lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js"),
   import("../lib/shared/supabase/service.js"),
 ]);
+
+if (AVANTIQO_VIDEO_POD_IMAGE !== EXPECTED_GENERATION_IMAGE) throw new Error(`${CONTRACT}_GENERATION_IMAGE_DRIFT`);
+if (AVANTIQO_VIDEO_POD_DC !== EXPECTED_GENERATION_DC) throw new Error(`${CONTRACT}_GENERATION_DC_DRIFT:${AVANTIQO_VIDEO_POD_DC}`);
+if (AVANTIQO_VIDEO_POD_CACHE_VOLUME !== EXPECTED_GENERATION_CACHE) throw new Error(`${CONTRACT}_GENERATION_CACHE_DRIFT:${AVANTIQO_VIDEO_POD_CACHE_VOLUME}`);
+if (!sameList(AVANTIQO_VIDEO_POD_GPU_POOL, EXPECTED_GENERATION_GPU_POOL)) throw new Error(`${CONTRACT}_GENERATION_GPU_POOL_DRIFT`);
+if (AVANTIQO_VIDEO_FLASHVSR_IMAGE !== EXPECTED_FLASHVSR_IMAGE) throw new Error(`${CONTRACT}_FLASHVSR_IMAGE_DRIFT`);
+if (AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE !== EXPECTED_FLASHVSR_GPU) throw new Error(`${CONTRACT}_FLASHVSR_GPU_DRIFT:${AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE}`);
+if (AVANTIQO_VIDEO_FLASHVSR_MODEL !== EXPECTED_FLASHVSR_MODEL) throw new Error(`${CONTRACT}_FLASHVSR_MODEL_DRIFT:${AVANTIQO_VIDEO_FLASHVSR_MODEL}`);
+if (AVANTIQO_VIDEO_FLASHVSR_MODEL_REVISION !== EXPECTED_FLASHVSR_MODEL_REVISION) throw new Error(`${CONTRACT}_FLASHVSR_MODEL_REVISION_DRIFT`);
 
 const supabase = getServiceSupabase();
 const statePath = `${organizationId}/generated/avantiqo-video/.workflow-v3/${usageId}.json`;
@@ -94,6 +128,9 @@ if (!state) {
   if (readiness.ready !== true) {
     throw new Error(`${CONTRACT}_POD_READINESS_FAILED:${readiness.reason || readiness.error || "UNKNOWN"}`);
   }
+  if (readiness.immutable_image !== EXPECTED_GENERATION_IMAGE) throw new Error(`${CONTRACT}_READINESS_IMAGE_INVALID`);
+  if (readiness.data_center_id !== EXPECTED_GENERATION_DC) throw new Error(`${CONTRACT}_READINESS_DC_INVALID:${readiness.data_center_id || "MISSING"}`);
+  if (readiness.network_volume_name !== EXPECTED_GENERATION_CACHE) throw new Error(`${CONTRACT}_READINESS_CACHE_INVALID:${readiness.network_volume_name || "MISSING"}`);
 
   const submission = await AvantiqoVideoProviderV2.execute({
     capability: "ai.video.generate",
@@ -155,6 +192,18 @@ state = await readState();
 if (!state) throw new Error(`${CONTRACT}_FINAL_STATE_MISSING`);
 if (state.stage !== "COMPLETED") throw new Error(`${CONTRACT}_FINAL_STATE_NOT_COMPLETED:${state.stage || "MISSING"}`);
 if (state.generation_backend !== EXPECTED_GENERATION_BACKEND) throw new Error(`${CONTRACT}_GENERATION_BACKEND_DRIFT:${state.generation_backend || "MISSING"}`);
+if (state.pod_job?.immutable_image !== EXPECTED_GENERATION_IMAGE) throw new Error(`${CONTRACT}_GENERATION_IMAGE_NOT_PROVEN`);
+if (state.pod_job?.gpu_type_certified !== true) throw new Error(`${CONTRACT}_GENERATION_GPU_NOT_CERTIFIED`);
+if (!EXPECTED_GENERATION_GPU_POOL.includes(text(state.pod_job?.gpu_type_id))) throw new Error(`${CONTRACT}_GENERATION_GPU_OUTSIDE_CERTIFIED_POOL:${state.pod_job?.gpu_type_id || "MISSING"}`);
+if (state.pod_job?.data_center_id !== EXPECTED_GENERATION_DC) throw new Error(`${CONTRACT}_GENERATION_DC_INVALID:${state.pod_job?.data_center_id || "MISSING"}`);
+if (state.pod_job?.network_volume_name !== EXPECTED_GENERATION_CACHE) throw new Error(`${CONTRACT}_GENERATION_CACHE_INVALID:${state.pod_job?.network_volume_name || "MISSING"}`);
+if (state.master_job?.immutable_image !== EXPECTED_FLASHVSR_IMAGE) throw new Error(`${CONTRACT}_FLASHVSR_IMAGE_NOT_PROVEN`);
+if (state.master_job?.gpu_type_id !== EXPECTED_FLASHVSR_GPU) throw new Error(`${CONTRACT}_FLASHVSR_GPU_NOT_PROVEN:${state.master_job?.gpu_type_id || "MISSING"}`);
+if (state.master_job?.model !== EXPECTED_FLASHVSR_MODEL) throw new Error(`${CONTRACT}_FLASHVSR_MODEL_NOT_PROVEN:${state.master_job?.model || "MISSING"}`);
+if (state.master_job?.model_revision !== EXPECTED_FLASHVSR_MODEL_REVISION) throw new Error(`${CONTRACT}_FLASHVSR_REVISION_NOT_PROVEN`);
+if (state.master_job?.upload_bridge_deleted_before_gpu !== true) throw new Error(`${CONTRACT}_UPLOAD_BRIDGE_DELETE_BEFORE_GPU_NOT_PROVEN`);
+if (state.master_job?.concurrent_volume_writers !== false) throw new Error(`${CONTRACT}_CONCURRENT_VOLUME_WRITER_FORBIDDEN`);
+if (state.master_job?.s3_credentials_required !== false) throw new Error(`${CONTRACT}_S3_CREDENTIAL_BOUNDARY_INVALID`);
 if (state.master_backend !== EXPECTED_MASTER_BACKEND) throw new Error(`${CONTRACT}_MASTER_BACKEND_INVALID:${state.master_backend || "MISSING"}`);
 if (state.master_resolution !== "4k") throw new Error(`${CONTRACT}_MASTER_RESOLUTION_INVALID:${state.master_resolution || "MISSING"}`);
 if (state.learned_super_resolution_used !== true || state.gpu_mastering_used !== true) throw new Error(`${CONTRACT}_LEARNED_GPU_SUPER_RESOLUTION_REQUIRED`);
@@ -186,14 +235,21 @@ const report = {
   provider_entry: "AvantiqoVideoProviderV2",
   workflow_contract: state.contract,
   generation_backend: state.generation_backend,
-  generation_immutable_image: state.pod_job?.immutable_image || null,
-  generation_gpu_type_id: state.pod_job?.gpu_type_id || null,
-  generation_data_center_id: state.pod_job?.data_center_id || null,
-  generation_cache_volume: state.pod_job?.network_volume_name || null,
+  generation_immutable_image: state.pod_job.immutable_image,
+  generation_gpu_type_id: state.pod_job.gpu_type_id,
+  generation_gpu_type_certified: true,
+  generation_data_center_id: state.pod_job.data_center_id,
+  generation_cache_volume: state.pod_job.network_volume_name,
   internal_generation_resolution: "720p",
+  flashvsr_immutable_image: state.master_job.immutable_image,
+  flashvsr_gpu_type_id: state.master_job.gpu_type_id,
+  flashvsr_model: state.master_job.model,
+  flashvsr_model_revision: state.master_job.model_revision,
+  upload_bridge_deleted_before_gpu: true,
+  concurrent_volume_writers: false,
   final_master_resolution: state.master_resolution,
-  final_width: state.master_output_probe?.width || null,
-  final_height: state.master_output_probe?.height || null,
+  final_width: state.master_output_probe.width,
+  final_height: state.master_output_probe.height,
   master_backend: state.master_backend,
   learned_super_resolution_used: true,
   gpu_mastering_used: true,

@@ -37,9 +37,11 @@ jobs:
       - name: Fail closed if protected credentials are unavailable
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           test -n "$RUNPOD_API_KEY" || { echo "RUNPOD_API_KEY_MISSING"; exit 1; }
+          test -n "$RUNPOD_MANAGEMENT_API_KEY" || { echo "RUNPOD_MANAGEMENT_API_KEY_MISSING"; exit 1; }
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "SUPABASE_SERVICE_ROLE_KEY_MISSING"; exit 1; }
           echo "OWNED_INTELLIGENCE_FAST_CERTIFICATION_CREDENTIAL_BOUNDARY=PASS"
 
@@ -47,6 +49,7 @@ jobs:
         env:
           NODE_ENV: development
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_EXPECTED_MAIN_COMMIT: ${{ github.sha }}
           AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_SPEND_APPROVED: "YES"

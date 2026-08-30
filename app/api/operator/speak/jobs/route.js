@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const VOICE_LANGUAGE_COOKIE = "avantiqo_voice_language";
+const EXPLICIT_VOICE_INTENT = "explicit-user-voice-v1";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -39,6 +40,13 @@ async function organizationAccess(request, organizationId) {
   return requireOrganizationAccess({ organizationId, request });
 }
 
+function explicitVoiceIntent(request, body = {}) {
+  return (
+    text(request.headers.get("x-avantiqo-voice-intent")) === EXPLICIT_VOICE_INTENT &&
+    text(body?.voiceIntent || body?.voice_intent) === EXPLICIT_VOICE_INTENT
+  );
+}
+
 function audioResponse(audio, language, jobId) {
   return new Response(audio, {
     status: 200,
@@ -56,6 +64,11 @@ function audioResponse(audio, language, jobId) {
 export async function POST(request) {
   try {
     const body = await request.json();
+    if (!explicitVoiceIntent(request, body)) {
+      console.warn("OPERATOR_SPEECH_BLOCKED_NO_EXPLICIT_VOICE_INTENT");
+      return errorResponse("Explicit Voice action required", 403);
+    }
+
     const speechText = text(body?.text || body?.message);
     const organizationId = text(body?.organizationId || body?.organization_id);
     const requestedEntityId = text(body?.entityId || body?.entity_id) || null;
@@ -118,6 +131,7 @@ export async function POST(request) {
       deliveryProfile,
       quantity: estimatedMinutes,
       metadata: {
+        explicit_user_voice_intent: true,
         voice_language_contract: voiceLanguage.contract,
         voice_language: voiceLanguage.language,
         voice_language_source: voiceLanguage.language_source,

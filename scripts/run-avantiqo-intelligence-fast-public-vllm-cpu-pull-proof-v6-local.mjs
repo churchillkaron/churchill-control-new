@@ -168,7 +168,7 @@ if (!apply) {
         dataCenterIds: [DATA_CENTER_ID],
         dataCenterPriority: "custom",
         vcpuCount: 2,
-        containerDiskInGb: 30,
+        containerDiskInGb: 20,
         networkVolumeId: NETWORK_VOLUME_ID,
         volumeMountPath: "/workspace",
         globalNetworking: true,

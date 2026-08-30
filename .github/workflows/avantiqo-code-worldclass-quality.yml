@@ -14,6 +14,7 @@ on:
       - "lib/platform/runtime/AvantiqoDeveloperResourceReadRuntime.js"
       - "lib/platform/runtime/DeveloperAttachmentRuntime.js"
       - "lib/platform/runtime/AvantiqoLiveExecutionRuntime.js"
+      - "app/api/operator/code/prewarm/route.js"
       - "app/api/operator/developer-attachments/route.js"
       - "app/api/operator/live-execution/route.js"
       - "app/api/internal/code/worker-session/process/route.js"

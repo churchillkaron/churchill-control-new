@@ -1,0 +1,53 @@
+name: Avantiqo Intelligence Fast Pod Capacity Proof
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-intelligence-fast-pod-capacity-proof-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-fast-pod-capacity-proof
+  cancel-in-progress: false
+
+jobs:
+  prove-fast-pod-capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Fail closed if management credential is unavailable
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          test -n "$RUNPOD_MANAGEMENT_API_KEY" || { echo "RUNPOD_MANAGEMENT_API_KEY_MISSING"; exit 1; }
+          echo "FAST_POD_CAPACITY_CREDENTIAL_BOUNDARY=PASS"
+
+      - name: Run capacity-aware no-inference Pod boot proof
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_INTELLIGENCE_FAST_PUBLIC_VLLM_GPU_START_PROOF_V8_APPROVED: "YES"
+        run: |
+          node scripts/run-avantiqo-intelligence-fast-public-vllm-gpu-start-proof-v8-local.mjs --apply
+
+      - name: Verify proof authority boundary
+        if: always()
+        run: |
+          echo "MODEL_INFERENCE_PERFORMED=false"
+          echo "TOKEN_GENERATION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "PROVIDER_ACTIVATION_PERFORMED=false"

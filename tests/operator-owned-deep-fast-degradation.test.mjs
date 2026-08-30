@@ -8,9 +8,11 @@ const source = await readFile(
 );
 
 test("Operator degrades exact unavailable owned Deep failures to owned Fast", () => {
-  assert.match(
-    source,
-    /No priced executable provider available for ai\\\.reasoning\\\.execute/,
+  assert.equal(
+    source.includes(
+      "No priced executable provider available for ai\\.reasoning\\.execute",
+    ),
+    true,
   );
   assert.match(source, /runFastConversationTurn/);
   assert.match(source, /OPERATOR_OWNED_DEEP_FAST_DEGRADATION/);

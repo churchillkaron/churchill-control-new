@@ -45,3 +45,18 @@ test("Intelligence cleanup is armed before opening RunPod capacity", async () =>
   assert.ok(armCleanup > functionStart, "cleanup guard must be armed");
   assert.ok(openCapacity > armCleanup, "cleanup must be armed before workersMax=1 mutation");
 });
+
+test("Intelligence scales RunPod through the endpoint update contract", async () => {
+  const code = await source();
+  const patchStart = code.indexOf("async function patchWorkers");
+  const patchEnd = code.indexOf("\nasync function acquireDistributed", patchStart);
+  const patch = code.slice(patchStart, patchEnd);
+
+  assert.ok(patchStart >= 0 && patchEnd > patchStart, "RunPod scaler function must exist");
+  assert.match(
+    patch,
+    /rest\(`\/endpoints\/\$\{encodeURIComponent\(endpointId\)\}\/update`,\s*\{\s*method:\s*"POST"/s,
+  );
+  assert.doesNotMatch(patch, /method:\s*"PATCH"/);
+  assert.match(patch, /body:\s*\{ workersMin:\s*0, workersMax \}/);
+});

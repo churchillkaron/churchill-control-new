@@ -1,0 +1,240 @@
+name: Avantiqo Video Compact FlashVSR Input
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-compact-flashvsr-input-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-compact-flashvsr-input
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Apply compact MP4 input contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          s3 = Path('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoRunpodVolumeS3.js')
+          text = s3.read_text()
+          old = '    input_rgb: `${root}/input.rgb`,\n'
+          if text.count(old) != 1:
+              raise SystemExit('VIDEO_COMPACT_INPUT_S3_PATCH_COUNT_INVALID')
+          text = text.replace(old, '    input_mp4: `${root}/input.mp4`,\n    input_rgb: `${root}/input.rgb`,\n')
+          s3.write_text(text)
+
+          studio = Path('lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js')
+          text = studio.read_text()
+          start = text.index('export async function prepareCreativeVideoFlashVsrInput')
+          end = text.index('\nexport async function readCreativeVideoFlashVsrReceipt', start)
+          replacement = r'''export async function prepareCreativeVideoFlashVsrInput({ organization_id, source_url, owner_request_id, volume_bridge, media_tools = {} } = {}) {
+            if (!organization_id) throw new Error("AVANTIQO_VIDEO_STUDIO_FLASHVSR_ORGANIZATION_REQUIRED");
+            if (!source_url) throw new Error("AVANTIQO_VIDEO_STUDIO_FLASHVSR_SOURCE_REQUIRED");
+            if (!owner_request_id) throw new Error("AVANTIQO_VIDEO_STUDIO_FLASHVSR_OWNER_REQUIRED");
+            const bridge = requireBridge(volume_bridge);
+            const ffprobe = ffprobePath(media_tools);
+            const source = await materializeMedia({
+              organization_id,
+              url: source_url,
+              file_name: "avantiqo-video-flashvsr-source.mp4",
+              mime_type: "video/mp4",
+              policy: { max_bytes: 2_147_483_648, timeout_ms: 300_000, max_redirects: 0 },
+            });
+            const keys = avantiqoVideoRunpodMasterObjectKeys(owner_request_id);
+            try {
+              const probe = await probeVideo(ffprobe, source.file_path);
+              const target = fourKAlignedTarget(probe.width, probe.height);
+              const sourceFrames = probe.frame_count;
+              const paddedFrames = nextCausalFrameWindow(sourceFrames);
+              const startedAt = Date.now();
+              const bytes = await uploadAvantiqoVideoVolumeFileViaCpuBridge(bridge, keys.input_mp4, source.file_path);
+              return {
+                success: true,
+                contract: AVANTIQO_VIDEO_STUDIO_FLASHVSR_CONTRACT,
+                model: AVANTIQO_VIDEO_FLASHVSR_MODEL,
+                model_revision: AVANTIQO_VIDEO_FLASHVSR_MODEL_REVISION,
+                input_key: keys.input_mp4,
+                input_path: avantiqoVideoRunpodVolumePath(keys.input_mp4),
+                input_format: "video/mp4",
+                output_key: keys.output_rgb,
+                output_path: avantiqoVideoRunpodVolumePath(keys.output_rgb),
+                receipt_key: keys.receipt,
+                receipt_path: avantiqoVideoRunpodVolumePath(keys.receipt),
+                width: target.width,
+                height: target.height,
+                source_width: probe.width,
+                source_height: probe.height,
+                source_frame_count: sourceFrames,
+                padded_frame_count: paddedFrames,
+                fps: probe.fps,
+                duration_seconds: probe.duration_seconds,
+                input_bytes: bytes,
+                studio_preprocessing: false,
+                worker_input_decode: true,
+                gpu_compute_used: false,
+                ffmpeg_location: "STUDIO_FINAL_ONLY",
+                volume_transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE_COMPACT_MP4",
+                s3_credentials_required: false,
+                processing_ms: Date.now() - startedAt,
+              };
+            } finally {
+              await source.cleanup().catch(() => {});
+            }
+          }
+          '''
+          text = text[:start] + replacement + text[end:]
+          studio.write_text(text)
+
+          worker = Path('services/avantiqo-video-flashvsr/flashvsr_worker.py')
+          text = worker.read_text()
+          if 'import cv2\n' not in text:
+              text = text.replace('import numpy as np\n', 'import cv2\nimport numpy as np\n', 1)
+          read_start = text.index('def read_input(job):')
+          read_end = text.index('\ndef mastering_surface', read_start)
+          read_replacement = r'''def read_input(job):
+              input_path = Path(job["input_path"])
+              target_width = int(job["width"])
+              target_height = int(job["height"])
+              source_frames_expected = int(job["source_frame_count"])
+              padded_frames = int(job["padded_frame_count"])
+              if target_width < 128 or target_height < 128 or target_width % 128 or target_height % 128:
+                  raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_INPUT_DIMENSIONS_INVALID")
+              if padded_frames < 9 or (padded_frames - 1) % 8:
+                  raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_FRAME_WINDOW_INVALID")
+              if not input_path.is_file() or input_path.stat().st_size <= 0:
+                  raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_INPUT_MP4_REQUIRED")
+
+              cap = cv2.VideoCapture(str(input_path))
+              if not cap.isOpened():
+                  raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_INPUT_MP4_OPEN_FAILED")
+              source_width = int(round(cap.get(cv2.CAP_PROP_FRAME_WIDTH)))
+              source_height = int(round(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+              if source_width <= 0 or source_height <= 0:
+                  cap.release()
+                  raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_SOURCE_DIMENSIONS_INVALID")
+
+              factor = max(target_width / source_width, target_height / source_height)
+              scaled_width = max(target_width, int(np.ceil((source_width * factor) / 2.0) * 2))
+              scaled_height = max(target_height, int(np.ceil((source_height * factor) / 2.0) * 2))
+              scratch = Path(f"/tmp/avantiqo-video-flashvsr-{os.getpid()}.rgb")
+              mapped = np.memmap(scratch, mode="w+", dtype=np.uint8, shape=(padded_frames, target_height, target_width, 3))
+              count = 0
+              try:
+                  while count < source_frames_expected:
+                      ok, frame = cap.read()
+                      if not ok:
+                          break
+                      frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                      if scaled_width != source_width or scaled_height != source_height:
+                          frame = cv2.resize(frame, (scaled_width, scaled_height), interpolation=cv2.INTER_CUBIC)
+                      left = max(0, (scaled_width - target_width) // 2)
+                      top = max(0, (scaled_height - target_height) // 2)
+                      frame = frame[top:top + target_height, left:left + target_width]
+                      if frame.shape[1] != target_width or frame.shape[0] != target_height:
+                          raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_DECODE_CROP_INVALID")
+                      mapped[count] = frame
+                      count += 1
+                  if count != source_frames_expected:
+                      raise RuntimeError(f"AVANTIQO_VIDEO_FLASHVSR_DECODE_FRAME_COUNT_INVALID:{count}:{source_frames_expected}")
+                  for index in range(count, padded_frames):
+                      mapped[index] = mapped[count - 1]
+                  mapped.flush()
+                  tensor = torch.from_numpy(mapped).permute(3, 0, 1, 2).unsqueeze(0)
+                  tensor = tensor.to(dtype=torch.bfloat16, device="cpu").div_(127.5).sub_(1.0)
+              finally:
+                  cap.release()
+                  del mapped
+                  try:
+                      scratch.unlink()
+                  except FileNotFoundError:
+                      pass
+              return tensor, target_width, target_height, padded_frames, source_width, source_height
+          '''
+          text = text[:read_start] + read_replacement + text[read_end:]
+          old_main = '''        lq, input_width, input_height, frames = read_input(job)\n        lq, width, height = resize_for_mastering(lq, input_width, input_height)\n'''
+          if text.count(old_main) != 1:
+              raise SystemExit('VIDEO_COMPACT_INPUT_WORKER_MAIN_PATCH_INVALID')
+          text = text.replace(old_main, '''        lq, width, height, frames, source_width, source_height = read_input(job)\n''')
+          text = text.replace('            "input_width": input_width,\n            "input_height": input_height,\n', '            "input_width": source_width,\n            "input_height": source_height,\n')
+          text = text.replace('            "mastering_pixel_reduction_ratio": round(1.0 - ((width * height) / (input_width * input_height)), 6),\n', '            "worker_input_decode": True,\n            "input_format": "video/mp4",\n')
+          worker.write_text(text)
+          PY
+
+      - name: Verify compact input source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js
+          node --check lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoRunpodVolumeS3.js
+          python -m py_compile services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'input_mp4: `${root}/input.mp4`' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoRunpodVolumeS3.js
+          grep -F 'keys.input_mp4, source.file_path' lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js
+          grep -F 'worker_input_decode: true' lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js
+          grep -F 'cv2.VideoCapture' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F '"input_format": "video/mp4"' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          if grep -Fq 'keys.input_rgb, rawPath' lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js; then
+            echo 'RAW_RGB_INPUT_UPLOAD_REMAINS' >&2
+            exit 1
+          fi
+          if grep -Eq '\bffmpeg\b|libx264|libx265|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai/' services/avantiqo-video-flashvsr/flashvsr_worker.py; then
+            echo 'PAID_WORKER_FORBIDDEN_DEPENDENCY' >&2
+            exit 1
+          fi
+          echo 'AVANTIQO_VIDEO_COMPACT_FLASHVSR_INPUT_SOURCE=PASS'
+
+      - name: Run Video static gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/avantiqo-video-pod-termination-coverage.test.mjs
+          node --test tests/avantiqo-video-studio-first-boundary.test.mjs
+          node scripts/studio-first-compute-boundary-audit.mjs
+
+      - name: Commit compact input migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoRunpodVolumeS3.js \
+            lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js \
+            services/avantiqo-video-flashvsr/flashvsr_worker.py
+          git commit -m 'Use compact MP4 input for Video FlashVSR'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            git fetch origin main
+            git rebase origin/main
+          done
+
+      - name: Final marker
+        shell: bash
+        run: |
+          echo 'AVANTIQO_VIDEO_COMPACT_FLASHVSR_INPUT=PASS'
+          echo 'MODEL_INFERENCE_PERFORMED=false'
+          echo 'RUNPOD_GPU_MUTATION_PERFORMED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'

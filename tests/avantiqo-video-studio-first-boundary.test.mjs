@@ -76,6 +76,11 @@ test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownersh
   assert.match(flashStudio, /-frames:v", String\(prepared\.source_frame_count\)/);
   assert.match(flashStudio, /volume_transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE"/);
   assert.match(flashStudio, /s3_credentials_required: false/);
+  assert.match(flashStudio, /return \{ width: 3968, height: 2176 \}/);
+  assert.match(flashStudio, /return \{ width: 2176, height: 3968 \}/);
+  assert.doesNotMatch(flashStudio, /probe\.width \* 4|probe\.height \* 4/);
+  assert.match(flashStudio, /crop=3840:2160/);
+  assert.doesNotMatch(flashStudio, /scale=-2:2160:flags=lanczos/);
   assert.doesNotMatch(flashStudio, /presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/);
   assert.match(cpuBridge, /computeType: "CPU"/);
   assert.match(cpuBridge, /imageName: "python:3\.11-slim"/);
@@ -84,6 +89,8 @@ test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownersh
   assert.match(cpuBridge, /confirmed_terminal: true/);
   assert.doesNotMatch(cpuBridge, /torch|cuda|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai\//i);
   assert.match(flashPod, /AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"/);
+  assert.match(flashPod, /const STARTUP_TIMEOUT = 4 \* 60 \* 1000/);
+  assert.match(flashPod, /const HARD_TIMEOUT = 12 \* 60 \* 1000/);
   assert.ok(flashPod.includes(IMMUTABLE_FLASHVSR_IMAGE), "FlashVSR runtime must use the certified immutable A100 image");
   assert.match(flashPod, /transfer_backend: "RUNPOD_CPU_VOLUME_BRIDGE_SEQUENTIAL"/);
   assert.match(flashPod, /upload_bridge_deleted_before_gpu: true/);

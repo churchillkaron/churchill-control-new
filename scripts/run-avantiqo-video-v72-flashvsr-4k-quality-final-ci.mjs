@@ -15,7 +15,8 @@ const FOUNDATION_PATH = `${ORGANIZATION_ID}/generated/avantiqo-video/.foundation
 const OUTPUT_PATH = `${ORGANIZATION_ID}/generated/avantiqo-video/${USAGE_ID}-flashvsr-4k.mp4`;
 const REPORT_PATH = process.env.AVANTIQO_VIDEO_V72_FLASHVSR_CI_REPORT || "/tmp/avantiqo-video-v72-flashvsr-ci.json";
 const POLL_MS = 15_000;
-const TIMEOUT_MS = 50 * 60 * 1000;
+const TIMEOUT_MS = 20 * 60 * 1000;
+const MAX_GPU_ELAPSED_SECONDS = 12 * 60;
 
 const text = (value) => String(value ?? "").trim();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -110,6 +111,9 @@ try {
   if (!final) throw new Error(`${CONTRACT}_TIMEOUT`);
 
   const result = final.final;
+  const gpuElapsedSeconds = Number(final.receipt?.elapsed_seconds ?? 0);
+  if (!Number.isFinite(gpuElapsedSeconds) || gpuElapsedSeconds <= 0) throw new Error(`${CONTRACT}_GPU_ELAPSED_REQUIRED`);
+  if (gpuElapsedSeconds > MAX_GPU_ELAPSED_SECONDS) throw new Error(`${CONTRACT}_GPU_COST_CEILING_EXCEEDED:${gpuElapsedSeconds}`);
   if (result?.learned_super_resolution_used !== true) throw new Error(`${CONTRACT}_LEARNED_SUPER_RESOLUTION_REQUIRED`);
   if (result?.studio_final_encoding !== true) throw new Error(`${CONTRACT}_STUDIO_FINAL_ENCODING_REQUIRED`);
   if (result?.gpu_video_encoding_used !== false) throw new Error(`${CONTRACT}_GPU_VIDEO_ENCODING_FORBIDDEN`);
@@ -148,6 +152,8 @@ try {
     master_model_revision: result.model_revision,
     master_gpu_type: AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE,
     immutable_master_image: AVANTIQO_VIDEO_FLASHVSR_IMAGE,
+    gpu_elapsed_seconds: gpuElapsedSeconds,
+    max_gpu_elapsed_seconds: MAX_GPU_ELAPSED_SECONDS,
     final_master_resolution: "4k",
     final_width: result.output_probe.width,
     final_height: result.output_probe.height,

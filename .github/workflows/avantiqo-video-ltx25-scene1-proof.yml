@@ -132,6 +132,16 @@ jobs:
           PY
           node --check scripts/run-avantiqo-video-ltx25-scene1-proof-ci.mjs
 
+      - name: Recover gated LTX-2.5 model credential
+        env:
+          HF_TOKEN_SECRET: ${{ secrets.HF_TOKEN }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/recover-avantiqo-video-hf-token-ci.mjs
+
       - name: Render Scene 1 through owned V5
         env:
           NODE_ENV: development
@@ -140,7 +150,6 @@ jobs:
           RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           AVANTIQO_VIDEO_LTX25_IMAGE: ${{ steps.image.outputs.immutable }}
         shell: bash
         run: |

@@ -1,0 +1,67 @@
+name: Avantiqo Intelligence Fast Pod Orphan Inspector
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-intelligence-fast-pod-orphan-inspector.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect active RunPod Pods read-only
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const key = String(process.env.RUNPOD_MANAGEMENT_API_KEY || '').trim();
+          if (!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_MISSING');
+          const response = await fetch('https://rest.runpod.io/v1/pods', {
+            headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+            signal: AbortSignal.timeout(30000),
+          });
+          const raw = await response.text();
+          let body = null;
+          try { body = raw ? JSON.parse(raw) : null; } catch {}
+          if (!response.ok || body === null) throw new Error(`RUNPOD_PODS_READ_HTTP_${response.status}`);
+          const rows = Array.isArray(body) ? body : body?.pods || body?.data || body?.items || body?.results || [];
+          const terminal = new Set(['EXITED','STOPPED','TERMINATED','DELETED','FAILED']);
+          const active = rows.filter((pod) => {
+            const desired = String(pod?.desiredStatus || pod?.desired_status || '').toUpperCase();
+            const status = String(pod?.status || '').toUpperCase();
+            return (desired && !terminal.has(desired)) || (status && !terminal.has(status));
+          });
+          const safe = active.map((pod) => ({
+            id: String(pod?.id || ''),
+            name: String(pod?.name || ''),
+            desired_status: String(pod?.desiredStatus || pod?.desired_status || ''),
+            status: String(pod?.status || ''),
+            machine_assigned: Boolean(pod?.machine),
+            gpu_type_id: String(pod?.gpuTypeId || pod?.gpuType || ''),
+            image_name: String(pod?.imageName || '').replace(/@sha256:[a-f0-9]+$/i, '@sha256:[DIGEST]'),
+          }));
+          console.log(JSON.stringify({
+            success: true,
+            contract: 'AVANTIQO_INTELLIGENCE_FAST_POD_ORPHAN_INSPECTOR_V1',
+            active_pod_count: safe.length,
+            active_pods: safe,
+            runpod_mutation_performed: false,
+            inference_performed: false,
+            production_deploy_performed: false,
+            secrets_printed: false,
+          }, null, 2));
+          NODE
+
+      - name: Record read-only boundary
+        if: always()
+        run: |
+          echo "RUNPOD_MUTATION_PERFORMED=false"
+          echo "INFERENCE_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

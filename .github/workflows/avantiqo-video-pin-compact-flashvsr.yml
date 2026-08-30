@@ -1,0 +1,157 @@
+name: Avantiqo Video Pin Compact FlashVSR
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-pin-compact-flashvsr-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-pin-compact-flashvsr
+  cancel-in-progress: false
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Resolve verified compact worker image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync('audits/results/avantiqo-video-flashvsr-worker.json', 'utf8'));
+          const expectedSource = 'ccfa48b46c4f8afddc3bc9a546584def1688a8b2';
+          if (report?.success !== true) throw new Error('VIDEO_COMPACT_FLASHVSR_EVIDENCE_NOT_SUCCESS');
+          if (report?.source_sha !== expectedSource) throw new Error(`VIDEO_COMPACT_FLASHVSR_SOURCE_SHA_INVALID:${report?.source_sha}`);
+          if (report?.inference_performed !== false || report?.runpod_mutation_performed !== false || report?.production_deploy_performed !== false) {
+            throw new Error('VIDEO_COMPACT_FLASHVSR_BUILD_BOUNDARY_INVALID');
+          }
+          const ref = String(report?.immutable_image_reference || '');
+          const match = ref.match(/^ghcr\.io\/churchillkaron\/avantiqo-video-flashvsr-v11@(sha256:[0-9a-f]{64})$/);
+          if (!match) throw new Error('VIDEO_COMPACT_FLASHVSR_IMMUTABLE_REF_INVALID');
+          console.log(`image_ref=${ref}`);
+          console.log(`digest=${match[1]}`);
+          NODE
+
+      - name: Pin compact FlashVSR digest everywhere live Video expects it
+        env:
+          NEW_IMAGE_REF: ${{ steps.image.outputs.image_ref }}
+          NEW_DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          old_ref = 'ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:aee7eaa3d3a7bbf3c55ccf2d39e6848ee041366cf600a321787972ef285fbd7a'
+          old_digest = 'sha256:aee7eaa3d3a7bbf3c55ccf2d39e6848ee041366cf600a321787972ef285fbd7a'
+          new_ref = os.environ['NEW_IMAGE_REF']
+          new_digest = os.environ['NEW_DIGEST']
+          files = [
+              Path('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js'),
+              Path('scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs'),
+              Path('scripts/studio-first-compute-boundary-audit.mjs'),
+              Path('tests/avantiqo-video-studio-first-boundary.test.mjs'),
+          ]
+          for path in files:
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old_ref)
+              if count != 1:
+                  raise SystemExit(f'VIDEO_COMPACT_FLASHVSR_OLD_REF_COUNT_INVALID:{path}:{count}')
+              path.write_text(text.replace(old_ref, new_ref), encoding='utf-8')
+
+          request_path = Path('audits/avantiqo-video-v72-flashvsr-4k-quality-final-request.json')
+          request = json.loads(request_path.read_text(encoding='utf-8'))
+          if request.get('optimized_flashvsr_digest') != old_digest:
+              raise SystemExit(f"VIDEO_COMPACT_FLASHVSR_REQUEST_OLD_DIGEST_INVALID:{request.get('optimized_flashvsr_digest')}")
+          request['optimized_flashvsr_digest'] = new_digest
+          request['input_transport'] = 'COMPACT_MP4'
+          request['new_wan_generation_allowed'] = False
+          request['production_deploy_allowed'] = False
+          request_path.write_text(json.dumps(request, separators=(',', ':')) + '\n', encoding='utf-8')
+          print('AVANTIQO_VIDEO_COMPACT_FLASHVSR_PINNED=true')
+          PY
+
+      - name: Verify compact Video source and cost boundaries
+        env:
+          NEW_IMAGE_REF: ${{ steps.image.outputs.image_ref }}
+          NEW_DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'input_mp4:' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoRunpodVolumeS3.js
+          grep -F 'keys.input_mp4' lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js
+          grep -F 'input_format: "video/mp4"' lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js
+          grep -F 'import cv2' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'cv2.VideoCapture' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'const STARTUP_TIMEOUT = 4 * 60 * 1000;' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js
+          grep -F 'const HARD_TIMEOUT = 12 * 60 * 1000;' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js
+          grep -F "$NEW_IMAGE_REF" lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js
+          grep -F "$NEW_IMAGE_REF" scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs
+          if grep -Fq 'keys.input_rgb' lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js; then
+            echo 'VIDEO_RAW_RGB_INPUT_PATH_REMAINS' >&2
+            exit 1
+          fi
+          echo 'AVANTIQO_VIDEO_COMPACT_FLASHVSR_SOURCE_BOUNDARY=PASS'
+
+      - name: Run Video static certification gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js
+          node --check lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js
+          node --check scripts/run-avantiqo-video-v72-flashvsr-4k-quality-final-ci.mjs
+          node --check scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs
+          node --test tests/avantiqo-video-pod-termination-coverage.test.mjs
+          node --test tests/avantiqo-video-studio-first-boundary.test.mjs
+          node scripts/studio-first-compute-boundary-audit.mjs
+          echo 'AVANTIQO_VIDEO_COMPACT_FLASHVSR_STATIC_CERTIFICATION=PASS'
+
+      - name: Commit verified pin on newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js \
+            scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs \
+            scripts/studio-first-compute-boundary-audit.mjs \
+            tests/avantiqo-video-studio-first-boundary.test.mjs \
+            audits/avantiqo-video-v72-flashvsr-4k-quality-final-request.json
+          git commit -m 'Pin compact-input Video FlashVSR worker'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            git fetch origin main
+            git rebase origin/main
+          done
+
+      - name: Final marker
+        shell: bash
+        run: |
+          echo 'AVANTIQO_VIDEO_COMPACT_FLASHVSR_PIN=PASS'
+          echo 'MODEL_INFERENCE_PERFORMED=false'
+          echo 'RUNPOD_MUTATION_PERFORMED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'

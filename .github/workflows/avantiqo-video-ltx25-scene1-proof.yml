@@ -33,6 +33,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Reconstruct exact approved Scene 1 opening frame
+        shell: bash
+        run: |
+          set -euo pipefail
+          parts=(assets/video/proofs/scene1_frame.part-*.b64)
+          test "${#parts[@]}" = "6"
+          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}"
+          test "$(wc -c < "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}")" = "31376"
+          test "$(sha256sum "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}" | awk '{print $1}')" = "cbf4437d77f74b2fd0193f9039ef64c511b597712fe08c466c30d4c231aeb0c5"
+          test "$(od -An -tx1 -N2 "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}" | tr -d ' \n')" = "ffd8"
+          test "$(tail -c 2 "${AVANTIQO_VIDEO_SCENE1_OPENING_FRAME}" | od -An -tx1 | tr -d ' \n')" = "ffd9"
+          echo 'AVANTIQO_VIDEO_SCENE1_APPROVED_FRAME=PASS'
+
       - name: Set up Node 24
         uses: actions/setup-node@v4
         with:
@@ -61,7 +74,6 @@ jobs:
           git show "${V5_SOURCE_SHA}:services/avantiqo-video-engine/Dockerfile.ltx25" > /tmp/avantiqo-video-ltx25-v5/Dockerfile
           git show "${V5_SOURCE_SHA}:services/avantiqo-video-engine/ltx25_worker_v2.py" > /tmp/avantiqo-video-ltx25-v5/ltx25_worker_v2.py
           cat >> /tmp/avantiqo-video-ltx25-v5/Dockerfile <<'DOCKER'
-          RUN python -m pip install --no-cache-dir 'huggingface_hub[hf_xet]>=0.34,<1.0'
           LABEL org.opencontainers.image.source="https://github.com/churchillkaron/churchill-control-new" \
                 org.opencontainers.image.revision="897b1409dcba14e4d39519fd2b574813beeeae95" \
                 avantiqo.video.runtime="AVANTIQO_VIDEO_LTX25_BLACKWELL_V1" \

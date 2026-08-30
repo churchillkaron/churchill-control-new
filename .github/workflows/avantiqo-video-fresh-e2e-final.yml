@@ -1,0 +1,99 @@
+name: Avantiqo Video Fresh E2E Final
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-fresh-e2e-final-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-fresh-e2e-final
+  cancel-in-progress: false
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY }}
+      RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AVANTIQO_VIDEO_FRESH_E2E_REPORT: /tmp/avantiqo-video-fresh-e2e-final.json
+
+    steps:
+      - name: Checkout exact proof commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate Video proof credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in RUNPOD_MANAGEMENT_API_KEY RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "AVANTIQO_VIDEO_FRESH_E2E_CREDENTIAL_MISSING=${missing[0]}"
+            exit 1
+          fi
+
+      - name: Install application dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+
+      - name: Install Studio media tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+      - name: Validate hardened Video source boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs
+          node --test tests/avantiqo-video-pod-termination-coverage.test.mjs
+          node --test tests/avantiqo-video-studio-first-boundary.test.mjs
+          node scripts/studio-first-compute-boundary-audit.mjs
+
+      - name: Run one fresh provider-level Video E2E proof
+        env:
+          AVANTIQO_VIDEO_FRESH_E2E_APPROVED: "YES"
+          AVANTIQO_VIDEO_FRESH_E2E_USAGE_ID: video-fresh-e2e-${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs | tee /tmp/avantiqo-video-fresh-e2e-final.log
+
+      - name: Upload sanitized Video proof evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-fresh-e2e-${{ github.run_id }}
+          path: |
+            /tmp/avantiqo-video-fresh-e2e-final.json
+            /tmp/avantiqo-video-fresh-e2e-final.log
+          if-no-files-found: warn
+          retention-days: 14

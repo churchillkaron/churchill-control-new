@@ -1,0 +1,33 @@
+FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-devel
+
+ARG LTX2_COMMIT=a95ab856bf29407b6b066ede0abe1846050db56c
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT=/opt/LTX-2 \
+    AVANTIQO_VIDEO_LTX25_MODEL_ROOT=/runpod-volume/ltx-2.5
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates ffmpeg build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+RUN git clone https://github.com/Lightricks/LTX-2.git LTX-2 \
+    && cd LTX-2 \
+    && git checkout "${LTX2_COMMIT}" \
+    && test "$(git rev-parse HEAD)" = "${LTX2_COMMIT}"
+
+# Install the official core/pipeline packages against the already-pinned CUDA 12.8
+# PyTorch base. NATTEN is intentionally omitted: LTX falls back to its supported
+# Triton/eager VAE decoder. NVFP4 is enabled only after a separate Blackwell kernel
+# certification proves ltx-kernels on the target GPU/image pair.
+RUN python -m pip install --upgrade pip uv_build \
+    && python -m pip install -e /opt/LTX-2/packages/ltx-core -e /opt/LTX-2/packages/ltx-pipelines \
+    && python -m pip install requests==2.32.4
+
+WORKDIR /app
+COPY ltx25_worker.py ./ltx25_worker.py
+
+CMD ["python", "-u", "ltx25_worker.py"]

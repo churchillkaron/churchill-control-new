@@ -1,0 +1,3 @@
+Production test deployment for Intelligence stale-rest recovery and explicit Voice-only interaction.
+Source head before trigger: 0ffe8500ec2e48c5ac80171fb442c4af8d740fa7
+Voice STT repair marker intentionally omitted.

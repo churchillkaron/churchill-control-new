@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 
 const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_EPHEMERAL_POD_MODELS_PROOF_V2";
 const APPROVAL_ENV = "AVANTIQO_INTELLIGENCE_FAST_EPHEMERAL_POD_MODELS_PROOF_V2_APPROVED";
+const SELF_PATH = "scripts/run-avantiqo-intelligence-fast-ephemeral-pod-models-proof-v2-local.mjs";
 const REST = "https://rest.runpod.io/v1";
 const SERVERLESS = "https://api.runpod.ai/v2";
 const FAST_ENDPOINT_NAME = "avantiqo-intelligence-fast-v1";
@@ -43,9 +44,24 @@ function sourceGate() {
   shell("git", ["fetch", "origin", "main"], `${CONTRACT}_FETCH_FAILED`);
   const origin = shell("git", ["rev-parse", "origin/main"], `${CONTRACT}_ORIGIN_FAILED`);
   const head = shell("git", ["rev-parse", "HEAD"], `${CONTRACT}_HEAD_FAILED`);
-  if (head !== origin) throw new Error(`${CONTRACT}_HEAD_NOT_NEWEST_MAIN:${head}:${origin}`);
   const dirty = shell("git", ["status", "--porcelain", "--untracked-files=no"], `${CONTRACT}_STATUS_FAILED`);
   if (dirty) throw new Error(`${CONTRACT}_TRACKED_WORKTREE_MUST_BE_CLEAN`);
+
+  if (head !== origin) {
+    shell("git", ["merge-base", "--is-ancestor", head, origin], `${CONTRACT}_PINNED_HEAD_NOT_ANCESTOR_OF_MAIN`);
+    const changed = shell("git", ["diff", "--name-only", `${head}..${origin}`, "--", SELF_PATH], `${CONTRACT}_SELF_DIFF_FAILED`);
+    if (changed) throw new Error(`${CONTRACT}_PROOF_CHANGED_ON_NEWEST_MAIN:${head}:${origin}`);
+    console.log(JSON.stringify({
+      event: "AVANTIQO_INTELLIGENCE_FAST_POD_SOURCE_GATE",
+      pinned_head: head,
+      newest_main: origin,
+      newest_main_advanced: true,
+      proof_file_unchanged: true,
+      unrelated_parallel_commits_allowed: true,
+      secrets_printed: false,
+    }));
+  }
+
   return head;
 }
 

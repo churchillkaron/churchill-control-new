@@ -1,0 +1,73 @@
+name: Avantiqo Intelligence Deep Capacity Preflight
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-intelligence-deep-capacity-preflight-request.json
+      - .github/workflows/avantiqo-intelligence-deep-capacity-preflight.yml
+      - scripts/diagnose-avantiqo-intelligence-deep-capacity-preflight-local.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-deep-capacity-preflight
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Verify read-only credential boundary
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: |
+          test -n "$RUNPOD_API_KEY" || { echo "RUNPOD_API_KEY_MISSING"; exit 1; }
+          echo "DEEP_CAPACITY_PREFLIGHT_READ_ONLY=true"
+          echo "RUNPOD_MUTATION_PERFORMED=false"
+          echo "INFERENCE_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"
+
+      - name: Inspect Deep endpoint and current capacity
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY }}
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/intelligence-deep-capacity
+          node scripts/diagnose-avantiqo-intelligence-deep-capacity-preflight-local.mjs \
+            | tee artifacts/intelligence-deep-capacity/preflight.json
+
+      - name: Publish preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-deep-capacity-${{ github.run_id }}
+          path: artifacts/intelligence-deep-capacity/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Record immutable safety boundary
+        if: always()
+        run: |
+          echo "RUNPOD_MUTATION_PERFORMED=false"
+          echo "QUEUE_MUTATION_PERFORMED=false"
+          echo "MODEL_DOWNLOAD_REQUESTED=false"
+          echo "INFERENCE_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

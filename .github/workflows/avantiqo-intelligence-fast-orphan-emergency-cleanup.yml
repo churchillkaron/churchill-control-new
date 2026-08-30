@@ -1,0 +1,78 @@
+name: Avantiqo Intelligence Fast Orphan Emergency Cleanup
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-intelligence-fast-orphan-emergency-cleanup.yml
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Delete only the verified orphan Fast Intelligence Pod
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          TARGET_POD_ID: 9roaj6pf5wuauu
+        run: |
+          node --input-type=module <<'NODE'
+          const key = String(process.env.RUNPOD_MANAGEMENT_API_KEY || '').trim();
+          const id = String(process.env.TARGET_POD_ID || '').trim();
+          if (!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_MISSING');
+          if (id !== '9roaj6pf5wuauu') throw new Error('TARGET_POD_ID_MISMATCH');
+          const headers = { Authorization: `Bearer ${key}`, Accept: 'application/json' };
+          const before = await fetch(`https://rest.runpod.io/v1/pods/${encodeURIComponent(id)}`, {
+            headers,
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!before.ok) throw new Error(`ORPHAN_READ_HTTP_${before.status}`);
+          const pod = await before.json();
+          const name = String(pod?.name || '');
+          const image = String(pod?.imageName || '');
+          if (!name.startsWith('avantiqo-intelligence-fast-runtime-')) {
+            throw new Error(`ORPHAN_NAME_GUARD_FAILED:${name}`);
+          }
+          if (!image.includes('runpod/worker-v1-vllm')) {
+            throw new Error('ORPHAN_IMAGE_GUARD_FAILED');
+          }
+          console.log(JSON.stringify({
+            contract: 'AVANTIQO_INTELLIGENCE_FAST_ORPHAN_EMERGENCY_CLEANUP_V1',
+            pod_id: id,
+            name,
+            machine_assigned: Boolean(pod?.machine),
+            desired_status: String(pod?.desiredStatus || ''),
+            exact_identity_verified: true,
+          }));
+          const deleted = await fetch(`https://rest.runpod.io/v1/pods/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            headers,
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!deleted.ok && deleted.status !== 404) {
+            const raw = await deleted.text();
+            throw new Error(`ORPHAN_DELETE_HTTP_${deleted.status}:${raw.slice(0,300)}`);
+          }
+          let gone = false;
+          for (let attempt = 0; attempt < 12; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            const check = await fetch(`https://rest.runpod.io/v1/pods/${encodeURIComponent(id)}`, {
+              headers,
+              signal: AbortSignal.timeout(30000),
+            });
+            if (check.status === 404) { gone = true; break; }
+            if (!check.ok) throw new Error(`ORPHAN_VERIFY_HTTP_${check.status}`);
+            const current = await check.json();
+            const desired = String(current?.desiredStatus || '').toUpperCase();
+            if (['EXITED','STOPPED','TERMINATED','DELETED'].includes(desired)) { gone = true; break; }
+          }
+          if (!gone) throw new Error('ORPHAN_DELETE_NOT_VERIFIED');
+          console.log('AVANTIQO_INTELLIGENCE_FAST_ORPHAN_EMERGENCY_CLEANUP_V1=PASS');
+          console.log('POD_DELETE_VERIFIED=true');
+          console.log('INFERENCE_PERFORMED=false');
+          console.log('PRODUCTION_DEPLOY_PERFORMED=false');
+          NODE

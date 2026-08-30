@@ -101,9 +101,12 @@ markers("DEVELOPER_RESOURCE_READ", source.developerResources, [
   'production_deploy_performed: false',
   'environment_mutation_performed: false',
   'authorization_effect: "NONE"',
-  '"/v6/deployments"',
-  '"/v3/deployments/',
-  '"/v1/projects/',
+  "/v6/deployments",
+  "/v3/deployments/",
+  "/events",
+  "/v1/projects/",
+  "/deployments/",
+  "/runtime-logs",
 ]);
 assert.equal(
   /method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/.test(source.developerResources),

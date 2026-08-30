@@ -5,9 +5,6 @@ import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const CONTRACT = "AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_FAST_ASSESSMENT_V1";
-const SAFE_LEASE_CONTRACT = "AVANTIQO_RUNPOD_SAFE_LEASE_V2";
-const SAFE_LEASE_LANE = "intelligence-fast";
-const FAST_RUNTIME_PROBE = "scripts/run-avantiqo-intelligence-safe-lease-models-probe-local.mjs";
 const REPOSITORY_URL = "https://github.com/churchillkaron/churchill-control-new.git";
 const MISSION_OBJECTIVE = [
   "Evaluate how Avantiqo should carry significant cross-system architecture and impact context from General Intelligence into Code Intelligence",
@@ -58,45 +55,15 @@ function expectedMain() {
   if (tracked) throw new Error(`${CONTRACT}_TRACKED_WORKTREE_MUST_BE_CLEAN`);
   return head;
 }
-function requireSafeLease() {
+function requireGovernedPodTransport() {
   if (!yes(process.env.AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_SPEND_APPROVED)) {
     throw new Error("AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_SPEND_APPROVED=YES_REQUIRED");
   }
   if (text(process.env.NODE_ENV, 40).toLowerCase() !== "development") {
     throw new Error(`${CONTRACT}_DEVELOPMENT_ENV_REQUIRED`);
   }
-  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE, 40).toUpperCase() !== "YES") {
-    throw new Error(`${CONTRACT}_SAFE_LEASE_ACTIVE_REQUIRED`);
-  }
-  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT, 120) !== SAFE_LEASE_CONTRACT) {
-    throw new Error(`${CONTRACT}_SAFE_LEASE_V2_REQUIRED`);
-  }
-  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_LANE, 120) !== SAFE_LEASE_LANE) {
-    throw new Error(`${CONTRACT}_SAFE_LEASE_LANE_MISMATCH`);
-  }
-  const leaseEndpointId = text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID, 240);
-  const configuredEndpointId = text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_ENDPOINT_ID, 240);
-  if (!leaseEndpointId || !configuredEndpointId || leaseEndpointId !== configuredEndpointId) {
-    throw new Error(`${CONTRACT}_SAFE_LEASE_ENDPOINT_MISMATCH`);
-  }
-  const expiresAt = Date.parse(text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT, 160));
-  if (!Number.isFinite(expiresAt) || expiresAt - Date.now() < 180000) {
-    throw new Error(`${CONTRACT}_SAFE_LEASE_EXPIRY_INSUFFICIENT`);
-  }
-}
-function runFastRuntimeProbe() {
-  const result = spawnSync(process.execPath, [FAST_RUNTIME_PROBE], {
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      AVANTIQO_INTELLIGENCE_MODELS_PROBE_LANE: "fast",
-    },
-    stdio: "inherit",
-  });
-  if (result.error) throw result.error;
-  if (result.signal) throw new Error(`${CONTRACT}_FAST_RUNTIME_PROBE_SIGNAL:${result.signal}`);
-  if (result.status !== 0) {
-    throw new Error(`${CONTRACT}_FAST_RUNTIME_PROBE_FAILED_RC:${result.status}`);
+  if (text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE, 40).toUpperCase() === "YES") {
+    throw new Error(`${CONTRACT}_FAST_SERVERLESS_SAFE_LEASE_FORBIDDEN`);
   }
 }
 
@@ -115,11 +82,8 @@ try {
   phase = "PINNED_MAIN_VALIDATION";
   const head = expectedMain();
 
-  phase = "SAFE_LEASE_VALIDATION";
-  requireSafeLease();
-
-  phase = "FAST_RUNTIME_READINESS_PROBE";
-  runFastRuntimeProbe();
+  phase = "FAST_TRANSPORT_VALIDATION";
+  requireGovernedPodTransport();
 
   process.env.AVANTIQO_CODE_CERTIFICATION_EXPECTED_MAIN_COMMIT = head;
   process.env.AVANTIQO_CODE_WORKSPACE_TARGET = "LOCAL_COMPUTER";
@@ -174,8 +138,8 @@ try {
     local_workspace_certification_pin_active: true,
     moving_origin_main_race_removed: true,
     vercel_sandbox_required: false,
-    fast_runtime_readiness_probe_passed: true,
-    generation_free_runtime_probe: true,
+    fast_transport: "RUNPOD_EPHEMERAL_POD_OPENAI_COMPATIBLE",
+    fast_serverless_transport_allowed: false,
     assessment_contract: assessment.contract,
     assessment_status: assessment.status,
     output_path: outputPath,
@@ -186,7 +150,7 @@ try {
     production_deploy_performed: false,
     learning_knowledge_promoted: false,
     direct_endpoint_scaling_performed: false,
-    safe_lease_exclusively_owns_scaling: true,
+    distributed_fast_lane_lease_owned_by_provider_runtime: true,
     raw_reasoning_persisted: false,
     organization_id_printed: false,
     secrets_printed: false,

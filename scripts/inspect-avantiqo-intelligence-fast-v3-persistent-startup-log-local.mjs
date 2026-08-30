@@ -1,5 +1,8 @@
 import { createHash, createHmac } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_V3_PERSISTENT_STARTUP_LOG_INSPECTOR_V1";
 const REGION = "US-CA-2";
@@ -36,7 +39,66 @@ function credentialFromAwsCli(name) {
   return text(result.stdout);
 }
 
-function resolveCredentials() {
+function parseAwsCredentials(raw) {
+  const profiles = new Map();
+  let current = null;
+  for (const sourceLine of String(raw || "").split(/\r?\n/)) {
+    const line = sourceLine.trim();
+    if (!line || line.startsWith("#") || line.startsWith(";")) continue;
+    const section = line.match(/^\[([^\]]+)\]$/);
+    if (section) {
+      current = section[1].trim();
+      if (!profiles.has(current)) profiles.set(current, {});
+      continue;
+    }
+    if (!current) continue;
+    const equals = line.indexOf("=");
+    if (equals < 1) continue;
+    profiles.get(current)[line.slice(0, equals).trim().toLowerCase()] = line.slice(equals + 1).trim();
+  }
+  return profiles;
+}
+
+async function credentialFromAwsFile() {
+  const raw = await readFile(join(homedir(), ".aws", "credentials"), "utf8").catch(() => "");
+  if (!raw) return { accessKey: "", secretKey: "", source: "" };
+
+  const profiles = parseAwsCredentials(raw);
+  const candidates = [...profiles.entries()]
+    .map(([name, profile]) => ({
+      name,
+      accessKey: text(profile.aws_access_key_id),
+      secretKey: text(profile.aws_secret_access_key),
+    }))
+    .filter((entry) => entry.accessKey && entry.secretKey);
+
+  const requested = text(process.env.AWS_PROFILE || process.env.AWS_DEFAULT_PROFILE || "default");
+  const selected = candidates.find((entry) => entry.name === requested);
+  if (selected) {
+    return {
+      accessKey: selected.accessKey,
+      secretKey: selected.secretKey,
+      source: `AWS_CREDENTIALS_FILE:${requested}`,
+    };
+  }
+
+  const runpodShaped = candidates.filter(
+    (entry) => entry.accessKey.startsWith("user_") && entry.secretKey.startsWith("rps_"),
+  );
+  if (runpodShaped.length === 1) {
+    return {
+      accessKey: runpodShaped[0].accessKey,
+      secretKey: runpodShaped[0].secretKey,
+      source: `AWS_CREDENTIALS_FILE:${runpodShaped[0].name}`,
+    };
+  }
+  if (runpodShaped.length > 1) {
+    return { accessKey: "", secretKey: "", source: "AWS_CREDENTIALS_FILE_MULTIPLE_RUNPOD_PROFILES" };
+  }
+  return { accessKey: "", secretKey: "", source: "" };
+}
+
+async function resolveCredentials() {
   const envAccessKey = text(
     process.env.RUNPOD_S3_ACCESS_KEY_ID ||
     process.env.RUNPOD_S3_ACCESS_KEY ||
@@ -47,21 +109,17 @@ function resolveCredentials() {
     process.env.RUNPOD_S3_SECRET_KEY ||
     process.env.AWS_SECRET_ACCESS_KEY,
   );
-  let accessKey = envAccessKey;
-  let secretKey = envSecretKey;
-  let source = accessKey && secretKey ? "ENV" : "";
-
-  if (!accessKey || !secretKey) {
-    const cliAccess = credentialFromAwsCli("aws_access_key_id");
-    const cliSecret = credentialFromAwsCli("aws_secret_access_key");
-    if (cliAccess && cliSecret) {
-      accessKey = cliAccess;
-      secretKey = cliSecret;
-      source = "AWS_CLI_PROFILE";
-    }
+  if (envAccessKey && envSecretKey) {
+    return { accessKey: envAccessKey, secretKey: envSecretKey, source: "ENV" };
   }
 
-  return { accessKey, secretKey, source };
+  const cliAccess = credentialFromAwsCli("aws_access_key_id");
+  const cliSecret = credentialFromAwsCli("aws_secret_access_key");
+  if (cliAccess && cliSecret) {
+    return { accessKey: cliAccess, secretKey: cliSecret, source: "AWS_CLI_PROFILE" };
+  }
+
+  return credentialFromAwsFile();
 }
 
 function amzTimestamp(date = new Date()) {
@@ -126,7 +184,7 @@ function classify(log) {
   return "STARTUP_LOG_PRESENT_UNCLASSIFIED";
 }
 
-const credentials = resolveCredentials();
+const credentials = await resolveCredentials();
 const credentialSummary = {
   available: Boolean(credentials.accessKey && credentials.secretKey),
   source: credentials.source || null,
@@ -138,7 +196,9 @@ if (!credentialSummary.available) {
     success: false,
     contract: CONTRACT,
     mode: "READ_ONLY",
-    diagnosis: "RUNPOD_S3_CREDENTIALS_REQUIRED",
+    diagnosis: credentials.source === "AWS_CREDENTIALS_FILE_MULTIPLE_RUNPOD_PROFILES"
+      ? "RUNPOD_S3_MULTIPLE_CREDENTIAL_PROFILES_SET_AWS_PROFILE"
+      : "RUNPOD_S3_CREDENTIALS_REQUIRED",
     network_volume_id: BUCKET,
     data_center_id: REGION,
     object_key: KEY,

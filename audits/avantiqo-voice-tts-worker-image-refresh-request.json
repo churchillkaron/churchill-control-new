@@ -1,11 +1,12 @@
 {
-  "contract": "AVANTIQO_VOICE_TTS_WORKER_IMAGE_REFRESH_REQUEST_V1",
-  "requested_for": "tts_recorded_reference_profiles_quality_v2",
-  "source_commit": "b4b974ad3d43d339dc867cca96ba4b11d429330c",
-  "build_tts": true,
-  "build_stt": false,
-  "platform": "linux/amd64",
-  "production_web_deploy": false,
-  "provider_generation": false,
-  "pricing_activation": false
+  "contract": "AVANTIQO_VOICE_TTS_WORKER_IMAGE_REFRESH_REQUEST_V2",
+  "reason": "preload_chatterbox_before_serverless_start",
+  "requested_from_main": "11c3077d5a2ca4eb297d6e8cda539d57a36075eb",
+  "voice_source_commit": "3f3d4299a1630078b42b2af8a97234d39d27d684",
+  "tts_only": true,
+  "remote_image_build": true,
+  "runpod_mutation_requested": false,
+  "provider_job_requested": false,
+  "wallet_mutation_requested": false,
+  "production_web_deploy_requested": false
 }

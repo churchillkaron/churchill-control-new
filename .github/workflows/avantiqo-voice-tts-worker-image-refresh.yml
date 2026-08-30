@@ -50,6 +50,36 @@ jobs:
           grep -F 'EXPECTED_FOUNDATION_MODEL = "resemble-ai/chatterbox:multilingual-v3"' services/avantiqo-voice-tts/handler.py
           grep -F 'AVANTIQO_VOICE_TTS_PYTHON_PROCESS' services/avantiqo-voice-tts/handler.py
           grep -F 'CMD ["python", "-u", "/app/handler.py"]' services/avantiqo-voice-tts/Dockerfile
+          grep -F '"model_preloaded_before_serverless_start":true' services/avantiqo-voice-tts/handler.py
+          if grep -Fq '"model_load_deferred_until_job":true' services/avantiqo-voice-tts/handler.py; then
+            echo 'AVANTIQO_VOICE_TTS_OLD_LAZY_LOAD_CONTRACT_PRESENT'
+            exit 1
+          fi
+
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("services/avantiqo-voice-tts/handler.py").read_text()
+
+          main = source.find('if __name__ == "__main__":')
+          start = source.find(
+              'runpod.serverless.start({"handler": handler})',
+              main,
+          )
+          preload = source.find(
+              "_model()",
+              main,
+              start,
+          )
+
+          if main < 0 or preload < 0 or start < 0 or preload >= start:
+              raise SystemExit(
+                  "AVANTIQO_VOICE_TTS_PRELOAD_ORDER_INVALID"
+              )
+
+          print("AVANTIQO_VOICE_TTS_PRELOAD_SOURCE_CONTRACT=PASS")
+          PY
+
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo 'AVANTIQO_VOICE_TTS_REFRESH_PREFLIGHT=PASS'
           echo 'AVANTIQO_VOICE_TTS_REFRESH_PLATFORM=linux/amd64'
@@ -94,7 +124,7 @@ jobs:
           cache-from: type=gha,scope=avantiqo-voice-tts-worker
           cache-to: type=gha,mode=max,scope=avantiqo-voice-tts-worker
 
-      - name: Pull and execute immutable TTS startup probe
+      - name: Pull and verify immutable TTS startup contract
         id: startup_probe
         shell: bash
         env:
@@ -115,38 +145,48 @@ jobs:
             python -c "import torch, torchaudio, chatterbox.mtl_tts; assert torch.__version__.startswith(\"2.7.0\"), torch.__version__; assert torch.version.cuda and torch.version.cuda.startswith(\"12.8\"), torch.version.cuda; compiled_arches=(torch._C._cuda_getArchFlags() or \"\").split(); assert \"sm_120\" in compiled_arches, compiled_arches; print(\"AVANTIQO_VOICE_TTS_STARTUP_PROBE=PASS\")"
           '
 
-          container_id="$(docker run -d "$IMAGE_TAG")"
-          cleanup() {
-            docker rm -f "$container_id" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
+          # GitHub-hosted runners do not provide the NVIDIA GPU required
+          # to execute Chatterbox CUDA preload. Verify that the immutable
+          # image contains the exact preload-before-serverless contract here;
+          # real CUDA preload is proved separately on one isolated GPU worker.
+          docker run --rm -i --entrypoint python "$IMAGE_TAG" - <<'PY'
+          from pathlib import Path
 
-          startup_seen=false
-          for attempt in $(seq 1 30); do
-            logs="$(docker logs "$container_id" 2>&1 || true)"
-            if printf '%s\n' "$logs" | grep -F '"event":"AVANTIQO_VOICE_TTS_PYTHON_PROCESS"' | grep -F '"phase":"process_started"' >/dev/null; then
-              startup_seen=true
-              break
-            fi
-            running="$(docker inspect "$container_id" --format '{{.State.Running}}' 2>/dev/null || printf 'false')"
-            if [ "$running" != "true" ]; then
-              printf '%s\n' "$logs"
-              echo 'AVANTIQO_VOICE_TTS_DEFAULT_CMD_EXITED_BEFORE_BREADCRUMB'
-              exit 1
-            fi
-            sleep 1
-          done
+          source = Path("/app/handler.py").read_text()
 
-          if [ "$startup_seen" != "true" ]; then
-            docker logs "$container_id" 2>&1 || true
-            echo 'AVANTIQO_VOICE_TTS_DEFAULT_CMD_BREADCRUMB_TIMEOUT'
-            exit 1
-          fi
+          main = source.find('if __name__ == "__main__":')
+          start = source.find(
+              'runpod.serverless.start({"handler": handler})',
+              main,
+          )
+          preload = source.find(
+              "_model()",
+              main,
+              start,
+          )
+
+          if main < 0 or preload < 0 or start < 0 or preload >= start:
+              raise SystemExit(
+                  "AVANTIQO_VOICE_TTS_IMAGE_PRELOAD_ORDER_INVALID"
+              )
+
+          if '"model_preloaded_before_serverless_start":true' not in source:
+              raise SystemExit(
+                  "AVANTIQO_VOICE_TTS_IMAGE_PRELOAD_CONTRACT_MISSING"
+              )
+
+          if '"model_load_deferred_until_job":true' in source:
+              raise SystemExit(
+                  "AVANTIQO_VOICE_TTS_IMAGE_OLD_LAZY_CONTRACT_PRESENT"
+              )
+
+          print("AVANTIQO_VOICE_TTS_IMAGE_PRELOAD_CONTRACT=PASS")
+          PY
 
           echo 'AVANTIQO_VOICE_TTS_IMAGE_PLATFORM_AMD64=PASS'
           echo 'AVANTIQO_VOICE_TTS_IMAGE_CMD_DIRECT_PYTHON=PASS'
-          echo 'AVANTIQO_VOICE_TTS_IMAGE_DEFAULT_CMD_EXEC=PASS'
           echo 'AVANTIQO_VOICE_TTS_IMAGE_BLACKWELL_SM120=PASS'
+          echo 'AVANTIQO_VOICE_TTS_IMAGE_CUDA_PRELOAD_EXECUTED=false'
 
       - name: Confirm refresh scope
         shell: bash
@@ -244,7 +284,10 @@ jobs:
             import_smoke_passed_by_docker_build: success,
             image_platform: "linux/amd64",
             python_process_breadcrumb_baked: true,
-            container_startup_probe_passed_by_github_build: success,
+            model_preloaded_before_serverless_start_contract: success,
+            image_preload_contract_probe_passed_by_github_build: success,
+            cuda_preload_executed_by_github_build: false,
+            container_startup_probe_passed_by_github_build: false,
           };
 
           const report = {

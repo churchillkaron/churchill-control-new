@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import LocalHeyAvantiqoWakeBridge from "@/components/operator/LocalHeyAvantiqoWakeBridge";
 import SecretaryMeetingPresenceBridge from "@/components/operator/SecretaryMeetingPresenceBridge";
@@ -41,7 +42,9 @@ function restoreLegacyWakeTemplateTrust() {
 export default function PlatformShell({
   children,
 }) {
+  const pathname = usePathname();
   const [secretaryMeetingCaptureActive, setSecretaryMeetingCaptureActive] = useState(false);
+  const businessPartnerHome = /^\/workspace\/[^/]+\/?$/.test(pathname || "");
 
   // This runs before the wake bridge mounts on the client. Older Avantiqo
   // templates were deliberately trained by the user but predate the later
@@ -75,7 +78,9 @@ export default function PlatformShell({
       </main>
 
       <SecretaryMeetingPresenceBridge />
-      {!secretaryMeetingCaptureActive ? <LocalHeyAvantiqoWakeBridge /> : null}
+      {!secretaryMeetingCaptureActive && !businessPartnerHome ? (
+        <LocalHeyAvantiqoWakeBridge />
+      ) : null}
     </div>
   );
 }

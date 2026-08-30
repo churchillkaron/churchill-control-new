@@ -107,6 +107,9 @@ requireMarkers("WORLDCLASS_COMMIT_GUARD", worldclassCommitGuard, [
 
 requireMarkers("AUTONOMOUS_CAPABILITY", autonomousCapability, [
   "executeCodeAIEmployeeFastStartMission",
+  "executeCodeAIEmployeeZeroIdleFastStartMission",
+  "const executeFastStart = zeroIdle",
+  "const result = await executeFastStart({",
   "CODE_AI_EMPLOYEE_FAST_START_CONTRACT",
   "CODE_AI_EMPLOYEE_RUNTIME_CONTRACT",
   "fresh-verification",
@@ -211,10 +214,18 @@ if (leasePolicy.workers_min_one_allowed !== false) throw new Error(`${CONTRACT}_
 if (leasePolicy.parallel_work_allowed !== true || leasePolicy.max_concurrent_paid_leases < 2) throw new Error(`${CONTRACT}_BOUNDED_PARALLEL_WORK_REQUIRED`);
 if (!leasePolicy.lanes?.code) throw new Error(`${CONTRACT}_CODE_LEASE_LANE_REQUIRED`);
 
-const fastStartImport = autonomousCapability.indexOf("executeCodeAIEmployeeFastStartMission");
-const executionCall = autonomousCapability.indexOf("await executeCodeAIEmployeeFastStartMission");
+const durableFastStartImport = autonomousCapability.indexOf("executeCodeAIEmployeeFastStartMission");
+const zeroIdleFastStartImport = autonomousCapability.indexOf("executeCodeAIEmployeeZeroIdleFastStartMission");
+const fastStartSelector = autonomousCapability.indexOf("const executeFastStart = zeroIdle");
+const executionCall = autonomousCapability.indexOf("const result = await executeFastStart({");
 const attestationCall = autonomousCapability.indexOf("result.state = attestCodeMissionState");
-if (fastStartImport < 0 || executionCall < 0 || attestationCall <= executionCall) {
+if (
+  durableFastStartImport < 0 ||
+  zeroIdleFastStartImport < 0 ||
+  fastStartSelector < 0 ||
+  executionCall <= fastStartSelector ||
+  attestationCall <= executionCall
+) {
   throw new Error(`${CONTRACT}_FAST_START_EMPLOYEE_WORLDCLASS_GATE_MUST_PRECEDE_ATTESTATION`);
 }
 const workerGate = fastStart.indexOf("if (worker?.ready !== true)");
@@ -244,6 +255,7 @@ console.log(JSON.stringify({
     worker_readiness_precedes_paid_employee_reasoning: true,
     mandatory_worldclass_employee_gate: true,
     public_fast_start_employee_execution_precedes_attestation: true,
+    durable_and_zero_idle_fast_start_selector_verified: true,
     legacy_worldclass_runtime_retained_as_non_public_compatibility: true,
     planner_rules_owned_by_bounded_prompt_transport: true,
     stale_verification_rejected_by_position: true,

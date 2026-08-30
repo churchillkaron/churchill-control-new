@@ -1,0 +1,167 @@
+name: Avantiqo Video FlashDreams FlashVSR Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-flashdreams-flashvsr-worker-request.json
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-video-flashdreams-flashvsr-worker
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify FlashDreams GPU boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          dockerfile='services/avantiqo-video-flashdreams-flashvsr/Dockerfile'
+          worker='services/avantiqo-video-flashdreams-flashvsr/flashdreams_flashvsr_worker.py'
+          test -f "$dockerfile"
+          test -f "$worker"
+          grep -F 'CONTRACT = "AVANTIQO_VIDEO_FLASHDREAMS_FLASHVSR_GPU_MASTER_V1"' "$worker"
+          grep -F 'COMPUTE_BOUNDARY = "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1"' "$worker"
+          grep -F 'FLASHDREAMS_COMMIT = "289da6f1d232de5abaa30d686c977b9c0040fe76"' "$worker"
+          grep -F 'SPARSE_RATIO = 1.5' "$worker"
+          grep -F 'CHUNK_SIZE = 8' "$worker"
+          grep -F 'video_encoded_on_paid_worker": False' "$worker"
+          grep -F 'final_artifact_persisted_on_paid_worker": False' "$worker"
+          grep -F 'ffmpeg_used_on_paid_worker": False' "$worker"
+          grep -F 'paid_worker_intermediate_egress_only": True' "$worker"
+          grep -F 'FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04' "$dockerfile"
+          grep -F 'ARG FLASHDREAMS_COMMIT=289da6f1d232de5abaa30d686c977b9c0040fe76' "$dockerfile"
+          grep -F 'uv sync --group cuda13 --extra runners --package flashdreams --package flashdreams-flashvsr' "$dockerfile"
+          if grep -Eiq '\bffmpeg\b|libx264|libx265|FAL_KEY|FAL_API_KEY|fal\.run|fal-ai/' "$dockerfile"; then
+            echo 'Forbidden final encoding/provider dependency found in FlashDreams Dockerfile' >&2
+            exit 1
+          fi
+          python -m py_compile "$worker"
+          echo 'AVANTIQO_VIDEO_FLASHDREAMS_SOURCE_PREFLIGHT=PASS'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          short_sha="${release_sha:0:12}"
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/avantiqo-video-flashdreams-flashvsr"
+          tag="${image}:sha-${short_sha}"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push immutable FlashDreams image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-video-flashdreams-flashvsr
+          file: services/avantiqo-video-flashdreams-flashvsr/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=avantiqo-video-flashdreams-flashvsr
+          cache-to: type=gha,mode=max,scope=avantiqo-video-flashdreams-flashvsr
+
+      - name: Record sanitized candidate evidence
+        env:
+          IMAGE_REPOSITORY: ${{ steps.image.outputs.image }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          RELEASE_SHA: ${{ steps.image.outputs.release_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$IMAGE_DIGEST"
+          mkdir -p /tmp/avantiqo-video-flashdreams
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          const repository = process.env.IMAGE_REPOSITORY;
+          const digest = process.env.IMAGE_DIGEST;
+          const report = {
+            success: true,
+            contract: 'AVANTIQO_VIDEO_FLASHDREAMS_FLASHVSR_IMAGE_RESULT_V1',
+            candidate_only: true,
+            source_sha: process.env.RELEASE_SHA,
+            github_run_id: process.env.BUILD_RUN_ID,
+            image_repository: repository,
+            image_tag: process.env.IMAGE_TAG,
+            image_digest: digest,
+            immutable_image_reference: `${repository}@${digest}`,
+            flashdreams_source_commit: '289da6f1d232de5abaa30d686c977b9c0040fe76',
+            flashvsr_model_revision: 'a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb',
+            sparse_ratio: 1.5,
+            chunk_size: 8,
+            cuda_profile: 'CUDA_13',
+            studio_final_encoding_required: true,
+            video_encoding_on_paid_worker: false,
+            final_storage_on_paid_worker: false,
+            fal_dependency: false,
+            runpod_mutation_performed: false,
+            inference_performed: false,
+            production_deploy_performed: false,
+            live_runtime_switched: false,
+            secrets_in_output: false
+          };
+          writeFileSync('/tmp/avantiqo-video-flashdreams/result.json', `${JSON.stringify(report)}\n`);
+          NODE
+
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-flashdreams-${{ steps.image.outputs.short_sha }}
+          path: /tmp/avantiqo-video-flashdreams/result.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Record candidate evidence on newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B video-flashdreams-evidence origin/main
+          mkdir -p audits/results
+          cp /tmp/avantiqo-video-flashdreams/result.json audits/results/avantiqo-video-flashdreams-flashvsr-worker.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add audits/results/avantiqo-video-flashdreams-flashvsr-worker.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record Video FlashDreams worker image'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            git fetch origin main
+            git rebase origin/main
+          done

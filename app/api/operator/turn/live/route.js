@@ -8,7 +8,12 @@ import {
 } from "@/lib/platform/runtime/AvantiqoLiveExecutionRuntime";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Owned Intelligence is zero-idle. A cold Fast request may first prove that
+// Serverless is unscheduled and then hand off to the governed ephemeral Pod
+// fallback, including mandatory cleanup. Keep the HTTP function alive long
+// enough for that bounded lifecycle; the RunPod runtimes enforce their own
+// tighter startup, execution, spend and cleanup ceilings.
+export const maxDuration = 900;
 
 function text(value) {
   return String(value ?? "").trim();

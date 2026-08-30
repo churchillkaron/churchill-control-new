@@ -22,6 +22,7 @@ on:
       - "lib/platform/research/runtime/OperatorMechanismResearch*.js"
       - "lib/platform/research/runtime/OperatorWebResearchRuntime.js"
       - "lib/platform/research/runtime/OperatorWebEvidenceRuntime.js"
+      - "tests/*.test.mjs"
       - "scripts/code-ai-*.mjs"
       - "scripts/business-partner-developer-resource-certification.mjs"
       - "scripts/operator-mechanism-research-*.mjs"
@@ -59,6 +60,9 @@ jobs:
 
       - name: Install dependencies without lifecycle side effects
         run: npm ci --ignore-scripts
+
+      - name: Run repository regression suite
+        run: npm test
 
       - name: Certify Business Partner developer resources
         run: node scripts/business-partner-developer-resource-certification.mjs

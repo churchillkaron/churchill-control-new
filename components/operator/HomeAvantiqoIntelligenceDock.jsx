@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, Paperclip, Square, X } from "lucide-react";
 
 import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
@@ -91,6 +92,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   const [developerAttachmentSet, setDeveloperAttachmentSet] = useState(null);
   const [developerAttachmentPending, setDeveloperAttachmentPending] = useState(false);
   const [developerAttachmentError, setDeveloperAttachmentError] = useState("");
+  const [composerToolsTarget, setComposerToolsTarget] = useState(null);
 
   function clearDeveloperAttachments() {
     developerAttachmentSetRef.current = null;
@@ -299,6 +301,15 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
     };
   }, [organizationId]);
 
+  useEffect(() => {
+    const root = rootRef.current;
+    const input = root?.querySelector('[data-avantiqo-home-input="true"]');
+    const footer = input?.parentElement?.parentElement || null;
+    setComposerToolsTarget(footer instanceof HTMLElement ? footer : null);
+
+    return () => setComposerToolsTarget(null);
+  }, [organizationId]);
+
   async function requestStop() {
     if (!organizationId || stopPending) return;
     setStopPending(true);
@@ -420,6 +431,67 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
     };
   }, [organizationId]);
 
+  const developerAttachmentTools = (
+    <div
+      data-avantiqo-developer-attachments="true"
+      className="mt-2 flex min-h-8 flex-wrap items-center gap-2 px-1"
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        accept=".txt,.md,.mdx,.js,.jsx,.ts,.tsx,.mjs,.cjs,.json,.yaml,.yml,.toml,.ini,.cfg,.conf,.css,.scss,.html,.xml,.sql,.py,.go,.rs,.java,.kt,.rb,.php,.swift,.c,.cc,.cpp,.h,.hpp,.sh,.zsh,.fish,.log,.csv,.tsv,text/*,application/json"
+        onChange={selectDeveloperAttachments}
+      />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={!organizationId || developerAttachmentPending || liveActive}
+        className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.025] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-white/45 transition hover:border-[#D6A66A]/25 hover:text-[#D6A66A]/75 disabled:opacity-35"
+      >
+        {developerAttachmentPending ? (
+          <Loader2 size={11} className="animate-spin" />
+        ) : (
+          <Paperclip size={11} />
+        )}
+        {developerAttachmentPending ? "Attaching" : "Attach files"}
+      </button>
+
+      {developerAttachmentSet?.files?.map((file) => (
+        <span
+          key={`${developerAttachmentSet.attachment_set_id}:${file.id || file.name}`}
+          className="max-w-[220px] truncate rounded-full border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-2.5 py-1 text-[10px] text-[#D6A66A]/65"
+          title={file.name}
+        >
+          {file.name}
+        </span>
+      ))}
+
+      {developerAttachmentSet ? (
+        <button
+          type="button"
+          onClick={clearDeveloperAttachments}
+          className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] text-white/30 transition hover:text-white/65"
+          title="Remove selected files"
+        >
+          <X size={11} />
+          Clear
+        </button>
+      ) : null}
+
+      {developerAttachmentError ? (
+        <span className="text-[10px] text-red-200/60">{developerAttachmentError}</span>
+      ) : null}
+
+      {developerAttachmentSet ? (
+        <span className="text-[9px] text-white/25">
+          Read-only evidence · next turn only
+        </span>
+      ) : null}
+    </div>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -485,63 +557,11 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         </div>
       ) : null}
 
-      <div className="mb-2 flex min-h-8 flex-wrap items-center gap-2 px-1">
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          accept=".txt,.md,.mdx,.js,.jsx,.ts,.tsx,.mjs,.cjs,.json,.yaml,.yml,.toml,.ini,.cfg,.conf,.css,.scss,.html,.xml,.sql,.py,.go,.rs,.java,.kt,.rb,.php,.swift,.c,.cc,.cpp,.h,.hpp,.sh,.zsh,.fish,.log,.csv,.tsv,text/*,application/json"
-          onChange={selectDeveloperAttachments}
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!organizationId || developerAttachmentPending || liveActive}
-          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.025] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-white/45 transition hover:border-[#D6A66A]/25 hover:text-[#D6A66A]/75 disabled:opacity-35"
-        >
-          {developerAttachmentPending ? (
-            <Loader2 size={11} className="animate-spin" />
-          ) : (
-            <Paperclip size={11} />
-          )}
-          {developerAttachmentPending ? "Attaching" : "Attach files"}
-        </button>
-
-        {developerAttachmentSet?.files?.map((file) => (
-          <span
-            key={`${developerAttachmentSet.attachment_set_id}:${file.id || file.name}`}
-            className="max-w-[220px] truncate rounded-full border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-2.5 py-1 text-[10px] text-[#D6A66A]/65"
-            title={file.name}
-          >
-            {file.name}
-          </span>
-        ))}
-
-        {developerAttachmentSet ? (
-          <button
-            type="button"
-            onClick={clearDeveloperAttachments}
-            className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] text-white/30 transition hover:text-white/65"
-            title="Remove selected files"
-          >
-            <X size={11} />
-            Clear
-          </button>
-        ) : null}
-
-        {developerAttachmentError ? (
-          <span className="text-[10px] text-red-200/60">{developerAttachmentError}</span>
-        ) : null}
-
-        {developerAttachmentSet ? (
-          <span className="text-[9px] text-white/25">
-            Read-only evidence · next turn only
-          </span>
-        ) : null}
-      </div>
-
       <HomeAvantiqoIntelligence organizationId={organizationId} />
+
+      {composerToolsTarget
+        ? createPortal(developerAttachmentTools, composerToolsTarget)
+        : null}
 
       <style jsx global>{`
         [data-avantiqo-home-dock="true"]
@@ -560,6 +580,19 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
 
         [data-avantiqo-home-dock="true"][data-avantiqo-live-active="true"]
           [data-avantiqo-generic-thinking="true"] {
+          display: none !important;
+        }
+
+        body:has([data-avantiqo-home-dock="true"])
+          button.fixed.bottom-6.right-6,
+        body:has([data-avantiqo-home-dock="true"])
+          div.fixed.bottom-6.right-6:has(button[aria-label="Open Avantiqo"]),
+        body:has([data-avantiqo-home-dock="true"])
+          button[aria-label="Open Avantiqo Operator"],
+        body:has([data-avantiqo-home-dock="true"])
+          button[aria-label="Enable Hey Avantiqo"],
+        body:has([data-avantiqo-home-dock="true"])
+          button[aria-label="Disable Hey Avantiqo"] {
           display: none !important;
         }
 

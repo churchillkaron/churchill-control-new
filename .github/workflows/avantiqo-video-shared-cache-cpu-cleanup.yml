@@ -1,0 +1,58 @@
+name: Avantiqo Video Shared Cache CPU Cleanup
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-shared-cache-cpu-cleanup-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-shared-cache-cpu-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate cleanup credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNPOD_MANAGEMENT_API_KEY:-}"
+          node --check scripts/repair-avantiqo-video-shared-cache-active-pod-local.mjs
+
+      - name: Delete only stale owned Video CPU bridge pods
+        env:
+          AVANTIQO_VIDEO_SHARED_CACHE_ACTIVE_POD_REPAIR_APPROVED: "YES"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/repair-avantiqo-video-shared-cache-active-pod-local.mjs
+
+      - name: Final safety marker
+        shell: bash
+        run: |
+          echo 'AVANTIQO_VIDEO_SHARED_CACHE_CPU_CLEANUP=PASS'
+          echo 'GPU_POD_DELETION_ALLOWED=false'
+          echo 'MODEL_INFERENCE_PERFORMED=false'
+          echo 'NEW_WAN_GENERATION_SUBMITTED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'

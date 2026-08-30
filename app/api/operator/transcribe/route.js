@@ -23,6 +23,7 @@ export const maxDuration = 60;
 
 const VOICE_LANGUAGE_COOKIE = "avantiqo_voice_language";
 const VOICE_LANGUAGE_COOKIE_MAX_AGE_SECONDS = 300;
+const EXPLICIT_VOICE_INTENT = "explicit-user-voice-v1";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -89,6 +90,12 @@ function wakePrompt() {
 
 function errorResponse(error, status = 500) {
   return Response.json({ success: false, error }, { status });
+}
+
+function explicitVoiceIntent(request, form = null) {
+  const header = text(request.headers.get("x-avantiqo-voice-intent"));
+  const field = text(form?.get?.("voiceIntent") || form?.get?.("voice_intent"));
+  return header === EXPLICIT_VOICE_INTENT && field === EXPLICIT_VOICE_INTENT;
 }
 
 function rejectedTranscriptResponse(inspection, mode) {
@@ -167,6 +174,10 @@ export async function POST(request) {
   const startedAt = Date.now();
   try {
     const form = await request.formData();
+    if (!explicitVoiceIntent(request, form)) {
+      console.warn("OPERATOR_TRANSCRIPTION_BLOCKED_NO_EXPLICIT_VOICE_INTENT");
+      return errorResponse("Explicit Voice action required", 403);
+    }
     const audio = form.get("audio");
     const organizationId = text(form.get("organizationId") || form.get("organization_id"));
     const requestedEntityId = text(form.get("entityId") || form.get("entity_id")) || null;
@@ -193,6 +204,7 @@ export async function POST(request) {
       metadata: {
         operation: mode === "wake" ? "WAKE_TRANSCRIPTION" : "VOICE_TRANSCRIPTION",
         transcription_mode: mode,
+        explicit_user_voice_intent: true,
         ui_locale: locale,
         speech_language_override: speechLanguage,
         automatic_language_detection: mode === "wake" || !speechLanguage,

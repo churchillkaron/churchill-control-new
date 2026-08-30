@@ -1,0 +1,122 @@
+name: Avantiqo Video Confirmed Pod Termination Repair
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-confirmed-pod-termination-repair-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-confirmed-pod-termination-repair
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Wire confirmed Video Pod termination on newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B video-confirmed-pod-termination-repair origin/main
+
+          python - <<'PY'
+          from pathlib import Path
+
+          pod_runtime = Path('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js')
+          flash_runtime = Path('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js')
+          tests = Path('tests/avantiqo-video-studio-first-boundary.test.mjs')
+          audit = Path('scripts/studio-first-compute-boundary-audit.mjs')
+
+          def replace_once(path, old, new):
+              body = path.read_text()
+              count = body.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, got {count}: {old[:100]}')
+              path.write_text(body.replace(old, new, 1))
+
+          # Generation runtime: require confirmed terminal state before lease release + Studio CPU work.
+          replace_once(
+              pod_runtime,
+              'import { createVideoPodWithCertifiedVolumeFailover } from "./AvantiqoVideoPodVolumeFailover.js";\n',
+              'import { createVideoPodWithCertifiedVolumeFailover } from "./AvantiqoVideoPodVolumeFailover.js";\nimport { confirmAvantiqoVideoPodTerminal } from "./AvantiqoVideoPodTermination.js";\n',
+          )
+          replace_once(
+              pod_runtime,
+              '    await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: saved.success ? "VIDEO_GPU_RESULT_RECEIPT_COMPLETED" : text(saved.error_code) || "VIDEO_POD_RECEIPT_FAILED" }).catch(() => null);',
+              '    await deleteVideoPod(podId).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(podId);\n    await releaseVideoPodLease({ leaseId, ownerRequestId: owner, state: saved.success ? "RELEASED" : "FAILED", reason: saved.success ? "VIDEO_GPU_RESULT_RECEIPT_COMPLETED" : text(saved.error_code) || "VIDEO_POD_RECEIPT_FAILED" }).catch(() => null);',
+          )
+
+          # FlashVSR runtime: require confirmed A100 teardown before shared-volume retrieval bridge.
+          replace_once(
+              flash_runtime,
+              '} from "./AvantiqoVideoPodLease.js";\nimport {\n  createAvantiqoVideoVolumeCpuBridge,',
+              '} from "./AvantiqoVideoPodLease.js";\nimport { confirmAvantiqoVideoPodTerminal } from "./AvantiqoVideoPodTermination.js";\nimport {\n  createAvantiqoVideoVolumeCpuBridge,',
+          )
+          replace_once(
+              flash_runtime,
+              '    if (pod) await deleteVideoPod(podId).catch(() => null);\n    await releaseVideoPodLease({',
+              '    if (pod) await deleteVideoPod(podId).catch(() => null);\n    await confirmAvantiqoVideoPodTerminal(podId);\n    await releaseVideoPodLease({',
+          )
+
+          # Static regression test now verifies confirmed termination, not merely DELETE ordering.
+          replace_once(
+              tests,
+              '  const deleteIndex = runtime.indexOf("await deleteVideoPod(podId)", receiptBranch);\n  const studioIndex = runtime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", receiptBranch);\n  assert.ok(receiptBranch >= 0 && deleteIndex > receiptBranch && studioIndex > deleteIndex, "Pod must be deleted before Studio foundation assembly");',
+              '  const deleteIndex = runtime.indexOf("await deleteVideoPod(podId)", receiptBranch);\n  const confirmIndex = runtime.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", deleteIndex);\n  const studioIndex = runtime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", receiptBranch);\n  assert.ok(receiptBranch >= 0 && deleteIndex > receiptBranch && confirmIndex > deleteIndex && studioIndex > confirmIndex, "Pod termination must be confirmed before Studio foundation assembly");',
+          )
+          replace_once(
+              tests,
+              '  const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", terminalBranch);\n  const retrieveIndex = flashPod.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", gpuDeleteIndex);\n  const finalStudioIndex = flashPod.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", 0);\n  assert.ok(terminalBranch >= 0 && gpuDeleteIndex > terminalBranch && retrieveIndex > gpuDeleteIndex,\n    "A100 must be deleted before retrieval bridge is created");',
+              '  const gpuDeleteIndex = flashPod.indexOf("await deleteVideoPod(podId)", terminalBranch);\n  const gpuConfirmIndex = flashPod.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", gpuDeleteIndex);\n  const retrieveIndex = flashPod.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", gpuConfirmIndex);\n  const finalStudioIndex = flashPod.indexOf("const final = await finalizeCreativeVideoFlashVsrMaster", 0);\n  assert.ok(terminalBranch >= 0 && gpuDeleteIndex > terminalBranch && gpuConfirmIndex > gpuDeleteIndex && retrieveIndex > gpuConfirmIndex,\n    "A100 termination must be confirmed before retrieval bridge is created");',
+          )
+
+          # Architecture audit enforces the same ordering permanently.
+          replace_once(
+              audit,
+              '    const deletion = podRuntime.indexOf("await deleteVideoPod(podId)", branch);\n    const studio = podRuntime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", branch);\n    return branch >= 0 && deletion > branch && studio > deletion;',
+              '    const deletion = podRuntime.indexOf("await deleteVideoPod(podId)", branch);\n    const confirmation = podRuntime.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", deletion);\n    const studio = podRuntime.indexOf("const foundation = await finalizeStudioFoundation({ organizationId, podJob, saved })", branch);\n    return branch >= 0 && deletion > branch && confirmation > deletion && studio > confirmation;',
+          )
+          replace_once(
+              audit,
+              '    const deletion = flashVsrPodRuntime.indexOf("await deleteVideoPod(podId)", terminal);\n    const retrieve = flashVsrPodRuntime.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", deletion);\n    return terminal >= 0 && deletion > terminal && retrieve > deletion;',
+              '    const deletion = flashVsrPodRuntime.indexOf("await deleteVideoPod(podId)", terminal);\n    const confirmation = flashVsrPodRuntime.indexOf("await confirmAvantiqoVideoPodTerminal(podId)", deletion);\n    const retrieve = flashVsrPodRuntime.indexOf("const retrieved = await retrieveAndFinalize(masterJob)", confirmation);\n    return terminal >= 0 && deletion > terminal && confirmation > deletion && retrieve > confirmation;',
+          )
+          PY
+
+          node --test tests/avantiqo-video-studio-first-boundary.test.mjs
+          node scripts/studio-first-compute-boundary-audit.mjs
+
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRuntime.js \
+            lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js \
+            tests/avantiqo-video-studio-first-boundary.test.mjs \
+            scripts/studio-first-compute-boundary-audit.mjs
+          git commit -m 'Confirm Video Pod termination before Studio handoff'
+
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo 'AVANTIQO_VIDEO_CONFIRMED_POD_TERMINATION_REPAIR=PASS'
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            git fetch origin main
+            git rebase origin/main
+          done

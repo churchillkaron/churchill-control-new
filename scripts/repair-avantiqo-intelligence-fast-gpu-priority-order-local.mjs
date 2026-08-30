@@ -168,6 +168,9 @@ const plan = parseCapacityPlan(capacityStdout);
 const targetPool = uniqueOrdered(plan.target_gpu_type_ids);
 const plannedCurrentPool = uniqueOrdered(plan.current_gpu_type_ids);
 if (!targetPool.length) throw new Error(`${CONTRACT}_TARGET_POOL_REQUIRED`);
+if (targetPool.length > 3) {
+  throw new Error(`${CONTRACT}_TARGET_POOL_EXCEEDS_RUNPOD_SERVERLESS_LIMIT:${targetPool.length}`);
+}
 
 const before = await endpointSnapshot(managementKey, queueKey);
 assertParked(before.endpoint, before.health, `${CONTRACT}_PRECHECK`);

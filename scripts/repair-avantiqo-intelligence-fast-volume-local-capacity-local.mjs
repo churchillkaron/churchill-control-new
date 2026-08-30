@@ -6,7 +6,8 @@ const GQL = "https://api.runpod.io/graphql";
 const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_VOLUME_LOCAL_CAPACITY_REPAIR_V1";
 const ENDPOINT_NAME = "avantiqo-intelligence-fast-v1";
 const MINIMUM_VRAM_GB = 80;
-const MAX_GPU_FALLBACKS = 4;
+// RunPod Serverless supports at most three GPU types in priority order.
+const MAX_GPU_FALLBACKS = 3;
 const PAID_CERTIFICATION_MIN_STOCK_RANK = 3;
 
 const PROFILES = Object.freeze([

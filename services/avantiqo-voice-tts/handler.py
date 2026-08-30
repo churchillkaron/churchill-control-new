@@ -548,8 +548,17 @@ def check_worker():
 
 if __name__ == "__main__":
     print(
+        '{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"model_preload_started","secrets_printed":false}',
+        flush=True,
+    )
+    _model()
+    print(
+        '{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"model_preload_completed","secrets_printed":false}',
+        flush=True,
+    )
+    print(
         '{"event":"AVANTIQO_VOICE_TTS_SERVING_PROCESS","phase":"serverless_starting",'
-        '"model_load_deferred_until_job":true,"quality_contract":"AVANTIQO_VOICE_TTS_QUALITY_V2",'
+        '"model_preloaded_before_serverless_start":true,"quality_contract":"AVANTIQO_VOICE_TTS_QUALITY_V2",'
         '"recorded_reference_voice_implemented":true,"secrets_printed":false}',
         flush=True,
     )

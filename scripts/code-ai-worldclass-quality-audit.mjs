@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V8";
+const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V9";
 
 const files = Object.freeze({
   qualityPolicy: "lib/code/runtime/CodeAIWorldClassQualityPolicy.js",
@@ -88,8 +88,9 @@ requireMarkers("TEST_PROVENANCE", testProvenance, [
 ]);
 
 requireMarkers("REPAIR_CLOSURE", repairClosure, [
-  "AVANTIQO_CODE_AI_REPAIR_CLOSURE_V1",
-  "SAME_VERIFICATION_COMMAND_SIGNATURE_MUST_PASS_AFTER_FINAL_EDIT",
+  "AVANTIQO_CODE_AI_REPAIR_CLOSURE_V2",
+  "SAME_VERIFICATION_COMMAND_SIGNATURE_MUST_PASS_AFTER_FAILURE_AND_FINAL_EDIT",
+  "failed_verifier_count_after_final_edit",
   "unresolved_failed_verifier_count",
   "successful_post_edit_verifiers",
   "source_mutation_authority: false",
@@ -109,12 +110,17 @@ requireMarkers("FAST_START", fastStart, [
 
 requireMarkers("EMPLOYEE_RUNTIME", employee, [
   "AVANTIQO_CODE_AI_EMPLOYEE_RUNTIME_V1",
+  "AVANTIQO_CODE_AI_EMPLOYEE_COMPLETION_V2",
   "assessCodeAIWorldClassQuality",
-  "const worldClass = assessCodeAIWorldClassQuality(source)",
-  "worldclass_quality: worldClass",
-  "worldclass_quality_required: true",
-  "CODE_AI_EMPLOYEE_FINAL_DIFF_REVIEW_REQUIRED",
-  "CODE_AI_EMPLOYEE_SUCCESSFUL_VERIFICATION_REQUIRED",
+  "assessCodeAIBehavioralVerificationCoverage",
+  "assessCodeAITestProvenance",
+  "assessCodeAIRepairClosure",
+  "CODE_AI_EMPLOYEE_BEHAVIORAL_VERIFICATION_REQUIRED",
+  "CODE_AI_EMPLOYEE_TEST_PROVENANCE_REQUIRED",
+  "CODE_AI_EMPLOYEE_FAILED_VERIFIER_CLOSURE_REQUIRED",
+  "behavioral_verification_required: true",
+  "test_provenance_required_for_high_risk: true",
+  "failed_verifier_closure_required: true",
   "continue_until_verified_complete",
   "required_next_actions",
 ]);
@@ -276,14 +282,19 @@ if (workerGate < 0 || fastStartEmployeeCall <= workerGate) {
 }
 const employeeQualityImport = employee.indexOf("assessCodeAIWorldClassQuality");
 const employeeQualityCall = employee.indexOf("const worldClass = assessCodeAIWorldClassQuality(source)");
+const employeeBehavioralCall = employee.indexOf("const behavioralVerification = assessCodeAIBehavioralVerificationCoverage({");
+const employeeProvenanceCall = employee.indexOf("const testProvenance = assessCodeAITestProvenance({");
+const employeeRepairClosureCall = employee.indexOf("const repairClosure = assessCodeAIRepairClosure(source)");
 const employeeCompletionDecision = employee.indexOf("completion.complete === true");
 if (
   employeeQualityImport < 0 ||
   employeeQualityCall < 0 ||
-  employeeCompletionDecision < 0 ||
-  employeeCompletionDecision <= employeeQualityCall
+  employeeBehavioralCall <= employeeQualityCall ||
+  employeeProvenanceCall <= employeeBehavioralCall ||
+  employeeRepairClosureCall <= employeeProvenanceCall ||
+  employeeCompletionDecision <= employeeRepairClosureCall
 ) {
-  throw new Error(`${CONTRACT}_EMPLOYEE_COMPLETION_MUST_FOLLOW_WORLDCLASS_ASSESSMENT`);
+  throw new Error(`${CONTRACT}_EMPLOYEE_COMPLETION_MUST_FOLLOW_ALL_PROOF_ASSESSMENTS`);
 }
 if (/workersMin\s*:\s*1/.test(leasePolicySource)) throw new Error(`${CONTRACT}_POLICY_MUST_NEVER_SET_WORKERS_MIN_1`);
 
@@ -307,7 +318,8 @@ console.log(JSON.stringify({
     substantive_high_risk_verification_required: true,
     observed_impacted_behavior_verification_required: true,
     high_risk_changed_tests_cannot_self_certify: true,
-    failed_verifier_closure_after_final_edit_required: true,
+    every_failed_verifier_must_close_after_failure_and_final_edit: true,
+    employee_completion_consumes_behavioral_provenance_and_repair_proof: true,
     independent_high_risk_review_required_at_commit: true,
     employee_quality_convergence_enabled: true,
     source_manifest_workspace_convergence_required: true,

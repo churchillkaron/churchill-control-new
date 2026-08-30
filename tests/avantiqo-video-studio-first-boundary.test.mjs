@@ -79,7 +79,9 @@ test("Video 4K uses learned FlashVSR with sequential CPU bridge and A100 ownersh
   assert.match(flashStudio, /return \{ width: 3968, height: 2176 \}/);
   assert.match(flashStudio, /return \{ width: 2176, height: 3968 \}/);
   assert.doesNotMatch(flashStudio, /probe\.width \* 4|probe\.height \* 4/);
-  assert.match(flashStudio, /crop=3840:2160/);
+  assert.match(flashStudio, /function studioFinalFilter/);
+  assert.match(flashStudio, /flags=lanczos,crop=\$\{targetWidth\}:\$\{targetHeight\}/);
+  assert.match(flashStudio, /studio_final_scaling: outputWidth !== targetWidth \|\| outputHeight !== targetHeight/);
   assert.doesNotMatch(flashStudio, /scale=-2:2160:flags=lanczos/);
   assert.doesNotMatch(flashStudio, /presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/);
   assert.match(cpuBridge, /computeType: "CPU"/);

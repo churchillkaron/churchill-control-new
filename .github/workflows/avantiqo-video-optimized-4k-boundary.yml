@@ -1,0 +1,191 @@
+name: Avantiqo Video Optimized 4K Boundary
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-optimized-4k-boundary-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-optimized-4k-boundary
+  cancel-in-progress: false
+
+jobs:
+  repair-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Apply optimized 4K boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'VIDEO_4K_PATCH_COUNT_INVALID:{path}:{count}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          studio = 'lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js'
+          replace_exact(studio, '''function fourXTarget(width, height) {
+            const targetWidth = Math.floor((width * 4) / 128) * 128;
+            const targetHeight = Math.floor((height * 4) / 128) * 128;
+            if (targetWidth < 128 || targetHeight < 128) throw new Error("AVANTIQO_VIDEO_STUDIO_FLASHVSR_TARGET_INVALID");
+            return { width: targetWidth, height: targetHeight };
+          }
+          ''', '''function fourKAlignedTarget(width, height) {
+            if (width === height) return { width: 2176, height: 2176 };
+            if (width > height) return { width: 3968, height: 2176 };
+            return { width: 2176, height: 3968 };
+          }
+
+          function scaleCropForTarget(width, height, targetWidth, targetHeight) {
+            const factor = Math.max(targetWidth / width, targetHeight / height);
+            const scaledWidth = Math.max(targetWidth, Math.ceil((width * factor) / 2) * 2);
+            const scaledHeight = Math.max(targetHeight, Math.ceil((height * factor) / 2) * 2);
+            return { scaledWidth, scaledHeight };
+          }
+          ''')
+          replace_exact(studio, '''    const target = fourXTarget(probe.width, probe.height);
+              const scaledWidth = probe.width * 4;
+              const scaledHeight = probe.height * 4;
+              const filter = `scale=${scaledWidth}:${scaledHeight}:flags=bicubic,crop=${target.width}:${target.height}:(iw-${target.width})/2:(ih-${target.height})/2`;
+          ''', '''    const target = fourKAlignedTarget(probe.width, probe.height);
+              const { scaledWidth, scaledHeight } = scaleCropForTarget(probe.width, probe.height, target.width, target.height);
+              const filter = `scale=${scaledWidth}:${scaledHeight}:flags=bicubic,crop=${target.width}:${target.height}:(iw-${target.width})/2:(ih-${target.height})/2`;
+          ''')
+          replace_exact(studio, '''    const filter = square
+                ? "scale=2160:2160:flags=lanczos"
+                : landscape
+                  ? "scale=-2:2160:flags=lanczos,crop=3840:2160:(iw-3840)/2:0"
+                  : "scale=2160:-2:flags=lanczos,crop=2160:3840:0:(ih-3840)/2";
+          ''', '''    const filter = square
+                ? "crop=2160:2160:(iw-2160)/2:(ih-2160)/2"
+                : landscape
+                  ? "crop=3840:2160:(iw-3840)/2:(ih-2160)/2"
+                  : "crop=2160:3840:(iw-2160)/2:(ih-3840)/2";
+          ''')
+
+          pod = 'lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js'
+          replace_exact(pod, '''const STARTUP_TIMEOUT = 12 * 60 * 1000;
+          const HARD_TIMEOUT = 45 * 60 * 1000;
+          ''', '''const STARTUP_TIMEOUT = 4 * 60 * 1000;
+          const HARD_TIMEOUT = 12 * 60 * 1000;
+          ''')
+
+          proof = 'scripts/run-avantiqo-video-v72-flashvsr-4k-quality-final-ci.mjs'
+          replace_exact(proof, '''const TIMEOUT_MS = 50 * 60 * 1000;
+          ''', '''const TIMEOUT_MS = 20 * 60 * 1000;
+          const MAX_GPU_ELAPSED_SECONDS = 12 * 60;
+          ''')
+          replace_exact(proof, '''  const result = final.final;
+            if (result?.learned_super_resolution_used !== true) throw new Error(`${CONTRACT}_LEARNED_SUPER_RESOLUTION_REQUIRED`);
+          ''', '''  const result = final.final;
+            const gpuElapsedSeconds = Number(final.receipt?.elapsed_seconds ?? 0);
+            if (!Number.isFinite(gpuElapsedSeconds) || gpuElapsedSeconds <= 0) throw new Error(`${CONTRACT}_GPU_ELAPSED_REQUIRED`);
+            if (gpuElapsedSeconds > MAX_GPU_ELAPSED_SECONDS) throw new Error(`${CONTRACT}_GPU_COST_CEILING_EXCEEDED:${gpuElapsedSeconds}`);
+            if (result?.learned_super_resolution_used !== true) throw new Error(`${CONTRACT}_LEARNED_SUPER_RESOLUTION_REQUIRED`);
+          ''')
+          replace_exact(proof, '''    immutable_master_image: AVANTIQO_VIDEO_FLASHVSR_IMAGE,
+              final_master_resolution: "4k",
+          ''', '''    immutable_master_image: AVANTIQO_VIDEO_FLASHVSR_IMAGE,
+              gpu_elapsed_seconds: gpuElapsedSeconds,
+              max_gpu_elapsed_seconds: MAX_GPU_ELAPSED_SECONDS,
+              final_master_resolution: "4k",
+          ''')
+
+          test = 'tests/avantiqo-video-studio-first-boundary.test.mjs'
+          replace_exact(test, '''  assert.match(flashStudio, /s3_credentials_required: false/);
+            assert.doesNotMatch(flashStudio, /presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/);
+          ''', '''  assert.match(flashStudio, /s3_credentials_required: false/);
+            assert.match(flashStudio, /return \{ width: 3968, height: 2176 \}/);
+            assert.match(flashStudio, /return \{ width: 2176, height: 3968 \}/);
+            assert.doesNotMatch(flashStudio, /probe\.width \* 4|probe\.height \* 4/);
+            assert.match(flashStudio, /crop=3840:2160/);
+            assert.doesNotMatch(flashStudio, /scale=-2:2160:flags=lanczos/);
+            assert.doesNotMatch(flashStudio, /presignAvantiqoVideoRunpodVolumeObject|RUNPOD_S3_ACCESS_KEY|RUNPOD_S3_SECRET_KEY/);
+          ''')
+          replace_exact(test, '''  assert.match(flashPod, /AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"/);
+            assert.ok(flashPod.includes(IMMUTABLE_FLASHVSR_IMAGE), "FlashVSR runtime must use the certified immutable A100 image");
+          ''', '''  assert.match(flashPod, /AVANTIQO_VIDEO_FLASHVSR_GPU_TYPE = "NVIDIA A100 80GB PCIe"/);
+            assert.match(flashPod, /const STARTUP_TIMEOUT = 4 \* 60 \* 1000/);
+            assert.match(flashPod, /const HARD_TIMEOUT = 12 \* 60 \* 1000/);
+            assert.ok(flashPod.includes(IMMUTABLE_FLASHVSR_IMAGE), "FlashVSR runtime must use the certified immutable A100 image");
+          ''')
+
+          print('AVANTIQO_VIDEO_OPTIMIZED_4K_BOUNDARY_PATCHED=true')
+          PY
+
+      - name: Verify no-GPU source boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js
+          node --check lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js
+          node --check scripts/run-avantiqo-video-v72-flashvsr-4k-quality-final-ci.mjs
+          grep -F 'return { width: 3968, height: 2176 }' lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js
+          grep -F 'return { width: 2176, height: 3968 }' lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js
+          grep -F 'const STARTUP_TIMEOUT = 4 * 60 * 1000;' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js
+          grep -F 'const HARD_TIMEOUT = 12 * 60 * 1000;' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js
+          grep -F 'MAX_GPU_ELAPSED_SECONDS = 12 * 60' scripts/run-avantiqo-video-v72-flashvsr-4k-quality-final-ci.mjs
+          if grep -Eq 'probe\.width \* 4|probe\.height \* 4|scale=-2:2160:flags=lanczos' lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js; then
+            echo 'AVANTIQO_VIDEO_OVERSIZED_4K_PATH_REMAINS' >&2
+            exit 1
+          fi
+          echo 'AVANTIQO_VIDEO_OPTIMIZED_4K_SOURCE_BOUNDARY=PASS'
+
+      - name: Run Video static certification
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/avantiqo-video-pod-termination-coverage.test.mjs
+          node --test tests/avantiqo-video-studio-first-boundary.test.mjs
+          node scripts/studio-first-compute-boundary-audit.mjs
+          echo 'AVANTIQO_VIDEO_OPTIMIZED_4K_STATIC_CERTIFICATION=PASS'
+
+      - name: Commit optimized boundary on newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/creative/video/runtime/CreativeVideoStudioFlashVsrRuntime.js \
+            lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js \
+            scripts/run-avantiqo-video-v72-flashvsr-4k-quality-final-ci.mjs \
+            tests/avantiqo-video-studio-first-boundary.test.mjs
+          git commit -m 'Bound optimized Video 4K mastering cost'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            git fetch origin main
+            git rebase origin/main
+          done
+
+      - name: Final marker
+        shell: bash
+        run: |
+          echo 'AVANTIQO_VIDEO_OPTIMIZED_4K_BOUNDARY=PASS'
+          echo 'GPU_COST_CEILING_MINUTES=12'
+          echo 'RUNPOD_MUTATION_PERFORMED=false'
+          echo 'MODEL_INFERENCE_PERFORMED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'

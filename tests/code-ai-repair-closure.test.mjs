@@ -115,22 +115,62 @@ test("the same failed verification signature passing after the final edit closes
   assert.equal(result.repair_closure_verified, true);
 });
 
-test("a failure after the final edit is not misclassified as pre-edit repair evidence", () => {
+test("a verifier failure after the final edit remains unresolved until the same verifier later passes", () => {
   const state = baseState();
   state.evidence = [
     operation("apply_1", "apply_files"),
+    operation("verify_failed", "verify"),
     operation("verify_after", "verify"),
     operation("diff_1", "diff"),
   ];
-  state.tests = [{
-    operation_id: "verify_after",
-    command: "node",
-    args: ["--test", "tests/example.test.mjs"],
-    exit_code: 1,
-  }];
+  state.tests = [
+    {
+      operation_id: "verify_failed",
+      command: "node",
+      args: ["--test", "tests/example.test.mjs"],
+      exit_code: 1,
+    },
+    {
+      operation_id: "verify_after",
+      command: "node",
+      args: ["--test", "tests/other.test.mjs"],
+      exit_code: 0,
+    },
+  ];
 
   const closure = assessCodeAIRepairClosure(state);
-  assert.equal(closure.required, false);
+  assert.equal(closure.required, true);
+  assert.equal(closure.verified, false);
+  assert.equal(closure.failed_verifier_count_after_final_edit, 1);
+  assert.equal(closure.unresolved_failed_verifier_count, 1);
+});
+
+test("a post-edit verifier failure closes only when the same signature passes later", () => {
+  const state = baseState();
+  state.evidence = [
+    operation("apply_1", "apply_files"),
+    operation("verify_failed", "verify"),
+    operation("verify_after", "verify"),
+    operation("diff_1", "diff"),
+  ];
+  state.tests = [
+    {
+      operation_id: "verify_failed",
+      command: "node",
+      args: ["--test", "tests/example.test.mjs"],
+      exit_code: 1,
+    },
+    {
+      operation_id: "verify_after",
+      command: "node",
+      args: ["--test", "tests/example.test.mjs"],
+      exit_code: 0,
+    },
+  ];
+
+  const closure = assessCodeAIRepairClosure(state);
+  assert.equal(closure.required, true);
   assert.equal(closure.verified, true);
-  assert.equal(closure.failed_verifier_count_before_final_edit, 0);
+  assert.equal(closure.failed_verifier_count_after_final_edit, 1);
+  assert.equal(closure.closed_failed_verifier_count, 1);
 });

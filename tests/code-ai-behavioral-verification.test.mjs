@@ -56,6 +56,19 @@ function state(operations) {
   };
 }
 
+function assessOperation(command, args) {
+  const operations = [{
+    operation_id: "verify_candidate",
+    command,
+    args,
+    family: "tests",
+  }];
+  return assessCodeAIBehavioralVerificationCoverage({
+    state: state(operations),
+    quality: quality(operations),
+  });
+}
+
 test("observed impacted test becomes a behavioral verification obligation", () => {
   const result = assessCodeAIBehavioralVerificationCoverage({
     state: state([]),
@@ -128,6 +141,35 @@ test("a broad repository test suite also satisfies observed impacted behavior co
   assert.equal(result.required, true);
   assert.equal(result.verified, true);
   assert.deepEqual(result.broad_test_operation_ids, ["verify_suite"]);
+  assert.equal(result.broad_test_classification, "STRICT_REPOSITORY_SCOPE");
+});
+
+test("scoped package test scripts are not misclassified as broad proof", () => {
+  const result = assessOperation("npm", ["run", "test:unit"]);
+  assert.equal(result.required, true);
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.broad_test_operation_ids, []);
+});
+
+test("scoped node test globs are not misclassified as broad proof", () => {
+  const result = assessOperation("node", ["--test", "tests/finance/*.test.js"]);
+  assert.equal(result.required, true);
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.broad_test_operation_ids, []);
+});
+
+test("filtered pytest is not misclassified as broad proof", () => {
+  const result = assessOperation("pytest", ["-k", "access_policy"]);
+  assert.equal(result.required, true);
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.broad_test_operation_ids, []);
+});
+
+test("package-scoped cargo tests are not misclassified as broad proof", () => {
+  const result = assessOperation("cargo", ["test", "-p", "auth"]);
+  assert.equal(result.required, true);
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.broad_test_operation_ids, []);
 });
 
 test("no discovered related test does not invent a behavioral obligation", () => {

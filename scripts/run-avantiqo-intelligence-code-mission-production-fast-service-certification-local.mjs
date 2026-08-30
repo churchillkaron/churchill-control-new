@@ -8,7 +8,6 @@ const FAST_SERVICE = "ai.text.generate";
 const FAST_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507";
 const FAST_BINDING = "OWNED_INTELLIGENCE_FAST_V1";
 const FAST_ASSESSMENT_CONTRACT = "AVANTIQO_PRODUCT_REPOSITORY_ASSESSMENT_V1";
-const PARALLEL_SAFE_LEASE = "scripts/run-avantiqo-runpod-safe-lease-v2-parallel-local.mjs";
 const FAST_CHILD = "scripts/run-avantiqo-intelligence-code-mission-production-fast-assessment-local.mjs";
 const FAST_CAPACITY_REPAIR = "scripts/repair-avantiqo-intelligence-fast-volume-local-capacity-local.mjs";
 const FAST_CAPACITY_CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_VOLUME_LOCAL_CAPACITY_REPAIR_V1";
@@ -114,22 +113,11 @@ function runFastCapacityGate(env) {
   return true;
 }
 function runFastChild(env) {
-  const result = spawnSync(
-    process.execPath,
-    [
-      PARALLEL_SAFE_LEASE,
-      "--lane=intelligence-fast",
-      "--ttl-ms=900000",
-      "--",
-      process.execPath,
-      FAST_CHILD,
-    ],
-    {
-      cwd: process.cwd(),
-      env,
-      stdio: "inherit",
-    },
-  );
+  const result = spawnSync(process.execPath, [FAST_CHILD], {
+    cwd: process.cwd(),
+    env,
+    stdio: "inherit",
+  });
   if (result.error) throw result.error;
   if (result.signal) throw new Error(`${CONTRACT}_FAST_PHASE_SIGNAL:${result.signal}`);
   if (result.status !== 0) throw new Error(`${CONTRACT}_FAST_PHASE_FAILED_RC:${result.status}`);
@@ -251,6 +239,8 @@ console.log(JSON.stringify({
   configured_max_customer_charge: configuredMaxCharge,
   live_capacity_gate_required: true,
   live_capacity_minimum_stock_status: "MEDIUM",
+  fast_transport: "RUNPOD_EPHEMERAL_POD_OPENAI_COMPATIBLE",
+  serverless_fast_transport_allowed: false,
   runpod_mutation_performed: false,
   provider_requests_submitted: 0,
   production_deploy_performed: false,
@@ -262,12 +252,16 @@ const assessmentPath = `/tmp/avantiqo-intelligence-code-mission-fast-cert-assess
 const commonEnv = {
   ...process.env,
   NODE_ENV: "development",
-  AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES",
   AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_SPEND_APPROVED: "YES",
   AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_EXPECTED_MAIN_COMMIT: head,
   AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_ORGANIZATION_ID: organizationId,
   AVANTIQO_INTELLIGENCE_CODE_MISSION_PRODUCTION_CERT_ASSESSMENT_PATH: assessmentPath,
 };
+delete commonEnv.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE;
+delete commonEnv.AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT;
+delete commonEnv.AVANTIQO_RUNPOD_SAFE_LEASE_LANE;
+delete commonEnv.AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID;
+delete commonEnv.AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT;
 
 console.log("=== FAST LIVE CAPACITY GATE ===");
 runFastCapacityGate(commonEnv);
@@ -365,7 +359,9 @@ console.log(JSON.stringify({
     learning_knowledge_promoted: false,
     production_deploy_performed: false,
     raw_reasoning_persisted: false,
-    safe_lease_exclusively_owns_scaling: true,
+    fast_serverless_transport_allowed: false,
+    governed_ephemeral_pod_transport_required: true,
+    distributed_fast_lane_lease_required: true,
     direct_endpoint_scaling_performed_by_child: false,
     provider_selection_changed: false,
     pricing_activation_performed: false,

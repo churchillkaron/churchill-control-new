@@ -7,7 +7,7 @@ import path from "node:path";
 const CONTRACT = "AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1";
 const ROOT = process.cwd();
 const CERTIFIED_VIDEO_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-worker-gpu-only@sha256:2f477f95fcc46fdcb7aff1dda03944ad282eb3a7d33c95098bd13d00a76c3425";
-const CERTIFIED_FLASHVSR_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:55919408e355960cf35f3c87a8d2c875c92a9e586ea43bb207dfcb93dc4d20fc";
+const CERTIFIED_FLASHVSR_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:aee7eaa3d3a7bbf3c55ccf2d39e6848ee041366cf600a321787972ef285fbd7a";
 
 const NON_VIDEO_PAID_WORKER_ROOTS = [
   "services/avantiqo-image-engine",

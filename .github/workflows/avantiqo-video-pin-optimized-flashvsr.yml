@@ -1,0 +1,130 @@
+name: Avantiqo Video Pin Optimized FlashVSR
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-pin-optimized-flashvsr-request.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-pin-optimized-flashvsr
+  cancel-in-progress: false
+
+jobs:
+  pin-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact triggering source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Verify optimized immutable image evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync('audits/results/avantiqo-video-flashvsr-worker.json', 'utf8'));
+          const expected = 'ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:aee7eaa3d3a7bbf3c55ccf2d39e6848ee041366cf600a321787972ef285fbd7a';
+          if (report?.success !== true) throw new Error('FLASHVSR_IMAGE_EVIDENCE_NOT_SUCCESS');
+          if (report?.source_sha !== 'bdb67e84bbff34e0a2d0613b65484817cc766365') throw new Error('FLASHVSR_IMAGE_SOURCE_SHA_INVALID');
+          if (report?.immutable_image_reference !== expected) throw new Error('FLASHVSR_IMAGE_DIGEST_INVALID');
+          if (report?.inference_performed !== false || report?.runpod_mutation_performed !== false || report?.production_deploy_performed !== false) {
+            throw new Error('FLASHVSR_IMAGE_BUILD_BOUNDARY_INVALID');
+          }
+          console.log('AVANTIQO_VIDEO_OPTIMIZED_FLASHVSR_IMAGE_EVIDENCE=PASS');
+          NODE
+
+      - name: Pin optimized FlashVSR immutable digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          old = 'ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:55919408e355960cf35f3c87a8d2c875c92a9e586ea43bb207dfcb93dc4d20fc'
+          new = 'ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:aee7eaa3d3a7bbf3c55ccf2d39e6848ee041366cf600a321787972ef285fbd7a'
+          files = [
+              Path('lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js'),
+              Path('scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs'),
+              Path('scripts/studio-first-compute-boundary-audit.mjs'),
+              Path('tests/avantiqo-video-studio-first-boundary.test.mjs'),
+          ]
+          for path in files:
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'FLASHVSR_OLD_DIGEST_COUNT_INVALID:{path}:{count}')
+              path.write_text(text.replace(old, new), encoding='utf-8')
+          print('AVANTIQO_VIDEO_OPTIMIZED_FLASHVSR_DIGEST_PINNED=true')
+          PY
+
+      - name: Verify optimized 4K latency source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'return 3968, 2176' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'return 2176, 3968' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'topk_ratio=1.5 * 768 * 1280 / (height * width)' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'mastering_pixel_reduction_ratio' services/avantiqo-video-flashvsr/flashvsr_worker.py
+          grep -F 'sha256:aee7eaa3d3a7bbf3c55ccf2d39e6848ee041366cf600a321787972ef285fbd7a' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js
+          grep -F 'sha256:aee7eaa3d3a7bbf3c55ccf2d39e6848ee041366cf600a321787972ef285fbd7a' scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs
+          if grep -Fq 'sha256:55919408e355960cf35f3c87a8d2c875c92a9e586ea43bb207dfcb93dc4d20fc' \
+            lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js \
+            scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs \
+            scripts/studio-first-compute-boundary-audit.mjs \
+            tests/avantiqo-video-studio-first-boundary.test.mjs; then
+            echo 'OLD_FLASHVSR_DIGEST_REMAINS' >&2
+            exit 1
+          fi
+          echo 'AVANTIQO_VIDEO_OPTIMIZED_4K_LATENCY_SOURCE_CONTRACT=PASS'
+
+      - name: Run Video static certification gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs
+          node --test tests/avantiqo-video-pod-termination-coverage.test.mjs
+          node --test tests/avantiqo-video-studio-first-boundary.test.mjs
+          node scripts/studio-first-compute-boundary-audit.mjs
+          echo 'AVANTIQO_VIDEO_OPTIMIZED_FLASHVSR_STATIC_CERTIFICATION=PASS'
+
+      - name: Commit verified pin on newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrPodRuntime.js \
+            scripts/run-avantiqo-video-fresh-e2e-final-ci.mjs \
+            scripts/studio-first-compute-boundary-audit.mjs \
+            tests/avantiqo-video-studio-first-boundary.test.mjs
+          git commit -m 'Pin optimized Video FlashVSR worker'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            git fetch origin main
+            git rebase origin/main
+          done
+
+      - name: Final marker
+        shell: bash
+        run: |
+          echo 'AVANTIQO_VIDEO_OPTIMIZED_FLASHVSR_PIN_AND_VERIFY=PASS'
+          echo 'RUNPOD_MUTATION_PERFORMED=false'
+          echo 'MODEL_INFERENCE_PERFORMED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'

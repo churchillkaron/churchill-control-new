@@ -1,0 +1,1 @@
+{"contract":"AVANTIQO_VIDEO_V72_STUDIO_4K_CLOSURE_REQUEST_V1","scope":"VIDEO_ONLY","existing_foundation_required":true,"new_generation_allowed":false,"gpu_mastering_allowed":false,"studio_master_backend":"STUDIO_CPU_FFMPEG_LANCZOS","final_master":"3840x2160","production_deploy_performed":false,"approved":true,"trigger":"2026-08-30T05:57:00Z"}

@@ -5,7 +5,7 @@ import test from "node:test";
 const ROOT = new URL("../", import.meta.url);
 const read = (relative) => readFile(new URL(relative, ROOT), "utf8");
 const IMMUTABLE_GPU_ONLY_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-worker-gpu-only@sha256:2f477f95fcc46fdcb7aff1dda03944ad282eb3a7d33c95098bd13d00a76c3425";
-const IMMUTABLE_FLASHVSR_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:aee7eaa3d3a7bbf3c55ccf2d39e6848ee041366cf600a321787972ef285fbd7a";
+const IMMUTABLE_FLASHVSR_IMAGE = "ghcr.io/churchillkaron/avantiqo-video-flashvsr-v11@sha256:78db7a82d489731be6dd4c5e8b1e933535f909e0feaab797da44c00068a643da";
 
 test("active Video paid generation worker is GPU-only and FFmpeg-free", async () => {
   const [dockerfile, handler, core, requirements] = await Promise.all([

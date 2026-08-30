@@ -94,6 +94,7 @@ export default function HeyAvantiqoWakeBridge() {
   const speechAbortRef = useRef(null);
   const speechSourceRef = useRef(null);
   const speechSessionRef = useRef(0);
+  const voiceReplyPendingRef = useRef(false);
 
   const [supported, setSupported] = useState(true);
   const [enabled, setEnabled] = useState(false);
@@ -114,8 +115,11 @@ export default function HeyAvantiqoWakeBridge() {
   const isHome = /^\/workspace\/[^/]+\/?$/.test(pathname || "");
 
   useEffect(() => {
+    // Voice is session-explicit only. Never restore microphone capture from a
+    // previous page/session: the user must actively choose Voice again.
     window.localStorage.removeItem(LEGACY_WAKE_STORAGE_KEY);
     window.localStorage.removeItem("avantiqo.wake.bridge.enabled");
+    window.localStorage.removeItem(WAKE_STORAGE_KEY);
 
     const canRecord = Boolean(
       navigator.mediaDevices?.getUserMedia &&
@@ -130,19 +134,9 @@ export default function HeyAvantiqoWakeBridge() {
       return undefined;
     }
 
-    const storedEnabled =
-      window.localStorage.getItem(WAKE_STORAGE_KEY) === "true";
-
-    if (storedEnabled) {
-      window.setTimeout(() => {
-        startWakeAudio().catch(() => {
-          enabledRef.current = false;
-          setEnabled(false);
-          setListening(false);
-          setStatus("permission-required");
-        });
-      }, 350);
-    }
+    setEnabled(false);
+    setListening(false);
+    setStatus("off");
 
     return () => {
       stopWakeAudio();
@@ -152,8 +146,16 @@ export default function HeyAvantiqoWakeBridge() {
   useEffect(() => {
     function handleSpeak(event) {
       const message = text(event?.detail?.message || event?.detail?.text);
-      if (!message || !enabledRef.current) return;
+      if (!message || !enabledRef.current || !voiceReplyPendingRef.current) return;
 
+      const explicitlyVoiceInitiated =
+        event?.detail?.voice_initiated === true ||
+        text(event?.detail?.source).toLowerCase() === "voice" ||
+        text(event?.detail?.source).toLowerCase() === "operator";
+      if (!explicitlyVoiceInitiated) return;
+
+      // One explicit Voice command authorizes one spoken response only.
+      voiceReplyPendingRef.current = false;
       playSpeech(message, "speaking").catch((error) => {
         if (error?.name !== "AbortError") {
           console.error("HEY_AVANTIQO_RESPONSE_PLAYBACK_ERROR", error);
@@ -162,8 +164,20 @@ export default function HeyAvantiqoWakeBridge() {
       });
     }
 
+    function cancelVoicePermissionForText(event) {
+      const detail = event?.detail;
+      if (!detail || text(detail.source).toLowerCase() === "voice") return;
+      voiceReplyPendingRef.current = false;
+    }
+
     window.addEventListener("avantiqo:speak", handleSpeak);
-    return () => window.removeEventListener("avantiqo:speak", handleSpeak);
+    window.addEventListener("avantiqo:home-command", cancelVoicePermissionForText, true);
+    window.addEventListener("avantiqo:operator-command", cancelVoicePermissionForText, true);
+    return () => {
+      window.removeEventListener("avantiqo:speak", handleSpeak);
+      window.removeEventListener("avantiqo:home-command", cancelVoicePermissionForText, true);
+      window.removeEventListener("avantiqo:operator-command", cancelVoicePermissionForText, true);
+    };
   }, [organizationId, entityId]);
 
   function clearAnimationFrame() {
@@ -215,6 +229,7 @@ export default function HeyAvantiqoWakeBridge() {
     speechAbortRef.current?.abort();
     speechAbortRef.current = null;
     speechSessionRef.current += 1;
+    voiceReplyPendingRef.current = false;
     stopActiveSpeechPlayback();
   }
 
@@ -250,9 +265,11 @@ export default function HeyAvantiqoWakeBridge() {
     const detail = {
       message: text(message),
       source: "voice",
+      voice_initiated: true,
     };
 
     if (!detail.message) return;
+    voiceReplyPendingRef.current = true;
 
     if (document.querySelector('[data-avantiqo-home-intelligence="true"]')) {
       window.dispatchEvent(
@@ -629,7 +646,6 @@ export default function HeyAvantiqoWakeBridge() {
     setEnabled(true);
     setListening(true);
     setStatus("listening");
-    window.localStorage.setItem(WAKE_STORAGE_KEY, "true");
     monitorAudio();
   }
 
@@ -643,7 +659,6 @@ export default function HeyAvantiqoWakeBridge() {
       setEnabled(false);
       setListening(false);
       setStatus("permission-required");
-      window.localStorage.removeItem(WAKE_STORAGE_KEY);
     }
   }
 
@@ -686,6 +701,7 @@ export default function HeyAvantiqoWakeBridge() {
         onClick={enabled ? disableWake : enableWake}
         disabled={!supported || !organizationId}
         aria-pressed={enabled}
+        aria-label={enabled ? "Disable Hey Avantiqo" : "Enable Hey Avantiqo"}
         className={
           enabled
             ? "fixed bottom-6 right-6 z-[90] flex h-12 items-center gap-3 rounded-full border border-emerald-400/30 bg-[#07100B]/95 px-5 text-emerald-200 shadow-[0_20px_70px_rgba(0,0,0,.65)] backdrop-blur-2xl transition hover:border-emerald-300/55"

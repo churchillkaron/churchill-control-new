@@ -5,6 +5,7 @@ const CONTRACT = "AVANTIQO_INTELLIGENCE_FAST_EPHEMERAL_POD_MODELS_PROOF_V3";
 const APPROVAL_ENV = "AVANTIQO_INTELLIGENCE_FAST_EPHEMERAL_POD_MODELS_PROOF_V3_APPROVED";
 const SOURCE_PATH = "scripts/run-avantiqo-intelligence-fast-ephemeral-pod-models-proof-v3-local.mjs";
 const REST = "https://rest.runpod.io/v1";
+const GRAPHQL = "https://api.runpod.io/graphql";
 const SERVERLESS = "https://api.runpod.ai/v2";
 const FAST_ENDPOINT_NAME = "avantiqo-intelligence-fast-v1";
 const FAST_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507";
@@ -19,8 +20,8 @@ const VLLM_PORT = 8000;
 const MAX_MODEL_LEN = 32768;
 const GPU_MEMORY_UTILIZATION = 0.90;
 const POLL_MS = 5000;
-const POD_START_TIMEOUT_MS = 6 * 60_000;
-const STATUS_ROUTE_TIMEOUT_MS = 75_000;
+const RUNTIME_TELEMETRY_TIMEOUT_MS = 3 * 60_000;
+const STATUS_ROUTE_TIMEOUT_MS = 30_000;
 const MODEL_ROUTE_TIMEOUT_MS = 7 * 60_000;
 const CLEANUP_TIMEOUT_MS = 3 * 60_000;
 const TERMINAL = new Set(["EXITED", "STOPPED", "TERMINATED", "DELETED", "FAILED"]);
@@ -105,6 +106,23 @@ async function rest(path, key, options = {}) {
   return readJson(response, `${CONTRACT}_REST`, { allow404: options.allow404 === true });
 }
 
+async function graphql(query, key) {
+  const response = await fetch(`${GRAPHQL}?api_key=${encodeURIComponent(key)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(20000),
+  });
+  const raw = await response.text();
+  let body = null;
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+  if (!response.ok) throw new Error(`${CONTRACT}_GRAPHQL_HTTP_${response.status}:${redact(raw)}`);
+  if (list(body?.errors).length) {
+    throw new Error(`${CONTRACT}_GRAPHQL_ERROR:${redact(list(body.errors).map((entry) => entry?.message).filter(Boolean).join(" | "))}`);
+  }
+  return object(body?.data);
+}
+
 async function health(endpointId, key) {
   const response = await fetch(`${SERVERLESS}/${encodeURIComponent(endpointId)}/health`, {
     headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
@@ -185,6 +203,7 @@ let createdPodId = "";
 let podCreatePerformed = false;
 let deletePerformed = false;
 let deleteVerified = false;
+let runtimeTelemetryPassed = false;
 let statusRoutePassed = false;
 let modelRoutePassed = false;
 let interrupted = false;
@@ -341,25 +360,65 @@ async function podState(podId) {
   return { pod: p, desired, status };
 }
 
+async function podRuntimeTelemetry(podId) {
+  const safeId = text(podId).replace(/[^A-Za-z0-9_-]/g, "");
+  if (!safeId || safeId !== text(podId)) throw new Error(`${CONTRACT}_POD_ID_INVALID`);
+  const data = await graphql(`query { pod(input: {podId: "${safeId}"}) { id desiredStatus runtime { uptimeInSeconds ports { privatePort publicPort type isIpPublic } gpus { gpuUtilPercent memoryUtilPercent } container { cpuPercent memoryPercent } } } }`, managementKey);
+  const pod = object(data?.pod);
+  return { pod, runtime: object(pod?.runtime) };
+}
+
 async function waitRunning(podId) {
-  const deadline = Date.now() + POD_START_TIMEOUT_MS;
+  const started = Date.now();
+  const deadline = started + RUNTIME_TELEMETRY_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (interrupted) throw new Error(`${CONTRACT}_INTERRUPTED`);
     const state = await podState(podId);
     const machineAssigned = Boolean(text(state.pod?.machineId || state.pod?.machine?.id));
+    let telemetry = { pod: {}, runtime: {} };
+    let telemetryError = null;
+    try {
+      telemetry = await podRuntimeTelemetry(podId);
+    } catch (error) {
+      telemetryError = redact(error?.message);
+      if (/HTTP_(401|403)|unauthoriz|api.?key/i.test(telemetryError)) {
+        throw new Error(`${CONTRACT}_RUNTIME_TELEMETRY_AUTH_FAILED:${telemetryError}`);
+      }
+    }
+    const runtime = object(telemetry.runtime);
+    const uptime = runtime?.uptimeInSeconds == null ? null : finite(runtime.uptimeInSeconds, null);
+    const ports = list(runtime?.ports);
+    const statusPortRegistered = ports.some((port) => finite(port?.privatePort, -1) === STATUS_PORT);
+    const vllmPortRegistered = ports.some((port) => finite(port?.privatePort, -1) === VLLM_PORT);
+    const elapsedMs = Date.now() - started;
+    const costPerHr = finite(state.pod?.costPerHr ?? state.pod?.adjustedCostPerHr ?? state.pod?.machine?.costPerHr, null);
+    const estimatedSpendUsd = costPerHr == null ? null : Number((costPerHr * elapsedMs / 3_600_000).toFixed(4));
+
     console.log(JSON.stringify({
       event: "AVANTIQO_INTELLIGENCE_FAST_POD_PROGRESS",
-      phase: "POD_START",
+      phase: "POD_RUNTIME_WAIT",
       desired_status: state.desired || null,
-      runtime_status: state.status || null,
+      rest_runtime_status: state.status || null,
       machine_assigned: machineAssigned,
-      cost_per_hour_present: finite(state.pod?.costPerHr ?? state.pod?.machine?.costPerHr, null) !== null,
+      last_started_at: text(state.pod?.lastStartedAt) || null,
+      runtime_telemetry_present: uptime !== null,
+      runtime_uptime_seconds: uptime,
+      status_port_registered: statusPortRegistered,
+      vllm_port_registered: vllmPortRegistered,
+      runtime_port_count: ports.length,
+      telemetry_error: telemetryError,
+      cost_per_hour_present: costPerHr !== null,
+      estimated_spend_usd: estimatedSpendUsd,
       secrets_printed: false,
     }));
-    if ((state.desired === "RUNNING" || state.status === "RUNNING") && machineAssigned) return state.pod;
+
+    if (machineAssigned && uptime !== null && statusPortRegistered) {
+      runtimeTelemetryPassed = true;
+      return { ...state.pod, runtime };
+    }
     await sleep(POLL_MS);
   }
-  throw new Error(`${CONTRACT}_POD_START_TIMEOUT`);
+  throw new Error(`${CONTRACT}_POD_RUNTIME_TELEMETRY_TIMEOUT`);
 }
 
 async function fetchStatus(podId) {
@@ -500,6 +559,7 @@ if (!apply) {
       image_name: initial.imageName,
       source: "BOUND_FAST_IMAGE_WITHOUT_SERVERLESS_TEMPLATE",
       explicit_pod_native_entrypoint: true,
+      readiness_source: "RUNPOD_GRAPHQL_RUNTIME_TELEMETRY",
       status_port: STATUS_PORT,
       vllm_port: VLLM_PORT,
       max_model_len: MAX_MODEL_LEN,
@@ -515,6 +575,7 @@ if (!apply) {
       idle_verified: true,
     },
     gpu_type_ids: initial.gpuTypeIds,
+    runtime_telemetry_deadline_seconds: RUNTIME_TELEMETRY_TIMEOUT_MS / 1000,
     status_route_deadline_seconds: STATUS_ROUTE_TIMEOUT_MS / 1000,
     model_route_deadline_seconds: MODEL_ROUTE_TIMEOUT_MS / 1000,
     chat_completion_submitted: false,
@@ -545,7 +606,7 @@ if (!apply) {
   let finalBaseline = null;
   try { finalBaseline = await baseline("POSTCHECK"); } catch (error) { if (!failure) failure = error; }
 
-  const success = !failure && podCreatePerformed && statusRoutePassed && modelRoutePassed && deleteVerified && Boolean(finalBaseline);
+  const success = !failure && podCreatePerformed && runtimeTelemetryPassed && statusRoutePassed && modelRoutePassed && deleteVerified && Boolean(finalBaseline);
   const finalStatus = models?.status || status || {};
   console.log(JSON.stringify({
     success,
@@ -556,6 +617,8 @@ if (!apply) {
     expected_model: FAST_MODEL,
     pod_created: podCreatePerformed,
     pod_machine_assigned: Boolean(text(running?.machineId || running?.machine?.id)),
+    pod_runtime_telemetry_passed: runtimeTelemetryPassed,
+    pod_runtime_uptime_seconds_at_ready: running?.runtime?.uptimeInSeconds == null ? null : finite(running.runtime.uptimeInSeconds, null),
     pod_native_image_only: true,
     serverless_template_used_for_pod_creation: false,
     status_route_passed: statusRoutePassed,

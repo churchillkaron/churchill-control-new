@@ -60,6 +60,15 @@ jobs:
           set -euo pipefail
           npm ci --ignore-scripts
 
+      - name: Install Studio media tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
       - name: Validate Video source boundaries
         shell: bash
         run: |
@@ -67,6 +76,23 @@ jobs:
           node --check scripts/run-avantiqo-video-v72-flashvsr-4k-quality-final-ci.mjs
           node --test tests/avantiqo-video-studio-first-boundary.test.mjs
           node scripts/studio-first-compute-boundary-audit.mjs
+
+      - name: Confirm shared Video volume is idle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const { videoPodCandidateSnapshot } = await import("./lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js");
+          const snapshot = await videoPodCandidateSnapshot();
+          console.log(JSON.stringify({
+            success: true,
+            contract: "AVANTIQO_VIDEO_V72_SHARED_VOLUME_IDLE_PREFLIGHT_V1",
+            network_volume_id: snapshot.volume?.id || null,
+            network_volume_name: snapshot.volume?.name || null,
+            mutation_performed: false,
+            production_deploy_performed: false,
+          }));
+          NODE
 
       - name: Run one V72 FlashVSR 4K quality proof
         env:

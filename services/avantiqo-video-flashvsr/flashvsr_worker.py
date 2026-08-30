@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from einops import rearrange
 
 from diffsynth import ModelManager, FlashVSRTinyLongPipeline
@@ -78,6 +79,37 @@ def read_input(job):
     return tensor, width, height, frames
 
 
+def mastering_surface(width, height):
+    if width == height:
+        return 2176, 2176
+    if width > height:
+        return 3968, 2176
+    return 2176, 3968
+
+
+def resize_for_mastering(tensor, width, height):
+    target_width, target_height = mastering_surface(width, height)
+    if target_width > width or target_height > height:
+        raise RuntimeError(
+            f"AVANTIQO_VIDEO_FLASHVSR_MASTERING_SURFACE_EXCEEDS_INPUT:{width}x{height}:{target_width}x{target_height}"
+        )
+    if target_width == width and target_height == height:
+        return tensor, width, height
+    frames = tensor.shape[2]
+    spatial = tensor.squeeze(0).permute(1, 0, 2, 3).float()
+    spatial = F.interpolate(
+        spatial,
+        size=(target_height, target_width),
+        mode="bicubic",
+        align_corners=False,
+        antialias=True,
+    )
+    spatial = spatial.to(dtype=torch.bfloat16).permute(1, 0, 2, 3).unsqueeze(0)
+    if spatial.shape[2] != frames:
+        raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_FRAME_COUNT_CHANGED_DURING_RESIZE")
+    return spatial, target_width, target_height
+
+
 def write_output(video, output_path):
     if video.ndim != 4:
         raise RuntimeError(f"AVANTIQO_VIDEO_FLASHVSR_OUTPUT_RANK_INVALID:{video.ndim}")
@@ -108,7 +140,8 @@ def main():
         "paid_worker_intermediate_egress_only": True,
     }
     try:
-        lq, width, height, frames = read_input(job)
+        lq, input_width, input_height, frames = read_input(job)
+        lq, width, height = resize_for_mastering(lq, input_width, input_height)
         pipe = init_pipeline()
         torch.cuda.empty_cache()
         video = pipe(
@@ -123,7 +156,7 @@ def main():
             width=width,
             is_full_block=False,
             if_buffer=True,
-            topk_ratio=2.0 * 768 * 1280 / (height * width),
+            topk_ratio=1.5 * 768 * 1280 / (height * width),
             kv_ratio=3.0,
             local_range=11,
             color_fix=True,
@@ -139,6 +172,12 @@ def main():
             "output_bytes": output_bytes,
             "source_frame_count": int(job["source_frame_count"]),
             "fps": float(job["fps"]),
+            "input_width": input_width,
+            "input_height": input_height,
+            "mastering_width": width,
+            "mastering_height": height,
+            "mastering_pixel_reduction_ratio": round(1.0 - ((width * height) / (input_width * input_height)), 6),
+            "topk_reference_ratio": 1.5,
             "elapsed_seconds": round(time.time() - started, 3),
         })
     except Exception as exc:

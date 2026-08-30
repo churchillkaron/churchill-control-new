@@ -43,21 +43,58 @@ jobs:
           parts = sorted(root.glob('scene1_frame.part-*.b64'))
           if len(parts) != 6:
               raise SystemExit(f'AVANTIQO_VIDEO_SCENE1_FRAME_PART_COUNT_INVALID:{len(parts)}')
+          expected_part_lengths = [7000, 7000, 7000, 7000, 7000, 6836]
+          for part, expected in zip(parts, expected_part_lengths):
+              value = re.sub(r'[^A-Za-z0-9+/=]', '', part.read_text(encoding='utf-8'))
+              print(f'AVANTIQO_VIDEO_SCENE1_PART={part.name}:{len(value)}:{expected}')
           text = ''.join(p.read_text(encoding='utf-8') for p in parts)
           compact = re.sub(r'[^A-Za-z0-9+/=]', '', text)
-          if len(compact) % 4:
-              compact += '=' * (-len(compact) % 4)
-          raw = base64.b64decode(compact, validate=False)
+          target_digest = 'cbf4437d77f74b2fd0193f9039ef64c511b597712fe08c466c30d4c231aeb0c5'
+          expected_b64_chars = 41836
+          expected_bytes = 31376
+
+          def exact(value):
+              try:
+                  raw = base64.b64decode(value, validate=True)
+              except Exception:
+                  return None
+              if len(raw) != expected_bytes:
+                  return None
+              if hashlib.sha256(raw).hexdigest() != target_digest:
+                  return None
+              return raw
+
+          raw = exact(compact)
+          if raw is None and len(compact) > expected_b64_chars:
+              delta = len(compact) - expected_b64_chars
+              print(f'AVANTIQO_VIDEO_SCENE1_FRAME_SURPLUS_CHARS={delta}')
+              if delta > 512:
+                  raise SystemExit('AVANTIQO_VIDEO_SCENE1_FRAME_SURPLUS_TOO_LARGE')
+              found = None
+              for offset in range(0, len(compact) - delta + 1, 4):
+                  candidate = compact[:offset] + compact[offset + delta:]
+                  if exact(candidate) is not None:
+                      found = (offset, candidate)
+                      break
+              if found is None:
+                  for offset in range(0, len(compact) - delta + 1):
+                      if offset % 4 == 0:
+                          continue
+                      candidate = compact[:offset] + compact[offset + delta:]
+                      if exact(candidate) is not None:
+                          found = (offset, candidate)
+                          break
+              if found is not None:
+                  offset, compact = found
+                  raw = exact(compact)
+                  print(f'AVANTIQO_VIDEO_SCENE1_FRAME_INSERTION_RECOVERED_AT={offset}')
+          if raw is None:
+              raise SystemExit('AVANTIQO_VIDEO_SCENE1_FRAME_EXACT_RECOVERY_FAILED')
           target = pathlib.Path(os.environ['AVANTIQO_VIDEO_SCENE1_OPENING_FRAME'])
           target.write_bytes(raw)
-          digest = hashlib.sha256(raw).hexdigest()
           print(f'AVANTIQO_VIDEO_SCENE1_FRAME_B64_CHARS={len(compact)}')
           print(f'AVANTIQO_VIDEO_SCENE1_FRAME_BYTES={len(raw)}')
-          print(f'AVANTIQO_VIDEO_SCENE1_FRAME_SHA256={digest}')
-          if len(raw) != 31376:
-              raise SystemExit(f'AVANTIQO_VIDEO_SCENE1_FRAME_SIZE_INVALID:{len(raw)}')
-          if digest != 'cbf4437d77f74b2fd0193f9039ef64c511b597712fe08c466c30d4c231aeb0c5':
-              raise SystemExit('AVANTIQO_VIDEO_SCENE1_FRAME_DIGEST_INVALID')
+          print(f'AVANTIQO_VIDEO_SCENE1_FRAME_SHA256={hashlib.sha256(raw).hexdigest()}')
           if raw[:2] != b'\xff\xd8' or raw[-2:] != b'\xff\xd9':
               raise SystemExit('AVANTIQO_VIDEO_SCENE1_FRAME_JPEG_BOUNDARY_INVALID')
           print('AVANTIQO_VIDEO_SCENE1_APPROVED_FRAME=PASS')

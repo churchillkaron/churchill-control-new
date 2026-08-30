@@ -1,10 +1,12 @@
 {
   "contract": "AVANTIQO_INTELLIGENCE_FAST_SERVICE_CERTIFICATION_REQUEST_V1",
-  "requested_at": "2026-08-30T06:09:30Z",
+  "requested_at": "2026-08-30T06:44:30Z",
   "mode": "MEASURE_ONLY",
   "provider": "avantiqo-intelligence",
   "execution_lane": "fast",
   "expected_model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+  "expected_transport": "RUNPOD_EPHEMERAL_POD_OPENAI_COMPATIBLE",
+  "serverless_fast_transport_allowed": false,
   "expected_provider_requests": 1,
   "max_customer_charge_thb": 3,
   "external_fallback_allowed": false,

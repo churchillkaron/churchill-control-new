@@ -1,0 +1,1 @@
+Production release from newest main: explicit Voice intent required server-side for both STT and TTS; canned local Fast greeting removed. No voice-stt-repair marker.

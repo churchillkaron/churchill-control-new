@@ -6,6 +6,7 @@ const CONTRACT = "AVANTIQO_BUSINESS_PARTNER_DEVELOPER_RESOURCE_CERTIFICATION_V1"
 const paths = {
   attachmentRuntime: "lib/platform/runtime/DeveloperAttachmentRuntime.js",
   attachmentApi: "app/api/operator/developer-attachments/route.js",
+  organizationAccess: "lib/platform/security/requireOrganizationAccess.js",
   dock: "components/operator/HomeAvantiqoIntelligenceDock.jsx",
   codeLive: "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js",
   operatorMission: "lib/platform/capabilities/createOperatorMissionCapability.js",
@@ -43,11 +44,17 @@ markers("ATTACHMENT_RUNTIME", source.attachmentRuntime, [
 ]);
 
 markers("ATTACHMENT_API", source.attachmentApi, [
-  "authenticateRequest",
   "requireOrganizationAccess",
   "createDeveloperAttachmentSet",
   "export async function POST",
   '"Cache-Control": "no-store"',
+  "access.user?.id",
+]);
+markers("ORGANIZATION_ACCESS_AUTH", source.organizationAccess, [
+  "async function authenticatedUser(request)",
+  "supabaseAdmin.auth.getUser(token)",
+  "supabase.auth.getUser()",
+  "export async function requireOrganizationAccess",
 ]);
 
 markers("BUSINESS_PARTNER_UI", source.dock, [
@@ -149,5 +156,6 @@ console.log(JSON.stringify({
   code_cooperative_stop_boundaries_verified: true,
   github_read_path_verified: true,
   vercel_read_only_path_verified: true,
+  organization_access_auth_verified: true,
   secrets_printed: false,
 }, null, 2));

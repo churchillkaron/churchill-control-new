@@ -1,9 +1,12 @@
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V7";
+const CONTRACT = "AVANTIQO_CODE_AI_WORLDCLASS_SOURCE_AUDIT_V8";
 
 const files = Object.freeze({
   qualityPolicy: "lib/code/runtime/CodeAIWorldClassQualityPolicy.js",
+  behavioralVerification: "lib/code/runtime/CodeAIBehavioralVerificationRuntime.js",
+  testProvenance: "lib/code/runtime/CodeAITestProvenanceRuntime.js",
+  repairClosure: "lib/code/runtime/CodeAIRepairClosureRuntime.js",
   fastStart: "lib/code/runtime/CodeAIEmployeeFastStartRuntime.js",
   employee: "lib/code/runtime/CodeAIEmployeeRuntime.js",
   worldclass: "lib/code/runtime/CodeAIWorldClassRuntime.js",
@@ -31,6 +34,9 @@ function requireMarkers(label, content, markers) {
 
 const [
   qualityPolicy,
+  behavioralVerification,
+  testProvenance,
+  repairClosure,
   fastStart,
   employee,
   worldclass,
@@ -62,6 +68,33 @@ requireMarkers("QUALITY_POLICY", qualityPolicy, [
 if (/Sandbox|ServiceExecutionRuntime|RUNPOD|fetch\s*\(/.test(qualityPolicy)) {
   throw new Error(`${CONTRACT}_QUALITY_POLICY_MUST_REMAIN_PURE`);
 }
+
+requireMarkers("BEHAVIORAL_VERIFICATION", behavioralVerification, [
+  "AVANTIQO_CODE_AI_BEHAVIORAL_VERIFICATION_V1",
+  "OBSERVED_RELATED_TEST_FROM_REPOSITORY_EVIDENCE",
+  "matched_impacted_test_paths",
+  "broad_test_operation_ids",
+  "repository_call_performed: false",
+  "authorization_effect: \"NONE\"",
+]);
+
+requireMarkers("TEST_PROVENANCE", testProvenance, [
+  "AVANTIQO_CODE_AI_TEST_PROVENANCE_V1",
+  "ONLY_MISSION_MODIFIED_TEST_PROOF",
+  "UNCHANGED_OBSERVED_RELATED_TEST",
+  "BROAD_SUITE",
+  "test_changes_can_self_certify_high_risk_behavior: false",
+  "authorization_effect: \"NONE\"",
+]);
+
+requireMarkers("REPAIR_CLOSURE", repairClosure, [
+  "AVANTIQO_CODE_AI_REPAIR_CLOSURE_V1",
+  "SAME_VERIFICATION_COMMAND_SIGNATURE_MUST_PASS_AFTER_FINAL_EDIT",
+  "unresolved_failed_verifier_count",
+  "successful_post_edit_verifiers",
+  "source_mutation_authority: false",
+  "authorization_effect: \"NONE\"",
+]);
 
 requireMarkers("FAST_START", fastStart, [
   "AVANTIQO_CODE_AI_EMPLOYEE_FAST_START_V2",
@@ -96,11 +129,19 @@ requireMarkers("WORLDCLASS_LEGACY_RUNTIME", worldclass, [
 ]);
 
 requireMarkers("WORLDCLASS_COMMIT_GUARD", worldclassCommitGuard, [
-  "AVANTIQO_CODE_AI_WORLDCLASS_COMMIT_GUARD_V1",
+  "AVANTIQO_CODE_AI_WORLDCLASS_COMMIT_GUARD_V5",
   "AVANTIQO_CODE_AI_WORLDCLASS_QUALITY_V1",
   "CODE_AI_COMMIT_WORLDCLASS_QUALITY_EVIDENCE_REQUIRED",
   "CODE_AI_COMMIT_WORLDCLASS_FINAL_DIFF_REVIEW_REQUIRED",
   "CODE_AI_COMMIT_WORLDCLASS_SOURCE_MANIFEST_MISMATCH",
+  "CODE_AI_COMMIT_WORLDCLASS_SUBSTANTIVE_VERIFICATION_REQUIRED",
+  "CODE_AI_COMMIT_BEHAVIORAL_VERIFICATION_REQUIRED",
+  "CODE_AI_COMMIT_TEST_PROVENANCE_REQUIRED",
+  "CODE_AI_COMMIT_FAILED_VERIFIER_CLOSURE_REQUIRED",
+  "CODE_AI_COMMIT_FINAL_INDEPENDENT_REVIEW_REQUIRED",
+  "assessCodeAIBehavioralVerificationCoverage",
+  "assessCodeAITestProvenance",
+  "assessCodeAIRepairClosure",
   "fresh_verification_family_count",
   "observedFamilies < required",
 ]);
@@ -263,6 +304,11 @@ console.log(JSON.stringify({
     standard_one_verification_family_required: true,
     high_two_independent_verification_families_required: true,
     critical_three_independent_verification_families_required: true,
+    substantive_high_risk_verification_required: true,
+    observed_impacted_behavior_verification_required: true,
+    high_risk_changed_tests_cannot_self_certify: true,
+    failed_verifier_closure_after_final_edit_required: true,
+    independent_high_risk_review_required_at_commit: true,
     employee_quality_convergence_enabled: true,
     source_manifest_workspace_convergence_required: true,
     commit_defense_in_depth_worldclass_guard: true,

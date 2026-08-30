@@ -37,8 +37,18 @@ function credentialFromAwsCli(name) {
 }
 
 function resolveCredentials() {
-  let accessKey = text(process.env.RUNPOD_S3_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID);
-  let secretKey = text(process.env.RUNPOD_S3_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY);
+  const envAccessKey = text(
+    process.env.RUNPOD_S3_ACCESS_KEY_ID ||
+    process.env.RUNPOD_S3_ACCESS_KEY ||
+    process.env.AWS_ACCESS_KEY_ID,
+  );
+  const envSecretKey = text(
+    process.env.RUNPOD_S3_SECRET_ACCESS_KEY ||
+    process.env.RUNPOD_S3_SECRET_KEY ||
+    process.env.AWS_SECRET_ACCESS_KEY,
+  );
+  let accessKey = envAccessKey;
+  let secretKey = envSecretKey;
   let source = accessKey && secretKey ? "ENV" : "";
 
   if (!accessKey || !secretKey) {

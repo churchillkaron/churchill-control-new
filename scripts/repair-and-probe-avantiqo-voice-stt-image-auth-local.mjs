@@ -4,8 +4,9 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_VOICE_STT_IMAGE_AUTH_REPAIR_AND_BOOT_PROOF_V1";
+const CONTRACT = "AVANTIQO_VOICE_STT_IMAGE_AUTH_REPAIR_AND_BOOT_PROOF_V2";
 const ENDPOINT_NAME = "avantiqo-voice-stt-v1";
+const NATIVE_IMAGE_PREFIX = "registry.runpod.net/churchillkaron-churchill-control-new-main-services-avantiqo-voice-stt-dockerfile:";
 const REPAIR_SCRIPT = resolve("scripts/repair-avantiqo-voice-stt-ghcr-auth-local.mjs");
 const PROBE_SCRIPT = resolve("scripts/run-avantiqo-voice-stt-offline-image-runtime-probe-local.mjs");
 const REST = "https://rest.runpod.io/v1";
@@ -37,9 +38,9 @@ async function requestJson(url, key, options = {}) {
     headers: {
       Authorization: `Bearer ${key}`,
       Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     signal: AbortSignal.timeout(options.timeoutMs || 30_000),
   });
   const raw = await response.text();
@@ -58,14 +59,21 @@ function normalizeList(value, keys = [], depth = 0) {
   }
   return null;
 }
-async function resolveEndpoint(managementKey) {
-  const raw = await requestJson(`${REST}/endpoints?includeTemplate=true&includeWorkers=true`, managementKey);
-  const rows = normalizeList(raw, ["endpoints", "serverlessEndpoints"]) || [];
-  const matches = rows.filter((row) => text(row?.name) === ENDPOINT_NAME);
+async function bindingSnapshot(managementKey) {
+  const [endpointRaw, templateRaw] = await Promise.all([
+    requestJson(`${REST}/endpoints?includeTemplate=true&includeWorkers=true`, managementKey),
+    requestJson(`${REST}/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false`, managementKey),
+  ]);
+  const endpoints = normalizeList(endpointRaw, ["endpoints", "serverlessEndpoints"]) || [];
+  const templates = normalizeList(templateRaw, ["templates"]) || [];
+  const matches = endpoints.filter((row) => text(row?.name) === ENDPOINT_NAME);
   if (matches.length !== 1) throw new Error(`${CONTRACT}_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
-  const endpointId = text(matches[0]?.id);
-  if (!endpointId) throw new Error(`${CONTRACT}_ENDPOINT_ID_REQUIRED`);
-  return endpointId;
+  const endpoint = matches[0];
+  const endpointId = text(endpoint?.id);
+  const templateId = text(endpoint?.templateId || endpoint?.template?.id);
+  const template = templates.find((row) => text(row?.id) === templateId);
+  if (!endpointId || !templateId || !template) throw new Error(`${CONTRACT}_ENDPOINT_TEMPLATE_REQUIRED`);
+  return { endpoint, endpointId, template };
 }
 async function health(endpointId, queueKey) {
   return requestJson(`${QUEUE}/${encodeURIComponent(endpointId)}/health`, queueKey);
@@ -96,9 +104,7 @@ async function workerCount(endpointId, managementKey) {
   return 0;
 }
 async function cleanup(endpointId, managementKey, queueKey) {
-  try {
-    await requestJson(`${QUEUE}/${encodeURIComponent(endpointId)}/purge-queue`, queueKey, { method: "POST" });
-  } catch {}
+  try { await requestJson(`${QUEUE}/${encodeURIComponent(endpointId)}/purge-queue`, queueKey, { method: "POST" }); } catch {}
   await patchScaling(endpointId, 0, managementKey);
   const deadline = Date.now() + CLEANUP_TIMEOUT_MS;
   let latest = null;
@@ -127,13 +133,30 @@ if (!approved(process.env.AVANTIQO_VOICE_STT_IMAGE_AUTH_REPAIR_AND_BOOT_PROOF_AP
 
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY", process.env.RUNPOD_API_KEY);
 const queueKey = text(process.env.RUNPOD_API_KEY) || managementKey;
+const before = await bindingSnapshot(managementKey);
+const currentImage = text(before.template?.imageName);
+const forceGhcr = approved(process.env.AVANTIQO_VOICE_STT_FORCE_GHCR_EMERGENCY_RECOVERY);
+if (currentImage.startsWith(NATIVE_IMAGE_PREFIX) && !forceGhcr) {
+  throw new Error(`${CONTRACT}_RUNPOD_NATIVE_BINDING_PROTECTED:use_current_binding_transcription_proof_instead`);
+}
+
 let endpointId = null;
 let scalingAttempted = false;
 let failure = null;
 let cleaned = null;
-
 try {
-  console.log(JSON.stringify({ event: `${CONTRACT}_BEGIN`, endpoint_name: ENDPOINT_NAME, tts_touched: false, transcription_requested: false, inference_requested: false, production_deploy_performed: false, pricing_activation_performed: false, secrets_printed: false }));
+  console.log(JSON.stringify({
+    event: `${CONTRACT}_BEGIN`,
+    endpoint_name: ENDPOINT_NAME,
+    current_image: currentImage || null,
+    force_ghcr_emergency_recovery: forceGhcr,
+    tts_touched: false,
+    transcription_requested: false,
+    inference_requested: false,
+    production_deploy_performed: false,
+    pricing_activation_performed: false,
+    secrets_printed: false,
+  }));
 
   const repair = spawnSync(process.execPath, [REPAIR_SCRIPT, "--apply"], {
     cwd: process.cwd(),
@@ -144,11 +167,9 @@ try {
   if (repair.error) throw repair.error;
   if (repair.status !== 0) throw new Error(`${CONTRACT}_REPAIR_FAILED:exit=${repair.status}`);
 
-  endpointId = await resolveEndpoint(managementKey);
+  endpointId = (await bindingSnapshot(managementKey)).endpointId;
   const initialJobs = jobs(await health(endpointId, queueKey));
-  if (initialJobs.queued !== 0 || initialJobs.progress !== 0) {
-    throw new Error(`${CONTRACT}_QUEUE_NOT_CLEAN:${initialJobs.queued}/${initialJobs.progress}`);
-  }
+  if (initialJobs.queued !== 0 || initialJobs.progress !== 0) throw new Error(`${CONTRACT}_QUEUE_NOT_CLEAN:${initialJobs.queued}/${initialJobs.progress}`);
 
   scalingAttempted = true;
   await patchScaling(endpointId, 1, managementKey);
@@ -176,15 +197,13 @@ try {
   failure = error;
 } finally {
   if (endpointId && scalingAttempted) {
-    try {
-      cleaned = await cleanup(endpointId, managementKey, queueKey);
-    } catch (cleanupError) {
+    try { cleaned = await cleanup(endpointId, managementKey, queueKey); }
+    catch (cleanupError) {
       if (!failure) failure = cleanupError;
       else console.error(`${CONTRACT}_SECONDARY_CLEANUP_ERROR:${redact(cleanupError?.message)}`);
     }
   }
 }
-
 if (failure) throw failure;
 
 console.log(JSON.stringify({

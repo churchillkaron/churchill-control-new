@@ -164,3 +164,7 @@ try {
   }
   process.exitCode = 1;
 }
+
+if (yes(process.env.AVANTIQO_INTELLIGENCE_FAST_ASSESSMENT_EXPLICIT_EXIT)) {
+  process.exit(process.exitCode || 0);
+}

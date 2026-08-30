@@ -1,0 +1,65 @@
+name: Avantiqo Video Master Link
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-master-link-request.json
+
+permissions:
+  contents: read
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Issue fresh signed master URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const base = String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+          const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '');
+          if (!base || !key) throw new Error('AVANTIQO_VIDEO_MASTER_LINK_CREDENTIAL_REQUIRED');
+          const bucket = 'creative-assets';
+          const path = '00000000-0000-0000-0000-000000000000/generated/avantiqo-video/video-v72-ephemeral-pod-final-20260829-studio-4k.mp4';
+          const response = await fetch(`${base}/storage/v1/object/sign/${bucket}/${path}`, {
+            method: 'POST',
+            headers: {
+              apikey: key,
+              Authorization: `Bearer ${key}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ expiresIn: 86400 }),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(`AVANTIQO_VIDEO_MASTER_LINK_HTTP_${response.status}`);
+          const raw = body.signedURL || body.signedUrl || body.signed_url;
+          if (!raw) throw new Error('AVANTIQO_VIDEO_MASTER_LINK_MISSING');
+          const signedUrl = /^https?:\/\//i.test(raw) ? raw : `${base}${raw.startsWith('/') ? '' : '/'}${raw}`;
+          const report = {
+            success: true,
+            contract: 'AVANTIQO_VIDEO_MASTER_SIGNED_LINK_V1',
+            master: `storage://${bucket}/${path}`,
+            signed_url: signedUrl,
+            expires_in_seconds: 86400,
+            generation_performed: false,
+            mastering_performed: false,
+            runpod_mutation_performed: false,
+            production_deploy_performed: false,
+          };
+          await import('node:fs/promises').then(({ writeFile }) => writeFile('/tmp/avantiqo-video-master-link.json', JSON.stringify(report, null, 2)));
+          console.log(`AVANTIQO_VIDEO_MASTER_SIGNED_URL=${signedUrl}`);
+          NODE
+
+      - name: Upload link evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-master-link-${{ github.run_id }}
+          path: /tmp/avantiqo-video-master-link.json
+          retention-days: 1

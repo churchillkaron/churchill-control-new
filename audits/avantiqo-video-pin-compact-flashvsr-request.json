@@ -1,0 +1,1 @@
+{"contract":"AVANTIQO_VIDEO_PIN_COMPACT_FLASHVSR_REQUEST_V1","scope":"VIDEO_ONLY","worker_source_sha":"ccfa48b46c4f8afddc3bc9a546584def1688a8b2","expected_image_digest":"sha256:78db7a82d489731be6dd4c5e8b1e933535f909e0feaab797da44c00068a643da","model_inference_allowed":false,"runpod_mutation_allowed":false,"production_deploy_allowed":false,"requested_at":"2026-08-30T03:58:00Z"}

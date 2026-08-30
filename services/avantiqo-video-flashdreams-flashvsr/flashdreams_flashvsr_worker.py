@@ -19,6 +19,8 @@ MODEL_REVISION = "a258bf2d58ac5a7d7193fb6ce4326aaff98ea6cb"
 SPARSE_RATIO = 1.5
 CHUNK_SIZE = 8
 SCALE = 2
+COMPILE_NETWORK = False
+USE_CUDA_GRAPH = False
 
 WEIGHTS_ROOT = Path(os.environ.get("AVANTIQO_FLASHVSR_WEIGHTS_ROOT", "/runpod-volume/flashvsr/FlashVSR-v1.1"))
 PROMPT_PATH = Path(os.environ.get("AVANTIQO_FLASHVSR_PROMPT_PATH", "/opt/avantiqo-flashvsr/posi_prompt.pth"))
@@ -78,13 +80,13 @@ def build_pipeline(work_width, work_height, paths):
         sparse_ratio=SPARSE_RATIO,
         kv_ratio=3,
         local_range=11,
-        compile_network=True,
-        use_cuda_graph=True,
+        compile_network=COMPILE_NETWORK,
+        use_cuda_graph=USE_CUDA_GRAPH,
         color_corrector_implementation="cuda",
         enable_sync_and_profile=False,
         dtype=torch.bfloat16,
         seed=0,
-        name="avantiqo-flashvsr-v1.1-sparse-1.5",
+        name="avantiqo-flashvsr-v1.1-sparse-1.5-cold-safe",
         attention_mode="sparse",
     )
     configured = derive_config(
@@ -96,8 +98,7 @@ def build_pipeline(work_width, work_height, paths):
             "transformer": {"checkpoint_path": str(paths["dit"])},
         },
     )
-    pipeline = configured.setup().to("cuda")
-    return pipeline
+    return configured.setup().to("cuda")
 
 
 def cover_resize_rgb(frame_bgr, target_width, target_height):
@@ -160,8 +161,8 @@ def main():
         "sparse_ratio": SPARSE_RATIO,
         "chunk_size": CHUNK_SIZE,
         "scale": SCALE,
-        "compile_network": True,
-        "cuda_graph": True,
+        "compile_network": COMPILE_NETWORK,
+        "cuda_graph": USE_CUDA_GRAPH,
         "input_format": "video/mp4",
         "worker_input_decode": True,
         "video_encoded_on_paid_worker": False,
@@ -178,15 +179,15 @@ def main():
 
     cap = None
     try:
-        write_receipt(receipt_path, receipt, status="VALIDATING_ASSETS")
+        gpu_name = torch.cuda.get_device_name(0)
+        write_receipt(receipt_path, receipt, status="VALIDATING_ASSETS", gpu_name=gpu_name)
         assets = require_assets()
-        write_receipt(receipt_path, receipt, status="INITIALIZING_PIPELINE")
+        write_receipt(receipt_path, receipt, status="INITIALIZING_PIPELINE", gpu_name=gpu_name)
         pipeline_started = time.time()
         pipeline = build_pipeline(work_width, work_height, assets)
         cache = pipeline.initialize_cache()
         receipt["pipeline_setup_seconds"] = round(time.time() - pipeline_started, 3)
-        receipt["gpu_name"] = torch.cuda.get_device_name(0)
-        write_receipt(receipt_path, receipt, status="DECODING_AND_INFERENCE")
+        write_receipt(receipt_path, receipt, status="DECODING_AND_INFERENCE", gpu_name=gpu_name)
 
         cap = cv2.VideoCapture(str(input_path))
         if not cap.isOpened():
@@ -253,6 +254,15 @@ def main():
                 frames_written += written
                 output_bytes += byte_count
                 chunk_index += 1
+                write_receipt(
+                    receipt_path,
+                    receipt,
+                    status="DECODING_AND_INFERENCE",
+                    chunks_completed=chunk_index,
+                    frames_read=frames_read,
+                    frames_written=frames_written,
+                    inference_elapsed_seconds=round(time.time() - inference_started, 3),
+                )
 
         if frames_written != source_frames_expected:
             raise RuntimeError(
@@ -268,6 +278,7 @@ def main():
             success=True,
             chunks_completed=chunk_index,
             frames_read=frames_read,
+            frames_written=frames_written,
             output_frame_count=frames_written,
             output_width=target_width,
             output_height=target_height,

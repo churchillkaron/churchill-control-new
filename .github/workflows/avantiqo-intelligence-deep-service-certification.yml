@@ -1,0 +1,106 @@
+name: Avantiqo Intelligence Deep Service Certification
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-intelligence-deep-service-certification.yml
+      - audits/avantiqo-intelligence-deep-service-certification-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-deep-service-certification
+  cancel-in-progress: false
+
+jobs:
+  certify-deep-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+    steps:
+      - name: Checkout exact certification commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail closed if protected credentials are unavailable
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          test -n "$RUNPOD_API_KEY" || { echo "RUNPOD_API_KEY_MISSING"; exit 1; }
+          test -n "$RUNPOD_MANAGEMENT_API_KEY" || { echo "RUNPOD_MANAGEMENT_API_KEY_MISSING"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "SUPABASE_SERVICE_ROLE_KEY_MISSING"; exit 1; }
+          echo "OWNED_INTELLIGENCE_DEEP_CERTIFICATION_CREDENTIAL_BOUNDARY=PASS"
+
+      - name: Resolve exact Deep endpoint
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from "node:fs";
+          const response = await fetch("https://rest.runpod.io/v1/endpoints?includeTemplate=false&includeWorkers=false", {
+            headers: {
+              Authorization: `Bearer ${process.env.RUNPOD_MANAGEMENT_API_KEY}`,
+              Accept: "application/json",
+            },
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!response.ok) throw new Error(`DEEP_ENDPOINT_DISCOVERY_HTTP_${response.status}`);
+          const body = await response.json();
+          const endpoints = Array.isArray(body)
+            ? body
+            : body?.endpoints || body?.data || body?.items || body?.results || [];
+          const matches = endpoints.filter((endpoint) => String(endpoint?.name || "") === "avantiqo-intelligence-v1");
+          if (matches.length !== 1) throw new Error(`DEEP_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
+          const endpointId = String(matches[0]?.id || "").trim();
+          if (!/^[A-Za-z0-9_-]+$/.test(endpointId)) throw new Error("DEEP_ENDPOINT_ID_INVALID");
+          appendFileSync(process.env.GITHUB_ENV, `RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID=${endpointId}\n`, "utf8");
+          console.log("OWNED_INTELLIGENCE_DEEP_ENDPOINT_RESOLUTION=PASS");
+          NODE
+
+      - name: Run bounded owned Deep certification
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AVANTIQO_INTELLIGENCE_DEEP_CERT_EXPECTED_MAIN_COMMIT: ${{ github.sha }}
+          AVANTIQO_INTELLIGENCE_DEEP_CERT_SPEND_APPROVED: "YES"
+          AVANTIQO_INTELLIGENCE_DEEP_CERT_MAX_CUSTOMER_CHARGE: "10"
+          AVANTIQO_INTELLIGENCE_DEEP_CERT_OUTPUT: ${{ github.workspace }}/deep-certification.json
+        run: |
+          node scripts/run-avantiqo-intelligence-deep-production-service-certification-local.mjs --execute
+
+      - name: Upload Deep certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-deep-service-certification-${{ github.run_id }}
+          path: deep-certification.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Verify certification itself did not activate or deploy
+        if: always()
+        run: |
+          echo "PRICING_ACTIVATION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "EXTERNAL_FALLBACK_ALLOWED=false"

@@ -22,15 +22,12 @@ const MAX_GPU_ELAPSED_SECONDS = 8 * 60;
 const text = (value) => String(value ?? "").trim();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const approved = (value) => ["YES", "TRUE", "1", "APPROVED", "ON"].includes(text(value).toUpperCase());
+const approvedGpuName = (value) => /\b(B200|H200|H100|RTX PRO 6000 Blackwell)\b/i.test(text(value));
 if (!approved(process.env[APPROVAL])) throw new Error(`${APPROVAL}=YES_REQUIRED`);
 
 const imageEvidence = JSON.parse(await readFile(IMAGE_EVIDENCE_PATH, "utf8"));
-if (imageEvidence?.success !== true || imageEvidence?.candidate_only !== true) {
-  throw new Error(`${CONTRACT}_CANDIDATE_IMAGE_EVIDENCE_REQUIRED`);
-}
-if (imageEvidence?.flashdreams_source_commit !== "289da6f1d232de5abaa30d686c977b9c0040fe76") {
-  throw new Error(`${CONTRACT}_FLASHDREAMS_SOURCE_DRIFT`);
-}
+if (imageEvidence?.success !== true || imageEvidence?.candidate_only !== true) throw new Error(`${CONTRACT}_CANDIDATE_IMAGE_EVIDENCE_REQUIRED`);
+if (imageEvidence?.flashdreams_source_commit !== "289da6f1d232de5abaa30d686c977b9c0040fe76") throw new Error(`${CONTRACT}_FLASHDREAMS_SOURCE_DRIFT`);
 const immutableImage = text(imageEvidence?.immutable_image_reference);
 if (!immutableImage.includes("@sha256:")) throw new Error(`${CONTRACT}_IMMUTABLE_IMAGE_REQUIRED`);
 process.env.AVANTIQO_VIDEO_FLASHDREAMS_IMAGE = immutableImage;
@@ -67,7 +64,7 @@ try {
   if (AVANTIQO_VIDEO_FLASHDREAMS_IMAGE !== immutableImage) throw new Error(`${CONTRACT}_IMAGE_BINDING_DRIFT`);
   if (AVANTIQO_VIDEO_FLASHDREAMS_SOURCE_COMMIT !== imageEvidence.flashdreams_source_commit) throw new Error(`${CONTRACT}_SOURCE_BINDING_DRIFT`);
   if (!Array.isArray(AVANTIQO_VIDEO_FLASHDREAMS_GPU_POOL) || AVANTIQO_VIDEO_FLASHDREAMS_GPU_POOL.length < 1) throw new Error(`${CONTRACT}_GPU_POOL_REQUIRED`);
-  if (AVANTIQO_VIDEO_FLASHDREAMS_GPU_POOL.includes("NVIDIA A100 80GB PCIe")) throw new Error(`${CONTRACT}_A100_FALLBACK_FORBIDDEN`);
+  if (AVANTIQO_VIDEO_FLASHDREAMS_GPU_POOL.some((gpu) => /A100/i.test(text(gpu)))) throw new Error(`${CONTRACT}_A100_FALLBACK_FORBIDDEN`);
 
   const { data: preActive, error: preLeaseError } = await supabaseAdmin
     .from("avantiqo_video_runpod_leases")
@@ -99,6 +96,14 @@ try {
   })}`);
 
   masterJob = await submitAvantiqoVideoFlashDreamsMaster({ organizationId: ORGANIZATION_ID, sourceUrl });
+  console.log(`AVANTIQO_VIDEO_V72_FLASHDREAMS_PLACEMENT=${JSON.stringify({
+    selected_gpu_type_id: masterJob.gpu_type_id || null,
+    placement_attempts: masterJob.placement_attempts || [],
+    learned_target_profile: masterJob.prepared?.learned_target_profile || null,
+    learned_width: masterJob.prepared?.width || null,
+    learned_height: masterJob.prepared?.height || null,
+  })}`);
+
   const deadline = Date.now() + TIMEOUT_MS;
   let final = null;
   let poll = 0;
@@ -111,6 +116,7 @@ try {
       phase: status.phase || null,
       runpod_lease_active: status.runpod_lease_active === true,
       gpu_deleted_before_studio_encode: status.gpu_deleted_before_studio_encode === true,
+      timeout_progress: status.timeout_progress || null,
     })}`);
     if (status.status === "completed") {
       final = status;
@@ -130,23 +136,16 @@ try {
   if (receipt.contract !== "AVANTIQO_VIDEO_FLASHDREAMS_FLASHVSR_GPU_MASTER_V1") throw new Error(`${CONTRACT}_RECEIPT_CONTRACT_INVALID`);
   if (receipt.flashdreams_commit !== AVANTIQO_VIDEO_FLASHDREAMS_SOURCE_COMMIT) throw new Error(`${CONTRACT}_RECEIPT_SOURCE_DRIFT`);
   if (Number(receipt.sparse_ratio) !== 1.5 || Number(receipt.chunk_size) !== 8) throw new Error(`${CONTRACT}_PERFORMANCE_PROFILE_DRIFT`);
-  if (!AVANTIQO_VIDEO_FLASHDREAMS_GPU_POOL.includes(text(receipt.gpu_name)) && !text(receipt.gpu_name).includes("B200") && !text(receipt.gpu_name).includes("RTX PRO 6000")) {
-    throw new Error(`${CONTRACT}_GPU_NOT_APPROVED:${text(receipt.gpu_name) || "UNKNOWN"}`);
-  }
+  if (!approvedGpuName(receipt.gpu_name)) throw new Error(`${CONTRACT}_GPU_NOT_APPROVED:${text(receipt.gpu_name) || "UNKNOWN"}`);
   if (result?.learned_super_resolution_used !== true) throw new Error(`${CONTRACT}_LEARNED_SUPER_RESOLUTION_REQUIRED`);
   if (result?.studio_final_encoding !== true) throw new Error(`${CONTRACT}_STUDIO_FINAL_ENCODING_REQUIRED`);
   if (result?.gpu_video_encoding_used !== false) throw new Error(`${CONTRACT}_GPU_VIDEO_ENCODING_FORBIDDEN`);
   if (result?.fal_contacted !== false) throw new Error(`${CONTRACT}_FAL_CONTACT_FORBIDDEN`);
   if (final.gpu_deleted_before_studio_encode !== true) throw new Error(`${CONTRACT}_GPU_DELETE_BEFORE_STUDIO_REQUIRED`);
-  if (result?.output_probe?.width !== 3840 || result?.output_probe?.height !== 2160) {
-    throw new Error(`${CONTRACT}_FINAL_4K_INVALID:${result?.output_probe?.width || 0}x${result?.output_probe?.height || 0}`);
-  }
+  if (result?.output_probe?.width !== 3840 || result?.output_probe?.height !== 2160) throw new Error(`${CONTRACT}_FINAL_4K_INVALID:${result?.output_probe?.width || 0}x${result?.output_probe?.height || 0}`);
   if (!Buffer.isBuffer(result.buffer) || result.buffer.length <= 1_000_000) throw new Error(`${CONTRACT}_FINAL_BUFFER_INVALID`);
 
-  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(OUTPUT_PATH, result.buffer, {
-    contentType: "video/mp4",
-    upsert: true,
-  });
+  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(OUTPUT_PATH, result.buffer, { contentType: "video/mp4", upsert: true });
   if (uploadError) throw uploadError;
   const outputReference = `storage://${BUCKET}/${OUTPUT_PATH}`;
   const reviewUrl = await resolveCreativeProviderAssetUrl({ organization_id: ORGANIZATION_ID, value: outputReference });
@@ -168,7 +167,12 @@ try {
     master_backend: result.backend,
     immutable_master_image: AVANTIQO_VIDEO_FLASHDREAMS_IMAGE,
     flashdreams_commit: AVANTIQO_VIDEO_FLASHDREAMS_SOURCE_COMMIT,
+    requested_gpu_type_id: masterJob.gpu_type_id,
+    placement_attempts: masterJob.placement_attempts || [],
     master_gpu_name: receipt.gpu_name,
+    learned_target_profile: masterJob.prepared?.learned_target_profile,
+    learned_width: masterJob.prepared?.width,
+    learned_height: masterJob.prepared?.height,
     sparse_ratio: receipt.sparse_ratio,
     chunk_size: receipt.chunk_size,
     pipeline_setup_seconds: receipt.pipeline_setup_seconds,
@@ -198,6 +202,11 @@ try {
     success: false,
     contract: CONTRACT,
     error_code: text(error?.message || error).split(":")[0] || "UNKNOWN",
+    selected_gpu_type_id: masterJob?.gpu_type_id || null,
+    placement_attempts: masterJob?.placement_attempts || [],
+    learned_target_profile: masterJob?.prepared?.learned_target_profile || null,
+    learned_width: masterJob?.prepared?.width || null,
+    learned_height: masterJob?.prepared?.height || null,
     historical_wan_generation_reused: true,
     new_generation_submitted: false,
     production_deploy_performed: false,
@@ -205,7 +214,5 @@ try {
   }).catch(() => null);
   throw error;
 } finally {
-  if (masterJob && !completed) {
-    await abortAvantiqoVideoFlashDreamsMaster(masterJob, "VIDEO_V72_FLASHDREAMS_CI_ABORT_AFTER_FAILURE").catch(() => null);
-  }
+  if (masterJob && !completed) await abortAvantiqoVideoFlashDreamsMaster(masterJob, "VIDEO_V72_FLASHDREAMS_CI_ABORT_AFTER_FAILURE").catch(() => null);
 }

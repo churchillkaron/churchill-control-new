@@ -14,6 +14,10 @@ function state(paths, extra = {}) {
   };
 }
 
+function completedOperation(operation_id, action) {
+  return { kind: "operation", operation_id, action, status: "completed" };
+}
+
 const authoritativeTest = {
   command: "node",
   args: ["scripts/project-test.mjs"],
@@ -97,7 +101,45 @@ assert.ok(!deletedJs.planned_families.includes("syntax"));
 assert.deepEqual(deletedJs.planned_families, ["command:git"]);
 assert.equal(deletedJs.expected_required_gate_count_satisfied, false);
 
-for (const plan of [standard, high, critical, criticalTypescript, pythonWithoutEvidence, pythonWithEvidence, deletedJs]) {
+const failedVerifierDebt = planCodeAIDeterministicVerificationGates({
+  state: state(["lib/example.js"], {
+    evidence: [
+      completedOperation("verify_failed", "verify"),
+      completedOperation("apply_fix", "apply_files"),
+    ],
+    tests: [{
+      operation_id: "verify_failed",
+      command: "node",
+      args: ["--test", "tests/example.test.mjs"],
+      exit_code: 1,
+    }],
+  }),
+  authoritative_verification: authoritativeTest,
+});
+assert.equal(failedVerifierDebt.failed_verifier_debt_required, true);
+assert.equal(failedVerifierDebt.failed_verifier_debt_verified, false);
+assert.equal(failedVerifierDebt.unresolved_failed_verifier_count, 1);
+assert.equal(failedVerifierDebt.exact_failed_verifier_replay_count, 1);
+assert.equal(failedVerifierDebt.planned_failed_verifier_debt_count, 1);
+assert.equal(failedVerifierDebt.operations[0].obligation, "FAILED_VERIFIER_DEBT");
+assert.equal(failedVerifierDebt.operations[0].input.command, "node");
+assert.deepEqual(
+  failedVerifierDebt.operations[0].input.args,
+  ["--test", "tests/example.test.mjs"],
+);
+assert.equal(failedVerifierDebt.all_known_deterministic_debt_planned, true);
+assert.equal(failedVerifierDebt.unsafe_test_runner_guessing_performed, false);
+
+for (const plan of [
+  standard,
+  high,
+  critical,
+  criticalTypescript,
+  pythonWithoutEvidence,
+  pythonWithEvidence,
+  deletedJs,
+  failedVerifierDebt,
+]) {
   assert.equal(plan.model_call_performed, false);
   assert.equal(plan.provider_call_performed, false);
   assert.equal(plan.source_mutation_authority, false);
@@ -107,14 +149,16 @@ for (const plan of [standard, high, critical, criticalTypescript, pythonWithoutE
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_DETERMINISTIC_VERIFICATION_PLAN_SELFTEST_V1",
+  contract: "AVANTIQO_CODE_AI_DETERMINISTIC_VERIFICATION_PLAN_SELFTEST_V2",
   planner_contract: CODE_AI_DETERMINISTIC_VERIFICATION_PLAN_CONTRACT,
   standard_extra_gate_count: standard.planned_independent_gate_count,
   high_extra_gate_count: high.planned_independent_gate_count,
   critical_extra_gate_count: critical.planned_independent_gate_count,
+  failed_verifier_debt_replayed_exactly: true,
   unsupported_critical_fabricated_coverage: false,
   python_runtime_requires_repository_evidence: true,
   deleted_files_excluded_from_syntax_checks: true,
+  unsafe_test_runner_guessing_performed: false,
   provider_call_performed_by_selftest: false,
   provider_spend_performed_by_selftest: false,
   source_mutation_performed_by_selftest: false,

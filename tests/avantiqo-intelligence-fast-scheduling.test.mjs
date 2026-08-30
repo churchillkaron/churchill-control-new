@@ -4,6 +4,9 @@ import test from "node:test";
 import {
   evaluateAvantiqoIntelligenceFastSchedulingState,
 } from "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js";
+import {
+  isAvantiqoIntelligenceFastUnscheduledError,
+} from "../lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js";
 
 function health({ inQueue = 0, inProgress = 0, initializing = 0, ready = 0, running = 0, idle = 0 } = {}) {
   return {
@@ -72,4 +75,25 @@ test("unreadable health does not become false capacity proof", () => {
   });
   assert.equal(result.status, "HEALTH_UNREADABLE");
   assert.equal(result.worker_observed, false);
+});
+
+test("Fast Pod fallback is eligible only for the exact bounded unscheduled error", () => {
+  assert.equal(
+    isAvantiqoIntelligenceFastUnscheduledError(
+      new Error("AVANTIQO_INTELLIGENCE_FAST_WORKER_NOT_SCHEDULED_WITHIN_180000_MS"),
+    ),
+    true,
+  );
+  assert.equal(
+    isAvantiqoIntelligenceFastUnscheduledError(
+      new Error("AVANTIQO_INTELLIGENCE_FAST_REQUEST_FAILED:500:boom"),
+    ),
+    false,
+  );
+  assert.equal(
+    isAvantiqoIntelligenceFastUnscheduledError(
+      new Error("AVANTIQO_INTELLIGENCE_REQUEST_LEASE_HTTP_403"),
+    ),
+    false,
+  );
 });

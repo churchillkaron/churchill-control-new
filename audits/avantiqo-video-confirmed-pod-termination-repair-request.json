@@ -1,1 +1,1 @@
-{"contract":"AVANTIQO_VIDEO_CONFIRMED_POD_TERMINATION_REPAIR_REQUEST_V2","scope":"VIDEO_ONLY","failure_paths":true,"requested_at":"2026-08-30T02:26:00Z","production_deploy_allowed":false}
+{"contract":"AVANTIQO_VIDEO_CONFIRMED_POD_TERMINATION_REPAIR_REQUEST_V3","scope":"VIDEO_ONLY","failure_paths":true,"standalone_coverage_test":true,"reason":"deterministic_runtime_patch_after_fragile_audit_marker_failure","production_deploy_allowed":false}

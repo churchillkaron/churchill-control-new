@@ -4,6 +4,7 @@ import os
 import time
 from pathlib import Path
 
+import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -62,22 +63,62 @@ def init_pipeline():
 
 def read_input(job):
     input_path = Path(job["input_path"])
-    width = int(job["width"])
-    height = int(job["height"])
-    frames = int(job["padded_frame_count"])
-    if width < 128 or height < 128 or width % 128 or height % 128:
+    target_width = int(job["width"])
+    target_height = int(job["height"])
+    source_frames_expected = int(job["source_frame_count"])
+    padded_frames = int(job["padded_frame_count"])
+    if target_width < 128 or target_height < 128 or target_width % 128 or target_height % 128:
         raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_INPUT_DIMENSIONS_INVALID")
-    if frames < 9 or (frames - 1) % 8:
+    if padded_frames < 9 or (padded_frames - 1) % 8:
         raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_FRAME_WINDOW_INVALID")
-    expected = frames * height * width * 3
-    actual = input_path.stat().st_size
-    if actual != expected:
-        raise RuntimeError(f"AVANTIQO_VIDEO_FLASHVSR_INPUT_BYTES_INVALID:{actual}:{expected}")
-    mapped = np.memmap(input_path, mode="r", dtype=np.uint8, shape=(frames, height, width, 3))
-    tensor = torch.from_numpy(np.asarray(mapped)).permute(3, 0, 1, 2).unsqueeze(0)
-    tensor = tensor.to(dtype=torch.bfloat16, device="cpu").div_(127.5).sub_(1.0)
-    return tensor, width, height, frames
+    if not input_path.is_file() or input_path.stat().st_size <= 0:
+        raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_INPUT_MP4_REQUIRED")
 
+    cap = cv2.VideoCapture(str(input_path))
+    if not cap.isOpened():
+        raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_INPUT_MP4_OPEN_FAILED")
+    source_width = int(round(cap.get(cv2.CAP_PROP_FRAME_WIDTH)))
+    source_height = int(round(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    if source_width <= 0 or source_height <= 0:
+        cap.release()
+        raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_SOURCE_DIMENSIONS_INVALID")
+
+    factor = max(target_width / source_width, target_height / source_height)
+    scaled_width = max(target_width, int(np.ceil((source_width * factor) / 2.0) * 2))
+    scaled_height = max(target_height, int(np.ceil((source_height * factor) / 2.0) * 2))
+    scratch = Path(f"/tmp/avantiqo-video-flashvsr-{os.getpid()}.rgb")
+    mapped = np.memmap(scratch, mode="w+", dtype=np.uint8, shape=(padded_frames, target_height, target_width, 3))
+    count = 0
+    try:
+        while count < source_frames_expected:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            if scaled_width != source_width or scaled_height != source_height:
+                frame = cv2.resize(frame, (scaled_width, scaled_height), interpolation=cv2.INTER_CUBIC)
+            left = max(0, (scaled_width - target_width) // 2)
+            top = max(0, (scaled_height - target_height) // 2)
+            frame = frame[top:top + target_height, left:left + target_width]
+            if frame.shape[1] != target_width or frame.shape[0] != target_height:
+                raise RuntimeError("AVANTIQO_VIDEO_FLASHVSR_DECODE_CROP_INVALID")
+            mapped[count] = frame
+            count += 1
+        if count != source_frames_expected:
+            raise RuntimeError(f"AVANTIQO_VIDEO_FLASHVSR_DECODE_FRAME_COUNT_INVALID:{count}:{source_frames_expected}")
+        for index in range(count, padded_frames):
+            mapped[index] = mapped[count - 1]
+        mapped.flush()
+        tensor = torch.from_numpy(mapped).permute(3, 0, 1, 2).unsqueeze(0)
+        tensor = tensor.to(dtype=torch.bfloat16, device="cpu").div_(127.5).sub_(1.0)
+    finally:
+        cap.release()
+        del mapped
+        try:
+            scratch.unlink()
+        except FileNotFoundError:
+            pass
+    return tensor, target_width, target_height, padded_frames, source_width, source_height
 
 def mastering_surface(width, height):
     if width == height:
@@ -140,8 +181,7 @@ def main():
         "paid_worker_intermediate_egress_only": True,
     }
     try:
-        lq, input_width, input_height, frames = read_input(job)
-        lq, width, height = resize_for_mastering(lq, input_width, input_height)
+        lq, width, height, frames, source_width, source_height = read_input(job)
         pipe = init_pipeline()
         torch.cuda.empty_cache()
         video = pipe(
@@ -172,11 +212,12 @@ def main():
             "output_bytes": output_bytes,
             "source_frame_count": int(job["source_frame_count"]),
             "fps": float(job["fps"]),
-            "input_width": input_width,
-            "input_height": input_height,
+            "input_width": source_width,
+            "input_height": source_height,
             "mastering_width": width,
             "mastering_height": height,
-            "mastering_pixel_reduction_ratio": round(1.0 - ((width * height) / (input_width * input_height)), 6),
+            "worker_input_decode": True,
+            "input_format": "video/mp4",
             "topk_reference_ratio": 1.5,
             "elapsed_seconds": round(time.time() - started, 3),
         })

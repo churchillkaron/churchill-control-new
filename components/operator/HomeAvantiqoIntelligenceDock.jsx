@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Square } from "lucide-react";
+import { Loader2, Paperclip, Square, X } from "lucide-react";
 
 import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntelligence";
 
@@ -9,6 +9,8 @@ const LATEST_THRESHOLD_PX = 96;
 const VOICE_REPLY_INTENT_TTL_MS = 120_000;
 const LIVE_POLL_MS = 900;
 const LIVE_STALE_MS = 45_000;
+const MAX_DEVELOPER_FILES = 4;
+const MAX_DEVELOPER_FILE_BYTES = 128 * 1024;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -82,8 +84,64 @@ function recentLiveExecution(value) {
 
 export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   const rootRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const developerAttachmentSetRef = useRef(null);
   const [liveExecution, setLiveExecution] = useState(null);
   const [stopPending, setStopPending] = useState(false);
+  const [developerAttachmentSet, setDeveloperAttachmentSet] = useState(null);
+  const [developerAttachmentPending, setDeveloperAttachmentPending] = useState(false);
+  const [developerAttachmentError, setDeveloperAttachmentError] = useState("");
+
+  function clearDeveloperAttachments() {
+    developerAttachmentSetRef.current = null;
+    setDeveloperAttachmentSet(null);
+    setDeveloperAttachmentError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function selectDeveloperAttachments(event) {
+    const files = Array.from(event?.target?.files || []).slice(0, MAX_DEVELOPER_FILES);
+    if (!organizationId || !files.length) return;
+    setDeveloperAttachmentPending(true);
+    setDeveloperAttachmentError("");
+    try {
+      for (const file of files) {
+        if (file.size > MAX_DEVELOPER_FILE_BYTES) {
+          throw new Error(`${file.name} is too large for live Code context.`);
+        }
+      }
+      const attachments = await Promise.all(
+        files.map(async (file) => ({
+          name: file.name,
+          type: file.type || "text/plain",
+          size: file.size,
+          content: await file.text(),
+        })),
+      );
+      const response = await fetch("/api/operator/developer-attachments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ organizationId, attachments }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result?.success !== true || !result?.attachment_set_id) {
+        throw new Error(result?.error || "Could not attach the selected files.");
+      }
+      const next = {
+        attachment_set_id: result.attachment_set_id,
+        expires_at: result.expires_at || null,
+        files: Array.isArray(result.files) ? result.files : [],
+      };
+      developerAttachmentSetRef.current = next;
+      setDeveloperAttachmentSet(next);
+    } catch (error) {
+      clearDeveloperAttachments();
+      setDeveloperAttachmentError(text(error?.message || error) || "Could not attach the selected files.");
+    } finally {
+      setDeveloperAttachmentPending(false);
+    }
+  }
 
   useEffect(() => {
     const originalFetch = window.fetch.bind(window);
@@ -92,7 +150,19 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
       const url = typeof input === "string" ? input : input?.url;
       const method = text(init?.method || (typeof input === "object" ? input?.method : "GET")).toUpperCase() || "GET";
       if (url === "/api/operator/turn" && method === "POST") {
-        return originalFetch("/api/operator/turn/live", init);
+        const attachmentSetId = text(
+          developerAttachmentSetRef.current?.attachment_set_id,
+        );
+        const headers = new Headers(init?.headers || {});
+        if (attachmentSetId) {
+          headers.set("x-avantiqo-developer-attachment-set", attachmentSetId);
+        }
+        const response = await originalFetch("/api/operator/turn/live", {
+          ...init,
+          headers,
+        });
+        if (attachmentSetId && response.ok) clearDeveloperAttachments();
+        return response;
       }
       return originalFetch(input, init);
     }
@@ -190,6 +260,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
     if (!organizationId) {
       setLiveExecution(null);
       setStopPending(false);
+      clearDeveloperAttachments();
       return undefined;
     }
 
@@ -413,6 +484,62 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
           </div>
         </div>
       ) : null}
+
+      <div className="mb-2 flex min-h-8 flex-wrap items-center gap-2 px-1">
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          accept=".txt,.md,.mdx,.js,.jsx,.ts,.tsx,.mjs,.cjs,.json,.yaml,.yml,.toml,.ini,.cfg,.conf,.css,.scss,.html,.xml,.sql,.py,.go,.rs,.java,.kt,.rb,.php,.swift,.c,.cc,.cpp,.h,.hpp,.sh,.zsh,.fish,.log,.csv,.tsv,text/*,application/json"
+          onChange={selectDeveloperAttachments}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={!organizationId || developerAttachmentPending || liveActive}
+          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.025] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-white/45 transition hover:border-[#D6A66A]/25 hover:text-[#D6A66A]/75 disabled:opacity-35"
+        >
+          {developerAttachmentPending ? (
+            <Loader2 size={11} className="animate-spin" />
+          ) : (
+            <Paperclip size={11} />
+          )}
+          {developerAttachmentPending ? "Attaching" : "Attach files"}
+        </button>
+
+        {developerAttachmentSet?.files?.map((file) => (
+          <span
+            key={`${developerAttachmentSet.attachment_set_id}:${file.id || file.name}`}
+            className="max-w-[220px] truncate rounded-full border border-[#D6A66A]/15 bg-[#D6A66A]/[0.05] px-2.5 py-1 text-[10px] text-[#D6A66A]/65"
+            title={file.name}
+          >
+            {file.name}
+          </span>
+        ))}
+
+        {developerAttachmentSet ? (
+          <button
+            type="button"
+            onClick={clearDeveloperAttachments}
+            className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] text-white/30 transition hover:text-white/65"
+            title="Remove selected files"
+          >
+            <X size={11} />
+            Clear
+          </button>
+        ) : null}
+
+        {developerAttachmentError ? (
+          <span className="text-[10px] text-red-200/60">{developerAttachmentError}</span>
+        ) : null}
+
+        {developerAttachmentSet ? (
+          <span className="text-[9px] text-white/25">
+            Read-only evidence · next turn only
+          </span>
+        ) : null}
+      </div>
 
       <HomeAvantiqoIntelligence organizationId={organizationId} />
 

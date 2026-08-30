@@ -9,6 +9,8 @@ import {
   codeAIZeroIdleServerlessEnabled,
 } from "@/lib/code/runtime/CodeAIZeroIdlePolicyRuntime";
 
+const OPERATOR_PREWARM_CONTRACT = "AVANTIQO_CODE_OPERATOR_PREWARM_V2";
+const LEGACY_OPERATOR_PREWARM_CONTRACT = "AVANTIQO_CODE_OPERATOR_PREWARM_V1";
 const DEFAULT_IDLE_MS = 30 * 60 * 1000;
 const MAX_IDLE_MS = 30 * 60 * 1000;
 
@@ -48,7 +50,8 @@ export async function POST(request) {
     if (codeAIZeroIdleServerlessEnabled()) {
       return Response.json({
         success: true,
-        contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V2",
+        contract: OPERATOR_PREWARM_CONTRACT,
+        previous_contract: LEGACY_OPERATOR_PREWARM_CONTRACT,
         status: "zero_idle_ready",
         ready: true,
         warming: false,
@@ -72,7 +75,8 @@ export async function POST(request) {
     if (!enabled(process.env.AVANTIQO_CODE_WORKER_SESSION_ENABLED)) {
       return Response.json({
         success: true,
-        contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V2",
+        contract: OPERATOR_PREWARM_CONTRACT,
+        previous_contract: LEGACY_OPERATOR_PREWARM_CONTRACT,
         status: "disabled",
         ready: false,
         warming: false,
@@ -92,7 +96,8 @@ export async function POST(request) {
 
     return Response.json({
       success: true,
-      contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V2",
+      contract: OPERATOR_PREWARM_CONTRACT,
+      previous_contract: LEGACY_OPERATOR_PREWARM_CONTRACT,
       worker_session_contract: worker?.contract || CODE_AI_WORKER_SESSION_CONTRACT,
       status: worker?.ready === true ? "ready" : "warming",
       ready: worker?.ready === true,
@@ -116,7 +121,8 @@ export async function POST(request) {
     return Response.json(
       {
         success: false,
-        contract: "AVANTIQO_CODE_OPERATOR_PREWARM_V2",
+        contract: OPERATOR_PREWARM_CONTRACT,
+        previous_contract: LEGACY_OPERATOR_PREWARM_CONTRACT,
         status: "failed",
         error: text(error?.message || error).slice(0, 700) || "CODE_PREWARM_FAILED",
         reasoning_calls_used: 0,

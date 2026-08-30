@@ -9,6 +9,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+const WORKER_SESSION_REAPER_CONTRACT =
+  "AVANTIQO_CODE_AI_WORKER_SESSION_REAPER_V2";
+const LEGACY_WORKER_SESSION_REAPER_CONTRACT =
+  "AVANTIQO_CODE_AI_WORKER_SESSION_REAPER_V1";
+
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
   if (!secret) return false;
@@ -31,7 +36,8 @@ export async function GET(request) {
     return Response.json(
       {
         success: true,
-        contract: "AVANTIQO_CODE_AI_WORKER_SESSION_REAPER_V2",
+        contract: WORKER_SESSION_REAPER_CONTRACT,
+        previous_contract: LEGACY_WORKER_SESSION_REAPER_CONTRACT,
         worker_session: workerSession,
         zero_idle_serverless: zeroIdleServerless,
         provider_model_call_performed: false,
@@ -45,7 +51,8 @@ export async function GET(request) {
     return Response.json(
       {
         success: false,
-        contract: "AVANTIQO_CODE_AI_WORKER_SESSION_REAPER_V2",
+        contract: WORKER_SESSION_REAPER_CONTRACT,
+        previous_contract: LEGACY_WORKER_SESSION_REAPER_CONTRACT,
         error: error?.message || "Code worker cleanup failed",
         cleanup_failure_hidden: false,
         provider_model_call_performed: false,

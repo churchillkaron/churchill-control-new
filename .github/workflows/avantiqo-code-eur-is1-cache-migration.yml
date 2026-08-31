@@ -1,0 +1,63 @@
+name: Avantiqo Code EUR Cache Migration
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-eur-is1-cache-migration-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-eur-is1-cache-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate-code-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate migration request
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/migrate-avantiqo-code-cache-eur-is1-ci.mjs
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const request = JSON.parse(readFileSync("audits/avantiqo-code-eur-is1-cache-migration-request.json", "utf8"));
+          if (request.contract !== "AVANTIQO_CODE_EUR_IS1_CACHE_MIGRATION_REQUEST_V1") throw new Error("CODE_EUR_CACHE_REQUEST_CONTRACT_INVALID");
+          if (request.approved !== true) throw new Error("CODE_EUR_CACHE_REQUEST_NOT_APPROVED");
+          NODE
+
+      - name: Migrate Code FP8 cache to EUR-IS-1 with CPU only
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+          AVANTIQO_CODE_EUR_IS1_CACHE_MIGRATION_APPROVED: YES
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/migrate-avantiqo-code-cache-eur-is1-ci.mjs | tee /tmp/avantiqo-code-eur-is1-cache-migration.log
+
+      - name: Upload migration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-eur-is1-cache-migration-${{ github.run_id }}
+          path: /tmp/avantiqo-code-eur-is1-cache-migration.log
+          if-no-files-found: warn
+          retention-days: 14

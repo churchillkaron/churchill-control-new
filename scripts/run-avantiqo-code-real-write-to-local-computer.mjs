@@ -12,8 +12,8 @@ const OUTPUT_FILE = `${OUTPUT_ROOT}/invoice-total.mjs`;
 const TEST_FILE = `${OUTPUT_ROOT}/invoice-total.test.mjs`;
 const PRIMARY_GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-e2e-proof-v5-local.mjs";
 const PRIMARY_GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V5_LAUNCHER=PASS";
-const FALLBACK_GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v1-local.mjs";
-const FALLBACK_GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V1=PASS";
+const FALLBACK_GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v2-local.mjs";
+const FALLBACK_GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V2_LAUNCHER=PASS";
 const EXACT_POD_CAPACITY_MISS = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_RUNPOD_HTTP_500:create pod: There are no instances currently available";
 
 function text(value, maximum = 8000) {
@@ -112,6 +112,7 @@ console.log(JSON.stringify({
   exact_capacity_fallback_script: FALLBACK_GENERATION_SCRIPT,
   canonical_endpoint_storage_discovery_required: true,
   bounded_low_stock_retry_required: true,
+  bounded_serverless_in_queue_without_worker_required: true,
   canonical_serverless_zero_idle_fallback_required_on_exact_capacity_miss: true,
   real_owned_model_generation_required: true,
   write_to_local_computer_required: true,
@@ -130,6 +131,7 @@ if (generation.exit_code !== 0 && exactPodCapacityMiss(generation)) {
     reason: "EXACT_POD_CAPACITY_MISS_AFTER_BOUNDED_RETRY",
     fallback_transport: "RUNPOD_SERVERLESS_ZERO_IDLE",
     same_canonical_endpoint_storage_required: true,
+    bounded_in_queue_without_worker_required: true,
     new_storage_created: false,
     production_deploy_performed: false,
     secrets_printed: false,

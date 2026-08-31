@@ -73,6 +73,10 @@ function sourceScore(template) {
   return score;
 }
 
+function continueWithCacheCheck(reason) {
+  console.log(`AVANTIQO_VIDEO_HF_TOKEN_RECOVERY=${reason}_CACHE_CHECK_WILL_DECIDE`);
+}
+
 if (Number(process.versions.node.split(".")[0]) < 24) {
   throw new Error(`AVANTIQO_VIDEO_HF_TOKEN_RECOVERY_NODE24_REQUIRED:${process.version}`);
 }
@@ -85,11 +89,24 @@ let source = recovered ? { kind: "github-actions", id: "HF_TOKEN", name: "HF_TOK
 
 if (!recovered) {
   const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
-  if (!managementKey) throw new Error("AVANTIQO_VIDEO_HF_TOKEN_RECOVERY_RUNPOD_KEY_REQUIRED");
+  if (!managementKey) {
+    continueWithCacheCheck("NOT_AVAILABLE");
+    process.exit(0);
+  }
 
-  const raw = await rest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false", managementKey);
-  const templates = normalizeList(raw, ["templates"]);
-  if (!templates) throw new Error("AVANTIQO_VIDEO_HF_TOKEN_RECOVERY_TEMPLATE_LIST_INVALID");
+  let templates = null;
+  try {
+    const raw = await rest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false", managementKey);
+    templates = normalizeList(raw, ["templates"]);
+  } catch {
+    continueWithCacheCheck("LOOKUP_UNAVAILABLE");
+    process.exit(0);
+  }
+
+  if (!templates) {
+    continueWithCacheCheck("TEMPLATE_LIST_INVALID");
+    process.exit(0);
+  }
 
   const candidates = [];
   for (const template of templates) {
@@ -109,7 +126,10 @@ if (!recovered) {
 
   candidates.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   const winner = candidates[0];
-  if (!winner) throw new Error("AVANTIQO_VIDEO_LTX25_HF_TOKEN_NOT_FOUND_IN_RUNPOD_TEMPLATES");
+  if (!winner) {
+    continueWithCacheCheck("NOT_FOUND");
+    process.exit(0);
+  }
   recovered = winner.token;
   source = { kind: "runpod-template", id: winner.id, name: winner.name, key: winner.key };
 }

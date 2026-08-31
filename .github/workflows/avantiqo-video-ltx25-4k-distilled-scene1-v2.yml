@@ -1,0 +1,193 @@
+name: Avantiqo Video LTX-2.5 4K Distilled Scene 1 V2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-ltx25-4k-distilled-scene1-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-ltx25-4k-distilled-scene1-v2
+  cancel-in-progress: true
+
+jobs:
+  render-4k-scene-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    env:
+      AVANTIQO_VIDEO_LTX25_IMAGE: ghcr.io/churchillkaron/avantiqo-video-ltx25-hq4k-runtime@sha256:4aebfa8252bd870a30ebffef6788800096f78c336a558b0ad0ca5e2324a0a2b9
+      AVANTIQO_VIDEO_SCENE1_ORGANIZATION_ID: 9a148429-b6a0-4bc6-ac83-a35c64fb7045
+      AVANTIQO_VIDEO_SCENE1_OPENING_FRAME: ${{ github.workspace }}/assets/video/proofs/avantiqo_first_shot_frame_transport.jpg
+      AVANTIQO_VIDEO_SCENE1_OUTPUT: ${{ github.workspace }}/avantiqo-video-ltx25-scene1-4k.mp4
+      AVANTIQO_VIDEO_SCENE1_REPORT: ${{ github.workspace }}/avantiqo-video-ltx25-scene1-4k-proof.json
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+
+      - name: Reconstruct exact approved Scene 1 opening frame
+        run: python3 scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Prepare capacity resilient cached 4K fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          worker = Path('scripts/avantiqo-video-ltx25-hq4k-scene-worker.py')
+          w = worker.read_text()
+          replacements = [
+              ('AVANTIQO_VIDEO_LTX25_HQ_TWO_STAGE_4K_V1', 'AVANTIQO_VIDEO_LTX25_DISTILLED_TWO_STAGE_4K_V2'),
+              ('diffusion_models/ltx-2.5-22b-dev-transformer-bf16.safetensors', 'diffusion_models/ltx-2.5-22b-distilled-transformer-bf16.safetensors'),
+              ('ltx_pipelines.ti2vid_two_stages_hq', 'ltx_pipelines.distilled'),
+              ('"pipeline": "TI2VID_TWO_STAGES_HQ_RES2S"', '"pipeline": "DISTILLED_TWO_STAGE_BF16_4K"'),
+          ]
+          for old, new in replacements:
+              if old not in w:
+                  raise SystemExit(f'AVANTIQO_VIDEO_4K_V2_WORKER_TARGET_MISSING:{old}')
+              w = w.replace(old, new, 1)
+          for optional in [
+              '        "--distilled-lora", required_file(DISTILLED_LORA, "AVANTIQO_VIDEO_HQ4K_DISTILLED_LORA_REQUIRED"),\n',
+              '        "--negative-prompt", negative_prompt(),\n',
+          ]:
+              if optional not in w:
+                  raise SystemExit('AVANTIQO_VIDEO_4K_V2_WORKER_OPTION_TARGET_MISSING')
+              w = w.replace(optional, '', 1)
+          worker.write_text(w)
+
+          base = Path('scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs')
+          b = base.read_text()
+          preload_pattern = re.compile(
+              r'    const preload = await runPreload\(await videoPodCandidateSnapshot\(\)\);\n'
+              r'    report\.preload = \{\n'
+              r'      success: true,\n'
+              r'      revision: preload\.revision,\n'
+              r'      file_count: preload\.files\.length,\n'
+              r'      total_bytes: preload\.files\.reduce\(\(sum, item\) => sum \+ Number\(item\.size_bytes \|\| 0\), 0\),\n'
+              r'    \};'
+          )
+          cached = '''    report.preload = {
+                success: true,
+                revision: "CACHED_EXISTING_PROVEN_RUN_33350171235",
+                file_count: 5,
+                total_bytes: null,
+                cache_proof_run_id: "33350171235",
+              };
+              console.log("AVANTIQO_VIDEO_4K_V2_PRELOAD=REUSED_CACHED_EXISTING_PROOF");'''
+          b, count = preload_pattern.subn(cached, b, count=1)
+          if count != 1:
+              raise SystemExit(f'AVANTIQO_VIDEO_4K_V2_CACHE_PATCH_FAILED:{count}')
+
+          retry_pattern = re.compile(
+              r'async function createFromPool\(\{ snapshot, name, imageName, gpuPool, minRamGb, env, command \}\) \{.*?\n\}\n\nfunction preloadPython',
+              re.S,
+          )
+          replacement = '''async function createFromPool({ snapshot, name, imageName, gpuPool, minRamGb, env, command }) {
+            let last = null;
+            const attempts = 6;
+            for (let attempt = 1; attempt <= attempts; attempt += 1) {
+              for (const gpuTypeId of gpuPool) {
+                try {
+                  const pod = await createExactPod({ snapshot, name, imageName, gpuTypeId, minRamGb, env, command });
+                  console.log(`AVANTIQO_VIDEO_SCENE1_GPU_SELECTED=${pod.gpu_type_id}:attempt=${attempt}`);
+                  return pod;
+                } catch (error) {
+                  last = error;
+                  if (!placementUnavailable(error)) throw error;
+                  console.log(`AVANTIQO_VIDEO_SCENE1_GPU_UNAVAILABLE=${gpuTypeId}:attempt=${attempt}`);
+                }
+              }
+              if (attempt < attempts) {
+                console.log(`AVANTIQO_VIDEO_4K_CAPACITY_WAIT=15s:attempt=${attempt}/${attempts}`);
+                await sleep(15_000);
+              }
+            }
+            throw last || new Error("AVANTIQO_VIDEO_4K_GPU_POOL_EXHAUSTED");
+          }
+
+          function preloadPython'''
+          b, count = retry_pattern.subn(replacement, b, count=1)
+          if count != 1:
+              raise SystemExit(f'AVANTIQO_VIDEO_4K_V2_RETRY_PATCH_FAILED:{count}')
+          base.write_text(b)
+
+          controller = Path('scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs')
+          c = controller.read_text()
+          c = c.replace(
+              '`const SCENE_GPU_POOL = Object.freeze([\\n  "NVIDIA B200",\\n]);`',
+              '`const SCENE_GPU_POOL = Object.freeze([\\n  "NVIDIA B200",\\n  "NVIDIA RTX PRO 6000 Blackwell Server Edition",\\n  "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",\\n  "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",\\n]);`',
+              1,
+          )
+          c = c.replace(
+              '"diffusion_models/ltx-2.5-22b-dev-transformer-bf16.safetensors",',
+              '"diffusion_models/ltx-2.5-22b-distilled-transformer-bf16.safetensors",',
+              1,
+          )
+          c = c.replace('  "loras/ltx-2.5-22b-distilled-lora-450-bf16.safetensors",\\n', '', 1)
+          c = c.replace('AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "360",', 'AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "480",', 1)
+          c = c.replace('const receipt = await waitForJson(receiptPath, 8 * 60 * 1000, async () => {', 'const receipt = await waitForJson(receiptPath, 10 * 60 * 1000, async () => {', 1)
+          controller.write_text(c)
+          PY
+
+          python3 -m py_compile scripts/avantiqo-video-ltx25-hq4k-scene-worker.py
+          node --check scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          node --check scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          grep -Fq 'ltx_pipelines.distilled' scripts/avantiqo-video-ltx25-hq4k-scene-worker.py
+          grep -Fq 'AVANTIQO_VIDEO_4K_V2_PRELOAD=REUSED_CACHED_EXISTING_PROOF' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          grep -Fq 'AVANTIQO_VIDEO_4K_CAPACITY_WAIT=15s' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          grep -Fq 'NVIDIA RTX PRO 6000 Blackwell Server Edition' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          grep -Fq 'NVIDIA RTX PRO 6000 Blackwell Workstation Edition' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          grep -Fq 'NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          grep -Fq 'AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "480"' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          grep -Fq '10 * 60 * 1000' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          echo 'AVANTIQO_VIDEO_4K_V2_STATIC_GATE=PASS'
+
+      - name: Render cached 4K Scene 1
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'AVANTIQO_VIDEO_4K_V2_SCENE1_START=true'
+          node scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          test -s "${AVANTIQO_VIDEO_SCENE1_OUTPUT}"
+          test -s "${AVANTIQO_VIDEO_SCENE1_REPORT}"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync(process.env.AVANTIQO_VIDEO_SCENE1_REPORT, 'utf8'));
+          if (report.success !== true) throw new Error(report.error_code || '4K_V2_SCENE1_REPORT_FAILED');
+          if (report.production_deploy_performed !== false) throw new Error('PRODUCTION_DEPLOY_BOUNDARY_BROKEN');
+          if (Number(report.generation?.width) !== 3840 || Number(report.generation?.height) !== 2160 || Number(report.generation?.fps) !== 24) throw new Error('4K_V2_DELIVERY_DIMENSIONS_INVALID');
+          console.log('AVANTIQO_VIDEO_4K_V2_FINAL_GATE=PASS');
+          NODE
+
+      - name: Upload 4K Scene 1 artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-ltx25-4k-distilled-scene1-v2-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            avantiqo-video-ltx25-scene1-4k.mp4
+            avantiqo-video-ltx25-scene1-4k-proof.json

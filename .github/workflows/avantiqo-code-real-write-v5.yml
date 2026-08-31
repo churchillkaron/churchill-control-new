@@ -1,0 +1,71 @@
+name: Avantiqo Code Real Write V5
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+      - scripts/run-avantiqo-code-real-write-e2e-proof-v3-local.mjs
+      - scripts/run-avantiqo-code-real-write-e2e-proof-v5-local.mjs
+      - .github/workflows/avantiqo-code-real-write-v5.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-real-write-v5
+  cancel-in-progress: false
+
+jobs:
+  real-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Syntax check bounded proof
+        run: |
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v3-local.mjs
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v5-local.mjs
+
+      - name: Run one bounded real-code proof
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_APPROVED: "YES"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-code-real-write-e2e-proof-v5-local.mjs 2>&1 | tee /tmp/avantiqo-code-real-write-v5.log
+
+      - name: Verify hard proof markers
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'AVANTIQO_CODE_GENERATED_SOURCE_BEGIN' /tmp/avantiqo-code-real-write-v5.log
+          grep -q 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_GENERATED_CODE_EXECUTED=true' /tmp/avantiqo-code-real-write-v5.log
+          grep -q 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_GENERATED_TESTS_PASSED=true' /tmp/avantiqo-code-real-write-v5.log
+          grep -q 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_POD_DELETE_VERIFIED=true' /tmp/avantiqo-code-real-write-v5.log
+          grep -q 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_PRODUCTION_DEPLOY_PERFORMED=false' /tmp/avantiqo-code-real-write-v5.log
+          grep -q 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V5_LAUNCHER=PASS' /tmp/avantiqo-code-real-write-v5.log
+          echo 'AVANTIQO_CODE_REAL_WRITE_V5_HARD_GATE=PASS'
+
+      - name: Upload proof log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-real-write-v5-${{ github.run_id }}
+          path: /tmp/avantiqo-code-real-write-v5.log
+          if-no-files-found: warn
+          retention-days: 14

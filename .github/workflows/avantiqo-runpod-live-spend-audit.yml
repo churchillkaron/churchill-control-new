@@ -1,5 +1,6 @@
 name: Avantiqo RunPod Live Spend Audit
 
+# Recheck marker: 2026-08-31 before further Intelligence GPU spend.
 on:
   workflow_dispatch:
   push:

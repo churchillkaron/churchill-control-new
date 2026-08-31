@@ -65,3 +65,5 @@ jobs:
           echo "RUNPOD_MUTATION_PERFORMED=false"
           echo "INFERENCE_PERFORMED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
+
+# Read-only inspection trigger: 2026-08-31T01:45Z

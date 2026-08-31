@@ -1,0 +1,6 @@
+{
+  "contract": "AVANTIQO_IMAGE_160GB_STORAGE_MIGRATION_REQUEST_V1",
+  "approved": true,
+  "reason": "replace oversized 400GB legacy Image/Video cache with 160GB Image-only cache without inference",
+  "requested_at": "2026-08-31T03:23:00Z"
+}

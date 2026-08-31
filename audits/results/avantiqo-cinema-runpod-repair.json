@@ -4,6 +4,7 @@
   "mode": "RESTORE_MINIMUM_WORKER",
   "endpoint_id": "xmey8y2hofexyp",
   "workers_min_restored_to": 0,
+  "workers_max_restored_to": 0,
   "generation_submitted": false,
   "external_ai_provider_used": false
 }

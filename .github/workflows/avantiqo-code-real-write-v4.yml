@@ -1,0 +1,65 @@
+name: Avantiqo Code Real Write V4
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-code-real-write-v4.yml
+      - scripts/run-avantiqo-code-real-write-e2e-proof-v4-local.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-real-write-v4
+  cancel-in-progress: false
+
+jobs:
+  real-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Syntax check dynamic proof
+        run: |
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v3-local.mjs
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v4-local.mjs
+
+      - name: Run one dynamic real-code proof
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_APPROVED: "YES"
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-code-real-write-e2e-proof-v4-local.mjs 2>&1 | tee /tmp/avantiqo-code-real-write-v4.log
+
+      - name: Verify hard proof markers
+        if: success()
+        run: |
+          grep -q 'AVANTIQO_CODE_GENERATED_SOURCE_BEGIN' /tmp/avantiqo-code-real-write-v4.log
+          grep -q 'AVANTIQO_CODE_GENERATED_SOURCE_END' /tmp/avantiqo-code-real-write-v4.log
+          grep -q 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_GENERATED_TESTS_PASSED=true' /tmp/avantiqo-code-real-write-v4.log
+          grep -q 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_POD_DELETE_VERIFIED=true' /tmp/avantiqo-code-real-write-v4.log
+          grep -q 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_PRODUCTION_DEPLOY_PERFORMED=false' /tmp/avantiqo-code-real-write-v4.log
+          grep -q 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V4_LAUNCHER=PASS' /tmp/avantiqo-code-real-write-v4.log
+
+      - name: Upload proof log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-real-write-v4-${{ github.run_id }}
+          path: /tmp/avantiqo-code-real-write-v4.log
+          if-no-files-found: warn
+          retention-days: 14

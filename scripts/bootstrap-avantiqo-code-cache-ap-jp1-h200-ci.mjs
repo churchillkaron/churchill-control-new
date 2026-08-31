@@ -119,7 +119,7 @@ try {
       containerDiskInGb: 5,
       networkVolumeId: volumeId,
       volumeMountPath: "/workspace",
-      globalNetworking: true,
+      globalNetworking: false,
       supportPublicIp: false,
       ports: ["8000/http"],
       dockerEntrypoint: ["python", "-c"],

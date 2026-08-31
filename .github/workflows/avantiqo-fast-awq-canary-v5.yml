@@ -1,0 +1,75 @@
+name: Avantiqo Fast AWQ Canary V5
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-awq-canary-v5.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-fast-awq-canary-v5
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CANARY_TEMPLATE_NAME: avantiqo-intelligence-fast-awq32-canary-v3
+      CANARY_ENDPOINT_NAME: avantiqo-intelligence-fast-awq-canary-v5
+      CANARY_MODEL: cyankiwi/Qwen3-30B-A3B-Instruct-2507-AWQ-4bit
+      CANONICAL_MODEL: Qwen/Qwen3-30B-A3B-Instruct-2507
+
+    steps:
+      - name: Clone live Fast Serverless pool onto isolated AWQ endpoint
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs';
+          const key=String(process.env.RUNPOD_MANAGEMENT_API_KEY||'').trim();if(!key)throw new Error('RUNPOD_MANAGEMENT_API_KEY_REQUIRED');
+          const list=v=>Array.isArray(v)?v:[];const text=v=>String(v??'').trim();
+          const graph=async(query,variables={})=>{const r=await fetch('https://api.runpod.io/graphql',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({query,variables}),signal:AbortSignal.timeout(30000)});const body=await r.json();const errors=list(body?.errors);if(!r.ok||errors.length)throw new Error(`RUNPOD_GRAPHQL:${errors.map(e=>e?.message).join('|')}`);return body?.data||{};};
+          const rest=async(path,options={})=>{const r=await fetch(`https://rest.runpod.io/v1${path}`,{method:options.method||'GET',headers:{Authorization:`Bearer ${key}`,Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{})},body:options.body?JSON.stringify(options.body):undefined,signal:AbortSignal.timeout(30000)});const raw=await r.text();let body={};try{body=raw?JSON.parse(raw):{};}catch{}if(!r.ok)throw new Error(`RUNPOD_REST_${r.status}:${raw.slice(0,500)}`);return body;};
+          const raw=await rest('/endpoints?includeTemplate=false&includeWorkers=true');const restEndpoints=Array.isArray(raw)?raw:list(raw?.endpoints||raw?.data||raw?.items||raw?.results);const liveRest=restEndpoints.find(e=>text(e?.name)==='avantiqo-intelligence-fast-v1');if(!liveRest||Number(liveRest.workersMin)!==0||Number(liveRest.workersMax)!==0)throw new Error('LIVE_FAST_0_0_REQUIRED');
+          let canary=restEndpoints.find(e=>text(e?.name)===process.env.CANARY_ENDPOINT_NAME);
+          if(!canary){
+            const q=await graph(`query AvantiqoFastAwqV5Source { myself { endpoints { id name gpuIds gpuCount idleTimeout scalerType scalerValue executionTimeoutMs minCudaVersion flashBootType } podTemplates { id name } } }`);
+            const live=list(q?.myself?.endpoints).find(e=>text(e?.name)==='avantiqo-intelligence-fast-v1');if(!live)throw new Error('LIVE_FAST_GRAPHQL_REQUIRED');
+            const gpuIds=text(live?.gpuIds);if(!gpuIds)throw new Error('LIVE_FAST_GPU_IDS_REQUIRED');
+            const template=list(q?.myself?.podTemplates).find(t=>text(t?.name)===process.env.CANARY_TEMPLATE_NAME);if(!text(template?.id))throw new Error('AWQ_TEMPLATE_REQUIRED');
+            const mutation=`mutation AvantiqoFastAwqV5Save($input: EndpointInput!) { saveEndpoint(input: $input) { id name templateId gpuIds gpuCount workersMin workersMax flashBootType } }`;
+            const input={name:process.env.CANARY_ENDPOINT_NAME,templateId:text(template.id),gpuIds,gpuCount:Math.max(1,Number(live.gpuCount||1)),workersMin:0,workersMax:0,idleTimeout:Number(live.idleTimeout||30),scalerType:text(live.scalerType)||'QUEUE_DELAY',scalerValue:Number(live.scalerValue||1),executionTimeoutMs:Number(live.executionTimeoutMs||180000),flashBootType:text(live.flashBootType)||'FLASHBOOT'};
+            if(text(live.minCudaVersion))input.minCudaVersion=text(live.minCudaVersion);
+            const saved=await graph(mutation,{input});canary=saved?.saveEndpoint||null;
+          }
+          const id=text(canary?.id);if(!id)throw new Error('CANARY_ENDPOINT_ID_REQUIRED');await rest(`/endpoints/${encodeURIComponent(id)}/update`,{method:'POST',body:{workersMin:0,workersMax:0}});appendFileSync(process.env.GITHUB_ENV,`CANARY_ENDPOINT_ID=${id}\n`,'utf8');
+          console.log(JSON.stringify({contract:'AVANTIQO_FAST_AWQ_CANARY_V5_BOOTSTRAP',endpoint_id:id,source_pool:'LIVE_FAST_SERVERLESS_POOL',physical_model:process.env.CANARY_MODEL,served_model:process.env.CANONICAL_MODEL,workers_min:0,workers_max:0,live_fast_mutated:false,production_deploy_performed:false,secrets_printed:false},null,2));
+          NODE
+
+      - name: Cold warmup and two <=5s interactive turns
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const management=String(process.env.RUNPOD_MANAGEMENT_API_KEY||'').trim();const queueKey=String(process.env.RUNPOD_API_KEY||management).trim();const id=String(process.env.CANARY_ENDPOINT_ID||'').trim();if(!management||!queueKey||!id)throw new Error('CANARY_RUNTIME_CONTEXT_REQUIRED');
+          const rest=async(path,options={})=>{const r=await fetch(`https://rest.runpod.io/v1${path}`,{method:options.method||'GET',headers:{Authorization:`Bearer ${management}`,Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{})},body:options.body?JSON.stringify(options.body):undefined,signal:AbortSignal.timeout(30000)});const raw=await r.text();let body={};try{body=raw?JSON.parse(raw):{};}catch{}if(!r.ok)throw new Error(`REST_${r.status}:${raw.slice(0,400)}`);return body;};
+          const queue=async(path,options={})=>{const r=await fetch(`https://api.runpod.ai/v2/${encodeURIComponent(id)}${path}`,{method:options.method||'GET',headers:{Authorization:`Bearer ${queueKey}`,Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{})},body:options.body?JSON.stringify(options.body):undefined,signal:AbortSignal.timeout(options.timeoutMs||210000)});const raw=await r.text();let body={};try{body=raw?JSON.parse(raw):{};}catch{}if(!r.ok)throw new Error(`QUEUE_${r.status}:${raw.slice(0,500)}`);return body;};
+          const scale=max=>rest(`/endpoints/${encodeURIComponent(id)}/update`,{method:'POST',body:{workersMin:0,workersMax:max}});const health=()=>queue('/health',{timeoutMs:20000});const counts=h=>({inQueue:Number(h?.jobs?.inQueue??h?.jobs?.in_queue??0),inProgress:Number(h?.jobs?.inProgress??h?.jobs?.in_progress??0)});
+          const payload=expected=>({input:{openai_route:'/v1/chat/completions',openai_input:{model:process.env.CANONICAL_MODEL,messages:[{role:'system',content:'Follow the exact concise response instruction.'},{role:'user',content:`Reply exactly ${expected} and nothing else.`}],max_tokens:8,temperature:0}}});
+          const run=async(label,expected,timeoutMs)=>{const started=performance.now();const result=await queue('/runsync',{method:'POST',body:payload(expected),timeoutMs});const latency=Math.round(performance.now()-started);const raw=JSON.stringify(result);if(!raw.includes(expected))throw new Error(`${label}_OUTPUT_INVALID:${raw.slice(0,700)}`);return{label,latency_ms:latency,status:String(result?.status||''),delay_ms:Number(result?.delayTime||0),execution_ms:Number(result?.executionTime||0)};};
+          let failure=null;try{await scale(1);const warmup=await run('WARMUP','WARM_OK',210000);const one=await run('TURN_1','FAST_ONE',20000);const two=await run('TURN_2','FAST_TWO',20000);if(one.latency_ms>5000)throw new Error(`TURN_1_LATENCY_GATE:${one.latency_ms}:5000`);if(two.latency_ms>5000)throw new Error(`TURN_2_LATENCY_GATE:${two.latency_ms}:5000`);console.log(JSON.stringify({contract:'AVANTIQO_FAST_AWQ_LATENCY_PROOF_V5',success:true,cold_warmup:warmup,measured_turns:[one,two],interactive_latency_gate_ms:5000,physical_model:process.env.CANARY_MODEL,served_model:process.env.CANONICAL_MODEL,serverless_pool:'LIVE_FAST_POOL',external_ai_fallback_used:false,production_deploy_performed:false},null,2));}catch(error){failure=error;}finally{await scale(0).catch(()=>null);const h=await health().catch(()=>null);const c=h?counts(h):{inQueue:0,inProgress:0};if(c.inQueue>0&&c.inProgress===0)await queue('/purge-queue',{method:'POST',timeoutMs:30000}).catch(()=>null);const deadline=Date.now()+120000;let clean=false;while(Date.now()<deadline){const hh=await health().catch(()=>null);const cc=hh?counts(hh):{inQueue:0,inProgress:0};const e=await rest(`/endpoints/${encodeURIComponent(id)}?includeTemplate=false&includeWorkers=true`).catch(()=>null);const active=Array.isArray(e?.workers)?e.workers.filter(w=>!['EXITED','STOPPED','TERMINATED','DELETED','FAILED'].includes(String(w?.status||w?.workerStatus||'').toUpperCase())).length:0;if(Number(e?.workersMax)===0&&cc.inQueue===0&&cc.inProgress===0&&active===0){clean=true;break;}await new Promise(r=>setTimeout(r,3000));}if(!clean&&!failure)failure=new Error('CANARY_CLEANUP_NOT_VERIFIED');}if(failure)throw failure;console.log('AVANTIQO_FAST_AWQ_LATENCY_PROOF_V5=PASS');
+          NODE
+
+      - name: Verify cleanup and production Fast untouched
+        if: always()
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const key=String(process.env.RUNPOD_MANAGEMENT_API_KEY||'').trim();const r=await fetch('https://rest.runpod.io/v1/endpoints?includeTemplate=false&includeWorkers=true',{headers:{Authorization:`Bearer ${key}`,Accept:'application/json'},signal:AbortSignal.timeout(30000)});const body=await r.json();const eps=Array.isArray(body)?body:body?.endpoints||body?.data||body?.items||body?.results||[];const live=eps.find(e=>String(e?.name||'')==='avantiqo-intelligence-fast-v1');const canary=eps.find(e=>String(e?.name||'')===process.env.CANARY_ENDPOINT_NAME);if(!live||Number(live.workersMin)!==0||Number(live.workersMax)!==0)throw new Error('LIVE_FAST_REST_STATE_CHANGED');if(canary&&(Number(canary.workersMin)!==0||Number(canary.workersMax)!==0))throw new Error('CANARY_NOT_PARKED');console.log('LIVE_FAST_UNTOUCHED=true');console.log(`CANARY_EXISTS=${Boolean(canary)}`);console.log('CANARY_REST_0_0=true');console.log('PRODUCTION_DEPLOY_PERFORMED=false');
+          NODE

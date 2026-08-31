@@ -1,0 +1,61 @@
+name: Avantiqo Fast AWQ32 Canary Repair V2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-awq32-canary-repair-v2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-fast-awq32-canary-repair-v2
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Apply exact bootstrap contract repair
+        run: |
+          git pull --ff-only origin main
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/avantiqo-fast-awq32-canary.yml')
+          source = path.read_text()
+          replacements = [
+              ('mutation Save($input: PodTemplateInput!)', 'mutation Save($input: SaveTemplateInput!)'),
+              ("await rest(`/endpoints/${encodeURIComponent(canaryId)}`, { method:'PATCH', body:{ workersMin:0, workersMax:0 } });", "await rest(`/endpoints/${encodeURIComponent(canaryId)}/update`, { method:'POST', body:{ workersMin:0, workersMax:0 } });"),
+              ("const patch = async (max) => rest(`/endpoints/${encodeURIComponent(endpointId)}`, { method:'PATCH', body:{ workersMin:0, workersMax:max } });", "const patch = async (max) => rest(`/endpoints/${encodeURIComponent(endpointId)}/update`, { method:'POST', body:{ workersMin:0, workersMax:max } });"),
+          ]
+          for old, new in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'EXPECTED_SOURCE_COUNT_INVALID:{count}:{old[:80]}')
+              source = source.replace(old, new, 1)
+          path.write_text(source)
+          PY
+
+          grep -Fq 'mutation Save($input: SaveTemplateInput!)' .github/workflows/avantiqo-fast-awq32-canary.yml
+          grep -Fq 'canaryId)}/update' .github/workflows/avantiqo-fast-awq32-canary.yml
+          grep -Fq 'endpointId)}/update' .github/workflows/avantiqo-fast-awq32-canary.yml
+          if grep -Fq "method:'PATCH'" .github/workflows/avantiqo-fast-awq32-canary.yml; then
+            echo 'UNPROVEN_ENDPOINT_PATCH_REMAINS'
+            exit 1
+          fi
+          git diff --check
+
+      - name: Commit repaired canary to main
+        run: |
+          git config user.name churchillkaron
+          git config user.email patric@pcsphuket.com
+          git add .github/workflows/avantiqo-fast-awq32-canary.yml
+          git commit -m "Fix AWQ Fast canary bootstrap contract"
+          git push origin main

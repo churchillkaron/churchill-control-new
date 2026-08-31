@@ -1,7 +1,7 @@
 {
   "contract": "AVANTIQO_CODE_DEEPGEMM_RUNTIME_PROBE_REQUEST_V1",
   "approved": true,
-  "sequence": 2,
+  "sequence": 3,
   "expected_image_digest": "sha256:fa6559a184998d75fb6430ea9fa303fe7b6c1af0da441e61ac4bd587b2bdf3c6",
   "endpoint_id": "r79dtnjnrilrlc",
   "generation_performed": false,

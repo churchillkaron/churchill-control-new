@@ -1,0 +1,75 @@
+name: Avantiqo Code Live Health Inspect
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-live-health-inspect-request.json
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-code-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+    steps:
+      - name: Inspect live endpoint and queue without mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const endpointId = "r79dtnjnrilrlc";
+          const management = (process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY || "").trim();
+          const runtime = (process.env.RUNPOD_AVANTIQO_CODE_API_KEY || process.env.RUNPOD_API_KEY || management).trim();
+          if (!management || !runtime) throw new Error("RUNPOD_CODE_KEYS_REQUIRED");
+          async function json(url, key) {
+            const response = await fetch(url, { headers: { Authorization: `Bearer ${key}`, Accept: "application/json" }, signal: AbortSignal.timeout(30000) });
+            const raw = await response.text();
+            let body = {}; try { body = raw ? JSON.parse(raw) : {}; } catch { body = { message: raw }; }
+            if (!response.ok) throw new Error(`HTTP_${response.status}:${String(body?.message || body?.error || body?.detail || raw).slice(0,500)}`);
+            return body;
+          }
+          const [endpoint, health] = await Promise.all([
+            json(`https://rest.runpod.io/v1/endpoints/${endpointId}?includeTemplate=true&includeWorkers=true`, management),
+            json(`https://api.runpod.ai/v2/${endpointId}/health`, runtime),
+          ]);
+          console.log(JSON.stringify({
+            success: true,
+            contract: "AVANTIQO_CODE_LIVE_HEALTH_INSPECT_V1",
+            endpoint: {
+              id: endpoint.id,
+              name: endpoint.name,
+              workers_min: Number(endpoint.workersMin ?? -1),
+              workers_max: Number(endpoint.workersMax ?? -1),
+              flashboot: endpoint.flashboot === true || endpoint.flashBoot === true || String(endpoint.flashBootType || "").toUpperCase() === "FLASHBOOT",
+              template_id: endpoint.templateId || endpoint.template?.id || null,
+              image_name: endpoint.template?.imageName || null,
+              network_volume_id: endpoint.networkVolumeId || null,
+            },
+            health: {
+              jobs: {
+                in_queue: Number(health?.jobs?.inQueue ?? health?.jobs?.in_queue ?? 0),
+                in_progress: Number(health?.jobs?.inProgress ?? health?.jobs?.in_progress ?? 0),
+              },
+              workers: {
+                idle: Number(health?.workers?.idle ?? 0),
+                initializing: Number(health?.workers?.initializing ?? 0),
+                ready: Number(health?.workers?.ready ?? 0),
+                running: Number(health?.workers?.running ?? 0),
+                throttled: Number(health?.workers?.throttled ?? 0),
+                unhealthy: Number(health?.workers?.unhealthy ?? 0),
+              },
+            },
+            mutation_performed: false,
+            generation_submitted: false,
+            wallet_mutation_performed: false,
+            production_deploy_performed: false,
+            secrets_printed: false,
+          }, null, 2));
+          NODE

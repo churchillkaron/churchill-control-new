@@ -1,0 +1,53 @@
+name: Avantiqo Fast Template Structure Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-template-structure-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read non-secret live Fast template structure
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const key=String(process.env.RUNPOD_MANAGEMENT_API_KEY||'').trim();
+          if(!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_REQUIRED');
+          const request=async(path)=>{const r=await fetch(`https://rest.runpod.io/v1${path}`,{headers:{Authorization:`Bearer ${key}`,Accept:'application/json'},signal:AbortSignal.timeout(30000)});const raw=await r.text();if(!r.ok)throw new Error(`RUNPOD_REST_${r.status}`);return raw?JSON.parse(raw):{};};
+          const raw=await request('/endpoints?includeTemplate=true&includeWorkers=false');
+          const eps=Array.isArray(raw)?raw:raw?.endpoints||raw?.data||raw?.items||raw?.results||[];
+          const endpoint=eps.find(e=>String(e?.name||'')==='avantiqo-intelligence-fast-v1');
+          if(!endpoint) throw new Error('LIVE_FAST_ENDPOINT_REQUIRED');
+          const templateId=String(endpoint.templateId||endpoint.template?.id||'').trim();
+          if(!templateId) throw new Error('LIVE_FAST_TEMPLATE_ID_REQUIRED');
+          const t=await request(`/templates/${encodeURIComponent(templateId)}`);
+          const envRaw=t?.env||t?.envs||t?.environment||[];
+          const envKeys=(Array.isArray(envRaw)?envRaw.map(e=>String(e?.key||e?.name||'')):Object.keys(envRaw||{})).filter(Boolean).sort();
+          console.log(JSON.stringify({
+            contract:'AVANTIQO_FAST_TEMPLATE_STRUCTURE_AUDIT_V1',
+            template_id:templateId,
+            name:String(t?.name||''),
+            image_name:String(t?.imageName||t?.image||''),
+            docker_args:String(t?.dockerArgs||''),
+            docker_entrypoint:Array.isArray(t?.dockerEntrypoint)?t.dockerEntrypoint:null,
+            docker_start_cmd:Array.isArray(t?.dockerStartCmd)?t.dockerStartCmd:null,
+            container_disk_gb:Number(t?.containerDiskInGb||0),
+            volume_gb:Number(t?.volumeInGb||0),
+            volume_mount_path:String(t?.volumeMountPath||''),
+            ports:String(t?.ports||''),
+            is_serverless:t?.isServerless??null,
+            env_keys:envKeys,
+            env_values_printed:false,
+            mutation_performed:false,
+            production_deploy_performed:false,
+            secrets_printed:false
+          },null,2));
+          NODE

@@ -1,0 +1,44 @@
+name: Avantiqo Code Worker Startup Diagnostic
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-worker-startup-diagnostic-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-worker-startup-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnose-code-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Capture read-only Code worker startup logs
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/diagnose-avantiqo-code-worker-startup-ci.mjs | tee /tmp/avantiqo-code-worker-startup-diagnostic.log
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-worker-startup-diagnostic-${{ github.run_id }}
+          path: /tmp/avantiqo-code-worker-startup-diagnostic.log
+          if-no-files-found: warn
+          retention-days: 14

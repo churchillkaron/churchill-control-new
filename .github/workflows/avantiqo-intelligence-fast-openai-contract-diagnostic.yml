@@ -1,0 +1,34 @@
+name: Avantiqo Intelligence Fast OpenAI Contract Diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-fast-openai-contract-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Inspect Fast and Deep endpoint contracts
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: node scripts/diagnose-avantiqo-intelligence-fast-openai-endpoint-contract-ci.mjs
+      - if: always()
+        run: |
+          echo "GENERATION_SUBMITTED=false"
+          echo "MUTATION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

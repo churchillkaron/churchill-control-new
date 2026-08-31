@@ -1,5 +1,6 @@
 name: Avantiqo Code Ephemeral Pod Real Write Proof
 
+# One-shot paid execution requires the explicit commit marker or manual dispatch.
 on:
   workflow_dispatch:
   push:

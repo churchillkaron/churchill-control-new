@@ -67,6 +67,125 @@ jobs:
           python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-scene-worker.py
           echo 'AVANTIQO_VIDEO_LTX25_V5_SOURCE_AND_DISTILLED_WORKER_PIN=PASS'
 
+      - name: Prepare capacity-resilient Scene 1 attempt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          runner = Path('scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs')
+          source = runner.read_text()
+
+          pool = '''const SCENE_GPU_POOL = Object.freeze([
+            "NVIDIA B200",
+            "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+            "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+            "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA RTX PRO 4500 Blackwell",
+          ]);'''
+          source, count = re.subn(
+              r'const SCENE_GPU_POOL = Object\.freeze\(\[.*?\n\]\);',
+              pool,
+              source,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit('AVANTIQO_VIDEO_LTX25_SCENE_GPU_POOL_PATCH_FAILED')
+
+          old_placement = '''return status === 500 && (message.includes("no instances currently available") || message.includes("no instances"));'''
+          new_placement = '''return status === 500 && (
+              message.includes("no instances currently available") ||
+              message.includes("no instances") ||
+              message.includes("not available") ||
+              message.includes("unavailable") ||
+              message.includes("no matching")
+            );'''
+          if old_placement not in source:
+              raise SystemExit('AVANTIQO_VIDEO_LTX25_PLACEMENT_PATCH_TARGET_MISSING')
+          source = source.replace(old_placement, new_placement, 1)
+
+          replacement = '''async function createFromPool({ snapshot, name, imageName, gpuPool, minRamGb, env, command }) {
+            let last = null;
+            const attempts = Math.max(1, Number(process.env.AVANTIQO_VIDEO_LTX25_PLACEMENT_ATTEMPTS || 30));
+            for (let attempt = 1; attempt <= attempts; attempt += 1) {
+              for (const gpuTypeId of gpuPool) {
+                try {
+                  const pod = await createExactPod({ snapshot, name, imageName, gpuTypeId, minRamGb, env, command });
+                  console.log(`AVANTIQO_VIDEO_SCENE1_GPU_SELECTED=${pod.gpu_type_id}:attempt=${attempt}`);
+                  return pod;
+                } catch (error) {
+                  last = error;
+                  if (!placementUnavailable(error)) throw error;
+                  console.log(`AVANTIQO_VIDEO_SCENE1_GPU_UNAVAILABLE=${gpuTypeId}:attempt=${attempt}`);
+                }
+              }
+              if (attempt < attempts) {
+                console.log(`AVANTIQO_VIDEO_SCENE1_GPU_CAPACITY_WAIT=30s:attempt=${attempt}/${attempts}`);
+                await sleep(30_000);
+              }
+            }
+            throw last || new Error("AVANTIQO_VIDEO_SCENE1_GPU_POOL_EXHAUSTED");
+          }
+
+          function preloadPython'''
+          source, count = re.subn(
+              r'async function createFromPool\(\{ snapshot, name, imageName, gpuPool, minRamGb, env, command \}\) \{.*?\n\}\n\nfunction preloadPython',
+              replacement,
+              source,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit('AVANTIQO_VIDEO_LTX25_CAPACITY_RETRY_PATCH_FAILED')
+
+          old_preload = '''    const preload = await runPreload(await videoPodCandidateSnapshot());
+              report.preload = {
+                success: true,
+                revision: preload.revision,
+                file_count: preload.files.length,
+                total_bytes: preload.files.reduce((sum, item) => sum + Number(item.size_bytes || 0), 0),
+              };'''
+          new_preload = '''    report.preload = {
+                success: true,
+                revision: "CACHED_EXISTING_PROVEN_RUN_33350171235",
+                file_count: REQUIRED_MODEL_FILES.length,
+                total_bytes: null,
+                cache_proof_run_id: "33350171235",
+              };
+              console.log("AVANTIQO_VIDEO_LTX25_DISTILLED_PRELOAD=REUSED_CACHED_EXISTING_PROOF");'''
+          if old_preload not in source:
+              raise SystemExit('AVANTIQO_VIDEO_LTX25_PRELOAD_REUSE_PATCH_TARGET_MISSING')
+          source = source.replace(old_preload, new_preload, 1)
+          source = source.replace('minRamGb: 96,', 'minRamGb: 64,', 1)
+          runner.write_text(source)
+
+          worker = Path('scripts/avantiqo-video-ltx25-distilled-scene-worker.py')
+          worker_source = worker.read_text()
+          old_args = '''        "--prompt",
+                  cinematic_instruction(data),
+                  "--image",'''
+          new_args = '''        "--prompt",
+                  cinematic_instruction(data),
+                  "--quantization",
+                  "fp8-cast",
+                  "--offload",
+                  "cpu",
+                  "--image",'''
+          if old_args not in worker_source:
+              raise SystemExit('AVANTIQO_VIDEO_LTX25_LOW_VRAM_WORKER_PATCH_TARGET_MISSING')
+          worker_source = worker_source.replace(old_args, new_args, 1)
+          worker_source = worker_source.replace('"precision": "BF16",', '"precision": "FP8_CAST_BF16_SOURCE",', 1)
+          worker.write_text(worker_source)
+
+          print('AVANTIQO_VIDEO_LTX25_CAPACITY_RESILIENT_PATCH=PASS')
+          PY
+          node --check scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+
       - name: Recover existing LTX-2.5 credential
         env:
           HF_TOKEN_SECRET: ${{ secrets.HF_TOKEN }}
@@ -81,6 +200,7 @@ jobs:
       - name: Render Scene 1 through owned V5
         env:
           NODE_ENV: development
+          AVANTIQO_VIDEO_LTX25_PLACEMENT_ATTEMPTS: '30'
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
           RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY }}

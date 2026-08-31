@@ -1,0 +1,7 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_TRAINER_STORAGE_CLEANUP_REQUEST_V1",
+  "approved": true,
+  "endpoint_id": "1c0spqu03yf0gs",
+  "volume_id": "7obluigbr0",
+  "reason": "remove idle trainer-only persistent storage; trainer can be reprovisioned only when needed"
+}

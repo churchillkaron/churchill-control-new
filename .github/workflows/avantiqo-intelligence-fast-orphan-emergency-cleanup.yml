@@ -18,13 +18,13 @@ jobs:
       - name: Delete only the verified orphan Fast Intelligence Pod
         env:
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-          TARGET_POD_ID: 9roaj6pf5wuauu
+          TARGET_POD_ID: 2a4s9o65ori585
         run: |
           node --input-type=module <<'NODE'
           const key = String(process.env.RUNPOD_MANAGEMENT_API_KEY || '').trim();
           const id = String(process.env.TARGET_POD_ID || '').trim();
           if (!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_MISSING');
-          if (id !== '9roaj6pf5wuauu') throw new Error('TARGET_POD_ID_MISMATCH');
+          if (id !== '2a4s9o65ori585') throw new Error('TARGET_POD_ID_MISMATCH');
           const headers = { Authorization: `Bearer ${key}`, Accept: 'application/json' };
           const before = await fetch(`https://rest.runpod.io/v1/pods/${encodeURIComponent(id)}`, {
             headers,

@@ -1,4 +1,4 @@
-name: Avantiqo Video Native Master Serverless Migration V7
+name: Avantiqo Video Native Master Serverless Migration V8
 
 on:
   push:
@@ -33,40 +33,25 @@ jobs:
           ref: main
           fetch-depth: 1
 
-      - name: Resolve exact gated LTX revision with zero GPU
+      - name: Resolve exact gated LTX revision
         id: hf
         shell: bash
         run: |
           set -euo pipefail
           for name in RUNPOD_API_KEY RUNPOD_INFERENCE_KEY HF_TOKEN; do
-            test -n "${!name:-}" || { echo "AVANTIQO_VIDEO_MIGRATION_V7_MISSING_${name}"; exit 1; }
+            test -n "${!name:-}" || { echo "AVANTIQO_VIDEO_MIGRATION_V8_MISSING_${name}"; exit 1; }
           done
-
-          metadata="$(curl -fsS \
-            -H "Authorization: Bearer ${HF_TOKEN}" \
-            -H 'Accept: application/json' \
-            'https://huggingface.co/api/models/Lightricks/LTX-2.5/revision/main')"
+          metadata="$(curl -fsS -H "Authorization: Bearer ${HF_TOKEN}" -H 'Accept: application/json' 'https://huggingface.co/api/models/Lightricks/LTX-2.5/revision/main')"
           revision="$(printf '%s' "$metadata" | jq -r '.sha // empty')"
-          case "$revision" in
-            ????????????????????????????????????????) ;;
-            *) echo 'AVANTIQO_VIDEO_MIGRATION_V7_HF_REVISION_INVALID'; exit 1 ;;
-          esac
-
-          code="$(curl -sS -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer ${HF_TOKEN}" \
-            "https://huggingface.co/Lightricks/LTX-2.5/resolve/${revision}/diffusion_models/ltx-2.5-22b-dev-transformer-bf16.safetensors?download=false")"
-          case "$code" in
-            200|302|303|307|308) ;;
-            *) echo "AVANTIQO_VIDEO_MIGRATION_V7_HF_EXACT_REVISION_ACCESS_FAIL_${code}"; exit 1 ;;
-          esac
-
+          case "$revision" in ????????????????????????????????????????) ;; *) echo 'AVANTIQO_VIDEO_MIGRATION_V8_HF_REVISION_INVALID'; exit 1 ;; esac
+          code="$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${HF_TOKEN}" "https://huggingface.co/Lightricks/LTX-2.5/resolve/${revision}/diffusion_models/ltx-2.5-22b-dev-transformer-bf16.safetensors?download=false")"
+          case "$code" in 200|302|303|307|308) ;; *) echo "AVANTIQO_VIDEO_MIGRATION_V8_HF_ACCESS_FAIL_${code}"; exit 1 ;; esac
           echo "revision=${revision}" >> "$GITHUB_OUTPUT"
-          echo "AVANTIQO_VIDEO_MIGRATION_V7_HF_EXACT_REVISION=${revision}"
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_HF_ACCESS=PASS'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_GPU_STARTED=false'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_GENERATION_SUBMITTED=false'
+          echo "AVANTIQO_VIDEO_MIGRATION_V8_HF_REVISION=${revision}"
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_GPU_STARTED=false'
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_GENERATION_SUBMITTED=false'
 
-      - name: Bind exact gated revision and global zero-idle policy
+      - name: Atomically bind inline template and cached model
         env:
           LTX_REVISION: ${{ steps.hf.outputs.revision }}
         shell: bash
@@ -90,83 +75,21 @@ jobs:
           active="$(printf '%s' "$endpoint" | jq '[.workers[]? | select(((.status // .workerStatus // "") | ascii_upcase) as $s | ($s != "EXITED" and $s != "TERMINATED" and $s != "DELETED" and $s != "STOPPED"))] | length')"
           test "$active" = '0'
 
-          template_id="$(printf '%s' "$endpoint" | jq -r '.templateId // .template.id // empty')"
-          test -n "$template_id"
-          template="$(curl -fsS "${auth[@]}" "${REST}/templates/${template_id}")"
+          old_template_id="$(printf '%s' "$endpoint" | jq -r '.templateId // .template.id // empty')"
+          test -n "$old_template_id"
+          old_template="$(curl -fsS "${auth[@]}" "${REST}/templates/${old_template_id}")"
 
-          query='query VideoEndpoint { myself { endpoints { id name templateId gpuIds gpuCount instanceIds workersMin workersMax locations networkVolumeId networkVolumeIds { networkVolumeId dataCenterId } idleTimeout scalerType scalerValue executionTimeoutMs minCudaVersion flashBootType modelReferences } } }'
-          graph_read="$(jq -cn --arg query "$query" '{query:$query,variables:{}}')"
-          graph_body="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$graph_read" "$GRAPH")"
-          if [ "$(printf '%s' "$graph_body" | jq '.errors | length // 0')" != '0' ]; then
-            printf '%s\n' "$graph_body" | jq -c '{errors:.errors}' >&2
-            exit 1
-          fi
-          graph_endpoint="$(printf '%s' "$graph_body" | jq -c --arg id "$ENDPOINT_ID" '.data.myself.endpoints | map(select(.id==$id)) | if length==1 then .[0] else error("endpoint resolution") end')"
+          read_query='query VideoEndpoint { myself { endpoints { id name templateId gpuIds gpuCount instanceIds workersMin workersMax locations networkVolumeId networkVolumeIds { networkVolumeId dataCenterId } idleTimeout scalerType scalerValue executionTimeoutMs minCudaVersion flashBootType modelReferences } } }'
+          read_payload="$(jq -cn --arg query "$read_query" '{query:$query,variables:{}}')"
+          graph_body="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$read_payload" "$GRAPH")"
+          if [ "$(printf '%s' "$graph_body" | jq '.errors | length // 0')" != '0' ]; then printf '%s\n' "$graph_body" | jq -c '{errors:.errors}' >&2; exit 1; fi
+          old_graph="$(printf '%s' "$graph_body" | jq -c --arg id "$ENDPOINT_ID" '.data.myself.endpoints | map(select(.id==$id)) | if length==1 then .[0] else error("endpoint resolution") end')"
+          printf '%s' "$endpoint" >/tmp/video-v8-rest-before.json
+          printf '%s' "$old_template" >/tmp/video-v8-template-before.json
+          printf '%s' "$old_graph" >/tmp/video-v8-graph-before.json
 
-          printf '%s' "$endpoint" >/tmp/video-v7-rest-before.json
-          printf '%s' "$template" >/tmp/video-v7-template-before.json
-          printf '%s' "$graph_endpoint" >/tmp/video-v7-graph-before.json
-
-          rollback() {
-            rc=$?
-            if [ "$rc" -eq 0 ]; then return 0; fi
-            set +e
-            echo 'AVANTIQO_VIDEO_MIGRATION_V7_ROLLBACK=START'
-
-            old_graph="$(cat /tmp/video-v7-graph-before.json)"
-            old_input="$(printf '%s' "$old_graph" | jq -c '{
-              id:.id,
-              name:.name,
-              templateId:.templateId,
-              gpuIds:.gpuIds,
-              gpuCount:(.gpuCount // 1),
-              instanceIds:(.instanceIds // []),
-              workersMin:(.workersMin // 0),
-              workersMax:(.workersMax // 0),
-              locations:(.locations // ""),
-              networkVolumeId:(.networkVolumeId // ""),
-              networkVolumeIds:((.networkVolumeIds // []) | map({networkVolumeId:.networkVolumeId}) | map(select(.networkVolumeId != null and .networkVolumeId != ""))),
-              idleTimeout:(.idleTimeout // 5),
-              scalerType:(.scalerType // "REQUEST_COUNT"),
-              scalerValue:(.scalerValue // 1),
-              executionTimeoutMs:(.executionTimeoutMs // 2100000),
-              minCudaVersion:(.minCudaVersion // "12.8"),
-              flashBootType:(if (.flashBootType // "") == "" then "OFF" else .flashBootType end),
-              modelReferences:(.modelReferences // [])
-            }')"
-            old_payload="$(jq -cn --argjson input "$old_input" '{query:"mutation Save($input: EndpointInput!){saveEndpoint(input:$input){id}}",variables:{input:$input}}')"
-            curl -sS "${auth[@]}" "${json[@]}" -d "$old_payload" "$GRAPH" >/tmp/video-v7-rollback-graph.json
-
-            old_rest="$(cat /tmp/video-v7-rest-before.json)"
-            old_policy="$(printf '%s' "$old_rest" | jq -c '{
-              gpuTypeIds:(.gpuTypeIds // []),
-              gpuCount:(.gpuCount // 1),
-              workersMin:(.workersMin // 0),
-              workersMax:(.workersMax // 0),
-              idleTimeout:(.idleTimeout // 5),
-              scalerType:(.scalerType // "REQUEST_COUNT"),
-              scalerValue:(.scalerValue // 1),
-              flashboot:(.flashboot // .flashBoot // false),
-              minCudaVersion:(.minCudaVersion // "12.8"),
-              allowedCudaVersions:(.allowedCudaVersions // []),
-              dataCenterIds:(.dataCenterIds // []),
-              executionTimeoutMs:(.executionTimeoutMs // 2100000),
-              networkVolumeIds:([.networkVolumeId,.networkVolumeIds[]?] | map(if type == "object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | unique)
-            }')"
-            curl -sS -X PATCH "${auth[@]}" "${json[@]}" -d "$old_policy" "${REST}/endpoints/${ENDPOINT_ID}" >/tmp/video-v7-rollback-rest.json
-
-            old_template="$(cat /tmp/video-v7-template-before.json)"
-            template_restore="$(printf '%s' "$old_template" | jq -c '{imageName:.imageName,env:(.env // {}),readme:(.readme // ""),containerDiskInGb:(.containerDiskInGb // 20)}')"
-            curl -sS -X PATCH "${auth[@]}" "${json[@]}" -d "$template_restore" "${REST}/templates/${template_id}" >/tmp/video-v7-rollback-template.json
-            echo 'AVANTIQO_VIDEO_MIGRATION_V7_ROLLBACK=ATTEMPTED'
-            exit "$rc"
-          }
-          trap rollback EXIT
-
-          new_env="$(printf '%s' "$template" | jq -c \
-            --arg token "$HF_TOKEN" \
-            --arg revision "$LTX_REVISION" \
-            '(.env // {}) + {
+          env_array="$(printf '%s' "$old_template" | jq -c --arg token "$HF_TOKEN" --arg revision "$LTX_REVISION" '
+            (.env // {}) + {
               HF_TOKEN:$token,
               HUGGING_FACE_HUB_TOKEN:$token,
               HUGGINGFACE_TOKEN:$token,
@@ -176,75 +99,111 @@ jobs:
               TRANSFORMERS_OFFLINE:"1",
               AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT:"/opt/LTX-2",
               AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS:"1800"
-            }')"
-          disk="$(printf '%s' "$template" | jq -r '.containerDiskInGb // 30')"
-          patch="$(jq -cn --arg image "$IMAGE" --argjson env "$new_env" --argjson disk "$disk" '{imageName:$image,env:$env,containerDiskInGb:$disk}')"
-          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$patch" "${REST}/templates/${template_id}" >/tmp/video-v7-template-patched.json
-          patched_template="$(curl -fsS "${auth[@]}" "${REST}/templates/${template_id}")"
-          test "$(printf '%s' "$patched_template" | jq -r '.imageName')" = "$IMAGE"
-          test -n "$(printf '%s' "$patched_template" | jq -r '.env.HF_TOKEN // empty')"
-          test "$(printf '%s' "$patched_template" | jq -r '.env.MODEL_REVISION // empty')" = "$LTX_REVISION"
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_BOUND_TEMPLATE=PASS'
+            }
+            | to_entries | map({key:.key,value:(.value|tostring)})')"
+          disk="$(printf '%s' "$old_template" | jq -r '.containerDiskInGb // 30')"
+          inline_name="avantiqo-video-ltx25-native-master-serverless-v1"
 
-          target_input="$(printf '%s' "$graph_endpoint" | jq -c --arg model "$MODEL_REFERENCE" '{
-            id:.id,
-            name:.name,
-            templateId:.templateId,
-            gpuIds:.gpuIds,
-            gpuCount:(.gpuCount // 1),
-            instanceIds:(.instanceIds // []),
-            workersMin:0,
-            workersMax:1,
-            locations:"",
-            networkVolumeId:"",
-            networkVolumeIds:[],
-            idleTimeout:5,
-            scalerType:"REQUEST_COUNT",
-            scalerValue:1,
-            executionTimeoutMs:2100000,
-            minCudaVersion:"12.8",
-            flashBootType:"FLASHBOOT",
-            modelReferences:[$model]
-          }')"
-          payload="$(jq -cn --argjson input "$target_input" '{query:"mutation Save($input: EndpointInput!){saveEndpoint(input:$input){id name templateId workersMin workersMax locations networkVolumeId networkVolumeIds{networkVolumeId dataCenterId} idleTimeout scalerType scalerValue minCudaVersion flashBootType modelReferences}}",variables:{input:$input}}')"
+          target_input="$(printf '%s' "$old_graph" | jq -c \
+            --arg image "$IMAGE" \
+            --arg name "$inline_name" \
+            --arg model "$MODEL_REFERENCE" \
+            --argjson env "$env_array" \
+            --argjson disk "$disk" '
+            {
+              id:.id,
+              name:.name,
+              template:{name:$name,imageName:$image,containerDiskInGb:$disk,dockerArgs:"",env:$env},
+              gpuIds:.gpuIds,
+              gpuCount:(.gpuCount // 1),
+              instanceIds:(.instanceIds // []),
+              workersMin:0,
+              workersMax:1,
+              locations:"",
+              networkVolumeId:"",
+              networkVolumeIds:[],
+              idleTimeout:5,
+              scalerType:"REQUEST_COUNT",
+              scalerValue:1,
+              executionTimeoutMs:2100000,
+              minCudaVersion:"12.8",
+              flashBootType:"FLASHBOOT",
+              modelReferences:[$model]
+            }')"
+          mutation='mutation Save($input: EndpointInput!){saveEndpoint(input:$input){id name templateId workersMin workersMax locations networkVolumeId networkVolumeIds{networkVolumeId dataCenterId} idleTimeout scalerType scalerValue minCudaVersion flashBootType modelReferences}}'
+          payload="$(jq -cn --arg query "$mutation" --argjson input "$target_input" '{query:$query,variables:{input:$input}}')"
+
           response="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$payload" "$GRAPH")"
           if [ "$(printf '%s' "$response" | jq '.errors | length // 0')" != '0' ]; then
             printf '%s\n' "$response" | jq -c '{errors:.errors}' >&2
             exit 1
           fi
+
+          test "$(printf '%s' "$response" | jq -r '.data.saveEndpoint.id')" = "$ENDPOINT_ID"
+          new_template_id="$(printf '%s' "$response" | jq -r '.data.saveEndpoint.templateId // empty')"
+          test -n "$new_template_id"
           test "$(printf '%s' "$response" | jq -r '.data.saveEndpoint.flashBootType')" = 'FLASHBOOT'
           test "$(printf '%s' "$response" | jq -r --arg model "$MODEL_REFERENCE" '.data.saveEndpoint.modelReferences | index($model) != null')" = 'true'
           test "$(printf '%s' "$response" | jq -r '.data.saveEndpoint.networkVolumeIds | length')" = '0'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_EXACT_MODEL_REFERENCE=PASS'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_NETWORK_VOLUME_DETACHED=true'
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_INLINE_CACHE_BIND=PASS'
+
+          rollback() {
+            rc=$?
+            if [ "$rc" -eq 0 ]; then return 0; fi
+            set +e
+            echo 'AVANTIQO_VIDEO_MIGRATION_V8_POST_BIND_ROLLBACK=START'
+            swap='mutation Swap($input: UpdateEndpointTemplateInput){updateEndpointTemplate(input:$input){id templateId}}'
+            swap_payload="$(jq -cn --arg query "$swap" --arg endpoint "$ENDPOINT_ID" --arg template "$old_template_id" '{query:$query,variables:{input:{endpointId:$endpoint,templateId:$template}}}')"
+            curl -sS "${auth[@]}" "${json[@]}" -d "$swap_payload" "$GRAPH" >/tmp/video-v8-rollback-swap.json
+            old="$(cat /tmp/video-v8-graph-before.json)"
+            restore_input="$(printf '%s' "$old" | jq -c '{id:.id,name:.name,templateId:.templateId,gpuIds:.gpuIds,gpuCount:(.gpuCount // 1),instanceIds:(.instanceIds // []),workersMin:(.workersMin // 0),workersMax:(.workersMax // 0),locations:(.locations // ""),networkVolumeId:(.networkVolumeId // ""),networkVolumeIds:((.networkVolumeIds // [])|map({networkVolumeId:.networkVolumeId})|map(select(.networkVolumeId != null and .networkVolumeId != ""))),idleTimeout:(.idleTimeout // 5),scalerType:(.scalerType // "REQUEST_COUNT"),scalerValue:(.scalerValue // 1),executionTimeoutMs:(.executionTimeoutMs // 2100000),minCudaVersion:(.minCudaVersion // "12.8"),flashBootType:(if (.flashBootType // "") == "" then "OFF" else .flashBootType end),modelReferences:(.modelReferences // [])}')"
+            restore_payload="$(jq -cn --arg query "$mutation" --argjson input "$restore_input" '{query:$query,variables:{input:$input}}')"
+            curl -sS "${auth[@]}" "${json[@]}" -d "$restore_payload" "$GRAPH" >/tmp/video-v8-rollback-save.json
+            if [ -n "${new_template_id:-}" ] && [ "$new_template_id" != "$old_template_id" ]; then curl -sS -X DELETE "${auth[@]}" "${REST}/templates/${new_template_id}" >/tmp/video-v8-rollback-delete-template.json; fi
+            echo 'AVANTIQO_VIDEO_MIGRATION_V8_POST_BIND_ROLLBACK=ATTEMPTED'
+            exit "$rc"
+          }
+          trap rollback EXIT
 
           policy='{"gpuTypeIds":["NVIDIA RTX PRO 6000 Blackwell Server Edition","NVIDIA RTX PRO 6000 Blackwell Workstation Edition","NVIDIA B200"],"gpuCount":1,"workersMin":0,"workersMax":1,"idleTimeout":5,"scalerType":"REQUEST_COUNT","scalerValue":1,"flashboot":true,"minCudaVersion":"12.8","allowedCudaVersions":["12.8","12.9","13.0"],"dataCenterIds":[],"executionTimeoutMs":2100000,"networkVolumeIds":[]}'
-          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$policy" "${REST}/endpoints/${ENDPOINT_ID}" >/tmp/video-v7-global-policy.json
+          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$policy" "${REST}/endpoints/${ENDPOINT_ID}" >/tmp/video-v8-global-policy.json
 
           verified="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
           verified_health="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
-          verified_graph_body="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$graph_read" "$GRAPH")"
+          verified_graph_body="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$read_payload" "$GRAPH")"
           verified_graph="$(printf '%s' "$verified_graph_body" | jq -c --arg id "$ENDPOINT_ID" '.data.myself.endpoints | map(select(.id==$id)) | if length==1 then .[0] else error("endpoint resolution") end')"
+          verified_template="$(curl -fsS "${auth[@]}" "${REST}/templates/${new_template_id}")"
 
           test "$(printf '%s' "$verified" | jq -r '.workersMin')" = '0'
           test "$(printf '%s' "$verified" | jq -r '.workersMax')" = '1'
           test "$(printf '%s' "$verified" | jq -r '.idleTimeout')" = '5'
-          test "$(printf '%s' "$verified" | jq -r '([.networkVolumeId,.networkVolumeIds[]?] | map(if type == "object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | length)')" = '0'
+          test "$(printf '%s' "$verified" | jq -r '([.networkVolumeId,.networkVolumeIds[]?] | map(if type=="object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | length)')" = '0'
           test "$(printf '%s' "$verified" | jq -r '(.dataCenterIds // []) | length')" = '0'
+          test "$(printf '%s' "$verified_graph" | jq -r '.templateId')" = "$new_template_id"
           test "$(printf '%s' "$verified_graph" | jq -r '.flashBootType')" = 'FLASHBOOT'
           test "$(printf '%s' "$verified_graph" | jq -r --arg model "$MODEL_REFERENCE" '(.modelReferences // []) | index($model) != null')" = 'true'
+          test "$(printf '%s' "$verified_template" | jq -r '.imageName')" = "$IMAGE"
+          test -n "$(printf '%s' "$verified_template" | jq -r '.env.HF_TOKEN // empty')"
           test "$(printf '%s' "$verified_health" | jq -r '(.jobs.inQueue // .jobs.in_queue // 0)')" = '0'
           test "$(printf '%s' "$verified_health" | jq -r '(.jobs.inProgress // .jobs.in_progress // 0)')" = '0'
           test "$(printf '%s' "$verified_health" | jq -r '(.workers // {}) | [.[]] | add // 0')" = '0'
 
+          if [ "$new_template_id" != "$old_template_id" ]; then
+            endpoints="$(curl -fsS "${auth[@]}" "${REST}/endpoints")"
+            old_consumers="$(printf '%s' "$endpoints" | jq --arg id "$old_template_id" '[.[] | select((.templateId // .template.id // "") == $id)] | length')"
+            test "$old_consumers" = '0'
+            curl -fsS -X DELETE "${auth[@]}" "${REST}/templates/${old_template_id}" >/tmp/video-v8-old-template-delete.json
+            echo 'AVANTIQO_VIDEO_MIGRATION_V8_OLD_TEMPLATE_REMOVED=true'
+          fi
+
           trap - EXIT
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_SUCCESS=true'
-          echo "AVANTIQO_VIDEO_MIGRATION_V7_MODEL_REVISION=${LTX_REVISION}"
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_ENDPOINT=xmey8y2hofexyp'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_WORKERS=0_TO_1'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_GLOBAL_SCHEDULING=true'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_NETWORK_VOLUME=false'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_FLASHBOOT=true'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_GPU_STARTED=false'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_GENERATION_SUBMITTED=false'
-          echo 'AVANTIQO_VIDEO_MIGRATION_V7_PRODUCTION_WEB_DEPLOY=false'
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_SUCCESS=true'
+          echo "AVANTIQO_VIDEO_MIGRATION_V8_MODEL_REVISION=${LTX_REVISION}"
+          echo "AVANTIQO_VIDEO_MIGRATION_V8_TEMPLATE=${new_template_id}"
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_ENDPOINT=xmey8y2hofexyp'
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_WORKERS=0_TO_1'
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_GLOBAL_SCHEDULING=true'
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_NETWORK_VOLUME=false'
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_GPU_STARTED=false'
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_VIDEO_MIGRATION_V8_PRODUCTION_WEB_DEPLOY=false'

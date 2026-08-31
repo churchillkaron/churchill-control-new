@@ -47,3 +47,12 @@ test("zero-idle failed submission reaps capacity before preserving the error", (
   assert.match(files.provider, /if \(zeroIdle\) await reapAfterServerlessSubmissionFailure\(error\)/);
   assert.match(files.provider, /throw error/);
 });
+
+test("completed Code jobs fail closed before billing when no deliverable result exists", () => {
+  assert.match(files.provider, /AVANTIQO_CODE_DELIVERY_SETTLEMENT_GUARD_V1/);
+  assert.match(files.provider, /guardCompletedDeliverable/);
+  assert.match(files.provider, /AVANTIQO_CODE_SERVERLESS_COMPLETED_RESULT_REQUIRED/);
+  assert.match(files.provider, /AVANTIQO_CODE_POD_COMPLETED_RESULT_REQUIRED/);
+  assert.match(files.provider, /customer_charge_eligible: false/);
+  assert.match(files.provider, /status: "failed"/);
+});

@@ -1,11 +1,16 @@
 import { appendFile } from "node:fs/promises";
 
 const REST_BASE = "https://rest.runpod.io/v1";
+const VERCEL_API_BASE = "https://api.vercel.com";
+const DEFAULT_VERCEL_PROJECT_ID = "prj_5K2x3kGkhs3d2PU8VOQQPyNT24A9";
+const DEFAULT_VERCEL_TEAM_ID = "team_40jy42BqQOs4U6pVdkawwEfp";
 const TOKEN_KEYS = Object.freeze([
   "HF_TOKEN",
   "HUGGING_FACE_HUB_TOKEN",
   "HUGGINGFACE_HUB_TOKEN",
   "HUGGING_FACE_HUB_ACCESS_TOKEN",
+  "HUGGINGFACE_TOKEN",
+  "HF_ACCESS_TOKEN",
 ]);
 
 const text = (value) => String(value ?? "").trim();
@@ -50,11 +55,24 @@ async function readJson(response, label) {
   return body ?? {};
 }
 
-async function rest(pathname, key) {
+async function runpodRest(pathname, key) {
   return readJson(await fetch(`${REST_BASE}${pathname}`, {
     headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
     signal: AbortSignal.timeout(30_000),
-  }), "AVANTIQO_VIDEO_HF_TOKEN_RECOVERY_REST");
+  }), "AVANTIQO_VIDEO_HF_TOKEN_RECOVERY_RUNPOD_REST");
+}
+
+async function vercelProjectEnv(vercelToken) {
+  const projectId = text(process.env.VERCEL_PROJECT_ID) || DEFAULT_VERCEL_PROJECT_ID;
+  const teamId = text(process.env.VERCEL_TEAM_ID) || DEFAULT_VERCEL_TEAM_ID;
+  const url = new URL(`${VERCEL_API_BASE}/v10/projects/${encodeURIComponent(projectId)}/env`);
+  url.searchParams.set("teamId", teamId);
+  url.searchParams.set("decrypt", "true");
+  url.searchParams.set("source", "avantiqo-video-scene1-proof");
+  return readJson(await fetch(url, {
+    headers: { Authorization: `Bearer ${vercelToken}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(30_000),
+  }), "AVANTIQO_VIDEO_HF_TOKEN_RECOVERY_VERCEL");
 }
 
 function sourceScore(template) {
@@ -73,6 +91,13 @@ function sourceScore(template) {
   return score;
 }
 
+function targetScore(env) {
+  const targets = Array.isArray(env?.target) ? env.target.map((value) => text(value).toLowerCase()) : [];
+  if (targets.includes("production")) return 100;
+  if (targets.length === 0) return 10;
+  return 0;
+}
+
 function continueWithCacheCheck(reason) {
   console.log(`AVANTIQO_VIDEO_HF_TOKEN_RECOVERY=${reason}_CACHE_CHECK_WILL_DECIDE`);
 }
@@ -89,49 +114,75 @@ let source = recovered ? { kind: "github-actions", id: "HF_TOKEN", name: "HF_TOK
 
 if (!recovered) {
   const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
-  if (!managementKey) {
-    continueWithCacheCheck("NOT_AVAILABLE");
-    process.exit(0);
-  }
-
-  let templates = null;
-  try {
-    const raw = await rest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false", managementKey);
-    templates = normalizeList(raw, ["templates"]);
-  } catch {
-    continueWithCacheCheck("LOOKUP_UNAVAILABLE");
-    process.exit(0);
-  }
-
-  if (!templates) {
-    continueWithCacheCheck("TEMPLATE_LIST_INVALID");
-    process.exit(0);
-  }
-
-  const candidates = [];
-  for (const template of templates) {
-    const env = normalizeEnv(template?.env);
-    for (const key of TOKEN_KEYS) {
-      const token = normalizeToken(env[key]);
-      if (!token) continue;
-      candidates.push({
-        token,
-        key,
-        score: sourceScore(template),
-        id: text(template?.id) || "unknown-template",
-        name: text(template?.name) || "unnamed-template",
-      });
+  if (managementKey) {
+    try {
+      const raw = await runpodRest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false", managementKey);
+      const templates = normalizeList(raw, ["templates"]);
+      if (templates) {
+        const candidates = [];
+        for (const template of templates) {
+          const env = normalizeEnv(template?.env);
+          for (const key of TOKEN_KEYS) {
+            const token = normalizeToken(env[key]);
+            if (!token) continue;
+            candidates.push({
+              token,
+              key,
+              score: sourceScore(template),
+              id: text(template?.id) || "unknown-template",
+              name: text(template?.name) || "unnamed-template",
+            });
+          }
+        }
+        candidates.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+        const winner = candidates[0];
+        if (winner) {
+          recovered = winner.token;
+          source = { kind: "runpod-template", id: winner.id, name: winner.name, key: winner.key };
+        }
+      }
+    } catch (error) {
+      console.log(`AVANTIQO_VIDEO_HF_TOKEN_RUNPOD_LOOKUP=UNAVAILABLE:${text(error?.message).split(":", 1)[0] || "UNKNOWN"}`);
     }
   }
+}
 
-  candidates.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
-  const winner = candidates[0];
-  if (!winner) {
-    continueWithCacheCheck("NOT_FOUND");
-    process.exit(0);
+if (!recovered) {
+  const vercelToken = text(process.env.VERCEL_TOKEN);
+  if (vercelToken) {
+    try {
+      const raw = await vercelProjectEnv(vercelToken);
+      const envs = normalizeList(raw, ["envs"]);
+      if (envs) {
+        const candidates = [];
+        for (const env of envs) {
+          const key = text(env?.key || env?.name);
+          if (!TOKEN_KEYS.includes(key)) continue;
+          const token = normalizeToken(env?.value);
+          if (!token) continue;
+          candidates.push({
+            token,
+            key,
+            score: targetScore(env),
+            id: text(env?.id) || "unknown-env",
+          });
+        }
+        candidates.sort((a, b) => b.score - a.score || TOKEN_KEYS.indexOf(a.key) - TOKEN_KEYS.indexOf(b.key));
+        const winner = candidates[0];
+        if (winner) {
+          recovered = winner.token;
+          source = { kind: "vercel-project-env", id: winner.id, name: "production", key: winner.key };
+        }
+      }
+    } catch (error) {
+      console.log(`AVANTIQO_VIDEO_HF_TOKEN_VERCEL_LOOKUP=UNAVAILABLE:${text(error?.message).split(":", 1)[0] || "UNKNOWN"}`);
+    }
   }
-  recovered = winner.token;
-  source = { kind: "runpod-template", id: winner.id, name: winner.name, key: winner.key };
+}
+
+if (!recovered) {
+  continueWithCacheCheck("NOT_FOUND");
+  process.exit(0);
 }
 
 console.log(`::add-mask::${recovered}`);

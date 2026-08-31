@@ -1,0 +1,81 @@
+name: Avantiqo Fast Stale Queue Cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-stale-queue-cleanup.yml
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Purge only stale Fast queue and verify 0/0
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || secrets.RUNPOD_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const text = (v) => String(v ?? '').trim();
+          const list = (v) => Array.isArray(v) ? v : [];
+          const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
+          const queueKey = text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || process.env.RUNPOD_API_KEY);
+          if (!managementKey || !queueKey) throw new Error('FAST_CLEANUP_KEY_REQUIRED');
+          const request = async (url, key, options = {}) => {
+            const response = await fetch(url, {
+              method: options.method || 'GET',
+              headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+              signal: AbortSignal.timeout(30000),
+            });
+            const raw = await response.text();
+            let body = null;
+            try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
+            if (!response.ok) throw new Error(`FAST_CLEANUP_HTTP_${response.status}`);
+            return body;
+          };
+          const endpointsRaw = await request('https://rest.runpod.io/v1/endpoints?includeTemplate=false&includeWorkers=true', managementKey);
+          const endpoints = Array.isArray(endpointsRaw) ? endpointsRaw : list(endpointsRaw?.endpoints || endpointsRaw?.data || endpointsRaw?.items || endpointsRaw?.results);
+          const matches = endpoints.filter((e) => text(e?.name) === 'avantiqo-intelligence-fast-v1');
+          if (matches.length !== 1) throw new Error(`FAST_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
+          const endpoint = matches[0];
+          const endpointId = text(endpoint.id);
+          if (Number(endpoint.workersMin) !== 0 || Number(endpoint.workersMax) !== 0) {
+            throw new Error(`FAST_ENDPOINT_NOT_0_0:${endpoint.workersMin}:${endpoint.workersMax}`);
+          }
+          const before = await request(`https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}/health`, queueKey);
+          const beforeJobs = before?.jobs || {};
+          const queuedBefore = Number(beforeJobs.inQueue || beforeJobs.in_queue || 0);
+          const runningBefore = Number(beforeJobs.inProgress || beforeJobs.in_progress || 0);
+          if (runningBefore !== 0) throw new Error(`FAST_RUNNING_JOB_PRESENT:${runningBefore}`);
+          let purge = { removed: 0 };
+          if (queuedBefore > 0) {
+            purge = await request(`https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}/purge-queue`, queueKey, { method: 'POST' });
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const after = await request(`https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}/health`, queueKey);
+          const afterJobs = after?.jobs || {};
+          const queuedAfter = Number(afterJobs.inQueue || afterJobs.in_queue || 0);
+          const runningAfter = Number(afterJobs.inProgress || afterJobs.in_progress || 0);
+          if (queuedAfter !== 0 || runningAfter !== 0) {
+            throw new Error(`FAST_QUEUE_NOT_CLEAN:${queuedAfter}:${runningAfter}`);
+          }
+          console.log(JSON.stringify({
+            contract: 'AVANTIQO_FAST_STALE_QUEUE_CLEANUP_V1',
+            queued_before: queuedBefore,
+            running_before: runningBefore,
+            purge_removed: Number(purge?.removed || 0),
+            queued_after: queuedAfter,
+            running_after: runningAfter,
+            workers_min: Number(endpoint.workersMin),
+            workers_max: Number(endpoint.workersMax),
+            gpu_started: false,
+            production_deploy_performed: false,
+            secrets_printed: false,
+          }, null, 2));
+          console.log('AVANTIQO_FAST_STALE_QUEUE_CLEANUP_V1=PASS');
+          NODE

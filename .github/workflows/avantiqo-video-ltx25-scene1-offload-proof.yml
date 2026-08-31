@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/avantiqo-video-ltx25-scene1-offload-proof.yml
-      - scripts/avantiqo-video-ltx25-distilled-offload-scene-worker.py
+      - scripts/avantiqo-video-ltx25-distilled-offload-scene-worker-v2.py
 
 permissions:
   contents: read
@@ -18,7 +18,7 @@ concurrency:
 jobs:
   render-scene-1-offload:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 45
     env:
       V5_SOURCE_SHA: 897b1409dcba14e4d39519fd2b574813beeeae95
       AVANTIQO_VIDEO_LTX25_IMAGE: ghcr.io/churchillkaron/avantiqo-video-ltx25-v5@sha256:63fac5692fb3a038b24c2cdac44f88e452e8ee25744693456391c50259b9eb20
@@ -45,35 +45,35 @@ jobs:
       - name: Install application dependencies
         run: npm ci --ignore-scripts
 
-      - name: Verify and bind 32GB Blackwell offload path
+      - name: Bind fast 32GB Blackwell Scene 1 path
         shell: bash
         run: |
           set -euo pipefail
           git fetch --no-tags origin "${V5_SOURCE_SHA}"
           git cat-file -e "${V5_SOURCE_SHA}^{commit}"
           git show "${V5_SOURCE_SHA}:services/avantiqo-video-engine/Dockerfile.ltx25" | grep -F 'LTX2_COMMIT=a95ab856bf29407b6b066ede0abe1846050db56c'
-          python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-offload-scene-worker.py
+          python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-offload-scene-worker-v2.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs')
           s = p.read_text()
           old_worker = 'const DISTILLED_WORKER_PATH = path.resolve("scripts/avantiqo-video-ltx25-distilled-scene-worker.py");'
-          new_worker = 'const DISTILLED_WORKER_PATH = path.resolve("scripts/avantiqo-video-ltx25-distilled-offload-scene-worker.py");'
+          new_worker = 'const DISTILLED_WORKER_PATH = path.resolve("scripts/avantiqo-video-ltx25-distilled-offload-scene-worker-v2.py");'
           if old_worker not in s:
-              raise SystemExit('OFFLOAD_WORKER_PATCH_TARGET_MISSING')
+              raise SystemExit('FAST_WORKER_PATCH_TARGET_MISSING')
           s = s.replace(old_worker, new_worker, 1)
           old_pool = '''const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA B200",\n  "NVIDIA RTX PRO 6000 Blackwell Server Edition",\n]);'''
           new_pool = '''const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA RTX PRO 4500 Blackwell",\n]);'''
           if old_pool not in s:
-              raise SystemExit('OFFLOAD_GPU_POOL_PATCH_TARGET_MISSING')
+              raise SystemExit('FAST_GPU_POOL_PATCH_TARGET_MISSING')
           s = s.replace(old_pool, new_pool, 1)
           if 'minRamGb: 96,' not in s:
-              raise SystemExit('OFFLOAD_MIN_RAM_PATCH_TARGET_MISSING')
+              raise SystemExit('FAST_MIN_RAM_PATCH_TARGET_MISSING')
           s = s.replace('minRamGb: 96,', 'minRamGb: 32,', 1)
           p.write_text(s)
           PY
           node --check scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
-          echo 'AVANTIQO_VIDEO_LTX25_32GB_OFFLOAD_BINDING=PASS'
+          echo 'AVANTIQO_VIDEO_LTX25_FAST_32GB_BINDING=PASS'
 
       - name: Recover existing LTX-2.5 credential
         env:
@@ -108,14 +108,14 @@ jobs:
           if (report.generation?.external_provider_contacted !== false) throw new Error('EXTERNAL_PROVIDER_CONTACTED');
           if (report.generation?.pixel_720p_stage_used !== false) throw new Error('720P_STAGE_USED');
           if (report.generation?.lanczos_upscale_used !== false) throw new Error('PIXEL_UPSCALE_USED');
-          console.log('AVANTIQO_VIDEO_LTX25_SCENE1_OFFLOAD_FINAL_GATE=PASS');
+          console.log('AVANTIQO_VIDEO_LTX25_SCENE1_FAST_32GB_FINAL_GATE=PASS');
           NODE
 
       - name: Upload Scene 1 video artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: avantiqo-video-ltx25-scene1-offload-${{ github.run_id }}
+          name: avantiqo-video-ltx25-scene1-fast-32gb-${{ github.run_id }}
           if-no-files-found: warn
           retention-days: 7
           path: |

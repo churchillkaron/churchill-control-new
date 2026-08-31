@@ -1,0 +1,85 @@
+name: Avantiqo Fast Interactive Latency Repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-interactive-latency-repair.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-fast-interactive-latency-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Patch interactive Fast timing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          lease = Path('lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js')
+          s = lease.read_text()
+          replacements = [
+            ('const OPEN_PROPAGATION_SETTLE_MS = 5000;', 'const DEFAULT_OPEN_PROPAGATION_SETTLE_MS = 0;'),
+            ('    await sleep(OPEN_PROPAGATION_SETTLE_MS);', '''    const settleMs = Math.max(0, Math.min(5000, Number(\n      process.env.AVANTIQO_INTELLIGENCE_REQUEST_LEASE_OPEN_SETTLE_MS ||\n        DEFAULT_OPEN_PROPAGATION_SETTLE_MS,\n    ) || 0));\n    if (settleMs > 0) await sleep(settleMs);'''),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'LEASE_PATCH_TARGET_MISSING:{old[:80]}')
+              s = s.replace(old, new, 1)
+          lease.write_text(s)
+
+          fast = Path('lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js')
+          s = fast.read_text()
+          replacements = [
+            ('const DEFAULT_TIMEOUT_MS = 360000;', 'const DEFAULT_TIMEOUT_MS = 10000;'),
+            ('const DEFAULT_SCHEDULING_POLL_MS = 5000;', 'const DEFAULT_SCHEDULING_POLL_MS = 1000;'),
+            ('const DEFAULT_UNSCHEDULED_TIMEOUT_MS = 180000;', 'const DEFAULT_UNSCHEDULED_TIMEOUT_MS = 8000;'),
+            ('    30000,\n    600000,', '    5000,\n    600000,'),
+            ('    60000,\n    180000,', '    3000,\n    180000,'),
+            ('    2000,\n    30000,', '    500,\n    30000,'),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'FAST_PATCH_TARGET_MISSING:{old[:80]}')
+              s = s.replace(old, new, 1)
+          fast.write_text(s)
+          PY
+
+      - name: Zero-cost proof
+        run: |
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+          node --check lib/platform/service-runtime/providers/ProviderExecutor.js
+          node --test tests/avantiqo-intelligence-fast-scheduling.test.mjs
+          git diff --check
+          grep -q 'DEFAULT_OPEN_PROPAGATION_SETTLE_MS = 0' lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          grep -q 'DEFAULT_TIMEOUT_MS = 10000' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+          grep -q 'DEFAULT_UNSCHEDULED_TIMEOUT_MS = 8000' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+
+      - name: Commit only after green proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+          git commit -m "Make Fast Intelligence interactive by default"
+          git push origin HEAD:main

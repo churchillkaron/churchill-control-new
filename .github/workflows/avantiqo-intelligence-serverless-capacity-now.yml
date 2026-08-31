@@ -1,0 +1,36 @@
+name: Avantiqo Intelligence Serverless Capacity Now
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-serverless-capacity-now.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Inspect live compatible GPU stock
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: node scripts/diagnose-avantiqo-intelligence-serverless-capacity-now-ci.mjs
+      - if: always()
+        run: |
+          echo "GENERATION_SUBMITTED=false"
+          echo "GPU_ACTIVATION_PERFORMED=false"
+          echo "MUTATION_PERFORMED=false"
+          echo "NEW_NETWORK_VOLUME_CREATED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

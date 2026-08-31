@@ -5,8 +5,8 @@ import path from "node:path";
 
 const CONTRACT = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V2_LAUNCHER";
 const BASE_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v1-local.mjs";
-const IN_QUEUE_NO_WORKER_TIMEOUT_MS = 120_000;
-const TOTAL_GENERATION_TIMEOUT_MS = 5 * 60_000;
+const IN_QUEUE_NO_WORKER_TIMEOUT_MS = 60_000;
+const TOTAL_GENERATION_TIMEOUT_MS = 3 * 60_000;
 
 function text(value, maximum = 8_000) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -29,8 +29,33 @@ function run(command, args, cwd, env) {
       stdio: "inherit",
       shell: false,
     });
-    child.on("error", reject);
-    child.on("close", (code) => resolve(Number.isInteger(code) ? code : 1));
+    let interruptedSignal = "";
+    const keepParentAliveForCleanup = (signal) => {
+      interruptedSignal = signal;
+      console.log(JSON.stringify({
+        event: `${CONTRACT}_SIGNAL_FORWARDED`,
+        signal,
+        child_cleanup_required: true,
+        production_deploy_performed: false,
+        secrets_printed: false,
+      }));
+    };
+    process.once("SIGINT", keepParentAliveForCleanup);
+    process.once("SIGTERM", keepParentAliveForCleanup);
+    child.on("error", (error) => {
+      process.removeListener("SIGINT", keepParentAliveForCleanup);
+      process.removeListener("SIGTERM", keepParentAliveForCleanup);
+      reject(error);
+    });
+    child.on("close", (code, signal) => {
+      process.removeListener("SIGINT", keepParentAliveForCleanup);
+      process.removeListener("SIGTERM", keepParentAliveForCleanup);
+      if (interruptedSignal || signal) {
+        resolve(interruptedSignal === "SIGTERM" || signal === "SIGTERM" ? 143 : 130);
+        return;
+      }
+      resolve(Number.isInteger(code) ? code : 1);
+    });
   });
 }
 
@@ -63,6 +88,13 @@ source = patchOnce(
   "QUEUE_STALL_GUARD",
 );
 
+source = patchOnce(
+  source,
+  "console.log(JSON.stringify({\n  event: `${CONTRACT}_START`,",
+  "let signalCleanupInProgress = false;\nasync function handleTerminationSignal(signal) {\n  if (signalCleanupInProgress) return;\n  signalCleanupInProgress = true;\n  console.log(JSON.stringify({\n    event: `${CONTRACT}_PROGRESS`,\n    phase: \"TERMINATION_SIGNAL_CLEANUP_START\",\n    signal,\n    active_job_present: Boolean(activeJobId && !activeJobTerminal),\n    production_deploy_performed: false,\n    secrets_printed: false,\n  }));\n  try {\n    const zeroIdle = endpointId ? await restoreZeroIdle() : { restored: true, reason: null };\n    serverlessZeroIdleRestored = zeroIdle.restored === true;\n    console.log(JSON.stringify({\n      event: `${CONTRACT}_PROGRESS`,\n      phase: \"TERMINATION_SIGNAL_CLEANUP_DONE\",\n      signal,\n      serverless_zero_idle_restored: serverlessZeroIdleRestored,\n      reason: zeroIdle.reason || null,\n      production_deploy_performed: false,\n      secrets_printed: false,\n    }));\n  } catch (error) {\n    console.error(JSON.stringify({\n      event: `${CONTRACT}_PROGRESS`,\n      phase: \"TERMINATION_SIGNAL_CLEANUP_FAILED\",\n      signal,\n      error: text(error?.message || error, 1200),\n      secrets_printed: false,\n    }));\n  } finally {\n    if (workspace) await rm(workspace, { recursive: true, force: true }).catch(() => {});\n    process.exit(signal === \"SIGTERM\" ? 143 : 130);\n  }\n}\nprocess.once(\"SIGINT\", () => { void handleTerminationSignal(\"SIGINT\"); });\nprocess.once(\"SIGTERM\", () => { void handleTerminationSignal(\"SIGTERM\"); });\n\nconsole.log(JSON.stringify({\n  event: `${CONTRACT}_START`,",
+  "SIGNAL_CLEANUP",
+);
+
 const tempRoot = await mkdtemp(path.join(os.tmpdir(), "avantiqo-code-serverless-proof-v2-"));
 const tempScript = path.join(tempRoot, "proof.mjs");
 await writeFile(tempScript, source, "utf8");
@@ -73,6 +105,7 @@ console.log(JSON.stringify({
   in_queue_no_worker_timeout_ms: IN_QUEUE_NO_WORKER_TIMEOUT_MS,
   total_generation_timeout_ms: TOTAL_GENERATION_TIMEOUT_MS,
   cancel_stalled_job_required: true,
+  signal_cleanup_required: true,
   zero_idle_restore_required: true,
   same_canonical_storage_required: true,
   new_storage_created: false,

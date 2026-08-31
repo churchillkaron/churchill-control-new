@@ -1,0 +1,74 @@
+name: Avantiqo Video HQ4K Contract Correction
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-hq4k-contract-correction.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Correct honest UHD contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          worker = Path('scripts/avantiqo-video-ltx25-hq4k-scene-worker.py')
+          controller = Path('scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs')
+
+          w = worker.read_text()
+          old = '''        "native_4k_claimed": True,
+                  "uhd_delivery": True,
+                  "pixel_upscale_used": False,'''
+          new = '''        "native_4k_claimed": False,
+                  "uhd_delivery": True,
+                  "pixel_upscale_used": False,
+                  "learned_latent_upsampler_used": True,'''
+          if old not in w:
+              raise SystemExit('AVANTIQO_VIDEO_HQ4K_WORKER_CONTRACT_TARGET_MISSING')
+          worker.write_text(w.replace(old, new, 1))
+
+          c = controller.read_text()
+          old = '''    if (output.native_4k_claimed !== true || output.uhd_delivery !== true || output.pixel_upscale_used !== false) {
+                throw new Error("AVANTIQO_VIDEO_HQ4K_NATIVE_DELIVERY_CONTRACT_INVALID");
+              }'''
+          new = '''    if (output.native_4k_claimed !== false || output.uhd_delivery !== true || output.pixel_upscale_used !== false || output.learned_latent_upsampler_used !== true) {
+                throw new Error("AVANTIQO_VIDEO_HQ4K_UHD_DELIVERY_CONTRACT_INVALID");
+              }'''
+          if old not in c:
+              raise SystemExit('AVANTIQO_VIDEO_HQ4K_CONTROLLER_CONTRACT_TARGET_MISSING')
+          controller.write_text(c.replace(old, new, 1))
+          PY
+
+          python3 -m py_compile scripts/avantiqo-video-ltx25-hq4k-scene-worker.py
+          node --check scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          grep -Fq '"native_4k_claimed": False' scripts/avantiqo-video-ltx25-hq4k-scene-worker.py
+          grep -Fq '"learned_latent_upsampler_used": True' scripts/avantiqo-video-ltx25-hq4k-scene-worker.py
+          grep -Fq 'AVANTIQO_VIDEO_HQ4K_UHD_DELIVERY_CONTRACT_INVALID' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          git diff --check
+          echo 'AVANTIQO_VIDEO_HQ4K_STATIC_CONTRACT=PASS'
+
+      - name: Commit corrected HQ4K source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'churchillkaron'
+          git config user.email 'patric@pcsphuket.com'
+          git add scripts/avantiqo-video-ltx25-hq4k-scene-worker.py scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m 'Correct HQ4K UHD delivery contract'
+          git push origin HEAD:main

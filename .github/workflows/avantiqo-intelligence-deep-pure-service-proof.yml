@@ -1,5 +1,6 @@
 name: Avantiqo Intelligence Deep Pure Service Proof
 
+# Retry marker: Deep cold-start transient HTTP handling fixed at e592add0fddd0e84edb0256e775aa9d0d587b15b.
 on:
   push:
     branches:

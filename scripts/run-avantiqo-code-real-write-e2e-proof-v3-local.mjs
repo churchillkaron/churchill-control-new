@@ -5,10 +5,7 @@ const CONTRACT = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V3_LAUNCHER";
 const REST = "https://rest.runpod.io/v1";
 const GQL = "https://api.runpod.io/graphql";
 const V1_PATH = "scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs";
-const PREFERRED_VOLUME_NAMES = [
-  "avantiqo-code-cache-eur-is-1",
-  "avantiqo-shared-intelligence-code-cache",
-];
+const CODE_ENDPOINT_NAME = "avantiqo-code-v1";
 const CERTIFIED_GPU_TYPES = [
   "NVIDIA B200",
   "NVIDIA H200",
@@ -20,13 +17,20 @@ const STOCK_RANK = { HIGH: 4, MEDIUM: 3, LOW: 2 };
 
 const text = (value) => String(value ?? "").trim();
 const list = (value) => Array.isArray(value) ? value : [];
-const rows = (raw) => {
+const rows = (raw, keys = []) => {
   if (Array.isArray(raw)) return raw;
-  for (const key of ["data", "items", "results", "networkVolumes", "volumes"]) {
+  for (const key of [...keys, "data", "items", "results", "networkVolumes", "volumes", "endpoints"]) {
     if (Array.isArray(raw?.[key])) return raw[key];
   }
   return [];
 };
+const endpointVolumeIds = (endpoint) => [...new Set([
+  text(endpoint?.networkVolumeId),
+  text(endpoint?.networkVolume?.id),
+  ...list(endpoint?.networkVolumeIds).map((value) => text(
+    typeof value === "string" ? value : value?.id || value?.networkVolumeId,
+  )),
+].filter(Boolean))];
 
 const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
 if (!managementKey) throw new Error(`${CONTRACT}_RUNPOD_MANAGEMENT_KEY_REQUIRED`);
@@ -66,25 +70,32 @@ async function liveGpuAvailability(dataCenterId) {
   return list(dc?.gpuAvailability);
 }
 
-const volumes = rows(await rest("/networkvolumes"));
-let volume = null;
-for (const name of PREFERRED_VOLUME_NAMES) {
-  const matches = volumes.filter((row) => text(row?.name) === name);
-  if (matches.length > 1) throw new Error(`${CONTRACT}_VOLUME_NAME_AMBIGUOUS:${name}:${matches.length}`);
-  if (matches.length === 1) {
-    volume = matches[0];
-    break;
-  }
+const [volumeRaw, endpointRaw] = await Promise.all([
+  rest("/networkvolumes"),
+  rest("/endpoints?includeTemplate=false&includeWorkers=true"),
+]);
+const volumes = rows(volumeRaw, ["networkVolumes"]);
+const endpoints = rows(endpointRaw, ["endpoints"]);
+const codeEndpoints = endpoints.filter((endpoint) => text(endpoint?.name) === CODE_ENDPOINT_NAME);
+if (codeEndpoints.length !== 1) {
+  throw new Error(`${CONTRACT}_CODE_ENDPOINT_RESOLUTION:${codeEndpoints.length}`);
 }
-if (!volume) {
-  const candidates = volumes.filter((row) => /avantiqo.*code.*cache/i.test(text(row?.name)));
-  if (candidates.length === 1) volume = candidates[0];
+const boundVolumeIds = endpointVolumeIds(codeEndpoints[0]);
+if (boundVolumeIds.length !== 1) {
+  throw new Error(`${CONTRACT}_CODE_ENDPOINT_SINGLE_STORAGE_REQUIRED:${boundVolumeIds.length}`);
 }
-if (!volume) throw new Error(`${CONTRACT}_OWNED_CODE_CACHE_VOLUME_REQUIRED`);
-
+const volumeMatches = volumes.filter((row) => text(row?.id) === boundVolumeIds[0]);
+if (volumeMatches.length !== 1) {
+  throw new Error(`${CONTRACT}_CODE_ENDPOINT_STORAGE_NOT_FOUND:${boundVolumeIds[0]}:${volumeMatches.length}`);
+}
+const volume = volumeMatches[0];
 const volumeId = text(volume?.id);
+const volumeName = text(volume?.name);
 const dataCenterId = text(volume?.dataCenterId ?? volume?.data_center_id);
-if (!volumeId || !dataCenterId) throw new Error(`${CONTRACT}_VOLUME_CONTRACT_INVALID`);
+if (!volumeId || !volumeName || !dataCenterId) throw new Error(`${CONTRACT}_VOLUME_CONTRACT_INVALID`);
+if (!/avantiqo.*code.*cache/i.test(volumeName)) {
+  throw new Error(`${CONTRACT}_CODE_ENDPOINT_STORAGE_NAME_INVALID:${volumeName}`);
+}
 
 const availability = await liveGpuAvailability(dataCenterId);
 const availableById = new Map(
@@ -107,7 +118,13 @@ if (!gpuTypeIds.length) {
       available: row?.available === true,
       stock_status: text(row?.stockStatus).toUpperCase() || null,
     }));
-  throw new Error(`${CONTRACT}_NO_LIVE_CERTIFIED_GPU:${JSON.stringify(observed)}`);
+  throw new Error(`${CONTRACT}_NO_LIVE_CERTIFIED_GPU:${JSON.stringify({
+    endpoint: CODE_ENDPOINT_NAME,
+    network_volume_id: volumeId,
+    network_volume_name: volumeName,
+    data_center_id: dataCenterId,
+    observed,
+  })}`);
 }
 
 process.env.AVANTIQO_CODE_E2E_NETWORK_VOLUME_ID = volumeId;
@@ -117,14 +134,18 @@ process.env.AVANTIQO_CODE_E2E_GPU_TYPE_IDS = gpuTypeIds.join(",");
 console.log(JSON.stringify({
   event: "AVANTIQO_CODE_REAL_WRITE_E2E_LIVE_PLACEMENT",
   contract: CONTRACT,
-  network_volume_name: text(volume?.name) || null,
-  network_volume_id_present: true,
+  endpoint_name: CODE_ENDPOINT_NAME,
+  endpoint_single_storage_verified: true,
+  network_volume_name: volumeName,
+  network_volume_id: volumeId,
   data_center_id: dataCenterId,
   gpu_type_ids: gpuTypeIds,
   gpu_stock: gpuTypeIds.map((gpuTypeId) => ({
     gpu_type_id: gpuTypeId,
     stock_status: text(availableById.get(gpuTypeId)?.stockStatus).toUpperCase() || null,
   })),
+  new_storage_created: false,
+  volume_mutation_performed: false,
   production_deploy_performed: false,
   secrets_printed: false,
 }));

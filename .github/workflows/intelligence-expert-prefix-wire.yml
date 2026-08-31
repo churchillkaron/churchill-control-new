@@ -11,7 +11,6 @@ permissions:
 
 jobs:
   wire-and-certify:
-    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Test Deep cache-stable expert-prefix wiring'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -54,9 +53,8 @@ jobs:
             '    raw_reasoning_persisted: false,\n    expert_prefix_contract: "AVANTIQO_EXPERT_PREFIX_V1",\n    expert_prefix_cache_stable: true,\n  };\n}\n\nexport async function probeAvantiqoIntelligenceRuntime',
           );
 
-          const probeMarker = '    response_format: { type: "json_object" },\n  });';
           replaceOnce(
-            probeMarker,
+            '    response_format: { type: "json_object" },\n  });',
             '    response_format: { type: "json_object" },\n    expert_prefix: false,\n  });',
           );
           replaceOnce(

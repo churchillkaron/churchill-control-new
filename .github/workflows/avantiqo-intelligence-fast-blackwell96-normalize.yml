@@ -1,0 +1,36 @@
+name: Avantiqo Intelligence Fast Blackwell96 Normalize
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-fast-blackwell96-normalize.yml
+      - scripts/normalize-avantiqo-intelligence-fast-blackwell96-ci.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Normalize Fast scheduler pool only
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY }}
+        run: node scripts/normalize-avantiqo-intelligence-fast-blackwell96-ci.mjs
+      - name: Immutable boundary
+        if: always()
+        run: |
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "NEW_VOLUME_CREATED=false"
+          echo "MODEL_INFERENCE_PERFORMED=false"

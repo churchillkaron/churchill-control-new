@@ -1,0 +1,52 @@
+name: Avantiqo Intelligence Fast Scheduling Repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-fast-scheduling-repair.yml
+      - scripts/repair-avantiqo-intelligence-fast-scheduling-envelope-ci.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-fast-scheduling-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact repair commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Static repair gate
+        run: |
+          node --check scripts/repair-avantiqo-intelligence-fast-scheduling-envelope-ci.mjs
+          grep -q 'workersMax: 0' scripts/repair-avantiqo-intelligence-fast-scheduling-envelope-ci.mjs
+          grep -q 'NEW_VOLUME_CREATED=false' scripts/repair-avantiqo-intelligence-fast-scheduling-envelope-ci.mjs
+
+      - name: Repair Fast scheduling envelope at rest
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || secrets.RUNPOD_API_KEY }}
+        run: node scripts/repair-avantiqo-intelligence-fast-scheduling-envelope-ci.mjs
+
+      - name: Immutable repair boundary
+        if: always()
+        run: |
+          echo "MODEL_INFERENCE_PERFORMED=false"
+          echo "NEW_VOLUME_CREATED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

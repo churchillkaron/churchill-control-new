@@ -2,12 +2,6 @@ name: Avantiqo Video LTX-2.5 Fast Runtime Scene 1 Resume
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-video-ltx25-fast-runtime-scene1-resume.yml
-      - scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
-      - scripts/avantiqo-video-ltx25-distilled-scene-worker.py
 
 permissions:
   contents: read

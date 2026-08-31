@@ -22,7 +22,7 @@ jobs:
       - name: Checkout newest main
         uses: actions/checkout@v4
 
-      - name: Delete only cancelled Scene 1 pod
+      - name: Delete orphan Scene 1 pods only
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
@@ -32,30 +32,31 @@ jobs:
           node --input-type=module <<'NODE'
           import { podRest, podTerminal, text } from './lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoPodRunpod.js';
 
-          const targetName = 'avantiqo-video-ltx25-scene1-distilled-33383922233';
-          const raw = await podRest('/pods');
-          const rows = Array.isArray(raw) ? raw : Array.isArray(raw?.pods) ? raw.pods : Array.isArray(raw?.data) ? raw.data : [];
-          const matches = rows.filter((pod) => text(pod?.name) === targetName && !podTerminal(pod));
-          if (matches.length > 1) throw new Error(`AVANTIQO_VIDEO_CANCELLED_POD_AMBIGUOUS:${matches.length}`);
-          if (matches.length === 1) {
-            const id = text(matches[0]?.id);
-            if (!id) throw new Error('AVANTIQO_VIDEO_CANCELLED_POD_ID_REQUIRED');
+          const prefix = 'avantiqo-video-ltx25-scene1-distilled-';
+          const list = async () => {
+            const raw = await podRest('/pods');
+            return Array.isArray(raw) ? raw : Array.isArray(raw?.pods) ? raw.pods : Array.isArray(raw?.data) ? raw.data : [];
+          };
+
+          const pods = await list();
+          const matches = pods.filter((pod) => text(pod?.name).startsWith(prefix) && !podTerminal(pod));
+          console.log(`AVANTIQO_VIDEO_ORPHAN_SCENE1_PODS_FOUND=${matches.length}`);
+          for (const pod of matches) {
+            const id = text(pod?.id);
+            if (!id) throw new Error('AVANTIQO_VIDEO_ORPHAN_SCENE1_POD_ID_REQUIRED');
+            console.log(`AVANTIQO_VIDEO_ORPHAN_SCENE1_POD=${text(pod?.name)}:${id}`);
             await podRest(`/pods/${encodeURIComponent(id)}`, { method: 'DELETE' });
-            console.log(`AVANTIQO_VIDEO_CANCELLED_POD_DELETE_REQUESTED=${id}`);
-          } else {
-            console.log('AVANTIQO_VIDEO_CANCELLED_POD_ALREADY_GONE=true');
+            console.log(`AVANTIQO_VIDEO_ORPHAN_SCENE1_POD_DELETE_REQUESTED=${id}`);
           }
 
           const deadline = Date.now() + 120000;
           while (Date.now() < deadline) {
-            const check = await podRest('/pods');
-            const pods = Array.isArray(check) ? check : Array.isArray(check?.pods) ? check.pods : Array.isArray(check?.data) ? check.data : [];
-            const active = pods.filter((pod) => text(pod?.name) === targetName && !podTerminal(pod));
-            if (!active.length) {
-              console.log('AVANTIQO_VIDEO_CANCELLED_POD_CLEANUP=PASS');
+            const remaining = (await list()).filter((pod) => text(pod?.name).startsWith(prefix) && !podTerminal(pod));
+            if (!remaining.length) {
+              console.log('AVANTIQO_VIDEO_ORPHAN_SCENE1_POD_CLEANUP=PASS');
               process.exit(0);
             }
             await new Promise((resolve) => setTimeout(resolve, 5000));
           }
-          throw new Error('AVANTIQO_VIDEO_CANCELLED_POD_CLEANUP_TIMEOUT');
+          throw new Error('AVANTIQO_VIDEO_ORPHAN_SCENE1_POD_CLEANUP_TIMEOUT');
           NODE

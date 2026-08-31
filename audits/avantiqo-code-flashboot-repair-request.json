@@ -1,0 +1,9 @@
+{
+  "contract": "AVANTIQO_CODE_FLASHBOOT_REPAIR_V1",
+  "endpoint_id": "r79dtnjnrilrlc",
+  "requested_action": "ENABLE_AND_VERIFY_FLASHBOOT_ONLY",
+  "generation_allowed": false,
+  "wallet_mutation_allowed": false,
+  "production_deploy_allowed": false,
+  "requested_at": "2026-08-31T02:20:00Z"
+}

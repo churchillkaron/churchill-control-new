@@ -6,7 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
-const OPERATOR_TURN_TIMEOUT_MS = 30000;
+// Owned Intelligence is zero-idle and can cold-start. Keep the browser alive
+// for the governed backend lifecycle instead of abandoning a live Safe Lease at 30s.
+const OPERATOR_TURN_TIMEOUT_MS = 12 * 60 * 1000;
 const CODE_PREWARM_POLL_MS = 5000;
 const CODE_PREWARM_MAX_POLLS = 90;
 

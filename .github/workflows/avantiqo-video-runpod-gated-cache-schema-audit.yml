@@ -1,0 +1,48 @@
+name: Avantiqo Video RunPod Gated Cache Schema Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-runpod-gated-cache-schema-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - name: Audit GraphQL schema for gated-model credential path
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNPOD_API_KEY:-}" || { echo 'RUNPOD_API_KEY_REQUIRED'; exit 1; }
+          GRAPH='https://api.runpod.io/graphql'
+          query='query SchemaAudit {
+            endpointInput: __type(name:"EndpointInput") { name inputFields { name type { kind name ofType { kind name ofType { kind name } } } } }
+            endpointTemplateInput: __type(name:"EndpointTemplateInput") { name inputFields { name type { kind name ofType { kind name ofType { kind name } } } } }
+            mutationType: __schema { mutationType { fields { name args { name type { kind name ofType { kind name ofType { kind name } } } } } } }
+            queryType: __schema { queryType { fields { name args { name type { kind name ofType { kind name ofType { kind name } } } } } } }
+          }'
+          body="$(jq -cn --arg query "$query" '{query:$query,variables:{}}')"
+          response="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_API_KEY}" -H 'Content-Type: application/json' -d "$body" "$GRAPH")"
+          if [ "$(printf '%s' "$response" | jq '.errors | length // 0')" != '0' ]; then
+            printf '%s\n' "$response" | jq -c '{errors:.errors}' >&2
+            exit 1
+          fi
+          printf '%s\n' "$response" | jq -c '{
+            endpointInput:.data.endpointInput.inputFields,
+            endpointTemplateInput:.data.endpointTemplateInput.inputFields,
+            relevantMutations:(.data.mutationType.mutationType.fields | map(select((.name|ascii_downcase) | test("hug|token|secret|model|endpoint|credential")))),
+            relevantQueries:(.data.queryType.queryType.fields | map(select((.name|ascii_downcase) | test("hug|token|secret|model|credential"))))
+          }'
+          echo 'AVANTIQO_VIDEO_RUNPOD_SCHEMA_AUDIT_SUCCESS=true'
+          echo 'AVANTIQO_VIDEO_RUNPOD_MUTATION_PERFORMED=false'
+          echo 'AVANTIQO_VIDEO_GPU_STARTED=false'
+          echo 'AVANTIQO_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_VIDEO_PRODUCTION_WEB_DEPLOY=false'

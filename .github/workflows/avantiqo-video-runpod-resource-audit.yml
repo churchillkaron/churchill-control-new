@@ -1,0 +1,31 @@
+name: Avantiqo Video RunPod Resource Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/audit-avantiqo-video-runpod-resources-ci.mjs
+      - .github/workflows/avantiqo-video-runpod-resource-audit.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-runpod-resource-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Inventory Video RunPod resources only
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: node scripts/audit-avantiqo-video-runpod-resources-ci.mjs

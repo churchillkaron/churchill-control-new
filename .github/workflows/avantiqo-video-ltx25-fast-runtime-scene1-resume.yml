@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/avantiqo-video-ltx25-fast-runtime-scene1-resume.yml
+      - scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
 
 permissions:
   contents: read
@@ -17,7 +18,7 @@ concurrency:
 jobs:
   render-scene-1:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 24
     env:
       AVANTIQO_VIDEO_LTX25_IMAGE: ghcr.io/churchillkaron/avantiqo-video-ltx25-fast-runtime@sha256:8bbfb6a41849d2ce6f22b4d023859f08fb4a6de652a173a82682e3a3132f1ee6
       AVANTIQO_VIDEO_SCENE1_ORGANIZATION_ID: 9a148429-b6a0-4bc6-ac83-a35c64fb7045
@@ -52,8 +53,8 @@ jobs:
           node --check scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
           python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-scene-worker.py
           grep -q 'CACHED_EXISTING_PROVEN_RUN_33350171235' scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
-          grep -q 'AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "240"' scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
-          grep -q '6 \* 60 \* 1000' scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          grep -q 'AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "900"' scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          grep -q '18 \* 60 \* 1000' scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
           echo 'AVANTIQO_VIDEO_SCENE1_RESUME_IMAGE=PINNED_PROVEN_SLIM_RUNTIME'
           echo 'AVANTIQO_VIDEO_SCENE1_RESUME_MODEL=REUSE_RUNPOD_VOLUME_CACHE'
           echo 'AVANTIQO_VIDEO_SCENE1_RESUME_HF_REQUIRED=false'

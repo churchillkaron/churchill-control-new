@@ -28,6 +28,8 @@ jobs:
       AVANTIQO_VIDEO_SCENE1_OPENING_FRAME: ${{ github.workspace }}/assets/video/proofs/avantiqo_first_shot_frame_transport.jpg
       AVANTIQO_VIDEO_SCENE1_OUTPUT: ${{ github.workspace }}/avantiqo-video-ltx25-scene1.mp4
       AVANTIQO_VIDEO_SCENE1_REPORT: ${{ github.workspace }}/avantiqo-video-ltx25-scene1-proof.json
+      VERCEL_PROJECT_ID: prj_5K2x3kGkhs3d2PU8VOQQPyNT24A9
+      VERCEL_TEAM_ID: team_40jy42BqQOs4U6pVdkawwEfp
 
     steps:
       - name: Checkout newest main
@@ -83,11 +85,12 @@ jobs:
           PY
           node --check scripts/run-avantiqo-video-ltx25-scene1-proof-ci.mjs
 
-      - name: Recover gated LTX-2.5 model credential if available
+      - name: Recover existing LTX-2.5 credential
         env:
           HF_TOKEN_SECRET: ${{ secrets.HF_TOKEN }}
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail

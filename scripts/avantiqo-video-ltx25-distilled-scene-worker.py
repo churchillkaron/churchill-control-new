@@ -12,7 +12,7 @@ import requests
 
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V2"
 RUNTIME_CONTRACT = "AVANTIQO_VIDEO_LTX25_BLACKWELL_V1"
-QUALITY_CONTRACT = "AVANTIQO_VIDEO_LTX25_DISTILLED_TWO_STAGE_AGENCY_V1"
+QUALITY_CONTRACT = "AVANTIQO_VIDEO_LTX25_DISTILLED_FAST_BF16_V2"
 MODEL_ROOT = Path(os.getenv("AVANTIQO_VIDEO_LTX25_MODEL_ROOT", "/runpod-volume/ltx-2.5"))
 PIPELINE_ROOT = Path(os.getenv("AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT", "/opt/LTX-2"))
 TRANSFORMER = MODEL_ROOT / "diffusion_models/ltx-2.5-22b-distilled-transformer-bf16.safetensors"
@@ -74,7 +74,7 @@ def sanitize_detail(value: Any) -> str:
     detail = text(value).replace("\n", " ")
     detail = re.sub(r"hf_[A-Za-z0-9_-]{10,}", "[REDACTED_HF_TOKEN]", detail)
     detail = re.sub(r"Bearer\s+[A-Za-z0-9._~+/-]{8,}", "Bearer [REDACTED]", detail, flags=re.IGNORECASE)
-    return detail[-1800:]
+    return detail[-2600:]
 
 
 def download_reference(url: str, path: Path) -> None:
@@ -95,6 +95,23 @@ def upload_file(path: Path, signed_url: str, content_type: str) -> None:
         )
     if not response.ok:
         raise RuntimeError(f"AVANTIQO_VIDEO_OUTPUT_UPLOAD_FAILED:{response.status_code}")
+
+
+def install_torch_compat(tmp: Path) -> Path:
+    """Pinned V5 image has torch 2.7.1 while pinned LTX source references a newer no-op compile decorator.
+    The fast Scene-1 lane does not opt into torch.compile, so providing the missing decorator as identity
+    preserves eager semantics without changing kernels or numerical execution.
+    """
+    compat = tmp / "torch-compat"
+    compat.mkdir(parents=True, exist_ok=True)
+    (compat / "sitecustomize.py").write_text(
+        "import torch\n"
+        "compiler = getattr(torch, 'compiler', None)\n"
+        "if compiler is not None and not hasattr(compiler, 'nested_compile_region'):\n"
+        "    compiler.nested_compile_region = lambda fn: fn\n",
+        encoding="utf-8",
+    )
+    return compat
 
 
 def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
@@ -127,7 +144,7 @@ def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
     if not storage_reference.startswith("storage://creative-assets/"):
         raise ValueError("AVANTIQO_VIDEO_OUTPUT_STORAGE_REFERENCE_INVALID")
 
-    output = tmp / "ltx25-scene1-distilled.mp4"
+    output = tmp / "ltx25-scene1-fast-bf16.mp4"
     command = [
         "python",
         "-m",
@@ -163,12 +180,19 @@ def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
         "0",
     ]
 
+    compat = install_torch_compat(tmp)
     env = os.environ.copy()
-    env["PYTHONPATH"] = (
-        f"{PIPELINE_ROOT / 'packages/ltx-core/src'}:"
-        f"{PIPELINE_ROOT / 'packages/ltx-pipelines/src'}:"
-        f"{env.get('PYTHONPATH', '')}"
+    env["PYTHONPATH"] = ":".join(
+        [
+            str(compat),
+            str(PIPELINE_ROOT / "packages/ltx-core/src"),
+            str(PIPELINE_ROOT / "packages/ltx-pipelines/src"),
+            env.get("PYTHONPATH", ""),
+        ]
     )
+    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    env["CUDA_MODULE_LOADING"] = "LAZY"
+
     started = time.perf_counter()
     completed = subprocess.run(
         command,
@@ -177,7 +201,7 @@ def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        timeout=int(os.getenv("AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS", "6300")),
+        timeout=int(os.getenv("AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS", "240")),
         check=False,
     )
     if completed.returncode != 0:
@@ -196,7 +220,7 @@ def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
         "runtime_contract": RUNTIME_CONTRACT,
         "quality_contract": QUALITY_CONTRACT,
         "foundation_model": "Lightricks/LTX-2.5",
-        "pipeline": "DISTILLED_TWO_STAGE",
+        "pipeline": "DISTILLED_TWO_STAGE_FAST_BF16",
         "quality_lane": "hero",
         "precision": "BF16",
         "seed": seed,
@@ -216,6 +240,8 @@ def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
         "lanczos_upscale_used": False,
         "external_provider_contacted": False,
         "prompt_persisted": False,
+        "torch27_nested_compile_region_compat": True,
+        "cpu_offload_used": False,
     }
 
 
@@ -229,7 +255,7 @@ def main() -> None:
     started = time.time()
     try:
         job = json.loads(base64.b64decode(encoded).decode("utf-8"))
-        with tempfile.TemporaryDirectory(prefix="avantiqo-ltx25-distilled-") as tmp_dir:
+        with tempfile.TemporaryDirectory(prefix="avantiqo-ltx25-fast-bf16-") as tmp_dir:
             output = run_scene(job, Path(tmp_dir))
         receipt = {
             "success": True,
@@ -257,7 +283,7 @@ def main() -> None:
         timeout=120,
     )
     response.raise_for_status()
-    print(f"AVANTIQO_VIDEO_LTX25_DISTILLED_RECEIPT_WRITTEN={str(receipt.get('success') is True).lower()}", flush=True)
+    print(f"AVANTIQO_VIDEO_LTX25_FAST_BF16_RECEIPT_WRITTEN={str(receipt.get('success') is True).lower()}", flush=True)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_RUNPOD_CANONICAL_AUDIT_REQUEST_V1",
   "requested": true,
-  "reason": "refresh non-video volume cleanup after endpoint canonicalization",
-  "requested_at": "2026-08-31T02:59:00Z"
+  "reason": "final cleanup pass before deleting redundant non-video volumes",
+  "requested_at": "2026-08-31T03:03:00Z"
 }

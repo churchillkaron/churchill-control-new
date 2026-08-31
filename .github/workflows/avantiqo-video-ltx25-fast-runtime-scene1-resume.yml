@@ -1,0 +1,99 @@
+name: Avantiqo Video LTX-2.5 Fast Runtime Scene 1 Resume
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-ltx25-fast-runtime-scene1-resume.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-ltx25-fast-runtime-scene1-resume
+  cancel-in-progress: false
+
+jobs:
+  render-scene-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      AVANTIQO_VIDEO_LTX25_IMAGE: ghcr.io/churchillkaron/avantiqo-video-ltx25-fast-runtime@sha256:8bbfb6a41849d2ce6f22b4d023859f08fb4a6de652a173a82682e3a3132f1ee6
+      AVANTIQO_VIDEO_SCENE1_ORGANIZATION_ID: 9a148429-b6a0-4bc6-ac83-a35c64fb7045
+      AVANTIQO_VIDEO_SCENE1_OPENING_FRAME: ${{ github.workspace }}/assets/video/proofs/avantiqo_first_shot_frame_transport.jpg
+      AVANTIQO_VIDEO_SCENE1_OUTPUT: ${{ github.workspace }}/avantiqo-video-ltx25-scene1.mp4
+      AVANTIQO_VIDEO_SCENE1_REPORT: ${{ github.workspace }}/avantiqo-video-ltx25-scene1-proof.json
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+
+      - name: Reconstruct exact approved Scene 1 opening frame
+        run: python3 scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate bounded cached-weight resume
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${AVANTIQO_VIDEO_LTX25_IMAGE}" in
+            ghcr.io/churchillkaron/avantiqo-video-ltx25-fast-runtime@sha256:8bbfb6a41849d2ce6f22b4d023859f08fb4a6de652a173a82682e3a3132f1ee6) ;;
+            *) echo 'AVANTIQO_VIDEO_SCENE1_RESUME_IMAGE_MISMATCH'; exit 1 ;;
+          esac
+          node --check scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+          grep -q 'CACHED_EXISTING_PROVEN_RUN_33350171235' scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          grep -q 'AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "240"' scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          grep -q '6 \* 60 \* 1000' scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          echo 'AVANTIQO_VIDEO_SCENE1_RESUME_IMAGE=PINNED_PROVEN_SLIM_RUNTIME'
+          echo 'AVANTIQO_VIDEO_SCENE1_RESUME_MODEL=REUSE_RUNPOD_VOLUME_CACHE'
+          echo 'AVANTIQO_VIDEO_SCENE1_RESUME_HF_REQUIRED=false'
+          echo 'AVANTIQO_VIDEO_SCENE1_RESUME_BOUNDED=true'
+
+      - name: Render Scene 1 from proven LTX-2.5 cache
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'AVANTIQO_VIDEO_SCENE1_RESUME_START=true'
+          echo 'AVANTIQO_VIDEO_SCENE1_RESUME_HF_DOWNLOAD=false'
+          node scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          test -s "${AVANTIQO_VIDEO_SCENE1_OUTPUT}"
+          test -s "${AVANTIQO_VIDEO_SCENE1_REPORT}"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync(process.env.AVANTIQO_VIDEO_SCENE1_REPORT, 'utf8'));
+          if (report.success !== true) throw new Error(report.error_code || 'SCENE1_REPORT_FAILED');
+          if (report.production_deploy_performed !== false) throw new Error('PRODUCTION_DEPLOY_BOUNDARY_BROKEN');
+          if (report.old_video_renderer_used !== false) throw new Error('OLD_VIDEO_RENDERER_USED');
+          if (report.generation?.external_provider_contacted !== false) throw new Error('EXTERNAL_PROVIDER_CONTACTED');
+          if (report.generation?.pixel_720p_stage_used !== false) throw new Error('720P_STAGE_USED');
+          if (report.generation?.lanczos_upscale_used !== false) throw new Error('PIXEL_UPSCALE_USED');
+          console.log('AVANTIQO_VIDEO_SCENE1_RESUME_FINAL_GATE=PASS');
+          NODE
+
+      - name: Upload Scene 1 resume artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-ltx25-fast-runtime-scene1-resume-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            avantiqo-video-ltx25-scene1.mp4
+            avantiqo-video-ltx25-scene1-proof.json

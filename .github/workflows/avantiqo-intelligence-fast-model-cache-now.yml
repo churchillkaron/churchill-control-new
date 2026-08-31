@@ -32,3 +32,4 @@ jobs:
           echo "GENERATION_SUBMITTED=false"
           echo "MUTATION_PERFORMED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "DIAGNOSTIC_RERUN=post-volume-free-pod-spend-guard"

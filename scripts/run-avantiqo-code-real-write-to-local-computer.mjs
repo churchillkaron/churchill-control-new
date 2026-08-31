@@ -10,8 +10,8 @@ const SOURCE_END = "AVANTIQO_CODE_GENERATED_SOURCE_END";
 const OUTPUT_ROOT = "local-audit-output/avantiqo-code-real-generation";
 const OUTPUT_FILE = `${OUTPUT_ROOT}/invoice-total.mjs`;
 const TEST_FILE = `${OUTPUT_ROOT}/invoice-total.test.mjs`;
-const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-e2e-proof-v4-local.mjs";
-const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V4_LAUNCHER=PASS";
+const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-e2e-proof-v5-local.mjs";
+const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V5_LAUNCHER=PASS";
 
 function text(value, maximum = 8000) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -87,6 +87,7 @@ console.log(JSON.stringify({
   output_file: OUTPUT_FILE,
   generation_script: GENERATION_SCRIPT,
   canonical_endpoint_storage_discovery_required: true,
+  bounded_low_stock_retry_required: true,
   real_owned_model_generation_required: true,
   write_to_local_computer_required: true,
   new_storage_created: false,

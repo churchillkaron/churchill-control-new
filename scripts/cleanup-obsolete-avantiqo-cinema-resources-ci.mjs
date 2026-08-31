@@ -1,11 +1,47 @@
 const REST = "https://rest.runpod.io/v1";
+const GRAPHQL = "https://api.runpod.io/graphql";
 const OLD_ENDPOINT = Object.freeze({ id: "r0bzqq9zoi92h7", name: "avantiqo-cinema-v1" });
 const KEEP_ENDPOINT = Object.freeze({ id: "xmey8y2hofexyp", name: "avantiqo-cinema-production-v1" });
 const OLD_VOLUME = Object.freeze({ id: "7pcdebhpga", name: "avantiqo-shared-image-video-cache" });
 const KEEP_VOLUME = Object.freeze({ id: "t4erb6kxi1", name: "avantiqo-video-cache-eu-ro-1" });
 
+const ENDPOINT_QUERY = `
+query AvantiqoCinemaCleanup {
+  myself {
+    endpoints {
+      id
+      name
+      templateId
+      gpuIds
+      gpuCount
+      instanceIds
+      workersMin
+      workersMax
+      locations
+      networkVolumeId
+      networkVolumeIds { networkVolumeId }
+      idleTimeout
+      scalerType
+      scalerValue
+      executionTimeoutMs
+      minCudaVersion
+      flashBootType
+    }
+  }
+}`;
+const SAVE_ENDPOINT = `
+mutation AvantiqoCinemaCleanupSave($input: EndpointInput!) {
+  saveEndpoint(input: $input) {
+    id
+    name
+    networkVolumeId
+    networkVolumeIds { networkVolumeId }
+  }
+}`;
+
 const text = (v) => String(v ?? "").trim();
 const list = (v) => Array.isArray(v) ? v : [];
+const finite = (v, fallback = null) => Number.isFinite(Number(v)) ? Number(v) : fallback;
 
 function requiredKey() {
   const key = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
@@ -13,15 +49,16 @@ function requiredKey() {
   return key;
 }
 
-async function rest(path, options = {}) {
-  const response = await fetch(`${REST}${path}`, {
+async function request(url, options = {}) {
+  const response = await fetch(url, {
     method: options.method || "GET",
     headers: {
       Authorization: `Bearer ${requiredKey()}`,
       Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      "User-Agent": "Mozilla/5.0 AvantiqoCinemaCleanup",
+      ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: AbortSignal.timeout(30_000),
   });
   const raw = await response.text();
@@ -34,6 +71,17 @@ async function rest(path, options = {}) {
   }
   return body;
 }
+const rest = (path, options = {}) => request(`${REST}${path}`, options);
+async function graphql(query, variables = {}) {
+  const response = await request(`${GRAPHQL}?api_key=${encodeURIComponent(requiredKey())}`, {
+    method: "POST",
+    body: { query, variables },
+  });
+  if (Array.isArray(response?.errors) && response.errors.length) {
+    throw new Error(`RUNPOD_CINEMA_CLEANUP_GRAPHQL:${response.errors.map((e) => text(e?.message)).join(" | ").slice(0,1200)}`);
+  }
+  return response;
+}
 
 function volumeIds(endpoint = {}) {
   return [...new Set([
@@ -45,15 +93,46 @@ function activeWorkers(endpoint = {}) {
   const terminal = new Set(["EXITED", "TERMINATED", "DELETED", "STOPPED"]);
   return list(endpoint.workers).filter((w) => !terminal.has(text(w.status ?? w.workerStatus ?? w.runtimeStatus ?? w.desiredStatus).toUpperCase()));
 }
+function saveInput(endpoint) {
+  const input = {
+    id: text(endpoint.id),
+    name: text(endpoint.name),
+    templateId: text(endpoint.templateId),
+    gpuIds: text(endpoint.gpuIds),
+    gpuCount: Math.max(1, finite(endpoint.gpuCount, 1)),
+    workersMin: finite(endpoint.workersMin, 0),
+    workersMax: finite(endpoint.workersMax, 0),
+    networkVolumeId: KEEP_VOLUME.id,
+    networkVolumeIds: [{ networkVolumeId: KEEP_VOLUME.id }],
+  };
+  const instanceIds = list(endpoint.instanceIds).map(text).filter(Boolean);
+  if (instanceIds.length) input.instanceIds = instanceIds;
+  const locations = text(endpoint.locations);
+  if (locations) input.locations = locations;
+  const idleTimeout = finite(endpoint.idleTimeout);
+  if (idleTimeout !== null) input.idleTimeout = idleTimeout;
+  const scalerType = text(endpoint.scalerType);
+  if (scalerType) input.scalerType = scalerType;
+  const scalerValue = finite(endpoint.scalerValue);
+  if (scalerValue !== null) input.scalerValue = scalerValue;
+  const executionTimeoutMs = finite(endpoint.executionTimeoutMs);
+  if (executionTimeoutMs !== null) input.executionTimeoutMs = executionTimeoutMs;
+  const minCudaVersion = text(endpoint.minCudaVersion);
+  if (minCudaVersion) input.minCudaVersion = minCudaVersion;
+  const flashBootType = text(endpoint.flashBootType);
+  if (flashBootType) input.flashBootType = flashBootType;
+  return input;
+}
 
 console.log("AVANTIQO_CINEMA_RESOURCE_CLEANUP_GENERATION_SUBMITTED=false");
 console.log("AVANTIQO_CINEMA_RESOURCE_CLEANUP_PRODUCTION_DEPLOY=false");
 
-const [oldEndpoint, keepEndpoint, rawVolumes, rawPods] = await Promise.all([
+const [oldEndpoint, keepEndpoint, rawVolumes, rawPods, graph] = await Promise.all([
   rest(`/endpoints/${OLD_ENDPOINT.id}?includeTemplate=true&includeWorkers=true`),
   rest(`/endpoints/${KEEP_ENDPOINT.id}?includeTemplate=true&includeWorkers=true`),
   rest("/networkvolumes"),
   rest("/pods"),
+  graphql(ENDPOINT_QUERY),
 ]);
 
 if (text(oldEndpoint?.id) !== OLD_ENDPOINT.id || text(oldEndpoint?.name) !== OLD_ENDPOINT.name) throw new Error("OLD_ENDPOINT_IDENTITY_MISMATCH");
@@ -74,16 +153,17 @@ const activeOldVolumePods = pods.filter((p) => {
 });
 if (activeOldVolumePods.length) throw new Error(`OLD_VOLUME_ACTIVE_PODS:${activeOldVolumePods.length}`);
 
+const graphEndpoints = list(graph?.data?.myself?.endpoints);
+const keepGraph = graphEndpoints.find((e) => text(e?.id) === KEEP_ENDPOINT.id);
+if (!keepGraph || text(keepGraph?.name) !== KEEP_ENDPOINT.name) throw new Error("KEEP_ENDPOINT_GRAPHQL_IDENTITY_MISMATCH");
+
 const keepIds = volumeIds(keepEndpoint);
 if (!keepIds.includes(KEEP_VOLUME.id)) throw new Error("KEEP_ENDPOINT_MISSING_EU_VOLUME");
 if (keepIds.includes(OLD_VOLUME.id)) {
-  await rest(`/endpoints/${KEEP_ENDPOINT.id}`, {
-    method: "PATCH",
-    body: { networkVolumeIds: [KEEP_VOLUME.id] },
-  });
+  await graphql(SAVE_ENDPOINT, { input: saveInput(keepGraph) });
   const verified = await rest(`/endpoints/${KEEP_ENDPOINT.id}?includeTemplate=true&includeWorkers=true`);
   const ids = volumeIds(verified);
-  if (!ids.includes(KEEP_VOLUME.id) || ids.includes(OLD_VOLUME.id)) throw new Error("KEEP_ENDPOINT_VOLUME_DETACH_VERIFY_FAILED");
+  if (!ids.includes(KEEP_VOLUME.id) || ids.includes(OLD_VOLUME.id)) throw new Error(`KEEP_ENDPOINT_VOLUME_DETACH_VERIFY_FAILED:${ids.join(",")}`);
   console.log("AVANTIQO_CINEMA_PRODUCTION_US_VOLUME_DETACHED=PASS");
 }
 

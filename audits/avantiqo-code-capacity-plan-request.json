@@ -1,0 +1,5 @@
+{
+  "contract": "AVANTIQO_CODE_CAPACITY_PLAN_REQUEST_V1",
+  "requested": true,
+  "reason": "stalled Code proof showed IN_QUEUE with zero workers; choose viable placement before any retry"
+}

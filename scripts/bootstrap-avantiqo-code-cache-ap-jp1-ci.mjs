@@ -8,6 +8,7 @@ const TARGET_VOLUME_SIZE_GB = 160;
 const MODEL_ID = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
 const CACHE_ROOT = "/runpod-volume/huggingface-cache/hub";
 const CPU_POD_PREFIX = "avantiqo-code-cache-ap-jp1-";
+const CPU_FLAVOR_IDS = ["cpu5c", "cpu5g", "cpu5m", "cpu3c", "cpu3g", "cpu3m"];
 const POLL_MS = 5000;
 const START_TIMEOUT_MS = 10 * 60_000;
 const CACHE_TIMEOUT_MS = 45 * 60_000;
@@ -151,8 +152,8 @@ try {
       imageName: "python:3.11-slim",
       cloudType: "SECURE",
       computeType: "CPU",
-      cpuFlavorIds: ["cpu3c"],
-      cpuFlavorPriority: "custom",
+      cpuFlavorIds: CPU_FLAVOR_IDS,
+      cpuFlavorPriority: "availability",
       dataCenterIds: [TARGET_DC],
       dataCenterPriority: "custom",
       vcpuCount: 2,

@@ -12,7 +12,7 @@ import requests
 
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V2"
 RUNTIME_CONTRACT = "AVANTIQO_VIDEO_LTX25_BLACKWELL_V1"
-QUALITY_CONTRACT = "AVANTIQO_VIDEO_LTX25_DISTILLED_FAST_BF16_V2"
+QUALITY_CONTRACT = "AVANTIQO_VIDEO_LTX25_DISTILLED_FAST_BF16_1080_MASTER_V3"
 MODEL_ROOT = Path(os.getenv("AVANTIQO_VIDEO_LTX25_MODEL_ROOT", "/runpod-volume/ltx-2.5"))
 PIPELINE_ROOT = Path(os.getenv("AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT", "/opt/LTX-2"))
 TRANSFORMER = MODEL_ROOT / "diffusion_models/ltx-2.5-22b-distilled-transformer-bf16.safetensors"
@@ -36,12 +36,12 @@ def required_file(path: Path, code: str) -> str:
     return str(path)
 
 
-def native_4k_dimensions(aspect_ratio: str) -> tuple[int, int]:
+def production_master_dimensions(aspect_ratio: str) -> tuple[int, int]:
     if aspect_ratio == "9:16":
-        return 2176, 3840
+        return 1088, 1920
     if aspect_ratio == "1:1":
-        return 2176, 2176
-    return 3840, 2176
+        return 1088, 1088
+    return 1920, 1088
 
 
 def frame_count(duration_seconds: int, fps: int) -> int:
@@ -91,17 +91,13 @@ def upload_file(path: Path, signed_url: str, content_type: str) -> None:
             signed_url,
             data=handle,
             headers={"content-type": content_type, "cache-control": "max-age=3600", "x-upsert": "false"},
-            timeout=900,
+            timeout=180,
         )
     if not response.ok:
         raise RuntimeError(f"AVANTIQO_VIDEO_OUTPUT_UPLOAD_FAILED:{response.status_code}")
 
 
 def install_torch_compat(tmp: Path) -> Path:
-    """Pinned V5 image has torch 2.7.1 while pinned LTX source references a newer no-op compile decorator.
-    The fast Scene-1 lane does not opt into torch.compile, so providing the missing decorator as identity
-    preserves eager semantics without changing kernels or numerical execution.
-    """
     compat = tmp / "torch-compat"
     compat.mkdir(parents=True, exist_ok=True)
     (compat / "sitecustomize.py").write_text(
@@ -126,7 +122,7 @@ def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
     if fps != 24:
         raise ValueError("AVANTIQO_VIDEO_LTX25_FPS_24_REQUIRED")
     aspect_ratio = text(data.get("aspect_ratio") or "16:9")
-    width, height = native_4k_dimensions(aspect_ratio)
+    width, height = production_master_dimensions(aspect_ratio)
     frames = frame_count(duration_seconds, fps)
     seed = int(data.get("seed") if data.get("seed") is not None else 4747)
 
@@ -201,7 +197,7 @@ def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        timeout=int(os.getenv("AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS", "240")),
+        timeout=int(os.getenv("AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS", "180")),
         check=False,
     )
     if completed.returncode != 0:
@@ -242,6 +238,7 @@ def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
         "prompt_persisted": False,
         "torch27_nested_compile_region_compat": True,
         "cpu_offload_used": False,
+        "native_4k_claimed": False,
     }
 
 

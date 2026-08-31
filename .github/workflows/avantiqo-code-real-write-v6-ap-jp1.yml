@@ -1,0 +1,56 @@
+name: Avantiqo Code Real Write V6 AP-JP-1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+      - scripts/run-avantiqo-code-real-write-e2e-proof-v6-ap-jp1-local.mjs
+      - .github/workflows/avantiqo-code-real-write-v6-ap-jp1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-write:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Syntax check
+        run: |
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v6-ap-jp1-local.mjs
+      - name: Run one real Code generation proof
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_APPROVED: YES
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-code-real-write-e2e-proof-v6-ap-jp1-local.mjs 2>&1 | tee /tmp/avantiqo-code-real-write-v6-ap-jp1.log
+      - name: Verify hard proof markers
+        run: |
+          set -euo pipefail
+          grep -F 'AVANTIQO_CODE_GENERATED_SOURCE_BEGIN' /tmp/avantiqo-code-real-write-v6-ap-jp1.log
+          grep -F 'AVANTIQO_CODE_GENERATED_SOURCE_END' /tmp/avantiqo-code-real-write-v6-ap-jp1.log
+          grep -F 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_GENERATED_CODE_EXECUTED=true' /tmp/avantiqo-code-real-write-v6-ap-jp1.log
+          grep -F 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_GENERATED_TESTS_PASSED=true' /tmp/avantiqo-code-real-write-v6-ap-jp1.log
+          grep -F 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_POD_DELETE_VERIFIED=true' /tmp/avantiqo-code-real-write-v6-ap-jp1.log
+          grep -F 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_PRODUCTION_DEPLOY_PERFORMED=false' /tmp/avantiqo-code-real-write-v6-ap-jp1.log
+          grep -F 'AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V6_AP_JP1=PASS' /tmp/avantiqo-code-real-write-v6-ap-jp1.log
+      - name: Upload proof log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-real-write-v6-ap-jp1-${{ github.run_id }}
+          path: /tmp/avantiqo-code-real-write-v6-ap-jp1.log
+          if-no-files-found: warn
+          retention-days: 14

@@ -142,7 +142,7 @@ requireMarkers("WORLDCLASS_COMMIT_GUARD", worldclassCommitGuard, [
   "CODE_AI_COMMIT_WORLDCLASS_SOURCE_MANIFEST_MISMATCH",
   "CODE_AI_COMMIT_WORLDCLASS_SUBSTANTIVE_VERIFICATION_REQUIRED",
   "CODE_AI_COMMIT_BEHAVIORAL_VERIFICATION_REQUIRED",
-  "CODE_AI_COMMIT_TEST_PROVENANCE_REQUIRED",
+  "CODE_AI_COMMIT_INDEPENDENT_TEST_PROVENANCE_REQUIRED",
   "CODE_AI_COMMIT_FAILED_VERIFIER_CLOSURE_REQUIRED",
   "CODE_AI_COMMIT_FINAL_INDEPENDENT_REVIEW_REQUIRED",
   "assessCodeAIBehavioralVerificationCoverage",
@@ -253,7 +253,7 @@ requireMarkers("LEASE", lease, [
 const leasePolicy = JSON.parse(leasePolicySource);
 if (leasePolicy.contract !== "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2") throw new Error(`${CONTRACT}_LEASE_POLICY_CONTRACT_INVALID`);
 if (leasePolicy.resting_workers_min !== 0 || leasePolicy.resting_workers_max !== 0) throw new Error(`${CONTRACT}_GLOBAL_LEASE_REST_STATE_MUST_BE_0_0`);
-if (Number(leasePolicy?.lane_resting_workers_max?.code) !== 1) throw new Error(`${CONTRACT}_CODE_LEASE_REST_STATE_MUST_BE_0_1`);
+if (Number(leasePolicy?.lane_resting_workers_max?.code ?? leasePolicy.resting_workers_max) !== 0) throw new Error(`${CONTRACT}_CODE_LEASE_REST_STATE_MUST_BE_0_0`);
 if (Object.values(leasePolicy?.lane_resting_workers_max || {}).some((value) => ![0, 1].includes(Number(value)))) {
   throw new Error(`${CONTRACT}_LANE_REST_STATE_UNBOUNDED`);
 }
@@ -331,8 +331,8 @@ console.log(JSON.stringify({
     concurrent_main_replan_guard_present: true,
     bounded_parallel_runpod_leases: true,
     global_runpod_resting_state_zero_zero: true,
-    code_runpod_resting_state_zero_one_without_active_worker: true,
-    code_idle_schedulable_capacity_not_counted_as_paid_gpu: true,
+    code_runpod_resting_state_zero_zero: true,
+    code_idle_schedulable_capacity_required: false,
     workers_min_one_forbidden: true,
   },
   provider_calls_executed: false,

@@ -8,6 +8,8 @@ on:
     paths:
       - .github/workflows/avantiqo-video-ltx25-scene1-proof.yml
       - scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+      - scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+      - scripts/avantiqo-video-ltx25-distilled-scene-worker.py
       - assets/video/proofs/scene1_frame.part-*.b64
 
 permissions:
@@ -61,29 +63,9 @@ jobs:
             ghcr.io/churchillkaron/avantiqo-video-ltx25-v5@sha256:????????????????????????????????????????????????????????????????) ;;
             *) echo "AVANTIQO_VIDEO_LTX25_IMAGE_NOT_IMMUTABLE:${AVANTIQO_VIDEO_LTX25_IMAGE}"; exit 1 ;;
           esac
-          echo 'AVANTIQO_VIDEO_LTX25_V5_SOURCE_AND_IMAGE_PIN=PASS'
-
-      - name: Patch proof runner for official split model repositories
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('scripts/run-avantiqo-video-ltx25-scene1-proof-ci.mjs')
-          s = p.read_text()
-          old = """        for name in missing:\n            hf_hub_download(repo_id=repo, filename=name, revision=revision, token=token, local_dir=str(root))"""
-          new = """        for name in missing:\n            if name.startswith('loras/'):\n                source_repo = 'Lightricks/LTX-2.5-22b-IC-LoRA-Pixel-Spatial-Upscaler'\n                source_name = name.split('/', 1)[1]\n                source_revision = HfApi(token=token).model_info(repo_id=source_repo, token=token).sha\n                if not source_revision:\n                    raise RuntimeError('AVANTIQO_VIDEO_LTX25_DETAILING_REVISION_REQUIRED')\n                downloaded = Path(hf_hub_download(repo_id=source_repo, filename=source_name, revision=source_revision, token=token, local_dir=str(root / '.sources' / 'detailing-lora')))\n                target = root / name\n                target.parent.mkdir(parents=True, exist_ok=True)\n                target.write_bytes(downloaded.read_bytes())\n            else:\n                hf_hub_download(repo_id=repo, filename=name, revision=revision, token=token, local_dir=str(root))"""
-          if old not in s:
-              raise SystemExit('AVANTIQO_VIDEO_LTX25_PRELOAD_PATCH_TARGET_MISSING')
-          s = s.replace(old, new, 1)
-          old_env = """        AVANTIQO_VIDEO_LTX25_MODEL_ROOT: \"/runpod-volume/ltx-2.5\",\n      },\n      command: [\"python\", \"-u\", \"-c\", preloadPython()],"""
-          new_env = """        AVANTIQO_VIDEO_LTX25_MODEL_ROOT: \"/runpod-volume/ltx-2.5\",\n        ...(process.env.HF_TOKEN ? { HF_TOKEN: process.env.HF_TOKEN } : {}),\n      },\n      command: [\"python\", \"-u\", \"-c\", preloadPython()],"""
-          if old_env not in s:
-              raise SystemExit('AVANTIQO_VIDEO_LTX25_HF_FORWARD_PATCH_TARGET_MISSING')
-          p.write_text(s.replace(old_env, new_env, 1))
-          print('AVANTIQO_VIDEO_LTX25_OFFICIAL_MODEL_SOURCE_PATCH=PASS')
-          PY
-          node --check scripts/run-avantiqo-video-ltx25-scene1-proof-ci.mjs
+          node --check scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+          echo 'AVANTIQO_VIDEO_LTX25_V5_SOURCE_AND_DISTILLED_WORKER_PIN=PASS'
 
       - name: Recover existing LTX-2.5 credential
         env:
@@ -107,7 +89,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/run-avantiqo-video-ltx25-scene1-proof-ci.mjs
+          node scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
           test -s "${AVANTIQO_VIDEO_SCENE1_OUTPUT}"
           test -s "${AVANTIQO_VIDEO_SCENE1_REPORT}"
           node --input-type=module <<'NODE'
@@ -116,6 +98,7 @@ jobs:
           if (report.success !== true) throw new Error(report.error_code || 'SCENE1_REPORT_FAILED');
           if (report.production_deploy_performed !== false) throw new Error('PRODUCTION_DEPLOY_BOUNDARY_BROKEN');
           if (report.old_video_renderer_used !== false) throw new Error('OLD_VIDEO_RENDERER_USED');
+          if (report.separately_gated_detailing_lora_used !== false) throw new Error('GATED_DETAILING_LORA_USED');
           if (report.generation?.external_provider_contacted !== false) throw new Error('EXTERNAL_PROVIDER_CONTACTED');
           if (report.generation?.pixel_720p_stage_used !== false) throw new Error('720P_STAGE_USED');
           if (report.generation?.lanczos_upscale_used !== false) throw new Error('PIXEL_UPSCALE_USED');

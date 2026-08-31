@@ -1,0 +1,230 @@
+name: Avantiqo Intelligence Live Repair V2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-live-repair-v2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-intelligence-live-repair-v2
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Apply contained live repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              src = p.read_text()
+              if old not in src:
+                  raise RuntimeError(f"PATCH_TARGET_MISSING:{path}:{old[:80]!r}")
+              p.write_text(src.replace(old, new, 1))
+
+          replace_once(
+              "components/operator/HomeAvantiqoIntelligence.jsx",
+              "const OPERATOR_TURN_TIMEOUT_MS = 30000;",
+              "// Owned Intelligence is zero-idle and can cold-start. Keep the browser alive\n// for the governed backend lifecycle instead of abandoning a live Safe Lease at 30s.\nconst OPERATOR_TURN_TIMEOUT_MS = 12 * 60 * 1000;",
+          )
+
+          lease_path = Path("lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js")
+          lease = lease_path.read_text()
+          lease = lease.replace(
+              "const OPEN_PROPAGATION_SETTLE_MS = 5000;",
+              "const OPEN_PROPAGATION_SETTLE_MS = 5000;\nconst DEFAULT_ACQUIRE_WAIT_MS = 120000;\nconst ACQUIRE_RETRY_MS = 1500;",
+              1,
+          )
+          marker = "function managementKey() {"
+          helper = '''function safeDatabaseReason(error = {}) {
+            const source = text(error?.message || error?.details || error?.hint).toUpperCase();
+            const match = source.match(/AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_[A-Z0-9_]+/);
+            return match?.[0] || null;
+          }
+
+          function retryableAcquireConflict(reason) {
+            return new Set([
+              "AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_LANE_BUSY",
+              "AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_ENDPOINT_BUSY",
+              "AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_PARALLEL_LIMIT",
+            ]).has(text(reason).toUpperCase());
+          }
+
+          function acquireWaitMs() {
+            const value = Number(
+              process.env.AVANTIQO_INTELLIGENCE_REQUEST_LEASE_ACQUIRE_WAIT_MS ||
+                DEFAULT_ACQUIRE_WAIT_MS,
+            );
+            return Number.isFinite(value)
+              ? Math.max(0, Math.min(180000, value))
+              : DEFAULT_ACQUIRE_WAIT_MS;
+          }
+
+          '''
+          if marker not in lease:
+              raise RuntimeError("LEASE_HELPER_MARKER_MISSING")
+          lease = lease.replace(marker, helper + marker, 1)
+          start = lease.index("async function acquireDistributed(")
+          end = lease.index("\nasync function releaseDistributed", start)
+          replacement = '''async function acquireDistributed({ organizationId, config, endpointId, ownerRequestId, ttlSeconds }) {
+            const deadline = Date.now() + acquireWaitMs();
+            let attempts = 0;
+            while (true) {
+              attempts += 1;
+              const { data, error } = await supabaseAdmin.rpc(
+                "acquire_avantiqo_intelligence_runpod_lease_v2",
+                {
+                  p_organization_id: organizationId,
+                  p_lane: config.leaseLane,
+                  p_endpoint_id: endpointId,
+                  p_endpoint_name: config.endpointName,
+                  p_owner_request_id: ownerRequestId,
+                  p_ttl_seconds: ttlSeconds,
+                },
+              );
+              if (!error) {
+                if (!data || text(data.state) !== "ACTIVE" || text(data.endpoint_id) !== endpointId) {
+                  throw new Error("AVANTIQO_INTELLIGENCE_REQUEST_LEASE_DB_ACQUIRE_INVALID");
+                }
+                return data;
+              }
+
+              const reason = safeDatabaseReason(error);
+              const remaining = deadline - Date.now();
+              if (!retryableAcquireConflict(reason) || remaining <= 0) {
+                throw new Error(
+                  `AVANTIQO_INTELLIGENCE_REQUEST_LEASE_DB_ACQUIRE_FAILED:${reason || error.code || "UNKNOWN"}:attempts=${attempts}`,
+                );
+              }
+              await sleep(Math.min(ACQUIRE_RETRY_MS, remaining));
+            }
+          }
+          '''
+          lease_path.write_text(lease[:start] + replacement + lease[end:])
+
+          deep_path = Path("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js")
+          deep = deep_path.read_text()
+          old = '''    const model = text(input.model) || configuredModel();
+              const response = await chatCompletion({ ...input, model });
+              const normalized = finalMessage(response, {
+                toolsExpected: list(input.tools).length > 0,
+              });
+              const usage = normalizedUsage(response);
+              if (!normalized.content && !normalized.toolCalls.length) {
+                const finishReason = text(normalized.choice.finish_reason).toLowerCase() || "unknown";
+                if (normalized.reasoningTransportDetected && finishReason === "length") {
+                  throw new Error(
+                    `AVANTIQO_INTELLIGENCE_FINAL_ANSWER_BUDGET_EXHAUSTED:finish_reason=length:output_tokens=${usage.output_tokens}`,
+                  );
+                }
+                if (normalized.reasoningTransportDetected) {
+                  throw new Error(
+                    `AVANTIQO_INTELLIGENCE_FINAL_ANSWER_MISSING_AFTER_REASONING:finish_reason=${finishReason}:output_tokens=${usage.output_tokens}`,
+                  );
+                }
+                throw new Error("AVANTIQO_INTELLIGENCE_OUTPUT_REQUIRED");
+              }
+          '''
+          # Use indentation-independent boundaries to avoid formatting drift.
+          start = deep.index("    const model = text(input.model) || configuredModel();", deep.index("async execute(input = {})"))
+          end = deep.index("\n    return {", start)
+          new = '''    const model = text(input.model) || configuredModel();
+              let response = await chatCompletion({ ...input, model });
+              let normalized = finalMessage(response, {
+                toolsExpected: list(input.tools).length > 0,
+              });
+              let usage = normalizedUsage(response);
+              if (!normalized.content && !normalized.toolCalls.length) {
+                const finishReason = text(normalized.choice.finish_reason).toLowerCase() || "unknown";
+                if (normalized.reasoningTransportDetected && finishReason === "length") {
+                  const requestedBudget = Math.max(
+                    1,
+                    Number(input.max_output_tokens || input.maxOutputTokens || 8192),
+                  );
+                  if (requestedBudget < 8192) {
+                    const firstUsage = usage;
+                    response = await chatCompletion({
+                      ...input,
+                      model,
+                      max_output_tokens: 8192,
+                      maxOutputTokens: 8192,
+                    });
+                    normalized = finalMessage(response, {
+                      toolsExpected: list(input.tools).length > 0,
+                    });
+                    const retryUsage = normalizedUsage(response);
+                    usage = {
+                      input_tokens: firstUsage.input_tokens + retryUsage.input_tokens,
+                      output_tokens: firstUsage.output_tokens + retryUsage.output_tokens,
+                      total_tokens: firstUsage.total_tokens + retryUsage.total_tokens,
+                    };
+                  }
+                }
+              }
+              if (!normalized.content && !normalized.toolCalls.length) {
+                const finishReason = text(normalized.choice.finish_reason).toLowerCase() || "unknown";
+                if (normalized.reasoningTransportDetected && finishReason === "length") {
+                  throw new Error(
+                    `AVANTIQO_INTELLIGENCE_FINAL_ANSWER_BUDGET_EXHAUSTED:finish_reason=length:output_tokens=${usage.output_tokens}`,
+                  );
+                }
+                if (normalized.reasoningTransportDetected) {
+                  throw new Error(
+                    `AVANTIQO_INTELLIGENCE_FINAL_ANSWER_MISSING_AFTER_REASONING:finish_reason=${finishReason}:output_tokens=${usage.output_tokens}`,
+                  );
+                }
+                throw new Error("AVANTIQO_INTELLIGENCE_OUTPUT_REQUIRED");
+              }
+          '''
+          deep_path.write_text(deep[:start] + new + deep[end:])
+          PY
+
+      - name: Static proof
+        run: |
+          set -euo pipefail
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js
+          grep -q 'OPERATOR_TURN_TIMEOUT_MS = 12 \* 60 \* 1000' components/operator/HomeAvantiqoIntelligence.jsx
+          grep -q 'AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_LANE_BUSY' lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          grep -q 'max_output_tokens: 8192' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js
+
+      - name: Regression proof
+        run: |
+          set -euo pipefail
+          node --test tests/avantiqo-intelligence-fast-deep-availability-recovery.test.mjs
+          node --test tests/operator-owned-deep-fast-degradation.test.mjs
+
+      - name: Commit only after green proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add \
+            components/operator/HomeAvantiqoIntelligence.jsx \
+            lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js \
+            lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js
+          git diff --cached --check
+          git commit -m "Harden live owned Intelligence conversation reliability"
+          git pull --rebase origin main
+          git push origin HEAD:main

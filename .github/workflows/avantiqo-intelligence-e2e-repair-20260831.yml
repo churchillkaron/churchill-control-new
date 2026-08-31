@@ -1,0 +1,917 @@
+name: Avantiqo Intelligence E2E Repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-e2e-repair-20260831.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-intelligence-e2e-repair-20260831
+  cancel-in-progress: false
+
+jobs:
+  repair-and-certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Apply contained Intelligence repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              source = p.read_text()
+              if old not in source:
+                  raise SystemExit(f"expected source fragment not found: {path}")
+              p.write_text(source.replace(old, new, 1))
+
+          provider_executor = '''import {
+            executeProvider as executeProviderCore,
+            getProviderStatus as getProviderStatusCore,
+            loadProviderRuntime,
+            prepareProviderInputForExecution,
+          } from "./ProviderExecutorCore";
+          import {
+            withOwnedIntelligenceRequestLease,
+          } from "../execution/OwnedIntelligenceRequestLeaseRuntime";
+          import {
+            withOwnedIntelligenceFastPodDistributedLease,
+          } from "../execution/OwnedIntelligenceFastPodLeaseRuntime";
+          import {
+            requireAvantiqoIntelligenceSafeLease,
+          } from "./avantiqo-intelligence/AvantiqoIntelligenceSafeLeaseGuard";
+          import {
+            executeAvantiqoIntelligenceFastPodProvider,
+          } from "./avantiqo-intelligence/AvantiqoIntelligenceFastPodProvider";
+
+          const OWNED_INTELLIGENCE_PROVIDER = "avantiqo-intelligence";
+          const INTELLIGENCE_CAPABILITY_DEFAULT_LANE = Object.freeze({
+            "ai.text.generate": "fast",
+            "ai.reasoning.execute": "deep",
+          });
+
+          function text(value) {
+            return String(value ?? "").trim();
+          }
+
+          function canonicalSafeLeaseActive() {
+            // A process-wide Safe Lease represents exactly one endpoint/lane. It is
+            // valid for local/certification wrappers, but it must never override mixed
+            // Fast + Deep customer traffic in production. Production always acquires a
+            // request-scoped lease from OwnedIntelligenceRequestLeaseRuntime.
+            if (text(process.env.NODE_ENV).toLowerCase() === "production") return false;
+            return text(process.env.AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE).toUpperCase() === "YES";
+          }
+
+          function ownedIntelligenceExecutionLane(options = {}) {
+            const explicit = text(
+              options?.input?.execution_lane || options?.input?.executionLane,
+            ).toLowerCase();
+            if (explicit) return explicit;
+            return INTELLIGENCE_CAPABILITY_DEFAULT_LANE[
+              text(options?.capability || options?.input?.capability).toLowerCase()
+            ] || "deep";
+          }
+
+          function inheritedOwnedIntelligenceSafeLeaseContext(options = {}) {
+            const provider = text(options?.provider);
+            if (provider !== OWNED_INTELLIGENCE_PROVIDER || !canonicalSafeLeaseActive()) {
+              return null;
+            }
+
+            const executionLane = ownedIntelligenceExecutionLane(options);
+            const guard = requireAvantiqoIntelligenceSafeLease(executionLane, null);
+
+            return {
+              intelligence_safe_lease_guard_contract: guard.contract,
+              intelligence_safe_lease_contract: guard.safe_lease_contract,
+              intelligence_safe_lease_safe_contract: guard.safe_lease_contract,
+              intelligence_safe_lease_lane: guard.lease_lane,
+              intelligence_safe_lease_endpoint_id: guard.endpoint_id,
+              intelligence_safe_lease_expires_at: guard.expires_at,
+              intelligence_request_lease_mode: "INHERITED_CANONICAL_SAFE_LEASE",
+              intelligence_request_lease_scaling_performed: false,
+            };
+          }
+
+          function directOwnedFastPodExecution(options = {}) {
+            return (
+              text(options?.provider) === OWNED_INTELLIGENCE_PROVIDER &&
+              ownedIntelligenceExecutionLane(options) === "fast"
+            );
+          }
+
+          function attachProviderLatency(value, latencyMs) {
+            if (!value || typeof value !== "object") return value;
+            Object.defineProperty(value, "__provider_latency_ms", {
+              value: Math.max(0, Number(latencyMs) || 0),
+              enumerable: false,
+              configurable: true,
+            });
+            return value;
+          }
+
+          function attachProviderErrorContext(error, options, latencyMs) {
+            if (error && typeof error === "object") {
+              const metadata = {
+                __provider_latency_ms: Math.max(0, Number(latencyMs) || 0),
+                __provider_id: String(options?.provider || "").trim() || null,
+                __provider_capability: String(options?.capability || "").trim() || null,
+              };
+
+              for (const [key, value] of Object.entries(metadata)) {
+                Object.defineProperty(error, key, {
+                  value,
+                  enumerable: false,
+                  configurable: true,
+                });
+              }
+            }
+            return error;
+          }
+
+          export async function executeProvider(options = {}) {
+            const startedAt = Date.now();
+            try {
+              const executeCore = async (leaseContext = {}) => executeProviderCore({
+                ...options,
+                context: {
+                  ...(options?.context && typeof options.context === "object" ? options.context : {}),
+                  ...(leaseContext && typeof leaseContext === "object" ? leaseContext : {}),
+                },
+              });
+
+              let result = null;
+              if (directOwnedFastPodExecution(options)) {
+                // Fast owns only the ephemeral Pod transport. Availability failures are
+                // intentionally allowed to escape this boundary so ServiceExecutionRuntime
+                // can finalize the failed Fast usage/reservation and create a separate,
+                // fully governed Deep recovery usage record with correct pricing lineage.
+                if (canonicalSafeLeaseActive()) {
+                  throw new Error("AVANTIQO_INTELLIGENCE_FAST_CANONICAL_SAFE_LEASE_FORBIDDEN");
+                }
+                result = await withOwnedIntelligenceFastPodDistributedLease({
+                  organizationId: options?.context?.organization_id || null,
+                  execute: async (podLeaseContext = {}) => executeAvantiqoIntelligenceFastPodProvider({
+                    ...options,
+                    context: {
+                      ...(options?.context && typeof options.context === "object" ? options.context : {}),
+                      ...(podLeaseContext && typeof podLeaseContext === "object" ? podLeaseContext : {}),
+                    },
+                  }),
+                });
+              } else {
+                const inheritedSafeLease = inheritedOwnedIntelligenceSafeLeaseContext(options);
+                if (inheritedSafeLease) {
+                  result = await executeCore(inheritedSafeLease);
+                } else {
+                  result = await withOwnedIntelligenceRequestLease({
+                    provider: String(options?.provider || "").trim(),
+                    organizationId: options?.context?.organization_id || null,
+                    capability: text(options?.capability || options?.input?.capability),
+                    payload: options?.input || {},
+                    execute: executeCore,
+                  });
+                }
+              }
+
+              return attachProviderLatency(result, Date.now() - startedAt);
+            } catch (error) {
+              throw attachProviderErrorContext(error, options, Date.now() - startedAt);
+            }
+          }
+
+          export async function getProviderStatus(options = {}) {
+            const startedAt = Date.now();
+            try {
+              const result = await getProviderStatusCore(options);
+              return attachProviderLatency(result, Date.now() - startedAt);
+            } catch (error) {
+              throw attachProviderErrorContext(error, options, Date.now() - startedAt);
+            }
+          }
+
+          export {
+            loadProviderRuntime,
+            prepareProviderInputForExecution,
+          };
+
+          export const ProviderExecutor = {
+            executeProvider,
+            getProviderStatus,
+            loadProviderRuntime,
+            prepareProviderInputForExecution,
+          };
+          '''
+          Path("lib/platform/service-runtime/providers/ProviderExecutor.js").write_text(provider_executor)
+
+          lane_policy = '''const OWNED_PROVIDER = "avantiqo-intelligence";
+          const FAST_CAPABILITY = "ai.text.generate";
+          const DEEP_SERVICE_ID = "ai.reasoning.execute";
+          const DEEP_CAPABILITY = "ai.reasoning.execute";
+          const CONTRACT = "AVANTIQO_OWNED_INTELLIGENCE_LANE_RECOVERY_V2";
+          const MIN_DEEP_RECOVERY_OUTPUT_TOKENS = 8192;
+
+          const FAST_AVAILABILITY_PATTERNS = Object.freeze([
+            /AVANTIQO_INTELLIGENCE_FAST_POD_LEASE_ACQUIRE_FAILED/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_LEASE_ACQUIRE_INVALID/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_SHARED_VOLUME_BUSY/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_SHARED_VOLUME_CONTRACT_MISMATCH/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_ENDPOINT_RESOLUTION_FAILED/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_COMPATIBLE_GPU_REQUIRED/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_TERMINAL/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_MODEL_READY_TIMEOUT/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_STARTUP_SPEND_LIMIT/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_429/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_5\\d\\d/i,
+          ]);
+
+          function text(value) {
+            return String(value ?? "").trim();
+          }
+
+          function object(value) {
+            return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+          }
+
+          function recoveryMetadata(metadata = {}) {
+            return object(metadata.owned_intelligence_lane_recovery || metadata.ownedIntelligenceLaneRecovery);
+          }
+
+          function recoveryDisabled(providerPolicy = {}, metadata = {}) {
+            return providerPolicy.allow_owned_lane_recovery === false
+              || providerPolicy.allowOwnedLaneRecovery === false
+              || metadata.owned_lane_recovery_disabled === true
+              || metadata.ownedLaneRecoveryDisabled === true;
+          }
+
+          function safeTrigger(error) {
+            const source = text(error?.message || error);
+            const match = FAST_AVAILABILITY_PATTERNS.find((pattern) => pattern.test(source));
+            if (!match) return null;
+            return source.split(":")[0] || "FAST_UNAVAILABLE";
+          }
+
+          export function ownedIntelligenceLaneRecoveryDecision({
+            error,
+            provider,
+            capability,
+            providerPolicy = {},
+            metadata = {},
+          } = {}) {
+            if (text(provider) !== OWNED_PROVIDER) {
+              return { allowed: false, reason: "PROVIDER_NOT_OWNED_INTELLIGENCE" };
+            }
+            if (text(capability) !== FAST_CAPABILITY) {
+              return { allowed: false, reason: "CAPABILITY_NOT_FAST_INTELLIGENCE" };
+            }
+            if (recoveryDisabled(providerPolicy, metadata)) {
+              return { allowed: false, reason: "OWNED_LANE_RECOVERY_DISABLED" };
+            }
+            if (Number(recoveryMetadata(metadata).attempt || 0) >= 1) {
+              return { allowed: false, reason: "OWNED_LANE_RECOVERY_ALREADY_ATTEMPTED" };
+            }
+            const trigger = safeTrigger(error);
+            if (!trigger) {
+              return { allowed: false, reason: "FAST_FAILURE_NOT_AVAILABILITY_RELATED" };
+            }
+            return {
+              allowed: true,
+              reason: "OWNED_FAST_UNAVAILABLE_USE_OWNED_DEEP",
+              trigger,
+              contract: CONTRACT,
+            };
+          }
+
+          export function buildOwnedIntelligenceLaneRecoveryInput({
+            input = {},
+            decision,
+            failedUsageId,
+            failedProvider,
+            failedModel = null,
+          } = {}) {
+            if (decision?.allowed !== true) {
+              throw new Error("OWNED_INTELLIGENCE_LANE_RECOVERY_NOT_ALLOWED");
+            }
+            const sourcePayload = object(input.input);
+            const {
+              model: _discardModel,
+              execution_lane: _discardLane,
+              executionLane: _discardCamelLane,
+              ...payload
+            } = sourcePayload;
+            const requestedBudget = Number(
+              sourcePayload.max_output_tokens || sourcePayload.maxOutputTokens || 0,
+            );
+            const deepBudget = Math.max(
+              MIN_DEEP_RECOVERY_OUTPUT_TOKENS,
+              Number.isFinite(requestedBudget) ? requestedBudget : 0,
+            );
+            const priorPolicy = object(input.provider_policy);
+            const priorMetadata = object(input.metadata);
+            return {
+              ...input,
+              service_id: DEEP_SERVICE_ID,
+              capability: DEEP_CAPABILITY,
+              provider_id: OWNED_PROVIDER,
+              input: {
+                ...payload,
+                execution_lane: "deep",
+                max_output_tokens: deepBudget,
+              },
+              provider_policy: {
+                ...priorPolicy,
+                allowed_providers: [OWNED_PROVIDER],
+                blocked_providers: [],
+                external_fallback_allowed: false,
+                allow_owned_reasoning_fallback: false,
+                allow_owned_lane_recovery: false,
+              },
+              metadata: {
+                ...priorMetadata,
+                owned_intelligence_lane_recovery: {
+                  contract: CONTRACT,
+                  attempt: 1,
+                  chain_id: text(failedUsageId),
+                  previous_usage_id: text(failedUsageId),
+                  previous_provider: text(failedProvider),
+                  previous_model: text(failedModel) || null,
+                  from_lane: "fast",
+                  to_lane: "deep",
+                  trigger: text(decision.trigger),
+                  owned_provider_only: true,
+                  external_fallback_used: false,
+                  min_deep_output_tokens: MIN_DEEP_RECOVERY_OUTPUT_TOKENS,
+                },
+              },
+            };
+          }
+
+          export function ownedIntelligenceLaneRecoveryEvidence({
+            failedUsageId,
+            failedProvider,
+            failedModel = null,
+            decision,
+            result = {},
+          } = {}) {
+            return {
+              occurred: true,
+              contract: CONTRACT,
+              reason: text(decision?.reason),
+              trigger: text(decision?.trigger),
+              owned_provider_only: true,
+              external_fallback_used: false,
+              from: {
+                lane: "fast",
+                provider: text(failedProvider) || null,
+                model: text(failedModel) || null,
+                usage_id: text(failedUsageId) || null,
+                status: "FAILED",
+              },
+              to: {
+                lane: "deep",
+                provider: text(result?.provider) || null,
+                model: text(result?.model) || null,
+                usage_id: text(result?.usage?.id) || null,
+                status: result?.pending === true ? "PENDING" : "SUCCESS",
+              },
+            };
+          }
+
+          export const OWNED_INTELLIGENCE_LANE_RECOVERY_CONTRACT = CONTRACT;
+          export const OWNED_INTELLIGENCE_LANE_RECOVERY_MIN_DEEP_OUTPUT_TOKENS = MIN_DEEP_RECOVERY_OUTPUT_TOKENS;
+          '''
+          Path("lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js").write_text(lane_policy)
+
+          service = Path("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js")
+          source = service.read_text()
+          import_anchor = '''import {
+            buildOwnedReasoningFallbackInput,
+            ownedReasoningFallbackDecision,
+            ownedReasoningFallbackEvidence,
+          } from "./OwnedReasoningFallbackPolicy";
+          '''
+          lane_import = import_anchor + '''
+          import {
+            buildOwnedIntelligenceLaneRecoveryInput,
+            ownedIntelligenceLaneRecoveryDecision,
+            ownedIntelligenceLaneRecoveryEvidence,
+          } from "./OwnedIntelligenceLaneRecoveryPolicy";
+          '''
+          if import_anchor not in source:
+              raise SystemExit("ServiceExecutionRuntime import anchor missing")
+          source = source.replace(import_anchor, lane_import, 1)
+
+          old_catch = '''  } catch (error) {
+            const fallbackDecision = ownedReasoningFallbackDecision({
+              error,
+              provider,
+              capability: executionCapability,
+              providerPolicy: effectiveProviderPolicy,
+              metadata,
+            });
+
+            try {
+              await UsageRuntime.fail({
+                usage_id: usage.id,
+                error,
+                latency_ms: Date.now() - startedAt,
+                metadata: {
+                  ...metadata,
+                  service_id,
+                  model,
+                  provider,
+                  wallet_gate: gate,
+                  provider_failover_candidate: {
+                    allowed: fallbackDecision.allowed === true,
+                    reason: fallbackDecision.reason,
+                  },
+                },
+              });
+            } catch (usageFailureError) {
+              if (fallbackDecision.allowed === true) {
+                throw failoverCleanupError(
+                  "SERVICE_FAILOVER_USAGE_FINALIZATION_FAILED",
+                  usageFailureError,
+                );
+              }
+            }
+
+            if (reservationRemaining > 0) {
+              try {
+                await WalletRuntime.release({
+                  organization_id,
+                  amount: reservationRemaining,
+                  provider,
+                  reference: usage.id,
+                  currency: pricing.currency,
+                  metadata: {
+                    usage_id: usage.id,
+                    settlement: fallbackDecision.allowed === true
+                      ? "FAILED_ATTEMPT_BEFORE_PROVIDER_FAILOVER"
+                      : "FAILED_PROVIDER_EXECUTION",
+                  },
+                });
+                reservationRemaining = 0;
+              } catch (releaseError) {
+                if (fallbackDecision.allowed === true) {
+                  throw failoverCleanupError(
+                    "SERVICE_FAILOVER_RESERVATION_RELEASE_FAILED",
+                    releaseError,
+                  );
+                }
+              }
+            }
+
+            if (fallbackDecision.allowed === true) {
+              const fallbackInput = buildOwnedReasoningFallbackInput({
+                input,
+                decision: fallbackDecision,
+                failedUsageId: usage.id,
+                failedProvider: provider,
+                failedModel: model,
+              });
+              const fallbackResult = await executeService(fallbackInput);
+              return {
+                ...fallbackResult,
+                provider_failover: ownedReasoningFallbackEvidence({
+                  failedUsageId: usage.id,
+                  failedProvider: provider,
+                  failedModel: model,
+                  decision: fallbackDecision,
+                  result: fallbackResult,
+                }),
+              };
+            }
+
+            throw error;
+          }
+          '''
+          new_catch = '''  } catch (error) {
+            const laneRecoveryDecision = ownedIntelligenceLaneRecoveryDecision({
+              error,
+              provider,
+              capability: executionCapability,
+              providerPolicy: effectiveProviderPolicy,
+              metadata,
+            });
+            const fallbackDecision = ownedReasoningFallbackDecision({
+              error,
+              provider,
+              capability: executionCapability,
+              providerPolicy: effectiveProviderPolicy,
+              metadata,
+            });
+            const recoveryAllowed =
+              laneRecoveryDecision.allowed === true || fallbackDecision.allowed === true;
+
+            try {
+              await UsageRuntime.fail({
+                usage_id: usage.id,
+                error,
+                latency_ms: Date.now() - startedAt,
+                metadata: {
+                  ...metadata,
+                  service_id,
+                  model,
+                  provider,
+                  wallet_gate: gate,
+                  owned_lane_recovery_candidate: {
+                    allowed: laneRecoveryDecision.allowed === true,
+                    reason: laneRecoveryDecision.reason,
+                    trigger: laneRecoveryDecision.trigger || null,
+                  },
+                  provider_failover_candidate: {
+                    allowed: fallbackDecision.allowed === true,
+                    reason: fallbackDecision.reason,
+                  },
+                },
+              });
+            } catch (usageFailureError) {
+              if (recoveryAllowed) {
+                throw failoverCleanupError(
+                  "SERVICE_FAILOVER_USAGE_FINALIZATION_FAILED",
+                  usageFailureError,
+                );
+              }
+            }
+
+            if (reservationRemaining > 0) {
+              try {
+                await WalletRuntime.release({
+                  organization_id,
+                  amount: reservationRemaining,
+                  provider,
+                  reference: usage.id,
+                  currency: pricing.currency,
+                  metadata: {
+                    usage_id: usage.id,
+                    settlement: laneRecoveryDecision.allowed === true
+                      ? "FAILED_FAST_BEFORE_OWNED_DEEP_RECOVERY"
+                      : fallbackDecision.allowed === true
+                        ? "FAILED_ATTEMPT_BEFORE_PROVIDER_FAILOVER"
+                        : "FAILED_PROVIDER_EXECUTION",
+                  },
+                });
+                reservationRemaining = 0;
+              } catch (releaseError) {
+                if (recoveryAllowed) {
+                  throw failoverCleanupError(
+                    "SERVICE_FAILOVER_RESERVATION_RELEASE_FAILED",
+                    releaseError,
+                  );
+                }
+              }
+            }
+
+            if (laneRecoveryDecision.allowed === true) {
+              const recoveryInput = buildOwnedIntelligenceLaneRecoveryInput({
+                input,
+                decision: laneRecoveryDecision,
+                failedUsageId: usage.id,
+                failedProvider: provider,
+                failedModel: model,
+              });
+              const recoveryResult = await executeService(recoveryInput);
+              return {
+                ...recoveryResult,
+                owned_lane_recovery: ownedIntelligenceLaneRecoveryEvidence({
+                  failedUsageId: usage.id,
+                  failedProvider: provider,
+                  failedModel: model,
+                  decision: laneRecoveryDecision,
+                  result: recoveryResult,
+                }),
+              };
+            }
+
+            if (fallbackDecision.allowed === true) {
+              const fallbackInput = buildOwnedReasoningFallbackInput({
+                input,
+                decision: fallbackDecision,
+                failedUsageId: usage.id,
+                failedProvider: provider,
+                failedModel: model,
+              });
+              const fallbackResult = await executeService(fallbackInput);
+              return {
+                ...fallbackResult,
+                provider_failover: ownedReasoningFallbackEvidence({
+                  failedUsageId: usage.id,
+                  failedProvider: provider,
+                  failedModel: model,
+                  decision: fallbackDecision,
+                  result: fallbackResult,
+                }),
+              };
+            }
+
+            throw error;
+          }
+          '''
+          if old_catch not in source:
+              raise SystemExit("ServiceExecutionRuntime catch anchor missing")
+          service.write_text(source.replace(old_catch, new_catch, 1))
+
+          lease = Path("lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js")
+          source = lease.read_text()
+          source = source.replace(
+              'const OPEN_PROPAGATION_SETTLE_MS = 5000;\n',
+              'const OPEN_PROPAGATION_SETTLE_MS = 5000;\nconst DEFAULT_ACQUIRE_WAIT_MS = 120000;\nconst ACQUIRE_RETRY_MS = 1500;\n',
+              1,
+          )
+          sleep_anchor = '''function sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+          }
+          '''
+          sleep_replacement = sleep_anchor + '''
+          function safeDatabaseReason(error = {}) {
+            const source = text(error?.message || error?.details || error?.hint).toUpperCase();
+            const match = source.match(/AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_[A-Z0-9_]+/);
+            return match?.[0] || null;
+          }
+
+          function retryableAcquireConflict(reason) {
+            return new Set([
+              "AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_LANE_BUSY",
+              "AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_ENDPOINT_BUSY",
+              "AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_PARALLEL_LIMIT",
+            ]).has(text(reason).toUpperCase());
+          }
+
+          function acquireWaitMs() {
+            const value = Number(
+              process.env.AVANTIQO_INTELLIGENCE_REQUEST_LEASE_ACQUIRE_WAIT_MS ||
+                DEFAULT_ACQUIRE_WAIT_MS,
+            );
+            return Number.isFinite(value)
+              ? Math.max(0, Math.min(180000, value))
+              : DEFAULT_ACQUIRE_WAIT_MS;
+          }
+          '''
+          if sleep_anchor not in source:
+              raise SystemExit("request lease sleep anchor missing")
+          source = source.replace(sleep_anchor, sleep_replacement, 1)
+          old_acquire = '''async function acquireDistributed({ organizationId, config, endpointId, ownerRequestId, ttlSeconds }) {
+            const { data, error } = await supabaseAdmin.rpc(
+              "acquire_avantiqo_intelligence_runpod_lease_v2",
+              {
+                p_organization_id: organizationId,
+                p_lane: config.leaseLane,
+                p_endpoint_id: endpointId,
+                p_endpoint_name: config.endpointName,
+                p_owner_request_id: ownerRequestId,
+                p_ttl_seconds: ttlSeconds,
+              },
+            );
+            if (error) throw new Error(`AVANTIQO_INTELLIGENCE_REQUEST_LEASE_DB_ACQUIRE_FAILED:${error.code || "UNKNOWN"}`);
+            if (!data || text(data.state) !== "ACTIVE" || text(data.endpoint_id) !== endpointId) {
+              throw new Error("AVANTIQO_INTELLIGENCE_REQUEST_LEASE_DB_ACQUIRE_INVALID");
+            }
+            return data;
+          }
+          '''
+          new_acquire = '''async function acquireDistributed({ organizationId, config, endpointId, ownerRequestId, ttlSeconds }) {
+            const waitMs = acquireWaitMs();
+            const deadline = Date.now() + waitMs;
+            let attempts = 0;
+            while (true) {
+              attempts += 1;
+              const { data, error } = await supabaseAdmin.rpc(
+                "acquire_avantiqo_intelligence_runpod_lease_v2",
+                {
+                  p_organization_id: organizationId,
+                  p_lane: config.leaseLane,
+                  p_endpoint_id: endpointId,
+                  p_endpoint_name: config.endpointName,
+                  p_owner_request_id: ownerRequestId,
+                  p_ttl_seconds: ttlSeconds,
+                },
+              );
+              if (!error) {
+                if (!data || text(data.state) !== "ACTIVE" || text(data.endpoint_id) !== endpointId) {
+                  throw new Error("AVANTIQO_INTELLIGENCE_REQUEST_LEASE_DB_ACQUIRE_INVALID");
+                }
+                return data;
+              }
+
+              const reason = safeDatabaseReason(error);
+              const remaining = deadline - Date.now();
+              if (!retryableAcquireConflict(reason) || remaining <= 0) {
+                throw new Error(
+                  `AVANTIQO_INTELLIGENCE_REQUEST_LEASE_DB_ACQUIRE_FAILED:${reason || error.code || "UNKNOWN"}:attempts=${attempts}`,
+                );
+              }
+              await sleep(Math.min(ACQUIRE_RETRY_MS, remaining));
+            }
+          }
+          '''
+          if old_acquire not in source:
+              raise SystemExit("request lease acquire anchor missing")
+          lease.write_text(source.replace(old_acquire, new_acquire, 1))
+
+          replace_once(
+              "components/operator/HomeAvantiqoIntelligence.jsx",
+              "const OPERATOR_TURN_TIMEOUT_MS = 30000;",
+              "// The live route supports a bounded zero-idle owned-GPU lifecycle. Do not abort\n// a healthy cold start at 30 seconds and strand its request-scoped lease.\nconst OPERATOR_TURN_TIMEOUT_MS = 12 * 60 * 1000;",
+          )
+
+          replace_once(
+              "lib/operator/runtime/OperatorBusinessThesisRuntime.js",
+              "        owned_cognition_required: true,\n        latency_class:",
+              "        owned_cognition_required: true,\n        // This synthesis already has a deterministic evidence-only fallback. It must\n        // never consume the Deep interactive lane when Fast is temporarily unavailable.\n        owned_lane_recovery_disabled: true,\n        latency_class:",
+          )
+
+          tests = '''import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          import test from "node:test";
+          import {
+            buildOwnedIntelligenceLaneRecoveryInput,
+            ownedIntelligenceLaneRecoveryDecision,
+            OWNED_INTELLIGENCE_LANE_RECOVERY_MIN_DEEP_OUTPUT_TOKENS,
+          } from "../lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js";
+
+          const providerSource = await readFile(
+            new URL("../lib/platform/service-runtime/providers/ProviderExecutor.js", import.meta.url),
+            "utf8",
+          );
+          const serviceSource = await readFile(
+            new URL("../lib/platform/service-runtime/execution/ServiceExecutionRuntime.js", import.meta.url),
+            "utf8",
+          );
+          const leaseSource = await readFile(
+            new URL("../lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js", import.meta.url),
+            "utf8",
+          );
+          const homeSource = await readFile(
+            new URL("../components/operator/HomeAvantiqoIntelligence.jsx", import.meta.url),
+            "utf8",
+          );
+          const thesisSource = await readFile(
+            new URL("../lib/operator/runtime/OperatorBusinessThesisRuntime.js", import.meta.url),
+            "utf8",
+          );
+
+          test("known Fast cache and lease outages recover only through owned Deep", () => {
+            for (const errorText of [
+              "AVANTIQO_INTELLIGENCE_FAST_POD_SHARED_VOLUME_CONTRACT_MISMATCH:7obluigbr0",
+              "AVANTIQO_INTELLIGENCE_FAST_POD_LEASE_ACQUIRE_FAILED:AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_LANE_BUSY",
+              "AVANTIQO_INTELLIGENCE_FAST_POD_MODEL_READY_TIMEOUT",
+            ]) {
+              const decision = ownedIntelligenceLaneRecoveryDecision({
+                error: new Error(errorText),
+                provider: "avantiqo-intelligence",
+                capability: "ai.text.generate",
+              });
+              assert.equal(decision.allowed, true);
+            }
+          });
+
+          test("Deep recovery creates a separate governed Deep service request with enough thinking budget", () => {
+            const decision = ownedIntelligenceLaneRecoveryDecision({
+              error: new Error("AVANTIQO_INTELLIGENCE_FAST_POD_SHARED_VOLUME_CONTRACT_MISMATCH:1"),
+              provider: "avantiqo-intelligence",
+              capability: "ai.text.generate",
+            });
+            const recovery = buildOwnedIntelligenceLaneRecoveryInput({
+              input: {
+                organization_id: "org-test",
+                service_id: "ai.text.generate",
+                input: { execution_lane: "fast", max_output_tokens: 1400, model: "fast-model", input: "hello" },
+                provider_policy: { allowed_providers: ["avantiqo-intelligence"] },
+                metadata: { channel: "test" },
+              },
+              decision,
+              failedUsageId: "usage-fast",
+              failedProvider: "avantiqo-intelligence",
+              failedModel: "fast-model",
+            });
+            assert.equal(recovery.service_id, "ai.reasoning.execute");
+            assert.equal(recovery.capability, "ai.reasoning.execute");
+            assert.equal(recovery.provider_id, "avantiqo-intelligence");
+            assert.equal(recovery.input.execution_lane, "deep");
+            assert.equal(recovery.input.model, undefined);
+            assert.ok(recovery.input.max_output_tokens >= 8192);
+            assert.equal(recovery.input.max_output_tokens, OWNED_INTELLIGENCE_LANE_RECOVERY_MIN_DEEP_OUTPUT_TOKENS);
+            assert.deepEqual(recovery.provider_policy.allowed_providers, ["avantiqo-intelligence"]);
+            assert.equal(recovery.provider_policy.external_fallback_allowed, false);
+            assert.equal(recovery.provider_policy.allow_owned_reasoning_fallback, false);
+          });
+
+          test("recovery is loop-proof and can be explicitly disabled for deterministic background work", () => {
+            const error = new Error("AVANTIQO_INTELLIGENCE_FAST_POD_SHARED_VOLUME_CONTRACT_MISMATCH");
+            assert.equal(ownedIntelligenceLaneRecoveryDecision({
+              error,
+              provider: "avantiqo-intelligence",
+              capability: "ai.text.generate",
+              metadata: { owned_lane_recovery_disabled: true },
+            }).allowed, false);
+            assert.equal(ownedIntelligenceLaneRecoveryDecision({
+              error,
+              provider: "avantiqo-intelligence",
+              capability: "ai.text.generate",
+              metadata: { owned_intelligence_lane_recovery: { attempt: 1 } },
+            }).allowed, false);
+          });
+
+          test("Service Runtime owns Fast to Deep recovery accounting and ProviderExecutor no longer hides model swaps", () => {
+            assert.match(serviceSource, /ownedIntelligenceLaneRecoveryDecision/);
+            assert.match(serviceSource, /buildOwnedIntelligenceLaneRecoveryInput/);
+            assert.match(serviceSource, /owned_lane_recovery:/);
+            assert.match(serviceSource, /FAILED_FAST_BEFORE_OWNED_DEEP_RECOVERY/);
+            assert.doesNotMatch(providerSource, /recoverOwnedFastThroughDeep/);
+            assert.doesNotMatch(providerSource, /AVANTIQO_OWNED_INTELLIGENCE_AVAILABILITY_RECOVERY_V1/);
+            assert.match(providerSource, /withOwnedIntelligenceFastPodDistributedLease/);
+          });
+
+          test("Deep request lease waits through temporary lane contention and preserves safe DB reasons", () => {
+            assert.match(leaseSource, /safeDatabaseReason/);
+            assert.match(leaseSource, /AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_LANE_BUSY/);
+            assert.match(leaseSource, /DEFAULT_ACQUIRE_WAIT_MS = 120000/);
+            assert.match(leaseSource, /await sleep\(Math\.min\(ACQUIRE_RETRY_MS, remaining\)\)/);
+            assert.match(leaseSource, /reason \|\| error\.code \|\| "UNKNOWN"/);
+          });
+
+          test("Business Partner client no longer aborts the owned cold-start lifecycle at 30 seconds", () => {
+            assert.doesNotMatch(homeSource, /OPERATOR_TURN_TIMEOUT_MS = 30000/);
+            assert.match(homeSource, /OPERATOR_TURN_TIMEOUT_MS = 12 \* 60 \* 1000/);
+          });
+
+          test("background business-thesis synthesis yields to the interactive Deep lane", () => {
+            assert.match(thesisSource, /owned_lane_recovery_disabled: true/);
+          });
+
+          test("unknown Fast failures remain fail closed and never jump to external AI", () => {
+            const decision = ownedIntelligenceLaneRecoveryDecision({
+              error: new Error("SOME_UNKNOWN_MODEL_FAILURE"),
+              provider: "avantiqo-intelligence",
+              capability: "ai.text.generate",
+            });
+            assert.equal(decision.allowed, false);
+            const policySource = await readFile(
+              new URL("../lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js", import.meta.url),
+              "utf8",
+            );
+            assert.doesNotMatch(policySource, /provider_id:\s*["'](?:openai|anthropic|gemini)["']/i);
+          });
+          '''
+          Path("tests/avantiqo-intelligence-fast-deep-availability-recovery.test.mjs").write_text(tests)
+          PY
+
+      - name: Syntax check repaired runtime
+        run: |
+          node --check lib/platform/service-runtime/providers/ProviderExecutor.js
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          node --check lib/platform/service-runtime/execution/ServiceExecutionRuntime.js
+          node --check lib/operator/runtime/OperatorBusinessThesisRuntime.js
+
+      - name: Run targeted zero-cost regression tests
+        run: |
+          node --test tests/avantiqo-intelligence-fast-deep-availability-recovery.test.mjs
+          node --test tests/operator-owned-deep-fast-degradation.test.mjs
+
+      - name: Verify no production release marker
+        run: |
+          if git diff --cached --quiet; then true; fi
+          ! grep -R "deploy-production-final" -n lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js tests/avantiqo-intelligence-fast-deep-availability-recovery.test.mjs
+
+      - name: Commit repaired source only after green tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add \
+            lib/platform/service-runtime/providers/ProviderExecutor.js \
+            lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js \
+            lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js \
+            lib/platform/service-runtime/execution/ServiceExecutionRuntime.js \
+            lib/operator/runtime/OperatorBusinessThesisRuntime.js \
+            components/operator/HomeAvantiqoIntelligence.jsx \
+            tests/avantiqo-intelligence-fast-deep-availability-recovery.test.mjs
+          git diff --cached --check
+          git commit -m "Repair owned Intelligence end-to-end availability"
+          git push origin HEAD:main

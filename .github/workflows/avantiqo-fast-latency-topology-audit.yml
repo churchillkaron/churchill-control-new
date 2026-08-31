@@ -1,0 +1,99 @@
+name: Avantiqo Fast Intelligence Latency Topology Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-latency-topology-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only RunPod Fast topology
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const text = (v) => String(v ?? '').trim();
+          const list = (v) => Array.isArray(v) ? v : [];
+          const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
+          const queueKey = text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || process.env.RUNPOD_API_KEY);
+          if (!managementKey || !queueKey) throw new Error('RUNPOD_CREDENTIAL_REQUIRED');
+          const rest = async (path) => {
+            const r = await fetch(`https://rest.runpod.io/v1${path}`, {
+              headers: { Authorization: `Bearer ${managementKey}`, Accept: 'application/json' },
+              signal: AbortSignal.timeout(30000),
+            });
+            const raw = await r.text();
+            if (!r.ok) throw new Error(`REST_${r.status}`);
+            return raw ? JSON.parse(raw) : null;
+          };
+          const endpointsRaw = await rest('/endpoints?includeTemplate=true&includeWorkers=true');
+          const endpoints = Array.isArray(endpointsRaw) ? endpointsRaw : list(endpointsRaw?.endpoints || endpointsRaw?.data || endpointsRaw?.items || endpointsRaw?.results);
+          const matches = endpoints.filter((e) => text(e?.name) === 'avantiqo-intelligence-fast-v1');
+          if (matches.length !== 1) throw new Error(`FAST_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
+          const e = matches[0];
+          const endpointId = text(e.id);
+          const healthResponse = await fetch(`https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}/health`, {
+            headers: { Authorization: `Bearer ${queueKey}`, Accept: 'application/json' },
+            signal: AbortSignal.timeout(20000),
+          });
+          const healthRaw = await healthResponse.text();
+          let health = null;
+          try { health = healthRaw ? JSON.parse(healthRaw) : null; } catch {}
+          const volumesRaw = await rest('/networkvolumes');
+          const volumes = Array.isArray(volumesRaw) ? volumesRaw : list(volumesRaw?.networkVolumes || volumesRaw?.data || volumesRaw?.items || volumesRaw?.results);
+          const volumeIds = [...new Set([
+            e.networkVolumeId,
+            ...list(e.networkVolumeIds).map((v) => typeof v === 'string' ? v : v?.networkVolumeId || v?.id),
+          ].map(text).filter(Boolean))];
+          const boundVolumes = volumes.filter((v) => volumeIds.includes(text(v.id))).map((v) => ({
+            id: text(v.id),
+            name: text(v.name),
+            data_center_id: text(v.dataCenterId || v.data_center_id),
+            size_gb: Number(v.size || v.sizeInGb || v.sizeGB || 0) || null,
+          }));
+          const workers = list(e.workers).map((w) => ({
+            status: text(w.status || w.workerStatus || w.runtimeStatus),
+            desired_status: text(w.desiredStatus || w.desired_status),
+            gpu_type: text(w.gpuTypeId || w.gpuType || w.machine?.gpuTypeId),
+            cost_per_hour: Number(w.adjustedCostPerHr || w.costPerHr || 0) || 0,
+          }));
+          console.log(JSON.stringify({
+            contract: 'AVANTIQO_FAST_LATENCY_TOPOLOGY_AUDIT_V1',
+            mutation_performed: false,
+            endpoint: {
+              id: endpointId,
+              name: text(e.name),
+              workers_min: Number(e.workersMin),
+              workers_max: Number(e.workersMax),
+              idle_timeout_seconds: Number(e.idleTimeout || 0),
+              execution_timeout_ms: Number(e.executionTimeoutMs || e.executionTimeout || 0),
+              flashboot: e.flashBoot ?? e.flashboot ?? null,
+              scaler_type: text(e.scalerType),
+              scaler_value: Number(e.scalerValue || 0),
+              gpu_type_ids: list(e.gpuTypeIds),
+              allowed_cuda_versions: list(e.allowedCudaVersions),
+              data_center_ids: list(e.dataCenterIds),
+              template_id: text(e.templateId || e.template?.id),
+              template_name: text(e.template?.name),
+              template_image: text(e.template?.imageName || e.template?.image),
+              network_volume_ids: volumeIds,
+              workers,
+            },
+            bound_volumes: boundVolumes,
+            health_http_status: healthResponse.status,
+            health: health ? {
+              jobs: health.jobs || {},
+              workers: health.workers || {},
+            } : null,
+          }, null, 2));
+          NODE

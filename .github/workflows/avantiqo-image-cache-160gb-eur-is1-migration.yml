@@ -1,0 +1,61 @@
+name: Avantiqo Image 160GB EUR-IS-1 Migration
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-image-cache-160gb-eur-is1-migration-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-image-cache-160gb-eur-is1-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate request
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/migrate-avantiqo-image-cache-160gb-eur-is1-ci.mjs
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const request = JSON.parse(readFileSync("audits/avantiqo-image-cache-160gb-eur-is1-migration-request.json", "utf8"));
+          if (request.contract !== "AVANTIQO_IMAGE_160GB_EUR_IS1_MIGRATION_REQUEST_V1") throw new Error("IMAGE_EUR_MIGRATION_REQUEST_CONTRACT_INVALID");
+          if (request.approved !== true) throw new Error("IMAGE_EUR_MIGRATION_REQUEST_NOT_APPROVED");
+          NODE
+
+      - name: Migrate Image cache to EUR-IS-1 and remove old 400GB volume
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_IMAGE_160GB_EUR_IS1_MIGRATION_APPROVED: YES
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/migrate-avantiqo-image-cache-160gb-eur-is1-ci.mjs | tee /tmp/avantiqo-image-cache-160gb-eur-is1-migration.log
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-image-cache-160gb-eur-is1-migration-${{ github.run_id }}
+          path: /tmp/avantiqo-image-cache-160gb-eur-is1-migration.log
+          if-no-files-found: warn
+          retention-days: 14

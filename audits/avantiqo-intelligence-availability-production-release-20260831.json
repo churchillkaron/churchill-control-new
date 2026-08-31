@@ -1,0 +1,11 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_AVAILABILITY_PRODUCTION_RELEASE_V1",
+  "requested_at": "2026-08-31T17:45:00+07:00",
+  "requested_by": "user",
+  "release_reason": "Deploy owned Intelligence Fast-to-Deep availability recovery so live conversation does not dead-end on known lease/cache/capacity failures.",
+  "required_source_commit": "ad0c56f8ffe5ce95c0f5e07c452a6c12d46e1709",
+  "release_from_latest_main": true,
+  "owned_intelligence_only": true,
+  "external_ai_fallback_allowed": false,
+  "production_deployment_approved": true
+}

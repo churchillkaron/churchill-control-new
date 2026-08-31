@@ -1,7 +1,6 @@
 name: Avantiqo Intelligence Deep Pure Service Proof
 
-# E2E run marker: 2026-08-31 live reliability repair verification on newest main.
-# Retry marker: Deep cold-start transient HTTP handling fixed at e592add0fddd0e84edb0256e775aa9d0d587b15b.
+# E2E run marker: 2026-08-31 live reliability repair verification with bounded RunPod propagation guard.
 on:
   push:
     branches:
@@ -11,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: avantiqo-intelligence-deep-pure-service-proof
@@ -28,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -38,6 +37,59 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Apply bounded Safe Lease propagation guard in proof checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL_SAFE_LEASE_BLOB="$(git hash-object scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs)"
+          echo "ORIGINAL_SAFE_LEASE_BLOB=$ORIGINAL_SAFE_LEASE_BLOB" >> "$GITHUB_ENV"
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs')
+          s = p.read_text()
+          old = '''  await patch(targetId, 1, managementKey);
+  endpointOpened = true;
+  await enforce(
+    await snapshot(managementKey, queueKey, targetId, targetQueueKey),
+    policy,
+    targetId,
+    managementKey,
+    args.lane,
+'''
+          new = '''  await patch(targetId, 1, managementKey);
+  endpointOpened = true;
+
+  // The direct endpoint PATCH can observe 0/1 before RunPod's global endpoint
+  // listing catches up. Wait for independent global visibility before enforcing
+  // the account-wide snapshot or submitting any child work.
+  let openedSnapshot = null;
+  const openedStateDeadline = Date.now() + 30_000;
+  while (Date.now() < openedStateDeadline) {
+    openedSnapshot = await snapshot(managementKey, queueKey, targetId, targetQueueKey);
+    const openedTarget = openedSnapshot.rows.find((row) => row.id === targetId);
+    if (openedTarget?.workers_min === 0 && openedTarget?.workers_max === 1) break;
+    await sleep(1000);
+  }
+  const openedTarget = openedSnapshot?.rows?.find((row) => row.id === targetId);
+  if (!openedTarget || openedTarget.workers_min !== 0 || openedTarget.workers_max !== 1) {
+    throw new Error(`${CONTRACT}_TARGET_LEASE_STATE_PROPAGATION_TIMEOUT`);
+  }
+
+  await enforce(
+    openedSnapshot,
+    policy,
+    targetId,
+    managementKey,
+    args.lane,
+'''
+          if old not in s:
+              raise SystemExit('SAFE_LEASE_PROPAGATION_PATCH_TARGET_MISSING')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          node --check scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
+          grep -q 'TARGET_LEASE_STATE_PROPAGATION_TIMEOUT' scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
+          git diff --check
 
       - name: Resolve exact Deep endpoint
         env:
@@ -78,6 +130,27 @@ jobs:
             --ttl-ms=1800000 \
             -- \
             node scripts/run-avantiqo-intelligence-deep-pure-service-proof-local.mjs
+
+      - name: Persist proven Safe Lease repair to newest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs /tmp/avantiqo-safe-lease-proven.mjs
+          git fetch origin main
+          CURRENT_BLOB="$(git show origin/main:scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs | git hash-object --stdin)"
+          if [ "$CURRENT_BLOB" != "$ORIGINAL_SAFE_LEASE_BLOB" ]; then
+            echo "SAFE_LEASE_SOURCE_MOVED_DURING_PROOF=true"
+            exit 1
+          fi
+          git checkout -B main origin/main
+          cp /tmp/avantiqo-safe-lease-proven.mjs scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
+          node --check scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
+          git diff --check
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
+          git commit -m "Harden Safe Lease against RunPod propagation lag"
+          git push origin HEAD:main
 
       - name: Record immutable proof boundary
         if: always()

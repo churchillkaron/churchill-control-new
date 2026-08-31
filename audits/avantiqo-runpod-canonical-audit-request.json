@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_RUNPOD_CANONICAL_AUDIT_REQUEST_V1",
   "requested": true,
-  "reason": "final cleanup pass before deleting redundant non-video volumes",
-  "requested_at": "2026-08-31T03:03:00Z"
+  "reason": "verify final volume and endpoint count after intelligence cleanup",
+  "requested_at": "2026-08-31T03:08:00Z"
 }

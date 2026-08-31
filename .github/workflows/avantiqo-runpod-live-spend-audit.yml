@@ -1,0 +1,40 @@
+name: Avantiqo RunPod Live Spend Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-runpod-live-spend-audit.yml
+      - scripts/audit-avantiqo-runpod-live-spend-ci.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Audit live RunPod spend
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: node scripts/audit-avantiqo-runpod-live-spend-ci.mjs
+
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-runpod-live-spend-audit-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: avantiqo-runpod-live-spend-audit.json

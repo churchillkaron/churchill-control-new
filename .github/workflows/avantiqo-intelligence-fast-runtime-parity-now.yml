@@ -1,0 +1,38 @@
+name: Avantiqo Intelligence Fast Runtime Parity Now
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-fast-runtime-parity-now.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Run read-only Fast runtime parity audit
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: node scripts/diagnose-avantiqo-intelligence-fast-endpoint-parity-local.mjs
+      - name: Immutable boundary
+        if: always()
+        run: |
+          echo "GENERATION_SUBMITTED=false"
+          echo "ENDPOINT_MUTATION_PERFORMED=false"
+          echo "TEMPLATE_MUTATION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

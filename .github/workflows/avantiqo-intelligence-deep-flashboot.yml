@@ -1,0 +1,51 @@
+name: Avantiqo Intelligence Deep FlashBoot
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-intelligence-deep-flashboot-request.json
+      - .github/workflows/avantiqo-intelligence-deep-flashboot.yml
+      - scripts/enable-avantiqo-intelligence-deep-flashboot-local.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-deep-flashboot
+  cancel-in-progress: false
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable FlashBoot only while Deep is parked
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY }}
+          AVANTIQO_INTELLIGENCE_DEEP_FLASHBOOT_APPROVED: "YES"
+        run: node scripts/enable-avantiqo-intelligence-deep-flashboot-local.mjs --apply
+
+      - name: Record safety boundary
+        if: always()
+        run: |
+          echo "INFERENCE_PERFORMED=false"
+          echo "GPU_WORKER_STARTED_BY_ACTIVATION=false"
+          echo "WORKERS_MIN_TARGET=0"
+          echo "WORKERS_MAX_TARGET=0"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

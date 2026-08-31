@@ -1,0 +1,38 @@
+name: Avantiqo Intelligence Deep Cache Placement
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/inspect-avantiqo-intelligence-deep-cache-placement-local.mjs
+      - .github/workflows/avantiqo-intelligence-deep-cache-placement.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Inspect Deep cache placement
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: node scripts/inspect-avantiqo-intelligence-deep-cache-placement-local.mjs
+      - name: Record immutable safety boundary
+        if: always()
+        run: |
+          echo "INFERENCE_PERFORMED=false"
+          echo "GPU_MUTATION_PERFORMED=false"
+          echo "ENDPOINT_MUTATION_PERFORMED=false"
+          echo "STORAGE_MUTATION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

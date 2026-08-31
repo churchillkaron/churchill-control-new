@@ -18,18 +18,23 @@ jobs:
       - name: Delete only the verified orphan Fast Intelligence Pod
         env:
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-          TARGET_POD_ID: 2a4s9o65ori585
+          TARGET_POD_ID: x0qlma8uita249
         run: |
           node --input-type=module <<'NODE'
           const key = String(process.env.RUNPOD_MANAGEMENT_API_KEY || '').trim();
           const id = String(process.env.TARGET_POD_ID || '').trim();
           if (!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_MISSING');
-          if (id !== '2a4s9o65ori585') throw new Error('TARGET_POD_ID_MISMATCH');
+          if (id !== 'x0qlma8uita249') throw new Error('TARGET_POD_ID_MISMATCH');
           const headers = { Authorization: `Bearer ${key}`, Accept: 'application/json' };
           const before = await fetch(`https://rest.runpod.io/v1/pods/${encodeURIComponent(id)}`, {
             headers,
             signal: AbortSignal.timeout(30000),
           });
+          if (before.status === 404) {
+            console.log('POD_ALREADY_GONE=true');
+            console.log('AVANTIQO_INTELLIGENCE_FAST_ORPHAN_EMERGENCY_CLEANUP_V1=PASS');
+            process.exit(0);
+          }
           if (!before.ok) throw new Error(`ORPHAN_READ_HTTP_${before.status}`);
           const pod = await before.json();
           const name = String(pod?.name || '');

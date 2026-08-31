@@ -33,13 +33,13 @@ source = source
   .replace('const CONTRACT = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V3_LAUNCHER";', `const CONTRACT = "${CONTRACT}";`)
   .replace('phase: "SERVERLESS_NO_WORKER_BOUND_ABORT"', 'phase: "SERVERLESS_FIRST_CACHE_BOOTSTRAP_BOUND_ABORT"')
   .replace('cause_classification: "SCHEDULER_OR_CACHED_MODEL_PROVISIONING_NOT_READY"', 'cause_classification: "FIRST_CACHED_MODEL_PROVISIONING_OR_SCHEDULER_NOT_READY"')
-  .replace('failure: "SERVERLESS_NO_WORKER_WITHIN_BOUND"', 'failure: "SERVERLESS_NO_WORKER_WITHIN_BOOTSTRAP_BOUND"')
-  .replace('"SERVERLESS_NO_WORKER_WITHIN_BOUND"', '"SERVERLESS_NO_WORKER_WITHIN_BOOTSTRAP_BOUND"')
+  .replaceAll('SERVERLESS_NO_WORKER_WITHIN_BOUND', 'SERVERLESS_NO_WORKER_WITHIN_BOOTSTRAP_BOUND')
   .replace('no_worker_failure_retryable: false,', 'no_worker_failure_retryable: false,\n  first_cached_model_bootstrap_window: true,\n  endpoint_resave_before_generation_required: false,');
 
 const tempRoot = await mkdtemp(path.join(os.tmpdir(), "avantiqo-code-serverless-proof-v4-"));
 const tempScript = path.join(tempRoot, "proof.mjs");
-await writeFile(tempScript, source, "utf8");n
+await writeFile(tempScript, source, "utf8");
+
 console.log(JSON.stringify({
   event: `${CONTRACT}_START`,
   base_script: V3_SCRIPT,

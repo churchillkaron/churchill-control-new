@@ -1,0 +1,6 @@
+{
+  "contract": "AVANTIQO_IMAGE_STORAGE_AUDIT_REQUEST_V1",
+  "requested": true,
+  "reason": "determine whether 400GB Image volume is oversized",
+  "requested_at": "2026-08-31T03:12:00Z"
+}

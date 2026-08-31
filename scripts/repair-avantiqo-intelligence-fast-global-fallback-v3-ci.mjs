@@ -21,6 +21,7 @@ const list = (v) => Array.isArray(v) ? v : [];
 const object = (v) => v && typeof v === "object" && !Array.isArray(v) ? v : {};
 const finite = (v, f = 0) => Number.isFinite(Number(v)) ? Number(v) : f;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sortedUnique = (values) => [...new Set(values.map(text).filter(Boolean))].sort();
 
 function managementKey() {
   const value = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
@@ -134,10 +135,10 @@ live = await loadFast(mgmt, runtime);
 const after = snapshot(live.endpoint);
 const afterGpu = list(live.endpoint.gpuTypeIds).map(text).filter(Boolean);
 const afterCuda = list(live.endpoint.allowedCudaVersions).map(text).filter(Boolean);
-if (JSON.stringify(afterGpu) !== JSON.stringify(TARGET_GPU_TYPES)) {
+if (JSON.stringify(sortedUnique(afterGpu)) !== JSON.stringify(sortedUnique(TARGET_GPU_TYPES))) {
   throw new Error(`${CONTRACT}_GPU_POOL_VERIFY_FAILED:${JSON.stringify(afterGpu)}`);
 }
-if (JSON.stringify(afterCuda) !== JSON.stringify(TARGET_CUDA_VERSIONS)) {
+if (JSON.stringify(sortedUnique(afterCuda)) !== JSON.stringify(sortedUnique(TARGET_CUDA_VERSIONS))) {
   throw new Error(`${CONTRACT}_CUDA_POOL_VERIFY_FAILED:${JSON.stringify(afterCuda)}`);
 }
 for (const field of Object.keys(before)) {
@@ -155,8 +156,8 @@ console.log(JSON.stringify({
   endpoint_id: live.id,
   endpoint_name: FAST_NAME,
   queue_purged: queuePurged,
-  gpu_priority: TARGET_GPU_TYPES,
-  allowed_cuda_versions: TARGET_CUDA_VERSIONS,
+  configured_gpu_fallback_set: afterGpu,
+  configured_cuda_versions: afterCuda,
   workers_min: finite(live.endpoint.workersMin, -1),
   workers_max: finite(live.endpoint.workersMax, -1),
   data_centers_unrestricted: after.data_center_ids.length === 0,

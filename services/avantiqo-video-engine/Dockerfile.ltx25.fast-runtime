@@ -1,0 +1,44 @@
+FROM pytorch/pytorch:2.13.0-cuda13.0-cudnn9-runtime
+
+ARG LTX2_COMMIT=a95ab856bf29407b6b066ede0abe1846050db56c
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT=/opt/LTX-2 \
+    AVANTIQO_VIDEO_LTX25_MODEL_ROOT=/runpod-volume/ltx-2.5 \
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+    CUDA_MODULE_LOADING=LAZY
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git ca-certificates ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+RUN git clone --filter=blob:none https://github.com/Lightricks/LTX-2.git LTX-2 \
+    && cd LTX-2 \
+    && git checkout "${LTX2_COMMIT}" \
+    && test "$(git rev-parse HEAD)" = "${LTX2_COMMIT}"
+
+# The pinned LTX source accepts the current PyTorch 2.x line; its optional NATTEN
+# production path is explicitly tested against torch 2.13. Keep this image runtime-only:
+# no CUDA compiler, no ltx-kernels build and no model weights baked into the image.
+RUN python -m pip install --upgrade pip uv_build \
+    && python -m pip install -e /opt/LTX-2/packages/ltx-core -e /opt/LTX-2/packages/ltx-pipelines \
+    && python -m pip install requests==2.32.4 \
+    && python - <<'PY'
+import torch
+assert tuple(int(x) for x in torch.__version__.split('+', 1)[0].split('.')[:2]) >= (2, 13)
+assert hasattr(torch.compiler, 'nested_compile_region')
+print('AVANTIQO_VIDEO_LTX25_FAST_RUNTIME_TORCH_GATE=PASS')
+PY
+
+# Git is only needed to assemble the pinned source tree. Remove the package metadata
+# and apt cache after install to keep cold pulls as small as practical.
+RUN apt-get purge -y git \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* /root/.cache /tmp/*
+
+WORKDIR /app
+CMD ["python", "-c", "import torch; print('AVANTIQO_VIDEO_LTX25_FAST_RUNTIME_READY=' + torch.__version__, flush=True)"]

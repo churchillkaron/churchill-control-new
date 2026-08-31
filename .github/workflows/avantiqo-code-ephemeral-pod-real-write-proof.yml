@@ -41,7 +41,6 @@ jobs:
         shell: bash
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
-          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
           RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
           AVANTIQO_CODE_EPHEMERAL_POD_REAL_WRITE_PROOF_APPROVED: "YES"
           AVANTIQO_CODE_EPHEMERAL_POD_REAL_WRITE_REPORT_PATH: artifacts/avantiqo-code-ephemeral-pod-real-write-proof-v1.json

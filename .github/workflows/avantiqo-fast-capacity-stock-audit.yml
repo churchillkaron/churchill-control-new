@@ -1,0 +1,32 @@
+name: Avantiqo Fast Capacity Stock Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-capacity-stock-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read current compatible RunPod stock
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const key=String(process.env.RUNPOD_MANAGEMENT_API_KEY||'').trim();if(!key)throw new Error('RUNPOD_MANAGEMENT_API_KEY_REQUIRED');
+          const q=`query AvantiqoFastStock($input: GpuAvailabilityInput) { gpuTypes { id displayName memoryInGb secureCloud communityCloud } dataCenters { id name location storageSupport gpuAvailability(input:$input) { available stockStatus gpuTypeId gpuTypeDisplayName displayName } } }`;
+          const r=await fetch(`https://api.runpod.io/graphql?api_key=${encodeURIComponent(key)}`,{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{input:{gpuCount:1,minDisk:5,minMemoryInGb:40,secureCloud:true}}}),signal:AbortSignal.timeout(30000)});
+          const body=await r.json();const errors=Array.isArray(body?.errors)?body.errors:[];if(!r.ok||errors.length)throw new Error(`RUNPOD_GRAPHQL:${errors.map(e=>e?.message).join('|')}`);
+          const types=Array.isArray(body?.data?.gpuTypes)?body.data.gpuTypes:[];const dcs=Array.isArray(body?.data?.dataCenters)?body.data.dataCenters:[];
+          const wanted=/(RTX PRO 6000.*Blackwell.*Server|H200|H100|B200|A100.*80|L40S|A6000|RTX 6000 Ada)/i;
+          const rows=[];
+          for(const dc of dcs){for(const a of (Array.isArray(dc?.gpuAvailability)?dc.gpuAvailability:[])){const type=types.find(t=>String(t?.id||'')===String(a?.gpuTypeId||''));const label=[a?.gpuTypeDisplayName,a?.displayName,type?.displayName,type?.id].filter(Boolean).join(' ');if(!wanted.test(label))continue;rows.push({data_center_id:String(dc?.id||''),data_center_name:String(dc?.name||''),gpu_type_id:String(a?.gpuTypeId||type?.id||''),gpu_name:String(a?.gpuTypeDisplayName||a?.displayName||type?.displayName||''),memory_gb:Number(type?.memoryInGb||0),available:a?.available===true,stock_status:String(a?.stockStatus||'').toUpperCase()});}}
+          const rank=s=>s==='HIGH'?4:s==='MEDIUM'?3:s==='LOW'?2:s?1:0;rows.sort((a,b)=>rank(b.stock_status)-rank(a.stock_status)||Number(b.available)-Number(a.available)||b.memory_gb-a.memory_gb);
+          console.log(JSON.stringify({contract:'AVANTIQO_FAST_CAPACITY_STOCK_AUDIT_V1',checked_at:new Date().toISOString(),compatible_stock:rows,high_or_medium:rows.filter(x=>x.available&&rank(x.stock_status)>=3),mutation_performed:false,gpu_started:false,production_deploy_performed:false,secrets_printed:false},null,2));
+          NODE

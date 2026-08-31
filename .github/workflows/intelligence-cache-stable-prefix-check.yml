@@ -1,0 +1,29 @@
+name: Intelligence Cache Stable Prefix Check
+
+on:
+  push:
+    branches:
+      - ai/intelligence-cache-stable-prefix-20260831
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  intelligence-prefix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run focused Intelligence prefix tests
+        run: >-
+          node --test
+          tests/avantiqo-expert-prefix-runtime.test.mjs
+          tests/avantiqo-intelligence-deep-expert-prefix.test.mjs
+          tests/avantiqo-intelligence-deep-native-https-transport.test.mjs
+          tests/avantiqo-cognition-router.test.mjs

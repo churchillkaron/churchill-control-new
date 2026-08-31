@@ -46,7 +46,10 @@ async function queueHealth(key) {
   }), `${CONTRACT}_QUEUE`);
 }
 function volumeIds(endpoint = {}) {
-  return [...new Set([endpoint.networkVolumeId, ...list(endpoint.networkVolumeIds)].map(text).filter(Boolean))];
+  const ids = list(endpoint.networkVolumeIds).map((entry) => typeof entry === "string" ? text(entry) : text(entry?.networkVolumeId)).filter(Boolean);
+  const legacy = text(endpoint.networkVolumeId);
+  if (legacy && !ids.includes(legacy)) ids.unshift(legacy);
+  return [...new Set(ids)];
 }
 function dcIds(endpoint = {}) {
   if (Array.isArray(endpoint.dataCenterIds)) return endpoint.dataCenterIds.map(text).filter(Boolean);
@@ -87,6 +90,14 @@ function stable(endpoint = {}) {
   };
 }
 function sameStable(a,b) { return JSON.stringify(stable(a)) === JSON.stringify(stable(b)); }
+function placement(endpoint = {}) {
+  return {
+    dataCenterIds: dcIds(endpoint),
+    gpuTypeIds: gpuIds(endpoint),
+    networkVolumeId: text(endpoint.networkVolumeId),
+    networkVolumeIds: volumeIds(endpoint),
+  };
+}
 async function templates(key) {
   const raw = await rest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false", key);
   return Array.isArray(raw) ? raw : list(raw?.data || raw?.items || raw?.results || raw?.templates);
@@ -114,7 +125,7 @@ const managementKey = required("RUNPOD_MANAGEMENT_API_KEY", process.env.RUNPOD_A
 const runtimeKey = text(process.env.RUNPOD_AVANTIQO_CODE_API_KEY || process.env.RUNPOD_API_KEY || managementKey);
 if (!runtimeKey) throw new Error("RUNPOD_CODE_RUNTIME_KEY_REQUIRED");
 
-const [before, beforeHealth, volumesRaw, templateRows, stock] = await Promise.all([
+const [before, beforeHealth, volumesRaw, templateRows] = await Promise.all([
   rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey),
   queueHealth(runtimeKey),
   rest("/networkvolumes", managementKey),
@@ -135,7 +146,7 @@ const templateId = text(before.templateId || before.template?.id);
 const template = templateRows.find((row)=>text(row.id)===templateId);
 if (!template || text(template.imageName)!==IMMUTABLE_IMAGE) throw new Error(`${CONTRACT}_IMMUTABLE_IMAGE_REQUIRED:${text(template?.imageName)}`);
 if (!stable(before).flashboot) throw new Error(`${CONTRACT}_FLASHBOOT_REQUIRED`);
-const originalPlacement = { dataCenterIds: dcIds(before), gpuTypeIds: gpuIds(before), networkVolumeIds: volumeIds(before) };
+const originalPlacement = placement(before);
 
 let mutationStarted = false;
 try {
@@ -145,13 +156,18 @@ try {
     assertTargetStock(managementKey),
   ]);
   assertClean(fresh,freshHealth,`${CONTRACT}_PREWRITE`);
-  if (!sameStable(before,fresh) || JSON.stringify(originalPlacement)!==JSON.stringify({dataCenterIds:dcIds(fresh),gpuTypeIds:gpuIds(fresh),networkVolumeIds:volumeIds(fresh)})) {
+  if (!sameStable(before,fresh) || JSON.stringify(originalPlacement)!==JSON.stringify(placement(fresh))) {
     throw new Error(`${CONTRACT}_CONCURRENT_ENDPOINT_CHANGE`);
   }
   mutationStarted = true;
   await rest(`/endpoints/${ENDPOINT_ID}`, managementKey, {
     method:"PATCH",
-    body:{ dataCenterIds:[TARGET_DC], gpuTypeIds:[TARGET_GPU], networkVolumeIds:[targetVolumeId] },
+    body:{
+      dataCenterIds:[TARGET_DC],
+      gpuTypeIds:[TARGET_GPU],
+      networkVolumeId:targetVolumeId,
+      networkVolumeIds:[targetVolumeId],
+    },
   });
   await sleep(1200);
   const [after, afterHealth, afterTemplates, verifiedTargetVolume] = await Promise.all([
@@ -163,6 +179,7 @@ try {
   assertClean(after,afterHealth,`${CONTRACT}_AFTER`);
   if (!sameStable(before,after)) throw new Error(`${CONTRACT}_UNRELATED_ENDPOINT_FIELD_CHANGED`);
   if (JSON.stringify(gpuIds(after))!==JSON.stringify([TARGET_GPU])) throw new Error(`${CONTRACT}_GPU_VERIFY_FAILED:${JSON.stringify(gpuIds(after))}`);
+  if (text(after.networkVolumeId)!==targetVolumeId) throw new Error(`${CONTRACT}_LEGACY_VOLUME_VERIFY_FAILED:${text(after.networkVolumeId)}`);
   if (JSON.stringify(volumeIds(after))!==JSON.stringify([targetVolumeId])) throw new Error(`${CONTRACT}_VOLUME_VERIFY_FAILED:${JSON.stringify(volumeIds(after))}`);
   if (text(verifiedTargetVolume.id)!==targetVolumeId || text(verifiedTargetVolume.dataCenterId ?? verifiedTargetVolume.data_center_id)!==TARGET_DC) {
     throw new Error(`${CONTRACT}_VOLUME_DATACENTER_VERIFY_FAILED:${text(verifiedTargetVolume.dataCenterId ?? verifiedTargetVolume.data_center_id)}`);
@@ -174,6 +191,7 @@ try {
     contract:CONTRACT,
     target:{data_center_id:TARGET_DC,endpoint_data_center_ids_advisory:dcIds(after),gpu_type_id:TARGET_GPU,gpu_stock:freshStock.stock_status,network_volume_id:targetVolumeId,network_volume_name:TARGET_VOLUME_NAME},
     datacenter_verified_via_bound_network_volume:true,
+    legacy_and_multi_volume_bindings_consistent:true,
     immutable_image:IMMUTABLE_IMAGE,
     endpoint_configuration_preserved:true,
     workers_min:0,

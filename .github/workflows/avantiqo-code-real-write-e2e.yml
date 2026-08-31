@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+      - scripts/run-avantiqo-code-real-write-e2e-proof-v2-local.mjs
       - .github/workflows/avantiqo-code-real-write-e2e.yml
 
 permissions:
@@ -30,7 +31,9 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Syntax-check real-write proof
-        run: node --check scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+        run: |
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v2-local.mjs
 
       - name: Run real Code write execute verify proof
         env:
@@ -43,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          node scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs | tee /tmp/avantiqo-code-real-write-e2e.log
+          node scripts/run-avantiqo-code-real-write-e2e-proof-v2-local.mjs | tee /tmp/avantiqo-code-real-write-e2e.log
 
       - name: Verify hard E2E evidence
         if: success()

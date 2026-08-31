@@ -52,20 +52,20 @@ async function videoPodProductionSnapshot() {
   const volumes = rows(rawVolumes, ["networkVolumes", "networkvolumes"]);
   const pods = rows(rawPods, ["pods"]);
   const matches = endpoints.filter((row) => text(row?.name) === ENDPOINT_NAME);
-  if (matches.length !== 1) throw new Error(`AVANTIQO_VIDEO_NATIVE4K_PRODUCTION_ENDPOINT_AMBIGUOUS:${matches.length}`);
+  if (matches.length !== 1) throw new Error("AVANTIQO_VIDEO_NATIVE4K_PRODUCTION_ENDPOINT_AMBIGUOUS:" + matches.length);
   const production = matches[0];
   if (Number(production.workersMin ?? production.workers_min) !== 0 || Number(production.workersMax ?? production.workers_max) !== 0 || activeEndpointWorkers(production).length) {
     throw new Error("AVANTIQO_VIDEO_NATIVE4K_PRODUCTION_ENDPOINT_NOT_ZERO_ZERO");
   }
   const volumeIds = endpointVolumeIds(production);
   const volumeMatches = volumes.filter((row) => volumeIds.includes(text(row?.id)) && text(row?.name) === "avantiqo-video-cache-eu-ro-1");
-  if (volumeMatches.length !== 1) throw new Error(`AVANTIQO_VIDEO_NATIVE4K_VOLUME_AMBIGUOUS:${volumeMatches.length}`);
+  if (volumeMatches.length !== 1) throw new Error("AVANTIQO_VIDEO_NATIVE4K_VOLUME_AMBIGUOUS:" + volumeMatches.length);
   const volume = volumeMatches[0];
   if (text(volume.dataCenterId ?? volume.data_center_id) !== AVANTIQO_VIDEO_POD_DC) throw new Error("AVANTIQO_VIDEO_NATIVE4K_VOLUME_DC_INVALID");
   const templateId = text(production.templateId ?? production.template?.id);
   if (!templateId) throw new Error("AVANTIQO_VIDEO_NATIVE4K_TEMPLATE_ID_REQUIRED");
   let template = templates.find((row) => text(row?.id) === templateId) || null;
-  const direct = await podRest(`/templates/${encodeURIComponent(templateId)}`).catch(() => null);
+  const direct = await podRest("/templates/" + encodeURIComponent(templateId)).catch(() => null);
   if (direct?.id) template = direct;
   if (!template) throw new Error("AVANTIQO_VIDEO_NATIVE4K_TEMPLATE_REQUIRED");
   const templateEnv = Array.isArray(template.env)
@@ -76,8 +76,8 @@ async function videoPodProductionSnapshot() {
     const podVolume = text(pod?.networkVolume?.id ?? pod?.networkVolumeId ?? pod?.network_volume_id);
     return podVolume === text(volume.id) && !podTerminal(pod);
   });
-  if (activePods.length) throw new Error(`AVANTIQO_VIDEO_NATIVE4K_ACTIVE_POD_PRESENT:${activePods.length}`);
-  console.log(`AVANTIQO_VIDEO_NATIVE4K_SNAPSHOT=PASS:endpoint=${ENDPOINT_NAME}:volume=${text(volume.name)}`);
+  if (activePods.length) throw new Error("AVANTIQO_VIDEO_NATIVE4K_ACTIVE_POD_PRESENT:" + activePods.length);
+  console.log("AVANTIQO_VIDEO_NATIVE4K_SNAPSHOT=PASS:endpoint=" + ENDPOINT_NAME + ":volume=" + text(volume.name));
   return { candidate: production, production, volume, template, templateEnv, registryAuthId, registryAuthMode: "PRODUCTION_TEMPLATE" };
 }
 `;

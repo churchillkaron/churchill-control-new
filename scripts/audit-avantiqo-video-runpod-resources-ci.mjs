@@ -1,4 +1,5 @@
 const REST_BASE = "https://rest.runpod.io/v1";
+const OLD_VOLUME_ID = "7pcdebhpga";
 
 function text(value) { return String(value ?? "").trim(); }
 function list(value) { return Array.isArray(value) ? value : []; }
@@ -18,8 +19,8 @@ function volumeIds(row = {}) {
   return unique([
     row.networkVolumeId,
     row.network_volume_id,
-    ...(Array.isArray(row.networkVolumeIds) ? row.networkVolumeIds.map((v) => typeof v === "string" ? v : v?.id) : []),
-    ...(Array.isArray(row.network_volume_ids) ? row.network_volume_ids.map((v) => typeof v === "string" ? v : v?.id) : []),
+    ...(Array.isArray(row.networkVolumeIds) ? row.networkVolumeIds.map((v) => typeof v === "string" ? v : v?.id || v?.networkVolumeId) : []),
+    ...(Array.isArray(row.network_volume_ids) ? row.network_volume_ids.map((v) => typeof v === "string" ? v : v?.id || v?.networkVolumeId) : []),
   ]);
 }
 function relevantName(name) {
@@ -51,7 +52,7 @@ const templates = normalizeRows(rawTemplates, ["templates"]);
 const volumes = normalizeRows(rawVolumes, ["networkVolumes", "networkvolumes"]);
 const pods = normalizeRows(rawPods, ["pods"]);
 
-const relevantEndpoints = endpoints.filter((row) => relevantName(row?.name)).map((row) => ({
+const endpointRows = endpoints.map((row) => ({
   id: text(row.id),
   name: text(row.name),
   template_id: text(row.templateId || row.template?.id),
@@ -60,6 +61,8 @@ const relevantEndpoints = endpoints.filter((row) => relevantName(row?.name)).map
   workers_max: finite(row.workersMax ?? row.workers_max),
   active_workers: list(row.workers).filter((w) => !["EXITED","TERMINATED","DELETED","STOPPED"].includes(text(w.status || w.workerStatus || w.runtimeStatus).toUpperCase())).length,
 }));
+const relevantEndpoints = endpointRows.filter((row) => relevantName(row.name));
+const oldVolumeReferences = endpointRows.filter((row) => row.network_volume_ids.includes(OLD_VOLUME_ID));
 const relevantTemplates = templates.filter((row) => relevantName(row?.name) || relevantName(row?.imageName || row?.image_name)).map((row) => ({
   id: text(row.id),
   name: text(row.name),
@@ -67,7 +70,7 @@ const relevantTemplates = templates.filter((row) => relevantName(row?.name) || r
 }));
 const relevantVolumes = volumes.filter((row) => relevantName(row?.name)).map((row) => {
   const id = text(row.id);
-  const endpointNames = relevantEndpoints.filter((e) => e.network_volume_ids.includes(id)).map((e) => e.name);
+  const endpointNames = endpointRows.filter((e) => e.network_volume_ids.includes(id)).map((e) => e.name);
   const podNames = pods.filter((p) => text(p?.networkVolume?.id || p?.networkVolumeId || p?.network_volume_id) === id).map((p) => text(p.name)).filter(Boolean);
   return {
     id,
@@ -87,11 +90,12 @@ const relevantPods = pods.filter((row) => relevantName(row?.name)).map((row) => 
 }));
 
 const inventory = {
-  contract: "AVANTIQO_VIDEO_RUNPOD_RESOURCE_AUDIT_V1",
+  contract: "AVANTIQO_VIDEO_RUNPOD_RESOURCE_AUDIT_V2",
   mutation_performed: false,
   generation_submitted: false,
   production_deploy_performed: false,
   endpoints: relevantEndpoints,
+  old_volume_references: oldVolumeReferences,
   templates: relevantTemplates,
   volumes: relevantVolumes,
   pods: relevantPods,

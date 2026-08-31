@@ -1,0 +1,63 @@
+name: Avantiqo Code EUR Rebind
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-eur-is1-rebind-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-eur-is1-rebind
+  cancel-in-progress: false
+
+jobs:
+  rebind-code-eur:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate rebind request
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/rebind-avantiqo-code-to-eur-is1-ci.mjs
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const request = JSON.parse(readFileSync("audits/avantiqo-code-eur-is1-rebind-request.json", "utf8"));
+          if (request.contract !== "AVANTIQO_CODE_EUR_IS1_REBIND_REQUEST_V1") throw new Error("CODE_EUR_REBIND_REQUEST_CONTRACT_INVALID");
+          if (request.approved !== true) throw new Error("CODE_EUR_REBIND_REQUEST_NOT_APPROVED");
+          NODE
+
+      - name: Rebind Code to EUR-IS-1 without inference
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+          AVANTIQO_CODE_EUR_IS1_REBIND_APPROVED: YES
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/rebind-avantiqo-code-to-eur-is1-ci.mjs | tee /tmp/avantiqo-code-eur-is1-rebind.log
+
+      - name: Upload rebind evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-eur-is1-rebind-${{ github.run_id }}
+          path: /tmp/avantiqo-code-eur-is1-rebind.log
+          if-no-files-found: warn
+          retention-days: 14

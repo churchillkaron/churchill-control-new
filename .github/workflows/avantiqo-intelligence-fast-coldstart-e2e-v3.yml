@@ -23,10 +23,13 @@ jobs:
       NODE_ENV: production
       AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
       AVANTIQO_INTELLIGENCE_FAST_TIMEOUT_MS: "360000"
-      AVANTIQO_INTELLIGENCE_FAST_UNSCHEDULED_TIMEOUT_MS: "30000"
+      AVANTIQO_INTELLIGENCE_FAST_UNSCHEDULED_TIMEOUT_MS: "90000"
       AVANTIQO_INTELLIGENCE_REQUEST_LEASE_ACQUIRE_WAIT_MS: "120000"
       AVANTIQO_INTELLIGENCE_FAST_COLD_START_RETRY_DEADLINE_MS: "90000"
       AVANTIQO_INTELLIGENCE_FAST_COLD_START_RETRY_DELAY_MS: "10000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_STARTUP_TIMEOUT_MS: "420000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_EXECUTION_TIMEOUT_MS: "360000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_MAX_ESTIMATED_SPEND_USD: "0.35"
     steps:
       - name: Checkout newest main
         uses: actions/checkout@v4
@@ -40,13 +43,24 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Static Fast cold-start gate
+      - name: Static Fast cold-start and fallback gate
         run: |
           node --check lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceFastPodLeaseRuntime.js
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
+          node --check lib/platform/service-runtime/providers/ProviderExecutor.js
           node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastPodProvider.js
           node --check scripts/run-avantiqo-intelligence-fast-service-e2e-proof-local.mjs
           grep -q 'waitForGlobalOpenPropagation' lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
           grep -q 'retryableFastColdStartHttpError' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+          grep -q 'isAvantiqoIntelligenceFastUnscheduledError' lib/platform/service-runtime/providers/ProviderExecutor.js
+          grep -q 'withOwnedIntelligenceFastPodDistributedLease' lib/platform/service-runtime/providers/ProviderExecutor.js
+          grep -q 'globalPlacement: true' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
+          grep -q 'persistentStorage: false' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
+          ! grep -q '7obluigbr0' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
+          ! grep -q 'US-CA-2' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
+          ! grep -q 'networkVolumeId:' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
       - name: Run one real governed Fast customer request
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
@@ -60,4 +74,6 @@ jobs:
           echo "EXTERNAL_AI_FALLBACK_USED=false"
           echo "NEW_NETWORK_VOLUME_CREATED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "SERVERLESS_UNSCHEDULED_TIMEOUT_MS=90000"
+          echo "FALLBACK_PROFILE=owned-global-volume-free-pod-v2"
           echo "PLACEMENT_PROFILE=global-compatible-gpu-fallback-v3"

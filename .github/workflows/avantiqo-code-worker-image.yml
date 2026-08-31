@@ -39,9 +39,13 @@ jobs:
           grep -F 'FROM vllm/vllm-openai:v0.27.1' services/avantiqo-code-engine/Dockerfile.runpod
           grep -F 'VLLM_WORKER_MULTIPROC_METHOD=spawn' services/avantiqo-code-engine/Dockerfile.runpod
           grep -F 'VLLM_USE_FLASHINFER_SAMPLER=0' services/avantiqo-code-engine/Dockerfile.runpod
+          grep -F 'VLLM_USE_DEEP_GEMM=0' services/avantiqo-code-engine/Dockerfile.runpod
+          grep -F 'VLLM_MOE_USE_DEEP_GEMM=0' services/avantiqo-code-engine/Dockerfile.runpod
           grep -F 'Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8' services/avantiqo-code-engine/Dockerfile.runpod
           grep -F 'ENTRYPOINT ["python3", "-u", "serverless_boot.py"]' services/avantiqo-code-engine/Dockerfile.runpod
           grep -F 'os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"' services/avantiqo-code-engine/handler.py
+          grep -F 'os.environ["VLLM_USE_DEEP_GEMM"] = "0"' services/avantiqo-code-engine/serverless_boot.py
+          grep -F 'os.environ["VLLM_MOE_USE_DEEP_GEMM"] = "0"' services/avantiqo-code-engine/serverless_boot.py
           grep -F 'CONTRACT = "AVANTIQO_CODE_SERVERLESS_BOOT_PRELOAD_V1"' services/avantiqo-code-engine/serverless_boot.py
           grep -F 'SAFETENSORS_LOAD_STRATEGY = "prefetch"' services/avantiqo-code-engine/serverless_boot.py
           grep -F 'code_engine._load_engine()' services/avantiqo-code-engine/serverless_boot.py
@@ -52,6 +56,7 @@ jobs:
           echo 'AVANTIQO_CODE_WORKER_IMAGE_TRIGGER_SHA_BOUND=true'
           echo 'AVANTIQO_CODE_SERVERLESS_BOOT_PRELOAD_SOURCE=PASS'
           echo 'AVANTIQO_CODE_SERVERLESS_PREFETCH_SOURCE=PASS'
+          echo 'AVANTIQO_CODE_DEEP_GEMM_DISABLED_SOURCE=PASS'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -93,6 +98,8 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             avantiqo.code.serverless.boot-preload=true
             avantiqo.code.safetensors.load-strategy=prefetch
+            avantiqo.code.deep-gemm.enabled=false
+            avantiqo.code.moe-deep-gemm.enabled=false
           provenance: true
           sbom: true
           cache-from: type=gha,scope=avantiqo-code-worker
@@ -122,7 +129,7 @@ jobs:
           const digest = process.env.IMAGE_DIGEST;
           const report = {
             success: true,
-            contract: "AVANTIQO_CODE_WORKER_IMAGE_RESULT_V2",
+            contract: "AVANTIQO_CODE_WORKER_IMAGE_RESULT_V3",
             source_sha: process.env.RELEASE_SHA,
             trigger_sha: process.env.TRIGGER_SHA,
             source_sha_matches_trigger: process.env.RELEASE_SHA === process.env.TRIGGER_SHA,
@@ -136,6 +143,8 @@ jobs:
             quantization: "fp8",
             vllm_worker_multiproc_method: "spawn",
             flashinfer_sampler_disabled: true,
+            deep_gemm_disabled: true,
+            moe_deep_gemm_disabled: true,
             serverless_boot_preload: true,
             serverless_start_after_model_load: true,
             safetensors_load_strategy: "prefetch",
@@ -166,5 +175,7 @@ jobs:
           echo 'AVANTIQO_CODE_WORKER_IMAGE_BUILD=PASS'
           echo 'AVANTIQO_CODE_WORKER_IMAGE_SERVERLESS_BOOT_PRELOAD=true'
           echo 'AVANTIQO_CODE_WORKER_IMAGE_SAFETENSORS_LOAD_STRATEGY=prefetch'
+          echo 'AVANTIQO_CODE_WORKER_IMAGE_DEEP_GEMM_DISABLED=true'
+          echo 'AVANTIQO_CODE_WORKER_IMAGE_MOE_DEEP_GEMM_DISABLED=true'
           echo 'AVANTIQO_CODE_WORKER_IMAGE_PROVIDER_JOB_SUBMITTED=false'
           echo 'AVANTIQO_CODE_WORKER_IMAGE_PRODUCTION_WEB_DEPLOY=false'

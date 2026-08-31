@@ -1,5 +1,6 @@
 {
   "contract": "AVANTIQO_RUNPOD_CANONICAL_AUDIT_REQUEST_V1",
   "requested": true,
-  "reason": "consolidate to one canonical endpoint per engine and remove unnecessary storage"
+  "reason": "refresh non-video volume cleanup after endpoint canonicalization",
+  "requested_at": "2026-08-31T02:59:00Z"
 }

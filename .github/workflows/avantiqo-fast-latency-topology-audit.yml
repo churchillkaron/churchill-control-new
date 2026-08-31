@@ -1,6 +1,6 @@
 name: Avantiqo Fast Intelligence Latency Topology Audit
 
-# Deep read-only rerun marker: inspect GraphQL pool/template placement after canonical Fast scheduling failure.
+# Read-only Deep/Fast CUDA placement comparison after Fast scheduler starvation.
 on:
   push:
     branches: [main]
@@ -16,104 +16,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Read-only RunPod Fast topology
+      - name: Compare live Deep and Fast placement read-only
         env:
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
-          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || secrets.RUNPOD_API_KEY }}
         run: |
           node --input-type=module <<'NODE'
-          const text = (v) => String(v ?? '').trim();
-          const list = (v) => Array.isArray(v) ? v : [];
-          const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
-          const queueKey = text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || process.env.RUNPOD_API_KEY);
-          if (!managementKey || !queueKey) throw new Error('RUNPOD_CREDENTIAL_REQUIRED');
-          const rest = async (path) => {
-            const r = await fetch(`https://rest.runpod.io/v1${path}`, {
-              headers: { Authorization: `Bearer ${managementKey}`, Accept: 'application/json' },
-              signal: AbortSignal.timeout(30000),
-            });
-            const raw = await r.text();
-            if (!r.ok) throw new Error(`REST_${r.status}:${raw.slice(0,500)}`);
-            return raw ? JSON.parse(raw) : null;
-          };
-          const graph = async (query) => {
-            const r = await fetch('https://api.runpod.io/graphql', {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${managementKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-              body: JSON.stringify({ query }),
-              signal: AbortSignal.timeout(30000),
-            });
-            const body = await r.json();
-            if (!r.ok || list(body?.errors).length) throw new Error(`GRAPHQL_${r.status}:${list(body?.errors).map(e=>e?.message).join('|')}`);
-            return body?.data || {};
-          };
-          const endpointsRaw = await rest('/endpoints?includeTemplate=true&includeWorkers=true');
-          const endpoints = Array.isArray(endpointsRaw) ? endpointsRaw : list(endpointsRaw?.endpoints || endpointsRaw?.data || endpointsRaw?.items || endpointsRaw?.results);
-          const matches = endpoints.filter((e) => text(e?.name) === 'avantiqo-intelligence-fast-v1');
-          if (matches.length !== 1) throw new Error(`FAST_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
-          const e = matches[0];
-          const endpointId = text(e.id);
-          const templateId = text(e.templateId || e.template?.id);
-          const template = templateId ? await rest(`/templates/${encodeURIComponent(templateId)}`) : null;
-          const gql = await graph(`query AvantiqoFastPlacementAudit { myself { endpoints { id name templateId gpuIds gpuCount workersMin workersMax idleTimeout scalerType scalerValue executionTimeoutMs minCudaVersion flashBootType } podTemplates { id name imageName containerDiskInGb volumeInGb volumeMountPath isServerless } } serverlessGpuPools { id gpuTypeIds } }`);
-          const gqlEndpoint = list(gql?.myself?.endpoints).find((row) => text(row?.id) === endpointId) || null;
-          const gqlTemplate = list(gql?.myself?.podTemplates).find((row) => text(row?.id) === templateId) || null;
-          const healthResponse = await fetch(`https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}/health`, {
-            headers: { Authorization: `Bearer ${queueKey}`, Accept: 'application/json' },
-            signal: AbortSignal.timeout(20000),
-          });
-          const healthRaw = await healthResponse.text();
-          let health = null;
-          try { health = healthRaw ? JSON.parse(healthRaw) : null; } catch {}
-          const volumesRaw = await rest('/networkvolumes');
-          const volumes = Array.isArray(volumesRaw) ? volumesRaw : list(volumesRaw?.networkVolumes || volumesRaw?.data || volumesRaw?.items || volumesRaw?.results);
-          const volumeIds = [...new Set([
-            e.networkVolumeId,
-            ...list(e.networkVolumeIds).map((v) => typeof v === 'string' ? v : v?.networkVolumeId || v?.id),
-          ].map(text).filter(Boolean))];
-          const rawEnv = template?.env || template?.envs || template?.environment || [];
-          const envEntries = Array.isArray(rawEnv)
-            ? rawEnv.map((entry) => ({ key: text(entry?.key || entry?.name), value: text(entry?.value) })).filter((entry) => entry.key)
-            : Object.entries(rawEnv || {}).map(([key, value]) => ({ key: text(key), value: text(value) }));
-          const safeEnv = envEntries
-            .filter((entry) => !/SECRET|PASSWORD|TOKEN|API_KEY|AUTH|KEY/i.test(entry.key))
-            .map((entry) => ({ key: entry.key, value: entry.value.slice(0, 300) }));
-          console.log(JSON.stringify({
-            contract: 'AVANTIQO_FAST_LATENCY_TOPOLOGY_AUDIT_V2',
-            mutation_performed: false,
-            endpoint: {
-              id: endpointId,
-              name: text(e.name),
-              workers_min: Number(e.workersMin),
-              workers_max: Number(e.workersMax),
-              idle_timeout_seconds: Number(e.idleTimeout || 0),
-              execution_timeout_ms: Number(e.executionTimeoutMs || e.executionTimeout || 0),
-              flashboot: e.flashBoot ?? e.flashboot ?? null,
-              scaler_type: text(e.scalerType),
-              scaler_value: Number(e.scalerValue || 0),
-              gpu_type_ids: list(e.gpuTypeIds),
-              allowed_cuda_versions: list(e.allowedCudaVersions),
-              data_center_ids: list(e.dataCenterIds),
-              template_id: templateId,
-              network_volume_ids: volumeIds,
-            },
-            graphql_endpoint: gqlEndpoint,
-            graphql_template: gqlTemplate,
-            rest_template: template ? {
-              id: text(template.id),
-              name: text(template.name),
-              image_name: text(template.imageName || template.image),
-              docker_args: text(template.dockerArgs).slice(0, 500),
-              container_disk_gb: Number(template.containerDiskInGb || 0),
-              volume_in_gb: Number(template.volumeInGb || 0),
-              volume_mount_path: text(template.volumeMountPath),
-              ports: text(template.ports),
-              safe_env: safeEnv,
-            } : null,
-            serverless_gpu_pools: list(gql?.serverlessGpuPools).map((pool) => ({ id: text(pool?.id), gpu_type_ids: list(pool?.gpuTypeIds) })),
-            network_volume_count: volumes.length,
-            health_http_status: healthResponse.status,
-            health: health ? { jobs: health.jobs || {}, workers: health.workers || {} } : null,
-          }, null, 2));
+          const text=v=>String(v??'').trim(); const list=v=>Array.isArray(v)?v:[];
+          const key=text(process.env.RUNPOD_MANAGEMENT_API_KEY||process.env.RUNPOD_API_KEY); const qkey=text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY||process.env.RUNPOD_API_KEY||key); if(!key||!qkey)throw new Error('RUNPOD_CREDENTIAL_REQUIRED');
+          const rest=async path=>{const r=await fetch(`https://rest.runpod.io/v1${path}`,{headers:{Authorization:`Bearer ${key}`,Accept:'application/json'},signal:AbortSignal.timeout(30000)});const raw=await r.text();if(!r.ok)throw new Error(`REST_${r.status}:${raw.slice(0,300)}`);return raw?JSON.parse(raw):{};};
+          const graph=async query=>{const r=await fetch('https://api.runpod.io/graphql',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({query}),signal:AbortSignal.timeout(30000)});const body=await r.json();if(!r.ok||list(body?.errors).length)throw new Error(`GRAPHQL:${list(body?.errors).map(e=>e?.message).join('|')}`);return body?.data||{};};
+          const raw=await rest('/endpoints?includeTemplate=true&includeWorkers=true'); const eps=Array.isArray(raw)?raw:list(raw?.endpoints||raw?.data||raw?.items||raw?.results);
+          const deep=eps.filter(e=>text(e?.name)==='avantiqo-intelligence-v1'); const fast=eps.filter(e=>text(e?.name)==='avantiqo-intelligence-fast-v1'); if(deep.length!==1||fast.length!==1)throw new Error(`ENDPOINT_RESOLUTION:${deep.length}:${fast.length}`);
+          const gql=await graph(`query { myself { endpoints { id name templateId gpuIds gpuCount workersMin workersMax minCudaVersion flashBootType idleTimeout scalerType scalerValue executionTimeoutMs } } }`);
+          const rows=list(gql?.myself?.endpoints); const pick=e=>rows.find(r=>text(r?.id)===text(e.id));
+          const health=async e=>{const r=await fetch(`https://api.runpod.ai/v2/${encodeURIComponent(text(e.id))}/health`,{headers:{Authorization:`Bearer ${qkey}`,Accept:'application/json'},signal:AbortSignal.timeout(20000)});const body=await r.json();return{status:r.status,jobs:body?.jobs||{},workers:body?.workers||{}};};
+          const [dh,fh]=await Promise.all([health(deep[0]).catch(()=>null),health(fast[0]).catch(()=>null)]);
+          console.log(JSON.stringify({contract:'AVANTIQO_DEEP_FAST_CUDA_PLACEMENT_COMPARE_V1',mutation_performed:false,deep:{rest:{id:text(deep[0].id),workers_min:Number(deep[0].workersMin),workers_max:Number(deep[0].workersMax),allowed_cuda_versions:list(deep[0].allowedCudaVersions),gpu_type_ids:list(deep[0].gpuTypeIds),data_center_ids:list(deep[0].dataCenterIds),network_volume_id:text(deep[0].networkVolumeId)},graphql:pick(deep[0]),health:dh},fast:{rest:{id:text(fast[0].id),workers_min:Number(fast[0].workersMin),workers_max:Number(fast[0].workersMax),allowed_cuda_versions:list(fast[0].allowedCudaVersions),gpu_type_ids:list(fast[0].gpuTypeIds),data_center_ids:list(fast[0].dataCenterIds),network_volume_id:text(fast[0].networkVolumeId)},graphql:pick(fast[0]),health:fh},production_deploy_performed:false},null,2));
           NODE

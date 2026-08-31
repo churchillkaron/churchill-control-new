@@ -1,6 +1,15 @@
 import json
+import os
 import time
 import traceback
+
+# RTX PRO 6000 Blackwell + vLLM 0.27.1 can select DeepGEMM for block-scaled
+# FP8 linear/MoE weights and fail during scale-factor layout conversion with
+# `Unknown SF transformation` before the handler is registered. Source-lock the
+# supported vLLM fallback before importing handler/vLLM so stale endpoint env
+# cannot re-enable the incompatible kernel path.
+os.environ["VLLM_USE_DEEP_GEMM"] = "0"
+os.environ["VLLM_MOE_USE_DEEP_GEMM"] = "0"
 
 import runpod
 
@@ -45,6 +54,8 @@ def main():
         quantization=code_engine.QUANTIZATION,
         cached_model_found=cached_model_found,
         safetensors_load_strategy=SAFETENSORS_LOAD_STRATEGY,
+        deep_gemm_disabled=os.environ.get("VLLM_USE_DEEP_GEMM") == "0",
+        moe_deep_gemm_disabled=os.environ.get("VLLM_MOE_USE_DEEP_GEMM") == "0",
         model_load_before_serverless_start=True,
         flashboot_snapshot_model_resident_candidate=True,
         inference_performed=False,
@@ -61,6 +72,8 @@ def main():
             error_type=type(error).__name__,
             error_message=str(error)[:500],
             safetensors_load_strategy=SAFETENSORS_LOAD_STRATEGY,
+            deep_gemm_disabled=os.environ.get("VLLM_USE_DEEP_GEMM") == "0",
+            moe_deep_gemm_disabled=os.environ.get("VLLM_MOE_USE_DEEP_GEMM") == "0",
             model_load_before_serverless_start=True,
             inference_performed=False,
             generation_performed=False,
@@ -79,6 +92,8 @@ def main():
         tokenizer_loaded=True,
         elapsed_seconds=round(time.perf_counter() - started, 3),
         safetensors_load_strategy=SAFETENSORS_LOAD_STRATEGY,
+        deep_gemm_disabled=os.environ.get("VLLM_USE_DEEP_GEMM") == "0",
+        moe_deep_gemm_disabled=os.environ.get("VLLM_MOE_USE_DEEP_GEMM") == "0",
         model_load_before_serverless_start=True,
         flashboot_snapshot_model_resident_candidate=True,
         inference_performed=False,
@@ -91,6 +106,8 @@ def main():
         "HANDLER_START",
         engine_loaded=True,
         serverless_start_after_model_load=True,
+        deep_gemm_disabled=os.environ.get("VLLM_USE_DEEP_GEMM") == "0",
+        moe_deep_gemm_disabled=os.environ.get("VLLM_MOE_USE_DEEP_GEMM") == "0",
         inference_performed=False,
         generation_performed=False,
         reasoning_call_consumed=False,

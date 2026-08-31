@@ -60,7 +60,10 @@ jobs:
           grep -q 'persistentStorage: false' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
           ! grep -q '7obluigbr0' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
           ! grep -q 'US-CA-2' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
-          ! grep -q 'networkVolumeId:' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
+          if sed -n '/const body = {/,/^[[:space:]]*};/p' lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js | grep -q 'networkVolumeId'; then
+            echo 'Fast Pod create body must stay volume-free'
+            exit 1
+          fi
       - name: Run one real governed Fast customer request
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}

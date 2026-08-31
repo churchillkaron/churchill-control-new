@@ -14,8 +14,14 @@ function state(paths, extra = {}) {
   };
 }
 
-function completedOperation(operation_id, action) {
-  return { kind: "operation", operation_id, action, status: "completed" };
+function completedOperation(operation_id, action, result = null) {
+  return {
+    kind: "operation",
+    operation_id,
+    action,
+    status: "completed",
+    ...(result ? { result } : {}),
+  };
 }
 
 const authoritativeTest = {
@@ -29,6 +35,8 @@ const standard = planCodeAIDeterministicVerificationGates({
 });
 assert.equal(standard.contract, CODE_AI_DETERMINISTIC_VERIFICATION_PLAN_CONTRACT);
 assert.equal(standard.risk, "standard");
+assert.equal(standard.path_risk, "standard");
+assert.equal(standard.repository_impact_risk, "none");
 assert.equal(standard.required_verification_gates, 1);
 assert.equal(standard.planned_independent_gate_count, 0);
 assert.equal(standard.expected_required_gate_count_satisfied, true);
@@ -44,6 +52,26 @@ assert.deepEqual(high.planned_families, ["syntax"]);
 assert.equal(high.operations[0].input.command, "node");
 assert.deepEqual(high.operations[0].input.args, ["--check", "app/api/example/route.js"]);
 assert.equal(high.expected_required_gate_count_satisfied, true);
+
+const impactAwareHigh = planCodeAIDeterministicVerificationGates({
+  state: state(["lib/example.js"], {
+    evidence: [
+      completedOperation("read-1", "read", { file_path: "app/api/orders/route.js" }),
+      completedOperation("read-2", "read", { file_path: "components/orders/OrderTable.js" }),
+      completedOperation("read-3", "read", { file_path: "lib/orders/runtime.js" }),
+      completedOperation("read-4", "read", { file_path: "services/orders/worker.js" }),
+      completedOperation("read-5", "read", { file_path: "config/orders/policy.js" }),
+    ],
+  }),
+  authoritative_verification: authoritativeTest,
+});
+assert.equal(impactAwareHigh.path_risk, "standard");
+assert.equal(impactAwareHigh.repository_impact_risk, "high");
+assert.equal(impactAwareHigh.risk, "high");
+assert.equal(impactAwareHigh.required_verification_gates, 2);
+assert.equal(impactAwareHigh.planned_independent_gate_count, 1);
+assert.deepEqual(impactAwareHigh.planned_families, ["syntax"]);
+assert.equal(impactAwareHigh.expected_required_gate_count_satisfied, true);
 
 const critical = planCodeAIDeterministicVerificationGates({
   state: state(["auth/session.js"]),
@@ -133,6 +161,7 @@ assert.equal(failedVerifierDebt.unsafe_test_runner_guessing_performed, false);
 for (const plan of [
   standard,
   high,
+  impactAwareHigh,
   critical,
   criticalTypescript,
   pythonWithoutEvidence,
@@ -149,11 +178,14 @@ for (const plan of [
 
 console.log(JSON.stringify({
   success: true,
-  contract: "AVANTIQO_CODE_AI_DETERMINISTIC_VERIFICATION_PLAN_SELFTEST_V2",
+  contract: "AVANTIQO_CODE_AI_DETERMINISTIC_VERIFICATION_PLAN_SELFTEST_V3",
   planner_contract: CODE_AI_DETERMINISTIC_VERIFICATION_PLAN_CONTRACT,
   standard_extra_gate_count: standard.planned_independent_gate_count,
   high_extra_gate_count: high.planned_independent_gate_count,
+  impact_aware_high_extra_gate_count: impactAwareHigh.planned_independent_gate_count,
   critical_extra_gate_count: critical.planned_independent_gate_count,
+  quality_and_planner_risk_are_aligned: true,
+  repository_impact_can_raise_verification_depth: true,
   failed_verifier_debt_replayed_exactly: true,
   unsupported_critical_fabricated_coverage: false,
   python_runtime_requires_repository_evidence: true,

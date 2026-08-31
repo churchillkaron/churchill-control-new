@@ -1,0 +1,68 @@
+name: Avantiqo Video Paid Scene 1 Manual Guard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-paid-scene1-manual-guard.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Make paid Scene 1 workflows manual only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          paths = [
+              Path('.github/workflows/avantiqo-video-ltx25-scene1-fast-v2.yml'),
+              Path('.github/workflows/avantiqo-video-ltx25-scene1-proof.yml'),
+              Path('.github/workflows/avantiqo-video-ltx25-fast-runtime-scene1-resume.yml'),
+          ]
+
+          for path in paths:
+              source = path.read_text()
+              updated, count = re.subn(
+                  r'on:\n  workflow_dispatch:\n  push:\n    branches: \[main\]\n    paths:\n(?:      - .*\n)+',
+                  'on:\n  workflow_dispatch:\n',
+                  source,
+                  count=1,
+              )
+              if count != 1:
+                  raise SystemExit(f'AVANTIQO_VIDEO_MANUAL_GUARD_PATCH_FAILED:{path}:{count}')
+              path.write_text(updated)
+              print(f'AVANTIQO_VIDEO_PAID_WORKFLOW_MANUAL_ONLY={path}')
+          PY
+          git diff --check
+          grep -A2 '^on:' .github/workflows/avantiqo-video-ltx25-scene1-fast-v2.yml
+          grep -A2 '^on:' .github/workflows/avantiqo-video-ltx25-scene1-proof.yml
+          grep -A2 '^on:' .github/workflows/avantiqo-video-ltx25-fast-runtime-scene1-resume.yml
+
+      - name: Commit guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add \
+            .github/workflows/avantiqo-video-ltx25-scene1-fast-v2.yml \
+            .github/workflows/avantiqo-video-ltx25-scene1-proof.yml \
+            .github/workflows/avantiqo-video-ltx25-fast-runtime-scene1-resume.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "Require manual approval for paid Scene 1 renders"
+          git push origin HEAD:main
+          echo 'AVANTIQO_VIDEO_PAID_SCENE1_MANUAL_GUARD=PASS'

@@ -43,3 +43,4 @@ jobs:
           echo "MODEL_INFERENCE_PERFORMED=false"
           echo "NEW_NETWORK_VOLUME_CREATED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "GLOBAL_FALLBACK_VERIFICATION=v3-set-equality"

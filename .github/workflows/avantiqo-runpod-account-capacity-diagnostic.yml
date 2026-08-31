@@ -1,0 +1,40 @@
+name: Avantiqo RunPod Serverless Capacity Diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-runpod-account-capacity-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Run read-only account capacity diagnostic
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: node scripts/diagnose-avantiqo-runpod-account-serverless-capacity-local.mjs
+
+      - name: Immutable diagnostic boundary
+        if: always()
+        run: |
+          echo "RUNPOD_MUTATION_PERFORMED=false"
+          echo "MODEL_INFERENCE_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

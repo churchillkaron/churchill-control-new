@@ -160,6 +160,28 @@ jobs:
           if old_preload not in source:
               raise SystemExit('AVANTIQO_VIDEO_LTX25_PRELOAD_REUSE_PATCH_TARGET_MISSING')
           source = source.replace(old_preload, new_preload, 1)
+
+          old_scene_snapshot = '''    const generation = await runScene(await videoPodCandidateSnapshot(), openingFrame);'''
+          new_scene_snapshot = '''    const sceneSnapshot = await (async () => {
+                const attempts = Math.max(1, Number(process.env.AVANTIQO_VIDEO_LTX25_CACHE_WAIT_ATTEMPTS || 40));
+                let lastError = null;
+                for (let attempt = 1; attempt <= attempts; attempt += 1) {
+                  try {
+                    return await videoPodCandidateSnapshot();
+                  } catch (error) {
+                    lastError = error;
+                    const message = text(error?.message);
+                    if (!message.includes("AVANTIQO_VIDEO_POD_SHARED_CACHE_ACTIVE_POD")) throw error;
+                    console.log(`AVANTIQO_VIDEO_LTX25_SHARED_CACHE_BUSY=attempt=${attempt}/${attempts}`);
+                    if (attempt < attempts) await sleep(30_000);
+                  }
+                }
+                throw lastError || new Error("AVANTIQO_VIDEO_LTX25_SHARED_CACHE_WAIT_EXHAUSTED");
+              })();
+              const generation = await runScene(sceneSnapshot, openingFrame);'''
+          if old_scene_snapshot not in source:
+              raise SystemExit('AVANTIQO_VIDEO_LTX25_SHARED_CACHE_WAIT_PATCH_TARGET_MISSING')
+          source = source.replace(old_scene_snapshot, new_scene_snapshot, 1)
           source = source.replace('minRamGb: 96,', 'minRamGb: 64,', 1)
           runner.write_text(source)
 
@@ -201,6 +223,7 @@ jobs:
         env:
           NODE_ENV: development
           AVANTIQO_VIDEO_LTX25_PLACEMENT_ATTEMPTS: '30'
+          AVANTIQO_VIDEO_LTX25_CACHE_WAIT_ATTEMPTS: '40'
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
           RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY }}

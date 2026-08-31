@@ -55,20 +55,20 @@ async function videoPodProductionSnapshot() {
   const volumes = rows(rawVolumes, ["networkVolumes", "networkvolumes"]);
   const pods = rows(rawPods, ["pods"]);
   const matches = endpoints.filter((row) => text(row?.name) === ENDPOINT_NAME);
-  if (matches.length !== 1) throw new Error(\`AVANTIQO_VIDEO_FAST_V2_PRODUCTION_ENDPOINT_AMBIGUOUS:\${matches.length}\`);
+  if (matches.length !== 1) throw new Error(`AVANTIQO_VIDEO_FAST_V2_PRODUCTION_ENDPOINT_AMBIGUOUS:${matches.length}`);
   const production = matches[0];
   if (Number(production.workersMin ?? production.workers_min) !== 0 || Number(production.workersMax ?? production.workers_max) !== 0 || activeEndpointWorkers(production).length) {
     throw new Error("AVANTIQO_VIDEO_FAST_V2_PRODUCTION_ENDPOINT_NOT_ZERO_ZERO");
   }
   const volumeIds = endpointVolumeIds(production);
   const volumeMatches = volumes.filter((row) => volumeIds.includes(text(row?.id)) && text(row?.name) === "avantiqo-video-cache-eu-ro-1");
-  if (volumeMatches.length !== 1) throw new Error(\`AVANTIQO_VIDEO_FAST_V2_VOLUME_AMBIGUOUS:\${volumeMatches.length}\`);
+  if (volumeMatches.length !== 1) throw new Error(`AVANTIQO_VIDEO_FAST_V2_VOLUME_AMBIGUOUS:${volumeMatches.length}`);
   const volume = volumeMatches[0];
   if (text(volume.dataCenterId ?? volume.data_center_id) !== AVANTIQO_VIDEO_POD_DC) throw new Error("AVANTIQO_VIDEO_FAST_V2_VOLUME_DC_INVALID");
   const templateId = text(production.templateId ?? production.template?.id);
   if (!templateId) throw new Error("AVANTIQO_VIDEO_FAST_V2_TEMPLATE_ID_REQUIRED");
   let template = templates.find((row) => text(row?.id) === templateId) || null;
-  const direct = await podRest(\`/templates/\${encodeURIComponent(templateId)}\`).catch(() => null);
+  const direct = await podRest(`/templates/${encodeURIComponent(templateId)}`).catch(() => null);
   if (direct?.id) template = direct;
   if (!template) throw new Error("AVANTIQO_VIDEO_FAST_V2_TEMPLATE_REQUIRED");
   const templateEnv = Array.isArray(template.env)
@@ -79,8 +79,8 @@ async function videoPodProductionSnapshot() {
     const podVolume = text(pod?.networkVolume?.id ?? pod?.networkVolumeId ?? pod?.network_volume_id);
     return podVolume === text(volume.id) && !podTerminal(pod);
   });
-  if (activePods.length) throw new Error(\`AVANTIQO_VIDEO_FAST_V2_ACTIVE_POD_PRESENT:\${activePods.length}\`);
-  console.log(\`AVANTIQO_VIDEO_FAST_V2_SNAPSHOT=PASS:endpoint=\${ENDPOINT_NAME}:volume=\${text(volume.name)}\`);
+  if (activePods.length) throw new Error(`AVANTIQO_VIDEO_FAST_V2_ACTIVE_POD_PRESENT:${activePods.length}`);
+  console.log(`AVANTIQO_VIDEO_FAST_V2_SNAPSHOT=PASS:endpoint=${ENDPOINT_NAME}:volume=${text(volume.name)}`);
   return { candidate: production, production, volume, template, templateEnv, registryAuthId, registryAuthMode: "PRODUCTION_TEMPLATE" };
 }
 `;
@@ -111,14 +111,18 @@ const highMemoryPool = `const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA B200",
 if (!source.includes(originalPool)) throw new Error("AVANTIQO_VIDEO_FAST_V2_GPU_POOL_PATCH_TARGET_MISSING");
 source = source.replace(originalPool, highMemoryPool);
 
+// The previous 240s worker timeout + 360s receipt timeout was internally inconsistent:
+// the worker may spend 240s generating and up to 120s uploading its receipt, leaving no
+// allowance for image startup/model initialization. Keep the retry bounded, but give the
+// canonical distilled two-stage 4K path enough wall-clock room to complete on B200.
 source = source.replace(
   `AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "6300",`,
-  `AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "240",`,
+  `AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "900",`,
 );
 
 source = source.replace(
   `const receipt = await waitForJson(receiptPath, 110 * 60 * 1000, async () => {`,
-  `const receipt = await waitForJson(receiptPath, 6 * 60 * 1000, async () => {`,
+  `const receipt = await waitForJson(receiptPath, 18 * 60 * 1000, async () => {`,
 );
 
 source = source.replace(

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -179,7 +179,11 @@ try {
     },
   };
 
+  mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
   writeFileSync(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  console.log("AVANTIQO_CODE_GENERATED_SOURCE_BEGIN");
+  process.stdout.write(generated);
+  console.log("AVANTIQO_CODE_GENERATED_SOURCE_END");
   console.log(JSON.stringify({
     event: "AVANTIQO_CODE_EPHEMERAL_POD_REAL_WRITE_PASS",
     generated_source_sha256: report.generated_file.sha256,

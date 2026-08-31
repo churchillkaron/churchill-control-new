@@ -1,0 +1,63 @@
+name: Avantiqo Video Live GPU Stock 24GB Plan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-live-gpu-stock-24gb-plan.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY }}
+      RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID }}
+      AVANTIQO_VIDEO_GPU_POOL_WIDEN_RESULT: artifacts/avantiqo-video-live-gpu-stock-24gb.json
+      AVANTIQO_VIDEO_GPU_POOL_WIDEN_APPROVED: "NO"
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Read live secure GPU inventory 24GB+
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/widen-avantiqo-video-runpod-gpu-pool-ci.mjs')
+          s = p.read_text()
+          old = 'const MIN_VRAM_GB = 80;'
+          if old not in s:
+              raise SystemExit('MIN_VRAM_TARGET_MISSING')
+          p.write_text(s.replace(old, 'const MIN_VRAM_GB = 24;', 1))
+          PY
+          node --check scripts/widen-avantiqo-video-runpod-gpu-pool-ci.mjs
+          node scripts/widen-avantiqo-video-runpod-gpu-pool-ci.mjs
+          test -s "$AVANTIQO_VIDEO_GPU_POOL_WIDEN_RESULT"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.AVANTIQO_VIDEO_GPU_POOL_WIDEN_RESULT, 'utf8'));
+          if (result.mode !== 'PLAN' || result.mutation_performed !== false || result.inference_performed !== false) throw new Error('STOCK_PLAN_BOUNDARY_BROKEN');
+          console.log('AVANTIQO_VIDEO_LIVE_GPU_STOCK_24GB_PLAN=PASS');
+          NODE
+
+      - name: Upload live stock evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-live-gpu-stock-24gb-${{ github.run_id }}
+          path: artifacts/avantiqo-video-live-gpu-stock-24gb.json
+          if-no-files-found: error
+          retention-days: 1

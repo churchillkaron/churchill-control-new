@@ -1,0 +1,29 @@
+name: Avantiqo Code Live Capacity Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-code-live-capacity-audit.yml
+      - scripts/audit-avantiqo-code-live-capacity-v1-ci.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: node --check scripts/audit-avantiqo-code-live-capacity-v1-ci.mjs
+      - name: Run read-only capacity audit
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: node scripts/audit-avantiqo-code-live-capacity-v1-ci.mjs

@@ -7,11 +7,9 @@ const ENDPOINT_NAME = "avantiqo-code-v1";
 const MODEL_REPO = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
 const APPROVAL_ENV = "AVANTIQO_CODE_GLOBAL_CACHED_MODEL_MIGRATION_APPROVED";
 const TARGET_GPU_TYPE_IDS = Object.freeze([
-  "NVIDIA B200",
-  "NVIDIA H200",
-  "NVIDIA H100 NVL",
-  "NVIDIA H100 80GB HBM3",
   "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "NVIDIA H200",
+  "NVIDIA H100 80GB HBM3",
 ]);
 const TARGET_ALLOWED_CUDA_VERSIONS = Object.freeze(["12.8", "12.9", "13.0"]);
 
@@ -127,7 +125,7 @@ function endpointInput(base) {
   const templateId = text(base.templateId);
   const gpuIds = text(base.gpuIds);
   if (!templateId || !gpuIds) throw new Error(`${CONTRACT}_GRAPH_BASE_INCOMPLETE`);
-  return { id: ENDPOINT_ID, name: ENDPOINT_NAME, templateId, gpuIds, gpuCount: finite(base.gpuCount, 1), instanceIds: list(base.instanceIds), workersMin: 0, workersMax: 0, locations: "", networkVolumeId: "", networkVolumeIds: [], idleTimeout: 5, scalerType: "QUEUE_DELAY", scalerValue: 1, executionTimeoutMs: finite(base.executionTimeoutMs, 600_000), minCudaVersion: "12.8", flashBootType: "FLASHBOOT", modelReferences: [MODEL_REPO] };
+  return { id: ENDPOINT_ID, name: ENDPOINT_NAME, templateId, gpuIds, gpuCount: finite(base.gpuCount, 1), instanceIds: list(base.instanceIds), workersMin: 0, workersMax: 0, locations: "", networkVolumeId: "", networkVolumeIds: [], idleTimeout: 5, scalerType: "REQUEST_COUNT", scalerValue: 1, executionTimeoutMs: finite(base.executionTimeoutMs, 600_000), minCudaVersion: "12.8", flashBootType: "FLASHBOOT", modelReferences: [MODEL_REPO] };
 }
 
 async function saveEndpoint(key, input) {
@@ -150,7 +148,7 @@ const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const queueKey = text(process.env.RUNPOD_AVANTIQO_CODE_API_KEY || process.env.RUNPOD_API_KEY || managementKey, 2000);
 if (!queueKey) throw new Error(`${CONTRACT}_QUEUE_KEY_REQUIRED`);
 
-console.log(JSON.stringify({ event: `${CONTRACT}_START`, endpoint_id: ENDPOINT_ID, endpoint_name: ENDPOINT_NAME, model_repo: MODEL_REPO, accepts_partial_prior_migration_state: true, accepts_immutable_cached_model_revision: true, target_scheduling: "GLOBAL_RUNPOD_CACHED_MODEL", preserve_existing_code_storage: true, create_storage: false, inference_performed: false, production_deploy_performed: false, secrets_printed: false }));
+console.log(JSON.stringify({ event: `${CONTRACT}_START`, endpoint_id: ENDPOINT_ID, endpoint_name: ENDPOINT_NAME, model_repo: MODEL_REPO, accepts_partial_prior_migration_state: true, accepts_immutable_cached_model_revision: true, target_scheduling: "GLOBAL_RUNPOD_CACHED_MODEL", target_scaler_type: "REQUEST_COUNT", target_scaler_value: 1, target_gpu_type_ids: TARGET_GPU_TYPE_IDS, preserve_existing_code_storage: true, create_storage: false, inference_performed: false, production_deploy_performed: false, secrets_printed: false }));
 
 const [initialRest, initialGraph, volumesBeforeRaw] = await Promise.all([rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey), graphEndpoint(managementKey), rest("/networkvolumes", managementKey)]);
 if (text(initialRest.id) !== ENDPOINT_ID || text(initialRest.name) !== ENDPOINT_NAME) throw new Error(`${CONTRACT}_INITIAL_ENDPOINT_IDENTITY_INVALID`);
@@ -180,7 +178,7 @@ const modelRefsBefore = list(initialGraph.modelReferences).map((entry) => text(e
 console.log(JSON.stringify({ event: `${CONTRACT}_RECOVERY_STATE`, endpoint_volume_ids_before: attachedBefore, model_references_before: modelRefsBefore.map(normalizeModelReference), model_revisions_before: modelRefsBefore.map(modelRevision), endpoint_was_partially_detached: attachedBefore.length === 0, canonical_storage_id: canonicalVolumeId, canonical_storage_name: canonicalVolumeName, secrets_printed: false }));
 
 await saveEndpoint(managementKey, endpointInput(initialGraph));
-await rest(`/endpoints/${ENDPOINT_ID}`, managementKey, { method: "PATCH", body: { gpuTypeIds: [...TARGET_GPU_TYPE_IDS], gpuCount: 1, workersMin: 0, workersMax: 0, idleTimeout: 5, scalerType: "QUEUE_DELAY", scalerValue: 1, flashboot: true, minCudaVersion: "12.8", allowedCudaVersions: [...TARGET_ALLOWED_CUDA_VERSIONS], dataCenterIds: [], networkVolumeIds: [] } });
+await rest(`/endpoints/${ENDPOINT_ID}`, managementKey, { method: "PATCH", body: { gpuTypeIds: [...TARGET_GPU_TYPE_IDS], gpuCount: 1, workersMin: 0, workersMax: 0, idleTimeout: 5, scalerType: "REQUEST_COUNT", scalerValue: 1, flashboot: true, minCudaVersion: "12.8", allowedCudaVersions: [...TARGET_ALLOWED_CUDA_VERSIONS], dataCenterIds: [], networkVolumeIds: [] } });
 
 const [verifiedRest, verifiedGraph, verifiedHealthRaw, volumesAfterRaw] = await Promise.all([rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey), graphEndpoint(managementKey), queue("/health", queueKey), rest("/networkvolumes", managementKey)]);
 const verifiedHealth = healthSummary(verifiedHealthRaw);
@@ -189,10 +187,12 @@ if (endpointVolumeIds(verifiedRest).length !== 0) throw new Error(`${CONTRACT}_V
 if (normalizeLocations(verifiedGraph.locations ?? verifiedRest.dataCenterIds).length !== 0) throw new Error(`${CONTRACT}_VERIFY_GLOBAL_DATACENTER_FAILED`);
 if (!verifiedModels.some(modelMatches)) throw new Error(`${CONTRACT}_VERIFY_MODEL_REFERENCE_FAILED:${verifiedModels.map(normalizeModelReference).join(",") || "NONE"}`);
 if (finite(verifiedRest.workersMin, -1) !== 0 || finite(verifiedRest.workersMax, -1) !== 0) throw new Error(`${CONTRACT}_VERIFY_ZERO_IDLE_FAILED`);
+if (text(verifiedRest.scalerType).toUpperCase() !== "REQUEST_COUNT" || finite(verifiedRest.scalerValue, -1) !== 1) throw new Error(`${CONTRACT}_VERIFY_RESPONSIVE_SCALER_FAILED:${text(verifiedRest.scalerType)}:${verifiedRest.scalerValue}`);
+if (JSON.stringify(list(verifiedRest.gpuTypeIds)) !== JSON.stringify(TARGET_GPU_TYPE_IDS)) throw new Error(`${CONTRACT}_VERIFY_GPU_PRIORITY_FAILED:${JSON.stringify(verifiedRest.gpuTypeIds)}`);
 if (verifiedHealth.jobs.in_queue > 0 || verifiedHealth.jobs.in_progress > 0 || workerCount(verifiedHealth) > 0) throw new Error(`${CONTRACT}_VERIFY_HEALTH_NOT_IDLE`);
 const codeVolumesAfter = rows(volumesAfterRaw, ["networkVolumes"]).filter((entry) => /avantiqo.*code.*cache/i.test(text(entry?.name)));
 if (codeVolumesAfter.length !== 1) throw new Error(`${CONTRACT}_VERIFY_ONE_CODE_STORAGE_REQUIRED:${codeVolumesAfter.length}`);
 if (text(codeVolumesAfter[0]?.id) !== canonicalVolumeId || text(codeVolumesAfter[0]?.name) !== canonicalVolumeName) throw new Error(`${CONTRACT}_VERIFY_CANONICAL_CODE_STORAGE_CHANGED`);
 
-console.log(JSON.stringify({ success: true, contract: CONTRACT, migration_performed: true, recovered_partial_prior_state: attachedBefore.length === 0, endpoint_id: ENDPOINT_ID, endpoint_name: ENDPOINT_NAME, model_repo: MODEL_REPO, model_reference_returned_by_runpod: verifiedModels, model_revision_returned_by_runpod: verifiedModels.map(modelRevision), scheduling_scope: "GLOBAL", endpoint_network_volume_attached: false, endpoint_datacenter_restricted: false, canonical_code_storage_preserved: true, canonical_code_storage_id: canonicalVolumeId, canonical_code_storage_name: canonicalVolumeName, code_storage_count: 1, new_storage_created: false, storage_deleted: false, workers_min: 0, workers_max: 0, active_workers: 0, queued_jobs: 0, inference_performed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
+console.log(JSON.stringify({ success: true, contract: CONTRACT, migration_performed: true, recovered_partial_prior_state: attachedBefore.length === 0, endpoint_id: ENDPOINT_ID, endpoint_name: ENDPOINT_NAME, model_repo: MODEL_REPO, model_reference_returned_by_runpod: verifiedModels, model_revision_returned_by_runpod: verifiedModels.map(modelRevision), scheduling_scope: "GLOBAL", scaler_type: text(verifiedRest.scalerType), scaler_value: finite(verifiedRest.scalerValue, null), gpu_type_ids: list(verifiedRest.gpuTypeIds), endpoint_network_volume_attached: false, endpoint_datacenter_restricted: false, canonical_code_storage_preserved: true, canonical_code_storage_id: canonicalVolumeId, canonical_code_storage_name: canonicalVolumeName, code_storage_count: 1, new_storage_created: false, storage_deleted: false, workers_min: 0, workers_max: 0, active_workers: 0, queued_jobs: 0, inference_performed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
 console.log(`${CONTRACT}=PASS`);

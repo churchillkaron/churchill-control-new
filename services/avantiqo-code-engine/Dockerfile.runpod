@@ -9,6 +9,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     VLLM_CACHE_ROOT=/runpod-volume/vllm-cache \
     VLLM_WORKER_MULTIPROC_METHOD=spawn \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
+    VLLM_USE_DEEP_GEMM=0 \
+    VLLM_MOE_USE_DEEP_GEMM=0 \
     AVANTIQO_CODE_DEVICE=cuda \
     AVANTIQO_CODE_QUANTIZATION=fp8 \
     AVANTIQO_CODE_FOUNDATION_MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct \
@@ -25,6 +27,9 @@ WORKDIR /app
 # newest SDK whose FastAPI range remains compatible with vLLM 0.27.1.
 # Both model downloads and vLLM compile/CUDA-graph artifacts live on the
 # attached RunPod volume so scale-to-zero workers can reuse them after boot.
+# DeepGEMM is explicitly disabled for this FP8 Blackwell worker because the
+# vLLM 0.27.1 DeepGEMM scale-layout transform fails before inference with
+# `Unknown SF transformation`; vLLM falls back to its compatible scaled-MM path.
 COPY services/avantiqo-code-engine/requirements.txt ./requirements.txt
 RUN uv pip install --system -r requirements.txt \
     && python3 -c "from importlib.metadata import version; import runpod, vllm; assert version('runpod') == '1.10.0', version('runpod'); assert version('vllm') == '0.27.1', version('vllm'); print('AVANTIQO_CODE_VLLM_BUILD_CHECK=PASS')"

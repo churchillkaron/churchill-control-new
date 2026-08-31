@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_CODE_LIVE_HEALTH_INSPECT_REQUEST_V1",
   "requested": true,
-  "sequence": 5,
-  "reason": "observe worker placement during the single guarded EUR Code delivery proof without mutation"
+  "sequence": 6,
+  "reason": "second read-only scheduler sample during the single guarded EUR Code delivery proof"
 }

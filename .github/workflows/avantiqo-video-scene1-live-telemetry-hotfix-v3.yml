@@ -1,0 +1,73 @@
+name: Avantiqo Video Scene 1 Live Telemetry Hotfix V3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-scene1-live-telemetry-hotfix-v3.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-scene1-live-telemetry-hotfix-v3
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply corrected atomic telemetry patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/avantiqo-video-scene1-live-telemetry-hotfix.yml').read_text()
+          start_marker = "          python3 <<'PY'\n"
+          end_marker = "\n          PY\n"
+          start = workflow.index(start_marker) + len(start_marker)
+          end = workflow.index(end_marker, start)
+          script = textwrap.dedent(workflow[start:end])
+
+          label = "    'controller pod-created telemetry',\n)\n\n"
+          label_at = script.index(label)
+          block_start = script.rfind("controller = replace_once(\n", 0, label_at)
+          if block_start < 0:
+              raise SystemExit('AVANTIQO_VIDEO_TELEMETRY_OPTIONAL_BLOCK_START_MISSING')
+          script = script[:block_start] + script[label_at + len(label):]
+
+          exec(compile(script, '<avantiqo-video-scene1-telemetry-hotfix-v3>', 'exec'), {})
+          PY
+
+          python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+          node --check scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          node --check scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          grep -q 'AVANTIQO_VIDEO_LTX25_PROGRESS_SIGNED_URL' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          grep -q 'AVANTIQO_VIDEO_SCENE1_PROGRESS_HEARTBEAT' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          grep -q 'pipeline_timeout' scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+          grep -q 'gpu_snapshot' scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+          git diff --check
+
+      - name: Commit both telemetry files together
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add \
+            scripts/avantiqo-video-ltx25-distilled-scene-worker.py \
+            scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          git diff --cached --quiet && { echo 'AVANTIQO_VIDEO_SCENE1_TELEMETRY_ALREADY_INSTALLED=true'; exit 0; }
+          git commit -m "Add live Scene 1 LTX telemetry"
+          git push origin HEAD:main
+          echo 'AVANTIQO_VIDEO_SCENE1_TELEMETRY_HOTFIX_V3=PASS'

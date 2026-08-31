@@ -6,9 +6,10 @@ on:
     branches:
       - main
     paths:
-      - scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
-      - scripts/run-avantiqo-code-real-write-e2e-proof-v2-local.mjs
-      - scripts/run-avantiqo-code-real-write-e2e-proof-v3-local.mjs
+      - scripts/run-avantiqo-code-real-write-serverless-child-v1.mjs
+      - scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
+      - scripts/avantiqo-code-runpod-distributed-lease.mjs
+      - config/avantiqo-runpod-safe-lease-policy.json
       - .github/workflows/avantiqo-code-real-write-e2e.yml
 
 permissions:
@@ -31,23 +32,34 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Syntax-check real-write proof
+      - name: Syntax-check real-write Safe Lease path
         run: |
-          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
-          node --check scripts/run-avantiqo-code-real-write-e2e-proof-v3-local.mjs
+          node --check scripts/run-avantiqo-code-real-write-serverless-child-v1.mjs
+          node --check scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
+          node --check scripts/avantiqo-code-runpod-distributed-lease.mjs
 
       - name: Run real Code write execute verify proof
         env:
           NODE_ENV: development
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-          AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_APPROVED: "YES"
+          RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+          RUNPOD_AVANTIQO_CODE_ENDPOINT_ID: r79dtnjnrilrlc
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "YES"
+          AVANTIQO_RUNPOD_SAFE_LEASE_TARGET_AND_OPEN_HEALTH_LANE: code
           AVANTIQO_CODE_E2E_REPORT_PATH: ${{ github.workspace }}/artifacts/avantiqo-code-real-write-e2e.json
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          node scripts/run-avantiqo-code-real-write-e2e-proof-v3-local.mjs | tee /tmp/avantiqo-code-real-write-e2e.log
+          node scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs \
+            --lane=code \
+            --ttl-ms=1200000 \
+            -- \
+            node scripts/run-avantiqo-code-real-write-serverless-child-v1.mjs \
+            2>&1 | tee /tmp/avantiqo-code-real-write-e2e.log
 
       - name: Verify hard E2E evidence
         if: success()
@@ -63,14 +75,17 @@ jobs:
             [report.proof?.generated_code_executed === true, "GENERATED_CODE_EXECUTION_REQUIRED"],
             [report.proof?.generated_tests_passed === true, "GENERATED_TEST_PASS_REQUIRED"],
             [report.proof?.final_test_exit_code === 0, "FINAL_TEST_EXIT_ZERO_REQUIRED"],
-            [report.runtime?.pod_created === true, "REAL_GPU_POD_REQUIRED"],
-            [report.runtime?.pod_delete_verified === true, "GPU_POD_CLEANUP_REQUIRED"],
+            [report.runtime?.transport === "runpod-serverless-safe-lease", "OWNED_SAFE_LEASE_TRANSPORT_REQUIRED"],
+            [report.runtime?.provider_job_completed === true, "REAL_PROVIDER_JOB_REQUIRED"],
             [report.safeguards?.persistent_repository_mutation_performed === false, "PERSISTENT_REPO_MUTATION_FORBIDDEN"],
             [report.safeguards?.production_deploy_performed === false, "PRODUCTION_DEPLOY_FORBIDDEN"],
             [report.safeguards?.secrets_printed === false, "SECRET_PRINT_FORBIDDEN"],
           ];
           const failed = required.find(([ok]) => !ok);
           if (failed) throw new Error(failed[1]);
+          const log = await readFile("/tmp/avantiqo-code-real-write-e2e.log", "utf8");
+          if (!log.includes("AVANTIQO_RUNPOD_SAFE_LEASE_V2")) throw new Error("SAFE_LEASE_EVIDENCE_REQUIRED");
+          if (!log.includes("AVANTIQO_CODE_REAL_WRITE_SERVERLESS_CHILD_V1=PASS")) throw new Error("REAL_WRITE_CHILD_PASS_REQUIRED");
           console.log("AVANTIQO_CODE_REAL_WRITE_E2E_HARD_GATE=PASS");
           NODE
 

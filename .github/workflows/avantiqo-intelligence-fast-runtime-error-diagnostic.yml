@@ -1,0 +1,62 @@
+name: Avantiqo Intelligence Fast Runtime Error Diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/diagnose-avantiqo-intelligence-fast-runtime-error-local.mjs
+      - .github/workflows/avantiqo-intelligence-fast-runtime-error-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-fast-runtime-error-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      NODE_ENV: production
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: YES
+      AVANTIQO_INTELLIGENCE_FAST_TIMEOUT_MS: 360000
+      AVANTIQO_INTELLIGENCE_FAST_UNSCHEDULED_TIMEOUT_MS: 30000
+      AVANTIQO_INTELLIGENCE_REQUEST_LEASE_ACQUIRE_WAIT_MS: 120000
+      AVANTIQO_INTELLIGENCE_REQUEST_LEASE_OPEN_SETTLE_MS: 1000
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Static diagnostic gate
+        run: node --check scripts/diagnose-avantiqo-intelligence-fast-runtime-error-local.mjs
+
+      - name: Run one governed Fast call with live worker logs
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/diagnose-avantiqo-intelligence-fast-runtime-error-local.mjs
+
+      - name: Immutable diagnostic boundary
+        if: always()
+        run: |
+          echo "EXTERNAL_AI_FALLBACK_USED=false"
+          echo "NEW_NETWORK_VOLUME_CREATED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

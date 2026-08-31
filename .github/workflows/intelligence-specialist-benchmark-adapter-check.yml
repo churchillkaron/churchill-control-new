@@ -1,0 +1,25 @@
+name: Intelligence Specialist Benchmark Adapter Check
+
+on:
+  push:
+    branches:
+      - ai/intelligence-specialist-benchmark-20260831
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark-adapter-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run specialist benchmark contract tests
+        run: node --test tests/avantiqo-specialist-benchmark-runtime.test.mjs
+      - name: Run specialist benchmark execution harness tests
+        run: node --test tests/avantiqo-specialist-benchmark-execution-runtime.test.mjs
+      - name: Run specialist benchmark provider adapter tests
+        run: node --test tests/avantiqo-specialist-benchmark-provider-adapter.test.mjs

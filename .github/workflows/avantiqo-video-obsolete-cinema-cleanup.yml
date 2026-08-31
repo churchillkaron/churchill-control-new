@@ -1,0 +1,31 @@
+name: Avantiqo Video Obsolete Cinema Cleanup
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/cleanup-obsolete-avantiqo-cinema-resources-ci.mjs
+      - .github/workflows/avantiqo-video-obsolete-cinema-cleanup.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-obsolete-cinema-cleanup
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Remove obsolete cinema endpoint and US volume
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: node scripts/cleanup-obsolete-avantiqo-cinema-resources-ci.mjs

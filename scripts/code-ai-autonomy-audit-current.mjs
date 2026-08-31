@@ -11,6 +11,10 @@ const replacements = [
     '"AVANTIQO_CODE_AI_PLANNER_EXECUTION_V2"',
   ],
   [
+    '"AVANTIQO_CODE_AI_WORLDCLASS_COMMIT_GUARD_V1"',
+    '"AVANTIQO_CODE_AI_WORLDCLASS_COMMIT_GUARD_V5"',
+  ],
+  [
     '"service_runtime = ServiceExecutionRuntime"',
     '"serviceRuntime = service_runtime || await defaultServiceRuntime()"',
   ],

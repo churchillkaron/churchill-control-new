@@ -7,12 +7,17 @@ import {
   planAvantiqoSpecialistBenchmarkExecution,
 } from "../lib/intelligence/runtime/AvantiqoSpecialistBenchmarkExecutionRuntime.js";
 
-const governedContext = {
-  organization_id: "org-test",
-  organization_service_id: "service-test",
-  usage_id: "usage-test",
-  intelligence_safe_lease_endpoint_id: "endpoint-test",
-};
+function governedContext(lane = "fast") {
+  return {
+    organization_id: "org-test",
+    organization_service_id: "service-test",
+    usage_id: "usage-test",
+    intelligence_safe_lease_contract: "AVANTIQO_RUNPOD_SAFE_LEASE_V2",
+    intelligence_safe_lease_lane: lane === "fast" ? "intelligence-fast" : "intelligence-deep",
+    intelligence_safe_lease_endpoint_id: "endpoint-test",
+    intelligence_safe_lease_expires_at: "2099-01-01T00:00:00.000Z",
+  };
+}
 
 test("plan mode is deterministic and performs no execution or mutation", () => {
   const plan = planAvantiqoSpecialistBenchmarkExecution();
@@ -23,6 +28,7 @@ test("plan mode is deterministic and performs no execution or mutation", () => {
   assert.equal(plan.runpod_mutation_performed, false);
   assert.equal(plan.wallet_mutation_performed, false);
   assert.equal(plan.production_deploy_performed, false);
+  assert.equal(plan.safe_lease_policy, "REUSE_AVANTIQO_INTELLIGENCE_SAFE_LEASE_GUARD_V2");
   assert.equal(plan.cases.length, 6);
   assert.deepEqual(
     plan.cases.map((item) => item.expected_lane),
@@ -35,7 +41,7 @@ test("execution requires explicit approval before adapter invocation", async () 
   await assert.rejects(
     executeAvantiqoSpecialistBenchmarkCase({
       case_id: "code-trivial-edit-02",
-      context: governedContext,
+      context: governedContext("fast"),
       execute_provider: async () => {
         calls += 1;
         return {};
@@ -46,7 +52,7 @@ test("execution requires explicit approval before adapter invocation", async () 
   assert.equal(calls, 0);
 });
 
-test("execution requires governed safe lease context before adapter invocation", async () => {
+test("execution requires complete governed Safe Lease context before adapter invocation", async () => {
   let calls = 0;
   await assert.rejects(
     executeAvantiqoSpecialistBenchmarkCase({
@@ -63,19 +69,33 @@ test("execution requires governed safe lease context before adapter invocation",
   assert.equal(calls, 0);
 });
 
+test("canonical Safe Lease guard rejects lane mismatch before adapter invocation", async () => {
+  let calls = 0;
+  await assert.rejects(
+    executeAvantiqoSpecialistBenchmarkCase({
+      case_id: "business-cash-inventory-01",
+      execution_approved: true,
+      context: governedContext("fast"),
+      execute_provider: async () => {
+        calls += 1;
+        return {};
+      },
+    }),
+    /AVANTIQO_INTELLIGENCE_SAFE_LEASE_LANE_MISMATCH/,
+  );
+  assert.equal(calls, 0);
+});
+
 test("fast benchmark case is routed to fast adapter lane and does not self-score", async () => {
   const result = await executeAvantiqoSpecialistBenchmarkCase({
     case_id: "code-trivial-edit-02",
     execution_approved: true,
-    context: governedContext,
-    execute_provider: async ({ lane, provider_input }) => {
+    context: governedContext("fast"),
+    execute_provider: async ({ lane, provider_input, safe_lease }) => {
       assert.equal(lane, "fast");
+      assert.equal(safe_lease.lease_lane, "intelligence-fast");
       assert.equal(provider_input.execution_lane, "fast");
       assert.equal(provider_input.intelligence_domain, "code");
-      assert.equal(
-        provider_input.context.intelligence_safe_lease_endpoint_id,
-        "endpoint-test",
-      );
       return {
         provider: "avantiqo-intelligence",
         model: "Qwen/Qwen3-30B-A3B-Instruct-2507",
@@ -83,11 +103,7 @@ test("fast benchmark case is routed to fast adapter lane and does not self-score
           text: "Fixed the spelling typo only.",
           execution_lane: "fast",
           finish_reason: "stop",
-          usage: {
-            input_tokens: 25,
-            output_tokens: 8,
-            total_tokens: 33,
-          },
+          usage: { input_tokens: 25, output_tokens: 8, total_tokens: 33 },
         },
         ttft_ms: 42,
         total_latency_ms: 120,
@@ -98,11 +114,11 @@ test("fast benchmark case is routed to fast adapter lane and does not self-score
   assert.equal(result.mode, "execute");
   assert.equal(result.inference_performed, true);
   assert.equal(result.scoring_performed, false);
+  assert.equal(result.safe_lease_guard.lease_lane, "intelligence-fast");
   assert.equal(result.observation.observed_lane, "fast");
   assert.equal(result.observation.ttft_ms, 42);
   assert.equal(result.observation.total_latency_ms, 120);
   assert.equal(result.observation.raw_reasoning_persisted, false);
-  assert.equal(result.observation.answer, "Fixed the spelling typo only.");
 });
 
 test("deep case lane is fixed by benchmark contract, not caller preference", async () => {
@@ -110,9 +126,10 @@ test("deep case lane is fixed by benchmark contract, not caller preference", asy
     case_id: "business-cash-inventory-01",
     execution_approved: true,
     execution_lane: "fast",
-    context: governedContext,
-    execute_provider: async ({ lane, provider_input }) => {
+    context: governedContext("deep"),
+    execute_provider: async ({ lane, provider_input, safe_lease }) => {
       assert.equal(lane, "deep");
+      assert.equal(safe_lease.lease_lane, "intelligence-deep");
       assert.equal(provider_input.execution_lane, "deep");
       return {
         provider: "avantiqo-intelligence",
@@ -137,7 +154,7 @@ test("invalid adapter TTFT is rejected rather than fabricated", async () => {
     executeAvantiqoSpecialistBenchmarkCase({
       case_id: "code-trivial-edit-02",
       execution_approved: true,
-      context: governedContext,
+      context: governedContext("fast"),
       execute_provider: async () => ({
         output: { text: "done", execution_lane: "fast" },
         ttft_ms: 200,

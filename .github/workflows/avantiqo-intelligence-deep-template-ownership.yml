@@ -1,0 +1,37 @@
+name: Avantiqo Intelligence Deep Template Ownership
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/inspect-avantiqo-intelligence-deep-template-ownership-local.mjs
+      - .github/workflows/avantiqo-intelligence-deep-template-ownership.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Inspect Deep template ownership
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: node scripts/inspect-avantiqo-intelligence-deep-template-ownership-local.mjs
+      - name: Safety boundary
+        if: always()
+        run: |
+          echo "INFERENCE_PERFORMED=false"
+          echo "GPU_MUTATION_PERFORMED=false"
+          echo "ENDPOINT_MUTATION_PERFORMED=false"
+          echo "TEMPLATE_MUTATION_PERFORMED=false"

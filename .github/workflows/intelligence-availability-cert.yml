@@ -1,0 +1,30 @@
+name: Intelligence Availability Certification
+
+on:
+  push:
+    branches:
+      - ai/intelligence-availability-hardening-20260831
+    paths:
+      - lib/platform/service-runtime/providers/ProviderExecutor.js
+      - tests/avantiqo-intelligence-fast-deep-availability-recovery.test.mjs
+      - tests/operator-owned-deep-fast-degradation.test.mjs
+      - .github/workflows/intelligence-availability-cert.yml
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Syntax check
+        run: node --check lib/platform/service-runtime/providers/ProviderExecutor.js
+      - name: Owned availability regression tests
+        run: node --test tests/avantiqo-intelligence-fast-deep-availability-recovery.test.mjs tests/operator-owned-deep-fast-degradation.test.mjs

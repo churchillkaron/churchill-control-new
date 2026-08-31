@@ -1,0 +1,47 @@
+name: Avantiqo Intelligence Deep Cold Start Config
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-intelligence-deep-cold-start-config.yml
+      - scripts/inspect-avantiqo-intelligence-deep-cold-start-config-local.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-deep-cold-start-config
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Inspect Deep cold-start configuration
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: node scripts/inspect-avantiqo-intelligence-deep-cold-start-config-local.mjs
+
+      - name: Record immutable safety boundary
+        if: always()
+        run: |
+          echo "INFERENCE_PERFORMED=false"
+          echo "GPU_MUTATION_PERFORMED=false"
+          echo "ENDPOINT_MUTATION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

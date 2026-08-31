@@ -1,5 +1,6 @@
 name: Avantiqo Fast Intelligence Latency Topology Audit
 
+# Read-only rerun marker: 2026-08-31 Fast customer-path scheduling failure audit.
 on:
   push:
     branches: [main]

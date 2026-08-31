@@ -1,0 +1,35 @@
+name: Avantiqo RunPod Voice Duplicate Cleanup
+
+on:
+  push:
+    paths:
+      - ".github/workflows/avantiqo-runpod-voice-duplicate-cleanup.yml"
+      - "audits/avantiqo-runpod-voice-duplicate-cleanup-request.json"
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - name: Delete stale services Voice TTS duplicate if idle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const REST='https://rest.runpod.io/v1'; const QUEUE='https://api.runpod.ai/v2';
+          const key=(process.env.RUNPOD_MANAGEMENT_API_KEY||process.env.RUNPOD_API_KEY||'').trim(); const runtime=(process.env.RUNPOD_API_KEY||key).trim();
+          const TARGET='services/avantiqo-voice-tts-v1'; const text=v=>String(v??'').trim(); const finite=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
+          async function req(url,{method='GET',k=key}={}){const r=await fetch(url,{method,headers:{Authorization:`Bearer ${k}`,Accept:'application/json'},signal:AbortSignal.timeout(30000)});const raw=await r.text();let b={};try{b=raw?JSON.parse(raw):{}}catch{b={message:raw}}if(!(r.ok||r.status===404))throw new Error(`HTTP_${r.status}:${text(b?.message||b?.error||raw).slice(0,500)}`);return{status:r.status,body:b};}
+          const list=(await req(`${REST}/endpoints?includeWorkers=true`)).body; const rows=Array.isArray(list)?list:(list.data||list.items||list.results||list.endpoints||[]); const matches=rows.filter(e=>text(e.name)===TARGET);
+          if(matches.length===0){console.log(JSON.stringify({success:true,contract:'AVANTIQO_RUNPOD_VOICE_DUPLICATE_CLEANUP_V1',already_absent:true,deleted:false},null,2));process.exit(0)}
+          if(matches.length!==1) throw new Error(`TARGET_COUNT_${matches.length}`); const e=matches[0], id=text(e.id);
+          const h=(await req(`${QUEUE}/${encodeURIComponent(id)}/health`,{k:runtime})).body; const j=h.jobs||{}, w=h.workers||{}; const active=finite(j.inQueue??j.in_queue)+finite(j.inProgress??j.in_progress)+['idle','initializing','ready','running','throttled','unhealthy'].reduce((s,k)=>s+finite(w[k]),0);
+          if(active) throw new Error(`TARGET_ACTIVE_${active}`); if(finite(e.workersMin,-1)!==0||finite(e.workersMax,-1)!==0) throw new Error('TARGET_NOT_0_0');
+          await req(`${REST}/endpoints/${encodeURIComponent(id)}`,{method:'DELETE'}); const verify=await req(`${REST}/endpoints/${encodeURIComponent(id)}`); if(verify.status!==404)throw new Error('DELETE_VERIFY_FAILED');
+          console.log(JSON.stringify({success:true,contract:'AVANTIQO_RUNPOD_VOICE_DUPLICATE_CLEANUP_V1',deleted:true,id,name:TARGET,gpu_compute_used:false,inference_performed:false,production_deploy_performed:false,secrets_printed:false},null,2));
+          NODE

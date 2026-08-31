@@ -1,0 +1,82 @@
+name: Avantiqo Code Real Write E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+      - .github/workflows/avantiqo-code-real-write-e2e.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-real-write-e2e
+  cancel-in-progress: false
+
+jobs:
+  certify-real-code-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Syntax-check real-write proof
+        run: node --check scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs
+
+      - name: Run real Code write execute verify proof
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_APPROVED: "YES"
+          AVANTIQO_CODE_E2E_REPORT_PATH: ${{ github.workspace }}/artifacts/avantiqo-code-real-write-e2e.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          node scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs | tee /tmp/avantiqo-code-real-write-e2e.log
+
+      - name: Verify hard E2E evidence
+        if: success()
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("artifacts/avantiqo-code-real-write-e2e.json", "utf8"));
+          const required = [
+            [report.success === true, "REPORT_SUCCESS_REQUIRED"],
+            [report.proof?.broken_fixture_failed_before_ai === true, "BROKEN_FIXTURE_MUST_FAIL_FIRST"],
+            [report.proof?.model_inference_performed === true, "REAL_MODEL_INFERENCE_REQUIRED"],
+            [report.proof?.source_mutation_performed === true, "REAL_SOURCE_WRITE_REQUIRED"],
+            [report.proof?.generated_code_executed === true, "GENERATED_CODE_EXECUTION_REQUIRED"],
+            [report.proof?.generated_tests_passed === true, "GENERATED_TEST_PASS_REQUIRED"],
+            [report.proof?.final_test_exit_code === 0, "FINAL_TEST_EXIT_ZERO_REQUIRED"],
+            [report.runtime?.pod_created === true, "REAL_GPU_POD_REQUIRED"],
+            [report.runtime?.pod_delete_verified === true, "GPU_POD_CLEANUP_REQUIRED"],
+            [report.safeguards?.persistent_repository_mutation_performed === false, "PERSISTENT_REPO_MUTATION_FORBIDDEN"],
+            [report.safeguards?.production_deploy_performed === false, "PRODUCTION_DEPLOY_FORBIDDEN"],
+            [report.safeguards?.secrets_printed === false, "SECRET_PRINT_FORBIDDEN"],
+          ];
+          const failed = required.find(([ok]) => !ok);
+          if (failed) throw new Error(failed[1]);
+          console.log("AVANTIQO_CODE_REAL_WRITE_E2E_HARD_GATE=PASS");
+          NODE
+
+      - name: Upload real-write E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-real-write-e2e-${{ github.run_id }}
+          path: |
+            artifacts/avantiqo-code-real-write-e2e.json
+            /tmp/avantiqo-code-real-write-e2e.log
+          if-no-files-found: warn
+          retention-days: 14

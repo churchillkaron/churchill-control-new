@@ -6,18 +6,13 @@ const REST = "https://rest.runpod.io/v1";
 const GQL = "https://api.runpod.io/graphql";
 const V1_PATH = "scripts/run-avantiqo-code-real-write-e2e-proof-v1-local.mjs";
 const CODE_ENDPOINT_NAME = "avantiqo-code-v1";
-const MIN_MEMORY_GB = 40;
+const RUNPOD_AVAILABILITY_MIN_MEMORY_GB = 40;
 const CERTIFIED_GPU_TYPES = [
   "NVIDIA B200",
   "NVIDIA H200",
   "NVIDIA H100 NVL",
   "NVIDIA H100 80GB HBM3",
   "NVIDIA RTX PRO 6000 Blackwell Server Edition",
-  "NVIDIA L40S",
-  "NVIDIA RTX 6000 Ada Generation",
-  "NVIDIA RTX A6000",
-  "NVIDIA GeForce RTX 5090",
-  "NVIDIA GeForce RTX 4090",
 ];
 const STOCK_RANK = { HIGH: 4, MEDIUM: 3, LOW: 2 };
 
@@ -65,7 +60,7 @@ async function liveGpuAvailability(dataCenterId) {
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify({
       query,
-      variables: { input: { gpuCount: 1, minDisk: 5, minMemoryInGb: MIN_MEMORY_GB, secureCloud: true } },
+      variables: { input: { gpuCount: 1, minDisk: 5, minMemoryInGb: RUNPOD_AVAILABILITY_MIN_MEMORY_GB, secureCloud: true } },
     }),
     signal: AbortSignal.timeout(30_000),
   }), `${CONTRACT}_GQL`);
@@ -117,17 +112,18 @@ const gpuTypeIds = CERTIFIED_GPU_TYPES
     return b - a;
   });
 if (!gpuTypeIds.length) {
-  const observed = availability.map((row) => ({
-    gpu_type_id: text(row?.gpuTypeId),
-    available: row?.available === true,
-    stock_status: text(row?.stockStatus).toUpperCase() || null,
-  }));
+  const observed = availability
+    .filter((row) => CERTIFIED_GPU_TYPES.includes(text(row?.gpuTypeId)))
+    .map((row) => ({
+      gpu_type_id: text(row?.gpuTypeId),
+      available: row?.available === true,
+      stock_status: text(row?.stockStatus).toUpperCase() || null,
+    }));
   throw new Error(`${CONTRACT}_NO_LIVE_CERTIFIED_GPU:${JSON.stringify({
     endpoint: CODE_ENDPOINT_NAME,
     network_volume_id: volumeId,
     network_volume_name: volumeName,
     data_center_id: dataCenterId,
-    minimum_memory_gb: MIN_MEMORY_GB,
     observed,
   })}`);
 }
@@ -146,7 +142,8 @@ console.log(JSON.stringify({
   network_volume_name: volumeName,
   network_volume_id: volumeId,
   data_center_id: dataCenterId,
-  minimum_memory_gb: MIN_MEMORY_GB,
+  certified_fp8_gpu_pool_only: true,
+  runpod_availability_min_memory_gb: RUNPOD_AVAILABILITY_MIN_MEMORY_GB,
   proof_max_model_len: Number(process.env.AVANTIQO_CODE_MAX_MODEL_LEN),
   gpu_type_ids: gpuTypeIds,
   gpu_stock: gpuTypeIds.map((gpuTypeId) => ({

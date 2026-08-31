@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_CODE_WORKER_STARTUP_DIAGNOSTIC_REQUEST_V1",
   "requested": true,
-  "sequence": 2,
-  "reason": "capture container output after EUR worker became ready while proof job remained queued"
+  "sequence": 3,
+  "reason": "capture fa6559 DeepGEMM-safe worker startup after 180s queue timeout"
 }

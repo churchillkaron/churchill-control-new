@@ -5,9 +5,13 @@ const CONTRACT = "AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_V1";
 const REQUEST_CONTRACT = "AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_REQUEST_V1";
 const ENDPOINT_ID = "r79dtnjnrilrlc";
 const ENDPOINT_NAME = "avantiqo-code-v1";
-const REQUIRED_NETWORK_VOLUME_ID = "7obluigbr0";
+const REQUIRED_NETWORK_VOLUME_ID = "qcg1rbzc3g";
+const REQUIRED_DATACENTER_ID = "EUR-IS-1";
+const REQUIRED_GPU_TYPE_ID = "NVIDIA RTX PRO 6000 Blackwell Server Edition";
 const EXPECTED_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
 const IMAGE_REPOSITORY = "ghcr.io/churchillkaron/avantiqo-code-worker";
+const PLACEMENT_STALL_MS = 90_000;
+const JOB_TIMEOUT_MS = 12 * 60_000;
 const REQUEST_PATH = process.env.AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_REQUEST || "audits/avantiqo-code-runtime-delivery-proof-request.json";
 const REPORT_PATH = process.env.AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_REPORT || "/tmp/avantiqo-code-runtime-delivery-proof.json";
 const REST_BASE = "https://rest.runpod.io/v1";
@@ -99,6 +103,13 @@ function isIdle(summary) {
   return summary.jobs.in_queue === 0 && summary.jobs.in_progress === 0 && activeWorkers(summary) === 0;
 }
 
+function endpointVolumeIds(endpoint = {}) {
+  const ids = list(endpoint.networkVolumeIds).map((entry) => typeof entry === "string" ? text(entry) : text(entry?.networkVolumeId)).filter(Boolean);
+  const legacy = text(endpoint.networkVolumeId || endpoint.network_volume_id);
+  if (legacy && !ids.includes(legacy)) ids.unshift(legacy);
+  return [...new Set(ids)];
+}
+
 function endpointSummary(endpoint = {}) {
   return {
     id: text(endpoint.id),
@@ -111,6 +122,8 @@ function endpointSummary(endpoint = {}) {
     scaler_type: text(endpoint.scalerType).toUpperCase(),
     scaler_value: finite(endpoint.scalerValue, null),
     network_volume_id: text(endpoint.networkVolumeId || endpoint.network_volume_id) || null,
+    network_volume_ids: endpointVolumeIds(endpoint),
+    gpu_type_ids: list(endpoint.gpuTypeIds).map((entry) => text(entry)).filter(Boolean),
   };
 }
 
@@ -131,10 +144,11 @@ async function request() {
 }
 
 async function snapshot(managementKey, runtimeKey) {
-  const [endpoint, templatesRaw, healthRaw] = await Promise.all([
+  const [endpoint, templatesRaw, healthRaw, boundVolume] = await Promise.all([
     rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey),
     rest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false", managementKey),
     queue("/health", runtimeKey),
+    rest(`/networkvolumes/${REQUIRED_NETWORK_VOLUME_ID}`, managementKey),
   ]);
   const summary = endpointSummary(endpoint);
   if (summary.id !== ENDPOINT_ID || summary.name !== ENDPOINT_NAME) throw new Error(`${CONTRACT}_ENDPOINT_IDENTITY_MISMATCH`);
@@ -143,6 +157,11 @@ async function snapshot(managementKey, runtimeKey) {
   if (!summary.flashboot) throw new Error(`${CONTRACT}_FLASHBOOT_REQUIRED`);
   if (summary.scaler_type !== "QUEUE_DELAY" || summary.scaler_value !== 1) throw new Error(`${CONTRACT}_SCALER_MISMATCH`);
   if (summary.network_volume_id !== REQUIRED_NETWORK_VOLUME_ID) throw new Error(`${CONTRACT}_NETWORK_VOLUME_MISMATCH:${summary.network_volume_id || "NONE"}`);
+  if (JSON.stringify(summary.network_volume_ids) !== JSON.stringify([REQUIRED_NETWORK_VOLUME_ID])) throw new Error(`${CONTRACT}_NETWORK_VOLUME_SET_MISMATCH:${JSON.stringify(summary.network_volume_ids)}`);
+  if (JSON.stringify(summary.gpu_type_ids) !== JSON.stringify([REQUIRED_GPU_TYPE_ID])) throw new Error(`${CONTRACT}_GPU_PLACEMENT_MISMATCH:${JSON.stringify(summary.gpu_type_ids)}`);
+  if (text(boundVolume?.id) !== REQUIRED_NETWORK_VOLUME_ID || text(boundVolume?.dataCenterId ?? boundVolume?.data_center_id) !== REQUIRED_DATACENTER_ID) {
+    throw new Error(`${CONTRACT}_DATACENTER_MISMATCH:${text(boundVolume?.dataCenterId ?? boundVolume?.data_center_id) || "NONE"}`);
+  }
   if (!summary.template_id) throw new Error(`${CONTRACT}_TEMPLATE_REQUIRED`);
   const templates = normalizeRows(templatesRaw, ["templates"]);
   const matches = templates.filter((entry) => text(entry?.id) === summary.template_id);
@@ -150,24 +169,52 @@ async function snapshot(managementKey, runtimeKey) {
   return {
     endpoint_summary: summary,
     image_name: text(matches[0]?.imageName),
+    placement: {
+      data_center_id: REQUIRED_DATACENTER_ID,
+      network_volume_id: REQUIRED_NETWORK_VOLUME_ID,
+      gpu_type_id: REQUIRED_GPU_TYPE_ID,
+    },
     health: healthSummary(healthRaw),
   };
 }
 
 async function waitForJob(jobId, runtimeKey) {
-  const deadline = Date.now() + 20 * 60_000;
+  const deadline = Date.now() + JOB_TIMEOUT_MS;
   const timeline = [];
+  let zeroWorkerQueuedSince = null;
   while (Date.now() < deadline) {
-    const response = await queue(`/status/${encodeURIComponent(jobId)}`, runtimeKey);
+    const [response, healthRaw] = await Promise.all([
+      queue(`/status/${encodeURIComponent(jobId)}`, runtimeKey),
+      queue("/health", runtimeKey),
+    ]);
     const status = text(response?.status).toUpperCase();
+    const health = healthSummary(healthRaw);
+    const at = Date.now();
     timeline.push({
-      at_ms: Date.now(),
+      at_ms: at,
       status,
       delay_time_ms: finite(response?.delayTime),
       execution_time_ms: finite(response?.executionTime),
+      health,
     });
     if (["COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"].includes(status)) {
       return { response, timeline, timed_out: false };
+    }
+
+    const queuedWithoutWorker =
+      ["IN_QUEUE", "QUEUED"].includes(status) &&
+      health.jobs.in_queue >= 1 &&
+      health.jobs.in_progress === 0 &&
+      activeWorkers(health) === 0;
+    if (queuedWithoutWorker) {
+      if (zeroWorkerQueuedSince === null) zeroWorkerQueuedSince = at;
+      if (at - zeroWorkerQueuedSince >= PLACEMENT_STALL_MS) {
+        const error = new Error(`${CONTRACT}_PLACEMENT_STALLED_QUEUED_WITH_ZERO_WORKERS:${Math.floor((at - zeroWorkerQueuedSince) / 1000)}s`);
+        error.timeline = timeline;
+        throw error;
+      }
+    } else {
+      zeroWorkerQueuedSince = null;
     }
     await sleep(4000);
   }
@@ -309,6 +356,7 @@ try {
   };
 } catch (error) {
   primaryError = error;
+  if (!completion && Array.isArray(error?.timeline)) completion = { timeline: error.timeline, response: null, timed_out: false };
 } finally {
   cancellation = await cancelIfNeeded(jobId, runtimeKey);
   cleanup = await forcePark(managementKey, runtimeKey);
@@ -320,11 +368,17 @@ const report = {
   source_sha: target.source_sha,
   immutable_image: target.immutable_image,
   endpoint_id: ENDPOINT_ID,
+  target_placement: {
+    data_center_id: REQUIRED_DATACENTER_ID,
+    network_volume_id: REQUIRED_NETWORK_VOLUME_ID,
+    gpu_type_id: REQUIRED_GPU_TYPE_ID,
+  },
+  placement_stall_fail_fast_ms: PLACEMENT_STALL_MS,
   started_at_ms: startedAt,
   completed_at_ms: Date.now(),
   job_id: jobId,
-  before: before ? { endpoint: before.endpoint_summary, image_name: before.image_name, health: before.health } : null,
-  active: active ? { endpoint: active.endpoint_summary, image_name: active.image_name, health: active.health } : null,
+  before: before ? { endpoint: before.endpoint_summary, image_name: before.image_name, placement: before.placement, health: before.health } : null,
+  active: active ? { endpoint: active.endpoint_summary, image_name: active.image_name, placement: active.placement, health: active.health } : null,
   result,
   status_timeline: completion?.timeline || [],
   cancellation,

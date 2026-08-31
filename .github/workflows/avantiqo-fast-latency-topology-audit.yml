@@ -1,6 +1,6 @@
 name: Avantiqo Fast Intelligence Latency Topology Audit
 
-# Read-only rerun marker: 2026-08-31 Fast customer-path scheduling failure audit.
+# Deep read-only rerun marker: inspect GraphQL pool/template placement after canonical Fast scheduling failure.
 on:
   push:
     branches: [main]
@@ -34,8 +34,19 @@ jobs:
               signal: AbortSignal.timeout(30000),
             });
             const raw = await r.text();
-            if (!r.ok) throw new Error(`REST_${r.status}`);
+            if (!r.ok) throw new Error(`REST_${r.status}:${raw.slice(0,500)}`);
             return raw ? JSON.parse(raw) : null;
+          };
+          const graph = async (query) => {
+            const r = await fetch('https://api.runpod.io/graphql', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${managementKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ query }),
+              signal: AbortSignal.timeout(30000),
+            });
+            const body = await r.json();
+            if (!r.ok || list(body?.errors).length) throw new Error(`GRAPHQL_${r.status}:${list(body?.errors).map(e=>e?.message).join('|')}`);
+            return body?.data || {};
           };
           const endpointsRaw = await rest('/endpoints?includeTemplate=true&includeWorkers=true');
           const endpoints = Array.isArray(endpointsRaw) ? endpointsRaw : list(endpointsRaw?.endpoints || endpointsRaw?.data || endpointsRaw?.items || endpointsRaw?.results);
@@ -43,6 +54,11 @@ jobs:
           if (matches.length !== 1) throw new Error(`FAST_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
           const e = matches[0];
           const endpointId = text(e.id);
+          const templateId = text(e.templateId || e.template?.id);
+          const template = templateId ? await rest(`/templates/${encodeURIComponent(templateId)}`) : null;
+          const gql = await graph(`query AvantiqoFastPlacementAudit { myself { endpoints { id name templateId gpuIds gpuCount workersMin workersMax idleTimeout scalerType scalerValue executionTimeoutMs minCudaVersion flashBootType } podTemplates { id name imageName containerDiskInGb volumeInGb volumeMountPath isServerless } } serverlessGpuPools { id gpuTypeIds } }`);
+          const gqlEndpoint = list(gql?.myself?.endpoints).find((row) => text(row?.id) === endpointId) || null;
+          const gqlTemplate = list(gql?.myself?.podTemplates).find((row) => text(row?.id) === templateId) || null;
           const healthResponse = await fetch(`https://api.runpod.ai/v2/${encodeURIComponent(endpointId)}/health`, {
             headers: { Authorization: `Bearer ${queueKey}`, Accept: 'application/json' },
             signal: AbortSignal.timeout(20000),
@@ -56,20 +72,15 @@ jobs:
             e.networkVolumeId,
             ...list(e.networkVolumeIds).map((v) => typeof v === 'string' ? v : v?.networkVolumeId || v?.id),
           ].map(text).filter(Boolean))];
-          const boundVolumes = volumes.filter((v) => volumeIds.includes(text(v.id))).map((v) => ({
-            id: text(v.id),
-            name: text(v.name),
-            data_center_id: text(v.dataCenterId || v.data_center_id),
-            size_gb: Number(v.size || v.sizeInGb || v.sizeGB || 0) || null,
-          }));
-          const workers = list(e.workers).map((w) => ({
-            status: text(w.status || w.workerStatus || w.runtimeStatus),
-            desired_status: text(w.desiredStatus || w.desired_status),
-            gpu_type: text(w.gpuTypeId || w.gpuType || w.machine?.gpuTypeId),
-            cost_per_hour: Number(w.adjustedCostPerHr || w.costPerHr || 0) || 0,
-          }));
+          const rawEnv = template?.env || template?.envs || template?.environment || [];
+          const envEntries = Array.isArray(rawEnv)
+            ? rawEnv.map((entry) => ({ key: text(entry?.key || entry?.name), value: text(entry?.value) })).filter((entry) => entry.key)
+            : Object.entries(rawEnv || {}).map(([key, value]) => ({ key: text(key), value: text(value) }));
+          const safeEnv = envEntries
+            .filter((entry) => !/SECRET|PASSWORD|TOKEN|API_KEY|AUTH|KEY/i.test(entry.key))
+            .map((entry) => ({ key: entry.key, value: entry.value.slice(0, 300) }));
           console.log(JSON.stringify({
-            contract: 'AVANTIQO_FAST_LATENCY_TOPOLOGY_AUDIT_V1',
+            contract: 'AVANTIQO_FAST_LATENCY_TOPOLOGY_AUDIT_V2',
             mutation_performed: false,
             endpoint: {
               id: endpointId,
@@ -84,17 +95,25 @@ jobs:
               gpu_type_ids: list(e.gpuTypeIds),
               allowed_cuda_versions: list(e.allowedCudaVersions),
               data_center_ids: list(e.dataCenterIds),
-              template_id: text(e.templateId || e.template?.id),
-              template_name: text(e.template?.name),
-              template_image: text(e.template?.imageName || e.template?.image),
+              template_id: templateId,
               network_volume_ids: volumeIds,
-              workers,
             },
-            bound_volumes: boundVolumes,
-            health_http_status: healthResponse.status,
-            health: health ? {
-              jobs: health.jobs || {},
-              workers: health.workers || {},
+            graphql_endpoint: gqlEndpoint,
+            graphql_template: gqlTemplate,
+            rest_template: template ? {
+              id: text(template.id),
+              name: text(template.name),
+              image_name: text(template.imageName || template.image),
+              docker_args: text(template.dockerArgs).slice(0, 500),
+              container_disk_gb: Number(template.containerDiskInGb || 0),
+              volume_in_gb: Number(template.volumeInGb || 0),
+              volume_mount_path: text(template.volumeMountPath),
+              ports: text(template.ports),
+              safe_env: safeEnv,
             } : null,
+            serverless_gpu_pools: list(gql?.serverlessGpuPools).map((pool) => ({ id: text(pool?.id), gpu_type_ids: list(pool?.gpuTypeIds) })),
+            network_volume_count: volumes.length,
+            health_http_status: healthResponse.status,
+            health: health ? { jobs: health.jobs || {}, workers: health.workers || {} } : null,
           }, null, 2));
           NODE

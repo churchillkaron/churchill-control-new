@@ -13,6 +13,9 @@ const REPORT_MARKER = "const report = {\n  success:";
 const CONTRACT_PROOF_MARKER = "  contract: CONTRACT,\n  proof: {";
 const MAX_POD_CREATE_ATTEMPTS = 12;
 const POD_CREATE_RETRY_MS = 10_000;
+const PRELOADED_CODE_IMAGE = "ghcr.io/churchillkaron/avantiqo-code-pod@sha256:c636b7fc23ab2cd433978cf0ba0470acff7df0df6747b3a64b5e71d1ec762a41";
+
+process.env.AVANTIQO_CODE_E2E_IMAGE = String(process.env.AVANTIQO_CODE_E2E_IMAGE || PRELOADED_CODE_IMAGE).trim();
 
 const v1Temp = path.join(os.tmpdir(), `avantiqo-code-real-write-v5-v1-${process.pid}-${Date.now()}.mjs`);
 const v3Temp = path.join(os.tmpdir(), `avantiqo-code-real-write-v5-v3-${process.pid}-${Date.now()}.mjs`);
@@ -20,6 +23,8 @@ const v3Temp = path.join(os.tmpdir(), `avantiqo-code-real-write-v5-v3-${process.
 console.log(JSON.stringify({
   event: "AVANTIQO_CODE_REAL_WRITE_E2E_V5_START",
   contract: CONTRACT,
+  image_digest: process.env.AVANTIQO_CODE_E2E_IMAGE.split("@")[1] || null,
+  immutable_preloaded_image_required: true,
   dynamic_live_volume_discovery: true,
   low_stock_allocator: "bounded-exact-error-retry",
   max_pod_create_attempts: MAX_POD_CREATE_ATTEMPTS,
@@ -145,6 +150,7 @@ try {
         `    max_pod_create_attempts: ${MAX_POD_CREATE_ATTEMPTS},`,
         `    retry_ms: ${POD_CREATE_RETRY_MS},`,
         "    proof_max_model_len: Number(process.env.AVANTIQO_CODE_MAX_MODEL_LEN || 8192),",
+        "    immutable_preloaded_image: process.env.AVANTIQO_CODE_E2E_IMAGE,",
         "  },",
         "  proof: {",
       ].join("\n"),

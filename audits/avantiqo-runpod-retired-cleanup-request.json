@@ -1,0 +1,5 @@
+{
+  "contract": "AVANTIQO_RUNPOD_RETIRED_CLEANUP_REQUEST_V1",
+  "approved": true,
+  "reason": "remove retired candidate and recovery endpoints so each engine has only its canonical endpoint"
+}

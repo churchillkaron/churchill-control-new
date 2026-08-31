@@ -193,6 +193,13 @@ async function patchWorkersMin(value) {
   });
 }
 
+async function patchWorkersMax(value) {
+  return request(`${REST_BASE}/endpoints/${encodeURIComponent(endpointId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ workersMax: Number(value) }),
+  });
+}
+
 async function health() {
   return request(
     `${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`,
@@ -230,16 +237,24 @@ async function writeResult(result) {
 async function restoreMinimumWorker() {
   const backup = JSON.parse(await readFile(backupPath, "utf8"));
   const original = Number(backup?.endpoint?.workers_min);
+  const originalMax = Number(backup?.endpoint?.workers_max);
   if (!Number.isFinite(original) || original < 0) {
     throw new Error("RUNPOD_REPAIR_BACKUP_WORKERS_MIN_INVALID");
   }
   await patchWorkersMin(original);
+  let maxRestoredTo = null;
+  if (Number.isFinite(originalMax) && originalMax >= 0) {
+    await patchWorkersMax(originalMax);
+    maxRestoredTo = originalMax;
+    console.log(`AVANTIQO_CINEMA_RUNPOD_WORKERS_MAX_RESTORED=${originalMax}`);
+  }
   const result = {
     success: true,
     contract: "AVANTIQO_CINEMA_RUNPOD_WORKER_REPAIR_V3",
     mode: "RESTORE_MINIMUM_WORKER",
     endpoint_id: endpointId,
     workers_min_restored_to: original,
+    workers_max_restored_to: maxRestoredTo,
     generation_submitted: false,
     external_ai_provider_used: false,
   };
@@ -329,7 +344,14 @@ console.log("AVANTIQO_CINEMA_RUNPOD_TEMPLATE_UPDATE=APPLIED");
 console.log("AVANTIQO_CINEMA_RUNPOD_MODE=T2V_ONLY_FAIL_CLOSED");
 
 const originalMin = finite(endpointBefore.workersMin) ?? 0;
+const originalMax = finite(endpointBefore.workersMax) ?? 0;
 if (originalMin < 1) {
+  if (originalMax < 1) {
+    // RunPod rejects workersMin > workersMax. A parked (0/0) endpoint needs
+    // headroom opened on max before min can be raised to warm a worker.
+    await patchWorkersMax(1);
+    console.log("AVANTIQO_CINEMA_RUNPOD_TEMPORARY_WORKERS_MAX=1");
+  }
   await patchWorkersMin(1);
   console.log("AVANTIQO_CINEMA_RUNPOD_TEMPORARY_WORKERS_MIN=1");
 }

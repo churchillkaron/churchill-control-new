@@ -1,23 +1,23 @@
-const CONTRACT = "AVANTIQO_VIDEO_RUNPOD_CACHED_MODEL_MIGRATION_V1";
+const CONTRACT = "AVANTIQO_VIDEO_RUNPOD_CACHED_MODEL_MIGRATION_V2";
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const GRAPHQL_URL = "https://api.runpod.io/graphql";
 const ENDPOINT_ID = "xmey8y2hofexyp";
 const ENDPOINT_NAME = "avantiqo-cinema-production-v1";
 const MODEL_REFERENCE = "https://huggingface.co/Lightricks/LTX-2.5:main";
+const NEW_TEMPLATE_NAME = "avantiqo-video-ltx25-native-master-serverless-v1";
 const TARGET_GPU_TYPE_IDS = Object.freeze([
   "NVIDIA RTX PRO 6000 Blackwell Server Edition",
   "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
-  "NVIDIA H100 NVL",
-  "NVIDIA H200",
   "NVIDIA B200",
 ]);
 const TARGET_ALLOWED_CUDA_VERSIONS = Object.freeze(["12.8", "12.9", "13.0"]);
 
-const text = (value, maximum = 4000) => String(value ?? "").trim().slice(0, maximum);
-const list = (value) => Array.isArray(value) ? value : [];
-const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
-const finite = (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+const text = (v, n = 4000) => String(v ?? "").trim().slice(0, n);
+const list = (v) => Array.isArray(v) ? v : [];
+const object = (v) => v && typeof v === "object" && !Array.isArray(v) ? v : {};
+const finite = (v, fallback = null) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function required(name) {
   const value = text(process.env[name]);
@@ -30,10 +30,8 @@ async function readJson(response, prefix) {
   let body = {};
   try { body = raw ? JSON.parse(raw) : {}; } catch { body = { message: raw }; }
   if (!response.ok) {
-    const detail = text(body?.detail || body?.error?.message || body?.error || body?.message || raw, 1200);
-    const error = new Error(`${prefix}_HTTP_${response.status}:${detail || "UNKNOWN"}`);
-    error.httpStatus = response.status;
-    throw error;
+    const detail = text(body?.detail || body?.error?.message || body?.error || body?.message || raw, 1400);
+    throw new Error(`${prefix}_HTTP_${response.status}:${detail || "UNKNOWN"}`);
   }
   return body;
 }
@@ -52,8 +50,8 @@ async function rest(pathname, credential, options = {}) {
   return readJson(response, `${CONTRACT}_REST`);
 }
 
-async function queueHealth(endpointId, queueKey) {
-  const response = await fetch(`${QUEUE_BASE}/${endpointId}/health`, {
+async function queueHealth(queueKey) {
+  const response = await fetch(`${QUEUE_BASE}/${ENDPOINT_ID}/health`, {
     headers: { Authorization: `Bearer ${queueKey}`, Accept: "application/json" },
     signal: AbortSignal.timeout(30_000),
   });
@@ -74,53 +72,47 @@ async function graphql(query, variables, credential) {
   });
   const body = await readJson(response, `${CONTRACT}_GRAPHQL`);
   if (list(body.errors).length) {
-    throw new Error(`${CONTRACT}_GRAPHQL_ERROR:${list(body.errors).map((entry) => text(entry?.message)).join(" | ").slice(0, 1200)}`);
+    throw new Error(`${CONTRACT}_GRAPHQL_ERROR:${list(body.errors).map((e) => text(e?.message)).join(" | ").slice(0, 1400)}`);
   }
   return body;
 }
 
-function normalizeListResponse(value, candidateKeys = [], depth = 0) {
+function normalizeList(value, keys = [], depth = 0) {
   if (Array.isArray(value)) return value;
   if (!value || typeof value !== "object" || depth > 4) return null;
-  for (const key of [...candidateKeys, "data", "items", "results"]) {
+  for (const key of [...keys, "data", "items", "results"]) {
     if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
-    const normalized = normalizeListResponse(value[key], candidateKeys, depth + 1);
-    if (normalized) return normalized;
+    const result = normalizeList(value[key], keys, depth + 1);
+    if (result) return result;
   }
   return null;
 }
 
 function normalizeEnv(value) {
   if (Array.isArray(value)) {
-    return Object.fromEntries(
-      value
-        .map((entry) => [text(entry?.key || entry?.name), String(entry?.value ?? "")])
-        .filter(([key]) => Boolean(key)),
-    );
+    return Object.fromEntries(value.map((e) => [text(e?.key || e?.name), String(e?.value ?? "")]).filter(([k]) => k));
   }
-  return Object.fromEntries(Object.entries(object(value)).map(([key, child]) => [String(key), String(child ?? "")]));
+  return Object.fromEntries(Object.entries(object(value)).map(([k, v]) => [String(k), String(v ?? "")]));
 }
 
-function healthSummary(body = {}) {
-  const jobs = object(body.jobs);
-  const workers = object(body.workers);
-  return {
-    jobs: {
-      in_queue: finite(jobs.inQueue ?? jobs.in_queue, 0),
-      in_progress: finite(jobs.inProgress ?? jobs.in_progress, 0),
-    },
-    workers: {
-      idle: finite(workers.idle, 0),
-      initializing: finite(workers.initializing, 0),
-      ready: finite(workers.ready, 0),
-      running: finite(workers.running, 0),
-      throttled: finite(workers.throttled, 0),
-      unhealthy: finite(workers.unhealthy, 0),
-    },
-  };
+function stringList(value) {
+  if (Array.isArray(value)) return value.map((v) => text(v)).filter(Boolean);
+  const raw = text(value);
+  return raw ? raw.split(",").map((v) => v.trim()).filter(Boolean) : [];
 }
 
-function managementWorkers(endpoint = {}) {
+function volumeIds(endpoint = {}) {
+  const ids = list(endpoint.networkVolumeIds).map((v) => typeof v === "string" ? text(v) : text(v?.networkVolumeId || v?.id)).filter(Boolean);
+  const legacy = text(endpoint.networkVolumeId);
+  if (legacy && !ids.includes(legacy)) ids.unshift(legacy);
+  return ids;
+}
+
+function modelRefs(endpoint = {}) {
+  return list(endpoint.modelReferences).map((v) => text(v)).filter(Boolean);
+}
+
+function activeManagementWorkers(endpoint = {}) {
   const terminal = new Set(["EXITED", "TERMINATED", "DELETED", "STOPPED"]);
   return list(endpoint.workers).filter((worker) => {
     const status = text(worker?.status || worker?.workerStatus || worker?.runtimeStatus || worker?.desiredStatus).toUpperCase();
@@ -129,153 +121,61 @@ function managementWorkers(endpoint = {}) {
 }
 
 function assertDrained(endpoint, health, label) {
-  const summary = healthSummary(health);
-  if (summary.jobs.in_queue !== 0 || summary.jobs.in_progress !== 0) {
-    throw new Error(`${label}_QUEUE_NOT_EMPTY:${JSON.stringify(summary.jobs)}`);
-  }
-  if (Object.values(summary.workers).some((value) => Number(value) !== 0)) {
-    throw new Error(`${label}_QUEUE_WORKERS_NOT_ZERO:${JSON.stringify(summary.workers)}`);
-  }
-  const management = managementWorkers(endpoint);
-  if (management.length) throw new Error(`${label}_MANAGEMENT_WORKERS_NOT_ZERO:${management.length}`);
+  const jobs = object(health.jobs);
+  const workers = object(health.workers);
+  const queued = finite(jobs.inQueue ?? jobs.in_queue, 0);
+  const progress = finite(jobs.inProgress ?? jobs.in_progress, 0);
+  const workerTotal = ["idle", "initializing", "ready", "running", "throttled", "unhealthy"]
+    .reduce((sum, key) => sum + finite(workers[key], 0), 0);
+  if (queued !== 0 || progress !== 0) throw new Error(`${label}_QUEUE_NOT_EMPTY:${queued}:${progress}`);
+  if (workerTotal !== 0) throw new Error(`${label}_HEALTH_WORKERS_NOT_ZERO:${workerTotal}`);
+  const active = activeManagementWorkers(endpoint);
+  if (active.length) throw new Error(`${label}_MANAGEMENT_WORKERS_NOT_ZERO:${active.length}`);
 }
 
-function stringList(value) {
-  if (Array.isArray(value)) return value.map((entry) => text(entry)).filter(Boolean);
-  const raw = text(value);
-  if (!raw) return [];
-  return raw.split(",").map((entry) => entry.trim()).filter(Boolean);
-}
+const ENDPOINT_QUERY = `query AvantiqoVideoEndpointRead {
+  myself { endpoints {
+    id name templateId gpuIds gpuCount instanceIds workersMin workersMax locations
+    networkVolumeId networkVolumeIds { networkVolumeId dataCenterId }
+    idleTimeout scalerType scalerValue executionTimeoutMs minCudaVersion flashBootType modelReferences
+  } }
+}`;
 
-function volumeIds(endpoint = {}) {
-  const ids = list(endpoint.networkVolumeIds).map((entry) => {
-    if (typeof entry === "string") return text(entry);
-    return text(entry?.networkVolumeId || entry?.id);
-  }).filter(Boolean);
-  const legacy = text(endpoint.networkVolumeId);
-  if (legacy && !ids.includes(legacy)) ids.unshift(legacy);
-  return ids;
-}
-
-function modelRefs(endpoint = {}) {
-  return list(endpoint.modelReferences).map((entry) => text(entry)).filter(Boolean);
-}
-
-function templateUpdateBody(template, imageName, hfToken) {
-  const env = {
-    ...normalizeEnv(template.env),
-    HF_TOKEN: hfToken,
-    MODEL_NAME: "Lightricks/LTX-2.5",
-    HF_HUB_OFFLINE: "1",
-    TRANSFORMERS_OFFLINE: "1",
-    AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT: "/opt/LTX-2",
-    AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "1800",
-  };
-  const body = {
-    containerDiskInGb: Math.max(1, finite(template.containerDiskInGb, 30)),
-    dockerEntrypoint: list(template.dockerEntrypoint),
-    dockerStartCmd: [],
-    env,
-    imageName,
-    isPublic: template.isPublic === true,
-    name: text(template.name),
-    ports: list(template.ports),
-    readme: text(template.readme),
-    volumeInGb: Math.max(0, finite(template.volumeInGb, 0)),
-    volumeMountPath: text(template.volumeMountPath) || "/workspace",
-  };
-  const registryAuthId = text(template.containerRegistryAuthId);
-  if (registryAuthId) body.containerRegistryAuthId = registryAuthId;
-  if (!body.name) throw new Error(`${CONTRACT}_TEMPLATE_NAME_REQUIRED`);
-  return body;
-}
-
-function originalTemplateBody(template) {
-  const body = {
-    containerDiskInGb: Math.max(1, finite(template.containerDiskInGb, 30)),
-    dockerEntrypoint: list(template.dockerEntrypoint),
-    dockerStartCmd: list(template.dockerStartCmd),
-    env: normalizeEnv(template.env),
-    imageName: text(template.imageName),
-    isPublic: template.isPublic === true,
-    name: text(template.name),
-    ports: list(template.ports),
-    readme: text(template.readme),
-    volumeInGb: Math.max(0, finite(template.volumeInGb, 0)),
-    volumeMountPath: text(template.volumeMountPath) || "/workspace",
-  };
-  const registryAuthId = text(template.containerRegistryAuthId);
-  if (registryAuthId) body.containerRegistryAuthId = registryAuthId;
-  return body;
-}
-
-const ENDPOINT_QUERY = `
-query AvantiqoVideoCachedModelEndpointRead {
-  myself {
-    endpoints {
-      id
-      name
-      templateId
-      gpuIds
-      gpuCount
-      instanceIds
-      workersMin
-      workersMax
-      locations
-      networkVolumeId
-      networkVolumeIds { networkVolumeId dataCenterId }
-      idleTimeout
-      scalerType
-      scalerValue
-      executionTimeoutMs
-      minCudaVersion
-      flashBootType
-      modelReferences
-    }
+const SAVE_ENDPOINT_MUTATION = `mutation AvantiqoVideoSaveEndpoint($input: EndpointInput!) {
+  saveEndpoint(input:$input) {
+    id name templateId gpuIds gpuCount instanceIds workersMin workersMax locations
+    networkVolumeId networkVolumeIds { networkVolumeId dataCenterId }
+    idleTimeout scalerType scalerValue executionTimeoutMs minCudaVersion flashBootType modelReferences
   }
 }`;
 
-const SAVE_ENDPOINT_MUTATION = `
-mutation AvantiqoVideoCachedModelSaveEndpoint($input: EndpointInput!) {
-  saveEndpoint(input: $input) {
-    id
-    name
-    templateId
-    gpuIds
-    gpuCount
-    instanceIds
-    workersMin
-    workersMax
-    locations
-    networkVolumeId
-    networkVolumeIds { networkVolumeId dataCenterId }
-    idleTimeout
-    scalerType
-    scalerValue
-    executionTimeoutMs
-    minCudaVersion
-    flashBootType
-    modelReferences
-  }
+const UPDATE_TEMPLATE_MUTATION = `mutation AvantiqoVideoSwapTemplate($input: UpdateEndpointTemplateInput) {
+  updateEndpointTemplate(input:$input) { id templateId }
 }`;
 
-async function graphqlEndpoint(managementKey) {
-  const body = await graphql(ENDPOINT_QUERY, {}, managementKey);
-  const matches = list(body?.data?.myself?.endpoints).filter((row) => text(row?.id) === ENDPOINT_ID);
-  if (matches.length !== 1) throw new Error(`${CONTRACT}_GRAPHQL_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
-  const endpoint = matches[0];
-  if (text(endpoint.name) !== ENDPOINT_NAME) throw new Error(`${CONTRACT}_GRAPHQL_ENDPOINT_NAME_MISMATCH`);
-  return endpoint;
+async function graphEndpoint(key) {
+  const body = await graphql(ENDPOINT_QUERY, {}, key);
+  const matches = list(body?.data?.myself?.endpoints).filter((e) => text(e?.id) === ENDPOINT_ID);
+  if (matches.length !== 1) throw new Error(`${CONTRACT}_GRAPH_ENDPOINT_RESOLUTION:${matches.length}`);
+  if (text(matches[0]?.name) !== ENDPOINT_NAME) throw new Error(`${CONTRACT}_GRAPH_ENDPOINT_NAME_MISMATCH`);
+  return matches[0];
 }
 
-function graphqlSaveInput(base, { clearVolumes, modelReferences, workersMax, idleTimeout, scalerType, scalerValue }) {
+async function swapTemplate(key, templateId) {
+  const body = await graphql(UPDATE_TEMPLATE_MUTATION, { input: { endpointId: ENDPOINT_ID, templateId } }, key);
+  const saved = body?.data?.updateEndpointTemplate;
+  if (!saved || text(saved.id) !== ENDPOINT_ID || text(saved.templateId) !== templateId) {
+    throw new Error(`${CONTRACT}_TEMPLATE_SWAP_INVALID`);
+  }
+}
+
+function saveInput(base, { templateId, modelReferences, clearVolumes, workersMax }) {
   const gpuIds = text(base.gpuIds);
-  const templateId = text(base.templateId);
   const flashBootType = text(base.flashBootType).toUpperCase();
-  if (!gpuIds || !templateId || !flashBootType) throw new Error(`${CONTRACT}_GRAPHQL_BASE_INCOMPLETE`);
-  const existingVolumes = list(base.networkVolumeIds).map((entry) => ({
-    networkVolumeId: text(entry?.networkVolumeId || entry),
-  })).filter((entry) => entry.networkVolumeId);
+  if (!gpuIds || !flashBootType || !templateId) throw new Error(`${CONTRACT}_GRAPH_BASE_INCOMPLETE`);
+  const existingVolumes = list(base.networkVolumeIds)
+    .map((v) => ({ networkVolumeId: text(v?.networkVolumeId || v) }))
+    .filter((v) => v.networkVolumeId);
   return {
     id: ENDPOINT_ID,
     name: ENDPOINT_NAME,
@@ -288,9 +188,9 @@ function graphqlSaveInput(base, { clearVolumes, modelReferences, workersMax, idl
     locations: clearVolumes ? "" : text(base.locations),
     networkVolumeId: clearVolumes ? "" : text(base.networkVolumeId),
     networkVolumeIds: clearVolumes ? [] : existingVolumes,
-    idleTimeout,
-    scalerType,
-    scalerValue,
+    idleTimeout: 5,
+    scalerType: "REQUEST_COUNT",
+    scalerValue: 1,
     executionTimeoutMs: 2_100_000,
     minCudaVersion: "12.8",
     flashBootType,
@@ -298,189 +198,223 @@ function graphqlSaveInput(base, { clearVolumes, modelReferences, workersMax, idl
   };
 }
 
-async function saveEndpoint(managementKey, input) {
-  const body = await graphql(SAVE_ENDPOINT_MUTATION, { input }, managementKey);
+async function saveEndpoint(key, input) {
+  const body = await graphql(SAVE_ENDPOINT_MUTATION, { input }, key);
   const saved = body?.data?.saveEndpoint;
-  if (!saved || text(saved.id) !== ENDPOINT_ID) throw new Error(`${CONTRACT}_SAVE_ENDPOINT_RESPONSE_INVALID`);
+  if (!saved || text(saved.id) !== ENDPOINT_ID) throw new Error(`${CONTRACT}_SAVE_ENDPOINT_INVALID`);
   return saved;
 }
 
-function restPolicy({ workersMax, networkVolumeIds }) {
+function createTemplateBody(oldTemplate, image, hfToken) {
+  const registry = text(oldTemplate.containerRegistryAuthId);
+  if (!registry) throw new Error(`${CONTRACT}_REGISTRY_AUTH_REQUIRED`);
+  return {
+    name: NEW_TEMPLATE_NAME,
+    imageName: image,
+    category: "NVIDIA",
+    containerDiskInGb: Math.max(1, finite(oldTemplate.containerDiskInGb, 30)),
+    containerRegistryAuthId: registry,
+    dockerEntrypoint: list(oldTemplate.dockerEntrypoint),
+    dockerStartCmd: [],
+    env: {
+      HF_TOKEN: hfToken,
+      MODEL_NAME: "Lightricks/LTX-2.5",
+      HF_HUB_OFFLINE: "1",
+      TRANSFORMERS_OFFLINE: "1",
+      AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT: "/opt/LTX-2",
+      AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "1800",
+    },
+    isPublic: false,
+    isServerless: true,
+    ports: [],
+    readme: "Avantiqo Video LTX-2.5 native 3840x2176 zero-idle cached-model worker.",
+    volumeInGb: 0,
+    volumeMountPath: "/runpod-volume",
+  };
+}
+
+function restTargetPolicy() {
   return {
     gpuTypeIds: [...TARGET_GPU_TYPE_IDS],
     gpuCount: 1,
     workersMin: 0,
-    workersMax,
+    workersMax: 1,
     idleTimeout: 5,
-    scalerType: "QUEUE_DELAY",
+    scalerType: "REQUEST_COUNT",
     scalerValue: 1,
     flashboot: true,
     minCudaVersion: "12.8",
     allowedCudaVersions: [...TARGET_ALLOWED_CUDA_VERSIONS],
     dataCenterIds: [],
     executionTimeoutMs: 2_100_000,
-    networkVolumeIds: [...networkVolumeIds],
+    networkVolumeIds: [],
   };
-}
-
-function originalRestPolicy(endpoint) {
-  return {
-    gpuTypeIds: stringList(endpoint.gpuTypeIds),
-    gpuCount: Math.max(1, finite(endpoint.gpuCount, 1)),
-    workersMin: finite(endpoint.workersMin, 0),
-    workersMax: finite(endpoint.workersMax, 0),
-    idleTimeout: finite(endpoint.idleTimeout, 5),
-    scalerType: text(endpoint.scalerType) || "QUEUE_DELAY",
-    scalerValue: finite(endpoint.scalerValue, 1),
-    flashboot: endpoint.flashboot === true || endpoint.flashBoot === true || text(endpoint.flashBootType).toUpperCase() === "FLASHBOOT",
-    minCudaVersion: text(endpoint.minCudaVersion) || "12.8",
-    allowedCudaVersions: stringList(endpoint.allowedCudaVersions),
-    dataCenterIds: stringList(endpoint.dataCenterIds),
-    executionTimeoutMs: finite(endpoint.executionTimeoutMs, 2_100_000),
-    networkVolumeIds: volumeIds(endpoint),
-  };
-}
-
-function assertTarget(restEndpoint, graphEndpoint, template, imageName) {
-  if (text(restEndpoint.id) !== ENDPOINT_ID || text(restEndpoint.name) !== ENDPOINT_NAME) throw new Error(`${CONTRACT}_VERIFY_IDENTITY`);
-  if (finite(restEndpoint.workersMin, -1) !== 0 || finite(restEndpoint.workersMax, -1) !== 1) throw new Error(`${CONTRACT}_VERIFY_SCALING`);
-  if (finite(restEndpoint.idleTimeout, -1) !== 5) throw new Error(`${CONTRACT}_VERIFY_IDLE_TIMEOUT`);
-  if (text(restEndpoint.scalerType) !== "QUEUE_DELAY" || finite(restEndpoint.scalerValue, -1) !== 1) throw new Error(`${CONTRACT}_VERIFY_SCALER`);
-  const flashboot = restEndpoint.flashboot === true || restEndpoint.flashBoot === true || text(restEndpoint.flashBootType).toUpperCase() === "FLASHBOOT";
-  if (!flashboot) throw new Error(`${CONTRACT}_VERIFY_FLASHBOOT`);
-  if (volumeIds(restEndpoint).length) throw new Error(`${CONTRACT}_VERIFY_NETWORK_VOLUME_STILL_ATTACHED:${volumeIds(restEndpoint).join(",")}`);
-  if (stringList(restEndpoint.dataCenterIds).length) throw new Error(`${CONTRACT}_VERIFY_DATACENTER_RESTRICTION`);
-  const gpuTypes = stringList(restEndpoint.gpuTypeIds);
-  if (JSON.stringify(gpuTypes) !== JSON.stringify(TARGET_GPU_TYPE_IDS)) throw new Error(`${CONTRACT}_VERIFY_GPU_POOL:${JSON.stringify(gpuTypes)}`);
-  if (modelRefs(graphEndpoint).length !== 1 || modelRefs(graphEndpoint)[0] !== MODEL_REFERENCE) throw new Error(`${CONTRACT}_VERIFY_MODEL_REFERENCE:${JSON.stringify(modelRefs(graphEndpoint))}`);
-  if (text(template.imageName) !== imageName) throw new Error(`${CONTRACT}_VERIFY_TEMPLATE_IMAGE`);
 }
 
 const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const queueKey = required("RUNPOD_INFERENCE_KEY");
 const hfToken = required("HF_TOKEN");
-const imageName = required("AVANTIQO_VIDEO_SERVERLESS_IMAGE");
-if (!/^ghcr\.io\/churchillkaron\/avantiqo-video-ltx25-native-master-serverless@sha256:[0-9a-f]{64}$/i.test(imageName)) {
+const image = required("AVANTIQO_VIDEO_SERVERLESS_IMAGE");
+if (!/^ghcr\.io\/churchillkaron\/avantiqo-video-ltx25-native-master-serverless@sha256:[0-9a-f]{64}$/i.test(image)) {
   throw new Error(`${CONTRACT}_IMMUTABLE_IMAGE_INVALID`);
 }
 if (text(process.env.AVANTIQO_VIDEO_CACHED_MODEL_MIGRATION_APPROVED).toUpperCase() !== "YES") {
-  throw new Error("AVANTIQO_VIDEO_CACHED_MODEL_MIGRATION_APPROVED=YES_REQUIRED");
+  throw new Error(`${CONTRACT}_APPROVAL_REQUIRED`);
 }
 
-console.log("AVANTIQO_VIDEO_CACHED_MODEL_MIGRATION_GENERATION_SUBMITTED=false");
-console.log("AVANTIQO_VIDEO_CACHED_MODEL_MIGRATION_PRODUCTION_WEB_DEPLOY=false");
+console.log("AVANTIQO_VIDEO_MIGRATION_GENERATION_SUBMITTED=false");
+console.log("AVANTIQO_VIDEO_MIGRATION_INFERENCE_PERFORMED=false");
+console.log("AVANTIQO_VIDEO_MIGRATION_PRODUCTION_WEB_DEPLOY=false");
 
-const [initialRest, initialHealth, endpointRowsRaw, templateRowsRaw, initialGraph] = await Promise.all([
+const [initialRest, initialHealth, initialGraph, templatesRaw, endpointsRaw] = await Promise.all([
   rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey),
-  queueHealth(ENDPOINT_ID, queueKey),
-  rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
+  queueHealth(queueKey),
+  graphEndpoint(managementKey),
   rest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false", managementKey),
-  graphqlEndpoint(managementKey),
+  rest("/endpoints?includeTemplate=true&includeWorkers=true", managementKey),
 ]);
 
-if (text(initialRest.id) !== ENDPOINT_ID || text(initialRest.name) !== ENDPOINT_NAME) throw new Error(`${CONTRACT}_INITIAL_IDENTITY_MISMATCH`);
+if (text(initialRest.id) !== ENDPOINT_ID || text(initialRest.name) !== ENDPOINT_NAME) throw new Error(`${CONTRACT}_INITIAL_IDENTITY`);
 assertDrained(initialRest, initialHealth, `${CONTRACT}_INITIAL`);
-if (finite(initialRest.workersMin, -1) !== 0) throw new Error(`${CONTRACT}_INITIAL_WORKERS_MIN_NOT_ZERO`);
+if (finite(initialRest.workersMin, -1) !== 0) throw new Error(`${CONTRACT}_INITIAL_WORKERS_MIN`);
 
-const templateId = text(initialRest.templateId || initialRest.template?.id);
-if (!templateId || templateId !== text(initialGraph.templateId)) throw new Error(`${CONTRACT}_TEMPLATE_ID_MISMATCH`);
-const endpointRows = normalizeListResponse(endpointRowsRaw, ["endpoints", "serverlessEndpoints"]);
-const templateRows = normalizeListResponse(templateRowsRaw, ["templates"]);
+const oldTemplateId = text(initialRest.templateId || initialRest.template?.id);
+if (!oldTemplateId || oldTemplateId !== text(initialGraph.templateId)) throw new Error(`${CONTRACT}_OLD_TEMPLATE_ID_MISMATCH`);
+const oldTemplate = await rest(`/templates/${oldTemplateId}`, managementKey);
+const endpointRows = normalizeList(endpointsRaw, ["endpoints", "serverlessEndpoints"]);
+const templateRows = normalizeList(templatesRaw, ["templates"]);
 if (!endpointRows || !templateRows) throw new Error(`${CONTRACT}_LIST_RESPONSE_INVALID`);
-const consumers = endpointRows.filter((row) => text(row?.templateId || row?.template?.id) === templateId);
-if (consumers.length !== 1 || text(consumers[0]?.id) !== ENDPOINT_ID) throw new Error(`${CONTRACT}_SHARED_TEMPLATE_BLOCKED:${consumers.length}`);
-const templateMatches = templateRows.filter((row) => text(row?.id) === templateId);
-if (templateMatches.length !== 1) throw new Error(`${CONTRACT}_TEMPLATE_RESOLUTION_FAILED:${templateMatches.length}`);
-const initialTemplate = await rest(`/templates/${templateId}`, managementKey);
-const originalTemplate = originalTemplateBody(initialTemplate);
-const originalRest = originalRestPolicy(initialRest);
-const originalGraphInput = graphqlSaveInput(initialGraph, {
-  clearVolumes: false,
-  modelReferences: modelRefs(initialGraph),
-  workersMax: finite(initialGraph.workersMax, 0),
-  idleTimeout: finite(initialGraph.idleTimeout, 5),
-  scalerType: text(initialGraph.scalerType) || "QUEUE_DELAY",
-  scalerValue: finite(initialGraph.scalerValue, 1),
-});
+const oldConsumers = endpointRows.filter((e) => text(e?.templateId || e?.template?.id) === oldTemplateId);
+if (oldConsumers.length !== 1 || text(oldConsumers[0]?.id) !== ENDPOINT_ID) throw new Error(`${CONTRACT}_OLD_TEMPLATE_SHARED:${oldConsumers.length}`);
 
-let templateChanged = false;
-let graphChanged = false;
-let restChanged = false;
+const existingCanonical = templateRows.filter((t) => text(t?.name) === NEW_TEMPLATE_NAME && text(t?.id) !== oldTemplateId);
+for (const stale of existingCanonical) {
+  const staleId = text(stale?.id);
+  const consumers = endpointRows.filter((e) => text(e?.templateId || e?.template?.id) === staleId);
+  if (consumers.length) throw new Error(`${CONTRACT}_CANONICAL_TEMPLATE_ALREADY_BOUND:${staleId}`);
+  await rest(`/templates/${staleId}`, managementKey, { method: "DELETE" });
+  console.log("AVANTIQO_VIDEO_STALE_UNBOUND_TEMPLATE_REMOVED=true");
+}
+
+let newTemplateId = "";
+let endpointSwapped = false;
+let modelAttached = false;
 try {
-  const updatedTemplate = await rest(`/templates/${templateId}/update`, managementKey, {
+  const created = await rest("/templates", managementKey, {
     method: "POST",
-    body: templateUpdateBody(initialTemplate, imageName, hfToken),
+    body: createTemplateBody(oldTemplate, image, hfToken),
   });
-  templateChanged = true;
-  const updatedImage = text(updatedTemplate?.imageName || (await rest(`/templates/${templateId}`, managementKey)).imageName);
-  if (updatedImage !== imageName) throw new Error(`${CONTRACT}_TEMPLATE_IMAGE_UPDATE_NOT_VISIBLE`);
-  console.log("AVANTIQO_VIDEO_CACHED_MODEL_TEMPLATE_IMAGE=PASS");
+  newTemplateId = text(created?.id || created?.template?.id || created?.data?.id);
+  if (!newTemplateId || newTemplateId === oldTemplateId) throw new Error(`${CONTRACT}_NEW_TEMPLATE_ID_INVALID`);
+  console.log("AVANTIQO_VIDEO_NEW_CANONICAL_TEMPLATE_CREATED=true");
 
-  const graphInput = graphqlSaveInput(initialGraph, {
-    clearVolumes: true,
+  await swapTemplate(managementKey, newTemplateId);
+  endpointSwapped = true;
+  await sleep(750);
+
+  const swappedRest = await rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey);
+  if (text(swappedRest.templateId || swappedRest.template?.id) !== newTemplateId) throw new Error(`${CONTRACT}_SWAP_NOT_VISIBLE`);
+  const endpointEnv = normalizeEnv(swappedRest.env);
+  const templateEnv = normalizeEnv(swappedRest.template?.env);
+  const visibleToken = endpointEnv.HF_TOKEN || templateEnv.HF_TOKEN || "";
+  if (!visibleToken || visibleToken !== hfToken) throw new Error(`${CONTRACT}_HF_TOKEN_NOT_VISIBLE_ON_BOUND_ENDPOINT`);
+  console.log("AVANTIQO_VIDEO_BOUND_ENDPOINT_HF_TOKEN_VISIBLE=true");
+
+  const graphAfterSwap = await graphEndpoint(managementKey);
+  if (text(graphAfterSwap.templateId) !== newTemplateId) throw new Error(`${CONTRACT}_GRAPH_SWAP_NOT_VISIBLE`);
+  const targetSave = saveInput(graphAfterSwap, {
+    templateId: newTemplateId,
     modelReferences: [MODEL_REFERENCE],
+    clearVolumes: true,
     workersMax: 1,
-    idleTimeout: 5,
-    scalerType: "QUEUE_DELAY",
-    scalerValue: 1,
   });
-  await saveEndpoint(managementKey, graphInput);
-  graphChanged = true;
-  console.log("AVANTIQO_VIDEO_CACHED_MODEL_REFERENCE_BIND=PASS");
+  await saveEndpoint(managementKey, targetSave);
+  modelAttached = true;
+  console.log("AVANTIQO_VIDEO_GATED_CACHED_MODEL_ATTACHED=true");
 
-  await rest(`/endpoints/${ENDPOINT_ID}`, managementKey, {
-    method: "PATCH",
-    body: restPolicy({ workersMax: 1, networkVolumeIds: [] }),
-  });
-  restChanged = true;
-  console.log("AVANTIQO_VIDEO_CACHED_MODEL_GLOBAL_POOL_BIND=PASS");
+  await rest(`/endpoints/${ENDPOINT_ID}`, managementKey, { method: "PATCH", body: restTargetPolicy() });
 
   const [verifiedRest, verifiedHealth, verifiedGraph, verifiedTemplate] = await Promise.all([
     rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey),
-    queueHealth(ENDPOINT_ID, queueKey),
-    graphqlEndpoint(managementKey),
-    rest(`/templates/${templateId}`, managementKey),
+    queueHealth(queueKey),
+    graphEndpoint(managementKey),
+    rest(`/templates/${newTemplateId}`, managementKey),
   ]);
   assertDrained(verifiedRest, verifiedHealth, `${CONTRACT}_VERIFIED`);
-  assertTarget(verifiedRest, verifiedGraph, verifiedTemplate, imageName);
+  if (finite(verifiedRest.workersMin, -1) !== 0 || finite(verifiedRest.workersMax, -1) !== 1) throw new Error(`${CONTRACT}_VERIFY_SCALING`);
+  if (finite(verifiedRest.idleTimeout, -1) !== 5) throw new Error(`${CONTRACT}_VERIFY_IDLE_TIMEOUT`);
+  if (text(verifiedRest.scalerType) !== "REQUEST_COUNT" || finite(verifiedRest.scalerValue, -1) !== 1) throw new Error(`${CONTRACT}_VERIFY_SCALER`);
+  if (volumeIds(verifiedRest).length) throw new Error(`${CONTRACT}_VERIFY_VOLUME_ATTACHED`);
+  if (stringList(verifiedRest.dataCenterIds).length) throw new Error(`${CONTRACT}_VERIFY_DC_RESTRICTION`);
+  if (JSON.stringify(stringList(verifiedRest.gpuTypeIds)) !== JSON.stringify(TARGET_GPU_TYPE_IDS)) throw new Error(`${CONTRACT}_VERIFY_GPU_POOL`);
+  if (modelRefs(verifiedGraph).length !== 1 || modelRefs(verifiedGraph)[0] !== MODEL_REFERENCE) throw new Error(`${CONTRACT}_VERIFY_MODEL_REFERENCE`);
+  if (text(verifiedTemplate.imageName) !== image) throw new Error(`${CONTRACT}_VERIFY_IMAGE`);
+  const verifiedEnv = normalizeEnv(verifiedRest.env);
+  const verifiedTemplateEnv = normalizeEnv(verifiedTemplate.env);
+  if ((verifiedEnv.HF_TOKEN || verifiedTemplateEnv.HF_TOKEN || "") !== hfToken) throw new Error(`${CONTRACT}_VERIFY_HF_TOKEN`);
 
+  await rest(`/templates/${oldTemplateId}`, managementKey, { method: "DELETE" });
+  console.log("AVANTIQO_VIDEO_OLD_UNBOUND_TEMPLATE_REMOVED=true");
   console.log(JSON.stringify({
     success: true,
     contract: CONTRACT,
     endpoint_id: ENDPOINT_ID,
     endpoint_name: ENDPOINT_NAME,
+    template_id: newTemplateId,
     workers_min: 0,
     workers_max: 1,
     idle_timeout_seconds: 5,
-    scaler_type: "QUEUE_DELAY",
+    scaler_type: "REQUEST_COUNT",
     scaler_value: 1,
-    flashboot: true,
     model_reference: MODEL_REFERENCE,
     gpu_type_ids: TARGET_GPU_TYPE_IDS,
-    allowed_cuda_versions: TARGET_ALLOWED_CUDA_VERSIONS,
     network_volume_attached: false,
     datacenter_restriction: false,
     active_workers: 0,
-    queued_jobs: 0,
     generation_submitted: false,
     inference_performed: false,
     production_web_deploy: false,
   }, null, 2));
 } catch (error) {
   const rollbackErrors = [];
-  if (graphChanged || restChanged) {
-    try { await saveEndpoint(managementKey, originalGraphInput); } catch (rollbackError) { rollbackErrors.push(`graphql:${text(rollbackError?.message || rollbackError, 800)}`); }
-    try { await rest(`/endpoints/${ENDPOINT_ID}`, managementKey, { method: "PATCH", body: originalRest }); } catch (rollbackError) { rollbackErrors.push(`rest:${text(rollbackError?.message || rollbackError, 800)}`); }
+  if (endpointSwapped) {
+    try {
+      await swapTemplate(managementKey, oldTemplateId);
+      await sleep(500);
+      const restoredGraph = await graphEndpoint(managementKey);
+      const restoreInput = saveInput(restoredGraph, {
+        templateId: oldTemplateId,
+        modelReferences: modelRefs(initialGraph),
+        clearVolumes: false,
+        workersMax: finite(initialGraph.workersMax, 0),
+      });
+      restoreInput.idleTimeout = finite(initialGraph.idleTimeout, 5);
+      restoreInput.scalerType = text(initialGraph.scalerType) || "REQUEST_COUNT";
+      restoreInput.scalerValue = finite(initialGraph.scalerValue, 1);
+      restoreInput.executionTimeoutMs = finite(initialGraph.executionTimeoutMs, 2_100_000);
+      restoreInput.minCudaVersion = text(initialGraph.minCudaVersion) || "12.8";
+      await saveEndpoint(managementKey, restoreInput);
+    } catch (rollbackError) {
+      rollbackErrors.push(`endpoint:${text(rollbackError?.message || rollbackError, 800)}`);
+    }
   }
-  if (templateChanged) {
-    try { await rest(`/templates/${templateId}/update`, managementKey, { method: "POST", body: originalTemplate }); } catch (rollbackError) { rollbackErrors.push(`template:${text(rollbackError?.message || rollbackError, 800)}`); }
+  if (newTemplateId) {
+    try {
+      const current = await rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true`, managementKey);
+      if (text(current.templateId || current.template?.id) !== newTemplateId) {
+        await rest(`/templates/${newTemplateId}`, managementKey, { method: "DELETE" });
+      }
+    } catch (rollbackError) {
+      rollbackErrors.push(`template:${text(rollbackError?.message || rollbackError, 800)}`);
+    }
   }
   console.error(JSON.stringify({
     success: false,
     contract: CONTRACT,
-    error: text(error?.message || error, 1600),
-    rollback_attempted: templateChanged || graphChanged || restChanged,
+    error: text(error?.message || error, 1800),
+    rollback_attempted: endpointSwapped || Boolean(newTemplateId),
     rollback_errors: rollbackErrors,
+    model_attached_before_failure: modelAttached,
     generation_submitted: false,
     inference_performed: false,
     production_web_deploy: false,

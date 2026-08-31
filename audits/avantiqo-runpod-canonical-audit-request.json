@@ -1,0 +1,5 @@
+{
+  "contract": "AVANTIQO_RUNPOD_CANONICAL_AUDIT_REQUEST_V1",
+  "requested": true,
+  "reason": "consolidate to one canonical endpoint per engine and remove unnecessary storage"
+}

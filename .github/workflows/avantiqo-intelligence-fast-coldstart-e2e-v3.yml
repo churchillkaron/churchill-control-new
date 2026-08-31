@@ -1,0 +1,62 @@
+name: Avantiqo Intelligence Fast Cold Start E2E V3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-fast-coldstart-e2e-v3.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-fast-coldstart-e2e-v3
+  cancel-in-progress: false
+
+jobs:
+  prove-fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      NODE_ENV: production
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_FAST_TIMEOUT_MS: "360000"
+      AVANTIQO_INTELLIGENCE_FAST_UNSCHEDULED_TIMEOUT_MS: "30000"
+      AVANTIQO_INTELLIGENCE_REQUEST_LEASE_ACQUIRE_WAIT_MS: "120000"
+      AVANTIQO_INTELLIGENCE_FAST_COLD_START_RETRY_DEADLINE_MS: "90000"
+      AVANTIQO_INTELLIGENCE_FAST_COLD_START_RETRY_DELAY_MS: "10000"
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Static Fast cold-start gate
+        run: |
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+          node --check scripts/run-avantiqo-intelligence-fast-service-e2e-proof-local.mjs
+          grep -q 'waitForGlobalOpenPropagation' lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          grep -q 'retryableFastColdStartHttpError' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+      - name: Run one real governed Fast customer request
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || secrets.RUNPOD_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/run-avantiqo-intelligence-fast-service-e2e-proof-local.mjs
+      - name: Immutable boundary
+        if: always()
+        run: |
+          echo "EXTERNAL_AI_FALLBACK_USED=false"
+          echo "NEW_NETWORK_VOLUME_CREATED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

@@ -1,0 +1,46 @@
+name: Avantiqo Code AP-JP-1 H200 Cache Bootstrap
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/bootstrap-avantiqo-code-cache-ap-jp1-h200-ci.mjs
+      - .github/workflows/avantiqo-code-ap-jp1-h200-cache-bootstrap.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Syntax check
+        run: node --check scripts/bootstrap-avantiqo-code-cache-ap-jp1-h200-ci.mjs
+      - name: Bootstrap AP-JP-1 cache on H200
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_CODE_AP_JP1_H200_CACHE_BOOTSTRAP_APPROVED: YES
+        run: |
+          set -euo pipefail
+          node scripts/bootstrap-avantiqo-code-cache-ap-jp1-h200-ci.mjs 2>&1 | tee /tmp/avantiqo-code-ap-jp1-h200-cache-bootstrap.log
+          grep -F 'AVANTIQO_CODE_AP_JP1_H200_CACHE_BOOTSTRAP_V1=PASS' /tmp/avantiqo-code-ap-jp1-h200-cache-bootstrap.log
+          grep -F '"bootstrap_gpu_pod_deleted": true' /tmp/avantiqo-code-ap-jp1-h200-cache-bootstrap.log
+          grep -F '"inference_performed": false' /tmp/avantiqo-code-ap-jp1-h200-cache-bootstrap.log
+          grep -F '"production_deploy_performed": false' /tmp/avantiqo-code-ap-jp1-h200-cache-bootstrap.log
+      - name: Upload proof log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-ap-jp1-h200-cache-bootstrap-${{ github.run_id }}
+          path: /tmp/avantiqo-code-ap-jp1-h200-cache-bootstrap.log
+          if-no-files-found: warn
+          retention-days: 14

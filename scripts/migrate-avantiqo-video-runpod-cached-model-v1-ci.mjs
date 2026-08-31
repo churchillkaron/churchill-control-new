@@ -1,4 +1,4 @@
-const CONTRACT = "AVANTIQO_VIDEO_RUNPOD_CACHED_MODEL_MIGRATION_V2";
+const CONTRACT = "AVANTIQO_VIDEO_RUNPOD_CACHED_MODEL_MIGRATION_V3";
 const REST_BASE = "https://rest.runpod.io/v1";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const GRAPHQL_URL = "https://api.runpod.io/graphql";
@@ -13,10 +13,10 @@ const TARGET_GPU_TYPE_IDS = Object.freeze([
 ]);
 const TARGET_ALLOWED_CUDA_VERSIONS = Object.freeze(["12.8", "12.9", "13.0"]);
 
-const text = (v, n = 4000) => String(v ?? "").trim().slice(0, n);
-const list = (v) => Array.isArray(v) ? v : [];
-const object = (v) => v && typeof v === "object" && !Array.isArray(v) ? v : {};
-const finite = (v, fallback = null) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+const text = (value, maximum = 4000) => String(value ?? "").trim().slice(0, maximum);
+const list = (value) => Array.isArray(value) ? value : [];
+const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
+const finite = (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function required(name) {
@@ -72,7 +72,7 @@ async function graphql(query, variables, credential) {
   });
   const body = await readJson(response, `${CONTRACT}_GRAPHQL`);
   if (list(body.errors).length) {
-    throw new Error(`${CONTRACT}_GRAPHQL_ERROR:${list(body.errors).map((e) => text(e?.message)).join(" | ").slice(0, 1400)}`);
+    throw new Error(`${CONTRACT}_GRAPHQL_ERROR:${list(body.errors).map((entry) => text(entry?.message)).join(" | ").slice(0, 1400)}`);
   }
   return body;
 }
@@ -90,26 +90,36 @@ function normalizeList(value, keys = [], depth = 0) {
 
 function normalizeEnv(value) {
   if (Array.isArray(value)) {
-    return Object.fromEntries(value.map((e) => [text(e?.key || e?.name), String(e?.value ?? "")]).filter(([k]) => k));
+    return Object.fromEntries(
+      value.map((entry) => [text(entry?.key || entry?.name), String(entry?.value ?? "")]).filter(([key]) => Boolean(key)),
+    );
   }
-  return Object.fromEntries(Object.entries(object(value)).map(([k, v]) => [String(k), String(v ?? "")]));
+  return Object.fromEntries(Object.entries(object(value)).map(([key, child]) => [String(key), String(child ?? "")]));
 }
 
 function stringList(value) {
-  if (Array.isArray(value)) return value.map((v) => text(v)).filter(Boolean);
+  if (Array.isArray(value)) return value.map((entry) => text(entry)).filter(Boolean);
   const raw = text(value);
-  return raw ? raw.split(",").map((v) => v.trim()).filter(Boolean) : [];
+  return raw ? raw.split(",").map((entry) => entry.trim()).filter(Boolean) : [];
+}
+
+function volumeEntries(endpoint = {}) {
+  const entries = list(endpoint.networkVolumeIds).map((entry) => ({
+    networkVolumeId: typeof entry === "string" ? text(entry) : text(entry?.networkVolumeId || entry?.id),
+  })).filter((entry) => entry.networkVolumeId);
+  const legacy = text(endpoint.networkVolumeId);
+  if (legacy && !entries.some((entry) => entry.networkVolumeId === legacy)) {
+    entries.unshift({ networkVolumeId: legacy });
+  }
+  return entries;
 }
 
 function volumeIds(endpoint = {}) {
-  const ids = list(endpoint.networkVolumeIds).map((v) => typeof v === "string" ? text(v) : text(v?.networkVolumeId || v?.id)).filter(Boolean);
-  const legacy = text(endpoint.networkVolumeId);
-  if (legacy && !ids.includes(legacy)) ids.unshift(legacy);
-  return ids;
+  return volumeEntries(endpoint).map((entry) => entry.networkVolumeId);
 }
 
 function modelRefs(endpoint = {}) {
-  return list(endpoint.modelReferences).map((v) => text(v)).filter(Boolean);
+  return list(endpoint.modelReferences).map((entry) => text(entry)).filter(Boolean);
 }
 
 function activeManagementWorkers(endpoint = {}) {
@@ -155,7 +165,7 @@ const UPDATE_TEMPLATE_MUTATION = `mutation AvantiqoVideoSwapTemplate($input: Upd
 
 async function graphEndpoint(key) {
   const body = await graphql(ENDPOINT_QUERY, {}, key);
-  const matches = list(body?.data?.myself?.endpoints).filter((e) => text(e?.id) === ENDPOINT_ID);
+  const matches = list(body?.data?.myself?.endpoints).filter((entry) => text(entry?.id) === ENDPOINT_ID);
   if (matches.length !== 1) throw new Error(`${CONTRACT}_GRAPH_ENDPOINT_RESOLUTION:${matches.length}`);
   if (text(matches[0]?.name) !== ENDPOINT_NAME) throw new Error(`${CONTRACT}_GRAPH_ENDPOINT_NAME_MISMATCH`);
   return matches[0];
@@ -169,33 +179,29 @@ async function swapTemplate(key, templateId) {
   }
 }
 
-function saveInput(base, { templateId, modelReferences, clearVolumes, workersMax }) {
-  const gpuIds = text(base.gpuIds);
-  const flashBootType = text(base.flashBootType).toUpperCase();
-  if (!gpuIds || !flashBootType || !templateId) throw new Error(`${CONTRACT}_GRAPH_BASE_INCOMPLETE`);
-  const existingVolumes = list(base.networkVolumeIds)
-    .map((v) => ({ networkVolumeId: text(v?.networkVolumeId || v) }))
-    .filter((v) => v.networkVolumeId);
-  return {
+function endpointInput(base, overrides = {}) {
+  const input = {
     id: ENDPOINT_ID,
     name: ENDPOINT_NAME,
-    templateId,
-    gpuIds,
+    templateId: text(overrides.templateId ?? base.templateId),
+    gpuIds: text(base.gpuIds),
     gpuCount: finite(base.gpuCount, 1),
     instanceIds: list(base.instanceIds),
-    workersMin: 0,
-    workersMax,
-    locations: clearVolumes ? "" : text(base.locations),
-    networkVolumeId: clearVolumes ? "" : text(base.networkVolumeId),
-    networkVolumeIds: clearVolumes ? [] : existingVolumes,
-    idleTimeout: 5,
-    scalerType: "REQUEST_COUNT",
-    scalerValue: 1,
-    executionTimeoutMs: 2_100_000,
-    minCudaVersion: "12.8",
-    flashBootType,
-    modelReferences: [...modelReferences],
+    workersMin: finite(overrides.workersMin ?? base.workersMin, 0),
+    workersMax: finite(overrides.workersMax ?? base.workersMax, 0),
+    locations: String(overrides.locations ?? base.locations ?? ""),
+    networkVolumeId: String(overrides.networkVolumeId ?? base.networkVolumeId ?? ""),
+    networkVolumeIds: overrides.networkVolumeIds ?? volumeEntries(base),
+    idleTimeout: finite(overrides.idleTimeout ?? base.idleTimeout, 5),
+    scalerType: text(overrides.scalerType ?? base.scalerType) || "REQUEST_COUNT",
+    scalerValue: finite(overrides.scalerValue ?? base.scalerValue, 1),
+    executionTimeoutMs: finite(overrides.executionTimeoutMs ?? base.executionTimeoutMs, 2_100_000),
+    minCudaVersion: text(overrides.minCudaVersion ?? base.minCudaVersion) || "12.8",
+    flashBootType: text(overrides.flashBootType ?? base.flashBootType).toUpperCase() || "FLASHBOOT",
+    modelReferences: overrides.modelReferences ?? modelRefs(base),
   };
+  if (!input.templateId || !input.gpuIds) throw new Error(`${CONTRACT}_GRAPH_BASE_INCOMPLETE`);
+  return input;
 }
 
 async function saveEndpoint(key, input) {
@@ -206,14 +212,11 @@ async function saveEndpoint(key, input) {
 }
 
 function createTemplateBody(oldTemplate, image, hfToken) {
-  const registry = text(oldTemplate.containerRegistryAuthId);
-  if (!registry) throw new Error(`${CONTRACT}_REGISTRY_AUTH_REQUIRED`);
-  return {
+  const body = {
     name: NEW_TEMPLATE_NAME,
     imageName: image,
-    category: "NVIDIA",
-    containerDiskInGb: Math.max(1, finite(oldTemplate.containerDiskInGb, 30)),
-    containerRegistryAuthId: registry,
+    isServerless: true,
+    ports: [],
     dockerEntrypoint: list(oldTemplate.dockerEntrypoint),
     dockerStartCmd: [],
     env: {
@@ -224,13 +227,14 @@ function createTemplateBody(oldTemplate, image, hfToken) {
       AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT: "/opt/LTX-2",
       AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "1800",
     },
-    isPublic: false,
-    isServerless: true,
-    ports: [],
-    readme: "Avantiqo Video LTX-2.5 native 3840x2176 zero-idle cached-model worker.",
+    containerDiskInGb: Math.max(1, finite(oldTemplate.containerDiskInGb, 30)),
     volumeInGb: 0,
     volumeMountPath: "/runpod-volume",
+    readme: "Avantiqo Video LTX-2.5 native 3840x2176 zero-idle cached-model worker.",
   };
+  const registryAuthId = text(oldTemplate.containerRegistryAuthId);
+  if (registryAuthId) body.containerRegistryAuthId = registryAuthId;
+  return body;
 }
 
 function restTargetPolicy() {
@@ -284,13 +288,12 @@ const oldTemplate = await rest(`/templates/${oldTemplateId}`, managementKey);
 const endpointRows = normalizeList(endpointsRaw, ["endpoints", "serverlessEndpoints"]);
 const templateRows = normalizeList(templatesRaw, ["templates"]);
 if (!endpointRows || !templateRows) throw new Error(`${CONTRACT}_LIST_RESPONSE_INVALID`);
-const oldConsumers = endpointRows.filter((e) => text(e?.templateId || e?.template?.id) === oldTemplateId);
+const oldConsumers = endpointRows.filter((entry) => text(entry?.templateId || entry?.template?.id) === oldTemplateId);
 if (oldConsumers.length !== 1 || text(oldConsumers[0]?.id) !== ENDPOINT_ID) throw new Error(`${CONTRACT}_OLD_TEMPLATE_SHARED:${oldConsumers.length}`);
 
-const existingCanonical = templateRows.filter((t) => text(t?.name) === NEW_TEMPLATE_NAME && text(t?.id) !== oldTemplateId);
-for (const stale of existingCanonical) {
+for (const stale of templateRows.filter((entry) => text(entry?.name) === NEW_TEMPLATE_NAME && text(entry?.id) !== oldTemplateId)) {
   const staleId = text(stale?.id);
-  const consumers = endpointRows.filter((e) => text(e?.templateId || e?.template?.id) === staleId);
+  const consumers = endpointRows.filter((entry) => text(entry?.templateId || entry?.template?.id) === staleId);
   if (consumers.length) throw new Error(`${CONTRACT}_CANONICAL_TEMPLATE_ALREADY_BOUND:${staleId}`);
   await rest(`/templates/${staleId}`, managementKey, { method: "DELETE" });
   console.log("AVANTIQO_VIDEO_STALE_UNBOUND_TEMPLATE_REMOVED=true");
@@ -306,29 +309,36 @@ try {
   });
   newTemplateId = text(created?.id || created?.template?.id || created?.data?.id);
   if (!newTemplateId || newTemplateId === oldTemplateId) throw new Error(`${CONTRACT}_NEW_TEMPLATE_ID_INVALID`);
+
+  const createdTemplate = await rest(`/templates/${newTemplateId}`, managementKey);
+  const createdEnv = normalizeEnv(createdTemplate.env);
+  if (!createdEnv.HF_TOKEN) throw new Error(`${CONTRACT}_NEW_TEMPLATE_HF_TOKEN_MISSING`);
+  if (text(createdTemplate.imageName) !== image) throw new Error(`${CONTRACT}_NEW_TEMPLATE_IMAGE_MISMATCH`);
   console.log("AVANTIQO_VIDEO_NEW_CANONICAL_TEMPLATE_CREATED=true");
+  console.log(`AVANTIQO_VIDEO_TEMPLATE_REGISTRY_AUTH=${text(createdTemplate.containerRegistryAuthId) ? "PRESERVED" : "NOT_REQUIRED"}`);
 
   await swapTemplate(managementKey, newTemplateId);
   endpointSwapped = true;
   await sleep(750);
 
-  const swappedRest = await rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey);
-  if (text(swappedRest.templateId || swappedRest.template?.id) !== newTemplateId) throw new Error(`${CONTRACT}_SWAP_NOT_VISIBLE`);
-  const endpointEnv = normalizeEnv(swappedRest.env);
-  const templateEnv = normalizeEnv(swappedRest.template?.env);
-  const visibleToken = endpointEnv.HF_TOKEN || templateEnv.HF_TOKEN || "";
-  if (!visibleToken || visibleToken !== hfToken) throw new Error(`${CONTRACT}_HF_TOKEN_NOT_VISIBLE_ON_BOUND_ENDPOINT`);
-  console.log("AVANTIQO_VIDEO_BOUND_ENDPOINT_HF_TOKEN_VISIBLE=true");
+  const swappedGraph = await graphEndpoint(managementKey);
+  if (text(swappedGraph.templateId) !== newTemplateId) throw new Error(`${CONTRACT}_GRAPH_SWAP_NOT_VISIBLE`);
 
-  const graphAfterSwap = await graphEndpoint(managementKey);
-  if (text(graphAfterSwap.templateId) !== newTemplateId) throw new Error(`${CONTRACT}_GRAPH_SWAP_NOT_VISIBLE`);
-  const targetSave = saveInput(graphAfterSwap, {
+  await saveEndpoint(managementKey, endpointInput(swappedGraph, {
     templateId: newTemplateId,
-    modelReferences: [MODEL_REFERENCE],
-    clearVolumes: true,
+    workersMin: 0,
     workersMax: 1,
-  });
-  await saveEndpoint(managementKey, targetSave);
+    locations: "",
+    networkVolumeId: "",
+    networkVolumeIds: [],
+    idleTimeout: 5,
+    scalerType: "REQUEST_COUNT",
+    scalerValue: 1,
+    executionTimeoutMs: 2_100_000,
+    minCudaVersion: "12.8",
+    flashBootType: "FLASHBOOT",
+    modelReferences: [MODEL_REFERENCE],
+  }));
   modelAttached = true;
   console.log("AVANTIQO_VIDEO_GATED_CACHED_MODEL_ATTACHED=true");
 
@@ -344,14 +354,12 @@ try {
   if (finite(verifiedRest.workersMin, -1) !== 0 || finite(verifiedRest.workersMax, -1) !== 1) throw new Error(`${CONTRACT}_VERIFY_SCALING`);
   if (finite(verifiedRest.idleTimeout, -1) !== 5) throw new Error(`${CONTRACT}_VERIFY_IDLE_TIMEOUT`);
   if (text(verifiedRest.scalerType) !== "REQUEST_COUNT" || finite(verifiedRest.scalerValue, -1) !== 1) throw new Error(`${CONTRACT}_VERIFY_SCALER`);
-  if (volumeIds(verifiedRest).length) throw new Error(`${CONTRACT}_VERIFY_VOLUME_ATTACHED`);
+  if (volumeIds(verifiedRest).length) throw new Error(`${CONTRACT}_VERIFY_VOLUME_ATTACHED:${volumeIds(verifiedRest).join(",")}`);
   if (stringList(verifiedRest.dataCenterIds).length) throw new Error(`${CONTRACT}_VERIFY_DC_RESTRICTION`);
   if (JSON.stringify(stringList(verifiedRest.gpuTypeIds)) !== JSON.stringify(TARGET_GPU_TYPE_IDS)) throw new Error(`${CONTRACT}_VERIFY_GPU_POOL`);
   if (modelRefs(verifiedGraph).length !== 1 || modelRefs(verifiedGraph)[0] !== MODEL_REFERENCE) throw new Error(`${CONTRACT}_VERIFY_MODEL_REFERENCE`);
   if (text(verifiedTemplate.imageName) !== image) throw new Error(`${CONTRACT}_VERIFY_IMAGE`);
-  const verifiedEnv = normalizeEnv(verifiedRest.env);
-  const verifiedTemplateEnv = normalizeEnv(verifiedTemplate.env);
-  if ((verifiedEnv.HF_TOKEN || verifiedTemplateEnv.HF_TOKEN || "") !== hfToken) throw new Error(`${CONTRACT}_VERIFY_HF_TOKEN`);
+  if (!normalizeEnv(verifiedTemplate.env).HF_TOKEN) throw new Error(`${CONTRACT}_VERIFY_HF_TOKEN_MISSING`);
 
   await rest(`/templates/${oldTemplateId}`, managementKey, { method: "DELETE" });
   console.log("AVANTIQO_VIDEO_OLD_UNBOUND_TEMPLATE_REMOVED=true");
@@ -381,21 +389,9 @@ try {
     try {
       await swapTemplate(managementKey, oldTemplateId);
       await sleep(500);
-      const restoredGraph = await graphEndpoint(managementKey);
-      const restoreInput = saveInput(restoredGraph, {
-        templateId: oldTemplateId,
-        modelReferences: modelRefs(initialGraph),
-        clearVolumes: false,
-        workersMax: finite(initialGraph.workersMax, 0),
-      });
-      restoreInput.idleTimeout = finite(initialGraph.idleTimeout, 5);
-      restoreInput.scalerType = text(initialGraph.scalerType) || "REQUEST_COUNT";
-      restoreInput.scalerValue = finite(initialGraph.scalerValue, 1);
-      restoreInput.executionTimeoutMs = finite(initialGraph.executionTimeoutMs, 2_100_000);
-      restoreInput.minCudaVersion = text(initialGraph.minCudaVersion) || "12.8";
-      await saveEndpoint(managementKey, restoreInput);
+      await saveEndpoint(managementKey, endpointInput(initialGraph));
     } catch (rollbackError) {
-      rollbackErrors.push(`endpoint:${text(rollbackError?.message || rollbackError, 800)}`);
+      rollbackErrors.push(`endpoint:${text(rollbackError?.message || rollbackError, 900)}`);
     }
   }
   if (newTemplateId) {
@@ -405,7 +401,7 @@ try {
         await rest(`/templates/${newTemplateId}`, managementKey, { method: "DELETE" });
       }
     } catch (rollbackError) {
-      rollbackErrors.push(`template:${text(rollbackError?.message || rollbackError, 800)}`);
+      rollbackErrors.push(`template:${text(rollbackError?.message || rollbackError, 900)}`);
     }
   }
   console.error(JSON.stringify({

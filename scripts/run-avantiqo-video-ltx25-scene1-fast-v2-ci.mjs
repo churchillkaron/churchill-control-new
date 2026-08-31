@@ -85,7 +85,6 @@ async function videoPodProductionSnapshot() {
 }
 `;
 source = source.replace(marker, marker + productionSnapshot);
-
 source = source.replaceAll("videoPodCandidateSnapshot()", "videoPodProductionSnapshot()");
 
 const preloadBlock = `    const preload = await runPreload(await videoPodProductionSnapshot());
@@ -107,27 +106,33 @@ if (!source.includes(preloadBlock)) throw new Error("AVANTIQO_VIDEO_FAST_V2_PREL
 source = source.replace(preloadBlock, cachedBlock);
 
 const originalPool = `const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA B200",\n  "NVIDIA RTX PRO 6000 Blackwell Server Edition",\n]);`;
-const highMemoryPool = `const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA B200",\n  "NVIDIA RTX PRO 6000 Blackwell Server Edition",\n  "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",\n  "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",\n  "NVIDIA A100 80GB PCIe",\n]);`;
+const highMemoryPool = `const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA B200",\n  "NVIDIA RTX PRO 6000 Blackwell Server Edition",\n  "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",\n  "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",\n]);`;
 if (!source.includes(originalPool)) throw new Error("AVANTIQO_VIDEO_FAST_V2_GPU_POOL_PATCH_TARGET_MISSING");
 source = source.replace(originalPool, highMemoryPool);
 
 source = source.replace(
   `AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "6300",`,
-  `AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "900",`,
+  `AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "180",`,
 );
-
 source = source.replace(
   `const receipt = await waitForJson(receiptPath, 110 * 60 * 1000, async () => {`,
-  `const receipt = await waitForJson(receiptPath, 18 * 60 * 1000, async () => {`,
+  `const receipt = await waitForJson(receiptPath, 4 * 60 * 1000, async () => {`,
 );
-
+source = source.replace(
+  `if (Number(output.width) !== 3840 || Number(output.height) !== 2176 || Number(output.fps) !== 24) {`,
+  `if (Number(output.width) !== 1920 || Number(output.height) !== 1088 || Number(output.fps) !== 24) {`,
+);
+source = source.replace(
+  `throw new Error(\`AVANTIQO_VIDEO_LTX25_SCENE1_NATIVE_OUTPUT_INVALID:\${output.width}x\${output.height}@\${output.fps}\`);`,
+  `throw new Error(\`AVANTIQO_VIDEO_LTX25_SCENE1_MASTER_OUTPUT_INVALID:\${output.width}x\${output.height}@\${output.fps}\`);`,
+);
 source = source.replace(
   `contract: "AVANTIQO_VIDEO_LTX25_SCENE1_DISTILLED_PROOF_V1",`,
-  `contract: "AVANTIQO_VIDEO_LTX25_SCENE1_FAST_V2_PROOF",`,
+  `contract: "AVANTIQO_VIDEO_LTX25_SCENE1_FAST_V3_PROOF",`,
 );
 
 await fs.writeFile(GENERATED, source, "utf8");
-console.log("AVANTIQO_VIDEO_LTX25_FAST_V2_SOURCE_PATCH=PASS");
+console.log("AVANTIQO_VIDEO_LTX25_FAST_V3_SOURCE_PATCH=PASS");
 try {
   await import(`${pathToFileURL(GENERATED).href}?v=${Date.now()}`);
 } finally {

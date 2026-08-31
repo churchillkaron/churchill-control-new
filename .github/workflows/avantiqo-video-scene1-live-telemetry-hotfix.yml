@@ -1,0 +1,496 @@
+name: Avantiqo Video Scene 1 Live Telemetry Hotfix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-scene1-live-telemetry-hotfix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-scene1-live-telemetry-hotfix
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install atomic live telemetry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          controller_path = Path('scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs')
+          worker_path = Path('scripts/avantiqo-video-ltx25-distilled-scene-worker.py')
+          controller = controller_path.read_text()
+          worker = worker_path.read_text()
+
+          def replace_once(source, old, new, label):
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one target, found {count}')
+              return source.replace(old, new, 1)
+
+          controller = replace_once(
+              controller,
+              '''async function signedUpload(storagePath) {
+            await removeStorage(storagePath).catch(() => null);
+            const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(storagePath, { upsert: false });
+            if (error) throw error;
+            if (!data?.signedUrl) throw new Error("AVANTIQO_VIDEO_SCENE1_SIGNED_UPLOAD_REQUIRED");
+            return { signed_url: data.signedUrl, storage_reference: storageRef(storagePath) };
+          }''',
+              '''async function signedUpload(storagePath, { upsert = false } = {}) {
+            await removeStorage(storagePath).catch(() => null);
+            const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(storagePath, { upsert });
+            if (error) throw error;
+            if (!data?.signedUrl) throw new Error("AVANTIQO_VIDEO_SCENE1_SIGNED_UPLOAD_REQUIRED");
+            return { signed_url: data.signedUrl, storage_reference: storageRef(storagePath) };
+          }''',
+              'controller signedUpload',
+          )
+
+          controller = replace_once(
+              controller,
+              '''  if (selected && selected !== gpuTypeId) {
+            await deleteAndConfirm(id);
+            throw new Error(`AVANTIQO_VIDEO_SCENE1_GPU_MISMATCH:${selected}`);
+          }
+          return { id, gpu_type_id: selected || gpuTypeId };''',
+              '''  if (selected && selected !== gpuTypeId) {
+            await deleteAndConfirm(id);
+            throw new Error(`AVANTIQO_VIDEO_SCENE1_GPU_MISMATCH:${selected}`);
+          }
+          console.log(`AVANTIQO_VIDEO_SCENE1_POD_CREATED=${id}:name=${name}:gpu=${selected || gpuTypeId}`);
+          return { id, gpu_type_id: selected || gpuTypeId };''',
+              'controller pod-created telemetry',
+          )
+
+          controller = replace_once(
+              controller,
+              '''  const outputPath = `${ORGANIZATION_ID}/generated/avantiqo-video/.ltx25-foundation/scene1-${RUN_ID}.mp4`;
+          const receiptPath = `${ORGANIZATION_ID}/generated/avantiqo-video/.ltx25-receipts/scene1-distilled-${RUN_ID}.json`;
+          const [outputUpload, receiptUpload, workerSource] = await Promise.all([
+            signedUpload(outputPath),
+            signedUpload(receiptPath),
+            fs.readFile(DISTILLED_WORKER_PATH, "utf8"),
+          ]);''',
+              '''  const outputPath = `${ORGANIZATION_ID}/generated/avantiqo-video/.ltx25-foundation/scene1-${RUN_ID}.mp4`;
+          const receiptPath = `${ORGANIZATION_ID}/generated/avantiqo-video/.ltx25-receipts/scene1-distilled-${RUN_ID}.json`;
+          const progressPath = `${ORGANIZATION_ID}/generated/avantiqo-video/.ltx25-progress/scene1-distilled-${RUN_ID}.json`;
+          const [outputUpload, receiptUpload, progressUpload, workerSource] = await Promise.all([
+            signedUpload(outputPath),
+            signedUpload(receiptPath),
+            signedUpload(progressPath, { upsert: true }),
+            fs.readFile(DISTILLED_WORKER_PATH, "utf8"),
+          ]);''',
+              'controller progress upload',
+          )
+
+          controller = replace_once(
+              controller,
+              '''        AVANTIQO_VIDEO_LTX25_RECEIPT_SIGNED_URL: receiptUpload.signed_url,
+                  AVANTIQO_VIDEO_LTX25_RECEIPT_STORAGE_REFERENCE: receiptUpload.storage_reference,
+                  AVANTIQO_VIDEO_LTX25_MODEL_ROOT: "/runpod-volume/ltx-2.5",''',
+              '''        AVANTIQO_VIDEO_LTX25_RECEIPT_SIGNED_URL: receiptUpload.signed_url,
+                  AVANTIQO_VIDEO_LTX25_RECEIPT_STORAGE_REFERENCE: receiptUpload.storage_reference,
+                  AVANTIQO_VIDEO_LTX25_PROGRESS_SIGNED_URL: progressUpload.signed_url,
+                  AVANTIQO_VIDEO_LTX25_PROGRESS_STORAGE_REFERENCE: progressUpload.storage_reference,
+                  AVANTIQO_VIDEO_LTX25_MODEL_ROOT: "/runpod-volume/ltx-2.5",''',
+              'controller progress env',
+          )
+
+          controller = replace_once(
+              controller,
+              '''    let lastRefresh = Date.now();
+              const receipt = await waitForJson(receiptPath, 110 * 60 * 1000, async () => {
+                if (Date.now() - lastRefresh >= 8 * 60 * 1000) {
+                  await refreshLease(lease.id, ownerRequestId);
+                  lastRefresh = Date.now();
+                }
+                const live = await getVideoPod(pod.id).catch(() => null);
+                if (live && podTerminal(live)) {
+                  const maybeReceipt = await readJson(receiptPath);
+                  if (!maybeReceipt) throw new Error("AVANTIQO_VIDEO_LTX25_SCENE1_POD_EXITED_WITHOUT_RECEIPT");
+                }
+              });''',
+              '''    let lastRefresh = Date.now();
+              let lastProgressSignature = "";
+              let lastPodStatus = "";
+              const receipt = await waitForJson(receiptPath, 110 * 60 * 1000, async () => {
+                if (Date.now() - lastRefresh >= 8 * 60 * 1000) {
+                  await refreshLease(lease.id, ownerRequestId);
+                  lastRefresh = Date.now();
+                }
+                const progress = await readJson(progressPath).catch(() => null);
+                if (progress) {
+                  const phase = text(progress.phase) || "unknown";
+                  const message = text(progress.last_message).slice(0, 260);
+                  const signature = `${phase}|${message}`;
+                  const gpu = object(progress.gpu);
+                  console.log(`AVANTIQO_VIDEO_SCENE1_PROGRESS_HEARTBEAT=phase=${phase}:elapsed=${Number(progress.elapsed_seconds || 0)}:gpu_util=${text(gpu.utilization_percent) || "na"}:gpu_mem=${text(gpu.memory_used_mib) || "na"}/${text(gpu.memory_total_mib) || "na"}`);
+                  if (signature !== lastProgressSignature) {
+                    console.log(`AVANTIQO_VIDEO_SCENE1_PROGRESS_PHASE=${phase}`);
+                    if (message) console.log(`AVANTIQO_VIDEO_SCENE1_PROGRESS_MESSAGE=${message}`);
+                    const tail = Array.isArray(progress.stdout_tail) ? progress.stdout_tail.slice(-4) : [];
+                    for (const line of tail) console.log(`AVANTIQO_VIDEO_SCENE1_PROGRESS_STDOUT=${text(line).slice(0, 500)}`);
+                    lastProgressSignature = signature;
+                  }
+                } else {
+                  console.log("AVANTIQO_VIDEO_SCENE1_PROGRESS_HEARTBEAT=awaiting-worker");
+                }
+                const live = await getVideoPod(pod.id).catch(() => null);
+                const podStatus = text(live?.status ?? live?.desiredStatus ?? live?.runtimeStatus ?? live?.podStatus).toUpperCase() || "UNKNOWN";
+                if (podStatus !== lastPodStatus) {
+                  console.log(`AVANTIQO_VIDEO_SCENE1_POD_STATUS=${podStatus}:pod=${pod.id}`);
+                  lastPodStatus = podStatus;
+                }
+                if (live && podTerminal(live)) {
+                  const maybeReceipt = await readJson(receiptPath);
+                  if (!maybeReceipt) throw new Error("AVANTIQO_VIDEO_LTX25_SCENE1_POD_EXITED_WITHOUT_RECEIPT");
+                }
+              });''',
+              'controller progress polling',
+          )
+
+          worker = replace_once(
+              worker,
+              '''import re
+          import subprocess
+          import tempfile
+          import time
+          from pathlib import Path''',
+              '''import re
+          import subprocess
+          import tempfile
+          import time
+          import queue
+          import threading
+          from pathlib import Path''',
+              'worker telemetry imports',
+          )
+
+          worker = replace_once(
+              worker,
+              '''def install_torch_compat(tmp: Path) -> Path:
+          ''',
+              '''def upload_json(signed_url: str, payload: dict[str, Any], *, upsert: bool) -> None:
+              response = requests.put(
+                  signed_url,
+                  data=json.dumps(payload, separators=(",", ":")).encode(),
+                  headers={
+                      "content-type": "application/json",
+                      "cache-control": "no-cache",
+                      "x-upsert": "true" if upsert else "false",
+                  },
+                  timeout=60,
+              )
+              response.raise_for_status()
+          
+          
+          def gpu_snapshot() -> dict[str, Any]:
+              try:
+                  completed = subprocess.run(
+                      [
+                          "nvidia-smi",
+                          "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+                          "--format=csv,noheader,nounits",
+                      ],
+                      stdout=subprocess.PIPE,
+                      stderr=subprocess.DEVNULL,
+                      text=True,
+                      timeout=4,
+                      check=False,
+                  )
+                  if completed.returncode != 0 or not completed.stdout.strip():
+                      return {}
+                  parts = [part.strip() for part in completed.stdout.splitlines()[0].split(",")]
+                  if len(parts) < 5:
+                      return {}
+                  return {
+                      "utilization_percent": parts[0],
+                      "memory_used_mib": parts[1],
+                      "memory_total_mib": parts[2],
+                      "temperature_c": parts[3],
+                      "power_w": parts[4],
+                  }
+              except Exception:
+                  return {}
+          
+          
+          def emit_progress(progress_url: str, progress_ref: str, state: dict[str, Any], *, force: bool = False) -> None:
+              current = time.time()
+              if not force and current - float(state.get("_last_progress_write") or 0) < 8:
+                  return
+              payload = {
+                  "contract": RUNTIME_CONTRACT,
+                  "status": "running",
+                  "phase": state.get("phase") or "worker_boot",
+                  "phase_started_at": state.get("phase_started_at"),
+                  "elapsed_seconds": round(current - float(state.get("started") or current), 3),
+                  "last_message": sanitize_detail(state.get("last_message")),
+                  "stdout_tail": list(state.get("stdout_tail") or [])[-25:],
+                  "progress": dict(state.get("progress") or {}),
+                  "gpu": gpu_snapshot(),
+                  "progress_storage_reference": progress_ref,
+                  "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              }
+              try:
+                  upload_json(progress_url, payload, upsert=True)
+                  state["_last_progress_write"] = current
+                  state.pop("telemetry_error", None)
+              except Exception as exc:
+                  state["telemetry_error"] = f"{exc.__class__.__name__}:{sanitize_detail(exc)}"
+          
+          
+          def set_phase(state: dict[str, Any], progress_url: str, progress_ref: str, phase: str, message: str = "") -> None:
+              state["phase"] = phase
+              state["phase_started_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+              if message:
+                  state["last_message"] = message
+              emit_progress(progress_url, progress_ref, state, force=True)
+          
+          
+          def infer_phase(line: str) -> str | None:
+              lower = line.lower()
+              if "stage 2" in lower or "second stage" in lower:
+                  return "stage_2"
+              if "stage 1" in lower or "first stage" in lower:
+                  return "stage_1"
+              if "upsampl" in lower or "spatial upscaler" in lower or "latent upscale" in lower:
+                  return "latent_upscale"
+              if "text encoder" in lower or "gemma" in lower:
+                  return "text_encoder_load"
+              if "loading" in lower and ("model" in lower or "transformer" in lower or "checkpoint" in lower):
+                  return "model_load"
+              if "decode" in lower or "video vae" in lower:
+                  return "vae_decode"
+              if "ffmpeg" in lower or "encoding" in lower or "saving video" in lower or "write video" in lower:
+                  return "encode"
+              return None
+          
+          
+          def read_output(stream: Any, output_queue: queue.Queue[Any]) -> None:
+              try:
+                  for line in iter(stream.readline, ""):
+                      output_queue.put(line)
+              finally:
+                  output_queue.put(None)
+          
+          
+          def install_torch_compat(tmp: Path) -> Path:
+          ''',
+              'worker telemetry helpers',
+          )
+
+          worker = replace_once(
+              worker,
+              '''def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:''',
+              '''def run_scene(job: dict[str, Any], tmp: Path, progress_url: str, progress_ref: str) -> dict[str, Any]:''',
+              'worker run_scene signature',
+          )
+
+          worker = replace_once(
+              worker,
+              '''    reference = tmp / "scene1-reference.jpg"
+              download_reference(text(references[0]), reference)
+          
+              upload = obj(data.get("output_upload"))''',
+              '''    reference = tmp / "scene1-reference.jpg"
+              state: dict[str, Any] = {
+                  "started": time.time(),
+                  "phase": "worker_boot",
+                  "phase_started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                  "last_message": "worker entered",
+                  "stdout_tail": [],
+                  "progress": {},
+              }
+              set_phase(state, progress_url, progress_ref, "reference_download", "downloading approved opening frame")
+              download_reference(text(references[0]), reference)
+              set_phase(state, progress_url, progress_ref, "reference_ready", f"reference bytes={reference.stat().st_size}")
+          
+              upload = obj(data.get("output_upload"))''',
+              'worker reference progress',
+          )
+
+          worker = replace_once(
+              worker,
+              '''    started = time.perf_counter()
+              completed = subprocess.run(
+                  command,
+                  cwd=str(PIPELINE_ROOT),
+                  env=env,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+                  text=True,
+                  timeout=int(os.getenv("AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS", "180")),
+                  check=False,
+              )
+              if completed.returncode != 0:
+                  raise RuntimeError(
+                      f"AVANTIQO_VIDEO_LTX25_DISTILLED_PIPELINE_FAILED:{completed.returncode}:{sanitize_detail(completed.stdout)}"
+                  )
+              if not output.is_file() or output.stat().st_size <= 0:
+                  raise RuntimeError("AVANTIQO_VIDEO_LTX25_OUTPUT_MISSING")
+          
+              upload_file(output, output_signed_url, "video/mp4")''',
+              '''    set_phase(
+                  state,
+                  progress_url,
+                  progress_ref,
+                  "pipeline_start",
+                  f"starting distilled pipeline {width}x{height} frames={frames} fps={fps}",
+              )
+              started = time.perf_counter()
+              proc = subprocess.Popen(
+                  command,
+                  cwd=str(PIPELINE_ROOT),
+                  env=env,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+                  text=True,
+                  bufsize=1,
+              )
+              if proc.stdout is None:
+                  proc.kill()
+                  raise RuntimeError("AVANTIQO_VIDEO_LTX25_PIPELINE_STDOUT_REQUIRED")
+              output_queue: queue.Queue[Any] = queue.Queue()
+              reader = threading.Thread(target=read_output, args=(proc.stdout, output_queue), daemon=True)
+              reader.start()
+              stdout_all: list[str] = []
+              stdout_eof = False
+              timeout_seconds = int(os.getenv("AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS", "180"))
+              deadline = time.time() + timeout_seconds
+              while True:
+                  try:
+                      item = output_queue.get(timeout=1)
+                  except queue.Empty:
+                      item = ""
+                  if item is None:
+                      stdout_eof = True
+                  elif item:
+                      clean = sanitize_detail(item.rstrip())
+                      if clean:
+                          stdout_all.append(clean)
+                          state["stdout_tail"] = stdout_all[-25:]
+                          state["last_message"] = clean
+                          phase = infer_phase(clean)
+                          if phase and phase != state.get("phase"):
+                              state["phase"] = phase
+                              state["phase_started_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                          state["progress"] = {
+                              "subprocess_pid": proc.pid,
+                              "stdout_lines": len(stdout_all),
+                              "output_bytes": output.stat().st_size if output.is_file() else 0,
+                          }
+                  emit_progress(progress_url, progress_ref, state)
+                  if proc.poll() is not None and stdout_eof:
+                      break
+                  if time.time() > deadline:
+                      proc.kill()
+                      try:
+                          proc.wait(timeout=10)
+                      except Exception:
+                          pass
+                      set_phase(state, progress_url, progress_ref, "pipeline_timeout", f"hard timeout after {timeout_seconds}s")
+                      tail = sanitize_detail(" | ".join(stdout_all[-50:]))
+                      raise RuntimeError(
+                          f"AVANTIQO_VIDEO_LTX25_DISTILLED_PIPELINE_TIMEOUT:phase={state.get('phase')}:tail={tail}"
+                      )
+              return_code = proc.wait(timeout=15)
+              set_phase(state, progress_url, progress_ref, "pipeline_complete", f"return_code={return_code}")
+              if return_code != 0:
+                  raise RuntimeError(
+                      f"AVANTIQO_VIDEO_LTX25_DISTILLED_PIPELINE_FAILED:{return_code}:{sanitize_detail(' | '.join(stdout_all[-50:]))}"
+                  )
+              set_phase(state, progress_url, progress_ref, "output_validate", "validating generated mp4")
+              if not output.is_file() or output.stat().st_size <= 0:
+                  raise RuntimeError("AVANTIQO_VIDEO_LTX25_OUTPUT_MISSING")
+          
+              set_phase(state, progress_url, progress_ref, "upload", f"uploading mp4 bytes={output.stat().st_size}")
+              upload_file(output, output_signed_url, "video/mp4")
+              set_phase(state, progress_url, progress_ref, "completed", "mp4 uploaded")''',
+              'worker streaming pipeline telemetry',
+          )
+
+          worker = replace_once(
+              worker,
+              '''    receipt_url = text(os.getenv("AVANTIQO_VIDEO_LTX25_RECEIPT_SIGNED_URL"))
+              receipt_ref = text(os.getenv("AVANTIQO_VIDEO_LTX25_RECEIPT_STORAGE_REFERENCE"))
+              if not encoded or not receipt_url or not receipt_ref:
+                  raise RuntimeError("AVANTIQO_VIDEO_LTX25_ONE_SHOT_ENV_REQUIRED")''',
+              '''    receipt_url = text(os.getenv("AVANTIQO_VIDEO_LTX25_RECEIPT_SIGNED_URL"))
+              receipt_ref = text(os.getenv("AVANTIQO_VIDEO_LTX25_RECEIPT_STORAGE_REFERENCE"))
+              progress_url = text(os.getenv("AVANTIQO_VIDEO_LTX25_PROGRESS_SIGNED_URL"))
+              progress_ref = text(os.getenv("AVANTIQO_VIDEO_LTX25_PROGRESS_STORAGE_REFERENCE"))
+              if not encoded or not receipt_url or not receipt_ref or not progress_url or not progress_ref:
+                  raise RuntimeError("AVANTIQO_VIDEO_LTX25_ONE_SHOT_ENV_REQUIRED")''',
+              'worker telemetry env',
+          )
+
+          worker = replace_once(
+              worker,
+              '''            output = run_scene(job, Path(tmp_dir))''',
+              '''            output = run_scene(job, Path(tmp_dir), progress_url, progress_ref)''',
+              'worker run_scene call',
+          )
+
+          worker = replace_once(
+              worker,
+              '''            "receipt_storage_reference": receipt_ref,
+                  "elapsed_seconds": round(time.time() - started, 3),''',
+              '''            "receipt_storage_reference": receipt_ref,
+                  "progress_storage_reference": progress_ref,
+                  "elapsed_seconds": round(time.time() - started, 3),''',
+              'worker success progress ref',
+          )
+
+          worker = replace_once(
+              worker,
+              '''            "error_detail": sanitize_detail(raw),
+                  "elapsed_seconds": round(time.time() - started, 3),''',
+              '''            "error_detail": sanitize_detail(raw),
+                  "progress_storage_reference": progress_ref,
+                  "elapsed_seconds": round(time.time() - started, 3),''',
+              'worker failure progress ref',
+          )
+
+          controller_path.write_text(controller)
+          worker_path.write_text(worker)
+          PY
+
+          python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+          node --check scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          node --check scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          grep -q 'AVANTIQO_VIDEO_LTX25_PROGRESS_SIGNED_URL' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          grep -q 'AVANTIQO_VIDEO_SCENE1_PROGRESS_HEARTBEAT' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          grep -q 'pipeline_timeout' scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+          grep -q 'gpu_snapshot' scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+          grep -q 'AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "6300"' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          grep -q 'const receipt = await waitForJson(receiptPath, 110 \* 60 \* 1000, async () => {' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          git diff --check
+
+      - name: Commit both telemetry files atomically
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add \
+            scripts/avantiqo-video-ltx25-distilled-scene-worker.py \
+            scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
+          git diff --cached --quiet && { echo 'AVANTIQO_VIDEO_SCENE1_TELEMETRY_ALREADY_INSTALLED=true'; exit 0; }
+          git commit -m "Add live Scene 1 LTX telemetry"
+          git push origin HEAD:main
+          echo 'AVANTIQO_VIDEO_SCENE1_TELEMETRY_HOTFIX=PASS'

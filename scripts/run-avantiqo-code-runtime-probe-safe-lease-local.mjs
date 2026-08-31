@@ -44,6 +44,7 @@ console.log(JSON.stringify({
   max_workers: 1,
   provider_jobs_planned: 1,
   metadata_only_probe: true,
+  startup_evidence_before_cleanup: true,
   scale_zero_queue_timeout_ms: Number(env.AVANTIQO_CODE_RUNTIME_PROBE_SCALE_ZERO_QUEUE_TIMEOUT_MS),
   job_timeout_ms: Number(env.AVANTIQO_CODE_RUNTIME_PROBE_JOB_TIMEOUT_MS),
   safe_lease_ttl_ms: ttlMs,
@@ -59,7 +60,7 @@ const result = spawnSync(
     `--ttl-ms=${ttlMs}`,
     "--",
     process.execPath,
-    "scripts/probe-avantiqo-code-runtime.mjs",
+    "scripts/probe-avantiqo-code-runtime-with-startup-evidence.mjs",
   ],
   {
     cwd: process.cwd(),
@@ -76,6 +77,7 @@ console.log(JSON.stringify({
   child_exit_code: exitCode,
   expected_final_rest_state: "0/0",
   provider_jobs_planned: 1,
+  startup_evidence_before_cleanup: true,
   production_deploy_performed: false,
   secrets_printed: false,
 }, null, 2));

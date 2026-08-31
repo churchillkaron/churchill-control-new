@@ -1,9 +1,11 @@
 import base64
 import json
 import os
+import queue
 import re
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -110,6 +112,54 @@ def install_torch_compat(tmp: Path) -> Path:
     return compat
 
 
+def infer_phase(line: str, current: str) -> str:
+    lower = line.lower()
+    if "stage 2" in lower or "second stage" in lower:
+        return "stage_2"
+    if "stage 1" in lower or "first stage" in lower:
+        return "stage_1"
+    if "upsampl" in lower or "latent upscale" in lower or "spatial upscaler" in lower:
+        return "latent_upscale"
+    if "text encoder" in lower or "gemma" in lower:
+        return "text_encoder_load"
+    if "loading" in lower and ("model" in lower or "transformer" in lower or "checkpoint" in lower):
+        return "model_load"
+    if "decode" in lower or "video vae" in lower:
+        return "vae_decode"
+    if "ffmpeg" in lower or "encoding" in lower or "saving video" in lower or "write video" in lower:
+        return "encode"
+    return current
+
+
+def gpu_snapshot() -> str:
+    try:
+        completed = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+                "--format=csv,noheader,nounits",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=4,
+            check=False,
+        )
+        if completed.returncode == 0 and completed.stdout.strip():
+            return completed.stdout.splitlines()[0].strip()
+    except Exception:
+        pass
+    return "unavailable"
+
+
+def _read_stdout(stream: Any, output_queue: queue.Queue[Any]) -> None:
+    try:
+        for line in iter(stream.readline, ""):
+            output_queue.put(line)
+    finally:
+        output_queue.put(None)
+
+
 def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
     data = obj(job.get("input"))
     if text(data.get("contract")) != ENGINE_CONTRACT:
@@ -190,19 +240,66 @@ def run_scene(job: dict[str, Any], tmp: Path) -> dict[str, Any]:
     env["CUDA_MODULE_LOADING"] = "LAZY"
 
     started = time.perf_counter()
-    completed = subprocess.run(
+    timeout_seconds = int(os.getenv("AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS", "180"))
+    phase = "pipeline_start"
+    stdout_tail: list[str] = []
+    proc = subprocess.Popen(
         command,
         cwd=str(PIPELINE_ROOT),
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        timeout=int(os.getenv("AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS", "180")),
-        check=False,
+        bufsize=1,
     )
-    if completed.returncode != 0:
+    if proc.stdout is None:
+        proc.kill()
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_PIPELINE_STDOUT_REQUIRED")
+
+    output_queue: queue.Queue[Any] = queue.Queue()
+    reader = threading.Thread(target=_read_stdout, args=(proc.stdout, output_queue), daemon=True)
+    reader.start()
+    deadline = time.time() + timeout_seconds
+    stdout_eof = False
+
+    while True:
+        try:
+            item = output_queue.get(timeout=1)
+        except queue.Empty:
+            item = ""
+
+        if item is None:
+            stdout_eof = True
+        elif item:
+            clean = sanitize_detail(item.rstrip())
+            if clean:
+                stdout_tail.append(clean)
+                stdout_tail = stdout_tail[-40:]
+                phase = infer_phase(clean, phase)
+
+        if proc.poll() is not None and stdout_eof:
+            break
+
+        if time.time() > deadline:
+            proc.kill()
+            try:
+                proc.wait(timeout=10)
+            except Exception:
+                pass
+            elapsed = round(time.perf_counter() - started, 3)
+            tail = sanitize_detail(" | ".join(stdout_tail[-25:]))
+            gpu = gpu_snapshot()
+            raise RuntimeError(
+                f"AVANTIQO_VIDEO_LTX25_DISTILLED_PIPELINE_TIMEOUT:phase={phase}:elapsed={elapsed}:gpu={gpu}:stdout_tail={tail}"
+            )
+
+    return_code = proc.wait(timeout=15)
+    if return_code != 0:
+        elapsed = round(time.perf_counter() - started, 3)
+        tail = sanitize_detail(" | ".join(stdout_tail[-25:]))
+        gpu = gpu_snapshot()
         raise RuntimeError(
-            f"AVANTIQO_VIDEO_LTX25_DISTILLED_PIPELINE_FAILED:{completed.returncode}:{sanitize_detail(completed.stdout)}"
+            f"AVANTIQO_VIDEO_LTX25_DISTILLED_PIPELINE_FAILED:{return_code}:phase={phase}:elapsed={elapsed}:gpu={gpu}:stdout_tail={tail}"
         )
     if not output.is_file() or output.stat().st_size <= 0:
         raise RuntimeError("AVANTIQO_VIDEO_LTX25_OUTPUT_MISSING")

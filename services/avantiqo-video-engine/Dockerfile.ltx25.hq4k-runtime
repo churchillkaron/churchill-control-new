@@ -1,0 +1,20 @@
+FROM ghcr.io/churchillkaron/avantiqo-video-ltx25-fast-runtime@sha256:8bbfb6a41849d2ce6f22b4d023859f08fb4a6de652a173a82682e3a3132f1ee6
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-dejavu-core \
+    && test -f /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf \
+    && rm -rf /var/lib/apt/lists/* /root/.cache /tmp/*
+
+RUN ffmpeg -hide_banner -filters 2>/dev/null | grep -q drawtext \
+    && python - <<'PY'
+from PIL import Image, ImageDraw, ImageFont
+font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 48)
+image = Image.new('RGB', (640, 180), 'black')
+draw = ImageDraw.Draw(image)
+draw.text((20, 20), '04:47 AM', font=font, fill='white')
+print('AVANTIQO_VIDEO_HQ4K_TYPOGRAPHY_GATE=PASS')
+PY
+
+WORKDIR /app
+CMD ["python", "-c", "import torch; print('AVANTIQO_VIDEO_LTX25_HQ4K_RUNTIME_READY=' + torch.__version__, flush=True)"]

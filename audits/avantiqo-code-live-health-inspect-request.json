@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_CODE_LIVE_HEALTH_INSPECT_REQUEST_V1",
   "requested": true,
-  "sequence": 2,
-  "reason": "verify zero-idle teardown after purging stalled delivery proof"
+  "sequence": 3,
+  "reason": "confirm clean zero-idle state before read-only capacity diagnosis"
 }

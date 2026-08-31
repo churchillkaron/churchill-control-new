@@ -10,8 +10,8 @@ const SOURCE_END = "AVANTIQO_CODE_GENERATED_SOURCE_END";
 const OUTPUT_ROOT = "local-audit-output/avantiqo-code-real-generation";
 const OUTPUT_FILE = `${OUTPUT_ROOT}/invoice-total.mjs`;
 const TEST_FILE = `${OUTPUT_ROOT}/invoice-total.test.mjs`;
-const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-code-runpod-global-cached-model-v2-local.mjs";
-const MIGRATION_PASS = "AVANTIQO_CODE_RUNPOD_GLOBAL_CACHED_MODEL_MIGRATION_V2=PASS";
+const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-code-runpod-global-cached-model-v3-local.mjs";
+const MIGRATION_PASS = "AVANTIQO_CODE_RUNPOD_GLOBAL_CACHED_MODEL_MIGRATION_V3=PASS";
 const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v3-local.mjs";
 const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V3_LAUNCHER=PASS";
 
@@ -76,6 +76,7 @@ console.log(JSON.stringify({
   output_file: OUTPUT_FILE,
   scheduling_architecture: "GLOBAL_RUNPOD_CACHED_MODEL",
   migration_script: MIGRATION_SCRIPT,
+  migration_accepts_partial_prior_state: true,
   generation_script: GENERATION_SCRIPT,
   endpoint_network_volume_detached_required: true,
   one_canonical_code_storage_preserved_required: true,

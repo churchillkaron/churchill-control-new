@@ -1,0 +1,77 @@
+name: Avantiqo Intelligence Trainer Storage Cleanup
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "audits/avantiqo-intelligence-trainer-storage-cleanup-request.json"
+      - ".github/workflows/avantiqo-intelligence-trainer-storage-cleanup.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - name: Delete only idle trainer endpoint and its dedicated volume
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const REST='https://rest.runpod.io/v1';
+          const QUEUE='https://api.runpod.ai/v2';
+          const ENDPOINT_ID='1c0spqu03yf0gs';
+          const ENDPOINT_NAME='avantiqo-intelligence-trainer-v1';
+          const VOLUME_ID='7obluigbr0';
+          const VOLUME_NAME='avantiqo-shared-intelligence-code-cache';
+          const key=String(process.env.RUNPOD_MANAGEMENT_API_KEY||process.env.RUNPOD_API_KEY||'').trim();
+          const runtime=String(process.env.RUNPOD_API_KEY||key).trim();
+          if(!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_REQUIRED');
+          const text=v=>String(v??'').trim();
+          const list=v=>Array.isArray(v)?v:[];
+          const finite=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
+          async function req(url,{method='GET',auth=key,allow404=false}={}){
+            const r=await fetch(url,{method,headers:{Authorization:`Bearer ${auth}`,Accept:'application/json'},signal:AbortSignal.timeout(30000)});
+            const raw=await r.text();let body={};try{body=raw?JSON.parse(raw):{}}catch{body={message:raw}};
+            if(!r.ok && !(allow404&&r.status===404)) throw new Error(`HTTP_${r.status}:${text(body?.message||body?.error||body?.detail||raw).slice(0,700)}`);
+            return {status:r.status,body};
+          }
+          const endpoint=(await req(`${REST}/endpoints/${ENDPOINT_ID}?includeWorkers=true`)).body;
+          if(text(endpoint.id)!==ENDPOINT_ID||text(endpoint.name)!==ENDPOINT_NAME) throw new Error('TRAINER_ENDPOINT_IDENTITY_MISMATCH');
+          if(finite(endpoint.workersMin,-1)!==0||finite(endpoint.workersMax,-1)!==0) throw new Error('TRAINER_ENDPOINT_NOT_PARKED_0_0');
+          const endpointVolumes=[text(endpoint.networkVolumeId),...list(endpoint.networkVolumeIds).map(text)].filter(Boolean);
+          if(!endpointVolumes.includes(VOLUME_ID)) throw new Error('TRAINER_VOLUME_BINDING_MISMATCH');
+          const health=(await req(`${QUEUE}/${ENDPOINT_ID}/health`,{auth:runtime})).body;
+          const jobs=health.jobs||{}, workers=health.workers||{};
+          const inQueue=finite(jobs.inQueue??jobs.in_queue), inProgress=finite(jobs.inProgress??jobs.in_progress);
+          const workerTotal=['idle','initializing','ready','running','throttled','unhealthy'].reduce((s,k)=>s+Math.max(0,finite(workers[k])),0);
+          if(inQueue||inProgress||workerTotal) throw new Error(`TRAINER_ACTIVE:q=${inQueue}:p=${inProgress}:w=${workerTotal}`);
+          const podsResp=(await req(`${REST}/pods?includeNetworkVolume=true`)).body;
+          const pods=Array.isArray(podsResp)?podsResp:list(podsResp?.data||podsResp?.items||podsResp?.results||podsResp?.pods);
+          const volumePods=pods.filter(p=>text(p?.networkVolume?.id||p?.networkVolumeId)===VOLUME_ID);
+          if(volumePods.length) throw new Error(`TRAINER_VOLUME_HAS_PODS:${volumePods.map(p=>text(p.id)).join(',')}`);
+          const endpointsResp=(await req(`${REST}/endpoints?includeWorkers=true`)).body;
+          const endpoints=Array.isArray(endpointsResp)?endpointsResp:list(endpointsResp?.data||endpointsResp?.items||endpointsResp?.results||endpointsResp?.endpoints);
+          const volumeConsumers=endpoints.filter(e=>[text(e.networkVolumeId),...list(e.networkVolumeIds).map(text)].filter(Boolean).includes(VOLUME_ID));
+          if(volumeConsumers.length!==1||text(volumeConsumers[0]?.id)!==ENDPOINT_ID) throw new Error(`TRAINER_VOLUME_NOT_DEDICATED:${volumeConsumers.map(e=>text(e.name)).join(',')}`);
+          const volumesResp=(await req(`${REST}/networkvolumes`)).body;
+          const volumes=Array.isArray(volumesResp)?volumesResp:list(volumesResp?.data||volumesResp?.items||volumesResp?.results||volumesResp?.networkVolumes||volumesResp?.volumes);
+          const volume=volumes.find(v=>text(v.id)===VOLUME_ID);
+          if(!volume||text(volume.name)!==VOLUME_NAME||finite(volume.size??volume.sizeGb,-1)!==160) throw new Error('TRAINER_VOLUME_IDENTITY_MISMATCH');
+          console.log(JSON.stringify({contract:'AVANTIQO_INTELLIGENCE_TRAINER_STORAGE_CLEANUP_V1',endpoint_id:ENDPOINT_ID,volume_id:VOLUME_ID,size_gb:160,guards_passed:true}));
+          await req(`${REST}/endpoints/${ENDPOINT_ID}`,{method:'DELETE'});
+          const endpointVerify=await req(`${REST}/endpoints/${ENDPOINT_ID}`,{allow404:true});
+          if(endpointVerify.status!==404) throw new Error('TRAINER_ENDPOINT_DELETE_NOT_VERIFIED');
+          const deleteVolume=await req(`${REST}/networkvolumes/${VOLUME_ID}`,{method:'DELETE',allow404:true});
+          if(![200,202,204,404].includes(deleteVolume.status)) throw new Error(`TRAINER_VOLUME_DELETE_FAILED:${deleteVolume.status}`);
+          const volumesAfterResp=(await req(`${REST}/networkvolumes`)).body;
+          const volumesAfter=Array.isArray(volumesAfterResp)?volumesAfterResp:list(volumesAfterResp?.data||volumesAfterResp?.items||volumesAfterResp?.results||volumesAfterResp?.networkVolumes||volumesAfterResp?.volumes);
+          if(volumesAfter.some(v=>text(v.id)===VOLUME_ID)) throw new Error('TRAINER_VOLUME_DELETE_NOT_VERIFIED');
+          console.log(JSON.stringify({success:true,contract:'AVANTIQO_INTELLIGENCE_TRAINER_STORAGE_CLEANUP_V1',endpoint_deleted:true,volume_deleted:true,deleted_gb:160,gpu_compute_used:false,inference_performed:false,production_deploy_performed:false,secrets_printed:false}));
+          NODE

@@ -1,0 +1,51 @@
+name: Avantiqo Fast Serverless Pool Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-serverless-pool-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read AWQ-capable and full-model Serverless pools
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const key=String(process.env.RUNPOD_MANAGEMENT_API_KEY||'').trim();
+          if(!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_REQUIRED');
+          const query=`query AvantiqoFastPoolAudit { serverlessGpuPools { id gpuTypeIds } myself { endpoints { id name gpuIds } } }`;
+          const response=await fetch(`https://api.runpod.io/graphql?api_key=${encodeURIComponent(key)}`,{
+            method:'POST',headers:{Accept:'application/json','Content-Type':'application/json'},
+            body:JSON.stringify({query}),signal:AbortSignal.timeout(30000)
+          });
+          const body=await response.json();
+          const errors=Array.isArray(body?.errors)?body.errors:[];
+          if(!response.ok||errors.length) throw new Error(`RUNPOD_GRAPHQL:${errors.map(e=>e?.message).join('|')}`);
+          const pools=Array.isArray(body?.data?.serverlessGpuPools)?body.data.serverlessGpuPools:[];
+          const endpoints=Array.isArray(body?.data?.myself?.endpoints)?body.data.myself.endpoints:[];
+          const wanted=/(B200|H200|H100|A100.*80|RTX PRO 6000.*Blackwell.*Server|MIG.*48|48gb|L40S|RTX A6000|RTX 6000 Ada)/i;
+          const candidates=pools.map(p=>({pool_id:String(p?.id||''),gpu_type_ids:(Array.isArray(p?.gpuTypeIds)?p.gpuTypeIds:[]).map(String)})).filter(p=>p.gpu_type_ids.some(v=>wanted.test(v)));
+          const live=endpoints.find(e=>String(e?.name||'')==='avantiqo-intelligence-fast-v1');
+          const livePoolIds=String(live?.gpuIds||'').split(',').map(v=>v.trim()).filter(Boolean);
+          const livePools=candidates.filter(p=>livePoolIds.includes(p.pool_id));
+          const outsideLive=candidates.filter(p=>!livePoolIds.includes(p.pool_id));
+          console.log(JSON.stringify({
+            contract:'AVANTIQO_FAST_SERVERLESS_POOL_AUDIT_V1',
+            live_fast_gpu_pool_ids:livePoolIds,
+            live_fast_pools:livePools,
+            additional_candidate_pools:outsideLive,
+            candidate_pool_count:candidates.length,
+            mutation_performed:false,
+            gpu_started:false,
+            production_deploy_performed:false,
+            secrets_printed:false
+          },null,2));
+          NODE

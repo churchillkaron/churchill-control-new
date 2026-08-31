@@ -1,5 +1,6 @@
 name: Avantiqo Intelligence Fast Service E2E Proof
 
+# Rerun marker: 2026-08-31 after Fast scheduling envelope repair.
 on:
   push:
     branches: [main]

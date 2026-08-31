@@ -1,0 +1,51 @@
+name: Avantiqo Code Capacity Plan
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-capacity-plan-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-capacity-plan
+  cancel-in-progress: true
+
+jobs:
+  plan-code-capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Run read-only Code capacity planner
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+          RUNPOD_AVANTIQO_CODE_ENDPOINT_ID: r79dtnjnrilrlc
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/plan-avantiqo-code-capacity-after-starvation-v1-local.mjs | tee /tmp/avantiqo-code-capacity-plan.log
+
+      - name: Upload capacity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-capacity-plan-${{ github.run_id }}
+          path: /tmp/avantiqo-code-capacity-plan.log
+          if-no-files-found: warn
+          retention-days: 14

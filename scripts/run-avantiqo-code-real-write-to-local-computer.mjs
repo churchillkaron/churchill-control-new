@@ -10,10 +10,10 @@ const SOURCE_END = "AVANTIQO_CODE_GENERATED_SOURCE_END";
 const OUTPUT_ROOT = "local-audit-output/avantiqo-code-real-generation";
 const OUTPUT_FILE = `${OUTPUT_ROOT}/invoice-total.mjs`;
 const TEST_FILE = `${OUTPUT_ROOT}/invoice-total.test.mjs`;
-const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-code-runpod-global-cached-model-v3-local.mjs";
-const MIGRATION_PASS = "AVANTIQO_CODE_RUNPOD_GLOBAL_CACHED_MODEL_MIGRATION_V3=PASS";
-const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v3-local.mjs";
-const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V3_LAUNCHER=PASS";
+const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-code-runpod-global-cached-model-v4-local.mjs";
+const MIGRATION_PASS = "AVANTIQO_CODE_RUNPOD_GLOBAL_CACHED_MODEL_MIGRATION_V4=PASS";
+const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v4-local.mjs";
+const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V4_LAUNCHER=PASS";
 
 function text(value, maximum = 8000) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -76,12 +76,14 @@ console.log(JSON.stringify({
   output_file: OUTPUT_FILE,
   scheduling_architecture: "GLOBAL_RUNPOD_CACHED_MODEL",
   migration_script: MIGRATION_SCRIPT,
-  migration_accepts_partial_prior_state: true,
+  migration_is_idempotent_when_target_state_verified: true,
   generation_script: GENERATION_SCRIPT,
   endpoint_network_volume_detached_required: true,
   one_canonical_code_storage_preserved_required: true,
   serverless_zero_idle_required: true,
-  bounded_in_queue_without_worker_ms: 60000,
+  first_cached_model_bootstrap_no_worker_ms: 240000,
+  total_generation_timeout_ms: 420000,
+  transport_failure_generation_submissions_max: 1,
   real_owned_model_generation_required: true,
   write_to_local_computer_required: true,
   new_storage_created: false,

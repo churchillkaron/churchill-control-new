@@ -1,0 +1,86 @@
+name: Avantiqo Image Storage Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-image-storage-audit-request.json
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Audit live Image endpoint storage contract
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const REST='https://rest.runpod.io/v1';
+          const QUEUE='https://api.runpod.ai/v2';
+          const ENDPOINT_ID='m9ieryijbnq77q';
+          const ENDPOINT_NAME='avantiqo-image-v1';
+          const EXPECTED_VOLUME_ID='7pcdebhpga';
+          const key=String(process.env.RUNPOD_MANAGEMENT_API_KEY||process.env.RUNPOD_API_KEY||'').trim();
+          const runtime=String(process.env.RUNPOD_API_KEY||key).trim();
+          if(!key) throw new Error('RUNPOD_KEY_REQUIRED');
+          const text=v=>String(v??'').trim();
+          const list=v=>Array.isArray(v)?v:[];
+          const finite=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
+          async function json(url,auth=key){
+            const r=await fetch(url,{headers:{Authorization:`Bearer ${auth}`,Accept:'application/json'},signal:AbortSignal.timeout(30000)});
+            const raw=await r.text(); let body={}; try{body=raw?JSON.parse(raw):{}}catch{body={message:raw}};
+            if(!r.ok) throw new Error(`HTTP_${r.status}:${text(body?.message||body?.error||raw).slice(0,500)}`);
+            return body;
+          }
+          const rows=v=>Array.isArray(v)?v:list(v?.data||v?.items||v?.results||v?.templates||v?.volumes||v?.networkVolumes);
+          const [endpoint,templatesRaw,volumesRaw,health]=await Promise.all([
+            json(`${REST}/endpoints/${ENDPOINT_ID}?includeWorkers=true`),
+            json(`${REST}/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false`),
+            json(`${REST}/networkvolumes`),
+            json(`${QUEUE}/${ENDPOINT_ID}/health`,runtime),
+          ]);
+          if(text(endpoint.id)!==ENDPOINT_ID||text(endpoint.name)!==ENDPOINT_NAME) throw new Error('IMAGE_ENDPOINT_IDENTITY_MISMATCH');
+          const volumeIds=[text(endpoint.networkVolumeId),...list(endpoint.networkVolumeIds).map(text)].filter(Boolean);
+          if(!volumeIds.includes(EXPECTED_VOLUME_ID)) throw new Error(`IMAGE_VOLUME_BINDING_MISMATCH:${volumeIds.join(',')}`);
+          const templates=rows(templatesRaw);
+          const templateId=text(endpoint.templateId||endpoint.template?.id);
+          const template=templates.find(t=>text(t.id)===templateId)||endpoint.template||{};
+          const env=template.env&&typeof template.env==='object'&&!Array.isArray(template.env)?template.env:{};
+          const safeEnv={};
+          for(const k of [
+            'AVANTIQO_IMAGE_NETWORK_VOLUME_ROOT',
+            'AVANTIQO_IMAGE_NETWORK_VOLUME_QUOTA_GB',
+            'AVANTIQO_IMAGE_HF_CACHE_ROOT',
+            'AVANTIQO_IMAGE_FOUNDATION_MODEL',
+            'AVANTIQO_IMAGE_EDIT_MODEL',
+            'AVANTIQO_IMAGE_INPAINT_MODEL',
+            'AVANTIQO_IMAGE_OUTPAINT_MODEL',
+            'AVANTIQO_IMAGE_UPSCALE_MODEL',
+            'AVANTIQO_IMAGE_ANALYZE_MODEL',
+            'AVANTIQO_IMAGE_CERTIFIED_CAPABILITIES',
+            'AVANTIQO_IMAGE_REQUIRE_CACHED_MODEL',
+          ]) if(Object.prototype.hasOwnProperty.call(env,k)) safeEnv[k]=String(env[k]??'');
+          const volumes=rows(volumesRaw);
+          const volume=volumes.find(v=>text(v.id)===EXPECTED_VOLUME_ID);
+          if(!volume) throw new Error('IMAGE_VOLUME_NOT_FOUND');
+          const jobs=health?.jobs||{}; const workers=health?.workers||{};
+          console.log(JSON.stringify({
+            success:true,
+            contract:'AVANTIQO_IMAGE_STORAGE_AUDIT_V1',
+            endpoint:{id:ENDPOINT_ID,name:ENDPOINT_NAME,workers_min:finite(endpoint.workersMin),workers_max:finite(endpoint.workersMax),template_id:templateId,network_volume_ids:volumeIds},
+            health:{in_queue:finite(jobs.inQueue??jobs.in_queue),in_progress:finite(jobs.inProgress??jobs.in_progress),workers:{idle:finite(workers.idle),initializing:finite(workers.initializing),ready:finite(workers.ready),running:finite(workers.running),throttled:finite(workers.throttled),unhealthy:finite(workers.unhealthy)}},
+            volume:{id:text(volume.id),name:text(volume.name),size_gb:finite(volume.size??volume.sizeGb),data_center_id:text(volume.dataCenterId??volume.data_center_id)},
+            safe_template_env:safeEnv,
+            mutation_performed:false,
+            gpu_compute_used:false,
+            inference_performed:false,
+            secrets_printed:false,
+          },null,2));
+          NODE

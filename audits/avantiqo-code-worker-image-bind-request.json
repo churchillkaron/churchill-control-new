@@ -1,0 +1,8 @@
+{
+  "contract": "AVANTIQO_CODE_WORKER_IMAGE_BIND_REQUEST_V1",
+  "approved": true,
+  "source_sha": "ec15e1ed894e3c2d4a82dc6c5beedcb316b7d189",
+  "build_run_id": "33350421181",
+  "image_repository": "ghcr.io/churchillkaron/avantiqo-code-worker",
+  "image_digest": "sha256:67248bddd07c98f02d7c31b17f5bc678f566a1617657608284daf763defc4463"
+}

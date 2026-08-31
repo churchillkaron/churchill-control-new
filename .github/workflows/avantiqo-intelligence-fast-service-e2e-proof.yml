@@ -1,0 +1,65 @@
+name: Avantiqo Intelligence Fast Service E2E Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-fast-service-e2e-proof.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-fast-service-e2e-proof
+  cancel-in-progress: false
+
+jobs:
+  prove-fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      NODE_ENV: production
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_FAST_TIMEOUT_MS: "360000"
+      AVANTIQO_INTELLIGENCE_FAST_UNSCHEDULED_TIMEOUT_MS: "30000"
+      AVANTIQO_INTELLIGENCE_REQUEST_LEASE_ACQUIRE_WAIT_MS: "120000"
+      AVANTIQO_INTELLIGENCE_REQUEST_LEASE_OPEN_SETTLE_MS: "1000"
+    steps:
+      - name: Checkout exact proof commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Static Fast proof gate
+        run: |
+          node --check scripts/run-avantiqo-intelligence-fast-service-e2e-proof-local.mjs
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+          grep -q 'ai.text.generate' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
+
+      - name: Run one real governed Fast service call
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || secrets.RUNPOD_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/run-avantiqo-intelligence-fast-service-e2e-proof-local.mjs
+
+      - name: Immutable proof boundary
+        if: always()
+        run: |
+          echo "EXTERNAL_AI_FALLBACK_USED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "THIS_WORKFLOW_DOES_NOT_RELEASE_PRODUCTION=true"

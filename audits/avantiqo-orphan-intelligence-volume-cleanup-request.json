@@ -1,0 +1,6 @@
+{
+  "contract": "AVANTIQO_ORPHAN_INTELLIGENCE_VOLUME_CLEANUP_REQUEST_V1",
+  "approved": true,
+  "volume_id": "7obluigbr0",
+  "reason": "delete orphan 160GB intelligence-code cache after trainer endpoint removal"
+}

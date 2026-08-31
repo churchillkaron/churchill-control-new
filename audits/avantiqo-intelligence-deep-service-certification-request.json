@@ -1,0 +1,9 @@
+{
+  "contract": "AVANTIQO_INTELLIGENCE_DEEP_SERVICE_CERTIFICATION_REQUEST_V1",
+  "requested_at": "2026-08-31T01:38:00Z",
+  "reason": "Verify three owned Deep service-accounted reasoning passes after fixing the exact 4200-token final-answer truncation boundary.",
+  "expected_runtime_fix_commit": "5743c057905941dae30bbda7566973528f29eda4",
+  "external_fallback_allowed": false,
+  "production_deploy_requested": false,
+  "production_activation_requested": false
+}

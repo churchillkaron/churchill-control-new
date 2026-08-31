@@ -1,0 +1,24 @@
+name: Intelligence Specialist Benchmark Check
+
+on:
+  push:
+    branches:
+      - ai/intelligence-specialist-benchmark-20260831
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run specialist benchmark contract tests
+        run: node --test tests/avantiqo-specialist-benchmark-runtime.test.mjs

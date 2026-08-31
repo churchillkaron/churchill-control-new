@@ -1,0 +1,74 @@
+name: Avantiqo Video HQ4K Single Pod Cost Guard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-hq4k-single-pod-cost-guard.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove separate preload GPU from HQ controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs')
+          source = path.read_text()
+          marker = '''source = source.replaceAll("videoPodCandidateSnapshot()", "videoPodProductionSnapshot()");\n'''
+          if marker not in source:
+              raise SystemExit('AVANTIQO_VIDEO_HQ4K_SINGLE_POD_MARKER_MISSING')
+          if 'AVANTIQO_VIDEO_HQ4K_CACHE_GATE=WORKER_EXACT_FILE_CHECK' not in source:
+              patch = r'''
+
+const preloadBlock = `    const preload = await runPreload(await videoPodProductionSnapshot());
+    report.preload = {
+      success: true,
+      revision: preload.revision,
+      file_count: preload.files.length,
+      total_bytes: preload.files.reduce((sum, item) => sum + Number(item.size_bytes || 0), 0),
+    };`;
+const workerCacheGateBlock = `    report.preload = {
+      success: true,
+      revision: "WORKER_EXACT_FILE_GATE",
+      file_count: REQUIRED_MODEL_FILES.length,
+      total_bytes: null,
+      separate_preload_pod_used: false,
+    };
+    console.log("AVANTIQO_VIDEO_HQ4K_CACHE_GATE=WORKER_EXACT_FILE_CHECK");`;
+if (!source.includes(preloadBlock)) throw new Error("AVANTIQO_VIDEO_HQ4K_PRELOAD_BLOCK_TARGET_MISSING");
+source = source.replace(preloadBlock, workerCacheGateBlock);
+'''
+              source = source.replace(marker, marker + patch, 1)
+          path.write_text(source)
+          PY
+          node --check scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          grep -q 'AVANTIQO_VIDEO_HQ4K_CACHE_GATE=WORKER_EXACT_FILE_CHECK' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          grep -q 'separate_preload_pod_used: false' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          git diff --check
+
+      - name: Commit controller cost guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "Make HQ4K Scene 1 single-pod only"
+          git push origin HEAD:main
+          echo 'AVANTIQO_VIDEO_HQ4K_SINGLE_POD_COST_GUARD=PASS'

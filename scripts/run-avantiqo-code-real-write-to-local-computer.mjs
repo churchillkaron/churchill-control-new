@@ -10,8 +10,8 @@ const SOURCE_END = "AVANTIQO_CODE_GENERATED_SOURCE_END";
 const OUTPUT_ROOT = "local-audit-output/avantiqo-code-real-generation";
 const OUTPUT_FILE = `${OUTPUT_ROOT}/invoice-total.mjs`;
 const TEST_FILE = `${OUTPUT_ROOT}/invoice-total.test.mjs`;
-const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-code-runpod-global-cached-model-v1-local.mjs";
-const MIGRATION_PASS = "AVANTIQO_CODE_RUNPOD_GLOBAL_CACHED_MODEL_MIGRATION_V1=PASS";
+const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-code-runpod-global-cached-model-v2-local.mjs";
+const MIGRATION_PASS = "AVANTIQO_CODE_RUNPOD_GLOBAL_CACHED_MODEL_MIGRATION_V2=PASS";
 const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v3-local.mjs";
 const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V3_LAUNCHER=PASS";
 
@@ -90,22 +90,14 @@ console.log(JSON.stringify({
 
 const migration = await run(process.execPath, [MIGRATION_SCRIPT], repositoryRoot, {
   stream: true,
-  env: {
-    ...process.env,
-    NODE_ENV: "development",
-    AVANTIQO_CODE_GLOBAL_CACHED_MODEL_MIGRATION_APPROVED: "YES",
-  },
+  env: { ...process.env, NODE_ENV: "development", AVANTIQO_CODE_GLOBAL_CACHED_MODEL_MIGRATION_APPROVED: "YES" },
 });
 if (migration.exit_code !== 0) throw new Error(`${CONTRACT}_GLOBAL_CACHED_MODEL_MIGRATION_FAILED:${migration.exit_code}`);
 if (!migration.stdout.includes(MIGRATION_PASS)) throw new Error(`${CONTRACT}_MIGRATION_PASS_MARKER_REQUIRED:${MIGRATION_PASS}`);
 
 const generation = await run(process.execPath, [GENERATION_SCRIPT], repositoryRoot, {
   stream: true,
-  env: {
-    ...process.env,
-    NODE_ENV: "development",
-    AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_APPROVED: "YES",
-  },
+  env: { ...process.env, NODE_ENV: "development", AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_APPROVED: "YES" },
 });
 if (generation.exit_code !== 0) throw new Error(`${CONTRACT}_OWNED_GENERATION_FAILED:${generation.exit_code}`);
 if (!generation.stdout.includes(GENERATION_PASS)) throw new Error(`${CONTRACT}_GENERATION_PASS_MARKER_REQUIRED:${GENERATION_PASS}`);

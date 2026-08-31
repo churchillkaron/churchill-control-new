@@ -106,10 +106,10 @@ const cachedBlock = `    report.preload = {
 if (!source.includes(preloadBlock)) throw new Error("AVANTIQO_VIDEO_FAST_V2_PRELOAD_PATCH_TARGET_MISSING");
 source = source.replace(preloadBlock, cachedBlock);
 
-source = source.replace(
-  `const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA B200",\n  "NVIDIA RTX PRO 6000 Blackwell Server Edition",\n]);`,
-  `const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA B200",\n  "NVIDIA RTX PRO 6000 Blackwell Server Edition",\n]);`,
-);
+const originalPool = `const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA B200",\n  "NVIDIA RTX PRO 6000 Blackwell Server Edition",\n]);`;
+const highMemoryPool = `const SCENE_GPU_POOL = Object.freeze([\n  "NVIDIA B200",\n  "NVIDIA RTX PRO 6000 Blackwell Server Edition",\n  "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",\n  "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",\n  "NVIDIA A100 80GB PCIe",\n]);`;
+if (!source.includes(originalPool)) throw new Error("AVANTIQO_VIDEO_FAST_V2_GPU_POOL_PATCH_TARGET_MISSING");
+source = source.replace(originalPool, highMemoryPool);
 
 source = source.replace(
   `AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "6300",`,

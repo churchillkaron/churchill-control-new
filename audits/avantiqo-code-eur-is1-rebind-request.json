@@ -1,8 +1,9 @@
 {
   "contract": "AVANTIQO_CODE_EUR_IS1_REBIND_REQUEST_V1",
   "approved": true,
+  "attempt": 2,
   "target_datacenter": "EUR-IS-1",
   "target_volume_id": "qcg1rbzc3g",
   "target_gpu_type_id": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
-  "reason": "move Code off low-stock US-CA-2 placement onto proven EUR cache and medium-stock GPU"
+  "reason": "verify datacenter through bound EUR network volume because RunPod omits advisory dataCenterIds"
 }

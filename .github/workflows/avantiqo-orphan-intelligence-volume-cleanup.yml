@@ -1,0 +1,57 @@
+name: Avantiqo Orphan Intelligence Volume Cleanup
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "audits/avantiqo-orphan-intelligence-volume-cleanup-request.json"
+      - ".github/workflows/avantiqo-orphan-intelligence-volume-cleanup.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - name: Delete exact orphan volume only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const REST='https://rest.runpod.io/v1';
+          const VOLUME_ID='7obluigbr0';
+          const VOLUME_NAME='avantiqo-shared-intelligence-code-cache';
+          const key=String(process.env.RUNPOD_MANAGEMENT_API_KEY||process.env.RUNPOD_API_KEY||'').trim();
+          if(!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_REQUIRED');
+          const text=v=>String(v??'').trim(); const list=v=>Array.isArray(v)?v:[]; const finite=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
+          async function req(url,{method='GET',allow404=false}={}){
+            const r=await fetch(url,{method,headers:{Authorization:`Bearer ${key}`,Accept:'application/json'},signal:AbortSignal.timeout(30000)});
+            const raw=await r.text();let body={};try{body=raw?JSON.parse(raw):{}}catch{body={message:raw}};
+            if(!r.ok && !(allow404&&r.status===404)) throw new Error(`HTTP_${r.status}:${text(body?.message||body?.error||body?.detail||raw).slice(0,700)}`);
+            return {status:r.status,body};
+          }
+          const [endpointsResp,podsResp,volumesResp]=await Promise.all([
+            req(`${REST}/endpoints?includeWorkers=true`),
+            req(`${REST}/pods?includeNetworkVolume=true`),
+            req(`${REST}/networkvolumes`),
+          ]);
+          const rows=v=>Array.isArray(v)?v:list(v?.data||v?.items||v?.results||v?.endpoints||v?.pods||v?.networkVolumes||v?.volumes);
+          const endpoints=rows(endpointsResp.body), pods=rows(podsResp.body), volumes=rows(volumesResp.body);
+          const consumers=endpoints.filter(e=>[text(e.networkVolumeId),...list(e.networkVolumeIds).map(text)].filter(Boolean).includes(VOLUME_ID));
+          const attachedPods=pods.filter(p=>text(p?.networkVolume?.id||p?.networkVolumeId)===VOLUME_ID);
+          if(consumers.length) throw new Error(`VOLUME_HAS_ENDPOINTS:${consumers.map(e=>text(e.name)).join(',')}`);
+          if(attachedPods.length) throw new Error(`VOLUME_HAS_PODS:${attachedPods.map(p=>text(p.id)).join(',')}`);
+          const volume=volumes.find(v=>text(v.id)===VOLUME_ID);
+          if(!volume){console.log('VOLUME_ALREADY_GONE=true');process.exit(0);}
+          if(text(volume.name)!==VOLUME_NAME||finite(volume.size??volume.sizeGb,-1)!==160) throw new Error('VOLUME_IDENTITY_MISMATCH');
+          await req(`${REST}/networkvolumes/${VOLUME_ID}`,{method:'DELETE',allow404:true});
+          const after=rows((await req(`${REST}/networkvolumes`)).body);
+          if(after.some(v=>text(v.id)===VOLUME_ID)) throw new Error('VOLUME_DELETE_NOT_VERIFIED');
+          console.log(JSON.stringify({success:true,contract:'AVANTIQO_ORPHAN_INTELLIGENCE_VOLUME_CLEANUP_V1',volume_deleted:true,deleted_gb:160,gpu_compute_used:false,inference_performed:false,production_deploy_performed:false,secrets_printed:false}));
+          NODE

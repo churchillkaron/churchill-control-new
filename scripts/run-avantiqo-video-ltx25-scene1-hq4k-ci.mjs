@@ -107,16 +107,16 @@ source = source.replace(
     "Start from the supplied city reference while preserving the skyline geometry, horizon, dawn atmosphere, river reflections, streets and towers.",
     "Over five seconds execute an extremely restrained stabilized cinematic aerial push forward with a barely perceptible gentle descent. Premium global commercial-film realism, no time-lapse.",
     "Cloud drift, water reflections and distant traffic must remain physically plausible. Preserve architecture without melting, bending, duplicate buildings, jump cuts, yaw, roll, sudden zoom or focal-length pumping.",
-    "Generate picture only: no typography, no captions, no numbers, no logos and no letterbox bars. Exact title graphics are composited after diffusion so text cannot mutate.",
+    "Generate picture only: no typography, no captions, no numbers, no logos and no letterbox bars. Studio owns titles, crops and delivery formatting after native generation.",
     "Maintain fine atmospheric depth, natural motion blur, coherent exposure and a clean continuity end frame. Never collapse the image into black or a thin strip.",
   ].join(" ");
 }`,
 );
 
-source = source.replaceAll("scene1-distilled-", "scene1-native4k-");
-source = source.replaceAll("avantiqo-video-ltx25-scene1-distilled-", "avantiqo-video-ltx25-scene1-native4k-");
+source = source.replaceAll("scene1-distilled-", "scene1-native-master-");
+source = source.replaceAll("avantiqo-video-ltx25-scene1-distilled-", "avantiqo-video-ltx25-scene1-native-master-");
 source = source.replaceAll("AVANTIQO_VIDEO_LTX25_DISTILLED_WORKER_B64", "AVANTIQO_VIDEO_LTX25_NATIVE4K_WORKER_B64");
-source = source.replaceAll("<avantiqo-ltx25-distilled-worker>", "<avantiqo-ltx25-native4k-worker>");
+source = source.replaceAll("<avantiqo-ltx25-distilled-worker>", "<avantiqo-ltx25-native-master-worker>");
 source = source.replace(
   `AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "6300",`,
   `AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS: "1800",`,
@@ -126,16 +126,12 @@ source = source.replace(
   `const receipt = await waitForJson(receiptPath, 35 * 60 * 1000, async () => {`,
 );
 source = source.replace(
-  `if (Number(output.width) !== 3840 || Number(output.height) !== 2176 || Number(output.fps) !== 24) {`,
-  `if (Number(output.width) !== 3840 || Number(output.height) !== 2160 || Number(output.fps) !== 24) {`,
-);
-source = source.replace(
   `throw new Error(\`AVANTIQO_VIDEO_LTX25_SCENE1_NATIVE_OUTPUT_INVALID:\${output.width}x\${output.height}@\${output.fps}\`);`,
-  `throw new Error(\`AVANTIQO_VIDEO_NATIVE4K_DELIVERY_INVALID:\${output.width}x\${output.height}@\${output.fps}\`);`,
+  `throw new Error(\`AVANTIQO_VIDEO_NATIVE_MASTER_INVALID:\${output.width}x\${output.height}@\${output.fps}\`);`,
 );
 source = source.replace(
   `contract: "AVANTIQO_VIDEO_LTX25_SCENE1_DISTILLED_PROOF_V1",`,
-  `contract: "AVANTIQO_VIDEO_LTX25_SCENE1_NATIVE4K_PROOF_V1",`,
+  `contract: "AVANTIQO_VIDEO_LTX25_SCENE1_NATIVE_MASTER_3840X2176_PROOF_V1",`,
 );
 
 const preloadBlock = `    const preload = await runPreload(await videoPodProductionSnapshot());
@@ -164,29 +160,31 @@ if (!source.includes(qualityBoundary)) throw new Error("AVANTIQO_VIDEO_NATIVE4K_
 source = source.replace(
   qualityBoundary,
   `${qualityBoundary}
-    if (output.native_4k_claimed !== true || output.uhd_delivery !== true) {
-      throw new Error("AVANTIQO_VIDEO_NATIVE4K_CLAIM_INVALID");
+    if (Number(output.width) !== 3840 || Number(output.height) !== 2176 || Number(output.fps) !== 24) {
+      throw new Error("AVANTIQO_VIDEO_NATIVE_MASTER_DIMENSIONS_INVALID");
+    }
+    if (output.native_4k_claimed !== true || output.native_master_generated !== true || output.master_is_exact_model_output !== true) {
+      throw new Error("AVANTIQO_VIDEO_NATIVE_MASTER_CLAIM_INVALID");
     }
     if (Number(output.native_generation_width) !== 3840 || Number(output.native_generation_height) !== 2176) {
-      throw new Error("AVANTIQO_VIDEO_NATIVE4K_GENERATION_DIMENSIONS_INVALID");
+      throw new Error("AVANTIQO_VIDEO_NATIVE_MASTER_GENERATION_DIMENSIONS_INVALID");
     }
-    if (output.pixel_upscale_used !== false || output.learned_latent_upsampler_used !== false || output.learned_spatial_upscaler_used !== false || output.resize_used !== false) {
-      throw new Error("AVANTIQO_VIDEO_NATIVE4K_UPSCALE_OR_RESIZE_FORBIDDEN");
+    if (output.pixel_upscale_used !== false || output.learned_latent_upsampler_used !== false || output.learned_spatial_upscaler_used !== false || output.resize_used !== false || output.crop_used !== false) {
+      throw new Error("AVANTIQO_VIDEO_NATIVE_MASTER_POSTPROCESS_FORBIDDEN");
     }
-    if (output.distilled_lora_used !== false || output.delivery_crop_only !== true || Number(output.delivery_crop_top_px) !== 8 || Number(output.delivery_crop_bottom_px) !== 8) {
-      throw new Error("AVANTIQO_VIDEO_NATIVE4K_MODEL_OR_CROP_CONTRACT_INVALID");
+    if (output.distilled_lora_used !== false || output.uhd_delivery !== false || output.delivery_crop_only !== false || output.delivery_variants_generated !== false) {
+      throw new Error("AVANTIQO_VIDEO_NATIVE_MASTER_MODEL_OR_DELIVERY_BOUNDARY_INVALID");
     }
-    if (output.deterministic_title_composite !== true || text(output.title_text) !== "04:47 AM / BEFORE THE DAY BEGINS") {
-      throw new Error("AVANTIQO_VIDEO_NATIVE4K_TITLE_LOCK_INVALID");
+    if (output.deterministic_title_composite !== false || text(output.title_text) !== "") {
+      throw new Error("AVANTIQO_VIDEO_NATIVE_MASTER_TITLE_BURNIN_FORBIDDEN");
     }
-    const qc = object(output.visual_integrity_qc);
-    if (Number(qc.max_pure_black_fraction) > 0.55 || Number(qc.min_active_span_fraction) < 0.70) {
-      throw new Error("AVANTIQO_VIDEO_NATIVE4K_VISUAL_INTEGRITY_INVALID");
+    if (output.visual_integrity_qc_deferred_to_studio !== true) {
+      throw new Error("AVANTIQO_VIDEO_NATIVE_MASTER_STUDIO_QC_BOUNDARY_INVALID");
     }`,
 );
 
 await fs.writeFile(GENERATED, source, "utf8");
-console.log("AVANTIQO_VIDEO_LTX25_NATIVE4K_SOURCE_PATCH=PASS");
+console.log("AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_SOURCE_PATCH=PASS");
 try {
   await import(`${pathToFileURL(GENERATED).href}?v=${Date.now()}`);
 } finally {

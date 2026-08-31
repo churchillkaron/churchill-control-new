@@ -154,22 +154,26 @@ try {
     body:{ dataCenterIds:[TARGET_DC], gpuTypeIds:[TARGET_GPU], networkVolumeIds:[targetVolumeId] },
   });
   await sleep(1200);
-  const [after, afterHealth, afterTemplates] = await Promise.all([
+  const [after, afterHealth, afterTemplates, verifiedTargetVolume] = await Promise.all([
     rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey),
     queueHealth(runtimeKey),
     templates(managementKey),
+    rest(`/networkvolumes/${encodeURIComponent(targetVolumeId)}`, managementKey),
   ]);
   assertClean(after,afterHealth,`${CONTRACT}_AFTER`);
   if (!sameStable(before,after)) throw new Error(`${CONTRACT}_UNRELATED_ENDPOINT_FIELD_CHANGED`);
-  if (JSON.stringify(dcIds(after))!==JSON.stringify([TARGET_DC])) throw new Error(`${CONTRACT}_DC_VERIFY_FAILED:${JSON.stringify(dcIds(after))}`);
   if (JSON.stringify(gpuIds(after))!==JSON.stringify([TARGET_GPU])) throw new Error(`${CONTRACT}_GPU_VERIFY_FAILED:${JSON.stringify(gpuIds(after))}`);
   if (JSON.stringify(volumeIds(after))!==JSON.stringify([targetVolumeId])) throw new Error(`${CONTRACT}_VOLUME_VERIFY_FAILED:${JSON.stringify(volumeIds(after))}`);
+  if (text(verifiedTargetVolume.id)!==targetVolumeId || text(verifiedTargetVolume.dataCenterId ?? verifiedTargetVolume.data_center_id)!==TARGET_DC) {
+    throw new Error(`${CONTRACT}_VOLUME_DATACENTER_VERIFY_FAILED:${text(verifiedTargetVolume.dataCenterId ?? verifiedTargetVolume.data_center_id)}`);
+  }
   const afterTemplate = afterTemplates.find((row)=>text(row.id)===templateId);
   if (!afterTemplate || text(afterTemplate.imageName)!==IMMUTABLE_IMAGE) throw new Error(`${CONTRACT}_IMAGE_CHANGED`);
   console.log(JSON.stringify({
     success:true,
     contract:CONTRACT,
-    target:{data_center_id:TARGET_DC,gpu_type_id:TARGET_GPU,gpu_stock:freshStock.stock_status,network_volume_id:targetVolumeId,network_volume_name:TARGET_VOLUME_NAME},
+    target:{data_center_id:TARGET_DC,endpoint_data_center_ids_advisory:dcIds(after),gpu_type_id:TARGET_GPU,gpu_stock:freshStock.stock_status,network_volume_id:targetVolumeId,network_volume_name:TARGET_VOLUME_NAME},
+    datacenter_verified_via_bound_network_volume:true,
     immutable_image:IMMUTABLE_IMAGE,
     endpoint_configuration_preserved:true,
     workers_min:0,

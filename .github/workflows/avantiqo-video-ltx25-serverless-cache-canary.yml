@@ -1,0 +1,357 @@
+name: Avantiqo Video LTX-2.5 Serverless Cache Canary
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - services/avantiqo-video-engine/ltx25_serverless_cache_probe.py
+      - services/avantiqo-video-engine/Dockerfile.ltx25.serverless-cache-probe
+      - .github/workflows/avantiqo-video-ltx25-serverless-cache-canary.yml
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: avantiqo-video-ltx25-serverless-cache-canary
+  cancel-in-progress: false
+
+jobs:
+  build-and-provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_INFERENCE_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY || secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_CURRENT_VIDEO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      CANARY_NAME: avantiqo-video-ltx25-cache-canary-v1
+      PROBE_CONTRACT: AVANTIQO_VIDEO_LTX25_SERVERLESS_CACHE_PROBE_V1
+      MODEL_REFERENCE: https://huggingface.co/Lightricks/LTX-2.5:main
+      IMAGE_REPO: ghcr.io/churchillkaron/avantiqo-video-ltx25-cache-probe
+      RESULT_FILE: artifacts/avantiqo-video-ltx25-serverless-cache-canary.json
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate required bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in RUNPOD_API_KEY RUNPOD_INFERENCE_KEY RUNPOD_CURRENT_VIDEO_ENDPOINT_ID HF_TOKEN; do
+            if [ -z "${!name:-}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "AVANTIQO_VIDEO_LTX25_CACHE_CANARY_MISSING_BINDING=${missing[0]}"
+            exit 1
+          fi
+          echo "AVANTIQO_VIDEO_LTX25_CACHE_CANARY_BINDINGS=PASS"
+
+      - name: Validate gated LTX-2.5 access without downloading weights
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer ${HF_TOKEN}" \
+            'https://huggingface.co/Lightricks/LTX-2.5/resolve/main/diffusion_models/ltx-2.5-22b-distilled-transformer-bf16.safetensors?download=false')"
+          case "$code" in
+            200|302|303|307) echo "AVANTIQO_VIDEO_LTX25_GATED_ACCESS=PASS" ;;
+            *) echo "AVANTIQO_VIDEO_LTX25_GATED_ACCESS=FAIL_HTTP_${code}"; exit 1 ;;
+          esac
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push immutable cache-probe worker
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-video-engine
+          file: services/avantiqo-video-engine/Dockerfile.ltx25.serverless-cache-probe
+          push: true
+          tags: ${{ env.IMAGE_REPO }}:${{ github.sha }}
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=avantiqo-video-ltx25-cache-probe
+          cache-to: type=gha,mode=max,scope=avantiqo-video-ltx25-cache-probe
+
+      - name: Install current runpodctl
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo wget -q https://github.com/runpod/runpodctl/releases/latest/download/runpodctl-linux-amd64 -O /usr/local/bin/runpodctl
+          sudo chmod +x /usr/local/bin/runpodctl
+          runpodctl version
+          runpodctl serverless create --help | grep -q -- '--model-reference'
+          echo "AVANTIQO_VIDEO_LTX25_RUNPODCTL_MODEL_CACHE_SUPPORT=PASS"
+
+      - name: Provision zero-idle global cached-model canary
+        id: provision
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+
+          case "$IMAGE_DIGEST" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo 'AVANTIQO_VIDEO_LTX25_CACHE_PROBE_DIGEST_INVALID'; exit 1 ;;
+          esac
+          image="${IMAGE_REPO}@${IMAGE_DIGEST}"
+
+          current_json="$(curl -fsS \
+            -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            "https://rest.runpod.io/v1/endpoints/${RUNPOD_CURRENT_VIDEO_ENDPOINT_ID}?includeTemplate=true")"
+          registry_auth="$(printf '%s' "$current_json" | jq -r '.template.containerRegistryAuthId // .template.container_registry_auth_id // empty')"
+          if [ -z "$registry_auth" ]; then
+            echo 'AVANTIQO_VIDEO_LTX25_EXISTING_REGISTRY_AUTH_REQUIRED'
+            exit 1
+          fi
+
+          endpoints="$(runpodctl serverless list)"
+          endpoint_id="$(printf '%s' "$endpoints" | jq -r --arg name "$CANARY_NAME" '[.[]? | select(.name == $name)][0].id // [.endpoints[]? | select(.name == $name)][0].id // empty')"
+
+          if [ -z "$endpoint_id" ]; then
+            template_name="avantiqo-ltx25-cache-canary-${GITHUB_RUN_ID}"
+            env_json="$(jq -cn --arg token "$HF_TOKEN" '{HF_TOKEN:$token,MODEL_NAME:"Lightricks/LTX-2.5",HF_HUB_OFFLINE:"1",TRANSFORMERS_OFFLINE:"1"}')"
+            template_json="$(runpodctl template create \
+              --name "$template_name" \
+              --image "$image" \
+              --serverless \
+              --container-disk-in-gb 30 \
+              --registry-auth-id "$registry_auth" \
+              --env "$env_json")"
+            template_id="$(printf '%s' "$template_json" | jq -r '.id // .template.id // .data.id // empty')"
+            if [ -z "$template_id" ]; then
+              echo 'AVANTIQO_VIDEO_LTX25_CANARY_TEMPLATE_ID_REQUIRED'
+              exit 1
+            fi
+
+            create_json="$(runpodctl serverless create \
+              --name "$CANARY_NAME" \
+              --template-id "$template_id" \
+              --gpu-id 'NVIDIA RTX PRO 6000 Blackwell Server Edition' \
+              --gpu-count 1 \
+              --workers-min 0 \
+              --workers-max 1 \
+              --scale-by requests \
+              --scale-threshold 1 \
+              --idle-timeout 5 \
+              --flash-boot true \
+              --execution-timeout 600 \
+              --min-cuda-version 12.8 \
+              --model-reference "$MODEL_REFERENCE")"
+            endpoint_id="$(printf '%s' "$create_json" | jq -r '.id // .endpoint.id // .data.id // empty')"
+            if [ -z "$endpoint_id" ]; then
+              echo 'AVANTIQO_VIDEO_LTX25_CANARY_ENDPOINT_ID_REQUIRED'
+              exit 1
+            fi
+            created=true
+          else
+            created=false
+          fi
+
+          # Serverless endpoints support three prioritized GPU choices. These are all
+          # >=96GB and avoid the 24/48GB classes that are unsafe for the native-4K lane.
+          curl -fsS -X PATCH \
+            -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            "https://rest.runpod.io/v1/endpoints/${endpoint_id}" \
+            -d '{"gpuTypeIds":["NVIDIA RTX PRO 6000 Blackwell Server Edition","NVIDIA RTX PRO 6000 Blackwell Workstation Edition","NVIDIA B200"],"workersMin":0,"workersMax":1,"idleTimeout":5,"scalerType":"REQUEST_COUNT","scalerValue":1,"flashboot":true,"minCudaVersion":"12.8"}' \
+            >/tmp/canary-patch.json
+
+          verified="$(curl -fsS \
+            -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            "https://rest.runpod.io/v1/endpoints/${endpoint_id}?includeTemplate=true&includeWorkers=true")"
+
+          test "$(printf '%s' "$verified" | jq -r '.workersMin')" = '0'
+          test "$(printf '%s' "$verified" | jq -r '.workersMax')" = '1'
+          test "$(printf '%s' "$verified" | jq -r '.idleTimeout')" = '5'
+          test "$(printf '%s' "$verified" | jq -r '.scalerType')" = 'REQUEST_COUNT'
+          test "$(printf '%s' "$verified" | jq -r '.scalerValue')" = '1'
+          test "$(printf '%s' "$verified" | jq -r '(.flashboot // .flashBoot // false)')" = 'true'
+          volume_count="$(printf '%s' "$verified" | jq '[.networkVolumeId,.networkVolumeIds[]?] | map(select(. != null and . != "")) | length')"
+          test "$volume_count" = '0'
+
+          printf '%s\n' "$endpoint_id" >/tmp/canary-endpoint-id
+          printf '%s\n' "$created" >/tmp/canary-created
+          echo "endpoint_id=$endpoint_id" >> "$GITHUB_OUTPUT"
+          echo "created=$created" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_VIDEO_LTX25_ZERO_IDLE_CANARY_PROVISIONED=true"
+          echo "AVANTIQO_VIDEO_LTX25_ZERO_IDLE_CANARY_NETWORK_VOLUME=false"
+          echo "AVANTIQO_VIDEO_LTX25_ZERO_IDLE_CANARY_FLASHBOOT=true"
+          echo "AVANTIQO_VIDEO_LTX25_ZERO_IDLE_CANARY_WORKERS=0_TO_1"
+
+      - name: First zero-to-cache-and-CUDA probe
+        id: first
+        shell: bash
+        env:
+          ENDPOINT_ID: ${{ steps.provision.outputs.endpoint_id }}
+        run: |
+          set -euo pipefail
+          payload="$(jq -cn --arg contract "$PROBE_CONTRACT" '{input:{contract:$contract}}')"
+          start_ms="$(date +%s%3N)"
+          curl -fsS --max-time 2400 \
+            -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "$payload" \
+            "https://api.runpod.ai/v2/${ENDPOINT_ID}/runsync" >/tmp/first.json
+          end_ms="$(date +%s%3N)"
+          wall_ms="$((end_ms-start_ms))"
+          status="$(jq -r '.status // empty' /tmp/first.json)"
+          success="$(jq -r '.output.success // false' /tmp/first.json)"
+          test "$status" = 'COMPLETED'
+          test "$success" = 'true'
+          echo "wall_ms=$wall_ms" >> "$GITHUB_OUTPUT"
+          echo "delay_ms=$(jq -r '.delayTime // 0' /tmp/first.json)" >> "$GITHUB_OUTPUT"
+          echo "execution_ms=$(jq -r '.executionTime // 0' /tmp/first.json)" >> "$GITHUB_OUTPUT"
+          echo "gpu=$(jq -r '.output.gpu_name // "unknown"' /tmp/first.json)" >> "$GITHUB_OUTPUT"
+          echo "bytes=$(jq -r '.output.required_bytes // 0' /tmp/first.json)" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_VIDEO_LTX25_FIRST_ZERO_TO_READY_MS=$wall_ms"
+
+      - name: Allow scale to zero
+        shell: bash
+        run: sleep 20
+
+      - name: Second FlashBoot revival probe
+        id: second
+        shell: bash
+        env:
+          ENDPOINT_ID: ${{ steps.provision.outputs.endpoint_id }}
+        run: |
+          set -euo pipefail
+          payload="$(jq -cn --arg contract "$PROBE_CONTRACT" '{input:{contract:$contract}}')"
+          start_ms="$(date +%s%3N)"
+          curl -fsS --max-time 900 \
+            -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "$payload" \
+            "https://api.runpod.ai/v2/${ENDPOINT_ID}/runsync" >/tmp/second.json
+          end_ms="$(date +%s%3N)"
+          wall_ms="$((end_ms-start_ms))"
+          test "$(jq -r '.status // empty' /tmp/second.json)" = 'COMPLETED'
+          test "$(jq -r '.output.success // false' /tmp/second.json)" = 'true'
+          echo "wall_ms=$wall_ms" >> "$GITHUB_OUTPUT"
+          echo "delay_ms=$(jq -r '.delayTime // 0' /tmp/second.json)" >> "$GITHUB_OUTPUT"
+          echo "execution_ms=$(jq -r '.executionTime // 0' /tmp/second.json)" >> "$GITHUB_OUTPUT"
+          echo "gpu=$(jq -r '.output.gpu_name // "unknown"' /tmp/second.json)" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_VIDEO_LTX25_FLASHBOOT_REVIVAL_MS=$wall_ms"
+
+      - name: Verify zero-idle state and write sanitized result
+        shell: bash
+        env:
+          ENDPOINT_ID: ${{ steps.provision.outputs.endpoint_id }}
+          CREATED: ${{ steps.provision.outputs.created }}
+          FIRST_WALL_MS: ${{ steps.first.outputs.wall_ms }}
+          FIRST_DELAY_MS: ${{ steps.first.outputs.delay_ms }}
+          FIRST_EXECUTION_MS: ${{ steps.first.outputs.execution_ms }}
+          FIRST_GPU: ${{ steps.first.outputs.gpu }}
+          REQUIRED_BYTES: ${{ steps.first.outputs.bytes }}
+          SECOND_WALL_MS: ${{ steps.second.outputs.wall_ms }}
+          SECOND_DELAY_MS: ${{ steps.second.outputs.delay_ms }}
+          SECOND_EXECUTION_MS: ${{ steps.second.outputs.execution_ms }}
+          SECOND_GPU: ${{ steps.second.outputs.gpu }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          sleep 20
+          endpoint="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_API_KEY}" "https://rest.runpod.io/v1/endpoints/${ENDPOINT_ID}?includeWorkers=true")"
+          health="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "https://api.runpod.ai/v2/${ENDPOINT_ID}/health")"
+          active_management="$(printf '%s' "$endpoint" | jq '[.workers[]? | select(((.status // .workerStatus // "") | ascii_upcase) as $s | ($s != "EXITED" and $s != "STOPPED" and $s != "TERMINATED" and $s != "DELETED"))] | length')"
+          health_workers="$(printf '%s' "$health" | jq '(.workers // {}) | [.[]] | add // 0')"
+
+          jq -n \
+            --arg endpoint_id "$ENDPOINT_ID" \
+            --argjson created "$CREATED" \
+            --arg image_digest "$IMAGE_DIGEST" \
+            --arg first_gpu "$FIRST_GPU" \
+            --arg second_gpu "$SECOND_GPU" \
+            --argjson first_wall_ms "$FIRST_WALL_MS" \
+            --argjson first_delay_ms "$FIRST_DELAY_MS" \
+            --argjson first_execution_ms "$FIRST_EXECUTION_MS" \
+            --argjson second_wall_ms "$SECOND_WALL_MS" \
+            --argjson second_delay_ms "$SECOND_DELAY_MS" \
+            --argjson second_execution_ms "$SECOND_EXECUTION_MS" \
+            --argjson required_bytes "$REQUIRED_BYTES" \
+            --argjson active_management "$active_management" \
+            --argjson health_workers "$health_workers" \
+            --argjson workers_min "$(printf '%s' "$endpoint" | jq '.workersMin')" \
+            --argjson workers_max "$(printf '%s' "$endpoint" | jq '.workersMax')" \
+            --argjson idle_timeout "$(printf '%s' "$endpoint" | jq '.idleTimeout')" \
+            --arg scaler_type "$(printf '%s' "$endpoint" | jq -r '.scalerType')" \
+            --argjson scaler_value "$(printf '%s' "$endpoint" | jq '.scalerValue')" \
+            --argjson flashboot "$(printf '%s' "$endpoint" | jq '(.flashboot // .flashBoot // false)')" \
+            --argjson gpu_types "$(printf '%s' "$endpoint" | jq '.gpuTypeIds')" \
+            --argjson network_volume_count "$(printf '%s' "$endpoint" | jq '[.networkVolumeId,.networkVolumeIds[]?] | map(select(. != null and . != "")) | length')" \
+            '{
+              success:true,
+              contract:"AVANTIQO_VIDEO_LTX25_ZERO_IDLE_CACHE_CANARY_V1",
+              endpoint_id:$endpoint_id,
+              endpoint_created_this_run:$created,
+              image_digest:$image_digest,
+              model_reference:"Lightricks/LTX-2.5:main",
+              workers_min:$workers_min,
+              workers_max:$workers_max,
+              idle_timeout_seconds:$idle_timeout,
+              scaler_type:$scaler_type,
+              scaler_value:$scaler_value,
+              flashboot:$flashboot,
+              gpu_type_ids:$gpu_types,
+              network_volume_count:$network_volume_count,
+              first_zero_to_ready:{wall_ms:$first_wall_ms,delay_ms:$first_delay_ms,execution_ms:$first_execution_ms,gpu:$first_gpu},
+              flashboot_revival:{wall_ms:$second_wall_ms,delay_ms:$second_delay_ms,execution_ms:$second_execution_ms,gpu:$second_gpu},
+              cached_required_model_bytes:$required_bytes,
+              active_management_workers_after_idle:$active_management,
+              health_worker_count_after_idle:$health_workers,
+              zero_idle_gpu_cost_configured:($workers_min == 0),
+              no_datacenter_pinning:($network_volume_count == 0),
+              generation_submitted:false,
+              video_inference_performed:false,
+              wallet_mutation_performed:false,
+              production_deploy_performed:false,
+              production_video_endpoint_mutated:false,
+              secrets_printed:false
+            }' > "$RESULT_FILE"
+          cat "$RESULT_FILE"
+
+      - name: Upload sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-ltx25-cache-canary-${{ github.run_id }}
+          path: artifacts/avantiqo-video-ltx25-serverless-cache-canary.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Commit sanitized canary result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -s "$RESULT_FILE" ]; then
+            echo 'No successful sanitized result to commit.'
+            exit 0
+          fi
+          mkdir -p audits/results
+          cp "$RESULT_FILE" audits/results/avantiqo-video-ltx25-serverless-cache-canary.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add audits/results/avantiqo-video-ltx25-serverless-cache-canary.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record LTX-2.5 zero-idle cache canary'
+          git pull --rebase origin main
+          git push origin HEAD:main

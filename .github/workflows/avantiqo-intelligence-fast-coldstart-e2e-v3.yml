@@ -60,3 +60,4 @@ jobs:
           echo "EXTERNAL_AI_FALLBACK_USED=false"
           echo "NEW_NETWORK_VOLUME_CREATED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "PLACEMENT_PROFILE=global-compatible-gpu-fallback-v3"

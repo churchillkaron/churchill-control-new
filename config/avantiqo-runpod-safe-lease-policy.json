@@ -26,8 +26,6 @@
     "code": "avantiqo-code-v1",
     "intelligence-deep": "avantiqo-intelligence-v1",
     "intelligence-fast": "avantiqo-intelligence-fast-v1",
-    "intelligence-trainer": "avantiqo-intelligence-trainer-v1",
-    "intelligence-benchmark": "avantiqo-intelligence-trainer-v1",
     "image": "avantiqo-image-v1",
     "audio": "avantiqo-audio-v1",
     "music-vocal-correction": "avantiqo-music-vocal-correction-v1",
@@ -41,8 +39,6 @@
     "code": 10,
     "intelligence-deep": 10,
     "intelligence-fast": 10,
-    "intelligence-trainer": 10,
-    "intelligence-benchmark": 10,
     "image": 10,
     "cinema": 10,
     "audio": 6,
@@ -53,7 +49,6 @@
     "lipsync": 6
   },
   "lane_max_lease_ttl_ms": {
-    "code": 3600000,
-    "intelligence-benchmark": 8100000
+    "code": 3600000
   }
 }

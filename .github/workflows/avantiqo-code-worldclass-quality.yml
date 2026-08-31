@@ -67,8 +67,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Zero-GPU Code quality gates
+  regression:
+    name: Repository regression gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -92,14 +92,44 @@ jobs:
       - name: Run repository regression suite
         run: npm test
 
+      - name: Assert regression job remains zero-GPU
+        if: always()
+        shell: bash
+        run: |
+          test "${AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED}" = "NO"
+          echo "AVANTIQO_CODE_WORLDCLASS_REGRESSION_ZERO_GPU=PASS"
+
+  code_quality:
+    name: Code-specific world-class gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AVANTIQO_CODE_WORLDCLASS_CI: "YES"
+      AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "NO"
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies without lifecycle side effects
+        run: npm ci --ignore-scripts
+
       - name: Certify Business Partner developer resources
         run: node scripts/business-partner-developer-resource-certification.mjs
 
       - name: Run Code autonomy and world-class quality gates
         run: npm run audit:code-ai-autonomy
 
-      - name: Assert workflow remains zero-GPU
+      - name: Assert Code-specific job remains zero-GPU
+        if: always()
         shell: bash
         run: |
           test "${AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED}" = "NO"
-          echo "AVANTIQO_CODE_WORLDCLASS_ZERO_GPU_CI=PASS"
+          echo "AVANTIQO_CODE_WORLDCLASS_CODE_QUALITY_ZERO_GPU=PASS"

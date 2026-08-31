@@ -1,0 +1,47 @@
+name: Avantiqo Fast Cached Model Schema Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-cached-model-schema-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read current RunPod endpoint schema
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const key = String(process.env.RUNPOD_MANAGEMENT_API_KEY || '').trim();
+          if (!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_REQUIRED');
+          const r = await fetch('https://rest.runpod.io/v1/openapi.json', {
+            headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!r.ok) throw new Error(`OPENAPI_HTTP_${r.status}`);
+          const spec = await r.json();
+          const post = spec?.paths?.['/endpoints']?.post || {};
+          const schema = post?.requestBody?.content?.['application/json']?.schema || {};
+          const ref = String(schema?.['$ref'] || '');
+          const name = ref.split('/').pop();
+          const resolved = name ? spec?.components?.schemas?.[name] : schema;
+          const props = resolved?.properties || {};
+          const cached = Object.fromEntries(Object.entries(props).filter(([k,v]) => /model|cache|hugging/i.test(`${k} ${v?.description || ''}`)).map(([k,v]) => [k, { type:v?.type || null, description:String(v?.description || '').slice(0,500), example:v?.example ?? null, ref:v?.['$ref'] || null, items:v?.items || null }]));
+          console.log(JSON.stringify({
+            contract:'AVANTIQO_FAST_CACHED_MODEL_SCHEMA_AUDIT_V1',
+            request_schema:name || 'inline',
+            required:resolved?.required || [],
+            relevant_properties:cached,
+            all_property_names:Object.keys(props).sort(),
+            mutation_performed:false,
+            production_deploy_performed:false,
+            secrets_printed:false,
+          }, null, 2));
+          NODE

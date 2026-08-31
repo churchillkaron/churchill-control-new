@@ -1,0 +1,112 @@
+{
+  "success": true,
+  "contract": "AVANTIQO_VIDEO_RUNPOD_GPU_POOL_WIDEN_V1",
+  "mode": "APPLY",
+  "minimum_vram_gb": 80,
+  "policy": "ALL_NVIDIA_SECURE_CLOUD_80GB_PLUS_IN_ATTACHED_DATACENTER",
+  "endpoint_name_expected": "avantiqo-cinema-production-v1",
+  "endpoint_id_present": true,
+  "endpoint_before": {
+    "id": "xmey8y2hofexyp",
+    "name": "avantiqo-cinema-production-v1",
+    "version": 6,
+    "workers_min": 1,
+    "workers_max": 1,
+    "gpu_type_ids": [
+      "NVIDIA B200",
+      "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "NVIDIA A100 80GB PCIe"
+    ],
+    "network_volume_ids": [
+      "t4erb6kxi1"
+    ],
+    "active_management_workers": 0
+  },
+  "endpoint_after": {
+    "id": "xmey8y2hofexyp",
+    "name": "avantiqo-cinema-production-v1",
+    "version": 7,
+    "workers_min": 1,
+    "workers_max": 1,
+    "gpu_type_ids": [
+      "NVIDIA B200",
+      "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+      "NVIDIA A100 80GB PCIe",
+      "NVIDIA A100-SXM4-80GB"
+    ],
+    "network_volume_ids": [
+      "t4erb6kxi1"
+    ],
+    "active_management_workers": 0
+  },
+  "datacenter_id": "EU-RO-1",
+  "added_gpu_type_ids": [
+    "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+    "NVIDIA A100-SXM4-80GB"
+  ],
+  "target_gpu_type_ids": [
+    "NVIDIA B200",
+    "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "NVIDIA A100 80GB PCIe",
+    "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+    "NVIDIA A100-SXM4-80GB"
+  ],
+  "eligible_inventory": [
+    {
+      "gpu_type_id": "NVIDIA B200",
+      "memory_gb": 180,
+      "secure_cloud": true,
+      "available_now": true,
+      "stock_status": "LOW"
+    },
+    {
+      "gpu_type_id": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "memory_gb": 96,
+      "secure_cloud": true,
+      "available_now": true,
+      "stock_status": "LOW"
+    },
+    {
+      "gpu_type_id": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+      "memory_gb": 96,
+      "secure_cloud": true,
+      "available_now": true,
+      "stock_status": "LOW"
+    },
+    {
+      "gpu_type_id": "NVIDIA A100 80GB PCIe",
+      "memory_gb": 80,
+      "secure_cloud": true,
+      "available_now": false,
+      "stock_status": "UNAVAILABLE"
+    },
+    {
+      "gpu_type_id": "NVIDIA A100-SXM4-80GB",
+      "memory_gb": 80,
+      "secure_cloud": true,
+      "available_now": false,
+      "stock_status": "UNAVAILABLE"
+    }
+  ],
+  "excluded_small_gpu_examples": [
+    {
+      "gpu_type": "NVIDIA GeForce RTX 4090",
+      "reason": "24GB_BELOW_NATIVE_4K_DFR_FAST_LANE_MINIMUM"
+    },
+    {
+      "gpu_type": "NVIDIA L40S",
+      "reason": "48GB_BELOW_NATIVE_4K_DFR_FAST_LANE_MINIMUM"
+    }
+  ],
+  "workers_min_changed": false,
+  "workers_max_changed": false,
+  "network_volume_changed": false,
+  "generation_submitted": false,
+  "inference_performed": false,
+  "wallet_mutation_performed": false,
+  "production_deploy_performed": false,
+  "mutation_performed": true,
+  "secrets_printed": false,
+  "error_code": null
+}

@@ -30,6 +30,17 @@ test("Operator replaces generic Code response with the concrete artifact", () =>
   assert.match(files.operator, /response_text: responseText/);
 });
 
+test("Operator preserves Code artifacts when the cognitive guard blocks mutation", () => {
+  assert.match(
+    files.operator,
+    /function withCodeCustomerArtifactReply\(result, artifactSource = result\)/,
+  );
+  assert.match(files.operator, /findCodeAICustomerArtifact\(artifactSource\)/);
+  assert.match(files.operator, /withCodeCustomerArtifactReply\(guarded, result\)/);
+  assert.match(files.operator, /code_customer_artifact_preserved_through_guard:/);
+  assert.match(files.operator, /mutation_executed: false/);
+});
+
 test("zero-idle failed submission reaps capacity before preserving the error", () => {
   assert.match(files.provider, /reapAfterServerlessSubmissionFailure/);
   assert.match(files.provider, /await reapIdleCodeAIServerlessWorker\(\)/);

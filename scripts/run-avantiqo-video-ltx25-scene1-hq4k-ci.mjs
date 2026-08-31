@@ -145,8 +145,8 @@ if (!source.includes(qualityBoundary)) throw new Error("AVANTIQO_VIDEO_HQ4K_QUAL
 source = source.replace(
   qualityBoundary,
   `${qualityBoundary}
-    if (output.native_4k_claimed !== true || output.uhd_delivery !== true || output.pixel_upscale_used !== false) {
-      throw new Error("AVANTIQO_VIDEO_HQ4K_NATIVE_DELIVERY_CONTRACT_INVALID");
+    if (output.native_4k_claimed !== false || output.uhd_delivery !== true || output.pixel_upscale_used !== false || output.learned_latent_upsampler_used !== true) {
+      throw new Error("AVANTIQO_VIDEO_HQ4K_UHD_DELIVERY_CONTRACT_INVALID");
     }
     if (output.deterministic_title_composite !== true || text(output.title_text) !== "04:47 AM / BEFORE THE DAY BEGINS") {
       throw new Error("AVANTIQO_VIDEO_HQ4K_TITLE_LOCK_INVALID");

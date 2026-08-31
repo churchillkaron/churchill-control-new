@@ -207,10 +207,15 @@ try {
   report = {
     success: true,
     contract: CONTRACT,
+    generated_file: {
+      path: MODULE_NAME,
+      content: afterSource,
+    },
     proof: {
       broken_fixture_failed_before_ai: true,
       model_inference_performed: true,
       source_mutation_performed: true,
+      generated_source_visible_in_evidence: true,
       generated_source_sha256: after,
       generated_source_bytes: Buffer.byteLength(afterSource, "utf8"),
       generated_code_executed: true,

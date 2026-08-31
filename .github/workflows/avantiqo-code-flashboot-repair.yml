@@ -1,0 +1,68 @@
+name: Avantiqo Code FlashBoot Repair
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-flashboot-repair-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-flashboot-repair
+  cancel-in-progress: false
+
+jobs:
+  repair-flashboot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+      AVANTIQO_CODE_FLASHBOOT_REPAIR_APPROVED: "YES"
+      AVANTIQO_CODE_FLASHBOOT_REPAIR_REPORT: /tmp/avantiqo-code-flashboot-repair.json
+
+    steps:
+      - name: Checkout exact repair commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate RunPod credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ]; then
+            echo 'RUNPOD_MANAGEMENT_API_KEY_OR_RUNPOD_API_KEY_REQUIRED'
+            exit 1
+          fi
+          if [ -z "${RUNPOD_AVANTIQO_CODE_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ] && [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ]; then
+            echo 'RUNPOD_CODE_RUNTIME_KEY_REQUIRED'
+            exit 1
+          fi
+
+      - name: Repair and verify FlashBoot without inference
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/repair-avantiqo-code-flashboot-ci.mjs | tee /tmp/avantiqo-code-flashboot-repair.log
+
+      - name: Upload repair evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-flashboot-repair-${{ github.run_id }}
+          path: |
+            /tmp/avantiqo-code-flashboot-repair.json
+            /tmp/avantiqo-code-flashboot-repair.log
+          if-no-files-found: warn
+          retention-days: 14

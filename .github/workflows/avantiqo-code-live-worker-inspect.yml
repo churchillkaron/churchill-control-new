@@ -1,0 +1,77 @@
+name: Avantiqo Code Live Worker Inspect
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-live-worker-inspect-request.json
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-code-workers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+    steps:
+      - name: Inspect live Code worker records without mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const endpointId = "r79dtnjnrilrlc";
+          const management = (process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY || "").trim();
+          const runtime = (process.env.RUNPOD_AVANTIQO_CODE_API_KEY || process.env.RUNPOD_API_KEY || management).trim();
+          if (!management || !runtime) throw new Error("RUNPOD_CODE_KEYS_REQUIRED");
+          async function json(url, key) {
+            const response = await fetch(url, { headers: { Authorization: `Bearer ${key}`, Accept: "application/json" }, signal: AbortSignal.timeout(30000) });
+            const raw = await response.text();
+            let body = {}; try { body = raw ? JSON.parse(raw) : {}; } catch { body = { message: raw }; }
+            if (!response.ok) throw new Error(`HTTP_${response.status}:${String(body?.message || body?.error || body?.detail || raw).slice(0,700)}`);
+            return body;
+          }
+          const [endpoint, health] = await Promise.all([
+            json(`https://rest.runpod.io/v1/endpoints/${endpointId}?includeTemplate=true&includeWorkers=true`, management),
+            json(`https://api.runpod.ai/v2/${endpointId}/health`, runtime),
+          ]);
+          const safeWorker = (worker = {}) => ({
+            id: worker.id || worker.workerId || null,
+            status: worker.status || worker.workerStatus || worker.runtimeStatus || null,
+            desired_status: worker.desiredStatus || worker.desired_status || null,
+            gpu_type_id: worker.gpuTypeId || worker.gpu_type_id || null,
+            gpu_count: worker.gpuCount ?? worker.gpu_count ?? null,
+            data_center_id: worker.dataCenterId || worker.data_center_id || null,
+            created_at: worker.createdAt || worker.created_at || null,
+            started_at: worker.startedAt || worker.started_at || null,
+            last_started_at: worker.lastStartedAt || worker.last_started_at || null,
+            uptime_seconds: worker.uptimeSeconds ?? worker.uptime_seconds ?? null,
+            cost_per_hr: worker.costPerHr ?? worker.cost_per_hr ?? null,
+            error: worker.error || worker.errorMessage || worker.error_message || null,
+          });
+          console.log(JSON.stringify({
+            success: true,
+            contract: "AVANTIQO_CODE_LIVE_WORKER_INSPECT_V1",
+            endpoint: {
+              id: endpoint.id,
+              name: endpoint.name,
+              workers_min: Number(endpoint.workersMin ?? -1),
+              workers_max: Number(endpoint.workersMax ?? -1),
+              worker_records: Array.isArray(endpoint.workers) ? endpoint.workers.map(safeWorker) : [],
+              worker_record_count: Array.isArray(endpoint.workers) ? endpoint.workers.length : 0,
+            },
+            health: {
+              jobs: health.jobs || {},
+              workers: health.workers || {},
+            },
+            mutation_performed: false,
+            generation_submitted: false,
+            wallet_mutation_performed: false,
+            production_deploy_performed: false,
+            secrets_printed: false,
+          }, null, 2));
+          NODE

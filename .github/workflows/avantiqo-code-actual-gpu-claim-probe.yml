@@ -1,0 +1,44 @@
+name: Avantiqo Code Actual GPU Claim Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/probe-avantiqo-code-actual-gpu-claim-v1-ci.mjs
+      - .github/workflows/avantiqo-code-actual-gpu-claim-probe.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-actual-gpu-claim-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Syntax check
+        run: node --check scripts/probe-avantiqo-code-actual-gpu-claim-v1-ci.mjs
+      - name: Find one actually claimable certified GPU
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: node scripts/probe-avantiqo-code-actual-gpu-claim-v1-ci.mjs 2>&1 | tee /tmp/avantiqo-code-actual-gpu-claim.log
+      - name: Upload probe log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-actual-gpu-claim-${{ github.run_id }}
+          path: /tmp/avantiqo-code-actual-gpu-claim.log
+          if-no-files-found: warn
+          retention-days: 7

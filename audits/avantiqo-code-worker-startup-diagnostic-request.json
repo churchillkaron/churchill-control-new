@@ -1,5 +1,6 @@
 {
   "contract": "AVANTIQO_CODE_WORKER_STARTUP_DIAGNOSTIC_REQUEST_V1",
   "requested": true,
-  "reason": "read dying EUR worker container logs without starting another job"
+  "sequence": 2,
+  "reason": "capture container output after EUR worker became ready while proof job remained queued"
 }

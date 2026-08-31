@@ -1,0 +1,31 @@
+name: Avantiqo Video RunPod Minimal Cleanup
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/cleanup-avantiqo-video-runpod-minimal-v1-ci.mjs
+      - .github/workflows/avantiqo-video-runpod-minimal-cleanup.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-runpod-minimal-cleanup
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Reduce Video RunPod resources to minimal set
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: node scripts/cleanup-avantiqo-video-runpod-minimal-v1-ci.mjs

@@ -6,6 +6,10 @@ const source = await readFile(
   new URL("../lib/platform/service-runtime/providers/ProviderExecutor.js", import.meta.url),
   "utf8",
 );
+const leaseSource = await readFile(
+  new URL("../lib/platform/service-runtime/execution/OwnedIntelligenceFastPodLeaseRuntime.js", import.meta.url),
+  "utf8",
+);
 
 test("Fast lease and shared-volume outages recover through owned Deep", () => {
   assert.match(source, /AVANTIQO_INTELLIGENCE_FAST_POD_LEASE_ACQUIRE_FAILED/);
@@ -34,4 +38,14 @@ test("recovery stays inside canonical request-scoped Safe Lease ownership", () =
 test("non-availability Fast failures remain fail-closed", () => {
   assert.match(source, /if \(!fastAvailabilityRecoveryEligible\(fastError, options\)\) throw fastError/);
   assert.doesNotMatch(source, /FAST_REASONING_TRANSPORT_FORBIDDEN[\s\S]*FAST_AVAILABILITY_RECOVERY_PATTERNS/);
+});
+
+test("Fast distributed lease preserves safe database conflict reason instead of only P0001", () => {
+  assert.match(leaseSource, /safeDatabaseReason/);
+  assert.match(leaseSource, /AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_\[A-Z0-9_\]\+/);
+  assert.match(leaseSource, /reason \|\| error\.code \|\| "UNKNOWN"/);
+  assert.doesNotMatch(
+    leaseSource,
+    /LEASE_ACQUIRE_FAILED:\$\{error\.code \|\| "UNKNOWN"\}/,
+  );
 });

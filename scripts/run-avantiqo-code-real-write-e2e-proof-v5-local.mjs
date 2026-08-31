@@ -13,8 +13,8 @@ const REPORT_MARKER = "const report = {\n  success:";
 const CONTRACT_PROOF_MARKER = "  contract: CONTRACT,\n  proof: {";
 const HEALTH_READY_MARKER = "        && body?.cached_model_found === true\n        && body?.raw_reasoning_persisted === false";
 const MODEL_CONTRACT_MARKER = "  if (\n    output?.status !== \"completed\"";
-const MAX_POD_CREATE_ATTEMPTS = 12;
-const POD_CREATE_RETRY_MS = 10_000;
+const MAX_POD_CREATE_ATTEMPTS = 2;
+const POD_CREATE_RETRY_MS = 3_000;
 const PRELOADED_CODE_IMAGE = "ghcr.io/churchillkaron/avantiqo-code-pod@sha256:c636b7fc23ab2cd433978cf0ba0470acff7df0df6747b3a64b5e71d1ec762a41";
 
 process.env.AVANTIQO_CODE_E2E_IMAGE = String(process.env.AVANTIQO_CODE_E2E_IMAGE || PRELOADED_CODE_IMAGE).trim();
@@ -29,7 +29,7 @@ console.log(JSON.stringify({
   immutable_preloaded_image_required: true,
   engine_loaded_before_inference_required: true,
   dynamic_live_volume_discovery: true,
-  low_stock_allocator: "bounded-exact-error-retry",
+  low_stock_allocator: "fail-fast-exact-error-retry",
   max_pod_create_attempts: MAX_POD_CREATE_ATTEMPTS,
   pod_create_retry_ms: POD_CREATE_RETRY_MS,
   proof_max_model_len: Number(process.env.AVANTIQO_CODE_MAX_MODEL_LEN || 8192),

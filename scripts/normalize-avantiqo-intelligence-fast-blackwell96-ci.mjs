@@ -1,0 +1,31 @@
+const CONTRACT='AVANTIQO_INTELLIGENCE_FAST_BLACKWELL96_NORMALIZE_V1';
+const REST='https://rest.runpod.io/v1';
+const GRAPH='https://api.runpod.io/graphql';
+const QUEUE='https://api.runpod.ai/v2';
+const FAST_ID='pnfgcl98sceh51';
+const FAST_NAME='avantiqo-intelligence-fast-v1';
+const DEEP_NAME='avantiqo-intelligence-v1';
+const TARGET_GPU_TYPES=[
+  'NVIDIA RTX PRO 6000 Blackwell Server Edition',
+  'NVIDIA RTX PRO 6000 Blackwell Workstation Edition',
+  'NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition',
+];
+const TARGET_CUDA=['13.0'];
+const text=v=>String(v??'').trim();
+const list=v=>Array.isArray(v)?v:[];
+const finite=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
+const key=text(process.env.RUNPOD_MANAGEMENT_API_KEY||process.env.RUNPOD_API_KEY);
+const qkey=text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY||process.env.RUNPOD_API_KEY||key);
+if(!key||!qkey)throw new Error(`${CONTRACT}_CREDENTIAL_REQUIRED`);
+async function req(url,options={}){const r=await fetch(url,{method:options.method||'GET',headers:{Authorization:`Bearer ${options.key||key}`,Accept:'application/json',...(options.body!==undefined?{'Content-Type':'application/json'}:{})},body:options.body===undefined?undefined:JSON.stringify(options.body),signal:AbortSignal.timeout(options.timeoutMs||30000)});const raw=await r.text();let body=null;try{body=raw?JSON.parse(raw):{};}catch{}if(!r.ok)throw new Error(`${CONTRACT}_HTTP_${r.status}:${text(body?.message||body?.error||raw).slice(0,300)}`);return body??{};}
+const rest=(p,o={})=>req(`${REST}${p}`,o);
+const queue=(p,o={})=>req(`${QUEUE}/${FAST_ID}${p}`,{...o,key:qkey});
+async function graph(){const body=await req(GRAPH,{method:'POST',body:{query:`query { myself { endpoints { id name templateId gpuIds gpuCount workersMin workersMax minCudaVersion flashBootType idleTimeout scalerType scalerValue executionTimeoutMs } } }`}});if(list(body?.errors).length)throw new Error(`${CONTRACT}_GRAPHQL:${list(body.errors).map(e=>e?.message).join('|')}`);return list(body?.data?.myself?.endpoints);}
+const rows=(raw,keyName)=>Array.isArray(raw)?raw:list(raw?.[keyName]||raw?.data||raw?.items||raw?.results);
+const vids=e=>[...new Set([text(e?.networkVolumeId),...list(e?.networkVolumeIds).map(v=>text(typeof v==='string'?v:v?.id||v?.networkVolumeId))].filter(Boolean))].sort();
+const sig=e=>({id:text(e.id),name:text(e.name),template_id:text(e.templateId||e.template?.id),workers_min:finite(e.workersMin,-1),workers_max:finite(e.workersMax,-1),data_center_ids:list(e.dataCenterIds).map(text).filter(Boolean).sort(),network_volume_ids:vids(e),idle_timeout:finite(e.idleTimeout),execution_timeout_ms:finite(e.executionTimeoutMs),scaler_type:text(e.scalerType),scaler_value:finite(e.scalerValue),flashboot:e.flashboot===true||e.flashBoot===true});
+const queueCounts=h=>({q:finite(h?.jobs?.inQueue??h?.jobs?.in_queue,0),p:finite(h?.jobs?.inProgress??h?.jobs?.in_progress,0)});
+console.log(`${CONTRACT}_PRODUCTION_DEPLOY_PERFORMED=false`);console.log(`${CONTRACT}_NEW_VOLUME_CREATED=false`);console.log(`${CONTRACT}_MODEL_INFERENCE_PERFORMED=false`);
+const raw=await rest('/endpoints?includeTemplate=true&includeWorkers=true');const eps=rows(raw,'endpoints');const fast=eps.filter(e=>text(e.name)===FAST_NAME);const deep=eps.filter(e=>text(e.name)===DEEP_NAME);if(fast.length!==1||deep.length!==1)throw new Error(`${CONTRACT}_ENDPOINT_RESOLUTION:${fast.length}:${deep.length}`);if(text(fast[0].id)!==FAST_ID)throw new Error(`${CONTRACT}_FAST_ID_MISMATCH`);const before=sig(fast[0]);if(before.workers_min!==0||before.workers_max!==0)throw new Error(`${CONTRACT}_FAST_NOT_PARKED`);if(before.network_volume_ids.length!==0)throw new Error(`${CONTRACT}_FAST_STORAGE_PRESENT`);if(list(fast[0].workers).length)throw new Error(`${CONTRACT}_FAST_WORKER_PRESENT`);const health=queueCounts(await queue('/health',{timeoutMs:20000}));if(health.p!==0)throw new Error(`${CONTRACT}_FAST_JOB_IN_PROGRESS`);if(health.q>0){await queue('/purge-queue',{method:'POST'});const afterPurge=queueCounts(await queue('/health',{timeoutMs:20000}));if(afterPurge.q||afterPurge.p)throw new Error(`${CONTRACT}_QUEUE_PURGE_FAILED`);console.log(`${CONTRACT}_STALE_FAST_QUEUE_PURGED=true`);}else console.log(`${CONTRACT}_STALE_FAST_QUEUE_PURGED=false`);
+const gqlBefore=(await graph()).find(e=>text(e.id)===FAST_ID);if(!gqlBefore)throw new Error(`${CONTRACT}_GRAPHQL_FAST_REQUIRED`);const priorGpuTypes=list(fast[0].gpuTypeIds).map(text).filter(Boolean);const priorCuda=list(fast[0].allowedCudaVersions).map(text).filter(Boolean);
+let mutated=false;try{await rest(`/endpoints/${FAST_ID}/update`,{method:'POST',body:{workersMin:0,workersMax:0,gpuTypeIds:TARGET_GPU_TYPES,allowedCudaVersions:TARGET_CUDA}});mutated=true;await new Promise(r=>setTimeout(r,1500));const rawAfter=await rest('/endpoints?includeTemplate=true&includeWorkers=true');const epAfter=rows(rawAfter,'endpoints').find(e=>text(e.id)===FAST_ID);if(!epAfter)throw new Error(`${CONTRACT}_FAST_MISSING_AFTER_PATCH`);const after=sig(epAfter);if(JSON.stringify(after)!==JSON.stringify(before))throw new Error(`${CONTRACT}_INVARIANT_CHANGED:${JSON.stringify({before,after})}`);const gqlAfter=(await graph()).find(e=>text(e.id)===FAST_ID);if(text(gqlAfter?.gpuIds)!=='BLACKWELL_96')throw new Error(`${CONTRACT}_GRAPHQL_POOL_NOT_CLEAN:${text(gqlAfter?.gpuIds)}`);if(text(gqlAfter?.minCudaVersion)!=='13.0')throw new Error(`${CONTRACT}_CUDA_MIN_NOT_13:${text(gqlAfter?.minCudaVersion)}`);console.log(JSON.stringify({success:true,contract:CONTRACT,fast_endpoint_id:FAST_ID,template_id:after.template_id,graphql_gpu_ids:text(gqlAfter.gpuIds),graphql_min_cuda:text(gqlAfter.minCudaVersion),gpu_type_ids:list(epAfter.gpuTypeIds),allowed_cuda_versions:list(epAfter.allowedCudaVersions),network_volume_ids:after.network_volume_ids,workers_min:after.workers_min,workers_max:after.workers_max,production_deploy_performed:false,new_volume_created:false,model_inference_performed:false,secrets_printed:false},null,2));console.log(`${CONTRACT}=PASS`);}catch(error){if(mutated){try{await rest(`/endpoints/${FAST_ID}/update`,{method:'POST',body:{workersMin:0,workersMax:0,gpuTypeIds:priorGpuTypes,allowedCudaVersions:priorCuda}});console.log(`${CONTRACT}_ROLLBACK_ATTEMPTED=true`);}catch{console.log(`${CONTRACT}_ROLLBACK_ATTEMPTED_FAILED=true`);}}throw error;}

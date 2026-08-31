@@ -1,0 +1,75 @@
+name: Avantiqo Code Ephemeral Pod Real Write Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/run-avantiqo-code-ephemeral-pod-real-write-proof-v1-local.mjs"
+      - ".github/workflows/avantiqo-code-ephemeral-pod-real-write-proof.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-ephemeral-pod-real-write-proof
+  cancel-in-progress: false
+
+jobs:
+  generate-write-execute:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[code-real-write-pod-proof]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Syntax-check proven pod real-write path
+        run: |
+          node --check scripts/run-avantiqo-code-ephemeral-pod-real-write-proof-v1-local.mjs
+          node --check scripts/run-avantiqo-code-ephemeral-pod-generation-proof-v3-local.mjs
+          node --check scripts/run-avantiqo-code-ephemeral-pod-generation-proof-v1-local.mjs
+
+      - name: Generate real code and execute immutable tests
+        shell: bash
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+          AVANTIQO_CODE_EPHEMERAL_POD_REAL_WRITE_PROOF_APPROVED: "YES"
+          AVANTIQO_CODE_EPHEMERAL_POD_REAL_WRITE_REPORT_PATH: artifacts/avantiqo-code-ephemeral-pod-real-write-proof-v1.json
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          node scripts/run-avantiqo-code-ephemeral-pod-real-write-proof-v1-local.mjs 2>&1 | tee /tmp/avantiqo-code-ephemeral-pod-real-write-proof.log
+
+      - name: Verify generated-source evidence
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const report = JSON.parse(readFileSync("artifacts/avantiqo-code-ephemeral-pod-real-write-proof-v1.json", "utf8"));
+          if (report?.success !== true) throw new Error("REAL_WRITE_REPORT_NOT_SUCCESS");
+          if (report?.proof?.model_inference_performed !== true) throw new Error("MODEL_INFERENCE_REQUIRED");
+          if (report?.proof?.generated_code_executed !== true) throw new Error("GENERATED_CODE_EXECUTION_REQUIRED");
+          if (report?.proof?.generated_tests_passed !== true) throw new Error("GENERATED_TEST_PASS_REQUIRED");
+          if (!String(report?.generated_file?.content || "").trim()) throw new Error("GENERATED_SOURCE_REQUIRED");
+          if (report?.safeguards?.production_deploy_performed !== false) throw new Error("PRODUCTION_DEPLOY_FORBIDDEN");
+          console.log("AVANTIQO_CODE_EPHEMERAL_POD_REAL_WRITE_EVIDENCE=PASS");
+          NODE
+
+      - name: Upload exact generated source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-ephemeral-pod-real-write-${{ github.run_id }}
+          path: |
+            artifacts/avantiqo-code-ephemeral-pod-real-write-proof-v1.json
+            /tmp/avantiqo-code-ephemeral-pod-real-write-proof.log
+          if-no-files-found: warn
+          retention-days: 14

@@ -21,12 +21,12 @@ RUN git clone --filter=blob:none https://github.com/Lightricks/LTX-2.git LTX-2 \
     && git checkout "${LTX2_COMMIT}" \
     && test "$(git rev-parse HEAD)" = "${LTX2_COMMIT}"
 
-# The pinned LTX source accepts the current PyTorch 2.x line; its optional NATTEN
-# production path is explicitly tested against torch 2.13. Keep this image runtime-only:
-# no CUDA compiler, no ltx-kernels build and no model weights baked into the image.
-RUN python -m pip install --upgrade pip uv_build \
-    && python -m pip install -e /opt/LTX-2/packages/ltx-core -e /opt/LTX-2/packages/ltx-pipelines \
-    && python -m pip install requests==2.32.4 \
+# PyTorch's Ubuntu 24.04 runtime marks its interpreter as externally managed.
+# Keep the base interpreter (and its matching torch/CUDA runtime) and explicitly
+# permit the pinned application packages to install into it.
+RUN python -m pip install --break-system-packages --upgrade pip uv_build \
+    && python -m pip install --break-system-packages -e /opt/LTX-2/packages/ltx-core -e /opt/LTX-2/packages/ltx-pipelines \
+    && python -m pip install --break-system-packages requests==2.32.4 \
     && python - <<'PY'
 import torch
 assert tuple(int(x) for x in torch.__version__.split('+', 1)[0].split('.')[:2]) >= (2, 13)
@@ -34,8 +34,8 @@ assert hasattr(torch.compiler, 'nested_compile_region')
 print('AVANTIQO_VIDEO_LTX25_FAST_RUNTIME_TORCH_GATE=PASS')
 PY
 
-# Git is only needed to assemble the pinned source tree. Remove the package metadata
-# and apt cache after install to keep cold pulls as small as practical.
+# Git is only needed to assemble the pinned source tree. Remove package metadata
+# and build caches after install to keep cold pulls as small as practical.
 RUN apt-get purge -y git \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* /root/.cache /tmp/*

@@ -1,0 +1,133 @@
+name: Avantiqo Code Worker Image Bind
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-worker-image-bind-request.json
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: avantiqo-code-worker-image-bind
+  cancel-in-progress: false
+
+jobs:
+  bind-code-worker-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+      AVANTIQO_CODE_WORKER_IMAGE_BIND_APPROVED: "YES"
+      AVANTIQO_CODE_WORKER_IMAGE_BIND_REQUEST: audits/avantiqo-code-worker-image-bind-request.json
+      AVANTIQO_CODE_WORKER_IMAGE_BIND_REPORT: /tmp/avantiqo-code-worker-image-bind.json
+
+    steps:
+      - name: Checkout exact bind request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate bind request
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
+          import { readFileSync } from "node:fs";
+          const value = JSON.parse(readFileSync("audits/avantiqo-code-worker-image-bind-request.json", "utf8"));
+          if (value.contract !== "AVANTIQO_CODE_WORKER_IMAGE_BIND_REQUEST_V1") throw new Error("BIND_REQUEST_CONTRACT_INVALID");
+          if (value.approved !== true) throw new Error("BIND_REQUEST_NOT_APPROVED");
+          if (!/^[a-f0-9]{40}$/i.test(String(value.source_sha || ""))) throw new Error("BIND_REQUEST_SOURCE_SHA_INVALID");
+          if (!/^sha256:[a-f0-9]{64}$/i.test(String(value.image_digest || ""))) throw new Error("BIND_REQUEST_IMAGE_DIGEST_INVALID");
+          if (String(value.image_repository || "").toLowerCase() !== "ghcr.io/churchillkaron/avantiqo-code-worker") throw new Error("BIND_REQUEST_IMAGE_REPOSITORY_INVALID");
+          if (!/^\d+$/.test(String(value.build_run_id || ""))) throw new Error("BIND_REQUEST_BUILD_RUN_ID_INVALID");
+          console.log(`source_sha=${String(value.source_sha).toLowerCase()}`);
+          console.log(`image_digest=${String(value.image_digest).toLowerCase()}`);
+          console.log(`image_repository=${String(value.image_repository).toLowerCase()}`);
+          console.log(`build_run_id=${String(value.build_run_id)}`);
+          console.log(`artifact_name=avantiqo-code-worker-image-${String(value.source_sha).slice(0,12).toLowerCase()}`);
+          NODE
+
+      - name: Download exact immutable image evidence
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.request.outputs.build_run_id }}
+          name: ${{ steps.request.outputs.artifact_name }}
+          path: /tmp/avantiqo-code-image-evidence
+
+      - name: Cross-check build evidence
+        env:
+          REQUEST_SOURCE_SHA: ${{ steps.request.outputs.source_sha }}
+          REQUEST_IMAGE_DIGEST: ${{ steps.request.outputs.image_digest }}
+          REQUEST_IMAGE_REPOSITORY: ${{ steps.request.outputs.image_repository }}
+          REQUEST_BUILD_RUN_ID: ${{ steps.request.outputs.build_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const path = "/tmp/avantiqo-code-image-evidence/avantiqo-code-worker-image.json";
+          const evidence = JSON.parse(readFileSync(path, "utf8"));
+          const source = String(process.env.REQUEST_SOURCE_SHA).toLowerCase();
+          const digest = String(process.env.REQUEST_IMAGE_DIGEST).toLowerCase();
+          const repository = String(process.env.REQUEST_IMAGE_REPOSITORY).toLowerCase();
+          const runId = String(process.env.REQUEST_BUILD_RUN_ID);
+          const fail = (name) => { throw new Error(name); };
+          if (evidence.contract !== "AVANTIQO_CODE_WORKER_IMAGE_RESULT_V2") fail("CODE_IMAGE_EVIDENCE_CONTRACT_INVALID");
+          if (evidence.success !== true) fail("CODE_IMAGE_EVIDENCE_NOT_SUCCESS");
+          if (String(evidence.source_sha).toLowerCase() !== source) fail("CODE_IMAGE_EVIDENCE_SOURCE_MISMATCH");
+          if (String(evidence.trigger_sha).toLowerCase() !== source || evidence.source_sha_matches_trigger !== true) fail("CODE_IMAGE_EVIDENCE_TRIGGER_MISMATCH");
+          if (String(evidence.github_run_id) !== runId) fail("CODE_IMAGE_EVIDENCE_RUN_ID_MISMATCH");
+          if (String(evidence.image_repository).toLowerCase() !== repository) fail("CODE_IMAGE_EVIDENCE_REPOSITORY_MISMATCH");
+          if (String(evidence.image_digest).toLowerCase() !== digest) fail("CODE_IMAGE_EVIDENCE_DIGEST_MISMATCH");
+          if (String(evidence.immutable_image_reference).toLowerCase() !== `${repository}@${digest}`) fail("CODE_IMAGE_EVIDENCE_IMMUTABLE_REFERENCE_MISMATCH");
+          if (evidence.serverless_boot_preload !== true || evidence.serverless_start_after_model_load !== true) fail("CODE_IMAGE_EVIDENCE_PRELOAD_REQUIRED");
+          if (evidence.safetensors_load_strategy !== "prefetch") fail("CODE_IMAGE_EVIDENCE_PREFETCH_REQUIRED");
+          if (evidence.provider_job_submitted !== false || evidence.production_web_deploy !== false) fail("CODE_IMAGE_EVIDENCE_ISOLATION_INVALID");
+          console.log("AVANTIQO_CODE_WORKER_IMAGE_EVIDENCE_LOCK=PASS");
+          console.log(`AVANTIQO_CODE_WORKER_IMAGE_EVIDENCE_DIGEST=${digest}`);
+          NODE
+
+      - name: Validate RunPod credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ]; then
+            echo 'RUNPOD_MANAGEMENT_API_KEY_OR_RUNPOD_API_KEY_REQUIRED'
+            exit 1
+          fi
+          if [ -z "${RUNPOD_AVANTIQO_CODE_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ] && [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ]; then
+            echo 'RUNPOD_CODE_RUNTIME_KEY_REQUIRED'
+            exit 1
+          fi
+
+      - name: Bind exact immutable image without inference
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/bind-avantiqo-code-worker-image-ci.mjs --apply | tee /tmp/avantiqo-code-worker-image-bind.log
+
+      - name: Upload bind evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-worker-image-bind-${{ github.run_id }}
+          path: |
+            /tmp/avantiqo-code-worker-image-bind.json
+            /tmp/avantiqo-code-worker-image-bind.log
+          if-no-files-found: warn
+          retention-days: 14

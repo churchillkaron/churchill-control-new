@@ -1,0 +1,91 @@
+name: Avantiqo Video LTX-2.5 Scene 1 Fast V2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-ltx25-scene1-fast-v2.yml
+      - scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+      - scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+      - scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+      - assets/video/proofs/scene1_frame.part-*.b64
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-ltx25-scene1-fast-v2
+  cancel-in-progress: true
+
+jobs:
+  render-scene-1-fast-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      AVANTIQO_VIDEO_LTX25_IMAGE: ghcr.io/churchillkaron/avantiqo-video-ltx25-v5@sha256:63fac5692fb3a038b24c2cdac44f88e452e8ee25744693456391c50259b9eb20
+      AVANTIQO_VIDEO_SCENE1_ORGANIZATION_ID: 9a148429-b6a0-4bc6-ac83-a35c64fb7045
+      AVANTIQO_VIDEO_SCENE1_OPENING_FRAME: ${{ github.workspace }}/assets/video/proofs/avantiqo_first_shot_frame_transport.jpg
+      AVANTIQO_VIDEO_SCENE1_OUTPUT: ${{ github.workspace }}/avantiqo-video-ltx25-scene1.mp4
+      AVANTIQO_VIDEO_SCENE1_REPORT: ${{ github.workspace }}/avantiqo-video-ltx25-scene1-proof.json
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+
+      - name: Reconstruct exact approved Scene 1 opening frame
+        run: python3 scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate fast V2 source
+        run: |
+          set -euo pipefail
+          node --check scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-scene-worker.py
+          echo 'AVANTIQO_VIDEO_LTX25_FAST_V2_STATIC_GATE=PASS'
+
+      - name: Render Scene 1 fast V2
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
+          test -s "${AVANTIQO_VIDEO_SCENE1_OUTPUT}"
+          test -s "${AVANTIQO_VIDEO_SCENE1_REPORT}"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync(process.env.AVANTIQO_VIDEO_SCENE1_REPORT, 'utf8'));
+          if (report.success !== true) throw new Error(report.error_code || 'SCENE1_REPORT_FAILED');
+          if (report.production_deploy_performed !== false) throw new Error('PRODUCTION_DEPLOY_BOUNDARY_BROKEN');
+          if (report.old_video_renderer_used !== false) throw new Error('OLD_VIDEO_RENDERER_USED');
+          if (report.separately_gated_detailing_lora_used !== false) throw new Error('GATED_DETAILING_LORA_USED');
+          if (report.generation?.external_provider_contacted !== false) throw new Error('EXTERNAL_PROVIDER_CONTACTED');
+          if (report.generation?.pixel_720p_stage_used !== false) throw new Error('720P_STAGE_USED');
+          if (report.generation?.lanczos_upscale_used !== false) throw new Error('PIXEL_UPSCALE_USED');
+          console.log('AVANTIQO_VIDEO_LTX25_FAST_V2_FINAL_GATE=PASS');
+          NODE
+
+      - name: Upload Scene 1 artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-ltx25-scene1-fast-v2-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            avantiqo-video-ltx25-scene1.mp4
+            avantiqo-video-ltx25-scene1-proof.json

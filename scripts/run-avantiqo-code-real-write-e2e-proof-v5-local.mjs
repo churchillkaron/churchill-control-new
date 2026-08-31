@@ -11,6 +11,8 @@ const CREATE_START = "async function createPod() {";
 const DELETE_START = "async function deleteVerified() {";
 const REPORT_MARKER = "const report = {\n  success:";
 const CONTRACT_PROOF_MARKER = "  contract: CONTRACT,\n  proof: {";
+const HEALTH_READY_MARKER = "        && body?.cached_model_found === true\n        && body?.raw_reasoning_persisted === false";
+const MODEL_CONTRACT_MARKER = "  if (\n    output?.status !== \"completed\"";
 const MAX_POD_CREATE_ATTEMPTS = 12;
 const POD_CREATE_RETRY_MS = 10_000;
 const PRELOADED_CODE_IMAGE = "ghcr.io/churchillkaron/avantiqo-code-pod@sha256:c636b7fc23ab2cd433978cf0ba0470acff7df0df6747b3a64b5e71d1ec762a41";
@@ -25,6 +27,7 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   image_digest: process.env.AVANTIQO_CODE_E2E_IMAGE.split("@")[1] || null,
   immutable_preloaded_image_required: true,
+  engine_loaded_before_inference_required: true,
   dynamic_live_volume_discovery: true,
   low_stock_allocator: "bounded-exact-error-retry",
   max_pod_create_attempts: MAX_POD_CREATE_ATTEMPTS,
@@ -48,6 +51,8 @@ try {
   }
   if (!v1Source.includes(REPORT_MARKER)) throw new Error(`${CONTRACT}_V1_REPORT_MARKER_MISSING`);
   if (!v1Source.includes(CONTRACT_PROOF_MARKER)) throw new Error(`${CONTRACT}_V1_PROOF_MARKER_MISSING`);
+  if (!v1Source.includes(HEALTH_READY_MARKER)) throw new Error(`${CONTRACT}_V1_HEALTH_READY_MARKER_MISSING`);
+  if (!v1Source.includes(MODEL_CONTRACT_MARKER)) throw new Error(`${CONTRACT}_V1_MODEL_CONTRACT_MARKER_MISSING`);
   if (!v3Source.includes(V1_DECLARATION)) throw new Error(`${CONTRACT}_V3_V1_DECLARATION_MISSING`);
 
   const retryingCreatePod = `async function createPod() {
@@ -122,6 +127,20 @@ try {
   const stateMarker = 'let podCreatePerformed = false;';
   if (!visibleV1.includes(stateMarker)) throw new Error(`${CONTRACT}_POD_CREATE_STATE_MARKER_MISSING`);
   visibleV1 = visibleV1.replace(stateMarker, `${stateMarker}\nlet podCreateAttempts = 0;`);
+  visibleV1 = visibleV1.replace(
+    HEALTH_READY_MARKER,
+    "        && body?.cached_model_found === true\n        && body?.engine_loaded === true\n        && body?.engine_loading === false\n        && !body?.engine_load_error_type\n        && body?.raw_reasoning_persisted === false",
+  );
+  visibleV1 = visibleV1.replace(
+    MODEL_CONTRACT_MARKER,
+    [
+      "  if (output?.status === \"engine_load_failed\") {",
+      "    throw new Error(`${CONTRACT}_ENGINE_LOAD_FAILED:${text(output?.error_type || \"UNKNOWN\")}:${text(output?.error_message || \"\").slice(0, 700)}`);",
+      "  }",
+      "  if (",
+      "    output?.status !== \"completed\"",
+    ].join("\n"),
+  );
 
   visibleV1 = visibleV1
     .replace(
@@ -151,6 +170,7 @@ try {
         `    retry_ms: ${POD_CREATE_RETRY_MS},`,
         "    proof_max_model_len: Number(process.env.AVANTIQO_CODE_MAX_MODEL_LEN || 8192),",
         "    immutable_preloaded_image: process.env.AVANTIQO_CODE_E2E_IMAGE,",
+        "    engine_loaded_before_inference_required: true,",
         "  },",
         "  proof: {",
       ].join("\n"),

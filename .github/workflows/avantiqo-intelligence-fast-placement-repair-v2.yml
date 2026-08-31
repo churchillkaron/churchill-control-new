@@ -1,0 +1,49 @@
+name: Avantiqo Intelligence Fast Placement Repair V2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/repair-avantiqo-intelligence-fast-placement-v2-ci.mjs
+      - .github/workflows/avantiqo-intelligence-fast-placement-repair-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-fast-placement-repair-v2
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Static gate
+        run: node --check scripts/repair-avantiqo-intelligence-fast-placement-v2-ci.mjs
+
+      - name: Purge stale Fast queue and apply GPU priority
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_INTELLIGENCE_FAST_PLACEMENT_REPAIR_APPROVED: YES
+        run: node scripts/repair-avantiqo-intelligence-fast-placement-v2-ci.mjs
+
+      - name: Immutable boundary
+        if: always()
+        run: |
+          echo "NEW_NETWORK_VOLUME_CREATED=false"
+          echo "MODEL_INFERENCE_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

@@ -1,0 +1,95 @@
+name: Avantiqo Video GPU Pool Widen
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-video-gpu-pool-widen-request.json
+      - scripts/widen-avantiqo-video-runpod-gpu-pool-ci.mjs
+      - .github/workflows/avantiqo-video-gpu-pool-widen.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-gpu-pool-widen
+  cancel-in-progress: false
+
+jobs:
+  widen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY }}
+      RUNPOD_AVANTIQO_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID }}
+      AVANTIQO_VIDEO_GPU_POOL_WIDEN_RESULT: artifacts/avantiqo-video-gpu-pool-widen.json
+      AVANTIQO_VIDEO_GPU_POOL_WIDEN_APPROVED: "YES"
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate dedicated credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          missing=()
+          for name in RUNPOD_API_KEY RUNPOD_MANAGEMENT_API_KEY RUNPOD_AVANTIQO_VIDEO_ENDPOINT_ID; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            first="${missing[0]}"
+            printf '{"success":false,"contract":"AVANTIQO_VIDEO_RUNPOD_GPU_POOL_WIDEN_V1","error_code":"CREDENTIAL_PREFLIGHT_FAILED","missing_binding":"%s","generation_submitted":false,"inference_performed":false,"production_deploy_performed":false,"secrets_printed":false}\n' "$first" > "$AVANTIQO_VIDEO_GPU_POOL_WIDEN_RESULT"
+            exit 1
+          fi
+
+      - name: Syntax check
+        run: node --check scripts/widen-avantiqo-video-runpod-gpu-pool-ci.mjs
+
+      - name: Widen compatible Video GPU pool
+        run: node scripts/widen-avantiqo-video-runpod-gpu-pool-ci.mjs
+
+      - name: Upload sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-gpu-pool-widen-${{ github.run_id }}
+          path: artifacts/avantiqo-video-gpu-pool-widen.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Commit sanitized evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audits/results
+          if [ -f "$AVANTIQO_VIDEO_GPU_POOL_WIDEN_RESULT" ]; then
+            cp "$AVANTIQO_VIDEO_GPU_POOL_WIDEN_RESULT" audits/results/avantiqo-video-gpu-pool-widen.json
+          else
+            printf '{"success":false,"contract":"AVANTIQO_VIDEO_RUNPOD_GPU_POOL_WIDEN_V1","error_code":"RESULT_NOT_PRODUCED","generation_submitted":false,"inference_performed":false,"production_deploy_performed":false,"secrets_printed":false}\n' > audits/results/avantiqo-video-gpu-pool-widen.json
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audits/results/avantiqo-video-gpu-pool-widen.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Record widened Video GPU pool"
+          git pull --rebase origin main
+          git push origin HEAD:main

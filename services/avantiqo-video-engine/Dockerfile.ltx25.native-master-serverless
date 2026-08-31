@@ -1,0 +1,28 @@
+FROM ghcr.io/churchillkaron/avantiqo-video-ltx25-fast-runtime@sha256:8bbfb6a41849d2ce6f22b4d023859f08fb4a6de652a173a82682e3a3132f1ee6
+
+USER root
+RUN python -m pip install --break-system-packages --no-cache-dir "runpod>=1.7.13,<2" \
+    && rm -rf /root/.cache /tmp/*
+
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT=/opt/LTX-2 \
+    AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS=1800 \
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+    CUDA_MODULE_LOADING=LAZY
+
+WORKDIR /app
+COPY ltx25_native_master_serverless.py /app/handler.py
+
+RUN python -m py_compile /app/handler.py \
+    && python - <<'PY'
+from pathlib import Path
+source = Path('/app/handler.py').read_text()
+assert 'TI2VID_ONE_STAGE_FULL_DEV_BF16' in source
+assert '3840' in source and '2176' in source
+assert 'distilled_lora_used": False' in source
+assert 'crop_used": False' in source
+print('AVANTIQO_VIDEO_NATIVE_MASTER_SERVERLESS_IMAGE_GATE=PASS')
+PY
+
+CMD ["python", "-u", "/app/handler.py"]

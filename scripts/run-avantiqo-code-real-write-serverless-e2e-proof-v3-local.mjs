@@ -52,8 +52,15 @@ source = patchOnce(source, "  let lastStatus = \"\";\n  while (Date.now() < dead
 source = patchOnce(
   source,
   "    if (TERMINAL.has(status)) {\n      activeJobTerminal = true;\n      if (status !== \"COMPLETED\") throw new Error(`${CONTRACT}_GENERATION_${status}:${text(body?.error || body?.output?.error, 800) || \"UNKNOWN\"}`);\n      if (!body?.output || typeof body.output !== \"object\") throw new Error(`${CONTRACT}_GENERATION_OUTPUT_REQUIRED`);\n      return body.output;\n    }\n    await sleep(POLL_MS);",
-  "    if (TERMINAL.has(status)) {\n      activeJobTerminal = true;\n      if (status !== \"COMPLETED\") throw new Error(`${CONTRACT}_GENERATION_${status}:${text(body?.error || body?.output?.error, 800) || \"UNKNOWN\"}`);\n      if (!body?.output || typeof body.output !== \"object\") throw new Error(`${CONTRACT}_GENERATION_OUTPUT_REQUIRED`);\n      return body.output;\n    }\n    if (status === \"IN_QUEUE\") {\n      const capacityHealth = await queueHealth().catch(() => null);\n      if (capacityHealth && !hasWorkers(capacityHealth)) {\n        if (!inQueueWithoutWorkerSince) inQueueWithoutWorkerSince = Date.now();\n        const stalledMs = Date.now() - inQueueWithoutWorkerSince;\n        if (stalledMs >= IN_QUEUE_NO_WORKER_TIMEOUT_MS) {\n          const cancelled = await cancelActiveJob();\n          console.log(JSON.stringify({ event: `${CONTRACT}_PROGRESS`, phase: \"SERVERLESS_CAPACITY_STALL_ABORT\", stalled_ms: stalledMs, zero_workers_observed: true, job_cancelled: cancelled, inference_performed: false, secrets_printed: false }));\n          throw new Error(`${CONTRACT}_SERVERLESS_CAPACITY_STALLED_NO_WORKER`);\n        }\n      } else {\n        inQueueWithoutWorkerSince = 0;\n      }\n    } else {\n      inQueueWithoutWorkerSince = 0;\n    }\n    await sleep(POLL_MS);",
+  "    if (TERMINAL.has(status)) {\n      activeJobTerminal = true;\n      if (status !== \"COMPLETED\") throw new Error(`${CONTRACT}_GENERATION_${status}:${text(body?.error || body?.output?.error, 800) || \"UNKNOWN\"}`);\n      if (!body?.output || typeof body.output !== \"object\") throw new Error(`${CONTRACT}_GENERATION_OUTPUT_REQUIRED`);\n      return body.output;\n    }\n    if (status === \"IN_QUEUE\") {\n      const capacityHealth = await queueHealth().catch(() => null);\n      if (capacityHealth && !hasWorkers(capacityHealth)) {\n        if (!inQueueWithoutWorkerSince) inQueueWithoutWorkerSince = Date.now();\n        const stalledMs = Date.now() - inQueueWithoutWorkerSince;\n        if (stalledMs >= IN_QUEUE_NO_WORKER_TIMEOUT_MS) {\n          const cancelled = await cancelActiveJob();\n          console.log(JSON.stringify({ event: `${CONTRACT}_PROGRESS`, phase: \"SERVERLESS_NO_WORKER_BOUND_ABORT\", stalled_ms: stalledMs, zero_workers_observed: true, job_cancelled: cancelled, inference_performed: false, cause_classification: \"SCHEDULER_OR_CACHED_MODEL_PROVISIONING_NOT_READY\", secrets_printed: false }));\n          throw new Error(`${CONTRACT}_SERVERLESS_NO_WORKER_WITHIN_BOUND`);\n        }\n      } else {\n        inQueueWithoutWorkerSince = 0;\n      }\n    } else {\n      inQueueWithoutWorkerSince = 0;\n    }\n    await sleep(POLL_MS);",
   "QUEUE_STALL_GUARD",
+);
+
+source = patchOnce(
+  source,
+  "    } catch (error) {\n      lastAttemptError = text(error?.message || error, 4_000);\n      feedback = [",
+  "    } catch (error) {\n      lastAttemptError = text(error?.message || error, 4_000);\n      if (lastAttemptError.includes(\"SERVERLESS_NO_WORKER_WITHIN_BOUND\")) {\n        console.log(JSON.stringify({ event: `${CONTRACT}_PROGRESS`, phase: \"NON_RETRYABLE_TRANSPORT_FAILURE\", attempt, failure: \"SERVERLESS_NO_WORKER_WITHIN_BOUND\", second_generation_submission_blocked: true, inference_performed: false, secrets_printed: false }));\n        throw error;\n      }\n      feedback = [",
+  "NO_WORKER_TERMINAL_CLASSIFICATION",
 );
 
 source = patchOnce(
@@ -102,6 +109,7 @@ console.log(JSON.stringify({
   in_queue_no_worker_timeout_ms: IN_QUEUE_NO_WORKER_TIMEOUT_MS,
   total_generation_timeout_ms: TOTAL_GENERATION_TIMEOUT_MS,
   cancel_stalled_job_required: true,
+  no_worker_failure_retryable: false,
   signal_cleanup_required: true,
   zero_idle_restore_required: true,
   new_storage_created: false,

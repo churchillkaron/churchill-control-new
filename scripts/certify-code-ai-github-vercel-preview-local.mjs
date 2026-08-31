@@ -7,10 +7,11 @@ import {
   openLocalCodeWorkspace,
 } from "../lib/code/runtime/CodeWorkspaceLocalRuntime.js";
 
-const CONTRACT = "AVANTIQO_CODE_AI_GITHUB_VERCEL_PREVIEW_CERTIFICATION_V1";
+const CONTRACT = "AVANTIQO_CODE_AI_GITHUB_VERCEL_PREVIEW_CERTIFICATION_V2";
 const APPROVAL = "AVANTIQO_CODE_GITHUB_VERCEL_PREVIEW_CERT_APPROVED";
 const REPOSITORY_URL = "https://github.com/churchillkaron/churchill-control-new";
 const APP_ROOT = "local-audit-output/avantiqo-computer-agent-generated-app";
+const REAL_GENERATED_SOURCE = "local-audit-output/avantiqo-code-real-generation/invoice-total.mjs";
 
 function text(value, maximum = 4000) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -60,6 +61,18 @@ if (!text(process.env.VERCEL_TOKEN)) {
   throw new Error("VERCEL_TOKEN_REQUIRED_FOR_PREVIEW_CERTIFICATION");
 }
 
+const useRealGenerated = text(process.env.AVANTIQO_CODE_PREVIEW_USE_REAL_GENERATED).toUpperCase() === "YES";
+let realGeneratedSource = "";
+let realGeneratedSha256 = "";
+if (useRealGenerated) {
+  realGeneratedSource = await readFile(
+    `${process.env.AVANTIQO_CODE_LOCAL_REPOSITORY_ROOT}/${REAL_GENERATED_SOURCE}`,
+    "utf8",
+  );
+  if (!realGeneratedSource.trim()) throw new Error("CODE_AI_PREVIEW_REAL_GENERATED_SOURCE_EMPTY");
+  realGeneratedSha256 = crypto.createHash("sha256").update(realGeneratedSource, "utf8").digest("hex");
+}
+
 const workspace = await openLocalCodeWorkspace({
   repository_url: REPOSITORY_URL,
   ref: "main",
@@ -69,6 +82,13 @@ const branch = `avantiqo-computer-proof-${Date.now()}-${crypto.randomBytes(3).to
 let branchPushed = false;
 
 try {
+  const healthSource = useRealGenerated
+    ? `import { invoiceTotal } from "../generated/invoice-total.mjs";\n\nexport default function handler(request, response) {\n  response.status(200).json({\n    success: true,\n    agent: "Avantiqo Code",\n    stage: "vercel-preview",\n    generated_code_executed: true,\n    invoice_total: invoiceTotal(100, 0.07),\n    generated_source_sha256: ${JSON.stringify(realGeneratedSha256)},\n  });\n}\n`
+    : `export default function handler(request, response) {\n  response.status(200).json({ success: true, agent: "Avantiqo Code", stage: "vercel-preview" });\n}\n`;
+  const pageSource = useRealGenerated
+    ? `<!doctype html><html><body><main><h1>Avantiqo Code Real Write</h1><p>Owned AI-generated code reached the local computer, GitHub and this Vercel preview.</p><p>Source SHA-256: ${realGeneratedSha256}</p></main></body></html>\n`
+    : "<!doctype html><html><body><main><h1>Avantiqo Computer Agent Preview</h1><p>GitHub to Vercel preview proof.</p></main></body></html>\n";
+
   const files = [
     {
       path: `${APP_ROOT}/package.json`,
@@ -80,11 +100,11 @@ try {
     },
     {
       path: `${APP_ROOT}/api/health.mjs`,
-      content: `export default function handler(request, response) {\n  response.status(200).json({ success: true, agent: "Avantiqo Code", stage: "vercel-preview" });\n}\n`,
+      content: healthSource,
     },
     {
       path: `${APP_ROOT}/public/index.html`,
-      content: "<!doctype html><html><body><main><h1>Avantiqo Computer Agent Preview</h1><p>GitHub to Vercel preview proof.</p></main></body></html>\n",
+      content: pageSource,
     },
     {
       path: `${APP_ROOT}/vercel.json`,
@@ -95,9 +115,29 @@ try {
         ],
       }, null, 2) + "\n",
     },
+    ...(useRealGenerated ? [{
+      path: `${APP_ROOT}/generated/invoice-total.mjs`,
+      content: realGeneratedSource,
+    }] : []),
   ];
   const applied = await workspace.applyFiles(files);
   assert.equal(applied.valid, true);
+
+  if (useRealGenerated) {
+    const generatedCheck = await workspace.run({
+      command: "node",
+      args: ["--check", "generated/invoice-total.mjs"],
+      cwd: APP_ROOT,
+    });
+    assert.equal(generatedCheck.exit_code, 0, generatedCheck.stderr);
+    const generatedExecution = await workspace.run({
+      command: "node",
+      args: ["--input-type=module", "-e", "import('./generated/invoice-total.mjs').then(({ invoiceTotal }) => { if (invoiceTotal(100, 0.07) !== 107) process.exit(2); console.log('AVANTIQO_CODE_PREVIEW_GENERATED_EXECUTION_PASS'); })"],
+      cwd: APP_ROOT,
+    });
+    assert.equal(generatedExecution.exit_code, 0, generatedExecution.stderr);
+    assert.match(generatedExecution.stdout, /AVANTIQO_CODE_PREVIEW_GENERATED_EXECUTION_PASS/);
+  }
 
   const check = await workspace.run({
     command: "node",
@@ -108,13 +148,17 @@ try {
 
   const diff = await workspace.diff();
   assert.equal(diff.diff_check.exit_code, 0);
-  assert.match(diff.patch, /Avantiqo Computer Agent Preview/);
+  assert.match(diff.patch, useRealGenerated ? /Avantiqo Code Real Write/ : /Avantiqo Computer Agent Preview/);
+  if (useRealGenerated) {
+    assert.match(diff.patch, /invoiceTotal/);
+    assert.match(diff.patch, new RegExp(realGeneratedSha256));
+  }
 
   await required("git", ["checkout", "-b", branch], workspace.repository_root, "CODE_AI_PREVIEW_BRANCH_CREATE_FAILED");
   await required("git", ["add", "--", APP_ROOT], workspace.repository_root, "CODE_AI_PREVIEW_GIT_ADD_FAILED");
   await required(
     "git",
-    ["-c", "user.name=Avantiqo Code", "-c", "user.email=code@avantiqo.local", "commit", "-m", "Certify Avantiqo computer agent preview"],
+    ["-c", "user.name=Avantiqo Code", "-c", "user.email=code@avantiqo.local", "commit", "-m", useRealGenerated ? "Prove Avantiqo real Code through preview" : "Certify Avantiqo computer agent preview"],
     workspace.repository_root,
     "CODE_AI_PREVIEW_GIT_COMMIT_FAILED",
   );
@@ -195,20 +239,35 @@ try {
 
   const previewBaseUrl = `https://${deploymentUrl}`;
   const page = await fetch(previewBaseUrl).then((response) => response.text());
-  assert.match(page, /Avantiqo Computer Agent Preview/);
+  assert.match(page, useRealGenerated ? /Avantiqo Code Real Write/ : /Avantiqo Computer Agent Preview/);
   const healthResponse = await fetch(`${previewBaseUrl}/api/health`);
   assert.equal(healthResponse.ok, true);
   const health = await healthResponse.json();
-  assert.deepEqual(health, {
-    success: true,
-    agent: "Avantiqo Code",
-    stage: "vercel-preview",
-  });
+  if (useRealGenerated) {
+    assert.deepEqual(health, {
+      success: true,
+      agent: "Avantiqo Code",
+      stage: "vercel-preview",
+      generated_code_executed: true,
+      invoice_total: 107,
+      generated_source_sha256: realGeneratedSha256,
+    });
+  } else {
+    assert.deepEqual(health, {
+      success: true,
+      agent: "Avantiqo Code",
+      stage: "vercel-preview",
+    });
+  }
 
   console.log(JSON.stringify({
     success: true,
     contract: CONTRACT,
     local_computer_worktree_verified: true,
+    real_generated_source_mode: useRealGenerated,
+    real_generated_source_in_github_branch: useRealGenerated,
+    generated_source_sha256: realGeneratedSha256 || null,
+    generated_code_executed_in_preview: useRealGenerated,
     github_branch: branch,
     github_commit_sha: commitSha,
     github_push_verified: true,

@@ -1,0 +1,273 @@
+name: Avantiqo Video Native Master Serverless Migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - services/avantiqo-video-engine/ltx25_native_master_serverless.py
+      - services/avantiqo-video-engine/Dockerfile.ltx25.native-master-serverless
+      - .github/workflows/avantiqo-video-ltx25-native-master-serverless-migrate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: avantiqo-video-native-master-serverless-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ENDPOINT_ID: xmey8y2hofexyp
+      ENDPOINT_NAME: avantiqo-cinema-production-v1
+      MODEL_REFERENCE: https://huggingface.co/Lightricks/LTX-2.5:main
+      IMAGE_REPO: ghcr.io/churchillkaron/avantiqo-video-ltx25-native-master-serverless
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_INFERENCE_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY || secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      PROBE_CONTRACT: AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_SERVERLESS_V1
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate bindings and source
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in RUNPOD_API_KEY RUNPOD_INFERENCE_KEY HF_TOKEN; do
+            test -n "${!name:-}" || { echo "AVANTIQO_VIDEO_SERVERLESS_MIGRATION_MISSING_${name}"; exit 1; }
+          done
+          python3 -m py_compile services/avantiqo-video-engine/ltx25_native_master_serverless.py
+          grep -Fq 'MASTER_WIDTH = 3840' services/avantiqo-video-engine/ltx25_native_master_serverless.py
+          grep -Fq 'MASTER_HEIGHT = 2176' services/avantiqo-video-engine/ltx25_native_master_serverless.py
+          grep -Fq 'ltx_pipelines.ti2vid_one_stage' services/avantiqo-video-engine/ltx25_native_master_serverless.py
+          grep -Fq 'ltx-2.5-22b-dev-transformer-bf16.safetensors' services/avantiqo-video-engine/ltx25_native_master_serverless.py
+          ! grep -Fq 'distilled-transformer' services/avantiqo-video-engine/ltx25_native_master_serverless.py
+          echo 'AVANTIQO_VIDEO_SERVERLESS_SOURCE_GATE=PASS'
+
+      - name: Validate gated full-dev model access
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${HF_TOKEN}" \
+            'https://huggingface.co/Lightricks/LTX-2.5/resolve/main/diffusion_models/ltx-2.5-22b-dev-transformer-bf16.safetensors?download=false')"
+          case "$code" in
+            200|302|303|307|308) echo 'AVANTIQO_VIDEO_FULL_DEV_ACCESS=PASS' ;;
+            *) echo "AVANTIQO_VIDEO_FULL_DEV_ACCESS=FAIL_HTTP_${code}"; exit 1 ;;
+          esac
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build immutable native-master serverless image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-video-engine
+          file: services/avantiqo-video-engine/Dockerfile.ltx25.native-master-serverless
+          push: true
+          tags: ${{ env.IMAGE_REPO }}:${{ github.sha }}
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=avantiqo-video-native-master-serverless
+          cache-to: type=gha,mode=max,scope=avantiqo-video-native-master-serverless
+
+      - name: Migrate existing production endpoint only
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          case "$IMAGE_DIGEST" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo 'AVANTIQO_VIDEO_SERVERLESS_IMAGE_DIGEST_INVALID'; exit 1 ;;
+          esac
+          image="${IMAGE_REPO}@${IMAGE_DIGEST}"
+
+          endpoint="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            "https://rest.runpod.io/v1/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
+          test "$(printf '%s' "$endpoint" | jq -r '.id')" = "$ENDPOINT_ID"
+          test "$(printf '%s' "$endpoint" | jq -r '.name')" = "$ENDPOINT_NAME"
+          test "$(printf '%s' "$endpoint" | jq -r '.workersMin')" = '0'
+          active_workers="$(printf '%s' "$endpoint" | jq '[.workers[]? | select(((.status // .workerStatus // .runtimeStatus // .desiredStatus // "") | ascii_upcase) as $s | ($s != "EXITED" and $s != "STOPPED" and $s != "TERMINATED" and $s != "DELETED"))] | length')"
+          test "$active_workers" = '0'
+
+          health="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "https://api.runpod.ai/v2/${ENDPOINT_ID}/health")"
+          test "$(printf '%s' "$health" | jq '(.jobs.inQueue // .jobs.in_queue // 0)')" = '0'
+          test "$(printf '%s' "$health" | jq '(.jobs.inProgress // .jobs.in_progress // 0)')" = '0'
+
+          template_id="$(printf '%s' "$endpoint" | jq -r '.templateId // .template.id // empty')"
+          test -n "$template_id"
+          templates="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            'https://rest.runpod.io/v1/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false')"
+          endpoints="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            'https://rest.runpod.io/v1/endpoints?includeTemplate=true&includeWorkers=true')"
+          consumer_count="$(printf '%s' "$endpoints" | jq --arg tid "$template_id" '[.[]? | select((.templateId // .template.id // "") == $tid)] | length')"
+          if [ "$consumer_count" = '0' ]; then
+            consumer_count="$(printf '%s' "$endpoints" | jq --arg tid "$template_id" '[.endpoints[]? | select((.templateId // .template.id // "") == $tid)] | length')"
+          fi
+          test "$consumer_count" = '1'
+
+          template="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_API_KEY}" "https://rest.runpod.io/v1/templates/${template_id}")"
+          registry_auth="$(printf '%s' "$template" | jq -r '.containerRegistryAuthId // empty')"
+          template_name="$(printf '%s' "$template" | jq -r '.name')"
+          test -n "$template_name"
+
+          # Preserve the existing production template identity and registry binding.
+          env_json="$(printf '%s' "$template" | jq -c --arg hf "$HF_TOKEN" '
+            (.env // {}) as $e |
+            if ($e|type)=="array" then
+              (reduce $e[] as $i ({}; .[$i.key // $i.name] = ($i.value // "")))
+            else $e end |
+            .HF_TOKEN=$hf |
+            .MODEL_NAME="Lightricks/LTX-2.5" |
+            .HF_HUB_OFFLINE="1" |
+            .TRANSFORMERS_OFFLINE="1" |
+            .AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT="/opt/LTX-2" |
+            .AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS="1800"')"
+
+          update_body="$(printf '%s' "$template" | jq -c \
+            --arg image "$image" \
+            --argjson env "$env_json" \
+            '{
+              name:.name,
+              imageName:$image,
+              containerDiskInGb:(.containerDiskInGb // 30),
+              dockerEntrypoint:(.dockerEntrypoint // []),
+              dockerStartCmd:[],
+              env:$env,
+              isPublic:false,
+              isServerless:true,
+              ports:(.ports // []),
+              readme:(.readme // ""),
+              volumeInGb:0,
+              volumeMountPath:"/runpod-volume"
+            }')"
+          if [ -n "$registry_auth" ]; then
+            update_body="$(printf '%s' "$update_body" | jq -c --arg id "$registry_auth" '.containerRegistryAuthId=$id')"
+          fi
+
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "$update_body" \
+            "https://rest.runpod.io/v1/templates/${template_id}/update" >/tmp/video-template-update.json
+
+          node --input-type=module <<'NODE'
+          const endpointId = process.env.ENDPOINT_ID;
+          const endpointName = process.env.ENDPOINT_NAME;
+          const modelReference = process.env.MODEL_REFERENCE;
+          const key = process.env.RUNPOD_API_KEY;
+          const gql = async (query, variables = {}) => {
+            const response = await fetch('https://api.runpod.io/graphql', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ query, variables }),
+              signal: AbortSignal.timeout(30000),
+            });
+            const body = await response.json();
+            if (!response.ok || body.errors?.length) throw new Error(`RUNPOD_GRAPHQL:${response.status}:${JSON.stringify(body.errors || body).slice(0,1000)}`);
+            return body;
+          };
+          const query = `query { myself { endpoints { id name templateId gpuIds gpuCount instanceIds workersMin workersMax locations networkVolumeId networkVolumeIds { networkVolumeId } idleTimeout scalerType scalerValue executionTimeoutMs minCudaVersion flashBootType modelReferences } } }`;
+          const body = await gql(query);
+          const matches = (body.data?.myself?.endpoints || []).filter((e) => e.id === endpointId && e.name === endpointName);
+          if (matches.length !== 1) throw new Error(`VIDEO_ENDPOINT_GRAPHQL_RESOLUTION:${matches.length}`);
+          const e = matches[0];
+          const input = {
+            id: endpointId,
+            name: endpointName,
+            templateId: e.templateId,
+            gpuIds: e.gpuIds,
+            gpuCount: Number(e.gpuCount || 1),
+            instanceIds: Array.isArray(e.instanceIds) ? e.instanceIds : [],
+            workersMin: 0,
+            workersMax: 1,
+            locations: '',
+            networkVolumeId: '',
+            networkVolumeIds: [],
+            idleTimeout: 5,
+            scalerType: 'REQUEST_COUNT',
+            scalerValue: 1,
+            executionTimeoutMs: 2100000,
+            minCudaVersion: '12.8',
+            flashBootType: e.flashBootType || 'FLASHBOOT',
+            modelReferences: [modelReference],
+          };
+          const mutation = `mutation($input: EndpointInput!) { saveEndpoint(input:$input) { id name workersMin workersMax networkVolumeId networkVolumeIds { networkVolumeId } idleTimeout scalerType scalerValue modelReferences flashBootType } }`;
+          const saved = (await gql(mutation, { input })).data?.saveEndpoint;
+          if (!saved || saved.id !== endpointId) throw new Error('VIDEO_ENDPOINT_SAVE_INVALID');
+          console.log('AVANTIQO_VIDEO_SERVERLESS_GRAPHQL_MIGRATION=PASS');
+          NODE
+
+          curl -fsS -X PATCH \
+            -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            "https://rest.runpod.io/v1/endpoints/${ENDPOINT_ID}" \
+            -d '{"gpuTypeIds":["NVIDIA RTX PRO 6000 Blackwell Server Edition","NVIDIA RTX PRO 6000 Blackwell Workstation Edition","NVIDIA B200"],"gpuCount":1,"workersMin":0,"workersMax":1,"idleTimeout":5,"scalerType":"REQUEST_COUNT","scalerValue":1,"flashboot":true,"minCudaVersion":"12.8","allowedCudaVersions":["12.8","12.9","13.0"],"dataCenterIds":[],"executionTimeoutMs":2100000,"networkVolumeIds":[]}' >/tmp/video-endpoint-patch.json
+
+          verified="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            "https://rest.runpod.io/v1/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
+          test "$(printf '%s' "$verified" | jq -r '.id')" = "$ENDPOINT_ID"
+          test "$(printf '%s' "$verified" | jq -r '.name')" = "$ENDPOINT_NAME"
+          test "$(printf '%s' "$verified" | jq -r '.workersMin')" = '0'
+          test "$(printf '%s' "$verified" | jq -r '.workersMax')" = '1'
+          test "$(printf '%s' "$verified" | jq -r '.idleTimeout')" = '5'
+          test "$(printf '%s' "$verified" | jq -r '.scalerType')" = 'REQUEST_COUNT'
+          test "$(printf '%s' "$verified" | jq -r '.scalerValue')" = '1'
+          test "$(printf '%s' "$verified" | jq -r '(.flashboot // .flashBoot // false)')" = 'true'
+          volume_count="$(printf '%s' "$verified" | jq '[.networkVolumeId,.networkVolumeIds[]?] | map(select(. != null and . != "")) | length')"
+          test "$volume_count" = '0'
+          dc_count="$(printf '%s' "$verified" | jq '(.dataCenterIds // []) | length')"
+          test "$dc_count" = '0'
+          echo "AVANTIQO_VIDEO_SERVERLESS_PRODUCTION_ENDPOINT_MIGRATED=${ENDPOINT_ID}"
+          echo 'AVANTIQO_VIDEO_SERVERLESS_NETWORK_VOLUME_ATTACHED=false'
+          echo 'AVANTIQO_VIDEO_SERVERLESS_GLOBAL_SCHEDULING=true'
+          echo 'AVANTIQO_VIDEO_SERVERLESS_ZERO_IDLE=true'
+
+      - name: Generation-free zero-to-ready runtime probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -cn --arg c "$PROBE_CONTRACT" '{input:{contract:$c,operation:"runtime_probe"}}')"
+          curl -fsS --max-time 2400 \
+            -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "$payload" \
+            "https://api.runpod.ai/v2/${ENDPOINT_ID}/runsync" >/tmp/video-runtime-probe.json
+          test "$(jq -r '.status // empty' /tmp/video-runtime-probe.json)" = 'COMPLETED'
+          test "$(jq -r '.output.success // false' /tmp/video-runtime-probe.json)" = 'true'
+          test "$(jq -r '.output.generation_performed // true' /tmp/video-runtime-probe.json)" = 'false'
+          test "$(jq -r '.output.inference_performed // true' /tmp/video-runtime-probe.json)" = 'false'
+          echo "AVANTIQO_VIDEO_SERVERLESS_RUNTIME_GPU=$(jq -r '.output.gpu_name // "unknown"' /tmp/video-runtime-probe.json)"
+          echo "AVANTIQO_VIDEO_SERVERLESS_CACHE_REVISION=$(jq -r '.output.cache_revision // "unknown"' /tmp/video-runtime-probe.json)"
+          echo 'AVANTIQO_VIDEO_SERVERLESS_RUNTIME_PROBE=PASS'
+
+      - name: Verify automatic return to zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 20
+          health="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "https://api.runpod.ai/v2/${ENDPOINT_ID}/health")"
+          worker_total="$(printf '%s' "$health" | jq '(.workers // {}) | [.[]] | add // 0')"
+          job_total="$(printf '%s' "$health" | jq '(.jobs // {}) | [(.inQueue // .in_queue // 0),(.inProgress // .in_progress // 0)] | add')"
+          test "$worker_total" = '0'
+          test "$job_total" = '0'
+          echo 'AVANTIQO_VIDEO_SERVERLESS_RETURNED_TO_ZERO=PASS'
+          echo 'AVANTIQO_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_VIDEO_PRODUCTION_WEB_DEPLOY=false'

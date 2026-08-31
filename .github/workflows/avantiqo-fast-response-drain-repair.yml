@@ -1,0 +1,129 @@
+name: Avantiqo Fast Response Drain Repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-response-drain-repair.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-fast-response-drain-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Patch Fast response drain lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js')
+          s = p.read_text()
+
+          old = '''  if (finite(endpoint?.workersMax, -1) !== 0 || activeWorkers(endpoint).length !== 0) {
+    endpoint = await parkAndVerify(endpointId, config);
+  }
+
+  const verifiedHealth = healthJobs(await queue(endpointId, "/health", config));
+  if (
+    finite(endpoint?.workersMax, -1) !== 0 ||
+    activeWorkers(endpoint).length !== 0 ||
+    verifiedHealth.inQueue !== 0 ||
+    verifiedHealth.inProgress !== 0
+  ) {
+    throw new Error("AVANTIQO_INTELLIGENCE_REQUEST_LEASE_REST_STATE_REQUIRED");
+  }
+'''
+          new = '''  const active = activeWorkers(endpoint);
+  const reusableFastDrain =
+    config.leaseLane === "intelligence-fast" &&
+    finite(endpoint?.workersMax, -1) === 0 &&
+    active.length <= 1;
+
+  if (finite(endpoint?.workersMax, -1) !== 0 || (active.length !== 0 && !reusableFastDrain)) {
+    endpoint = await parkAndVerify(endpointId, config);
+  }
+
+  const verifiedHealth = healthJobs(await queue(endpointId, "/health", config));
+  const verifiedActive = activeWorkers(endpoint);
+  const verifiedReusableFastDrain =
+    config.leaseLane === "intelligence-fast" &&
+    finite(endpoint?.workersMax, -1) === 0 &&
+    verifiedActive.length <= 1;
+  if (
+    finite(endpoint?.workersMax, -1) !== 0 ||
+    (verifiedActive.length !== 0 && !verifiedReusableFastDrain) ||
+    verifiedHealth.inQueue !== 0 ||
+    verifiedHealth.inProgress !== 0
+  ) {
+    throw new Error("AVANTIQO_INTELLIGENCE_REQUEST_LEASE_REST_STATE_REQUIRED");
+  }
+'''
+          if old not in s:
+              raise SystemExit('NORMALIZE_PATCH_TARGET_MISSING')
+          s = s.replace(old, new, 1)
+
+          old = '''    if (endpointOpened) {
+      try {
+        await parkAndVerify(endpointId, config);
+      } catch (error) {
+        cleanupError = error;
+      }
+    }
+'''
+          new = '''    if (endpointOpened) {
+      try {
+        // Interactive Fast responses must not wait for the physical worker to
+        // disappear after inference. Closing workersMax to zero is the cost and
+        // replacement boundary; RunPod may keep the already-idle worker alive
+        // briefly for its configured idle timeout, which also enables burst reuse.
+        // Failed executions and Deep remain strict and synchronously verify full drain.
+        if (config.leaseLane === "intelligence-fast" && !executionError) {
+          await patchWorkers(endpointId, 0, config);
+        } else {
+          await parkAndVerify(endpointId, config);
+        }
+      } catch (error) {
+        cleanupError = error;
+      }
+    }
+'''
+          if old not in s:
+              raise SystemExit('FINALLY_PATCH_TARGET_MISSING')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+      - name: Zero-cost proof
+        run: |
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          node --check lib/platform/service-runtime/providers/ProviderExecutor.js
+          node --test tests/avantiqo-intelligence-fast-scheduling.test.mjs
+          git diff --check
+          grep -q 'reusableFastDrain' lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          grep -q 'config.leaseLane === "intelligence-fast" && !executionError' lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+
+      - name: Commit only after green proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
+          git commit -m "Return Fast answers before physical worker drain"
+          git push origin HEAD:main

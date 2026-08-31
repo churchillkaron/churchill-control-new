@@ -2,6 +2,34 @@ name: Avantiqo Code World-Class Quality
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/code/runtime/**"
+      - "lib/platform/capabilities/createCodeAI*.js"
+      - "lib/platform/capabilities/createOperatorWebResearchCapability.js"
+      - "lib/platform/capabilities/createOperatorMissionCapability.js"
+      - "lib/platform/capabilities/createProductRepositoryAssessmentCapability.js"
+      - "lib/platform/runtime/AvantiqoDeveloperResourceReadRuntime.js"
+      - "lib/platform/runtime/DeveloperAttachmentRuntime.js"
+      - "lib/platform/runtime/AvantiqoLiveExecutionRuntime.js"
+      - "app/api/operator/code/prewarm/route.js"
+      - "app/api/operator/developer-attachments/route.js"
+      - "app/api/operator/live-execution/route.js"
+      - "app/api/internal/code/worker-session/process/route.js"
+      - "components/operator/HomeAvantiqoIntelligenceDock.jsx"
+      - "lib/platform/research/runtime/OperatorMechanismResearch*.js"
+      - "lib/platform/research/runtime/OperatorWebResearchRuntime.js"
+      - "lib/platform/research/runtime/OperatorWebEvidenceRuntime.js"
+      - "tests/*.test.mjs"
+      - "scripts/code-ai-*.mjs"
+      - "scripts/business-partner-developer-resource-certification.mjs"
+      - "scripts/operator-mechanism-research-*.mjs"
+      - "scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs"
+      - "config/avantiqo-runpod-safe-lease-policy.json"
+      - "package.json"
+      - ".github/workflows/avantiqo-code-worldclass-quality.yml"
   push:
     branches:
       - main
@@ -47,7 +75,7 @@ jobs:
       AVANTIQO_CODE_WORLDCLASS_CI: "YES"
       AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED: "NO"
     steps:
-      - name: Checkout main source
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
           fetch-depth: 1

@@ -87,9 +87,15 @@ function normalizeModelReference(value) {
   let result = text(value, 1000);
   result = result.replace(/^https?:\/\/huggingface\.co\//i, "");
   result = result.replace(/\/(?:tree|resolve)\/main\/?$/i, "");
-  result = result.replace(/:main$/i, "");
+  result = result.replace(/:(?:main|[0-9a-f]{40,64})$/i, "");
   result = result.replace(/\/$/, "");
   return result;
+}
+
+function modelRevision(value) {
+  let result = text(value, 1000).replace(/^https?:\/\/huggingface\.co\//i, "").replace(/\/$/, "");
+  const match = result.match(/:([0-9a-f]{40,64}|main)$/i);
+  return match ? match[1] : null;
 }
 
 function modelMatches(value) {
@@ -144,7 +150,7 @@ const managementKey = required("RUNPOD_MANAGEMENT_API_KEY");
 const queueKey = text(process.env.RUNPOD_AVANTIQO_CODE_API_KEY || process.env.RUNPOD_API_KEY || managementKey, 2000);
 if (!queueKey) throw new Error(`${CONTRACT}_QUEUE_KEY_REQUIRED`);
 
-console.log(JSON.stringify({ event: `${CONTRACT}_START`, endpoint_id: ENDPOINT_ID, endpoint_name: ENDPOINT_NAME, model_repo: MODEL_REPO, accepts_partial_prior_migration_state: true, target_scheduling: "GLOBAL_RUNPOD_CACHED_MODEL", preserve_existing_code_storage: true, create_storage: false, inference_performed: false, production_deploy_performed: false, secrets_printed: false }));
+console.log(JSON.stringify({ event: `${CONTRACT}_START`, endpoint_id: ENDPOINT_ID, endpoint_name: ENDPOINT_NAME, model_repo: MODEL_REPO, accepts_partial_prior_migration_state: true, accepts_immutable_cached_model_revision: true, target_scheduling: "GLOBAL_RUNPOD_CACHED_MODEL", preserve_existing_code_storage: true, create_storage: false, inference_performed: false, production_deploy_performed: false, secrets_printed: false }));
 
 const [initialRest, initialGraph, volumesBeforeRaw] = await Promise.all([rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`, managementKey), graphEndpoint(managementKey), rest("/networkvolumes", managementKey)]);
 if (text(initialRest.id) !== ENDPOINT_ID || text(initialRest.name) !== ENDPOINT_NAME) throw new Error(`${CONTRACT}_INITIAL_ENDPOINT_IDENTITY_INVALID`);
@@ -171,7 +177,7 @@ if (health.jobs.in_queue > 0 || health.jobs.in_progress > 0 || workerCount(healt
 
 const attachedBefore = endpointVolumeIds(initialRest);
 const modelRefsBefore = list(initialGraph.modelReferences).map((entry) => text(entry)).filter(Boolean);
-console.log(JSON.stringify({ event: `${CONTRACT}_RECOVERY_STATE`, endpoint_volume_ids_before: attachedBefore, model_references_before: modelRefsBefore.map(normalizeModelReference), endpoint_was_partially_detached: attachedBefore.length === 0, canonical_storage_id: canonicalVolumeId, canonical_storage_name: canonicalVolumeName, secrets_printed: false }));
+console.log(JSON.stringify({ event: `${CONTRACT}_RECOVERY_STATE`, endpoint_volume_ids_before: attachedBefore, model_references_before: modelRefsBefore.map(normalizeModelReference), model_revisions_before: modelRefsBefore.map(modelRevision), endpoint_was_partially_detached: attachedBefore.length === 0, canonical_storage_id: canonicalVolumeId, canonical_storage_name: canonicalVolumeName, secrets_printed: false }));
 
 await saveEndpoint(managementKey, endpointInput(initialGraph));
 await rest(`/endpoints/${ENDPOINT_ID}`, managementKey, { method: "PATCH", body: { gpuTypeIds: [...TARGET_GPU_TYPE_IDS], gpuCount: 1, workersMin: 0, workersMax: 0, idleTimeout: 5, scalerType: "QUEUE_DELAY", scalerValue: 1, flashboot: true, minCudaVersion: "12.8", allowedCudaVersions: [...TARGET_ALLOWED_CUDA_VERSIONS], dataCenterIds: [], networkVolumeIds: [] } });
@@ -188,5 +194,5 @@ const codeVolumesAfter = rows(volumesAfterRaw, ["networkVolumes"]).filter((entry
 if (codeVolumesAfter.length !== 1) throw new Error(`${CONTRACT}_VERIFY_ONE_CODE_STORAGE_REQUIRED:${codeVolumesAfter.length}`);
 if (text(codeVolumesAfter[0]?.id) !== canonicalVolumeId || text(codeVolumesAfter[0]?.name) !== canonicalVolumeName) throw new Error(`${CONTRACT}_VERIFY_CANONICAL_CODE_STORAGE_CHANGED`);
 
-console.log(JSON.stringify({ success: true, contract: CONTRACT, migration_performed: true, recovered_partial_prior_state: attachedBefore.length === 0, endpoint_id: ENDPOINT_ID, endpoint_name: ENDPOINT_NAME, model_repo: MODEL_REPO, model_reference_returned_by_runpod: verifiedModels, scheduling_scope: "GLOBAL", endpoint_network_volume_attached: false, endpoint_datacenter_restricted: false, canonical_code_storage_preserved: true, canonical_code_storage_id: canonicalVolumeId, canonical_code_storage_name: canonicalVolumeName, code_storage_count: 1, new_storage_created: false, storage_deleted: false, workers_min: 0, workers_max: 0, active_workers: 0, queued_jobs: 0, inference_performed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
+console.log(JSON.stringify({ success: true, contract: CONTRACT, migration_performed: true, recovered_partial_prior_state: attachedBefore.length === 0, endpoint_id: ENDPOINT_ID, endpoint_name: ENDPOINT_NAME, model_repo: MODEL_REPO, model_reference_returned_by_runpod: verifiedModels, model_revision_returned_by_runpod: verifiedModels.map(modelRevision), scheduling_scope: "GLOBAL", endpoint_network_volume_attached: false, endpoint_datacenter_restricted: false, canonical_code_storage_preserved: true, canonical_code_storage_id: canonicalVolumeId, canonical_code_storage_name: canonicalVolumeName, code_storage_count: 1, new_storage_created: false, storage_deleted: false, workers_min: 0, workers_max: 0, active_workers: 0, queued_jobs: 0, inference_performed: false, production_deploy_performed: false, secrets_printed: false }, null, 2));
 console.log(`${CONTRACT}=PASS`);

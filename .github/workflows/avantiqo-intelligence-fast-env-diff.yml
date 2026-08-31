@@ -1,0 +1,30 @@
+name: Avantiqo Intelligence Fast Env Diff
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/diagnose-avantiqo-intelligence-fast-env-diff-ci.mjs
+      - .github/workflows/avantiqo-intelligence-fast-env-diff.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Diff live Fast env against proven Deep transform
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: node scripts/diagnose-avantiqo-intelligence-fast-env-diff-ci.mjs

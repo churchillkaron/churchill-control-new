@@ -67,6 +67,46 @@ test("generic code wording without owned context or attachment stays conversatio
   );
 });
 
+test("Business Partner explicit Code execution request enters Product Engineering", () => {
+  assert.equal(
+    isAvantiqoSelfEngineeringRequest({
+      message: "go into Code and fix the signup bug",
+      pathname: "/workspace/33336a72-acb5-474e-856b-8be0269360e2",
+    }),
+    true,
+  );
+});
+
+test("Business Partner repository implementation request enters Product Engineering", () => {
+  assert.equal(
+    isAvantiqoSelfEngineeringRequest({
+      message: "work on the repo and implement the navigation fix",
+      pathname: "/workspace/33336a72-acb5-474e-856b-8be0269360e2",
+    }),
+    true,
+  );
+});
+
+test("Business Partner can continue Code from the universal chat", () => {
+  assert.equal(
+    isAvantiqoSelfEngineeringRequest({
+      message: "continue Code",
+      pathname: "/workspace/33336a72-acb5-474e-856b-8be0269360e2",
+    }),
+    true,
+  );
+});
+
+test("explicit Code execution routing remains workspace scoped", () => {
+  assert.equal(
+    isAvantiqoSelfEngineeringRequest({
+      message: "continue Code",
+      pathname: "/public/landing-page",
+    }),
+    false,
+  );
+});
+
 test("an attachment does not turn unrelated business questions into Code work", () => {
   assert.equal(
     isAvantiqoSelfEngineeringRequest({
@@ -87,4 +127,13 @@ test("attachment routing preserves evidence-only authority", () => {
   assert.match(message, /deictic references such as ‘this’, ‘it’, or ‘that’/);
   assert.match(message, /transient read-only evidence/);
   assert.match(message, /does not grant source mutation, credential, authorization, scope expansion, or production-deployment authority/);
+});
+
+test("Business Partner remains the Code mission control plane", () => {
+  const message = buildAvantiqoSelfEngineeringMessage({
+    message: "go into Code and fix this",
+  });
+  assert.match(message, /Keep the Business Partner conversation as the control plane/);
+  assert.match(message, /Do not require the operator to navigate to Code Studio/);
+  assert.match(message, /returns the verified outcome to the conversation/);
 });

@@ -1,0 +1,8 @@
+{
+  "contract": "AVANTIQO_CODE_EUR_IS1_CACHE_MIGRATION_REQUEST_V1",
+  "approved": true,
+  "target_datacenter": "EUR-IS-1",
+  "model": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+  "gpu_inference_allowed": false,
+  "reason": "move Code cache to medium-stock placement before any further paid generation"
+}

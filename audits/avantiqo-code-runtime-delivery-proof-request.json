@@ -1,7 +1,12 @@
 {
   "contract": "AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_REQUEST_V1",
   "approved": true,
+  "attempt": 2,
   "source_sha": "ec15e1ed894e3c2d4a82dc6c5beedcb316b7d189",
   "image_repository": "ghcr.io/churchillkaron/avantiqo-code-worker",
-  "image_digest": "sha256:67248bddd07c98f02d7c31b17f5bc678f566a1617657608284daf763defc4463"
+  "image_digest": "sha256:67248bddd07c98f02d7c31b17f5bc678f566a1617657608284daf763defc4463",
+  "target_datacenter": "EUR-IS-1",
+  "target_volume_id": "qcg1rbzc3g",
+  "target_gpu_type_id": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "placement_stall_fail_fast_seconds": 90
 }

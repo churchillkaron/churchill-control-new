@@ -1,0 +1,64 @@
+name: Avantiqo Code DeepGEMM Runtime Probe
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-deepgemm-runtime-probe-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-deepgemm-runtime-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+      RUNPOD_AVANTIQO_CODE_ENDPOINT_ID: r79dtnjnrilrlc
+      AVANTIQO_CODE_RUNTIME_PROBE_SPEND_APPROVED: "YES"
+      AVANTIQO_CODE_RUNTIME_PROBE_SAFE_LEASE_TTL_MS: "600000"
+      AVANTIQO_CODE_RUNTIME_PROBE_READY_TIMEOUT_MS: "180000"
+      AVANTIQO_CODE_RUNTIME_PROBE_JOB_TIMEOUT_MS: "360000"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate request and immutable Code source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const request = JSON.parse(readFileSync('audits/avantiqo-code-deepgemm-runtime-probe-request.json','utf8'));
+          if (request.contract !== 'AVANTIQO_CODE_DEEPGEMM_RUNTIME_PROBE_REQUEST_V1' || request.approved !== true) throw new Error('CODE_RUNTIME_PROBE_REQUEST_INVALID');
+          if (request.expected_image_digest !== 'sha256:fa6559a184998d75fb6430ea9fa303fe7b6c1af0da441e61ac4bd587b2bdf3c6') throw new Error('CODE_RUNTIME_PROBE_IMAGE_DIGEST_MISMATCH');
+          const boot = readFileSync('services/avantiqo-code-engine/serverless_boot.py','utf8');
+          if (!boot.includes('os.environ["VLLM_USE_DEEP_GEMM"] = "0"')) throw new Error('CODE_DEEP_GEMM_FALLBACK_MISSING');
+          if (!boot.includes('os.environ["VLLM_MOE_USE_DEEP_GEMM"] = "0"')) throw new Error('CODE_MOE_DEEP_GEMM_FALLBACK_MISSING');
+          console.log('AVANTIQO_CODE_DEEPGEMM_RUNTIME_PROBE_PREFLIGHT=PASS');
+          NODE
+      - name: Run one metadata-only Code runtime probe through Safe Lease
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-code-runtime-probe-safe-lease-local.mjs | tee /tmp/avantiqo-code-deepgemm-runtime-probe.log
+      - name: Upload probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-deepgemm-runtime-probe-${{ github.run_id }}
+          path: /tmp/avantiqo-code-deepgemm-runtime-probe.log
+          if-no-files-found: warn
+          retention-days: 14

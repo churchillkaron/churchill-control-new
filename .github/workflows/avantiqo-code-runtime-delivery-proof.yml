@@ -1,0 +1,90 @@
+name: Avantiqo Code Runtime Delivery Proof
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-runtime-delivery-proof-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-runtime-delivery-proof
+  cancel-in-progress: false
+
+jobs:
+  prove-code-runtime-delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+      AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_APPROVED: "YES"
+      AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_REQUEST: audits/avantiqo-code-runtime-delivery-proof-request.json
+      AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_REPORT: /tmp/avantiqo-code-runtime-delivery-proof.json
+
+    steps:
+      - name: Checkout exact proof request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate proof inputs and source continuity
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/run-avantiqo-code-runtime-delivery-proof-ci.mjs
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const request = JSON.parse(readFileSync("audits/avantiqo-code-runtime-delivery-proof-request.json", "utf8"));
+          if (request.contract !== "AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_REQUEST_V1") throw new Error("CODE_RUNTIME_PROOF_REQUEST_CONTRACT_INVALID");
+          if (request.approved !== true) throw new Error("CODE_RUNTIME_PROOF_REQUEST_NOT_APPROVED");
+          if (!/^[a-f0-9]{40}$/i.test(String(request.source_sha || ""))) throw new Error("CODE_RUNTIME_PROOF_SOURCE_SHA_INVALID");
+          if (!/^sha256:[a-f0-9]{64}$/i.test(String(request.image_digest || ""))) throw new Error("CODE_RUNTIME_PROOF_DIGEST_INVALID");
+          if (String(request.image_repository || "").toLowerCase() !== "ghcr.io/churchillkaron/avantiqo-code-worker") throw new Error("CODE_RUNTIME_PROOF_REPOSITORY_INVALID");
+          NODE
+          source_sha="$(node -p "require('./audits/avantiqo-code-runtime-delivery-proof-request.json').source_sha")"
+          git merge-base --is-ancestor "$source_sha" origin/main
+          changed="$(git diff --name-only "$source_sha..origin/main" -- services/avantiqo-code-engine/Dockerfile.runpod services/avantiqo-code-engine/handler.py services/avantiqo-code-engine/serverless_boot.py services/avantiqo-code-engine/requirements.txt)"
+          test -z "$changed" || { echo "CODE_RUNTIME_PROOF_WORKER_SOURCE_MOVED:$changed"; exit 1; }
+          echo 'AVANTIQO_CODE_RUNTIME_DELIVERY_PROOF_PREFLIGHT=PASS'
+
+      - name: Validate RunPod credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${RUNPOD_MANAGEMENT_API_KEY:-}" ]; then
+            echo 'RUNPOD_MANAGEMENT_API_KEY_REQUIRED'
+            exit 1
+          fi
+          if [ -z "${RUNPOD_AVANTIQO_CODE_API_KEY:-}" ] && [ -z "${RUNPOD_API_KEY:-}" ]; then
+            echo 'RUNPOD_CODE_RUNTIME_KEY_REQUIRED'
+            exit 1
+          fi
+
+      - name: Run one controlled Code delivery proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-code-runtime-delivery-proof-ci.mjs | tee /tmp/avantiqo-code-runtime-delivery-proof.log
+
+      - name: Upload runtime delivery proof evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-runtime-delivery-proof-${{ github.run_id }}
+          path: |
+            /tmp/avantiqo-code-runtime-delivery-proof.json
+            /tmp/avantiqo-code-runtime-delivery-proof.log
+            /tmp/avantiqo-code-runtime-delivery-proof-job-id
+          if-no-files-found: warn
+          retention-days: 14

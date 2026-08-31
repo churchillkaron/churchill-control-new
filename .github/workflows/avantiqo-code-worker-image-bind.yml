@@ -87,7 +87,7 @@ jobs:
           const repository = String(process.env.REQUEST_IMAGE_REPOSITORY).toLowerCase();
           const runId = String(process.env.REQUEST_BUILD_RUN_ID);
           const fail = (name) => { throw new Error(name); };
-          if (evidence.contract !== "AVANTIQO_CODE_WORKER_IMAGE_RESULT_V2") fail("CODE_IMAGE_EVIDENCE_CONTRACT_INVALID");
+          if (evidence.contract !== "AVANTIQO_CODE_WORKER_IMAGE_RESULT_V3") fail("CODE_IMAGE_EVIDENCE_CONTRACT_INVALID");
           if (evidence.success !== true) fail("CODE_IMAGE_EVIDENCE_NOT_SUCCESS");
           if (String(evidence.source_sha).toLowerCase() !== source) fail("CODE_IMAGE_EVIDENCE_SOURCE_MISMATCH");
           if (String(evidence.trigger_sha).toLowerCase() !== source || evidence.source_sha_matches_trigger !== true) fail("CODE_IMAGE_EVIDENCE_TRIGGER_MISMATCH");
@@ -97,8 +97,10 @@ jobs:
           if (String(evidence.immutable_image_reference).toLowerCase() !== `${repository}@${digest}`) fail("CODE_IMAGE_EVIDENCE_IMMUTABLE_REFERENCE_MISMATCH");
           if (evidence.serverless_boot_preload !== true || evidence.serverless_start_after_model_load !== true) fail("CODE_IMAGE_EVIDENCE_PRELOAD_REQUIRED");
           if (evidence.safetensors_load_strategy !== "prefetch") fail("CODE_IMAGE_EVIDENCE_PREFETCH_REQUIRED");
+          if (evidence.deep_gemm_disabled !== true || evidence.moe_deep_gemm_disabled !== true) fail("CODE_IMAGE_EVIDENCE_DEEP_GEMM_FALLBACK_REQUIRED");
           if (evidence.provider_job_submitted !== false || evidence.production_web_deploy !== false) fail("CODE_IMAGE_EVIDENCE_ISOLATION_INVALID");
           console.log("AVANTIQO_CODE_WORKER_IMAGE_EVIDENCE_LOCK=PASS");
+          console.log("AVANTIQO_CODE_WORKER_IMAGE_DEEP_GEMM_FALLBACK=PASS");
           console.log(`AVANTIQO_CODE_WORKER_IMAGE_EVIDENCE_DIGEST=${digest}`);
           NODE
 

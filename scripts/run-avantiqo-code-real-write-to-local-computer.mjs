@@ -10,8 +10,11 @@ const SOURCE_END = "AVANTIQO_CODE_GENERATED_SOURCE_END";
 const OUTPUT_ROOT = "local-audit-output/avantiqo-code-real-generation";
 const OUTPUT_FILE = `${OUTPUT_ROOT}/invoice-total.mjs`;
 const TEST_FILE = `${OUTPUT_ROOT}/invoice-total.test.mjs`;
-const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-e2e-proof-v5-local.mjs";
-const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V5_LAUNCHER=PASS";
+const PRIMARY_GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-e2e-proof-v5-local.mjs";
+const PRIMARY_GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V5_LAUNCHER=PASS";
+const FALLBACK_GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v1-local.mjs";
+const FALLBACK_GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V1=PASS";
+const EXACT_POD_CAPACITY_MISS = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_RUNPOD_HTTP_500:create pod: There are no instances currently available";
 
 function text(value, maximum = 8000) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -70,6 +73,26 @@ function extractGeneratedSource(stdout) {
   return source;
 }
 
+function exactPodCapacityMiss(result) {
+  return `${result.stdout}\n${result.stderr}`.includes(EXACT_POD_CAPACITY_MISS);
+}
+
+async function runGenerationScript(script, repositoryRoot) {
+  return run(
+    process.execPath,
+    [script],
+    repositoryRoot,
+    {
+      stream: true,
+      env: {
+        ...process.env,
+        NODE_ENV: "development",
+        AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_APPROVED: "YES",
+      },
+    },
+  );
+}
+
 if (text(process.env.NODE_ENV).toLowerCase() === "production") {
   throw new Error(`${CONTRACT}_PRODUCTION_ENV_FORBIDDEN`);
 }
@@ -85,9 +108,11 @@ console.log(JSON.stringify({
   event: `${CONTRACT}_START`,
   repository_root: repositoryRoot,
   output_file: OUTPUT_FILE,
-  generation_script: GENERATION_SCRIPT,
+  primary_generation_script: PRIMARY_GENERATION_SCRIPT,
+  exact_capacity_fallback_script: FALLBACK_GENERATION_SCRIPT,
   canonical_endpoint_storage_discovery_required: true,
   bounded_low_stock_retry_required: true,
+  canonical_serverless_zero_idle_fallback_required_on_exact_capacity_miss: true,
   real_owned_model_generation_required: true,
   write_to_local_computer_required: true,
   new_storage_created: false,
@@ -95,24 +120,30 @@ console.log(JSON.stringify({
   secrets_printed: false,
 }));
 
-const generation = await run(
-  process.execPath,
-  [GENERATION_SCRIPT],
-  repositoryRoot,
-  {
-    stream: true,
-    env: {
-      ...process.env,
-      NODE_ENV: "development",
-      AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_APPROVED: "YES",
-    },
-  },
-);
+let generation = await runGenerationScript(PRIMARY_GENERATION_SCRIPT, repositoryRoot);
+let generationPass = PRIMARY_GENERATION_PASS;
+let generationTransport = "RUNPOD_POD";
+
+if (generation.exit_code !== 0 && exactPodCapacityMiss(generation)) {
+  console.log(JSON.stringify({
+    event: `${CONTRACT}_CAPACITY_FALLBACK`,
+    reason: "EXACT_POD_CAPACITY_MISS_AFTER_BOUNDED_RETRY",
+    fallback_transport: "RUNPOD_SERVERLESS_ZERO_IDLE",
+    same_canonical_endpoint_storage_required: true,
+    new_storage_created: false,
+    production_deploy_performed: false,
+    secrets_printed: false,
+  }));
+  generation = await runGenerationScript(FALLBACK_GENERATION_SCRIPT, repositoryRoot);
+  generationPass = FALLBACK_GENERATION_PASS;
+  generationTransport = "RUNPOD_SERVERLESS_ZERO_IDLE";
+}
+
 if (generation.exit_code !== 0) {
   throw new Error(`${CONTRACT}_OWNED_GENERATION_FAILED:${generation.exit_code}`);
 }
-if (!generation.stdout.includes(GENERATION_PASS)) {
-  throw new Error(`${CONTRACT}_GENERATION_PASS_MARKER_REQUIRED`);
+if (!generation.stdout.includes(generationPass)) {
+  throw new Error(`${CONTRACT}_GENERATION_PASS_MARKER_REQUIRED:${generationPass}`);
 }
 
 const generatedSource = extractGeneratedSource(generation.stdout);
@@ -133,6 +164,8 @@ console.log(SOURCE_END);
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
+  generation_transport: generationTransport,
+  exact_pod_capacity_fallback_used: generationTransport === "RUNPOD_SERVERLESS_ZERO_IDLE",
   local_computer_write_verified: true,
   generated_file: OUTPUT_FILE,
   generated_test_file: TEST_FILE,

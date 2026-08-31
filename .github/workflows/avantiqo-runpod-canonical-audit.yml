@@ -1,0 +1,65 @@
+name: Avantiqo RunPod Canonical Audit
+
+on:
+  push:
+    paths:
+      - ".github/workflows/avantiqo-runpod-canonical-audit.yml"
+      - "audits/avantiqo-runpod-canonical-audit-request.json"
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - name: Audit live endpoints, volumes, pods and queue health
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const REST='https://rest.runpod.io/v1';
+          const QUEUE='https://api.runpod.ai/v2';
+          const key=(process.env.RUNPOD_MANAGEMENT_API_KEY||process.env.RUNPOD_API_KEY||'').trim();
+          const runtime=(process.env.RUNPOD_API_KEY||key).trim();
+          if(!key) throw new Error('RUNPOD_KEY_REQUIRED');
+          const text=v=>String(v??'').trim(); const list=v=>Array.isArray(v)?v:[]; const finite=(v,d=null)=>Number.isFinite(Number(v))?Number(v):d;
+          async function json(url,k=key){const r=await fetch(url,{headers:{Authorization:`Bearer ${k}`,Accept:'application/json'},signal:AbortSignal.timeout(30000)});const raw=await r.text();let b={};try{b=raw?JSON.parse(raw):{}}catch{b={message:raw}}if(!r.ok)throw new Error(`HTTP_${r.status}:${text(b?.message||b?.error||raw).slice(0,500)}`);return b;}
+          const rows=v=>Array.isArray(v)?v:list(v?.data||v?.items||v?.results||v?.endpoints||v?.pods||v?.volumes||v?.networkVolumes);
+          const unique=xs=>[...new Set(xs.map(text).filter(Boolean))];
+          const endpointVolumeIds=e=>unique([e?.networkVolumeId,...list(e?.networkVolumeIds)]);
+          const podVolumeId=p=>text(p?.networkVolume?.id||p?.networkVolumeId);
+          const [endpointsRaw,volumesRaw,podsRaw]=await Promise.all([
+            json(`${REST}/endpoints?includeTemplate=true&includeWorkers=true`),
+            json(`${REST}/networkvolumes`),
+            json(`${REST}/pods?includeMachine=true&includeNetworkVolume=true`),
+          ]);
+          const endpoints=rows(endpointsRaw), volumes=rows(volumesRaw), pods=rows(podsRaw);
+          const endpointRows=[];
+          for(const e of endpoints){
+            let health=null; let health_error=null;
+            try{health=await json(`${QUEUE}/${encodeURIComponent(text(e.id))}/health`,runtime);}catch(err){health_error=text(err?.message||err)}
+            const jobs=health?.jobs||{}; const workers=health?.workers||{};
+            endpointRows.push({
+              id:text(e.id), name:text(e.name), workers_min:finite(e.workersMin), workers_max:finite(e.workersMax),
+              network_volume_ids:endpointVolumeIds(e), template_id:text(e.templateId||e.template?.id)||null,
+              image_name:text(e.template?.imageName)||null, gpu_type_ids:list(e.gpuTypeIds), gpu_count:finite(e.gpuCount),
+              flashboot:e.flashboot===true||e.flashBoot===true||text(e.flashBootType).toUpperCase()==='FLASHBOOT',
+              queue:{in_queue:finite(jobs.inQueue??jobs.in_queue,0),in_progress:finite(jobs.inProgress??jobs.in_progress,0)},
+              workers:{idle:finite(workers.idle,0),initializing:finite(workers.initializing,0),ready:finite(workers.ready,0),running:finite(workers.running,0),throttled:finite(workers.throttled,0),unhealthy:finite(workers.unhealthy,0)},
+              health_error,
+            });
+          }
+          endpointRows.sort((a,b)=>a.name.localeCompare(b.name));
+          const volumeRows=volumes.map(v=>{
+            const id=text(v.id); const bound=endpointRows.filter(e=>e.network_volume_ids.includes(id)).map(e=>({id:e.id,name:e.name}));
+            const attached=pods.filter(p=>podVolumeId(p)===id).map(p=>({id:text(p.id),name:text(p.name),desired_status:text(p.desiredStatus||p.status).toUpperCase(),endpoint_id:text(p.endpointId)||null}));
+            return {id,name:text(v.name),size_gb:finite(v.size??v.sizeGb),data_center_id:text(v.dataCenterId??v.data_center_id),endpoint_bindings:bound,pod_attachments:attached,orphaned:bound.length===0&&attached.length===0};
+          }).sort((a,b)=>(a.data_center_id||'').localeCompare(b.data_center_id||'')||a.name.localeCompare(b.name));
+          const total_gb=volumeRows.reduce((s,v)=>s+Math.max(0,finite(v.size_gb,0)),0);
+          const orphaned_gb=volumeRows.filter(v=>v.orphaned).reduce((s,v)=>s+Math.max(0,finite(v.size_gb,0)),0);
+          console.log(JSON.stringify({success:true,contract:'AVANTIQO_RUNPOD_CANONICAL_AUDIT_V1',endpoint_count:endpointRows.length,volume_count:volumeRows.length,pod_count:pods.length,total_allocated_volume_gb:total_gb,orphaned_volume_gb:orphaned_gb,endpoints:endpointRows,volumes:volumeRows,pods:pods.map(p=>({id:text(p.id),name:text(p.name),desired_status:text(p.desiredStatus||p.status).toUpperCase(),network_volume_id:podVolumeId(p),endpoint_id:text(p.endpointId)||null})),mutation_performed:false,secrets_printed:false},null,2));
+          NODE

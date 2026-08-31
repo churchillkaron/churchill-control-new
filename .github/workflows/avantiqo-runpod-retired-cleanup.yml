@@ -1,0 +1,59 @@
+name: Avantiqo RunPod Retired Cleanup
+
+on:
+  push:
+    paths:
+      - ".github/workflows/avantiqo-runpod-retired-cleanup.yml"
+      - "audits/avantiqo-runpod-retired-cleanup-request.json"
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - name: Delete only idle retired candidate recovery endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const REST='https://rest.runpod.io/v1';
+          const QUEUE='https://api.runpod.ai/v2';
+          const key=(process.env.RUNPOD_MANAGEMENT_API_KEY||process.env.RUNPOD_API_KEY||'').trim();
+          const runtime=(process.env.RUNPOD_API_KEY||key).trim();
+          if(!key) throw new Error('RUNPOD_KEY_REQUIRED');
+          const TARGETS=new Set([
+            'avantiqo-audio-v1-github-retired',
+            'avantiqo-cinema-v1-github-retired',
+            'avantiqo-image-v1-github-retired',
+            'avantiqo-intelligence-deep-eager-candidate-v1',
+            'avantiqo-intelligence-fast-replacement-candidate-v1',
+            'avantiqo-music-transform-candidate-v1',
+            'avantiqo-video-32gb-candidate-v1',
+            'avantiqo-voice-tts-v1-recovery-20260825'
+          ]);
+          const text=v=>String(v??'').trim(); const list=v=>Array.isArray(v)?v:[]; const finite=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
+          async function req(url,{method='GET',keyUsed=key}={}){const r=await fetch(url,{method,headers:{Authorization:`Bearer ${keyUsed}`,Accept:'application/json'},signal:AbortSignal.timeout(30000)});const raw=await r.text();let b={};try{b=raw?JSON.parse(raw):{}}catch{b={message:raw}}if(!(r.ok||r.status===404))throw new Error(`HTTP_${r.status}:${text(b?.message||b?.error||raw).slice(0,700)}`);return {status:r.status,body:b};}
+          const endpointsResp=await req(`${REST}/endpoints?includeWorkers=true`); const endpoints=Array.isArray(endpointsResp.body)?endpointsResp.body:list(endpointsResp.body?.data||endpointsResp.body?.items||endpointsResp.body?.results||endpointsResp.body?.endpoints);
+          const found=endpoints.filter(e=>TARGETS.has(text(e.name)));
+          const deleted=[]; const skipped=[];
+          for(const e of found){
+            const id=text(e.id), name=text(e.name);
+            const health=(await req(`${QUEUE}/${encodeURIComponent(id)}/health`,{keyUsed:runtime})).body;
+            const jobs=health.jobs||{}, workers=health.workers||{};
+            const inQueue=finite(jobs.inQueue??jobs.in_queue), inProgress=finite(jobs.inProgress??jobs.in_progress);
+            const workerTotal=['idle','initializing','ready','running','throttled','unhealthy'].reduce((s,k)=>s+Math.max(0,finite(workers[k])),0);
+            if(inQueue||inProgress||workerTotal){skipped.push({id,name,reason:'ACTIVE',in_queue:inQueue,in_progress:inProgress,workers:workerTotal});continue;}
+            const current=(await req(`${REST}/endpoints/${encodeURIComponent(id)}?includeWorkers=true`)).body;
+            if(finite(current.workersMin,-1)!==0||finite(current.workersMax,-1)!==0){skipped.push({id,name,reason:'NOT_0_0'});continue;}
+            await req(`${REST}/endpoints/${encodeURIComponent(id)}`,{method:'DELETE'});
+            const verify=await req(`${REST}/endpoints/${encodeURIComponent(id)}`);
+            if(verify.status!==404) throw new Error(`DELETE_VERIFY_FAILED:${name}:${id}`);
+            deleted.push({id,name});
+          }
+          console.log(JSON.stringify({success:true,contract:'AVANTIQO_RUNPOD_RETIRED_CLEANUP_V1',requested_targets:[...TARGETS],found_count:found.length,deleted,skipped,endpoint_deletions:deleted.length,volume_deletions:0,gpu_compute_used:false,inference_performed:false,wallet_mutation_performed:false,production_deploy_performed:false,secrets_printed:false},null,2));
+          NODE

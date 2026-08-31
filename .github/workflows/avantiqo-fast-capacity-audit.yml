@@ -1,0 +1,69 @@
+name: Avantiqo Fast Intelligence Capacity Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-fast-capacity-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only Fast endpoint and global GPU stock audit
+        env:
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const key = String(process.env.RUNPOD_MANAGEMENT_API_KEY || '').trim();
+          if (!key) throw new Error('RUNPOD_MANAGEMENT_API_KEY_REQUIRED');
+          const req = async (url, options = {}) => {
+            const r = await fetch(url, {
+              method: options.method || 'GET',
+              headers: { Authorization: `Bearer ${key}`, Accept: 'application/json', ...(options.body ? { 'Content-Type':'application/json' } : {}) },
+              body: options.body ? JSON.stringify(options.body) : undefined,
+              signal: AbortSignal.timeout(30000),
+            });
+            const raw = await r.text();
+            let body = null; try { body = raw ? JSON.parse(raw) : null; } catch {}
+            if (!r.ok || body === null) throw new Error(`RUNPOD_HTTP_${r.status}`);
+            return body;
+          };
+          const endpointBody = await req('https://rest.runpod.io/v1/endpoints?includeTemplate=true&includeWorkers=true');
+          const endpoints = Array.isArray(endpointBody) ? endpointBody : endpointBody?.endpoints || endpointBody?.data || endpointBody?.items || endpointBody?.results || [];
+          const matches = endpoints.filter((e) => String(e?.name || '') === 'avantiqo-intelligence-fast-v1');
+          if (matches.length !== 1) throw new Error(`FAST_ENDPOINT_RESOLUTION_FAILED:${matches.length}`);
+          const endpoint = matches[0];
+          const query = `query FastCapacity($input: GpuAvailabilityInput) {
+            gpuTypes { id displayName memoryInGb }
+            dataCenters { id name location gpuAvailability(input: $input) { available stockStatus gpuTypeId gpuTypeDisplayName displayName } }
+          }`;
+          const gql = await req('https://api.runpod.io/graphql', { method:'POST', body:{ query, variables:{ input:{ gpuCount:1, minDisk:5, minMemoryInGb:20, secureCloud:true } } } });
+          if (Array.isArray(gql?.errors) && gql.errors.length) throw new Error(`GRAPHQL_ERROR:${gql.errors.map(e => e.message).join('|')}`);
+          const data = gql?.data || {};
+          const typeMap = new Map((data.gpuTypes || []).map((g) => [String(g.id), { name:String(g.displayName || g.id), memory_gb:Number(g.memoryInGb || 0) }]));
+          const configured = (endpoint.gpuTypeIds || []).map(String);
+          const rows = (data.dataCenters || []).flatMap((dc) => (dc.gpuAvailability || []).map((a) => ({
+            data_center_id:String(dc.id || ''), data_center:String(dc.name || ''), location:String(dc.location || ''),
+            gpu_type_id:String(a.gpuTypeId || ''), gpu_name:String(a.gpuTypeDisplayName || a.displayName || typeMap.get(String(a.gpuTypeId))?.name || a.gpuTypeId || ''),
+            memory_gb:typeMap.get(String(a.gpuTypeId))?.memory_gb || null,
+            available:a.available === true, stock_status:String(a.stockStatus || 'UNAVAILABLE').toUpperCase(),
+          })));
+          const rank = { HIGH:4, MEDIUM:3, LOW:2 };
+          const usable = rows.filter(r => r.available && (rank[r.stock_status] || 0) > 0).sort((a,b) => (rank[b.stock_status]||0)-(rank[a.stock_status]||0) || (b.memory_gb||0)-(a.memory_gb||0));
+          const configuredRows = usable.filter(r => configured.includes(r.gpu_type_id));
+          const alternatives = usable.filter(r => !configured.includes(r.gpu_type_id));
+          const summarize = (items) => items.slice(0,40);
+          console.log(JSON.stringify({
+            contract:'AVANTIQO_FAST_CAPACITY_AUDIT_V1', mutation_performed:false,
+            endpoint:{ id:String(endpoint.id||''), workers_min:Number(endpoint.workersMin), workers_max:Number(endpoint.workersMax), gpu_type_ids:configured, gpu_types:configured.map(id => ({id,...(typeMap.get(id)||{})})), data_center_ids:endpoint.dataCenterIds || [], flashboot:endpoint.flashBoot ?? endpoint.flashboot ?? null },
+            configured_live_capacity:summarize(configuredRows),
+            configured_live_capacity_count:configuredRows.length,
+            best_unconfigured_alternatives:summarize(alternatives),
+            production_deploy_performed:false, secrets_printed:false,
+          }, null, 2));
+          NODE

@@ -1,0 +1,7 @@
+{
+  "contract": "AVANTIQO_CODE_STALLED_PROOF_CLEANUP_REQUEST_V1",
+  "approved": true,
+  "observed_in_queue": 1,
+  "observed_in_progress": 0,
+  "observed_active_workers": 0
+}

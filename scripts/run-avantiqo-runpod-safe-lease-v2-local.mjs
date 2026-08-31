@@ -656,8 +656,25 @@ try {
   );
   await patch(targetId, 1, managementKey);
   endpointOpened = true;
+
+  // The direct endpoint PATCH can observe 0/1 before RunPod's global endpoint
+  // listing catches up. Wait for independent global visibility before enforcing
+  // the account-wide snapshot or submitting any child work.
+  let openedSnapshot = null;
+  const openedStateDeadline = Date.now() + 30_000;
+  while (Date.now() < openedStateDeadline) {
+    openedSnapshot = await snapshot(managementKey, queueKey, targetId, targetQueueKey);
+    const openedTarget = openedSnapshot.rows.find((row) => row.id === targetId);
+    if (openedTarget?.workers_min === 0 && openedTarget?.workers_max === 1) break;
+    await sleep(1000);
+  }
+  const openedTarget = openedSnapshot?.rows?.find((row) => row.id === targetId);
+  if (!openedTarget || openedTarget.workers_min !== 0 || openedTarget.workers_max !== 1) {
+    throw new Error(`${CONTRACT}_TARGET_LEASE_STATE_PROPAGATION_TIMEOUT`);
+  }
+
   await enforce(
-    await snapshot(managementKey, queueKey, targetId, targetQueueKey),
+    openedSnapshot,
     policy,
     targetId,
     managementKey,

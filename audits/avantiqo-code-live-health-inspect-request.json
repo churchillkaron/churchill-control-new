@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_CODE_LIVE_HEALTH_INSPECT_REQUEST_V1",
   "requested": true,
-  "sequence": 4,
-  "reason": "verify Code placement and zero-idle state after guarded EUR rebind verification rollback"
+  "sequence": 5,
+  "reason": "observe worker placement during the single guarded EUR Code delivery proof without mutation"
 }

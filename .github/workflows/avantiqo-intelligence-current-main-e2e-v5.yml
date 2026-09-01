@@ -1,0 +1,77 @@
+name: Avantiqo Intelligence Current Main E2E V5
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-current-main-e2e-v5.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-current-main-e2e-v5
+  cancel-in-progress: false
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      NODE_ENV: production
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_FAST_TIMEOUT_MS: "360000"
+      AVANTIQO_INTELLIGENCE_FAST_UNSCHEDULED_TIMEOUT_MS: "20000"
+      AVANTIQO_INTELLIGENCE_FAST_COLD_START_RETRY_DEADLINE_MS: "45000"
+      AVANTIQO_INTELLIGENCE_FAST_COLD_START_RETRY_DELAY_MS: "5000"
+      AVANTIQO_INTELLIGENCE_REQUEST_LEASE_ACQUIRE_WAIT_MS: "120000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_STARTUP_TIMEOUT_MS: "240000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_EXECUTION_TIMEOUT_MS: "360000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_CLEANUP_TIMEOUT_MS: "180000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_MAX_ESTIMATED_SPEND_USD: "0.35"
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Current architecture zero-cost gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check lib/platform/service-runtime/providers/ProviderExecutor.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceRunpodProvider.js
+          node --check scripts/run-avantiqo-intelligence-fast-service-e2e-proof-local.mjs
+          grep -q 'ownedIntelligenceModalConfigured' lib/platform/service-runtime/providers/ProviderExecutor.js
+          grep -q 'AVANTIQO_INTELLIGENCE_MODAL_BASE_URL' lib/platform/service-runtime/providers/ProviderExecutor.js
+          grep -q 'return RunpodIntelligenceProvider.execute(input)' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js
+          grep -q 'requireAvantiqoIntelligenceSafeLease' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceRunpodProvider.js
+          grep -q 'persistent_model_volume: false' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
+          git diff --check
+
+      - name: Run exactly one governed Fast Intelligence request
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || secrets.RUNPOD_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/run-avantiqo-intelligence-fast-service-e2e-proof-local.mjs
+
+      - name: Immutable boundaries
+        if: always()
+        run: |
+          echo "EXTERNAL_AI_FALLBACK_USED=false"
+          echo "NEW_NETWORK_VOLUME_CREATED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

@@ -69,9 +69,6 @@ if [[ "$modal_version" != "$PINNED_MODAL_VERSION" ]]; then
   echo "AVANTIQO_AUDIO_MODAL_JS_SDK_LOCAL_SYNC=PASS version=${modal_version} tracked_package_metadata_preserved=true"
 fi
 
-# Restore package metadata immediately in case npm touched it. node_modules is
-# intentionally local/untracked execution state; source and lock bytes remain
-# exactly as the user had them before this wrapper started.
 cp "$BACKUP/package.json" "$ROOT/package.json"
 cp "$BACKUP/package-lock.json" "$ROOT/package-lock.json"
 
@@ -89,24 +86,20 @@ mkdir -p "$OUTPUT_DIR"
 
 run_certification() {
   if [[ "$MODE" == "execute" ]]; then
-    node --env-file="$ROOT/.env.local" \
-      scripts/certify-avantiqo-audio-modal-direct-service-live.mjs \
-      --execute
+    node --env-file="$ROOT/.env.local" scripts/certify-avantiqo-audio-modal-direct-service-live.mjs --execute
     return
   fi
   if [[ "$MODE" == "resume" ]]; then
-    node --env-file="$ROOT/.env.local" \
-      scripts/certify-avantiqo-audio-modal-direct-service-live.mjs \
-      --resume
+    node --env-file="$ROOT/.env.local" scripts/certify-avantiqo-audio-modal-direct-service-live.mjs --resume
     return
   fi
-  node --env-file="$ROOT/.env.local" \
-    scripts/certify-avantiqo-audio-modal-direct-service-live.mjs
+  node --env-file="$ROOT/.env.local" scripts/certify-avantiqo-audio-modal-direct-service-live.mjs
 }
 
 (
   cd "$WORKTREE"
   export NODE_ENV=development
+  export AVANTIQO_AUDIO_MODAL_CERT_BENCHMARK_PREVIEW=YES
   export AVANTIQO_AUDIO_MODAL_CERT_EXPECTED_MAIN_COMMIT="$MAIN_SHA"
   export AVANTIQO_AUDIO_MODAL_CERT_SOURCE_MAIN_COMMIT="$MAIN_SHA"
   export AVANTIQO_AUDIO_MODAL_CERT_OUTPUT_DIR="$OUTPUT_DIR"

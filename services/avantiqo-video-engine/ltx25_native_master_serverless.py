@@ -9,7 +9,7 @@ import requests
 import runpod
 import torch
 
-CONTRACT = "AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_SERVERLESS_V2"
+CONTRACT = "AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_SERVERLESS_V3"
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V2"
 PIPELINE_ROOT = Path(os.getenv("AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT", "/opt/LTX-2"))
 CACHE_ROOT = Path("/runpod-volume/huggingface-cache/hub/models--Lightricks--LTX-2.5/snapshots")
@@ -242,9 +242,14 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 @runpod.serverless.register_fitness_check
 def fitness_check():
+    # Fitness must only answer whether the container/GPU can accept work.
+    # Requiring the cached model here caused RunPod to kill and replace workers
+    # before the request handler could report cache readiness precisely.
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VIDEO_NATIVE_MASTER_CUDA_REQUIRED")
-    snapshot()
+    if not PIPELINE_ROOT.is_dir():
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT_MISSING")
+    return True
 
 
 if __name__ == "__main__":

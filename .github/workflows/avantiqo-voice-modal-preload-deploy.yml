@@ -1,0 +1,121 @@
+name: Avantiqo Voice Modal Preload Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-voice-modal-preload-deploy.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-voice-modal-preload-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-voice-preload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Zero-cost source gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceModalDirectRuntime.js
+          node --check scripts/preflight-avantiqo-voice-modal-direct-local.mjs
+          node --check scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          node --test tests/avantiqo-voice-modal-direct-transport.test.mjs
+          python -m py_compile services/avantiqo-voice-modal/modal_app.py
+          grep -Fq '@modal.enter()' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'min_containers=0' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'max_containers=1' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'scaledown_window=5' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'voice_engine._recognizer()' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'voice_engine._model()' services/avantiqo-voice-modal/modal_app.py
+          echo 'AVANTIQO_VOICE_MODAL_PRELOAD_STATIC_GATE=PASS'
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+
+      - name: Require Modal deployment credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'AVANTIQO_VOICE_MODAL_DEPLOY_CREDENTIALS=PASS'
+
+      - name: Deploy Voice class workers only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-voice-modal
+          modal deploy modal_app.py
+          echo 'AVANTIQO_VOICE_MODAL_CLASS_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'PRICING_ACTIVATION_PERFORMED=false'
+          echo 'PRODUCTION_ROUTING_ACTIVATED=false'
+
+      - name: Verify deployed class methods are idle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import modal
+
+          app_name = "avantiqo-voice-owned"
+          workers = [("VoiceStt", "transcribe"), ("VoiceTts", "speak")]
+          reports = []
+          for class_name, method_name in workers:
+              cls = modal.Cls.from_name(app_name, class_name)
+              obj = cls()
+              method = getattr(obj, method_name)
+              stats = method.get_current_stats()
+              backlog = int(getattr(stats, "backlog", 0) or 0)
+              runners = int(getattr(stats, "num_total_runners", 0) or 0)
+              if backlog != 0 or runners != 0:
+                  raise RuntimeError(
+                      f"AVANTIQO_VOICE_MODAL_POST_DEPLOY_NOT_IDLE:{class_name}.{method_name}:"
+                      f"backlog={backlog}:runners={runners}"
+                  )
+              reports.append((class_name, method_name, backlog, runners))
+          print(f"AVANTIQO_VOICE_MODAL_POST_DEPLOY_IDLE=PASS workers={reports}")
+          print("GPU_INFERENCE_PERFORMED=false")
+          PY
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VOICE_PRICING_ACTIVATED=false'
+          echo 'VOICE_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'
+          echo 'PAID_STT_TTS_JOB_SUBMITTED=false'

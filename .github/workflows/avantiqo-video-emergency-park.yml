@@ -1,0 +1,44 @@
+name: Avantiqo Video Emergency Park
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-emergency-park.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-emergency-park
+  cancel-in-progress: true
+
+jobs:
+  park:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ENDPOINT_ID: xmey8y2hofexyp
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - name: Park Cinema endpoint and verify zero workers
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNPOD_MANAGEMENT_API_KEY:-}"
+          REST='https://rest.runpod.io/v1'
+          auth=(-H "Authorization: Bearer ${RUNPOD_MANAGEMENT_API_KEY}")
+          json=(-H 'Content-Type: application/json')
+          before="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeWorkers=true")"
+          test "$(printf '%s' "$before" | jq -r '.id')" = "$ENDPOINT_ID"
+          patch="$(printf '%s' "$before" | jq -c '{gpuTypeIds:(.gpuTypeIds // []),gpuCount:(.gpuCount // 1),workersMin:0,workersMax:0,idleTimeout:(.idleTimeout // 5),scalerType:(.scalerType // "REQUEST_COUNT"),scalerValue:(.scalerValue // 1),flashboot:(.flashboot // .flashBoot // true),minCudaVersion:(.minCudaVersion // "12.8"),allowedCudaVersions:(.allowedCudaVersions // ["12.8","12.9","13.0"]),dataCenterIds:(.dataCenterIds // []),executionTimeoutMs:(.executionTimeoutMs // 2100000),networkVolumeIds:[] }')"
+          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$patch" "${REST}/endpoints/${ENDPOINT_ID}" >/tmp/park.json
+          sleep 5
+          after="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeWorkers=true")"
+          test "$(printf '%s' "$after" | jq -r '.workersMin')" = '0'
+          test "$(printf '%s' "$after" | jq -r '.workersMax')" = '0'
+          echo 'AVANTIQO_VIDEO_EMERGENCY_PARK=PASS'
+          echo "AVANTIQO_VIDEO_EMERGENCY_PARK_WORKERS=$(printf '%s' "$after" | jq -c '[.workers[]? | {id,desiredStatus,status,workerStatus,runtimeStatus,costPerHr}]')"
+          echo 'AVANTIQO_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_VIDEO_PRODUCTION_DEPLOY=false'

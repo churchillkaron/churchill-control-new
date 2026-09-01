@@ -1,0 +1,124 @@
+name: Avantiqo Voice Modal Chain Guard Hotfix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-voice-modal-chain-guard-hotfix.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-voice-modal-chain-guard-hotfix
+  cancel-in-progress: false
+
+jobs:
+  patch-voice-certification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch duplicate idle check and chained drain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/certify-avantiqo-voice-modal-chained-service-live.mjs')
+          text = path.read_text()
+
+          old_phrase = 'const PHRASE = "Bright morning signals cross seven quiet bridges before sunrise.";'
+          new_phrase = 'const PHRASE = "Bright morning signals cross quiet bridges before sunrise.";'
+          if text.count(old_phrase) != 1:
+              raise SystemExit('VOICE_CHAIN_PHRASE_PATCH_TARGET_INVALID')
+          text = text.replace(old_phrase, new_phrase, 1)
+
+          old_idle = '''async function requireIdle() {
+            const [tts, stt] = await Promise.all([stats(ttsWorker), stats(sttWorker)]);
+            if (tts.backlog !== 0 || tts.runners !== 0 || stt.backlog !== 0 || stt.runners !== 0) {
+              throw new Error(`${CONTRACT}_DUPLICATE_GPU_GUARD_ACTIVE:tts=${tts.backlog}/${tts.runners}:stt=${stt.backlog}/${stt.runners}`);
+            }
+            return { tts, stt };
+          }
+          '''
+          new_idle = '''async function requireIdle() {
+            const [tts, stt] = await Promise.all([stats(ttsWorker), stats(sttWorker)]);
+            if (tts.backlog !== 0 || tts.runners !== 0 || stt.backlog !== 0 || stt.runners !== 0) {
+              throw new Error(`${CONTRACT}_DUPLICATE_GPU_GUARD_ACTIVE:tts=${tts.backlog}/${tts.runners}:stt=${stt.backlog}/${stt.runners}`);
+            }
+            return { tts, stt };
+          }
+          async function waitForIdleDrain() {
+            let latest = null;
+            for (let attempt = 1; attempt <= 12; attempt += 1) {
+              await sleep(attempt === 1 ? 8_000 : 5_000);
+              const [tts, stt] = await Promise.all([stats(ttsWorker), stats(sttWorker)]);
+              latest = { tts, stt };
+              if (tts.backlog !== 0 || stt.backlog !== 0) {
+                throw new Error(`${CONTRACT}_DUPLICATE_GPU_BACKLOG_ACTIVE:tts=${tts.backlog}/${tts.runners}:stt=${stt.backlog}/${stt.runners}`);
+              }
+              if (tts.runners === 0 && stt.runners === 0) return latest;
+            }
+            throw new Error(`${CONTRACT}_SCALE_TO_ZERO_NOT_OBSERVED_BEFORE_STT:tts=${latest?.tts?.backlog ?? -1}/${latest?.tts?.runners ?? -1}:stt=${latest?.stt?.backlog ?? -1}/${latest?.stt?.runners ?? -1}`);
+          }
+          '''
+          if text.count(old_idle) != 1:
+              raise SystemExit('VOICE_CHAIN_IDLE_FUNCTION_PATCH_TARGET_INVALID')
+          text = text.replace(old_idle, new_idle, 1)
+
+          redundant = '''  if (!state?.provider_job_id) {
+            await requireIdle();
+            const submitting = {
+          '''
+          replacement = '''  if (!state?.provider_job_id) {
+            const submitting = {
+          '''
+          if text.count(redundant) != 1:
+              raise SystemExit('VOICE_CHAIN_REDUNDANT_PRE_TTS_IDLE_PATCH_TARGET_INVALID')
+          text = text.replace(redundant, replacement, 1)
+
+          handoff = '''if (!["STT_SUBMITTED", "STT_POLLING"].includes(state?.phase)) {
+            await requireIdle();
+            const submitting = {
+          '''
+          handoff_replacement = '''if (!["STT_SUBMITTED", "STT_POLLING"].includes(state?.phase)) {
+            await waitForIdleDrain();
+            const submitting = {
+          '''
+          if text.count(handoff) != 1:
+              raise SystemExit('VOICE_CHAIN_TTS_STT_DRAIN_PATCH_TARGET_INVALID')
+          text = text.replace(handoff, handoff_replacement, 1)
+
+          path.write_text(text)
+          PY
+
+          node --check scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          grep -Fq 'await waitForIdleDrain();' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          test "$(grep -Fc 'await requireIdle();' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs)" -eq 0
+          grep -Fq 'Bright morning signals cross quiet bridges before sunrise.' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          echo 'VOICE_CHAIN_IDLE_GUARD_HOTFIX_STATIC_GATE=PASS'
+
+      - name: Commit source fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name churchillkaron
+          git config user.email patric@pcsphuket.com
+          git add scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          git commit -m 'Fix Voice Modal chained idle handoff'
+          git push origin HEAD:main
+
+      - name: Immutable boundary
+        if: always()
+        run: |
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'
+          echo 'PRICING_ACTIVATION_PERFORMED=false'
+          echo 'RUNPOD_MUTATION_PERFORMED=false'

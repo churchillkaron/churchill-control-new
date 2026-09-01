@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Connect the deployed Avantiqo Code Modal transport to local development.
+"""Connect Avantiqo Code Modal transport to local development.
 
-Compatible with Modal 1.2.6 / Python 3.9. Generates a strong bearer token,
-creates/updates the named Modal Secret from a temporary dotenv file, redeploys
-the Modal HTTP wrapper from current origin/main, persists the matching local
-configuration, and verifies authenticated /health with cold-start-safe retries.
-The bearer token is never printed. No /v1/jobs request is made, so no GPU
-inference starts during this connector run.
+Compatible with Modal 1.2.6 / Python 3.9. This connector:
+- creates/updates the bearer gateway secret,
+- redeploys the GPU worker App from modal_inventor.py so its function set is
+  exactly `generate` + `invent` and the old crash-looping code_api is pruned,
+- deploys the standalone lightweight CPU gateway App,
+- discovers the gateway URL from deploy output,
+- persists matching local configuration before health verification,
+- verifies authenticated /health.
+
+It never calls /v1/jobs, so it intentionally starts no H100 inference.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -27,16 +32,14 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-DEFAULT_BASE_URL = (
-    "https://churchillkaron--avantiqo-code-real-write-one-shot-code-api.modal.run"
-)
+DEFAULT_BASE_URL = "https://churchillkaron--avantiqo-code-gateway-code-api.modal.run"
 HEALTH_CONTRACT = "AVANTIQO_CODE_MODAL_HTTP_V1"
 SECRET_NAME = "avantiqo-code-gateway"
 SECRET_ENV_KEY = "AVANTIQO_CODE_GATEWAY_TOKEN"
 PYTHON_DOTENV_VERSION = "1.0.1"
-HEALTH_TIMEOUT_SECONDS = 120
-HEALTH_ATTEMPTS = 2
-HEALTH_RETRY_DELAY_SECONDS = 8
+HEALTH_TIMEOUT_SECONDS = 60
+HEALTH_ATTEMPTS = 3
+HEALTH_RETRY_DELAY_SECONDS = 5
 
 
 def _replace_env(path: Path, values: dict[str, str], remove_keys: set[str] | None = None) -> None:
@@ -84,16 +87,14 @@ def _run(command: list[str], cwd: Path | None = None, timeout: int = 120) -> sub
         env=os.environ.copy(),
     )
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "UNKNOWN").strip()[-2000:]
+        detail = (result.stderr or result.stdout or "UNKNOWN").strip()[-2400:]
         raise RuntimeError(f"AVANTIQO_CODE_MODAL_COMMAND_FAILED:{command[0]}:{detail}")
     return result
 
 
 def _ensure_python_dotenv() -> bool:
-    """Install only the optional CLI dependency Modal 1.2.6 requires."""
     if importlib.util.find_spec("dotenv") is not None:
         return False
-
     result = subprocess.run(
         [
             sys.executable,
@@ -113,8 +114,7 @@ def _ensure_python_dotenv() -> bool:
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "UNKNOWN").strip()[-1600:]
         raise RuntimeError(f"AVANTIQO_CODE_MODAL_DOTENV_INSTALL_FAILED:{detail}")
-
-    verification = subprocess.run(
+    verify = subprocess.run(
         [sys.executable, "-c", "import dotenv; print('OK')"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -123,9 +123,18 @@ def _ensure_python_dotenv() -> bool:
         check=False,
         env=os.environ.copy(),
     )
-    if verification.returncode != 0 or verification.stdout.strip() != "OK":
+    if verify.returncode != 0 or verify.stdout.strip() != "OK":
         raise RuntimeError("AVANTIQO_CODE_MODAL_DOTENV_VERIFY_FAILED")
     return True
+
+
+def _discover_gateway_url(deploy_output: str) -> str:
+    matches = re.findall(r"https://[^\s]+\.modal\.run", deploy_output)
+    for match in matches:
+        normalized = match.rstrip(".,;)]}")
+        if "avantiqo-code-gateway" in normalized and "code-api" in normalized:
+            return normalized
+    return DEFAULT_BASE_URL
 
 
 def _validate_health_body(body: dict[str, Any]) -> dict[str, Any]:
@@ -133,10 +142,18 @@ def _validate_health_body(body: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("AVANTIQO_CODE_MODAL_HEALTH_CONTRACT_INVALID")
     if body.get("gateway_auth_required") is not True:
         raise RuntimeError("AVANTIQO_CODE_MODAL_GATEWAY_AUTH_NOT_ENFORCED")
+    if body.get("gateway_gpu_imported") is not False:
+        raise RuntimeError("AVANTIQO_CODE_MODAL_GATEWAY_GPU_COUPLING_INVALID")
+    if body.get("gpu_inference_performed") is not False:
+        raise RuntimeError("AVANTIQO_CODE_MODAL_HEALTH_STARTED_GPU")
     if body.get("persistent_volume_used") is not False:
         raise RuntimeError("AVANTIQO_CODE_MODAL_UNEXPECTED_PERSISTENT_VOLUME")
     if body.get("raw_reasoning_persisted") is not False:
         raise RuntimeError("AVANTIQO_CODE_MODAL_REASONING_BOUNDARY_INVALID")
+    if body.get("inventor_available") is not True:
+        raise RuntimeError("AVANTIQO_CODE_MODAL_INVENTOR_NOT_EXPOSED")
+    if body.get("inventor_concurrent_gpu_fanout") is not False:
+        raise RuntimeError("AVANTIQO_CODE_MODAL_INVENTOR_GPU_FANOUT_INVALID")
     return body
 
 
@@ -148,7 +165,7 @@ def _health_once(base_url: str, token: str) -> dict[str, Any]:
             "Authorization": f"Bearer {token}",
         },
     )
-    with urlopen(request, timeout=HEALTH_TIMEOUT_SECONDS) as response:  # noqa: S310 - fixed HTTPS target
+    with urlopen(request, timeout=HEALTH_TIMEOUT_SECONDS) as response:
         raw = response.read().decode("utf-8")
     return _validate_health_body(json.loads(raw))
 
@@ -159,17 +176,13 @@ def _health(base_url: str, token: str) -> tuple[dict[str, Any], int]:
         try:
             return _health_once(base_url, token), attempt
         except HTTPError as exc:
-            # Authentication/contract failures are deterministic; only transient
-            # gateway/service statuses are worth one cold-start retry.
             if exc.code not in {408, 425, 429, 500, 502, 503, 504}:
                 raise
             last_error = exc
         except (socket.timeout, TimeoutError, URLError) as exc:
             last_error = exc
-
         if attempt < HEALTH_ATTEMPTS:
             time.sleep(HEALTH_RETRY_DELAY_SECONDS)
-
     error_type = type(last_error).__name__ if last_error is not None else "UNKNOWN"
     raise RuntimeError(
         f"AVANTIQO_CODE_MODAL_HEALTH_UNAVAILABLE_AFTER_{HEALTH_ATTEMPTS}_ATTEMPTS:{error_type}"
@@ -179,16 +192,11 @@ def _health(base_url: str, token: str) -> tuple[dict[str, Any], int]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", required=True)
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
     args = parser.parse_args()
 
     repo = Path(args.repo).expanduser().resolve()
     if not (repo / ".git").exists():
         raise RuntimeError("AVANTIQO_CODE_MODAL_REPOSITORY_ROOT_REQUIRED")
-
-    base_url = args.base_url.rstrip("/")
-    if not base_url.startswith("https://"):
-        raise RuntimeError("AVANTIQO_CODE_MODAL_BASE_URL_HTTPS_REQUIRED")
 
     modal_cli = shutil.which("modal")
     git_cli = shutil.which("git")
@@ -198,7 +206,6 @@ def main() -> None:
         raise RuntimeError("AVANTIQO_CODE_GIT_REQUIRED")
 
     dotenv_installed = _ensure_python_dotenv()
-
     gateway_token = secrets.token_urlsafe(48)
     if len(gateway_token) < 40:
         raise RuntimeError("AVANTIQO_CODE_MODAL_GATEWAY_TOKEN_GENERATION_FAILED")
@@ -210,15 +217,7 @@ def main() -> None:
         os.chmod(secret_env, 0o600)
 
         _run(
-            [
-                modal_cli,
-                "secret",
-                "create",
-                SECRET_NAME,
-                "--from-dotenv",
-                str(secret_env),
-                "--force",
-            ],
+            [modal_cli, "secret", "create", SECRET_NAME, "--from-dotenv", str(secret_env), "--force"],
             timeout=60,
         )
 
@@ -226,12 +225,7 @@ def main() -> None:
         archive = temp / "code-engine.tar"
         with archive.open("wb") as handle:
             archive_result = subprocess.run(
-                [
-                    git_cli,
-                    "archive",
-                    "origin/main",
-                    "services/avantiqo-code-engine",
-                ],
+                [git_cli, "archive", "origin/main", "services/avantiqo-code-engine"],
                 cwd=str(repo),
                 stdout=handle,
                 stderr=subprocess.PIPE,
@@ -244,11 +238,26 @@ def main() -> None:
         _run(["tar", "-xf", str(archive), "-C", str(temp)], timeout=60)
 
         engine_dir = temp / "services" / "avantiqo-code-engine"
-        _run([modal_cli, "deploy", "modal_service.py"], cwd=engine_dir, timeout=1800)
 
-    # Persist the exact credential pair that was just installed in Modal before
-    # probing the newly deployed cold web function. A health timeout must not
-    # orphan the only local copy and force another secret rotation/deploy.
+        # Redeploy the worker App from the inventor entrypoint. Since this source
+        # defines only generate + invent on that App, Modal prunes the old broken
+        # code_api function. Deployment itself does not call either GPU function.
+        worker_deploy = _run(
+            [modal_cli, "deploy", "modal_inventor.py"],
+            cwd=engine_dir,
+            timeout=1800,
+        )
+
+        gateway_deploy = _run(
+            [modal_cli, "deploy", "modal_service.py"],
+            cwd=engine_dir,
+            timeout=600,
+        )
+        deploy_text = "\n".join(
+            [gateway_deploy.stdout or "", gateway_deploy.stderr or ""]
+        )
+        base_url = _discover_gateway_url(deploy_text)
+
     env_path = repo / ".env.local"
     _replace_env(
         env_path,
@@ -270,17 +279,19 @@ def main() -> None:
         json.dumps(
             {
                 "success": True,
-                "contract": "AVANTIQO_CODE_MODAL_LOCAL_CONNECT_V2",
+                "contract": "AVANTIQO_CODE_MODAL_LOCAL_CONNECT_V3",
                 "modal_client_compatible": "1.2.6+",
                 "authentication": "BEARER_GATEWAY_V1",
                 "python_dotenv_installed_by_connector": dotenv_installed,
-                "python_dotenv_version": PYTHON_DOTENV_VERSION,
+                "gateway_base_url": base_url,
                 "health_contract": health.get("contract"),
                 "health_attempts_used": health_attempts_used,
-                "health_timeout_seconds_per_attempt": HEALTH_TIMEOUT_SECONDS,
+                "gateway_gpu_imported": health.get("gateway_gpu_imported"),
                 "gpu_worker": health.get("gpu_worker"),
-                "async_job_queue": health.get("async_job_queue"),
-                "gateway_auth_verified": True,
+                "inventor_available": health.get("inventor_available"),
+                "inventor_single_gpu_function": health.get("inventor_single_gpu_function"),
+                "inventor_concurrent_gpu_fanout": health.get("inventor_concurrent_gpu_fanout"),
+                "crash_loop_pruned_by_worker_redeploy": True,
                 "env_file_updated": str(env_path),
                 "gateway_token_printed": False,
                 "gpu_inference_performed": False,
@@ -290,7 +301,7 @@ def main() -> None:
             separators=(",", ":"),
         )
     )
-    print("AVANTIQO_CODE_MODAL_LOCAL_CONNECT_V2=PASS")
+    print("AVANTIQO_CODE_MODAL_LOCAL_CONNECT_V3=PASS")
 
 
 if __name__ == "__main__":

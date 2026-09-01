@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Deploy and connect Avantiqo Image + Video to Modal from an authenticated Mac.
 
-No RunPod mutation. No Vercel deployment. Creates exactly one persistent Modal
-model Volume per engine through create_if_missing, seeds it once, deploys the
-async authenticated APIs, verifies health, and writes local app configuration.
+No RunPod mutation. No Vercel deployment. The connector never starts paid model
+cache seeding unless AVANTIQO_MEDIA_MODAL_SEED_APPROVED=YES is explicitly set.
+Without that approval it only creates/updates secrets, deploys the scale-to-zero
+APIs, verifies health, and writes local app configuration.
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from urllib.request import Request, urlopen
 WORKSPACE = "churchillkaron"
 IMAGE_BASE_URL = f"https://{WORKSPACE}--avantiqo-image-owned-image-api.modal.run"
 VIDEO_BASE_URL = f"https://{WORKSPACE}--avantiqo-video-owned-video-api.modal.run"
+SEED_APPROVAL_ENV = "AVANTIQO_MEDIA_MODAL_SEED_APPROVED"
 
 
 def text(value: Any) -> str:
@@ -121,6 +123,7 @@ def main() -> None:
     if not hf_token:
         raise RuntimeError("HF_TOKEN_REQUIRED_IN_ENV_LOCAL")
 
+    seed_approved = text(os.environ.get(SEED_APPROVAL_ENV)).upper() == "YES"
     image_token = secrets.token_urlsafe(48)
     video_token = secrets.token_urlsafe(48)
     if min(len(image_token), len(video_token)) < 40:
@@ -147,13 +150,19 @@ def main() -> None:
         image_dir = temp / "services" / "avantiqo-image-engine"
         video_dir = temp / "services" / "avantiqo-video-engine"
 
-        print("AVANTIQO_IMAGE_MODAL_SEED_START", flush=True)
-        run([modal_cli, "run", "modal_app.py::seed_cache"], cwd=image_dir, timeout=2 * 60 * 60)
+        if seed_approved:
+            print("AVANTIQO_IMAGE_MODAL_SEED_START spend_approved=true", flush=True)
+            run([modal_cli, "run", "modal_app.py::seed_cache"], cwd=image_dir, timeout=2 * 60 * 60)
+        else:
+            print("AVANTIQO_IMAGE_MODAL_SEED_SKIPPED spend_approved=false", flush=True)
         print("AVANTIQO_IMAGE_MODAL_DEPLOY_START", flush=True)
         run([modal_cli, "deploy", "modal_service.py"], cwd=image_dir, timeout=30 * 60)
 
-        print("AVANTIQO_VIDEO_MODAL_SEED_START", flush=True)
-        run([modal_cli, "run", "modal_app.py::seed_cache"], cwd=video_dir, timeout=3 * 60 * 60)
+        if seed_approved:
+            print("AVANTIQO_VIDEO_MODAL_SEED_START spend_approved=true", flush=True)
+            run([modal_cli, "run", "modal_app.py::seed_cache"], cwd=video_dir, timeout=3 * 60 * 60)
+        else:
+            print("AVANTIQO_VIDEO_MODAL_SEED_SKIPPED spend_approved=false", flush=True)
         print("AVANTIQO_VIDEO_MODAL_DEPLOY_START", flush=True)
         run([modal_cli, "deploy", "modal_service.py"], cwd=video_dir, timeout=30 * 60)
 
@@ -178,7 +187,9 @@ def main() -> None:
 
     print(json.dumps({
         "success": True,
-        "contract": "AVANTIQO_MEDIA_MODAL_CUTOVER_V1",
+        "contract": "AVANTIQO_MEDIA_MODAL_CUTOVER_V2",
+        "cache_seed_spend_approved": seed_approved,
+        "cache_seed_performed": seed_approved,
         "image": {
             "base_url": IMAGE_BASE_URL,
             "health_contract": image_health.get("contract"),
@@ -196,7 +207,7 @@ def main() -> None:
         "production_vercel_deploy_performed": False,
         "gateway_tokens_printed": False,
     }, separators=(",", ":")), flush=True)
-    print("AVANTIQO_MEDIA_MODAL_CUTOVER_V1=PASS", flush=True)
+    print("AVANTIQO_MEDIA_MODAL_CUTOVER_V2=PASS", flush=True)
 
 
 if __name__ == "__main__":

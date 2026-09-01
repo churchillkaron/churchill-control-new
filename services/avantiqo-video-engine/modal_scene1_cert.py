@@ -1,14 +1,13 @@
-"""Governed Scene 1 certification lane for Avantiqo Video on Modal.
+"""Governed Scene 1 certification for the canonical Avantiqo Video Modal lane.
 
-This module imports the canonical avantiqo-video-owned app and adds one premium
-LTX-2.5 certification function with a strict ten-minute H200 ceiling. It shares
-the canonical avantiqo-video-models Volume and never creates a second Video
-storage surface.
+There is deliberately no certification-specific GPU function here. The only
+premium paid GPU path is modal_app.generate_native_master. This module performs
+zero-GPU governance/preflight, uploads the already Studio-approved reference,
+seeds/verifies the single Video model Volume on CPU, invokes exactly one native
+B200 generation, downloads the untouched model output, and validates it locally.
 
-The local preflight is intentionally zero-GPU. It verifies the approved source
-frame, the Avantiqo Platform prepaid wallet, the inactive/pending Video pricing
-record, current Modal function backlog/runners, and the supplier-cost ceiling
-before paid inference can be approved.
+No crop, resize, spatial/latent upscaling, interpolation, grading, assembly or
+other delivery work is allowed inside the paid generation boundary.
 """
 from __future__ import annotations
 
@@ -17,7 +16,6 @@ import json
 import os
 import shutil
 import subprocess
-import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -27,34 +25,25 @@ from urllib.request import Request, urlopen
 from modal_app import (
     APP_NAME,
     LTX_FPS,
+    LTX_GPU,
+    LTX_GPU_USD_PER_SECOND,
+    LTX_HARD_TIMEOUT_SECONDS,
     LTX_MASTER_HEIGHT,
     LTX_MASTER_WIDTH,
-    LTX_PIPELINE_ROOT,
+    LTX_NUM_INFERENCE_STEPS,
     LTX_QUALITY_CONTRACT,
-    LTX_REQUIRED,
     LTX_RUNTIME_CONTRACT,
     LTX_SOURCE_REPO,
     LTX_SOURCE_REVISION,
     NATIVE_ENGINE_CONTRACT,
-    SCENE1_PROMPT,
-    _ltx_frame_count,
-    _ltx_negative_prompt,
-    _ltx_prompt,
-    _ltx_snapshot,
     _sanitize,
-    app,
-    ltx_worker_image,
+    generate_native_master,
     model_volume,
-    prepare_scene1_reference,
     seed_ltx_cache,
 )
 
-CONTRACT = "AVANTIQO_VIDEO_SCENE1_MODAL_CERTIFICATION_V1"
-GPU = "H200"
-H200_USD_PER_SECOND = 0.001261
-HARD_TIMEOUT_SECONDS = 10 * 60
-SUBPROCESS_TIMEOUT_SECONDS = HARD_TIMEOUT_SECONDS - 20
-DEFAULT_MAX_SUPPLIER_GPU_COST_USD = 1.00
+CONTRACT = "AVANTIQO_VIDEO_SCENE1_MODAL_CERTIFICATION_V2"
+DEFAULT_MAX_SUPPLIER_GPU_COST_USD = 3.25
 APPROVAL_ENV = "AVANTIQO_VIDEO_SCENE1_REAL_INFERENCE_APPROVED"
 SOURCE_ENV = "AVANTIQO_VIDEO_SCENE1_SOURCE_FRAME"
 ENV_FILE_ENV = "AVANTIQO_VIDEO_SCENE1_ENV_FILE"
@@ -63,14 +52,12 @@ CANONICAL_SOURCE_BYTES = 31376
 CANONICAL_SOURCE_SHA256 = "cbf4437d77f74b2fd0193f9039ef64c511b597712fe08c466c30d4c231aeb0c5"
 SUPABASE_DEFAULT_URL = "https://vfsjqabpkcbiuerhzugk.supabase.co"
 
-# Modal mounts the Function's source module automatically, but imported sibling
-# modules are not guaranteed to be present in a remote Function container. The
-# certification Function imports canonical Video helpers from modal_app.py, so
-# add that exact source file to the H200 image at startup. This is source
-# packaging only: it creates no second app, GPU lane, model cache or Volume.
-CERT_LTX_WORKER_IMAGE = ltx_worker_image.add_local_file(
-    Path(__file__).with_name("modal_app.py"),
-    "/root/modal_app.py",
+SCENE1_PROMPT = (
+    "A premium stabilized aerial push toward the dawn city skyline with a subtle controlled descent. "
+    "Keep the architecture, skyline geometry and perspective coherent with the supplied opening frame. "
+    "Natural pre-sunrise light slowly develops, with restrained realistic cloud movement, subtle water and traffic motion, "
+    "physically plausible atmospheric depth, no artificial timelapse, no sudden camera movement, no morphing, no fantasy elements. "
+    "The shot should feel like the opening of a world-class New York commercial film."
 )
 
 
@@ -111,9 +98,7 @@ def _load_dotenv(path: Path) -> dict[str, str]:
 def _local_env() -> dict[str, str]:
     explicit = _text(os.environ.get(ENV_FILE_ENV))
     path = Path(explicit).expanduser().resolve() if explicit else (Path.cwd() / ".env.local").resolve()
-    values = _load_dotenv(path)
-    merged = {**values, **{key: value for key, value in os.environ.items() if value}}
-    return merged
+    return {**_load_dotenv(path), **{key: value for key, value in os.environ.items() if value}}
 
 
 def _rest_rows(table: str, params: dict[str, str], env: dict[str, str]) -> list[dict[str, Any]]:
@@ -121,9 +106,8 @@ def _rest_rows(table: str, params: dict[str, str], env: dict[str, str]) -> list[
     if not service_key:
         raise RuntimeError(f"{CONTRACT}_SUPABASE_SERVICE_ROLE_KEY_REQUIRED")
     base_url = _text(env.get("NEXT_PUBLIC_SUPABASE_URL")) or SUPABASE_DEFAULT_URL
-    query = urlencode(params)
     request = Request(
-        f"{base_url.rstrip('/')}/rest/v1/{table}?{query}",
+        f"{base_url.rstrip('/')}/rest/v1/{table}?{urlencode(params)}",
         headers={
             "apikey": service_key,
             "Authorization": f"Bearer {service_key}",
@@ -154,7 +138,11 @@ def _verify_source(path: Path) -> dict[str, Any]:
         raise RuntimeError(f"{CONTRACT}_APPROVED_SOURCE_SIZE_INVALID:{len(raw)}")
     if digest != CANONICAL_SOURCE_SHA256:
         raise RuntimeError(f"{CONTRACT}_APPROVED_SOURCE_DIGEST_INVALID:{digest}")
-    return {"bytes": len(raw), "sha256": digest}
+    return {
+        "bytes": len(raw),
+        "sha256": digest,
+        "studio_reference_accepted_without_modal_preprocessing": True,
+    }
 
 
 def _pricing_and_wallet_preflight() -> dict[str, Any]:
@@ -213,17 +201,6 @@ def _pricing_and_wallet_preflight() -> dict[str, Any]:
     if metadata.get("economics_certified") is not False:
         raise RuntimeError(f"{CONTRACT}_VIDEO_ECONOMICS_MUST_BE_PENDING_BEFORE_FIRST_MEASUREMENT")
 
-    organization_services = _rest_rows(
-        "organization_services",
-        {
-            "select": "id,service_id,status,usage_enabled",
-            "organization_id": f"eq.{organization_id}",
-            "service_id": "eq.ai.video.image_to_video",
-            "limit": "2",
-        },
-        env,
-    )
-
     return {
         "organization_id_printed": False,
         "wallet": {
@@ -238,10 +215,8 @@ def _pricing_and_wallet_preflight() -> dict[str, Any]:
             "model": _text(pricing.get("model")),
             "active": pricing.get("active"),
             "economics_certified": metadata.get("economics_certified"),
-            "internal_gpu_cost_status": metadata.get("internal_gpu_cost_status"),
             "production_routing_allowed": metadata.get("production_routing_allowed"),
         },
-        "organization_service_provisioned": len(organization_services) == 1,
         "customer_charge_planned": False,
         "customer_wallet_mutation_planned": False,
         "pricing_activation_planned": False,
@@ -249,7 +224,7 @@ def _pricing_and_wallet_preflight() -> dict[str, Any]:
 
 
 def _modal_stats() -> dict[str, int]:
-    stats = generate_scene1_native_master.get_current_stats()
+    stats = generate_native_master.get_current_stats()
     backlog = int(getattr(stats, "backlog", 0) or 0)
     total = int(getattr(stats, "num_total_runners", 0) or 0)
     running = int(getattr(stats, "num_running_inputs", 0) or 0)
@@ -265,15 +240,15 @@ def _cost_preflight() -> dict[str, Any]:
         os.environ.get("AVANTIQO_VIDEO_SCENE1_MAX_SUPPLIER_GPU_COST_USD"),
         DEFAULT_MAX_SUPPLIER_GPU_COST_USD,
     )
-    ceiling = H200_USD_PER_SECOND * HARD_TIMEOUT_SECONDS
+    ceiling = LTX_GPU_USD_PER_SECOND * LTX_HARD_TIMEOUT_SECONDS
     if ceiling > maximum:
         raise RuntimeError(
             f"{CONTRACT}_SUPPLIER_COST_CEILING_EXCEEDED:{ceiling:.6f}:{maximum:.6f}"
         )
     return {
-        "gpu": GPU,
-        "supplier_gpu_rate_usd_per_second": H200_USD_PER_SECOND,
-        "hard_timeout_seconds": HARD_TIMEOUT_SECONDS,
+        "gpu": LTX_GPU,
+        "supplier_gpu_rate_usd_per_second": LTX_GPU_USD_PER_SECOND,
+        "hard_timeout_seconds": LTX_HARD_TIMEOUT_SECONDS,
         "hard_gpu_cost_ceiling_usd": round(ceiling, 6),
         "approved_supplier_gpu_cost_budget_usd": round(maximum, 6),
         "maximum_paid_gpu_jobs": 1,
@@ -294,24 +269,39 @@ def _local_preflight() -> dict[str, Any]:
         "governance": governance,
         "modal": {
             "app": APP_NAME,
-            "function": "generate_scene1_native_master",
+            "function": "generate_native_master",
+            "single_premium_gpu_function": True,
             "scale_to_zero": True,
             "min_gpu_containers": 0,
             "max_gpu_containers": 1,
             "scaledown_window_seconds": 5,
             **modal_stats,
         },
-        "cost": cost,
         "model": {
             "foundation": LTX_SOURCE_REPO,
             "revision": LTX_SOURCE_REVISION,
             "pipeline": "TI2VID_ONE_STAGE_FULL_DEV_BF16",
             "precision": "BF16",
+            "quantization": "NONE",
             "width": LTX_MASTER_WIDTH,
             "height": LTX_MASTER_HEIGHT,
             "fps": LTX_FPS,
+            "num_inference_steps": LTX_NUM_INFERENCE_STEPS,
             "duration_seconds": 5,
         },
+        "gpu_boundary": {
+            "generation_only": True,
+            "reference_preprocessing": False,
+            "crop": False,
+            "resize": False,
+            "spatial_upscale": False,
+            "latent_upscale": False,
+            "temporal_interpolation": False,
+            "grading": False,
+            "assembly": False,
+            "delivery_transform": False,
+        },
+        "cost": cost,
         "runpod_used": False,
         "external_provider_fallback_allowed": False,
         "gpu_requested": False,
@@ -321,136 +311,53 @@ def _local_preflight() -> dict[str, Any]:
     }
 
 
-@app.function(
-    image=CERT_LTX_WORKER_IMAGE,
-    gpu=GPU,
-    volumes={"/models": model_volume},
-    timeout=HARD_TIMEOUT_SECONDS,
-    min_containers=0,
-    max_containers=1,
-    buffer_containers=0,
-    scaledown_window=5,
-    retries=0,
-)
-def generate_scene1_native_master(
-    reference_relative: str,
-    output_relative: str,
-    instruction: str,
-    duration_seconds: int = 5,
-    seed: int = 4747,
-) -> dict[str, Any]:
-    """Single paid H200 stage with a strict ten-minute kill boundary."""
-    function_started = time.perf_counter()
-    model_volume.reload()
-    root = _ltx_snapshot()
-    reference = Path("/models") / reference_relative.lstrip("/")
-    output = Path("/models") / output_relative.lstrip("/")
-    if not reference.is_file() or reference.stat().st_size < 20_000:
-        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_REFERENCE_INVALID")
-    output.parent.mkdir(parents=True, exist_ok=True)
-
-    transformer = root / LTX_REQUIRED[0]
-    text_encoder = root / LTX_REQUIRED[1]
-    video_vae = root / LTX_REQUIRED[2]
-    audio_vae = root / LTX_REQUIRED[3]
-    frames = _ltx_frame_count(int(duration_seconds))
-    command = [
-        "python", "-m", "ltx_pipelines.ti2vid_one_stage",
-        "--transformer-path", str(transformer),
-        "--text-encoder-path", str(text_encoder),
-        "--video-vae-path", str(video_vae),
-        "--audio-vae-path", str(audio_vae),
-        "--num-frames", str(frames),
-        "--width", str(LTX_MASTER_WIDTH),
-        "--height", str(LTX_MASTER_HEIGHT),
-        "--frame-rate", str(LTX_FPS),
-        "--seed", str(int(seed)),
-        "--offload", "cpu",
-        "--max-batch-size", "1",
-        "--output-path", str(output),
-        "--prompt", _ltx_prompt(instruction),
-        "--negative-prompt", _ltx_negative_prompt(),
-        "--image", str(reference), "0", "1.0", "0",
-    ]
-    env = os.environ.copy()
-    env["PYTHONPATH"] = ":".join([
-        str(LTX_PIPELINE_ROOT / "packages/ltx-core/src"),
-        str(LTX_PIPELINE_ROOT / "packages/ltx-pipelines/src"),
-        env.get("PYTHONPATH", ""),
-    ])
-    generation_started = time.perf_counter()
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=str(LTX_PIPELINE_ROOT),
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=SUBPROCESS_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        detail = _sanitize(getattr(exc, "stdout", "") or getattr(exc, "output", ""), 1200)
-        raise RuntimeError(
-            f"AVANTIQO_VIDEO_SCENE1_HARD_TIMEOUT:{SUBPROCESS_TIMEOUT_SECONDS}:{detail}"
-        ) from exc
-    generation_seconds = round(time.perf_counter() - generation_started, 3)
-    if completed.returncode != 0:
-        raise RuntimeError(
-            f"AVANTIQO_VIDEO_LTX25_MODAL_COMMAND_FAILED:{completed.returncode}:"
-            f"{_sanitize(completed.stdout)}"
-        )
-    if not output.is_file() or output.stat().st_size <= 1_000_000:
-        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_OUTPUT_INVALID")
-    model_volume.commit()
-    function_seconds = round(time.perf_counter() - function_started, 3)
-    estimated_gpu_cost = round(function_seconds * H200_USD_PER_SECOND, 8)
-    return {
+def _validate_native_result(result: dict[str, Any]) -> None:
+    required_equal = {
         "success": True,
-        "status": "completed",
-        "contract": CONTRACT,
-        "runtime_contract": LTX_RUNTIME_CONTRACT,
+        "contract": LTX_RUNTIME_CONTRACT,
         "quality_contract": LTX_QUALITY_CONTRACT,
         "engine_contract": NATIVE_ENGINE_CONTRACT,
-        "provider": "avantiqo-video",
-        "model": "avantiqo-ltx-2.5",
-        "foundation_model": LTX_SOURCE_REPO,
         "foundation_revision": LTX_SOURCE_REVISION,
         "pipeline": "TI2VID_ONE_STAGE_FULL_DEV_BF16",
         "precision": "BF16",
-        "modal_gpu": GPU,
+        "quantization": "NONE",
+        "modal_gpu": LTX_GPU,
         "width": LTX_MASTER_WIDTH,
         "height": LTX_MASTER_HEIGHT,
         "fps": LTX_FPS,
-        "frame_count": frames,
-        "duration_seconds_requested": int(duration_seconds),
-        "seed": int(seed),
-        "output_relative": output_relative,
-        "output_size_bytes": output.stat().st_size,
-        "generation_seconds": generation_seconds,
-        "modal_function_seconds": function_seconds,
-        "supplier_gpu_rate_usd_per_second": H200_USD_PER_SECOND,
-        "estimated_supplier_gpu_cost_usd": estimated_gpu_cost,
-        "hard_timeout_seconds": HARD_TIMEOUT_SECONDS,
-        "hard_gpu_cost_ceiling_usd": round(H200_USD_PER_SECOND * HARD_TIMEOUT_SECONDS, 6),
-        "cost_measurement_basis": "MODAL_H200_RATE_X_FUNCTION_SECONDS_PRE_BILLING_RECONCILIATION",
+        "num_inference_steps": LTX_NUM_INFERENCE_STEPS,
         "native_master_generated": True,
         "master_is_exact_model_output": True,
-        "pixel_upscale_used": False,
-        "learned_latent_upsampler_used": False,
-        "learned_spatial_upscaler_used": False,
-        "distilled_lora_used": False,
-        "resize_used": False,
-        "crop_used": False,
-        "preprocessing_inside_paid_worker": False,
-        "ffprobe_inside_paid_worker": False,
-        "runpod_inference_performed": False,
-        "external_provider_contacted": False,
-        "automatic_paid_retry": False,
-        "raw_reasoning_persisted": False,
-        "pipeline_stdout_tail": _sanitize(completed.stdout, 1200),
+        "model_cpu_offload_used": False,
+        "studio_reference_required": True,
     }
+    for key, expected in required_equal.items():
+        if result.get(key) != expected:
+            raise RuntimeError(
+                f"{CONTRACT}_NATIVE_RESULT_INVALID:{key}:{result.get(key)!r}:{expected!r}"
+            )
+
+    forbidden_true = (
+        "pixel_upscale_used",
+        "learned_latent_upsampler_used",
+        "learned_spatial_upscaler_used",
+        "temporal_interpolation_used",
+        "distilled_transformer_used",
+        "distilled_lora_used",
+        "resize_used",
+        "crop_used",
+        "grading_used",
+        "assembly_used",
+        "delivery_transform_used",
+        "reference_preprocessing_inside_paid_worker",
+        "ffprobe_inside_paid_worker",
+        "runpod_inference_performed",
+        "external_provider_contacted",
+        "automatic_paid_retry",
+    )
+    for key in forbidden_true:
+        if result.get(key) is not False:
+            raise RuntimeError(f"{CONTRACT}_FORBIDDEN_GPU_OPERATION:{key}")
 
 
 @app.local_entrypoint()
@@ -464,7 +371,7 @@ def scene1_preflight() -> None:
 def scene1_certify(
     output_path: str = "local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.mp4",
 ) -> None:
-    """Run exactly one paid Scene 1 after repeating the full zero-GPU gate."""
+    """Run exactly one canonical paid B200 native-master generation."""
     report = _local_preflight()
     if not _yes(os.environ.get(APPROVAL_ENV)):
         raise RuntimeError(f"{APPROVAL_ENV}=YES_REQUIRED")
@@ -478,71 +385,56 @@ def scene1_certify(
     report_path = local_output.with_suffix(".json")
 
     run_id = uuid.uuid4().hex[:16]
-    source_remote = f"scene1-proof/{run_id}/opening-frame.jpg"
-    prepared_remote = f"scene1-proof/{run_id}/prepared-reference.png"
+    reference_remote = f"scene1-proof/{run_id}/studio-approved-reference.jpg"
     output_remote = f"scene1-proof/{run_id}/native-master-3840x2176.mp4"
 
     with model_volume.batch_upload(force=True) as upload:
-        upload.put_file(str(source), source_remote)
+        upload.put_file(str(source), reference_remote)
 
     try:
-        prepared = prepare_scene1_reference.remote(source_remote, prepared_remote)
-        if prepared.get("success") is not True:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_PREPARE_FAILED")
-
         cache = seed_ltx_cache.remote()
         if cache.get("success") is not True:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_CACHE_FAILED")
+            raise RuntimeError(f"{CONTRACT}_CACHE_FAILED")
+        if cache.get("revision") != LTX_SOURCE_REVISION:
+            raise RuntimeError(f"{CONTRACT}_PINNED_CACHE_REVISION_INVALID")
 
-        # Re-check immediately before the one H200 request. CPU preparation/cache
-        # work cannot excuse a duplicate or already-running paid generation.
+        # CPU cache work may take time; repeat the duplicate guard immediately
+        # before the one paid B200 request.
         paid_stats = _modal_stats()
         print(json.dumps({
             "event": "AVANTIQO_VIDEO_SCENE1_PAID_GENERATION_START",
             "contract": CONTRACT,
-            "gpu": GPU,
-            "hard_timeout_seconds": HARD_TIMEOUT_SECONDS,
-            "hard_gpu_cost_ceiling_usd": round(H200_USD_PER_SECOND * HARD_TIMEOUT_SECONDS, 6),
+            "function": "generate_native_master",
+            "gpu": LTX_GPU,
+            "hard_timeout_seconds": LTX_HARD_TIMEOUT_SECONDS,
+            "hard_gpu_cost_ceiling_usd": round(
+                LTX_GPU_USD_PER_SECOND * LTX_HARD_TIMEOUT_SECONDS, 6
+            ),
             "maximum_paid_gpu_jobs": 1,
             "automatic_paid_retry": False,
+            "generation_only_gpu_boundary": True,
             "backlog": paid_stats["backlog"],
             "runners": paid_stats["num_total_runners"],
             "runpod_used": False,
             "production_deploy_performed": False,
         }, separators=(",", ":")), flush=True)
 
-        result = generate_scene1_native_master.remote(
-            prepared_remote,
+        result = generate_native_master.remote(
+            reference_remote,
             output_remote,
             SCENE1_PROMPT,
             5,
             4747,
         )
-        if result.get("success") is not True:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_GENERATION_FAILED")
-        if result.get("width") != 3840 or result.get("height") != 2176:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_DIMENSIONS_INVALID")
-        if result.get("fps") != 24:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_FPS_INVALID")
-        if result.get("pipeline") != "TI2VID_ONE_STAGE_FULL_DEV_BF16":
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_PIPELINE_INVALID")
-        for key in (
-            "pixel_upscale_used",
-            "learned_spatial_upscaler_used",
-            "distilled_lora_used",
-            "resize_used",
-            "crop_used",
-            "runpod_inference_performed",
-            "external_provider_contacted",
-        ):
-            if result.get(key) is not False:
-                raise RuntimeError(f"AVANTIQO_VIDEO_SCENE1_MODAL_NATIVE_CONTRACT_INVALID:{key}")
+        if not isinstance(result, dict):
+            raise RuntimeError(f"{CONTRACT}_RESULT_OBJECT_REQUIRED")
+        _validate_native_result(result)
 
         with local_output.open("wb") as handle:
             for chunk in model_volume.read_file(output_remote):
                 handle.write(chunk)
         if not local_output.is_file() or local_output.stat().st_size <= 1_000_000:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_LOCAL_OUTPUT_INVALID")
+            raise RuntimeError(f"{CONTRACT}_LOCAL_OUTPUT_INVALID")
 
         probe = None
         ffprobe = shutil.which("ffprobe")
@@ -565,24 +457,25 @@ def scene1_certify(
             )
             if completed.returncode != 0:
                 raise RuntimeError(
-                    f"AVANTIQO_VIDEO_SCENE1_MODAL_FFPROBE_FAILED:{_sanitize(completed.stderr)}"
+                    f"{CONTRACT}_LOCAL_FFPROBE_FAILED:{_sanitize(completed.stderr)}"
                 )
             probe = json.loads(completed.stdout)
             stream = (probe.get("streams") or [{}])[0]
-            if int(stream.get("width") or 0) != 3840 or int(stream.get("height") or 0) != 2176:
-                raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_FFPROBE_DIMENSIONS_INVALID")
-            if _text(stream.get("r_frame_rate")) != "24/1":
-                raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_FFPROBE_FPS_INVALID")
+            if int(stream.get("width") or 0) != LTX_MASTER_WIDTH:
+                raise RuntimeError(f"{CONTRACT}_LOCAL_WIDTH_INVALID")
+            if int(stream.get("height") or 0) != LTX_MASTER_HEIGHT:
+                raise RuntimeError(f"{CONTRACT}_LOCAL_HEIGHT_INVALID")
+            if _text(stream.get("r_frame_rate")) != f"{LTX_FPS}/1":
+                raise RuntimeError(f"{CONTRACT}_LOCAL_FPS_INVALID")
 
         final_report = {
             **report,
             "phase": "COMPLETED",
             "paid_approval_observed": True,
             "cache": cache,
-            "prepared_reference": prepared,
             "generation": result,
             "local_output": str(local_output),
-            "post_gpu_probe": probe,
+            "post_gpu_local_probe": probe,
             "customer_charge_performed": False,
             "pricing_activation_performed": False,
             "provider_routing_activation_performed": False,
@@ -591,10 +484,14 @@ def scene1_certify(
         report_path.write_text(json.dumps(final_report, indent=2), encoding="utf-8")
         print(f"AVANTIQO_VIDEO_SCENE1_MODAL_OUTPUT={local_output}", flush=True)
         print(f"AVANTIQO_VIDEO_SCENE1_MODAL_REPORT={report_path}", flush=True)
-        print(f"AVANTIQO_VIDEO_SCENE1_ESTIMATED_SUPPLIER_GPU_COST_USD={result['estimated_supplier_gpu_cost_usd']}", flush=True)
+        print(
+            "AVANTIQO_VIDEO_SCENE1_ESTIMATED_SUPPLIER_GPU_COST_USD="
+            f"{result['estimated_supplier_gpu_cost_usd']}",
+            flush=True,
+        )
         print(f"{CONTRACT}=PASS", flush=True)
     finally:
-        for remote in (source_remote, prepared_remote, output_remote):
+        for remote in (reference_remote, output_remote):
             try:
                 model_volume.remove_file(remote)
             except Exception:

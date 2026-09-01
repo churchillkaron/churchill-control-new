@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
@@ -26,10 +26,12 @@ jobs:
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_INTELLIGENCE_FAST_MODEL_CACHE_EXPECTED_MAIN: ${{ github.sha }}
         run: node scripts/diagnose-avantiqo-intelligence-fast-model-cache-local.mjs
       - if: always()
         run: |
           echo "GENERATION_SUBMITTED=false"
           echo "MUTATION_PERFORMED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "DIAGNOSTIC_PINNED_TO_TRIGGER_SHA=true"
           echo "DIAGNOSTIC_RERUN=post-volume-free-pod-spend-guard"

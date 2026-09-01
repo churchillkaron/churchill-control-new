@@ -1,17 +1,19 @@
 """Authenticated async HTTP transport for the owned Avantiqo Code Modal worker.
 
-Deploy with:
-    modal deploy services/avantiqo-code-engine/modal_service.py
+This service deliberately uses an application bearer token stored in a Modal
+Secret so it works with the installed Modal 1.2.6 client. Proxy-token support
+was added to newer Modal clients and remains supported by the application-side
+provider for a future migration.
 
-The ASGI endpoint is proxy-authenticated by Modal. It does not hold a GPU.
-POST /v1/jobs spawns the existing H100 `generate` Function and returns
-immediately with a Modal FunctionCall id. GET /v1/jobs/{id} polls that call.
-The GPU Function itself is defined in modal_app.py and uses the exact owned
-Qwen FP8/vLLM runtime already proven by the one-shot real-write certification.
+The ASGI function itself holds no GPU. POST /v1/jobs validates authentication
+and governance first, then spawns the existing H100 `generate` Function and
+returns immediately with a Modal FunctionCall id. GET /v1/jobs/{id} polls it.
 """
 
 from __future__ import annotations
 
+import hmac
+import os
 from typing import Any
 
 import modal
@@ -20,6 +22,8 @@ from modal_app import ENGINE_CONTRACT, PRODUCT_MODEL, app, generate
 
 HTTP_CONTRACT = "AVANTIQO_CODE_MODAL_HTTP_V1"
 TRANSPORT = "modal-function-call"
+GATEWAY_SECRET_NAME = "avantiqo-code-gateway"
+GATEWAY_TOKEN_ENV = "AVANTIQO_CODE_GATEWAY_TOKEN"
 
 api_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "fastapi[standard]"
@@ -56,16 +60,36 @@ def _safe(value: Any, depth: int = 0) -> Any:
 
 @app.function(
     image=api_image,
+    secrets=[modal.Secret.from_name(GATEWAY_SECRET_NAME)],
     timeout=60,
     scaledown_window=5,
     min_containers=0,
     max_containers=4,
 )
-@modal.asgi_app(requires_proxy_auth=True)
+@modal.asgi_app(requires_proxy_auth=False)
 def code_api():
-    from fastapi import FastAPI, HTTPException
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
+
+    gateway_token = _text(os.environ.get(GATEWAY_TOKEN_ENV))
+    if len(gateway_token) < 40:
+        raise RuntimeError("AVANTIQO_CODE_MODAL_GATEWAY_TOKEN_INVALID")
+    expected_authorization = f"Bearer {gateway_token}"
 
     web = FastAPI(title="Avantiqo Code Modal Transport", docs_url=None, redoc_url=None)
+
+    @web.middleware("http")
+    async def authenticate(request: Request, call_next):
+        supplied = _text(request.headers.get("authorization"))
+        if not hmac.compare_digest(supplied, expected_authorization):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "detail": "AVANTIQO_CODE_MODAL_GATEWAY_UNAUTHORIZED",
+                    "raw_reasoning_persisted": False,
+                },
+            )
+        return await call_next(request)
 
     @web.get("/health")
     async def health() -> dict[str, Any]:
@@ -77,13 +101,16 @@ def code_api():
             "model": PRODUCT_MODEL,
             "gpu_worker": "H100",
             "async_job_queue": True,
-            "proxy_auth_required": True,
+            "gateway_auth_required": True,
+            "proxy_auth_required": False,
             "persistent_volume_used": False,
             "raw_reasoning_persisted": False,
         }
 
     @web.post("/v1/jobs")
     async def submit(data: dict[str, Any]) -> dict[str, Any]:
+        from fastapi import HTTPException
+
         if _text(data.get("contract")) != ENGINE_CONTRACT:
             raise HTTPException(status_code=400, detail="AVANTIQO_CODE_ENGINE_CONTRACT_INVALID")
         if not _text(data.get("capability")):
@@ -111,6 +138,8 @@ def code_api():
 
     @web.get("/v1/jobs/{job_id}")
     async def status(job_id: str) -> dict[str, Any]:
+        from fastapi import HTTPException
+
         normalized = _text(job_id)
         if not normalized or len(normalized) > 200:
             raise HTTPException(status_code=400, detail="AVANTIQO_CODE_MODAL_CALL_ID_INVALID")

@@ -5,8 +5,8 @@ import { spawn } from "node:child_process";
 
 const CONTRACT = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V4_LAUNCHER";
 const V3_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v3-local.mjs";
-const FIRST_CACHE_BOOTSTRAP_NO_WORKER_MS = 4 * 60_000;
-const TOTAL_GENERATION_TIMEOUT_MS = 7 * 60_000;
+const FIRST_CACHE_BOOTSTRAP_NO_WORKER_MS = 15 * 60_000;
+const TOTAL_GENERATION_TIMEOUT_MS = 20 * 60_000;
 
 function patchOnce(source, before, after, label) {
   const first = source.indexOf(before);

@@ -6,8 +6,8 @@ const CONTRACT = "AVANTIQO_VOICE_MODAL_DIRECT_PREFLIGHT_V1";
 const PROVIDER = "avantiqo-voice";
 const MODAL_APP = "avantiqo-voice-owned";
 const FUNCTIONS = Object.freeze([
-  { capability: "ai.speech.to.text", name: "transcribe" },
-  { capability: "ai.text.to.speech", name: "speak" },
+  { capability: "ai.speech.to.text", className: "VoiceStt", methodName: "transcribe" },
+  { capability: "ai.text.to.speech", className: "VoiceTts", methodName: "speak" },
 ]);
 const CANONICAL_ORGANIZATION_NAME = "Avantiqo Platform";
 const CANONICAL_ORGANIZATION_TYPE = "enterprise_group";
@@ -108,24 +108,28 @@ const tokenSecret = text(process.env.MODAL_TOKEN_SECRET || process.env.AVANTIQO_
 if (!tokenId || !tokenSecret) throw new Error(`${CONTRACT}_MODAL_DIRECT_CREDENTIALS_REQUIRED`);
 const modalEnvironment = text(process.env.AVANTIQO_MODAL_ENVIRONMENT || process.env.MODAL_ENVIRONMENT, 120);
 const modal = new ModalClient({ tokenId, tokenSecret });
+const lookupOptions = modalEnvironment ? { environment: modalEnvironment } : {};
+
+async function classMethod(entry) {
+  const cls = await modal.cls.fromName(MODAL_APP, entry.className, lookupOptions);
+  const instance = await cls.instance();
+  return instance.method(entry.methodName);
+}
 
 const functionReports = [];
 try {
   for (const entry of FUNCTIONS) {
-    const worker = await modal.functions.fromName(
-      MODAL_APP,
-      entry.name,
-      modalEnvironment ? { environment: modalEnvironment } : {},
-    );
-    const stats = await worker.getCurrentStats();
+    const method = await classMethod(entry);
+    const stats = await method.getCurrentStats();
     const backlog = finite(stats?.backlog);
     const runners = finite(stats?.numTotalRunners);
     if (backlog !== 0 || runners !== 0) {
-      throw new Error(`${CONTRACT}_DUPLICATE_GPU_GUARD_ACTIVE:${entry.name}:backlog=${backlog}:runners=${runners}`);
+      throw new Error(`${CONTRACT}_DUPLICATE_GPU_GUARD_ACTIVE:${entry.className}.${entry.methodName}:backlog=${backlog}:runners=${runners}`);
     }
     functionReports.push({
       capability: entry.capability,
-      function: entry.name,
+      class: entry.className,
+      method: entry.methodName,
       backlog,
       total_runners: runners,
     });
@@ -144,6 +148,7 @@ console.log(JSON.stringify({
   provider: PROVIDER,
   modal_app: MODAL_APP,
   modal_transport: "modal-js-sdk-function-call-v1",
+  modal_worker_shape: "CLASS_METHOD_WITH_CONTAINER_PRELOAD",
   modal_gateway_required: false,
   runpod_primary_used: false,
   supplier_status: upper(supplier.status),
@@ -164,7 +169,7 @@ console.log(JSON.stringify({
   max_paid_jobs: 0,
   gpu_requested: false,
   gpu_inference_performed: false,
-  modal_function_invoked: false,
+  modal_method_invoked: false,
   deployment_performed: false,
   production_vercel_deploy_performed: false,
   secrets_printed: false,

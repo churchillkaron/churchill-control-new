@@ -12,8 +12,8 @@ const OUTPUT_FILE = `${OUTPUT_ROOT}/invoice-total.mjs`;
 const TEST_FILE = `${OUTPUT_ROOT}/invoice-total.test.mjs`;
 const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-code-runpod-global-cached-model-v4-local.mjs";
 const MIGRATION_PASS = "AVANTIQO_CODE_RUNPOD_GLOBAL_CACHED_MODEL_MIGRATION_V4=PASS";
-const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-serverless-e2e-proof-v4-local.mjs";
-const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_SERVERLESS_E2E_PROOF_V4_LAUNCHER=PASS";
+const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-pod-e2e-proof-v8-local.mjs";
+const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_POD_E2E_PROOF_V8=PASS";
 
 function text(value, maximum = 8000) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -74,16 +74,17 @@ console.log(JSON.stringify({
   event: `${CONTRACT}_START`,
   repository_root: repositoryRoot,
   output_file: OUTPUT_FILE,
-  scheduling_architecture: "GLOBAL_RUNPOD_CACHED_MODEL",
-  migration_script: MIGRATION_SCRIPT,
-  migration_is_idempotent_when_target_state_verified: true,
+  scheduling_architecture: "LIVE_GATED_EPHEMERAL_RUNPOD_POD",
+  serverless_migration_script: MIGRATION_SCRIPT,
+  serverless_migration_is_idempotent_when_target_state_verified: true,
   generation_script: GENERATION_SCRIPT,
-  endpoint_network_volume_detached_required: true,
+  serverless_resting_0_0_required: true,
+  serverless_endpoint_volume_detached_required: true,
   one_canonical_code_storage_preserved_required: true,
-  serverless_zero_idle_required: true,
-  first_cached_model_bootstrap_no_worker_ms: 240000,
-  total_generation_timeout_ms: 420000,
-  transport_failure_generation_submissions_max: 1,
+  live_gpu_stock_gate_before_pod_create_required: true,
+  pod_volume_mount_path: "/runpod-volume",
+  cached_model_root: "/runpod-volume/huggingface-cache/hub",
+  max_parallel_code_pods: 1,
   real_owned_model_generation_required: true,
   write_to_local_computer_required: true,
   new_storage_created: false,
@@ -95,8 +96,8 @@ const migration = await run(process.execPath, [MIGRATION_SCRIPT], repositoryRoot
   stream: true,
   env: { ...process.env, NODE_ENV: "development", AVANTIQO_CODE_GLOBAL_CACHED_MODEL_MIGRATION_APPROVED: "YES" },
 });
-if (migration.exit_code !== 0) throw new Error(`${CONTRACT}_GLOBAL_CACHED_MODEL_MIGRATION_FAILED:${migration.exit_code}`);
-if (!migration.stdout.includes(MIGRATION_PASS)) throw new Error(`${CONTRACT}_MIGRATION_PASS_MARKER_REQUIRED:${MIGRATION_PASS}`);
+if (migration.exit_code !== 0) throw new Error(`${CONTRACT}_SERVERLESS_SAFE_STATE_FAILED:${migration.exit_code}`);
+if (!migration.stdout.includes(MIGRATION_PASS)) throw new Error(`${CONTRACT}_SERVERLESS_SAFE_STATE_MARKER_REQUIRED:${MIGRATION_PASS}`);
 
 const generation = await run(process.execPath, [GENERATION_SCRIPT], repositoryRoot, {
   stream: true,
@@ -121,9 +122,9 @@ console.log(SOURCE_END);
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
-  generation_transport: "RUNPOD_SERVERLESS_GLOBAL_CACHED_MODEL",
-  global_cached_model_migration_verified: true,
-  endpoint_network_volume_attached: false,
+  generation_transport: "EPHEMERAL_RUNPOD_POD",
+  serverless_safe_state_verified: true,
+  serverless_endpoint_network_volume_attached: false,
   canonical_code_storage_preserved: true,
   local_computer_write_verified: true,
   generated_file: OUTPUT_FILE,

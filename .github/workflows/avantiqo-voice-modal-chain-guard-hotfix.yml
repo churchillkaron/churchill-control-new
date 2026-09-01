@@ -30,71 +30,62 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('scripts/certify-avantiqo-voice-modal-chained-service-live.mjs')
           text = path.read_text()
 
-          old_phrase = 'const PHRASE = "Bright morning signals cross seven quiet bridges before sunrise.";'
-          new_phrase = 'const PHRASE = "Bright morning signals cross quiet bridges before sunrise.";'
-          if text.count(old_phrase) != 1:
+          text, n = re.subn(
+              r'const PHRASE = "Bright morning signals cross seven quiet bridges before sunrise\.";',
+              'const PHRASE = "Bright morning signals cross quiet bridges before sunrise.";',
+              text,
+              count=1,
+          )
+          if n != 1:
               raise SystemExit('VOICE_CHAIN_PHRASE_PATCH_TARGET_INVALID')
-          text = text.replace(old_phrase, new_phrase, 1)
 
-          old_idle = '''async function requireIdle() {
-            const [tts, stt] = await Promise.all([stats(ttsWorker), stats(sttWorker)]);
-            if (tts.backlog !== 0 || tts.runners !== 0 || stt.backlog !== 0 || stt.runners !== 0) {
-              throw new Error(`${CONTRACT}_DUPLICATE_GPU_GUARD_ACTIVE:tts=${tts.backlog}/${tts.runners}:stt=${stt.backlog}/${stt.runners}`);
-            }
-            return { tts, stt };
-          }
-          '''
-          new_idle = '''async function requireIdle() {
-            const [tts, stt] = await Promise.all([stats(ttsWorker), stats(sttWorker)]);
-            if (tts.backlog !== 0 || tts.runners !== 0 || stt.backlog !== 0 || stt.runners !== 0) {
-              throw new Error(`${CONTRACT}_DUPLICATE_GPU_GUARD_ACTIVE:tts=${tts.backlog}/${tts.runners}:stt=${stt.backlog}/${stt.runners}`);
-            }
-            return { tts, stt };
-          }
-          async function waitForIdleDrain() {
-            let latest = null;
-            for (let attempt = 1; attempt <= 12; attempt += 1) {
-              await sleep(attempt === 1 ? 8_000 : 5_000);
-              const [tts, stt] = await Promise.all([stats(ttsWorker), stats(sttWorker)]);
-              latest = { tts, stt };
-              if (tts.backlog !== 0 || stt.backlog !== 0) {
-                throw new Error(`${CONTRACT}_DUPLICATE_GPU_BACKLOG_ACTIVE:tts=${tts.backlog}/${tts.runners}:stt=${stt.backlog}/${stt.runners}`);
-              }
-              if (tts.runners === 0 && stt.runners === 0) return latest;
-            }
-            throw new Error(`${CONTRACT}_SCALE_TO_ZERO_NOT_OBSERVED_BEFORE_STT:tts=${latest?.tts?.backlog ?? -1}/${latest?.tts?.runners ?? -1}:stt=${latest?.stt?.backlog ?? -1}/${latest?.stt?.runners ?? -1}`);
-          }
-          '''
-          if text.count(old_idle) != 1:
+          marker = '''async function requireIdle() {
+  const [tts, stt] = await Promise.all([stats(ttsWorker), stats(sttWorker)]);
+  if (tts.backlog !== 0 || tts.runners !== 0 || stt.backlog !== 0 || stt.runners !== 0) {
+    throw new Error(`${CONTRACT}_DUPLICATE_GPU_GUARD_ACTIVE:tts=${tts.backlog}/${tts.runners}:stt=${stt.backlog}/${stt.runners}`);
+  }
+  return { tts, stt };
+}
+'''
+          if text.count(marker) != 1:
               raise SystemExit('VOICE_CHAIN_IDLE_FUNCTION_PATCH_TARGET_INVALID')
-          text = text.replace(old_idle, new_idle, 1)
+          text = text.replace(marker, marker + '''async function waitForIdleDrain() {
+  let latest = null;
+  for (let attempt = 1; attempt <= 12; attempt += 1) {
+    await sleep(attempt === 1 ? 8_000 : 5_000);
+    const [tts, stt] = await Promise.all([stats(ttsWorker), stats(sttWorker)]);
+    latest = { tts, stt };
+    if (tts.backlog !== 0 || stt.backlog !== 0) {
+      throw new Error(`${CONTRACT}_DUPLICATE_GPU_BACKLOG_ACTIVE:tts=${tts.backlog}/${tts.runners}:stt=${stt.backlog}/${stt.runners}`);
+    }
+    if (tts.runners === 0 && stt.runners === 0) return latest;
+  }
+  throw new Error(`${CONTRACT}_SCALE_TO_ZERO_NOT_OBSERVED_BEFORE_STT:tts=${latest?.tts?.backlog ?? -1}/${latest?.tts?.runners ?? -1}:stt=${latest?.stt?.backlog ?? -1}/${latest?.stt?.runners ?? -1}`);
+}
+''', 1)
 
-          redundant = '''  if (!state?.provider_job_id) {
-            await requireIdle();
-            const submitting = {
-          '''
-          replacement = '''  if (!state?.provider_job_id) {
-            const submitting = {
-          '''
-          if text.count(redundant) != 1:
+          text, n = re.subn(
+              r'(if \(!state\?\.provider_job_id\) \{\n)\s*await requireIdle\(\);\n',
+              r'\1',
+              text,
+              count=1,
+          )
+          if n != 1:
               raise SystemExit('VOICE_CHAIN_REDUNDANT_PRE_TTS_IDLE_PATCH_TARGET_INVALID')
-          text = text.replace(redundant, replacement, 1)
 
-          handoff = '''if (!["STT_SUBMITTED", "STT_POLLING"].includes(state?.phase)) {
-            await requireIdle();
-            const submitting = {
-          '''
-          handoff_replacement = '''if (!["STT_SUBMITTED", "STT_POLLING"].includes(state?.phase)) {
-            await waitForIdleDrain();
-            const submitting = {
-          '''
-          if text.count(handoff) != 1:
+          text, n = re.subn(
+              r'(if \(!\["STT_SUBMITTED", "STT_POLLING"\]\.includes\(state\?\.phase\)\) \{\n)\s*await requireIdle\(\);\n',
+              r'\1  await waitForIdleDrain();\n',
+              text,
+              count=1,
+          )
+          if n != 1:
               raise SystemExit('VOICE_CHAIN_TTS_STT_DRAIN_PATCH_TARGET_INVALID')
-          text = text.replace(handoff, handoff_replacement, 1)
 
           path.write_text(text)
           PY

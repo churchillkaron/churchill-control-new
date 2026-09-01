@@ -19,13 +19,27 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      ENDPOINT_ID: xmey8y2hofexyp
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Inventory Video RunPod resources only
-        env:
-          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
         run: node scripts/audit-avantiqo-video-runpod-resources-ci.mjs
+      - name: Capture Serverless container startup logs read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSL https://cli.runpod.io | sudo bash >/tmp/runpodctl-install.log 2>&1
+          runpodctl config --apiKey "$RUNPOD_MANAGEMENT_API_KEY" >/dev/null
+          set +e
+          timeout 25s runpodctl serverless logs "$ENDPOINT_ID" --source container > /tmp/video-serverless-container.log 2>&1
+          rc=$?
+          set -e
+          echo "AVANTIQO_VIDEO_SERVERLESS_LOG_CAPTURE_RC=${rc}"
+          tail -n 200 /tmp/video-serverless-container.log
+          echo 'AVANTIQO_VIDEO_SERVERLESS_LOG_CAPTURE_COMPLETE=true'

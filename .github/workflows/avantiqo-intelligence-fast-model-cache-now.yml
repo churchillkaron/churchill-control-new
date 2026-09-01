@@ -19,6 +19,8 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 2
+      - name: Pin triggering commit on local main
+        run: git switch -C main "${GITHUB_SHA}"
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc

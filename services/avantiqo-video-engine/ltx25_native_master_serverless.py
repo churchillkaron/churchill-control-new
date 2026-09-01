@@ -1,4 +1,3 @@
-import json
 import os
 import subprocess
 import tempfile
@@ -9,9 +8,8 @@ from typing import Any
 import requests
 import runpod
 import torch
-from PIL import Image, ImageFilter
 
-CONTRACT = "AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_SERVERLESS_V1"
+CONTRACT = "AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_SERVERLESS_V2"
 ENGINE_CONTRACT = "AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V2"
 PIPELINE_ROOT = Path(os.getenv("AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT", "/opt/LTX-2"))
 CACHE_ROOT = Path("/runpod-volume/huggingface-cache/hub/models--Lightricks--LTX-2.5/snapshots")
@@ -54,22 +52,14 @@ def sanitize(value: Any, limit: int = 2200) -> str:
     return text(value).replace("\n", " ")[-limit:]
 
 
-def clean_reference(url: str, target: Path) -> None:
+def download_prepared_reference(url: str, target: Path) -> None:
+    if not url.startswith("https://"):
+        raise ValueError("AVANTIQO_VIDEO_PREPARED_REFERENCE_URL_INVALID")
     response = requests.get(url, timeout=120, allow_redirects=True)
     response.raise_for_status()
     if not response.content or len(response.content) > 64 * 1024 * 1024:
-        raise RuntimeError("AVANTIQO_VIDEO_REFERENCE_INVALID")
-    source = target.with_suffix(".source.jpg")
-    source.write_bytes(response.content)
-    with Image.open(source) as original:
-        image = original.convert("RGB")
-    x0 = int(image.width * 0.05)
-    x1 = int(image.width * 0.58)
-    y0 = int(image.height * 0.03)
-    y1 = int(image.height * 0.24)
-    region = image.crop((x0, y0, x1, y1)).filter(ImageFilter.GaussianBlur(max(14, image.width // 90)))
-    image.paste(region, (x0, y0))
-    image.save(target, format="PNG", optimize=True)
+        raise RuntimeError("AVANTIQO_VIDEO_PREPARED_REFERENCE_INVALID")
+    target.write_bytes(response.content)
 
 
 def cinematic_prompt(data: dict[str, Any]) -> str:
@@ -115,24 +105,6 @@ def run_command(command: list[str], *, cwd: Path, timeout: int) -> subprocess.Co
     return completed
 
 
-def probe(path: Path) -> dict[str, Any]:
-    completed = subprocess.run(
-        [
-            "ffprobe", "-v", "error", "-select_streams", "v:0",
-            "-show_entries", "stream=width,height,r_frame_rate,codec_name,bit_rate",
-            "-show_entries", "format=duration,bit_rate,size", "-of", "json", str(path),
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        timeout=30,
-        check=False,
-    )
-    if completed.returncode != 0:
-        raise RuntimeError("AVANTIQO_VIDEO_MASTER_PROBE_FAILED")
-    return json.loads(completed.stdout)
-
-
 def upload(path: Path, signed_url: str) -> None:
     with path.open("rb") as handle:
         response = requests.put(
@@ -170,6 +142,8 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
     references = data.get("reference_images") or []
     if not isinstance(references, list) or not references:
         raise ValueError("AVANTIQO_VIDEO_NATIVE_MASTER_REFERENCE_REQUIRED")
+    if text(data.get("reference_prepared")) != "true":
+        raise ValueError("AVANTIQO_VIDEO_PREPARED_REFERENCE_REQUIRED")
     output_upload = obj(data.get("output_upload"))
     signed_url = text(output_upload.get("signed_url"))
     storage_reference = text(output_upload.get("storage_reference"))
@@ -187,9 +161,9 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="avantiqo-ltx25-serverless-") as temp_dir:
         temp = Path(temp_dir)
-        reference = temp / "reference-clean.png"
+        reference = temp / "prepared-reference.png"
         master = temp / "scene-native-master-3840x2176.mp4"
-        clean_reference(text(references[0]), reference)
+        download_prepared_reference(text(references[0]), reference)
         command = [
             "python", "-m", "ltx_pipelines.ti2vid_one_stage",
             "--transformer-path", str(transformer),
@@ -214,10 +188,6 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
         generation_seconds = round(time.perf_counter() - started, 3)
         if not master.is_file() or master.stat().st_size <= 1_000_000:
             raise RuntimeError("AVANTIQO_VIDEO_NATIVE_MASTER_OUTPUT_INVALID")
-        master_probe = probe(master)
-        stream = (master_probe.get("streams") or [{}])[0]
-        if int(stream.get("width") or 0) != MASTER_WIDTH or int(stream.get("height") or 0) != MASTER_HEIGHT:
-            raise RuntimeError("AVANTIQO_VIDEO_NATIVE_MASTER_DIMENSIONS_INVALID")
         upload(master, signed_url)
         return {
             "status": "completed",
@@ -250,7 +220,8 @@ def generate(data: dict[str, Any]) -> dict[str, Any]:
             "external_provider_contacted": False,
             "cache_revision": root.name,
             "pipeline_stdout_tail": sanitize(completed.stdout, 1200),
-            "master_probe": master_probe,
+            "preprocessing_inside_paid_worker": False,
+            "ffprobe_inside_paid_worker": False,
         }
 
 

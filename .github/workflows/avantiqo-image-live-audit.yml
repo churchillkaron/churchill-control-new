@@ -1,0 +1,46 @@
+name: Avantiqo Image Live Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-image-live-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_IMAGE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_IMAGE_API_KEY || secrets.RUNPOD_API_KEY || secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - name: Audit existing Image endpoint without GPU mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNPOD_MANAGEMENT_API_KEY:-}"
+          REST='https://rest.runpod.io/v1'
+          auth=(-H "Authorization: Bearer ${RUNPOD_MANAGEMENT_API_KEY}")
+          endpoints="$(curl -fsS "${auth[@]}" "${REST}/endpoints?includeTemplate=true&includeWorkers=true")"
+          endpoint="$(printf '%s' "$endpoints" | jq -c '[.[] | select(.name=="avantiqo-image-v1")]')"
+          test "$(printf '%s' "$endpoint" | jq 'length')" = '1'
+          id="$(printf '%s' "$endpoint" | jq -r '.[0].id')"
+          template_id="$(printf '%s' "$endpoint" | jq -r '.[0].templateId // .[0].template.id // empty')"
+          test -n "$id"
+          test -n "$template_id"
+          template="$(curl -fsS "${auth[@]}" "${REST}/templates/${template_id}")"
+          health='{}'
+          if [ -n "${RUNPOD_IMAGE_API_KEY:-}" ]; then
+            health="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_IMAGE_API_KEY}" "https://api.runpod.ai/v2/${id}/health" || printf '{}')"
+          fi
+          printf '%s' "$endpoint" | jq -c '.[0] | {id,name,templateId,workersMin,workersMax,idleTimeout,gpuTypeIds,gpuCount,dataCenterIds,networkVolumeId,networkVolumeIds,flashboot,minCudaVersion,allowedCudaVersions,workers:[.workers[]? | {id,desiredStatus,status,workerStatus,runtimeStatus,costPerHr}]}' | sed 's/^/AVANTIQO_IMAGE_ENDPOINT=/'
+          printf '%s' "$template" | jq -c '{id,name,imageName,containerDiskInGb,volumeInGb,volumeMountPath,env_keys:((.env // {})|keys)}' | sed 's/^/AVANTIQO_IMAGE_TEMPLATE=/'
+          printf '%s' "$health" | jq -c '{jobs,workers}' | sed 's/^/AVANTIQO_IMAGE_HEALTH=/'
+          echo 'AVANTIQO_IMAGE_LIVE_AUDIT=PASS'
+          echo 'AVANTIQO_IMAGE_MUTATION_PERFORMED=false'
+          echo 'AVANTIQO_IMAGE_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_IMAGE_PRODUCTION_DEPLOY=false'

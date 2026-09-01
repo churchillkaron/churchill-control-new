@@ -4,12 +4,11 @@ No Modal Volume is created. Each exact Qwen snapshot is baked into its own
 immutable Modal Image layer. Deploying these worker definitions downloads the
 pinned public model snapshot once; invoking Fast/Deep is the only action that
 starts an H100. The gateway lives in modal_service.py and never imports this
-module.
+module. A warm container reuses its vLLM engine until Modal scales it to zero.
 """
 from __future__ import annotations
 
 import json
-import os
 import re
 import time
 from pathlib import Path
@@ -35,6 +34,7 @@ PRIVATE_KEYS = {
 }
 TOOL_CALL_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.S | re.I)
 THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.S | re.I)
+_LLM_CACHE: dict[str, Any] = {}
 
 app = modal.App(APP_NAME)
 
@@ -59,6 +59,7 @@ def _bake_model(repo_id: str, revision: str, cache_root: str) -> None:
         "model": repo_id,
         "revision": revision,
         "modal_volume_created": False,
+        "gpu_inference_performed": False,
         "secrets_printed": False,
     }, separators=(",", ":")), flush=True)
 
@@ -143,6 +144,43 @@ def _messages(data: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
+def _tool_name_from_choice(choice: Any) -> str | None:
+    if not isinstance(choice, dict):
+        return None
+    function = choice.get("function")
+    if isinstance(function, dict):
+        return _text(function.get("name"), 200) or None
+    return None
+
+
+def _tool_policy(data: dict[str, Any], tools: list[Any] | None) -> tuple[list[Any] | None, str | None, bool]:
+    choice = data.get("tool_choice", data.get("toolChoice"))
+    if not tools:
+        if choice not in {None, "none", "auto"}:
+            raise ValueError("AVANTIQO_INTELLIGENCE_TOOL_CHOICE_WITHOUT_TOOLS")
+        return None, None, False
+    if choice == "none":
+        return None, "Do not call any tool. Answer normally.", False
+    named = _tool_name_from_choice(choice)
+    required = choice == "required" or bool(named)
+    if named:
+        available = {
+            _text(item.get("function", {}).get("name"), 200)
+            for item in tools
+            if isinstance(item, dict) and isinstance(item.get("function"), dict)
+        }
+        if named not in available:
+            raise ValueError(f"AVANTIQO_INTELLIGENCE_TOOL_CHOICE_UNKNOWN:{named}")
+        instruction = (
+            f"You must call the tool named {named} exactly once. "
+            "Do not answer with prose instead of the tool call."
+        )
+        return tools, instruction, True
+    if choice == "required":
+        return tools, "You must call exactly one of the provided tools. Do not answer with prose instead.", True
+    return tools, None, False
+
+
 def _tool_calls(raw: str) -> tuple[str, list[dict[str, Any]]]:
     calls = []
     for index, match in enumerate(TOOL_CALL_RE.finditer(raw), start=1):
@@ -194,8 +232,27 @@ def _sanitize_fast(raw: str) -> str:
     return source
 
 
+def _llm(model: str) -> Any:
+    from vllm import LLM
+
+    cached = _LLM_CACHE.get(model)
+    if cached is not None:
+        return cached
+    engine = LLM(
+        model=model,
+        download_dir=HF_CACHE_ROOT,
+        dtype="bfloat16",
+        max_model_len=MAX_MODEL_LEN,
+        tensor_parallel_size=1,
+        gpu_memory_utilization=0.90,
+        trust_remote_code=False,
+    )
+    _LLM_CACHE[model] = engine
+    return engine
+
+
 def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
-    from vllm import LLM, SamplingParams
+    from vllm import SamplingParams
 
     if _text(data.get("engine_contract"), 120) not in {"", ENGINE_CONTRACT, "AVANTIQO_SYNTHETIC_INTELLIGENCE_ENGINE_V1"}:
         raise ValueError("AVANTIQO_INTELLIGENCE_ENGINE_CONTRACT_INVALID")
@@ -205,9 +262,14 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         raise ValueError("AVANTIQO_INTELLIGENCE_USAGE_ID_REQUIRED")
 
     messages = _messages(data)
-    tools = _safe(data.get("tools")) if isinstance(data.get("tools"), list) else None
+    supplied_tools = _safe(data.get("tools")) if isinstance(data.get("tools"), list) else None
+    tools, tool_instruction, tool_required = _tool_policy(data, supplied_tools)
+    if tool_instruction:
+        messages = [{"role": "system", "content": tool_instruction}, *messages]
     response_format = _safe(data.get("response_format") or data.get("responseFormat"))
     if isinstance(response_format, dict) and response_format.get("type") == "json_object":
+        if tools:
+            raise ValueError("AVANTIQO_INTELLIGENCE_JSON_RESPONSE_WITH_TOOLS_UNSUPPORTED")
         messages = [
             {"role": "system", "content": "Return one valid JSON object and no markdown."},
             *messages,
@@ -228,22 +290,13 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         int(data.get("max_output_tokens") or data.get("maxOutputTokens") or 8192),
     ))
 
-    llm = LLM(
-        model=model,
-        download_dir=HF_CACHE_ROOT,
-        dtype="bfloat16",
-        max_model_len=MAX_MODEL_LEN,
-        tensor_parallel_size=1,
-        gpu_memory_utilization=0.90,
-        trust_remote_code=False,
-    )
     sampling = SamplingParams(
         temperature=temperature,
         top_p=top_p,
         max_tokens=max_tokens,
     )
     started = time.perf_counter()
-    results = llm.chat(
+    results = _llm(model).chat(
         messages,
         sampling_params=sampling,
         use_tqdm=False,
@@ -260,6 +313,8 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         final_text = _sanitize_fast(raw)
         reasoning_detected = False
     final_text, tool_calls = _tool_calls(final_text)
+    if tool_required and len(tool_calls) != 1:
+        raise RuntimeError("AVANTIQO_INTELLIGENCE_REQUIRED_TOOL_CALL_MISSING_OR_AMBIGUOUS")
     if not final_text and not tool_calls:
         raise RuntimeError("AVANTIQO_INTELLIGENCE_MODAL_FINAL_OUTPUT_REQUIRED")
 
@@ -281,6 +336,7 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         "reasoning_mode": "thinking" if lane == "deep" else "non_thinking",
         "sampling_policy": sampling_policy,
         "reasoning_transport_detected": reasoning_detected,
+        "warm_engine_reused": True,
         "raw_reasoning_persisted": False,
         "infrastructure_provider": "MODAL_H100_ASYNC_V1",
         "modal_gpu": GPU,

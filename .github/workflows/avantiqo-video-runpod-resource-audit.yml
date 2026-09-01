@@ -22,7 +22,7 @@ jobs:
     env:
       ENDPOINT_ID: xmey8y2hofexyp
       RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,7 +36,6 @@ jobs:
           set -euo pipefail
           wget --quiet https://github.com/runpod/runpodctl/releases/latest/download/runpodctl-linux-amd64 -O /tmp/runpodctl
           chmod +x /tmp/runpodctl
-          /tmp/runpodctl config --apiKey "$RUNPOD_MANAGEMENT_API_KEY" >/dev/null
           echo 'AVANTIQO_VIDEO_MODEL_REPO_LTX_SEARCH_START=true'
           /tmp/runpodctl model list --all --name 'LTX' --output=json || true
           /tmp/runpodctl model list --all --name 'ltx' --output=json || true
@@ -48,7 +47,6 @@ jobs:
           set -euo pipefail
           wget --quiet https://github.com/runpod/runpodctl/releases/latest/download/runpodctl-linux-amd64 -O /tmp/runpodctl
           chmod +x /tmp/runpodctl
-          /tmp/runpodctl config --apiKey "$RUNPOD_MANAGEMENT_API_KEY" >/dev/null
           set +e
           timeout 12s /tmp/runpodctl serverless logs "$ENDPOINT_ID" --source container > /tmp/video-serverless-container.log 2>&1
           rc=$?

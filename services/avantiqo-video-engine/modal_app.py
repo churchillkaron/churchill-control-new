@@ -1,17 +1,20 @@
 """Scale-to-zero Modal runtime for the owned Avantiqo Cinema engine.
 
 The existing certified Wan 2.2 route remains available for general generated
-video. A native LTX-2.5 full-dev BF16 lane shares the exact same Video Modal
-Volume for premium image-to-video masters such as Scene 1. No second Video
-storage is created and every GPU function scales to zero.
+video. The premium LTX-2.5 lane shares the same single Video Modal Volume and
+has one canonical native-master GPU function.
+
+The premium paid GPU boundary is intentionally narrow: LTX-2.5 full-dev BF16
+inference at the native master resolution and serialization of that untouched
+model output. Reference cleanup and all delivery transforms (crop, resize,
+interpolation, assembly, grading, titles and final export) belong to Avantiqo
+Studio and are intentionally absent from this runtime.
 """
 from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
-import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -54,13 +57,19 @@ LTX_REQUIRED = (
 LTX_MASTER_WIDTH = 3840
 LTX_MASTER_HEIGHT = 2176
 LTX_FPS = 24
-LTX_QUALITY_CONTRACT = "AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_3840X2176_V1"
-LTX_RUNTIME_CONTRACT = "AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_MASTER_V1"
+LTX_NUM_INFERENCE_STEPS = 30
+LTX_GPU = "B200"
+LTX_GPU_USD_PER_SECOND = 0.001736
+LTX_HARD_TIMEOUT_SECONDS = 30 * 60
+LTX_SUBPROCESS_TIMEOUT_SECONDS = LTX_HARD_TIMEOUT_SECONDS - 20
+LTX_QUALITY_CONTRACT = "AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_3840X2176_V2"
+LTX_RUNTIME_CONTRACT = "AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_MASTER_V2"
 
 app = modal.App(APP_NAME)
-model_volume = modal.Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=True)
+# The single Video model Volume is provisioned deliberately. Never create storage
+# as a side effect of importing or deploying the Video runtime.
+model_volume = modal.Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=False)
 seed_image = modal.Image.debian_slim(python_version="3.12").pip_install("huggingface_hub")
-prepare_image = modal.Image.debian_slim(python_version="3.12").pip_install("pillow")
 
 
 def _text(value: Any) -> str:
@@ -106,24 +115,24 @@ def seed_cache() -> None:
 
 
 def _ltx_snapshot() -> Path:
+    """Resolve only the exact pinned LTX-2.5 revision."""
     candidate = LTX_SNAPSHOT_ROOT / LTX_SOURCE_REVISION
-    if candidate.is_dir() and all(
-        (candidate / relative).is_file() and (candidate / relative).stat().st_size > 0
+    if not candidate.is_dir():
+        raise RuntimeError(
+            f"AVANTIQO_VIDEO_LTX25_MODAL_PINNED_CACHE_MISSING:{LTX_SOURCE_REVISION}"
+        )
+    missing = [
+        relative
         for relative in LTX_REQUIRED
-    ):
-        return candidate
-    if LTX_SNAPSHOT_ROOT.is_dir():
-        for snapshot in sorted(
-            (path for path in LTX_SNAPSHOT_ROOT.iterdir() if path.is_dir()),
-            key=lambda path: path.stat().st_mtime_ns,
-            reverse=True,
-        ):
-            if all(
-                (snapshot / relative).is_file() and (snapshot / relative).stat().st_size > 0
-                for relative in LTX_REQUIRED
-            ):
-                return snapshot
-    raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_CACHE_INCOMPLETE")
+        if not (candidate / relative).is_file()
+        or (candidate / relative).stat().st_size <= 0
+    ]
+    if missing:
+        raise RuntimeError(
+            "AVANTIQO_VIDEO_LTX25_MODAL_PINNED_CACHE_INCOMPLETE:"
+            + ",".join(missing)
+        )
+    return candidate
 
 
 @app.function(
@@ -133,9 +142,10 @@ def _ltx_snapshot() -> Path:
     timeout=2 * 60 * 60,
 )
 def seed_ltx_cache() -> dict[str, Any]:
-    """One-time exact-revision LTX-2.5 cache seed; no GPU is allocated."""
+    """Seed only the pinned full-dev BF16 LTX-2.5 pack; no GPU is allocated."""
     from huggingface_hub import snapshot_download
 
+    model_volume.reload()
     try:
         existing = _ltx_snapshot()
         return {
@@ -170,10 +180,7 @@ def seed_ltx_cache() -> dict[str, Any]:
             + ",".join(missing)
         )
     model_volume.commit()
-    print(
-        f"AVANTIQO_VIDEO_LTX25_MODAL_CACHE_READY={resolved.name}",
-        flush=True,
-    )
+    print(f"AVANTIQO_VIDEO_LTX25_MODAL_CACHE_READY={resolved.name}", flush=True)
     return {
         "success": True,
         "already_cached": False,
@@ -272,69 +279,29 @@ def _ltx_prompt(instruction: str) -> str:
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_INSTRUCTION_REQUIRED")
     return instruction.strip() + (
         " Full-bleed cinematic image only. No typography, captions, numbers, logos or letterbox bars. "
-        "Preserve skyline geometry and architecture. Premium photographic realism, natural dawn exposure, "
-        "physically plausible cloud, water and traffic motion, stabilized aerial camera, no morphing or frame collapse."
+        "Preserve supplied composition and geometry. Premium photographic realism, physically plausible motion, "
+        "natural exposure, stable camera intent, no morphing or frame collapse."
     )
 
 
 def _ltx_negative_prompt() -> str:
     return (
         "text, typography, captions, numbers, logos, watermarks, black bars, frame collapse, shrinking image, "
-        "warped horizon, duplicate buildings, melting architecture, sudden zoom, camera roll, yaw drift, time lapse, "
+        "warped geometry, duplicate structures, melting architecture, accidental sudden zoom, camera roll, yaw drift, "
         "flicker, severe blur, low resolution, overprocessed sharpening, artificial neon"
     )
 
 
 @app.function(
-    image=prepare_image,
-    volumes={"/models": model_volume},
-    timeout=5 * 60,
-    min_containers=0,
-    max_containers=1,
-    scaledown_window=5,
-)
-def prepare_scene1_reference(source_relative: str, target_relative: str) -> dict[str, Any]:
-    """Prepare the approved Scene 1 frame on CPU, never on paid GPU."""
-    from PIL import Image, ImageFilter
-
-    model_volume.reload()
-    source = Path("/models") / source_relative.lstrip("/")
-    target = Path("/models") / target_relative.lstrip("/")
-    if not source.is_file() or source.stat().st_size < 20_000:
-        raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_SOURCE_FRAME_INVALID")
-    with Image.open(source) as original:
-        image = original.convert("RGB")
-    x0 = int(image.width * 0.05)
-    x1 = int(image.width * 0.58)
-    y0 = int(image.height * 0.03)
-    y1 = int(image.height * 0.24)
-    region = image.crop((x0, y0, x1, y1)).filter(
-        ImageFilter.GaussianBlur(max(14, image.width // 90))
-    )
-    image.paste(region, (x0, y0))
-    target.parent.mkdir(parents=True, exist_ok=True)
-    image.save(target, format="PNG", optimize=True)
-    if target.stat().st_size < 20_000:
-        raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_PREPARED_FRAME_INVALID")
-    model_volume.commit()
-    return {
-        "success": True,
-        "width": image.width,
-        "height": image.height,
-        "bytes": target.stat().st_size,
-        "preprocessing_inside_paid_worker": False,
-    }
-
-
-@app.function(
     image=ltx_worker_image,
-    gpu="H200",
+    gpu=LTX_GPU,
     volumes={"/models": model_volume},
-    timeout=30 * 60,
+    timeout=LTX_HARD_TIMEOUT_SECONDS,
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
     scaledown_window=5,
+    retries=0,
 )
 def generate_native_master(
     reference_relative: str,
@@ -343,13 +310,22 @@ def generate_native_master(
     duration_seconds: int = 5,
     seed: int = 4747,
 ) -> dict[str, Any]:
-    """Generate one exact 3840x2176 LTX-2.5 full-dev BF16 master."""
+    """Generate one untouched native LTX-2.5 full-dev BF16 master.
+
+    This paid B200 function is generation-only. The input reference must already
+    be approved/prepared by Studio. No crop, resize, spatial/latent upscaler,
+    temporal interpolation, distilled model/LoRA, grading or delivery transform
+    is performed here.
+    """
+    function_started = time.perf_counter()
     model_volume.reload()
     root = _ltx_snapshot()
     reference = Path("/models") / reference_relative.lstrip("/")
     output = Path("/models") / output_relative.lstrip("/")
     if not reference.is_file() or reference.stat().st_size < 20_000:
-        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_REFERENCE_INVALID")
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_REFERENCE_INVALID")
+    if int(duration_seconds) <= 0 or int(duration_seconds) > 20:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_DURATION_INVALID")
     output.parent.mkdir(parents=True, exist_ok=True)
 
     transformer = root / LTX_REQUIRED[0]
@@ -367,8 +343,8 @@ def generate_native_master(
         "--width", str(LTX_MASTER_WIDTH),
         "--height", str(LTX_MASTER_HEIGHT),
         "--frame-rate", str(LTX_FPS),
+        "--num-inference-steps", str(LTX_NUM_INFERENCE_STEPS),
         "--seed", str(int(seed)),
-        "--offload", "cpu",
         "--max-batch-size", "1",
         "--output-path", str(output),
         "--prompt", _ltx_prompt(instruction),
@@ -381,18 +357,24 @@ def generate_native_master(
         str(LTX_PIPELINE_ROOT / "packages/ltx-pipelines/src"),
         env.get("PYTHONPATH", ""),
     ])
-    started = time.perf_counter()
-    completed = subprocess.run(
-        command,
-        cwd=str(LTX_PIPELINE_ROOT),
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        timeout=30 * 60,
-        check=False,
-    )
-    elapsed = round(time.perf_counter() - started, 3)
+    generation_started = time.perf_counter()
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=str(LTX_PIPELINE_ROOT),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=LTX_SUBPROCESS_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        detail = _sanitize(getattr(exc, "stdout", "") or getattr(exc, "output", ""), 1200)
+        raise RuntimeError(
+            f"AVANTIQO_VIDEO_LTX25_MODAL_HARD_TIMEOUT:{LTX_SUBPROCESS_TIMEOUT_SECONDS}:{detail}"
+        ) from exc
+    generation_seconds = round(time.perf_counter() - generation_started, 3)
     if completed.returncode != 0:
         raise RuntimeError(
             f"AVANTIQO_VIDEO_LTX25_MODAL_COMMAND_FAILED:{completed.returncode}:"
@@ -401,6 +383,7 @@ def generate_native_master(
     if not output.is_file() or output.stat().st_size <= 1_000_000:
         raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_OUTPUT_INVALID")
     model_volume.commit()
+    function_seconds = round(time.perf_counter() - function_started, 3)
     return {
         "success": True,
         "status": "completed",
@@ -410,168 +393,45 @@ def generate_native_master(
         "provider": "avantiqo-video",
         "model": "avantiqo-ltx-2.5",
         "foundation_model": LTX_SOURCE_REPO,
-        "foundation_revision": LTX_SOURCE_REVISION,
+        "foundation_revision": root.name,
         "pipeline": "TI2VID_ONE_STAGE_FULL_DEV_BF16",
         "precision": "BF16",
-        "modal_gpu": "H200",
+        "quantization": "NONE",
+        "modal_gpu": LTX_GPU,
         "width": LTX_MASTER_WIDTH,
         "height": LTX_MASTER_HEIGHT,
         "fps": LTX_FPS,
+        "num_inference_steps": LTX_NUM_INFERENCE_STEPS,
         "frame_count": frames,
         "duration_seconds_requested": int(duration_seconds),
         "seed": int(seed),
         "output_relative": output_relative,
         "output_size_bytes": output.stat().st_size,
-        "generation_seconds": elapsed,
+        "generation_seconds": generation_seconds,
+        "modal_function_seconds": function_seconds,
+        "supplier_gpu_rate_usd_per_second": LTX_GPU_USD_PER_SECOND,
+        "estimated_supplier_gpu_cost_usd": round(function_seconds * LTX_GPU_USD_PER_SECOND, 8),
+        "hard_timeout_seconds": LTX_HARD_TIMEOUT_SECONDS,
         "native_master_generated": True,
         "master_is_exact_model_output": True,
+        "studio_reference_required": True,
+        "model_cpu_offload_used": False,
         "pixel_upscale_used": False,
         "learned_latent_upsampler_used": False,
         "learned_spatial_upscaler_used": False,
+        "temporal_interpolation_used": False,
+        "distilled_transformer_used": False,
         "distilled_lora_used": False,
         "resize_used": False,
         "crop_used": False,
-        "preprocessing_inside_paid_worker": False,
+        "grading_used": False,
+        "assembly_used": False,
+        "delivery_transform_used": False,
+        "reference_preprocessing_inside_paid_worker": False,
         "ffprobe_inside_paid_worker": False,
         "runpod_inference_performed": False,
         "external_provider_contacted": False,
+        "automatic_paid_retry": False,
         "raw_reasoning_persisted": False,
         "pipeline_stdout_tail": _sanitize(completed.stdout, 1200),
     }
-
-
-SCENE1_PROMPT = (
-    "A premium stabilized aerial push toward the dawn city skyline with a subtle controlled descent. "
-    "Keep the architecture, skyline geometry and perspective coherent with the supplied opening frame. "
-    "Natural pre-sunrise light slowly develops, with restrained realistic cloud movement, subtle water and traffic motion, "
-    "physically plausible atmospheric depth, no artificial timelapse, no sudden camera movement, no morphing, no fantasy elements. "
-    "The shot should feel like the opening of a world-class New York commercial film."
-)
-
-
-@app.local_entrypoint()
-def scene1(
-    output_path: str = "local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.mp4",
-) -> None:
-    """Run exactly one premium Scene 1 from the approved opening frame."""
-    repository_root = Path.cwd().resolve()
-    source = repository_root / "assets/video/proofs/avantiqo_first_shot_frame_transport.jpg"
-    if not source.is_file() or source.stat().st_size < 20_000:
-        raise RuntimeError("AVANTIQO_VIDEO_SCENE1_APPROVED_OPENING_FRAME_MISSING")
-
-    run_id = uuid.uuid4().hex[:16]
-    source_remote = f"scene1-proof/{run_id}/opening-frame.jpg"
-    prepared_remote = f"scene1-proof/{run_id}/prepared-reference.png"
-    output_remote = f"scene1-proof/{run_id}/native-master-3840x2176.mp4"
-    local_output = (repository_root / output_path).resolve()
-    local_output.parent.mkdir(parents=True, exist_ok=True)
-    report_path = local_output.with_suffix(".json")
-
-    with model_volume.batch_upload(force=True) as upload:
-        upload.put_file(str(source), source_remote)
-
-    try:
-        prepared = prepare_scene1_reference.remote(source_remote, prepared_remote)
-        if prepared.get("success") is not True:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_PREPARE_FAILED")
-
-        cache = seed_ltx_cache.remote()
-        if cache.get("success") is not True:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_CACHE_FAILED")
-
-        print(json.dumps({
-            "event": "AVANTIQO_VIDEO_SCENE1_MODAL_GENERATION_START",
-            "model": LTX_SOURCE_REPO,
-            "revision": LTX_SOURCE_REVISION,
-            "pipeline": "TI2VID_ONE_STAGE_FULL_DEV_BF16",
-            "resolution": f"{LTX_MASTER_WIDTH}x{LTX_MASTER_HEIGHT}",
-            "fps": LTX_FPS,
-            "duration_seconds": 5,
-            "gpu": "H200",
-            "max_gpu_containers": 1,
-            "scale_to_zero": True,
-            "runpod_used": False,
-            "production_deploy_performed": False,
-        }, separators=(",", ":")), flush=True)
-
-        result = generate_native_master.remote(
-            prepared_remote,
-            output_remote,
-            SCENE1_PROMPT,
-            5,
-            4747,
-        )
-        if result.get("success") is not True:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_GENERATION_FAILED")
-        if result.get("width") != 3840 or result.get("height") != 2176:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_DIMENSIONS_INVALID")
-        if result.get("fps") != 24:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_FPS_INVALID")
-        if result.get("pipeline") != "TI2VID_ONE_STAGE_FULL_DEV_BF16":
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_PIPELINE_INVALID")
-        for key in (
-            "pixel_upscale_used",
-            "learned_spatial_upscaler_used",
-            "distilled_lora_used",
-            "resize_used",
-            "crop_used",
-            "runpod_inference_performed",
-            "external_provider_contacted",
-        ):
-            if result.get(key) is not False:
-                raise RuntimeError(f"AVANTIQO_VIDEO_SCENE1_MODAL_NATIVE_CONTRACT_INVALID:{key}")
-
-        with local_output.open("wb") as handle:
-            for chunk in model_volume.read_file(output_remote):
-                handle.write(chunk)
-        if not local_output.is_file() or local_output.stat().st_size <= 1_000_000:
-            raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_LOCAL_OUTPUT_INVALID")
-
-        ffprobe = shutil.which("ffprobe")
-        probe = None
-        if ffprobe:
-            completed = subprocess.run(
-                [
-                    ffprobe,
-                    "-v", "error",
-                    "-select_streams", "v:0",
-                    "-show_entries", "stream=width,height,r_frame_rate,codec_name,bit_rate",
-                    "-show_entries", "format=duration,bit_rate,size",
-                    "-of", "json",
-                    str(local_output),
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=30,
-                check=False,
-            )
-            if completed.returncode != 0:
-                raise RuntimeError(
-                    f"AVANTIQO_VIDEO_SCENE1_MODAL_FFPROBE_FAILED:{_sanitize(completed.stderr)}"
-                )
-            probe = json.loads(completed.stdout)
-            stream = (probe.get("streams") or [{}])[0]
-            if int(stream.get("width") or 0) != 3840 or int(stream.get("height") or 0) != 2176:
-                raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_FFPROBE_DIMENSIONS_INVALID")
-            if _text(stream.get("r_frame_rate")) != "24/1":
-                raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_FFPROBE_FPS_INVALID")
-
-        report = {
-            **result,
-            "prepared_reference": prepared,
-            "cache": cache,
-            "local_output": str(local_output),
-            "post_gpu_probe": probe,
-            "production_deploy_performed": False,
-        }
-        report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-        print(f"AVANTIQO_VIDEO_SCENE1_MODAL_OUTPUT={local_output}")
-        print(f"AVANTIQO_VIDEO_SCENE1_MODAL_REPORT={report_path}")
-        print("AVANTIQO_VIDEO_SCENE1_MODAL_NATIVE_MASTER=PASS")
-    finally:
-        for remote in (source_remote, prepared_remote, output_remote):
-            try:
-                model_volume.remove_file(remote)
-            except Exception:
-                pass

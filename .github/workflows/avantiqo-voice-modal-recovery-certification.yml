@@ -67,6 +67,7 @@ jobs:
           grep -Fq 'SECOND_PRICING_REQUIRED' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
           grep -Fq 'TTS_RECOVERY_REQUIRES_RESUME_MODE' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
           echo 'AVANTIQO_VOICE_RECOVERY_STATIC_GATE=PASS'
+          echo 'AVANTIQO_VOICE_RECOVERY_TREE=SECRETARY_SAFETY_COMPLETE_V1'
 
       - name: Install pinned Modal CLI
         shell: bash

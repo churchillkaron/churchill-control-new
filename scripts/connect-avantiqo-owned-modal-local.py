@@ -23,7 +23,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 WORKSPACE = "churchillkaron"
-CONTRACT = "AVANTIQO_OWNED_MODAL_CUTOVER_V1"
+CONTRACT = "AVANTIQO_OWNED_MODAL_CUTOVER_V2"
 MODAL_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\.modal\.run")
 HEALTH_TIMEOUT_SECONDS = 120
 HEALTH_ATTEMPTS = 2
@@ -127,6 +127,25 @@ def replace_env(path: Path, values: dict[str, str]) -> None:
     os.chmod(path, 0o600)
 
 
+def env_value(path: Path, key: str) -> str:
+    if not path.exists():
+        return ""
+    pattern = re.compile(rf"^{re.escape(key)}=(.*)$")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = pattern.match(line.strip())
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def voice_already_connected(env_path: Path) -> bool:
+    return bool(
+        env_value(env_path, "AVANTIQO_VOICE_ENGINE_ENABLED").lower() == "true"
+        and env_value(env_path, "AVANTIQO_VOICE_MODAL_BASE_URL").startswith("https://")
+        and len(env_value(env_path, "AVANTIQO_VOICE_MODAL_GATEWAY_TOKEN")) >= 40
+    )
+
+
 def create_secret(modal_cli: str, *, name: str, key: str, value: str, temp: Path) -> None:
     secret_file = temp / f"{name}.env"
     secret_file.write_text(f"{key}={value}\n", encoding="utf-8")
@@ -150,7 +169,7 @@ def health(base_url: str, token: str, expected_contract: str, expected_gpu: str,
             headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
         )
         try:
-            with urlopen(request, timeout=HEALTH_TIMEOUT_SECONDS) as response:  # noqa: S310 - Modal HTTPS URL discovered from deploy output
+            with urlopen(request, timeout=HEALTH_TIMEOUT_SECONDS) as response:
                 body = json.loads(response.read().decode("utf-8"))
             if body.get("success") is not True or body.get("contract") != expected_contract:
                 raise RuntimeError("HEALTH_CONTRACT_INVALID")
@@ -191,11 +210,24 @@ def main() -> None:
     env_path = repo / ".env.local"
     run([git_cli, "fetch", "origin", "main"], cwd=repo, timeout=120)
 
+    paid_bake_requested = any(
+        approved(config["approval_env"])
+        for config in ENGINES.values()
+        if config["model_bake_required"]
+    )
+
     selected: dict[str, dict[str, Any]] = {}
     skipped: dict[str, dict[str, Any]] = {}
     for name, config in ENGINES.items():
         approval_env = config["approval_env"]
-        if config["model_bake_required"] and not approved(approval_env):
+        if name == "voice" and paid_bake_requested and voice_already_connected(env_path):
+            skipped[name] = {
+                "reason": "ALREADY_CONNECTED_NO_REDEPLOY",
+                "worker_deployed": False,
+                "gateway_deployed": False,
+                "gpu_inference_performed": False,
+            }
+        elif config["model_bake_required"] and not approved(approval_env):
             skipped[name] = {
                 "reason": "MODEL_BAKE_APPROVAL_REQUIRED",
                 "approval_env": approval_env,
@@ -240,7 +272,7 @@ def main() -> None:
             engine_dir = temp / config["source_dir"]
             print(
                 f"AVANTIQO_{name.upper()}_MODAL_WORKER_DEPLOY_START "
-                f"model_bake_approved={str(config['model_bake_required']).lower()} "
+                f"model_bake_approved={str(approved(config['approval_env'])).lower()} "
                 "gpu_inference=false",
                 flush=True,
             )
@@ -249,8 +281,6 @@ def main() -> None:
             gateway_deploy = run([modal_cli, "deploy", "modal_service.py"], cwd=engine_dir, timeout=30 * 60)
             base_url = deployed_url(gateway_deploy)
 
-            # Persist the matching credential before health so a transient health
-            # timeout cannot orphan a rotated Modal secret.
             replace_env(env_path, {
                 config["enabled_env"]: "true",
                 config["base_env"]: base_url,
@@ -279,7 +309,8 @@ def main() -> None:
                 "gateway_deployed": True,
             }
 
-    success = "voice" in results
+    expected_selected = set(selected)
+    success = bool(expected_selected) and expected_selected.issubset(results)
     print(json.dumps({
         "success": success,
         "contract": CONTRACT,

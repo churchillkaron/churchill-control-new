@@ -12,7 +12,8 @@ test("Secretary Voice enforces one bounded turn deadline", () => {
   assert.match(source, /VOICE_TTS_SUBMISSION_MINIMUM_REMAINING_MS\s*=\s*60_000/);
   assert.match(source, /deadlineRemainingMs/);
   assert.match(source, /SECRETARY_VOICE_PROVIDER_JOB_TIMEOUT_RESUME_SAME_JOB_REQUIRED/);
-  assert.match(source, /SECRETARY_VOICE_TURN_DEADLINE_INSUFFICIENT:TTS_SUBMISSION/);
+  assert.match(source, /SECRETARY_VOICE_TURN_DEADLINE_INSUFFICIENT/);
+  assert.match(source, /requireDeadlineBudget\(deadlineAt, VOICE_TTS_SUBMISSION_MINIMUM_REMAINING_MS, "TTS_SUBMISSION"\)/);
 });
 
 test("Secretary Voice retrieves generated WAV only from its organization path", () => {

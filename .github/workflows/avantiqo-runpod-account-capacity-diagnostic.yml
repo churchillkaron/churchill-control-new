@@ -40,11 +40,19 @@ jobs:
           AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_EXPECTED_MAIN: ${{ github.sha }}
         run: node scripts/diagnose-avantiqo-runpod-account-serverless-capacity-local.mjs
 
+      - name: Run read-only Intelligence release parity diagnostic
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_INTELLIGENCE_RELEASE_EXPECTED_MAIN: ${{ github.sha }}
+        run: node scripts/diagnose-avantiqo-intelligence-endpoint-release-parity-local.mjs
+
       - name: Immutable diagnostic boundary
         if: always()
         run: |
           echo "RUNPOD_MUTATION_PERFORMED=false"
           echo "GPU_ACTIVATION_PERFORMED=false"
           echo "MODEL_INFERENCE_PERFORMED=false"
+          echo "ENDPOINT_MUTATION_PERFORMED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
           echo "DIAGNOSTIC_PINNED_TO_TRIGGER_SHA=true"

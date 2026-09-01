@@ -8,6 +8,7 @@ const REST_BASE = "https://rest.runpod.io/v1";
 const CONTROL_BASE = "https://api.runpod.io/v2";
 const QUEUE_BASE = "https://api.runpod.ai/v2";
 const CONTRACT = "AVANTIQO_RUNPOD_SERVERLESS_ACCOUNT_CAPACITY_DIAGNOSTIC_V1";
+const EXPECTED_MAIN_ENV = "AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_EXPECTED_MAIN";
 const DEEP_NAME = "avantiqo-intelligence-v1";
 const FAST_NAME = "avantiqo-intelligence-fast-v1";
 
@@ -28,12 +29,22 @@ function shell(name, args, code) {
 }
 
 function validateCurrentMain() {
-  shell("git", ["fetch", "origin", "main"], "AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_GIT_FETCH_FAILED");
+  const expectedMain = text(process.env[EXPECTED_MAIN_ENV]);
+  if (expectedMain && !/^[0-9a-f]{40}$/i.test(expectedMain)) {
+    throw new Error(`AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_EXPECTED_MAIN_INVALID:${expectedMain.slice(0, 80)}`);
+  }
   const branch = shell("git", ["branch", "--show-current"], "AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_GIT_BRANCH_FAILED");
   if (branch !== "main") {
     throw new Error(`AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_MAIN_REQUIRED:actual=${branch || "DETACHED"}`);
   }
   const head = shell("git", ["rev-parse", "HEAD"], "AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_GIT_HEAD_FAILED");
+  if (expectedMain) {
+    if (head !== expectedMain) {
+      throw new Error(`AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_PINNED_MAIN_MISMATCH:head=${head}:expected=${expectedMain}`);
+    }
+    return head;
+  }
+  shell("git", ["fetch", "origin", "main"], "AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_GIT_FETCH_FAILED");
   const remote = shell("git", ["rev-parse", "origin/main"], "AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_GIT_REMOTE_FAILED");
   if (head !== remote) {
     throw new Error(`AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin_main=${remote}`);
@@ -294,6 +305,7 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   mode: "READ_ONLY",
   main_commit: mainCommit,
+  pinned_main: Boolean(text(process.env[EXPECTED_MAIN_ENV])),
   account: {
     under_balance: account?.underBalance === true,
     min_balance_usd: minBalance,
@@ -333,6 +345,7 @@ console.log(JSON.stringify({
   next_action: nextAction,
   generation_submitted: false,
   inference_performed: false,
+  gpu_activation_performed: false,
   endpoint_mutation_performed: false,
   queue_mutation_performed: false,
   production_deploy_performed: false,

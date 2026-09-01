@@ -5,9 +5,23 @@ import {
   requireAvantiqoIntelligenceSafeLease,
 } from "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceSafeLeaseGuard.js";
 
-const providerSource = fs.readFileSync(
+const canonicalProviderSource = fs.readFileSync(
   new URL(
     "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const runpodProviderSource = fs.readFileSync(
+  new URL(
+    "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceRunpodProvider.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const executorSource = fs.readFileSync(
+  new URL(
+    "../lib/platform/service-runtime/providers/ProviderExecutor.js",
     import.meta.url,
   ),
   "utf8",
@@ -47,7 +61,7 @@ function validLease(lane) {
   };
 }
 
-test("Intelligence inference fails closed without Safe Lease V2", () => {
+test("RunPod Intelligence inference fails closed without Safe Lease V2", () => {
   withLeaseEnv({}, () => {
     assert.throws(
       () => requireAvantiqoIntelligenceSafeLease("deep"),
@@ -56,7 +70,7 @@ test("Intelligence inference fails closed without Safe Lease V2", () => {
   });
 });
 
-test("canonical Fast and Deep lanes accept only their matching lease lanes", () => {
+test("canonical Fast and Deep RunPod lanes accept only their matching lease lanes", () => {
   withLeaseEnv(validLease("intelligence-fast"), () => {
     const lease = requireAvantiqoIntelligenceSafeLease("fast");
     assert.equal(lease.execution_lane, "fast");
@@ -86,7 +100,7 @@ test("replacement candidate lease cannot become the general Fast reasoning route
   });
 });
 
-test("expired Intelligence leases fail closed", () => {
+test("expired Intelligence RunPod leases fail closed", () => {
   withLeaseEnv({
     ...validLease("intelligence-deep"),
     AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT: new Date(Date.now() - 1_000).toISOString(),
@@ -98,18 +112,27 @@ test("expired Intelligence leases fail closed", () => {
   });
 });
 
-test("owned Intelligence provider enforces the lease before lane dispatch", () => {
-  assert.match(providerSource, /requireAvantiqoIntelligenceSafeLease/);
-  const executeStart = providerSource.indexOf("async execute(input = {})");
-  const guardIndex = providerSource.indexOf(
-    "requireAvantiqoIntelligenceSafeLease(lane)",
+test("Modal primary bypasses RunPod lease while RunPod fallback remains lease guarded", () => {
+  assert.match(canonicalProviderSource, /AvantiqoIntelligenceProviderV2/);
+  assert.match(canonicalProviderSource, /modal_primary_when_configured:\s*true/);
+  assert.match(canonicalProviderSource, /safe_lease_required_for_inference:\s*false/);
+
+  assert.match(executorSource, /ownedIntelligenceModalConfigured/);
+  assert.match(executorSource, /AVANTIQO_INTELLIGENCE_MODAL_BASE_URL/);
+  assert.match(executorSource, /AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN/);
+  assert.match(executorSource, /Modal owns its own async H100 lifecycle/);
+
+  assert.match(runpodProviderSource, /requireAvantiqoIntelligenceSafeLease/);
+  const executeStart = runpodProviderSource.indexOf("async execute(input = {})");
+  const guardIndex = runpodProviderSource.indexOf(
+    "requireAvantiqoIntelligenceSafeLease(lane",
     executeStart,
   );
-  const fastDispatchIndex = providerSource.indexOf(
+  const fastDispatchIndex = runpodProviderSource.indexOf(
     "AvantiqoIntelligenceFastProvider.execute(governedInput)",
     executeStart,
   );
-  const deepDispatchIndex = providerSource.indexOf(
+  const deepDispatchIndex = runpodProviderSource.indexOf(
     "AvantiqoIntelligenceDeepProvider.execute(governedInput)",
     executeStart,
   );

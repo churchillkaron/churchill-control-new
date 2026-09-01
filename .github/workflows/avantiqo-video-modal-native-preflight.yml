@@ -8,6 +8,8 @@ on:
       - .github/workflows/avantiqo-video-modal-native-preflight.yml
       - services/avantiqo-video-engine/modal_app.py
       - services/avantiqo-video-engine/modal_scene1_cert.py
+      - scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+      - assets/video/proofs/scene1_frame.part-*.b64
 
 permissions:
   contents: read
@@ -27,7 +29,8 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       AVANTIQO_VIDEO_SCENE1_REAL_INFERENCE_APPROVED: "NO"
       AVANTIQO_VIDEO_SCENE1_MAX_SUPPLIER_GPU_COST_USD: "3.25"
-      AVANTIQO_VIDEO_SCENE1_SOURCE_FRAME: ${{ github.workspace }}/assets/video/proofs/avantiqo_first_shot_frame_transport.jpg
+      AVANTIQO_VIDEO_SCENE1_SOURCE_FRAME: ${{ github.workspace }}/assets/video/proofs/scene1-approved-reconstructed.jpg
+      AVANTIQO_VIDEO_SCENE1_OPENING_FRAME: ${{ github.workspace }}/assets/video/proofs/scene1-approved-reconstructed.jpg
 
     steps:
       - name: Checkout exact main commit
@@ -40,6 +43,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Reconstruct and verify approved Studio reference on CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+          test -s "${AVANTIQO_VIDEO_SCENE1_SOURCE_FRAME}"
+          echo 'AVANTIQO_VIDEO_SCENE1_STUDIO_REFERENCE_RECONSTRUCTION=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
 
       - name: Prove generation-only source boundary
         shell: bash

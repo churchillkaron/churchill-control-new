@@ -1,9 +1,10 @@
 const REST_BASE = "https://rest.runpod.io/v1";
-const OLD_VOLUME_ID = "7pcdebhpga";
+const QUEUE_BASE = "https://api.runpod.ai/v2";
+const ENDPOINT_ID = "xmey8y2hofexyp";
 
-function text(value) { return String(value ?? "").trim(); }
-function list(value) { return Array.isArray(value) ? value : []; }
-function finite(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }
+const text = (v) => String(v ?? "").trim();
+const list = (v) => Array.isArray(v) ? v : [];
+const finite = (v) => Number.isFinite(Number(v)) ? Number(v) : null;
 function normalizeRows(value, keys = [], depth = 0) {
   if (Array.isArray(value)) return value;
   if (!value || typeof value !== "object" || depth > 4) return [];
@@ -14,106 +15,84 @@ function normalizeRows(value, keys = [], depth = 0) {
   }
   return [];
 }
-function unique(values) { return [...new Set(values.map(text).filter(Boolean))]; }
-function volumeIds(row = {}) {
-  return unique([
-    row.networkVolumeId,
-    row.network_volume_id,
-    ...(Array.isArray(row.networkVolumeIds) ? row.networkVolumeIds.map((v) => typeof v === "string" ? v : v?.id || v?.networkVolumeId) : []),
-    ...(Array.isArray(row.network_volume_ids) ? row.network_volume_ids.map((v) => typeof v === "string" ? v : v?.id || v?.networkVolumeId) : []),
-  ]);
-}
-function relevantName(name) {
-  const value = text(name).toLowerCase();
-  return value.includes("video") || value.includes("cinema") || value.includes("ltx");
-}
-function workerSummary(worker = {}) {
-  return {
-    id: text(worker.id || worker.workerId) || null,
-    desired_status: text(worker.desiredStatus || worker.desired_status).toUpperCase() || null,
-    status: text(worker.status || worker.workerStatus || worker.runtimeStatus).toUpperCase() || null,
-    gpu_type_id: text(worker.gpuTypeId || worker.gpu?.displayName || worker.gpu?.id || worker.machine?.gpuTypeId || worker.machine?.gpuType?.id || worker.machine?.gpuDisplayName) || null,
-    data_center_id: text(worker.dataCenterId || worker.machine?.dataCenterId || worker.machine?.dataCenter?.id) || null,
-    cost_per_hr: finite(worker.costPerHr ?? worker.cost_per_hr),
-  };
+function apiKey() {
+  const v = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
+  if (!v) throw new Error("RUNPOD_MANAGEMENT_API_KEY_REQUIRED");
+  return v;
 }
 async function rest(path) {
-  const key = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
-  if (!key) throw new Error("RUNPOD_MANAGEMENT_API_KEY_REQUIRED");
-  const response = await fetch(`${REST_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
-    signal: AbortSignal.timeout(30000),
-  });
-  const raw = await response.text();
-  let body = null;
-  try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
-  if (!response.ok) throw new Error(`RUNPOD_RESOURCE_AUDIT_HTTP_${response.status}:${text(body?.message || body?.error || raw).slice(0,500)}`);
+  const r = await fetch(`${REST_BASE}${path}`, { headers: { Authorization: `Bearer ${apiKey()}`, Accept: "application/json" }, signal: AbortSignal.timeout(30000) });
+  const raw = await r.text();
+  let body = null; try { body = raw ? JSON.parse(raw) : null; } catch {}
+  if (!r.ok) throw new Error(`RUNPOD_RESOURCE_AUDIT_HTTP_${r.status}:${text(body?.message || body?.error || raw).slice(0,500)}`);
   return body;
 }
-
-const [rawEndpoints, rawTemplates, rawVolumes, rawPods] = await Promise.all([
-  rest("/endpoints?includeTemplate=true&includeWorkers=true"),
-  rest("/templates?includeEndpointBoundTemplates=true&includePublicTemplates=false&includeRunpodTemplates=false"),
-  rest("/networkvolumes"),
-  rest("/pods"),
-]);
-const endpoints = normalizeRows(rawEndpoints, ["endpoints", "serverlessEndpoints"]);
-const templates = normalizeRows(rawTemplates, ["templates"]);
-const volumes = normalizeRows(rawVolumes, ["networkVolumes", "networkvolumes"]);
-const pods = normalizeRows(rawPods, ["pods"]);
-
-const endpointRows = endpoints.map((row) => {
-  const workers = list(row.workers).map(workerSummary);
-  const activeWorkers = workers.filter((w) => !["EXITED","TERMINATED","DELETED","STOPPED"].includes(text(w.status).toUpperCase()));
+async function queueHealth() {
+  const key = text(process.env.RUNPOD_AVANTIQO_VIDEO_API_KEY || process.env.RUNPOD_API_KEY || process.env.RUNPOD_MANAGEMENT_API_KEY);
+  if (!key) return { unavailable: "NO_QUEUE_KEY" };
+  const r = await fetch(`${QUEUE_BASE}/${ENDPOINT_ID}/health`, { headers: { Authorization: `Bearer ${key}`, Accept: "application/json" }, signal: AbortSignal.timeout(30000) });
+  const raw = await r.text();
+  let body = null; try { body = raw ? JSON.parse(raw) : null; } catch {}
+  return r.ok ? body : { http_status: r.status, detail: text(body?.error || body?.message || raw).slice(0,300) };
+}
+function safeWorker(w = {}) {
+  const machine = w.machine && typeof w.machine === "object" ? w.machine : {};
   return {
-    id: text(row.id),
-    name: text(row.name),
-    template_id: text(row.templateId || row.template?.id),
-    network_volume_ids: volumeIds(row),
-    workers_min: finite(row.workersMin ?? row.workers_min),
-    workers_max: finite(row.workersMax ?? row.workers_max),
-    active_workers: activeWorkers.length,
-    active_worker_details: activeWorkers,
+    id: text(w.id || w.workerId) || null,
+    desired_status: text(w.desiredStatus || w.desired_status).toUpperCase() || null,
+    status: text(w.status || w.workerStatus || w.runtimeStatus).toUpperCase() || null,
+    gpu_type_id: text(w.gpuTypeId || w.gpu?.displayName || w.gpu?.id || machine.gpuTypeId || machine.gpuType?.id || machine.gpuDisplayName) || null,
+    data_center_id: text(w.dataCenterId || machine.dataCenterId || machine.dataCenter?.id) || null,
+    cost_per_hr: finite(w.costPerHr ?? w.cost_per_hr),
+    error: text(w.error || w.lastError || w.errorMessage || w.message || w.reason || w.terminationReason || w.exitReason).slice(0,500) || null,
+    runtime_error: text(w.runtimeError || w.runtime_error || w.containerError || w.container_error).slice(0,500) || null,
+    machine_id: text(machine.id || w.machineId) || null,
+    machine_gpu: text(machine.gpuTypeId || machine.gpuType?.id || machine.gpuDisplayName) || null,
+    created_at: text(w.createdAt || w.created_at) || null,
+    started_at: text(w.startedAt || w.started_at) || null,
+    exited_at: text(w.exitedAt || w.exited_at || w.terminatedAt || w.terminated_at) || null,
   };
-});
-const relevantEndpoints = endpointRows.filter((row) => relevantName(row.name));
-const oldVolumeReferences = endpointRows.filter((row) => row.network_volume_ids.includes(OLD_VOLUME_ID));
-const relevantTemplates = templates.filter((row) => relevantName(row?.name) || relevantName(row?.imageName || row?.image_name)).map((row) => ({
-  id: text(row.id),
-  name: text(row.name),
-  image_name: text(row.imageName || row.image_name),
-}));
-const relevantVolumes = volumes.filter((row) => relevantName(row?.name)).map((row) => {
-  const id = text(row.id);
-  const endpointNames = endpointRows.filter((e) => e.network_volume_ids.includes(id)).map((e) => e.name);
-  const podNames = pods.filter((p) => text(p?.networkVolume?.id || p?.networkVolumeId || p?.network_volume_id) === id).map((p) => text(p.name)).filter(Boolean);
-  return {
-    id,
-    name: text(row.name),
-    size_gb: finite(row.size ?? row.sizeGb ?? row.sizeInGb),
-    data_center_id: text(row.dataCenterId || row.data_center_id),
-    endpoint_names: endpointNames,
-    pod_names: podNames,
-  };
-});
-const relevantPods = pods.filter((row) => relevantName(row?.name)).map((row) => ({
-  id: text(row.id),
-  name: text(row.name),
-  status: text(row.status || row.runtimeStatus || row.desiredStatus),
-  gpu_type_id: text(row?.machine?.gpuTypeId || row?.machine?.gpuType?.id || row?.gpuTypeId || row?.gpu_type_id),
-  network_volume_id: text(row?.networkVolume?.id || row?.networkVolumeId || row?.network_volume_id),
-}));
+}
+async function anonymousGhcrPull(image) {
+  const m = text(image).match(/^ghcr\.io\/(.+)@(sha256:[a-f0-9]{64})$/i);
+  if (!m) return { valid_ref: false };
+  const repository = m[1]; const digest = m[2].toLowerCase();
+  const u = new URL("https://ghcr.io/token");
+  u.searchParams.set("service", "ghcr.io");
+  u.searchParams.set("scope", `repository:${repository}:pull`);
+  const tr = await fetch(u, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(30000) });
+  const tb = await tr.json().catch(() => ({}));
+  const token = text(tb.token || tb.access_token);
+  if (!tr.ok || !token) return { valid_ref: true, public_pull: false, token_status: tr.status };
+  const mr = await fetch(`https://ghcr.io/v2/${repository}/manifests/${digest}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.v2+json" }, signal: AbortSignal.timeout(30000) });
+  const returned = text(mr.headers.get("docker-content-digest")).toLowerCase();
+  await mr.arrayBuffer();
+  return { valid_ref: true, public_pull: mr.ok && (!returned || returned === digest), token_status: tr.status, manifest_status: mr.status, digest_matches: !returned || returned === digest };
+}
 
-const inventory = {
-  contract: "AVANTIQO_VIDEO_RUNPOD_RESOURCE_AUDIT_V3",
+const endpoint = await rest(`/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true`);
+const templateId = text(endpoint.templateId || endpoint.template?.id);
+const template = await rest(`/templates/${templateId}`);
+const image = text(template.imageName || template.image_name);
+const health = await queueHealth();
+const workers = list(endpoint.workers).map(safeWorker);
+const result = {
+  contract: "AVANTIQO_VIDEO_SERVERLESS_STARTUP_DIAGNOSTIC_V1",
   mutation_performed: false,
   generation_submitted: false,
-  production_deploy_performed: false,
-  endpoints: relevantEndpoints,
-  old_volume_references: oldVolumeReferences,
-  templates: relevantTemplates,
-  volumes: relevantVolumes,
-  pods: relevantPods,
+  endpoint: {
+    id: text(endpoint.id), name: text(endpoint.name), template_id: templateId,
+    workers_min: finite(endpoint.workersMin), workers_max: finite(endpoint.workersMax),
+    gpu_type_ids: list(endpoint.gpuTypeIds || endpoint.gpuIds).map(text).filter(Boolean),
+    min_cuda_version: text(endpoint.minCudaVersion) || null,
+    allowed_cuda_versions: list(endpoint.allowedCudaVersions).map(text),
+    flashboot: endpoint.flashboot ?? endpoint.flashBoot ?? null,
+    model_references: list(endpoint.modelReferences).map(text),
+  },
+  template: { image_name: image, container_disk_gb: finite(template.containerDiskInGb), hf_token_present: Boolean(text(template.env?.HF_TOKEN)) },
+  anonymous_image_pull: await anonymousGhcrPull(image),
+  queue_health: health,
+  workers,
 };
-console.log("AVANTIQO_VIDEO_RUNPOD_RESOURCE_AUDIT=PASS");
-console.log(`AVANTIQO_VIDEO_RUNPOD_RESOURCE_INVENTORY=${JSON.stringify(inventory)}`);
+console.log("AVANTIQO_VIDEO_SERVERLESS_STARTUP_DIAGNOSTIC=PASS");
+console.log(`AVANTIQO_VIDEO_SERVERLESS_STARTUP_DIAGNOSTIC_RESULT=${JSON.stringify(result)}`);

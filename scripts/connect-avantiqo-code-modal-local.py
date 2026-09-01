@@ -12,11 +12,13 @@ inference starts during this connector run.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import secrets
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,7 @@ DEFAULT_BASE_URL = (
 HEALTH_CONTRACT = "AVANTIQO_CODE_MODAL_HTTP_V1"
 SECRET_NAME = "avantiqo-code-gateway"
 SECRET_ENV_KEY = "AVANTIQO_CODE_GATEWAY_TOKEN"
+PYTHON_DOTENV_VERSION = "1.0.1"
 
 
 def _replace_env(path: Path, values: dict[str, str], remove_keys: set[str] | None = None) -> None:
@@ -80,6 +83,45 @@ def _run(command: list[str], cwd: Path | None = None, timeout: int = 120) -> sub
     return result
 
 
+def _ensure_python_dotenv() -> bool:
+    """Install only the optional CLI dependency Modal 1.2.6 requires."""
+    if importlib.util.find_spec("dotenv") is not None:
+        return False
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            f"python-dotenv=={PYTHON_DOTENV_VERSION}",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=180,
+        check=False,
+        env=os.environ.copy(),
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "UNKNOWN").strip()[-1600:]
+        raise RuntimeError(f"AVANTIQO_CODE_MODAL_DOTENV_INSTALL_FAILED:{detail}")
+
+    verification = subprocess.run(
+        [sys.executable, "-c", "import dotenv; print('OK')"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=30,
+        check=False,
+        env=os.environ.copy(),
+    )
+    if verification.returncode != 0 or verification.stdout.strip() != "OK":
+        raise RuntimeError("AVANTIQO_CODE_MODAL_DOTENV_VERIFY_FAILED")
+    return True
+
+
 def _health(base_url: str, token: str) -> dict[str, Any]:
     request = Request(
         f"{base_url.rstrip('/')}/health",
@@ -122,6 +164,8 @@ def main() -> None:
         raise RuntimeError("AVANTIQO_CODE_MODAL_CLI_REQUIRED")
     if not git_cli:
         raise RuntimeError("AVANTIQO_CODE_GIT_REQUIRED")
+
+    dotenv_installed = _ensure_python_dotenv()
 
     gateway_token = secrets.token_urlsafe(48)
     if len(gateway_token) < 40:
@@ -194,6 +238,8 @@ def main() -> None:
                 "contract": "AVANTIQO_CODE_MODAL_LOCAL_CONNECT_V2",
                 "modal_client_compatible": "1.2.6+",
                 "authentication": "BEARER_GATEWAY_V1",
+                "python_dotenv_installed_by_connector": dotenv_installed,
+                "python_dotenv_version": PYTHON_DOTENV_VERSION,
                 "health_contract": health.get("contract"),
                 "gpu_worker": health.get("gpu_worker"),
                 "async_job_queue": health.get("async_job_queue"),

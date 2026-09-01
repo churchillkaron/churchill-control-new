@@ -1,0 +1,72 @@
+{
+  "contract": "AVANTIQO_COMPUTE_COST_ARCHITECTURE_V1",
+  "default_execution": "AVANTIQO_OWNED_ZERO_MARGINAL",
+  "priority": [
+    "DO_NOT_COMPUTE",
+    "AVANTIQO_OWNED_ZERO_MARGINAL",
+    "AVANTIQO_OWNED_PAID_ACCELERATOR",
+    "EXTERNAL_PAID_SPECIALIST"
+  ],
+  "rules": {
+    "keep_zero_marginal_work_in_avantiqo": true,
+    "modal_role": "ELASTIC_GPU_ACCELERATOR_ONLY",
+    "modal_general_cpu_backend_forbidden": true,
+    "external_paid_provider_is_fallback": true,
+    "duplicate_paid_execution_forbidden": true,
+    "speculative_gpu_prewarm_forbidden": true,
+    "paid_retry_without_structural_change_forbidden": true,
+    "one_real_certification_job_default": true,
+    "model_bake_requires_explicit_spend_approval": true,
+    "model_seed_requires_explicit_spend_approval": true,
+    "persistent_storage_duplicates_forbidden": true,
+    "one_canonical_persistent_model_storage_per_engine": true,
+    "final_artifact_persistence_owned_by_avantiqo": true,
+    "wallet_pricing_and_usage_owned_by_avantiqo": true,
+    "orchestration_owned_by_avantiqo": true
+  },
+  "modal_gpu_defaults": {
+    "min_containers": 0,
+    "max_containers": 1,
+    "scale_to_zero": true,
+    "parallel_candidate_fanout": false,
+    "return_after_irreducible_gpu_stage": true
+  },
+  "gpu_selection": {
+    "policy": "CHEAPEST_ADEQUATE_TOTAL_COST_PER_SUCCESSFUL_RESULT",
+    "high_tier_gpu_requires_evidence": true,
+    "evidence_reasons": [
+      "MODEL_FIT_OR_RUNTIME_REQUIREMENT",
+      "LOWER_MEASURED_TOTAL_COST",
+      "REQUIRED_LATENCY_SLA",
+      "GOVERNED_QUALITY_RUNTIME_REQUIREMENT"
+    ]
+  },
+  "paid_execution_required_fields": [
+    "irreducible_paid_compute_reason",
+    "infrastructure_provider",
+    "capability",
+    "model_lane",
+    "cheapest_adequate_runtime_considered",
+    "max_paid_jobs",
+    "max_concurrency",
+    "max_duration",
+    "model_build_required",
+    "reusable_cache_or_image_checked",
+    "teardown_or_scale_to_zero_verified",
+    "duplicate_paid_runtime_absent"
+  ],
+  "transitional_debt": {
+    "modal_cpu_gateways": {
+      "allowed": true,
+      "new_gateway_precedent": false,
+      "requirements": [
+        "TRANSPORT_ONLY",
+        "NO_GPU_IMPORT",
+        "NO_MODEL_INFERENCE",
+        "NO_BUSINESS_LOGIC",
+        "NO_FINAL_STORAGE_OWNERSHIP"
+      ],
+      "target": "MOVE_GATEWAY_CONTROL_BACK_TO_AVANTIQO"
+    }
+  }
+}

@@ -52,6 +52,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.11.0",
+    "modal": "0.10.0",
     "next": "14.2.35",
     "openai": "^6.42.0",
     "papaparse": "^5.5.3",

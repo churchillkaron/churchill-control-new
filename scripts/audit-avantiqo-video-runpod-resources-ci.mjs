@@ -27,6 +27,16 @@ function relevantName(name) {
   const value = text(name).toLowerCase();
   return value.includes("video") || value.includes("cinema") || value.includes("ltx");
 }
+function workerSummary(worker = {}) {
+  return {
+    id: text(worker.id || worker.workerId) || null,
+    desired_status: text(worker.desiredStatus || worker.desired_status).toUpperCase() || null,
+    status: text(worker.status || worker.workerStatus || worker.runtimeStatus).toUpperCase() || null,
+    gpu_type_id: text(worker.gpuTypeId || worker.gpu?.displayName || worker.gpu?.id || worker.machine?.gpuTypeId || worker.machine?.gpuType?.id || worker.machine?.gpuDisplayName) || null,
+    data_center_id: text(worker.dataCenterId || worker.machine?.dataCenterId || worker.machine?.dataCenter?.id) || null,
+    cost_per_hr: finite(worker.costPerHr ?? worker.cost_per_hr),
+  };
+}
 async function rest(path) {
   const key = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY);
   if (!key) throw new Error("RUNPOD_MANAGEMENT_API_KEY_REQUIRED");
@@ -52,15 +62,20 @@ const templates = normalizeRows(rawTemplates, ["templates"]);
 const volumes = normalizeRows(rawVolumes, ["networkVolumes", "networkvolumes"]);
 const pods = normalizeRows(rawPods, ["pods"]);
 
-const endpointRows = endpoints.map((row) => ({
-  id: text(row.id),
-  name: text(row.name),
-  template_id: text(row.templateId || row.template?.id),
-  network_volume_ids: volumeIds(row),
-  workers_min: finite(row.workersMin ?? row.workers_min),
-  workers_max: finite(row.workersMax ?? row.workers_max),
-  active_workers: list(row.workers).filter((w) => !["EXITED","TERMINATED","DELETED","STOPPED"].includes(text(w.status || w.workerStatus || w.runtimeStatus).toUpperCase())).length,
-}));
+const endpointRows = endpoints.map((row) => {
+  const workers = list(row.workers).map(workerSummary);
+  const activeWorkers = workers.filter((w) => !["EXITED","TERMINATED","DELETED","STOPPED"].includes(text(w.status).toUpperCase()));
+  return {
+    id: text(row.id),
+    name: text(row.name),
+    template_id: text(row.templateId || row.template?.id),
+    network_volume_ids: volumeIds(row),
+    workers_min: finite(row.workersMin ?? row.workers_min),
+    workers_max: finite(row.workersMax ?? row.workers_max),
+    active_workers: activeWorkers.length,
+    active_worker_details: activeWorkers,
+  };
+});
 const relevantEndpoints = endpointRows.filter((row) => relevantName(row.name));
 const oldVolumeReferences = endpointRows.filter((row) => row.network_volume_ids.includes(OLD_VOLUME_ID));
 const relevantTemplates = templates.filter((row) => relevantName(row?.name) || relevantName(row?.imageName || row?.image_name)).map((row) => ({
@@ -90,7 +105,7 @@ const relevantPods = pods.filter((row) => relevantName(row?.name)).map((row) => 
 }));
 
 const inventory = {
-  contract: "AVANTIQO_VIDEO_RUNPOD_RESOURCE_AUDIT_V2",
+  contract: "AVANTIQO_VIDEO_RUNPOD_RESOURCE_AUDIT_V3",
   mutation_performed: false,
   generation_submitted: false,
   production_deploy_performed: false,

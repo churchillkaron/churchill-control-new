@@ -1,0 +1,116 @@
+name: Avantiqo Video Safe Worker Rebind
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-safe-worker-rebind.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: avantiqo-video-safe-worker-rebind
+  cancel-in-progress: false
+
+env:
+  ENDPOINT_ID: xmey8y2hofexyp
+  ENDPOINT_NAME: avantiqo-cinema-production-v1
+  IMAGE_REPO: ghcr.io/churchillkaron/avantiqo-video-ltx25-native-master-serverless
+
+jobs:
+  build-and-rebind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      RUNPOD_VIDEO_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY || secrets.RUNPOD_MANAGEMENT_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Verify V3 startup-safe worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile services/avantiqo-video-engine/ltx25_native_master_serverless.py
+          grep -Fq 'AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_SERVERLESS_V3' services/avantiqo-video-engine/ltx25_native_master_serverless.py
+          grep -Fq 'return True' services/avantiqo-video-engine/ltx25_native_master_serverless.py
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('services/avantiqo-video-engine/ltx25_native_master_serverless.py').read_text()
+          fitness=s.split('@runpod.serverless.register_fitness_check',1)[1].split('if __name__',1)[0]
+          assert 'snapshot()' not in fitness
+          assert 'torch.cuda.is_available()' in fitness
+          print('AVANTIQO_VIDEO_STARTUP_SAFE_FITNESS_GATE=PASS')
+          PY
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build immutable fixed worker
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/avantiqo-video-engine
+          file: services/avantiqo-video-engine/Dockerfile.ltx25.native-master-serverless
+          push: true
+          tags: ${{ env.IMAGE_REPO }}:${{ github.sha }}
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=avantiqo-video-native-master-serverless
+          cache-to: type=gha,mode=max,scope=avantiqo-video-native-master-serverless
+
+      - name: Rebind same endpoint template while parked
+        env:
+          NEW_IMAGE: ${{ env.IMAGE_REPO }}@${{ steps.build.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNPOD_MANAGEMENT_API_KEY:-}"
+          test -n "${RUNPOD_VIDEO_API_KEY:-}"
+          REST='https://rest.runpod.io/v1'
+          GRAPH='https://api.runpod.io/graphql'
+          auth=(-H "Authorization: Bearer ${RUNPOD_MANAGEMENT_API_KEY}")
+          json=(-H 'Content-Type: application/json')
+          endpoint="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
+          health="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_VIDEO_API_KEY}" "https://api.runpod.ai/v2/${ENDPOINT_ID}/health")"
+          test "$(printf '%s' "$endpoint" | jq -r '.name')" = "$ENDPOINT_NAME"
+          test "$(printf '%s' "$endpoint" | jq -r '.workersMin')" = '0'
+          test "$(printf '%s' "$endpoint" | jq -r '.workersMax')" = '0'
+          test "$(printf '%s' "$health" | jq -r '(.workers // {}) | [.[]] | add // 0')" = '0'
+          test "$(printf '%s' "$health" | jq -r '(.jobs.inProgress // .jobs.in_progress // 0)')" = '0'
+          test "$(printf '%s' "$endpoint" | jq -r '([.networkVolumeId,.networkVolumeIds[]?] | map(if type=="object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | length)')" = '0'
+          template_id="$(printf '%s' "$endpoint" | jq -r '.templateId // .template.id // empty')"
+          test -n "$template_id"
+          template="$(curl -fsS "${auth[@]}" "${REST}/templates/${template_id}")"
+          env_json="$(printf '%s' "$template" | jq -c '.env // {}')"
+          test -n "$(printf '%s' "$env_json" | jq -r '.HF_TOKEN // empty')"
+          disk="$(printf '%s' "$template" | jq -r '.containerDiskInGb // 30')"
+          patch="$(jq -cn --arg image "$NEW_IMAGE" --argjson env "$env_json" --argjson disk "$disk" '{imageName:$image,env:$env,containerDiskInGb:$disk}')"
+          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$patch" "${REST}/templates/${template_id}" >/dev/null
+          verify_template="$(curl -fsS "${auth[@]}" "${REST}/templates/${template_id}")"
+          test "$(printf '%s' "$verify_template" | jq -r '.imageName')" = "$NEW_IMAGE"
+          query='query VideoModel { myself { endpoints { id modelReferences } } }'
+          payload="$(jq -cn --arg query "$query" '{query:$query,variables:{}}')"
+          models="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$payload" "$GRAPH" | jq -c --arg id "$ENDPOINT_ID" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?]')"
+          test "$(printf '%s' "$models" | jq 'length')" -ge 1
+          after="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeWorkers=true")"
+          test "$(printf '%s' "$after" | jq -r '.workersMin')" = '0'
+          test "$(printf '%s' "$after" | jq -r '.workersMax')" = '0'
+          echo "AVANTIQO_VIDEO_FIXED_IMAGE=${NEW_IMAGE}"
+          echo "AVANTIQO_VIDEO_TEMPLATE=${template_id}"
+          echo "AVANTIQO_VIDEO_MODEL_REFERENCES=${models}"
+          echo 'AVANTIQO_VIDEO_SAFE_REBIND=PASS'
+          echo 'AVANTIQO_VIDEO_GPU_STARTED=false'
+          echo 'AVANTIQO_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_VIDEO_PRODUCTION_DEPLOY=false'

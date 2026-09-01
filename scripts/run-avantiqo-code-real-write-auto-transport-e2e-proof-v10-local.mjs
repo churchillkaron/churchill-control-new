@@ -87,51 +87,50 @@ if (pod.exit_code === 0) {
     secrets_printed: false,
   }));
   console.log(`${CONTRACT}=PASS`);
-  process.exit(0);
-}
+} else {
+  const podCombined = `${pod.stdout}\n${pod.stderr}`;
+  const exactCapacityFailure = podCombined.includes(POD_CAPACITY_MARKER);
+  if (!exactCapacityFailure) {
+    throw new Error(`${CONTRACT}_POD_NON_CAPACITY_FAILURE_NO_FALLBACK:${pod.exit_code}`);
+  }
+  if (pod.stdout.includes(SOURCE_BEGIN) || pod.stdout.includes(SOURCE_END)) {
+    throw new Error(`${CONTRACT}_POD_CAPACITY_FAILURE_MUST_NOT_GENERATE_SOURCE`);
+  }
+  if (pod.stdout.includes('phase":"POD_ALLOCATED"')) {
+    throw new Error(`${CONTRACT}_POD_CAPACITY_FAILURE_MUST_NOT_ALLOCATE_POD`);
+  }
+  if (!pod.stdout.includes('"inference_performed":false')) {
+    throw new Error(`${CONTRACT}_POD_CAPACITY_FAILURE_NO_INFERENCE_PROOF_REQUIRED`);
+  }
 
-const podCombined = `${pod.stdout}\n${pod.stderr}`;
-const exactCapacityFailure = podCombined.includes(POD_CAPACITY_MARKER);
-if (!exactCapacityFailure) {
-  throw new Error(`${CONTRACT}_POD_NON_CAPACITY_FAILURE_NO_FALLBACK:${pod.exit_code}`);
-}
-if (pod.stdout.includes(SOURCE_BEGIN) || pod.stdout.includes(SOURCE_END)) {
-  throw new Error(`${CONTRACT}_POD_CAPACITY_FAILURE_MUST_NOT_GENERATE_SOURCE`);
-}
-if (pod.stdout.includes('phase":"POD_ALLOCATED"')) {
-  throw new Error(`${CONTRACT}_POD_CAPACITY_FAILURE_MUST_NOT_ALLOCATE_POD`);
-}
-if (!pod.stdout.includes('"inference_performed":false')) {
-  throw new Error(`${CONTRACT}_POD_CAPACITY_FAILURE_NO_INFERENCE_PROOF_REQUIRED`);
-}
+  console.log(JSON.stringify({
+    event: `${CONTRACT}_FALLBACK_START`,
+    reason: "ALLOCATOR_CAPACITY_UNAVAILABLE",
+    pod_exit_code: pod.exit_code,
+    pod_allocator_attempts_performed: 1,
+    pod_inference_performed: false,
+    transports_overlap: false,
+    fallback_script: SERVERLESS_SCRIPT,
+    new_storage_created: false,
+    production_deploy_performed: false,
+    secrets_printed: false,
+  }));
 
-console.log(JSON.stringify({
-  event: `${CONTRACT}_FALLBACK_START`,
-  reason: "ALLOCATOR_CAPACITY_UNAVAILABLE",
-  pod_exit_code: pod.exit_code,
-  pod_allocator_attempts_performed: 1,
-  pod_inference_performed: false,
-  transports_overlap: false,
-  fallback_script: SERVERLESS_SCRIPT,
-  new_storage_created: false,
-  production_deploy_performed: false,
-  secrets_printed: false,
-}));
+  const serverless = await run(process.execPath, [SERVERLESS_SCRIPT], repositoryRoot, childEnv);
+  if (serverless.exit_code !== 0) throw new Error(`${CONTRACT}_SERVERLESS_FALLBACK_FAILED:${serverless.exit_code}`);
+  if (!serverless.stdout.includes(SERVERLESS_PASS)) throw new Error(`${CONTRACT}_SERVERLESS_PASS_MARKER_REQUIRED:${SERVERLESS_PASS}`);
+  assertSingleGeneratedSource(serverless.stdout, "SERVERLESS");
 
-const serverless = await run(process.execPath, [SERVERLESS_SCRIPT], repositoryRoot, childEnv);
-if (serverless.exit_code !== 0) throw new Error(`${CONTRACT}_SERVERLESS_FALLBACK_FAILED:${serverless.exit_code}`);
-if (!serverless.stdout.includes(SERVERLESS_PASS)) throw new Error(`${CONTRACT}_SERVERLESS_PASS_MARKER_REQUIRED:${SERVERLESS_PASS}`);
-assertSingleGeneratedSource(serverless.stdout, "SERVERLESS");
-
-console.log(JSON.stringify({
-  event: `${CONTRACT}_COMPLETE`,
-  selected_transport: "RUNPOD_SERVERLESS_GLOBAL_CACHED_MODEL",
-  fallback_performed: true,
-  fallback_reason: "ALLOCATOR_CAPACITY_UNAVAILABLE",
-  transports_overlap: false,
-  one_canonical_code_storage_preserved: true,
-  new_storage_created: false,
-  production_deploy_performed: false,
-  secrets_printed: false,
-}));
-console.log(`${CONTRACT}=PASS`);
+  console.log(JSON.stringify({
+    event: `${CONTRACT}_COMPLETE`,
+    selected_transport: "RUNPOD_SERVERLESS_GLOBAL_CACHED_MODEL",
+    fallback_performed: true,
+    fallback_reason: "ALLOCATOR_CAPACITY_UNAVAILABLE",
+    transports_overlap: false,
+    one_canonical_code_storage_preserved: true,
+    new_storage_created: false,
+    production_deploy_performed: false,
+    secrets_printed: false,
+  }));
+  console.log(`${CONTRACT}=PASS`);
+}

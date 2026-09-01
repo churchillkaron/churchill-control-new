@@ -17,7 +17,7 @@ GATEWAY_TOKEN_ENV = "AVANTIQO_INTELLIGENCE_GATEWAY_TOKEN"
 LANES = {"fast", "deep"}
 
 app = modal.App(GATEWAY_APP_NAME)
-api_image = modal.Image.debian_slim(python_version="3.9").pip_install("fastapi==0.115.6")
+api_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi==0.115.6")
 
 
 def _text(value: Any) -> str:
@@ -101,95 +101,77 @@ def intelligence_api():
         lane = _text(data.get("execution_lane")).lower()
         if lane not in LANES:
             raise HTTPException(status_code=400, detail="AVANTIQO_INTELLIGENCE_EXECUTION_LANE_INVALID")
-        if not _text(data.get("organization_id")):
-            raise HTTPException(status_code=400, detail="AVANTIQO_INTELLIGENCE_ORGANIZATION_REQUIRED")
-        if not _text(data.get("usage_id")):
-            raise HTTPException(status_code=400, detail="AVANTIQO_INTELLIGENCE_USAGE_ID_REQUIRED")
-
-        worker = modal.Function.from_name(GPU_APP_NAME, lane)
-        call = await worker.spawn.aio(_safe(data))
-        job_id = _text(call.object_id)
-        if not job_id:
-            raise HTTPException(status_code=500, detail="AVANTIQO_INTELLIGENCE_MODAL_CALL_ID_REQUIRED")
+        payload = data.get("input") if isinstance(data.get("input"), dict) else {}
+        if not payload:
+            raise HTTPException(status_code=400, detail="AVANTIQO_INTELLIGENCE_INPUT_REQUIRED")
+        function = modal.Function.from_name(GPU_APP_NAME, lane)
+        call = function.spawn(payload)
+        call_id = _text(getattr(call, "object_id", ""))
+        if not call_id:
+            raise HTTPException(status_code=502, detail="AVANTIQO_INTELLIGENCE_MODAL_CALL_ID_REQUIRED")
         return {
             "success": True,
-            "contract": HTTP_CONTRACT,
-            "transport": TRANSPORT,
-            "status": "QUEUED",
-            "job_id": job_id,
+            "pending": True,
+            "status": "PENDING",
+            "provider_job_id": call_id,
             "execution_lane": lane,
-            "gpu_function": lane,
-            "proxy_timeout_safe": True,
+            "infrastructure_provider": "MODAL_H100_ASYNC_V1",
+            "modal_gpu": "H100",
+            "scale_to_zero": True,
+            "persistent_model_volume": False,
+            "runpod_inference_performed": False,
             "raw_reasoning_persisted": False,
         }
 
-    @web.get("/v1/jobs/{job_id}")
-    async def status(job_id: str) -> dict[str, Any]:
-        normalized = _text(job_id)
-        if not normalized or len(normalized) > 200:
+    @web.get("/v1/jobs/{call_id}")
+    async def status(call_id: str) -> dict[str, Any]:
+        clean_id = _text(call_id)
+        if not clean_id or len(clean_id) > 240:
             raise HTTPException(status_code=400, detail="AVANTIQO_INTELLIGENCE_MODAL_CALL_ID_INVALID")
-        call = modal.FunctionCall.from_id(normalized)
+        call = modal.FunctionCall.from_id(clean_id)
         try:
-            result = await call.get.aio(timeout=0)
+            result = call.get(timeout=0)
         except TimeoutError:
             return {
                 "success": True,
-                "contract": HTTP_CONTRACT,
-                "transport": TRANSPORT,
-                "status": "RUNNING",
-                "job_id": normalized,
-                "raw_reasoning_persisted": False,
-            }
-        except modal.exception.OutputExpiredError:
-            return {
-                "success": False,
-                "contract": HTTP_CONTRACT,
-                "transport": TRANSPORT,
-                "status": "FAILED",
-                "job_id": normalized,
-                "error_code": "AVANTIQO_INTELLIGENCE_MODAL_OUTPUT_EXPIRED",
+                "pending": True,
+                "status": "IN_PROGRESS",
+                "provider_job_id": clean_id,
+                "infrastructure_provider": "MODAL_H100_ASYNC_V1",
+                "modal_gpu": "H100",
+                "scale_to_zero": True,
+                "persistent_model_volume": False,
+                "runpod_inference_performed": False,
                 "raw_reasoning_persisted": False,
             }
         except Exception as exc:
             return {
                 "success": False,
-                "contract": HTTP_CONTRACT,
-                "transport": TRANSPORT,
+                "pending": False,
+                "failed": True,
                 "status": "FAILED",
-                "job_id": normalized,
-                "error_code": "AVANTIQO_INTELLIGENCE_MODAL_EXECUTION_FAILED",
-                "error_type": type(exc).__name__[:120],
-                "error_message": _text(exc)[:800],
+                "provider_job_id": clean_id,
+                "error": f"AVANTIQO_INTELLIGENCE_MODAL_JOB_FAILED:{type(exc).__name__}",
+                "infrastructure_provider": "MODAL_H100_ASYNC_V1",
+                "modal_gpu": "H100",
+                "scale_to_zero": True,
+                "persistent_model_volume": False,
+                "runpod_inference_performed": False,
                 "raw_reasoning_persisted": False,
             }
-        if not isinstance(result, dict):
-            return {
-                "success": False,
-                "contract": HTTP_CONTRACT,
-                "transport": TRANSPORT,
-                "status": "FAILED",
-                "job_id": normalized,
-                "error_code": "AVANTIQO_INTELLIGENCE_MODAL_OUTPUT_OBJECT_REQUIRED",
-                "raw_reasoning_persisted": False,
-            }
-        output = _safe(result)
-        if output.get("raw_reasoning_persisted") is not False:
-            return {
-                "success": False,
-                "contract": HTTP_CONTRACT,
-                "transport": TRANSPORT,
-                "status": "FAILED",
-                "job_id": normalized,
-                "error_code": "AVANTIQO_INTELLIGENCE_MODAL_REASONING_BOUNDARY_INVALID",
-                "raw_reasoning_persisted": False,
-            }
+        safe_result = _safe(result)
         return {
             "success": True,
-            "contract": HTTP_CONTRACT,
-            "transport": TRANSPORT,
-            "status": "SUCCEEDED",
-            "job_id": normalized,
-            "output": output,
+            "pending": False,
+            "status": "COMPLETED",
+            "provider_job_id": clean_id,
+            "output": safe_result,
+            "result": safe_result,
+            "infrastructure_provider": "MODAL_H100_ASYNC_V1",
+            "modal_gpu": "H100",
+            "scale_to_zero": True,
+            "persistent_model_volume": False,
+            "runpod_inference_performed": False,
             "raw_reasoning_persisted": False,
         }
 

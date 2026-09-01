@@ -1,0 +1,156 @@
+name: Avantiqo Voice Modal Recovery Certification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-voice-modal-recovery-certification.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-voice-modal-recovery-certification
+  cancel-in-progress: false
+
+jobs:
+  recover-and-certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      AVANTIQO_VOICE_ENGINE_ENABLED: "YES"
+      AVANTIQO_VOICE_MODAL_CHAINED_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_VOICE_MODAL_CHAIN_RECOVER_TTS_USAGE_ID: 824b0b2e-fa9c-4c32-84a4-4d55ee0125e1
+      AVANTIQO_VOICE_MODAL_CHAIN_CERT_EXPECTED_MAIN_COMMIT: ${{ github.sha }}
+      AVANTIQO_VOICE_MODAL_CHAIN_CERT_SOURCE_MAIN_COMMIT: ${{ github.sha }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Zero-cost source gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/assert-avantiqo-voice-modal-chain-stt-idempotency.mjs
+          node --check scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          node --check lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceModalDirectRuntime.js
+          node --test tests/avantiqo-voice-modal-direct-transport.test.mjs
+          python -m py_compile services/avantiqo-voice-modal/modal_app.py
+          grep -Fq '@modal.enter()' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'min_containers=0' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'max_containers=1' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'scaledown_window=5' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'SECOND_PRICING_REQUIRED' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          grep -Fq 'TTS_RECOVERY_REQUIRES_RESUME_MODE' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          echo 'AVANTIQO_VOICE_RECOVERY_STATIC_GATE=PASS'
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+
+      - name: Require deployment and recovery credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          echo 'AVANTIQO_VOICE_RECOVERY_CREDENTIALS=PASS'
+
+      - name: Deploy preloaded Voice class workers
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-voice-modal
+          modal deploy modal_app.py
+          echo 'AVANTIQO_VOICE_PRELOAD_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Verify deployed Voice methods are idle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import modal
+
+          app_name = "avantiqo-voice-owned"
+          workers = [("VoiceStt", "transcribe"), ("VoiceTts", "speak")]
+          reports = []
+          for class_name, method_name in workers:
+              cls = modal.Cls.from_name(app_name, class_name)
+              obj = cls()
+              method = getattr(obj, method_name)
+              stats = method.get_current_stats()
+              backlog = int(getattr(stats, "backlog", 0) or 0)
+              runners = int(getattr(stats, "num_total_runners", 0) or 0)
+              if backlog != 0 or runners != 0:
+                  raise RuntimeError(
+                      f"AVANTIQO_VOICE_RECOVERY_NOT_IDLE:{class_name}.{method_name}:"
+                      f"backlog={backlog}:runners={runners}"
+                  )
+              reports.append((class_name, method_name, backlog, runners))
+          print(f"AVANTIQO_VOICE_RECOVERY_IDLE=PASS workers={reports}")
+          print("GPU_INFERENCE_PERFORMED=false")
+          PY
+
+      - name: Prove historical TTS and no prior recovery STT
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/assert-avantiqo-voice-modal-chain-stt-idempotency.mjs
+
+      - name: Resume chain with one STT maximum
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/certify-avantiqo-voice-modal-chained-service-live.mjs --resume
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VOICE_PRICING_ACTIVATED=false'
+          echo 'VOICE_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'
+          echo 'NEW_TTS_JOB_ALLOWED=false'
+          echo 'MAX_NEW_STT_JOBS=1'
+
+      - name: Upload Voice certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-voice-modal-recovery-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            local-audit-output/avantiqo-voice-modal-chained-service-certification/state.json
+            local-audit-output/avantiqo-voice-modal-chained-service-certification/report.json
+            local-audit-output/avantiqo-voice-modal-chained-service-certification/tts-exact-stored.wav

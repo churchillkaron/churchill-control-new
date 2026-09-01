@@ -30,21 +30,17 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path('scripts/certify-avantiqo-voice-modal-chained-service-live.mjs')
           text = path.read_text()
 
-          text, n = re.subn(
-              r'const PHRASE = "Bright morning signals cross seven quiet bridges before sunrise\.";',
-              'const PHRASE = "Bright morning signals cross quiet bridges before sunrise.";',
-              text,
-              count=1,
-          )
-          if n != 1:
+          old_phrase = 'const PHRASE = "Bright morning signals cross seven quiet bridges before sunrise.";'
+          new_phrase = 'const PHRASE = "Bright morning signals cross quiet bridges before sunrise.";'
+          if text.count(old_phrase) != 1:
               raise SystemExit('VOICE_CHAIN_PHRASE_PATCH_TARGET_INVALID')
+          text = text.replace(old_phrase, new_phrase, 1)
 
-          marker = '''async function requireIdle() {
+          idle_fn = '''async function requireIdle() {
   const [tts, stt] = await Promise.all([stats(ttsWorker), stats(sttWorker)]);
   if (tts.backlog !== 0 || tts.runners !== 0 || stt.backlog !== 0 || stt.runners !== 0) {
     throw new Error(`${CONTRACT}_DUPLICATE_GPU_GUARD_ACTIVE:tts=${tts.backlog}/${tts.runners}:stt=${stt.backlog}/${stt.runners}`);
@@ -52,9 +48,10 @@ jobs:
   return { tts, stt };
 }
 '''
-          if text.count(marker) != 1:
+          if text.count(idle_fn) != 1:
               raise SystemExit('VOICE_CHAIN_IDLE_FUNCTION_PATCH_TARGET_INVALID')
-          text = text.replace(marker, marker + '''async function waitForIdleDrain() {
+
+          drain_fn = '''async function waitForIdleDrain() {
   let latest = null;
   for (let attempt = 1; attempt <= 12; attempt += 1) {
     await sleep(attempt === 1 ? 8_000 : 5_000);
@@ -67,32 +64,36 @@ jobs:
   }
   throw new Error(`${CONTRACT}_SCALE_TO_ZERO_NOT_OBSERVED_BEFORE_STT:tts=${latest?.tts?.backlog ?? -1}/${latest?.tts?.runners ?? -1}:stt=${latest?.stt?.backlog ?? -1}/${latest?.stt?.runners ?? -1}`);
 }
-''', 1)
+'''
+          text = text.replace(idle_fn, idle_fn + drain_fn, 1)
 
-          text, n = re.subn(
-              r'(if \(!state\?\.provider_job_id\) \{\n)\s*await requireIdle\(\);\n',
-              r'\1',
-              text,
-              count=1,
-          )
-          if n != 1:
-              raise SystemExit('VOICE_CHAIN_REDUNDANT_PRE_TTS_IDLE_PATCH_TARGET_INVALID')
+          needle = 'await requireIdle();'
+          positions = []
+          start = 0
+          while True:
+              index = text.find(needle, start)
+              if index < 0:
+                  break
+              positions.append(index)
+              start = index + len(needle)
 
-          text, n = re.subn(
-              r'(if \(!\["STT_SUBMITTED", "STT_POLLING"\]\.includes\(state\?\.phase\)\) \{\n)\s*await requireIdle\(\);\n',
-              r'\1  await waitForIdleDrain();\n',
-              text,
-              count=1,
-          )
-          if n != 1:
-              raise SystemExit('VOICE_CHAIN_TTS_STT_DRAIN_PATCH_TARGET_INVALID')
+          if len(positions) != 2:
+              raise SystemExit(f'VOICE_CHAIN_STANDALONE_IDLE_CALL_COUNT_INVALID:{len(positions)}')
+
+          first = positions[0]
+          text = text[:first] + text[first + len(needle):]
+
+          second = text.find(needle, first)
+          if second < 0:
+              raise SystemExit('VOICE_CHAIN_STT_IDLE_CALL_NOT_FOUND_AFTER_FIRST_REMOVAL')
+          text = text[:second] + 'await waitForIdleDrain();' + text[second + len(needle):]
 
           path.write_text(text)
           PY
 
           node --check scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
-          grep -Fq 'await waitForIdleDrain();' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
           test "$(grep -Fc 'await requireIdle();' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs)" -eq 0
+          test "$(grep -Fc 'await waitForIdleDrain();' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs)" -eq 1
           grep -Fq 'Bright morning signals cross quiet bridges before sunrise.' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
           echo 'VOICE_CHAIN_IDLE_GUARD_HOTFIX_STATIC_GATE=PASS'
 

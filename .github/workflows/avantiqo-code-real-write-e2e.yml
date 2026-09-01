@@ -21,6 +21,7 @@ on:
 permissions:
   contents: read
 
+# Re-run the single hard proof after infrastructure-only GPU pool changes.
 concurrency:
   group: avantiqo-code-real-write-e2e
   cancel-in-progress: false

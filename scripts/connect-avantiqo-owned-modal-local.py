@@ -4,11 +4,21 @@
 Voice can be deployed without model seeding because its certified images already
 contain Whisper/Chatterbox. Intelligence and Audio require first-time immutable
 Modal image-layer model bakes; those are skipped unless their explicit approval
-environment variables equal YES. This connector never submits inference, never
-mutates RunPod, and never deploys Vercel production.
+environment variables equal YES.
+
+The Audio worker image is private in GHCR. Before any Modal image build this
+connector proves the exact immutable digest is pullable with the already-authorized
+local GitHub CLI credential. The credential is then passed only to the worker
+deploy subprocess so Modal can create an ephemeral registry Secret for
+Image.from_registry. It is never printed, written to .env.local, attached to the
+runtime function, or persisted as a named Modal application secret.
+
+This connector never submits inference, never mutates RunPod, and never deploys
+Vercel production.
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
@@ -20,14 +30,17 @@ import time
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 WORKSPACE = "churchillkaron"
-CONTRACT = "AVANTIQO_OWNED_MODAL_CUTOVER_V2"
+CONTRACT = "AVANTIQO_OWNED_MODAL_CUTOVER_V3"
 MODAL_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\.modal\.run")
 HEALTH_TIMEOUT_SECONDS = 120
 HEALTH_ATTEMPTS = 2
 HEALTH_RETRY_SECONDS = 5
+AUDIO_GHCR_REPOSITORY = "churchillkaron/avantiqo-audio-worker"
+AUDIO_GHCR_DIGEST = "sha256:fe148b123a7c8ce95c639a22abf8f0e918cba5f0e28f71bc4e3fe254c893b56b"
 
 ENGINES = {
     "voice": {
@@ -83,7 +96,17 @@ def approved(name: str | None) -> bool:
     return bool(name and text(os.environ.get(name)).upper() == "YES")
 
 
-def run(command: list[str], *, cwd: Path | None = None, timeout: int = 7200) -> subprocess.CompletedProcess[str]:
+def run(
+    command: list[str],
+    *,
+    cwd: Path | None = None,
+    timeout: int = 7200,
+    env_updates: dict[str, str] | None = None,
+    secret_command: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    process_env = os.environ.copy()
+    if env_updates:
+        process_env.update(env_updates)
     result = subprocess.run(
         command,
         cwd=str(cwd) if cwd else None,
@@ -92,11 +115,15 @@ def run(command: list[str], *, cwd: Path | None = None, timeout: int = 7200) -> 
         text=True,
         timeout=timeout,
         check=False,
-        env=os.environ.copy(),
+        env=process_env,
     )
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "UNKNOWN").strip()[-5000:]
-        raise RuntimeError(f"AVANTIQO_OWNED_MODAL_COMMAND_FAILED:{' '.join(command[:3])}:{detail}")
+        # Preserve both streams because Modal frequently places the useful build
+        # diagnostic in stdout while the final wrapper error lands in stderr.
+        combined = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
+        detail = combined[-12000:] if combined else "UNKNOWN"
+        command_label = command[0] if secret_command else " ".join(command[:3])
+        raise RuntimeError(f"AVANTIQO_OWNED_MODAL_COMMAND_FAILED:{command_label}:{detail}")
     return result
 
 
@@ -150,7 +177,80 @@ def create_secret(modal_cli: str, *, name: str, key: str, value: str, temp: Path
     secret_file = temp / f"{name}.env"
     secret_file.write_text(f"{key}={value}\n", encoding="utf-8")
     os.chmod(secret_file, 0o600)
-    run([modal_cli, "secret", "create", name, "--from-dotenv", str(secret_file), "--force"], timeout=120)
+    run(
+        [modal_cli, "secret", "create", name, "--from-dotenv", str(secret_file), "--force"],
+        timeout=120,
+        secret_command=True,
+    )
+
+
+def gh_value(gh_cli: str, args: list[str], error_code: str) -> str:
+    result = subprocess.run(
+        [gh_cli, *args],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        timeout=60,
+        check=False,
+        env=os.environ.copy(),
+    )
+    value = text(result.stdout)
+    if result.returncode != 0 or not value:
+        raise RuntimeError(error_code)
+    return value
+
+
+def prove_audio_ghcr_pull(gh_cli: str) -> tuple[str, str]:
+    username = gh_value(gh_cli, ["api", "user", "--jq", ".login"], "AVANTIQO_LOCAL_GH_LOGIN_REQUIRED")
+    github_token = gh_value(gh_cli, ["auth", "token", "-h", "github.com"], "AVANTIQO_LOCAL_GH_TOKEN_REQUIRED")
+
+    basic = base64.b64encode(f"{username}:{github_token}".encode("utf-8")).decode("ascii")
+    token_query = urlencode({
+        "service": "ghcr.io",
+        "scope": f"repository:{AUDIO_GHCR_REPOSITORY}:pull",
+    })
+    token_request = Request(
+        f"https://ghcr.io/token?{token_query}",
+        headers={"Authorization": f"Basic {basic}", "Accept": "application/json"},
+    )
+    try:
+        with urlopen(token_request, timeout=30) as response:
+            token_body = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, OSError, ValueError) as exc:
+        raise RuntimeError("AVANTIQO_AUDIO_GHCR_PULL_TOKEN_PROOF_FAILED") from exc
+
+    registry_token = text(token_body.get("token") or token_body.get("access_token"))
+    if not registry_token:
+        raise RuntimeError("AVANTIQO_AUDIO_GHCR_PULL_TOKEN_MISSING")
+
+    manifest_request = Request(
+        f"https://ghcr.io/v2/{AUDIO_GHCR_REPOSITORY}/manifests/{quote(AUDIO_GHCR_DIGEST, safe=':')}",
+        headers={
+            "Authorization": f"Bearer {registry_token}",
+            "Accept": ", ".join((
+                "application/vnd.oci.image.index.v1+json",
+                "application/vnd.oci.image.manifest.v1+json",
+                "application/vnd.docker.distribution.manifest.list.v2+json",
+                "application/vnd.docker.distribution.manifest.v2+json",
+            )),
+        },
+    )
+    try:
+        with urlopen(manifest_request, timeout=30) as response:
+            content_digest = text(response.headers.get("docker-content-digest"))
+            response.read()
+    except (HTTPError, URLError, OSError) as exc:
+        raise RuntimeError("AVANTIQO_AUDIO_GHCR_IMMUTABLE_PULL_PROOF_FAILED") from exc
+
+    if content_digest and content_digest.lower() != AUDIO_GHCR_DIGEST.lower():
+        raise RuntimeError("AVANTIQO_AUDIO_GHCR_IMMUTABLE_PULL_DIGEST_MISMATCH")
+
+    print(
+        "AVANTIQO_AUDIO_GHCR_IMMUTABLE_PULL_PROOF=PASS "
+        "authenticated=true exact_digest=true secret_printed=false",
+        flush=True,
+    )
+    return username, github_token
 
 
 def deployed_url(result: subprocess.CompletedProcess[str]) -> str:
@@ -202,6 +302,7 @@ def main() -> None:
         raise RuntimeError("AVANTIQO_OWNED_MODAL_RUN_FROM_REPOSITORY_ROOT_REQUIRED")
     modal_cli = shutil.which("modal")
     git_cli = shutil.which("git")
+    gh_cli = shutil.which("gh")
     if not modal_cli:
         raise RuntimeError("AVANTIQO_OWNED_MODAL_CLI_REQUIRED")
     if not git_cli:
@@ -238,6 +339,13 @@ def main() -> None:
         else:
             selected[name] = config
 
+    audio_registry_credentials: tuple[str, str] | None = None
+    if "audio" in selected:
+        if not gh_cli:
+            raise RuntimeError("AVANTIQO_AUDIO_LOCAL_GH_CLI_REQUIRED")
+        # Zero-GPU, zero-deploy proof before Modal is allowed to build anything.
+        audio_registry_credentials = prove_audio_ghcr_pull(gh_cli)
+
     with tempfile.TemporaryDirectory(prefix="avantiqo-owned-modal-") as temp_raw:
         temp = Path(temp_raw)
         archive = temp / "owned-modal.tar"
@@ -259,6 +367,31 @@ def main() -> None:
 
         results: dict[str, dict[str, Any]] = {}
         for name, config in selected.items():
+            engine_dir = temp / config["source_dir"]
+            print(
+                f"AVANTIQO_{name.upper()}_MODAL_WORKER_DEPLOY_START "
+                f"model_bake_approved={str(approved(config['approval_env'])).lower()} "
+                "gpu_inference=false",
+                flush=True,
+            )
+
+            worker_env: dict[str, str] | None = None
+            if name == "audio":
+                assert audio_registry_credentials is not None
+                worker_env = {
+                    "AVANTIQO_MODAL_REGISTRY_USERNAME": audio_registry_credentials[0],
+                    "AVANTIQO_MODAL_REGISTRY_PASSWORD": audio_registry_credentials[1],
+                }
+            run(
+                [modal_cli, "deploy", "modal_app.py"],
+                cwd=engine_dir,
+                timeout=3 * 60 * 60,
+                env_updates=worker_env,
+                secret_command=name == "audio",
+            )
+
+            # Only after the expensive/structural worker build has succeeded do
+            # we rotate the lightweight gateway secret and deploy its CPU API.
             token = secrets.token_urlsafe(48)
             if len(token) < 40:
                 raise RuntimeError(f"AVANTIQO_{name.upper()}_MODAL_GATEWAY_TOKEN_GENERATION_FAILED")
@@ -269,14 +402,7 @@ def main() -> None:
                 value=token,
                 temp=temp,
             )
-            engine_dir = temp / config["source_dir"]
-            print(
-                f"AVANTIQO_{name.upper()}_MODAL_WORKER_DEPLOY_START "
-                f"model_bake_approved={str(approved(config['approval_env'])).lower()} "
-                "gpu_inference=false",
-                flush=True,
-            )
-            run([modal_cli, "deploy", "modal_app.py"], cwd=engine_dir, timeout=3 * 60 * 60)
+
             print(f"AVANTIQO_{name.upper()}_MODAL_GATEWAY_DEPLOY_START gpu_inference=false", flush=True)
             gateway_deploy = run([modal_cli, "deploy", "modal_service.py"], cwd=engine_dir, timeout=30 * 60)
             base_url = deployed_url(gateway_deploy)
@@ -316,6 +442,9 @@ def main() -> None:
         "contract": CONTRACT,
         "engines": results,
         "skipped": skipped,
+        "audio_private_ghcr_pull_proof_performed": "audio" in selected,
+        "audio_registry_credential_persisted": False,
+        "audio_registry_credential_attached_to_runtime": False,
         "health_timeout_seconds_per_attempt": HEALTH_TIMEOUT_SECONDS,
         "model_bake_requires_explicit_approval": True,
         "gpu_inference_performed": False,
@@ -323,6 +452,7 @@ def main() -> None:
         "runpod_generation_routing": False,
         "production_vercel_deploy_performed": False,
         "gateway_tokens_printed": False,
+        "registry_credentials_printed": False,
     }, separators=(",", ":")), flush=True)
     print(f"{CONTRACT}={'PASS' if success else 'PARTIAL'}", flush=True)
 

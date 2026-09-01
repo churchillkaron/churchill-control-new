@@ -1,0 +1,39 @@
+name: Avantiqo Intelligence Modal Readiness V1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-modal-readiness-v1.yml
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check credential presence without exposing values
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          AVANTIQO_INTELLIGENCE_MODAL_BASE_URL: ${{ secrets.AVANTIQO_INTELLIGENCE_MODAL_BASE_URL }}
+          AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN: ${{ secrets.AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          check() {
+            if [ -n "${!1:-}" ]; then
+              echo "$1=PRESENT"
+            else
+              echo "$1=MISSING"
+            fi
+          }
+          check MODAL_TOKEN_ID
+          check MODAL_TOKEN_SECRET
+          check AVANTIQO_INTELLIGENCE_MODAL_BASE_URL
+          check AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN
+          echo "GPU_INFERENCE_PERFORMED=false"
+          echo "RUNPOD_MUTATION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

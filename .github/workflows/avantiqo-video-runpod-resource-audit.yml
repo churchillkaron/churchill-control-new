@@ -37,9 +37,9 @@ jobs:
           wget --quiet https://github.com/runpod/runpodctl/releases/latest/download/runpodctl-linux-amd64 -O /tmp/runpodctl
           chmod +x /tmp/runpodctl
           echo 'AVANTIQO_VIDEO_MODEL_REPO_LTX_SEARCH_START=true'
-          /tmp/runpodctl model list --all --name 'LTX' --output=json || true
-          /tmp/runpodctl model list --all --name 'ltx' --output=json || true
-          /tmp/runpodctl model list --all --provider 'Lightricks' --output=json || true
+          /tmp/runpodctl model list --name 'LTX' --output=json || true
+          /tmp/runpodctl model list --name 'ltx' --output=json || true
+          /tmp/runpodctl model list --provider 'Lightricks' --output=json || true
           echo 'AVANTIQO_VIDEO_MODEL_REPO_LTX_SEARCH_COMPLETE=true'
       - name: Capture Serverless container startup logs read-only
         shell: bash

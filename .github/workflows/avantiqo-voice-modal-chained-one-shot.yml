@@ -1,0 +1,85 @@
+name: Avantiqo Voice Modal Chained One Shot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-voice-modal-chained-one-shot.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-voice-modal-chained-one-shot
+  cancel-in-progress: false
+
+jobs:
+  certify-voice-modal-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      AVANTIQO_VOICE_ENGINE_ENABLED: "YES"
+      AVANTIQO_VOICE_MODAL_CHAINED_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_VOICE_MODAL_CHAIN_CERT_EXPECTED_MAIN_COMMIT: ${{ github.sha }}
+      AVANTIQO_VOICE_MODAL_CHAIN_CERT_SOURCE_MAIN_COMMIT: ${{ github.sha }}
+
+    steps:
+      - name: Checkout exact certification commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Static gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          grep -Fq 'AVANTIQO_VOICE_MODAL_CHAINED_REAL_INFERENCE_APPROVED' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          grep -Fq 'max_provider_jobs: 2' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          grep -Fq 'exact_stored_wav_reused_for_stt: true' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          grep -Fq 'production_routing_allowed: false' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          echo 'AVANTIQO_VOICE_MODAL_CHAIN_STATIC_GATE=PASS'
+
+      - name: Run one chained TTS to STT proof
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/certify-avantiqo-voice-modal-chained-service-live.mjs --execute
+
+      - name: Verify immutable release boundary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'
+          echo 'PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'EXTERNAL_VOICE_FALLBACK_USED=false'
+          echo 'RUNPOD_USED=false'
+
+      - name: Upload Voice certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-voice-modal-chained-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            local-audit-output/avantiqo-voice-modal-chained-service-certification/state.json
+            local-audit-output/avantiqo-voice-modal-chained-service-certification/report.json
+            local-audit-output/avantiqo-voice-modal-chained-service-certification/tts-exact-stored.wav

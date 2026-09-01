@@ -12,6 +12,11 @@ function text(value, limit = 1000) {
   return String(value ?? "").trim().slice(0, limit);
 }
 
+function positive(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
 export async function POST(request) {
   if (!authorizeSecretaryCallIngress(request)) {
     return secretaryCallIngressUnauthorized();
@@ -24,12 +29,14 @@ export async function POST(request) {
     let mimeType = "audio/wav";
     let fileName = "secretary-call.wav";
     let language = null;
+    let durationSeconds = null;
 
     if (contentType.includes("multipart/form-data")) {
       const form = await request.formData();
       callId = text(form.get("callId") || form.get("call_id"), 120);
       audio = form.get("audio");
       language = text(form.get("language"), 80) || null;
+      durationSeconds = positive(form.get("durationSeconds") || form.get("duration_seconds"));
       if (audio && typeof audio === "object") {
         mimeType = text(audio.type, 120) || mimeType;
         fileName = text(audio.name, 500) || fileName;
@@ -38,6 +45,7 @@ export async function POST(request) {
       const body = await request.json();
       callId = text(body?.callId || body?.call_id, 120);
       language = text(body?.language, 80) || null;
+      durationSeconds = positive(body?.durationSeconds || body?.duration_seconds);
       mimeType = text(body?.mimeType || body?.mime_type, 120) || mimeType;
       fileName = text(body?.fileName || body?.file_name, 500) || fileName;
       const encoded = text(body?.audioBase64 || body?.audio_base64, 100000000);
@@ -57,6 +65,7 @@ export async function POST(request) {
       mimeType,
       fileName,
       language,
+      durationSeconds,
     });
 
     return Response.json(

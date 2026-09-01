@@ -58,6 +58,7 @@ jobs:
           node --check scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
           node --check lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceModalDirectRuntime.js
           node --test tests/avantiqo-voice-modal-direct-transport.test.mjs
+          node --test tests/secretary-voice-runtime-safety.test.mjs
           python -m py_compile services/avantiqo-voice-modal/modal_app.py
           grep -Fq '@modal.enter()' services/avantiqo-voice-modal/modal_app.py
           grep -Fq 'min_containers=0' services/avantiqo-voice-modal/modal_app.py

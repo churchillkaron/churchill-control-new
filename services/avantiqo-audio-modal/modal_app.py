@@ -1,13 +1,14 @@
 """Scale-to-zero Modal worker for the owned Avantiqo ACE-Step Audio engine.
 
-The existing immutable Audio runtime image contains the exact ACE-Step source but
-not its model checkpoints. This Modal image definition bakes the XL Turbo DiT
-and 1.7B LM into an immutable image layer at deploy time. No Modal Volume is
-created and no inference runs while the image is built.
+The certified Audio runtime image contains the exact pinned ACE-Step 1.5 source
+but not its model checkpoints. Modal bakes the upstream-required main model
+package plus the certified XL Turbo DiT into one immutable image layer at deploy
+time. No Modal Volume is created and no inference runs while the image is built.
 """
 from __future__ import annotations
 
 import os
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -28,41 +29,100 @@ WORKER_IMAGE = (
 CHECKPOINT_DIR = "/opt/ace-step/checkpoints"
 GPU = "A10G"
 CAPABILITIES = {"ai.music.generate", "ai.audio.remix", "ai.audio.edit"}
+MAIN_COMPONENTS = (
+    "acestep-v15-turbo",
+    "vae",
+    "Qwen3-Embedding-0.6B",
+    LM_MODEL,
+)
+_WEIGHT_FILENAMES = (
+    "model.safetensors",
+    "model.safetensors.index.json",
+    "pytorch_model.bin",
+    "pytorch_model.bin.index.json",
+    "diffusion_pytorch_model.safetensors",
+    "diffusion_pytorch_model.safetensors.index.json",
+    "diffusion_pytorch_model.bin",
+    "diffusion_pytorch_model.bin.index.json",
+)
 
 app = modal.App(APP_NAME)
 
 
+def _assert_nonempty_model(root: Path, model_name: str) -> None:
+    model_dir = root / model_name
+    if not model_dir.is_dir():
+        raise RuntimeError(f"AVANTIQO_AUDIO_MODAL_MODEL_DIRECTORY_MISSING:{model_name}")
+    candidates = [model_dir / name for name in _WEIGHT_FILENAMES]
+    existing = [path for path in candidates if path.is_file()]
+    if not existing:
+        raise RuntimeError(f"AVANTIQO_AUDIO_MODAL_MODEL_WEIGHTS_MISSING:{model_name}")
+    if any(path.stat().st_size <= 0 for path in existing):
+        raise RuntimeError(f"AVANTIQO_AUDIO_MODAL_MODEL_WEIGHT_FILE_EMPTY:{model_name}")
+
+
 def _bake_models() -> None:
-    from acestep.model_downloader import download_submodel, ensure_lm_model
+    # The pinned ACE-Step runtime intentionally treats the default 1.7B LM as a
+    # component of ACE-Step/Ace-Step1.5, not as a standalone SUBMODEL_REGISTRY
+    # entry. Downloading only XL Turbo and then calling ensure_lm_model() is a
+    # deterministic failure on a fresh cache. Build the exact upstream main
+    # package first, then the certified XL Turbo submodel.
+    from acestep.model_downloader import (
+        check_main_model_exists,
+        check_model_exists,
+        download_main_model,
+        download_submodel,
+    )
+
+    sys.path.insert(0, "/app")
+    from cache_integrity import missing_sharded_checkpoint_files
 
     checkpoint_dir = Path(CHECKPOINT_DIR)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    download_submodel(
-        MODEL_VARIANT,
-        checkpoints_dir=str(checkpoint_dir),
+
+    main_ok, main_status = download_main_model(
+        checkpoints_dir=checkpoint_dir,
         force=False,
         prefer_source="huggingface",
     )
-    lm_ok, lm_status = ensure_lm_model(
-        model_name=LM_MODEL,
-        checkpoints_dir=str(checkpoint_dir),
+    if not main_ok:
+        detail = str(main_status or "UNKNOWN").replace("\n", " ")[:1000]
+        raise RuntimeError(f"AVANTIQO_AUDIO_MODAL_MAIN_MODEL_BAKE_FAILED:{detail}")
+
+    dit_ok, dit_status = download_submodel(
+        MODEL_VARIANT,
+        checkpoints_dir=checkpoint_dir,
+        force=False,
         prefer_source="huggingface",
     )
-    if not lm_ok:
-        raise RuntimeError(f"AVANTIQO_AUDIO_MODAL_LM_BAKE_FAILED:{str(lm_status)[:500]}")
-    variant = checkpoint_dir / MODEL_VARIANT
-    if not variant.is_dir():
-        raise RuntimeError("AVANTIQO_AUDIO_MODAL_DIT_BAKE_MISSING")
-    if not any(variant.glob("*.safetensors")):
-        raise RuntimeError("AVANTIQO_AUDIO_MODAL_DIT_WEIGHTS_MISSING")
+    if not dit_ok:
+        detail = str(dit_status or "UNKNOWN").replace("\n", " ")[:1000]
+        raise RuntimeError(f"AVANTIQO_AUDIO_MODAL_XL_DIT_BAKE_FAILED:{detail}")
+
+    if not check_main_model_exists(checkpoint_dir):
+        raise RuntimeError("AVANTIQO_AUDIO_MODAL_MAIN_MODEL_INCOMPLETE")
+    if not check_model_exists(MODEL_VARIANT, checkpoint_dir):
+        raise RuntimeError("AVANTIQO_AUDIO_MODAL_XL_DIT_INCOMPLETE")
+
+    for model_name in (*MAIN_COMPONENTS, MODEL_VARIANT):
+        _assert_nonempty_model(checkpoint_dir, model_name)
+        missing = missing_sharded_checkpoint_files(checkpoint_dir, model_name)
+        if missing:
+            detail = ",".join(missing[:16])
+            raise RuntimeError(
+                f"AVANTIQO_AUDIO_MODAL_MODEL_SHARDS_INCOMPLETE:{model_name}:{detail}"
+            )
+
     print(
-        "AVANTIQO_AUDIO_MODAL_MODEL_BAKE=PASS modal_volume_created=false inference_performed=false",
+        "AVANTIQO_AUDIO_MODAL_MODEL_BAKE=PASS "
+        "main_model_complete=true xl_dit_complete=true "
+        "modal_volume_created=false inference_performed=false",
         flush=True,
     )
 
 
-# Model download is allowed only during the immutable image build. The runtime
-# becomes fully offline after the checkpoint layer has been committed.
+# Network access is permitted only for this explicitly approved immutable model
+# image build. Runtime inference is forced offline after the layer is committed.
 worker_image = (
     modal.Image.from_registry(
         WORKER_IMAGE,

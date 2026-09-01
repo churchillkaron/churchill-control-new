@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - scripts/migrate-avantiqo-code-runpod-global-cached-model-v3-local.mjs
       - scripts/run-avantiqo-code-real-write-auto-transport-e2e-proof-v10-local.mjs
       - scripts/run-avantiqo-code-real-write-pod-e2e-proof-v9-local.mjs
       - scripts/run-avantiqo-code-real-write-pod-e2e-proof-v8-local.mjs
@@ -27,7 +28,7 @@ concurrency:
 jobs:
   certify-real-code-write:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,8 +38,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Syntax-check automatic real-write transport
+      - name: Syntax-check repair and automatic real-write transport
         run: |
+          node --check scripts/migrate-avantiqo-code-runpod-global-cached-model-v3-local.mjs
           node --check scripts/run-avantiqo-code-real-write-auto-transport-e2e-proof-v10-local.mjs
           node --check scripts/run-avantiqo-code-real-write-pod-e2e-proof-v9-local.mjs
           node --check scripts/run-avantiqo-code-real-write-pod-e2e-proof-v8-local.mjs
@@ -47,6 +49,25 @@ jobs:
           node --check scripts/run-avantiqo-code-real-write-serverless-child-v1.mjs
           node --check scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
           node --check scripts/avantiqo-code-runpod-distributed-lease.mjs
+
+      - name: Force-refresh idle Code cached-model scheduler state
+        env:
+          NODE_ENV: development
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+          AVANTIQO_CODE_GLOBAL_CACHED_MODEL_MIGRATION_APPROVED: "YES"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/migrate-avantiqo-code-runpod-global-cached-model-v3-local.mjs \
+            2>&1 | tee /tmp/avantiqo-code-scheduler-refresh.log
+          grep -F 'AVANTIQO_CODE_RUNPOD_GLOBAL_CACHED_MODEL_MIGRATION_V3=PASS' /tmp/avantiqo-code-scheduler-refresh.log >/dev/null
+          grep -F '"code_storage_count": 1' /tmp/avantiqo-code-scheduler-refresh.log >/dev/null
+          grep -F '"new_storage_created": false' /tmp/avantiqo-code-scheduler-refresh.log >/dev/null
+          grep -F '"workers_min": 0' /tmp/avantiqo-code-scheduler-refresh.log >/dev/null
+          grep -F '"workers_max": 0' /tmp/avantiqo-code-scheduler-refresh.log >/dev/null
+          grep -F '"production_deploy_performed": false' /tmp/avantiqo-code-scheduler-refresh.log >/dev/null
 
       - name: Run one-shot Pod to Serverless real Code write proof
         env:
@@ -107,5 +128,6 @@ jobs:
           path: |
             artifacts/avantiqo-code-real-write-e2e.json
             /tmp/avantiqo-code-real-write-e2e.log
+            /tmp/avantiqo-code-scheduler-refresh.log
           if-no-files-found: warn
           retention-days: 14

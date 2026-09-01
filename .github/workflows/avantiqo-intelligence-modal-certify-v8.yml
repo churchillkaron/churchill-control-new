@@ -1,0 +1,188 @@
+name: Avantiqo Intelligence Modal Certify V8
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-modal-certify-v8.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-modal-certify-v8
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_CERT_EXPECTED_MAIN_COMMIT: ${{ github.sha }}
+      AVANTIQO_INTELLIGENCE_MODAL_CERT_SOURCE_MAIN_COMMIT: ${{ github.sha }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5' 'python-dotenv==1.1.1'
+          modal --version
+
+      - name: Reprove zero-cost runtime and credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/avantiqo-intelligence-safe-lease-provider-guard.test.mjs
+          node --check scripts/certify-avantiqo-intelligence-modal-gateway-service-live.mjs
+          python -m py_compile services/avantiqo-intelligence-modal/modal_service.py
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          python - <<'PY'
+          import modal
+          rows=[]
+          for name in ("fast", "deep"):
+              function=modal.Function.from_name("avantiqo-intelligence-owned", name)
+              stats=function.get_current_stats()
+              backlog=int(getattr(stats,"backlog",0) or 0)
+              runners=int(getattr(stats,"num_total_runners",0) or 0)
+              if backlog or runners:
+                  raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_V8_NOT_IDLE:{name}:{backlog}:{runners}")
+              rows.append((name,backlog,runners))
+          print(f"AVANTIQO_INTELLIGENCE_MODAL_V8_IDLE_BEFORE=PASS workers={rows}")
+          print("GPU_INFERENCE_PERFORMED=false")
+          PY
+
+      - name: Create authenticated gateway secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(python - <<'PY'
+          import secrets
+          print(secrets.token_urlsafe(48))
+          PY
+          )"
+          test "${#token}" -ge 40
+          echo "::add-mask::$token"
+          secret_file="$(mktemp)"
+          chmod 600 "$secret_file"
+          printf 'AVANTIQO_INTELLIGENCE_GATEWAY_TOKEN=%s\n' "$token" > "$secret_file"
+          modal secret create avantiqo-intelligence-gateway --from-dotenv "$secret_file" --force
+          rm -f "$secret_file"
+          echo "AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN=$token" >> "$GITHUB_ENV"
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_V8_SECRET=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Deploy CPU gateway and capture URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-intelligence-modal
+          deploy_log="$(mktemp)"
+          modal deploy modal_service.py 2>&1 | tee "$deploy_log"
+          base_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.modal\.run' "$deploy_log" | tail -n 1)"
+          if [ -z "$base_url" ]; then
+            echo 'AVANTIQO_INTELLIGENCE_MODAL_V8_GATEWAY_URL_PARSE_FAILED'
+            cat "$deploy_log"
+            exit 1
+          fi
+          rm -f "$deploy_log"
+          echo "AVANTIQO_INTELLIGENCE_MODAL_BASE_URL=$base_url" >> "$GITHUB_ENV"
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_V8_GATEWAY_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Prove gateway health before inference
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const response = await fetch(`${process.env.AVANTIQO_INTELLIGENCE_MODAL_BASE_URL}/health`, {
+            headers: {
+              Authorization: `Bearer ${process.env.AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN}`,
+              Accept: 'application/json',
+            },
+            signal: AbortSignal.timeout(30000),
+          });
+          const body=await response.json();
+          if (!response.ok) throw new Error(`HEALTH_HTTP_${response.status}`);
+          if (body.contract !== 'AVANTIQO_INTELLIGENCE_MODAL_HTTP_V1') throw new Error('HEALTH_CONTRACT_INVALID');
+          if (body.gpu_worker !== 'H100') throw new Error('HEALTH_GPU_INVALID');
+          if (body.scale_to_zero !== true) throw new Error('HEALTH_SCALE_TO_ZERO_INVALID');
+          if (body.gateway_gpu_imported !== false || body.gpu_inference_performed !== false || body.runpod_used !== false) throw new Error('HEALTH_BOUNDARY_INVALID');
+          console.log('AVANTIQO_INTELLIGENCE_MODAL_V8_GATEWAY_HEALTH=PASS');
+          console.log('GPU_INFERENCE_PERFORMED=false');
+          NODE
+
+      - name: Run the one governed Fast request and settle it
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/certify-avantiqo-intelligence-modal-gateway-service-live.mjs
+
+      - name: Verify Fast H100 returns to zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import time
+          import modal
+          function=modal.Function.from_name("avantiqo-intelligence-owned","fast")
+          last=(None,None)
+          for attempt in range(1,13):
+              if attempt>1: time.sleep(5)
+              stats=function.get_current_stats()
+              backlog=int(getattr(stats,"backlog",0) or 0)
+              runners=int(getattr(stats,"num_total_runners",0) or 0)
+              last=(backlog,runners)
+              if backlog==0 and runners==0:
+                  print(f"AVANTIQO_INTELLIGENCE_MODAL_V8_SCALE_TO_ZERO=PASS attempt={attempt}")
+                  break
+          else:
+              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_V8_SCALE_TO_ZERO_FAILED:{last[0]}:{last[1]}")
+          PY
+
+      - name: Upload certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-modal-v8-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: local-audit-output/avantiqo-intelligence-modal-gateway-service-certification/report.json
+
+      - name: Immutable boundaries
+        if: always()
+        shell: bash
+        run: |
+          echo 'EXTERNAL_AI_FALLBACK_USED=false'
+          echo 'RUNPOD_USED=false'
+          echo 'NEW_NETWORK_VOLUME_CREATED=false'
+          echo 'MODAL_VOLUME_CREATED=false'
+          echo 'MAX_NEW_GPU_JOBS=1'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'

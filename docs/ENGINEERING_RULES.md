@@ -36,20 +36,43 @@ Never:
 
 ---
 
-# Studio-First Compute Boundary
+# Avantiqo-First Compute and Cost Boundary
 
-Canonical contract:
+Canonical contracts:
 - `docs/STUDIO_FIRST_COMPUTE.md`
+- `config/avantiqo-compute-cost-policy.json`
 - `AVANTIQO_STUDIO_FIRST_COMPUTE_BOUNDARY_V1`
+- `AVANTIQO_COMPUTE_COST_ARCHITECTURE_V1`
 
-Rule:
-- if an operation can run correctly inside Avantiqo Studio without paid external compute or paid GPU execution, it MUST run in Studio
+Mandatory priority:
+1. reuse an existing result/cache/artifact when possible
+2. run inside Avantiqo at zero separate supplier-variable compute cost
+3. use an Avantiqo-owned paid accelerator only for the smallest irreducible GPU/model stage
+4. use a paid external specialist only when the capability genuinely cannot be provided by Avantiqo and governed fallback is allowed
+
+Rules:
+- if Avantiqo can execute an operation correctly itself without a separate supplier-variable compute charge, it MUST remain inside Avantiqo
+- Modal is an elastic GPU/accelerator execution layer, not Avantiqo's application backend
+- business logic, orchestration, validation, wallet/pricing, storage ownership, polling, retries, deterministic CPU work, final persistence and ordinary gateways belong in Avantiqo
 - paid workers execute only the smallest irreducible GPU/model/external-side-effect operation
-- existing worker lifetime, existing container dependencies, implementation convenience, or avoiding Studio engineering work are never valid reasons to place Studio-capable work on paid compute
-- CPU media work such as FFmpeg, encode, transcode, mux/demux, frame extraction, ordinary resize/crop, storage finalization, metadata, validation, packaging and cleanup belongs in Studio whenever technically possible
-- paid workers must return control as soon as the irreducible paid operation is complete
+- existing worker lifetime, existing dependencies, implementation convenience, or avoiding Avantiqo engineering work are never valid reasons to use paid compute
+- CPU media work such as FFmpeg, encode, transcode, mux/demux, frame extraction, ordinary resize/crop, storage finalization, metadata, validation, packaging and cleanup belongs in Avantiqo whenever technically possible
+- paid workers return control as soon as the irreducible paid operation is complete
+- scale paid GPU workers to zero by default
+- use the cheapest GPU that satisfies model fit, runtime, quality and latency requirements
+- H100/B200-class hardware requires evidence that cheaper hardware cannot satisfy the requirement or that the higher tier lowers measured total cost per successful result
+- no speculative GPU prewarming
+- no duplicate Modal + RunPod execution for the same job
+- no repeated paid retries against an unchanged structural failure
+- paid model bake/cache seeding requires explicit approval
+- one canonical persistent model storage per engine; duplicate storage is forbidden
+- certification should use one real paid job after zero-cost/static gates pass unless a broader benchmark is explicitly approved
 
-Every paid-worker change must pass `scripts/studio-first-compute-boundary-audit.mjs`.
+Existing lightweight Modal CPU gateways are transitional migration debt only. They must remain transport-only and must not become precedent for new general-purpose Modal CPU services.
+
+Every paid-worker change must pass:
+- `scripts/studio-first-compute-boundary-audit.mjs`
+- `scripts/avantiqo-compute-cost-policy-audit.mjs`
 
 ---
 

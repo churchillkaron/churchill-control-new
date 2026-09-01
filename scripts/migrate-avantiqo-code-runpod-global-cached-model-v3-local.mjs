@@ -8,8 +8,8 @@ const MODEL_REPO = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8";
 const APPROVAL_ENV = "AVANTIQO_CODE_GLOBAL_CACHED_MODEL_MIGRATION_APPROVED";
 const TARGET_GPU_TYPE_IDS = Object.freeze([
   "NVIDIA RTX PRO 6000 Blackwell Server Edition",
-  "NVIDIA H200",
-  "NVIDIA H100 80GB HBM3",
+  "NVIDIA A100 80GB PCIe",
+  "NVIDIA B200",
 ]);
 const TARGET_ALLOWED_CUDA_VERSIONS = Object.freeze(["12.8", "12.9", "13.0"]);
 

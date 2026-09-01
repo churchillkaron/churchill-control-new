@@ -3,8 +3,8 @@
 
 Compatible with Modal 1.2.6 / Python 3.9. Generates a strong bearer token,
 creates/updates the named Modal Secret from a temporary dotenv file, redeploys
-the Modal HTTP wrapper from current origin/main, verifies authenticated /health,
-and writes only the required local application configuration to .env.local.
+the Modal HTTP wrapper from current origin/main, persists the matching local
+configuration, and verifies authenticated /health with cold-start-safe retries.
 The bearer token is never printed. No /v1/jobs request is made, so no GPU
 inference starts during this connector run.
 """
@@ -17,11 +17,14 @@ import json
 import os
 import secrets
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 DEFAULT_BASE_URL = (
@@ -31,6 +34,9 @@ HEALTH_CONTRACT = "AVANTIQO_CODE_MODAL_HTTP_V1"
 SECRET_NAME = "avantiqo-code-gateway"
 SECRET_ENV_KEY = "AVANTIQO_CODE_GATEWAY_TOKEN"
 PYTHON_DOTENV_VERSION = "1.0.1"
+HEALTH_TIMEOUT_SECONDS = 120
+HEALTH_ATTEMPTS = 2
+HEALTH_RETRY_DELAY_SECONDS = 8
 
 
 def _replace_env(path: Path, values: dict[str, str], remove_keys: set[str] | None = None) -> None:
@@ -122,17 +128,7 @@ def _ensure_python_dotenv() -> bool:
     return True
 
 
-def _health(base_url: str, token: str) -> dict[str, Any]:
-    request = Request(
-        f"{base_url.rstrip('/')}/health",
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}",
-        },
-    )
-    with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed HTTPS target
-        raw = response.read().decode("utf-8")
-    body = json.loads(raw)
+def _validate_health_body(body: dict[str, Any]) -> dict[str, Any]:
     if body.get("contract") != HEALTH_CONTRACT:
         raise RuntimeError("AVANTIQO_CODE_MODAL_HEALTH_CONTRACT_INVALID")
     if body.get("gateway_auth_required") is not True:
@@ -142,6 +138,42 @@ def _health(base_url: str, token: str) -> dict[str, Any]:
     if body.get("raw_reasoning_persisted") is not False:
         raise RuntimeError("AVANTIQO_CODE_MODAL_REASONING_BOUNDARY_INVALID")
     return body
+
+
+def _health_once(base_url: str, token: str) -> dict[str, Any]:
+    request = Request(
+        f"{base_url.rstrip('/')}/health",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+    with urlopen(request, timeout=HEALTH_TIMEOUT_SECONDS) as response:  # noqa: S310 - fixed HTTPS target
+        raw = response.read().decode("utf-8")
+    return _validate_health_body(json.loads(raw))
+
+
+def _health(base_url: str, token: str) -> tuple[dict[str, Any], int]:
+    last_error: BaseException | None = None
+    for attempt in range(1, HEALTH_ATTEMPTS + 1):
+        try:
+            return _health_once(base_url, token), attempt
+        except HTTPError as exc:
+            # Authentication/contract failures are deterministic; only transient
+            # gateway/service statuses are worth one cold-start retry.
+            if exc.code not in {408, 425, 429, 500, 502, 503, 504}:
+                raise
+            last_error = exc
+        except (socket.timeout, TimeoutError, URLError) as exc:
+            last_error = exc
+
+        if attempt < HEALTH_ATTEMPTS:
+            time.sleep(HEALTH_RETRY_DELAY_SECONDS)
+
+    error_type = type(last_error).__name__ if last_error is not None else "UNKNOWN"
+    raise RuntimeError(
+        f"AVANTIQO_CODE_MODAL_HEALTH_UNAVAILABLE_AFTER_{HEALTH_ATTEMPTS}_ATTEMPTS:{error_type}"
+    ) from last_error
 
 
 def main() -> None:
@@ -214,8 +246,9 @@ def main() -> None:
         engine_dir = temp / "services" / "avantiqo-code-engine"
         _run([modal_cli, "deploy", "modal_service.py"], cwd=engine_dir, timeout=1800)
 
-    health = _health(base_url, gateway_token)
-
+    # Persist the exact credential pair that was just installed in Modal before
+    # probing the newly deployed cold web function. A health timeout must not
+    # orphan the only local copy and force another secret rotation/deploy.
     env_path = repo / ".env.local"
     _replace_env(
         env_path,
@@ -231,6 +264,8 @@ def main() -> None:
         },
     )
 
+    health, health_attempts_used = _health(base_url, gateway_token)
+
     print(
         json.dumps(
             {
@@ -241,6 +276,8 @@ def main() -> None:
                 "python_dotenv_installed_by_connector": dotenv_installed,
                 "python_dotenv_version": PYTHON_DOTENV_VERSION,
                 "health_contract": health.get("contract"),
+                "health_attempts_used": health_attempts_used,
+                "health_timeout_seconds_per_attempt": HEALTH_TIMEOUT_SECONDS,
                 "gpu_worker": health.get("gpu_worker"),
                 "async_job_queue": health.get("async_job_queue"),
                 "gateway_auth_verified": True,

@@ -1,0 +1,130 @@
+name: Avantiqo Intelligence Modal Worker Failure Diagnostic V1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-modal-worker-failure-diagnostic-v1.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-modal-worker-failure-diagnostic-v1
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+
+    steps:
+      - name: Checkout exact trigger commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Modal CLI
+        run: python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Require Modal credentials and prove both lanes idle
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          python - <<'PY'
+          import modal
+          rows=[]
+          for name in ("fast", "deep"):
+              f=modal.Function.from_name("avantiqo-intelligence-owned", name)
+              s=f.get_current_stats()
+              backlog=int(getattr(s,"backlog",0) or 0)
+              runners=int(getattr(s,"num_total_runners",0) or 0)
+              rows.append((name,backlog,runners))
+              if backlog or runners:
+                  raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_DIAGNOSTIC_NOT_IDLE:{name}:{backlog}:{runners}")
+          print(f"AVANTIQO_INTELLIGENCE_MODAL_DIAGNOSTIC_IDLE=PASS workers={rows}")
+          print("GPU_INFERENCE_PERFORMED=false")
+          PY
+
+      - name: Fetch recent owned Intelligence worker logs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p local-audit-output/intelligence-modal-worker-failure
+          modal app logs avantiqo-intelligence-owned \
+            --since 30m \
+            --tail 2000 \
+            --timestamps \
+            --show-function-id \
+            --show-function-call-id \
+            --show-container-id \
+            > local-audit-output/intelligence-modal-worker-failure/app.log 2>&1
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_LOG_FETCH=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          tail -n 300 local-audit-output/intelligence-modal-worker-failure/app.log
+
+      - name: Extract failure evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json, re
+          src=Path('local-audit-output/intelligence-modal-worker-failure/app.log').read_text(errors='replace')
+          patterns=(
+              r'Traceback[\s\S]{0,16000}',
+              r'ERROR[\s\S]{0,8000}',
+              r'Exception[\s\S]{0,8000}',
+              r'RuntimeError[\s\S]{0,8000}',
+              r'ValueError[\s\S]{0,8000}',
+              r'CUDA[\s\S]{0,8000}',
+              r'vLLM[\s\S]{0,8000}',
+          )
+          evidence=[]
+          for pattern in patterns:
+              for match in re.finditer(pattern, src, flags=re.I):
+                  value=match.group(0).strip()
+                  if value and value not in evidence:
+                      evidence.append(value[:16000])
+                  if len(evidence)>=20:
+                      break
+              if len(evidence)>=20:
+                  break
+          report={
+              'contract':'AVANTIQO_INTELLIGENCE_MODAL_WORKER_FAILURE_DIAGNOSTIC_V1',
+              'gpu_inference_performed_by_diagnostic':False,
+              'worker_idle_before_log_fetch':True,
+              'log_characters':len(src),
+              'evidence':evidence,
+          }
+          Path('local-audit-output/intelligence-modal-worker-failure/report.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-modal-worker-failure-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: local-audit-output/intelligence-modal-worker-failure/
+
+      - name: Immutable boundary
+        if: always()
+        run: |
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'MODEL_INVOCATION_PERFORMED=false'
+          echo 'RUNPOD_USED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'

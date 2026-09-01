@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 const CONTRACT = "AVANTIQO_CODE_REAL_WRITE_POD_E2E_PROOF_V9";
 const BASE_SCRIPT = "scripts/run-avantiqo-code-real-write-pod-e2e-proof-v8-local.mjs";
 const BASE_CONTRACT = "AVANTIQO_CODE_REAL_WRITE_POD_E2E_PROOF_V8";
-const ALLOCATOR_CAPACITY_SIGNATURE = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_RUNPOD_HTTP_500:There are no instances currently available";
+const ALLOCATOR_CAPACITY_SIGNATURE = "AVANTIQO_CODE_REAL_WRITE_E2E_PROOF_V1_RUNPOD_HTTP_500:create pod: There are no instances currently available";
 const ALLOCATOR_CAPACITY_MARKER = `${CONTRACT}_ALLOCATOR_CAPACITY_UNAVAILABLE`;
 
 function patchOnce(source, before, after, label) {

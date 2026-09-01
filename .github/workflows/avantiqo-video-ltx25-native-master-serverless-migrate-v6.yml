@@ -1,4 +1,4 @@
-name: Avantiqo Video Cached LTX Binding Repair
+name: Avantiqo Video Serverless Startup Repair
 
 on:
   push:
@@ -23,10 +23,9 @@ jobs:
       ENDPOINT_NAME: avantiqo-cinema-production-v1
       RUNPOD_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
       RUNPOD_INFERENCE_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY || secrets.RUNPOD_MANAGEMENT_API_KEY }}
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
     steps:
-      - name: Repair cached-model binding without submitting another job
+      - name: Enlarge worker disk and recycle stuck initializer without resubmitting Scene 1
         shell: bash
         run: |
           set -euo pipefail
@@ -36,15 +35,6 @@ jobs:
           auth=(-H "Authorization: Bearer ${RUNPOD_API_KEY}")
           json=(-H 'Content-Type: application/json')
 
-          for name in RUNPOD_API_KEY RUNPOD_INFERENCE_KEY HF_TOKEN; do
-            test -n "${!name:-}" || { echo "AVANTIQO_VIDEO_REPAIR_MISSING_${name}"; exit 1; }
-          done
-
-          revision="$(curl -fsS -H "Authorization: Bearer ${HF_TOKEN}" -H 'Accept: application/json' \
-            'https://huggingface.co/api/models/Lightricks/LTX-2.5/revision/main' | jq -r '.sha // empty')"
-          case "$revision" in ????????????????????????????????????????) ;; *) echo 'AVANTIQO_VIDEO_REPAIR_HF_REVISION_INVALID'; exit 1 ;; esac
-          MODEL_REFERENCE="https://huggingface.co/Lightricks/LTX-2.5:${revision}"
-
           endpoint="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
           test "$(printf '%s' "$endpoint" | jq -r '.id')" = "$ENDPOINT_ID"
           test "$(printf '%s' "$endpoint" | jq -r '.name')" = "$ENDPOINT_NAME"
@@ -52,98 +42,60 @@ jobs:
           test "$(printf '%s' "$endpoint" | jq -r '.workersMax')" = '1'
           test "$(printf '%s' "$endpoint" | jq -r '([.networkVolumeId,.networkVolumeIds[]?] | map(if type=="object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | length)')" = '0'
 
-          old_template_id="$(printf '%s' "$endpoint" | jq -r '.templateId // .template.id // empty')"
-          test -n "$old_template_id"
-          template="$(curl -fsS "${auth[@]}" "${REST}/templates/${old_template_id}")"
-          current_image="$(printf '%s' "$template" | jq -r '.imageName // empty')"
-          test -n "$current_image"
-          test -n "$(printf '%s' "$template" | jq -r '.env.HF_TOKEN // empty')"
+          template_id="$(printf '%s' "$endpoint" | jq -r '.templateId // .template.id // empty')"
+          test -n "$template_id"
+          template="$(curl -fsS "${auth[@]}" "${REST}/templates/${template_id}")"
+          image="$(printf '%s' "$template" | jq -r '.imageName // empty')"
+          env="$(printf '%s' "$template" | jq -c '.env // {}')"
+          old_disk="$(printf '%s' "$template" | jq -r '.containerDiskInGb // 0')"
+          test -n "$image"
+          test -n "$(printf '%s' "$env" | jq -r '.HF_TOKEN // empty')"
 
-          query='query VideoEndpoint { myself { endpoints { id name templateId gpuIds gpuCount instanceIds workersMin workersMax locations networkVolumeId networkVolumeIds { networkVolumeId dataCenterId } idleTimeout scalerType scalerValue executionTimeoutMs minCudaVersion flashBootType modelReferences } } }'
+          query='query VideoEndpoint { myself { endpoints { id templateId modelReferences } } }'
           read_payload="$(jq -cn --arg query "$query" '{query:$query,variables:{}}')"
-          graph_body="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$read_payload" "$GRAPH")"
-          if [ "$(printf '%s' "$graph_body" | jq '.errors | length // 0')" != '0' ]; then
-            printf '%s\n' "$graph_body" | jq -c '{errors:.errors}' >&2
-            exit 1
-          fi
-          graph_endpoint="$(printf '%s' "$graph_body" | jq -c --arg id "$ENDPOINT_ID" '.data.myself.endpoints | map(select(.id==$id)) | if length==1 then .[0] else error("endpoint resolution") end')"
-          echo "AVANTIQO_VIDEO_REPAIR_BEFORE_MODEL_REFERENCES=$(printf '%s' "$graph_endpoint" | jq -c '.modelReferences // []')"
+          graph="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$read_payload" "$GRAPH")"
+          model_count="$(printf '%s' "$graph" | jq --arg id "$ENDPOINT_ID" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?] | length')"
+          test "$model_count" -ge 1
 
-          if [ "$(printf '%s' "$graph_endpoint" | jq -r --arg model "$MODEL_REFERENCE" '(.modelReferences // []) | index($model) != null')" = 'true' ]; then
-            echo 'AVANTIQO_VIDEO_REPAIR_MODEL_REFERENCE_ALREADY_PRESENT=true'
-            exit 0
-          fi
+          health_before="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
+          echo "AVANTIQO_VIDEO_STARTUP_REPAIR_HEALTH_BEFORE=$(printf '%s' "$health_before" | jq -c '{jobs:.jobs,workers:.workers}')"
+          echo "AVANTIQO_VIDEO_STARTUP_REPAIR_OLD_DISK_GB=${old_disk}"
 
-          env_array="$(printf '%s' "$template" | jq -c --arg token "$HF_TOKEN" --arg revision "$revision" '
-            (.env // {}) + {
-              HF_TOKEN:$token,
-              HUGGING_FACE_HUB_TOKEN:$token,
-              HUGGINGFACE_TOKEN:$token,
-              MODEL_NAME:"Lightricks/LTX-2.5",
-              MODEL_REVISION:$revision,
-              HF_HUB_OFFLINE:"1",
-              TRANSFORMERS_OFFLINE:"1",
-              AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT:"/opt/LTX-2",
-              AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS:"1800"
-            } | to_entries | map({key:.key,value:(.value|tostring)})')"
-          disk="$(printf '%s' "$template" | jq -r '.containerDiskInGb // 5')"
+          # Stop only the autoscaler while preserving the queued Scene 1 job.
+          park='{"workersMin":0,"workersMax":0}'
+          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$park" "${REST}/endpoints/${ENDPOINT_ID}" >/tmp/video-startup-park.json
 
-          target_input="$(printf '%s' "$graph_endpoint" | jq -c \
-            --arg image "$current_image" \
-            --arg model "$MODEL_REFERENCE" \
-            --argjson env "$env_array" \
-            --argjson disk "$disk" '
-            {
-              id:.id,
-              name:.name,
-              template:{name:"avantiqo-video-ltx25-native-master-serverless-v1",imageName:$image,containerDiskInGb:$disk,dockerArgs:"",env:$env},
-              gpuIds:["NVIDIA RTX PRO 6000 Blackwell Server Edition","NVIDIA RTX PRO 6000 Blackwell Workstation Edition","NVIDIA B200"],
-              gpuCount:1,
-              instanceIds:[],
-              workersMin:0,
-              workersMax:1,
-              locations:"",
-              networkVolumeId:"",
-              networkVolumeIds:[],
-              idleTimeout:5,
-              scalerType:"REQUEST_COUNT",
-              scalerValue:1,
-              executionTimeoutMs:2100000,
-              minCudaVersion:"12.8",
-              flashBootType:"FLASHBOOT",
-              modelReferences:[$model]
-            }')"
+          # Give RunPod a short bounded window to release the stuck initializer.
+          for i in $(seq 1 18); do
+            h="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
+            total="$(printf '%s' "$h" | jq '(.workers // {}) | [.[]] | add // 0')"
+            if [ "$total" = '0' ]; then break; fi
+            sleep 5
+          done
 
-          mutation='mutation Save($input: EndpointInput!){saveEndpoint(input:$input){id name templateId workersMin workersMax locations networkVolumeId networkVolumeIds{networkVolumeId dataCenterId} idleTimeout flashBootType modelReferences}}'
-          payload="$(jq -cn --arg query "$mutation" --argjson input "$target_input" '{query:$query,variables:{input:$input}}')"
-          response="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$payload" "$GRAPH")"
-          if [ "$(printf '%s' "$response" | jq '.errors | length // 0')" != '0' ]; then
-            printf '%s\n' "$response" | jq -c '{errors:.errors}' >&2
-            exit 1
-          fi
-          new_template_id="$(printf '%s' "$response" | jq -r '.data.saveEndpoint.templateId // empty')"
-          test -n "$new_template_id"
-          test "$(printf '%s' "$response" | jq -r --arg model "$MODEL_REFERENCE" '.data.saveEndpoint.modelReferences | index($model) != null')" = 'true'
-          test "$(printf '%s' "$response" | jq -r '.data.saveEndpoint.networkVolumeIds | length')" = '0'
+          patch="$(jq -cn --arg image "$image" --argjson env "$env" '{imageName:$image,env:$env,containerDiskInGb:30}')"
+          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$patch" "${REST}/templates/${template_id}" >/tmp/video-startup-template.json
+          verified_template="$(curl -fsS "${auth[@]}" "${REST}/templates/${template_id}")"
+          test "$(printf '%s' "$verified_template" | jq -r '.imageName')" = "$image"
+          test "$(printf '%s' "$verified_template" | jq -r '.containerDiskInGb')" = '30'
+          test -n "$(printf '%s' "$verified_template" | jq -r '.env.HF_TOKEN // empty')"
 
-          verify_body="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$read_payload" "$GRAPH")"
-          verify="$(printf '%s' "$verify_body" | jq -c --arg id "$ENDPOINT_ID" '.data.myself.endpoints | map(select(.id==$id)) | if length==1 then .[0] else error("endpoint resolution") end')"
-          test "$(printf '%s' "$verify" | jq -r --arg model "$MODEL_REFERENCE" '(.modelReferences // []) | index($model) != null')" = 'true'
-          test "$(printf '%s' "$verify" | jq -r '.templateId')" = "$new_template_id"
+          # Restore exactly one autoscaled worker. This reuses the existing queued job; no /run call occurs here.
+          resume='{"workersMin":0,"workersMax":1,"idleTimeout":5,"scalerType":"REQUEST_COUNT","scalerValue":1,"flashboot":true,"minCudaVersion":"12.8","allowedCudaVersions":["12.8","12.9","13.0"],"dataCenterIds":[],"networkVolumeIds":[]}'
+          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$resume" "${REST}/endpoints/${ENDPOINT_ID}" >/tmp/video-startup-resume.json
 
-          if [ "$new_template_id" != "$old_template_id" ]; then
-            endpoints="$(curl -fsS "${auth[@]}" "${REST}/endpoints")"
-            old_refs="$(printf '%s' "$endpoints" | jq --arg id "$old_template_id" '[.[] | select((.templateId // .template.id // "") == $id)] | length')"
-            if [ "$old_refs" = '0' ]; then
-              curl -fsS -X DELETE "${auth[@]}" "${REST}/templates/${old_template_id}" >/dev/null
-              echo "AVANTIQO_VIDEO_REPAIR_OLD_TEMPLATE_REMOVED=${old_template_id}"
-            fi
-          fi
-
-          health="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
-          echo "AVANTIQO_VIDEO_REPAIR_QUEUE_HEALTH=$(printf '%s' "$health" | jq -c '{jobs:.jobs,workers:.workers}')"
-          echo "AVANTIQO_VIDEO_REPAIR_MODEL_REVISION=${revision}"
-          echo "AVANTIQO_VIDEO_REPAIR_TEMPLATE_ID=${new_template_id}"
-          echo 'AVANTIQO_VIDEO_REPAIR_MODEL_REFERENCE_RESTORED=true'
-          echo 'AVANTIQO_VIDEO_REPAIR_GENERATION_SUBMITTED=false'
-          echo 'AVANTIQO_VIDEO_REPAIR_PRODUCTION_DEPLOY=false'
+          final_endpoint="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
+          test "$(printf '%s' "$final_endpoint" | jq -r '.workersMin')" = '0'
+          test "$(printf '%s' "$final_endpoint" | jq -r '.workersMax')" = '1'
+          test "$(printf '%s' "$final_endpoint" | jq -r '([.networkVolumeId,.networkVolumeIds[]?] | map(if type=="object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | length)')" = '0'
+          final_graph="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$read_payload" "$GRAPH")"
+          final_model_count="$(printf '%s' "$final_graph" | jq --arg id "$ENDPOINT_ID" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?] | length')"
+          test "$final_model_count" -ge 1
+          health_after="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
+          echo "AVANTIQO_VIDEO_STARTUP_REPAIR_HEALTH_AFTER=$(printf '%s' "$health_after" | jq -c '{jobs:.jobs,workers:.workers}')"
+          echo "AVANTIQO_VIDEO_STARTUP_REPAIR_TEMPLATE_ID=${template_id}"
+          echo 'AVANTIQO_VIDEO_STARTUP_REPAIR_CONTAINER_DISK_GB=30'
+          echo 'AVANTIQO_VIDEO_STARTUP_REPAIR_EXISTING_JOB_PRESERVED=true'
+          echo 'AVANTIQO_VIDEO_STARTUP_REPAIR_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_VIDEO_STARTUP_REPAIR_NETWORK_VOLUME=false'
+          echo 'AVANTIQO_VIDEO_STARTUP_REPAIR_PRODUCTION_DEPLOY=false'

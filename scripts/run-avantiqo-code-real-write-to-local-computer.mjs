@@ -12,8 +12,8 @@ const OUTPUT_FILE = `${OUTPUT_ROOT}/invoice-total.mjs`;
 const TEST_FILE = `${OUTPUT_ROOT}/invoice-total.test.mjs`;
 const MIGRATION_SCRIPT = "scripts/migrate-avantiqo-code-runpod-global-cached-model-v4-local.mjs";
 const MIGRATION_PASS = "AVANTIQO_CODE_RUNPOD_GLOBAL_CACHED_MODEL_MIGRATION_V4=PASS";
-const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-pod-e2e-proof-v8-local.mjs";
-const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_POD_E2E_PROOF_V8=PASS";
+const GENERATION_SCRIPT = "scripts/run-avantiqo-code-real-write-auto-transport-e2e-proof-v10-local.mjs";
+const GENERATION_PASS = "AVANTIQO_CODE_REAL_WRITE_AUTO_TRANSPORT_E2E_PROOF_V10=PASS";
 
 function text(value, maximum = 8000) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -58,6 +58,7 @@ function extractGeneratedSource(stdout) {
   const begin = stdout.indexOf(SOURCE_BEGIN);
   const end = stdout.indexOf(SOURCE_END, begin + SOURCE_BEGIN.length);
   if (begin < 0 || end < 0 || end <= begin) throw new Error(`${CONTRACT}_GENERATED_SOURCE_MARKERS_REQUIRED`);
+  if (stdout.indexOf(SOURCE_BEGIN, begin + SOURCE_BEGIN.length) >= 0) throw new Error(`${CONTRACT}_MULTIPLE_GENERATED_SOURCES_FORBIDDEN`);
   const source = stdout.slice(begin + SOURCE_BEGIN.length, end).replace(/^\s*\n/, "").replace(/\n\s*$/, "\n");
   if (!source.trim()) throw new Error(`${CONTRACT}_GENERATED_SOURCE_EMPTY`);
   return source;
@@ -74,14 +75,18 @@ console.log(JSON.stringify({
   event: `${CONTRACT}_START`,
   repository_root: repositoryRoot,
   output_file: OUTPUT_FILE,
-  scheduling_architecture: "LIVE_GATED_EPHEMERAL_RUNPOD_POD",
+  scheduling_architecture: "ONE_SHOT_POD_THEN_STRICT_SERVERLESS_FALLBACK",
   serverless_migration_script: MIGRATION_SCRIPT,
   serverless_migration_is_idempotent_when_target_state_verified: true,
   generation_script: GENERATION_SCRIPT,
   serverless_resting_0_0_required: true,
   serverless_endpoint_volume_detached_required: true,
   one_canonical_code_storage_preserved_required: true,
-  live_gpu_stock_gate_before_pod_create_required: true,
+  availability_api_is_advisory_only: true,
+  allocator_is_final_capacity_authority: true,
+  pod_allocator_attempts_max: 1,
+  fallback_only_on_exact_allocator_capacity_marker: true,
+  transports_may_run_concurrently: false,
   pod_volume_mount_path: "/runpod-volume",
   cached_model_root: "/runpod-volume/huggingface-cache/hub",
   max_parallel_code_pods: 1,
@@ -106,6 +111,13 @@ const generation = await run(process.execPath, [GENERATION_SCRIPT], repositoryRo
 if (generation.exit_code !== 0) throw new Error(`${CONTRACT}_OWNED_GENERATION_FAILED:${generation.exit_code}`);
 if (!generation.stdout.includes(GENERATION_PASS)) throw new Error(`${CONTRACT}_GENERATION_PASS_MARKER_REQUIRED:${GENERATION_PASS}`);
 
+const selectedTransport = generation.stdout.includes('"selected_transport":"RUNPOD_SERVERLESS_GLOBAL_CACHED_MODEL"')
+  ? "RUNPOD_SERVERLESS_GLOBAL_CACHED_MODEL"
+  : generation.stdout.includes('"selected_transport":"EPHEMERAL_RUNPOD_POD"')
+    ? "EPHEMERAL_RUNPOD_POD"
+    : null;
+if (!selectedTransport) throw new Error(`${CONTRACT}_SELECTED_TRANSPORT_EVIDENCE_REQUIRED`);
+
 const generatedSource = extractGeneratedSource(generation.stdout);
 const generatedSha256 = crypto.createHash("sha256").update(generatedSource, "utf8").digest("hex");
 const outputRoot = path.join(repositoryRoot, OUTPUT_ROOT);
@@ -122,7 +134,9 @@ console.log(SOURCE_END);
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
-  generation_transport: "EPHEMERAL_RUNPOD_POD",
+  generation_transport: selectedTransport,
+  strict_capacity_fallback_enabled: true,
+  pod_allocator_attempts_max: 1,
   serverless_safe_state_verified: true,
   serverless_endpoint_network_volume_attached: false,
   canonical_code_storage_preserved: true,

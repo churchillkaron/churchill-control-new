@@ -138,18 +138,17 @@ def _bake_models() -> None:
     )
 
 
-# Network access is permitted only for this explicitly approved immutable model
-# image build. The private-registry secret is consumed by the image import only.
-# Runtime inference is forced offline after the model layer is committed.
+# The certified worker already carries its exact Python 3.11 uv environment and
+# places /opt/ace-step/.venv/bin first on PATH. Do not mutate that base image by
+# inventing global python/pip aliases: the worker deliberately uses uv and does
+# not require a global pip executable. Network access is permitted only for this
+# explicitly approved immutable model bake. Runtime is forced offline after the
+# layer is committed.
 worker_image = (
     modal.Image.from_registry(
         WORKER_IMAGE,
         secret=_private_registry_secret(),
         add_python=None,
-        setup_dockerfile_commands=[
-            "RUN command -v python >/dev/null 2>&1 || ln -s \"$(command -v python3)\" /usr/local/bin/python",
-            "RUN command -v pip >/dev/null 2>&1 || ln -s \"$(command -v pip3)\" /usr/local/bin/pip",
-        ],
     )
     .entrypoint([])
     .env({

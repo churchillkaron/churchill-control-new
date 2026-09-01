@@ -83,6 +83,34 @@ ln -s "$ROOT/node_modules" "$WORKTREE/node_modules"
 
 OUTPUT_DIR="$ROOT/local-audit-output/avantiqo-audio-modal-direct-service-certification"
 mkdir -p "$OUTPUT_DIR"
+STATE_PATH="$OUTPUT_DIR/state.json"
+
+# The funding guard executes before any provider runtime is loaded. A terminal
+# state caused by this exact blocker therefore proves no Modal function call
+# was submitted. The database evidence for the failed certification also has
+# provider_request_id = null and a full RESERVE/RELEASE pair. Only this exact
+# pre-provider failure may be cleared automatically; ambiguous submission or
+# GPU/runtime failures remain terminal and require manual investigation.
+if [[ "$MODE" == "execute" && -f "$STATE_PATH" ]]; then
+  retryable_state="$(node -e '
+    const fs = require("fs");
+    const p = process.argv[1];
+    const s = JSON.parse(fs.readFileSync(p, "utf8"));
+    const message = String(s?.error?.message || "");
+    const retryable =
+      s?.contract === "AVANTIQO_AUDIO_MODAL_DIRECT_SERVICE_CERTIFICATION_V1" &&
+      s?.phase === "SUBMISSION_FAILED" &&
+      s?.terminal === true &&
+      s?.success === false &&
+      !s?.provider_job_id &&
+      message === "AVANTIQO_PROVIDER_PAYER_ORGANIZATION_REQUIRED:avantiqo-audio";
+    process.stdout.write(retryable ? "YES" : "NO");
+  ' "$STATE_PATH")"
+  if [[ "$retryable_state" == "YES" ]]; then
+    mv "$STATE_PATH" "$OUTPUT_DIR/state-pre-provider-funding-failure.json"
+    echo "AVANTIQO_AUDIO_MODAL_CERT_PRE_PROVIDER_FAILURE_REOPENED=PASS duplicate_job_possible=false"
+  fi
+fi
 
 run_certification() {
   if [[ "$MODE" == "execute" ]]; then

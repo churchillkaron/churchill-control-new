@@ -1,0 +1,311 @@
+name: Avantiqo Intelligence Modal Local Snapshot Repair V12
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-modal-local-snapshot-repair-v12.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-intelligence-modal-local-snapshot-repair-v12
+  cancel-in-progress: false
+
+jobs:
+  repair-and-certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_MODEL_BAKE_APPROVED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_BASE_URL: https://churchillkaron--avantiqo-intelligence-gateway-intelligence-api.modal.run
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install certification dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5' 'python-dotenv==1.1.1'
+
+      - name: Prove failed H100 request already scaled to zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          python - <<'PY'
+          import modal
+          rows=[]
+          for name in ("fast", "deep"):
+              f=modal.Function.from_name("avantiqo-intelligence-owned", name)
+              s=f.get_current_stats()
+              backlog=int(getattr(s,"backlog",0) or 0)
+              runners=int(getattr(s,"num_total_runners",0) or 0)
+              rows.append((name,backlog,runners))
+              if backlog or runners:
+                  raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_V12_NOT_IDLE_BEFORE_REPAIR:{name}:{backlog}:{runners}")
+          print(f"AVANTIQO_INTELLIGENCE_MODAL_V12_IDLE_BEFORE_REPAIR=PASS workers={rows}")
+          print("GPU_INFERENCE_PERFORMED=false")
+          PY
+
+      - name: Apply stable local snapshot binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path=Path('services/avantiqo-intelligence-modal/modal_app.py')
+          source=path.read_text()
+
+          old='''HF_ROOT = "/opt/avantiqo-intelligence-cache"\nHF_CACHE_ROOT = f"{HF_ROOT}/hub"\nGPU = "H100"'''
+          new='''HF_ROOT = "/opt/avantiqo-intelligence-cache"\nHF_CACHE_ROOT = f"{HF_ROOT}/hub"\nMODEL_ROOT = "/opt/avantiqo-intelligence-models"\nFAST_MODEL_PATH = f"{MODEL_ROOT}/fast"\nDEEP_MODEL_PATH = f"{MODEL_ROOT}/deep"\nMODEL_PATHS = {FAST_MODEL: FAST_MODEL_PATH, DEEP_MODEL: DEEP_MODEL_PATH}\nGPU = "H100"'''
+          if old not in source:
+              raise SystemExit('AVANTIQO_INTELLIGENCE_MODAL_V12_CONSTANT_ANCHOR_MISSING')
+          source=source.replace(old,new,1)
+
+          old='''def _bake_model(repo_id: str, revision: str, cache_root: str) -> None:\n    from huggingface_hub import snapshot_download\n\n    resolved = Path(snapshot_download(\n        repo_id=repo_id,\n        revision=revision,\n        cache_dir=cache_root,\n    ))\n    if not resolved.is_dir() or resolved.name != revision:\n        raise RuntimeError(\n            f"AVANTIQO_INTELLIGENCE_MODAL_SNAPSHOT_INVALID:{repo_id}:{resolved.name}"\n        )\n    required = [resolved / "config.json", resolved / "model.safetensors.index.json"]\n    if any(not path.is_file() for path in required):\n        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_SNAPSHOT_INCOMPLETE:{repo_id}")\n    print(json.dumps({\n        "event": "AVANTIQO_INTELLIGENCE_MODAL_MODEL_BAKED",\n        "model": repo_id,\n        "revision": revision,\n        "modal_volume_created": False,\n        "gpu_inference_performed": False,\n        "secrets_printed": False,\n    }, separators=(",", ":")), flush=True)'''
+          new='''def _bake_model(repo_id: str, revision: str, cache_root: str, runtime_path: str) -> None:\n    from huggingface_hub import snapshot_download\n\n    resolved = Path(snapshot_download(\n        repo_id=repo_id,\n        revision=revision,\n        cache_dir=cache_root,\n    ))\n    if not resolved.is_dir() or resolved.name != revision:\n        raise RuntimeError(\n            f"AVANTIQO_INTELLIGENCE_MODAL_SNAPSHOT_INVALID:{repo_id}:{resolved.name}"\n        )\n    required = [resolved / "config.json", resolved / "model.safetensors.index.json"]\n    if any(not file_path.is_file() for file_path in required):\n        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_SNAPSHOT_INCOMPLETE:{repo_id}")\n\n    target = Path(runtime_path)\n    target.parent.mkdir(parents=True, exist_ok=True)\n    if target.exists() or target.is_symlink():\n        target.unlink()\n    target.symlink_to(resolved, target_is_directory=True)\n    if target.resolve() != resolved.resolve():\n        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_RUNTIME_BINDING_INVALID:{repo_id}")\n    if not (target / "config.json").is_file() or not (target / "model.safetensors.index.json").is_file():\n        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_RUNTIME_BINDING_INCOMPLETE:{repo_id}")\n\n    print(json.dumps({\n        "event": "AVANTIQO_INTELLIGENCE_MODAL_MODEL_BAKED",\n        "model": repo_id,\n        "revision": revision,\n        "runtime_path": runtime_path,\n        "runtime_path_bound": True,\n        "modal_volume_created": False,\n        "gpu_inference_performed": False,\n        "secrets_printed": False,\n    }, separators=(",", ":")), flush=True)'''
+          if old not in source:
+              raise SystemExit('AVANTIQO_INTELLIGENCE_MODAL_V12_BAKE_ANCHOR_MISSING')
+          source=source.replace(old,new,1)
+
+          old='''def _base_image(model: str, revision: str) -> modal.Image:'''
+          new='''def _base_image(model: str, revision: str, runtime_path: str) -> modal.Image:'''
+          if old not in source:
+              raise SystemExit('AVANTIQO_INTELLIGENCE_MODAL_V12_BASE_IMAGE_SIGNATURE_MISSING')
+          source=source.replace(old,new,1)
+
+          old='''            args=(model, revision, HF_CACHE_ROOT),'''
+          new='''            args=(model, revision, HF_CACHE_ROOT, runtime_path),'''
+          if old not in source:
+              raise SystemExit('AVANTIQO_INTELLIGENCE_MODAL_V12_RUN_FUNCTION_ARGS_MISSING')
+          source=source.replace(old,new,1)
+
+          old='''fast_image = _base_image(FAST_MODEL, FAST_REVISION)\ndeep_image = _base_image(DEEP_MODEL, DEEP_REVISION)'''
+          new='''fast_image = _base_image(FAST_MODEL, FAST_REVISION, FAST_MODEL_PATH)\ndeep_image = _base_image(DEEP_MODEL, DEEP_REVISION, DEEP_MODEL_PATH)'''
+          if old not in source:
+              raise SystemExit('AVANTIQO_INTELLIGENCE_MODAL_V12_IMAGE_BINDING_ANCHOR_MISSING')
+          source=source.replace(old,new,1)
+
+          old='''def _llm(model: str) -> Any:\n    from vllm import LLM\n\n    cached = _LLM_CACHE.get(model)\n    if cached is not None:\n        return cached\n    engine = LLM(\n        model=model,\n        download_dir=HF_CACHE_ROOT,\n        dtype="bfloat16",\n        max_model_len=MAX_MODEL_LEN,\n        tensor_parallel_size=1,\n        gpu_memory_utilization=0.90,\n        trust_remote_code=False,\n    )\n    _LLM_CACHE[model] = engine\n    return engine'''
+          new='''def _llm(model: str) -> Any:\n    from vllm import LLM\n\n    cached = _LLM_CACHE.get(model)\n    if cached is not None:\n        return cached\n    runtime_path = MODEL_PATHS.get(model)\n    if not runtime_path:\n        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_MODEL_PATH_REQUIRED:{model}")\n    local_model = Path(runtime_path)\n    if not local_model.is_dir() or not (local_model / "config.json").is_file():\n        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_LOCAL_MODEL_REQUIRED:{model}")\n    engine = LLM(\n        model=str(local_model),\n        dtype="bfloat16",\n        max_model_len=MAX_MODEL_LEN,\n        tensor_parallel_size=1,\n        gpu_memory_utilization=0.90,\n        trust_remote_code=False,\n    )\n    _LLM_CACHE[model] = engine\n    return engine'''
+          if old not in source:
+              raise SystemExit('AVANTIQO_INTELLIGENCE_MODAL_V12_LLM_ANCHOR_MISSING')
+          source=source.replace(old,new,1)
+
+          path.write_text(source)
+          PY
+
+      - name: Static zero-cost repair gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-intelligence-modal/modal_app.py
+          node --check scripts/certify-avantiqo-intelligence-modal-gateway-service-live.mjs
+          grep -Fq 'FAST_MODEL_PATH = f"{MODEL_ROOT}/fast"' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'DEEP_MODEL_PATH = f"{MODEL_ROOT}/deep"' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'target.symlink_to(resolved, target_is_directory=True)' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'runtime_path_bound' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'model=str(local_model)' services/avantiqo-intelligence-modal/modal_app.py
+          if grep -A22 '^def _llm' services/avantiqo-intelligence-modal/modal_app.py | grep -Fq 'download_dir=HF_CACHE_ROOT'; then
+            echo 'AVANTIQO_INTELLIGENCE_MODAL_V12_HF_RUNTIME_LOOKUP_STILL_PRESENT'
+            exit 1
+          fi
+          git diff --check
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_V12_STATIC_GATE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Commit repaired worker source before deployment
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'churchillkaron'
+          git config user.email 'patric@pcsphuket.com'
+          git add services/avantiqo-intelligence-modal/modal_app.py
+          git diff --cached --check
+          git commit -m 'Bind Modal Intelligence to baked local snapshots [skip ci]'
+          repair_sha="$(git rev-parse HEAD)"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          repair_sha="$(git rev-parse HEAD)"
+          echo "repair_sha=$repair_sha" >> "$GITHUB_OUTPUT"
+          echo "AVANTIQO_INTELLIGENCE_MODAL_CERT_EXPECTED_MAIN_COMMIT=$repair_sha" >> "$GITHUB_ENV"
+          echo "AVANTIQO_INTELLIGENCE_MODAL_CERT_SOURCE_MAIN_COMMIT=$repair_sha" >> "$GITHUB_ENV"
+          echo "AVANTIQO_INTELLIGENCE_MODAL_V12_REPAIR_COMMIT=$repair_sha"
+
+      - name: Deploy repaired immutable worker images without inference
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-intelligence-modal
+          modal deploy modal_app.py
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_V12_WORKER_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Prove repaired workers remain zero idle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import modal
+          rows=[]
+          for name in ("fast", "deep"):
+              f=modal.Function.from_name("avantiqo-intelligence-owned", name)
+              s=f.get_current_stats()
+              backlog=int(getattr(s,"backlog",0) or 0)
+              runners=int(getattr(s,"num_total_runners",0) or 0)
+              rows.append((name,backlog,runners))
+              if backlog or runners:
+                  raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_V12_NOT_IDLE_AFTER_DEPLOY:{name}:{backlog}:{runners}")
+          print(f"AVANTIQO_INTELLIGENCE_MODAL_V12_IDLE_AFTER_DEPLOY=PASS workers={rows}")
+          print("GPU_INFERENCE_PERFORMED=false")
+          PY
+
+      - name: Rotate gateway token and deploy current CPU gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(python - <<'PY'
+          import secrets
+          print(secrets.token_urlsafe(48))
+          PY
+          )"
+          echo "::add-mask::$token"
+          secret_file="$(mktemp)"
+          chmod 600 "$secret_file"
+          printf 'AVANTIQO_INTELLIGENCE_GATEWAY_TOKEN=%s\n' "$token" > "$secret_file"
+          modal secret create avantiqo-intelligence-gateway --from-dotenv "$secret_file" --force
+          rm -f "$secret_file"
+          echo "AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN=$token" >> "$GITHUB_ENV"
+          cd services/avantiqo-intelligence-modal
+          modal deploy modal_service.py
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_V12_GATEWAY_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Require healthy gateway before retry
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const base=process.env.AVANTIQO_INTELLIGENCE_MODAL_BASE_URL;
+          const token=process.env.AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN;
+          let last=null;
+          for (let attempt=1; attempt<=12; attempt+=1) {
+            if (attempt>1) await new Promise(r=>setTimeout(r,2500));
+            try {
+              const response=await fetch(`${base}/health`, {
+                headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},
+                signal:AbortSignal.timeout(15000),
+              });
+              const body=await response.json();
+              last={status:response.status,body};
+              if (response.ok && body.contract==='AVANTIQO_INTELLIGENCE_MODAL_HTTP_V1' && body.transport==='modal-function-call') {
+                if (body.gpu_worker!=='H100' || body.scale_to_zero!==true) throw new Error('HEALTH_GPU_POLICY_INVALID');
+                if (body.gateway_gpu_imported!==false || body.gpu_inference_performed!==false || body.runpod_used!==false) throw new Error('HEALTH_BOUNDARY_INVALID');
+                console.log(`AVANTIQO_INTELLIGENCE_MODAL_V12_GATEWAY_HEALTH=PASS attempt=${attempt}`);
+                console.log('GPU_INFERENCE_PERFORMED=false');
+                process.exit(0);
+              }
+            } catch (error) { last={error:String(error?.message||error)}; }
+          }
+          throw new Error(`AVANTIQO_INTELLIGENCE_MODAL_V12_GATEWAY_HEALTH_FAILED:${JSON.stringify(last).slice(0,1000)}`);
+          NODE
+
+      - name: Run one evidence-based governed Fast retry
+        id: live
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/certify-avantiqo-intelligence-modal-gateway-service-live.mjs
+
+      - name: Always verify both H100 lanes return to zero
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import time
+          import modal
+          final={}
+          for name in ("fast", "deep"):
+              f=modal.Function.from_name("avantiqo-intelligence-owned",name)
+              last=(None,None)
+              for attempt in range(1,25):
+                  if attempt>1: time.sleep(5)
+                  s=f.get_current_stats()
+                  backlog=int(getattr(s,"backlog",0) or 0)
+                  runners=int(getattr(s,"num_total_runners",0) or 0)
+                  last=(backlog,runners)
+                  if backlog==0 and runners==0:
+                      final[name]=(attempt,backlog,runners)
+                      break
+              else:
+                  raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_V12_SCALE_TO_ZERO_FAILED:{name}:{last[0]}:{last[1]}")
+          print(f"AVANTIQO_INTELLIGENCE_MODAL_V12_SCALE_TO_ZERO=PASS workers={final}")
+          PY
+
+      - name: Capture worker logs if retry failed
+        if: steps.live.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p local-audit-output/avantiqo-intelligence-modal-v12-failure
+          modal app logs avantiqo-intelligence-owned --since 20m --tail 2000 --timestamps --show-function-id --show-function-call-id --show-container-id \
+            > local-audit-output/avantiqo-intelligence-modal-v12-failure/app.log 2>&1
+          tail -n 300 local-audit-output/avantiqo-intelligence-modal-v12-failure/app.log
+
+      - name: Upload final evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-modal-v12-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            local-audit-output/avantiqo-intelligence-modal-gateway-service-certification/report.json
+            local-audit-output/avantiqo-intelligence-modal-v12-failure/
+
+      - name: Fail if real retry failed
+        if: steps.live.outcome == 'failure'
+        run: exit 1
+
+      - name: Immutable boundaries
+        if: always()
+        shell: bash
+        run: |
+          echo 'EXTERNAL_AI_FALLBACK_USED=false'
+          echo 'RUNPOD_USED=false'
+          echo 'NEW_NETWORK_VOLUME_CREATED=false'
+          echo 'MODAL_VOLUME_CREATED=false'
+          echo 'MAX_NEW_GPU_JOBS=1'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'

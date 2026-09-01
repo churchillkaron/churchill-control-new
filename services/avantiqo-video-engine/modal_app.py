@@ -249,10 +249,10 @@ ltx_worker_image = (
         setup_dockerfile_commands=[
             "RUN command -v python >/dev/null 2>&1 || ln -s \"$(command -v python3)\" /usr/local/bin/python",
             "RUN python --version",
+            "RUN python -m pip install --break-system-packages --no-cache-dir requests==2.32.4",
         ],
     )
     .entrypoint([])
-    .pip_install("requests")
     .env({
         "HF_HUB_OFFLINE": "1",
         "TRANSFORMERS_OFFLINE": "1",

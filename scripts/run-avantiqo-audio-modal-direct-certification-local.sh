@@ -84,25 +84,33 @@ fi
 git worktree add --detach "$WORKTREE" "$MAIN_SHA" >/dev/null
 ln -s "$ROOT/node_modules" "$WORKTREE/node_modules"
 
-args=()
-if [[ "$MODE" == "execute" ]]; then
-  args+=(--execute)
-elif [[ "$MODE" == "resume" ]]; then
-  args+=(--resume)
-fi
-
 OUTPUT_DIR="$ROOT/local-audit-output/avantiqo-audio-modal-direct-service-certification"
 mkdir -p "$OUTPUT_DIR"
 
+run_certification() {
+  if [[ "$MODE" == "execute" ]]; then
+    node --env-file="$ROOT/.env.local" \
+      scripts/certify-avantiqo-audio-modal-direct-service-live.mjs \
+      --execute
+    return
+  fi
+  if [[ "$MODE" == "resume" ]]; then
+    node --env-file="$ROOT/.env.local" \
+      scripts/certify-avantiqo-audio-modal-direct-service-live.mjs \
+      --resume
+    return
+  fi
+  node --env-file="$ROOT/.env.local" \
+    scripts/certify-avantiqo-audio-modal-direct-service-live.mjs
+}
+
 (
   cd "$WORKTREE"
-  NODE_ENV=development \
-  AVANTIQO_AUDIO_MODAL_CERT_EXPECTED_MAIN_COMMIT="$MAIN_SHA" \
-  AVANTIQO_AUDIO_MODAL_CERT_SOURCE_MAIN_COMMIT="$MAIN_SHA" \
-  AVANTIQO_AUDIO_MODAL_CERT_OUTPUT_DIR="$OUTPUT_DIR" \
-  node --env-file="$ROOT/.env.local" \
-    scripts/certify-avantiqo-audio-modal-direct-service-live.mjs \
-    "${args[@]}"
+  export NODE_ENV=development
+  export AVANTIQO_AUDIO_MODAL_CERT_EXPECTED_MAIN_COMMIT="$MAIN_SHA"
+  export AVANTIQO_AUDIO_MODAL_CERT_SOURCE_MAIN_COMMIT="$MAIN_SHA"
+  export AVANTIQO_AUDIO_MODAL_CERT_OUTPUT_DIR="$OUTPUT_DIR"
+  run_certification
 )
 
 echo "${CONTRACT}=PASS mode=${MODE} source_main=${MAIN_SHA} local_branch_mutated=false production_vercel_deploy_performed=false"

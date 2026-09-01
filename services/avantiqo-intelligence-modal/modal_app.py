@@ -65,6 +65,8 @@ def _bake_model(repo_id: str, revision: str, cache_root: str) -> None:
 
 
 def _base_image(model: str, revision: str) -> modal.Image:
+    # The immutable snapshot download must be online exactly once during image
+    # build. Only after that layer is committed do we force the runtime offline.
     return (
         modal.Image.from_registry(
             BASE_IMAGE,
@@ -79,8 +81,8 @@ def _base_image(model: str, revision: str) -> modal.Image:
         .env({
             "HF_HOME": HF_ROOT,
             "HF_HUB_CACHE": HF_CACHE_ROOT,
-            "HF_HUB_OFFLINE": "1",
-            "TRANSFORMERS_OFFLINE": "1",
+            "HF_HUB_OFFLINE": "0",
+            "TRANSFORMERS_OFFLINE": "0",
             "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
         })
         .run_function(
@@ -88,6 +90,10 @@ def _base_image(model: str, revision: str) -> modal.Image:
             args=(model, revision, HF_CACHE_ROOT),
             timeout=2 * 60 * 60,
         )
+        .env({
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+        })
     )
 
 

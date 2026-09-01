@@ -120,7 +120,8 @@ test("Modal primary bypasses RunPod lease while RunPod fallback remains lease gu
   assert.match(executorSource, /ownedIntelligenceModalConfigured/);
   assert.match(executorSource, /AVANTIQO_INTELLIGENCE_MODAL_BASE_URL/);
   assert.match(executorSource, /AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN/);
-  assert.match(executorSource, /Modal owns its own async H100 lifecycle/);
+  assert.match(executorSource, /Modal is a fully separate owned scale-to-zero infrastructure path/);
+  assert.match(executorSource, /do not touch RunPod at all/);
 
   assert.match(runpodProviderSource, /requireAvantiqoIntelligenceSafeLease/);
   const executeStart = runpodProviderSource.indexOf("async execute(input = {})");

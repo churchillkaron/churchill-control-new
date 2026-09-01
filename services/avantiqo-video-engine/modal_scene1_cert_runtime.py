@@ -1,23 +1,27 @@
-"""Runtime-path-safe Scene 1 certification for Avantiqo Video on Modal.
+"""Symlink-safe Scene 1 certification for Avantiqo Video on Modal.
 
-Hugging Face snapshot entries are symlinks into hash-named blob files. LTX-2's
-CLI resolves every supplied checkpoint path before loading it; that strips the
-`.safetensors` filename from a snapshot symlink and breaks the Gemma single-file
-loader. This lane creates POSIX hardlinks *inside the existing Video Modal
-Volume* so all four exact pinned files retain their canonical `.safetensors`
-names while sharing the same underlying inodes/bytes.
+Hugging Face cache snapshot entries retain the canonical `.safetensors`
+filenames as symlinks into hash-named blob files. LTX-2's CLI path type calls
+`Path.resolve()`, which follows those symlinks and strips the filename suffix.
+The Gemma single-file loader then rejects the hash-named resolved blob.
 
-The hardlinks are prepared and validated on CPU before any H200 request. No
-model copy, second Volume, second app, RunPod fallback, customer charge, pricing
-activation, or automatic paid retry is allowed here.
+This lane fixes only that normalization boundary. It leaves the exact cached
+model files untouched and runs the official LTX pipeline through a tiny wrapper
+that preserves absolute paths without resolving symlinks. A CPU-only gate first
+opens all four safetensors files and exercises the Gemma single-file loader on
+the exact preserved text-encoder path. No hardlinks, copies, second Volume,
+second app, RunPod fallback, customer charge, pricing activation, or automatic
+paid retry are allowed.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -59,12 +63,10 @@ from modal_scene1_cert import (
     seed_ltx_cache,
 )
 
-RUNTIME_CONTRACT = "AVANTIQO_VIDEO_LTX25_MODAL_RESOLVED_PATHS_V1"
-RUNTIME_ALIAS_ROOT = Path("/models/avantiqo-ltx25-runtime-paths") / LTX_SOURCE_REVISION
+RUNTIME_CONTRACT = "AVANTIQO_VIDEO_LTX25_MODAL_SYMLINK_SAFE_PATHS_V2"
 
-# The remote module imports modal_scene1_cert.py, which in turn imports
-# modal_app.py. The base certification image already contains modal_app.py; add
-# the base certification module itself so remote import resolution is complete.
+# The remote module imports modal_scene1_cert.py, which imports modal_app.py.
+# Package that source dependency only; this does not create another app/Volume.
 RUNTIME_WORKER_IMAGE = CERT_LTX_WORKER_IMAGE.add_local_file(
     Path(__file__).with_name("modal_scene1_cert.py"),
     "/root/modal_scene1_cert.py",
@@ -83,76 +85,50 @@ def _component_key(relative: str) -> str:
     raise RuntimeError(f"{RUNTIME_CONTRACT}_UNKNOWN_COMPONENT:{relative}")
 
 
-def _hardlink_runtime_assets(create_missing: bool) -> dict[str, Any]:
-    """Return extension-preserving hardlinks to the exact cached LTX files.
+def _preserve_existing_path(path: str | Path) -> str:
+    """Make a path absolute without resolving symlinks, then require existence."""
+    expanded = Path(path).expanduser()
+    absolute = Path(os.path.abspath(str(expanded)))
+    if not absolute.exists():
+        raise argparse.ArgumentError(None, f"Path not found: {absolute}")
+    return absolute.as_posix()
 
-    A hardlink adds only another directory entry to the same inode. It does not
-    duplicate the multi-GB model bytes. We deliberately fail rather than copy if
-    hardlinks are unsupported by the mounted Volume filesystem.
-    """
+
+def _snapshot_component_paths() -> dict[str, Any]:
     snapshot = _ltx_snapshot()
-    created = False
     paths: dict[str, str] = {}
-    details: dict[str, Any] = {}
-
+    components: dict[str, Any] = {}
     for relative in LTX_REQUIRED:
         source = snapshot / relative
         if not source.is_file() or source.stat().st_size <= 0:
             raise RuntimeError(f"{RUNTIME_CONTRACT}_SOURCE_INVALID:{relative}")
-        target = RUNTIME_ALIAS_ROOT / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-
-        if target.exists() or target.is_symlink():
-            if target.is_symlink():
-                raise RuntimeError(f"{RUNTIME_CONTRACT}_PERSISTED_ALIAS_MUST_NOT_BE_SYMLINK:{relative}")
-            if not target.is_file():
-                raise RuntimeError(f"{RUNTIME_CONTRACT}_PERSISTED_ALIAS_NOT_FILE:{relative}")
-        elif create_missing:
-            try:
-                os.link(source, target, follow_symlinks=True)
-            except OSError as exc:
-                raise RuntimeError(
-                    f"{RUNTIME_CONTRACT}_HARDLINK_UNSUPPORTED:{relative}:{exc.errno}:{exc.strerror}"
-                ) from exc
-            created = True
-        else:
-            raise RuntimeError(f"{RUNTIME_CONTRACT}_ALIAS_MISSING:{relative}")
-
-        if target.is_symlink() or not target.is_file():
-            raise RuntimeError(f"{RUNTIME_CONTRACT}_ALIAS_NOT_REGULAR_FILE:{relative}")
-        if target.suffix != ".safetensors":
-            raise RuntimeError(f"{RUNTIME_CONTRACT}_ALIAS_SUFFIX_INVALID:{relative}:{target.suffix}")
-        if target.stat().st_size != source.stat().st_size:
-            raise RuntimeError(f"{RUNTIME_CONTRACT}_ALIAS_SIZE_MISMATCH:{relative}")
-        if not os.path.samefile(source, target):
-            raise RuntimeError(f"{RUNTIME_CONTRACT}_ALIAS_DUPLICATED_BYTES:{relative}")
-
+        preserved = _preserve_existing_path(source)
         key = _component_key(relative)
-        paths[key] = str(target)
-        details[key] = {
-            "filename": target.name,
-            "bytes": target.stat().st_size,
-            "same_inode_as_hf_cache": True,
-            "regular_file": True,
-            "symlink": False,
-            "suffix": target.suffix,
-            "link_count": int(target.stat().st_nlink),
+        if Path(preserved).suffix != ".safetensors":
+            raise RuntimeError(f"{RUNTIME_CONTRACT}_PRESERVED_SUFFIX_INVALID:{key}:{preserved}")
+        paths[key] = preserved
+        resolved = source.resolve()
+        components[key] = {
+            "filename": source.name,
+            "bytes": source.stat().st_size,
+            "snapshot_entry_is_symlink": source.is_symlink(),
+            "preserved_suffix": Path(preserved).suffix,
+            "resolved_blob_filename": resolved.name,
+            "resolved_blob_suffix": resolved.suffix,
+            "same_underlying_file": os.path.samefile(source, resolved),
         }
-
-    if created:
-        model_volume.commit()
-
     return {
         "success": True,
         "contract": RUNTIME_CONTRACT,
         "revision": LTX_SOURCE_REVISION,
         "modal_volume": "avantiqo-video-models",
-        "hardlinks_created": created,
+        "paths": paths,
+        "components": components,
+        "hardlinks_created": False,
         "model_bytes_copied": False,
         "duplicate_model_storage_created": False,
         "second_volume_created": False,
-        "paths": paths,
-        "components": details,
+        "snapshot_mutated": False,
     }
 
 
@@ -166,44 +142,83 @@ def _install_ltx_python_paths() -> None:
             sys.path.insert(0, value)
 
 
-def _validate_resolved_paths(runtime: dict[str, Any]) -> dict[str, Any]:
-    """Exercise the exact LTX CLI path resolver and Gemma loader on CPU."""
+def _validate_preserved_paths(runtime: dict[str, Any]) -> dict[str, Any]:
+    """CPU-only: validate exact files and Gemma loading without GPU allocation."""
     _install_ltx_python_paths()
     from ltx_core.text_encoders.gemma.encoders.encoder_configurator import gemma_model_type
-    from ltx_pipelines.utils.args import resolve_existing_path
+    from ltx_core.text_encoders.gemma.gemma_assets import GemmaAssets
     from safetensors import safe_open
 
-    resolved: dict[str, str] = {}
-    safetensor_headers: dict[str, Any] = {}
+    headers: dict[str, Any] = {}
     for key, supplied in runtime["paths"].items():
-        normalized = resolve_existing_path(supplied)
-        if Path(normalized).suffix != ".safetensors":
-            raise RuntimeError(f"{RUNTIME_CONTRACT}_CLI_RESOLVED_SUFFIX_LOST:{key}:{normalized}")
-        if Path(normalized).is_symlink() or not Path(normalized).is_file():
-            raise RuntimeError(f"{RUNTIME_CONTRACT}_CLI_RESOLVED_FILE_INVALID:{key}")
-        if normalized != supplied:
-            raise RuntimeError(f"{RUNTIME_CONTRACT}_CLI_RESOLVED_PATH_CHANGED:{key}:{normalized}")
-        with safe_open(normalized, framework="pt", device="cpu") as handle:
+        preserved = _preserve_existing_path(supplied)
+        if preserved != supplied:
+            raise RuntimeError(f"{RUNTIME_CONTRACT}_PRESERVED_PATH_CHANGED:{key}")
+        path = Path(preserved)
+        if path.suffix != ".safetensors" or not path.is_file():
+            raise RuntimeError(f"{RUNTIME_CONTRACT}_PRESERVED_FILE_INVALID:{key}:{preserved}")
+        with safe_open(preserved, framework="pt", device="cpu") as handle:
             keys = handle.keys()
-            safetensor_headers[key] = {
+            headers[key] = {
                 "key_count": len(keys),
                 "metadata_present": bool(handle.metadata()),
             }
-        resolved[key] = normalized
 
-    gemma_type = _text(gemma_model_type(resolved["text_encoder"]))
+    text_encoder = runtime["paths"]["text_encoder"]
+    # This is the exact loader that failed after the old CLI resolved the symlink.
+    assets = GemmaAssets.load(text_encoder)
+    gemma_type = _text(gemma_model_type(text_encoder))
     if not gemma_type:
         raise RuntimeError(f"{RUNTIME_CONTRACT}_GEMMA_MODEL_TYPE_EMPTY")
+    if not assets.weight_paths:
+        raise RuntimeError(f"{RUNTIME_CONTRACT}_GEMMA_WEIGHT_PATHS_EMPTY")
 
     return {
         "success": True,
-        "resolved_paths_preserve_safetensors_suffix": True,
+        "symlink_resolution_bypassed": True,
+        "preserved_paths_keep_safetensors_suffix": True,
         "gemma_loader_preflight": "PASS",
         "gemma_model_type": gemma_type,
-        "safetensor_headers": safetensor_headers,
+        "gemma_weight_path_count": len(assets.weight_paths),
+        "safetensor_headers": headers,
+        "hardlinks_created": False,
+        "model_bytes_copied": False,
         "gpu_requested": False,
         "gpu_inference_performed": False,
     }
+
+
+def _ltx_cli_wrapper_source() -> str:
+    """Patch only LTX CLI path normalization; keep the official pipeline main()."""
+    return r'''from __future__ import annotations
+import argparse
+import os
+from pathlib import Path
+import ltx_pipelines.utils.args as ltx_args
+
+
+def preserve_existing_path(path: str) -> str:
+    expanded = Path(path).expanduser()
+    absolute = Path(os.path.abspath(str(expanded)))
+    if not absolute.exists():
+        raise argparse.ArgumentError(None, f"Path not found: {absolute}")
+    return absolute.as_posix()
+
+
+def preserve_path(path: str) -> str:
+    expanded = Path(path).expanduser()
+    return Path(os.path.abspath(str(expanded))).as_posix()
+
+# default_1_stage_arg_parser resolves these globals when it constructs argparse
+# actions. Replacing them before importing the pipeline preserves HF snapshot
+# symlink filenames while leaving all other official LTX behavior unchanged.
+ltx_args.resolve_path = preserve_path
+ltx_args.resolve_existing_path = preserve_existing_path
+
+from ltx_pipelines import ti2vid_one_stage
+
+ti2vid_one_stage.main()
+'''
 
 
 @app.function(
@@ -215,10 +230,10 @@ def _validate_resolved_paths(runtime: dict[str, Any]) -> dict[str, Any]:
     scaledown_window=5,
 )
 def prepare_and_validate_ltx_runtime_paths() -> dict[str, Any]:
-    """CPU-only exact-runtime preflight. No H200 is allocated."""
+    """CPU-only exact-runtime file-format gate. No H200 is allocated."""
     model_volume.reload()
-    runtime = _hardlink_runtime_assets(create_missing=True)
-    validation = _validate_resolved_paths(runtime)
+    runtime = _snapshot_component_paths()
+    validation = _validate_preserved_paths(runtime)
     return {
         **runtime,
         "validation": validation,
@@ -240,23 +255,22 @@ def _function_stats(function: Any) -> dict[str, int]:
 def _require_all_gpu_idle() -> dict[str, Any]:
     previous = _function_stats(previous_generate_scene1_native_master)
     current = _function_stats(generate_scene1_native_master_resolved)
-    for name, stats in (("previous", previous), ("resolved", current)):
+    for name, stats in (("previous", previous), ("symlink_safe", current)):
         if stats["backlog"] != 0 or stats["runners"] != 0 or stats["running_inputs"] != 0:
             raise RuntimeError(
                 f"{CONTRACT}_DUPLICATE_GPU_GUARD_ACTIVE:{name}:"
                 f"{stats['backlog']}:{stats['runners']}:{stats['running_inputs']}"
             )
-    return {"previous_lane": previous, "resolved_lane": current}
+    return {"previous_lane": previous, "symlink_safe_lane": current}
 
 
 def _runtime_preflight() -> dict[str, Any]:
     base = _local_preflight()
     idle = _require_all_gpu_idle()
     runtime = prepare_and_validate_ltx_runtime_paths.remote()
-    if runtime.get("success") is not True or runtime.get("validation", {}).get("success") is not True:
+    validation = runtime.get("validation", {})
+    if runtime.get("success") is not True or validation.get("gemma_loader_preflight") != "PASS":
         raise RuntimeError(f"{RUNTIME_CONTRACT}_CPU_PREFLIGHT_FAILED")
-    # Re-check after the CPU runtime validation. It is not allowed to hide a GPU
-    # job that appeared while the model-path gate was running.
     idle_after = _require_all_gpu_idle()
     return {
         **base,
@@ -286,10 +300,10 @@ def generate_scene1_native_master_resolved(
     duration_seconds: int = 5,
     seed: int = 4747,
 ) -> dict[str, Any]:
-    """One H200 job using CPU-certified extension-preserving hardlink paths."""
+    """One H200 job using the untouched HF snapshot symlink filenames."""
     function_started = time.perf_counter()
     model_volume.reload()
-    runtime = _hardlink_runtime_assets(create_missing=False)
+    runtime = _snapshot_component_paths()
     paths = runtime["paths"]
 
     reference = Path("/models") / reference_relative.lstrip("/")
@@ -299,8 +313,10 @@ def generate_scene1_native_master_resolved(
     output.parent.mkdir(parents=True, exist_ok=True)
 
     frames = _ltx_frame_count(int(duration_seconds))
+    wrapper_path = Path(tempfile.gettempdir()) / f"avantiqo-ltx-cli-{uuid.uuid4().hex}.py"
+    wrapper_path.write_text(_ltx_cli_wrapper_source(), encoding="utf-8")
     command = [
-        "python", "-m", "ltx_pipelines.ti2vid_one_stage",
+        "python", str(wrapper_path),
         "--transformer-path", paths["transformer"],
         "--text-encoder-path", paths["text_encoder"],
         "--video-vae-path", paths["video_vae"],
@@ -340,6 +356,8 @@ def generate_scene1_native_master_resolved(
         raise RuntimeError(
             f"AVANTIQO_VIDEO_SCENE1_HARD_TIMEOUT:{SUBPROCESS_TIMEOUT_SECONDS}:{detail}"
         ) from exc
+    finally:
+        wrapper_path.unlink(missing_ok=True)
 
     generation_seconds = round(time.perf_counter() - generation_started, 3)
     if completed.returncode != 0:
@@ -385,7 +403,8 @@ def generate_scene1_native_master_resolved(
         "cost_measurement_basis": "MODAL_H200_RATE_X_FUNCTION_SECONDS_PRE_BILLING_RECONCILIATION",
         "native_master_generated": True,
         "master_is_exact_model_output": True,
-        "checkpoint_paths_preserve_safetensors_suffix": True,
+        "checkpoint_symlink_resolution_bypassed": True,
+        "hardlinks_created": False,
         "model_bytes_copied": False,
         "duplicate_model_storage_created": False,
         "pixel_upscale_used": False,
@@ -415,7 +434,7 @@ def scene1_runtime_preflight() -> None:
 def scene1_certify_resolved(
     output_path: str = "local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.mp4",
 ) -> None:
-    """Run exactly one H200 only after the exact runtime-path CPU gate passes."""
+    """Run exactly one H200 only after the symlink-safe CPU gate passes."""
     report = _runtime_preflight()
     if not _yes(os.environ.get(APPROVAL_ENV)):
         raise RuntimeError(f"{APPROVAL_ENV}=YES_REQUIRED")
@@ -445,7 +464,8 @@ def scene1_certify_resolved(
         if cache.get("success") is not True:
             raise RuntimeError("AVANTIQO_VIDEO_SCENE1_MODAL_CACHE_FAILED")
         runtime = prepare_and_validate_ltx_runtime_paths.remote()
-        if runtime.get("validation", {}).get("gemma_loader_preflight") != "PASS":
+        validation = runtime.get("validation", {})
+        if validation.get("gemma_loader_preflight") != "PASS":
             raise RuntimeError(f"{RUNTIME_CONTRACT}_FINAL_CPU_GATE_FAILED")
 
         idle = _require_all_gpu_idle()
@@ -460,6 +480,8 @@ def scene1_certify_resolved(
             "automatic_paid_retry": False,
             "gpu_idle": idle,
             "checkpoint_paths_cpu_validated": True,
+            "symlink_resolution_bypassed": True,
+            "hardlinks_created": False,
             "model_bytes_copied": False,
             "runpod_used": False,
             "production_deploy_performed": False,
@@ -488,6 +510,7 @@ def scene1_certify_resolved(
             "crop_used",
             "runpod_inference_performed",
             "external_provider_contacted",
+            "hardlinks_created",
             "model_bytes_copied",
             "duplicate_model_storage_created",
         ):

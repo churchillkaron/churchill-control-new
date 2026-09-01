@@ -37,6 +37,7 @@ from modal_app import (
     LTX_SOURCE_REVISION,
     NATIVE_ENGINE_CONTRACT,
     _sanitize,
+    app,
     generate_native_master,
     model_volume,
     seed_ltx_cache,

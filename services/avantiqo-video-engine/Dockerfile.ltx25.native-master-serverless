@@ -13,16 +13,22 @@ ENV HF_HUB_OFFLINE=1 \
 
 WORKDIR /app
 COPY ltx25_native_master_serverless.py /app/handler.py
+COPY ltx25_native_master_pod_once.py /app/pod_once.py
 
-RUN python -m py_compile /app/handler.py \
+RUN python -m py_compile /app/handler.py /app/pod_once.py \
     && python - <<'PY'
 from pathlib import Path
-source = Path('/app/handler.py').read_text()
-assert 'TI2VID_ONE_STAGE_FULL_DEV_BF16' in source
-assert '3840' in source and '2176' in source
-assert 'distilled_lora_used": False' in source
-assert 'crop_used": False' in source
-print('AVANTIQO_VIDEO_NATIVE_MASTER_SERVERLESS_IMAGE_GATE=PASS')
+handler = Path('/app/handler.py').read_text()
+pod = Path('/app/pod_once.py').read_text()
+for source in (handler, pod):
+    assert 'TI2VID_ONE_STAGE_FULL_DEV_BF16' in source
+    assert '3840' in source and '2176' in source
+    assert 'distilled_lora_used": False' in source
+    assert 'crop_used": False' in source
+assert 'preprocessing_inside_paid_worker": False' in pod
+assert 'ffprobe_inside_paid_worker": False' in pod
+assert 'ThreadPoolExecutor(max_workers=4)' in pod
+print('AVANTIQO_VIDEO_NATIVE_MASTER_IMAGE_GATE=PASS')
 PY
 
 CMD ["python", "-u", "/app/handler.py"]

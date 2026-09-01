@@ -25,6 +25,10 @@ DEEP_REVISION = "8217eea09b2a3771bcd6d881189a7ed315e148fe"
 BASE_IMAGE = "runpod/worker-v1-vllm:v2.25.0"
 HF_ROOT = "/opt/avantiqo-intelligence-cache"
 HF_CACHE_ROOT = f"{HF_ROOT}/hub"
+MODEL_ROOT = "/opt/avantiqo-intelligence-models"
+FAST_MODEL_PATH = f"{MODEL_ROOT}/fast"
+DEEP_MODEL_PATH = f"{MODEL_ROOT}/deep"
+MODEL_PATHS = {FAST_MODEL: FAST_MODEL_PATH, DEEP_MODEL: DEEP_MODEL_PATH}
 GPU = "H100"
 MAX_MODEL_LEN = 32768
 MAX_OUTPUT_TOKENS = 16384
@@ -39,7 +43,7 @@ _LLM_CACHE: dict[str, Any] = {}
 app = modal.App(APP_NAME)
 
 
-def _bake_model(repo_id: str, revision: str, cache_root: str) -> None:
+def _bake_model(repo_id: str, revision: str, cache_root: str, runtime_path: str) -> None:
     from huggingface_hub import snapshot_download
 
     resolved = Path(snapshot_download(
@@ -52,19 +56,32 @@ def _bake_model(repo_id: str, revision: str, cache_root: str) -> None:
             f"AVANTIQO_INTELLIGENCE_MODAL_SNAPSHOT_INVALID:{repo_id}:{resolved.name}"
         )
     required = [resolved / "config.json", resolved / "model.safetensors.index.json"]
-    if any(not path.is_file() for path in required):
+    if any(not file_path.is_file() for file_path in required):
         raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_SNAPSHOT_INCOMPLETE:{repo_id}")
+
+    target = Path(runtime_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() or target.is_symlink():
+        target.unlink()
+    target.symlink_to(resolved, target_is_directory=True)
+    if target.resolve() != resolved.resolve():
+        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_RUNTIME_BINDING_INVALID:{repo_id}")
+    if not (target / "config.json").is_file() or not (target / "model.safetensors.index.json").is_file():
+        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_RUNTIME_BINDING_INCOMPLETE:{repo_id}")
+
     print(json.dumps({
         "event": "AVANTIQO_INTELLIGENCE_MODAL_MODEL_BAKED",
         "model": repo_id,
         "revision": revision,
+        "runtime_path": runtime_path,
+        "runtime_path_bound": True,
         "modal_volume_created": False,
         "gpu_inference_performed": False,
         "secrets_printed": False,
     }, separators=(",", ":")), flush=True)
 
 
-def _base_image(model: str, revision: str) -> modal.Image:
+def _base_image(model: str, revision: str, runtime_path: str) -> modal.Image:
     # The immutable snapshot download must be online exactly once during image
     # build. Only after that layer is committed do we force the runtime offline.
     return (
@@ -87,7 +104,7 @@ def _base_image(model: str, revision: str) -> modal.Image:
         })
         .run_function(
             _bake_model,
-            args=(model, revision, HF_CACHE_ROOT),
+            args=(model, revision, HF_CACHE_ROOT, runtime_path),
             timeout=2 * 60 * 60,
         )
         .env({
@@ -97,8 +114,8 @@ def _base_image(model: str, revision: str) -> modal.Image:
     )
 
 
-fast_image = _base_image(FAST_MODEL, FAST_REVISION)
-deep_image = _base_image(DEEP_MODEL, DEEP_REVISION)
+fast_image = _base_image(FAST_MODEL, FAST_REVISION, FAST_MODEL_PATH)
+deep_image = _base_image(DEEP_MODEL, DEEP_REVISION, DEEP_MODEL_PATH)
 
 
 def _text(value: Any, limit: int = 200000) -> str:
@@ -244,9 +261,14 @@ def _llm(model: str) -> Any:
     cached = _LLM_CACHE.get(model)
     if cached is not None:
         return cached
+    runtime_path = MODEL_PATHS.get(model)
+    if not runtime_path:
+        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_MODEL_PATH_REQUIRED:{model}")
+    local_model = Path(runtime_path)
+    if not local_model.is_dir() or not (local_model / "config.json").is_file():
+        raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_LOCAL_MODEL_REQUIRED:{model}")
     engine = LLM(
-        model=model,
-        download_dir=HF_CACHE_ROOT,
+        model=str(local_model),
         dtype="bfloat16",
         max_model_len=MAX_MODEL_LEN,
         tensor_parallel_size=1,

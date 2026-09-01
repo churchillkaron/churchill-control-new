@@ -1,4 +1,4 @@
-name: Avantiqo Video Global Capacity Repair V3
+name: Avantiqo Video Slim LTX Cache Repair
 
 on:
   push:
@@ -17,15 +17,90 @@ concurrency:
 jobs:
   repair:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       ENDPOINT_ID: xmey8y2hofexyp
       ENDPOINT_NAME: avantiqo-cinema-production-v1
       RUNPOD_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
       RUNPOD_INFERENCE_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY || secrets.RUNPOD_MANAGEMENT_API_KEY }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      SOURCE_REPO: Lightricks/LTX-2.5
+      SOURCE_REVISION: e8dc69fd26150afbfa20351f6bc9ac384257f9fd
 
     steps:
-      - name: Apply REST GPU pool while preserving cached model and queued Scene 1
+      - name: Create slim Avantiqo LTX runtime repo server-side
+        id: slim
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${HF_TOKEN:-}"
+          python3 -m pip install --quiet --upgrade huggingface_hub
+          python3 - <<'PY' > /tmp/slim-repo.env
+          import os
+          from huggingface_hub import HfApi, CommitOperationCopy
+
+          token = os.environ["HF_TOKEN"]
+          source_repo = os.environ["SOURCE_REPO"]
+          source_revision = os.environ["SOURCE_REVISION"]
+          api = HfApi(token=token)
+          who = api.whoami(token=token)
+          namespace = str(who.get("name") or "").strip()
+          if not namespace:
+              raise SystemExit("AVANTIQO_VIDEO_SLIM_HF_NAMESPACE_REQUIRED")
+          dest_repo = f"{namespace}/avantiqo-ltx25-native-master-runtime-v1"
+          api.create_repo(repo_id=dest_repo, repo_type="model", private=True, exist_ok=True, token=token)
+
+          files = [
+              "diffusion_models/ltx-2.5-22b-dev-transformer-bf16.safetensors",
+              "text_encoders/gemma4-12b-with-proj-ltx-2.5-bf16.safetensors",
+              "vae/ltx-2.5-video-vae-bf16.safetensors",
+              "vae/ltx-2.5-audio-vae-bf16.safetensors",
+          ]
+          existing = set(api.list_repo_files(repo_id=dest_repo, repo_type="model", token=token))
+          missing = [p for p in files if p not in existing]
+          if missing:
+              ops = [
+                  CommitOperationCopy(
+                      src_path_in_repo=p,
+                      path_in_repo=p,
+                      src_revision=source_revision,
+                      src_repo_id=source_repo,
+                      src_repo_type="model",
+                  )
+                  for p in missing
+              ]
+              api.create_commit(
+                  repo_id=dest_repo,
+                  repo_type="model",
+                  operations=ops,
+                  commit_message="Pin Avantiqo LTX-2.5 native master runtime",
+                  token=token,
+              )
+          info = api.model_info(repo_id=dest_repo, token=token, files_metadata=True)
+          dest_files = {s.rfilename: s for s in (info.siblings or [])}
+          for p in files:
+              if p not in dest_files:
+                  raise SystemExit(f"AVANTIQO_VIDEO_SLIM_HF_FILE_MISSING:{p}")
+          revision = str(info.sha or "").strip()
+          if len(revision) != 40:
+              raise SystemExit("AVANTIQO_VIDEO_SLIM_HF_REVISION_INVALID")
+          print(f"repo={dest_repo}")
+          print(f"revision={revision}")
+          print(f"file_count={len(files)}")
+          PY
+          cat /tmp/slim-repo.env | sed -E 's/^(repo|revision|file_count)=/AVANTIQO_VIDEO_SLIM_\1=/'
+          repo="$(grep '^repo=' /tmp/slim-repo.env | cut -d= -f2-)"
+          revision="$(grep '^revision=' /tmp/slim-repo.env | cut -d= -f2-)"
+          test -n "$repo"
+          case "$revision" in ????????????????????????????????????????) ;; *) exit 1 ;; esac
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo 'AVANTIQO_VIDEO_SLIM_HF_RUNTIME=PASS'
+
+      - name: Rebind same endpoint to slim cached runtime and preserve queued Scene 1
+        env:
+          SLIM_REPO: ${{ steps.slim.outputs.repo }}
+          SLIM_REVISION: ${{ steps.slim.outputs.revision }}
         shell: bash
         run: |
           set -euo pipefail
@@ -34,27 +109,18 @@ jobs:
           QUEUE="https://api.runpod.ai/v2/${ENDPOINT_ID}"
           auth=(-H "Authorization: Bearer ${RUNPOD_API_KEY}")
           json=(-H 'Content-Type: application/json')
-          gpu_pool='["NVIDIA B200","NVIDIA H200","NVIDIA H200 NVL","NVIDIA RTX PRO 6000 Blackwell Server Edition","NVIDIA RTX PRO 6000 Blackwell Workstation Edition","NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition","NVIDIA H100 NVL","NVIDIA H100 80GB HBM3","NVIDIA H100 PCIe","NVIDIA A100-SXM4-80GB","NVIDIA A100 80GB PCIe"]'
+          MODEL_REFERENCE="https://huggingface.co/${SLIM_REPO}:${SLIM_REVISION}"
 
           endpoint="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
           test "$(printf '%s' "$endpoint" | jq -r '.id')" = "$ENDPOINT_ID"
           test "$(printf '%s' "$endpoint" | jq -r '.name')" = "$ENDPOINT_NAME"
           test "$(printf '%s' "$endpoint" | jq -r '([.networkVolumeId,.networkVolumeIds[]?] | map(if type=="object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | length)')" = '0'
-          template_id="$(printf '%s' "$endpoint" | jq -r '.templateId // .template.id // empty')"
-          template="$(curl -fsS "${auth[@]}" "${REST}/templates/${template_id}")"
-          test "$(printf '%s' "$template" | jq -r '.containerDiskInGb')" = '30'
-          test -n "$(printf '%s' "$template" | jq -r '.env.HF_TOKEN // empty')"
+          old_template_id="$(printf '%s' "$endpoint" | jq -r '.templateId // .template.id // empty')"
+          template="$(curl -fsS "${auth[@]}" "${REST}/templates/${old_template_id}")"
+          image="$(printf '%s' "$template" | jq -r '.imageName // empty')"
+          test -n "$image"
 
-          model_query='query VideoModel { myself { endpoints { id modelReferences } } }'
-          model_payload="$(jq -cn --arg query "$model_query" '{query:$query,variables:{}}')"
-          model_before="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$model_payload" "$GRAPH" | jq -c --arg id "$ENDPOINT_ID" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?]')"
-          test "$(printf '%s' "$model_before" | jq 'length')" -ge 1
-
-          health_before="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
-          echo "AVANTIQO_VIDEO_CAPACITY_V3_HEALTH_BEFORE=$(printf '%s' "$health_before" | jq -c '{jobs:.jobs,workers:.workers}')"
-          echo "AVANTIQO_VIDEO_CAPACITY_V3_MODEL=$(printf '%s' "$model_before" | jq -c '.')"
-
-          # Clear the failing pre-container attempt, but preserve the already-submitted queue item.
+          # Stop failed initializers only. Existing /run job remains queued.
           curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d '{"workersMin":0,"workersMax":0}' "${REST}/endpoints/${ENDPOINT_ID}" >/dev/null
           for i in $(seq 1 18); do
             h="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
@@ -63,26 +129,74 @@ jobs:
             sleep 5
           done
 
+          env_array="$(printf '%s' "$template" | jq -c --arg token "$HF_TOKEN" --arg repo "$SLIM_REPO" --arg revision "$SLIM_REVISION" '
+            (.env // {}) + {
+              HF_TOKEN:$token,
+              HUGGING_FACE_HUB_TOKEN:$token,
+              HUGGINGFACE_TOKEN:$token,
+              MODEL_NAME:$repo,
+              MODEL_REVISION:$revision,
+              HF_HUB_OFFLINE:"1",
+              TRANSFORMERS_OFFLINE:"1",
+              AVANTIQO_VIDEO_LTX25_CACHE_REPO:$repo,
+              AVANTIQO_VIDEO_LTX25_PIPELINE_ROOT:"/opt/LTX-2",
+              AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS:"1800"
+            } | to_entries | map({key:.key,value:(.value|tostring)})')"
+
+          # Legacy GraphQL EndpointInput expects gpuIds as one comma-separated string.
+          current_gpu_ids="$(printf '%s' "$endpoint" | jq -r '(.gpuTypeIds // []) | join(",")')"
+          test -n "$current_gpu_ids"
+          input="$(jq -cn \
+            --arg id "$ENDPOINT_ID" \
+            --arg name "$ENDPOINT_NAME" \
+            --arg image "$image" \
+            --arg model "$MODEL_REFERENCE" \
+            --arg gpu "$current_gpu_ids" \
+            --argjson env "$env_array" '
+            {
+              id:$id,name:$name,
+              template:{name:"avantiqo-video-ltx25-native-master-serverless-v1",imageName:$image,containerDiskInGb:30,dockerArgs:"",env:$env},
+              gpuIds:$gpu,gpuCount:1,instanceIds:[],workersMin:0,workersMax:1,locations:"",
+              networkVolumeId:"",networkVolumeIds:[],idleTimeout:5,scalerType:"REQUEST_COUNT",scalerValue:1,
+              executionTimeoutMs:2100000,minCudaVersion:"12.8",flashBootType:"OFF",modelReferences:[$model]
+            }')"
+          mutation='mutation Save($input: EndpointInput!){saveEndpoint(input:$input){id name templateId gpuIds workersMin workersMax networkVolumeId networkVolumeIds{networkVolumeId dataCenterId} flashBootType modelReferences}}'
+          payload="$(jq -cn --arg query "$mutation" --argjson input "$input" '{query:$query,variables:{input:$input}}')"
+          response="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$payload" "$GRAPH")"
+          if [ "$(printf '%s' "$response" | jq '.errors | length // 0')" != '0' ]; then
+            printf '%s\n' "$response" | jq -c '{errors:.errors}' >&2
+            curl -sS -X PATCH "${auth[@]}" "${json[@]}" -d '{"workersMin":0,"workersMax":1}' "${REST}/endpoints/${ENDPOINT_ID}" >/dev/null || true
+            exit 1
+          fi
+          new_template_id="$(printf '%s' "$response" | jq -r '.data.saveEndpoint.templateId // empty')"
+          test -n "$new_template_id"
+          test "$(printf '%s' "$response" | jq -r --arg model "$MODEL_REFERENCE" '.data.saveEndpoint.modelReferences | index($model) != null')" = 'true'
+          test "$(printf '%s' "$response" | jq -r '.data.saveEndpoint.workersMin')" = '0'
+          test "$(printf '%s' "$response" | jq -r '.data.saveEndpoint.workersMax')" = '1'
+          test "$(printf '%s' "$response" | jq -r '.data.saveEndpoint.flashBootType')" = 'OFF'
+          test "$(printf '%s' "$response" | jq -r '.data.saveEndpoint.networkVolumeIds | length')" = '0'
+
+          # REST policy owns the fallback pool; preserve it after inline-template/model save.
+          gpu_pool='["NVIDIA B200","NVIDIA H200","NVIDIA RTX PRO 6000 Blackwell Server Edition","NVIDIA RTX PRO 6000 Blackwell Workstation Edition","NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition","NVIDIA H100 PCIe","NVIDIA H100 80GB HBM3","NVIDIA H100 NVL","NVIDIA A100 80GB PCIe","NVIDIA A100-SXM4-80GB"]'
           policy="$(jq -cn --argjson gpu "$gpu_pool" '{gpuTypeIds:$gpu,gpuCount:1,workersMin:0,workersMax:1,idleTimeout:5,scalerType:"REQUEST_COUNT",scalerValue:1,flashboot:false,minCudaVersion:"12.8",allowedCudaVersions:["12.8","12.9","13.0"],dataCenterIds:[],networkVolumeIds:[],executionTimeoutMs:2100000}')"
-          response="$(curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$policy" "${REST}/endpoints/${ENDPOINT_ID}")"
-          echo "AVANTIQO_VIDEO_CAPACITY_V3_PATCH_RESPONSE=$(printf '%s' "$response" | jq -c '{id,name,workersMin,workersMax,gpuTypeIds,flashboot,networkVolumeId,networkVolumeIds}')"
+          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$policy" "${REST}/endpoints/${ENDPOINT_ID}" >/dev/null
 
-          after="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
-          test "$(printf '%s' "$after" | jq -r '.workersMin')" = '0'
-          test "$(printf '%s' "$after" | jq -r '.workersMax')" = '1'
-          test "$(printf '%s' "$after" | jq -r '(.gpuTypeIds // []) | length')" -ge 8
-          test "$(printf '%s' "$after" | jq -r '([.networkVolumeId,.networkVolumeIds[]?] | map(if type=="object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | length)')" = '0'
+          if [ "$new_template_id" != "$old_template_id" ]; then
+            endpoints="$(curl -fsS "${auth[@]}" "${REST}/endpoints")"
+            old_refs="$(printf '%s' "$endpoints" | jq --arg id "$old_template_id" '[.[] | select((.templateId // .template.id // "") == $id)] | length')"
+            [ "$old_refs" = '0' ] && curl -fsS -X DELETE "${auth[@]}" "${REST}/templates/${old_template_id}" >/dev/null || true
+          fi
 
-          model_after="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$model_payload" "$GRAPH" | jq -c --arg id "$ENDPOINT_ID" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?]')"
-          test "$model_after" = "$model_before"
-
-          sleep 12
-          health_after="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
-          echo "AVANTIQO_VIDEO_CAPACITY_V3_HEALTH_AFTER=$(printf '%s' "$health_after" | jq -c '{jobs:.jobs,workers:.workers}')"
-          echo "AVANTIQO_VIDEO_CAPACITY_V3_GPU_POOL=$(printf '%s' "$after" | jq -c '.gpuTypeIds')"
-          echo 'AVANTIQO_VIDEO_CAPACITY_V3_FLASHBOOT=false'
-          echo 'AVANTIQO_VIDEO_CAPACITY_V3_MODEL_PRESERVED=true'
-          echo 'AVANTIQO_VIDEO_CAPACITY_V3_EXISTING_JOB_PRESERVED=true'
-          echo 'AVANTIQO_VIDEO_CAPACITY_V3_GENERATION_SUBMITTED=false'
-          echo 'AVANTIQO_VIDEO_CAPACITY_V3_NETWORK_VOLUME=false'
-          echo 'AVANTIQO_VIDEO_CAPACITY_V3_PRODUCTION_DEPLOY=false'
+          sleep 15
+          health="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
+          verify_query='query VideoModel { myself { endpoints { id templateId modelReferences } } }'
+          verify_payload="$(jq -cn --arg query "$verify_query" '{query:$query,variables:{}}')"
+          verify="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$verify_payload" "$GRAPH")"
+          test "$(printf '%s' "$verify" | jq -r --arg id "$ENDPOINT_ID" --arg model "$MODEL_REFERENCE" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?] | index($model) != null')" = 'true'
+          echo "AVANTIQO_VIDEO_SLIM_CACHE_MODEL_REFERENCE=${MODEL_REFERENCE}"
+          echo "AVANTIQO_VIDEO_SLIM_CACHE_TEMPLATE=${new_template_id}"
+          echo "AVANTIQO_VIDEO_SLIM_CACHE_HEALTH=$(printf '%s' "$health" | jq -c '{jobs:.jobs,workers:.workers}')"
+          echo 'AVANTIQO_VIDEO_SLIM_CACHE_EXISTING_SCENE1_PRESERVED=true'
+          echo 'AVANTIQO_VIDEO_SLIM_CACHE_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_VIDEO_SLIM_CACHE_NETWORK_VOLUME=false'
+          echo 'AVANTIQO_VIDEO_SLIM_CACHE_PRODUCTION_DEPLOY=false'

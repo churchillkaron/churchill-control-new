@@ -37,3 +37,112 @@ jobs:
           echo "GPU_INFERENCE_PERFORMED=false"
           echo "RUNPOD_MUTATION_PERFORMED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
+
+  video-native-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AVANTIQO_VIDEO_SCENE1_REAL_INFERENCE_APPROVED: "NO"
+      AVANTIQO_VIDEO_SCENE1_MAX_SUPPLIER_GPU_COST_USD: "3.25"
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Prove generation-only source boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-engine/modal_app.py
+          python -m py_compile services/avantiqo-video-engine/modal_scene1_cert.py
+          python - <<'PY'
+          from pathlib import Path
+          app = Path("services/avantiqo-video-engine/modal_app.py").read_text(encoding="utf-8")
+          cert = Path("services/avantiqo-video-engine/modal_scene1_cert.py").read_text(encoding="utf-8")
+          required = (
+              'LTX_GPU = "B200"', 'LTX_NUM_INFERENCE_STEPS = 30',
+              'LTX_MASTER_WIDTH = 3840', 'LTX_MASTER_HEIGHT = 2176',
+              'create_if_missing=False', 'gpu=LTX_GPU', 'retries=0',
+              '"--num-inference-steps", str(LTX_NUM_INFERENCE_STEPS)',
+              '"model_cpu_offload_used": False', '"pixel_upscale_used": False',
+              '"learned_latent_upsampler_used": False', '"learned_spatial_upscaler_used": False',
+              '"temporal_interpolation_used": False', '"resize_used": False',
+              '"crop_used": False', '"grading_used": False', '"assembly_used": False',
+              '"delivery_transform_used": False', '"reference_preprocessing_inside_paid_worker": False',
+          )
+          for needle in required:
+              if needle not in app:
+                  raise SystemExit(f"AVANTIQO_VIDEO_MODAL_STATIC_REQUIRED_MISSING:{needle}")
+          for needle in ('"--offload"', 'prepare_scene1_reference', 'dfr_pipeline', 'latent-spatial-upscaler', 'pixel-spatial-upscaler', 'temporal-upsampler'):
+              if needle in app:
+                  raise SystemExit(f"AVANTIQO_VIDEO_MODAL_STATIC_FORBIDDEN_PRESENT:{needle}")
+          if 'def generate_scene1_native_master(' in cert:
+              raise SystemExit('AVANTIQO_VIDEO_MODAL_DUPLICATE_CERT_GPU_FUNCTION_PRESENT')
+          if 'generate_native_master.remote(' not in cert:
+              raise SystemExit('AVANTIQO_VIDEO_MODAL_CERT_CANONICAL_CALL_MISSING')
+          print('AVANTIQO_VIDEO_MODAL_GENERATION_ONLY_STATIC_GATE=PASS')
+          print('GPU_INFERENCE_PERFORMED=false')
+          PY
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+
+      - name: Require live preflight credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          echo 'AVANTIQO_VIDEO_MODAL_PREFLIGHT_CREDENTIALS=PASS'
+
+      - name: Verify deployed premium Video function is idle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import modal
+          worker = modal.Function.from_name("avantiqo-video-owned", "generate_native_master")
+          stats = worker.get_current_stats()
+          backlog = int(getattr(stats, "backlog", 0) or 0)
+          runners = int(getattr(stats, "num_total_runners", 0) or 0)
+          running = int(getattr(stats, "num_running_inputs", 0) or 0)
+          if backlog or runners or running:
+              raise RuntimeError(f"AVANTIQO_VIDEO_MODAL_DUPLICATE_GPU_GUARD_ACTIVE:backlog={backlog}:runners={runners}:running={running}")
+          print(f"AVANTIQO_VIDEO_MODAL_DEPLOYED_IDLE=PASS backlog={backlog} runners={runners} running={running}")
+          print("GPU_INFERENCE_PERFORMED=false")
+          PY
+
+      - name: Verify exact LTX cache on single Video Volume using CPU only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_app.py::seed_ltx_cache
+          echo 'AVANTIQO_VIDEO_MODAL_EXACT_CACHE_GATE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Run governed Scene 1 zero-GPU preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_scene1_cert.py::scene1_preflight
+          echo 'AVANTIQO_VIDEO_MODAL_NATIVE_PREFLIGHT=PASS'
+          echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'

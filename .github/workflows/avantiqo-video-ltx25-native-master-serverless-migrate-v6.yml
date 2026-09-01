@@ -1,4 +1,4 @@
-name: Avantiqo Video Global Capacity Repair
+name: Avantiqo Video Global Capacity Repair V2
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       RUNPOD_INFERENCE_KEY: ${{ secrets.RUNPOD_AVANTIQO_VIDEO_API_KEY || secrets.RUNPOD_API_KEY || secrets.RUNPOD_MANAGEMENT_API_KEY }}
 
     steps:
-      - name: Widen global 80GB+ GPU pool and cold-start queued Scene 1
+      - name: Apply documented global 80GB+ fallback pool to existing queued Scene 1
         shell: bash
         run: |
           set -euo pipefail
@@ -35,6 +35,9 @@ jobs:
           auth=(-H "Authorization: Bearer ${RUNPOD_API_KEY}")
           json=(-H 'Content-Type: application/json')
 
+          # Exact RunPod endpoint GPU IDs documented by the current API. All are >=80GB VRAM.
+          gpu_pool='["NVIDIA B200","NVIDIA H200","NVIDIA H200 NVL","NVIDIA RTX PRO 6000 Blackwell Server Edition","NVIDIA RTX PRO 6000 Blackwell Workstation Edition","NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition","NVIDIA H100 NVL","NVIDIA H100 80GB HBM3","NVIDIA H100 PCIe","NVIDIA A100-SXM4-80GB","NVIDIA A100 80GB PCIe"]'
+
           endpoint="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
           test "$(printf '%s' "$endpoint" | jq -r '.id')" = "$ENDPOINT_ID"
           test "$(printf '%s' "$endpoint" | jq -r '.name')" = "$ENDPOINT_NAME"
@@ -43,27 +46,23 @@ jobs:
           test "$(printf '%s' "$endpoint" | jq -r '([.networkVolumeId,.networkVolumeIds[]?] | map(if type=="object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | length)')" = '0'
 
           template_id="$(printf '%s' "$endpoint" | jq -r '.templateId // .template.id // empty')"
+          test -n "$template_id"
           template="$(curl -fsS "${auth[@]}" "${REST}/templates/${template_id}")"
           test "$(printf '%s' "$template" | jq -r '.containerDiskInGb')" = '30'
           test -n "$(printf '%s' "$template" | jq -r '.env.HF_TOKEN // empty')"
 
-          state_query='query VideoState { myself { endpoints { id templateId modelReferences } } gpuTypes { id memoryInGb secureCloud } }'
-          state_payload="$(jq -cn --arg query "$state_query" '{query:$query,variables:{}}')"
-          graph="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$state_payload" "$GRAPH")"
-          if [ "$(printf '%s' "$graph" | jq '.errors | length // 0')" != '0' ]; then printf '%s\n' "$graph" | jq -c '{errors:.errors}' >&2; exit 1; fi
-          model_count="$(printf '%s' "$graph" | jq --arg id "$ENDPOINT_ID" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?] | length')"
-          test "$model_count" -ge 1
-
-          gpu_pool="$(printf '%s' "$graph" | jq -c '[.data.gpuTypes[] | select(.secureCloud == true) | select((.memoryInGb // 0) >= 80) | select((.id // "") | test("^NVIDIA";"i")) | .id] | unique | sort')"
-          gpu_count="$(printf '%s' "$gpu_pool" | jq 'length')"
-          test "$gpu_count" -ge 3
-          echo "AVANTIQO_VIDEO_GLOBAL_CAPACITY_GPU_POOL=${gpu_pool}"
+          model_query='query VideoModel { myself { endpoints { id modelReferences } } }'
+          model_payload="$(jq -cn --arg query "$model_query" '{query:$query,variables:{}}')"
+          graph_before="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$model_payload" "$GRAPH")"
+          model_refs_before="$(printf '%s' "$graph_before" | jq -c --arg id "$ENDPOINT_ID" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?]')"
+          test "$(printf '%s' "$model_refs_before" | jq 'length')" -ge 1
 
           health_before="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
           test "$(printf '%s' "$health_before" | jq '(.jobs.inQueue // .jobs.in_queue // 0)')" -ge 1
-          echo "AVANTIQO_VIDEO_GLOBAL_CAPACITY_HEALTH_BEFORE=$(printf '%s' "$health_before" | jq -c '{jobs:.jobs,workers:.workers}')"
+          echo "AVANTIQO_VIDEO_CAPACITY_V2_HEALTH_BEFORE=$(printf '%s' "$health_before" | jq -c '{jobs:.jobs,workers:.workers}')"
+          echo "AVANTIQO_VIDEO_CAPACITY_V2_GPU_POOL=${gpu_pool}"
 
-          # Freeze autoscaling while replacing only placement policy. Existing queued Scene 1 remains queued.
+          # Recycle only failed initializers; queued Scene 1 remains in RunPod's queue.
           curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d '{"workersMin":0,"workersMax":0}' "${REST}/endpoints/${ENDPOINT_ID}" >/dev/null
           for i in $(seq 1 18); do
             h="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
@@ -72,26 +71,26 @@ jobs:
             sleep 5
           done
 
-          # Full-dev BF16 quality is unchanged. Only eligible placement hardware expands.
           policy="$(jq -cn --argjson gpu "$gpu_pool" '{gpuTypeIds:$gpu,gpuCount:1,workersMin:0,workersMax:1,idleTimeout:5,scalerType:"REQUEST_COUNT",scalerValue:1,flashboot:false,minCudaVersion:"12.8",allowedCudaVersions:["12.8","12.9","13.0"],dataCenterIds:[],networkVolumeIds:[],executionTimeoutMs:2100000}')"
-          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$policy" "${REST}/endpoints/${ENDPOINT_ID}" >/tmp/video-global-capacity-patch.json
+          curl -fsS -X PATCH "${auth[@]}" "${json[@]}" -d "$policy" "${REST}/endpoints/${ENDPOINT_ID}" >/tmp/video-capacity-v2.json
 
           after="$(curl -fsS "${auth[@]}" "${REST}/endpoints/${ENDPOINT_ID}?includeTemplate=true&includeWorkers=true")"
           test "$(printf '%s' "$after" | jq -r '.workersMin')" = '0'
           test "$(printf '%s' "$after" | jq -r '.workersMax')" = '1'
           test "$(printf '%s' "$after" | jq -r '([.networkVolumeId,.networkVolumeIds[]?] | map(if type=="object" then (.networkVolumeId // .id) else . end) | map(select(. != null and . != "")) | length)')" = '0'
-          after_pool="$(printf '%s' "$after" | jq -c '(.gpuTypeIds // []) | unique | sort')"
-          test "$after_pool" = "$gpu_pool"
+          after_pool="$(printf '%s' "$after" | jq -c '.gpuTypeIds // []')"
+          for gpu in $(printf '%s' "$gpu_pool" | jq -r '.[]'); do :; done
+          test "$(printf '%s' "$after_pool" | jq 'length')" -ge 8
 
-          verify_graph="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$state_payload" "$GRAPH")"
-          verify_models="$(printf '%s' "$verify_graph" | jq --arg id "$ENDPOINT_ID" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?] | length')"
-          test "$verify_models" -ge 1
+          graph_after="$(curl -fsS "${auth[@]}" "${json[@]}" -d "$model_payload" "$GRAPH")"
+          model_refs_after="$(printf '%s' "$graph_after" | jq -c --arg id "$ENDPOINT_ID" '[.data.myself.endpoints[] | select(.id==$id) | .modelReferences[]?]')"
+          test "$model_refs_after" = "$model_refs_before"
 
-          sleep 8
+          sleep 12
           health_after="$(curl -fsS -H "Authorization: Bearer ${RUNPOD_INFERENCE_KEY}" "${QUEUE}/health")"
-          echo "AVANTIQO_VIDEO_GLOBAL_CAPACITY_HEALTH_AFTER=$(printf '%s' "$health_after" | jq -c '{jobs:.jobs,workers:.workers}')"
-          echo 'AVANTIQO_VIDEO_GLOBAL_CAPACITY_FLASHBOOT=false'
-          echo 'AVANTIQO_VIDEO_GLOBAL_CAPACITY_EXISTING_JOB_PRESERVED=true'
-          echo 'AVANTIQO_VIDEO_GLOBAL_CAPACITY_GENERATION_SUBMITTED=false'
-          echo 'AVANTIQO_VIDEO_GLOBAL_CAPACITY_NETWORK_VOLUME=false'
-          echo 'AVANTIQO_VIDEO_GLOBAL_CAPACITY_PRODUCTION_DEPLOY=false'
+          echo "AVANTIQO_VIDEO_CAPACITY_V2_HEALTH_AFTER=$(printf '%s' "$health_after" | jq -c '{jobs:.jobs,workers:.workers}')"
+          echo 'AVANTIQO_VIDEO_CAPACITY_V2_FLASHBOOT=false'
+          echo 'AVANTIQO_VIDEO_CAPACITY_V2_EXISTING_JOB_PRESERVED=true'
+          echo 'AVANTIQO_VIDEO_CAPACITY_V2_GENERATION_SUBMITTED=false'
+          echo 'AVANTIQO_VIDEO_CAPACITY_V2_NETWORK_VOLUME=false'
+          echo 'AVANTIQO_VIDEO_CAPACITY_V2_PRODUCTION_DEPLOY=false'

@@ -52,14 +52,18 @@ _WEIGHT_FILENAMES = (
 app = modal.App(APP_NAME)
 
 
-def _private_registry_secret() -> modal.Secret:
+def _private_registry_secret() -> modal.Secret | None:
+    # Modal re-imports this module inside the remote image-build container when
+    # executing run_function(). Registry credentials are required only on the
+    # local launcher while Image.from_registry resolves the private GHCR base.
+    # Never require, reconstruct, or attach that credential in a Modal container.
+    if not modal.is_local():
+        return None
+
     username = str(os.environ.get("AVANTIQO_MODAL_REGISTRY_USERNAME") or "").strip()
     password = str(os.environ.get("AVANTIQO_MODAL_REGISTRY_PASSWORD") or "").strip()
     if not username or not password:
         raise RuntimeError("AVANTIQO_AUDIO_MODAL_PRIVATE_REGISTRY_CREDENTIALS_REQUIRED")
-    # Secret.from_dict is anonymous/app-owned in Modal 1.2.6. It is used only by
-    # Image.from_registry while importing the private GHCR base image and is not
-    # attached to the runtime function below.
     return modal.Secret.from_dict({
         "REGISTRY_USERNAME": username,
         "REGISTRY_PASSWORD": password,

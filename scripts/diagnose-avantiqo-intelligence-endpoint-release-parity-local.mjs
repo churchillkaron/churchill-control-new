@@ -26,10 +26,17 @@ function shell(name, args, code) {
 }
 
 function validateCurrentMain() {
-  shell("git", ["fetch", "origin", "main"], "AVANTIQO_INTELLIGENCE_RELEASE_GIT_FETCH_FAILED");
+  const expected = text(process.env.AVANTIQO_INTELLIGENCE_RELEASE_EXPECTED_MAIN);
   const branch = shell("git", ["branch", "--show-current"], "AVANTIQO_INTELLIGENCE_RELEASE_GIT_BRANCH_FAILED");
   if (branch !== "main") throw new Error(`AVANTIQO_INTELLIGENCE_RELEASE_MAIN_REQUIRED:actual=${branch || "DETACHED"}`);
   const head = shell("git", ["rev-parse", "HEAD"], "AVANTIQO_INTELLIGENCE_RELEASE_GIT_HEAD_FAILED");
+  if (expected) {
+    if (head !== expected) {
+      throw new Error(`AVANTIQO_INTELLIGENCE_RELEASE_PINNED_MAIN_MISMATCH:head=${head}:expected=${expected}`);
+    }
+    return head;
+  }
+  shell("git", ["fetch", "origin", "main"], "AVANTIQO_INTELLIGENCE_RELEASE_GIT_FETCH_FAILED");
   const remote = shell("git", ["rev-parse", "origin/main"], "AVANTIQO_INTELLIGENCE_RELEASE_GIT_REMOTE_FAILED");
   if (head !== remote) throw new Error(`AVANTIQO_INTELLIGENCE_RELEASE_LOCAL_MAIN_NOT_CURRENT:head=${head}:origin_main=${remote}`);
   return head;
@@ -214,12 +221,14 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   mode: "READ_ONLY",
   main_commit: mainCommit,
+  pinned_main: Boolean(text(process.env.AVANTIQO_INTELLIGENCE_RELEASE_EXPECTED_MAIN)),
   deep,
   fast,
   diagnosis,
   next_action: nextAction,
   generation_submitted: false,
   inference_performed: false,
+  gpu_activation_performed: false,
   endpoint_mutation_performed: false,
   production_deploy_performed: false,
   secrets_in_output: false,

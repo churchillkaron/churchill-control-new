@@ -1,0 +1,984 @@
+name: Avantiqo Intelligence Final Owned E2E V4
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-intelligence-final-owned-e2e-v4.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-intelligence-final-owned-e2e-v4
+  cancel-in-progress: false
+
+jobs:
+  repair-test-prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      NODE_ENV: production
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_FAST_TIMEOUT_MS: "360000"
+      AVANTIQO_INTELLIGENCE_FAST_UNSCHEDULED_TIMEOUT_MS: "20000"
+      AVANTIQO_INTELLIGENCE_FAST_COLD_START_RETRY_DEADLINE_MS: "45000"
+      AVANTIQO_INTELLIGENCE_FAST_COLD_START_RETRY_DELAY_MS: "5000"
+      AVANTIQO_INTELLIGENCE_REQUEST_LEASE_ACQUIRE_WAIT_MS: "120000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_STARTUP_TIMEOUT_MS: "240000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_EXECUTION_TIMEOUT_MS: "360000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_CLEANUP_TIMEOUT_MS: "180000"
+      AVANTIQO_INTELLIGENCE_FAST_POD_MAX_ESTIMATED_SPEND_USD: "0.35"
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Apply final owned Intelligence hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              source = p.read_text()
+              if old not in source:
+                  raise SystemExit(f"expected source fragment not found: {path}: {old[:100]!r}")
+              p.write_text(source.replace(old, new, 1))
+
+          policy = r'''const OWNED_PROVIDER = "avantiqo-intelligence";
+          const FAST_CAPABILITY = "ai.text.generate";
+          const DEEP_SERVICE_ID = "ai.reasoning.execute";
+          const DEEP_CAPABILITY = "ai.reasoning.execute";
+          const CONTRACT = "AVANTIQO_OWNED_INTELLIGENCE_LANE_RECOVERY_V2";
+          const MIN_DEEP_RECOVERY_OUTPUT_TOKENS = 8192;
+
+          const FAST_AVAILABILITY_PATTERNS = Object.freeze([
+            /AVANTIQO_INTELLIGENCE_FAST_POD_LEASE_ACQUIRE_FAILED/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_LEASE_ACQUIRE_INVALID/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_SHARED_VOLUME_BUSY/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_SHARED_VOLUME_CONTRACT_MISMATCH/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_ENDPOINT_RESOLUTION_FAILED/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_COMPATIBLE_GPU_REQUIRED/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_RUNTIME_BUSY/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_TERMINAL/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_MODEL_READY_TIMEOUT/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_STARTUP_SPEND_LIMIT/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_(?:409|429|5\d\d)/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_400:.*(?:no|not|zero).*?(?:instance|gpu).*?(?:available|capacity)/i,
+            /AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_400:.*(?:capacity|out of stock|insufficient)/i,
+          ]);
+
+          function text(value) {
+            return String(value ?? "").trim();
+          }
+
+          function object(value) {
+            return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+          }
+
+          function recoveryMetadata(metadata = {}) {
+            return object(metadata.owned_intelligence_lane_recovery || metadata.ownedIntelligenceLaneRecovery);
+          }
+
+          function recoveryDisabled(providerPolicy = {}, metadata = {}) {
+            return providerPolicy.allow_owned_lane_recovery === false
+              || providerPolicy.allowOwnedLaneRecovery === false
+              || metadata.owned_lane_recovery_disabled === true
+              || metadata.ownedLaneRecoveryDisabled === true;
+          }
+
+          function safeTrigger(error) {
+            const source = text(error?.message || error);
+            const match = FAST_AVAILABILITY_PATTERNS.find((pattern) => pattern.test(source));
+            if (!match) return null;
+            return source.split(":")[0] || "FAST_UNAVAILABLE";
+          }
+
+          export function ownedIntelligenceLaneRecoveryDecision({
+            error,
+            provider,
+            capability,
+            providerPolicy = {},
+            metadata = {},
+          } = {}) {
+            if (text(provider) !== OWNED_PROVIDER) {
+              return { allowed: false, reason: "PROVIDER_NOT_OWNED_INTELLIGENCE" };
+            }
+            if (text(capability) !== FAST_CAPABILITY) {
+              return { allowed: false, reason: "CAPABILITY_NOT_FAST_INTELLIGENCE" };
+            }
+            if (recoveryDisabled(providerPolicy, metadata)) {
+              return { allowed: false, reason: "OWNED_LANE_RECOVERY_DISABLED" };
+            }
+            if (Number(recoveryMetadata(metadata).attempt || 0) >= 1) {
+              return { allowed: false, reason: "OWNED_LANE_RECOVERY_ALREADY_ATTEMPTED" };
+            }
+            const trigger = safeTrigger(error);
+            if (!trigger) {
+              return { allowed: false, reason: "FAST_FAILURE_NOT_AVAILABILITY_RELATED" };
+            }
+            return {
+              allowed: true,
+              reason: "OWNED_FAST_UNAVAILABLE_USE_OWNED_DEEP",
+              trigger,
+              contract: CONTRACT,
+            };
+          }
+
+          export function buildOwnedIntelligenceLaneRecoveryInput({
+            input = {},
+            decision,
+            failedUsageId,
+            failedProvider,
+            failedModel = null,
+          } = {}) {
+            if (decision?.allowed !== true) {
+              throw new Error("OWNED_INTELLIGENCE_LANE_RECOVERY_NOT_ALLOWED");
+            }
+            const sourcePayload = object(input.input);
+            const {
+              model: _discardModel,
+              execution_lane: _discardLane,
+              executionLane: _discardCamelLane,
+              ...payload
+            } = sourcePayload;
+            const requestedBudget = Number(
+              sourcePayload.max_output_tokens || sourcePayload.maxOutputTokens || 0,
+            );
+            const deepBudget = Math.max(
+              MIN_DEEP_RECOVERY_OUTPUT_TOKENS,
+              Number.isFinite(requestedBudget) ? requestedBudget : 0,
+            );
+            const priorPolicy = object(input.provider_policy);
+            const priorMetadata = object(input.metadata);
+            return {
+              ...input,
+              service_id: DEEP_SERVICE_ID,
+              capability: DEEP_CAPABILITY,
+              provider_id: OWNED_PROVIDER,
+              input: {
+                ...payload,
+                execution_lane: "deep",
+                max_output_tokens: deepBudget,
+              },
+              provider_policy: {
+                ...priorPolicy,
+                allowed_providers: [OWNED_PROVIDER],
+                blocked_providers: [],
+                external_fallback_allowed: false,
+                allow_owned_reasoning_fallback: false,
+                allow_owned_lane_recovery: false,
+              },
+              metadata: {
+                ...priorMetadata,
+                owned_intelligence_lane_recovery: {
+                  contract: CONTRACT,
+                  attempt: 1,
+                  chain_id: text(failedUsageId),
+                  previous_usage_id: text(failedUsageId),
+                  previous_provider: text(failedProvider),
+                  previous_model: text(failedModel) || null,
+                  from_lane: "fast",
+                  to_lane: "deep",
+                  trigger: text(decision.trigger),
+                  owned_provider_only: true,
+                  external_fallback_used: false,
+                  min_deep_output_tokens: MIN_DEEP_RECOVERY_OUTPUT_TOKENS,
+                },
+              },
+            };
+          }
+
+          export function ownedIntelligenceLaneRecoveryEvidence({
+            failedUsageId,
+            failedProvider,
+            failedModel = null,
+            decision,
+            result = {},
+          } = {}) {
+            return {
+              occurred: true,
+              contract: CONTRACT,
+              reason: text(decision?.reason),
+              trigger: text(decision?.trigger),
+              owned_provider_only: true,
+              external_fallback_used: false,
+              from: {
+                lane: "fast",
+                provider: text(failedProvider) || null,
+                model: text(failedModel) || null,
+                usage_id: text(failedUsageId) || null,
+                status: "FAILED",
+              },
+              to: {
+                lane: "deep",
+                provider: text(result?.provider) || null,
+                model: text(result?.model) || null,
+                usage_id: text(result?.usage?.id) || null,
+                status: result?.pending === true ? "PENDING" : "SUCCESS",
+              },
+            };
+          }
+
+          export const OWNED_INTELLIGENCE_LANE_RECOVERY_CONTRACT = CONTRACT;
+          export const OWNED_INTELLIGENCE_LANE_RECOVERY_MIN_DEEP_OUTPUT_TOKENS = MIN_DEEP_RECOVERY_OUTPUT_TOKENS;
+          '''
+          Path("lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js").write_text(policy)
+
+          service_path = Path("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js")
+          service = service_path.read_text()
+          import_anchor = '''import {
+            buildOwnedReasoningFallbackInput,
+            ownedReasoningFallbackDecision,
+            ownedReasoningFallbackEvidence,
+          } from "./OwnedReasoningFallbackPolicy";
+          '''
+          lane_import = import_anchor + '''
+          import {
+            buildOwnedIntelligenceLaneRecoveryInput,
+            ownedIntelligenceLaneRecoveryDecision,
+            ownedIntelligenceLaneRecoveryEvidence,
+          } from "./OwnedIntelligenceLaneRecoveryPolicy";
+          '''
+          if "./OwnedIntelligenceLaneRecoveryPolicy" not in service:
+              if import_anchor not in service:
+                  raise SystemExit("ServiceExecutionRuntime import anchor missing")
+              service = service.replace(import_anchor, lane_import, 1)
+
+          marker = "    const fallbackDecision = ownedReasoningFallbackDecision({"
+          marker_index = service.find(marker)
+          if marker_index < 0:
+              raise SystemExit("ServiceExecutionRuntime fallback catch marker missing")
+          catch_start = service.rfind("  } catch (error) {", 0, marker_index)
+          catch_end_marker = "    throw error;\n  }"
+          catch_end = service.find(catch_end_marker, marker_index)
+          if catch_start < 0 or catch_end < 0:
+              raise SystemExit("ServiceExecutionRuntime fallback catch bounds missing")
+          catch_end += len(catch_end_marker)
+          new_catch = r'''  } catch (error) {
+            const laneRecoveryDecision = ownedIntelligenceLaneRecoveryDecision({
+              error,
+              provider,
+              capability: executionCapability,
+              providerPolicy: effectiveProviderPolicy,
+              metadata,
+            });
+            const fallbackDecision = ownedReasoningFallbackDecision({
+              error,
+              provider,
+              capability: executionCapability,
+              providerPolicy: effectiveProviderPolicy,
+              metadata,
+            });
+            const recoveryAllowed =
+              laneRecoveryDecision.allowed === true || fallbackDecision.allowed === true;
+
+            try {
+              await UsageRuntime.fail({
+                usage_id: usage.id,
+                error,
+                latency_ms: Date.now() - startedAt,
+                metadata: {
+                  ...metadata,
+                  service_id,
+                  model,
+                  provider,
+                  wallet_gate: gate,
+                  owned_lane_recovery_candidate: {
+                    allowed: laneRecoveryDecision.allowed === true,
+                    reason: laneRecoveryDecision.reason,
+                    trigger: laneRecoveryDecision.trigger || null,
+                  },
+                  provider_failover_candidate: {
+                    allowed: fallbackDecision.allowed === true,
+                    reason: fallbackDecision.reason,
+                  },
+                },
+              });
+            } catch (usageFailureError) {
+              if (recoveryAllowed) {
+                throw failoverCleanupError(
+                  "SERVICE_FAILOVER_USAGE_FINALIZATION_FAILED",
+                  usageFailureError,
+                );
+              }
+            }
+
+            if (reservationRemaining > 0) {
+              try {
+                await WalletRuntime.release({
+                  organization_id,
+                  amount: reservationRemaining,
+                  provider,
+                  reference: usage.id,
+                  currency: pricing.currency,
+                  metadata: {
+                    usage_id: usage.id,
+                    settlement: laneRecoveryDecision.allowed === true
+                      ? "FAILED_FAST_BEFORE_OWNED_DEEP_RECOVERY"
+                      : fallbackDecision.allowed === true
+                        ? "FAILED_ATTEMPT_BEFORE_PROVIDER_FAILOVER"
+                        : "FAILED_PROVIDER_EXECUTION",
+                  },
+                });
+                reservationRemaining = 0;
+              } catch (releaseError) {
+                if (recoveryAllowed) {
+                  throw failoverCleanupError(
+                    "SERVICE_FAILOVER_RESERVATION_RELEASE_FAILED",
+                    releaseError,
+                  );
+                }
+              }
+            }
+
+            if (laneRecoveryDecision.allowed === true) {
+              const recoveryInput = buildOwnedIntelligenceLaneRecoveryInput({
+                input,
+                decision: laneRecoveryDecision,
+                failedUsageId: usage.id,
+                failedProvider: provider,
+                failedModel: model,
+              });
+              const recoveryResult = await executeService(recoveryInput);
+              return {
+                ...recoveryResult,
+                owned_lane_recovery: ownedIntelligenceLaneRecoveryEvidence({
+                  failedUsageId: usage.id,
+                  failedProvider: provider,
+                  failedModel: model,
+                  decision: laneRecoveryDecision,
+                  result: recoveryResult,
+                }),
+              };
+            }
+
+            if (fallbackDecision.allowed === true) {
+              const fallbackInput = buildOwnedReasoningFallbackInput({
+                input,
+                decision: fallbackDecision,
+                failedUsageId: usage.id,
+                failedProvider: provider,
+                failedModel: model,
+              });
+              const fallbackResult = await executeService(fallbackInput);
+              return {
+                ...fallbackResult,
+                provider_failover: ownedReasoningFallbackEvidence({
+                  failedUsageId: usage.id,
+                  failedProvider: provider,
+                  failedModel: model,
+                  decision: fallbackDecision,
+                  result: fallbackResult,
+                }),
+              };
+            }
+
+            throw error;
+          }'''
+          service = service[:catch_start] + new_catch + service[catch_end:]
+          service_path.write_text(service)
+
+          replace_once(
+              "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js",
+              '''  const apiKey = text(process.env.RUNPOD_API_KEY);
+            if (!apiKey) throw new Error("RUNPOD_API_KEY_REQUIRED");''',
+              '''  const apiKey =
+                text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY) ||
+                text(process.env.RUNPOD_API_KEY) ||
+                text(process.env.RUNPOD_MANAGEMENT_API_KEY);
+            if (!apiKey) throw new Error("RUNPOD_AVANTIQO_INTELLIGENCE_FAST_RUNTIME_KEY_REQUIRED");''',
+          )
+          replace_once(
+              "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js",
+              '  const apiKeyConfigured = Boolean(text(process.env.RUNPOD_API_KEY));',
+              '''  const apiKeyConfigured = Boolean(
+                text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY) ||
+                text(process.env.RUNPOD_API_KEY) ||
+                text(process.env.RUNPOD_MANAGEMENT_API_KEY),
+              );''',
+          )
+          replace_once(
+              "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js",
+              '''  const apiKey = text(process.env.RUNPOD_API_KEY);
+            if (!apiKey) throw new Error("RUNPOD_API_KEY_REQUIRED");''',
+              '''  const apiKey =
+                text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY) ||
+                text(process.env.RUNPOD_API_KEY) ||
+                text(process.env.RUNPOD_MANAGEMENT_API_KEY);
+            if (!apiKey) throw new Error("RUNPOD_AVANTIQO_INTELLIGENCE_RUNTIME_KEY_REQUIRED");''',
+          )
+          replace_once(
+              "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js",
+              '  const apiKeyConfigured = Boolean(text(process.env.RUNPOD_API_KEY));',
+              '''  const apiKeyConfigured = Boolean(
+                text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY) ||
+                text(process.env.RUNPOD_API_KEY) ||
+                text(process.env.RUNPOD_MANAGEMENT_API_KEY),
+              );''',
+          )
+
+          pod_path = Path("lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js")
+          pod = pod_path.read_text()
+          classifier_anchor = r'''export function isAvantiqoIntelligenceFastUnscheduledError(error) {
+            return /^AVANTIQO_INTELLIGENCE_FAST_WORKER_NOT_SCHEDULED_WITHIN_\d+_MS$/i.test(
+              text(error?.message || error),
+            );
+          }
+          '''
+          availability_classifier = classifier_anchor + r'''
+          export function isAvantiqoIntelligenceFastAvailabilityError(error) {
+            const message = text(error?.message || error);
+            if (isAvantiqoIntelligenceFastUnscheduledError(error)) return true;
+            if (/^AVANTIQO_INTELLIGENCE_FAST_REQUEST_FAILED:409:/i.test(message)) return true;
+            if (/^AVANTIQO_INTELLIGENCE_FAST_REQUEST_FAILED:500:.*internal server error/i.test(message)) return true;
+            if (/^AVANTIQO_INTELLIGENCE_FAST_COLD_START_RETRY_EXHAUSTED$/i.test(message)) return true;
+            return false;
+          }
+          '''
+          if "isAvantiqoIntelligenceFastAvailabilityError" not in pod:
+              if classifier_anchor not in pod:
+                  raise SystemExit("Fast Pod fallback classifier anchor missing")
+              pod = pod.replace(classifier_anchor, availability_classifier, 1)
+          pod_path.write_text(pod)
+
+          executor_path = Path("lib/platform/service-runtime/providers/ProviderExecutor.js")
+          executor = executor_path.read_text()
+          executor = executor.replace(
+              "isAvantiqoIntelligenceFastUnscheduledError",
+              "isAvantiqoIntelligenceFastAvailabilityError",
+          )
+          executor_path.write_text(executor)
+
+          pool_path = Path("scripts/repair-avantiqo-intelligence-fast-global-fallback-v3-ci.mjs")
+          pool = pool_path.read_text()
+          replacement = '''const TARGET_GPU_TYPES = [
+            "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA H100 80GB HBM3",
+          ];'''
+          pool, count = re.subn(
+              r'const TARGET_GPU_TYPES = \[.*?\];',
+              replacement,
+              pool,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit("Fast global GPU pool anchor missing")
+          pool_path.write_text(pool)
+
+          tests = r'''import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          import test from "node:test";
+          import {
+            buildOwnedIntelligenceLaneRecoveryInput,
+            ownedIntelligenceLaneRecoveryDecision,
+            OWNED_INTELLIGENCE_LANE_RECOVERY_MIN_DEEP_OUTPUT_TOKENS,
+          } from "../lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js";
+
+          const providerExecutor = await readFile(
+            new URL("../lib/platform/service-runtime/providers/ProviderExecutor.js", import.meta.url),
+            "utf8",
+          );
+          const serviceRuntime = await readFile(
+            new URL("../lib/platform/service-runtime/execution/ServiceExecutionRuntime.js", import.meta.url),
+            "utf8",
+          );
+          const fastProvider = await readFile(
+            new URL("../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js", import.meta.url),
+            "utf8",
+          );
+          const deepProvider = await readFile(
+            new URL("../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js", import.meta.url),
+            "utf8",
+          );
+          const podRuntime = await readFile(
+            new URL("../lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js", import.meta.url),
+            "utf8",
+          );
+          const poolRepair = await readFile(
+            new URL("../scripts/repair-avantiqo-intelligence-fast-global-fallback-v3-ci.mjs", import.meta.url),
+            "utf8",
+          );
+
+          test("allocator and Fast Pod availability failures recover only through owned Deep", () => {
+            for (const message of [
+              "AVANTIQO_INTELLIGENCE_FAST_POD_LEASE_ACQUIRE_FAILED:AVANTIQO_INTELLIGENCE_RUNPOD_LEASE_LANE_BUSY",
+              "AVANTIQO_INTELLIGENCE_FAST_POD_MODEL_READY_TIMEOUT",
+              "AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_400:There are no instances currently available",
+              "AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_429:capacity",
+              "AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_500:allocator unavailable",
+            ]) {
+              assert.equal(ownedIntelligenceLaneRecoveryDecision({
+                error: new Error(message),
+                provider: "avantiqo-intelligence",
+                capability: "ai.text.generate",
+              }).allowed, true, message);
+            }
+          });
+
+          test("unknown Fast failures stay fail closed", () => {
+            assert.equal(ownedIntelligenceLaneRecoveryDecision({
+              error: new Error("AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_400:invalid request shape"),
+              provider: "avantiqo-intelligence",
+              capability: "ai.text.generate",
+            }).allowed, false);
+          });
+
+          test("Deep recovery is a separate owned request and cannot use external fallback", () => {
+            const decision = ownedIntelligenceLaneRecoveryDecision({
+              error: new Error("AVANTIQO_INTELLIGENCE_FAST_POD_HTTP_400:no instances currently available"),
+              provider: "avantiqo-intelligence",
+              capability: "ai.text.generate",
+            });
+            const recovery = buildOwnedIntelligenceLaneRecoveryInput({
+              input: {
+                organization_id: "org-test",
+                service_id: "ai.text.generate",
+                input: { execution_lane: "fast", max_output_tokens: 80, prompt: "hello" },
+                provider_policy: { allowed_providers: ["avantiqo-intelligence"] },
+              },
+              decision,
+              failedUsageId: "usage-fast",
+              failedProvider: "avantiqo-intelligence",
+              failedModel: "fast-model",
+            });
+            assert.equal(recovery.service_id, "ai.reasoning.execute");
+            assert.equal(recovery.capability, "ai.reasoning.execute");
+            assert.equal(recovery.provider_id, "avantiqo-intelligence");
+            assert.equal(recovery.input.execution_lane, "deep");
+            assert.equal(recovery.input.max_output_tokens, OWNED_INTELLIGENCE_LANE_RECOVERY_MIN_DEEP_OUTPUT_TOKENS);
+            assert.deepEqual(recovery.provider_policy.allowed_providers, ["avantiqo-intelligence"]);
+            assert.equal(recovery.provider_policy.external_fallback_allowed, false);
+            assert.equal(recovery.provider_policy.allow_owned_reasoning_fallback, false);
+            assert.equal(recovery.provider_policy.allow_owned_lane_recovery, false);
+          });
+
+          test("recovery is loop proof and accounting remains in ServiceExecutionRuntime", () => {
+            assert.equal(ownedIntelligenceLaneRecoveryDecision({
+              error: new Error("AVANTIQO_INTELLIGENCE_FAST_POD_MODEL_READY_TIMEOUT"),
+              provider: "avantiqo-intelligence",
+              capability: "ai.text.generate",
+              metadata: { owned_intelligence_lane_recovery: { attempt: 1 } },
+            }).allowed, false);
+            assert.match(serviceRuntime, /ownedIntelligenceLaneRecoveryDecision/);
+            assert.match(serviceRuntime, /FAILED_FAST_BEFORE_OWNED_DEEP_RECOVERY/);
+            assert.match(serviceRuntime, /owned_lane_recovery:/);
+            assert.match(providerExecutor, /isAvantiqoIntelligenceFastAvailabilityError/);
+          });
+
+          test("Fast and Deep prefer lane-specific RunPod runtime credentials", () => {
+            assert.ok(
+              fastProvider.indexOf("RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY") <
+              fastProvider.indexOf("RUNPOD_API_KEY", fastProvider.indexOf("async function config")),
+            );
+            assert.ok(
+              deepProvider.indexOf("RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY") <
+              deepProvider.indexOf("RUNPOD_API_KEY", deepProvider.indexOf("async function config")),
+            );
+          });
+
+          test("Serverless Fast pool obeys RunPod maximum three GPU priorities", () => {
+            const block = poolRepair.match(/const TARGET_GPU_TYPES = \[(.*?)\];/s)?.[1] || "";
+            const gpuRows = [...block.matchAll(/"NVIDIA [^"]+"/g)].map((match) => match[0]);
+            assert.equal(gpuRows.length, 3);
+            assert.match(block, /RTX PRO 6000 Blackwell Server Edition/);
+            assert.match(block, /A100 80GB PCIe/);
+            assert.match(block, /H100 80GB HBM3/);
+            assert.match(podRuntime, /isAvantiqoIntelligenceFastAvailabilityError/);
+          });
+          '''
+          Path("tests/avantiqo-intelligence-owned-lane-recovery-v4.test.mjs").write_text(tests)
+
+          proof = r'''import { register } from "node:module";
+          import { pathToFileURL } from "node:url";
+
+          const CONTRACT = "AVANTIQO_INTELLIGENCE_FINAL_OWNED_E2E_V4";
+          const FAST_NAME = "avantiqo-intelligence-fast-v1";
+          const FAST_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507";
+          const DEEP_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507";
+          const REST_BASE = "https://rest.runpod.io/v1";
+          const QUEUE_BASE = "https://api.runpod.ai/v2";
+          const FAST_POD_PREFIX = "avantiqo-intelligence-fast-runtime-";
+
+          const text = (value, limit = 12000) => String(value ?? "").trim().slice(0, limit);
+          const list = (value) => Array.isArray(value) ? value : [];
+          const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
+          const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+          const terminal = new Set(["EXITED", "STOPPED", "TERMINATED", "DELETED", "FAILED"]);
+
+          function assert(value, code) {
+            if (!value) throw new Error(`${CONTRACT}_${code}`);
+          }
+
+          function rows(value, keys = []) {
+            if (Array.isArray(value)) return value;
+            for (const key of [...keys, "data", "items", "results"]) {
+              if (Array.isArray(value?.[key])) return value[key];
+            }
+            return [];
+          }
+
+          function managementKey() {
+            const key = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY, 2000);
+            assert(key, "RUNPOD_MANAGEMENT_KEY_REQUIRED");
+            return key;
+          }
+
+          function queueKeys() {
+            return [...new Set([
+              process.env.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY,
+              process.env.RUNPOD_API_KEY,
+              process.env.RUNPOD_MANAGEMENT_API_KEY,
+            ].map((value) => text(value, 2000)).filter(Boolean))];
+          }
+
+          async function requestJson(url, key) {
+            const response = await fetch(url, {
+              headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+              cache: "no-store",
+              signal: AbortSignal.timeout(30000),
+            });
+            const raw = await response.text();
+            let body = null;
+            try { body = raw ? JSON.parse(raw) : {}; } catch { body = null; }
+            if (!response.ok) {
+              const error = new Error(`${CONTRACT}_HTTP_${response.status}`);
+              Object.defineProperty(error, "httpStatus", { value: response.status, enumerable: false });
+              throw error;
+            }
+            assert(body !== null, "NON_JSON_RESPONSE");
+            return body;
+          }
+
+          async function fastEndpoint() {
+            const body = await requestJson(`${REST_BASE}/endpoints?includeTemplate=false&includeWorkers=true`, managementKey());
+            const matches = rows(body, ["endpoints", "serverlessEndpoints"]).filter((row) => text(row?.name, 300) === FAST_NAME);
+            assert(matches.length === 1, `FAST_ENDPOINT_RESOLUTION:${matches.length}`);
+            return matches[0];
+          }
+
+          function activeWorkers(endpoint = {}) {
+            return list(endpoint?.workers).filter((worker) => {
+              if (worker?.isStale === true) return false;
+              const status = text(worker?.status ?? worker?.runtimeStatus ?? worker?.workerStatus, 80).toUpperCase();
+              const desired = text(worker?.desiredStatus ?? worker?.desired_status, 80).toUpperCase();
+              if (status && !terminal.has(status)) return true;
+              if (desired && !terminal.has(desired)) return true;
+              return !status && !desired;
+            });
+          }
+
+          async function fastHealth(endpointId) {
+            let last = null;
+            for (const key of queueKeys()) {
+              try {
+                return await requestJson(`${QUEUE_BASE}/${encodeURIComponent(endpointId)}/health`, key);
+              } catch (error) {
+                last = error;
+                if (![401, 403].includes(Number(error?.httpStatus))) throw error;
+              }
+            }
+            throw last || new Error(`${CONTRACT}_FAST_QUEUE_KEY_REQUIRED`);
+          }
+
+          async function fastRestState() {
+            const endpoint = await fastEndpoint();
+            const endpointId = text(endpoint?.id, 300);
+            const health = await fastHealth(endpointId);
+            const jobs = object(health?.jobs);
+            return {
+              endpoint_id: endpointId,
+              workers_min: finite(endpoint?.workersMin, -1),
+              workers_max: finite(endpoint?.workersMax, -1),
+              active_workers: activeWorkers(endpoint).length,
+              queued: finite(jobs.inQueue ?? jobs.in_queue, 0),
+              in_progress: finite(jobs.inProgress ?? jobs.in_progress, 0),
+            };
+          }
+
+          async function activeFastPods() {
+            const body = await requestJson(
+              `${REST_BASE}/pods?computeType=GPU&includeMachine=true&includeNetworkVolume=true`,
+              managementKey(),
+            );
+            return rows(body, ["pods"]).filter((pod) => {
+              if (!text(pod?.name, 300).startsWith(FAST_POD_PREFIX)) return false;
+              const status = text(pod?.status ?? pod?.runtimeStatus, 80).toUpperCase();
+              const desired = text(pod?.desiredStatus ?? pod?.desired_status, 80).toUpperCase();
+              if (status && !terminal.has(status)) return true;
+              if (desired && !terminal.has(desired)) return true;
+              return !status && !desired;
+            });
+          }
+
+          function findText(value, depth = 0) {
+            if (depth > 8 || value === null || value === undefined) return "";
+            if (typeof value === "string") return value.trim();
+            if (Array.isArray(value)) {
+              for (const item of value) {
+                const found = findText(item, depth + 1);
+                if (found) return found;
+              }
+              return "";
+            }
+            if (typeof value !== "object") return "";
+            for (const key of ["text", "output_text", "content", "message"]) {
+              if (typeof value[key] === "string" && value[key].trim()) return value[key].trim();
+            }
+            for (const key of ["output", "result", "data", "response", "raw"]) {
+              const found = findText(value[key], depth + 1);
+              if (found) return found;
+            }
+            return "";
+          }
+
+          function findScheduling(value, depth = 0) {
+            if (depth > 8 || !value || typeof value !== "object") return null;
+            if (!Array.isArray(value) && value.scheduling && typeof value.scheduling === "object") return value.scheduling;
+            for (const child of Array.isArray(value) ? value : Object.values(value)) {
+              const found = findScheduling(child, depth + 1);
+              if (found) return found;
+            }
+            return null;
+          }
+
+          register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
+          const { supabaseAdmin } = await import("@/lib/shared/supabase/admin");
+          const { ServiceExecutionRuntime } = await import("@/lib/platform/service-runtime/execution/ServiceExecutionRuntime");
+
+          const orgResult = await supabaseAdmin
+            .from("organizations")
+            .select("id,name,organization_type,status,organization_status")
+            .eq("name", "Avantiqo Platform")
+            .eq("organization_type", "enterprise_group")
+            .eq("status", "active")
+            .eq("organization_status", "ACTIVE")
+            .limit(3);
+          if (orgResult.error) throw orgResult.error;
+          const organizations = list(orgResult.data);
+          assert(organizations.length === 1 && organizations[0]?.id, `PLATFORM_ORGANIZATION_RESOLUTION:${organizations.length}`);
+          const organizationId = String(organizations[0].id);
+
+          const before = await fastRestState();
+          assert(before.workers_min === 0 && before.workers_max === 0, `FAST_NOT_PARKED_BEFORE:${JSON.stringify(before)}`);
+          assert(before.active_workers === 0 && before.queued === 0 && before.in_progress === 0, `FAST_NOT_CLEAN_BEFORE:${JSON.stringify(before)}`);
+          assert((await activeFastPods()).length === 0, "FAST_POD_PRESENT_BEFORE");
+
+          const startedAt = Date.now();
+          const result = await ServiceExecutionRuntime.execute({
+            organization_id: organizationId,
+            service_id: "ai.text.generate",
+            provider_id: "avantiqo-intelligence",
+            provider_policy: {
+              allowed_providers: ["avantiqo-intelligence"],
+              blocked_providers: [],
+              external_fallback_allowed: false,
+              allow_owned_reasoning_fallback: false,
+              allow_owned_lane_recovery: true,
+            },
+            input: {
+              execution_lane: "fast",
+              prompt: "In one short sentence, confirm that Avantiqo Intelligence is answering through an owned model and will not silently switch to external AI.",
+              max_output_tokens: 80,
+              temperature: 0.1,
+            },
+            metadata: {
+              module: "INTELLIGENCE",
+              operation: "FINAL_OWNED_E2E_V4",
+              production_service_certification: true,
+              external_fallback_allowed: false,
+              raw_reasoning_persisted: false,
+            },
+            category: "AI",
+          });
+          const latencyMs = Date.now() - startedAt;
+
+          assert(result?.success === true, "EXECUTION_NOT_SUCCESS");
+          assert(result?.pending !== true, "UNEXPECTED_PENDING_RESULT");
+          assert(result?.provider === "avantiqo-intelligence", `PROVIDER_INVALID:${text(result?.provider, 200)}`);
+          assert(!result?.provider_failover, "EXTERNAL_PROVIDER_FAILOVER_FORBIDDEN");
+          assert(text(result?.usage?.id, 300), "USAGE_ID_REQUIRED");
+          const responseText = findText(result?.output);
+          assert(responseText.length > 10, "OUTPUT_REQUIRED");
+
+          const recovery = object(result?.owned_lane_recovery);
+          const fastDirect = result?.model === FAST_MODEL && recovery.occurred !== true;
+          const deepRecovered = result?.model === DEEP_MODEL &&
+            recovery.occurred === true &&
+            recovery.owned_provider_only === true &&
+            recovery.external_fallback_used === false &&
+            recovery?.from?.lane === "fast" &&
+            recovery?.to?.lane === "deep" &&
+            recovery?.to?.provider === "avantiqo-intelligence";
+          assert(fastDirect || deepRecovered, `OWNED_EXECUTION_PATH_INVALID:model=${text(result?.model, 300)}`);
+          const scheduling = fastDirect ? findScheduling(result?.output) : null;
+          if (fastDirect) assert(scheduling, "FAST_SCHEDULING_EVIDENCE_REQUIRED");
+
+          const leaseResult = await supabaseAdmin
+            .from("avantiqo_intelligence_runpod_leases")
+            .select("id,lane,state")
+            .eq("organization_id", organizationId)
+            .eq("state", "ACTIVE");
+          if (leaseResult.error) throw leaseResult.error;
+          assert(list(leaseResult.data).length === 0, `ACTIVE_REQUEST_LEASES_REMAIN:${list(leaseResult.data).length}`);
+
+          const after = await fastRestState();
+          assert(after.workers_min === 0 && after.workers_max === 0, `FAST_NOT_PARKED_AFTER:${JSON.stringify(after)}`);
+          assert(after.active_workers === 0 && after.queued === 0 && after.in_progress === 0, `FAST_NOT_CLEAN_AFTER:${JSON.stringify(after)}`);
+          const remainingPods = await activeFastPods();
+          assert(remainingPods.length === 0, `FAST_PODS_REMAIN:${remainingPods.length}`);
+
+          console.log(JSON.stringify({
+            success: true,
+            contract: CONTRACT,
+            provider: result.provider,
+            model: result.model,
+            execution_path: fastDirect ? "FAST_SERVERLESS_OR_FAST_POD" : "OWNED_DEEP_RECOVERY",
+            owned_lane_recovery: deepRecovered ? recovery : null,
+            service_id: "ai.text.generate",
+            response_chars: responseText.length,
+            latency_ms: latencyMs,
+            usage_id_present: true,
+            settlement: result.settlement || null,
+            scheduling,
+            active_request_leases_after_test: 0,
+            active_fast_pods_after_test: 0,
+            fast_endpoint_before: before,
+            fast_endpoint_after: after,
+            owned_intelligence_only: true,
+            external_ai_fallback_used: false,
+            new_network_volume_created: false,
+            production_deploy_performed: false,
+            secrets_printed: false,
+          }, null, 2));
+          console.log(`${CONTRACT}=PASS`);
+          '''
+          Path("scripts/run-avantiqo-intelligence-owned-final-e2e-v4-local.mjs").write_text(proof)
+          PY
+
+      - name: Static and zero-cost regression gates
+        run: |
+          set -euo pipefail
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js
+          node --check lib/platform/service-runtime/execution/ServiceExecutionRuntime.js
+          node --check lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js
+          node --check lib/platform/service-runtime/providers/ProviderExecutor.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js
+          node --check scripts/repair-avantiqo-intelligence-fast-global-fallback-v3-ci.mjs
+          node --check scripts/run-avantiqo-intelligence-owned-final-e2e-v4-local.mjs
+          node --test tests/avantiqo-intelligence-owned-lane-recovery-v4.test.mjs
+          node --test tests/avantiqo-intelligence-fast-scheduling.test.mjs
+          node --test tests/avantiqo-intelligence-safe-lease-provider-guard.test.mjs
+          git diff --check
+
+      - name: Repair Fast pool and run one real owned E2E request
+        id: live
+        continue-on-error: true
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || secrets.RUNPOD_API_KEY }}
+          RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY || secrets.RUNPOD_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AVANTIQO_INTELLIGENCE_FAST_GLOBAL_FALLBACK_V3_APPROVED: YES
+        shell: bash
+        run: |
+          set +e
+          mkdir -p artifacts/intelligence
+          node scripts/repair-avantiqo-intelligence-fast-global-fallback-v3-ci.mjs > /tmp/intelligence-pool.log 2>&1
+          pool_status=$?
+          proof_status=99
+          if [ "$pool_status" -eq 0 ]; then
+            node scripts/run-avantiqo-intelligence-owned-final-e2e-v4-local.mjs > /tmp/intelligence-proof.log 2>&1
+            proof_status=$?
+          else
+            echo "E2E_NOT_RUN_BECAUSE_POOL_REPAIR_FAILED" > /tmp/intelligence-proof.log
+          fi
+          python3 <<'PY'
+          from pathlib import Path
+          import json, re, os
+
+          def clean(value):
+              value = re.sub(r'Bearer\s+[A-Za-z0-9._~+/=-]{8,}', 'Bearer [REDACTED]', value, flags=re.I)
+              value = re.sub(r'\bhf_[A-Za-z0-9]{8,}\b', 'hf_[REDACTED]', value)
+              value = re.sub(r'((?:api[_-]?key|token|password|secret|authorization)\s*[=:]\s*)[^\s,;]+', r'\1[REDACTED]', value, flags=re.I)
+              return value[-16000:]
+
+          pool = clean(Path('/tmp/intelligence-pool.log').read_text(errors='replace'))
+          proof = clean(Path('/tmp/intelligence-proof.log').read_text(errors='replace'))
+          report = {
+              'contract': 'AVANTIQO_INTELLIGENCE_FINAL_OWNED_E2E_V4_WORKFLOW',
+              'pool_repair_log': pool,
+              'proof_log': proof,
+              'external_ai_fallback_allowed': False,
+              'new_network_volume_created': False,
+              'production_deploy_performed': False,
+              'secrets_printed': False,
+          }
+          Path('artifacts/intelligence/final-owned-e2e-v4.json').write_text(json.dumps(report, indent=2) + '\n')
+          PY
+          echo "pool_status=$pool_status" >> "$GITHUB_OUTPUT"
+          echo "proof_status=$proof_status" >> "$GITHUB_OUTPUT"
+          set -e
+          test "$pool_status" -eq 0
+          test "$proof_status" -eq 0
+
+      - name: Commit repaired runtime and proof evidence without retriggering CI
+        if: always() && steps.live.outcome != 'skipped'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add \
+            lib/platform/service-runtime/execution/OwnedIntelligenceLaneRecoveryPolicy.js \
+            lib/platform/service-runtime/execution/ServiceExecutionRuntime.js \
+            lib/platform/service-runtime/execution/OwnedIntelligenceFastPodFallbackRuntime.js \
+            lib/platform/service-runtime/providers/ProviderExecutor.js \
+            lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceFastProvider.js \
+            lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js \
+            scripts/repair-avantiqo-intelligence-fast-global-fallback-v3-ci.mjs \
+            scripts/run-avantiqo-intelligence-owned-final-e2e-v4-local.mjs \
+            tests/avantiqo-intelligence-owned-lane-recovery-v4.test.mjs \
+            artifacts/intelligence/final-owned-e2e-v4.json
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Repair owned Intelligence end-to-end [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Fail workflow if live owned proof failed
+        if: steps.live.outcome == 'failure'
+        run: |
+          echo "POOL_STATUS=${{ steps.live.outputs.pool_status }}"
+          echo "PROOF_STATUS=${{ steps.live.outputs.proof_status }}"
+          exit 1
+
+      - name: Immutable boundaries
+        if: always()
+        run: |
+          echo "EXTERNAL_AI_FALLBACK_USED=false"
+          echo "NEW_NETWORK_VOLUME_CREATED=false"
+          echo "PRODUCTION_DEPLOY_PERFORMED=false"

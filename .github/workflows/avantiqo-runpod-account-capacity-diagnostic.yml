@@ -15,11 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - name: Checkout newest main
+      - name: Checkout triggering commit
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 2
+
+      - name: Pin triggering commit on local main
+        run: git switch -C main "${GITHUB_SHA}"
 
       - name: Setup Node 24
         uses: actions/setup-node@v4
@@ -34,11 +37,14 @@ jobs:
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          AVANTIQO_RUNPOD_ACCOUNT_CAPACITY_EXPECTED_MAIN: ${{ github.sha }}
         run: node scripts/diagnose-avantiqo-runpod-account-serverless-capacity-local.mjs
 
       - name: Immutable diagnostic boundary
         if: always()
         run: |
           echo "RUNPOD_MUTATION_PERFORMED=false"
+          echo "GPU_ACTIVATION_PERFORMED=false"
           echo "MODEL_INFERENCE_PERFORMED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          echo "DIAGNOSTIC_PINNED_TO_TRIGGER_SHA=true"

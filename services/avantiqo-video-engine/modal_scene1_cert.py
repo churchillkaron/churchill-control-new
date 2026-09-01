@@ -63,6 +63,16 @@ CANONICAL_SOURCE_BYTES = 31376
 CANONICAL_SOURCE_SHA256 = "cbf4437d77f74b2fd0193f9039ef64c511b597712fe08c466c30d4c231aeb0c5"
 SUPABASE_DEFAULT_URL = "https://vfsjqabpkcbiuerhzugk.supabase.co"
 
+# Modal mounts the Function's source module automatically, but imported sibling
+# modules are not guaranteed to be present in a remote Function container. The
+# certification Function imports canonical Video helpers from modal_app.py, so
+# add that exact source file to the H200 image at startup. This is source
+# packaging only: it creates no second app, GPU lane, model cache or Volume.
+CERT_LTX_WORKER_IMAGE = ltx_worker_image.add_local_file(
+    Path(__file__).with_name("modal_app.py"),
+    "/root/modal_app.py",
+)
+
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
@@ -312,7 +322,7 @@ def _local_preflight() -> dict[str, Any]:
 
 
 @app.function(
-    image=ltx_worker_image,
+    image=CERT_LTX_WORKER_IMAGE,
     gpu=GPU,
     volumes={"/models": model_volume},
     timeout=HARD_TIMEOUT_SECONDS,

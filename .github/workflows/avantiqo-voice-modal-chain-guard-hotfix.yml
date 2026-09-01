@@ -114,3 +114,5 @@ jobs:
           echo 'PRODUCTION_DEPLOY_PERFORMED=false'
           echo 'PRICING_ACTIVATION_PERFORMED=false'
           echo 'RUNPOD_MUTATION_PERFORMED=false'
+
+# retrigger structural hotfix 2026-09-01

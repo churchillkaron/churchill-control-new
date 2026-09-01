@@ -54,12 +54,17 @@ jobs:
 
       - name: Run one chained TTS to STT proof
         env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
+          if [ -z "${MODAL_TOKEN_ID:-}" ] || [ -z "${MODAL_TOKEN_SECRET:-}" ]; then
+            echo 'AVANTIQO_VOICE_MODAL_GITHUB_CREDENTIALS_MISSING=true'
+            echo 'GPU_INFERENCE_PERFORMED=false'
+            exit 1
+          fi
           node scripts/certify-avantiqo-voice-modal-chained-service-live.mjs --execute
 
       - name: Verify immutable release boundary

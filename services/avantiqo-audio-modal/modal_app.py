@@ -61,6 +61,8 @@ def _bake_models() -> None:
     )
 
 
+# Model download is allowed only during the immutable image build. The runtime
+# becomes fully offline after the checkpoint layer has been committed.
 worker_image = (
     modal.Image.from_registry(
         WORKER_IMAGE,
@@ -80,10 +82,14 @@ worker_image = (
         "AVANTIQO_AUDIO_LM_BACKEND": "vllm",
         "AVANTIQO_AUDIO_MODEL_SOURCE": "huggingface",
         "ACESTEP_INIT_LLM": "true",
+        "HF_HUB_OFFLINE": "0",
+        "TRANSFORMERS_OFFLINE": "0",
+    })
+    .run_function(_bake_models, timeout=2 * 60 * 60)
+    .env({
         "HF_HUB_OFFLINE": "1",
         "TRANSFORMERS_OFFLINE": "1",
     })
-    .run_function(_bake_models, timeout=2 * 60 * 60)
 )
 
 

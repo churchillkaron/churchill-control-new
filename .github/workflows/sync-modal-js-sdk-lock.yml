@@ -1,0 +1,43 @@
+name: Sync Modal JS SDK Lock
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/sync-modal-js-sdk-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Add pinned Modal JavaScript SDK without scripts
+        run: npm install --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund modal@0.10.0
+
+      - name: Commit reproducible dependency metadata
+        run: |
+          set -e
+          if git diff --quiet -- package.json package-lock.json; then
+            echo "AVANTIQO_MODAL_JS_SDK_LOCK_ALREADY_SYNCED=true"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "Add pinned Modal JavaScript SDK"
+          git push origin HEAD:main

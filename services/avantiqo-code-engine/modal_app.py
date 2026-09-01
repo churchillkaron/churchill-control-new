@@ -97,12 +97,22 @@ def _bake_runtime_model(repo_id: str, revision: str, cache_root: str) -> None:
     )
 
 
-# The worker image is the same immutable image currently bound by the Code
-# runtime. The default RunPod entrypoint is removed because Modal invokes the
-# function directly. The 31.2 GB model snapshot is an image layer, not a
-# second persistent Code volume.
+# Modal Functions require external registry images to expose `python` and `pip`
+# on PATH. The certified worker image has a working Python 3 runtime but was
+# built around `python3`; expose aliases during the base setup without adding a
+# second Python distribution or changing the vLLM/CUDA environment.
+# The default RunPod entrypoint is removed because Modal invokes the function
+# directly. The model snapshot is an image layer, not a persistent Modal Volume.
 image = (
-    modal.Image.from_registry(WORKER_IMAGE, add_python=None)
+    modal.Image.from_registry(
+        WORKER_IMAGE,
+        add_python=None,
+        setup_dockerfile_commands=[
+            "RUN command -v python >/dev/null 2>&1 || ln -s \"$(command -v python3)\" /usr/local/bin/python",
+            "RUN command -v pip >/dev/null 2>&1 || ln -s \"$(command -v pip3)\" /usr/local/bin/pip",
+            "RUN python --version && pip --version",
+        ],
+    )
     .entrypoint([])
     .env(
         {

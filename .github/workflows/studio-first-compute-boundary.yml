@@ -7,15 +7,21 @@ on:
     paths:
       - "services/**"
       - "scripts/studio-first-compute-boundary-audit.mjs"
+      - "scripts/avantiqo-compute-cost-policy-audit.mjs"
+      - "config/avantiqo-compute-cost-policy.json"
       - "docs/STUDIO_FIRST_COMPUTE.md"
       - "docs/ENGINEERING_RULES.md"
+      - "AGENTS.md"
       - ".github/workflows/studio-first-compute-boundary.yml"
   pull_request:
     paths:
       - "services/**"
       - "scripts/studio-first-compute-boundary-audit.mjs"
+      - "scripts/avantiqo-compute-cost-policy-audit.mjs"
+      - "config/avantiqo-compute-cost-policy.json"
       - "docs/STUDIO_FIRST_COMPUTE.md"
       - "docs/ENGINEERING_RULES.md"
+      - "AGENTS.md"
       - ".github/workflows/studio-first-compute-boundary.yml"
 
 permissions:
@@ -36,3 +42,6 @@ jobs:
 
       - name: Enforce Studio-first compute boundary
         run: node scripts/studio-first-compute-boundary-audit.mjs
+
+      - name: Enforce Avantiqo compute cost architecture
+        run: node scripts/avantiqo-compute-cost-policy-audit.mjs

@@ -1,6 +1,7 @@
 name: Avantiqo Video Modal Native Preflight
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:

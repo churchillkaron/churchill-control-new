@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Connect the deployed Avantiqo Code Modal transport to local development.
 
-Creates a Modal proxy token through the already-authenticated Modal CLI,
-verifies the authenticated /health endpoint, and writes only the required
-configuration to the repository .env.local. The token secret is never printed.
-No generation endpoint is called, so this script starts no GPU inference.
+Compatible with Modal 1.2.6 / Python 3.9. Generates a strong bearer token,
+creates/updates the named Modal Secret from a temporary dotenv file, redeploys
+the Modal HTTP wrapper from current origin/main, verifies authenticated /health,
+and writes only the required local application configuration to .env.local.
+The bearer token is never printed. No /v1/jobs request is made, so no GPU
+inference starts during this connector run.
 """
 
 from __future__ import annotations
@@ -12,23 +14,27 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 DEFAULT_BASE_URL = (
     "https://churchillkaron--avantiqo-code-real-write-one-shot-code-api.modal.run"
 )
 HEALTH_CONTRACT = "AVANTIQO_CODE_MODAL_HTTP_V1"
+SECRET_NAME = "avantiqo-code-gateway"
+SECRET_ENV_KEY = "AVANTIQO_CODE_GATEWAY_TOKEN"
 
 
-def _replace_env(path: Path, values: dict[str, str]) -> None:
+def _replace_env(path: Path, values: dict[str, str], remove_keys: set[str] | None = None) -> None:
     original = path.read_text(encoding="utf-8") if path.exists() else ""
     lines = original.splitlines()
     keys = set(values)
+    removals = set(remove_keys or set())
     output: list[str] = []
     seen: set[str] = set()
 
@@ -38,6 +44,8 @@ def _replace_env(path: Path, values: dict[str, str]) -> None:
             output.append(line)
             continue
         key = line.split("=", 1)[0].strip()
+        if key in removals:
+            continue
         if key not in keys:
             output.append(line)
             continue
@@ -55,13 +63,29 @@ def _replace_env(path: Path, values: dict[str, str]) -> None:
     os.chmod(path, 0o600)
 
 
-def _health(base_url: str, token_id: str, token_secret: str) -> dict[str, Any]:
+def _run(command: list[str], cwd: Path | None = None, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        command,
+        cwd=str(cwd) if cwd else None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=timeout,
+        check=False,
+        env=os.environ.copy(),
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "UNKNOWN").strip()[-2000:]
+        raise RuntimeError(f"AVANTIQO_CODE_MODAL_COMMAND_FAILED:{command[0]}:{detail}")
+    return result
+
+
+def _health(base_url: str, token: str) -> dict[str, Any]:
     request = Request(
         f"{base_url.rstrip('/')}/health",
         headers={
             "Accept": "application/json",
-            "Modal-Key": token_id,
-            "Modal-Secret": token_secret,
+            "Authorization": f"Bearer {token}",
         },
     )
     with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed HTTPS target
@@ -69,8 +93,8 @@ def _health(base_url: str, token_id: str, token_secret: str) -> dict[str, Any]:
     body = json.loads(raw)
     if body.get("contract") != HEALTH_CONTRACT:
         raise RuntimeError("AVANTIQO_CODE_MODAL_HEALTH_CONTRACT_INVALID")
-    if body.get("proxy_auth_required") is not True:
-        raise RuntimeError("AVANTIQO_CODE_MODAL_PROXY_AUTH_NOT_ENFORCED")
+    if body.get("gateway_auth_required") is not True:
+        raise RuntimeError("AVANTIQO_CODE_MODAL_GATEWAY_AUTH_NOT_ENFORCED")
     if body.get("persistent_volume_used") is not False:
         raise RuntimeError("AVANTIQO_CODE_MODAL_UNEXPECTED_PERSISTENT_VOLUME")
     if body.get("raw_reasoning_persisted") is not False:
@@ -78,77 +102,10 @@ def _health(base_url: str, token_id: str, token_secret: str) -> dict[str, Any]:
     return body
 
 
-def _all_strings(value: Any) -> list[str]:
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, dict):
-        values: list[str] = []
-        for key, child in value.items():
-            values.extend(_all_strings(key))
-            values.extend(_all_strings(child))
-        return values
-    if isinstance(value, list):
-        values = []
-        for child in value:
-            values.extend(_all_strings(child))
-        return values
-    return []
-
-
-def _run_modal(modal_cli: str, args: list[str]) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        [modal_cli, *args],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        timeout=60,
-        check=False,
-        env=os.environ.copy(),
-    )
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "UNKNOWN").strip()[-1200:]
-        raise RuntimeError(f"AVANTIQO_CODE_MODAL_CLI_FAILED:{detail}")
-    return result
-
-
-def _parse_proxy_token_json(raw: str) -> tuple[str, str]:
-    candidate = raw.strip()
-    try:
-        payload = json.loads(candidate)
-    except json.JSONDecodeError:
-        start_candidates = [position for position in (candidate.find("{"), candidate.find("[")) if position >= 0]
-        if not start_candidates:
-            raise RuntimeError("AVANTIQO_CODE_MODAL_PROXY_TOKEN_JSON_REQUIRED")
-        payload = json.loads(candidate[min(start_candidates):])
-
-    strings = _all_strings(payload)
-    token_ids = [value.strip() for value in strings if value.strip().startswith("wk-")]
-    token_secrets = [value.strip() for value in strings if value.strip().startswith("ws-")]
-    if len(token_ids) != 1 or len(token_secrets) != 1:
-        raise RuntimeError("AVANTIQO_CODE_MODAL_PROXY_TOKEN_JSON_INVALID")
-    return token_ids[0], token_secrets[0]
-
-
-def _create_proxy_token(modal_cli: str) -> tuple[str, str]:
-    result = _run_modal(
-        modal_cli,
-        ["workspace", "proxy-tokens", "create", "--json"],
-    )
-    return _parse_proxy_token_json(result.stdout)
-
-
-def _allow_proxy_token(modal_cli: str, token_id: str, environment: str) -> None:
-    _run_modal(
-        modal_cli,
-        ["workspace", "proxy-tokens", "allow", token_id, environment],
-    )
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", required=True)
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    parser.add_argument("--environment", default="main")
     args = parser.parse_args()
 
     repo = Path(args.repo).expanduser().resolve()
@@ -160,21 +117,60 @@ def main() -> None:
         raise RuntimeError("AVANTIQO_CODE_MODAL_BASE_URL_HTTPS_REQUIRED")
 
     modal_cli = shutil.which("modal")
+    git_cli = shutil.which("git")
     if not modal_cli:
         raise RuntimeError("AVANTIQO_CODE_MODAL_CLI_REQUIRED")
+    if not git_cli:
+        raise RuntimeError("AVANTIQO_CODE_GIT_REQUIRED")
 
-    token_id, token_secret = _create_proxy_token(modal_cli)
-    if not token_id.startswith("wk-") or not token_secret.startswith("ws-"):
-        raise RuntimeError("AVANTIQO_CODE_MODAL_PROXY_TOKEN_INVALID")
+    gateway_token = secrets.token_urlsafe(48)
+    if len(gateway_token) < 40:
+        raise RuntimeError("AVANTIQO_CODE_MODAL_GATEWAY_TOKEN_GENERATION_FAILED")
 
-    try:
-        health = _health(base_url, token_id, token_secret)
-    except HTTPError as exc:
-        if exc.code not in {401, 403}:
-            raise
-        # RBAC workspaces require explicit environment association.
-        _allow_proxy_token(modal_cli, token_id, args.environment)
-        health = _health(base_url, token_id, token_secret)
+    with tempfile.TemporaryDirectory(prefix="avantiqo-code-modal-connect-") as temp_raw:
+        temp = Path(temp_raw)
+        secret_env = temp / "gateway.env"
+        secret_env.write_text(f"{SECRET_ENV_KEY}={gateway_token}\n", encoding="utf-8")
+        os.chmod(secret_env, 0o600)
+
+        _run(
+            [
+                modal_cli,
+                "secret",
+                "create",
+                SECRET_NAME,
+                "--from-dotenv",
+                str(secret_env),
+                "--force",
+            ],
+            timeout=60,
+        )
+
+        _run([git_cli, "fetch", "origin", "main"], cwd=repo, timeout=60)
+        archive = temp / "code-engine.tar"
+        with archive.open("wb") as handle:
+            archive_result = subprocess.run(
+                [
+                    git_cli,
+                    "archive",
+                    "origin/main",
+                    "services/avantiqo-code-engine",
+                ],
+                cwd=str(repo),
+                stdout=handle,
+                stderr=subprocess.PIPE,
+                timeout=60,
+                check=False,
+            )
+        if archive_result.returncode != 0:
+            detail = archive_result.stderr.decode("utf-8", errors="replace")[-1200:]
+            raise RuntimeError(f"AVANTIQO_CODE_MODAL_ARCHIVE_FAILED:{detail}")
+        _run(["tar", "-xf", str(archive), "-C", str(temp)], timeout=60)
+
+        engine_dir = temp / "services" / "avantiqo-code-engine"
+        _run([modal_cli, "deploy", "modal_service.py"], cwd=engine_dir, timeout=1800)
+
+    health = _health(base_url, gateway_token)
 
     env_path = repo / ".env.local"
     _replace_env(
@@ -182,9 +178,12 @@ def main() -> None:
         {
             "AVANTIQO_CODE_ENGINE_ENABLED": "true",
             "AVANTIQO_CODE_MODAL_BASE_URL": base_url,
-            "AVANTIQO_CODE_MODAL_PROXY_TOKEN_ID": token_id,
-            "AVANTIQO_CODE_MODAL_PROXY_TOKEN_SECRET": token_secret,
+            "AVANTIQO_CODE_MODAL_GATEWAY_TOKEN": gateway_token,
             "AVANTIQO_CODE_MODAL_HTTP_TIMEOUT_MS": "30000",
+        },
+        remove_keys={
+            "AVANTIQO_CODE_MODAL_PROXY_TOKEN_ID",
+            "AVANTIQO_CODE_MODAL_PROXY_TOKEN_SECRET",
         },
     )
 
@@ -192,23 +191,23 @@ def main() -> None:
         json.dumps(
             {
                 "success": True,
-                "contract": "AVANTIQO_CODE_MODAL_LOCAL_CONNECT_V1",
-                "workspace": "authenticated-current-workspace",
-                "environment": args.environment,
+                "contract": "AVANTIQO_CODE_MODAL_LOCAL_CONNECT_V2",
+                "modal_client_compatible": "1.2.6+",
+                "authentication": "BEARER_GATEWAY_V1",
                 "health_contract": health.get("contract"),
                 "gpu_worker": health.get("gpu_worker"),
                 "async_job_queue": health.get("async_job_queue"),
-                "proxy_auth_verified": True,
+                "gateway_auth_verified": True,
                 "env_file_updated": str(env_path),
-                "proxy_token_id_prefix_valid": token_id.startswith("wk-"),
-                "proxy_token_secret_printed": False,
+                "gateway_token_printed": False,
                 "gpu_inference_performed": False,
+                "runpod_mutation_performed": False,
                 "production_deploy_performed": False,
             },
             separators=(",", ":"),
         )
     )
-    print("AVANTIQO_CODE_MODAL_LOCAL_CONNECT_V1=PASS")
+    print("AVANTIQO_CODE_MODAL_LOCAL_CONNECT_V2=PASS")
 
 
 if __name__ == "__main__":

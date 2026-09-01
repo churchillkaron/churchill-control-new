@@ -1,12 +1,12 @@
-"""Lightweight authenticated async gateway for the owned Avantiqo Code worker.
+"""Lightweight authenticated async gateway for the owned Avantiqo Code workers.
 
 The gateway is deliberately deployed as its own Modal App and never imports the
 GPU/model module. Health checks therefore start only a tiny CPU container. An
-authenticated POST /v1/jobs lazily looks up the already-deployed H100 `generate`
+authenticated POST /v1/jobs lazily looks up the appropriate already-deployed H100
 Function from the separate Code worker App and spawns it asynchronously.
 
-This split prevents gateway cold starts from hydrating or rebuilding the 31 GB
-Qwen/vLLM image and keeps health checks generation-free.
+Normal Code requests route to `generate`; opt-in `ai.code.invent` requests route
+to the single-H100 multi-pass `invent` Function. Health checks never touch GPU.
 """
 
 from __future__ import annotations
@@ -19,7 +19,9 @@ import modal
 
 GATEWAY_APP_NAME = "avantiqo-code-gateway"
 GPU_APP_NAME = "avantiqo-code-real-write-one-shot"
-GPU_FUNCTION_NAME = "generate"
+DEFAULT_GPU_FUNCTION_NAME = "generate"
+INVENTOR_GPU_FUNCTION_NAME = "invent"
+INVENTOR_CAPABILITY = "ai.code.invent"
 ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-code-v1"
 HTTP_CONTRACT = "AVANTIQO_CODE_MODAL_HTTP_V1"
@@ -59,6 +61,10 @@ def _safe(value: Any, depth: int = 0) -> Any:
         for key, child in value.items()
         if str(key).lower() not in private
     }
+
+
+def _gpu_function_for_capability(capability: str) -> str:
+    return INVENTOR_GPU_FUNCTION_NAME if capability == INVENTOR_CAPABILITY else DEFAULT_GPU_FUNCTION_NAME
 
 
 @app.function(
@@ -104,9 +110,12 @@ def code_api():
             "model": PRODUCT_MODEL,
             "gateway_app": GATEWAY_APP_NAME,
             "gpu_app": GPU_APP_NAME,
-            "gpu_function": GPU_FUNCTION_NAME,
+            "gpu_functions": [DEFAULT_GPU_FUNCTION_NAME, INVENTOR_GPU_FUNCTION_NAME],
             "gpu_worker": "H100",
             "async_job_queue": True,
+            "inventor_available": True,
+            "inventor_single_gpu_function": True,
+            "inventor_concurrent_gpu_fanout": False,
             "gateway_auth_required": True,
             "gateway_gpu_imported": False,
             "proxy_auth_required": False,
@@ -119,15 +128,17 @@ def code_api():
     async def submit(data: dict[str, Any]) -> dict[str, Any]:
         if _text(data.get("contract")) != ENGINE_CONTRACT:
             raise HTTPException(status_code=400, detail="AVANTIQO_CODE_ENGINE_CONTRACT_INVALID")
-        if not _text(data.get("capability")):
+        capability = _text(data.get("capability"))
+        if not capability:
             raise HTTPException(status_code=400, detail="AVANTIQO_CODE_CAPABILITY_REQUIRED")
         if not _text(data.get("organization_id")):
             raise HTTPException(status_code=400, detail="AVANTIQO_CODE_ORGANIZATION_REQUIRED")
         if not _text(data.get("usage_id")):
             raise HTTPException(status_code=400, detail="AVANTIQO_CODE_USAGE_ID_REQUIRED")
 
-        generate = modal.Function.from_name(GPU_APP_NAME, GPU_FUNCTION_NAME)
-        call = await generate.spawn.aio(_safe(data))
+        function_name = _gpu_function_for_capability(capability)
+        worker = modal.Function.from_name(GPU_APP_NAME, function_name)
+        call = await worker.spawn.aio(_safe(data))
         job_id = _text(call.object_id)
         if not job_id:
             raise HTTPException(status_code=500, detail="AVANTIQO_CODE_MODAL_CALL_ID_REQUIRED")
@@ -139,8 +150,10 @@ def code_api():
             "job_id": job_id,
             "engine_contract": ENGINE_CONTRACT,
             "model": PRODUCT_MODEL,
+            "capability": capability,
             "gateway_app": GATEWAY_APP_NAME,
             "gpu_app": GPU_APP_NAME,
+            "gpu_function": function_name,
             "proxy_timeout_safe": True,
             "raw_reasoning_persisted": False,
         }

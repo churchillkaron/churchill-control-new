@@ -34,6 +34,47 @@ const EMPTY_STATE = {
   error: null,
 };
 
+function text(value) {
+  return String(value ?? "").trim();
+}
+
+function emailLocalPart(value) {
+  const email = text(value);
+  const local = email.includes("@") ? email.split("@")[0] : "";
+  if (!local) return "";
+
+  return local
+    .replace(/[._-]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function authenticatedPersonName(user, staff) {
+  return (
+    text(staff?.name) ||
+    text(staff?.display_name) ||
+    text(staff?.full_name) ||
+    text(user?.user_metadata?.full_name) ||
+    text(user?.user_metadata?.name) ||
+    text(user?.user_metadata?.display_name) ||
+    emailLocalPart(user?.email || staff?.email)
+  );
+}
+
+function canonicalStaff(user, staff) {
+  if (!staff && !user) return null;
+  const source = staff && typeof staff === "object" ? staff : {};
+  const name = authenticatedPersonName(user, source);
+
+  return {
+    ...source,
+    ...(name ? { name, display_name: source.display_name || name } : {}),
+    email: source.email || user?.email || null,
+  };
+}
+
 export function BusinessContextProvider({ children }) {
   const [state, setState] = useState(EMPTY_STATE);
 
@@ -72,6 +113,7 @@ export function BusinessContextProvider({ children }) {
             ready: true,
             loading: false,
             user,
+            staff: canonicalStaff(user, null),
             organization: null,
             organizations: [],
             organization_id: null,
@@ -89,12 +131,13 @@ export function BusinessContextProvider({ children }) {
           data.organization_id ||
           data.staff?.active_organization_id ||
           null;
+        const staff = canonicalStaff(user, data.staff || null);
 
         setState({
           ready: true,
           loading: false,
           user,
-          staff: data.staff || null,
+          staff,
           organization: data.organization || null,
           organizations: Array.isArray(data.organizations)
             ? data.organizations
@@ -125,7 +168,7 @@ export function BusinessContextProvider({ children }) {
             null,
           modules: Array.isArray(data.modules) ? data.modules : [],
           permissions: Array.isArray(data.permissions) ? data.permissions : [],
-          role: data.role || data.staff?.role || null,
+          role: data.role || staff?.role || null,
           error: null,
         });
       } catch (error) {

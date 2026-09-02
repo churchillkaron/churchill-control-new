@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --check scripts/certify-avantiqo-image-modal-direct-live.mjs
+          node --check scripts/run-avantiqo-image-modal-direct-isolated-certification.mjs
           node --check lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
           node --check lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js
           node --test tests/avantiqo-image-modal-direct-transport.test.mjs
@@ -56,8 +56,10 @@ jobs:
           grep -Fq 'jobPrefix: "modal-image-direct:"' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
           grep -Fq 'owned_only_required: true' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js
           grep -Fq 'external_provider_fallback_allowed: false' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js
-          grep -Fq 'AVANTIQO_IMAGE_MODAL_DIRECT_SERVICE_CERTIFICATION_V1' scripts/certify-avantiqo-image-modal-direct-live.mjs
-          grep -Fq 'EXISTING_USAGE_NO_NEW_SUBMISSION' scripts/certify-avantiqo-image-modal-direct-live.mjs
+          grep -Fq 'Avantiqo Image Certification' scripts/run-avantiqo-image-modal-direct-isolated-certification.mjs
+          grep -Fq 'AVANTIQO_CERTIFICATION' scripts/run-avantiqo-image-modal-direct-isolated-certification.mjs
+          grep -Fq 'EXISTING_USAGE_NO_NEW_SUBMISSION' scripts/run-avantiqo-image-modal-direct-isolated-certification.mjs
+          grep -Fq 'usage_enabled: false' scripts/run-avantiqo-image-modal-direct-isolated-certification.mjs
           echo 'AVANTIQO_IMAGE_MODAL_DIRECT_CERT_STATIC_GATE=PASS'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
@@ -70,11 +72,11 @@ jobs:
           test -n "${MODAL_TOKEN_SECRET:-}"
           echo 'AVANTIQO_IMAGE_MODAL_DIRECT_CERT_CREDENTIALS=PASS'
 
-      - name: Run exactly one direct Image certification
+      - name: Run one isolated direct Image certification
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/certify-avantiqo-image-modal-direct-live.mjs
+          node scripts/run-avantiqo-image-modal-direct-isolated-certification.mjs
 
       - name: Preserve release boundary
         if: always()
@@ -82,6 +84,7 @@ jobs:
         run: |
           set -euo pipefail
           echo 'MAX_NEW_IMAGE_JOBS=1'
+          echo 'CUSTOMER_ORGANIZATION_MUTATED=false'
           echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
           echo 'IMAGE_PRICING_ACTIVATED=false'
           echo 'IMAGE_PRODUCTION_ROUTING_ACTIVATED=false'

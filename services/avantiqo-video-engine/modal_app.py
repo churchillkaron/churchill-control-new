@@ -64,6 +64,30 @@ LTX_HARD_TIMEOUT_SECONDS = 30 * 60
 LTX_SUBPROCESS_TIMEOUT_SECONDS = LTX_HARD_TIMEOUT_SECONDS - 20
 LTX_QUALITY_CONTRACT = "AVANTIQO_VIDEO_LTX25_NATIVE_MASTER_3840X2176_V2"
 LTX_RUNTIME_CONTRACT = "AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_MASTER_V2"
+LTX_GEMMA_REALPATH_ENV = "AVANTIQO_LTX25_GEMMA_REALPATH"
+LTX_GEMMA_SUFFIX_COMPAT_ENTRYPOINT = r"""
+import os
+from pathlib import Path
+
+from ltx_core.text_encoders.gemma.gemma_assets import GemmaAssets
+
+_expected = Path(os.environ["AVANTIQO_LTX25_GEMMA_REALPATH"]).resolve(strict=True)
+_original_load = GemmaAssets.load.__func__
+
+def _avantiqo_exact_gemma_load(cls, path):
+    candidate = Path(path)
+    try:
+        resolved = candidate.resolve(strict=True)
+    except FileNotFoundError:
+        return _original_load(cls, path)
+    if resolved == _expected and resolved.is_file():
+        return cls.from_single_file(resolved)
+    return _original_load(cls, path)
+
+GemmaAssets.load = classmethod(_avantiqo_exact_gemma_load)
+from ltx_pipelines.ti2vid_one_stage import main
+main()
+"""
 
 app = modal.App(APP_NAME)
 # The single Video model Volume is provisioned deliberately. Never create storage
@@ -332,9 +356,12 @@ def generate_native_master(
     text_encoder = root / LTX_REQUIRED[1]
     video_vae = root / LTX_REQUIRED[2]
     audio_vae = root / LTX_REQUIRED[3]
+    text_encoder_real = text_encoder.resolve(strict=True)
+    if not text_encoder_real.is_file() or text_encoder_real.stat().st_size <= 0:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_GEMMA_REALPATH_INVALID")
     frames = _ltx_frame_count(int(duration_seconds))
     command = [
-        "python", "-m", "ltx_pipelines.ti2vid_one_stage",
+        "python", "-c", LTX_GEMMA_SUFFIX_COMPAT_ENTRYPOINT,
         "--transformer-path", str(transformer),
         "--text-encoder-path", str(text_encoder),
         "--video-vae-path", str(video_vae),
@@ -352,6 +379,7 @@ def generate_native_master(
         "--image", str(reference), "0", "1.0", "0",
     ]
     env = os.environ.copy()
+    env[LTX_GEMMA_REALPATH_ENV] = str(text_encoder_real)
     env["PYTHONPATH"] = ":".join([
         str(LTX_PIPELINE_ROOT / "packages/ltx-core/src"),
         str(LTX_PIPELINE_ROOT / "packages/ltx-pipelines/src"),

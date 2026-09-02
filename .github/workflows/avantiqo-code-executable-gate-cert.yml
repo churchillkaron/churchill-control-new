@@ -1,24 +1,14 @@
 name: Avantiqo Code Executable Gate Certification
 
-# Existing-workflow trigger commit: certification remains measure-only.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - services/avantiqo-code-engine/modal_verified_owned_only.py
-      - .github/workflows/avantiqo-code-executable-gate-cert.yml
 
 permissions:
   contents: read
 
-concurrency:
-  group: avantiqo-code-executable-gate-cert
-  cancel-in-progress: false
-
 jobs:
   certify:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -59,7 +49,7 @@ jobs:
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
           mkdir -p artifacts
-          timeout --signal=TERM --kill-after=30s 9m python -m modal run services/avantiqo-code-engine/modal_verified_owned_only.py \
+          timeout --signal=TERM --kill-after=30s 9m python -m modal run services/avantiqo-code-engine/modal_verified_owned_only.py::app.owned_cert \
             2>&1 | tee /tmp/avantiqo-code-executable-gate-cert.log
 
       - name: Verify 6 of 6 hard gate

@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - services/avantiqo-code-engine/modal_owned_head_to_head_v2.py
+      - services/avantiqo-code-engine/quality_policy.py
       - .github/workflows/avantiqo-code-owned-head-to-head-v2.yml
 
 concurrency:
@@ -37,6 +38,7 @@ jobs:
           set -euo pipefail
           python -m py_compile services/avantiqo-code-engine/modal_owned_head_to_head.py
           python -m py_compile services/avantiqo-code-engine/modal_owned_head_to_head_v2.py
+          python -m py_compile services/avantiqo-code-engine/quality_policy.py
           node --version
 
       - name: Run owned V2 benchmark

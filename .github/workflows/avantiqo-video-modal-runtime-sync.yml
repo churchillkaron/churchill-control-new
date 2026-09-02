@@ -1,0 +1,77 @@
+name: Avantiqo Video Modal Runtime Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-modal-runtime-sync.yml
+      - services/avantiqo-video-engine/modal_app.py
+      - services/avantiqo-video-engine/modal_native_job.py
+      - lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-modal-runtime-sync
+  cancel-in-progress: false
+
+jobs:
+  deploy_runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate native job adapter without GPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-engine/modal_app.py
+          python -m py_compile services/avantiqo-video-engine/modal_native_job.py
+          grep -F 'generate_native_job' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js >/dev/null
+          grep -F 'AVANTIQO_SYNTHETIC_VIDEO_ENGINE_V2' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js >/dev/null
+          grep -F 'avantiqo-ltx-2.5' lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js >/dev/null
+          echo 'AVANTIQO_VIDEO_NATIVE_RUNTIME_STATIC=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.1.4'
+          modal --version
+
+      - name: Require Modal credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'AVANTIQO_VIDEO_MODAL_CREDENTIALS=PASS'
+
+      - name: Deploy Video worker definitions only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal deploy modal_native_job.py
+          echo 'AVANTIQO_VIDEO_MODAL_RUNTIME_SYNC=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'

@@ -70,10 +70,22 @@ export default function PlatformShell({
   }, []);
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div
+      className={
+        businessPartnerHome
+          ? "min-h-screen bg-[#F7F6F3] text-[#191919]"
+          : "min-h-screen bg-black text-white"
+      }
+    >
       <WorkspaceTopBar />
 
-      <main className="min-h-[calc(100vh-112px)] px-6 py-6 lg:px-8">
+      <main
+        className={
+          businessPartnerHome
+            ? "min-h-[calc(100vh-112px)]"
+            : "min-h-[calc(100vh-112px)] px-6 py-6 lg:px-8"
+        }
+      >
         {children}
       </main>
 

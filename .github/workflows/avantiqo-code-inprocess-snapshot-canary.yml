@@ -1,0 +1,59 @@
+name: Avantiqo Code Inprocess GPU Snapshot Canary
+
+on:
+  push:
+    paths:
+      - "services/avantiqo-code-engine/modal_inprocess_snapshot_canary.py"
+      - "scripts/probe-avantiqo-code-inprocess-snapshot.py"
+      - ".github/workflows/avantiqo-code-inprocess-snapshot-canary.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inprocess-snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Modal client
+        run: python -m pip install --disable-pip-version-check "modal==1.5.0"
+
+      - name: Zero-cost syntax gate
+        run: |
+          python -m py_compile services/avantiqo-code-engine/modal_inprocess_snapshot_canary.py
+          python -m py_compile scripts/probe-avantiqo-code-inprocess-snapshot.py
+
+      - name: Deploy isolated snapshot canary
+        run: python -m modal deploy services/avantiqo-code-engine/modal_inprocess_snapshot_canary.py
+
+      - name: Probe restored cold latency
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python scripts/probe-avantiqo-code-inprocess-snapshot.py \
+            2>&1 | tee artifacts/avantiqo-code-inprocess-snapshot.log
+
+      - name: Verify evidence
+        run: |
+          grep -q 'AVANTIQO_CODE_INPROCESS_SNAPSHOT_SUMMARY=' artifacts/avantiqo-code-inprocess-snapshot.log
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-inprocess-snapshot-${{ github.run_id }}
+          path: artifacts/avantiqo-code-inprocess-snapshot.log
+          if-no-files-found: warn
+          retention-days: 14

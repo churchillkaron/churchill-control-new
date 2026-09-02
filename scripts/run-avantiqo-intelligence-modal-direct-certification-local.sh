@@ -66,6 +66,11 @@ OUTPUT_DIR="$ROOT/local-audit-output/avantiqo-intelligence-modal-direct-service-
 mkdir -p "$OUTPUT_DIR"
 
 run_certification() {
+  # Retired gateway variables may still exist in an old .env.local. Force them
+  # empty so Node's process environment wins over --env-file; active Intelligence
+  # must use the same shared direct Modal credentials as Audio.
+  export AVANTIQO_INTELLIGENCE_MODAL_BASE_URL=""
+  export AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN=""
   case "$MODE" in
     execute) node --env-file="$ROOT/.env.local" scripts/certify-avantiqo-intelligence-modal-direct-service-live.mjs --execute ;;
     resume) node --env-file="$ROOT/.env.local" scripts/certify-avantiqo-intelligence-modal-direct-service-live.mjs --resume ;;

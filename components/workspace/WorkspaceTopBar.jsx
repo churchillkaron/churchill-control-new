@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bell,
   Building2,
   Calendar,
-  CreditCard,
   ChevronDown,
+  Command,
+  CreditCard,
   Globe2,
+  Grid2X2,
   Search,
   Sparkles,
   UserCircle,
@@ -50,13 +52,69 @@ function platformHref(organizationId, route) {
   });
 }
 
+function openUniversalOperator() {
+  const homeInput = document.querySelector('[data-avantiqo-home-input="true"]');
+  if (homeInput instanceof HTMLElement) {
+    homeInput.focus();
+    homeInput.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
+  const operatorButton = document.querySelector(
+    'button[aria-label="Open Avantiqo Operator"]',
+  );
+  if (operatorButton instanceof HTMLElement) operatorButton.click();
+}
+
 function ContextPill({ icon, value }) {
   const Icon = icon;
   if (!value) return null;
   return (
-    <div className="flex h-9 min-w-0 max-w-[220px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-left text-white/65">
-      <Icon size={14} className="shrink-0 text-[#D6A66A]/80" />
-      <span className="min-w-0 truncate text-[12px] font-light tracking-[0.02em]">{value}</span>
+    <div className="hidden h-9 min-w-0 max-w-[190px] items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-left text-[#69655F] xl:flex">
+      <Icon size={13} className="shrink-0 text-[#A37849]" />
+      <span className="min-w-0 truncate text-[11px] font-medium">{value}</span>
+    </div>
+  );
+}
+
+function SelectorMenu({ title, items, activeId, onSelect, getLabel, getMeta }) {
+  return (
+    <div className="absolute left-0 top-11 z-[90] w-[330px] overflow-hidden rounded-2xl border border-black/[0.08] bg-white p-2 shadow-[0_20px_60px_rgba(34,30,24,0.16)]">
+      <div className="border-b border-black/[0.06] px-3 pb-2.5 pt-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">
+        {title}
+      </div>
+      <div className="mt-1 max-h-[360px] overflow-y-auto">
+        {items.map((item) => {
+          const active = item.id === activeId;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item)}
+              className={
+                active
+                  ? "flex w-full items-center gap-3 rounded-xl bg-[#F4EFE8] px-3 py-3 text-left text-[#76522F]"
+                  : "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[#4D4A45] transition hover:bg-[#F7F6F3]"
+              }
+            >
+              <Building2 size={14} className={active ? "shrink-0 text-[#A37849]" : "shrink-0 text-[#918D85]"} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12px] font-medium">{getLabel(item)}</span>
+                {getMeta ? (
+                  <span className="mt-0.5 block truncate text-[9px] uppercase tracking-[0.1em] text-[#A7A39B]">
+                    {getMeta(item)}
+                  </span>
+                ) : null}
+              </span>
+              {active ? (
+                <span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-[#966B3F]">
+                  Active
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -64,7 +122,6 @@ function ContextPill({ icon, value }) {
 function OrganizationSelector({ organization, organizations, pathname }) {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
-  const [error, setError] = useState("");
   const available = Array.isArray(organizations)
     ? organizations.filter((row) => row?.id && row?.name)
     : [];
@@ -74,9 +131,9 @@ function OrganizationSelector({ organization, organizations, pathname }) {
       setOpen(false);
       return;
     }
+
+    setSwitching(true);
     try {
-      setSwitching(true);
-      setError("");
       const response = await fetch("/api/session/organization", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -91,37 +148,35 @@ function OrganizationSelector({ organization, organizations, pathname }) {
         return;
       }
       window.location.reload();
-    } catch (switchError) {
-      setError(switchError.message || "Unable to switch organization");
+    } finally {
       setSwitching(false);
+      setOpen(false);
     }
   }
 
   return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen((value) => !value)} disabled={switching || available.length < 2} className="flex h-9 min-w-0 max-w-[240px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-left text-white/65 transition hover:border-[#D6A66A]/30 hover:bg-[#D6A66A]/10 hover:text-white disabled:cursor-default">
-        <Building2 size={14} className="shrink-0 text-[#D6A66A]/80" />
-        <span className="min-w-0 flex-1 truncate text-[12px] font-light tracking-[0.02em]">{switching ? "Switching..." : organization?.name || "Workspace"}</span>
-        {available.length > 1 && <ChevronDown size={12} className="shrink-0 text-white/25" />}
+    <div className="relative hidden md:block">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        disabled={switching || available.length < 2}
+        className="flex h-9 min-w-0 max-w-[210px] items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-left text-[#5E5A54] transition hover:border-[#D6A66A]/45 hover:bg-white disabled:cursor-default"
+      >
+        <Building2 size={13} className="shrink-0 text-[#A37849]" />
+        <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
+          {switching ? "Switching..." : organization?.name || "Workspace"}
+        </span>
+        {available.length > 1 ? <ChevronDown size={11} className="shrink-0 text-[#AAA69E]" /> : null}
       </button>
-      {open && available.length > 1 && (
-        <div className="absolute left-0 top-11 z-[90] w-[320px] overflow-hidden rounded-2xl border border-[#D6A66A]/25 bg-[#050505] p-2 shadow-[0_28px_90px_rgba(0,0,0,.95),0_0_0_1px_rgba(255,255,255,.03)]">
-          <div className="border-b border-white/[0.06] px-3 pb-3 pt-2 text-[9px] uppercase tracking-[0.22em] text-[#D6A66A]/65">Select organization</div>
-          <div className="mt-1 max-h-[360px] overflow-y-auto bg-[#050505]">
-            {available.map((item) => {
-              const active = item.id === organization?.id;
-              return (
-                <button key={item.id} type="button" onClick={() => switchOrganization(item)} className={active ? "flex w-full items-center gap-3 rounded-xl border border-[#D6A66A]/35 bg-[#18130C] px-3 py-3 text-left text-[#F0D29A] shadow-[inset_0_0_0_1px_rgba(214,166,106,.04)]" : "flex w-full items-center gap-3 rounded-xl border border-transparent bg-[#050505] px-3 py-3 text-left text-white/75 transition hover:border-white/10 hover:bg-[#121212] hover:text-white"}>
-                  <Building2 size={14} className={active ? "shrink-0 text-[#D6A66A]" : "shrink-0 text-white/45"} />
-                  <span className="min-w-0 flex-1 truncate text-[12px]">{item.name}</span>
-                  {active && <span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] text-[#E7C991]">Active</span>}
-                </button>
-              );
-            })}
-          </div>
-          {error && <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-300">{error}</div>}
-        </div>
-      )}
+      {open && available.length > 1 ? (
+        <SelectorMenu
+          title="Organization"
+          items={available}
+          activeId={organization?.id}
+          onSelect={switchOrganization}
+          getLabel={(item) => item.name}
+        />
+      ) : null}
     </div>
   );
 }
@@ -129,18 +184,19 @@ function OrganizationSelector({ organization, organizations, pathname }) {
 function EntitySelector({ entity, entities }) {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
-  const [error, setError] = useState("");
-  const available = Array.isArray(entities) ? entities.filter((row) => row?.id && row?.is_active !== false) : [];
-  const label = entity?.display_name || entity?.legal_name || entity?.name || entity?.code || "Legal entity";
+  const available = Array.isArray(entities)
+    ? entities.filter((row) => row?.id && row?.is_active !== false)
+    : [];
+  const label = entity?.display_name || entity?.legal_name || entity?.name || entity?.code || "Entity";
 
   async function switchEntity(nextEntity) {
     if (!nextEntity?.id || nextEntity.id === entity?.id) {
       setOpen(false);
       return;
     }
+
+    setSwitching(true);
     try {
-      setSwitching(true);
-      setError("");
       const response = await fetch("/api/session/entity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,74 +206,68 @@ function EntitySelector({ entity, entities }) {
       const result = await response.json();
       if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to switch legal entity");
       window.location.reload();
-    } catch (switchError) {
-      setError(switchError.message || "Unable to switch legal entity");
+    } finally {
       setSwitching(false);
+      setOpen(false);
     }
   }
 
-  if (!available.length || !entity) return null;
+  if (!entity || !available.length) return null;
 
   return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen((value) => !value)} disabled={switching || available.length < 2} className="flex h-9 min-w-0 max-w-[240px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-left text-white/65 transition hover:border-[#D6A66A]/30 hover:bg-[#D6A66A]/10 hover:text-white disabled:cursor-default">
-        <Building2 size={14} className="shrink-0 text-[#D6A66A]/80" />
-        <span className="min-w-0 flex-1 truncate text-[12px] font-light tracking-[0.02em]">{switching ? "Switching..." : label}</span>
-        {available.length > 1 && <ChevronDown size={12} className="shrink-0 text-white/25" />}
+    <div className="relative hidden lg:block">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        disabled={switching || available.length < 2}
+        className="flex h-9 min-w-0 max-w-[190px] items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-left text-[#5E5A54] transition hover:border-[#D6A66A]/45 hover:bg-white disabled:cursor-default"
+      >
+        <Building2 size={13} className="shrink-0 text-[#A37849]" />
+        <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
+          {switching ? "Switching..." : label}
+        </span>
+        {available.length > 1 ? <ChevronDown size={11} className="shrink-0 text-[#AAA69E]" /> : null}
       </button>
-      {open && available.length > 1 && (
-        <div className="absolute left-0 top-11 z-[90] w-[340px] overflow-hidden rounded-2xl border border-[#D6A66A]/25 bg-[#050505] p-2 shadow-[0_28px_90px_rgba(0,0,0,.95),0_0_0_1px_rgba(255,255,255,.03)]">
-          <div className="border-b border-white/[0.06] px-3 pb-3 pt-2 text-[9px] uppercase tracking-[0.22em] text-[#D6A66A]/65">Select legal entity</div>
-          <div className="mt-1 max-h-[360px] overflow-y-auto bg-[#050505]">
-            {available.map((item) => {
-              const active = item.id === entity?.id;
-              const itemName = item.display_name || item.legal_name || item.name || item.code || item.id;
-              return (
-                <button key={item.id} type="button" onClick={() => switchEntity(item)} className={active ? "flex w-full items-center gap-3 rounded-xl border border-[#D6A66A]/35 bg-[#18130C] px-3 py-3 text-left text-[#F0D29A] shadow-[inset_0_0_0_1px_rgba(214,166,106,.04)]" : "flex w-full items-center gap-3 rounded-xl border border-transparent bg-[#050505] px-3 py-3 text-left text-white/75 transition hover:border-white/10 hover:bg-[#121212] hover:text-white"}>
-                  <Building2 size={14} className={active ? "shrink-0 text-[#D6A66A]" : "shrink-0 text-white/45"} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12px]">{itemName}</span>
-                    <span className="mt-0.5 block truncate text-[9px] uppercase tracking-[0.12em] text-white/30">{[item.code, item.country, item.currency].filter(Boolean).join(" · ")}</span>
-                  </span>
-                  {active && <span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] text-[#E7C991]">Active</span>}
-                </button>
-              );
-            })}
-          </div>
-          {error && <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-300">{error}</div>}
-        </div>
-      )}
+      {open && available.length > 1 ? (
+        <SelectorMenu
+          title="Legal entity"
+          items={available}
+          activeId={entity?.id}
+          onSelect={switchEntity}
+          getLabel={(item) => item.display_name || item.legal_name || item.name || item.code || item.id}
+          getMeta={(item) => [item.code, item.country, item.currency].filter(Boolean).join(" · ")}
+        />
+      ) : null}
     </div>
   );
 }
 
-function HeaderItem({ item, organizationId, userName }) {
+function HeaderAction({ item, organizationId, userName }) {
   const Icon = ICONS[item.icon] || Search;
-  if (item.type === "search") {
-    return (
-      <Link href={platformHref(organizationId, item.route)} title={item.name} className="hidden h-9 w-full max-w-[520px] items-center rounded-full border border-white/5 bg-white/[0.018] px-4 text-white/35 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white xl:flex">
-        <Icon size={14} />
-        <span className="ml-3 truncate text-[12px] font-light tracking-[0.02em]">Search anything...</span>
-      </Link>
-    );
-  }
+
+  if (item.type === "search") return null;
+
   if (item.type === "user") {
     return (
-      <Link href={platformHref(organizationId, item.route)} title={item.name} className="flex h-9 max-w-[150px] items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-[12px] font-light text-white/65 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white">
-        <Icon size={16} className="shrink-0" /><span className="truncate">{userName}</span>
+      <Link
+        href={platformHref(organizationId, item.route)}
+        title={item.name}
+        className="flex h-9 max-w-[150px] items-center gap-2 rounded-xl border border-black/[0.07] bg-white px-3 text-[11px] font-medium text-[#5E5A54] transition hover:border-[#D6A66A]/40 hover:text-[#7A5633]"
+      >
+        <Icon size={15} className="shrink-0" />
+        <span className="hidden truncate xl:inline">{userName}</span>
       </Link>
     );
   }
-  if (item.id === "network" || item.id === "services") {
-    return (
-      <Link href={platformHref(organizationId, item.route)} title={item.name} className="flex h-9 items-center gap-2 rounded-full border border-white/5 bg-white/[0.018] px-3 text-[12px] font-light uppercase tracking-[0.08em] text-white/60 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white">
-        <Icon size={15} /><span className="hidden 2xl:inline">{item.name}</span>
-      </Link>
-    );
-  }
+
   return (
-    <Link href={platformHref(organizationId, item.route)} title={item.name} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.018] text-white/60 transition hover:border-[#D6A66A]/35 hover:bg-[#D6A66A]/10 hover:text-white">
-      <Icon size={16} />
+    <Link
+      href={platformHref(organizationId, item.route)}
+      title={item.name}
+      aria-label={item.name}
+      className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.07] bg-white text-[#716D66] transition hover:border-[#D6A66A]/40 hover:bg-[#FBF7F1] hover:text-[#8D643C]"
+    >
+      <Icon size={15} />
     </Link>
   );
 }
@@ -226,6 +276,7 @@ export default function WorkspaceTopBar() {
   const businessContext = useBusinessContext();
   const params = useParams();
   const pathname = usePathname();
+  const [areasOpen, setAreasOpen] = useState(false);
   const ready = businessContext?.ready || false;
   const organization = businessContext?.organization || null;
   const organizations = businessContext?.organizations || [];
@@ -237,44 +288,127 @@ export default function WorkspaceTopBar() {
   const isPlatformOperatorWorkspace = businessContext?.is_platform_operator_workspace === true;
   const canAccessPlatformInfrastructure = isPlatformOperatorWorkspace && PLATFORM_ADMIN_ROLES.has(role);
   const organizationId = businessContext?.organization_id || organization?.id || params?.organizationId || null;
-  const periodName = period?.name || period?.period_name || "Current Period";
+  const periodName = period?.name || period?.period_name || "Current period";
   const userName = staff?.name || staff?.email || "User";
   const brand = getPlatformBrand();
-  const domains = getErpDomains().filter((domain) => domain.id !== "services");
-  const headerItems = getPlatformHeaderItems().filter((item) => !PLATFORM_ONLY_HEADER_ITEMS.has(item.id) || canAccessPlatformInfrastructure);
+  const headerItems = getPlatformHeaderItems().filter(
+    (item) => !PLATFORM_ONLY_HEADER_ITEMS.has(item.id) || canAccessPlatformInfrastructure,
+  );
+
+  const domains = useMemo(() => getErpDomains()
+    .filter((domain) => domain.id !== "services")
+    .map((domain) => ({
+      ...domain,
+      href: resolveWorkspaceRoute({
+        organizationId,
+        moduleId: domain.id,
+        route: domain.route,
+      }),
+    }))
+    .filter((domain) => domain.href && domain.href !== "#"), [organizationId]);
 
   if (!ready) {
-    return <div className="border-b border-white/10 bg-black px-8 py-4 text-[13px] text-white/50">Loading workspace...</div>;
+    return (
+      <div className="h-[61px] border-b border-black/[0.07] bg-white px-6 py-5 text-[11px] text-[#8B8881]">
+        Loading workspace...
+      </div>
+    );
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-black/92 backdrop-blur-2xl">
-      <div className="grid min-h-[58px] grid-cols-[240px_minmax(0,1fr)_minmax(260px,auto)] items-center gap-4 px-6 py-2 lg:px-8">
-        <div className="min-w-0">
-          <div className="truncate text-[22px] font-medium uppercase tracking-[0.08em] text-white">{brand.name}</div>
-          <div className="mt-0.5 truncate text-[9px] font-light uppercase tracking-[0.30em] text-white/40">{brand.subtitle}</div>
+    <header className="sticky top-0 z-50 h-[61px] border-b border-black/[0.07] bg-white/95 backdrop-blur-xl">
+      <div className="grid h-full grid-cols-[minmax(150px,210px)_minmax(0,1fr)_auto] items-center gap-3 px-4 md:px-5 lg:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            href={`/workspace/${encodeURIComponent(organizationId)}`}
+            className="flex min-w-0 items-center gap-2.5"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#171716] text-[9px] font-bold uppercase tracking-[0.08em] text-white">
+              AV
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-[16px] font-semibold uppercase tracking-[0.08em] text-[#1B1A18]">
+                {brand.name}
+              </div>
+              <div className="mt-0.5 hidden truncate text-[8px] font-medium uppercase tracking-[0.2em] text-[#A09C94] xl:block">
+                {brand.subtitle}
+              </div>
+            </div>
+          </Link>
+
+          <div className="relative lg:hidden">
+            <button
+              type="button"
+              onClick={() => setAreasOpen((value) => !value)}
+              className="flex h-9 items-center gap-1.5 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-2.5 text-[10px] font-medium text-[#69655F]"
+            >
+              <Grid2X2 size={13} /> Areas
+            </button>
+            {areasOpen ? (
+              <div className="absolute left-0 top-11 z-[90] w-[260px] rounded-2xl border border-black/[0.08] bg-white p-2 shadow-[0_20px_60px_rgba(34,30,24,0.16)]">
+                {domains.map((domain) => (
+                  <Link
+                    key={domain.id}
+                    href={domain.href}
+                    onClick={() => setAreasOpen(false)}
+                    className="block rounded-xl px-3 py-2.5 text-[12px] font-medium text-[#514E49] transition hover:bg-[#F7F6F3]"
+                  >
+                    {domain.name}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
-        <div className="flex min-w-0 items-center justify-center gap-3">
-          <OrganizationSelector organization={organization} organizations={organizations} pathname={pathname} />
+
+        <div className="flex min-w-0 items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={openUniversalOperator}
+            className="group flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-black/[0.08] bg-[#F7F6F3] px-3 text-left transition hover:border-[#D6A66A]/45 hover:bg-[#FBF8F3] sm:max-w-[430px]"
+          >
+            <Search size={14} className="shrink-0 text-[#8F8A82] group-hover:text-[#9A744B]" />
+            <span className="min-w-0 flex-1 truncate text-[11px] text-[#8B8881]">
+              Ask, search or do anything...
+            </span>
+            <span className="hidden items-center gap-0.5 rounded-md border border-black/[0.07] bg-white px-1.5 py-0.5 text-[9px] font-medium text-[#AAA69E] md:flex">
+              <Command size={9} />K
+            </span>
+          </button>
+
+          <OrganizationSelector
+            organization={organization}
+            organizations={organizations}
+            pathname={pathname}
+          />
           <EntitySelector entity={entity} entities={entities} />
           <ContextPill icon={Calendar} value={periodName} />
-          {headerItems.filter((item) => item.type === "search").map((item) => <HeaderItem key={item.id} item={item} organizationId={organizationId} userName={userName} />)}
         </div>
-        <div className="flex min-w-0 items-center justify-end gap-2">
-          {headerItems.filter((item) => item.type !== "search").map((item) => <HeaderItem key={item.id} item={item} organizationId={organizationId} userName={userName} />)}
+
+        <div className="flex min-w-0 items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={openUniversalOperator}
+            title="Avantiqo Intelligence"
+            aria-label="Avantiqo Intelligence"
+            className="flex h-9 items-center gap-2 rounded-xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.08] px-2.5 text-[#8D643C] transition hover:bg-[#D6A66A]/[0.14]"
+          >
+            <Sparkles size={15} />
+            <span className="hidden text-[10px] font-semibold xl:inline">Intelligence</span>
+          </button>
+
+          {headerItems
+            .filter((item) => item.type !== "search")
+            .map((item) => (
+              <HeaderAction
+                key={item.id}
+                item={item}
+                organizationId={organizationId}
+                userName={userName}
+              />
+            ))}
         </div>
       </div>
-      <nav className="flex min-h-[42px] items-center gap-2 overflow-x-auto border-t border-white/5 px-6 py-2 lg:px-8">
-        {domains.map((domain) => {
-          const href = resolveWorkspaceRoute({ organizationId, moduleId: domain.id, route: domain.route });
-          const active = pathname === href || pathname.startsWith(href + "/");
-          return (
-            <Link key={domain.id} href={href} title={domain.description} className={active ? "whitespace-nowrap rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-4 py-1.5 text-[12px] font-light uppercase tracking-[0.08em] text-[#D6A66A]" : "whitespace-nowrap rounded-full border border-white/5 bg-white/[0.012] px-4 py-1.5 text-[12px] font-light uppercase tracking-[0.08em] text-white/50 transition hover:border-white/15 hover:bg-white/[0.045] hover:text-white"}>
-              {domain.name}
-            </Link>
-          );
-        })}
-      </nav>
     </header>
   );
 }

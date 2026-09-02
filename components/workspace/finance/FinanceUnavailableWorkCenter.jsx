@@ -56,7 +56,7 @@ export default function FinanceUnavailableWorkCenter({ capability }) {
 
           <div className="mt-5 border-t border-black/[0.06] pt-4">
             <Link
-              href="../finance"
+              href=".."
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.09] bg-white px-3 text-[11px] font-medium text-[#575149] transition hover:border-[#D6A66A]/45 hover:bg-[#D6A66A]/[0.04]"
             >
               <ArrowLeft size={13} /> Back to Finance

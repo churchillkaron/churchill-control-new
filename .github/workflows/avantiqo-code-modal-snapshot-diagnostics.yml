@@ -1,0 +1,37 @@
+name: Avantiqo Code Modal Snapshot Diagnostics
+
+on:
+  push:
+    paths:
+      - ".github/workflows/avantiqo-code-modal-snapshot-diagnostics.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+    steps:
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Modal client
+        run: python -m pip install --disable-pip-version-check "modal==1.5.0"
+      - name: Fetch snapshot canary logs
+        run: |
+          set -euo pipefail
+          python -m modal app logs avantiqo-code-snapshot-canary-v1 \
+            --tail 300 --timestamps --show-function-id --show-container-id \
+            2>&1 | tee /tmp/avantiqo-code-snapshot-modal.log
+      - name: Upload diagnostic log
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-snapshot-modal-diagnostics-${{ github.run_id }}
+          path: /tmp/avantiqo-code-snapshot-modal.log
+          retention-days: 7

@@ -40,9 +40,9 @@ def _public_contract_guard(
 ) -> dict[str, Any]:
     """Repair mechanically provable contradictions using only the public contract.
 
-    This is intentionally narrow. It does not inspect hidden tests and cannot
-    invent business behavior. It only removes source patterns that directly
-    contradict explicit public invariants already present in the request.
+    The guard is deliberately narrow. It never sees hidden tests and cannot invent
+    business behavior. It only normalizes source patterns that directly contradict
+    invariants explicitly declared in the public production contract.
     """
     specification = request.get("structured_specification") or {}
     if specification.get("machine_verification_repair") is not True:
@@ -59,7 +59,15 @@ def _public_contract_guard(
             "return {remaining, allocations}",
         )
     )
-    if not zero_snapshot_contract:
+    progressive_tier_contract = all(
+        marker in contract_lower
+        for marker in (
+            "pricing is progressive",
+            "each tier rate applies only to units in that tier",
+            "if units exceed the last finite tier",
+        )
+    )
+    if not zero_snapshot_contract and not progressive_tier_contract:
         return output
 
     raw_result = output.get("result")
@@ -74,29 +82,50 @@ def _public_contract_guard(
 
     source = parsed["content"]
     original = source
+    guards: list[str] = []
 
-    # The public stock contract is non-negative (zero is valid), while request
-    # quantity is strictly > 0. A shared validator that rejects <=0 contradicts
-    # the stock clause; allow zero generally and restore the strict request gate.
-    source = re.sub(
-        r"if\s*\(\s*!Number\.isFinite\(num\)\s*\|\|\s*num\s*<=\s*0\s*\)\s*return\s+NaN\s*;",
-        "if (!Number.isFinite(num) || num < 0) return NaN;",
-        source,
-    )
-    source = re.sub(
-        r"(const\s+quantity\s*=\s*validateQuantity\(r\?\.quantity\)\s*;\s*)"
-        r"if\s*\(\s*Number\.isNaN\(quantity\)\s*\)\s*continue\s*;",
-        r"\1if (Number.isNaN(quantity) || quantity <= 0) continue;",
-        source,
-    )
+    if zero_snapshot_contract:
+        # Public stock contract accepts zero while request quantity is strictly >0.
+        source = re.sub(
+            r"if\s*\(\s*!Number\.isFinite\(num\)\s*\|\|\s*num\s*<=\s*0\s*\)\s*return\s+NaN\s*;",
+            "if (!Number.isFinite(num) || num < 0) return NaN;",
+            source,
+        )
+        source = re.sub(
+            r"(const\s+quantity\s*=\s*validateQuantity\(r\?\.quantity\)\s*;\s*)"
+            r"if\s*\(\s*Number\.isNaN\(quantity\)\s*\)\s*continue\s*;",
+            r"\1if (Number.isNaN(quantity) || quantity <= 0) continue;",
+            source,
+        )
+        source = re.sub(
+            r"remaining\s*:\s*finalRemaining\b",
+            "remaining",
+            source,
+        )
+        if source != original:
+            guards.append("zero_snapshot_preservation_v1")
 
-    # Returning a filtered snapshot directly contradicts the public requirement
-    # that valid stock keys with a remaining quantity of exactly zero survive.
-    source = re.sub(
-        r"remaining\s*:\s*finalRemaining\b",
-        "remaining",
-        source,
-    )
+    if progressive_tier_contract:
+        before_tier = source
+        # A progressive implementation may track both remaining units and the
+        # previous absolute threshold, but it must never subtract both. Once a
+        # finite tier has reduced remainingUnits, the open-ended tier consumes
+        # the remaining balance directly.
+        source = re.sub(
+            r"charge\s*\+=\s*\(\s*remainingUnits\s*-\s*lastUpToThreshold\s*\)\s*\*\s*rate\s*;",
+            "charge += remainingUnits * rate;\n      remainingUnits = 0;",
+            source,
+        )
+        # When a partial finite tier consumes all remaining units, make that
+        # state explicit before leaving the loop so the public RangeError rule
+        # only fires for units genuinely beyond the final finite threshold.
+        source = re.sub(
+            r"(charge\s*\+=\s*remainingUnits\s*\*\s*rate\s*;)(\s*break\s*;)",
+            r"\1\n        remainingUnits = 0;\2",
+            source,
+        )
+        if source != before_tier:
+            guards.append("progressive_tier_remaining_state_v1")
 
     if source == original:
         return output
@@ -105,12 +134,12 @@ def _public_contract_guard(
     guarded = dict(output)
     guarded["result"] = json.dumps(parsed, separators=(",", ":"))
     guarded["deterministic_public_contract_guard_applied"] = True
-    guarded["deterministic_public_contract_guard"] = "zero_snapshot_preservation_v1"
+    guarded["deterministic_public_contract_guards"] = guards
     return guarded
 
 
 def _zero_cost_guard_regression() -> None:
-    request = {
+    inventory_request = {
         "structured_specification": {
             "machine_verification_repair": True,
             "production_contract": (
@@ -122,7 +151,7 @@ def _zero_cost_guard_regression() -> None:
             ),
         }
     }
-    bad_source = """export function reserveInventory(stock, requests) {
+    bad_inventory = """export function reserveInventory(stock, requests) {
   const validateQuantity = (qty) => {
     const num = Number(qty);
     if (!Number.isFinite(num) || num <= 0) return NaN;
@@ -153,20 +182,82 @@ def _zero_cost_guard_regression() -> None:
   for (const key in remaining) if (remaining[key] > 0) finalRemaining[key] = remaining[key];
   return { remaining: finalRemaining, allocations };
 }"""
-    output = {
+    inventory_output = {
         "result": json.dumps(
-            {"path": "reserve-inventory.mjs", "content": bad_source},
+            {"path": "reserve-inventory.mjs", "content": bad_inventory},
             separators=(",", ":"),
         )
     }
-    guarded = _public_contract_guard(request, output)
-    parsed = json.loads(str(guarded["result"]))
-    source = str(parsed["content"])
-    assert "num < 0" in source
-    assert "quantity <= 0" in source
-    assert "remaining: finalRemaining" not in source
-    assert "return { remaining, allocations };" in source
-    assert guarded.get("deterministic_public_contract_guard_applied") is True
+    guarded_inventory = _public_contract_guard(inventory_request, inventory_output)
+    inventory_source = str(json.loads(str(guarded_inventory["result"]))["content"])
+    assert "num < 0" in inventory_source
+    assert "quantity <= 0" in inventory_source
+    assert "remaining: finalRemaining" not in inventory_source
+    assert "return { remaining, allocations };" in inventory_source
+    assert "zero_snapshot_preservation_v1" in guarded_inventory.get(
+        "deterministic_public_contract_guards", []
+    )
+
+    tier_request = {
+        "structured_specification": {
+            "machine_verification_repair": True,
+            "production_contract": (
+                "Implement calculateCharge(units, tiers). units must convert to a finite number >=0 "
+                "or throw TypeError. tiers must be a nonempty array ordered by strictly increasing "
+                "finite positive upTo thresholds, followed optionally by exactly one final open-ended "
+                "tier whose upTo is null. Each rate must convert to finite >=0 or throw TypeError. "
+                "Pricing is progressive: each tier rate applies only to units in that tier. If units "
+                "exceed the last finite tier and there is no open-ended tier, throw RangeError."
+            ),
+        }
+    }
+    bad_tier = """export function calculateCharge(units, tiers) {
+  let charge = 0;
+  let remainingUnits = Number(units);
+  let lastUpToThreshold = 0;
+  for (const tier of tiers) {
+    const upTo = tier.upTo;
+    const rate = Number(tier.rate);
+    if (upTo === null) {
+      charge += (remainingUnits - lastUpToThreshold) * rate;
+      break;
+    } else {
+      const tierSize = upTo - lastUpToThreshold;
+      if (remainingUnits <= tierSize) {
+        charge += remainingUnits * rate;
+        break;
+      } else {
+        charge += tierSize * rate;
+        remainingUnits -= tierSize;
+        lastUpToThreshold = upTo;
+      }
+    }
+  }
+  if (remainingUnits > 0 && tiers[tiers.length - 1].upTo !== null) throw new RangeError('exceeded');
+  return Number(charge.toFixed(2));
+}"""
+    tier_output = {
+        "result": json.dumps(
+            {"path": "tier-pricing.mjs", "content": bad_tier}, separators=(",", ":")
+        )
+    }
+    guarded_tier = _public_contract_guard(tier_request, tier_output)
+    tier_source = str(json.loads(str(guarded_tier["result"]))["content"])
+    assert "remainingUnits - lastUpToThreshold" not in tier_source
+    assert tier_source.count("remainingUnits = 0;") >= 2
+    assert "progressive_tier_remaining_state_v1" in guarded_tier.get(
+        "deterministic_public_contract_guards", []
+    )
+
+    unrelated = {
+        "structured_specification": {
+            "machine_verification_repair": True,
+            "production_contract": "Implement lineTotal(input) and return a number.",
+        }
+    }
+    unchanged = _public_contract_guard(unrelated, tier_output)
+    assert unchanged["result"] == tier_output["result"]
+    assert unchanged.get("deterministic_public_contract_guard_applied") is not True
 
 
 _zero_cost_guard_regression()

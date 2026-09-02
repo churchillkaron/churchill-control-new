@@ -24,9 +24,11 @@ const files = {
   verifyApi: "app/api/workspace/finance/work-programs/verify/route.js",
   rollForwardApi: "app/api/workspace/finance/work-programs/roll-forward/route.js",
   capacityApi: "app/api/workspace/finance/practice-capacity/route.js",
+  engagementFileApi: "app/api/workspace/finance/engagement-file/route.js",
   gates: "lib/finance/practice/workProgramGates.js",
   practiceApi: "app/api/workspace/finance/practice-control/route.js",
   practiceUi: "components/workspace/finance/FinancePracticeControlTower.jsx",
+  engagementFileUi: "components/workspace/finance/FinanceEngagementFile.jsx",
 };
 
 const failures = [];
@@ -165,12 +167,28 @@ requireTokens(files.capacityApi, [
   "capacityRisk",
 ]);
 
+requireTokens(files.engagementFileApi, [
+  "accounting_engagements",
+  "accounting_engagement_runs",
+  "accounting_engagement_work_items",
+  "accounting_client_requests",
+  "finance_review_items",
+  "finance_review_notes",
+  "finance_review_signoffs",
+  "organization_documents",
+  "accounting_practice_staff_capacity",
+  "system_gate",
+  "completion_snapshot",
+  "entity_required",
+]);
+
 requireTokens(files.practiceApi, [
   "active_runs",
   "waiting_on_client",
   "blocked_work",
   "client_requests",
   "submitted_client_requests",
+  "engagement_id",
 ]);
 
 requireTokens(files.practiceUi, [
@@ -182,9 +200,23 @@ requireTokens(files.practiceUi, [
   "Assigned",
   "Overloaded",
   "Unassigned",
+  "FinanceEngagementFile",
+  "selectedEngagementId",
   "active_runs",
   "waiting_on_client",
   "blocked_work",
+]);
+
+requireTokens(files.engagementFileUi, [
+  "Digital engagement file",
+  "Work program & workpapers",
+  "Client evidence requests",
+  "Evidence documents",
+  "Review file",
+  "Prior periods",
+  "System blockers",
+  "Legal entity required",
+  "system_gate",
 ]);
 
 const coverage = {
@@ -210,6 +242,10 @@ const coverage = {
   overload_detection: true,
   unassigned_work_detection: true,
   capacity_roll_forward: true,
+  digital_engagement_file: true,
+  existing_document_evidence_link: true,
+  review_notes_and_signoffs_visibility: true,
+  prior_period_history: true,
 };
 
 console.log("AVANTIQO FINANCE WORK PROGRAM CERTIFICATION");
@@ -219,5 +255,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are governed from entity-scoped budgeting through capacity-aware, system-verified, locked completion and roll-forward.");
+  console.log("PASS: Accounting work programs are governed from entity-scoped budgeting through capacity-aware, system-verified, review-complete engagement files, locked completion and roll-forward.");
 }

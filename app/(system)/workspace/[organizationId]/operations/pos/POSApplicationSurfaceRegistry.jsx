@@ -25,15 +25,16 @@ function RestaurantSaleSurface(props) {
   const searchParams = useSearchParams();
   const requestedView = String(searchParams.get("view") || "").toLowerCase();
   const [panel, setPanel] = useState(
-    requestedView === "service" || requestedView === "waiter"
-      ? "waiter"
-      : "stationary",
+    requestedView === "stationary" ? "stationary" : "waiter",
   );
   const [checkoutVersion, setCheckoutVersion] = useState(0);
 
   useEffect(() => {
     if (requestedView === "service" || requestedView === "waiter") {
       setPanel("waiter");
+    }
+    if (requestedView === "stationary") {
+      setPanel("stationary");
     }
   }, [requestedView]);
 
@@ -53,21 +54,21 @@ function RestaurantSaleSurface(props) {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setPanel("stationary")}
-              className={panel === "stationary"
-                ? "rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black"
-                : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/55"}
-            >
-              Station POS
-            </button>
-            <button
-              type="button"
               onClick={() => setPanel("waiter")}
               className={panel === "waiter"
                 ? "rounded-xl bg-[#D6A66A] px-4 py-2 text-xs font-semibold text-black"
                 : "rounded-xl border border-[#D6A66A]/25 px-4 py-2 text-xs text-[#E7C991]"}
             >
               Waiter / Floor Service
+            </button>
+            <button
+              type="button"
+              onClick={() => setPanel("stationary")}
+              className={panel === "stationary"
+                ? "rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black"
+                : "rounded-xl border border-white/10 px-4 py-2 text-xs text-white/55"}
+            >
+              Station Overview
             </button>
           </div>
         </div>

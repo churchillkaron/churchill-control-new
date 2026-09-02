@@ -2,8 +2,8 @@
 
 export const dynamic = "force-dynamic";
 
-import OperationsWorkspaceHub from "@/components/workspace/operations/OperationsWorkspaceHub";
+import OperationsBusinessCommandCenter from "@/components/workspace/operations/OperationsBusinessCommandCenter";
 
 export default function OperationsPage() {
-  return <OperationsWorkspaceHub />;
+  return <OperationsBusinessCommandCenter />;
 }

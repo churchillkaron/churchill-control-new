@@ -21,15 +21,22 @@ jobs:
           node-version: '24'
       - name: Install current Copilot CLI
         run: npm install -g @github/copilot
-      - name: Discover advertised models without inference
+      - name: List entitled models without inference
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COPILOT_AUTO_UPDATE: 'false'
+          TERM: xterm-256color
         run: |
           set -euo pipefail
-          copilot help --no-color > /tmp/copilot-help.txt
-          echo "COPILOT_HELP_MODEL_SECTION_BEGIN"
-          awk '/--model/{show=1} show{print} /--mouse/{if(show){exit}}' /tmp/copilot-help.txt | head -c 12000
+          set +e
+          printf '/models\n/exit\n' | timeout 30s script -q -e -c 'copilot --no-auto-update --no-color' /tmp/copilot-models.typescript
+          code=$?
+          set -e
+          tr -d '\r' < /tmp/copilot-models.typescript > /tmp/copilot-models.txt
+          echo "COPILOT_ENTITLED_MODELS_BEGIN"
+          grep -Eai 'gpt|claude|gemini|model|codex|sonnet|opus|haiku' /tmp/copilot-models.txt | head -c 16000 || true
           echo
-          echo "COPILOT_HELP_MODEL_SECTION_END"
-          grep -Eiq 'gpt|claude|model' /tmp/copilot-help.txt
+          echo "COPILOT_ENTITLED_MODELS_END"
+          if [ "$code" -ne 0 ] && ! grep -Eiq 'gpt|claude|gemini|codex|sonnet|opus|haiku' /tmp/copilot-models.txt; then
+            exit "$code"
+          fi

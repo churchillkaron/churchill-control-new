@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   render:
-    if: startsWith(github.head_ref, 'video/churchill-pool-party-')
+    if: github.head_ref == 'video-ltx25-blackwell-v5-20260830' && github.event.pull_request.title == 'Render Churchill pool-party LTX video'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:

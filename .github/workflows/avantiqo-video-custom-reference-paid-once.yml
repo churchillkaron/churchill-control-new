@@ -1,0 +1,147 @@
+name: Avantiqo Video Custom Reference Paid Once
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-custom-reference-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  render:
+    if: startsWith(github.head_ref, 'video/churchill-pool-party-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      SOURCE_B64: assets/video/proofs/churchill-pool-party-reference.b64
+      SOURCE_JPG: ${{ github.workspace }}/local-audit-output/churchill-pool-party/reference.jpg
+      OUTPUT_MP4: ${{ github.workspace }}/local-audit-output/churchill-pool-party/churchill-pool-party-native-3840x2176.mp4
+      EXPECTED_SHA256: 3f4f8a5bbb71030defd1e99f0c70eb3d84461c97946089cea5f6d566e603019e
+      VIDEO_INSTRUCTION: >-
+        Transform this exact Churchill Restaurant & Bar pool-room photograph into a premium realistic live nightlife scene.
+        Keep the real room identity, orange Churchill pool tables, brick pillars, bar, darts area, ceiling, floor plan and perspective recognizable and coherent.
+        Correct the visual camera feel so the shot appears naturally level and professionally stabilized, with no fisheye distortion and no unnatural tilt.
+        The venue is busy and lively with substantially more adult guests throughout the room: mixed groups of friends playing pool at every table, holding beer bottles and cocktail glasses, talking, laughing, cheering, walking between tables and socializing near the bar.
+        Show believable human motion and interactions, realistic cue movement and billiard-ball action, subtle drink gestures, natural body language and a fun packed evening atmosphere.
+        Preserve photographic realism and warm authentic venue lighting; keep faces and bodies anatomically stable, no duplicated people, no melting limbs, no sudden crowd popping, no morphing and no chaotic camera movement.
+        The camera makes only a very subtle smooth stabilized push forward while the people and games provide most of the motion. World-class nightlife commercial footage, premium natural realism.
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct exact uploaded Churchill reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$SOURCE_JPG")"
+          base64 -d "$SOURCE_B64" > "$SOURCE_JPG"
+          test -s "$SOURCE_JPG"
+          ACTUAL="$(sha256sum "$SOURCE_JPG" | awk '{print $1}')"
+          test "$ACTUAL" = "$EXPECTED_SHA256"
+          echo 'AVANTIQO_CHURCHILL_POOL_REFERENCE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Validate one-shot render boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-engine/modal_app.py
+          python -m py_compile services/avantiqo-video-engine/modal_custom_reference_render.py
+          grep -F 'maximum_paid_gpu_jobs' services/avantiqo-video-engine/modal_custom_reference_render.py >/dev/null
+          grep -F 'automatic_paid_retry' services/avantiqo-video-engine/modal_custom_reference_render.py >/dev/null
+          grep -F 'generate_native_master.remote(' services/avantiqo-video-engine/modal_custom_reference_render.py >/dev/null
+          echo 'AVANTIQO_VIDEO_CUSTOM_REFERENCE_STATIC=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+
+      - name: Require Modal credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'AVANTIQO_VIDEO_CUSTOM_REFERENCE_MODAL_CREDENTIALS=PASS'
+
+      - name: Generate exactly one Churchill pool-party native master on B200
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_custom_reference_render.py::render \
+            --source-path "$SOURCE_JPG" \
+            --output-path "$OUTPUT_MP4" \
+            --expected-sha256 "$EXPECTED_SHA256" \
+            --instruction "$VIDEO_INSTRUCTION" \
+            --duration-seconds 4 \
+            --seed 91827
+
+      - name: Verify native MP4 locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$OUTPUT_MP4"
+          test -s "${OUTPUT_MP4%.mp4}.json"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg >/dev/null
+          ffprobe -v error -select_streams v:0 \
+            -show_entries stream=width,height,r_frame_rate,nb_frames \
+            -show_entries format=duration,size \
+            -of json "$OUTPUT_MP4" > "${OUTPUT_MP4%.mp4}.ffprobe.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ['OUTPUT_MP4']).with_suffix('.ffprobe.json')
+          d=json.loads(p.read_text())
+          s=(d.get('streams') or [{}])[0]
+          assert int(s.get('width') or 0)==3840
+          assert int(s.get('height') or 0)==2176
+          assert s.get('r_frame_rate')=='24/1'
+          print('AVANTIQO_CHURCHILL_POOL_PARTY_NATIVE_MASTER=PASS')
+          PY
+
+      - name: Upload Churchill pool-party native master
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-churchill-pool-party-native-3840x2176
+          path: |
+            local-audit-output/churchill-pool-party/churchill-pool-party-native-3840x2176.mp4
+            local-audit-output/churchill-pool-party/churchill-pool-party-native-3840x2176.json
+            local-audit-output/churchill-pool-party/churchill-pool-party-native-3840x2176.ffprobe.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'MAX_PAID_GPU_JOBS_ALLOWED=1'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'

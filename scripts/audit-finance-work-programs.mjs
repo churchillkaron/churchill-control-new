@@ -21,11 +21,13 @@ const files = {
   systemGateSchema: "supabase/migrations/20260902175500_accounting_work_program_system_gate_enforcement.sql",
   capacitySchema: "supabase/migrations/20260902175500_accounting_practice_capacity_entity_scope.sql",
   materializationSchema: "supabase/migrations/20260902182000_accounting_recurring_cycle_materialization.sql",
+  materializationAuditSchema: "supabase/migrations/20260902183000_accounting_recurring_cycle_atomic_audit.sql",
   api: "app/api/workspace/finance/work-programs/route.js",
   lifecycleApi: "app/api/workspace/finance/work-programs/lifecycle/route.js",
   verifyApi: "app/api/workspace/finance/work-programs/verify/route.js",
   rollForwardApi: "app/api/workspace/finance/work-programs/roll-forward/route.js",
   capacityApi: "app/api/workspace/finance/practice-capacity/route.js",
+  recurringPlanner: "lib/finance/practice/recurringCyclePlanner.js",
   recurringPlanApi: "app/api/workspace/finance/recurring-plan/route.js",
   recurringMaterializeApi: "app/api/workspace/finance/recurring-materialize/route.js",
   engagementFileApi: "app/api/workspace/finance/engagement-file/route.js",
@@ -45,6 +47,14 @@ function requireTokens(file, tokens) {
   const source = read(file);
   for (const token of tokens) {
     if (!source.includes(token)) failures.push(`${file} missing contract: ${token}`);
+  }
+}
+
+function forbidTokens(file, tokens) {
+  if (!exists(file)) return;
+  const source = read(file);
+  for (const token of tokens) {
+    if (source.includes(token)) failures.push(`${file} contains forbidden contract: ${token}`);
   }
 }
 
@@ -117,6 +127,19 @@ requireTokens(files.materializationSchema, [
   "TEMPLATE_UNAVAILABLE",
   "NOT_STARTED",
   "manual_until_sent",
+  "revoke all on function",
+  "service_role",
+]);
+
+requireTokens(files.materializationAuditSchema, [
+  "materialize_accounting_engagement_run",
+  "security invoker",
+  "organization_audit_logs",
+  "ACCOUNTING_RECURRING_RUN_CREATED",
+  "budget_minutes",
+  "no_external_message",
+  "manual_until_sent",
+  "on conflict (accounting_firm_id, engagement_id, run_key) do nothing",
   "revoke all on function",
   "service_role",
 ]);
@@ -195,10 +218,9 @@ requireTokens(files.capacityApi, [
   "capacityRisk",
 ]);
 
-requireTokens(files.recurringPlanApi, [
+requireTokens(files.recurringPlanner, [
   "DEFAULT_HORIZON_DAYS = 90",
-  "DRY_RUN",
-  "materialized: false",
+  "planRecurringAccountingCycles",
   "idempotency_key",
   "READY_TO_CREATE",
   "ALREADY_EXISTS",
@@ -212,15 +234,51 @@ requireTokens(files.recurringPlanApi, [
   "financial_periods",
 ]);
 
+requireTokens(files.recurringPlanApi, [
+  "planRecurringAccountingCycles",
+  "clampRecurringHorizonDays",
+  "DRY_RUN",
+  "materialized: false",
+  "accountingFirmId: access.organizationId",
+]);
+
 requireTokens(files.recurringMaterializeApi, [
   "requireOrganizationAccess",
   "requireManage",
+  "planRecurringAccountingCycles",
+  "idempotencyKey",
+  "RECURRING_CANDIDATE_STALE_OR_UNKNOWN",
+  "RECURRING_CANDIDATE_NOT_READY",
+  "candidate.status !== \"READY_TO_CREATE\"",
+  "candidate.engagement_id",
+  "candidate.template_id",
+  "candidate.entity_id",
+  "candidate.period_id",
+  "candidate.run_key",
+  "candidate.start_at",
+  "candidate.due_at",
   "materialize_accounting_engagement_run",
   "materialized",
   "idempotent: true",
+  "no_external_message: true",
   "ALREADY_EXISTS",
-  "ENTITY_SCOPE_MISMATCH",
-  "PERIOD_SCOPE_MISMATCH",
+]);
+
+forbidTokens(files.recurringMaterializeApi, [
+  "body.engagementId",
+  "body.engagement_id",
+  "body.templateId",
+  "body.template_id",
+  "body.entityId",
+  "body.entity_id",
+  "body.periodId",
+  "body.period_id",
+  "body.runKey",
+  "body.run_key",
+  "body.startAt",
+  "body.start_at",
+  "body.dueAt",
+  "body.due_at",
 ]);
 
 requireTokens(files.engagementFileApi, [
@@ -262,7 +320,10 @@ requireTokens(files.practiceUi, [
   "waiting_on_client",
   "blocked_work",
   "90-day recurring cycle plan",
-  "No runs created",
+  "Governed creation · no external messages",
+  "Create accounting cycle",
+  "idempotencyKey: candidate.idempotency_key",
+  "No client message was sent",
 ]);
 
 requireTokens(files.engagementFileUi, [
@@ -305,11 +366,16 @@ const coverage = {
   review_notes_and_signoffs_visibility: true,
   prior_period_history: true,
   recurring_cycle_dry_run: true,
+  recurring_cycle_shared_planner: true,
   recurring_cycle_idempotency: true,
   recurring_cycle_configuration_blockers: true,
   recurring_cycle_atomic_materialization: true,
+  recurring_cycle_server_recomputed_candidate_only: true,
   recurring_cycle_database_scope_revalidation: true,
+  recurring_cycle_atomic_audit: true,
   recurring_cycle_service_role_only_execution: true,
+  recurring_cycle_controlled_ui_creation: true,
+  recurring_cycle_no_external_message: true,
 };
 
 console.log("AVANTIQO FINANCE WORK PROGRAM CERTIFICATION");
@@ -319,5 +385,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are governed from dry-run recurring planning and atomic idempotent materialization through entity-scoped budgeting, capacity-aware execution, system verification, review-complete engagement files, locked completion and roll-forward.");
+  console.log("PASS: Accounting work programs are governed from shared dry-run recurring planning and server-recomputed, atomic, audited cycle creation through entity-scoped budgeting, capacity-aware execution, system verification, review-complete engagement files, locked completion and roll-forward.");
 }

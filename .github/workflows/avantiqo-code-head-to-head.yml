@@ -1,0 +1,143 @@
+name: Avantiqo Code Head-to-Head
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - services/avantiqo-code-engine/modal_head_to_head.py
+      - .github/workflows/avantiqo-code-head-to-head.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-head-to-head
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Modal client
+        run: python -m pip install --disable-pip-version-check "modal==1.2.6"
+
+      - name: Zero-cost benchmark preflight
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/modal_head_to_head.py
+          python -m py_compile services/avantiqo-code-engine/modal_app.py
+          node --version
+
+      - name: Prepare project-scoped AI Gateway authentication
+        env:
+          AI_GATEWAY_API_KEY_SECRET: ${{ secrets.AI_GATEWAY_API_KEY }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${AI_GATEWAY_API_KEY_SECRET:-}" ]]; then
+            echo "AI_GATEWAY_API_KEY=${AI_GATEWAY_API_KEY_SECRET}" >> "$GITHUB_ENV"
+            echo "AVANTIQO_CODE_BENCHMARK_GATEWAY_AUTH=github_secret" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          if [[ -z "${VERCEL_TOKEN:-}" ]]; then
+            echo "AI_GATEWAY_API_KEY and VERCEL_TOKEN are both unavailable" >&2
+            exit 1
+          fi
+
+          mkdir -p .vercel
+          cat > .vercel/project.json <<'JSON'
+          {"orgId":"team_40jy42BqQOs4U6pVdkawwEfp","projectId":"prj_5K2x3kGkhs3d2PU8VOQQPyNT24A9"}
+          JSON
+          ENV_FILE="/tmp/avantiqo-code-head-to-head-vercel.env"
+          rm -f "$ENV_FILE"
+          npx --yes vercel@latest env pull "$ENV_FILE" \
+            --environment=development \
+            --yes \
+            --token="$VERCEL_TOKEN" >/tmp/avantiqo-code-head-to-head-vercel-pull.log 2>&1
+
+          ENV_FILE="$ENV_FILE" python - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["ENV_FILE"])
+          token = ""
+          for raw in path.read_text(encoding="utf-8").splitlines():
+              line = raw.strip()
+              if not line.startswith("VERCEL_OIDC_TOKEN="):
+                  continue
+              token = line.split("=", 1)[1].strip()
+              if len(token) >= 2 and token[0] == token[-1] and token[0] in "\"'":
+                  token = token[1:-1]
+              break
+          if not token:
+              raise SystemExit("VERCEL_OIDC_TOKEN_MISSING_AFTER_ENV_PULL")
+          print(f"::add-mask::{token}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              handle.write(f"VERCEL_OIDC_TOKEN={token}\n")
+              handle.write("AVANTIQO_CODE_BENCHMARK_GATEWAY_AUTH=vercel_project_oidc\n")
+          PY
+          rm -f "$ENV_FILE" /tmp/avantiqo-code-head-to-head-vercel-pull.log
+
+      - name: Run live Avantiqo vs Codex vs Claude benchmark
+        env:
+          NODE_ENV: development
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m modal run services/avantiqo-code-engine/modal_head_to_head.py \
+            2>&1 | tee /tmp/avantiqo-code-head-to-head.log
+
+      - name: Verify benchmark evidence
+        if: success()
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("artifacts/avantiqo-code-head-to-head.json", "utf8"));
+          if (report.contract !== "AVANTIQO_CODE_HEAD_TO_HEAD_V1") throw new Error("BENCHMARK_CONTRACT_INVALID");
+          if (report.methodology?.cases !== 6) throw new Error("SIX_CASES_REQUIRED");
+          if (report.methodology?.same_task_prompt_for_all_models !== true) throw new Error("SAME_PROMPT_REQUIRED");
+          if (report.methodology?.executable_hidden_node_tests !== true) throw new Error("EXECUTABLE_HIDDEN_TESTS_REQUIRED");
+          if (report.methodology?.ai_judge_used !== false) throw new Error("AI_JUDGE_FORBIDDEN");
+          if (report.methodology?.owned_gpu_sessions !== 1) throw new Error("ONE_OWNED_GPU_SESSION_REQUIRED");
+          if (report.methodology?.production_deploy_performed !== false) throw new Error("PRODUCTION_DEPLOY_FORBIDDEN");
+          for (const key of ["avantiqo", "codex", "claude"]) {
+            if (report.summaries?.[key]?.cases !== 6) throw new Error(`INCOMPLETE_${key.toUpperCase()}_SUITE`);
+          }
+          if (report.safeguards?.production_deploy_performed !== false) throw new Error("PRODUCTION_DEPLOY_FORBIDDEN");
+          if (report.safeguards?.secret_values_logged !== false) throw new Error("SECRET_LOG_GUARD_REQUIRED");
+          console.log(JSON.stringify({ ranking: report.ranking, summaries: report.summaries }, null, 2));
+          console.log("AVANTIQO_CODE_HEAD_TO_HEAD_HARD_GATE=PASS");
+          NODE
+
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-head-to-head-${{ github.run_id }}
+          path: |
+            artifacts/avantiqo-code-head-to-head.json
+            /tmp/avantiqo-code-head-to-head.log
+          if-no-files-found: warn
+          retention-days: 14

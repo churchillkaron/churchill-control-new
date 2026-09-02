@@ -61,6 +61,7 @@ jobs:
           grep -Fq 'EXISTING_USAGE_NO_NEW_SUBMISSION' scripts/run-avantiqo-image-modal-direct-isolated-certification.mjs
           grep -Fq 'usage_enabled: false' scripts/run-avantiqo-image-modal-direct-isolated-certification.mjs
           echo 'AVANTIQO_IMAGE_MODAL_DIRECT_CERT_STATIC_GATE=PASS'
+          echo 'AVANTIQO_IMAGE_MODAL_SUPPLIER_BINDING_REQUIRED=true'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
       - name: Require certification credentials

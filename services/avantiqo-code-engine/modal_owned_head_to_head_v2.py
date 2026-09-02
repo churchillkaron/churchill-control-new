@@ -11,6 +11,7 @@ from typing import Any
 import modal
 import modal_owned_head_to_head as base
 
+# Certification marker: changing this file intentionally triggers the V2 workflow.
 CONTRACT = "AVANTIQO_CODE_OWNED_HEAD_TO_HEAD_V2"
 QUALITY_POLICY_VERSION = "AVANTIQO_CODE_DEBUG_QUALITY_POLICY_V2"
 OUTPUT_PATH = Path("artifacts/avantiqo-code-owned-head-to-head-v2.json")

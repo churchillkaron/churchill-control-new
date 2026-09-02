@@ -1,43 +1,27 @@
-"""Hard Avantiqo Code certification with verified alternate repair decoding.
+"""Hard Avantiqo Code certification over the persistent Modal service.
 
 The ten advanced ERP cases, sealed hidden tests, one-repair maximum, pinned
 Qwen3-Coder FP8 runtime, persistent model volume and no-production safeguards
-remain unchanged. First-pass generation stays greedy/deterministic. Only after a
-real executable machine failure, the single repair pass uses a small seeded
-sampling window so it can escape a repeated greedy defect; deterministic Node
-verification remains the only acceptance authority.
+remain unchanged. First-pass generation stays deterministic. Only after a real
+machine-gate failure, the single repair pass uses a small seeded sampling window.
+The certification is diagnostic-complete: every failed first pass is repaired in
+one batch and every repair is evaluated before the run can fail.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import time
-import uuid
 from typing import Any
 
+import modal
 import modal_code_hard_owned_cert as hard
 
 app = hard.app
-
-# The certification-only remote function is defined in this wrapper. Modal
-# automatically mounts this entrypoint, but sibling imports used by the wrapper
-# are not implicit. Mount the complete remote dependency closure explicitly so
-# a bad source mount fails at registration/preflight rather than crash-looping a
-# GPU container until the shell timeout.
-HARD_REMOTE_IMAGE = (
-    hard.cert.REMOTE_IMAGE
-    .add_local_file(
-        "services/avantiqo-code-engine/modal_persistent_owned_cert_repair.py",
-        "/root/modal_persistent_owned_cert_repair.py",
-        copy=False,
-    )
-    .add_local_file(
-        "services/avantiqo-code-engine/modal_code_hard_owned_cert.py",
-        "/root/modal_code_hard_owned_cert.py",
-        copy=False,
-    )
-)
+SERVICE_APP = "avantiqo-code-hard-service-v1"
+SERVICE_FUNCTION = "run_hard_cert_batch"
 
 # Correct deterministic fixture arithmetic/rounding ambiguities only. Hidden
 # tests remain sealed from generation and repair prompts.
@@ -60,7 +44,6 @@ for task in hard.HARD_TASKS:
 
 
 def _strip_js_comments(source: str) -> str:
-    """Remove JS comments while preserving strings and line structure."""
     text = str(source or "")
     out: list[str] = []
     i = 0
@@ -129,8 +112,6 @@ def _security_pass(source: str) -> bool:
     return not _security_violations(source)
 
 
-# Zero-cost security regressions: harmless prose is allowed, executable escape
-# surfaces remain blocked.
 assert _security_pass(
     '''export function f(rows) {\n  // Process rows in order.\n  /* fetch is prose here */\n  const processLabel = "process";\n  return Array.isArray(rows) ? rows.length : 0;\n}\n'''
 )
@@ -147,45 +128,34 @@ hard.base._security_pass = _security_pass
 def _contract_repair_plan(contract: str) -> str:
     text = contract.lower()
     plans: list[str] = []
-
     if "remaining" in text and "allocations" in text and "canonicalize sku" in text:
         plans.append(
-            "STATE-SNAPSHOT PLAN: create a NEW remaining object before processing any "
-            "request. Iterate every stock entry; canonicalize SKU with trim+uppercase; "
-            "convert quantity once; if canonical SKU is nonblank and quantity is finite "
-            "and >=0, merge it into remaining[sku] using numeric addition. This initialization "
-            "MUST create/preserve a canonical key even when its quantity is exactly 0. Then "
-            "iterate requests in order. For each valid request, read available = "
-            "remaining[sku] ?? 0, allocate min(requested, available), skip only allocations "
-            "whose allocated amount is 0, subtract from remaining[sku], and NEVER delete a "
-            "remaining key merely because its value becomes 0. Return the complete remaining "
-            "snapshot plus allocations; never filter remaining by truthiness."
+            "STATE-SNAPSHOT PLAN: initialize a NEW remaining object from every valid stock "
+            "entry before requests. Canonicalize SKU with trim+uppercase, merge valid finite "
+            "non-negative quantities, and preserve canonical keys whose quantity is exactly 0. "
+            "Process requests in order with available = remaining[sku] ?? 0; allocate min of "
+            "requested and available; skip only zero allocations; subtract without deleting a "
+            "key that becomes 0. Never truthiness-filter the returned remaining snapshot."
         )
-
     if "appliedids" in text and "overdraft" in text:
         plans.append(
-            "IDEMPOTENCY PLAN: copy prior appliedIds in order, build a Set from canonical "
-            "trimmed prior IDs, then process events sequentially. Add an event ID to the Set "
-            "and output list only after a valid DEPOSIT succeeds or a valid WITHDRAWAL with "
-            "sufficient balance succeeds. Duplicates, malformed events and rejected overdrafts "
-            "must not alter balance or appliedIds."
+            "IDEMPOTENCY PLAN: copy prior appliedIds in order and build a canonical-ID Set. "
+            "Only append/mark an event after a valid DEPOSIT succeeds or a valid WITHDRAWAL "
+            "with sufficient balance succeeds. Duplicates, malformed events and overdrafts "
+            "change neither balance nor appliedIds."
         )
-
     if "earliest ledger row" in text and "not already been used" in text:
         plans.append(
-            "ONE-TO-ONE PLAN: keep ledger row positions and a used-index Set. Canonicalize "
-            "reference and rounded integer cents once per row. For each valid bank row in "
-            "input order, scan ledger rows from index 0 and take the first valid equal ref+cents "
-            "row whose index is unused; mark that index used exactly once."
+            "ONE-TO-ONE PLAN: retain ledger positions and a used-index Set. Canonicalize ref "
+            "and integer cents once. For each valid bank row in order, select the first unused "
+            "ledger row with equal canonical ref and cents, then mark exactly that index used."
         )
-
     if "{debit, credit, balance}" in contract and "side is case-insensitive" in text:
         plans.append(
             "FIXED-SCHEMA PLAN: uppercase side only for branch selection. DEBIT updates the "
-            "literal lowercase debit field; CREDIT updates the literal lowercase credit field. "
+            "literal lowercase debit field and CREDIT the literal lowercase credit field. "
             "Never use the normalized enum token as a dynamic accumulator property."
         )
-
     return "\n".join(plans) or (
         "Reconstruct every declared invariant from the public production contract and machine "
         "failure. Preserve valid zero values and exact output structure; do not optimize only "
@@ -207,11 +177,10 @@ def _hard_repair_request(
     machine_failure = str(failure or "MACHINE_GATE_FAILED").strip()
     declared_probe = hard.HARD_PROBES.get(case_id, "").strip()
     repair_plan = _contract_repair_plan(production_contract)
-
     repaired["instruction"] = "\n\n".join(
         [
             "AVANTIQO EXECUTABLE REPAIR — RECONSTRUCT FROM CONTRACT.",
-            "The previous candidate failed real deterministic Node execution. Replace the "
+            "The previous candidate failed deterministic Node execution. Replace the "
             "implementation from the public contract; the failed candidate is not authoritative.",
             "AUTHORITATIVE PRODUCTION CONTRACT:\n" + production_contract,
             "ORIGINAL PUBLIC TASK / VISIBLE CONTRACT:\n" + original_instruction,
@@ -224,9 +193,8 @@ def _hard_repair_request(
             "DETERMINISTIC MACHINE FAILURE:\n" + machine_failure[-3000:],
             "CONTRACT-DERIVED IMPLEMENTATION PLAN:\n" + repair_plan,
             "FAILED CANDIDATE TO REPLACE:\n" + candidate,
-            "Before answering, audit the replacement clause-by-clause against the production "
-            "contract, visible contract, declared semantic probe and machine failure. Return "
-            "ONLY the strict JSON output shape with the complete replacement source file.",
+            "Audit the replacement clause-by-clause. Return ONLY the strict JSON output shape "
+            "with the complete replacement source file.",
         ]
     )
     specification["machine_verification_repair"] = True
@@ -244,132 +212,317 @@ def _hard_repair_request(
 hard.cert._repair_request = _hard_repair_request
 
 
-_HARD_REMOTE_INSTANCE_ID = uuid.uuid4().hex
-_HARD_REMOTE_WARMED = False
-_HARD_LLM_PATCHED = False
+class _PersistentServiceBatch:
+    """Lazy Modal handle: no network/GPU work occurs during zero-cost import preflight."""
+
+    @staticmethod
+    def remote(requests: list[dict[str, Any]]) -> dict[str, Any]:
+        function = modal.Function.from_name(SERVICE_APP, SERVICE_FUNCTION)
+        return function.remote(requests)
 
 
-@app.function(
-    image=HARD_REMOTE_IMAGE,
-    volumes={hard.cert.MODEL_MOUNT_ROOT: hard.cert.MODEL_VOLUME},
-    env={"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"},
-    # Same Hopper execution contract with availability fallback. Modal accepts a
-    # list of GPU types and schedules whichever is available first.
-    gpu=["H100", "H200"],
-    timeout=12 * 60,
-    startup_timeout=3 * 60,
-    retries=0,
-    scaledown_window=10 * 60,
-    min_containers=0,
-    max_containers=1,
-)
-def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
-    """Same pinned runtime; only verified repair calls use seeded exploration."""
-    global _HARD_REMOTE_WARMED, _HARD_LLM_PATCHED
+hard.cert.run_owned_cert_batch = _PersistentServiceBatch()
 
-    os.chdir("/app")
-    import handler as code_engine
 
-    code_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
-    code_engine._prompt = hard.cert._quality_prompt
-
-    if not _HARD_LLM_PATCHED:
-        original_llm = code_engine.LLM
-
-        def persistent_llm(*args: Any, **kwargs: Any) -> Any:
-            kwargs["enforce_eager"] = False
-            kwargs["safetensors_load_strategy"] = "prefetch"
-            return original_llm(*args, **kwargs)
-
-        code_engine.LLM = persistent_llm
-        _HARD_LLM_PATCHED = True
-
-    prepare_started = time.perf_counter()
-    tokenizer, engine = code_engine._load_engine()
-    warmup_model_calls = 0
-    if not _HARD_REMOTE_WARMED:
-        warm_prompt = tokenizer.apply_chat_template(
-            [{"role": "user", "content": "Return only OK."}],
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        warm = engine.generate(
-            [warm_prompt],
-            code_engine.SamplingParams(
-                temperature=0.0, max_tokens=8, skip_special_tokens=True
-            ),
-            use_tqdm=False,
-        )
-        if not warm or not warm[0].outputs:
-            raise RuntimeError(f"{hard.CONTRACT}_OWNED_WARMUP_OUTPUT_REQUIRED")
-        _HARD_REMOTE_WARMED = True
-        warmup_model_calls = 1
-    prepare_ms = round((time.perf_counter() - prepare_started) * 1000)
-
-    outputs: list[dict[str, Any]] = []
-    scored_started = time.perf_counter()
-    base_sampling_params = code_engine.SamplingParams
-
-    for request in requests:
-        specification = request.get("structured_specification") or {}
-        repair_mode = specification.get("machine_verification_repair") is True
-
-        if repair_mode:
-            def repair_sampling_params(*args: Any, **kwargs: Any) -> Any:
-                kwargs["temperature"] = 0.15
-                kwargs["top_p"] = 0.95
-                kwargs["seed"] = 17
-                return base_sampling_params(*args, **kwargs)
-
-            code_engine.SamplingParams = repair_sampling_params
-        else:
-            code_engine.SamplingParams = base_sampling_params
-
-        started = time.perf_counter()
-        try:
-            output = code_engine.handler(
-                {"id": f"hard-owned-{uuid.uuid4()}", "input": request}
+def _write_diagnostic_failure(
+    *,
+    model_storage: dict[str, Any],
+    first: dict[str, Any],
+    second: dict[str, Any] | None,
+    gates: list[dict[str, Any]],
+    repair_indices: list[int],
+    repair_outputs: dict[int, dict[str, Any]],
+    repair_gates: dict[int, dict[str, Any]],
+    first_remote_wall_ms: int,
+    second_remote_wall_ms: int,
+) -> None:
+    remaining = []
+    for i in repair_indices:
+        gate = repair_gates[i]
+        if gate.get("passed") is not True:
+            remaining.append(
+                {
+                    "id": hard.HARD_TASKS[i]["id"],
+                    "first_failure": gates[i].get("failure"),
+                    "repair_failure": gate.get("failure"),
+                    "repair_result": hard.base._text(repair_outputs[i].get("result"))[-5000:],
+                }
             )
-        finally:
-            code_engine.SamplingParams = base_sampling_params
-
-        if not isinstance(output, dict):
-            raise RuntimeError(f"{hard.CONTRACT}_OWNED_OUTPUT_OBJECT_REQUIRED")
-        clean = dict(output)
-        clean["case_elapsed_seconds"] = round(time.perf_counter() - started, 3)
-        clean["quality_policy"] = hard.verified.QUALITY_POLICY
-        clean["warm_runtime"] = True
-        clean["vllm_enforce_eager"] = False
-        clean["repair_sampling"] = (
-            {"temperature": 0.15, "top_p": 0.95, "seed": 17}
-            if repair_mode
-            else {"temperature": 0.0}
-        )
-        outputs.append(clean)
-
-    hard.cert.MODEL_VOLUME.commit()
-    return {
-        "outputs": outputs,
-        "runtime_instance_id": _HARD_REMOTE_INSTANCE_ID,
-        "engine_prepare_ms": prepare_ms,
-        "scored_gpu_seconds": round(time.perf_counter() - scored_started, 3),
-        "warmup_model_calls": warmup_model_calls,
-        "model_calls": len(outputs),
+    summary = {
+        "contract": hard.CONTRACT,
+        "cases": len(hard.HARD_TASKS),
+        "passed": len(hard.HARD_TASKS) - len(remaining),
+        "machine_gate_passed": False,
+        "repairs_used": len(repair_indices),
+        "remaining_failures": len(remaining),
+        "remaining_failure_ids": [item["id"] for item in remaining],
+        "owned_model_calls": int(first.get("model_calls") or 0)
+        + int((second or {}).get("model_calls") or 0),
+        "warmup_model_calls": int(first.get("warmup_model_calls") or 0)
+        + int((second or {}).get("warmup_model_calls") or 0),
+        "gpu_function_seconds": round(
+            float(first.get("scored_gpu_seconds") or 0)
+            + float((second or {}).get("scored_gpu_seconds") or 0),
+            3,
+        ),
+        "first_remote_wall_ms": first_remote_wall_ms,
+        "second_remote_wall_ms": second_remote_wall_ms,
+        "engine_prepare_ms": int(first.get("engine_prepare_ms") or 0),
+        "warm_container_reused": second is None
+        or second.get("runtime_instance_id") == first.get("runtime_instance_id"),
         "persistent_model_storage": True,
         "model_volume_name": hard.cert.MODEL_VOLUME_NAME,
         "model_revision": hard.cert.MODEL_REVISION,
-        "model_snapshot_path": str(hard.cert._snapshot_path()),
-        "vllm_cache_root": hard.cert.PERSISTENT_VLLM_CACHE_ROOT,
-        "safetensors_load_strategy": "prefetch",
+        "model_storage_ready": model_storage.get("model_storage_ready") is True,
+        "model_storage_reused": model_storage.get("model_storage_reused") is True,
+        "hidden_tests_executed": False,
         "production_deploy_performed": False,
+        "service_app": SERVICE_APP,
     }
-
-
-# The hard harness keeps all existing deterministic machine/hidden scoring, but
-# uses the certification-only batch function above for first pass and repair.
-hard.cert.run_owned_cert_batch = run_hard_cert_batch
+    report = {
+        "contract": hard.CONTRACT,
+        "generated_at_epoch_ms": int(time.time() * 1000),
+        "summary": summary,
+        "remaining_failures": remaining,
+        "model_storage": model_storage,
+        "methodology": {
+            "cases": len(hard.HARD_TASKS),
+            "difficulty": "advanced-erp-invariants",
+            "diagnostic_complete": True,
+            "repair_only_after_machine_failure": True,
+            "max_repair_calls_per_case": 1,
+            "hidden_tests_sealed_until_final_scoring": True,
+            "hidden_tests_executed": False,
+            "ai_judge_used": False,
+            "persistent_modal_service": True,
+            "production_deploy_performed": False,
+        },
+    }
+    hard.OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    hard.OUTPUT_PATH.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print(
+        "AVANTIQO_CODE_HARD_REMAINING_FAILURES="
+        + json.dumps(remaining, separators=(",", ":")),
+        flush=True,
+    )
+    print(
+        "AVANTIQO_CODE_HARD_SUMMARY=" + json.dumps(summary, separators=(",", ":")),
+        flush=True,
+    )
 
 
 @app.local_entrypoint(name="hard_owned_cert_fixed")
 def hard_owned_cert_fixed() -> None:
-    hard.hard_owned_cert()
+    if hard.base._text(os.environ.get("NODE_ENV")).lower() == "production":
+        raise RuntimeError(f"{hard.CONTRACT}_PRODUCTION_ENV_FORBIDDEN")
+
+    model_storage = hard.cert._ensure_persistent_model()
+    if model_storage.get("model_storage_ready") is not True:
+        raise RuntimeError(f"{hard.CONTRACT}_PERSISTENT_MODEL_STORAGE_REQUIRED")
+
+    prompts: list[tuple[dict[str, str], str]] = []
+    for task in hard.HARD_TASKS:
+        initial = hard.base._run_test(task["module"], task["source"], task["visible_test"])
+        if initial["exit_code"] == 0:
+            raise RuntimeError(f"{hard.CONTRACT}_BROKEN_FIXTURE_MUST_FAIL:{task['id']}")
+        prompts.append(
+            (task, hard._hard_prompt(task, f"{initial['stdout']}\n{initial['stderr']}"))
+        )
+
+    requests = [hard._owned_request(task, prompt) for task, prompt in prompts]
+    remote_started = time.perf_counter()
+    first = hard.cert.run_owned_cert_batch.remote(requests)
+    first_remote_wall_ms = round((time.perf_counter() - remote_started) * 1000)
+    first_outputs = first.get("outputs") if isinstance(first, dict) else None
+    if not isinstance(first_outputs, list) or len(first_outputs) != len(hard.HARD_TASKS):
+        raise RuntimeError(f"{hard.CONTRACT}_FIRST_BATCH_OUTPUT_COUNT_INVALID")
+    if (
+        first.get("production_deploy_performed") is not False
+        or first.get("persistent_model_storage") is not True
+    ):
+        raise RuntimeError(f"{hard.CONTRACT}_RUNTIME_SAFEGUARD_FAILED")
+
+    gates = [
+        hard._machine_gate(task, hard.base._text(output.get("result")))
+        for task, output in zip(hard.HARD_TASKS, first_outputs, strict=True)
+    ]
+    repair_indices = [i for i, gate in enumerate(gates) if gate.get("passed") is not True]
+    repair_outputs: dict[int, dict[str, Any]] = {}
+    repair_gates: dict[int, dict[str, Any]] = {}
+    second: dict[str, Any] | None = None
+    second_remote_wall_ms = 0
+
+    if repair_indices:
+        repair_requests = [
+            hard.cert._repair_request(
+                requests[i],
+                hard.base._text(first_outputs[i].get("result")),
+                str(gates[i].get("failure") or "MACHINE_GATE_FAILED"),
+            )
+            for i in repair_indices
+        ]
+        remote_started = time.perf_counter()
+        second = hard.cert.run_owned_cert_batch.remote(repair_requests)
+        second_remote_wall_ms = round((time.perf_counter() - remote_started) * 1000)
+        second_outputs = second.get("outputs") if isinstance(second, dict) else None
+        if not isinstance(second_outputs, list) or len(second_outputs) != len(repair_indices):
+            raise RuntimeError(f"{hard.CONTRACT}_REPAIR_BATCH_OUTPUT_COUNT_INVALID")
+        if second.get("runtime_instance_id") != first.get("runtime_instance_id"):
+            raise RuntimeError(f"{hard.CONTRACT}_WARM_CONTAINER_REUSE_NOT_PROVEN")
+        for i, output in zip(repair_indices, second_outputs, strict=True):
+            repair_outputs[i] = output
+            repair_gates[i] = hard._machine_gate(
+                hard.HARD_TASKS[i], hard.base._text(output.get("result"))
+            )
+
+    remaining_indices = [
+        i for i in repair_indices if repair_gates[i].get("passed") is not True
+    ]
+    if remaining_indices:
+        _write_diagnostic_failure(
+            model_storage=model_storage,
+            first=first,
+            second=second,
+            gates=gates,
+            repair_indices=repair_indices,
+            repair_outputs=repair_outputs,
+            repair_gates=repair_gates,
+            first_remote_wall_ms=first_remote_wall_ms,
+            second_remote_wall_ms=second_remote_wall_ms,
+        )
+        ids = ",".join(hard.HARD_TASKS[i]["id"] for i in remaining_indices)
+        raise RuntimeError(f"{hard.CONTRACT}_REPAIR_GATES_FAILED:{ids}")
+
+    repairs = {
+        i: {"output": repair_outputs[i], "gate": repair_gates[i]}
+        for i in repair_indices
+    }
+    results: list[dict[str, Any]] = []
+    for i, (task, _prompt) in enumerate(prompts):
+        draft = first_outputs[i]
+        selected = repairs.get(i, {}).get("output") or draft
+        hard.cert._validate_identity(task, draft)
+        if selected is not draft:
+            hard.cert._validate_identity(task, selected)
+        repaired = i in repairs
+        draft_usage = draft.get("usage") if isinstance(draft.get("usage"), dict) else {}
+        selected_usage = (
+            selected.get("usage") if isinstance(selected.get("usage"), dict) else {}
+        )
+        usage = (
+            hard._usage_sum(draft_usage, selected_usage)
+            if repaired
+            else hard._usage_sum(draft_usage)
+        )
+        inference_ms = round(float(draft.get("case_elapsed_seconds") or 0) * 1000)
+        gate_ms = int(gates[i].get("gate_ms") or 0)
+        if repaired:
+            inference_ms += round(float(selected.get("case_elapsed_seconds") or 0) * 1000)
+            gate_ms += int(repairs[i]["gate"].get("gate_ms") or 0)
+        scored = hard.base._score(
+            task,
+            hard.base._text(selected.get("result")),
+            inference_ms + gate_ms,
+            usage,
+            None,
+        )
+        scored.update(
+            {
+                "repair_used": repaired,
+                "machine_gate_passed": True,
+                "machine_gate_ms": gate_ms,
+                "inference_wall_ms": inference_ms,
+                "initial_machine_failure": gates[i].get("failure") if repaired else None,
+            }
+        )
+        results.append(scored)
+        print(
+            "AVANTIQO_CODE_HARD_CASE=" + json.dumps(scored, separators=(",", ":")),
+            flush=True,
+        )
+
+    walls = [int(item.get("wall_ms") or 0) for item in results]
+    total_gpu_seconds = float(first.get("scored_gpu_seconds") or 0) + float(
+        (second or {}).get("scored_gpu_seconds") or 0
+    )
+    owned_model_calls = int(first.get("model_calls") or 0) + int(
+        (second or {}).get("model_calls") or 0
+    )
+    warmup_model_calls = int(first.get("warmup_model_calls") or 0) + int(
+        (second or {}).get("warmup_model_calls") or 0
+    )
+    summary = hard.base._summary(
+        hard.base.PRODUCT_MODEL,
+        "avantiqo-code",
+        results,
+        total_gpu_seconds * hard.base.MODAL_H100_USD_PER_SECOND,
+    )
+    summary.update(
+        {
+            "contract": hard.CONTRACT,
+            "difficulty": "advanced-erp-invariants",
+            "repairs_used": len(repair_indices),
+            "owned_model_calls": owned_model_calls,
+            "warmup_model_calls": warmup_model_calls,
+            "total_model_calls": owned_model_calls + warmup_model_calls,
+            "owned_gpu_sessions": 1,
+            "gpu_function_seconds": round(total_gpu_seconds, 3),
+            "first_remote_wall_ms": first_remote_wall_ms,
+            "second_remote_wall_ms": second_remote_wall_ms,
+            "engine_prepare_ms": int(first.get("engine_prepare_ms") or 0),
+            "warm_container_reused": second is None
+            or second.get("runtime_instance_id") == first.get("runtime_instance_id"),
+            "warm_latency_target_ms": hard.WARM_LATENCY_TARGET_MS,
+            "warm_latency_passed": all(v <= hard.WARM_LATENCY_TARGET_MS for v in walls),
+            "warm_max_ms": max(walls),
+            "machine_gate_passed": all(
+                item.get("machine_gate_passed") is True for item in results
+            ),
+            "hidden_tests_sealed_until_final_scoring": True,
+            "max_repair_calls_per_case": 1,
+            "vllm_enforce_eager": False,
+            "safetensors_load_strategy": first.get("safetensors_load_strategy"),
+            "persistent_model_storage": True,
+            "model_volume_name": hard.cert.MODEL_VOLUME_NAME,
+            "model_revision": hard.cert.MODEL_REVISION,
+            "model_storage_ready": model_storage.get("model_storage_ready") is True,
+            "model_storage_reused": model_storage.get("model_storage_reused") is True,
+            "model_bootstrapped_this_run": model_storage.get("model_bootstrapped_this_run")
+            is True,
+            "vllm_cache_root": first.get("vllm_cache_root"),
+            "persistent_modal_service": True,
+            "service_app": SERVICE_APP,
+            "production_deploy_performed": False,
+        }
+    )
+    report = {
+        "contract": hard.CONTRACT,
+        "generated_at_epoch_ms": int(time.time() * 1000),
+        "summary": summary,
+        "results": results,
+        "model_storage": model_storage,
+        "methodology": {
+            "cases": len(hard.HARD_TASKS),
+            "difficulty": "advanced-erp-invariants",
+            "explicit_production_contract_per_case": True,
+            "visible_tests_executed_before_acceptance": True,
+            "semantic_contract_probes_executed_before_acceptance": True,
+            "repair_only_after_machine_failure": True,
+            "max_repair_calls_per_case": 1,
+            "diagnostic_complete": True,
+            "hidden_tests_sealed_until_final_scoring": True,
+            "ai_judge_used": False,
+            "persistent_model_volume": True,
+            "persistent_modal_service": True,
+            "runtime_image_contains_model_weights": False,
+            "source_mounts_copy_into_runtime_image": False,
+            "production_deploy_performed": False,
+        },
+    }
+    hard.OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    hard.OUTPUT_PATH.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print(
+        "AVANTIQO_CODE_HARD_SUMMARY=" + json.dumps(summary, separators=(",", ":")),
+        flush=True,
+    )
+    print(f"{hard.CONTRACT}=PASS", flush=True)

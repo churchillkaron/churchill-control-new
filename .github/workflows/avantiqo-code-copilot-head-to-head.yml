@@ -2,10 +2,6 @@ name: Avantiqo Code Codex Claude Head-to-Head
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - scripts/run-code-copilot-head-to-head.py
-      - .github/workflows/avantiqo-code-copilot-head-to-head.yml
 
 permissions:
   contents: read
@@ -59,6 +55,7 @@ jobs:
           const fs = require('fs');
           const r = JSON.parse(fs.readFileSync('artifacts/avantiqo-code-copilot-head-to-head.json','utf8'));
           if (r?.summary?.total_model_calls !== 12) throw new Error('twelve competitor calls not proven');
+          if (r?.summary?.valid_model_calls !== 12) throw new Error('all twelve competitor inferences not proven');
           if (r?.summary?.credential_source !== 'github-actions-github-token') throw new Error('credential-free GitHub Actions path not proven');
           if (r?.summary?.production_deploy_performed !== false) throw new Error('production deploy guard failed');
           console.log(JSON.stringify(r.summary));

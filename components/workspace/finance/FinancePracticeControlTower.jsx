@@ -11,6 +11,7 @@ import {
   Gauge,
   LoaderCircle,
   RefreshCw,
+  Repeat2,
   ShieldCheck,
   UserRoundCheck,
   Users,
@@ -32,6 +33,12 @@ function capacityTone(risk) {
   return "text-[#58705B]";
 }
 
+function recurringTone(status) {
+  if (status === "READY_TO_CREATE") return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
+  if (status === "ALREADY_EXISTS") return "border-black/[0.08] bg-[#F7F6F3] text-[#716B63]";
+  return "border-amber-700/15 bg-amber-50 text-amber-900";
+}
+
 function label(value) {
   return String(value || "")
     .replace(/[_-]+/g, " ")
@@ -49,7 +56,7 @@ function Metric({ label: metricLabel, value, detail, attention = false }) {
 }
 
 export default function FinancePracticeControlTower({ organizationId }) {
-  const [state, setState] = useState({ loading: true, error: "", data: null, capacity: null });
+  const [state, setState] = useState({ loading: true, error: "", data: null, capacity: null, recurring: null });
   const [selectedEngagementId, setSelectedEngagementId] = useState(null);
 
   async function load() {
@@ -61,23 +68,35 @@ export default function FinancePracticeControlTower({ organizationId }) {
       const capacityUrl = new URL("/api/workspace/finance/practice-capacity", window.location.origin);
       capacityUrl.searchParams.set("organizationId", organizationId);
       capacityUrl.searchParams.set("days", "14");
-      const [practiceResponse, capacityResponse] = await Promise.all([
+      const recurringUrl = new URL("/api/workspace/finance/recurring-plan", window.location.origin);
+      recurringUrl.searchParams.set("organizationId", organizationId);
+      recurringUrl.searchParams.set("days", "90");
+
+      const [practiceResponse, capacityResponse, recurringResponse] = await Promise.all([
         fetch(practiceUrl.toString(), { cache: "no-store", credentials: "include" }),
         fetch(capacityUrl.toString(), { cache: "no-store", credentials: "include" }),
+        fetch(recurringUrl.toString(), { cache: "no-store", credentials: "include" }),
       ]);
-      const [practiceBody, capacityBody] = await Promise.all([
+      const [practiceBody, capacityBody, recurringBody] = await Promise.all([
         practiceResponse.json().catch(() => ({})),
         capacityResponse.json().catch(() => ({})),
+        recurringResponse.json().catch(() => ({})),
       ]);
       if (!practiceResponse.ok || practiceBody?.success === false) throw new Error(practiceBody?.error || "Unable to load practice control");
+
+      const warnings = [];
+      if (!capacityResponse.ok || capacityBody?.success === false) warnings.push(capacityBody?.error || "Capacity planning is unavailable");
+      if (!recurringResponse.ok || recurringBody?.success === false) warnings.push(recurringBody?.error || "Recurring cycle planning is unavailable");
+
       setState({
         loading: false,
-        error: capacityResponse.ok && capacityBody?.success !== false ? "" : capacityBody?.error || "Capacity planning is unavailable",
+        error: warnings.join(" · "),
         data: practiceBody,
         capacity: capacityResponse.ok && capacityBody?.success !== false ? capacityBody : null,
+        recurring: recurringResponse.ok && recurringBody?.success !== false ? recurringBody : null,
       });
     } catch (error) {
-      setState({ loading: false, error: error?.message || "Unable to load practice control", data: null, capacity: null });
+      setState({ loading: false, error: error?.message || "Unable to load practice control", data: null, capacity: null, recurring: null });
     }
   }
 
@@ -89,6 +108,9 @@ export default function FinancePracticeControlTower({ organizationId }) {
   const clients = Array.isArray(state.data?.clients) ? state.data.clients : [];
   const capacitySummary = state.capacity?.summary || {};
   const people = Array.isArray(state.capacity?.people) ? state.capacity.people : [];
+  const recurringSummary = state.recurring?.summary || {};
+  const recurringCandidates = Array.isArray(state.recurring?.candidates) ? state.recurring.candidates : [];
+  const recurringBlockers = recurringCandidates.filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status));
 
   if (state.loading && !state.data) {
     return (
@@ -106,7 +128,7 @@ export default function FinancePracticeControlTower({ organizationId }) {
         <div>
           <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.17em] text-[#8A633C]"><ShieldCheck size={13} /> Practice control tower</div>
           <h2 className="mt-1.5 text-[20px] font-semibold tracking-[-0.025em] text-[#2A2723]">Accounting firm portfolio</h2>
-          <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#756F67]">Run the firm by exception: active work programs, client evidence, review clearance, capacity pressure, blocked work and the next deadline across every engagement.</p>
+          <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#756F67]">Run the firm by exception: active work programs, client evidence, review clearance, capacity pressure, recurring-cycle readiness and the next deadline across every engagement.</p>
         </div>
         <button type="button" onClick={load} disabled={state.loading} className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#A37849]/20 bg-white/70 px-3 text-[10px] font-medium text-[#76583A] disabled:opacity-50">
           <RefreshCw size={12} className={state.loading ? "animate-spin" : ""} /> Refresh practice
@@ -161,6 +183,38 @@ export default function FinancePracticeControlTower({ organizationId }) {
                   </div>
                 ))}
               </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {state.recurring ? (
+        <div className="mt-4 rounded-2xl border border-black/[0.07] bg-white/70 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A633C]"><Repeat2 size={12} /> 90-day recurring cycle plan</div>
+              <div className="mt-1 text-[12px] text-[#716B63]">Dry-run only. Avantiqo previews which accounting cycles should exist and blocks unsafe creation when entity, period or template configuration is incomplete.</div>
+            </div>
+            <div className="rounded-full border border-black/[0.07] bg-[#FAF9F7] px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#7D776F]">No runs created</div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+            <Metric label="Planned" value={recurringSummary.total || 0} detail="90-day candidates" />
+            <Metric label="Ready" value={recurringSummary.ready_to_create || 0} detail="Safe to materialize" />
+            <Metric label="Entity setup" value={recurringSummary.blocked_entity_configuration || 0} detail="Legal entity missing" attention />
+            <Metric label="Period setup" value={recurringSummary.blocked_period_configuration || 0} detail="Financial period missing" attention />
+            <Metric label="Existing" value={recurringSummary.already_exists || 0} detail="Idempotency protected" />
+          </div>
+          {recurringBlockers.length ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {recurringBlockers.slice(0, 9).map((candidate) => (
+                <div key={candidate.idempotency_key} className="rounded-xl border border-black/[0.06] bg-white p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0"><div className="truncate text-[10px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div><div className="mt-0.5 text-[8px] text-[#99938A]">{label(candidate.service_key || candidate.cadence || "configuration")}</div></div>
+                    <span className={`rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase ${recurringTone(candidate.status)}`}>{label(candidate.status)}</span>
+                  </div>
+                  {candidate.blockers?.[0] ? <div className="mt-2 text-[9px] leading-4 text-[#7D6A50]">{candidate.blockers[0]}</div> : null}
+                </div>
+              ))}
             </div>
           ) : null}
         </div>

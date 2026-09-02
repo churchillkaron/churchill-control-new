@@ -1,5 +1,6 @@
 Production deployment trigger
 
-Requested: 2026-08-29
-Purpose: One deliberate production deployment of current main, including the Creative domain convergence and latest merged system changes.
+Requested: 2026-09-02
+Purpose: One deliberate production deployment of current main so the owner can test the new Finance accounting workspace and the latest concurrent main changes.
+Source baseline before trigger: c51520776f24b68205b228ca6598a3b813f2a84b
 Policy: Single production deployment requested by the owner. Do not retrigger automatically from this request.

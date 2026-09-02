@@ -10,7 +10,16 @@ OUTPUT = ROOT / "assets" / "video" / "proofs" / "churchill-pool-party-reference.
 EXPECTED_BYTES = 31806
 EXPECTED_SHA256 = "06cc6b2b2b1799e650d574e18ffbc03a58f9ca3ee2d53b4cf4da8fec81408387"
 
-parts = [FIXTURE / f"churchill_frame.part-{index:02d}.b64" for index in range(7)]
+parts = [
+    FIXTURE / "churchill_frame.part-00.b64",
+    FIXTURE / "churchill_frame.part-01.b64",
+    FIXTURE / "churchill_frame.part-02.b64",
+    FIXTURE / "churchill_frame.part-03.b64",
+    FIXTURE / "churchill_frame.part-04a.b64",
+    FIXTURE / "churchill_frame.part-04b.b64",
+    FIXTURE / "churchill_frame.part-05.b64",
+    FIXTURE / "churchill_frame.part-06.b64",
+]
 encoded = "".join(path.read_text(encoding="utf-8").strip() for path in parts)
 raw = base64.b64decode(encoded, validate=True)
 digest = hashlib.sha256(raw).hexdigest()

@@ -1,0 +1,55 @@
+name: Avantiqo Code Proven Flow Warm Reuse
+
+on:
+  push:
+    paths:
+      - "services/avantiqo-code-engine/modal_warm_reuse_canary.py"
+      - ".github/workflows/avantiqo-code-warm-reuse-canary.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  warm-reuse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install proven Modal client
+        run: python -m pip install --disable-pip-version-check "modal==1.2.6"
+
+      - name: Zero-cost syntax gate
+        run: python -m py_compile services/avantiqo-code-engine/modal_warm_reuse_canary.py
+
+      - name: Run exact proven-flow warm reuse canary
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m modal run services/avantiqo-code-engine/modal_warm_reuse_canary.py \
+            2>&1 | tee artifacts/avantiqo-code-warm-reuse.log
+
+      - name: Verify warm reuse evidence
+        run: |
+          set -euo pipefail
+          grep -q 'AVANTIQO_CODE_PROVEN_FLOW_WARM_REUSE_SUMMARY=' artifacts/avantiqo-code-warm-reuse.log
+          grep -q 'AVANTIQO_CODE_PROVEN_FLOW_WARM_REUSE_V1=PASS' artifacts/avantiqo-code-warm-reuse.log
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-warm-reuse-${{ github.run_id }}
+          path: artifacts/avantiqo-code-warm-reuse.log
+          if-no-files-found: warn
+          retention-days: 14

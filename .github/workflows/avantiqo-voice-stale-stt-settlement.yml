@@ -1,0 +1,78 @@
+name: Avantiqo Voice Stale STT Settlement
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-voice-stale-stt-settlement.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-voice-stale-stt-settlement
+  cancel-in-progress: false
+
+jobs:
+  settle-failed-stt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_VOICE_ENGINE_ENABLED: "YES"
+
+    steps:
+      - name: Checkout exact cleanup source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Zero-cost cleanup source gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/settle-avantiqo-voice-stale-stt-failure.mjs
+          grep -Fq 'replacement_job_submitted: false' scripts/settle-avantiqo-voice-stale-stt-failure.mjs
+          grep -Fq 'paid_retry_performed: false' scripts/settle-avantiqo-voice-stale-stt-failure.mjs
+          grep -Fq 'settlePendingService' scripts/settle-avantiqo-voice-stale-stt-failure.mjs
+          echo 'AVANTIQO_VOICE_STALE_STT_SETTLEMENT_STATIC_GATE=PASS'
+
+      - name: Require cleanup credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'AVANTIQO_VOICE_STALE_STT_SETTLEMENT_CREDENTIALS=PASS'
+
+      - name: Settle exact stale STT as failed
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/settle-avantiqo-voice-stale-stt-failure.mjs
+
+      - name: Preserve no-retry boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'NEW_STT_JOB_SUBMITTED=false'
+          echo 'NEW_TTS_JOB_SUBMITTED=false'
+          echo 'PAID_RETRY_PERFORMED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VOICE_PRICING_ACTIVATED=false'
+          echo 'VOICE_PRODUCTION_ROUTING_ACTIVATED=false'

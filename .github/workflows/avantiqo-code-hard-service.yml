@@ -1,0 +1,68 @@
+name: Avantiqo Code Hard Certification Service
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - services/avantiqo-code-engine/modal_code_hard_service.py
+      - services/avantiqo-code-engine/modal_persistent_owned_cert.py
+      - services/avantiqo-code-engine/modal_verified_head_to_head.py
+      - services/avantiqo-code-engine/modal_head_to_head.py
+      - services/avantiqo-code-engine/modal_app.py
+      - .github/workflows/avantiqo-code-hard-service.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-hard-service-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy-certification-service:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal client
+        run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
+
+      - name: Zero-cost service preflight
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/modal_code_hard_service.py
+          PYTHONPATH=services/avantiqo-code-engine python - <<'PY'
+          import modal_code_hard_service as service
+          assert service.APP_NAME == 'avantiqo-code-hard-service-v1'
+          assert service.FUNCTION_NAME == 'run_hard_cert_batch'
+          assert service.cert.MODEL_VOLUME_NAME == 'avantiqo-code-models'
+          print('AVANTIQO_CODE_HARD_SERVICE_PREFLIGHT=PASS')
+          PY
+
+      - name: Deploy certification-only Modal service
+        env:
+          NODE_ENV: development
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          timeout --signal=TERM --kill-after=15s 5m python -m modal deploy services/avantiqo-code-engine/modal_code_hard_service.py 2>&1 | tee /tmp/avantiqo-code-hard-service-deploy.log
+          grep -q 'avantiqo-code-hard-service-v1' /tmp/avantiqo-code-hard-service-deploy.log
+
+      - name: Upload deploy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-hard-service-${{ github.run_id }}
+          path: /tmp/avantiqo-code-hard-service-deploy.log
+          if-no-files-found: warn
+          retention-days: 14

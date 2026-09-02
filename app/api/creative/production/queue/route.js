@@ -1,5 +1,8 @@
 export const dynamic = "force-dynamic";
 
+import "@/lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap";
+import "@/lib/creative/quality/runtime/CreativeShotCandidateQualityGateBootstrap";
+
 import { NextResponse } from "next/server";
 
 import {

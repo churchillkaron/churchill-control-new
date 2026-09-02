@@ -24,22 +24,23 @@ function label(value) {
 }
 
 function number(value) {
-  return new Intl.NumberFormat("en-GB", {
+  return new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(value || 0));
 }
 
 function money(value, currencyCode) {
+  if (!currencyCode) return number(value);
   try {
-    return new Intl.NumberFormat("en-GB", {
+    return new Intl.NumberFormat(undefined, {
       style: "currency",
-      currency: currencyCode || "GBP",
+      currency: currencyCode,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(Number(value || 0));
   } catch {
-    return `${currencyCode || ""} ${number(value)}`.trim();
+    return `${currencyCode} ${number(value)}`;
   }
 }
 
@@ -47,7 +48,7 @@ function date(value) {
   if (!value) return "—";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return String(value);
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(undefined, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -78,7 +79,7 @@ function TrialBalanceWorkspace({
   const [ledgerRows, setLedgerRows] = useState([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [ledgerError, setLedgerError] = useState("");
-  const currencyCode = payload?.currencyCode || "GBP";
+  const currencyCode = payload?.currencyCode || null;
 
   async function openAccount(row) {
     setSelected(row);
@@ -157,7 +158,7 @@ function TrialBalanceWorkspace({
               {capability?.name || "Trial Balance"}
             </h1>
             <p className="mt-2 text-sm text-white/45">
-              {date(payload?.startDate)} – {date(payload?.endDate)} · {currencyCode}
+              {date(payload?.startDate)} – {date(payload?.endDate)}{currencyCode ? ` · ${currencyCode}` : ""}
             </p>
           </div>
           <div className="flex gap-2 print:hidden">

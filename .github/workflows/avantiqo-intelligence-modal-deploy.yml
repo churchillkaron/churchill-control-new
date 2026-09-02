@@ -1,3 +1,4 @@
+# Deploys Intelligence source changes without submitting model inference.
 name: Avantiqo Intelligence Modal Governed Deploy
 
 on:

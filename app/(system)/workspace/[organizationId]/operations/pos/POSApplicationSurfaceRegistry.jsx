@@ -91,18 +91,26 @@ function RestaurantSaleSurface(props) {
 function RetailSaleSurface(props) {
   const [checkoutVersion, setCheckoutVersion] = useState(0);
 
+  function refreshCheckout() {
+    setCheckoutVersion((current) => current + 1);
+    props.refreshPOSRuntime?.();
+  }
+
   return (
     <div className="min-h-screen bg-black text-white" data-pos-unified-sale="true">
       <div className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/95 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto max-w-[1760px]">
           <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Retail POS</div>
-          <div className="mt-1 text-sm font-semibold">Scan · Basket · Customer · Pay · Receipt</div>
+          <div className="mt-1 text-sm font-semibold">Scan · Basket · Reserve · Pay · Receipt</div>
         </div>
       </div>
 
       <div className="mx-auto grid max-w-[1760px] gap-4 p-3 xl:grid-cols-[minmax(0,1fr)_430px] xl:p-4">
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]">
-          <RetailCatalogWorkspace {...props} />
+          <RetailCatalogWorkspace
+            {...props}
+            onSaleReady={refreshCheckout}
+          />
         </div>
         <aside className="min-w-0 xl:sticky xl:top-[76px] xl:self-start">
           <POSInlineCheckout
@@ -110,10 +118,7 @@ function RetailSaleSurface(props) {
             posConfiguration={props.posConfiguration}
             compact
             onRefresh={props.refreshPOSRuntime}
-            onPaymentComplete={() => {
-              setCheckoutVersion((current) => current + 1);
-              props.refreshPOSRuntime?.();
-            }}
+            onPaymentComplete={refreshCheckout}
           />
         </aside>
       </div>

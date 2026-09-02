@@ -1,0 +1,154 @@
+name: Avantiqo Code Verified Head-to-Head
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - services/avantiqo-code-engine/modal_verified_head_to_head.py
+      - .github/workflows/avantiqo-code-verified-head-to-head.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-verified-head-to-head
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Modal client
+        run: python -m pip install --disable-pip-version-check "modal==1.2.6"
+
+      - name: Zero-cost preflight
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/modal_app.py
+          python -m py_compile services/avantiqo-code-engine/modal_head_to_head.py
+          python -m py_compile services/avantiqo-code-engine/modal_verified_head_to_head.py
+          node --version
+
+      - name: Prepare project-scoped AI Gateway authentication
+        env:
+          AI_GATEWAY_API_KEY_SECRET: ${{ secrets.AI_GATEWAY_API_KEY }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${AI_GATEWAY_API_KEY_SECRET:-}" ]]; then
+            echo "AI_GATEWAY_API_KEY=${AI_GATEWAY_API_KEY_SECRET}" >> "$GITHUB_ENV"
+            echo "AVANTIQO_CODE_BENCHMARK_GATEWAY_AUTH=github_secret" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          if [[ -z "${VERCEL_TOKEN:-}" ]]; then
+            echo "AI_GATEWAY_API_KEY and VERCEL_TOKEN are both unavailable" >&2
+            exit 1
+          fi
+
+          mkdir -p .vercel
+          cat > .vercel/project.json <<'JSON'
+          {"orgId":"team_40jy42BqQOs4U6pVdkawwEfp","projectId":"prj_5K2x3kGkhs3d2PU8VOQQPyNT24A9"}
+          JSON
+          ENV_FILE="/tmp/avantiqo-code-verified-head-to-head-vercel.env"
+          rm -f "$ENV_FILE"
+          npx --yes vercel@latest env pull "$ENV_FILE" \
+            --environment=development \
+            --yes \
+            --token="$VERCEL_TOKEN" >/tmp/avantiqo-code-verified-head-to-head-vercel-pull.log 2>&1
+
+          ENV_FILE="$ENV_FILE" python - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["ENV_FILE"])
+          token = ""
+          for raw in path.read_text(encoding="utf-8").splitlines():
+              line = raw.strip()
+              if not line.startswith("VERCEL_OIDC_TOKEN="):
+                  continue
+              token = line.split("=", 1)[1].strip()
+              if len(token) >= 2 and token[0] == token[-1] and token[0] in "\"'":
+                  token = token[1:-1]
+              break
+          if not token:
+              raise SystemExit("VERCEL_OIDC_TOKEN_MISSING_AFTER_ENV_PULL")
+          print(f"::add-mask::{token}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              handle.write(f"VERCEL_OIDC_TOKEN={token}\n")
+              handle.write("AVANTIQO_CODE_BENCHMARK_GATEWAY_AUTH=vercel_project_oidc\n")
+          PY
+          rm -f "$ENV_FILE" /tmp/avantiqo-code-verified-head-to-head-vercel-pull.log
+
+      - name: Run executable-gated Avantiqo vs Codex vs Claude benchmark
+        env:
+          NODE_ENV: development
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python -m modal run services/avantiqo-code-engine/modal_verified_head_to_head.py \
+            2>&1 | tee /tmp/avantiqo-code-verified-head-to-head.log
+
+      - name: Verify hard evidence
+        if: success()
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("artifacts/avantiqo-code-head-to-head.json", "utf8"));
+          const m = report.methodology || {};
+          const a = report.summaries?.avantiqo || {};
+          if (report.contract !== "AVANTIQO_CODE_HEAD_TO_HEAD_V1") throw new Error("BENCHMARK_CONTRACT_INVALID");
+          if (m.cases !== 6) throw new Error("SIX_CASES_REQUIRED");
+          if (m.same_initial_task_prompt_for_all_models !== true) throw new Error("SAME_INITIAL_PROMPT_REQUIRED");
+          if (m.avantiqo_executable_visible_and_contract_gate !== true) throw new Error("EXECUTABLE_GATE_REQUIRED");
+          if (m.avantiqo_repair_only_after_machine_failure !== true) throw new Error("MACHINE_FAILURE_REPAIR_REQUIRED");
+          if (m.avantiqo_max_repair_calls_per_case !== 1) throw new Error("ONE_REPAIR_MAX_REQUIRED");
+          if (m.hidden_tests_sealed_until_final_scoring !== true) throw new Error("HIDDEN_TEST_SEAL_REQUIRED");
+          if (m.executable_hidden_node_tests !== true || m.ai_judge_used !== false) throw new Error("DETERMINISTIC_SCORING_REQUIRED");
+          if (m.owned_gpu_sessions !== 1) throw new Error("ONE_GPU_SESSION_REQUIRED");
+          if (m.production_deploy_performed !== false) throw new Error("PRODUCTION_DEPLOY_FORBIDDEN");
+          for (const key of ["avantiqo", "codex", "claude"]) {
+            if (report.summaries?.[key]?.cases !== 6) throw new Error(`INCOMPLETE_${key.toUpperCase()}_SUITE`);
+          }
+          if (a.passed !== 6 || a.hidden_tests_passed !== 6 || a.instruction_format_passed !== 6 || a.security_boundary_passed !== 6) throw new Error(`AVANTIQO_6_OF_6_REQUIRED:${JSON.stringify(a)}`);
+          if (a.machine_gate_passed !== true) throw new Error("MACHINE_GATE_PASS_REQUIRED");
+          if (a.warm_latency_target_ms !== 4000 || a.warm_latency_passed !== true || Number(a.warm_max_ms) > 4000) throw new Error(`WARM_LATENCY_TARGET_FAILED:${JSON.stringify(a)}`);
+          if (Number(a.repairs_used) < 0 || Number(a.repairs_used) > 6) throw new Error("REPAIR_ACCOUNTING_INVALID");
+          if (Number(a.owned_model_calls) !== 6 + Number(a.repairs_used)) throw new Error("MODEL_CALL_ACCOUNTING_INVALID");
+          if (a.vllm_enforce_eager !== false) throw new Error("CUDA_GRAPH_RUNTIME_NOT_PROVEN");
+          if (report.safeguards?.production_deploy_performed !== false || report.safeguards?.secret_values_logged !== false) throw new Error("SAFEGUARD_FAILED");
+          console.log(JSON.stringify({ ranking: report.ranking, summaries: report.summaries }, null, 2));
+          console.log("AVANTIQO_CODE_VERIFIED_HEAD_TO_HEAD_HARD_GATE=PASS");
+          NODE
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-verified-head-to-head-${{ github.run_id }}
+          path: |
+            artifacts/avantiqo-code-head-to-head.json
+            /tmp/avantiqo-code-verified-head-to-head.log
+          if-no-files-found: warn
+          retention-days: 14

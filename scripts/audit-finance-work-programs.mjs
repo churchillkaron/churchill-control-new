@@ -16,6 +16,7 @@ function exists(relativePath) {
 const files = {
   schema: "supabase/migrations/20260902170000_accounting_engagement_work_programs.sql",
   security: "supabase/migrations/20260902170500_accounting_work_program_security.sql",
+  rlsHardening: "supabase/migrations/20260902181000_accounting_work_program_rls_hardening.sql",
   lifecycleSchema: "supabase/migrations/20260902173500_accounting_work_program_lifecycle_controls.sql",
   systemGateSchema: "supabase/migrations/20260902175500_accounting_work_program_system_gate_enforcement.sql",
   capacitySchema: "supabase/migrations/20260902175500_accounting_practice_capacity_entity_scope.sql",
@@ -58,7 +59,16 @@ requireTokens(files.schema, [
   "rolled_from_run_id",
 ]);
 
-requireTokens(files.security, ["enable row level security", "revoke all", "service_role"]);
+requireTokens(files.security, ["revoke all", "service_role"]);
+requireTokens(files.rlsHardening, [
+  "accounting_work_program_templates enable row level security",
+  "accounting_work_program_template_steps enable row level security",
+  "accounting_engagement_runs enable row level security",
+  "accounting_engagement_work_items enable row level security",
+  "accounting_client_requests enable row level security",
+  "revoke all",
+  "service_role",
+]);
 
 requireTokens(files.lifecycleSchema, [
   "assigned_partner_id",

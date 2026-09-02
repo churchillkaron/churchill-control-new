@@ -1,17 +1,18 @@
-name: Avantiqo Code Owned Head-to-Head V2
+name: Avantiqo Code Hard Owned Certification
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - services/avantiqo-code-engine/modal_persistent_owned_cert_repair.py
+      - services/avantiqo-code-engine/modal_code_hard_owned_cert.py
+      - services/avantiqo-code-engine/modal_code_hard_owned_cert_fixed.py
       - .github/workflows/avantiqo-code-owned-head-to-head-v2.yml
 
 permissions:
   contents: read
 
 concurrency:
-  group: avantiqo-code-owned-head-to-head-v2
+  group: avantiqo-code-hard-owned-cert
   cancel-in-progress: true
 
 jobs:
@@ -35,7 +36,7 @@ jobs:
       - name: Install Modal client
         run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
 
-      - name: Zero-cost executable-gate preflight
+      - name: Zero-cost hard-suite preflight
         run: |
           set -euo pipefail
           python -m py_compile services/avantiqo-code-engine/modal_app.py
@@ -44,15 +45,22 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_persistent_owned_cert.py
           python -m py_compile services/avantiqo-code-engine/modal_persistent_owned_cert_repair.py
           python -m py_compile services/avantiqo-code-engine/modal_code_model_bootstrap.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_fixed.py
           PYTHONPATH=services/avantiqo-code-engine python - <<'PY'
+          import modal_code_hard_owned_cert_fixed as fixed
+          import modal_code_hard_owned_cert as hard
           import modal_persistent_owned_cert as cert
-          import modal_persistent_owned_cert_repair as repair
-          import modal_code_model_bootstrap as bootstrap
-          assert repair.app is cert.app
+          assert fixed.app is hard.app is cert.app
+          assert len(hard.HARD_TASKS) == 10
+          assert len(hard.HARD_PROBES) == 10
+          assert {t['id'] for t in hard.HARD_TASKS} == set(hard.HARD_PROBES)
           assert cert.MODEL_VOLUME_NAME == 'avantiqo-code-models'
-          assert bootstrap.MODEL_VOLUME_NAME == cert.MODEL_VOLUME_NAME
           assert cert.MODEL_REVISION == 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0'
-          print('AVANTIQO_CODE_DETERMINISTIC_REPAIR_PREFLIGHT=PASS')
+          for task in hard.HARD_TASKS:
+              initial = hard.base._run_test(task['module'], task['source'], task['visible_test'])
+              assert initial['exit_code'] != 0, f"broken fixture unexpectedly passes: {task['id']}"
+          print('AVANTIQO_CODE_HARD_PREFLIGHT=PASS')
           PY
           node --version
 
@@ -69,8 +77,8 @@ jobs:
           timeout --signal=TERM --kill-after=30s 31m python -m modal run services/avantiqo-code-engine/modal_code_model_bootstrap.py 2>&1 | tee /tmp/avantiqo-code-model-bootstrap.log
           grep -q 'AVANTIQO_CODE_PERSISTENT_MODEL_BOOTSTRAP_V1=PASS' /tmp/avantiqo-code-model-bootstrap.log
 
-      - name: Run one paid executable-gated Code certification
-        timeout-minutes: 10
+      - name: Run one paid 10-case hard Code certification
+        timeout-minutes: 12
         env:
           NODE_ENV: development
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
@@ -80,45 +88,44 @@ jobs:
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
           mkdir -p artifacts
-          timeout --signal=TERM --kill-after=30s 9m python -m modal run services/avantiqo-code-engine/modal_persistent_owned_cert_repair.py::app.owned_cert_repair 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
+          timeout --signal=TERM --kill-after=30s 11m python -m modal run services/avantiqo-code-engine/modal_code_hard_owned_cert_fixed.py::app.hard_owned_cert_fixed 2>&1 | tee /tmp/avantiqo-code-hard-owned-cert.log
 
-      - name: Verify executable-gate evidence
+      - name: Verify hard-suite evidence
         run: |
           set -euo pipefail
-          test -f artifacts/avantiqo-code-executable-gate-cert.json
+          test -f artifacts/avantiqo-code-hard-executable-gate-cert.json
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
-          const r = JSON.parse(await readFile('artifacts/avantiqo-code-executable-gate-cert.json','utf8'));
+          const r = JSON.parse(await readFile('artifacts/avantiqo-code-hard-executable-gate-cert.json','utf8'));
           const s = r?.summary || {};
           const m = r?.methodology || {};
-          if (r.contract !== 'AVANTIQO_CODE_EXECUTABLE_GATE_CERT_V1') throw new Error('contract invalid');
-          if (m.cases !== 6) throw new Error('six cases required');
-          if (m.visible_tests_executed_before_acceptance !== true || m.semantic_contract_probes_executed_before_acceptance !== true) throw new Error('executable acceptance gate not proven');
-          if (m.repair_only_after_machine_failure !== true || m.max_repair_calls_per_case !== 1) throw new Error('bounded machine-triggered repair not proven');
+          if (r.contract !== 'AVANTIQO_CODE_HARD_EXECUTABLE_GATE_CERT_V1') throw new Error('hard contract invalid');
+          if (m.cases !== 10 || s.cases !== 10) throw new Error('ten hard cases required');
+          if (m.difficulty !== 'advanced-erp-invariants' || m.explicit_production_contract_per_case !== true) throw new Error('hard difficulty contract missing');
+          if (m.visible_tests_executed_before_acceptance !== true || m.semantic_contract_probes_executed_before_acceptance !== true) throw new Error('executable gates not proven');
+          if (m.repair_only_after_machine_failure !== true || m.max_repair_calls_per_case !== 1) throw new Error('bounded repair not proven');
           if (m.hidden_tests_sealed_until_final_scoring !== true || m.ai_judge_used !== false) throw new Error('sealed deterministic scoring not proven');
-          if (m.persistent_model_volume !== true || m.runtime_image_contains_model_weights !== false || m.source_mounts_copy_into_runtime_image !== false) throw new Error('persistent runtime architecture not proven');
-          if (s.persistent_model_storage !== true || s.model_storage_ready !== true || s.model_volume_name !== 'avantiqo-code-models') throw new Error('persistent model storage not proven');
-          if (s.model_revision !== 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0') throw new Error('model revision not pinned');
-          if (s.vllm_cache_root !== '/models/vllm-cache' || s.safetensors_load_strategy !== 'prefetch') throw new Error('persistent vLLM cache/prefetch not proven');
-          if (s.owned_gpu_sessions !== 1) throw new Error('single GPU session not proven');
-          if (Number(s.owned_model_calls) !== 6 + Number(s.repairs_used)) throw new Error('model call accounting invalid');
-          if (s.machine_gate_passed !== true || s.warm_container_reused !== true) throw new Error('runtime gate/reuse not proven');
-          if (s.passed !== 6 || s.hidden_tests_passed !== 6 || s.instruction_format_passed !== 6 || s.security_boundary_passed !== 6) throw new Error(`quality target failed: ${JSON.stringify(s)}`);
-          if (s.warm_latency_target_ms !== 4000 || s.warm_latency_passed !== true || Number(s.warm_max_ms) > 4000) throw new Error(`warm latency target failed: ${JSON.stringify(s)}`);
-          if (s.vllm_enforce_eager !== false) throw new Error('optimized vLLM candidate not proven');
-          if (s.production_deploy_performed !== false) throw new Error('production deploy guard failed');
+          if (s.persistent_model_storage !== true || s.model_storage_ready !== true || s.model_storage_reused !== true) throw new Error('persistent model reuse not proven');
+          if (s.model_volume_name !== 'avantiqo-code-models' || s.model_revision !== 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0') throw new Error('model identity invalid');
+          if (s.owned_gpu_sessions !== 1) throw new Error('single H100 session required');
+          if (Number(s.owned_model_calls) !== 10 + Number(s.repairs_used)) throw new Error('model-call accounting invalid');
+          if (s.machine_gate_passed !== true || s.warm_container_reused !== true) throw new Error('machine gate/reuse not proven');
+          if (s.passed !== 10 || s.hidden_tests_passed !== 10 || s.instruction_format_passed !== 10 || s.security_boundary_passed !== 10) throw new Error(`10/10 required: ${JSON.stringify(s)}`);
+          if (s.warm_latency_target_ms !== 4000 || s.warm_latency_passed !== true || Number(s.warm_max_ms) > 4000) throw new Error(`warm latency failed: ${JSON.stringify(s)}`);
+          if (s.vllm_enforce_eager !== false || s.safetensors_load_strategy !== 'prefetch') throw new Error('optimized runtime not proven');
+          if (s.production_deploy_performed !== false) throw new Error('production deploy forbidden');
           console.log(JSON.stringify(s));
-          console.log('AVANTIQO_CODE_EXECUTABLE_GATE_HARD_GATE=PASS');
+          console.log('AVANTIQO_CODE_HARD_EXECUTABLE_GATE=PASS');
           NODE
 
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: avantiqo-code-owned-head-to-head-v2-${{ github.run_id }}
+          name: avantiqo-code-hard-owned-cert-${{ github.run_id }}
           path: |
-            artifacts/avantiqo-code-executable-gate-cert.json
+            artifacts/avantiqo-code-hard-executable-gate-cert.json
             /tmp/avantiqo-code-model-bootstrap.log
-            /tmp/avantiqo-code-owned-head-to-head-v2.log
+            /tmp/avantiqo-code-hard-owned-cert.log
           if-no-files-found: warn
           retention-days: 14

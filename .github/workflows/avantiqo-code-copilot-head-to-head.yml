@@ -1,0 +1,76 @@
+name: Avantiqo Code Codex Claude Head-to-Head
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/run-code-copilot-head-to-head.py
+      - .github/workflows/avantiqo-code-copilot-head-to-head.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+concurrency:
+  group: avantiqo-code-copilot-head-to-head
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install current Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Zero-cost benchmark preflight
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/run-code-copilot-head-to-head.py
+          node --version
+          copilot --version
+
+      - name: Run Codex and Claude benchmark
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COPILOT_AUTO_UPDATE: 'false'
+        run: |
+          set -euo pipefail
+          python scripts/run-code-copilot-head-to-head.py 2>&1 | tee /tmp/avantiqo-code-copilot-head-to-head.log
+
+      - name: Verify evidence
+        run: |
+          set -euo pipefail
+          test -f artifacts/avantiqo-code-copilot-head-to-head.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('artifacts/avantiqo-code-copilot-head-to-head.json','utf8'));
+          if (r?.summary?.total_model_calls !== 12) throw new Error('twelve competitor calls not proven');
+          if (r?.summary?.credential_source !== 'github-actions-github-token') throw new Error('credential-free GitHub Actions path not proven');
+          if (r?.summary?.production_deploy_performed !== false) throw new Error('production deploy guard failed');
+          console.log(JSON.stringify(r.summary));
+          NODE
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-copilot-head-to-head-${{ github.run_id }}
+          path: |
+            artifacts/avantiqo-code-copilot-head-to-head.json
+            /tmp/avantiqo-code-copilot-head-to-head.log
+          if-no-files-found: warn
+          retention-days: 14

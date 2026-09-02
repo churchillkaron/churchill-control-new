@@ -1,0 +1,40 @@
+name: Avantiqo Code Copilot Auth Probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/avantiqo-code-copilot-auth-probe.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install current Copilot CLI
+        run: npm install -g @github/copilot
+      - name: Probe Codex via built-in GitHub token
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COPILOT_AUTO_UPDATE: 'false'
+        run: |
+          set -uo pipefail
+          set +e
+          output="$(copilot --yolo -p 'Return exactly OK and nothing else.' -s --model=gpt-5.3-codex --no-custom-instructions --no-auto-update --no-color 2> /tmp/copilot-probe.err)"
+          code=$?
+          set -e
+          echo "COPILOT_PROBE_EXIT_CODE=$code"
+          echo "COPILOT_PROBE_STDOUT=$output"
+          echo "COPILOT_PROBE_STDERR_BEGIN"
+          cat /tmp/copilot-probe.err
+          echo "COPILOT_PROBE_STDERR_END"
+          test "$code" -eq 0
+          test "$output" = "OK"

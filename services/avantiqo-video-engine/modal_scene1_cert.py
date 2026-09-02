@@ -45,6 +45,7 @@ from modal_app import (
 
 CONTRACT = "AVANTIQO_VIDEO_SCENE1_MODAL_CERTIFICATION_V2"
 DEFAULT_MAX_SUPPLIER_GPU_COST_USD = 3.25
+SCENE1_DURATION_SECONDS = 4
 APPROVAL_ENV = "AVANTIQO_VIDEO_SCENE1_REAL_INFERENCE_APPROVED"
 SOURCE_ENV = "AVANTIQO_VIDEO_SCENE1_SOURCE_FRAME"
 ENV_FILE_ENV = "AVANTIQO_VIDEO_SCENE1_ENV_FILE"
@@ -288,7 +289,7 @@ def _local_preflight() -> dict[str, Any]:
             "height": LTX_MASTER_HEIGHT,
             "fps": LTX_FPS,
             "num_inference_steps": LTX_NUM_INFERENCE_STEPS,
-            "duration_seconds": 5,
+            "duration_seconds": SCENE1_DURATION_SECONDS,
         },
         "gpu_boundary": {
             "generation_only": True,
@@ -327,6 +328,7 @@ def _validate_native_result(result: dict[str, Any]) -> None:
         "height": LTX_MASTER_HEIGHT,
         "fps": LTX_FPS,
         "num_inference_steps": LTX_NUM_INFERENCE_STEPS,
+        "duration_seconds_requested": SCENE1_DURATION_SECONDS,
         "native_master_generated": True,
         "master_is_exact_model_output": True,
         "model_cpu_offload_used": False,
@@ -407,6 +409,7 @@ def scene1_certify(
             "contract": CONTRACT,
             "function": "generate_native_master",
             "gpu": LTX_GPU,
+            "duration_seconds": SCENE1_DURATION_SECONDS,
             "hard_timeout_seconds": LTX_HARD_TIMEOUT_SECONDS,
             "hard_gpu_cost_ceiling_usd": round(
                 LTX_GPU_USD_PER_SECOND * LTX_HARD_TIMEOUT_SECONDS, 6
@@ -424,7 +427,7 @@ def scene1_certify(
             reference_remote,
             output_remote,
             SCENE1_PROMPT,
-            5,
+            SCENE1_DURATION_SECONDS,
             4747,
         )
         if not isinstance(result, dict):

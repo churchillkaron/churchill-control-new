@@ -28,17 +28,36 @@ function endpointRoutePath(endpoint) {
   return path.join("app", pathname, "route.js");
 }
 
-function mappingKeys(source, constName) {
+function topLevelObjectEntries(source, constName) {
   const start = source.indexOf(`const ${constName}`);
-  if (start < 0) return [];
+  if (start < 0) return new Map();
   const tail = source.slice(start);
-  const end = tail.indexOf("});");
-  const block = end >= 0 ? tail.slice(0, end + 3) : tail;
-  const keys = [];
-  for (const match of block.matchAll(/^\s{2}([a-z0-9_]+):\s*["'{]/gm)) {
-    keys.push(match[1]);
+  const matches = [...tail.matchAll(/^\s{2}([a-z0-9_]+):\s*/gm)];
+  const result = new Map();
+  for (let index = 0; index < matches.length; index += 1) {
+    const match = matches[index];
+    const key = match[1];
+    const segmentStart = match.index;
+    const segmentEnd = index + 1 < matches.length ? matches[index + 1].index : tail.indexOf("});", segmentStart);
+    result.set(key, tail.slice(segmentStart, segmentEnd >= 0 ? segmentEnd : undefined));
   }
-  return [...new Set(keys)];
+  return result;
+}
+
+function mappingKeys(source, constName) {
+  return [...topLevelObjectEntries(source, constName).keys()];
+}
+
+function policyMode(segment) {
+  return segment?.match(/\bmode\s*:\s*["'](none|create|action)["']/)?.[1] || null;
+}
+
+function policyHasExecutionEvidence(segment) {
+  return /(endpoint|api|href|engine|capability)\s*:/.test(segment || "") || /\btype\s*:\s*["']reports?["']/.test(segment || "");
+}
+
+function policyHasCreateEvidence(segment) {
+  return /(endpoint|api|form|schema|engine|capability)\s*:/.test(segment || "");
 }
 
 function capabilitySegment(registrySource, capabilityId) {
@@ -58,9 +77,8 @@ function capabilitySegment(registrySource, capabilityId) {
   return registrySource.slice(start, end);
 }
 
-function hasCreateEvidence(segment) {
-  if (!segment) return false;
-  if (!/\bcreate\s*:/.test(segment)) return false;
+function hasRegistryCreateEvidence(segment) {
+  if (!segment || !/\bcreate\s*:/.test(segment)) return false;
   return /(endpoint|api|form|schema|engine|capability|action)\s*:/.test(segment);
 }
 
@@ -109,10 +127,10 @@ export async function auditFinanceWorldclassWorkflow() {
     if (!presentationIds.has(id)) fail(`Finance capability lacks presentation family: ${id}`, failures);
   }
 
-  const policyModule = await import(`${pathToFileURL(path.join(ROOT, policyPath)).href}?audit=${Date.now()}`);
-  const policy = policyModule.FINANCE_PRIMARY_ACTION_POLICY || {};
+  const policySource = read(policyPath);
+  const policyEntries = topLevelObjectEntries(policySource, "FINANCE_PRIMARY_ACTION_POLICY");
   for (const id of manifestIds) {
-    if (!policy[id]) fail(`Finance capability lacks primary action policy: ${id}`, failures);
+    if (!policyEntries.has(id)) fail(`Finance capability lacks primary action policy: ${id}`, failures);
   }
 
   const registrySource = read(registryPath);
@@ -127,36 +145,33 @@ export async function auditFinanceWorldclassWorkflow() {
 
   for (const id of manifestIds) {
     const definition = manifest[id] || {};
-    const mode = policy[id]?.mode;
+    const policySegment = policyEntries.get(id) || "";
+    const mode = policyMode(policySegment);
+
     if (definition.kind === "report") report += 1;
     else if (definition.kind === "process") process += 1;
     else records += 1;
 
     if (mode === "none") {
       readOnly += 1;
-      if (policy[id]?.create?.enabled === true) fail(`Read-only policy exposes create: ${id}`, failures);
+      if (/\benabled\s*:\s*true/.test(policySegment) && /\bcreate\s*:/.test(policySegment)) {
+        fail(`Read-only policy exposes create: ${id}`, failures);
+      }
       continue;
     }
 
     if (mode === "action") {
       action += 1;
-      const configured = policy[id]?.action || {};
-      const executable = Boolean(
-        configured.endpoint || configured.api || configured.href || configured.engine ||
-        (configured.capability && configured.action) || ["report", "reports"].includes(configured.type)
-      );
-      if (!executable) fail(`Controlled Finance action lacks execution target: ${id}`, failures);
+      if (!policyHasExecutionEvidence(policySegment)) {
+        fail(`Controlled Finance action lacks execution target: ${id}`, failures);
+      }
       continue;
     }
 
     if (mode === "create") {
       create += 1;
-      const explicit = policy[id]?.create || {};
-      const explicitEvidence = Boolean(
-        explicit.endpoint || explicit.api || explicit.form || explicit.schema?.length || explicit.engine ||
-        (explicit.capability && explicit.action)
-      );
-      const registryEvidence = hasCreateEvidence(capabilitySegment(registrySource, id));
+      const explicitEvidence = policyHasCreateEvidence(policySegment);
+      const registryEvidence = hasRegistryCreateEvidence(capabilitySegment(registrySource, id));
       const contractEvidence = new RegExp(`["']${id}["']`).test(workspaceContractsSource);
       if (!explicitEvidence && !registryEvidence && !contractEvidence) {
         fail(`Create-mode Finance capability has no create contract evidence: ${id}`, failures);
@@ -168,7 +183,7 @@ export async function auditFinanceWorldclassWorkflow() {
   }
 
   const endpointSources = [
-    read(policyPath),
+    policySource,
     JSON.stringify(manifest),
     registrySource,
     workspaceContractsSource,
@@ -255,6 +270,7 @@ export async function auditFinanceWorldclassWorkflow() {
     coverage: {
       capabilities: manifestIds.length,
       presentation: presentationIds.size,
+      primary_action_policy: policyEntries.size,
       read_only: readOnly,
       create,
       controlled_action: action,

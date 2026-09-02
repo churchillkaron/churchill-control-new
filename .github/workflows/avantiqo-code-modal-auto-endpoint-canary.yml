@@ -1,0 +1,137 @@
+name: Avantiqo Code Modal Auto Endpoint Canary
+
+on:
+  push:
+    paths:
+      - ".github/workflows/avantiqo-code-modal-auto-endpoint-canary.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auto-endpoint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      ENDPOINT_NAME: avantiqo-code-auto-canary-v1
+      MODEL_NAME: Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
+    steps:
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Modal Endpoints client
+        run: python -m pip install --disable-pip-version-check "modal==1.5.1"
+
+      - name: Preflight no duplicate canary
+        run: |
+          set -euo pipefail
+          modal endpoint list --json > /tmp/endpoints-before.json
+          python - <<'PY'
+          import json, os
+          name = os.environ["ENDPOINT_NAME"]
+          data = json.load(open("/tmp/endpoints-before.json"))
+          text = json.dumps(data)
+          if name in text:
+              raise SystemExit(f"AVANTIQO_CODE_AUTO_ENDPOINT_DUPLICATE:{name}")
+          print("AVANTIQO_CODE_AUTO_ENDPOINT_DUPLICATE=false")
+          PY
+
+      - name: Create owned Qwen Code Auto Endpoint
+        id: create
+        run: |
+          set -euo pipefail
+          modal endpoint create --name "${ENDPOINT_NAME}" --model "${MODEL_NAME}" \
+            2>&1 | tee /tmp/endpoint-create.log
+
+      - name: Resolve endpoint URL
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, subprocess, time
+          name = os.environ["ENDPOINT_NAME"]
+          deadline = time.time() + 300
+          last = None
+          while time.time() < deadline:
+              raw = subprocess.check_output(["modal", "endpoint", "list", "--json"], text=True)
+              data = json.loads(raw)
+              last = data
+              def walk(value):
+                  if isinstance(value, dict):
+                      if name in json.dumps(value):
+                          for k, v in value.items():
+                              if isinstance(v, str) and v.startswith("https://") and "modal" in v:
+                                  return v
+                      for v in value.values():
+                          found = walk(v)
+                          if found: return found
+                  elif isinstance(value, list):
+                      for v in value:
+                          found = walk(v)
+                          if found: return found
+                  return None
+              url = walk(data)
+              if url:
+                  open("/tmp/endpoint-url", "w").write(url.rstrip("/"))
+                  print(f"AVANTIQO_CODE_AUTO_ENDPOINT_URL_RESOLVED=true")
+                  raise SystemExit(0)
+              time.sleep(5)
+          print(json.dumps(last, indent=2))
+          raise SystemExit("AVANTIQO_CODE_AUTO_ENDPOINT_URL_NOT_RESOLVED")
+          PY
+
+      - name: Real endpoint latency probe
+        run: |
+          set -euo pipefail
+          URL="$(cat /tmp/endpoint-url)/v1/chat/completions"
+          cat > /tmp/request.json <<JSON
+          {"model":"${MODEL_NAME}","messages":[{"role":"user","content":"Return only strict JSON: {\"path\":\"probe.mjs\",\"content\":\"<source>\"}. Fix: export function add(a,b){ return a-b; } so add(2,3) returns 5."}],"temperature":0,"max_tokens":128}
+          JSON
+          python - <<'PY'
+          import json, os, subprocess, time
+          url = open("/tmp/endpoint-url").read().strip() + "/v1/chat/completions"
+          def call(label):
+              started = time.perf_counter()
+              p = subprocess.run(
+                  ["modal", "curl", "-sS", "-X", "POST", url,
+                   "-H", "Content-Type: application/json",
+                   "--data-binary", "@/tmp/request.json"],
+                  text=True, capture_output=True, timeout=240,
+              )
+              elapsed = round(time.perf_counter() - started, 3)
+              if p.returncode != 0:
+                  raise SystemExit(f"{label} curl failed: {p.stderr[-2000:]}")
+              try:
+                  body = json.loads(p.stdout)
+              except Exception:
+                  raise SystemExit(f"{label} invalid JSON: {p.stdout[-2000:]}")
+              if body.get("error"):
+                  raise SystemExit(f"{label} endpoint error: {body['error']}")
+              choices = body.get("choices") or []
+              if not choices:
+                  raise SystemExit(f"{label} no choices: {body}")
+              usage = body.get("usage") or {}
+              evidence = {"label": label, "client_seconds": elapsed, "usage": usage}
+              print("AVANTIQO_CODE_AUTO_ENDPOINT_PROBE=" + json.dumps(evidence, separators=(",", ":")))
+              return evidence
+          first = call("first")
+          warm = call("warm")
+          summary = {
+              "first_client_seconds": first["client_seconds"],
+              "warm_client_seconds": warm["client_seconds"],
+              "warm_under_5s": warm["client_seconds"] < 5.0,
+              "same_owned_model": os.environ["MODEL_NAME"],
+              "production_deploy_performed": False,
+          }
+          print("AVANTIQO_CODE_AUTO_ENDPOINT_SUMMARY=" + json.dumps(summary, separators=(",", ":")))
+          if not summary["warm_under_5s"]:
+              raise SystemExit(f"AVANTIQO_CODE_AUTO_ENDPOINT_WARM_SLA_FAILED:{warm['client_seconds']}s")
+          PY
+
+      - name: Stop disposable canary
+        if: always()
+        run: modal endpoint stop -y "${ENDPOINT_NAME}" || true

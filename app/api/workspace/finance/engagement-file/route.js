@@ -240,8 +240,8 @@ export async function GET(request) {
       .map((review) => ({ ...review, notes: notesByReview.get(review.id) || [], signoffs: signoffsByReview.get(review.id) || [] }));
 
     const financeDocuments = documents.filter((document) => {
-      const module = String(document.destination_module || document.ai_module || "").toUpperCase();
-      return module === "ACCOUNTING" || module === "FINANCE" || module === "REVIEW" || document.financial_impact === true;
+      const financeModule = String(document.destination_module || document.ai_module || "").toUpperCase();
+      return financeModule === "ACCOUNTING" || financeModule === "FINANCE" || financeModule === "REVIEW" || document.financial_impact === true;
     });
 
     const staffCapacity = capacityResult.data || [];

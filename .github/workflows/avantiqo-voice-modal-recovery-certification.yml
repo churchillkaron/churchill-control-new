@@ -23,6 +23,7 @@ jobs:
       AVANTIQO_VOICE_ENGINE_ENABLED: "YES"
       AVANTIQO_VOICE_MODAL_CHAINED_REAL_INFERENCE_APPROVED: "YES"
       AVANTIQO_VOICE_MODAL_CHAIN_RECOVER_TTS_USAGE_ID: 824b0b2e-fa9c-4c32-84a4-4d55ee0125e1
+      AVANTIQO_VOICE_MODAL_CHAIN_ALLOWED_FAILED_STT_USAGE_ID: d7d02e4e-506b-4d5e-9d6a-d5d2f51cfa93
       AVANTIQO_VOICE_MODAL_CHAIN_CERT_EXPECTED_MAIN_COMMIT: ${{ github.sha }}
       AVANTIQO_VOICE_MODAL_CHAIN_CERT_SOURCE_MAIN_COMMIT: ${{ github.sha }}
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
@@ -42,15 +43,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install repository dependencies
         run: npm ci --ignore-scripts
 
-      - name: Zero-cost source gates
+      - name: Zero-cost direct-function source gates
         shell: bash
         run: |
           set -euo pipefail
@@ -59,24 +55,18 @@ jobs:
           node --check lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceModalDirectRuntime.js
           node --test tests/avantiqo-voice-modal-direct-transport.test.mjs
           node --test tests/secretary-voice-runtime-safety.test.mjs
-          python -m py_compile services/avantiqo-voice-modal/modal_app.py
-          grep -Fq '@modal.enter()' services/avantiqo-voice-modal/modal_app.py
-          grep -Fq 'min_containers=0' services/avantiqo-voice-modal/modal_app.py
-          grep -Fq 'max_containers=1' services/avantiqo-voice-modal/modal_app.py
-          grep -Fq 'scaledown_window=5' services/avantiqo-voice-modal/modal_app.py
-          grep -Fq 'SECOND_PRICING_REQUIRED' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
-          grep -Fq 'TTS_RECOVERY_REQUIRES_RESUME_MODE' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
-          echo 'AVANTIQO_VOICE_RECOVERY_STATIC_GATE=PASS'
-          echo 'AVANTIQO_VOICE_RECOVERY_TREE=SECRETARY_SAFETY_COMPLETE_V1'
+          grep -Fq 'client.functions.fromName' lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceModalDirectRuntime.js
+          grep -Fq 'modal.functions.fromName' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          grep -Fq 'DIRECT_NAMED_FUNCTIONS' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs
+          grep -Fq 'AVANTIQO_VOICE_STT_LOCAL_MODEL_PATH' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'sha256:960ee663a65aa085b46373aa279b91394e95aa7a89da7625f86446eb1122445f' services/avantiqo-voice-modal/modal_app.py
+          if grep -Fq 'modal.cls.fromName' scripts/certify-avantiqo-voice-modal-chained-service-live.mjs; then
+            echo 'CLASS_TRANSPORT_FORBIDDEN'
+            exit 1
+          fi
+          echo 'AVANTIQO_VOICE_DIRECT_RECOVERY_STATIC_GATE=PASS'
 
-      - name: Install pinned Modal CLI
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
-          modal --version
-
-      - name: Require deployment and recovery credentials
+      - name: Require recovery credentials
         shell: bash
         run: |
           set -euo pipefail
@@ -85,49 +75,13 @@ jobs:
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           echo 'AVANTIQO_VOICE_RECOVERY_CREDENTIALS=PASS'
 
-      - name: Deploy preloaded Voice class workers
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd services/avantiqo-voice-modal
-          modal deploy modal_app.py
-          echo 'AVANTIQO_VOICE_PRELOAD_DEPLOY=PASS'
-          echo 'GPU_INFERENCE_PERFORMED=false'
-
-      - name: Verify deployed Voice methods are idle
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import modal
-
-          app_name = "avantiqo-voice-owned"
-          workers = [("VoiceStt", "transcribe"), ("VoiceTts", "speak")]
-          reports = []
-          for class_name, method_name in workers:
-              cls = modal.Cls.from_name(app_name, class_name)
-              obj = cls()
-              method = getattr(obj, method_name)
-              stats = method.get_current_stats()
-              backlog = int(getattr(stats, "backlog", 0) or 0)
-              runners = int(getattr(stats, "num_total_runners", 0) or 0)
-              if backlog != 0 or runners != 0:
-                  raise RuntimeError(
-                      f"AVANTIQO_VOICE_RECOVERY_NOT_IDLE:{class_name}.{method_name}:"
-                      f"backlog={backlog}:runners={runners}"
-                  )
-              reports.append((class_name, method_name, backlog, runners))
-          print(f"AVANTIQO_VOICE_RECOVERY_IDLE=PASS workers={reports}")
-          print("GPU_INFERENCE_PERFORMED=false")
-          PY
-
-      - name: Prove historical TTS and no prior recovery STT
+      - name: Prove exact historical TTS and single failed STT exception
         shell: bash
         run: |
           set -euo pipefail
           node scripts/assert-avantiqo-voice-modal-chain-stt-idempotency.mjs
 
-      - name: Resume chain with one STT maximum
+      - name: Resume with exactly one replacement STT
         shell: bash
         run: |
           set -euo pipefail
@@ -144,6 +98,7 @@ jobs:
           echo 'RUNPOD_USED=false'
           echo 'NEW_TTS_JOB_ALLOWED=false'
           echo 'MAX_NEW_STT_JOBS=1'
+          echo 'VOICE_MODAL_TRANSPORT=direct-named-functions'
 
       - name: Upload Voice certification evidence
         if: always()

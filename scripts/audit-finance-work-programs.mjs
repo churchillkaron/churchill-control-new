@@ -18,9 +18,12 @@ const files = {
   security: "supabase/migrations/20260902170500_accounting_work_program_security.sql",
   lifecycleSchema: "supabase/migrations/20260902173500_accounting_work_program_lifecycle_controls.sql",
   systemGateSchema: "supabase/migrations/20260902175500_accounting_work_program_system_gate_enforcement.sql",
+  capacitySchema: "supabase/migrations/20260902175500_accounting_practice_capacity_entity_scope.sql",
   api: "app/api/workspace/finance/work-programs/route.js",
   lifecycleApi: "app/api/workspace/finance/work-programs/lifecycle/route.js",
   verifyApi: "app/api/workspace/finance/work-programs/verify/route.js",
+  rollForwardApi: "app/api/workspace/finance/work-programs/roll-forward/route.js",
+  capacityApi: "app/api/workspace/finance/practice-capacity/route.js",
   gates: "lib/finance/practice/workProgramGates.js",
   practiceApi: "app/api/workspace/finance/practice-control/route.js",
   practiceUi: "components/workspace/finance/FinancePracticeControlTower.jsx",
@@ -75,11 +78,28 @@ requireTokens(files.systemGateSchema, [
   "accounting_work_item_system_gate_guard",
 ]);
 
+requireTokens(files.capacitySchema, [
+  "accounting_practice_staff_capacity",
+  "weekly_capacity_minutes",
+  "utilization_target",
+  "budget_minutes",
+  "scheduled_start_at",
+  "scheduled_end_at",
+  "entity_id",
+  "enable row level security",
+  "revoke all",
+  "service_role",
+]);
+
 requireTokens(files.api, [
   "requireOrganizationAccess",
   "checkFinancePermission",
   "accounting_engagements",
   "accounting_client_profiles",
+  "resolveEntity",
+  "entity_id",
+  "budget_minutes",
+  "assigned_partner_id",
   "relative_due_days",
   "dependency_step_keys",
   "client_requests_created",
@@ -125,6 +145,26 @@ requireTokens(files.verifyApi, [
   "ACCOUNTING_WORK_ITEM_SYSTEM_BLOCKED",
 ]);
 
+requireTokens(files.rollForwardApi, [
+  "rolled_from_run_id",
+  "evidence_carried_forward: false",
+  "entity_id: entityId",
+  "budget_minutes",
+  "assigned_partner_id",
+]);
+
+requireTokens(files.capacityApi, [
+  "14",
+  "accounting_practice_staff_capacity",
+  "weekly_capacity_minutes",
+  "utilization_target",
+  "budget_minutes",
+  "OVERLOADED",
+  "unassigned_hours",
+  "overdue_items",
+  "capacityRisk",
+]);
+
 requireTokens(files.practiceApi, [
   "active_runs",
   "waiting_on_client",
@@ -137,6 +177,11 @@ requireTokens(files.practiceUi, [
   "Programs",
   "Client wait",
   "Blocked",
+  "14-day capacity",
+  "Available",
+  "Assigned",
+  "Overloaded",
+  "Unassigned",
   "active_runs",
   "waiting_on_client",
   "blocked_work",
@@ -158,6 +203,13 @@ const coverage = {
   journal_posting_truth: true,
   statutory_filing_truth: true,
   period_close_truth: true,
+  legal_entity_scope: true,
+  budgeted_work_items: true,
+  partner_capacity_assignment: true,
+  fourteen_day_capacity_forecast: true,
+  overload_detection: true,
+  unassigned_work_detection: true,
+  capacity_roll_forward: true,
 };
 
 console.log("AVANTIQO FINANCE WORK PROGRAM CERTIFICATION");
@@ -167,5 +219,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are governed from template through system-verified, locked completion.");
+  console.log("PASS: Accounting work programs are governed from entity-scoped budgeting through capacity-aware, system-verified, locked completion and roll-forward.");
 }

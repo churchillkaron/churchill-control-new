@@ -69,22 +69,46 @@ LTX_GEMMA_SUFFIX_COMPAT_ENTRYPOINT = r"""
 import os
 from pathlib import Path
 
+import ltx_core.text_encoders.gemma as gemma_package
+from ltx_core.text_encoders.gemma import gemma_assets
 from ltx_core.text_encoders.gemma.gemma_assets import GemmaAssets
 
 _expected = Path(os.environ["AVANTIQO_LTX25_GEMMA_REALPATH"]).resolve(strict=True)
 _original_load = GemmaAssets.load.__func__
+_original_resolve = gemma_assets.resolve_gemma_weight_paths
 
-def _avantiqo_exact_gemma_load(cls, path):
+def _avantiqo_exact_path(path):
     candidate = Path(path)
     try:
         resolved = candidate.resolve(strict=True)
     except FileNotFoundError:
-        return _original_load(cls, path)
+        return None
     if resolved == _expected and resolved.is_file():
+        return resolved
+    return None
+
+def _avantiqo_exact_gemma_load(cls, path):
+    resolved = _avantiqo_exact_path(path)
+    if resolved is not None:
         return cls.from_single_file(resolved)
     return _original_load(cls, path)
 
+def _avantiqo_exact_gemma_weight_paths(path):
+    resolved = _avantiqo_exact_path(path)
+    if resolved is not None:
+        return (str(resolved),)
+    return _original_resolve(path)
+
 GemmaAssets.load = classmethod(_avantiqo_exact_gemma_load)
+gemma_assets.resolve_gemma_weight_paths = _avantiqo_exact_gemma_weight_paths
+gemma_package.resolve_gemma_weight_paths = _avantiqo_exact_gemma_weight_paths
+
+from ltx_core.text_encoders.gemma.encoders import encoder_configurator
+encoder_configurator.resolve_gemma_weight_paths = _avantiqo_exact_gemma_weight_paths
+
+from ltx_pipelines.utils import blocks
+blocks.resolve_gemma_weight_paths = _avantiqo_exact_gemma_weight_paths
+
 from ltx_pipelines.ti2vid_one_stage import main
 main()
 """

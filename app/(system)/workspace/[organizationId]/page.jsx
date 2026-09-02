@@ -35,12 +35,14 @@ function firstName(value) {
   return clean.split(/\s+/)[0];
 }
 
+function priorityDot(priority) {
+  if (priority === "critical") return "bg-red-600";
+  if (priority === "attention") return "bg-amber-600";
+  return "bg-[#A37849]";
+}
+
 export default function OrganizationWorkspacePage() {
-  const {
-    runtime,
-    organization,
-    loading,
-  } = useOrganizationRuntime();
+  const { runtime, organization, loading } = useOrganizationRuntime();
   const businessContext = useBusinessContext() || {};
 
   const organizationId =
@@ -74,8 +76,9 @@ export default function OrganizationWorkspacePage() {
 
   const briefing = runtime?.briefing || null;
   const metrics = runtime?.metrics || {};
-  const alerts = Array.isArray(runtime?.alerts) ? runtime.alerts : [];
   const activity = Array.isArray(runtime?.activity) ? runtime.activity : [];
+  const homeQueue = Array.isArray(runtime?.home_queue) ? runtime.home_queue : [];
+  const homeDomains = Array.isArray(runtime?.home_domains) ? runtime.home_domains : [];
 
   const domainTargets = useMemo(() => {
     if (!organizationId) return [];
@@ -88,7 +91,7 @@ export default function OrganizationWorkspacePage() {
     {
       label: "Revenue",
       value: metricValue(metrics.revenue),
-      hint: "Live business state",
+      hint: "Posted Finance truth",
     },
     {
       label: "Orders",
@@ -98,12 +101,12 @@ export default function OrganizationWorkspacePage() {
     {
       label: "Approvals",
       value: metricValue(metrics.approvals),
-      hint: "Waiting for action",
+      hint: "Waiting for decision",
     },
     {
-      label: "Inventory alerts",
-      value: metricValue(metrics.inventoryAlerts),
-      hint: "Exceptions requiring review",
+      label: "Attention",
+      value: metricValue(metrics.attention),
+      hint: "Cross-domain exceptions",
     },
   ];
 
@@ -195,34 +198,42 @@ export default function OrganizationWorkspacePage() {
               ))}
             </section>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
               <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">
-                      Priority signals
+                      Needs attention
                     </div>
                     <div className="mt-1 text-[12px] text-[#AAA69E]">
-                      What needs attention now
+                      Ranked work across the business
                     </div>
                   </div>
-                  <Bell size={16} className="text-[#B98C58]" />
+                  <Bell size={16} className={homeQueue.length ? "text-[#B98C58]" : "text-[#6F7E68]"} />
                 </div>
 
                 <div className="mt-4 divide-y divide-black/[0.06]">
-                  {alerts.length === 0 ? (
+                  {homeQueue.length === 0 ? (
                     <div className="flex items-center gap-3 py-4 text-[12px] text-[#79756E]">
                       <CheckCircle2 size={15} className="text-[#6F7E68]" />
-                      No active alerts.
+                      No active cross-domain exceptions.
                     </div>
                   ) : (
-                    alerts.slice(0, 6).map((alert, index) => (
-                      <div key={alert?.id || index} className="flex gap-3 py-3.5">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#B98C58]" />
-                        <div className="min-w-0 text-[12px] leading-5 text-[#4F4C47]">
-                          {alert?.message || alert}
+                    homeQueue.slice(0, 10).map((item) => (
+                      <Link key={item.id} href={item.href || "#"} className="group flex gap-3 py-3.5">
+                        <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${priorityDot(item.priority)}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[12px] font-medium text-[#3E3A34]">{item.title}</span>
+                            <span className="rounded-full border border-black/[0.07] bg-[#FAF9F7] px-2 py-0.5 text-[8px] font-medium uppercase tracking-[0.08em] text-[#8A847C]">{item.domain}</span>
+                          </div>
+                          <div className="mt-1 text-[10px] leading-4 text-[#8B867E]">{item.detail}</div>
                         </div>
-                      </div>
+                        <div className="flex shrink-0 items-center gap-1.5 text-[9px] text-[#9A968E]">
+                          {item.status}
+                          <ArrowRight size={11} className="transition group-hover:translate-x-0.5 group-hover:text-[#A37849]" />
+                        </div>
+                      </Link>
                     ))
                   )}
                 </div>
@@ -247,8 +258,8 @@ export default function OrganizationWorkspacePage() {
                       No recent activity to show.
                     </div>
                   ) : (
-                    activity.slice(0, 6).map((item, index) => (
-                      <div key={item?.id || index} className="grid grid-cols-[70px_1fr] gap-3 py-3.5 text-[12px]">
+                    activity.slice(0, 7).map((item, index) => (
+                      <div key={item?.id || index} className="grid grid-cols-[70px_1fr] gap-3 py-3.5 text-[11px]">
                         <div className="text-[#AAA69E]">{item?.time || "—"}</div>
                         <div className="leading-5 text-[#4F4C47]">{item?.text || item?.message || "Activity"}</div>
                       </div>
@@ -257,6 +268,35 @@ export default function OrganizationWorkspacePage() {
                 </div>
               </section>
             </div>
+
+            {homeDomains.length ? (
+              <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">
+                      Business pulse
+                    </div>
+                    <h2 className="mt-1.5 text-[20px] font-medium tracking-[-0.025em] text-[#1B1A18]">
+                      Where attention is concentrated
+                    </h2>
+                  </div>
+                  <div className="text-[10px] text-[#8A867F]">Live domain-owned evidence</div>
+                </div>
+
+                <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {homeDomains.map((domain) => (
+                    <Link key={domain.id} href={domain.href} className="group rounded-xl border border-black/[0.065] bg-[#FCFBF9] p-3.5 transition hover:border-[#D6A66A]/40 hover:bg-white">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="text-[12px] font-medium text-[#403C36]">{domain.label}</div>
+                        <div className={`min-w-7 rounded-full px-2 py-1 text-center text-[9px] font-semibold ${Number(domain.count || 0) > 0 ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>{domain.count || 0}</div>
+                      </div>
+                      <div className="mt-2 text-[9px] leading-4 text-[#8A847C]">{domain.detail}</div>
+                      <div className="mt-2 flex items-center gap-1 text-[9px] text-[#A37849] opacity-0 transition group-hover:opacity-100">Open <ArrowRight size={10} /></div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
               <div className="flex flex-wrap items-end justify-between gap-4">

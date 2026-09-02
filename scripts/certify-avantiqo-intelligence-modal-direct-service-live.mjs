@@ -215,7 +215,7 @@ if (finite(wallet.available_balance) < projectedCustomerCharge) {
   throw new Error(`${CONTRACT}_PREPAID_WALLET_BALANCE_INSUFFICIENT`);
 }
 
-const existingState = await loadState();
+let existingState = await loadState();
 if (existingState?.contract && existingState.contract !== CONTRACT) {
   throw new Error(`${CONTRACT}_STATE_CONTRACT_INVALID`);
 }
@@ -236,7 +236,15 @@ if (existingState?.terminal === true && existingState?.success === true) {
   process.exit(0);
 }
 if (existingState?.terminal === true && existingState?.success === false) {
-  throw new Error(`${CONTRACT}_TERMINAL_FAILURE_NO_AUTOMATIC_RETRY`);
+  const failedSource = text(existingState?.source_main_commit, 160).toLowerCase();
+  if (runMode === "RESUME") {
+    throw new Error(`${CONTRACT}_TERMINAL_FAILURE_CANNOT_RESUME`);
+  }
+  if (!failedSource || failedSource === sourceMain) {
+    throw new Error(`${CONTRACT}_TERMINAL_FAILURE_NO_AUTOMATIC_RETRY`);
+  }
+  console.log(`${CONTRACT}_PRIOR_TERMINAL_FAILURE_SUPERSEDED_BY_NEW_SOURCE=true`);
+  existingState = null;
 }
 if (existingState?.phase === "SUBMITTING" && !existingState?.provider_job_id) {
   throw new Error(`${CONTRACT}_AMBIGUOUS_PRIOR_SUBMISSION_NO_AUTOMATIC_RETRY`);

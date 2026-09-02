@@ -16,8 +16,8 @@ jobs:
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
-      ENDPOINT_NAME: avantiqo-code-auto-canary-v1
-      MODEL_NAME: Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
+      ENDPOINT_NAME: avantiqo-code-qwen36-canary-v1
+      MODEL_NAME: Qwen/Qwen3.6-35B-A3B-FP8
     steps:
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -48,8 +48,6 @@ jobs:
           import modal
           ws = modal.Workspace.from_context()
           token = ws.proxy_tokens.create()
-          # This workspace uses global proxy tokens, so environment scoping is
-          # neither required nor valid. Never print the token secret.
           with open("/tmp/proxy-token-id", "w", encoding="utf-8") as f:
               f.write(token.token_id)
           print("AVANTIQO_CODE_AUTO_ENDPOINT_PROXY_TOKEN_CREATED=true")
@@ -142,7 +140,8 @@ jobs:
               "first_client_seconds": first["client_seconds"],
               "warm_client_seconds": warm["client_seconds"],
               "warm_under_5s": warm["client_seconds"] < 5.0,
-              "same_owned_model": os.environ["MODEL_NAME"],
+              "candidate_model": os.environ["MODEL_NAME"],
+              "candidate_only": True,
               "production_deploy_performed": False,
           }
           print("AVANTIQO_CODE_AUTO_ENDPOINT_SUMMARY=" + json.dumps(summary, separators=(",", ":")))

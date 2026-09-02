@@ -27,7 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m modal app logs avantiqo-code-snapshot-canary-v1 \
-            --tail 300 --timestamps --show-function-id --show-container-id \
+            --tail 500 --timestamps --show-function-id --show-container-id \
             2>&1 | tee /tmp/avantiqo-code-snapshot-modal.log
       - name: Upload diagnostic log
         uses: actions/upload-artifact@v4

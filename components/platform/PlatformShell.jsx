@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import LocalHeyAvantiqoWakeBridge from "@/components/operator/LocalHeyAvantiqoWakeBridge";
 import SecretaryMeetingPresenceBridge from "@/components/operator/SecretaryMeetingPresenceBridge";
+import WorkspaceNavigationRail from "@/components/workspace/WorkspaceNavigationRail";
 import WorkspaceTopBar from "@/components/workspace/WorkspaceTopBar";
 
 const LEGACY_WAKE_TEMPLATE_KEY = "avantiqo.local-wake.template.v2";
@@ -39,17 +40,11 @@ function restoreLegacyWakeTemplateTrust() {
   }
 }
 
-export default function PlatformShell({
-  children,
-}) {
+export default function PlatformShell({ children }) {
   const pathname = usePathname();
   const [secretaryMeetingCaptureActive, setSecretaryMeetingCaptureActive] = useState(false);
   const businessPartnerHome = /^\/workspace\/[^/]+\/?$/.test(pathname || "");
 
-  // This runs before the wake bridge mounts on the client. Older Avantiqo
-  // templates were deliberately trained by the user but predate the later
-  // verified_semantic metadata flag. Preserve that proven local training
-  // instead of forcing every wake attempt through server transcription.
   restoreLegacyWakeTemplateTrust();
 
   useEffect(() => {
@@ -70,24 +65,22 @@ export default function PlatformShell({
   }, []);
 
   return (
-    <div
-      className={
-        businessPartnerHome
-          ? "min-h-screen bg-[#F7F6F3] text-[#191919]"
-          : "min-h-screen bg-black text-white"
-      }
-    >
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919]">
       <WorkspaceTopBar />
 
-      <main
-        className={
-          businessPartnerHome
-            ? "min-h-[calc(100vh-112px)]"
-            : "min-h-[calc(100vh-112px)] px-6 py-6 lg:px-8"
-        }
-      >
-        {children}
-      </main>
+      <div className="flex min-h-[calc(100vh-61px)] items-start">
+        <WorkspaceNavigationRail />
+
+        <main
+          className={
+            businessPartnerHome
+              ? "min-w-0 flex-1"
+              : "min-w-0 flex-1 px-5 py-5 lg:px-7 lg:py-6"
+          }
+        >
+          {children}
+        </main>
+      </div>
 
       <SecretaryMeetingPresenceBridge />
       {!secretaryMeetingCaptureActive && !businessPartnerHome ? (

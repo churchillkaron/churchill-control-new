@@ -127,6 +127,7 @@ export default function PlatformShell({ children }) {
         [data-avantiqo-finance-light="true"] > main[class*="bg-[#050505]"],
         [data-avantiqo-finance-light="true"] main[class*="bg-[#050505]"] {
           background: transparent !important;
+          padding: 0 !important;
         }
 
         [data-avantiqo-operations-light="true"] > main [class*="shadow-black"],
@@ -164,6 +165,61 @@ export default function PlatformShell({ children }) {
         [data-avantiqo-finance-light="true"] main tfoot {
           background: #faf9f7 !important;
           color: #77736c !important;
+        }
+
+        /* Finance record explorer: preserve the proven execution engine but remove
+           controls that are not wired and make the working surface accountant-dense. */
+        [data-avantiqo-finance-light="true"]
+          main[class*="bg-[#050505]"]
+          > div
+          > div[class*="xl:grid-cols-[1fr_410px]"] {
+          gap: 12px !important;
+        }
+
+        [data-avantiqo-finance-light="true"]
+          main[class*="bg-[#050505]"]
+          > div
+          > div[class*="xl:grid-cols-[1fr_410px]"]
+          > section
+          > div:first-child
+          > div:last-child {
+          display: none !important;
+        }
+
+        [data-avantiqo-finance-light="true"]
+          main[class*="bg-[#050505]"]
+          > div
+          > section[class*="grid"] {
+          gap: 10px !important;
+        }
+
+        [data-avantiqo-finance-light="true"]
+          main[class*="bg-[#050505]"]
+          > div
+          > section[class*="grid"]
+          > div {
+          border-radius: 16px !important;
+          padding: 16px !important;
+        }
+
+        [data-avantiqo-finance-light="true"]
+          main[class*="bg-[#050505]"]
+          > div
+          > div[class*="xl:grid-cols-[1fr_410px]"]
+          > aside {
+          position: sticky !important;
+          top: 76px !important;
+          max-height: calc(100dvh - 96px) !important;
+          overflow: auto !important;
+          border-radius: 20px !important;
+        }
+
+        [data-avantiqo-finance-light="true"]
+          main[class*="bg-[#050505]"]
+          > div
+          > div[class*="xl:grid-cols-[1fr_410px]"]
+          > section {
+          border-radius: 20px !important;
         }
       `}</style>
     </div>

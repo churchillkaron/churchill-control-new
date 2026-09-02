@@ -1,5 +1,6 @@
 name: Avantiqo Code Executable Gate Certification
 
+# Existing-workflow trigger commit: certification remains measure-only.
 on:
   workflow_dispatch:
   push:

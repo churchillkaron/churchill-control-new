@@ -43,6 +43,7 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_head_to_head.py
           python -m py_compile services/avantiqo-code-engine/modal_verified_head_to_head.py
           python -m py_compile services/avantiqo-code-engine/modal_verified_owned_only.py
+          PYTHONPATH=services/avantiqo-code-engine python -c 'import modal_verified_owned_only'
           node --version
 
       - name: Run one paid executable-gated Code certification
@@ -56,7 +57,7 @@ jobs:
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
           mkdir -p artifacts
-          timeout --signal=TERM --kill-after=30s 9m python -m modal run services/avantiqo-code-engine/modal_verified_owned_only.py 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
+          timeout --signal=TERM --kill-after=30s 9m python -m modal run services/avantiqo-code-engine/modal_verified_owned_only.py::app.owned_cert 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
 
       - name: Verify executable-gate evidence
         run: |

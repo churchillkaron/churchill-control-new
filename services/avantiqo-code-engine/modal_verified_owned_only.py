@@ -19,6 +19,7 @@ import modal_verified_head_to_head as verified
 
 CONTRACT = "AVANTIQO_CODE_EXECUTABLE_GATE_CERT_V1"
 OUTPUT_PATH = Path("artifacts/avantiqo-code-executable-gate-cert.json")
+app = verified.app
 
 
 def _usage_sum(*values: dict[str, Any]) -> dict[str, int]:
@@ -42,8 +43,8 @@ def _validate_identity(task: dict[str, str], output: dict[str, Any]) -> None:
         raise RuntimeError(f"{CONTRACT}_WARM_RUNTIME_NOT_PROVEN:{task['id']}")
 
 
-@verified.app.local_entrypoint()
-def main() -> None:
+@app.local_entrypoint()
+def owned_cert() -> None:
     base = verified.base
     if base._text(os.environ.get("NODE_ENV")).lower() == "production":
         raise RuntimeError(f"{CONTRACT}_PRODUCTION_ENV_FORBIDDEN")

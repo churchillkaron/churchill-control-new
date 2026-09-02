@@ -85,7 +85,7 @@ def validate_exact_gemma_compat() -> dict[str, Any]:
     def compat_load(cls, path: str | Path):
         candidate_real = exact_path(path)
         if candidate_real is not None:
-            return cls.from_single_file(candidate_real)
+            return GemmaAssets.from_single_file(resolved)
         return original_load(cls, path)
 
     def compat_resolve(path: str | Path) -> tuple[str, ...]:
@@ -118,8 +118,6 @@ def validate_exact_gemma_compat() -> dict[str, Any]:
     if direct_paths != expected_paths or encoder_paths != expected_paths or block_paths != expected_paths:
         raise RuntimeError(f"{CONTRACT}_RESOLVER_PARITY_INVALID")
 
-    # Exercise the exact encoder configurator branch that failed on B200. This
-    # inspects checkpoint metadata/keys only; it does not construct a GPU model.
     gemma_sd_ops, gemma_module_ops = encoder_configurator.get_gemma_ops(str(text_encoder))
     if gemma_sd_ops is None or gemma_module_ops is None:
         raise RuntimeError(f"{CONTRACT}_ENCODER_CONFIGURATOR_OPS_REQUIRED")

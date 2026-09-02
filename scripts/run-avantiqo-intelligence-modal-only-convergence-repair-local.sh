@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONTRACT="AVANTIQO_INTELLIGENCE_MODAL_ONLY_CONVERGENCE_WRAPPER_V1"
+CONTRACT="AVANTIQO_INTELLIGENCE_MODAL_ONLY_CONVERGENCE_WRAPPER_V2"
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
@@ -28,7 +28,7 @@ ln -s "$ROOT/node_modules" "$WORKTREE/node_modules"
 (
   cd "$WORKTREE"
 
-  node scripts/repair-avantiqo-intelligence-modal-only-convergence.mjs
+  node scripts/repair-avantiqo-intelligence-modal-only-convergence-v2.mjs
 
   node --check lib/operator/runtime/OperatorReasoningRuntime.js
   node --check app/api/operator/turn/route.js

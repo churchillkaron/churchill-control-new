@@ -1,0 +1,101 @@
+name: Avantiqo Code Executable Gate Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - services/avantiqo-code-engine/modal_verified_owned_only.py
+      - .github/workflows/avantiqo-code-executable-gate-cert.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-executable-gate-cert
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Modal client
+        run: python -m pip install --disable-pip-version-check "modal==1.2.6"
+
+      - name: Zero-cost preflight
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/modal_app.py
+          python -m py_compile services/avantiqo-code-engine/modal_head_to_head.py
+          python -m py_compile services/avantiqo-code-engine/modal_verified_head_to_head.py
+          python -m py_compile services/avantiqo-code-engine/modal_verified_owned_only.py
+          node --version
+
+      - name: Run one paid executable-gated Code certification
+        timeout-minutes: 10
+        env:
+          NODE_ENV: development
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          mkdir -p artifacts
+          timeout --signal=TERM --kill-after=30s 9m python -m modal run services/avantiqo-code-engine/modal_verified_owned_only.py \
+            2>&1 | tee /tmp/avantiqo-code-executable-gate-cert.log
+
+      - name: Verify 6 of 6 hard gate
+        if: success()
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const report = JSON.parse(await readFile("artifacts/avantiqo-code-executable-gate-cert.json", "utf8"));
+          const s = report.summary || {};
+          const m = report.methodology || {};
+          if (report.contract !== "AVANTIQO_CODE_EXECUTABLE_GATE_CERT_V1") throw new Error("CONTRACT_INVALID");
+          if (m.cases !== 6) throw new Error("SIX_CASES_REQUIRED");
+          if (m.visible_tests_executed_before_acceptance !== true) throw new Error("VISIBLE_EXECUTION_REQUIRED");
+          if (m.semantic_contract_probes_executed_before_acceptance !== true) throw new Error("CONTRACT_EXECUTION_REQUIRED");
+          if (m.repair_only_after_machine_failure !== true || m.max_repair_calls_per_case !== 1) throw new Error("REPAIR_POLICY_INVALID");
+          if (m.hidden_tests_sealed_until_final_scoring !== true || m.ai_judge_used !== false) throw new Error("SEALED_DETERMINISTIC_SCORING_REQUIRED");
+          if (s.passed !== 6 || s.hidden_tests_passed !== 6 || s.instruction_format_passed !== 6 || s.security_boundary_passed !== 6) throw new Error(`QUALITY_6_OF_6_REQUIRED:${JSON.stringify(s)}`);
+          if (s.machine_gate_passed !== true) throw new Error("MACHINE_GATE_REQUIRED");
+          if (s.owned_gpu_sessions !== 1) throw new Error("ONE_GPU_SESSION_REQUIRED");
+          if (Number(s.owned_model_calls) !== 6 + Number(s.repairs_used)) throw new Error("MODEL_CALL_ACCOUNTING_INVALID");
+          if (Number(s.total_model_calls) !== Number(s.owned_model_calls) + Number(s.warmup_model_calls)) throw new Error("TOTAL_CALL_ACCOUNTING_INVALID");
+          if (s.warm_container_reused !== true) throw new Error("WARM_CONTAINER_REUSE_REQUIRED");
+          if (s.warm_latency_target_ms !== 4000 || s.warm_latency_passed !== true || Number(s.warm_max_ms) > 4000) throw new Error(`WARM_LATENCY_FAILED:${JSON.stringify(s)}`);
+          if (s.vllm_enforce_eager !== false) throw new Error("CUDA_GRAPH_RUNTIME_REQUIRED");
+          if (s.production_deploy_performed !== false) throw new Error("PRODUCTION_DEPLOY_FORBIDDEN");
+          console.log(JSON.stringify(s, null, 2));
+          console.log("AVANTIQO_CODE_EXECUTABLE_GATE_HARD_GATE=PASS");
+          NODE
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-executable-gate-cert-${{ github.run_id }}
+          path: |
+            artifacts/avantiqo-code-executable-gate-cert.json
+            /tmp/avantiqo-code-executable-gate-cert.log
+          if-no-files-found: warn
+          retention-days: 14

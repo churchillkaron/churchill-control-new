@@ -11,6 +11,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { createServerSupabase } from "@/lib/shared/supabase/server";
 
 const ACTIVE_ENTITY_COOKIE = "avantiqo_active_entity_id";
+const ACTIVE_PERIOD_COOKIE = "avantiqo_active_period_id";
 
 async function loadEntities({ organizationId }) {
   if (!organizationId) return [];
@@ -43,8 +44,26 @@ function resolveActiveEntity({ entities, requestedEntityId }) {
   );
 }
 
-async function loadActivePeriod({ supabase, organizationId, entityId }) {
+async function loadActivePeriod({
+  supabase,
+  organizationId,
+  entityId,
+  requestedPeriodId = null,
+}) {
   if (!organizationId || !entityId) return null;
+
+  const requested = String(requestedPeriodId || "").trim();
+  if (requested) {
+    const { data: selected } = await supabase
+      .from("accounting_periods")
+      .select("*")
+      .eq("id", requested)
+      .eq("organization_id", organizationId)
+      .or(`entity_id.eq.${entityId},entity_id.is.null`)
+      .maybeSingle();
+
+    if (selected) return selected;
+  }
 
   const { data } = await supabase
     .from("accounting_periods")
@@ -197,6 +216,7 @@ async function loadBootstrapPayload({ request, user }) {
     supabase,
     organizationId,
     entityId: entity?.id || null,
+    requestedPeriodId: cookieStore.get(ACTIVE_PERIOD_COOKIE)?.value || null,
   });
 
   return {

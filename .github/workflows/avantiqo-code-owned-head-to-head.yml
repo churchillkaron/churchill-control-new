@@ -39,6 +39,7 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_app.py
           node --version
 
+      # One H100 batch: first case pays cold initialization; remaining cases reuse the same engine.
       - name: Run owned benchmark
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}

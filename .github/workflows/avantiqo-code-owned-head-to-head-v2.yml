@@ -1,0 +1,75 @@
+name: Avantiqo Code Owned Head-to-Head V2
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - services/avantiqo-code-engine/modal_owned_head_to_head_v2.py
+      - .github/workflows/avantiqo-code-owned-head-to-head-v2.yml
+
+concurrency:
+  group: avantiqo-code-owned-head-to-head-v2
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal client
+        run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
+
+      - name: Zero-cost preflight
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/modal_owned_head_to_head.py
+          python -m py_compile services/avantiqo-code-engine/modal_owned_head_to_head_v2.py
+          node --version
+
+      - name: Run owned V2 benchmark
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          python -m modal run services/avantiqo-code-engine/modal_owned_head_to_head_v2.py 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
+
+      - name: Verify evidence
+        run: |
+          set -euo pipefail
+          test -f artifacts/avantiqo-code-owned-head-to-head-v2.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('artifacts/avantiqo-code-owned-head-to-head-v2.json','utf8'));
+          if (r?.summary?.owned_gpu_sessions !== 1) throw new Error('single GPU session not proven');
+          if (r?.summary?.owned_model_calls !== 6) throw new Error('six model calls not proven');
+          if (r?.summary?.quality_policy !== 'AVANTIQO_CODE_DEBUG_QUALITY_POLICY_V2') throw new Error('V2 quality policy not proven');
+          if (r?.summary?.production_deploy_performed !== false) throw new Error('production deploy guard failed');
+          console.log(JSON.stringify(r.summary));
+          NODE
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-owned-head-to-head-v2-${{ github.run_id }}
+          path: |
+            artifacts/avantiqo-code-owned-head-to-head-v2.json
+            /tmp/avantiqo-code-owned-head-to-head-v2.log
+          if-no-files-found: warn
+          retention-days: 14

@@ -2,6 +2,11 @@ name: Avantiqo Code Owned Head-to-Head V2
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - services/avantiqo-code-engine/modal_persistent_owned_cert.py
+      - services/avantiqo-code-engine/modal_verified_head_to_head.py
+      - .github/workflows/avantiqo-code-owned-head-to-head-v2.yml
 
 permissions:
   contents: read
@@ -43,8 +48,8 @@ jobs:
           import modal_persistent_owned_cert as cert
           assert cert.MODEL_VOLUME_NAME == 'avantiqo-code-models'
           assert cert.MODEL_MOUNT_ROOT == '/models'
-          assert cert.PERSISTENT_HF_CACHE_ROOT.startswith('/models/')
-          assert cert.PERSISTENT_VLLM_CACHE_ROOT.startswith('/models/')
+          assert cert.PERSISTENT_HF_CACHE_ROOT == '/models/huggingface/hub'
+          assert cert.PERSISTENT_VLLM_CACHE_ROOT == '/models/vllm-cache'
           assert cert.MODEL_REVISION == 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0'
           print('AVANTIQO_CODE_PERSISTENT_MODEL_PREFLIGHT=PASS')
           PY

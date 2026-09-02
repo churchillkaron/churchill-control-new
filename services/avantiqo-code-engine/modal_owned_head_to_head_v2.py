@@ -36,6 +36,7 @@ def _candidate_internal_prompt(data: dict[str, Any]) -> str:
     capability = str(data.get("capability") or "").strip()
     instruction = str(data.get("instruction") or "").strip()
     verification_pass = specification.get("internal_verification_pass") is True
+    boundary_audit_pass = specification.get("internal_boundary_audit_pass") is True
     sections = [
         "You are Avantiqo Code, a production-grade software engineer executing one bounded capability request.",
         "Do not expose chain-of-thought, hidden reasoning, scratchpads, or internal deliberation.",
@@ -67,6 +68,15 @@ def _candidate_internal_prompt(data: dict[str, Any]) -> str:
                 "Compare the draft implementation against every supplied visible assertion using the literal test inputs and expected values. If the draft would fail even one visible assertion, correct the implementation before returning it.",
                 "Re-check normalization, numeric conversion, accumulator state, null handling, public exports, exact JSON shape, and the relationship between helper semantics and higher-level functions. The visible test and requested contract always override the draft candidate.",
             ])
+        if boundary_audit_pass:
+            sections.extend([
+                "ADVERSARIAL BOUNDARY AUDIT: the instruction contains a candidate that already passed a prior visible-assertion review. Treat it as still untrusted and attack the semantic edges before returning it.",
+                "For collection reducers, explicitly test the candidate mentally against: missing/null collection, null member, malformed member, empty or whitespace-only identifier after normalization, duplicate identifiers that normalize to the same canonical key, numeric strings, invalid numeric strings, NaN, positive/negative Infinity, and caller-input immutability.",
+                "A member with an invalid or blank canonical identifier must be skipped before any accumulator write. It must create no output key, including an empty-string key. A member with an invalid numeric contribution must likewise create no state and contribute nothing.",
+                "For any normalized identifier reducer, use one local canonical key value for both lookup and write. For numeric contributions, use one converted finite numeric value for the actual arithmetic. Reject before write; do not create then clean up invalid state afterward.",
+                "For non-reducer functions, perform the analogous adversarial checks for nullish values, valid falsy values, normalization equivalence, finite arithmetic, boolean precedence, and deterministic behavior.",
+                "Return the corrected complete work product if any boundary attack exposes a defect; otherwise return the candidate unchanged.",
+            ])
         sections.append("The quality gate is internal only. Return no checklist, explanation, markdown, or reasoning unless the requested output contract explicitly asks for it.")
     sections.extend([
         f"Capability: {capability}",
@@ -95,6 +105,26 @@ def _verification_request(request: dict[str, Any], draft_result: str) -> dict[st
     specification["internal_verification_pass"] = True
     verification["structured_specification"] = specification
     return verification
+
+
+def _boundary_audit_request(request: dict[str, Any], verified_result: str) -> dict[str, Any]:
+    audit = dict(request)
+    audit["usage_id"] = f"owned-head-to-head-v2-boundary-{uuid.uuid4()}"
+    original_instruction = str(request.get("instruction") or "").strip()
+    audit["instruction"] = "\n\n".join([
+        original_instruction,
+        "INTERNAL AVANTIQO ADVERSARIAL BOUNDARY AUDIT:",
+        "The candidate below has already had a visible-assertion review. Do not merely repeat that review. Attack semantic boundary cases implied by the public API and repair any defect before returning the final work product.",
+        "For collection reducers, explicitly check absent collection, null/malformed members, blank or whitespace-only normalized identifiers, duplicate normalized identifiers, mixed number/numeric-string contributions, invalid numeric strings, non-finite numbers, and input immutability.",
+        "Invalid members must be rejected before any output state is created. In particular, a blank canonical identifier must never create an empty-string property or map entry.",
+        "The output contract remains exactly the original contract. Return only the final corrected answer.",
+        "CANDIDATE TO AUDIT:",
+        verified_result,
+    ])
+    specification = dict(request.get("structured_specification") or {})
+    specification["internal_boundary_audit_pass"] = True
+    audit["structured_specification"] = specification
+    return audit
 
 
 @app.function(
@@ -160,23 +190,37 @@ def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
         scored_model_calls += 1
         if not isinstance(verified, dict):
             raise RuntimeError(f"{CONTRACT}_OWNED_VERIFIED_OUTPUT_OBJECT_REQUIRED")
+        verified_result = str(verified.get("result") or "").strip()
+        if not verified_result:
+            raise RuntimeError(f"{CONTRACT}_OWNED_VERIFIED_RESULT_REQUIRED")
 
-        clean = dict(verified)
+        audited = code_engine.handler({
+            "id": f"owned-head-to-head-v2-boundary-{uuid.uuid4()}",
+            "input": _boundary_audit_request(request, verified_result),
+        })
+        scored_model_calls += 1
+        if not isinstance(audited, dict):
+            raise RuntimeError(f"{CONTRACT}_OWNED_AUDITED_OUTPUT_OBJECT_REQUIRED")
+
+        clean = dict(audited)
         draft_usage = draft.get("usage") if isinstance(draft.get("usage"), dict) else {}
         verified_usage = verified.get("usage") if isinstance(verified.get("usage"), dict) else {}
+        audited_usage = audited.get("usage") if isinstance(audited.get("usage"), dict) else {}
         clean["usage"] = {
-            "input_tokens": int(draft_usage.get("input_tokens") or 0) + int(verified_usage.get("input_tokens") or 0),
-            "output_tokens": int(draft_usage.get("output_tokens") or 0) + int(verified_usage.get("output_tokens") or 0),
-            "runtime_prompt_tokens": int(draft_usage.get("runtime_prompt_tokens") or 0) + int(verified_usage.get("runtime_prompt_tokens") or 0),
-            "internal_prompt_tokens": int(draft_usage.get("internal_prompt_tokens") or 0) + int(verified_usage.get("internal_prompt_tokens") or 0),
+            "input_tokens": int(draft_usage.get("input_tokens") or 0) + int(verified_usage.get("input_tokens") or 0) + int(audited_usage.get("input_tokens") or 0),
+            "output_tokens": int(draft_usage.get("output_tokens") or 0) + int(verified_usage.get("output_tokens") or 0) + int(audited_usage.get("output_tokens") or 0),
+            "runtime_prompt_tokens": int(draft_usage.get("runtime_prompt_tokens") or 0) + int(verified_usage.get("runtime_prompt_tokens") or 0) + int(audited_usage.get("runtime_prompt_tokens") or 0),
+            "internal_prompt_tokens": int(draft_usage.get("internal_prompt_tokens") or 0) + int(verified_usage.get("internal_prompt_tokens") or 0) + int(audited_usage.get("internal_prompt_tokens") or 0),
         }
         clean["draft_raw_sha256"] = hashlib.sha256(draft_result.encode("utf-8")).hexdigest()
+        clean["verified_raw_sha256"] = hashlib.sha256(verified_result.encode("utf-8")).hexdigest()
         clean["case_elapsed_seconds"] = round(time.perf_counter() - case_started, 3)
         clean["quality_policy"] = QUALITY_POLICY_VERSION
         clean["warm_runtime"] = True
         clean["vllm_enforce_eager"] = False
-        clean["verification_pass_model_calls"] = 2
+        clean["verification_pass_model_calls"] = 3
         clean["independent_verification_pass"] = True
+        clean["adversarial_boundary_audit"] = True
         outputs.append(clean)
 
     return {
@@ -187,6 +231,7 @@ def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
         "warmup_model_calls": 1,
         "scored_model_calls": scored_model_calls,
         "verification_passes": len(outputs),
+        "boundary_audit_passes": len(outputs),
         "vllm_enforce_eager": False,
     }
 
@@ -217,8 +262,8 @@ def main() -> None:
             raise RuntimeError(f"{CONTRACT}_QUALITY_POLICY_NOT_PROVEN:{task['id']}")
         if output.get("warm_runtime") is not True or output.get("vllm_enforce_eager") is not False:
             raise RuntimeError(f"{CONTRACT}_WARM_RUNTIME_NOT_PROVEN:{task['id']}")
-        if output.get("independent_verification_pass") is not True or output.get("verification_pass_model_calls") != 2:
-            raise RuntimeError(f"{CONTRACT}_VERIFICATION_PASS_NOT_PROVEN:{task['id']}")
+        if output.get("independent_verification_pass") is not True or output.get("adversarial_boundary_audit") is not True or output.get("verification_pass_model_calls") != 3:
+            raise RuntimeError(f"{CONTRACT}_THREE_PASS_VERIFICATION_NOT_PROVEN:{task['id']}")
 
         raw = str(output.get("result") or "")
         parsed = base._parse(raw, task["module"])
@@ -243,6 +288,7 @@ def main() -> None:
             "output_tokens": int(usage.get("output_tokens") or 0),
             "verification_pass_model_calls": int(output.get("verification_pass_model_calls") or 0),
             "draft_raw_sha256": str(output.get("draft_raw_sha256") or ""),
+            "verified_raw_sha256": str(output.get("verified_raw_sha256") or ""),
             "raw_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
         }
         results.append(row)
@@ -275,6 +321,7 @@ def main() -> None:
         "owned_gpu_sessions": 1,
         "owned_model_calls": scored_model_calls,
         "verification_passes": int(batch.get("verification_passes") or 0),
+        "boundary_audit_passes": int(batch.get("boundary_audit_passes") or 0),
         "warmup_model_calls": warmup_model_calls,
         "total_model_calls": scored_model_calls + warmup_model_calls,
         "vllm_enforce_eager": batch.get("vllm_enforce_eager"),

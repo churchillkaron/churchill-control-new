@@ -22,10 +22,12 @@ const files = {
   capacitySchema: "supabase/migrations/20260902175500_accounting_practice_capacity_entity_scope.sql",
   materializationSchema: "supabase/migrations/20260902182000_accounting_recurring_cycle_materialization.sql",
   materializationAuditSchema: "supabase/migrations/20260902183000_accounting_recurring_cycle_atomic_audit.sql",
+  evidenceSchema: "supabase/migrations/20260902184500_accounting_evidence_truth.sql",
   api: "app/api/workspace/finance/work-programs/route.js",
   lifecycleApi: "app/api/workspace/finance/work-programs/lifecycle/route.js",
   reviewGate: "lib/finance/practice/engagementReviewGate.js",
   verifyApi: "app/api/workspace/finance/work-programs/verify/route.js",
+  evidenceApi: "app/api/workspace/finance/work-programs/evidence/route.js",
   rollForwardApi: "app/api/workspace/finance/work-programs/roll-forward/route.js",
   capacityApi: "app/api/workspace/finance/practice-capacity/route.js",
   recurringPlanner: "lib/finance/practice/recurringCyclePlanner.js",
@@ -97,6 +99,31 @@ requireTokens(files.materializationSchema, [
 requireTokens(files.materializationAuditSchema, [
   "materialize_accounting_engagement_run", "security invoker", "organization_audit_logs", "ACCOUNTING_RECURRING_RUN_CREATED", "budget_minutes", "no_external_message", "manual_until_sent", "on conflict (accounting_firm_id, engagement_id, run_key) do nothing", "revoke all on function", "service_role",
 ]);
+requireTokens(files.evidenceSchema, [
+  "accounting_work_program_evidence_links",
+  "validate_accounting_work_program_evidence_link",
+  "organization_documents",
+  "EVIDENCE_RUN_SCOPE_MISMATCH",
+  "EVIDENCE_WORK_ITEM_SCOPE_MISMATCH",
+  "EVIDENCE_DOCUMENT_SCOPE_MISMATCH",
+  "EVIDENCE_ENTITY_SCOPE_MISMATCH",
+  "EVIDENCE_PERIOD_SCOPE_MISMATCH",
+  "enable row level security",
+  "revoke all on table public.accounting_work_program_evidence_links from anon, authenticated",
+  "service_role",
+  "security invoker",
+  "DOCUMENT_CATEGORIES",
+  "source_documents",
+  "FINANCIAL_REPORT_SET",
+  "trial_balance",
+  "profit_loss",
+  "balance_sheet",
+  "require_balanced_trial_balance",
+  "DEPENDENCY_AUDIT_CHAIN",
+  "'documents'",
+  "'statements'",
+  "'audit_trail'",
+]);
 requireTokens(files.api, [
   "requireOrganizationAccess", "checkFinancePermission", "accounting_engagements", "accounting_client_profiles", "resolveEntity", "entity_id", "budget_minutes", "assigned_partner_id", "relative_due_days", "dependency_step_keys", "client_requests_created", "manual_until_sent",
 ]);
@@ -127,8 +154,15 @@ requireTokens(files.reviewGate, [
 
 requireTokens(files.lifecycleApi, [
   "requireEngagementReviewGate",
+  "evaluateWorkProgramGate",
+  "systemGateSnapshot",
   "reviewGateSnapshot",
   "finalReviewWorkItem",
+  "Current Finance system truth does not permit work-item completion",
+  "system_verified",
+  "system_checked_at",
+  "system_clearance",
+  "Work program system truth changed after work-item completion",
   "engagement_review_gate",
   "review_clearance",
   "dependencyBlockers",
@@ -153,10 +187,48 @@ forbidTokens(files.lifecycleApi, [
 ]);
 
 requireTokens(files.gates, [
-  "evaluateWorkProgramGate", "resolveEntity", "finance_bank_reconciliation_runs", "journal_entries", "finance_statutory_filings", "finance_vat_returns", "financial_periods", "difference_amount", "period_id",
+  "evaluateWorkProgramGate",
+  "resolveEntity",
+  "documentsGate",
+  "statementsGate",
+  "auditTrailGate",
+  "accounting_work_program_evidence_links",
+  "organization_documents",
+  "DOCUMENT_CATEGORIES",
+  "FINANCIAL_REPORT_SET",
+  "DEPENDENCY_AUDIT_CHAIN",
+  "runReport",
+  "balanced",
+  "organization_audit_logs",
+  "ACCOUNTING_WORK_ITEM_COMPLETED",
+  "finance_bank_reconciliation_runs",
+  "journal_entries",
+  "finance_statutory_filings",
+  "finance_vat_returns",
+  "financial_periods",
+  "difference_amount",
+  "period_id",
 ]);
 requireTokens(files.verifyApi, [
   "evaluateWorkProgramGate", "system_gate", "system_verified", "ACCOUNTING_WORK_ITEM_SYSTEM_VERIFIED", "ACCOUNTING_WORK_ITEM_SYSTEM_BLOCKED",
+]);
+requireTokens(files.evidenceApi, [
+  "workItemId",
+  "documentId",
+  "evidenceCategory",
+  "configuredCategories",
+  "organization_documents",
+  "accounting_work_program_evidence_links",
+  "EVIDENCE_MUTABLE_ITEM_STATUSES",
+  "Evidence cannot change after a work item enters review or completes",
+  "invalidateSystemGate",
+  "EVIDENCE_LINK_CHANGED",
+  "verification_invalidated: true",
+  "ACCOUNTING_EVIDENCE_LINKED",
+  "ACCOUNTING_EVIDENCE_UNLINKED",
+  "SUPERSEDED",
+  "no_external_message: true",
+  "Completed work program is locked",
 ]);
 requireTokens(files.rollForwardApi, [
   "rolled_from_run_id", "evidence_carried_forward: false", "entity_id: entityId", "budget_minutes", "assigned_partner_id",
@@ -221,6 +293,20 @@ const coverage = {
   templates: 2,
   dependency_enforcement: true,
   evidence_gate: true,
+  deterministic_document_completeness: true,
+  canonical_document_evidence_links: true,
+  no_duplicate_document_silo: true,
+  entity_period_evidence_scope: true,
+  evidence_link_rls_and_service_role_boundary: true,
+  evidence_changes_invalidate_verification: true,
+  evidence_frozen_during_review_and_after_completion: true,
+  deterministic_financial_statement_generation: true,
+  balanced_trial_balance_gate: true,
+  dependency_audit_chain_gate: true,
+  documents_statements_audit_trail_db_guard: true,
+  system_gate_rechecked_on_work_item_completion: true,
+  system_truth_rechecked_before_run_lock: true,
+  completion_system_clearance_snapshot: true,
   finance_review_clearance_gate: true,
   engagement_wide_review_scope: true,
   organization_entity_period_review_scope: true,
@@ -239,7 +325,7 @@ const coverage = {
   practice_visibility: true,
   rls_and_service_role_boundary: true,
   system_truth_gate: true,
-  database_bypass_guard: true,
+  database_verified_snapshot_guard: true,
   bank_reconciliation_truth: true,
   journal_posting_truth: true,
   statutory_filing_truth: true,
@@ -282,5 +368,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are governed from shared dry-run recurring planning and forward demand capacity through server-recomputed, atomic, audited cycle creation, entity-scoped budgeting, system verification, engagement-wide staged review truth with visible blocker/signoff dashboards, locked completion and roll-forward.");
+  console.log("PASS: Accounting work programs are governed from recurring planning and capacity through atomic cycle creation, entity/period-scoped evidence, deterministic ledger/report/audit verification, completion-time truth rechecks, engagement-wide staged review clearance, locked completion and roll-forward.");
 }

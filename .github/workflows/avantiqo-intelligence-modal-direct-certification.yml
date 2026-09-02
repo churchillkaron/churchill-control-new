@@ -1,0 +1,118 @@
+name: Avantiqo Intelligence - Modal Direct Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Direct Modal certification mode
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - execute
+          - resume
+      approve_paid_inference:
+        description: Required for execute; permits exactly one governed Fast H100 inference
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-modal-direct-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_BASE_URL: ""
+      AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN: ""
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install repository dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          touch .env.local
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_DIRECT_CREDENTIAL_GATE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'RUNPOD_MUTATION_PERFORMED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'
+
+      - name: Enforce explicit paid inference approval
+        if: ${{ inputs.mode == 'execute' }}
+        shell: bash
+        env:
+          PAID_APPROVED: ${{ inputs.approve_paid_inference }}
+        run: |
+          set -euo pipefail
+          if [ "$PAID_APPROVED" != "true" ]; then
+            echo 'AVANTIQO_INTELLIGENCE_MODAL_DIRECT_PAID_APPROVAL_REQUIRED' >&2
+            exit 1
+          fi
+          echo 'AVANTIQO_INTELLIGENCE_MODAL_DIRECT_PAID_APPROVAL=PASS'
+
+      - name: Run direct Modal certification
+        shell: bash
+        env:
+          AVANTIQO_INTELLIGENCE_MODAL_REAL_INFERENCE_APPROVED: ${{ inputs.approve_paid_inference && 'YES' || 'NO' }}
+        run: |
+          set -euo pipefail
+          case "${{ inputs.mode }}" in
+            preflight)
+              bash scripts/run-avantiqo-intelligence-modal-direct-certification-local.sh
+              ;;
+            execute)
+              bash scripts/run-avantiqo-intelligence-modal-direct-certification-local.sh --execute
+              ;;
+            resume)
+              bash scripts/run-avantiqo-intelligence-modal-direct-certification-local.sh --resume
+              ;;
+            *)
+              echo 'AVANTIQO_INTELLIGENCE_MODAL_DIRECT_MODE_INVALID' >&2
+              exit 2
+              ;;
+          esac
+
+      - name: Upload certification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-intelligence-modal-direct-${{ github.run_id }}
+          path: local-audit-output/avantiqo-intelligence-modal-direct-service-certification/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Assert deployment boundary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'LEGACY_MODAL_GATEWAY_USED=false'

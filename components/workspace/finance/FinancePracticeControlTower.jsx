@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   CircleDot,
   FileClock,
+  FolderOpen,
   Gauge,
   LoaderCircle,
   RefreshCw,
@@ -14,6 +15,8 @@ import {
   UserRoundCheck,
   Users,
 } from "lucide-react";
+
+import FinanceEngagementFile from "@/components/workspace/finance/FinanceEngagementFile";
 
 function statusTone(status) {
   if (status === "ATTENTION") return "border-red-700/15 bg-red-50 text-red-800";
@@ -47,6 +50,7 @@ function Metric({ label: metricLabel, value, detail, attention = false }) {
 
 export default function FinancePracticeControlTower({ organizationId }) {
   const [state, setState] = useState({ loading: true, error: "", data: null, capacity: null });
+  const [selectedEngagementId, setSelectedEngagementId] = useState(null);
 
   async function load() {
     if (!organizationId) return;
@@ -163,14 +167,16 @@ export default function FinancePracticeControlTower({ organizationId }) {
       ) : null}
 
       <div className="mt-4 overflow-x-auto rounded-2xl border border-black/[0.07] bg-white/85">
-        <div className="min-w-[1320px]">
-          <div className="grid grid-cols-[minmax(200px,1.5fr)_145px_145px_100px_90px_100px_95px_95px_100px_110px_130px] gap-3 border-b border-black/[0.06] px-4 py-2.5 text-[9px] font-medium uppercase tracking-[0.12em] text-[#8A867F]">
-            <span>Client</span><span>Preparer</span><span>Reviewer</span><span>Status</span><span>Programs</span><span>Client wait</span><span>Blocked</span><span>Ready</span><span>Overdue</span><span>Review points</span><span>Next deadline</span>
+        <div className="min-w-[1430px]">
+          <div className="grid grid-cols-[minmax(240px,1.5fr)_145px_145px_100px_90px_100px_95px_95px_100px_110px_130px_95px] gap-3 border-b border-black/[0.06] px-4 py-2.5 text-[9px] font-medium uppercase tracking-[0.12em] text-[#8A867F]">
+            <span>Client</span><span>Preparer</span><span>Reviewer</span><span>Status</span><span>Programs</span><span>Client wait</span><span>Blocked</span><span>Ready</span><span>Overdue</span><span>Review points</span><span>Next deadline</span><span>File</span>
           </div>
           {clients.map((client) => (
-            <div key={client.organization_id} className="grid grid-cols-[minmax(200px,1.5fr)_145px_145px_100px_90px_100px_95px_95px_100px_110px_130px] items-center gap-3 border-b border-black/[0.05] px-4 py-3 text-[11px] last:border-0">
+            <div key={client.organization_id} className={`grid grid-cols-[minmax(240px,1.5fr)_145px_145px_100px_90px_100px_95px_95px_100px_110px_130px_95px] items-center gap-3 border-b border-black/[0.05] px-4 py-3 text-[11px] last:border-0 ${selectedEngagementId === client.engagement_id ? "bg-[#A37849]/[0.05]" : ""}`}>
               <div className="min-w-0">
-                <div className="truncate font-semibold text-[#37342F]">{client.name}</div>
+                <button type="button" onClick={() => setSelectedEngagementId(client.engagement_id)} className="block max-w-full text-left">
+                  <div className="truncate font-semibold text-[#37342F] hover:text-[#8A633C]">{client.name}</div>
+                </button>
                 <div className="mt-0.5 flex items-center gap-2 truncate text-[9px] text-[#908B83]">
                   <Users size={10} /> {client.service_package || "Engagement"}
                   <span>·</span>
@@ -189,10 +195,15 @@ export default function FinancePracticeControlTower({ organizationId }) {
               <div className={`tabular-nums ${(client.workload?.overdue || 0) > 0 ? "font-semibold text-[#9A533D]" : "text-[#5E5952]"}`}>{client.workload?.overdue || 0}</div>
               <div className={`tabular-nums ${(client.workload?.open_review_points || 0) > 0 ? "font-semibold text-[#9A533D]" : "text-[#5E5952]"}`}>{client.workload?.open_review_points || 0}</div>
               <div className="flex items-center gap-1.5 text-[#5E5952]"><CalendarClock size={11} className="text-[#9A744B]" />{client.next_deadline || "—"}</div>
+              <button type="button" onClick={() => setSelectedEngagementId(client.engagement_id)} className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#A37849]/20 bg-[#A37849]/[0.05] px-2 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#76583A] hover:bg-[#A37849]/[0.1]"><FolderOpen size={10} /> Open</button>
             </div>
           ))}
         </div>
       </div>
+
+      {selectedEngagementId ? (
+        <FinanceEngagementFile organizationId={organizationId} engagementId={selectedEngagementId} onClose={() => setSelectedEngagementId(null)} />
+      ) : null}
     </section>
   );
 }

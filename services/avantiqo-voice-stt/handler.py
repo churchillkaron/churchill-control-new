@@ -18,8 +18,14 @@ FOUNDATION_MODEL = os.getenv(
     "AVANTIQO_VOICE_STT_FOUNDATION_MODEL",
     EXPECTED_FOUNDATION_MODEL,
 ).strip()
+LOCAL_MODEL_PATH = Path(
+    os.getenv(
+        "AVANTIQO_VOICE_STT_LOCAL_MODEL_PATH",
+        "/opt/avantiqo/models/whisper-large-v3-turbo",
+    ).strip()
+)
 RUNTIME_ENTRYPOINT = "handler.py"
-RUNTIME_REVISION = "AVANTIQO_VOICE_STT_HANDLER_RUNTIME_PROBE_V1"
+RUNTIME_REVISION = "AVANTIQO_VOICE_STT_LOCAL_SNAPSHOT_V2"
 RUNTIME_PROBE_CONTRACT = "AVANTIQO_VOICE_STT_RUNTIME_PROBE_V1"
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float16 if DEVICE.startswith("cuda") else torch.float32
@@ -66,6 +72,19 @@ def _detected_language(result: Any) -> str | None:
     return None
 
 
+def _local_model_path() -> Path:
+    if FOUNDATION_MODEL != EXPECTED_FOUNDATION_MODEL:
+        raise RuntimeError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_UNSUPPORTED")
+    path = LOCAL_MODEL_PATH
+    required = (path / "config.json", path / "model.safetensors")
+    missing = [str(candidate) for candidate in required if not candidate.is_file()]
+    if missing:
+        raise RuntimeError(
+            f"AVANTIQO_VOICE_STT_LOCAL_MODEL_PATH_INCOMPLETE:{','.join(missing)}"
+        )
+    return path
+
+
 def _runtime_probe(data: dict[str, Any]) -> dict[str, Any]:
     if data.get("contract") != ENGINE_CONTRACT:
         raise ValueError("AVANTIQO_VOICE_ENGINE_CONTRACT_INVALID")
@@ -73,6 +92,7 @@ def _runtime_probe(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("AVANTIQO_VOICE_STT_CAPABILITY_INVALID")
     if _text(data.get("foundation_model")) != FOUNDATION_MODEL:
         raise ValueError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_MISMATCH")
+    local_model_path = _local_model_path()
     return {
         "status": "completed",
         "provider": "avantiqo-voice",
@@ -84,6 +104,8 @@ def _runtime_probe(data: dict[str, Any]) -> dict[str, Any]:
         "model": PRODUCT_MODEL,
         "foundation_model": FOUNDATION_MODEL,
         "foundation_model_expected": FOUNDATION_MODEL == EXPECTED_FOUNDATION_MODEL,
+        "local_model_path": str(local_model_path),
+        "local_model_path_ready": True,
         "capability": CAPABILITY,
         "device": DEVICE,
         "cuda_available": torch.cuda.is_available(),
@@ -104,16 +126,19 @@ def _recognizer():
     global _PIPELINE
     if _PIPELINE is not None:
         return _PIPELINE
-    if FOUNDATION_MODEL != EXPECTED_FOUNDATION_MODEL:
-        raise RuntimeError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_UNSUPPORTED")
+    local_model_path = _local_model_path()
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        FOUNDATION_MODEL,
+        str(local_model_path),
+        local_files_only=True,
         torch_dtype=DTYPE,
         low_cpu_mem_usage=True,
         use_safetensors=True,
     )
     model.to(DEVICE)
-    processor = AutoProcessor.from_pretrained(FOUNDATION_MODEL)
+    processor = AutoProcessor.from_pretrained(
+        str(local_model_path),
+        local_files_only=True,
+    )
     _PIPELINE = pipeline(
         "automatic-speech-recognition",
         model=model,
@@ -235,8 +260,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
 @runpod.serverless.register_fitness_check
 def check_worker():
-    if FOUNDATION_MODEL != EXPECTED_FOUNDATION_MODEL:
-        raise RuntimeError("AVANTIQO_VOICE_STT_FOUNDATION_MODEL_UNSUPPORTED")
+    _local_model_path()
     if not torch.cuda.is_available():
         raise RuntimeError("AVANTIQO_VOICE_STT_CUDA_REQUIRED")
 

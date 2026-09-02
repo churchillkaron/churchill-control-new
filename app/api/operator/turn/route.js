@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";

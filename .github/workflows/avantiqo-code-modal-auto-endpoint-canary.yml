@@ -35,15 +35,26 @@ jobs:
           import json, os
           name = os.environ["ENDPOINT_NAME"]
           data = json.load(open("/tmp/endpoints-before.json"))
-          text = json.dumps(data)
-          if name in text:
+          if name in json.dumps(data):
               raise SystemExit(f"AVANTIQO_CODE_AUTO_ENDPOINT_DUPLICATE:{name}")
           print("AVANTIQO_CODE_AUTO_ENDPOINT_DUPLICATE=false")
           PY
 
-      # Disposable isolated endpoint: same owned Qwen model, never production routing.
+      - name: Create ephemeral endpoint proxy token
+        run: |
+          set -euo pipefail
+          umask 077
+          python - <<'PY'
+          import modal
+          ws = modal.Workspace.from_context()
+          token = ws.proxy_tokens.create()
+          ws.proxy_tokens.allow(token.token_id, "main")
+          with open("/tmp/proxy-token-id", "w", encoding="utf-8") as f:
+              f.write(token.token_id)
+          print("AVANTIQO_CODE_AUTO_ENDPOINT_PROXY_TOKEN_CREATED=true")
+          PY
+
       - name: Create owned Qwen Code Auto Endpoint
-        id: create
         run: |
           set -euo pipefail
           modal endpoint create --name "${ENDPOINT_NAME}" --model "${MODEL_NAME}" \
@@ -64,20 +75,23 @@ jobs:
               def walk(value):
                   if isinstance(value, dict):
                       if name in json.dumps(value):
-                          for k, v in value.items():
+                          for v in value.values():
                               if isinstance(v, str) and v.startswith("https://") and "modal" in v:
                                   return v
                       for v in value.values():
                           found = walk(v)
-                          if found: return found
+                          if found:
+                              return found
                   elif isinstance(value, list):
                       for v in value:
                           found = walk(v)
-                          if found: return found
+                          if found:
+                              return found
                   return None
               url = walk(data)
               if url:
-                  open("/tmp/endpoint-url", "w").write(url.rstrip("/"))
+                  with open("/tmp/endpoint-url", "w", encoding="utf-8") as f:
+                      f.write(url.rstrip("/"))
                   print("AVANTIQO_CODE_AUTO_ENDPOINT_URL_RESOLVED=true")
                   raise SystemExit(0)
               time.sleep(5)
@@ -93,7 +107,7 @@ jobs:
           JSON
           python - <<'PY'
           import json, os, subprocess, time
-          url = open("/tmp/endpoint-url").read().strip() + "/v1/chat/completions"
+          url = open("/tmp/endpoint-url", encoding="utf-8").read().strip() + "/v1/chat/completions"
           def call(label):
               started = time.perf_counter()
               p = subprocess.run(
@@ -114,8 +128,11 @@ jobs:
               choices = body.get("choices") or []
               if not choices:
                   raise SystemExit(f"{label} no choices: {body}")
-              usage = body.get("usage") or {}
-              evidence = {"label": label, "client_seconds": elapsed, "usage": usage}
+              evidence = {
+                  "label": label,
+                  "client_seconds": elapsed,
+                  "usage": body.get("usage") or {},
+              }
               print("AVANTIQO_CODE_AUTO_ENDPOINT_PROBE=" + json.dumps(evidence, separators=(",", ":")))
               return evidence
           first = call("first")
@@ -132,6 +149,13 @@ jobs:
               raise SystemExit(f"AVANTIQO_CODE_AUTO_ENDPOINT_WARM_SLA_FAILED:{warm['client_seconds']}s")
           PY
 
-      - name: Stop disposable canary
+      - name: Stop disposable endpoint
         if: always()
         run: modal endpoint stop -y "${ENDPOINT_NAME}" || true
+
+      - name: Delete ephemeral proxy token
+        if: always()
+        run: |
+          if [ -f /tmp/proxy-token-id ]; then
+            modal workspace proxy-tokens delete -y "$(cat /tmp/proxy-token-id)" || true
+          fi

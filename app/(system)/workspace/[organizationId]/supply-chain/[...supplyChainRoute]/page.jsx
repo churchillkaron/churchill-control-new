@@ -3,35 +3,17 @@
 export const dynamic = "force-dynamic";
 
 import { notFound, useParams } from "next/navigation";
+
 import ERPEngine from "@/lib/platform/erp-engine/ERPRuntime";
-import {
-  getWorkspaceItemByRoute,
-} from "@/lib/platform/registry/erpRegistry";
+import { getWorkspaceItemByRoute } from "@/lib/platform/registry/erpRegistry";
 
 export default function SupplyChainDynamicCapabilityPage() {
-
   const params = useParams();
-
-  const routeParts =
-    params.supplyChainRoute || [];
-
-  const route =
-    `/${
-      routeParts.join("/")
-    }`;
-
-  console.log(
-    "SUPPLY CHAIN ROUTE DEBUG",
-    route
-  );
-
-  const capability =
-    getWorkspaceItemByRoute(route);
-
-  console.log(
-    "SUPPLY CHAIN CAPABILITY DEBUG",
-    capability
-  );
+  const routeParts = Array.isArray(params?.supplyChainRoute)
+    ? params.supplyChainRoute
+    : [];
+  const route = `/${routeParts.join("/")}`;
+  const capability = getWorkspaceItemByRoute(route);
 
   if (!capability) {
     notFound();
@@ -39,19 +21,9 @@ export default function SupplyChainDynamicCapabilityPage() {
 
   return (
     <ERPEngine
-
-      renderer={
-        capability?.runtime?.renderer ||
-        capability?.renderer
-      }
-
+      renderer={capability?.runtime?.renderer || capability?.renderer}
       capability={capability}
-
-      organizationId={
-        params.organizationId
-      }
-
+      organizationId={params.organizationId}
     />
   );
-
 }

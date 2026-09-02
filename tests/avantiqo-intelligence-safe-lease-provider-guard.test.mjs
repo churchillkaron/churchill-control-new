@@ -4,6 +4,9 @@ import test from "node:test";
 import {
   requireAvantiqoIntelligenceSafeLease,
 } from "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceSafeLeaseGuard.js";
+import {
+  buildIntelligenceModalDirectPayload,
+} from "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js";
 
 const canonicalProviderSource = fs.readFileSync(
   new URL(
@@ -126,6 +129,37 @@ test("expired Intelligence RunPod leases fail closed", () => {
   });
 });
 
+test("Intelligence text-only Modal payload omits all tool fields", () => {
+  const payload = buildIntelligenceModalDirectPayload({
+    capability: "ai.text.generate",
+    prompt: "hello",
+    temperature: 0.1,
+  }, {
+    organizationId: "org-test",
+    usageId: "usage-test",
+  }, "fast");
+
+  assert.equal(Object.prototype.hasOwnProperty.call(payload, "tools"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(payload, "tool_choice"), false);
+  assert.equal(payload.prompt, "hello");
+  assert.equal(payload.execution_lane, "fast");
+});
+
+test("Intelligence tool choice is preserved only when tools exist", () => {
+  const payload = buildIntelligenceModalDirectPayload({
+    capability: "ai.text.generate",
+    prompt: "use the tool",
+    tools: [{ type: "function", function: { name: "probe", parameters: { type: "object", properties: {} } } }],
+    tool_choice: { type: "function", function: { name: "probe" } },
+  }, {
+    organizationId: "org-test",
+    usageId: "usage-test",
+  }, "fast");
+
+  assert.equal(payload.tools.length, 1);
+  assert.deepEqual(payload.tool_choice, { type: "function", function: { name: "probe" } });
+});
+
 test("Intelligence primary lane mirrors working Audio direct Modal SDK transport", () => {
   assert.match(directRuntimeSource, /const APP_NAME = "avantiqo-intelligence-owned"/);
   assert.match(directRuntimeSource, /const DIRECT_TRANSPORT = "modal-js-sdk-function-call-v1"/);
@@ -138,10 +172,8 @@ test("Intelligence primary lane mirrors working Audio direct Modal SDK transport
   assert.match(directRuntimeSource, /modal_gpu:\s*"H100"/);
   assert.match(directRuntimeSource, /modal_volume_created:\s*false/);
   assert.match(directRuntimeSource, /runpod_inference_performed:\s*false/);
-  assert.match(directRuntimeSource, /const tools = Array\.isArray\(input\.tools\) && input\.tools\.length > 0 \? input\.tools : undefined/);
-  assert.match(directRuntimeSource, /const toolChoice = tools \? \(input\.tool_choice \|\| input\.toolChoice\) : undefined/);
-  assert.match(directRuntimeSource, /tool_choice:\s*toolChoice/);
-  assert.doesNotMatch(directRuntimeSource, /tool_choice:\s*input\.tool_choice \|\| input\.toolChoice/);
+  assert.match(directRuntimeSource, /buildIntelligenceModalDirectPayload/);
+  assert.match(directRuntimeSource, /TEXT_ONLY_TOOL_FIELDS_FORBIDDEN/);
   assert.doesNotMatch(directRuntimeSource, /AVANTIQO_INTELLIGENCE_MODAL_BASE_URL/);
   assert.doesNotMatch(directRuntimeSource, /AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN/);
 });

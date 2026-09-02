@@ -21,20 +21,23 @@ jobs:
           node-version: '24'
       - name: Install current Copilot CLI
         run: npm install -g @github/copilot
-      - name: Probe Codex via built-in GitHub token
+      - name: Probe strongest model entitlements
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COPILOT_AUTO_UPDATE: 'false'
         run: |
           set -uo pipefail
-          set +e
-          output="$(copilot --yolo -p 'Return exactly OK and nothing else.' -s --model=gpt-5.3-codex --no-custom-instructions --no-auto-update --no-color 2> /tmp/copilot-probe.err)"
-          code=$?
-          set -e
-          echo "COPILOT_PROBE_EXIT_CODE=$code"
-          echo "COPILOT_PROBE_STDOUT=$output"
-          echo "COPILOT_PROBE_STDERR_BEGIN"
-          cat /tmp/copilot-probe.err
-          echo "COPILOT_PROBE_STDERR_END"
-          test "$code" -eq 0
-          test "$output" = "OK"
+          any=0
+          for model in gpt-5.3-codex gpt-5.4 claude-opus-5 claude-opus-4.8 claude-sonnet-4.6; do
+            safe="${model//[^a-zA-Z0-9]/_}"
+            set +e
+            output="$(copilot --yolo -p 'Return exactly OK and nothing else.' -s --model="$model" --no-custom-instructions --no-auto-update --no-color 2> "/tmp/${safe}.err")"
+            code=$?
+            set -e
+            detail="$(tr '\n' ' ' < "/tmp/${safe}.err" | head -c 500)"
+            echo "COPILOT_MODEL_PROBE model=$model exit=$code stdout=$output stderr=$detail"
+            if [ "$code" -eq 0 ] && [ "$output" = "OK" ]; then
+              any=1
+            fi
+          done
+          test "$any" -eq 1

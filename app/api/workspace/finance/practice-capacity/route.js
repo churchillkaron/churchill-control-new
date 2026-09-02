@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
+import { planRecurringAccountingCycles } from "@/lib/finance/practice/recurringCyclePlanner";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -10,12 +11,14 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 const OPEN_ITEM_STATUSES = ["NOT_STARTED", "READY", "IN_PROGRESS", "WAITING_ON_CLIENT", "BLOCKED", "READY_FOR_REVIEW", "CHANGES_REQUESTED"];
 const RISK_RANK = { OVERLOADED: 0, HIGH: 1, WATCH: 2, HEALTHY: 3 };
+const FORECAST_WINDOWS = [30, 60, 90];
 
 function clean(value) { return String(value ?? "").trim(); }
 function jsonError(message, status = 400) { return NextResponse.json({ success: false, error: message }, { status }); }
 function dateOnly(value) { return value ? String(value).slice(0, 10) : null; }
 function addDays(date, days) { const next = new Date(`${date}T00:00:00.000Z`); next.setUTCDate(next.getUTCDate() + days); return next.toISOString().slice(0, 10); }
 function hours(minutes) { return Math.round((Number(minutes || 0) / 60) * 10) / 10; }
+function percent(loadMinutes, availableMinutes) { return availableMinutes > 0 ? Math.round((loadMinutes / availableMinutes) * 1000) / 10 : loadMinutes > 0 ? 9900 : 0; }
 
 async function requireView(access) {
   await checkFinancePermission({ organizationId: access.organizationId, userId: access.user?.id, permissionKey: "finance.view", fullAccess: access.permissions?.includes("*") === true });
@@ -42,6 +45,134 @@ function capacityRisk(loadMinutes, availableMinutes) {
   return "HEALTHY";
 }
 
+function emptyLoad() {
+  return { minutes: 0, items: 0, overdue: 0, due_7_days: 0, due_14_days: 0, roles: new Set() };
+}
+
+function addLoad(target, { minutes, due, today, role }) {
+  target.minutes += Math.max(0, Number(minutes || 0));
+  target.items += 1;
+  if (due && due < today) target.overdue += 1;
+  if (due && due <= addDays(today, 7)) target.due_7_days += 1;
+  if (due && due <= addDays(today, 14)) target.due_14_days += 1;
+  if (target.roles && role) target.roles.add(role);
+}
+
+function assignedStaffForRole(profile, role) {
+  if (!profile) return null;
+  if (role === "PREPARER") return profile.assigned_accountant_id || null;
+  if (role === "REVIEWER") return profile.assigned_reviewer_id || null;
+  if (role === "PARTNER") return profile.assigned_partner_id || null;
+  return null;
+}
+
+function summarizeForecastWindow({ days, today, peopleBase, committedItems, forecastItems }) {
+  const end = addDays(today, days);
+  const weekCount = days / 7;
+  const committedByStaff = new Map();
+  const forecastByStaff = new Map();
+  const unassigned = { committed_minutes: 0, committed_items: 0, forecast_minutes: 0, forecast_items: 0 };
+  const clientMap = new Map();
+  const roleMap = new Map();
+
+  for (const item of committedItems) {
+    const due = dateOnly(item.due_at);
+    if (due && due > end) continue;
+    const minutes = Math.max(0, Number(item.budget_minutes || 0));
+    if (item.assigned_to) committedByStaff.set(item.assigned_to, (committedByStaff.get(item.assigned_to) || 0) + minutes);
+    else {
+      unassigned.committed_minutes += minutes;
+      unassigned.committed_items += 1;
+    }
+  }
+
+  for (const item of forecastItems) {
+    const due = dateOnly(item.due_at);
+    if (due && due > end) continue;
+    const minutes = Math.max(0, Number(item.budget_minutes || 0));
+    if (item.assigned_to) forecastByStaff.set(item.assigned_to, (forecastByStaff.get(item.assigned_to) || 0) + minutes);
+    else {
+      unassigned.forecast_minutes += minutes;
+      unassigned.forecast_items += 1;
+    }
+
+    const role = item.required_role || "UNSPECIFIED";
+    const roleRow = roleMap.get(role) || { role, forecast_minutes: 0, forecast_items: 0 };
+    roleRow.forecast_minutes += minutes;
+    roleRow.forecast_items += 1;
+    roleMap.set(role, roleRow);
+
+    const clientRow = clientMap.get(item.organization_id) || {
+      organization_id: item.organization_id,
+      client_name: item.client_name || "Client organization",
+      forecast_minutes: 0,
+      forecast_items: 0,
+      cycles: new Set(),
+    };
+    clientRow.forecast_minutes += minutes;
+    clientRow.forecast_items += 1;
+    if (item.idempotency_key) clientRow.cycles.add(item.idempotency_key);
+    clientMap.set(item.organization_id, clientRow);
+  }
+
+  const people = peopleBase.map((person) => {
+    const availableMinutes = Math.round(person.weekly_capacity_minutes * person.utilization_target * weekCount);
+    const committedMinutes = committedByStaff.get(person.staff_account_id) || 0;
+    const forecastMinutes = forecastByStaff.get(person.staff_account_id) || 0;
+    const totalMinutes = committedMinutes + forecastMinutes;
+    return {
+      staff_account_id: person.staff_account_id,
+      name: person.name,
+      role: person.role,
+      available_hours: hours(availableMinutes),
+      committed_hours: hours(committedMinutes),
+      forecast_hours: hours(forecastMinutes),
+      total_hours: hours(totalMinutes),
+      utilization: percent(totalMinutes, availableMinutes),
+      committed_utilization: percent(committedMinutes, availableMinutes),
+      risk: capacityRisk(totalMinutes, availableMinutes),
+      forecast_risk: capacityRisk(totalMinutes, availableMinutes),
+      capacity_configured: person.capacity_configured,
+    };
+  }).sort((a, b) =>
+    (RISK_RANK[a.risk] ?? 99) - (RISK_RANK[b.risk] ?? 99) ||
+    b.utilization - a.utilization ||
+    a.name.localeCompare(b.name)
+  );
+
+  const availableMinutes = people.reduce((sum, row) => sum + row.available_hours * 60, 0);
+  const committedMinutes = people.reduce((sum, row) => sum + row.committed_hours * 60, 0) + unassigned.committed_minutes;
+  const forecastMinutes = people.reduce((sum, row) => sum + row.forecast_hours * 60, 0) + unassigned.forecast_minutes;
+  const totalMinutes = committedMinutes + forecastMinutes;
+
+  return {
+    days,
+    start: today,
+    end,
+    summary: {
+      available_hours: hours(availableMinutes),
+      committed_hours: hours(committedMinutes),
+      forecast_hours: hours(forecastMinutes),
+      total_hours: hours(totalMinutes),
+      projected_utilization: percent(totalMinutes, availableMinutes),
+      projected_overloaded_people: people.filter((row) => row.risk === "OVERLOADED").length,
+      projected_high_load_people: people.filter((row) => ["OVERLOADED", "HIGH"].includes(row.risk)).length,
+      unassigned_committed_hours: hours(unassigned.committed_minutes),
+      unassigned_forecast_hours: hours(unassigned.forecast_minutes),
+      unassigned_forecast_items: unassigned.forecast_items,
+    },
+    people,
+    roles: [...roleMap.values()].map((row) => ({ ...row, forecast_hours: hours(row.forecast_minutes) })).sort((a, b) => b.forecast_minutes - a.forecast_minutes),
+    clients: [...clientMap.values()].map((row) => ({
+      organization_id: row.organization_id,
+      client_name: row.client_name,
+      forecast_hours: hours(row.forecast_minutes),
+      forecast_items: row.forecast_items,
+      cycles: row.cycles.size,
+    })).sort((a, b) => b.forecast_hours - a.forecast_hours),
+  };
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -53,30 +184,54 @@ export async function GET(request) {
 
     const today = new Date().toISOString().slice(0, 10);
     const horizonEnd = addDays(today, horizonDays);
+    const forecastEnd = addDays(today, 90);
     const weekCount = horizonDays / 7;
 
-    const [itemsResult, profilesResult, capacityResult] = await Promise.all([
+    const [itemsResult, profilesResult, capacityResult, recurringPlan] = await Promise.all([
       supabaseAdmin.from("accounting_engagement_work_items")
         .select("id,organization_id,entity_id,run_id,title,required_role,assigned_to,status,due_at,budget_minutes,scheduled_start_at,scheduled_end_at")
-        .eq("accounting_firm_id", access.organizationId).in("status", OPEN_ITEM_STATUSES).lte("due_at", `${horizonEnd}T23:59:59.999Z`).order("due_at", { ascending: true, nullsFirst: false }).limit(10000),
+        .eq("accounting_firm_id", access.organizationId).in("status", OPEN_ITEM_STATUSES).lte("due_at", `${forecastEnd}T23:59:59.999Z`).order("due_at", { ascending: true, nullsFirst: false }).limit(10000),
       supabaseAdmin.from("accounting_client_profiles")
         .select("organization_id,assigned_accountant_id,assigned_accountant_name,assigned_reviewer_id,assigned_reviewer_name,assigned_partner_id,assigned_partner_name")
         .eq("accounting_firm_id", access.organizationId),
       supabaseAdmin.from("accounting_practice_staff_capacity")
         .select("staff_account_id,display_name,primary_role,skill_keys,weekly_capacity_minutes,utilization_target,effective_from,effective_to,status")
-        .eq("accounting_firm_id", access.organizationId).eq("status", "ACTIVE").lte("effective_from", horizonEnd),
+        .eq("accounting_firm_id", access.organizationId).eq("status", "ACTIVE").lte("effective_from", forecastEnd),
+      planRecurringAccountingCycles({ accountingFirmId: access.organizationId, horizonDays: 90 }),
     ]);
     if (itemsResult.error) throw itemsResult.error;
     if (profilesResult.error) throw profilesResult.error;
     if (capacityResult.error) throw capacityResult.error;
 
-    const items = itemsResult.data || [];
+    const allItems = itemsResult.data || [];
+    const items = allItems.filter((item) => !dateOnly(item.due_at) || dateOnly(item.due_at) <= horizonEnd);
     const profiles = profilesResult.data || [];
+    const profileMap = new Map(profiles.map((row) => [row.organization_id, row]));
     const explicitCapacities = (capacityResult.data || []).filter((row) => !row.effective_to || row.effective_to >= today);
     const staffIds = new Set();
     for (const profile of profiles) for (const id of [profile.assigned_accountant_id, profile.assigned_reviewer_id, profile.assigned_partner_id]) if (id) staffIds.add(id);
-    for (const item of items) if (item.assigned_to) staffIds.add(item.assigned_to);
+    for (const item of allItems) if (item.assigned_to) staffIds.add(item.assigned_to);
     for (const row of explicitCapacities) if (row.staff_account_id) staffIds.add(row.staff_account_id);
+
+    const forecastItems = [];
+    for (const candidate of recurringPlan.candidates || []) {
+      if (candidate.status !== "READY_TO_CREATE") continue;
+      const profile = profileMap.get(candidate.organization_id);
+      for (const step of candidate.forecast?.work_items || []) {
+        if (!step.staff_capacity) continue;
+        forecastItems.push({
+          idempotency_key: candidate.idempotency_key,
+          organization_id: candidate.organization_id,
+          client_name: candidate.client_name,
+          template_id: candidate.template_id,
+          run_key: candidate.run_key,
+          required_role: step.required_role,
+          budget_minutes: step.budget_minutes,
+          due_at: step.due_at,
+          assigned_to: assignedStaffForRole(profile, step.required_role),
+        });
+      }
+    }
 
     const { data: staffRows, error: staffError } = staffIds.size
       ? await supabaseAdmin.from("staff_accounts").select("id,name,email,position,role,department,active").in("id", [...staffIds])
@@ -102,20 +257,15 @@ export async function GET(request) {
     for (const item of items) {
       const minutes = Math.max(0, Number(item.budget_minutes || 0));
       const due = dateOnly(item.due_at);
-      const target = item.assigned_to ? (loadByStaff.get(item.assigned_to) || { minutes: 0, items: 0, overdue: 0, due_7_days: 0, due_14_days: 0, roles: new Set() }) : unassigned;
-      target.minutes += minutes;
-      target.items += 1;
-      if (due && due < today) target.overdue += 1;
-      if (due && due <= addDays(today, 7)) target.due_7_days += 1;
-      if (due && due <= addDays(today, 14)) target.due_14_days += 1;
-      if (target.roles) target.roles.add(item.required_role);
+      const target = item.assigned_to ? (loadByStaff.get(item.assigned_to) || emptyLoad()) : unassigned;
+      addLoad(target, { minutes, due, today, role: item.required_role });
       if (item.assigned_to) loadByStaff.set(item.assigned_to, target);
     }
 
     const people = [...staffIds].map((staffId) => {
       const staff = staffMap.get(staffId) || {};
       const capacity = capacityMap.get(staffId) || {};
-      const load = loadByStaff.get(staffId) || { minutes: 0, items: 0, overdue: 0, due_7_days: 0, due_14_days: 0, roles: new Set() };
+      const load = loadByStaff.get(staffId) || emptyLoad();
       const weeklyCapacity = Number(capacity.weekly_capacity_minutes ?? 2400);
       const utilizationTarget = Number(capacity.utilization_target ?? 0.85);
       const availableMinutes = Math.round(weeklyCapacity * utilizationTarget * weekCount);
@@ -124,6 +274,7 @@ export async function GET(request) {
         staff_account_id: staffId,
         name: capacity.display_name || nameHints.get(staffId) || staff.name || staff.email || "Accounting team member",
         role: capacity.primary_role || roleHints.get(staffId) || String(staff.position || staff.role || "PREPARER").toUpperCase(),
+        weekly_capacity_minutes: weeklyCapacity,
         weekly_capacity_hours: hours(weeklyCapacity),
         utilization_target: utilizationTarget,
         available_hours: hours(availableMinutes),
@@ -157,6 +308,19 @@ export async function GET(request) {
       if (person.risk === "OVERLOADED") roleSummary[role].overloaded += 1;
     }
 
+    const peopleBase = people.map((person) => ({
+      staff_account_id: person.staff_account_id,
+      name: person.name,
+      role: person.role,
+      weekly_capacity_minutes: person.weekly_capacity_minutes,
+      utilization_target: person.utilization_target,
+      capacity_configured: person.capacity_configured,
+    }));
+    const forecastWindows = Object.fromEntries(FORECAST_WINDOWS.map((days) => [
+      String(days),
+      summarizeForecastWindow({ days, today, peopleBase, committedItems: allItems, forecastItems }),
+    ]));
+
     return NextResponse.json({
       success: true,
       horizon: { start: today, end: horizonEnd, days: horizonDays },
@@ -173,6 +337,14 @@ export async function GET(request) {
       },
       roles: roleSummary,
       people,
+      forecast: {
+        source: "governed_recurring_plan",
+        materialized: false,
+        ready_cycles: (recurringPlan.candidates || []).filter((candidate) => candidate.status === "READY_TO_CREATE").length,
+        blocked_cycles: (recurringPlan.candidates || []).filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status)).length,
+        staff_budget_hours: hours(forecastItems.reduce((sum, row) => sum + Number(row.budget_minutes || 0), 0)),
+        windows: forecastWindows,
+      },
       generated_at: new Date().toISOString(),
     });
   } catch (error) {

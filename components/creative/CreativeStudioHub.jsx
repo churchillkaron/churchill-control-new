@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import CreativeAgencyWorkQueue from "@/components/creative/CreativeAgencyWorkQueue";
 import { getWorkspaceGroups } from "@/lib/platform/registry/erpRegistry";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
 
@@ -154,6 +155,8 @@ export default function CreativeStudioHub({ organizationId }) {
             </Link>
           </section>
         ) : null}
+
+        <CreativeAgencyWorkQueue organizationId={organizationId} />
 
         <section className="mt-10">
           <div className="flex flex-col gap-2 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-end sm:justify-between">

@@ -6,6 +6,10 @@ const runtime = fs.readFileSync(
   new URL("../lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js", import.meta.url),
   "utf8",
 );
+const replayGuard = fs.readFileSync(
+  new URL("../lib/intelligence/runtime/AvantiqoToolCallReplayGuardRuntime.mjs", import.meta.url),
+  "utf8",
+);
 const registry = fs.readFileSync(
   new URL("../lib/intelligence/runtime/IntelligenceToolRegistry.js", import.meta.url),
   "utf8",
@@ -66,12 +70,13 @@ test("provider registration permits only development review bypass and advertise
   assert.match(providerRegistration, /inference_control:\s*"AVANTIQO"/);
 });
 
-test("reasoning loop is bounded and rejects tool replay", () => {
+test("reasoning loop remains bounded and replay protection is fail-closed", () => {
   assert.match(runtime, /MAX_TURNS = 20/);
   assert.match(runtime, /MAX_TOOL_CALLS = 64/);
   assert.match(runtime, /AVANTIQO_INTELLIGENCE_TOOL_CALL_LIMIT_EXCEEDED/);
   assert.match(runtime, /AVANTIQO_INTELLIGENCE_REASONING_TURN_LIMIT_EXCEEDED/);
-  assert.match(runtime, /AVANTIQO_INTELLIGENCE_TOOL_CALL_REPLAY_DETECTED/);
+  assert.match(replayGuard, /AVANTIQO_INTELLIGENCE_TOOL_CALL_REPLAY_DETECTED/);
+  assert.match(replayGuard, /assertNoDuplicateToolCallIdsWithinTurn/);
 });
 
 test("reasoning loop requires organization scope and feeds tool results back", () => {

@@ -9,15 +9,25 @@ from pathlib import Path
 from typing import Any
 
 import modal
-import modal_owned_head_to_head as base
 
-# Certification marker: changing this file intentionally triggers the V2 workflow.
 CONTRACT = "AVANTIQO_CODE_OWNED_HEAD_TO_HEAD_V2"
 QUALITY_POLICY_VERSION = "AVANTIQO_CODE_DEBUG_QUALITY_POLICY_V2"
+PRODUCT_MODEL = "avantiqo-code-v1"
+FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+BASE_IMAGE_ID = "im-jAkmG5niafDQsnuSUxak9c"
 OUTPUT_PATH = Path("artifacts/avantiqo-code-owned-head-to-head-v2.json")
 
 app = modal.App("avantiqo-code-owned-head-to-head-v2")
-image = base.image
+image = modal.Image.from_id(BASE_IMAGE_ID).env(
+    {
+        "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
+        "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+        "VLLM_USE_FLASHINFER_SAMPLER": "0",
+        "AVANTIQO_CODE_MAX_NEW_TOKENS": "768",
+        "AVANTIQO_CODE_REQUIRE_CACHED_MODEL": "1",
+    }
+)
 
 
 def _candidate_internal_prompt(data: dict[str, Any]) -> str:
@@ -89,6 +99,13 @@ def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
 def main() -> None:
     if str(os.environ.get("NODE_ENV") or "").strip().lower() == "production":
         raise RuntimeError(f"{CONTRACT}_PRODUCTION_ENV_FORBIDDEN")
+
+    # Local-only import: this module contains the canonical six tasks and test
+    # helpers, but it must never be a remote container dependency. Modal mounts
+    # only this V2 service file for run_owned_batch; keeping the import inside the
+    # local entrypoint prevents the previous remote crash loop.
+    import modal_owned_head_to_head as base
+
     batch = run_owned_batch.remote([base._request(task) for task in base.TASKS])
     outputs = batch.get("outputs") if isinstance(batch, dict) else None
     if not isinstance(outputs, list) or len(outputs) != len(base.TASKS):
@@ -97,9 +114,9 @@ def main() -> None:
         raise RuntimeError(f"{CONTRACT}_QUALITY_POLICY_NOT_PROVEN")
     results = []
     for task, output in zip(base.TASKS, outputs):
-        if output.get("provider") != "avantiqo-code" or output.get("model") != base.PRODUCT_MODEL:
+        if output.get("provider") != "avantiqo-code" or output.get("model") != PRODUCT_MODEL:
             raise RuntimeError(f"{CONTRACT}_OWNED_IDENTITY_INVALID:{task['id']}")
-        if output.get("foundation_model") != base.FOUNDATION_MODEL or output.get("runtime_model") != base.RUNTIME_MODEL:
+        if output.get("foundation_model") != FOUNDATION_MODEL or output.get("runtime_model") != RUNTIME_MODEL:
             raise RuntimeError(f"{CONTRACT}_OWNED_MODEL_INVALID:{task['id']}")
         if output.get("raw_reasoning_persisted") is not False:
             raise RuntimeError(f"{CONTRACT}_RAW_REASONING_FORBIDDEN:{task['id']}")
@@ -129,9 +146,9 @@ def main() -> None:
         print("AVANTIQO_OWNED_V2_BENCHMARK_RESULT=" + json.dumps(row, separators=(",", ":")), flush=True)
     summary = {
         "contract": CONTRACT,
-        "model": base.PRODUCT_MODEL,
-        "foundation_model": base.FOUNDATION_MODEL,
-        "runtime_model": base.RUNTIME_MODEL,
+        "model": PRODUCT_MODEL,
+        "foundation_model": FOUNDATION_MODEL,
+        "runtime_model": RUNTIME_MODEL,
         "quality_policy": QUALITY_POLICY_VERSION,
         "passed": sum(1 for row in results if row["passed"]),
         "total": len(results),

@@ -184,9 +184,14 @@ export async function GET(request) {
   } catch (error) {
     console.error("OPERATOR_CONVERSATION_LOAD_ERROR", error);
 
+    const status = Number.isInteger(error?.status) ? error.status : 500;
+    const isClientError = status >= 400 && status < 500;
+
     return errorResponse(
-      error?.message || "Avantiqo conversation load failed",
-      error?.status || 500,
+      isClientError
+        ? text(error?.message) || "Invalid operator request"
+        : "Avantiqo conversation load failed",
+      isClientError ? status : 500,
     );
   }
 }
@@ -522,9 +527,14 @@ export async function POST(request) {
   } catch (error) {
     console.error("OPERATOR_TURN_ERROR", error);
 
+    const status = Number.isInteger(error?.status) ? error.status : 500;
+    const isClientError = status >= 400 && status < 500;
+
     return errorResponse(
-      error?.message || "Avantiqo Operator failed",
-      error?.status || 500,
+      isClientError
+        ? text(error?.message) || "Invalid operator request"
+        : "Avantiqo Intelligence is temporarily unavailable. Please retry shortly.",
+      isClientError ? status : 500,
     );
   }
 }

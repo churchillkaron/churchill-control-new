@@ -1,0 +1,122 @@
+name: Avantiqo Image Modal Direct Function Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-image-modal-direct-deploy.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-image-modal-direct-function-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-image-direct-function:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Zero-cost direct-function source gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
+          node --check lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js
+          node --test tests/avantiqo-image-modal-direct-transport.test.mjs
+          python -m py_compile services/avantiqo-image-engine/modal_app.py
+          grep -Fq 'APP_NAME = "avantiqo-image-owned"' services/avantiqo-image-engine/modal_app.py
+          grep -Fq 'def generate(' services/avantiqo-image-engine/modal_app.py
+          grep -Fq 'gpu="A100-80GB"' services/avantiqo-image-engine/modal_app.py
+          grep -Fq 'min_containers=0' services/avantiqo-image-engine/modal_app.py
+          grep -Fq 'max_containers=1' services/avantiqo-image-engine/modal_app.py
+          grep -Fq 'buffer_containers=0' services/avantiqo-image-engine/modal_app.py
+          grep -Fq 'scaledown_window=5' services/avantiqo-image-engine/modal_app.py
+          grep -Fq 'Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=False)' services/avantiqo-image-engine/modal_app.py
+          grep -Fq 'transportMode: "direct-sdk"' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
+          grep -Fq 'jobPrefix: "modal-image-direct:"' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
+          grep -Fq 'owned_only_required: true' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js
+          grep -Fq 'external_provider_fallback_allowed: false' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js
+          ! grep -Fq 'AVANTIQO_IMAGE_MODAL_BASE_URL' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
+          ! grep -Fq 'AVANTIQO_IMAGE_MODAL_GATEWAY_TOKEN' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
+          echo 'AVANTIQO_IMAGE_MODAL_DIRECT_STATIC_GATE=PASS'
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+
+      - name: Require Modal deployment credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'AVANTIQO_IMAGE_MODAL_DIRECT_DEPLOY_CREDENTIALS=PASS'
+
+      - name: Recreate Image direct-function deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-image-engine
+          modal deploy --strategy recreate modal_app.py
+          echo 'AVANTIQO_IMAGE_MODAL_DIRECT_FUNCTION_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'MODEL_VOLUME_CREATED=false'
+
+      - name: Verify deployed direct function is idle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import modal
+
+          app_name = "avantiqo-image-owned"
+          fn = modal.Function.from_name(app_name, "generate")
+          stats = fn.get_current_stats()
+          backlog = int(getattr(stats, "backlog", 0) or 0)
+          runners = int(getattr(stats, "num_total_runners", 0) or 0)
+          if backlog != 0 or runners != 0:
+              raise RuntimeError(
+                  f"AVANTIQO_IMAGE_MODAL_DIRECT_POST_DEPLOY_NOT_IDLE:generate:"
+                  f"backlog={backlog}:runners={runners}"
+              )
+          print(f"AVANTIQO_IMAGE_MODAL_DIRECT_POST_DEPLOY_IDLE=PASS backlog={backlog} runners={runners}")
+          print("GPU_INFERENCE_PERFORMED=false")
+          PY
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'IMAGE_PRICING_ACTIVATED=false'
+          echo 'IMAGE_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'
+          echo 'PAID_IMAGE_JOB_SUBMITTED=false'
+          echo 'MODAL_CPU_GATEWAY_USED=false'
+          echo 'NEW_IMAGE_MODEL_VOLUME_CREATED=false'

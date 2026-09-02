@@ -32,6 +32,7 @@ jobs:
       - name: Zero-cost syntax gate
         run: python -m py_compile services/avantiqo-code-engine/modal_warm_reuse_canary.py
 
+      # One H100 canary only: cold first call, immediate warm second call.
       - name: Run exact proven-flow warm reuse canary
         run: |
           set -euo pipefail

@@ -2,6 +2,8 @@
 name: Avantiqo Intelligence Modal Governed Deploy
 
 on:
+  issues:
+    types: [opened]
   push:
     branches: [main]
     paths:
@@ -19,6 +21,7 @@ concurrency:
 
 jobs:
   deploy-intelligence-runtime:
+    if: ${{ github.event_name != 'issues' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_DEPLOY_20260902' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -26,10 +29,10 @@ jobs:
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
 
     steps:
-      - name: Checkout exact deployment commit
+      - name: Checkout exact deployment source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'issues' && 'main' || github.sha }}
           fetch-depth: 1
 
       - name: Set up Python 3.12
@@ -70,9 +73,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          deploy_sha="$(git rev-parse HEAD)"
           fingerprint="$(sha256sum services/avantiqo-intelligence-modal/modal_app.py | awk '{print $1}')"
+          test -n "${deploy_sha}"
           test -n "${fingerprint}"
-          echo "AVANTIQO_INTELLIGENCE_DEPLOY_GIT_SHA=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "AVANTIQO_INTELLIGENCE_DEPLOY_GIT_SHA=${deploy_sha}" >> "$GITHUB_ENV"
           echo "AVANTIQO_INTELLIGENCE_DEPLOY_SOURCE_FINGERPRINT=${fingerprint}" >> "$GITHUB_ENV"
           echo "AVANTIQO_INTELLIGENCE_RUNTIME_PROBE_NAME=runtime_probe_${fingerprint:0:16}" >> "$GITHUB_ENV"
           echo "AVANTIQO_INTELLIGENCE_MODAL_PROVENANCE_READY=PASS"

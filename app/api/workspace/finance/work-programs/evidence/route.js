@@ -12,6 +12,7 @@ const MANAGE_PERMISSIONS = [
   "finance.close.execute",
   "finance.configuration.manage",
 ];
+const EVIDENCE_MUTABLE_ITEM_STATUSES = new Set(["NOT_STARTED", "READY", "IN_PROGRESS", "CHANGES_REQUESTED", "BLOCKED"]);
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -97,6 +98,38 @@ async function loadDocument(run, documentId) {
   return data || null;
 }
 
+function requireEvidenceMutable(item) {
+  if (!EVIDENCE_MUTABLE_ITEM_STATUSES.has(String(item?.status || "").toUpperCase())) {
+    const error = new Error("Evidence cannot change after a work item enters review or completes; request changes first");
+    error.status = 409;
+    throw error;
+  }
+}
+
+async function invalidateSystemGate(item, reason) {
+  const now = new Date().toISOString();
+  const priorGate = item?.metadata?.system_gate && typeof item.metadata.system_gate === "object"
+    ? item.metadata.system_gate
+    : {};
+  const metadata = {
+    ...(item.metadata || {}),
+    system_gate: {
+      ...priorGate,
+      applicable: true,
+      satisfied: false,
+      invalidated_at: now,
+      invalidated_reason: reason,
+      checked_at: null,
+    },
+  };
+  const { error } = await supabaseAdmin
+    .from("accounting_engagement_work_items")
+    .update({ metadata, blocked_reason: "Evidence changed; system verification required", updated_at: now })
+    .eq("id", item.id)
+    .eq("accounting_firm_id", item.accounting_firm_id);
+  if (error) throw error;
+}
+
 async function audit(access, action, entityId, metadata) {
   const { error } = await supabaseAdmin.from("organization_audit_logs").insert({
     organization_id: access.organizationId,
@@ -175,6 +208,7 @@ export async function POST(request) {
     if (scoped.error) return jsonError(scoped.error, scoped.status);
     const { item, run } = scoped;
     if (run.locked_at) return jsonError("Completed work program is locked", 409);
+    requireEvidenceMutable(item);
     if (item.capability_id !== "documents") return jsonError("This work item does not accept classified document evidence", 409);
 
     const categories = configuredCategories(item);
@@ -219,6 +253,7 @@ export async function POST(request) {
       .single();
     if (insertError) throw insertError;
 
+    await invalidateSystemGate(item, "EVIDENCE_LINK_CHANGED");
     await audit(access, "ACCOUNTING_EVIDENCE_LINKED", link.id, {
       run_id: run.id,
       work_item_id: item.id,
@@ -230,10 +265,10 @@ export async function POST(request) {
       no_external_message: true,
     });
 
-    return NextResponse.json({ success: true, idempotent: false, evidence_link: link, document, no_external_message: true });
+    return NextResponse.json({ success: true, idempotent: false, evidence_link: link, document, verification_invalidated: true, no_external_message: true });
   } catch (error) {
     const message = error?.message || "Unable to link accounting evidence";
-    return jsonError(message, /permission denied/i.test(message) ? 403 : 500);
+    return jsonError(message, error?.status || (/permission denied/i.test(message) ? 403 : 500));
   }
 }
 
@@ -260,6 +295,7 @@ export async function DELETE(request) {
     const scoped = await loadScopedWorkItem(access, link.work_item_id);
     if (scoped.error) return jsonError(scoped.error, scoped.status);
     if (scoped.run.locked_at) return jsonError("Completed work program is locked", 409);
+    requireEvidenceMutable(scoped.item);
     if (link.status !== "ACTIVE") return NextResponse.json({ success: true, idempotent: true, evidence_link: link, no_external_message: true });
 
     const { data: updated, error: updateError } = await supabaseAdmin
@@ -271,6 +307,7 @@ export async function DELETE(request) {
       .single();
     if (updateError) throw updateError;
 
+    await invalidateSystemGate(scoped.item, "EVIDENCE_LINK_CHANGED");
     await audit(access, "ACCOUNTING_EVIDENCE_UNLINKED", link.id, {
       run_id: link.run_id,
       work_item_id: link.work_item_id,
@@ -279,9 +316,9 @@ export async function DELETE(request) {
       no_external_message: true,
     });
 
-    return NextResponse.json({ success: true, idempotent: false, evidence_link: updated, no_external_message: true });
+    return NextResponse.json({ success: true, idempotent: false, evidence_link: updated, verification_invalidated: true, no_external_message: true });
   } catch (error) {
     const message = error?.message || "Unable to unlink accounting evidence";
-    return jsonError(message, /permission denied/i.test(message) ? 403 : 500);
+    return jsonError(message, error?.status || (/permission denied/i.test(message) ? 403 : 500));
   }
 }

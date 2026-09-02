@@ -23,17 +23,15 @@ const OWNER_LEVEL_ROLES = new Set([
   "SUPER_ADMIN",
 ]);
 
-const ASSIGNABLE_STAFF_ROLES = new Set([
-  "WAITER",
-  "BAR",
-  "KITCHEN",
-  "ACCOUNTING",
-  "MANAGER",
-  "OWNER",
-]);
+const NEUTRAL_BASE_ROLES = ["STAFF", "MANAGER", "OWNER"];
+const ROLE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/;
 
 function normalizeRole(value) {
-  return String(value || "").trim().toUpperCase();
+  return String(value || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+}
+
+function validRole(value) {
+  return ROLE_PATTERN.test(normalizeRole(value));
 }
 
 function resolveRedirectOrigin(request) {
@@ -89,6 +87,48 @@ async function managementContext(request) {
   };
 }
 
+async function organizationRoleCatalog(organizationId, staff = []) {
+  const [{ data: memberships, error: membershipError }, { data: permissionRows, error: permissionError }] = await Promise.all([
+    supabaseAdmin
+      .from("organization_users")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .limit(5000),
+    supabaseAdmin
+      .from("role_permissions")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .limit(5000),
+  ]);
+
+  if (membershipError) throw membershipError;
+  if (permissionError) throw permissionError;
+
+  const roles = new Set(NEUTRAL_BASE_ROLES);
+  for (const row of staff || []) {
+    const role = normalizeRole(row?.role);
+    if (validRole(role)) roles.add(role);
+  }
+  for (const row of memberships || []) {
+    const role = normalizeRole(row?.role);
+    if (validRole(role)) roles.add(role);
+  }
+  for (const row of permissionRows || []) {
+    const role = normalizeRole(row?.role);
+    if (validRole(role)) roles.add(role);
+  }
+
+  return [...roles].sort((left, right) => {
+    if (left === "STAFF") return -1;
+    if (right === "STAFF") return 1;
+    if (left === "MANAGER") return -1;
+    if (right === "MANAGER") return 1;
+    if (left === "OWNER") return 1;
+    if (right === "OWNER") return -1;
+    return left.localeCompare(right);
+  });
+}
+
 export async function GET(request) {
   try {
     const context = await managementContext(request);
@@ -102,10 +142,13 @@ export async function GET(request) {
 
     if (error) throw error;
 
+    const roleOptions = await organizationRoleCatalog(context.organizationId, staff || []);
+
     return NextResponse.json({
       success: true,
       organizationId: context.organizationId,
       actingRole: context.actingRole,
+      roleOptions,
       staff: staff || [],
     });
   } catch (error) {
@@ -136,9 +179,9 @@ export async function POST(request) {
       );
     }
 
-    if (!ASSIGNABLE_STAFF_ROLES.has(role)) {
+    if (!validRole(role)) {
       return NextResponse.json(
-        { success: false, error: "Role is not assignable through organization staff management" },
+        { success: false, error: "Role must be a valid organization role identifier" },
         { status: 400 }
       );
     }

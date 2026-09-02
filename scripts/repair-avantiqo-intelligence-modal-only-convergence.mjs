@@ -40,6 +40,9 @@ patchFile("lib/operator/runtime/OperatorReasoningRuntime.js", (source) => {
 });
 
 patchFile("app/api/operator/turn/route.js", (source) => {
+  if (/export const runtime\s*=\s*[\"']nodejs[\"']/.test(source)) {
+    throw new Error(`${CONTRACT}_OPERATOR_ROUTE_NODE_RUNTIME_ALREADY_PRESENT`);
+  }
   if (/export const maxDuration\s*=/.test(source)) {
     throw new Error(`${CONTRACT}_OPERATOR_ROUTE_MAX_DURATION_ALREADY_PRESENT`);
   }
@@ -74,42 +77,210 @@ patchFile("lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime.js", (
   return next;
 });
 
-patchFile("scripts/avantiqo-learning-worldclass-phase4-audit.mjs", (source) => {
-  let next = replaceAll(
-    source,
-    'child: "scripts/run-avantiqo-learning-mechanism-synthesis-child-local.mjs",\n  leasePolicy: "config/avantiqo-runpod-safe-lease-policy.json",',
-    'child: "scripts/run-avantiqo-learning-mechanism-synthesis-modal-child-local.mjs",',
-    "AUDIT_CHILD_PATH",
-  );
-  next = replaceExact(
-    next,
-    "const [mechanism, policy, route, child, leasePolicy, index] =\n  await Promise.all(Object.values(files).map(source));",
-    "const [mechanism, policy, route, child, index] =\n  await Promise.all(Object.values(files).map(source));",
-    "AUDIT_LOAD_SHAPE",
-  );
-  next = replaceAll(next, "READY_FOR_SAFE_LEASE_SYNTHESIS", "READY_FOR_MODAL_SYNTHESIS", "AUDIT_READY_STATE");
-  next = replaceAll(next, 'synthesis_execution_lane: "intelligence-deep"', 'synthesis_execution_lane: "deep"', "AUDIT_LANE");
-  next = replaceAll(next, 'synthesis_safe_lease_contract: "AVANTIQO_RUNPOD_SAFE_LEASE_V2"', 'synthesis_runtime_contract: "AVANTIQO_INTELLIGENCE_MODAL_H100_V1"', "AUDIT_RUNTIME_CONTRACT");
-  next = replaceAll(next, "automatic_runpod_submission: false", "automatic_non_modal_submission: false", "AUDIT_NON_MODAL_GUARD");
-  next = replaceAll(next, "AVANTIQO_RUNPOD_SAFE_LEASE_V2", "AVANTIQO_INTELLIGENCE_MODAL_H100_V1", "AUDIT_CONTRACT_NAME");
-  next = replaceAll(next, "Safe-Lease Learning synthesis child", "Modal Learning synthesis child", "AUDIT_LABEL");
-  next = replaceAll(next, "deep_synthesis_safe_lease_only: true", "deep_synthesis_modal_only: true", "AUDIT_ARCHITECTURE_LABEL");
-  next = replaceAll(next, "synthesis_without_safe_lease_allowed: false", "synthesis_without_modal_service_runtime_allowed: false", "AUDIT_GOVERNANCE_LABEL");
-  next = replaceAll(next, "SAFE_LEASE_SYNTHESIS_EXECUTING", "MODAL_SYNTHESIS_SUBMITTING", "AUDIT_EXECUTING_STATE");
-  next = replaceAll(next, "SAFE_LEASE_SYNTHESIS_REVIEW_REQUIRED", "MODAL_SYNTHESIS_REVIEW_REQUIRED", "AUDIT_REVIEW_STATE");
-  next = replaceAll(next, "AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE", "MODAL_TOKEN_ID", "AUDIT_TOKEN_ID");
-  next = replaceAll(next, "AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT", "MODAL_TOKEN_SECRET", "AUDIT_TOKEN_SECRET");
-  next = replaceAll(next, "AVANTIQO_RUNPOD_SAFE_LEASE_LANE", "MODAL_H100_ASYNC_V1", "AUDIT_MODAL_INFRA");
-  next = next.replace(/\nconst parsedLeasePolicy = JSON\.parse\(leasePolicy\);[\s\S]*?assert\.equal\(parsedLeasePolicy\.lanes\?\.\["intelligence-deep"\], "avantiqo-intelligence-v1"\);\n/, "\n");
-  next = replaceAll(next, "callOwnedDeepIntelligence", "executeService", "AUDIT_PROVIDER_CALL");
-  next = replaceAll(next, 'status: "SAFE_LEASE_SYNTHESIS_EXECUTING"', 'status: "MODAL_SYNTHESIS_SUBMITTING"', "AUDIT_PREPARED_STATUS");
-  next = replaceAll(next, "inference = await executeService", "execution = await executeService", "AUDIT_EXECUTION_CALL");
-  next = next.replace(/assert\.match\([\s\S]*?"owned deep synthesis transport must contain the bounded provider POST",\n\);\n/, 'assert.equal(/api\\.runpod\\.ai|rest\\.runpod\\.io/.test(child), false,\n  "Learning synthesis child must not call RunPod");\nassert.match(child, /executeService\\s*\\(/,\n  "Learning synthesis child must execute through Service Runtime");\nassert.match(child, /settlePendingService\\s*\\(/,\n  "Learning synthesis child must settle the same provider job through Service Runtime");\n');
-  next = replaceAll(next, "synthesis_attempt_persisted_before_provider_post: true", "synthesis_attempt_persisted_before_service_execution: true", "AUDIT_PERSISTENCE_LABEL");
-  next = replaceAll(next, "direct_runpod_endpoint_scaling: false", "direct_non_modal_endpoint_scaling: false", "AUDIT_DIRECT_SCALING_LABEL");
-  next = replaceAll(next, "hourly_runpod_job_submission: false", "hourly_gpu_job_submission: false", "AUDIT_HOURLY_LABEL");
-  return next;
+const AUDIT_SOURCE = `#!/usr/bin/env node
+
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+const CONTRACT = "AVANTIQO_LEARNING_WORLDCLASS_PHASE4_AUDIT_V2";
+const files = Object.freeze({
+  mechanism: "lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime.js",
+  policy: "lib/platform/research/runtime/OperatorMechanismResearchPolicy.js",
+  route: "app/api/internal/intelligence/continuous-learning/process/route.js",
+  child: "scripts/run-avantiqo-learning-mechanism-synthesis-modal-child-local.mjs",
+  index: "lib/intelligence/index.js",
 });
+
+async function source(path) {
+  return readFile(path, "utf8");
+}
+
+function hasAll(content, markers, label) {
+  for (const marker of markers) {
+    assert.ok(content.includes(marker), \`\${label}: missing marker \${marker}\`);
+  }
+}
+
+const [mechanism, policy, route, child, index] =
+  await Promise.all(Object.values(files).map(source));
+
+hasAll(mechanism, [
+  "AVANTIQO_MECHANISM_FIRST_LEARNING_V1",
+  '"UNDERSTAND_PROBLEM"',
+  '"MAP_MECHANISMS"',
+  '"IDENTIFY_CONSTRAINTS"',
+  '"RESEARCH_ADJACENT_FIELDS"',
+  '"FORM_FALSIFIABLE_HYPOTHESES"',
+  '"DESIGN_DISCRIMINATING_EXPERIMENTS"',
+  '"EXECUTE_GOVERNED_EXPERIMENTS"',
+  '"LEARN_FROM_RESULTS"',
+  '"INVENT_ALTERNATIVES"',
+  '"VERIFY_AND_REPEAT"',
+  "inferOperatorResearchMode",
+  "operatorResearchRequirements",
+  '"mechanisms"',
+  '"constraints"',
+  '"adjacent-fields"',
+  '"alternative-architectures"',
+  '"experiment-evidence"',
+  '"READY_FOR_MODAL_SYNTHESIS"',
+  'synthesis_execution_lane: "deep"',
+  'synthesis_runtime_contract: "AVANTIQO_INTELLIGENCE_MODAL_H100_V1"',
+  "synthesis_modal_only: mode !== \"evidence\"",
+  "search_is_evidence_collection_not_problem_solving: true",
+  "understand_problem_before_solution_search: true",
+  "mechanism_before_imitation: true",
+  "identify_real_constraints: true",
+  "failed_approach_does_not_prove_impossibility: true",
+  "adjacent_science_and_engineering_research: true",
+  "falsifiable_hypotheses: true",
+  "discriminating_experiments: true",
+  "invent_test_learn_repeat: true",
+  "hourly_director_provider_free: true",
+  "automatic_gpu_execution: false",
+  "automatic_non_modal_submission: false",
+  "automatic_experiment_execution: false",
+], "mechanism-first Learning director");
+
+assert.equal(/api\\.runpod\\.ai|rest\\.runpod\\.io|AVANTIQO_RUNPOD_SAFE_LEASE/.test(mechanism), false,
+  "mechanism-first Learning metadata must be Modal-only");
+assert.equal(/workersMax\\s*[:=]|workersMin\\s*[:=]/.test(mechanism), false,
+  "provider-free mechanism director must not mutate GPU workers");
+
+hasAll(policy, [
+  "AVANTIQO_MECHANISM_FIRST_RESEARCH_POLICY_V1",
+  "mechanism_before_imitation: true",
+  "failed_approach_does_not_prove_objective_impossible: true",
+  "hypotheses_must_be_falsifiable",
+  "experiments_should_discriminate_between_hypotheses",
+  "adjacent_domain_transfer_encouraged",
+], "shared mechanism research policy");
+
+hasAll(route, [
+  "reconcileAvantiqoMechanismFirstLearning",
+  "mechanismFirstLearning = await reconcileAvantiqoMechanismFirstLearning()",
+  "mechanism_first_learning: mechanismFirstLearning",
+  "runAvantiqoContinuousLearningBatch",
+], "hourly Learning route");
+const directorIndex = route.indexOf("mechanismFirstLearning = await reconcileAvantiqoMechanismFirstLearning()");
+const researchIndex = route.indexOf("result = await runAvantiqoContinuousLearningBatch");
+assert.ok(directorIndex >= 0 && researchIndex > directorIndex,
+  "mechanism-first director must run before bounded evidence research");
+assert.equal(/api\\.runpod\\.ai|rest\\.runpod\\.io|AVANTIQO_RUNPOD_SAFE_LEASE/.test(route), false,
+  "hourly Learning route must contain no Intelligence RunPod routing");
+assert.equal(route.includes("AvantiqoStructuredIntelligenceSupervisorRuntime"), false,
+  "hourly Learning route must not directly invoke owned GPU synthesis");
+
+hasAll(child, [
+  "AVANTIQO_LEARNING_MECHANISM_SYNTHESIS_MODAL_V2",
+  'RUNTIME_CONTRACT = "AVANTIQO_INTELLIGENCE_MODAL_H100_V1"',
+  'PROVIDER = "avantiqo-intelligence"',
+  'SERVICE_ID = "ai.reasoning.execute"',
+  'REQUIRED_LANE = "deep"',
+  'DIRECT_JOB_PREFIX = "modal-intelligence-direct:"',
+  "AVANTIQO_LEARNING_MECHANISM_SYNTHESIS_SPEND_APPROVED",
+  '"READY_FOR_MODAL_SYNTHESIS"',
+  '"MODAL_SYNTHESIS_SUBMITTING"',
+  '"MODAL_SYNTHESIS_SETTLING"',
+  '"MODAL_SYNTHESIS_REVIEW_REQUIRED"',
+  '"SYNTHESIS_READY_FOR_EXPERIMENT_GOVERNANCE"',
+  "executeService",
+  "settlePendingService",
+  "ownedProviderPolicy",
+  "provider_job_reused_for_settlement: true",
+  "duplicate_provider_job_submitted: false",
+  "automatic_retry_allowed: false",
+  "experiment_execution_performed: false",
+  "experiments_are_proposals_only: true",
+  "model_training_performed: false",
+  "model_weight_mutation_performed: false",
+  "production_promotion_performed: false",
+  "raw_provider_response_persisted: false",
+  "raw_reasoning_persisted: false",
+], "Modal Learning synthesis child");
+
+assert.equal(/api\\.runpod\\.ai|rest\\.runpod\\.io|AVANTIQO_RUNPOD_SAFE_LEASE/.test(child), false,
+  "Learning synthesis child must not contain RunPod execution");
+assert.equal(/workersMax\\s*[:=]|workersMin\\s*[:=]/.test(child), false,
+  "Learning synthesis child must not mutate GPU worker scaling");
+
+const preparedStatusIndex = child.indexOf('status: "MODAL_SYNTHESIS_SUBMITTING"');
+const preparedWriteIndex = child.indexOf("const prepared = await db", preparedStatusIndex);
+const preparedVerificationIndex = child.indexOf("if (!prepared.data?.id)", preparedWriteIndex);
+const serviceExecutionIndex = child.indexOf("execution = await executeService", preparedVerificationIndex);
+assert.ok(
+  preparedStatusIndex >= 0 &&
+    preparedWriteIndex > preparedStatusIndex &&
+    preparedVerificationIndex > preparedWriteIndex &&
+    serviceExecutionIndex > preparedVerificationIndex,
+  "synthesis attempt must be durably prepared before governed Service Runtime execution",
+);
+
+const settlingStatusIndex = child.indexOf('status: "MODAL_SYNTHESIS_SETTLING"', serviceExecutionIndex);
+const providerBindingIndex = child.indexOf("synthesis_provider_job_id: providerJobId", serviceExecutionIndex);
+const settlementIndex = child.indexOf("const settled = await settleSameJob", serviceExecutionIndex);
+assert.ok(
+  settlingStatusIndex > serviceExecutionIndex &&
+    providerBindingIndex > serviceExecutionIndex &&
+    settlementIndex > providerBindingIndex,
+  "provider job binding must be persisted before same-job settlement",
+);
+
+assert.match(child, /executeService\\s*\\(/,
+  "Learning synthesis child must execute through governed Service Runtime");
+assert.match(child, /settlePendingService\\s*\\(/,
+  "Learning synthesis child must settle through governed Service Runtime");
+assert.match(child, /provider_job_id:\\s*providerJobId/,
+  "Learning synthesis settlement must reuse the exact provider job id");
+
+hasAll(index, [
+  'export * from "./runtime/AvantiqoMechanismFirstLearningRuntime";',
+], "intelligence exports");
+
+const result = {
+  success: true,
+  contract: CONTRACT,
+  status: "PASS",
+  learning_architecture: {
+    search_is_evidence_not_solution_boundary: true,
+    problem_understanding_before_solution_search: true,
+    mechanism_mapping: true,
+    real_constraint_classification: true,
+    failed_approach_does_not_mean_impossible: true,
+    adjacent_science_engineering_transfer: true,
+    falsifiable_hypotheses: true,
+    discriminating_experiments: true,
+    alternative_architecture_discovery: true,
+    invent_test_learn_repeat_cycle: true,
+    hourly_director_provider_free: true,
+    deep_synthesis_modal_only: true,
+    synthesis_attempt_persisted_before_service_execution: true,
+    exact_provider_job_persisted_before_settlement: true,
+    ambiguous_provider_failure_blocks_automatic_retry: true,
+    experiments_require_separate_governance: true,
+  },
+  governance: {
+    service_runtime_required: true,
+    direct_non_modal_provider_execution: false,
+    direct_gpu_scaling: false,
+    hourly_gpu_job_submission: false,
+    synthesis_without_modal_service_runtime_allowed: false,
+    synthesis_without_explicit_spend_approval_allowed: false,
+    duplicate_provider_job_submission_allowed: false,
+    automatic_experiment_execution: false,
+    automatic_training_started: false,
+    automatic_model_weight_mutation: false,
+    automatic_model_promotion: false,
+    customer_private_content_promoted: false,
+    raw_reasoning_persisted: false,
+  },
+};
+
+console.log(JSON.stringify(result, null, 2));
+console.log("AVANTIQO_LEARNING_WORLDCLASS_PHASE4_AUDIT=PASS");
+`;
+
+patchFile("scripts/avantiqo-learning-worldclass-phase4-audit.mjs", () => AUDIT_SOURCE);
 
 if (fs.existsSync("scripts/run-avantiqo-learning-mechanism-synthesis-child-local.mjs")) {
   fs.rmSync("scripts/run-avantiqo-learning-mechanism-synthesis-child-local.mjs");

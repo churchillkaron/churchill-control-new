@@ -11,6 +11,16 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 const CLOSED_RUN_STATUSES = new Set(["COMPLETE", "CANCELLED"]);
 const CLOSED_ITEM_STATUSES = new Set(["COMPLETE", "SKIPPED"]);
 const CLOSED_REQUEST_STATUSES = new Set(["ACCEPTED", "CANCELLED"]);
+const EVIDENCE_MUTABLE_ITEM_STATUSES = new Set(["NOT_STARTED", "READY", "IN_PROGRESS", "CHANGES_REQUESTED", "BLOCKED"]);
+const SYSTEM_VERIFIED_CAPABILITIES = new Set([
+  "documents",
+  "statements",
+  "audit_trail",
+  "bank_reconciliation",
+  "journals",
+  "statutory_filings",
+  "close",
+]);
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -25,17 +35,83 @@ function dateOnly(value) {
 }
 
 function isOverdue(value, today) {
-  const date = dateOnly(value);
-  return Boolean(date && date < today);
+  const value = dateOnly(value);
+  return Boolean(value && value < today);
 }
 
-async function requireFinanceView(access) {
-  await checkFinancePermission({
-    organizationId: access.organizationId,
-    userId: access.user?.id,
-    permissionKey: "finance.view",
-    fullAccess: access.permissions?.includes("*") === true,
-  });
+function verificationConfig(item) {
+  const value = item?.metadata?.system_verification;
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function verificationState(item) {
+  const gate = item?.metadata?.system_gate;
+  const config = verificationConfig(item);
+  if (gate?.invalidated_at) return "NEEDS_REVERIFICATION";
+  if (gate?.applicable === true && gate?.satisfied === true) return "VERIFIED";
+  if (gate?.applicable === true && gate?.satisfied === false) return "BLOCKED";
+  if (config?.mode || SYSTEM_VERIFIED_CAPABILITIES.has(String(item?.capability_id || ""))) return "NOT_VERIFIED";
+  return "HUMAN_EVIDENCE";
+}
+
+function verificationSummary(item) {
+  const gate = item?.metadata?.system_gate || null;
+  const config = verificationConfig(item);
+  const evidence = Array.isArray(gate?.evidence) ? gate.evidence : [];
+  const mode = config?.mode || null;
+
+  if (mode === "FINANCIAL_REPORT_SET") {
+    return {
+      mode,
+      reports: evidence
+        .filter((row) => row?.type === "financial_report")
+        .map((row) => ({
+          report_type: row.report_type,
+          generated: row.generated === true,
+          balanced: row.report_type === "trial_balance" ? row.balanced === true : undefined,
+          difference: row.report_type === "trial_balance" ? Number(row.difference || 0) : undefined,
+          account_count: row.report_type === "trial_balance" ? Number(row.account_count || 0) : undefined,
+          has_document: row.report_type === "trial_balance" ? undefined : row.has_document === true,
+        })),
+    };
+  }
+
+  if (mode === "DEPENDENCY_AUDIT_CHAIN") {
+    const chain = evidence.find((row) => row?.type === "dependency_audit_chain") || null;
+    return {
+      mode,
+      dependency_count: Number(chain?.dependency_count || 0),
+      audited_dependencies: Number(chain?.audited_dependencies || 0),
+      conclusion: chain?.conclusion || null,
+    };
+  }
+
+  return mode ? { mode } : null;
+}
+
+function evidenceRequirements(item, links, documentsById) {
+  const config = verificationConfig(item);
+  if (config?.mode !== "DOCUMENT_CATEGORIES") return [];
+
+  return (Array.isArray(config.categories) ? config.categories : [])
+    .map((category) => {
+      const key = clean(category?.key).toLowerCase();
+      const categoryLabel = clean(category?.label || key);
+      const minimum = Math.max(1, Number(category?.min_count || 1));
+      const matched = (links || []).filter((link) => link.status === "ACTIVE" && clean(link.evidence_category).toLowerCase() === key);
+      const linkedDocuments = matched.map((link) => documentsById.get(link.document_id)).filter(Boolean);
+      const approvalPending = linkedDocuments.filter((document) => document.approval_required === true && !document.approved_at).length;
+      return {
+        key,
+        label: categoryLabel,
+        min_count: minimum,
+        linked_count: linkedDocuments.length,
+        missing_count: Math.max(0, minimum - linkedDocuments.length),
+        approval_pending: approvalPending,
+        satisfied: linkedDocuments.length >= minimum,
+      };
+    })
+    .filter((category) => category.key);
 }
 
 function currentCapacity(rows, staffId, today) {
@@ -45,6 +121,15 @@ function currentCapacity(rows, staffId, today) {
     .filter((row) => row.effective_from <= today && (!row.effective_to || row.effective_to >= today))
     .sort((a, b) => String(b.effective_from).localeCompare(String(a.effective_from)));
   return candidates[0] || null;
+}
+
+async function requireFinanceView(access) {
+  await checkFinancePermission({
+    organizationId: access.organizationId,
+    userId: access.user?.id,
+    permissionKey: "finance.view",
+    fullAccess: access.permissions?.includes("*") === true,
+  });
 }
 
 export async function GET(request) {
@@ -112,12 +197,14 @@ export async function GET(request) {
     const profile = profileResult.data || {};
     const runs = runsResult.data || [];
     const reviews = reviewsResult.data || [];
+    const documents = documentsResult.data || [];
+    const documentsById = new Map(documents.map((row) => [row.id, row]));
     const runIds = runs.map((row) => row.id);
     const templateIds = [...new Set(runs.map((row) => row.template_id).filter(Boolean))];
     const periodIds = [...new Set(runs.map((row) => row.period_id).filter(Boolean))];
     const reviewIds = reviews.map((row) => row.id);
 
-    const [templatesResult, periodsResult, workItemsResult, requestsResult, notesResult, signoffsResult] = await Promise.all([
+    const [templatesResult, periodsResult, workItemsResult, requestsResult, notesResult, signoffsResult, evidenceLinksResult] = await Promise.all([
       templateIds.length
         ? supabaseAdmin.from("accounting_work_program_templates").select("id,template_key,name,service_key,cadence,version,is_system").in("id", templateIds)
         : Promise.resolve({ data: [], error: null }),
@@ -141,24 +228,22 @@ export async function GET(request) {
             .order("due_at", { ascending: true, nullsFirst: false })
         : Promise.resolve({ data: [], error: null }),
       reviewIds.length
-        ? supabaseAdmin
-            .from("finance_review_notes")
-            .select("id,review_item_id,note_type,body,status,assigned_to,created_by,resolved_by,resolved_at,created_at,updated_at")
-            .in("review_item_id", reviewIds)
-            .order("created_at", { ascending: false })
-            .limit(1000)
+        ? supabaseAdmin.from("finance_review_notes").select("id,review_item_id,note_type,body,status,assigned_to,created_by,resolved_by,resolved_at,created_at,updated_at").in("review_item_id", reviewIds).order("created_at", { ascending: false }).limit(1000)
         : Promise.resolve({ data: [], error: null }),
       reviewIds.length
+        ? supabaseAdmin.from("finance_review_signoffs").select("id,review_item_id,signoff_role,signed_by,signed_at,note,cycle_no,revoked_at,revoked_by,revocation_reason").in("review_item_id", reviewIds).order("signed_at", { ascending: false }).limit(1000)
+        : Promise.resolve({ data: [], error: null }),
+      runIds.length
         ? supabaseAdmin
-            .from("finance_review_signoffs")
-            .select("id,review_item_id,signoff_role,signed_by,signed_at,note,cycle_no,revoked_at,revoked_by,revocation_reason")
-            .in("review_item_id", reviewIds)
-            .order("signed_at", { ascending: false })
-            .limit(1000)
+            .from("accounting_work_program_evidence_links")
+            .select("id,run_id,work_item_id,document_id,evidence_category,status,is_primary,linked_by,linked_at,metadata,created_at,updated_at")
+            .eq("accounting_firm_id", access.organizationId)
+            .in("run_id", runIds)
+            .order("linked_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
     ]);
 
-    for (const result of [templatesResult, periodsResult, workItemsResult, requestsResult, notesResult, signoffsResult]) {
+    for (const result of [templatesResult, periodsResult, workItemsResult, requestsResult, notesResult, signoffsResult, evidenceLinksResult]) {
       if (result?.error) throw result.error;
     }
 
@@ -168,7 +253,7 @@ export async function GET(request) {
     const requests = requestsResult.data || [];
     const notes = notesResult.data || [];
     const signoffs = signoffsResult.data || [];
-    const documents = documentsResult.data || [];
+    const evidenceLinks = evidenceLinksResult.data || [];
     const today = new Date().toISOString().slice(0, 10);
 
     const notesByReview = new Map();
@@ -192,6 +277,11 @@ export async function GET(request) {
       if (!requestsByRun.has(clientRequest.run_id)) requestsByRun.set(clientRequest.run_id, []);
       requestsByRun.get(clientRequest.run_id).push(clientRequest);
     }
+    const evidenceLinksByItem = new Map();
+    for (const link of evidenceLinks) {
+      if (!evidenceLinksByItem.has(link.work_item_id)) evidenceLinksByItem.set(link.work_item_id, []);
+      evidenceLinksByItem.get(link.work_item_id).push({ ...link, document: documentsById.get(link.document_id) || null });
+    }
 
     const enrichedRuns = runs.map((run) => {
       const runItems = itemsByRun.get(run.id) || [];
@@ -206,10 +296,51 @@ export async function GET(request) {
         .filter((item) => item.metadata?.system_gate?.applicable === true && item.metadata?.system_gate?.satisfied === false)
         .flatMap((item) => (item.metadata?.system_gate?.blockers || []).map((blocker) => ({ work_item_id: item.id, title: item.title, blocker })));
 
+      const enrichedItems = runItems.map((item) => {
+        const links = evidenceLinksByItem.get(item.id) || [];
+        const requirements = evidenceRequirements(item, links, documentsById);
+        const missingRequirements = requirements.filter((requirement) => !requirement.satisfied);
+        const config = verificationConfig(item);
+        const mutable = EVIDENCE_MUTABLE_ITEM_STATUSES.has(String(item.status || "").toUpperCase());
+        const canManageEvidence = !run.locked_at && item.capability_id === "documents" && mutable;
+        return {
+          ...item,
+          system_verification: config,
+          verification_state: verificationState(item),
+          verification_summary: verificationSummary(item),
+          last_verified_at: item.metadata?.system_gate?.checked_at || item.evidence?.system_checked_at || null,
+          can_verify: !run.locked_at && SYSTEM_VERIFIED_CAPABILITIES.has(String(item.capability_id || "")),
+          can_manage_evidence: canManageEvidence,
+          evidence_edit_block_reason: canManageEvidence
+            ? null
+            : run.locked_at
+              ? "Completed work program is locked"
+              : item.capability_id !== "documents"
+                ? "This procedure uses system or human evidence rather than classified document links"
+                : "Request changes before editing evidence",
+          evidence_requirements: requirements,
+          evidence_coverage: {
+            required_categories: requirements.length,
+            satisfied_categories: requirements.length - missingRequirements.length,
+            missing_categories: missingRequirements.length,
+            satisfied: requirements.length > 0 ? missingRequirements.length === 0 : null,
+          },
+          evidence_links: links,
+          review: item.finance_review_item_id
+            ? {
+                ...(reviewsById.get(item.finance_review_item_id) || {}),
+                notes: notesByReview.get(item.finance_review_item_id) || [],
+                signoffs: signoffsByReview.get(item.finance_review_item_id) || [],
+              }
+            : null,
+        };
+      });
+
       return {
         ...run,
         template: templates.get(run.template_id) || null,
         period: periods.get(run.period_id) || null,
+        completion_system_clearance: run.completion_snapshot?.system_clearance || null,
         progress: {
           complete,
           total: runItems.length,
@@ -219,17 +350,10 @@ export async function GET(request) {
           system_verified_items: verified,
           system_blockers: systemBlockers.length,
           open_client_requests: runRequests.filter((row) => !CLOSED_REQUEST_STATUSES.has(row.status)).length,
+          missing_evidence_categories: enrichedItems.reduce((sum, item) => sum + Number(item.evidence_coverage?.missing_categories || 0), 0),
+          verification_attention_items: enrichedItems.filter((item) => ["BLOCKED", "NEEDS_REVERIFICATION", "NOT_VERIFIED"].includes(item.verification_state) && item.can_verify).length,
         },
-        work_items: runItems.map((item) => ({
-          ...item,
-          review: item.finance_review_item_id
-            ? {
-                ...(reviewsById.get(item.finance_review_item_id) || {}),
-                notes: notesByReview.get(item.finance_review_item_id) || [],
-                signoffs: signoffsByReview.get(item.finance_review_item_id) || [],
-              }
-            : null,
-        })),
+        work_items: enrichedItems,
         client_requests: runRequests,
       };
     });
@@ -281,6 +405,7 @@ export async function GET(request) {
       current_run: currentRun,
       history: enrichedRuns.filter((run) => run.id !== currentRun?.id),
       documents: financeDocuments,
+      available_documents: documents,
       external_reviews: externalReviews,
       review_portfolio: reviewPortfolio,
       staff,
@@ -293,12 +418,15 @@ export async function GET(request) {
         current_progress: currentRun?.progress?.percent || 0,
         current_budget_minutes: currentRun?.progress?.budget_minutes || 0,
         system_blockers: currentRun?.progress?.system_blockers || 0,
+        missing_evidence_categories: currentRun?.progress?.missing_evidence_categories || 0,
+        verification_attention_items: currentRun?.progress?.verification_attention_items || 0,
         review_records: reviewPortfolio.review_item_count || 0,
         reviewed_records: reviewPortfolio.reviewed_record_count || 0,
         cleared_records: reviewPortfolio.cleared_record_count || 0,
         review_stage: reviewPortfolio.current_stage || null,
         review_fully_cleared: reviewPortfolio.fully_cleared === true,
       },
+      no_external_message: true,
       generated_at: new Date().toISOString(),
     });
   } catch (error) {

@@ -60,6 +60,7 @@ export default function FinancePracticeControlTower({ organizationId }) {
   const [selectedEngagementId, setSelectedEngagementId] = useState(null);
   const [materializingKey, setMaterializingKey] = useState(null);
   const [materializeNotice, setMaterializeNotice] = useState(null);
+  const [capacityWindowDays, setCapacityWindowDays] = useState(90);
 
   async function load() {
     if (!organizationId) return;
@@ -111,10 +112,7 @@ export default function FinancePracticeControlTower({ organizationId }) {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organizationId,
-          idempotencyKey: candidate.idempotency_key,
-        }),
+        body: JSON.stringify({ organizationId, idempotencyKey: candidate.idempotency_key }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to create accounting cycle");
@@ -142,6 +140,11 @@ export default function FinancePracticeControlTower({ organizationId }) {
   const clients = Array.isArray(state.data?.clients) ? state.data.clients : [];
   const capacitySummary = state.capacity?.summary || {};
   const people = Array.isArray(state.capacity?.people) ? state.capacity.people : [];
+  const capacityForecast = state.capacity?.forecast?.windows?.[String(capacityWindowDays)] || null;
+  const capacityForecastSummary = capacityForecast?.summary || {};
+  const capacityForecastPeople = Array.isArray(capacityForecast?.people) ? capacityForecast.people : [];
+  const capacityForecastRoles = Array.isArray(capacityForecast?.roles) ? capacityForecast.roles : [];
+  const capacityForecastClients = Array.isArray(capacityForecast?.clients) ? capacityForecast.clients : [];
   const recurringSummary = state.recurring?.summary || {};
   const recurringCandidates = Array.isArray(state.recurring?.candidates) ? state.recurring.candidates : [];
   const recurringReady = recurringCandidates.filter((candidate) => candidate.status === "READY_TO_CREATE");
@@ -190,7 +193,7 @@ export default function FinancePracticeControlTower({ organizationId }) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A633C]"><Gauge size={12} /> 14-day capacity</div>
-              <div className="mt-1 text-[12px] text-[#716B63]">Budgeted engagement work against targeted staff availability.</div>
+              <div className="mt-1 text-[12px] text-[#716B63]">Budgeted materialized work against targeted staff availability.</div>
             </div>
             <div className="text-[9px] text-[#99938A]">{state.capacity?.horizon?.start} – {state.capacity?.horizon?.end}</div>
           </div>
@@ -220,6 +223,77 @@ export default function FinancePracticeControlTower({ organizationId }) {
               </div>
             </div>
           ) : null}
+
+          <div className="mt-4 border-t border-black/[0.06] pt-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A633C]">Forward demand</div>
+                <div className="mt-1 max-w-3xl text-[11px] leading-4 text-[#716B63]">Committed work plus governed recurring demand before cycles are created. Forecast excludes client and system steps from staff utilization and never creates work by itself.</div>
+              </div>
+              <div className="inline-flex rounded-xl border border-black/[0.07] bg-[#FAF9F7] p-1">
+                {[30, 60, 90].map((days) => (
+                  <button key={days} type="button" onClick={() => setCapacityWindowDays(days)} className={`h-7 rounded-lg px-2.5 text-[8px] font-semibold uppercase tracking-[0.08em] ${capacityWindowDays === days ? "bg-white text-[#76583A] shadow-sm" : "text-[#8C877F]"}`}>{days} days</button>
+                ))}
+              </div>
+            </div>
+
+            {capacityForecast ? (
+              <>
+                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-6">
+                  <Metric label="Available" value={`${capacityForecastSummary.available_hours || 0}h`} detail={`${capacityWindowDays}-day target capacity`} />
+                  <Metric label="Committed" value={`${capacityForecastSummary.committed_hours || 0}h`} detail="Already materialized" />
+                  <Metric label="Forecast" value={`${capacityForecastSummary.forecast_hours || 0}h`} detail="Not yet materialized" />
+                  <Metric label="Total demand" value={`${capacityForecastSummary.total_hours || 0}h`} detail={`${capacityForecastSummary.projected_utilization || 0}% projected load`} />
+                  <Metric label="Projected overload" value={capacityForecastSummary.projected_overloaded_people || 0} detail="People above capacity" attention />
+                  <Metric label="Unassigned forecast" value={`${capacityForecastSummary.unassigned_forecast_hours || 0}h`} detail={`${capacityForecastSummary.unassigned_forecast_items || 0} future procedures`} attention />
+                </div>
+
+                {capacityForecastPeople.length ? (
+                  <div className="mt-3 overflow-x-auto rounded-xl border border-black/[0.05] bg-white/65">
+                    <div className="min-w-[760px]">
+                      <div className="grid grid-cols-[minmax(180px,1fr)_100px_105px_105px_105px_95px_90px] gap-3 border-b border-black/[0.06] px-3 py-2 text-[8px] font-medium uppercase tracking-[0.12em] text-[#8A867F]">
+                        <span>Team member</span><span>Role</span><span>Committed</span><span>Forecast</span><span>Total</span><span>Load</span><span>Risk</span>
+                      </div>
+                      {capacityForecastPeople.slice(0, 10).map((person) => (
+                        <div key={person.staff_account_id} className="grid grid-cols-[minmax(180px,1fr)_100px_105px_105px_105px_95px_90px] gap-3 border-b border-black/[0.05] px-3 py-2.5 text-[10px] last:border-0">
+                          <div className="truncate font-medium text-[#37342F]">{person.name}</div>
+                          <div className="truncate text-[#716B63]">{label(person.role)}</div>
+                          <div className="tabular-nums text-[#5E5952]">{person.committed_hours}h</div>
+                          <div className="tabular-nums text-[#8A633C]">+{person.forecast_hours}h</div>
+                          <div className="tabular-nums font-medium text-[#403C37]">{person.total_hours}h</div>
+                          <div className="tabular-nums text-[#5E5952]">{person.utilization}%</div>
+                          <div className={`font-semibold ${capacityTone(person.risk)}`}>{label(person.risk)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {(capacityForecastRoles.length || capacityForecastClients.length) ? (
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <div className="rounded-xl border border-black/[0.05] bg-white/65 p-3">
+                      <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A867F]">Forecast by role</div>
+                      <div className="mt-2 space-y-1.5">
+                        {capacityForecastRoles.slice(0, 6).map((row) => (
+                          <div key={row.role} className="flex items-center justify-between gap-3 text-[10px]"><span className="text-[#66615A]">{label(row.role)}</span><span className="tabular-nums font-medium text-[#403C37]">{row.forecast_hours}h · {row.forecast_items} procedures</span></div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-black/[0.05] bg-white/65 p-3">
+                      <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A867F]">Forecast by client</div>
+                      <div className="mt-2 space-y-1.5">
+                        {capacityForecastClients.slice(0, 6).map((row) => (
+                          <div key={row.organization_id} className="flex items-center justify-between gap-3 text-[10px]"><span className="truncate text-[#66615A]">{row.client_name}</span><span className="shrink-0 tabular-nums font-medium text-[#403C37]">{row.forecast_hours}h · {row.cycles} cycles</span></div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-xl border border-amber-700/10 bg-amber-50/55 p-3 text-[10px] text-[#7D6A50]">No materializable recurring demand is available yet. Configuration-blocked cycles remain excluded until their legal entity, period and template requirements are valid.</div>
+                )}
+              </>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -263,12 +337,7 @@ export default function FinancePracticeControlTower({ organizationId }) {
                         <span className={`rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase ${recurringTone(candidate.status)}`}>{label(candidate.status)}</span>
                       </div>
                       <div className="mt-2 text-[9px] leading-4 text-[#716B63]">Creates the governed work program and draft client evidence requests. No email, reminder or external client message is sent.</div>
-                      <button
-                        type="button"
-                        onClick={() => materializeRecurringCycle(candidate)}
-                        disabled={Boolean(materializingKey)}
-                        className="mt-3 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#6E8A70]/20 bg-white px-2.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#58705B] hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
+                      <button type="button" onClick={() => materializeRecurringCycle(candidate)} disabled={Boolean(materializingKey)} className="mt-3 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#6E8A70]/20 bg-white px-2.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#58705B] hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">
                         {isCreating ? <LoaderCircle size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
                         {isCreating ? "Creating…" : "Create accounting cycle"}
                       </button>
@@ -306,13 +375,9 @@ export default function FinancePracticeControlTower({ organizationId }) {
           {clients.map((client) => (
             <div key={client.organization_id} className={`grid grid-cols-[minmax(240px,1.5fr)_145px_145px_100px_90px_100px_95px_95px_100px_110px_130px_95px] items-center gap-3 border-b border-black/[0.05] px-4 py-3 text-[11px] last:border-0 ${selectedEngagementId === client.engagement_id ? "bg-[#A37849]/[0.05]" : ""}`}>
               <div className="min-w-0">
-                <button type="button" onClick={() => setSelectedEngagementId(client.engagement_id)} className="block max-w-full text-left">
-                  <div className="truncate font-semibold text-[#37342F] hover:text-[#8A633C]">{client.name}</div>
-                </button>
+                <button type="button" onClick={() => setSelectedEngagementId(client.engagement_id)} className="block max-w-full text-left"><div className="truncate font-semibold text-[#37342F] hover:text-[#8A633C]">{client.name}</div></button>
                 <div className="mt-0.5 flex items-center gap-2 truncate text-[9px] text-[#908B83]">
-                  <Users size={10} /> {client.service_package || "Engagement"}
-                  <span>·</span>
-                  <span>{client.workload?.open || 0} open</span>
+                  <Users size={10} /> {client.service_package || "Engagement"}<span>·</span><span>{client.workload?.open || 0} open</span>
                   {(client.workload?.client_requests || 0) > 0 ? <><span>·</span><span>{client.workload.client_requests} requests</span></> : null}
                   {client.workload?.changes_requested ? <><span>·</span><span className="text-[#9A533D]">{client.workload.changes_requested} changes</span></> : null}
                 </div>
@@ -333,9 +398,7 @@ export default function FinancePracticeControlTower({ organizationId }) {
         </div>
       </div>
 
-      {selectedEngagementId ? (
-        <FinanceEngagementFile organizationId={organizationId} engagementId={selectedEngagementId} onClose={() => setSelectedEngagementId(null)} />
-      ) : null}
+      {selectedEngagementId ? <FinanceEngagementFile organizationId={organizationId} engagementId={selectedEngagementId} onClose={() => setSelectedEngagementId(null)} /> : null}
     </section>
   );
 }

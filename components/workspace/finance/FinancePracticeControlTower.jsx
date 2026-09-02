@@ -58,6 +58,8 @@ function Metric({ label: metricLabel, value, detail, attention = false }) {
 export default function FinancePracticeControlTower({ organizationId }) {
   const [state, setState] = useState({ loading: true, error: "", data: null, capacity: null, recurring: null });
   const [selectedEngagementId, setSelectedEngagementId] = useState(null);
+  const [materializingKey, setMaterializingKey] = useState(null);
+  const [materializeNotice, setMaterializeNotice] = useState(null);
 
   async function load() {
     if (!organizationId) return;
@@ -100,6 +102,38 @@ export default function FinancePracticeControlTower({ organizationId }) {
     }
   }
 
+  async function materializeRecurringCycle(candidate) {
+    if (!candidate?.idempotency_key || candidate.status !== "READY_TO_CREATE" || materializingKey) return;
+    try {
+      setMaterializingKey(candidate.idempotency_key);
+      setMaterializeNotice(null);
+      const response = await fetch("/api/workspace/finance/recurring-materialize", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          idempotencyKey: candidate.idempotency_key,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to create accounting cycle");
+
+      const alreadyExists = body?.result?.status === "ALREADY_EXISTS" || body?.materialized === false;
+      setMaterializeNotice({
+        tone: "success",
+        text: alreadyExists
+          ? `${candidate.client_name || "Client"}: this accounting cycle already exists. Nothing was duplicated and no client message was sent.`
+          : `${candidate.client_name || "Client"}: accounting cycle created as internal work only. No client message was sent.`,
+      });
+      await load();
+    } catch (error) {
+      setMaterializeNotice({ tone: "error", text: error?.message || "Unable to create accounting cycle" });
+    } finally {
+      setMaterializingKey(null);
+    }
+  }
+
   useEffect(() => {
     load();
   }, [organizationId]);
@@ -110,6 +144,7 @@ export default function FinancePracticeControlTower({ organizationId }) {
   const people = Array.isArray(state.capacity?.people) ? state.capacity.people : [];
   const recurringSummary = state.recurring?.summary || {};
   const recurringCandidates = Array.isArray(state.recurring?.candidates) ? state.recurring.candidates : [];
+  const recurringReady = recurringCandidates.filter((candidate) => candidate.status === "READY_TO_CREATE");
   const recurringBlockers = recurringCandidates.filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status));
 
   if (state.loading && !state.data) {
@@ -193,9 +228,9 @@ export default function FinancePracticeControlTower({ organizationId }) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A633C]"><Repeat2 size={12} /> 90-day recurring cycle plan</div>
-              <div className="mt-1 text-[12px] text-[#716B63]">Dry-run only. Avantiqo previews which accounting cycles should exist and blocks unsafe creation when entity, period or template configuration is incomplete.</div>
+              <div className="mt-1 text-[12px] text-[#716B63]">Avantiqo recomputes each candidate on the server before creation. A cycle creates internal accounting work and draft evidence requests only; it never sends a client message.</div>
             </div>
-            <div className="rounded-full border border-black/[0.07] bg-[#FAF9F7] px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#7D776F]">No runs created</div>
+            <div className="rounded-full border border-black/[0.07] bg-[#FAF9F7] px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#7D776F]">Governed creation · no external messages</div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
             <Metric label="Planned" value={recurringSummary.total || 0} detail="90-day candidates" />
@@ -204,17 +239,60 @@ export default function FinancePracticeControlTower({ organizationId }) {
             <Metric label="Period setup" value={recurringSummary.blocked_period_configuration || 0} detail="Financial period missing" attention />
             <Metric label="Existing" value={recurringSummary.already_exists || 0} detail="Idempotency protected" />
           </div>
+
+          {materializeNotice ? (
+            <div className={`mt-3 flex items-start gap-2 rounded-xl border p-3 text-[10px] ${materializeNotice.tone === "error" ? "border-red-700/15 bg-red-50 text-red-800" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
+              {materializeNotice.tone === "error" ? <AlertTriangle size={13} className="mt-0.5" /> : <CheckCircle2 size={13} className="mt-0.5" />}
+              {materializeNotice.text}
+            </div>
+          ) : null}
+
+          {recurringReady.length ? (
+            <div className="mt-3">
+              <div className="mb-2 text-[8px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">Ready for controlled creation</div>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {recurringReady.slice(0, 9).map((candidate) => {
+                  const isCreating = materializingKey === candidate.idempotency_key;
+                  return (
+                    <div key={candidate.idempotency_key} className="rounded-xl border border-emerald-700/10 bg-emerald-50/35 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-[10px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div>
+                          <div className="mt-0.5 text-[8px] text-[#99938A]">{candidate.template_name || label(candidate.service_key || candidate.cadence)} · due {candidate.due_at ? String(candidate.due_at).slice(0, 10) : "—"}</div>
+                        </div>
+                        <span className={`rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase ${recurringTone(candidate.status)}`}>{label(candidate.status)}</span>
+                      </div>
+                      <div className="mt-2 text-[9px] leading-4 text-[#716B63]">Creates the governed work program and draft client evidence requests. No email, reminder or external client message is sent.</div>
+                      <button
+                        type="button"
+                        onClick={() => materializeRecurringCycle(candidate)}
+                        disabled={Boolean(materializingKey)}
+                        className="mt-3 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#6E8A70]/20 bg-white px-2.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#58705B] hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isCreating ? <LoaderCircle size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
+                        {isCreating ? "Creating…" : "Create accounting cycle"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           {recurringBlockers.length ? (
-            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {recurringBlockers.slice(0, 9).map((candidate) => (
-                <div key={candidate.idempotency_key} className="rounded-xl border border-black/[0.06] bg-white p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0"><div className="truncate text-[10px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div><div className="mt-0.5 text-[8px] text-[#99938A]">{label(candidate.service_key || candidate.cadence || "configuration")}</div></div>
-                    <span className={`rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase ${recurringTone(candidate.status)}`}>{label(candidate.status)}</span>
+            <div className="mt-3">
+              <div className="mb-2 text-[8px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">Configuration blockers</div>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {recurringBlockers.slice(0, 9).map((candidate) => (
+                  <div key={candidate.idempotency_key} className="rounded-xl border border-black/[0.06] bg-white p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0"><div className="truncate text-[10px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div><div className="mt-0.5 text-[8px] text-[#99938A]">{label(candidate.service_key || candidate.cadence || "configuration")}</div></div>
+                      <span className={`rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase ${recurringTone(candidate.status)}`}>{label(candidate.status)}</span>
+                    </div>
+                    {candidate.blockers?.[0] ? <div className="mt-2 text-[9px] leading-4 text-[#7D6A50]">{candidate.blockers[0]}</div> : null}
                   </div>
-                  {candidate.blockers?.[0] ? <div className="mt-2 text-[9px] leading-4 text-[#7D6A50]">{candidate.blockers[0]}</div> : null}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           ) : null}
         </div>

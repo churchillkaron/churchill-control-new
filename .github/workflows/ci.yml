@@ -36,6 +36,9 @@ jobs:
       - name: Certify Finance work programs
         run: node scripts/audit-finance-work-programs.mjs
 
+      - name: Certify Finance engagement workpapers
+        run: node scripts/audit-finance-engagement-workpapers.mjs
+
       - name: Audit Finance capability closure
         run: node scripts/finance-closeout-audit.mjs
 

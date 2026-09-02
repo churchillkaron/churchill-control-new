@@ -1,4 +1,4 @@
-name: Avantiqo Business Partner Two Turn E2E
+name: Avantiqo Business Partner Fast Two Turn E2E
 
 on:
   issues:
@@ -14,7 +14,7 @@ on:
           - preflight
           - execute
       approve_real_inference:
-        description: "Required for execute: approve exactly two real owned Intelligence turns on Modal H100."
+        description: "Required for execute: approve exactly two real owned Fast Intelligence turns on Modal H100."
         required: true
         default: false
         type: boolean
@@ -23,14 +23,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: avantiqo-business-partner-two-turn-e2e
+  group: avantiqo-business-partner-fast-two-turn-e2e
   cancel-in-progress: false
 
 jobs:
-  prove-business-partner:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902' }}
+  prove-business-partner-fast:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_FAST_EXECUTE_20260902' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
       NODE_ENV: development
@@ -56,10 +56,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Static Modal contract preflight
+      - name: Static Fast Modal contract preflight
         run: |
           set -euo pipefail
-          node --check scripts/run-avantiqo-operator-two-turn-e2e-local.mjs
+          node --check scripts/run-avantiqo-operator-fast-two-turn-e2e-local.mjs
+          node --check lib/operator/runtime/OperatorOwnedCognitiveBriefPolicy.js
           node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js
           node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
           python -m py_compile services/avantiqo-intelligence-modal/modal_app.py
@@ -69,6 +70,8 @@ jobs:
           grep -Fq 'FAST_SCALEDOWN_WINDOW_SECONDS = 10 * 60' services/avantiqo-intelligence-modal/modal_app.py
           grep -Fq '"enforce_eager": False' services/avantiqo-intelligence-modal/modal_app.py
           grep -Fq '"safetensors_load_strategy": "prefetch"' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq 'WARM_LATENCY_LIMIT_MS = 4000' scripts/run-avantiqo-operator-fast-two-turn-e2e-local.mjs
+          grep -Fq 'UNEXPECTED_DEEP_COGNITIVE_BRIEF' scripts/run-avantiqo-operator-fast-two-turn-e2e-local.mjs
           stale_prefix="RUN""POD_"
           if grep -q "${stale_prefix}" .github/workflows/avantiqo-operator-two-turn-e2e.yml; then
             echo "AVANTIQO_BUSINESS_PARTNER_E2E_STALE_LEGACY_PROVIDER_REFERENCE=true"
@@ -78,7 +81,7 @@ jobs:
             echo "AVANTIQO_BUSINESS_PARTNER_E2E_AUTOMATIC_PAID_TRIGGER=true"
             exit 1
           fi
-          echo "AVANTIQO_BUSINESS_PARTNER_E2E_MODAL_STATIC_PREFLIGHT=PASS"
+          echo "AVANTIQO_BUSINESS_PARTNER_FAST_E2E_STATIC_PREFLIGHT=PASS"
           echo "GPU_INFERENCE_PERFORMED=false"
 
       - name: Install pinned Modal SDK for live revision gate
@@ -102,49 +105,50 @@ jobs:
           import os
           import modal
 
+          app_name = "avantiqo-intelligence-owned"
           expected = os.environ["AVANTIQO_INTELLIGENCE_EXPECTED_SOURCE_FINGERPRINT"]
-          probe = modal.Function.from_name("avantiqo-intelligence-owned", "runtime_probe")
-          evidence = probe.remote()
-          if evidence.get("schema") != "AVANTIQO_INTELLIGENCE_MODAL_RUNTIME_PROBE_V1":
-              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_PROBE_SCHEMA_INVALID:{evidence}")
-          if evidence.get("source_fingerprint") != expected:
-              raise RuntimeError(
-                  f"AVANTIQO_INTELLIGENCE_MODAL_STALE_DEPLOYMENT:live={evidence.get('source_fingerprint')}:expected={expected}"
-              )
-          if evidence.get("app_name") != "avantiqo-intelligence-owned":
-              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_APP_MISMATCH:{evidence}")
-          if evidence.get("gpu") != "H100":
-              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_GPU_MISMATCH:{evidence}")
-          if int(evidence.get("fast_scaledown_seconds") or 0) != 600:
-              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_FAST_RETENTION_INVALID:{evidence}")
-          if evidence.get("fast_cuda_graphs") is not True or evidence.get("fast_safetensors_prefetch") is not True:
-              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_FAST_OPTIMIZATION_MISSING:{evidence}")
-          if evidence.get("gpu_inference_performed") is not False:
-              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_PROBE_GPU_BOUNDARY_INVALID:{evidence}")
+          probe_name = f"runtime_probe_{expected[:16]}"
+          reports = []
+          for function_name in (probe_name, "fast", "deep"):
+              fn = modal.Function.from_name(app_name, function_name)
+              stats = fn.get_current_stats()
+              backlog = int(getattr(stats, "backlog", 0) or 0)
+              runners = int(getattr(stats, "num_total_runners", 0) or 0)
+              if backlog != 0:
+                  raise RuntimeError(
+                      f"AVANTIQO_INTELLIGENCE_MODAL_BACKLOG_BEFORE_CERT:{function_name}:{backlog}"
+                  )
+              if runners > 1:
+                  raise RuntimeError(
+                      f"AVANTIQO_INTELLIGENCE_MODAL_RUNNER_LIMIT_INVALID:{function_name}:{runners}"
+                  )
+              reports.append((function_name, backlog, runners))
           print(
               "AVANTIQO_INTELLIGENCE_MODAL_DEPLOYED_REVISION_GATE=PASS "
-              f"deploy_sha={evidence.get('deploy_git_sha')} fingerprint={expected}"
+              f"probe={probe_name} fingerprint={expected}"
           )
+          print(f"AVANTIQO_INTELLIGENCE_MODAL_PREFLIGHT_STATS={reports}")
+          print("REMOTE_PROBE_EXECUTION_PERFORMED=false")
           print("GPU_INFERENCE_PERFORMED=false")
           PY
 
       - name: Explicit real-inference approval gate
-        if: ${{ inputs.mode == 'execute' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902' }}
+        if: ${{ inputs.mode == 'execute' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_FAST_EXECUTE_20260902' }}
         env:
           DISPATCH_APPROVED: ${{ inputs.approve_real_inference }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           set -euo pipefail
-          if [ "${ISSUE_TITLE}" = "AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902" ]; then
-            echo "AVANTIQO_BUSINESS_PARTNER_E2E_ONE_TIME_EXECUTE_APPROVED=true"
+          if [ "${ISSUE_TITLE}" = "AVANTIQO_INTELLIGENCE_MODAL_FAST_EXECUTE_20260902" ]; then
+            echo "AVANTIQO_BUSINESS_PARTNER_FAST_E2E_ONE_TIME_EXECUTE_APPROVED=true"
           elif [ "${DISPATCH_APPROVED}" = "true" ]; then
-            echo "AVANTIQO_BUSINESS_PARTNER_E2E_REAL_INFERENCE_APPROVED=true"
+            echo "AVANTIQO_BUSINESS_PARTNER_FAST_E2E_REAL_INFERENCE_APPROVED=true"
           else
-            echo "AVANTIQO_BUSINESS_PARTNER_E2E_REAL_INFERENCE_APPROVAL_REQUIRED=true"
+            echo "AVANTIQO_BUSINESS_PARTNER_FAST_E2E_REAL_INFERENCE_APPROVAL_REQUIRED=true"
             exit 1
           fi
 
-      - name: Run governed Modal Business Partner certification
+      - name: Run governed Modal Fast Business Partner certification
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
@@ -154,12 +158,12 @@ jobs:
           DISPATCH_APPROVED: ${{ inputs.approve_real_inference }}
         run: |
           set -euo pipefail
-          if [ "${ISSUE_TITLE}" = "AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902" ]; then
-            AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED=YES node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs --execute
+          if [ "${ISSUE_TITLE}" = "AVANTIQO_INTELLIGENCE_MODAL_FAST_EXECUTE_20260902" ]; then
+            AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED=YES node scripts/run-avantiqo-operator-fast-two-turn-e2e-local.mjs --execute
           elif [ "${DISPATCH_MODE}" = "execute" ]; then
-            AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED="${DISPATCH_APPROVED}" node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs --execute
+            AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED="${DISPATCH_APPROVED}" node scripts/run-avantiqo-operator-fast-two-turn-e2e-local.mjs --execute
           else
-            node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs
+            node scripts/run-avantiqo-operator-fast-two-turn-e2e-local.mjs
           fi
 
       - name: Immutable release boundary

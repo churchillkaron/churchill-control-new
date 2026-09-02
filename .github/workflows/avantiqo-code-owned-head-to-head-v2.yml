@@ -2,11 +2,6 @@ name: Avantiqo Code Owned Head-to-Head V2
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - services/avantiqo-code-engine/modal_verified_head_to_head.py
-      - services/avantiqo-code-engine/modal_verified_owned_only.py
-      - .github/workflows/avantiqo-code-owned-head-to-head-v2.yml
 
 permissions:
   contents: read
@@ -43,7 +38,16 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_head_to_head.py
           python -m py_compile services/avantiqo-code-engine/modal_verified_head_to_head.py
           python -m py_compile services/avantiqo-code-engine/modal_verified_owned_only.py
-          PYTHONPATH=services/avantiqo-code-engine python -c 'import modal_verified_owned_only'
+          python -m py_compile services/avantiqo-code-engine/modal_persistent_owned_cert.py
+          PYTHONPATH=services/avantiqo-code-engine python - <<'PY'
+          import modal_persistent_owned_cert as cert
+          assert cert.MODEL_VOLUME_NAME == 'avantiqo-code-models'
+          assert cert.MODEL_MOUNT_ROOT == '/models'
+          assert cert.PERSISTENT_HF_CACHE_ROOT.startswith('/models/')
+          assert cert.PERSISTENT_VLLM_CACHE_ROOT.startswith('/models/')
+          assert cert.MODEL_REVISION == 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0'
+          print('AVANTIQO_CODE_PERSISTENT_MODEL_PREFLIGHT=PASS')
+          PY
           node --version
 
       - name: Run one paid executable-gated Code certification
@@ -57,7 +61,7 @@ jobs:
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
           mkdir -p artifacts
-          timeout --signal=TERM --kill-after=30s 9m python -m modal run services/avantiqo-code-engine/modal_verified_owned_only.py::app.owned_cert 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
+          timeout --signal=TERM --kill-after=30s 9m python -m modal run services/avantiqo-code-engine/modal_persistent_owned_cert.py::app.owned_cert 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
 
       - name: Verify executable-gate evidence
         run: |
@@ -73,6 +77,10 @@ jobs:
           if (m.visible_tests_executed_before_acceptance !== true || m.semantic_contract_probes_executed_before_acceptance !== true) throw new Error('executable acceptance gate not proven');
           if (m.repair_only_after_machine_failure !== true || m.max_repair_calls_per_case !== 1) throw new Error('bounded machine-triggered repair not proven');
           if (m.hidden_tests_sealed_until_final_scoring !== true || m.ai_judge_used !== false) throw new Error('sealed deterministic scoring not proven');
+          if (m.persistent_model_volume !== true || m.runtime_image_contains_model_weights !== false || m.source_mounts_copy_into_runtime_image !== false) throw new Error('persistent runtime architecture not proven');
+          if (s.persistent_model_storage !== true || s.model_storage_ready !== true || s.model_volume_name !== 'avantiqo-code-models') throw new Error('persistent model storage not proven');
+          if (s.model_revision !== 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0') throw new Error('model revision not pinned');
+          if (s.vllm_cache_root !== '/models/vllm-cache' || s.safetensors_load_strategy !== 'prefetch') throw new Error('persistent vLLM cache/prefetch not proven');
           if (s.owned_gpu_sessions !== 1) throw new Error('single GPU session not proven');
           if (Number(s.owned_model_calls) !== 6 + Number(s.repairs_used)) throw new Error('model call accounting invalid');
           if (s.machine_gate_passed !== true || s.warm_container_reused !== true) throw new Error('runtime gate/reuse not proven');

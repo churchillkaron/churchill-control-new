@@ -103,7 +103,9 @@ requireTokens(files.api, [
 
 requireTokens(files.reviewGate, [
   "evaluateEngagementReviewGate",
+  "evaluateEngagementReviewPortfolio",
   "requireEngagementReviewGate",
+  "STAGE_ORDER",
   "PARTNER_FINAL_CLEARANCE",
   "REVIEW_POINT_CLEARANCE",
   "REVIEW_PHASE",
@@ -116,6 +118,9 @@ requireTokens(files.reviewGate, [
   ".is(\"revoked_at\", null)",
   "required_roles",
   "review_item_ids",
+  "reviewed_record_count",
+  "cleared_record_count",
+  "current_stage_label",
   "unresolved_note_count",
   "signoff_counts",
 ]);
@@ -172,6 +177,14 @@ forbidTokens(files.recurringMaterializeApi, [
   "body.engagementId", "body.engagement_id", "body.templateId", "body.template_id", "body.entityId", "body.entity_id", "body.periodId", "body.period_id", "body.runKey", "body.run_key", "body.startAt", "body.start_at", "body.dueAt", "body.due_at",
 ]);
 requireTokens(files.engagementFileApi, [
+  "evaluateEngagementReviewPortfolio",
+  "reviewPortfolio",
+  "review_portfolio",
+  "review_records",
+  "reviewed_records",
+  "cleared_records",
+  "review_stage",
+  "review_fully_cleared",
   "accounting_engagements", "accounting_engagement_runs", "accounting_engagement_work_items", "accounting_client_requests", "finance_review_items", "finance_review_notes", "finance_review_signoffs", "organization_documents", "accounting_practice_staff_capacity", "system_gate", "completion_snapshot", "entity_required",
 ]);
 requireTokens(files.practiceApi, [
@@ -181,7 +194,27 @@ requireTokens(files.practiceUi, [
   "Programs", "Client wait", "Blocked", "14-day capacity", "Forward demand", "30, 60, 90", "Committed", "Forecast", "Total demand", "Projected overload", "Unassigned forecast", "Forecast by role", "Forecast by client", "Available", "Assigned", "Overloaded", "Unassigned", "FinanceEngagementFile", "selectedEngagementId", "active_runs", "waiting_on_client", "blocked_work", "90-day recurring cycle plan", "Governed creation · no external messages", "Create accounting cycle", "idempotencyKey: candidate.idempotency_key", "No client message was sent",
 ]);
 requireTokens(files.engagementFileUi, [
-  "Digital engagement file", "Work program & workpapers", "Client evidence requests", "Evidence documents", "Review file", "Prior periods", "System blockers", "Legal entity required", "system_gate",
+  "Digital engagement file",
+  "Engagement review truth",
+  "Same organization · legal entity · accounting period gate used by lifecycle completion.",
+  "What blocks clearance now",
+  "Review fully cleared",
+  "Review records",
+  "Reviewed",
+  "Cleared",
+  "Open points",
+  "Preparer",
+  "Reviewer",
+  "Partner",
+  "Work program & workpapers",
+  "Client evidence requests",
+  "Evidence documents",
+  "Review file",
+  "Prior periods",
+  "System blockers",
+  "Legal entity required",
+  "engagement_review_gate",
+  "system_gate",
 ]);
 
 const coverage = {
@@ -195,6 +228,11 @@ const coverage = {
   revoked_signoffs_excluded_from_clearance: true,
   completion_review_snapshot: true,
   run_lock_rechecks_final_review_truth: true,
+  engagement_review_portfolio_api: true,
+  engagement_review_dashboard: true,
+  engagement_review_blocker_visibility: true,
+  engagement_review_stage_visibility: true,
+  engagement_review_signoff_coverage_visibility: true,
   client_request_lifecycle: true,
   run_completion_lock: true,
   completion_snapshot: true,
@@ -244,5 +282,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are governed from shared dry-run recurring planning and forward demand capacity through server-recomputed, atomic, audited cycle creation, entity-scoped budgeting, system verification, engagement-wide staged review truth, locked completion and roll-forward.");
+  console.log("PASS: Accounting work programs are governed from shared dry-run recurring planning and forward demand capacity through server-recomputed, atomic, audited cycle creation, entity-scoped budgeting, system verification, engagement-wide staged review truth with visible blocker/signoff dashboards, locked completion and roll-forward.");
 }

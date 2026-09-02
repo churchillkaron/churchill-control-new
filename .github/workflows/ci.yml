@@ -33,6 +33,9 @@ jobs:
       - name: Audit Finance workflow
         run: node scripts/audit-finance-worldclass-workflow.mjs
 
+      - name: Certify Finance work programs
+        run: node scripts/audit-finance-work-programs.mjs
+
       - name: Audit Finance capability closure
         run: node scripts/finance-closeout-audit.mjs
 

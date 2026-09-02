@@ -21,6 +21,42 @@ CONTRACT = "AVANTIQO_CODE_EXECUTABLE_GATE_CERT_V1"
 OUTPUT_PATH = Path("artifacts/avantiqo-code-executable-gate-cert.json")
 app = verified.app
 
+# Modal automatically mounts the entry script, not arbitrary sibling modules.
+# The remote certification imports verified -> modal_head_to_head -> modal_app,
+# so mount those exact Python sources without copying them into the baked 30B
+# model image. This preserves the cached model layer across source-only changes.
+REMOTE_IMAGE = (
+    verified.base.certified_image
+    .add_local_file(
+        "services/avantiqo-code-engine/modal_verified_head_to_head.py",
+        "/root/modal_verified_head_to_head.py",
+        copy=False,
+    )
+    .add_local_file(
+        "services/avantiqo-code-engine/modal_head_to_head.py",
+        "/root/modal_head_to_head.py",
+        copy=False,
+    )
+    .add_local_file(
+        "services/avantiqo-code-engine/modal_app.py",
+        "/root/modal_app.py",
+        copy=False,
+    )
+)
+
+
+@app.function(
+    image=REMOTE_IMAGE,
+    gpu="H100",
+    timeout=12 * 60,
+    scaledown_window=10 * 60,
+    min_containers=0,
+    max_containers=1,
+)
+def run_owned_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
+    """Run the verified batch with all sibling Python modules mounted remotely."""
+    return verified.run_owned_batch.local(requests)
+
 
 def _usage_sum(*values: dict[str, Any]) -> dict[str, int]:
     return {
@@ -58,7 +94,7 @@ def owned_cert() -> None:
 
     requests = [base._owned_request(task, prompt) for task, prompt in prompts]
     remote_started = time.perf_counter()
-    first = verified.run_owned_batch.remote(requests)
+    first = run_owned_cert_batch.remote(requests)
     first_remote_wall_ms = round((time.perf_counter() - remote_started) * 1000)
     first_outputs = first.get("outputs") if isinstance(first, dict) else None
     if not isinstance(first_outputs, list) or len(first_outputs) != len(base.TASKS):
@@ -82,7 +118,7 @@ def owned_cert() -> None:
             for index in repair_indices
         ]
         remote_started = time.perf_counter()
-        second = verified.run_owned_batch.remote(repair_requests)
+        second = run_owned_cert_batch.remote(repair_requests)
         second_remote_wall_ms = round((time.perf_counter() - remote_started) * 1000)
         second_outputs = second.get("outputs") if isinstance(second, dict) else None
         if not isinstance(second_outputs, list) or len(second_outputs) != len(repair_indices):

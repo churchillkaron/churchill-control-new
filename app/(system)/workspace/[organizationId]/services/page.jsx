@@ -1,15 +1,10 @@
-import { notFound } from "next/navigation";
+"use client";
 
-import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { useParams } from "next/navigation";
 
-export default async function ServicesLayout({ children, params }) {
-  const resolvedParams = await params;
-  const organizationId = String(resolvedParams?.organizationId || "").trim();
-  const access = await requireOrganizationAccess({ organizationId });
+import ServicesWorkspace from "@/components/workspace/services/ServicesWorkspace";
 
-  if (!access.success) {
-    notFound();
-  }
-
-  return children;
+export default function ServicesPage() {
+  const params = useParams();
+  return <ServicesWorkspace organizationId={params?.organizationId} mode="overview" />;
 }

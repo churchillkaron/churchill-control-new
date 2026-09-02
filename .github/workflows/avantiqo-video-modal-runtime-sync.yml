@@ -1,5 +1,6 @@
 name: Avantiqo Video Modal Runtime Sync
 # Runtime definition sync only. This workflow never invokes paid Video inference.
+# The mastered runtime mirrors Audio/Intelligence: one governed payload -> Modal FunctionCall.
 
 on:
   push:

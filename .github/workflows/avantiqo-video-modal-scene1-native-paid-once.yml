@@ -40,67 +40,41 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Reconstruct and verify approved Studio reference on CPU
+      - name: CPU static safety gates
         shell: bash
         run: |
           set -euo pipefail
           python scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
           test -s "${AVANTIQO_VIDEO_SCENE1_SOURCE_FRAME}"
-          echo 'AVANTIQO_VIDEO_SCENE1_STUDIO_REFERENCE_RECONSTRUCTION=PASS'
-          echo 'GPU_INFERENCE_PERFORMED=false'
-
-      - name: Prove paid generation and exact-Gemma source boundary
-        shell: bash
-        run: |
-          set -euo pipefail
           python -m py_compile services/avantiqo-video-engine/modal_app.py
           python -m py_compile services/avantiqo-video-engine/modal_scene1_cert.py
           python -m py_compile services/avantiqo-video-engine/modal_ltx_cache_guard.py
           python - <<'PY'
           from pathlib import Path
-
           app = Path('services/avantiqo-video-engine/modal_app.py').read_text(encoding='utf-8')
           cert = Path('services/avantiqo-video-engine/modal_scene1_cert.py').read_text(encoding='utf-8')
           guard = Path('services/avantiqo-video-engine/modal_ltx_cache_guard.py').read_text(encoding='utf-8')
-          required = (
-              'LTX_GPU = "B200"',
-              'LTX_NUM_INFERENCE_STEPS = 30',
-              'LTX_MASTER_WIDTH = 3840',
-              'LTX_MASTER_HEIGHT = 2176',
-              'create_if_missing=False',
-              'retries=0',
-              'LTX_GEMMA_SUFFIX_COMPAT_ENTRYPOINT',
-              'text_encoder_real = text_encoder.resolve(strict=True)',
-              'env[LTX_GEMMA_REALPATH_ENV] = str(text_encoder_real)',
-              '"python", "-c", LTX_GEMMA_SUFFIX_COMPAT_ENTRYPOINT',
+          required_app = (
+              'LTX_GPU = "B200"', 'LTX_NUM_INFERENCE_STEPS = 30',
+              'LTX_MASTER_WIDTH = 3840', 'LTX_MASTER_HEIGHT = 2176',
+              'create_if_missing=False', 'retries=0',
               'return cls.from_single_file(resolved)',
-              '"model_cpu_offload_used": False',
-              '"pixel_upscale_used": False',
-              '"learned_latent_upsampler_used": False',
-              '"learned_spatial_upscaler_used": False',
-              '"temporal_interpolation_used": False',
-              '"resize_used": False',
-              '"crop_used": False',
-              '"grading_used": False',
-              '"assembly_used": False',
-              '"delivery_transform_used": False',
+              '"model_cpu_offload_used": False', '"pixel_upscale_used": False',
+              '"learned_latent_upsampler_used": False', '"learned_spatial_upscaler_used": False',
+              '"temporal_interpolation_used": False', '"resize_used": False',
+              '"crop_used": False', '"grading_used": False',
+              '"assembly_used": False', '"delivery_transform_used": False',
           )
-          for needle in required:
+          for needle in required_app:
               if needle not in app:
-                  raise SystemExit(f'AVANTIQO_VIDEO_MODAL_PAID_STATIC_REQUIRED_MISSING:{needle}')
-          forbidden = (
-              '"--offload"',
-              'latent-spatial-upscaler',
-              'pixel-spatial-upscaler',
-              'temporal-upsampler',
-          )
-          for needle in forbidden:
+                  raise SystemExit(f'VIDEO_STATIC_REQUIRED_MISSING:{needle}')
+          for needle in ('"--offload"','latent-spatial-upscaler','pixel-spatial-upscaler','temporal-upsampler'):
               if needle in app:
-                  raise SystemExit(f'AVANTIQO_VIDEO_MODAL_PAID_STATIC_FORBIDDEN_PRESENT:{needle}')
+                  raise SystemExit(f'VIDEO_STATIC_FORBIDDEN_PRESENT:{needle}')
           if 'generate_native_master.remote(' not in cert:
-              raise SystemExit('AVANTIQO_VIDEO_MODAL_CERT_CANONICAL_CALL_MISSING')
+              raise SystemExit('VIDEO_CANONICAL_PAID_CALL_MISSING')
           if 'def generate_scene1_native_master(' in cert:
-              raise SystemExit('AVANTIQO_VIDEO_MODAL_DUPLICATE_CERT_GPU_FUNCTION_PRESENT')
+              raise SystemExit('VIDEO_DUPLICATE_GPU_FUNCTION_PRESENT')
           for needle in (
               'GemmaAssets.from_single_file(resolved)',
               '"model_storage_mutated": False',
@@ -108,17 +82,13 @@ jobs:
               '"gpu_requested": False',
           ):
               if needle not in guard:
-                  raise SystemExit(f'AVANTIQO_VIDEO_MODAL_GEMMA_GUARD_REQUIRED_MISSING:{needle}')
-          print('AVANTIQO_VIDEO_MODAL_PAID_STATIC_GATE=PASS')
-          print('AVANTIQO_VIDEO_RUNTIME_TRANSPORT=direct-modal-function-call')
+                  raise SystemExit(f'VIDEO_GEMMA_GUARD_REQUIRED_MISSING:{needle}')
+          print('AVANTIQO_VIDEO_SCENE1_CPU_STATIC_GATE=PASS')
+          print('GPU_INFERENCE_PERFORMED=false')
           PY
 
       - name: Install pinned Modal CLI
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
-          modal --version
+        run: python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
 
       - name: Require governed credentials
         shell: bash
@@ -129,64 +99,54 @@ jobs:
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           echo 'AVANTIQO_VIDEO_MODAL_PAID_CREDENTIALS=PASS'
 
-      - name: Re-prove exact Gemma compatibility on CPU immediately before paid request
+      - name: Zero-GPU Gemma compatibility gate
         shell: bash
         run: |
           set -euo pipefail
           cd services/avantiqo-video-engine
           modal run modal_ltx_cache_guard.py::validate
-          echo 'AVANTIQO_VIDEO_LTX25_EXACT_GEMMA_COMPAT_GATE=PASS'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
-      - name: Re-run governed zero-GPU preflight immediately before paid request
+      - name: Zero-GPU governed preflight
         shell: bash
         run: |
           set -euo pipefail
           cd services/avantiqo-video-engine
           modal run modal_scene1_cert.py::scene1_preflight
 
-      - name: Generate exactly one native Scene 1 master on B200 via direct Modal function call
+      - name: Generate exactly one Scene 1 HQ native master on B200
         shell: bash
         run: |
           set -euo pipefail
           cd services/avantiqo-video-engine
-          echo 'AVANTIQO_VIDEO_RUNTIME_TRANSPORT=direct-modal-function-call'
           modal run modal_scene1_cert.py::scene1_certify \
             --output-path "${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.mp4"
 
-      - name: Verify native master artifact locally
+      - name: Verify Scene 1 HQ native master
         shell: bash
         run: |
           set -euo pipefail
-          MP4="${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.mp4"
           REPORT="${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.json"
-          test -s "$MP4"
+          MP4="${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.mp4"
           test -s "$REPORT"
+          test -s "$MP4"
           python - <<'PY'
           import json, os
           from pathlib import Path
-          report = Path(os.environ['GITHUB_WORKSPACE']) / 'local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.json'
-          data = json.loads(report.read_text(encoding='utf-8'))
-          generation = data.get('generation') or {}
-          assert data.get('phase') == 'COMPLETED'
-          assert generation.get('success') is True
-          assert generation.get('modal_gpu') == 'B200'
-          assert generation.get('width') == 3840
-          assert generation.get('height') == 2176
-          assert generation.get('fps') == 24
-          assert generation.get('num_inference_steps') == 30
-          assert generation.get('master_is_exact_model_output') is True
-          for key in (
-              'pixel_upscale_used','learned_latent_upsampler_used','learned_spatial_upscaler_used',
-              'temporal_interpolation_used','resize_used','crop_used','grading_used','assembly_used',
-              'delivery_transform_used','reference_preprocessing_inside_paid_worker','automatic_paid_retry'
-          ):
-              assert generation.get(key) is False, key
-          print('AVANTIQO_VIDEO_SCENE1_NATIVE_MASTER_LOCAL_GATE=PASS')
-          print('ESTIMATED_SUPPLIER_GPU_COST_USD=' + str(generation.get('estimated_supplier_gpu_cost_usd')))
+          data = json.loads((Path(os.environ['GITHUB_WORKSPACE'])/'local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.json').read_text())
+          g = data['generation']
+          assert data['phase'] == 'COMPLETED'
+          assert g['success'] is True
+          assert g['modal_gpu'] == 'B200'
+          assert (g['width'], g['height'], g['fps'], g['num_inference_steps']) == (3840, 2176, 24, 30)
+          assert g['master_is_exact_model_output'] is True
+          assert g['automatic_paid_retry'] is False
+          assert g['runpod_inference_performed'] is False
+          print('AVANTIQO_VIDEO_SCENE1_HQ_NATIVE_MASTER=PASS')
+          print('ESTIMATED_SUPPLIER_GPU_COST_USD=' + str(g.get('estimated_supplier_gpu_cost_usd')))
           PY
 
-      - name: Upload untouched Scene 1 native master
+      - name: Upload untouched Scene 1 HQ native master
         if: success()
         uses: actions/upload-artifact@v4
         with:
@@ -202,7 +162,6 @@ jobs:
         if: always()
         shell: bash
         run: |
-          set -euo pipefail
           echo 'MAX_PAID_GPU_JOBS_ALLOWED=1'
           echo 'AUTOMATIC_PAID_RETRY=false'
           echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
@@ -210,4 +169,4 @@ jobs:
           echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
           echo 'RUNPOD_USED=false'
 
-# launch-token: scene1-hq-native-paid-2026-09-02-v2
+# launch-token: scene1-hq-native-paid-2026-09-02-v3

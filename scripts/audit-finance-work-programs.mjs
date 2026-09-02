@@ -20,12 +20,14 @@ const files = {
   lifecycleSchema: "supabase/migrations/20260902173500_accounting_work_program_lifecycle_controls.sql",
   systemGateSchema: "supabase/migrations/20260902175500_accounting_work_program_system_gate_enforcement.sql",
   capacitySchema: "supabase/migrations/20260902175500_accounting_practice_capacity_entity_scope.sql",
+  materializationSchema: "supabase/migrations/20260902182000_accounting_recurring_cycle_materialization.sql",
   api: "app/api/workspace/finance/work-programs/route.js",
   lifecycleApi: "app/api/workspace/finance/work-programs/lifecycle/route.js",
   verifyApi: "app/api/workspace/finance/work-programs/verify/route.js",
   rollForwardApi: "app/api/workspace/finance/work-programs/roll-forward/route.js",
   capacityApi: "app/api/workspace/finance/practice-capacity/route.js",
   recurringPlanApi: "app/api/workspace/finance/recurring-plan/route.js",
+  recurringMaterializeApi: "app/api/workspace/finance/recurring-materialize/route.js",
   engagementFileApi: "app/api/workspace/finance/engagement-file/route.js",
   gates: "lib/finance/practice/workProgramGates.js",
   practiceApi: "app/api/workspace/finance/practice-control/route.js",
@@ -101,6 +103,21 @@ requireTokens(files.capacitySchema, [
   "entity_id",
   "enable row level security",
   "revoke all",
+  "service_role",
+]);
+
+requireTokens(files.materializationSchema, [
+  "materialize_accounting_engagement_run",
+  "security invoker",
+  "on conflict (accounting_firm_id, engagement_id, run_key) do nothing",
+  "ENTITY_REQUIRED",
+  "ENTITY_SCOPE_MISMATCH",
+  "PERIOD_REQUIRED",
+  "PERIOD_SCOPE_MISMATCH",
+  "TEMPLATE_UNAVAILABLE",
+  "NOT_STARTED",
+  "manual_until_sent",
+  "revoke all on function",
   "service_role",
 ]);
 
@@ -195,6 +212,17 @@ requireTokens(files.recurringPlanApi, [
   "financial_periods",
 ]);
 
+requireTokens(files.recurringMaterializeApi, [
+  "requireOrganizationAccess",
+  "requireManage",
+  "materialize_accounting_engagement_run",
+  "materialized",
+  "idempotent: true",
+  "ALREADY_EXISTS",
+  "ENTITY_SCOPE_MISMATCH",
+  "PERIOD_SCOPE_MISMATCH",
+]);
+
 requireTokens(files.engagementFileApi, [
   "accounting_engagements",
   "accounting_engagement_runs",
@@ -233,6 +261,8 @@ requireTokens(files.practiceUi, [
   "active_runs",
   "waiting_on_client",
   "blocked_work",
+  "90-day recurring cycle plan",
+  "No runs created",
 ]);
 
 requireTokens(files.engagementFileUi, [
@@ -277,6 +307,9 @@ const coverage = {
   recurring_cycle_dry_run: true,
   recurring_cycle_idempotency: true,
   recurring_cycle_configuration_blockers: true,
+  recurring_cycle_atomic_materialization: true,
+  recurring_cycle_database_scope_revalidation: true,
+  recurring_cycle_service_role_only_execution: true,
 };
 
 console.log("AVANTIQO FINANCE WORK PROGRAM CERTIFICATION");
@@ -286,5 +319,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are governed from recurring planning and entity-scoped budgeting through capacity-aware, system-verified, review-complete engagement files, locked completion and roll-forward.");
+  console.log("PASS: Accounting work programs are governed from dry-run recurring planning and atomic idempotent materialization through entity-scoped budgeting, capacity-aware execution, system verification, review-complete engagement files, locked completion and roll-forward.");
 }

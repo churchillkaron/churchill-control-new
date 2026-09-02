@@ -217,6 +217,10 @@ export default function FinanceRecordReviewPanel({
 
   const reviewItem = reviewData.review_item;
   const openNotes = reviewData.notes.filter((note) => note.status !== "RESOLVED");
+  const preparerSigned = reviewData.signoffs.some((signoff) => signoff.signoff_role === "PREPARER");
+  const reviewerSigned = reviewData.signoffs.some((signoff) => signoff.signoff_role === "REVIEWER");
+  const partnerSigned = reviewData.signoffs.some((signoff) => signoff.signoff_role === "PARTNER");
+  const canPartnerClear = reviewItem?.status === "REVIEWED" && reviewerSigned && openNotes.length === 0 && !partnerSigned;
   const index = rows.findIndex((row) => row === selected || (row?.id && row.id === selected?.id));
 
   return (
@@ -242,18 +246,8 @@ export default function FinanceRecordReviewPanel({
         <div className="mt-3 flex items-center justify-between border-t border-black/[0.06] pt-3 text-[9px] text-[#918B83]">
           <span>{index >= 0 ? index + 1 : 0} of {rows.length}</span>
           <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={() => onSelect?.(rows[Math.max(0, index - 1)])}
-              disabled={index <= 0}
-              className="rounded-md border border-black/[0.07] p-1 text-[#716B63] hover:bg-[#F7F6F3] disabled:opacity-30"
-            ><ChevronLeft size={13} /></button>
-            <button
-              type="button"
-              onClick={() => onSelect?.(rows[Math.min(rows.length - 1, index + 1)])}
-              disabled={index < 0 || index >= rows.length - 1}
-              className="rounded-md border border-black/[0.07] p-1 text-[#716B63] hover:bg-[#F7F6F3] disabled:opacity-30"
-            ><ChevronRight size={13} /></button>
+            <button type="button" onClick={() => onSelect?.(rows[Math.max(0, index - 1)])} disabled={index <= 0} className="rounded-md border border-black/[0.07] p-1 text-[#716B63] hover:bg-[#F7F6F3] disabled:opacity-30"><ChevronLeft size={13} /></button>
+            <button type="button" onClick={() => onSelect?.(rows[Math.min(rows.length - 1, index + 1)])} disabled={index < 0 || index >= rows.length - 1} className="rounded-md border border-black/[0.07] p-1 text-[#716B63] hover:bg-[#F7F6F3] disabled:opacity-30"><ChevronRight size={13} /></button>
           </div>
         </div>
       </div>
@@ -267,13 +261,8 @@ export default function FinanceRecordReviewPanel({
           <TabButton active={tab === "audit"} onClick={() => setTab("audit")}>Audit</TabButton>
         </div>
 
-        {error ? (
-          <div className="mt-3 rounded-lg border border-red-700/15 bg-red-50 p-3 text-[10px] text-red-800">{error}</div>
-        ) : null}
-
-        {loading ? (
-          <div className="mt-4 flex items-center gap-2 text-[10px] text-[#817B73]"><RefreshCw size={12} className="animate-spin" /> Loading review evidence…</div>
-        ) : null}
+        {error ? <div className="mt-3 rounded-lg border border-red-700/15 bg-red-50 p-3 text-[10px] text-red-800">{error}</div> : null}
+        {loading ? <div className="mt-4 flex items-center gap-2 text-[10px] text-[#817B73]"><RefreshCw size={12} className="animate-spin" /> Loading review evidence…</div> : null}
 
         {tab === "overview" ? (
           <dl className="mt-3 divide-y divide-black/[0.055]">
@@ -288,22 +277,15 @@ export default function FinanceRecordReviewPanel({
 
         {tab === "lines" ? (
           <div className="mt-3 space-y-4">
-            {collections.length === 0 ? (
-              <div className="text-[10px] text-[#918B83]">No embedded lines or related collections are included in this record payload.</div>
-            ) : collections.map(([key, items]) => (
+            {collections.length === 0 ? <div className="text-[10px] text-[#918B83]">No embedded lines or related collections are included in this record payload.</div> : collections.map(([key, items]) => (
               <section key={key}>
                 <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#918B83]">{label(key)}</div>
                 <div className="overflow-x-auto rounded-lg border border-black/[0.07]">
-                  <table className="min-w-full text-[9px]">
-                    <tbody className="divide-y divide-black/[0.05]">
-                      {items.slice(0, 50).map((item, itemIndex) => (
-                        <tr key={item?.id || itemIndex}>
-                          <td className="px-2.5 py-2 text-[#5D5750]">{recordTitle(item || {}, capability)}</td>
-                          <td className="px-2.5 py-2 text-right text-[#7D766D]">{display(item?.amount ?? item?.debit ?? item?.credit ?? item?.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <table className="min-w-full text-[9px]"><tbody className="divide-y divide-black/[0.05]">
+                    {items.slice(0, 50).map((item, itemIndex) => (
+                      <tr key={item?.id || itemIndex}><td className="px-2.5 py-2 text-[#5D5750]">{recordTitle(item || {}, capability)}</td><td className="px-2.5 py-2 text-right text-[#7D766D]">{display(item?.amount ?? item?.debit ?? item?.credit ?? item?.total)}</td></tr>
+                    ))}
+                  </tbody></table>
                 </div>
               </section>
             ))}
@@ -313,63 +295,32 @@ export default function FinanceRecordReviewPanel({
         {tab === "review" ? (
           <div className="mt-3 space-y-4">
             {!reviewItem ? (
-              <button
-                type="button"
-                disabled={Boolean(busyAction)}
-                onClick={() => reviewAction("ensure_review")}
-                className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3 text-[10px] font-semibold text-white disabled:opacity-50"
-              >
-                <ShieldCheck size={12} /> Start review
-              </button>
+              <button type="button" disabled={Boolean(busyAction)} onClick={() => reviewAction("ensure_review")} className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#1F1E1B] px-3 text-[10px] font-semibold text-white disabled:opacity-50"><ShieldCheck size={12} /> Start review</button>
             ) : (
               <>
                 <div className="rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#918B83]">Review status</div>
-                      <div className="mt-1 text-[12px] font-semibold text-[#403B35]">{label(reviewItem.status)}</div>
-                    </div>
+                    <div><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#918B83]">Review status</div><div className="mt-1 text-[12px] font-semibold text-[#403B35]">{label(reviewItem.status)}</div></div>
                     <div className="text-right text-[9px] text-[#918B83]">Updated<br />{dateTime(reviewItem.updated_at)}</div>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button type="button" disabled={Boolean(busyAction)} onClick={() => reviewAction("set_status", { status: "IN_PREPARATION" })} className="rounded-lg border border-black/[0.08] bg-white px-2 py-2 text-[9px] font-medium text-[#625D56] disabled:opacity-50">In preparation</button>
                     <button type="button" disabled={Boolean(busyAction)} onClick={() => reviewAction("set_status", { status: "CHANGES_REQUESTED" })} className="rounded-lg border border-black/[0.08] bg-white px-2 py-2 text-[9px] font-medium text-[#625D56] disabled:opacity-50">Request changes</button>
-                    <button type="button" disabled={Boolean(busyAction)} onClick={() => reviewAction("signoff", { signoffRole: "PREPARER" })} className="rounded-lg border border-[#B18150]/25 bg-[#D6A66A]/[0.08] px-2 py-2 text-[9px] font-semibold text-[#73502D] disabled:opacity-50">Preparer sign-off</button>
-                    <button type="button" disabled={Boolean(busyAction)} onClick={() => reviewAction("signoff", { signoffRole: "REVIEWER" })} className="rounded-lg bg-[#1F1E1B] px-2 py-2 text-[9px] font-semibold text-white disabled:opacity-50">Reviewer sign-off</button>
+                    <button type="button" disabled={Boolean(busyAction) || preparerSigned} onClick={() => reviewAction("signoff", { signoffRole: "PREPARER" })} className="rounded-lg border border-[#B18150]/25 bg-[#D6A66A]/[0.08] px-2 py-2 text-[9px] font-semibold text-[#73502D] disabled:opacity-45">{preparerSigned ? "Prepared ✓" : "Preparer sign-off"}</button>
+                    <button type="button" disabled={Boolean(busyAction) || !preparerSigned || reviewerSigned || openNotes.length > 0} onClick={() => reviewAction("signoff", { signoffRole: "REVIEWER" })} className="rounded-lg bg-[#1F1E1B] px-2 py-2 text-[9px] font-semibold text-white disabled:opacity-35">{reviewerSigned ? "Reviewed ✓" : "Reviewer sign-off"}</button>
+                    <button type="button" disabled={Boolean(busyAction) || !canPartnerClear} onClick={() => reviewAction("signoff", { signoffRole: "PARTNER" })} className="col-span-2 rounded-lg border border-emerald-700/20 bg-emerald-50 px-3 py-2.5 text-[9px] font-semibold text-emerald-800 disabled:opacity-40">{partnerSigned ? "Partner cleared ✓" : "Partner clearance"}</button>
                   </div>
+                  {openNotes.length ? <div className="mt-2 rounded-lg border border-amber-700/15 bg-amber-50 px-2.5 py-2 text-[9px] text-amber-900">Resolve {openNotes.length} open review {openNotes.length === 1 ? "point" : "points"} before final reviewer/partner clearance.</div> : null}
                 </div>
 
                 <div>
                   <div className="mb-2 flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#918B83]"><MessageSquareText size={11} /> Review notes</div>
-                  <textarea
-                    value={noteBody}
-                    onChange={(event) => setNoteBody(event.target.value)}
-                    placeholder="Add review note, query or required follow-up…"
-                    className="min-h-20 w-full resize-y rounded-lg border border-black/[0.08] bg-white p-2.5 text-[10px] text-[#514C45] outline-none focus:border-[#B18150]/50"
-                  />
-                  <button
-                    type="button"
-                    disabled={!noteBody.trim() || Boolean(busyAction)}
-                    onClick={() => reviewAction("add_note", { noteType: "REVIEW", body: noteBody })}
-                    className="mt-2 h-8 rounded-lg border border-black/[0.08] bg-white px-3 text-[9px] font-semibold text-[#625D56] disabled:opacity-40"
-                  >
-                    Add note
-                  </button>
+                  <textarea value={noteBody} onChange={(event) => setNoteBody(event.target.value)} placeholder="Add review note, query or required follow-up…" className="min-h-20 w-full resize-y rounded-lg border border-black/[0.08] bg-white p-2.5 text-[10px] text-[#514C45] outline-none focus:border-[#B18150]/50" />
+                  <button type="button" disabled={!noteBody.trim() || Boolean(busyAction)} onClick={() => reviewAction("add_note", { noteType: "REVIEW", body: noteBody })} className="mt-2 h-8 rounded-lg border border-black/[0.08] bg-white px-3 text-[9px] font-semibold text-[#625D56] disabled:opacity-40">Add note</button>
                   <div className="mt-3 space-y-2">
-                    {reviewData.notes.length === 0 ? (
-                      <div className="text-[10px] text-[#918B83]">No review notes.</div>
-                    ) : reviewData.notes.map((note) => (
+                    {reviewData.notes.length === 0 ? <div className="text-[10px] text-[#918B83]">No review notes.</div> : reviewData.notes.map((note) => (
                       <div key={note.id} className="rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-[9px] font-semibold text-[#665F56]">{label(note.note_type)} · {label(note.status)}</div>
-                            <div className="mt-1 whitespace-pre-wrap text-[10px] leading-4 text-[#514C45]">{note.body}</div>
-                            <div className="mt-1 text-[8px] text-[#A09A92]">{dateTime(note.created_at)}</div>
-                          </div>
-                          {note.status !== "RESOLVED" ? (
-                            <button type="button" disabled={Boolean(busyAction)} onClick={() => reviewAction("resolve_note", { noteId: note.id })} className="shrink-0 rounded-md border border-black/[0.07] bg-white p-1.5 text-[#716B63]" title="Resolve note"><Check size={11} /></button>
-                          ) : null}
-                        </div>
+                        <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="text-[9px] font-semibold text-[#665F56]">{label(note.note_type)} · {label(note.status)}</div><div className="mt-1 whitespace-pre-wrap text-[10px] leading-4 text-[#514C45]">{note.body}</div><div className="mt-1 text-[8px] text-[#A09A92]">{dateTime(note.created_at)}</div></div>{note.status !== "RESOLVED" ? <button type="button" disabled={Boolean(busyAction)} onClick={() => reviewAction("resolve_note", { noteId: note.id })} className="shrink-0 rounded-md border border-black/[0.07] bg-white p-1.5 text-[#716B63]" title="Resolve note"><Check size={11} /></button> : null}</div>
                       </div>
                     ))}
                   </div>
@@ -378,12 +329,10 @@ export default function FinanceRecordReviewPanel({
                 <div>
                   <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#918B83]">Sign-off evidence</div>
                   <div className="space-y-2">
-                    {reviewData.signoffs.length === 0 ? (
-                      <div className="text-[10px] text-[#918B83]">No sign-offs yet.</div>
-                    ) : reviewData.signoffs.map((signoff) => (
-                      <div key={signoff.id} className="flex items-center justify-between rounded-lg border border-emerald-700/10 bg-emerald-50/60 px-3 py-2 text-[9px]">
-                        <span className="font-semibold text-emerald-800">{label(signoff.signoff_role)}</span>
-                        <span className="text-emerald-700/70">{dateTime(signoff.signed_at)}</span>
+                    {reviewData.signoffs.length === 0 ? <div className="text-[10px] text-[#918B83]">No sign-offs yet.</div> : reviewData.signoffs.map((signoff) => (
+                      <div key={signoff.id} className={`flex items-center justify-between rounded-lg border px-3 py-2 text-[9px] ${signoff.signoff_role === "PARTNER" ? "border-emerald-700/15 bg-emerald-50 text-emerald-800" : "border-black/[0.07] bg-[#FAF9F7] text-[#625D56]"}`}>
+                        <span className="font-semibold">{signoff.signoff_role === "PARTNER" ? "Partner clearance" : label(signoff.signoff_role)}</span>
+                        <span className="opacity-70">{dateTime(signoff.signed_at)}</span>
                       </div>
                     ))}
                   </div>
@@ -395,29 +344,16 @@ export default function FinanceRecordReviewPanel({
 
         {tab === "documents" ? (
           <div className="mt-3 space-y-2">
-            {reviewData.documents.length === 0 ? (
-              <div className="text-[10px] text-[#918B83]">No linked Finance documents were found for this record.</div>
-            ) : reviewData.documents.map((document) => (
-              <a key={document.id} href={document.file_url || "#"} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-3 hover:border-[#B18150]/30">
-                <FileText size={14} className="shrink-0 text-[#9A7045]" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[10px] font-medium text-[#514C45]">{document.file_name || "Finance document"}</div>
-                  <div className="mt-0.5 text-[8px] text-[#9A948C]">{label(document.status || "available")} · {dateTime(document.created_at)}</div>
-                </div>
-              </a>
+            {reviewData.documents.length === 0 ? <div className="text-[10px] text-[#918B83]">No linked Finance documents were found for this record.</div> : reviewData.documents.map((document) => (
+              <a key={document.id} href={document.file_url || "#"} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-3 hover:border-[#B18150]/30"><FileText size={14} className="shrink-0 text-[#9A7045]" /><div className="min-w-0 flex-1"><div className="truncate text-[10px] font-medium text-[#514C45]">{document.file_name || "Finance document"}</div><div className="mt-0.5 text-[8px] text-[#9A948C]">{label(document.status || "available")} · {dateTime(document.created_at)}</div></div></a>
             ))}
           </div>
         ) : null}
 
         {tab === "audit" ? (
           <div className="mt-3 space-y-2">
-            {reviewData.audit_events.length === 0 ? (
-              <div className="text-[10px] text-[#918B83]">No audit events were found for this record key.</div>
-            ) : reviewData.audit_events.map((event) => (
-              <div key={event.id} className="rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-3">
-                <div className="text-[9px] font-semibold text-[#625D56]">{label(event.action)}</div>
-                <div className="mt-1 text-[8px] text-[#9A948C]">{event.actor_email || "System"} · {dateTime(event.created_at)}</div>
-              </div>
+            {reviewData.audit_events.length === 0 ? <div className="text-[10px] text-[#918B83]">No audit events were found for this review.</div> : reviewData.audit_events.map((event) => (
+              <div key={event.id} className="rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-3"><div className="text-[9px] font-semibold text-[#625D56]">{label(event.action)}</div><div className="mt-1 text-[8px] text-[#9A948C]">{event.actor_email || "System"} · {dateTime(event.created_at)}</div></div>
             ))}
           </div>
         ) : null}

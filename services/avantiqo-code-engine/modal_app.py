@@ -120,6 +120,7 @@ image = (
             "AVANTIQO_CODE_HF_CACHE_ROOT": HF_CACHE_ROOT,
             "VLLM_CACHE_ROOT": "/tmp/avantiqo-code-vllm-cache",
             "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
             "VLLM_USE_FLASHINFER_SAMPLER": "0",
             "VLLM_USE_DEEP_GEMM": "0",
             "VLLM_MOE_USE_DEEP_GEMM": "0",
@@ -145,7 +146,9 @@ image = (
     image=image,
     gpu="H100",
     timeout=30 * 60,
-    scaledown_window=5,
+    scaledown_window=10 * 60,
+    min_containers=0,
+    max_containers=1,
 )
 def generate(data: dict[str, Any]) -> dict[str, Any]:
     """Execute one bounded owned-model Code request on Modal."""

@@ -9,6 +9,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const MANAGE_PERMISSIONS = ["finance.accounting.manage", "finance.configuration.manage"];
 const OPEN_ITEM_STATUSES = ["NOT_STARTED", "READY", "IN_PROGRESS", "WAITING_ON_CLIENT", "BLOCKED", "READY_FOR_REVIEW", "CHANGES_REQUESTED"];
+const RISK_RANK = { OVERLOADED: 0, HIGH: 1, WATCH: 2, HEALTHY: 3 };
 
 function clean(value) { return String(value ?? "").trim(); }
 function jsonError(message, status = 400) { return NextResponse.json({ success: false, error: message }, { status }); }
@@ -137,7 +138,11 @@ export async function GET(request) {
         assigned_roles: [...load.roles],
         capacity_configured: Boolean(capacity.staff_account_id),
       };
-    }).sort((a, b) => ({ OVERLOADED: 0, HIGH: 1, WATCH: 2, HEALTHY: 3 }[a.risk] - ({ OVERLOADED: 0, HIGH: 1, WATCH: 2, HEALTHY: 3 }[b.risk]) || b.utilization - a.utilization || a.name.localeCompare(b.name));
+    }).sort((a, b) =>
+      (RISK_RANK[a.risk] ?? 99) - (RISK_RANK[b.risk] ?? 99) ||
+      b.utilization - a.utilization ||
+      a.name.localeCompare(b.name)
+    );
 
     const totalAvailable = people.reduce((sum, row) => sum + row.available_hours, 0);
     const totalAssigned = people.reduce((sum, row) => sum + row.assigned_hours, 0);

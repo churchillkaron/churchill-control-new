@@ -10,6 +10,10 @@ const dispatch = fs.readFileSync(
   "lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js",
   "utf8",
 );
+const productionQueueRoute = fs.readFileSync(
+  "app/api/creative/production/queue/route.js",
+  "utf8",
+);
 const providerResolver = fs.readFileSync(
   "lib/platform/service-runtime/providers/ProviderResolver.js",
   "utf8",
@@ -66,6 +70,21 @@ test("every ai.video capability enters the canonical Cinema dispatch boundary", 
   ]) {
     assert.match(dispatch, new RegExp(`${field}:\\s*_`));
   }
+});
+
+test("Creative Studio production queue installs the canonical Cinema boundary", () => {
+  assert.match(
+    productionQueueRoute,
+    /CreativeVideoProductionDispatchBootstrap/,
+  );
+  assert.match(
+    productionQueueRoute,
+    /CreativeShotCandidateQualityGateBootstrap/,
+  );
+  assert.match(
+    productionQueueRoute,
+    /ProductionQueueRuntime\.dispatchAll/,
+  );
 });
 
 test("Service Runtime preserves exact requested capability before provider resolution", () => {

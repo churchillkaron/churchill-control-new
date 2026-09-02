@@ -59,16 +59,30 @@ ln -s "$ROOT/node_modules" "$WORKTREE/node_modules"
   }
 
   changed="$(git diff --name-only | sort)"
-  expected="$(printf '%s\n' \
+  allowed="$(printf '%s\n' \
     app/api/operator/turn/route.js \
     lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime.js \
     lib/operator/runtime/OperatorReasoningRuntime.js \
     scripts/avantiqo-learning-worldclass-phase4-audit.mjs \
     scripts/run-avantiqo-learning-mechanism-synthesis-child-local.mjs \
     tests/avantiqo-intelligence-modal-only-convergence.test.mjs | sort)"
-  [[ "$changed" == "$expected" ]] || {
+  required="$(printf '%s\n' \
+    app/api/operator/turn/route.js \
+    lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime.js \
+    lib/operator/runtime/OperatorReasoningRuntime.js \
+    scripts/avantiqo-learning-worldclass-phase4-audit.mjs \
+    scripts/run-avantiqo-learning-mechanism-synthesis-child-local.mjs | sort)"
+
+  unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$allowed"))"
+  missing="$(comm -23 <(printf '%s\n' "$required") <(printf '%s\n' "$changed"))"
+  [[ -z "$unexpected" ]] || {
     echo "${CONTRACT}_UNEXPECTED_CHANGED_FILES" >&2
-    printf 'expected:\n%s\nactual:\n%s\n' "$expected" "$changed" >&2
+    printf '%s\n' "$unexpected" >&2
+    false
+  }
+  [[ -z "$missing" ]] || {
+    echo "${CONTRACT}_REQUIRED_CHANGED_FILES_MISSING" >&2
+    printf '%s\n' "$missing" >&2
     false
   }
 

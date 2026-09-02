@@ -4,89 +4,21 @@ import json
 import os
 import time
 import uuid
-from pathlib import Path
 from typing import Any
 
 import modal
 
 APP_NAME = "avantiqo-code-snapshot-canary-v1"
-CONTRACT = "AVANTIQO_CODE_MODAL_SNAPSHOT_CANARY_V2"
+CONTRACT = "AVANTIQO_CODE_MODAL_SNAPSHOT_CANARY_V3"
 FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
 RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
 MODEL_REVISION = "dcaee4d4dfc5ee71ad501f01f530e5652438fde0"
-WORKER_IMAGE = (
-    "ghcr.io/churchillkaron/avantiqo-code-worker@"
-    "sha256:fa6559a184998d75fb6430ea9fa303fe7b6c1af0da441e61ac4bd587b2bdf3c6"
-)
-HF_ROOT = "/opt/avantiqo-code-cache"
-HF_CACHE_ROOT = f"{HF_ROOT}/hub"
 
-
-def _bake_runtime_model(repo_id: str, revision: str, cache_root: str) -> None:
-    from huggingface_hub import snapshot_download
-
-    resolved = snapshot_download(
-        repo_id=repo_id,
-        revision=revision,
-        cache_dir=cache_root,
-    )
-    if not Path(resolved).is_dir():
-        raise RuntimeError(f"{CONTRACT}_MODEL_SNAPSHOT_MISSING")
-    print(
-        "AVANTIQO_CODE_SNAPSHOT_MODEL_BAKED="
-        + json.dumps(
-            {
-                "runtime_model": repo_id,
-                "revision": revision,
-                "cache_root": cache_root,
-                "modal_volume_created": False,
-            },
-            separators=(",", ":"),
-        ),
-        flush=True,
-    )
-
-
-# Keep this canary self-contained. Modal 1.x only auto-includes the module that
-# defines the Function/Class; relying on a sibling modal_app.py caused the V1
-# canary to crash-loop before snapshot creation.
-image = (
-    modal.Image.from_registry(
-        WORKER_IMAGE,
-        add_python=None,
-        setup_dockerfile_commands=[
-            "RUN command -v python >/dev/null 2>&1 || ln -s \"$(command -v python3)\" /usr/local/bin/python",
-            "RUN command -v pip >/dev/null 2>&1 || ln -s \"$(command -v pip3)\" /usr/local/bin/pip",
-            "RUN python --version && pip --version",
-        ],
-    )
-    .entrypoint([])
-    .env(
-        {
-            "HF_HOME": HF_ROOT,
-            "AVANTIQO_CODE_HF_CACHE_ROOT": HF_CACHE_ROOT,
-            "VLLM_CACHE_ROOT": "/tmp/avantiqo-code-vllm-cache",
-            "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
-            "VLLM_USE_FLASHINFER_SAMPLER": "0",
-            "VLLM_USE_DEEP_GEMM": "0",
-            "VLLM_MOE_USE_DEEP_GEMM": "0",
-            "AVANTIQO_CODE_DEVICE": "cuda",
-            "AVANTIQO_CODE_QUANTIZATION": "fp8",
-            "AVANTIQO_CODE_FOUNDATION_MODEL": FOUNDATION_MODEL,
-            "AVANTIQO_CODE_RUNTIME_MODEL": RUNTIME_MODEL,
-            "AVANTIQO_CODE_MAX_MODEL_LEN": "32768",
-            "AVANTIQO_CODE_GPU_MEMORY_UTILIZATION": "0.90",
-            "AVANTIQO_CODE_MAX_NEW_TOKENS": "768",
-            "AVANTIQO_CODE_REQUIRE_CACHED_MODEL": "1",
-            "TORCHINDUCTOR_COMPILE_THREADS": "1",
-        }
-    )
-    .run_function(
-        _bake_runtime_model,
-        args=(RUNTIME_MODEL, MODEL_REVISION, HF_CACHE_ROOT),
-        timeout=60 * 60,
-    )
-)
+# Immutable Modal image already built from the exact certified Avantiqo Code
+# worker image + exact Qwen FP8 model layer. Reusing it avoids re-downloading or
+# re-saving ~29 GiB of weights on every snapshot-canary deployment.
+BASE_IMAGE_ID = "im-jAkmG5niafDQsnuSUxak9c"
+image = modal.Image.from_id(BASE_IMAGE_ID)
 
 app = modal.App(APP_NAME)
 
@@ -151,12 +83,9 @@ class CodeSnapshotCanary:
         )
         warmup_seconds = time.perf_counter() - warm_started
 
-        # Preserve the exact engine/tokenizer that the source-owned handler uses.
         code_engine._ENGINE = engine
         code_engine._TOKENIZER = tokenizer
 
-        # vLLM sleep mode is the supported GPU-snapshot preparation path: model
-        # weights move to CPU memory and KV cache is discarded before snapshot.
         sleep_started = time.perf_counter()
         engine.sleep(level=1)
         sleep_seconds = time.perf_counter() - sleep_started
@@ -166,8 +95,10 @@ class CodeSnapshotCanary:
             "warmup_seconds": round(warmup_seconds, 3),
             "sleep_seconds": round(sleep_seconds, 3),
             "total_seconds": round(time.perf_counter() - total_started, 3),
+            "foundation_model": FOUNDATION_MODEL,
             "runtime_model": code_engine.RUNTIME_MODEL,
             "model_revision": MODEL_REVISION,
+            "base_image_id": BASE_IMAGE_ID,
             "safetensors_load_strategy": "prefetch",
             "fast_moe_cold_start": True,
             "gpu_snapshot_enabled": True,

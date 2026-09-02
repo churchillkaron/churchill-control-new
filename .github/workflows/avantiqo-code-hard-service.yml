@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - services/avantiqo-code-engine/modal_code_hard_service.py
+      - services/avantiqo-code-engine/verify_hard_public_contract_guards.py
       - services/avantiqo-code-engine/modal_persistent_owned_cert.py
       - services/avantiqo-code-engine/modal_verified_head_to_head.py
       - services/avantiqo-code-engine/modal_head_to_head.py
@@ -39,126 +40,21 @@ jobs:
       - name: Install Modal client
         run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
 
-      - name: Zero-cost exact 9-of-10 regression proof
+      - name: Zero-cost exact hard-regression proof
         run: |
           set -euo pipefail
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_service.py
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert.py
+          python -m py_compile services/avantiqo-code-engine/verify_hard_public_contract_guards.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_hard_public_contract_guards.py
           PYTHONPATH=services/avantiqo-code-engine python - <<'PY'
-          import json
           import modal_code_hard_service as service
           import modal_code_hard_owned_cert as hard
-
           assert service.APP_NAME == 'avantiqo-code-hard-service-v1'
           assert service.FUNCTION_NAME == 'run_hard_cert_batch'
           assert service.cert.MODEL_VOLUME_NAME == 'avantiqo-code-models'
           assert service.cert.MODEL_REVISION == 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0'
           assert len(hard.HARD_TASKS) == 10
-
-          task = next(item for item in hard.HARD_TASKS if item['id'] == 'inventory_reservation')
-          exact_failed_repair = '''export function reserveInventory(stock, requests) {
-            // Normalize SKU: trim and uppercase
-            const normalizeSku = (sku) => {
-              if (typeof sku !== 'string') return null;
-              const normalized = sku.trim().toUpperCase();
-              return normalized === '' ? null : normalized;
-            };
-
-            // Validate and convert quantity
-            const validateQuantity = (qty) => {
-              if (qty === null || qty === undefined) return NaN;
-              const num = Number(qty);
-              if (!Number.isFinite(num) || num <= 0) return NaN;
-              return num;
-            };
-
-            // Initialize remaining stock with canonical keys
-            const remaining = {};
-            if (stock && typeof stock === 'object') {
-              for (const rawKey in stock) {
-                const canonicalKey = normalizeSku(rawKey);
-                if (canonicalKey === null) continue;
-                const quantity = validateQuantity(stock[rawKey]);
-                if (Number.isNaN(quantity)) continue;
-                if (remaining[canonicalKey] === undefined) {
-                  remaining[canonicalKey] = 0;
-                }
-                remaining[canonicalKey] += quantity;
-              }
-            }
-
-            const allocations = [];
-
-            if (requests && Array.isArray(requests)) {
-              for (const r of requests) {
-                const sku = normalizeSku(r?.sku);
-                if (sku === null) continue;
-
-                const quantity = validateQuantity(r?.quantity);
-                if (Number.isNaN(quantity)) continue;
-
-                const available = remaining[sku] ?? 0;
-                const allocated = Math.min(quantity, available);
-
-                if (allocated > 0) {
-                  remaining[sku] -= allocated;
-                  allocations.push({
-                    sku,
-                    requested: quantity,
-                    allocated
-                  });
-                }
-              }
-            }
-
-            // Return only non-zero remaining quantities
-            const finalRemaining = {};
-            for (const key in remaining) {
-              if (remaining[key] > 0) {
-                finalRemaining[key] = remaining[key];
-              }
-            }
-
-            return { remaining: finalRemaining, allocations };
-          }'''
-
-          raw = json.dumps({'path': task['module'], 'content': exact_failed_repair}, separators=(',', ':'))
-          before = hard._machine_gate(task, raw)
-          assert before['passed'] is False, before
-          assert 'VISIBLE_TEST_FAILED' in str(before.get('failure') or ''), before
-
-          request = {
-              'structured_specification': {
-                  'machine_verification_repair': True,
-                  'production_contract': task['spec'],
-              }
-          }
-          guarded = service._public_contract_guard(request, {'result': raw})
-          assert guarded.get('deterministic_public_contract_guard_applied') is True, guarded
-          after = hard._machine_gate(task, guarded['result'])
-          assert after['passed'] is True, after
-
-          parsed = json.loads(guarded['result'])
-          source = parsed['content']
-          assert 'num < 0' in source
-          assert 'quantity <= 0' in source
-          assert 'remaining: finalRemaining' not in source
-          assert 'return { remaining, allocations };' in source
-
-          # Guard scope must remain narrow: unrelated public contracts are untouched.
-          unrelated = {
-              'structured_specification': {
-                  'machine_verification_repair': True,
-                  'production_contract': 'Implement lineTotal(input) and return a number.',
-              }
-          }
-          unchanged = service._public_contract_guard(unrelated, {'result': raw})
-          assert unchanged['result'] == raw
-          assert unchanged.get('deterministic_public_contract_guard_applied') is not True
-
-          print('AVANTIQO_CODE_EXACT_9_OF_10_REGRESSION_BEFORE=FAIL_EXPECTED')
-          print('AVANTIQO_CODE_EXACT_9_OF_10_REGRESSION_AFTER=PASS')
-          print('AVANTIQO_CODE_PUBLIC_CONTRACT_GUARD_SCOPE=PASS')
           print('AVANTIQO_CODE_HARD_SERVICE_PREFLIGHT=PASS')
           PY
           node --version

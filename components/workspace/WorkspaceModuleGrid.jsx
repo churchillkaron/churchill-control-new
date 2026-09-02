@@ -187,20 +187,20 @@ export default function WorkspaceModuleGrid({ workspace, organizationId, title, 
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="text-xs uppercase tracking-[0.32em] text-[#D6A66A]/70">Work Centers</div>
-        <div className="flex w-full items-center rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-white/45 md:w-[360px]">
-          <Search size={16} />
-          <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search this workspace…" className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/35" />
+        <div className="text-[11px] font-medium uppercase tracking-[0.24em] text-[#A37849]">Work Centers</div>
+        <div className="flex w-full items-center rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-[#8B8881] shadow-[0_1px_2px_rgba(0,0,0,0.02)] md:w-[360px]">
+          <Search size={15} />
+          <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search this workspace…" className="ml-2.5 w-full bg-transparent text-[12px] text-[#2C2A27] outline-none placeholder:text-[#AAA69E]" />
         </div>
       </div>
 
       {favoriteItems.length > 0 && (
-        <div className="rounded-[28px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.06] p-5">
-          <div className="mb-4 text-xs uppercase tracking-[0.28em] text-[#D6A66A]">Favorites</div>
+        <div className="rounded-[24px] border border-[#D6A66A]/25 bg-[#FBF7F1] p-5">
+          <div className="mb-4 text-[10px] font-medium uppercase tracking-[0.2em] text-[#9A744B]">Favorites</div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {favoriteItems.map(item => (
-              <Link key={item.id} href={resolveWorkspaceRoute({ organizationId: fallbackOrganizationId, moduleId: item.id, workspaceId: workspace, route: item.route })} className="group flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-medium text-white/70 transition hover:border-[#D6A66A]/40 hover:text-[#D6A66A]">
-                <span>{item.name}</span><ArrowRight size={16} />
+              <Link key={item.id} href={resolveWorkspaceRoute({ organizationId: fallbackOrganizationId, moduleId: item.id, workspaceId: workspace, route: item.route })} className="group flex items-center justify-between rounded-xl border border-black/[0.07] bg-white px-4 py-3 text-[12px] font-medium text-[#4D4943] transition hover:border-[#D6A66A]/45 hover:text-[#8D643C]">
+                <span>{item.name}</span><ArrowRight size={15} />
               </Link>
             ))}
           </div>
@@ -208,19 +208,22 @@ export default function WorkspaceModuleGrid({ workspace, organizationId, title, 
       )}
 
       {groups.length === 0 ? (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-white/45">No workspace modules configured.</div>
+        <div className="rounded-2xl border border-black/[0.075] bg-white p-6 text-[12px] text-[#77736C]">No workspace modules configured.</div>
       ) : visibleGroups.length === 0 ? (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-white/45">No matching work centers.</div>
+        <div className="rounded-2xl border border-black/[0.075] bg-white p-6 text-[12px] text-[#77736C]">No matching work centers.</div>
       ) : (
         <div className="grid gap-5 xl:grid-cols-2">
           {visibleGroups.map(group => {
             const disabledCount = group.items.filter(isDisabledItem).length;
             const activeCount = group.items.length - disabledCount;
             return (
-              <section key={group.id} className="rounded-[30px] border border-white/10 bg-white/[0.035] p-5 shadow-xl shadow-black/10">
+              <section key={group.id} className="rounded-[26px] border border-black/[0.075] bg-white p-5 shadow-[0_10px_30px_rgba(31,27,20,0.045)]">
                 <div className="mb-5 flex items-start justify-between gap-4">
-                  <div><h3 className="text-lg font-semibold text-white">{group.name}</h3>{group.description && <p className="mt-1 text-sm leading-6 text-white/42">{group.description}</p>}</div>
-                  <div className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs text-white/35">{disabledCount ? `${activeCount} active · ${disabledCount} unavailable` : group.items.length}</div>
+                  <div>
+                    <h3 className="text-[17px] font-semibold tracking-[-0.02em] text-[#24221F]">{group.name}</h3>
+                    {group.description && <p className="mt-1.5 text-[12px] leading-5 text-[#77736C]">{group.description}</p>}
+                  </div>
+                  <div className="rounded-full border border-black/[0.07] bg-[#F7F6F3] px-3 py-1 text-[10px] font-medium text-[#8C8881]">{disabledCount ? `${activeCount} active · ${disabledCount} unavailable` : group.items.length}</div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   {group.items.map(item => {
@@ -229,15 +232,15 @@ export default function WorkspaceModuleGrid({ workspace, organizationId, title, 
                     const content = (
                       <>
                         <div className="flex items-start justify-between gap-4">
-                          <div className={`rounded-2xl border border-white/10 bg-black/30 p-2.5 ${disabled ? "text-white/25" : "text-[#D6A66A]"}`}><Icon size={19} /></div>
-                          {disabled ? <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/35">{getStatusLabel(item)}</span> : <ArrowRight size={17} className="mt-2 text-white/22" />}
+                          <div className={`rounded-xl border p-2.5 ${disabled ? "border-black/[0.06] bg-[#F4F2EF] text-[#BBB7B0]" : "border-[#D6A66A]/22 bg-[#D6A66A]/[0.08] text-[#A37849]"}`}><Icon size={18} /></div>
+                          {disabled ? <span className="rounded-full border border-black/[0.07] bg-[#F7F6F3] px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.12em] text-[#AAA69E]">{getStatusLabel(item)}</span> : <ArrowRight size={16} className="mt-2 text-[#B8B4AD] transition group-hover:translate-x-0.5 group-hover:text-[#A37849]" />}
                         </div>
-                        <div className={`mt-4 text-sm font-semibold ${disabled ? "text-white/38" : "text-white"}`}>{item.name}</div>
-                        <div className={`mt-1.5 text-xs leading-5 ${disabled ? "text-white/25" : "text-white/40"}`}>{item.description || "Open this capability."}</div>
+                        <div className={`mt-4 text-[13px] font-semibold ${disabled ? "text-[#9D9992]" : "text-[#2A2825]"}`}>{item.name}</div>
+                        <div className={`mt-1.5 text-[11px] leading-5 ${disabled ? "text-[#B4B0A8]" : "text-[#7E7A73]"}`}>{item.description || "Open this capability."}</div>
                       </>
                     );
-                    if (disabled) return <div key={item.id} aria-disabled="true" className="cursor-not-allowed rounded-2xl border border-white/[0.06] bg-black/10 p-4 opacity-75">{content}</div>;
-                    return <Link key={item.id} href={resolveWorkspaceRoute({ organizationId: fallbackOrganizationId, moduleId: item.id, workspaceId: workspace, route: item.route })} className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-[#D6A66A]/40 hover:bg-[#D6A66A]/10">{content}</Link>;
+                    if (disabled) return <div key={item.id} aria-disabled="true" className="cursor-not-allowed rounded-2xl border border-black/[0.055] bg-[#F7F6F3] p-4 opacity-80">{content}</div>;
+                    return <Link key={item.id} href={resolveWorkspaceRoute({ organizationId: fallbackOrganizationId, moduleId: item.id, workspaceId: workspace, route: item.route })} className="group rounded-2xl border border-black/[0.07] bg-[#FBFAF8] p-4 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/42 hover:bg-[#FBF7F1] hover:shadow-[0_8px_22px_rgba(31,27,20,0.05)]">{content}</Link>;
                   })}
                 </div>
               </section>

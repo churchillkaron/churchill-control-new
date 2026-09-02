@@ -30,7 +30,7 @@ jobs:
   prove-business-partner:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
       NODE_ENV: development
@@ -48,6 +48,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install dependencies
         run: npm ci
 
@@ -57,8 +62,13 @@ jobs:
           node --check scripts/run-avantiqo-operator-two-turn-e2e-local.mjs
           node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js
           node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
+          python -m py_compile services/avantiqo-intelligence-modal/modal_app.py
+          python -m py_compile services/avantiqo-intelligence-modal/deploy_app.py
           grep -q 'MODAL_H100_ASYNC_V1' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
           grep -q 'safe_lease_required_for_inference: false' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
+          grep -Fq 'FAST_SCALEDOWN_WINDOW_SECONDS = 10 * 60' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq '"enforce_eager": False' services/avantiqo-intelligence-modal/modal_app.py
+          grep -Fq '"safetensors_load_strategy": "prefetch"' services/avantiqo-intelligence-modal/modal_app.py
           stale_prefix="RUN""POD_"
           if grep -q "${stale_prefix}" .github/workflows/avantiqo-operator-two-turn-e2e.yml; then
             echo "AVANTIQO_BUSINESS_PARTNER_E2E_STALE_LEGACY_PROVIDER_REFERENCE=true"
@@ -70,6 +80,53 @@ jobs:
           fi
           echo "AVANTIQO_BUSINESS_PARTNER_E2E_MODAL_STATIC_PREFLIGHT=PASS"
           echo "GPU_INFERENCE_PERFORMED=false"
+
+      - name: Install pinned Modal SDK for live revision gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Prove deployed Modal revision before any H100 inference
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          expected_fingerprint="$(sha256sum services/avantiqo-intelligence-modal/modal_app.py | awk '{print $1}')"
+          export AVANTIQO_INTELLIGENCE_EXPECTED_SOURCE_FINGERPRINT="${expected_fingerprint}"
+          python - <<'PY'
+          import os
+          import modal
+
+          expected = os.environ["AVANTIQO_INTELLIGENCE_EXPECTED_SOURCE_FINGERPRINT"]
+          probe = modal.Function.from_name("avantiqo-intelligence-owned", "runtime_probe")
+          evidence = probe.remote()
+          if evidence.get("schema") != "AVANTIQO_INTELLIGENCE_MODAL_RUNTIME_PROBE_V1":
+              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_PROBE_SCHEMA_INVALID:{evidence}")
+          if evidence.get("source_fingerprint") != expected:
+              raise RuntimeError(
+                  f"AVANTIQO_INTELLIGENCE_MODAL_STALE_DEPLOYMENT:live={evidence.get('source_fingerprint')}:expected={expected}"
+              )
+          if evidence.get("app_name") != "avantiqo-intelligence-owned":
+              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_APP_MISMATCH:{evidence}")
+          if evidence.get("gpu") != "H100":
+              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_GPU_MISMATCH:{evidence}")
+          if int(evidence.get("fast_scaledown_seconds") or 0) != 600:
+              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_FAST_RETENTION_INVALID:{evidence}")
+          if evidence.get("fast_cuda_graphs") is not True or evidence.get("fast_safetensors_prefetch") is not True:
+              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_FAST_OPTIMIZATION_MISSING:{evidence}")
+          if evidence.get("gpu_inference_performed") is not False:
+              raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_PROBE_GPU_BOUNDARY_INVALID:{evidence}")
+          print(
+              "AVANTIQO_INTELLIGENCE_MODAL_DEPLOYED_REVISION_GATE=PASS "
+              f"deploy_sha={evidence.get('deploy_git_sha')} fingerprint={expected}"
+          )
+          print("GPU_INFERENCE_PERFORMED=false")
+          PY
 
       - name: Explicit real-inference approval gate
         if: ${{ inputs.mode == 'execute' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902' }}

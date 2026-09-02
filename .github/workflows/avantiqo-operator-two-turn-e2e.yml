@@ -1,11 +1,21 @@
 name: Avantiqo Business Partner Two Turn E2E
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-operator-two-turn-e2e.yml
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Certification mode. Preflight performs no model inference."
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - execute
+      approve_real_inference:
+        description: "Required for execute: approve exactly two real owned Intelligence turns on Modal H100."
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -20,7 +30,7 @@ jobs:
     timeout-minutes: 30
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
-      NODE_ENV: production
+      NODE_ENV: development
       AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
     steps:
       - name: Checkout newest main
@@ -38,22 +48,50 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Static preflight
+      - name: Static Modal contract preflight
         run: |
+          set -euo pipefail
           node --check scripts/run-avantiqo-operator-two-turn-e2e-local.mjs
-          node --check lib/platform/service-runtime/execution/OwnedIntelligenceRequestLeaseRuntime.js
-          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceDeepProvider.js
-          grep -q 'OPERATOR_TURN_TIMEOUT_MS = 12 \* 60 \* 1000' components/operator/HomeAvantiqoIntelligence.jsx
-          grep -q 'TARGET_LEASE_STATE_PROPAGATION_TIMEOUT' scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js
+          node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
+          grep -q 'MODAL_H100_ASYNC_V1' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
+          grep -q 'safe_lease_required_for_inference: false' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
+          if grep -q 'RUNPOD_' .github/workflows/avantiqo-operator-two-turn-e2e.yml; then
+            echo "AVANTIQO_BUSINESS_PARTNER_E2E_STALE_RUNPOD_WORKFLOW_REFERENCE=true"
+            exit 1
+          fi
+          if grep -q '^  push:' .github/workflows/avantiqo-operator-two-turn-e2e.yml; then
+            echo "AVANTIQO_BUSINESS_PARTNER_E2E_AUTOMATIC_PAID_TRIGGER=true"
+            exit 1
+          fi
+          echo "AVANTIQO_BUSINESS_PARTNER_E2E_MODAL_STATIC_PREFLIGHT=PASS"
+          echo "GPU_INFERENCE_PERFORMED=false"
 
-      - name: Run two consecutive real Business Partner turns
+      - name: Explicit real-inference approval gate
+        if: ${{ inputs.mode == 'execute' }}
         env:
-          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
-          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-          RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY || secrets.RUNPOD_API_KEY }}
-          RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_INTELLIGENCE_FAST_API_KEY || secrets.RUNPOD_API_KEY }}
+          REAL_INFERENCE_APPROVED: ${{ inputs.approve_real_inference }}
+        run: |
+          set -euo pipefail
+          if [ "${REAL_INFERENCE_APPROVED}" != "true" ]; then
+            echo "AVANTIQO_BUSINESS_PARTNER_E2E_REAL_INFERENCE_APPROVAL_REQUIRED=true"
+            exit 1
+          fi
+          echo "AVANTIQO_BUSINESS_PARTNER_E2E_REAL_INFERENCE_APPROVED=true"
+
+      - name: Run governed Modal Business Partner certification
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs
+          AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED: ${{ inputs.approve_real_inference }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.mode }}" = "execute" ]; then
+            node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs --execute
+          else
+            node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs
+          fi
 
       - name: Immutable release boundary
         if: always()

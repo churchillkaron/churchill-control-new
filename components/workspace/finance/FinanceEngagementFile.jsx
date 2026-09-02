@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
-  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -12,14 +11,12 @@ import {
   FileCheck2,
   FileText,
   FolderOpen,
-  Gauge,
   History,
   LoaderCircle,
   MessageSquareText,
   RefreshCw,
   ShieldCheck,
   UserRoundCheck,
-  Users,
   X,
 } from "lucide-react";
 
@@ -39,7 +36,7 @@ function hours(minutes) {
 
 function itemTone(status) {
   const value = String(status || "").toUpperCase();
-  if (["COMPLETE", "ACCEPTED", "CLEARED"].includes(value)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
+  if (["COMPLETE", "ACCEPTED", "CLEARED", "LOCKED"].includes(value)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
   if (["BLOCKED", "CHANGES_REQUESTED"].includes(value)) return "border-red-700/15 bg-red-50 text-red-800";
   if (["READY_FOR_REVIEW", "SUBMITTED", "REVIEWED"].includes(value)) return "border-amber-700/15 bg-amber-50 text-amber-800";
   return "border-black/[0.08] bg-[#F7F6F3] text-[#716B63]";
@@ -66,8 +63,83 @@ function StaffCard({ title, person }) {
   );
 }
 
+function ReviewTruthPanel({ portfolio, run }) {
+  if (!run) {
+    return (
+      <section className="rounded-2xl border border-black/[0.07] bg-white p-4">
+        <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.14em] text-[#8A633C]"><ShieldCheck size={11} /> Engagement review truth</div>
+        <div className="mt-3 text-[10px] text-[#918B83]">Create an accounting cycle before engagement-wide review clearance can be evaluated.</div>
+      </section>
+    );
+  }
+
+  const total = Number(portfolio?.review_item_count || 0);
+  const reviewed = Number(portfolio?.reviewed_record_count || 0);
+  const cleared = Number(portfolio?.cleared_record_count || 0);
+  const openPoints = Number(portfolio?.unresolved_note_count || 0);
+  const blockers = Array.isArray(portfolio?.blockers) ? portfolio.blockers : [];
+  const stages = Array.isArray(portfolio?.stages) ? portfolio.stages : [];
+  const signoffs = portfolio?.signoff_counts || {};
+  const fullyCleared = portfolio?.fully_cleared === true;
+
+  return (
+    <section className={`rounded-2xl border p-4 ${fullyCleared ? "border-emerald-700/15 bg-emerald-50/55" : "border-amber-700/15 bg-[#FFF9EF]"}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.14em] text-[#8A633C]"><ShieldCheck size={11} /> Engagement review truth</div>
+          <div className="mt-1.5 text-[15px] font-semibold text-[#312D28]">{fullyCleared ? "Review fully cleared" : portfolio?.current_stage_label || "Review clearance pending"}</div>
+          <div className="mt-1 text-[9px] text-[#817A71]">Same organization · legal entity · accounting period gate used by lifecycle completion.</div>
+        </div>
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] ${fullyCleared ? "border-emerald-700/15 bg-white text-emerald-800" : "border-amber-700/15 bg-white text-amber-800"}`}>
+          {fullyCleared ? <CheckCircle2 size={11} /> : <CircleDot size={11} />}
+          {fullyCleared ? "Cleared" : label(portfolio?.current_stage || "Pending")}
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+        <Metric title="Review records" value={total} detail="In scoped engagement" />
+        <Metric title="Reviewed" value={`${reviewed}/${total}`} detail="Reviewer-level status" warning={total > 0 && reviewed < total} />
+        <Metric title="Cleared" value={`${cleared}/${total}`} detail="Partner-level status" warning={total > 0 && cleared < total} />
+        <Metric title="Open points" value={openPoints} detail="Must clear before final" warning={openPoints > 0} />
+        <Metric title="Preparer" value={`${Number(signoffs.PREPARER || 0)}/${total}`} detail="Active sign-offs" warning={total > 0 && Number(signoffs.PREPARER || 0) < total} />
+        <Metric title="Reviewer" value={`${Number(signoffs.REVIEWER || 0)}/${total}`} detail="Active sign-offs" warning={total > 0 && Number(signoffs.REVIEWER || 0) < total} />
+        <Metric title="Partner" value={`${Number(signoffs.PARTNER || 0)}/${total}`} detail="Active sign-offs" warning={total > 0 && Number(signoffs.PARTNER || 0) < total} />
+      </div>
+
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
+        {stages.map((stage) => (
+          <div key={stage.stage} className={`rounded-xl border p-3 ${stage.satisfied ? "border-emerald-700/10 bg-white/80" : "border-black/[0.07] bg-white"}`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[9px] font-semibold text-[#48433D]">{stage.label}</div>
+              {stage.satisfied ? <BadgeCheck size={12} className="text-emerald-700" /> : <CircleDot size={12} className="text-amber-700" />}
+            </div>
+            <div className="mt-1 text-[8px] text-[#908A82]">{stage.satisfied_review_items || 0}/{stage.review_item_count || 0} records satisfy this stage</div>
+            <div className="mt-1 text-[8px] text-[#908A82]">Requires {(stage.required_roles || []).map(label).join(" + ") || "No sign-off"}</div>
+          </div>
+        ))}
+      </div>
+
+      {blockers.length ? (
+        <div className="mt-3 rounded-xl border border-red-700/10 bg-white p-3">
+          <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#965640]"><AlertTriangle size={11} /> What blocks clearance now</div>
+          <div className="mt-2 grid gap-1.5 md:grid-cols-2">
+            {blockers.slice(0, 8).map((blocker, index) => (
+              <div key={`${blocker.code || "blocker"}-${blocker.review_item_id || index}`} className="rounded-lg bg-red-50/70 px-2.5 py-2 text-[9px] text-red-800">
+                <div className="font-medium">{blocker.record_label || blocker.message}</div>
+                {blocker.record_label ? <div className="mt-0.5 text-[8px] text-red-700/80">{blocker.message}</div> : null}
+              </div>
+            ))}
+          </div>
+          {blockers.length > 8 ? <div className="mt-2 text-[8px] text-[#908A82]">+ {blockers.length - 8} additional blocker{blockers.length - 8 === 1 ? "" : "s"}</div> : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function WorkItemRow({ item }) {
   const gate = item.metadata?.system_gate;
+  const reviewGate = item.metadata?.engagement_review_gate;
   const reviewNotes = item.review?.notes || [];
   const unresolved = reviewNotes.filter((note) => note.status !== "RESOLVED").length;
   return (
@@ -83,7 +155,9 @@ function WorkItemRow({ item }) {
       <div className="tabular-nums text-[#5E5952]">{hours(item.budget_minutes)}</div>
       <div className="text-[#5E5952]">{date(item.due_at)}</div>
       <div className="flex items-center gap-1.5">
-        {gate?.applicable === true ? (
+        {reviewGate?.applicable === true ? (
+          reviewGate.satisfied === true ? <span className="inline-flex items-center gap-1 text-emerald-700"><BadgeCheck size={11} /> Review</span> : <span className="inline-flex items-center gap-1 text-red-700"><AlertTriangle size={11} /> Review</span>
+        ) : gate?.applicable === true ? (
           gate.satisfied === true ? <span className="inline-flex items-center gap-1 text-emerald-700"><BadgeCheck size={11} /> Verified</span> : <span className="inline-flex items-center gap-1 text-red-700"><AlertTriangle size={11} /> Blocked</span>
         ) : <span className="text-[#99938A]">Evidence</span>}
         {unresolved > 0 ? <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[8px] font-semibold text-red-700">{unresolved}</span> : null}
@@ -168,6 +242,7 @@ export default function FinanceEngagementFile({ organizationId, engagementId, on
   const documents = Array.isArray(data?.documents) ? data.documents : [];
   const externalReviews = Array.isArray(data?.external_reviews) ? data.external_reviews : [];
   const summary = data?.summary || {};
+  const reviewPortfolio = data?.review_portfolio || null;
   const allRuns = useMemo(() => [currentRun, ...history].filter(Boolean), [currentRun, history]);
 
   function toggleRun(runId) {
@@ -208,7 +283,7 @@ export default function FinanceEngagementFile({ organizationId, engagementId, on
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
             <Metric title="Progress" value={`${summary.current_progress || 0}%`} detail="Current work program" />
             <Metric title="Budget" value={hours(summary.current_budget_minutes)} detail="Current cycle" />
-            <Metric title="Review points" value={summary.open_review_points || 0} detail="Unresolved findings" warning={(summary.open_review_points || 0) > 0} />
+            <Metric title="Review points" value={reviewPortfolio?.unresolved_note_count ?? summary.open_review_points ?? 0} detail="Current scoped findings" warning={Number(reviewPortfolio?.unresolved_note_count ?? summary.open_review_points ?? 0) > 0} />
             <Metric title="System blockers" value={summary.system_blockers || 0} detail="ERP truth gates" warning={(summary.system_blockers || 0) > 0} />
             <Metric title="Overdue work" value={summary.overdue_work || 0} detail="Procedures past due" warning={(summary.overdue_work || 0) > 0} />
             <Metric title="Client overdue" value={summary.overdue_client_requests || 0} detail="Evidence requests" warning={(summary.overdue_client_requests || 0) > 0} />
@@ -220,6 +295,8 @@ export default function FinanceEngagementFile({ organizationId, engagementId, on
             <StaffCard title="Reviewer" person={data.staff?.reviewer} />
             <StaffCard title="Partner" person={data.staff?.partner} />
           </div>
+
+          <ReviewTruthPanel portfolio={reviewPortfolio} run={currentRun} />
 
           <section>
             <div className="mb-2 flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.14em] text-[#8A633C]"><FileCheck2 size={11} /> Work program & workpapers</div>

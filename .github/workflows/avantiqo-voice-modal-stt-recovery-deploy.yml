@@ -1,0 +1,154 @@
+name: Avantiqo Voice Modal STT Recovery Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-voice-modal-stt-recovery-deploy.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-voice-modal-stt-recovery-deploy
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      VOICE_MODAL_APP: avantiqo-voice-owned
+      VOICE_STT_CALL_ID: fc-01M1EJCHJ7T5XW0PP8GQA93FAW
+      VOICE_STT_IMAGE: ghcr.io/churchillkaron/avantiqo-voice-stt-worker@sha256:960ee663a65aa085b46373aa279b91394e95aa7a89da7625f86446eb1122445f
+
+    steps:
+      - name: Checkout exact recovery source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify repaired Voice STT binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-voice-modal/modal_app.py
+          python -m py_compile services/avantiqo-voice-stt/handler.py
+          grep -Fq 'sha256:960ee663a65aa085b46373aa279b91394e95aa7a89da7625f86446eb1122445f' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'AVANTIQO_VOICE_STT_LOCAL_MODEL_PATH' services/avantiqo-voice-modal/modal_app.py
+          grep -Fq 'local_files_only=True' services/avantiqo-voice-stt/handler.py
+          grep -Fq 'RUNTIME_REVISION = "AVANTIQO_VOICE_STT_LOCAL_SNAPSHOT_V2"' services/avantiqo-voice-stt/handler.py
+          echo 'AVANTIQO_VOICE_STT_REPAIRED_BINDING=PASS'
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+
+      - name: Require Modal credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'AVANTIQO_VOICE_MODAL_RECOVERY_CREDENTIALS=PASS'
+
+      - name: Recreate Voice Modal deployment on repaired image
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-voice-modal
+          modal deploy --strategy recreate modal_app.py
+          echo 'AVANTIQO_VOICE_MODAL_RECREATE_DEPLOY=PASS'
+          echo 'NEW_STT_JOB_SUBMITTED=false'
+          echo 'NEW_TTS_JOB_SUBMITTED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'PRICING_ACTIVATION_PERFORMED=false'
+          echo 'PRODUCTION_ROUTING_ACTIVATED=false'
+
+      - name: Poll exact existing STT FunctionCall only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import modal
+
+          call_id = os.environ["VOICE_STT_CALL_ID"]
+          call = modal.FunctionCall.from_id(call_id)
+          deadline = time.time() + 20 * 60
+          poll = 0
+          while time.time() < deadline:
+              poll += 1
+              try:
+                  result = call.get(timeout=0)
+              except TimeoutError:
+                  print(json.dumps({"event":"VOICE_STT_EXISTING_CALL_POLL","poll":poll,"status":"processing","call_id":call_id}))
+                  time.sleep(5)
+                  continue
+              except Exception as exc:
+                  print(json.dumps({"event":"VOICE_STT_EXISTING_CALL_TERMINAL_ERROR","poll":poll,"call_id":call_id,"error_type":type(exc).__name__,"error":str(exc)[:1200]}))
+                  raise
+
+              safe = {
+                  "event": "VOICE_STT_EXISTING_CALL_COMPLETED",
+                  "poll": poll,
+                  "call_id": call_id,
+                  "status": result.get("status") if isinstance(result, dict) else None,
+                  "provider": result.get("provider") if isinstance(result, dict) else None,
+                  "capability": result.get("capability") if isinstance(result, dict) else None,
+                  "model": result.get("model") if isinstance(result, dict) else None,
+                  "foundation_model": result.get("foundation_model") if isinstance(result, dict) else None,
+                  "runtime_revision": result.get("runtime_revision") if isinstance(result, dict) else None,
+                  "transcript": result.get("transcript") if isinstance(result, dict) else None,
+                  "language": result.get("language") if isinstance(result, dict) else None,
+                  "generation_seconds": result.get("generation_seconds") if isinstance(result, dict) else None,
+                  "modal_container_preload_seconds": result.get("modal_container_preload_seconds") if isinstance(result, dict) else None,
+                  "modal_request_elapsed_seconds": result.get("modal_request_elapsed_seconds") if isinstance(result, dict) else None,
+                  "raw_reasoning_persisted": result.get("raw_reasoning_persisted") if isinstance(result, dict) else None,
+              }
+              print(json.dumps(safe))
+              if not isinstance(result, dict) or result.get("status") != "completed":
+                  raise RuntimeError("AVANTIQO_VOICE_EXISTING_STT_RESULT_NOT_COMPLETED")
+              if result.get("runtime_revision") != "AVANTIQO_VOICE_STT_LOCAL_SNAPSHOT_V2":
+                  raise RuntimeError("AVANTIQO_VOICE_EXISTING_STT_NOT_REPAIRED_RUNTIME")
+              if result.get("raw_reasoning_persisted") is not False:
+                  raise RuntimeError("AVANTIQO_VOICE_EXISTING_STT_REASONING_BOUNDARY_INVALID")
+              print("AVANTIQO_VOICE_EXISTING_STT_CALL=PASS")
+              break
+          else:
+              raise RuntimeError("AVANTIQO_VOICE_EXISTING_STT_CALL_STILL_PENDING_AFTER_RECOVERY")
+          PY
+
+      - name: Capture recovery logs
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== RECENT VOICE MODAL STDERR ==='
+          modal app logs "${VOICE_MODAL_APP}" --source stderr --since 40m --tail 500 --timestamps --show-function-id --show-function-call-id --show-container-id || true
+          echo '=== RECENT VOICE MODAL SYSTEM ==='
+          modal app logs "${VOICE_MODAL_APP}" --source system --since 40m --tail 500 --timestamps --show-function-id --show-function-call-id --show-container-id || true
+
+      - name: Preserve recovery boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'NEW_STT_JOB_SUBMITTED=false'
+          echo 'NEW_TTS_JOB_SUBMITTED=false'
+          echo 'RUNPOD_USED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VOICE_PRICING_ACTIVATED=false'
+          echo 'VOICE_PRODUCTION_ROUTING_ACTIVATED=false'

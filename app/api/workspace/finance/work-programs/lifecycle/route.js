@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
+import { requireEngagementReviewGate } from "@/lib/finance/practice/engagementReviewGate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -97,38 +98,30 @@ function hasEvidence(item, body) {
   return Boolean(clean(evidence)) && Boolean(conclusion);
 }
 
-async function ensureFinanceReviewCleared(item) {
-  if (item.work_type !== "FINANCE_REVIEW") return;
-  if (!item.finance_review_item_id) {
-    const error = new Error("Finance review work must be linked to a Finance review item before completion");
-    error.status = 409;
-    throw error;
-  }
-  const [reviewResult, notesResult, signoffsResult] = await Promise.all([
-    supabaseAdmin
-      .from("finance_review_items")
-      .select("id,status")
-      .eq("id", item.finance_review_item_id)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("finance_review_notes")
-      .select("id", { count: "exact", head: true })
-      .eq("review_item_id", item.finance_review_item_id)
-      .neq("status", "RESOLVED"),
-    supabaseAdmin
-      .from("finance_review_signoffs")
-      .select("signoff_role")
-      .eq("review_item_id", item.finance_review_item_id),
-  ]);
-  if (reviewResult.error) throw reviewResult.error;
-  if (notesResult.error) throw notesResult.error;
-  if (signoffsResult.error) throw signoffsResult.error;
-  const roles = new Set((signoffsResult.data || []).map((row) => row.signoff_role));
-  if (!reviewResult.data || reviewResult.data.status !== "CLEARED" || Number(notesResult.count || 0) > 0 || !roles.has("PARTNER")) {
-    const error = new Error("Finance review is not fully cleared by reviewer and partner");
-    error.status = 409;
-    throw error;
-  }
+function reviewGateSnapshot(gate) {
+  if (!gate?.applicable) return null;
+  return {
+    satisfied: gate.satisfied === true,
+    stage: gate.stage,
+    scope: gate.scope,
+    required_roles: gate.required_roles || [],
+    review_item_count: gate.review_item_count || 0,
+    review_item_ids: gate.review_item_ids || [],
+    unresolved_note_count: gate.unresolved_note_count || 0,
+    status_counts: gate.status_counts || {},
+    signoff_counts: gate.signoff_counts || {},
+    evaluated_at: gate.evaluated_at,
+  };
+}
+
+function finalReviewWorkItem(items) {
+  const reviewItems = (items || []).filter((item) => item.work_type === "FINANCE_REVIEW");
+  if (!reviewItems.length) return null;
+  return reviewItems
+    .slice()
+    .sort((a, b) => Number(b.sequence_no || 0) - Number(a.sequence_no || 0))
+    .find((item) => String(item.required_role || "").toUpperCase() === "PARTNER")
+    || reviewItems.slice().sort((a, b) => Number(b.sequence_no || 0) - Number(a.sequence_no || 0))[0];
 }
 
 async function releaseDependents(access, runId) {
@@ -261,8 +254,9 @@ export async function POST(request) {
         if (!clientRequest || clientRequest.status !== "ACCEPTED") return jsonError("Client evidence must be accepted before this work item can complete", 409);
       }
       if (!hasEvidence(item, body)) return jsonError("Required evidence and conclusion must be recorded before completion", 409);
-      await ensureFinanceReviewCleared(item);
 
+      const engagementReviewGate = await requireEngagementReviewGate({ run, workItem: item });
+      const engagementReviewSnapshot = reviewGateSnapshot(engagementReviewGate);
       const nextStatus = ["REVIEWER", "PARTNER"].includes(item.required_role) ? "COMPLETE" : body.readyForReview === true || body.ready_for_review === true ? "READY_FOR_REVIEW" : "COMPLETE";
       const { data, error } = await supabaseAdmin
         .from("accounting_engagement_work_items")
@@ -270,6 +264,9 @@ export async function POST(request) {
           status: nextStatus,
           evidence: body.evidence ?? item.evidence ?? {},
           conclusion: body.conclusion ?? item.conclusion ?? null,
+          metadata: engagementReviewSnapshot
+            ? { ...(item.metadata || {}), engagement_review_gate: engagementReviewSnapshot }
+            : item.metadata || {},
           completed_at: nextStatus === "COMPLETE" ? new Date().toISOString() : null,
           completed_by: nextStatus === "COMPLETE" ? access.user?.id || null : null,
           blocked_reason: null,
@@ -280,9 +277,17 @@ export async function POST(request) {
         .single();
       if (error) throw error;
       if (nextStatus === "COMPLETE") await releaseDependents(access, run.id);
-      await audit(access, nextStatus === "COMPLETE" ? "ACCOUNTING_WORK_ITEM_COMPLETED" : "ACCOUNTING_WORK_ITEM_READY_FOR_REVIEW", "accounting_engagement_work_item", item.id, item, data, { run_id: run.id });
+      await audit(
+        access,
+        nextStatus === "COMPLETE" ? "ACCOUNTING_WORK_ITEM_COMPLETED" : "ACCOUNTING_WORK_ITEM_READY_FOR_REVIEW",
+        "accounting_engagement_work_item",
+        item.id,
+        item,
+        data,
+        { run_id: run.id, engagement_review_gate: engagementReviewSnapshot }
+      );
       const reconciled = await reconcileRun(access, run);
-      return NextResponse.json({ success: true, work_item: data, run: reconciled.run });
+      return NextResponse.json({ success: true, work_item: data, run: reconciled.run, engagement_review_gate: engagementReviewSnapshot });
     }
 
     if (["send_client_request", "submit_client_request", "accept_client_request", "client_request_changes"].includes(action)) {
@@ -347,12 +352,19 @@ export async function POST(request) {
           client_requests: incompleteRequests.map((clientRequest) => ({ id: clientRequest.id, status: clientRequest.status })),
         });
       }
+
+      const finalReviewItem = finalReviewWorkItem(items);
+      const finalReviewGate = finalReviewItem
+        ? await requireEngagementReviewGate({ run, workItem: finalReviewItem })
+        : { applicable: false, satisfied: true };
+      const finalReviewSnapshot = reviewGateSnapshot(finalReviewGate);
       const now = new Date().toISOString();
       const snapshot = {
         completed_at: now,
         template_id: run.template_id,
         period_id: run.period_id,
-        work_items: items.map((item) => ({ id: item.id, step_key: item.step_key, status: item.status, evidence: item.evidence, conclusion: item.conclusion, completed_at: item.completed_at })),
+        review_clearance: finalReviewSnapshot,
+        work_items: items.map((item) => ({ id: item.id, step_key: item.step_key, status: item.status, evidence: item.evidence, conclusion: item.conclusion, completed_at: item.completed_at, engagement_review_gate: item.metadata?.engagement_review_gate || null })),
         client_requests: requests.map((clientRequest) => ({ id: clientRequest.id, status: clientRequest.status, submitted_at: clientRequest.submitted_at, accepted_at: clientRequest.accepted_at })),
       };
       const { data, error } = await supabaseAdmin
@@ -362,8 +374,8 @@ export async function POST(request) {
         .select("*")
         .single();
       if (error) throw error;
-      await audit(access, "ACCOUNTING_ENGAGEMENT_RUN_COMPLETED", "accounting_engagement_run", run.id, run, data, { snapshot });
-      return NextResponse.json({ success: true, run: data });
+      await audit(access, "ACCOUNTING_ENGAGEMENT_RUN_COMPLETED", "accounting_engagement_run", run.id, run, data, { snapshot, review_clearance: finalReviewSnapshot });
+      return NextResponse.json({ success: true, run: data, engagement_review_gate: finalReviewSnapshot });
     }
 
     if (action === "reconcile_run") {
@@ -374,6 +386,6 @@ export async function POST(request) {
     return jsonError("Unsupported work program lifecycle action", 400);
   } catch (error) {
     const message = error?.message || "Unable to update accounting work program lifecycle";
-    return jsonError(message, error?.status || (/permission denied/i.test(message) ? 403 : 500));
+    return jsonError(message, error?.status || (/permission denied/i.test(message) ? 403 : 500), error?.details);
   }
 }

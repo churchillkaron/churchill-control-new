@@ -4,11 +4,12 @@ import { ModalClient } from "modal";
 
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
-const CONTRACT = "AVANTIQO_BUSINESS_PARTNER_TWO_TURN_MODAL_E2E_V2";
+const CONTRACT = "AVANTIQO_BUSINESS_PARTNER_TWO_TURN_MODAL_E2E_V3";
 const ORGANIZATION_ID =
   String(process.env.AVANTIQO_OPERATOR_E2E_ORGANIZATION_ID || "33336a72-acb5-474e-856b-8be0269360e2").trim();
 const MODAL_APP = "avantiqo-intelligence-owned";
 const DIRECT_TRANSPORT = "modal-js-sdk-function-call-v1";
+const INFRASTRUCTURE_PROVIDER = "MODAL_H100_ASYNC_V1";
 const ALLOWED_PROVIDER_EVIDENCE = new Set([
   "avantiqo-intelligence",
   "avantiqo-local",
@@ -84,16 +85,6 @@ function statsShape(stats) {
   };
 }
 
-async function activeRunPodLeaseCount(supabaseAdmin) {
-  const result = await supabaseAdmin
-    .from("avantiqo_intelligence_runpod_leases")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", ORGANIZATION_ID)
-    .eq("state", "ACTIVE");
-  if (result.error) throw result.error;
-  return Number(result.count || 0);
-}
-
 async function main() {
   const runMode = mode();
   assert(ORGANIZATION_ID, "ORGANIZATION_REQUIRED");
@@ -125,8 +116,20 @@ async function main() {
 
     const { supabaseAdmin } = await import("@/lib/shared/supabase/admin");
     const { runSyntheticIntelligenceTurn } = await import("@/lib/operator/runtime/SyntheticIntelligenceTurnRuntime");
-    const leasesBefore = await activeRunPodLeaseCount(supabaseAdmin);
-    assert(leasesBefore === 0, `ACTIVE_RUNPOD_REQUEST_LEASES_BEFORE_TEST:${leasesBefore}`);
+    const { getAvantiqoIntelligenceRuntimeConfiguration } = await import(
+      "@/lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js"
+    );
+    const runtime = getAvantiqoIntelligenceRuntimeConfiguration();
+    assert(runtime?.runtime_ready === true, "MODAL_RUNTIME_NOT_READY");
+    assert(runtime?.modal_only === true, "MODAL_ONLY_REQUIRED");
+    assert(runtime?.infrastructure_provider === INFRASTRUCTURE_PROVIDER, "MODAL_H100_INFRASTRUCTURE_REQUIRED");
+    assert(runtime?.infrastructure_fallback === null, "INFRASTRUCTURE_FALLBACK_FORBIDDEN");
+    assert(runtime?.safe_lease_required_for_inference === false, "LEGACY_SAFE_LEASE_FORBIDDEN");
+    assert(runtime?.modal_transport === DIRECT_TRANSPORT, "DIRECT_MODAL_TRANSPORT_REQUIRED");
+    assert(runtime?.gpu === "H100", "H100_REQUIRED");
+    assert(runtime?.max_gpu_containers_per_lane === 1, "MODAL_LANE_CONTAINER_LIMIT_INVALID");
+    assert(runtime?.scale_to_zero === true, "MODAL_SCALE_TO_ZERO_REQUIRED");
+    assert(runtime?.persistent_model_volume === false, "PERSISTENT_MODEL_VOLUME_FORBIDDEN");
 
     const staffResult = await supabaseAdmin
       .from("staff_accounts")
@@ -146,13 +149,18 @@ async function main() {
       contract: CONTRACT,
       phase: "PREFLIGHT",
       mode: runMode,
+      owned_intelligence_only: true,
+      infrastructure_provider: runtime.infrastructure_provider,
+      infrastructure_fallback: runtime.infrastructure_fallback,
+      modal_only: runtime.modal_only,
       modal_app: MODAL_APP,
       modal_transport: DIRECT_TRANSPORT,
       modal_gateway_used: false,
+      modal_gpu: runtime.gpu,
+      modal_scale_to_zero: runtime.scale_to_zero,
+      modal_max_gpu_containers_per_lane: runtime.max_gpu_containers_per_lane,
       modal_fast: fastBefore,
       modal_deep: deepBefore,
-      active_runpod_request_leases: leasesBefore,
-      runpod_api_called: false,
       gpu_inference_performed: false,
       external_ai_fallback_used: false,
       production_deploy_performed: false,
@@ -221,9 +229,6 @@ async function main() {
     const secondMs = Date.now() - secondStarted;
     const secondHealthy = assertHealthyTurn(second, "TURN_2");
 
-    const leasesAfter = await activeRunPodLeaseCount(supabaseAdmin);
-    assert(leasesAfter === 0, `ACTIVE_RUNPOD_REQUEST_LEASES_AFTER_TEST:${leasesAfter}`);
-
     const [fastAfterRaw, deepAfterRaw] = await Promise.all([
       fastWorker.getCurrentStats(),
       deepWorker.getCurrentStats(),
@@ -256,13 +261,14 @@ async function main() {
       ],
       conversation_continuity_tested: true,
       owned_intelligence_only: true,
+      infrastructure_provider: runtime.infrastructure_provider,
+      infrastructure_fallback: runtime.infrastructure_fallback,
       direct_modal_used: true,
+      modal_only: true,
       modal_transport: DIRECT_TRANSPORT,
       modal_gateway_used: false,
       modal_fast_after: fastAfter,
       modal_deep_after: deepAfter,
-      runpod_api_called: false,
-      active_runpod_request_leases_after_test: leasesAfter,
       external_ai_fallback_used: false,
       runtime_unavailable_seen: false,
       raw_reasoning_persisted: false,

@@ -35,6 +35,7 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_inprocess_snapshot_canary.py
           python -m py_compile scripts/probe-avantiqo-code-inprocess-snapshot.py
 
+      # Isolated one-H100 cold-start proof. This never changes production routing.
       - name: Deploy isolated snapshot canary
         run: python -m modal deploy services/avantiqo-code-engine/modal_inprocess_snapshot_canary.py
 

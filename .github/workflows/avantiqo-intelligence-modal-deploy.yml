@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: avantiqo-intelligence-modal-governed-deploy
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy-intelligence-runtime:
@@ -100,7 +100,8 @@ jobs:
           expected_fingerprint = os.environ["AVANTIQO_INTELLIGENCE_DEPLOY_SOURCE_FINGERPRINT"]
 
           probe = modal.Function.from_name(app_name, "runtime_probe")
-          evidence = probe.remote()
+          probe_call = probe.spawn()
+          evidence = probe_call.get(timeout=45)
           if evidence.get("schema") != "AVANTIQO_INTELLIGENCE_MODAL_RUNTIME_PROBE_V1":
               raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_PROBE_SCHEMA_INVALID:{evidence}")
           if evidence.get("deploy_git_sha") != expected_sha:

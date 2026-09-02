@@ -1,0 +1,101 @@
+name: Avantiqo Image Modal Direct Certification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-image-modal-direct-certification.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-image-modal-direct-certification
+  cancel-in-progress: false
+
+jobs:
+  certify-image-direct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_IMAGE_ENGINE_ENABLED: "YES"
+      AVANTIQO_IMAGE_CERTIFIED_CAPABILITIES: ai.image.generate
+      AVANTIQO_IMAGE_MODAL_DIRECT_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_IMAGE_MODAL_DIRECT_CERT_SOURCE_MAIN_COMMIT: ${{ github.sha }}
+
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Zero-cost certification gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/certify-avantiqo-image-modal-direct-live.mjs
+          node --check lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
+          node --check lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js
+          node --test tests/avantiqo-image-modal-direct-transport.test.mjs
+          grep -Fq 'transportMode: "direct-sdk"' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
+          grep -Fq 'jobPrefix: "modal-image-direct:"' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js
+          grep -Fq 'owned_only_required: true' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js
+          grep -Fq 'external_provider_fallback_allowed: false' lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js
+          grep -Fq 'AVANTIQO_IMAGE_MODAL_DIRECT_SERVICE_CERTIFICATION_V1' scripts/certify-avantiqo-image-modal-direct-live.mjs
+          grep -Fq 'EXISTING_USAGE_NO_NEW_SUBMISSION' scripts/certify-avantiqo-image-modal-direct-live.mjs
+          echo 'AVANTIQO_IMAGE_MODAL_DIRECT_CERT_STATIC_GATE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Require certification credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'AVANTIQO_IMAGE_MODAL_DIRECT_CERT_CREDENTIALS=PASS'
+
+      - name: Run exactly one direct Image certification
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/certify-avantiqo-image-modal-direct-live.mjs
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'MAX_NEW_IMAGE_JOBS=1'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'IMAGE_PRICING_ACTIVATED=false'
+          echo 'IMAGE_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'MODAL_CPU_GATEWAY_USED=false'
+          echo 'RUNPOD_USED=false'
+          echo 'NEW_IMAGE_MODEL_VOLUME_CREATED=false'
+
+      - name: Upload Image certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-image-modal-direct-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            local-audit-output/avantiqo-image-modal-direct-certification/report.json
+            local-audit-output/avantiqo-image-modal-direct-certification/certified-image.png

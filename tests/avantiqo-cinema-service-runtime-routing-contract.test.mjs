@@ -10,8 +10,20 @@ const dispatch = fs.readFileSync(
   "lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js",
   "utf8",
 );
+const productionRuntime = fs.readFileSync(
+  "lib/creative/production/runtime/ProductionRuntime.js",
+  "utf8",
+);
 const productionQueueRoute = fs.readFileSync(
   "app/api/creative/production/queue/route.js",
+  "utf8",
+);
+const executionPlanner = fs.readFileSync(
+  "lib/creative/execution/planner/ExecutionPlanner.js",
+  "utf8",
+);
+const taskMaterialization = fs.readFileSync(
+  "lib/creative/execution/runtime/CreativeProductionTaskMaterializationRuntime.js",
   "utf8",
 );
 const providerResolver = fs.readFileSync(
@@ -72,7 +84,20 @@ test("every ai.video capability enters the canonical Cinema dispatch boundary", 
   }
 });
 
-test("Creative Studio production queue installs the canonical Cinema boundary", () => {
+test("shared Creative ProductionRuntime installs the canonical Cinema boundary", () => {
+  assert.match(
+    productionRuntime,
+    /CreativeVideoProductionDispatchBootstrap/,
+  );
+  assert.match(
+    productionRuntime,
+    /CreativeShotCandidateQualityGateBootstrap/,
+  );
+  assert.match(
+    productionRuntime,
+    /ProductionQueueRuntime\.dispatchAll/,
+  );
+
   assert.match(
     productionQueueRoute,
     /CreativeVideoProductionDispatchBootstrap/,
@@ -84,6 +109,40 @@ test("Creative Studio production queue installs the canonical Cinema boundary", 
   assert.match(
     productionQueueRoute,
     /ProductionQueueRuntime\.dispatchAll/,
+  );
+});
+
+test("Cinema boundary resolves Studio shot identity before dispatch", () => {
+  assert.match(dispatch, /function videoShotId/);
+  assert.match(dispatch, /task\.shot_id\s*\|\|/);
+  assert.match(dispatch, /task\.metadata\?\.shot_id/);
+  assert.match(dispatch, /task\.input\?\.shot_id/);
+  assert.match(dispatch, /ShotRepository\.get\(shotId\)/);
+  assert.match(dispatch, /shot_id:\s*shotId/);
+  assert.match(dispatch, /task:\s*\{\s*\.\.\.task,\s*shot_id:\s*shotId\s*\}/);
+});
+
+test("temporal film shots materialize canonical ai.video production tasks", () => {
+  assert.match(
+    executionPlanner,
+    /capability:\s*generation\.capability\s*\|\|\s*generation\.service/,
+  );
+  assert.match(
+    executionPlanner,
+    /shot_id:\s*node\.metadata\?\.shot_id\s*\|\|\s*null/,
+  );
+  assert.match(taskMaterialization, /shot_id:\s*shotIdFor\(node\)/);
+  assert.match(
+    taskMaterialization,
+    /shot_id:\s*data\.shot_id\s*\|\|\s*contract\.shot_id\s*\|\|\s*null/,
+  );
+  assert.match(
+    taskMaterialization,
+    /capability:\s*data\.capability\s*\|\|\s*contract\.capability\s*\|\|\s*null/,
+  );
+  assert.match(
+    taskMaterialization,
+    /if \(capability\.includes\("video"\)\) return PRODUCTION_TASK_TYPES\.GENERATE_VIDEO/,
   );
 });
 

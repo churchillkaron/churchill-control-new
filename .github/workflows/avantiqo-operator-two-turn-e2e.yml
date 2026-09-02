@@ -56,8 +56,9 @@ jobs:
           node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
           grep -q 'MODAL_H100_ASYNC_V1' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
           grep -q 'safe_lease_required_for_inference: false' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
-          if grep -q 'RUNPOD_' .github/workflows/avantiqo-operator-two-turn-e2e.yml; then
-            echo "AVANTIQO_BUSINESS_PARTNER_E2E_STALE_RUNPOD_WORKFLOW_REFERENCE=true"
+          stale_prefix="RUN""POD_"
+          if grep -q "${stale_prefix}" .github/workflows/avantiqo-operator-two-turn-e2e.yml; then
+            echo "AVANTIQO_BUSINESS_PARTNER_E2E_STALE_LEGACY_PROVIDER_REFERENCE=true"
             exit 1
           fi
           if grep -q '^  push:' .github/workflows/avantiqo-operator-two-turn-e2e.yml; then

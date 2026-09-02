@@ -48,7 +48,8 @@ jobs:
           import modal
           ws = modal.Workspace.from_context()
           token = ws.proxy_tokens.create()
-          ws.proxy_tokens.allow(token.token_id, "main")
+          # This workspace uses global proxy tokens, so environment scoping is
+          # neither required nor valid. Never print the token secret.
           with open("/tmp/proxy-token-id", "w", encoding="utf-8") as f:
               f.write(token.token_id)
           print("AVANTIQO_CODE_AUTO_ENDPOINT_PROXY_TOKEN_CREATED=true")

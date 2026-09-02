@@ -71,6 +71,7 @@ export async function auditFinanceWorldclassWorkflow() {
     reviewPanel: "components/workspace/finance/FinanceRecordReviewPanel.jsx",
     reviewApi: "app/api/finance/review/route.js",
     migration: "supabase/migrations/20260902083500_finance_accountant_review_workflow.sql",
+    reviewHistoryMigration: "supabase/migrations/20260902164500_finance_review_signoff_history.sql",
   };
 
   for (const required of Object.values(files)) {
@@ -132,11 +133,6 @@ export async function auditFinanceWorldclassWorkflow() {
     fail(`Finance capability has unsupported primary action mode '${mode}': ${id}`, failures);
   }
 
-  // Deep create/form/route mutation closure is intentionally owned by
-  // scripts/finance-closeout-audit.mjs, which runs as the next required step
-  // in the independent Finance certification job. This workflow audit owns
-  // capability coverage, presentation, action safety, review and usability.
-
   const endpointWarnings = [];
   for (const endpoint of literalFinanceEndpoints(policySource)) {
     const routePath = endpointRoutePath(endpoint);
@@ -184,6 +180,10 @@ export async function auditFinanceWorldclassWorkflow() {
     '"audit"',
     '"PREPARER"',
     '"REVIEWER"',
+    '"PARTNER"',
+    "Partner clearance",
+    "openNotes",
+    "canPartnerClear",
     '"add_note"',
     '"resolve_note"',
   ]) {
@@ -200,6 +200,11 @@ export async function auditFinanceWorldclassWorkflow() {
     "finance_saved_views",
     "organization_documents",
     "organization_audit_logs",
+    "signedRoles",
+    "Preparer sign-off is required before reviewer sign-off",
+    "Reviewer sign-off is required before partner clearance",
+    "Resolve all open review points before final review clearance",
+    "reviewItem?.id || recordKey",
   ]) {
     if (!reviewApiSource.includes(token)) fail(`Governed Finance review API contract missing: ${token}`, failures);
   }
@@ -208,6 +213,13 @@ export async function auditFinanceWorldclassWorkflow() {
   for (const table of ["finance_review_items", "finance_review_notes", "finance_review_signoffs", "finance_saved_views"]) {
     if (!migrationSource.includes(`alter table public.${table} enable row level security`)) {
       fail(`Finance review table does not enable RLS in migration: ${table}`, failures);
+    }
+  }
+
+  const reviewHistoryMigration = read(files.reviewHistoryMigration);
+  for (const token of ["cycle_no", "revoked_at", "finance_review_signoffs_history_idx"]) {
+    if (!reviewHistoryMigration.includes(token)) {
+      fail(`Finance sign-off history migration contract missing: ${token}`, failures);
     }
   }
 
@@ -226,6 +238,9 @@ export async function auditFinanceWorldclassWorkflow() {
       runtime_reports: reports,
       runtime_processes: processes,
       primary_action_endpoint_warnings: endpointWarnings.length,
+      partner_clearance: true,
+      review_point_clearance_gate: true,
+      review_audit_identity: true,
     },
   };
 }

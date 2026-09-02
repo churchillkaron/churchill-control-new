@@ -43,31 +43,35 @@ test("owned Intelligence review pricing is development-only and production stays
   assert.match(runtime, /\.\.\.localReviewPolicy/);
 });
 
-test("owned Intelligence resolves its canonical RunPod endpoint without requiring a copied endpoint id", () => {
-  assert.match(provider, /const RUNPOD_REST_BASE = "https:\/\/rest\.runpod\.io\/v1"/);
-  assert.match(provider, /const CANONICAL_ENDPOINT_NAME = "avantiqo-intelligence-v1"/);
-  assert.match(provider, /RUNPOD_MANAGEMENT_API_KEY/);
-  assert.match(provider, /process\.env\.RUNPOD_API_KEY/);
-  assert.match(provider, /endpoints\?includeTemplate=false&includeWorkers=false/);
-  assert.match(provider, /text\(endpoint\?\.name\) === CANONICAL_ENDPOINT_NAME/);
-  assert.match(provider, /matches\.length !== 1/);
-  assert.match(provider, /RUNPOD_AVANTIQO_INTELLIGENCE_ENDPOINT_ID/);
-  assert.match(provider, /if \(explicit\) return validateEndpointId\(explicit\)/);
-  assert.match(provider, /const \{ baseUrl, apiKey \} = await config\(\)/);
-  assert.match(provider, /const \{ apiBase, apiKey \} = await config\(\)/);
+test("owned Intelligence provider is Modal-only and fails closed without direct Modal", () => {
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_MODAL_DIRECT_CONFIGURATION_REQUIRED/);
+  assert.match(provider, /infrastructure_provider:\s*"MODAL_H100_ASYNC_V1"/);
+  assert.match(provider, /infrastructure_fallback:\s*null/);
+  assert.match(provider, /modal_only:\s*true/);
+  assert.match(provider, /runtime_ready:\s*modalConfigured/);
+  assert.match(provider, /safe_lease_required_for_inference:\s*false/);
+  assert.match(provider, /modal_gateway_required:\s*false/);
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_MODAL_DIRECT_TRANSPORT/);
+  assert.doesNotMatch(provider, /runpod|run pod/i);
 });
 
-test("provider registration permits only development review bypass and advertises owned-only inference", () => {
+test("provider registration derives readiness from direct Modal credentials only", () => {
   assert.match(providerRegistration, /localReviewRuntimeAllowed/);
   assert.match(providerRegistration, /process\.env\.NODE_ENV/);
   assert.match(providerRegistration, /toLowerCase\(\) === "development"/);
-  assert.match(providerRegistration, /runpodEndpointId \|\| runpodManagementKey/);
-  assert.match(providerRegistration, /engineEnabled \|\| localReviewRuntimeAllowed/);
-  assert.match(providerRegistration, /runpod_endpoint_discovery_configured/);
+  assert.match(providerRegistration, /MODAL_TOKEN_ID \|\| process\.env\.AVANTIQO_MODAL_TOKEN_ID/);
+  assert.match(providerRegistration, /MODAL_TOKEN_SECRET \|\| process\.env\.AVANTIQO_MODAL_TOKEN_SECRET/);
+  assert.match(providerRegistration, /runtimeAvailable = Boolean\(modalConfigured && \(engineEnabled \|\| localReviewRuntimeAllowed\)\)/);
+  assert.match(providerRegistration, /infrastructure_provider:\s*"MODAL_H100_ASYNC_V1"/);
+  assert.match(providerRegistration, /infrastructure_candidates:\s*\["MODAL_H100_ASYNC_V1"\]/);
+  assert.match(providerRegistration, /modal_only:\s*true/);
+  assert.match(providerRegistration, /infrastructure_fallback:\s*null/);
+  assert.match(providerRegistration, /safe_lease_required:\s*false/);
   assert.match(providerRegistration, /external_provider_fallback_allowed:\s*false/);
   assert.match(providerRegistration, /supplier_type:\s*"OWNED_INFERENCE"/);
   assert.match(providerRegistration, /data_control:\s*"AVANTIQO"/);
   assert.match(providerRegistration, /inference_control:\s*"AVANTIQO"/);
+  assert.doesNotMatch(providerRegistration, /runpod|run pod/i);
 });
 
 test("reasoning loop remains bounded and replay protection is fail-closed", () => {

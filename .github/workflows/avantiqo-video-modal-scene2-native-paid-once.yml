@@ -240,3 +240,5 @@ jobs:
           echo 'VIDEO_PRICING_ACTIVATED=false'
           echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
           echo 'RUNPOD_USED=false'
+
+# one-shot launch marker: 2026-09-02T15:19+07:00

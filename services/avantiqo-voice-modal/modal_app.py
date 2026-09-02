@@ -25,7 +25,7 @@ STT_FOUNDATION_MODEL = "openai/whisper-large-v3-turbo"
 TTS_FOUNDATION_MODEL = "resemble-ai/chatterbox:multilingual-v3"
 STT_IMAGE = (
     "ghcr.io/churchillkaron/avantiqo-voice-stt-worker@"
-    "sha256:56764563a8c19eed1cfcf4b13cdee18d93217fef5ccbcf61e5e1d72330b2e625"
+    "sha256:960ee663a65aa085b46373aa279b91394e95aa7a89da7625f86446eb1122445f"
 )
 TTS_IMAGE = (
     "ghcr.io/churchillkaron/avantiqo-voice-tts-worker@"
@@ -54,6 +54,7 @@ def _worker_image(reference: str) -> modal.Image:
 
 stt_image = _worker_image(STT_IMAGE).env({
     "AVANTIQO_VOICE_STT_FOUNDATION_MODEL": STT_FOUNDATION_MODEL,
+    "AVANTIQO_VOICE_STT_LOCAL_MODEL_PATH": "/opt/avantiqo/models/whisper-large-v3-turbo",
     "HF_HUB_OFFLINE": "1",
     "TRANSFORMERS_OFFLINE": "1",
 })

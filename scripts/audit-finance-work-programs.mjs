@@ -208,10 +208,21 @@ requireTokens(files.rollForwardApi, [
 
 requireTokens(files.capacityApi, [
   "14",
+  "FORECAST_WINDOWS = [30, 60, 90]",
+  "planRecurringAccountingCycles",
   "accounting_practice_staff_capacity",
   "weekly_capacity_minutes",
   "utilization_target",
   "budget_minutes",
+  "READY_TO_CREATE",
+  "staff_capacity",
+  "committed_hours",
+  "forecast_hours",
+  "projected_utilization",
+  "projected_overloaded_people",
+  "unassigned_forecast_hours",
+  "governed_recurring_plan",
+  "materialized: false",
   "OVERLOADED",
   "unassigned_hours",
   "overdue_items",
@@ -221,6 +232,14 @@ requireTokens(files.capacityApi, [
 requireTokens(files.recurringPlanner, [
   "DEFAULT_HORIZON_DAYS = 90",
   "planRecurringAccountingCycles",
+  "accounting_work_program_template_steps",
+  "STAFF_CAPACITY_ROLES",
+  "buildForecastDemand",
+  "staff_budget_minutes",
+  "non_staff_budget_minutes",
+  "role_minutes",
+  "work_items",
+  "staff_capacity",
   "idempotency_key",
   "READY_TO_CREATE",
   "ALREADY_EXISTS",
@@ -310,6 +329,15 @@ requireTokens(files.practiceUi, [
   "Client wait",
   "Blocked",
   "14-day capacity",
+  "Forward demand",
+  "30, 60, 90",
+  "Committed",
+  "Forecast",
+  "Total demand",
+  "Projected overload",
+  "Unassigned forecast",
+  "Forecast by role",
+  "Forecast by client",
   "Available",
   "Assigned",
   "Overloaded",
@@ -358,6 +386,13 @@ const coverage = {
   budgeted_work_items: true,
   partner_capacity_assignment: true,
   fourteen_day_capacity_forecast: true,
+  forward_capacity_30_60_90: true,
+  committed_vs_forecast_capacity: true,
+  procedure_level_future_demand: true,
+  role_level_future_demand: true,
+  client_level_future_demand: true,
+  projected_overload_detection: true,
+  non_staff_work_excluded_from_staff_capacity: true,
   overload_detection: true,
   unassigned_work_detection: true,
   capacity_roll_forward: true,
@@ -385,5 +420,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are governed from shared dry-run recurring planning and server-recomputed, atomic, audited cycle creation through entity-scoped budgeting, capacity-aware execution, system verification, review-complete engagement files, locked completion and roll-forward.");
+  console.log("PASS: Accounting work programs are governed from shared dry-run recurring planning and forward demand capacity through server-recomputed, atomic, audited cycle creation, entity-scoped budgeting, capacity-aware execution, system verification, review-complete engagement files, locked completion and roll-forward.");
 }

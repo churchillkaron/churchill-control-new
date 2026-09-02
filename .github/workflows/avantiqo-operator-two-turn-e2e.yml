@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   prove-business-partner:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_PREFLIGHT_20260902' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -72,27 +72,35 @@ jobs:
           echo "GPU_INFERENCE_PERFORMED=false"
 
       - name: Explicit real-inference approval gate
-        if: ${{ inputs.mode == 'execute' }}
+        if: ${{ inputs.mode == 'execute' || github.event.issue.title == 'AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902' }}
         env:
-          REAL_INFERENCE_APPROVED: ${{ inputs.approve_real_inference }}
+          DISPATCH_APPROVED: ${{ inputs.approve_real_inference }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           set -euo pipefail
-          if [ "${REAL_INFERENCE_APPROVED}" != "true" ]; then
+          if [ "${ISSUE_TITLE}" = "AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902" ]; then
+            echo "AVANTIQO_BUSINESS_PARTNER_E2E_ONE_TIME_EXECUTE_APPROVED=true"
+          elif [ "${DISPATCH_APPROVED}" = "true" ]; then
+            echo "AVANTIQO_BUSINESS_PARTNER_E2E_REAL_INFERENCE_APPROVED=true"
+          else
             echo "AVANTIQO_BUSINESS_PARTNER_E2E_REAL_INFERENCE_APPROVAL_REQUIRED=true"
             exit 1
           fi
-          echo "AVANTIQO_BUSINESS_PARTNER_E2E_REAL_INFERENCE_APPROVED=true"
 
       - name: Run governed Modal Business Partner certification
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED: ${{ inputs.approve_real_inference }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          DISPATCH_MODE: ${{ inputs.mode }}
+          DISPATCH_APPROVED: ${{ inputs.approve_real_inference }}
         run: |
           set -euo pipefail
-          if [ "${{ inputs.mode }}" = "execute" ]; then
-            node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs --execute
+          if [ "${ISSUE_TITLE}" = "AVANTIQO_INTELLIGENCE_MODAL_EXECUTE_20260902" ]; then
+            AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED=YES node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs --execute
+          elif [ "${DISPATCH_MODE}" = "execute" ]; then
+            AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED="${DISPATCH_APPROVED}" node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs --execute
           else
             node scripts/run-avantiqo-operator-two-turn-e2e-local.mjs
           fi

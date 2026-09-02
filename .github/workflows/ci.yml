@@ -16,6 +16,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  finance-worldclass:
+    name: Finance world-class certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Audit Finance workflow
+        run: node scripts/audit-finance-worldclass-workflow.mjs
+
+      - name: Audit Finance capability closure
+        run: node scripts/finance-closeout-audit.mjs
+
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -1,11 +1,14 @@
 import { register } from "node:module";
 import { pathToFileURL } from "node:url";
+import { ModalClient } from "modal";
 
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 
-const CONTRACT = "AVANTIQO_BUSINESS_PARTNER_TWO_TURN_E2E_V1";
-const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
-const DEEP_ENDPOINT_NAME = "avantiqo-intelligence-v1";
+const CONTRACT = "AVANTIQO_BUSINESS_PARTNER_TWO_TURN_MODAL_E2E_V2";
+const ORGANIZATION_ID =
+  String(process.env.AVANTIQO_OPERATOR_E2E_ORGANIZATION_ID || "33336a72-acb5-474e-856b-8be0269360e2").trim();
+const MODAL_APP = "avantiqo-intelligence-owned";
+const DIRECT_TRANSPORT = "modal-js-sdk-function-call-v1";
 const ALLOWED_PROVIDER_EVIDENCE = new Set([
   "avantiqo-intelligence",
   "avantiqo-local",
@@ -14,10 +17,18 @@ const ALLOWED_PROVIDER_EVIDENCE = new Set([
 const text = (value, limit = 12000) => String(value ?? "").trim().slice(0, limit);
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const list = (value) => Array.isArray(value) ? value : [];
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+const yes = (value) => ["YES", "TRUE", "1", "APPROVED", "ON"].includes(text(value, 40).toUpperCase());
 
 function assert(value, code) {
   if (!value) throw new Error(`${CONTRACT}_${code}`);
+}
+
+function mode() {
+  const execute = process.argv.includes("--execute");
+  const unknown = process.argv.slice(2).filter((arg) => arg !== "--execute");
+  if (unknown.length) throw new Error(`${CONTRACT}_INVALID_ARGUMENT:${unknown[0]}`);
+  return execute ? "EXECUTE" : "PREFLIGHT";
 }
 
 function walk(value, visit, seen = new WeakSet()) {
@@ -61,151 +72,209 @@ function assertHealthyTurn(result, label) {
   assert(!/temporarily unavailable/i.test(response), `${label}_PUBLIC_UNAVAILABLE_MESSAGE`);
   assert(!/took too long/i.test(response), `${label}_PUBLIC_TIMEOUT_MESSAGE`);
   assert(!/OPERATOR_OWNED_INTELLIGENCE_UNAVAILABLE/i.test(executionReason), `${label}_OWNED_UNAVAILABLE_CODE`);
+  assert(object(result?.intelligence_supervision).raw_reasoning_persisted === false, `${label}_RAW_REASONING_BOUNDARY_INVALID`);
   assertOwnedEvidence(result, label);
   return { response, intent, decision };
 }
 
-async function requestJson(url, key) {
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
-    signal: AbortSignal.timeout(30000),
-  });
-  const raw = await response.text();
-  let body = {};
-  try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
-  if (!response.ok) throw new Error(`${CONTRACT}_RUNPOD_HTTP_${response.status}`);
-  return body;
+function statsShape(stats) {
+  return {
+    backlog: finite(stats?.backlog),
+    total_runners: finite(stats?.numTotalRunners),
+  };
 }
 
-async function verifyDeepRestState() {
-  const managementKey = text(process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY, 1000);
-  const queueKey = text(process.env.RUNPOD_AVANTIQO_INTELLIGENCE_API_KEY || process.env.RUNPOD_API_KEY, 1000);
-  assert(managementKey, "RUNPOD_MANAGEMENT_KEY_REQUIRED");
-  assert(queueKey, "RUNPOD_QUEUE_KEY_REQUIRED");
-  const rest = "https://rest.runpod.io/v1";
-  const queue = "https://api.runpod.ai/v2";
-  const deadline = Date.now() + 120000;
-  let last = null;
-  while (Date.now() < deadline) {
-    const endpointsBody = await requestJson(`${rest}/endpoints?includeTemplate=false&includeWorkers=true`, managementKey);
-    const endpoints = Array.isArray(endpointsBody)
-      ? endpointsBody
-      : list(endpointsBody?.endpoints || endpointsBody?.data || endpointsBody?.items || endpointsBody?.results);
-    const matches = endpoints.filter((row) => text(row?.name, 300) === DEEP_ENDPOINT_NAME);
-    assert(matches.length === 1, `DEEP_ENDPOINT_RESOLUTION:${matches.length}`);
-    const endpoint = matches[0];
-    const endpointId = text(endpoint?.id, 300);
-    const health = await requestJson(`${queue}/${encodeURIComponent(endpointId)}/health`, queueKey);
-    const jobs = object(health?.jobs);
-    const queued = Number(jobs.inQueue ?? jobs.in_queue ?? 0);
-    const inProgress = Number(jobs.inProgress ?? jobs.in_progress ?? 0);
-    const workersMin = Number(endpoint?.workersMin ?? -1);
-    const workersMax = Number(endpoint?.workersMax ?? -1);
-    last = { workers_min: workersMin, workers_max: workersMax, queued, in_progress: inProgress };
-    if (workersMin === 0 && workersMax === 0 && queued === 0 && inProgress === 0) return last;
-    await sleep(2000);
+async function activeRunPodLeaseCount(supabaseAdmin) {
+  const result = await supabaseAdmin
+    .from("avantiqo_intelligence_runpod_leases")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", ORGANIZATION_ID)
+    .eq("state", "ACTIVE");
+  if (result.error) throw result.error;
+  return Number(result.count || 0);
+}
+
+async function main() {
+  const runMode = mode();
+  assert(ORGANIZATION_ID, "ORGANIZATION_REQUIRED");
+  assert(!text(process.env.AVANTIQO_INTELLIGENCE_MODAL_BASE_URL), "LEGACY_MODAL_GATEWAY_URL_FORBIDDEN");
+  assert(!text(process.env.AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN), "LEGACY_MODAL_GATEWAY_TOKEN_FORBIDDEN");
+
+  const tokenId = text(process.env.MODAL_TOKEN_ID || process.env.AVANTIQO_MODAL_TOKEN_ID, 500);
+  const tokenSecret = text(process.env.MODAL_TOKEN_SECRET || process.env.AVANTIQO_MODAL_TOKEN_SECRET, 1000);
+  assert(tokenId && tokenSecret, "MODAL_DIRECT_CREDENTIALS_REQUIRED");
+  const modalEnvironment = text(process.env.AVANTIQO_MODAL_ENVIRONMENT || process.env.MODAL_ENVIRONMENT, 120);
+  const modal = new ModalClient({ tokenId, tokenSecret });
+  const lookupOptions = modalEnvironment ? { environment: modalEnvironment } : {};
+
+  try {
+    const [fastWorker, deepWorker] = await Promise.all([
+      modal.functions.fromName(MODAL_APP, "fast", lookupOptions),
+      modal.functions.fromName(MODAL_APP, "deep", lookupOptions),
+    ]);
+    const [fastBeforeRaw, deepBeforeRaw] = await Promise.all([
+      fastWorker.getCurrentStats(),
+      deepWorker.getCurrentStats(),
+    ]);
+    const fastBefore = statsShape(fastBeforeRaw);
+    const deepBefore = statsShape(deepBeforeRaw);
+    assert(fastBefore.backlog === 0, `FAST_MODAL_BACKLOG_NOT_ZERO:${fastBefore.backlog}`);
+    assert(deepBefore.backlog === 0, `DEEP_MODAL_BACKLOG_NOT_ZERO:${deepBefore.backlog}`);
+    assert(fastBefore.total_runners <= 1, `FAST_MODAL_RUNNER_LIMIT_INVALID:${fastBefore.total_runners}`);
+    assert(deepBefore.total_runners <= 1, `DEEP_MODAL_RUNNER_LIMIT_INVALID:${deepBefore.total_runners}`);
+
+    const { supabaseAdmin } = await import("@/lib/shared/supabase/admin");
+    const { runSyntheticIntelligenceTurn } = await import("@/lib/operator/runtime/SyntheticIntelligenceTurnRuntime");
+    const leasesBefore = await activeRunPodLeaseCount(supabaseAdmin);
+    assert(leasesBefore === 0, `ACTIVE_RUNPOD_REQUEST_LEASES_BEFORE_TEST:${leasesBefore}`);
+
+    const staffResult = await supabaseAdmin
+      .from("staff_accounts")
+      .select("party_id,auth_user_id,role,active")
+      .eq("active_organization_id", ORGANIZATION_ID)
+      .eq("active", true)
+      .not("party_id", "is", null)
+      .order("role", { ascending: true })
+      .limit(50);
+    if (staffResult.error) throw staffResult.error;
+    const staffRows = list(staffResult.data);
+    const staff = staffRows.find((row) => text(row?.role, 80).toUpperCase() === "OWNER") || staffRows[0];
+    assert(staff?.party_id, "STAFF_PARTY_REQUIRED");
+
+    console.log(JSON.stringify({
+      success: true,
+      contract: CONTRACT,
+      phase: "PREFLIGHT",
+      mode: runMode,
+      modal_app: MODAL_APP,
+      modal_transport: DIRECT_TRANSPORT,
+      modal_gateway_used: false,
+      modal_fast: fastBefore,
+      modal_deep: deepBefore,
+      active_runpod_request_leases: leasesBefore,
+      runpod_api_called: false,
+      gpu_inference_performed: false,
+      external_ai_fallback_used: false,
+      production_deploy_performed: false,
+      secrets_printed: false,
+    }, null, 2));
+    console.log(`${CONTRACT}_PREFLIGHT=PASS`);
+
+    if (runMode === "PREFLIGHT") return;
+    assert(yes(process.env.AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED),
+      "AVANTIQO_OPERATOR_MODAL_E2E_REAL_INFERENCE_APPROVED=YES_REQUIRED");
+    assert(text(process.env.NODE_ENV, 40).toLowerCase() === "development", "DEVELOPMENT_ENV_REQUIRED");
+
+    const base = {
+      organizationId: ORGANIZATION_ID,
+      entityId: null,
+      periodId: null,
+      partyId: staff.party_id,
+      actor: {
+        id: staff.auth_user_id || null,
+        partyId: staff.party_id,
+        party_id: staff.party_id,
+        role: staff.role || "OWNER",
+      },
+      role: staff.role || "OWNER",
+      permissions: [],
+      locale: "en",
+      timezone: "Asia/Bangkok",
+      source: "text",
+      pathname: "/",
+      longTermMemory: [],
+    };
+
+    const prompts = [
+      "Think deeply as my business partner. Explain the strongest practical reason to keep our AI fail-closed rather than silently switching to an unapproved external AI provider. Give me a concise recommendation, not private reasoning.",
+      "Good. Summarize that recommendation in one concise sentence for me.",
+    ];
+
+    const startedAt = Date.now();
+    const firstStarted = Date.now();
+    const first = await runSyntheticIntelligenceTurn({
+      ...base,
+      message: prompts[0],
+      agreementState: {},
+      projectState: {},
+      conversation: [],
+    });
+    const firstMs = Date.now() - firstStarted;
+    const firstHealthy = assertHealthyTurn(first, "TURN_1");
+    assert(object(first?.intelligence_supervision).owned_brief_used === true, "TURN_1_DEEP_COGNITIVE_BRIEF_REQUIRED");
+
+    const conversation = [
+      { role: "user", content: prompts[0] },
+      { role: "assistant", content: firstHealthy.response },
+    ];
+    const firstAgreement = object(first?.agreement_state || firstHealthy.decision.agreement_state);
+    const firstProject = object(firstHealthy.decision.project_state);
+
+    const secondStarted = Date.now();
+    const second = await runSyntheticIntelligenceTurn({
+      ...base,
+      message: prompts[1],
+      agreementState: firstAgreement,
+      projectState: firstProject,
+      conversation,
+    });
+    const secondMs = Date.now() - secondStarted;
+    const secondHealthy = assertHealthyTurn(second, "TURN_2");
+
+    const leasesAfter = await activeRunPodLeaseCount(supabaseAdmin);
+    assert(leasesAfter === 0, `ACTIVE_RUNPOD_REQUEST_LEASES_AFTER_TEST:${leasesAfter}`);
+
+    const [fastAfterRaw, deepAfterRaw] = await Promise.all([
+      fastWorker.getCurrentStats(),
+      deepWorker.getCurrentStats(),
+    ]);
+    const fastAfter = statsShape(fastAfterRaw);
+    const deepAfter = statsShape(deepAfterRaw);
+    assert(fastAfter.backlog === 0, `FAST_MODAL_BACKLOG_AFTER_TEST:${fastAfter.backlog}`);
+    assert(deepAfter.backlog === 0, `DEEP_MODAL_BACKLOG_AFTER_TEST:${deepAfter.backlog}`);
+    assert(fastAfter.total_runners <= 1, `FAST_MODAL_RUNNER_LIMIT_AFTER_TEST:${fastAfter.total_runners}`);
+    assert(deepAfter.total_runners <= 1, `DEEP_MODAL_RUNNER_LIMIT_AFTER_TEST:${deepAfter.total_runners}`);
+
+    console.log(JSON.stringify({
+      success: true,
+      contract: CONTRACT,
+      phase: "EXECUTE",
+      turns: [
+        {
+          pass: 1,
+          intent: firstHealthy.intent,
+          latency_ms: firstMs,
+          response_chars: firstHealthy.response.length,
+          deep_cognitive_brief_used: true,
+        },
+        {
+          pass: 2,
+          intent: secondHealthy.intent,
+          latency_ms: secondMs,
+          response_chars: secondHealthy.response.length,
+        },
+      ],
+      conversation_continuity_tested: true,
+      owned_intelligence_only: true,
+      direct_modal_used: true,
+      modal_transport: DIRECT_TRANSPORT,
+      modal_gateway_used: false,
+      modal_fast_after: fastAfter,
+      modal_deep_after: deepAfter,
+      runpod_api_called: false,
+      active_runpod_request_leases_after_test: leasesAfter,
+      external_ai_fallback_used: false,
+      runtime_unavailable_seen: false,
+      raw_reasoning_persisted: false,
+      total_latency_ms: Date.now() - startedAt,
+      mutation_requested: false,
+      production_deploy_performed: false,
+      secrets_printed: false,
+    }, null, 2));
+    console.log(`${CONTRACT}=PASS`);
+  } finally {
+    modal.close();
   }
-  throw new Error(`${CONTRACT}_DEEP_NOT_RESTING:${JSON.stringify(last)}`);
 }
 
-const { supabaseAdmin } = await import("@/lib/shared/supabase/admin");
-const { runSyntheticIntelligenceTurn } = await import("@/lib/operator/runtime/SyntheticIntelligenceTurnRuntime");
-
-const staffResult = await supabaseAdmin
-  .from("staff_accounts")
-  .select("party_id,auth_user_id,role,active")
-  .eq("active_organization_id", ORGANIZATION_ID)
-  .eq("active", true)
-  .not("party_id", "is", null)
-  .order("role", { ascending: true })
-  .limit(50);
-if (staffResult.error) throw staffResult.error;
-const staffRows = list(staffResult.data);
-const staff = staffRows.find((row) => text(row?.role, 80).toUpperCase() === "OWNER") || staffRows[0];
-assert(staff?.party_id, "STAFF_PARTY_REQUIRED");
-
-const base = {
-  organizationId: ORGANIZATION_ID,
-  entityId: null,
-  periodId: null,
-  partyId: staff.party_id,
-  actor: {
-    id: staff.auth_user_id || null,
-    partyId: staff.party_id,
-    party_id: staff.party_id,
-    role: staff.role || "OWNER",
-  },
-  role: staff.role || "OWNER",
-  permissions: [],
-  locale: "en",
-  timezone: "Asia/Bangkok",
-  source: "text",
-  pathname: "/",
-  longTermMemory: [],
-};
-
-const prompts = [
-  "Act as my business partner. Explain the strongest business reason to keep our AI fail-closed rather than silently switching to an unapproved external AI provider. Keep the answer practical and concise.",
-  "Good. What is the biggest downside of that approach, and how would you reduce that risk without using external AI?",
-];
-
-const startedAt = Date.now();
-const firstStarted = Date.now();
-const first = await runSyntheticIntelligenceTurn({
-  ...base,
-  message: prompts[0],
-  agreementState: {},
-  projectState: {},
-  conversation: [],
-});
-const firstMs = Date.now() - firstStarted;
-const firstHealthy = assertHealthyTurn(first, "TURN_1");
-
-const conversation = [
-  { role: "user", content: prompts[0] },
-  { role: "assistant", content: firstHealthy.response },
-];
-const firstAgreement = object(first?.agreement_state || firstHealthy.decision.agreement_state);
-const firstProject = object(firstHealthy.decision.project_state);
-
-const secondStarted = Date.now();
-const second = await runSyntheticIntelligenceTurn({
-  ...base,
-  message: prompts[1],
-  agreementState: firstAgreement,
-  projectState: firstProject,
-  conversation,
-});
-const secondMs = Date.now() - secondStarted;
-const secondHealthy = assertHealthyTurn(second, "TURN_2");
-
-const activeLeaseResult = await supabaseAdmin
-  .from("avantiqo_intelligence_runpod_leases")
-  .select("id,lane,state")
-  .eq("organization_id", ORGANIZATION_ID)
-  .eq("state", "ACTIVE");
-if (activeLeaseResult.error) throw activeLeaseResult.error;
-assert(list(activeLeaseResult.data).length === 0, `ACTIVE_REQUEST_LEASES_REMAIN:${list(activeLeaseResult.data).length}`);
-
-const restState = await verifyDeepRestState();
-
-console.log(JSON.stringify({
-  success: true,
-  contract: CONTRACT,
-  turns: [
-    { pass: 1, intent: firstHealthy.intent, latency_ms: firstMs, response_chars: firstHealthy.response.length },
-    { pass: 2, intent: secondHealthy.intent, latency_ms: secondMs, response_chars: secondHealthy.response.length },
-  ],
-  conversation_continuity_tested: true,
-  owned_intelligence_only: true,
-  external_ai_fallback_used: false,
-  runtime_unavailable_seen: false,
-  browser_timeout_contract_ms: 720000,
-  request_scoped_active_leases_after_test: 0,
-  deep_rest_state: restState,
-  total_latency_ms: Date.now() - startedAt,
-  mutation_requested: false,
-  production_deploy_performed: false,
-  secrets_printed: false,
-}, null, 2));
-console.log(`${CONTRACT}=PASS`);
+await main();

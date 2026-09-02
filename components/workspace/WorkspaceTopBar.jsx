@@ -37,8 +37,12 @@ const ICONS = {
 const PLATFORM_ADMIN_ROLES = new Set(["PLATFORM_OWNER", "SUPER_ADMIN"]);
 const PLATFORM_ONLY_HEADER_ITEMS = new Set(["ai"]);
 
+function text(value) {
+  return String(value ?? "").trim();
+}
+
 function upper(value) {
-  return String(value ?? "").trim().toUpperCase();
+  return text(value).toUpperCase();
 }
 
 function platformHref(organizationId, route) {
@@ -66,15 +70,42 @@ function openUniversalOperator() {
   if (operatorButton instanceof HTMLElement) operatorButton.click();
 }
 
-function ContextPill({ icon, value }) {
-  const Icon = icon;
-  if (!value) return null;
-  return (
-    <div className="hidden h-9 min-w-0 max-w-[190px] items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-left text-[#69655F] xl:flex">
-      <Icon size={13} className="shrink-0 text-[#A37849]" />
-      <span className="min-w-0 truncate text-[11px] font-medium">{value}</span>
-    </div>
+function formatPeriodMonthYear(period) {
+  const source = text(
+    period?.start_date || period?.period_start || period?.date_from,
   );
+  if (source) {
+    const date = new Date(`${source.slice(0, 10)}T00:00:00Z`);
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat("en", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(date);
+    }
+  }
+
+  return text(period?.name || period?.period_name || period?.label) || "Select period";
+}
+
+function exactPeriodLabel(period) {
+  const explicit = text(period?.name || period?.period_name || period?.label);
+  if (explicit) return explicit;
+
+  const start = text(period?.start_date || period?.period_start || period?.date_from);
+  const end = text(period?.end_date || period?.period_end || period?.date_to);
+  if (start && end) return `${start.slice(0, 10)} – ${end.slice(0, 10)}`;
+  return formatPeriodMonthYear(period);
+}
+
+function periodMeta(period) {
+  const status = upper(period?.status) || "UNKNOWN";
+  const start = text(period?.start_date || period?.period_start || period?.date_from);
+  const end = text(period?.end_date || period?.period_end || period?.date_to);
+  const dates = [start && start.slice(0, 10), end && end.slice(0, 10)]
+    .filter(Boolean)
+    .join(" – ");
+  return [status, dates].filter(Boolean).join(" · ");
 }
 
 function SelectorMenu({ title, items, activeId, onSelect, getLabel, getMeta }) {
@@ -141,7 +172,9 @@ function OrganizationSelector({ organization, organizations, pathname }) {
         body: JSON.stringify({ organizationId: nextOrganization.id }),
       });
       const result = await response.json();
-      if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to switch organization");
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to switch organization");
+      }
       const workspaceMatch = pathname?.match(/^\/workspace\/([^/]+)(.*)$/);
       if (workspaceMatch) {
         window.location.assign(`/workspace/${encodeURIComponent(nextOrganization.id)}${workspaceMatch[2] || ""}`);
@@ -204,7 +237,9 @@ function EntitySelector({ entity, entities }) {
         body: JSON.stringify({ entityId: nextEntity.id }),
       });
       const result = await response.json();
-      if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to switch legal entity");
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to switch legal entity");
+      }
       window.location.reload();
     } finally {
       setSwitching(false);
@@ -237,6 +272,172 @@ function EntitySelector({ entity, entities }) {
           getLabel={(item) => item.display_name || item.legal_name || item.name || item.code || item.id}
           getMeta={(item) => [item.code, item.country, item.currency].filter(Boolean).join(" · ")}
         />
+      ) : null}
+    </div>
+  );
+}
+
+function PeriodSelector({ organizationId, entity, period }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [periods, setPeriods] = useState([]);
+  const [error, setError] = useState("");
+  const fiscalPeriodsHref = organizationId
+    ? `/workspace/${encodeURIComponent(organizationId)}/finance/fiscal-periods`
+    : "#";
+
+  async function loadPeriods() {
+    if (!organizationId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const query = new URLSearchParams({ organizationId });
+      if (entity?.id) query.set("entityId", entity.id);
+      const response = await fetch(`/api/session/period?${query.toString()}`, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      const result = await response.json();
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to load accounting periods");
+      }
+      setPeriods(Array.isArray(result.periods) ? result.periods : []);
+    } catch (loadError) {
+      setPeriods([]);
+      setError(loadError?.message || "Unable to load accounting periods");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleOpen() {
+    const next = !open;
+    setOpen(next);
+    if (next) await loadPeriods();
+  }
+
+  async function switchPeriod(nextPeriod) {
+    if (!nextPeriod?.id || nextPeriod.id === period?.id) {
+      setOpen(false);
+      return;
+    }
+
+    setSwitching(true);
+    setError("");
+    try {
+      const response = await fetch("/api/session/period", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          organizationId,
+          entityId: entity?.id || null,
+          periodId: nextPeriod.id,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to switch accounting period");
+      }
+      window.location.reload();
+    } catch (switchError) {
+      setError(switchError?.message || "Unable to switch accounting period");
+      setSwitching(false);
+    }
+  }
+
+  return (
+    <div className="relative hidden xl:block">
+      <button
+        type="button"
+        onClick={toggleOpen}
+        disabled={switching || !organizationId}
+        className="flex h-9 min-w-[150px] max-w-[190px] items-center gap-2 rounded-xl border border-black/[0.07] bg-[#FBFAF8] px-3 text-left text-[#5E5A54] transition hover:border-[#D6A66A]/45 hover:bg-white disabled:cursor-default"
+        title="Accounting period"
+      >
+        <Calendar size={13} className="shrink-0 text-[#A37849]" />
+        <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
+          {switching ? "Switching..." : formatPeriodMonthYear(period)}
+        </span>
+        <ChevronDown size={11} className="shrink-0 text-[#AAA69E]" />
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 top-11 z-[90] w-[360px] overflow-hidden rounded-2xl border border-black/[0.08] bg-white p-2 shadow-[0_20px_60px_rgba(34,30,24,0.16)]">
+          <div className="flex items-center justify-between border-b border-black/[0.06] px-3 pb-2.5 pt-2">
+            <div>
+              <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#9A744B]">
+                Accounting period
+              </div>
+              <div className="mt-1 text-[10px] text-[#9A968E]">
+                Switch context without using Intelligence
+              </div>
+            </div>
+            {period?.status ? (
+              <span className="rounded-full border border-black/[0.07] bg-[#F7F6F3] px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.1em] text-[#77736C]">
+                {upper(period.status)}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="mt-1 max-h-[330px] overflow-y-auto">
+            {loading ? (
+              <div className="px-3 py-4 text-[11px] text-[#8B8881]">Loading periods...</div>
+            ) : error ? (
+              <div className="px-3 py-4 text-[11px] leading-5 text-[#A05F55]">{error}</div>
+            ) : periods.length ? (
+              periods.map((item) => {
+                const active = item.id === period?.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => switchPeriod(item)}
+                    className={
+                      active
+                        ? "flex w-full items-center gap-3 rounded-xl bg-[#F4EFE8] px-3 py-3 text-left text-[#76522F]"
+                        : "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[#4D4A45] transition hover:bg-[#F7F6F3]"
+                    }
+                  >
+                    <Calendar size={14} className={active ? "shrink-0 text-[#A37849]" : "shrink-0 text-[#918D85]"} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12px] font-medium">{exactPeriodLabel(item)}</span>
+                      <span className="mt-0.5 block truncate text-[9px] uppercase tracking-[0.08em] text-[#A7A39B]">
+                        {periodMeta(item)}
+                      </span>
+                    </span>
+                    {active ? (
+                      <span className="rounded-full border border-[#D6A66A]/25 bg-[#D6A66A]/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-[#966B3F]">
+                        Active
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-3 py-4 text-[11px] text-[#8B8881]">No accounting periods are configured.</div>
+            )}
+          </div>
+
+          <div className="mt-1 grid grid-cols-2 gap-2 border-t border-black/[0.06] p-2 pt-3">
+            <Link
+              href={fiscalPeriodsHref}
+              onClick={() => setOpen(false)}
+              className="rounded-xl border border-black/[0.07] bg-[#F7F6F3] px-3 py-2.5 text-center text-[10px] font-medium text-[#5F5B55] transition hover:bg-[#F1EFEA]"
+            >
+              Manage periods
+            </Link>
+            <Link
+              href={fiscalPeriodsHref}
+              onClick={() => setOpen(false)}
+              className="rounded-xl bg-[#171716] px-3 py-2.5 text-center text-[10px] font-medium text-white transition hover:bg-black"
+            >
+              Open new period
+            </Link>
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -288,8 +489,7 @@ export default function WorkspaceTopBar() {
   const isPlatformOperatorWorkspace = businessContext?.is_platform_operator_workspace === true;
   const canAccessPlatformInfrastructure = isPlatformOperatorWorkspace && PLATFORM_ADMIN_ROLES.has(role);
   const organizationId = businessContext?.organization_id || organization?.id || params?.organizationId || null;
-  const periodName = period?.name || period?.period_name || "Current period";
-  const userName = staff?.name || staff?.email || "User";
+  const userName = staff?.name || staff?.display_name || staff?.email || "User";
   const brand = getPlatformBrand();
   const headerItems = getPlatformHeaderItems().filter(
     (item) => !PLATFORM_ONLY_HEADER_ITEMS.has(item.id) || canAccessPlatformInfrastructure,
@@ -382,7 +582,11 @@ export default function WorkspaceTopBar() {
             pathname={pathname}
           />
           <EntitySelector entity={entity} entities={entities} />
-          <ContextPill icon={Calendar} value={periodName} />
+          <PeriodSelector
+            organizationId={organizationId}
+            entity={entity}
+            period={period}
+          />
         </div>
 
         <div className="flex min-w-0 items-center justify-end gap-1.5">

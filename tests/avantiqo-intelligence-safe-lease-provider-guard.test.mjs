@@ -138,6 +138,10 @@ test("Intelligence primary lane mirrors working Audio direct Modal SDK transport
   assert.match(directRuntimeSource, /modal_gpu:\s*"H100"/);
   assert.match(directRuntimeSource, /modal_volume_created:\s*false/);
   assert.match(directRuntimeSource, /runpod_inference_performed:\s*false/);
+  assert.match(directRuntimeSource, /const tools = Array\.isArray\(input\.tools\) && input\.tools\.length > 0 \? input\.tools : undefined/);
+  assert.match(directRuntimeSource, /const toolChoice = tools \? \(input\.tool_choice \|\| input\.toolChoice\) : undefined/);
+  assert.match(directRuntimeSource, /tool_choice:\s*toolChoice/);
+  assert.doesNotMatch(directRuntimeSource, /tool_choice:\s*input\.tool_choice \|\| input\.toolChoice/);
   assert.doesNotMatch(directRuntimeSource, /AVANTIQO_INTELLIGENCE_MODAL_BASE_URL/);
   assert.doesNotMatch(directRuntimeSource, /AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN/);
 });

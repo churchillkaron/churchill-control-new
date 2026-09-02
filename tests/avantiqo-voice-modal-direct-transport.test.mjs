@@ -33,39 +33,34 @@ test("Voice Service Runtime loads direct-first V2 provider", () => {
   assert.match(provider, /LegacyVoiceProvider\.getStatus\(input\)/);
 });
 
-test("Voice direct lane uses Modal JS SDK class methods without CPU gateway", () => {
+test("Voice primary lane uses direct Modal named functions with no CPU gateway", () => {
   assert.match(direct, /const APP_NAME = "avantiqo-voice-owned"/);
   assert.match(direct, /const DIRECT_TRANSPORT = "modal-js-sdk-function-call-v1"/);
   assert.match(direct, /new sdk\.ModalClient\(\{ tokenId: configValue\.tokenId, tokenSecret: configValue\.tokenSecret \}\)/);
-  assert.match(direct, /client\.cls\.fromName\(APP_NAME, className/);
-  assert.match(direct, /await cls\.instance\(\)/);
-  assert.match(direct, /instance\.method\(functionName\)/);
-  assert.match(direct, /method\.spawn\(\[payload\]\)/);
+  assert.match(direct, /client\.functions\.fromName\(APP_NAME, functionName/);
+  assert.match(direct, /fn\.spawn\(\[payload\]\)/);
   assert.match(direct, /client\.functionCalls\.fromId\(parsed\.callId\)/);
   assert.match(direct, /modal_gateway_used:\s*false/);
+  assert.doesNotMatch(direct, /client\.cls\.fromName/);
+  assert.doesNotMatch(direct, /\.instance\(\)/);
   assert.doesNotMatch(direct, /AVANTIQO_VOICE_MODAL_BASE_URL/);
   assert.doesNotMatch(direct, /AVANTIQO_VOICE_MODAL_GATEWAY_TOKEN/);
   assert.doesNotMatch(direct, /RUNPOD_API_KEY/);
 });
 
-test("Voice direct lane maps STT and TTS to exact preloaded owned Modal class methods", () => {
+test("Voice direct lane maps STT and TTS to exact owned Modal functions", () => {
   assert.match(direct, /capability === "ai\.speech\.to\.text"\) return "transcribe"/);
   assert.match(direct, /capability === "ai\.text\.to\.speech"\) return "speak"/);
-  assert.match(direct, /transcribe:\s*"VoiceStt"/);
-  assert.match(direct, /speak:\s*"VoiceTts"/);
   assert.match(modalApp, /APP_NAME = "avantiqo-voice-owned"/);
-  assert.match(modalApp, /class VoiceStt:/);
-  assert.match(modalApp, /class VoiceTts:/);
-  assert.match(modalApp, /@modal\.enter\(\)/);
-  assert.match(modalApp, /voice_engine\._recognizer\(\)/);
-  assert.match(modalApp, /voice_engine\._model\(\)/);
+  assert.match(modalApp, /@app\.function\(/);
   assert.match(modalApp, /def transcribe\(/);
   assert.match(modalApp, /def speak\(/);
-  assert.match(modalApp, /model_preloaded_before_request/);
+  assert.doesNotMatch(modalApp, /@app\.cls\(/);
+  assert.doesNotMatch(modalApp, /@modal\.enter\(\)/);
   assert.match(modalApp, /GPU = "A10G"/);
 });
 
-test("Voice Modal classes are scale-to-zero one-container workers with no persistent Volume", () => {
+test("Voice Modal functions are scale-to-zero one-container workers with no persistent Volume", () => {
   const minZero = [...modalApp.matchAll(/min_containers=0/g)].length;
   const maxOne = [...modalApp.matchAll(/max_containers=1/g)].length;
   const buffersZero = [...modalApp.matchAll(/buffer_containers=0/g)].length;
@@ -75,6 +70,14 @@ test("Voice Modal classes are scale-to-zero one-container workers with no persis
   assert.match(modalApp, /scaledown_window=5/);
   assert.doesNotMatch(modalApp, /modal\.Volume/);
   assert.doesNotMatch(modalApp, /Volume\.from_name/);
+});
+
+test("Voice STT is bound to repaired offline immutable Whisper image", () => {
+  assert.match(modalApp, /sha256:960ee663a65aa085b46373aa279b91394e95aa7a89da7625f86446eb1122445f/);
+  assert.match(modalApp, /AVANTIQO_VOICE_STT_LOCAL_MODEL_PATH/);
+  assert.match(modalApp, /whisper-large-v3-turbo/);
+  assert.match(modalApp, /HF_HUB_OFFLINE/);
+  assert.match(modalApp, /TRANSFORMERS_OFFLINE/);
 });
 
 test("TTS final WAV persistence is owned by Avantiqo after GPU inference", () => {

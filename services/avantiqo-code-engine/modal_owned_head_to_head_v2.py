@@ -35,6 +35,7 @@ def _candidate_internal_prompt(data: dict[str, Any]) -> str:
     specification = data.get("structured_specification") or {}
     capability = str(data.get("capability") or "").strip()
     instruction = str(data.get("instruction") or "").strip()
+    verification_pass = specification.get("internal_verification_pass") is True
     sections = [
         "You are Avantiqo Code, a production-grade software engineer executing one bounded capability request.",
         "Do not expose chain-of-thought, hidden reasoning, scratchpads, or internal deliberation.",
@@ -59,8 +60,14 @@ def _candidate_internal_prompt(data: dict[str, Any]) -> str:
             "12. For rates, percentages, money, quantities, and totals, infer the intended arithmetic from names plus tests and validate finite operands before calculation.",
             "13. Preserve deterministic behavior and avoid unnecessary dependencies, side effects, environment access, network access, filesystem access, dynamic evaluation, or hidden state.",
             "14. After the visible-test replay, privately challenge the candidate with reasonable boundary cases implied by the function names and public relationships: nullish values, valid falsy values, malformed collection members, non-finite or unparseable numerics, duplicate semantic keys, blank normalized keys, normalization equivalence, mixed numeric strings/numbers, and immutability. Correct any failure before responding.",
-            "The quality gate is internal only. Return no checklist, explanation, markdown, or reasoning unless the requested output contract explicitly asks for it.",
         ])
+        if verification_pass:
+            sections.extend([
+                "INDEPENDENT VERIFICATION PASS: the instruction contains a draft candidate produced by an earlier Avantiqo Code pass. Treat that draft as untrusted input, not as an answer to preserve.",
+                "Compare the draft implementation against every supplied visible assertion using the literal test inputs and expected values. If the draft would fail even one visible assertion, correct the implementation before returning it.",
+                "Re-check normalization, numeric conversion, accumulator state, null handling, public exports, exact JSON shape, and the relationship between helper semantics and higher-level functions. The visible test and requested contract always override the draft candidate.",
+            ])
+        sections.append("The quality gate is internal only. Return no checklist, explanation, markdown, or reasoning unless the requested output contract explicitly asks for it.")
     sections.extend([
         f"Capability: {capability}",
         f"Instruction: {instruction}",
@@ -68,6 +75,26 @@ def _candidate_internal_prompt(data: dict[str, Any]) -> str:
         "Return only the useful work product required by the capability and obey any stricter output shape in the instruction exactly.",
     ])
     return "\n\n".join(sections)
+
+
+def _verification_request(request: dict[str, Any], draft_result: str) -> dict[str, Any]:
+    verification = dict(request)
+    verification["usage_id"] = f"owned-head-to-head-v2-verify-{uuid.uuid4()}"
+    original_instruction = str(request.get("instruction") or "").strip()
+    verification["instruction"] = "\n\n".join([
+        original_instruction,
+        "INTERNAL AVANTIQO VERIFICATION PASS:",
+        "Audit the draft candidate below against every supplied visible assertion and every explicit output constraint. Do not assume the draft is correct merely because it is syntactically valid.",
+        "Privately substitute the visible-test inputs through the draft source and compare the actual values, key names, value types, and thrown/non-thrown behavior with the expected assertions.",
+        "If any visible assertion would fail, return a corrected complete work product. If all visible assertions pass, preserve the correct behavior while still checking reasonable edge cases implied by the API.",
+        "The output contract is unchanged. Return only the final answer required by the original request.",
+        "DRAFT CANDIDATE TO VERIFY:",
+        draft_result,
+    ])
+    specification = dict(request.get("structured_specification") or {})
+    specification["internal_verification_pass"] = True
+    verification["structured_specification"] = specification
+    return verification
 
 
 @app.function(
@@ -115,16 +142,41 @@ def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
 
     scored_started = time.perf_counter()
     outputs = []
+    scored_model_calls = 0
     for request in requests:
         case_started = time.perf_counter()
-        output = code_engine.handler({"id": f"owned-head-to-head-v2-{uuid.uuid4()}", "input": request})
-        if not isinstance(output, dict):
-            raise RuntimeError(f"{CONTRACT}_OWNED_OUTPUT_OBJECT_REQUIRED")
-        clean = dict(output)
+        draft = code_engine.handler({"id": f"owned-head-to-head-v2-draft-{uuid.uuid4()}", "input": request})
+        scored_model_calls += 1
+        if not isinstance(draft, dict):
+            raise RuntimeError(f"{CONTRACT}_OWNED_DRAFT_OUTPUT_OBJECT_REQUIRED")
+        draft_result = str(draft.get("result") or "").strip()
+        if not draft_result:
+            raise RuntimeError(f"{CONTRACT}_OWNED_DRAFT_RESULT_REQUIRED")
+
+        verified = code_engine.handler({
+            "id": f"owned-head-to-head-v2-verify-{uuid.uuid4()}",
+            "input": _verification_request(request, draft_result),
+        })
+        scored_model_calls += 1
+        if not isinstance(verified, dict):
+            raise RuntimeError(f"{CONTRACT}_OWNED_VERIFIED_OUTPUT_OBJECT_REQUIRED")
+
+        clean = dict(verified)
+        draft_usage = draft.get("usage") if isinstance(draft.get("usage"), dict) else {}
+        verified_usage = verified.get("usage") if isinstance(verified.get("usage"), dict) else {}
+        clean["usage"] = {
+            "input_tokens": int(draft_usage.get("input_tokens") or 0) + int(verified_usage.get("input_tokens") or 0),
+            "output_tokens": int(draft_usage.get("output_tokens") or 0) + int(verified_usage.get("output_tokens") or 0),
+            "runtime_prompt_tokens": int(draft_usage.get("runtime_prompt_tokens") or 0) + int(verified_usage.get("runtime_prompt_tokens") or 0),
+            "internal_prompt_tokens": int(draft_usage.get("internal_prompt_tokens") or 0) + int(verified_usage.get("internal_prompt_tokens") or 0),
+        }
+        clean["draft_raw_sha256"] = hashlib.sha256(draft_result.encode("utf-8")).hexdigest()
         clean["case_elapsed_seconds"] = round(time.perf_counter() - case_started, 3)
         clean["quality_policy"] = QUALITY_POLICY_VERSION
         clean["warm_runtime"] = True
         clean["vllm_enforce_eager"] = False
+        clean["verification_pass_model_calls"] = 2
+        clean["independent_verification_pass"] = True
         outputs.append(clean)
 
     return {
@@ -133,7 +185,8 @@ def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
         "scored_gpu_seconds": round(time.perf_counter() - scored_started, 3),
         "quality_policy": QUALITY_POLICY_VERSION,
         "warmup_model_calls": 1,
-        "scored_model_calls": len(outputs),
+        "scored_model_calls": scored_model_calls,
+        "verification_passes": len(outputs),
         "vllm_enforce_eager": False,
     }
 
@@ -164,6 +217,8 @@ def main() -> None:
             raise RuntimeError(f"{CONTRACT}_QUALITY_POLICY_NOT_PROVEN:{task['id']}")
         if output.get("warm_runtime") is not True or output.get("vllm_enforce_eager") is not False:
             raise RuntimeError(f"{CONTRACT}_WARM_RUNTIME_NOT_PROVEN:{task['id']}")
+        if output.get("independent_verification_pass") is not True or output.get("verification_pass_model_calls") != 2:
+            raise RuntimeError(f"{CONTRACT}_VERIFICATION_PASS_NOT_PROVEN:{task['id']}")
 
         raw = str(output.get("result") or "")
         parsed = base._parse(raw, task["module"])
@@ -186,6 +241,8 @@ def main() -> None:
             "latency_pass": wall_ms <= WARM_LATENCY_TARGET_MS,
             "input_tokens": int(usage.get("input_tokens") or 0),
             "output_tokens": int(usage.get("output_tokens") or 0),
+            "verification_pass_model_calls": int(output.get("verification_pass_model_calls") or 0),
+            "draft_raw_sha256": str(output.get("draft_raw_sha256") or ""),
             "raw_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
         }
         results.append(row)
@@ -193,6 +250,8 @@ def main() -> None:
 
     walls = sorted(row["wall_ms"] for row in results)
     p95_index = min(len(walls) - 1, max(0, int((len(walls) * 0.95) + 0.999999) - 1))
+    scored_model_calls = int(batch.get("scored_model_calls") or 0)
+    warmup_model_calls = int(batch.get("warmup_model_calls") or 0)
     summary = {
         "contract": CONTRACT,
         "model": PRODUCT_MODEL,
@@ -214,9 +273,10 @@ def main() -> None:
         "input_tokens": sum(row["input_tokens"] for row in results),
         "output_tokens": sum(row["output_tokens"] for row in results),
         "owned_gpu_sessions": 1,
-        "owned_model_calls": len(results),
-        "warmup_model_calls": int(batch.get("warmup_model_calls") or 0),
-        "total_model_calls": len(results) + int(batch.get("warmup_model_calls") or 0),
+        "owned_model_calls": scored_model_calls,
+        "verification_passes": int(batch.get("verification_passes") or 0),
+        "warmup_model_calls": warmup_model_calls,
+        "total_model_calls": scored_model_calls + warmup_model_calls,
         "vllm_enforce_eager": batch.get("vllm_enforce_eager"),
         "production_deploy_performed": False,
     }

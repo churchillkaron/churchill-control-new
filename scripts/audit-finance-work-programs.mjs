@@ -24,6 +24,7 @@ const files = {
   materializationAuditSchema: "supabase/migrations/20260902183000_accounting_recurring_cycle_atomic_audit.sql",
   api: "app/api/workspace/finance/work-programs/route.js",
   lifecycleApi: "app/api/workspace/finance/work-programs/lifecycle/route.js",
+  reviewGate: "lib/finance/practice/engagementReviewGate.js",
   verifyApi: "app/api/workspace/finance/work-programs/verify/route.js",
   rollForwardApi: "app/api/workspace/finance/work-programs/roll-forward/route.js",
   capacityApi: "app/api/workspace/finance/practice-capacity/route.js",
@@ -71,7 +72,6 @@ requireTokens(files.schema, [
   "year_end_close_baseline",
   "rolled_from_run_id",
 ]);
-
 requireTokens(files.security, ["revoke all", "service_role"]);
 requireTokens(files.rlsHardening, [
   "accounting_work_program_templates enable row level security",
@@ -82,87 +82,52 @@ requireTokens(files.rlsHardening, [
   "revoke all",
   "service_role",
 ]);
-
 requireTokens(files.lifecycleSchema, [
-  "assigned_partner_id",
-  "locked_at",
-  "locked_by",
-  "completion_snapshot",
-  "completed_by",
-  "accepted_by",
-  "changes_requested_at",
+  "assigned_partner_id", "locked_at", "locked_by", "completion_snapshot", "completed_by", "accepted_by", "changes_requested_at",
 ]);
-
 requireTokens(files.systemGateSchema, [
-  "enforce_accounting_work_item_system_gate",
-  "SYSTEM_GATE_REQUIRED",
-  "bank_reconciliation",
-  "journals",
-  "statutory_filings",
-  "close",
-  "accounting_work_item_system_gate_guard",
+  "enforce_accounting_work_item_system_gate", "SYSTEM_GATE_REQUIRED", "bank_reconciliation", "journals", "statutory_filings", "close", "accounting_work_item_system_gate_guard",
 ]);
-
 requireTokens(files.capacitySchema, [
-  "accounting_practice_staff_capacity",
-  "weekly_capacity_minutes",
-  "utilization_target",
-  "budget_minutes",
-  "scheduled_start_at",
-  "scheduled_end_at",
-  "entity_id",
-  "enable row level security",
-  "revoke all",
-  "service_role",
+  "accounting_practice_staff_capacity", "weekly_capacity_minutes", "utilization_target", "budget_minutes", "scheduled_start_at", "scheduled_end_at", "entity_id", "enable row level security", "revoke all", "service_role",
 ]);
-
 requireTokens(files.materializationSchema, [
-  "materialize_accounting_engagement_run",
-  "security invoker",
-  "on conflict (accounting_firm_id, engagement_id, run_key) do nothing",
-  "ENTITY_REQUIRED",
-  "ENTITY_SCOPE_MISMATCH",
-  "PERIOD_REQUIRED",
-  "PERIOD_SCOPE_MISMATCH",
-  "TEMPLATE_UNAVAILABLE",
-  "NOT_STARTED",
-  "manual_until_sent",
-  "revoke all on function",
-  "service_role",
+  "materialize_accounting_engagement_run", "security invoker", "on conflict (accounting_firm_id, engagement_id, run_key) do nothing", "ENTITY_REQUIRED", "ENTITY_SCOPE_MISMATCH", "PERIOD_REQUIRED", "PERIOD_SCOPE_MISMATCH", "TEMPLATE_UNAVAILABLE", "NOT_STARTED", "manual_until_sent", "revoke all on function", "service_role",
 ]);
-
 requireTokens(files.materializationAuditSchema, [
-  "materialize_accounting_engagement_run",
-  "security invoker",
-  "organization_audit_logs",
-  "ACCOUNTING_RECURRING_RUN_CREATED",
-  "budget_minutes",
-  "no_external_message",
-  "manual_until_sent",
-  "on conflict (accounting_firm_id, engagement_id, run_key) do nothing",
-  "revoke all on function",
-  "service_role",
+  "materialize_accounting_engagement_run", "security invoker", "organization_audit_logs", "ACCOUNTING_RECURRING_RUN_CREATED", "budget_minutes", "no_external_message", "manual_until_sent", "on conflict (accounting_firm_id, engagement_id, run_key) do nothing", "revoke all on function", "service_role",
+]);
+requireTokens(files.api, [
+  "requireOrganizationAccess", "checkFinancePermission", "accounting_engagements", "accounting_client_profiles", "resolveEntity", "entity_id", "budget_minutes", "assigned_partner_id", "relative_due_days", "dependency_step_keys", "client_requests_created", "manual_until_sent",
 ]);
 
-requireTokens(files.api, [
-  "requireOrganizationAccess",
-  "checkFinancePermission",
-  "accounting_engagements",
-  "accounting_client_profiles",
-  "resolveEntity",
+requireTokens(files.reviewGate, [
+  "evaluateEngagementReviewGate",
+  "requireEngagementReviewGate",
+  "PARTNER_FINAL_CLEARANCE",
+  "REVIEW_POINT_CLEARANCE",
+  "REVIEW_PHASE",
+  "organization_id",
   "entity_id",
-  "budget_minutes",
-  "assigned_partner_id",
-  "relative_due_days",
-  "dependency_step_keys",
-  "client_requests_created",
-  "manual_until_sent",
+  "period_id",
+  "REVIEW_SCOPE_EMPTY",
+  "REVIEW_SIGNOFFS_MISSING",
+  "REVIEW_POINTS_OPEN",
+  ".is(\"revoked_at\", null)",
+  "required_roles",
+  "review_item_ids",
+  "unresolved_note_count",
+  "signoff_counts",
 ]);
 
 requireTokens(files.lifecycleApi, [
+  "requireEngagementReviewGate",
+  "reviewGateSnapshot",
+  "finalReviewWorkItem",
+  "engagement_review_gate",
+  "review_clearance",
   "dependencyBlockers",
   "hasEvidence",
-  "ensureFinanceReviewCleared",
   "releaseDependents",
   "reconcileRun",
   "start_item",
@@ -175,195 +140,48 @@ requireTokens(files.lifecycleApi, [
   "complete_run",
   "completion_snapshot",
   "Completed work program is locked",
+  "error?.details",
+]);
+forbidTokens(files.lifecycleApi, [
+  "ensureFinanceReviewCleared",
   "Finance review is not fully cleared by reviewer and partner",
 ]);
 
 requireTokens(files.gates, [
-  "evaluateWorkProgramGate",
-  "resolveEntity",
-  "finance_bank_reconciliation_runs",
-  "journal_entries",
-  "finance_statutory_filings",
-  "finance_vat_returns",
-  "financial_periods",
-  "difference_amount",
-  "period_id",
+  "evaluateWorkProgramGate", "resolveEntity", "finance_bank_reconciliation_runs", "journal_entries", "finance_statutory_filings", "finance_vat_returns", "financial_periods", "difference_amount", "period_id",
 ]);
-
 requireTokens(files.verifyApi, [
-  "evaluateWorkProgramGate",
-  "system_gate",
-  "system_verified",
-  "ACCOUNTING_WORK_ITEM_SYSTEM_VERIFIED",
-  "ACCOUNTING_WORK_ITEM_SYSTEM_BLOCKED",
+  "evaluateWorkProgramGate", "system_gate", "system_verified", "ACCOUNTING_WORK_ITEM_SYSTEM_VERIFIED", "ACCOUNTING_WORK_ITEM_SYSTEM_BLOCKED",
 ]);
-
 requireTokens(files.rollForwardApi, [
-  "rolled_from_run_id",
-  "evidence_carried_forward: false",
-  "entity_id: entityId",
-  "budget_minutes",
-  "assigned_partner_id",
+  "rolled_from_run_id", "evidence_carried_forward: false", "entity_id: entityId", "budget_minutes", "assigned_partner_id",
 ]);
-
 requireTokens(files.capacityApi, [
-  "14",
-  "FORECAST_WINDOWS = [30, 60, 90]",
-  "planRecurringAccountingCycles",
-  "accounting_practice_staff_capacity",
-  "weekly_capacity_minutes",
-  "utilization_target",
-  "budget_minutes",
-  "READY_TO_CREATE",
-  "staff_capacity",
-  "committed_hours",
-  "forecast_hours",
-  "projected_utilization",
-  "projected_overloaded_people",
-  "unassigned_forecast_hours",
-  "governed_recurring_plan",
-  "materialized: false",
-  "OVERLOADED",
-  "unassigned_hours",
-  "overdue_items",
-  "capacityRisk",
+  "14", "FORECAST_WINDOWS = [30, 60, 90]", "planRecurringAccountingCycles", "accounting_practice_staff_capacity", "weekly_capacity_minutes", "utilization_target", "budget_minutes", "READY_TO_CREATE", "staff_capacity", "committed_hours", "forecast_hours", "projected_utilization", "projected_overloaded_people", "unassigned_forecast_hours", "governed_recurring_plan", "materialized: false", "OVERLOADED", "unassigned_hours", "overdue_items", "capacityRisk",
 ]);
-
 requireTokens(files.recurringPlanner, [
-  "DEFAULT_HORIZON_DAYS = 90",
-  "planRecurringAccountingCycles",
-  "accounting_work_program_template_steps",
-  "STAFF_CAPACITY_ROLES",
-  "buildForecastDemand",
-  "staff_budget_minutes",
-  "non_staff_budget_minutes",
-  "role_minutes",
-  "work_items",
-  "staff_capacity",
-  "idempotency_key",
-  "READY_TO_CREATE",
-  "ALREADY_EXISTS",
-  "BLOCKED_ENTITY_CONFIGURATION",
-  "BLOCKED_PERIOD_CONFIGURATION",
-  "BLOCKED_YEAR_END_CONFIGURATION",
-  "TEMPLATE_MISSING",
-  "monthly_accounting",
-  "year_end_close",
-  "accounting_engagement_runs",
-  "financial_periods",
+  "DEFAULT_HORIZON_DAYS = 90", "planRecurringAccountingCycles", "accounting_work_program_template_steps", "STAFF_CAPACITY_ROLES", "buildForecastDemand", "staff_budget_minutes", "non_staff_budget_minutes", "role_minutes", "work_items", "staff_capacity", "idempotency_key", "READY_TO_CREATE", "ALREADY_EXISTS", "BLOCKED_ENTITY_CONFIGURATION", "BLOCKED_PERIOD_CONFIGURATION", "BLOCKED_YEAR_END_CONFIGURATION", "TEMPLATE_MISSING", "monthly_accounting", "year_end_close", "accounting_engagement_runs", "financial_periods",
 ]);
-
 requireTokens(files.recurringPlanApi, [
-  "planRecurringAccountingCycles",
-  "clampRecurringHorizonDays",
-  "DRY_RUN",
-  "materialized: false",
-  "accountingFirmId: access.organizationId",
+  "planRecurringAccountingCycles", "clampRecurringHorizonDays", "DRY_RUN", "materialized: false", "accountingFirmId: access.organizationId",
 ]);
-
 requireTokens(files.recurringMaterializeApi, [
-  "requireOrganizationAccess",
-  "requireManage",
-  "planRecurringAccountingCycles",
-  "idempotencyKey",
-  "RECURRING_CANDIDATE_STALE_OR_UNKNOWN",
-  "RECURRING_CANDIDATE_NOT_READY",
-  "candidate.status !== \"READY_TO_CREATE\"",
-  "candidate.engagement_id",
-  "candidate.template_id",
-  "candidate.entity_id",
-  "candidate.period_id",
-  "candidate.run_key",
-  "candidate.start_at",
-  "candidate.due_at",
-  "materialize_accounting_engagement_run",
-  "materialized",
-  "idempotent: true",
-  "no_external_message: true",
-  "ALREADY_EXISTS",
+  "requireOrganizationAccess", "requireManage", "planRecurringAccountingCycles", "idempotencyKey", "RECURRING_CANDIDATE_STALE_OR_UNKNOWN", "RECURRING_CANDIDATE_NOT_READY", "candidate.status !== \"READY_TO_CREATE\"", "candidate.engagement_id", "candidate.template_id", "candidate.entity_id", "candidate.period_id", "candidate.run_key", "candidate.start_at", "candidate.due_at", "materialize_accounting_engagement_run", "materialized", "idempotent: true", "no_external_message: true", "ALREADY_EXISTS",
 ]);
-
 forbidTokens(files.recurringMaterializeApi, [
-  "body.engagementId",
-  "body.engagement_id",
-  "body.templateId",
-  "body.template_id",
-  "body.entityId",
-  "body.entity_id",
-  "body.periodId",
-  "body.period_id",
-  "body.runKey",
-  "body.run_key",
-  "body.startAt",
-  "body.start_at",
-  "body.dueAt",
-  "body.due_at",
+  "body.engagementId", "body.engagement_id", "body.templateId", "body.template_id", "body.entityId", "body.entity_id", "body.periodId", "body.period_id", "body.runKey", "body.run_key", "body.startAt", "body.start_at", "body.dueAt", "body.due_at",
 ]);
-
 requireTokens(files.engagementFileApi, [
-  "accounting_engagements",
-  "accounting_engagement_runs",
-  "accounting_engagement_work_items",
-  "accounting_client_requests",
-  "finance_review_items",
-  "finance_review_notes",
-  "finance_review_signoffs",
-  "organization_documents",
-  "accounting_practice_staff_capacity",
-  "system_gate",
-  "completion_snapshot",
-  "entity_required",
+  "accounting_engagements", "accounting_engagement_runs", "accounting_engagement_work_items", "accounting_client_requests", "finance_review_items", "finance_review_notes", "finance_review_signoffs", "organization_documents", "accounting_practice_staff_capacity", "system_gate", "completion_snapshot", "entity_required",
 ]);
-
 requireTokens(files.practiceApi, [
-  "active_runs",
-  "waiting_on_client",
-  "blocked_work",
-  "client_requests",
-  "submitted_client_requests",
-  "engagement_id",
+  "active_runs", "waiting_on_client", "blocked_work", "client_requests", "submitted_client_requests", "engagement_id",
 ]);
-
 requireTokens(files.practiceUi, [
-  "Programs",
-  "Client wait",
-  "Blocked",
-  "14-day capacity",
-  "Forward demand",
-  "30, 60, 90",
-  "Committed",
-  "Forecast",
-  "Total demand",
-  "Projected overload",
-  "Unassigned forecast",
-  "Forecast by role",
-  "Forecast by client",
-  "Available",
-  "Assigned",
-  "Overloaded",
-  "Unassigned",
-  "FinanceEngagementFile",
-  "selectedEngagementId",
-  "active_runs",
-  "waiting_on_client",
-  "blocked_work",
-  "90-day recurring cycle plan",
-  "Governed creation · no external messages",
-  "Create accounting cycle",
-  "idempotencyKey: candidate.idempotency_key",
-  "No client message was sent",
+  "Programs", "Client wait", "Blocked", "14-day capacity", "Forward demand", "30, 60, 90", "Committed", "Forecast", "Total demand", "Projected overload", "Unassigned forecast", "Forecast by role", "Forecast by client", "Available", "Assigned", "Overloaded", "Unassigned", "FinanceEngagementFile", "selectedEngagementId", "active_runs", "waiting_on_client", "blocked_work", "90-day recurring cycle plan", "Governed creation · no external messages", "Create accounting cycle", "idempotencyKey: candidate.idempotency_key", "No client message was sent",
 ]);
-
 requireTokens(files.engagementFileUi, [
-  "Digital engagement file",
-  "Work program & workpapers",
-  "Client evidence requests",
-  "Evidence documents",
-  "Review file",
-  "Prior periods",
-  "System blockers",
-  "Legal entity required",
-  "system_gate",
+  "Digital engagement file", "Work program & workpapers", "Client evidence requests", "Evidence documents", "Review file", "Prior periods", "System blockers", "Legal entity required", "system_gate",
 ]);
 
 const coverage = {
@@ -371,6 +189,12 @@ const coverage = {
   dependency_enforcement: true,
   evidence_gate: true,
   finance_review_clearance_gate: true,
+  engagement_wide_review_scope: true,
+  organization_entity_period_review_scope: true,
+  stage_aware_review_clearance: true,
+  revoked_signoffs_excluded_from_clearance: true,
+  completion_review_snapshot: true,
+  run_lock_rechecks_final_review_truth: true,
   client_request_lifecycle: true,
   run_completion_lock: true,
   completion_snapshot: true,
@@ -392,7 +216,7 @@ const coverage = {
   role_level_future_demand: true,
   client_level_future_demand: true,
   projected_overload_detection: true,
-  non_staff_work_excluded_from_staff_capacity: true,
+  non_staff_work_excluded_from_future_staff_capacity: true,
   overload_detection: true,
   unassigned_work_detection: true,
   capacity_roll_forward: true,
@@ -420,5 +244,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are governed from shared dry-run recurring planning and forward demand capacity through server-recomputed, atomic, audited cycle creation, entity-scoped budgeting, capacity-aware execution, system verification, review-complete engagement files, locked completion and roll-forward.");
+  console.log("PASS: Accounting work programs are governed from shared dry-run recurring planning and forward demand capacity through server-recomputed, atomic, audited cycle creation, entity-scoped budgeting, system verification, engagement-wide staged review truth, locked completion and roll-forward.");
 }

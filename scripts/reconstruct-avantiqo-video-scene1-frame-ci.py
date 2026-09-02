@@ -1,3 +1,4 @@
+# Registered launch marker only; approved frame bytes and digest remain authoritative.
 import base64
 import hashlib
 import os

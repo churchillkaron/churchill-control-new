@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import { requireEngagementReviewGate } from "@/lib/finance/practice/engagementReviewGate";
+import { evaluateWorkProgramGate } from "@/lib/finance/practice/workProgramGates";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -89,13 +90,24 @@ function dependencyBlockers(item, items) {
     }));
 }
 
-function hasEvidence(item, body) {
+function hasEvidence(item, body, effectiveEvidence = undefined) {
   if (!item?.metadata?.evidence_required) return true;
-  const evidence = body.evidence ?? item.evidence;
+  const evidence = effectiveEvidence === undefined ? body.evidence ?? item.evidence : effectiveEvidence;
   const conclusion = clean(body.conclusion ?? item.conclusion);
   if (Array.isArray(evidence)) return evidence.length > 0 && Boolean(conclusion);
   if (evidence && typeof evidence === "object") return Object.keys(evidence).length > 0 && Boolean(conclusion);
   return Boolean(clean(evidence)) && Boolean(conclusion);
+}
+
+function systemGateSnapshot(gate) {
+  if (!gate?.applicable) return null;
+  return {
+    satisfied: gate.satisfied === true,
+    entity_id: gate.entity_id || null,
+    blockers: gate.blockers || [],
+    evidence: gate.evidence || [],
+    checked_at: gate.checked_at,
+  };
 }
 
 function reviewGateSnapshot(gate) {
@@ -253,20 +265,37 @@ export async function POST(request) {
         if (clientRequestError) throw clientRequestError;
         if (!clientRequest || clientRequest.status !== "ACCEPTED") return jsonError("Client evidence must be accepted before this work item can complete", 409);
       }
-      if (!hasEvidence(item, body)) return jsonError("Required evidence and conclusion must be recorded before completion", 409);
+
+      const systemGate = await evaluateWorkProgramGate({ run, item });
+      if (systemGate.applicable && !systemGate.satisfied) {
+        return jsonError("Current Finance system truth does not permit work-item completion", 409, systemGate);
+      }
+      const currentSystemGate = systemGateSnapshot(systemGate);
+      const existingEvidence = body.evidence ?? item.evidence ?? {};
+      const effectiveEvidence = systemGate.applicable
+        ? {
+            ...(existingEvidence && typeof existingEvidence === "object" && !Array.isArray(existingEvidence) ? existingEvidence : { recorded_evidence: existingEvidence }),
+            system_verified: systemGate.evidence || [],
+            system_checked_at: systemGate.checked_at,
+          }
+        : existingEvidence;
+      if (!hasEvidence(item, body, effectiveEvidence)) return jsonError("Required evidence and conclusion must be recorded before completion", 409);
 
       const engagementReviewGate = await requireEngagementReviewGate({ run, workItem: item });
       const engagementReviewSnapshot = reviewGateSnapshot(engagementReviewGate);
       const nextStatus = ["REVIEWER", "PARTNER"].includes(item.required_role) ? "COMPLETE" : body.readyForReview === true || body.ready_for_review === true ? "READY_FOR_REVIEW" : "COMPLETE";
+      const nextMetadata = {
+        ...(item.metadata || {}),
+        ...(currentSystemGate ? { system_gate: currentSystemGate } : {}),
+        ...(engagementReviewSnapshot ? { engagement_review_gate: engagementReviewSnapshot } : {}),
+      };
       const { data, error } = await supabaseAdmin
         .from("accounting_engagement_work_items")
         .update({
           status: nextStatus,
-          evidence: body.evidence ?? item.evidence ?? {},
+          evidence: effectiveEvidence,
           conclusion: body.conclusion ?? item.conclusion ?? null,
-          metadata: engagementReviewSnapshot
-            ? { ...(item.metadata || {}), engagement_review_gate: engagementReviewSnapshot }
-            : item.metadata || {},
+          metadata: nextMetadata,
           completed_at: nextStatus === "COMPLETE" ? new Date().toISOString() : null,
           completed_by: nextStatus === "COMPLETE" ? access.user?.id || null : null,
           blocked_reason: null,
@@ -284,10 +313,16 @@ export async function POST(request) {
         item.id,
         item,
         data,
-        { run_id: run.id, engagement_review_gate: engagementReviewSnapshot }
+        { run_id: run.id, system_gate: currentSystemGate, engagement_review_gate: engagementReviewSnapshot }
       );
       const reconciled = await reconcileRun(access, run);
-      return NextResponse.json({ success: true, work_item: data, run: reconciled.run, engagement_review_gate: engagementReviewSnapshot });
+      return NextResponse.json({
+        success: true,
+        work_item: data,
+        run: reconciled.run,
+        system_gate: currentSystemGate,
+        engagement_review_gate: engagementReviewSnapshot,
+      });
     }
 
     if (["send_client_request", "submit_client_request", "accept_client_request", "client_request_changes"].includes(action)) {
@@ -353,6 +388,26 @@ export async function POST(request) {
         });
       }
 
+      const systemClearance = [];
+      const staleSystemBlockers = [];
+      for (const item of items) {
+        const gate = await evaluateWorkProgramGate({ run, item });
+        if (!gate.applicable) continue;
+        const snapshot = systemGateSnapshot(gate);
+        systemClearance.push({ work_item_id: item.id, step_key: item.step_key, capability_id: item.capability_id, ...snapshot });
+        if (!gate.satisfied) {
+          staleSystemBlockers.push({
+            work_item_id: item.id,
+            step_key: item.step_key,
+            capability_id: item.capability_id,
+            blockers: gate.blockers || [],
+          });
+        }
+      }
+      if (staleSystemBlockers.length) {
+        return jsonError("Work program system truth changed after work-item completion", 409, { system_blockers: staleSystemBlockers });
+      }
+
       const finalReviewItem = finalReviewWorkItem(items);
       const finalReviewGate = finalReviewItem
         ? await requireEngagementReviewGate({ run, workItem: finalReviewItem })
@@ -363,8 +418,9 @@ export async function POST(request) {
         completed_at: now,
         template_id: run.template_id,
         period_id: run.period_id,
+        system_clearance: systemClearance,
         review_clearance: finalReviewSnapshot,
-        work_items: items.map((item) => ({ id: item.id, step_key: item.step_key, status: item.status, evidence: item.evidence, conclusion: item.conclusion, completed_at: item.completed_at, engagement_review_gate: item.metadata?.engagement_review_gate || null })),
+        work_items: items.map((item) => ({ id: item.id, step_key: item.step_key, status: item.status, evidence: item.evidence, conclusion: item.conclusion, completed_at: item.completed_at, system_gate: item.metadata?.system_gate || null, engagement_review_gate: item.metadata?.engagement_review_gate || null })),
         client_requests: requests.map((clientRequest) => ({ id: clientRequest.id, status: clientRequest.status, submitted_at: clientRequest.submitted_at, accepted_at: clientRequest.accepted_at })),
       };
       const { data, error } = await supabaseAdmin
@@ -374,8 +430,8 @@ export async function POST(request) {
         .select("*")
         .single();
       if (error) throw error;
-      await audit(access, "ACCOUNTING_ENGAGEMENT_RUN_COMPLETED", "accounting_engagement_run", run.id, run, data, { snapshot, review_clearance: finalReviewSnapshot });
-      return NextResponse.json({ success: true, run: data, engagement_review_gate: finalReviewSnapshot });
+      await audit(access, "ACCOUNTING_ENGAGEMENT_RUN_COMPLETED", "accounting_engagement_run", run.id, run, data, { snapshot, system_clearance: systemClearance, review_clearance: finalReviewSnapshot });
+      return NextResponse.json({ success: true, run: data, system_clearance: systemClearance, engagement_review_gate: finalReviewSnapshot });
     }
 
     if (action === "reconcile_run") {

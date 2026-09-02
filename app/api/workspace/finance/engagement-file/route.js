@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
+import { evaluateEngagementReviewPortfolio } from "@/lib/finance/practice/engagementReviewGate";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -79,7 +80,7 @@ export async function GET(request) {
         : Promise.resolve({ data: null, error: null }),
       supabaseAdmin
         .from("accounting_engagement_runs")
-        .select("id,entity_id,engagement_id,template_id,period_id,run_key,cadence,status,start_at,due_at,completed_at,locked_at,completion_snapshot,rolled_from_run_id,metadata,created_at,updated_at")
+        .select("id,organization_id,entity_id,engagement_id,template_id,period_id,run_key,cadence,status,start_at,due_at,completed_at,locked_at,completion_snapshot,rolled_from_run_id,metadata,created_at,updated_at")
         .eq("accounting_firm_id", access.organizationId)
         .eq("engagement_id", engagement.id)
         .order("created_at", { ascending: false })
@@ -234,6 +235,7 @@ export async function GET(request) {
     });
 
     const currentRun = enrichedRuns.find((run) => !CLOSED_RUN_STATUSES.has(run.status)) || enrichedRuns[0] || null;
+    const reviewPortfolio = await evaluateEngagementReviewPortfolio({ run: currentRun });
     const currentReviewIds = new Set((currentRun?.work_items || []).map((item) => item.finance_review_item_id).filter(Boolean));
     const externalReviews = reviews
       .filter((review) => !currentReviewIds.has(review.id))
@@ -280,6 +282,7 @@ export async function GET(request) {
       history: enrichedRuns.filter((run) => run.id !== currentRun?.id),
       documents: financeDocuments,
       external_reviews: externalReviews,
+      review_portfolio: reviewPortfolio,
       staff,
       summary: {
         runs: enrichedRuns.length,
@@ -290,6 +293,11 @@ export async function GET(request) {
         current_progress: currentRun?.progress?.percent || 0,
         current_budget_minutes: currentRun?.progress?.budget_minutes || 0,
         system_blockers: currentRun?.progress?.system_blockers || 0,
+        review_records: reviewPortfolio.review_item_count || 0,
+        reviewed_records: reviewPortfolio.reviewed_record_count || 0,
+        cleared_records: reviewPortfolio.cleared_record_count || 0,
+        review_stage: reviewPortfolio.current_stage || null,
+        review_fully_cleared: reviewPortfolio.fully_cleared === true,
       },
       generated_at: new Date().toISOString(),
     });

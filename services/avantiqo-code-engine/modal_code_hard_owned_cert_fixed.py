@@ -20,6 +20,25 @@ import modal_code_hard_owned_cert as hard
 
 app = hard.app
 
+# The certification-only remote function is defined in this wrapper. Modal
+# automatically mounts this entrypoint, but sibling imports used by the wrapper
+# are not implicit. Mount the complete remote dependency closure explicitly so
+# a bad source mount fails at registration/preflight rather than crash-looping a
+# GPU container until the shell timeout.
+HARD_REMOTE_IMAGE = (
+    hard.cert.REMOTE_IMAGE
+    .add_local_file(
+        "services/avantiqo-code-engine/modal_persistent_owned_cert_repair.py",
+        "/root/modal_persistent_owned_cert_repair.py",
+        copy=False,
+    )
+    .add_local_file(
+        "services/avantiqo-code-engine/modal_code_hard_owned_cert.py",
+        "/root/modal_code_hard_owned_cert.py",
+        copy=False,
+    )
+)
+
 # Correct deterministic fixture arithmetic/rounding ambiguities only. Hidden
 # tests remain sealed from generation and repair prompts.
 for task in hard.HARD_TASKS:
@@ -231,11 +250,15 @@ _HARD_LLM_PATCHED = False
 
 
 @app.function(
-    image=hard.cert.REMOTE_IMAGE,
+    image=HARD_REMOTE_IMAGE,
     volumes={hard.cert.MODEL_MOUNT_ROOT: hard.cert.MODEL_VOLUME},
     env={"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"},
-    gpu="H100",
+    # Same Hopper execution contract with availability fallback. Modal accepts a
+    # list of GPU types and schedules whichever is available first.
+    gpu=["H100", "H200"],
     timeout=12 * 60,
+    startup_timeout=3 * 60,
+    retries=0,
     scaledown_window=10 * 60,
     min_containers=0,
     max_containers=1,

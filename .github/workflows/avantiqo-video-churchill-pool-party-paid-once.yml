@@ -1,0 +1,147 @@
+name: Avantiqo Video Churchill Pool Party Paid Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-churchill-pool-party-paid-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-churchill-pool-party-paid-once
+  cancel-in-progress: false
+
+jobs:
+  render:
+    if: github.event.head_commit.message == 'Render Churchill pool party LTX once'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AVANTIQO_VIDEO_CHURCHILL_PARTY_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_VIDEO_SCENE1_MAX_SUPPLIER_GPU_COST_USD: "3.25"
+      AVANTIQO_VIDEO_CHURCHILL_PARTY_SOURCE_FRAME: ${{ github.workspace }}/assets/video/proofs/churchill-pool-party-reference.jpg
+
+    steps:
+      - name: Checkout exact launch commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Reconstruct and verify Churchill reference on CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/reconstruct-avantiqo-video-churchill-pool-party-ci.py
+          test -s "${AVANTIQO_VIDEO_CHURCHILL_PARTY_SOURCE_FRAME}"
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Static premium-lane gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-engine/modal_app.py
+          python -m py_compile services/avantiqo-video-engine/modal_churchill_pool_party_cert.py
+          python - <<'PY'
+          from pathlib import Path
+          runner = Path('services/avantiqo-video-engine/modal_churchill_pool_party_cert.py').read_text(encoding='utf-8')
+          app = Path('services/avantiqo-video-engine/modal_app.py').read_text(encoding='utf-8')
+          for needle in (
+              'DURATION_SECONDS = 4',
+              'SOURCE_BYTES = 31806',
+              '06cc6b2b2b1799e650d574e18ffbc03a58f9ca3ee2d53b4cf4da8fec81408387',
+              'generate_native_master.remote(',
+              'maximum_paid_gpu_jobs',
+              'automatic_paid_retry',
+          ):
+              if needle not in runner:
+                  raise SystemExit('CHURCHILL_VIDEO_RUNNER_GATE_MISSING:' + needle)
+          for needle in (
+              'LTX_GPU = "B200"',
+              'LTX_NUM_INFERENCE_STEPS = 30',
+              'LTX_MASTER_WIDTH = 3840',
+              'LTX_MASTER_HEIGHT = 2176',
+              '"pixel_upscale_used": False',
+              '"temporal_interpolation_used": False',
+          ):
+              if needle not in app:
+                  raise SystemExit('CHURCHILL_VIDEO_RUNTIME_GATE_MISSING:' + needle)
+          print('CHURCHILL_VIDEO_STATIC_PREMIUM_GATE=PASS')
+          PY
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+
+      - name: Require governed credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          echo 'CHURCHILL_VIDEO_CREDENTIALS=PASS'
+
+      - name: Run zero-GPU governed preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_churchill_pool_party_cert.py::preflight
+
+      - name: Generate exactly one Churchill native master on B200
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_churchill_pool_party_cert.py::certify \
+            --output-path "${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-churchill-pool-party/churchill-pool-party-native-3840x2176.mp4"
+
+      - name: Verify native master locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          MP4="${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-churchill-pool-party/churchill-pool-party-native-3840x2176.mp4"
+          REPORT="${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-churchill-pool-party/churchill-pool-party-native-3840x2176.json"
+          test -s "$MP4"
+          test -s "$REPORT"
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate,nb_frames,codec_name -show_entries format=duration,size -of json "$MP4"
+          echo 'CHURCHILL_VIDEO_NATIVE_MASTER_LOCAL_GATE=PASS'
+
+      - name: Upload untouched Churchill native master
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-churchill-pool-party-native-3840x2176
+          path: |
+            local-audit-output/avantiqo-video-churchill-pool-party/churchill-pool-party-native-3840x2176.mp4
+            local-audit-output/avantiqo-video-churchill-pool-party/churchill-pool-party-native-3840x2176.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'MAX_PAID_GPU_JOBS_ALLOWED=1'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'

@@ -12,6 +12,20 @@ const canonicalProviderSource = fs.readFileSync(
   ),
   "utf8",
 );
+const directRuntimeSource = fs.readFileSync(
+  new URL(
+    "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const registrationSource = fs.readFileSync(
+  new URL(
+    "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderRegistration.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const runpodProviderSource = fs.readFileSync(
   new URL(
     "../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceRunpodProvider.js",
@@ -112,16 +126,44 @@ test("expired Intelligence RunPod leases fail closed", () => {
   });
 });
 
-test("Modal primary bypasses RunPod lease while RunPod fallback remains lease guarded", () => {
-  assert.match(canonicalProviderSource, /AvantiqoIntelligenceProviderV2/);
-  assert.match(canonicalProviderSource, /modal_primary_when_configured:\s*true/);
-  assert.match(canonicalProviderSource, /safe_lease_required_for_inference:\s*false/);
+test("Intelligence primary lane mirrors working Audio direct Modal SDK transport", () => {
+  assert.match(directRuntimeSource, /const APP_NAME = "avantiqo-intelligence-owned"/);
+  assert.match(directRuntimeSource, /const DIRECT_TRANSPORT = "modal-js-sdk-function-call-v1"/);
+  assert.match(directRuntimeSource, /new sdk\.ModalClient\(\{ tokenId: configValue\.tokenId, tokenSecret: configValue\.tokenSecret \}\)/);
+  assert.match(directRuntimeSource, /client\.functions\.fromName\(APP_NAME, lane, lookupOptions\)/);
+  assert.match(directRuntimeSource, /worker\.spawn\(\[payload\]\)/);
+  assert.match(directRuntimeSource, /client\.functionCalls\.fromId\(callId\)/);
+  assert.match(directRuntimeSource, /call\.get\(\{ timeoutMs: 0 \}\)/);
+  assert.match(directRuntimeSource, /modal_gateway_used:\s*false/);
+  assert.match(directRuntimeSource, /modal_gpu:\s*"H100"/);
+  assert.match(directRuntimeSource, /modal_volume_created:\s*false/);
+  assert.match(directRuntimeSource, /runpod_inference_performed:\s*false/);
+  assert.doesNotMatch(directRuntimeSource, /AVANTIQO_INTELLIGENCE_MODAL_BASE_URL/);
+  assert.doesNotMatch(directRuntimeSource, /AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN/);
+});
 
+test("Intelligence readiness derives from shared direct Modal credentials only", () => {
+  assert.match(registrationSource, /MODAL_TOKEN_ID \|\| process\.env\.AVANTIQO_MODAL_TOKEN_ID/);
+  assert.match(registrationSource, /MODAL_TOKEN_SECRET \|\| process\.env\.AVANTIQO_MODAL_TOKEN_SECRET/);
+  assert.match(registrationSource, /modal_gateway_required:\s*false/);
+  assert.match(registrationSource, /modal_transport:\s*MODAL_TRANSPORT/);
+  assert.doesNotMatch(registrationSource, /AVANTIQO_INTELLIGENCE_MODAL_BASE_URL/);
+  assert.doesNotMatch(registrationSource, /AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN/);
+
+  assert.match(canonicalProviderSource, /modal_gateway_required:\s*false/);
+  assert.match(canonicalProviderSource, /AVANTIQO_INTELLIGENCE_MODAL_DIRECT_TRANSPORT/);
+  assert.doesNotMatch(canonicalProviderSource, /AVANTIQO_INTELLIGENCE_MODAL_BASE_URL/);
+  assert.doesNotMatch(canonicalProviderSource, /AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN/);
+});
+
+test("Modal primary bypasses RunPod lease while RunPod fallback remains lease guarded", () => {
   assert.match(executorSource, /ownedIntelligenceModalConfigured/);
-  assert.match(executorSource, /AVANTIQO_INTELLIGENCE_MODAL_BASE_URL/);
-  assert.match(executorSource, /AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN/);
-  assert.match(executorSource, /Modal is a fully separate owned scale-to-zero infrastructure path/);
-  assert.match(executorSource, /do not touch RunPod at all/);
+  assert.match(executorSource, /MODAL_TOKEN_ID \|\| process\.env\.AVANTIQO_MODAL_TOKEN_ID/);
+  assert.match(executorSource, /MODAL_TOKEN_SECRET \|\| process\.env\.AVANTIQO_MODAL_TOKEN_SECRET/);
+  assert.match(executorSource, /same direct Modal SDK credentials used by Audio/);
+  assert.match(executorSource, /do\s*not touch RunPod at all/);
+  assert.doesNotMatch(executorSource, /AVANTIQO_INTELLIGENCE_MODAL_BASE_URL/);
+  assert.doesNotMatch(executorSource, /AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN/);
 
   assert.match(runpodProviderSource, /requireAvantiqoIntelligenceSafeLease/);
   const executeStart = runpodProviderSource.indexOf("async execute(input = {})");

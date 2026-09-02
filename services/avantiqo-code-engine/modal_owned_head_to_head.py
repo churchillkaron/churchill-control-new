@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
 import os
 import re
@@ -20,6 +19,7 @@ ENGINE_CONTRACT = "AVANTIQO_CODE_ENGINE_V1"
 PRODUCT_MODEL = "avantiqo-code-v1"
 FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
 RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+BASE_IMAGE_ID = "im-jAkmG5niafDQsnuSUxak9c"
 OUTPUT_PATH = Path("artifacts/avantiqo-code-owned-head-to-head.json")
 
 TASKS: list[dict[str, str]] = [
@@ -31,19 +31,25 @@ TASKS: list[dict[str, str]] = [
     {"id":"currency_aggregation","module":"currency-totals.mjs","source":'''export function totalsByCurrency(rows) {\n  const totals = {};\n  for (const row of rows) totals[row.currency] = (totals[row.currency] || 0) + row.amount;\n  return totals;\n}\n''',"visible_test":'''import assert from "node:assert/strict";\nimport { totalsByCurrency } from "./currency-totals.mjs";\nassert.deepEqual(totalsByCurrency([{ currency: "thb", amount: "10" }, { currency: "THB", amount: 5 }]), { THB: 15 });\n''',"hidden_test":'''import assert from "node:assert/strict";\nimport { totalsByCurrency } from "./currency-totals.mjs";\nconst rows = [{ currency: "thb", amount: "10" }, { currency: "THB", amount: 5 }, { currency: "usd", amount: 2.5 }, { currency: "", amount: 99 }, { currency: "USD", amount: "bad" }, null];\nconst before = JSON.stringify(rows);\nassert.deepEqual(totalsByCurrency(rows), { THB: 15, USD: 2.5 });\nassert.equal(JSON.stringify(rows), before);\nassert.deepEqual(totalsByCurrency(null), {});\nassert.deepEqual(totalsByCurrency([]), {});\n'''}
 ]
 
-def _load_image() -> Any:
-    path = Path(__file__).with_name("modal_app.py")
-    spec = importlib.util.spec_from_file_location("avantiqo_code_modal_app", path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"{CONTRACT}_MODAL_APP_IMPORT_FAILED")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.image
-
 app = modal.App("avantiqo-code-owned-head-to-head-v1")
-image = _load_image()
+image = modal.Image.from_id(BASE_IMAGE_ID).env(
+    {
+        "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
+        "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+        "VLLM_USE_FLASHINFER_SAMPLER": "0",
+        "AVANTIQO_CODE_MAX_NEW_TOKENS": "768",
+        "AVANTIQO_CODE_REQUIRE_CACHED_MODEL": "1",
+    }
+)
 
-@app.function(image=image, gpu="H100", timeout=30 * 60, scaledown_window=5)
+@app.function(
+    image=image,
+    gpu="H100",
+    timeout=30 * 60,
+    scaledown_window=10 * 60,
+    min_containers=0,
+    max_containers=1,
+)
 def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
     os.chdir("/app")
     import handler as code_engine

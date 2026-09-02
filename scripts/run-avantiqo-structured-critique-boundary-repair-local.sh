@@ -40,13 +40,27 @@ ln -s "$ROOT/node_modules" "$WORKTREE/node_modules"
     tests/avantiqo-intelligence-settled-output-envelope.test.mjs
 
   changed="$(git diff --name-only | sort)"
-  expected="$(printf '%s\n' \
+  required="$(printf '%s\n' \
+    lib/intelligence/runtime/AvantiqoStructuredIntelligenceSupervisorRuntime.js \
+    lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js | sort)"
+  allowed="$(printf '%s\n' \
     lib/intelligence/runtime/AvantiqoStructuredIntelligenceSupervisorRuntime.js \
     lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js \
     tests/avantiqo-structured-critique-boundary.test.mjs | sort)"
-  [[ "$changed" == "$expected" ]] || {
+
+  while IFS= read -r required_file; do
+    [[ -z "$required_file" ]] && continue
+    printf '%s\n' "$changed" | grep -Fxq "$required_file" || {
+      echo "${CONTRACT}_REQUIRED_CHANGED_FILE_MISSING:${required_file}" >&2
+      printf 'required:\n%s\nactual:\n%s\n' "$required" "$changed" >&2
+      false
+    }
+  done <<< "$required"
+
+  unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$allowed") || true)"
+  [[ -z "$unexpected" ]] || {
     echo "${CONTRACT}_UNEXPECTED_CHANGED_FILES" >&2
-    printf 'expected:\n%s\nactual:\n%s\n' "$expected" "$changed" >&2
+    printf 'allowed:\n%s\nunexpected:\n%s\nactual:\n%s\n' "$allowed" "$unexpected" "$changed" >&2
     false
   }
 

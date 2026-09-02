@@ -44,6 +44,7 @@ export default function PlatformShell({ children }) {
   const pathname = usePathname();
   const [secretaryMeetingCaptureActive, setSecretaryMeetingCaptureActive] = useState(false);
   const businessPartnerHome = /^\/workspace\/[^/]+\/?$/.test(pathname || "");
+  const operationsWorkspace = /^\/workspace\/[^/]+\/operations(?:\/|$)/.test(pathname || "");
 
   restoreLegacyWakeTemplateTrust();
 
@@ -72,6 +73,7 @@ export default function PlatformShell({ children }) {
         <WorkspaceNavigationRail />
 
         <main
+          data-avantiqo-operations-light={operationsWorkspace ? "true" : undefined}
           className={
             businessPartnerHome
               ? "min-w-0 flex-1"
@@ -86,6 +88,46 @@ export default function PlatformShell({ children }) {
       {!secretaryMeetingCaptureActive && !businessPartnerHome ? (
         <LocalHeyAvantiqoWakeBridge />
       ) : null}
+
+      <style jsx global>{`
+        [data-avantiqo-operations-light="true"] > main {
+          min-height: 0 !important;
+          padding-top: 0 !important;
+          color: #191919 !important;
+        }
+
+        [data-avantiqo-operations-light="true"] > main [class*="text-white"] {
+          color: #2b2926 !important;
+        }
+
+        [data-avantiqo-operations-light="true"] > main [class*="text-white/"] {
+          color: #77736c !important;
+        }
+
+        [data-avantiqo-operations-light="true"] > main [class*="border-white"] {
+          border-color: rgba(25, 25, 25, 0.08) !important;
+        }
+
+        [data-avantiqo-operations-light="true"] > main [class*="bg-black"] {
+          background: #fbfaf8 !important;
+        }
+
+        [data-avantiqo-operations-light="true"] > main [class*="bg-white/"] {
+          background: #ffffff !important;
+        }
+
+        [data-avantiqo-operations-light="true"] > main [class*="shadow-black"] {
+          --tw-shadow-color: rgba(31, 27, 20, 0.06) !important;
+        }
+
+        [data-avantiqo-operations-light="true"] > main input {
+          color: #2b2926 !important;
+        }
+
+        [data-avantiqo-operations-light="true"] > main input::placeholder {
+          color: #aaa69e !important;
+        }
+      `}</style>
     </div>
   );
 }

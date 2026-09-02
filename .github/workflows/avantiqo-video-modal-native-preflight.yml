@@ -54,7 +54,7 @@ jobs:
           echo 'AVANTIQO_VIDEO_SCENE1_STUDIO_REFERENCE_RECONSTRUCTION=PASS'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
-      - name: Prove generation-only source boundary
+      - name: Prove generation-only and exact-Gemma source boundary
         shell: bash
         run: |
           set -euo pipefail
@@ -76,6 +76,11 @@ jobs:
               'create_if_missing=False',
               'gpu=LTX_GPU',
               'retries=0',
+              'LTX_GEMMA_SUFFIX_COMPAT_ENTRYPOINT',
+              'text_encoder_real = text_encoder.resolve(strict=True)',
+              'env[LTX_GEMMA_REALPATH_ENV] = str(text_encoder_real)',
+              '"python", "-c", LTX_GEMMA_SUFFIX_COMPAT_ENTRYPOINT',
+              'return cls.from_single_file(resolved)',
               '"--num-inference-steps", str(LTX_NUM_INFERENCE_STEPS)',
               '"model_cpu_offload_used": False',
               '"pixel_upscale_used": False',
@@ -113,17 +118,24 @@ jobs:
               raise SystemExit('AVANTIQO_VIDEO_MODAL_CERT_CANONICAL_CALL_MISSING')
           if 'AVANTIQO_VIDEO_SCENE1_REAL_INFERENCE_APPROVED' not in cert:
               raise SystemExit('AVANTIQO_VIDEO_MODAL_PAID_APPROVAL_GUARD_MISSING')
-          for needle in (
-              'os.link(resolved, temp)',
-              'GemmaAssets.load(str(text_encoder))',
-              'duplicate_model_bytes_created": False',
-              'gpu_requested": False',
+
+          required_guard = (
+              'GemmaAssets.from_single_file(resolved)',
+              '"model_storage_mutated": False',
+              '"duplicate_model_bytes_created": False',
+              '"hardlink_created": False',
+              '"copy_created": False',
+              '"gpu_requested": False',
               'create_if_missing=False',
-          ):
+          )
+          for needle in required_guard:
               if needle not in guard:
-                  raise SystemExit(f'AVANTIQO_VIDEO_LTX25_CACHE_GUARD_REQUIRED_MISSING:{needle}')
+                  raise SystemExit(f'AVANTIQO_VIDEO_LTX25_GEMMA_GUARD_REQUIRED_MISSING:{needle}')
+          if 'os.link(' in guard or 'shutil.copy' in guard or 'copyfile(' in guard:
+              raise SystemExit('AVANTIQO_VIDEO_LTX25_GEMMA_GUARD_STORAGE_DUPLICATION_FORBIDDEN')
 
           print('AVANTIQO_VIDEO_MODAL_GENERATION_ONLY_STATIC_GATE=PASS')
+          print('AVANTIQO_VIDEO_LTX25_STORAGE_NEUTRAL_COMPAT_STATIC_GATE=PASS')
           print('GPU_INFERENCE_PERFORMED=false')
           print('PRODUCTION_VERCEL_DEPLOY_PERFORMED=false')
           PY
@@ -177,13 +189,13 @@ jobs:
           echo 'AVANTIQO_VIDEO_MODAL_EXACT_CACHE_GATE=PASS'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
-      - name: Repair snapshot filenames and prove exact LTX Gemma loader on CPU
+      - name: Prove exact pinned Gemma blob compatibility on CPU
         shell: bash
         run: |
           set -euo pipefail
           cd services/avantiqo-video-engine
           modal run modal_ltx_cache_guard.py::validate
-          echo 'AVANTIQO_VIDEO_LTX25_EXACT_GEMMA_LOADER_GATE=PASS'
+          echo 'AVANTIQO_VIDEO_LTX25_EXACT_GEMMA_COMPAT_GATE=PASS'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
       - name: Run governed Scene 1 zero-GPU preflight

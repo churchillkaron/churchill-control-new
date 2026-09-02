@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessContext";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { getWorkspaceItemByWorkspace } from "@/lib/platform/registry/erpRegistry";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const COMPLETE_STATUSES = new Set([
@@ -16,6 +17,13 @@ const COMPLETE_STATUSES = new Set([
   "posted",
   "submitted",
   "approved",
+]);
+
+const OPEN_REVIEW_STATUSES = new Set([
+  "OPEN",
+  "IN_PREPARATION",
+  "READY_FOR_REVIEW",
+  "CHANGES_REQUESTED",
 ]);
 
 function clean(value) {
@@ -86,6 +94,17 @@ function approvalHref(row) {
   }
   if (kind.includes("journal")) return financeHref("journals");
   return financeHref("audit-trail");
+}
+
+function reviewHref(row) {
+  const capability = getWorkspaceItemByWorkspace("finance", row?.capability_id);
+  return capability?.route || financeHref(clean(row?.capability_id).replace(/_/g, "-"));
+}
+
+function queuePriorityRank(item) {
+  if (item?.priority === "attention") return 0;
+  if (item?.priority === "review") return 1;
+  return 2;
 }
 
 export async function GET(request) {
@@ -165,6 +184,7 @@ export async function GET(request) {
       closeStepsSource,
       filingsSource,
       engagementsSource,
+      reviewItemsSource,
     ] = await Promise.all([
       safe("accounts_receivable", async () => {
         const { data, error } = await supabaseAdmin
@@ -266,6 +286,18 @@ export async function GET(request) {
         if (error) throw error;
         return data || [];
       }, []),
+      safe("finance_review_items", async () => {
+        const { data, error } = await supabaseAdmin
+          .from("finance_review_items")
+          .select("id, entity_id, period_id, capability_id, record_key, record_type, record_label, status, priority, due_at, preparer_id, reviewer_id, updated_at")
+          .eq("organization_id", context.organizationId)
+          .in("status", [...OPEN_REVIEW_STATUSES])
+          .order("due_at", { ascending: true, nullsFirst: false })
+          .order("updated_at", { ascending: false })
+          .limit(250);
+        if (error) throw error;
+        return data || [];
+      }, []),
     ]);
 
     const receivables = receivablesSource.data || [];
@@ -276,6 +308,10 @@ export async function GET(request) {
     const closeSteps = closeStepsSource.data || [];
     const filings = filingsSource.data || [];
     const engagements = engagementsSource.data || [];
+    const reviewItems = (reviewItemsSource.data || []).filter(row =>
+      (!row.entity_id || row.entity_id === resolvedEntityId) &&
+      (!row.period_id || row.period_id === resolvedPeriodId),
+    );
 
     const openReconciliations = reconciliations.filter(row =>
       !isComplete(row.status) || Math.abs(amount(row.difference_amount)) > 0.000001,
@@ -322,6 +358,31 @@ export async function GET(request) {
     }
 
     const queue = [];
+    const reviewAsOf = periodEnd || new Date().toISOString();
+
+    reviewItems.slice(0, 12).forEach(row => {
+      const overdue = isOverdue(row.due_at, reviewAsOf);
+      const needsChanges = row.status === "CHANGES_REQUESTED";
+      const ready = row.status === "READY_FOR_REVIEW";
+      const urgent = ["URGENT", "HIGH"].includes(clean(row.priority).toUpperCase());
+      queue.push({
+        id: `review:${row.id}`,
+        kind: "review",
+        priority: overdue || needsChanges || ready || urgent ? "attention" : "review",
+        title: needsChanges
+          ? `Changes requested · ${row.record_label || label(row.capability_id)}`
+          : ready
+            ? `Ready for review · ${row.record_label || label(row.capability_id)}`
+            : `Review · ${row.record_label || label(row.capability_id)}`,
+        detail: [
+          label(row.capability_id),
+          row.due_at ? `${overdue ? "Overdue" : "Due"} ${String(row.due_at).slice(0, 10)}` : null,
+          row.priority && row.priority !== "NORMAL" ? label(row.priority) : null,
+        ].filter(Boolean).join(" · "),
+        status: row.status,
+        href: reviewHref(row),
+      });
+    });
 
     closeSteps
       .filter(row => !isComplete(row.status))
@@ -374,6 +435,12 @@ export async function GET(request) {
       });
     });
 
+    const rankedQueue = queue
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => queuePriorityRank(a.item) - queuePriorityRank(b.item) || a.index - b.index)
+      .map(({ item }) => item)
+      .slice(0, 14);
+
     const sources = Object.fromEntries(
       [
         receivablesSource,
@@ -384,6 +451,7 @@ export async function GET(request) {
         closeStepsSource,
         filingsSource,
         engagementsSource,
+        reviewItemsSource,
       ].map(source => [source.source, { status: source.status, error: source.error }]),
     );
 
@@ -426,6 +494,13 @@ export async function GET(request) {
           overdue: openFilings.filter(row => isOverdue(row.due_date, periodEnd)).length,
           source_status: filingsSource.status,
         },
+        review: {
+          count: reviewItems.length,
+          ready: reviewItems.filter(row => row.status === "READY_FOR_REVIEW").length,
+          changes_requested: reviewItems.filter(row => row.status === "CHANGES_REQUESTED").length,
+          overdue: reviewItems.filter(row => isOverdue(row.due_at, reviewAsOf)).length,
+          source_status: reviewItemsSource.status,
+        },
         close: {
           completed: completedCloseSteps,
           total: closeTotal,
@@ -452,7 +527,7 @@ export async function GET(request) {
         total: closeTotal,
         progress: closeProgress,
       },
-      queue: queue.slice(0, 14),
+      queue: rankedQueue,
       practice: {
         active_clients: practiceClients.length,
         clients: practiceClients.slice(0, 8),

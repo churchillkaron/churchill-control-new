@@ -53,7 +53,7 @@ def _candidate_internal_prompt(data: dict[str, Any]) -> str:
             "6. For arrays and collections, treat a missing/null collection as the neutral empty collection when the API is an aggregator; skip malformed/null entries safely; never mutate caller-owned inputs.",
             "7. NORMALIZATION PROPAGATION: if visible behavior establishes a canonical representation, derive that canonical value before comparison, lookup, grouping, or aggregation and use the same rule consistently in every related public function. Higher-level comparators and aggregators must not bypass the normalizer semantics.",
             "8. For string or identifier keys, when visible behavior demonstrates equivalence after trimming or case folding, canonicalize before reading or writing aggregation state. Reject canonical blank keys when blank identifiers have no semantic identity.",
-            "9. For collection aggregation, validate each entry and each numeric contribution independently: normalize the key first, coerce the value deliberately, require a finite converted number, then aggregate only valid contributions into the canonical key.",
+            "9. For collection aggregation, validate each entry and each numeric contribution independently: normalize the key first, coerce the value deliberately, require a finite converted number, then aggregate only valid contributions into the canonical key. Once a value has been normalized or converted for validation, carry that exact validated value into the computation; never validate one representation and then aggregate, compare, or calculate with the unconverted raw input.",
             "10. For authorization or boolean guards, make null handling and operator precedence explicit and return a real boolean.",
             "11. For rates, percentages, money, quantities, and totals, infer the intended arithmetic from names plus tests and validate finite operands before calculation.",
             "12. Preserve deterministic behavior and avoid unnecessary dependencies, side effects, environment access, network access, filesystem access, dynamic evaluation, or hidden state.",
@@ -84,10 +84,6 @@ def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
     code_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
     code_engine._prompt = _candidate_internal_prompt
 
-    # The certified image currently forces vLLM eager execution. That reduces
-    # startup work but disables CUDA graphs and hurts steady-state decode speed.
-    # For the warm-latency candidate, keep the exact owned model/runtime and only
-    # switch vLLM back to its optimized hybrid CUDA-graph execution mode.
     original_llm = code_engine.LLM
 
     def optimized_llm(*args: Any, **kwargs: Any) -> Any:
@@ -96,10 +92,6 @@ def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
 
     code_engine.LLM = optimized_llm
 
-    # Infrastructure preparation is intentionally outside scored request time.
-    # This mirrors a hosted competitor whose model is already resident when the
-    # user sends a request. The warmup also forces the first-request JIT path to
-    # complete before the six scored cases begin.
     prepare_started = time.perf_counter()
     tokenizer, engine = code_engine._load_engine()
     warm_prompt = tokenizer.apply_chat_template(
@@ -150,8 +142,6 @@ def main() -> None:
     if str(os.environ.get("NODE_ENV") or "").strip().lower() == "production":
         raise RuntimeError(f"{CONTRACT}_PRODUCTION_ENV_FORBIDDEN")
 
-    # Local-only import: canonical fixtures and hidden tests must not become a
-    # remote container dependency.
     import modal_owned_head_to_head as base
 
     batch = run_owned_batch.remote([base._request(task) for task in base.TASKS])

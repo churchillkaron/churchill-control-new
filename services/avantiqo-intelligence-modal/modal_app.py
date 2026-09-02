@@ -32,6 +32,8 @@ MODEL_PATHS = {FAST_MODEL: FAST_MODEL_PATH, DEEP_MODEL: DEEP_MODEL_PATH}
 GPU = "H100"
 MAX_MODEL_LEN = 32768
 MAX_OUTPUT_TOKENS = 16384
+FAST_SCALEDOWN_WINDOW_SECONDS = 10 * 60
+DEEP_SCALEDOWN_WINDOW_SECONDS = 5
 PRIVATE_KEYS = {
     "reasoning", "reasoning_content", "chain_of_thought", "chainofthought",
     "cot", "thoughts", "scratchpad", "analysis",
@@ -114,7 +116,11 @@ def _base_image(model: str, revision: str, runtime_path: str) -> modal.Image:
     )
 
 
-fast_image = _base_image(FAST_MODEL, FAST_REVISION, FAST_MODEL_PATH)
+# Fast mirrors the proven Code warm-runtime configuration without changing Deep.
+fast_image = _base_image(FAST_MODEL, FAST_REVISION, FAST_MODEL_PATH).env({
+    "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
+    "VLLM_USE_FLASHINFER_SAMPLER": "0",
+})
 deep_image = _base_image(DEEP_MODEL, DEEP_REVISION, DEEP_MODEL_PATH)
 
 
@@ -267,14 +273,21 @@ def _llm(model: str) -> Any:
     local_model = Path(runtime_path)
     if not local_model.is_dir() or not (local_model / "config.json").is_file():
         raise RuntimeError(f"AVANTIQO_INTELLIGENCE_MODAL_LOCAL_MODEL_REQUIRED:{model}")
-    engine = LLM(
-        model=str(local_model),
-        dtype="bfloat16",
-        max_model_len=MAX_MODEL_LEN,
-        tensor_parallel_size=1,
-        gpu_memory_utilization=0.90,
-        trust_remote_code=False,
-    )
+    options: dict[str, Any] = {
+        "model": str(local_model),
+        "dtype": "bfloat16",
+        "max_model_len": MAX_MODEL_LEN,
+        "tensor_parallel_size": 1,
+        "gpu_memory_utilization": 0.90,
+        "trust_remote_code": False,
+    }
+    if model == FAST_MODEL:
+        # Match Code's proven warm vLLM path: CUDA graphs plus weight prefetch.
+        options.update({
+            "enforce_eager": False,
+            "safetensors_load_strategy": "prefetch",
+        })
+    engine = LLM(**options)
     _LLM_CACHE[model] = engine
     return engine
 
@@ -323,8 +336,10 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         top_p=top_p,
         max_tokens=max_tokens,
     )
+    warm_engine_reused = model in _LLM_CACHE
     started = time.perf_counter()
-    results = _llm(model).chat(
+    engine = _llm(model)
+    results = engine.chat(
         messages,
         sampling_params=sampling,
         use_tqdm=False,
@@ -364,13 +379,18 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         "reasoning_mode": "thinking" if lane == "deep" else "non_thinking",
         "sampling_policy": sampling_policy,
         "reasoning_transport_detected": reasoning_detected,
-        "warm_engine_reused": True,
+        "warm_engine_reused": warm_engine_reused,
         "raw_reasoning_persisted": False,
         "infrastructure_provider": "MODAL_H100_ASYNC_V1",
         "modal_gpu": GPU,
         "modal_volume_created": False,
         "runpod_inference_performed": False,
         "modal_elapsed_seconds": round(time.perf_counter() - started, 3),
+        **({
+            "warm_retention_seconds": FAST_SCALEDOWN_WINDOW_SECONDS,
+            "vllm_enforce_eager": False,
+            "safetensors_load_strategy": "prefetch",
+        } if lane == "fast" else {}),
     }
 
 
@@ -381,7 +401,7 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
-    scaledown_window=5,
+    scaledown_window=FAST_SCALEDOWN_WINDOW_SECONDS,
 )
 def fast(data: dict[str, Any]) -> dict[str, Any]:
     return _run(data, model=FAST_MODEL, lane="fast")
@@ -394,7 +414,7 @@ def fast(data: dict[str, Any]) -> dict[str, Any]:
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
-    scaledown_window=5,
+    scaledown_window=DEEP_SCALEDOWN_WINDOW_SECONDS,
 )
 def deep(data: dict[str, Any]) -> dict[str, Any]:
     return _run(data, model=DEEP_MODEL, lane="deep")

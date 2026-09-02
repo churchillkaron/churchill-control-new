@@ -1,4 +1,5 @@
 name: Avantiqo Video Modal Runtime Sync
+# Runtime definition sync only. This workflow never invokes paid Video inference.
 
 on:
   push:

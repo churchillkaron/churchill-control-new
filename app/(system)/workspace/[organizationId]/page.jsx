@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   ArrowRight,
   Bell,
   CheckCircle2,
   Clock3,
-  Command,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -17,6 +16,8 @@ import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAle
 import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { listOperatorNavigationTargets } from "@/lib/operator/runtime/OperatorNavigationCatalog";
+
+const PENDING_UNIVERSAL_COMMAND_KEY = "avantiqo:pending-universal-command:v1";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -30,7 +31,8 @@ function metricValue(metric) {
 
 function firstName(value) {
   const clean = text(value);
-  return clean ? clean.split(/\s+/)[0] : "there";
+  if (!clean || clean.includes("@")) return "";
+  return clean.split(/\s+/)[0];
 }
 
 export default function OrganizationWorkspacePage() {
@@ -40,7 +42,6 @@ export default function OrganizationWorkspacePage() {
     loading,
   } = useOrganizationRuntime();
   const businessContext = useBusinessContext() || {};
-  const [command, setCommand] = useState("");
 
   const organizationId =
     organization?.id ||
@@ -52,18 +53,22 @@ export default function OrganizationWorkspacePage() {
   const personName =
     runtime?.access?.staff?.name ||
     runtime?.access?.staff?.display_name ||
-    "there";
+    businessContext.staff?.name ||
+    businessContext.staff?.display_name ||
+    "";
   const organizationName =
     organization?.name ||
     runtime?.activeOrganization?.name ||
     businessContext.organization?.name ||
     "Your organization";
   const entityName =
-    businessContext.entity?.name ||
+    businessContext.entity?.display_name ||
     businessContext.entity?.legal_name ||
+    businessContext.entity?.name ||
     "All entities";
   const periodName =
     businessContext.period?.name ||
+    businessContext.period?.period_name ||
     businessContext.period?.label ||
     "Current period";
 
@@ -102,33 +107,43 @@ export default function OrganizationWorkspacePage() {
     },
   ];
 
-  function sendCommand(rawValue) {
-    const message = text(rawValue);
-    if (!message || !organizationId) return;
+  useEffect(() => {
+    if (!organizationId) return;
 
-    window.dispatchEvent(
-      new CustomEvent("avantiqo:home-command", {
-        detail: {
-          message,
-          source: "text",
-        },
-      }),
-    );
-    setCommand("");
-  }
+    let pending = "";
+    try {
+      pending = text(window.sessionStorage.getItem(PENDING_UNIVERSAL_COMMAND_KEY));
+      if (pending) window.sessionStorage.removeItem(PENDING_UNIVERSAL_COMMAND_KEY);
+    } catch {
+      pending = "";
+    }
+    if (!pending) return;
+
+    const timer = window.setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("avantiqo:home-command", {
+          detail: { message: pending, source: "text" },
+        }),
+      );
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [organizationId]);
 
   if (loading) {
     return (
-      <div className="flex min-h-[calc(100vh-112px)] items-center justify-center bg-[#F7F6F3] text-sm text-[#6C6963]">
+      <div className="flex min-h-[calc(100vh-61px)] items-center justify-center bg-[#F7F6F3] text-sm text-[#6C6963]">
         Preparing your workspace...
       </div>
     );
   }
 
+  const greetingName = firstName(personName);
+
   return (
     <div
       data-avantiqo-home-page="light"
-      className="min-h-[calc(100vh-112px)] bg-[#F7F6F3] text-[#191919]"
+      className="min-h-[calc(100vh-61px)] bg-[#F7F6F3] text-[#191919]"
     >
       <AutonomousWatchAlertBridge organizationId={organizationId} />
 
@@ -139,10 +154,10 @@ export default function OrganizationWorkspacePage() {
               My Business
             </div>
             <h1 className="mt-2 text-[30px] font-medium tracking-[-0.04em] text-[#181817] md:text-[34px]">
-              Welcome back, {firstName(personName)}
+              {greetingName ? `Welcome back, ${greetingName}` : "Your business at a glance"}
             </h1>
             <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[#6C6963]">
-              {briefing?.summary || "Your live business state, priorities and Avantiqo operator are ready."}
+              {briefing?.summary || "Live priorities, business movement and your Avantiqo operator in one place."}
             </p>
           </div>
 
@@ -158,46 +173,6 @@ export default function OrganizationWorkspacePage() {
             </span>
           </div>
         </header>
-
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            sendCommand(command);
-          }}
-          className="mt-6"
-        >
-          <div className="flex min-h-[58px] items-center gap-3 rounded-2xl border border-black/[0.09] bg-white px-4 shadow-[0_8px_30px_rgba(28,25,20,0.05)] focus-within:border-[#D6A66A]/60 focus-within:ring-4 focus-within:ring-[#D6A66A]/[0.08]">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#171716] text-white">
-              <Sparkles size={15} />
-            </div>
-            <input
-              value={command}
-              onChange={(event) => setCommand(event.target.value)}
-              placeholder="Ask, search or do anything..."
-              className="h-14 min-w-0 flex-1 bg-transparent text-[14px] text-[#1B1A18] outline-none placeholder:text-[#A4A19A]"
-              aria-label="Ask, search or do anything"
-            />
-            <div className="hidden items-center gap-1 rounded-lg border border-black/[0.07] bg-[#F7F6F3] px-2 py-1 text-[10px] text-[#8B8881] sm:flex">
-              <Command size={11} /> K
-            </div>
-            <button
-              type="submit"
-              disabled={!text(command)}
-              className="flex h-9 items-center gap-2 rounded-xl bg-[#171716] px-3.5 text-[12px] font-medium text-white transition hover:bg-black disabled:opacity-25"
-            >
-              Go
-              <ArrowRight size={13} />
-            </button>
-          </div>
-
-          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 px-1 text-[10px] text-[#8B8881]">
-            <span>Navigation and known commands resolve locally first. Modal wakes only when reasoning is actually needed.</span>
-            <div className="flex items-center gap-1.5 text-[#6D785F]">
-              <CheckCircle2 size={11} />
-              Local-first routing active
-            </div>
-          </div>
-        </form>
 
         <div className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)] xl:items-start">
           <div className="min-w-0 space-y-6">
@@ -321,7 +296,7 @@ export default function OrganizationWorkspacePage() {
             </section>
           </div>
 
-          <aside className="min-w-0 xl:sticky xl:top-[128px]">
+          <aside className="min-w-0 xl:sticky xl:top-[78px]">
             <div className="overflow-hidden rounded-[22px] border border-black/[0.08] bg-white shadow-[0_14px_50px_rgba(31,27,20,0.07)]">
               <div className="flex items-start justify-between gap-4 border-b border-black/[0.07] px-5 py-4">
                 <div>
@@ -333,7 +308,7 @@ export default function OrganizationWorkspacePage() {
                     One operator. Every capability.
                   </div>
                   <div className="mt-1 text-[11px] leading-5 text-[#8B8881]">
-                    Navigate, discuss, plan, create and execute across the entire platform.
+                    The global command bar and this conversation are the same operator.
                   </div>
                 </div>
                 <span className="shrink-0 rounded-full border border-[#6F7E68]/20 bg-[#6F7E68]/[0.08] px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.12em] text-[#5E6D58]">
@@ -424,7 +399,7 @@ export default function OrganizationWorkspacePage() {
           [data-avantiqo-home-page="light"]
             [data-avantiqo-home-dock="true"]
             [data-avantiqo-home-intelligence="true"] {
-            height: clamp(620px, calc(100dvh - 250px), 820px) !important;
+            height: clamp(620px, calc(100dvh - 205px), 840px) !important;
           }
         }
       `}</style>

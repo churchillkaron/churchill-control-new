@@ -10,12 +10,12 @@ on:
 
 concurrency:
   group: avantiqo-code-owned-head-to-head-v2
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   benchmark:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,6 +42,7 @@ jobs:
           node --version
 
       - name: Run owned V2 benchmark
+        timeout-minutes: 9
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
@@ -49,7 +50,7 @@ jobs:
           set -euo pipefail
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
-          python -m modal run services/avantiqo-code-engine/modal_owned_head_to_head_v2.py 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
+          timeout --signal=TERM --kill-after=30s 8m python -m modal run services/avantiqo-code-engine/modal_owned_head_to_head_v2.py 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
 
       - name: Verify evidence
         run: |

@@ -61,8 +61,8 @@ def _candidate_internal_prompt(data: dict[str, Any]) -> str:
 @app.function(
     image=image,
     gpu="H100",
-    timeout=30 * 60,
-    scaledown_window=10 * 60,
+    timeout=6 * 60,
+    scaledown_window=60,
     min_containers=0,
     max_containers=1,
 )

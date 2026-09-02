@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
+import { planRecurringAccountingCycles } from "@/lib/finance/practice/recurringCyclePlanner";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -36,41 +37,88 @@ async function requireManage(access) {
   throw lastError || new Error("Finance recurring-cycle materialization permission denied");
 }
 
+function publicCandidate(candidate) {
+  return {
+    idempotency_key: candidate?.idempotency_key || null,
+    status: candidate?.status || null,
+    client_name: candidate?.client_name || null,
+    template_name: candidate?.template_name || null,
+    service_key: candidate?.service_key || null,
+    cadence: candidate?.cadence || null,
+    due_at: candidate?.due_at || null,
+    blockers: Array.isArray(candidate?.blockers) ? candidate.blockers : [],
+  };
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
     const organizationId = clean(body.organizationId || body.organization_id);
-    const engagementId = clean(body.engagementId || body.engagement_id);
-    const templateId = clean(body.templateId || body.template_id);
-    const entityId = clean(body.entityId || body.entity_id);
-    const periodId = clean(body.periodId || body.period_id);
-    const runKey = clean(body.runKey || body.run_key);
-    const startAt = clean(body.startAt || body.start_at);
-    const dueAt = clean(body.dueAt || body.due_at);
+    const idempotencyKey = clean(body.idempotencyKey || body.idempotency_key);
 
-    if (!engagementId || !templateId || !entityId || !periodId || !runKey || !startAt || !dueAt) {
-      return jsonError("engagementId, templateId, entityId, periodId, runKey, startAt and dueAt are required");
-    }
-
-    const startDate = new Date(startAt);
-    const dueDate = new Date(dueAt);
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(dueDate.getTime()) || dueDate < startDate) {
-      return jsonError("Invalid recurring-cycle date range");
+    if (!idempotencyKey) {
+      return jsonError("idempotencyKey is required", 400, {
+        code: "RECURRING_CANDIDATE_KEY_REQUIRED",
+        materialized: false,
+        idempotent: true,
+      });
     }
 
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return jsonError(access.error, access.status || 403);
     await requireManage(access);
 
+    const plan = await planRecurringAccountingCycles({
+      accountingFirmId: access.organizationId,
+      horizonDays: 90,
+    });
+    const candidate = plan.candidates.find((row) => row.idempotency_key === idempotencyKey);
+
+    if (!candidate) {
+      return jsonError("Recurring accounting candidate is stale, outside the governed horizon, or unavailable", 409, {
+        code: "RECURRING_CANDIDATE_STALE_OR_UNKNOWN",
+        materialized: false,
+        idempotent: true,
+      });
+    }
+
+    if (candidate.status === "ALREADY_EXISTS") {
+      return NextResponse.json({
+        success: true,
+        materialized: false,
+        idempotent: true,
+        result: { created: false, status: "ALREADY_EXISTS" },
+        candidate: publicCandidate(candidate),
+      });
+    }
+
+    if (candidate.status !== "READY_TO_CREATE") {
+      return jsonError("Recurring accounting candidate is not currently safe to materialize", 409, {
+        code: "RECURRING_CANDIDATE_NOT_READY",
+        materialized: false,
+        idempotent: true,
+        candidate: publicCandidate(candidate),
+      });
+    }
+
+    if (!candidate.engagement_id || !candidate.template_id || !candidate.entity_id || !candidate.period_id || !candidate.run_key || !candidate.start_at || !candidate.due_at) {
+      return jsonError("Recurring accounting candidate is incomplete after server recomputation", 409, {
+        code: "RECURRING_CANDIDATE_INCOMPLETE",
+        materialized: false,
+        idempotent: true,
+        candidate: publicCandidate(candidate),
+      });
+    }
+
     const { data, error } = await supabaseAdmin.rpc("materialize_accounting_engagement_run", {
       p_accounting_firm_id: access.organizationId,
-      p_engagement_id: engagementId,
-      p_template_id: templateId,
-      p_entity_id: entityId,
-      p_period_id: periodId,
-      p_run_key: runKey,
-      p_start_at: startDate.toISOString(),
-      p_due_at: dueDate.toISOString(),
+      p_engagement_id: candidate.engagement_id,
+      p_template_id: candidate.template_id,
+      p_entity_id: candidate.entity_id,
+      p_period_id: candidate.period_id,
+      p_run_key: candidate.run_key,
+      p_start_at: candidate.start_at,
+      p_due_at: candidate.due_at,
       p_created_by: access.user?.id || null,
     });
 
@@ -82,7 +130,9 @@ export async function POST(request) {
       success: true,
       materialized: !alreadyExists,
       idempotent: true,
+      no_external_message: true,
       result,
+      candidate: publicCandidate(candidate),
     }, { status: alreadyExists ? 200 : 201 });
   } catch (error) {
     const message = error?.message || "Unable to materialize recurring accounting cycle";

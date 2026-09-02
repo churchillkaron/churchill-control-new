@@ -1,0 +1,123 @@
+name: Avantiqo Voice Modal Crash Diagnostics
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-voice-modal-crash-diagnostics.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-voice-modal-crash-diagnostics
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      VOICE_MODAL_APP: avantiqo-voice-owned
+      VOICE_STT_FUNCTION_CALL: fc-01M1EJCHJ7T5XW0PP8GQA93FAW
+
+    steps:
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+
+      - name: Require Modal credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'AVANTIQO_VOICE_MODAL_CRASH_DIAGNOSTIC_CREDENTIALS=PASS'
+
+      - name: Read deployment history
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== MODAL APP HISTORY ==='
+          modal app history "${VOICE_MODAL_APP}" || true
+
+      - name: Read exact STT FunctionCall logs
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== EXACT FUNCTION CALL / ALL SOURCES ==='
+          modal app logs "${VOICE_MODAL_APP}" \
+            --function-call "${VOICE_STT_FUNCTION_CALL}" \
+            --since 2h \
+            --tail 1000 \
+            --timestamps \
+            --show-function-id \
+            --show-function-call-id \
+            --show-container-id || true
+
+          echo '=== EXACT FUNCTION CALL / STDERR ==='
+          modal app logs "${VOICE_MODAL_APP}" \
+            --function-call "${VOICE_STT_FUNCTION_CALL}" \
+            --source stderr \
+            --since 2h \
+            --tail 1000 \
+            --timestamps \
+            --show-function-id \
+            --show-function-call-id \
+            --show-container-id || true
+
+          echo '=== EXACT FUNCTION CALL / SYSTEM ==='
+          modal app logs "${VOICE_MODAL_APP}" \
+            --function-call "${VOICE_STT_FUNCTION_CALL}" \
+            --source system \
+            --since 2h \
+            --tail 1000 \
+            --timestamps \
+            --show-function-id \
+            --show-function-call-id \
+            --show-container-id || true
+
+      - name: Read recent VoiceStt crash context
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== RECENT APP STDERR ==='
+          modal app logs "${VOICE_MODAL_APP}" \
+            --source stderr \
+            --since 2h \
+            --tail 1000 \
+            --timestamps \
+            --show-function-id \
+            --show-function-call-id \
+            --show-container-id || true
+
+          echo '=== RECENT APP SYSTEM ==='
+          modal app logs "${VOICE_MODAL_APP}" \
+            --source system \
+            --since 2h \
+            --tail 1000 \
+            --timestamps \
+            --show-function-id \
+            --show-function-call-id \
+            --show-container-id || true
+
+      - name: Preserve no-inference boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'GPU_INFERENCE_SUBMITTED=false'
+          echo 'NEW_STT_JOB_SUBMITTED=false'
+          echo 'NEW_TTS_JOB_SUBMITTED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'
+          echo 'PRICING_CHANGED=false'
+          echo 'ROUTING_CHANGED=false'

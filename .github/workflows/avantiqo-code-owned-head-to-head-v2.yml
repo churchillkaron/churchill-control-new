@@ -4,9 +4,12 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - services/avantiqo-code-engine/modal_owned_head_to_head_v2.py
-      - services/avantiqo-code-engine/quality_policy.py
+      - services/avantiqo-code-engine/modal_verified_head_to_head.py
+      - services/avantiqo-code-engine/modal_verified_owned_only.py
       - .github/workflows/avantiqo-code-owned-head-to-head-v2.yml
+
+permissions:
+  contents: read
 
 concurrency:
   group: avantiqo-code-owned-head-to-head-v2
@@ -15,7 +18,7 @@ concurrency:
 jobs:
   benchmark:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,44 +36,51 @@ jobs:
       - name: Install Modal client
         run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
 
-      - name: Zero-cost preflight
+      - name: Zero-cost executable-gate preflight
         run: |
           set -euo pipefail
-          python -m py_compile services/avantiqo-code-engine/modal_owned_head_to_head.py
-          python -m py_compile services/avantiqo-code-engine/modal_owned_head_to_head_v2.py
-          python -m py_compile services/avantiqo-code-engine/quality_policy.py
+          python -m py_compile services/avantiqo-code-engine/modal_app.py
+          python -m py_compile services/avantiqo-code-engine/modal_head_to_head.py
+          python -m py_compile services/avantiqo-code-engine/modal_verified_head_to_head.py
+          python -m py_compile services/avantiqo-code-engine/modal_verified_owned_only.py
           node --version
 
-      - name: Run owned V2 benchmark
-        timeout-minutes: 9
+      - name: Run one paid executable-gated Code certification
+        timeout-minutes: 10
         env:
+          NODE_ENV: development
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
         run: |
           set -euo pipefail
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
-          timeout --signal=TERM --kill-after=30s 8m python -m modal run services/avantiqo-code-engine/modal_owned_head_to_head_v2.py 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
+          mkdir -p artifacts
+          timeout --signal=TERM --kill-after=30s 9m python -m modal run services/avantiqo-code-engine/modal_verified_owned_only.py 2>&1 | tee /tmp/avantiqo-code-owned-head-to-head-v2.log
 
-      - name: Verify evidence
+      - name: Verify executable-gate evidence
         run: |
           set -euo pipefail
-          test -f artifacts/avantiqo-code-owned-head-to-head-v2.json
-          node - <<'NODE'
-          const fs = require('fs');
-          const r = JSON.parse(fs.readFileSync('artifacts/avantiqo-code-owned-head-to-head-v2.json','utf8'));
+          test -f artifacts/avantiqo-code-executable-gate-cert.json
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const r = JSON.parse(await readFile('artifacts/avantiqo-code-executable-gate-cert.json','utf8'));
           const s = r?.summary || {};
+          const m = r?.methodology || {};
+          if (r.contract !== 'AVANTIQO_CODE_EXECUTABLE_GATE_CERT_V1') throw new Error('contract invalid');
+          if (m.cases !== 6) throw new Error('six cases required');
+          if (m.visible_tests_executed_before_acceptance !== true || m.semantic_contract_probes_executed_before_acceptance !== true) throw new Error('executable acceptance gate not proven');
+          if (m.repair_only_after_machine_failure !== true || m.max_repair_calls_per_case !== 1) throw new Error('bounded machine-triggered repair not proven');
+          if (m.hidden_tests_sealed_until_final_scoring !== true || m.ai_judge_used !== false) throw new Error('sealed deterministic scoring not proven');
           if (s.owned_gpu_sessions !== 1) throw new Error('single GPU session not proven');
-          if (s.owned_model_calls !== 18) throw new Error('eighteen scored model calls not proven');
-          if (s.verification_passes !== 6) throw new Error('six independent verification passes not proven');
-          if (s.boundary_audit_passes !== 6) throw new Error('six adversarial boundary audits not proven');
-          if (s.warmup_model_calls !== 1 || s.total_model_calls !== 19) throw new Error('warmup and three-pass accounting not proven');
-          if (s.quality_policy !== 'AVANTIQO_CODE_DEBUG_QUALITY_POLICY_V2') throw new Error('V2 quality policy not proven');
-          if (s.passed !== 6 || s.hidden_passed !== 6 || s.strict_json !== 6 || s.security_passed !== 6) throw new Error(`quality target failed: ${JSON.stringify(s)}`);
+          if (Number(s.owned_model_calls) !== 6 + Number(s.repairs_used)) throw new Error('model call accounting invalid');
+          if (s.machine_gate_passed !== true || s.warm_container_reused !== true) throw new Error('runtime gate/reuse not proven');
+          if (s.passed !== 6 || s.hidden_tests_passed !== 6 || s.instruction_format_passed !== 6 || s.security_boundary_passed !== 6) throw new Error(`quality target failed: ${JSON.stringify(s)}`);
           if (s.warm_latency_target_ms !== 4000 || s.warm_latency_passed !== true || Number(s.warm_max_ms) > 4000) throw new Error(`warm latency target failed: ${JSON.stringify(s)}`);
           if (s.vllm_enforce_eager !== false) throw new Error('optimized vLLM candidate not proven');
           if (s.production_deploy_performed !== false) throw new Error('production deploy guard failed');
           console.log(JSON.stringify(s));
+          console.log('AVANTIQO_CODE_EXECUTABLE_GATE_HARD_GATE=PASS');
           NODE
 
       - name: Upload evidence
@@ -79,7 +89,7 @@ jobs:
         with:
           name: avantiqo-code-owned-head-to-head-v2-${{ github.run_id }}
           path: |
-            artifacts/avantiqo-code-owned-head-to-head-v2.json
+            artifacts/avantiqo-code-executable-gate-cert.json
             /tmp/avantiqo-code-owned-head-to-head-v2.log
           if-no-files-found: warn
           retention-days: 14

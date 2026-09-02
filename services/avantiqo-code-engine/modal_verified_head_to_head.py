@@ -56,6 +56,7 @@ def _quality_prompt(data: dict[str, Any]) -> str:
             "For numeric or numeric-string input, convert deliberately and require the converted value to be finite.",
             "For collection aggregators, treat missing collections as empty, skip malformed members, and never mutate caller input.",
             "Propagate canonical normalization into comparison, lookup, grouping, and aggregation.",
+            "For equality helpers paired with a normalizer, compare canonicalized values directly; do not reintroduce raw-value or truthiness checks after normalization.",
             "For normalized keyed reducers: normalize once, reject blank canonical keys before any write, convert contributions once, require finiteness, and add the converted value rather than the raw value.",
             "A rejected key or contribution must create no accumulator state.",
             "For authorization guards, make null handling and boolean precedence explicit and return a boolean.",
@@ -65,6 +66,7 @@ def _quality_prompt(data: dict[str, Any]) -> str:
             sections.extend([
                 "EXECUTABLE REPAIR PASS: a deterministic Node verification gate executed the previous candidate and failed.",
                 "Use the exact machine failure in the instruction as ground truth. Correct that failure coherently without regressing already-correct behavior.",
+                "A declared semantic contract probe included in the machine evidence is authoritative product verification, not a hidden benchmark test.",
                 "This is the only repair pass. Return the complete corrected work product, not commentary or a patch fragment.",
             ])
     sections.extend([
@@ -187,7 +189,14 @@ def _machine_gate(task: dict[str, str], raw: str) -> dict[str, Any]:
         raise RuntimeError(f"{CONTRACT}_CONTRACT_PROBE_REQUIRED:{task['id']}")
     contract = base._run_test(task["module"], source, probe)
     if contract["exit_code"] != 0:
-        failure = "SEMANTIC_CONTRACT_FAILED\n" + str(contract.get("stderr") or contract.get("stdout") or "")
+        detail = str(contract.get("stderr") or contract.get("stdout") or "")
+        failure = "\n".join([
+            "SEMANTIC_CONTRACT_FAILED",
+            "DECLARED_SEMANTIC_CONTRACT_PROBE:",
+            probe.strip()[-1000:],
+            "EXECUTION_FAILURE:",
+            detail[-1000:],
+        ])
         return {"passed": False, "gate_ms": round((time.perf_counter() - started) * 1000), "failure": failure[-2200:]}
 
     return {"passed": True, "gate_ms": round((time.perf_counter() - started) * 1000), "failure": None}

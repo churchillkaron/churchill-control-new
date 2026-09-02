@@ -25,6 +25,7 @@ const files = {
   verifyApi: "app/api/workspace/finance/work-programs/verify/route.js",
   rollForwardApi: "app/api/workspace/finance/work-programs/roll-forward/route.js",
   capacityApi: "app/api/workspace/finance/practice-capacity/route.js",
+  recurringPlanApi: "app/api/workspace/finance/recurring-plan/route.js",
   engagementFileApi: "app/api/workspace/finance/engagement-file/route.js",
   gates: "lib/finance/practice/workProgramGates.js",
   practiceApi: "app/api/workspace/finance/practice-control/route.js",
@@ -177,6 +178,23 @@ requireTokens(files.capacityApi, [
   "capacityRisk",
 ]);
 
+requireTokens(files.recurringPlanApi, [
+  "DEFAULT_HORIZON_DAYS = 90",
+  "DRY_RUN",
+  "materialized: false",
+  "idempotency_key",
+  "READY_TO_CREATE",
+  "ALREADY_EXISTS",
+  "BLOCKED_ENTITY_CONFIGURATION",
+  "BLOCKED_PERIOD_CONFIGURATION",
+  "BLOCKED_YEAR_END_CONFIGURATION",
+  "TEMPLATE_MISSING",
+  "monthly_accounting",
+  "year_end_close",
+  "accounting_engagement_runs",
+  "financial_periods",
+]);
+
 requireTokens(files.engagementFileApi, [
   "accounting_engagements",
   "accounting_engagement_runs",
@@ -256,6 +274,9 @@ const coverage = {
   existing_document_evidence_link: true,
   review_notes_and_signoffs_visibility: true,
   prior_period_history: true,
+  recurring_cycle_dry_run: true,
+  recurring_cycle_idempotency: true,
+  recurring_cycle_configuration_blockers: true,
 };
 
 console.log("AVANTIQO FINANCE WORK PROGRAM CERTIFICATION");
@@ -265,5 +286,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are governed from entity-scoped budgeting through capacity-aware, system-verified, review-complete engagement files, locked completion and roll-forward.");
+  console.log("PASS: Accounting work programs are governed from recurring planning and entity-scoped budgeting through capacity-aware, system-verified, review-complete engagement files, locked completion and roll-forward.");
 }

@@ -1,10 +1,9 @@
-"""Scale-to-zero Modal workers for the owned Avantiqo Voice engines.
+"""Scale-to-zero direct Modal functions for the owned Avantiqo Voice engines.
 
-The certified STT and TTS images already contain their model snapshots. Modal
-therefore needs no persistent model Volume and no cache-seeding job. Each
-capability has its own one-container A10G class. Model weights are loaded once in
-the Modal container lifecycle before the first user method runs, while idle
-capacity still scales back to zero after the configured drain window.
+Voice follows the same proven transport architecture as Avantiqo Audio:
+Service Runtime calls named GPU functions directly through the Modal SDK,
+receives a FunctionCall ID, and polls that exact call. There is no CPU Modal
+gateway and no persistent Modal Volume. STT and TTS each scale 0 -> 1 -> 0.
 """
 from __future__ import annotations
 
@@ -32,7 +31,7 @@ TTS_IMAGE = (
     "sha256:f0919a82eeadb36ea8a0fdf79815f52942d99d13f075ec6cd7f523fe79344221"
 )
 GPU = "A10G"
-LIFECYCLE_CONTRACT = "AVANTIQO_VOICE_MODAL_CONTAINER_PRELOAD_V1"
+DIRECT_TRANSPORT = "modal-js-sdk-function-call-v1"
 
 app = modal.App(APP_NAME)
 
@@ -58,6 +57,7 @@ stt_image = _worker_image(STT_IMAGE).env({
     "HF_HUB_OFFLINE": "1",
     "TRANSFORMERS_OFFLINE": "1",
 })
+
 tts_image = _worker_image(TTS_IMAGE).env({
     "AVANTIQO_VOICE_TTS_FOUNDATION_MODEL": TTS_FOUNDATION_MODEL,
     "AVANTIQO_VOICE_TTS_DEVICE": "cuda",
@@ -66,7 +66,7 @@ tts_image = _worker_image(TTS_IMAGE).env({
 })
 
 
-def _safe_output(output: Any, *, capability: str, product_model: str) -> dict[str, Any]:
+def _safe_output(output: Any, *, capability: str, product_model: str, elapsed: float) -> dict[str, Any]:
     if not isinstance(output, dict):
         raise RuntimeError("AVANTIQO_VOICE_MODAL_OUTPUT_OBJECT_REQUIRED")
     result = dict(output)
@@ -87,96 +87,63 @@ def _safe_output(output: Any, *, capability: str, product_model: str) -> dict[st
     result["modal_volume_created"] = False
     result["runpod_inference_performed"] = False
     result["raw_reasoning_persisted"] = False
-    result["modal_lifecycle_contract"] = LIFECYCLE_CONTRACT
-    result["model_preloaded_before_request"] = True
+    result["modal_transport"] = DIRECT_TRANSPORT
+    result["modal_gateway_used"] = False
+    result["modal_elapsed_seconds"] = round(elapsed, 3)
     return result
 
 
-@app.cls(
+@app.function(
     image=stt_image,
     gpu=GPU,
     timeout=15 * 60,
-    startup_timeout=15 * 60,
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
     scaledown_window=5,
 )
-class VoiceStt:
-    @modal.enter()
-    def preload(self) -> None:
-        os.chdir("/app")
-        import handler as voice_engine
+def transcribe(data: dict[str, Any]) -> dict[str, Any]:
+    """Execute one governed STT request through direct Modal function transport."""
+    os.chdir("/app")
+    import handler as voice_engine
 
-        voice_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
-        started = time.perf_counter()
-        recognizer = voice_engine._recognizer()
-        if recognizer is None:
-            raise RuntimeError("AVANTIQO_VOICE_MODAL_STT_PRELOAD_FAILED")
-        if getattr(voice_engine, "DEVICE", "").startswith("cuda"):
-            voice_engine.torch.cuda.synchronize()
-        self.voice_engine = voice_engine
-        self.preload_seconds = round(time.perf_counter() - started, 3)
-
-    @modal.method()
-    def transcribe(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Execute one governed STT request on a preloaded Whisper container."""
-        os.chdir("/app")
-        started = time.perf_counter()
-        output = self.voice_engine.handler({
-            "id": f"modal-stt-{uuid.uuid4()}",
-            "input": data,
-        })
-        result = _safe_output(
-            output,
-            capability=STT_CAPABILITY,
-            product_model=STT_PRODUCT_MODEL,
-        )
-        result["modal_container_preload_seconds"] = self.preload_seconds
-        result["modal_request_elapsed_seconds"] = round(time.perf_counter() - started, 3)
-        result["modal_elapsed_seconds"] = result["modal_request_elapsed_seconds"]
-        return result
+    voice_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    started = time.perf_counter()
+    output = voice_engine.handler({
+        "id": f"modal-stt-{uuid.uuid4()}",
+        "input": data,
+    })
+    return _safe_output(
+        output,
+        capability=STT_CAPABILITY,
+        product_model=STT_PRODUCT_MODEL,
+        elapsed=time.perf_counter() - started,
+    )
 
 
-@app.cls(
+@app.function(
     image=tts_image,
     gpu=GPU,
     timeout=20 * 60,
-    startup_timeout=20 * 60,
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
     scaledown_window=5,
 )
-class VoiceTts:
-    @modal.enter()
-    def preload(self) -> None:
-        os.chdir("/app")
-        import handler as voice_engine
+def speak(data: dict[str, Any]) -> dict[str, Any]:
+    """Execute one governed TTS request through direct Modal function transport."""
+    os.chdir("/app")
+    import handler as voice_engine
 
-        voice_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
-        started = time.perf_counter()
-        model = voice_engine._model()
-        if model is None:
-            raise RuntimeError("AVANTIQO_VOICE_MODAL_TTS_PRELOAD_FAILED")
-        self.voice_engine = voice_engine
-        self.preload_seconds = round(time.perf_counter() - started, 3)
-
-    @modal.method()
-    def speak(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Execute one governed TTS request on a preloaded Chatterbox container."""
-        os.chdir("/app")
-        started = time.perf_counter()
-        output = self.voice_engine.handler({
-            "id": f"modal-tts-{uuid.uuid4()}",
-            "input": data,
-        })
-        result = _safe_output(
-            output,
-            capability=TTS_CAPABILITY,
-            product_model=TTS_PRODUCT_MODEL,
-        )
-        result["modal_container_preload_seconds"] = self.preload_seconds
-        result["modal_request_elapsed_seconds"] = round(time.perf_counter() - started, 3)
-        result["modal_elapsed_seconds"] = result["modal_request_elapsed_seconds"]
-        return result
+    voice_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
+    started = time.perf_counter()
+    output = voice_engine.handler({
+        "id": f"modal-tts-{uuid.uuid4()}",
+        "input": data,
+    })
+    return _safe_output(
+        output,
+        capability=TTS_CAPABILITY,
+        product_model=TTS_PRODUCT_MODEL,
+        elapsed=time.perf_counter() - started,
+    )

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import CreativeWorkspaceRenderer from "@/components/creative/runtime/CreativeWorkspaceRenderer";
+import CreativeSpecialistStudio from "@/components/creative/specialist/CreativeSpecialistStudio";
 import { resolveCreativeStudioRuntime } from "@/lib/creative/studio/CreativeStudioRuntime";
 
 export default async function CreativeMusicPage({ params }) {
@@ -10,5 +10,5 @@ export default async function CreativeMusicPage({ params }) {
     workspace: ["music"],
   });
 
-  return <CreativeWorkspaceRenderer runtime={runtime} />;
+  return <CreativeSpecialistStudio runtime={runtime} mode="music" />;
 }

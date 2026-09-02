@@ -23,7 +23,7 @@ MODEL_VOLUME_NAME = "avantiqo-image-models"
 MODEL_SECRET_NAME = "huggingface-secret"
 
 app = modal.App(APP_NAME)
-model_volume = modal.Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=True)
+model_volume = modal.Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=False)
 
 
 def _seed_model() -> None:

@@ -230,3 +230,92 @@ jobs:
           echo 'VIDEO_PRICING_ACTIVATED=false'
           echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
           echo 'RUNPOD_USED=false'
+
+  scene1_paid_once:
+    needs: preflight
+    if: github.event_name == 'push' && github.event.head_commit.message == 'Launch registered Video Scene 1 B200 once'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AVANTIQO_VIDEO_SCENE1_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_VIDEO_SCENE1_MAX_SUPPLIER_GPU_COST_USD: "3.25"
+      AVANTIQO_VIDEO_SCENE1_SOURCE_FRAME: ${{ github.workspace }}/assets/video/proofs/scene1-approved-reconstructed.jpg
+      AVANTIQO_VIDEO_SCENE1_OPENING_FRAME: ${{ github.workspace }}/assets/video/proofs/scene1-approved-reconstructed.jpg
+    steps:
+      - name: Checkout exact launch commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Reconstruct approved Studio reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/reconstruct-avantiqo-video-scene1-frame-ci.py
+          test -s "${AVANTIQO_VIDEO_SCENE1_SOURCE_FRAME}"
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+      - name: Generate exactly one native Scene 1 master on B200
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          echo 'AVANTIQO_VIDEO_RUNTIME_TRANSPORT=direct-modal-function-call'
+          modal run modal_scene1_cert.py::scene1_certify --output-path "${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.mp4"
+      - name: Verify native master artifact locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          MP4="${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.mp4"
+          REPORT="${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.json"
+          test -s "$MP4"
+          test -s "$REPORT"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = Path(os.environ['GITHUB_WORKSPACE']) / 'local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.json'
+          data = json.loads(report.read_text(encoding='utf-8'))
+          generation = data.get('generation') or {}
+          assert data.get('phase') == 'COMPLETED'
+          assert generation.get('success') is True
+          assert generation.get('modal_gpu') == 'B200'
+          assert generation.get('width') == 3840
+          assert generation.get('height') == 2176
+          assert generation.get('fps') == 24
+          assert generation.get('num_inference_steps') == 30
+          assert generation.get('master_is_exact_model_output') is True
+          assert generation.get('automatic_paid_retry') is False
+          print('AVANTIQO_VIDEO_SCENE1_NATIVE_MASTER_LOCAL_GATE=PASS')
+          print('ESTIMATED_SUPPLIER_GPU_COST_USD=' + str(generation.get('estimated_supplier_gpu_cost_usd')))
+          PY
+      - name: Upload untouched Scene 1 native master
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-scene1-native-master-3840x2176
+          path: |
+            local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.mp4
+            local-audit-output/avantiqo-video-scene1-modal/scene1-native-master-3840x2176.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'MAX_PAID_GPU_JOBS_ALLOWED=1'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'

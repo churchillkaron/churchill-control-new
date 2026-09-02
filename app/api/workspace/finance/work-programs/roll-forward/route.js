@@ -83,8 +83,10 @@ export async function POST(request) {
     if (runError) { if (runError.code === "23505") return jsonError("The next engagement run already exists", 409); throw runError; }
 
     try {
-      const workRows = (stepsResult.data || []).map((step, index) => {
+      const workRows = (stepsResult.data || []).map((step) => {
         const anchor = step.due_anchor === "RUN_START" ? startAt : periodEnd;
+        const dependencies = step.dependency_step_keys || [];
+        const ready = dependencies.length === 0;
         let assignedTo = null;
         if (step.required_role === "PREPARER") assignedTo = profile.assigned_accountant_id || null;
         if (step.required_role === "REVIEWER") assignedTo = profile.assigned_reviewer_id || null;
@@ -102,11 +104,11 @@ export async function POST(request) {
           work_type: step.work_type,
           required_role: step.required_role,
           assigned_to: assignedTo,
-          status: index === 0 ? "READY" : "BLOCKED",
-          start_at: index === 0 ? startAt : null,
+          status: ready ? "READY" : "NOT_STARTED",
+          start_at: ready ? startAt : null,
           due_at: addDays(anchor, step.relative_due_days),
-          blocked_reason: index === 0 ? null : "Waiting for prerequisite work",
-          dependency_step_keys: step.dependency_step_keys || [],
+          blocked_reason: null,
+          dependency_step_keys: dependencies,
           capability_id: step.capability_id || null,
           budget_minutes: Number(step.budget_minutes || 0),
           evidence: {},

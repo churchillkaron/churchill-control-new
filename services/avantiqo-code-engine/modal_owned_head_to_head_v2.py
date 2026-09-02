@@ -17,6 +17,7 @@ FOUNDATION_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
 RUNTIME_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
 BASE_IMAGE_ID = "im-jAkmG5niafDQsnuSUxak9c"
 OUTPUT_PATH = Path("artifacts/avantiqo-code-owned-head-to-head-v2.json")
+WARM_LATENCY_TARGET_MS = 4000
 
 app = modal.App("avantiqo-code-owned-head-to-head-v2")
 image = modal.Image.from_id(BASE_IMAGE_ID).env(
@@ -79,9 +80,47 @@ def _candidate_internal_prompt(data: dict[str, Any]) -> str:
 def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
     os.chdir("/app")
     import handler as code_engine
+
     code_engine.runpod.serverless.progress_update = lambda *_args, **_kwargs: None
     code_engine._prompt = _candidate_internal_prompt
-    started = time.perf_counter()
+
+    # The certified image currently forces vLLM eager execution. That reduces
+    # startup work but disables CUDA graphs and hurts steady-state decode speed.
+    # For the warm-latency candidate, keep the exact owned model/runtime and only
+    # switch vLLM back to its optimized hybrid CUDA-graph execution mode.
+    original_llm = code_engine.LLM
+
+    def optimized_llm(*args: Any, **kwargs: Any) -> Any:
+        kwargs["enforce_eager"] = False
+        return original_llm(*args, **kwargs)
+
+    code_engine.LLM = optimized_llm
+
+    # Infrastructure preparation is intentionally outside scored request time.
+    # This mirrors a hosted competitor whose model is already resident when the
+    # user sends a request. The warmup also forces the first-request JIT path to
+    # complete before the six scored cases begin.
+    prepare_started = time.perf_counter()
+    tokenizer, engine = code_engine._load_engine()
+    warm_prompt = tokenizer.apply_chat_template(
+        [{"role": "user", "content": "Return only OK."}],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+    warm_outputs = engine.generate(
+        [warm_prompt],
+        code_engine.SamplingParams(
+            temperature=0.0,
+            max_tokens=8,
+            skip_special_tokens=True,
+        ),
+        use_tqdm=False,
+    )
+    if not warm_outputs or not warm_outputs[0].outputs:
+        raise RuntimeError(f"{CONTRACT}_WARMUP_OUTPUT_REQUIRED")
+    prepare_ms = round((time.perf_counter() - prepare_started) * 1000)
+
+    scored_started = time.perf_counter()
     outputs = []
     for request in requests:
         case_started = time.perf_counter()
@@ -91,8 +130,19 @@ def run_owned_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
         clean = dict(output)
         clean["case_elapsed_seconds"] = round(time.perf_counter() - case_started, 3)
         clean["quality_policy"] = QUALITY_POLICY_VERSION
+        clean["warm_runtime"] = True
+        clean["vllm_enforce_eager"] = False
         outputs.append(clean)
-    return {"outputs": outputs, "gpu_function_seconds": round(time.perf_counter() - started, 3), "quality_policy": QUALITY_POLICY_VERSION}
+
+    return {
+        "outputs": outputs,
+        "engine_prepare_ms": prepare_ms,
+        "scored_gpu_seconds": round(time.perf_counter() - scored_started, 3),
+        "quality_policy": QUALITY_POLICY_VERSION,
+        "warmup_model_calls": 1,
+        "scored_model_calls": len(outputs),
+        "vllm_enforce_eager": False,
+    }
 
 
 @app.local_entrypoint()
@@ -100,10 +150,8 @@ def main() -> None:
     if str(os.environ.get("NODE_ENV") or "").strip().lower() == "production":
         raise RuntimeError(f"{CONTRACT}_PRODUCTION_ENV_FORBIDDEN")
 
-    # Local-only import: this module contains the canonical six tasks and test
-    # helpers, but it must never be a remote container dependency. Modal mounts
-    # only this V2 service file for run_owned_batch; keeping the import inside the
-    # local entrypoint prevents the previous remote crash loop.
+    # Local-only import: canonical fixtures and hidden tests must not become a
+    # remote container dependency.
     import modal_owned_head_to_head as base
 
     batch = run_owned_batch.remote([base._request(task) for task in base.TASKS])
@@ -112,6 +160,7 @@ def main() -> None:
         raise RuntimeError(f"{CONTRACT}_OUTPUT_COUNT_INVALID")
     if batch.get("quality_policy") != QUALITY_POLICY_VERSION:
         raise RuntimeError(f"{CONTRACT}_QUALITY_POLICY_NOT_PROVEN")
+
     results = []
     for task, output in zip(base.TASKS, outputs):
         if output.get("provider") != "avantiqo-code" or output.get("model") != PRODUCT_MODEL:
@@ -122,6 +171,9 @@ def main() -> None:
             raise RuntimeError(f"{CONTRACT}_RAW_REASONING_FORBIDDEN:{task['id']}")
         if output.get("quality_policy") != QUALITY_POLICY_VERSION:
             raise RuntimeError(f"{CONTRACT}_QUALITY_POLICY_NOT_PROVEN:{task['id']}")
+        if output.get("warm_runtime") is not True or output.get("vllm_enforce_eager") is not False:
+            raise RuntimeError(f"{CONTRACT}_WARM_RUNTIME_NOT_PROVEN:{task['id']}")
+
         raw = str(output.get("result") or "")
         parsed = base._parse(raw, task["module"])
         source = parsed["content"]
@@ -129,6 +181,7 @@ def main() -> None:
         changed = bool(source and source.strip() != task["source"].strip())
         test = base._run_test(task, source) if security and changed else {"exit_code": 1, "stderr": parsed.get("error") or "not executed"}
         usage = output.get("usage") if isinstance(output.get("usage"), dict) else {}
+        wall_ms = round(float(output.get("case_elapsed_seconds") or 0) * 1000)
         row = {
             "case": task["id"],
             "hidden_pass": test["exit_code"] == 0,
@@ -137,13 +190,18 @@ def main() -> None:
             "security_pass": security,
             "source_changed": changed,
             "passed": bool(test["exit_code"] == 0 and parsed["strict"] and security and changed),
-            "wall_ms": round(float(output.get("case_elapsed_seconds") or 0) * 1000),
+            "wall_ms": wall_ms,
+            "latency_target_ms": WARM_LATENCY_TARGET_MS,
+            "latency_pass": wall_ms <= WARM_LATENCY_TARGET_MS,
             "input_tokens": int(usage.get("input_tokens") or 0),
             "output_tokens": int(usage.get("output_tokens") or 0),
             "raw_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
         }
         results.append(row)
         print("AVANTIQO_OWNED_V2_BENCHMARK_RESULT=" + json.dumps(row, separators=(",", ":")), flush=True)
+
+    walls = sorted(row["wall_ms"] for row in results)
+    p95_index = min(len(walls) - 1, max(0, int((len(walls) * 0.95) + 0.999999) - 1))
     summary = {
         "contract": CONTRACT,
         "model": PRODUCT_MODEL,
@@ -155,12 +213,20 @@ def main() -> None:
         "hidden_passed": sum(1 for row in results if row["hidden_pass"]),
         "strict_json": sum(1 for row in results if row["strict_json"]),
         "security_passed": sum(1 for row in results if row["security_pass"]),
-        "mean_wall_ms": round(sum(row["wall_ms"] for row in results) / len(results)),
+        "warm_latency_target_ms": WARM_LATENCY_TARGET_MS,
+        "warm_latency_passed": all(row["latency_pass"] for row in results),
+        "warm_mean_ms": round(sum(walls) / len(walls)),
+        "warm_p95_ms": walls[p95_index],
+        "warm_max_ms": max(walls),
+        "engine_prepare_ms": int(batch.get("engine_prepare_ms") or 0),
+        "scored_gpu_seconds": float(batch.get("scored_gpu_seconds") or 0),
         "input_tokens": sum(row["input_tokens"] for row in results),
         "output_tokens": sum(row["output_tokens"] for row in results),
-        "gpu_function_seconds": float(batch.get("gpu_function_seconds") or 0),
         "owned_gpu_sessions": 1,
         "owned_model_calls": len(results),
+        "warmup_model_calls": int(batch.get("warmup_model_calls") or 0),
+        "total_model_calls": len(results) + int(batch.get("warmup_model_calls") or 0),
+        "vllm_enforce_eager": batch.get("vllm_enforce_eager"),
         "production_deploy_performed": False,
     }
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -59,11 +59,16 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const r = JSON.parse(fs.readFileSync('artifacts/avantiqo-code-owned-head-to-head-v2.json','utf8'));
-          if (r?.summary?.owned_gpu_sessions !== 1) throw new Error('single GPU session not proven');
-          if (r?.summary?.owned_model_calls !== 6) throw new Error('six model calls not proven');
-          if (r?.summary?.quality_policy !== 'AVANTIQO_CODE_DEBUG_QUALITY_POLICY_V2') throw new Error('V2 quality policy not proven');
-          if (r?.summary?.production_deploy_performed !== false) throw new Error('production deploy guard failed');
-          console.log(JSON.stringify(r.summary));
+          const s = r?.summary || {};
+          if (s.owned_gpu_sessions !== 1) throw new Error('single GPU session not proven');
+          if (s.owned_model_calls !== 6) throw new Error('six scored model calls not proven');
+          if (s.warmup_model_calls !== 1 || s.total_model_calls !== 7) throw new Error('warmup accounting not proven');
+          if (s.quality_policy !== 'AVANTIQO_CODE_DEBUG_QUALITY_POLICY_V2') throw new Error('V2 quality policy not proven');
+          if (s.passed !== 6 || s.hidden_passed !== 6 || s.strict_json !== 6 || s.security_passed !== 6) throw new Error(`quality target failed: ${JSON.stringify(s)}`);
+          if (s.warm_latency_target_ms !== 4000 || s.warm_latency_passed !== true || Number(s.warm_max_ms) > 4000) throw new Error(`warm latency target failed: ${JSON.stringify(s)}`);
+          if (s.vllm_enforce_eager !== false) throw new Error('optimized vLLM candidate not proven');
+          if (s.production_deploy_performed !== false) throw new Error('production deploy guard failed');
+          console.log(JSON.stringify(s));
           NODE
 
       - name: Upload evidence

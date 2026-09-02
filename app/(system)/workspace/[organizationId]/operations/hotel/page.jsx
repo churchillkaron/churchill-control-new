@@ -3,15 +3,11 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { ArrowRight, RefreshCw } from "lucide-react";
+
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
-import { hotelWorkspace } from "@/lib/hotel/workspaces/hotelWorkspace";
 
 function localDateKey(date = new Date()) {
   const year = date.getFullYear();
@@ -25,69 +21,26 @@ function normalizedStatus(value) {
 }
 
 async function fetchJson(url) {
-  const response = await fetch(url, {
-    credentials: "include",
-    cache: "no-store",
-  });
-  const payload = await response.json();
-
-  if (!response.ok || payload?.error) {
-    throw new Error(payload?.error || "Hotel operations request failed");
-  }
-
+  const response = await fetch(url, { credentials: "include", cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.error) throw new Error(payload?.error || "Hotel operations request failed");
   return payload;
 }
 
-function MetricCard({ label, value, detail }) {
+function Metric({ label, value, detail }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
-        {label}
-      </div>
-      <div className="mt-3 text-3xl font-semibold text-white">
-        {value}
-      </div>
-      <div className="mt-2 text-xs leading-5 text-white/40">
-        {detail}
-      </div>
+    <div className="rounded-2xl border border-black/[0.075] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
+      <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#8E8A82]">{label}</div>
+      <div className="mt-3 text-[27px] font-medium tracking-[-0.04em] text-[#1A1917]">{value}</div>
+      <div className="mt-1.5 text-[11px] leading-5 text-[#9A968E]">{detail}</div>
     </div>
-  );
-}
-
-function OperationCard({ href, title, value, label, detail }) {
-  return (
-    <Link
-      href={href}
-      className="group rounded-[24px] border border-white/10 bg-black/25 p-5 transition hover:border-[#D6A66A]/45 hover:bg-[#D6A66A]/[0.06]"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-sm font-semibold text-white">
-            {title}
-          </div>
-          <div className="mt-1 text-xs leading-5 text-white/40">
-            {detail}
-          </div>
-        </div>
-        <div className="text-2xl font-semibold text-[#E4C78F]">
-          {value}
-        </div>
-      </div>
-      <div className="mt-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]">
-        {label} →
-      </div>
-    </Link>
   );
 }
 
 export default function HotelOperationsControlPage() {
   const params = useParams();
-  const {
-    organization,
-    loading: organizationLoading,
-  } = useOrganizationRuntime();
-  const organizationId =
-    params?.organizationId || organization?.id || "";
+  const { organization, loading: organizationLoading } = useOrganizationRuntime();
+  const organizationId = params?.organizationId || organization?.id || "";
 
   const [bookings, setBookings] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -100,19 +53,12 @@ export default function HotelOperationsControlPage() {
 
   const loadHotelRuntime = useCallback(async ({ silent = false } = {}) => {
     if (!organizationId) return;
-
     if (silent) setRefreshing(true);
     else setLoading(true);
 
     try {
       const query = `?organizationId=${encodeURIComponent(organizationId)}`;
-      const [
-        bookingsPayload,
-        roomsPayload,
-        housekeepingPayload,
-        maintenancePayload,
-        conciergePayload,
-      ] = await Promise.all([
+      const [bookingsPayload, roomsPayload, housekeepingPayload, maintenancePayload, conciergePayload] = await Promise.all([
         fetchJson(`/api/hotel/bookings/list${query}`),
         fetchJson(`/api/hotel/rooms/list${query}`),
         fetchJson(`/api/hotel/housekeeping/list${query}`),
@@ -127,81 +73,38 @@ export default function HotelOperationsControlPage() {
       setConcierge(conciergePayload.requests || []);
       setError(null);
     } catch (loadError) {
-      setError(
-        loadError?.message ||
-          "Unable to load Hotel Control"
-      );
+      setError(loadError?.message || "Unable to load Hotel Control");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [organizationId]);
 
-  useEffect(() => {
-    loadHotelRuntime();
-  }, [loadHotelRuntime]);
-
+  useEffect(() => { loadHotelRuntime(); }, [loadHotelRuntime]);
   useEffect(() => {
     const onFocus = () => loadHotelRuntime({ silent: true });
     window.addEventListener("focus", onFocus);
-
-    return () => {
-      window.removeEventListener("focus", onFocus);
-    };
+    return () => window.removeEventListener("focus", onFocus);
   }, [loadHotelRuntime]);
 
   const metrics = useMemo(() => {
     const today = localDateKey();
-    const activeBookings = bookings.filter((booking) =>
-      ["RESERVED", "CHECKED_IN"].includes(
-        normalizedStatus(booking.status)
-      )
-    );
-    const checkedInBookings = bookings.filter(
-      (booking) => normalizedStatus(booking.status) === "CHECKED_IN"
-    );
+    const checkedIn = bookings.filter((booking) => normalizedStatus(booking.status) === "CHECKED_IN");
+    const activeBookings = bookings.filter((booking) => ["RESERVED", "CHECKED_IN"].includes(normalizedStatus(booking.status)));
     const roomStatusCounts = rooms.reduce((counts, room) => {
       const status = normalizedStatus(room.status) || "UNKNOWN";
       counts[status] = Number(counts[status] || 0) + 1;
       return counts;
     }, {});
-    const arrivalsToday = bookings.filter(
-      (booking) =>
-        booking.check_in_date === today &&
-        normalizedStatus(booking.status) !== "CANCELLED"
-    ).length;
-    const departuresToday = bookings.filter(
-      (booking) =>
-        booking.check_out_date === today &&
-        normalizedStatus(booking.status) === "CHECKED_IN"
-    ).length;
-    const pendingHousekeeping = housekeeping.filter((task) =>
-      ["PENDING", "IN_PROGRESS"].includes(
-        normalizedStatus(task.task_status)
-      )
-    ).length;
-    const openMaintenance = maintenance.filter((task) =>
-      ["PENDING", "IN_PROGRESS"].includes(
-        normalizedStatus(task.status)
-      )
-    ).length;
-    const openConcierge = concierge.filter((request) =>
-      ["PENDING", "IN_PROGRESS"].includes(
-        normalizedStatus(request.status)
-      )
-    ).length;
+    const arrivalsToday = bookings.filter((booking) => booking.check_in_date === today && normalizedStatus(booking.status) !== "CANCELLED").length;
+    const departuresToday = bookings.filter((booking) => booking.check_out_date === today && normalizedStatus(booking.status) === "CHECKED_IN").length;
+    const pendingHousekeeping = housekeeping.filter((task) => ["PENDING", "IN_PROGRESS"].includes(normalizedStatus(task.task_status))).length;
+    const openMaintenance = maintenance.filter((task) => ["PENDING", "IN_PROGRESS"].includes(normalizedStatus(task.status))).length;
+    const openConcierge = concierge.filter((request) => ["PENDING", "IN_PROGRESS"].includes(normalizedStatus(request.status))).length;
     const totalRooms = rooms.length;
-    const occupiedRooms = Number(
-      roomStatusCounts.OCCUPIED || checkedInBookings.length
-    );
+    const occupiedRooms = Number(roomStatusCounts.OCCUPIED || checkedIn.length);
     const availableRooms = Number(roomStatusCounts.AVAILABLE || 0);
     const dirtyRooms = Number(roomStatusCounts.DIRTY || 0);
-    const occupancy = totalRooms
-      ? Math.round((occupiedRooms / totalRooms) * 100)
-      : 0;
-    const readiness = totalRooms
-      ? Math.round((availableRooms / totalRooms) * 100)
-      : 0;
 
     return {
       activeBookings: activeBookings.length,
@@ -209,8 +112,8 @@ export default function HotelOperationsControlPage() {
       occupiedRooms,
       availableRooms,
       dirtyRooms,
-      occupancy,
-      readiness,
+      occupancy: totalRooms ? Math.round((occupiedRooms / totalRooms) * 100) : 0,
+      readiness: totalRooms ? Math.round((availableRooms / totalRooms) * 100) : 0,
       arrivalsToday,
       departuresToday,
       pendingHousekeeping,
@@ -220,164 +123,108 @@ export default function HotelOperationsControlPage() {
   }, [bookings, concierge, housekeeping, maintenance, rooms]);
 
   const base = `/workspace/${encodeURIComponent(organizationId)}/operations`;
-  const operationCards = [
-    {
-      title: "Reservations",
-      value: metrics.activeBookings,
-      label: "Open Reservations",
-      detail: `${metrics.arrivalsToday} arrival(s) scheduled today`,
-      href: `${base}/reservations`,
-    },
-    {
-      title: "Front Desk",
-      value: metrics.occupiedRooms,
-      label: "Open Front Desk",
-      detail: `${metrics.departuresToday} departure(s) expected today`,
-      href: `${base}/front-desk`,
-    },
-    {
-      title: "Housekeeping",
-      value: metrics.pendingHousekeeping,
-      label: "Open Housekeeping",
-      detail: `${metrics.dirtyRooms} room(s) currently marked dirty`,
-      href: `${base}/housekeeping`,
-    },
-    {
-      title: "Maintenance",
-      value: metrics.openMaintenance,
-      label: "Open Maintenance",
-      detail: "Pending and active property work",
-      href: `${base}/maintenance`,
-    },
-    {
-      title: "Concierge",
-      value: metrics.openConcierge,
-      label: "Open Concierge",
-      detail: "Pending and active guest-service requests",
-      href: `${base}/concierge`,
-    },
+  const flow = [
+    { id: "reservations", label: "Reservations", value: metrics.activeBookings, detail: `${metrics.arrivalsToday} arrivals today`, route: `${base}/reservations` },
+    { id: "frontdesk", label: "Front Desk", value: metrics.occupiedRooms, detail: `${metrics.departuresToday} departures today`, route: `${base}/front-desk` },
+    { id: "housekeeping", label: "Housekeeping", value: metrics.pendingHousekeeping, detail: `${metrics.dirtyRooms} rooms marked dirty`, route: `${base}/housekeeping` },
+    { id: "maintenance", label: "Maintenance", value: metrics.openMaintenance, detail: "Open property work", route: `${base}/maintenance` },
+    { id: "concierge", label: "Guest Requests", value: metrics.openConcierge, detail: "Open concierge/service requests", route: `${base}/concierge` },
   ];
 
   if (organizationLoading || loading) {
-    return (
-      <section className="mx-auto max-w-[1240px] px-4 py-12 text-white/45">
-        Loading Hotel Control...
-      </section>
-    );
+    return <div className="min-h-[420px] bg-[#F7F6F3] p-8 text-sm text-[#77736C]">Preparing Hotel Control...</div>;
   }
 
   return (
-    <section className="mx-auto max-w-[1240px] px-4 py-6 text-white">
-      <div className="rounded-[32px] border border-white/10 bg-white/[0.025] p-5 md:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#D6A66A]">
-              Hotel Operations
+    <main className="min-h-[calc(100vh-61px)] bg-[#F7F6F3] px-4 py-6 text-[#191919] md:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1640px]">
+        <header className="rounded-[26px] border border-black/[0.075] bg-white p-6 shadow-[0_12px_38px_rgba(31,27,20,0.055)] md:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#A37849]">Hotel Operations</div>
+              <h1 className="mt-2 text-[32px] font-semibold tracking-[-0.04em] text-[#1B1A18] md:text-[36px]">Property Control</h1>
+              <p className="mt-2.5 max-w-3xl text-[13px] leading-6 text-[#6F6B64]">
+                {organization?.name || "Property"} · Coordinate arrivals, room readiness, in-house guests, housekeeping, maintenance and guest requests from one operating desk.
+              </p>
             </div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
-              {organization?.name || hotelWorkspace.hero.title}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/45">
-              {hotelWorkspace.ai.insight}
-            </p>
+            <button
+              type="button"
+              disabled={refreshing}
+              onClick={() => loadHotelRuntime({ silent: true })}
+              className="inline-flex items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-4 py-2.5 text-[12px] text-[#5E5A54] hover:border-[#D6A66A]/45 hover:text-[#8D6338] disabled:opacity-40"
+            >
+              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "Refreshing" : "Refresh"}
+            </button>
           </div>
 
-          <button
-            type="button"
-            disabled={refreshing}
-            onClick={() => loadHotelRuntime({ silent: true })}
-            className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/65 disabled:opacity-40"
-          >
-            {refreshing ? "Refreshing..." : "Refresh Control"}
-          </button>
-        </div>
-
-        {error ? (
-          <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-            {error}
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-black/[0.07] pt-5">
+            <Link href={`${base}/front-desk`} className="inline-flex items-center gap-2 rounded-xl bg-[#1D1B18] px-4 py-2.5 text-[12px] font-medium text-white">Open Front Desk <ArrowRight size={13} /></Link>
+            <Link href={`${base}/housekeeping`} className="inline-flex items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-4 py-2.5 text-[12px] font-medium text-[#4E4A44]">Housekeeping</Link>
+            <Link href={`${base}/reservations`} className="inline-flex items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-4 py-2.5 text-[12px] font-medium text-[#4E4A44]">Reservations</Link>
           </div>
-        ) : null}
+        </header>
 
-        <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="Occupancy"
-            value={`${metrics.occupancy}%`}
-            detail={`${metrics.occupiedRooms} occupied of ${metrics.totalRooms} total rooms`}
-          />
-          <MetricCard
-            label="Room Readiness"
-            value={`${metrics.readiness}%`}
-            detail={`${metrics.availableRooms} available · ${metrics.dirtyRooms} dirty`}
-          />
-          <MetricCard
-            label="Arrivals Today"
-            value={metrics.arrivalsToday}
-            detail="Reservations scheduled to begin today"
-          />
-          <MetricCard
-            label="Departures Today"
-            value={metrics.departuresToday}
-            detail="Checked-in stays scheduled to end today"
-          />
-        </div>
+        {error ? <div className="mt-4 rounded-2xl border border-[#B36B52]/20 bg-[#B36B52]/[0.06] px-4 py-3 text-[12px] text-[#8B4937]">{error}</div> : null}
 
-        <div className="mt-7 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {operationCards.map((card) => (
-            <OperationCard key={card.title} {...card} />
-          ))}
-        </div>
+        <section className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <Metric label="Occupancy" value={`${metrics.occupancy}%`} detail={`${metrics.occupiedRooms} of ${metrics.totalRooms} occupied`} />
+          <Metric label="Room readiness" value={`${metrics.readiness}%`} detail={`${metrics.availableRooms} available rooms`} />
+          <Metric label="Arrivals today" value={metrics.arrivalsToday} detail="Guests due to arrive" />
+          <Metric label="Departures today" value={metrics.departuresToday} detail="Guests due to depart" />
+          <Metric label="Housekeeping" value={metrics.pendingHousekeeping} detail="Rooms/tasks still open" />
+          <Metric label="Guest/service issues" value={metrics.openMaintenance + metrics.openConcierge} detail="Maintenance + guest requests" />
+        </section>
 
-        <div className="mt-7 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-            <div className="text-sm font-semibold text-white">
-              Current Operating Position
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-2xl border border-white/10 p-4">
-                <div className="text-white/35">Active stays</div>
-                <div className="mt-2 text-xl font-semibold">
-                  {metrics.occupiedRooms}
+        <section className="mt-5 rounded-[24px] border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
+          <div className="border-b border-black/[0.07] pb-4">
+            <div className="text-[10px] font-medium uppercase tracking-[0.17em] text-[#8D8982]">Live property workflow</div>
+            <h2 className="mt-1.5 text-[20px] font-medium tracking-[-0.025em] text-[#1C1B19]">Today at the property</h2>
+          </div>
+
+          <div className="grid gap-x-5 md:grid-cols-2 xl:grid-cols-5">
+            {flow.map((item, index) => (
+              <Link key={item.id} href={item.route} className="group border-b border-black/[0.06] py-4 xl:border-b-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-[#FBFAF8] text-[11px] font-medium text-[#77736C]">{index + 1}</div>
+                  <div className="text-[22px] font-medium tracking-[-0.03em] text-[#1B1A18]">{item.value}</div>
                 </div>
-              </div>
-              <div className="rounded-2xl border border-white/10 p-4">
-                <div className="text-white/35">Available rooms</div>
-                <div className="mt-2 text-xl font-semibold">
-                  {metrics.availableRooms}
+                <div className="mt-4 text-[13px] font-medium text-[#312F2B] group-hover:text-[#8D6338]">{item.label}</div>
+                <div className="mt-1 text-[11px] leading-5 text-[#96928A]">{item.detail}</div>
+                <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-medium text-[#A37849]">Open workspace <ArrowRight size={11} /></div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-[24px] border border-black/[0.075] bg-white p-5">
+            <div className="text-[10px] font-medium uppercase tracking-[0.17em] text-[#8D8982]">Capacity position</div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {[
+                ["In-house", metrics.occupiedRooms],
+                ["Available", metrics.availableRooms],
+                ["Dirty", metrics.dirtyRooms],
+                ["Active bookings", metrics.activeBookings],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-black/[0.07] bg-[#FBFAF8] p-4">
+                  <div className="text-[10px] text-[#8D8982]">{label}</div>
+                  <div className="mt-2 text-[22px] font-medium text-[#1B1A18]">{value}</div>
                 </div>
-              </div>
-              <div className="rounded-2xl border border-white/10 p-4">
-                <div className="text-white/35">Cleaning workload</div>
-                <div className="mt-2 text-xl font-semibold">
-                  {metrics.pendingHousekeeping}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-white/10 p-4">
-                <div className="text-white/35">Open service work</div>
-                <div className="mt-2 text-xl font-semibold">
-                  {metrics.openMaintenance + metrics.openConcierge}
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.055] p-5">
-            <div className="text-sm font-semibold text-[#F2D9AA]">
-              Control Priorities
-            </div>
-            <div className="mt-4 space-y-3 text-sm leading-6 text-white/55">
-              <div>
-                Prepare today&apos;s arrivals and confirm room readiness before check-in.
-              </div>
-              <div>
-                Clear dirty rooms and active maintenance work before releasing capacity.
-              </div>
-              <div>
-                Resolve active concierge requests before they become service escalations.
-              </div>
+          <div className="rounded-[24px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.05] p-5">
+            <div className="text-[10px] font-medium uppercase tracking-[0.17em] text-[#9A744B]">Control priorities</div>
+            <div className="mt-4 space-y-3 text-[12px] leading-6 text-[#6F604F]">
+              <div>Prepare today&apos;s arrivals and confirm room readiness before check-in.</div>
+              <div>Clear dirty rooms and maintenance blockers before releasing capacity.</div>
+              <div>Resolve guest requests before they become service escalations.</div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
-    </section>
+    </main>
   );
 }

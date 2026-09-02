@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_VOICE_STT_WORKER_IMAGE_REQUEST_V1",
-  "requested_for": "bake_whisper_snapshot_for_offline_cold_start",
+  "requested_for": "deterministic_local_whisper_snapshot_after_modal_crash_loop",
   "build_stt": true,
   "build_tts": false,
   "production_web_deploy": false,

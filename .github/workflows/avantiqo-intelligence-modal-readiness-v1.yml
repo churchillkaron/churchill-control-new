@@ -1,10 +1,7 @@
-name: Avantiqo Intelligence Modal Readiness V1
+name: Avantiqo Intelligence Modal Direct Readiness V2
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-intelligence-modal-readiness-v1.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,12 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Check credential presence without exposing values
+      - name: Check direct Modal credential presence without exposing values
         env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-          AVANTIQO_INTELLIGENCE_MODAL_BASE_URL: ${{ secrets.AVANTIQO_INTELLIGENCE_MODAL_BASE_URL }}
-          AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN: ${{ secrets.AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN }}
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -28,12 +24,15 @@ jobs:
               echo "$1=PRESENT"
             else
               echo "$1=MISSING"
+              return 1
             fi
           }
           check MODAL_TOKEN_ID
           check MODAL_TOKEN_SECRET
-          check AVANTIQO_INTELLIGENCE_MODAL_BASE_URL
-          check AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN
-          echo "GPU_INFERENCE_PERFORMED=false"
-          echo "RUNPOD_MUTATION_PERFORMED=false"
-          echo "PRODUCTION_DEPLOY_PERFORMED=false"
+          check SUPABASE_SERVICE_ROLE_KEY
+          echo 'MODAL_TRANSPORT=modal-js-sdk-function-call-v1'
+          echo 'MODAL_APP=avantiqo-intelligence-owned'
+          echo 'MODAL_GATEWAY_REQUIRED=false'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'RUNPOD_MUTATION_PERFORMED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'

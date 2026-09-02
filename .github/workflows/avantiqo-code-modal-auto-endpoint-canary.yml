@@ -41,6 +41,7 @@ jobs:
           print("AVANTIQO_CODE_AUTO_ENDPOINT_DUPLICATE=false")
           PY
 
+      # Disposable isolated endpoint: same owned Qwen model, never production routing.
       - name: Create owned Qwen Code Auto Endpoint
         id: create
         run: |
@@ -77,7 +78,7 @@ jobs:
               url = walk(data)
               if url:
                   open("/tmp/endpoint-url", "w").write(url.rstrip("/"))
-                  print(f"AVANTIQO_CODE_AUTO_ENDPOINT_URL_RESOLVED=true")
+                  print("AVANTIQO_CODE_AUTO_ENDPOINT_URL_RESOLVED=true")
                   raise SystemExit(0)
               time.sleep(5)
           print(json.dumps(last, indent=2))
@@ -87,7 +88,6 @@ jobs:
       - name: Real endpoint latency probe
         run: |
           set -euo pipefail
-          URL="$(cat /tmp/endpoint-url)/v1/chat/completions"
           cat > /tmp/request.json <<JSON
           {"model":"${MODEL_NAME}","messages":[{"role":"user","content":"Return only strict JSON: {\"path\":\"probe.mjs\",\"content\":\"<source>\"}. Fix: export function add(a,b){ return a-b; } so add(2,3) returns 5."}],"temperature":0,"max_tokens":128}
           JSON

@@ -1,9 +1,9 @@
 """Governed deployment entrypoint for owned Avantiqo Intelligence.
 
-Imports the Fast/Deep GPU functions from modal_app.py and adds one CPU-only
-runtime probe. The probe exposes only immutable deployment provenance and
-non-secret runtime contract metadata so certification can prove that the live
-Modal app matches the worker source before any H100 inference is approved.
+Imports the Fast/Deep GPU functions from modal_app.py and adds a zero-GPU
+provenance function whose Modal name contains the exact worker-source
+fingerprint. Certification can therefore prove deployment freshness through a
+metadata lookup without executing any remote function or starting an H100.
 """
 from __future__ import annotations
 
@@ -21,11 +21,12 @@ from modal_app import (
     app,
 )
 
-RUNTIME_PROBE_SCHEMA = "AVANTIQO_INTELLIGENCE_MODAL_RUNTIME_PROBE_V1"
+RUNTIME_PROBE_SCHEMA = "AVANTIQO_INTELLIGENCE_MODAL_RUNTIME_PROBE_V2"
 DEPLOY_GIT_SHA = os.environ.get("AVANTIQO_INTELLIGENCE_DEPLOY_GIT_SHA", "").strip() or "UNSET"
 DEPLOY_SOURCE_FINGERPRINT = (
     os.environ.get("AVANTIQO_INTELLIGENCE_DEPLOY_SOURCE_FINGERPRINT", "").strip() or "UNSET"
 )
+RUNTIME_PROBE_FUNCTION_NAME = f"runtime_probe_{DEPLOY_SOURCE_FINGERPRINT[:16]}"
 
 probe_image = modal.Image.debian_slim(python_version="3.12").env({
     "AVANTIQO_INTELLIGENCE_RUNTIME_PROBE_SCHEMA": RUNTIME_PROBE_SCHEMA,
@@ -41,6 +42,7 @@ probe_image = modal.Image.debian_slim(python_version="3.12").env({
 
 
 @app.function(
+    name=RUNTIME_PROBE_FUNCTION_NAME,
     image=probe_image,
     timeout=60,
     min_containers=0,
@@ -49,7 +51,7 @@ probe_image = modal.Image.debian_slim(python_version="3.12").env({
     scaledown_window=5,
 )
 def runtime_probe() -> dict[str, object]:
-    """Return non-secret live deployment provenance without starting a GPU."""
+    """Optional diagnostic payload; deployment proof does not invoke this."""
     return {
         "schema": os.environ.get("AVANTIQO_INTELLIGENCE_RUNTIME_PROBE_SCHEMA", ""),
         "app_name": os.environ.get("AVANTIQO_INTELLIGENCE_APP_NAME", ""),

@@ -164,7 +164,7 @@ export async function GET(request) {
         .from("organization_audit_logs")
         .select("id,entity_type,entity_id,action,before_data,after_data,metadata,actor_email,created_at")
         .eq("organization_id", access.organizationId)
-        .eq("entity_id", String(recordKey))
+        .eq("entity_id", String(reviewItem?.id || recordKey))
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -373,6 +373,34 @@ export async function POST(request) {
     if (action === "signoff") {
       const signoffRole = String(body.signoff_role || body.signoffRole || "").trim().toUpperCase();
       if (!REVIEW_ROLES.has(signoffRole)) return jsonError("Invalid sign-off role");
+
+      const [openNotesResult, signoffsResult] = await Promise.all([
+        supabaseAdmin
+          .from("finance_review_notes")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", access.organizationId)
+          .eq("review_item_id", reviewItem.id)
+          .neq("status", "RESOLVED"),
+        supabaseAdmin
+          .from("finance_review_signoffs")
+          .select("signoff_role")
+          .eq("organization_id", access.organizationId)
+          .eq("review_item_id", reviewItem.id),
+      ]);
+      if (openNotesResult.error) throw openNotesResult.error;
+      if (signoffsResult.error) throw signoffsResult.error;
+
+      const signedRoles = new Set((signoffsResult.data || []).map((row) => row.signoff_role));
+      if (signoffRole === "REVIEWER" && !signedRoles.has("PREPARER")) {
+        return jsonError("Preparer sign-off is required before reviewer sign-off", 409);
+      }
+      if (signoffRole === "PARTNER" && !signedRoles.has("REVIEWER")) {
+        return jsonError("Reviewer sign-off is required before partner clearance", 409);
+      }
+      if (["REVIEWER", "PARTNER"].includes(signoffRole) && Number(openNotesResult.count || 0) > 0) {
+        return jsonError("Resolve all open review points before final review clearance", 409);
+      }
+
       const { data, error } = await supabaseAdmin
         .from("finance_review_signoffs")
         .upsert({

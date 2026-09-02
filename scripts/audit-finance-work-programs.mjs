@@ -17,8 +17,11 @@ const files = {
   schema: "supabase/migrations/20260902170000_accounting_engagement_work_programs.sql",
   security: "supabase/migrations/20260902170500_accounting_work_program_security.sql",
   lifecycleSchema: "supabase/migrations/20260902173500_accounting_work_program_lifecycle_controls.sql",
+  systemGateSchema: "supabase/migrations/20260902175500_accounting_work_program_system_gate_enforcement.sql",
   api: "app/api/workspace/finance/work-programs/route.js",
   lifecycleApi: "app/api/workspace/finance/work-programs/lifecycle/route.js",
+  verifyApi: "app/api/workspace/finance/work-programs/verify/route.js",
+  gates: "lib/finance/practice/workProgramGates.js",
   practiceApi: "app/api/workspace/finance/practice-control/route.js",
   practiceUi: "components/workspace/finance/FinancePracticeControlTower.jsx",
 };
@@ -50,11 +53,7 @@ requireTokens(files.schema, [
   "rolled_from_run_id",
 ]);
 
-requireTokens(files.security, [
-  "enable row level security",
-  "revoke all",
-  "service_role",
-]);
+requireTokens(files.security, ["enable row level security", "revoke all", "service_role"]);
 
 requireTokens(files.lifecycleSchema, [
   "assigned_partner_id",
@@ -64,6 +63,16 @@ requireTokens(files.lifecycleSchema, [
   "completed_by",
   "accepted_by",
   "changes_requested_at",
+]);
+
+requireTokens(files.systemGateSchema, [
+  "enforce_accounting_work_item_system_gate",
+  "SYSTEM_GATE_REQUIRED",
+  "bank_reconciliation",
+  "journals",
+  "statutory_filings",
+  "close",
+  "accounting_work_item_system_gate_guard",
 ]);
 
 requireTokens(files.api, [
@@ -96,6 +105,26 @@ requireTokens(files.lifecycleApi, [
   "Finance review is not fully cleared by reviewer and partner",
 ]);
 
+requireTokens(files.gates, [
+  "evaluateWorkProgramGate",
+  "resolveEntity",
+  "finance_bank_reconciliation_runs",
+  "journal_entries",
+  "finance_statutory_filings",
+  "finance_vat_returns",
+  "financial_periods",
+  "difference_amount",
+  "period_id",
+]);
+
+requireTokens(files.verifyApi, [
+  "evaluateWorkProgramGate",
+  "system_gate",
+  "system_verified",
+  "ACCOUNTING_WORK_ITEM_SYSTEM_VERIFIED",
+  "ACCOUNTING_WORK_ITEM_SYSTEM_BLOCKED",
+]);
+
 requireTokens(files.practiceApi, [
   "active_runs",
   "waiting_on_client",
@@ -123,6 +152,12 @@ const coverage = {
   completion_snapshot: true,
   practice_visibility: true,
   rls_and_service_role_boundary: true,
+  system_truth_gate: true,
+  database_bypass_guard: true,
+  bank_reconciliation_truth: true,
+  journal_posting_truth: true,
+  statutory_filing_truth: true,
+  period_close_truth: true,
 };
 
 console.log("AVANTIQO FINANCE WORK PROGRAM CERTIFICATION");
@@ -132,5 +167,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: Accounting work programs are structurally governed from template through immutable completion.");
+  console.log("PASS: Accounting work programs are governed from template through system-verified, locked completion.");
 }

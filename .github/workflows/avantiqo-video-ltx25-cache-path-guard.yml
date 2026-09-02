@@ -1,0 +1,73 @@
+name: Avantiqo Video LTX25 Cache Path Guard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-ltx25-cache-path-guard.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-ltx25-cache-path-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+    steps:
+      - name: Checkout exact guard commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile zero-GPU guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-engine/modal_ltx_cache_guard.py
+          grep -F 'gpu_requested": False' services/avantiqo-video-engine/modal_ltx_cache_guard.py
+          grep -F 'duplicate_model_bytes_created": False' services/avantiqo-video-engine/modal_ltx_cache_guard.py
+          grep -F 'create_if_missing=False' services/avantiqo-video-engine/modal_ltx_cache_guard.py
+          echo 'AVANTIQO_VIDEO_LTX25_CACHE_GUARD_STATIC=PASS'
+
+      - name: Install pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Require Modal credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+
+      - name: Repair HF snapshot paths and validate exact Gemma loader on CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_ltx_cache_guard.py::validate
+
+      - name: Preserve paid boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'GPU_REQUESTED=false'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'RUNPOD_USED=false'

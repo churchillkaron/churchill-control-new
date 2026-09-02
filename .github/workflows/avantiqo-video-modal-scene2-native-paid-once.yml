@@ -1,0 +1,242 @@
+name: Avantiqo Video Modal Scene 2 Native Paid Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-modal-scene2-native-paid-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-modal-scene2-native-paid-once
+  cancel-in-progress: false
+
+jobs:
+  scene2:
+    if: github.event.head_commit.message == 'Run single governed Video Modal Scene 2 generation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AVANTIQO_VIDEO_SCENE2_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_VIDEO_SCENE2_MAX_SUPPLIER_GPU_COST_USD: "3.25"
+      AVANTIQO_VIDEO_SCENE2_REFERENCE_TIME_SECONDS: "0.25"
+      AVANTIQO_VIDEO_SCENE2_SOURCE_STORAGE_PATH: 33336a72-acb5-474e-856b-8be0269360e2/unassigned/eaa7edd6-7a62-4ca2-9eac-dfb14059e649-gemini-founder-rgro0za2hzes.mp4
+
+    steps:
+      - name: Checkout exact launch commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg and pinned Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+          ffmpeg -version | head -1
+
+      - name: Require governed credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          echo 'AVANTIQO_VIDEO_SCENE2_CREDENTIALS=PASS'
+
+      - name: Create time-limited URL for canonical approved founder source on CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          base = os.environ['NEXT_PUBLIC_SUPABASE_URL'].rstrip('/')
+          key = os.environ['SUPABASE_SERVICE_ROLE_KEY']
+          path = os.environ['AVANTIQO_VIDEO_SCENE2_SOURCE_STORAGE_PATH']
+          encoded = '/'.join(urllib.parse.quote(part, safe='') for part in path.split('/'))
+          endpoint = f"{base}/storage/v1/object/sign/creative-assets/{encoded}"
+          req = urllib.request.Request(
+              endpoint,
+              data=json.dumps({'expiresIn': 3600}).encode('utf-8'),
+              headers={
+                  'apikey': key,
+                  'Authorization': f'Bearer {key}',
+                  'Content-Type': 'application/json',
+              },
+              method='POST',
+          )
+          with urllib.request.urlopen(req, timeout=30) as response:
+              body = json.loads(response.read().decode('utf-8'))
+          signed = body.get('signedURL') or body.get('signedUrl') or ''
+          if not isinstance(signed, str) or not signed:
+              raise SystemExit('AVANTIQO_VIDEO_SCENE2_SIGNED_URL_MISSING')
+          if signed.startswith('/'):
+              signed = base + signed
+          if not signed.startswith('https://'):
+              raise SystemExit('AVANTIQO_VIDEO_SCENE2_SIGNED_URL_INVALID')
+
+          request = urllib.request.Request(signed, headers={'User-Agent': 'avantiqo-video-scene2-source-proof/1'})
+          digest = hashlib.sha256()
+          size = 0
+          proof = Path('/tmp/avantiqo-scene2-founder-source.mp4')
+          with urllib.request.urlopen(request, timeout=300) as response, proof.open('wb') as handle:
+              while True:
+                  chunk = response.read(1024 * 1024)
+                  if not chunk:
+                      break
+                  size += len(chunk)
+                  if size > 500 * 1024 * 1024:
+                      raise SystemExit('AVANTIQO_VIDEO_SCENE2_SOURCE_TOO_LARGE')
+                  digest.update(chunk)
+                  handle.write(chunk)
+          if size < 1_000_000:
+              raise SystemExit(f'AVANTIQO_VIDEO_SCENE2_SOURCE_TOO_SMALL:{size}')
+          sha = digest.hexdigest()
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              env.write(f'AVANTIQO_VIDEO_SCENE2_SOURCE_URL={signed}\n')
+              env.write(f'AVANTIQO_VIDEO_SCENE2_SOURCE_SHA256={sha}\n')
+          print('AVANTIQO_VIDEO_SCENE2_CANONICAL_SOURCE=PASS')
+          print(f'AVANTIQO_VIDEO_SCENE2_SOURCE_BYTES={size}')
+          print(f'AVANTIQO_VIDEO_SCENE2_SOURCE_SHA256={sha}')
+          print('GPU_INFERENCE_PERFORMED=false')
+          PY
+
+      - name: Prove HQ paid-generation boundary statically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-engine/modal_app.py
+          python -m py_compile services/avantiqo-video-engine/modal_scene2_cert.py
+          python - <<'PY'
+          from pathlib import Path
+          app = Path('services/avantiqo-video-engine/modal_app.py').read_text(encoding='utf-8')
+          cert = Path('services/avantiqo-video-engine/modal_scene2_cert.py').read_text(encoding='utf-8')
+          for needle in (
+              'LTX_GPU = "B200"',
+              'LTX_NUM_INFERENCE_STEPS = 30',
+              'LTX_MASTER_WIDTH = 3840',
+              'LTX_MASTER_HEIGHT = 2176',
+              'create_if_missing=False',
+              'retries=0',
+              '"model_cpu_offload_used": False',
+              '"pixel_upscale_used": False',
+              '"learned_latent_upsampler_used": False',
+              '"learned_spatial_upscaler_used": False',
+              '"temporal_interpolation_used": False',
+              '"resize_used": False',
+              '"crop_used": False',
+              '"grading_used": False',
+              '"assembly_used": False',
+              '"delivery_transform_used": False',
+          ):
+              if needle not in app:
+                  raise SystemExit(f'AVANTIQO_VIDEO_SCENE2_STATIC_REQUIRED_MISSING:{needle}')
+          if 'generate_native_master.remote(' not in cert:
+              raise SystemExit('AVANTIQO_VIDEO_SCENE2_CANONICAL_CALL_MISSING')
+          if 'def generate_scene2_native_master(' in cert:
+              raise SystemExit('AVANTIQO_VIDEO_SCENE2_DUPLICATE_GPU_FUNCTION_PRESENT')
+          if 'DURATION_SECONDS = 5' not in cert:
+              raise SystemExit('AVANTIQO_VIDEO_SCENE2_DURATION_CONTRACT_MISSING')
+          print('AVANTIQO_VIDEO_SCENE2_STATIC_GATE=PASS')
+          PY
+
+      - name: Run governed zero-GPU preflight immediately before paid request
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_scene2_cert.py::scene2_preflight
+
+      - name: Generate exactly one native Scene 2 master on B200
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_scene2_cert.py::scene2_certify \
+            --output-path "${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene2-modal/scene2-native-master-3840x2176.mp4"
+
+      - name: Verify untouched Scene 2 native master locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          MP4="${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene2-modal/scene2-native-master-3840x2176.mp4"
+          REPORT="${GITHUB_WORKSPACE}/local-audit-output/avantiqo-video-scene2-modal/scene2-native-master-3840x2176.json"
+          test -s "$MP4"
+          test -s "$REPORT"
+          ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate,nb_frames -show_entries format=duration,size,bit_rate -of json "$MP4" | tee /tmp/scene2-ffprobe.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          data = json.loads((root / 'local-audit-output/avantiqo-video-scene2-modal/scene2-native-master-3840x2176.json').read_text(encoding='utf-8'))
+          generation = data.get('generation') or {}
+          assert data.get('success') is True
+          assert data.get('scene') == 2
+          assert data.get('story_beat') == 'founder-origin'
+          assert generation.get('success') is True
+          assert generation.get('modal_gpu') == 'B200'
+          assert generation.get('width') == 3840
+          assert generation.get('height') == 2176
+          assert generation.get('fps') == 24
+          assert generation.get('num_inference_steps') == 30
+          assert generation.get('duration_seconds_requested') == 5
+          assert generation.get('master_is_exact_model_output') is True
+          for key in (
+              'pixel_upscale_used','learned_latent_upsampler_used','learned_spatial_upscaler_used',
+              'temporal_interpolation_used','resize_used','crop_used','grading_used','assembly_used',
+              'delivery_transform_used','automatic_paid_retry','runpod_inference_performed','external_provider_contacted'
+          ):
+              assert generation.get(key) is False, key
+          probe = json.loads(Path('/tmp/scene2-ffprobe.json').read_text(encoding='utf-8'))
+          stream = (probe.get('streams') or [{}])[0]
+          assert int(stream.get('width') or 0) == 3840
+          assert int(stream.get('height') or 0) == 2176
+          assert stream.get('r_frame_rate') == '24/1'
+          print('AVANTIQO_VIDEO_SCENE2_NATIVE_MASTER_LOCAL_GATE=PASS')
+          print('ESTIMATED_SUPPLIER_GPU_COST_USD=' + str(generation.get('estimated_supplier_gpu_cost_usd')))
+          PY
+
+      - name: Upload untouched Scene 2 native master
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-scene2-native-master-3840x2176
+          path: |
+            local-audit-output/avantiqo-video-scene2-modal/scene2-native-master-3840x2176.mp4
+            local-audit-output/avantiqo-video-scene2-modal/scene2-native-master-3840x2176.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'MAX_PAID_GPU_JOBS_ALLOWED=1'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'

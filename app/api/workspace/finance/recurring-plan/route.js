@@ -25,7 +25,7 @@ function clampDays(value) {
 }
 
 function toDate(value) {
-  const date = value instanceof Date ? new Date(value) : new Date(value);
+  const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -124,10 +124,9 @@ function parseYearEnd(engagement, referenceYear) {
 }
 
 function applyExisting(candidate, existingKeys) {
-  if (existingKeys.has(candidate.idempotency_key)) {
-    return { ...candidate, status: "ALREADY_EXISTS" };
-  }
-  return candidate;
+  return existingKeys.has(candidate.idempotency_key)
+    ? { ...candidate, status: "ALREADY_EXISTS" }
+    : candidate;
 }
 
 export async function GET(request) {
@@ -143,7 +142,7 @@ export async function GET(request) {
     const now = new Date();
     const horizonEnd = addDays(now, horizonDays);
 
-    const [engagementsResult, templatesResult, periodsResult, runsResult, organizationsResult] = await Promise.all([
+    const [engagementsResult, templatesResult, periodsResult, runsResult] = await Promise.all([
       supabaseAdmin
         .from("accounting_engagements")
         .select("id,accounting_firm_id,organization_id,entity_id,service_package,bookkeeping_enabled,vat_enabled,payroll_enabled,tax_enabled,reporting_enabled,audit_enabled,vat_frequency,payroll_frequency,year_end_date,start_date,end_date,status")
@@ -167,10 +166,6 @@ export async function GET(request) {
         .eq("accounting_firm_id", access.organizationId)
         .gte("due_at", monthStart(now).toISOString())
         .lte("due_at", addDays(horizonEnd, 62).toISOString()),
-      supabaseAdmin
-        .from("organizations")
-        .select("id,name")
-        .in("id", []),
     ]);
 
     for (const result of [engagementsResult, templatesResult, periodsResult, runsResult]) {
@@ -181,7 +176,6 @@ export async function GET(request) {
     const templates = templatesResult.data || [];
     const periods = periodsResult.data || [];
     const existingRuns = runsResult.data || [];
-
     const organizationIds = [...new Set(engagements.map((row) => row.organization_id).filter(Boolean))];
     const { data: organizations, error: organizationsError } = organizationIds.length
       ? await supabaseAdmin.from("organizations").select("id,name").in("id", organizationIds)
@@ -248,8 +242,7 @@ export async function GET(request) {
                 candidate.status = "BLOCKED_PERIOD_CONFIGURATION";
                 candidate.blockers = ["No financial period covers this accounting cycle for the bound legal entity"];
               }
-              candidate = applyExisting(candidate, existingKeys);
-              candidates.push(candidate);
+              candidates.push(applyExisting(candidate, existingKeys));
             }
             cursor = addMonths(cursor, 1);
           }
@@ -290,17 +283,16 @@ export async function GET(request) {
           for (const year of [now.getUTCFullYear(), now.getUTCFullYear() + 1]) {
             const yearEnd = parseYearEnd(engagement, year);
             if (!yearEnd || yearEnd < now || yearEnd > horizonEnd) continue;
-            const periodStart = new Date(Date.UTC(yearEnd.getUTCFullYear() - 1, yearEnd.getUTCMonth(), yearEnd.getUTCDate() + 1));
-            const period = resolvePeriod(periods, engagement.entity_id, periodStart, yearEnd);
+            const period = resolvePeriod(periods, engagement.entity_id, yearEnd, yearEnd);
+            const periodStart = period ? toDate(period.start_date) : monthStart(yearEnd);
             let candidate = candidateBase({ engagement, template, period, startAt: periodStart, dueAt: yearEnd });
             candidate.client_name = clientName;
             candidate.service_package = engagement.service_package;
             if (!period) {
               candidate.status = "BLOCKED_PERIOD_CONFIGURATION";
-              candidate.blockers = ["No financial period covers the configured year end for the bound legal entity"];
+              candidate.blockers = ["No financial period contains the configured year end for the bound legal entity"];
             }
-            candidate = applyExisting(candidate, existingKeys);
-            candidates.push(candidate);
+            candidates.push(applyExisting(candidate, existingKeys));
           }
         }
       }

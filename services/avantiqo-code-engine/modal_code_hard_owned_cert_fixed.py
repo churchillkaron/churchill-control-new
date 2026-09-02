@@ -39,9 +39,15 @@ def _hard_repair_request(
 ) -> dict[str, Any]:
     repaired = _original_repair_request(request, candidate, failure)
     evidence = str(failure or "")
+    instruction = str(repaired.get("instruction") or "")
     diagnostics: list[str] = []
 
-    if "NaN" in evidence or "DEBIT" in evidence or "CREDIT" in evidence:
+    if (
+        "NaN" in evidence
+        or "DEBIT" in evidence
+        or "CREDIT" in evidence
+        or ("debit" in instruction.lower() and "credit" in instruction.lower())
+    ):
         diagnostics.append(
             "MACHINE DIAGNOSTIC — ENUM/SCHEMA CONSISTENCY: normalized enum tokens "
             "and output-schema property names are different concepts. Use the "
@@ -54,7 +60,11 @@ def _hard_repair_request(
             "schema fields. A rejected row must not create or corrupt accumulator state."
         )
 
-    if "remaining" in evidence and "allocated" in evidence:
+    state_snapshot_contract = (
+        ("remaining" in instruction.lower() and "allocations" in instruction.lower())
+        or ("state" in instruction.lower() and "appliedids" in instruction.lower())
+    )
+    if state_snapshot_contract or ("remaining" in evidence and "allocated" in evidence):
         diagnostics.append(
             "MACHINE DIAGNOSTIC — STATE SNAPSHOT PRESERVATION: an output state snapshot "
             "must preserve every valid canonical state key established from the input, "
@@ -63,10 +73,11 @@ def _hard_repair_request(
             "output are separate obligations: consuming the last available unit may "
             "produce a zero remaining value but must not delete that canonical key. "
             "Build the canonical state first, update it in place within the new output "
-            "object, and return the complete resulting snapshot without mutating inputs."
+            "object, and return the complete resulting snapshot without mutating inputs. "
+            "Do not filter state entries by truthiness; zero is a valid retained value."
         )
 
-    if "deep-equal" in evidence:
+    if "deep-equal" in evidence or "deepStrictEqual" in evidence:
         diagnostics.append(
             "MACHINE DIAGNOSTIC — EXACT OUTPUT CONTRACT: re-read the declared production "
             "contract and executable diff as a complete structural contract. Preserve "
@@ -76,9 +87,7 @@ def _hard_repair_request(
         )
 
     if diagnostics:
-        repaired["instruction"] = "\n\n".join(
-            [str(repaired.get("instruction") or "").strip(), *diagnostics]
-        )
+        repaired["instruction"] = "\n\n".join([instruction.strip(), *diagnostics])
     return repaired
 
 

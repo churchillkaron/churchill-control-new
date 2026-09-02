@@ -18,110 +18,37 @@ concurrency:
 jobs:
   stop:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     env:
-      RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      TARGET_OWNER_REQUEST_ID: 4d3934ee-302c-4e5a-ab29-7d2a57c2bca7
-      TARGET_LEASE_ID: afe8cd82-0fe7-4975-a446-31573cffdb86
-      TARGET_WORKFLOW_RUN_ID: "33287878330"
-      TARGET_POD_NAME: avantiqo-video-flashvsr-4d3934ee-302c-4e5a-ab29-7d2a57c2bca7
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      TARGET_WORKFLOW_RUN_ID: "33630050724"
+      TARGET_MODAL_APP: avantiqo-video-owned
 
     steps:
       - name: Validate emergency stop credentials
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${RUNPOD_MANAGEMENT_API_KEY:-}"
-          test -n "${NEXT_PUBLIC_SUPABASE_URL:-}"
-          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
           echo "AVANTIQO_VIDEO_EMERGENCY_STOP_PREFLIGHT=PASS"
 
-      - name: Delete only the exact FlashVSR A100 pod
+      - name: Install pinned Modal CLI
         shell: bash
         run: |
           set -euo pipefail
-          pods_json="$(curl -fsS \
-            -H "Authorization: Bearer ${RUNPOD_MANAGEMENT_API_KEY}" \
-            -H "Accept: application/json" \
-            "https://rest.runpod.io/v1/pods?includeNetworkVolume=true&includeWorkers=true")"
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
 
-          mapfile -t pod_ids < <(printf '%s' "$pods_json" | jq -r --arg name "$TARGET_POD_NAME" '
-            (if type == "array" then . else (.pods // .data // .items // []) end)
-            | .[]
-            | select(.name == $name)
-            | .id
-          ')
-
-          if [ "${#pod_ids[@]}" -gt 1 ]; then
-            echo "AVANTIQO_VIDEO_EMERGENCY_STOP_REFUSED_MULTIPLE_EXACT_PODS=${#pod_ids[@]}"
-            exit 1
-          fi
-
-          if [ "${#pod_ids[@]}" -eq 0 ]; then
-            echo "AVANTIQO_VIDEO_EMERGENCY_STOP_POD_ALREADY_ABSENT=true"
-            exit 0
-          fi
-
-          pod_id="${pod_ids[0]}"
-          echo "AVANTIQO_VIDEO_EMERGENCY_STOP_EXACT_POD_FOUND=true"
-          http_code="$(curl -sS -o /tmp/runpod-delete.json -w '%{http_code}' \
-            -X DELETE \
-            -H "Authorization: Bearer ${RUNPOD_MANAGEMENT_API_KEY}" \
-            -H "Accept: application/json" \
-            "https://rest.runpod.io/v1/pods/${pod_id}")"
-          if [ "$http_code" != "200" ] && [ "$http_code" != "202" ] && [ "$http_code" != "204" ] && [ "$http_code" != "404" ]; then
-            echo "AVANTIQO_VIDEO_EMERGENCY_STOP_DELETE_HTTP=${http_code}"
-            exit 1
-          fi
-
-          for attempt in $(seq 1 40); do
-            code="$(curl -sS -o /tmp/runpod-pod.json -w '%{http_code}' \
-              -H "Authorization: Bearer ${RUNPOD_MANAGEMENT_API_KEY}" \
-              -H "Accept: application/json" \
-              "https://rest.runpod.io/v1/pods/${pod_id}")"
-            if [ "$code" = "404" ]; then
-              echo "AVANTIQO_VIDEO_EMERGENCY_STOP_POD_TERMINAL_CONFIRMED=true"
-              exit 0
-            fi
-            if [ "$code" = "200" ]; then
-              status="$(jq -r '(.status // .workerStatus // .runtimeStatus // .desiredStatus // "") | ascii_upcase' /tmp/runpod-pod.json)"
-              case "$status" in
-                EXITED|TERMINATED|DELETED|STOPPED)
-                  echo "AVANTIQO_VIDEO_EMERGENCY_STOP_POD_TERMINAL_CONFIRMED=true"
-                  exit 0
-                  ;;
-              esac
-            fi
-            sleep 3
-          done
-
-          echo "AVANTIQO_VIDEO_EMERGENCY_STOP_POD_DELETE_TIMEOUT=true"
-          exit 1
-
-      - name: Release only the exact active Video lease
+      - name: Stop owned Video Modal app
         shell: bash
         run: |
           set -euo pipefail
-          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          body="$(jq -cn --arg now "$now" '{state:"RELEASED",released_at:$now,expires_at:$now,release_reason:"USER_REQUESTED_EMERGENCY_STOP"}')"
-          result="$(curl -fsS \
-            -X PATCH \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Content-Type: application/json" \
-            -H "Prefer: return=representation" \
-            "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/avantiqo_video_runpod_leases?id=eq.${TARGET_LEASE_ID}&owner_request_id=eq.${TARGET_OWNER_REQUEST_ID}&state=eq.ACTIVE" \
-            -d "$body")"
-          count="$(printf '%s' "$result" | jq 'length')"
-          if [ "$count" -gt 1 ]; then
-            echo "AVANTIQO_VIDEO_EMERGENCY_STOP_LEASE_SCOPE_INVALID=${count}"
-            exit 1
-          fi
-          echo "AVANTIQO_VIDEO_EMERGENCY_STOP_LEASE_RELEASED_OR_ALREADY_TERMINAL=true"
+          echo "AVANTIQO_VIDEO_MODAL_STOP_REQUESTED=true"
+          modal app stop "${TARGET_MODAL_APP}"
+          echo "AVANTIQO_VIDEO_MODAL_APP_STOP=PASS"
 
-      - name: Cancel the exact long-running GitHub proof
+      - name: Cancel exact Scene 1 HQ GitHub run
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -135,6 +62,7 @@ jobs:
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${TARGET_WORKFLOW_RUN_ID}/cancel")"
           if [ "$code" != "202" ] && [ "$code" != "409" ]; then
             echo "AVANTIQO_VIDEO_EMERGENCY_STOP_GITHUB_CANCEL_HTTP=${code}"
+            cat /tmp/github-cancel.json || true
             exit 1
           fi
           echo "AVANTIQO_VIDEO_EMERGENCY_STOP_GITHUB_RUN_CANCELLED_OR_ALREADY_DONE=true"
@@ -143,5 +71,7 @@ jobs:
         shell: bash
         run: |
           echo "AVANTIQO_VIDEO_EMERGENCY_STOP=PASS"
+          echo "TARGET_SCENE=1_HQ"
+          echo "NEW_GPU_GENERATION_STARTED=false"
+          echo "RUNPOD_TOUCHED=false"
           echo "PRODUCTION_DEPLOY_PERFORMED=false"
-          echo "OTHER_RUNPOD_PODS_TOUCHED=false"

@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 
 import AnalyticsCommandCenter from "@/components/workspace/analytics/AnalyticsCommandCenter";
 import AnalyticsControlPanel from "@/components/workspace/analytics/AnalyticsControlPanel";
+import AnalyticsPreferencesPanel from "@/components/workspace/analytics/AnalyticsPreferencesPanel";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 const MODE_LABELS = {
@@ -48,6 +49,7 @@ export default function AnalyticsNestedPage() {
         <span className="ml-2">This workspace uses the same governed semantic metrics, source lineage and control state as the Analytics command center.</span>
       </div>
       <AnalyticsCommandCenter organizationId={organizationId} />
+      <AnalyticsPreferencesPanel organizationId={organizationId} />
       <AnalyticsControlPanel organizationId={organizationId} />
     </>
   );

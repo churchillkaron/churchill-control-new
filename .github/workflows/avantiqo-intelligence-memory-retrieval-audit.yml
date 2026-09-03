@@ -1,0 +1,34 @@
+name: Avantiqo Intelligence Memory Retrieval Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMemoryRetrievalBenchmarkRuntime.mjs"
+      - "scripts/audit-avantiqo-memory-retrieval-benchmark-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-memory-retrieval-audit.yml"
+  pull_request:
+    paths:
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMemoryRetrievalBenchmarkRuntime.mjs"
+      - "scripts/audit-avantiqo-memory-retrieval-benchmark-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-memory-retrieval-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  memory-retrieval-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run zero-cost memory retrieval certification
+        run: node scripts/audit-avantiqo-memory-retrieval-benchmark-local.mjs

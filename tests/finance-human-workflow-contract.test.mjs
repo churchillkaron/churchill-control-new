@@ -23,7 +23,7 @@ const runtimeManifest = JSON.parse(
 
 test("Finance human workflow has explicit human handoffs from preparation through close", () => {
   for (const stage of ["prepare", "client", "review", "changes", "partner", "close"]) {
-    assert.match(workflowPolicy, new RegExp(`id: \\"${stage}\\"`));
+    assert.match(workflowPolicy, new RegExp(`id: "${stage}"`));
   }
 
   assert.match(workflowPolicy, /ownerRole: "PREPARER"/);

@@ -1,2 +1,2 @@
 AVANTIQO_CODE_QWEN38_BOOTSTRAP_ONCE=20260903-V1
-RETRY=registered-after-verifier-repair
+RETRY=modal-policy-source-mounted

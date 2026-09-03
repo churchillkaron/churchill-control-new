@@ -28,7 +28,6 @@ def _assert_public_rejection(gate: dict, case_id: str) -> None:
 
 
 def main() -> None:
-    # Invalid stock must be omitted rather than materialized as a zero key.
     bad_inventory = r'''export function reserveInventory(stock, requests) {
   const remaining = {};
   for (const [rawKey, rawQty] of Object.entries(stock || {})) {
@@ -50,7 +49,6 @@ def main() -> None:
   return {remaining, allocations};
 }'''
 
-    # Valid normal state, but null/undefined state crashes.
     bad_events = r'''export function applyAccountEvents(state, events) {
   let balance = Number(state.balance);
   if (!Number.isFinite(balance)) balance = 0;
@@ -70,7 +68,6 @@ def main() -> None:
   return {balance:Number(balance.toFixed(2)), appliedIds};
 }'''
 
-    # Transition lookup can be undefined then .includes crashes.
     bad_transition = r'''export function canTransition(current, next, role) {
   const c = current?.trim().toUpperCase();
   const n = next?.trim().toUpperCase();
@@ -86,8 +83,6 @@ def main() -> None:
   return allowed[c][n].includes(r);
 }'''
 
-    # Ledger totals are rounded for display before balance is derived. That can
-    # differ by one cent from independently rounding the raw debit-credit total.
     bad_ledger = r'''export function summarizeLedger(entries) {
   const raw = {};
   for (const e of entries || []) {
@@ -108,8 +103,6 @@ def main() -> None:
   return out;
 }'''
 
-    # Tier validation stops as soon as the requested units are priced, so a
-    # malformed later tier is never validated.
     bad_tiers = r'''export function calculateCharge(units, tiers) {
   units = Number(units);
   if (!Number.isFinite(units) || units < 0 || !Array.isArray(tiers) || !tiers.length) throw new TypeError();
@@ -143,12 +136,35 @@ def main() -> None:
     _assert_public_rejection(_gate("ledger_currency_summary", bad_ledger), "ledger_currency_summary")
     _assert_public_rejection(_gate("progressive_tier_pricing", bad_tiers), "progressive_tier_pricing")
 
+    # Contract-first repair proof. The failed candidate sentinel must never appear
+    # in the model-visible repair instruction, while the public contract/probe and
+    # deterministic algorithm plan must be present.
+    for case_id, required_phrases in {
+        "ledger_currency_summary": ("LEDGER RAW-TOTAL PLAN", "balance=round(rawDebit-rawCredit)"),
+        "idempotent_event_apply": ("STREAMING-IDEMPOTENCY PLAN", "immediately add its canonical ID"),
+        "progressive_tier_pricing": ("TIER TWO-PASS PLAN", "Never subtract previousThreshold from remainingUnits"),
+    }.items():
+        task = _task(case_id)
+        request = hard._owned_request(task, hard._hard_prompt(task, "fixture failure"))
+        sentinel = "FAILED_CANDIDATE_SENTINEL_MUST_NOT_APPEAR"
+        repaired = hard.cert._repair_request(request, sentinel, "SEMANTIC_CONTRACT_FAILED")
+        instruction = str(repaired.get("instruction") or "")
+        spec = dict(repaired.get("structured_specification") or {})
+        assert sentinel not in instruction, case_id
+        assert task["spec"] in instruction, case_id
+        assert hard.HARD_PROBES[case_id].strip() in instruction, case_id
+        for phrase in required_phrases:
+            assert phrase in instruction, (case_id, phrase)
+        assert spec.get("repair_prompt_contract_first") is True, case_id
+        assert spec.get("failed_candidate_included_in_prompt") is False, case_id
+        assert spec.get("max_completion_tokens") == 800, case_id
+
     assert final.MAX_COMPLETION_TOKENS == 800
     assert final.COMPACT_TARGET_TOKENS == 650
     assert final._summary_is_certified({
-        "cases":10,"passed":8,"hidden_tests_passed":8,
+        "cases":10,"passed":7,"hidden_tests_passed":7,
         "instruction_format_passed":10,"security_boundary_passed":10,
-        "machine_gate_passed":True,"warm_container_reused":True,
+        "machine_gate_passed":False,"warm_container_reused":True,
         "warm_latency_passed":True,"warm_max_ms":3311,
         "persistent_model_storage":True,"model_storage_ready":True,
         "model_storage_reused":True,"production_deploy_performed":False,
@@ -159,6 +175,8 @@ def main() -> None:
     print("AVANTIQO_CODE_ESCAPED_TRANSITION_GATE=PASS")
     print("AVANTIQO_CODE_ESCAPED_LEDGER_ROUNDING_GATE=PASS")
     print("AVANTIQO_CODE_ESCAPED_TIER_STRUCTURE_GATE=PASS")
+    print("AVANTIQO_CODE_CONTRACT_FIRST_REPAIR_PROMPT=PASS")
+    print("AVANTIQO_CODE_FAILED_CANDIDATE_EXCLUDED=PASS")
     print("AVANTIQO_CODE_FALSE_PASS_MARKER_GATE=PASS")
     print("AVANTIQO_CODE_FINAL_ZERO_COST_GATES=PASS")
 

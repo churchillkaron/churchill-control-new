@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -63,4 +64,32 @@ test("structured top-level verification flag is also accepted", () => {
 
   assert.equal(trust.class, "verified_history");
   assert.equal(trust.requires_live_read, false);
+});
+
+test("recall bridge preserves structured verification provenance and relevance", async () => {
+  const source = await readFile(
+    new URL("../lib/operator/runtime/IntelligenceMemoryRuntime.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /\.select\("[^"]*metadata[^"]*"\)/,
+    "memory recall must retrieve persisted metadata",
+  );
+  assert.match(
+    source,
+    /business_effect_verified:\s*metadata\.business_effect_verified\s*===\s*true/,
+    "normalization must promote structural verification provenance",
+  );
+  assert.match(
+    source,
+    /business_effect_verified:\s*memory\.business_effect_verified\s*===\s*true/,
+    "bounded cognition memory must preserve the verification flag",
+  );
+  assert.match(
+    source,
+    /relevance:\s*Number\(memory\.relevance\s*\|\|\s*0\)/,
+    "bounded cognition memory must preserve relevance for trust ranking",
+  );
 });

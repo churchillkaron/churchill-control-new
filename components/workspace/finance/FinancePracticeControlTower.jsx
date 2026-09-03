@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
+  ChevronRight,
   CircleDot,
-  FileClock,
+  Clock3,
   FolderOpen,
   Gauge,
+  ListChecks,
   LoaderCircle,
   RefreshCw,
   Repeat2,
+  Search,
   ShieldCheck,
   UserRoundCheck,
   Users,
@@ -19,25 +22,21 @@ import {
 
 import FinanceEngagementFile from "@/components/workspace/finance/FinanceEngagementFile";
 
-function statusTone(status) {
-  if (status === "ATTENTION") return "border-red-700/15 bg-red-50 text-red-800";
-  if (status === "REVIEW") return "border-amber-700/15 bg-amber-50 text-amber-800";
-  if (status === "CLEAR") return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
-  return "border-black/[0.08] bg-[#F7F6F3] text-[#716B63]";
-}
+const TABS = [
+  { id: "today", label: "Today", icon: Clock3 },
+  { id: "clients", label: "Clients", icon: Users },
+  { id: "work", label: "Work", icon: ListChecks },
+  { id: "capacity", label: "Capacity", icon: Gauge },
+  { id: "cycles", label: "Cycles", icon: Repeat2 },
+];
 
-function capacityTone(risk) {
-  if (risk === "OVERLOADED") return "text-[#9A533D]";
-  if (risk === "HIGH") return "text-[#9A6A36]";
-  if (risk === "WATCH") return "text-[#7D7144]";
-  return "text-[#58705B]";
-}
-
-function recurringTone(status) {
-  if (status === "READY_TO_CREATE") return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
-  if (status === "ALREADY_EXISTS") return "border-black/[0.08] bg-[#F7F6F3] text-[#716B63]";
-  return "border-amber-700/15 bg-amber-50 text-amber-900";
-}
+const CLIENT_FILTERS = [
+  { id: "ALL", label: "All" },
+  { id: "ATTENTION", label: "Attention" },
+  { id: "REVIEW", label: "Review" },
+  { id: "WAITING", label: "Client wait" },
+  { id: "OVERDUE", label: "Overdue" },
+];
 
 function label(value) {
   return String(value || "")
@@ -45,61 +44,177 @@ function label(value) {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function Metric({ label: metricLabel, value, detail, attention = false }) {
+function shortDate(value) {
+  return value ? String(value).slice(0, 10) : "—";
+}
+
+function statusTone(status) {
+  const value = String(status || "").toUpperCase();
+  if (["ATTENTION", "BLOCKED", "CHANGES_REQUESTED", "OVERLOADED"].includes(value)) return "border-red-700/15 bg-red-50 text-red-800";
+  if (["REVIEW", "READY_FOR_REVIEW", "REVIEWED", "HIGH", "WATCH"].includes(value)) return "border-amber-700/15 bg-amber-50 text-amber-800";
+  if (["CLEAR", "COMPLETE", "CLEARED", "HEALTHY", "ALREADY_EXISTS"].includes(value)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
+  return "border-black/[0.08] bg-[#F7F6F3] text-[#716B63]";
+}
+
+function count(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function SummaryButton({ label: metricLabel, value, detail, attention = false, active = false, onClick }) {
   return (
-    <div className="rounded-xl border border-black/[0.07] bg-white/85 px-3.5 py-3">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl border px-3.5 py-3 text-left transition ${active ? "border-[#A37849]/35 bg-[#A37849]/[0.08]" : "border-black/[0.07] bg-white hover:border-[#A37849]/25 hover:bg-[#FFFCF8]"}`}
+    >
       <div className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#8C877F]">{metricLabel}</div>
-      <div className={`mt-2 text-[22px] font-semibold tracking-[-0.035em] ${attention && Number(value) > 0 ? "text-[#9A533D]" : "text-[#2A2723]"}`}>{value}</div>
+      <div className={`mt-2 text-[22px] font-semibold tracking-[-0.035em] ${attention && count(value) > 0 ? "text-[#9A533D]" : "text-[#2A2723]"}`}>{value}</div>
       <div className="mt-0.5 text-[9px] text-[#99938A]">{detail}</div>
+    </button>
+  );
+}
+
+function LoadingRow({ text = "Loading accounting work…" }) {
+  return <div className="flex min-h-[180px] items-center justify-center text-[11px] text-[#817D76]"><LoaderCircle size={15} className="mr-2 animate-spin text-[#A37849]" />{text}</div>;
+}
+
+function EmptyState({ title, detail }) {
+  return (
+    <div className="rounded-2xl border border-black/[0.07] bg-white px-5 py-8 text-center">
+      <CheckCircle2 size={18} className="mx-auto text-[#6F7E68]" />
+      <div className="mt-2 text-[12px] font-semibold text-[#3D3934]">{title}</div>
+      <div className="mx-auto mt-1 max-w-xl text-[10px] leading-5 text-[#8B867E]">{detail}</div>
+    </div>
+  );
+}
+
+function ClientTable({ clients, onOpen }) {
+  if (!clients.length) return <EmptyState title="Nothing in this view" detail="Change the filter or search another client." />;
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-black/[0.07] bg-white">
+      <div className="min-w-[1040px]">
+        <div className="grid grid-cols-[minmax(220px,1.5fr)_150px_150px_105px_75px_80px_80px_115px] gap-3 border-b border-black/[0.06] px-4 py-2.5 text-[8px] font-medium uppercase tracking-[0.12em] text-[#8A867F]">
+          <span>Client</span><span>Preparer</span><span>Reviewer</span><span>Next due</span><span>Open</span><span>Client wait</span><span>Review</span><span>Status</span>
+        </div>
+        {clients.map((client) => {
+          const reviewCount = count(client.workload?.ready_for_review) + count(client.workload?.reviewed_pending_partner);
+          return (
+            <button
+              type="button"
+              key={client.engagement_id}
+              onClick={() => onOpen(client.engagement_id)}
+              className="group grid w-full grid-cols-[minmax(220px,1.5fr)_150px_150px_105px_75px_80px_80px_115px] items-center gap-3 border-b border-black/[0.05] px-4 py-3 text-left text-[10px] transition last:border-0 hover:bg-[#FAF8F4]"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="truncate font-semibold text-[#37342F] group-hover:text-[#8A633C]">{client.name}</span>
+                  <ChevronRight size={11} className="shrink-0 text-[#B2ADA5] group-hover:text-[#A37849]" />
+                </div>
+                <div className="mt-0.5 truncate text-[8px] text-[#99938A]">{client.service_package || "Accounting engagement"}</div>
+              </div>
+              <div className="truncate text-[#66615A]">{client.assigned_accountant || "Unassigned"}</div>
+              <div className="truncate text-[#66615A]">{client.assigned_reviewer || "Unassigned"}</div>
+              <div className="flex items-center gap-1.5 tabular-nums text-[#5E5952]"><CalendarClock size={10} className="text-[#9A744B]" />{shortDate(client.next_deadline)}</div>
+              <div className="tabular-nums text-[#5E5952]">{count(client.workload?.open)}</div>
+              <div className={`tabular-nums ${count(client.workload?.waiting_on_client) > 0 ? "font-semibold text-[#9A533D]" : "text-[#5E5952]"}`}>{count(client.workload?.waiting_on_client)}</div>
+              <div className={`tabular-nums ${reviewCount > 0 ? "font-semibold text-[#8A633C]" : "text-[#5E5952]"}`}>{reviewCount}</div>
+              <div><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.08em] ${statusTone(client.status)}`}>{client.status === "CLEAR" ? <CheckCircle2 size={8} /> : <CircleDot size={8} />}{label(client.status)}</span></div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 export default function FinancePracticeControlTower({ organizationId }) {
-  const [state, setState] = useState({ loading: true, error: "", data: null, capacity: null, recurring: null });
+  const [practice, setPractice] = useState({ loading: true, error: "", data: null });
+  const [activeView, setActiveView] = useState("today");
+  const [clientFilter, setClientFilter] = useState("ATTENTION");
+  const [clientSearch, setClientSearch] = useState("");
   const [selectedEngagementId, setSelectedEngagementId] = useState(null);
+  const [workPrograms, setWorkPrograms] = useState(null);
+  const [workLoading, setWorkLoading] = useState(false);
+  const [workError, setWorkError] = useState("");
+  const [capacity, setCapacity] = useState(null);
+  const [capacityLoading, setCapacityLoading] = useState(false);
+  const [capacityError, setCapacityError] = useState("");
+  const [capacityWindowDays, setCapacityWindowDays] = useState(30);
+  const [recurring, setRecurring] = useState(null);
+  const [recurringLoading, setRecurringLoading] = useState(false);
+  const [recurringError, setRecurringError] = useState("");
   const [materializingKey, setMaterializingKey] = useState(null);
   const [materializeNotice, setMaterializeNotice] = useState(null);
-  const [capacityWindowDays, setCapacityWindowDays] = useState(90);
 
-  async function load() {
+  async function loadPractice() {
     if (!organizationId) return;
     try {
-      setState((current) => ({ ...current, loading: true, error: "" }));
-      const practiceUrl = new URL("/api/workspace/finance/practice-control", window.location.origin);
-      practiceUrl.searchParams.set("organizationId", organizationId);
-      const capacityUrl = new URL("/api/workspace/finance/practice-capacity", window.location.origin);
-      capacityUrl.searchParams.set("organizationId", organizationId);
-      capacityUrl.searchParams.set("days", "14");
-      const recurringUrl = new URL("/api/workspace/finance/recurring-plan", window.location.origin);
-      recurringUrl.searchParams.set("organizationId", organizationId);
-      recurringUrl.searchParams.set("days", "90");
-
-      const [practiceResponse, capacityResponse, recurringResponse] = await Promise.all([
-        fetch(practiceUrl.toString(), { cache: "no-store", credentials: "include" }),
-        fetch(capacityUrl.toString(), { cache: "no-store", credentials: "include" }),
-        fetch(recurringUrl.toString(), { cache: "no-store", credentials: "include" }),
-      ]);
-      const [practiceBody, capacityBody, recurringBody] = await Promise.all([
-        practiceResponse.json().catch(() => ({})),
-        capacityResponse.json().catch(() => ({})),
-        recurringResponse.json().catch(() => ({})),
-      ]);
-      if (!practiceResponse.ok || practiceBody?.success === false) throw new Error(practiceBody?.error || "Unable to load practice control");
-
-      const warnings = [];
-      if (!capacityResponse.ok || capacityBody?.success === false) warnings.push(capacityBody?.error || "Capacity planning is unavailable");
-      if (!recurringResponse.ok || recurringBody?.success === false) warnings.push(recurringBody?.error || "Recurring cycle planning is unavailable");
-
-      setState({
-        loading: false,
-        error: warnings.join(" · "),
-        data: practiceBody,
-        capacity: capacityResponse.ok && capacityBody?.success !== false ? capacityBody : null,
-        recurring: recurringResponse.ok && recurringBody?.success !== false ? recurringBody : null,
-      });
+      setPractice((current) => ({ ...current, loading: true, error: "" }));
+      const url = new URL("/api/workspace/finance/practice-control", window.location.origin);
+      url.searchParams.set("organizationId", organizationId);
+      const response = await fetch(url.toString(), { cache: "no-store", credentials: "include" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to load accounting practice");
+      setPractice({ loading: false, error: "", data: body });
     } catch (error) {
-      setState({ loading: false, error: error?.message || "Unable to load practice control", data: null, capacity: null, recurring: null });
+      setPractice({ loading: false, error: error?.message || "Unable to load accounting practice", data: null });
+    }
+  }
+
+  async function loadWorkPrograms(force = false) {
+    if (!organizationId || (workPrograms && !force) || workLoading) return;
+    try {
+      setWorkLoading(true);
+      setWorkError("");
+      const url = new URL("/api/workspace/finance/work-programs", window.location.origin);
+      url.searchParams.set("organizationId", organizationId);
+      const response = await fetch(url.toString(), { cache: "no-store", credentials: "include" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to load accounting work");
+      setWorkPrograms(body);
+    } catch (error) {
+      setWorkError(error?.message || "Unable to load accounting work");
+    } finally {
+      setWorkLoading(false);
+    }
+  }
+
+  async function loadCapacity(force = false) {
+    if (!organizationId || (capacity && !force) || capacityLoading) return;
+    try {
+      setCapacityLoading(true);
+      setCapacityError("");
+      const url = new URL("/api/workspace/finance/practice-capacity", window.location.origin);
+      url.searchParams.set("organizationId", organizationId);
+      url.searchParams.set("days", "14");
+      const response = await fetch(url.toString(), { cache: "no-store", credentials: "include" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to load practice capacity");
+      setCapacity(body);
+    } catch (error) {
+      setCapacityError(error?.message || "Unable to load practice capacity");
+    } finally {
+      setCapacityLoading(false);
+    }
+  }
+
+  async function loadRecurring(force = false) {
+    if (!organizationId || (recurring && !force) || recurringLoading) return;
+    try {
+      setRecurringLoading(true);
+      setRecurringError("");
+      const url = new URL("/api/workspace/finance/recurring-plan", window.location.origin);
+      url.searchParams.set("organizationId", organizationId);
+      url.searchParams.set("days", "90");
+      const response = await fetch(url.toString(), { cache: "no-store", credentials: "include" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to load recurring cycles");
+      setRecurring(body);
+    } catch (error) {
+      setRecurringError(error?.message || "Unable to load recurring cycles");
+    } finally {
+      setRecurringLoading(false);
     }
   }
 
@@ -116,15 +231,14 @@ export default function FinancePracticeControlTower({ organizationId }) {
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to create accounting cycle");
-
       const alreadyExists = body?.result?.status === "ALREADY_EXISTS" || body?.materialized === false;
       setMaterializeNotice({
         tone: "success",
         text: alreadyExists
-          ? `${candidate.client_name || "Client"}: this accounting cycle already exists. Nothing was duplicated and no client message was sent.`
-          : `${candidate.client_name || "Client"}: accounting cycle created as internal work only. No client message was sent.`,
+          ? `${candidate.client_name || "Client"}: this cycle already exists. Nothing was duplicated.`
+          : `${candidate.client_name || "Client"}: accounting cycle created. No client message was sent.`,
       });
-      await load();
+      await Promise.all([loadPractice(), loadRecurring(true), loadWorkPrograms(true)]);
     } catch (error) {
       setMaterializeNotice({ tone: "error", text: error?.message || "Unable to create accounting cycle" });
     } finally {
@@ -133,272 +247,268 @@ export default function FinancePracticeControlTower({ organizationId }) {
   }
 
   useEffect(() => {
-    load();
+    loadPractice();
   }, [organizationId]);
 
-  const summary = state.data?.summary || {};
-  const clients = Array.isArray(state.data?.clients) ? state.data.clients : [];
-  const capacitySummary = state.capacity?.summary || {};
-  const people = Array.isArray(state.capacity?.people) ? state.capacity.people : [];
-  const capacityForecast = state.capacity?.forecast?.windows?.[String(capacityWindowDays)] || null;
-  const capacityForecastSummary = capacityForecast?.summary || {};
-  const capacityForecastPeople = Array.isArray(capacityForecast?.people) ? capacityForecast.people : [];
-  const capacityForecastRoles = Array.isArray(capacityForecast?.roles) ? capacityForecast.roles : [];
-  const capacityForecastClients = Array.isArray(capacityForecast?.clients) ? capacityForecast.clients : [];
-  const recurringSummary = state.recurring?.summary || {};
-  const recurringCandidates = Array.isArray(state.recurring?.candidates) ? state.recurring.candidates : [];
-  const recurringReady = recurringCandidates.filter((candidate) => candidate.status === "READY_TO_CREATE");
-  const recurringBlockers = recurringCandidates.filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status));
+  useEffect(() => {
+    if (activeView === "work") loadWorkPrograms();
+    if (activeView === "capacity") loadCapacity();
+    if (activeView === "cycles") loadRecurring();
+  }, [activeView, organizationId]);
 
-  if (state.loading && !state.data) {
+  const summary = practice.data?.summary || {};
+  const clients = Array.isArray(practice.data?.clients) ? practice.data.clients : [];
+  const clientMap = useMemo(() => new Map(clients.map((client) => [client.organization_id, client])), [clients]);
+
+  const filteredClients = useMemo(() => {
+    const needle = clientSearch.trim().toLowerCase();
+    return clients.filter((client) => {
+      if (needle) {
+        const haystack = [client.name, client.service_package, client.assigned_accountant, client.assigned_reviewer].filter(Boolean).join(" ").toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      if (clientFilter === "ATTENTION") return client.status === "ATTENTION";
+      if (clientFilter === "REVIEW") return count(client.workload?.ready_for_review) + count(client.workload?.reviewed_pending_partner) > 0;
+      if (clientFilter === "WAITING") return count(client.workload?.waiting_on_client) > 0;
+      if (clientFilter === "OVERDUE") return count(client.workload?.overdue) > 0;
+      return true;
+    });
+  }, [clients, clientFilter, clientSearch]);
+
+  const focusClients = useMemo(() => {
+    const actionable = clients.filter((client) => client.status !== "CLEAR" || count(client.workload?.active_runs) > 0);
+    return (actionable.length ? actionable : clients).slice(0, 10);
+  }, [clients]);
+
+  const workRows = useMemo(() => {
+    const rows = [];
+    for (const run of workPrograms?.runs || []) {
+      const client = clientMap.get(run.organization_id);
+      for (const item of run.work_items || []) {
+        if (["COMPLETE", "SKIPPED"].includes(String(item.status || "").toUpperCase())) continue;
+        rows.push({
+          ...item,
+          engagement_id: run.engagement_id,
+          run_status: run.status,
+          client_name: client?.name || "Client organization",
+          assigned_accountant: client?.assigned_accountant || null,
+        });
+      }
+    }
+    return rows.sort((a, b) => String(a.due_at || "9999-12-31").localeCompare(String(b.due_at || "9999-12-31")) || Number(a.sequence_no || 0) - Number(b.sequence_no || 0));
+  }, [workPrograms, clientMap]);
+
+  function openFilteredClients(filter) {
+    setClientFilter(filter);
+    setClientSearch("");
+    setActiveView("clients");
+  }
+
+  if (practice.loading && !practice.data) {
+    return <section className="rounded-[24px] border border-[#A37849]/15 bg-[#FBF8F3] p-5"><LoadingRow text="Preparing accounting practice workspace…" /></section>;
+  }
+
+  if (practice.error && !practice.data) {
     return (
-      <section className="rounded-[24px] border border-[#A37849]/20 bg-[#F9F5EF] p-5">
-        <div className="flex items-center gap-2 text-[12px] text-[#756F67]"><LoaderCircle size={15} className="animate-spin" /> Loading accounting practice workload…</div>
+      <section className="rounded-[24px] border border-red-700/15 bg-red-50 p-5 text-[11px] text-red-800">
+        <div className="flex items-start gap-2"><AlertTriangle size={14} className="mt-0.5" /><div><div className="font-semibold">Accounting practice workspace could not load</div><div className="mt-1">{practice.error}</div></div></div>
       </section>
     );
   }
 
-  if (!clients.length && !state.error) return null;
+  if (selectedEngagementId) {
+    return (
+      <section className="rounded-[24px] border border-[#A37849]/15 bg-[#FBF8F3] p-4 md:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
+          <button type="button" onClick={() => setSelectedEngagementId(null)} className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#76583A] hover:text-[#4E3822]">← Back to practice</button>
+          <div className="text-[9px] text-[#99938A]">Client file · work · evidence · review</div>
+        </div>
+        <FinanceEngagementFile organizationId={organizationId} engagementId={selectedEngagementId} onClose={() => setSelectedEngagementId(null)} />
+      </section>
+    );
+  }
 
   return (
-    <section className="rounded-[24px] border border-[#A37849]/20 bg-[#F9F5EF] p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <section className="rounded-[24px] border border-[#A37849]/15 bg-[#FBF8F3] p-4 md:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.17em] text-[#8A633C]"><ShieldCheck size={13} /> Practice control tower</div>
-          <h2 className="mt-1.5 text-[20px] font-semibold tracking-[-0.025em] text-[#2A2723]">Accounting firm portfolio</h2>
-          <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#756F67]">Run the firm by exception: active work programs, client evidence, review clearance, capacity pressure, recurring-cycle readiness and the next deadline across every engagement.</p>
+          <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><ShieldCheck size={12} /> Accounting practice</div>
+          <h2 className="mt-1.5 text-[20px] font-semibold tracking-[-0.025em] text-[#2A2723]">Your work, clients and review in one place</h2>
+          <p className="mt-1 max-w-3xl text-[11px] leading-5 text-[#756F67]">Designed for daily accounting work: start with what needs attention, open the client file, finish the procedure, review the evidence, and return to the same queue.</p>
         </div>
-        <button type="button" onClick={load} disabled={state.loading} className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#A37849]/20 bg-white/70 px-3 text-[10px] font-medium text-[#76583A] disabled:opacity-50">
-          <RefreshCw size={12} className={state.loading ? "animate-spin" : ""} /> Refresh practice
-        </button>
+        <button type="button" onClick={() => loadPractice()} disabled={practice.loading} className="inline-flex h-9 items-center gap-2 self-start rounded-xl border border-[#A37849]/20 bg-white px-3 text-[9px] font-semibold text-[#76583A] disabled:opacity-50 lg:self-auto"><RefreshCw size={11} className={practice.loading ? "animate-spin" : ""} /> Refresh</button>
       </div>
 
-      {state.error ? (
-        <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-700/15 bg-amber-50 p-3 text-[10px] text-amber-900"><AlertTriangle size={13} className="mt-0.5" />{state.error}</div>
-      ) : null}
-
-      <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
-        <Metric label="Clients" value={summary.active_clients || 0} detail="Active engagements" />
-        <Metric label="Programs" value={summary.active_runs || 0} detail="Active work programs" />
-        <Metric label="Attention" value={summary.attention || 0} detail="Clients needing intervention" attention />
-        <Metric label="Client wait" value={summary.waiting_on_client || 0} detail="Evidence or response pending" attention />
-        <Metric label="Blocked" value={summary.blocked_work || 0} detail="Dependency blockers" attention />
-        <Metric label="Ready" value={summary.ready_for_review || 0} detail="Waiting for reviewer" attention />
-        <Metric label="Partner" value={summary.partner_clearance || 0} detail="Awaiting final clearance" attention />
-        <Metric label="Overdue" value={summary.overdue || 0} detail={`${summary.client_requests || 0} open client requests`} attention />
+      <div className="mt-4 flex gap-1 overflow-x-auto border-b border-black/[0.07] pb-px">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const active = activeView === tab.id;
+          return (
+            <button key={tab.id} type="button" onClick={() => setActiveView(tab.id)} className={`inline-flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[10px] font-semibold transition ${active ? "border-[#A37849] text-[#5F452D]" : "border-transparent text-[#817D76] hover:text-[#514D47]"}`}>
+              <Icon size={11} /> {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {state.capacity ? (
-        <div className="mt-4 rounded-2xl border border-black/[0.07] bg-white/70 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+      {activeView === "today" ? (
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+            <SummaryButton label="Attention" value={summary.attention || 0} detail="Clients needing action" attention onClick={() => openFilteredClients("ATTENTION")} />
+            <SummaryButton label="Ready for review" value={summary.ready_for_review || 0} detail={`${summary.partner_clearance || 0} partner clearance`} attention onClick={() => openFilteredClients("REVIEW")} />
+            <SummaryButton label="Client wait" value={summary.waiting_on_client || 0} detail="Evidence or response pending" attention onClick={() => openFilteredClients("WAITING")} />
+            <SummaryButton label="Overdue" value={summary.overdue || 0} detail="Work past due" attention onClick={() => openFilteredClients("OVERDUE")} />
+            <SummaryButton label="Active clients" value={summary.active_clients || 0} detail={`${summary.active_runs || 0} active programs`} onClick={() => openFilteredClients("ALL")} />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
             <div>
-              <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A633C]"><Gauge size={12} /> 14-day capacity</div>
-              <div className="mt-1 text-[12px] text-[#716B63]">Budgeted materialized work against targeted staff availability.</div>
+              <div className="mb-2 flex items-end justify-between gap-3">
+                <div><div className="text-[10px] font-semibold text-[#403C37]">Priority clients</div><div className="mt-0.5 text-[9px] text-[#918B83]">Sorted by risk and next deadline. Open a client without losing your place.</div></div>
+                <button type="button" onClick={() => openFilteredClients("ALL")} className="text-[9px] font-semibold text-[#8A633C]">All clients</button>
+              </div>
+              <ClientTable clients={focusClients} onOpen={setSelectedEngagementId} />
             </div>
-            <div className="text-[9px] text-[#99938A]">{state.capacity?.horizon?.start} – {state.capacity?.horizon?.end}</div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
-            <Metric label="Available" value={`${capacitySummary.available_hours || 0}h`} detail="Target capacity" />
-            <Metric label="Assigned" value={`${capacitySummary.assigned_hours || 0}h`} detail={`${capacitySummary.utilization || 0}% utilization`} />
-            <Metric label="Overloaded" value={capacitySummary.overloaded_people || 0} detail="People over target capacity" attention />
-            <Metric label="Unassigned" value={`${capacitySummary.unassigned_hours || 0}h`} detail={`${capacitySummary.unassigned_items || 0} work items`} attention />
-            <Metric label="Overdue work" value={capacitySummary.overdue_items || 0} detail="Open items past due" attention />
-          </div>
-          {people.length ? (
-            <div className="mt-3 overflow-x-auto">
-              <div className="min-w-[720px]">
-                <div className="grid grid-cols-[minmax(180px,1fr)_110px_105px_105px_95px_90px] gap-3 border-b border-black/[0.06] px-2 py-2 text-[8px] font-medium uppercase tracking-[0.12em] text-[#8A867F]">
-                  <span>Team member</span><span>Role</span><span>Assigned</span><span>Available</span><span>Load</span><span>Risk</span>
-                </div>
-                {people.slice(0, 8).map((person) => (
-                  <div key={person.staff_account_id} className="grid grid-cols-[minmax(180px,1fr)_110px_105px_105px_95px_90px] gap-3 border-b border-black/[0.05] px-2 py-2.5 text-[10px] last:border-0">
-                    <div className="truncate font-medium text-[#37342F]">{person.name}</div>
-                    <div className="truncate text-[#716B63]">{label(person.role)}</div>
-                    <div className="tabular-nums text-[#5E5952]">{person.assigned_hours}h</div>
-                    <div className="tabular-nums text-[#5E5952]">{person.available_hours}h</div>
-                    <div className="tabular-nums text-[#5E5952]">{person.utilization}%</div>
-                    <div className={`font-semibold ${capacityTone(person.risk)}`}>{label(person.risk)}</div>
+
+            <div className="rounded-2xl border border-black/[0.07] bg-white p-4">
+              <div className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#8A867F]">Today’s focus</div>
+              <div className="mt-3 divide-y divide-black/[0.06]">
+                {[
+                  ["Blocked work", summary.blocked_work || 0, "Resolve dependencies before more work is started."],
+                  ["Open review points", summary.open_review_points || 0, "Clear questions where the accounting evidence is incomplete."],
+                  ["Partner clearance", summary.partner_clearance || 0, "Final review decisions waiting for sign-off."],
+                  ["Client requests", summary.client_requests || 0, "Evidence or answers currently expected from clients."],
+                ].map(([title, value, detail]) => (
+                  <div key={title} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                    <div><div className="text-[10px] font-semibold text-[#4A4640]">{title}</div><div className="mt-0.5 text-[8px] leading-4 text-[#979189]">{detail}</div></div>
+                    <div className={`tabular-nums text-[18px] font-semibold ${count(value) > 0 ? "text-[#9A533D]" : "text-[#6F7E68]"}`}>{value}</div>
                   </div>
                 ))}
               </div>
             </div>
-          ) : null}
+          </div>
+        </div>
+      ) : null}
 
-          <div className="mt-4 border-t border-black/[0.06] pt-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A633C]">Forward demand</div>
-                <div className="mt-1 max-w-3xl text-[11px] leading-4 text-[#716B63]">Committed work plus governed recurring demand before cycles are created. Forecast excludes client and system steps from staff utilization and never creates work by itself.</div>
-              </div>
-              <div className="inline-flex rounded-xl border border-black/[0.07] bg-[#FAF9F7] p-1">
-                {[30, 60, 90].map((days) => (
-                  <button key={days} type="button" onClick={() => setCapacityWindowDays(days)} className={`h-7 rounded-lg px-2.5 text-[8px] font-semibold uppercase tracking-[0.08em] ${capacityWindowDays === days ? "bg-white text-[#76583A] shadow-sm" : "text-[#8C877F]"}`}>{days} days</button>
+      {activeView === "clients" ? (
+        <div className="mt-4 space-y-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex gap-1 overflow-x-auto">
+              {CLIENT_FILTERS.map((filter) => (
+                <button key={filter.id} type="button" onClick={() => setClientFilter(filter.id)} className={`h-8 shrink-0 rounded-lg border px-2.5 text-[8px] font-semibold uppercase tracking-[0.08em] ${clientFilter === filter.id ? "border-[#A37849]/25 bg-[#A37849]/[0.08] text-[#76583A]" : "border-black/[0.07] bg-white text-[#817D76]"}`}>{filter.label}</button>
+              ))}
+            </div>
+            <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 xl:w-[300px]"><Search size={12} className="text-[#A29D95]" /><input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="Search client or accountant" className="min-w-0 flex-1 bg-transparent text-[10px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
+          </div>
+          <div className="text-[9px] text-[#918B83]">{filteredClients.length} client{filteredClients.length === 1 ? "" : "s"} in this view</div>
+          <ClientTable clients={filteredClients} onOpen={setSelectedEngagementId} />
+        </div>
+      ) : null}
+
+      {activeView === "work" ? (
+        <div className="mt-4">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div><div className="text-[10px] font-semibold text-[#403C37]">Open accounting work</div><div className="mt-0.5 text-[9px] text-[#918B83]">One queue across clients, ordered by due date. Completed and skipped procedures stay out of the working view.</div></div>
+            <button type="button" onClick={() => loadWorkPrograms(true)} disabled={workLoading} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.07] bg-white px-2.5 text-[8px] font-semibold text-[#716B63]"><RefreshCw size={10} className={workLoading ? "animate-spin" : ""} /> Refresh</button>
+          </div>
+          {workError ? <div className="mb-3 rounded-xl border border-red-700/15 bg-red-50 p-3 text-[9px] text-red-800">{workError}</div> : null}
+          {workLoading && !workPrograms ? <LoadingRow /> : workRows.length ? (
+            <div className="overflow-x-auto rounded-2xl border border-black/[0.07] bg-white">
+              <div className="min-w-[920px]">
+                <div className="grid grid-cols-[105px_minmax(190px,1.1fr)_minmax(240px,1.4fr)_105px_120px_80px] gap-3 border-b border-black/[0.06] px-4 py-2.5 text-[8px] font-medium uppercase tracking-[0.12em] text-[#8A867F]"><span>Due</span><span>Client</span><span>Procedure</span><span>Role</span><span>Status</span><span>File</span></div>
+                {workRows.slice(0, 250).map((item) => (
+                  <div key={item.id} className="grid grid-cols-[105px_minmax(190px,1.1fr)_minmax(240px,1.4fr)_105px_120px_80px] items-center gap-3 border-b border-black/[0.05] px-4 py-2.5 text-[10px] last:border-0">
+                    <div className={`tabular-nums ${item.due_at && shortDate(item.due_at) < new Date().toISOString().slice(0, 10) ? "font-semibold text-[#9A533D]" : "text-[#5E5952]"}`}>{shortDate(item.due_at)}</div>
+                    <div className="truncate font-medium text-[#4A4640]">{item.client_name}</div>
+                    <div className="min-w-0"><div className="truncate font-medium text-[#37342F]">{item.title}</div><div className="mt-0.5 truncate text-[8px] text-[#99938A]">{item.assigned_accountant || "Unassigned preparer"}</div></div>
+                    <div className="text-[#716B63]">{label(item.required_role)}</div>
+                    <div><span className={`inline-flex rounded-full border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] ${statusTone(item.status)}`}>{label(item.status)}</span></div>
+                    <button type="button" onClick={() => setSelectedEngagementId(item.engagement_id)} className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-[#A37849]/20 bg-[#A37849]/[0.04] px-2 text-[7px] font-semibold uppercase tracking-[0.06em] text-[#76583A]"><FolderOpen size={9} /> Open</button>
+                  </div>
                 ))}
               </div>
             </div>
+          ) : <EmptyState title="No open accounting procedures" detail="The work queue is clear for the currently materialized accounting programs." />}
+        </div>
+      ) : null}
 
-            {capacityForecast ? (
-              <>
-                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-6">
-                  <Metric label="Available" value={`${capacityForecastSummary.available_hours || 0}h`} detail={`${capacityWindowDays}-day target capacity`} />
-                  <Metric label="Committed" value={`${capacityForecastSummary.committed_hours || 0}h`} detail="Already materialized" />
-                  <Metric label="Forecast" value={`${capacityForecastSummary.forecast_hours || 0}h`} detail="Not yet materialized" />
-                  <Metric label="Total demand" value={`${capacityForecastSummary.total_hours || 0}h`} detail={`${capacityForecastSummary.projected_utilization || 0}% projected load`} />
-                  <Metric label="Projected overload" value={capacityForecastSummary.projected_overloaded_people || 0} detail="People above capacity" attention />
-                  <Metric label="Unassigned forecast" value={`${capacityForecastSummary.unassigned_forecast_hours || 0}h`} detail={`${capacityForecastSummary.unassigned_forecast_items || 0} future procedures`} attention />
+      {activeView === "capacity" ? (
+        <div className="mt-4">
+          <div className="mb-3 flex items-end justify-between gap-3"><div><div className="text-[10px] font-semibold text-[#403C37]">Team capacity</div><div className="mt-0.5 text-[9px] text-[#918B83]">Planning lives here so it does not interrupt daily accounting work.</div></div><button type="button" onClick={() => loadCapacity(true)} disabled={capacityLoading} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.07] bg-white px-2.5 text-[8px] font-semibold text-[#716B63]"><RefreshCw size={10} className={capacityLoading ? "animate-spin" : ""} /> Refresh</button></div>
+          {capacityError ? <div className="mb-3 rounded-xl border border-red-700/15 bg-red-50 p-3 text-[9px] text-red-800">{capacityError}</div> : null}
+          {capacityLoading && !capacity ? <LoadingRow text="Loading team capacity…" /> : capacity ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                <SummaryButton label="Available" value={`${capacity.summary?.available_hours || 0}h`} detail="14-day target capacity" />
+                <SummaryButton label="Assigned" value={`${capacity.summary?.assigned_hours || 0}h`} detail={`${capacity.summary?.utilization || 0}% utilization`} />
+                <SummaryButton label="Overloaded" value={capacity.summary?.overloaded_people || 0} detail="People over target" attention />
+                <SummaryButton label="Unassigned" value={`${capacity.summary?.unassigned_hours || 0}h`} detail={`${capacity.summary?.unassigned_items || 0} procedures`} attention />
+                <SummaryButton label="Overdue" value={capacity.summary?.overdue_items || 0} detail="Open work past due" attention />
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-black/[0.07] bg-white">
+                <div className="min-w-[760px]">
+                  <div className="grid grid-cols-[minmax(190px,1fr)_110px_100px_100px_90px_100px] gap-3 border-b border-black/[0.06] px-4 py-2.5 text-[8px] font-medium uppercase tracking-[0.12em] text-[#8A867F]"><span>Team member</span><span>Role</span><span>Assigned</span><span>Available</span><span>Load</span><span>Risk</span></div>
+                  {(capacity.people || []).map((person) => (
+                    <div key={person.staff_account_id} className="grid grid-cols-[minmax(190px,1fr)_110px_100px_100px_90px_100px] gap-3 border-b border-black/[0.05] px-4 py-2.5 text-[10px] last:border-0"><div className="truncate font-medium text-[#37342F]">{person.name}</div><div className="truncate text-[#716B63]">{label(person.role)}</div><div className="tabular-nums text-[#5E5952]">{person.assigned_hours}h</div><div className="tabular-nums text-[#5E5952]">{person.available_hours}h</div><div className="tabular-nums text-[#5E5952]">{person.utilization}%</div><div><span className={`inline-flex rounded-full border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] ${statusTone(person.risk)}`}>{label(person.risk)}</span></div></div>
+                  ))}
                 </div>
+              </div>
 
-                {capacityForecastPeople.length ? (
-                  <div className="mt-3 overflow-x-auto rounded-xl border border-black/[0.05] bg-white/65">
-                    <div className="min-w-[760px]">
-                      <div className="grid grid-cols-[minmax(180px,1fr)_100px_105px_105px_105px_95px_90px] gap-3 border-b border-black/[0.06] px-3 py-2 text-[8px] font-medium uppercase tracking-[0.12em] text-[#8A867F]">
-                        <span>Team member</span><span>Role</span><span>Committed</span><span>Forecast</span><span>Total</span><span>Load</span><span>Risk</span>
-                      </div>
-                      {capacityForecastPeople.slice(0, 10).map((person) => (
-                        <div key={person.staff_account_id} className="grid grid-cols-[minmax(180px,1fr)_100px_105px_105px_105px_95px_90px] gap-3 border-b border-black/[0.05] px-3 py-2.5 text-[10px] last:border-0">
-                          <div className="truncate font-medium text-[#37342F]">{person.name}</div>
-                          <div className="truncate text-[#716B63]">{label(person.role)}</div>
-                          <div className="tabular-nums text-[#5E5952]">{person.committed_hours}h</div>
-                          <div className="tabular-nums text-[#8A633C]">+{person.forecast_hours}h</div>
-                          <div className="tabular-nums font-medium text-[#403C37]">{person.total_hours}h</div>
-                          <div className="tabular-nums text-[#5E5952]">{person.utilization}%</div>
-                          <div className={`font-semibold ${capacityTone(person.risk)}`}>{label(person.risk)}</div>
-                        </div>
-                      ))}
-                    </div>
+              <div className="rounded-2xl border border-black/[0.07] bg-white p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-[9px] font-medium uppercase tracking-[0.13em] text-[#8A867F]">Forward demand</div><div className="mt-1 text-[9px] text-[#918B83]">Committed work plus governed recurring demand. Nothing is created from this forecast.</div></div><div className="inline-flex rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-1">{[30, 60, 90].map((days) => <button key={days} type="button" onClick={() => setCapacityWindowDays(days)} className={`h-7 rounded-md px-2.5 text-[8px] font-semibold ${capacityWindowDays === days ? "bg-white text-[#76583A] shadow-sm" : "text-[#8C877F]"}`}>{days}d</button>)}</div></div>
+                {capacity.forecast?.windows?.[String(capacityWindowDays)] ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+                    {(() => { const forecast = capacity.forecast.windows[String(capacityWindowDays)].summary || {}; return [
+                      ["Available", `${forecast.available_hours || 0}h`],
+                      ["Committed", `${forecast.committed_hours || 0}h`],
+                      ["Forecast", `${forecast.forecast_hours || 0}h`],
+                      ["Projected load", `${forecast.projected_utilization || 0}%`],
+                      ["High load", forecast.projected_high_load_people || 0],
+                    ].map(([name, value]) => <div key={name} className="rounded-xl border border-black/[0.06] bg-[#FAF9F7] p-3"><div className="text-[8px] font-medium uppercase tracking-[0.1em] text-[#8A867F]">{name}</div><div className="mt-1.5 text-[17px] font-semibold text-[#37342F]">{value}</div></div>); })()}
                   </div>
                 ) : null}
-
-                {(capacityForecastRoles.length || capacityForecastClients.length) ? (
-                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                    <div className="rounded-xl border border-black/[0.05] bg-white/65 p-3">
-                      <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A867F]">Forecast by role</div>
-                      <div className="mt-2 space-y-1.5">
-                        {capacityForecastRoles.slice(0, 6).map((row) => (
-                          <div key={row.role} className="flex items-center justify-between gap-3 text-[10px]"><span className="text-[#66615A]">{label(row.role)}</span><span className="tabular-nums font-medium text-[#403C37]">{row.forecast_hours}h · {row.forecast_items} procedures</span></div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-black/[0.05] bg-white/65 p-3">
-                      <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A867F]">Forecast by client</div>
-                      <div className="mt-2 space-y-1.5">
-                        {capacityForecastClients.slice(0, 6).map((row) => (
-                          <div key={row.organization_id} className="flex items-center justify-between gap-3 text-[10px]"><span className="truncate text-[#66615A]">{row.client_name}</span><span className="shrink-0 tabular-nums font-medium text-[#403C37]">{row.forecast_hours}h · {row.cycles} cycles</span></div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded-xl border border-amber-700/10 bg-amber-50/55 p-3 text-[10px] text-[#7D6A50]">No materializable recurring demand is available yet. Configuration-blocked cycles remain excluded until their legal entity, period and template requirements are valid.</div>
-                )}
-              </>
-            ) : null}
-          </div>
+              </div>
+            </div>
+          ) : <EmptyState title="No capacity data" detail="Capacity becomes available as accounting staff and work programs are assigned." />}
         </div>
       ) : null}
 
-      {state.recurring ? (
-        <div className="mt-4 rounded-2xl border border-black/[0.07] bg-white/70 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.15em] text-[#8A633C]"><Repeat2 size={12} /> 90-day recurring cycle plan</div>
-              <div className="mt-1 text-[12px] text-[#716B63]">Avantiqo recomputes each candidate on the server before creation. A cycle creates internal accounting work and draft evidence requests only; it never sends a client message.</div>
-            </div>
-            <div className="rounded-full border border-black/[0.07] bg-[#FAF9F7] px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#7D776F]">Governed creation · no external messages</div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
-            <Metric label="Planned" value={recurringSummary.total || 0} detail="90-day candidates" />
-            <Metric label="Ready" value={recurringSummary.ready_to_create || 0} detail="Safe to materialize" />
-            <Metric label="Entity setup" value={recurringSummary.blocked_entity_configuration || 0} detail="Legal entity missing" attention />
-            <Metric label="Period setup" value={recurringSummary.blocked_period_configuration || 0} detail="Financial period missing" attention />
-            <Metric label="Existing" value={recurringSummary.already_exists || 0} detail="Idempotency protected" />
-          </div>
+      {activeView === "cycles" ? (
+        <div className="mt-4">
+          <div className="mb-3 flex items-end justify-between gap-3"><div><div className="text-[10px] font-semibold text-[#403C37]">Recurring accounting cycles</div><div className="mt-0.5 text-[9px] text-[#918B83]">Create governed internal work only when the next accounting cycle is ready. No client message is sent automatically.</div></div><button type="button" onClick={() => loadRecurring(true)} disabled={recurringLoading} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.07] bg-white px-2.5 text-[8px] font-semibold text-[#716B63]"><RefreshCw size={10} className={recurringLoading ? "animate-spin" : ""} /> Refresh</button></div>
+          {recurringError ? <div className="mb-3 rounded-xl border border-red-700/15 bg-red-50 p-3 text-[9px] text-red-800">{recurringError}</div> : null}
+          {materializeNotice ? <div className={`mb-3 flex items-start gap-2 rounded-xl border p-3 text-[9px] ${materializeNotice.tone === "error" ? "border-red-700/15 bg-red-50 text-red-800" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>{materializeNotice.tone === "error" ? <AlertTriangle size={12} className="mt-0.5" /> : <CheckCircle2 size={12} className="mt-0.5" />}{materializeNotice.text}</div> : null}
+          {recurringLoading && !recurring ? <LoadingRow text="Planning recurring accounting cycles…" /> : recurring ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                <SummaryButton label="Planned" value={recurring.summary?.total || 0} detail="90-day candidates" />
+                <SummaryButton label="Ready" value={recurring.summary?.ready_to_create || 0} detail="Safe to create" />
+                <SummaryButton label="Entity setup" value={recurring.summary?.blocked_entity_configuration || 0} detail="Legal entity missing" attention />
+                <SummaryButton label="Period setup" value={recurring.summary?.blocked_period_configuration || 0} detail="Financial period missing" attention />
+                <SummaryButton label="Existing" value={recurring.summary?.already_exists || 0} detail="Duplicate protected" />
+              </div>
 
-          {materializeNotice ? (
-            <div className={`mt-3 flex items-start gap-2 rounded-xl border p-3 text-[10px] ${materializeNotice.tone === "error" ? "border-red-700/15 bg-red-50 text-red-800" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-              {materializeNotice.tone === "error" ? <AlertTriangle size={13} className="mt-0.5" /> : <CheckCircle2 size={13} className="mt-0.5" />}
-              {materializeNotice.text}
-            </div>
-          ) : null}
-
-          {recurringReady.length ? (
-            <div className="mt-3">
-              <div className="mb-2 text-[8px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">Ready for controlled creation</div>
-              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {recurringReady.slice(0, 9).map((candidate) => {
-                  const isCreating = materializingKey === candidate.idempotency_key;
+              <div className="grid gap-2 lg:grid-cols-2">
+                {(recurring.candidates || []).filter((candidate) => candidate.status === "READY_TO_CREATE").map((candidate) => {
+                  const creating = materializingKey === candidate.idempotency_key;
                   return (
-                    <div key={candidate.idempotency_key} className="rounded-xl border border-emerald-700/10 bg-emerald-50/35 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-[10px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div>
-                          <div className="mt-0.5 text-[8px] text-[#99938A]">{candidate.template_name || label(candidate.service_key || candidate.cadence)} · due {candidate.due_at ? String(candidate.due_at).slice(0, 10) : "—"}</div>
-                        </div>
-                        <span className={`rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase ${recurringTone(candidate.status)}`}>{label(candidate.status)}</span>
-                      </div>
-                      <div className="mt-2 text-[9px] leading-4 text-[#716B63]">Creates the governed work program and draft client evidence requests. No email, reminder or external client message is sent.</div>
-                      <button type="button" onClick={() => materializeRecurringCycle(candidate)} disabled={Boolean(materializingKey)} className="mt-3 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#6E8A70]/20 bg-white px-2.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#58705B] hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">
-                        {isCreating ? <LoaderCircle size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
-                        {isCreating ? "Creating…" : "Create accounting cycle"}
-                      </button>
+                    <div key={candidate.idempotency_key} className="rounded-2xl border border-emerald-700/10 bg-white p-4">
+                      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-[11px] font-semibold text-[#3F3B36]">{candidate.client_name || "Client"}</div><div className="mt-1 text-[9px] text-[#918B83]">{candidate.template_name || label(candidate.service_key || candidate.cadence)} · due {shortDate(candidate.due_at)}</div></div><span className="rounded-full border border-emerald-700/15 bg-emerald-50 px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] text-emerald-800">Ready</span></div>
+                      <div className="mt-3 text-[9px] leading-4 text-[#716B63]">Creates the internal work program and draft evidence requests. It does not email or remind the client.</div>
+                      <button type="button" onClick={() => materializeRecurringCycle(candidate)} disabled={Boolean(materializingKey)} className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#6E8A70]/20 bg-emerald-50/40 px-2.5 text-[8px] font-semibold text-[#58705B] disabled:opacity-50">{creating ? <LoaderCircle size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}{creating ? "Creating…" : "Create cycle"}</button>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          ) : null}
 
-          {recurringBlockers.length ? (
-            <div className="mt-3">
-              <div className="mb-2 text-[8px] font-semibold uppercase tracking-[0.13em] text-[#8A867F]">Configuration blockers</div>
-              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {recurringBlockers.slice(0, 9).map((candidate) => (
-                  <div key={candidate.idempotency_key} className="rounded-xl border border-black/[0.06] bg-white p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0"><div className="truncate text-[10px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div><div className="mt-0.5 text-[8px] text-[#99938A]">{label(candidate.service_key || candidate.cadence || "configuration")}</div></div>
-                      <span className={`rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase ${recurringTone(candidate.status)}`}>{label(candidate.status)}</span>
-                    </div>
-                    {candidate.blockers?.[0] ? <div className="mt-2 text-[9px] leading-4 text-[#7D6A50]">{candidate.blockers[0]}</div> : null}
-                  </div>
-                ))}
-              </div>
+              {(recurring.candidates || []).filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status)).length ? (
+                <div className="rounded-2xl border border-amber-700/10 bg-[#FFF9EF] p-4"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Configuration blockers</div><div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{(recurring.candidates || []).filter((candidate) => !["READY_TO_CREATE", "ALREADY_EXISTS"].includes(candidate.status)).slice(0, 12).map((candidate) => <div key={candidate.idempotency_key} className="rounded-xl border border-black/[0.06] bg-white p-3"><div className="flex items-start justify-between gap-2"><div className="truncate text-[9px] font-semibold text-[#403C37]">{candidate.client_name || "Client"}</div><span className={`rounded-full border px-1.5 py-0.5 text-[6px] font-semibold uppercase ${statusTone(candidate.status)}`}>{label(candidate.status)}</span></div>{candidate.blockers?.[0] ? <div className="mt-2 text-[8px] leading-4 text-[#7D6A50]">{candidate.blockers[0]}</div> : null}</div>)}</div></div>
+              ) : null}
             </div>
-          ) : null}
+          ) : <EmptyState title="No recurring cycle plan" detail="Recurring accounting work appears here when active engagements and templates require a new cycle." />}
         </div>
       ) : null}
-
-      <div className="mt-4 overflow-x-auto rounded-2xl border border-black/[0.07] bg-white/85">
-        <div className="min-w-[1430px]">
-          <div className="grid grid-cols-[minmax(240px,1.5fr)_145px_145px_100px_90px_100px_95px_95px_100px_110px_130px_95px] gap-3 border-b border-black/[0.06] px-4 py-2.5 text-[9px] font-medium uppercase tracking-[0.12em] text-[#8A867F]">
-            <span>Client</span><span>Preparer</span><span>Reviewer</span><span>Status</span><span>Programs</span><span>Client wait</span><span>Blocked</span><span>Ready</span><span>Overdue</span><span>Review points</span><span>Next deadline</span><span>File</span>
-          </div>
-          {clients.map((client) => (
-            <div key={client.organization_id} className={`grid grid-cols-[minmax(240px,1.5fr)_145px_145px_100px_90px_100px_95px_95px_100px_110px_130px_95px] items-center gap-3 border-b border-black/[0.05] px-4 py-3 text-[11px] last:border-0 ${selectedEngagementId === client.engagement_id ? "bg-[#A37849]/[0.05]" : ""}`}>
-              <div className="min-w-0">
-                <button type="button" onClick={() => setSelectedEngagementId(client.engagement_id)} className="block max-w-full text-left"><div className="truncate font-semibold text-[#37342F] hover:text-[#8A633C]">{client.name}</div></button>
-                <div className="mt-0.5 flex items-center gap-2 truncate text-[9px] text-[#908B83]">
-                  <Users size={10} /> {client.service_package || "Engagement"}<span>·</span><span>{client.workload?.open || 0} open</span>
-                  {(client.workload?.client_requests || 0) > 0 ? <><span>·</span><span>{client.workload.client_requests} requests</span></> : null}
-                  {client.workload?.changes_requested ? <><span>·</span><span className="text-[#9A533D]">{client.workload.changes_requested} changes</span></> : null}
-                </div>
-              </div>
-              <div className="truncate text-[#66615A]">{client.assigned_accountant || "Unassigned"}</div>
-              <div className="truncate text-[#66615A]">{client.assigned_reviewer || "Unassigned"}</div>
-              <div><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] ${statusTone(client.status)}`}>{client.status === "CLEAR" ? <CheckCircle2 size={9} /> : <CircleDot size={9} />}{label(client.status)}</span></div>
-              <div className="flex items-center gap-1.5 tabular-nums text-[#5E5952]"><FileClock size={11} className="text-[#9A744B]" />{client.workload?.active_runs || 0}</div>
-              <div className={`flex items-center gap-1.5 tabular-nums ${(client.workload?.waiting_on_client || 0) > 0 ? "font-semibold text-[#9A533D]" : "text-[#5E5952]"}`}><UserRoundCheck size={11} />{client.workload?.waiting_on_client || 0}</div>
-              <div className={`tabular-nums ${(client.workload?.blocked_work || 0) > 0 ? "font-semibold text-[#9A533D]" : "text-[#5E5952]"}`}>{client.workload?.blocked_work || 0}</div>
-              <div className="tabular-nums text-[#5E5952]">{client.workload?.ready_for_review || 0}</div>
-              <div className={`tabular-nums ${(client.workload?.overdue || 0) > 0 ? "font-semibold text-[#9A533D]" : "text-[#5E5952]"}`}>{client.workload?.overdue || 0}</div>
-              <div className={`tabular-nums ${(client.workload?.open_review_points || 0) > 0 ? "font-semibold text-[#9A533D]" : "text-[#5E5952]"}`}>{client.workload?.open_review_points || 0}</div>
-              <div className="flex items-center gap-1.5 text-[#5E5952]"><CalendarClock size={11} className="text-[#9A744B]" />{client.next_deadline || "—"}</div>
-              <button type="button" onClick={() => setSelectedEngagementId(client.engagement_id)} className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#A37849]/20 bg-[#A37849]/[0.05] px-2 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#76583A] hover:bg-[#A37849]/[0.1]"><FolderOpen size={10} /> Open</button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {selectedEngagementId ? <FinanceEngagementFile organizationId={organizationId} engagementId={selectedEngagementId} onClose={() => setSelectedEngagementId(null)} /> : null}
     </section>
   );
 }

@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event.head_commit.message == 'Prove Video deployed idle admission before paid V4'
+    if: github.event.head_commit.message == 'Prove Video repaired admission before paid V5'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -51,12 +51,17 @@ jobs:
           print('MODAL_PYTHON_SDK_VERSION=' + modal.__version__)
           PY
 
-      - name: Zero-GPU source admission
+      - name: Zero-GPU repaired source and contract admission
         run: |
           set -euo pipefail
           test "$AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED" = "NO"
           test "$AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED" = "NO"
           test "$AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED" = "NO"
+          node --test \
+            tests/avantiqo-video-world-class-quality-contract.test.mjs \
+            tests/avantiqo-video-native-control-contract.test.mjs \
+            tests/avantiqo-video-native-control-paid-proof-safety.test.mjs
+          node --check scripts/run-avantiqo-video-native-control-paid-proof.mjs
           python -m py_compile \
             services/avantiqo-video-engine/modal_app.py \
             services/avantiqo-video-engine/modal_deploy.py \
@@ -65,7 +70,9 @@ jobs:
             services/avantiqo-video-engine/modal_native_control_paid_preflight.py
           grep -F '.add_local_python_source("modal_app")' services/avantiqo-video-engine/modal_native_job.py >/dev/null
           grep -F '.add_local_python_source("modal_native_controlled_master")' services/avantiqo-video-engine/modal_native_job.py >/dev/null
+          grep -F '"native_control_executed": True' services/avantiqo-video-engine/modal_native_job.py >/dev/null
           grep -F 'modal.Function.from_name(DEPLOYED_APP, name)' services/avantiqo-video-engine/modal_native_control_paid_preflight.py >/dev/null
+          echo 'AVANTIQO_VIDEO_REPAIRED_ZERO_GPU_ADMISSION=PASS'
           echo 'VIDEO_TRANSPORT_SIBLING_SOURCE_ADMISSION=PASS'
           echo 'VIDEO_NAMED_DEPLOYED_PREFLIGHT_SOURCE_ADMISSION=PASS'
           echo 'GPU_INFERENCE_PERFORMED=false'

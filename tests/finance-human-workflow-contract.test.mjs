@@ -10,6 +10,14 @@ const clientDependencyPolicy = fs.readFileSync(
   new URL("../lib/finance/ui/FinanceClientDependencyPolicy.js", import.meta.url),
   "utf8",
 );
+const clientDependencyRail = fs.readFileSync(
+  new URL("../components/workspace/finance/FinanceClientDependencyRail.jsx", import.meta.url),
+  "utf8",
+);
+const financeWorkPage = fs.readFileSync(
+  new URL("../app/(system)/workspace/[organizationId]/finance/work/page.jsx", import.meta.url),
+  "utf8",
+);
 const presentationPolicy = fs.readFileSync(
   new URL("../lib/finance/ui/FinanceCapabilityPresentation.js", import.meta.url),
   "utf8",
@@ -80,6 +88,16 @@ test("Finance client dependency intelligence preserves human control for manual 
   assert.match(clientDependencyPolicy, /state: overdue \? "MANUAL_FOLLOW_UP" : "WAITING_MANUAL"/);
   assert.match(clientDependencyPolicy, /Follow-up needs a human decision/);
   assert.match(clientDependencyPolicy, /Decide whether to follow up on the existing request/);
+});
+
+test("Finance Work surfaces client dependency intelligence without sending client communication", () => {
+  assert.match(financeWorkPage, /FinanceClientDependencyRail/);
+  assert.match(clientDependencyRail, /Client dependency intelligence/);
+  assert.match(clientDependencyRail, /Do not chase/);
+  assert.match(clientDependencyRail, /resolveFinanceClientDependency/);
+  assert.match(clientDependencyRail, /client_request: clientRequest/);
+  assert.match(clientDependencyRail, /no automatic message is sent from this panel/i);
+  assert.doesNotMatch(clientDependencyRail, /fetch\([^\n]*(send|remind|message)/i);
 });
 
 test("Every declared Finance runtime capability can override stale planned presentation state", () => {

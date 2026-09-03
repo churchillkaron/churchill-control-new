@@ -14,6 +14,10 @@ const areaHub = fs.readFileSync(
   new URL("../components/workspace/finance/FinanceAreaHub.jsx", import.meta.url),
   "utf8",
 );
+const reviewerWorkspace = fs.readFileSync(
+  new URL("../components/workspace/finance/FinanceReviewerWorkspace.jsx", import.meta.url),
+  "utf8",
+);
 const reviewSignoffRoute = fs.readFileSync(
   new URL("../app/api/workspace/finance/work-programs/review-signoff/route.js", import.meta.url),
   "utf8",
@@ -84,4 +88,14 @@ test("Finance partner clearance is portfolio scoped to client entity and period"
   assert.match(reviewSignoffRoute, /accounting_work_program_portfolio_clearance/);
   assert.match(reviewSignoffRoute, /ACCOUNTING_PARTNER_PORTFOLIO_CLEARANCE/);
   assert.match(reviewSignoffRoute, /review_item_count: reviewItemIds\.length/);
+});
+
+test("Finance review UI signs before it completes reviewer and partner work", () => {
+  const signoffEndpoint = reviewerWorkspace.indexOf('fetch("/api/workspace/finance/work-programs/review-signoff"');
+  const completeEndpoint = reviewerWorkspace.indexOf('action: "complete_item"', signoffEndpoint);
+  assert.ok(signoffEndpoint >= 0);
+  assert.ok(completeEndpoint > signoffEndpoint);
+  assert.match(reviewerWorkspace, /governedSignoffAndComplete\(row, "REVIEWER"\)/);
+  assert.match(reviewerWorkspace, /governedSignoffAndComplete\(row, "PARTNER"\)/);
+  assert.match(reviewerWorkspace, /Reviewer\/partner identity, review points, sign-offs, dependencies, evidence and accounting-truth gates are rechecked server-side/);
 });

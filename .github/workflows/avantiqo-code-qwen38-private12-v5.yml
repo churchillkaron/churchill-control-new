@@ -1,0 +1,113 @@
+name: Avantiqo Code Qwen3.8 Private 12 Certification V5
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved:
+        description: 'Type YES to allow one isolated representative Qwen3.8 H100 Private12 V5 certification'
+        required: true
+        default: 'NO'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-qwen38-private12-v5
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    if: github.event.inputs.approved == 'YES'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal client
+        run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
+
+      - name: Zero-cost V5 admission
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v6.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v6.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          python -m py_compile services/avantiqo-code-engine/verify_worldclass_cert_v3.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v4_cert.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v6.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_worldclass_cert_v3.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_worldclass_private_fixtures_v3.py
+          grep -q 'RUN_SEED = "20260903-qwen38-private12-v5"' services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q 'MAX_MODAL_QUALITY_BATCH_CALLS = 4' services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q 'MAX_MODAL_SINGLE_LATENCY_CALLS = 3' services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q '"representative": True' services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q 'fresh_suite_actor_longest' services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q 'fresh_suite_reviewer_longest' services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q 'MAX_WARM_P95_MS = 4_000' services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V5_ADMISSION=PASS'
+
+      - name: Prove candidate marker before H100
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30s 3m \
+            python -m modal run services/avantiqo-code-engine/modal_code_model_canary_preflight.py \
+            2>&1 | tee /tmp/qwen38-private12-v5-preflight.log
+          grep -q '"single_code_storage":true' /tmp/qwen38-private12-v5-preflight.log
+          grep -q '"candidate_already_ready":true' /tmp/qwen38-private12-v5-preflight.log
+          grep -q '"gpu_used":false' /tmp/qwen38-private12-v5-preflight.log
+          grep -q '"model_download_performed":false' /tmp/qwen38-private12-v5-preflight.log
+          grep -q '"volume_created":false' /tmp/qwen38-private12-v5-preflight.log
+          grep -q '"production_deploy_performed":false' /tmp/qwen38-private12-v5-preflight.log
+          grep -q '"production_routing_change":false' /tmp/qwen38-private12-v5-preflight.log
+
+      - name: Derive fresh sealed suite secret
+        run: |
+          set -euo pipefail
+          secret="$(printf '%s' "${GITHUB_RUN_ID}:${GITHUB_SHA}:avantiqo-qwen38-private12-v5" | sha256sum | awk '{print $1}')"
+          echo "::add-mask::${secret}"
+          echo "AVANTIQO_CODE_PRIVATE_SUITE_SECRET=${secret}" >> "$GITHUB_ENV"
+
+      - name: Run one representative Qwen3.8 Private12 V5 certification
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30s 12m \
+            python -m modal run \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py::qwen38_private12_v5 \
+            --approved 2>&1 | tee /tmp/qwen38-private12-v5.log
+          grep -q 'AVANTIQO_CODE_QWEN38_PRIVATE12_V5_RESULT=' /tmp/qwen38-private12-v5.log
+          grep -q '"cases":12' /tmp/qwen38-private12-v5.log
+          grep -q '"passed":12' /tmp/qwen38-private12-v5.log
+          grep -q '"hidden_tests_passed":12' /tmp/qwen38-private12-v5.log
+          grep -q '"regression_tests_passed":12' /tmp/qwen38-private12-v5.log
+          grep -q '"semantic_review_passed":12' /tmp/qwen38-private12-v5.log
+          grep -q '"latency_measurement":"warm_single_request_representative"' /tmp/qwen38-private12-v5.log
+          grep -Eq '"quality_batch_calls":[1-4](,|})' /tmp/qwen38-private12-v5.log
+          grep -q '"latency_single_calls":3' /tmp/qwen38-private12-v5.log
+          grep -Eq '"total_modal_calls":[4-7](,|})' /tmp/qwen38-private12-v5.log
+          grep -q '"worldclass_certified":true' /tmp/qwen38-private12-v5.log
+          grep -q 'AVANTIQO_CODE_QWEN38_PRIVATE12_CERT_V5=PASS' /tmp/qwen38-private12-v5.log
+
+      - name: Upload V5 certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-qwen38-private12-v5-${{ github.run_id }}
+          path: |
+            /tmp/qwen38-private12-v5-preflight.log
+            /tmp/qwen38-private12-v5.log
+          if-no-files-found: warn
+          retention-days: 14

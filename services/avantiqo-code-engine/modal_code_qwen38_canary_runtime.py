@@ -6,9 +6,10 @@ weights during GPU execution. It mounts the existing Code Modal Volume and
 requires the exactly pinned Qwen3.8 FP8 snapshot prepared by the CPU bootstrap.
 
 The first compatibility probe deliberately favors correctness over peak speed:
-stable vLLM 0.28.0, no prefix caching, no speculative decoding, 32k context,
-one H100, offline exact snapshot. Optimizations are admitted only after this
-baseline proves loadability and deterministic generation.
+stable vLLM 0.28.0, text/language-model-only mode, no prefix caching, no
+speculative decoding, 32k context, one H100, offline exact snapshot.
+Optimizations are admitted only after this baseline proves loadability and
+deterministic generation.
 """
 
 from __future__ import annotations
@@ -135,6 +136,7 @@ def _load() -> tuple[Any, Any]:
         tensor_parallel_size=1,
         max_model_len=MAX_MODEL_LEN,
         gpu_memory_utilization=GPU_MEMORY_UTILIZATION,
+        language_model_only=True,
         enforce_eager=False,
         enable_prefix_caching=False,
         disable_log_stats=True,
@@ -186,6 +188,7 @@ def runtime_probe(approved: bool = False) -> dict[str, Any]:
         "engine_loaded": True,
         "engine_prepare_ms": elapsed_ms,
         "max_model_len": MAX_MODEL_LEN,
+        "language_model_only": True,
         "prefix_caching_enabled": False,
         "speculative_decoding_enabled": False,
         "production_routing_change": False,
@@ -259,6 +262,7 @@ def generate(requests: list[dict[str, Any]], approved: bool = False) -> dict[str
         "model_volume_name": policy.CODE_VOLUME,
         "outputs": texts,
         "batch_wall_ms": elapsed_ms,
+        "language_model_only": True,
         "prefix_caching_enabled": False,
         "speculative_decoding_enabled": False,
         "production_routing_change": False,

@@ -7,6 +7,11 @@ on:
         description: 'Type YES to allow one isolated Qwen3.8 H100 private 12 V2 certification'
         required: true
         default: 'NO'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/triggers/avantiqo-code-qwen38-private12-v2-20260903.trigger'
 
 permissions:
   contents: read
@@ -17,7 +22,7 @@ concurrency:
 
 jobs:
   certify:
-    if: github.event.inputs.approved == 'YES'
+    if: github.event_name == 'push' || github.event.inputs.approved == 'YES'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -46,6 +51,9 @@ jobs:
             services/avantiqo-code-engine/repo_agent_v4.py
           grep -q 'enable_prefix_caching=ENABLE_PREFIX_CACHING' \
             services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py
+          grep -q 'model_calls <= MAX_MODEL_CALLS' \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py
+          echo 'AVANTIQO_CODE_PRIVATE12_V2_MODEL_CALL_BUDGET=PASS'
           echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V2_ADMISSION=PASS'
 
       - name: Prove candidate marker before H100

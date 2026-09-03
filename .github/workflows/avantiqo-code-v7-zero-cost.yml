@@ -1,0 +1,47 @@
+name: Avantiqo Code V7 Zero Cost Admission
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/avantiqo-code-engine/repo_agent_v7.py'
+      - 'services/avantiqo-code-engine/verify_repo_agent_v7.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py'
+      - '.github/workflows/avantiqo-code-v7-zero-cost.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile V7 candidate contracts
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v7.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v7.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+      - name: Verify Repo Agent V7
+        run: |
+          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v7.py
+      - name: Verify runtime acceleration remains isolated
+        run: |
+          set -euo pipefail
+          grep -q 'FAST_BOOT_ENFORCE_EAGER = False' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q '"method": "ngram"' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q '"num_speculative_tokens": 5' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q 'enable_prefix_caching=ENABLE_PREFIX_CACHING' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q 'production_routing_change": False' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q 'production_deploy_performed": False' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q 'model_download_performed": False' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q 'volume_created": False' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          echo 'AVANTIQO_CODE_V7_ZERO_COST_ADMISSION=PASS'

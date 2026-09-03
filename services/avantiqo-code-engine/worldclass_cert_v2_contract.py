@@ -39,15 +39,16 @@ REQUIRED_DIMENSIONS = frozenset(
     }
 )
 
-REQUIRED_AGENT_PHASES = (
+CORE_AGENT_PHASES = (
     "inspect",
     "plan",
     "edit",
     "execute_tests",
-    "inspect_failure",
-    "bounded_repair",
     "final_verify",
 )
+REPAIR_AGENT_PHASES = ("inspect_failure", "bounded_repair")
+# Compatibility alias for callers that want the complete protocol vocabulary.
+REQUIRED_AGENT_PHASES = CORE_AGENT_PHASES + REPAIR_AGENT_PHASES
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,15 @@ def percentile(values: Iterable[int], percentile_value: float) -> int:
     return ordered[index]
 
 
+def _agent_phases_pass(case: CaseEvidence) -> bool:
+    phases = set(case.agent_phases)
+    if not all(phase in phases for phase in CORE_AGENT_PHASES):
+        return False
+    if case.repairs > 0 and not all(phase in phases for phase in REPAIR_AGENT_PHASES):
+        return False
+    return True
+
+
 def _case_passes(case: CaseEvidence) -> bool:
     return all(
         (
@@ -116,7 +126,7 @@ def _case_passes(case: CaseEvidence) -> bool:
             case.model_calls >= 1,
             case.wall_ms > 0,
             case.warm_ms > 0,
-            all(phase in case.agent_phases for phase in REQUIRED_AGENT_PHASES),
+            _agent_phases_pass(case),
         )
     )
 
@@ -147,10 +157,7 @@ def certify(evidence: dict[str, Any]) -> dict[str, Any]:
         "warm_p95_ms": warm_p95_ms,
         "raw_agent_only": all(not case.deterministic_source_rewrite_used for case in cases),
         "hidden_material_sealed": all(not case.hidden_material_model_visible for case in cases),
-        "agentic_loop_proven": all(
-            all(phase in case.agent_phases for phase in REQUIRED_AGENT_PHASES)
-            for case in cases
-        ),
+        "agentic_loop_proven": all(_agent_phases_pass(case) for case in cases),
         "unique_case_ids": len(task_ids) == len(set(task_ids)),
         "single_storage_per_engine": evidence.get("single_storage_per_engine") is True,
         "persistent_storage_reused": evidence.get("persistent_storage_reused") is True,

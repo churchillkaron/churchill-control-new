@@ -14,6 +14,14 @@ const clientDependencyRail = fs.readFileSync(
   new URL("../components/workspace/finance/FinanceClientDependencyRail.jsx", import.meta.url),
   "utf8",
 );
+const engagementClientDependencyPanel = fs.readFileSync(
+  new URL("../components/workspace/finance/FinanceEngagementClientDependencyPanel.jsx", import.meta.url),
+  "utf8",
+);
+const engagementFile = fs.readFileSync(
+  new URL("../components/workspace/finance/FinanceEngagementFile.jsx", import.meta.url),
+  "utf8",
+);
 const financeWorkPage = fs.readFileSync(
   new URL("../app/(system)/workspace/[organizationId]/finance/work/page.jsx", import.meta.url),
   "utf8",
@@ -84,6 +92,16 @@ test("Finance client dependency intelligence protects recent client contact from
   assert.match(clientDependencyPolicy, /follow up on the existing request rather than creating a duplicate request/i);
 });
 
+test("Finance client dependency intelligence restores secure access before any chase", () => {
+  const accessIndex = clientDependencyPolicy.indexOf('state: "ACCESS_EXPIRED"');
+  const followUpIndex = clientDependencyPolicy.indexOf('state: "FOLLOW_UP_DUE"');
+  assert.ok(accessIndex >= 0 && followUpIndex > accessIndex);
+  assert.match(clientDependencyPolicy, /metadata\?\.client_access/);
+  assert.match(clientDependencyPolicy, /Restore access before any reminder or follow-up/);
+  assert.match(clientDependencyPolicy, /Reissue secure access for the existing request/);
+  assert.match(clientDependencyPolicy, /safeToFollowUp: false/);
+});
+
 test("Finance client dependency intelligence preserves human control for manual overdue follow-up", () => {
   assert.match(clientDependencyPolicy, /state: overdue \? "MANUAL_FOLLOW_UP" : "WAITING_MANUAL"/);
   assert.match(clientDependencyPolicy, /Follow-up needs a human decision/);
@@ -98,6 +116,17 @@ test("Finance Work surfaces client dependency intelligence without sending clien
   assert.match(clientDependencyRail, /client_request: clientRequest/);
   assert.match(clientDependencyRail, /no automatic message is sent from this panel/i);
   assert.doesNotMatch(clientDependencyRail, /fetch\([^\n]*(send|remind|message)/i);
+});
+
+test("Finance engagement file puts dependency intelligence beside current accounting work", () => {
+  assert.match(engagementFile, /FinanceEngagementClientDependencyPanel/);
+  assert.match(engagementFile, /<FinanceEngagementClientDependencyPanel run=\{currentRun\} \/>/);
+  assert.match(engagementClientDependencyPanel, /What is missing, what changed, and what to do next/);
+  assert.match(engagementClientDependencyPanel, /ACCESS_EXPIRED/);
+  assert.match(engagementClientDependencyPanel, /Do not chase/);
+  assert.match(engagementClientDependencyPanel, /Next safe action/);
+  assert.match(engagementClientDependencyPanel, /this panel sends nothing automatically/i);
+  assert.doesNotMatch(engagementClientDependencyPanel, /fetch\(/i);
 });
 
 test("Every declared Finance runtime capability can override stale planned presentation state", () => {

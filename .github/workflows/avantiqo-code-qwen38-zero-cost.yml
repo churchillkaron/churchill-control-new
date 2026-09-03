@@ -11,12 +11,17 @@ on:
       - services/avantiqo-code-engine/modal_code_qwen38_runtime_probe.py
       - services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
       - services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+      - services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
       - services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
+      - services/avantiqo-code-engine/repo_agent_v3.py
+      - services/avantiqo-code-engine/worldclass_cert_v2_contract.py
+      - services/avantiqo-code-engine/worldclass_private_runner_v2.py
       - services/avantiqo-code-engine/worldclass_private_suite_v2.py
       - services/avantiqo-code-engine/worldclass_private_fixtures_v3.py
       - services/avantiqo-code-engine/verify_worldclass_private_fixtures_v3.py
       - .github/workflows/avantiqo-code-qwen38-generation-smoke.yml
       - .github/workflows/avantiqo-code-qwen38-hard10.yml
+      - .github/workflows/avantiqo-code-qwen38-private12.yml
       - .github/workflows/avantiqo-code-qwen38-zero-cost.yml
 
 permissions:
@@ -67,8 +72,29 @@ jobs:
       - name: Verify sealed executable world-class fixtures
         run: |
           set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v3.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_cert_v2_contract.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_private_runner_v2.py
           python -m py_compile services/avantiqo-code-engine/worldclass_private_suite_v2.py
           python -m py_compile services/avantiqo-code-engine/worldclass_private_fixtures_v3.py
           python -m py_compile services/avantiqo-code-engine/verify_worldclass_private_fixtures_v3.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_worldclass_private_fixtures_v3.py
           echo 'AVANTIQO_CODE_WORLDCLASS_PRIVATE_FIXTURES_ZERO_GPU=PASS'
+
+      - name: Verify Qwen3.8 private-12 certification contract
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'AVANTIQO_CODE_QWEN38_PRIVATE12_CERT_V1' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'len(materialized) != 12' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'run_repo_agent' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'hidden_tests_passed' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'regression_tests_passed' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'warm_ms = max(model.latencies_ms)' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'benchmark_task_specific_rewriters' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'candidate_isolated_from_production' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'production_routing_change.*False' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'production_deploy_performed.*False' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'model_download_performed.*False' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          grep -q 'volume_created.*False' services/avantiqo-code-engine/modal_code_qwen38_private12_cert.py
+          echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_ZERO_COST_ADMISSION=PASS'

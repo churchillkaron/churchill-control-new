@@ -22,7 +22,7 @@ function statusFor(message) {
   if (/permission denied/i.test(message || "")) return 403;
   if (/segregation of duties/i.test(message || "")) return 409;
   if (/not found/i.test(message || "")) return 404;
-  if (/must|requires|required|cannot|only|no longer|invalid|unbalanced|inactive|out-of-scope|engagement/i.test(message || "")) return 409;
+  if (/must|requires|required|cannot|only|no longer|invalid|unbalanced|inactive|out-of-scope|engagement|cleared|already exists|pending document approval/i.test(message || "")) return 409;
   return 500;
 }
 async function requirePermission(access, key) {
@@ -41,9 +41,30 @@ async function assertClientScope(accountingFirmId, clientOrganizationId) {
   if (!data) throw new Error("Client organization is outside the accounting firm's engagement scope");
 }
 async function audit(access, action, entityId, metadata) {
-  if (!entityId) return;
-  const { error } = await supabaseAdmin.from("organization_audit_logs").insert({ organization_id: access.organizationId, entity_type: "accounting_correction", entity_id: String(entityId), action, metadata, actor_email: access.user?.email || null });
+  if (!entityId) return null;
+  const { error } = await supabaseAdmin.from("organization_audit_logs").insert({
+    organization_id: access.organizationId,
+    entity_type: "accounting_correction",
+    entity_id: String(entityId),
+    action,
+    metadata,
+    actor_email: access.user?.email || null,
+  });
   if (error) throw error;
+  return null;
+}
+async function auditAfterAction(access, action, entityId, metadata) {
+  try {
+    await audit(access, action, entityId, metadata);
+    return null;
+  } catch (error) {
+    console.error("FINANCE_CORRECTION_AUDIT_WRITE_FAILED", {
+      action,
+      entityId,
+      error: error?.message || String(error),
+    });
+    return "Accounting action completed, but its secondary audit-log write needs recovery";
+  }
 }
 
 export async function GET(request) {
@@ -102,8 +123,25 @@ export async function POST(request) {
       return jsonError("Unsupported correction action", 400);
     }
 
-    await audit(access, `ACCOUNTING_CORRECTION_${action.toUpperCase()}`, result?.correction?.id || result?.id || body.correctionId || null, { action, status: result?.correction?.status || result?.status || null });
-    return NextResponse.json({ success: true, result });
+    const correctionId = result?.correction?.id || result?.id || body.correctionId || null;
+    const correctionStatus = result?.correction?.status || result?.status || null;
+    const auditWarning = await auditAfterAction(
+      access,
+      `ACCOUNTING_CORRECTION_${action.toUpperCase()}`,
+      correctionId,
+      { action, status: correctionStatus },
+    );
+    return NextResponse.json({
+      success: true,
+      result,
+      audit_warning: auditWarning,
+      outcome: {
+        action,
+        correction_id: correctionId,
+        status: correctionStatus,
+        completed: true,
+      },
+    });
   } catch (error) {
     const message = error?.message || "Unable to update accounting correction";
     return jsonError(message, statusFor(message));

@@ -6,16 +6,20 @@ on:
     branches: [main]
     paths:
       - "app/api/workspace/finance/**"
+      - "app/(system)/workspace/[organizationId]/finance/**"
       - "components/workspace/finance/**"
       - "lib/finance/**"
       - "tests/finance-human-workflow-contract.test.mjs"
+      - "tests/finance-ui-completion-contract.test.mjs"
       - ".github/workflows/finance-human-workflow-certification.yml"
   pull_request:
     paths:
       - "app/api/workspace/finance/**"
+      - "app/(system)/workspace/[organizationId]/finance/**"
       - "components/workspace/finance/**"
       - "lib/finance/**"
       - "tests/finance-human-workflow-contract.test.mjs"
+      - "tests/finance-ui-completion-contract.test.mjs"
       - ".github/workflows/finance-human-workflow-certification.yml"
 
 permissions:
@@ -39,5 +43,5 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Certify Finance human workflow
-        run: node --test tests/finance-human-workflow-contract.test.mjs
+      - name: Certify Finance human workflow and accountant UI
+        run: node --test tests/finance-human-workflow-contract.test.mjs tests/finance-ui-completion-contract.test.mjs

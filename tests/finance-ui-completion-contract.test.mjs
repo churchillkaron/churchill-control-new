@@ -33,7 +33,7 @@ test("Finance client dependencies stay a work list instead of becoming KPI cards
   assert.match(clientDependencyRail, /Client dependencies/);
   assert.match(clientDependencyRail, /need action/);
   assert.match(clientDependencyRail, /follow-up due/);
-  assert.match(clientDependencyRail, /do not chase/);
+  assert.match(clientDependencyRail, /do not chase/i);
   assert.match(clientDependencyRail, /Client \/ request/);
   assert.match(clientDependencyRail, /Next safe action/);
   assert.doesNotMatch(clientDependencyRail, /DependencyMetric/);

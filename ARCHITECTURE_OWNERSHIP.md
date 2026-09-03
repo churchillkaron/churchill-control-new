@@ -1,196 +1,185 @@
-# CHURCHILL ERP OWNERSHIP MAP
+# Avantiqo Architecture Ownership Map
 
-## PLATFORM
+**Status: living conceptual ownership map**
 
-Organizations
-Workspace
-Identity
-Security
-Governance
-Orchestration
-Observability
+This document does not define a second domain registry. Exact domain/workspace/capability topology belongs to current `ERP_REGISTRY` on `main`. The permanent architecture contract is [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
----
+## Canonical platform domains
 
-## FINANCE
+- Dashboard
+- Finance
+- Operations
+- Supply Chain
+- Commercial
+- People
+- Projects
+- Documents
+- Analytics
+- AI
+- Solutions
+- Administration
+- Compliance
+- Creative
 
-Owner:
-Financial Truth
+Ownership is determined by the real business meaning of an object/event/state/action, not by historical route names or industry screens.
 
-Includes:
+## Platform and business context
 
-- General Ledger
-- Accounts Payable
-- Accounts Receivable
-- Treasury
-- Tax
-- Fixed Assets
-- Budgeting
-- Forecasting
-- Consolidation
-- Accounting
+Platform-level foundations own cross-cutting contracts such as identity/authentication foundations, canonical business context, governance primitives, execution/evidence foundations, usage/wallet infrastructure, shared AI/provider infrastructure, observability, and other genuinely cross-domain services.
 
-Status:
-CANONICAL
+Canonical business context is:
 
-Accounting:
-SUBDOMAIN OF FINANCE
+**organization → entity → party**
 
----
+with period where applicable.
 
-## PROCUREMENT
+Do not create a parallel tenant architecture.
 
-Owner:
-Purchasing Lifecycle
+## Dashboard
 
-Includes:
+Owns role/context-oriented operating views, summaries, exceptions, and work entrypoints.
 
-- Purchase Requests
-- Approvals
-- Purchase Orders
-- Receiving
-- Vendor Management
-- Three-Way Matching
+It does not own the underlying business truth it presents.
 
-Status:
-CANONICAL
+## Finance
 
----
+Owns financial truth and accounting semantics, including:
 
-## INVENTORY
+- general ledger/journals/posting
+- accounts payable/receivable
+- cash/bank/treasury
+- reconciliation
+- periods/dimensions
+- tax/statutory workflows
+- fixed assets
+- budgeting/forecasting/consolidation where implemented
+- financial review/sign-off
+- financial reporting
 
-Owner:
-Stock Truth
+Financial effects from other domains enter Finance through governed contracts/events/capabilities rather than duplicated accounting logic.
 
-Includes:
+## Operations
 
-- Inventory Ledger
-- Stock Movements
-- Replenishment
-- Valuation
-- Warehousing
+Owns neutral operational execution primitives such as:
 
-Status:
-CANONICAL
+- order
+- service/job/task
+- reservation/schedule
+- location/resource/workstation
+- fulfilment
+- asset
+- operational customer interaction
 
-Warehouse:
-SUBDOMAIN OF INVENTORY
+POS, kitchen, floor, expo, restaurant, hotel front desk, or other industry surfaces are compositions of canonical capabilities; they are not canonical top-level domains.
 
----
+## Supply Chain
 
-## PRODUCTION
+Owns supply and inventory/resource lifecycle semantics such as:
 
-Owner:
-Inventory Transformation
+- procurement/purchasing
+- supplier supply relationships
+- purchase requests/orders
+- receiving/returns
+- inventory/resource movements
+- replenishment/availability
+- transfers/adjustments
+- warehouse/storage behavior where relevant
+- supply performance
 
-Includes:
+Production/manufacturing/recipe/yield/waste concepts may be scoped capabilities/solutions built from Supply Chain + Operations + Finance depending on the real business model. They are not automatically separate canonical domains.
 
-- Recipes
-- Costing
-- Yield
-- Waste
-- Kitchen
+## Commercial
 
-Status:
-CANONICAL
+Owns revenue-facing commercial relationships and workflows such as:
 
-Recipes:
-SUBDOMAIN OF PRODUCTION
+- CRM/customer/lead relationships
+- opportunities
+- offers/quotations
+- pricing/terms
+- sales/commercial orders
+- contracts/agreements
+- customer communication/channels
+- commercial lifecycle
 
----
+Marketing is normally a composition across Commercial, Creative, Analytics, AI, Documents/communications, and channel capabilities rather than an independent platform architecture.
 
-## POS
+## People
 
-Owner:
-Revenue Capture
+Owns workforce/person relationships in their work context, including:
 
-Includes:
+- employment/contract relationships
+- roles
+- scheduling/time/attendance
+- compensation/payroll preparation
+- performance/development
+- people approvals/workflows
 
-- Orders
-- Tables
-- Payments
-- Kitchen Tickets
+Payroll accounting effects belong to Finance through governed integration. A staff portal is a delivery surface, not a domain.
 
-Status:
-CANONICAL
+## Projects
 
-Restaurant:
-SUBDOMAIN OF POS
+Owns project/program structure such as objectives, milestones, dependencies, assignments, project work, resources, budgets/cost references, and outcomes.
 
----
+Projects compose domain capabilities rather than duplicating Finance, People, Supply Chain, Documents, or Operations logic.
 
-## PAYROLL
+## Documents
 
-Owner:
-Employee Compensation
+Owns/document-enables governed document lifecycles, templates/rendering, storage/reference behavior, and evidence relationships for business artifacts such as invoices, quotations, purchase orders, contracts, statements, reports, receipts, certificates, approvals, and communications.
 
-Includes:
+The business semantics of a document remain with the capability/domain that creates or consumes it.
 
-- Attendance
-- Scheduling
-- Payroll
-- Service Charge
-- Performance Payouts
+## Analytics
 
-Status:
-CANONICAL
+Owns reproducible metrics, analytical models, reporting/insight computation, forecasting, comparisons, anomalies, and decision support.
 
-Salary:
-SUBDOMAIN OF PAYROLL
+Analytics does not replace operational or financial source-of-truth.
 
----
+## AI
 
-## GOVERNANCE
+Owns Avantiqo Intelligence orchestration and platform-level strategic AI engine boundaries where appropriate.
 
-Owner:
-Policy Enforcement
+AI does not own another domain's business truth merely because it reasons over it. Real business effects must execute through the owning governed capability.
 
-Includes:
+AI may recommend **and execute authorized capabilities** under the same or stronger authorization, lifecycle, safety, and evidence requirements as human execution.
 
-- Approval Requests
-- Approval Tasks
-- Decisions
-- Audit Trails
+## Solutions
 
-Status:
-CANONICAL
+Owns composition/configuration of reusable domains/workspaces/capabilities for industries, roles, packaged workflows, or business problems.
 
-Approval:
-TASK EXECUTION
+Solutions must not fork the core into restaurant-, hotel-, retail-, construction-, accounting-, agency-, manufacturing-, or other industry-specific architectures.
 
-Approvals:
-WORKFLOW DOMAIN
+## Administration
 
----
+Owns governed organization/entity setup, platform/business configuration, administrative controls, and access/configuration surfaces that do not naturally belong to another operating domain.
 
-## MARKETING
+## Compliance
 
-Owner:
-Demand Generation
+Owns compliance obligations, controls, policy relationships, reviews, attestations, exceptions, and evidence coordination while referencing real underlying domain truth.
 
-Status:
-CANONICAL
+## Creative
 
----
+Owns creative strategy and production workflow orchestration:
 
-## CRM
+**mission → business/brand context → brief → strategy → concept → storyboard → production plan → canonical AI/media capabilities → review/verification → final output/publication**
 
-Owner:
-Customer Relationships
+Creative uses canonical Image/Video/Voice/Audio/Music/publication runtimes rather than duplicating engines per Studio surface.
 
-Status:
-CANONICAL
+## Governance, approvals, and workflow
 
----
+Approval, workflow, tasks, audit, evidence, eventing, and orchestration are generally shared platform primitives when the mechanics are cross-domain.
 
-## ANALYTICS
+They are not separate business domains merely because many domains use them. Domain-specific approval semantics remain with the owning capability.
 
-Owner:
-Business Intelligence
+## Ownership rules
 
-Status:
-CANONICAL
+Before assigning new behavior:
 
-KPI:
-SUBDOMAIN OF ANALYTICS
+1. Model the real business concept/event/state/action.
+2. Find the canonical domain/capability that owns that meaning.
+3. Reuse shared platform primitives for genuinely cross-domain mechanics.
+4. Avoid duplicate sources of truth and execution paths.
+5. Do not infer domain ownership from folders, routes, customer names, providers, or industry terminology.
+6. Add a new canonical domain only when research and implementation evidence prove the existing domain model cannot represent a genuinely distinct business capability family cleanly.
+7. Keep this document descriptive; update `ERP_REGISTRY`/implementation when executable topology changes.
 
+The test is simple: **does the ownership decision make Avantiqo one stronger reusable platform, or another isolated piece?**

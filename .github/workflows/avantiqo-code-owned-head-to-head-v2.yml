@@ -43,23 +43,31 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert.py
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_fixed.py
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_final.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_raw.py
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_service.py
           python -m py_compile services/avantiqo-code-engine/verify_hard_public_contract_guards.py
           python -m py_compile services/avantiqo-code-engine/verify_hard_final_gates.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_cert_v2_contract.py
+          python -m py_compile services/avantiqo-code-engine/verify_worldclass_cert_v2_contract.py
+          python -m py_compile services/avantiqo-code-engine/code_model_canary_v2.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_hard_public_contract_guards.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_hard_final_gates.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_worldclass_cert_v2_contract.py
           PYTHONPATH=services/avantiqo-code-engine python - <<'PY'
           import modal_code_hard_owned_cert as hard
           import modal_code_hard_owned_cert_fixed as fixed
           import modal_code_hard_owned_cert_final as final
+          import modal_code_hard_owned_cert_raw as raw
           import modal_code_hard_service as service
           import modal_persistent_owned_cert as cert
-          assert final.app is fixed.app is hard.app is cert.app
+          assert raw.app is final.app is fixed.app is hard.app is cert.app
           assert fixed.SERVICE_APP == service.APP_NAME == 'avantiqo-code-hard-service-v1'
           assert fixed.SERVICE_FUNCTION == service.FUNCTION_NAME == 'run_hard_cert_batch'
           assert len(hard.HARD_TASKS) == 10
           assert len(hard.HARD_PROBES) == 10
           assert {t['id'] for t in hard.HARD_TASKS} == set(hard.HARD_PROBES)
+          inventory_probe = hard.HARD_PROBES['inventory_reservation']
+          assert 'reserveInventory(null, null)' in inventory_probe
           assert final.MAX_COMPLETION_TOKENS == 800
           assert final.COMPACT_TARGET_TOKENS == 650
           assert service.MAX_HARD_COMPLETION_TOKENS == 800
@@ -68,6 +76,7 @@ jobs:
           for task in hard.HARD_TASKS:
               initial = hard.base._run_test(task['module'], task['source'], task['visible_test'])
               assert initial['exit_code'] != 0, f"broken fixture unexpectedly passes: {task['id']}"
+          print('AVANTIQO_CODE_RAW_SCORING_ADMISSION=PASS')
           print('AVANTIQO_CODE_ESCAPED_DEFECT_GATES=PASS')
           print('AVANTIQO_CODE_FALSE_PASS_MARKER_GUARD=PASS')
           print('AVANTIQO_CODE_PAID_RUN_ADMISSION=PASS')
@@ -88,7 +97,7 @@ jobs:
           timeout --signal=TERM --kill-after=30s 31m python -m modal run services/avantiqo-code-engine/modal_code_model_bootstrap.py 2>&1 | tee /tmp/avantiqo-code-model-bootstrap.log
           grep -q 'AVANTIQO_CODE_PERSISTENT_MODEL_BOOTSTRAP_V1=PASS' /tmp/avantiqo-code-model-bootstrap.log
 
-      - name: Run one paid 10-case hard Code certification
+      - name: Run one paid 10-case raw Code certification
         timeout-minutes: 12
         env:
           NODE_ENV: development
@@ -99,8 +108,8 @@ jobs:
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
           mkdir -p artifacts
-          timeout --signal=TERM --kill-after=30s 11m python -m modal run services/avantiqo-code-engine/modal_code_hard_owned_cert_final.py::app.hard_owned_cert_final 2>&1 | tee /tmp/avantiqo-code-hard-owned-cert.log
-          grep -q '^AVANTIQO_CODE_HARD_EXECUTABLE_GATE_CERT_V1=PASS$' /tmp/avantiqo-code-hard-owned-cert.log
+          timeout --signal=TERM --kill-after=30s 11m python -m modal run services/avantiqo-code-engine/modal_code_hard_owned_cert_raw.py::app.hard_owned_cert_raw 2>&1 | tee /tmp/avantiqo-code-hard-owned-cert.log
+          grep -q '^AVANTIQO_CODE_HARD_RAW_EXECUTABLE_CERT_V2=PASS$' /tmp/avantiqo-code-hard-owned-cert.log
 
       - name: Verify hard-suite evidence
         run: |
@@ -112,11 +121,14 @@ jobs:
           const s = r?.summary || {};
           const m = r?.methodology || {};
           if (r.contract !== 'AVANTIQO_CODE_HARD_EXECUTABLE_GATE_CERT_V1') throw new Error('hard contract invalid');
+          if (r.contract_v2 !== 'AVANTIQO_CODE_HARD_RAW_EXECUTABLE_CERT_V2') throw new Error('raw hard contract invalid');
           if (m.cases !== 10 || s.cases !== 10) throw new Error('ten hard cases required');
           if (m.difficulty !== 'advanced-erp-invariants' || m.explicit_production_contract_per_case !== true) throw new Error('hard difficulty contract missing');
           if (m.visible_tests_executed_before_acceptance !== true || m.semantic_contract_probes_executed_before_acceptance !== true) throw new Error('executable gates not proven');
           if (m.repair_only_after_machine_failure !== true || m.max_repair_calls_per_case !== 1) throw new Error('bounded repair not proven');
           if (m.hidden_tests_sealed_until_final_scoring !== true || m.ai_judge_used !== false) throw new Error('sealed deterministic scoring not proven');
+          if (m.raw_model_output_scored !== true || m.guarded_output_scored !== false || m.benchmark_task_specific_source_rewrite_allowed_for_scoring !== false) throw new Error('raw-only scoring not proven');
+          if (s.raw_model_scoring !== true || Number(s.benchmark_task_specific_rewriters_used_for_scoring) !== 0) throw new Error('benchmark-specific source rewrite entered scoring');
           if (m.persistent_modal_service !== true || s.persistent_modal_service !== true || s.service_app !== 'avantiqo-code-hard-service-v1') throw new Error('persistent service not proven');
           if (s.persistent_model_storage !== true || s.model_storage_ready !== true || s.model_storage_reused !== true) throw new Error('persistent model reuse not proven');
           if (s.model_volume_name !== 'avantiqo-code-models' || s.model_revision !== 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0') throw new Error('model identity invalid');
@@ -128,7 +140,7 @@ jobs:
           if (s.vllm_enforce_eager !== false || s.safetensors_load_strategy !== 'prefetch') throw new Error('optimized runtime not proven');
           if (s.production_deploy_performed !== false) throw new Error('production deploy forbidden');
           console.log(JSON.stringify(s));
-          console.log('AVANTIQO_CODE_HARD_EXECUTABLE_GATE=PASS');
+          console.log('AVANTIQO_CODE_HARD_RAW_EXECUTABLE_GATE=PASS');
           NODE
 
       - name: Upload evidence

@@ -41,6 +41,8 @@ def main() -> None:
     )
     if report.get("status") != "runtime_ready" or report.get("engine_loaded") is not True:
         raise RuntimeError(f"{CONTRACT}_ENGINE_NOT_READY:{report}")
+    if report.get("language_model_only") is not True:
+        raise RuntimeError(f"{CONTRACT}_LANGUAGE_MODEL_ONLY_REQUIRED")
     for field in required_false:
         if report.get(field) is not False:
             raise RuntimeError(f"{CONTRACT}_{field.upper()}_INVALID:{report.get(field)}")

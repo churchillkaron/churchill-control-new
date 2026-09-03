@@ -33,7 +33,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          grep -qx 'AVANTIQO_CODE_QWEN38_HARD10_ONCE=20260903-V1' .github/avantiqo-code-qwen38-hard10-once.txt
+          grep -qx 'AVANTIQO_CODE_QWEN38_HARD10_ONCE=20260903-V2' .github/avantiqo-code-qwen38-hard10-once.txt
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -51,11 +51,15 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert.py
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_final.py
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_raw.py
+          grep -q 'AVANTIQO_CODE_QWEN38_HARD10_BENCHMARK_V2' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
           grep -q 'len(hard.HARD_TASKS) != 10' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
           grep -q 'max_repair_calls_per_case' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
           grep -q 'raw_model_output_scored' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          grep -q 'benchmark_specific_source_rewrite_used' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          grep -q 'Number(value.toFixed(2))' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          grep -q '100\*1 + 50\*0.8 = 140' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
           grep -q 'candidate_better_than_current_9_of_10' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
-          echo 'AVANTIQO_CODE_QWEN38_HARD10_ZERO_COST_ADMISSION=PASS'
+          echo 'AVANTIQO_CODE_QWEN38_HARD10_V2_ZERO_COST_ADMISSION=PASS'
 
       - name: Prove candidate marker before H100
         env:
@@ -83,7 +87,7 @@ jobs:
           grep -q '"hidden_tests_passed":10' /tmp/qwen38-hard10.log
           grep -q '"machine_gate_passed":10' /tmp/qwen38-hard10.log
           grep -q '"candidate_better_than_current_9_of_10":true' /tmp/qwen38-hard10.log
-          grep -q 'AVANTIQO_CODE_QWEN38_HARD10_BENCHMARK_V1=PASS' /tmp/qwen38-hard10.log
+          grep -q 'AVANTIQO_CODE_QWEN38_HARD10_BENCHMARK_V2=PASS' /tmp/qwen38-hard10.log
 
       - name: Upload benchmark evidence
         if: always()

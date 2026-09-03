@@ -12,6 +12,7 @@ source rewrite may be placed in a model-visible prompt.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -47,7 +48,6 @@ CORE_AGENT_PHASES = (
     "final_verify",
 )
 REPAIR_AGENT_PHASES = ("inspect_failure", "bounded_repair")
-# Compatibility alias for callers that want the complete protocol vocabulary.
 REQUIRED_AGENT_PHASES = CORE_AGENT_PHASES + REPAIR_AGENT_PHASES
 
 
@@ -93,11 +93,18 @@ class CaseEvidence:
 
 
 def percentile(values: Iterable[int], percentile_value: float) -> int:
+    """Nearest-rank percentile; deliberately conservative for small cert suites.
+
+    For 12 cases, p95 is the 12th ordered value, so one slow outlier cannot be
+    hidden by floor interpolation. This makes the <=4s world-class contract a
+    real tail-latency gate rather than an average-like approximation.
+    """
     ordered = sorted(int(value) for value in values)
     if not ordered:
         return 0
-    index = max(0, min(len(ordered) - 1, int((len(ordered) - 1) * percentile_value)))
-    return ordered[index]
+    p = min(1.0, max(0.0, float(percentile_value)))
+    rank = max(1, math.ceil(p * len(ordered)))
+    return ordered[min(len(ordered) - 1, rank - 1)]
 
 
 def _agent_phases_pass(case: CaseEvidence) -> bool:

@@ -70,6 +70,7 @@ image = (
             "VLLM_USE_FLASHINFER_SAMPLER": "0",
         }
     )
+    .add_local_python_source("code_model_canary_v2")
 )
 
 _ENGINE: Any | None = None

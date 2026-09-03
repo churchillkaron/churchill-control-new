@@ -105,6 +105,67 @@ def main() -> None:
   return Number(charge.toFixed(2));
 }'''
 
+    paid_failed_tier = r'''export function calculateCharge(units, tiers) {
+  const numUnits = Number(units);
+  if (!Number.isFinite(numUnits) || numUnits < 0) {
+    throw new TypeError('units must be a finite number >= 0');
+  }
+  if (!Array.isArray(tiers) || tiers.length === 0) {
+    throw new TypeError('tiers must be a nonempty array');
+  }
+  let hasOpenTier = false;
+  let prevThreshold = 0;
+  for (let i = 0; i < tiers.length; i++) {
+    const tier = tiers[i];
+    if (tier === null || tier === undefined) {
+      throw new TypeError('tier must be an object');
+    }
+    const upTo = tier.upTo;
+    const rate = tier.rate;
+    if (upTo !== null && upTo !== undefined) {
+      const numUpTo = Number(upTo);
+      if (!Number.isFinite(numUpTo) || numUpTo <= 0) {
+        throw new TypeError('upTo must be a finite positive number');
+      }
+      if (numUpTo <= prevThreshold) {
+        throw new TypeError('upTo must be strictly greater than previous threshold');
+      }
+      prevThreshold = numUpTo;
+    } else {
+      if (hasOpenTier) {
+        throw new TypeError('open-ended tier may appear at most once');
+      }
+      hasOpenTier = true;
+    }
+    const numRate = Number(rate);
+    if (!Number.isFinite(numRate) || numRate < 0) {
+      throw new TypeError('rate must be a finite number >= 0');
+    }
+  }
+  if (!hasOpenTier && numUnits > prevThreshold) {
+    throw new RangeError('units exceed the last finite tier');
+  }
+  let charge = 0;
+  let remainingUnits = numUnits;
+  let prev = 0;
+  for (const tier of tiers) {
+    const upTo = tier.upTo;
+    const rate = Number(tier.rate);
+    if (upTo === null) {
+      charge += remainingUnits * rate;
+      remainingUnits = 0;
+      break;
+    }
+    const width = upTo - prev;
+    const used = Math.min(remainingUnits, width);
+    charge += used * rate;
+    remainingUnits -= used;
+    prev = upTo;
+    if (remainingUnits <= 0) break;
+  }
+  return Math.round(charge * 100) / 100;
+}'''
+
     ledger = r'''export function summarizeLedger(entries) {
   if (entries === null || entries === undefined) return {};
   const result = {};
@@ -140,12 +201,17 @@ def main() -> None:
     assert tier_before["passed"] is False, tier_before
     assert tier_after["passed"] is True, tier_after
 
+    paid_tier_before, paid_tier_after = _guarded("progressive_tier_pricing", paid_failed_tier)
+    assert paid_tier_before["passed"] is False, paid_tier_before
+    assert paid_tier_after["passed"] is True, paid_tier_after
+
     ledger_before, ledger_after = _guarded("ledger_currency_summary", ledger)
     assert ledger_before["passed"] is False, ledger_before
     assert ledger_after["passed"] is True, ledger_after
 
     print("AVANTIQO_CODE_INVENTORY_EXACT_REGRESSION=PASS")
     print("AVANTIQO_CODE_PROGRESSIVE_TIER_EXACT_REGRESSION=PASS")
+    print("AVANTIQO_CODE_PROGRESSIVE_TIER_OPEN_FINAL_EXACT_REGRESSION=PASS")
     print("AVANTIQO_CODE_LEDGER_RAW_BALANCE_EXACT_REGRESSION=PASS")
     print("AVANTIQO_CODE_PUBLIC_CONTRACT_GUARDS_ZERO_COST=PASS")
 

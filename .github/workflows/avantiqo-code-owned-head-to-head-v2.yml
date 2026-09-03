@@ -31,7 +31,7 @@ jobs:
       - name: Install Modal client
         run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
 
-      - name: Zero-cost hard-suite and paid-run admission preflight
+      - name: Zero-cost hard-suite and world-class admission preflight
         run: |
           set -euo pipefail
           python -m py_compile services/avantiqo-code-engine/modal_app.py
@@ -49,10 +49,20 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/verify_hard_final_gates.py
           python -m py_compile services/avantiqo-code-engine/worldclass_cert_v2_contract.py
           python -m py_compile services/avantiqo-code-engine/verify_worldclass_cert_v2_contract.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_private_suite_v2.py
+          python -m py_compile services/avantiqo-code-engine/verify_worldclass_private_suite_v2.py
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v2.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v2.py
+          python -m py_compile services/avantiqo-code-engine/code_reasoning_policy_v2.py
+          python -m py_compile services/avantiqo-code-engine/verify_code_reasoning_policy_v2.py
           python -m py_compile services/avantiqo-code-engine/code_model_canary_v2.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_model_canary_preflight.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_hard_public_contract_guards.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_hard_final_gates.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_worldclass_cert_v2_contract.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_worldclass_private_suite_v2.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v2.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_code_reasoning_policy_v2.py
           PYTHONPATH=services/avantiqo-code-engine python - <<'PY'
           import modal_code_hard_owned_cert as hard
           import modal_code_hard_owned_cert_fixed as fixed
@@ -60,6 +70,9 @@ jobs:
           import modal_code_hard_owned_cert_raw as raw
           import modal_code_hard_service as service
           import modal_persistent_owned_cert as cert
+          import worldclass_cert_v2_contract as worldclass
+          import worldclass_private_suite_v2 as private_suite
+          import code_model_canary_v2 as canary
           assert raw.app is final.app is fixed.app is hard.app is cert.app
           assert fixed.SERVICE_APP == service.APP_NAME == 'avantiqo-code-hard-service-v1'
           assert fixed.SERVICE_FUNCTION == service.FUNCTION_NAME == 'run_hard_cert_batch'
@@ -73,9 +86,16 @@ jobs:
           assert service.MAX_HARD_COMPLETION_TOKENS == 800
           assert cert.MODEL_VOLUME_NAME == 'avantiqo-code-models'
           assert cert.MODEL_REVISION == 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0'
+          assert private_suite.dimensions() == worldclass.REQUIRED_DIMENSIONS
+          assert canary.CODE_VOLUME == cert.MODEL_VOLUME_NAME == 'avantiqo-code-models'
+          assert canary.CANDIDATE_MODEL == 'Qwen/Qwen3.8-27B-FP8'
+          assert canary.CANDIDATE_REVISION == '017b9c7af6b5689d5dd426a76e0bc077eb5ca20a'
           for task in hard.HARD_TASKS:
               initial = hard.base._run_test(task['module'], task['source'], task['visible_test'])
               assert initial['exit_code'] != 0, f"broken fixture unexpectedly passes: {task['id']}"
+          print('AVANTIQO_CODE_REPO_AGENT_ADMISSION=PASS')
+          print('AVANTIQO_CODE_PRIVATE_SUITE_ADMISSION=PASS')
+          print('AVANTIQO_CODE_REASONING_POLICY_ADMISSION=PASS')
           print('AVANTIQO_CODE_RAW_SCORING_ADMISSION=PASS')
           print('AVANTIQO_CODE_ESCAPED_DEFECT_GATES=PASS')
           print('AVANTIQO_CODE_FALSE_PASS_MARKER_GUARD=PASS')

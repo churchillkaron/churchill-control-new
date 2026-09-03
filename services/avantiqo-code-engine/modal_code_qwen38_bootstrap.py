@@ -107,8 +107,8 @@ def _mounted_admission_snapshot() -> dict[str, Any]:
     memory=8192,
     timeout=45 * 60,
 )
-def bootstrap() -> dict[str, Any]:
-    if os.environ.get(APPROVAL_ENV) != "YES":
+def bootstrap(approved: bool = False) -> dict[str, Any]:
+    if approved is not True:
         raise RuntimeError(f"{CONTRACT}_EXPLICIT_APPROVAL_REQUIRED")
 
     admission = policy.assert_admitted(_mounted_admission_snapshot())
@@ -218,7 +218,7 @@ def bootstrap() -> dict[str, Any]:
 def main() -> None:
     if os.environ.get(APPROVAL_ENV) != "YES":
         raise RuntimeError(f"{CONTRACT}_EXPLICIT_APPROVAL_REQUIRED")
-    result = bootstrap.remote()
+    result = bootstrap.remote(approved=True)
     print(
         "AVANTIQO_CODE_QWEN38_BOOTSTRAP_RESULT="
         + json.dumps(result, separators=(",", ":")),

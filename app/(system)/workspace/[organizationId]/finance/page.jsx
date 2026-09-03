@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 
-import FinanceCommandCenter from "@/components/workspace/finance/FinanceCommandCenter";
+import FinanceAccountantOverview from "@/components/workspace/finance/FinanceAccountantOverview";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
 export const dynamic = "force-dynamic";
@@ -16,5 +16,5 @@ export default function FinancePage() {
     businessContext.organization?.id ||
     null;
 
-  return <FinanceCommandCenter organizationId={organizationId} />;
+  return <FinanceAccountantOverview organizationId={organizationId} />;
 }

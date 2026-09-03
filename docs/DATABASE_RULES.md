@@ -1,152 +1,179 @@
-# Database Rules
+# Avantiqo Database Rules
 
-# Core Philosophy
+**Status: living database contract**
 
-Database is:
-system state infrastructure
+This document is subordinate to [`../ARCHITECTURE.md`](../ARCHITECTURE.md) and [`DATABASE_GOVERNANCE.md`](./DATABASE_GOVERNANCE.md).
 
-NOT:
-temporary UI storage.
+## Core philosophy
 
-Every table must represent:
+The database represents canonical business truth and durable execution evidence. It is not temporary UI storage and must not mirror arbitrary page layouts.
+
+Tables should represent real concepts such as:
+
+- business master data and relationships
 - operational state
-- audit state
-- workflow state
-- historical state
+- lifecycle/workflow state
+- financial state
+- events and movements
+- evidence and audit history
+- tasks/jobs where durable async state is required
+- documents and their relationships
 
----
+## Canonical business scoping
 
-# Multi-Tenant Rule
+Avantiqo uses:
 
-ALL business tables require:
+**organization → entity → party**
 
-tenant_id
+Use `organization_id` on business records that belong to an organization boundary. Use `entity_id` where the business fact belongs to a legal/operating entity. Use party relationships when the record relates to customers, suppliers, employees, contractors, contacts, shareholders, partners, leads, creditors, debtors, or other actors.
 
-Examples:
-- orders
-- inventory
-- invoices
-- campaigns
-- payroll
-- events
-- performance
-- history
+Do **not** create `tenant_id` as the default scoping model for new Avantiqo business tables.
 
-Never create operational tables without tenant_id.
+Not every table should mechanically contain every context key. Model the real ownership/relationship and enforce access through the appropriate canonical parent/context.
 
----
+## One source of truth
 
-# Auditability Rule
+Before creating a table or materialized state:
 
-Important workflows must be traceable.
+1. Identify the existing business concept and owning capability/domain.
+2. Search for existing canonical tables, views, events, documents, or runtimes.
+3. Determine whether new persistence is truly required.
+4. Avoid parallel representations that can diverge.
+5. If migration requires temporary coexistence, define the source of truth and convergence/removal plan explicitly.
 
-Use:
-- created_at
-- updated_at
-- approved_by
-- rejected_by
-- status
-- action_logs
+## Lifecycle and state
 
----
+Persist business lifecycle state when the state has business meaning.
 
-# State-Driven Design
+Examples can include:
 
-Tables should model:
-state transitions
+- draft
+- pending / submitted
+- approved / rejected
+- posted
+- received / fulfilled
+- open / closed
+- queued / running / succeeded / failed / uncertain
+- ready for review / changes requested / reviewed / cleared
 
-Examples:
-- pending
-- approved_manager
-- approved_accounting
-- rejected
-- completed
-- failed
-- queued
-- publishing
-- published
+Do not force one generic status vocabulary onto every domain. States must represent the real lifecycle and valid transitions of the owning capability.
 
----
+## Audit and evidence
 
-# Queue Architecture
+Important operations should preserve enough evidence to answer:
 
-Heavy processes should use queue tables.
+- who initiated or authorized the operation
+- organization/entity/business context
+- what capability/process acted
+- prior state where relevant
+- requested change
+- resulting state
+- execution/job/provider identity where relevant
+- timestamps
+- financial/operational effect
+- verification outcome
+- approval/review state
+- error or uncertainty state
 
-Examples:
-- campaign_publish_queue
-- generation_jobs
-- payroll_jobs
-- report_jobs
+Use append-only/event/history structures where immutability is required. Do not rely on `updated_at` alone as an audit trail.
 
-Required fields:
-- status
-- retries
-- last_error
-- started_at
-- completed_at
+## Financial integrity
 
----
+Financial data must remain deterministic, reproducible, auditable, and reconcilable.
 
-# Financial Integrity
+Rules include:
 
-Never overwrite:
-- payouts
-- payroll
-- invoices
-- history
-- financial calculations
+- do not silently overwrite posted/historical financial truth
+- use governed reversal/correction mechanisms where accounting semantics require them
+- preserve journal/posting references and evidence
+- preserve period/entity/dimension context where applicable
+- protect idempotency and duplicate-posting boundaries
+- verify ledger invariants after important financial mutations
 
-Use:
-append-only historical tracking when possible.
+## Inventory and movement integrity
 
----
+Inventory/asset/resource quantities should be derived from or reconciled with governed movements where the business model requires traceability.
 
-# Inventory Integrity
+Do not hardcode restaurant-specific movement concepts such as `ingredient_movements`, production logs, or waste logs as universal infrastructure. Model generic movements/events and domain-specific extensions where appropriate.
 
-Inventory changes must be traceable.
+Any direct quantity adjustment that bypasses normal movement flow must itself be a governed, attributable business event with evidence.
 
-Required:
-- ingredient_movements
-- production_logs
-- waste_logs
+## Async job persistence
 
-Never directly mutate stock without logging movement.
+Long-running work may use durable job/task state when durability, resume, monitoring, or external execution requires it.
 
----
+Typical durable fields may include:
 
-# AI Memory Rules
+- immutable execution/job identity
+- organization/entity context
+- capability/task identity
+- requested input/contract reference
+- lifecycle status
+- attempt/dispatch state
+- external provider/function/job identity
+- timestamps
+- error/uncertainty details
+- verification/evidence references
 
-AI memory must be:
-- tenant-aware
-- historical
-- score-based
-- queryable
+Do not create a queue table for every asynchronous function by default. Use the platform's current canonical task/queue/runtime primitives first.
 
-Never store AI memory only in prompts.
+## At-most-once data contract
 
----
+For payments, postings, purchases, external communications, GPU/provider execution, destructive mutations, and similar actions, persistence must support reconciliation of a single intended execution.
 
-# Future Required Infrastructure
+Preferred lifecycle:
 
-Planned:
-- audit_logs
-- system_events
-- queue_workers
-- notifications
-- tenant_settings
-- role_permissions
-- activity_stream
+**prepare → identify → claim/reserve → dispatch once → observe → verify → settle**
 
----
+If execution becomes ambiguous, persist uncertainty and reconcile the existing execution before creating another one.
 
-# Schema Governance
+## AI and learned data
 
-Before creating new tables:
-1. Identify domain
-2. Identify state flow
-3. Identify ownership
-4. Identify audit requirements
-5. Identify async needs
-6. Identify tenant requirements
+AI memory, learned evidence, hypotheses, generated artifacts, and model outputs must not silently become authoritative financial/operational source-of-truth.
 
-Never create random tables ad hoc.
+AI-related data should:
+
+- carry organization/entity/context when it is business-specific
+- preserve provenance and evidence
+- distinguish observation, inference, hypothesis, recommendation, and verified fact
+- support expiration/versioning/quality state where appropriate
+- connect decisions/actions to the actual governed capability that executed them
+
+Do not store durable intelligence only inside prompt text.
+
+## Schema naming
+
+Use clear, stable names that describe business concepts rather than screens or temporary implementations.
+
+Prefer `snake_case` for database identifiers unless the current schema contract dictates otherwise.
+
+Use explicit relationship names such as `organization_id`, `entity_id`, `party_id`, `created_at`, and `updated_at` where they model the real relation/state.
+
+## Migration rules
+
+Before applying a migration:
+
+1. Identify the exact target database/project/environment.
+2. Inspect current schema, data volume, constraints, RLS/policies, and callers.
+3. Understand compatibility and rollback/recovery implications.
+4. Prefer additive, reversible, idempotent, or safely repeatable migration patterns where practical.
+5. Separate large destructive backfills/rewrites from unrelated feature changes.
+6. Verify affected invariants and representative workflows after migration.
+7. Never use a local command as evidence that the target data is disposable.
+
+## Schema governance checklist
+
+Before creating or materially changing persistence, answer:
+
+1. What real business concept/event/state is being modeled?
+2. Which domain/workspace/capability owns it?
+3. What organization/entity/party relationship applies?
+4. Is there already a source of truth?
+5. What lifecycle/transitions must be enforced?
+6. What authorization/RLS boundary applies?
+7. What evidence/audit must survive?
+8. What financial/operational invariants must hold?
+9. What async/idempotency requirements exist?
+10. How will the schema and its real workflow be verified?
+
+Do not create random tables ad hoc. Persistence should strengthen the canonical platform model.

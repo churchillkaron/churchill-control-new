@@ -33,6 +33,20 @@ SUPPORTED_CAPABILITIES = {"ai.video.generate", "ai.video.image_to_video", "ai.vi
 MAX_REFERENCE_BYTES = 100 * 1024 * 1024
 MIN_REFERENCE_BYTES = 1024
 MAX_REFERENCE_CONDITIONS = 8
+CONTROLLED_FALSE_PROVENANCE_FLAGS = (
+    "pixel_upscale_used",
+    "learned_latent_upsampler_used",
+    "learned_spatial_upscaler_used",
+    "temporal_interpolation_used",
+    "resize_used",
+    "crop_used",
+    "grading_used",
+    "assembly_used",
+    "delivery_transform_used",
+    "automatic_paid_retry",
+    "runpod_inference_performed",
+    "external_provider_contacted",
+)
 
 # Modal serializes this module as the transport function's source. Its imports
 # are sibling modules, so explicitly mount those sources into the transport
@@ -241,6 +255,54 @@ def _controlled_conditions(job: dict[str, Any], relative_root: Path) -> tuple[li
     return conditions, total_bytes
 
 
+def _controlled_generation_evidence(job: dict[str, Any], generation: dict[str, Any]) -> dict[str, Any]:
+    control = _object(job.get("native_control"))
+    if not control:
+        return {
+            "native_control_executed": False,
+            "control_contract": None,
+            "reference_condition_count": 0,
+            "reference_condition_roles": [],
+            "first_frame_conditioning_used": False,
+            "last_frame_conditioning_used": False,
+        }
+
+    conditions = _list(control.get("reference_conditions"))
+    expected_roles = [_text(item.get("role")) or "REFERENCE_KEYFRAME" for item in conditions]
+    actual_roles = [_text(value) for value in _list(generation.get("reference_condition_roles"))]
+    if _text(generation.get("control_contract")) != CONTROL_CONTRACT:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_RESULT_CONTRACT_INVALID")
+    if _text(generation.get("modal_gpu")) != LTX_GPU:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_RESULT_GPU_INVALID")
+    if int(generation.get("width") or 0) != LTX_MASTER_WIDTH or int(generation.get("height") or 0) != LTX_MASTER_HEIGHT:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_RESULT_RESOLUTION_INVALID")
+    if int(generation.get("fps") or 0) != 24 or int(generation.get("num_inference_steps") or 0) != LTX_NUM_INFERENCE_STEPS:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_RESULT_GENERATION_SPEC_INVALID")
+    if int(generation.get("reference_condition_count") or -1) != len(conditions) or actual_roles != expected_roles:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_RESULT_REFERENCE_EVIDENCE_INVALID")
+    if generation.get("native_master_generated") is not True or generation.get("master_is_exact_model_output") is not True:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_RESULT_MASTER_PROVENANCE_INVALID")
+    if "OPENING_FRAME" in expected_roles and generation.get("first_frame_conditioning_used") is not True:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_RESULT_FIRST_FRAME_INVALID")
+    if "CLOSING_FRAME" in expected_roles and generation.get("last_frame_conditioning_used") is not True:
+        raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_RESULT_LAST_FRAME_INVALID")
+    for flag in CONTROLLED_FALSE_PROVENANCE_FLAGS:
+        if generation.get(flag) is not False:
+            raise RuntimeError(f"AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_RESULT_PROVENANCE_INVALID:{flag}")
+
+    return {
+        "native_control_executed": True,
+        "control_contract": CONTROL_CONTRACT,
+        "reference_condition_count": len(conditions),
+        "reference_condition_roles": actual_roles,
+        "first_frame_conditioning_used": generation.get("first_frame_conditioning_used") is True,
+        "last_frame_conditioning_used": generation.get("last_frame_conditioning_used") is True,
+        "native_master_generated": True,
+        "master_is_exact_model_output": True,
+        **{flag: False for flag in CONTROLLED_FALSE_PROVENANCE_FLAGS},
+    }
+
+
 @app.function(image=transport_image, volumes={"/models": model_volume}, timeout=LTX_HARD_TIMEOUT_SECONDS + 10 * 60, min_containers=0, max_containers=4, scaledown_window=5, retries=0)
 def generate_native_job(data: dict[str, Any]) -> dict[str, Any]:
     job = _validate_job(data)
@@ -268,11 +330,13 @@ def generate_native_job(data: dict[str, Any]) -> dict[str, Any]:
 
         if not isinstance(generation, dict) or generation.get("success") is not True:
             raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_RESULT_INVALID")
+        controlled_evidence = _controlled_generation_evidence(job, generation)
         if not output_path.exists() or output_path.stat().st_size < 1024 * 1024:
             model_volume.reload()
         if not output_path.exists() or output_path.stat().st_size < 1024 * 1024:
             raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_OUTPUT_MISSING")
         _upload_master(output_path, job["signed_url"])
+        lineage = _object(job.get("studio_lineage"))
         return {
             "success": True,
             "contract": JOB_CONTRACT,
@@ -281,22 +345,30 @@ def generate_native_job(data: dict[str, Any]) -> dict[str, Any]:
             "native_engine_contract": NATIVE_ENGINE_CONTRACT,
             "runtime_contract": LTX_RUNTIME_CONTRACT,
             "gpu": LTX_GPU,
+            "modal_gpu": _text(generation.get("modal_gpu")) or LTX_GPU,
             "width": LTX_MASTER_WIDTH,
             "height": LTX_MASTER_HEIGHT,
             "fps": 24,
             "steps": LTX_NUM_INFERENCE_STEPS,
+            "num_inference_steps": int(generation.get("num_inference_steps") or LTX_NUM_INFERENCE_STEPS),
             "duration_seconds": job["duration_seconds"],
             "seed": job["seed"],
-            "supplier_gpu_cost_usd": generation.get("supplier_gpu_cost_usd"),
+            "supplier_gpu_cost_usd": generation.get("supplier_gpu_cost_usd") or generation.get("estimated_supplier_gpu_cost_usd"),
             "generation": generation,
             "reference_bytes": reference_bytes,
             "storage_reference": job["storage_reference"],
             "studio_lineage": job["studio_lineage"],
+            "studio_lineage_validated": bool(lineage),
+            "shot_id": _text(lineage.get("shot_id")) or None,
             "native_control": job["native_control"],
             "gpu_generation_calls": 1,
             "automatic_generation_retries": 0,
+            "automatic_paid_retry": generation.get("automatic_paid_retry", False),
             "runpod_used": False,
             "external_provider_used": False,
+            "runpod_inference_performed": generation.get("runpod_inference_performed", False),
+            "external_provider_contacted": generation.get("external_provider_contacted", False),
+            **controlled_evidence,
         }
     finally:
         for path in staged_paths:

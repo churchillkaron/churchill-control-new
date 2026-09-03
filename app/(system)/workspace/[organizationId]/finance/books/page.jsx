@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
-import FinanceAreaHub from "@/components/workspace/finance/FinanceAreaHub";
+import FinanceBooksDesk from "@/components/workspace/finance/FinanceBooksDesk";
 
 export const dynamic = "force-dynamic";
 
@@ -10,5 +10,5 @@ export default function FinanceBooksPage() {
   const params = useParams();
   const businessContext = useBusinessContext() || {};
   const organizationId = params?.organizationId || businessContext.organization_id || businessContext.organization?.id || null;
-  return <FinanceAreaHub organizationId={organizationId} area="books" />;
+  return <FinanceBooksDesk organizationId={organizationId} />;
 }

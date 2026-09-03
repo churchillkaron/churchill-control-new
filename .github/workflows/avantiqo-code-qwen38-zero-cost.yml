@@ -1,0 +1,41 @@
+name: Avantiqo Code Qwen3.8 Zero-Cost Admission
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - services/avantiqo-code-engine/code_model_canary_v2.py
+      - services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py
+      - services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py
+      - services/avantiqo-code-engine/verify_qwen38_canary_runtime.py
+      - .github/workflows/avantiqo-code-qwen38-zero-cost.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-qwen38-zero-cost
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify isolated canary source
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/code_model_canary_v2.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py
+          python -m py_compile services/avantiqo-code-engine/verify_qwen38_canary_runtime.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_qwen38_canary_runtime.py
+          echo 'AVANTIQO_CODE_QWEN38_ZERO_COST_CI=PASS'

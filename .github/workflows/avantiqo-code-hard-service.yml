@@ -5,7 +5,11 @@ on:
   push:
     paths:
       - services/avantiqo-code-engine/modal_code_hard_service.py
+      - services/avantiqo-code-engine/modal_code_hard_owned_cert.py
+      - services/avantiqo-code-engine/modal_code_hard_owned_cert_fixed.py
+      - services/avantiqo-code-engine/modal_code_hard_owned_cert_final.py
       - services/avantiqo-code-engine/verify_hard_public_contract_guards.py
+      - services/avantiqo-code-engine/verify_hard_final_gates.py
       - services/avantiqo-code-engine/modal_persistent_owned_cert.py
       - services/avantiqo-code-engine/modal_verified_head_to_head.py
       - services/avantiqo-code-engine/modal_head_to_head.py
@@ -45,17 +49,25 @@ jobs:
           set -euo pipefail
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_service.py
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_fixed.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_final.py
           python -m py_compile services/avantiqo-code-engine/verify_hard_public_contract_guards.py
+          python -m py_compile services/avantiqo-code-engine/verify_hard_final_gates.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_hard_public_contract_guards.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_hard_final_gates.py
           PYTHONPATH=services/avantiqo-code-engine python - <<'PY'
           import modal_code_hard_service as service
           import modal_code_hard_owned_cert as hard
+          import modal_code_hard_owned_cert_final as final
           assert service.APP_NAME == 'avantiqo-code-hard-service-v1'
           assert service.FUNCTION_NAME == 'run_hard_cert_batch'
           assert service.cert.MODEL_VOLUME_NAME == 'avantiqo-code-models'
           assert service.cert.MODEL_REVISION == 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0'
           assert len(hard.HARD_TASKS) == 10
+          assert final.MAX_COMPLETION_TOKENS == 800
+          assert final.COMPACT_TARGET_TOKENS == 650
           print('AVANTIQO_CODE_HARD_SERVICE_PREFLIGHT=PASS')
+          print('AVANTIQO_CODE_FINAL_PREPAID_GATES=PASS')
           PY
           node --version
 

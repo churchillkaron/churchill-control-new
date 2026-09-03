@@ -1,0 +1,232 @@
+"""Isolated Qwen3.8 candidate runtime for Avantiqo Code.
+
+This is a benchmark/canary runtime only. It does not replace handler.py, does
+not alter production routing, does not create storage, and never downloads
+weights during GPU execution. It mounts the existing Code Modal Volume and
+requires the exactly pinned Qwen3.8 FP8 snapshot prepared by the CPU bootstrap.
+
+The vLLM runtime is pinned to a post-Qwen3.8 nightly commit because v0.27.1
+predates native Qwen3.8 support. The pin avoids mutable `nightly` behavior.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+from importlib.metadata import version
+from pathlib import Path
+from typing import Any
+
+import modal
+
+import code_model_canary_v2 as policy
+
+APP_NAME = "avantiqo-code-qwen38-canary-runtime"
+CONTRACT = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V1"
+VLLM_COMMIT = "e9d1398d9edfd90fcc1cf783805240e3effec013"
+VLLM_IMAGE = f"vllm/vllm-openai:cu129-nightly-{VLLM_COMMIT}"
+MODEL_MOUNT_ROOT = "/models"
+HF_CACHE_ROOT = Path(MODEL_MOUNT_ROOT) / "huggingface" / "hub"
+CANDIDATE_MARKER = Path(MODEL_MOUNT_ROOT) / "avantiqo-code-qwen38-canary-ready.json"
+CANDIDATE_SNAPSHOT = (
+    HF_CACHE_ROOT
+    / f"models--{policy.CANDIDATE_MODEL.replace('/', '--')}"
+    / "snapshots"
+    / policy.CANDIDATE_REVISION
+)
+MAX_MODEL_LEN = 32_768
+GPU_MEMORY_UTILIZATION = 0.90
+
+os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
+app = modal.App(APP_NAME)
+model_volume = modal.Volume.from_name(policy.CODE_VOLUME, create_if_missing=False)
+image = (
+    modal.Image.from_registry(VLLM_IMAGE, add_python=None)
+    .entrypoint([])
+    .env(
+        {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+            "VLLM_USE_FLASHINFER_SAMPLER": "0",
+        }
+    )
+)
+
+_ENGINE: Any | None = None
+_TOKENIZER: Any | None = None
+
+
+def _marker() -> dict[str, Any]:
+    try:
+        value = json.loads(CANDIDATE_MARKER.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"{CONTRACT}_CANDIDATE_MARKER_REQUIRED") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError(f"{CONTRACT}_CANDIDATE_MARKER_INVALID")
+    if value.get("runtime_model") != policy.CANDIDATE_MODEL:
+        raise RuntimeError(f"{CONTRACT}_MODEL_IDENTITY_INVALID")
+    if value.get("revision") != policy.CANDIDATE_REVISION:
+        raise RuntimeError(f"{CONTRACT}_REVISION_INVALID")
+    return value
+
+
+def _validate_snapshot() -> dict[str, Any]:
+    marker = _marker()
+    if not CANDIDATE_SNAPSHOT.is_dir():
+        raise RuntimeError(f"{CONTRACT}_SNAPSHOT_REQUIRED")
+    if not (CANDIDATE_SNAPSHOT / "config.json").is_file():
+        raise RuntimeError(f"{CONTRACT}_CONFIG_REQUIRED")
+    if not any(CANDIDATE_SNAPSHOT.glob("*.safetensors")):
+        raise RuntimeError(f"{CONTRACT}_SAFETENSORS_REQUIRED")
+    return marker
+
+
+def _load() -> tuple[Any, Any]:
+    global _ENGINE, _TOKENIZER
+    if _ENGINE is not None and _TOKENIZER is not None:
+        return _TOKENIZER, _ENGINE
+    _validate_snapshot()
+    from vllm import LLM
+
+    _ENGINE = LLM(
+        model=str(CANDIDATE_SNAPSHOT),
+        tokenizer=str(CANDIDATE_SNAPSHOT),
+        dtype="auto",
+        trust_remote_code=False,
+        tensor_parallel_size=1,
+        max_model_len=MAX_MODEL_LEN,
+        gpu_memory_utilization=GPU_MEMORY_UTILIZATION,
+        enforce_eager=False,
+        enable_prefix_caching=True,
+        disable_log_stats=True,
+        safetensors_load_strategy="prefetch",
+    )
+    _TOKENIZER = _ENGINE.get_tokenizer()
+    return _TOKENIZER, _ENGINE
+
+
+def _validated_request(request: dict[str, Any]) -> dict[str, Any]:
+    if request.get("contract") != CONTRACT:
+        raise ValueError(f"{CONTRACT}_REQUEST_CONTRACT_INVALID")
+    if request.get("organization_id") != "benchmark-only":
+        raise ValueError(f"{CONTRACT}_BENCHMARK_ONLY")
+    instruction = str(request.get("instruction") or "").strip()
+    if not instruction or len(instruction) > 120_000:
+        raise ValueError(f"{CONTRACT}_INSTRUCTION_INVALID")
+    return request
+
+
+@app.function(
+    image=image,
+    volumes={MODEL_MOUNT_ROOT: model_volume},
+    gpu="H100",
+    timeout=12 * 60,
+    scaledown_window=10 * 60,
+    min_containers=0,
+    max_containers=1,
+)
+def runtime_probe() -> dict[str, Any]:
+    """Paid only when deliberately invoked; loads no generation request."""
+    started = time.perf_counter()
+    marker = _validate_snapshot()
+    tokenizer, _engine = _load()
+    elapsed_ms = round((time.perf_counter() - started) * 1000)
+    return {
+        "contract": CONTRACT,
+        "status": "runtime_ready",
+        "runtime_model": policy.CANDIDATE_MODEL,
+        "revision": policy.CANDIDATE_REVISION,
+        "vllm_version": version("vllm"),
+        "vllm_commit_pin": VLLM_COMMIT,
+        "model_volume_name": policy.CODE_VOLUME,
+        "snapshot_path": str(CANDIDATE_SNAPSHOT),
+        "marker_contract": marker.get("contract"),
+        "tokenizer_class": type(tokenizer).__name__,
+        "engine_loaded": True,
+        "engine_prepare_ms": elapsed_ms,
+        "production_routing_change": False,
+        "production_deploy_performed": False,
+        "model_download_performed": False,
+        "volume_created": False,
+    }
+
+
+@app.function(
+    image=image,
+    volumes={MODEL_MOUNT_ROOT: model_volume},
+    gpu="H100",
+    timeout=12 * 60,
+    scaledown_window=10 * 60,
+    min_containers=0,
+    max_containers=1,
+)
+def generate(requests: list[dict[str, Any]]) -> dict[str, Any]:
+    """Bounded canary generation for private certification; never production."""
+    if not isinstance(requests, list) or not requests or len(requests) > 16:
+        raise ValueError(f"{CONTRACT}_REQUEST_BATCH_INVALID")
+    validated = [_validated_request(item) for item in requests if isinstance(item, dict)]
+    if len(validated) != len(requests):
+        raise ValueError(f"{CONTRACT}_REQUEST_OBJECT_REQUIRED")
+
+    tokenizer, engine = _load()
+    from vllm import SamplingParams
+
+    rendered: list[str] = []
+    for item in validated:
+        messages = [{"role": "user", "content": item["instruction"]}]
+        rendered.append(
+            tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+        )
+    started = time.perf_counter()
+    outputs = engine.generate(
+        rendered,
+        SamplingParams(
+            temperature=0.0,
+            max_tokens=2048,
+            skip_special_tokens=True,
+        ),
+        use_tqdm=False,
+    )
+    elapsed_ms = round((time.perf_counter() - started) * 1000)
+    if len(outputs) != len(validated):
+        raise RuntimeError(f"{CONTRACT}_OUTPUT_COUNT_INVALID")
+    texts: list[str] = []
+    for output in outputs:
+        if not output.outputs:
+            raise RuntimeError(f"{CONTRACT}_OUTPUT_REQUIRED")
+        text = str(output.outputs[0].text or "").strip()
+        if not text:
+            raise RuntimeError(f"{CONTRACT}_OUTPUT_REQUIRED")
+        texts.append(text)
+    return {
+        "contract": CONTRACT,
+        "status": "completed",
+        "runtime_model": policy.CANDIDATE_MODEL,
+        "revision": policy.CANDIDATE_REVISION,
+        "vllm_commit_pin": VLLM_COMMIT,
+        "model_volume_name": policy.CODE_VOLUME,
+        "outputs": texts,
+        "batch_wall_ms": elapsed_ms,
+        "production_routing_change": False,
+        "production_deploy_performed": False,
+        "model_download_performed": False,
+        "volume_created": False,
+    }
+
+
+@app.local_entrypoint()
+def main() -> None:
+    raise RuntimeError(
+        f"{CONTRACT}_NO_DEFAULT_PAID_ENTRYPOINT:invoke runtime_probe or generate explicitly"
+    )

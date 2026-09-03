@@ -60,9 +60,12 @@ jobs:
         run: |
           set -euo pipefail
           node --check scripts/run-avantiqo-operator-fast-two-turn-e2e-local.mjs
+          node --check scripts/certify-avantiqo-operator-fast-first-policy.mjs
+          node --check lib/operator/runtime/OperatorFastFirstPolicy.js
           node --check lib/operator/runtime/OperatorOwnedCognitiveBriefPolicy.js
           node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js
           node --check lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js
+          node scripts/certify-avantiqo-operator-fast-first-policy.mjs
           python -m py_compile services/avantiqo-intelligence-modal/modal_app.py
           python -m py_compile services/avantiqo-intelligence-modal/deploy_app.py
           grep -q 'MODAL_H100_ASYNC_V1' lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProvider.js

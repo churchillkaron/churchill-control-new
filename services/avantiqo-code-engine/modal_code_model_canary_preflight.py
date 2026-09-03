@@ -4,6 +4,9 @@ This script uses Modal's Volume API directly. It creates no Function, container,
 Image, GPU, or Volume and downloads no model. The tiny App exists only so the
 existing `modal run` CI transport can invoke a local entrypoint; no remote
 compute is declared or started.
+
+The candidate bootstrap writes Hugging Face/Xet caches directly into the one
+existing Code Volume. No large explicit ephemeral disk is requested.
 """
 
 from __future__ import annotations
@@ -54,7 +57,6 @@ def inspect_control_plane() -> dict[str, Any]:
     snapshot = {
         "candidate_bytes": CANDIDATE_BYTES,
         "candidate_revision": policy.CANDIDATE_REVISION,
-        "bootstrap_ephemeral_disk_bytes": policy.PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES,
         "code_storage_volumes": code_storage_volumes,
         "current_model_ready": (
             current_marker.get("runtime_model") == policy.CURRENT_MODEL
@@ -62,6 +64,8 @@ def inspect_control_plane() -> dict[str, Any]:
         ),
         "distributed_volume_storage": True,
         "fixed_capacity_assumption_used": False,
+        "direct_to_volume_download": True,
+        "explicit_ephemeral_disk_requested": False,
         "inference_requested": False,
         "production_routing_change": False,
         "production_deploy_performed": False,
@@ -97,13 +101,15 @@ def _run() -> None:
     )
     for field in (
         "control_plane_only",
+        "direct_to_volume_download",
         "gpu_used",
         "model_download_performed",
         "volume_created",
         "production_routing_change",
         "production_deploy_performed",
+        "explicit_ephemeral_disk_requested",
     ):
-        expected = field == "control_plane_only"
+        expected = field in {"control_plane_only", "direct_to_volume_download"}
         if report.get(field) is not expected:
             raise RuntimeError(f"{policy.CONTRACT}_{field.upper()}_INVALID")
     if report.get("admitted") is not True:

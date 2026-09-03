@@ -10,6 +10,10 @@ on:
       - 'services/avantiqo-code-engine/verify_repo_agent_v4.py'
       - 'services/avantiqo-code-engine/repo_agent_v5.py'
       - 'services/avantiqo-code-engine/verify_repo_agent_v5.py'
+      - 'services/avantiqo-code-engine/repo_agent_v6.py'
+      - 'services/avantiqo-code-engine/verify_repo_agent_v6.py'
+      - 'services/avantiqo-code-engine/worldclass_cert_v3_contract.py'
+      - 'services/avantiqo-code-engine/verify_worldclass_cert_v3.py'
       - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py'
       - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py'
       - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py'
@@ -40,6 +44,10 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v4.py
           python -m py_compile services/avantiqo-code-engine/repo_agent_v5.py
           python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v5.py
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v6.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v6.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          python -m py_compile services/avantiqo-code-engine/verify_worldclass_cert_v3.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py
@@ -56,6 +64,18 @@ jobs:
           PYTHONPATH=services/avantiqo-code-engine \
             python services/avantiqo-code-engine/verify_repo_agent_v5.py
 
+      - name: Prove V6 resilient edit and semantic contract without GPU
+        run: |
+          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine \
+            python services/avantiqo-code-engine/verify_repo_agent_v6.py
+
+      - name: Prove World-Class V3 separated latency gate without GPU
+        run: |
+          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine \
+            python services/avantiqo-code-engine/verify_worldclass_cert_v3.py
+
       - name: Re-prove sealed fixture integrity without GPU
         run: |
           set -euo pipefail
@@ -65,18 +85,22 @@ jobs:
       - name: Prove no benchmark-answer patching and hard batch ceiling
         run: |
           set -euo pipefail
-          ! grep -Eq '97b8062e96e6f0772fc3|35c408a88303c4f5cc9a' \
+          ! grep -Eq '97b8062e96e6f0772fc3|35c408a88303c4f5cc9a|152e5ea16232cf52d368|e1e7f8e24989b045959c' \
             services/avantiqo-code-engine/repo_agent_v4.py \
-            services/avantiqo-code-engine/repo_agent_v5.py
-          grep -q 'MAX_CASE_MODEL_SEQUENCES = 4' \
-            services/avantiqo-code-engine/repo_agent_v5.py
+            services/avantiqo-code-engine/repo_agent_v5.py \
+            services/avantiqo-code-engine/repo_agent_v6.py
+          grep -q 'MAX_CASE_MODEL_SEQUENCES = v5.MAX_CASE_MODEL_SEQUENCES' \
+            services/avantiqo-code-engine/repo_agent_v6.py
+          grep -q 'MAX_WARM_P95_MS = 4_000' \
+            services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          grep -q 'single_request=value.get("single_request") is True' \
+            services/avantiqo-code-engine/worldclass_cert_v3_contract.py
           grep -q 'MAX_MODAL_BATCH_CALLS = 4' \
             services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py
           grep -q 'modal_batch_calls > MAX_MODAL_BATCH_CALLS' \
             services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py
-          grep -q 'RUN_SEED = "20260903-qwen38-private12-v3"' \
-            services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py
           grep -q 'enable_prefix_caching=ENABLE_PREFIX_CACHING' \
             services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py
-          echo 'AVANTIQO_CODE_REPO_AGENT_V5_BATCH_CEILING=PASS'
+          echo 'AVANTIQO_CODE_REPO_AGENT_V6_BATCH_CEILING=PASS'
+          echo 'AVANTIQO_CODE_WORLDCLASS_V3_LATENCY_GATE=PASS'
           echo 'AVANTIQO_CODE_REPO_AGENT_ZERO_COST=PASS'

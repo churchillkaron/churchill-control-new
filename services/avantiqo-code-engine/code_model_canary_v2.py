@@ -18,9 +18,11 @@ CANDIDATE_REVISION = "017b9c7af6b5689d5dd426a76e0bc077eb5ca20a"
 CODE_VOLUME = "avantiqo-code-models"
 QUANTIZATION = "fp8"
 MIN_NATIVE_CONTEXT = 262_144
-MAX_CANDIDATE_BYTES = 32 * 1024**3
-MIN_BOOTSTRAP_EPHEMERAL_DISK_BYTES = 64 * 1024**3
-PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES = 96 * 1024**3
+# Literal byte budgets make the safety contract statically auditable without
+# evaluating arbitrary Python expressions in the verifier.
+MAX_CANDIDATE_BYTES = 34359738368
+MIN_BOOTSTRAP_EPHEMERAL_DISK_BYTES = 68719476736
+PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES = 103079215104
 
 
 def admit(snapshot: dict[str, Any]) -> dict[str, Any]:

@@ -18,6 +18,7 @@ on:
       - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py'
       - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py'
       - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v4_cert.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py'
       - '.github/workflows/avantiqo-code-repo-agent-v4-zero-cost.yml'
       - '.github/workflows/avantiqo-code-qwen38-private12-v2.yml'
 
@@ -53,6 +54,7 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v4_cert.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
 
       - name: Prove V4 semantic review loop without GPU
         run: |
@@ -72,7 +74,7 @@ jobs:
           PYTHONPATH=services/avantiqo-code-engine \
             python services/avantiqo-code-engine/verify_repo_agent_v6.py
 
-      - name: Prove World-Class V3 separated latency gate without GPU
+      - name: Prove World-Class V3 representative latency gate without GPU
         run: |
           set -euo pipefail
           PYTHONPATH=services/avantiqo-code-engine \
@@ -90,24 +92,33 @@ jobs:
           ! grep -Eq '97b8062e96e6f0772fc3|35c408a88303c4f5cc9a|152e5ea16232cf52d368|e1e7f8e24989b045959c' \
             services/avantiqo-code-engine/repo_agent_v4.py \
             services/avantiqo-code-engine/repo_agent_v5.py \
-            services/avantiqo-code-engine/repo_agent_v6.py
+            services/avantiqo-code-engine/repo_agent_v6.py \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
           grep -q 'MAX_CASE_MODEL_SEQUENCES = v5.MAX_CASE_MODEL_SEQUENCES' \
             services/avantiqo-code-engine/repo_agent_v6.py
           grep -q 'MAX_WARM_P95_MS = 4_000' \
             services/avantiqo-code-engine/worldclass_cert_v3_contract.py
           grep -q 'single_request=value.get("single_request") is True' \
             services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          grep -q 'representative=value.get("representative") is True' \
+            services/avantiqo-code-engine/worldclass_cert_v3_contract.py
           grep -q 'MAX_MODAL_QUALITY_BATCH_CALLS = 4' \
-            services/avantiqo-code-engine/modal_code_qwen38_private12_v4_cert.py
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
           grep -q 'MAX_MODAL_SINGLE_LATENCY_CALLS = 3' \
-            services/avantiqo-code-engine/modal_code_qwen38_private12_v4_cert.py
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
           grep -q 'MAX_MODAL_TOTAL_CALLS = MAX_MODAL_QUALITY_BATCH_CALLS + MAX_MODAL_SINGLE_LATENCY_CALLS' \
-            services/avantiqo-code-engine/modal_code_qwen38_private12_v4_cert.py
-          grep -q 'AVANTIQO_CODE_QWEN38_PRIVATE12_V4_PROGRESS=' \
-            services/avantiqo-code-engine/modal_code_qwen38_private12_v4_cert.py
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q 'fresh_suite_actor_longest' \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q 'fresh_suite_reviewer_longest' \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q '"representative": True' \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
+          grep -q 'AVANTIQO_CODE_QWEN38_PRIVATE12_V5_PROGRESS=' \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v5_cert.py
           grep -q 'enable_prefix_caching=ENABLE_PREFIX_CACHING' \
             services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py
           echo 'AVANTIQO_CODE_REPO_AGENT_V6_BATCH_CEILING=PASS'
-          echo 'AVANTIQO_CODE_WORLDCLASS_V3_LATENCY_GATE=PASS'
-          echo 'AVANTIQO_CODE_PRIVATE12_V4_CALL_CEILING=PASS'
+          echo 'AVANTIQO_CODE_WORLDCLASS_V3_REPRESENTATIVE_LATENCY_GATE=PASS'
+          echo 'AVANTIQO_CODE_PRIVATE12_V5_CALL_CEILING=PASS'
           echo 'AVANTIQO_CODE_REPO_AGENT_ZERO_COST=PASS'

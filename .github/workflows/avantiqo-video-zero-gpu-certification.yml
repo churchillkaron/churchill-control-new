@@ -1,0 +1,91 @@
+name: Avantiqo Video Zero-GPU Certification
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/avantiqo-video-zero-gpu-certification.yml"
+      - "tests/avantiqo-video-world-class-quality-contract.test.mjs"
+      - "tests/avantiqo-video-native-control-contract.test.mjs"
+      - "lib/creative/video/runtime/CreativeVideoNativeControlRuntime.js"
+      - "lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js"
+      - "lib/creative/quality/runtime/CreativeVideoTechnicalQualityRuntime.js"
+      - "lib/creative/quality/runtime/CreativeVideoTemporalEvidenceRuntime.js"
+      - "lib/creative/quality/runtime/CreativeShotCandidateQualityGateBootstrap.js"
+      - "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js"
+      - "services/avantiqo-video-engine/modal_app.py"
+      - "services/avantiqo-video-engine/modal_native_job.py"
+      - "services/avantiqo-video-engine/modal_native_controlled_master.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-zero-gpu-certification-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    name: Video native control + quality contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED: "NO"
+      AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED: "NO"
+      AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED: "NO"
+
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+
+      - name: Use repository Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Prove no paid execution is authorized
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED" = "NO"
+          test "$AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED" = "NO"
+          test "$AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED" = "NO"
+
+      - name: Run Video source-contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test \
+            tests/avantiqo-video-world-class-quality-contract.test.mjs \
+            tests/avantiqo-video-native-control-contract.test.mjs
+
+      - name: Parse-check Video JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check lib/creative/video/runtime/CreativeVideoNativeControlRuntime.js
+          node --check lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js
+          node --check lib/creative/quality/runtime/CreativeVideoTechnicalQualityRuntime.js
+          node --check lib/creative/quality/runtime/CreativeVideoTemporalEvidenceRuntime.js
+          node --check lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js
+
+      - name: Compile-check Modal Python without importing Modal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            services/avantiqo-video-engine/modal_app.py \
+            services/avantiqo-video-engine/modal_native_job.py \
+            services/avantiqo-video-engine/modal_native_controlled_master.py
+
+      - name: Zero-GPU certification summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            'AVANTIQO_VIDEO_ZERO_GPU_CERTIFICATION=PASS' \
+            'provider_calls_executed=0' \
+            'gpu_calls_executed=0' \
+            'paid_inference_executed=0'

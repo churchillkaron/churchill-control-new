@@ -14,6 +14,10 @@ const areaHub = fs.readFileSync(
   new URL("../components/workspace/finance/FinanceAreaHub.jsx", import.meta.url),
   "utf8",
 );
+const reviewSignoffRoute = fs.readFileSync(
+  new URL("../app/api/workspace/finance/work-programs/review-signoff/route.js", import.meta.url),
+  "utf8",
+);
 const runtimeManifest = JSON.parse(
   fs.readFileSync(
     new URL("../lib/finance/runtime/financeCapabilityRuntimeManifest.json", import.meta.url),
@@ -59,4 +63,25 @@ test("Finance UI still protects genuinely unavailable capabilities", () => {
   assert.match(areaHub, /"planned", "blocked", "disabled", "unavailable"/);
   assert.match(presentationPolicy, /declaredStatus\.toLowerCase\(\) === "planned"/);
   assert.doesNotMatch(presentationPolicy, /declaredStatus\.toLowerCase\(\) === "blocked"[\s\S]*effectiveStatus:\s*"active"/);
+});
+
+test("Finance reviewer and partner sign-off is assignment-aware and segregation-safe", () => {
+  assert.match(reviewSignoffRoute, /assigned_reviewer_id/);
+  assert.match(reviewSignoffRoute, /assigned_partner_id/);
+  assert.match(reviewSignoffRoute, /Only the assigned/);
+  assert.match(reviewSignoffRoute, /Segregation of duties blocks the preparer/);
+  assert.match(reviewSignoffRoute, /same user from signing/);
+  assert.match(reviewSignoffRoute, /Preparer sign-off is required before reviewer clearance/);
+  assert.match(reviewSignoffRoute, /Reviewer sign-off missing/);
+  assert.match(reviewSignoffRoute, /Resolve all open review points before partner clearance/);
+});
+
+test("Finance partner clearance is portfolio scoped to client entity and period", () => {
+  assert.match(reviewSignoffRoute, /scopedReviewItems\(run\)/);
+  assert.match(reviewSignoffRoute, /\.eq\("organization_id", run\.organization_id\)/);
+  assert.match(reviewSignoffRoute, /run\.entity_id \? query\.eq\("entity_id", run\.entity_id\)/);
+  assert.match(reviewSignoffRoute, /run\.period_id \? query\.eq\("period_id", run\.period_id\)/);
+  assert.match(reviewSignoffRoute, /accounting_work_program_portfolio_clearance/);
+  assert.match(reviewSignoffRoute, /ACCOUNTING_PARTNER_PORTFOLIO_CLEARANCE/);
+  assert.match(reviewSignoffRoute, /review_item_count: reviewItemIds\.length/);
 });

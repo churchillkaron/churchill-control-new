@@ -171,6 +171,7 @@ export async function GET(request) {
         queue: [],
         close: { run: null, steps: [], completed: 0, total: 0, progress: 0 },
         practice: { active_clients: 0, clients: [] },
+        recent_work: [],
         sources: {},
       });
     }
@@ -185,6 +186,7 @@ export async function GET(request) {
       filingsSource,
       engagementsSource,
       reviewItemsSource,
+      recentWorkSource,
     ] = await Promise.all([
       safe("accounts_receivable", async () => {
         const { data, error } = await supabaseAdmin
@@ -298,6 +300,16 @@ export async function GET(request) {
         if (error) throw error;
         return data || [];
       }, []),
+      safe("accounting_engagement_work_items", async () => {
+        const { data, error } = await supabaseAdmin
+          .from("accounting_engagement_work_items")
+          .select("id,organization_id,run_id,title,status,required_role,due_at,completed_at,updated_at")
+          .eq("accounting_firm_id", context.organizationId)
+          .order("updated_at", { ascending: false })
+          .limit(12);
+        if (error) throw error;
+        return data || [];
+      }, []),
     ]);
 
     const receivables = receivablesSource.data || [];
@@ -356,6 +368,21 @@ export async function GET(request) {
         };
       });
     }
+
+    const clientNameMap = new Map(practiceClients.map(client => [client.organization_id, client.name]));
+    const recentWork = (recentWorkSource.data || []).slice(0, 8).map(row => ({
+      id: row.id,
+      organization_id: row.organization_id,
+      run_id: row.run_id,
+      client_name: clientNameMap.get(row.organization_id) || "Client organization",
+      title: row.title || "Accounting procedure",
+      status: row.status || "Open",
+      required_role: row.required_role || null,
+      due_at: row.due_at || null,
+      completed_at: row.completed_at || null,
+      updated_at: row.updated_at || null,
+      href: financeHref("work"),
+    }));
 
     const queue = [];
     const reviewAsOf = periodEnd || new Date().toISOString();
@@ -452,6 +479,7 @@ export async function GET(request) {
         filingsSource,
         engagementsSource,
         reviewItemsSource,
+        recentWorkSource,
       ].map(source => [source.source, { status: source.status, error: source.error }]),
     );
 
@@ -533,6 +561,7 @@ export async function GET(request) {
         clients: practiceClients.slice(0, 8),
         source_status: engagementsSource.status,
       },
+      recent_work: recentWork,
       sources,
       generated_at: new Date().toISOString(),
     });

@@ -1,17 +1,16 @@
-"""Guarded CPU-only Qwen3.8 bootstrap into the existing Avantiqo Code volume.
+"""Guarded CPU-only Qwen3.8 bootstrap into the existing Avantiqo Code Volume.
 
-This module never creates a volume, never starts a GPU, never changes production
-routing, and never overwrites the current Qwen3-Coder readiness marker. A model
-download is permitted only after the live single-volume capacity contract passes
-again inside the mounted volume and an explicit execution approval environment
-variable is present.
+Modal Volume is distributed persistent storage, not a fixed-size network disk.
+This bootstrap therefore protects the one-storage architecture by control-plane
+identity and marker integrity, while provisioning generous ephemeral disk for
+transient download work. It never creates a Volume, starts a GPU, changes
+production routing, or overwrites the current Qwen3-Coder readiness marker.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -21,7 +20,7 @@ import modal
 import code_model_canary_v2 as policy
 
 APP_NAME = "avantiqo-code-qwen38-bootstrap"
-CONTRACT = "AVANTIQO_CODE_QWEN38_BOOTSTRAP_V1"
+CONTRACT = "AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2"
 MODEL_MOUNT_ROOT = "/models"
 HF_ROOT = Path(MODEL_MOUNT_ROOT) / "huggingface"
 HF_CACHE_ROOT = HF_ROOT / "hub"
@@ -32,6 +31,7 @@ CANDIDATE_SNAPSHOT = (
     HF_CACHE_ROOT / CANDIDATE_CACHE_DIRNAME / "snapshots" / policy.CANDIDATE_REVISION
 )
 CANDIDATE_BYTES_BUDGET = 30_900_000_000
+EPHEMERAL_DISK_MIB = policy.PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES // (1024**2)
 APPROVAL_ENV = "AVANTIQO_CODE_QWEN38_BOOTSTRAP_APPROVED"
 
 app = modal.App(APP_NAME)
@@ -49,6 +49,14 @@ def _read_json(path: Path) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _current_model_ready() -> bool:
+    marker = _read_json(CURRENT_MARKER)
+    return (
+        marker.get("runtime_model") == policy.CURRENT_MODEL
+        and bool(marker.get("revision"))
+    )
+
+
 def _candidate_ready() -> bool:
     marker = _read_json(CANDIDATE_MARKER)
     return all(
@@ -63,45 +71,20 @@ def _candidate_ready() -> bool:
     )
 
 
-def _capacity_snapshot() -> dict[str, Any]:
-    usage = shutil.disk_usage(MODEL_MOUNT_ROOT)
-    current_marker = _read_json(CURRENT_MARKER)
+def _mounted_admission_snapshot() -> dict[str, Any]:
     return {
         "candidate_bytes": CANDIDATE_BYTES_BUDGET,
         "candidate_revision": policy.CANDIDATE_REVISION,
-        "code_volume_free_bytes": int(usage.free),
+        "bootstrap_ephemeral_disk_bytes": EPHEMERAL_DISK_MIB * 1024**2,
         "code_storage_volumes": [policy.CODE_VOLUME],
-        "current_model_ready": (
-            current_marker.get("runtime_model") == policy.CURRENT_MODEL
-            and bool(current_marker.get("revision"))
-        ),
+        "current_model_ready": _current_model_ready(),
+        "distributed_volume_storage": True,
+        "fixed_capacity_assumption_used": False,
         "inference_requested": False,
         "production_routing_change": False,
         "production_deploy_performed": False,
+        "volume_created": False,
     }
-
-
-@app.function(
-    image=image,
-    volumes={MODEL_MOUNT_ROOT: model_volume},
-    cpu=1.0,
-    memory=1024,
-    timeout=5 * 60,
-)
-def inspect() -> dict[str, Any]:
-    snapshot = _capacity_snapshot()
-    report = policy.admit(snapshot)
-    report.update(
-        {
-            "contract": CONTRACT,
-            "candidate_ready": _candidate_ready(),
-            "gpu_used": False,
-            "download_performed": False,
-            "volume_created": False,
-            "current_marker_preserved": CURRENT_MARKER.is_file(),
-        }
-    )
-    return report
 
 
 @app.function(
@@ -109,11 +92,20 @@ def inspect() -> dict[str, Any]:
     volumes={MODEL_MOUNT_ROOT: model_volume},
     cpu=4.0,
     memory=8192,
+    ephemeral_disk=EPHEMERAL_DISK_MIB,
     timeout=45 * 60,
 )
 def bootstrap() -> dict[str, Any]:
     if os.environ.get(APPROVAL_ENV) != "YES":
         raise RuntimeError(f"{CONTRACT}_EXPLICIT_APPROVAL_REQUIRED")
+
+    admission = policy.assert_admitted(_mounted_admission_snapshot())
+    if admission.get("single_code_storage") is not True:
+        raise RuntimeError(f"{CONTRACT}_SINGLE_CODE_STORAGE_REQUIRED")
+
+    current_marker_before = CURRENT_MARKER.read_bytes() if CURRENT_MARKER.is_file() else None
+    if current_marker_before is None:
+        raise RuntimeError(f"{CONTRACT}_CURRENT_MODEL_MARKER_REQUIRED")
 
     if _candidate_ready():
         return {
@@ -124,15 +116,13 @@ def bootstrap() -> dict[str, Any]:
             "runtime_model": policy.CANDIDATE_MODEL,
             "revision": policy.CANDIDATE_REVISION,
             "model_volume_name": policy.CODE_VOLUME,
+            "ephemeral_disk_mib": EPHEMERAL_DISK_MIB,
             "gpu_used": False,
             "production_routing_change": False,
             "production_deploy_performed": False,
             "volume_created": False,
+            "current_marker_preserved": True,
         }
-
-    admission = policy.assert_admitted(_capacity_snapshot())
-    free_before = int(admission["code_volume_free_bytes"])
-    current_marker_before = CURRENT_MARKER.read_bytes() if CURRENT_MARKER.is_file() else None
 
     from huggingface_hub import snapshot_download
 
@@ -154,28 +144,22 @@ def bootstrap() -> dict[str, Any]:
     if not weights:
         raise RuntimeError(f"{CONTRACT}_SAFETENSORS_REQUIRED")
 
-    usage_after = shutil.disk_usage(MODEL_MOUNT_ROOT)
-    if int(usage_after.free) < policy.MIN_FREE_AFTER_DOWNLOAD_BYTES:
-        raise RuntimeError(
-            f"{CONTRACT}_FREE_SPACE_FLOOR_BREACHED:free={usage_after.free}:"
-            f"minimum={policy.MIN_FREE_AFTER_DOWNLOAD_BYTES}"
-        )
-
-    if current_marker_before is not None:
-        if not CURRENT_MARKER.is_file() or CURRENT_MARKER.read_bytes() != current_marker_before:
-            raise RuntimeError(f"{CONTRACT}_CURRENT_MARKER_CHANGED")
+    if not CURRENT_MARKER.is_file() or CURRENT_MARKER.read_bytes() != current_marker_before:
+        raise RuntimeError(f"{CONTRACT}_CURRENT_MARKER_CHANGED")
 
     files = [item for item in CANDIDATE_SNAPSHOT.rglob("*") if item.is_file()]
     marker = {
         "contract": CONTRACT,
         "runtime_model": policy.CANDIDATE_MODEL,
         "revision": policy.CANDIDATE_REVISION,
-        "source": "huggingface-guarded-same-volume-bootstrap",
+        "source": "huggingface-guarded-same-modal-volume-bootstrap",
         "snapshot_path": str(CANDIDATE_SNAPSHOT),
         "files": len(files),
         "bytes": sum(item.stat().st_size for item in files),
-        "free_bytes_before": free_before,
-        "free_bytes_after": int(usage_after.free),
+        "candidate_bytes_budget": CANDIDATE_BYTES_BUDGET,
+        "ephemeral_disk_mib": EPHEMERAL_DISK_MIB,
+        "distributed_volume_storage": True,
+        "fixed_capacity_assumption_used": False,
         "created_at_epoch_ms": int(time.time() * 1000),
         "production_routing_change": False,
         "production_deploy_performed": False,
@@ -184,6 +168,8 @@ def bootstrap() -> dict[str, Any]:
     model_volume.commit()
     if not _candidate_ready():
         raise RuntimeError(f"{CONTRACT}_COMMIT_NOT_VISIBLE")
+    if CURRENT_MARKER.read_bytes() != current_marker_before:
+        raise RuntimeError(f"{CONTRACT}_CURRENT_MARKER_CHANGED_AFTER_COMMIT")
 
     return {
         "contract": CONTRACT,
@@ -195,7 +181,7 @@ def bootstrap() -> dict[str, Any]:
         "model_volume_name": policy.CODE_VOLUME,
         "files": marker["files"],
         "bytes": marker["bytes"],
-        "free_bytes_after": marker["free_bytes_after"],
+        "ephemeral_disk_mib": EPHEMERAL_DISK_MIB,
         "gpu_used": False,
         "production_routing_change": False,
         "production_deploy_performed": False,
@@ -206,13 +192,14 @@ def bootstrap() -> dict[str, Any]:
 
 @app.local_entrypoint()
 def main() -> None:
-    report = inspect.remote()
-    print("AVANTIQO_CODE_QWEN38_BOOTSTRAP_INSPECT=" + json.dumps(report, separators=(",", ":")))
     if os.environ.get(APPROVAL_ENV) != "YES":
-        print(f"{CONTRACT}=INSPECT_ONLY")
-        return
+        raise RuntimeError(f"{CONTRACT}_EXPLICIT_APPROVAL_REQUIRED")
     result = bootstrap.remote()
-    print("AVANTIQO_CODE_QWEN38_BOOTSTRAP_RESULT=" + json.dumps(result, separators=(",", ":")))
+    print(
+        "AVANTIQO_CODE_QWEN38_BOOTSTRAP_RESULT="
+        + json.dumps(result, separators=(",", ":")),
+        flush=True,
+    )
     if result.get("ready") is not True:
         raise RuntimeError(f"{CONTRACT}_NOT_READY")
-    print(f"{CONTRACT}=PASS")
+    print(f"{CONTRACT}=PASS", flush=True)

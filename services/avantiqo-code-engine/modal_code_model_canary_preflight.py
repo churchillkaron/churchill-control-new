@@ -1,114 +1,112 @@
-"""CPU-only, no-download admission probe for the next Avantiqo Code model.
+"""Control-plane-only admission probe for the next Avantiqo Code model.
 
-This probe mounts the one existing Code volume only to inspect its current
-contents and capacity. It performs no model download, no inference, no GPU work
-and no production routing/deployment change.
-
-The probe reuses the immutable Code worker image already proven by certification
-instead of building a fresh Debian image. A tiny image-layer shim exposes the
-existing python3/pip3 binaries at conventional paths so Modal can identify the
-runtime exactly as the persistent certification transport already does.
+This script uses Modal's Volume API directly. It creates no App, Function,
+container, Image, GPU, or Volume and downloads no model. That makes the
+preflight both zero-compute-cost and semantically correct for Modal's distributed
+Volume storage.
 """
 
 from __future__ import annotations
 
 import json
-import shutil
-from pathlib import Path
 from typing import Any
 
 import modal
 
 import code_model_canary_v2 as policy
 
-APP_NAME = "avantiqo-code-model-canary-preflight"
-MODEL_MOUNT_ROOT = "/models"
-CURRENT_MARKER = Path(MODEL_MOUNT_ROOT) / "avantiqo-code-model-ready.json"
+CURRENT_MARKER = "avantiqo-code-model-ready.json"
+CANDIDATE_MARKER = "avantiqo-code-qwen38-canary-ready.json"
 CANDIDATE_BYTES = 30_900_000_000
-WORKER_IMAGE = (
-    "ghcr.io/churchillkaron/avantiqo-code-worker@"
-    "sha256:fa6559a184998d75fb6430ea9fa303fe7b6c1af0da441e61ac4bd587b2bdf3c6"
-)
 
-app = modal.App(APP_NAME)
-model_volume = modal.Volume.from_name(policy.CODE_VOLUME, create_if_missing=False)
-image = (
-    modal.Image.from_registry(
-        WORKER_IMAGE,
-        add_python=None,
-        setup_dockerfile_commands=[
-            "RUN command -v python >/dev/null 2>&1 || ln -s \"$(command -v python3)\" /usr/local/bin/python",
-            "RUN command -v pip >/dev/null 2>&1 || ln -s \"$(command -v pip3)\" /usr/local/bin/pip",
-            "RUN python --version && pip --version",
-        ],
+
+def _read_json(volume: modal.Volume, path: str) -> dict[str, Any]:
+    try:
+        raw = b"".join(volume.read_file(path))
+        value = json.loads(raw.decode("utf-8"))
+    except Exception:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def inspect_control_plane() -> dict[str, Any]:
+    volumes = list(modal.Volume.objects.list())
+    names = sorted(
+        name
+        for name in (getattr(volume, "name", None) for volume in volumes)
+        if isinstance(name, str) and name
     )
-    .entrypoint([])
-)
+    code_storage_volumes = [name for name in names if name.startswith("avantiqo-code")]
+    if policy.CODE_VOLUME not in names:
+        current_marker: dict[str, Any] = {}
+        candidate_marker: dict[str, Any] = {}
+        volume_id = None
+    else:
+        volume = modal.Volume.from_name(policy.CODE_VOLUME, create_if_missing=False)
+        volume.hydrate()
+        volume_id = volume.object_id
+        current_marker = _read_json(volume, CURRENT_MARKER)
+        candidate_marker = _read_json(volume, CANDIDATE_MARKER)
 
-
-@app.function(
-    image=image,
-    volumes={MODEL_MOUNT_ROOT: model_volume},
-    cpu=1.0,
-    memory=512,
-    timeout=3 * 60,
-)
-def inspect() -> dict[str, Any]:
-    marker: dict[str, Any] = {}
-    if CURRENT_MARKER.is_file():
-        try:
-            marker = json.loads(CURRENT_MARKER.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            marker = {}
-
-    usage = shutil.disk_usage(MODEL_MOUNT_ROOT)
     snapshot = {
         "candidate_bytes": CANDIDATE_BYTES,
         "candidate_revision": policy.CANDIDATE_REVISION,
-        "code_volume_free_bytes": int(usage.free),
-        "code_volume_total_bytes": int(usage.total),
-        "code_volume_used_bytes": int(usage.used),
-        "code_storage_volumes": [policy.CODE_VOLUME],
+        "bootstrap_ephemeral_disk_bytes": policy.PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES,
+        "code_storage_volumes": code_storage_volumes,
         "current_model_ready": (
-            marker.get("runtime_model") == policy.CURRENT_MODEL
-            and bool(marker.get("revision"))
+            current_marker.get("runtime_model") == policy.CURRENT_MODEL
+            and bool(current_marker.get("revision"))
         ),
-        "current_model_revision": marker.get("revision"),
+        "distributed_volume_storage": True,
+        "fixed_capacity_assumption_used": False,
         "inference_requested": False,
         "production_routing_change": False,
         "production_deploy_performed": False,
+        "volume_created": False,
     }
     report = policy.admit(snapshot)
     report.update(
         {
+            "control_plane_only": True,
+            "modal_function_created": False,
+            "container_started": False,
             "gpu_used": False,
             "model_download_performed": False,
             "volume_created": False,
-            "probe_image": WORKER_IMAGE,
-            "volume_total_bytes": int(usage.total),
-            "volume_used_bytes": int(usage.used),
+            "code_volume_id": volume_id,
+            "current_model_revision": current_marker.get("revision"),
+            "candidate_already_ready": (
+                candidate_marker.get("runtime_model") == policy.CANDIDATE_MODEL
+                and candidate_marker.get("revision") == policy.CANDIDATE_REVISION
+            ),
+            "observed_code_storage_volumes": code_storage_volumes,
         }
     )
     return report
 
 
-@app.local_entrypoint()
 def main() -> None:
-    report = inspect.remote()
-    if not isinstance(report, dict):
-        raise RuntimeError(f"{policy.CONTRACT}_REPORT_REQUIRED")
-    if report.get("gpu_used") is not False:
-        raise RuntimeError(f"{policy.CONTRACT}_GPU_FORBIDDEN")
-    if report.get("model_download_performed") is not False:
-        raise RuntimeError(f"{policy.CONTRACT}_DOWNLOAD_FORBIDDEN")
-    if report.get("volume_created") is not False:
-        raise RuntimeError(f"{policy.CONTRACT}_NEW_VOLUME_FORBIDDEN")
+    report = inspect_control_plane()
     print(
         "AVANTIQO_CODE_MODEL_CANARY_PREFLIGHT="
-        + json.dumps(report, separators=(",", ":")),
+        + json.dumps(report, separators=(",", ":"), sort_keys=True),
         flush=True,
     )
-    if report.get("admitted") is True:
-        print(f"{policy.CONTRACT}=PASS", flush=True)
-    else:
-        print(f"{policy.CONTRACT}=BLOCKED", flush=True)
+    for field in (
+        "control_plane_only",
+        "gpu_used",
+        "model_download_performed",
+        "volume_created",
+        "production_routing_change",
+        "production_deploy_performed",
+    ):
+        expected = field == "control_plane_only"
+        if report.get(field) is not expected:
+            raise RuntimeError(f"{policy.CONTRACT}_{field.upper()}_INVALID")
+    if report.get("admitted") is not True:
+        raise RuntimeError(f"{policy.CONTRACT}_BLOCKED:{report}")
+    print(f"{policy.CONTRACT}=PASS", flush=True)
+
+
+if __name__ == "__main__":
+    main()

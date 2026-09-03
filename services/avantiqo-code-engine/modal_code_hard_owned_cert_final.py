@@ -55,6 +55,24 @@ if "Malformed/null request rows" not in inventory["spec"]:
         "they must never be dereferenced or throw."
     )
 
+ledger = _task("ledger_currency_summary")
+if "unrounded debit and credit totals" not in ledger["spec"]:
+    ledger["spec"] += (
+        " Accumulate debit and credit as raw unrounded numeric totals. At return time round "
+        "the raw debit total, raw credit total, and raw (debit-credit) balance independently "
+        "to two decimals; never derive balance by subtracting already-rounded display totals."
+    )
+
+tier = _task("progressive_tier_pricing")
+if "Validate the complete tiers array before pricing" not in tier["spec"]:
+    tier["spec"] += (
+        " Validate the complete tiers array before pricing any units: every finite upTo must be "
+        "finite, positive and strictly greater than the previous finite threshold; an open-ended "
+        "null upTo may appear at most once and only as the final tier; every rate must be finite "
+        "and non-negative. Any structural violation throws TypeError even when the requested units "
+        "would fit inside an earlier tier."
+    )
+
 _append_public_probe(
     "inventory_reservation",
     '''assert.deepEqual(
@@ -79,6 +97,32 @@ _append_public_probe(
 assert.equal(canTransition("UNKNOWN","DRAFT","admin"),false);
 assert.equal(canTransition("DRAFT","SUBMITTED","unknown-role"),false);''',
 )
+_append_public_probe(
+    "ledger_currency_summary",
+    '''const roundingRows=[
+  {currency:" eur ",side:"debit",amount:"2.675"},
+  {currency:"EUR",side:"credit",amount:"0.005"}
+];
+assert.deepEqual(
+  summarizeLedger(roundingRows),
+  {EUR:{debit:2.67,credit:0.01,balance:2.67}}
+);''',
+)
+_append_public_probe(
+    "progressive_tier_pricing",
+    '''assert.throws(
+  ()=>calculateCharge(5,[{upTo:80,rate:1},{upTo:70,rate:2}]),
+  TypeError
+);
+assert.throws(
+  ()=>calculateCharge(5,[{upTo:null,rate:1},{upTo:90,rate:2}]),
+  TypeError
+);
+assert.throws(
+  ()=>calculateCharge(5,[{upTo:90,rate:"bad"}]),
+  TypeError
+);''',
+)
 
 
 _original_plan = fixed._contract_repair_plan
@@ -95,6 +139,13 @@ def _hardened_repair_plan(contract: str) -> str:
             "zero remains. Before reading any request field, skip null/non-object request rows. "
             "Then canonicalize/validate SKU and quantity and omit zero allocations."
         )
+    if "summarizeledger" in text or "canonical currency" in text:
+        additions.append(
+            "LEDGER ROUNDING PLAN: accumulate raw debit and credit totals without per-entry or "
+            "display rounding. Produce debit=round(rawDebit), credit=round(rawCredit), and "
+            "balance=round(rawDebit-rawCredit) independently. Never compute balance from the "
+            "already-rounded returned debit/credit numbers."
+        )
     if "appliedids" in text:
         additions.append(
             "EMPTY-INPUT PLAN: normalize a missing/null state before reading balance/appliedIds. "
@@ -106,6 +157,13 @@ def _hardened_repair_plan(contract: str) -> str:
             "TOTAL-BOOLEAN PLAN: normalize only actual strings. Missing/non-string/unknown "
             "current, next or role values return false immediately; no map lookup or .includes "
             "call may occur on an undefined transition set."
+        )
+    if "pricing is progressive" in text or "strictly increasing finite positive" in text:
+        additions.append(
+            "TIER VALIDATION PLAN: validate the whole tier array before pricing. Require a "
+            "nonempty array; every finite upTo is finite, >0 and strictly increases; null upTo "
+            "appears at most once and only last; every rate is finite >=0. Throw TypeError for "
+            "any invalid structure even when units would be consumed by an earlier tier."
         )
     additions.append(
         f"LATENCY PLAN: return a complete minimal implementation with no explanatory comments "

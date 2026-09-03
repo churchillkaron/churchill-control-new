@@ -2,14 +2,6 @@ name: Avantiqo Code Hard Owned Certification
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - services/avantiqo-code-engine/modal_code_hard_owned_cert.py
-      - services/avantiqo-code-engine/modal_code_hard_owned_cert_fixed.py
-      - services/avantiqo-code-engine/modal_code_hard_owned_cert_final.py
-      - services/avantiqo-code-engine/verify_hard_public_contract_guards.py
-      - services/avantiqo-code-engine/verify_hard_final_gates.py
-      - .github/workflows/avantiqo-code-owned-head-to-head-v2.yml
 
 permissions:
   contents: read
@@ -70,6 +62,7 @@ jobs:
           assert {t['id'] for t in hard.HARD_TASKS} == set(hard.HARD_PROBES)
           assert final.MAX_COMPLETION_TOKENS == 800
           assert final.COMPACT_TARGET_TOKENS == 650
+          assert service.MAX_HARD_COMPLETION_TOKENS == 800
           assert cert.MODEL_VOLUME_NAME == 'avantiqo-code-models'
           assert cert.MODEL_REVISION == 'dcaee4d4dfc5ee71ad501f01f530e5652438fde0'
           for task in hard.HARD_TASKS:

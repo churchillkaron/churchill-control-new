@@ -34,8 +34,8 @@ function dateOnly(value) {
   return value ? String(value).slice(0, 10) : null;
 }
 
-function isOverdue(value, today) {
-  const value = dateOnly(value);
+function isOverdue(input, today) {
+  const value = dateOnly(input);
   return Boolean(value && value < today);
 }
 

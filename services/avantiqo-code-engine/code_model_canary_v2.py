@@ -11,6 +11,7 @@ from typing import Any
 CONTRACT = "AVANTIQO_CODE_MODEL_CANARY_V2"
 CURRENT_MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
 CANDIDATE_MODEL = "Qwen/Qwen3.8-27B-FP8"
+CANDIDATE_REVISION = "017b9c7af6b5689d5dd426a76e0bc077eb5ca20a"
 CODE_VOLUME = "avantiqo-code-models"
 QUANTIZATION = "fp8"
 MIN_NATIVE_CONTEXT = 262_144
@@ -23,13 +24,14 @@ def admit(snapshot: dict[str, Any]) -> dict[str, Any]:
     free_bytes = int(snapshot.get("code_volume_free_bytes") or 0)
     storage_volumes = tuple(snapshot.get("code_storage_volumes") or ())
     current_ready = snapshot.get("current_model_ready") is True
-    candidate_revision_pinned = snapshot.get("candidate_revision_pinned") is True
+    observed_revision = str(snapshot.get("candidate_revision") or "").strip()
     inference_requested = snapshot.get("inference_requested") is True
 
     report = {
         "contract": CONTRACT,
         "current_model": CURRENT_MODEL,
         "candidate_model": CANDIDATE_MODEL,
+        "candidate_revision": CANDIDATE_REVISION,
         "code_volume": CODE_VOLUME,
         "quantization": QUANTIZATION,
         "candidate_bytes": candidate_bytes,
@@ -37,7 +39,7 @@ def admit(snapshot: dict[str, Any]) -> dict[str, Any]:
         "free_after_candidate_bytes": max(0, free_bytes - candidate_bytes),
         "single_code_storage": storage_volumes == (CODE_VOLUME,),
         "current_model_ready": current_ready,
-        "candidate_revision_pinned": candidate_revision_pinned,
+        "candidate_revision_pinned": observed_revision == CANDIDATE_REVISION,
         "candidate_fits_single_volume": (
             0 < candidate_bytes <= MAX_CANDIDATE_BYTES
             and free_bytes - candidate_bytes >= MIN_FREE_AFTER_DOWNLOAD_BYTES

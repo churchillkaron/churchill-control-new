@@ -10,8 +10,18 @@ repeated-prefill waste without mixing in a second risky runtime change.
 
 from __future__ import annotations
 
+import sys
 import time
+from pathlib import Path
 from typing import Any
+
+# Modal imports a single function module in a remote container and does not
+# guarantee that the mounted sibling-source directory is present on sys.path.
+# V5 deliberately reuses the proven V4 runtime instead of duplicating it, so
+# make that sibling import boundary explicit before importing the base module.
+_MODULE_DIR = str(Path(__file__).resolve().parent)
+if _MODULE_DIR not in sys.path:
+    sys.path.insert(0, _MODULE_DIR)
 
 import modal_code_qwen38_canary_runtime as base
 
@@ -23,6 +33,12 @@ MAX_MAX_TOKENS = 2048
 FAST_BOOT_ENFORCE_EAGER = True
 
 app = base.app
+
+# Also package the reused base module explicitly in the function image. The
+# sys.path guard above handles Modal's mounted-source loader; this image binding
+# keeps the dependency explicit for future deployment/runtime changes.
+_RUNTIME_IMAGE = base.image.add_local_python_source("modal_code_qwen38_canary_runtime")
+_FUNCTION_OPTIONS = {**base._FUNCTION_OPTIONS, "image": _RUNTIME_IMAGE}
 
 _ENGINE: Any | None = None
 _TOKENIZER: Any | None = None
@@ -85,7 +101,7 @@ def _token_count(value: Any) -> int:
         return 0
 
 
-@app.function(**base._FUNCTION_OPTIONS)
+@app.function(**_FUNCTION_OPTIONS)
 def generate_v5(requests: list[dict[str, Any]], approved: bool = False) -> dict[str, Any]:
     """Bounded prefix-cached warm generation for Repo Agent V4/V2 certification."""
     if approved is not True:

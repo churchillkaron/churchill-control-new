@@ -5,7 +5,9 @@ requirement, but measures them with the correct evidence types:
 
 * repository cases prove engineering quality, safety, scope and agent behavior;
 * dedicated warm *single-request* samples prove user-facing actor/reviewer tail
-  latency.
+  latency;
+* latency samples count only when explicitly marked representative of real
+  repository-agent prompt shape rather than a tiny synthetic smoke prompt.
 
 A multi-request throughput batch is never treated as one user's latency. This is
 not a weaker threshold; it is a correction to the measurement boundary.
@@ -97,6 +99,7 @@ class LatencySample:
     wall_ms: int
     warm: bool
     single_request: bool
+    representative: bool
 
     @classmethod
     def from_mapping(cls, value: dict[str, Any]) -> "LatencySample":
@@ -105,6 +108,7 @@ class LatencySample:
             wall_ms=int(value.get("wall_ms") or value.get("batch_wall_ms") or 0),
             warm=value.get("warm") is True,
             single_request=value.get("single_request") is True,
+            representative=value.get("representative") is True,
         )
 
 
@@ -152,7 +156,11 @@ def certify(evidence: dict[str, Any]) -> dict[str, Any]:
     cases = [CaseEvidence.from_mapping(item) for item in raw_cases if isinstance(item, dict)] if isinstance(raw_cases, list) else []
     raw_latency = evidence.get("latency_samples")
     latency = [LatencySample.from_mapping(item) for item in raw_latency if isinstance(item, dict)] if isinstance(raw_latency, list) else []
-    valid_latency = [sample for sample in latency if sample.warm and sample.single_request and sample.wall_ms > 0]
+    valid_latency = [
+        sample
+        for sample in latency
+        if sample.warm and sample.single_request and sample.representative and sample.wall_ms > 0
+    ]
 
     dimensions = {case.dimension for case in cases}
     passed_cases = [case for case in cases if _case_passes(case)]
@@ -171,7 +179,7 @@ def certify(evidence: dict[str, Any]) -> dict[str, Any]:
         "average_repairs": round(average_repairs, 3),
         "latency_samples": len(valid_latency),
         "latency_roles": sorted(latency_roles),
-        "latency_measurement": "warm_single_request",
+        "latency_measurement": "warm_single_request_representative",
         "warm_p95_ms": warm_p95_ms,
         "warm_latency_target_ms": MAX_WARM_P95_MS,
         "raw_agent_only": all(not case.deterministic_source_rewrite_used for case in cases),

@@ -23,7 +23,8 @@ test("continuous close uses live accounting controls instead of a manually maint
   assert.match(rail, /Continuous close/);
   assert.match(rail, /Close readiness is derived from live accounting controls/);
   assert.match(rail, /buildFinanceContinuousCloseState/);
-  assert.doesNotMatch(rail, /progress score/i);
+  assert.match(rail, /not a manually maintained progress score/i);
+  assert.doesNotMatch(rail, /close readiness.*\d+%/i);
   assert.match(actionObject, /Bank reconciliation/);
   assert.match(actionObject, /Accounting review/);
   assert.match(actionObject, /Finance approvals/);

@@ -1,150 +1,133 @@
-# Data Flow Architecture
+# Avantiqo Data Flow Architecture
 
-## Core Principle
+**Status: living data-flow guidance**
 
-Data should flow predictably through defined layers.
+This document describes how information and actions should move through Avantiqo. It is subordinate to [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
-Preferred flow:
+## Core principle
 
-Request
-→ validation
-→ tenant resolution
-→ service orchestration
-→ persistence layer
-→ response
+Data flow should preserve business context, capability ownership, authorization, lifecycle rules, execution identity, and evidence from intent to result.
 
----
+Canonical business flow:
 
-## API Layer
+**actor/request/event → authenticate → resolve/authorize business context → discover/invoke capability → governed execution → persistence/side effects → verification → evidence/result**
 
-Responsibilities:
-- receive requests
-- validate input
-- resolve tenant
-- call services
-- return standardized responses
+For AI-assisted work:
 
-Should NOT:
-- contain calculations
-- contain orchestration
-- contain persistence logic
-- contain AI workflows
+**user intent → Intelligence → business context → capability discovery → discussion/plan when needed → authorized execution → verification → result/evidence**
 
----
+## Business context
 
-## Service Layer
+Canonical context is organization-centric:
 
-Responsibilities:
-- business orchestration
-- calculations
-- analytics
-- AI coordination
-- workflow logic
+- `organization_id`
+- `entity_id` where applicable
+- `period_id` where applicable
+- party relationships where applicable
 
-Should remain:
-- modular
-- composable
-- domain-owned
+Do not create a parallel tenant-resolution flow.
 
----
+## API flow
 
-## Persistence Layer
+Typical API flow:
 
-Responsibilities:
-- database access
-- storage access
-- queue persistence
-- Supabase wrappers
+**request → authentication → business-context authorization → validation → capability/service/runtime → governed result → response**
 
-Should NOT:
-- contain business orchestration
-- contain tenant logic duplication
+Routes should not become alternative homes for business logic, persistence orchestration, financial calculations, or AI/provider workflows.
 
----
+## Capability/runtime flow
 
-## Shared Infrastructure Layer
+The owning capability/runtime is responsible for business behavior such as:
 
-Responsibilities:
-- logging
-- validation
-- tenant resolution
-- HTTP framework
-- shared clients
+- invariants and lifecycle transitions
+- deterministic calculations
+- workflow orchestration
+- authorization requirements beyond transport authentication
+- execution identity/idempotency
+- side effects
+- verification
+- evidence
 
-Should NOT:
-- contain business logic
+Cross-domain behavior should use shared platform primitives rather than copied route-specific logic.
 
----
+## Persistence flow
 
-## AI Data Flow
+Persistence should record canonical business state and durable evidence.
 
-Preferred flow:
+Do not make persistence a passive dump behind arbitrary UI flows. Schema, transactions, events/movements, lifecycle state, and evidence must reflect the real business process.
 
-Route
-→ service
-→ AI orchestration
-→ persistence
+## Event and async flow
 
-NOT:
+Where asynchronous/event-driven execution improves reliability or user experience:
 
-Route
-→ AI provider
-→ DB
-→ orchestration chaos
+**business event/request → durable execution identity → dispatch → observe/resume same execution → verify → persist final evidence/result**
 
----
+Do not submit a second paid/destructive operation merely because polling or transport became uncertain.
 
-## Tenant Data Flow
+## AI flow
 
-Preferred:
+AI is part of the platform, not a provider call inserted directly into a route.
 
-Request
-→ getTenantId()
-→ tenant-safe service
-→ tenant-safe query
+Preferred pattern:
 
-Never:
-- trust frontend tenant blindly
-- hardcode tenant IDs
-- bypass tenant validation
+**authorized context → Intelligence/reasoning → canonical capability → deterministic execution where possible → deterministic verification → explanation/result**
 
----
+AI may recommend, prepare, discuss, navigate, and **execute authorized capabilities**. It must not bypass governance, financial integrity, lifecycle rules, or evidence requirements.
 
-## Financial Data Flow
+## Provider flow
 
-Financial calculations should remain:
-- deterministic
-- auditable
-- reproducible
+External providers sit behind Avantiqo-owned service/runtime boundaries.
 
-Critical domains:
-- payroll
-- payouts
-- accounting
-- profit analytics
+Typical commercial/provider flow:
 
----
+**request → capability/service → reserve resources/wallet when required → select approved runtime/provider → execute once → capture usage/cost → verify → calculate price → settle → evidence**
 
-## Operational Data Flow
+Provider-specific transport must not become the business capability itself.
 
-High-risk operational systems:
-- POS
-- kitchen
-- production
-- inventory
+## Financial flow
 
-Require:
-- isolated workflows
-- careful migrations
-- operational verification
+Financial data flow must remain deterministic, auditable, reproducible, and entity/period/dimension aware where relevant.
 
----
+Typical controlled mutation:
 
-## Future Goals
+**business event/document → validate accounting contract → authorize → post/settle once → persist immutable references → verify ledger/settlement invariants → evidence/reporting**
 
-Planned:
-- event-driven architecture
-- queue orchestration
-- audit event streams
-- background workers
-- observability pipelines
+AI may assist interpretation and preparation but does not replace deterministic accounting integrity.
+
+## Operational flow
+
+Operations uses neutral primitives such as:
+
+- order
+- service/job/task
+- reservation/schedule
+- location/resource/workstation
+- fulfilment
+- payment
+- inventory/resource movement
+- asset
+- customer interaction
+
+Restaurant POS or kitchen workflows are industry compositions of these primitives, not the universal operational architecture.
+
+## Document flow
+
+Documents are first-class business objects:
+
+**capability/process → document state/content → approval/review where required → business effect/reference → evidence/audit → delivery/publication**
+
+A generated PDF/file is an output representation; the governed document lifecycle and underlying business relationship are the source of truth.
+
+## Performance rule
+
+Avoid unnecessary round trips, repeated model inference, repeated DB fetches, polling when events are superior, and serialization/orchestration layers that add no business value.
+
+Parallelize independent work safely, cache deterministic/reusable results where valid, and measure latency at the end-to-end workflow level.
+
+## Verification rule
+
+Every important data flow should have a proof strategy. Prefer:
+
+**static/contract checks → deterministic tests → E2E state verification → controlled external/paid proof only when necessary**
+
+A successful HTTP response is not sufficient evidence if the business side effect, persistence, or verification is missing.

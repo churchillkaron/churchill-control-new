@@ -20,6 +20,11 @@ import {
 
 import FinanceEngagementFile from "@/components/workspace/finance/FinanceEngagementFile";
 import FinancePracticeControlTower from "@/components/workspace/finance/FinancePracticeControlTower";
+import {
+  buildFinanceHumanWorkflowSummary,
+  financeHumanPriorityRank,
+  resolveFinanceHumanNextAction,
+} from "@/lib/finance/ui/FinanceHumanWorkflowPolicy";
 
 const VIEW_DEFS = [
   { id: "mine", label: "My work" },
@@ -49,42 +54,16 @@ function dateKey(value) {
 }
 
 function shortDate(value) {
-  const key = dateKey(value);
-  return key || "No due date";
+  return dateKey(value) || "No due date";
 }
 
 function statusTone(status) {
   const value = String(status || "").toUpperCase();
   if (["BLOCKED", "CHANGES_REQUESTED"].includes(value)) return "border-red-700/15 bg-red-50 text-red-800";
-  if (["READY_FOR_REVIEW", "IN_PROGRESS", "READY"].includes(value)) return "border-amber-700/15 bg-amber-50 text-amber-800";
+  if (["READY_FOR_REVIEW", "REVIEWED", "IN_PROGRESS", "READY"].includes(value)) return "border-amber-700/15 bg-amber-50 text-amber-800";
   if (value === "WAITING_ON_CLIENT") return "border-black/[0.08] bg-[#F6F4F0] text-[#746E66]";
+  if (["CLEARED", "COMPLETE"].includes(value)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
   return "border-black/[0.08] bg-[#F7F6F3] text-[#716B63]";
-}
-
-function priorityRank(item, today) {
-  const status = String(item.status || "").toUpperCase();
-  const due = dateKey(item.due_at);
-  if (status === "CHANGES_REQUESTED") return 0;
-  if (status === "BLOCKED") return 1;
-  if (due && due < today) return 2;
-  if (due === today) return 3;
-  if (status === "IN_PROGRESS") return 4;
-  if (status === "READY") return 5;
-  if (status === "READY_FOR_REVIEW") return 6;
-  if (status === "WAITING_ON_CLIENT") return 8;
-  return 7;
-}
-
-function nextActionText(item, today) {
-  if (!item) return { title: "Your queue is clear", detail: "There is no assigned accounting work requiring action right now." };
-  const status = String(item.status || "").toUpperCase();
-  const due = dateKey(item.due_at);
-  if (status === "CHANGES_REQUESTED") return { title: `Resume ${item.title}`, detail: `${item.client_name} requested changes are the highest-priority handback in your queue.` };
-  if (status === "BLOCKED") return { title: `Unblock ${item.title}`, detail: item.blocked_reason || `${item.client_name} cannot progress until this dependency is resolved.` };
-  if (due && due < today) return { title: `Finish ${item.title}`, detail: `${item.client_name} is overdue since ${due}.` };
-  if (due === today) return { title: `Do ${item.title} next`, detail: `${item.client_name} is due today.` };
-  if (status === "IN_PROGRESS") return { title: `Continue ${item.title}`, detail: `${item.client_name} is already in progress, so finishing it avoids unnecessary context switching.` };
-  return { title: `Start ${item.title}`, detail: `${item.client_name} is the next assigned procedure by due date and accounting priority.` };
 }
 
 function filterRows(rows, view, viewerId, today) {
@@ -102,7 +81,46 @@ function filterRows(rows, view, viewerId, today) {
 }
 
 function LoadingState() {
-  return <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-black/[0.07] bg-white text-[10px] text-[#807A72]"><LoaderCircle size={14} className="mr-2 animate-spin text-[#A37849]" />Preparing your accounting work…</div>;
+  return (
+    <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-black/[0.07] bg-white text-[10px] text-[#807A72]">
+      <LoaderCircle size={14} className="mr-2 animate-spin text-[#A37849]" />
+      Preparing your accounting work…
+    </div>
+  );
+}
+
+function HumanWorkflowRail({ stages, viewerRole, onSelect }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-black/[0.07] bg-white p-3.5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-[8px] font-semibold uppercase tracking-[0.13em] text-[#918A82]">Human workflow</div>
+          <div className="mt-0.5 text-[9px] text-[#777069]">Preparation → client dependency → review → changes → partner clearance → close</div>
+        </div>
+        {viewerRole ? <div className="text-[8px] text-[#918B83]">Your role · <span className="font-semibold text-[#6E5540]">{label(viewerRole)}</span></div> : null}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-6">
+        {stages.map((stage, index) => {
+          const attention = ["changes", "review", "partner"].includes(stage.id) && stage.count > 0;
+          return (
+            <button
+              key={stage.id}
+              type="button"
+              onClick={() => onSelect(stage.id)}
+              className="group relative rounded-xl border border-black/[0.06] bg-[#FCFBF8] px-3 py-2.5 text-left transition hover:border-[#A37849]/25 hover:bg-[#FFFCF8]"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[8px] font-semibold text-[#5E5851]">{stage.label}</span>
+                <span className={`text-[14px] font-semibold tabular-nums ${attention ? "text-[#8A633C]" : "text-[#39342F]"}`}>{stage.count || 0}</span>
+              </div>
+              <div className="mt-1 truncate text-[7px] uppercase tracking-[0.08em] text-[#AAA39B]">{stage.ownerRole}</div>
+              {index < stages.length - 1 ? <span className="absolute -right-[6px] top-1/2 z-10 hidden -translate-y-1/2 text-[#C8C1B8] xl:block">›</span> : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function FinanceDailyWorkDesk({ organizationId }) {
@@ -148,6 +166,7 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
   const clientMap = useMemo(() => new Map(clients.map((client) => [client.organization_id, client])), [clients]);
   const viewer = practice?.viewer || {};
   const viewerId = viewer.staff_account_id || null;
+  const viewerRole = viewer.role || null;
 
   const workRows = useMemo(() => {
     const rows = [];
@@ -163,19 +182,36 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
           client_name: client?.name || "Client organization",
           assigned_accountant: client?.assigned_accountant || null,
           assigned_reviewer: client?.assigned_reviewer || null,
+          assigned_partner: client?.assigned_partner || null,
         });
       }
     }
-    return rows.sort((a, b) => priorityRank(a, today) - priorityRank(b, today) || String(a.due_at || "9999-12-31").localeCompare(String(b.due_at || "9999-12-31")) || Number(a.sequence_no || 0) - Number(b.sequence_no || 0));
+    return rows.sort((a, b) =>
+      financeHumanPriorityRank(a, today) - financeHumanPriorityRank(b, today) ||
+      String(a.due_at || "9999-12-31").localeCompare(String(b.due_at || "9999-12-31")) ||
+      Number(a.sequence_no || 0) - Number(b.sequence_no || 0),
+    );
   }, [programs, clientMap, today]);
 
-  const counts = useMemo(() => Object.fromEntries(VIEW_DEFS.map((view) => [view.id, filterRows(workRows, view.id, viewerId, today).length])), [workRows, viewerId, today]);
+  const counts = useMemo(
+    () => Object.fromEntries(VIEW_DEFS.map((view) => [view.id, filterRows(workRows, view.id, viewerId, today).length])),
+    [workRows, viewerId, today],
+  );
 
   const visibleRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return filterRows(workRows, activeView, viewerId, today).filter((item) => {
       if (!needle) return true;
-      return [item.client_name, item.title, item.description, item.required_role, item.status, item.assigned_accountant, item.assigned_reviewer]
+      return [
+        item.client_name,
+        item.title,
+        item.description,
+        item.required_role,
+        item.status,
+        item.assigned_accountant,
+        item.assigned_reviewer,
+        item.assigned_partner,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -183,16 +219,31 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
     });
   }, [workRows, activeView, viewerId, today, query]);
 
-  const myPriorityRows = useMemo(() => filterRows(workRows, "mine", viewerId, today).filter((item) => String(item.status || "").toUpperCase() !== "WAITING_ON_CLIENT"), [workRows, viewerId, today]);
+  const myPriorityRows = useMemo(
+    () => filterRows(workRows, "mine", viewerId, today).filter((item) => String(item.status || "").toUpperCase() !== "WAITING_ON_CLIENT"),
+    [workRows, viewerId, today],
+  );
   const nextItem = myPriorityRows[0] || null;
-  const nextAction = nextActionText(nextItem, today);
+  const nextAction = resolveFinanceHumanNextAction(nextItem, { today, viewerRole });
+  const humanStages = useMemo(
+    () => buildFinanceHumanWorkflowSummary({ clients }),
+    [clients],
+  );
+
+  function selectHumanStage(stageId) {
+    if (stageId === "client") return setActiveView("waiting");
+    if (stageId === "review") return setActiveView("review");
+    if (stageId === "changes") return setActiveView("changes");
+    if (stageId === "prepare") return setActiveView("mine");
+    setShowPracticeManagement(true);
+  }
 
   if (selectedEngagementId) {
     return (
       <section className="rounded-[24px] border border-[#A37849]/15 bg-[#FBF8F3] p-4 md:p-5">
         <div className="mb-4 flex items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
           <button type="button" onClick={() => setSelectedEngagementId(null)} className="text-[9px] font-semibold text-[#76583A] hover:text-[#4E3822]">← Back to my work</button>
-          <div className="text-[8px] text-[#99938A]">Client file · work · evidence · review</div>
+          <div className="text-[8px] text-[#99938A]">Client file · work · evidence · review · clearance</div>
         </div>
         <FinanceEngagementFile organizationId={organizationId} engagementId={selectedEngagementId} onClose={() => setSelectedEngagementId(null)} />
       </section>
@@ -206,7 +257,7 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
           <div>
             <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><UserRoundCheck size={11} /> Daily accounting work</div>
             <h1 className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em] text-[#2A2723]">{viewerId ? `${viewer.name || "Your"} work` : "Priority work"}</h1>
-            <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[#756F67]">Avantiqo ranks the work that can move now. Changes, blockers and overdue work come first; waiting items stay visible without crowding the actionable queue.</p>
+            <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[#756F67]">Work follows the real accounting handoff: prepare, obtain client evidence, review, resolve changes, clear at partner level, then close. Avantiqo keeps blocked and waiting work visible without letting it crowd out work a person can move now.</p>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setShowPracticeManagement((value) => !value)} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-black/[0.08] bg-white px-3 text-[8px] font-semibold text-[#706A63]"><Users size={10} /> {showPracticeManagement ? "Hide practice management" : "Practice management"}</button>
@@ -219,12 +270,14 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
 
         {!loading && programs ? (
           <>
+            <HumanWorkflowRail stages={humanStages} viewerRole={viewerRole} onSelect={selectHumanStage} />
+
             <div className="mt-4 rounded-2xl border border-[#A37849]/15 bg-white p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                   <div className={`mt-0.5 rounded-xl p-2 ${nextItem ? "bg-[#A37849]/[0.09] text-[#8A633C]" : "bg-emerald-50 text-emerald-700"}`}>{nextItem ? <Sparkles size={14} /> : <CheckCircle2 size={14} />}</div>
                   <div className="min-w-0">
-                    <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#9A948B]">Recommended next</div>
+                    <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#9A948B]">Recommended next human action</div>
                     <div className="mt-1 truncate text-[12px] font-semibold text-[#39352F]">{nextAction.title}</div>
                     <div className="mt-0.5 text-[9px] leading-4 text-[#817A72]">{nextAction.detail}</div>
                   </div>
@@ -237,7 +290,12 @@ export default function FinanceDailyWorkDesk({ organizationId }) {
               {VIEW_DEFS.filter((view) => view.id !== "all").map((view) => {
                 const active = activeView === view.id;
                 const attention = ["overdue", "changes"].includes(view.id) && counts[view.id] > 0;
-                return <button key={view.id} type="button" onClick={() => setActiveView(view.id)} className={`rounded-xl border px-3 py-2.5 text-left transition ${active ? "border-[#A37849]/35 bg-[#A37849]/[0.08]" : "border-black/[0.07] bg-white hover:border-[#A37849]/25"}`}><div className="text-[8px] font-medium text-[#817B73]">{view.label}</div><div className={`mt-1 text-[18px] font-semibold tabular-nums ${attention ? "text-[#9A533D]" : "text-[#342F2A]"}`}>{counts[view.id] || 0}</div></button>;
+                return (
+                  <button key={view.id} type="button" onClick={() => setActiveView(view.id)} className={`rounded-xl border px-3 py-2.5 text-left transition ${active ? "border-[#A37849]/35 bg-[#A37849]/[0.08]" : "border-black/[0.07] bg-white hover:border-[#A37849]/25"}`}>
+                    <div className="text-[8px] font-medium text-[#817B73]">{view.label}</div>
+                    <div className={`mt-1 text-[18px] font-semibold tabular-nums ${attention ? "text-[#9A533D]" : "text-[#342F2A]"}`}>{counts[view.id] || 0}</div>
+                  </button>
+                );
               })}
             </div>
 

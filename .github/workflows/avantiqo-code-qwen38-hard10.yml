@@ -1,0 +1,97 @@
+name: Avantiqo Code Qwen3.8 Hard 10 Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved:
+        description: 'Type YES to allow one isolated Qwen3.8 H100 hard-10 benchmark'
+        required: true
+        default: 'NO'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/avantiqo-code-qwen38-hard10-once.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-qwen38-hard10
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    if: github.event_name == 'push' || github.event.inputs.approved == 'YES'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+
+      - name: Validate one-shot approval marker
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          grep -qx 'AVANTIQO_CODE_QWEN38_HARD10_ONCE=20260903-V1' .github/avantiqo-code-qwen38-hard10-once.txt
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal client
+        run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
+
+      - name: Zero-cost hard-10 admission
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_final.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_raw.py
+          grep -q 'len(hard.HARD_TASKS) != 10' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          grep -q 'max_repair_calls_per_case' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          grep -q 'raw_model_output_scored' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          grep -q 'candidate_better_than_current_9_of_10' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          echo 'AVANTIQO_CODE_QWEN38_HARD10_ZERO_COST_ADMISSION=PASS'
+
+      - name: Prove candidate marker before H100
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30s 3m python -m modal run services/avantiqo-code-engine/modal_code_model_canary_preflight.py 2>&1 | tee /tmp/qwen38-hard10-preflight.log
+          grep -q '"single_code_storage":true' /tmp/qwen38-hard10-preflight.log
+          grep -q '"candidate_already_ready":true' /tmp/qwen38-hard10-preflight.log
+          grep -q '"gpu_used":false' /tmp/qwen38-hard10-preflight.log
+          grep -q '"model_download_performed":false' /tmp/qwen38-hard10-preflight.log
+          grep -q '"volume_created":false' /tmp/qwen38-hard10-preflight.log
+
+      - name: Run one Qwen3.8 hard-10 benchmark session
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30s 10m python -m modal run services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py::qwen38_hard10 --approved 2>&1 | tee /tmp/qwen38-hard10.log
+          grep -q 'AVANTIQO_CODE_QWEN38_HARD10_RESULT=' /tmp/qwen38-hard10.log
+          grep -q '"cases":10' /tmp/qwen38-hard10.log
+          grep -q '"passed":10' /tmp/qwen38-hard10.log
+          grep -q '"hidden_tests_passed":10' /tmp/qwen38-hard10.log
+          grep -q '"machine_gate_passed":10' /tmp/qwen38-hard10.log
+          grep -q '"candidate_better_than_current_9_of_10":true' /tmp/qwen38-hard10.log
+          grep -q 'AVANTIQO_CODE_QWEN38_HARD10_BENCHMARK_V1=PASS' /tmp/qwen38-hard10.log
+
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-qwen38-hard10-${{ github.run_id }}
+          path: |
+            /tmp/qwen38-hard10-preflight.log
+            /tmp/qwen38-hard10.log
+          if-no-files-found: warn
+          retention-days: 14

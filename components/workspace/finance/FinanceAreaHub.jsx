@@ -12,6 +12,7 @@ import {
 
 import { getWorkspaceGroups } from "@/lib/platform/registry/erpRegistry";
 import { resolveWorkspaceRoute } from "@/lib/platform/routing/resolveWorkspaceRoute";
+import { resolveFinanceCapabilitySection } from "@/lib/finance/ui/FinanceInformationArchitecture";
 
 const AREA_COPY = {
   books: {
@@ -29,18 +30,10 @@ const AREA_COPY = {
   configure: {
     eyebrow: "Finance setup",
     title: "Configure",
-    description: "Accounting policies, periods, dimensions, currencies, posting rules and work-program configuration. Routine accounting stays out of this area.",
+    description: "Accounting policies, periods, dimensions, currencies, posting rules, permissions and controlled integrations. Routine accounting stays out of this area.",
     icon: Settings2,
   },
 };
-
-const REPORT_WORDS = [
-  "report", "statement", "analytics", "forecast", "budget", "insight", "kpi", "health", "dashboard",
-];
-
-const CONFIGURE_WORDS = [
-  "setting", "configuration", "configure", "period", "dimension", "currency", "exchange rate", "posting rule", "payment term", "template", "work program", "tax setup", "vat setup",
-];
 
 function clean(value) {
   return String(value || "").trim();
@@ -57,15 +50,6 @@ function searchText(group, item) {
     .toLowerCase();
 }
 
-function belongs(area, group, item) {
-  const haystack = searchText(group, item);
-  const isReport = REPORT_WORDS.some((word) => haystack.includes(word));
-  const isConfigure = CONFIGURE_WORDS.some((word) => haystack.includes(word));
-  if (area === "reports") return isReport && !isConfigure;
-  if (area === "configure") return isConfigure;
-  return !isReport && !isConfigure;
-}
-
 export default function FinanceAreaHub({ organizationId, area = "books" }) {
   const [query, setQuery] = useState("");
   const copy = AREA_COPY[area] || AREA_COPY.books;
@@ -78,7 +62,7 @@ export default function FinanceAreaHub({ organizationId, area = "books" }) {
       .map((group) => ({
         ...group,
         items: (group.items || []).filter((item) => {
-          if (!belongs(area, group, item)) return false;
+          if (resolveFinanceCapabilitySection(item.id) !== area) return false;
           return !needle || searchText(group, item).includes(needle);
         }),
       }))
@@ -99,7 +83,7 @@ export default function FinanceAreaHub({ organizationId, area = "books" }) {
           <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 lg:w-[330px]"><Search size={12} className="text-[#A29D95]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Find in ${copy.title.toLowerCase()}…`} className="min-w-0 flex-1 bg-transparent text-[10px] text-[#403C37] outline-none placeholder:text-[#B2ADA5]" /></label>
         </div>
 
-        <div className="mt-4 text-[8px] text-[#99938A]">{count} registry capability{count === 1 ? "" : "ies"} in this area</div>
+        <div className="mt-4 text-[8px] text-[#99938A]">{count} accounting capabilit{count === 1 ? "y" : "ies"}</div>
 
         <div className="mt-3 grid gap-3 xl:grid-cols-3">
           {visibleGroups.map((group) => (

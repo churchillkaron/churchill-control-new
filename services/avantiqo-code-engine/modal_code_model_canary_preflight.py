@@ -1,8 +1,12 @@
 """CPU-only, no-download admission probe for the next Avantiqo Code model.
 
-This probe mounts the one existing Code volume read/write only to inspect its
-current contents and capacity. It performs no model download, no inference, no
-GPU work and no production routing/deployment change.
+This probe mounts the one existing Code volume only to inspect its current
+contents and capacity. It performs no model download, no inference, no GPU work
+and no production routing/deployment change.
+
+The probe reuses the immutable Code worker image already proven by certification
+instead of building a fresh Debian image. This keeps admission latency bounded
+and separates storage truth from image-build/provisioning latency.
 """
 
 from __future__ import annotations
@@ -20,10 +24,14 @@ APP_NAME = "avantiqo-code-model-canary-preflight"
 MODEL_MOUNT_ROOT = "/models"
 CURRENT_MARKER = Path(MODEL_MOUNT_ROOT) / "avantiqo-code-model-ready.json"
 CANDIDATE_BYTES = 30_900_000_000
+WORKER_IMAGE = (
+    "ghcr.io/churchillkaron/avantiqo-code-worker@"
+    "sha256:fa6559a184998d75fb6430ea9fa303fe7b6c1af0da441e61ac4bd587b2bdf3c6"
+)
 
 app = modal.App(APP_NAME)
 model_volume = modal.Volume.from_name(policy.CODE_VOLUME, create_if_missing=False)
-image = modal.Image.debian_slim(python_version="3.12")
+image = modal.Image.from_registry(WORKER_IMAGE, add_python=None).entrypoint([])
 
 
 @app.function(
@@ -31,7 +39,7 @@ image = modal.Image.debian_slim(python_version="3.12")
     volumes={MODEL_MOUNT_ROOT: model_volume},
     cpu=1.0,
     memory=512,
-    timeout=5 * 60,
+    timeout=3 * 60,
 )
 def inspect() -> dict[str, Any]:
     marker: dict[str, Any] = {}
@@ -64,6 +72,7 @@ def inspect() -> dict[str, Any]:
             "gpu_used": False,
             "model_download_performed": False,
             "volume_created": False,
+            "probe_image": WORKER_IMAGE,
             "volume_total_bytes": int(usage.total),
             "volume_used_bytes": int(usage.used),
         }
@@ -82,7 +91,11 @@ def main() -> None:
         raise RuntimeError(f"{policy.CONTRACT}_DOWNLOAD_FORBIDDEN")
     if report.get("volume_created") is not False:
         raise RuntimeError(f"{policy.CONTRACT}_NEW_VOLUME_FORBIDDEN")
-    print("AVANTIQO_CODE_MODEL_CANARY_PREFLIGHT=" + json.dumps(report, separators=(",", ":")), flush=True)
+    print(
+        "AVANTIQO_CODE_MODEL_CANARY_PREFLIGHT="
+        + json.dumps(report, separators=(",", ":")),
+        flush=True,
+    )
     if report.get("admitted") is True:
         print(f"{policy.CONTRACT}=PASS", flush=True)
     else:

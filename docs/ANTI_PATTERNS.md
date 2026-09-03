@@ -1,111 +1,150 @@
-# Anti-Patterns
+# Avantiqo Engineering Anti-Patterns
 
-## BAD: Massive API Routes
+**Status: living engineering guidance**
 
-Avoid:
-- DB logic in routes
-- Calculations in routes
-- AI orchestration in routes
-- Inventory logic in routes
+These are patterns that commonly create architecture drift, duplicated truth, unreliable execution, unnecessary latency/cost, or industry lock-in.
 
-Reason:
-Routes should orchestrate only.
+## Bad: business logic in delivery routes
 
----
+Avoid placing accounting, workflow, inventory/resource, AI orchestration, pricing, provider, or lifecycle logic directly in API routes or pages.
 
-## BAD: Hardcoded Tenant IDs
+Prefer:
 
-Avoid:
-const tenant_id = "..."
+**delivery surface → canonical capability/service/runtime → governed persistence/effects → verification**
 
-Use:
-getTenantId(request)
+Reason: routes/pages are interfaces, not parallel business systems.
 
-Reason:
-Hardcoded tenant IDs break multi-tenant architecture.
-
----
-
-## BAD: Direct createClient Everywhere
+## Bad: tenant architecture revival
 
 Avoid:
-createClient(...) inside random files.
 
-Use:
-shared Supabase infrastructure.
+- new `tenant_id` fields as generic business ownership
+- `getTenantId()` as the canonical context resolver
+- tenant-specific service/query layers
+- hardcoded tenant/business IDs
 
-Reason:
-Prevents auth inconsistency and infrastructure chaos.
+Prefer canonical organization/entity/party context and actual authorization contracts.
 
----
+Reason: tenant terminology represents a superseded architecture and creates a competing source of identity/context truth.
 
-## BAD: Cross-Domain Leakage
+## Bad: duplicate infrastructure clients and runtimes
 
-Avoid:
-Finance logic inside marketing domain.
-Marketing logic inside operations domain.
+Avoid creating random Supabase clients, queues, registries, provider routers, schedulers, GPU endpoints, storage volumes, or execution engines when a canonical shared path already exists.
 
-Reason:
-Creates coupling and maintenance complexity.
+Reason: duplicated infrastructure creates inconsistent auth, retries, cost, state, and operational ownership.
 
----
+## Bad: route or industry names becoming architecture
 
-## BAD: Shared Layer Business Logic
+Avoid treating `/pos`, `/kitchen`, `/marketing`, `/staff`, restaurant, hotel, retail, or another solution label as proof that a new top-level domain/runtime is required.
 
-Avoid:
-Business logic inside lib/shared/*
+Prefer reusable business primitives and canonical `ERP_REGISTRY` domains/capabilities.
 
-Reason:
-Shared layer should remain infrastructure-only.
+Reason: UI/industry composition should not fork the platform architecture.
 
----
+## Bad: cross-domain duplication
 
-## BAD: Duplicate Validation
+Avoid copying Finance logic into Commercial, Supply Chain logic into Operations, People logic into Projects, or Creative/provider logic into individual screens.
 
-Avoid:
-Repeated validation everywhere.
+Prefer explicit capability contracts/events and governed composition.
 
-Use:
-requireFields()
+Reason: duplicate rules eventually diverge and make AI/autonomous execution unsafe.
 
-Reason:
-Prevents API drift.
+## Bad: shared dumping ground
 
----
+Avoid moving business logic into generic `shared`, `utils`, `helpers`, or infrastructure modules merely because many callers need it.
 
-## BAD: Mass Refactors
+Prefer a real shared platform primitive with clear contract/owner or keep domain logic with its owning capability.
 
-Avoid:
-Huge architecture rewrites.
+## Bad: shadow registries and maps
 
-Use:
-Incremental migration.
+Avoid creating a new static list/table/document that becomes another definition of domains, workspaces, capabilities, providers, or execution paths when a canonical executable registry/configuration exists.
 
-Reason:
-Protects operational stability.
+Documentation should point to executable truth rather than duplicate volatile inventories.
 
----
+## Bad: AI-only business paths
 
-## BAD: Root-Level Random Files
+Avoid implementing a business action only inside prompts/agents when the real Avantiqo capability already exists.
 
-Avoid:
-lib/helper.js
-lib/temp.js
-lib/final.js
+Prefer:
 
-Reason:
-Creates architecture entropy.
+**AI reasoning → canonical governed capability → deterministic execution/verification where possible**
 
----
+Reason: humans, APIs, automation, and Intelligence should not produce different business effects for the same action.
 
-## BAD: Skipping Build Verification
+## Bad: LLM for deterministic work
 
-Rule:
-Every migration must:
-refactor
-→ build
-→ verify
-→ commit
+Avoid model calls for arithmetic, validation, sorting/filtering, schema checks, exact transformations, idempotency checks, or other reliably computable tasks unless AI materially improves the task.
 
-Reason:
-Protects platform stability.
+Reason: unnecessary inference increases latency, cost, nondeterminism, and failure surface.
+
+## Bad: blind retry after ambiguous execution
+
+Never solve uncertain provider/GPU/payment/posting/communication state by submitting the same expensive/destructive action again without reconciliation.
+
+Prefer:
+
+**identify → dispatch once → retain exact execution ID → observe/resume → verify → settle**
+
+Reason: uncertainty is not proof that the first action failed.
+
+## Bad: paid compute as convenience backend
+
+Avoid moving orchestration, validation, CPU media work, polling, storage finalization, or ordinary business logic to paid accelerator workers simply because dependencies already exist there.
+
+Reason: paid compute should execute the smallest irreducible accelerated operation unless evidence proves a different boundary is superior.
+
+## Bad: duplicate persistent model storage
+
+Avoid multiple persistent stores/caches for one AI engine merely to bypass temporary capacity/placement problems.
+
+Duplicates require demonstrated availability, isolation, geography, security, scaling, or economic need.
+
+## Bad: optimistic success without verification
+
+Avoid declaring success because:
+
+- an HTTP call returned 200
+- a provider accepted a job
+- code compiled
+- a button rendered
+- an LLM response looked plausible
+
+Verify the intended business/runtime result and its evidence.
+
+## Bad: frontend as source of truth
+
+Avoid business state that exists only in React/page state when it represents a durable business fact, approval, payment, posting, task, document, or lifecycle transition.
+
+The UI is an interface over governed truth.
+
+## Bad: screen-shaped schema
+
+Avoid adding tables/columns because a screen needs somewhere to store its fields before understanding the real business object, relationship, lifecycle, and ownership.
+
+Model business reality first.
+
+## Bad: historical document as current architecture
+
+Avoid following an old audit, migration note, Churchill-era map, benchmark snapshot, or authoritative-sounding legacy filename as current technical truth without checking `main` and documentation authority.
+
+Reason: historical evidence explains the past; it does not silently override the current architecture.
+
+## Bad: uncontrolled mass refactor
+
+Avoid large rewrites with no migration strategy, dependency analysis, checkpoints, or staged verification.
+
+Large architectural changes are allowed when evidence justifies them, but they require deliberate convergence rather than simultaneous unverified replacement.
+
+## Bad: standard practice as the only justification
+
+Avoid “this is how everybody does it” as the design rationale.
+
+Research the strongest approaches, challenge assumptions, prototype alternatives, and measure the winner.
+
+## Bad: skipping real verification
+
+For substantial work, use the applicable ladder:
+
+**source/static → focused deterministic tests → broader tests/build → subsystem E2E → controlled external/paid proof when necessary**
+
+A migration/refactor is not complete until the relevant real workflow and invariants agree with the intended architecture.

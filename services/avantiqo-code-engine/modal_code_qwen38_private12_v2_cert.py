@@ -152,10 +152,12 @@ def _case_evidence(item: fixtures.MaterializedFixture) -> dict[str, Any]:
         and required_phases.issubset(set(phases))
         and result.get("semantic_review_passed") is True
     )
+    model_calls = actor.calls + reviewer.calls
     security_gate = (
         changed_scope
         and raw_agent_passed
         and repairs <= MAX_REPAIRS
+        and model_calls <= MAX_MODEL_CALLS
         and item.hidden_test_path.resolve().is_relative_to(item.hidden_test_path.parent.resolve())
         and not item.hidden_test_path.resolve().is_relative_to(item.workspace.resolve())
         and result.get("hidden_material_visible") is False
@@ -180,7 +182,7 @@ def _case_evidence(item: fixtures.MaterializedFixture) -> dict[str, Any]:
         "semantic_reviews": int(result.get("semantic_reviews") or 0),
         "semantic_repairs": int(result.get("semantic_repairs") or 0),
         "semantic_review_passed": result.get("semantic_review_passed") is True,
-        "model_calls": actor.calls + reviewer.calls,
+        "model_calls": model_calls,
         "actor_model_calls": actor.calls,
         "reviewer_model_calls": reviewer.calls,
         "wall_ms": wall_ms,

@@ -5,9 +5,11 @@ on:
   push:
     paths:
       - services/avantiqo-code-engine/code_model_canary_v2.py
+      - services/avantiqo-code-engine/modal_code_model_canary_preflight.py
       - services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py
       - services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py
-      - services/avantiqo-code-engine/verify_qwen38_canary_runtime.py
+      - services/avantiqo-code-engine/modal_code_qwen38_runtime_probe.py
+      - services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
       - .github/workflows/avantiqo-code-qwen38-zero-cost.yml
 
 permissions:
@@ -30,12 +32,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Verify isolated canary source
+      - name: Verify authoritative isolated canary source
         run: |
           set -euo pipefail
           python -m py_compile services/avantiqo-code-engine/code_model_canary_v2.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_model_canary_preflight.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py
-          python -m py_compile services/avantiqo-code-engine/verify_qwen38_canary_runtime.py
-          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_qwen38_canary_runtime.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_runtime_probe.py
+          python -m py_compile services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
           echo 'AVANTIQO_CODE_QWEN38_ZERO_COST_CI=PASS'

@@ -48,6 +48,8 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert.py
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_owned_cert_fixed.py
           python -m py_compile services/avantiqo-code-engine/modal_code_hard_service.py
+          python -m py_compile services/avantiqo-code-engine/verify_hard_public_contract_guards.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_hard_public_contract_guards.py
           PYTHONPATH=services/avantiqo-code-engine python - <<'PY'
           import modal_code_hard_owned_cert_fixed as fixed
           import modal_code_hard_owned_cert as hard
@@ -64,7 +66,7 @@ jobs:
           for task in hard.HARD_TASKS:
               initial = hard.base._run_test(task['module'], task['source'], task['visible_test'])
               assert initial['exit_code'] != 0, f"broken fixture unexpectedly passes: {task['id']}"
-          print('AVANTIQO_CODE_EXACT_9_OF_10_GUARD_RECHECK=PASS')
+          print('AVANTIQO_CODE_EXACT_REGRESSION_GATES=PASS')
           print('AVANTIQO_CODE_PAID_RUN_ADMISSION=PASS')
           print('AVANTIQO_CODE_HARD_PREFLIGHT=PASS')
           PY

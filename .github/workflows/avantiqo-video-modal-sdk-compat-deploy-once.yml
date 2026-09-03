@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event.head_commit.message == 'Redeploy Video Modal transport with compatible SDK once'
+    if: github.event.head_commit.message == 'Redeploy Video Modal transport sibling sources once'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -61,6 +61,9 @@ jobs:
             services/avantiqo-video-engine/modal_deploy.py \
             services/avantiqo-video-engine/modal_native_job.py \
             services/avantiqo-video-engine/modal_native_controlled_master.py
+          grep -F '.add_local_python_source("modal_app")' services/avantiqo-video-engine/modal_native_job.py >/dev/null
+          grep -F '.add_local_python_source("modal_native_controlled_master")' services/avantiqo-video-engine/modal_native_job.py >/dev/null
+          echo 'VIDEO_TRANSPORT_SIBLING_SOURCE_ADMISSION=PASS'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
       - name: Redeploy complete owned Video Modal surface
@@ -89,11 +92,35 @@ jobs:
           console.log('GPU_INFERENCE_PERFORMED=false');
           NODE
 
+      - name: Prove transport container cold-starts before any GPU boundary
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import * as modal from 'modal';
+          const tokenId = String(process.env.MODAL_TOKEN_ID || '').trim();
+          const tokenSecret = String(process.env.MODAL_TOKEN_SECRET || '').trim();
+          const client = new modal.ModalClient({ tokenId, tokenSecret });
+          const fn = await client.functions.fromName('avantiqo-video-owned', 'generate_native_job');
+          let failedAsExpected = false;
+          try {
+            await fn.remote({});
+          } catch (error) {
+            const message = String(error?.message || error || '');
+            console.log('VIDEO_TRANSPORT_COLD_START_ERROR=' + message.replace(/\s+/g, ' ').slice(0, 500));
+            if (message.includes('AVANTIQO_VIDEO_LTX25_MODAL_CAPABILITY_INVALID')) failedAsExpected = true;
+          }
+          if (!failedAsExpected) throw new Error('VIDEO_TRANSPORT_COLD_START_DID_NOT_REACH_VALIDATION');
+          console.log('AVANTIQO_VIDEO_TRANSPORT_COLD_START_IMPORT=PASS');
+          console.log('INVALID_PROBE_GPU_GENERATION_CALLS=0');
+          console.log('PAID_GPU_INFERENCE_PERFORMED=false');
+          NODE
+
       - name: Preserve release boundary
         if: always()
         run: |
           echo 'GPU_INFERENCE_PERFORMED=false'
-          echo 'MODAL_SPAWN_COUNT=0'
+          echo 'PAID_GPU_INFERENCE_PERFORMED=false'
+          echo 'MODAL_PAID_SPAWN_COUNT=0'
           echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
           echo 'VIDEO_PRICING_ACTIVATED=false'
           echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'

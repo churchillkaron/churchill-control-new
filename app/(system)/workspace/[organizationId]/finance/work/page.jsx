@@ -1,8 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
+
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
-import FinancePracticeControlTower from "@/components/workspace/finance/FinancePracticeControlTower";
+import FinanceDailyWorkDesk from "@/components/workspace/finance/FinanceDailyWorkDesk";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default function FinanceWorkPage() {
 
   return (
     <div className="mx-auto max-w-[1720px]">
-      <FinancePracticeControlTower organizationId={organizationId} />
+      <FinanceDailyWorkDesk organizationId={organizationId} />
     </div>
   );
 }

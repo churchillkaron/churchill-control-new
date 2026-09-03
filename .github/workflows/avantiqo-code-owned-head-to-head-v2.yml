@@ -2,6 +2,9 @@ name: Avantiqo Code Hard Owned Certification
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - .github/avantiqo-code-paid-admission-20260903T0102Z.txt
 
 permissions:
   contents: read
@@ -17,6 +20,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify one-shot paid admission
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          test -f .github/avantiqo-code-paid-admission-20260903T0102Z.txt
+          grep -qx 'AVANTIQO_CODE_PAID_ADMISSION=20260903T0102Z' .github/avantiqo-code-paid-admission-20260903T0102Z.txt
+          echo 'AVANTIQO_CODE_ONE_SHOT_PAID_ADMISSION=PASS'
 
       - name: Setup Node 24
         uses: actions/setup-node@v4

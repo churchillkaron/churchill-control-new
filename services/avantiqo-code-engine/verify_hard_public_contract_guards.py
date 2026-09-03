@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import modal_code_hard_owned_cert as hard
+import modal_code_hard_owned_cert_final as final  # noqa: F401 - installs final public probes
 import modal_code_hard_service as service
 
 

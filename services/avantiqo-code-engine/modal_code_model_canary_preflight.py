@@ -5,8 +5,9 @@ contents and capacity. It performs no model download, no inference, no GPU work
 and no production routing/deployment change.
 
 The probe reuses the immutable Code worker image already proven by certification
-instead of building a fresh Debian image. This keeps admission latency bounded
-and separates storage truth from image-build/provisioning latency.
+instead of building a fresh Debian image. A tiny image-layer shim exposes the
+existing python3/pip3 binaries at conventional paths so Modal can identify the
+runtime exactly as the persistent certification transport already does.
 """
 
 from __future__ import annotations
@@ -31,7 +32,18 @@ WORKER_IMAGE = (
 
 app = modal.App(APP_NAME)
 model_volume = modal.Volume.from_name(policy.CODE_VOLUME, create_if_missing=False)
-image = modal.Image.from_registry(WORKER_IMAGE, add_python=None).entrypoint([])
+image = (
+    modal.Image.from_registry(
+        WORKER_IMAGE,
+        add_python=None,
+        setup_dockerfile_commands=[
+            "RUN command -v python >/dev/null 2>&1 || ln -s \"$(command -v python3)\" /usr/local/bin/python",
+            "RUN command -v pip >/dev/null 2>&1 || ln -s \"$(command -v pip3)\" /usr/local/bin/pip",
+            "RUN python --version && pip --version",
+        ],
+    )
+    .entrypoint([])
+)
 
 
 @app.function(

@@ -1,46 +1,34 @@
-# AVANTIQO / CHURCHILL OS ARCHITECTURE LOCK
+# Avantiqo Architecture Lock — Compatibility Pointer
 
-## DO NOT CHANGE WITHOUT EXPLICIT REQUEST
+**Status: living compatibility guard**
 
-### 1. SYSTEM LAYER (EXECUTIVE)
-SYSTEM_REGISTRY defines:
-- runtime
-- operations
-- finance
-- people
-- growth
-- platform
+This filename is retained because older code, audits, or engineering sessions may reference it. It no longer defines a separate architecture.
 
-### 2. DOMAIN LAYER (BUSINESS LOGIC)
-DOMAIN_REGISTRY defines:
-- pos
-- inventory
-- procurement
-- finance
-- payroll
-- marketing
-- kitchen
-- floor
-- expo
+The canonical architecture contract is [`ARCHITECTURE.md`](./ARCHITECTURE.md). The current logical map is [`SYSTEM_MAP.md`](./SYSTEM_MAP.md). Documentation authority is defined in [`docs/README.md`](./docs/README.md).
 
-### 3. EXECUTION LAYER (UBTE)
-UBTE is the ONLY transaction engine.
+## Locked invariants
 
-ALL writes must go through:
-executeTransaction()
+The following principles are protected unless Avantiqo deliberately changes its canonical architecture through research, proof, and migration:
 
-### 4. MODULE MARKETPLACE
-platform_modules = available modules
-organization_modules = enabled modules
+- Avantiqo is one coherent multi-industry platform.
+- Canonical platform flow: `PLATFORM → USER → BUSINESS CONTEXT → UBTE → ERP_REGISTRY → DOMAIN → WORKSPACE → CAPABILITY → DOCUMENT / ACTION / PROCESS`.
+- Canonical business context uses organization, entity where applicable, period where applicable, and party relationships — not a tenant architecture.
+- `ERP_REGISTRY` is the canonical ERP domain/workspace/capability topology.
+- Industry experiences such as POS, kitchen, hotel, retail, accounting, marketing, or staff workflows are compositions/surfaces over reusable capabilities; they are not competing platform registries.
+- Shared execution/runtime behavior must not be duplicated without an explicit migration or evidence-backed architectural reason.
+- Expensive, external, destructive, and irreversible operations require governed identity, at-most-once/idempotent handling, verification, and evidence.
+- Architecture changes must preserve one source of truth per business concept.
 
-### 5. NAVIGATION RULE
-Navigation MUST be composed from:
-SYSTEM_REGISTRY + DOMAIN_REGISTRY + organization_modules
+## Explicit legacy invalidation
 
-NOT from any single table or file.
+The historical model that treated `SYSTEM_REGISTRY` plus `DOMAIN_REGISTRY` with `pos`, `kitchen`, `floor`, `expo`, `marketing`, and similar product/industry modules as the canonical Avantiqo taxonomy is obsolete.
 
-### 6. GOLDEN RULE
-No new module system may be created.
-No duplicate registry is allowed.
-All new features MUST attach to existing domains.
+Historical references to `executeTransaction()`, `platform_modules`, `organization_modules`, or specific navigation builders are implementation/history facts only. They do not override the permanent architecture contract or prove that every current write/navigation path must use those exact historical symbols.
 
+## Change rule
+
+Do not weaken this guard to accommodate a one-off feature. If evidence shows the canonical architecture itself should change, use the deliberate process defined in `ARCHITECTURE.md`:
+
+**investigate → prototype → compare → prove → migrate deliberately**
+
+Until that happens, new work must converge toward the canonical Avantiqo architecture rather than reviving the legacy Churchill registry model.

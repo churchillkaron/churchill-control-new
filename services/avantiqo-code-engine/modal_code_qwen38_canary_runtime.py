@@ -82,14 +82,14 @@ def _runtime_identity() -> dict[str, str]:
         raise RuntimeError(
             f"{CONTRACT}_VLLM_VERSION_INVALID:expected={VLLM_VERSION}:actual={observed_version}"
         )
-    if observed_build_commit and observed_build_commit != VLLM_BUILD_COMMIT:
+    if observed_build_commit != VLLM_BUILD_COMMIT:
         raise RuntimeError(
             f"{CONTRACT}_VLLM_BUILD_COMMIT_INVALID:"
-            f"expected={VLLM_BUILD_COMMIT}:actual={observed_build_commit}"
+            f"expected={VLLM_BUILD_COMMIT}:actual={observed_build_commit or 'missing'}"
         )
     return {
         "vllm_version": observed_version,
-        "vllm_build_commit": observed_build_commit or VLLM_BUILD_COMMIT,
+        "vllm_build_commit": observed_build_commit,
         "vllm_image": VLLM_IMAGE,
     }
 

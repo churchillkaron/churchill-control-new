@@ -6,6 +6,10 @@ const technical = fs.readFileSync(
   "lib/creative/quality/runtime/CreativeVideoTechnicalQualityRuntime.js",
   "utf8",
 );
+const technicalEvidence = fs.readFileSync(
+  "lib/creative/quality/runtime/CreativeVideoTechnicalQualityEvidenceRuntime.js",
+  "utf8",
+);
 const temporal = fs.readFileSync(
   "lib/creative/quality/runtime/CreativeVideoTemporalEvidenceRuntime.js",
   "utf8",
@@ -37,14 +41,21 @@ test("generated Video candidates cannot finalise when perceptual review is disab
   );
 });
 
-test("deterministic technical certification runs before any paid fallback review", () => {
-  const technicalIndex = gate.indexOf("CreativeVideoTechnicalQualityRuntime.assess");
+test("persisted deterministic technical certification gates any paid fallback review", () => {
+  const technicalIndex = gate.indexOf("CreativeVideoTechnicalQualityEvidenceRuntime.verify");
+  const technicalFailureIndex = gate.indexOf("if (technicalFailures.length)");
   const paidReviewIndex = gate.indexOf("CreativeShotCandidateReviewRuntime.analyze");
-  assert.ok(technicalIndex >= 0, "technical gate missing");
-  assert.ok(paidReviewIndex > technicalIndex, "paid perceptual review must run after technical gate");
-  assert.match(gate, /if \(technicalFailures\.length\)/);
+  assert.ok(technicalIndex >= 0, "persisted deterministic technical evidence gate missing");
+  assert.ok(technicalFailureIndex > technicalIndex, "technical failures must be evaluated after evidence verification");
+  assert.ok(paidReviewIndex > technicalFailureIndex, "paid perceptual review must run only after the deterministic technical gate");
   assert.match(gate, /provider_calls_executed:\s*0/);
   assert.match(gate, /mode:\s*"DETERMINISTIC_TECHNICAL_GATE"/);
+  assert.match(technicalEvidence, /CREATIVE_VIDEO_TECHNICAL_QUALITY_V2/);
+  assert.match(technicalEvidence, /CREATIVE_VIDEO_TEMPORAL_EVIDENCE_V1/);
+  assert.match(technicalEvidence, /video_technical_quality_source_url/);
+  assert.match(technicalEvidence, /video_technical_quality_passed === true/);
+  assert.match(technicalEvidence, /persisted_technical_evidence_source_mismatch/);
+  assert.match(technicalEvidence, /persisted_temporal_evidence_missing/);
 });
 
 test("technical gate verifies the actual media master against the canonical Shot Bible", () => {

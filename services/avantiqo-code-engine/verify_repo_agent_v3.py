@@ -27,8 +27,11 @@ def main() -> None:
         root = Path(tmp)
         (root / "src").mkdir()
         (root / "src" / "value.py").write_text("VALUE = 1\n", encoding="utf-8")
+        # Deliberately read source text directly instead of importing it. This
+        # prevents timestamp/size based .pyc reuse from producing a false-green
+        # repair proof when same-size edits occur within one filesystem tick.
         (root / "check.py").write_text(
-            "import os\nfrom src.value import VALUE\nassert VALUE == 2\nassert os.getenv('AVANTIQO_AGENT_TEST_SECRET_SHOULD_NOT_LEAK') is None\n",
+            "import os\nfrom pathlib import Path\nassert Path('src/value.py').read_text(encoding='utf-8') == 'VALUE = 2\\n'\nassert os.getenv('AVANTIQO_AGENT_TEST_SECRET_SHOULD_NOT_LEAK') is None\n",
             encoding="utf-8",
         )
         policy = agent.AgentPolicy(
@@ -75,6 +78,7 @@ def main() -> None:
             ]),
         )
         assert repaired["repairs"] == 1, repaired
+        assert repaired["tests_run"] == 2 and repaired["tests_passed"] == 1, repaired
         assert {"inspect_failure","bounded_repair"}.issubset(set(repaired["agent_phases"])), repaired
 
         try:

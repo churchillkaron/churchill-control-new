@@ -10,11 +10,13 @@ on:
       - services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py
       - services/avantiqo-code-engine/modal_code_qwen38_runtime_probe.py
       - services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
+      - services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
       - services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
       - services/avantiqo-code-engine/worldclass_private_suite_v2.py
       - services/avantiqo-code-engine/worldclass_private_fixtures_v3.py
       - services/avantiqo-code-engine/verify_worldclass_private_fixtures_v3.py
       - .github/workflows/avantiqo-code-qwen38-generation-smoke.yml
+      - .github/workflows/avantiqo-code-qwen38-hard10.yml
       - .github/workflows/avantiqo-code-qwen38-zero-cost.yml
 
 permissions:
@@ -46,6 +48,7 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_runtime_probe.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
           python -m py_compile services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
           grep -q 'from modal_code_qwen38_canary_runtime import app, generation_smoke' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
@@ -53,7 +56,12 @@ jobs:
           test "$(grep -c 'generation_smoke.remote(approved=approved)' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py)" -eq 1
           grep -q 'AVANTIQO_CODE_QWEN38_SMOKE_RESULT=' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
           grep -q 'modal_code_qwen38_smoke_evidence.py::smoke_evidence --approved' .github/workflows/avantiqo-code-qwen38-generation-smoke.yml
+          grep -q 'AVANTIQO_CODE_QWEN38_HARD10_BENCHMARK_V2' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          grep -q 'Number(value.toFixed(2))' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          grep -q '100\*1 + 50\*0.8 = 140' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
+          grep -q 'benchmark_specific_source_rewrite_used' services/avantiqo-code-engine/modal_code_qwen38_hard10_benchmark.py
           echo 'AVANTIQO_CODE_QWEN38_SMOKE_EVIDENCE_TRANSPORT=PASS'
+          echo 'AVANTIQO_CODE_QWEN38_HARD10_V2_PUBLIC_GUARDS=PASS'
           echo 'AVANTIQO_CODE_QWEN38_ZERO_COST_CI=PASS'
 
       - name: Verify sealed executable world-class fixtures

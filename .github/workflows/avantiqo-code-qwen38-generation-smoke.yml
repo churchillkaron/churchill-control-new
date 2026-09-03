@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f .github/avantiqo-code-qwen38-generation-smoke-once.txt
-          grep -qx 'AVANTIQO_CODE_QWEN38_GENERATION_SMOKE_ONCE=20260903-V3' .github/avantiqo-code-qwen38-generation-smoke-once.txt
+          grep -qx 'AVANTIQO_CODE_QWEN38_GENERATION_SMOKE_ONCE=20260903-V4' .github/avantiqo-code-qwen38-generation-smoke-once.txt
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -49,11 +49,12 @@ jobs:
           set -euo pipefail
           python -m py_compile services/avantiqo-code-engine/code_model_canary_v2.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py
-          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_smoke_runner.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
           python -m py_compile services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
-          grep -q 'generation_smoke.remote(approved=True)' services/avantiqo-code-engine/modal_code_qwen38_smoke_runner.py
-          grep -q 'AVANTIQO_CODE_QWEN38_SMOKE_RESULT=' services/avantiqo-code-engine/modal_code_qwen38_smoke_runner.py
+          grep -q 'def smoke_evidence(approved: bool = False)' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
+          test "$(grep -c 'generation_smoke.remote(approved=approved)' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py)" -eq 1
+          grep -q 'AVANTIQO_CODE_QWEN38_SMOKE_RESULT=' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
           echo 'AVANTIQO_CODE_QWEN38_SMOKE_ZERO_COST_ADMISSION=PASS'
           echo 'AVANTIQO_CODE_QWEN38_SMOKE_EVIDENCE_TRANSPORT=PASS'
 
@@ -78,7 +79,7 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
         run: |
           set -euo pipefail
-          timeout --signal=TERM --kill-after=30s 8m python -m modal run services/avantiqo-code-engine/modal_code_qwen38_smoke_runner.py --approved 2>&1 | tee /tmp/qwen38-generation-smoke.log
+          timeout --signal=TERM --kill-after=30s 8m python -m modal run services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py::smoke_evidence --approved 2>&1 | tee /tmp/qwen38-generation-smoke.log
           grep -q 'AVANTIQO_CODE_QWEN38_SMOKE_RESULT=' /tmp/qwen38-generation-smoke.log
           grep -q '"smoke_pass":true' /tmp/qwen38-generation-smoke.log
           grep -q '"correctness_pass":true' /tmp/qwen38-generation-smoke.log

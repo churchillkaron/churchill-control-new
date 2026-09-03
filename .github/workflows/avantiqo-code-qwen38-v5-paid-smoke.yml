@@ -7,11 +7,6 @@ on:
         description: 'Type YES to allow one isolated Qwen3.8 H100 V5 smoke'
         required: true
         default: 'NO'
-  push:
-    branches:
-      - main
-    paths:
-      - 'services/avantiqo-code-engine/modal_code_qwen38_v5_paid_smoke.py'
 
 permissions:
   contents: read
@@ -22,7 +17,7 @@ concurrency:
 
 jobs:
   smoke:
-    if: github.event_name == 'push' || github.event.inputs.approved == 'YES'
+    if: github.event.inputs.approved == 'YES'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

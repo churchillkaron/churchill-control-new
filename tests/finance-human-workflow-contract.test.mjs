@@ -6,6 +6,10 @@ const workflowPolicy = fs.readFileSync(
   new URL("../lib/finance/ui/FinanceHumanWorkflowPolicy.js", import.meta.url),
   "utf8",
 );
+const clientDependencyPolicy = fs.readFileSync(
+  new URL("../lib/finance/ui/FinanceClientDependencyPolicy.js", import.meta.url),
+  "utf8",
+);
 const presentationPolicy = fs.readFileSync(
   new URL("../lib/finance/ui/FinanceCapabilityPresentation.js", import.meta.url),
   "utf8",
@@ -53,6 +57,29 @@ test("Finance priority policy protects human attention from waiting work", () =>
   assert.ok(inProgressIndex > blockedIndex);
   assert.ok(waitingIndex > inProgressIndex);
   assert.match(workflowPolicy, /do not let it displace work the team can execute now/);
+});
+
+test("Finance client dependency intelligence suppresses duplicate chasing after a response", () => {
+  const responseIndex = clientDependencyPolicy.indexOf("financeClientRequestHasResponse(request)");
+  const followUpIndex = clientDependencyPolicy.indexOf('state: "FOLLOW_UP_DUE"');
+  assert.ok(responseIndex >= 0 && followUpIndex > responseIndex);
+  assert.match(clientDependencyPolicy, /state: "CLIENT_RESPONDED"/);
+  assert.match(clientDependencyPolicy, /Review what the client supplied before any further reminder is considered/);
+  assert.match(clientDependencyPolicy, /safeToFollowUp: false/);
+});
+
+test("Finance client dependency intelligence protects recent client contact from duplicate reminders", () => {
+  assert.match(clientDependencyPolicy, /state: "WAITING_NO_CHASE"/);
+  assert.match(clientDependencyPolicy, /The client was already contacted/);
+  assert.match(clientDependencyPolicy, /nextEligibleFollowUpAt/);
+  assert.match(clientDependencyPolicy, /safeToFollowUp: false/);
+  assert.match(clientDependencyPolicy, /follow up on the existing request rather than creating a duplicate request/i);
+});
+
+test("Finance client dependency intelligence preserves human control for manual overdue follow-up", () => {
+  assert.match(clientDependencyPolicy, /state: overdue \? "MANUAL_FOLLOW_UP" : "WAITING_MANUAL"/);
+  assert.match(clientDependencyPolicy, /Follow-up needs a human decision/);
+  assert.match(clientDependencyPolicy, /Decide whether to follow up on the existing request/);
 });
 
 test("Every declared Finance runtime capability can override stale planned presentation state", () => {

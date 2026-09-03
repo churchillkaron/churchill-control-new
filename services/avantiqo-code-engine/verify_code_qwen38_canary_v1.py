@@ -70,6 +70,17 @@ def _assert_runtime() -> None:
         'LOAD_FORMAT = "instanttensor"',
         'GDN_PREFILL_BACKEND = "triton"',
         'FAST_BOOT_ENFORCE_EAGER = True',
+        'SMOKE_WARM_LATENCY_TARGET_MS = 4_000',
+        'def generation_smoke(approved: bool = False)',
+        '_render(tokenizer, "Return only OK.")',
+        'SamplingParams(temperature=0.0, max_tokens=8, skip_special_tokens=True)',
+        'SamplingParams(temperature=0.0, max_tokens=96, skip_special_tokens=True)',
+        'warmup_pass = warm_text == "OK"',
+        'correctness_pass = scored_text == SMOKE_EXPECTED_TYPESCRIPT',
+        'latency_pass = warm_scored_ms <= SMOKE_WARM_LATENCY_TARGET_MS',
+        'smoke_pass = warmup_pass and correctness_pass and latency_pass',
+        '"warm_scored_ms": warm_scored_ms',
+        '"warm_latency_target_ms": SMOKE_WARM_LATENCY_TARGET_MS',
         'create_if_missing=False',
         '.pip_install(f"instanttensor=={INSTANTTENSOR_VERSION}")',
         '.add_local_python_source("code_model_canary_v2")',
@@ -100,10 +111,13 @@ def _assert_runtime() -> None:
         'safetensors_load_strategy="prefetch"',
         'gdn_prefill_backend="flashinfer"',
         'speculative_model',
+        '@app.function(retries=',
     )
     for token in forbidden:
         assert token not in source, token
-    assert source.count('if approved is not True:') >= 2
+    assert source.count('if approved is not True:') >= 3
+    assert source.count('warm_outputs = engine.generate(') == 1
+    assert source.count('scored_outputs = engine.generate(') == 1
     assert 'policy.CANDIDATE_MODEL' in source
     assert 'policy.CANDIDATE_REVISION' in source
     assert 'policy.CODE_VOLUME' in source
@@ -121,6 +135,7 @@ def main() -> None:
     print("AVANTIQO_CODE_QWEN38_INSTANTTENSOR_FAST_LOAD=PASS")
     print("AVANTIQO_CODE_QWEN38_TRITON_GDN_FAST_BOOT=PASS")
     print("AVANTIQO_CODE_QWEN38_PERSISTENT_VLLM_CACHE=PASS")
+    print("AVANTIQO_CODE_QWEN38_WARM_SMOKE_CONTRACT=PASS")
     print("AVANTIQO_CODE_QWEN38_ZERO_COST_VERIFIER=PASS")
 
 

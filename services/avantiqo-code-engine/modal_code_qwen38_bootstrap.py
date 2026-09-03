@@ -50,6 +50,7 @@ image = (
             "HF_HUB_DISABLE_TELEMETRY": "1",
         }
     )
+    .add_local_python_source("code_model_canary_v2")
 )
 
 

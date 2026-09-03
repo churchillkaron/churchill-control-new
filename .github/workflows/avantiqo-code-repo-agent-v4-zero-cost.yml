@@ -1,0 +1,63 @@
+name: Avantiqo Code Repo Agent V4 Zero Cost
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/avantiqo-code-engine/repo_agent_v4.py'
+      - 'services/avantiqo-code-engine/verify_repo_agent_v4.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py'
+      - '.github/workflows/avantiqo-code-repo-agent-v4-zero-cost.yml'
+      - '.github/workflows/avantiqo-code-qwen38-private12-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile V4 and V2 contracts
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v3.py
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v4.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v4.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py
+
+      - name: Prove semantic review loop without GPU
+        run: |
+          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine \
+            python services/avantiqo-code-engine/verify_repo_agent_v4.py
+
+      - name: Re-prove sealed fixture integrity without GPU
+        run: |
+          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine \
+            python services/avantiqo-code-engine/verify_worldclass_private_fixtures_v3.py
+
+      - name: Prove no benchmark-answer patching
+        run: |
+          set -euo pipefail
+          ! grep -Eq 'ledger_rounding|hot_path|97b8062e96e6f0772fc3|35c408a88303c4f5cc9a' \
+            services/avantiqo-code-engine/repo_agent_v4.py
+          grep -q 'semantic_review' services/avantiqo-code-engine/repo_agent_v4.py
+          grep -q 'enable_prefix_caching=ENABLE_PREFIX_CACHING' \
+            services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py
+          grep -q 'RUN_SEED = "20260903-qwen38-private12-v2"' \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py
+          echo 'AVANTIQO_CODE_REPO_AGENT_V4_ZERO_COST=PASS'

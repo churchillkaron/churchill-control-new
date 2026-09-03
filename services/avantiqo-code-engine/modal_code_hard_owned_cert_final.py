@@ -1,8 +1,7 @@
 """Final hard Code certification hardening layer.
 
 This module strengthens only public-contract verification and certification truth:
-- three production clauses that escaped the earlier semantic probes are now gated
-  before hidden scoring,
+- production clauses that escaped earlier semantic probes are gated before hidden scoring,
 - repair prompts explicitly reconstruct those clauses,
 - generated source is required to be compact enough for the <=4s warm target,
 - the legacy inner PASS marker is suppressed and emitted only after the final
@@ -35,8 +34,6 @@ def _append_public_probe(case_id: str, assertions: str) -> None:
         hard.HARD_PROBES[case_id] = current + "\n" + assertions.strip() + "\n"
 
 
-# Make the public contract explicit where the previous benchmark expected empty
-# input behavior without saying so. This is product behavior, not hidden data.
 idempotent = _task("idempotent_event_apply")
 if "Missing/null state" not in idempotent["spec"]:
     idempotent["spec"] += (
@@ -51,12 +48,17 @@ if "Non-string/missing values" not in transition["spec"]:
         "the function must never throw for unknown input values."
     )
 
-# Independent public semantic probes. These exercise the declared clauses using
-# different values/shapes than the sealed hidden tests.
+inventory = _task("inventory_reservation")
+if "Malformed/null request rows" not in inventory["spec"]:
+    inventory["spec"] += (
+        " Malformed/null request rows are ignored exactly like other invalid requests; "
+        "they must never be dereferenced or throw."
+    )
+
 _append_public_probe(
     "inventory_reservation",
     '''assert.deepEqual(
-  reserveInventory({bad:"not-a-number", zero:0}, []),
+  reserveInventory({bad:"not-a-number", zero:0}, [null,{sku:"zero",quantity:1}]),
   {remaining:{ZERO:0}, allocations:[]}
 );''',
 )
@@ -88,9 +90,10 @@ def _hardened_repair_plan(contract: str) -> str:
     additions: list[str] = []
     if "canonicalize sku" in text and "remaining" in text:
         additions.append(
-            "VALID-STOCK PLAN: validate the raw stock quantity before inserting its canonical "
-            "SKU into remaining. Invalid/non-finite quantities are omitted completely; they do "
-            "not create a zero-valued key. A genuinely valid numeric zero must still be kept."
+            "VALID-STOCK/REQUEST PLAN: validate each raw stock quantity before inserting its "
+            "canonical SKU; invalid/non-finite stock is omitted completely while valid numeric "
+            "zero remains. Before reading any request field, skip null/non-object request rows. "
+            "Then canonicalize/validate SKU and quantity and omit zero allocations."
         )
     if "appliedids" in text:
         additions.append(
@@ -177,7 +180,6 @@ def _summary_is_certified(summary: dict[str, Any]) -> bool:
     )
 
 
-# Zero-cost truth-marker regression: a machine-gate PASS is not enough.
 assert _summary_is_certified(
     {
         "cases": 10,
@@ -216,9 +218,6 @@ assert not _summary_is_certified(
 
 @app.local_entrypoint(name="hard_owned_cert_final")
 def hard_owned_cert_final() -> None:
-    # The legacy inner entrypoint historically printed CONTRACT=PASS after only
-    # machine acceptance. Suppress exactly that marker; all diagnostic output is
-    # preserved. Emit PASS only after reading and validating final sealed scoring.
     real_print = builtins.print
 
     def truth_print(*args: Any, **kwargs: Any) -> None:

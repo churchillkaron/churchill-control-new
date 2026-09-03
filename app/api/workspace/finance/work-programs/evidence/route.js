@@ -3,6 +3,9 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 
+import {
+  getFinanceEvidenceDocument,
+} from "@/lib/finance/practice/FinanceEvidenceDocumentRuntime";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -87,17 +90,6 @@ function configuredCategories(item) {
     .filter((category) => category.key);
 }
 
-async function loadDocument(run, documentId) {
-  const { data, error } = await supabaseAdmin
-    .from("organization_documents")
-    .select("id,organization_id,file_name,file_url,mime_type,status,approval_required,approved_at,created_at,updated_at")
-    .eq("id", documentId)
-    .eq("organization_id", run.organization_id)
-    .maybeSingle();
-  if (error) throw error;
-  return data || null;
-}
-
 function requireEvidenceMutable(item) {
   if (!EVIDENCE_MUTABLE_ITEM_STATUSES.has(String(item?.status || "").toUpperCase())) {
     const error = new Error("Evidence cannot change after a work item enters review or completes; request changes first");
@@ -142,6 +134,16 @@ async function audit(access, action, entityId, metadata) {
   if (error) throw error;
 }
 
+async function enrichLinks(links, organizationId) {
+  return Promise.all((links || []).map(async (link) => ({
+    ...link,
+    document: await getFinanceEvidenceDocument({
+      organizationId,
+      documentId: link.document_id,
+    }),
+  })));
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -166,23 +168,12 @@ export async function GET(request) {
       .order("linked_at", { ascending: false });
     if (error) throw error;
 
-    const documentIds = [...new Set((links || []).map((link) => link.document_id).filter(Boolean))];
-    const { data: documents, error: documentsError } = documentIds.length
-      ? await supabaseAdmin
-          .from("organization_documents")
-          .select("id,file_name,file_url,mime_type,status,approval_required,approved_at,created_at,updated_at")
-          .eq("organization_id", run.organization_id)
-          .in("id", documentIds)
-      : { data: [], error: null };
-    if (documentsError) throw documentsError;
-    const documentsById = new Map((documents || []).map((document) => [document.id, document]));
-
     return NextResponse.json({
       success: true,
       work_item_id: item.id,
       run_id: run.id,
       categories: configuredCategories(item),
-      links: (links || []).map((link) => ({ ...link, document: documentsById.get(link.document_id) || null })),
+      links: await enrichLinks(links, run.organization_id),
       no_external_message: true,
     });
   } catch (error) {
@@ -215,8 +206,14 @@ export async function POST(request) {
     const category = categories.find((entry) => entry.key === evidenceCategory);
     if (!category) return jsonError("Evidence category is not configured for this work item", 409, { allowed_categories: categories });
 
-    const document = await loadDocument(run, documentId);
+    const document = await getFinanceEvidenceDocument({
+      organizationId: run.organization_id,
+      documentId,
+    });
     if (!document) return jsonError("Document not found for this client organization", 404);
+    if (document.controlled && document.entity_id && document.entity_id !== run.entity_id) {
+      return jsonError("Controlled document belongs to another legal entity", 409);
+    }
 
     const { data: existing, error: existingError } = await supabaseAdmin
       .from("accounting_work_program_evidence_links")
@@ -247,7 +244,12 @@ export async function POST(request) {
         status: "ACTIVE",
         is_primary: body.isPrimary === true || body.is_primary === true,
         linked_by: access.user?.id || null,
-        metadata: { category_label: category.label, source: "digital_engagement_file" },
+        metadata: {
+          category_label: category.label,
+          source: "digital_engagement_file",
+          document_source: document.source,
+          controlled_document: document.controlled === true,
+        },
       })
       .select("*")
       .single();
@@ -262,6 +264,8 @@ export async function POST(request) {
       period_id: run.period_id,
       document_id: document.id,
       evidence_category: evidenceCategory,
+      document_source: document.source,
+      controlled_document: document.controlled === true,
       no_external_message: true,
     });
 

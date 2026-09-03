@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import { resolveBusinessContext } from "@/lib/business-context/resolveBusinessContext";
+import { fetchCompleteFinancePopulation } from "@/lib/finance/data/fetchCompleteFinancePopulation";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getWorkspaceItemByWorkspace } from "@/lib/platform/registry/erpRegistry";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
@@ -65,6 +66,7 @@ async function safe(source, task, fallback) {
       status: "connected",
       data: await task(),
       error: null,
+      population: null,
     };
   } catch (error) {
     console.error("FINANCE_COMMAND_CENTER_SOURCE_FAILED", {
@@ -76,6 +78,42 @@ async function safe(source, task, fallback) {
       status: "error",
       data: fallback,
       error: error?.message || "Source unavailable",
+      population: null,
+    };
+  }
+}
+
+async function safePopulation(source, task, fallback = []) {
+  try {
+    const population = await task();
+    return {
+      source,
+      status: "connected",
+      data: population.rows,
+      error: null,
+      population: {
+        complete: population.complete === true,
+        rows: population.rows.length,
+        pages: population.pages,
+        page_size: population.page_size,
+        max_rows: population.max_rows,
+      },
+    };
+  } catch (error) {
+    console.error("FINANCE_COMMAND_CENTER_POPULATION_FAILED", {
+      source,
+      error,
+    });
+    return {
+      source,
+      status: "error",
+      data: fallback,
+      error: error?.message || "Accounting population unavailable",
+      population: {
+        complete: false,
+        rows: 0,
+        pages: 0,
+      },
     };
   }
 }
@@ -188,58 +226,73 @@ export async function GET(request) {
       reviewItemsSource,
       recentWorkSource,
     ] = await Promise.all([
-      safe("accounts_receivable", async () => {
-        const { data, error } = await supabaseAdmin
-          .from("accounts_receivable")
-          .select("id, customer_invoice_id, outstanding_balance, due_date, status, created_at")
-          .eq("organization_id", context.organizationId)
-          .eq("entity_id", resolvedEntityId)
-          .eq("period_id", resolvedPeriodId)
-          .gt("outstanding_balance", 0)
-          .order("due_date", { ascending: true })
-          .limit(5000);
-        if (error) throw error;
-        return data || [];
-      }, []),
-      safe("vendor_invoices", async () => {
-        let query = supabaseAdmin
-          .from("vendor_invoices")
-          .select("id, invoice_number, vendor_party_id, outstanding_amount, due_date, status, approval_status, invoice_date, created_at")
-          .eq("organization_id", context.organizationId)
-          .eq("entity_id", resolvedEntityId)
-          .gt("outstanding_amount", 0);
-        if (periodStart) query = query.gte("invoice_date", periodStart);
-        if (periodEnd) query = query.lte("invoice_date", periodEnd);
-        const { data, error } = await query
-          .order("due_date", { ascending: true })
-          .limit(5000);
-        if (error) throw error;
-        return data || [];
-      }, []),
-      safe("finance_approval_requests", async () => {
-        const { data, error } = await supabaseAdmin
-          .from("finance_approval_requests")
-          .select("id, document_type, document_id, amount, currency_code, assigned_role, status, requested_at, decision_notes")
-          .eq("organization_id", context.organizationId)
-          .eq("entity_id", resolvedEntityId)
-          .eq("period_id", resolvedPeriodId)
-          .in("status", ["pending", "PENDING", "requested", "REQUESTED", "open", "OPEN"])
-          .order("requested_at", { ascending: true })
-          .limit(50);
-        if (error) throw error;
-        return data || [];
-      }, []),
-      safe("finance_bank_reconciliation_runs", async () => {
-        const { data, error } = await supabaseAdmin
-          .from("finance_bank_reconciliation_runs")
-          .select("id, bank_account_id, bank_statement_id, reconciliation_date, book_closing_balance, statement_closing_balance, difference_amount, status, notes, created_at")
-          .eq("organization_id", context.organizationId)
-          .eq("entity_id", resolvedEntityId)
-          .order("reconciliation_date", { ascending: false })
-          .limit(50);
-        if (error) throw error;
-        return data || [];
-      }, []),
+      safePopulation("accounts_receivable", () =>
+        fetchCompleteFinancePopulation({
+          label: "Accounts receivable command-center population",
+          buildQuery: (from, to) => supabaseAdmin
+            .from("accounts_receivable")
+            .select("id, customer_invoice_id, outstanding_balance, due_date, status, created_at")
+            .eq("organization_id", context.organizationId)
+            .eq("entity_id", resolvedEntityId)
+            .eq("period_id", resolvedPeriodId)
+            .gt("outstanding_balance", 0)
+            .order("due_date", { ascending: true, nullsFirst: false })
+            .order("id", { ascending: true })
+            .range(from, to),
+        }),
+      ),
+      safePopulation("vendor_invoices", () =>
+        fetchCompleteFinancePopulation({
+          label: "Vendor invoice command-center population",
+          buildQuery: (from, to) => {
+            let query = supabaseAdmin
+              .from("vendor_invoices")
+              .select("id, invoice_number, vendor_party_id, outstanding_amount, due_date, status, approval_status, invoice_date, created_at")
+              .eq("organization_id", context.organizationId)
+              .eq("entity_id", resolvedEntityId)
+              .gt("outstanding_amount", 0);
+            if (periodStart) query = query.gte("invoice_date", periodStart);
+            if (periodEnd) query = query.lte("invoice_date", periodEnd);
+            return query
+              .order("due_date", { ascending: true, nullsFirst: false })
+              .order("id", { ascending: true })
+              .range(from, to);
+          },
+        }),
+      ),
+      safePopulation("finance_approval_requests", () =>
+        fetchCompleteFinancePopulation({
+          label: "Finance approval command-center population",
+          buildQuery: (from, to) => supabaseAdmin
+            .from("finance_approval_requests")
+            .select("id, document_type, document_id, amount, currency_code, assigned_role, status, requested_at, decision_notes")
+            .eq("organization_id", context.organizationId)
+            .eq("entity_id", resolvedEntityId)
+            .eq("period_id", resolvedPeriodId)
+            .in("status", ["pending", "PENDING", "requested", "REQUESTED", "open", "OPEN"])
+            .order("requested_at", { ascending: true, nullsFirst: false })
+            .order("id", { ascending: true })
+            .range(from, to),
+        }),
+      ),
+      safePopulation("finance_bank_reconciliation_runs", () =>
+        fetchCompleteFinancePopulation({
+          label: "Bank reconciliation command-center population",
+          buildQuery: (from, to) => {
+            let query = supabaseAdmin
+              .from("finance_bank_reconciliation_runs")
+              .select("id, bank_account_id, bank_statement_id, reconciliation_date, book_closing_balance, statement_closing_balance, difference_amount, status, notes, created_at")
+              .eq("organization_id", context.organizationId)
+              .eq("entity_id", resolvedEntityId);
+            if (periodStart) query = query.gte("reconciliation_date", periodStart);
+            if (periodEnd) query = query.lte("reconciliation_date", periodEnd);
+            return query
+              .order("reconciliation_date", { ascending: false, nullsFirst: false })
+              .order("id", { ascending: true })
+              .range(from, to);
+          },
+        }),
+      ),
       safe("finance_period_close_runs", async () => {
         const { data, error } = await supabaseAdmin
           .from("finance_period_close_runs")
@@ -253,53 +306,63 @@ export async function GET(request) {
         if (error) throw error;
         return data || null;
       }, null),
-      safe("finance_period_close_steps", async () => {
-        const { data, error } = await supabaseAdmin
-          .from("finance_period_close_steps")
-          .select("id, step_type, status, journal_entry_id, evidence, completed_at, created_at, updated_at")
-          .eq("organization_id", context.organizationId)
-          .eq("entity_id", resolvedEntityId)
-          .eq("period_id", resolvedPeriodId)
-          .order("created_at", { ascending: true })
-          .limit(250);
-        if (error) throw error;
-        return data || [];
-      }, []),
-      safe("finance_statutory_filings", async () => {
-        const { data, error } = await supabaseAdmin
-          .from("finance_statutory_filings")
-          .select("id, filing_type, jurisdiction_code, authority_name, period_start, period_end, due_date, submission_reference, submitted_at, status, notes")
-          .eq("organization_id", context.organizationId)
-          .eq("entity_id", resolvedEntityId)
-          .eq("period_id", resolvedPeriodId)
-          .order("due_date", { ascending: true })
-          .limit(100);
-        if (error) throw error;
-        return data || [];
-      }, []),
-      safe("accounting_engagements", async () => {
-        const { data, error } = await supabaseAdmin
-          .from("accounting_engagements")
-          .select("id, organization_id, service_package, status, bookkeeping_enabled, vat_enabled, payroll_enabled, tax_enabled, reporting_enabled, audit_enabled, renewal_date, year_end_date")
-          .eq("accounting_firm_id", context.organizationId)
-          .in("status", ["active", "ACTIVE", "enabled", "ENABLED"])
-          .order("created_at", { ascending: true })
-          .limit(100);
-        if (error) throw error;
-        return data || [];
-      }, []),
-      safe("finance_review_items", async () => {
-        const { data, error } = await supabaseAdmin
-          .from("finance_review_items")
-          .select("id, entity_id, period_id, capability_id, record_key, record_type, record_label, status, priority, due_at, preparer_id, reviewer_id, updated_at")
-          .eq("organization_id", context.organizationId)
-          .in("status", [...OPEN_REVIEW_STATUSES])
-          .order("due_at", { ascending: true, nullsFirst: false })
-          .order("updated_at", { ascending: false })
-          .limit(250);
-        if (error) throw error;
-        return data || [];
-      }, []),
+      safePopulation("finance_period_close_steps", () =>
+        fetchCompleteFinancePopulation({
+          label: "Period close step command-center population",
+          buildQuery: (from, to) => supabaseAdmin
+            .from("finance_period_close_steps")
+            .select("id, step_type, status, journal_entry_id, evidence, completed_at, created_at, updated_at")
+            .eq("organization_id", context.organizationId)
+            .eq("entity_id", resolvedEntityId)
+            .eq("period_id", resolvedPeriodId)
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to),
+        }),
+      ),
+      safePopulation("finance_statutory_filings", () =>
+        fetchCompleteFinancePopulation({
+          label: "Statutory filing command-center population",
+          buildQuery: (from, to) => supabaseAdmin
+            .from("finance_statutory_filings")
+            .select("id, filing_type, jurisdiction_code, authority_name, period_start, period_end, due_date, submission_reference, submitted_at, status, notes")
+            .eq("organization_id", context.organizationId)
+            .eq("entity_id", resolvedEntityId)
+            .eq("period_id", resolvedPeriodId)
+            .order("due_date", { ascending: true, nullsFirst: false })
+            .order("id", { ascending: true })
+            .range(from, to),
+        }),
+      ),
+      safePopulation("accounting_engagements", () =>
+        fetchCompleteFinancePopulation({
+          label: "Accounting engagement command-center population",
+          buildQuery: (from, to) => supabaseAdmin
+            .from("accounting_engagements")
+            .select("id, organization_id, service_package, status, bookkeeping_enabled, vat_enabled, payroll_enabled, tax_enabled, reporting_enabled, audit_enabled, renewal_date, year_end_date, created_at")
+            .eq("accounting_firm_id", context.organizationId)
+            .in("status", ["active", "ACTIVE", "enabled", "ENABLED"])
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to),
+        }),
+      ),
+      safePopulation("finance_review_items", () =>
+        fetchCompleteFinancePopulation({
+          label: "Finance review command-center population",
+          buildQuery: (from, to) => supabaseAdmin
+            .from("finance_review_items")
+            .select("id, entity_id, period_id, capability_id, record_key, record_type, record_label, status, priority, due_at, preparer_id, reviewer_id, updated_at")
+            .eq("organization_id", context.organizationId)
+            .in("status", [...OPEN_REVIEW_STATUSES])
+            .or(`entity_id.is.null,entity_id.eq.${resolvedEntityId}`)
+            .or(`period_id.is.null,period_id.eq.${resolvedPeriodId}`)
+            .order("due_at", { ascending: true, nullsFirst: false })
+            .order("updated_at", { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, to),
+        }),
+      ),
       safe("accounting_engagement_work_items", async () => {
         const { data, error } = await supabaseAdmin
           .from("accounting_engagement_work_items")
@@ -320,10 +383,7 @@ export async function GET(request) {
     const closeSteps = closeStepsSource.data || [];
     const filings = filingsSource.data || [];
     const engagements = engagementsSource.data || [];
-    const reviewItems = (reviewItemsSource.data || []).filter(row =>
-      (!row.entity_id || row.entity_id === resolvedEntityId) &&
-      (!row.period_id || row.period_id === resolvedPeriodId),
-    );
+    const reviewItems = reviewItemsSource.data || [];
 
     const openReconciliations = reconciliations.filter(row =>
       !isComplete(row.status) || Math.abs(amount(row.difference_amount)) > 0.000001,
@@ -338,22 +398,37 @@ export async function GET(request) {
         : 0;
 
     let practiceClients = [];
-    if (engagements.length) {
-      const clientIds = [...new Set(engagements.map(row => row.organization_id).filter(Boolean))];
-      const [{ data: organizations }, { data: profiles }] = await Promise.all([
-        supabaseAdmin
-          .from("organizations")
-          .select("id, name")
-          .in("id", clientIds),
-        supabaseAdmin
-          .from("accounting_client_profiles")
-          .select("organization_id, assigned_accountant_name, assigned_reviewer_name, status")
-          .eq("accounting_firm_id", context.organizationId)
-          .in("organization_id", clientIds),
+    let clientNameMap = new Map();
+    const recentWorkRows = recentWorkSource.data || [];
+    if (engagements.length || recentWorkRows.length) {
+      const displayEngagements = engagements.slice(0, 8);
+      const lookupClientIds = [...new Set([
+        ...displayEngagements.map(row => row.organization_id),
+        ...recentWorkRows.map(row => row.organization_id),
+      ].filter(Boolean))];
+
+      const [{ data: organizations, error: organizationsError }, { data: profiles, error: profilesError }] = await Promise.all([
+        lookupClientIds.length
+          ? supabaseAdmin
+              .from("organizations")
+              .select("id, name")
+              .in("id", lookupClientIds)
+          : Promise.resolve({ data: [], error: null }),
+        lookupClientIds.length
+          ? supabaseAdmin
+              .from("accounting_client_profiles")
+              .select("organization_id, assigned_accountant_name, assigned_reviewer_name, status")
+              .eq("accounting_firm_id", context.organizationId)
+              .in("organization_id", lookupClientIds)
+          : Promise.resolve({ data: [], error: null }),
       ]);
+      if (organizationsError) throw organizationsError;
+      if (profilesError) throw profilesError;
+
       const organizationMap = new Map((organizations || []).map(row => [row.id, row]));
       const profileMap = new Map((profiles || []).map(row => [row.organization_id, row]));
-      practiceClients = engagements.map(engagement => {
+      clientNameMap = new Map((organizations || []).map(row => [row.id, row.name || "Client organization"]));
+      practiceClients = displayEngagements.map(engagement => {
         const organization = organizationMap.get(engagement.organization_id) || {};
         const profile = profileMap.get(engagement.organization_id) || {};
         return {
@@ -369,8 +444,7 @@ export async function GET(request) {
       });
     }
 
-    const clientNameMap = new Map(practiceClients.map(client => [client.organization_id, client.name]));
-    const recentWork = (recentWorkSource.data || []).slice(0, 8).map(row => ({
+    const recentWork = recentWorkRows.slice(0, 8).map(row => ({
       id: row.id,
       organization_id: row.organization_id,
       run_id: row.run_id,
@@ -480,7 +554,11 @@ export async function GET(request) {
         engagementsSource,
         reviewItemsSource,
         recentWorkSource,
-      ].map(source => [source.source, { status: source.status, error: source.error }]),
+      ].map(source => [source.source, {
+        status: source.status,
+        error: source.error,
+        population: source.population,
+      }]),
     );
 
     return NextResponse.json({
@@ -501,26 +579,31 @@ export async function GET(request) {
           amount: sum(receivables, "outstanding_balance"),
           overdue: receivables.filter(row => isOverdue(row.due_date, periodEnd)).length,
           source_status: receivablesSource.status,
+          population_complete: receivablesSource.population?.complete === true,
         },
         payables: {
           count: payables.length,
           amount: sum(payables, "outstanding_amount"),
           overdue: payables.filter(row => isOverdue(row.due_date, periodEnd)).length,
           source_status: payablesSource.status,
+          population_complete: payablesSource.population?.complete === true,
         },
         approvals: {
           count: approvals.length,
           source_status: approvalsSource.status,
+          population_complete: approvalsSource.population?.complete === true,
         },
         reconciliation: {
           count: openReconciliations.length,
           difference: sum(openReconciliations, "difference_amount"),
           source_status: reconciliationsSource.status,
+          population_complete: reconciliationsSource.population?.complete === true,
         },
         filings: {
           count: openFilings.length,
           overdue: openFilings.filter(row => isOverdue(row.due_date, periodEnd)).length,
           source_status: filingsSource.status,
+          population_complete: filingsSource.population?.complete === true,
         },
         review: {
           count: reviewItems.length,
@@ -528,6 +611,7 @@ export async function GET(request) {
           changes_requested: reviewItems.filter(row => row.status === "CHANGES_REQUESTED").length,
           overdue: reviewItems.filter(row => isOverdue(row.due_at, reviewAsOf)).length,
           source_status: reviewItemsSource.status,
+          population_complete: reviewItemsSource.population?.complete === true,
         },
         close: {
           completed: completedCloseSteps,
@@ -538,6 +622,7 @@ export async function GET(request) {
             closeRunSource.status === "error" || closeStepsSource.status === "error"
               ? "error"
               : "connected",
+          population_complete: closeStepsSource.population?.complete === true,
         },
       },
       close: {
@@ -557,9 +642,10 @@ export async function GET(request) {
       },
       queue: rankedQueue,
       practice: {
-        active_clients: practiceClients.length,
-        clients: practiceClients.slice(0, 8),
+        active_clients: engagements.length,
+        clients: practiceClients,
         source_status: engagementsSource.status,
+        population_complete: engagementsSource.population?.complete === true,
       },
       recent_work: recentWork,
       sources,

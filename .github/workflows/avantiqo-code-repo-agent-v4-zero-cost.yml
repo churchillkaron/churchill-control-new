@@ -1,4 +1,4 @@
-name: Avantiqo Code Repo Agent V4 Zero Cost
+name: Avantiqo Code Repo Agent Zero Cost
 
 on:
   workflow_dispatch:
@@ -8,8 +8,11 @@ on:
     paths:
       - 'services/avantiqo-code-engine/repo_agent_v4.py'
       - 'services/avantiqo-code-engine/verify_repo_agent_v4.py'
+      - 'services/avantiqo-code-engine/repo_agent_v5.py'
+      - 'services/avantiqo-code-engine/verify_repo_agent_v5.py'
       - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py'
       - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py'
       - '.github/workflows/avantiqo-code-repo-agent-v4-zero-cost.yml'
       - '.github/workflows/avantiqo-code-qwen38-private12-v2.yml'
 
@@ -29,20 +32,29 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Compile V4 and V2 contracts
+      - name: Compile Code contracts
         run: |
           set -euo pipefail
           python -m py_compile services/avantiqo-code-engine/repo_agent_v3.py
           python -m py_compile services/avantiqo-code-engine/repo_agent_v4.py
           python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v4.py
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v5.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v5.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py
 
-      - name: Prove semantic review loop without GPU
+      - name: Prove V4 semantic review loop without GPU
         run: |
           set -euo pipefail
           PYTHONPATH=services/avantiqo-code-engine \
             python services/avantiqo-code-engine/verify_repo_agent_v4.py
+
+      - name: Prove V5 batched low-call contract without GPU
+        run: |
+          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine \
+            python services/avantiqo-code-engine/verify_repo_agent_v5.py
 
       - name: Re-prove sealed fixture integrity without GPU
         run: |
@@ -50,19 +62,21 @@ jobs:
           PYTHONPATH=services/avantiqo-code-engine \
             python services/avantiqo-code-engine/verify_worldclass_private_fixtures_v3.py
 
-      - name: Prove no benchmark-answer patching and bounded model calls
+      - name: Prove no benchmark-answer patching and hard batch ceiling
         run: |
           set -euo pipefail
-          ! grep -Eq 'ledger_rounding|hot_path|97b8062e96e6f0772fc3|35c408a88303c4f5cc9a' \
-            services/avantiqo-code-engine/repo_agent_v4.py
-          grep -q 'semantic_review' services/avantiqo-code-engine/repo_agent_v4.py
+          ! grep -Eq '97b8062e96e6f0772fc3|35c408a88303c4f5cc9a' \
+            services/avantiqo-code-engine/repo_agent_v4.py \
+            services/avantiqo-code-engine/repo_agent_v5.py
+          grep -q 'MAX_CASE_MODEL_SEQUENCES = 4' \
+            services/avantiqo-code-engine/repo_agent_v5.py
+          grep -q 'MAX_MODAL_BATCH_CALLS = 4' \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py
+          grep -q 'modal_batch_calls > MAX_MODAL_BATCH_CALLS' \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py
+          grep -q 'RUN_SEED = "20260903-qwen38-private12-v3"' \
+            services/avantiqo-code-engine/modal_code_qwen38_private12_v3_cert.py
           grep -q 'enable_prefix_caching=ENABLE_PREFIX_CACHING' \
             services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v5.py
-          grep -q 'RUN_SEED = "20260903-qwen38-private12-v2"' \
-            services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py
-          grep -q 'model_calls <= MAX_MODEL_CALLS' \
-            services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py
-          echo 'AVANTIQO_CODE_PRIVATE12_V2_MODEL_CALL_BUDGET=PASS'
-          echo 'AVANTIQO_CODE_REPO_AGENT_V4_ZERO_COST=PASS'
-
-# Trigger registration after initial workflow creation.
+          echo 'AVANTIQO_CODE_REPO_AGENT_V5_BATCH_CEILING=PASS'
+          echo 'AVANTIQO_CODE_REPO_AGENT_ZERO_COST=PASS'

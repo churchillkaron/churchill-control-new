@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import FinanceEngagementFile from "@/components/workspace/finance/FinanceEngagementFile";
+import FinanceReviewerEvidencePanel from "@/components/workspace/finance/FinanceReviewerEvidencePanel";
 
 const FILTERS = [
   { id: "MY", label: "My review" },
@@ -442,7 +443,7 @@ export default function FinanceReviewerWorkspace({ organizationId }) {
         <div>
           <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.16em] text-[#8A633C]"><ShieldCheck size={12} /> Review</div>
           <h2 className="mt-1.5 text-[20px] font-semibold tracking-[-0.025em] text-[#2A2723]">Decide what needs judgment</h2>
-          <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[#756F67]">The desk ranks assigned review work by urgency and decision readiness. Each item explains why it is here, what evidence exists and exactly what decision is required.</p>
+          <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[#756F67]">One ranked review queue, one selected workpaper, and one evidence chain. The accountant stays in the decision context instead of switching between parallel review surfaces.</p>
           <div className="mt-2 text-[8px] text-[#99938A]">Signed in as <span className="font-semibold text-[#615B54]">{viewer.name || "Accounting team member"}</span>{viewer.role ? ` · ${label(viewer.role)}` : ""}</div>
         </div>
         <button type="button" onClick={() => load({ preserveSelection: true })} disabled={state.loading} className="inline-flex h-9 items-center gap-2 self-start rounded-xl border border-[#A37849]/20 bg-white px-3 text-[9px] font-semibold text-[#76583A] disabled:opacity-50 lg:self-auto"><RefreshCw size={11} className={state.loading ? "animate-spin" : ""} /> Refresh</button>
@@ -471,7 +472,7 @@ export default function FinanceReviewerWorkspace({ organizationId }) {
           <div className="mt-4 grid min-h-[580px] gap-4 xl:grid-cols-[minmax(420px,0.78fr)_minmax(560px,1.22fr)]">
             <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
               <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] bg-[#FAF9F7] px-4 py-2.5"><span className="text-[8px] font-medium uppercase tracking-[0.11em] text-[#8A867F]">{visibleQueue.length} item{visibleQueue.length === 1 ? "" : "s"}</span><span className="text-[7px] text-[#A29C93]">Ranked by ownership · urgency · readiness</span></div>
-              <div className="max-h-[680px] overflow-y-auto">
+              <div className="max-h-[760px] overflow-y-auto">
                 {visibleQueue.map((row) => {
                   const active = row.id === selected?.id;
                   const stage = queueStage(row);
@@ -511,10 +512,7 @@ export default function FinanceReviewerWorkspace({ organizationId }) {
 
                   {selected.description ? <div className="mt-4 rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.1em] text-[#918B83]">What was performed</div><div className="mt-1.5 text-[9px] leading-4 text-[#625D56]">{selected.description}</div></div> : null}
 
-                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                    <div className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3"><div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-[#918B83]"><FileCheck2 size={10} /> Preparer conclusion</div><div className={`mt-2 min-h-20 whitespace-pre-wrap text-[9px] leading-4 ${selected.conclusion ? "text-[#514C45]" : "text-[#9A7045]"}`}>{selected.conclusion || "No conclusion is visible in this workpaper summary. Inspect the client file before approval."}</div></div>
-                    <div className="rounded-xl border border-black/[0.06] bg-[#FCFBF9] p-3"><div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-[#918B83]"><BadgeCheck size={10} /> Evidence summary</div><div className="mt-2 min-h-20 whitespace-pre-wrap text-[8px] leading-4 text-[#625D56]">{humanEvidence(selected) || (selected.metadata?.system_gate?.satisfied === true ? "Deterministic Finance evidence is verified and retained in the workpaper." : "Document-level evidence is not summarized here. Open the full client file before deciding if inspection is required.")}</div></div>
-                  </div>
+                  <FinanceReviewerEvidencePanel organizationId={organizationId} row={selected} />
 
                   {(selected.metadata?.system_gate?.blockers || []).length ? <div className="mt-3 rounded-xl border border-red-700/10 bg-red-50 p-3"><div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase text-red-800"><AlertTriangle size={10} /> System blockers</div><div className="mt-2 space-y-1 text-[8px] text-red-800">{selected.metadata.system_gate.blockers.map((blocker, index) => <div key={index}>{blocker}</div>)}</div></div> : null}
                   {selected.blocked_reason ? <div className="mt-3 rounded-xl border border-red-700/10 bg-red-50 p-3 text-[8px] text-red-800"><b>Work blocker:</b> {selected.blocked_reason}</div> : null}

@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event.head_commit.message == 'Redeploy Video Modal transport sibling sources once'
+    if: github.event.head_commit.message == 'Prove Video Modal JS argument serialization before GPU'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -92,7 +92,7 @@ jobs:
           console.log('GPU_INFERENCE_PERFORMED=false');
           NODE
 
-      - name: Prove transport container cold-starts before any GPU boundary
+      - name: Prove transport argument deserialization before any GPU boundary
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
@@ -103,14 +103,14 @@ jobs:
           const fn = await client.functions.fromName('avantiqo-video-owned', 'generate_native_job');
           let failedAsExpected = false;
           try {
-            await fn.remote({});
+            await fn.remote([{}]);
           } catch (error) {
             const message = String(error?.message || error || '');
-            console.log('VIDEO_TRANSPORT_COLD_START_ERROR=' + message.replace(/\s+/g, ' ').slice(0, 500));
+            console.log('VIDEO_TRANSPORT_SERIALIZATION_PROBE_ERROR=' + message.replace(/\s+/g, ' ').slice(0, 500));
             if (message.includes('AVANTIQO_VIDEO_LTX25_MODAL_CAPABILITY_INVALID')) failedAsExpected = true;
           }
-          if (!failedAsExpected) throw new Error('VIDEO_TRANSPORT_COLD_START_DID_NOT_REACH_VALIDATION');
-          console.log('AVANTIQO_VIDEO_TRANSPORT_COLD_START_IMPORT=PASS');
+          if (!failedAsExpected) throw new Error('VIDEO_TRANSPORT_SERIALIZATION_PROBE_DID_NOT_REACH_VALIDATION');
+          console.log('AVANTIQO_VIDEO_TRANSPORT_JS_SERIALIZATION=PASS');
           console.log('INVALID_PROBE_GPU_GENERATION_CALLS=0');
           console.log('PAID_GPU_INFERENCE_PERFORMED=false');
           NODE

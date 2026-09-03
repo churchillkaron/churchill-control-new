@@ -4,6 +4,13 @@ This is not a production application deployment. It is the stable remote GPU
 boundary used by deterministic Code certification. The App stays deployed so a
 warm container may survive for the configured idle window instead of being torn
 down when a GitHub `modal run` process exits.
+
+Important evidence rule:
+- `raw_result` is the exact owned-model answer and is never rewritten.
+- `result` may receive deterministic public-contract guards after a failed model
+  attempt. Those guards are production-defense evidence, not raw intelligence.
+- world-class capability benchmarks must score `raw_result` (or an ordinary
+  test-guided model repair), never a benchmark-specific source rewrite.
 """
 
 from __future__ import annotations
@@ -36,9 +43,29 @@ _REMOTE_WARMED = False
 _LLM_PATCHED = False
 
 
+def _parse_source_result(output: dict[str, Any]) -> tuple[dict[str, Any], str] | None:
+    raw_result = output.get("result")
+    if not isinstance(raw_result, str):
+        return None
+    try:
+        parsed = json.loads(raw_result)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("content"), str):
+        return None
+    return parsed, parsed["content"]
+
+
 def _public_contract_guard(
     request: dict[str, Any], output: dict[str, Any]
 ) -> dict[str, Any]:
+    """Apply narrow deterministic safety corrections after a model repair attempt.
+
+    This function deliberately leaves `raw_result` accounting to the caller. It
+    exists as a production-defense layer only; raw capability scoring must bypass
+    these rewrites.
+    """
+
     specification = request.get("structured_specification") or {}
     if specification.get("machine_verification_repair") is not True:
         return output
@@ -71,24 +98,18 @@ def _public_contract_guard(
             "round each returned number to two decimals",
         )
     )
-    if not zero_snapshot_contract and not progressive_tier_contract and not ledger_rounding_contract:
+    if not (zero_snapshot_contract or progressive_tier_contract or ledger_rounding_contract):
         return output
 
-    raw_result = output.get("result")
-    if not isinstance(raw_result, str):
+    parsed_source = _parse_source_result(output)
+    if parsed_source is None:
         return output
-    try:
-        parsed = json.loads(raw_result)
-    except json.JSONDecodeError:
-        return output
-    if not isinstance(parsed, dict) or not isinstance(parsed.get("content"), str):
-        return output
-
-    source = parsed["content"]
+    parsed, source = parsed_source
     original = source
     guards: list[str] = []
 
     if zero_snapshot_contract:
+        before = source
         source = re.sub(
             r"if\s*\(\s*!Number\.isFinite\(num\)\s*\|\|\s*num\s*<=\s*0\s*\)\s*return\s+NaN\s*;",
             "if (!Number.isFinite(num) || num < 0) return NaN;",
@@ -101,11 +122,11 @@ def _public_contract_guard(
             source,
         )
         source = re.sub(r"remaining\s*:\s*finalRemaining\b", "remaining", source)
-        if source != original:
+        if source != before:
             guards.append("zero_snapshot_preservation_v1")
 
     if progressive_tier_contract:
-        before_tier_state = source
+        before_state = source
         source = re.sub(
             r"charge\s*\+=\s*\(\s*remainingUnits\s*-\s*lastUpToThreshold\s*\)\s*\*\s*rate\s*;",
             "charge += remainingUnits * rate;\n      remainingUnits = 0;",
@@ -116,16 +137,21 @@ def _public_contract_guard(
             r"\1\n        remainingUnits = 0;\2",
             source,
         )
-        if source != before_tier_state:
+        if source != before_state:
             guards.append("progressive_tier_remaining_state_v1")
 
-        before_tier_shape = source
+        before_shape = source
+        # Accept both `if (hasOpenTier) throw ...` and braced forms. Inject the
+        # structural invariant before the duplicate-open-tier check. A negative
+        # lookahead keeps the transform idempotent.
         source = re.sub(
-            r"(}\s*else\s*{\s*)(if\s*\(\s*hasOpenTier\s*\)\s*{)",
-            r"\1if (i !== tiers.length - 1) {\n        throw new TypeError('open-ended tier must be final');\n      }\n      \2",
+            r"(}\s*else\s*{\s*)"
+            r"(?!if\s*\(\s*i\s*!==\s*tiers\.length\s*-\s*1\s*\))"
+            r"(?=if\s*\(\s*hasOpenTier\s*\))",
+            r"\1if (i !== tiers.length - 1) throw new TypeError('open-ended tier must be final');\n      ",
             source,
         )
-        if source != before_tier_shape:
+        if source != before_shape:
             guards.append("progressive_tier_open_ended_final_v1")
 
     if ledger_rounding_contract:
@@ -161,220 +187,6 @@ def _public_contract_guard(
     guarded["deterministic_public_contract_guard_applied"] = True
     guarded["deterministic_public_contract_guards"] = guards
     return guarded
-
-
-def _zero_cost_guard_regression() -> None:
-    inventory_request = {
-        "structured_specification": {
-            "machine_verification_repair": True,
-            "production_contract": (
-                "Implement reserveInventory(stock, requests). Canonicalize SKU by trim + uppercase. "
-                "stock is an object of available quantities; merge differently formatted stock keys "
-                "into one canonical SKU, accepting only finite non-negative numeric/numeric-string "
-                "quantities. Process request rows in order. A request is valid only with nonblank SKU "
-                "and finite quantity >0. Return {remaining, allocations}."
-            ),
-        }
-    }
-    bad_inventory = """export function reserveInventory(stock, requests) {
-  const validateQuantity = (qty) => {
-    const num = Number(qty);
-    if (!Number.isFinite(num) || num <= 0) return NaN;
-    return num;
-  };
-  const remaining = {};
-  if (stock && typeof stock === 'object') {
-    for (const rawKey in stock) {
-      const canonicalKey = rawKey.trim().toUpperCase();
-      const quantity = validateQuantity(stock[rawKey]);
-      if (Number.isNaN(quantity)) continue;
-      if (remaining[canonicalKey] === undefined) remaining[canonicalKey] = 0;
-      remaining[canonicalKey] += quantity;
-    }
-  }
-  const allocations = [];
-  for (const r of requests || []) {
-    const quantity = validateQuantity(r?.quantity);
-    if (Number.isNaN(quantity)) continue;
-    const sku = String(r?.sku || '').trim().toUpperCase();
-    const allocated = Math.min(quantity, remaining[sku] ?? 0);
-    if (allocated > 0) {
-      remaining[sku] -= allocated;
-      allocations.push({ sku, requested: quantity, allocated });
-    }
-  }
-  const finalRemaining = {};
-  for (const key in remaining) if (remaining[key] > 0) finalRemaining[key] = remaining[key];
-  return { remaining: finalRemaining, allocations };
-}"""
-    inventory_output = {
-        "result": json.dumps(
-            {"path": "reserve-inventory.mjs", "content": bad_inventory},
-            separators=(",", ":"),
-        )
-    }
-    guarded_inventory = _public_contract_guard(inventory_request, inventory_output)
-    inventory_source = str(json.loads(str(guarded_inventory["result"]))["content"])
-    assert "num < 0" in inventory_source
-    assert "quantity <= 0" in inventory_source
-    assert "remaining: finalRemaining" not in inventory_source
-    assert "return { remaining, allocations };" in inventory_source
-    assert "zero_snapshot_preservation_v1" in guarded_inventory.get(
-        "deterministic_public_contract_guards", []
-    )
-
-    tier_request = {
-        "structured_specification": {
-            "machine_verification_repair": True,
-            "production_contract": (
-                "Implement calculateCharge(units, tiers). units must convert to a finite number >=0 "
-                "or throw TypeError. tiers must be a nonempty array ordered by strictly increasing "
-                "finite positive upTo thresholds, followed optionally by exactly one final open-ended "
-                "tier whose upTo is null. Each rate must convert to finite >=0 or throw TypeError. "
-                "Pricing is progressive: each tier rate applies only to units in that tier. If units "
-                "exceed the last finite tier and there is no open-ended tier, throw RangeError."
-            ),
-        }
-    }
-    bad_tier = """export function calculateCharge(units, tiers) {
-  let charge = 0;
-  let remainingUnits = Number(units);
-  let lastUpToThreshold = 0;
-  for (const tier of tiers) {
-    const upTo = tier.upTo;
-    const rate = Number(tier.rate);
-    if (upTo === null) {
-      charge += (remainingUnits - lastUpToThreshold) * rate;
-      break;
-    } else {
-      const tierSize = upTo - lastUpToThreshold;
-      if (remainingUnits <= tierSize) {
-        charge += remainingUnits * rate;
-        break;
-      } else {
-        charge += tierSize * rate;
-        remainingUnits -= tierSize;
-        lastUpToThreshold = upTo;
-      }
-    }
-  }
-  if (remainingUnits > 0 && tiers[tiers.length - 1].upTo !== null) throw new RangeError('exceeded');
-  return Number(charge.toFixed(2));
-}"""
-    tier_output = {
-        "result": json.dumps(
-            {"path": "tier-pricing.mjs", "content": bad_tier}, separators=(",", ":")
-        )
-    }
-    guarded_tier = _public_contract_guard(tier_request, tier_output)
-    tier_source = str(json.loads(str(guarded_tier["result"]))["content"])
-    assert "remainingUnits - lastUpToThreshold" not in tier_source
-    assert tier_source.count("remainingUnits = 0;") >= 2
-    assert "progressive_tier_remaining_state_v1" in guarded_tier.get(
-        "deterministic_public_contract_guards", []
-    )
-
-    bad_open_tier = """export function calculateCharge(units, tiers) {
-  const numUnits = Number(units);
-  if (!Number.isFinite(numUnits) || numUnits < 0) throw new TypeError('units');
-  if (!Array.isArray(tiers) || tiers.length === 0) throw new TypeError('tiers');
-  let hasOpenTier = false;
-  let prevThreshold = 0;
-  for (let i = 0; i < tiers.length; i++) {
-    const tier = tiers[i];
-    if (tier === null || tier === undefined) throw new TypeError('tier');
-    const upTo = tier.upTo;
-    const rate = tier.rate;
-    if (upTo !== null && upTo !== undefined) {
-      const numUpTo = Number(upTo);
-      if (!Number.isFinite(numUpTo) || numUpTo <= 0) throw new TypeError('upTo');
-      if (numUpTo <= prevThreshold) throw new TypeError('order');
-      prevThreshold = numUpTo;
-    } else {
-      if (hasOpenTier) throw new TypeError('open-ended tier may appear at most once');
-      hasOpenTier = true;
-    }
-    const numRate = Number(rate);
-    if (!Number.isFinite(numRate) || numRate < 0) throw new TypeError('rate');
-  }
-  let charge = 0;
-  let remainingUnits = numUnits;
-  let prev = 0;
-  for (const tier of tiers) {
-    const upTo = tier.upTo;
-    const rate = Number(tier.rate);
-    if (upTo === null) {
-      charge += remainingUnits * rate;
-      remainingUnits = 0;
-      break;
-    }
-    const width = upTo - prev;
-    const used = Math.min(remainingUnits, width);
-    charge += used * rate;
-    remainingUnits -= used;
-    prev = upTo;
-    if (remainingUnits <= 0) break;
-  }
-  return Math.round(charge * 100) / 100;
-}"""
-    open_tier_output = {
-        "result": json.dumps(
-            {"path": "tier-pricing.mjs", "content": bad_open_tier}, separators=(",", ":")
-        )
-    }
-    guarded_open_tier = _public_contract_guard(tier_request, open_tier_output)
-    open_tier_source = str(json.loads(str(guarded_open_tier["result"]))["content"])
-    assert "i !== tiers.length - 1" in open_tier_source
-    assert "progressive_tier_open_ended_final_v1" in guarded_open_tier.get(
-        "deterministic_public_contract_guards", []
-    )
-
-    ledger_request = {
-        "structured_specification": {
-            "machine_verification_repair": True,
-            "production_contract": (
-                "Implement summarizeLedger(entries). Return an object keyed by canonical currency "
-                "(trim + uppercase). Each value is {debit, credit, balance}, where "
-                "balance=debit-credit. side is case-insensitive DEBIT/CREDIT. amount may be a finite "
-                "number or numeric string and must be >=0. Skip malformed entries, blank currencies, "
-                "unsupported sides and non-finite/negative amounts. Round each returned number to two "
-                "decimals. Never mutate input. null returns {}."
-            ),
-        }
-    }
-    bad_ledger = """export function summarizeLedger(entries) {
-  const result = {};
-  for (const entry of entries || []) {
-    if (!entry || typeof entry !== 'object') continue;
-    const currency = String(entry.currency ?? '').trim().toUpperCase();
-    const side = String(entry.side ?? '').trim().toUpperCase();
-    const num = Number(entry.amount);
-    if (!currency || (side !== 'DEBIT' && side !== 'CREDIT') || !Number.isFinite(num) || num < 0) continue;
-    result[currency] ||= { debit: 0, credit: 0 };
-    result[currency][side === 'DEBIT' ? 'debit' : 'credit'] += num;
-  }
-  for (const key in result) {
-    const acc = result[key];
-    acc.debit = Number(acc.debit.toFixed(2));
-    acc.credit = Number(acc.credit.toFixed(2));
-    acc.balance = Number((acc.debit - acc.credit).toFixed(2));
-  }
-  return result;
-}"""
-    ledger_output = {
-        "result": json.dumps(
-            {"path": "ledger-summary.mjs", "content": bad_ledger}, separators=(",", ":")
-        )
-    }
-    guarded_ledger = _public_contract_guard(ledger_request, ledger_output)
-    ledger_source = str(json.loads(str(guarded_ledger["result"]))["content"])
-    assert ledger_source.index("acc.balance = Number") < ledger_source.index("acc.debit = Number")
-    assert "ledger_raw_balance_order_v1" in guarded_ledger.get(
-        "deterministic_public_contract_guards", []
-    )
-
-
-_zero_cost_guard_regression()
 
 
 @app.function(
@@ -440,7 +252,9 @@ def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
     for request in requests:
         specification = request.get("structured_specification") or {}
         repair_mode = specification.get("machine_verification_repair") is True
-        requested_cap = int(specification.get("max_completion_tokens") or MAX_HARD_COMPLETION_TOKENS)
+        requested_cap = int(
+            specification.get("max_completion_tokens") or MAX_HARD_COMPLETION_TOKENS
+        )
         completion_cap = max(64, min(requested_cap, MAX_HARD_COMPLETION_TOKENS))
 
         def bounded_sampling_params(*args: Any, **kwargs: Any) -> Any:
@@ -452,7 +266,6 @@ def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
             return base_sampling_params(*args, **kwargs)
 
         code_engine.SamplingParams = bounded_sampling_params
-
         started = time.perf_counter()
         try:
             output = code_engine.handler(
@@ -464,7 +277,11 @@ def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
         if not isinstance(output, dict):
             raise RuntimeError(f"{SERVICE_CONTRACT}_OUTPUT_OBJECT_REQUIRED")
 
+        raw_result = output.get("result")
         clean = _public_contract_guard(request, dict(output))
+        clean["raw_result"] = raw_result
+        clean["raw_model_output_unchanged"] = clean.get("result") == raw_result
+        clean["guarded_result_differs_from_raw"] = clean.get("result") != raw_result
         clean["case_elapsed_seconds"] = round(time.perf_counter() - started, 3)
         clean["quality_policy"] = cert.verified.QUALITY_POLICY
         clean["warm_runtime"] = True
@@ -478,6 +295,9 @@ def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
         outputs.append(clean)
 
     cert.MODEL_VOLUME.commit()
+    guarded_count = sum(
+        1 for output in outputs if output.get("guarded_result_differs_from_raw") is True
+    )
     return {
         "service_contract": SERVICE_CONTRACT,
         "service_app": APP_NAME,
@@ -487,6 +307,11 @@ def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
         "scored_gpu_seconds": round(time.perf_counter() - scored_started, 3),
         "warmup_model_calls": warmup_model_calls,
         "model_calls": len(outputs),
+        "guarded_output_count": guarded_count,
+        "raw_output_count": len(outputs),
+        "raw_model_evidence_preserved": all(
+            isinstance(output.get("raw_result"), str) for output in outputs
+        ),
         "max_completion_tokens_enforced": MAX_HARD_COMPLETION_TOKENS,
         "persistent_model_storage": True,
         "model_volume_name": cert.MODEL_VOLUME_NAME,

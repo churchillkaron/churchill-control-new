@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import { resolveFinanceNavigationSection } from "@/lib/finance/ui/FinanceInformationArchitecture";
 
 const NAV_ITEMS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, route: "" },
@@ -24,52 +25,9 @@ const NAV_ITEMS = [
   { id: "configure", label: "Configure", icon: Settings2, route: "/configure" },
 ];
 
-const REPORT_PREFIXES = [
-  "/finance/reporting",
-  "/finance/statements",
-  "/finance/reports",
-  "/finance/management-reports",
-  "/finance/report-builder",
-  "/finance/scheduled-reports",
-  "/finance/forecast",
-  "/finance/forecasting",
-  "/finance/budget",
-  "/finance/budgeting",
-  "/finance/financial-health",
-  "/finance/finance-insights",
-  "/finance/kpis",
-  "/finance/executive-dashboard",
-];
-
-const CONFIGURE_PREFIXES = [
-  "/finance/configure",
-  "/finance/work-programs",
-  "/finance/accounting-settings",
-  "/finance/fiscal-periods",
-  "/finance/dimensions",
-  "/finance/posting-rules",
-  "/finance/currencies",
-  "/finance/exchange-rates",
-  "/finance/payment-terms",
-  "/finance/tax-settings",
-  "/finance/vat-settings",
-];
-
 function periodLabel(period) {
   if (!period) return null;
   return period.period_name || period.name || period.label || null;
-}
-
-function activeSection(pathname) {
-  const marker = String(pathname || "").split("/finance")[1] || "";
-  const financePath = `/finance${marker}`;
-  if (financePath === "/finance" || financePath === "/finance/") return "overview";
-  if (financePath.startsWith("/finance/review")) return "review";
-  if (financePath.startsWith("/finance/work") || financePath.startsWith("/finance/accounting-firm")) return "work";
-  if (financePath.startsWith("/finance/close") || financePath.startsWith("/finance/period-close")) return "close";
-  if (REPORT_PREFIXES.some((prefix) => financePath.startsWith(prefix))) return "reports";
-  if (CONFIGURE_PREFIXES.some((prefix) => financePath.startsWith(prefix))) return "configure";
-  return "books";
 }
 
 export default function FinanceShellNavigation() {
@@ -81,7 +39,7 @@ export default function FinanceShellNavigation() {
     businessContext.organization_id ||
     businessContext.organization?.id ||
     null;
-  const active = activeSection(pathname);
+  const active = resolveFinanceNavigationSection(pathname);
   const entityName =
     businessContext.entity?.display_name ||
     businessContext.entity?.legal_name ||

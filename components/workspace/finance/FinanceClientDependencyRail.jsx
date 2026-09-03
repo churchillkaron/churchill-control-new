@@ -111,7 +111,7 @@ export default function FinanceClientDependencyRail({ organizationId }) {
   }
 
   return (
-    <section className="mb-4 overflow-hidden rounded-[20px] border border-[#A37849]/14 bg-[#FFFDF9]">
+    <section aria-label="Client dependency intelligence" className="mb-4 overflow-hidden rounded-[20px] border border-[#A37849]/14 bg-[#FFFDF9]">
       <div className="flex flex-col gap-3 border-b border-black/[0.06] px-4 py-3.5 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 max-w-3xl">
           <div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.13em] text-[#8A633C]"><UserRoundCheck size={10} /> Client dependencies</div>

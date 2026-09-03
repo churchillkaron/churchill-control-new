@@ -1,0 +1,133 @@
+name: Avantiqo Video Native Control Paid Proof Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-native-control-paid-proof-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-native-control-paid-proof-once
+  cancel-in-progress: false
+
+jobs:
+  proof:
+    if: github.event.head_commit.message == 'Run governed Video native-control paid proof once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_VIDEO_ENGINE_ENABLED: "true"
+      AVANTIQO_VIDEO_NATIVE_CONTROL_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_VIDEO_NATIVE_CONTROL_MAX_SUPPLIER_GPU_COST_USD: "3.25"
+      AVANTIQO_VIDEO_NATIVE_CONTROL_PROOF_KEY: "native-control-v1"
+      AVANTIQO_VIDEO_PROOF_ORGANIZATION_ID: "33336a72-acb5-474e-856b-8be0269360e2"
+      AVANTIQO_VIDEO_PROOF_SOURCE_PATH: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/eaa7edd6-7a62-4ca2-9eac-dfb14059e649-gemini-founder-rgro0za2hzes.mp4"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install CPU tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          npm ci --ignore-scripts
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Re-run zero-GPU Video admission on exact paid-proof commit
+        env:
+          AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED: "NO"
+          AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED: "NO"
+          AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED: "NO"
+        run: |
+          set -euo pipefail
+          test "$AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED" = "NO"
+          test "$AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED" = "NO"
+          test "$AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED" = "NO"
+          node --test \
+            tests/avantiqo-video-world-class-quality-contract.test.mjs \
+            tests/avantiqo-video-native-control-contract.test.mjs \
+            tests/avantiqo-video-native-control-paid-proof-safety.test.mjs
+          node --check scripts/run-avantiqo-video-native-control-paid-proof.mjs
+          python -m py_compile \
+            services/avantiqo-video-engine/modal_app.py \
+            services/avantiqo-video-engine/modal_native_job.py \
+            services/avantiqo-video-engine/modal_native_controlled_master.py \
+            services/avantiqo-video-engine/modal_native_control_paid_preflight.py
+          echo 'AVANTIQO_VIDEO_EXACT_COMMIT_ZERO_GPU_ADMISSION=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Live Modal idle and supplier-cost admission
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          cd services/avantiqo-video-engine
+          modal run modal_native_control_paid_preflight.py::preflight
+
+      - name: Spawn exactly one governed native-control Video job and resume exact FunctionCall
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-video-native-control-paid-proof.mjs
+
+      - name: Verify paid-proof artifact contract
+        run: |
+          set -euo pipefail
+          REPORT='local-audit-output/avantiqo-video-native-control-paid-proof/native-control-paid-proof.json'
+          MP4='local-audit-output/avantiqo-video-native-control-paid-proof/native-control-master-3840x2176.mp4'
+          test -s "$REPORT"
+          test -s "$MP4"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('local-audit-output/avantiqo-video-native-control-paid-proof/native-control-paid-proof.json', 'utf8'));
+          if (report.success !== true) throw new Error('PROOF_NOT_SUCCESSFUL');
+          if (report.modal_spawn_count !== 1) throw new Error('SPAWN_COUNT_INVALID');
+          if (report.generation_result?.gpu_generation_calls !== 1) throw new Error('GPU_GENERATION_COUNT_INVALID');
+          if (report.generation_result?.native_control_executed !== true) throw new Error('NATIVE_CONTROL_NOT_EXECUTED');
+          if (report.generation_result?.first_frame_conditioning_used !== true || report.generation_result?.last_frame_conditioning_used !== true) throw new Error('FIRST_LAST_FRAME_CONTROL_MISSING');
+          if (report.generation_result?.automatic_paid_retry !== false) throw new Error('PAID_RETRY_POLICY_INVALID');
+          if (report.temporal_evidence?.audio_video_timing?.passed !== true) throw new Error('AV_TIMING_INVALID');
+          console.log('AVANTIQO_VIDEO_NATIVE_CONTROL_PAID_PROOF_ARTIFACT=PASS');
+          console.log('GPU_GENERATION_CALLS=1');
+          console.log('MODAL_SPAWN_COUNT=1');
+          console.log('AUTOMATIC_PAID_RETRY=false');
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: avantiqo-video-native-control-paid-proof-v1
+          path: local-audit-output/avantiqo-video-native-control-paid-proof/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        run: |
+          echo 'MAX_PAID_GPU_JOBS_ALLOWED=1'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'

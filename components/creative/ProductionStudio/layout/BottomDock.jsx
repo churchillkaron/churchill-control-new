@@ -3,29 +3,15 @@
 import TimelinePanel from "../timeline/TimelinePanel";
 import AssetBrowser from "../assets/AssetBrowser";
 
-export default function BottomDock({
-  runtime,
-}) {
-
+export default function BottomDock({ runtime }) {
   return (
-    <section className="grid h-full min-h-0 grid-cols-[1.4fr_1fr] divide-x divide-white/10 overflow-hidden bg-[#080808]">
-
+    <section className="grid h-full min-h-0 grid-cols-[1.55fr_0.95fr] divide-x divide-black/[0.07] overflow-hidden bg-white text-[#2A2723]">
       <div className="min-h-0 overflow-hidden">
-
-        <TimelinePanel
-          runtime={runtime}
-        />
-
+        <TimelinePanel runtime={runtime} />
       </div>
-
-      <div className="min-h-0 overflow-hidden">
-
-        <AssetBrowser
-          runtime={runtime}
-        />
-
+      <div className="min-h-0 overflow-hidden bg-[#FCFBF8]">
+        <AssetBrowser runtime={runtime} />
       </div>
-
     </section>
   );
 }

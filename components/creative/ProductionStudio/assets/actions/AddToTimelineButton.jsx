@@ -1,63 +1,29 @@
 "use client";
 
 import { useState } from "react";
+import { Plus } from "lucide-react";
 
-export default function AddToTimelineButton({
+export default function AddToTimelineButton({ asset, addToTimeline }) {
+  const [loading, setLoading] = useState(false);
 
-  asset,
-
-  addToTimeline,
-
-}) {
-
-  const [loading,setLoading] =
-    useState(false);
-
-  async function run(){
-
-    if(loading)
-      return;
-
+  async function run() {
+    if (loading) return;
     setLoading(true);
-
-    try{
-
-      await addToTimeline(
-        asset
-      );
-
-    }finally{
-
+    try {
+      await addToTimeline(asset);
+    } finally {
       setLoading(false);
-
     }
-
   }
 
-  return(
-
+  return (
     <button
-
+      type="button"
       onClick={run}
-
       disabled={loading}
-
-      className="rounded-lg border border-[#c8a96a]/30 bg-[#b48a45]/10 px-3 py-2 text-xs text-[#d8bd7a] transition hover:bg-[#b48a45]/20 disabled:opacity-50"
-
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg border border-black/[0.08] bg-white px-2 text-[7px] font-semibold text-[#76583A] transition hover:bg-[#F5EEE5] disabled:opacity-50"
     >
-
-      {
-
-        loading
-
-          ? "Adding..."
-
-          : "Add to Timeline"
-
-      }
-
+      <Plus size={8} /> {loading ? "Adding…" : "Timeline"}
     </button>
-
   );
-
 }

@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import * as modal from "modal";
 
-const CONTRACT = "AVANTIQO_VIDEO_DEPLOYED_MODAL_SCHEDULING_DIAGNOSTIC_V1";
+const CONTRACT = "AVANTIQO_VIDEO_DEPLOYED_MODAL_SCHEDULING_DIAGNOSTIC_V2";
 const APP = "avantiqo-video-owned";
 const FUNCTION_NAMES = [
   "generate_native_job",
@@ -23,12 +23,33 @@ function normalizedStats(raw = {}) {
     raw,
   };
 }
+function logEntry(entry = {}) {
+  return {
+    timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : text(entry.timestamp) || null,
+    source: text(entry.source) || null,
+    message: text(entry.message).slice(0, 4000),
+    function_id: text(entry.functionId || entry.function_id) || null,
+    container_id: text(entry.containerId || entry.container_id) || null,
+  };
+}
+async function tailLogs(manager, entries = 100, source = undefined) {
+  const items = [];
+  try {
+    const params = source ? { entries, source } : { entries };
+    for await (const entry of manager.tail(params)) items.push(logEntry(entry));
+  } catch (error) {
+    items.push({ timestamp: null, source: "diagnostic", message: `LOG_FETCH_FAILED:${text(error?.name)}:${text(error?.message)}`, function_id: null, container_id: null });
+  }
+  return items;
+}
 
-function classify(stats, callState) {
+function classify(stats, callState, callSystemLogs = []) {
   const transport = stats.generate_native_job;
   const controlled = stats.generate_native_controlled_master;
+  const logText = callSystemLogs.map((entry) => entry.message).join("\n").toLowerCase();
   if (callState === "terminal_success") return "EXISTING_CALL_TERMINAL_SUCCESS";
   if (callState === "terminal_error") return "EXISTING_CALL_TERMINAL_ERROR";
+  if (/image|container.*start|initializ|volume|mount|region|capacity|scheduler|provision/.test(logText)) return "TRANSPORT_STARTUP_OR_SCHEDULER_EVIDENCE_PRESENT";
   if (controlled?.num_running_inputs > 0) return "B200_GENERATION_RUNNING";
   if (controlled?.backlog > 0 && controlled?.num_total_runners === 0) return "B200_CAPACITY_OR_PLACEMENT_WAIT";
   if (transport?.num_running_inputs > 0 && controlled?.backlog === 0 && controlled?.num_running_inputs === 0) return "TRANSPORT_RUNNING_BEFORE_B200_DISPATCH";
@@ -46,8 +67,10 @@ async function main() {
   const lookupOptions = text(process.env.MODAL_ENVIRONMENT) ? { environment: text(process.env.MODAL_ENVIRONMENT) } : {};
 
   const stats = {};
+  const functions = {};
   for (const name of FUNCTION_NAMES) {
     const fn = await client.functions.fromName(APP, name, lookupOptions);
+    functions[name] = fn;
     stats[name] = normalizedStats(await fn.getCurrentStats());
   }
 
@@ -70,14 +93,23 @@ async function main() {
     }
   }
 
+  const callSystemLogs = await tailLogs(existing.logs, 200, "system");
+  const callAllLogs = await tailLogs(existing.logs, 200);
+  const transportSystemLogs = await tailLogs(functions.generate_native_job.logs, 200, "system");
+  const transportAllLogs = await tailLogs(functions.generate_native_job.logs, 200);
+
   const report = {
     success: true,
     contract: CONTRACT,
     modal_app: APP,
     existing_function_call_id: functionCallId,
     call_state: callState,
-    classification: classify(stats, callState),
+    classification: classify(stats, callState, callSystemLogs),
     deployed_function_stats: stats,
+    exact_call_system_logs: callSystemLogs,
+    exact_call_logs: callAllLogs,
+    transport_function_system_logs: transportSystemLogs,
+    transport_function_logs: transportAllLogs,
     terminal_result: terminalResult,
     terminal_error: terminalError,
     generation_submission_performed: false,

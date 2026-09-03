@@ -1,15 +1,10 @@
-"""Isolated Qwen3.8 candidate runtime for Avantiqo Code.
+"""Fast-start isolated Qwen3.8 candidate runtime for Avantiqo Code.
 
-This is a benchmark/canary runtime only. It does not replace handler.py, does
-not alter production routing, does not create storage, and never downloads
-weights during GPU execution. It mounts the existing Code Modal Volume and
-requires the exactly pinned Qwen3.8 FP8 snapshot prepared by the CPU bootstrap.
-
-The first compatibility probe deliberately favors correctness over peak speed:
-stable vLLM 0.28.0, text/language-model-only mode, no prefix caching, no
-speculative decoding, 32k context, one H100, offline exact snapshot.
-Optimizations are admitted only after this baseline proves loadability and
-deterministic generation.
+Benchmark/canary only: no production routing, deployment, model download, or
+storage creation. The exact candidate snapshot is already present on the single
+Code Modal Volume. This runtime intentionally optimizes the cold compatibility
+path while preserving the warm-batch architecture that made the prior Code
+certification fast.
 """
 
 from __future__ import annotations
@@ -26,12 +21,14 @@ import modal
 import code_model_canary_v2 as policy
 
 APP_NAME = "avantiqo-code-qwen38-canary-runtime"
-CONTRACT = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V2"
+CONTRACT = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V3"
 VLLM_VERSION = "0.28.0"
 VLLM_BUILD_COMMIT = "2cf0a6915ce544dc493a0990f2ea38d81601128a"
 VLLM_IMAGE = f"vllm/vllm-openai:v{VLLM_VERSION}"
+INSTANTTENSOR_VERSION = "0.1.9"
 MODEL_MOUNT_ROOT = "/models"
 HF_CACHE_ROOT = Path(MODEL_MOUNT_ROOT) / "huggingface" / "hub"
+VLLM_CACHE_ROOT = Path(MODEL_MOUNT_ROOT) / "vllm-cache" / "qwen38-v028"
 CANDIDATE_MARKER = Path(MODEL_MOUNT_ROOT) / "avantiqo-code-qwen38-canary-ready.json"
 CANDIDATE_SNAPSHOT = (
     HF_CACHE_ROOT
@@ -40,10 +37,15 @@ CANDIDATE_SNAPSHOT = (
     / policy.CANDIDATE_REVISION
 )
 MAX_MODEL_LEN = 32_768
+MAX_NUM_SEQS = 128
 GPU_MEMORY_UTILIZATION = 0.90
+LOAD_FORMAT = "instanttensor"
+GDN_PREFILL_BACKEND = "triton"
+FAST_BOOT_ENFORCE_EAGER = True
 
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
+os.environ["VLLM_CACHE_ROOT"] = str(VLLM_CACHE_ROOT)
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
@@ -61,6 +63,7 @@ image = (
         ],
     )
     .entrypoint([])
+    .pip_install(f"instanttensor=={INSTANTTENSOR_VERSION}")
     .env(
         {
             "HF_HUB_OFFLINE": "1",
@@ -68,6 +71,7 @@ image = (
             "HF_HUB_DISABLE_TELEMETRY": "1",
             "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
             "VLLM_USE_FLASHINFER_SAMPLER": "0",
+            "VLLM_CACHE_ROOT": str(VLLM_CACHE_ROOT),
         }
     )
     .add_local_python_source("code_model_canary_v2")
@@ -80,19 +84,26 @@ _TOKENIZER: Any | None = None
 def _runtime_identity() -> dict[str, str]:
     observed_version = version("vllm")
     observed_build_commit = str(os.environ.get("VLLM_BUILD_COMMIT") or "").strip()
+    observed_instanttensor = version("instanttensor")
     if observed_version != VLLM_VERSION:
         raise RuntimeError(
             f"{CONTRACT}_VLLM_VERSION_INVALID:expected={VLLM_VERSION}:actual={observed_version}"
         )
     if observed_build_commit != VLLM_BUILD_COMMIT:
         raise RuntimeError(
-            f"{CONTRACT}_VLLM_BUILD_COMMIT_INVALID:"
-            f"expected={VLLM_BUILD_COMMIT}:actual={observed_build_commit or 'missing'}"
+            f"{CONTRACT}_VLLM_BUILD_COMMIT_INVALID:expected={VLLM_BUILD_COMMIT}:"
+            f"actual={observed_build_commit or 'missing'}"
+        )
+    if observed_instanttensor != INSTANTTENSOR_VERSION:
+        raise RuntimeError(
+            f"{CONTRACT}_INSTANTTENSOR_VERSION_INVALID:"
+            f"expected={INSTANTTENSOR_VERSION}:actual={observed_instanttensor}"
         )
     return {
         "vllm_version": observed_version,
         "vllm_build_commit": observed_build_commit,
         "vllm_image": VLLM_IMAGE,
+        "instanttensor_version": observed_instanttensor,
     }
 
 
@@ -118,6 +129,7 @@ def _validate_snapshot() -> dict[str, Any]:
         raise RuntimeError(f"{CONTRACT}_CONFIG_REQUIRED")
     if not any(CANDIDATE_SNAPSHOT.glob("*.safetensors")):
         raise RuntimeError(f"{CONTRACT}_SAFETENSORS_REQUIRED")
+    VLLM_CACHE_ROOT.mkdir(parents=True, exist_ok=True)
     return marker
 
 
@@ -136,12 +148,14 @@ def _load() -> tuple[Any, Any]:
         trust_remote_code=False,
         tensor_parallel_size=1,
         max_model_len=MAX_MODEL_LEN,
+        max_num_seqs=MAX_NUM_SEQS,
         gpu_memory_utilization=GPU_MEMORY_UTILIZATION,
         language_model_only=True,
-        enforce_eager=False,
+        enforce_eager=FAST_BOOT_ENFORCE_EAGER,
         enable_prefix_caching=False,
         disable_log_stats=True,
-        safetensors_load_strategy="prefetch",
+        load_format=LOAD_FORMAT,
+        gdn_prefill_backend=GDN_PREFILL_BACKEND,
     )
     _TOKENIZER = _ENGINE.get_tokenizer()
     return _TOKENIZER, _ENGINE
@@ -158,15 +172,20 @@ def _validated_request(request: dict[str, Any]) -> dict[str, Any]:
     return request
 
 
-@app.function(
+_FUNCTION_OPTIONS = dict(
     image=image,
     volumes={MODEL_MOUNT_ROOT: model_volume},
     gpu="H100",
-    timeout=12 * 60,
+    timeout=6 * 60,
+    startup_timeout=3 * 60,
+    retries=0,
     scaledown_window=10 * 60,
     min_containers=0,
     max_containers=1,
 )
+
+
+@app.function(**_FUNCTION_OPTIONS)
 def runtime_probe(approved: bool = False) -> dict[str, Any]:
     """One explicit paid compatibility probe; performs no generation request."""
     if approved is not True:
@@ -176,6 +195,7 @@ def runtime_probe(approved: bool = False) -> dict[str, Any]:
     identity = _runtime_identity()
     tokenizer, _engine = _load()
     elapsed_ms = round((time.perf_counter() - started) * 1000)
+    model_volume.commit()
     return {
         "contract": CONTRACT,
         "status": "runtime_ready",
@@ -184,11 +204,16 @@ def runtime_probe(approved: bool = False) -> dict[str, Any]:
         **identity,
         "model_volume_name": policy.CODE_VOLUME,
         "snapshot_path": str(CANDIDATE_SNAPSHOT),
+        "vllm_cache_root": str(VLLM_CACHE_ROOT),
         "marker_contract": marker.get("contract"),
         "tokenizer_class": type(tokenizer).__name__,
         "engine_loaded": True,
         "engine_prepare_ms": elapsed_ms,
         "max_model_len": MAX_MODEL_LEN,
+        "max_num_seqs": MAX_NUM_SEQS,
+        "load_format": LOAD_FORMAT,
+        "gdn_prefill_backend": GDN_PREFILL_BACKEND,
+        "fast_boot_enforce_eager": FAST_BOOT_ENFORCE_EAGER,
         "language_model_only": True,
         "prefix_caching_enabled": False,
         "speculative_decoding_enabled": False,
@@ -199,17 +224,9 @@ def runtime_probe(approved: bool = False) -> dict[str, Any]:
     }
 
 
-@app.function(
-    image=image,
-    volumes={MODEL_MOUNT_ROOT: model_volume},
-    gpu="H100",
-    timeout=12 * 60,
-    scaledown_window=10 * 60,
-    min_containers=0,
-    max_containers=1,
-)
+@app.function(**_FUNCTION_OPTIONS)
 def generate(requests: list[dict[str, Any]], approved: bool = False) -> dict[str, Any]:
-    """Bounded canary generation for private certification; never production."""
+    """Bounded warm-batch canary generation for private certification."""
     if approved is not True:
         raise RuntimeError(f"{CONTRACT}_EXPLICIT_APPROVAL_REQUIRED")
     if not isinstance(requests, list) or not requests or len(requests) > 16:
@@ -236,11 +253,7 @@ def generate(requests: list[dict[str, Any]], approved: bool = False) -> dict[str
     started = time.perf_counter()
     outputs = engine.generate(
         rendered,
-        SamplingParams(
-            temperature=0.0,
-            max_tokens=2048,
-            skip_special_tokens=True,
-        ),
+        SamplingParams(temperature=0.0, max_tokens=2048, skip_special_tokens=True),
         use_tqdm=False,
     )
     elapsed_ms = round((time.perf_counter() - started) * 1000)
@@ -254,6 +267,7 @@ def generate(requests: list[dict[str, Any]], approved: bool = False) -> dict[str
         if not text:
             raise RuntimeError(f"{CONTRACT}_OUTPUT_REQUIRED")
         texts.append(text)
+    model_volume.commit()
     return {
         "contract": CONTRACT,
         "status": "completed",
@@ -261,8 +275,13 @@ def generate(requests: list[dict[str, Any]], approved: bool = False) -> dict[str
         "revision": policy.CANDIDATE_REVISION,
         **identity,
         "model_volume_name": policy.CODE_VOLUME,
+        "vllm_cache_root": str(VLLM_CACHE_ROOT),
         "outputs": texts,
         "batch_wall_ms": elapsed_ms,
+        "max_num_seqs": MAX_NUM_SEQS,
+        "load_format": LOAD_FORMAT,
+        "gdn_prefill_backend": GDN_PREFILL_BACKEND,
+        "fast_boot_enforce_eager": FAST_BOOT_ENFORCE_EAGER,
         "language_model_only": True,
         "prefix_caching_enabled": False,
         "speculative_decoding_enabled": False,

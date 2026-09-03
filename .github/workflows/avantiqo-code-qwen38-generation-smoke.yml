@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f .github/avantiqo-code-qwen38-generation-smoke-once.txt
-          grep -qx 'AVANTIQO_CODE_QWEN38_GENERATION_SMOKE_ONCE=20260903-V1' .github/avantiqo-code-qwen38-generation-smoke-once.txt
+          grep -qx 'AVANTIQO_CODE_QWEN38_GENERATION_SMOKE_ONCE=20260903-V2' .github/avantiqo-code-qwen38-generation-smoke-once.txt
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5

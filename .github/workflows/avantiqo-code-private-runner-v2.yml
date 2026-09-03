@@ -1,0 +1,32 @@
+name: Avantiqo Code Private Runner V2
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - services/avantiqo-code-engine/repo_agent_v3.py
+      - services/avantiqo-code-engine/worldclass_private_runner_v2.py
+      - services/avantiqo-code-engine/verify_worldclass_private_runner_v2.py
+      - .github/workflows/avantiqo-code-private-runner-v2.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify sealed hidden-test boundary
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v3.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_private_runner_v2.py
+          python -m py_compile services/avantiqo-code-engine/verify_worldclass_private_runner_v2.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_worldclass_private_runner_v2.py

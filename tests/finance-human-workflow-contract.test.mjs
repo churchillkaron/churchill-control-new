@@ -99,3 +99,13 @@ test("Finance review UI signs before it completes reviewer and partner work", ()
   assert.match(reviewerWorkspace, /governedSignoffAndComplete\(row, "PARTNER"\)/);
   assert.match(reviewerWorkspace, /Reviewer\/partner identity, review points, sign-offs, dependencies, evidence and accounting-truth gates are rechecked server-side/);
 });
+
+test("Finance reviewer and partner signoffs are safe to retry after downstream lifecycle blockers", () => {
+  assert.match(reviewSignoffRoute, /existingReviewer/);
+  assert.match(reviewSignoffRoute, /idempotent: true/);
+  assert.match(reviewSignoffRoute, /alreadyClearedByActor/);
+  assert.match(reviewSignoffRoute, /Reviewer sign-off is already owned by another reviewer/);
+  assert.match(reviewSignoffRoute, /Partner clearance is already owned by another partner/);
+  assert.match(reviewSignoffRoute, /row\.signoff_role !== "REVIEWER" && actorMatches\(access, row\.signed_by\)/);
+  assert.match(reviewSignoffRoute, /row\.signoff_role !== "PARTNER" && actorMatches\(access, row\.signed_by\)/);
+});

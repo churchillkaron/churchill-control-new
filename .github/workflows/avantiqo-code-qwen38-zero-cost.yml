@@ -9,7 +9,7 @@ on:
       - services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py
       - services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py
       - services/avantiqo-code-engine/modal_code_qwen38_runtime_probe.py
-      - services/avantiqo-code-engine/modal_code_qwen38_smoke_runner.py
+      - services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
       - services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
       - services/avantiqo-code-engine/worldclass_private_suite_v2.py
       - services/avantiqo-code-engine/worldclass_private_fixtures_v3.py
@@ -45,13 +45,14 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_runtime_probe.py
-          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_smoke_runner.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
           python -m py_compile services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_code_qwen38_canary_v1.py
-          grep -q 'from modal_code_qwen38_canary_runtime import app, generation_smoke' services/avantiqo-code-engine/modal_code_qwen38_smoke_runner.py
-          test "$(grep -c 'generation_smoke.remote(approved=True)' services/avantiqo-code-engine/modal_code_qwen38_smoke_runner.py)" -eq 1
-          grep -q 'AVANTIQO_CODE_QWEN38_SMOKE_RESULT=' services/avantiqo-code-engine/modal_code_qwen38_smoke_runner.py
-          grep -q 'modal_code_qwen38_smoke_runner.py --approved' .github/workflows/avantiqo-code-qwen38-generation-smoke.yml
+          grep -q 'from modal_code_qwen38_canary_runtime import app, generation_smoke' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
+          grep -q 'def smoke_evidence(approved: bool = False)' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
+          test "$(grep -c 'generation_smoke.remote(approved=approved)' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py)" -eq 1
+          grep -q 'AVANTIQO_CODE_QWEN38_SMOKE_RESULT=' services/avantiqo-code-engine/modal_code_qwen38_smoke_evidence.py
+          grep -q 'modal_code_qwen38_smoke_evidence.py::smoke_evidence --approved' .github/workflows/avantiqo-code-qwen38-generation-smoke.yml
           echo 'AVANTIQO_CODE_QWEN38_SMOKE_EVIDENCE_TRANSPORT=PASS'
           echo 'AVANTIQO_CODE_QWEN38_ZERO_COST_CI=PASS'
 

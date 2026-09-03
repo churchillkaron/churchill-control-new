@@ -2,10 +2,10 @@
 
 This module strengthens only public-contract verification and certification truth:
 - production clauses that escaped earlier semantic probes are gated before hidden scoring,
-- repair prompts explicitly reconstruct those clauses,
-- generated source is required to be compact enough for the <=4s warm target,
-- the legacy inner PASS marker is suppressed and emitted only after the final
-  10/10 + latency evidence is actually true.
+- first-pass and repair prompts receive explicit public-contract implementation plans,
+- repair prompts are contract-first and never include the failed candidate source,
+- generated source is bounded for the <=4s warm target,
+- the legacy inner PASS marker is emitted only after final 10/10 + latency evidence.
 
 No hidden test is copied into a prompt or public probe.
 """
@@ -141,16 +141,22 @@ def _hardened_repair_plan(contract: str) -> str:
         )
     if "summarizeledger" in text or "canonical currency" in text:
         additions.append(
-            "LEDGER ROUNDING PLAN: accumulate raw debit and credit totals without per-entry or "
-            "display rounding. Produce debit=round(rawDebit), credit=round(rawCredit), and "
-            "balance=round(rawDebit-rawCredit) independently. Never compute balance from the "
-            "already-rounded returned debit/credit numbers."
+            "LEDGER RAW-TOTAL PLAN: keep mutable rawDebit/rawCredit totals separate from the "
+            "returned display object. Never overwrite raw totals with rounded values. At output, "
+            "compute debit=round(rawDebit), credit=round(rawCredit), and "
+            "balance=round(rawDebit-rawCredit) independently from the still-unrounded totals."
         )
     if "appliedids" in text:
         additions.append(
-            "EMPTY-INPUT PLAN: normalize a missing/null state before reading balance/appliedIds. "
-            "Default balance to 0 and prior appliedIds to an empty array; a missing/non-array "
-            "events input is an empty list. Never dereference state/events before these guards."
+            "STREAMING-IDEMPOTENCY PLAN: normalize state first, copy prior appliedIds, and seed a "
+            "Set with canonical prior IDs. Process events in one loop, not a pre-filter pass. "
+            "For each event, reject seen IDs; after a DEPOSIT succeeds or a sufficiently funded "
+            "WITHDRAWAL succeeds, immediately add its canonical ID to the Set and append it before "
+            "the next event. A failed overdraft is never marked applied."
+        )
+        additions.append(
+            "EMPTY-INPUT PLAN: missing/null state is normalized before any dereference; invalid "
+            "balance becomes 0, invalid appliedIds becomes [], and missing/non-array events is []."
         )
     if "cantransition" in text or "unknown states/roles" in text:
         additions.append(
@@ -160,10 +166,13 @@ def _hardened_repair_plan(contract: str) -> str:
         )
     if "pricing is progressive" in text or "strictly increasing finite positive" in text:
         additions.append(
-            "TIER VALIDATION PLAN: validate the whole tier array before pricing. Require a "
-            "nonempty array; every finite upTo is finite, >0 and strictly increases; null upTo "
-            "appears at most once and only last; every rate is finite >=0. Throw TypeError for "
-            "any invalid structure even when units would be consumed by an earlier tier."
+            "TIER TWO-PASS PLAN: first validate the entire tier array and convert each threshold/" 
+            "rate without pricing anything. Then price with remainingUnits as a quantity, never an "
+            "absolute position: for a finite tier width=upTo-previousThreshold and "
+            "used=min(remainingUnits,width); charge += used*rate; remainingUnits -= used. For the "
+            "final null tier charge += remainingUnits*rate and set remainingUnits=0. Never subtract "
+            "previousThreshold from remainingUnits. If remainingUnits remains after finite tiers "
+            "with no null tier, throw RangeError."
         )
     additions.append(
         f"LATENCY PLAN: return a complete minimal implementation with no explanatory comments "
@@ -178,9 +187,11 @@ _original_hard_prompt = hard._hard_prompt
 
 
 def _compact_hard_prompt(task: dict[str, str], failure: str) -> str:
+    plan = fixed._contract_repair_plan(task["spec"])
     return "\n\n".join(
         [
             _original_hard_prompt(task, failure),
+            "PUBLIC-CONTRACT IMPLEMENTATION PLAN:\n" + plan,
             (
                 f"LATENCY-CONSTRAINED SOURCE CONTRACT: return the complete correct source in "
                 f"<= {COMPACT_TARGET_TOKENS} completion tokens. Use direct code, no explanatory "
@@ -198,19 +209,64 @@ _original_repair_request = hard.cert._repair_request
 def _compact_repair_request(
     request: dict[str, Any], candidate: str, failure: str
 ) -> dict[str, Any]:
+    # Let the established repair builder preserve identity/sampling metadata, then
+    # replace its source-anchored instruction with a contract-first instruction.
+    # The failed candidate is deliberately absent: the deterministic machine
+    # failure already explains what was wrong, and copying candidate structure was
+    # the proven cause of repeated repairs in run 33703280964.
     repaired = _original_repair_request(request, candidate, failure)
+    specification = dict(repaired.get("structured_specification") or {})
+    case_id = str(specification.get("benchmark_case") or "").strip()
+    task = _task(case_id)
+    production_contract = str(
+        specification.get("production_contract") or task["spec"]
+    ).strip()
+    declared_probe = str(hard.HARD_PROBES.get(case_id) or "").strip()
+    plan = fixed._contract_repair_plan(production_contract)
     repaired["instruction"] = "\n\n".join(
         [
-            str(repaired.get("instruction") or "").strip(),
+            "AVANTIQO CONTRACT-FIRST EXECUTABLE REPAIR.",
+            "Write a fresh implementation from the authoritative public contract. Do not preserve, "
+            "imitate, patch around, or reason from the previous candidate's code structure.",
+            (
+                f'Return ONLY strict JSON with exactly this shape: '
+                f'{{"path":"{task["module"]}","content":"<complete UTF-8 source file>"}}.'
+            ),
+            f"Modify only {task['module']}. Keep the existing public export name. No imports, "
+            "environment access, filesystem, child processes, network calls, global state, or "
+            "dynamic evaluation.",
+            "AUTHORITATIVE PRODUCTION CONTRACT:\n" + production_contract,
+            (
+                "DECLARED PUBLIC SEMANTIC PROBE:\n" + declared_probe
+                if declared_probe
+                else "DECLARED PUBLIC SEMANTIC PROBE: none"
+            ),
+            "DETERMINISTIC MACHINE FAILURE TO CORRECT:\n" + str(failure)[-3000:],
+            "MANDATORY CONTRACT-DERIVED ALGORITHM:\n" + plan,
+            (
+                "Before returning, mentally execute the visible/public semantic cases against the "
+                "fresh implementation. Correct every clause, not only the first assertion."
+            ),
             (
                 f"COMPACT REPLACEMENT REQUIREMENT: complete replacement source must target <= "
-                f"{COMPACT_TARGET_TOKENS} completion tokens; omit comments/prose/redundant helpers."
+                f"{COMPACT_TARGET_TOKENS} completion tokens; omit comments, prose, and redundant "
+                "helpers inside the source."
             ),
         ]
     )
-    specification = dict(repaired.get("structured_specification") or {})
+    for key in (
+        "failed_candidate",
+        "candidate",
+        "previous_candidate",
+        "failed_source",
+        "previous_source",
+    ):
+        specification.pop(key, None)
     specification["max_completion_tokens"] = MAX_COMPLETION_TOKENS
     specification["compact_completion_target_tokens"] = COMPACT_TARGET_TOKENS
+    specification["repair_prompt_contract_first"] = True
+    specification["failed_candidate_included_in_prompt"] = False
+    specification["contract_derived_repair_plan"] = plan
     repaired["structured_specification"] = specification
     return repaired
 

@@ -29,18 +29,7 @@ const officialSources = [
   { id: "primary-2", url: "https://standards.example.org/reference", title: "Primary reference", publisher: "Example Standards", official: false, primary: true },
 ];
 
-function row({
-  id,
-  content,
-  domain,
-  jurisdiction = null,
-  confidence = 0.94,
-  importance = 0.8,
-  source = "verified_continuous_owned_web_evidence",
-  verifiedAt = fresh,
-  validUntil = future,
-  aliases = [],
-} = {}) {
+function row({ id, content, domain, jurisdiction = null, confidence = 0.94, importance = 0.8, source = "verified_continuous_owned_web_evidence", verifiedAt = fresh, validUntil = future, aliases = [] } = {}) {
   return {
     id,
     memory_scope: "platform_knowledge",
@@ -55,15 +44,7 @@ function row({
     superseded_by: null,
     superseded_at: null,
     forgotten_at: null,
-    metadata: {
-      knowledge_domain: domain,
-      jurisdiction,
-      topic_key: id,
-      verified_at: verifiedAt,
-      evidence_status: "SUPPORTED",
-      aliases,
-      sources: officialSources,
-    },
+    metadata: { knowledge_domain: domain, jurisdiction, topic_key: id, verified_at: verifiedAt, evidence_status: "SUPPORTED", aliases, sources: officialSources },
     updated_at: verifiedAt,
     created_at: verifiedAt,
   };
@@ -126,6 +107,21 @@ const result = evaluateAvantiqoMemoryRetrievalBenchmark({
     };
   },
 });
+
+const top1Misses = result.evaluations
+  .filter((item) => !item.top1_hit)
+  .map((item) => ({
+    id: item.id,
+    category: item.category,
+    retrieved_ids: item.retrieved_ids,
+    relevant_ids: item.relevant_ids,
+    forbidden_hits: item.forbidden_hits,
+    reciprocal_rank: item.reciprocal_rank,
+    context_chars: item.context_chars,
+  }));
+
+console.log("AVANTIQO_MEMORY_RETRIEVAL_BENCHMARK_DIAGNOSTICS");
+console.log(JSON.stringify({ failures: result.failures, top1_misses: top1Misses }, null, 2));
 
 assert.equal(result.contract, "AVANTIQO_MEMORY_RETRIEVAL_BENCHMARK_V1");
 assert.equal(result.summary.case_count, cases.length);

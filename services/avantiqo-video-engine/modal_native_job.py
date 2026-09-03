@@ -29,6 +29,8 @@ from modal_app import (
 )
 
 JOB_CONTRACT = "AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_JOB_V1"
+STUDIO_LINEAGE_CONTRACT = "AVANTIQO_VIDEO_STUDIO_LINEAGE_V1"
+SHOT_BIBLE_CONTRACT = "CREATIVE_SHOT_BIBLE_V1"
 SUPPORTED_CAPABILITIES = {"ai.video.generate", "ai.video.image_to_video"}
 MAX_REFERENCE_BYTES = 100 * 1024 * 1024
 MIN_REFERENCE_BYTES = 1024
@@ -96,6 +98,38 @@ def _source_url(data: dict[str, Any]) -> str:
     return ""
 
 
+def _studio_lineage(data: dict[str, Any]) -> dict[str, Any] | None:
+    specification = _object(data.get("structured_specification"))
+    metadata = _object(specification.get("metadata"))
+    lineage = _object(metadata.get("studio_lineage"))
+    if not lineage:
+        return None
+    if _text(lineage.get("contract")) != STUDIO_LINEAGE_CONTRACT:
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_STUDIO_LINEAGE_CONTRACT_INVALID")
+
+    shot_id = _text(lineage.get("shot_id"))
+    shot_bible = _object(lineage.get("shot_bible"))
+    if not shot_id:
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_SHOT_ID_REQUIRED")
+    if _text(shot_bible.get("contract")) != SHOT_BIBLE_CONTRACT:
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_SHOT_BIBLE_INVALID")
+
+    bible_shot_id = _text(shot_bible.get("shot_id"))
+    if bible_shot_id and bible_shot_id != shot_id:
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_SHOT_ID_MISMATCH")
+
+    organization_id = _text(data.get("organization_id"))
+    bible_organization_id = _text(shot_bible.get("organization_id"))
+    if bible_organization_id and bible_organization_id != organization_id:
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_SHOT_BIBLE_ORGANIZATION_MISMATCH")
+
+    return {
+        "contract": STUDIO_LINEAGE_CONTRACT,
+        "shot_id": shot_id,
+        "shot_bible_contract": SHOT_BIBLE_CONTRACT,
+    }
+
+
 def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_JOB_OBJECT_REQUIRED")
@@ -114,6 +148,7 @@ def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
     if not instruction:
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_INSTRUCTION_REQUIRED")
 
+    studio_lineage = _studio_lineage(data)
     source_url = _source_url(data)
     # The premium mastered lane is Studio-first: even ai.video.generate reaches
     # this worker after Studio has prepared the opening/reference frame.
@@ -139,6 +174,7 @@ def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
         "storage_reference": storage_reference,
         "duration_seconds": duration,
         "seed": seed,
+        "studio_lineage": studio_lineage,
     }
 
 
@@ -260,6 +296,13 @@ def generate_native_job(data: dict[str, Any]) -> dict[str, Any]:
             "external_provider_contacted": False,
             "raw_reasoning_persisted": False,
         })
+        if job["studio_lineage"]:
+            result.update({
+                "studio_lineage_contract": job["studio_lineage"]["contract"],
+                "shot_id": job["studio_lineage"]["shot_id"],
+                "shot_bible_contract": job["studio_lineage"]["shot_bible_contract"],
+                "studio_lineage_validated": True,
+            })
         return result
     finally:
         reference_path.unlink(missing_ok=True)

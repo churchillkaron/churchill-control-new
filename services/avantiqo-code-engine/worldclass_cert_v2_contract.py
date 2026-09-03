@@ -135,6 +135,7 @@ def certify(evidence: dict[str, Any]) -> dict[str, Any]:
     average_repairs = repairs_total / len(cases) if cases else 10**9
     warm_p95_ms = percentile((case.warm_ms for case in cases), 0.95)
     task_ids = [case.case_id for case in cases]
+    production_deploy_performed = evidence.get("production_deploy_performed") is True
 
     summary = {
         "contract": CONTRACT,
@@ -153,7 +154,7 @@ def certify(evidence: dict[str, Any]) -> dict[str, Any]:
         "unique_case_ids": len(task_ids) == len(set(task_ids)),
         "single_storage_per_engine": evidence.get("single_storage_per_engine") is True,
         "persistent_storage_reused": evidence.get("persistent_storage_reused") is True,
-        "production_deploy_performed": evidence.get("production_deploy_performed") is True,
+        "production_deploy_performed": production_deploy_performed,
         "candidate_isolated_from_production": evidence.get("candidate_isolated_from_production") is True,
         "benchmark_task_specific_rewriters": int(
             evidence.get("benchmark_task_specific_rewriters") or 0
@@ -174,7 +175,7 @@ def certify(evidence: dict[str, Any]) -> dict[str, Any]:
             summary["unique_case_ids"],
             summary["single_storage_per_engine"],
             summary["persistent_storage_reused"],
-            summary["production_deploy_performed"] is False,
+            not summary["production_deploy_performed"],
             summary["candidate_isolated_from_production"],
             summary["benchmark_task_specific_rewriters"] == 0,
             summary["changed_file_overreach"] <= MAX_CHANGED_FILE_OVERREACH,

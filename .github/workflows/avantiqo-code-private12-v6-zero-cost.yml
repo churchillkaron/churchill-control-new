@@ -1,0 +1,51 @@
+name: Avantiqo Code Private12 V6 Zero Cost Admission
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v6_cert.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py'
+      - 'services/avantiqo-code-engine/repo_agent_v7.py'
+      - '.github/workflows/avantiqo-code-private12-v6-zero-cost.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile V6 certification contracts
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v7.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v6_cert.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+      - name: Verify V7 recovery wiring
+        run: |
+          set -euo pipefail
+          grep -q 'build_edit_recovery_prompt' services/avantiqo-code-engine/modal_code_qwen38_private12_v6_cert.py
+          grep -q 'edit_recovery_states' services/avantiqo-code-engine/modal_code_qwen38_private12_v6_cert.py
+          grep -q 'semantic_repair_states' services/avantiqo-code-engine/modal_code_qwen38_private12_v6_cert.py
+          grep -q 'MAX_MODAL_QUALITY_BATCH_CALLS = 4' services/avantiqo-code-engine/modal_code_qwen38_private12_v6_cert.py
+          grep -q 'MAX_MODAL_SINGLE_LATENCY_CALLS = 3' services/avantiqo-code-engine/modal_code_qwen38_private12_v6_cert.py
+          grep -q 'RUN_SEED = "20260903-qwen38-private12-v6"' services/avantiqo-code-engine/modal_code_qwen38_private12_v6_cert.py
+      - name: Verify accelerated runtime remains isolated
+        run: |
+          set -euo pipefail
+          grep -q 'FAST_BOOT_ENFORCE_EAGER = False' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q '"method": "ngram"' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q 'enable_prefix_caching=ENABLE_PREFIX_CACHING' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q '"production_routing_change": False' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q '"production_deploy_performed": False' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v6.py
+          grep -q 'MAX_WARM_P95_MS = 4_000' services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          echo 'AVANTIQO_CODE_PRIVATE12_V6_ZERO_COST=PASS'

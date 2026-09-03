@@ -75,8 +75,6 @@ def _constant_assignments(tree: ast.Module) -> dict[str, Any]:
     for node in tree.body:
         if not isinstance(node, (ast.Assign, ast.AnnAssign)):
             continue
-        target: ast.expr | None
-        value_node: ast.expr | None
         if isinstance(node, ast.Assign):
             target = node.targets[0] if len(node.targets) == 1 else None
             value_node = node.value
@@ -252,6 +250,10 @@ def _assert_runtime() -> None:
     assert EXPECTED_CANDIDATE_MARKER in source
     assert "snapshot_download" not in source and "huggingface_hub" not in source
     for token in (
+        'setup_dockerfile_commands=[',
+        'command -v python3',
+        'command -v pip3',
+        'python --version && pip --version',
         'os.environ["HF_HUB_OFFLINE"] = "1"', 'os.environ["TRANSFORMERS_OFFLINE"] = "1"',
         'os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"', "enforce_eager=False",
         "enable_prefix_caching=False", 'safetensors_load_strategy="prefetch"',
@@ -290,6 +292,7 @@ def main() -> None:
     print("AVANTIQO_CODE_QWEN38_SINGLE_STORAGE=PASS")
     print("AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2_GUARDS=PASS")
     print("AVANTIQO_CODE_QWEN38_STABLE_VLLM_028=PASS")
+    print("AVANTIQO_CODE_QWEN38_RUNTIME_PYTHON_SHIM=PASS")
     print("AVANTIQO_CODE_QWEN38_PREFIX_CACHE_BASELINE_OFF=PASS")
     print("AVANTIQO_CODE_QWEN38_RUNTIME_ISOLATION=PASS")
     print("AVANTIQO_CODE_QWEN38_ZERO_COST_VERIFIER=PASS")

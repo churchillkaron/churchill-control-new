@@ -125,7 +125,7 @@ export default function FinanceClientDependencyRail({ organizationId }) {
           <span>·</span>
           <span><strong className="font-semibold text-[#76583A]">{summary.counts.follow_up_due || 0}</strong> follow-up due</span>
           <span>·</span>
-          <span><strong className="font-semibold text-[#5E5952]">{summary.counts.do_not_chase || 0}</strong> do not chase</span>
+          <span><strong className="font-semibold text-[#5E5952]">{summary.counts.do_not_chase || 0}</strong> Do not chase</span>
           <button type="button" onClick={load} disabled={loading} aria-label="Refresh client dependencies" className="ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-black/[0.07] bg-white text-[#806143] disabled:opacity-50"><RefreshCw size={10} className={loading ? "animate-spin" : ""} /></button>
         </div>
       </div>

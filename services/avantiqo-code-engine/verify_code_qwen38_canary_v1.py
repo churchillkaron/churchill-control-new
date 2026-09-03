@@ -112,11 +112,7 @@ def _keyword_literal(call: ast.Call, name: str) -> Any:
 
 
 def _volume_calls(tree: ast.Module) -> list[ast.Call]:
-    return [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call) and _call_name(node).endswith("Volume.from_name")
-    ]
+    return [node for node in ast.walk(tree) if isinstance(node, ast.Call) and _call_name(node).endswith("Volume.from_name")]
 
 
 def _app_function_decorators(tree: ast.Module) -> list[tuple[str, ast.Call]]:
@@ -133,13 +129,9 @@ def _app_function_decorators(tree: ast.Module) -> list[tuple[str, ast.Call]]:
 def _assert_single_existing_volume(tree: ast.Module, source: str, label: str) -> None:
     calls = _volume_calls(tree)
     assert len(calls) == 1, f"{label}: exactly one Volume.from_name call required"
-    assert _keyword_literal(calls[0], "create_if_missing") is False, (
-        f"{label}: create_if_missing must be False"
-    )
-    assert "policy.CODE_VOLUME" in source, f"{label}: canonical policy volume required"
-    assert "create_if_missing=True" not in source.replace(" ", ""), (
-        f"{label}: new storage creation forbidden"
-    )
+    assert _keyword_literal(calls[0], "create_if_missing") is False
+    assert "policy.CODE_VOLUME" in source
+    assert "create_if_missing=True" not in source.replace(" ", "")
 
 
 def _assert_policy() -> None:
@@ -153,22 +145,15 @@ def _assert_policy() -> None:
     assert constants.get("MIN_NATIVE_CONTEXT") == 262_144
     assert constants.get("MAX_CANDIDATE_BYTES") == 32 * 1024**3
     for invariant in (
-        "single_code_storage",
-        "candidate_size_bounded",
-        "distributed_volume_storage",
-        "fixed_capacity_assumption_used",
-        "direct_to_volume_download",
-        "explicit_ephemeral_disk_requested",
-        "production_routing_change",
-        "production_deploy_performed",
-        "volume_created",
+        "single_code_storage", "candidate_size_bounded", "distributed_volume_storage",
+        "fixed_capacity_assumption_used", "direct_to_volume_download",
+        "explicit_ephemeral_disk_requested", "production_routing_change",
+        "production_deploy_performed", "volume_created",
     ):
         assert invariant in source, f"policy invariant missing: {invariant}"
     for retired in (
-        "candidate_fits_single_volume",
-        "MIN_FREE_AFTER_DOWNLOAD_BYTES",
-        "MIN_BOOTSTRAP_EPHEMERAL_DISK_BYTES",
-        "PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES",
+        "candidate_fits_single_volume", "MIN_FREE_AFTER_DOWNLOAD_BYTES",
+        "MIN_BOOTSTRAP_EPHEMERAL_DISK_BYTES", "PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES",
         "bootstrap_ephemeral_disk_safe",
     ):
         assert retired not in source, f"retired invariant present: {retired}"
@@ -177,19 +162,15 @@ def _assert_policy() -> None:
 def _assert_preflight() -> None:
     source = _source(PREFLIGHT_PATH)
     tree = _tree(PREFLIGHT_PATH)
-    assert not _app_function_decorators(tree), "preflight must declare no remote Function"
-    assert "modal.Volume.objects.list()" in source
-    assert "volume.hydrate()" in source
-    assert "volume.read_file" in source
-    assert "distributed_volume_storage\": True" in source
-    assert "fixed_capacity_assumption_used\": False" in source
-    assert "direct_to_volume_download\": True" in source
-    assert "explicit_ephemeral_disk_requested\": False" in source
-    assert "modal_function_created\": False" in source
-    assert "container_started\": False" in source
-    assert "gpu_used\": False" in source
-    assert "model_download_performed\": False" in source
-    assert "volume_created\": False" in source
+    assert not _app_function_decorators(tree)
+    for token in (
+        "modal.Volume.objects.list()", "volume.hydrate()", "volume.read_file",
+        'distributed_volume_storage\": True', 'fixed_capacity_assumption_used\": False',
+        'direct_to_volume_download\": True', 'explicit_ephemeral_disk_requested\": False',
+        'modal_function_created\": False', 'container_started\": False',
+        'gpu_used\": False', 'model_download_performed\": False', 'volume_created\": False',
+    ):
+        assert token in source, token
     assert "shutil.disk_usage" not in source
     assert "snapshot_download" not in source
     assert "bootstrap_ephemeral_disk" not in source
@@ -202,48 +183,48 @@ def _assert_bootstrap() -> None:
     _assert_single_existing_volume(tree, source, "bootstrap")
     assert constants.get("CONTRACT") == EXPECTED_BOOTSTRAP_CONTRACT
     assert constants.get("APPROVAL_ENV") == EXPECTED_APPROVAL_ENV
-    assert EXPECTED_CURRENT_MARKER in source
-    assert EXPECTED_CANDIDATE_MARKER in source
+    assert EXPECTED_CURRENT_MARKER in source and EXPECTED_CANDIDATE_MARKER in source
 
     decorators = dict(_app_function_decorators(tree))
     assert set(decorators) == {"bootstrap"}
     bootstrap_decorator = decorators["bootstrap"]
-    assert _keyword_literal(bootstrap_decorator, "gpu") is None, "bootstrap GPU forbidden"
-    assert _keyword_literal(bootstrap_decorator, "ephemeral_disk") is None, (
-        "bootstrap explicit ephemeral disk forbidden"
-    )
+    assert _keyword_literal(bootstrap_decorator, "gpu") is None
+    assert _keyword_literal(bootstrap_decorator, "ephemeral_disk") is None
+
+    bootstrap_def = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "bootstrap")
+    assert bootstrap_def.args.args and bootstrap_def.args.args[0].arg == "approved"
+    assert "if approved is not True:" in source
+    assert 'os.environ.get(APPROVAL_ENV) != "YES"' in source
+    assert "bootstrap.remote(approved=True)" in source
 
     for cache_guard in (
-        '"HF_HOME": str(HF_ROOT)',
-        '"HF_HUB_CACHE": str(HF_CACHE_ROOT)',
-        '"HF_XET_CACHE": str(HF_XET_CACHE_ROOT)',
-        '"HF_XET_CHUNK_CACHE_SIZE_BYTES": "0"',
+        '"HF_HOME": str(HF_ROOT)', '"HF_HUB_CACHE": str(HF_CACHE_ROOT)',
+        '"HF_XET_CACHE": str(HF_XET_CACHE_ROOT)', '"HF_XET_CHUNK_CACHE_SIZE_BYTES": "0"',
     ):
-        assert cache_guard in source, f"bootstrap persistent cache guard missing: {cache_guard}"
+        assert cache_guard in source, cache_guard
 
-    approval_pos = source.index("os.environ.get(APPROVAL_ENV) != \"YES\"")
+    remote_approval_pos = source.index("if approved is not True:")
     admission_pos = source.index("policy.assert_admitted(_mounted_admission_snapshot())")
     marker_capture_pos = source.index("current_marker_before = CURRENT_MARKER.read_bytes()")
     download_pos = source.index("snapshot_download(")
     marker_guard_pos = source.index("CURRENT_MARKER.read_bytes() != current_marker_before")
     candidate_marker_write_pos = source.index("CANDIDATE_MARKER.write_text")
     commit_pos = source.index("model_volume.commit()")
-    post_commit_guard_pos = source.index(
-        "CURRENT_MARKER.read_bytes() != current_marker_before", marker_guard_pos + 1
-    )
-    assert approval_pos < admission_pos < marker_capture_pos < download_pos
+    post_commit_guard_pos = source.index("CURRENT_MARKER.read_bytes() != current_marker_before", marker_guard_pos + 1)
+    local_approval_pos = source.index('os.environ.get(APPROVAL_ENV) != "YES"', download_pos)
+    remote_call_pos = source.index("bootstrap.remote(approved=True)")
+    assert remote_approval_pos < admission_pos < marker_capture_pos < download_pos
     assert download_pos < marker_guard_pos < candidate_marker_write_pos < commit_pos < post_commit_guard_pos
-    assert "revision=policy.CANDIDATE_REVISION" in source
-    assert "repo_id=policy.CANDIDATE_MODEL" in source
-    assert "cache_dir=str(HF_CACHE_ROOT)" in source
-    assert "direct_to_volume_download\": True" in source
-    assert "explicit_ephemeral_disk_requested\": False" in source
-    assert "distributed_volume_storage\": True" in source
-    assert "fixed_capacity_assumption_used\": False" in source
-    assert "production_routing_change\": False" in source
-    assert "production_deploy_performed\": False" in source
-    assert "gpu_used\": False" in source
-    assert "volume_created\": False" in source
+    assert local_approval_pos < remote_call_pos
+
+    for token in (
+        "revision=policy.CANDIDATE_REVISION", "repo_id=policy.CANDIDATE_MODEL",
+        "cache_dir=str(HF_CACHE_ROOT)", 'direct_to_volume_download\": True',
+        'explicit_ephemeral_disk_requested\": False', 'distributed_volume_storage\": True',
+        'fixed_capacity_assumption_used\": False', 'production_routing_change\": False',
+        'production_deploy_performed\": False', 'gpu_used\": False', 'volume_created\": False',
+    ):
+        assert token in source, token
     assert "shutil.disk_usage" not in source
     assert "EPHEMERAL_DISK" not in source
     assert "PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES" not in source
@@ -258,40 +239,31 @@ def _assert_runtime() -> None:
     assert constants.get("MAX_MODEL_LEN") == 32_768
     assert constants.get("GPU_MEMORY_UTILIZATION") == 0.90
     assert EXPECTED_CANDIDATE_MARKER in source
-    assert "snapshot_download" not in source
-    assert "huggingface_hub" not in source
-    assert 'os.environ["HF_HUB_OFFLINE"] = "1"' in source
-    assert 'os.environ["TRANSFORMERS_OFFLINE"] = "1"' in source
-    assert "enforce_eager=False" in source
-    assert "enable_prefix_caching=True" in source
-    assert 'safetensors_load_strategy="prefetch"' in source
-    assert "NO_DEFAULT_PAID_ENTRYPOINT" in source
-    assert "production_routing_change\": False" in source
-    assert "production_deploy_performed\": False" in source
-    assert "model_download_performed\": False" in source
-    assert "volume_created\": False" in source
-
+    assert "snapshot_download" not in source and "huggingface_hub" not in source
+    for token in (
+        'os.environ["HF_HUB_OFFLINE"] = "1"', 'os.environ["TRANSFORMERS_OFFLINE"] = "1"',
+        "enforce_eager=False", "enable_prefix_caching=True", 'safetensors_load_strategy="prefetch"',
+        "NO_DEFAULT_PAID_ENTRYPOINT", 'production_routing_change\": False',
+        'production_deploy_performed\": False', 'model_download_performed\": False', 'volume_created\": False',
+    ):
+        assert token in source, token
     decorators = dict(_app_function_decorators(tree))
     assert set(decorators) == {"runtime_probe", "generate"}
     for name in ("runtime_probe", "generate"):
         decorator = decorators[name]
-        assert _keyword_literal(decorator, "gpu") == "H100", f"runtime:{name}: H100 pin required"
+        assert _keyword_literal(decorator, "gpu") == "H100"
         assert _keyword_literal(decorator, "min_containers") == 0
         assert _keyword_literal(decorator, "max_containers") == 1
-    assert "policy.CANDIDATE_MODEL" in source
-    assert "policy.CANDIDATE_REVISION" in source
-    assert "policy.CODE_VOLUME" in source
-    assert "organization_id\") != \"benchmark-only\"" in source
+    assert "policy.CANDIDATE_MODEL" in source and "policy.CANDIDATE_REVISION" in source and "policy.CODE_VOLUME" in source
+    assert 'organization_id\") != \"benchmark-only\"' in source
 
 
 def main() -> None:
-    _assert_policy()
-    _assert_preflight()
-    _assert_bootstrap()
-    _assert_runtime()
+    _assert_policy(); _assert_preflight(); _assert_bootstrap(); _assert_runtime()
     print("AVANTIQO_CODE_QWEN38_POLICY_V3=PASS")
     print("AVANTIQO_CODE_QWEN38_CONTROL_PLANE_PREFLIGHT=PASS")
     print("AVANTIQO_CODE_QWEN38_DIRECT_TO_VOLUME=PASS")
+    print("AVANTIQO_CODE_QWEN38_EXPLICIT_REMOTE_APPROVAL=PASS")
     print("AVANTIQO_CODE_QWEN38_SINGLE_STORAGE=PASS")
     print("AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2_GUARDS=PASS")
     print("AVANTIQO_CODE_QWEN38_RUNTIME_ISOLATION=PASS")

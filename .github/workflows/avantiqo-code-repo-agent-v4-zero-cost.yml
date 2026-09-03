@@ -61,3 +61,5 @@ jobs:
           grep -q 'RUN_SEED = "20260903-qwen38-private12-v2"' \
             services/avantiqo-code-engine/modal_code_qwen38_private12_v2_cert.py
           echo 'AVANTIQO_CODE_REPO_AGENT_V4_ZERO_COST=PASS'
+
+# Trigger registration after initial workflow creation.

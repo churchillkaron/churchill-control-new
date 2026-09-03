@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import FinanceAccountantOverview from "@/components/workspace/finance/FinanceAccountantOverview";
 import FinanceAccountHealthPanel from "@/components/workspace/finance/FinanceAccountHealthPanel";
 import FinanceContinuousCloseRail from "@/components/workspace/finance/FinanceContinuousCloseRail";
+import FinanceCorrectionWorkspace from "@/components/workspace/finance/FinanceCorrectionWorkspace";
 import FinancePracticePortfolioFocus from "@/components/workspace/finance/FinancePracticePortfolioFocus";
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 
@@ -24,6 +25,7 @@ export default function FinancePage() {
       <FinancePracticePortfolioFocus organizationId={organizationId} />
       <FinanceContinuousCloseRail organizationId={organizationId} />
       <FinanceAccountHealthPanel organizationId={organizationId} />
+      <FinanceCorrectionWorkspace organizationId={organizationId} />
       <FinanceAccountantOverview organizationId={organizationId} />
     </>
   );

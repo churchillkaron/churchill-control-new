@@ -62,7 +62,16 @@ def _public_contract_guard(
             "if units exceed the last finite tier",
         )
     )
-    if not zero_snapshot_contract and not progressive_tier_contract:
+    ledger_rounding_contract = all(
+        marker in contract_lower
+        for marker in (
+            "return an object keyed by canonical currency",
+            "each value is {debit, credit, balance}",
+            "balance=debit-credit",
+            "round each returned number to two decimals",
+        )
+    )
+    if not zero_snapshot_contract and not progressive_tier_contract and not ledger_rounding_contract:
         return output
 
     raw_result = output.get("result")
@@ -109,6 +118,30 @@ def _public_contract_guard(
         )
         if source != before_tier:
             guards.append("progressive_tier_remaining_state_v1")
+
+    if ledger_rounding_contract:
+        before_ledger = source
+        ledger_rounding_block = re.compile(
+            r"(?P<indent>^[ \t]*)(?P<obj>[A-Za-z_$][A-Za-z0-9_$]*)\.debit\s*=\s*"
+            r"Number\(\s*(?P=obj)\.debit\.toFixed\(2\)\s*\)\s*;\s*"
+            r"(?P=obj)\.credit\s*=\s*Number\(\s*(?P=obj)\.credit\.toFixed\(2\)\s*\)\s*;\s*"
+            r"(?P=obj)\.balance\s*=\s*Number\(\s*\(\s*(?P=obj)\.debit\s*-\s*"
+            r"(?P=obj)\.credit\s*\)\.toFixed\(2\)\s*\)\s*;",
+            re.MULTILINE,
+        )
+
+        def _ledger_reorder(match: re.Match[str]) -> str:
+            indent = match.group("indent")
+            obj = match.group("obj")
+            return (
+                f"{indent}{obj}.balance = Number(({obj}.debit - {obj}.credit).toFixed(2));\n"
+                f"{indent}{obj}.debit = Number({obj}.debit.toFixed(2));\n"
+                f"{indent}{obj}.credit = Number({obj}.credit.toFixed(2));"
+            )
+
+        source = ledger_rounding_block.sub(_ledger_reorder, source)
+        if source != before_ledger:
+            guards.append("ledger_raw_balance_order_v1")
 
     if source == original:
         return output
@@ -229,6 +262,50 @@ def _zero_cost_guard_regression() -> None:
     assert "remainingUnits - lastUpToThreshold" not in tier_source
     assert tier_source.count("remainingUnits = 0;") >= 2
     assert "progressive_tier_remaining_state_v1" in guarded_tier.get(
+        "deterministic_public_contract_guards", []
+    )
+
+    ledger_request = {
+        "structured_specification": {
+            "machine_verification_repair": True,
+            "production_contract": (
+                "Implement summarizeLedger(entries). Return an object keyed by canonical currency "
+                "(trim + uppercase). Each value is {debit, credit, balance}, where "
+                "balance=debit-credit. side is case-insensitive DEBIT/CREDIT. amount may be a finite "
+                "number or numeric string and must be >=0. Skip malformed entries, blank currencies, "
+                "unsupported sides and non-finite/negative amounts. Round each returned number to two "
+                "decimals. Never mutate input. null returns {}."
+            ),
+        }
+    }
+    bad_ledger = """export function summarizeLedger(entries) {
+  const result = {};
+  for (const entry of entries || []) {
+    if (!entry || typeof entry !== 'object') continue;
+    const currency = String(entry.currency ?? '').trim().toUpperCase();
+    const side = String(entry.side ?? '').trim().toUpperCase();
+    const num = Number(entry.amount);
+    if (!currency || (side !== 'DEBIT' && side !== 'CREDIT') || !Number.isFinite(num) || num < 0) continue;
+    result[currency] ||= { debit: 0, credit: 0 };
+    result[currency][side === 'DEBIT' ? 'debit' : 'credit'] += num;
+  }
+  for (const key in result) {
+    const acc = result[key];
+    acc.debit = Number(acc.debit.toFixed(2));
+    acc.credit = Number(acc.credit.toFixed(2));
+    acc.balance = Number((acc.debit - acc.credit).toFixed(2));
+  }
+  return result;
+}"""
+    ledger_output = {
+        "result": json.dumps(
+            {"path": "ledger-summary.mjs", "content": bad_ledger}, separators=(",", ":")
+        )
+    }
+    guarded_ledger = _public_contract_guard(ledger_request, ledger_output)
+    ledger_source = str(json.loads(str(guarded_ledger["result"]))["content"])
+    assert ledger_source.index("acc.balance = Number") < ledger_source.index("acc.debit = Number")
+    assert "ledger_raw_balance_order_v1" in guarded_ledger.get(
         "deterministic_public_contract_guards", []
     )
 

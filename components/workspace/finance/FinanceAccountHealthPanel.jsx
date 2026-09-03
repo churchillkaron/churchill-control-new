@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -11,7 +11,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
-import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import { useFinanceLandingRuntime } from "@/components/workspace/finance/FinanceLandingRuntimeProvider";
 
 function financeHref(organizationId, route) {
   if (!organizationId || !route) return "#";
@@ -45,53 +45,25 @@ function StateIcon({ state }) {
 }
 
 export default function FinanceAccountHealthPanel({ organizationId }) {
-  const businessContext = useBusinessContext() || {};
-  const entityId = businessContext.entity_id || businessContext.entity?.id || null;
-  const periodId = businessContext.period_id || businessContext.period?.id || null;
-  const [state, setState] = useState({ loading: true, error: "", data: null });
-
-  async function load() {
-    if (!organizationId || !entityId || !periodId) {
-      setState({ loading: false, error: "", data: null });
-      return;
-    }
-    try {
-      setState((current) => ({ ...current, loading: true, error: "" }));
-      const url = new URL("/api/workspace/finance/account-health", window.location.origin);
-      url.searchParams.set("organizationId", organizationId);
-      url.searchParams.set("entityId", entityId);
-      url.searchParams.set("periodId", periodId);
-      const response = await fetch(url.toString(), {
-        cache: "no-store",
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || body?.success === false) {
-        throw new Error(body?.error || "Unable to load account health");
-      }
-      setState({ loading: false, error: "", data: body });
-    } catch (error) {
-      setState((current) => ({
-        ...current,
-        loading: false,
-        error: error?.message || "Unable to load account health",
-      }));
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, [organizationId, entityId, periodId]);
-
-  const health = state.data?.health || null;
-  const currency = state.data?.context?.currency || businessContext.entity?.currency || businessContext.organization?.default_currency || null;
+  const {
+    entityId,
+    periodId,
+    accountHealth,
+    currency,
+    loading,
+    refreshing,
+    error,
+    stale,
+    refresh,
+  } = useFinanceLandingRuntime();
+  const health = accountHealth?.health || null;
   const focusRows = useMemo(
     () => (Array.isArray(health?.accounts) ? health.accounts.filter((row) => row.state !== "ON_TRACK").slice(0, 8) : []),
     [health],
   );
 
   if (!organizationId || !entityId || !periodId) return null;
-  if (state.loading && !health) {
+  if (loading && !health) {
     return (
       <div className="mx-auto mb-4 flex min-h-[76px] max-w-[1720px] items-center justify-center rounded-[20px] border border-black/[0.07] bg-white text-[8px] text-[#817A72]">
         <LoaderCircle size={11} className="mr-2 animate-spin text-[#A37849]" /> Reading account-level accounting truth…
@@ -114,8 +86,8 @@ export default function FinanceAccountHealthPanel({ organizationId }) {
           <span className="text-[8px] text-[#8B847B]"><strong className="font-semibold text-[#5E5952]">{summary.blocked || 0}</strong> blocked</span>
           <span className="text-[8px] text-[#8B847B]"><strong className="font-semibold text-[#5E5952]">{summary.action_required || 0}</strong> action</span>
           <span className="text-[8px] text-[#8B847B]"><strong className="font-semibold text-[#5E5952]">{summary.watch || 0}</strong> watch</span>
-          <button type="button" onClick={load} disabled={state.loading} aria-label="Refresh account health" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-[#806143] disabled:opacity-50">
-            <RefreshCw size={10} className={state.loading ? "animate-spin" : ""} />
+          <button type="button" onClick={refresh} disabled={refreshing} aria-label="Refresh Finance landing snapshot" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-[#806143] disabled:opacity-50">
+            <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
@@ -145,7 +117,7 @@ export default function FinanceAccountHealthPanel({ organizationId }) {
 
       <div className="flex flex-col gap-1 border-t border-black/[0.05] bg-[#FCFBF8] px-4 py-2 text-[7px] text-[#938C84] sm:flex-row sm:items-center sm:justify-between md:px-5">
         <span>{summary.opposite_normal_balance || 0} opposite-normal-balance · {summary.unmapped_cash || 0} cash account without bank mapping · as of {summary.as_of || "selected period"}</span>
-        <span>{state.error ? "Refresh delayed · last successful account health retained" : "Structural accounting exceptions outrank statistical movement watches."}</span>
+        <span>{error ? `${stale ? "Refresh delayed" : "Account health unavailable"} · ${error}` : "Structural accounting exceptions outrank statistical movement watches."}</span>
       </div>
     </section>
   );

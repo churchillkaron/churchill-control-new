@@ -51,27 +51,34 @@ function unavailable(item) {
   return ["planned", "blocked", "disabled", "unavailable"].includes(clean(item?.status).toLowerCase());
 }
 
-function itemText(group, item) {
-  return [group?.id, group?.name, group?.description, item?.id, item?.name, item?.description, item?.route]
+function capabilityText(item) {
+  return [item?.id, item?.name, item?.description, item?.route]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
 }
 
-function isBooksItem(group, item) {
-  const haystack = itemText(group, item);
+function searchText(group, item) {
+  return [group?.id, group?.name, group?.description, capabilityText(item)]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function isBooksItem(item) {
+  const haystack = capabilityText(item);
   return !REPORT_WORDS.some((word) => haystack.includes(word)) && !CONFIGURE_WORDS.some((word) => haystack.includes(word));
 }
 
 function resolveArea(item) {
   for (const area of AREAS) {
-    if (area.words.some((word) => item.searchText.includes(word))) return area.id;
+    if (area.words.some((word) => item.classificationText.includes(word))) return area.id;
   }
   return "ledger";
 }
 
 function firstMatch(items, words, used) {
-  return items.find((item) => !used.has(item.id) && words.some((word) => item.searchText.includes(word)) && !item.disabled) || null;
+  return items.find((item) => !used.has(item.id) && words.some((word) => item.classificationText.includes(word)) && !item.disabled) || null;
 }
 
 export default function FinanceBooksDesk({ organizationId }) {
@@ -81,17 +88,15 @@ export default function FinanceBooksDesk({ organizationId }) {
   const groups = useMemo(() => getWorkspaceGroups("finance"), []);
 
   const items = useMemo(() => groups.flatMap((group) => (group.items || [])
-    .filter((item) => isBooksItem(group, item))
-    .map((item) => {
-      const searchText = itemText(group, item);
-      return {
-        ...item,
-        groupId: group.id,
-        groupName: group.name,
-        searchText,
-        disabled: unavailable(item),
-      };
-    })), [groups]);
+    .filter((item) => isBooksItem(item))
+    .map((item) => ({
+      ...item,
+      groupId: group.id,
+      groupName: group.name,
+      classificationText: capabilityText(item),
+      searchText: searchText(group, item),
+      disabled: unavailable(item),
+    }))), [groups]);
 
   const categorizedItems = useMemo(() => items.map((item) => ({ ...item, area: resolveArea(item) })), [items]);
 

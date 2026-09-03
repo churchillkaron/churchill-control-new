@@ -44,26 +44,36 @@ def _evidence(latency: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
+def _sample(role: str, wall_ms: int, *, single: bool = True, representative: bool = True) -> dict[str, object]:
+    return {
+        "role": role,
+        "wall_ms": wall_ms,
+        "warm": True,
+        "single_request": single,
+        "representative": representative,
+    }
+
+
 def main() -> None:
     green = cert.certify(
         _evidence(
             [
-                {"role": "actor", "wall_ms": 2400, "warm": True, "single_request": True},
-                {"role": "reviewer", "wall_ms": 1700, "warm": True, "single_request": True},
-                {"role": "actor", "wall_ms": 2500, "warm": True, "single_request": True},
+                _sample("actor", 2400),
+                _sample("reviewer", 1700),
+                _sample("actor", 2500),
             ]
         )
     )
     assert green["certified"] is True
     assert green["warm_p95_ms"] == 2500
-    assert green["latency_measurement"] == "warm_single_request"
+    assert green["latency_measurement"] == "warm_single_request_representative"
 
     slow = cert.certify(
         _evidence(
             [
-                {"role": "actor", "wall_ms": 2400, "warm": True, "single_request": True},
-                {"role": "reviewer", "wall_ms": 1700, "warm": True, "single_request": True},
-                {"role": "actor", "wall_ms": 4100, "warm": True, "single_request": True},
+                _sample("actor", 2400),
+                _sample("reviewer", 1700),
+                _sample("actor", 4100),
             ]
         )
     )
@@ -73,21 +83,33 @@ def main() -> None:
     batched_only = cert.certify(
         _evidence(
             [
-                {"role": "actor", "wall_ms": 2000, "warm": True, "single_request": False},
-                {"role": "reviewer", "wall_ms": 1800, "warm": True, "single_request": False},
-                {"role": "actor", "wall_ms": 1900, "warm": True, "single_request": False},
+                _sample("actor", 2000, single=False),
+                _sample("reviewer", 1800, single=False),
+                _sample("actor", 1900, single=False),
             ]
         )
     )
     assert batched_only["certified"] is False
     assert batched_only["latency_samples"] == 0
 
+    synthetic_only = cert.certify(
+        _evidence(
+            [
+                _sample("actor", 900, representative=False),
+                _sample("reviewer", 800, representative=False),
+                _sample("actor", 850, representative=False),
+            ]
+        )
+    )
+    assert synthetic_only["certified"] is False
+    assert synthetic_only["latency_samples"] == 0
+
     missing_role = cert.certify(
         _evidence(
             [
-                {"role": "actor", "wall_ms": 2000, "warm": True, "single_request": True},
-                {"role": "actor", "wall_ms": 2100, "warm": True, "single_request": True},
-                {"role": "actor", "wall_ms": 2200, "warm": True, "single_request": True},
+                _sample("actor", 2000),
+                _sample("actor", 2100),
+                _sample("actor", 2200),
             ]
         )
     )

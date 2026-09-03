@@ -48,7 +48,8 @@ def main() -> None:
         assert {item["path"] for item in snapshot} == {".avantiqo/public_test.py", "src/value.py"}
 
         prompt = build_actor_prompt(root=root, task="Make value return 2.", policy=policy)
-        assert "hidden" not in prompt.lower()
+        assert "MODEL-VISIBLE WORKSPACE" in prompt
+        assert "sealed/" not in prompt and "../sealed" not in prompt
         actor = parse_actor_result(
             '{"criteria":["value must return 2"],"edits":[{"path":"src/value.py","old":"return 1","new":"return 2"}]}'
         )

@@ -26,7 +26,7 @@ jobs:
       AVANTIQO_VIDEO_ENGINE_ENABLED: "true"
       AVANTIQO_VIDEO_NATIVE_CONTROL_REAL_INFERENCE_APPROVED: "YES"
       AVANTIQO_VIDEO_NATIVE_CONTROL_MAX_SUPPLIER_GPU_COST_USD: "3.25"
-      AVANTIQO_VIDEO_NATIVE_CONTROL_PROOF_KEY: "native-control-v3"
+      AVANTIQO_VIDEO_NATIVE_CONTROL_PROOF_KEY: "native-control-v4"
       AVANTIQO_VIDEO_PROOF_ORGANIZATION_ID: "33336a72-acb5-474e-856b-8be0269360e2"
       AVANTIQO_VIDEO_PROOF_SOURCE_PATH: "33336a72-acb5-474e-856b-8be0269360e2/unassigned/eaa7edd6-7a62-4ca2-9eac-dfb14059e649-gemini-founder-rgro0za2hzes.mp4"
 
@@ -74,10 +74,15 @@ jobs:
             services/avantiqo-video-engine/modal_native_job.py \
             services/avantiqo-video-engine/modal_native_controlled_master.py \
             services/avantiqo-video-engine/modal_native_control_paid_preflight.py
+          grep -F 'modal.Function.from_name(DEPLOYED_APP, name)' services/avantiqo-video-engine/modal_native_control_paid_preflight.py >/dev/null
           echo 'AVANTIQO_VIDEO_EXACT_COMMIT_ZERO_GPU_ADMISSION=PASS'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
-      - name: Live Modal idle and supplier-cost admission
+      - name: Live named Modal idle and supplier-cost admission
+        env:
+          AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED: "NO"
+          AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED: "NO"
+          AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED: "NO"
         run: |
           set -euo pipefail
           test -n "${MODAL_TOKEN_ID:-}"
@@ -85,6 +90,34 @@ jobs:
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           cd services/avantiqo-video-engine
           modal run modal_native_control_paid_preflight.py::preflight
+
+      - name: Prove exact deployed JS transport serialization before paid spawn
+        env:
+          AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED: "NO"
+          AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED: "NO"
+          AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED: "NO"
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import * as modal from 'modal';
+          const tokenId = String(process.env.MODAL_TOKEN_ID || '').trim();
+          const tokenSecret = String(process.env.MODAL_TOKEN_SECRET || '').trim();
+          if (!tokenId || !tokenSecret) throw new Error('MODAL_CREDENTIALS_REQUIRED');
+          const client = new modal.ModalClient({ tokenId, tokenSecret });
+          const fn = await client.functions.fromName('avantiqo-video-owned', 'generate_native_job');
+          let failedAsExpected = false;
+          try {
+            await fn.remote([{}]);
+          } catch (error) {
+            const message = String(error?.message || error || '');
+            console.log('VIDEO_PAID_V4_SERIALIZATION_PROBE_ERROR=' + message.replace(/\s+/g, ' ').slice(0, 500));
+            if (message.includes('AVANTIQO_VIDEO_LTX25_MODAL_CAPABILITY_INVALID')) failedAsExpected = true;
+          }
+          if (!failedAsExpected) throw new Error('VIDEO_PAID_V4_SERIALIZATION_PROBE_DID_NOT_REACH_VALIDATION');
+          console.log('AVANTIQO_VIDEO_PAID_V4_JS_SERIALIZATION=PASS');
+          console.log('PAID_PROBE_GPU_GENERATION_CALLS=0');
+          console.log('MODAL_PAID_SPAWN_COUNT=0');
+          NODE
 
       - name: Spawn exactly one governed native-control Video job and resume exact FunctionCall
         run: |
@@ -117,7 +150,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: avantiqo-video-native-control-paid-proof-v3
+          name: avantiqo-video-native-control-paid-proof-v4
           path: local-audit-output/avantiqo-video-native-control-paid-proof/
           if-no-files-found: error
           compression-level: 0

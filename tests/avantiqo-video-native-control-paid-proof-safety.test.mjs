@@ -76,14 +76,18 @@ test("paid proof rejects transformed or retried native output", () => {
   assert.match(runner, /native_master_generated === true/);
 });
 
-test("live zero-GPU preflight checks all Video execution surfaces", () => {
-  assert.match(preflight, /generate_native_job\.get_current_stats\(\)|_stats\("generate_native_job", generate_native_job\)/);
-  assert.match(preflight, /_stats\("generate_native_controlled_master", generate_native_controlled_master\)/);
-  assert.match(preflight, /_stats\("generate_native_master", generate_native_master\)/);
+test("live zero-GPU preflight checks all named deployed Video execution surfaces", () => {
+  assert.match(preflight, /modal\.Function\.from_name\(DEPLOYED_APP, name\)/);
+  assert.match(preflight, /current = fn\.get_current_stats\(\)/);
+  assert.match(preflight, /"stats_source": "named_deployed_app"/);
+  assert.match(preflight, /"transport": _stats\("generate_native_job"\)/);
+  assert.match(preflight, /"controlled_master": _stats\("generate_native_controlled_master"\)/);
+  assert.match(preflight, /"legacy_master": _stats\("generate_native_master"\)/);
   assert.match(preflight, /VIDEO_ALREADY_ACTIVE/);
   assert.match(preflight, /"maximum_paid_gpu_jobs": 1/);
   assert.match(preflight, /"automatic_paid_retry": False/);
   assert.match(preflight, /"gpu_requested": False/);
+  assert.match(preflight, /AVANTIQO_VIDEO_NAMED_DEPLOYED_IDLE_GATE=PASS/);
 });
 
 test("same master must pass technical temporal and native audio checks without another generation", () => {

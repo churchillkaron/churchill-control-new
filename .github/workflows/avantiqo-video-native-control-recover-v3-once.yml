@@ -1,0 +1,119 @@
+name: Avantiqo Video Native Control Recover V3 Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-native-control-recover-v3-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-native-control-recover-v3-once
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: github.event.head_commit.message == 'Recover exact Video native-control FunctionCall once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_VIDEO_PROOF_ORGANIZATION_ID: "33336a72-acb5-474e-856b-8be0269360e2"
+      AVANTIQO_VIDEO_NATIVE_CONTROL_PROOF_KEY: "native-control-v3"
+      AVANTIQO_VIDEO_EXISTING_FUNCTION_CALL_ID: "fc-01M1JQP52HPC6EXZ8SQ2RJEBP3"
+      AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED: "NO"
+      AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED: "NO"
+      AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED: "NO"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install CPU recovery tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          npm ci --ignore-scripts
+
+      - name: Prove recovery cannot submit generation
+        run: |
+          set -euo pipefail
+          test "$AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED" = "NO"
+          test "$AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED" = "NO"
+          test "$AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED" = "NO"
+          node --check scripts/resume-avantiqo-video-native-control-paid-proof.mjs
+          if grep -F '.spawn(' scripts/resume-avantiqo-video-native-control-paid-proof.mjs; then
+            echo 'RECOVERY_MUST_NOT_SPAWN' >&2
+            exit 1
+          fi
+          if grep -F '.remote(' scripts/resume-avantiqo-video-native-control-paid-proof.mjs; then
+            echo 'RECOVERY_MUST_NOT_REMOTE_GENERATE' >&2
+            exit 1
+          fi
+          grep -F 'functionCalls.fromId(expectedCallId)' scripts/resume-avantiqo-video-native-control-paid-proof.mjs >/dev/null
+          grep -F 'fc-01M1JQP52HPC6EXZ8SQ2RJEBP3' .github/workflows/avantiqo-video-native-control-recover-v3-once.yml >/dev/null
+          echo 'AVANTIQO_VIDEO_RECOVERY_ZERO_GENERATION_ADMISSION=PASS'
+          echo 'NEW_GPU_INFERENCE_ALLOWED=false'
+
+      - name: Recover exact existing FunctionCall and inspect existing master
+        run: |
+          set -euo pipefail
+          node scripts/resume-avantiqo-video-native-control-paid-proof.mjs
+
+      - name: Verify recovery artifact contract
+        run: |
+          set -euo pipefail
+          REPORT='local-audit-output/avantiqo-video-native-control-paid-proof-recovery/native-control-paid-proof-recovery.json'
+          MP4='local-audit-output/avantiqo-video-native-control-paid-proof-recovery/native-control-master-3840x2176.mp4'
+          test -s "$REPORT"
+          test -s "$MP4"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('local-audit-output/avantiqo-video-native-control-paid-proof-recovery/native-control-paid-proof-recovery.json', 'utf8'));
+          if (report.success !== true) throw new Error('RECOVERY_NOT_SUCCESSFUL');
+          if (report.modal_function_call_id !== 'fc-01M1JQP52HPC6EXZ8SQ2RJEBP3') throw new Error('FUNCTION_CALL_ID_CHANGED');
+          if (report.original_modal_spawn_count !== 1) throw new Error('ORIGINAL_SPAWN_COUNT_INVALID');
+          if (report.recovery_modal_spawn_count !== 0) throw new Error('RECOVERY_SPAWN_COUNT_INVALID');
+          if (report.generation_result?.gpu_generation_calls !== 1) throw new Error('GPU_GENERATION_COUNT_INVALID');
+          if (report.generation_result?.native_control_executed !== true) throw new Error('NATIVE_CONTROL_NOT_EXECUTED');
+          if (report.generation_result?.first_frame_conditioning_used !== true || report.generation_result?.last_frame_conditioning_used !== true) throw new Error('FIRST_LAST_FRAME_CONTROL_MISSING');
+          if (report.generation_result?.automatic_paid_retry !== false) throw new Error('PAID_RETRY_POLICY_INVALID');
+          if (report.temporal_evidence?.audio_video_timing?.passed !== true) throw new Error('AV_TIMING_INVALID');
+          console.log('AVANTIQO_VIDEO_NATIVE_CONTROL_RECOVERY_ARTIFACT=PASS');
+          console.log('ORIGINAL_MODAL_SPAWN_COUNT=1');
+          console.log('RECOVERY_MODAL_SPAWN_COUNT=0');
+          console.log('GPU_GENERATION_CALLS=1');
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: avantiqo-video-native-control-paid-proof-recovery-v3
+          path: local-audit-output/avantiqo-video-native-control-paid-proof-recovery/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        run: |
+          echo 'NEW_GPU_INFERENCE_ALLOWED=false'
+          echo 'RECOVERY_MODAL_SPAWN_COUNT=0'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'

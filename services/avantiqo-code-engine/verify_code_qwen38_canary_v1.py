@@ -152,21 +152,26 @@ def _assert_policy() -> None:
     assert constants.get("CURRENT_MODEL") != EXPECTED_MODEL
     assert constants.get("MIN_NATIVE_CONTEXT") == 262_144
     assert constants.get("MAX_CANDIDATE_BYTES") == 32 * 1024**3
-    assert constants.get("MIN_BOOTSTRAP_EPHEMERAL_DISK_BYTES") == 64 * 1024**3
-    assert constants.get("PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES") == 96 * 1024**3
     for invariant in (
         "single_code_storage",
         "candidate_size_bounded",
-        "bootstrap_ephemeral_disk_safe",
         "distributed_volume_storage",
         "fixed_capacity_assumption_used",
+        "direct_to_volume_download",
+        "explicit_ephemeral_disk_requested",
         "production_routing_change",
         "production_deploy_performed",
         "volume_created",
     ):
         assert invariant in source, f"policy invariant missing: {invariant}"
-    assert "candidate_fits_single_volume" not in source
-    assert "MIN_FREE_AFTER_DOWNLOAD_BYTES" not in source
+    for retired in (
+        "candidate_fits_single_volume",
+        "MIN_FREE_AFTER_DOWNLOAD_BYTES",
+        "MIN_BOOTSTRAP_EPHEMERAL_DISK_BYTES",
+        "PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES",
+        "bootstrap_ephemeral_disk_safe",
+    ):
+        assert retired not in source, f"retired invariant present: {retired}"
 
 
 def _assert_preflight() -> None:
@@ -178,6 +183,8 @@ def _assert_preflight() -> None:
     assert "volume.read_file" in source
     assert "distributed_volume_storage\": True" in source
     assert "fixed_capacity_assumption_used\": False" in source
+    assert "direct_to_volume_download\": True" in source
+    assert "explicit_ephemeral_disk_requested\": False" in source
     assert "modal_function_created\": False" in source
     assert "container_started\": False" in source
     assert "gpu_used\": False" in source
@@ -185,6 +192,7 @@ def _assert_preflight() -> None:
     assert "volume_created\": False" in source
     assert "shutil.disk_usage" not in source
     assert "snapshot_download" not in source
+    assert "bootstrap_ephemeral_disk" not in source
 
 
 def _assert_bootstrap() -> None:
@@ -199,9 +207,19 @@ def _assert_bootstrap() -> None:
 
     decorators = dict(_app_function_decorators(tree))
     assert set(decorators) == {"bootstrap"}
-    assert _keyword_literal(decorators["bootstrap"], "gpu") is None, "bootstrap GPU forbidden"
-    assert "ephemeral_disk=EPHEMERAL_DISK_MIB" in source
-    assert "policy.PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES" in source
+    bootstrap_decorator = decorators["bootstrap"]
+    assert _keyword_literal(bootstrap_decorator, "gpu") is None, "bootstrap GPU forbidden"
+    assert _keyword_literal(bootstrap_decorator, "ephemeral_disk") is None, (
+        "bootstrap explicit ephemeral disk forbidden"
+    )
+
+    for cache_guard in (
+        '"HF_HOME": str(HF_ROOT)',
+        '"HF_HUB_CACHE": str(HF_CACHE_ROOT)',
+        '"HF_XET_CACHE": str(HF_XET_CACHE_ROOT)',
+        '"HF_XET_CHUNK_CACHE_SIZE_BYTES": "0"',
+    ):
+        assert cache_guard in source, f"bootstrap persistent cache guard missing: {cache_guard}"
 
     approval_pos = source.index("os.environ.get(APPROVAL_ENV) != \"YES\"")
     admission_pos = source.index("policy.assert_admitted(_mounted_admission_snapshot())")
@@ -217,6 +235,9 @@ def _assert_bootstrap() -> None:
     assert download_pos < marker_guard_pos < candidate_marker_write_pos < commit_pos < post_commit_guard_pos
     assert "revision=policy.CANDIDATE_REVISION" in source
     assert "repo_id=policy.CANDIDATE_MODEL" in source
+    assert "cache_dir=str(HF_CACHE_ROOT)" in source
+    assert "direct_to_volume_download\": True" in source
+    assert "explicit_ephemeral_disk_requested\": False" in source
     assert "distributed_volume_storage\": True" in source
     assert "fixed_capacity_assumption_used\": False" in source
     assert "production_routing_change\": False" in source
@@ -224,7 +245,8 @@ def _assert_bootstrap() -> None:
     assert "gpu_used\": False" in source
     assert "volume_created\": False" in source
     assert "shutil.disk_usage" not in source
-    assert "MIN_FREE_AFTER_DOWNLOAD_BYTES" not in source
+    assert "EPHEMERAL_DISK" not in source
+    assert "PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES" not in source
 
 
 def _assert_runtime() -> None:
@@ -269,6 +291,7 @@ def main() -> None:
     _assert_runtime()
     print("AVANTIQO_CODE_QWEN38_POLICY_V3=PASS")
     print("AVANTIQO_CODE_QWEN38_CONTROL_PLANE_PREFLIGHT=PASS")
+    print("AVANTIQO_CODE_QWEN38_DIRECT_TO_VOLUME=PASS")
     print("AVANTIQO_CODE_QWEN38_SINGLE_STORAGE=PASS")
     print("AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2_GUARDS=PASS")
     print("AVANTIQO_CODE_QWEN38_RUNTIME_ISOLATION=PASS")

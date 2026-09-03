@@ -1,10 +1,12 @@
 """Guarded CPU-only Qwen3.8 bootstrap into the existing Avantiqo Code Volume.
 
-Modal Volume is distributed persistent storage, not a fixed-size network disk.
-This bootstrap therefore protects the one-storage architecture by control-plane
-identity and marker integrity, while provisioning generous ephemeral disk for
-transient download work. It never creates a Volume, starts a GPU, changes
-production routing, or overwrites the current Qwen3-Coder readiness marker.
+The exact Hugging Face snapshot and Xet metadata/cache are written directly to
+the mounted persistent Code Volume. No large explicit ephemeral disk is
+requested. This preserves the one-storage architecture and avoids paying for or
+claiming a second storage surface.
+
+The bootstrap never creates a Volume, starts a GPU, changes production routing,
+or overwrites the current Qwen3-Coder readiness marker.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ CONTRACT = "AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2"
 MODEL_MOUNT_ROOT = "/models"
 HF_ROOT = Path(MODEL_MOUNT_ROOT) / "huggingface"
 HF_CACHE_ROOT = HF_ROOT / "hub"
+HF_XET_CACHE_ROOT = HF_ROOT / "xet"
 CURRENT_MARKER = Path(MODEL_MOUNT_ROOT) / "avantiqo-code-model-ready.json"
 CANDIDATE_MARKER = Path(MODEL_MOUNT_ROOT) / "avantiqo-code-qwen38-canary-ready.json"
 CANDIDATE_CACHE_DIRNAME = f"models--{policy.CANDIDATE_MODEL.replace('/', '--')}"
@@ -31,13 +34,22 @@ CANDIDATE_SNAPSHOT = (
     HF_CACHE_ROOT / CANDIDATE_CACHE_DIRNAME / "snapshots" / policy.CANDIDATE_REVISION
 )
 CANDIDATE_BYTES_BUDGET = 30_900_000_000
-EPHEMERAL_DISK_MIB = policy.PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES // (1024**2)
 APPROVAL_ENV = "AVANTIQO_CODE_QWEN38_BOOTSTRAP_APPROVED"
 
 app = modal.App(APP_NAME)
 model_volume = modal.Volume.from_name(policy.CODE_VOLUME, create_if_missing=False)
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "huggingface_hub==0.35.0"
+image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .pip_install("huggingface_hub==0.35.0")
+    .env(
+        {
+            "HF_HOME": str(HF_ROOT),
+            "HF_HUB_CACHE": str(HF_CACHE_ROOT),
+            "HF_XET_CACHE": str(HF_XET_CACHE_ROOT),
+            "HF_XET_CHUNK_CACHE_SIZE_BYTES": "0",
+            "HF_HUB_DISABLE_TELEMETRY": "1",
+        }
+    )
 )
 
 
@@ -75,11 +87,12 @@ def _mounted_admission_snapshot() -> dict[str, Any]:
     return {
         "candidate_bytes": CANDIDATE_BYTES_BUDGET,
         "candidate_revision": policy.CANDIDATE_REVISION,
-        "bootstrap_ephemeral_disk_bytes": EPHEMERAL_DISK_MIB * 1024**2,
         "code_storage_volumes": [policy.CODE_VOLUME],
         "current_model_ready": _current_model_ready(),
         "distributed_volume_storage": True,
         "fixed_capacity_assumption_used": False,
+        "direct_to_volume_download": True,
+        "explicit_ephemeral_disk_requested": False,
         "inference_requested": False,
         "production_routing_change": False,
         "production_deploy_performed": False,
@@ -92,7 +105,6 @@ def _mounted_admission_snapshot() -> dict[str, Any]:
     volumes={MODEL_MOUNT_ROOT: model_volume},
     cpu=4.0,
     memory=8192,
-    ephemeral_disk=EPHEMERAL_DISK_MIB,
     timeout=45 * 60,
 )
 def bootstrap() -> dict[str, Any]:
@@ -102,6 +114,10 @@ def bootstrap() -> dict[str, Any]:
     admission = policy.assert_admitted(_mounted_admission_snapshot())
     if admission.get("single_code_storage") is not True:
         raise RuntimeError(f"{CONTRACT}_SINGLE_CODE_STORAGE_REQUIRED")
+    if admission.get("direct_to_volume_download") is not True:
+        raise RuntimeError(f"{CONTRACT}_DIRECT_TO_VOLUME_REQUIRED")
+    if admission.get("explicit_ephemeral_disk_requested") is not False:
+        raise RuntimeError(f"{CONTRACT}_EXPLICIT_EPHEMERAL_DISK_FORBIDDEN")
 
     current_marker_before = CURRENT_MARKER.read_bytes() if CURRENT_MARKER.is_file() else None
     if current_marker_before is None:
@@ -116,7 +132,8 @@ def bootstrap() -> dict[str, Any]:
             "runtime_model": policy.CANDIDATE_MODEL,
             "revision": policy.CANDIDATE_REVISION,
             "model_volume_name": policy.CODE_VOLUME,
-            "ephemeral_disk_mib": EPHEMERAL_DISK_MIB,
+            "direct_to_volume_download": True,
+            "explicit_ephemeral_disk_requested": False,
             "gpu_used": False,
             "production_routing_change": False,
             "production_deploy_performed": False,
@@ -127,6 +144,7 @@ def bootstrap() -> dict[str, Any]:
     from huggingface_hub import snapshot_download
 
     HF_CACHE_ROOT.mkdir(parents=True, exist_ok=True)
+    HF_XET_CACHE_ROOT.mkdir(parents=True, exist_ok=True)
     resolved = Path(
         snapshot_download(
             repo_id=policy.CANDIDATE_MODEL,
@@ -152,12 +170,17 @@ def bootstrap() -> dict[str, Any]:
         "contract": CONTRACT,
         "runtime_model": policy.CANDIDATE_MODEL,
         "revision": policy.CANDIDATE_REVISION,
-        "source": "huggingface-guarded-same-modal-volume-bootstrap",
+        "source": "huggingface-direct-to-existing-modal-volume-bootstrap",
         "snapshot_path": str(CANDIDATE_SNAPSHOT),
         "files": len(files),
         "bytes": sum(item.stat().st_size for item in files),
         "candidate_bytes_budget": CANDIDATE_BYTES_BUDGET,
-        "ephemeral_disk_mib": EPHEMERAL_DISK_MIB,
+        "direct_to_volume_download": True,
+        "explicit_ephemeral_disk_requested": False,
+        "hf_home": str(HF_ROOT),
+        "hf_hub_cache": str(HF_CACHE_ROOT),
+        "hf_xet_cache": str(HF_XET_CACHE_ROOT),
+        "hf_xet_chunk_cache_size_bytes": 0,
         "distributed_volume_storage": True,
         "fixed_capacity_assumption_used": False,
         "created_at_epoch_ms": int(time.time() * 1000),
@@ -181,7 +204,8 @@ def bootstrap() -> dict[str, Any]:
         "model_volume_name": policy.CODE_VOLUME,
         "files": marker["files"],
         "bytes": marker["bytes"],
-        "ephemeral_disk_mib": EPHEMERAL_DISK_MIB,
+        "direct_to_volume_download": True,
+        "explicit_ephemeral_disk_requested": False,
         "gpu_used": False,
         "production_routing_change": False,
         "production_deploy_performed": False,

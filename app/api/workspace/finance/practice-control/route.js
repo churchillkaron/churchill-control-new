@@ -39,6 +39,15 @@ async function requireFinanceView(access) {
   });
 }
 
+function viewerFromAccess(access) {
+  return {
+    staff_account_id: access?.access?.staffAccountId || access?.staff?.id || null,
+    name: access?.staff?.name || access?.staff?.display_name || access?.staff?.email || access?.user?.email || "Accounting team member",
+    email: access?.staff?.email || access?.user?.email || null,
+    role: access?.access?.role || access?.role || access?.staff?.role || null,
+  };
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -54,6 +63,7 @@ export async function GET(request) {
       );
     }
     await requireFinanceView(access);
+    const viewer = viewerFromAccess(access);
 
     const { data: engagements, error: engagementError } = await supabaseAdmin
       .from("accounting_engagements")
@@ -69,6 +79,7 @@ export async function GET(request) {
     if (!clientIds.length) {
       return NextResponse.json({
         success: true,
+        viewer,
         summary: {
           active_clients: 0,
           attention: 0,
@@ -90,7 +101,7 @@ export async function GET(request) {
       supabaseAdmin.from("organizations").select("id,name").in("id", clientIds),
       supabaseAdmin
         .from("accounting_client_profiles")
-        .select("organization_id, assigned_accountant_id, assigned_accountant_name, assigned_reviewer_id, assigned_reviewer_name, status")
+        .select("organization_id, assigned_accountant_id, assigned_accountant_name, assigned_reviewer_id, assigned_reviewer_name, assigned_partner_id, assigned_partner_name, status")
         .eq("accounting_firm_id", access.organizationId)
         .in("organization_id", clientIds),
       supabaseAdmin
@@ -239,8 +250,12 @@ export async function GET(request) {
         engagement_id: engagement.id,
         name: organization.name || "Client organization",
         service_package: engagement.service_package || null,
+        assigned_accountant_id: profile.assigned_accountant_id || null,
         assigned_accountant: profile.assigned_accountant_name || null,
+        assigned_reviewer_id: profile.assigned_reviewer_id || null,
         assigned_reviewer: profile.assigned_reviewer_name || null,
+        assigned_partner_id: profile.assigned_partner_id || null,
+        assigned_partner: profile.assigned_partner_name || null,
         year_end_date: engagement.year_end_date || null,
         renewal_date: engagement.renewal_date || null,
         next_deadline: nextDeadline,
@@ -273,6 +288,7 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
+      viewer,
       summary: {
         active_clients: clients.length,
         attention: clients.filter((client) => client.status === "ATTENTION").length,

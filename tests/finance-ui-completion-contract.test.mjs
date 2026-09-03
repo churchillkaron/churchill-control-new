@@ -8,6 +8,7 @@ function read(path) {
 
 const financePage = read("app/(system)/workspace/[organizationId]/finance/page.jsx");
 const overview = read("components/workspace/finance/FinanceAccountantOverview.jsx");
+const portfolioFocus = read("components/workspace/finance/FinancePracticePortfolioFocus.jsx");
 const clientDependencyRail = read("components/workspace/finance/FinanceClientDependencyRail.jsx");
 const areaHub = read("components/workspace/finance/FinanceAreaHub.jsx");
 const shellNavigation = read("components/workspace/finance/FinanceShellNavigation.jsx");
@@ -27,6 +28,20 @@ test("Finance landing page is work-first rather than a KPI card dashboard", () =
   assert.doesNotMatch(overview, /MetricCard/);
   assert.doesNotMatch(overview, /Practice pulse/);
   assert.doesNotMatch(overview, /grid-cols-2 gap-2 md:grid-cols-4/);
+});
+
+test("Finance accounting-firm landing adds a conditional portfolio exception rail", () => {
+  assert.match(financePage, /FinancePracticePortfolioFocus/);
+  assert.match(portfolioFocus, /\/api\/workspace\/finance\/practice-control/);
+  assert.match(portfolioFocus, /Firm portfolio/);
+  assert.match(portfolioFocus, /Exceptions across clients, before dashboards/);
+  assert.match(portfolioFocus, /Next human move/);
+  assert.match(portfolioFocus, /Owner/);
+  assert.match(portfolioFocus, /Deadline/);
+  assert.match(portfolioFocus, /WAITING_SAFELY/);
+  assert.match(portfolioFocus, /do not chase/i);
+  assert.match(portfolioFocus, /active_clients\) === 0/);
+  assert.doesNotMatch(portfolioFocus, /MetricCard/);
 });
 
 test("Finance client dependencies stay a work list instead of becoming KPI cards", () => {

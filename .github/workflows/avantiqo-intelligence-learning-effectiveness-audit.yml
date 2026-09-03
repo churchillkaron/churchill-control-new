@@ -1,0 +1,48 @@
+name: Avantiqo Intelligence Learning Effectiveness Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/intelligence/runtime/AvantiqoLearningEffectivenessCertificationRuntime.mjs"
+      - "lib/intelligence/runtime/AvantiqoLearningEffectivenessRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoKnowledgeCounterfactualBenchmarkRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningTransferRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningTransferValidationRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningTransferRevisionRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoNegativeTransferEvidenceClockRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoKnowledgeUtilityAttributionRuntime.js"
+      - "scripts/audit-avantiqo-learning-effectiveness-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-learning-effectiveness-audit.yml"
+  pull_request:
+    paths:
+      - "lib/intelligence/runtime/AvantiqoLearningEffectivenessCertificationRuntime.mjs"
+      - "lib/intelligence/runtime/AvantiqoLearningEffectivenessRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoKnowledgeCounterfactualBenchmarkRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningTransferRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningTransferValidationRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningTransferRevisionRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoNegativeTransferEvidenceClockRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoKnowledgeUtilityAttributionRuntime.js"
+      - "scripts/audit-avantiqo-learning-effectiveness-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-learning-effectiveness-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  learning-effectiveness-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+
+      - name: Audit learning effectiveness
+        run: node scripts/audit-avantiqo-learning-effectiveness-local.mjs

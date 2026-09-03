@@ -42,6 +42,11 @@ GPU_MEMORY_UTILIZATION = 0.90
 LOAD_FORMAT = "instanttensor"
 GDN_PREFILL_BACKEND = "triton"
 FAST_BOOT_ENFORCE_EAGER = True
+SMOKE_WARM_LATENCY_TARGET_MS = 4_000
+SMOKE_EXPECTED_TYPESCRIPT = (
+    'export function canonicalCurrency(value: unknown): string { '
+    'return String(value ?? "").trim().toUpperCase(); }'
+)
 
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
@@ -172,6 +177,24 @@ def _validated_request(request: dict[str, Any]) -> dict[str, Any]:
     return request
 
 
+def _render(tokenizer: Any, instruction: str) -> str:
+    return tokenizer.apply_chat_template(
+        [{"role": "user", "content": instruction}],
+        tokenize=False,
+        add_generation_prompt=True,
+        enable_thinking=False,
+    )
+
+
+def _first_text(outputs: Any) -> str:
+    if not outputs or not outputs[0].outputs:
+        raise RuntimeError(f"{CONTRACT}_OUTPUT_REQUIRED")
+    text = str(outputs[0].outputs[0].text or "").strip()
+    if not text:
+        raise RuntimeError(f"{CONTRACT}_OUTPUT_REQUIRED")
+    return text
+
+
 _FUNCTION_OPTIONS = dict(
     image=image,
     volumes={MODEL_MOUNT_ROOT: model_volume},
@@ -225,6 +248,84 @@ def runtime_probe(approved: bool = False) -> dict[str, Any]:
 
 
 @app.function(**_FUNCTION_OPTIONS)
+def generation_smoke(approved: bool = False) -> dict[str, Any]:
+    """Load once, warm once, then score one tiny deterministic Code generation."""
+    if approved is not True:
+        raise RuntimeError(f"{CONTRACT}_EXPLICIT_APPROVAL_REQUIRED")
+
+    marker = _validate_snapshot()
+    identity = _runtime_identity()
+    prepare_started = time.perf_counter()
+    tokenizer, engine = _load()
+    engine_prepare_ms = round((time.perf_counter() - prepare_started) * 1000)
+
+    from vllm import SamplingParams
+
+    warm_started = time.perf_counter()
+    warm_outputs = engine.generate(
+        [_render(tokenizer, "Return only OK.")],
+        SamplingParams(temperature=0.0, max_tokens=8, skip_special_tokens=True),
+        use_tqdm=False,
+    )
+    warm_generation_ms = round((time.perf_counter() - warm_started) * 1000)
+    warm_text = _first_text(warm_outputs)
+
+    scored_instruction = (
+        "Return exactly the following TypeScript source and nothing else. "
+        "Do not use markdown fences or add an explanation.\n"
+        + SMOKE_EXPECTED_TYPESCRIPT
+    )
+    scored_started = time.perf_counter()
+    scored_outputs = engine.generate(
+        [_render(tokenizer, scored_instruction)],
+        SamplingParams(temperature=0.0, max_tokens=96, skip_special_tokens=True),
+        use_tqdm=False,
+    )
+    warm_scored_ms = round((time.perf_counter() - scored_started) * 1000)
+    scored_text = _first_text(scored_outputs)
+
+    warmup_pass = warm_text == "OK"
+    correctness_pass = scored_text == SMOKE_EXPECTED_TYPESCRIPT
+    latency_pass = warm_scored_ms <= SMOKE_WARM_LATENCY_TARGET_MS
+    smoke_pass = warmup_pass and correctness_pass and latency_pass
+    model_volume.commit()
+
+    return {
+        "contract": CONTRACT,
+        "status": "passed" if smoke_pass else "failed",
+        "smoke_pass": smoke_pass,
+        "warmup_pass": warmup_pass,
+        "correctness_pass": correctness_pass,
+        "latency_pass": latency_pass,
+        "runtime_model": policy.CANDIDATE_MODEL,
+        "revision": policy.CANDIDATE_REVISION,
+        **identity,
+        "model_volume_name": policy.CODE_VOLUME,
+        "snapshot_path": str(CANDIDATE_SNAPSHOT),
+        "vllm_cache_root": str(VLLM_CACHE_ROOT),
+        "marker_contract": marker.get("contract"),
+        "engine_prepare_ms": engine_prepare_ms,
+        "warm_generation_ms": warm_generation_ms,
+        "warm_scored_ms": warm_scored_ms,
+        "warm_latency_target_ms": SMOKE_WARM_LATENCY_TARGET_MS,
+        "warmup_output": warm_text,
+        "scored_output": scored_text,
+        "expected_output": SMOKE_EXPECTED_TYPESCRIPT,
+        "max_num_seqs": MAX_NUM_SEQS,
+        "load_format": LOAD_FORMAT,
+        "gdn_prefill_backend": GDN_PREFILL_BACKEND,
+        "fast_boot_enforce_eager": FAST_BOOT_ENFORCE_EAGER,
+        "language_model_only": True,
+        "prefix_caching_enabled": False,
+        "speculative_decoding_enabled": False,
+        "production_routing_change": False,
+        "production_deploy_performed": False,
+        "model_download_performed": False,
+        "volume_created": False,
+    }
+
+
+@app.function(**_FUNCTION_OPTIONS)
 def generate(requests: list[dict[str, Any]], approved: bool = False) -> dict[str, Any]:
     """Bounded warm-batch canary generation for private certification."""
     if approved is not True:
@@ -239,17 +340,7 @@ def generate(requests: list[dict[str, Any]], approved: bool = False) -> dict[str
     tokenizer, engine = _load()
     from vllm import SamplingParams
 
-    rendered: list[str] = []
-    for item in validated:
-        messages = [{"role": "user", "content": item["instruction"]}]
-        rendered.append(
-            tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True,
-                enable_thinking=False,
-            )
-        )
+    rendered = [_render(tokenizer, item["instruction"]) for item in validated]
     started = time.perf_counter()
     outputs = engine.generate(
         rendered,
@@ -295,5 +386,5 @@ def generate(requests: list[dict[str, Any]], approved: bool = False) -> dict[str
 @app.local_entrypoint()
 def main() -> None:
     raise RuntimeError(
-        f"{CONTRACT}_NO_DEFAULT_PAID_ENTRYPOINT:invoke runtime_probe or generate explicitly"
+        f"{CONTRACT}_NO_DEFAULT_PAID_ENTRYPOINT:invoke runtime_probe, generation_smoke or generate explicitly"
     )

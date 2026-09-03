@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f .github/avantiqo-code-qwen38-h100-probe-once.txt
-          grep -qx 'AVANTIQO_CODE_QWEN38_H100_PROBE_ONCE=20260903-V1' .github/avantiqo-code-qwen38-h100-probe-once.txt
+          grep -qx 'AVANTIQO_CODE_QWEN38_H100_PROBE_ONCE=20260903-V2' .github/avantiqo-code-qwen38-h100-probe-once.txt
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -71,7 +71,7 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
         run: |
           set -euo pipefail
-          timeout --signal=TERM --kill-after=30s 15m python -m modal run services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py::app.runtime_probe --approved true 2>&1 | tee /tmp/qwen38-h100-probe.log
+          timeout --signal=TERM --kill-after=30s 15m python -m modal run services/avantiqo-code-engine/modal_code_qwen38_canary_runtime.py::app.runtime_probe --approved 2>&1 | tee /tmp/qwen38-h100-probe.log
           grep -q 'runtime_ready' /tmp/qwen38-h100-probe.log
           grep -q 'Qwen/Qwen3.8-27B-FP8' /tmp/qwen38-h100-probe.log
           grep -q '017b9c7af6b5689d5dd426a76e0bc077eb5ca20a' /tmp/qwen38-h100-probe.log

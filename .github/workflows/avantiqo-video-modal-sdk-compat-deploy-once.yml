@@ -1,0 +1,76 @@
+name: Avantiqo Video Modal SDK Compatibility Deploy Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-modal-sdk-compat-deploy-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-modal-sdk-compat-deploy-once
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.head_commit.message == 'Redeploy Video Modal transport with compatible SDK once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED: "NO"
+      AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED: "NO"
+      AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED: "NO"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install compatible Modal SDK
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          python - <<'PY'
+          import modal
+          print('MODAL_PYTHON_SDK_VERSION=' + modal.__version__)
+          PY
+
+      - name: Zero-GPU source admission
+        run: |
+          set -euo pipefail
+          test "$AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED" = "NO"
+          test "$AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED" = "NO"
+          test "$AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED" = "NO"
+          python -m py_compile \
+            services/avantiqo-video-engine/modal_app.py \
+            services/avantiqo-video-engine/modal_native_job.py \
+            services/avantiqo-video-engine/modal_native_controlled_master.py
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Redeploy same owned Video Modal app
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          cd services/avantiqo-video-engine
+          modal deploy modal_app.py
+          echo 'AVANTIQO_VIDEO_MODAL_SDK_COMPAT_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Preserve release boundary
+        if: always()
+        run: |
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'

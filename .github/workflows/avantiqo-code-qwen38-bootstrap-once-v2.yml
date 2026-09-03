@@ -1,0 +1,70 @@
+name: Avantiqo Code Qwen3.8 Bootstrap V2
+
+on:
+  push:
+    paths:
+      - .github/avantiqo-code-qwen38-bootstrap-once-v2.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-code-qwen38-bootstrap-v2
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Modal
+        run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
+      - name: Verify source and control-plane admission
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          grep -qx 'AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2_ONCE=20260903' .github/avantiqo-code-qwen38-bootstrap-once-v2.txt
+          python -m py_compile services/avantiqo-code-engine/code_model_canary_v2.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/modal_code_model_canary_preflight.py | tee /tmp/qwen38-preflight-before.log
+          grep -q '^AVANTIQO_CODE_MODEL_CANARY_V3=PASS$' /tmp/qwen38-preflight-before.log
+          grep -q '"candidate_already_ready":false' /tmp/qwen38-preflight-before.log || true
+      - name: Bootstrap exact candidate on CPU only
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+          AVANTIQO_CODE_QWEN38_BOOTSTRAP_APPROVED: 'YES'
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30s 46m python -m modal run services/avantiqo-code-engine/modal_code_qwen38_bootstrap.py 2>&1 | tee /tmp/qwen38-bootstrap.log
+          grep -q '^AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2=PASS$' /tmp/qwen38-bootstrap.log
+          grep -q '"gpu_used":false' /tmp/qwen38-bootstrap.log
+          grep -q '"volume_created":false' /tmp/qwen38-bootstrap.log
+          grep -q '"current_marker_preserved":true' /tmp/qwen38-bootstrap.log
+      - name: Verify post-bootstrap storage state
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/modal_code_model_canary_preflight.py | tee /tmp/qwen38-preflight-after.log
+          grep -q '^AVANTIQO_CODE_MODEL_CANARY_V3=PASS$' /tmp/qwen38-preflight-after.log
+          grep -q '"candidate_already_ready":true' /tmp/qwen38-preflight-after.log
+          grep -q '"current_model_revision":"dcaee4d4dfc5ee71ad501f01f530e5652438fde0"' /tmp/qwen38-preflight-after.log
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-code-qwen38-bootstrap-v2-${{ github.run_id }}
+          path: |
+            /tmp/qwen38-preflight-before.log
+            /tmp/qwen38-bootstrap.log
+            /tmp/qwen38-preflight-after.log
+          if-no-files-found: warn
+          retention-days: 14

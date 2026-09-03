@@ -1,0 +1,43 @@
+name: Avantiqo Intelligence Long Horizon Memory Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoKnowledgeLifecycleRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLongHorizonMemoryCertificationRuntime.mjs"
+      - "scripts/audit-avantiqo-long-horizon-memory-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-long-horizon-memory-audit.yml"
+  pull_request:
+    paths:
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoKnowledgeLifecycleRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLongHorizonMemoryCertificationRuntime.mjs"
+      - "scripts/audit-avantiqo-long-horizon-memory-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-long-horizon-memory-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  long-horizon-memory-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Audit long horizon memory
+        run: node scripts/audit-avantiqo-long-horizon-memory-local.mjs

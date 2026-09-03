@@ -1,0 +1,121 @@
+name: Avantiqo Production Build Certification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/avantiqo-production-build-certification.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-production-build-certification
+  cancel-in-progress: true
+
+jobs:
+  certify-production-build:
+    name: Certify Next.js production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CI: "1"
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_OPTIONS: --max-old-space-size=6144
+      VERCEL: "1"
+      VERCEL_ENV: production
+
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Record source and runner capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "AVANTIQO_BUILD_CERT source_sha=$(git rev-parse HEAD)"
+          echo "AVANTIQO_BUILD_CERT source_message=$(git log -1 --pretty=%s)"
+          echo "AVANTIQO_BUILD_CERT node=$(node --version) npm=$(npm --version)"
+          echo "AVANTIQO_BUILD_CERT cpu=$(nproc)"
+          free -m
+          df -h .
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          start=$(date +%s)
+          npm ci
+          end=$(date +%s)
+          echo "AVANTIQO_BUILD_CERT install_seconds=$((end-start))"
+
+      - name: Full Next.js production build with diagnostics
+        id: build
+        shell: bash
+        run: |
+          set -uo pipefail
+          rm -rf .next
+          : > next-build.log
+          start=$(date +%s)
+          echo "AVANTIQO_BUILD_CERT build_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a next-build.log
+
+          timeout --signal=TERM --kill-after=20s 8m /usr/bin/time -v npm run build > >(tee -a next-build.log) 2>&1 &
+          build_pid=$!
+
+          heartbeat() {
+            while kill -0 "$build_pid" 2>/dev/null; do
+              sleep 30
+              if ! kill -0 "$build_pid" 2>/dev/null; then
+                break
+              fi
+              now=$(date +%s)
+              elapsed=$((now-start))
+              echo "AVANTIQO_BUILD_HEARTBEAT elapsed_seconds=$elapsed utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a next-build.log
+              ps -eo pid,ppid,etime,%cpu,%mem,rss,command --sort=-rss | head -n 18 | tee -a next-build.log || true
+              free -m | tee -a next-build.log || true
+            done
+          }
+
+          heartbeat &
+          heartbeat_pid=$!
+
+          wait "$build_pid"
+          status=$?
+          kill "$heartbeat_pid" 2>/dev/null || true
+          wait "$heartbeat_pid" 2>/dev/null || true
+
+          end=$(date +%s)
+          elapsed=$((end-start))
+          echo "AVANTIQO_BUILD_CERT build_seconds=$elapsed exit=$status" | tee -a next-build.log
+
+          if [ "$status" -eq 124 ]; then
+            echo "AVANTIQO_BUILD_CERT result=FAIL reason=hard-timeout-8m" | tee -a next-build.log
+            exit 124
+          fi
+
+          if [ "$status" -ne 0 ]; then
+            echo "AVANTIQO_BUILD_CERT result=FAIL reason=next-build-exit-$status" | tee -a next-build.log
+            exit "$status"
+          fi
+
+          echo "AVANTIQO_BUILD_CERT result=PASS" | tee -a next-build.log
+
+      - name: Upload build diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-next-production-build-${{ github.sha }}
+          path: next-build.log
+          if-no-files-found: warn
+          retention-days: 7

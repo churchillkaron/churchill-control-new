@@ -17,7 +17,7 @@ def _workspace(root: Path) -> None:
     (root / ".avantiqo").mkdir(parents=True)
     (root / "src/value.py").write_text("def normalize(value):\n    return value\n", encoding="utf-8")
     (root / ".avantiqo/public_test.py").write_text(
-        "from src.value import normalize\nassert normalize(5) == 5\n",
+        "from pathlib import Path\nimport sys\nROOT = Path.cwd()\nsys.path.insert(0, str(ROOT))\nfrom src.value import normalize\nassert normalize(5) == 5\n",
         encoding="utf-8",
     )
 

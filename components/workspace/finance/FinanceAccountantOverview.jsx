@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -13,7 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import { useFinanceLandingRuntime } from "@/components/workspace/finance/FinanceLandingRuntimeProvider";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -96,60 +96,30 @@ function ControlRow({ label, value, detail, href, attention = false }) {
 }
 
 export default function FinanceAccountantOverview({ organizationId }) {
-  const businessContext = useBusinessContext() || {};
-  const entityId = businessContext.entity_id || businessContext.entity?.id || null;
-  const periodId = businessContext.period_id || businessContext.period?.id || null;
+  const {
+    entityId,
+    periodId,
+    entity,
+    period,
+    data,
+    currency,
+    loading,
+    refreshing,
+    error,
+    stale,
+    refresh,
+  } = useFinanceLandingRuntime();
   const entityName =
-    businessContext.entity?.display_name ||
-    businessContext.entity?.legal_name ||
-    businessContext.entity?.name ||
+    entity?.display_name ||
+    entity?.legal_name ||
+    entity?.name ||
     "Select legal entity";
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [data, setData] = useState(null);
-
-  async function load() {
-    if (!organizationId) return;
-    try {
-      setLoading(true);
-      setError("");
-      const url = new URL("/api/workspace/finance/command-center", window.location.origin);
-      url.searchParams.set("organizationId", organizationId);
-      if (entityId) url.searchParams.set("entityId", entityId);
-      if (periodId) url.searchParams.set("periodId", periodId);
-      const response = await fetch(url.toString(), {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || body?.success === false) {
-        throw new Error(body?.error || `Finance workspace failed (${response.status})`);
-      }
-      setData(body);
-    } catch (loadError) {
-      setData(null);
-      setError(loadError?.message || "Finance workspace could not be loaded");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, [organizationId, entityId, periodId]);
 
   const metrics = data?.metrics || {};
   const queue = Array.isArray(data?.queue) ? data.queue : [];
   const close = data?.close || { steps: [], completed: 0, total: 0, progress: 0 };
   const practice = data?.practice || { active_clients: 0 };
   const sources = data?.sources || {};
-  const currency =
-    data?.context?.currency ||
-    businessContext.entity?.currency ||
-    businessContext.organization?.default_currency ||
-    null;
-
   const recommendation = queue[0] || null;
   const sourceHealth = useMemo(() => {
     const rows = Object.values(sources || {});
@@ -179,7 +149,7 @@ export default function FinanceAccountantOverview({ organizationId }) {
             <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[8px] text-[#817B73]">
               <span className="font-semibold text-[#5F5952]">{entityName}</span>
               <span>·</span>
-              <span>{periodLabel(businessContext.period)}</span>
+              <span>{periodLabel(period)}</span>
               {data?.context?.period_status ? <><span>·</span><span>{titleCase(data.context.period_status)}</span></> : null}
               {data?.generated_at ? <><span>·</span><span>Updated {new Date(data.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></> : null}
             </div>
@@ -188,8 +158,8 @@ export default function FinanceAccountantOverview({ organizationId }) {
             <Link href={financeHref(organizationId, "/finance/work")} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white">
               My work <ArrowRight size={9} />
             </Link>
-            <button type="button" onClick={load} disabled={loading} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#716B63] disabled:opacity-50">
-              <RefreshCw size={10} className={loading ? "animate-spin" : ""} /> Refresh
+            <button type="button" onClick={refresh} disabled={refreshing} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#716B63] disabled:opacity-50">
+              <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} /> Refresh
             </button>
           </div>
         </div>
@@ -199,7 +169,7 @@ export default function FinanceAccountantOverview({ organizationId }) {
         <section className="rounded-2xl border border-amber-700/15 bg-amber-50 p-5 text-[10px] text-amber-900">
           Select a legal entity and accounting period in the top bar to load accounting work, balances and close status.
         </section>
-      ) : error ? (
+      ) : error && !data ? (
         <section className="rounded-2xl border border-red-700/15 bg-red-50 p-4 text-[9px] text-red-800">
           <div className="flex items-start gap-2"><AlertTriangle size={12} className="mt-0.5" /><div><div className="font-semibold">Finance could not load</div><div className="mt-1">{error}</div></div></div>
         </section>
@@ -274,7 +244,7 @@ export default function FinanceAccountantOverview({ organizationId }) {
             </div>
             <div className="border-t border-black/[0.05] bg-[#FCFBF8] px-4 py-3 text-[7px] text-[#8E887F]">
               <div className="flex items-center gap-1.5"><ShieldCheck size={9} className={sourceHealth.errors ? "text-[#9A533D]" : "text-[#66765F]"} /><span className="font-semibold">{sourceHealth.connected}/{sourceHealth.total || sourceHealth.connected} control sources connected</span>{sourceHealth.errors ? <span>· {sourceHealth.errors} warning{sourceHealth.errors === 1 ? "" : "s"}</span> : null}</div>
-              <div className="mt-1">No recommendation bypasses approval, review, partner clearance or period-close controls.</div>
+              <div className="mt-1">{error && stale ? `Refresh delayed · ${error}` : "No recommendation bypasses approval, review, partner clearance or period-close controls."}</div>
             </div>
           </aside>
         </div>

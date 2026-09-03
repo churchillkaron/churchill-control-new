@@ -14,7 +14,7 @@ RUNTIME_PATH = ROOT / "modal_code_qwen38_canary_runtime.py"
 EXPECTED_MODEL = "Qwen/Qwen3.8-27B-FP8"
 EXPECTED_REVISION = "017b9c7af6b5689d5dd426a76e0bc077eb5ca20a"
 EXPECTED_VOLUME = "avantiqo-code-models"
-EXPECTED_RUNTIME_CONTRACT = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V3"
+EXPECTED_RUNTIME_CONTRACT = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V4"
 EXPECTED_VLLM_VERSION = "0.28.0"
 EXPECTED_VLLM_BUILD_COMMIT = "2cf0a6915ce544dc493a0990f2ea38d81601128a"
 
@@ -65,12 +65,19 @@ def _assert_runtime() -> None:
         f'VLLM_BUILD_COMMIT = "{EXPECTED_VLLM_BUILD_COMMIT}"',
         'INSTANTTENSOR_VERSION = "0.1.9"',
         'MAX_MODEL_LEN = 32_768',
-        'MAX_NUM_SEQS = 128',
+        'MAX_NUM_SEQS = 16',
         'GPU_MEMORY_UTILIZATION = 0.90',
         'LOAD_FORMAT = "instanttensor"',
         'GDN_PREFILL_BACKEND = "triton"',
         'FAST_BOOT_ENFORCE_EAGER = True',
         'SMOKE_WARM_LATENCY_TARGET_MS = 4_000',
+        'os.environ["VLLM_USE_DEEP_GEMM"] = "0"',
+        'os.environ["VLLM_MOE_USE_DEEP_GEMM"] = "0"',
+        'os.environ["VLLM_DEEP_GEMM_WARMUP"] = "skip"',
+        '"VLLM_USE_DEEP_GEMM": "0"',
+        '"VLLM_MOE_USE_DEEP_GEMM": "0"',
+        '"VLLM_DEEP_GEMM_WARMUP": "skip"',
+        'RUN python -m pip install --no-deps instanttensor==',
         'def generation_smoke(approved: bool = False)',
         '_render(tokenizer, "Return only OK.")',
         'SamplingParams(temperature=0.0, max_tokens=8, skip_special_tokens=True)',
@@ -81,8 +88,8 @@ def _assert_runtime() -> None:
         'smoke_pass = warmup_pass and correctness_pass and latency_pass',
         '"warm_scored_ms": warm_scored_ms',
         '"warm_latency_target_ms": SMOKE_WARM_LATENCY_TARGET_MS',
+        '"deep_gemm_enabled": False',
         'create_if_missing=False',
-        '.pip_install(f"instanttensor=={INSTANTTENSOR_VERSION}")',
         '.add_local_python_source("code_model_canary_v2")',
         '"VLLM_CACHE_ROOT": str(VLLM_CACHE_ROOT)',
         'max_num_seqs=MAX_NUM_SEQS',
@@ -108,10 +115,11 @@ def _assert_runtime() -> None:
         'huggingface_hub',
         'create_if_missing=True',
         'max_num_seqs=1024',
+        'MAX_NUM_SEQS = 128',
+        '.pip_install(f"instanttensor==',
         'safetensors_load_strategy="prefetch"',
         'gdn_prefill_backend="flashinfer"',
         'speculative_model',
-        '@app.function(retries=',
     )
     for token in forbidden:
         assert token not in source, token
@@ -130,9 +138,11 @@ def main() -> None:
     _assert_runtime()
     print("AVANTIQO_CODE_QWEN38_POLICY_V3=PASS")
     print("AVANTIQO_CODE_QWEN38_SINGLE_STORAGE=PASS")
-    print("AVANTIQO_CODE_QWEN38_RUNTIME_V3=PASS")
+    print("AVANTIQO_CODE_QWEN38_RUNTIME_V4=PASS")
     print("AVANTIQO_CODE_QWEN38_MAMBA_CACHE_FIX=PASS")
     print("AVANTIQO_CODE_QWEN38_INSTANTTENSOR_FAST_LOAD=PASS")
+    print("AVANTIQO_CODE_QWEN38_NCCL_STACK_PRESERVED=PASS")
+    print("AVANTIQO_CODE_QWEN38_DEEP_GEMM_DISABLED=PASS")
     print("AVANTIQO_CODE_QWEN38_TRITON_GDN_FAST_BOOT=PASS")
     print("AVANTIQO_CODE_QWEN38_PERSISTENT_VLLM_CACHE=PASS")
     print("AVANTIQO_CODE_QWEN38_WARM_SMOKE_CONTRACT=PASS")

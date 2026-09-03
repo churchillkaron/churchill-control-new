@@ -1,2 +1,2 @@
 AVANTIQO_CODE_QWEN38_BOOTSTRAP_ONCE=20260903-V1
-RETRY=arithmetic-constant-verifier
+RETRY=literal-byte-budget-verifier

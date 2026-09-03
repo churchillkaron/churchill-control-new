@@ -50,7 +50,15 @@ os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 app = modal.App(APP_NAME)
 model_volume = modal.Volume.from_name(policy.CODE_VOLUME, create_if_missing=False)
 image = (
-    modal.Image.from_registry(VLLM_IMAGE, add_python=None)
+    modal.Image.from_registry(
+        VLLM_IMAGE,
+        add_python=None,
+        setup_dockerfile_commands=[
+            "RUN command -v python >/dev/null 2>&1 || ln -s \"$(command -v python3)\" /usr/local/bin/python",
+            "RUN command -v pip >/dev/null 2>&1 || ln -s \"$(command -v pip3)\" /usr/local/bin/pip",
+            "RUN python --version && pip --version",
+        ],
+    )
     .entrypoint([])
     .env(
         {

@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import FinanceReviewerEvidenceCockpit from "@/components/workspace/finance/FinanceReviewerEvidenceCockpit";
 import FinanceReviewerWorkspace from "@/components/workspace/finance/FinanceReviewerWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -16,5 +17,10 @@ export default function FinanceReviewerPage() {
     businessContext.organization?.id ||
     null;
 
-  return <FinanceReviewerWorkspace organizationId={organizationId} />;
+  return (
+    <>
+      <FinanceReviewerEvidenceCockpit organizationId={organizationId} />
+      <FinanceReviewerWorkspace organizationId={organizationId} />
+    </>
+  );
 }

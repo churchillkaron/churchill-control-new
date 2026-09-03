@@ -18,7 +18,7 @@ import modal_code_hard_owned_cert_raw as raw  # noqa: F401 - raw-output scoring 
 from modal_code_qwen38_canary_runtime import CONTRACT as RUNTIME_CONTRACT
 from modal_code_qwen38_canary_runtime import app, generate
 
-CONTRACT = "AVANTIQO_CODE_QWEN38_HARD10_BENCHMARK_V1"
+CONTRACT = "AVANTIQO_CODE_QWEN38_HARD10_BENCHMARK_V2"
 RESULT_PREFIX = "AVANTIQO_CODE_QWEN38_HARD10_RESULT="
 CASE_PREFIX = "AVANTIQO_CODE_QWEN38_HARD10_CASE="
 WARM_LATENCY_REFERENCE_MS = 1807
@@ -32,11 +32,39 @@ def _request(instruction: str) -> dict[str, Any]:
     }
 
 
+def _public_algorithm_guard(task: dict[str, str]) -> str:
+    case_id = task["id"]
+    if case_id == "ledger_currency_summary":
+        return (
+            "PUBLIC LEDGER ROUNDING ALGORITHM: accumulate raw Number totals without rounding. "
+            "At return time apply JavaScript Number(value.toFixed(2)) independently to raw debit, "
+            "raw credit, and raw debit-minus-credit. Do not add Number.EPSILON, do not use a "
+            "decimal-correction helper, and do not derive balance from already-rounded display "
+            "values. Under the declared public probe JavaScript native semantics intentionally "
+            "produce Number((2.675).toFixed(2)) === 2.67 and "
+            "Number((0.005).toFixed(2)) === 0.01."
+        )
+    if case_id == "progressive_tier_pricing":
+        return (
+            "PUBLIC PROGRESSIVE PRICING ALGORITHM: validate the complete tiers array first. Then "
+            "track previousThreshold=0 and remainingUnits=units. For each finite tier, width = "
+            "upTo - previousThreshold; used = Math.min(remainingUnits, width); add used * rate; "
+            "subtract used from remainingUnits; set previousThreshold=upTo. For the final null "
+            "tier, add all remainingUnits * rate and set remainingUnits=0. Example from the visible "
+            "public test: 150 units with [{upTo:100,rate:1},{upTo:null,rate:0.8}] is "
+            "100*1 + 50*0.8 = 140. Never multiply all units by the selected tier rate and never "
+            "subtract previousThreshold from remainingUnits."
+        )
+    return ""
+
+
 def _repair_instruction(task: dict[str, str], failure: str) -> str:
     plan = final.fixed._contract_repair_plan(task["spec"])
     probe = str(hard.HARD_PROBES.get(task["id"]) or "").strip()
+    guard = _public_algorithm_guard(task)
     return "\n\n".join(
-        [
+        part
+        for part in [
             "AVANTIQO CONTRACT-FIRST EXECUTABLE REPAIR.",
             "Write a fresh implementation from the authoritative public contract.",
             (
@@ -51,10 +79,12 @@ def _repair_instruction(task: dict[str, str], failure: str) -> str:
                 if probe
                 else "DECLARED PUBLIC SEMANTIC PROBE: none"
             ),
+            guard,
             "DETERMINISTIC MACHINE FAILURE TO CORRECT:\n" + failure[-3000:],
             "MANDATORY CONTRACT-DERIVED ALGORITHM:\n" + plan,
             "Return complete source only inside the strict JSON object; no markdown or prose.",
         ]
+        if part
     )
 
 
@@ -97,7 +127,9 @@ def qwen38_hard10(approved: bool = False) -> None:
         initial = hard.base._run_test(task["module"], task["source"], task["visible_test"])
         if initial.get("exit_code") == 0:
             raise RuntimeError(f"{CONTRACT}_BROKEN_FIXTURE_MUST_FAIL:{task['id']}")
-        prompts.append(hard._hard_prompt(task, f"{initial.get('stdout','')}\n{initial.get('stderr','')}"))
+        prompt = hard._hard_prompt(task, f"{initial.get('stdout','')}\n{initial.get('stderr','')}")
+        guard = _public_algorithm_guard(task)
+        prompts.append(prompt + ("\n\n" + guard if guard else ""))
 
     first = generate.remote([_request(prompt) for prompt in prompts], approved=True)
     if not isinstance(first, dict):

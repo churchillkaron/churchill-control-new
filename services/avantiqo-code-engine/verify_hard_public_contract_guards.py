@@ -104,6 +104,33 @@ def main() -> None:
   return Number(charge.toFixed(2));
 }'''
 
+    ledger = r'''export function summarizeLedger(entries) {
+  if (entries === null || entries === undefined) return {};
+  const result = {};
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+    const currency = entry.currency;
+    if (currency === null || currency === undefined) continue;
+    const canonical = String(currency).trim().toUpperCase();
+    if (canonical === '') continue;
+    const side = String(entry.side).toUpperCase();
+    if (side !== 'DEBIT' && side !== 'CREDIT') continue;
+    const num = Number(entry.amount);
+    if (isNaN(num) || !isFinite(num) || num < 0) continue;
+    if (!result[canonical]) result[canonical] = { debit: 0, credit: 0 };
+    const acc = result[canonical];
+    if (side === 'DEBIT') acc.debit += num;
+    else acc.credit += num;
+  }
+  for (const key in result) {
+    const acc = result[key];
+    acc.debit = Number(acc.debit.toFixed(2));
+    acc.credit = Number(acc.credit.toFixed(2));
+    acc.balance = Number((acc.debit - acc.credit).toFixed(2));
+  }
+  return result;
+}'''
+
     inventory_before, inventory_after = _guarded("inventory_reservation", inventory)
     assert inventory_before["passed"] is False, inventory_before
     assert inventory_after["passed"] is True, inventory_after
@@ -112,8 +139,13 @@ def main() -> None:
     assert tier_before["passed"] is False, tier_before
     assert tier_after["passed"] is True, tier_after
 
+    ledger_before, ledger_after = _guarded("ledger_currency_summary", ledger)
+    assert ledger_before["passed"] is False, ledger_before
+    assert ledger_after["passed"] is True, ledger_after
+
     print("AVANTIQO_CODE_INVENTORY_EXACT_REGRESSION=PASS")
     print("AVANTIQO_CODE_PROGRESSIVE_TIER_EXACT_REGRESSION=PASS")
+    print("AVANTIQO_CODE_LEDGER_RAW_BALANCE_EXACT_REGRESSION=PASS")
     print("AVANTIQO_CODE_PUBLIC_CONTRACT_GUARDS_ZERO_COST=PASS")
 
 

@@ -18,6 +18,15 @@ def _gate(case_id: str, source: str) -> dict:
     return hard._machine_gate(task, raw)
 
 
+def _assert_public_rejection(gate: dict, case_id: str) -> None:
+    assert gate["passed"] is False, (case_id, gate)
+    failure = str(gate.get("failure") or "")
+    assert failure.startswith(("VISIBLE_TEST_FAILED", "SEMANTIC_CONTRACT_FAILED")), (
+        case_id,
+        gate,
+    )
+
+
 def main() -> None:
     # Exact behavioral defect from run 33700360729: invalid stock creates BAD:0.
     bad_inventory = r'''export function reserveInventory(stock, requests) {
@@ -81,12 +90,11 @@ def main() -> None:
     events_gate = _gate("idempotent_event_apply", bad_events)
     transition_gate = _gate("governed_state_transition", bad_transition)
 
-    assert inventory_gate["passed"] is False, inventory_gate
-    assert "SEMANTIC_CONTRACT_FAILED" in str(inventory_gate.get("failure") or ""), inventory_gate
-    assert events_gate["passed"] is False, events_gate
-    assert "SEMANTIC_CONTRACT_FAILED" in str(events_gate.get("failure") or ""), events_gate
-    assert transition_gate["passed"] is False, transition_gate
-    assert "SEMANTIC_CONTRACT_FAILED" in str(transition_gate.get("failure") or ""), transition_gate
+    # Earlier gates are stronger and cheaper. A defect is safely blocked whether
+    # the visible contract already rejects it or the semantic probe catches it.
+    _assert_public_rejection(inventory_gate, "inventory_reservation")
+    _assert_public_rejection(events_gate, "idempotent_event_apply")
+    _assert_public_rejection(transition_gate, "governed_state_transition")
 
     assert final.MAX_COMPLETION_TOKENS == 800
     assert final.COMPACT_TARGET_TOKENS == 650

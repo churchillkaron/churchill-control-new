@@ -25,7 +25,8 @@ def _workspace(root: Path) -> None:
     (root / "src/value.py").write_text("def value():\n    return 1\n", encoding="utf-8")
     (root / ".avantiqo").mkdir(parents=True)
     (root / ".avantiqo/public_test.py").write_text(
-        "from src.value import value\nassert value() == 2\n", encoding="utf-8"
+        "from pathlib import Path\nimport sys\nROOT = Path.cwd()\nsys.path.insert(0, str(ROOT))\nfrom src.value import value\nassert value() == 2\n",
+        encoding="utf-8",
     )
 
 

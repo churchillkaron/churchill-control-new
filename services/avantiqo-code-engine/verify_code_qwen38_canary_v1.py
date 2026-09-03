@@ -8,6 +8,7 @@ before the candidate is allowed to consume persistent storage or H100 time.
 from __future__ import annotations
 
 import ast
+import operator
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,14 @@ EXPECTED_CURRENT_MARKER = "avantiqo-code-model-ready.json"
 EXPECTED_CANDIDATE_MARKER = "avantiqo-code-qwen38-canary-ready.json"
 EXPECTED_APPROVAL_ENV = "AVANTIQO_CODE_QWEN38_BOOTSTRAP_APPROVED"
 
+_SAFE_BINOPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.FloorDiv: operator.floordiv,
+    ast.Pow: operator.pow,
+}
+
 
 def _source(path: Path) -> str:
     text = path.read_text(encoding="utf-8")
@@ -38,7 +47,27 @@ def _tree(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
 
-def _literal_assignments(tree: ast.Module) -> dict[str, Any]:
+def _safe_constant(node: ast.expr) -> Any:
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        value = _safe_constant(node.operand)
+        if not isinstance(value, (int, float)):
+            raise ValueError("numeric unary operand required")
+        return value if isinstance(node.op, ast.UAdd) else -value
+    if isinstance(node, ast.BinOp) and type(node.op) in _SAFE_BINOPS:
+        left = _safe_constant(node.left)
+        right = _safe_constant(node.right)
+        if not isinstance(left, (int, float)) or not isinstance(right, (int, float)):
+            raise ValueError("numeric binary operands required")
+        result = _SAFE_BINOPS[type(node.op)](left, right)
+        if isinstance(result, (int, float)) and abs(result) <= 2**63:
+            return result
+        raise ValueError("constant result out of bounds")
+    return ast.literal_eval(node)
+
+
+def _constant_assignments(tree: ast.Module) -> dict[str, Any]:
     values: dict[str, Any] = {}
     for node in tree.body:
         if not isinstance(node, (ast.Assign, ast.AnnAssign)):
@@ -54,8 +83,8 @@ def _literal_assignments(tree: ast.Module) -> dict[str, Any]:
         if not isinstance(target, ast.Name) or value_node is None:
             continue
         try:
-            values[target.id] = ast.literal_eval(value_node)
-        except (ValueError, TypeError):
+            values[target.id] = _safe_constant(value_node)
+        except (ValueError, TypeError, ZeroDivisionError, OverflowError):
             continue
     return values
 
@@ -76,8 +105,8 @@ def _keyword_literal(call: ast.Call, name: str) -> Any:
         if keyword.arg != name:
             continue
         try:
-            return ast.literal_eval(keyword.value)
-        except (ValueError, TypeError):
+            return _safe_constant(keyword.value)
+        except (ValueError, TypeError, ZeroDivisionError, OverflowError):
             return None
     return None
 
@@ -104,8 +133,7 @@ def _app_function_decorators(tree: ast.Module) -> list[tuple[str, ast.Call]]:
 def _assert_single_existing_volume(tree: ast.Module, source: str, label: str) -> None:
     calls = _volume_calls(tree)
     assert len(calls) == 1, f"{label}: exactly one Volume.from_name call required"
-    call = calls[0]
-    assert _keyword_literal(call, "create_if_missing") is False, (
+    assert _keyword_literal(calls[0], "create_if_missing") is False, (
         f"{label}: create_if_missing must be False"
     )
     assert "policy.CODE_VOLUME" in source, f"{label}: canonical policy volume required"
@@ -116,7 +144,7 @@ def _assert_single_existing_volume(tree: ast.Module, source: str, label: str) ->
 
 def _assert_policy() -> None:
     source = _source(POLICY_PATH)
-    constants = _literal_assignments(_tree(POLICY_PATH))
+    constants = _constant_assignments(_tree(POLICY_PATH))
     assert constants.get("CONTRACT") == EXPECTED_POLICY_CONTRACT
     assert constants.get("CANDIDATE_MODEL") == EXPECTED_MODEL
     assert constants.get("CANDIDATE_REVISION") == EXPECTED_REVISION
@@ -162,19 +190,16 @@ def _assert_preflight() -> None:
 def _assert_bootstrap() -> None:
     source = _source(BOOTSTRAP_PATH)
     tree = _tree(BOOTSTRAP_PATH)
-    constants = _literal_assignments(tree)
-
+    constants = _constant_assignments(tree)
     _assert_single_existing_volume(tree, source, "bootstrap")
     assert constants.get("CONTRACT") == EXPECTED_BOOTSTRAP_CONTRACT
     assert constants.get("APPROVAL_ENV") == EXPECTED_APPROVAL_ENV
     assert EXPECTED_CURRENT_MARKER in source
     assert EXPECTED_CANDIDATE_MARKER in source
-    assert EXPECTED_CURRENT_MARKER != EXPECTED_CANDIDATE_MARKER
 
     decorators = dict(_app_function_decorators(tree))
     assert set(decorators) == {"bootstrap"}
-    bootstrap_decorator = decorators["bootstrap"]
-    assert _keyword_literal(bootstrap_decorator, "gpu") is None, "bootstrap GPU forbidden"
+    assert _keyword_literal(decorators["bootstrap"], "gpu") is None, "bootstrap GPU forbidden"
     assert "ephemeral_disk=EPHEMERAL_DISK_MIB" in source
     assert "policy.PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES" in source
 
@@ -185,8 +210,9 @@ def _assert_bootstrap() -> None:
     marker_guard_pos = source.index("CURRENT_MARKER.read_bytes() != current_marker_before")
     candidate_marker_write_pos = source.index("CANDIDATE_MARKER.write_text")
     commit_pos = source.index("model_volume.commit()")
-    post_commit_guard_pos = source.index("CURRENT_MARKER.read_bytes() != current_marker_before", marker_guard_pos + 1)
-
+    post_commit_guard_pos = source.index(
+        "CURRENT_MARKER.read_bytes() != current_marker_before", marker_guard_pos + 1
+    )
     assert approval_pos < admission_pos < marker_capture_pos < download_pos
     assert download_pos < marker_guard_pos < candidate_marker_write_pos < commit_pos < post_commit_guard_pos
     assert "revision=policy.CANDIDATE_REVISION" in source
@@ -204,8 +230,7 @@ def _assert_bootstrap() -> None:
 def _assert_runtime() -> None:
     source = _source(RUNTIME_PATH)
     tree = _tree(RUNTIME_PATH)
-    constants = _literal_assignments(tree)
-
+    constants = _constant_assignments(tree)
     _assert_single_existing_volume(tree, source, "runtime")
     assert constants.get("VLLM_COMMIT") == EXPECTED_VLLM_COMMIT
     assert constants.get("MAX_MODEL_LEN") == 32_768
@@ -231,7 +256,6 @@ def _assert_runtime() -> None:
         assert _keyword_literal(decorator, "gpu") == "H100", f"runtime:{name}: H100 pin required"
         assert _keyword_literal(decorator, "min_containers") == 0
         assert _keyword_literal(decorator, "max_containers") == 1
-
     assert "policy.CANDIDATE_MODEL" in source
     assert "policy.CANDIDATE_REVISION" in source
     assert "policy.CODE_VOLUME" in source

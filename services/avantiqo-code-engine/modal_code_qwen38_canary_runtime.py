@@ -21,7 +21,7 @@ import modal
 import code_model_canary_v2 as policy
 
 APP_NAME = "avantiqo-code-qwen38-canary-runtime"
-CONTRACT = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V3"
+CONTRACT = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V4"
 VLLM_VERSION = "0.28.0"
 VLLM_BUILD_COMMIT = "2cf0a6915ce544dc493a0990f2ea38d81601128a"
 VLLM_IMAGE = f"vllm/vllm-openai:v{VLLM_VERSION}"
@@ -37,7 +37,9 @@ CANDIDATE_SNAPSHOT = (
     / policy.CANDIDATE_REVISION
 )
 MAX_MODEL_LEN = 32_768
-MAX_NUM_SEQS = 128
+# The canary accepts at most 16 requests per batch. Matching engine concurrency
+# to that real contract avoids warming/cache-sizing hundreds of unused slots.
+MAX_NUM_SEQS = 16
 GPU_MEMORY_UTILIZATION = 0.90
 LOAD_FORMAT = "instanttensor"
 GDN_PREFILL_BACKEND = "triton"
@@ -48,8 +50,14 @@ SMOKE_EXPECTED_TYPESCRIPT = (
     'return String(value ?? "").trim().toUpperCase(); }'
 )
 
+# These are deliberately set both in the local definition process and in the
+# Modal image environment. Qwen3.8 FP8 otherwise auto-selects DeepGEMM on H100
+# and vLLM attempts thousands of JIT warmups before the first useful token.
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
+os.environ["VLLM_USE_DEEP_GEMM"] = "0"
+os.environ["VLLM_MOE_USE_DEEP_GEMM"] = "0"
+os.environ["VLLM_DEEP_GEMM_WARMUP"] = "skip"
 os.environ["VLLM_CACHE_ROOT"] = str(VLLM_CACHE_ROOT)
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -65,10 +73,12 @@ image = (
             "RUN command -v python >/dev/null 2>&1 || ln -s \"$(command -v python3)\" /usr/local/bin/python",
             "RUN command -v pip >/dev/null 2>&1 || ln -s \"$(command -v pip3)\" /usr/local/bin/pip",
             "RUN python --version && pip --version",
+            # Keep the vLLM image's tested CUDA/NCCL stack intact. Plain pip
+            # install changed NCCL 2.30.7 -> 2.29.7 in the first smoke.
+            f"RUN python -m pip install --no-deps instanttensor=={INSTANTTENSOR_VERSION}",
         ],
     )
     .entrypoint([])
-    .pip_install(f"instanttensor=={INSTANTTENSOR_VERSION}")
     .env(
         {
             "HF_HUB_OFFLINE": "1",
@@ -76,6 +86,9 @@ image = (
             "HF_HUB_DISABLE_TELEMETRY": "1",
             "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
             "VLLM_USE_FLASHINFER_SAMPLER": "0",
+            "VLLM_USE_DEEP_GEMM": "0",
+            "VLLM_MOE_USE_DEEP_GEMM": "0",
+            "VLLM_DEEP_GEMM_WARMUP": "skip",
             "VLLM_CACHE_ROOT": str(VLLM_CACHE_ROOT),
         }
     )
@@ -236,6 +249,7 @@ def runtime_probe(approved: bool = False) -> dict[str, Any]:
         "max_num_seqs": MAX_NUM_SEQS,
         "load_format": LOAD_FORMAT,
         "gdn_prefill_backend": GDN_PREFILL_BACKEND,
+        "deep_gemm_enabled": False,
         "fast_boot_enforce_eager": FAST_BOOT_ENFORCE_EAGER,
         "language_model_only": True,
         "prefix_caching_enabled": False,
@@ -314,6 +328,7 @@ def generation_smoke(approved: bool = False) -> dict[str, Any]:
         "max_num_seqs": MAX_NUM_SEQS,
         "load_format": LOAD_FORMAT,
         "gdn_prefill_backend": GDN_PREFILL_BACKEND,
+        "deep_gemm_enabled": False,
         "fast_boot_enforce_eager": FAST_BOOT_ENFORCE_EAGER,
         "language_model_only": True,
         "prefix_caching_enabled": False,
@@ -372,6 +387,7 @@ def generate(requests: list[dict[str, Any]], approved: bool = False) -> dict[str
         "max_num_seqs": MAX_NUM_SEQS,
         "load_format": LOAD_FORMAT,
         "gdn_prefill_backend": GDN_PREFILL_BACKEND,
+        "deep_gemm_enabled": False,
         "fast_boot_enforce_eager": FAST_BOOT_ENFORCE_EAGER,
         "language_model_only": True,
         "prefix_caching_enabled": False,

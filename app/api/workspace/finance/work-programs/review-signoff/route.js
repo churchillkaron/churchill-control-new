@@ -180,13 +180,30 @@ export async function POST(request) {
 
       const control = await loadReviewControl([reviewItem.id], run.organization_id);
       const signedRoles = new Set(control.signoffs.map((row) => row.signoff_role));
-      const sameActorRoles = control.signoffs
-        .filter((row) => row.signed_by && row.signed_by === access.user?.id)
+      const existingReviewer = control.signoffs.find((row) => row.signoff_role === "REVIEWER") || null;
+      if (existingReviewer) {
+        if (!actorMatches(access, existingReviewer.signed_by)) {
+          return jsonError("Reviewer sign-off is already owned by another reviewer", 409);
+        }
+        if (["REVIEWED", "CLEARED", "LOCKED"].includes(reviewItem.status)) {
+          return NextResponse.json({
+            success: true,
+            idempotent: true,
+            signoff: existingReviewer,
+            review_item: reviewItem,
+            work_item_id: workItem.id,
+            run_id: run.id,
+          });
+        }
+      }
+
+      const conflictingActorRoles = control.signoffs
+        .filter((row) => row.signoff_role !== "REVIEWER" && actorMatches(access, row.signed_by))
         .map((row) => row.signoff_role);
       if (control.openNotes > 0) return jsonError("Resolve all open review points before reviewer clearance", 409);
       if (!signedRoles.has("PREPARER")) return jsonError("Preparer sign-off is required before reviewer clearance", 409);
-      if (sameActorRoles.length) {
-        return jsonError(`Segregation of duties blocks the same user from signing ${sameActorRoles.join(", ")} and REVIEWER`, 409);
+      if (conflictingActorRoles.length) {
+        return jsonError(`Segregation of duties blocks the same user from signing ${conflictingActorRoles.join(", ")} and REVIEWER`, 409);
       }
 
       const { data: signoff, error: signoffError } = await supabaseAdmin
@@ -213,7 +230,7 @@ export async function POST(request) {
         .single();
       if (updateError) throw updateError;
       await audit(access, "ACCOUNTING_REVIEWER_SIGNOFF", updatedReview.id, workItem, { signoff_role: "REVIEWER", review_status: "REVIEWED" });
-      return NextResponse.json({ success: true, signoff, review_item: updatedReview, work_item_id: workItem.id, run_id: run.id });
+      return NextResponse.json({ success: true, idempotent: false, signoff, review_item: updatedReview, work_item_id: workItem.id, run_id: run.id });
     }
 
     const reviewItems = await scopedReviewItems(run);
@@ -228,15 +245,38 @@ export async function POST(request) {
       signoffsByReview.get(signoff.review_item_id).push(signoff);
     }
 
+    const alreadyClearedByActor = reviewItems.every((reviewItem) => {
+      if (!["CLEARED", "LOCKED"].includes(reviewItem.status)) return false;
+      const partnerSignoff = (signoffsByReview.get(reviewItem.id) || []).find((row) => row.signoff_role === "PARTNER");
+      return partnerSignoff && actorMatches(access, partnerSignoff.signed_by);
+    });
+    if (alreadyClearedByActor) {
+      return NextResponse.json({
+        success: true,
+        idempotent: true,
+        signoffs: control.signoffs.filter((row) => row.signoff_role === "PARTNER"),
+        review_items: reviewItems,
+        cleared_count: reviewItemIds.length,
+        work_item_id: workItem.id,
+        run_id: run.id,
+      });
+    }
+
     const blockers = [];
     for (const reviewItem of reviewItems) {
       const itemSignoffs = signoffsByReview.get(reviewItem.id) || [];
       const roles = new Set(itemSignoffs.map((row) => row.signoff_role));
-      const actorRoles = itemSignoffs.filter((row) => row.signed_by === access.user?.id).map((row) => row.signoff_role);
+      const partnerSignoff = itemSignoffs.find((row) => row.signoff_role === "PARTNER") || null;
+      const conflictingActorRoles = itemSignoffs
+        .filter((row) => row.signoff_role !== "PARTNER" && actorMatches(access, row.signed_by))
+        .map((row) => row.signoff_role);
+      if (partnerSignoff && !actorMatches(access, partnerSignoff.signed_by)) {
+        blockers.push({ review_item_id: reviewItem.id, record_label: reviewItem.record_label, reason: "Partner clearance is already owned by another partner" });
+      }
       if (reviewItem.status !== "REVIEWED") blockers.push({ review_item_id: reviewItem.id, record_label: reviewItem.record_label, reason: `Status is ${reviewItem.status}` });
       if (!roles.has("PREPARER")) blockers.push({ review_item_id: reviewItem.id, record_label: reviewItem.record_label, reason: "Preparer sign-off missing" });
       if (!roles.has("REVIEWER")) blockers.push({ review_item_id: reviewItem.id, record_label: reviewItem.record_label, reason: "Reviewer sign-off missing" });
-      if (actorRoles.length) blockers.push({ review_item_id: reviewItem.id, record_label: reviewItem.record_label, reason: `Segregation of duties: partner already signed ${actorRoles.join(", ")}` });
+      if (conflictingActorRoles.length) blockers.push({ review_item_id: reviewItem.id, record_label: reviewItem.record_label, reason: `Segregation of duties: partner already signed ${conflictingActorRoles.join(", ")}` });
     }
     if (blockers.length) return jsonError("Engagement is not ready for partner clearance", 409, blockers.slice(0, 100));
 
@@ -272,6 +312,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
+      idempotent: false,
       signoffs: partnerSignoffs || [],
       review_items: clearedReviews || [],
       cleared_count: reviewItemIds.length,

@@ -1,0 +1,74 @@
+name: Avantiqo Video Modal V3 Diagnostic Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/diagnose-avantiqo-video-modal-v3.mjs'
+      - '.github/workflows/avantiqo-video-modal-v3-diagnostic-once.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-modal-v3-diagnostic-once
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      AVANTIQO_VIDEO_EXISTING_FUNCTION_CALL_ID: fc-01M1JQP52HPC6EXZ8SQ2RJEBP3
+      AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED: 'NO'
+      AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED: 'NO'
+      AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED: 'NO'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install Node dependencies
+        run: npm ci --ignore-scripts
+      - name: Prove diagnostic cannot submit generation
+        run: |
+          set -euo pipefail
+          test "$AVANTIQO_VIDEO_REAL_INFERENCE_APPROVED" = "NO"
+          test "$AVANTIQO_VIDEO_GPU_EXECUTION_ALLOWED" = "NO"
+          test "$AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED" = "NO"
+          node --check scripts/diagnose-avantiqo-video-modal-v3.mjs
+          if grep -F '.spawn(' scripts/diagnose-avantiqo-video-modal-v3.mjs; then
+            echo 'DIAGNOSTIC_MUST_NOT_SPAWN' >&2
+            exit 1
+          fi
+          if grep -F '.remote(' scripts/diagnose-avantiqo-video-modal-v3.mjs; then
+            echo 'DIAGNOSTIC_MUST_NOT_REMOTE_GENERATE' >&2
+            exit 1
+          fi
+          grep -F 'functionCalls.fromId(functionCallId)' scripts/diagnose-avantiqo-video-modal-v3.mjs >/dev/null
+          grep -F 'getCurrentStats()' scripts/diagnose-avantiqo-video-modal-v3.mjs >/dev/null
+          echo 'AVANTIQO_VIDEO_MODAL_DIAGNOSTIC_ZERO_GENERATION_ADMISSION=PASS'
+      - name: Diagnose deployed Video scheduling state
+        run: node scripts/diagnose-avantiqo-video-modal-v3.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: avantiqo-video-modal-v3-diagnostic
+          path: local-audit-output/avantiqo-video-modal-v3-diagnostic/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Preserve release boundary
+        if: always()
+        run: |
+          echo 'NEW_GPU_INFERENCE_ALLOWED=false'
+          echo 'DIAGNOSTIC_MODAL_SPAWN_COUNT=0'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'RUNPOD_USED=false'

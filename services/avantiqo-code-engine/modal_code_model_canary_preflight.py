@@ -1,9 +1,9 @@
 """Control-plane-only admission probe for the next Avantiqo Code model.
 
-This script uses Modal's Volume API directly. It creates no App, Function,
-container, Image, GPU, or Volume and downloads no model. That makes the
-preflight both zero-compute-cost and semantically correct for Modal's distributed
-Volume storage.
+This script uses Modal's Volume API directly. It creates no Function, container,
+Image, GPU, or Volume and downloads no model. The tiny App exists only so the
+existing `modal run` CI transport can invoke a local entrypoint; no remote
+compute is declared or started.
 """
 
 from __future__ import annotations
@@ -15,9 +15,12 @@ import modal
 
 import code_model_canary_v2 as policy
 
+APP_NAME = "avantiqo-code-model-canary-control-plane"
 CURRENT_MARKER = "avantiqo-code-model-ready.json"
 CANDIDATE_MARKER = "avantiqo-code-qwen38-canary-ready.json"
 CANDIDATE_BYTES = 30_900_000_000
+
+app = modal.App(APP_NAME)
 
 
 def _read_json(volume: modal.Volume, path: str) -> dict[str, Any]:
@@ -85,7 +88,7 @@ def inspect_control_plane() -> dict[str, Any]:
     return report
 
 
-def main() -> None:
+def _run() -> None:
     report = inspect_control_plane()
     print(
         "AVANTIQO_CODE_MODEL_CANARY_PREFLIGHT="
@@ -108,5 +111,10 @@ def main() -> None:
     print(f"{policy.CONTRACT}=PASS", flush=True)
 
 
+@app.local_entrypoint()
+def modal_main() -> None:
+    _run()
+
+
 if __name__ == "__main__":
-    main()
+    _run()

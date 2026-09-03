@@ -30,6 +30,7 @@ EXPECTED_VLLM_IMAGE = "vllm/vllm-openai:v0.28.0"
 EXPECTED_CURRENT_MARKER = "avantiqo-code-model-ready.json"
 EXPECTED_CANDIDATE_MARKER = "avantiqo-code-qwen38-canary-ready.json"
 EXPECTED_APPROVAL_ENV = "AVANTIQO_CODE_QWEN38_BOOTSTRAP_APPROVED"
+EXPECTED_POLICY_SOURCE_MOUNT = '.add_local_python_source("code_model_canary_v2")'
 
 _SAFE_BINOPS = {
     ast.Add: operator.add,
@@ -189,6 +190,7 @@ def _assert_bootstrap() -> None:
     assert constants.get("CONTRACT") == EXPECTED_BOOTSTRAP_CONTRACT
     assert constants.get("APPROVAL_ENV") == EXPECTED_APPROVAL_ENV
     assert EXPECTED_CURRENT_MARKER in source and EXPECTED_CANDIDATE_MARKER in source
+    assert EXPECTED_POLICY_SOURCE_MOUNT in source
 
     decorators = dict(_app_function_decorators(tree))
     assert set(decorators) == {"bootstrap"}
@@ -248,6 +250,7 @@ def _assert_runtime() -> None:
     assert constants.get("MAX_MODEL_LEN") == 32_768
     assert constants.get("GPU_MEMORY_UTILIZATION") == 0.90
     assert EXPECTED_CANDIDATE_MARKER in source
+    assert EXPECTED_POLICY_SOURCE_MOUNT in source
     assert "snapshot_download" not in source and "huggingface_hub" not in source
     for token in (
         'setup_dockerfile_commands=[',
@@ -293,6 +296,7 @@ def main() -> None:
     print("AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2_GUARDS=PASS")
     print("AVANTIQO_CODE_QWEN38_STABLE_VLLM_028=PASS")
     print("AVANTIQO_CODE_QWEN38_RUNTIME_PYTHON_SHIM=PASS")
+    print("AVANTIQO_CODE_QWEN38_POLICY_SOURCE_MOUNT=PASS")
     print("AVANTIQO_CODE_QWEN38_PREFIX_CACHE_BASELINE_OFF=PASS")
     print("AVANTIQO_CODE_QWEN38_RUNTIME_ISOLATION=PASS")
     print("AVANTIQO_CODE_QWEN38_ZERO_COST_VERIFIER=PASS")

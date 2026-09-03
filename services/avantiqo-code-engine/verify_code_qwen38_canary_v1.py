@@ -226,7 +226,7 @@ def _assert_bootstrap() -> None:
     ):
         assert token in source, token
     assert "shutil.disk_usage" not in source
-    assert "EPHEMERAL_DISK" not in source
+    assert "ephemeral_disk=" not in source
     assert "PLANNED_BOOTSTRAP_EPHEMERAL_DISK_BYTES" not in source
 
 

@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           start=$(date +%s)
-          npm ci
+          npm ci --include=dev
           end=$(date +%s)
           echo "AVANTIQO_BUILD_CERT install_seconds=$((end-start))"
 

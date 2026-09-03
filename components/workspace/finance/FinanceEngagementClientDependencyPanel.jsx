@@ -14,6 +14,7 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 
+import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import { resolveFinanceClientDependency } from "@/lib/finance/ui/FinanceClientDependencyPolicy";
 
 function label(value) {
@@ -48,11 +49,13 @@ function canIssueAccess(analysis, request) {
 }
 
 export default function FinanceEngagementClientDependencyPanel({ organizationId, run, onReload }) {
+  const businessContext = useBusinessContext() || {};
+  const accountingFirmId = organizationId || businessContext.organization_id || businessContext.organization?.id || null;
   const [actionState, setActionState] = useState({});
   if (!run) return null;
 
   async function issueAccess(request, analysis) {
-    if (!organizationId || !canIssueAccess(analysis, request)) return;
+    if (!accountingFirmId || !canIssueAccess(analysis, request)) return;
     const requestId = request.id;
     setActionState((current) => ({
       ...current,
@@ -64,7 +67,7 @@ export default function FinanceEngagementClientDependencyPanel({ organizationId,
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organizationId, clientRequestId: requestId, action: "issue" }),
+        body: JSON.stringify({ organizationId: accountingFirmId, clientRequestId: requestId, action: "issue" }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body?.success === false) throw new Error(body?.error || "Unable to issue secure client access");
@@ -153,7 +156,7 @@ export default function FinanceEngagementClientDependencyPanel({ organizationId,
                 <div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#99928A]">Next safe action</div>
                 <div className="mt-1 text-[9px] font-semibold text-[#6E4D2D]">{analysis.nextAction}</div>
                 {analysis.blocks ? <div className="mt-1 text-[8px] leading-4 text-[#918B83]">{analysis.blocks}</div> : null}
-                {accessAction ? <button type="button" onClick={() => issueAccess(request, analysis)} disabled={action.loading} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-lg bg-[#2A2723] px-2.5 text-[8px] font-semibold text-white disabled:opacity-50">{action.loading ? <LoaderCircle size={9} className="animate-spin" /> : <ShieldCheck size={9} />}{analysis.state === "ACCESS_EXPIRED" ? "Restore secure access" : "Issue secure access"}</button> : null}
+                {accessAction ? <button type="button" onClick={() => issueAccess(request, analysis)} disabled={action.loading || !accountingFirmId} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-lg bg-[#2A2723] px-2.5 text-[8px] font-semibold text-white disabled:opacity-50">{action.loading ? <LoaderCircle size={9} className="animate-spin" /> : <ShieldCheck size={9} />}{analysis.state === "ACCESS_EXPIRED" ? "Restore secure access" : "Issue secure access"}</button> : null}
                 {action.error ? <div className="mt-2 rounded-lg border border-red-700/10 bg-red-50 px-2 py-1.5 text-[8px] text-red-800">{action.error}</div> : null}
                 {action.clientPath ? <div className="mt-2 rounded-lg border border-emerald-700/10 bg-emerald-50 px-2.5 py-2">
                   <div className="text-[8px] font-semibold text-emerald-900">Secure access issued</div>

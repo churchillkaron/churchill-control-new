@@ -332,11 +332,75 @@ export default function FinanceReviewerWorkspace({ organizationId }) {
     }
   }
 
+  async function governedSignoffAndComplete(row, signoffRole) {
+    if (!row?.id || !row?.run_id || busy) return;
+    try {
+      setBusy(`signoff:${signoffRole}`);
+      setActionError("");
+      const nextId = visibleQueue[selectedIndex + 1]?.id || visibleQueue[selectedIndex - 1]?.id || null;
+
+      const signoffResponse = await fetch("/api/workspace/finance/work-programs/review-signoff", {
+        method: "POST",
+        cache: "no-store",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, runId: row.run_id, workItemId: row.id, signoffRole }),
+      });
+      const signoffBody = await signoffResponse.json().catch(() => ({}));
+      if (!signoffResponse.ok || signoffBody?.success === false) {
+        const detail = Array.isArray(signoffBody?.details)
+          ? signoffBody.details.map((item) => item?.record_label || item?.reason || item?.message).filter(Boolean).join("; ")
+          : "";
+        throw new Error([signoffBody?.error || "Unable to record governed review sign-off", detail].filter(Boolean).join(": "));
+      }
+
+      const lifecycleResponse = await fetch("/api/workspace/finance/work-programs/lifecycle", {
+        method: "POST",
+        cache: "no-store",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          action: "complete_item",
+          runId: row.run_id,
+          workItemId: row.id,
+          conclusion: row.conclusion || null,
+          evidence: row.evidence || undefined,
+          readyForReview: false,
+        }),
+      });
+      const lifecycleBody = await lifecycleResponse.json().catch(() => ({}));
+      if (!lifecycleResponse.ok || lifecycleBody?.success === false) {
+        const detail = Array.isArray(lifecycleBody?.details)
+          ? lifecycleBody.details.map((item) => item?.title || item?.record_label || item?.message || item?.blocker || item?.status).filter(Boolean).join("; ")
+          : "";
+        throw new Error([lifecycleBody?.error || "Unable to complete governed review work", detail].filter(Boolean).join(": "));
+      }
+
+      await load({ preserveSelection: true });
+      setSelectedId(nextId);
+      setChangeReason("");
+    } catch (error) {
+      setActionError(error?.message || "Unable to complete governed review decision");
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function approve(row) {
     const status = String(row.status || "").toUpperCase();
+    const role = String(row.required_role || "").toUpperCase();
     if (status === "CHANGES_REQUESTED") return;
     if (["READY", "NOT_STARTED"].includes(status)) {
       await lifecycle(row, "start_item");
+      return;
+    }
+    if (status === "READY_FOR_REVIEW") {
+      await governedSignoffAndComplete(row, "REVIEWER");
+      return;
+    }
+    if (role === "PARTNER" && status === "IN_PROGRESS") {
+      await governedSignoffAndComplete(row, "PARTNER");
       return;
     }
     await lifecycle(row, "complete_item", {
@@ -457,7 +521,7 @@ export default function FinanceReviewerWorkspace({ organizationId }) {
                   {actionError ? <div className="mt-3 rounded-xl border border-red-700/15 bg-red-50 p-3 text-[8px] text-red-800">{actionError}</div> : null}
 
                   <div className="mt-4 rounded-xl border border-[#A37849]/15 bg-[#FFFDF9] p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[8px] font-semibold uppercase tracking-[0.1em] text-[#8A633C]">Take decision</div><div className="mt-1 text-[8px] text-[#918B83]">The server re-runs dependencies, evidence and accounting-truth gates before any completion is accepted.</div></div><button type="button" onClick={() => setShowClientFile(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.07] bg-white px-2.5 text-[8px] font-semibold text-[#716B63]"><FolderOpen size={10} /> Full client file</button></div>
+                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[8px] font-semibold uppercase tracking-[0.1em] text-[#8A633C]">Take decision</div><div className="mt-1 text-[8px] text-[#918B83]">Reviewer/partner identity, review points, sign-offs, dependencies, evidence and accounting-truth gates are rechecked server-side before completion.</div></div><button type="button" onClick={() => setShowClientFile(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.07] bg-white px-2.5 text-[8px] font-semibold text-[#716B63]"><FolderOpen size={10} /> Full client file</button></div>
 
                     {String(selected.status || "").toUpperCase() === "READY_FOR_REVIEW" ? (
                       <div className="mt-3 grid gap-2 md:grid-cols-[minmax(220px,1fr)_auto_auto]">
@@ -480,7 +544,7 @@ export default function FinanceReviewerWorkspace({ organizationId }) {
         )
       ) : null}
 
-      <div className="mt-4 rounded-xl border border-black/[0.06] bg-[#FAF9F7] px-3 py-2.5 text-[8px] leading-4 text-[#817D76]"><div className="flex items-start gap-2"><UserRoundCheck size={10} className="mt-0.5 shrink-0 text-[#9A744B]" /><span>Review uses the existing accounting work-program lifecycle and canonical staff assignments. Starting a review keeps the same workpaper selected; only completed or returned decisions advance the queue.</span></div></div>
+      <div className="mt-4 rounded-xl border border-black/[0.06] bg-[#FAF9F7] px-3 py-2.5 text-[8px] leading-4 text-[#817D76]"><div className="flex items-start gap-2"><UserRoundCheck size={10} className="mt-0.5 shrink-0 text-[#9A744B]" /><span>Review uses canonical staff assignments and enforced segregation of duties. Reviewer approval records the reviewer sign-off before completion; partner clearance covers the full client/entity/period review portfolio before the final work item can close.</span></div></div>
     </section>
   );
 }

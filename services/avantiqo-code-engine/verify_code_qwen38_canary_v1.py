@@ -20,10 +20,13 @@ RUNTIME_PATH = ROOT / "modal_code_qwen38_canary_runtime.py"
 
 EXPECTED_POLICY_CONTRACT = "AVANTIQO_CODE_MODEL_CANARY_V3"
 EXPECTED_BOOTSTRAP_CONTRACT = "AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2"
+EXPECTED_RUNTIME_CONTRACT = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V2"
 EXPECTED_MODEL = "Qwen/Qwen3.8-27B-FP8"
 EXPECTED_REVISION = "017b9c7af6b5689d5dd426a76e0bc077eb5ca20a"
 EXPECTED_VOLUME = "avantiqo-code-models"
-EXPECTED_VLLM_COMMIT = "e9d1398d9edfd90fcc1cf783805240e3effec013"
+EXPECTED_VLLM_VERSION = "0.28.0"
+EXPECTED_VLLM_BUILD_COMMIT = "2cf0a6915ce544dc493a0990f2ea38d81601128a"
+EXPECTED_VLLM_IMAGE = "vllm/vllm-openai:v0.28.0"
 EXPECTED_CURRENT_MARKER = "avantiqo-code-model-ready.json"
 EXPECTED_CANDIDATE_MARKER = "avantiqo-code-qwen38-canary-ready.json"
 EXPECTED_APPROVAL_ENV = "AVANTIQO_CODE_QWEN38_BOOTSTRAP_APPROVED"
@@ -126,6 +129,10 @@ def _app_function_decorators(tree: ast.Module) -> list[tuple[str, ast.Call]]:
     return found
 
 
+def _function(tree: ast.Module, name: str) -> ast.FunctionDef:
+    return next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == name)
+
+
 def _assert_single_existing_volume(tree: ast.Module, source: str, label: str) -> None:
     calls = _volume_calls(tree)
     assert len(calls) == 1, f"{label}: exactly one Volume.from_name call required"
@@ -191,7 +198,7 @@ def _assert_bootstrap() -> None:
     assert _keyword_literal(bootstrap_decorator, "gpu") is None
     assert _keyword_literal(bootstrap_decorator, "ephemeral_disk") is None
 
-    bootstrap_def = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "bootstrap")
+    bootstrap_def = _function(tree, "bootstrap")
     assert bootstrap_def.args.args and bootstrap_def.args.args[0].arg == "approved"
     assert "if approved is not True:" in source
     assert 'os.environ.get(APPROVAL_ENV) != "YES"' in source
@@ -235,18 +242,28 @@ def _assert_runtime() -> None:
     tree = _tree(RUNTIME_PATH)
     constants = _constant_assignments(tree)
     _assert_single_existing_volume(tree, source, "runtime")
-    assert constants.get("VLLM_COMMIT") == EXPECTED_VLLM_COMMIT
+    assert constants.get("CONTRACT") == EXPECTED_RUNTIME_CONTRACT
+    assert constants.get("VLLM_VERSION") == EXPECTED_VLLM_VERSION
+    assert constants.get("VLLM_BUILD_COMMIT") == EXPECTED_VLLM_BUILD_COMMIT
+    assert f'VLLM_IMAGE = f"vllm/vllm-openai:v{{VLLM_VERSION}}"' in source
+    assert EXPECTED_VLLM_IMAGE == f"vllm/vllm-openai:v{EXPECTED_VLLM_VERSION}"
     assert constants.get("MAX_MODEL_LEN") == 32_768
     assert constants.get("GPU_MEMORY_UTILIZATION") == 0.90
     assert EXPECTED_CANDIDATE_MARKER in source
     assert "snapshot_download" not in source and "huggingface_hub" not in source
     for token in (
         'os.environ["HF_HUB_OFFLINE"] = "1"', 'os.environ["TRANSFORMERS_OFFLINE"] = "1"',
-        "enforce_eager=False", "enable_prefix_caching=True", 'safetensors_load_strategy="prefetch"',
+        'os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"', "enforce_eager=False",
+        "enable_prefix_caching=False", 'safetensors_load_strategy="prefetch"',
+        '"prefix_caching_enabled": False', '"speculative_decoding_enabled": False',
         "NO_DEFAULT_PAID_ENTRYPOINT", 'production_routing_change\": False',
-        'production_deploy_performed\": False', 'model_download_performed\": False', 'volume_created\": False',
+        'production_deploy_performed\": False', 'model_download_performed\": False',
+        'volume_created\": False',
     ):
         assert token in source, token
+    assert "enable_prefix_caching=True" not in source
+    assert "speculative_model" not in source
+
     decorators = dict(_app_function_decorators(tree))
     assert set(decorators) == {"runtime_probe", "generate"}
     for name in ("runtime_probe", "generate"):
@@ -254,6 +271,12 @@ def _assert_runtime() -> None:
         assert _keyword_literal(decorator, "gpu") == "H100"
         assert _keyword_literal(decorator, "min_containers") == 0
         assert _keyword_literal(decorator, "max_containers") == 1
+        function = _function(tree, name)
+        assert any(argument.arg == "approved" for argument in function.args.args), name
+    assert source.count("if approved is not True:") >= 2
+    assert "_runtime_identity()" in source
+    assert 'observed_version != VLLM_VERSION' in source
+    assert 'observed_build_commit != VLLM_BUILD_COMMIT' in source
     assert "policy.CANDIDATE_MODEL" in source and "policy.CANDIDATE_REVISION" in source and "policy.CODE_VOLUME" in source
     assert 'organization_id\") != \"benchmark-only\"' in source
 
@@ -266,6 +289,8 @@ def main() -> None:
     print("AVANTIQO_CODE_QWEN38_EXPLICIT_REMOTE_APPROVAL=PASS")
     print("AVANTIQO_CODE_QWEN38_SINGLE_STORAGE=PASS")
     print("AVANTIQO_CODE_QWEN38_BOOTSTRAP_V2_GUARDS=PASS")
+    print("AVANTIQO_CODE_QWEN38_STABLE_VLLM_028=PASS")
+    print("AVANTIQO_CODE_QWEN38_PREFIX_CACHE_BASELINE_OFF=PASS")
     print("AVANTIQO_CODE_QWEN38_RUNTIME_ISOLATION=PASS")
     print("AVANTIQO_CODE_QWEN38_ZERO_COST_VERIFIER=PASS")
 

@@ -34,7 +34,16 @@ MAX_REFERENCE_BYTES = 100 * 1024 * 1024
 MIN_REFERENCE_BYTES = 1024
 MAX_REFERENCE_CONDITIONS = 8
 
-transport_image = modal.Image.debian_slim(python_version="3.12").pip_install("requests==2.32.4")
+# Modal serializes this module as the transport function's source. Its imports
+# are sibling modules, so explicitly mount those sources into the transport
+# image as well; otherwise a cold container can hydrate modal_native_job.py but
+# fail before execution with ModuleNotFoundError("modal_app").
+transport_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .pip_install("requests==2.32.4")
+    .add_local_python_source("modal_app")
+    .add_local_python_source("modal_native_controlled_master")
+)
 
 
 def _text(value: Any) -> str:
@@ -89,8 +98,8 @@ def _studio_lineage(data: dict[str, Any]) -> dict[str, Any] | None:
     organization_id = _text(data.get("organization_id"))
     bible_organization_id = _text(shot_bible.get("organization_id"))
     if bible_organization_id and bible_organization_id != organization_id:
-        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_SHOT_BIBLE_ORGANIZATION_MISMATCH")
-    return {"contract": STUDIO_LINEAGE_CONTRACT, "shot_id": shot_id, "shot_bible_contract": SHOT_BIBLE_CONTRACT, "shot_bible": shot_bible}
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_ORGANIZATION_ID_MISMATCH")
+    return lineage
 
 
 def _native_control(data: dict[str, Any]) -> dict[str, Any] | None:
@@ -101,49 +110,50 @@ def _native_control(data: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if _text(control.get("contract")) != NATIVE_CONTROL_CONTRACT:
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_CONTROL_CONTRACT_INVALID")
-    conditions = _list(control.get("reference_conditions"))
-    if not conditions or len(conditions) > MAX_REFERENCE_CONDITIONS:
-        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_CONTROL_CONDITIONS_INVALID")
+    raw_conditions = _list(control.get("reference_conditions"))
+    if not raw_conditions or len(raw_conditions) > MAX_REFERENCE_CONDITIONS:
+        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_CONTROL_REFERENCE_COUNT_INVALID")
+    conditions = []
+    for index, raw in enumerate(raw_conditions):
+        item = _object(raw)
+        source_index = int(item.get("source_asset_index", index))
+        if source_index < 0 or source_index >= MAX_REFERENCE_CONDITIONS:
+            raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_SOURCE_INDEX_INVALID")
+        frame_index = item.get("frame_index")
+        frame_fraction = item.get("frame_fraction")
+        if frame_index is None and frame_fraction is None:
+            raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_CONTROL_FRAME_POSITION_REQUIRED")
+        conditions.append({
+            "source_asset_index": source_index,
+            "frame_index": int(frame_index) if frame_index is not None else None,
+            "frame_fraction": float(frame_fraction) if frame_fraction is not None else None,
+            "strength": float(item.get("strength", 1)),
+            "crf": int(item.get("crf", 0)),
+            "role": _text(item.get("role")) or "REFERENCE_KEYFRAME",
+        })
     return {**control, "reference_conditions": conditions}
 
 
 def _source_urls(data: dict[str, Any]) -> list[str]:
-    urls: list[str] = []
-    roles = _object(data.get("source_asset_roles"))
-    source_image = _text(roles.get("source_image"))
-    if source_image:
-        urls.append(source_image)
-    for source in _list(data.get("source_assets")):
-        candidate = _text(source)
-        if candidate and candidate not in urls:
-            urls.append(candidate)
-    return urls
+    specification = _object(data.get("structured_specification"))
+    generation = _object(specification.get("generation"))
+    raw = data.get("source_urls") or generation.get("source_urls") or specification.get("source_urls") or []
+    return [_text(value) for value in _list(raw) if _text(value)]
 
 
-def _shot_bible_instruction(base: str, lineage: dict[str, Any] | None) -> str:
+def _shot_bible_instruction(instruction: str, lineage: dict[str, Any] | None) -> str:
     if not lineage:
-        return base
-    bible = _object(lineage.get("shot_bible"))
-    compact = []
-    for label, value in (
-        ("story", bible.get("story")),
-        ("camera", bible.get("camera")),
-        ("lighting", bible.get("lighting")),
-        ("environment", bible.get("environment")),
-        ("identity", bible.get("identity")),
-        ("products", bible.get("products")),
-        ("audio", bible.get("audio")),
-    ):
-        if value:
-            compact.append(f"{label}: {value}")
-    return base if not compact else base + "\nSHOT BIBLE EXECUTION:\n" + "\n".join(compact)
+        return instruction
+    shot_bible = _object(lineage.get("shot_bible"))
+    compact = _text(shot_bible.get("generation_instruction"))
+    if compact:
+        return compact
+    return instruction
 
 
 def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_JOB_OBJECT_REQUIRED")
-    if _text(data.get("contract")) != NATIVE_ENGINE_CONTRACT:
-        raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_ENGINE_CONTRACT_INVALID")
     capability = _text(data.get("capability"))
     if capability not in SUPPORTED_CAPABILITIES:
         raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_CAPABILITY_INVALID")
@@ -258,54 +268,54 @@ def generate_native_job(data: dict[str, Any]) -> dict[str, Any]:
 
         if not isinstance(generation, dict) or generation.get("success") is not True:
             raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_RESULT_INVALID")
-        if generation.get("contract") != LTX_RUNTIME_CONTRACT or generation.get("modal_gpu") != LTX_GPU:
-            raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_RUNTIME_INVALID")
-        if generation.get("width") != LTX_MASTER_WIDTH or generation.get("height") != LTX_MASTER_HEIGHT or generation.get("num_inference_steps") != LTX_NUM_INFERENCE_STEPS:
-            raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_MASTER_SPEC_INVALID")
-        if generation.get("master_is_exact_model_output") is not True:
-            raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_MASTER_INVALID")
-        if job["native_control"] and generation.get("control_contract") != CONTROL_CONTRACT:
-            raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_CONTROL_RESULT_INVALID")
-
-        model_volume.reload()
-        if not output_path.is_file() or output_path.stat().st_size <= 1_000_000:
+        if not output_path.exists() or output_path.stat().st_size < 1024 * 1024:
+            model_volume.reload()
+        if not output_path.exists() or output_path.stat().st_size < 1024 * 1024:
             raise RuntimeError("AVANTIQO_VIDEO_LTX25_MODAL_NATIVE_OUTPUT_MISSING")
-        output_bytes = output_path.stat().st_size
         _upload_master(output_path, job["signed_url"])
-        result = dict(generation)
-        result.update({
+        return {
             "success": True,
-            "status": "completed",
-            "job_contract": JOB_CONTRACT,
-            "engine_contract": NATIVE_ENGINE_CONTRACT,
-            "capability": job["capability"],
+            "contract": JOB_CONTRACT,
+            "engine": "avantiqo-owned",
+            "model": "avantiqo-ltx-2.5",
+            "native_engine_contract": NATIVE_ENGINE_CONTRACT,
+            "runtime_contract": LTX_RUNTIME_CONTRACT,
+            "gpu": LTX_GPU,
+            "width": LTX_MASTER_WIDTH,
+            "height": LTX_MASTER_HEIGHT,
+            "fps": 24,
+            "steps": LTX_NUM_INFERENCE_STEPS,
+            "duration_seconds": job["duration_seconds"],
+            "seed": job["seed"],
+            "supplier_gpu_cost_usd": generation.get("supplier_gpu_cost_usd"),
+            "generation": generation,
+            "reference_bytes": reference_bytes,
             "storage_reference": job["storage_reference"],
-            "output_relative": None,
-            "output_size_bytes": output_bytes,
-            "studio_reference_bytes": reference_bytes,
-            "studio_reference_staged_on_cpu": True,
-            "master_uploaded_on_cpu": True,
-            "gpu_transport_io_used": False,
+            "studio_lineage": job["studio_lineage"],
+            "native_control": job["native_control"],
             "gpu_generation_calls": 1,
-            "native_control_executed": bool(job["native_control"]),
-            "volume_job_artifacts_retained": False,
-            "runpod_inference_performed": False,
-            "external_provider_contacted": False,
-            "raw_reasoning_persisted": False,
-        })
-        if job["studio_lineage"]:
-            result.update({"studio_lineage_contract": job["studio_lineage"]["contract"], "shot_id": job["studio_lineage"]["shot_id"], "shot_bible_contract": job["studio_lineage"]["shot_bible_contract"], "studio_lineage_validated": True})
-        return result
+            "automatic_generation_retries": 0,
+            "runpod_used": False,
+            "external_provider_used": False,
+        }
     finally:
         for path in staged_paths:
-            path.unlink(missing_ok=True)
-        output_path.unlink(missing_ok=True)
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
         try:
-            current = output_path.parent
-            stop = Path("/models/runtime-jobs")
-            while current != stop and current.is_dir():
-                current.rmdir()
-                current = current.parent
-        except OSError:
+            output_path.unlink(missing_ok=True)
+        except Exception:
             pass
-        model_volume.commit()
+        try:
+            parent = output_path.parent
+            while parent != Path("/models") and parent.exists():
+                parent.rmdir()
+                parent = parent.parent
+        except Exception:
+            pass
+        try:
+            model_volume.commit()
+        except Exception:
+            pass

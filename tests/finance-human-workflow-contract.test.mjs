@@ -26,6 +26,10 @@ const financeWorkPage = fs.readFileSync(
   new URL("../app/(system)/workspace/[organizationId]/finance/work/page.jsx", import.meta.url),
   "utf8",
 );
+const clientRequestAccessRoute = fs.readFileSync(
+  new URL("../app/api/workspace/finance/client-request-access/route.js", import.meta.url),
+  "utf8",
+);
 const presentationPolicy = fs.readFileSync(
   new URL("../lib/finance/ui/FinanceCapabilityPresentation.js", import.meta.url),
   "utf8",
@@ -125,8 +129,26 @@ test("Finance engagement file puts dependency intelligence beside current accoun
   assert.match(engagementClientDependencyPanel, /ACCESS_EXPIRED/);
   assert.match(engagementClientDependencyPanel, /Do not chase/);
   assert.match(engagementClientDependencyPanel, /Next safe action/);
-  assert.match(engagementClientDependencyPanel, /this panel sends nothing automatically/i);
-  assert.doesNotMatch(engagementClientDependencyPanel, /fetch\(/i);
+  assert.match(engagementClientDependencyPanel, /never sends a client message automatically/i);
+});
+
+test("Finance engagement client access is an explicit governed action, not communication automation", () => {
+  assert.match(engagementClientDependencyPanel, /\["NOT_ISSUED", "ACCESS_EXPIRED"\]/);
+  assert.match(engagementClientDependencyPanel, /useBusinessContext/);
+  assert.match(engagementClientDependencyPanel, /organizationId: accountingFirmId/);
+  assert.match(engagementClientDependencyPanel, /fetch\("\/api\/workspace\/finance\/client-request-access"/);
+  assert.match(engagementClientDependencyPanel, /action: "issue"/);
+  assert.match(engagementClientDependencyPanel, /This link is returned once/);
+  assert.match(engagementClientDependencyPanel, /Avantiqo has not sent it to the client/);
+  assert.match(engagementClientDependencyPanel, /Copy link/);
+  assert.match(engagementClientDependencyPanel, /Open link/);
+  assert.doesNotMatch(engagementClientDependencyPanel, /fetch\([^\n]*(send|remind|message)/i);
+
+  assert.match(clientRequestAccessRoute, /MANAGE_PERMISSIONS/);
+  assert.match(clientRequestAccessRoute, /requireOrganizationAccess/);
+  assert.match(clientRequestAccessRoute, /if \(run\.locked_at\) return jsonError\("Completed work program is locked", 409\)/);
+  assert.match(clientRequestAccessRoute, /ACCOUNTING_CLIENT_REQUEST_ACCESS_ISSUED/);
+  assert.match(clientRequestAccessRoute, /token_returned_once: true/);
 });
 
 test("Every declared Finance runtime capability can override stale planned presentation state", () => {

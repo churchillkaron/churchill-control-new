@@ -1,2 +1,2 @@
 AVANTIQO_CODE_WORLDCLASS_ZERO_GPU_ADMISSION=20260903-V3
-RETRY=python-shim-preflight
+RETRY=control-plane-volume-inventory

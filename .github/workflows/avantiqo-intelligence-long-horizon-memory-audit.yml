@@ -9,6 +9,7 @@ on:
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
       - "lib/intelligence/runtime/AvantiqoLongHorizonMemoryCertificationRuntime.mjs"
       - "scripts/audit-avantiqo-long-horizon-memory-local.mjs"
+      - "scripts/audit-avantiqo-long-horizon-memory-v2-local.mjs"
       - ".github/workflows/avantiqo-intelligence-long-horizon-memory-audit.yml"
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
       - "lib/intelligence/runtime/AvantiqoLongHorizonMemoryCertificationRuntime.mjs"
       - "scripts/audit-avantiqo-long-horizon-memory-local.mjs"
+      - "scripts/audit-avantiqo-long-horizon-memory-v2-local.mjs"
       - ".github/workflows/avantiqo-intelligence-long-horizon-memory-audit.yml"
   workflow_dispatch:
 
@@ -40,4 +42,4 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Audit long horizon memory
-        run: node scripts/audit-avantiqo-long-horizon-memory-local.mjs
+        run: node scripts/audit-avantiqo-long-horizon-memory-v2-local.mjs

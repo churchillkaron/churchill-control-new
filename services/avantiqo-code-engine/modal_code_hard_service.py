@@ -105,7 +105,7 @@ def _public_contract_guard(
             guards.append("zero_snapshot_preservation_v1")
 
     if progressive_tier_contract:
-        before_tier = source
+        before_tier_state = source
         source = re.sub(
             r"charge\s*\+=\s*\(\s*remainingUnits\s*-\s*lastUpToThreshold\s*\)\s*\*\s*rate\s*;",
             "charge += remainingUnits * rate;\n      remainingUnits = 0;",
@@ -116,8 +116,17 @@ def _public_contract_guard(
             r"\1\n        remainingUnits = 0;\2",
             source,
         )
-        if source != before_tier:
+        if source != before_tier_state:
             guards.append("progressive_tier_remaining_state_v1")
+
+        before_tier_shape = source
+        source = re.sub(
+            r"(}\s*else\s*{\s*)(if\s*\(\s*hasOpenTier\s*\)\s*{)",
+            r"\1if (i !== tiers.length - 1) {\n        throw new TypeError('open-ended tier must be final');\n      }\n      \2",
+            source,
+        )
+        if source != before_tier_shape:
+            guards.append("progressive_tier_open_ended_final_v1")
 
     if ledger_rounding_contract:
         before_ledger = source
@@ -262,6 +271,61 @@ def _zero_cost_guard_regression() -> None:
     assert "remainingUnits - lastUpToThreshold" not in tier_source
     assert tier_source.count("remainingUnits = 0;") >= 2
     assert "progressive_tier_remaining_state_v1" in guarded_tier.get(
+        "deterministic_public_contract_guards", []
+    )
+
+    bad_open_tier = """export function calculateCharge(units, tiers) {
+  const numUnits = Number(units);
+  if (!Number.isFinite(numUnits) || numUnits < 0) throw new TypeError('units');
+  if (!Array.isArray(tiers) || tiers.length === 0) throw new TypeError('tiers');
+  let hasOpenTier = false;
+  let prevThreshold = 0;
+  for (let i = 0; i < tiers.length; i++) {
+    const tier = tiers[i];
+    if (tier === null || tier === undefined) throw new TypeError('tier');
+    const upTo = tier.upTo;
+    const rate = tier.rate;
+    if (upTo !== null && upTo !== undefined) {
+      const numUpTo = Number(upTo);
+      if (!Number.isFinite(numUpTo) || numUpTo <= 0) throw new TypeError('upTo');
+      if (numUpTo <= prevThreshold) throw new TypeError('order');
+      prevThreshold = numUpTo;
+    } else {
+      if (hasOpenTier) throw new TypeError('open-ended tier may appear at most once');
+      hasOpenTier = true;
+    }
+    const numRate = Number(rate);
+    if (!Number.isFinite(numRate) || numRate < 0) throw new TypeError('rate');
+  }
+  let charge = 0;
+  let remainingUnits = numUnits;
+  let prev = 0;
+  for (const tier of tiers) {
+    const upTo = tier.upTo;
+    const rate = Number(tier.rate);
+    if (upTo === null) {
+      charge += remainingUnits * rate;
+      remainingUnits = 0;
+      break;
+    }
+    const width = upTo - prev;
+    const used = Math.min(remainingUnits, width);
+    charge += used * rate;
+    remainingUnits -= used;
+    prev = upTo;
+    if (remainingUnits <= 0) break;
+  }
+  return Math.round(charge * 100) / 100;
+}"""
+    open_tier_output = {
+        "result": json.dumps(
+            {"path": "tier-pricing.mjs", "content": bad_open_tier}, separators=(",", ":")
+        )
+    }
+    guarded_open_tier = _public_contract_guard(tier_request, open_tier_output)
+    open_tier_source = str(json.loads(str(guarded_open_tier["result"]))["content"])
+    assert "i !== tiers.length - 1" in open_tier_source
+    assert "progressive_tier_open_ended_final_v1" in guarded_open_tier.get(
         "deterministic_public_contract_guards", []
     )
 

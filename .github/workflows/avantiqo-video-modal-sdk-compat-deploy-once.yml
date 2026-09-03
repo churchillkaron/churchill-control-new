@@ -35,10 +35,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install compatible Modal SDK
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install compatible Modal SDKs
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          npm ci --ignore-scripts
           python - <<'PY'
           import modal
           print('MODAL_PYTHON_SDK_VERSION=' + modal.__version__)
@@ -52,24 +58,42 @@ jobs:
           test "$AVANTIQO_VIDEO_PROVIDER_CALLS_ALLOWED" = "NO"
           python -m py_compile \
             services/avantiqo-video-engine/modal_app.py \
+            services/avantiqo-video-engine/modal_deploy.py \
             services/avantiqo-video-engine/modal_native_job.py \
             services/avantiqo-video-engine/modal_native_controlled_master.py
           echo 'GPU_INFERENCE_PERFORMED=false'
 
-      - name: Redeploy same owned Video Modal app
+      - name: Redeploy complete owned Video Modal surface
         run: |
           set -euo pipefail
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
           cd services/avantiqo-video-engine
-          modal deploy modal_app.py
-          echo 'AVANTIQO_VIDEO_MODAL_SDK_COMPAT_DEPLOY=PASS'
+          modal deploy modal_deploy.py
+          echo 'AVANTIQO_VIDEO_MODAL_COMPLETE_SURFACE_DEPLOY=PASS'
           echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Prove JavaScript Service Runtime lookup without spawn
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import * as modal from 'modal';
+          const tokenId = String(process.env.MODAL_TOKEN_ID || '').trim();
+          const tokenSecret = String(process.env.MODAL_TOKEN_SECRET || '').trim();
+          if (!tokenId || !tokenSecret) throw new Error('MODAL_CREDENTIALS_REQUIRED');
+          const client = new modal.ModalClient({ tokenId, tokenSecret });
+          const fn = await client.functions.fromName('avantiqo-video-owned', 'generate_native_job');
+          if (!fn) throw new Error('AVANTIQO_VIDEO_MODAL_JS_LOOKUP_MISSING');
+          console.log('AVANTIQO_VIDEO_MODAL_JS_FROM_NAME=PASS');
+          console.log('MODAL_SPAWN_COUNT=0');
+          console.log('GPU_INFERENCE_PERFORMED=false');
+          NODE
 
       - name: Preserve release boundary
         if: always()
         run: |
           echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'MODAL_SPAWN_COUNT=0'
           echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
           echo 'VIDEO_PRICING_ACTIVATED=false'
           echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'

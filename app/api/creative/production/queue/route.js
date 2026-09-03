@@ -1,142 +1,95 @@
 export const dynamic = "force-dynamic";
 
-import "@/lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap";
-import "@/lib/creative/quality/runtime/CreativeShotCandidateQualityGateBootstrap";
-
 import { NextResponse } from "next/server";
 
 import {
+  ProductionRuntime,
+} from "@/lib/creative/production/runtime/ProductionRuntime";
+import {
   ProductionQueueRuntime,
 } from "@/lib/creative/production/queue/runtime/ProductionQueueRuntime";
-
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 
+function creativeProjectId(input = {}) {
+  return (
+    input.creative_project_id ||
+    input.creativeProjectId ||
+    null
+  );
+}
+
 export async function GET(req) {
-
   try {
+    const { searchParams } = new URL(req.url);
+    const organizationId = searchParams.get("organizationId");
+    const projectId =
+      searchParams.get("creativeProjectId") ||
+      searchParams.get("creative_project_id");
 
-    const { searchParams } =
-      new URL(req.url);
+    const access = await requireOrganizationAccess({
+      organizationId,
+    });
 
-    const organizationId =
-      searchParams.get("organizationId");
-
-    const creativeProjectId =
-      searchParams.get("creativeProjectId");
-
-    const access =
-      await requireOrganizationAccess({
-        organizationId,
+    if (!access.success) {
+      return NextResponse.json(access, {
+        status: access.status,
       });
+    }
 
-    if (!access.success)
-      return NextResponse.json(
-        access,
-        {
-          status:
-            access.status,
-        }
-      );
-
-    const queue =
-      await ProductionQueueRuntime.build({
-
-        organization_id:
-          organizationId,
-
-        creative_project_id:
-          creativeProjectId,
-
-      });
+    const queue = await ProductionQueueRuntime.build({
+      organization_id: organizationId,
+      creative_project_id: projectId,
+    });
 
     return NextResponse.json({
-
       success: true,
-
       queue,
-
     });
-
   } catch (error) {
-
     return NextResponse.json({
-
       success: false,
-
-      error:
-        error.message,
-
+      error: error.message,
     }, {
-
       status: 500,
-
     });
-
   }
-
 }
 
 export async function POST(req) {
-
   try {
-
-    const body =
-      await req.json();
-
+    const body = await req.json();
     const organizationId =
       body.organization_id ||
       body.organizationId;
+    const projectId = creativeProjectId(body);
 
-    const access =
-      await requireOrganizationAccess({
-        organizationId,
+    const access = await requireOrganizationAccess({
+      organizationId,
+    });
+
+    if (!access.success) {
+      return NextResponse.json(access, {
+        status: access.status,
       });
+    }
 
-    if (!access.success)
-      return NextResponse.json(
-        access,
-        {
-          status:
-            access.status,
-        }
-      );
-
-    const result =
-      await ProductionQueueRuntime.dispatchAll({
-
-        organization_id:
-          organizationId,
-
-        creative_project_id:
-          body.creative_project_id,
-
-      });
+    const result = await ProductionRuntime.runProduction({
+      organization_id: organizationId,
+      creative_project_id: projectId,
+    });
 
     return NextResponse.json({
-
       success: true,
-
       result,
-
     });
-
   } catch (error) {
-
     return NextResponse.json({
-
       success: false,
-
-      error:
-        error.message,
-
+      error: error.message,
     }, {
-
       status: 500,
-
     });
-
   }
-
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -12,7 +12,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
-import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
+import { useFinanceLandingRuntime } from "@/components/workspace/finance/FinanceLandingRuntimeProvider";
 import { buildFinanceContinuousCloseState } from "@/lib/finance/ui/FinanceActionObject";
 
 function financeHref(organizationId, route) {
@@ -52,72 +52,31 @@ function accountIntegrityControl(health) {
 }
 
 export default function FinanceContinuousCloseRail({ organizationId }) {
-  const businessContext = useBusinessContext() || {};
-  const entityId = businessContext.entity_id || businessContext.entity?.id || null;
-  const periodId = businessContext.period_id || businessContext.period?.id || null;
-  const [state, setState] = useState({ loading: true, error: "", data: null, accountHealth: null });
-
-  async function load() {
-    if (!organizationId || !entityId || !periodId) {
-      setState({ loading: false, error: "", data: null, accountHealth: null });
-      return;
-    }
-
-    try {
-      setState((current) => ({ ...current, loading: true, error: "" }));
-      const commandUrl = new URL("/api/workspace/finance/command-center", window.location.origin);
-      commandUrl.searchParams.set("organizationId", organizationId);
-      commandUrl.searchParams.set("entityId", entityId);
-      commandUrl.searchParams.set("periodId", periodId);
-      const healthUrl = new URL("/api/workspace/finance/account-health", window.location.origin);
-      healthUrl.searchParams.set("organizationId", organizationId);
-      healthUrl.searchParams.set("entityId", entityId);
-      healthUrl.searchParams.set("periodId", periodId);
-
-      const [commandResponse, healthResponse] = await Promise.all([
-        fetch(commandUrl.toString(), { cache: "no-store", credentials: "include" }),
-        fetch(healthUrl.toString(), { cache: "no-store", credentials: "include" }),
-      ]);
-      const [commandBody, healthBody] = await Promise.all([
-        commandResponse.json().catch(() => ({})),
-        healthResponse.json().catch(() => ({})),
-      ]);
-
-      if (!commandResponse.ok || commandBody?.success === false) {
-        throw new Error(commandBody?.error || "Unable to load continuous close state");
-      }
-
-      setState({
-        loading: false,
-        error: healthResponse.ok && healthBody?.success !== false ? "" : "Account-health refresh delayed",
-        data: commandBody,
-        accountHealth: healthResponse.ok && healthBody?.success !== false ? healthBody?.health || null : null,
-      });
-    } catch (error) {
-      setState((current) => ({
-        ...current,
-        loading: false,
-        error: error?.message || "Unable to load continuous close state",
-      }));
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, [organizationId, entityId, periodId]);
+  const {
+    entityId,
+    periodId,
+    data,
+    accountHealth,
+    loading,
+    refreshing,
+    error,
+    stale,
+    refresh,
+  } = useFinanceLandingRuntime();
+  const health = accountHealth?.health || null;
 
   const closeState = useMemo(
-    () => (state.data ? buildFinanceContinuousCloseState(state.data) : null),
-    [state.data],
+    () => (data ? buildFinanceContinuousCloseState(data) : null),
+    [data],
   );
   const controls = useMemo(() => {
     if (!closeState) return [];
-    const accountControl = accountIntegrityControl(state.accountHealth);
+    const accountControl = accountIntegrityControl(health);
     return accountControl ? [...closeState.controls, accountControl] : closeState.controls;
-  }, [closeState, state.accountHealth]);
+  }, [closeState, health]);
   const surfacedState = useMemo(() => {
     if (!closeState) return null;
-    const accountControl = accountIntegrityControl(state.accountHealth);
+    const accountControl = accountIntegrityControl(health);
     if (accountControl?.state === "BLOCKED" && closeState.state !== "CLOSED") {
       return {
         ...closeState,
@@ -135,11 +94,11 @@ export default function FinanceContinuousCloseRail({ organizationId }) {
       };
     }
     return closeState;
-  }, [closeState, state.accountHealth]);
+  }, [closeState, health]);
 
   if (!organizationId || !entityId || !periodId) return null;
 
-  if (state.loading && !surfacedState) {
+  if (loading && !surfacedState) {
     return (
       <div className="mx-auto mb-4 flex min-h-[64px] max-w-[1720px] items-center justify-center rounded-[20px] border border-black/[0.07] bg-white text-[8px] text-[#817A72]">
         <LoaderCircle size={11} className="mr-2 animate-spin text-[#A37849]" /> Reading continuous close readiness…
@@ -173,8 +132,8 @@ export default function FinanceContinuousCloseRail({ organizationId }) {
           <Link href={financeHref(organizationId, "/finance/close")} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white">
             Open close <ArrowRight size={8} />
           </Link>
-          <button type="button" onClick={load} disabled={state.loading} aria-label="Refresh continuous close state" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-[#806143] disabled:opacity-50">
-            <RefreshCw size={10} className={state.loading ? "animate-spin" : ""} />
+          <button type="button" onClick={refresh} disabled={refreshing} aria-label="Refresh Finance landing snapshot" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-[#806143] disabled:opacity-50">
+            <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
@@ -194,8 +153,8 @@ export default function FinanceContinuousCloseRail({ organizationId }) {
       </div>
 
       <div className="flex flex-col gap-1 border-t border-black/[0.05] bg-[#FCFBF8] px-4 py-2 text-[7px] text-[#938C84] sm:flex-row sm:items-center sm:justify-between md:px-5">
-        <span>Close readiness is derived from live accounting controls and account integrity, not a manually maintained progress score.</span>
-        <span>{state.error ? `${state.error} · last successful close state retained` : "Every action remains subject to normal approval, review and final-close gates."}</span>
+        <span>Close readiness is derived from the same synchronized Finance snapshot as account health and the accountant workspace.</span>
+        <span>{error ? `${stale ? "Refresh delayed" : "Finance snapshot unavailable"} · ${error}` : "Every action remains subject to normal approval, review and final-close gates."}</span>
       </div>
     </section>
   );

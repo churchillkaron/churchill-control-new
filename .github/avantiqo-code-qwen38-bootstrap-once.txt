@@ -1,2 +1,2 @@
 AVANTIQO_CODE_QWEN38_BOOTSTRAP_ONCE=20260903-V1
-RETRY=precise-ephemeral-disk-ast-gate
+RETRY=after-precise-ast-gate-fix

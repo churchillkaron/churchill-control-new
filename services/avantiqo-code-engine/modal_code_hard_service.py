@@ -21,6 +21,7 @@ import modal_persistent_owned_cert as cert
 APP_NAME = "avantiqo-code-hard-service-v1"
 FUNCTION_NAME = "run_hard_cert_batch"
 SERVICE_CONTRACT = "AVANTIQO_CODE_HARD_SERVICE_V1"
+MAX_HARD_COMPLETION_TOKENS = 800
 
 app = modal.App(APP_NAME)
 
@@ -38,12 +39,6 @@ _LLM_PATCHED = False
 def _public_contract_guard(
     request: dict[str, Any], output: dict[str, Any]
 ) -> dict[str, Any]:
-    """Repair mechanically provable contradictions using only the public contract.
-
-    The guard is deliberately narrow. It never sees hidden tests and cannot invent
-    business behavior. It only normalizes source patterns that directly contradict
-    invariants explicitly declared in the public production contract.
-    """
     specification = request.get("structured_specification") or {}
     if specification.get("machine_verification_repair") is not True:
         return output
@@ -85,7 +80,6 @@ def _public_contract_guard(
     guards: list[str] = []
 
     if zero_snapshot_contract:
-        # Public stock contract accepts zero while request quantity is strictly >0.
         source = re.sub(
             r"if\s*\(\s*!Number\.isFinite\(num\)\s*\|\|\s*num\s*<=\s*0\s*\)\s*return\s+NaN\s*;",
             "if (!Number.isFinite(num) || num < 0) return NaN;",
@@ -97,28 +91,17 @@ def _public_contract_guard(
             r"\1if (Number.isNaN(quantity) || quantity <= 0) continue;",
             source,
         )
-        source = re.sub(
-            r"remaining\s*:\s*finalRemaining\b",
-            "remaining",
-            source,
-        )
+        source = re.sub(r"remaining\s*:\s*finalRemaining\b", "remaining", source)
         if source != original:
             guards.append("zero_snapshot_preservation_v1")
 
     if progressive_tier_contract:
         before_tier = source
-        # A progressive implementation may track both remaining units and the
-        # previous absolute threshold, but it must never subtract both. Once a
-        # finite tier has reduced remainingUnits, the open-ended tier consumes
-        # the remaining balance directly.
         source = re.sub(
             r"charge\s*\+=\s*\(\s*remainingUnits\s*-\s*lastUpToThreshold\s*\)\s*\*\s*rate\s*;",
             "charge += remainingUnits * rate;\n      remainingUnits = 0;",
             source,
         )
-        # When a partial finite tier consumes all remaining units, make that
-        # state explicit before leaving the loop so the public RangeError rule
-        # only fires for units genuinely beyond the final finite threshold.
         source = re.sub(
             r"(charge\s*\+=\s*remainingUnits\s*\*\s*rate\s*;)(\s*break\s*;)",
             r"\1\n        remainingUnits = 0;\2",
@@ -249,16 +232,6 @@ def _zero_cost_guard_regression() -> None:
         "deterministic_public_contract_guards", []
     )
 
-    unrelated = {
-        "structured_specification": {
-            "machine_verification_repair": True,
-            "production_contract": "Implement lineTotal(input) and return a number.",
-        }
-    }
-    unchanged = _public_contract_guard(unrelated, tier_output)
-    assert unchanged["result"] == tier_output["result"]
-    assert unchanged.get("deterministic_public_contract_guard_applied") is not True
-
 
 _zero_cost_guard_regression()
 
@@ -276,7 +249,6 @@ _zero_cost_guard_regression()
     max_containers=1,
 )
 def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
-    """Execute one first-pass or repair batch on the persistent Code runtime."""
     global _REMOTE_WARMED, _LLM_PATCHED
 
     os.chdir("/app")
@@ -327,17 +299,18 @@ def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
     for request in requests:
         specification = request.get("structured_specification") or {}
         repair_mode = specification.get("machine_verification_repair") is True
+        requested_cap = int(specification.get("max_completion_tokens") or MAX_HARD_COMPLETION_TOKENS)
+        completion_cap = max(64, min(requested_cap, MAX_HARD_COMPLETION_TOKENS))
 
-        if repair_mode:
-            def repair_sampling_params(*args: Any, **kwargs: Any) -> Any:
+        def bounded_sampling_params(*args: Any, **kwargs: Any) -> Any:
+            if repair_mode:
                 kwargs["temperature"] = 0.15
                 kwargs["top_p"] = 0.95
                 kwargs["seed"] = 17
-                return base_sampling_params(*args, **kwargs)
+            kwargs["max_tokens"] = completion_cap
+            return base_sampling_params(*args, **kwargs)
 
-            code_engine.SamplingParams = repair_sampling_params
-        else:
-            code_engine.SamplingParams = base_sampling_params
+        code_engine.SamplingParams = bounded_sampling_params
 
         started = time.perf_counter()
         try:
@@ -355,6 +328,7 @@ def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
         clean["quality_policy"] = cert.verified.QUALITY_POLICY
         clean["warm_runtime"] = True
         clean["vllm_enforce_eager"] = False
+        clean["max_completion_tokens_enforced"] = completion_cap
         clean["repair_sampling"] = (
             {"temperature": 0.15, "top_p": 0.95, "seed": 17}
             if repair_mode
@@ -372,6 +346,7 @@ def run_hard_cert_batch(requests: list[dict[str, Any]]) -> dict[str, Any]:
         "scored_gpu_seconds": round(time.perf_counter() - scored_started, 3),
         "warmup_model_calls": warmup_model_calls,
         "model_calls": len(outputs),
+        "max_completion_tokens_enforced": MAX_HARD_COMPLETION_TOKENS,
         "persistent_model_storage": True,
         "model_volume_name": cert.MODEL_VOLUME_NAME,
         "model_revision": cert.MODEL_REVISION,

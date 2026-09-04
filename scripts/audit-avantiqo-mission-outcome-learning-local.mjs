@@ -112,7 +112,7 @@ function failureAssessment() {
         required: true,
         status: "SATISFIED",
         exact_source_observation_count: 1,
-        evidence_ids: ["evidence-stale-write"] ,
+        evidence_ids: ["evidence-stale-write"],
       },
     ],
   };
@@ -177,9 +177,9 @@ assert.equal(one.row.metadata.raw_reasoning_persisted, false);
 assert.equal(one.row.metadata.authorization_value, "none");
 assert.equal(one.row.metadata.automatic_training_effect, "NONE");
 assert.equal(one.row.metadata.automatic_gpu_execution, false);
-assert.equal(one.row.metadata.automatic_runpod_submission, false);
+assert.equal(one.row.metadata.automatic_modal_submission, false);
 assert.ok(!one.row.content.includes("evidence-verified-state"));
-assert.ok(!one.row.content.includes("00000000-0000-4000-8000-000000000001"));
+assert.ok(!one.row.content.includes(LEARNING_ORGANIZATION_ID));
 assert.ok(!one.row.content.includes("a".repeat(64)));
 
 const oneShot = evaluateAvantiqoMissionOutcomePattern({
@@ -255,6 +255,7 @@ assert.equal(candidate.metadata.raw_mission_text_included, false);
 assert.equal(candidate.metadata.raw_payload_included, false);
 assert.equal(candidate.metadata.raw_output_included, false);
 assert.equal(candidate.metadata.raw_reasoning_persisted, false);
+assert.equal(candidate.metadata.automatic_modal_submission, false);
 assert.equal(candidate.metadata.authorization_value, "none");
 assert.match(candidate.content, /support investigating whether/i);
 assert.match(candidate.content, /not a causal conclusion/i);
@@ -376,7 +377,7 @@ const result = {
     existing_learning_evidence_bridge_is_preserved: true,
     explicit_final_promotion_remains_required: true,
     no_business_action_authority_is_added: true,
-    no_model_provider_gpu_or_runpod_execution_performed: true,
+    no_model_provider_gpu_or_modal_execution_performed: true,
   },
   positive_pattern: {
     observations: repeated.observation_count,

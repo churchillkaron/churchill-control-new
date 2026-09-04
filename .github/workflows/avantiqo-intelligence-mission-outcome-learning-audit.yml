@@ -1,0 +1,80 @@
+name: Avantiqo Intelligence Mission Outcome Learning Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
+      - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeAssessmentRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
+      - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeAssessmentRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-mission-outcome-learning-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Zero-cost mission outcome learning certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Syntax gate
+        run: |
+          node --check lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js
+          node --check scripts/audit-avantiqo-mission-outcome-learning-local.mjs
+
+      - name: Run adversarial mission outcome learning audit
+        run: node scripts/audit-avantiqo-mission-outcome-learning-local.mjs
+
+      - name: Guard immutable learning boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+          grep -q 'EVIDENCE_CANDIDATE_NOT_RELEASED' "$runtime"
+          grep -q 'causal_attribution_allowed: false' "$runtime"
+          grep -q 'reusable_platform_knowledge: false' "$runtime"
+          grep -q 'knowledge_router_reuse_allowed: false' "$runtime"
+          grep -q 'automatic_knowledge_promotion: false' "$runtime"
+          grep -q 'explicit_final_promotion_required: true' "$runtime"
+          grep -q 'discriminating_counterfactual_evaluation_required: true' "$runtime"
+          grep -q 'AVANTIQO_LEARNING_EVIDENCE_CANDIDATE_BRIDGE_V1' "$runtime"
+          grep -q 'min_observations: 3' "$runtime"
+          grep -q 'min_distinct_observation_days: 2' "$runtime"
+          grep -q 'min_dominant_outcome_ratio: 0.8' "$runtime"
+          if grep -Eq 'from ["'\''`](openai|@anthropic-ai|modal|runpod)' "$runtime"; then
+            echo "Forbidden provider/GPU import in zero-cost mission outcome learning runtime"
+            exit 1
+          fi
+          if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$runtime"; then
+            echo "Direct reusable platform knowledge write detected"
+            exit 1
+          fi

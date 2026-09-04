@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningCoreRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeObservationAuthenticityRuntime.js"
       - "lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js"
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
@@ -21,6 +23,7 @@ on:
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
+      - "scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
@@ -34,6 +37,8 @@ on:
       - main
     paths:
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningCoreRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeObservationAuthenticityRuntime.js"
       - "lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js"
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
@@ -49,6 +54,7 @@ on:
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
+      - "scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
@@ -71,6 +77,9 @@ jobs:
     name: Zero-cost governed mission learning certification
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID: audit-v2
+      AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON: '{"audit-v1":"1111111111111111111111111111111111111111111111111111111111111111","audit-v2":"2222222222222222222222222222222222222222222222222222222222222222"}'
     steps:
       - name: Checkout exact source
         uses: actions/checkout@v4
@@ -86,6 +95,8 @@ jobs:
       - name: Syntax gate
         run: |
           node --check lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoMissionOutcomeLearningCoreRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoMissionOutcomeObservationAuthenticityRuntime.js
           node --check lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js
           node --check lib/operator/runtime/OperatorMissionOutcomeLearningBridgeRuntime.js
           node --check lib/operator/runtime/OperatorMissionOutcomeLearningManifestRuntime.js
@@ -96,6 +107,7 @@ jobs:
           node --check lib/platform/capabilities/createCodeAICommitStatusCapability.js
           node --check scripts/audit-avantiqo-mission-outcome-learning-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs
+          node --check scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs
           node --check scripts/audit-operator-mission-outcome-learning-handoff-local.mjs
@@ -109,6 +121,9 @@ jobs:
 
       - name: Run stored evidence integrity audit
         run: node scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs
+
+      - name: Run observation authenticity audit
+        run: node scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs
 
       - name: Run history window integrity audit
         run: node scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs

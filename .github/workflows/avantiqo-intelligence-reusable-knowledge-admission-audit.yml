@@ -1,0 +1,87 @@
+name: Avantiqo Intelligence Reusable Knowledge Admission Audit
+
+on:
+  push:
+    paths:
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "scripts/audit-avantiqo-reusable-knowledge-row-admission-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-reusable-knowledge-admission-audit.yml"
+  pull_request:
+    paths:
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "scripts/audit-avantiqo-reusable-knowledge-row-admission-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-reusable-knowledge-admission-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reusable-knowledge-boundary:
+    name: Zero-cost reusable knowledge boundary certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Syntax gate
+        run: |
+          node --check lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js
+          node --check scripts/audit-avantiqo-reusable-knowledge-row-admission-local.mjs
+
+      - name: Run reusable knowledge adversarial audit
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: audit-service-role-key-not-used
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-reusable-knowledge-row-admission-local.mjs
+
+      - name: Guard immutable reusable knowledge boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUNTIME="lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+          RELEASE="lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+
+          grep -Fq 'AVANTIQO_REUSABLE_KNOWLEDGE_ROW_ADMISSION_V1' "$RUNTIME"
+          grep -Fq 'avantiqo_explicit_final_knowledge_release' "$RUNTIME"
+          grep -Fq 'RELEASED_MONITORED' "$RUNTIME"
+          grep -Fq 'EXPLICIT_FINAL_RELEASE_APPROVAL_REQUIRED' "$RUNTIME"
+          grep -Fq 'REUSABLE_PLATFORM_KNOWLEDGE_TRUE_REQUIRED' "$RUNTIME"
+          grep -Fq 'KNOWLEDGE_ROUTER_REUSE_TRUE_REQUIRED' "$RUNTIME"
+          grep -Fq 'CUSTOMER_PRIVATE_CONTENT_FALSE_REQUIRED' "$RUNTIME"
+          grep -Fq 'RAW_REASONING_PERSISTENCE_FALSE_REQUIRED' "$RUNTIME"
+          grep -Fq 'AUTHORIZATION_VALUE_NONE_REQUIRED' "$RUNTIME"
+          grep -Fq 'mechanism_agenda_reuse_allowed: false' "$RUNTIME"
+          grep -Fq 'evidence_candidate_reuse_allowed: false' "$RUNTIME"
+          grep -Fq 'provisional_knowledge_reuse_allowed: false' "$RUNTIME"
+          grep -Fq 'assessAvantiqoReusableKnowledgeRowEligibility(row, { include_internal }).eligible' "$RUNTIME"
+
+          grep -Fq 'EXPLICIT_APPROVAL_REQUIRED' "$RELEASE"
+          grep -Fq 'candidateBenchmarkStillEligible' "$RELEASE"
+          grep -Fq 'provisionalStillEligible' "$RELEASE"
+          grep -Fq 'CURRENT_EVIDENCE_GRAPH_BLOCKS_RELEASE' "$RELEASE"
+          grep -Fq 'SUPPORTING_SOURCE_PROVENANCE_REQUIRED' "$RELEASE"
+
+          if grep -Eiq 'from .*platform_knowledge|into .*platform_knowledge' "$RUNTIME"; then
+            echo "Hybrid retrieval runtime must never write platform knowledge directly" >&2
+            exit 1
+          fi
+
+          if grep -Eiq 'runpod|modal\.Function|openai|anthropic' scripts/audit-avantiqo-reusable-knowledge-row-admission-local.mjs; then
+            echo "Zero-cost reusable knowledge audit must not invoke model/GPU providers" >&2
+            exit 1
+          fi

@@ -3,14 +3,15 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/shared/auth";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
+import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function requestedView(searchParams) {
   return String(
+    searchParams.get("view") ||
     searchParams.get("capabilityId") ||
     searchParams.get("workspaceId") ||
-    searchParams.get("view") ||
     "accounts_payable"
   )
     .trim()
@@ -96,6 +97,13 @@ export async function GET(req) {
         { status: access.status }
       );
     }
+
+    await checkFinancePermission({
+      organizationId: access.organizationId,
+      userId: access.user?.id,
+      permissionKey: "finance.payables.view",
+      fullAccess: access.permissions?.includes("*") === true,
+    });
 
     const requestedEntityId =
       searchParams.get("entityId") ||

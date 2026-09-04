@@ -7,18 +7,12 @@ on:
       - .github/workflows/avantiqo-safe-lease-propagation-hotfix.yml
 
 permissions:
-  contents: write
-
-concurrency:
-  group: avantiqo-safe-lease-propagation-hotfix
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   code_v9_zero_cost:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -49,82 +43,3 @@ jobs:
           grep -q 'MAX_WARM_P95_MS = 4_000' services/avantiqo-code-engine/worldclass_cert_v3_contract.py
           echo 'AVANTIQO_CODE_REPO_AGENT_V10_ZERO_COST=PASS'
           echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V9_ADMISSION=PASS'
-
-  repair:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Patch eventual-consistency guard
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          p = Path('scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs')
-          s = p.read_text()
-          old = '''  await patch(targetId, 1, managementKey);
-  endpointOpened = true;
-  await enforce(
-    await snapshot(managementKey, queueKey, targetId, targetQueueKey),
-    policy,
-    targetId,
-    managementKey,
-    args.lane,
-'''
-          new = '''  await patch(targetId, 1, managementKey);
-  endpointOpened = true;
-
-  // RunPod's direct endpoint PATCH response can reflect 0/1 before the global
-  // endpoint listing used by snapshot() catches up. Treat that as bounded
-  // control-plane propagation, not an invalid lease. Never submit child work
-  // until the global safety snapshot independently observes the same 0/1 state.
-  let openedSnapshot = null;
-  const openedStateDeadline = Date.now() + 30_000;
-  while (Date.now() < openedStateDeadline) {
-    openedSnapshot = await snapshot(managementKey, queueKey, targetId, targetQueueKey);
-    const openedTarget = openedSnapshot.rows.find((row) => row.id === targetId);
-    if (openedTarget?.workers_min === 0 && openedTarget?.workers_max === 1) break;
-    await sleep(1000);
-  }
-  const openedTarget = openedSnapshot?.rows?.find((row) => row.id === targetId);
-  if (!openedTarget || openedTarget.workers_min !== 0 || openedTarget.workers_max !== 1) {
-    throw new Error(`${CONTRACT}_TARGET_LEASE_STATE_PROPAGATION_TIMEOUT`);
-  }
-
-  await enforce(
-    openedSnapshot,
-    policy,
-    targetId,
-    managementKey,
-    args.lane,
-'''
-          if old not in s:
-              raise SystemExit('SAFE_LEASE_PROPAGATION_PATCH_TARGET_MISSING')
-          p.write_text(s.replace(old, new, 1))
-          PY
-
-      - name: Syntax and contract proof
-        run: |
-          node --check scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
-          grep -q 'TARGET_LEASE_STATE_PROPAGATION_TIMEOUT' scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
-          grep -q 'openedStateDeadline = Date.now() + 30_000' scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
-          git diff --check
-
-      - name: Commit only after green proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "churchillkaron"
-          git config user.email "patric@pcsphuket.com"
-          git add scripts/run-avantiqo-runpod-safe-lease-v2-local.mjs
-          git commit -m "Harden Safe Lease against RunPod propagation lag"
-          git push origin HEAD:main

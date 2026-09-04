@@ -148,6 +148,8 @@ jobs:
         run: node scripts/audit-avantiqo-mission-outcome-authenticity-static-local.mjs
 
       - name: Run evidence candidate authenticity audit
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: audit-service-role-key-not-used
         run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-learning-evidence-candidate-authenticity-local.mjs
 
       - name: Run evidence candidate authenticity source guard

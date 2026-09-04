@@ -50,39 +50,49 @@ function formatDue(value) {
   });
 }
 
-function nextHumanMove(item) {
+function formatTime(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function fallbackMove(item) {
   if (item?.overdue) {
     return {
       title: "Recover overdue work",
-      detail: "This commitment is already late. Protect the customer promise before moving healthy work.",
-      state: "Attention",
+      detail: "Protect the missed commitment before healthy work is reshuffled.",
+      state: "ATTENTION",
     };
   }
   if (!item?.assigned_to) {
     return {
       title: "Assign accountable owner",
-      detail: "No person owns the next move yet. Assign before execution or dispatch continues.",
-      state: "Unassigned",
+      detail: "Give the next move to a person before execution or dispatch continues.",
+      state: "UNASSIGNED",
     };
   }
   if (item?.high_priority) {
     return {
       title: "Protect priority work",
-      detail: "High-priority work is active. Confirm timing, ownership and constraints before lower-priority work.",
-      state: "Priority",
-    };
-  }
-  if (item?.due_at) {
-    return {
-      title: "Move scheduled work",
-      detail: "Keep the committed work moving through its next governed execution step.",
-      state: "Due",
+      detail: "Confirm timing, ownership and constraints before lower-priority work moves.",
+      state: "PRIORITY",
     };
   }
   return {
     title: "Continue active work",
-    detail: "The item is active and surfaced by the live operating queue.",
-    state: "Active",
+    detail: "No surfaced exception requires a different operating decision.",
+    state: "ACTIVE",
+  };
+}
+
+function moveFor(item) {
+  const fallback = fallbackMove(item);
+  return {
+    title: item?.next_move || fallback.title,
+    detail: item?.next_move_detail || fallback.detail,
+    state: item?.actionability_state || fallback.state,
+    reason: item?.actionability_reason || null,
   };
 }
 
@@ -91,11 +101,14 @@ function stateTone(value) {
   if (normalized.includes("attention") || normalized.includes("overdue")) {
     return "border-[#B36B52]/20 bg-[#B36B52]/[0.07] text-[#98513D]";
   }
-  if (normalized.includes("priority")) {
+  if (normalized.includes("priority") || normalized.includes("due_soon")) {
     return "border-[#C08A4A]/20 bg-[#C08A4A]/[0.08] text-[#8B6236]";
   }
   if (normalized.includes("unassigned")) {
     return "border-[#A37849]/18 bg-[#A37849]/[0.06] text-[#76583A]";
+  }
+  if (normalized.includes("today") || normalized.includes("active")) {
+    return "border-[#748267]/18 bg-[#748267]/[0.06] text-[#607057]";
   }
   return "border-black/[0.07] bg-[#F7F6F3] text-[#77736C]";
 }
@@ -185,6 +198,7 @@ export default function OperationsIndustryCommandCenter({
   const metrics = state.data?.metrics || {};
   const capabilityState = state.data?.capabilities || {};
   const attention = Array.isArray(state.data?.attention) ? state.data.attention : [];
+  const today = Array.isArray(state.data?.today) ? state.data.today : [];
   const stages = Array.isArray(profile?.stages) ? profile.stages : [];
   const primaryActions = Array.isArray(profile?.primaryActions) ? profile.primaryActions : [];
   const tools = Array.isArray(profile?.tools) ? profile.tools : [];
@@ -192,12 +206,12 @@ export default function OperationsIndustryCommandCenter({
   const metricCards = Array.isArray(profile?.metricCards) && profile.metricCards.length
     ? profile.metricCards
     : [
-        { key: "active", label: "Active work", detail: "Open work in this operating context" },
-        { key: "due_today", label: "Due today", detail: "Items requiring movement today" },
+        { key: "attention", label: "Attention", detail: "Work requiring human intervention", attention: true },
+        { key: "scheduled_today", label: "Scheduled today", detail: "Work already in today’s operating plan" },
         { key: "overdue", label: "Overdue", detail: "Open work past its due time", attention: true },
         { key: "unassigned", label: "Unassigned", detail: "Work without accountable ownership", attention: true },
         { key: "high_priority", label: "Priority", detail: "High or critical active work", attention: true },
-        { key: "completed_today", label: "Completed today", detail: "Work completed today" },
+        { key: "completed_today", label: "Completed today", detail: "Evidence of daily throughput" },
       ];
 
   return (
@@ -238,37 +252,49 @@ export default function OperationsIndustryCommandCenter({
           </div>
         ) : null}
 
-        <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)] xl:items-start">
+        <section className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {metricCards.map((card) => (
+            <MetricCard
+              key={card.key}
+              label={card.label}
+              value={state.loading ? "…" : Number(metrics[card.key] || 0)}
+              detail={card.detail}
+              attention={card.attention}
+            />
+          ))}
+        </section>
+
+        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)] xl:items-start">
           <section className="overflow-hidden rounded-2xl border border-black/[0.075] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
             <div className="flex flex-wrap items-end justify-between gap-4 border-b border-black/[0.06] px-5 py-4">
               <div>
                 <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">Needs attention</div>
                 <h2 className="mt-1 text-[17px] font-medium tracking-[-0.025em] text-[#23211E]">Next human moves</h2>
-                <p className="mt-1 text-[10px] text-[#9A968E]">Ranked live work a person can move now.</p>
+                <p className="mt-1 text-[10px] text-[#9A968E]">Server-ranked exceptions only. Healthy work stays quiet here.</p>
               </div>
               <div className="text-[9px] text-[#AAA69E]">Live · permission filtered · governed</div>
             </div>
 
-            <div className="hidden grid-cols-[minmax(150px,0.8fr)_minmax(250px,1.35fr)_120px_120px] gap-4 border-b border-black/[0.05] bg-[#FBFAF8] px-5 py-2 text-[8px] font-medium uppercase tracking-[0.1em] text-[#979087] md:grid">
-              <span>Work</span><span>Next move</span><span>Due</span><span>State</span>
+            <div className="hidden grid-cols-[minmax(150px,0.8fr)_minmax(250px,1.35fr)_130px_120px] gap-4 border-b border-black/[0.05] bg-[#FBFAF8] px-5 py-2 text-[8px] font-medium uppercase tracking-[0.1em] text-[#979087] md:grid">
+              <span>Work</span><span>Next move</span><span>Due / owner</span><span>State</span>
             </div>
 
             <div className="divide-y divide-black/[0.055]">
               {!state.loading && attention.length === 0 ? (
                 <div className="flex items-center gap-3 px-5 py-8 text-[12px] text-[#77736C]">
                   <CheckCircle2 size={15} className="text-[#718167]" />
-                  Nothing currently requires human intervention.
+                  No surfaced exception currently requires human intervention.
                 </div>
               ) : null}
 
               {attention.slice(0, 10).map((item) => {
                 const href = hrefFor(organizationId, `/operations/${item.capability_id}`);
-                const move = nextHumanMove(item);
+                const move = moveFor(item);
                 return (
                   <Link
                     key={item.id}
                     href={href}
-                    className="group grid gap-2 px-5 py-3.5 transition hover:bg-[#FCFBF9] md:grid-cols-[minmax(150px,0.8fr)_minmax(250px,1.35fr)_120px_120px] md:items-center md:gap-4"
+                    className="group grid gap-2 px-5 py-3.5 transition hover:bg-[#FCFBF9] md:grid-cols-[minmax(150px,0.8fr)_minmax(250px,1.35fr)_130px_120px] md:items-center md:gap-4"
                   >
                     <div className="min-w-0">
                       <div className="truncate text-[11px] font-medium text-[#403C37] group-hover:text-[#8D6338]">
@@ -280,11 +306,12 @@ export default function OperationsIndustryCommandCenter({
                       <div className="truncate text-[11px] font-medium text-[#3C3732]">{move.title}</div>
                       <div className="mt-0.5 truncate text-[9px] text-[#8D857D]">{move.detail}</div>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[9px] text-[#817A72]">
-                      <Clock3 size={10} className="text-[#A69F97]" /> {formatDue(item.due_at)}
+                    <div className="space-y-1 text-[9px] text-[#817A72]">
+                      <div className="flex items-center gap-1.5"><Clock3 size={9} className="text-[#A69F97]" />{formatDue(item.due_at)}</div>
+                      <div className="flex items-center gap-1.5"><UserRound size={9} className="text-[#A69F97]" />{item.assigned_to ? "Assigned" : "Unassigned"}</div>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`rounded-full border px-2 py-1 text-[8px] font-medium uppercase tracking-[0.06em] ${stateTone(move.state)}`}>{move.state}</span>
+                      <span className={`rounded-full border px-2 py-1 text-[8px] font-medium uppercase tracking-[0.06em] ${stateTone(move.state)}`}>{titleCase(move.state)}</span>
                       <ArrowRight size={11} className="text-[#B7B3AB] transition group-hover:translate-x-0.5 group-hover:text-[#A37849]" />
                     </div>
                   </Link>
@@ -294,6 +321,38 @@ export default function OperationsIndustryCommandCenter({
           </section>
 
           <div className="space-y-4">
+            <section className="overflow-hidden rounded-2xl border border-black/[0.075] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
+              <div className="border-b border-black/[0.06] px-5 py-4">
+                <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">Today</div>
+                <div className="mt-1 flex items-end justify-between gap-3">
+                  <div>
+                    <h2 className="text-[16px] font-medium tracking-[-0.02em] text-[#23211E]">Service day</h2>
+                    <p className="mt-1 text-[9px] text-[#9A968E]">Scheduled and due work in local business time.</p>
+                  </div>
+                  <span className="text-[18px] font-medium tracking-[-0.03em] text-[#2C2925]">{state.loading ? "…" : today.length}</span>
+                </div>
+              </div>
+              <div className="divide-y divide-black/[0.055] px-5">
+                {!state.loading && today.length === 0 ? (
+                  <div className="py-6 text-[10px] text-[#8E8981]">No scheduled or due work is surfaced for today.</div>
+                ) : null}
+                {today.slice(0, 6).map((item) => {
+                  const href = hrefFor(organizationId, `/operations/${item.capability_id}`);
+                  const start = item.scheduled_start || item.due_at;
+                  return (
+                    <Link key={`today-${item.id}`} href={href} className="group grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 py-3">
+                      <div className="text-[10px] font-medium tabular-nums text-[#6D675F]">{formatTime(start)}</div>
+                      <div className="min-w-0">
+                        <div className="truncate text-[10px] font-medium text-[#48433D] group-hover:text-[#8D6338]">{item.name || item.code || titleCase(item.capability_id)}</div>
+                        <div className="mt-0.5 truncate text-[8px] text-[#99948C]">{titleCase(item.capability_id)} · {item.assigned_to ? "Owner assigned" : "Needs owner"}</div>
+                      </div>
+                      <span className={`rounded-full border px-2 py-1 text-[7px] font-medium uppercase tracking-[0.05em] ${stateTone(item.actionability_state)}`}>{titleCase(item.actionability_state || "Today")}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+
             <section className="rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
               <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#8A867F]">Workflow</div>
               <h2 className="mt-1 text-[16px] font-medium tracking-[-0.02em] text-[#23211E]">Where work is concentrated</h2>
@@ -332,18 +391,6 @@ export default function OperationsIndustryCommandCenter({
             ) : null}
           </div>
         </div>
-
-        <section className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          {metricCards.map((card) => (
-            <MetricCard
-              key={card.key}
-              label={card.label}
-              value={state.loading ? "…" : Number(metrics[card.key] || 0)}
-              detail={card.detail}
-              attention={card.attention}
-            />
-          ))}
-        </section>
 
         {primaryActions.length ? (
           <section className="mt-5 rounded-2xl border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">

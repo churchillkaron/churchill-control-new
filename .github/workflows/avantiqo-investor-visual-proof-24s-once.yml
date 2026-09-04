@@ -1,0 +1,104 @@
+name: Avantiqo Investor Visual Proof 24s Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-visual-proof-24s-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-visual-proof-24s-once
+  cancel-in-progress: false
+
+jobs:
+  proof:
+    if: github.event.head_commit.message == 'Run Avantiqo investor visual proof 24s once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_INVESTOR_PROOF_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_INVESTOR_PROOF_RUN_KEY: "visual-proof-24s-v1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install runtime tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          npm ci --ignore-scripts
+
+      - name: Validate investor proof runner
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          node --check scripts/run-avantiqo-investor-visual-proof-24s.mjs
+          grep -F 'target_duration_seconds: 24' lib/creative/director/runtime/CreativeInvestorFilmMarketResearchRuntime.js >/dev/null
+          grep -F 'screenshot_or_browser_capture_allowed: false' lib/creative/director/runtime/CreativeInvestorFilmMarketResearchRuntime.js >/dev/null
+          echo 'AVANTIQO_INVESTOR_VISUAL_PROOF_PREFLIGHT=PASS'
+
+      - name: Generate and assemble 24-second 4K investor visual proof
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-investor-visual-proof-24s.mjs
+
+      - name: Verify final proof artifact
+        run: |
+          set -euo pipefail
+          REPORT='local-audit-output/avantiqo-investor-visual-proof-24s/avantiqo-investor-visual-proof-24s-report.json'
+          MP4='local-audit-output/avantiqo-investor-visual-proof-24s/avantiqo-investor-visual-proof-24s-4k.mp4'
+          test -s "$REPORT"
+          test -s "$MP4"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('local-audit-output/avantiqo-investor-visual-proof-24s/avantiqo-investor-visual-proof-24s-report.json', 'utf8'));
+          if (report.success !== true) throw new Error('PROOF_NOT_SUCCESSFUL');
+          if (report.proof_type !== 'VIDEO_GENERATION_ONLY') throw new Error('PROOF_TYPE_INVALID');
+          if (report.generated_video_shot_count !== 4) throw new Error('SHOT_COUNT_INVALID');
+          if (report.gpu_generation_calls !== 4) throw new Error('GPU_GENERATION_COUNT_INVALID');
+          if (report.screenshot_or_browser_capture_used !== false) throw new Error('CAPTURE_POLICY_INVALID');
+          if (report.image_generation_used !== false) throw new Error('IMAGE_GENERATION_POLICY_INVALID');
+          if (report.master_resolution !== '3840x2160') throw new Error('MASTER_RESOLUTION_INVALID');
+          if (Math.abs(Number(report.actual_duration_seconds) - 24) > 0.08) throw new Error('MASTER_DURATION_INVALID');
+          console.log('AVANTIQO_INVESTOR_VISUAL_PROOF_ARTIFACT=PASS');
+          console.log('GPU_GENERATION_CALLS=4');
+          console.log('AUTOMATIC_PAID_RETRY=false');
+          console.log('FINAL_STORAGE_REFERENCE=' + report.final_output.storage_reference);
+          console.log('FINAL_SIGNED_URL=' + report.final_output.signed_url);
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: avantiqo-investor-visual-proof-24s-v1
+          path: local-audit-output/avantiqo-investor-visual-proof-24s/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        run: |
+          echo 'FULL_MASTER_GENERATION_PERFORMED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'AUTOMATIC_PAID_RETRY=false'

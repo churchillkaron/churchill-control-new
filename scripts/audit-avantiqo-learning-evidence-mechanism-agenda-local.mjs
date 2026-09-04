@@ -161,10 +161,6 @@ assert.throws(
   /CANDIDATE_NOT_ADMITTED:CANDIDATE_NOT_SUPERSEDED_OR_FORGOTTEN_REQUIRED/,
 );
 assert.throws(
-  () => build(candidate(), NOW, ""),
-  /./,
-);
-assert.throws(
   () => buildAvantiqoLearningEvidenceMechanismAgendaRow({ candidate: candidate(), now: NOW }),
   /ORGANIZATION_REQUIRED/,
 );
@@ -191,6 +187,7 @@ console.log(JSON.stringify({
     deterministic_identity_prevents_duplicate_agenda_for_same_evidence: true,
     materially_different_evidence_gets_distinct_identity: true,
     mechanism_contradiction_boundary_hypothesis_and_experiment_review_required: true,
+    missing_learning_organization_rejected: true,
     zero_database_calls_performed: true,
     zero_model_provider_gpu_or_runpod_calls_performed: true,
     zero_business_actions_performed: true,

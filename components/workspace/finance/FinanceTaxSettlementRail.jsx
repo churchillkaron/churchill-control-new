@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Landmark, RefreshCw, ShieldCheck } from "lucide-react";
 
 const clean = value => String(value ?? "").trim();
@@ -39,6 +39,7 @@ export default function FinanceTaxSettlementRail({ organizationId, entityId, sel
   const [postingDateReason, setPostingDateReason] = useState("");
   const [cashForm, setCashForm] = useState({ amount: "", date: new Date().toISOString().slice(0, 10), bank_account_id: "", reference: "" });
   const [accountForm, setAccountForm] = useState({ recoverable_tax_account_id: "", payable_tax_account_id: "", settlement_account_id: "" });
+  const cashOperationIdRef = useRef("");
 
   async function load() {
     if (!organizationId || !entityId || !selectedVatReturnId) {
@@ -76,6 +77,7 @@ export default function FinanceTaxSettlementRail({ organizationId, entityId, sel
     }
   }
 
+  useEffect(() => { cashOperationIdRef.current = ""; }, [organizationId, entityId, selectedVatReturnId]);
   useEffect(() => { load(); }, [organizationId, entityId, selectedVatReturnId]);
 
   const settlement = state.body?.settlement || null;
@@ -100,12 +102,32 @@ export default function FinanceTaxSettlementRail({ organizationId, entityId, sel
   }
 
   async function action(actionName, extras = {}) {
-    if (!state.returnId || state.returnId !== selectedVatReturnId) return;
+    if (!state.returnId || state.returnId !== selectedVatReturnId) return false;
     try {
       setBusy(true); setState(current => ({ ...current, error: "" }));
       await requestJson("/api/finance/vat-returns/settlement", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId, entityId, vatReturnId: state.returnId, action: actionName, ...extras }) });
       await load(); window.dispatchEvent(new CustomEvent("workspace:refresh"));
-    } catch (error) { setState(current => ({ ...current, error: error?.message || "Settlement action failed" })); } finally { setBusy(false); }
+      return true;
+    } catch (error) {
+      setState(current => ({ ...current, error: error?.message || "Settlement action failed" }));
+      return false;
+    } finally { setBusy(false); }
+  }
+
+  async function recordCash() {
+    if (!cashOperationIdRef.current) cashOperationIdRef.current = crypto.randomUUID();
+    const success = await action("record_cash", {
+      direction: settlement.expected_direction,
+      amount: Number(cashForm.amount),
+      paymentDate: cashForm.date,
+      bankAccountId: cashForm.bank_account_id,
+      reference: cashForm.reference,
+      operationId: cashOperationIdRef.current,
+    });
+    if (success) {
+      cashOperationIdRef.current = "";
+      setCashForm(current => ({ ...current, reference: "" }));
+    }
   }
 
   if (!organizationId || !entityId || !selectedVatReturnId || (!state.loading && !state.body && !state.error)) return null;
@@ -136,7 +158,7 @@ export default function FinanceTaxSettlementRail({ organizationId, entityId, sel
           </div>
           {!defaultPeriodOpen && !alternatePostingDate ? <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-700/15 bg-amber-50 p-2.5 text-[8px] leading-4 text-amber-900"><AlertTriangle size={11} className="mt-0.5 shrink-0" />The VAT period-end cannot currently accept journals. Choose an open accounting date and document the reason; Avantiqo will still revalidate that date at the posting gateway.</div> : alternatePostingDate ? <div className="mt-2 text-[8px] text-[#817B73]">Alternate date selected. The reason is stored with the VAT liability event, and the journal will post only if Finance confirms that date is in an open entity accounting period.</div> : null}
         </div> : null}
-        {!setupMode && ["PAYMENT_DUE", "PART_PAID", "REFUND_DUE", "PART_REFUNDED"].includes(settlement.state) ? <div className="border-t border-black/[0.07] p-3.5"><div className="text-[10px] font-semibold">Record {settlement.expected_direction === "REFUND" ? "refund received" : "authority payment"}</div><div className="mt-1 text-[9px] text-[#817B73]">Partial settlement is allowed. The journal posts on the real cash date; the return stays uncleared until the bank feed evidence is matched and reconciled.</div><div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4"><input type="date" value={cashForm.date} onChange={event => setCashForm(current => ({ ...current, date: event.target.value }))} className="h-9 rounded-lg border border-black/[0.09] px-2 text-[9px]" /><input type="number" min="0.01" step="0.01" value={cashForm.amount} onChange={event => setCashForm(current => ({ ...current, amount: event.target.value }))} className="h-9 rounded-lg border border-black/[0.09] px-2 text-[9px]" placeholder="Amount" /><select value={cashForm.bank_account_id} onChange={event => setCashForm(current => ({ ...current, bank_account_id: event.target.value }))} className="h-9 rounded-lg border border-black/[0.09] px-2 text-[9px]"><option value="">Select bank account</option>{bankAccounts.map(item => <option key={item.id} value={item.id}>{item.bank_name} · {item.account_name}</option>)}</select><input value={cashForm.reference} onChange={event => setCashForm(current => ({ ...current, reference: event.target.value }))} className="h-9 rounded-lg border border-black/[0.09] px-2 text-[9px]" placeholder="Authority/payment reference" /></div><div className="mt-3 flex justify-end"><button disabled={busy || !cashForm.bank_account_id || !cashForm.reference || !Number(cashForm.amount)} onClick={() => action("record_cash", { direction: settlement.expected_direction, amount: Number(cashForm.amount), paymentDate: cashForm.date, bankAccountId: cashForm.bank_account_id, reference: cashForm.reference })} className="h-9 rounded-lg bg-[#1F1E1B] px-3.5 text-[9px] font-semibold text-white disabled:opacity-40">Record {settlement.expected_direction === "REFUND" ? "refund" : "payment"}</button></div></div> : null}
+        {!setupMode && ["PAYMENT_DUE", "PART_PAID", "REFUND_DUE", "PART_REFUNDED"].includes(settlement.state) ? <div className="border-t border-black/[0.07] p-3.5"><div className="text-[10px] font-semibold">Record {settlement.expected_direction === "REFUND" ? "refund received" : "authority payment"}</div><div className="mt-1 text-[9px] text-[#817B73]">Partial settlement is allowed. The journal posts on the real cash date; retries reuse one governed operation so a network failure cannot create a duplicate payment/refund journal. The return stays uncleared until the bank feed evidence is matched and reconciled.</div><div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4"><input type="date" value={cashForm.date} onChange={event => setCashForm(current => ({ ...current, date: event.target.value }))} className="h-9 rounded-lg border border-black/[0.09] px-2 text-[9px]" /><input type="number" min="0.01" step="0.01" value={cashForm.amount} onChange={event => setCashForm(current => ({ ...current, amount: event.target.value }))} className="h-9 rounded-lg border border-black/[0.09] px-2 text-[9px]" placeholder="Amount" /><select value={cashForm.bank_account_id} onChange={event => setCashForm(current => ({ ...current, bank_account_id: event.target.value }))} className="h-9 rounded-lg border border-black/[0.09] px-2 text-[9px]"><option value="">Select bank account</option>{bankAccounts.map(item => <option key={item.id} value={item.id}>{item.bank_name} · {item.account_name}</option>)}</select><input value={cashForm.reference} onChange={event => setCashForm(current => ({ ...current, reference: event.target.value }))} className="h-9 rounded-lg border border-black/[0.09] px-2 text-[9px]" placeholder="Authority/payment reference" /></div><div className="mt-3 flex justify-end"><button disabled={busy || !cashForm.bank_account_id || !cashForm.reference || !Number(cashForm.amount)} onClick={recordCash} className="h-9 rounded-lg bg-[#1F1E1B] px-3.5 text-[9px] font-semibold text-white disabled:opacity-40">Record {settlement.expected_direction === "REFUND" ? "refund" : "payment"}</button></div></div> : null}
         {unresolvedCash ? <div className="border-t border-black/[0.07] p-3.5"><div className="flex items-center gap-1.5 text-[10px] font-semibold"><ShieldCheck size={12} /> Match bank evidence</div><div className="mt-1 text-[9px] text-[#817B73]">Journal {unresolvedCash.journal_number || unresolvedCash.journal_entry_id} · {date(unresolvedCash.payment_date)} · {money(unresolvedCash.amount, currency)}. Matching links the cash evidence; the existing Bank Reconciliation workspace still owns the reconciled flag.</div>{candidates.length ? <div className="mt-2 space-y-1.5">{candidates.map(candidate => <div key={candidate.id} className="flex flex-col gap-2 rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-2.5 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="text-[9px] font-semibold">{date(candidate.transaction_date)} · {money(Math.abs(candidate.amount), currency)} · {candidate.reference || candidate.description || "Bank transaction"}</div><div className="mt-0.5 text-[8px] text-[#918B83]">{candidate.reconciled ? "Already reconciled in Banking" : "Bank reconciliation still pending"}</div></div><button onClick={() => action("link_bank_transaction", { cashEventId: unresolvedCash.id, bankTransactionId: candidate.id })} disabled={busy} className="h-8 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[8px] font-semibold">Link transaction</button></div>)}</div> : <div className="mt-2 rounded-lg border border-amber-700/12 bg-amber-50 p-2.5 text-[9px] text-amber-900">No exact bank-feed candidate found within ±14 days. Import/reconcile the bank statement in Banking, then refresh Tax.</div>}</div> : null}
         {["CLEARED", "NO_BALANCE"].includes(settlement.state) ? <div className="m-3 flex items-start gap-2 rounded-lg border border-emerald-700/15 bg-emerald-50 p-2.5 text-[9px] text-emerald-800"><CheckCircle2 size={12} className="mt-0.5" /><div><b>{settlement.state === "CLEARED" ? "Tax balance cleared." : "Filed return has no payable/refund balance."}</b> {settlement.state === "CLEARED" ? "The effective filed version, tax settlement journal, cash journal and bank reconciliation evidence agree." : "The filing is recognized in the tax settlement control with no cash settlement required."}</div></div> : null}
         {(settlement.liability_events?.length || settlement.cash_events?.length) ? <div className="border-t border-black/[0.07] p-3.5"><div className="text-[8px] font-semibold uppercase tracking-[0.1em] text-[#817B73]">Settlement evidence history</div><div className="mt-2 grid gap-1.5">{settlement.liability_events?.map(event => <div key={event.id} className="rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-2.5 py-2 text-[8px]"><b>{event.source_version_label}</b> liability · {event.zero_value ? "No-value control event" : event.journal_number || event.journal_entry_id} · {event.journal_valid ? "Posted" : "Reversed / invalid"}{event.posting_date ? ` · ${date(event.posting_date)}` : ""}{event.posting_date_reason ? ` · ${event.posting_date_reason}` : ""}</div>)}{settlement.cash_events?.map(event => <div key={event.id} className="rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-2.5 py-2 text-[8px]"><b>{event.direction}</b> · {money(event.amount, currency)} · {event.reference} · {event.journal_valid ? "journal posted" : "journal reversed"} · {event.bank_transaction_id ? event.bank_reconciled ? "bank reconciled" : "bank linked, reconciliation pending" : "bank match pending"}</div>)}</div></div> : null}

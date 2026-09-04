@@ -80,6 +80,7 @@ assert.equal(validAssessment.policy.fail_closed, true);
 assert.equal(validAssessment.policy.mechanism_agenda_reuse_allowed, false);
 assert.equal(validAssessment.policy.evidence_candidate_reuse_allowed, false);
 assert.equal(validAssessment.policy.provisional_knowledge_reuse_allowed, false);
+assert.equal(validAssessment.policy.explicit_final_release_required_for_learned_knowledge, true);
 
 const mechanismAgenda = released({
   id: "agenda-audit",
@@ -95,6 +96,13 @@ const mechanismAgenda = released({
 });
 expectRejected(mechanismAgenda, "EXPLICIT_FINAL_RELEASE_SOURCE_REQUIRED");
 expectRejected(mechanismAgenda, "PLATFORM_KNOWLEDGE_SCOPE_REQUIRED");
+
+const sourceSpoofedAgenda = released({
+  id: "source-spoofed-agenda-audit",
+  memory_scope: "platform_learning_agenda",
+  source: FINAL_SOURCE,
+});
+expectRejected(sourceSpoofedAgenda, "PLATFORM_KNOWLEDGE_SCOPE_REQUIRED");
 
 const evidenceCandidate = released({
   id: "candidate-audit",
@@ -144,6 +152,7 @@ assert.equal(assess(internal, { include_internal: true }).eligible, true);
 
 const mixed = [
   mechanismAgenda,
+  sourceSpoofedAgenda,
   evidenceCandidate,
   provisional,
   released({ id: "legacy", source: "legacy_platform_learning" }),
@@ -187,6 +196,7 @@ console.log(JSON.stringify({
   verified: {
     explicit_final_release_row_admitted: true,
     mechanism_agenda_excluded_from_retrieval: true,
+    final_release_source_spoof_on_agenda_scope_rejected: true,
     evidence_candidate_excluded_from_retrieval: true,
     provisional_knowledge_excluded_from_retrieval: true,
     legacy_platform_knowledge_excluded_from_retrieval: true,

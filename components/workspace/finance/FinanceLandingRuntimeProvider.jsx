@@ -31,7 +31,7 @@ async function fetchJson(url, fallbackMessage) {
 async function financeSnapshotFetcher([, organizationId, entityId, periodId]) {
   const [commandCenter, accountHealth] = await Promise.all([
     fetchJson(
-      buildUrl("/api/workspace/finance/command-center", organizationId, entityId, periodId),
+      buildUrl("/api/workspace/finance/command-center-snapshot", organizationId, entityId, periodId),
       "Unable to load Finance command center",
     ),
     fetchJson(

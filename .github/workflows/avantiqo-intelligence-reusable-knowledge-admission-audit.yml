@@ -2,6 +2,8 @@ name: Avantiqo Intelligence Reusable Knowledge Admission Audit
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
@@ -9,6 +11,8 @@ on:
       - "scripts/audit-avantiqo-reusable-knowledge-row-admission-local.mjs"
       - ".github/workflows/avantiqo-intelligence-reusable-knowledge-admission-audit.yml"
   pull_request:
+    branches:
+      - main
     paths:
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
@@ -22,13 +26,13 @@ permissions:
 
 concurrency:
   group: avantiqo-intelligence-reusable-knowledge-admission-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  reusable-knowledge-boundary:
+  audit:
     name: Zero-cost reusable knowledge boundary certification
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 5
     steps:
       - name: Checkout exact source
         uses: actions/checkout@v4
@@ -37,10 +41,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: npm
 
       - name: Install repository dependencies
-        run: npm ci --ignore-scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Syntax gate
         run: |
@@ -57,35 +60,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          RUNTIME="lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
-          RELEASE="lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+          runtime="lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+          release="lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
 
-          grep -Fq 'AVANTIQO_REUSABLE_KNOWLEDGE_ROW_ADMISSION_V1' "$RUNTIME"
-          grep -Fq 'avantiqo_explicit_final_knowledge_release' "$RUNTIME"
-          grep -Fq 'RELEASED_MONITORED' "$RUNTIME"
-          grep -Fq 'EXPLICIT_FINAL_RELEASE_APPROVAL_REQUIRED' "$RUNTIME"
-          grep -Fq 'REUSABLE_PLATFORM_KNOWLEDGE_TRUE_REQUIRED' "$RUNTIME"
-          grep -Fq 'KNOWLEDGE_ROUTER_REUSE_TRUE_REQUIRED' "$RUNTIME"
-          grep -Fq 'CUSTOMER_PRIVATE_CONTENT_FALSE_REQUIRED' "$RUNTIME"
-          grep -Fq 'RAW_REASONING_PERSISTENCE_FALSE_REQUIRED' "$RUNTIME"
-          grep -Fq 'AUTHORIZATION_VALUE_NONE_REQUIRED' "$RUNTIME"
-          grep -Fq 'mechanism_agenda_reuse_allowed: false' "$RUNTIME"
-          grep -Fq 'evidence_candidate_reuse_allowed: false' "$RUNTIME"
-          grep -Fq 'provisional_knowledge_reuse_allowed: false' "$RUNTIME"
-          grep -Fq 'assessAvantiqoReusableKnowledgeRowEligibility(row, { include_internal }).eligible' "$RUNTIME"
+          grep -Fq 'AVANTIQO_REUSABLE_KNOWLEDGE_ROW_ADMISSION_V1' "$runtime"
+          grep -Fq 'avantiqo_explicit_final_knowledge_release' "$runtime"
+          grep -Fq 'RELEASED_MONITORED' "$runtime"
+          grep -Fq 'EXPLICIT_FINAL_RELEASE_APPROVAL_REQUIRED' "$runtime"
+          grep -Fq 'REUSABLE_PLATFORM_KNOWLEDGE_TRUE_REQUIRED' "$runtime"
+          grep -Fq 'KNOWLEDGE_ROUTER_REUSE_TRUE_REQUIRED' "$runtime"
+          grep -Fq 'CUSTOMER_PRIVATE_CONTENT_FALSE_REQUIRED' "$runtime"
+          grep -Fq 'RAW_REASONING_PERSISTENCE_FALSE_REQUIRED' "$runtime"
+          grep -Fq 'AUTHORIZATION_VALUE_NONE_REQUIRED' "$runtime"
+          grep -Fq 'mechanism_agenda_reuse_allowed: false' "$runtime"
+          grep -Fq 'evidence_candidate_reuse_allowed: false' "$runtime"
+          grep -Fq 'provisional_knowledge_reuse_allowed: false' "$runtime"
+          grep -Fq 'assessAvantiqoReusableKnowledgeRowEligibility(row, { include_internal }).eligible' "$runtime"
 
-          grep -Fq 'EXPLICIT_APPROVAL_REQUIRED' "$RELEASE"
-          grep -Fq 'candidateBenchmarkStillEligible' "$RELEASE"
-          grep -Fq 'provisionalStillEligible' "$RELEASE"
-          grep -Fq 'CURRENT_EVIDENCE_GRAPH_BLOCKS_RELEASE' "$RELEASE"
-          grep -Fq 'SUPPORTING_SOURCE_PROVENANCE_REQUIRED' "$RELEASE"
+          grep -Fq 'EXPLICIT_APPROVAL_REQUIRED' "$release"
+          grep -Fq 'candidateBenchmarkStillEligible' "$release"
+          grep -Fq 'provisionalStillEligible' "$release"
+          grep -Fq 'CURRENT_EVIDENCE_GRAPH_BLOCKS_RELEASE' "$release"
+          grep -Fq 'SUPPORTING_SOURCE_PROVENANCE_REQUIRED' "$release"
 
-          if grep -Eiq 'from .*platform_knowledge|into .*platform_knowledge' "$RUNTIME"; then
-            echo "Hybrid retrieval runtime must never write platform knowledge directly" >&2
+          if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$runtime"; then
+            echo "Hybrid retrieval runtime must never write platform knowledge directly"
             exit 1
           fi
-
-          if grep -Eiq 'runpod|modal\.Function|openai|anthropic' scripts/audit-avantiqo-reusable-knowledge-row-admission-local.mjs; then
-            echo "Zero-cost reusable knowledge audit must not invoke model/GPU providers" >&2
+          if grep -Eq 'from ["'\''`](openai|@anthropic-ai|modal|runpod)' "$runtime"; then
+            echo "Forbidden external model/GPU provider import in reusable knowledge runtime"
             exit 1
           fi

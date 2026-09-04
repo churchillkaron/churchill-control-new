@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/avantiqo-intelligence-wire-retrieval-only-learning-once.yml"
+      - "scripts/audit-operator-verified-learning-reasoning-integration-local.mjs"
+      - "scripts/audit-operator-verified-learning-context-local.mjs"
+      - "lib/operator/runtime/OperatorVerifiedLearningContextRuntime.js"
 
 permissions:
   contents: write

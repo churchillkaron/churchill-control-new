@@ -34,6 +34,10 @@ const checkpointLookupMigration = fs.readFileSync(
   "supabase/migrations/20260904053000_creative_direction_checkpoint_lookup.sql",
   "utf8",
 );
+const preservedGuardMigration = fs.readFileSync(
+  "supabase/migrations/20260904053500_creative_guarded_preserved_shots.sql",
+  "utf8",
+);
 const projectState = fs.readFileSync(
   "lib/operator/contracts/OperatorProjectState.js",
   "utf8",
@@ -56,8 +60,8 @@ test("Creative runtime separates read-only plan, confirmed atomic execute and co
   }
 });
 
-test("shot-set planning is deterministic and bounded before any write", () => {
-  assert.match(setRuntime, /AVANTIQO_CHAT_SHOT_SET_V1/);
+test("shot-set planning is deterministic, bounded and preservation-aware before any write", () => {
+  assert.match(setRuntime, /AVANTIQO_CHAT_SHOT_SET_V2/);
   assert.match(setRuntime, /createHash\("sha256"\)/);
   assert.match(setRuntime, /revision_number/);
   assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_RANGE_OUT_OF_BOUNDS/);
@@ -65,6 +69,14 @@ test("shot-set planning is deterministic and bounded before any write", () => {
   assert.match(setRuntime, /this scene/);
   assert.match(setRuntime, /sceneNumberFromReference/);
   assert.match(setRuntime, /CreativeChatShotReferenceRuntime\.resolve/);
+  assert.match(setRuntime, /splitInlinePreservation/);
+  assert.match(setRuntime, /except\|excluding\|but\\s\+not\|leave\|keep/);
+  assert.match(setRuntime, /exclude_shot_ids/);
+  assert.match(setRuntime, /exclude_shot_references/);
+  assert.match(setRuntime, /preserved_shots/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_PRESERVATION_OUTSIDE_SELECTION/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_ALL_SHOTS_PRESERVED/);
+  assert.match(planner, /preserved_shot_count/);
   assert.match(planner, /media_generation_executed:\s*false/);
   assert.match(planner, /publish_authorized:\s*false/);
 });
@@ -81,25 +93,29 @@ test("confirmed batch rejects stale fingerprints and Pro locks before atomic exe
   assert.ok(lockIndex < atomicIndex, "Pro locks must fail before atomic execution");
   assert.match(executor, /current_plan_fingerprint/);
   assert.match(executor, /submitted_plan_fingerprint/);
+  assert.match(executor, /preserved_shots:\s*plan\.preserved_shots/);
   assert.doesNotMatch(executor, /CreativeChatShotRevisionRuntime\.revise/);
 });
 
-test("whole-set AI proposal is fully validated before the single database commit boundary", () => {
-  assert.match(atomicRuntime, /AVANTIQO_ATOMIC_SHOT_SET_REVISION_V1/);
-  assert.match(atomicRuntime, /ATOMIC_MULTI_SHOT_REVISION_V1/);
+test("whole-set AI proposal treats preserved shots as immutable context and validates before commit", () => {
+  assert.match(atomicRuntime, /AVANTIQO_ATOMIC_SHOT_SET_REVISION_V2/);
+  assert.match(atomicRuntime, /ATOMIC_MULTI_SHOT_REVISION_V2/);
+  assert.match(atomicRuntime, /PRESERVED IMMUTABLE SHOTS/);
+  assert.match(atomicRuntime, /CREATIVE_ATOMIC_MULTI_REVISION_PRESERVED_SHOT_PROPOSED/);
+  assert.match(atomicRuntime, /CREATIVE_ATOMIC_MULTI_REVISION_PRESERVED_OVERLAP/);
   assert.match(atomicRuntime, /CreativeProfessionalDirectionAuthorityRuntime\.stripLockedPatch/);
   assert.match(atomicRuntime, /expected_revision_number/);
   assert.match(atomicRuntime, /expected_updated_at/);
 
   const reasoningIndex = atomicRuntime.indexOf("ServiceExecutionRuntime.execute({");
-  const validationIndex = atomicRuntime.indexOf("validateProposal({ output, scope, shots: verifiedShots })");
-  const rpcIndex = atomicRuntime.indexOf('"creative_apply_shot_set_revision_atomic"');
+  const validationIndex = atomicRuntime.indexOf("const changes = validateProposal({");
+  const rpcIndex = atomicRuntime.indexOf('"creative_apply_guarded_shot_set_revision_atomic"');
   assert.ok(reasoningIndex >= 0);
   assert.ok(validationIndex > reasoningIndex, "whole-set output must validate after reasoning");
   assert.ok(rpcIndex > validationIndex, "database commit must happen only after full proposal validation");
 });
 
-test("Postgres boundary is all-or-nothing, scoped, stale-safe and checkpointed", () => {
+test("Postgres editable-shot boundary is all-or-nothing, scoped, stale-safe and checkpointed", () => {
   assert.match(migration, /creative_apply_shot_set_revision_atomic/);
   assert.match(migration, /SECURITY INVOKER/);
   assert.match(migration, /pg_advisory_xact_lock/);
@@ -113,12 +129,30 @@ test("Postgres boundary is all-or-nothing, scoped, stale-safe and checkpointed",
   assert.match(migration, /GRANT EXECUTE[^;]+TO service_role/s);
 });
 
-test("atomic execution canonically verifies the exact planned shots and never generates media", () => {
+test("preserved shots are locked and stale-checked inside the same transaction before editable writes", () => {
+  assert.match(preservedGuardMigration, /creative_apply_guarded_shot_set_revision_atomic/);
+  assert.match(preservedGuardMigration, /p_preserved_guards jsonb/);
+  assert.match(preservedGuardMigration, /pg_advisory_xact_lock/);
+  assert.match(preservedGuardMigration, /FOR UPDATE/);
+  assert.match(preservedGuardMigration, /CREATIVE_ATOMIC_PRESERVED_SHOT_STALE_REVISION/);
+  assert.match(preservedGuardMigration, /CREATIVE_ATOMIC_PRESERVED_SHOT_STALE_UPDATED_AT/);
+  const staleGuardIndex = preservedGuardMigration.indexOf("CREATIVE_ATOMIC_PRESERVED_SHOT_STALE_UPDATED_AT");
+  const delegateIndex = preservedGuardMigration.indexOf("creative_apply_shot_set_revision_atomic(");
+  assert.ok(staleGuardIndex >= 0);
+  assert.ok(delegateIndex > staleGuardIndex, "preserved stale checks must complete before editable mutation function runs");
+  assert.match(preservedGuardMigration, /REVOKE EXECUTE[^;]+FROM PUBLIC, anon, authenticated/s);
+  assert.match(preservedGuardMigration, /GRANT EXECUTE[^;]+TO service_role/s);
+  assert.match(atomicRuntime, /p_preserved_guards:\s*preservedGuards\(preservedShots\)/);
+});
+
+test("atomic execution canonically verifies edited and preserved shots and never generates media", () => {
   const atomicIndex = executor.indexOf("CreativeAtomicShotSetRevisionRuntime.revise({");
   const rereadIndex = executor.indexOf("const canonicalProjectShots = await ShotRuntime.list({");
   assert.ok(atomicIndex >= 0);
   assert.ok(rereadIndex > atomicIndex, "canonical project reread must follow atomic commit");
   assert.match(executor, /CANONICAL_ATOMIC_MULTI_SHOT_REREAD/);
+  assert.match(executor, /CREATIVE_CHAT_MULTI_REVISION_PRESERVED_SHOT_CHANGED/);
+  assert.match(executor, /preserved_shots_unchanged:\s*true/);
   assert.match(executor, /atomic_commit:\s*true/);
   assert.match(executor, /all_or_nothing:\s*true/);
   assert.match(executor, /checkpoint_id/);

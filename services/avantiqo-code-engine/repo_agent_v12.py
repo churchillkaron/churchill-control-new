@@ -14,7 +14,7 @@ pass and both failure fields are empty. A repair requires one concrete task
 clause and one concrete implementation gap. The parser converts that compact
 shape back into the existing review structure consumed by the repair runner.
 
-No hidden tests, case identifiers, fixture values, expected patches, or
+No hidden tests, case identifiers, fixture values, precomputed solutions, or
 benchmark-specific source rewrites are encoded here.
 """
 

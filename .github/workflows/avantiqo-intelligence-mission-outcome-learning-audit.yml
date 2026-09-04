@@ -6,8 +6,10 @@ on:
       - main
     paths:
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningAuthenticatedObservationRuntime.js"
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningCoreRuntime.js"
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeObservationAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateAuthenticityRuntime.js"
       - "lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js"
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
@@ -20,11 +22,14 @@ on:
       - "lib/platform/capabilities/createCodeAICommitCapability.js"
       - "lib/platform/capabilities/createCodeAICommitStatusCapability.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeCoreRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-authenticity-static-local.mjs"
+      - "scripts/audit-avantiqo-learning-evidence-candidate-authenticity-local.mjs"
+      - "scripts/audit-avantiqo-learning-evidence-candidate-authenticity-static-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
@@ -38,8 +43,10 @@ on:
       - main
     paths:
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningAuthenticatedObservationRuntime.js"
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningCoreRuntime.js"
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeObservationAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateAuthenticityRuntime.js"
       - "lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js"
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
@@ -52,11 +59,14 @@ on:
       - "lib/platform/capabilities/createCodeAICommitCapability.js"
       - "lib/platform/capabilities/createCodeAICommitStatusCapability.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeCoreRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-authenticity-static-local.mjs"
+      - "scripts/audit-avantiqo-learning-evidence-candidate-authenticity-local.mjs"
+      - "scripts/audit-avantiqo-learning-evidence-candidate-authenticity-static-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
@@ -97,8 +107,12 @@ jobs:
       - name: Syntax gate
         run: |
           node --check lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoMissionOutcomeLearningAuthenticatedObservationRuntime.js
           node --check lib/intelligence/runtime/AvantiqoMissionOutcomeLearningCoreRuntime.js
           node --check lib/intelligence/runtime/AvantiqoMissionOutcomeObservationAuthenticityRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateAuthenticityRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeCoreRuntime.js
           node --check lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js
           node --check lib/operator/runtime/OperatorMissionOutcomeLearningBridgeRuntime.js
           node --check lib/operator/runtime/OperatorMissionOutcomeLearningManifestRuntime.js
@@ -111,6 +125,8 @@ jobs:
           node --check scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-authenticity-static-local.mjs
+          node --check scripts/audit-avantiqo-learning-evidence-candidate-authenticity-local.mjs
+          node --check scripts/audit-avantiqo-learning-evidence-candidate-authenticity-static-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs
           node --check scripts/audit-operator-mission-outcome-learning-handoff-local.mjs
@@ -130,6 +146,12 @@ jobs:
 
       - name: Run authenticity immutable source guard
         run: node scripts/audit-avantiqo-mission-outcome-authenticity-static-local.mjs
+
+      - name: Run evidence candidate authenticity audit
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-learning-evidence-candidate-authenticity-local.mjs
+
+      - name: Run evidence candidate authenticity source guard
+        run: node scripts/audit-avantiqo-learning-evidence-candidate-authenticity-static-local.mjs
 
       - name: Run history window integrity audit
         run: node scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs

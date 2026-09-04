@@ -1,0 +1,4 @@
+approved=YES
+run=private12-v15
+hot_path_contract=compact_indexed
+quality_actor_tokens=768

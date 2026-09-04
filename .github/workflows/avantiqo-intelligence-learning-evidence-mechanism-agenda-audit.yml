@@ -1,0 +1,81 @@
+name: Avantiqo Intelligence Learning Evidence Mechanism Agenda Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "scripts/audit-avantiqo-learning-evidence-mechanism-agenda-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-learning-evidence-mechanism-agenda-audit.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "scripts/audit-avantiqo-learning-evidence-mechanism-agenda-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-learning-evidence-mechanism-agenda-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-learning-evidence-mechanism-agenda-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Zero-cost mechanism agenda boundary certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Syntax gate
+        run: |
+          node --check lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js
+          node --check scripts/audit-avantiqo-learning-evidence-mechanism-agenda-local.mjs
+
+      - name: Run mechanism agenda adversarial audit
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-learning-evidence-mechanism-agenda-local.mjs
+
+      - name: Guard immutable mechanism agenda boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+          grep -q 'AVANTIQO_LEARNING_EVIDENCE_MECHANISM_AGENDA_V1' "$runtime"
+          grep -q 'MECHANISM_REVIEW_AGENDA_NOT_REUSABLE' "$runtime"
+          grep -q 'memory_scope: AGENDA_SCOPE' "$runtime"
+          grep -q 'direct_platform_knowledge_write_allowed: false' "$runtime"
+          grep -q 'direct_platform_knowledge_promotion_allowed: false' "$runtime"
+          grep -q 'reusable_platform_knowledge: false' "$runtime"
+          grep -q 'knowledge_router_reuse_allowed: false' "$runtime"
+          grep -q 'automatic_knowledge_promotion: false' "$runtime"
+          grep -q 'explicit_final_promotion_required: true' "$runtime"
+          grep -q 'requires_epistemic_promotion_pipeline: true' "$runtime"
+          grep -q 'automatic_business_action_execution: false' "$runtime"
+          grep -q 'automatic_message_send: false' "$runtime"
+          grep -q 'authorization_value: "none"' "$runtime"
+          grep -q 'candidate_admission_rechecked: true' "$runtime"
+          grep -q 'synthesis_spend_approval_required: true' "$runtime"
+          if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$runtime"; then
+            echo "Direct platform knowledge table write detected in evidence bridge runtime"
+            exit 1
+          fi
+          if grep -Eq 'from ["'\''`](openai|@anthropic-ai|modal|runpod)' "$runtime"; then
+            echo "Forbidden external model/GPU provider import in zero-cost evidence bridge runtime"
+            exit 1
+          fi

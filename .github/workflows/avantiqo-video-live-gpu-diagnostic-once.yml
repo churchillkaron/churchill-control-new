@@ -1,0 +1,55 @@
+name: Avantiqo Video Live GPU Diagnostic Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-live-gpu-diagnostic-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.event.head_commit.message == 'Inspect Avantiqo Video live GPU execution once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal CLI
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Inspect existing Video containers and GPU utilization only
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          modal container list --json | tee /tmp/modal-containers.json
+          python - <<'PY' >/tmp/container-ids.txt
+          import json,re
+          data=json.load(open('/tmp/modal-containers.json'))
+          text=json.dumps(data)
+          ids=[]
+          for x in re.findall(r'ta-[A-Za-z0-9_-]+', text):
+              if x not in ids:
+                  ids.append(x)
+          print('\n'.join(ids))
+          PY
+          echo '=== EXISTING CONTAINER GPU SNAPSHOTS ==='
+          while IFS= read -r cid; do
+            [ -n "$cid" ] || continue
+            echo "CONTAINER=$cid"
+            timeout 15s modal container exec --no-pty "$cid" nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,power.draw --format=csv,noheader,nounits || true
+          done </tmp/container-ids.txt
+          echo '=== APP LOGS LAST 15 MINUTES ==='
+          modal app logs avantiqo-video-owned --since 15m --tail 500 --timestamps --show-function-id --show-function-call-id --show-container-id || true
+          echo 'AVANTIQO_VIDEO_LIVE_DIAGNOSTIC=PASS'
+          echo 'PAID_GENERATION_CALLS_STARTED_BY_DIAGNOSTIC=0'

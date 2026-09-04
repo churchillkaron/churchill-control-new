@@ -8,6 +8,7 @@ import FinanceTaxSettlementRail from "./FinanceTaxSettlementRail";
 import FinanceTaxPortfolioRail from "./FinanceTaxPortfolioRail";
 
 export default function FinanceTaxWorkCenter(props) {
+  // One filing selection is authoritative for every entity-level Tax control below.
   const [selectedVatReturnId, setSelectedVatReturnId] = useState(null);
 
   return (

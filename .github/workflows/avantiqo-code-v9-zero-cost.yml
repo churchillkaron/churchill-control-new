@@ -1,0 +1,37 @@
+name: Avantiqo Code V9 Zero Cost Admission
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/avantiqo-code-engine/repo_agent_v9.py'
+      - 'services/avantiqo-code-engine/verify_repo_agent_v9.py'
+      - '.github/workflows/avantiqo-code-v9-zero-cost.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile V9 contracts
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v9.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v9.py
+      - name: Verify V9 general fixes
+        run: |
+          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v9.py
+          grep -q 'return \[\]' services/avantiqo-code-engine/repo_agent_v9.py
+          grep -q 'len(candidates) == 1' services/avantiqo-code-engine/repo_agent_v9.py
+          grep -q 'FILESYSTEM SECURITY REVIEW' services/avantiqo-code-engine/repo_agent_v9.py
+          grep -q 'canonical/resolved paths' services/avantiqo-code-engine/repo_agent_v9.py
+          echo 'AVANTIQO_CODE_V9_ZERO_COST_ADMISSION=PASS'

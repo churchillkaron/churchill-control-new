@@ -10,6 +10,7 @@ const files = {
   settlement: "lib/operator/runtime/OperatorMissionOutcomeLearningSettlementRuntime.js",
   mission: "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js",
   auditIntegrity: "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs",
+  auditHistory: "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs",
   auditHandoff: "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs",
   auditBridge: "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs",
   auditCompletion: "scripts/audit-operator-mission-completion-learning-local.mjs",
@@ -35,6 +36,9 @@ includes("learning", "explicit_final_promotion_required: true");
 includes("learning", "min_observations: 3");
 includes("learning", "min_distinct_observation_days: 2");
 includes("learning", "min_dominant_outcome_ratio: 0.8");
+includes("learning", "history_page_size: 250");
+includes("learning", "max_history_pages: 64");
+includes("learning", "max_raw_history_scan: 5000");
 includes("learning", "const SHA256_RE");
 includes("learning", "function positiveInteger");
 includes("learning", "function validObservationTime");
@@ -48,6 +52,17 @@ includes("learning", "unique_observation_fingerprints_required: true");
 includes("learning", "duplicate_observations_excluded: true");
 includes("learning", "conflicting_observation_fingerprints_quarantined: true");
 includes("learning", "row_order_cannot_resolve_observation_conflict: true");
+includes("learning", "function historyScanConfiguration");
+includes("learning", "function patternObservationQuery");
+includes("learning", 'count: "exact"');
+includes("learning", '.range(0, firstTo)');
+includes("learning", "function applyHistoryScanGate");
+includes("learning", "complete_history_scan_required: true");
+includes("learning", "incomplete_history_blocks_evidence_candidate: true");
+includes("learning", "raw_rows_cannot_crowd_out_unique_observation_limit: true");
+includes("learning", "history_count_must_remain_stable_during_scan: true");
+includes("learning", "stable_row_identity_required_across_pages: true");
+includes("learning", 'status: "VERIFIED_OUTCOME_HISTORY_SCAN_INCOMPLETE"');
 includes("learning", "stored_observation_integrity_revalidated: true");
 includes("learning", "malformed_or_poisoned_observations_excluded: true");
 includes("learning", "excluded_observation_count");
@@ -122,6 +137,10 @@ includes("auditIntegrity", "sha256_fingerprints_required: true");
 includes("auditIntegrity", "observation_key_bound_to_fingerprint: true");
 includes("auditIntegrity", "decisive_evidence_counts_revalidated: true");
 includes("auditIntegrity", "observation_day_and_timestamp_must_agree: true");
+includes("auditHistory", "raw_rows_before_valid_evidence_do_not_crowd_out_unique_votes: true");
+includes("auditHistory", "history_scan_uses_ordered_range_pagination: true");
+includes("auditHistory", "raw_scan_limit_fails_closed_before_candidate: true");
+includes("auditHistory", "count_change_during_scan_fails_closed: true");
 includes("auditHandoff", "first_observation_cannot_create_candidate: true");
 includes("auditHandoff", "same_day_repetition_cannot_create_candidate: true");
 includes("auditHandoff", "cross_day_three_observation_pattern_creates_one_candidate: true");
@@ -173,6 +192,11 @@ console.log(
         duplicate_observations_excluded: true,
         conflicting_observation_fingerprints_quarantined: true,
         row_order_cannot_resolve_observation_conflict: true,
+        complete_history_scan_required: true,
+        incomplete_history_blocks_evidence_candidate: true,
+        raw_rows_cannot_crowd_out_unique_observation_limit: true,
+        history_count_must_remain_stable_during_scan: true,
+        stable_row_identity_required_across_pages: true,
         evidence_candidate_only: true,
         no_direct_platform_knowledge_write: true,
         no_model_gpu_provider_import: true,

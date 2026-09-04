@@ -1,0 +1,168 @@
+name: Avantiqo Intelligence Wire Verified Learning Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/avantiqo-intelligence-wire-verified-learning-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  wire-verified-learning:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Patch deep Operator reasoning
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("lib/operator/runtime/OperatorReasoningRuntime.js")
+          source = path.read_text()
+
+          def replace_once(old, new, label):
+              global source
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one anchor, found {count}")
+              source = source.replace(old, new, 1)
+
+          replace_once(
+              '''import {
+            ownedOperatorIntelligenceSelectionPolicy,
+            settleOperatorIntelligenceExecution,
+          } from "./OperatorOwnedIntelligenceServiceRuntime";
+          ''',
+              '''import {
+            ownedOperatorIntelligenceSelectionPolicy,
+            settleOperatorIntelligenceExecution,
+          } from "./OperatorOwnedIntelligenceServiceRuntime";
+          import {
+            loadOperatorVerifiedLearningContext,
+            OPERATOR_VERIFIED_LEARNING_CONTEXT_CONTRACT,
+          } from "./OperatorVerifiedLearningContextRuntime.js";
+          ''',
+              "verified-learning import",
+          )
+
+          replace_once(
+              '''  const instructions = `
+          You are Avantiqo Operator, the conversational operating interface for a business operating system.
+
+          Understand the user's request, act as a thoughtful collaborative partner, and when sufficiently clear select a real supplied navigation target or capability.
+
+          Rules:
+          ''',
+              '''  const instructions = `
+          You are Avantiqo Operator, the conversational operating interface for a business operating system.
+
+          Understand the user's request, act as a thoughtful collaborative partner, and when sufficiently clear select a real supplied navigation target or capability.
+
+          verified_platform_learning is platform-level reusable learned experience released through Avantiqo's governed learning system. It is advisory planning context only: not customer memory, not proof of current business state, and never authorization for an action. Use it to avoid verified prior failure modes and improve process choices when relevant. Current verified business evidence and an explicit current user decision always override it. Never use it alone to justify a write, approval, payment, publication, external message or governance bypass.
+
+          Rules:
+          ''',
+              "deep prompt",
+          )
+
+          replace_once(
+              '''  const request = {
+            capability_index: capabilityIndex(capabilities),
+          ''',
+              '''  const verifiedLearningContext = await loadOperatorVerifiedLearningContext({
+            message,
+            projectState,
+            currentScreen,
+          });
+          const verifiedPlatformLearning =
+            verifiedLearningContext.status === "AVAILABLE"
+              ? {
+                  contract: verifiedLearningContext.contract,
+                  status: verifiedLearningContext.status,
+                  route: verifiedLearningContext.route,
+                  knowledge: verifiedLearningContext.knowledge,
+                  knowledge_count: verifiedLearningContext.knowledge_count,
+                  context_chars: verifiedLearningContext.context_chars,
+                  freshness_checked: verifiedLearningContext.freshness_checked,
+                  evidence_graph_checked: verifiedLearningContext.evidence_graph_checked,
+                  advisory_only: verifiedLearningContext.advisory_only,
+                  current_business_state_proven:
+                    verifiedLearningContext.current_business_state_proven,
+                  authorization_effect: verifiedLearningContext.authorization_effect,
+                  execution_effect: verifiedLearningContext.execution_effect,
+                  customer_private_memory_reused:
+                    verifiedLearningContext.customer_private_memory_reused,
+                  platform_learning_organization_only:
+                    verifiedLearningContext.platform_learning_organization_only,
+                }
+              : null;
+
+          const request = {
+            capability_index: capabilityIndex(capabilities),
+          ''',
+              "deep learning load",
+          )
+
+          replace_once(
+              '''    current_project_state: normalizeOperatorProjectState(projectState),
+            agreement_state: object(agreementState),
+            recent_conversation: boundedConversation(conversation, source),
+          ''',
+              '''    current_project_state: normalizeOperatorProjectState(projectState),
+            agreement_state: object(agreementState),
+            ...(verifiedPlatformLearning
+              ? { verified_platform_learning: verifiedPlatformLearning }
+              : {}),
+            recent_conversation: boundedConversation(conversation, source),
+          ''',
+              "deep request context",
+          )
+
+          replace_once(
+              '''      evidence_first_mixed_action: true,
+            catalog_counts: {
+          ''',
+              '''      evidence_first_mixed_action: true,
+            verified_platform_learning_used: Boolean(verifiedPlatformLearning),
+            verified_platform_learning_count:
+              verifiedPlatformLearning?.knowledge_count || 0,
+            verified_platform_learning_contract:
+              OPERATOR_VERIFIED_LEARNING_CONTEXT_CONTRACT,
+            platform_learning_customer_private_memory_reused: false,
+            catalog_counts: {
+          ''',
+              "deep metadata",
+          )
+
+          path.write_text(source)
+
+      - name: Verify syntax and integration contract
+        run: |
+          node --check lib/operator/runtime/OperatorReasoningRuntime.js
+          node scripts/audit-operator-verified-learning-reasoning-integration-local.mjs
+
+      - name: Commit verified learning integration
+        run: |
+          if git diff --quiet -- lib/operator/runtime/OperatorReasoningRuntime.js; then
+            echo "No change required"
+            exit 0
+          fi
+          git config user.name "churchillkaron"
+          git config user.email "patric@pcsphuket.com"
+          git add lib/operator/runtime/OperatorReasoningRuntime.js
+          git commit -m "feat(intelligence): use verified learning in deep Operator reasoning"
+          git push origin HEAD:main

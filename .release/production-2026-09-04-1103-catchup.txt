@@ -1,0 +1,3 @@
+Explicit production catch-up release marker.
+Authorized by user on 2026-09-04.
+Deploy the complete main tree at this commit, including work landed after 05e955aab5a6c21b5dcb6084e2267bcc6c8a3ff4.

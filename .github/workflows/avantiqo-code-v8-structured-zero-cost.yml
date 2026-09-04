@@ -1,0 +1,49 @@
+name: Avantiqo Code V8 Structured Zero Cost Admission
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/avantiqo-code-engine/repo_agent_v8.py'
+      - 'services/avantiqo-code-engine/verify_repo_agent_v8.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py'
+      - '.github/workflows/avantiqo-code-v8-structured-zero-cost.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile V8 contracts
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v8.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v8.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
+      - name: Verify V8 selective agent behavior
+        run: |
+          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v8.py
+      - name: Verify structured accelerated runtime contract
+        run: |
+          set -euo pipefail
+          runtime=services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
+          grep -q 'FAST_BOOT_ENFORCE_EAGER = False' "$runtime"
+          grep -q '"method": "ngram"' "$runtime"
+          grep -q 'StructuredOutputsParams' "$runtime"
+          grep -q 'structured_outputs=structured' "$runtime"
+          grep -q 'ACTOR_SCHEMA' "$runtime"
+          grep -q 'REVIEWER_SCHEMA' "$runtime"
+          grep -q '"production_routing_change": False' "$runtime"
+          grep -q '"production_deploy_performed": False' "$runtime"
+          grep -q '"model_download_performed": False' "$runtime"
+          grep -q '"volume_created": False' "$runtime"
+          echo 'AVANTIQO_CODE_V8_STRUCTURED_ADMISSION=PASS'

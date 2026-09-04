@@ -50,7 +50,8 @@ test("only truly relative references require a verified active-shot anchor", () 
 
 test("scene and shot numbers have an exact deterministic addressing path", () => {
   assert.match(referenceRuntime, /function sceneShotNumber/);
-  assert.match(referenceRuntime, /scene\\s\*#\?\\s\*\(\\d\{1,4\}\\\)/);
+  assert.match(referenceRuntime, /scene_number:\s*Number\(match\[1\]\)/);
+  assert.match(referenceRuntime, /shot_number:\s*Number\(match\[2\]\)/);
   assert.match(referenceRuntime, /resolution:\s*"SCENE_SHOT_NUMBER"/);
   assert.match(referenceRuntime, /CREATIVE_CHAT_SHOT_REFERENCE_SCENE_SHOT_AMBIGUOUS/);
   assert.match(referenceRuntime, /CREATIVE_CHAT_SHOT_REFERENCE_SCENE_SHOT_NOT_FOUND/);

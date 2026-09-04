@@ -20,6 +20,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: avantiqo-intelligence-reusable-knowledge-admission-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   reusable-knowledge-boundary:
     name: Zero-cost reusable knowledge boundary certification

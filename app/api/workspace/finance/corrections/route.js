@@ -83,7 +83,7 @@ export async function GET(request) {
     const [corrections, accounts, documents] = await Promise.all([
       listFinanceCorrections({ organizationId: access.organizationId, entityId: entityId || null, periodId: periodId || null }),
       entityId ? listCorrectionAccounts({ organizationId: clientOrg, entityId }) : Promise.resolve([]),
-      listFinanceEvidenceDocuments({ organizationId: clientOrg, entityId: entityId || null, limit: 100 }),
+      listFinanceEvidenceDocuments({ organizationId: clientOrg, entityId: entityId || null, limit: 500 }),
     ]);
     return NextResponse.json({ success: true, corrections, accounts, documents, generated_at: new Date().toISOString() });
   } catch (error) {

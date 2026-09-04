@@ -1,15 +1,10 @@
-# Deploys Intelligence source changes without submitting model inference.
+# Deploys Intelligence source changes only after an explicit operator trigger.
+# Source commits never launch a Modal build or model inference automatically.
 name: Avantiqo Intelligence Modal Governed Deploy
 
 on:
   issues:
     types: [opened]
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/avantiqo-intelligence-modal-deploy.yml
-      - services/avantiqo-intelligence-modal/modal_app.py
-      - services/avantiqo-intelligence-modal/deploy_app.py
   workflow_dispatch:
 
 permissions:
@@ -140,4 +135,3 @@ jobs:
           echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
           echo 'PRODUCTION_ROUTING_ACTIVATED=false'
           echo 'PRICING_ACTIVATED=false'
-          echo 'RUNPOD_USED=false'

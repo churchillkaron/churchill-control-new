@@ -325,15 +325,29 @@ export default function FinancePaymentsWorkCenter({
 
   const activeError = tab === "out" ? errors.out : tab === "in" ? errors.in : errors.payables;
 
+  function makeIdempotencyKey(prefix) {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return `${prefix}:${crypto.randomUUID()}`;
+    }
+    return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  }
+
   function openVendorPayment(row = null) {
     setAction({
       action: VENDOR_PAYMENT_ACTION,
-      row: row ? { ...row, accounts_payable_id: row.id } : {},
+      row: {
+        ...(row || {}),
+        ...(row ? { accounts_payable_id: row.id } : {}),
+        idempotency_key: makeIdempotencyKey("vendor-payment"),
+      },
     });
   }
 
   function openReceipt() {
-    setAction({ action: CUSTOMER_RECEIPT_ACTION, row: {} });
+    setAction({
+      action: CUSTOMER_RECEIPT_ACTION,
+      row: { idempotency_key: makeIdempotencyKey("customer-receipt") },
+    });
   }
 
   if (!entityId) {

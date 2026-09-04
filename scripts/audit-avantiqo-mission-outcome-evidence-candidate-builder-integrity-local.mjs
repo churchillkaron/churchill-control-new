@@ -78,22 +78,28 @@ function observation(token, date) {
   return built.row;
 }
 
+const fingerprintSource = buildAvantiqoMissionOutcomeLearningObservation({
+  pattern,
+  outcome_contract: outcomeContract(),
+  outcome_assessment: successAssessment(),
+  observation_token: "d".repeat(64),
+  organization_id: ORGANIZATION_ID,
+  now: new Date("2026-09-02T09:00:00.000Z"),
+});
+assert.equal(fingerprintSource.eligible, true);
+
 const evaluation = evaluateAvantiqoMissionOutcomePattern({
   observations: [
     observation("a".repeat(64), "2026-09-01T08:00:00.000Z"),
     observation("b".repeat(64), "2026-09-01T12:00:00.000Z"),
     observation("c".repeat(64), "2026-09-02T08:00:00.000Z"),
   ],
-  pattern_fingerprint: buildAvantiqoMissionOutcomeLearningObservation({
-    pattern,
-    outcome_contract: outcomeContract(),
-    outcome_assessment: successAssessment(),
-    observation_token: "d".repeat(64),
-    organization_id: ORGANIZATION_ID,
-    now: new Date("2026-09-02T09:00:00.000Z"),
-  }).pattern_fingerprint,
+  pattern_fingerprint: fingerprintSource.pattern_fingerprint,
 });
 assert.equal(evaluation.eligible_for_evidence_candidate, true);
+assert.equal(evaluation.observation_authenticity_available, true);
+assert.equal(evaluation.anti_overfitting.observation_authenticity_required, true);
+assert.equal(evaluation.anti_overfitting.observation_authenticity_verified, true);
 
 const validCandidate = buildAvantiqoMissionOutcomeEvidenceCandidateRow({
   pattern,
@@ -105,6 +111,12 @@ assert.ok(validCandidate);
 assert.equal(validCandidate.metadata.reusable_platform_knowledge, false);
 assert.equal(validCandidate.metadata.observation_integrity_envelope_required, true);
 assert.equal(validCandidate.metadata.observation_integrity_envelope_revalidated, true);
+assert.equal(validCandidate.metadata.observation_authenticity_required, true);
+assert.equal(validCandidate.metadata.observation_authenticity_verified, true);
+assert.equal(validCandidate.metadata.server_only_observation_authenticity_key_required, true);
+assert.equal(validCandidate.metadata.database_stored_authenticity_secret_allowed, false);
+assert.equal(validCandidate.metadata.database_only_writer_cannot_reseal_without_server_key, true);
+assert.equal(validCandidate.metadata.observation_authenticity_key_rotation_supported, true);
 assert.equal(validCandidate.metadata.history_snapshot_verified, true);
 assert.equal(validCandidate.metadata.history_snapshot_manifest_stable, true);
 
@@ -121,6 +133,13 @@ const mutations = [
   ["stored integrity flag", (value) => { value.anti_overfitting.stored_observation_integrity_revalidated = false; }],
   ["observation envelope required", (value) => { value.anti_overfitting.observation_integrity_envelope_required = false; }],
   ["observation envelope revalidated", (value) => { value.anti_overfitting.observation_integrity_envelope_revalidated = false; }],
+  ["authenticity availability", (value) => { value.observation_authenticity_available = false; }],
+  ["authenticity required", (value) => { value.anti_overfitting.observation_authenticity_required = false; }],
+  ["authenticity verified", (value) => { value.anti_overfitting.observation_authenticity_verified = false; }],
+  ["server-only authenticity key", (value) => { value.anti_overfitting.server_only_observation_authenticity_key_required = false; }],
+  ["database authenticity secret allowed", (value) => { value.anti_overfitting.database_stored_authenticity_secret_allowed = true; }],
+  ["database reseal resistance", (value) => { value.anti_overfitting.database_only_writer_cannot_reseal_without_server_key = false; }],
+  ["authenticity rotation", (value) => { value.anti_overfitting.observation_authenticity_key_rotation_supported = false; }],
   ["poison exclusion flag", (value) => { value.anti_overfitting.malformed_or_poisoned_observations_excluded = false; }],
   ["unique fingerprint flag", (value) => { value.anti_overfitting.unique_observation_fingerprints_required = false; }],
   ["duplicate exclusion flag", (value) => { value.anti_overfitting.duplicate_observations_excluded = false; }],
@@ -165,6 +184,11 @@ console.log(JSON.stringify({
     candidate_builder_revalidates_thresholds: true,
     candidate_builder_requires_integrity_flags: true,
     candidate_builder_requires_observation_integrity_envelope_flags: true,
+    candidate_builder_requires_observation_authenticity_flags: true,
+    candidate_builder_requires_server_only_authenticity_key: true,
+    candidate_builder_rejects_database_stored_authenticity_secret: true,
+    candidate_builder_requires_database_reseal_resistance: true,
+    candidate_builder_requires_authenticity_rotation_contract: true,
     candidate_builder_requires_complete_stable_history: true,
     candidate_builder_requires_verified_snapshot_manifest: true,
     candidate_builder_requires_snapshot_churn_guards: true,

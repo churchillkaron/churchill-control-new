@@ -9,6 +9,7 @@ const files = {
   projection: "lib/operator/runtime/OperatorMissionOutcomeLearningProjectionRuntime.js",
   settlement: "lib/operator/runtime/OperatorMissionOutcomeLearningSettlementRuntime.js",
   mission: "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js",
+  auditIntegrity: "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs",
   auditHandoff: "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs",
   auditBridge: "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs",
   auditCompletion: "scripts/audit-operator-mission-completion-learning-local.mjs",
@@ -34,6 +35,14 @@ includes("learning", "explicit_final_promotion_required: true");
 includes("learning", "min_observations: 3");
 includes("learning", "min_distinct_observation_days: 2");
 includes("learning", "min_dominant_outcome_ratio: 0.8");
+includes("learning", "const SHA256_RE");
+includes("learning", "function positiveInteger");
+includes("learning", "function validObservationTime");
+includes("learning", "stored_observation_integrity_revalidated: true");
+includes("learning", "malformed_or_poisoned_observations_excluded: true");
+includes("learning", "excluded_observation_count");
+includes("learning", "source_outcome_contract");
+includes("learning", "source_outcome_assessment_contract");
 
 includes("handoff", "AVANTIQO_OPERATOR_MISSION_OUTCOME_LEARNING_HANDOFF_V1");
 includes("handoff", "post_verified_outcome_handoff_only: true");
@@ -92,6 +101,11 @@ includes("mission", "OPERATOR_MISSION_OUTCOME_LEARNING_PROJECTION_INVALID");
 includes("mission", "learning_observation_token");
 includes("mission", "delete inputSchema.properties.learning");
 
+includes("auditIntegrity", "poisoned_row_cannot_inflate_three_observation_gate: true");
+includes("auditIntegrity", "sha256_fingerprints_required: true");
+includes("auditIntegrity", "observation_key_bound_to_fingerprint: true");
+includes("auditIntegrity", "decisive_evidence_counts_revalidated: true");
+includes("auditIntegrity", "observation_day_and_timestamp_must_agree: true");
 includes("auditHandoff", "first_observation_cannot_create_candidate: true");
 includes("auditHandoff", "same_day_repetition_cannot_create_candidate: true");
 includes("auditHandoff", "cross_day_three_observation_pattern_creates_one_candidate: true");
@@ -137,6 +151,8 @@ console.log(
         planner_supplied_projection_blocked: true,
         planner_visible_learning_schema_removed: true,
         final_registered_verification_only: true,
+        stored_observation_integrity_revalidated: true,
+        malformed_or_poisoned_observations_excluded: true,
         evidence_candidate_only: true,
         no_direct_platform_knowledge_write: true,
         no_model_gpu_provider_import: true,

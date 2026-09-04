@@ -1,0 +1,244 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, FilePenLine, RefreshCw } from "lucide-react";
+
+function text(value) {
+  return String(value ?? "").trim();
+}
+
+function upper(value) {
+  return text(value).toUpperCase();
+}
+
+function date(value) {
+  if (!value) return "—";
+  const parsed = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(parsed);
+}
+
+function money(value, currency = "THB") {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "—";
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      signDisplay: "auto",
+    }).format(numeric);
+  } catch {
+    return `${currency} ${numeric.toFixed(2)}`;
+  }
+}
+
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, { credentials: "include", cache: "no-store", ...options });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body?.success === false) throw new Error(body?.error || `Request failed (${response.status})`);
+  return body;
+}
+
+function chainOf(row) {
+  const raw = row?.metadata?.tax_amendments;
+  return {
+    active: raw?.active || null,
+    history: Array.isArray(raw?.history) ? raw.history : [],
+    abandoned: Array.isArray(raw?.abandoned) ? raw.abandoned : [],
+  };
+}
+
+function Delta({ label, value, currency, count = false }) {
+  const numeric = Number(value || 0);
+  return (
+    <div className="rounded-lg border border-black/[0.065] bg-[#FAF9F7] px-3 py-2.5">
+      <div className="text-[8px] font-semibold uppercase tracking-[0.11em] text-[#8C877F]">{label}</div>
+      <div className={`mt-1 text-[12px] font-semibold tabular-nums ${numeric > 0 ? "text-[#8A5A2D]" : numeric < 0 ? "text-emerald-800" : "text-[#4A4641]"}`}>
+        {count ? `${numeric > 0 ? "+" : ""}${numeric}` : money(numeric, currency)}
+      </div>
+    </div>
+  );
+}
+
+export default function FinanceTaxAmendmentRail({ organizationId, entityId }) {
+  const [expanded, setExpanded] = useState(false);
+  const [workspace, setWorkspace] = useState(null);
+  const [selectedId, setSelectedId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [openMode, setOpenMode] = useState(false);
+  const [submitReference, setSubmitReference] = useState("");
+  const [abandonReason, setAbandonReason] = useState("");
+  const [form, setForm] = useState({
+    reason_code: "SOURCE_CORRECTION",
+    reason: "",
+    evidence_reference: "",
+  });
+
+  async function load() {
+    if (!expanded || !organizationId || !entityId) return;
+    try {
+      setLoading(true);
+      setError("");
+      const url = new URL("/api/finance/tax/runtime", window.location.origin);
+      url.searchParams.set("organizationId", organizationId);
+      url.searchParams.set("entityId", entityId);
+      const body = await requestJson(url.toString());
+      setWorkspace(body);
+      const submitted = (body.returns || []).filter(row => upper(row.status) === "SUBMITTED");
+      setSelectedId(current => submitted.some(row => row.id === current) ? current : submitted[0]?.id || "");
+    } catch (loadError) {
+      setError(loadError?.message || "Filed VAT returns could not be loaded");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, [expanded, organizationId, entityId]);
+
+  const submittedReturns = useMemo(
+    () => (workspace?.returns || []).filter(row => upper(row.status) === "SUBMITTED"),
+    [workspace]
+  );
+  const selected = submittedReturns.find(row => row.id === selectedId) || null;
+  const chain = chainOf(selected);
+  const active = chain.active;
+  const latest = chain.history[chain.history.length - 1] || null;
+  const currency = active?.effective_values?.currency_code || latest?.effective_values?.currency_code || selected?.currency_code || "THB";
+
+  async function act(action, extra = {}) {
+    if (!selected?.id) return;
+    try {
+      setBusy(true);
+      setError("");
+      await requestJson("/api/finance/vat-returns/amendments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          entityId,
+          vatReturnId: selected.id,
+          action,
+          ...extra,
+        }),
+      });
+      setOpenMode(false);
+      setSubmitReference("");
+      setAbandonReason("");
+      setForm({ reason_code: "SOURCE_CORRECTION", reason: "", evidence_reference: "" });
+      await load();
+    } catch (actionError) {
+      setError(actionError?.message || "VAT amendment action failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openAmendment() {
+    if (!form.reason.trim() || !form.evidence_reference.trim()) {
+      setError("Explain the correction and attach an authority/evidence reference before opening the amendment.");
+      return;
+    }
+    act("open", {
+      reasonCode: form.reason_code,
+      reason: form.reason.trim(),
+      evidenceReference: form.evidence_reference.trim(),
+    });
+  }
+
+  return (
+    <section className="border-b border-black/[0.07] bg-[#F7F6F3] px-4 sm:px-5 lg:px-6">
+      <div className="mx-auto max-w-[1760px] py-2.5">
+        <button onClick={() => setExpanded(value => !value)} className="flex w-full items-center gap-3 text-left">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.07] bg-white text-[#8C6036]"><FilePenLine size={14} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] text-[#9A7045]">Filed corrections</span>
+            <span className="mt-0.5 block text-[10px] text-[#777169]">Original filed return stays immutable · corrections become a governed amendment chain with fresh evidence and a new authority receipt.</span>
+          </span>
+          <span className="text-[9px] font-semibold text-[#817B73]">{expanded ? "Close" : "Open amendments"}</span>
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        {expanded ? (
+          <div className="mt-3 rounded-xl border border-black/[0.07] bg-white">
+            <div className="grid gap-3 border-b border-black/[0.07] p-3 lg:grid-cols-[minmax(280px,1fr)_auto] lg:items-end">
+              <label className="text-[8px] font-semibold uppercase tracking-[0.11em] text-[#817B73]">
+                Filed return
+                <select value={selectedId} onChange={event => { setSelectedId(event.target.value); setOpenMode(false); }} className="mt-1.5 h-9 w-full rounded-lg border border-black/[0.09] bg-white px-2.5 text-[10px] font-normal normal-case tracking-normal">
+                  {!submittedReturns.length ? <option value="">No submitted VAT returns</option> : null}
+                  {submittedReturns.map(row => {
+                    const rowChain = chainOf(row);
+                    return <option key={row.id} value={row.id}>{row.jurisdiction_code} · {date(row.period_start)} — {date(row.period_end)} · Original + {rowChain.history.length} amendment{rowChain.history.length === 1 ? "" : "s"}</option>;
+                  })}
+                </select>
+              </label>
+              <button onClick={load} disabled={loading} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-black/[0.09] bg-white px-3 text-[10px] font-semibold disabled:opacity-40"><RefreshCw size={12} className={loading ? "animate-spin" : ""} />Refresh filed evidence</button>
+            </div>
+
+            {error ? <div className="border-b border-red-700/15 bg-red-50 px-3 py-2.5 text-[10px] text-red-800">{error}</div> : null}
+
+            {!selected ? (
+              <div className="p-5 text-[10px] text-[#817B73]">There is nothing to amend until a VAT return has been calculated and submitted.</div>
+            ) : (
+              <div className="p-3">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="text-[11px] font-semibold text-[#37332F]">Original filed {date(selected.submitted_at)} · {selected.submission_reference || "receipt missing"}</div>
+                    <div className="mt-1 text-[9px] leading-4 text-[#817B73]">Only the latest filed version can be amended. Avantiqo never rewrites the original filed totals; each correction stores the previous effective values, corrected values, delta, evidence fingerprint and authority receipt.</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-md border border-black/[0.07] bg-[#FAF9F7] px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#716B63]">Original + {chain.history.length}</span>
+                    {active ? <span className="rounded-md border border-amber-700/15 bg-amber-50 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-amber-900">{active.label} · {active.status}</span> : null}
+                  </div>
+                </div>
+
+                {chain.history.length ? (
+                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                    <div className="min-w-[170px] rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-2.5"><div className="text-[9px] font-semibold">Original</div><div className="mt-1 text-[8px] text-[#8A857D]">{selected.submission_reference || "Filed"}</div></div>
+                    {chain.history.map(item => <div key={item.id} className="min-w-[190px] rounded-lg border border-emerald-700/10 bg-emerald-50 p-2.5"><div className="flex items-center gap-1 text-[9px] font-semibold text-emerald-800"><CheckCircle2 size={10} />{item.label}</div><div className="mt-1 text-[8px] text-emerald-800/75">{item.submission_reference} · {date(item.submitted_at)}</div></div>)}
+                  </div>
+                ) : null}
+
+                {!active && !openMode ? (
+                  <div className="mt-3 flex justify-end"><button onClick={() => setOpenMode(true)} className="h-9 rounded-lg bg-[#1F1E1B] px-3.5 text-[10px] font-semibold text-white">Start amendment</button></div>
+                ) : null}
+
+                {openMode && !active ? (
+                  <div className="mt-3 rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-3">
+                    <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#9A7045]">Open correction work</div>
+                    <div className="mt-2 grid gap-2 lg:grid-cols-3">
+                      <select value={form.reason_code} onChange={event => setForm(current => ({ ...current, reason_code: event.target.value }))} className="h-9 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[10px]"><option value="SOURCE_CORRECTION">Source transaction correction</option><option value="LATE_DOCUMENT">Late source document</option><option value="VAT_CODE_CORRECTION">VAT coding correction</option><option value="AUTHORITY_ERROR">Authority / agency error</option><option value="OTHER">Other governed correction</option></select>
+                      <input value={form.reason} onChange={event => setForm(current => ({ ...current, reason: event.target.value }))} placeholder="Why is the filed return wrong?" className="h-9 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[10px]" />
+                      <input value={form.evidence_reference} onChange={event => setForm(current => ({ ...current, evidence_reference: event.target.value }))} placeholder="Authority / workpaper evidence reference" className="h-9 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[10px]" />
+                    </div>
+                    <div className="mt-2 flex justify-end gap-2"><button onClick={() => setOpenMode(false)} className="h-8 rounded-lg border border-black/[0.09] bg-white px-3 text-[9px] font-semibold">Cancel</button><button onClick={openAmendment} disabled={busy} className="h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-semibold text-white disabled:opacity-40">Open governed amendment</button></div>
+                  </div>
+                ) : null}
+
+                {active ? (
+                  <div className="mt-3 rounded-lg border border-amber-700/15 bg-amber-50/60 p-3">
+                    <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between"><div><div className="text-[10px] font-semibold text-amber-950">{active.label} · {active.correction_method === "PP30_ADDITIONAL_RETURN" ? "Thailand P.P.30 additional return" : "Amended VAT return"}</div><div className="mt-1 text-[9px] text-amber-900/80">{active.reason_code} · {active.reason} · Evidence {active.authority_evidence_reference}</div></div><div className="text-[8px] uppercase tracking-[0.08em] text-amber-900/70">{active.status}</div></div>
+                    {active.status === "CALCULATED" ? (
+                      <div className="mt-3"><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><Delta label="Output VAT delta" value={active.delta?.output_tax} currency={currency} /><Delta label="Input VAT delta" value={active.delta?.input_tax} currency={currency} /><Delta label="Payable delta" value={active.delta?.tax_payable} currency={currency} /><Delta label="Refund delta" value={active.delta?.tax_refund} currency={currency} /></div><div className="mt-2 text-[8px] text-[#817B73]">Evidence fingerprint {active.evidence_signature?.digest ? `${active.evidence_signature.digest.slice(0, 16)}…` : "—"}. Submission reruns the full governed population and blocks if any evidence changed.</div></div>
+                    ) : null}
+                    <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-end">
+                      {active.status === "CALCULATED" ? <input value={submitReference} onChange={event => setSubmitReference(event.target.value)} placeholder="Additional / amended authority receipt" className="h-9 min-w-[260px] rounded-lg border border-black/[0.09] bg-white px-2.5 text-[10px]" /> : null}
+                      <button onClick={() => act("calculate")} disabled={busy} className="h-9 rounded-lg border border-black/[0.09] bg-white px-3 text-[10px] font-semibold disabled:opacity-40">{active.status === "CALCULATED" ? "Recalculate correction" : "Calculate correction"}</button>
+                      {active.status === "CALCULATED" ? <button onClick={() => { if (!submitReference.trim()) { setError("Enter the authority receipt/reference for the amendment filing."); return; } act("submit", { submissionReference: submitReference.trim() }); }} disabled={busy} className="h-9 rounded-lg bg-[#1F1E1B] px-3.5 text-[10px] font-semibold text-white disabled:opacity-40">Record amendment filed</button> : null}
+                    </div>
+                    <div className="mt-3 border-t border-amber-900/10 pt-2"><div className="flex flex-col gap-2 sm:flex-row"><input value={abandonReason} onChange={event => setAbandonReason(event.target.value)} placeholder="Reason to abandon this draft amendment" className="h-8 min-w-0 flex-1 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[9px]" /><button onClick={() => { if (!abandonReason.trim()) { setError("Record why the amendment draft is being abandoned."); return; } act("abandon", { abandonmentReason: abandonReason.trim() }); }} disabled={busy} className="h-8 rounded-lg border border-red-700/15 bg-white px-3 text-[9px] font-semibold text-red-800 disabled:opacity-40">Abandon draft</button></div></div>
+                  </div>
+                ) : null}
+
+                {latest ? <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-700/10 bg-emerald-50 p-2.5 text-[9px] text-emerald-800"><CheckCircle2 size={12} className="mt-0.5 shrink-0" /><span><strong>{latest.label}</strong> filed as {latest.submission_reference}. The next correction will start from this filed version, never from the original figures.</span></div> : <div className="mt-3 flex items-start gap-2 rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-2.5 text-[9px] text-[#716B63]"><AlertTriangle size={12} className="mt-0.5 shrink-0" /><span>No amendment has been filed. If the submitted return is correct, leave it untouched.</span></div>}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}

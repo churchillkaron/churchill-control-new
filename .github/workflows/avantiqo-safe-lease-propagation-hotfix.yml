@@ -14,6 +14,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  code_v9_zero_cost:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prove Repo Agent V10 and Private12 V9
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v10.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v10.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v10.py
+          cert=services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          runtime=services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
+          grep -q 'RUN_SEED = "20260904-qwen38-private12-v9"' "$cert"
+          grep -q 'import repo_agent_v10 as agent' "$cert"
+          grep -q 'REVIEWER_MAX_TOKENS = 448' "$cert"
+          grep -q 'ACTOR_MAX_TOKENS = base.ACTOR_MAX_TOKENS' "$cert"
+          grep -q 'runtime.generate_v7' "$cert"
+          grep -q 'MAX_MODAL_TOTAL_CALLS = base.MAX_MODAL_TOTAL_CALLS' "$cert"
+          grep -q 'WARM_TARGET_MS = base.WARM_TARGET_MS' "$cert"
+          grep -q 'FAST_BOOT_ENFORCE_EAGER = False' "$runtime"
+          grep -q '"method": "ngram"' "$runtime"
+          grep -q 'StructuredOutputsParams' "$runtime"
+          grep -q 'structured_outputs=structured' "$runtime"
+          grep -q 'MAX_WARM_P95_MS = 4_000' services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          echo 'AVANTIQO_CODE_REPO_AGENT_V10_ZERO_COST=PASS'
+          echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V9_ADMISSION=PASS'
+
   repair:
     runs-on: ubuntu-latest
     timeout-minutes: 10

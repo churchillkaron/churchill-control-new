@@ -1,0 +1,102 @@
+name: Avantiqo Investor Single-B200 Smoke Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-single-b200-smoke-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-single-b200-smoke-once
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    if: github.event.head_commit.message == 'Run Avantiqo investor single-B200 smoke once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_VIDEO_SMOKE_REAL_INFERENCE_APPROVED: "YES"
+      AVANTIQO_VIDEO_SMOKE_RUN_KEY: "investor-single-b200-smoke-v1"
+      AVANTIQO_VIDEO_SMOKE_MAX_WAIT_SECONDS: "1800"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install runtime tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          npm ci --ignore-scripts
+
+      - name: Validate single-B200 smoke boundary
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          node --check scripts/run-avantiqo-investor-single-shot-smoke.mjs
+          grep -A14 -B10 'def generate_native_master' services/avantiqo-video-engine/modal_app.py | grep -F 'max_containers=1' >/dev/null
+          grep -F 'gpu_jobs: 1' scripts/run-avantiqo-investor-single-shot-smoke.mjs >/dev/null
+          echo 'AVANTIQO_INVESTOR_SINGLE_B200_SMOKE_PREFLIGHT=PASS'
+          echo 'B200_MAX_CONTAINERS=1'
+          echo 'PAID_GPU_JOBS=1'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+
+      - name: Generate one real 5-second 4K shot
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-investor-single-shot-smoke.mjs
+
+      - name: Verify smoke artifact
+        run: |
+          set -euo pipefail
+          REPORT='local-audit-output/avantiqo-investor-single-shot-smoke/avantiqo-investor-smoke-report.json'
+          MP4='local-audit-output/avantiqo-investor-single-shot-smoke/avantiqo-investor-smoke-5s-4k.mp4'
+          test -s "$REPORT"
+          test -s "$MP4"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('local-audit-output/avantiqo-investor-single-shot-smoke/avantiqo-investor-smoke-report.json', 'utf8'));
+          if (report.success !== true) throw new Error('SMOKE_NOT_SUCCESSFUL');
+          if (report.gpu_generation_calls !== 1) throw new Error('GPU_CALL_COUNT_INVALID');
+          if (report.automatic_paid_retry !== false) throw new Error('AUTOMATIC_RETRY_INVALID');
+          if (report.delivery_resolution !== '3840x2160') throw new Error('DELIVERY_RESOLUTION_INVALID');
+          if (Math.abs(Number(report.duration_seconds) - 5) > 0.08) throw new Error('DELIVERY_DURATION_INVALID');
+          console.log('AVANTIQO_INVESTOR_SINGLE_B200_SMOKE_ARTIFACT=PASS');
+          console.log('FINAL_SIGNED_URL=' + report.delivery.signed_url);
+          console.log('FINAL_STORAGE_REFERENCE=' + report.delivery.storage_reference);
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: avantiqo-investor-single-b200-smoke-v1
+          path: local-audit-output/avantiqo-investor-single-shot-smoke/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'AUTOMATIC_PAID_RETRY=false'

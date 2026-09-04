@@ -1,0 +1,45 @@
+name: Avantiqo Video Known-Good Zero-GPU Preflight Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-known-good-zero-gpu-preflight-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    if: github.event.head_commit.message == 'Run Avantiqo Video known-good zero-GPU preflight once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_VIDEO_NATIVE_CONTROL_MAX_SUPPLIER_GPU_COST_USD: '3.25'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install proven Modal CLI
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.1.4'
+          modal --version
+      - name: Query deployed named app only - zero GPU
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          cd services/avantiqo-video-engine
+          modal run modal_native_control_paid_preflight.py::preflight | tee /tmp/preflight.log
+          grep -F 'AVANTIQO_VIDEO_NATIVE_CONTROL_PAID_PROOF_PREFLIGHT_V2=PASS' /tmp/preflight.log >/dev/null
+          grep -F 'AVANTIQO_VIDEO_NAMED_DEPLOYED_IDLE_GATE=PASS' /tmp/preflight.log >/dev/null
+          grep -F 'GPU_INFERENCE_PERFORMED=false' /tmp/preflight.log >/dev/null
+          echo 'AVANTIQO_VIDEO_KNOWN_GOOD_ZERO_GPU_PREFLIGHT=PASS'
+          echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'

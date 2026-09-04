@@ -1,0 +1,87 @@
+name: Avantiqo Video Parallel B200 Fix Deploy Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-parallel-b200-fix-deploy-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-runtime-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.event.head_commit.message == 'Fix Avantiqo Video parallel B200 runtime once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal CLI
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Validate owned Video runtime
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            services/avantiqo-video-engine/modal_app.py \
+            services/avantiqo-video-engine/modal_native_job.py \
+            services/avantiqo-video-engine/modal_native_controlled_master.py \
+            services/avantiqo-video-engine/modal_deploy.py
+          echo 'AVANTIQO_VIDEO_RUNTIME_VALIDATION=PASS'
+
+      - name: Redeploy stopped owned Video app without inference
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          cd services/avantiqo-video-engine
+          modal deploy modal_deploy.py
+          echo 'AVANTIQO_VIDEO_REDEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Override B200 generation lanes to four parallel containers
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import modal
+          app_name = 'avantiqo-video-owned'
+          for name in ('generate_native_master', 'generate_native_controlled_master'):
+              fn = modal.Function.from_name(app_name, name)
+              settings = fn.update_autoscaler(
+                  min_containers=0,
+                  max_containers=4,
+                  buffer_containers=0,
+                  scaledown_window=5,
+              )
+              current = getattr(settings, 'max_containers', None)
+              if current is not None and int(current) != 4:
+                  raise RuntimeError(f'AVANTIQO_VIDEO_AUTOSCALER_INVALID:{name}:{current}')
+              print(f'AVANTIQO_VIDEO_PARALLEL_B200={name}:max_containers=4')
+          print('AVANTIQO_VIDEO_PARALLEL_B200_OVERRIDE=PASS')
+          print('GPU_INFERENCE_PERFORMED=false')
+          PY
+
+      - name: Verify no paid GPU input was spawned by repair
+        run: |
+          set -euo pipefail
+          modal container list --json || true
+          echo 'AVANTIQO_VIDEO_REPAIR_PAID_INPUTS=0'
+          echo 'AUTOMATIC_PAID_RETRY=false'

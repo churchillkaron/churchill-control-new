@@ -28,7 +28,7 @@
   "bank_accounts": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/bank-accounts" },
   "cash_management": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/cash-management/runtime", "rowsKey": "accounts", "renderer": "FinanceCashManagementWorkCenter" },
   "bank_statements": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/bank-statements/runtime", "rowsKey": "rows", "renderer": "FinanceBankStatementsWorkCenter" },
-  "cash_flow": { "kind": "report", "scope": "entity", "owner": "finance" },
+  "cash_flow": { "kind": "report", "scope": "entity", "owner": "finance", "api": "/api/finance/cash-flow/run", "rowsKey": "rows", "renderer": "FinanceCashFlowWorkCenter" },
   "bank_reconciliation": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/reconciliation/runtime", "rowsKey": "data", "renderer": "FinanceBankReconciliationWorkCenter" },
   "payments": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/payments/list", "rowsKey": "rows", "renderer": "FinancePaymentsWorkCenter" },
   "fx_revaluation": { "kind": "records", "scope": "entity", "owner": "finance" },

@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - '.github/triggers/avantiqo-code-private12-v8-zero-cost.trigger'
       - '.github/triggers/avantiqo-code-private12-v9-zero-cost.trigger'
       - '.github/workflows/avantiqo-code-private12-v8-zero-cost.yml'
 

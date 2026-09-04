@@ -41,4 +41,4 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Audit verified Operator learning context
-        run: node --import ./scripts/next-alias-loader.mjs scripts/audit-operator-verified-learning-context-local.mjs
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-operator-verified-learning-context-local.mjs

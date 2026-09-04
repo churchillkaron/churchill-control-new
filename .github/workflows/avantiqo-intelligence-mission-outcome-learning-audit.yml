@@ -10,10 +10,12 @@ on:
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeAssessmentRuntime.js"
+      - "lib/operator/runtime/OperatorMissionOutcomeLearningBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
+      - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
       - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
   pull_request:
     branches:
@@ -24,10 +26,12 @@ on:
       - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeAssessmentRuntime.js"
+      - "lib/operator/runtime/OperatorMissionOutcomeLearningBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
+      - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
       - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
   workflow_dispatch:
 
@@ -139,5 +143,66 @@ jobs:
           fi
           if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$handoff"; then
             echo "Operator handoff must not write reusable platform knowledge directly" >&2
+            exit 1
+          fi
+
+  operator-bridge:
+    name: Real Operator outcome to governed learning certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Syntax gate
+        run: |
+          node --check lib/operator/runtime/OperatorMissionOutcomeLearningBridgeRuntime.js
+          node --check scripts/audit-operator-mission-outcome-learning-bridge-local.mjs
+
+      - name: Run real Operator outcome learning bridge audit
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: audit-service-role-key-not-used
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-operator-mission-outcome-learning-bridge-local.mjs
+
+      - name: Guard real Operator outcome bridge boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          bridge="lib/operator/runtime/OperatorMissionOutcomeLearningBridgeRuntime.js"
+          audit="scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
+          grep -q 'AVANTIQO_OPERATOR_MISSION_OUTCOME_LEARNING_BRIDGE_V1' "$bridge"
+          grep -q 'actual_operator_outcome_assessment_required: true' "$bridge"
+          grep -q 'outcome_assessment_generated_by_operator_runtime: true' "$bridge"
+          grep -q 'raw_outcome_observations_forwarded_to_learning: false' "$bridge"
+          grep -q 'raw_outcome_observations_persisted: false' "$bridge"
+          grep -q 'observed_values_forwarded_to_learning: false' "$bridge"
+          grep -q 'source_evidence_ids_persisted: false' "$bridge"
+          grep -q 'raw_reasoning_persisted: false' "$bridge"
+          grep -q 'automatic_knowledge_promotion: false' "$bridge"
+          grep -q 'direct_platform_knowledge_write_allowed: false' "$bridge"
+          grep -q 'authorization_effect: "NONE"' "$bridge"
+          grep -q 'production_outcome_contract_builder_used: true' "$audit"
+          grep -q 'production_exact_source_outcome_assessor_used: true' "$audit"
+          grep -q 'unverified_operator_outcome_is_blocked: true' "$audit"
+          grep -q 'first_observation_cannot_create_candidate: true' "$audit"
+          grep -q 'same_day_repetition_cannot_create_candidate: true' "$audit"
+          grep -q 'cross_day_three_observation_pattern_creates_one_candidate: true' "$audit"
+          grep -q 'repeated_same_observation_token_is_idempotent: true' "$audit"
+          grep -q 'evidence_candidate_is_not_reusable_knowledge: true' "$audit"
+          grep -q 'no_platform_knowledge_write: true' "$audit"
+          if grep -Eiq 'from ["'\''`](openai|@anthropic-ai|modal|runpod)' "$bridge" "$audit"; then
+            echo "Forbidden model/GPU provider import in zero-cost Operator outcome bridge" >&2
+            exit 1
+          fi
+          if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$bridge"; then
+            echo "Real Operator outcome bridge must not write reusable platform knowledge directly" >&2
             exit 1
           fi

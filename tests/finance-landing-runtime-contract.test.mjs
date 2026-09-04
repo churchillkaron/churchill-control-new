@@ -13,7 +13,7 @@ const health = read("components/workspace/finance/FinanceAccountHealthPanel.jsx"
 test("Finance landing owns one shared SWR snapshot and one refresh clock", () => {
   assert.match(provider, /useSWR\(key, financeSnapshotFetcher/);
   assert.match(provider, /Promise\.all\(\[/);
-  assert.match(provider, /command-center/);
+  assert.match(provider, /command-center-snapshot/);
   assert.match(provider, /account-health/);
   assert.match(provider, /const refresh = useCallback/);
   assert.match(page, /<FinanceLandingRuntimeProvider organizationId=\{organizationId\}>/);

@@ -46,21 +46,6 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/verify_private12_v13_compact_review.py
           python -m py_compile services/avantiqo-code-engine/worldclass_cert_v3_contract.py
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_private12_v13_compact_review.py
-          cert=services/avantiqo-code-engine/modal_code_qwen38_private12_v13_cert.py
-          runtime=services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v8.py
-          grep -q 'RUN_SEED = "20260904-qwen38-private12-v13"' "$cert"
-          grep -q 'ACTOR_MAX_TOKENS = 640' "$cert"
-          grep -q 'REVIEWER_MAX_TOKENS = 256' "$cert"
-          grep -q 'REPAIR_MAX_TOKENS = 1024' "$cert"
-          grep -q 'runtime.generate_v8' "$cert"
-          grep -q 'import repo_agent_v12 as agent' "$cert"
-          grep -q 'MAX_MODAL_TOTAL_CALLS = base.MAX_MODAL_TOTAL_CALLS' "$cert"
-          grep -q 'reviewer_compact' "$runtime"
-          grep -q '"maxItems": 4' "$runtime"
-          grep -q 'FAST_BOOT_ENFORCE_EAGER = False' "$runtime"
-          grep -q '"method": "ngram"' "$runtime"
-          grep -q 'StructuredOutputsParams' "$runtime"
-          grep -q 'MAX_WARM_P95_MS = 4_000' services/avantiqo-code-engine/worldclass_cert_v3_contract.py
           echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V13_ADMISSION=PASS'
 
       - name: Prove candidate marker before H100

@@ -40,3 +40,19 @@ test("Amendment history defaults to the shared filing when it is submitted", () 
   assert.match(amendments, /selectedVatReturnId && submitted\.some\(row => row\.id === selectedVatReturnId\)/);
   assert.match(amendments, /\? selectedVatReturnId : submitted\.some/);
 });
+
+test("New VAT filing derives the statutory deadline from form and filing channel", () => {
+  assert.match(cockpit, /getFinanceTaxCalendarOptions/);
+  assert.match(cockpit, /resolveFinanceTaxDeadline/);
+  assert.match(cockpit, /filing_form_code/);
+  assert.match(cockpit, /filing_channel/);
+  assert.match(cockpit, /Governed statutory deadline/);
+  assert.match(cockpit, /Official calendar verified/);
+  assert.match(cockpit, /Revenue Department source/);
+  assert.match(cockpit, /filingFormCode: form\.filing_form_code/);
+  assert.match(cockpit, /filingChannel: form\.filing_channel/);
+  assert.match(cockpit, /filingDueDate: deadlineNeedsEvidence \? evidenceDueDate : null/);
+  assert.match(cockpit, /deadlineOverrideReason: deadlineNeedsEvidence \? form\.deadline_override_reason : null/);
+  assert.match(cockpit, /deadlineOverrideEvidenceReference: deadlineNeedsEvidence \? form\.deadline_override_evidence_reference : null/);
+  assert.doesNotMatch(cockpit, />Filing due date<input/);
+});

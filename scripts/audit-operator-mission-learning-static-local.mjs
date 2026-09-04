@@ -80,11 +80,7 @@ includes("mission", "OPERATOR_MISSION_PLANNER_SUPPLIED_LEARNING_PROJECTION_BLOCK
 includes("mission", "settleOperatorMissionOutcomeLearning");
 includes("mission", "OPERATOR_MISSION_OUTCOME_LEARNING_PROJECTION_INVALID");
 includes("mission", "learning_observation_token");
-assert.equal(
-  source.mission.includes("inputSchema.properties.learning"),
-  false,
-  "planner-visible learning projection input must remain absent",
-);
+includes("mission", "delete inputSchema.properties.learning");
 
 includes("auditHandoff", "first_observation_cannot_create_candidate: true");
 includes("auditHandoff", "same_day_repetition_cannot_create_candidate: true");
@@ -124,6 +120,7 @@ console.log(
       verified: {
         manifest_declared_only: true,
         planner_supplied_projection_blocked: true,
+        planner_visible_learning_schema_removed: true,
         final_registered_verification_only: true,
         evidence_candidate_only: true,
         no_direct_platform_knowledge_write: true,

@@ -7,6 +7,11 @@ on:
         description: 'Type YES to allow one isolated Qwen3.8 H100 Private12 V15 certification'
         required: true
         default: 'NO'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/triggers/avantiqo-code-qwen38-private12-v15-20260904-paid.trigger'
 
 permissions:
   contents: read
@@ -17,7 +22,7 @@ concurrency:
 
 jobs:
   certify:
-    if: github.event.inputs.approved == 'YES'
+    if: github.event_name == 'push' || github.event.inputs.approved == 'YES'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

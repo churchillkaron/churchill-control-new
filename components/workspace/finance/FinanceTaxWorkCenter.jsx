@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import FinanceTaxLegacyWorkCenter from "./FinanceTaxLegacyWorkCenter";
 import FinanceTaxCalendarRail from "./FinanceTaxCalendarRail";
 import FinanceTaxAmendmentRail from "./FinanceTaxAmendmentRail";
@@ -7,13 +8,19 @@ import FinanceTaxSettlementRail from "./FinanceTaxSettlementRail";
 import FinanceTaxPortfolioRail from "./FinanceTaxPortfolioRail";
 
 export default function FinanceTaxWorkCenter(props) {
+  const [selectedVatReturnId, setSelectedVatReturnId] = useState(null);
+
   return (
     <>
       <FinanceTaxPortfolioRail organizationId={props.organizationId} entityId={props.entityId} />
-      <FinanceTaxCalendarRail organizationId={props.organizationId} entityId={props.entityId} />
-      <FinanceTaxAmendmentRail organizationId={props.organizationId} entityId={props.entityId} />
-      <FinanceTaxSettlementRail organizationId={props.organizationId} entityId={props.entityId} />
-      <FinanceTaxLegacyWorkCenter {...props} />
+      <FinanceTaxCalendarRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+      <FinanceTaxAmendmentRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+      <FinanceTaxSettlementRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+      <FinanceTaxLegacyWorkCenter
+        {...props}
+        selectedVatReturnId={selectedVatReturnId}
+        onSelectedVatReturnIdChange={setSelectedVatReturnId}
+      />
     </>
   );
 }

@@ -13,6 +13,8 @@ const calendarPolicy = read("lib/finance/tax/FinanceTaxCalendarPolicy.js");
 const vatPreflight = read("lib/finance/tax/FinanceVatReturnPreflight.js");
 const amendments = read("components/workspace/finance/FinanceTaxAmendmentRail.jsx");
 const settlement = read("components/workspace/finance/FinanceTaxSettlementRail.jsx");
+const settlementRoute = read("app/api/finance/vat-returns/settlement/route.js");
+const journalPosting = read("lib/finance/general-ledger/capabilities/postJournalEntrySafe.js");
 
 test("Tax workspace owns one shared selected VAT filing", () => {
   assert.match(wrapper, /useState\(null\)/);
@@ -75,4 +77,24 @@ test("Reversed sales postings contribute zero to VAT preflight totals and previe
   assert.match(vatPreflight, /if \(eligibleVatLines\.length && enginePosted\)/);
   assert.match(vatPreflight, /functional_tax_amount: enginePosted \? roundMoney/);
   assert.doesNotMatch(vatPreflight, /const enginePosted = postedJournals\.length > 0/);
+});
+
+test("VAT liability posting defaults to period end and controlled alternate dates", () => {
+  assert.match(settlementRoute, /defaultPostingDate = required\(vatReturn\.period_end, "VAT period end"\)/);
+  assert.match(settlementRoute, /const alternatePostingDate = postingDate !== defaultPostingDate/);
+  assert.match(settlementRoute, /Alternate VAT liability posting date requires a reason/);
+  assert.match(settlementRoute, /posting_date_reason: alternatePostingDate \? postingDateReason : null/);
+  assert.match(settlementRoute, /loadLiabilityPostingControl/);
+  assert.match(settlementRoute, /default_period_open: status === "open" \|\| status === "active"/);
+  assert.match(settlement, /setPostingDate\(body\.liability_posting_control\?\.default_posting_date \|\| row\.period_end \|\| ""\)/);
+  assert.match(settlement, /Period-end is open/);
+  assert.match(settlement, /Period-end is closed \/ unavailable/);
+  assert.match(settlement, /postingDateReason: alternatePostingDate \? postingDateReason : null/);
+  assert.match(journalPosting, /await validateAccountingPeriod\(/);
+});
+
+test("VAT cash settlement continues to post on the real payment or refund date", () => {
+  assert.match(settlementRoute, /const paymentDate = required\(body\.paymentDate \|\| body\.payment_date, "payment_date"\)/);
+  assert.match(settlementRoute, /postingDate: paymentDate, documentDate: paymentDate/);
+  assert.match(settlement, /paymentDate: cashForm\.date/);
 });

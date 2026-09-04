@@ -1,0 +1,50 @@
+name: Avantiqo Code Private12 V9 Zero Cost Admission
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/avantiqo-code-engine/repo_agent_v10.py'
+      - 'services/avantiqo-code-engine/verify_repo_agent_v10.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py'
+      - 'services/avantiqo-code-engine/worldclass_cert_v3_contract.py'
+      - '.github/triggers/avantiqo-code-private12-v9-zero-cost.trigger'
+      - '.github/workflows/avantiqo-code-private12-v9-zero-cost.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  admit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Prove Private12 V9 zero cost
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v10.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v10.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          python -m py_compile services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v10.py
+          grep -q 'RUN_SEED = "20260904-qwen38-private12-v9"' services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          grep -q 'import repo_agent_v10 as agent' services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          grep -q 'REVIEWER_MAX_TOKENS = 448' services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          grep -q 'ACTOR_MAX_TOKENS = base.ACTOR_MAX_TOKENS' services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          grep -q 'runtime.generate_v7' services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          grep -q 'MAX_MODAL_TOTAL_CALLS = base.MAX_MODAL_TOTAL_CALLS' services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          grep -q 'WARM_TARGET_MS = base.WARM_TARGET_MS' services/avantiqo-code-engine/modal_code_qwen38_private12_v9_cert.py
+          grep -q 'MAX_WARM_P95_MS = 4_000' services/avantiqo-code-engine/worldclass_cert_v3_contract.py
+          grep -q 'StructuredOutputsParams' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
+          echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V9_ADMISSION=PASS'

@@ -61,11 +61,15 @@ test("Creative runtime separates read-only plan, confirmed atomic execute and co
 });
 
 test("shot-set planning is deterministic, bounded and preservation-aware before any write", () => {
-  assert.match(setRuntime, /AVANTIQO_CHAT_SHOT_SET_V4/);
+  assert.match(setRuntime, /AVANTIQO_CHAT_SHOT_SET_V5/);
   assert.match(setRuntime, /createHash\("sha256"\)/);
   assert.match(setRuntime, /revision_number/);
+  assert.match(setRuntime, /updated_at/);
   assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_RANGE_OUT_OF_BOUNDS/);
   assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_TOO_LARGE/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_CONTEXT_TOO_LARGE/);
+  assert.match(setRuntime, /governedShotCount = selected\.length \+ preserved\.length/);
+  assert.match(setRuntime, /preserved shots still consume immutable reasoning context/);
   assert.match(setRuntime, /this scene/);
   assert.match(setRuntime, /sceneNumberFromReference/);
   assert.match(setRuntime, /CreativeChatShotReferenceRuntime\.resolve/);
@@ -79,6 +83,23 @@ test("shot-set planning is deterministic, bounded and preservation-aware before 
   assert.match(planner, /preserved_shot_count/);
   assert.match(planner, /media_generation_executed:\s*false/);
   assert.match(planner, /publish_authorized:\s*false/);
+});
+
+test("plan fingerprint includes both revision and timestamp freshness for editable and preserved shots", () => {
+  const fingerprintIndex = setRuntime.indexOf("function fingerprint({");
+  const editableIndex = setRuntime.indexOf("shots: shots.map((shot) => ({", fingerprintIndex);
+  const preservedIndex = setRuntime.indexOf("preserved_shots: preserved_shots.map((shot) => ({", fingerprintIndex);
+  assert.ok(fingerprintIndex >= 0);
+  assert.ok(editableIndex > fingerprintIndex);
+  assert.ok(preservedIndex > editableIndex);
+
+  const editableBlock = setRuntime.slice(editableIndex, preservedIndex);
+  const preservedBlock = setRuntime.slice(preservedIndex, preservedIndex + 420);
+  for (const block of [editableBlock, preservedBlock]) {
+    assert.match(block, /shot_id:/);
+    assert.match(block, /revision_number:/);
+    assert.match(block, /updated_at:/);
+  }
 });
 
 test("scene-qualified shot ranges take precedence over project ordinals and fail closed", () => {

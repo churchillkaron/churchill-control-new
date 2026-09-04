@@ -15,16 +15,17 @@ concurrency:
 
 jobs:
   proof:
-    if: github.event.head_commit.message == 'Run Avantiqo investor visual proof 24s once'
+    if: github.event.head_commit.message == 'Run repaired Avantiqo investor visual proof 24s once'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 30
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
       AVANTIQO_INVESTOR_PROOF_REAL_INFERENCE_APPROVED: "YES"
-      AVANTIQO_INVESTOR_PROOF_RUN_KEY: "visual-proof-24s-v1"
+      AVANTIQO_INVESTOR_PROOF_RUN_KEY: "visual-proof-24s-v2"
+      AVANTIQO_INVESTOR_PROOF_MAX_WAIT_SECONDS: "900"
 
     steps:
       - uses: actions/checkout@v4
@@ -44,16 +45,21 @@ jobs:
           sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
           npm ci --ignore-scripts
 
-      - name: Validate investor proof runner
+      - name: Validate repaired investor proof runner
         run: |
           set -euo pipefail
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           node --check scripts/run-avantiqo-investor-visual-proof-24s.mjs
+          grep -A12 -B8 'def generate_native_master' services/avantiqo-video-engine/modal_app.py | grep -F 'max_containers=4' >/dev/null
+          grep -A12 -B8 'def generate_native_controlled_master' services/avantiqo-video-engine/modal_native_controlled_master.py | grep -F 'max_containers=4' >/dev/null
+          grep -F 'GENERATION_DEADLINE_EXCEEDED' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
           grep -F 'target_duration_seconds: 24' lib/creative/director/runtime/CreativeInvestorFilmMarketResearchRuntime.js >/dev/null
           grep -F 'screenshot_or_browser_capture_allowed: false' lib/creative/director/runtime/CreativeInvestorFilmMarketResearchRuntime.js >/dev/null
-          echo 'AVANTIQO_INVESTOR_VISUAL_PROOF_PREFLIGHT=PASS'
+          echo 'AVANTIQO_INVESTOR_VISUAL_PROOF_REPAIRED_PREFLIGHT=PASS'
+          echo 'B200_MAX_CONTAINERS=4'
+          echo 'GENERATION_FAIL_FAST_SECONDS=900'
 
       - name: Generate and assemble 24-second 4K investor visual proof
         run: |
@@ -71,6 +77,7 @@ jobs:
           const fs = require('node:fs');
           const report = JSON.parse(fs.readFileSync('local-audit-output/avantiqo-investor-visual-proof-24s/avantiqo-investor-visual-proof-24s-report.json', 'utf8'));
           if (report.success !== true) throw new Error('PROOF_NOT_SUCCESSFUL');
+          if (report.run_key !== 'visual-proof-24s-v2') throw new Error('RUN_KEY_INVALID');
           if (report.proof_type !== 'VIDEO_GENERATION_ONLY') throw new Error('PROOF_TYPE_INVALID');
           if (report.generated_video_shot_count !== 4) throw new Error('SHOT_COUNT_INVALID');
           if (report.gpu_generation_calls !== 4) throw new Error('GPU_GENERATION_COUNT_INVALID');
@@ -88,7 +95,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: avantiqo-investor-visual-proof-24s-v1
+          name: avantiqo-investor-visual-proof-24s-v2
           path: local-audit-output/avantiqo-investor-visual-proof-24s/
           if-no-files-found: error
           compression-level: 0
@@ -97,8 +104,8 @@ jobs:
       - name: Preserve release boundary
         if: always()
         run: |
-          echo 'FULL_MASTER_GENERATION_PERFORMED=false'
           echo 'PRODUCTION_VERCEL_DEPLOY_PERFORMED=false'
           echo 'VIDEO_PRICING_ACTIVATED=false'
           echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
           echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'GENERATION_FAIL_FAST_SECONDS=900'

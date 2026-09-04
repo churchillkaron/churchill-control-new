@@ -20,8 +20,12 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const BANK_MATCH_WINDOW_DAYS = 14;
 
+function clean(value) {
+  return String(value ?? "").trim();
+}
+
 function required(value, field) {
-  const normalized = String(value ?? "").trim();
+  const normalized = clean(value);
   if (!normalized) throw new Error(`${field} required`);
   return normalized;
 }
@@ -35,7 +39,7 @@ function positiveMoney(value, field) {
 function statusFor(message) {
   const value = String(message || "");
   if (/permission denied|authentication|membership/i.test(value)) return 403;
-  if (/required|positive|scope|submitted|settlement|account|bank|amount|direction|reconciled|configuration|liability/i.test(value)) return 400;
+  if (/required|positive|scope|submitted|settlement|account|bank|amount|direction|reconciled|configuration|liability|posting date|accounting period|reason/i.test(value)) return 400;
   return 500;
 }
 
@@ -79,6 +83,35 @@ async function loadBankAccounts({ organizationId, entityId }) {
   return data || [];
 }
 
+async function loadLiabilityPostingControl({ organizationId, entityId, vatReturn }) {
+  const defaultPostingDate = clean(vatReturn?.period_end) || null;
+  if (!defaultPostingDate) {
+    return {
+      default_posting_date: null,
+      default_period: null,
+      default_period_open: false,
+      alternate_date_requires_reason: true,
+    };
+  }
+  const { data, error } = await supabaseAdmin.from("accounting_periods")
+    .select("id,status,start_date,end_date,period_name,period_number")
+    .eq("organization_id", organizationId)
+    .eq("entity_id", entityId)
+    .lte("start_date", defaultPostingDate)
+    .gte("end_date", defaultPostingDate)
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const status = String(data?.status || "").toLowerCase();
+  return {
+    default_posting_date: defaultPostingDate,
+    default_period: data || null,
+    default_period_open: status === "open" || status === "active",
+    alternate_date_requires_reason: true,
+  };
+}
+
 async function loadSettlementEvidence({ organizationId, entityId, vatReturn }) {
   const settlement = normalizeFinanceVatSettlement(vatReturn);
   const journalIds = [...settlement.liability_events.map(row => row.journal_entry_id), ...settlement.cash_events.map(row => row.journal_entry_id)].filter(Boolean);
@@ -110,13 +143,16 @@ async function loadBankMatchCandidates({ organizationId, entityId, cashEvents })
 }
 
 async function buildSettlementView({ organizationId, entityId, vatReturn }) {
-  const [configuration, accounts, bankAccounts, evidence] = await Promise.all([
-    loadConfiguration({ organizationId, entityId }), loadAccounts({ organizationId, entityId }),
-    loadBankAccounts({ organizationId, entityId }), loadSettlementEvidence({ organizationId, entityId, vatReturn }),
+  const [configuration, accounts, bankAccounts, evidence, liabilityPostingControl] = await Promise.all([
+    loadConfiguration({ organizationId, entityId }),
+    loadAccounts({ organizationId, entityId }),
+    loadBankAccounts({ organizationId, entityId }),
+    loadSettlementEvidence({ organizationId, entityId, vatReturn }),
+    loadLiabilityPostingControl({ organizationId, entityId, vatReturn }),
   ]);
   const settlement = evaluateFinanceVatSettlement({ vatReturn, configuration, journalRows: evidence.journalRows, bankTransactionRows: evidence.bankTransactionRows });
   const bankMatchCandidates = await loadBankMatchCandidates({ organizationId, entityId, cashEvents: settlement.cash_events });
-  return { configuration, accounts, bank_accounts: bankAccounts, bank_match_candidates: bankMatchCandidates, settlement };
+  return { configuration, accounts, bank_accounts: bankAccounts, bank_match_candidates: bankMatchCandidates, liability_posting_control: liabilityPostingControl, settlement };
 }
 
 async function persistSettlement({ vatReturn, settlement }) {
@@ -217,10 +253,14 @@ export async function POST(request) {
       if (currentView.settlement.target_recognized) throw new Error("Current filed VAT version is already posted to settlement control");
       const lines = financeVatSettlementJournalLines({ delta: currentView.settlement.liability_delta, configuration });
       const zeroValue = lines.length === 0;
+      const defaultPostingDate = required(vatReturn.period_end, "VAT period end");
+      const postingDate = clean(body.postingDate || body.posting_date) || defaultPostingDate;
+      const alternatePostingDate = postingDate !== defaultPostingDate;
+      const postingDateReason = clean(body.postingDateReason || body.posting_date_reason);
+      if (alternatePostingDate && !postingDateReason) throw new Error("Alternate VAT liability posting date requires a reason");
       let journalId = null;
       let journalNumber = null;
       if (!zeroValue) {
-        const postingDate = required(body.postingDate || body.posting_date, "posting_date");
         const result = await financeGateway({ type: "DIRECT_JOURNAL_POST", payload: {
           organizationId: access.organizationId, entityId, postingDate, documentDate: postingDate,
           journalType: "TAX_SETTLEMENT", reference: target.submission_reference || target.label,
@@ -232,7 +272,23 @@ export async function POST(request) {
         journalNumber = result?.journal?.journal_number || result?.journal?.entry_number || null;
         if (!journalId) throw new Error("VAT liability journal did not return a journal entry id");
       }
-      settlement.liability_events = [...settlement.liability_events, { id: randomUUID(), source_version_key: target.key, source_version_label: target.label, snapshot_before: currentView.settlement.recognized_snapshot, snapshot_after: target.values, delta: currentView.settlement.liability_delta, journal_entry_id: journalId, journal_number: journalNumber, zero_value: zeroValue, posted_at: new Date().toISOString(), posted_by: actorId }];
+      settlement.liability_events = [...settlement.liability_events, {
+        id: randomUUID(),
+        source_version_key: target.key,
+        source_version_label: target.label,
+        snapshot_before: currentView.settlement.recognized_snapshot,
+        snapshot_after: target.values,
+        delta: currentView.settlement.liability_delta,
+        journal_entry_id: journalId,
+        journal_number: journalNumber,
+        zero_value: zeroValue,
+        posting_date: postingDate,
+        default_posting_date: defaultPostingDate,
+        alternate_posting_date: alternatePostingDate,
+        posting_date_reason: alternatePostingDate ? postingDateReason : null,
+        posted_at: new Date().toISOString(),
+        posted_by: actorId,
+      }];
       const updated = await persistSettlement({ vatReturn, settlement });
       return NextResponse.json({ success: true, return: updated, ...(await buildSettlementView({ organizationId: access.organizationId, entityId, vatReturn: updated })) });
     }

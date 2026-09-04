@@ -39,7 +39,7 @@ function positiveMoney(value, field) {
 function statusFor(message) {
   const value = String(message || "");
   if (/permission denied|authentication|membership/i.test(value)) return 403;
-  if (/required|positive|scope|submitted|settlement|account|bank|amount|direction|reconciled|configuration|liability|posting date|accounting period|reason/i.test(value)) return 400;
+  if (/required|positive|scope|submitted|settlement|account|bank|amount|direction|reconciled|configuration|liability|posting date|accounting period|reason|operation/i.test(value)) return 400;
   return 500;
 }
 
@@ -295,6 +295,17 @@ export async function POST(request) {
 
     if (action === "record_cash") {
       await requireJournalPostingPermission(access);
+      const operationId = required(body.operationId || body.operation_id, "operation_id");
+      if (operationId.length > 128) throw new Error("operation_id is too long");
+      const existingCashEvent = settlement.cash_events.find(row => clean(row.operation_id || row.id) === operationId);
+      if (existingCashEvent) {
+        return NextResponse.json({
+          success: true,
+          idempotent_replay: true,
+          return: vatReturn,
+          ...(await buildSettlementView({ organizationId: access.organizationId, entityId, vatReturn })),
+        });
+      }
       if (!currentView.settlement.target_recognized) throw new Error("Post the current VAT liability before recording payment or refund");
       const expectedDirection = currentView.settlement.expected_direction;
       if (!expectedDirection) throw new Error("VAT settlement has no outstanding payment or refund balance");
@@ -310,20 +321,34 @@ export async function POST(request) {
       const paymentDate = required(body.paymentDate || body.payment_date, "payment_date");
       const reference = required(body.reference, "payment/refund reference");
       const lines = financeVatCashJournalLines({ direction, amount, settlementAccountId: configuration.settlement_account_id, bankAccountId: bankAccount.finance_account_id });
-      const eventId = randomUUID();
       const result = await financeGateway({ type: "DIRECT_JOURNAL_POST", payload: {
         organizationId: access.organizationId, entityId, postingDate: paymentDate, documentDate: paymentDate,
         journalType: "TAX_PAYMENT", reference, sourceModule: "FINANCE_TAX",
         sourceDocument: direction === "PAYMENT" ? "VAT_PAYMENT" : "VAT_REFUND", sourceDocumentId: vatReturn.id,
         description: direction === "PAYMENT" ? "VAT payment to tax authority" : "VAT refund received from tax authority",
         currencyCode: currentView.settlement.currency_code, exchangeRate: 1, lines, createdBy: actorId,
-        idempotencyKey: `vat-settlement-cash:${vatReturn.id}:${eventId}`,
+        idempotencyKey: `vat-settlement-cash:${vatReturn.id}:${operationId}`,
       } });
       const journalId = result?.journal?.id || result?.journalEntryId || result?.ledger?.journalEntryId || null;
       if (!journalId) throw new Error("VAT cash journal did not return a journal entry id");
-      settlement.cash_events = [...settlement.cash_events, { id: eventId, direction, amount, currency_code: currentView.settlement.currency_code, payment_date: paymentDate, reference, bank_account_id: bankAccount.id, bank_finance_account_id: bankAccount.finance_account_id, journal_entry_id: journalId, journal_number: result?.journal?.journal_number || result?.journal?.entry_number || null, bank_transaction_id: null, recorded_at: new Date().toISOString(), recorded_by: actorId }];
+      settlement.cash_events = [...settlement.cash_events, {
+        id: operationId,
+        operation_id: operationId,
+        direction,
+        amount,
+        currency_code: currentView.settlement.currency_code,
+        payment_date: paymentDate,
+        reference,
+        bank_account_id: bankAccount.id,
+        bank_finance_account_id: bankAccount.finance_account_id,
+        journal_entry_id: journalId,
+        journal_number: result?.journal?.journal_number || result?.journal?.entry_number || null,
+        bank_transaction_id: null,
+        recorded_at: new Date().toISOString(),
+        recorded_by: actorId,
+      }];
       const updated = await persistSettlement({ vatReturn, settlement });
-      return NextResponse.json({ success: true, return: updated, ...(await buildSettlementView({ organizationId: access.organizationId, entityId, vatReturn: updated })) });
+      return NextResponse.json({ success: true, idempotent_replay: result?.ledger?.idempotentReplay === true, return: updated, ...(await buildSettlementView({ organizationId: access.organizationId, entityId, vatReturn: updated })) });
     }
 
     if (action === "link_bank_transaction") {

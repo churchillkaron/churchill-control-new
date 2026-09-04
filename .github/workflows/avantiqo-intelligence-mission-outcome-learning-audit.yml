@@ -22,6 +22,7 @@ on:
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs"
+      - "scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
       - "scripts/audit-operator-mission-completion-learning-local.mjs"
@@ -49,6 +50,7 @@ on:
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs"
+      - "scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
       - "scripts/audit-operator-mission-completion-learning-local.mjs"
@@ -95,6 +97,7 @@ jobs:
           node --check scripts/audit-avantiqo-mission-outcome-learning-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs
+          node --check scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs
           node --check scripts/audit-operator-mission-outcome-learning-handoff-local.mjs
           node --check scripts/audit-operator-mission-outcome-learning-bridge-local.mjs
           node --check scripts/audit-operator-mission-completion-learning-local.mjs
@@ -109,6 +112,9 @@ jobs:
 
       - name: Run history window integrity audit
         run: node scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs
+
+      - name: Run evidence candidate builder integrity audit
+        run: node scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs
 
       - name: Run Operator outcome handoff audit
         env:

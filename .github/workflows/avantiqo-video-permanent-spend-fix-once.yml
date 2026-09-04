@@ -1,0 +1,113 @@
+name: Avantiqo Video Permanent Spend Fix Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-permanent-spend-fix-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-runtime-repair
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply permanent Avantiqo Video spend fix once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply permanent four-B200 capacity and fail-fast guard
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('services/avantiqo-video-engine/modal_app.py')
+          text = app.read_text()
+          marker = 'def generate_native_master('
+          pos = text.index(marker)
+          head, tail = text[:pos], text[pos:]
+          old = 'max_containers=1,'
+          if old not in head[-500:] and old not in tail[:500]:
+              # decorator is immediately above the function, so search a bounded window spanning it
+              window_start = max(0, pos - 700)
+              window = text[window_start:pos]
+              if old not in window:
+                  raise SystemExit('generate_native_master max_containers marker not found')
+              window = window.replace(old, 'max_containers=4,', 1)
+              text = text[:window_start] + window + text[pos:]
+          else:
+              window_start = max(0, pos - 700)
+              window = text[window_start:pos]
+              if old not in window:
+                  raise SystemExit('generate_native_master decorator marker not found')
+              window = window.replace(old, 'max_containers=4,', 1)
+              text = text[:window_start] + window + text[pos:]
+          app.write_text(text)
+
+          controlled = Path('services/avantiqo-video-engine/modal_native_controlled_master.py')
+          text = controlled.read_text()
+          marker = 'def generate_native_controlled_master('
+          pos = text.index(marker)
+          window_start = max(0, pos - 700)
+          window = text[window_start:pos]
+          if 'max_containers=1,' not in window:
+              raise SystemExit('controlled master max_containers marker not found')
+          window = window.replace('max_containers=1,', 'max_containers=4,', 1)
+          text = text[:window_start] + window + text[pos:]
+          controlled.write_text(text)
+
+          runner = Path('scripts/run-avantiqo-investor-visual-proof-24s.mjs')
+          text = runner.read_text()
+          anchor = 'const TARGET_DURATION = 24;\n'
+          insert = "const MAX_GENERATION_WAIT_SECONDS = Math.max(60, Number(process.env.AVANTIQO_INVESTOR_PROOF_MAX_WAIT_SECONDS || 900));\n"
+          if insert not in text:
+              if anchor not in text:
+                  raise SystemExit('runner duration anchor missing')
+              text = text.replace(anchor, anchor + insert, 1)
+          poll_anchor = '  const completed = await Promise.all(calls.map(async (item) => {\n'
+          deadline = '  const generationDeadlineMs = Date.now() + MAX_GENERATION_WAIT_SECONDS * 1000;\n'
+          if deadline not in text:
+              if poll_anchor not in text:
+                  raise SystemExit('runner poll anchor missing')
+              text = text.replace(poll_anchor, deadline + poll_anchor, 1)
+          loop_anchor = '    for (;;) {\n      polls += 1;\n'
+          guard = "    for (;;) {\n      polls += 1;\n      ensure(Date.now() < generationDeadlineMs, `GENERATION_DEADLINE_EXCEEDED:${item.index + 1}:${MAX_GENERATION_WAIT_SECONDS}s`);\n"
+          if 'GENERATION_DEADLINE_EXCEEDED' not in text:
+              if loop_anchor not in text:
+                  raise SystemExit('runner loop anchor missing')
+              text = text.replace(loop_anchor, guard, 1)
+          runner.write_text(text)
+          PY
+
+      - name: Validate zero-GPU repair
+        run: |
+          set -euo pipefail
+          node --check scripts/run-avantiqo-investor-visual-proof-24s.mjs
+          python -m py_compile \
+            services/avantiqo-video-engine/modal_app.py \
+            services/avantiqo-video-engine/modal_native_controlled_master.py
+          grep -A12 -B8 'def generate_native_master' services/avantiqo-video-engine/modal_app.py | grep -F 'max_containers=4'
+          grep -A12 -B8 'def generate_native_controlled_master' services/avantiqo-video-engine/modal_native_controlled_master.py | grep -F 'max_containers=4'
+          grep -F 'GENERATION_DEADLINE_EXCEEDED' scripts/run-avantiqo-investor-visual-proof-24s.mjs
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'AVANTIQO_VIDEO_PERMANENT_SPEND_GUARD=PASS'
+
+      - name: Commit repair to main
+        run: |
+          set -euo pipefail
+          git config user.name 'churchillkaron'
+          git config user.email 'patric@pcsphuket.com'
+          git add services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_native_controlled_master.py scripts/run-avantiqo-investor-visual-proof-24s.mjs
+          git diff --cached --quiet && { echo 'repair already present'; exit 0; }
+          git commit -m 'fix(video): parallelize B200 proof and fail fast'
+          git pull --rebase origin main
+          git push origin HEAD:main

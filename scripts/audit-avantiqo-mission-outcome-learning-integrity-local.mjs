@@ -104,9 +104,40 @@ const valid = evaluateAvantiqoMissionOutcomePattern({
 });
 assert.equal(valid.eligible_for_evidence_candidate, true);
 assert.equal(valid.observation_count, 3);
+assert.equal(valid.duplicate_observation_count, 0);
 assert.equal(valid.excluded_observation_count, 0);
 assert.equal(valid.anti_overfitting.stored_observation_integrity_revalidated, true);
 assert.equal(valid.anti_overfitting.malformed_or_poisoned_observations_excluded, true);
+assert.equal(valid.anti_overfitting.unique_observation_fingerprints_required, true);
+assert.equal(valid.anti_overfitting.duplicate_observations_excluded, true);
+
+const duplicateInflationAttempt = evaluateAvantiqoMissionOutcomePattern({
+  observations: [
+    first.row,
+    second.row,
+    structuredClone(first.row),
+    structuredClone(first.row),
+    structuredClone(second.row),
+  ],
+  pattern_fingerprint: first.pattern_fingerprint,
+});
+assert.equal(duplicateInflationAttempt.observation_count, 2);
+assert.equal(duplicateInflationAttempt.duplicate_observation_count, 3);
+assert.equal(duplicateInflationAttempt.excluded_observation_count, 3);
+assert.equal(duplicateInflationAttempt.distinct_observation_days, 1);
+assert.equal(duplicateInflationAttempt.eligible_for_evidence_candidate, false);
+
+const duplicateCrossDayAttempt = structuredClone(first.row);
+duplicateCrossDayAttempt.metadata.observed_day = "2026-09-02";
+duplicateCrossDayAttempt.metadata.observed_at = "2026-09-02T08:00:00.000Z";
+const duplicateCrossDayEvaluation = evaluateAvantiqoMissionOutcomePattern({
+  observations: [first.row, second.row, duplicateCrossDayAttempt],
+  pattern_fingerprint: first.pattern_fingerprint,
+});
+assert.equal(duplicateCrossDayEvaluation.observation_count, 2);
+assert.equal(duplicateCrossDayEvaluation.duplicate_observation_count, 1);
+assert.equal(duplicateCrossDayEvaluation.distinct_observation_days, 1);
+assert.equal(duplicateCrossDayEvaluation.eligible_for_evidence_candidate, false);
 
 const candidate = buildAvantiqoMissionOutcomeEvidenceCandidateRow({
   pattern,
@@ -116,6 +147,9 @@ const candidate = buildAvantiqoMissionOutcomeEvidenceCandidateRow({
 });
 assert.equal(candidate.metadata.stored_observation_integrity_revalidated, true);
 assert.equal(candidate.metadata.malformed_or_poisoned_observations_excluded, true);
+assert.equal(candidate.metadata.unique_observation_fingerprints_required, true);
+assert.equal(candidate.metadata.duplicate_observations_excluded, true);
+assert.equal(candidate.metadata.duplicate_observation_count, 0);
 assert.equal(candidate.metadata.reusable_platform_knowledge, false);
 
 const mutations = [
@@ -161,6 +195,10 @@ console.log(JSON.stringify({
     valid_cross_day_pattern_still_qualifies: true,
     stored_observation_integrity_revalidated: true,
     malformed_or_poisoned_observations_excluded: true,
+    unique_observation_fingerprints_required: true,
+    duplicate_observations_excluded_before_accumulation: true,
+    duplicate_rows_cannot_inflate_three_observation_gate: true,
+    duplicate_rows_cannot_fake_distinct_day_gate: true,
     sha256_fingerprints_required: true,
     observation_key_bound_to_fingerprint: true,
     exact_source_contracts_required: true,
@@ -171,4 +209,5 @@ console.log(JSON.stringify({
     provider_gpu_modal_execution_performed: false,
   },
   poison_cases: mutations.length,
+  duplicate_cases: 2,
 }, null, 2));

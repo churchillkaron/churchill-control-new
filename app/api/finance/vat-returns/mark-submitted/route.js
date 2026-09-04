@@ -9,6 +9,8 @@ import { buildFinanceVatReturnPreflight } from "@/lib/finance/tax/FinanceVatRetu
 import { applyFinanceTaxCalendarToPreflight } from "@/lib/finance/tax/FinanceTaxCalendarPolicy";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
+const REQUIRED_VAT_CALCULATION_METHOD = "POSTED_GOVERNED_VAT_LINE_EVIDENCE_V2";
+
 function required(value, field) {
   const normalized = String(value ?? "").trim();
   if (!normalized) throw new Error(`${field} required`);
@@ -18,7 +20,7 @@ function required(value, field) {
 function statusFor(message) {
   const normalized = String(message || "");
   if (/permission denied|authentication|membership/i.test(normalized)) return 403;
-  if (/required|not found|scope|calculated|submitted|reference|preflight|stale|fresh|posting|coding|registration|rule|rate|deadline|calendar|authority/i.test(normalized)) return 400;
+  if (/required|not found|scope|calculated|submitted|reference|preflight|stale|fresh|posting|coding|registration|rule|rate|deadline|calendar|authority|method/i.test(normalized)) return 400;
   return 500;
 }
 
@@ -26,6 +28,13 @@ function blockerMessage(preflight) {
   const blockers = Array.isArray(preflight?.submission_blockers) ? preflight.submission_blockers : [];
   if (!blockers.length) return "VAT filing preflight failed";
   return `VAT filing preflight failed: ${blockers.map(item => `${item.label}: ${item.detail}`).join(" | ")}`;
+}
+
+function requireCurrentCalculationMethod(preflight) {
+  const storedMethod = String(preflight?.return?.calculation?.method || "").trim();
+  if (storedMethod !== REQUIRED_VAT_CALCULATION_METHOD) {
+    throw new Error(`VAT calculation method is stale. Recalculate from governed line evidence before filing (${REQUIRED_VAT_CALCULATION_METHOD}).`);
+  }
 }
 
 export async function POST(request) {
@@ -47,6 +56,7 @@ export async function POST(request) {
     });
     const preflight = applyFinanceTaxCalendarToPreflight(rawPreflight);
     if (!preflight.ready_to_submit) throw new Error(blockerMessage(preflight));
+    requireCurrentCalculationMethod(preflight);
 
     const { data, error } = await supabaseAdmin.rpc("mark_finance_vat_return_submitted", {
       p_organization_id: access.organizationId,

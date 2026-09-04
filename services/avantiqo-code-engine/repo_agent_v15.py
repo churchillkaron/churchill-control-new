@@ -11,7 +11,7 @@ repair behavior. It fixes two issues proven by Private12 V15:
   warm request exceed 4 seconds. State the same indexed-comparator fast path in
   a smaller one-function form and explicitly request a compact fragment edit.
 
-No hidden assertions, case identifiers, fixture values, expected source output,
+No sealed-test material, case identifiers, fixture values, expected source output,
 or deterministic benchmark rewrite is encoded here. Public tests and independent
 semantic review remain authoritative after every applied model edit.
 """

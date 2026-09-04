@@ -111,7 +111,7 @@ export async function GET(request) {
         label: "Accounting reviewer open work items",
         buildQuery: (from, to) => supabaseAdmin
           .from("accounting_engagement_work_items")
-          .select("id,organization_id,entity_id,run_id,step_key,sequence_no,title,work_type,required_role,assigned_to,status,due_at,blocked_reason,capability_id,finance_review_item_id,evidence,conclusion,metadata,budget_minutes,created_at,updated_at")
+          .select("id,organization_id,entity_id,run_id,step_key,sequence_no,title,description,work_type,required_role,assigned_to,status,due_at,blocked_reason,capability_id,finance_review_item_id,evidence,conclusion,metadata,budget_minutes,created_at,updated_at")
           .eq("accounting_firm_id", access.organizationId)
           .in("status", OPEN_WORK_ITEM_STATUSES)
           .order("created_at", { ascending: true })
@@ -158,6 +158,19 @@ export async function GET(request) {
     if (tower.integrity?.complete !== true) {
       return jsonError("Reviewer control tower population completeness could not be proven", 503, tower.integrity);
     }
+
+    const workItemDetails = new Map(workItemPopulation.rows.map((row) => [row.id, row]));
+    tower.queue = tower.queue.map((row) => {
+      const detail = workItemDetails.get(row.id) || {};
+      return {
+        ...row,
+        description: detail.description || null,
+        assigned_to: detail.assigned_to || null,
+        evidence: detail.evidence ?? null,
+        conclusion: detail.conclusion ?? null,
+        metadata: detail.metadata || {},
+      };
+    });
 
     return NextResponse.json({ success: true, ...tower });
   } catch (error) {

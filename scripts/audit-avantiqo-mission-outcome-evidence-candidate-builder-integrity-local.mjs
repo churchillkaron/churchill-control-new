@@ -103,6 +103,10 @@ const validCandidate = buildAvantiqoMissionOutcomeEvidenceCandidateRow({
 });
 assert.ok(validCandidate);
 assert.equal(validCandidate.metadata.reusable_platform_knowledge, false);
+assert.equal(validCandidate.metadata.observation_integrity_envelope_required, true);
+assert.equal(validCandidate.metadata.observation_integrity_envelope_revalidated, true);
+assert.equal(validCandidate.metadata.history_snapshot_verified, true);
+assert.equal(validCandidate.metadata.history_snapshot_manifest_stable, true);
 
 const mutations = [
   ["observation total", (value) => { value.observation_count = 999; }],
@@ -115,6 +119,8 @@ const mutations = [
   ["minimum days", (value) => { value.limits.min_distinct_observation_days = 3; }],
   ["minimum dominance", (value) => { value.limits.min_dominant_outcome_ratio = 1.1; }],
   ["stored integrity flag", (value) => { value.anti_overfitting.stored_observation_integrity_revalidated = false; }],
+  ["observation envelope required", (value) => { value.anti_overfitting.observation_integrity_envelope_required = false; }],
+  ["observation envelope revalidated", (value) => { value.anti_overfitting.observation_integrity_envelope_revalidated = false; }],
   ["poison exclusion flag", (value) => { value.anti_overfitting.malformed_or_poisoned_observations_excluded = false; }],
   ["unique fingerprint flag", (value) => { value.anti_overfitting.unique_observation_fingerprints_required = false; }],
   ["duplicate exclusion flag", (value) => { value.anti_overfitting.duplicate_observations_excluded = false; }],
@@ -123,8 +129,18 @@ const mutations = [
   ["history requirement flag", (value) => { value.anti_overfitting.complete_history_scan_required = false; }],
   ["history incomplete blocker flag", (value) => { value.anti_overfitting.incomplete_history_blocks_evidence_candidate = false; }],
   ["crowding blocker flag", (value) => { value.anti_overfitting.raw_rows_cannot_crowd_out_unique_observation_limit = false; }],
+  ["fixed watermark flag", (value) => { value.anti_overfitting.fixed_history_watermark_required = false; }],
+  ["snapshot manifest revalidation flag", (value) => { value.anti_overfitting.history_snapshot_manifest_reverification_required = false; }],
+  ["same-count replacement flag", (value) => { value.anti_overfitting.same_count_history_replacement_blocks_candidate = false; }],
+  ["in-place mutation flag", (value) => { value.anti_overfitting.in_place_history_mutation_blocks_candidate = false; }],
+  ["concurrent churn flag", (value) => { value.anti_overfitting.concurrent_history_churn_blocks_candidate = false; }],
   ["history scan incomplete", (value) => { value.history_scan_complete = false; }],
   ["history count unstable", (value) => { value.history_count_stable = false; }],
+  ["snapshot not verified", (value) => { value.history_snapshot_verified = false; }],
+  ["snapshot manifest unstable", (value) => { value.history_snapshot_manifest_stable = false; }],
+  ["snapshot fingerprint malformed", (value) => { value.history_snapshot_fingerprint = "not-a-sha256"; }],
+  ["snapshot mode missing", (value) => { value.history_snapshot_mode = ""; }],
+  ["snapshot passes invalid", (value) => { value.history_snapshot_passes = -1; }],
 ];
 
 for (const [name, mutate] of mutations) {
@@ -148,7 +164,10 @@ console.log(JSON.stringify({
     candidate_builder_revalidates_dominant_outcome_and_ratio: true,
     candidate_builder_revalidates_thresholds: true,
     candidate_builder_requires_integrity_flags: true,
+    candidate_builder_requires_observation_integrity_envelope_flags: true,
     candidate_builder_requires_complete_stable_history: true,
+    candidate_builder_requires_verified_snapshot_manifest: true,
+    candidate_builder_requires_snapshot_churn_guards: true,
     forged_or_stale_evaluation_summary_fails_closed: true,
     evidence_candidate_remains_non_reusable: true,
     provider_gpu_modal_execution_performed: false,

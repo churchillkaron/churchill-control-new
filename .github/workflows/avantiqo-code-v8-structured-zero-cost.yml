@@ -7,6 +7,7 @@ on:
       - 'services/avantiqo-code-engine/repo_agent_v8.py'
       - 'services/avantiqo-code-engine/verify_repo_agent_v8.py'
       - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py'
+      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v7_cert.py'
       - '.github/workflows/avantiqo-code-v8-structured-zero-cost.yml'
   workflow_dispatch:
 
@@ -28,6 +29,7 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/repo_agent_v8.py
           python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v8.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v7_cert.py
       - name: Verify V8 selective and atomic agent behavior
         run: |
           set -euo pipefail
@@ -46,4 +48,15 @@ jobs:
           grep -q '"production_deploy_performed": False' "$runtime"
           grep -q '"model_download_performed": False' "$runtime"
           grep -q '"volume_created": False' "$runtime"
+      - name: Verify V7 certification binding
+        run: |
+          set -euo pipefail
+          cert=services/avantiqo-code-engine/modal_code_qwen38_private12_v7_cert.py
+          grep -q 'RUN_SEED = "20260904-qwen38-private12-v7"' "$cert"
+          grep -q 'runtime.generate_v7' "$cert"
+          grep -q 'agent.apply_edits' "$cert"
+          grep -q 'agent.build_actor_prompt' "$cert"
+          grep -q 'MAX_MODAL_TOTAL_CALLS = base.MAX_MODAL_TOTAL_CALLS' "$cert"
+          grep -q 'WARM_TARGET_MS = base.WARM_TARGET_MS' "$cert"
+          grep -q 'qwen38_private12_v7' "$cert"
           echo 'AVANTIQO_CODE_V8_STRUCTURED_ADMISSION=PASS'

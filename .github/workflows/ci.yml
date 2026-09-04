@@ -12,8 +12,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: churchill-ci-${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
-  cancel-in-progress: false
+  group: churchill-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   finance-worldclass:
@@ -93,93 +93,3 @@ jobs:
             echo "ERROR: Backups committed"
             exit 1
           fi
-
-  exact-v17-codex:
-    name: Exact V17 suite — GPT-5.6 Sol Codex
-    if: github.event_name == 'push' && github.event.head_commit.message == 'Run exact V17 suite on Claude and Codex once'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-    steps:
-      - name: Checkout exact comparison harness
-        uses: actions/checkout@v4
-
-      - name: Setup Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install harness import dependency
-        run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
-
-      - name: Verify exact V17 suite and provider key
-        run: |
-          set -euo pipefail
-          test -n "${OPENAI_API_KEY}"
-          secret="$(printf '%s' '33838210609:1645fa2f9db11e650796b2f01ff7678a5a2d023e:avantiqo-qwen38-private12-v17' | sha256sum | awk '{print $1}')"
-          echo "::add-mask::${secret}"
-          echo "AVANTIQO_CODE_PRIVATE_SUITE_SECRET=${secret}" >> "$GITHUB_ENV"
-          python -m py_compile services/avantiqo-code-engine/frontier_provider_runtime_v1.py
-          python -m py_compile services/avantiqo-code-engine/frontier_private12_compare_v1.py
-
-      - name: Run exact sealed 12-case suite on GPT-5.6 Sol
-        run: |
-          set -euo pipefail
-          PYTHONPATH=services/avantiqo-code-engine \
-            python services/avantiqo-code-engine/frontier_private12_compare_v1.py \
-              --provider openai --model gpt-5.6-sol 2>&1 | tee /tmp/codex-v17-compare.log
-
-      - name: Upload Codex comparison evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: exact-v17-codex-${{ github.run_id }}
-          path: /tmp/codex-v17-compare.log
-          if-no-files-found: warn
-          retention-days: 14
-
-  exact-v17-claude:
-    name: Exact V17 suite — Claude Fable 5.1
-    if: github.event_name == 'push' && github.event.head_commit.message == 'Run exact V17 suite on Claude and Codex once'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-    steps:
-      - name: Checkout exact comparison harness
-        uses: actions/checkout@v4
-
-      - name: Setup Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install harness import dependency
-        run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
-
-      - name: Verify exact V17 suite and provider key
-        run: |
-          set -euo pipefail
-          test -n "${ANTHROPIC_API_KEY}"
-          secret="$(printf '%s' '33838210609:1645fa2f9db11e650796b2f01ff7678a5a2d023e:avantiqo-qwen38-private12-v17' | sha256sum | awk '{print $1}')"
-          echo "::add-mask::${secret}"
-          echo "AVANTIQO_CODE_PRIVATE_SUITE_SECRET=${secret}" >> "$GITHUB_ENV"
-          python -m py_compile services/avantiqo-code-engine/frontier_provider_runtime_v1.py
-          python -m py_compile services/avantiqo-code-engine/frontier_private12_compare_v1.py
-
-      - name: Run exact sealed 12-case suite on Claude Fable 5.1
-        run: |
-          set -euo pipefail
-          PYTHONPATH=services/avantiqo-code-engine \
-            python services/avantiqo-code-engine/frontier_private12_compare_v1.py \
-              --provider anthropic --model claude-fable-5-1 2>&1 | tee /tmp/claude-v17-compare.log
-
-      - name: Upload Claude comparison evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: exact-v17-claude-${{ github.run_id }}
-          path: /tmp/claude-v17-compare.log
-          if-no-files-found: warn
-          retention-days: 14

@@ -38,11 +38,16 @@ includes("learning", "min_dominant_outcome_ratio: 0.8");
 includes("learning", "const SHA256_RE");
 includes("learning", "function positiveInteger");
 includes("learning", "function validObservationTime");
+includes("learning", "function observationStructuralSignature");
 includes("learning", "function uniqueEligibleObservationRows");
-includes("learning", "seenObservationFingerprints");
+includes("learning", "const groups = new Map()");
 includes("learning", "duplicate_observation_count");
+includes("learning", "conflicting_observation_fingerprint_count");
+includes("learning", "quarantined_conflicting_observation_count");
 includes("learning", "unique_observation_fingerprints_required: true");
 includes("learning", "duplicate_observations_excluded: true");
+includes("learning", "conflicting_observation_fingerprints_quarantined: true");
+includes("learning", "row_order_cannot_resolve_observation_conflict: true");
 includes("learning", "stored_observation_integrity_revalidated: true");
 includes("learning", "malformed_or_poisoned_observations_excluded: true");
 includes("learning", "excluded_observation_count");
@@ -109,6 +114,9 @@ includes("mission", "delete inputSchema.properties.learning");
 includes("auditIntegrity", "poisoned_row_cannot_inflate_three_observation_gate: true");
 includes("auditIntegrity", "duplicate_rows_cannot_inflate_three_observation_gate: true");
 includes("auditIntegrity", "duplicate_rows_cannot_fake_distinct_day_gate: true");
+includes("auditIntegrity", "conflicting_observation_fingerprints_quarantined: true");
+includes("auditIntegrity", "conflicting_rows_contribute_zero_votes: true");
+includes("auditIntegrity", "conflicting_rows_are_order_independent: true");
 includes("auditIntegrity", "unique_observation_fingerprints_required: true");
 includes("auditIntegrity", "sha256_fingerprints_required: true");
 includes("auditIntegrity", "observation_key_bound_to_fingerprint: true");
@@ -163,6 +171,8 @@ console.log(
         malformed_or_poisoned_observations_excluded: true,
         unique_observation_fingerprints_required: true,
         duplicate_observations_excluded: true,
+        conflicting_observation_fingerprints_quarantined: true,
+        row_order_cannot_resolve_observation_conflict: true,
         evidence_candidate_only: true,
         no_direct_platform_knowledge_write: true,
         no_model_gpu_provider_import: true,

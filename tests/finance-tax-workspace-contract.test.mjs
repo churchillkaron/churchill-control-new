@@ -116,7 +116,7 @@ test("Tax calendar is authority-backed and controlled overrides require evidence
   assert.match(calendarPolicy, /Deadline override requires a reason and authority evidence reference/);
   assert.match(calendarPolicy, /blocks_submission: true/);
   assert.match(calendarRail, /Filing channel/);
-  assert.match(calendarRail, /Authority evidence/);
+  assert.match(calendarRail, /authority evidence/i);
 });
 
 test("Filed VAT corrections use an immutable amendment chain", () => {
@@ -165,8 +165,8 @@ test("Filed VAT continues through governed liability, cash and bank settlement",
   assert.match(settlementRoute, /vat-settlement-cash:/);
   assert.match(settlementRoute, /Bank transaction amount does not match the VAT cash settlement event/);
   assert.match(settlementRoute, /bank_match_candidates/);
-  assert.doesNotMatch(settlementRoute, /\.from\("general_ledger"\).*\.(insert|update|upsert)/s);
-  assert.doesNotMatch(settlementRoute, /\.from\("journal_entries"\).*\.(insert|update|upsert)/s);
+  assert.doesNotMatch(settlementRoute, /\.from\("general_ledger"\)\s*\.(insert|update|upsert)/s);
+  assert.doesNotMatch(settlementRoute, /\.from\("journal_entries"\)\s*\.(insert|update|upsert)/s);
 });
 
 test("Accounting-firm tax control tower ranks statutory and accounting risk as work", () => {

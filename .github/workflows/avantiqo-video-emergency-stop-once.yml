@@ -1,0 +1,46 @@
+name: Avantiqo Video Emergency Stop Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-emergency-stop-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-visual-proof-24s-once
+  cancel-in-progress: true
+
+jobs:
+  stop:
+    if: github.event.head_commit.message == 'Emergency stop Avantiqo video GPU spend'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal CLI
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Stop paid Video app and terminate running containers
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          echo 'CONTAINERS_BEFORE:'
+          modal container list --json || true
+          modal app stop avantiqo-video-owned --yes
+          sleep 5
+          echo 'CONTAINERS_AFTER:'
+          modal container list --json || true
+          echo 'AVANTIQO_VIDEO_EMERGENCY_SPEND_STOP=PASS'

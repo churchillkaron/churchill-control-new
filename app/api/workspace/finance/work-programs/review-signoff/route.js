@@ -6,6 +6,11 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
+import { loadFinanceReviewerEvidence } from "@/lib/finance/practice/FinanceReviewerEvidenceRuntime";
+import {
+  evaluateFinanceReviewerDecisionReadiness,
+  summarizeFinanceReviewerEvidencePreflight,
+} from "@/lib/finance/practice/FinanceReviewerDecisionReadiness";
 
 const MANAGE_PERMISSIONS = [
   "finance.accounting.manage",
@@ -206,6 +211,21 @@ export async function POST(request) {
         return jsonError(`Segregation of duties blocks the same user from signing ${conflictingActorRoles.join(", ")} and REVIEWER`, 409);
       }
 
+      const evidence = await loadFinanceReviewerEvidence({
+        accountingFirmId: access.organizationId,
+        runId: run.id,
+        workItemId: workItem.id,
+      });
+      const readiness = evaluateFinanceReviewerDecisionReadiness(evidence);
+      if (!readiness.ready) {
+        return jsonError(
+          "Reviewer clearance is blocked by governed evidence",
+          409,
+          readiness.blockers.slice(0, 25),
+        );
+      }
+      const evidencePreflight = summarizeFinanceReviewerEvidencePreflight(evidence, readiness);
+
       const { data: signoff, error: signoffError } = await supabaseAdmin
         .from("finance_review_signoffs")
         .upsert({
@@ -215,7 +235,13 @@ export async function POST(request) {
           signed_by: access.user.id,
           signed_at: new Date().toISOString(),
           note: clean(body.note) || null,
-          metadata: { source: "accounting_work_program", accounting_firm_id: access.organizationId, run_id: run.id, work_item_id: workItem.id },
+          metadata: {
+            source: "accounting_work_program",
+            accounting_firm_id: access.organizationId,
+            run_id: run.id,
+            work_item_id: workItem.id,
+            reviewer_evidence_preflight: evidencePreflight,
+          },
         }, { onConflict: "review_item_id,signoff_role" })
         .select("*")
         .single();
@@ -229,7 +255,11 @@ export async function POST(request) {
         .select("*")
         .single();
       if (updateError) throw updateError;
-      await audit(access, "ACCOUNTING_REVIEWER_SIGNOFF", updatedReview.id, workItem, { signoff_role: "REVIEWER", review_status: "REVIEWED" });
+      await audit(access, "ACCOUNTING_REVIEWER_SIGNOFF", updatedReview.id, workItem, {
+        signoff_role: "REVIEWER",
+        review_status: "REVIEWED",
+        reviewer_evidence_preflight: evidencePreflight,
+      });
       return NextResponse.json({ success: true, idempotent: false, signoff, review_item: updatedReview, work_item_id: workItem.id, run_id: run.id });
     }
 

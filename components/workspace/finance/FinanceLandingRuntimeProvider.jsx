@@ -61,7 +61,6 @@ export function FinanceLandingRuntimeProvider({ organizationId, children }) {
     revalidateOnFocus: true,
     focusThrottleInterval: 30000,
     shouldRetryOnError: false,
-    keepPreviousData: true,
   });
 
   const refresh = useCallback(async () => {

@@ -28,7 +28,7 @@ jobs:
           python -m py_compile services/avantiqo-code-engine/repo_agent_v8.py
           python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v8.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
-      - name: Verify V8 selective agent behavior
+      - name: Verify V8 selective and atomic agent behavior
         run: |
           set -euo pipefail
           PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v8.py

@@ -62,7 +62,7 @@ includes("learning", "incomplete_history_blocks_evidence_candidate: true");
 includes("learning", "raw_rows_cannot_crowd_out_unique_observation_limit: true");
 includes("learning", "history_count_must_remain_stable_during_scan: true");
 includes("learning", "stable_row_identity_required_across_pages: true");
-includes("learning", 'status: "VERIFIED_OUTCOME_HISTORY_SCAN_INCOMPLETE"');
+includes("learning", "VERIFIED_OUTCOME_HISTORY_SCAN_INCOMPLETE");
 includes("learning", "stored_observation_integrity_revalidated: true");
 includes("learning", "malformed_or_poisoned_observations_excluded: true");
 includes("learning", "excluded_observation_count");

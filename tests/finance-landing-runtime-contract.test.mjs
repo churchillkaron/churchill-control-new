@@ -15,9 +15,13 @@ test("Finance landing owns one shared SWR snapshot and one refresh clock", () =>
   assert.match(provider, /Promise\.all\(\[/);
   assert.match(provider, /command-center/);
   assert.match(provider, /account-health/);
-  assert.match(provider, /keepPreviousData:\s*true/);
   assert.match(provider, /const refresh = useCallback/);
   assert.match(page, /<FinanceLandingRuntimeProvider organizationId=\{organizationId\}>/);
+});
+
+test("Finance landing context key prevents previous entity or period data from carrying across context changes", () => {
+  assert.match(provider, /\["finance-landing", organizationId, entityId, periodId\]/);
+  assert.doesNotMatch(provider, /keepPreviousData:\s*true/);
 });
 
 test("landing surfaces do not run independent command-center or account-health fetch loops", () => {
@@ -32,7 +36,7 @@ test("landing surfaces do not run independent command-center or account-health f
   }
 });
 
-test("shared refresh preserves stale successful data during transient refresh failures", () => {
+test("shared refresh preserves same-context stale successful data during transient refresh failures", () => {
   assert.match(provider, /stale:\s*Boolean\(error && data\)/);
   assert.match(overview, /error && !data/);
   assert.match(close, /stale/);

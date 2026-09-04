@@ -61,7 +61,7 @@ test("Creative runtime separates read-only plan, confirmed atomic execute and co
 });
 
 test("shot-set planning is deterministic, bounded and preservation-aware before any write", () => {
-  assert.match(setRuntime, /AVANTIQO_CHAT_SHOT_SET_V2/);
+  assert.match(setRuntime, /AVANTIQO_CHAT_SHOT_SET_V3/);
   assert.match(setRuntime, /createHash\("sha256"\)/);
   assert.match(setRuntime, /revision_number/);
   assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_RANGE_OUT_OF_BOUNDS/);
@@ -79,6 +79,20 @@ test("shot-set planning is deterministic, bounded and preservation-aware before 
   assert.match(planner, /preserved_shot_count/);
   assert.match(planner, /media_generation_executed:\s*false/);
   assert.match(planner, /publish_authorized:\s*false/);
+});
+
+test("scene-qualified shot ranges take precedence over project ordinals and fail closed", () => {
+  assert.match(setRuntime, /function sceneRangeFromReference/);
+  assert.match(setRuntime, /SCENE_SHOT_RANGE/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_SCENE_RANGE_SCENE_NOT_FOUND/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_SCENE_RANGE_SHOT_NOT_FOUND/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_SCENE_RANGE_SHOT_AMBIGUOUS/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_EXCLUDED_SCENE_RANGE_SHOT_NOT_FOUND/);
+  const sceneRangeIndex = setRuntime.indexOf("const sceneRange = sceneRangeFromReference(setReference)");
+  const projectRangeIndex = setRuntime.indexOf("const range = rangeFromReference(setReference)");
+  assert.ok(sceneRangeIndex >= 0, "scene-qualified range parser must exist");
+  assert.ok(projectRangeIndex > sceneRangeIndex, "scene-qualified ranges must resolve before project ranges");
+  assert.match(setRuntime, /if \(\/\\bscene\\s\*#\?\\s\*\\d\{1,4\}\\b\/i\.test\(value\)\) return null/);
 });
 
 test("confirmed batch rejects stale fingerprints and Pro locks before atomic execution", () => {

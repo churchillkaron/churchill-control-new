@@ -13,6 +13,7 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 const TERMINAL_OCCURRENCE_STATUSES = new Set(["completed", "cancelled", "canceled", "archived"]);
 const COMPLETION_OUTCOMES = new Set(["completed", "follow_up", "issue_found"]);
 const EXTERNAL_EVIDENCE_TYPES = new Set(["photo", "signature", "file"]);
+const ACTIVE_EVIDENCE_STATUSES = new Set(["recorded", "validated"]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -77,7 +78,7 @@ function validateProtocolCompletion({ protocol, responses, outcome, completionEv
   const externalEvidenceRequired = externalFieldRequired || Object.values(evidence).some(Boolean);
 
   if (externalEvidenceRequired && !completionEvidenceId) {
-    const error = new Error("Required service proof is not linked. Capture and link Completion Evidence before completing this visit.");
+    const error = new Error("Required service proof is not linked. Capture Completion Evidence before completing this visit.");
     error.status = 409;
     throw error;
   }
@@ -132,7 +133,48 @@ async function loadWorkOrder({ context, occurrence }) {
   return detail.body.record;
 }
 
-function technicianProjection(occurrence, workOrder) {
+async function validateLinkedCompletionEvidence({ organizationId, occurrenceId, evidenceId }) {
+  if (!evidenceId) return null;
+
+  const result = await supabaseAdmin
+    .from("operations_records")
+    .select("id,status,source_domain,source_type,source_id,attributes,created_at")
+    .eq("organization_id", organizationId)
+    .eq("capability_id", "completion-evidence")
+    .eq("id", evidenceId)
+    .maybeSingle();
+
+  if (result.error) throw result.error;
+  const evidence = result.data || null;
+  if (!evidence) {
+    const error = new Error("Linked Completion Evidence was not found in this organization.");
+    error.status = 409;
+    throw error;
+  }
+  if (
+    evidence.source_domain !== "service-management"
+    || evidence.source_type !== "service-occurrence"
+    || evidence.source_id !== occurrenceId
+  ) {
+    const error = new Error("Linked Completion Evidence does not belong to this exact service occurrence.");
+    error.status = 409;
+    throw error;
+  }
+  if (!ACTIVE_EVIDENCE_STATUSES.has(normalized(evidence.status))) {
+    const error = new Error(`Linked Completion Evidence is not active. Current status: ${evidence.status || "unknown"}.`);
+    error.status = 409;
+    throw error;
+  }
+  if (!evidence.attributes?.service_completion_evidence?.readiness?.ready) {
+    const error = new Error("Linked Completion Evidence has not passed its governed proof preflight.");
+    error.status = 409;
+    throw error;
+  }
+
+  return evidence;
+}
+
+function technicianProjection(occurrence, workOrder, latestEvidence = null) {
   const delivery = serviceDelivery(occurrence, workOrder);
   const protocol = protocolFor(occurrence, workOrder);
   const execution = staffExecution(workOrder);
@@ -167,6 +209,9 @@ function technicianProjection(occurrence, workOrder) {
     execution_protocol: protocol,
     staff_execution: execution,
     completion,
+    latest_completion_evidence_id: latestEvidence?.id || null,
+    latest_completion_evidence_status: latestEvidence?.status || null,
+    latest_completion_evidence_captured_at: latestEvidence?.attributes?.service_completion_evidence?.captured_at || latestEvidence?.created_at || null,
   };
 }
 
@@ -187,6 +232,7 @@ export async function GET(request) {
     });
     const visible = rows.filter((row) => row.work_order_id);
     const workOrderIds = [...new Set(visible.map((row) => row.work_order_id).filter(Boolean))];
+    const occurrenceIds = [...new Set(visible.map((row) => row.id).filter(Boolean))];
 
     let workOrders = [];
     if (workOrderIds.length) {
@@ -206,11 +252,40 @@ export async function GET(request) {
       workOrders = result.data || [];
     }
 
+    let evidenceRows = [];
+    if (occurrenceIds.length) {
+      let query = supabaseAdmin
+        .from("operations_records")
+        .select("id,status,source_id,attributes,created_at")
+        .eq("organization_id", resolved.context.organization_id)
+        .eq("capability_id", "completion-evidence")
+        .eq("source_domain", "service-management")
+        .eq("source_type", "service-occurrence")
+        .in("source_id", occurrenceIds)
+        .in("status", [...ACTIVE_EVIDENCE_STATUSES])
+        .order("created_at", { ascending: false });
+
+      if (resolved.context.entity_id) {
+        query = query.or(`entity_id.eq.${resolved.context.entity_id},entity_id.is.null`);
+      }
+
+      const result = await query;
+      if (result.error) throw result.error;
+      evidenceRows = result.data || [];
+    }
+
     const byId = new Map(workOrders.map((row) => [row.id, row]));
+    const evidenceByOccurrence = new Map();
+    for (const evidence of evidenceRows) {
+      if (!evidenceByOccurrence.has(evidence.source_id)) evidenceByOccurrence.set(evidence.source_id, evidence);
+    }
+
     const projections = visible
       .map((occurrence) => {
         const workOrder = byId.get(occurrence.work_order_id);
-        return workOrder ? technicianProjection(occurrence, workOrder) : null;
+        return workOrder
+          ? technicianProjection(occurrence, workOrder, evidenceByOccurrence.get(occurrence.id) || null)
+          : null;
       })
       .filter(Boolean)
       .sort((a, b) => new Date(a.scheduled_start || a.occurrence_at || 0) - new Date(b.scheduled_start || b.occurrence_at || 0));
@@ -300,6 +375,11 @@ export async function POST(request) {
     const outcome = normalized(body.outcome);
     const completionEvidenceId = text(body.completionEvidenceId || body.completion_evidence_id) || null;
     validateProtocolCompletion({ protocol, responses, outcome, completionEvidenceId });
+    await validateLinkedCompletionEvidence({
+      organizationId: resolved.context.organization_id,
+      occurrenceId: occurrence.id,
+      evidenceId: completionEvidenceId,
+    });
 
     const protocolSubmission = {
       schema_version: 1,

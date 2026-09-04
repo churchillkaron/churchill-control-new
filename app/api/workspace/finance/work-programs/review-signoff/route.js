@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { checkFinancePermission } from "@/lib/shared/auth/checkFinancePermission";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
-import { loadFinanceReviewerEvidence } from "@/lib/finance/practice/FinanceReviewerEvidenceRuntime";
+import { buildFinanceReviewerEvidence } from "@/lib/finance/practice/FinanceReviewerEvidenceRuntime";
 import {
   evaluateFinanceReviewerDecisionReadiness,
   summarizeFinanceReviewerEvidencePreflight,
@@ -211,7 +211,7 @@ export async function POST(request) {
         return jsonError(`Segregation of duties blocks the same user from signing ${conflictingActorRoles.join(", ")} and REVIEWER`, 409);
       }
 
-      const evidence = await loadFinanceReviewerEvidence({
+      const evidence = await buildFinanceReviewerEvidence({
         accountingFirmId: access.organizationId,
         runId: run.id,
         workItemId: workItem.id,

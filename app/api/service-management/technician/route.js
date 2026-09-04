@@ -8,6 +8,7 @@ import {
 } from "@/lib/service-management/api/resolveServiceManagementContext";
 import { listServiceOccurrences } from "@/lib/service-management/repositories/ServicePlanRepository";
 import { reconcileServiceOccurrence } from "@/lib/service-management/runtime/ServiceCompletionReconciliationRuntime";
+import { assertServiceMonitoringComplete } from "@/lib/service-management/runtime/ServiceMonitoringRoundRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const TERMINAL_OCCURRENCE_STATUSES = new Set(["completed", "cancelled", "canceled", "archived"]);
@@ -25,7 +26,11 @@ function normalized(value) {
 
 function responseError(error, status = 500) {
   return Response.json(
-    { success: false, error: error?.message || error || "Technician execution failed." },
+    {
+      success: false,
+      error: error?.message || error || "Technician execution failed.",
+      monitoring_round: error?.monitoring_round || undefined,
+    },
     { status: error?.status || status },
   );
 }
@@ -386,6 +391,10 @@ export async function POST(request) {
       evidenceId: completionEvidenceId,
     });
 
+    const monitoringRound = normalized(delivery.industry_key) === "pest_control"
+      ? await assertServiceMonitoringComplete({ context: runtimeContext, occurrenceId: occurrence.id })
+      : null;
+
     const protocolSubmission = {
       schema_version: 1,
       template_id: protocol.template_id,
@@ -395,6 +404,16 @@ export async function POST(request) {
       outcome,
       follow_up_notes: text(body.followUpNotes || body.follow_up_notes) || null,
       requires_manager_review: Boolean(body.requiresManagerReview || body.requires_manager_review),
+      monitoring_preflight: monitoringRound ? {
+        occurrence_id: monitoringRound.occurrence_id,
+        customer_location_id: monitoringRound.customer_location_id,
+        required_points: monitoringRound.required_points,
+        checked_required_points: monitoringRound.checked_required_points,
+        pending_required_points: monitoringRound.pending_required_points,
+        checked_points: monitoringRound.checked_points,
+        completion_ready: monitoringRound.completion_ready,
+        validated_at: now,
+      } : null,
     };
 
     const response = await serverOperationsApi.execute({
@@ -415,6 +434,12 @@ export async function POST(request) {
               ...(existingExecution.completed || {}),
               at: now,
               completion_evidence_id: completionEvidenceId,
+              monitoring_preflight: monitoringRound ? {
+                required_points: monitoringRound.required_points,
+                checked_required_points: monitoringRound.checked_required_points,
+                checked_points: monitoringRound.checked_points,
+                validated_at: now,
+              } : null,
             },
           },
         },
@@ -438,6 +463,7 @@ export async function POST(request) {
       success: true,
       action,
       work_order: response.body.execution?.result || null,
+      monitoring_round: monitoringRound,
       reconciliation,
     });
   } catch (error) {

@@ -1,6 +1,5 @@
 {
-  "contract": "AVANTIQO_CODE_QWEN38_PRIVATE12_V16_TRIGGER_V1",
+  "contract": "AVANTIQO_CODE_BAD_IMAGE_PROOF_ABORT_REQUEST_V1",
   "approved": true,
-  "reason": "one explicitly approved V16 certification after zero-cost edit normalization hardening",
-  "nonce": 2
+  "reason": "stop the single queued proof on the known-bad DeepGEMM image and return Code to zero idle"
 }

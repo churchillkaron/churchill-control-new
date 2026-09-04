@@ -33,8 +33,8 @@
   "payments": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/payments/list", "rowsKey": "rows", "renderer": "FinancePaymentsWorkCenter" },
   "fx_revaluation": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/fx-revaluation/runtime", "rowsKey": "runs", "renderer": "FinanceFxRevaluationWorkCenter" },
 
-  "tax": { "kind": "records", "scope": "entity", "owner": "finance" },
-  "vat_returns": { "kind": "records", "scope": "entity", "owner": "finance" },
+  "tax": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/tax/runtime", "rowsKey": "returns", "renderer": "FinanceTaxWorkCenter" },
+  "vat_returns": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/tax/runtime", "rowsKey": "returns", "renderer": "FinanceTaxWorkCenter" },
   "tax_codes": { "kind": "records", "scope": "organization", "owner": "finance", "api": "/api/finance/tax-codes" },
   "fixed_assets": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/fixed-assets/list" },
   "depreciation": { "kind": "records", "scope": "entity", "owner": "finance" },

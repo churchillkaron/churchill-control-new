@@ -19,6 +19,7 @@ const MODEL_HEIGHT = 2176;
 const MASTER_HEIGHT = 2160;
 const FPS = 24;
 const TARGET_DURATION = 24;
+const MAX_GENERATION_WAIT_SECONDS = Math.max(60, Number(process.env.AVANTIQO_INVESTOR_PROOF_MAX_WAIT_SECONDS || 900));
 
 const SOURCE_PATHS = [
   "33336a72-acb5-474e-856b-8be0269360e2/unassigned/eef84bd3-c208-4ed8-bba0-6088a9b67ef9-gemini-thgn4qnk6hof.mp4",
@@ -216,10 +217,12 @@ async function main() {
     return { ...item, functionCallId };
   }));
 
+  const generationDeadlineMs = Date.now() + MAX_GENERATION_WAIT_SECONDS * 1000;
   const completed = await Promise.all(calls.map(async (item) => {
     let polls = 0;
     for (;;) {
       polls += 1;
+      ensure(Date.now() < generationDeadlineMs, `GENERATION_DEADLINE_EXCEEDED:${item.index + 1}:${MAX_GENERATION_WAIT_SECONDS}s`);
       const sameCall = await client.functionCalls.fromId(item.functionCallId);
       try {
         const result = await sameCall.get({ timeoutMs: 0 });

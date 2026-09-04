@@ -11,6 +11,7 @@ const {
 
 const NOW = new Date("2026-09-04T03:00:00.000Z");
 const CANDIDATE_CONTRACT = "AVANTIQO_CONTINUOUS_LEARNING_EVIDENCE_CANDIDATE_V1";
+const PUBLIC_WEB_COMPATIBILITY = "LEGACY_PUBLIC_WEB_EVIDENCE_EXPLICIT_SOURCE_GUARD";
 
 function strictCandidate(overrides = {}) {
   const metadataOverrides = overrides.metadata || {};
@@ -102,7 +103,7 @@ const strictWeb = strictCandidate({
 });
 const strictWebAssessment = assess(strictWeb);
 assert.equal(strictWebAssessment.eligible, true);
-assert.equal(strictWebAssessment.compatibility_path, null);
+assert.equal(strictWebAssessment.compatibility_path, PUBLIC_WEB_COMPATIBILITY);
 
 const legacyWeb = strictCandidate({
   source: "continuous_learning_evidence_candidate",
@@ -123,10 +124,7 @@ const legacyWeb = strictCandidate({
 });
 const legacyWebAssessment = assess(legacyWeb);
 assert.equal(legacyWebAssessment.eligible, true);
-assert.equal(
-  legacyWebAssessment.compatibility_path,
-  "LEGACY_PUBLIC_WEB_EVIDENCE_EXPLICIT_SOURCE_GUARD",
-);
+assert.equal(legacyWebAssessment.compatibility_path, PUBLIC_WEB_COMPATIBILITY);
 
 expectRejected(strictCandidate({ metadata: { customer_private_content_included: true } }), "CUSTOMER_PRIVATE_CONTENT_EXPLICIT_FALSE_REQUIRED");
 expectRejected(strictCandidate({ metadata: { customer_private_content_included: undefined } }), "CUSTOMER_PRIVATE_CONTENT_EXPLICIT_FALSE_REQUIRED");
@@ -184,7 +182,7 @@ console.log(JSON.stringify({
   contract: AVANTIQO_LEARNING_EVIDENCE_CANDIDATE_ADMISSION_CONTRACT,
   verified: {
     strict_mission_candidate_admitted: true,
-    strict_public_web_candidate_admitted_without_compatibility: true,
+    public_web_candidate_requires_explicit_supported_source_guard: true,
     legacy_public_web_candidate_has_narrow_explicit_compatibility_only: true,
     private_content_true_or_missing_rejected_for_non_web_candidates: true,
     private_memory_rejected: true,

@@ -1,61 +1,76 @@
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
-import {
-  runCashFlowCommand,
-} from "@/lib/finance/reporting/runtime/ReportingApplicationService";
+import { resolveEntity } from "@/lib/platform/entities/resolveEntity";
+import buildCashFlowProjection from "@/lib/finance/treasury/buildCashFlowProjection";
+
+async function execute(request, input) {
+  const access = await requireOrganizationAccess({
+    organizationId: input.organizationId || input.organization_id,
+    request,
+  });
+
+  if (!access.success) {
+    return NextResponse.json({ success: false, error: access.error }, { status: access.status });
+  }
+
+  await requireFinanceWorkspacePermission({
+    capabilityId: "cash_flow",
+    operation: "read",
+    access,
+  });
+
+  const entityId = input.entityId || input.entity_id || null;
+  if (!entityId) {
+    return NextResponse.json({ success: false, error: "entity_id required" }, { status: 400 });
+  }
+
+  const entity = await resolveEntity({ organizationId: access.organizationId, entityId });
+  if (!entity) {
+    return NextResponse.json(
+      { success: false, error: "Legal entity not found in organisation" },
+      { status: 404 }
+    );
+  }
+
+  const cashFlow = await buildCashFlowProjection({
+    organizationId: access.organizationId,
+    entityId: entity.id,
+    asOfDate: input.asOfDate || input.as_of_date || null,
+    historyDays: input.historyDays || input.history_days || 28,
+    horizonDays: input.horizonDays || input.horizon_days || 91,
+    grain: input.grain || "week",
+  });
+
+  return NextResponse.json({ success: true, cashFlow, rows: cashFlow.rows, ...cashFlow });
+}
+
+function errorResponse(error) {
+  const message = error?.message || "Cash flow report failed";
+  const status = /permission denied/i.test(message)
+    ? 403
+    : /required|not found/i.test(message)
+      ? 400
+      : 500;
+  return NextResponse.json({ success: false, error: message }, { status });
+}
+
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    return await execute(request, Object.fromEntries(searchParams.entries()));
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-
-    const access = await requireOrganizationAccess({
-      organizationId: body.organizationId || body.organization_id,
-      request,
-    });
-
-    if (!access.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: access.error,
-        },
-        {
-          status: access.status,
-        }
-      );
-    }
-
-    await requireFinanceWorkspacePermission({
-      capabilityId: "cash_flow",
-      operation: "read",
-      access,
-    });
-
-    const cashFlow = await runCashFlowCommand({
-      ...body,
-      organizationId: access.organizationId,
-      organization_id: access.organizationId,
-      entityId: body.entityId || body.entity_id || null,
-      periodId: body.periodId || body.period_id || null,
-    });
-
-    return NextResponse.json({
-      success: true,
-      cashFlow,
-      rows: Array.isArray(cashFlow) ? cashFlow : cashFlow?.rows || [],
-    });
+    return await execute(request, await request.json());
   } catch (error) {
-    const message = error.message || "Cash flow execution failed";
-    const status = /permission denied/i.test(message) ? 403 : 500;
-    return NextResponse.json(
-      {
-        success: false,
-        error: message,
-      },
-      { status }
-    );
+    return errorResponse(error);
   }
 }

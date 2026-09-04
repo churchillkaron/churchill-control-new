@@ -34,6 +34,13 @@ includes("learning", "reusable_platform_knowledge: false");
 includes("learning", "knowledge_router_reuse_allowed: false");
 includes("learning", "automatic_knowledge_promotion: false");
 includes("learning", "explicit_final_promotion_required: true");
+includes("learning", "AVANTIQO_MISSION_OUTCOME_OBSERVATION_INTEGRITY_V1");
+includes("learning", "function computeAvantiqoMissionOutcomeObservationIntegrityFingerprint");
+includes("learning", "function sealObservationIntegrity");
+includes("learning", "observation_integrity_contract");
+includes("learning", "observation_integrity_fingerprint");
+includes("learning", "observation_integrity_envelope_required: true");
+includes("learning", "observation_integrity_envelope_revalidated: true");
 includes("learning", "min_observations: 3");
 includes("learning", "min_distinct_observation_days: 2");
 includes("learning", "min_dominant_outcome_ratio: 0.8");
@@ -150,6 +157,12 @@ includes("mission", "OPERATOR_MISSION_OUTCOME_LEARNING_PROJECTION_INVALID");
 includes("mission", "learning_observation_token");
 includes("mission", "delete inputSchema.properties.learning");
 
+includes("auditIntegrity", "observation_integrity_contract_persisted: true");
+includes("auditIntegrity", "observation_integrity_fingerprint_is_sha256: true");
+includes("auditIntegrity", "observation_integrity_envelope_recomputed_before_accumulation: true");
+includes("auditIntegrity", "missing_or_mismatched_integrity_envelope_is_excluded: true");
+includes("auditIntegrity", "epistemic_field_mutation_invalidates_integrity_envelope: true");
+includes("auditIntegrity", "resealed_conflicting_duplicates_still_reach_conflict_quarantine: true");
 includes("auditIntegrity", "poisoned_row_cannot_inflate_three_observation_gate: true");
 includes("auditIntegrity", "duplicate_rows_cannot_inflate_three_observation_gate: true");
 includes("auditIntegrity", "duplicate_rows_cannot_fake_distinct_day_gate: true");
@@ -222,6 +235,8 @@ console.log(
         planner_supplied_projection_blocked: true,
         planner_visible_learning_schema_removed: true,
         final_registered_verification_only: true,
+        observation_integrity_envelope_required: true,
+        observation_integrity_envelope_revalidated: true,
         stored_observation_integrity_revalidated: true,
         malformed_or_poisoned_observations_excluded: true,
         unique_observation_fingerprints_required: true,

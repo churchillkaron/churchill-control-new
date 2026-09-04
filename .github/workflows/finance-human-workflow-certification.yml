@@ -14,6 +14,7 @@ on:
       - "tests/finance-human-workflow-contract.test.mjs"
       - "tests/finance-ui-completion-contract.test.mjs"
       - "tests/finance-tax-workspace-contract.test.mjs"
+      - "tests/finance-tax-selection-contract.test.mjs"
       - ".github/workflows/finance-human-workflow-certification.yml"
   pull_request:
     paths:
@@ -26,6 +27,7 @@ on:
       - "tests/finance-human-workflow-contract.test.mjs"
       - "tests/finance-ui-completion-contract.test.mjs"
       - "tests/finance-tax-workspace-contract.test.mjs"
+      - "tests/finance-tax-selection-contract.test.mjs"
       - ".github/workflows/finance-human-workflow-certification.yml"
 
 permissions:
@@ -50,4 +52,4 @@ jobs:
           node-version: "24"
 
       - name: Certify Finance human workflow and accountant UI
-        run: node --test tests/finance-human-workflow-contract.test.mjs tests/finance-ui-completion-contract.test.mjs tests/finance-tax-workspace-contract.test.mjs
+        run: node --test tests/finance-human-workflow-contract.test.mjs tests/finance-ui-completion-contract.test.mjs tests/finance-tax-workspace-contract.test.mjs tests/finance-tax-selection-contract.test.mjs

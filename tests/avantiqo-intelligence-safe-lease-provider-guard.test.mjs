@@ -25,6 +25,10 @@ const executorSource = fs.readFileSync(
   new URL("../lib/platform/service-runtime/providers/ProviderExecutor.js", import.meta.url),
   "utf8",
 );
+const modalWorkerSource = fs.readFileSync(
+  new URL("../services/avantiqo-intelligence-modal/modal_app.py", import.meta.url),
+  "utf8",
+);
 
 test("Intelligence text-only Modal payload omits all tool fields", () => {
   const payload = buildIntelligenceModalDirectPayload({
@@ -51,6 +55,7 @@ test("Intelligence direct transport mirrors working Audio Modal SDK pattern", ()
   assert.match(directRuntimeSource, /modal_gateway_used:\s*false/);
   assert.match(directRuntimeSource, /modal_gpu:\s*"H100"/);
   assert.match(directRuntimeSource, /modal_volume_created:\s*false/);
+  assert.doesNotMatch(directRuntimeSource, /Runpod|RunPod|RUNPOD/);
 });
 
 test("active Intelligence provider is Modal-only and fails closed without Modal", () => {
@@ -71,6 +76,13 @@ test("Intelligence registration is Modal-only", () => {
   assert.match(registrationSource, /modal_only:\s*true/);
   assert.match(registrationSource, /runtimeAvailable = Boolean\(modalConfigured/);
   assert.doesNotMatch(registrationSource, /Runpod|RunPod|RUNPOD/);
+});
+
+test("Intelligence Modal worker uses official vLLM and no RunPod artifact", () => {
+  assert.match(modalWorkerSource, /BASE_IMAGE = "vllm\/vllm-openai:v0\.27\.0"/);
+  assert.match(modalWorkerSource, /GPU = "H100"/);
+  assert.match(modalWorkerSource, /"infrastructure_provider": "MODAL_H100_ASYNC_V1"/);
+  assert.doesNotMatch(modalWorkerSource, /Runpod|RunPod|RUNPOD/);
 });
 
 test("shared ProviderExecutor contains no Intelligence RunPod lease or pod fallback routing", () => {

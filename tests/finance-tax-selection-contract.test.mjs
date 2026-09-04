@@ -98,3 +98,20 @@ test("VAT cash settlement continues to post on the real payment or refund date",
   assert.match(settlementRoute, /postingDate: paymentDate, documentDate: paymentDate/);
   assert.match(settlement, /paymentDate: cashForm\.date/);
 });
+
+test("VAT cash settlement is retry-stable across browser, Tax metadata and journal posting", () => {
+  assert.match(settlement, /useRef/);
+  assert.match(settlement, /cashOperationIdRef = useRef\(""\)/);
+  assert.match(settlement, /cashOperationIdRef\.current = crypto\.randomUUID\(\)/);
+  assert.match(settlement, /operationId: cashOperationIdRef\.current/);
+  assert.match(settlement, /if \(success\) \{\s*cashOperationIdRef\.current = ""/);
+  assert.match(settlement, /return false;/);
+  assert.match(settlement, /return true;/);
+  assert.match(settlementRoute, /const operationId = required\(body\.operationId \|\| body\.operation_id, "operation_id"\)/);
+  assert.match(settlementRoute, /settlement\.cash_events\.find\(row => clean\(row\.operation_id \|\| row\.id\) === operationId\)/);
+  assert.match(settlementRoute, /idempotent_replay: true/);
+  assert.match(settlementRoute, /idempotencyKey: `vat-settlement-cash:\$\{vatReturn\.id\}:\$\{operationId\}`/);
+  assert.match(settlementRoute, /id: operationId,\s*operation_id: operationId/);
+  assert.doesNotMatch(settlementRoute, /const eventId = randomUUID\(\)/);
+  assert.match(journalPosting, /p_idempotency_key: resolvedIdempotencyKey/);
+});

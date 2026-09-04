@@ -1,13 +1,69 @@
 name: Avantiqo Code Abort Known Bad Proof
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - audits/avantiqo-code-abort-known-bad-proof-request.json
 
 permissions:
   contents: read
 
 jobs:
-  disabled-carrier:
+  abort-proof:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - run: echo 'Temporary carrier disabled before restoration'
+      - name: Abort only queued Code proof and park endpoint
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_MANAGEMENT_API_KEY: ${{ secrets.RUNPOD_MANAGEMENT_API_KEY }}
+          RUNPOD_AVANTIQO_CODE_API_KEY: ${{ secrets.RUNPOD_AVANTIQO_CODE_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const endpointId = "r79dtnjnrilrlc";
+          const management = (process.env.RUNPOD_MANAGEMENT_API_KEY || process.env.RUNPOD_API_KEY || "").trim();
+          const runtime = (process.env.RUNPOD_AVANTIQO_CODE_API_KEY || process.env.RUNPOD_API_KEY || management).trim();
+          if (!management || !runtime) throw new Error("RUNPOD_CODE_KEYS_REQUIRED");
+          async function call(url, key, options = {}) {
+            const response = await fetch(url, {
+              method: options.method || "GET",
+              headers: { Authorization: `Bearer ${key}`, Accept: "application/json", ...(options.body ? {"Content-Type":"application/json"} : {}) },
+              body: options.body ? JSON.stringify(options.body) : undefined,
+              signal: AbortSignal.timeout(30000),
+            });
+            const raw = await response.text();
+            let body = {}; try { body = raw ? JSON.parse(raw) : {}; } catch { body = {message:raw}; }
+            if (!response.ok) throw new Error(`HTTP_${response.status}:${String(body?.message || body?.error || body?.detail || raw).slice(0,700)}`);
+            return body;
+          }
+          const healthUrl = `https://api.runpod.ai/v2/${endpointId}/health`;
+          const before = await call(healthUrl, runtime);
+          const inQueue = Number(before?.jobs?.inQueue ?? before?.jobs?.in_queue ?? 0);
+          const inProgress = Number(before?.jobs?.inProgress ?? before?.jobs?.in_progress ?? 0);
+          if (inQueue !== 1 || inProgress !== 0) throw new Error(`CODE_BAD_PROOF_ABORT_PRECONDITION:queue=${inQueue}:progress=${inProgress}`);
+          await call(`https://rest.runpod.io/v1/endpoints/${endpointId}`, management, {method:"PATCH", body:{workersMin:0,workersMax:0}});
+          const purged = await call(`https://api.runpod.ai/v2/${endpointId}/purge-queue`, runtime, {method:"POST"});
+          const deadline = Date.now() + 180000;
+          let final = null;
+          while (Date.now() < deadline) {
+            await new Promise((r)=>setTimeout(r,3000));
+            const [endpoint, health] = await Promise.all([
+              call(`https://rest.runpod.io/v1/endpoints/${endpointId}?includeWorkers=true`, management),
+              call(healthUrl, runtime),
+            ]);
+            const workers = health?.workers || {};
+            const active = ["idle","initializing","ready","running","throttled","unhealthy"].reduce((s,k)=>s+Math.max(0,Number(workers[k]||0)),0);
+            const q = Number(health?.jobs?.inQueue ?? health?.jobs?.in_queue ?? 0);
+            const p = Number(health?.jobs?.inProgress ?? health?.jobs?.in_progress ?? 0);
+            final = {workersMin:Number(endpoint.workersMin),workersMax:Number(endpoint.workersMax),queue:q,progress:p,activeWorkers:active};
+            if (final.workersMin===0 && final.workersMax===0 && q===0 && p===0 && active===0) break;
+          }
+          if (!final || final.workersMin!==0 || final.workersMax!==0 || final.queue!==0 || final.progress!==0 || final.activeWorkers!==0) {
+            throw new Error(`CODE_BAD_PROOF_ABORT_NOT_CLEAN:${JSON.stringify(final)}`);
+          }
+          console.log(JSON.stringify({success:true,contract:"AVANTIQO_CODE_BAD_IMAGE_PROOF_ABORT_V1",purged_removed:Number(purged?.removed ?? -1),final,provider_inference_resubmitted:false,wallet_mutation_performed:false,production_deploy_performed:false,secrets_printed:false},null,2));
+          NODE

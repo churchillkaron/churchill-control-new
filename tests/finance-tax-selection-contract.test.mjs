@@ -9,6 +9,7 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), "utf
 const wrapper = read("components/workspace/finance/FinanceTaxWorkCenter.jsx");
 const cockpit = read("components/workspace/finance/FinanceTaxLegacyWorkCenter.jsx");
 const calendar = read("components/workspace/finance/FinanceTaxCalendarRail.jsx");
+const calendarPolicy = read("lib/finance/tax/FinanceTaxCalendarPolicy.js");
 const amendments = read("components/workspace/finance/FinanceTaxAmendmentRail.jsx");
 const settlement = read("components/workspace/finance/FinanceTaxSettlementRail.jsx");
 
@@ -55,4 +56,14 @@ test("New VAT filing derives the statutory deadline from form and filing channel
   assert.match(cockpit, /deadlineOverrideReason: deadlineNeedsEvidence \? form\.deadline_override_reason : null/);
   assert.match(cockpit, /deadlineOverrideEvidenceReference: deadlineNeedsEvidence \? form\.deadline_override_evidence_reference : null/);
   assert.doesNotMatch(cockpit, />Filing due date<input/);
+});
+
+test("Thailand filing deadlines are evaluated on the legal Asia/Bangkok day", () => {
+  assert.match(calendarPolicy, /THAILAND: "Asia\/Bangkok"/);
+  assert.match(calendarPolicy, /getFinanceTaxLegalClock/);
+  assert.match(calendarPolicy, /dateInTimeZone\(now, timeZone\)/);
+  assert.match(calendarPolicy, /item\?\.code !== "FILING_DEADLINE"/);
+  assert.match(calendarPolicy, /dueDate < legalClock\.legal_date/);
+  assert.match(calendarPolicy, /legal_time_zone: legalClock\.time_zone/);
+  assert.match(calendarPolicy, /legal_clock: legalClock/);
 });

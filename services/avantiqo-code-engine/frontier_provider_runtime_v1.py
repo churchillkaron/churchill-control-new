@@ -11,7 +11,7 @@ Fairness rules:
 * no retries or hidden second attempts;
 * no provider tools other than schema-forcing output submission;
 * no web, shell, code interpreter, repository, or hidden-test access;
-* extra/private reasoning disabled for the apples-to-apples comparison;
+* lowest supported reasoning effort for each provider;
 * provider usage and real request wall time are reported from the API response.
 """
 
@@ -128,8 +128,7 @@ def _anthropic_one(*, prompt: str, role: str, max_tokens: int, model: str) -> tu
             "model": model,
             "max_tokens": max_tokens,
             "temperature": 0,
-            "thinking": {"type": "disabled"},
-            "output_config": {"effort": "medium"},
+            "output_config": {"effort": "low"},
             "messages": [{"role": "user", "content": prompt}],
             "tools": [
                 {
@@ -200,7 +199,6 @@ class FrontierProviderRuntime:
         if not isinstance(requests, list) or not requests or len(requests) > 16:
             raise ProviderRuntimeError("REQUEST_BATCH_INVALID")
         started = time.perf_counter()
-        # Preserve request order while bounding provider pressure. No retries.
         with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_REQUESTS, len(requests))) as pool:
             results = list(pool.map(self._one, requests))
         wall_ms = round((time.perf_counter() - started) * 1000)

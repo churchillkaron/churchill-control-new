@@ -188,7 +188,10 @@ includes("auditBuilder", "candidate_builder_revalidates_observation_count_arithm
 includes("auditBuilder", "candidate_builder_revalidates_dominant_outcome_and_ratio: true");
 includes("auditBuilder", "candidate_builder_revalidates_thresholds: true");
 includes("auditBuilder", "candidate_builder_requires_integrity_flags: true");
+includes("auditBuilder", "candidate_builder_requires_observation_integrity_envelope_flags: true");
 includes("auditBuilder", "candidate_builder_requires_complete_stable_history: true");
+includes("auditBuilder", "candidate_builder_requires_verified_snapshot_manifest: true");
+includes("auditBuilder", "candidate_builder_requires_snapshot_churn_guards: true");
 includes("auditBuilder", "forged_or_stale_evaluation_summary_fails_closed: true");
 includes("auditHandoff", "first_observation_cannot_create_candidate: true");
 includes("auditHandoff", "same_day_repetition_cannot_create_candidate: true");

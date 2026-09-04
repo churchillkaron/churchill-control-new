@@ -11,11 +11,15 @@ on:
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeAssessmentRuntime.js"
       - "lib/operator/runtime/OperatorMissionOutcomeLearningBridgeRuntime.js"
+      - "lib/operator/runtime/OperatorMissionOutcomeLearningProjectionRuntime.js"
+      - "lib/operator/runtime/OperatorMissionOutcomeLearningSettlementRuntime.js"
+      - "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
+      - "scripts/audit-operator-mission-completion-learning-local.mjs"
       - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
   pull_request:
     branches:
@@ -27,11 +31,15 @@ on:
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeAssessmentRuntime.js"
       - "lib/operator/runtime/OperatorMissionOutcomeLearningBridgeRuntime.js"
+      - "lib/operator/runtime/OperatorMissionOutcomeLearningProjectionRuntime.js"
+      - "lib/operator/runtime/OperatorMissionOutcomeLearningSettlementRuntime.js"
+      - "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
+      - "scripts/audit-operator-mission-completion-learning-local.mjs"
       - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
   workflow_dispatch:
 
@@ -204,5 +212,75 @@ jobs:
           fi
           if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$bridge"; then
             echo "Real Operator outcome bridge must not write reusable platform knowledge directly" >&2
+            exit 1
+          fi
+
+  operator-mission-completion:
+    name: Verified Operator mission completion learning certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Syntax gate
+        run: |
+          node --check lib/operator/runtime/OperatorMissionOutcomeLearningProjectionRuntime.js
+          node --check lib/operator/runtime/OperatorMissionOutcomeLearningSettlementRuntime.js
+          node --check lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js
+          node --check scripts/audit-operator-mission-completion-learning-local.mjs
+
+      - name: Run verified mission completion learning audit
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: audit-service-role-key-not-used
+          AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID: 00000000-0000-4000-8000-000000000001
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-operator-mission-completion-learning-local.mjs
+
+      - name: Guard verified mission completion learning boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          projection="lib/operator/runtime/OperatorMissionOutcomeLearningProjectionRuntime.js"
+          settlement="lib/operator/runtime/OperatorMissionOutcomeLearningSettlementRuntime.js"
+          mission="lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js"
+          audit="scripts/audit-operator-mission-completion-learning-local.mjs"
+          grep -q 'AVANTIQO_OPERATOR_MISSION_OUTCOME_LEARNING_PROJECTION_V1' "$projection"
+          grep -q 'final_registered_verification_only: true' "$projection"
+          grep -q 'freeform_mission_text_used: false' "$projection"
+          grep -q 'raw_write_result_used: false' "$projection"
+          grep -q 'SENSITIVE_PATH_SEGMENTS' "$projection"
+          grep -q 'AVANTIQO_OPERATOR_MISSION_OUTCOME_LEARNING_SETTLEMENT_V1' "$settlement"
+          grep -q 'post_verified_mission_completion_only: true' "$settlement"
+          grep -q 'customer_organization_forwarded_to_learning: false' "$settlement"
+          grep -q 'raw_write_result_forwarded_to_learning: false' "$settlement"
+          grep -q 'raw_verification_result_forwarded_to_learning: false' "$settlement"
+          grep -q 'automatic_knowledge_promotion: false' "$settlement"
+          grep -q 'direct_platform_knowledge_write_allowed: false' "$settlement"
+          grep -q 'prepareOperatorMissionOutcomeLearningProjection' "$mission"
+          grep -q 'settleOperatorMissionOutcomeLearning' "$mission"
+          grep -q 'OPERATOR_MISSION_OUTCOME_LEARNING_PROJECTION_INVALID' "$mission"
+          grep -q 'learning_observation_token' "$mission"
+          grep -q 'invalid_projection_fails_before_business_execution: true' "$audit"
+          grep -q 'paused_mission_cannot_write_learning: true' "$audit"
+          grep -q 'first_observation_cannot_create_candidate: true' "$audit"
+          grep -q 'same_day_repetition_cannot_create_candidate: true' "$audit"
+          grep -q 'cross_day_three_observation_pattern_creates_one_candidate: true' "$audit"
+          grep -q 'same_observation_token_is_idempotent: true' "$audit"
+          grep -q 'evidence_candidate_is_not_reusable_knowledge: true' "$audit"
+          grep -q 'no_platform_knowledge_write: true' "$audit"
+          if grep -Eiq 'from ["'\''`](openai|@anthropic-ai|modal|runpod)' "$projection" "$settlement" "$mission" "$audit"; then
+            echo "Forbidden model/GPU provider import in verified mission completion learning" >&2
+            exit 1
+          fi
+          if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$projection" "$settlement" "$mission"; then
+            echo "Verified mission completion learning must not write reusable platform knowledge directly" >&2
             exit 1
           fi

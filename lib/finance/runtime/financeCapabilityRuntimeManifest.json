@@ -31,7 +31,7 @@
   "cash_flow": { "kind": "report", "scope": "entity", "owner": "finance", "api": "/api/finance/cash-flow/run", "rowsKey": "rows", "renderer": "FinanceCashFlowWorkCenter" },
   "bank_reconciliation": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/reconciliation/runtime", "rowsKey": "data", "renderer": "FinanceBankReconciliationWorkCenter" },
   "payments": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/payments/list", "rowsKey": "rows", "renderer": "FinancePaymentsWorkCenter" },
-  "fx_revaluation": { "kind": "records", "scope": "entity", "owner": "finance" },
+  "fx_revaluation": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/fx-revaluation/runtime", "rowsKey": "runs", "renderer": "FinanceFxRevaluationWorkCenter" },
 
   "tax": { "kind": "records", "scope": "entity", "owner": "finance" },
   "vat_returns": { "kind": "records", "scope": "entity", "owner": "finance" },

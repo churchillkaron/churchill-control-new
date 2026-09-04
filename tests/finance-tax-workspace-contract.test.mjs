@@ -30,14 +30,7 @@ const portfolioPolicy = read("lib/finance/tax/FinanceTaxPortfolioPolicy.js");
 
 test("Tax and VAT Returns share one governed filing cockpit", () => {
   for (const capability of ["tax", "vat_returns"]) {
-    assert.deepEqual(manifest[capability], {
-      kind: "records",
-      scope: "entity",
-      owner: "finance",
-      api: "/api/finance/tax/runtime",
-      rowsKey: "returns",
-      renderer: "FinanceTaxWorkCenter",
-    });
+    assert.deepEqual(manifest[capability], { kind: "records", scope: "entity", owner: "finance", api: "/api/finance/tax/runtime", rowsKey: "returns", renderer: "FinanceTaxWorkCenter" });
   }
   assert.match(registry, /FinanceTaxWorkCenter/);
   assert.match(registry, /registerRenderer\("FinanceTaxWorkCenter"/);
@@ -107,6 +100,18 @@ test("VAT preflight detects material evidence defects and stale calculations", (
   assert.match(preflight, /CALCULATION_FRESHNESS/);
   assert.match(preflight, /source evidence changed after calculation/);
   assert.match(preflight, /ready_to_submit/);
+});
+
+test("Output VAT preflight uses the same governed line evidence semantics as calculation", () => {
+  assert.match(preflight, /customer_invoice_lines/);
+  assert.match(preflight, /line\.tax_rule_id/);
+  assert.match(preflight, /OUTPUT_TAX_CODE_MISSING/);
+  assert.match(preflight, /OUTPUT_TAX_CODE_UNRESOLVED/);
+  assert.match(preflight, /OUTPUT_VAT_RULE_NOT_EFFECTIVE/);
+  assert.match(preflight, /eligibleVatLines\.reduce\(\(sum, line\) => sum \+ numeric\(line\.tax_amount\), 0\)/);
+  assert.match(preflight, /POSTED_GOVERNED_VAT_LINE_EVIDENCE_V2/);
+  assert.match(preflight, /relevantCustomerLines/);
+  assert.doesNotMatch(preflight, /const taxAmount = numeric\(invoice\.tax_amount\)/);
 });
 
 test("Tax calendar is authority-backed and controlled overrides require evidence", () => {

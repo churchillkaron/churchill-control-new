@@ -22,7 +22,7 @@ FAST_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507"
 DEEP_MODEL = "Qwen/Qwen3-30B-A3B-Thinking-2507"
 FAST_REVISION = "3ffd1f50b179e643d839c86df9ffbbefcb0d5018"
 DEEP_REVISION = "8217eea09b2a3771bcd6d881189a7ed315e148fe"
-BASE_IMAGE = "runpod/worker-v1-vllm:v2.25.0"
+BASE_IMAGE = "vllm/vllm-openai:v0.27.0"
 HF_ROOT = "/opt/avantiqo-intelligence-cache"
 HF_CACHE_ROOT = f"{HF_ROOT}/hub"
 MODEL_ROOT = "/opt/avantiqo-intelligence-models"
@@ -384,7 +384,6 @@ def _run(data: dict[str, Any], *, model: str, lane: str) -> dict[str, Any]:
         "infrastructure_provider": "MODAL_H100_ASYNC_V1",
         "modal_gpu": GPU,
         "modal_volume_created": False,
-        "runpod_inference_performed": False,
         "modal_elapsed_seconds": round(time.perf_counter() - started, 3),
         **({
             "warm_retention_seconds": FAST_SCALEDOWN_WINDOW_SECONDS,

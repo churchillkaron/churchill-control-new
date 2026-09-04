@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { useParams } from "next/navigation";
 
 import OperationsIndustryCommandCenter from "@/components/workspace/operations/OperationsIndustryCommandCenter";
+import PestControlDispatchControl from "@/components/workspace/operations/pest-control/PestControlDispatchControl";
 import PestControlServiceHealth from "@/components/workspace/operations/pest-control/PestControlServiceHealth";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import PestControlOperationsProfile from "@/lib/operations/presentation/PestControlOperationsProfile";
@@ -37,7 +38,12 @@ export default function FieldServiceControlPage() {
       organizationId={organizationId}
       organizationName={organization?.name}
     >
-      {isPestControl ? <PestControlServiceHealth organizationId={organizationId} /> : null}
+      {isPestControl ? (
+        <div className="space-y-5">
+          <PestControlDispatchControl organizationId={organizationId} />
+          <PestControlServiceHealth organizationId={organizationId} />
+        </div>
+      ) : null}
     </OperationsIndustryCommandCenter>
   );
 }

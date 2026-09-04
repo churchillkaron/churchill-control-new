@@ -61,7 +61,7 @@ test("Creative runtime separates read-only plan, confirmed atomic execute and co
 });
 
 test("shot-set planning is deterministic, bounded and preservation-aware before any write", () => {
-  assert.match(setRuntime, /AVANTIQO_CHAT_SHOT_SET_V3/);
+  assert.match(setRuntime, /AVANTIQO_CHAT_SHOT_SET_V4/);
   assert.match(setRuntime, /createHash\("sha256"\)/);
   assert.match(setRuntime, /revision_number/);
   assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_RANGE_OUT_OF_BOUNDS/);
@@ -93,6 +93,23 @@ test("scene-qualified shot ranges take precedence over project ordinals and fail
   assert.ok(sceneRangeIndex >= 0, "scene-qualified range parser must exist");
   assert.ok(projectRangeIndex > sceneRangeIndex, "scene-qualified ranges must resolve before project ranges");
   assert.match(setRuntime, /if \(\/\\bscene\\s\*#\?\\s\*\\d\{1,4\}\\b\/i\.test\(value\)\) return null/);
+});
+
+test("anchored relative shot sets are exact, bounded and preservation-aware", () => {
+  assert.match(setRuntime, /function relativeWindowFromReference/);
+  assert.match(setRuntime, /function relativeWindowShots/);
+  assert.match(setRuntime, /NUMBER_WORDS/);
+  assert.match(setRuntime, /RELATIVE_WINDOW/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_RELATIVE_WINDOW_ANCHOR_REQUIRED/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_RELATIVE_WINDOW_OUT_OF_BOUNDS/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_EXCLUDED_RELATIVE_WINDOW/);
+  assert.match(setRuntime, /Avantiqo will not silently truncate a directing set/);
+  assert.match(setRuntime, /include_anchor:\s*true/);
+  assert.match(setRuntime, /include_anchor:\s*false/);
+  const relativeIndex = setRuntime.indexOf("const relativeWindow = relativeWindowFromReference(setReference)");
+  const sceneIndex = setRuntime.indexOf("const sceneRange = sceneRangeFromReference(setReference)");
+  assert.ok(relativeIndex >= 0, "relative set parser must exist");
+  assert.ok(sceneIndex > relativeIndex, "relative sets must resolve before generic range/reference fallback");
 });
 
 test("confirmed batch rejects stale fingerprints and Pro locks before atomic execution", () => {

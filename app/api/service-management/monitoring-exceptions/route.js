@@ -30,6 +30,13 @@ async function currentException(context, pointId) {
   return data.rows.find((item) => item.point_id === pointId) || null;
 }
 
+function requireOperationsResult(result, fallback) {
+  if (result?.status < 400 && result?.body?.ok) return result.body;
+  const error = new Error(result?.body?.error || fallback);
+  error.status = result?.status || 500;
+  throw error;
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -74,7 +81,7 @@ export async function POST(request) {
           idempotency_key: text(body.clientMutationId || body.client_mutation_id, 160) || `monitoring-exception:${row.point_id}:${row.trigger_check_id}`,
           attributes: {
             monitoring_corrective_action: {
-              schema_version: 1,
+              schema_version: 2,
               point_id: row.point_id,
               point_code: row.point_code,
               trigger_check_id: row.trigger_check_id,
@@ -89,14 +96,15 @@ export async function POST(request) {
               area: row.area,
               placement: row.placement,
               due_at: dueAt,
+              verification: null,
               created_from: "monitoring_exception",
             },
           },
         },
       });
 
-      if (result.status >= 400 || !result.body?.ok) return responseError(result.body?.error || "Corrective action creation failed.", result.status || 500);
-      return Response.json({ success: true, action, corrective_action: result.body.execution?.result || null });
+      const resultBody = requireOperationsResult(result, "Corrective action creation failed.");
+      return Response.json({ success: true, action, corrective_action: resultBody.execution?.result || null });
     }
 
     if (action === "create_follow_up_work") {
@@ -104,6 +112,9 @@ export async function POST(request) {
       if (!row?.active_action) return responseError("Create the corrective action before creating follow-up work.", 409);
       if (row.active_action.follow_up_work_order) {
         return Response.json({ success: true, action, work_order: row.active_action.follow_up_work_order, existing: true });
+      }
+      if (normalized(row.active_action.status) !== "in_progress") {
+        return responseError("Start the corrective action before creating its follow-up work order.", 409);
       }
 
       const corrective = row.active_action.details || {};
@@ -123,7 +134,7 @@ export async function POST(request) {
           idempotency_key: text(body.clientMutationId || body.client_mutation_id, 160) || `monitoring-follow-up:${row.active_action.id}`,
           attributes: {
             monitoring_follow_up: {
-              schema_version: 1,
+              schema_version: 2,
               corrective_action_id: row.active_action.id,
               point_id: row.point_id,
               point_code: row.point_code,
@@ -145,8 +156,73 @@ export async function POST(request) {
         },
       });
 
-      if (result.status >= 400 || !result.body?.ok) return responseError(result.body?.error || "Follow-up work creation failed.", result.status || 500);
-      return Response.json({ success: true, action, work_order: result.body.execution?.result || null });
+      const resultBody = requireOperationsResult(result, "Follow-up work creation failed.");
+      return Response.json({ success: true, action, work_order: resultBody.execution?.result || null });
+    }
+
+    if (action === "verify_corrective_action") {
+      const row = await currentException(resolved.context, pointId);
+      const corrective = row?.active_action;
+      if (!corrective) return responseError("No active corrective action exists for this monitoring point.", 404);
+      if (!corrective.verification?.can_verify) {
+        const state = corrective.verification?.state || "unknown";
+        return responseError(`Corrective action is not ready for verification. Current verification state: ${state}.`, 409);
+      }
+
+      const detailResult = await serverOperationsApi.detail({
+        capabilityId: "corrective-actions",
+        id: corrective.id,
+        context: resolved.context,
+      });
+      const detailBody = requireOperationsResult(detailResult, "Corrective action could not be loaded for verification.");
+      const record = detailBody.record;
+      if (!record) return responseError("Corrective action not found.", 404);
+      if (normalized(record.status) !== "in_progress") {
+        return responseError("Only an in-progress corrective action can be verified complete.", 409);
+      }
+
+      const check = corrective.verification.post_work_check;
+      const workOrder = corrective.follow_up_work_order;
+      const verifiedAt = new Date().toISOString();
+      const existingAttributes = record.attributes || {};
+      const existingCorrective = existingAttributes.monitoring_corrective_action || corrective.details || {};
+      const result = await serverOperationsApi.execute({
+        capabilityId: "corrective-actions",
+        command: "complete",
+        context: resolved.context,
+        payload: {
+          id: corrective.id,
+          idempotency_key: text(body.clientMutationId || body.client_mutation_id, 160) || `monitoring-corrective-verify:${corrective.id}:${check.id}`,
+          attributes: {
+            ...existingAttributes,
+            monitoring_corrective_action: {
+              ...existingCorrective,
+              schema_version: Math.max(2, Number(existingCorrective.schema_version || 1)),
+              verification: {
+                state: "verified",
+                verified_at: verifiedAt,
+                verified_by: resolved.context.actor_id || null,
+                verified_check_id: check.id,
+                verified_check_at: check.checked_at || check.created_at || null,
+                verified_condition: check.condition || null,
+                verified_activity_level: check.activity_level || null,
+                verified_count: Number(check.count || 0),
+                follow_up_work_order_id: workOrder?.id || null,
+                follow_up_work_completed_at: corrective.verification.work_completed_at || null,
+              },
+            },
+          },
+        },
+      });
+
+      const resultBody = requireOperationsResult(result, "Corrective action verification failed.");
+      return Response.json({
+        success: true,
+        action,
+        corrective_action: resultBody.execution?.result || null,
+        verified_check_id: check.id,
+        verified_at: verifiedAt,
+      });
     }
 
     return responseError("Unsupported monitoring exception action.", 400);

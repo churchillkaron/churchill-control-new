@@ -1,0 +1,111 @@
+name: Avantiqo Video Restore Known Good Modal Runtime Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-restore-known-good-modal-runtime-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avantiqo-video-runtime-repair
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    if: github.event.head_commit.message == 'Restore known-good Avantiqo Video Modal runtime once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Restore proven single-B200 generation boundary
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def set_function_max(path_str: str, function_name: str, desired: int) -> None:
+              path = Path(path_str)
+              text = path.read_text()
+              marker = f'def {function_name}('
+              pos = text.index(marker)
+              start = max(0, pos - 900)
+              window = text[start:pos]
+              for current in (4, 3, 2, 1):
+                  token = f'max_containers={current},'
+                  if token in window:
+                      window = window.replace(token, f'max_containers={desired},', 1)
+                      text = text[:start] + window + text[pos:]
+                      path.write_text(text)
+                      print(f'AVANTIQO_VIDEO_CAPACITY={function_name}:max_containers={desired}')
+                      return
+              raise SystemExit(f'max_containers not found for {function_name}')
+
+          # This matches the proven Sep-2 deployment topology: CPU transport may
+          # accept concurrent jobs, but the expensive native B200 render lane is
+          # single-container. Do not fan four full 4K BF16 renders across B200s.
+          set_function_max('services/avantiqo-video-engine/modal_app.py', 'generate_native_master', 1)
+          set_function_max('services/avantiqo-video-engine/modal_native_controlled_master.py', 'generate_native_controlled_master', 1)
+          PY
+
+      - name: Validate restored runtime without GPU
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            services/avantiqo-video-engine/modal_app.py \
+            services/avantiqo-video-engine/modal_native_job.py \
+            services/avantiqo-video-engine/modal_native_controlled_master.py
+          grep -A14 -B10 'def generate_native_master' services/avantiqo-video-engine/modal_app.py | grep -F 'max_containers=1'
+          grep -A14 -B10 'def generate_native_controlled_master' services/avantiqo-video-engine/modal_native_controlled_master.py | grep -F 'max_containers=1'
+          echo 'AVANTIQO_VIDEO_KNOWN_GOOD_TOPOLOGY_STATIC=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Install proven Video Modal CLI
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.1.4'
+          modal --version
+
+      - name: Deploy through proven native job entrypoint only
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          cd services/avantiqo-video-engine
+          modal deploy modal_native_job.py | tee /tmp/avantiqo-video-modal-deploy.log
+          grep -F 'generate_native_job' /tmp/avantiqo-video-modal-deploy.log >/dev/null
+          grep -F 'generate_native_master' /tmp/avantiqo-video-modal-deploy.log >/dev/null
+          echo 'AVANTIQO_VIDEO_KNOWN_GOOD_DEPLOY_ENTRYPOINT=modal_native_job.py'
+          echo 'AVANTIQO_VIDEO_MODAL_VERSION=1.1.4'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
+
+      - name: Commit restored topology to main
+        run: |
+          set -euo pipefail
+          git config user.name 'churchillkaron'
+          git config user.email 'patric@pcsphuket.com'
+          git add services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_native_controlled_master.py
+          if git diff --cached --quiet; then
+            echo 'AVANTIQO_VIDEO_TOPOLOGY_ALREADY_RESTORED=true'
+          else
+            git commit -m 'fix(video): restore proven single-B200 Modal topology'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+          echo 'AVANTIQO_VIDEO_KNOWN_GOOD_RUNTIME_RESTORE=PASS'
+          echo 'AUTOMATIC_PAID_RETRY=false'

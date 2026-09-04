@@ -1,94 +1,13 @@
 name: Avantiqo Code Abort Known Bad Proof
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - audits/avantiqo-code-abort-known-bad-proof-request.json
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: avantiqo-code-qwen38-private12-v16-carrier
-  cancel-in-progress: false
-
 jobs:
-  certify-v16:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+  disabled-carrier:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout exact main
-        uses: actions/checkout@v4
-
-      - name: Setup Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Modal client
-        run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
-
-      - name: Zero-cost V16 edit-normalization admission
-        run: |
-          set -euo pipefail
-          python -m py_compile services/avantiqo-code-engine/repo_agent_v15.py
-          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v9.py
-          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v16_cert.py
-          python -m py_compile services/avantiqo-code-engine/verify_private12_v16_edit_normalization.py
-          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_private12_v16_edit_normalization.py
-          echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V16_ADMISSION=PASS'
-
-      - name: Prove candidate marker before H100
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
-        run: |
-          set -euo pipefail
-          timeout --signal=TERM --kill-after=30s 3m \
-            python -m modal run services/avantiqo-code-engine/modal_code_model_canary_preflight.py \
-            2>&1 | tee /tmp/qwen38-private12-v16-preflight.log
-          grep -q '"single_code_storage":true' /tmp/qwen38-private12-v16-preflight.log
-          grep -q '"candidate_already_ready":true' /tmp/qwen38-private12-v16-preflight.log
-          grep -q '"gpu_used":false' /tmp/qwen38-private12-v16-preflight.log
-          grep -q '"model_download_performed":false' /tmp/qwen38-private12-v16-preflight.log
-          grep -q '"volume_created":false' /tmp/qwen38-private12-v16-preflight.log
-          grep -q '"production_deploy_performed":false' /tmp/qwen38-private12-v16-preflight.log
-          grep -q '"production_routing_change":false' /tmp/qwen38-private12-v16-preflight.log
-
-      - name: Derive fresh sealed suite secret
-        run: |
-          set -euo pipefail
-          secret="$(printf '%s' "${GITHUB_RUN_ID}:${GITHUB_SHA}:avantiqo-qwen38-private12-v16" | sha256sum | awk '{print $1}')"
-          echo "::add-mask::${secret}"
-          echo "AVANTIQO_CODE_PRIVATE_SUITE_SECRET=${secret}" >> "$GITHUB_ENV"
-
-      - name: Run one edit-normalized Qwen3.8 Private12 V16 certification
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
-        run: |
-          set -euo pipefail
-          timeout --signal=TERM --kill-after=30s 12m \
-            python -m modal run \
-            services/avantiqo-code-engine/modal_code_qwen38_private12_v16_cert.py::qwen38_private12_v16 \
-            --approved 2>&1 | tee /tmp/qwen38-private12-v16.log
-          grep -q '"cases":12' /tmp/qwen38-private12-v16.log
-          grep -q '"passed":12' /tmp/qwen38-private12-v16.log
-          grep -q '"hidden_tests_passed":12' /tmp/qwen38-private12-v16.log
-          grep -q '"regression_tests_passed":12' /tmp/qwen38-private12-v16.log
-          grep -q '"semantic_review_passed":12' /tmp/qwen38-private12-v16.log
-          grep -q '"worldclass_certified":true' /tmp/qwen38-private12-v16.log
-          grep -q 'AVANTIQO_CODE_QWEN38_PRIVATE12_CERT_V16=PASS' /tmp/qwen38-private12-v16.log
-
-      - name: Upload V16 certification evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: avantiqo-code-qwen38-private12-v16-${{ github.run_id }}
-          path: |
-            /tmp/qwen38-private12-v16-preflight.log
-            /tmp/qwen38-private12-v16.log
-          if-no-files-found: warn
-          retention-days: 14
+      - run: echo 'Temporary carrier disabled before restoration'

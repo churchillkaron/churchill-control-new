@@ -1,25 +1,23 @@
 name: Avantiqo Code Qwen3.8 Private 12 Certification V12
 
 on:
-  workflow_dispatch:
-    inputs:
-      approved:
-        description: 'Type YES to allow one isolated Qwen3.8 H100 Private12 V12 certification'
-        required: true
-        default: 'NO'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/triggers/avantiqo-code-private12-v13-carrier-zero-cost.trigger'
 
 permissions:
   contents: read
 
 concurrency:
-  group: avantiqo-code-qwen38-private12-v12
+  group: avantiqo-code-private12-v13-zero-cost-carrier
   cancel-in-progress: false
 
 jobs:
-  certify:
-    if: github.event.inputs.approved == 'YES'
+  verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
       - name: Checkout exact main
         uses: actions/checkout@v4
@@ -29,88 +27,20 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Modal client
+      - name: Install Modal client only
         run: python -m pip install --disable-pip-version-check 'modal==1.2.6'
 
-      - name: Zero-cost V12 admission
+      - name: Verify Private12 V13 compact-review contract
         run: |
           set -euo pipefail
-          python -m py_compile services/avantiqo-code-engine/repo_agent_v11.py
-          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
-          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v12_cert.py
-          python -m py_compile services/avantiqo-code-engine/verify_private12_v12_phase_budgets.py
-          python -m py_compile services/avantiqo-code-engine/worldclass_cert_v3_contract.py
-          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_private12_v12_phase_budgets.py
-          cert=services/avantiqo-code-engine/modal_code_qwen38_private12_v12_cert.py
-          runtime=services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
-          grep -q 'RUN_SEED = "20260904-qwen38-private12-v12"' "$cert"
-          grep -q 'REPAIR_MAX_TOKENS = 1024' "$cert"
-          grep -q 'FINAL_REVIEW_MAX_TOKENS = 448' "$cert"
-          grep -q 'REVIEWER_MAX_TOKENS = 320' "$cert"
-          grep -q 'ACTOR_MAX_TOKENS = 640' "$cert"
-          grep -q 'phase == "quality_repair"' "$cert"
-          grep -q 'phase == "quality_final_review"' "$cert"
-          grep -q 'runtime.generate_v7' "$cert"
-          grep -q 'MAX_MODAL_TOTAL_CALLS = base.MAX_MODAL_TOTAL_CALLS' "$cert"
-          grep -q 'FAST_BOOT_ENFORCE_EAGER = False' "$runtime"
-          grep -q '"method": "ngram"' "$runtime"
-          grep -q 'StructuredOutputsParams' "$runtime"
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v12.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v8.py
+          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v13_cert.py
+          python -m py_compile services/avantiqo-code-engine/verify_private12_v13_compact_review.py
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_private12_v13_compact_review.py
+          grep -q 'REVIEWER_MAX_TOKENS = 256' services/avantiqo-code-engine/modal_code_qwen38_private12_v13_cert.py
+          grep -q 'REPAIR_MAX_TOKENS = 1024' services/avantiqo-code-engine/modal_code_qwen38_private12_v13_cert.py
+          grep -q '"maxItems": 4' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v8.py
+          grep -q 'reviewer_compact' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v8.py
           grep -q 'MAX_WARM_P95_MS = 4_000' services/avantiqo-code-engine/worldclass_cert_v3_contract.py
-          echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V12_ADMISSION=PASS'
-
-      - name: Prove candidate marker before H100
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
-        run: |
-          set -euo pipefail
-          timeout --signal=TERM --kill-after=30s 3m \
-            python -m modal run services/avantiqo-code-engine/modal_code_model_canary_preflight.py \
-            2>&1 | tee /tmp/qwen38-private12-v12-preflight.log
-          grep -q '"single_code_storage":true' /tmp/qwen38-private12-v12-preflight.log
-          grep -q '"candidate_already_ready":true' /tmp/qwen38-private12-v12-preflight.log
-          grep -q '"gpu_used":false' /tmp/qwen38-private12-v12-preflight.log
-          grep -q '"model_download_performed":false' /tmp/qwen38-private12-v12-preflight.log
-          grep -q '"volume_created":false' /tmp/qwen38-private12-v12-preflight.log
-          grep -q '"production_deploy_performed":false' /tmp/qwen38-private12-v12-preflight.log
-          grep -q '"production_routing_change":false' /tmp/qwen38-private12-v12-preflight.log
-
-      - name: Derive fresh sealed suite secret
-        run: |
-          set -euo pipefail
-          secret="$(printf '%s' "${GITHUB_RUN_ID}:${GITHUB_SHA}:avantiqo-qwen38-private12-v12" | sha256sum | awk '{print $1}')"
-          echo "::add-mask::${secret}"
-          echo "AVANTIQO_CODE_PRIVATE_SUITE_SECRET=${secret}" >> "$GITHUB_ENV"
-
-      - name: Run one structured accelerated Qwen3.8 Private12 V12 certification
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
-        run: |
-          set -euo pipefail
-          timeout --signal=TERM --kill-after=30s 12m \
-            python -m modal run \
-            services/avantiqo-code-engine/modal_code_qwen38_private12_v12_cert.py::qwen38_private12_v12 \
-            --approved 2>&1 | tee /tmp/qwen38-private12-v12.log
-          grep -q '"cases":12' /tmp/qwen38-private12-v12.log
-          grep -q '"passed":12' /tmp/qwen38-private12-v12.log
-          grep -q '"hidden_tests_passed":12' /tmp/qwen38-private12-v12.log
-          grep -q '"regression_tests_passed":12' /tmp/qwen38-private12-v12.log
-          grep -q '"semantic_review_passed":12' /tmp/qwen38-private12-v12.log
-          grep -q '"latency_measurement":"warm_single_request_representative"' /tmp/qwen38-private12-v12.log
-          grep -Eq '"quality_batch_calls":[1-4](,|})' /tmp/qwen38-private12-v12.log
-          grep -q '"latency_single_calls":3' /tmp/qwen38-private12-v12.log
-          grep -Eq '"total_modal_calls":[4-7](,|})' /tmp/qwen38-private12-v12.log
-          grep -q '"worldclass_certified":true' /tmp/qwen38-private12-v12.log
-          grep -q 'AVANTIQO_CODE_QWEN38_PRIVATE12_CERT_V12=PASS' /tmp/qwen38-private12-v12.log
-
-      - name: Upload V12 certification evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: avantiqo-code-qwen38-private12-v12-${{ github.run_id }}
-          path: |
-            /tmp/qwen38-private12-v12-preflight.log
-            /tmp/qwen38-private12-v12.log
-          if-no-files-found: warn
-          retention-days: 14
+          echo 'AVANTIQO_CODE_PRIVATE12_V13_ZERO_COST_ADMISSION=PASS'

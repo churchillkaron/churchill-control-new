@@ -1,0 +1,76 @@
+name: Avantiqo Video JS-Compatible Single-B200 Deploy Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-video-js-compatible-single-b200-deploy-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-video-runtime-repair
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.head_commit.message == 'Deploy JS-compatible single-B200 Avantiqo Video runtime once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate single-B200 topology
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            services/avantiqo-video-engine/modal_app.py \
+            services/avantiqo-video-engine/modal_native_job.py \
+            services/avantiqo-video-engine/modal_native_controlled_master.py
+          grep -A14 -B10 'def generate_native_master' services/avantiqo-video-engine/modal_app.py | grep -F 'max_containers=1' >/dev/null
+          grep -A14 -B10 'def generate_native_controlled_master' services/avantiqo-video-engine/modal_native_controlled_master.py | grep -F 'max_containers=1' >/dev/null
+          echo 'AVANTIQO_VIDEO_SINGLE_B200_TOPOLOGY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Install JS-compatible Modal Python SDK
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
+          python - <<'PY'
+          import modal
+          from importlib.metadata import version
+          v = version('modal')
+          major, minor, *_ = [int(x) for x in v.split('.')]
+          if (major, minor) < (1, 2):
+              raise SystemExit(f'MODAL_PYTHON_SDK_TOO_OLD:{v}')
+          print(f'AVANTIQO_VIDEO_MODAL_PYTHON_SDK={v}')
+          print('AVANTIQO_VIDEO_JS_SDK_COMPATIBILITY_MINIMUM=PASS')
+          PY
+
+      - name: Deploy through native job entrypoint only
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          cd services/avantiqo-video-engine
+          modal deploy modal_native_job.py | tee /tmp/avantiqo-video-js-compatible-deploy.log
+          grep -F 'generate_native_job' /tmp/avantiqo-video-js-compatible-deploy.log >/dev/null
+          grep -F 'generate_native_master' /tmp/avantiqo-video-js-compatible-deploy.log >/dev/null
+          echo 'AVANTIQO_VIDEO_DEPLOY_ENTRYPOINT=modal_native_job.py'
+          echo 'AVANTIQO_VIDEO_JS_COMPATIBLE_SINGLE_B200_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'AUTOMATIC_PAID_RETRY=false'

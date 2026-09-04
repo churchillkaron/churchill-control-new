@@ -13,6 +13,7 @@ concurrency:
   group: avantiqo-video-runtime-repair
   cancel-in-progress: false
 
+# rerun marker: 2026-09-04T19:15+07
 jobs:
   patch:
     if: github.event.head_commit.message == 'Apply permanent Avantiqo Video spend fix once'
@@ -34,23 +35,13 @@ jobs:
           text = app.read_text()
           marker = 'def generate_native_master('
           pos = text.index(marker)
-          head, tail = text[:pos], text[pos:]
           old = 'max_containers=1,'
-          if old not in head[-500:] and old not in tail[:500]:
-              # decorator is immediately above the function, so search a bounded window spanning it
-              window_start = max(0, pos - 700)
-              window = text[window_start:pos]
-              if old not in window:
-                  raise SystemExit('generate_native_master max_containers marker not found')
-              window = window.replace(old, 'max_containers=4,', 1)
-              text = text[:window_start] + window + text[pos:]
-          else:
-              window_start = max(0, pos - 700)
-              window = text[window_start:pos]
-              if old not in window:
-                  raise SystemExit('generate_native_master decorator marker not found')
-              window = window.replace(old, 'max_containers=4,', 1)
-              text = text[:window_start] + window + text[pos:]
+          window_start = max(0, pos - 700)
+          window = text[window_start:pos]
+          if old not in window:
+              raise SystemExit('generate_native_master max_containers marker not found')
+          window = window.replace(old, 'max_containers=4,', 1)
+          text = text[:window_start] + window + text[pos:]
           app.write_text(text)
 
           controlled = Path('services/avantiqo-video-engine/modal_native_controlled_master.py')

@@ -4,6 +4,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= "audit-service-role-key-not-used";
 
 const {
   OPERATOR_MISSION_OUTCOME_LEARNING_MANIFEST_CONTRACT,
+  assertOperatorMissionOutcomeLearningOwnership,
   resolveOperatorMissionOutcomeLearningProjection,
 } = await import(
   "../lib/operator/runtime/OperatorMissionOutcomeLearningManifestRuntime.js"
@@ -43,6 +44,8 @@ assert.equal(
   "platform.code_ai_commit_status.verify",
 );
 assert.equal(resolved.governance.capability_manifest_declaration_required, true);
+assert.equal(resolved.governance.single_learning_owner_required, true);
+assert.equal(resolved.governance.duplicate_learning_owner_allowed, false);
 assert.equal(resolved.governance.exact_declared_verifier_required, true);
 assert.equal(resolved.governance.static_verifier_identity_required, true);
 assert.equal(resolved.governance.static_verifier_identity_verified, true);
@@ -60,6 +63,26 @@ assert.ok(
   resolved.mappings.every(
     (mapping) => mapping.source_step_id === "commit-final",
   ),
+);
+
+assert.throws(
+  () =>
+    assertOperatorMissionOutcomeLearningOwnership({
+      capability_key: "platform.code_ai_autonomous.execute",
+      declaration: {
+        verification_capability_key: "platform.code_ai_autonomous_status.verify",
+      },
+    }),
+  /DUPLICATE_LEARNING_OWNER_FORBIDDEN:platform\.code_ai_autonomous\.execute/,
+);
+assert.equal(
+  assertOperatorMissionOutcomeLearningOwnership({
+    capability_key: "platform.code_ai_commit.execute",
+    declaration: {
+      verification_capability_key: "platform.code_ai_commit_status.verify",
+    },
+  }),
+  true,
 );
 
 await assert.rejects(
@@ -152,6 +175,9 @@ console.log(
       verified: {
         live_capability_loader_discovers_declaration: true,
         code_ai_commit_is_first_manifest_declared_learning_capability: true,
+        single_learning_owner_required: true,
+        code_autonomous_direct_learning_owner_cannot_add_operator_learning: true,
+        code_commit_operator_learning_owner_remains_eligible: true,
         exact_code_ai_commit_status_verifier_required: true,
         static_verifier_identity_required_before_learning: true,
         matching_static_verifier_identity_certified: true,

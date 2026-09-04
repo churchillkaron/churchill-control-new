@@ -93,7 +93,10 @@ function observation(token, date) {
   return built;
 }
 
-function createRangeDatabase(seedRows = [], { countSequence = null } = {}) {
+function createRangeDatabase(
+  seedRows = [],
+  { countSequence = null, beforeSelect = null } = {},
+) {
   const rows = seedRows.map((row, index) => ({
     id: row.id || `seed-${index + 1}`,
     created_at: row.created_at || row.updated_at,
@@ -102,6 +105,7 @@ function createRangeDatabase(seedRows = [], { countSequence = null } = {}) {
   const writes = [];
   let nextId = 1;
   let countReadIndex = 0;
+  let selectIndex = 0;
 
   function clone(value) {
     return structuredClone(value);
@@ -116,7 +120,11 @@ function createRangeDatabase(seedRows = [], { countSequence = null } = {}) {
         return builder(mode, payload, options, optionsArg);
       },
       eq(field, value) {
-        filters.push([field, value]);
+        filters.push({ operator: "eq", field, value });
+        return api;
+      },
+      lte(field, value) {
+        filters.push({ operator: "lte", field, value });
         return api;
       },
       order(field, config = {}) {
@@ -145,10 +153,23 @@ function createRangeDatabase(seedRows = [], { countSequence = null } = {}) {
     }
 
     function matches(row) {
-      return filters.every(([field, value]) => rowValue(row, field) === value);
+      return filters.every(({ operator, field, value }) => {
+        const actual = rowValue(row, field);
+        if (operator === "eq") return actual === value;
+        if (operator === "lte") return String(actual ?? "") <= String(value ?? "");
+        throw new Error(`AUDIT_FILTER_OPERATOR_UNSUPPORTED:${operator}`);
+      });
     }
 
     function executeSelect(from, to) {
+      selectIndex += 1;
+      if (typeof beforeSelect === "function") {
+        beforeSelect({
+          select_index: selectIndex,
+          rows,
+          clone,
+        });
+      }
       let data = rows.filter(matches).map(clone);
       if (ordering.length) {
         data.sort((leftRow, rightRow) => {
@@ -233,6 +254,16 @@ function poisonRow(row, id, date) {
   return poisoned;
 }
 
+const limits = Object.freeze({
+  max_pattern_observations: 3,
+  history_page_size: 2,
+  max_history_pages: 10,
+  max_raw_history_scan: 20,
+  min_observations: 3,
+  min_distinct_observation_days: 2,
+  min_dominant_outcome_ratio: 0.8,
+});
+
 const oldOne = observation("a".repeat(64), "2026-09-01T08:00:00.000Z");
 const oldTwo = observation("b".repeat(64), "2026-09-02T08:00:00.000Z");
 const poisonTemplate = observation("d".repeat(64), "2026-09-03T08:00:00.000Z");
@@ -261,22 +292,25 @@ const crowdingResult = await ingestAvantiqoMissionOutcomeLearning({
   organization_id: ORGANIZATION_ID,
   database: crowdingDatabase,
   now: new Date("2026-09-05T08:00:00.000Z"),
-  limits: {
-    max_pattern_observations: 3,
-    history_page_size: 2,
-    max_history_pages: 10,
-    max_raw_history_scan: 20,
-    min_observations: 3,
-    min_distinct_observation_days: 2,
-    min_dominant_outcome_ratio: 0.8,
-  },
+  limits,
 });
 assert.equal(crowdingResult.status, "MISSION_OUTCOME_EVIDENCE_CANDIDATE_INGESTED");
 assert.equal(crowdingResult.evidence_candidate_written, true);
 assert.equal(crowdingResult.pattern_evaluation.history_scan_complete, true);
+assert.equal(crowdingResult.pattern_evaluation.history_snapshot_verified, true);
+assert.equal(crowdingResult.pattern_evaluation.history_snapshot_manifest_stable, true);
+assert.equal(crowdingResult.pattern_evaluation.history_snapshot_passes, 2);
+assert.equal(
+  crowdingResult.pattern_evaluation.history_snapshot_mode,
+  "SUPABASE_WATERMARK_TWO_PASS_RANGE_V1",
+);
+assert.match(
+  crowdingResult.pattern_evaluation.history_snapshot_fingerprint,
+  /^[a-f0-9]{64}$/,
+);
 assert.equal(crowdingResult.pattern_evaluation.raw_rows_scanned, 5);
 assert.equal(crowdingResult.pattern_evaluation.total_matching_rows, 5);
-assert.ok(crowdingResult.pattern_evaluation.history_pages_scanned >= 3);
+assert.ok(crowdingResult.pattern_evaluation.history_pages_scanned >= 7);
 assert.equal(crowdingResult.pattern_evaluation.observation_count, 3);
 assert.equal(crowdingResult.pattern_evaluation.excluded_observation_count, 2);
 assert.equal(crowdingResult.pattern_evaluation.eligible_for_evidence_candidate, true);
@@ -308,19 +342,12 @@ const scanLimitResult = await ingestAvantiqoMissionOutcomeLearning({
   organization_id: ORGANIZATION_ID,
   database: scanLimitDatabase,
   now: new Date("2026-09-06T08:00:00.000Z"),
-  limits: {
-    max_pattern_observations: 3,
-    history_page_size: 2,
-    max_history_pages: 10,
-    max_raw_history_scan: 4,
-    min_observations: 3,
-    min_distinct_observation_days: 2,
-    min_dominant_outcome_ratio: 0.8,
-  },
+  limits: { ...limits, max_raw_history_scan: 4 },
 });
 assert.equal(scanLimitResult.status, "VERIFIED_OUTCOME_HISTORY_SCAN_INCOMPLETE");
 assert.equal(scanLimitResult.evidence_candidate_written, false);
 assert.equal(scanLimitResult.pattern_evaluation.history_scan_complete, false);
+assert.equal(scanLimitResult.pattern_evaluation.history_snapshot_verified, false);
 assert.equal(scanLimitResult.pattern_evaluation.scan_limit_exceeded, true);
 assert.equal(
   scanLimitDatabase.snapshot().filter(
@@ -344,22 +371,98 @@ const countChangeResult = await ingestAvantiqoMissionOutcomeLearning({
   organization_id: ORGANIZATION_ID,
   database: countChangeDatabase,
   now: new Date("2026-09-05T09:00:00.000Z"),
-  limits: {
-    max_pattern_observations: 3,
-    history_page_size: 2,
-    max_history_pages: 10,
-    max_raw_history_scan: 20,
-    min_observations: 3,
-    min_distinct_observation_days: 2,
-    min_dominant_outcome_ratio: 0.8,
-  },
+  limits,
 });
 assert.equal(countChangeResult.status, "VERIFIED_OUTCOME_HISTORY_SCAN_INCOMPLETE");
 assert.equal(countChangeResult.evidence_candidate_written, false);
 assert.equal(countChangeResult.pattern_evaluation.history_scan_complete, false);
+assert.equal(countChangeResult.pattern_evaluation.history_snapshot_verified, false);
 assert.equal(countChangeResult.pattern_evaluation.history_count_stable, false);
 assert.equal(
   countChangeDatabase.snapshot().filter(
+    (row) => row.memory_scope === "platform_learning_evidence_candidates",
+  ).length,
+  0,
+);
+
+const replacementSeed = [
+  { ...structuredClone(oldOne.row), id: "replace-1", created_at: oldOne.row.updated_at },
+  { ...structuredClone(oldTwo.row), id: "replace-2", created_at: oldTwo.row.updated_at },
+];
+let replacementApplied = false;
+const replacementDatabase = createRangeDatabase(replacementSeed, {
+  beforeSelect({ select_index, rows, clone }) {
+    if (replacementApplied || select_index !== 5) return;
+    replacementApplied = true;
+    const index = rows.findIndex((row) => row.id === "replace-1");
+    assert.notEqual(index, -1);
+    const replacement = clone(rows[index]);
+    replacement.id = "replace-1-new";
+    rows.splice(index, 1, replacement);
+  },
+});
+const replacementResult = await ingestAvantiqoMissionOutcomeLearning({
+  pattern,
+  outcome_contract: outcomeContract(),
+  outcome_assessment: successAssessment(),
+  observation_token: "9".repeat(64),
+  organization_id: ORGANIZATION_ID,
+  database: replacementDatabase,
+  now: new Date("2026-09-05T10:00:00.000Z"),
+  limits,
+});
+assert.equal(replacementApplied, true);
+assert.equal(replacementResult.status, "VERIFIED_OUTCOME_HISTORY_SCAN_INCOMPLETE");
+assert.equal(replacementResult.evidence_candidate_written, false);
+assert.equal(replacementResult.pattern_evaluation.history_scan_complete, false);
+assert.equal(replacementResult.pattern_evaluation.history_snapshot_verified, false);
+assert.equal(
+  replacementResult.pattern_evaluation.history_scan_reason,
+  "HISTORY_SNAPSHOT_MANIFEST_CHANGED_BETWEEN_PASSES",
+);
+assert.equal(
+  replacementDatabase.snapshot().filter(
+    (row) => row.memory_scope === "platform_learning_evidence_candidates",
+  ).length,
+  0,
+);
+
+const mutationSeed = [
+  { ...structuredClone(oldOne.row), id: "mutate-1", created_at: oldOne.row.updated_at },
+  { ...structuredClone(oldTwo.row), id: "mutate-2", created_at: oldTwo.row.updated_at },
+];
+let mutationApplied = false;
+const mutationDatabase = createRangeDatabase(mutationSeed, {
+  beforeSelect({ select_index, rows }) {
+    if (mutationApplied || select_index !== 5) return;
+    mutationApplied = true;
+    const row = rows.find((candidate) => candidate.id === "mutate-1");
+    assert.ok(row);
+    row.metadata.evidence_reference_count += 1;
+    row.updated_at = "2026-09-05T09:59:00.000Z";
+  },
+});
+const mutationResult = await ingestAvantiqoMissionOutcomeLearning({
+  pattern,
+  outcome_contract: outcomeContract(),
+  outcome_assessment: successAssessment(),
+  observation_token: "8".repeat(64),
+  organization_id: ORGANIZATION_ID,
+  database: mutationDatabase,
+  now: new Date("2026-09-05T10:00:00.000Z"),
+  limits,
+});
+assert.equal(mutationApplied, true);
+assert.equal(mutationResult.status, "VERIFIED_OUTCOME_HISTORY_SCAN_INCOMPLETE");
+assert.equal(mutationResult.evidence_candidate_written, false);
+assert.equal(mutationResult.pattern_evaluation.history_scan_complete, false);
+assert.equal(mutationResult.pattern_evaluation.history_snapshot_verified, false);
+assert.equal(
+  mutationResult.pattern_evaluation.history_scan_reason,
+  "HISTORY_SNAPSHOT_MANIFEST_CHANGED_BETWEEN_PASSES",
+);
+assert.equal(
+  mutationDatabase.snapshot().filter(
     (row) => row.memory_scope === "platform_learning_evidence_candidates",
   ).length,
   0,
@@ -373,13 +476,19 @@ console.log(JSON.stringify({
     exact_matching_row_count_required: true,
     stable_row_identity_required_across_pages: true,
     complete_history_scan_required_before_candidate: true,
+    fixed_created_at_watermark_applied_to_snapshot_passes: true,
+    history_snapshot_revalidated_by_two_bounded_passes: true,
+    stable_structural_manifest_required_across_snapshot_passes: true,
     raw_rows_before_valid_evidence_do_not_crowd_out_unique_votes: true,
     unique_observation_limit_applied_after_history_scan: true,
     raw_scan_limit_fails_closed_before_candidate: true,
     count_change_during_scan_fails_closed: true,
+    same_count_row_replacement_fails_closed: true,
+    in_place_history_mutation_fails_closed: true,
+    concurrent_history_churn_cannot_create_candidate: true,
     incomplete_history_never_writes_evidence_candidate: true,
     evidence_candidate_remains_non_reusable: true,
     provider_gpu_modal_execution_performed: false,
   },
-  cases: 3,
+  cases: 5,
 }, null, 2));

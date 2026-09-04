@@ -30,6 +30,10 @@ const migration = fs.readFileSync(
   "supabase/migrations/20260904052500_creative_atomic_shot_set_revision.sql",
   "utf8",
 );
+const checkpointLookupMigration = fs.readFileSync(
+  "supabase/migrations/20260904053000_creative_direction_checkpoint_lookup.sql",
+  "utf8",
+);
 const projectState = fs.readFileSync(
   "lib/operator/contracts/OperatorProjectState.js",
   "utf8",
@@ -123,9 +127,34 @@ test("atomic execution canonically verifies the exact planned shots and never ge
   assert.match(executor, /publish_authorized:\s*false/);
 });
 
-test("undo uses one exact checkpoint and fails closed when newer work exists", () => {
+test("checkpoint lookup is exact, organization-scoped and service-role-only", () => {
+  assert.match(
+    atomicRuntime,
+    /"creative_direction_checkpoint_shot_ids"/,
+  );
+  assert.match(checkpointLookupMigration, /creative_direction_checkpoint_shot_ids/);
+  assert.match(checkpointLookupMigration, /SECURITY INVOKER/);
+  assert.match(checkpointLookupMigration, /checkpoint\.organization_id = p_organization_id/);
+  assert.match(checkpointLookupMigration, /checkpoint\.creative_project_id = p_creative_project_id/);
+  assert.match(checkpointLookupMigration, /checkpoint\.status = 'APPLIED'/);
+  assert.match(
+    checkpointLookupMigration,
+    /REVOKE EXECUTE[^;]+FROM PUBLIC, anon, authenticated/s,
+  );
+  assert.match(
+    checkpointLookupMigration,
+    /GRANT EXECUTE[^;]+TO service_role/s,
+  );
+});
+
+test("undo uses one exact checkpoint, reanchors to its canonical restored shots and fails closed on newer work", () => {
   assert.match(restore, /CreativeAtomicShotSetRevisionRuntime\.restore/);
-  assert.match(restore, /checkpoint_id/);
+  assert.match(restore, /checkpoint_shot_ids/);
+  assert.match(restore, /CREATIVE_DIRECTION_CHECKPOINT_SHOT_SET_MISSING/);
+  assert.match(restore, /CREATIVE_DIRECTION_CHECKPOINT_REREAD_INCOMPLETE/);
+  assert.match(restore, /restoredShots\.find/);
+  assert.match(restore, /CANONICAL_CHECKPOINT_SHOT_SET_REREAD/);
+  assert.match(restore, /restored_shots:\s*restoredShots/);
   assert.match(restore, /atomic_restore:\s*true/);
   assert.match(restore, /media_generation_executed:\s*false/);
   assert.match(restore, /publish_authorized:\s*false/);

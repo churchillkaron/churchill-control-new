@@ -346,7 +346,7 @@ def _ltx_negative_prompt() -> str:
     volumes={"/models": model_volume},
     timeout=LTX_HARD_TIMEOUT_SECONDS,
     min_containers=0,
-    max_containers=4,
+    max_containers=1,
     buffer_containers=0,
     scaledown_window=5,
     retries=0,

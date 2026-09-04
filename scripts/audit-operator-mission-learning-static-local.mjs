@@ -55,6 +55,11 @@ includes("bridge", "direct_platform_knowledge_write_allowed: false");
 
 includes("declaration", "AVANTIQO_OPERATOR_MISSION_OUTCOME_LEARNING_MANIFEST_V1");
 includes("declaration", "capability_manifest_declaration_required: true");
+includes("declaration", "DIRECT_LEARNING_OWNER_CAPABILITY_KEYS");
+includes("declaration", "platform.code_ai_autonomous.execute");
+includes("declaration", "DUPLICATE_LEARNING_OWNER_FORBIDDEN");
+includes("declaration", "single_learning_owner_required: true");
+includes("declaration", "duplicate_learning_owner_allowed: false");
 includes("declaration", "exact_declared_verifier_required: true");
 includes("declaration", "STATIC_VERIFIER_IDENTITY_REQUIRED");
 includes("declaration", "static_verifier_identity_required: true");
@@ -124,6 +129,8 @@ console.log(
       status: "AVANTIQO_OPERATOR_MISSION_LEARNING_STATIC_GUARDS_CERTIFIED",
       verified: {
         manifest_declared_only: true,
+        single_learning_owner_required: true,
+        duplicate_learning_owner_blocked: true,
         exact_declared_verifier_required: true,
         static_verifier_identity_required: true,
         dynamic_verifier_identity_blocked: true,

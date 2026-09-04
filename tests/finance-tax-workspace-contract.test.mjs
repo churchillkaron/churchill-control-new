@@ -13,14 +13,17 @@ const workspace = read("components/workspace/finance/FinanceTaxWorkCenter.jsx");
 const legacyWorkspace = read("components/workspace/finance/FinanceTaxLegacyWorkCenter.jsx");
 const calendarRail = read("components/workspace/finance/FinanceTaxCalendarRail.jsx");
 const amendmentRail = read("components/workspace/finance/FinanceTaxAmendmentRail.jsx");
-const taxSurface = [workspace, legacyWorkspace, calendarRail, amendmentRail].join("\n");
+const settlementRail = read("components/workspace/finance/FinanceTaxSettlementRail.jsx");
+const taxSurface = [workspace, legacyWorkspace, calendarRail, amendmentRail, settlementRail].join("\n");
 const runtime = read("app/api/finance/tax/runtime/route.js");
 const calculate = read("app/api/finance/vat-returns/calculate/route.js");
 const submit = read("app/api/finance/vat-returns/mark-submitted/route.js");
 const amendments = read("app/api/finance/vat-returns/amendments/route.js");
+const settlementRoute = read("app/api/finance/vat-returns/settlement/route.js");
 const preflight = read("lib/finance/tax/FinanceVatReturnPreflight.js");
 const calendarPolicy = read("lib/finance/tax/FinanceTaxCalendarPolicy.js");
 const amendmentPolicy = read("lib/finance/tax/FinanceVatAmendmentPolicy.js");
+const settlementPolicy = read("lib/finance/tax/FinanceVatSettlementPolicy.js");
 
 test("Tax and VAT Returns share one governed filing cockpit", () => {
   for (const capability of ["tax", "vat_returns"]) {
@@ -39,6 +42,7 @@ test("Tax and VAT Returns share one governed filing cockpit", () => {
   assert.match(primaryPolicy, /vat_returns:\s*\{ mode: "none" \}/);
   assert.match(workspace, /FinanceTaxCalendarRail/);
   assert.match(workspace, /FinanceTaxAmendmentRail/);
+  assert.match(workspace, /FinanceTaxSettlementRail/);
   assert.match(workspace, /FinanceTaxLegacyWorkCenter/);
 });
 
@@ -56,6 +60,9 @@ test("Tax workcenter is workflow-first and human controlled", () => {
   assert.match(taxSurface, /Statutory filing calendar/);
   assert.match(taxSurface, /Original filed return stays immutable/);
   assert.match(taxSurface, /Only the latest filed version can be amended/);
+  assert.match(taxSurface, /Tax settlement/);
+  assert.match(taxSurface, /Paid is not cleared/);
+  assert.match(taxSurface, /Settlement setup required/);
   assert.doesNotMatch(taxSurface, /function Metric\s*\(/);
   assert.doesNotMatch(taxSurface, /<Metric\b/);
 });
@@ -132,4 +139,26 @@ test("Amendment evidence fingerprint covers the full governed source population"
   assert.match(amendmentPolicy, /createHash\("sha256"\)/);
   assert.match(amendmentPolicy, /latestFinanceVatFiledSnapshot/);
   assert.match(amendmentPolicy, /financeVatSnapshotDelta/);
+});
+
+test("Filed VAT continues through governed liability, cash and bank settlement", () => {
+  assert.match(settlementPolicy, /SETTLEMENT_SETUP_REQUIRED/);
+  assert.match(settlementPolicy, /LIABILITY_POSTING_REQUIRED/);
+  assert.match(settlementPolicy, /PART_PAID/);
+  assert.match(settlementPolicy, /PART_REFUNDED/);
+  assert.match(settlementPolicy, /PAID_AWAITING_BANK_MATCH/);
+  assert.match(settlementPolicy, /REFUNDED_AWAITING_BANK_MATCH/);
+  assert.match(settlementPolicy, /CLEARED/);
+  assert.match(settlementPolicy, /journal\.reversed !== true/);
+  assert.match(settlementPolicy, /bankTransaction\?\.reconciled === true/);
+  assert.match(settlementPolicy, /latestFinanceVatFiledSnapshot/);
+  assert.match(settlementRoute, /finance_tax_close_configurations/);
+  assert.match(settlementRoute, /financeGateway/);
+  assert.match(settlementRoute, /finance\.journals\.post/);
+  assert.match(settlementRoute, /vat-settlement-liability:/);
+  assert.match(settlementRoute, /vat-settlement-cash:/);
+  assert.match(settlementRoute, /Bank transaction amount does not match the VAT cash settlement event/);
+  assert.match(settlementRoute, /bank_match_candidates/);
+  assert.doesNotMatch(settlementRoute, /\.from\("general_ledger"\).*\.(insert|update|upsert)/s);
+  assert.doesNotMatch(settlementRoute, /\.from\("journal_entries"\).*\.(insert|update|upsert)/s);
 });

@@ -20,6 +20,7 @@ on:
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
+      - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
       - "scripts/audit-operator-mission-completion-learning-local.mjs"
@@ -45,6 +46,7 @@ on:
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
+      - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
       - "scripts/audit-operator-mission-completion-learning-local.mjs"
@@ -89,6 +91,7 @@ jobs:
           node --check lib/platform/capabilities/createCodeAICommitCapability.js
           node --check lib/platform/capabilities/createCodeAICommitStatusCapability.js
           node --check scripts/audit-avantiqo-mission-outcome-learning-local.mjs
+          node --check scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs
           node --check scripts/audit-operator-mission-outcome-learning-handoff-local.mjs
           node --check scripts/audit-operator-mission-outcome-learning-bridge-local.mjs
           node --check scripts/audit-operator-mission-completion-learning-local.mjs
@@ -97,6 +100,9 @@ jobs:
 
       - name: Run base accumulation audit
         run: node scripts/audit-avantiqo-mission-outcome-learning-local.mjs
+
+      - name: Run stored evidence integrity audit
+        run: node scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs
 
       - name: Run Operator outcome handoff audit
         env:

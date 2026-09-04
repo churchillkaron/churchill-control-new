@@ -4,6 +4,10 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { createCodeAIAutonomousCapability } from "@/lib/platform/capabilities/createCodeAIAutonomousCapability";
 import { withCodeAIInteractivePreviewContext } from "@/lib/code/runtime/CodeAIInteractivePreviewContextRuntime";
+import {
+  AVANTIQO_CODE_CERTIFICATION_CONTRACT,
+  AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
+} from "@/lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProviderRegistration";
 
 export const runtime = "nodejs";
 export const maxDuration = 900;
@@ -44,6 +48,8 @@ function errorResponse(error, status = 500) {
   return Response.json({
     success: false,
     contract: PREVIEW_CONTRACT,
+    certification_contract: AVANTIQO_CODE_CERTIFICATION_CONTRACT,
+    certified_runtime_contract: AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
     error: text(error?.message || error, 1000) || "CODE_STUDIO_MISSION_FAILED",
     production_routing_activated: false,
     production_deploy_performed: false,
@@ -105,6 +111,8 @@ async function enablePreviewService(organizationId) {
       metadata: {
         interactive_preview_only: true,
         preview_contract: PREVIEW_CONTRACT,
+        certification_contract: AVANTIQO_CODE_CERTIFICATION_CONTRACT,
+        certified_runtime_contract: AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
         owned_only_required: true,
         external_fallback_allowed: false,
         production_routing_allowed: false,
@@ -186,6 +194,8 @@ export async function POST(request) {
       metadata: {
         partyId: access.staff?.party_id || access.staff?.partyId || null,
         code_studio_preview: true,
+        code_certification_contract: AVANTIQO_CODE_CERTIFICATION_CONTRACT,
+        code_runtime_contract: AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
       },
     };
 
@@ -215,6 +225,8 @@ export async function POST(request) {
     return Response.json({
       success: result?.success === true,
       contract: PREVIEW_CONTRACT,
+      certification_contract: AVANTIQO_CODE_CERTIFICATION_CONTRACT,
+      certified_runtime_contract: AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
       status: text(result?.status || result?.state?.status, 120) || "unknown",
       reason: text(result?.reason, 1000) || null,
       execution_key: key,

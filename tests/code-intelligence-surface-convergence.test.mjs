@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const provider = await readFile(
+  "lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProviderRegistration.js",
+  "utf8",
+);
+const studioRoute = await readFile(
+  "app/api/operator/code/mission/route.js",
+  "utf8",
+);
+const businessPartnerPolicy = await readFile(
+  "lib/operator/runtime/OperatorSelfEngineeringPolicy.js",
+  "utf8",
+);
+const productEngineering = await readFile(
+  "lib/platform/capabilities/createProductEngineeringCycleCapability.js",
+  "utf8",
+);
+
+const CERTIFICATION = "AVANTIQO_CODE_QWEN38_PRIVATE12_CERT_V17";
+const RUNTIME = "AVANTIQO_CODE_QWEN38_CANARY_RUNTIME_V10";
+
+test("registered Avantiqo Code provider exposes the certified V17 runtime identity", () => {
+  assert.match(provider, new RegExp(CERTIFICATION));
+  assert.match(provider, new RegExp(RUNTIME));
+  assert.match(provider, /certification_status:\s*"PASS"/);
+  assert.match(provider, /certified_repository_agent:\s*"repo_agent_v15"/);
+  assert.match(provider, /method:\s*"mtp"/);
+  assert.match(provider, /external_provider_fallback_allowed:\s*false/);
+});
+
+test("Code Studio is bound to the same certified Avantiqo Code identity", () => {
+  assert.match(studioRoute, /AVANTIQO_CODE_CERTIFICATION_CONTRACT/);
+  assert.match(studioRoute, /AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT/);
+  assert.match(studioRoute, /certification_contract:/);
+  assert.match(studioRoute, /certified_runtime_contract:/);
+  assert.match(studioRoute, /createCodeAIAutonomousCapability/);
+  assert.match(studioRoute, /production_routing_activated:\s*false/);
+  assert.match(studioRoute, /commit_performed:\s*false/);
+  assert.match(studioRoute, /production_deploy_performed:\s*false/);
+});
+
+test("Business Partner code requests converge through Product Engineering into Code AI", () => {
+  assert.match(
+    businessPartnerPolicy,
+    /platform\.product_engineering_cycle\.execute/,
+  );
+  assert.match(
+    businessPartnerPolicy,
+    /Keep the Business Partner conversation as the control plane/,
+  );
+  assert.match(
+    productEngineering,
+    /capability_key:\s*"platform\.code_ai_autonomous\.execute"/,
+  );
+  assert.match(
+    productEngineering,
+    /capability_key:\s*"platform\.code_ai_autonomous_status\.verify"/,
+  );
+});
+
+test("surface convergence does not grant production authority", () => {
+  assert.match(provider, /production_routing_changed_by_certification:\s*false/);
+  assert.match(studioRoute, /production_routing_activated:\s*false/);
+  assert.match(studioRoute, /pricing_activated:\s*false/);
+  assert.match(studioRoute, /external_fallback_allowed:\s*false/);
+  assert.match(productEngineering, /productionDeploymentAllowed:\s*false/);
+  assert.match(productEngineering, /databaseMigrationExecutionAllowed:\s*false/);
+});

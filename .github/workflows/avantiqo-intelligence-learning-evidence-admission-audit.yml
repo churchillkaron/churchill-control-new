@@ -1,0 +1,86 @@
+name: Avantiqo Intelligence Learning Evidence Admission Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoContinuousLearningRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "scripts/audit-avantiqo-learning-evidence-candidate-admission-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-learning-evidence-admission-audit.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoContinuousLearningRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "scripts/audit-avantiqo-learning-evidence-candidate-admission-local.mjs"
+      - ".github/workflows/avantiqo-intelligence-learning-evidence-admission-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-learning-evidence-admission-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Zero-cost learning evidence admission certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Syntax gate
+        run: |
+          node --check lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js
+          node --check scripts/audit-avantiqo-learning-evidence-candidate-admission-local.mjs
+
+      - name: Run adversarial evidence admission audit
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-learning-evidence-candidate-admission-local.mjs
+
+      - name: Guard immutable admission boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+          grep -q 'AVANTIQO_LEARNING_EVIDENCE_CANDIDATE_ADMISSION_V1' "$runtime"
+          grep -q 'EVIDENCE_CANDIDATE_NOT_RELEASED' "$runtime"
+          grep -q 'REUSABLE_PLATFORM_KNOWLEDGE_EXPLICIT_FALSE_REQUIRED' "$runtime"
+          grep -q 'KNOWLEDGE_ROUTER_REUSE_EXPLICIT_FALSE_REQUIRED' "$runtime"
+          grep -q 'AUTOMATIC_KNOWLEDGE_PROMOTION_EXPLICIT_FALSE_REQUIRED' "$runtime"
+          grep -q 'CUSTOMER_PRIVATE_MEMORY_EXPLICIT_FALSE_REQUIRED' "$runtime"
+          grep -q 'CUSTOMER_PRIVATE_CONTENT_EXPLICIT_FALSE_REQUIRED' "$runtime"
+          grep -q 'RAW_REASONING_PERSISTENCE_EXPLICIT_FALSE_REQUIRED' "$runtime"
+          grep -q 'DIRECT_PLATFORM_KNOWLEDGE_WRITE_EXPLICIT_FALSE_REQUIRED' "$runtime"
+          grep -q 'EXPLICIT_FINAL_PROMOTION_REQUIRED' "$runtime"
+          grep -q 'EPISTEMIC_PROMOTION_PIPELINE_REQUIRED' "$runtime"
+          grep -q 'AUTHORIZATION_VALUE_NONE_REQUIRED' "$runtime"
+          grep -q 'EVIDENCE_SOURCE_COUNT_REQUIRED' "$runtime"
+          grep -q 'CANDIDATE_NOT_EXPIRED_REQUIRED' "$runtime"
+          grep -q 'LEGACY_PUBLIC_WEB_EVIDENCE_EXPLICIT_SOURCE_GUARD' "$runtime"
+          if grep -Eq 'from ["'\''`](openai|@anthropic-ai|modal|runpod)' "$runtime"; then
+            echo "Forbidden provider/GPU import in zero-cost evidence admission runtime"
+            exit 1
+          fi
+          if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$runtime"; then
+            echo "Direct reusable platform knowledge write detected"
+            exit 1
+          fi

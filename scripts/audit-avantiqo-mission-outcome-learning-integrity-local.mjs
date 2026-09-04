@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import {
+  AVANTIQO_MISSION_OUTCOME_OBSERVATION_AUTHENTICITY_CONTRACT,
   AVANTIQO_MISSION_OUTCOME_OBSERVATION_INTEGRITY_CONTRACT,
   buildAvantiqoMissionOutcomeEvidenceCandidateRow,
   buildAvantiqoMissionOutcomeLearningObservation,
   computeAvantiqoMissionOutcomeObservationIntegrityFingerprint,
   evaluateAvantiqoMissionOutcomePattern,
 } from "../lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js";
+import {
+  sealAvantiqoMissionOutcomeObservationAuthenticity,
+} from "../lib/intelligence/runtime/AvantiqoMissionOutcomeObservationAuthenticityRuntime.js";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 const OUTCOME_CONTRACT = "AVANTIQO_OPERATOR_INTELLIGENCE_DECISION_OUTCOME_CONTRACT_V1";
@@ -96,10 +100,18 @@ function observation(token, date) {
   return built;
 }
 
-function reseal(row) {
+function resealChecksumOnly(row) {
   row.metadata.observation_integrity_fingerprint =
     computeAvantiqoMissionOutcomeObservationIntegrityFingerprint(row);
   return row;
+}
+
+function resealLegitimately(row) {
+  const signed = sealAvantiqoMissionOutcomeObservationAuthenticity(row);
+  assert.equal(signed.success, true);
+  signed.row.metadata.observation_integrity_fingerprint =
+    computeAvantiqoMissionOutcomeObservationIntegrityFingerprint(signed.row);
+  return signed.row;
 }
 
 const first = observation("a".repeat(64), "2026-09-01T08:00:00.000Z");
@@ -111,8 +123,16 @@ for (const built of [first, second, third]) {
     built.row.metadata.observation_integrity_contract,
     AVANTIQO_MISSION_OUTCOME_OBSERVATION_INTEGRITY_CONTRACT,
   );
+  assert.equal(
+    built.row.metadata.observation_authenticity_contract,
+    AVANTIQO_MISSION_OUTCOME_OBSERVATION_AUTHENTICITY_CONTRACT,
+  );
   assert.match(
     built.row.metadata.observation_integrity_fingerprint,
+    /^[a-f0-9]{64}$/,
+  );
+  assert.match(
+    built.row.metadata.observation_authenticity_mac,
     /^[a-f0-9]{64}$/,
   );
   assert.equal(
@@ -131,9 +151,14 @@ assert.equal(valid.duplicate_observation_count, 0);
 assert.equal(valid.conflicting_observation_fingerprint_count, 0);
 assert.equal(valid.quarantined_conflicting_observation_count, 0);
 assert.equal(valid.excluded_observation_count, 0);
+assert.equal(valid.observation_authenticity_available, true);
+assert.equal(valid.observation_authenticity_rejected_row_count, 0);
 assert.equal(valid.anti_overfitting.stored_observation_integrity_revalidated, true);
 assert.equal(valid.anti_overfitting.observation_integrity_envelope_required, true);
 assert.equal(valid.anti_overfitting.observation_integrity_envelope_revalidated, true);
+assert.equal(valid.anti_overfitting.observation_authenticity_required, true);
+assert.equal(valid.anti_overfitting.observation_authenticity_verified, true);
+assert.equal(valid.anti_overfitting.database_only_writer_cannot_reseal_without_server_key, true);
 assert.equal(valid.anti_overfitting.malformed_or_poisoned_observations_excluded, true);
 assert.equal(valid.anti_overfitting.unique_observation_fingerprints_required, true);
 assert.equal(valid.anti_overfitting.duplicate_observations_excluded, true);
@@ -157,20 +182,36 @@ assert.equal(duplicateInflationAttempt.excluded_observation_count, 3);
 assert.equal(duplicateInflationAttempt.distinct_observation_days, 1);
 assert.equal(duplicateInflationAttempt.eligible_for_evidence_candidate, false);
 
-const duplicateCrossDayAttempt = structuredClone(first.row);
-duplicateCrossDayAttempt.metadata.observed_day = "2026-09-02";
-duplicateCrossDayAttempt.metadata.observed_at = "2026-09-02T08:00:00.000Z";
-reseal(duplicateCrossDayAttempt);
-const duplicateCrossDayEvaluation = evaluateAvantiqoMissionOutcomePattern({
-  observations: [first.row, second.row, duplicateCrossDayAttempt],
+const checksumOnlyForgery = structuredClone(first.row);
+checksumOnlyForgery.metadata.observed_day = "2026-09-02";
+checksumOnlyForgery.metadata.observed_at = "2026-09-02T08:00:00.000Z";
+resealChecksumOnly(checksumOnlyForgery);
+const checksumOnlyForgeryEvaluation = evaluateAvantiqoMissionOutcomePattern({
+  observations: [first.row, second.row, checksumOnlyForgery],
   pattern_fingerprint: first.pattern_fingerprint,
 });
-assert.equal(duplicateCrossDayEvaluation.observation_count, 1);
-assert.equal(duplicateCrossDayEvaluation.duplicate_observation_count, 1);
-assert.equal(duplicateCrossDayEvaluation.conflicting_observation_fingerprint_count, 1);
-assert.equal(duplicateCrossDayEvaluation.quarantined_conflicting_observation_count, 2);
-assert.equal(duplicateCrossDayEvaluation.distinct_observation_days, 1);
-assert.equal(duplicateCrossDayEvaluation.eligible_for_evidence_candidate, false);
+assert.equal(checksumOnlyForgeryEvaluation.observation_count, 2);
+assert.equal(checksumOnlyForgeryEvaluation.duplicate_observation_count, 0);
+assert.equal(checksumOnlyForgeryEvaluation.conflicting_observation_fingerprint_count, 0);
+assert.equal(checksumOnlyForgeryEvaluation.observation_authenticity_rejected_row_count, 1);
+assert.equal(checksumOnlyForgeryEvaluation.excluded_observation_count, 1);
+assert.equal(checksumOnlyForgeryEvaluation.distinct_observation_days, 1);
+assert.equal(checksumOnlyForgeryEvaluation.eligible_for_evidence_candidate, false);
+
+const signedCrossDayConflict = structuredClone(first.row);
+signedCrossDayConflict.metadata.observed_day = "2026-09-02";
+signedCrossDayConflict.metadata.observed_at = "2026-09-02T08:00:00.000Z";
+resealLegitimately(signedCrossDayConflict);
+const signedCrossDayConflictEvaluation = evaluateAvantiqoMissionOutcomePattern({
+  observations: [first.row, second.row, signedCrossDayConflict],
+  pattern_fingerprint: first.pattern_fingerprint,
+});
+assert.equal(signedCrossDayConflictEvaluation.observation_count, 1);
+assert.equal(signedCrossDayConflictEvaluation.duplicate_observation_count, 1);
+assert.equal(signedCrossDayConflictEvaluation.conflicting_observation_fingerprint_count, 1);
+assert.equal(signedCrossDayConflictEvaluation.quarantined_conflicting_observation_count, 2);
+assert.equal(signedCrossDayConflictEvaluation.distinct_observation_days, 1);
+assert.equal(signedCrossDayConflictEvaluation.eligible_for_evidence_candidate, false);
 
 const conflictCases = [
   ["outcome", (row) => { row.metadata.verified_outcome = "FAILURE"; }],
@@ -187,7 +228,7 @@ const conflictCases = [
 for (const [name, mutate] of conflictCases) {
   const conflicting = structuredClone(first.row);
   mutate(conflicting);
-  reseal(conflicting);
+  resealLegitimately(conflicting);
   for (const observations of [
     [first.row, second.row, conflicting],
     [conflicting, second.row, first.row],
@@ -211,9 +252,13 @@ const candidate = buildAvantiqoMissionOutcomeEvidenceCandidateRow({
   organization_id: ORGANIZATION_ID,
   now: new Date("2026-09-02T09:00:00.000Z"),
 });
+assert.ok(candidate);
 assert.equal(candidate.metadata.stored_observation_integrity_revalidated, true);
 assert.equal(candidate.metadata.observation_integrity_envelope_required, true);
 assert.equal(candidate.metadata.observation_integrity_envelope_revalidated, true);
+assert.equal(candidate.metadata.observation_authenticity_required, true);
+assert.equal(candidate.metadata.observation_authenticity_verified, true);
+assert.equal(candidate.metadata.database_only_writer_cannot_reseal_without_server_key, true);
 assert.equal(candidate.metadata.malformed_or_poisoned_observations_excluded, true);
 assert.equal(candidate.metadata.unique_observation_fingerprints_required, true);
 assert.equal(candidate.metadata.duplicate_observations_excluded, true);
@@ -228,6 +273,9 @@ const mutations = [
   ["missing integrity contract", (row) => { delete row.metadata.observation_integrity_contract; }],
   ["missing integrity fingerprint", (row) => { delete row.metadata.observation_integrity_fingerprint; }],
   ["forged integrity fingerprint", (row) => { row.metadata.observation_integrity_fingerprint = "f".repeat(64); }],
+  ["missing authenticity contract", (row) => { delete row.metadata.observation_authenticity_contract; }],
+  ["missing authenticity mac", (row) => { delete row.metadata.observation_authenticity_mac; }],
+  ["forged authenticity mac", (row) => { row.metadata.observation_authenticity_mac = "f".repeat(64); }],
   ["pattern fingerprint", (row) => { row.metadata.pattern_fingerprint = "0".repeat(63); }],
   ["observation fingerprint", (row) => { row.metadata.observation_fingerprint = "not-a-sha256"; }],
   ["observation key", (row) => { row.memory_key = "mission-outcome-observation:forged"; }],
@@ -277,8 +325,14 @@ console.log(JSON.stringify({
     observation_integrity_contract_persisted: true,
     observation_integrity_fingerprint_is_sha256: true,
     observation_integrity_envelope_recomputed_before_accumulation: true,
+    observation_authenticity_contract_persisted: true,
+    observation_authenticity_mac_is_hmac_sha256: true,
     missing_or_mismatched_integrity_envelope_is_excluded: true,
+    missing_or_mismatched_authenticity_mac_is_excluded: true,
+    public_checksum_reseal_cannot_forge_authenticity: true,
+    database_only_writer_cannot_reseal_without_server_key: true,
     epistemic_field_mutation_invalidates_integrity_envelope: true,
+    legitimately_signed_conflicting_duplicates_still_reach_conflict_quarantine: true,
     resealed_conflicting_duplicates_still_reach_conflict_quarantine: true,
     stored_observation_integrity_revalidated: true,
     malformed_or_poisoned_observations_excluded: true,
@@ -300,6 +354,7 @@ console.log(JSON.stringify({
   },
   poison_cases: mutations.length,
   duplicate_cases: 2,
+  authenticity_forgery_cases: 1,
   conflict_cases: conflictCases.length,
   conflict_orderings_per_case: 2,
 }, null, 2));

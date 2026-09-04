@@ -40,11 +40,14 @@ includes("learning", "min_dominant_outcome_ratio: 0.8");
 includes("learning", "history_page_size: 250");
 includes("learning", "max_history_pages: 64");
 includes("learning", "max_raw_history_scan: 5000");
+includes("learning", "history_snapshot_verification_passes: 2");
 includes("learning", "const SHA256_RE");
 includes("learning", "function positiveInteger");
 includes("learning", "function nonNegativeInteger");
 includes("learning", "function validObservationTime");
+includes("learning", "function validDatabaseTimestamp");
 includes("learning", "function observationStructuralSignature");
+includes("learning", "function historySnapshotFingerprint");
 includes("learning", "function uniqueEligibleObservationRows");
 includes("learning", "const groups = new Map()");
 includes("learning", "duplicate_observation_count");
@@ -57,6 +60,8 @@ includes("learning", "row_order_cannot_resolve_observation_conflict: true");
 includes("learning", "function validEvidenceCandidateEvaluation");
 includes("learning", "total !== successes + failures");
 includes("learning", "reportedRatio !== expectedRatio");
+includes("learning", "source.history_snapshot_verified !== true");
+includes("learning", "source.history_snapshot_manifest_stable !== true");
 includes("learning", "evaluation_summary_revalidated: true");
 includes("learning", "caller_supplied_eligibility_not_trusted: true");
 includes("learning", "observation_count_arithmetic_revalidated: true");
@@ -66,13 +71,21 @@ includes("learning", "FAILED_CLOSED_INVALID_EVIDENCE_CANDIDATE_EVALUATION");
 includes("learning", "function historyScanConfiguration");
 includes("learning", "function patternObservationQuery");
 includes("learning", 'count: "exact"');
-includes("learning", '.range(0, firstTo)');
+includes("learning", 'query = query.lte("created_at", snapshotWatermark)');
+includes("learning", "function scanPatternHistoryPass");
+includes("learning", "SUPABASE_WATERMARK_TWO_PASS_RANGE_V1");
+includes("learning", "HISTORY_SNAPSHOT_MANIFEST_CHANGED_BETWEEN_PASSES");
 includes("learning", "function applyHistoryScanGate");
 includes("learning", "complete_history_scan_required: true");
 includes("learning", "incomplete_history_blocks_evidence_candidate: true");
 includes("learning", "raw_rows_cannot_crowd_out_unique_observation_limit: true");
 includes("learning", "history_count_must_remain_stable_during_scan: true");
 includes("learning", "stable_row_identity_required_across_pages: true");
+includes("learning", "fixed_history_watermark_required: true");
+includes("learning", "history_snapshot_manifest_reverification_required: true");
+includes("learning", "same_count_history_replacement_blocks_candidate: true");
+includes("learning", "in_place_history_mutation_blocks_candidate: true");
+includes("learning", "concurrent_history_churn_blocks_candidate: true");
 includes("learning", "VERIFIED_OUTCOME_HISTORY_SCAN_INCOMPLETE");
 includes("learning", "stored_observation_integrity_revalidated: true");
 includes("learning", "malformed_or_poisoned_observations_excluded: true");
@@ -150,8 +163,14 @@ includes("auditIntegrity", "decisive_evidence_counts_revalidated: true");
 includes("auditIntegrity", "observation_day_and_timestamp_must_agree: true");
 includes("auditHistory", "raw_rows_before_valid_evidence_do_not_crowd_out_unique_votes: true");
 includes("auditHistory", "history_scan_uses_ordered_range_pagination: true");
+includes("auditHistory", "fixed_created_at_watermark_applied_to_snapshot_passes: true");
+includes("auditHistory", "history_snapshot_revalidated_by_two_bounded_passes: true");
+includes("auditHistory", "stable_structural_manifest_required_across_snapshot_passes: true");
 includes("auditHistory", "raw_scan_limit_fails_closed_before_candidate: true");
 includes("auditHistory", "count_change_during_scan_fails_closed: true");
+includes("auditHistory", "same_count_row_replacement_fails_closed: true");
+includes("auditHistory", "in_place_history_mutation_fails_closed: true");
+includes("auditHistory", "concurrent_history_churn_cannot_create_candidate: true");
 includes("auditBuilder", "candidate_builder_revalidates_observation_count_arithmetic: true");
 includes("auditBuilder", "candidate_builder_revalidates_dominant_outcome_and_ratio: true");
 includes("auditBuilder", "candidate_builder_revalidates_thresholds: true");
@@ -214,6 +233,11 @@ console.log(
         raw_rows_cannot_crowd_out_unique_observation_limit: true,
         history_count_must_remain_stable_during_scan: true,
         stable_row_identity_required_across_pages: true,
+        fixed_history_watermark_required: true,
+        history_snapshot_manifest_reverification_required: true,
+        same_count_history_replacement_blocks_candidate: true,
+        in_place_history_mutation_blocks_candidate: true,
+        concurrent_history_churn_blocks_candidate: true,
         evaluation_summary_revalidated: true,
         caller_supplied_eligibility_not_trusted: true,
         observation_count_arithmetic_revalidated: true,

@@ -14,8 +14,10 @@ const legacyWorkspace = read("components/workspace/finance/FinanceTaxLegacyWorkC
 const calendarRail = read("components/workspace/finance/FinanceTaxCalendarRail.jsx");
 const amendmentRail = read("components/workspace/finance/FinanceTaxAmendmentRail.jsx");
 const settlementRail = read("components/workspace/finance/FinanceTaxSettlementRail.jsx");
-const taxSurface = [workspace, legacyWorkspace, calendarRail, amendmentRail, settlementRail].join("\n");
+const portfolioRail = read("components/workspace/finance/FinanceTaxPortfolioRail.jsx");
+const taxSurface = [workspace, legacyWorkspace, calendarRail, amendmentRail, settlementRail, portfolioRail].join("\n");
 const runtime = read("app/api/finance/tax/runtime/route.js");
+const portfolioRoute = read("app/api/finance/tax/portfolio/route.js");
 const calculate = read("app/api/finance/vat-returns/calculate/route.js");
 const submit = read("app/api/finance/vat-returns/mark-submitted/route.js");
 const amendments = read("app/api/finance/vat-returns/amendments/route.js");
@@ -24,6 +26,7 @@ const preflight = read("lib/finance/tax/FinanceVatReturnPreflight.js");
 const calendarPolicy = read("lib/finance/tax/FinanceTaxCalendarPolicy.js");
 const amendmentPolicy = read("lib/finance/tax/FinanceVatAmendmentPolicy.js");
 const settlementPolicy = read("lib/finance/tax/FinanceVatSettlementPolicy.js");
+const portfolioPolicy = read("lib/finance/tax/FinanceTaxPortfolioPolicy.js");
 
 test("Tax and VAT Returns share one governed filing cockpit", () => {
   for (const capability of ["tax", "vat_returns"]) {
@@ -40,6 +43,7 @@ test("Tax and VAT Returns share one governed filing cockpit", () => {
   assert.match(registry, /registerRenderer\("FinanceTaxWorkCenter"/);
   assert.match(primaryPolicy, /tax:\s*\{ mode: "none" \}/);
   assert.match(primaryPolicy, /vat_returns:\s*\{ mode: "none" \}/);
+  assert.match(workspace, /FinanceTaxPortfolioRail/);
   assert.match(workspace, /FinanceTaxCalendarRail/);
   assert.match(workspace, /FinanceTaxAmendmentRail/);
   assert.match(workspace, /FinanceTaxSettlementRail/);
@@ -63,6 +67,8 @@ test("Tax workcenter is workflow-first and human controlled", () => {
   assert.match(taxSurface, /Tax settlement/);
   assert.match(taxSurface, /Paid is not cleared/);
   assert.match(taxSurface, /Settlement setup required/);
+  assert.match(taxSurface, /Tax control tower/);
+  assert.match(taxSurface, /Ranked by statutory risk and unresolved accounting control/);
   assert.doesNotMatch(taxSurface, /function Metric\s*\(/);
   assert.doesNotMatch(taxSurface, /<Metric\b/);
 });
@@ -161,4 +167,22 @@ test("Filed VAT continues through governed liability, cash and bank settlement",
   assert.match(settlementRoute, /bank_match_candidates/);
   assert.doesNotMatch(settlementRoute, /\.from\("general_ledger"\).*\.(insert|update|upsert)/s);
   assert.doesNotMatch(settlementRoute, /\.from\("journal_entries"\).*\.(insert|update|upsert)/s);
+});
+
+test("Accounting-firm tax control tower ranks statutory and accounting risk as work", () => {
+  assert.match(portfolioRoute, /requireFinanceWorkspacePermission/);
+  assert.match(portfolioRoute, /\.from\("finance_vat_returns"\)/);
+  assert.match(portfolioRoute, /\.from\("legal_entities"\)/);
+  assert.match(portfolioRoute, /evaluateFinanceVatSettlement/);
+  assert.match(portfolioRoute, /rankFinanceTaxPortfolioRow/);
+  assert.match(portfolioPolicy, /OVERDUE/);
+  assert.match(portfolioPolicy, /DEADLINE/);
+  assert.match(portfolioPolicy, /AMENDMENT/);
+  assert.match(portfolioPolicy, /SETTLEMENT/);
+  assert.match(portfolioPolicy, /PART_PAID/);
+  assert.match(portfolioPolicy, /PAID_AWAITING_BANK_MATCH/);
+  assert.match(portfolioPolicy, /priority/);
+  assert.match(portfolioRail, /Needs action/);
+  assert.match(portfolioRail, /Switch legal entity in Business Context to work this item/);
+  assert.doesNotMatch(portfolioRail, /function Metric\s*\(/);
 });

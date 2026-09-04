@@ -5,12 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'services/avantiqo-code-engine/repo_agent_v9.py'
-      - 'services/avantiqo-code-engine/verify_repo_agent_v9.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v8_cert.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py'
-      - 'services/avantiqo-code-engine/worldclass_cert_v3_contract.py'
-      - '.github/workflows/avantiqo-code-private12-v8-zero-cost.yml'
+      - '.github/triggers/avantiqo-code-private12-v8-zero-cost.trigger'
 
 permissions:
   contents: read
@@ -45,5 +40,3 @@ jobs:
           grep -q 'MAX_WARM_P95_MS = 4_000' services/avantiqo-code-engine/worldclass_cert_v3_contract.py
           grep -q 'StructuredOutputsParams' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
           echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V8_ADMISSION=PASS'
-
-# zero-cost admission rerun marker

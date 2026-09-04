@@ -105,11 +105,15 @@ const valid = evaluateAvantiqoMissionOutcomePattern({
 assert.equal(valid.eligible_for_evidence_candidate, true);
 assert.equal(valid.observation_count, 3);
 assert.equal(valid.duplicate_observation_count, 0);
+assert.equal(valid.conflicting_observation_fingerprint_count, 0);
+assert.equal(valid.quarantined_conflicting_observation_count, 0);
 assert.equal(valid.excluded_observation_count, 0);
 assert.equal(valid.anti_overfitting.stored_observation_integrity_revalidated, true);
 assert.equal(valid.anti_overfitting.malformed_or_poisoned_observations_excluded, true);
 assert.equal(valid.anti_overfitting.unique_observation_fingerprints_required, true);
 assert.equal(valid.anti_overfitting.duplicate_observations_excluded, true);
+assert.equal(valid.anti_overfitting.conflicting_observation_fingerprints_quarantined, true);
+assert.equal(valid.anti_overfitting.row_order_cannot_resolve_observation_conflict, true);
 
 const duplicateInflationAttempt = evaluateAvantiqoMissionOutcomePattern({
   observations: [
@@ -123,6 +127,7 @@ const duplicateInflationAttempt = evaluateAvantiqoMissionOutcomePattern({
 });
 assert.equal(duplicateInflationAttempt.observation_count, 2);
 assert.equal(duplicateInflationAttempt.duplicate_observation_count, 3);
+assert.equal(duplicateInflationAttempt.conflicting_observation_fingerprint_count, 0);
 assert.equal(duplicateInflationAttempt.excluded_observation_count, 3);
 assert.equal(duplicateInflationAttempt.distinct_observation_days, 1);
 assert.equal(duplicateInflationAttempt.eligible_for_evidence_candidate, false);
@@ -134,10 +139,44 @@ const duplicateCrossDayEvaluation = evaluateAvantiqoMissionOutcomePattern({
   observations: [first.row, second.row, duplicateCrossDayAttempt],
   pattern_fingerprint: first.pattern_fingerprint,
 });
-assert.equal(duplicateCrossDayEvaluation.observation_count, 2);
+assert.equal(duplicateCrossDayEvaluation.observation_count, 1);
 assert.equal(duplicateCrossDayEvaluation.duplicate_observation_count, 1);
+assert.equal(duplicateCrossDayEvaluation.conflicting_observation_fingerprint_count, 1);
+assert.equal(duplicateCrossDayEvaluation.quarantined_conflicting_observation_count, 2);
 assert.equal(duplicateCrossDayEvaluation.distinct_observation_days, 1);
 assert.equal(duplicateCrossDayEvaluation.eligible_for_evidence_candidate, false);
+
+const conflictCases = [
+  ["outcome", (row) => { row.metadata.verified_outcome = "FAILURE"; }],
+  ["contract structure", (row) => { row.metadata.outcome_contract_structural_fingerprint = "d".repeat(64); }],
+  ["assessment structure", (row) => { row.metadata.outcome_assessment_structural_fingerprint = "e".repeat(64); }],
+  ["criterion count", (row) => { row.metadata.criterion_count += 1; }],
+  ["evidence count", (row) => { row.metadata.evidence_reference_count += 1; }],
+  ["timestamp", (row) => {
+    row.metadata.observed_day = "2026-09-02";
+    row.metadata.observed_at = "2026-09-02T08:00:00.000Z";
+  }],
+];
+
+for (const [name, mutate] of conflictCases) {
+  const conflicting = structuredClone(first.row);
+  mutate(conflicting);
+  for (const observations of [
+    [first.row, second.row, conflicting],
+    [conflicting, second.row, first.row],
+  ]) {
+    const evaluation = evaluateAvantiqoMissionOutcomePattern({
+      observations,
+      pattern_fingerprint: first.pattern_fingerprint,
+    });
+    assert.equal(evaluation.observation_count, 1, `${name} must quarantine both conflicting rows`);
+    assert.equal(evaluation.duplicate_observation_count, 1, `${name} duplicate must be detected`);
+    assert.equal(evaluation.conflicting_observation_fingerprint_count, 1, `${name} fingerprint must be conflicted`);
+    assert.equal(evaluation.quarantined_conflicting_observation_count, 2, `${name} rows must be quarantined`);
+    assert.equal(evaluation.excluded_observation_count, 2, `${name} rows must be excluded`);
+    assert.equal(evaluation.eligible_for_evidence_candidate, false, `${name} conflict must block candidate`);
+  }
+}
 
 const candidate = buildAvantiqoMissionOutcomeEvidenceCandidateRow({
   pattern,
@@ -149,7 +188,11 @@ assert.equal(candidate.metadata.stored_observation_integrity_revalidated, true);
 assert.equal(candidate.metadata.malformed_or_poisoned_observations_excluded, true);
 assert.equal(candidate.metadata.unique_observation_fingerprints_required, true);
 assert.equal(candidate.metadata.duplicate_observations_excluded, true);
+assert.equal(candidate.metadata.conflicting_observation_fingerprints_quarantined, true);
+assert.equal(candidate.metadata.row_order_cannot_resolve_observation_conflict, true);
 assert.equal(candidate.metadata.duplicate_observation_count, 0);
+assert.equal(candidate.metadata.conflicting_observation_fingerprint_count, 0);
+assert.equal(candidate.metadata.quarantined_conflicting_observation_count, 0);
 assert.equal(candidate.metadata.reusable_platform_knowledge, false);
 
 const mutations = [
@@ -199,6 +242,9 @@ console.log(JSON.stringify({
     duplicate_observations_excluded_before_accumulation: true,
     duplicate_rows_cannot_inflate_three_observation_gate: true,
     duplicate_rows_cannot_fake_distinct_day_gate: true,
+    conflicting_observation_fingerprints_quarantined: true,
+    conflicting_rows_contribute_zero_votes: true,
+    conflicting_rows_are_order_independent: true,
     sha256_fingerprints_required: true,
     observation_key_bound_to_fingerprint: true,
     exact_source_contracts_required: true,
@@ -210,4 +256,6 @@ console.log(JSON.stringify({
   },
   poison_cases: mutations.length,
   duplicate_cases: 2,
+  conflict_cases: conflictCases.length,
+  conflict_orderings_per_case: 2,
 }, null, 2));

@@ -6,22 +6,28 @@ on:
       - main
     paths:
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeAssessmentRuntime.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
+      - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
   pull_request:
     branches:
       - main
     paths:
       - "lib/intelligence/runtime/AvantiqoMissionOutcomeLearningRuntime.js"
+      - "lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeContractRuntime.js"
       - "lib/operator/runtime/OperatorIntelligenceDecisionOutcomeAssessmentRuntime.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
+      - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
   workflow_dispatch:
 
@@ -76,5 +82,62 @@ jobs:
           fi
           if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$runtime"; then
             echo "Direct reusable platform knowledge write detected"
+            exit 1
+          fi
+
+  operator-handoff:
+    name: Zero-cost Operator outcome handoff certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Syntax gate
+        run: |
+          node --check lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js
+          node --check scripts/audit-operator-mission-outcome-learning-handoff-local.mjs
+
+      - name: Run Operator outcome handoff adversarial audit
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: audit-service-role-key-not-used
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-operator-mission-outcome-learning-handoff-local.mjs
+
+      - name: Guard immutable Operator handoff boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          handoff="lib/intelligence/runtime/OperatorMissionOutcomeLearningHandoffRuntime.js"
+          audit="scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
+          grep -q 'AVANTIQO_OPERATOR_MISSION_OUTCOME_LEARNING_HANDOFF_V1' "$handoff"
+          grep -q 'post_verified_outcome_handoff_only: true' "$handoff"
+          grep -q 'full_operator_outcome_persisted: false' "$handoff"
+          grep -q 'source_observation_token_persisted: false' "$handoff"
+          grep -q 'customer_private_content_allowed: false' "$handoff"
+          grep -q 'customer_identifiers_allowed: false' "$handoff"
+          grep -q 'raw_reasoning_persisted: false' "$handoff"
+          grep -q 'automatic_business_action_execution: false' "$handoff"
+          grep -q 'automatic_message_send: false' "$handoff"
+          grep -q 'automatic_knowledge_promotion: false' "$handoff"
+          grep -q 'direct_platform_knowledge_write_allowed: false' "$handoff"
+          grep -q 'authorization_effect: "NONE"' "$handoff"
+          grep -q 'first_observation_cannot_create_candidate: true' "$audit"
+          grep -q 'same_day_repetition_cannot_create_candidate: true' "$audit"
+          grep -q 'cross_day_three_observation_pattern_creates_one_candidate: true' "$audit"
+          grep -q 'repeated_same_observation_token_is_idempotent: true' "$audit"
+          if grep -Eiq 'from ["'\''`](openai|@anthropic-ai|modal|runpod)' "$handoff" "$audit"; then
+            echo "Forbidden model/GPU provider import in zero-cost Operator outcome handoff" >&2
+            exit 1
+          fi
+          if grep -Eq '\.from\(["'\'']platform_knowledge["'\'']\)' "$handoff"; then
+            echo "Operator handoff must not write reusable platform knowledge directly" >&2
             exit 1
           fi

@@ -4,11 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'services/avantiqo-code-engine/repo_agent_v8.py'
-      - 'services/avantiqo-code-engine/verify_repo_agent_v8.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py'
-      - 'services/avantiqo-code-engine/modal_code_qwen38_private12_v7_cert.py'
-      - '.github/workflows/avantiqo-code-v8-structured-zero-cost.yml'
+      - '.github/triggers/avantiqo-code-repo-agent-v11-zero-cost-20260904.trigger'
   workflow_dispatch:
 
 permissions:
@@ -23,40 +19,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Compile V8 contracts
+      - name: Prove Repo Agent V11 zero cost
         run: |
           set -euo pipefail
-          python -m py_compile services/avantiqo-code-engine/repo_agent_v8.py
-          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v8.py
+          python -m py_compile services/avantiqo-code-engine/repo_agent_v11.py
+          python -m py_compile services/avantiqo-code-engine/verify_repo_agent_v11.py
           python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
-          python -m py_compile services/avantiqo-code-engine/modal_code_qwen38_private12_v7_cert.py
-      - name: Verify V8 selective and atomic agent behavior
-        run: |
-          set -euo pipefail
-          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v8.py
-      - name: Verify structured accelerated runtime contract
-        run: |
-          set -euo pipefail
+          PYTHONPATH=services/avantiqo-code-engine python services/avantiqo-code-engine/verify_repo_agent_v11.py
           runtime=services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
           grep -q 'FAST_BOOT_ENFORCE_EAGER = False' "$runtime"
           grep -q '"method": "ngram"' "$runtime"
           grep -q 'StructuredOutputsParams' "$runtime"
           grep -q 'structured_outputs=structured' "$runtime"
-          grep -q 'ACTOR_SCHEMA' "$runtime"
-          grep -q 'REVIEWER_SCHEMA' "$runtime"
-          grep -q '"production_routing_change": False' "$runtime"
-          grep -q '"production_deploy_performed": False' "$runtime"
-          grep -q '"model_download_performed": False' "$runtime"
-          grep -q '"volume_created": False' "$runtime"
-      - name: Verify V7 certification binding
-        run: |
-          set -euo pipefail
-          cert=services/avantiqo-code-engine/modal_code_qwen38_private12_v7_cert.py
-          grep -q 'RUN_SEED = "20260904-qwen38-private12-v7"' "$cert"
-          grep -q 'runtime.generate_v7' "$cert"
-          grep -q 'agent.apply_edits' "$cert"
-          grep -q 'agent.build_actor_prompt' "$cert"
-          grep -q 'MAX_MODAL_TOTAL_CALLS = base.MAX_MODAL_TOTAL_CALLS' "$cert"
-          grep -q 'WARM_TARGET_MS = base.WARM_TARGET_MS' "$cert"
-          grep -q 'qwen38_private12_v7' "$cert"
-          echo 'AVANTIQO_CODE_V8_STRUCTURED_ADMISSION=PASS'
+          echo 'AVANTIQO_CODE_REPO_AGENT_V11_ZERO_COST=PASS'

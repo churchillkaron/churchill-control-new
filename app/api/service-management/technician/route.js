@@ -178,7 +178,12 @@ function technicianProjection(occurrence, workOrder, latestEvidence = null) {
   const delivery = serviceDelivery(occurrence, workOrder);
   const protocol = protocolFor(occurrence, workOrder);
   const execution = staffExecution(workOrder);
-  const completion = occurrence.attributes?.completion || null;
+  const persistedCompletion = occurrence.attributes?.completion || null;
+  const completion = persistedCompletion || (latestEvidence ? {
+    completion_evidence_id: latestEvidence.id,
+    evidence_status: latestEvidence.status,
+    evidence_pending_completion: true,
+  } : null);
 
   return {
     occurrence_id: occurrence.id,

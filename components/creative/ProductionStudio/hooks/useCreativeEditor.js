@@ -48,6 +48,7 @@ export function useCreativeEditor(runtime) {
         creative_project_id: runtime.projectRuntime?.current?.id,
         ...(professionalOverride
           ? {
+              _professional_direction: true,
               professional_override: {
                 source: "PRO_STUDIO",
                 intent: "HUMAN_DIRECTION",

@@ -37,6 +37,6 @@ test("Settlement never falls back to another VAT period", () => {
 
 test("Amendment history defaults to the shared filing when it is submitted", () => {
   assert.match(amendments, /selectedVatReturnId/);
-  assert.match(amendments, /submitted\.some\(row => row\.id === selectedVatReturnId\)/);
-  assert.match(amendments, /selectedVatReturnId \? selectedVatReturnId/);
+  assert.match(amendments, /selectedVatReturnId && submitted\.some\(row => row\.id === selectedVatReturnId\)/);
+  assert.match(amendments, /\? selectedVatReturnId : submitted\.some/);
 });

@@ -40,11 +40,20 @@ export function useCreativeEditor(runtime) {
           ? "/api/creative/scenes"
           : "/api/creative/shots";
 
+      const professionalOverride = ["scene", "shot"].includes(selection.type);
       const payload = {
         ...values,
         id: selection.data.id,
         organization_id: runtime.organizationId,
         creative_project_id: runtime.projectRuntime?.current?.id,
+        ...(professionalOverride
+          ? {
+              professional_override: {
+                source: "PRO_STUDIO",
+                intent: "HUMAN_DIRECTION",
+              },
+            }
+          : {}),
       };
 
       const res = await fetch(api, {

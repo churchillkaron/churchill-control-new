@@ -24,6 +24,7 @@ on:
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs"
+      - "scripts/audit-avantiqo-mission-outcome-authenticity-static-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
@@ -55,6 +56,7 @@ on:
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs"
+      - "scripts/audit-avantiqo-mission-outcome-authenticity-static-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs"
       - "scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
@@ -108,6 +110,7 @@ jobs:
           node --check scripts/audit-avantiqo-mission-outcome-learning-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs
+          node --check scripts/audit-avantiqo-mission-outcome-authenticity-static-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs
           node --check scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs
           node --check scripts/audit-operator-mission-outcome-learning-handoff-local.mjs
@@ -124,6 +127,9 @@ jobs:
 
       - name: Run observation authenticity audit
         run: node scripts/audit-avantiqo-mission-outcome-observation-authenticity-local.mjs
+
+      - name: Run authenticity immutable source guard
+        run: node scripts/audit-avantiqo-mission-outcome-authenticity-static-local.mjs
 
       - name: Run history window integrity audit
         run: node scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs

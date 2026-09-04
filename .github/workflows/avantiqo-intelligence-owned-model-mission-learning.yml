@@ -1,0 +1,141 @@
+name: Avantiqo Intelligence Owned Model Mission Learning
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Certification mode. Preflight performs no model inference."
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - execute
+          - resume
+      approve_paid_inference:
+        description: "Required for execute/resume: approve the governed owned Deep H100 benchmark."
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-intelligence-owned-model-mission-learning
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    env:
+      NODE_ENV: development
+      AVANTIQO_INTELLIGENCE_ENGINE_ENABLED: "YES"
+      AVANTIQO_INTELLIGENCE_MODAL_BASE_URL: ""
+      AVANTIQO_INTELLIGENCE_MODAL_GATEWAY_TOKEN: ""
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_OWNED_MODEL_MISSION_LEARNING_OUTPUT_DIR: ${{ github.workspace }}/local-audit-output/avantiqo-owned-model-mission-learning
+
+    steps:
+      - name: Checkout newest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Zero-cost learning and safety gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          node --check lib/intelligence/runtime/AvantiqoOwnedModelMissionLearningCertificationRuntime.mjs
+          node scripts/audit-avantiqo-owned-model-mission-learning-guard-local.mjs
+          grep -Fq 'const MAX_PROVIDER_JOBS = 6;' scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          grep -Fq 'AMBIGUOUS_PRIOR_SUBMISSION_NO_AUTOMATIC_RETRY' scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          grep -Fq 'RESUME_WOULD_REQUIRE_NEW_SUBMISSION' scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          grep -Fq 'customer_private_data_used: false' scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          grep -Fq 'database_access_performed: false' scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          grep -Fq 'business_action_execution_effect: "NONE"' scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          echo 'AVANTIQO_OWNED_MODEL_MISSION_LEARNING_STATIC_PREFLIGHT=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PAID_INFERENCE_PERFORMED=false'
+
+      - name: Pin checked-out main
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_main="$(git rev-parse HEAD)"
+          test "$(git branch --show-current)" = "main"
+          echo "AVANTIQO_OWNED_MODEL_MISSION_LEARNING_EXPECTED_MAIN_COMMIT=${source_main}" >> "$GITHUB_ENV"
+          echo "AVANTIQO_OWNED_MODEL_MISSION_LEARNING_SOURCE_MAIN_COMMIT=${source_main}" >> "$GITHUB_ENV"
+          echo "AVANTIQO_OWNED_MODEL_MISSION_LEARNING_SOURCE_PIN=PASS"
+
+      - name: Require explicit paid approval
+        if: ${{ inputs.mode == 'execute' || inputs.mode == 'resume' }}
+        env:
+          PAID_APPROVED: ${{ inputs.approve_paid_inference }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${PAID_APPROVED}" != "true" ]; then
+            echo 'AVANTIQO_OWNED_MODEL_MISSION_LEARNING_PAID_APPROVAL_REQUIRED' >&2
+            exit 1
+          fi
+          echo 'AVANTIQO_OWNED_MODEL_MISSION_LEARNING_PAID_APPROVAL=PASS'
+
+      - name: Run owned-model paired certification
+        env:
+          AVANTIQO_OWNED_MODEL_MISSION_LEARNING_REAL_INFERENCE_APPROVED: ${{ inputs.approve_paid_inference && 'YES' || 'NO' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.mode }}" in
+            preflight)
+              node scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+              ;;
+            execute)
+              node scripts/certify-avantiqo-owned-model-mission-learning-live.mjs --execute
+              ;;
+            resume)
+              node scripts/certify-avantiqo-owned-model-mission-learning-live.mjs --resume
+              ;;
+            *)
+              echo 'AVANTIQO_OWNED_MODEL_MISSION_LEARNING_MODE_INVALID' >&2
+              exit 2
+              ;;
+          esac
+
+      - name: Upload certification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-owned-model-mission-learning-${{ github.run_id }}
+          path: local-audit-output/avantiqo-owned-model-mission-learning/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Immutable boundaries
+        if: ${{ always() }}
+        run: |
+          echo 'CUSTOMER_PRIVATE_DATA_USED=false'
+          echo 'DATABASE_ACCESS_PERFORMED=false'
+          echo 'WALLET_EFFECT=NONE'
+          echo 'BILLING_EFFECT=NONE'
+          echo 'BUSINESS_ACTION_EXECUTION_EFFECT=NONE'
+          echo 'EXTERNAL_AI_PROVIDER_USED=false'
+          echo 'RUNPOD_INFERENCE_PERFORMED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'
+          echo 'AUTOMATIC_KNOWLEDGE_PROMOTION_PERFORMED=false'
+          echo 'AUTOMATIC_MODEL_MUTATION_PERFORMED=false'
+          echo 'AUTOMATIC_PROVIDER_ROUTING_CHANGE_PERFORMED=false'

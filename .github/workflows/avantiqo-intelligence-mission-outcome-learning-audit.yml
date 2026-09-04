@@ -15,12 +15,15 @@ on:
       - "lib/operator/runtime/OperatorMissionOutcomeLearningProjectionRuntime.js"
       - "lib/operator/runtime/OperatorMissionOutcomeLearningSettlementRuntime.js"
       - "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js"
+      - "lib/platform/capabilities/createCodeAICommitCapability.js"
+      - "lib/platform/capabilities/createCodeAICommitStatusCapability.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
       - "scripts/audit-operator-mission-completion-learning-local.mjs"
+      - "scripts/audit-operator-mission-learning-manifest-live-local.mjs"
       - "scripts/audit-operator-mission-learning-static-local.mjs"
       - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
   pull_request:
@@ -37,12 +40,15 @@ on:
       - "lib/operator/runtime/OperatorMissionOutcomeLearningProjectionRuntime.js"
       - "lib/operator/runtime/OperatorMissionOutcomeLearningSettlementRuntime.js"
       - "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js"
+      - "lib/platform/capabilities/createCodeAICommitCapability.js"
+      - "lib/platform/capabilities/createCodeAICommitStatusCapability.js"
       - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
       - "scripts/audit-avantiqo-mission-outcome-learning-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs"
       - "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs"
       - "scripts/audit-operator-mission-completion-learning-local.mjs"
+      - "scripts/audit-operator-mission-learning-manifest-live-local.mjs"
       - "scripts/audit-operator-mission-learning-static-local.mjs"
       - ".github/workflows/avantiqo-intelligence-mission-outcome-learning-audit.yml"
   workflow_dispatch:
@@ -80,10 +86,13 @@ jobs:
           node --check lib/operator/runtime/OperatorMissionOutcomeLearningProjectionRuntime.js
           node --check lib/operator/runtime/OperatorMissionOutcomeLearningSettlementRuntime.js
           node --check lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js
+          node --check lib/platform/capabilities/createCodeAICommitCapability.js
+          node --check lib/platform/capabilities/createCodeAICommitStatusCapability.js
           node --check scripts/audit-avantiqo-mission-outcome-learning-local.mjs
           node --check scripts/audit-operator-mission-outcome-learning-handoff-local.mjs
           node --check scripts/audit-operator-mission-outcome-learning-bridge-local.mjs
           node --check scripts/audit-operator-mission-completion-learning-local.mjs
+          node --check scripts/audit-operator-mission-learning-manifest-live-local.mjs
           node --check scripts/audit-operator-mission-learning-static-local.mjs
 
       - name: Run base accumulation audit
@@ -104,6 +113,11 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: audit-service-role-key-not-used
           AVANTIQO_INTELLIGENCE_LEARNING_ORGANIZATION_ID: 00000000-0000-4000-8000-000000000001
         run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-operator-mission-completion-learning-local.mjs
+
+      - name: Run live manifest declaration audit
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: audit-service-role-key-not-used
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-operator-mission-learning-manifest-live-local.mjs
 
       - name: Run immutable static guards
         run: node scripts/audit-operator-mission-learning-static-local.mjs

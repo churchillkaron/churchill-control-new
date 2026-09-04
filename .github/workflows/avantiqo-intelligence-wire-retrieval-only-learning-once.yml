@@ -39,118 +39,54 @@ jobs:
           path = Path("lib/operator/runtime/OperatorReasoningRuntime.js")
           source = path.read_text()
 
-          def replace_once(old, new, label):
-              global source
-              count = source.count(old)
-              if count != 1:
-                  raise SystemExit(f"{label}: expected exactly one anchor, found {count}")
-              source = source.replace(old, new, 1)
+          if "./OperatorVerifiedLearningContextRuntime.js" in source:
+              raise SystemExit("verified-learning import already present; refusing duplicate patch")
 
-          replace_once(
-              '''import {
-            ownedOperatorIntelligenceSelectionPolicy,
-            settleOperatorIntelligenceExecution,
-          } from "./OperatorOwnedIntelligenceServiceRuntime";
-          ''',
-              '''import {
-            ownedOperatorIntelligenceSelectionPolicy,
-            settleOperatorIntelligenceExecution,
-          } from "./OperatorOwnedIntelligenceServiceRuntime";
-          import {
-            loadOperatorVerifiedLearningContext,
-            OPERATOR_VERIFIED_LEARNING_CONTEXT_CONTRACT,
-          } from "./OperatorVerifiedLearningContextRuntime.js";
-          ''',
-              "verified-learning import",
+          import_anchor = '} from "./OperatorOwnedIntelligenceServiceRuntime";'
+          if source.count(import_anchor) != 1:
+              raise SystemExit(f"import anchor count={source.count(import_anchor)}")
+          source = source.replace(
+              import_anchor,
+              import_anchor + '\nimport {\n  loadOperatorVerifiedLearningContext,\n  OPERATOR_VERIFIED_LEARNING_CONTEXT_CONTRACT,\n} from "./OperatorVerifiedLearningContextRuntime.js";',
+              1,
           )
 
-          replace_once(
-              '''Understand the user's request, act as a thoughtful collaborative partner, and when sufficiently clear select a real supplied navigation target or capability.
+          instructions_start = source.find("  const instructions = `")
+          if instructions_start < 0:
+              raise SystemExit("deep instructions anchor missing")
 
-          Rules:
-          ''',
-              '''Understand the user's request, act as a thoughtful collaborative partner, and when sufficiently clear select a real supplied navigation target or capability.
+          prompt_anchor = "Understand the user's request, act as a thoughtful collaborative partner, and when sufficiently clear select a real supplied navigation target or capability."
+          prompt_pos = source.find(prompt_anchor, instructions_start)
+          if prompt_pos < 0:
+              raise SystemExit("deep prompt anchor missing")
+          prompt_end = prompt_pos + len(prompt_anchor)
+          prompt_insert = "\n\nverified_platform_learning is platform-level reusable learned experience released through Avantiqo's governed learning system. It is retrieval-only advisory planning context: not customer memory, not proof of current business state, and never authorization for an action. Use it to avoid verified prior failure modes and improve process choices when relevant. Current verified business evidence and an explicit current user decision always override it. Never use it alone to justify a write, approval, payment, publication, external message or governance bypass."
+          source = source[:prompt_end] + prompt_insert + source[prompt_end:]
 
-          verified_platform_learning is platform-level reusable learned experience released through Avantiqo's governed learning system. It is retrieval-only advisory planning context: not customer memory, not proof of current business state, and never authorization for an action. Use it to avoid verified prior failure modes and improve process choices when relevant. Current verified business evidence and an explicit current user decision always override it. Never use it alone to justify a write, approval, payment, publication, external message or governance bypass.
+          request_anchor = "\n  const request = {\n"
+          request_pos = source.find(request_anchor, instructions_start)
+          if request_pos < 0:
+              raise SystemExit("deep request anchor missing")
+          learning_block = '''\n  const verifiedLearningContext = await loadOperatorVerifiedLearningContext({\n    message,\n    projectState,\n    currentScreen,\n  });\n  const verifiedPlatformLearning =\n    verifiedLearningContext.status === "AVAILABLE"\n      ? {\n          contract: verifiedLearningContext.contract,\n          status: verifiedLearningContext.status,\n          route: verifiedLearningContext.route,\n          knowledge: verifiedLearningContext.knowledge,\n          knowledge_count: verifiedLearningContext.knowledge_count,\n          context_chars: verifiedLearningContext.context_chars,\n          freshness_checked: verifiedLearningContext.freshness_checked,\n          evidence_graph_checked: verifiedLearningContext.evidence_graph_checked,\n          retrieval_only: verifiedLearningContext.retrieval_only,\n          internet_search_performed: verifiedLearningContext.internet_search_performed,\n          fresh_research_performed: verifiedLearningContext.fresh_research_performed,\n          advisory_only: verifiedLearningContext.advisory_only,\n          current_business_state_proven:\n            verifiedLearningContext.current_business_state_proven,\n          authorization_effect: verifiedLearningContext.authorization_effect,\n          execution_effect: verifiedLearningContext.execution_effect,\n          customer_private_memory_reused:\n            verifiedLearningContext.customer_private_memory_reused,\n          platform_learning_organization_only:\n            verifiedLearningContext.platform_learning_organization_only,\n        }\n      : null;\n'''
+          source = source[:request_pos] + learning_block + source[request_pos:]
 
-          Rules:
-          ''',
-              "deep prompt",
+          agreement_anchor = "    agreement_state: object(agreementState),\n    recent_conversation: boundedConversation(conversation, source),"
+          agreement_pos = source.find(agreement_anchor, request_pos)
+          if agreement_pos < 0:
+              raise SystemExit("deep agreement context anchor missing")
+          source = source.replace(
+              agreement_anchor,
+              '''    agreement_state: object(agreementState),\n    ...(verifiedPlatformLearning\n      ? { verified_platform_learning: verifiedPlatformLearning }\n      : {}),\n    recent_conversation: boundedConversation(conversation, source),''',
+              1,
           )
 
-          replace_once(
-              '''  const request = {
-            capability_index: capabilityIndex(capabilities),
-          ''',
-              '''  const verifiedLearningContext = await loadOperatorVerifiedLearningContext({
-            message,
-            projectState,
-            currentScreen,
-          });
-          const verifiedPlatformLearning =
-            verifiedLearningContext.status === "AVAILABLE"
-              ? {
-                  contract: verifiedLearningContext.contract,
-                  status: verifiedLearningContext.status,
-                  route: verifiedLearningContext.route,
-                  knowledge: verifiedLearningContext.knowledge,
-                  knowledge_count: verifiedLearningContext.knowledge_count,
-                  context_chars: verifiedLearningContext.context_chars,
-                  freshness_checked: verifiedLearningContext.freshness_checked,
-                  evidence_graph_checked: verifiedLearningContext.evidence_graph_checked,
-                  retrieval_only: verifiedLearningContext.retrieval_only,
-                  internet_search_performed: verifiedLearningContext.internet_search_performed,
-                  fresh_research_performed: verifiedLearningContext.fresh_research_performed,
-                  advisory_only: verifiedLearningContext.advisory_only,
-                  current_business_state_proven:
-                    verifiedLearningContext.current_business_state_proven,
-                  authorization_effect: verifiedLearningContext.authorization_effect,
-                  execution_effect: verifiedLearningContext.execution_effect,
-                  customer_private_memory_reused:
-                    verifiedLearningContext.customer_private_memory_reused,
-                  platform_learning_organization_only:
-                    verifiedLearningContext.platform_learning_organization_only,
-                }
-              : null;
-
-          const request = {
-            capability_index: capabilityIndex(capabilities),
-          ''',
-              "deep learning load",
-          )
-
-          replace_once(
-              '''    current_project_state: normalizeOperatorProjectState(projectState),
-            agreement_state: object(agreementState),
-            recent_conversation: boundedConversation(conversation, source),
-          ''',
-              '''    current_project_state: normalizeOperatorProjectState(projectState),
-            agreement_state: object(agreementState),
-            ...(verifiedPlatformLearning
-              ? { verified_platform_learning: verifiedPlatformLearning }
-              : {}),
-            recent_conversation: boundedConversation(conversation, source),
-          ''',
-              "deep request context",
-          )
-
-          replace_once(
-              '''      evidence_first_mixed_action: true,
-            catalog_counts: {
-          ''',
-              '''      evidence_first_mixed_action: true,
-            verified_platform_learning_used: Boolean(verifiedPlatformLearning),
-            verified_platform_learning_count:
-              verifiedPlatformLearning?.knowledge_count || 0,
-            verified_platform_learning_contract:
-              OPERATOR_VERIFIED_LEARNING_CONTEXT_CONTRACT,
-            verified_platform_learning_retrieval_only: true,
-            verified_platform_learning_fresh_research_performed: false,
-            platform_learning_customer_private_memory_reused: false,
-            catalog_counts: {
-          ''',
-              "deep metadata",
-          )
+          metadata_anchor = "      evidence_first_mixed_action: true,\n"
+          metadata_pos = source.find(metadata_anchor, request_pos)
+          if metadata_pos < 0:
+              raise SystemExit("deep metadata anchor missing")
+          metadata_end = metadata_pos + len(metadata_anchor)
+          metadata_insert = '''      verified_platform_learning_used: Boolean(verifiedPlatformLearning),\n      verified_platform_learning_count:\n        verifiedPlatformLearning?.knowledge_count || 0,\n      verified_platform_learning_contract:\n        OPERATOR_VERIFIED_LEARNING_CONTEXT_CONTRACT,\n      verified_platform_learning_retrieval_only: true,\n      verified_platform_learning_fresh_research_performed: false,\n      platform_learning_customer_private_memory_reused: false,\n'''
+          source = source[:metadata_end] + metadata_insert + source[metadata_end:]
 
           path.write_text(source)
 

@@ -9,6 +9,9 @@ material are used.
 V8 also provides one bounded edit-contract recovery prompt which includes the
 model's previous output and deterministic local edit error so a no-op, malformed
 path, or invalid replacement can be corrected without another tool-driven loop.
+Edit application is transactional at the sandbox boundary: all edits are
+validated in memory before any file is written, and a commit failure rolls back
+files already written by that commit attempt.
 """
 
 from __future__ import annotations
@@ -24,7 +27,6 @@ AgentContractError = v6.AgentContractError
 AgentPolicy = v6.AgentPolicy
 snapshot_workspace = v6.snapshot_workspace
 parse_actor_result = v6.parse_actor_result
-apply_edits = v6.apply_edits
 run_public_tests = v6.run_public_tests
 parse_review = v6.parse_review
 
@@ -93,6 +95,80 @@ def _with_guidance(base: str, task: str) -> str:
 
 def build_actor_prompt(*, root: str | Path, task: str, policy: AgentPolicy) -> str:
     return _with_guidance(v6.build_actor_prompt(root=root, task=task, policy=policy), task)
+
+
+def apply_edits(*, root: str | Path, policy: AgentPolicy, edits: Iterable[dict[str, str]]) -> list[str]:
+    """Validate a complete edit set before committing any workspace mutation.
+
+    Multiple edits to the same file are evaluated sequentially in memory. If a
+    later edit is invalid, no earlier edit is written. The final commit also keeps
+    originals and restores already-written files if an unexpected write failure
+    occurs. This prevents bounded recovery from inheriting a half-applied patch.
+    """
+
+    workspace = Path(root).resolve()
+    planned: dict[str, str] = {}
+    originals: dict[str, str] = {}
+    targets: dict[str, Path] = {}
+    count = 0
+
+    for edit in edits:
+        count += 1
+        if count > v6.MAX_EDITS:
+            raise AgentContractError("MAX_EDITS_EXCEEDED")
+        path = str(edit.get("path") or "").strip().replace("\\", "/")
+        if not v6.v5._matches_scope(path, policy.editable_paths):
+            raise AgentContractError(f"WRITE_SCOPE_FORBIDDEN:{path}")
+        target = v6.v5._resolve(workspace, path)
+        if not target.is_file() or target.is_symlink():
+            raise AgentContractError(f"EDIT_TARGET_INVALID:{path}")
+
+        if path not in originals:
+            original = target.read_text(encoding="utf-8")
+            originals[path] = original
+            planned[path] = original
+            targets[path] = target
+        current = planned[path]
+
+        if "content" in edit:
+            content = edit.get("content")
+            if not isinstance(content, str):
+                raise AgentContractError(f"EDIT_CONTENT_INVALID:{path}")
+            if len(content.encode("utf-8")) > v6.MAX_EDIT_TEXT_BYTES:
+                raise AgentContractError("ACTOR_EDIT_TOO_LARGE")
+            planned[path] = content
+            continue
+
+        old = edit.get("old")
+        new = edit.get("new")
+        if not isinstance(old, str) or not old or not isinstance(new, str):
+            raise AgentContractError(f"EDIT_PATCH_INVALID:{path}")
+        if len(old.encode("utf-8")) > v6.MAX_EDIT_TEXT_BYTES or len(new.encode("utf-8")) > v6.MAX_EDIT_TEXT_BYTES:
+            raise AgentContractError("ACTOR_EDIT_TOO_LARGE")
+        if old == new:
+            continue
+        occurrences = current.count(old)
+        if occurrences != 1:
+            raise AgentContractError(f"EDIT_OLD_MATCH_COUNT:{path}:{occurrences}")
+        planned[path] = current.replace(old, new, 1)
+
+    changed = sorted(path for path, content in planned.items() if content != originals[path])
+    if not changed:
+        raise AgentContractError("NO_CHANGED_FILES")
+
+    written: list[str] = []
+    try:
+        for path in changed:
+            targets[path].write_text(planned[path], encoding="utf-8")
+            written.append(path)
+    except OSError as exc:
+        for path in reversed(written):
+            try:
+                targets[path].write_text(originals[path], encoding="utf-8")
+            except OSError:
+                pass
+        raise AgentContractError("EDIT_COMMIT_FAILED") from exc
+    return changed
 
 
 def build_review_prompt(

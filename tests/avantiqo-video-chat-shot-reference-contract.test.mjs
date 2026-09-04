@@ -1,0 +1,79 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+
+const referenceRuntime = fs.readFileSync(
+  "lib/creative/studio/runtime/CreativeChatShotReferenceRuntime.js",
+  "utf8",
+);
+const inspector = fs.readFileSync(
+  "lib/creative/studio/capabilities/inspectStudioDirection.js",
+  "utf8",
+);
+const revisionCapability = fs.readFileSync(
+  "lib/creative/studio/capabilities/reviseStudioShot.js",
+  "utf8",
+);
+const projectState = fs.readFileSync(
+  "lib/operator/contracts/OperatorProjectState.js",
+  "utf8",
+);
+
+test("chat shot references resolve server-side, never by prompt guessing", () => {
+  assert.match(referenceRuntime, /AVANTIQO_CHAT_SHOT_REFERENCE_V1/);
+  assert.match(referenceRuntime, /ShotRuntime\.list/);
+  assert.match(referenceRuntime, /CREATIVE_CHAT_SHOT_REFERENCE_AMBIGUOUS/);
+  assert.match(referenceRuntime, /CREATIVE_CHAT_SHOT_REFERENCE_ANCHOR_REQUIRED/);
+  assert.match(referenceRuntime, /CREATIVE_CHAT_SHOT_REFERENCE_NUMBER_AMBIGUOUS/);
+  assert.match(referenceRuntime, /Choose one candidate explicitly/);
+});
+
+test("relative references require a verified active-shot anchor", () => {
+  for (const phrase of [
+    "this shot",
+    "previous shot",
+    "next shot",
+  ]) {
+    assert.match(referenceRuntime, new RegExp(`"${phrase}"`));
+  }
+  assert.match(referenceRuntime, /anchor_shot_id/);
+  assert.match(inspector, /anchor_shot_id/);
+  assert.match(revisionCapability, /anchor_shot_id/);
+});
+
+test("inspection and revision share the same canonical reference runtime", () => {
+  assert.match(inspector, /CreativeChatShotReferenceRuntime\.resolve/);
+  assert.match(revisionCapability, /CreativeChatShotReferenceRuntime\.resolve/);
+  assert.match(inspector, /shot_reference/);
+  assert.match(revisionCapability, /shot_reference/);
+});
+
+test("confirmed revision re-reads the canonical shot before returning success", () => {
+  const revisionIndex = revisionCapability.indexOf(
+    "CreativeChatShotRevisionRuntime.revise({",
+  );
+  const rereadIndex = revisionCapability.indexOf(
+    "ShotRuntime.get(reference.shot.id)",
+  );
+  assert.ok(revisionIndex >= 0, "revision execution must exist");
+  assert.ok(rereadIndex >= 0, "canonical re-inspection must exist");
+  assert.ok(
+    revisionIndex < rereadIndex,
+    "canonical direction must be re-read after the revision",
+  );
+  assert.match(revisionCapability, /source:\s*"CANONICAL_SHOT_REREAD"/);
+  assert.match(revisionCapability, /verified_direction/);
+  assert.match(revisionCapability, /media_generation_executed:\s*false/);
+  assert.match(revisionCapability, /publish_authorized:\s*false/);
+});
+
+test("operator continuity persists only verified Creative shot identity", () => {
+  assert.match(projectState, /"creative\.studio\.inspectDirection"/);
+  assert.match(projectState, /"creative\.studio\.reviseShot"/);
+  assert.match(projectState, /active_shot_id/);
+  assert.match(projectState, /active_scene_id/);
+  assert.match(projectState, /active_shot_number/);
+  assert.match(projectState, /active_shot_title/);
+  assert.match(projectState, /active_revision_number/);
+  assert.match(projectState, /Server-verified continuity only/);
+});

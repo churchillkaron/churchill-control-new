@@ -3,6 +3,7 @@
 import { Activity, Layers3, ShieldCheck, Sparkles } from "lucide-react";
 
 import PropertyEditor from "../properties/PropertyEditor";
+import CinematicCoverageEditor from "../properties/CinematicCoverageEditor";
 
 function titleCase(value) {
   return String(value || "")
@@ -63,13 +64,15 @@ function Section({ eyebrow, title, icon: Icon, children, accent = false }) {
 
 export default function Inspector({ runtime, editor }) {
   const selection = editor.selection?.data || {};
+  const selectionType = editor.selection?.type || null;
   const stage = runtime.stateRuntime?.current?.stage || "MISSION_CREATED";
   const [guidanceTitle, guidanceBody] = stageGuidance(stage);
   const mission = runtime.missionRuntime?.current || null;
   const project = runtime.projectRuntime?.current || null;
   const assetCount = runtime.assetRuntime?.items?.length || 0;
   const taskCount = runtime.taskRuntime?.items?.length || 0;
-  const hasSelection = Boolean(editor.selection?.type || Object.keys(selection).length);
+  const hasSelection = Boolean(selectionType || Object.keys(selection).length);
+  const professionalProductionSelection = ["scene", "shot"].includes(selectionType);
 
   return (
     <aside className="h-full overflow-y-auto bg-[#080807]">
@@ -113,14 +116,28 @@ export default function Inspector({ runtime, editor }) {
       {hasSelection ? (
         <>
           <Section eyebrow="Current selection">
-            <Row label="Type" value={editor.selection?.type} />
+            <Row label="Type" value={selectionType} />
             <Row label="Title" value={selection.title || selection.name} />
             <Row label="Status" value={selection.status} />
+            {selection.metadata?.coverage_contract ? (
+              <Row label="Coverage" value="Cinematic Coverage V1" />
+            ) : null}
           </Section>
 
-          <Section eyebrow="Professional controls">
-            <PropertyEditor item={selection} onSave={editor.save} />
-          </Section>
+          {professionalProductionSelection ? (
+            <Section eyebrow="Professional direction">
+              <CinematicCoverageEditor
+                type={selectionType}
+                item={selection}
+                onSave={editor.save}
+                saving={editor.saving}
+              />
+            </Section>
+          ) : (
+            <Section eyebrow="Professional controls">
+              <PropertyEditor item={selection} onSave={editor.save} />
+            </Section>
+          )}
         </>
       ) : (
         <Section eyebrow="Selection">

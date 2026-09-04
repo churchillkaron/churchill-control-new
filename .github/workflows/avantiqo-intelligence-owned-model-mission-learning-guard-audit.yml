@@ -1,0 +1,76 @@
+name: Avantiqo Intelligence Owned Model Mission Learning Guard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/intelligence/runtime/AvantiqoOwnedModelMissionLearningCertificationRuntime.mjs"
+      - "scripts/audit-avantiqo-owned-model-mission-learning-guard-local.mjs"
+      - "scripts/certify-avantiqo-owned-model-mission-learning-live.mjs"
+      - "lib/operator/runtime/OperatorReasoningRuntime.js"
+      - "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js"
+      - "services/avantiqo-intelligence-modal/modal_app.py"
+      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning.yml"
+      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning-guard-audit.yml"
+  pull_request:
+    paths:
+      - "lib/intelligence/runtime/AvantiqoOwnedModelMissionLearningCertificationRuntime.mjs"
+      - "scripts/audit-avantiqo-owned-model-mission-learning-guard-local.mjs"
+      - "scripts/certify-avantiqo-owned-model-mission-learning-live.mjs"
+      - "lib/operator/runtime/OperatorReasoningRuntime.js"
+      - "lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js"
+      - "services/avantiqo-intelligence-modal/modal_app.py"
+      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning.yml"
+      - ".github/workflows/avantiqo-intelligence-owned-model-mission-learning-guard-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout newest source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Audit evaluator and safety boundaries
+        run: |
+          set -euo pipefail
+          node --check lib/intelligence/runtime/AvantiqoOwnedModelMissionLearningCertificationRuntime.mjs
+          node --check scripts/audit-avantiqo-owned-model-mission-learning-guard-local.mjs
+          node --check scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          node scripts/audit-avantiqo-owned-model-mission-learning-guard-local.mjs
+
+      - name: Prove paid workflow is manual only
+        shell: bash
+        run: |
+          set -euo pipefail
+          paid='.github/workflows/avantiqo-intelligence-owned-model-mission-learning.yml'
+          grep -q '^  workflow_dispatch:' "$paid"
+          if grep -Eq '^  (push|issues|pull_request|schedule):' "$paid"; then
+            echo 'AVANTIQO_OWNED_MODEL_PAID_WORKFLOW_AUTOMATIC_TRIGGER_FORBIDDEN' >&2
+            exit 1
+          fi
+          grep -A20 '^  workflow_dispatch:' "$paid" | grep -q 'approve_paid_inference:'
+          grep -A8 'approve_paid_inference:' "$paid" | grep -q 'default: false'
+          grep -q 'AVANTIQO_OWNED_MODEL_MISSION_LEARNING_REAL_INFERENCE_APPROVED' "$paid"
+          grep -q '^permissions:' "$paid"
+          grep -A2 '^permissions:' "$paid" | grep -q 'contents: read'
+          grep -Fq 'const MAX_PROVIDER_JOBS = 6;' scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          grep -Fq 'AMBIGUOUS_PRIOR_SUBMISSION_NO_AUTOMATIC_RETRY' scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          grep -Fq 'RESUME_WOULD_REQUIRE_NEW_SUBMISSION' scripts/certify-avantiqo-owned-model-mission-learning-live.mjs
+          echo 'AVANTIQO_OWNED_MODEL_PAID_WORKFLOW_MANUAL_ONLY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PAID_INFERENCE_PERFORMED=false'
+          echo 'PRODUCTION_DEPLOY_PERFORMED=false'

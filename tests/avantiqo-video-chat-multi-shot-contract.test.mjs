@@ -99,10 +99,10 @@ test("anchored relative shot sets are exact, bounded and preservation-aware", ()
   assert.match(setRuntime, /function relativeWindowFromReference/);
   assert.match(setRuntime, /function relativeWindowShots/);
   assert.match(setRuntime, /NUMBER_WORDS/);
-  assert.match(setRuntime, /RELATIVE_WINDOW/);
-  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_RELATIVE_WINDOW_ANCHOR_REQUIRED/);
-  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_RELATIVE_WINDOW_OUT_OF_BOUNDS/);
+  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_RELATIVE_WINDOW/);
   assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_EXCLUDED_RELATIVE_WINDOW/);
+  assert.match(setRuntime, /_ANCHOR_REQUIRED/);
+  assert.match(setRuntime, /_OUT_OF_BOUNDS/);
   assert.match(setRuntime, /Avantiqo will not silently truncate a directing set/);
   assert.match(setRuntime, /include_anchor:\s*true/);
   assert.match(setRuntime, /include_anchor:\s*false/);

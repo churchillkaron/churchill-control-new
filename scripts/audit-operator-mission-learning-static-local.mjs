@@ -11,6 +11,7 @@ const files = {
   mission: "lib/platform/capabilities/createOperatorBindingAwareMissionCapability.js",
   auditIntegrity: "scripts/audit-avantiqo-mission-outcome-learning-integrity-local.mjs",
   auditHistory: "scripts/audit-avantiqo-mission-outcome-learning-history-window-local.mjs",
+  auditBuilder: "scripts/audit-avantiqo-mission-outcome-evidence-candidate-builder-integrity-local.mjs",
   auditHandoff: "scripts/audit-operator-mission-outcome-learning-handoff-local.mjs",
   auditBridge: "scripts/audit-operator-mission-outcome-learning-bridge-local.mjs",
   auditCompletion: "scripts/audit-operator-mission-completion-learning-local.mjs",
@@ -41,6 +42,7 @@ includes("learning", "max_history_pages: 64");
 includes("learning", "max_raw_history_scan: 5000");
 includes("learning", "const SHA256_RE");
 includes("learning", "function positiveInteger");
+includes("learning", "function nonNegativeInteger");
 includes("learning", "function validObservationTime");
 includes("learning", "function observationStructuralSignature");
 includes("learning", "function uniqueEligibleObservationRows");
@@ -52,6 +54,15 @@ includes("learning", "unique_observation_fingerprints_required: true");
 includes("learning", "duplicate_observations_excluded: true");
 includes("learning", "conflicting_observation_fingerprints_quarantined: true");
 includes("learning", "row_order_cannot_resolve_observation_conflict: true");
+includes("learning", "function validEvidenceCandidateEvaluation");
+includes("learning", "total !== successes + failures");
+includes("learning", "reportedRatio !== expectedRatio");
+includes("learning", "evaluation_summary_revalidated: true");
+includes("learning", "caller_supplied_eligibility_not_trusted: true");
+includes("learning", "observation_count_arithmetic_revalidated: true");
+includes("learning", "dominant_outcome_and_ratio_revalidated: true");
+includes("learning", "evidence_thresholds_revalidated: true");
+includes("learning", "FAILED_CLOSED_INVALID_EVIDENCE_CANDIDATE_EVALUATION");
 includes("learning", "function historyScanConfiguration");
 includes("learning", "function patternObservationQuery");
 includes("learning", 'count: "exact"');
@@ -141,6 +152,12 @@ includes("auditHistory", "raw_rows_before_valid_evidence_do_not_crowd_out_unique
 includes("auditHistory", "history_scan_uses_ordered_range_pagination: true");
 includes("auditHistory", "raw_scan_limit_fails_closed_before_candidate: true");
 includes("auditHistory", "count_change_during_scan_fails_closed: true");
+includes("auditBuilder", "candidate_builder_revalidates_observation_count_arithmetic: true");
+includes("auditBuilder", "candidate_builder_revalidates_dominant_outcome_and_ratio: true");
+includes("auditBuilder", "candidate_builder_revalidates_thresholds: true");
+includes("auditBuilder", "candidate_builder_requires_integrity_flags: true");
+includes("auditBuilder", "candidate_builder_requires_complete_stable_history: true");
+includes("auditBuilder", "forged_or_stale_evaluation_summary_fails_closed: true");
 includes("auditHandoff", "first_observation_cannot_create_candidate: true");
 includes("auditHandoff", "same_day_repetition_cannot_create_candidate: true");
 includes("auditHandoff", "cross_day_three_observation_pattern_creates_one_candidate: true");
@@ -197,6 +214,11 @@ console.log(
         raw_rows_cannot_crowd_out_unique_observation_limit: true,
         history_count_must_remain_stable_during_scan: true,
         stable_row_identity_required_across_pages: true,
+        evaluation_summary_revalidated: true,
+        caller_supplied_eligibility_not_trusted: true,
+        observation_count_arithmetic_revalidated: true,
+        dominant_outcome_and_ratio_revalidated: true,
+        evidence_thresholds_revalidated: true,
         evidence_candidate_only: true,
         no_direct_platform_knowledge_write: true,
         no_model_gpu_provider_import: true,

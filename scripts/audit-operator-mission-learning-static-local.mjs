@@ -55,6 +55,11 @@ includes("bridge", "direct_platform_knowledge_write_allowed: false");
 
 includes("declaration", "AVANTIQO_OPERATOR_MISSION_OUTCOME_LEARNING_MANIFEST_V1");
 includes("declaration", "capability_manifest_declaration_required: true");
+includes("declaration", "exact_declared_verifier_required: true");
+includes("declaration", "STATIC_VERIFIER_IDENTITY_REQUIRED");
+includes("declaration", "static_verifier_identity_required: true");
+includes("declaration", "static_verifier_identity_verified: true");
+includes("declaration", "dynamic_verifier_identity_allowed: false");
 includes("declaration", "planner_supplied_learning_projection_allowed: false");
 includes("declaration", "model_invented_learning_projection_allowed: false");
 includes("declaration", "FINAL_CAPABILITY_MANIFEST");
@@ -119,6 +124,9 @@ console.log(
       status: "AVANTIQO_OPERATOR_MISSION_LEARNING_STATIC_GUARDS_CERTIFIED",
       verified: {
         manifest_declared_only: true,
+        exact_declared_verifier_required: true,
+        static_verifier_identity_required: true,
+        dynamic_verifier_identity_blocked: true,
         planner_supplied_projection_blocked: true,
         planner_visible_learning_schema_removed: true,
         final_registered_verification_only: true,

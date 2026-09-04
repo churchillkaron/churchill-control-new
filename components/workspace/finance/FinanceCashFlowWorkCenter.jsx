@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, CalendarRange, RefreshCw, Search } from "lucide-react";
+import { CalendarRange, RefreshCw, Search } from "lucide-react";
 import WorkspaceEventHub from "@/components/workspace/WorkspaceEventHub";
 
 function text(value) {
@@ -69,16 +69,19 @@ function EvidenceList({ title, entries, currencyCode, direction }) {
       </div>
       {rows.length ? (
         <div className="space-y-1.5">
-          {rows.map((entry) => (
-            <div key={`${title}-${entry.id}-${entry.date || entry.due_date}`} className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-2.5 py-2 text-[10px]">
-              <span className="text-[#817B73]">{date(entry.date || entry.due_date)}</span>
-              <div className="min-w-0">
-                <div className="truncate font-medium text-[#36322E]">{entry.document_number || entry.reference_number || entry.description || entry.bank_account_name || entry.source}</div>
-                <div className="truncate text-[9px] text-[#9A958D]">{entry.bank_account_name || entry.status || entry.source}</div>
+          {rows.map((entry) => {
+            const isOut = direction === "out" || (direction === "actual" && text(entry.direction).toUpperCase() === "OUT");
+            return (
+              <div key={`${title}-${entry.id}-${entry.date || entry.due_date}`} className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-2.5 py-2 text-[10px]">
+                <span className="text-[#817B73]">{date(entry.date || entry.due_date)}</span>
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-[#36322E]">{entry.document_number || entry.reference_number || entry.description || entry.bank_account_name || entry.source}</div>
+                  <div className="truncate text-[9px] text-[#9A958D]">{entry.bank_account_name || entry.status || entry.source}</div>
+                </div>
+                <span className={isOut ? "font-semibold text-[#8D4B43]" : "font-semibold text-[#2F6B4F]"}>{isOut ? "−" : "+"}{money(entry.amount, currencyCode)}</span>
               </div>
-              <span className={direction === "out" ? "font-semibold text-[#8D4B43]" : "font-semibold text-[#2F6B4F]"}>{direction === "out" ? "−" : "+"}{money(entry.amount, currencyCode)}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-black/[0.08] bg-[#FAF9F7] px-3 py-4 text-[10px] text-[#8A857D]">No evidence in this period.</div>
@@ -217,7 +220,7 @@ export default function FinanceCashFlowWorkCenter({ organizationId, entityId, pe
                   <div className="p-4"><div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#9A7045]">Selected period</div><h2 className="mt-1 text-[17px] font-semibold">{date(selected.period_start)} – {date(selected.period_end)}</h2><div className="mt-1 text-[10px] text-[#817B73]">{selected.currency_code} · {sourceLabel(selected.actual_sources)}</div></div><CalendarRange size={18} className="text-[#9A7045]" /></div>
                     <div className="mt-4 grid grid-cols-2 gap-2 text-[10px]"><div className="rounded-lg border border-black/[0.06] bg-[#FAF9F7] p-2.5"><div className="text-[#8A857D]">Actual movement</div><div className="mt-1 font-semibold">{money(selected.actual_net,selected.currency_code)}</div><div className="mt-1 text-[9px] text-[#A09A92]">{selected.actual_count} bank rows</div></div><div className="rounded-lg border border-black/[0.06] bg-[#FAF9F7] p-2.5"><div className="text-[#8A857D]">Scheduled movement</div><div className="mt-1 font-semibold">{money(selected.scheduled_net,selected.currency_code)}</div><div className="mt-1 text-[9px] text-[#A09A92]">{selected.scheduled_receipt_count} in · {selected.scheduled_payment_count} out</div></div></div>
                   </div>
-                  <EvidenceList title="Actual bank evidence" entries={selected.actual_preview} currencyCode={selected.currency_code} direction="in" />
+                  <EvidenceList title="Actual bank evidence" entries={selected.actual_preview} currencyCode={selected.currency_code} direction="actual" />
                   <EvidenceList title="Scheduled receipts" entries={selected.scheduled_receipts_preview} currencyCode={selected.currency_code} direction="in" />
                   <EvidenceList title="Scheduled payments" entries={selected.scheduled_payments_preview} currencyCode={selected.currency_code} direction="out" />
                   <section className="border-t border-black/[0.07] p-4 text-[10px] leading-5 text-[#777169]"><div className="font-semibold text-[#4F4A44]">Method</div><p>{data?.methodology?.actuals}</p><p className="mt-1">{data?.methodology?.forecast}</p><p className="mt-1">{data?.methodology?.currency}</p></section>

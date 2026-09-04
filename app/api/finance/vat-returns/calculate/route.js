@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { requireFinanceWorkspacePermission } from "@/lib/finance/workspaces/FinanceWorkspacePermissionPolicy";
+import { buildFinanceVatReturnPreflight } from "@/lib/finance/tax/FinanceVatReturnPreflight";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 function required(value, field) {
@@ -16,8 +17,16 @@ function required(value, field) {
 function statusFor(message) {
   const normalized = String(message || "");
   if (/permission denied|authentication|membership/i.test(normalized)) return 403;
-  if (/required|not found|scope|submitted|period|currency|jurisdiction|duplicate/i.test(normalized)) return 400;
+  if (/required|not found|scope|submitted|period|currency|jurisdiction|duplicate|preflight|registration|posting|coding|rule|rate/i.test(normalized)) return 400;
   return 500;
+}
+
+function blockerMessage(preflight) {
+  const blockers = Array.isArray(preflight?.calculation_blockers)
+    ? preflight.calculation_blockers
+    : [];
+  if (!blockers.length) return "VAT preflight failed";
+  return `VAT preflight failed: ${blockers.map(item => `${item.label}: ${item.detail}`).join(" | ")}`;
 }
 
 export async function POST(request) {
@@ -44,6 +53,13 @@ export async function POST(request) {
       body.vat_return_id || body.vatReturnId || body.record_id || body.id,
       "vat_return_id"
     );
+
+    const preflight = await buildFinanceVatReturnPreflight({
+      organizationId: access.organizationId,
+      entityId,
+      vatReturnId,
+    });
+    if (!preflight.ready_to_calculate) throw new Error(blockerMessage(preflight));
 
     const { data, error } = await supabaseAdmin.rpc("calculate_finance_vat_return", {
       p_organization_id: access.organizationId,

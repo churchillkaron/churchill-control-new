@@ -133,6 +133,25 @@ test("anchored relative shot sets are exact, bounded and preservation-aware", ()
   assert.ok(sceneIndex > relativeIndex, "relative sets must resolve before generic range/reference fallback");
 });
 
+test("inline preservation inherits selected-set scope instead of guessing globally", () => {
+  assert.match(setRuntime, /function selectionScopedPreservedShots/);
+  assert.match(setRuntime, /function selectionEdgeFromClause/);
+  assert.match(setRuntime, /selectionResolution/);
+  assert.match(setRuntime, /selectedShots/);
+  assert.match(setRuntime, /PRESERVATION_SELECTED_EDGE_OUT_OF_BOUNDS/);
+  assert.match(setRuntime, /PRESERVATION_PROJECT_ORDINAL_NOT_SELECTED/);
+  assert.match(setRuntime, /PRESERVATION_SELECTED_SHOT_NOT_FOUND/);
+  assert.match(setRuntime, /PRESERVATION_SELECTED_SHOT_AMBIGUOUS/);
+  assert.match(setRuntime, /text\(selectionResolution, 500\)\.includes\("PROJECT_RANGE"\)/);
+  assert.match(setRuntime, /Number\(shot\.shot_number \|\| 0\) === number/);
+  assert.match(setRuntime, /selected\.slice\(0, edge\.count\)/);
+  assert.match(setRuntime, /selected\.slice\(selected\.length - edge\.count\)/);
+  const scopedIndex = setRuntime.indexOf("const selectionScoped = selectionScopedPreservedShots({");
+  const relativeIndex = setRuntime.indexOf("const relativeWindow = relativeWindowFromReference(preserve_clause)", scopedIndex);
+  assert.ok(scopedIndex >= 0, "selected-set preservation resolver must exist");
+  assert.ok(relativeIndex > scopedIndex, "selected-set scope must resolve before global fallback");
+});
+
 test("confirmed batch rejects stale fingerprints and Pro locks before atomic execution", () => {
   const staleIndex = executor.indexOf("CREATIVE_CHAT_MULTI_REVISION_PLAN_STALE");
   const lockIndex = executor.indexOf("plan.professional_lock_conflicts.length");

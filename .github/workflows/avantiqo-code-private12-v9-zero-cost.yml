@@ -48,3 +48,5 @@ jobs:
           grep -q 'MAX_WARM_P95_MS = 4_000' services/avantiqo-code-engine/worldclass_cert_v3_contract.py
           grep -q 'StructuredOutputsParams' services/avantiqo-code-engine/modal_code_qwen38_canary_runtime_v7.py
           echo 'AVANTIQO_CODE_QWEN38_PRIVATE12_V9_ADMISSION=PASS'
+
+# registration marker 20260904

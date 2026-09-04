@@ -29,7 +29,7 @@
   "cash_management": { "kind": "records", "scope": "entity", "owner": "finance" },
   "bank_statements": { "kind": "records", "scope": "entity", "owner": "finance" },
   "cash_flow": { "kind": "report", "scope": "entity", "owner": "finance" },
-  "bank_reconciliation": { "kind": "records", "scope": "entity", "owner": "finance" },
+  "bank_reconciliation": { "kind": "records", "scope": "entity", "owner": "finance", "api": "/api/finance/reconciliation/runtime", "rowsKey": "data", "renderer": "FinanceBankReconciliationWorkCenter" },
   "payments": { "kind": "records", "scope": "entity", "owner": "finance" },
   "fx_revaluation": { "kind": "records", "scope": "entity", "owner": "finance" },
 

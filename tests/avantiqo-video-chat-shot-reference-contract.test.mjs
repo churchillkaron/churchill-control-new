@@ -28,17 +28,32 @@ test("chat shot references resolve server-side, never by prompt guessing", () =>
   assert.match(referenceRuntime, /Choose one candidate explicitly/);
 });
 
-test("relative references require a verified active-shot anchor", () => {
-  for (const phrase of [
-    "this shot",
-    "previous shot",
-    "next shot",
-  ]) {
+test("only truly relative references require a verified active-shot anchor", () => {
+  for (const phrase of ["this shot", "previous shot", "next shot"]) {
     assert.match(referenceRuntime, new RegExp(`"${phrase}"`));
   }
+
+  const nonRelativeExit = referenceRuntime.indexOf(
+    "if (!isCurrent && !isPrevious && !isNext) return null;",
+  );
+  const anchorLookup = referenceRuntime.indexOf(
+    "const anchorIndex = shots.findIndex(",
+    nonRelativeExit,
+  );
+  assert.ok(nonRelativeExit >= 0, "non-relative references must exit relative resolution");
+  assert.ok(anchorLookup > nonRelativeExit, "anchor lookup must occur only after confirming a relative phrase");
+
   assert.match(referenceRuntime, /anchor_shot_id/);
   assert.match(inspector, /anchor_shot_id/);
   assert.match(revisionCapability, /anchor_shot_id/);
+});
+
+test("scene and shot numbers have an exact deterministic addressing path", () => {
+  assert.match(referenceRuntime, /function sceneShotNumber/);
+  assert.match(referenceRuntime, /scene\\s\*#\?\\s\*\(\\d\{1,4\}\\\)/);
+  assert.match(referenceRuntime, /resolution:\s*"SCENE_SHOT_NUMBER"/);
+  assert.match(referenceRuntime, /CREATIVE_CHAT_SHOT_REFERENCE_SCENE_SHOT_AMBIGUOUS/);
+  assert.match(referenceRuntime, /CREATIVE_CHAT_SHOT_REFERENCE_SCENE_SHOT_NOT_FOUND/);
 });
 
 test("inspection and revision share the same canonical reference runtime", () => {
@@ -48,7 +63,7 @@ test("inspection and revision share the same canonical reference runtime", () =>
   assert.match(revisionCapability, /shot_reference/);
 });
 
-test("confirmed revision re-reads the canonical shot before returning success", () => {
+test("confirmed single-shot revision re-reads canonical direction before returning success", () => {
   const revisionIndex = revisionCapability.indexOf(
     "CreativeChatShotRevisionRuntime.revise({",
   );

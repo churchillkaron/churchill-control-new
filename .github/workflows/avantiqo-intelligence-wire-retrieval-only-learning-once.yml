@@ -90,11 +90,14 @@ jobs:
 
           path.write_text(source)
 
-      - name: Verify syntax and integration contracts
-        run: |
-          node --check lib/operator/runtime/OperatorReasoningRuntime.js
-          node scripts/audit-operator-verified-learning-reasoning-integration-local.mjs
-          node --loader ./scripts/next-alias-loader.mjs scripts/audit-operator-verified-learning-context-local.mjs
+      - name: Verify reasoner syntax
+        run: node --check lib/operator/runtime/OperatorReasoningRuntime.js
+
+      - name: Audit deep reasoning learning integration
+        run: node scripts/audit-operator-verified-learning-reasoning-integration-local.mjs
+
+      - name: Audit retrieval-only learning safety
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-operator-verified-learning-context-local.mjs
 
       - name: Commit verified learning integration
         run: |

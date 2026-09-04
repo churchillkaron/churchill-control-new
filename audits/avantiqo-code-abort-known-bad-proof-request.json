@@ -1,5 +1,6 @@
 {
   "contract": "AVANTIQO_CODE_QWEN38_PRIVATE12_V16_TRIGGER_V1",
   "approved": true,
-  "reason": "one explicitly approved V16 certification after zero-cost edit normalization hardening"
+  "reason": "one explicitly approved V16 certification after zero-cost edit normalization hardening",
+  "nonce": 2
 }

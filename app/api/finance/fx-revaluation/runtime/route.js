@@ -42,7 +42,7 @@ async function authorize(request, operation) {
 async function entityContext(organizationId, entityId) {
   const { data: entity, error: entityError } = await supabaseAdmin
     .from("legal_entities")
-    .select("id,legal_name,name,currency,is_active")
+    .select("id,legal_name,currency,is_active")
     .eq("organization_id", organizationId)
     .eq("id", entityId)
     .maybeSingle();
@@ -59,7 +59,7 @@ async function entityContext(organizationId, entityId) {
 
   return {
     id: entity.id,
-    name: entity.legal_name || entity.name || "Legal Entity",
+    name: entity.legal_name || "Legal Entity",
     functional_currency: text(profile?.functional_currency || profile?.base_currency || profile?.reporting_currency || entity.currency).toUpperCase() || null,
   };
 }

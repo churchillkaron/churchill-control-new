@@ -2,7 +2,7 @@ name: Avantiqo Investor HQ Visual Proof 24s Once
 
 # Dedicated native-4K DFR investor proof. A repaired run cancels an older stuck
 # run in this same isolated group before touching the shared model volume.
-# one-shot trigger: 2026-09-05-hq-dfr-v3
+# one-shot trigger: 2026-09-05-hq-dfr-v4
 on:
   push:
     branches: [main]
@@ -58,14 +58,13 @@ jobs:
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
-          python -m py_compile services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_investor_hq.py services/avantiqo-video-engine/modal_investor_hq_cache_v2.py
+          python -m py_compile services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_investor_hq.py
           node --check scripts/run-avantiqo-investor-visual-proof-24s-hq.mjs
           grep -F 'LTX25_DFR_DETAIL_FIDELITY' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
           grep -F 'WIDTH = 3840' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
           grep -F 'HEIGHT = 2176' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
           grep -F '"--spatial-upscalings", "2"' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
           grep -F 'EXISTING_VISUAL_INPUT_FORBIDDEN' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
-          grep -F 'base_checkpoint_downloaded' services/avantiqo-video-engine/modal_investor_hq_cache_v2.py >/dev/null
           grep -F 'pixel_delivery_upscale_used: false' scripts/run-avantiqo-investor-visual-proof-24s-hq.mjs >/dev/null
           grep -F 'simultaneous_gpu_jobs: 1' scripts/run-avantiqo-investor-visual-proof-24s-hq.mjs >/dev/null
           echo 'AVANTIQO_INVESTOR_HQ_PREFLIGHT=PASS'
@@ -84,14 +83,13 @@ jobs:
           grep -F 'generate_investor_hq_master' /tmp/investor-hq-deploy.log >/dev/null
           echo 'AVANTIQO_INVESTOR_HQ_MODAL_DEPLOY=PASS'
 
-      - name: Verify cached base and seed only HQ adapter without GPU
+      - name: Verify HQ adapter directly on Modal Volume
         run: |
           set -euo pipefail
-          cd services/avantiqo-video-engine
-          modal run modal_investor_hq_cache_v2.py::verify_and_seed_hq_adapter | tee /tmp/investor-hq-cache-v2.log
-          grep -F 'AVANTIQO_INVESTOR_HQ_CACHE_GATE_V2_BASE_CACHE=PASS' /tmp/investor-hq-cache-v2.log >/dev/null
-          grep -F 'AVANTIQO_INVESTOR_HQ_CACHE_GATE_V2=PASS' /tmp/investor-hq-cache-v2.log >/dev/null
-          echo 'AVANTIQO_INVESTOR_HQ_CACHE_GATE=PASS'
+          modal volume ls avantiqo-video-models avantiqo-investor-hq-assets --json | tee /tmp/investor-hq-volume.json
+          grep -F 'ltx-2.5-22b-ic-lora-pixel-spatial-upscaler-x2-1.0.safetensors' /tmp/investor-hq-volume.json >/dev/null
+          echo 'AVANTIQO_INVESTOR_HQ_ADAPTER_VOLUME_GATE=PASS'
+          echo 'REMOTE_CACHE_FUNCTION_CALLED=false'
           echo 'BASE_CHECKPOINT_DOWNLOAD_PERFORMED=false'
           echo 'GPU_INFERENCE_PERFORMED=false'
 

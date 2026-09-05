@@ -1,0 +1,231 @@
+name: Avantiqo Investor Fast Motion Proof Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-fast-motion-proof-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-fast-motion-proof-once
+  cancel-in-progress: true
+
+jobs:
+  motion-proof:
+    if: github.event.head_commit.message == 'Run Avantiqo investor fast motion proof once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
+      PROOF_DIR: local-audit-output/avantiqo-investor-fast-motion-proof
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install isolated proof tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          mkdir -p /tmp/avantiqo-proof-node "$PROOF_DIR"
+          cd /tmp/avantiqo-proof-node
+          npm init -y >/dev/null 2>&1
+          npm install --silent --no-audit --no-fund @supabase/supabase-js@2.105.4 modal@0.10.0
+
+      - name: Generate one real Avantiqo motion shot
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/avantiqo-proof-node/run.mjs <<'NODE'
+          import fs from 'node:fs/promises';
+          import path from 'node:path';
+          import { createClient } from '@supabase/supabase-js';
+          import * as modal from 'modal';
+
+          const CONTRACT = 'AVANTIQO_INVESTOR_FAST_MOTION_PROOF_V1';
+          const APP = 'avantiqo-video-owned';
+          const FUNCTION = 'generate_investor_t2v_job';
+          const BUCKET = 'creative-assets';
+          const ORG = '9a148429-b6a0-4bc6-ac83-a35c64fb7045';
+          const runKey = `fast-motion-${process.env.GITHUB_SHA}`;
+          const objectPath = `${ORG}/investor-film-fast-proof/${runKey}/hero.mp4`;
+          const outDir = path.resolve(process.env.GITHUB_WORKSPACE, process.env.PROOF_DIR);
+          await fs.mkdir(outDir, { recursive: true });
+
+          const instruction = [
+            'Single continuous six-second prestige technology-investor film shot inside a sophisticated real hospitality operation in Phuket at early morning blue hour.',
+            'A calm operations leader walks through a refined service environment while a delivery handoff, guest service moment, and food preparation synchronize naturally around her.',
+            'The camera performs one smooth controlled lateral tracking move with a subtle arc, premium anamorphic depth, physically plausible practical lighting, warm stone, brushed metal, glass and natural skin texture.',
+            'The scene should communicate that one intelligent operating layer quietly coordinates real human work, but show this only through timing, cause and effect, subtle warm bronze reflections, and confident human decisions.',
+            'No software screen, no dashboard, no hologram, no floating interface, no readable generated text, no logo, no stock-footage smile, no sci-fi neon, no exaggerated acting.',
+            'World-class global technology launch-film realism: expensive, understated, futuristic but believable, stable faces and hands, coherent geometry, cinematic motion, premium commercial photography.'
+          ].join(' ');
+
+          const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+            auth: { persistSession: false, autoRefreshToken: false }
+          });
+          const storage = supabase.storage.from(BUCKET);
+          await storage.remove([objectPath]).catch(() => null);
+          const { data: signedUpload, error: signedUploadError } = await storage.createSignedUploadUrl(objectPath, { upsert: false });
+          if (signedUploadError || !signedUpload?.signedUrl) {
+            throw new Error(`${CONTRACT}_SIGNED_UPLOAD_FAILED:${signedUploadError?.message || 'missing'}`);
+          }
+
+          const client = new modal.ModalClient({
+            tokenId: process.env.MODAL_TOKEN_ID,
+            tokenSecret: process.env.MODAL_TOKEN_SECRET,
+          });
+          const worker = await client.functions.fromName(APP, FUNCTION);
+          const payload = {
+            capability: 'ai.video.generate',
+            organization_id: ORG,
+            usage_id: `${runKey}-shot-1`,
+            instruction,
+            duration_seconds: 6,
+            seed: 26090561,
+            source_urls: [],
+            storage_upload: {
+              signed_url: signedUpload.signedUrl,
+              storage_reference: `storage://${BUCKET}/${objectPath}`,
+            },
+          };
+
+          const started = Date.now();
+          const call = await worker.spawn([payload]);
+          const functionCallId = String(call.functionCallId || '').trim();
+          if (!functionCallId) throw new Error(`${CONTRACT}_FUNCTION_CALL_ID_REQUIRED`);
+          const deadline = Date.now() + 12 * 60 * 1000;
+          let result = null;
+          while (Date.now() < deadline) {
+            const same = await client.functionCalls.fromId(functionCallId);
+            try {
+              result = await same.get({ timeoutMs: 0 });
+              break;
+            } catch (error) {
+              if (error instanceof modal.FunctionTimeoutError && /Timeout exceeded:\s*0ms/i.test(String(error?.message || ''))) {
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                continue;
+              }
+              throw error;
+            }
+          }
+          if (!result) throw new Error(`${CONTRACT}_GENERATION_TIMEOUT`);
+          if (result.success !== true) throw new Error(`${CONTRACT}_GENERATION_FAILED:${JSON.stringify(result)}`);
+          if (result.model !== 'avantiqo-ltx-2.5') throw new Error(`${CONTRACT}_MODEL_INVALID:${result.model}`);
+          if (result.pure_text_to_video !== true) throw new Error(`${CONTRACT}_PURE_T2V_REQUIRED`);
+          if (Number(result.source_visual_asset_count) !== 0) throw new Error(`${CONTRACT}_SOURCE_VISUAL_FORBIDDEN`);
+
+          const { data: blob, error: downloadError } = await storage.download(objectPath);
+          if (downloadError || !blob) throw new Error(`${CONTRACT}_DOWNLOAD_FAILED:${downloadError?.message || 'missing'}`);
+          const sourceFile = path.join(outDir, 'avantiqo-investor-fast-motion-source.mp4');
+          await fs.writeFile(sourceFile, Buffer.from(await blob.arrayBuffer()));
+          const proof = {
+            success: true,
+            contract: CONTRACT,
+            source_commit: process.env.GITHUB_SHA,
+            modal_function_call_id: functionCallId,
+            generation_seconds_wall: Math.round((Date.now() - started) / 100) / 10,
+            instruction,
+            object_path: objectPath,
+            result,
+            existing_visual_assets_used: false,
+            screenshot_or_browser_capture_used: false,
+            external_video_provider_used: false,
+          };
+          await fs.writeFile(path.join(outDir, 'generation.json'), JSON.stringify(proof, null, 2) + '\n');
+          console.log(`AVANTIQO_FAST_MOTION_GENERATION=PASS:${functionCallId}`);
+          console.log(`MODEL=${result.model}`);
+          console.log(`RESOLUTION=${result.width}x${result.height}`);
+          console.log(`GENERATION_WALL_SECONDS=${proof.generation_seconds_wall}`);
+          NODE
+          cd /tmp/avantiqo-proof-node
+          node run.mjs
+
+      - name: Master 1080p viewing copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE="$PROOF_DIR/avantiqo-investor-fast-motion-source.mp4"
+          OUTPUT="$PROOF_DIR/avantiqo-investor-fast-motion-1080p.mp4"
+          test -s "$SOURCE"
+          ffmpeg -hide_banner -loglevel error -y \
+            -i "$SOURCE" \
+            -vf 'crop=1920:1080:0:4,setsar=1,fps=24' \
+            -c:v libx264 -preset fast -crf 16 -pix_fmt yuv420p \
+            -c:a aac -b:a 256k -ar 48000 -ac 2 \
+            -movflags +faststart \
+            "$OUTPUT"
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_type,codec_name,width,height,avg_frame_rate -of json "$OUTPUT" > "$PROOF_DIR/ffprobe.json"
+
+      - name: Verify proof artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = process.env.PROOF_DIR;
+          const generation = JSON.parse(fs.readFileSync(path.join(dir, 'generation.json'), 'utf8'));
+          const probe = JSON.parse(fs.readFileSync(path.join(dir, 'ffprobe.json'), 'utf8'));
+          const video = (probe.streams || []).find((s) => s.codec_type === 'video') || {};
+          const duration = Number(probe.format?.duration || 0);
+          if (generation.success !== true) throw new Error('GENERATION_NOT_SUCCESSFUL');
+          if (Number(video.width) !== 1920 || Number(video.height) !== 1080) throw new Error(`DELIVERY_RESOLUTION_INVALID:${video.width}x${video.height}`);
+          if (duration < 5.7 || duration > 6.5) throw new Error(`DELIVERY_DURATION_INVALID:${duration}`);
+          const report = {
+            success: true,
+            marker: 'AVANTIQO_INVESTOR_FAST_MOTION_PROOF=PASS',
+            source_commit: process.env.GITHUB_SHA,
+            model: generation.result.model,
+            source_resolution: `${generation.result.width}x${generation.result.height}`,
+            delivery_resolution: `${video.width}x${video.height}`,
+            duration_seconds: duration,
+            pure_text_to_video: generation.result.pure_text_to_video,
+            source_visual_asset_count: generation.result.source_visual_asset_count,
+            screenshot_or_browser_capture_used: generation.screenshot_or_browser_capture_used,
+            external_video_provider_used: generation.external_video_provider_used,
+            modal_function_call_id: generation.modal_function_call_id,
+            generation_seconds_wall: generation.generation_seconds_wall,
+          };
+          fs.writeFileSync(path.join(dir, 'proof-report.json'), JSON.stringify(report, null, 2) + '\n');
+          console.log('AVANTIQO_INVESTOR_FAST_MOTION_PROOF=PASS');
+          console.log(JSON.stringify(report));
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-fast-motion-proof
+          path: |
+            local-audit-output/avantiqo-investor-fast-motion-proof/avantiqo-investor-fast-motion-1080p.mp4
+            local-audit-output/avantiqo-investor-fast-motion-proof/proof-report.json
+            local-audit-output/avantiqo-investor-fast-motion-proof/generation.json
+            local-audit-output/avantiqo-investor-fast-motion-proof/ffprobe.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve production boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'FULL_INVESTOR_FILM_GENERATION_STARTED=false'

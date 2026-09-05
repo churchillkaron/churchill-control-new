@@ -7,7 +7,7 @@ const ACTIVE_POLL_MS = 5000;
 
 function queueCounts(queue = {}) {
   const count = (key) => Array.isArray(queue?.[key]) ? queue[key].length : 0;
-  return { running: count("running"), review: count("review"), failed: count("failed"), blocked: count("blocked") };
+  return { running: count("running"), ready: count("ready"), waiting: count("waiting"), review: count("review"), failed: count("failed"), blocked: count("blocked") };
 }
 
 function productionMessage(summary) {
@@ -26,6 +26,13 @@ function productionMessage(summary) {
 
 function activeProjectVideo(readiness) {
   return Number(readiness?.running_task_count || 0) > 0;
+}
+
+function shouldContinue(summary) {
+  if (!summary || summary.complete) return false;
+  const counts = queueCounts(summary.queue);
+  if (counts.failed || counts.blocked || counts.running || counts.review) return false;
+  return counts.ready > 0;
 }
 
 function readinessLabel(readiness, loading) {
@@ -55,11 +62,13 @@ function readinessMessage(readiness, loading) {
 
 export default function RunProductionButton({ runtime }) {
   const [running, setRunning] = useState(false);
+  const [continuing, setContinuing] = useState(false);
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
   const [readiness, setReadiness] = useState(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
   const pollingRef = useRef(false);
+  const continuationRef = useRef(false);
   const projectId = runtime.projectRuntime?.current?.id || null;
   const organizationId = runtime.organizationId || null;
   const message = useMemo(() => productionMessage(summary), [summary]);
@@ -101,6 +110,37 @@ export default function RunProductionButton({ runtime }) {
     }
   }, [organizationId, projectId]);
 
+  const dispatchProduction = useCallback(async ({ automatic = false } = {}) => {
+    if (!organizationId || !projectId || continuationRef.current) return null;
+    continuationRef.current = true;
+    if (automatic) setContinuing(true);
+    try {
+      const response = await fetch("/api/creative/production/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: organizationId, creative_project_id: projectId }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        if (json.readiness) setReadiness(json.readiness);
+        throw new Error(
+          json.error === "CREATIVE_VIDEO_RUNTIME_BUSY"
+            ? "Avantiqo Cinema became busy before dispatch. Nothing new was started."
+            : json.error || "Production failed.",
+        );
+      }
+      const result = json.result || null;
+      setSummary(result);
+      setReadiness(result?.video_readiness || null);
+      setError(null);
+      await runtime.refresh?.();
+      return result;
+    } finally {
+      continuationRef.current = false;
+      if (automatic) setContinuing(false);
+    }
+  }, [organizationId, projectId, runtime]);
+
   const pollActiveProduction = useCallback(async () => {
     if (!organizationId || !projectId || pollingRef.current) return null;
     pollingRef.current = true;
@@ -116,7 +156,13 @@ export default function RunProductionButton({ runtime }) {
       setSummary(result);
       setReadiness(result?.video_readiness || null);
       setError(null);
-      if (!activeProjectVideo(result?.video_readiness)) await runtime.refresh?.();
+
+      if (!activeProjectVideo(result?.video_readiness)) {
+        await runtime.refresh?.();
+        if (shouldContinue(result)) {
+          await dispatchProduction({ automatic: true });
+        }
+      }
       return result;
     } catch (pollError) {
       setError(pollError?.message || "Production check failed.");
@@ -124,7 +170,7 @@ export default function RunProductionButton({ runtime }) {
     } finally {
       pollingRef.current = false;
     }
-  }, [organizationId, projectId, runtime]);
+  }, [organizationId, projectId, runtime, dispatchProduction]);
 
   useEffect(() => {
     inspectReadiness();
@@ -139,7 +185,7 @@ export default function RunProductionButton({ runtime }) {
   }, [readiness, organizationId, projectId, pollActiveProduction]);
 
   async function run() {
-    if (!organizationId || !projectId || running || readinessLoading) return;
+    if (!organizationId || !projectId || running || continuing || readinessLoading) return;
     if (activeProjectVideo(readiness)) {
       await pollActiveProduction();
       return;
@@ -162,23 +208,7 @@ export default function RunProductionButton({ runtime }) {
         );
       }
 
-      const res = await fetch("/api/creative/production/queue", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organization_id: organizationId, creative_project_id: projectId }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        if (json.readiness) setReadiness(json.readiness);
-        throw new Error(
-          json.error === "CREATIVE_VIDEO_RUNTIME_BUSY"
-            ? "Avantiqo Cinema became busy before dispatch. Nothing new was started."
-            : json.error || "Production failed.",
-        );
-      }
-      setSummary(json.result || null);
-      setReadiness(json.result?.video_readiness || readiness);
-      await runtime.refresh?.();
+      await dispatchProduction();
       await inspectReadiness({ quiet: true });
     } catch (runError) {
       setError(runError?.message || "Production failed.");
@@ -189,8 +219,8 @@ export default function RunProductionButton({ runtime }) {
 
   const checkingActiveWork = activeProjectVideo(readiness);
   const blockedByReadiness = readiness?.required === true && readiness?.ready !== true && !checkingActiveWork;
-  const disabled = running || readinessLoading || !projectId || blockedByReadiness;
-  const label = running ? "Starting production…" : readinessLabel(readiness, readinessLoading);
+  const disabled = running || continuing || readinessLoading || !projectId || blockedByReadiness;
+  const label = continuing ? "Continuing production…" : running ? "Starting production…" : readinessLabel(readiness, readinessLoading);
   const toneClass = readinessState?.tone === "ready"
     ? "text-emerald-700"
     : readinessState?.tone === "busy"
@@ -207,7 +237,7 @@ export default function RunProductionButton({ runtime }) {
         disabled={disabled}
         className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white transition hover:bg-[#3A3631] disabled:cursor-not-allowed disabled:opacity-45"
       >
-        {running || readinessLoading ? <LoaderCircle size={9} className="animate-spin" /> : checkingActiveWork ? <RefreshCw size={9} className="animate-spin" /> : blockedByReadiness ? <CircleAlert size={9} /> : readiness?.required ? <ShieldCheck size={9} /> : <Play size={9} fill="currentColor" />}
+        {running || continuing || readinessLoading ? <LoaderCircle size={9} className="animate-spin" /> : checkingActiveWork ? <RefreshCw size={9} className="animate-spin" /> : blockedByReadiness ? <CircleAlert size={9} /> : readiness?.required ? <ShieldCheck size={9} /> : <Play size={9} fill="currentColor" />}
         {label}
       </button>
       {readinessState ? <div className={`max-w-[360px] text-right text-[7px] leading-3 ${toneClass}`}>{readinessState.text}</div> : null}

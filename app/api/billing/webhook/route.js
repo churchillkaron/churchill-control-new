@@ -7,11 +7,10 @@ async function finalizeHotelPayment(event, session) {
   if (!transactionId) throw new Error("Hotel payment webhook is missing transaction metadata");
   if (session.payment_status !== "paid") return;
 
-  const { data, error } = await supabaseAdmin.rpc("hotel_finalize_gateway_transaction", {
+  const { data, error } = await supabaseAdmin.rpc("hotel_finalize_gateway_payment_with_finance", {
     p_transaction_id: transactionId,
     p_provider_event_id: event.id,
     p_provider_payment_id: session.payment_intent ? String(session.payment_intent) : null,
-    p_provider_refund_id: null,
   });
   if (error) throw error;
   return data;

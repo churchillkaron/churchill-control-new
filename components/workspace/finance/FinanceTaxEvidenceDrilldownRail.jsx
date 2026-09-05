@@ -140,7 +140,7 @@ export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entity
         <div>
           <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#9A7045]"><FileSearch2 size={11}/> VAT evidence trace</span><span className="rounded-md border border-black/[0.07] bg-[#F7F6F3] px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] text-[#716B63]">Read only · full population</span></div>
           <div className="mt-1 text-[12px] font-semibold">Start with the VAT control, then trace it to the exact transaction.</div>
-          <div className="mt-1 max-w-4xl text-[9px] leading-4 text-[#817B73]">Choose the live VAT control below. Avantiqo rebuilds the complete filing population, isolates every affected source record, and keeps the legal entity and filing context fixed while you inspect the exact accounting evidence.</div>
+          <div className="mt-1 max-w-4xl text-[9px] leading-4 text-[#817B73]">Choose the live VAT control below. Avantiqo rebuilds the complete filing population, isolates every affected source record, and keeps the legal entity and filing context fixed while you inspect the exact accounting evidence. Viewing evidence never switches Business Context.</div>
         </div>
         <button type="button" onClick={loadGuidance} className="inline-flex h-8 items-center gap-1.5 self-start rounded-lg border border-black/[0.09] bg-white px-2.5 text-[9px] font-semibold"><RefreshCw size={10} className={guidanceState.loading ? "animate-spin" : ""}/> Refresh truth</button>
       </div>

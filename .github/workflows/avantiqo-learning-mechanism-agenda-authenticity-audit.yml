@@ -1,0 +1,64 @@
+name: Avantiqo Learning Mechanism Agenda Authenticity Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeCoreRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningMechanismAgendaAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime.js"
+      - "scripts/audit-avantiqo-learning-mechanism-agenda-authenticity-local.mjs"
+      - ".github/workflows/avantiqo-learning-mechanism-agenda-authenticity-audit.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeCoreRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoLearningMechanismAgendaAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime.js"
+      - "scripts/audit-avantiqo-learning-mechanism-agenda-authenticity-local.mjs"
+      - ".github/workflows/avantiqo-learning-mechanism-agenda-authenticity-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-learning-mechanism-agenda-authenticity-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    name: Zero-cost mechanism agenda authenticity certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AVANTIQO_MISSION_OUTCOME_AUTH_ACTIVE_KEY_ID: audit-v2
+      AVANTIQO_MISSION_OUTCOME_AUTH_KEYRING_JSON: '{"audit-v1":"1111111111111111111111111111111111111111111111111111111111111111","audit-v2":"2222222222222222222222222222222222222222222222222222222222222222"}'
+      SUPABASE_SERVICE_ROLE_KEY: audit-service-role-key-not-used
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Syntax gate
+        run: |
+          node --check lib/intelligence/runtime/AvantiqoLearningMechanismAgendaAuthenticityRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoLearningEvidenceCandidateBridgeRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoMechanismFirstLearningRuntime.js
+          node --check scripts/audit-avantiqo-learning-mechanism-agenda-authenticity-local.mjs
+
+      - name: Run mechanism agenda authenticity adversarial audit
+        run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-learning-mechanism-agenda-authenticity-local.mjs

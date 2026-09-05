@@ -90,20 +90,23 @@ async function loadPlatformControlTower() {
 
 function AccessDenied({ status, error }) {
   return (
-    <div className="-mx-5 -my-5 min-h-[calc(100vh-61px)] bg-[#070707] px-5 py-10 text-white lg:-mx-7 lg:-my-6 lg:px-7">
-      <div className="mx-auto max-w-3xl rounded-[24px] border border-white/[0.08] bg-[#0D0D0D] p-6">
-        <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#D6A66A]">
-          Avantiqo Platform
+    <div className="-mx-5 -my-5 min-h-[calc(100vh-61px)] bg-[#F7F6F3] px-5 py-10 text-[#2A2723] lg:-mx-7 lg:-my-6 lg:px-7">
+      <div className="mx-auto max-w-3xl overflow-hidden rounded-[22px] border border-[#A37849]/14 bg-[#FFFDF9]">
+        <div className="border-b border-black/[0.06] px-5 py-4">
+          <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">
+            Avantiqo Platform
+          </div>
+          <h1 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#27231F]">
+            Platform administrator access required
+          </h1>
+          <p className="mt-1 max-w-2xl text-[9px] leading-5 text-[#918B83]">
+            This workspace is restricted to active PLATFORM_OWNER and SUPER_ADMIN staff accounts.
+          </p>
         </div>
-        <h1 className="mt-3 text-[28px] font-medium tracking-[-0.04em]">
-          Platform administrator access required
-        </h1>
-        <p className="mt-3 text-[12px] leading-6 text-white/45">
-          This control tower is restricted to active PLATFORM_OWNER and
-          SUPER_ADMIN staff accounts.
-        </p>
-        <div className="mt-5 rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3 text-[11px] text-white/42">
-          {status || 403} · {error || "Access denied"}
+        <div className="px-5 py-4">
+          <div className="rounded-xl border border-black/[0.07] bg-[#F6F4F0] px-4 py-3 text-[9px] text-[#746E66]">
+            {status || 403} · {error || "Access denied"}
+          </div>
         </div>
       </div>
     </div>

@@ -9,6 +9,10 @@ import {
 import { listServiceOccurrences } from "@/lib/service-management/repositories/ServicePlanRepository";
 import { reconcileServiceOccurrence } from "@/lib/service-management/runtime/ServiceCompletionReconciliationRuntime";
 import { assertServiceMonitoringComplete } from "@/lib/service-management/runtime/ServiceMonitoringRoundRuntime";
+import {
+  assertServiceTreatmentReady,
+  projectServiceTreatmentReadiness,
+} from "@/lib/service-management/runtime/ServiceTreatmentReadinessRuntime";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 const TERMINAL_OCCURRENCE_STATUSES = new Set(["completed", "cancelled", "canceled", "archived"]);
@@ -16,38 +20,23 @@ const COMPLETION_OUTCOMES = new Set(["completed", "follow_up", "issue_found"]);
 const EXTERNAL_EVIDENCE_TYPES = new Set(["photo", "signature", "file"]);
 const ACTIVE_EVIDENCE_STATUSES = new Set(["recorded", "validated"]);
 
-function text(value) {
-  return String(value ?? "").trim();
-}
-
-function normalized(value) {
-  return text(value).toLowerCase().replace(/[\s-]+/g, "_");
-}
+function text(value) { return String(value ?? "").trim(); }
+function normalized(value) { return text(value).toLowerCase().replace(/[\s-]+/g, "_"); }
 
 function responseError(error, status = 500) {
-  return Response.json(
-    {
-      success: false,
-      error: error?.message || error || "Technician execution failed.",
-      monitoring_round: error?.monitoring_round || undefined,
-    },
-    { status: error?.status || status },
-  );
+  return Response.json({
+    success: false,
+    error: error?.message || error || "Technician execution failed.",
+    monitoring_round: error?.monitoring_round || undefined,
+    treatment_readiness: error?.treatment_readiness || undefined,
+  }, { status: error?.status || status });
 }
 
 function serviceDelivery(occurrence = {}, workOrder = {}) {
-  return workOrder.attributes?.service_delivery
-    || occurrence.attributes?.service_delivery
-    || {};
+  return workOrder.attributes?.service_delivery || occurrence.attributes?.service_delivery || {};
 }
-
-function protocolFor(occurrence = {}, workOrder = {}) {
-  return serviceDelivery(occurrence, workOrder).execution_protocol || null;
-}
-
-function staffExecution(workOrder = {}) {
-  return workOrder.attributes?.staff_execution || {};
-}
+function protocolFor(occurrence = {}, workOrder = {}) { return serviceDelivery(occurrence, workOrder).execution_protocol || null; }
+function staffExecution(workOrder = {}) { return workOrder.attributes?.staff_execution || {}; }
 
 function isPresent(value, field) {
   if (field?.type === "checkbox") return value === true;
@@ -62,32 +51,24 @@ function validateProtocolCompletion({ protocol, responses, outcome, completionEv
     error.status = 409;
     throw error;
   }
-
   const fields = Array.isArray(protocol.field_schema) ? protocol.field_schema : [];
   const missing = fields
     .filter((field) => field?.required && !EXTERNAL_EVIDENCE_TYPES.has(normalized(field.type)))
     .filter((field) => !isPresent(responses?.[field.key], field))
     .map((field) => field.label || field.key)
     .filter(Boolean);
-
   if (missing.length) {
     const error = new Error(`Required protocol fields are incomplete: ${missing.join(", ")}.`);
     error.status = 409;
     throw error;
   }
-
   const evidence = protocol.evidence_requirements || {};
-  const externalFieldRequired = fields.some((field) => (
-    field?.required && EXTERNAL_EVIDENCE_TYPES.has(normalized(field.type))
-  ));
-  const externalEvidenceRequired = externalFieldRequired || Object.values(evidence).some(Boolean);
-
-  if (externalEvidenceRequired && !completionEvidenceId) {
+  const externalFieldRequired = fields.some((field) => field?.required && EXTERNAL_EVIDENCE_TYPES.has(normalized(field.type)));
+  if ((externalFieldRequired || Object.values(evidence).some(Boolean)) && !completionEvidenceId) {
     const error = new Error("Required service proof is not linked. Capture Completion Evidence before completing this visit.");
     error.status = 409;
     throw error;
   }
-
   if (protocol.completion_rules?.require_outcome && !COMPLETION_OUTCOMES.has(normalized(outcome))) {
     const error = new Error("A valid completion outcome is required.");
     error.status = 409;
@@ -96,86 +77,45 @@ function validateProtocolCompletion({ protocol, responses, outcome, completionEv
 }
 
 async function loadOccurrence({ organizationId, occurrenceId }) {
-  const result = await supabaseAdmin
-    .from("service_plan_occurrences")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .eq("id", occurrenceId)
-    .maybeSingle();
-
+  const result = await supabaseAdmin.from("service_plan_occurrences").select("*")
+    .eq("organization_id", organizationId).eq("id", occurrenceId).maybeSingle();
   if (result.error) throw result.error;
-  if (!result.data) {
-    const error = new Error("Service occurrence not found.");
-    error.status = 404;
-    throw error;
-  }
+  if (!result.data) { const error = new Error("Service occurrence not found."); error.status = 404; throw error; }
   return result.data;
 }
 
 async function loadWorkOrder({ context, occurrence }) {
-  if (!occurrence.work_order_id) {
-    const error = new Error("This service occurrence has no generated work order.");
-    error.status = 409;
-    throw error;
-  }
-
+  if (!occurrence.work_order_id) { const error = new Error("This service occurrence has no generated work order."); error.status = 409; throw error; }
   const detail = await serverOperationsApi.detail({
     capabilityId: "work-orders",
     id: occurrence.work_order_id,
-    context: {
-      ...context,
-      entity_id: occurrence.entity_id || context.entity_id || null,
-      period_id: null,
-    },
+    context: { ...context, entity_id: occurrence.entity_id || context.entity_id || null, period_id: null },
   });
-
   if (detail.status >= 400 || !detail.body?.ok || !detail.body?.record) {
     const error = new Error(detail.body?.error || "Linked service work order could not be loaded.");
     error.status = detail.status || 404;
     throw error;
   }
-
   return detail.body.record;
 }
 
 async function validateLinkedCompletionEvidence({ organizationId, occurrenceId, evidenceId }) {
   if (!evidenceId) return null;
-
-  const result = await supabaseAdmin
-    .from("operations_records")
+  const result = await supabaseAdmin.from("operations_records")
     .select("id,status,source_domain,source_type,source_id,attributes,created_at")
-    .eq("organization_id", organizationId)
-    .eq("capability_id", "completion-evidence")
-    .eq("id", evidenceId)
-    .maybeSingle();
-
+    .eq("organization_id", organizationId).eq("capability_id", "completion-evidence").eq("id", evidenceId).maybeSingle();
   if (result.error) throw result.error;
   const evidence = result.data || null;
-  if (!evidence) {
-    const error = new Error("Linked Completion Evidence was not found in this organization.");
-    error.status = 409;
-    throw error;
-  }
-  if (
-    evidence.source_domain !== "service-management"
-    || evidence.source_type !== "service-occurrence"
-    || evidence.source_id !== occurrenceId
-  ) {
-    const error = new Error("Linked Completion Evidence does not belong to this exact service occurrence.");
-    error.status = 409;
-    throw error;
+  if (!evidence) { const error = new Error("Linked Completion Evidence was not found in this organization."); error.status = 409; throw error; }
+  if (evidence.source_domain !== "service-management" || evidence.source_type !== "service-occurrence" || evidence.source_id !== occurrenceId) {
+    const error = new Error("Linked Completion Evidence does not belong to this exact service occurrence."); error.status = 409; throw error;
   }
   if (!ACTIVE_EVIDENCE_STATUSES.has(normalized(evidence.status))) {
-    const error = new Error(`Linked Completion Evidence is not active. Current status: ${evidence.status || "unknown"}.`);
-    error.status = 409;
-    throw error;
+    const error = new Error(`Linked Completion Evidence is not active. Current status: ${evidence.status || "unknown"}.`); error.status = 409; throw error;
   }
   if (!evidence.attributes?.service_completion_evidence?.readiness?.ready) {
-    const error = new Error("Linked Completion Evidence has not passed its governed proof preflight.");
-    error.status = 409;
-    throw error;
+    const error = new Error("Linked Completion Evidence has not passed its governed proof preflight."); error.status = 409; throw error;
   }
-
   return evidence;
 }
 
@@ -189,7 +129,10 @@ function technicianProjection(occurrence, workOrder, latestEvidence = null) {
     evidence_status: latestEvidence.status,
     evidence_pending_completion: true,
   } : null);
-
+  const treatmentReadiness = projectServiceTreatmentReadiness(
+    occurrence.attributes?.service_treatment || null,
+    { applicable: normalized(delivery.industry_key) === "pest_control" },
+  );
   return {
     occurrence_id: occurrence.id,
     service_plan_id: occurrence.service_plan_id,
@@ -217,6 +160,7 @@ function technicianProjection(occurrence, workOrder, latestEvidence = null) {
     preferred_staff_name: delivery.preferred_staff_name || null,
     duration_minutes: delivery.duration_minutes || null,
     execution_protocol: protocol,
+    treatment_readiness: treatmentReadiness,
     staff_execution: execution,
     completion,
     latest_completion_evidence_id: latestEvidence?.id || null,
@@ -246,17 +190,9 @@ export async function GET(request) {
 
     let workOrders = [];
     if (workOrderIds.length) {
-      let query = supabaseAdmin
-        .from("operations_records")
-        .select("*")
-        .eq("organization_id", resolved.context.organization_id)
-        .eq("capability_id", "work-orders")
-        .in("id", workOrderIds);
-
-      if (resolved.context.entity_id) {
-        query = query.or(`entity_id.eq.${resolved.context.entity_id},entity_id.is.null`);
-      }
-
+      let query = supabaseAdmin.from("operations_records").select("*")
+        .eq("organization_id", resolved.context.organization_id).eq("capability_id", "work-orders").in("id", workOrderIds);
+      if (resolved.context.entity_id) query = query.or(`entity_id.eq.${resolved.context.entity_id},entity_id.is.null`);
       const result = await query;
       if (result.error) throw result.error;
       workOrders = result.data || [];
@@ -264,21 +200,13 @@ export async function GET(request) {
 
     let evidenceRows = [];
     if (occurrenceIds.length) {
-      let query = supabaseAdmin
-        .from("operations_records")
-        .select("id,status,source_id,attributes,created_at")
+      let query = supabaseAdmin.from("operations_records").select("id,status,source_id,attributes,created_at")
         .eq("organization_id", resolved.context.organization_id)
         .eq("capability_id", "completion-evidence")
         .eq("source_domain", "service-management")
         .eq("source_type", "service-occurrence")
-        .in("source_id", occurrenceIds)
-        .in("status", [...ACTIVE_EVIDENCE_STATUSES])
-        .order("created_at", { ascending: false });
-
-      if (resolved.context.entity_id) {
-        query = query.or(`entity_id.eq.${resolved.context.entity_id},entity_id.is.null`);
-      }
-
+        .in("source_id", occurrenceIds).in("status", [...ACTIVE_EVIDENCE_STATUSES]).order("created_at", { ascending: false });
+      if (resolved.context.entity_id) query = query.or(`entity_id.eq.${resolved.context.entity_id},entity_id.is.null`);
       const result = await query;
       if (result.error) throw result.error;
       evidenceRows = result.data || [];
@@ -286,19 +214,11 @@ export async function GET(request) {
 
     const byId = new Map(workOrders.map((row) => [row.id, row]));
     const evidenceByOccurrence = new Map();
-    for (const evidence of evidenceRows) {
-      if (!evidenceByOccurrence.has(evidence.source_id)) evidenceByOccurrence.set(evidence.source_id, evidence);
-    }
-
-    const projections = visible
-      .map((occurrence) => {
-        const workOrder = byId.get(occurrence.work_order_id);
-        return workOrder
-          ? technicianProjection(occurrence, workOrder, evidenceByOccurrence.get(occurrence.id) || null)
-          : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) => new Date(a.scheduled_start || a.occurrence_at || 0) - new Date(b.scheduled_start || b.occurrence_at || 0));
+    for (const evidence of evidenceRows) if (!evidenceByOccurrence.has(evidence.source_id)) evidenceByOccurrence.set(evidence.source_id, evidence);
+    const projections = visible.map((occurrence) => {
+      const workOrder = byId.get(occurrence.work_order_id);
+      return workOrder ? technicianProjection(occurrence, workOrder, evidenceByOccurrence.get(occurrence.id) || null) : null;
+    }).filter(Boolean).sort((a, b) => new Date(a.scheduled_start || a.occurrence_at || 0) - new Date(b.scheduled_start || b.occurrence_at || 0));
 
     return Response.json({
       success: true,
@@ -306,9 +226,7 @@ export async function GET(request) {
       active_count: projections.filter((row) => !TERMINAL_OCCURRENCE_STATUSES.has(normalized(row.occurrence_status))).length,
       rows: projections,
     });
-  } catch (error) {
-    return responseError(error);
-  }
+  } catch (error) { return responseError(error); }
 }
 
 export async function POST(request) {
@@ -316,16 +234,12 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const resolved = await resolveServiceManagementContext({ request, input: body });
     if (!resolved.success) return responseError(resolved.error, resolved.status || 403);
-
     const occurrenceId = text(body.occurrenceId || body.occurrence_id);
     const action = normalized(body.action);
     if (!occurrenceId) return responseError("occurrence_id is required.", 400);
     if (!new Set(["start", "complete"]).has(action)) return responseError("Unsupported technician action.", 400);
 
-    const occurrence = await loadOccurrence({
-      organizationId: resolved.context.organization_id,
-      occurrenceId,
-    });
+    const occurrence = await loadOccurrence({ organizationId: resolved.context.organization_id, occurrenceId });
     const workOrder = await loadWorkOrder({ context: resolved.context, occurrence });
     const delivery = serviceDelivery(occurrence, workOrder);
     const existingExecution = staffExecution(workOrder);
@@ -338,60 +252,44 @@ export async function POST(request) {
 
     if (action === "start") {
       if (!(workOrder.allowed_commands || []).includes("start")) {
-        const error = new Error("This work order cannot be started from its current lifecycle state.");
-        error.status = 409;
-        throw error;
+        const error = new Error("This work order cannot be started from its current lifecycle state."); error.status = 409; throw error;
       }
-
       const response = await serverOperationsApi.execute({
-        capabilityId: "work-orders",
-        command: "start",
-        context: runtimeContext,
+        capabilityId: "work-orders", command: "start", context: runtimeContext,
         payload: {
-          id: workOrder.id,
-          started_at: now,
+          id: workOrder.id, started_at: now,
           attributes: {
             ...(workOrder.attributes || {}),
             staff_execution: {
               ...existingExecution,
               staff_id: workOrder.assigned_to || delivery.preferred_staff_id || null,
               technician_name: delivery.preferred_staff_name || existingExecution.technician_name || null,
-              started: {
-                ...(existingExecution.started || {}),
-                at: now,
-              },
+              started: { ...(existingExecution.started || {}), at: now },
             },
           },
         },
       });
-
       if (response.status >= 400 || !response.body?.ok) {
-        const error = new Error(response.body?.error || "Service could not be started.");
-        error.status = response.status || 500;
-        throw error;
+        const error = new Error(response.body?.error || "Service could not be started."); error.status = response.status || 500; throw error;
       }
-
       return Response.json({ success: true, action, work_order: response.body.execution?.result || null });
     }
 
     if (!(workOrder.allowed_commands || []).includes("complete")) {
-      const error = new Error("This work order cannot be completed from its current lifecycle state.");
-      error.status = 409;
-      throw error;
+      const error = new Error("This work order cannot be completed from its current lifecycle state."); error.status = 409; throw error;
     }
-
     const protocol = protocolFor(occurrence, workOrder);
     const responses = body.responses && typeof body.responses === "object" ? body.responses : {};
     const outcome = normalized(body.outcome);
     const completionEvidenceId = text(body.completionEvidenceId || body.completion_evidence_id) || null;
     validateProtocolCompletion({ protocol, responses, outcome, completionEvidenceId });
-    await validateLinkedCompletionEvidence({
-      organizationId: resolved.context.organization_id,
-      occurrenceId: occurrence.id,
-      evidenceId: completionEvidenceId,
-    });
+    await validateLinkedCompletionEvidence({ organizationId: resolved.context.organization_id, occurrenceId: occurrence.id, evidenceId: completionEvidenceId });
 
-    const monitoringRound = normalized(delivery.industry_key) === "pest_control"
+    const pestControl = normalized(delivery.industry_key) === "pest_control";
+    const treatmentReadiness = pestControl
+      ? await assertServiceTreatmentReady({ context: runtimeContext, occurrenceId: occurrence.id })
+      : null;
+    const monitoringRound = pestControl
       ? await assertServiceMonitoringComplete({ context: runtimeContext, occurrenceId: occurrence.id })
       : null;
 
@@ -404,6 +302,14 @@ export async function POST(request) {
       outcome,
       follow_up_notes: text(body.followUpNotes || body.follow_up_notes) || null,
       requires_manager_review: Boolean(body.requiresManagerReview || body.requires_manager_review),
+      treatment_preflight: treatmentReadiness ? {
+        occurrence_id: treatmentReadiness.occurrence_id,
+        status: treatmentReadiness.status,
+        finding_count: treatmentReadiness.finding_count,
+        application_count: treatmentReadiness.application_count,
+        ready: treatmentReadiness.ready,
+        validated_at: now,
+      } : null,
       monitoring_preflight: monitoringRound ? {
         occurrence_id: monitoringRound.occurrence_id,
         customer_location_id: monitoringRound.customer_location_id,
@@ -417,12 +323,9 @@ export async function POST(request) {
     };
 
     const response = await serverOperationsApi.execute({
-      capabilityId: "work-orders",
-      command: "complete",
-      context: runtimeContext,
+      capabilityId: "work-orders", command: "complete", context: runtimeContext,
       payload: {
-        id: workOrder.id,
-        completed_at: now,
+        id: workOrder.id, completed_at: now,
         attributes: {
           ...(workOrder.attributes || {}),
           staff_execution: {
@@ -434,6 +337,12 @@ export async function POST(request) {
               ...(existingExecution.completed || {}),
               at: now,
               completion_evidence_id: completionEvidenceId,
+              treatment_preflight: treatmentReadiness ? {
+                status: treatmentReadiness.status,
+                finding_count: treatmentReadiness.finding_count,
+                application_count: treatmentReadiness.application_count,
+                validated_at: now,
+              } : null,
               monitoring_preflight: monitoringRound ? {
                 required_points: monitoringRound.required_points,
                 checked_required_points: monitoringRound.checked_required_points,
@@ -445,28 +354,22 @@ export async function POST(request) {
         },
       },
     });
-
     if (response.status >= 400 || !response.body?.ok) {
-      const error = new Error(response.body?.error || "Service could not be completed.");
-      error.status = response.status || 500;
-      throw error;
+      const error = new Error(response.body?.error || "Service could not be completed."); error.status = response.status || 500; throw error;
     }
-
     const reconciliation = await reconcileServiceOccurrence({
       organizationId: resolved.context.organization_id,
       occurrenceId: occurrence.id,
       actorId: resolved.context.actor_id,
       permissions: resolved.context.permissions,
     });
-
     return Response.json({
       success: true,
       action,
       work_order: response.body.execution?.result || null,
+      treatment_readiness: treatmentReadiness,
       monitoring_round: monitoringRound,
       reconciliation,
     });
-  } catch (error) {
-    return responseError(error);
-  }
+  } catch (error) { return responseError(error); }
 }

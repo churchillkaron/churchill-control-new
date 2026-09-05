@@ -96,3 +96,5 @@ assert.match(migration, /provisional_claim_digest/);
 assert.match(migration, /final_release_authorization_one_use_consumed/);
 
 console.log("AVANTIQO_FINAL_KNOWLEDGE_RELEASE_AUTHORITY_ATOMICITY_CERTIFIED");
+
+// Clean-source certification trigger after temporary wiring machinery was removed.

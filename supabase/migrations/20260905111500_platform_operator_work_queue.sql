@@ -51,7 +51,6 @@ create index if not exists idx_platform_operator_case_events_signal
 
 alter table public.platform_operator_cases enable row level security;
 alter table public.platform_operator_case_events enable row level security;
-
 revoke all on table public.platform_operator_cases from public, anon, authenticated;
 revoke all on table public.platform_operator_case_events from public, anon, authenticated;
 grant select, insert, update on table public.platform_operator_cases to service_role;
@@ -59,9 +58,8 @@ grant select, insert on table public.platform_operator_case_events to service_ro
 
 create index if not exists idx_platform_service_usage_operator_failures_recent
   on public.platform_service_usage (created_at desc, organization_id, provider, capability)
-  where
-    upper(coalesce(status, '')) in ('FAILED','FAILURE','ERROR','BLOCKED','REJECTED','CANCELLED','CANCELED')
-    or upper(coalesce(execution_status, '')) in ('FAILED','FAILURE','ERROR','BLOCKED','REJECTED','CANCELLED','CANCELED');
+  where upper(coalesce(status, '')) in ('FAILED','FAILURE','ERROR','BLOCKED','REJECTED','CANCELLED','CANCELED')
+     or upper(coalesce(execution_status, '')) in ('FAILED','FAILURE','ERROR','BLOCKED','REJECTED','CANCELLED','CANCELED');
 
 create or replace function public.platform_operator_usage_failure_groups(
   p_since timestamptz default (now() - interval '24 hours')
@@ -90,13 +88,8 @@ as $$
         lower(coalesce(capability, '')),
         lower(coalesce(error_message, ''))
       )) as signal_key,
-      organization_id,
-      provider,
-      capability,
-      error_message,
-      created_at,
-      charged_amount,
-      supplier_cost
+      organization_id, provider, capability, error_message, created_at,
+      charged_amount, supplier_cost
     from public.platform_service_usage
     where created_at >= coalesce(p_since, now() - interval '24 hours')
       and (
@@ -110,19 +103,15 @@ as $$
     failures.provider,
     failures.capability,
     failures.error_message,
-    count(*)::bigint as occurrence_count,
-    min(failures.created_at) as first_seen_at,
-    max(failures.created_at) as last_seen_at,
-    coalesce(sum(failures.charged_amount), 0) as charged_amount_total,
-    coalesce(sum(failures.supplier_cost), 0) as supplier_cost_total
+    count(*)::bigint,
+    min(failures.created_at),
+    max(failures.created_at),
+    coalesce(sum(failures.charged_amount), 0),
+    coalesce(sum(failures.supplier_cost), 0)
   from failures
-  group by
-    failures.signal_key,
-    failures.organization_id,
-    failures.provider,
-    failures.capability,
-    failures.error_message
-  order by occurrence_count desc, last_seen_at desc;
+  group by failures.signal_key, failures.organization_id, failures.provider,
+           failures.capability, failures.error_message
+  order by count(*) desc, max(failures.created_at) desc;
 $$;
 
 revoke all on function public.platform_operator_usage_failure_groups(timestamptz) from public, anon, authenticated;
@@ -139,29 +128,11 @@ set search_path = 'public', 'pg_temp'
 as $$
   with failures as (
     select
-      id,
-      organization_id,
-      provider,
-      capability,
-      operation,
-      status,
-      execution_status,
-      error_message,
-      created_at,
-      latency_ms,
-      provider_latency_ms,
-      retry_count,
-      request_id,
-      execution_id,
-      provider_request_id,
-      provider_response_id,
-      provider_model,
-      provider_region,
-      reserved_amount,
-      charged_amount,
-      refunded_amount,
-      supplier_cost,
-      customer_price,
+      id, organization_id, provider, capability, operation, status, execution_status,
+      error_message, created_at, latency_ms, provider_latency_ms, retry_count,
+      request_id, execution_id, provider_request_id, provider_response_id,
+      provider_model, provider_region, reserved_amount, charged_amount,
+      refunded_amount, supplier_cost, customer_price,
       'usage:' || md5(concat_ws('|',
         coalesce(organization_id::text, ''),
         lower(coalesce(provider, '')),
@@ -181,10 +152,10 @@ as $$
       count(*)::bigint as occurrence_count,
       min(created_at) as first_seen_at,
       max(created_at) as last_seen_at,
-      min(organization_id) as organization_id,
-      min(provider) as provider,
-      min(capability) as capability,
-      min(error_message) as error_message,
+      (array_agg(organization_id order by created_at desc) filter (where organization_id is not null))[1] as organization_id,
+      (array_agg(provider order by created_at desc) filter (where provider is not null))[1] as provider,
+      (array_agg(capability order by created_at desc) filter (where capability is not null))[1] as capability,
+      (array_agg(error_message order by created_at desc) filter (where error_message is not null))[1] as error_message,
       coalesce(sum(charged_amount), 0) as charged_amount_total,
       coalesce(sum(supplier_cost), 0) as supplier_cost_total,
       coalesce(sum(reserved_amount), 0) as reserved_amount_total,
@@ -193,32 +164,15 @@ as $$
       avg(provider_latency_ms)::numeric(18,2) as average_provider_latency_ms
     from matching
   ), trend as (
-    select
-      date_trunc('hour', created_at) as bucket,
-      count(*)::bigint as failures
+    select date_trunc('hour', created_at) as bucket, count(*)::bigint as failures
     from matching
     group by date_trunc('hour', created_at)
     order by bucket
   ), recent as (
-    select
-      id,
-      created_at,
-      status,
-      execution_status,
-      operation,
-      provider_model,
-      provider_region,
-      latency_ms,
-      provider_latency_ms,
-      retry_count,
-      request_id,
-      execution_id,
-      provider_request_id,
-      provider_response_id,
-      reserved_amount,
-      charged_amount,
-      supplier_cost,
-      customer_price
+    select id, created_at, status, execution_status, operation, provider_model,
+      provider_region, latency_ms, provider_latency_ms, retry_count, request_id,
+      execution_id, provider_request_id, provider_response_id, reserved_amount,
+      charged_amount, supplier_cost, customer_price
     from matching
     order by created_at desc
     limit 20
@@ -260,6 +214,7 @@ declare
   v_action text := upper(trim(coalesce(p_action, '')));
   v_from_status text := 'OPEN';
   v_to_status text;
+  v_auto_reopen boolean := false;
 begin
   if nullif(trim(coalesce(p_signal_key, '')), '') is null then
     raise exception 'PLATFORM_OPERATOR: signal_key is required';
@@ -281,6 +236,30 @@ begin
 
   if found then
     v_from_status := v_case.status;
+    v_auto_reopen := v_case.status = 'RESOLVED'
+      and v_case.resolved_at is not null
+      and p_last_seen_at is not null
+      and p_last_seen_at > v_case.resolved_at;
+  end if;
+
+  if v_auto_reopen then
+    insert into public.platform_operator_case_events (
+      case_id, signal_key, action, from_status, to_status,
+      actor_user_id, actor_staff_id, note, evidence_version, evidence_snapshot
+    ) values (
+      v_case.id, p_signal_key, 'REOPEN', 'RESOLVED', 'OPEN',
+      p_actor_user_id, p_actor_staff_id,
+      'Automatically reopened because new authoritative evidence arrived after resolution.',
+      p_evidence_version, coalesce(p_evidence_snapshot, '{}'::jsonb)
+    );
+    update public.platform_operator_cases
+    set status = 'OPEN', acknowledged_at = null, acknowledged_by_user_id = null,
+        acknowledged_by_staff_id = null, resolved_at = null,
+        resolved_by_user_id = null, resolved_by_staff_id = null,
+        resolution_note = null, updated_at = now()
+    where id = v_case.id
+    returning * into v_case;
+    v_from_status := 'OPEN';
   end if;
 
   if v_action = 'RESOLVE' and (v_case.id is null or v_from_status <> 'ACKNOWLEDGED') then
@@ -298,44 +277,24 @@ begin
 
   if v_case.id is null then
     insert into public.platform_operator_cases (
-      signal_key,
-      category,
-      organization_id,
-      source,
-      title,
-      severity,
-      status,
-      evidence_version,
-      first_seen_at,
-      last_seen_at,
-      occurrence_count,
-      acknowledged_at,
-      acknowledged_by_user_id,
-      acknowledged_by_staff_id,
-      last_evidence,
-      updated_at
+      signal_key, category, organization_id, source, title, severity, status,
+      evidence_version, first_seen_at, last_seen_at, occurrence_count,
+      acknowledged_at, acknowledged_by_user_id, acknowledged_by_staff_id,
+      last_evidence, updated_at
     ) values (
-      p_signal_key,
-      coalesce(nullif(trim(p_category), ''), 'unknown'),
-      p_organization_id,
-      coalesce(nullif(trim(p_source), ''), 'unknown'),
-      coalesce(nullif(trim(p_title), ''), p_signal_key),
-      nullif(trim(p_severity), ''),
-      v_to_status,
-      p_evidence_version,
-      p_first_seen_at,
-      p_last_seen_at,
+      p_signal_key, coalesce(nullif(trim(p_category), ''), 'unknown'),
+      p_organization_id, coalesce(nullif(trim(p_source), ''), 'unknown'),
+      coalesce(nullif(trim(p_title), ''), p_signal_key), nullif(trim(p_severity), ''),
+      v_to_status, p_evidence_version, p_first_seen_at, p_last_seen_at,
       greatest(coalesce(p_occurrence_count, 0), 0),
       case when v_action = 'ACKNOWLEDGE' then now() else null end,
       case when v_action = 'ACKNOWLEDGE' then p_actor_user_id else null end,
       case when v_action = 'ACKNOWLEDGE' then p_actor_staff_id else null end,
-      coalesce(p_evidence_snapshot, '{}'::jsonb),
-      now()
+      coalesce(p_evidence_snapshot, '{}'::jsonb), now()
     ) returning * into v_case;
   else
     update public.platform_operator_cases
-    set
-      category = coalesce(nullif(trim(p_category), ''), category),
+    set category = coalesce(nullif(trim(p_category), ''), category),
       organization_id = coalesce(p_organization_id, organization_id),
       source = coalesce(nullif(trim(p_source), ''), source),
       title = coalesce(nullif(trim(p_title), ''), title),
@@ -345,53 +304,25 @@ begin
       first_seen_at = coalesce(least(first_seen_at, p_first_seen_at), first_seen_at, p_first_seen_at),
       last_seen_at = coalesce(greatest(last_seen_at, p_last_seen_at), last_seen_at, p_last_seen_at),
       occurrence_count = greatest(occurrence_count, coalesce(p_occurrence_count, 0)),
-      acknowledged_at = case
-        when v_action = 'ACKNOWLEDGE' then now()
-        when v_action = 'REOPEN' then null
-        else acknowledged_at
-      end,
-      acknowledged_by_user_id = case
-        when v_action = 'ACKNOWLEDGE' then p_actor_user_id
-        when v_action = 'REOPEN' then null
-        else acknowledged_by_user_id
-      end,
-      acknowledged_by_staff_id = case
-        when v_action = 'ACKNOWLEDGE' then p_actor_staff_id
-        when v_action = 'REOPEN' then null
-        else acknowledged_by_staff_id
-      end,
+      acknowledged_at = case when v_action = 'ACKNOWLEDGE' then now() when v_action = 'REOPEN' then null else acknowledged_at end,
+      acknowledged_by_user_id = case when v_action = 'ACKNOWLEDGE' then p_actor_user_id when v_action = 'REOPEN' then null else acknowledged_by_user_id end,
+      acknowledged_by_staff_id = case when v_action = 'ACKNOWLEDGE' then p_actor_staff_id when v_action = 'REOPEN' then null else acknowledged_by_staff_id end,
       resolved_at = case when v_action = 'RESOLVE' then now() else null end,
       resolved_by_user_id = case when v_action = 'RESOLVE' then p_actor_user_id else null end,
       resolved_by_staff_id = case when v_action = 'RESOLVE' then p_actor_staff_id else null end,
       resolution_note = case when v_action = 'RESOLVE' then trim(p_note) else null end,
-      last_evidence = coalesce(p_evidence_snapshot, last_evidence),
-      updated_at = now()
+      last_evidence = coalesce(p_evidence_snapshot, last_evidence), updated_at = now()
     where id = v_case.id
     returning * into v_case;
   end if;
 
   insert into public.platform_operator_case_events (
-    case_id,
-    signal_key,
-    action,
-    from_status,
-    to_status,
-    actor_user_id,
-    actor_staff_id,
-    note,
-    evidence_version,
-    evidence_snapshot
+    case_id, signal_key, action, from_status, to_status, actor_user_id,
+    actor_staff_id, note, evidence_version, evidence_snapshot
   ) values (
-    v_case.id,
-    p_signal_key,
-    v_action,
-    v_from_status,
-    v_to_status,
-    p_actor_user_id,
-    p_actor_staff_id,
-    nullif(trim(coalesce(p_note, '')), ''),
-    p_evidence_version,
-    coalesce(p_evidence_snapshot, '{}'::jsonb)
+    v_case.id, p_signal_key, v_action, v_from_status, v_to_status,
+    p_actor_user_id, p_actor_staff_id, nullif(trim(coalesce(p_note, '')), ''),
+    p_evidence_version, coalesce(p_evidence_snapshot, '{}'::jsonb)
   );
 
   return v_case;

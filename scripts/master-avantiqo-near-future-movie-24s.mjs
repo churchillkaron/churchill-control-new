@@ -37,10 +37,10 @@ async function main() {
   const master=path.join(ROOT,"avantiqo-near-future-movie-proof-24s-1080p.mp4");
   const audio=[
     "[0:a]volume=.96[base]",
-    "sine=frequency=54:sample_rate=48000:duration=.28,volume=.035,afade=t=out:st=0.08:d=0.20,adelay=50|50[p0]",
-    "anoisesrc=color=pink:sample_rate=48000:duration=.18:amplitude=.010,highpass=f=900,lowpass=f=3600,afade=t=out:st=0.04:d=0.14,adelay=5980|5980[t1]",
-    "anoisesrc=color=pink:sample_rate=48000:duration=.18:amplitude=.010,highpass=f=900,lowpass=f=3600,afade=t=out:st=0.04:d=0.14,adelay=11980|11980[t2]",
-    "anoisesrc=color=pink:sample_rate=48000:duration=.18:amplitude=.010,highpass=f=900,lowpass=f=3600,afade=t=out:st=0.04:d=0.14,adelay=17980|17980[t3]",
+    "sine=frequency=54:sample_rate=48000:duration=0.28,volume=.035,afade=t=out:st=0.08:d=0.20,adelay=50|50[p0]",
+    "anoisesrc=color=pink:sample_rate=48000:duration=0.18:amplitude=.010,highpass=f=900,lowpass=f=3600,afade=t=out:st=0.04:d=0.14,adelay=5980|5980[t1]",
+    "anoisesrc=color=pink:sample_rate=48000:duration=0.18:amplitude=.010,highpass=f=900,lowpass=f=3600,afade=t=out:st=0.04:d=0.14,adelay=11980|11980[t2]",
+    "anoisesrc=color=pink:sample_rate=48000:duration=0.18:amplitude=.010,highpass=f=900,lowpass=f=3600,afade=t=out:st=0.04:d=0.14,adelay=17980|17980[t3]",
     "[base][p0][t1][t2][t3]amix=inputs=5:normalize=0,alimiter=limit=.95[a]"
   ].join(";");
   run(["-i",joined,"-filter_complex",audio,"-map","0:v","-map","[a]","-c:v","copy","-c:a","aac","-b:a","320k","-ar","48000","-ac","2","-movflags","+faststart",master]);

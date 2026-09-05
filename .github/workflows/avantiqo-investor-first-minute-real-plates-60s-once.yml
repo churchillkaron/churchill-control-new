@@ -1,0 +1,112 @@
+name: Avantiqo Investor First Minute Real Plates 60s Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-first-minute-real-plates-60s-once.yml
+
+permissions:
+  contents: read
+
+env:
+  MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+  PROOF_DIR: local-audit-output/avantiqo-investor-first-minute-real-plates-60s
+
+jobs:
+  proof:
+    if: github.event.head_commit.message == 'Run real-footage investor first-minute proof once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg curl
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          mkdir -p "$PROOF_DIR"
+      - name: Validate real-plate contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/master-avantiqo-first-minute-real-plates-60s.mjs
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const m=JSON.parse(fs.readFileSync('services/avantiqo-video-engine/investor_first_minute_real_plate_manifest.json','utf8'));
+          if(m.contract!=='AVANTIQO_INVESTOR_FIRST_MINUTE_REAL_PLATES_V1') throw new Error('CONTRACT_INVALID');
+          if(!m.source_policy.ai_generated_source_forbidden) throw new Error('REAL_SOURCE_POLICY_INVALID');
+          if(m.plates.length!==9) throw new Error('REAL_PLATE_COUNT_INVALID');
+          console.log('AVANTIQO_REAL_PLATE_CONTRACT=PASS');
+          NODE
+      - name: Download nine real source plates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE' > /tmp/plates.tsv
+          const fs=require('node:fs');
+          const m=JSON.parse(fs.readFileSync('services/avantiqo-video-engine/investor_first_minute_real_plate_manifest.json','utf8'));
+          for(const p of m.plates) console.log(`${p.id}\t${p.download_url}`);
+          NODE
+          while IFS=$'\t' read -r ID URL; do
+            echo "Downloading $ID"
+            curl -fL --retry 2 --retry-delay 2 --connect-timeout 20 -A 'Mozilla/5.0' "$URL" -o "$PROOF_DIR/${ID}-source.mp4"
+            test -s "$PROOF_DIR/${ID}-source.mp4"
+            ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$PROOF_DIR/${ID}-source.mp4"
+          done < /tmp/plates.tsv
+      - name: Retrieve approved generated food shot
+        shell: bash
+        run: |
+          set -euo pipefail
+          modal volume get avantiqo-video-models 'investor-avantiqo-first-minute-60s/b93cc3c78b4e674d823cf8031fb5364f1c906951/08-studio-food-campaign-1920x1088.mp4' "$PROOF_DIR/08-studio-food-campaign-1920x1088.mp4" --force
+          test -s "$PROOF_DIR/08-studio-food-campaign-1920x1088.mp4"
+      - name: Build 60-second real-footage master
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/master-avantiqo-first-minute-real-plates-60s.mjs
+      - name: Verify proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$PROOF_DIR/avantiqo-investor-first-minute-real-plates-60s-1080p.mp4"
+          test -s "$PROOF_DIR/proof-report.json"
+          node - <<'NODE'
+          const fs=require('node:fs'); const r=JSON.parse(fs.readFileSync(process.env.PROOF_DIR+'/proof-report.json','utf8'));
+          if(!r.success) throw new Error('PROOF_NOT_SUCCESS');
+          if(r.real_source_shot_count!==9||r.generated_source_shot_count!==1) throw new Error('SOURCE_MIX_INVALID');
+          if(r.science_fiction_styling!==false||r.product_ui_used!==false) throw new Error('VISUAL_POLICY_INVALID');
+          console.log('AVANTIQO_FIRST_MINUTE_REAL_PLATES_PROOF=PASS');
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-first-minute-real-plates-60s
+          path: |
+            local-audit-output/avantiqo-investor-first-minute-real-plates-60s/avantiqo-investor-first-minute-real-plates-60s-1080p.mp4
+            local-audit-output/avantiqo-investor-first-minute-real-plates-60s/proof-report.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'REAL_STOCK_SOURCE_USED=true'
+          echo 'EXTERNAL_AI_VIDEO_PROVIDER_USED=false'

@@ -61,7 +61,8 @@ test("Tax workcenter is workflow-first and human controlled", () => {
   assert.match(taxSurface, /Paid is not cleared/);
   assert.match(taxSurface, /Settlement setup required/);
   assert.match(taxSurface, /Tax control tower/);
-  assert.match(taxSurface, /Ranked by statutory risk and unresolved accounting control/);
+  assert.match(taxSurface, /Statutory risk first/);
+  assert.match(taxSurface, /Live dependency/);
   assert.doesNotMatch(taxSurface, /function Metric\s*\(/);
   assert.doesNotMatch(taxSurface, /<Metric\b/);
 });
@@ -180,6 +181,8 @@ test("Accounting-firm tax control tower ranks statutory and accounting risk as w
   assert.match(portfolioRoute, /\.from\("legal_entities"\)/);
   assert.match(portfolioRoute, /evaluateFinanceVatSettlement/);
   assert.match(portfolioRoute, /rankFinanceTaxPortfolioRow/);
+  assert.match(portfolioRoute, /buildFinanceTaxDependencyPortfolioRows/);
+  assert.match(portfolioRoute, /LIVE_TAX_PREFLIGHT_ONLY/);
   assert.match(portfolioPolicy, /OVERDUE/);
   assert.match(portfolioPolicy, /DEADLINE/);
   assert.match(portfolioPolicy, /AMENDMENT/);
@@ -187,7 +190,8 @@ test("Accounting-firm tax control tower ranks statutory and accounting risk as w
   assert.match(portfolioPolicy, /PART_PAID/);
   assert.match(portfolioPolicy, /PAID_AWAITING_BANK_MATCH/);
   assert.match(portfolioPolicy, /priority/);
-  assert.match(portfolioRail, /Needs action/);
-  assert.match(portfolioRail, /Switch legal entity in Business Context to work this item/);
+  assert.match(portfolioRail, /Priority work/);
+  assert.match(portfolioRail, /Live dependency/);
+  assert.match(portfolioRail, /Switch entity first/);
   assert.doesNotMatch(portfolioRail, /function Metric\s*\(/);
 });

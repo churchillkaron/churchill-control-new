@@ -7,7 +7,8 @@ const root = process.cwd();
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), "utf8");
 const migration = read("supabase/migrations/20260905010500_finance_tax_dependency_work_envelopes.sql");
 const route = read("app/api/finance/vat-returns/dependency-work/route.js");
-const rail = read("components/workspace/finance/FinanceTaxCloseGuidanceRail.jsx");
+const truthRail = read("components/workspace/finance/FinanceTaxCloseGuidanceRail.jsx");
+const workRail = read("components/workspace/finance/FinanceTaxDependencyWorkRail.jsx");
 
 test("Tax dependency envelopes persist coordination without becoming resolution truth", () => {
   assert.match(migration, /finance_tax_dependency_work_envelopes_scope_unique unique \(organization_id, entity_id, vat_return_id, dependency_code\)/);
@@ -38,17 +39,20 @@ test("Tax dependency ownership cannot be stolen through a stale coordination wri
   assert.match(route, /Only the current Tax dependency owner can update assigned coordination work/);
 });
 
-test("Tax close rail binds durable coordination to the exact selected live filing", () => {
-  assert.match(rail, /\/api\/finance\/vat-returns\/dependency-work/);
-  assert.match(rail, /url\.searchParams\.set\("vatReturnId", selectedVatReturnId\)/);
-  assert.match(rail, /body\.return_id !== selectedVatReturnId/);
-  assert.match(rail, /body\.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY"/);
-  assert.match(rail, /guidance: body\.guidance \|\| null/);
-  assert.match(rail, /Take ownership/);
-  assert.match(rail, /Acknowledge/);
-  assert.match(rail, /Target date/);
-  assert.match(rail, /Coordination note/);
-  assert.match(rail, /Save coordination/);
-  assert.match(rail, /There is deliberately no manual complete or resolve control/);
-  assert.doesNotMatch(rail, />\s*(Mark complete|Resolve dependency|Complete dependency)\s*</i);
+test("Tax truth and work rails share the exact filing but keep separate responsibilities", () => {
+  for (const rail of [truthRail, workRail]) {
+    assert.match(rail, /\/api\/finance\/vat-returns\/dependency-work/);
+    assert.match(rail, /url\.searchParams\.set\("vatReturnId", selectedVatReturnId\)/);
+    assert.match(rail, /body\.return_id !== selectedVatReturnId/);
+  }
+  assert.match(truthRail, /body\.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY"/);
+  assert.match(truthRail, /Resolution proof/);
+  assert.doesNotMatch(truthRail, /Take ownership|Save coordination/);
+  assert.match(workRail, /Take ownership/);
+  assert.match(workRail, /Acknowledge/);
+  assert.match(workRail, /Internal target/);
+  assert.match(workRail, /Coordination note/);
+  assert.match(workRail, /Save coordination/);
+  assert.match(workRail, /Resolution authority: live Tax preflight only/);
+  assert.doesNotMatch(workRail, />\s*(Mark complete|Resolve dependency|Complete dependency)\s*</i);
 });

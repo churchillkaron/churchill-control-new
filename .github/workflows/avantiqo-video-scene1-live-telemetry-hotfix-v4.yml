@@ -1,281 +1,86 @@
-name: Avantiqo Video Scene 1 Live Telemetry Hotfix V4
+name: Avantiqo Video Distilled Runtime Deploy V4 Once
 
 on:
   push:
     branches: [main]
     paths:
       - .github/workflows/avantiqo-video-scene1-live-telemetry-hotfix-v4.yml
-  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+  deploy:
+    if: github.event.head_commit.message == 'Deploy cost-bounded distilled Avantiqo Video runtime v4 once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
     steps:
-      - name: Checkout newest main
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.sha }}
+          fetch-depth: 1
 
-      - name: Patch telemetry robustly
-        shell: bash
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate distilled cost boundary
         run: |
           set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          import re
+          python -m py_compile services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_distilled_job.py
+          grep -F 'DISTILLED_WIDTH = 1920' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          grep -F 'DISTILLED_HEIGHT = 1088' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          grep -F 'DISTILLED_HARD_TIMEOUT_SECONDS = 8 * 60' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          grep -A18 -B10 'def generate_distilled_master' services/avantiqo-video-engine/modal_distilled_job.py | grep -F 'max_containers=1' >/dev/null
+          grep -F 'retries=0' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          echo 'AVANTIQO_VIDEO_DISTILLED_COST_BOUNDARY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
 
-          cp = Path('scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs')
-          wp = Path('scripts/avantiqo-video-ltx25-distilled-scene-worker.py')
-          c = cp.read_text()
-          w = wp.read_text()
+      - name: Install Modal CLI
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
 
-          def sub1(src, pattern, repl, label, flags=0):
-              out, n = re.subn(pattern, repl, src, count=1, flags=flags)
-              if n != 1:
-                  raise SystemExit(f'{label}: expected 1 replacement, got {n}')
-              return out
+      - name: Deploy distilled Modal lane
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          cd services/avantiqo-video-engine
+          modal deploy modal_distilled_job.py | tee /tmp/distilled-deploy.log
+          grep -F 'generate_distilled_job' /tmp/distilled-deploy.log >/dev/null
+          grep -F 'generate_distilled_master' /tmp/distilled-deploy.log >/dev/null
+          echo 'AVANTIQO_VIDEO_DISTILLED_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
 
-          c = sub1(
-              c,
-              r'async function signedUpload\(storagePath\) \{\n(.*?)createSignedUploadUrl\(storagePath, \{ upsert: false \}\);',
-              r'async function signedUpload(storagePath, { upsert = false } = {}) {\n\1createSignedUploadUrl(storagePath, { upsert });',
-              'signedUpload', re.S,
-          )
+      - name: Seed or verify distilled weights without GPU
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_distilled_job.py::seed_ltx_distilled_cache | tee /tmp/distilled-cache.log
+          echo 'AVANTIQO_VIDEO_DISTILLED_CACHE_GATE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'AUTOMATIC_PAID_RETRY=false'
 
-          c = sub1(
-              c,
-              r'(const receiptPath = `\$\{ORGANIZATION_ID\}/generated/avantiqo-video/\.ltx25-receipts/scene1-distilled-\$\{RUN_ID\}\.json`;\n)  const \[outputUpload, receiptUpload, workerSource\] = await Promise\.all\(\[\n    signedUpload\(outputPath\),\n    signedUpload\(receiptPath\),\n    fs\.readFile\(DISTILLED_WORKER_PATH, "utf8"\),\n  \]\);',
-              r'\1  const progressPath = `${ORGANIZATION_ID}/generated/avantiqo-video/.ltx25-progress/scene1-distilled-${RUN_ID}.json`;\n  const [outputUpload, receiptUpload, progressUpload, workerSource] = await Promise.all([\n    signedUpload(outputPath),\n    signedUpload(receiptPath),\n    signedUpload(progressPath, { upsert: true }),\n    fs.readFile(DISTILLED_WORKER_PATH, "utf8"),\n  ]);',
-              'progress upload',
-          )
-
-          c = sub1(
-              c,
-              r'(AVANTIQO_VIDEO_LTX25_RECEIPT_STORAGE_REFERENCE: receiptUpload\.storage_reference,\n)',
-              r'\1        AVANTIQO_VIDEO_LTX25_PROGRESS_SIGNED_URL: progressUpload.signed_url,\n        AVANTIQO_VIDEO_LTX25_PROGRESS_STORAGE_REFERENCE: progressUpload.storage_reference,\n',
-              'progress env',
-          )
-
-          polling_pattern = r'''    let lastRefresh = Date\.now\(\);\n    const receipt = await waitForJson\(receiptPath, 110 \* 60 \* 1000, async \(\) => \{\n      if \(Date\.now\(\) - lastRefresh >= 8 \* 60 \* 1000\) \{\n        await refreshLease\(lease\.id, ownerRequestId\);\n        lastRefresh = Date\.now\(\);\n      \}\n      const live = await getVideoPod\(pod\.id\)\.catch\(\(\) => null\);\n      if \(live && podTerminal\(live\)\) \{\n        const maybeReceipt = await readJson\(receiptPath\);\n        if \(!maybeReceipt\) throw new Error\("AVANTIQO_VIDEO_LTX25_SCENE1_POD_EXITED_WITHOUT_RECEIPT"\);\n      \}\n    \}\);'''
-          polling_repl = '''    let lastRefresh = Date.now();
-    let lastProgressSignature = "";
-    let lastPodStatus = "";
-    const receipt = await waitForJson(receiptPath, 110 * 60 * 1000, async () => {
-      if (Date.now() - lastRefresh >= 8 * 60 * 1000) {
-        await refreshLease(lease.id, ownerRequestId);
-        lastRefresh = Date.now();
-      }
-      const progress = await readJson(progressPath).catch(() => null);
-      if (progress) {
-        const phase = text(progress.phase) || "unknown";
-        const message = text(progress.last_message).slice(0, 260);
-        const signature = `${phase}|${message}`;
-        const gpu = object(progress.gpu);
-        console.log(`AVANTIQO_VIDEO_SCENE1_PROGRESS_HEARTBEAT=phase=${phase}:elapsed=${Number(progress.elapsed_seconds || 0)}:gpu_util=${text(gpu.utilization_percent) || "na"}:gpu_mem=${text(gpu.memory_used_mib) || "na"}/${text(gpu.memory_total_mib) || "na"}`);
-        if (signature !== lastProgressSignature) {
-          console.log(`AVANTIQO_VIDEO_SCENE1_PROGRESS_PHASE=${phase}`);
-          if (message) console.log(`AVANTIQO_VIDEO_SCENE1_PROGRESS_MESSAGE=${message}`);
-          const tail = Array.isArray(progress.stdout_tail) ? progress.stdout_tail.slice(-4) : [];
-          for (const line of tail) console.log(`AVANTIQO_VIDEO_SCENE1_PROGRESS_STDOUT=${text(line).slice(0, 500)}`);
-          lastProgressSignature = signature;
-        }
-      } else {
-        console.log("AVANTIQO_VIDEO_SCENE1_PROGRESS_HEARTBEAT=awaiting-worker");
-      }
-      const live = await getVideoPod(pod.id).catch(() => null);
-      const podStatus = text(live?.status ?? live?.desiredStatus ?? live?.runtimeStatus ?? live?.podStatus).toUpperCase() || "UNKNOWN";
-      if (podStatus !== lastPodStatus) {
-        console.log(`AVANTIQO_VIDEO_SCENE1_POD_STATUS=${podStatus}:pod=${pod.id}`);
-        lastPodStatus = podStatus;
-      }
-      if (live && podTerminal(live)) {
-        const maybeReceipt = await readJson(receiptPath);
-        if (!maybeReceipt) throw new Error("AVANTIQO_VIDEO_LTX25_SCENE1_POD_EXITED_WITHOUT_RECEIPT");
-      }
-    });'''
-          c = sub1(c, polling_pattern, polling_repl, 'progress polling')
-
-          w = sub1(w, r'import time\nfrom pathlib import Path', 'import time\nimport queue\nimport threading\nfrom pathlib import Path', 'worker imports')
-
-          helpers = r'''
-def upload_json(signed_url: str, payload: dict[str, Any], *, upsert: bool) -> None:
-    response = requests.put(
-        signed_url,
-        data=json.dumps(payload, separators=(",", ":")).encode(),
-        headers={"content-type": "application/json", "cache-control": "no-cache", "x-upsert": "true" if upsert else "false"},
-        timeout=60,
-    )
-    response.raise_for_status()
-
-
-def gpu_snapshot() -> dict[str, Any]:
-    try:
-        completed = subprocess.run(
-            ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw", "--format=csv,noheader,nounits"],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=4, check=False,
-        )
-        if completed.returncode != 0 or not completed.stdout.strip():
-            return {}
-        parts = [part.strip() for part in completed.stdout.splitlines()[0].split(",")]
-        if len(parts) < 5:
-            return {}
-        return {"utilization_percent": parts[0], "memory_used_mib": parts[1], "memory_total_mib": parts[2], "temperature_c": parts[3], "power_w": parts[4]}
-    except Exception:
-        return {}
-
-
-def emit_progress(progress_url: str, progress_ref: str, state: dict[str, Any], *, force: bool = False) -> None:
-    current = time.time()
-    if not force and current - float(state.get("_last_progress_write") or 0) < 8:
-        return
-    payload = {
-        "contract": RUNTIME_CONTRACT,
-        "status": "running",
-        "phase": state.get("phase") or "worker_boot",
-        "phase_started_at": state.get("phase_started_at"),
-        "elapsed_seconds": round(current - float(state.get("started") or current), 3),
-        "last_message": sanitize_detail(state.get("last_message")),
-        "stdout_tail": list(state.get("stdout_tail") or [])[-25:],
-        "progress": dict(state.get("progress") or {}),
-        "gpu": gpu_snapshot(),
-        "progress_storage_reference": progress_ref,
-        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    }
-    try:
-        upload_json(progress_url, payload, upsert=True)
-        state["_last_progress_write"] = current
-    except Exception as exc:
-        state["telemetry_error"] = f"{exc.__class__.__name__}:{sanitize_detail(exc)}"
-
-
-def set_phase(state: dict[str, Any], progress_url: str, progress_ref: str, phase: str, message: str = "") -> None:
-    state["phase"] = phase
-    state["phase_started_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    if message:
-        state["last_message"] = message
-    emit_progress(progress_url, progress_ref, state, force=True)
-
-
-def infer_phase(line: str) -> str | None:
-    lower = line.lower()
-    if "stage 2" in lower or "second stage" in lower: return "stage_2"
-    if "stage 1" in lower or "first stage" in lower: return "stage_1"
-    if "upsampl" in lower or "latent upscale" in lower: return "latent_upscale"
-    if "text encoder" in lower or "gemma" in lower: return "text_encoder_load"
-    if "loading" in lower and ("model" in lower or "transformer" in lower or "checkpoint" in lower): return "model_load"
-    if "decode" in lower or "video vae" in lower: return "vae_decode"
-    if "ffmpeg" in lower or "encoding" in lower or "saving video" in lower: return "encode"
-    return None
-
-
-def read_output(stream: Any, output_queue: queue.Queue[Any]) -> None:
-    try:
-        for line in iter(stream.readline, ""):
-            output_queue.put(line)
-    finally:
-        output_queue.put(None)
-
-
-'''
-          w = sub1(w, r'def install_torch_compat\(tmp: Path\) -> Path:', helpers + 'def install_torch_compat(tmp: Path) -> Path:', 'worker helpers')
-          w = sub1(w, r'def run_scene\(job: dict\[str, Any\], tmp: Path\) -> dict\[str, Any\]:', 'def run_scene(job: dict[str, Any], tmp: Path, progress_url: str, progress_ref: str) -> dict[str, Any]:', 'worker signature')
-
-          w = sub1(
-              w,
-              r'    reference = tmp / "scene1-reference\.jpg"\n    download_reference\(text\(references\[0\]\), reference\)',
-              '''    reference = tmp / "scene1-reference.jpg"
-    state: dict[str, Any] = {"started": time.time(), "phase": "worker_boot", "phase_started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "last_message": "worker entered", "stdout_tail": [], "progress": {}}
-    set_phase(state, progress_url, progress_ref, "reference_download", "downloading approved opening frame")
-    download_reference(text(references[0]), reference)
-    set_phase(state, progress_url, progress_ref, "reference_ready", f"reference bytes={reference.stat().st_size}")''',
-              'reference telemetry',
-          )
-
-          pipeline_pattern = r'''    started = time\.perf_counter\(\)\n    completed = subprocess\.run\(.*?    upload_file\(output, output_signed_url, "video/mp4"\)'''
-          pipeline_repl = '''    set_phase(state, progress_url, progress_ref, "pipeline_start", f"starting distilled pipeline {width}x{height} frames={frames} fps={fps}")
-    started = time.perf_counter()
-    proc = subprocess.Popen(command, cwd=str(PIPELINE_ROOT), env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-    if proc.stdout is None:
-        proc.kill()
-        raise RuntimeError("AVANTIQO_VIDEO_LTX25_PIPELINE_STDOUT_REQUIRED")
-    output_queue: queue.Queue[Any] = queue.Queue()
-    threading.Thread(target=read_output, args=(proc.stdout, output_queue), daemon=True).start()
-    stdout_all: list[str] = []
-    stdout_eof = False
-    timeout_seconds = int(os.getenv("AVANTIQO_VIDEO_LTX25_HARD_TIMEOUT_SECONDS", "180"))
-    deadline = time.time() + timeout_seconds
-    while True:
-        try:
-            item = output_queue.get(timeout=1)
-        except queue.Empty:
-            item = ""
-        if item is None:
-            stdout_eof = True
-        elif item:
-            clean = sanitize_detail(item.rstrip())
-            if clean:
-                stdout_all.append(clean)
-                state["stdout_tail"] = stdout_all[-25:]
-                state["last_message"] = clean
-                phase = infer_phase(clean)
-                if phase and phase != state.get("phase"):
-                    state["phase"] = phase
-                    state["phase_started_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                state["progress"] = {"subprocess_pid": proc.pid, "stdout_lines": len(stdout_all), "output_bytes": output.stat().st_size if output.is_file() else 0}
-        emit_progress(progress_url, progress_ref, state)
-        if proc.poll() is not None and stdout_eof:
-            break
-        if time.time() > deadline:
-            proc.kill()
-            try: proc.wait(timeout=10)
-            except Exception: pass
-            set_phase(state, progress_url, progress_ref, "pipeline_timeout", f"hard timeout after {timeout_seconds}s")
-            raise RuntimeError(f"AVANTIQO_VIDEO_LTX25_DISTILLED_PIPELINE_TIMEOUT:phase={state.get('phase')}:tail={sanitize_detail(' | '.join(stdout_all[-50:]))}")
-    return_code = proc.wait(timeout=15)
-    set_phase(state, progress_url, progress_ref, "pipeline_complete", f"return_code={return_code}")
-    if return_code != 0:
-        raise RuntimeError(f"AVANTIQO_VIDEO_LTX25_DISTILLED_PIPELINE_FAILED:{return_code}:{sanitize_detail(' | '.join(stdout_all[-50:]))}")
-    set_phase(state, progress_url, progress_ref, "output_validate", "validating generated mp4")
-    if not output.is_file() or output.stat().st_size <= 0:
-        raise RuntimeError("AVANTIQO_VIDEO_LTX25_OUTPUT_MISSING")
-    set_phase(state, progress_url, progress_ref, "upload", f"uploading mp4 bytes={output.stat().st_size}")
-    upload_file(output, output_signed_url, "video/mp4")
-    set_phase(state, progress_url, progress_ref, "completed", "mp4 uploaded")'''
-          w = sub1(w, pipeline_pattern, pipeline_repl, 'pipeline telemetry', re.S)
-
-          w = sub1(
-              w,
-              r'(    receipt_ref = text\(os\.getenv\("AVANTIQO_VIDEO_LTX25_RECEIPT_STORAGE_REFERENCE"\)\)\n)    if not encoded or not receipt_url or not receipt_ref:',
-              r'\1    progress_url = text(os.getenv("AVANTIQO_VIDEO_LTX25_PROGRESS_SIGNED_URL"))\n    progress_ref = text(os.getenv("AVANTIQO_VIDEO_LTX25_PROGRESS_STORAGE_REFERENCE"))\n    if not encoded or not receipt_url or not receipt_ref or not progress_url or not progress_ref:',
-              'worker progress env',
-          )
-          w = sub1(w, r'output = run_scene\(job, Path\(tmp_dir\)\)', 'output = run_scene(job, Path(tmp_dir), progress_url, progress_ref)', 'worker call')
-          w = sub1(w, r'("receipt_storage_reference": receipt_ref,\n)', r'\1            "progress_storage_reference": progress_ref,\n', 'success progress ref')
-          w = sub1(w, r'("error_detail": sanitize_detail\(raw\),\n)', r'\1            "progress_storage_reference": progress_ref,\n', 'failure progress ref')
-
-          cp.write_text(c)
-          wp.write_text(w)
+      - name: Confirm idle deployed lane without GPU
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import modal
+          app='avantiqo-video-owned'
+          for name in ('generate_distilled_job','generate_distilled_master'):
+              fn=modal.Function.from_name(app,name)
+              s=fn.get_current_stats()
+              backlog=int(getattr(s,'backlog',0) or 0)
+              running=int(getattr(s,'num_running_inputs',0) or 0)
+              print(name, {'backlog':backlog,'num_running_inputs':running})
+              if backlog != 0 or running != 0:
+                  raise SystemExit(f'AVANTIQO_VIDEO_DISTILLED_NOT_IDLE:{name}:{backlog}:{running}')
+          print('AVANTIQO_VIDEO_DISTILLED_IDLE_GATE=PASS')
+          print('GPU_INFERENCE_PERFORMED=false')
           PY
-
-          python3 -m py_compile scripts/avantiqo-video-ltx25-distilled-scene-worker.py
-          node --check scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
-          node --check scripts/run-avantiqo-video-ltx25-scene1-fast-v2-ci.mjs
-          grep -q 'AVANTIQO_VIDEO_LTX25_PROGRESS_SIGNED_URL' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
-          grep -q 'AVANTIQO_VIDEO_SCENE1_PROGRESS_HEARTBEAT' scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
-          grep -q 'gpu_snapshot' scripts/avantiqo-video-ltx25-distilled-scene-worker.py
-          git diff --check
-
-      - name: Commit telemetry atomically
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "churchillkaron"
-          git config user.email "patric@pcsphuket.com"
-          git add scripts/avantiqo-video-ltx25-distilled-scene-worker.py scripts/run-avantiqo-video-ltx25-scene1-distilled-proof-ci.mjs
-          git diff --cached --quiet && exit 0
-          git commit -m "Add live Scene 1 LTX telemetry"
-          git push origin HEAD:main

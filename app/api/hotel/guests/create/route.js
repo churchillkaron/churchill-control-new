@@ -40,20 +40,19 @@ export async function POST(request) {
       (body.passportNumber ? "PASSPORT" : null),
     );
 
-    const { data, error } = await supabaseAdmin
-      .from("hotel_guests")
-      .insert({
-        organization_id: access.organizationId,
-        full_name: fullName,
-        email: cleanValue(body.email),
-        phone: cleanValue(body.phone),
-        nationality: cleanValue(body.nationality),
-        document_type: documentType,
-        document_number: documentNumber,
-        notes: cleanValue(body.notes),
-      })
-      .select()
-      .single();
+    const { data, error } = await supabaseAdmin.rpc(
+      "hotel_create_guest_with_party",
+      {
+        p_organization_id: access.organizationId,
+        p_full_name: fullName,
+        p_email: cleanValue(body.email),
+        p_phone: cleanValue(body.phone),
+        p_nationality: cleanValue(body.nationality),
+        p_document_type: documentType,
+        p_document_number: documentNumber,
+        p_notes: cleanValue(body.notes),
+      },
+    );
 
     if (error) throw error;
 

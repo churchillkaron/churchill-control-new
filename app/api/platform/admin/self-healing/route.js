@@ -23,6 +23,11 @@ function safeError(error) {
   return text(error?.message || error || "PLATFORM_SELF_HEALING_FAILED", 800);
 }
 
+function providerConfigurationFailure(summary = {}) {
+  const source = `${text(summary.error_code, 400)} ${text(summary.error_message, 1600)}`.toLowerCase();
+  return /accessnotconfigured|service[_ ]?disabled|api.*(?:has )?not been used|api.*disabled|api.*not enabled|enable.*api|credential|oauth|access token|quota|billing account|missing secret/.test(source);
+}
+
 async function loadUsageFailure(signalKey) {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabaseAdmin.rpc("platform_operator_usage_failure_detail", {
@@ -33,6 +38,7 @@ async function loadUsageFailure(signalKey) {
   const detail = data || {};
   const summary = detail?.summary || {};
   if (number(summary.occurrence_count) <= 0) return null;
+  const configurationFailure = providerConfigurationFailure(summary);
 
   return {
     signalKey,
@@ -44,7 +50,7 @@ async function loadUsageFailure(signalKey) {
       category: "service_execution",
       source: "platform_service_usage",
       title: `${text(summary.provider, 120) || "provider"} · ${text(summary.capability, 240) || "service execution"} is failing`,
-      error_class: "SERVICE_EXECUTION_FAILURE",
+      error_class: configurationFailure ? "PROVIDER_CONFIGURATION_FAILURE" : "SERVICE_EXECUTION_FAILURE",
       error_code: text(summary.error_code, 300) || null,
       error_message: text(summary.error_message, 1200) || null,
       capability: text(summary.capability, 300) || null,
@@ -53,6 +59,7 @@ async function loadUsageFailure(signalKey) {
         occurrence_count: number(summary.occurrence_count),
         provider: text(summary.provider, 120) || null,
         capability: text(summary.capability, 300) || null,
+        error_class: configurationFailure ? "PROVIDER_CONFIGURATION_FAILURE" : "SERVICE_EXECUTION_FAILURE",
         error_code: text(summary.error_code, 300) || null,
         error_message: text(summary.error_message, 1200) || null,
         first_seen_at: summary.first_seen_at || null,

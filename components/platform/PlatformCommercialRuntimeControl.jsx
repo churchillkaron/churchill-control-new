@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Boxes, GitCommitHorizontal, ListChecks, Search } from "lucide-react";
+import { Boxes, GitCommitHorizontal, ListChecks, Search, ServerCog } from "lucide-react";
 
 function t(value) {
   return String(value ?? "").trim();
@@ -36,8 +36,8 @@ function money(value, currency = "THB") {
 function tone(value) {
   const state = t(value).toLowerCase();
   if (/(failed|dead|error|blocked|cancelled|canceled|degraded)/.test(state)) return "border-red-700/15 bg-red-50 text-red-800";
-  if (/(draft|pending|queued|scheduled|running|processing|unverified)/.test(state)) return "border-amber-700/15 bg-amber-50 text-amber-800";
-  if (/(active|completed|ready|healthy|success|idle)/.test(state)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
+  if (/(draft|pending|queued|scheduled|running|processing|unverified|demanded)/.test(state)) return "border-amber-700/15 bg-amber-50 text-amber-800";
+  if (/(active|completed|ready|healthy|success|idle|verified|observed)/.test(state)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
   return "border-black/[0.08] bg-[#F6F4F0] text-[#746E66]";
 }
 
@@ -72,18 +72,28 @@ function modulesList(value) {
 }
 
 function livenessSummary(queueHealth = {}) {
+  if (queueHealth.status === "idle") {
+    return Number(queueHealth.demand_count || 0) === 0
+      ? "Idle · no workload demand"
+      : "Idle";
+  }
+  if (queueHealth.status === "demanded") {
+    const demand = Number(queueHealth.demand_count || 0);
+    const leases = Number(queueHealth.active_runpod_leases || 0);
+    const fresh = Number(queueHealth.fresh_workers || 0);
+    return `Demanded · ${demand} active demand signal${demand === 1 ? "" : "s"} · ${leases} live lease${leases === 1 ? "" : "s"} · ${fresh} fresh heartbeat${fresh === 1 ? "" : "s"}`;
+  }
   if (queueHealth.status === "healthy") {
     return `${Number(queueHealth.fresh_workers || 0)} fresh worker${Number(queueHealth.fresh_workers || 0) === 1 ? "" : "s"}`;
   }
-  if (queueHealth.status === "idle") {
-    return Number(queueHealth.fresh_workers || 0) > 0
-      ? `Idle · ${queueHealth.fresh_workers} fresh worker heartbeat`
-      : "Idle · no active queue demand";
-  }
   if (queueHealth.status === "degraded") {
-    return `${Number(queueHealth.active_jobs || 0)} active job${Number(queueHealth.active_jobs || 0) === 1 ? "" : "s"} without fresh heartbeat`;
+    return `Degraded · assigned work lacks current liveness evidence`;
   }
-  return "Runtime liveness unverified";
+  return "Runtime truth unverified";
+}
+
+function releaseStateLabel(row = {}) {
+  return row.state || "unknown";
 }
 
 export default function PlatformCommercialRuntimeControl({
@@ -92,6 +102,7 @@ export default function PlatformCommercialRuntimeControl({
   deadLetterJobs = [],
   organizations = [],
   releaseState = {},
+  releaseHistory = {},
   queueHealth = {},
 }) {
   const [query, setQuery] = useState("");
@@ -117,6 +128,9 @@ export default function PlatformCommercialRuntimeControl({
     const value = new Date(row.created_at || 0).getTime();
     return Number.isFinite(value) && value > latest ? value : latest;
   }, 0);
+  const deployments = Array.isArray(releaseHistory?.deployments) ? releaseHistory.deployments : [];
+  const currentDeployment = deployments[0] || null;
+  const lanes = queueHealth?.runpod_leases_by_lane || {};
 
   return (
     <div className="bg-[#F7F6F3] px-4 pb-6 md:px-6">
@@ -124,8 +138,8 @@ export default function PlatformCommercialRuntimeControl({
         <div className="flex flex-col gap-3 border-t border-black/[0.06] pt-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">Platform expansion</div>
-            <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#27231F]">Commercial provisioning & queue control</h2>
-            <p className="mt-1 text-[9px] text-[#918B83]">Persisted subscription, module-selection and queue evidence, now paired with demand-aware worker heartbeat verification.</p>
+            <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#27231F]">Commercial provisioning & runtime control</h2>
+            <p className="mt-1 text-[9px] text-[#918B83]">Persisted commercial configuration, live demand evidence and governed release truth. Idle is not failure; unverified is never presented as healthy.</p>
           </div>
           <div className="relative w-full lg:max-w-[420px]">
             <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9A948C]" />
@@ -155,21 +169,41 @@ export default function PlatformCommercialRuntimeControl({
             {!filteredSubscriptions.length ? <div className="px-5 py-10 text-center text-[10px] text-[#918B83]">No subscriptions in this view.</div> : null}
           </Panel>
 
-          <Panel eyebrow="Queue control" title="Execution & liveness evidence" description="Historical queue rows and current worker heartbeat evidence are evaluated separately, then combined by demand-aware health logic.">
-            <div className="grid border-b border-black/[0.05] bg-[#FBF8F3] sm:grid-cols-5">
+          <Panel eyebrow="Runtime truth" title="Demand, leases & liveness" description="Current demand is derived from queue jobs, Safe Lease allocations and leased Creative production work. Heartbeats prove worker liveness when a worker contract exists.">
+            <div className="grid border-b border-black/[0.05] bg-[#FBF8F3] sm:grid-cols-3 xl:grid-cols-6">
               {[
-                ["Jobs", queueJobs.length],
-                ["Active now", activeJobs.length],
-                ["Failed", failedJobs.length],
-                ["Dead letter", deadLetterJobs.length],
-                ["Runtime", label(queueHealth.status || "unverified")],
+                ["State", label(queueHealth.status || "unverified")],
+                ["Demand", Number(queueHealth.demand_count || 0)],
+                ["Queue", Number(queueHealth.active_jobs || 0)],
+                ["RunPod leases", Number(queueHealth.active_runpod_leases || 0)],
+                ["Creative leases", Number(queueHealth.active_creative_tasks || 0)],
+                ["Fresh workers", Number(queueHealth.fresh_workers || 0)],
               ].map(([name, value], index) => (
                 <div key={name} className={`px-4 py-3 ${index ? "sm:border-l sm:border-black/[0.05]" : ""}`}>
                   <div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087]">{name}</div>
-                  <div className={`mt-1 text-[14px] font-semibold ${name === "Failed" && value ? "text-[#9A533D]" : "text-[#4B4640]"}`}>{value}</div>
+                  <div className={`mt-1 text-[14px] font-semibold ${name === "State" && queueHealth.status === "degraded" ? "text-[#9A533D]" : "text-[#4B4640]"}`}>{value}</div>
                 </div>
               ))}
             </div>
+            <div className="grid gap-2 border-b border-black/[0.05] px-4 py-3 sm:grid-cols-3 md:px-5">
+              {[
+                ["Intelligence", Number(lanes.intelligence || 0)],
+                ["Video", Number(lanes.video || 0)],
+                ["Voice", Number(lanes.voice || 0)],
+              ].map(([name, count]) => (
+                <div key={name} className="rounded-lg border border-black/[0.06] bg-white px-3 py-2">
+                  <div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087]">{name} Safe Lease</div>
+                  <div className="mt-1 text-[10px] font-semibold text-[#3A3631]">{count} current</div>
+                </div>
+              ))}
+            </div>
+            <div className="border-b border-black/[0.05] bg-[#FBF8F3] px-5 py-3 text-[8px] leading-4 text-[#8B847B]">
+              <strong className="font-semibold text-[#4B4640]">{livenessSummary(queueHealth)}</strong>
+              {queueHealth.latest_heartbeat_at ? <> · runtime heartbeat {when(queueHealth.latest_heartbeat_at)}</> : null}
+              {queueHealth.latest_creative_heartbeat_at ? <> · Creative heartbeat {when(queueHealth.latest_creative_heartbeat_at)}</> : null}
+              <div className="mt-1 text-[7px] uppercase tracking-[0.08em] text-[#A19A91]">Evidence: {label(queueHealth.source || "unverified")}</div>
+            </div>
+
             <div className="hidden grid-cols-[120px_110px_90px_120px_1fr_110px] gap-3 border-b border-black/[0.05] bg-white/45 px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087] md:grid">
               <span>Type</span><span>Status</span><span>Priority</span><span>Worker</span><span>Error / retry</span><span>Created</span>
             </div>
@@ -183,26 +217,66 @@ export default function PlatformCommercialRuntimeControl({
                 <div className="text-[8px] text-[#9A948C]">{when(row.created_at)}</div>
               </div>
             ))}
-            {!filteredJobs.length ? <div className="px-5 py-10 text-center text-[10px] text-[#918B83]">No queue jobs in this view.</div> : null}
-            <div className="border-t border-black/[0.05] bg-[#FBF8F3] px-5 py-3 text-[8px] leading-4 text-[#8B847B]">
-              Latest persisted queue job: <strong className="font-semibold text-[#4B4640]">{latestJobAt ? when(latestJobAt) : "No queue evidence"}</strong>. Current runtime: <strong className="font-semibold text-[#4B4640]">{livenessSummary(queueHealth)}</strong>{queueHealth.latest_heartbeat_at ? <> · latest heartbeat {when(queueHealth.latest_heartbeat_at)}</> : null}.
+            {!filteredJobs.length ? <div className="px-5 py-7 text-center text-[9px] text-[#918B83]">No generic queue jobs in this view. Historical rows remain separate from current runtime demand.</div> : null}
+            <div className="border-t border-black/[0.05] bg-[#FBF8F3] px-5 py-2.5 text-[8px] text-[#8B847B]">
+              Historical queue: {queueJobs.length} rows · {activeJobs.length} active · {failedJobs.length} failed · {deadLetterJobs.length} dead letter · latest {latestJobAt ? when(latestJobAt) : "no evidence"}.
             </div>
           </Panel>
         </div>
 
-        <Panel eyebrow="Release & change control" title="Current build identity" description="Runtime build identity only. Deployment promotion and rollback are intentionally not exposed as casual admin actions.">
-          <div className="grid gap-3 px-4 py-4 md:grid-cols-4 md:px-5">
+        <Panel
+          eyebrow="Release & change control"
+          title="Deployment truth"
+          description="Current build identity and production deployment history are separate evidence. Git commits are never treated as proof that a release was deployed."
+          action={<Pill>{releaseHistory.status || "unverified"}</Pill>}
+        >
+          <div className="grid gap-3 border-b border-black/[0.05] px-4 py-4 md:grid-cols-5 md:px-5">
             {[
               ["Environment", releaseState.environment || "unknown", Boxes],
               ["Git branch", releaseState.ref || "unknown", GitCommitHorizontal],
-              ["Commit", releaseState.commitSha ? releaseState.commitSha.slice(0, 12) : "unknown", GitCommitHorizontal],
-              ["Build evidence", releaseState.commitSha ? "observed" : "unverified", ListChecks],
+              ["Running commit", releaseState.commitSha ? releaseState.commitSha.slice(0, 12) : "unknown", GitCommitHorizontal],
+              ["Deployment", releaseState.deploymentId || "unverified", ServerCog],
+              ["History source", releaseHistory.status === "verified" ? "Vercel API" : "unverified", ListChecks],
             ].map(([name, value, Icon]) => (
               <div key={name} className="rounded-xl border border-black/[0.06] bg-[#FBF8F3] px-3 py-3">
                 <div className="flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087]"><Icon size={10} />{name}</div>
                 <div className="mt-1 truncate text-[10px] font-semibold text-[#3A3631]">{value}</div>
               </div>
             ))}
+          </div>
+
+          {releaseHistory.status !== "verified" ? (
+            <div className="px-5 py-5">
+              <div className="rounded-xl border border-amber-700/15 bg-amber-50 px-4 py-3">
+                <div className="text-[9px] font-semibold text-amber-900">Deployment history is unverified</div>
+                <div className="mt-1 text-[8px] leading-4 text-amber-800/80">
+                  {releaseHistory.source === "VERCEL_DEPLOYMENT_API_TOKEN_NOT_CONFIGURED"
+                    ? "The Platform has no server-side Vercel deployment API credential configured. Current build identity remains visible, but release history is intentionally withheld rather than inferred from Git commits."
+                    : t(releaseHistory.error) || `Source: ${label(releaseHistory.source || "unknown")}`}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="hidden grid-cols-[110px_100px_150px_minmax(240px,1fr)_120px_120px] gap-3 border-b border-black/[0.05] bg-white/45 px-5 py-2 text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087] md:grid">
+                <span>State</span><span>Target</span><span>Commit</span><span>Change</span><span>Created</span><span>Deployment</span>
+              </div>
+              {deployments.map(row => (
+                <div key={row.id || `${row.commitSha}-${row.createdAt}`} className="grid gap-2 border-b border-black/[0.05] px-4 py-3 last:border-b-0 md:grid-cols-[110px_100px_150px_minmax(240px,1fr)_120px_120px] md:items-center md:px-5">
+                  <div><Pill>{releaseStateLabel(row)}</Pill></div>
+                  <div className="text-[8px] text-[#625D56]">{label(row.target || "unknown")}</div>
+                  <div className="truncate text-[8px] font-mono text-[#4B4640]">{row.commitSha ? row.commitSha.slice(0, 12) : "—"}</div>
+                  <div className="min-w-0"><div className="truncate text-[9px] font-medium text-[#35312D]">{t(row.commitMessage) || t(row.name) || "Deployment"}</div><div className="mt-0.5 truncate text-[7px] text-[#9A948C]">{t(row.commitRef) || "—"}{row.creator ? ` · ${row.creator}` : ""}</div></div>
+                  <div className="text-[8px] text-[#9A948C]">{when(row.createdAt)}</div>
+                  <div className="truncate text-[7px] text-[#746E66]">{t(row.id) || "—"}</div>
+                </div>
+              ))}
+              {!deployments.length ? <div className="px-5 py-8 text-center text-[9px] text-[#918B83]">Vercel history verified; no production deployments returned.</div> : null}
+            </>
+          )}
+
+          <div className="border-t border-black/[0.05] bg-[#FBF8F3] px-5 py-2.5 text-[8px] text-[#8B847B]">
+            {currentDeployment ? <>Newest observed production deployment: <strong className="font-semibold text-[#4B4640]">{releaseStateLabel(currentDeployment)}</strong> · {when(currentDeployment.createdAt)}.</> : <>History probe: <strong className="font-semibold text-[#4B4640]">{label(releaseHistory.source || "unverified")}</strong>{releaseHistory.checkedAt ? ` · checked ${when(releaseHistory.checkedAt)}` : ""}.</>}
           </div>
         </Panel>
       </div>

@@ -30,17 +30,11 @@ export async function GET(request) {
     if (plansError) throw plansError;
     if (roomsError) throw roomsError;
 
-    let calendarQuery = supabaseAdmin
-      .from("hotel_rate_calendar")
-      .select("*")
-      .eq("organization_id", access.organizationId)
-      .eq("property_id", propertyId)
-      .order("stay_date", { ascending: true });
+    let calendarQuery = supabaseAdmin.from("hotel_rate_calendar").select("*").eq("organization_id", access.organizationId).eq("property_id", propertyId).order("stay_date", { ascending: true });
     if (from) calendarQuery = calendarQuery.gte("stay_date", from);
     if (to) calendarQuery = calendarQuery.lte("stay_date", to);
     const { data: calendar, error: calendarError } = await calendarQuery;
     if (calendarError) throw calendarError;
-
     return NextResponse.json({ success: true, ratePlans: plans || [], rooms: rooms || [], calendar: calendar || [] });
   } catch (error) {
     console.error("HOTEL_RATE_LIST_ERROR", error);
@@ -61,14 +55,7 @@ export async function POST(request) {
     if (!propertyId || !ratePlanId || !roomType) return errorResponse("propertyId, ratePlanId and roomType required", 400);
     if (!entries.length || entries.length > 370) return errorResponse("1 to 370 rate entries required", 400);
 
-    const { data: plan, error: planError } = await supabaseAdmin
-      .from("hotel_rate_plans")
-      .select("id")
-      .eq("organization_id", access.organizationId)
-      .eq("property_id", propertyId)
-      .eq("id", ratePlanId)
-      .eq("active", true)
-      .maybeSingle();
+    const { data: plan, error: planError } = await supabaseAdmin.from("hotel_rate_plans").select("id").eq("organization_id", access.organizationId).eq("property_id", propertyId).eq("id", ratePlanId).eq("active", true).maybeSingle();
     if (planError) throw planError;
     if (!plan) return errorResponse("Active rate plan not found", 404);
 
@@ -100,31 +87,24 @@ export async function POST(request) {
       };
     });
 
-    const { data, error } = await supabaseAdmin
-      .from("hotel_rate_calendar")
-      .upsert(rows, { onConflict: "organization_id,property_id,rate_plan_id,room_type,stay_date" })
-      .select();
+    const { data, error } = await supabaseAdmin.from("hotel_rate_calendar").upsert(rows, { onConflict: "organization_id,property_id,rate_plan_id,room_type,stay_date" }).select();
     if (error) throw error;
 
-    const { data: activeConnections, error: connectionsError } = await supabaseAdmin
+    const { data: candidates, error: connectionsError } = await supabaseAdmin
       .from("hotel_channel_connections")
-      .select("id,provider,display_name")
+      .select("id,provider,display_name,credential_secret_ref")
       .eq("organization_id", access.organizationId)
       .eq("property_id", propertyId)
-      .eq("status", "ACTIVE");
+      .eq("status", "ACTIVE")
+      .eq("provider_certified", true)
+      .eq("enabled", true);
     if (connectionsError) throw connectionsError;
 
-    const connectionIds = (activeConnections || []).map((connection) => connection.id);
+    const eligibleConnections = (candidates || []).filter((connection) => Boolean(clean(connection.credential_secret_ref)));
+    const connectionIds = eligibleConnections.map((connection) => connection.id);
     let mappedConnectionIds = [];
     if (connectionIds.length) {
-      const { data: mappings, error: mappingsError } = await supabaseAdmin
-        .from("hotel_channel_mappings")
-        .select("connection_id")
-        .eq("organization_id", access.organizationId)
-        .eq("local_room_type", roomType)
-        .eq("local_rate_plan_id", ratePlanId)
-        .eq("active", true)
-        .in("connection_id", connectionIds);
+      const { data: mappings, error: mappingsError } = await supabaseAdmin.from("hotel_channel_mappings").select("connection_id").eq("organization_id", access.organizationId).eq("local_room_type", roomType).eq("local_rate_plan_id", ratePlanId).eq("active", true).in("connection_id", connectionIds);
       if (mappingsError) throw mappingsError;
       mappedConnectionIds = [...new Set((mappings || []).map((mapping) => mapping.connection_id))];
     }
@@ -138,11 +118,9 @@ export async function POST(request) {
       date_to: dates[dates.length - 1],
       change_summary: { rate_plan_id: ratePlanId, room_type: roomType, entries: rows.length },
     };
-
     const syncJobs = mappedConnectionIds.length
       ? mappedConnectionIds.map((connectionId) => ({ ...commonJob, connection_id: connectionId, status: "PENDING" }))
       : [{ ...commonJob, connection_id: null, status: "AWAITING_CONNECTIVITY" }];
-
     const { error: syncJobError } = await supabaseAdmin.from("hotel_channel_sync_jobs").insert(syncJobs);
     if (syncJobError) throw syncJobError;
 
@@ -150,8 +128,9 @@ export async function POST(request) {
       success: true,
       entries: data || [],
       distributionQueued: mappedConnectionIds.length > 0,
-      distributionState: mappedConnectionIds.length > 0 ? "PENDING" : "AWAITING_CONNECTIVITY",
+      distributionState: mappedConnectionIds.length > 0 ? "INTERNAL_QUEUE_PENDING_PROVIDER_TRANSMISSION" : "AWAITING_CERTIFIED_CONNECTIVITY",
       destinationCount: mappedConnectionIds.length,
+      providerTransmissionClaimed: false,
     });
   } catch (error) {
     console.error("HOTEL_RATE_SAVE_ERROR", error);

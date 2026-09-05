@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "scripts/patch-released-knowledge-authenticity.mjs"
+      - "scripts/trigger-released-knowledge-authenticity-wiring.txt"
       - ".github/workflows/avantiqo-released-knowledge-authenticity-wiring.yml"
   workflow_dispatch:
 
@@ -47,4 +48,3 @@ jobs:
           git add lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js
           git commit -m "feat(intelligence): enforce released knowledge authenticity"
           git push origin HEAD:main
-# Triggered after registration on main.

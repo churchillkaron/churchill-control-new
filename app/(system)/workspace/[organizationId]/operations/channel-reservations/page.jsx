@@ -34,8 +34,8 @@ function money(value, currency = "THB") {
   }
 }
 
-async function api(url) {
-  const response = await fetch(url, { cache: "no-store", credentials: "include" });
+async function api(url, options = {}) {
+  const response = await fetch(url, { cache: "no-store", credentials: "include", ...options });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.success === false) throw new Error(payload.error || "Request failed");
   return payload;
@@ -95,10 +95,12 @@ function groupedReservations(items) {
   }));
 }
 
-function ReservationRow({ item, organizationId }) {
+function ReservationRow({ item, organizationId, retryingEventId, onRetryProviderHandoff }) {
   const event = clean(item.eventType).toUpperCase();
   const canonicalAmount = item.booking?.totalAmount ?? item.providerStay?.amount;
   const currency = item.booking?.currencyCode || item.providerStay?.currencyCode || "THB";
+  const retryable = ["PROVIDER_RETRY", "AWAITING_ACK"].includes(item.workState);
+  const retrying = retryingEventId === item.id;
   return (
     <div className={`grid gap-3 px-4 py-4 md:px-5 xl:grid-cols-[minmax(250px,1.25fr)_minmax(180px,0.8fr)_minmax(220px,1fr)_minmax(190px,0.85fr)_auto] ${item.needsAttention ? "bg-[#FFF9F5]" : "bg-white"}`}>
       <div className="min-w-0">
@@ -135,6 +137,7 @@ function ReservationRow({ item, organizationId }) {
       </div>
 
       <div className="flex flex-wrap content-start gap-2 xl:justify-end">
+        {retryable ? <HotelSecondaryAction onClick={() => onRetryProviderHandoff(item.id)} disabled={Boolean(retryingEventId)}>{retrying ? "Retrying…" : "Retry OTA handoff"}</HotelSecondaryAction> : null}
         {item.booking?.id ? <HotelSecondaryAction href={`/workspace/${organizationId}/operations/stay-control?bookingId=${encodeURIComponent(item.booking.id)}`}>Open stay</HotelSecondaryAction> : null}
         <HotelSecondaryAction href={`/workspace/${organizationId}/operations/channel-manager`}>Channel setup</HotelSecondaryAction>
       </div>
@@ -152,6 +155,7 @@ export default function ChannelReservationsPage() {
   const [payload, setPayload] = useState({ connections: [], summary: {}, items: [] });
   const [filter, setFilter] = useState("ATTENTION");
   const [loading, setLoading] = useState(true);
+  const [retryingEventId, setRetryingEventId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -182,6 +186,24 @@ export default function ChannelReservationsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const retryProviderHandoff = useCallback(async (reservationEventId) => {
+    if (!organizationId || !reservationEventId || retryingEventId) return;
+    setRetryingEventId(reservationEventId);
+    setError("");
+    try {
+      await api("/api/hotel/channels/reservation-control", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ organizationId, action: "RETRY_PROVIDER_HANDOFF", reservationEventId }),
+      });
+      await load();
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setRetryingEventId("");
+    }
+  }, [organizationId, retryingEventId, load]);
+
   const visibleItems = useMemo(() => {
     const items = payload.items || [];
     if (filter === "ALL") return items;
@@ -203,7 +225,7 @@ export default function ChannelReservationsPage() {
       title="Channel Reservations"
       subtitle="One human work queue for OTA arrivals, changes, cancellations and exceptions. Avantiqo separates canonical Hotel acceptance from provider acknowledgement so staff can see exactly what is safe, what is pending and what needs intervention."
       context={selectedProperty?.name || "All hotel properties"}
-      actions={<><HotelSecondaryAction onClick={load} disabled={loading}>Refresh</HotelSecondaryAction><HotelSecondaryAction href={`/workspace/${organizationId}/operations/channel-manager`}>Channels & Rates</HotelSecondaryAction></>}
+      actions={<><HotelSecondaryAction onClick={load} disabled={loading || Boolean(retryingEventId)}>Refresh</HotelSecondaryAction><HotelSecondaryAction href={`/workspace/${organizationId}/operations/channel-manager`}>Channels & Rates</HotelSecondaryAction></>}
     >
       <HotelError>{error}</HotelError>
 
@@ -217,13 +239,13 @@ export default function ChannelReservationsPage() {
       <HotelSection eyebrow="01 · Property & work queue" title="Work the exception, not the integration log" detail="The queue prioritizes reservations that need a hotel decision or a provider acknowledgement retry. Settled events remain visible as evidence, not as tasks.">
         <div className="flex flex-col gap-3 p-4 md:flex-row md:items-end md:justify-between md:p-5">
           <HotelField label="Property">
-            <select className={hotelInputClass} value={propertyId} onChange={(event) => setPropertyId(event.target.value)}>
+            <select className={hotelInputClass} value={propertyId} onChange={(event) => setPropertyId(event.target.value)} disabled={Boolean(retryingEventId)}>
               <option value="">All hotel properties</option>
               {properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}
             </select>
           </HotelField>
           <div className="flex flex-wrap gap-1.5">
-            {FILTERS.map(([id, label]) => <button key={id} type="button" onClick={() => setFilter(id)} className={filter === id ? "rounded-lg bg-[#292620] px-2.5 py-2 text-[8px] font-semibold text-white" : "rounded-lg border border-black/[0.07] bg-white px-2.5 py-2 text-[8px] font-semibold text-[#776F67] hover:text-[#76583A]"}>{label}</button>)}
+            {FILTERS.map(([id, label]) => <button key={id} type="button" onClick={() => setFilter(id)} disabled={Boolean(retryingEventId)} className={filter === id ? "rounded-lg bg-[#292620] px-2.5 py-2 text-[8px] font-semibold text-white disabled:opacity-50" : "rounded-lg border border-black/[0.07] bg-white px-2.5 py-2 text-[8px] font-semibold text-[#776F67] hover:text-[#76583A] disabled:opacity-50"}>{label}</button>)}
           </div>
         </div>
       </HotelSection>
@@ -235,10 +257,10 @@ export default function ChannelReservationsPage() {
       ) : null}
 
       <HotelSection eyebrow="02 · Reservation work" title={filter === "ATTENTION" ? "Reservations needing a human eye" : "Inbound reservation evidence"} detail="Each Booking.com room stay is shown separately under its external reservation so multi-room bookings cannot hide inventory or reconciliation problems.">
-        {loading ? <HotelEmptyState>Loading governed OTA reservation evidence…</HotelEmptyState> : groups.length === 0 ? <HotelEmptyState>{connections.length ? (filter === "ATTENTION" ? "Nothing needs attention. New OTA reservations and exceptions will appear here automatically." : "No reservation events match this view yet.") : "No inbound OTA reservation evidence exists yet."}</HotelEmptyState> : <div className="divide-y divide-black/[0.06]">{groups.map((group) => <div key={group.key}><div className="flex flex-wrap items-center justify-between gap-2 bg-[#FAF8F4] px-4 py-2.5 md:px-5"><div><div className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[#6E655C]">{group.provider?.name || group.provider?.id || "OTA"} · reservation #{group.reservationId}</div><div className="mt-0.5 text-[7px] text-[#A09990]">{group.items.length} room-stay event{group.items.length === 1 ? "" : "s"} · latest first</div></div><HotelStatusPill value={group.provider?.connectionStatus || "UNKNOWN"} /></div><div className="divide-y divide-black/[0.05]">{group.items.map((item) => <ReservationRow key={item.id} item={item} organizationId={organizationId} />)}</div></div>)}</div>}
+        {loading ? <HotelEmptyState>Loading governed OTA reservation evidence…</HotelEmptyState> : groups.length === 0 ? <HotelEmptyState>{connections.length ? (filter === "ATTENTION" ? "Nothing needs attention. New OTA reservations and exceptions will appear here automatically." : "No reservation events match this view yet.") : "No inbound OTA reservation evidence exists yet."}</HotelEmptyState> : <div className="divide-y divide-black/[0.06]">{groups.map((group) => <div key={group.key}><div className="flex flex-wrap items-center justify-between gap-2 bg-[#FAF8F4] px-4 py-2.5 md:px-5"><div><div className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[#6E655C]">{group.provider?.name || group.provider?.id || "OTA"} · reservation #{group.reservationId}</div><div className="mt-0.5 text-[7px] text-[#A09990]">{group.items.length} room-stay event{group.items.length === 1 ? "" : "s"} · latest first</div></div><HotelStatusPill value={group.provider?.connectionStatus || "UNKNOWN"} /></div><div className="divide-y divide-black/[0.05]">{group.items.map((item) => <ReservationRow key={item.id} item={item} organizationId={organizationId} retryingEventId={retryingEventId} onRetryProviderHandoff={retryProviderHandoff} />)}</div></div>)}</div>}
       </HotelSection>
 
-      <HotelSection eyebrow="03 · Operating rule" title="Automation stops before it can damage an in-house stay" detail="Mapping conflicts, protected inventory and checked-in changes remain explicit operator work. This screen never bypasses the guarded booking boundary or rewrites provider evidence.">
+      <HotelSection eyebrow="03 · Operating rule" title="Automation stops before it can damage an in-house stay" detail="Mapping conflicts, protected inventory and checked-in changes remain explicit operator work. Only a reconciled stay with a pending provider handoff can be retried here; the retry refetches provider truth before acknowledgement.">
         <div className="grid gap-3 p-4 md:grid-cols-3 md:p-5">
           <div className="rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3"><div className="text-[8px] font-semibold text-[#4B453F]">Hotel accepted</div><div className="mt-1 text-[8px] leading-4 text-[#8A837B]">The exact room-stay event is persisted, mapped to a physical room and reconciled to its canonical booking.</div></div>
           <div className="rounded-xl border border-black/[0.06] bg-[#FBFAF7] p-3"><div className="text-[8px] font-semibold text-[#4B453F]">Provider acknowledged</div><div className="mt-1 text-[8px] leading-4 text-[#8A837B]">A separate ACK state proves Booking.com accepted the exact message. Stale versions are marked superseded, never falsely acknowledged.</div></div>

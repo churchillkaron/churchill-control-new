@@ -1,0 +1,44 @@
+name: Avantiqo Investor Modal Live Diagnostic Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-modal-live-diagnostic-once.yml
+
+permissions:
+  contents: read
+
+env:
+  MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+
+jobs:
+  diagnose:
+    if: github.event.head_commit.message == 'Run Avantiqo investor Modal live diagnostic'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Modal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+
+      - name: Inspect Avantiqo video app containers and recent logs
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '===== MODAL APP LIST ====='
+          modal app list --json || true
+          echo '===== MODAL CONTAINER LIST ====='
+          modal container list --json || true
+          echo '===== AVANTIQO VIDEO APP LOGS LAST 30M ====='
+          modal app logs avantiqo-video-owned --since 30m --tail 500 --timestamps --show-function-id --show-function-call-id --show-container-id || true
+          echo 'AVANTIQO_INVESTOR_MODAL_LIVE_DIAGNOSTIC=PASS'

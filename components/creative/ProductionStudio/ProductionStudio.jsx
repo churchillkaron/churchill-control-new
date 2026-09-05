@@ -18,6 +18,24 @@ export default function ProductionStudio({
 }) {
   const editor = useCreativeEditor(runtime);
   const orchestration = useCreativeOrchestration(runtime);
+  const reviewPhase = orchestration.current?.phases?.find(
+    (phase) => phase.id === "review",
+  ) || null;
+
+  const governedEditor = {
+    ...editor,
+    setActiveWorkspace(nextWorkspace) {
+      if (
+        nextWorkspace === "render" &&
+        reviewPhase &&
+        reviewPhase.status !== "COMPLETE"
+      ) {
+        editor.setActiveWorkspace("review");
+        return;
+      }
+      editor.setActiveWorkspace(nextWorkspace);
+    },
+  };
 
   const refresh = async () => {
     editor.refresh();
@@ -33,7 +51,7 @@ export default function ProductionStudio({
         ...runtime,
         refresh,
       },
-      editor,
+      editor: governedEditor,
     }),
     refresh,
     refreshing: editor.refreshing || orchestration.loading,
@@ -50,19 +68,19 @@ export default function ProductionStudio({
       header={
         <Header
           runtime={liveRuntime}
-          editor={editor}
+          editor={governedEditor}
         />
       }
       sidebar={
         <Sidebar
           runtime={liveRuntime}
-          editor={editor}
+          editor={governedEditor}
         />
       }
       canvas={
         <Canvas
           runtime={liveRuntime}
-          editor={editor}
+          editor={governedEditor}
         />
       }
       showInspector={layout.inspector !== false}
@@ -70,13 +88,13 @@ export default function ProductionStudio({
       inspector={
         <Inspector
           runtime={liveRuntime}
-          editor={editor}
+          editor={governedEditor}
         />
       }
       dock={
         <BottomDock
           runtime={liveRuntime}
-          editor={editor}
+          editor={governedEditor}
         />
       }
     />

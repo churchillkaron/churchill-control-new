@@ -7,6 +7,7 @@ import FinanceTaxAmendmentRail from "./FinanceTaxAmendmentRail";
 import FinanceTaxSettlementRail from "./FinanceTaxSettlementRail";
 import FinanceTaxPortfolioRail from "./FinanceTaxPortfolioRail";
 import FinanceTaxCloseGuidanceRail from "./FinanceTaxCloseGuidanceRail";
+import FinanceTaxCloseIntelligenceRail from "./FinanceTaxCloseIntelligenceRail";
 import FinanceTaxDependencyWorkRail from "./FinanceTaxDependencyWorkRail";
 import FinanceTaxClientRequestBridgeRail from "./FinanceTaxClientRequestBridgeRail";
 
@@ -24,6 +25,7 @@ export default function FinanceTaxWorkCenter(props) {
       />
       <FinanceTaxCalendarRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
       <FinanceTaxCloseGuidanceRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+      <FinanceTaxCloseIntelligenceRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
       <FinanceTaxDependencyWorkRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
       <FinanceTaxClientRequestBridgeRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
       <FinanceTaxAmendmentRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />

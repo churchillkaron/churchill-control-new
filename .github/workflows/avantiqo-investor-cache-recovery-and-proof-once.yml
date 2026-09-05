@@ -1,4 +1,4 @@
-# trigger: recovery-pass-5-gemma-compat
+# trigger: recovery-pass-6-exact-root-module-mount
 name: Avantiqo Investor Cache Recovery And Proof Once
 
 on:

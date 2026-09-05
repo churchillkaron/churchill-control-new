@@ -31,6 +31,7 @@ assert.equal(fs.existsSync("scripts/apply-final-knowledge-release-immutable-rece
 assert.equal(fs.existsSync("scripts/patch-final-knowledge-release-immutable-receipt.py"), false);
 assert.equal(fs.existsSync("scripts/fix-final-knowledge-release-stale-approval-export.py"), false);
 assert.equal(fs.existsSync(".github/workflows/avantiqo-fix-stale-release-approval-export.yml"), false);
+assert.equal(fs.existsSync("scripts/certify-avantiqo-final-knowledge-release-postgres-local.mjs"), true);
 
 assert.match(authRuntime, /memory_type: "decision"/);
 assert.doesNotMatch(authRuntime, /memory_type: "approval"/);
@@ -102,5 +103,9 @@ assert.match(migration, /final_release_authorization_one_use_consumed/);
 assert.match(migration, /platform_learning_knowledge_release_receipts/);
 assert.match(migration, /AVANTIQO_FINAL_KNOWLEDGE_RELEASE_RECEIPT_ATOMIC_BINDING_V1/);
 assert.match(migration, /trg_avantiqo_final_knowledge_release_receipt_immutable/);
+
+if (process.env.CI === "true") {
+  await import("./certify-avantiqo-final-knowledge-release-postgres-local.mjs");
+}
 
 console.log("AVANTIQO_FINAL_KNOWLEDGE_RELEASE_AUTHORITY_ATOMICITY_CERTIFIED");

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { evaluateHotelArrivalReadiness } from "@/lib/hotel/server/getHotelArrivalReadiness";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -26,10 +27,12 @@ export async function GET(request) {
         *,
         hotel_rooms (
           room_number,
-          room_type
+          room_type,
+          status
         ),
         hotel_guests (
-          full_name
+          full_name,
+          identity_verified_at
         )
       `)
       .eq("organization_id", access.organizationId)
@@ -37,9 +40,14 @@ export async function GET(request) {
 
     if (error) throw error;
 
+    const bookings = (data || []).map((booking) => ({
+      ...booking,
+      arrival_readiness: evaluateHotelArrivalReadiness(booking),
+    }));
+
     return NextResponse.json({
       success: true,
-      bookings: data || [],
+      bookings,
     });
   } catch (error) {
     console.error("HOTEL_BOOKING_LIST_ERROR", error);

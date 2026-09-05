@@ -27,6 +27,11 @@ const route = fs.readFileSync(
   "utf8",
 );
 
+assert.equal(fs.existsSync("scripts/apply-final-knowledge-release-immutable-receipt-p3.py"), false);
+assert.equal(fs.existsSync("scripts/patch-final-knowledge-release-immutable-receipt.py"), false);
+assert.equal(fs.existsSync("scripts/fix-final-knowledge-release-stale-approval-export.py"), false);
+assert.equal(fs.existsSync(".github/workflows/avantiqo-fix-stale-release-approval-export.yml"), false);
+
 assert.match(authRuntime, /memory_type: "decision"/);
 assert.doesNotMatch(authRuntime, /memory_type: "approval"/);
 

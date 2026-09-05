@@ -38,6 +38,11 @@ function bounded(value, fallback, min, max) {
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(min, Math.min(max, parsed));
 }
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 function statusFor(message) {
   const value = String(message || "");
   if (/permission denied|authentication|membership/i.test(value)) return 403;
@@ -148,6 +153,40 @@ function buildCalendarEvidence(current) {
   };
 }
 
+function calculationSnapshot(values) {
+  const row = values && typeof values === "object" ? values : {};
+  return {
+    method: clean(row.method) || null,
+    currency_code: clean(row.currency_code) || null,
+    output_document_count: numberOrNull(row.output_document_count),
+    customer_credit_note_count: numberOrNull(row.customer_credit_note_count),
+    input_document_count: numberOrNull(row.input_document_count),
+    output_tax: numberOrNull(row.output_tax),
+    input_tax: numberOrNull(row.input_tax),
+    tax_payable: numberOrNull(row.tax_payable),
+    tax_refund: numberOrNull(row.tax_refund),
+  };
+}
+
+function buildCalculationEvidence(current) {
+  const calculated = current?.calculated || {};
+  const storedValues = calculated?.values && typeof calculated.values === "object" ? calculated.values : {};
+  const liveValues = current?.current && typeof current.current === "object" ? current.current : {};
+  const freshnessReasons = Array.isArray(calculated?.freshness_reasons)
+    ? [...new Set(calculated.freshness_reasons.map(clean).filter(Boolean))]
+    : [];
+
+  return {
+    return_status: upper(current?.return?.status) || null,
+    calculated_at: calculated?.at || storedValues.calculated_at || current?.return?.calculated_at || null,
+    calculated_by: calculated?.by || current?.return?.calculated_by || null,
+    stale: current?.calculation_stale === true,
+    freshness_reasons: freshnessReasons,
+    stored: calculationSnapshot(storedValues),
+    live: calculationSnapshot(liveValues),
+  };
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -204,6 +243,7 @@ export async function GET(request) {
     }
 
     const governedCalendarEvidence = buildCalendarEvidence(current);
+    const governedCalculationEvidence = buildCalculationEvidence(current);
     issues = issues.map(rawItem => {
       const item = attachDuplicateCandidateNavigation({
         organizationId: access.organizationId,
@@ -214,6 +254,7 @@ export async function GET(request) {
       return {
         ...item,
         calendar_evidence: upper(item?.source_type) === "TAX_CALENDAR_CONTEXT" ? governedCalendarEvidence : null,
+        calculation_evidence: upper(item?.source_type) === "VAT_CALCULATION_CONTEXT" ? governedCalculationEvidence : null,
         source_navigation: exactSourceNavigation({
           organizationId: access.organizationId,
           entityId,

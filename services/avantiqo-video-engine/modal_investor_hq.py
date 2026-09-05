@@ -1,12 +1,12 @@
-"""Production-quality LTX-2.5 lane for Avantiqo investor-film shots.
+"""Production-detail LTX-2.5 DFR lane for Avantiqo investor-film shots.
 
-This lane is intentionally separate from the fast distilled preview lane.
-It uses the full-dev BF16 transformer with the official two-stage HQ pipeline:
-stage 1 establishes composition/motion at half resolution and stage 2 performs
-learned latent upsampling plus distilled-LoRA refinement at 1920x1088.
+The fast investor lane remains the motion/story preview path. This separate lane
+uses LTX-2.5 Diffusion Fidelity Rendering (DFR): generated keyframe structure,
+learned spatial refinement and the official pixel-spatial detailing IC-LoRA.
+The target is a native 3840x2176 model render which Studio crops to 3840x2160.
 
-No source image, prior video, screenshot, browser capture, or imported visual
-asset is accepted. Avantiqo Studio owns deterministic 4K delivery mastering.
+No source image, prior video, screenshot, browser capture or imported visual asset
+is accepted by this runtime. It is purpose-generated footage only.
 """
 from __future__ import annotations
 
@@ -38,21 +38,30 @@ from modal_app import (
     seed_image,
 )
 
-CONTRACT = "AVANTIQO_INVESTOR_T2V_HQ_MODAL_V1"
-QUALITY_CONTRACT = "AVANTIQO_INVESTOR_T2V_FULL_DEV_TWO_STAGE_HQ_1920X1088_V1"
-WIDTH = 1920
-HEIGHT = 1088
-STAGE1_WIDTH = WIDTH // 2
-STAGE1_HEIGHT = HEIGHT // 2
+CONTRACT = "AVANTIQO_INVESTOR_DFR_HQ_MODAL_V1"
+QUALITY_CONTRACT = "AVANTIQO_INVESTOR_LTX25_DFR_NATIVE_3840X2176_V1"
+WIDTH = 3840
+HEIGHT = 2176
 FPS = 24
-NUM_INFERENCE_STEPS = 30
-DISTILLED_LORA_STAGE1_STRENGTH = 0.25
-DISTILLED_LORA_STAGE2_STRENGTH = 0.50
-HARD_TIMEOUT_SECONDS = 20 * 60
+HARD_TIMEOUT_SECONDS = 30 * 60
 SUBPROCESS_TIMEOUT_SECONDS = HARD_TIMEOUT_SECONDS - 30
-DISTILLED_LORA = "loras/ltx-2.5-22b-distilled-lora-450-bf16.safetensors"
+
+# DFR uses the LTX-2.5 distilled transformer as its base and adds a dedicated
+# spatial-detailing IC-LoRA pass. The existing fast lane already caches the
+# distilled transformer and spatial latent upsampler inside the pinned 2.5 pack.
+DISTILLED_TRANSFORMER = "diffusion_models/ltx-2.5-22b-distilled-transformer-bf16.safetensors"
 SPATIAL_UPSAMPLER = "latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors"
-HQ_REQUIRED = (*LTX_REQUIRED, DISTILLED_LORA, SPATIAL_UPSAMPLER)
+DETAILING_REPO = "Lightricks/LTX-2.5-22b-IC-LoRA-Pixel-Spatial-Upscaler"
+DETAILING_FILE = "ltx-2.5-22b-ic-lora-pixel-spatial-upscaler-x2-1.0.safetensors"
+DETAILING_ROOT = Path("/models/avantiqo-investor-hq-assets")
+DETAILING_PATH = DETAILING_ROOT / DETAILING_FILE
+HQ_REQUIRED = (
+    DISTILLED_TRANSFORMER,
+    LTX_REQUIRED[1],
+    LTX_REQUIRED[2],
+    LTX_REQUIRED[3],
+    SPATIAL_UPSAMPLER,
+)
 
 transport_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -65,7 +74,7 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _sanitize(value: Any, limit: int = 2200) -> str:
+def _sanitize(value: Any, limit: int = 2400) -> str:
     return _text(value).replace("\n", " ")[-limit:]
 
 
@@ -84,6 +93,8 @@ def _snapshot() -> Path:
     ]
     if missing:
         raise RuntimeError(f"{CONTRACT}_CACHE_INCOMPLETE:" + ",".join(missing))
+    if not DETAILING_PATH.is_file() or DETAILING_PATH.stat().st_size <= 0:
+        raise RuntimeError(f"{CONTRACT}_DETAILING_LORA_MISSING")
     return root
 
 
@@ -98,38 +109,45 @@ def _snapshot() -> Path:
     retries=0,
 )
 def seed_investor_hq_cache() -> dict[str, Any]:
-    """Ensure the two HQ-only assets exist; this function never allocates a GPU."""
-    from huggingface_hub import snapshot_download
+    """Seed HQ-only model assets. This function never allocates a GPU."""
+    from huggingface_hub import hf_hub_download, snapshot_download
 
     model_volume.reload()
-    try:
-        root = _snapshot()
-        return {
-            "success": True,
-            "already_cached": True,
-            "revision": root.name,
-            "gpu_inference_performed": False,
-        }
-    except RuntimeError:
-        pass
+    root = LTX_SNAPSHOT_ROOT / LTX_SOURCE_REVISION
+    missing = [
+        name for name in HQ_REQUIRED
+        if not (root / name).is_file() or (root / name).stat().st_size <= 0
+    ]
+    if missing:
+        resolved = Path(snapshot_download(
+            repo_id=LTX_SOURCE_REPO,
+            revision=LTX_SOURCE_REVISION,
+            cache_dir=HF_CACHE_ROOT,
+            token=os.environ.get("HF_TOKEN") or None,
+            allow_patterns=missing,
+            max_workers=8,
+        ))
+        if resolved.name != LTX_SOURCE_REVISION:
+            raise RuntimeError(f"{CONTRACT}_REVISION_INVALID:{resolved.name}")
 
-    resolved = Path(snapshot_download(
-        repo_id=LTX_SOURCE_REPO,
-        revision=LTX_SOURCE_REVISION,
-        cache_dir=HF_CACHE_ROOT,
-        token=os.environ.get("HF_TOKEN") or None,
-        allow_patterns=[DISTILLED_LORA, SPATIAL_UPSAMPLER],
-        max_workers=8,
-    ))
-    if resolved.name != LTX_SOURCE_REVISION:
-        raise RuntimeError(f"{CONTRACT}_REVISION_INVALID:{resolved.name}")
+    DETAILING_ROOT.mkdir(parents=True, exist_ok=True)
+    if not DETAILING_PATH.is_file() or DETAILING_PATH.stat().st_size <= 0:
+        downloaded = Path(hf_hub_download(
+            repo_id=DETAILING_REPO,
+            filename=DETAILING_FILE,
+            token=os.environ.get("HF_TOKEN") or None,
+            local_dir=str(DETAILING_ROOT),
+        ))
+        if downloaded.resolve() != DETAILING_PATH.resolve() or downloaded.stat().st_size <= 0:
+            raise RuntimeError(f"{CONTRACT}_DETAILING_LORA_DOWNLOAD_INVALID")
+
     model_volume.commit()
     model_volume.reload()
-    root = _snapshot()
+    ready = _snapshot()
     return {
         "success": True,
-        "already_cached": False,
-        "revision": root.name,
+        "revision": ready.name,
+        "detailing_lora": DETAILING_FILE,
         "gpu_inference_performed": False,
     }
 
@@ -144,12 +162,15 @@ def _prompt(instruction: str) -> str:
     if not value:
         raise ValueError(f"{CONTRACT}_INSTRUCTION_REQUIRED")
     return value + (
-        " Premium photographed enterprise cinema, not a software advertisement. "
-        "Natural skin texture, anatomically correct hands, believable eye focus, physically plausible cloth, glass, metal, paper and food surfaces. "
-        "Motivated practical lighting, controlled highlight rolloff, deep but detailed blacks, realistic lens falloff and depth of field. "
-        "Camera movement must be restrained, mechanically coherent and motivated by the action; preserve identity and geometry through the whole shot. "
-        "Performances are subtle and serious, never stock-photo smiling or exaggerated surprise. "
-        "No typography, captions, readable generated words, numbers, logos, watermark, browser chrome, dashboard montage, floating hologram, neon network, sci-fi particles, plastic skin, extra fingers, warped hands, duplicated people, morphing, temporal flicker, frame collapse, sudden zoom or artificial over-sharpening."
+        " Premium photographed enterprise cinema rather than a software commercial. "
+        "Natural skin microtexture and pores, anatomically correct hands, stable facial identity and believable eye focus. "
+        "Physically plausible paper, cardboard, stainless steel, glass, fabric and food surfaces with fine material detail. "
+        "Motivated practical lighting, soft highlight rolloff, deep blacks retaining texture, realistic lens falloff and depth of field. "
+        "Restrained mechanically coherent camera movement motivated by the action; preserve geometry and identity throughout. "
+        "Subtle serious performances with natural timing. No generic smiling stock actors or exaggerated crisis. "
+        "No typography, captions, readable generated words, numbers, logos, watermark, browser chrome, dashboard montage, "
+        "floating hologram, neon network, sci-fi particles, plastic skin, extra fingers, warped hands, duplicated people, "
+        "identity drift, morphing, temporal flicker, frame collapse, sudden zoom, artificial sharpening or synthetic glow."
     )
 
 
@@ -159,7 +180,7 @@ def _negative_prompt() -> str:
         "hologram, neon UI, glowing network, particles, stock footage, smiling corporate actors, plastic skin, wax face, "
         "extra fingers, fused fingers, malformed hands, duplicate people, identity drift, morphing, warped geometry, "
         "melting objects, flicker, frame collapse, camera roll, yaw drift, sudden zoom, severe motion blur, low resolution, "
-        "oversharpening, crushed blacks, clipped highlights, teal orange blockbuster grade"
+        "oversharpening, crushed blacks, clipped highlights, artificial bloom, teal orange blockbuster grade"
     )
 
 
@@ -180,12 +201,12 @@ def generate_investor_hq_master(
     duration_seconds: int = 6,
     seed: int = 260905,
 ) -> dict[str, Any]:
-    """Generate one new HQ two-stage shot. No delivery transforms happen here."""
+    """Generate one purpose-built native-4K DFR shot."""
     started = time.perf_counter()
     model_volume.reload()
     root = _snapshot()
     duration = int(duration_seconds)
-    if duration <= 0 or duration > 10:
+    if duration <= 0 or duration > 8:
         raise RuntimeError(f"{CONTRACT}_DURATION_INVALID")
 
     output = Path("/models") / output_relative.lstrip("/")
@@ -193,22 +214,20 @@ def generate_investor_hq_master(
     frames = _frames(duration)
 
     command = [
-        "python", "-m", "ltx_pipelines.ti2vid_two_stages_hq",
-        "--transformer-path", str(root / LTX_REQUIRED[0]),
+        "python", "-m", "ltx_pipelines.dfr_pipeline",
+        "--transformer-path", str(root / DISTILLED_TRANSFORMER),
         "--text-encoder-path", str(root / LTX_REQUIRED[1]),
         "--video-vae-path", str(root / LTX_REQUIRED[2]),
         "--audio-vae-path", str(root / LTX_REQUIRED[3]),
-        "--distilled-lora", str(root / DISTILLED_LORA),
         "--spatial-upsampler-path", str(root / SPATIAL_UPSAMPLER),
+        "--detailing-lora", str(DETAILING_PATH),
+        "--spatial-upscalings", "2",
+        "--temporal-upscalings", "0",
         "--num-frames", str(frames),
         "--width", str(WIDTH),
         "--height", str(HEIGHT),
         "--frame-rate", str(FPS),
-        "--num-inference-steps", str(NUM_INFERENCE_STEPS),
         "--seed", str(int(seed)),
-        "--max-batch-size", "1",
-        "--distilled-lora-strength-stage-1", str(DISTILLED_LORA_STAGE1_STRENGTH),
-        "--distilled-lora-strength-stage-2", str(DISTILLED_LORA_STAGE2_STRENGTH),
         "--output-path", str(output),
         "--prompt", _prompt(instruction),
         "--negative-prompt", _negative_prompt(),
@@ -254,24 +273,22 @@ def generate_investor_hq_master(
         "model": "avantiqo-ltx-2.5",
         "foundation_model": LTX_SOURCE_REPO,
         "foundation_revision": root.name,
-        "pipeline": "TI2VID_TWO_STAGES_HQ_FULL_DEV_BF16",
+        "pipeline": "LTX25_DFR_DETAIL_FIDELITY",
         "runtime_image": LTX_RUNTIME_IMAGE,
         "modal_gpu": LTX_GPU,
         "width": WIDTH,
         "height": HEIGHT,
-        "stage_1_width": STAGE1_WIDTH,
-        "stage_1_height": STAGE1_HEIGHT,
         "fps": FPS,
-        "num_inference_steps": NUM_INFERENCE_STEPS,
         "frame_count": frames,
         "duration_seconds_requested": duration,
         "seed": int(seed),
-        "full_dev_transformer_used": True,
-        "distilled_transformer_used": False,
-        "learned_latent_spatial_upsampler_used": True,
-        "distilled_lora_refinement_used": True,
-        "distilled_lora_strength_stage_1": DISTILLED_LORA_STAGE1_STRENGTH,
-        "distilled_lora_strength_stage_2": DISTILLED_LORA_STAGE2_STRENGTH,
+        "dfr_used": True,
+        "spatial_upscalings": 2,
+        "temporal_upscalings": 0,
+        "detailing_ic_lora_used": True,
+        "distilled_base_transformer_used": True,
+        "native_master_generated": True,
+        "pixel_delivery_upscale_used": False,
         "output_relative": output_relative,
         "output_size_bytes": output.stat().st_size,
         "modal_function_seconds": elapsed,
@@ -304,7 +321,7 @@ def _upload(path: Path, signed_url: str) -> None:
 @app.function(
     image=transport_image,
     volumes={"/models": model_volume},
-    timeout=HARD_TIMEOUT_SECONDS + 5 * 60,
+    timeout=HARD_TIMEOUT_SECONDS + 10 * 60,
     min_containers=0,
     max_containers=1,
     scaledown_window=5,
@@ -332,7 +349,7 @@ def generate_investor_hq_job(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"{CONTRACT}_STORAGE_TARGET_INVALID")
 
     relative = (
-        Path("runtime-investor-hq")
+        Path("runtime-investor-dfr")
         / _token(organization_id, "org")
         / _token(usage_id, "usage")
         / uuid.uuid4().hex

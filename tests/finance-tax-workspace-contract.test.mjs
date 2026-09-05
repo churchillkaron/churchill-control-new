@@ -10,12 +10,13 @@ const manifest = JSON.parse(read("lib/finance/runtime/financeCapabilityRuntimeMa
 const registry = read("lib/platform/erp-engine/renderers/RendererRegistry.js");
 const primaryPolicy = read("lib/finance/ui/FinancePrimaryActionPolicy.js");
 const workspace = read("components/workspace/finance/FinanceTaxWorkCenter.jsx");
+const workflowNavigator = read("components/workspace/finance/FinanceTaxWorkflowNavigator.jsx");
 const legacyWorkspace = read("components/workspace/finance/FinanceTaxLegacyWorkCenter.jsx");
 const calendarRail = read("components/workspace/finance/FinanceTaxCalendarRail.jsx");
 const amendmentRail = read("components/workspace/finance/FinanceTaxAmendmentRail.jsx");
 const settlementRail = read("components/workspace/finance/FinanceTaxSettlementRail.jsx");
 const portfolioRail = read("components/workspace/finance/FinanceTaxPortfolioRail.jsx");
-const taxSurface = [workspace, legacyWorkspace, calendarRail, amendmentRail, settlementRail, portfolioRail].join("\n");
+const taxSurface = [workspace, workflowNavigator, legacyWorkspace, calendarRail, amendmentRail, settlementRail, portfolioRail].join("\n");
 const runtime = read("app/api/finance/tax/runtime/route.js");
 const portfolioRoute = read("app/api/finance/tax/portfolio/route.js");
 const calculate = read("app/api/finance/vat-returns/calculate/route.js");
@@ -37,6 +38,7 @@ test("Tax and VAT Returns share one governed filing cockpit", () => {
   assert.match(primaryPolicy, /tax:\s*\{ mode: "none" \}/);
   assert.match(primaryPolicy, /vat_returns:\s*\{ mode: "none" \}/);
   assert.match(workspace, /FinanceTaxPortfolioRail/);
+  assert.match(workspace, /FinanceTaxWorkflowNavigator/);
   assert.match(workspace, /FinanceTaxCalendarRail/);
   assert.match(workspace, /FinanceTaxAmendmentRail/);
   assert.match(workspace, /FinanceTaxSettlementRail/);
@@ -44,6 +46,15 @@ test("Tax and VAT Returns share one governed filing cockpit", () => {
 });
 
 test("Tax workcenter is workflow-first and human controlled", () => {
+  assert.match(taxSurface, /VAT work path/);
+  assert.match(taxSurface, /Prepare & record filing/);
+  assert.match(taxSurface, /Clear the next blocker/);
+  assert.match(taxSurface, /Prove every VAT number/);
+  assert.match(taxSurface, /Amend & settle/);
+  assert.match(workspace, /activeStage === "RETURN"/);
+  assert.match(workspace, /activeStage === "FIX"/);
+  assert.match(workspace, /activeStage === "EVIDENCE"/);
+  assert.match(workspace, /activeStage === "AFTER"/);
   assert.match(taxSurface, /New VAT filing/);
   assert.match(taxSurface, /Create filing obligation/);
   assert.match(taxSurface, /Pre-file checks/);

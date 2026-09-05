@@ -5,8 +5,8 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
-  CreativePublishExecutionRuntime,
-} from "@/lib/creative/release/runtime/CreativePublishExecutionRuntime";
+  CreativePublishExecutionRuntimeV2,
+} from "@/lib/creative/release/runtime/CreativePublishExecutionRuntimeV2";
 
 export async function POST(request) {
   try {
@@ -35,7 +35,7 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
-    const result = await CreativePublishExecutionRuntime.execute({
+    const result = await CreativePublishExecutionRuntimeV2.execute({
       organization_id: organizationId,
       publish_command_asset_node_id: publishCommandAssetNodeId,
       executed_by: {

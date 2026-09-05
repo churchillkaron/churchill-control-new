@@ -13,6 +13,9 @@ const calendarPolicy = read("lib/finance/tax/FinanceTaxCalendarPolicy.js");
 const vatPreflight = read("lib/finance/tax/FinanceVatReturnPreflight.js");
 const closeGuidancePolicy = read("lib/finance/tax/FinanceTaxCloseGuidancePolicy.js");
 const closeGuidanceRail = read("components/workspace/finance/FinanceTaxCloseGuidanceRail.jsx");
+const dependencyWorkRail = read("components/workspace/finance/FinanceTaxDependencyWorkRail.jsx");
+const dependencyWorkRoute = read("app/api/finance/vat-returns/dependency-work/route.js");
+const dependencyWorkMigration = read("supabase/migrations/20260905010500_finance_tax_dependency_work_envelopes.sql");
 const amendments = read("components/workspace/finance/FinanceTaxAmendmentRail.jsx");
 const settlement = read("components/workspace/finance/FinanceTaxSettlementRail.jsx");
 const settlementRoute = read("app/api/finance/vat-returns/settlement/route.js");
@@ -148,4 +151,48 @@ test("Tax close guidance is bound to the exact shared filing and surfaces resolu
   assert.match(closeGuidanceRail, /Resolution proof/);
   assert.match(closeGuidanceRail, /Next safe action/);
   assert.match(closeGuidanceRail, /Statutory deadline/);
+});
+
+test("Tax dependency work envelope stores coordination but has no manual resolution state", () => {
+  assert.match(dependencyWorkMigration, /finance_tax_dependency_work_envelopes/);
+  assert.match(dependencyWorkMigration, /assigned_to uuid/);
+  assert.match(dependencyWorkMigration, /target_at timestamptz/);
+  assert.match(dependencyWorkMigration, /acknowledged_at timestamptz/);
+  assert.match(dependencyWorkMigration, /client_request_id uuid null references public\.accounting_client_requests/);
+  assert.match(dependencyWorkMigration, /Resolution is never stored here/);
+  assert.doesNotMatch(dependencyWorkMigration, /\bresolved\s+(boolean|text|timestamptz)/i);
+  assert.doesNotMatch(dependencyWorkMigration, /\bstatus\s+text/i);
+});
+
+test("Tax dependency work writes revalidate live accounting truth and reject manual completion", () => {
+  assert.match(dependencyWorkRoute, /loadLiveGuidance/);
+  assert.match(dependencyWorkRoute, /buildFinanceVatReturnPreflight/);
+  assert.match(dependencyWorkRoute, /applyFinanceTaxCalendarToPreflight/);
+  assert.match(dependencyWorkRoute, /applyFinanceVatCalculationMethodToPreflight/);
+  assert.match(dependencyWorkRoute, /deriveFinanceTaxCloseGuidance/);
+  assert.match(dependencyWorkRoute, /\["RESOLVE", "COMPLETE", "CLOSE", "DONE"\]/);
+  assert.match(dependencyWorkRoute, /Tax dependencies cannot be completed manually/);
+  assert.match(dependencyWorkRoute, /Tax dependency is no longer active in live accounting truth/);
+  assert.match(dependencyWorkRoute, /resolution_authority: "LIVE_TAX_PREFLIGHT_ONLY"/);
+});
+
+test("Tax dependency ownership is durable, scoped and cannot be released by another user", () => {
+  assert.match(dependencyWorkMigration, /unique \(organization_id, entity_id, vat_return_id, dependency_code\)/);
+  assert.match(dependencyWorkRoute, /current_user_id: access\.user\?\.id \|\| null/);
+  assert.match(dependencyWorkRoute, /if \(action === "TAKE_OWNERSHIP"\) next\.assigned_to = actorId/);
+  assert.match(dependencyWorkRoute, /existing\?\.assigned_to && existing\.assigned_to !== actorId/);
+  assert.match(dependencyWorkRoute, /Only the current Tax dependency owner can release ownership/);
+});
+
+test("Tax dependency coordination uses the exact shared filing and cannot complete evidence", () => {
+  assert.match(wrapper, /FinanceTaxDependencyWorkRail/);
+  assert.match(wrapper, /selectedVatReturnId=\{selectedVatReturnId\}/);
+  assert.match(dependencyWorkRail, /url\.searchParams\.set\("vatReturnId", selectedVatReturnId\)/);
+  assert.match(dependencyWorkRail, /body\.return_id !== selectedVatReturnId/);
+  assert.match(dependencyWorkRail, /Take ownership/);
+  assert.match(dependencyWorkRail, /Acknowledge/);
+  assert.match(dependencyWorkRail, /Internal target/);
+  assert.match(dependencyWorkRail, /Coordination note/);
+  assert.match(dependencyWorkRail, /Resolution authority: live Tax preflight only/);
+  assert.doesNotMatch(dependencyWorkRail, />\s*(Complete|Resolve|Close)\s*</i);
 });

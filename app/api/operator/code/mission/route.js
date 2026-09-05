@@ -269,6 +269,7 @@ export async function POST(request) {
       resume_state: result?.state || null,
       customer_artifact: result?.customer_artifact || null,
       employee_completion: result?.employee_completion || null,
+      engineering_plan: result?.engineering_plan || result?.state?.engineering_plan || null,
       verified_engineering_memory: result?.verified_engineering_memory || null,
       engineering_memory_utility: result?.engineering_memory_utility || null,
       formed_engineering_skills: result?.formed_engineering_skills || null,

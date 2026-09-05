@@ -7,6 +7,9 @@ import {
 import {
   CreativeApprovalRuntime,
 } from "@/lib/creative/release/runtime/CreativeApprovalRuntime";
+import {
+  CreativeDeliveryAudioQualityRuntime,
+} from "@/lib/creative/quality/runtime/CreativeDeliveryAudioQualityRuntime";
 
 const ALLOWED_SCOPES = new Set([
   "PRODUCTION_DOSSIER",
@@ -63,6 +66,23 @@ export async function POST(request) {
     });
     if (!access.success) {
       return Response.json(access, { status: access.status });
+    }
+
+    if (scope === "FINAL_RENDER") {
+      const deliveryAudio = await CreativeDeliveryAudioQualityRuntime.inspect({
+        organization_id: organizationId,
+        render_asset_node_id: subjectAssetNodeId,
+      });
+      if (deliveryAudio.required && deliveryAudio.passed !== true) {
+        return Response.json(
+          {
+            success: false,
+            error: deliveryAudio.blocker || "DELIVERY_AUDIO_QC_REQUIRED",
+            delivery_audio: deliveryAudio,
+          },
+          { status: 409 },
+        );
+      }
     }
 
     const result = await CreativeApprovalRuntime.approve({

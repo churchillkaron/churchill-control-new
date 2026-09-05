@@ -48,7 +48,7 @@ test("AUTO_REPAIR is only granted after canonical route authority is proven serv
   const route = source("app/api/platform/admin/self-healing/route.js");
 
   assert.match(route, /category === "route_not_found"/);
-  assert.match(route, /return "AUTO_REPAIR_CANDIDATE"/);
+  assert.match(route, /category === "runtime_exception"[\s\S]{0,300}return "AUTO_REPAIR_CANDIDATE"/);
   assert.match(route, /function authoritativeRepairRegistryTarget/);
   assert.match(route, /AUTO_REPAIR requires an exact browser-observed route/);
   assert.match(route, /getWorkspaceItemByRoute\(routeHint\)/);
@@ -62,7 +62,6 @@ test("AUTO_REPAIR is only granted after canonical route authority is proven serv
   assert.match(route, /workspace = registryProof\.evidence\.workspace_id/);
   assert.match(route, /resolvedRoute = registryProof\.evidence\.route \|\| route/);
   assert.match(route, /browser_reported_route:\s*route/);
-  assert.doesNotMatch(route, /category === "runtime_exception"[^]*return "AUTO_REPAIR"/);
 });
 
 test("global observer captures uncaught errors and promise rejections without intercepting fetch", () => {

@@ -7,11 +7,12 @@ const root = process.cwd();
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), "utf8");
 const wrapper = read("components/workspace/finance/FinanceTaxWorkCenter.jsx");
 const closeSheet = read("components/workspace/finance/FinanceTaxReturnCloseSheet.jsx");
+const evidenceRail = read("components/workspace/finance/FinanceTaxEvidenceDrilldownRail.jsx");
 
 test("VAT Return stage presents one accountant close sheet bound to the selected filing", () => {
   assert.match(wrapper, /FinanceTaxReturnCloseSheet/);
   assert.match(wrapper, /selectedVatReturnId=\{selectedVatReturnId\}/);
-  assert.match(wrapper, /onStageChange=\{setActiveStage\}/);
+  assert.match(wrapper, /onStageChange=\{changeStage\}/);
   assert.match(closeSheet, /VAT close sheet/);
   assert.match(closeSheet, /One filing, one current accounting truth, one next action\./);
   assert.match(closeSheet, /body\?\.preflight\?\.return\?\.id === selectedVatReturnId/);
@@ -36,7 +37,6 @@ test("VAT close sheet derives its next action from live preflight rather than lo
   assert.match(closeSheet, /snapshot\.ready_to_submit === true/);
   assert.match(closeSheet, /upper\(item\.status\) === "BLOCK"/);
   assert.match(closeSheet, /onStageChange\?\.\("FIX"\)/);
-  assert.match(closeSheet, /onStageChange\?\.\("EVIDENCE"\)/);
   assert.match(closeSheet, /onStageChange\?\.\("AFTER"\)/);
   assert.match(closeSheet, /Inspect evidence/);
   assert.match(closeSheet, /Recalculate from evidence/);
@@ -94,4 +94,21 @@ test("VAT close sheet separates non-blocking accountant review from live blocker
   assert.match(closeSheet, /Warning · review only/);
   assert.doesNotMatch(closeSheet, /Mark reviewed/);
   assert.doesNotMatch(closeSheet, /Resolve warning/);
+});
+
+test("VAT warning review can focus the exact live evidence control without changing accounting truth", () => {
+  assert.match(wrapper, /const \[evidenceFocusCode, setEvidenceFocusCode\] = useState\(null\)/);
+  assert.match(wrapper, /function openEvidence\(dependencyCode = null\)/);
+  assert.match(wrapper, /onEvidenceFocus=\{openEvidence\}/);
+  assert.match(wrapper, /focusDependencyCode=\{evidenceFocusCode\}/);
+  assert.match(closeSheet, /function inspectEvidence\(code = null\)/);
+  assert.match(closeSheet, /onEvidenceFocus\(code\)/);
+  assert.match(closeSheet, /inspectEvidence\(code\)/);
+  assert.match(closeSheet, /Trace this control/);
+  assert.match(evidenceRail, /focusDependencyCode = null/);
+  assert.match(evidenceRail, /requestedFocus/);
+  assert.match(evidenceRail, /dependencies\.some\(item => item\.code === requestedFocus\)/);
+  assert.match(evidenceRail, /resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY"/);
+  assert.match(evidenceRail, /mutation_authority !== false/);
+  assert.match(evidenceRail, /context_mutation_authority !== false/);
 });

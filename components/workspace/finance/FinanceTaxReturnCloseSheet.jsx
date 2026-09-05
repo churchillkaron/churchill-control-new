@@ -78,7 +78,7 @@ function warningControlLabel(code) {
   return "VAT filing review";
 }
 
-export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, selectedVatReturnId, onStageChange }) {
+export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, selectedVatReturnId, onStageChange, onEvidenceFocus }) {
   const [snapshot, setSnapshot] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -138,6 +138,11 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
   const calculatedValues = snapshot?.calculated?.values && typeof snapshot.calculated.values === "object" ? snapshot.calculated.values : {};
   const freshnessReasons = Array.isArray(snapshot?.calculated?.freshness_reasons) ? snapshot.calculated.freshness_reasons : [];
   const hasCalculatedSnapshot = Boolean(calculatedAt || Object.keys(calculatedValues).length);
+
+  function inspectEvidence(code = null) {
+    if (typeof onEvidenceFocus === "function") return onEvidenceFocus(code);
+    return onStageChange?.("EVIDENCE");
+  }
 
   async function calculate() {
     if (!vatReturn?.id || busy) return;
@@ -225,7 +230,7 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
             <div className="mt-1 text-[9px] text-[#817B73]">One filing, one current accounting truth, one next action.</div>
           </div>
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
-            <button onClick={() => onStageChange?.("EVIDENCE")} disabled={busy || loading} className="h-9 rounded-lg border border-black/[0.09] bg-white px-3 text-[10px] font-semibold text-[#4B4640] disabled:cursor-not-allowed disabled:opacity-40">Inspect evidence</button>
+            <button onClick={() => inspectEvidence()} disabled={busy || loading} className="h-9 rounded-lg border border-black/[0.09] bg-white px-3 text-[10px] font-semibold text-[#4B4640] disabled:cursor-not-allowed disabled:opacity-40">Inspect evidence</button>
             <button onClick={primaryAction} disabled={busy || loading} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{busy ? <RefreshCw size={12} className="animate-spin" /> : submitted ? <FileCheck2 size={12} /> : needsFix ? <AlertTriangle size={12} /> : <ArrowRight size={12} />}{busy ? "Working…" : primaryLabel}</button>
           </div>
         </div>
@@ -271,7 +276,7 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
           {warnings.length ? <div className="mt-2 overflow-hidden rounded-xl border border-amber-800/15 bg-amber-50/40">
             <div className="flex flex-col gap-2 border-b border-amber-800/10 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
               <div><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-amber-900">Review items · non-blocking</div><div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">These items need accountant attention but do not become accounting truth by being acknowledged. Trace the source evidence before filing.</div></div>
-              <button onClick={() => onStageChange?.("EVIDENCE")} className="h-8 shrink-0 rounded-lg border border-amber-900/15 bg-white px-3 text-[9px] font-semibold text-amber-950">Inspect review evidence</button>
+              <button onClick={() => inspectEvidence(upper(warnings[0]?.code))} className="h-8 shrink-0 rounded-lg border border-amber-900/15 bg-white px-3 text-[9px] font-semibold text-amber-950">Inspect review evidence</button>
             </div>
             <div className="divide-y divide-amber-900/10">
               {warnings.map(item => {
@@ -280,7 +285,7 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
                 return <div key={code || item.label} className="grid gap-2 px-3 py-2.5 sm:grid-cols-[150px_1fr_auto] sm:items-start">
                   <div><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#9A7045]">{warningControlLabel(code)}</div><div className="mt-0.5 text-[8px] text-[#928C84]">Warning · review only</div></div>
                   <div><div className="text-[9px] font-semibold text-[#3F3A35]">{item.label || code.replaceAll("_", " ")}</div><div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">{item.detail || "Inspect the governed source evidence before filing."}</div></div>
-                  <div className="text-left sm:text-right"><div className="text-[12px] font-semibold tabular-nums text-amber-950">{count}</div><div className="text-[7px] uppercase tracking-[0.08em] text-[#928C84]">item{count === 1 ? "" : "s"}</div></div>
+                  <div className="flex items-center gap-2 sm:flex-col sm:items-end"><div className="text-left sm:text-right"><div className="text-[12px] font-semibold tabular-nums text-amber-950">{count}</div><div className="text-[7px] uppercase tracking-[0.08em] text-[#928C84]">item{count === 1 ? "" : "s"}</div></div><button onClick={() => inspectEvidence(code)} className="h-7 rounded-md border border-amber-900/15 bg-white px-2.5 text-[8px] font-semibold text-amber-950">Trace this control</button></div>
                 </div>;
               })}
             </div>

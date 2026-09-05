@@ -66,7 +66,7 @@ function EvidenceRecord({ issue }) {
   </div>;
 }
 
-export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entityId, selectedVatReturnId }) {
+export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entityId, selectedVatReturnId, focusDependencyCode = null }) {
   const [guidanceState, setGuidanceState] = useState({ loading: false, error: "", guidance: null });
   const [selectedCode, setSelectedCode] = useState(null);
   const [evidenceState, setEvidenceState] = useState({ loading: false, error: "", body: null });
@@ -83,8 +83,13 @@ export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entity
       const body = await requestJson(url.toString());
       if (body.return_id !== selectedVatReturnId || body.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY") throw new Error("Tax evidence inspector could not verify the selected filing and resolution authority.");
       const dependencies = body.guidance?.dependencies || [];
+      const requestedFocus = String(focusDependencyCode || "").trim().toUpperCase();
       setGuidanceState({ loading: false, error: "", guidance: body.guidance || null });
-      setSelectedCode(current => dependencies.some(item => item.code === current) ? current : dependencies[0]?.code || null);
+      setSelectedCode(current => {
+        if (requestedFocus && dependencies.some(item => item.code === requestedFocus)) return requestedFocus;
+        if (dependencies.some(item => item.code === current)) return current;
+        return dependencies[0]?.code || null;
+      });
     } catch (error) {
       setGuidanceState({ loading: false, error: error?.message || "Tax evidence dependencies could not be loaded", guidance: null });
       setSelectedCode(null);
@@ -116,7 +121,7 @@ export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entity
     setSelectedCode(null);
     setEvidenceState({ loading: false, error: "", body: null });
     loadGuidance();
-  }, [organizationId, entityId, selectedVatReturnId]);
+  }, [organizationId, entityId, selectedVatReturnId, focusDependencyCode]);
 
   useEffect(() => {
     setEvidenceState({ loading: false, error: "", body: null });

@@ -44,7 +44,6 @@ async function main() {
       ? "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,setsar=1,eq=contrast=1.04:saturation=.98:brightness=.005:gamma=1.0,colorbalance=rs=.016:gs=.004:bs=-.010,vignette=PI/14,format=yuv420p"
       : "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,setsar=1,eq=contrast=1.035:saturation=.96:brightness=0:gamma=1.0,colorbalance=rs=.014:gs=.004:bs=-.010,vignette=PI/14,format=yuv420p";
 
-    // Input options must stay attached to their inputs. Output filters are applied only after both inputs exist.
     const args=[
       "-ss",String(shot.start),"-i",src,
       "-f","lavfi","-i","anullsrc=r=48000:cl=stereo",
@@ -64,14 +63,14 @@ async function main() {
 
   const master=path.join(ROOT,"avantiqo-investor-first-minute-real-plates-60s-1080p.mp4");
   const audio=[
-    "sine=frequency=48:sample_rate=48000:duration=60,volume=.010,lowpass=f=90[bed0]",
-    "anoisesrc=color=pink:sample_rate=48000:duration=60:amplitude=.0025,lowpass=f=700[bed1]",
-    "sine=frequency=72:sample_rate=48000:duration=18,volume=.004,afade=t=in:st=0:d=5,afade=t=out:st=13:d=5,adelay=41000|41000[lift]",
-    "anoisesrc=color=pink:sample_rate=48000:duration=.22:amplitude=.012,highpass=f=1200,lowpass=f=5000,afade=t=out:st=.05:d=.17,adelay=6990|6990[t1]",
-    "anoisesrc=color=pink:sample_rate=48000:duration=.22:amplitude=.010,highpass=f=1000,lowpass=f=4500,afade=t=out:st=.05:d=.17,adelay=18990|18990[t2]",
-    "anoisesrc=color=pink:sample_rate=48000:duration=.22:amplitude=.010,highpass=f=1000,lowpass=f=4500,afade=t=out:st=.05:d=.17,adelay=36990|36990[t3]",
-    "anoisesrc=color=pink:sample_rate=48000:duration=.28:amplitude=.015,highpass=f=1400,lowpass=f=5600,afade=t=out:st=.06:d=.22,adelay=47970|47970[creative]",
-    "[bed0][bed1][lift][t1][t2][t3][creative]amix=inputs=7:normalize=0,alimiter=limit=.92[a]"
+    "sine=frequency=48:sample_rate=48000:duration=60,volume=0.010,lowpass=f=90[bed0]",
+    "anoisesrc=color=pink:sample_rate=48000:duration=60:amplitude=0.0025,lowpass=f=700[bed1]",
+    "sine=frequency=72:sample_rate=48000:duration=18,volume=0.004,afade=t=in:st=0:d=5,afade=t=out:st=13:d=5,adelay=41000|41000[lift]",
+    "anoisesrc=color=pink:sample_rate=48000:duration=0.22:amplitude=0.012,highpass=f=1200,lowpass=f=5000,afade=t=out:st=0.05:d=0.17,adelay=6990|6990[t1]",
+    "anoisesrc=color=pink:sample_rate=48000:duration=0.22:amplitude=0.010,highpass=f=1000,lowpass=f=4500,afade=t=out:st=0.05:d=0.17,adelay=18990|18990[t2]",
+    "anoisesrc=color=pink:sample_rate=48000:duration=0.22:amplitude=0.010,highpass=f=1000,lowpass=f=4500,afade=t=out:st=0.05:d=0.17,adelay=36990|36990[t3]",
+    "anoisesrc=color=pink:sample_rate=48000:duration=0.28:amplitude=0.015,highpass=f=1400,lowpass=f=5600,afade=t=out:st=0.06:d=0.22,adelay=47970|47970[creative]",
+    "[bed0][bed1][lift][t1][t2][t3][creative]amix=inputs=7:normalize=0,alimiter=limit=0.92[a]"
   ].join(";");
   run(["-i",joined,"-filter_complex",audio,"-map","0:v:0","-map","[a]","-c:v","copy","-c:a","aac","-b:a","256k","-ar","48000","-ac","2","-movflags","+faststart",master]);
 

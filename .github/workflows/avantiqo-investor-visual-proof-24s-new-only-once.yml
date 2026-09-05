@@ -1,5 +1,6 @@
 name: Avantiqo Investor Visual Proof 24s New Only Once
 
+# Purpose-generated investor proof only: no existing visual assets are permitted.
 on:
   push:
     branches: [main]

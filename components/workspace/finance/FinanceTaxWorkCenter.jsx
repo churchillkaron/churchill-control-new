@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import FinanceTaxLegacyWorkCenter from "./FinanceTaxLegacyWorkCenter";
+import FinanceTaxReturnCloseSheet from "./FinanceTaxReturnCloseSheet";
 import FinanceTaxCalendarRail from "./FinanceTaxCalendarRail";
 import FinanceTaxAmendmentRail from "./FinanceTaxAmendmentRail";
 import FinanceTaxSettlementRail from "./FinanceTaxSettlementRail";
@@ -40,6 +41,12 @@ export default function FinanceTaxWorkCenter(props) {
 
       {activeStage === "RETURN" ? <>
         <FinanceTaxCalendarRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+        <FinanceTaxReturnCloseSheet
+          organizationId={props.organizationId}
+          entityId={props.entityId}
+          selectedVatReturnId={selectedVatReturnId}
+          onStageChange={setActiveStage}
+        />
         <FinanceTaxLegacyWorkCenter
           {...props}
           selectedVatReturnId={selectedVatReturnId}

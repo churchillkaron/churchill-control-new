@@ -21,6 +21,7 @@ on:
       - "tests/finance-tax-portfolio-dependencies-contract.test.mjs"
       - "tests/finance-tax-close-intelligence-contract.test.mjs"
       - "tests/finance-tax-evidence-drilldown-contract.test.mjs"
+      - "tests/finance-tax-return-close-sheet-contract.test.mjs"
       - "supabase/migrations/**"
       - ".github/workflows/finance-human-workflow-certification.yml"
   pull_request:
@@ -41,6 +42,7 @@ on:
       - "tests/finance-tax-portfolio-dependencies-contract.test.mjs"
       - "tests/finance-tax-close-intelligence-contract.test.mjs"
       - "tests/finance-tax-evidence-drilldown-contract.test.mjs"
+      - "tests/finance-tax-return-close-sheet-contract.test.mjs"
       - "supabase/migrations/**"
       - ".github/workflows/finance-human-workflow-certification.yml"
 
@@ -66,5 +68,5 @@ jobs:
           node-version: "24"
 
       - name: Certify Finance human workflow and accountant UI
-        # Certify deterministic Tax truth, full-population evidence drilldown, coordination, portfolio ranking and advisory owned Intelligence boundaries in one exact-source lane.
-        run: node --test tests/finance-human-workflow-contract.test.mjs tests/finance-ui-completion-contract.test.mjs tests/finance-tax-workspace-contract.test.mjs tests/finance-tax-selection-contract.test.mjs tests/finance-tax-calculation-method-contract.test.mjs tests/finance-tax-client-request-bridge-contract.test.mjs tests/finance-tax-dependency-work-contract.test.mjs tests/finance-tax-portfolio-dependencies-contract.test.mjs tests/finance-tax-close-intelligence-contract.test.mjs tests/finance-tax-evidence-drilldown-contract.test.mjs
+        # Certify deterministic Tax truth, full-population evidence drilldown, coordination, portfolio ranking, close-sheet action selection and advisory owned Intelligence boundaries in one exact-source lane.
+        run: node --test tests/finance-human-workflow-contract.test.mjs tests/finance-ui-completion-contract.test.mjs tests/finance-tax-workspace-contract.test.mjs tests/finance-tax-selection-contract.test.mjs tests/finance-tax-calculation-method-contract.test.mjs tests/finance-tax-client-request-bridge-contract.test.mjs tests/finance-tax-dependency-work-contract.test.mjs tests/finance-tax-portfolio-dependencies-contract.test.mjs tests/finance-tax-close-intelligence-contract.test.mjs tests/finance-tax-evidence-drilldown-contract.test.mjs tests/finance-tax-return-close-sheet-contract.test.mjs

@@ -1,5 +1,6 @@
 name: Avantiqo Investor Visual Proof 24s Once
 
+# One-shot governed execution trigger for the repaired 24-second investor proof.
 on:
   push:
     branches: [main]

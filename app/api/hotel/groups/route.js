@@ -14,16 +14,14 @@ function isoDate(value) {
   return clean(value).slice(0, 10);
 }
 
-function datesBetween(from, to) {
-  if (!from || !to || to <= from) return [];
-  const dates = [];
-  const cursor = new Date(`${from}T12:00:00Z`);
-  const end = new Date(`${to}T12:00:00Z`);
-  while (cursor < end && dates.length < 370) {
-    dates.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return dates;
+function isInventoryConflict(error) {
+  return String(error?.message || error || "").includes("HOTEL_INVENTORY_CONFLICT");
+}
+
+function inventoryMessage(error) {
+  return String(error?.message || "Hotel inventory changed before the group block completed")
+    .replace(/^.*HOTEL_INVENTORY_CONFLICT:\s*/i, "")
+    .trim();
 }
 
 async function requireProperty(organizationId, propertyId) {
@@ -187,65 +185,48 @@ export async function POST(request) {
       const roomType = clean(body.roomType || body.room_type);
       const from = isoDate(body.from || body.arrivalDate || group.arrival_date);
       const to = isoDate(body.to || body.departureDate || group.departure_date);
-      const stayDates = datesBetween(from, to);
       const allocatedRooms = Number.parseInt(body.allocatedRooms ?? body.allocated_rooms ?? 0, 10);
       const negotiatedRateRaw = body.negotiatedRate ?? body.negotiated_rate;
       const negotiatedRate = negotiatedRateRaw === "" || negotiatedRateRaw == null ? null : Number(negotiatedRateRaw);
       const deductInventory = body.deductInventory ?? body.deduct_inventory ?? String(group.block_mode || "DEDUCT").toUpperCase() === "DEDUCT";
-      if (!roomType || !stayDates.length) return fail("Room type and a valid stay date range are required");
+      if (!roomType || !from || !to || to <= from) return fail("Room type and a valid stay date range are required");
       if (!Number.isInteger(allocatedRooms) || allocatedRooms < 0) return fail("Allocated rooms must be zero or greater");
       if (negotiatedRate !== null && (!Number.isFinite(negotiatedRate) || negotiatedRate < 0)) return fail("Negotiated rate must be zero or greater");
 
-      const { data: physicalRooms, error: roomError } = await supabaseAdmin
-        .from("hotel_rooms")
-        .select("id")
-        .eq("organization_id", access.organizationId)
-        .eq("property_id", group.property_id)
-        .eq("room_type", roomType);
-      if (roomError) throw roomError;
-      const physicalCount = (physicalRooms || []).length;
-      if (!physicalCount) return fail("No physical rooms exist for this room type", 409);
-
-      if (deductInventory && allocatedRooms > 0) {
-        const { data: otherBlocks, error: blockError } = await supabaseAdmin
-          .from("hotel_group_room_blocks")
-          .select("group_id,stay_date,allocated_rooms")
-          .eq("organization_id", access.organizationId)
-          .eq("property_id", group.property_id)
-          .eq("room_type", roomType)
-          .eq("deduct_inventory", true)
-          .eq("status", "ACTIVE")
-          .gte("stay_date", stayDates[0])
-          .lte("stay_date", stayDates[stayDates.length - 1]);
-        if (blockError) throw blockError;
-        for (const stayDate of stayDates) {
-          const heldElsewhere = (otherBlocks || []).filter((block) => block.group_id !== group.id && block.stay_date === stayDate).reduce((sum, block) => sum + Number(block.allocated_rooms || 0), 0);
-          if (heldElsewhere + allocatedRooms > physicalCount) {
-            return fail(`${roomType} allocation exceeds physical inventory on ${stayDate}: ${heldElsewhere} already held, ${physicalCount} rooms exist`, 409);
-          }
-        }
+      const currencyCode = clean(body.currencyCode || body.currency_code || "THB").toUpperCase();
+      const { data: guard, error: guardError } = await supabaseAdmin.rpc("hotel_upsert_group_block_range_guarded", {
+        p_organization_id: access.organizationId,
+        p_group_id: group.id,
+        p_room_type: roomType,
+        p_from: from,
+        p_to: to,
+        p_allocated_rooms: allocatedRooms,
+        p_negotiated_rate: negotiatedRate,
+        p_currency_code: currencyCode,
+        p_deduct_inventory: Boolean(deductInventory),
+      });
+      if (guardError) {
+        if (isInventoryConflict(guardError)) return fail(inventoryMessage(guardError), 409);
+        throw guardError;
       }
 
-      const currencyCode = clean(body.currencyCode || body.currency_code || "THB").toUpperCase();
-      const now = new Date().toISOString();
-      const rows = stayDates.map((stayDate) => ({
-        organization_id: access.organizationId,
-        property_id: group.property_id,
-        group_id: group.id,
-        room_type: roomType,
-        stay_date: stayDate,
-        allocated_rooms: allocatedRooms,
-        negotiated_rate: negotiatedRate,
-        currency_code: currencyCode,
-        deduct_inventory: Boolean(deductInventory),
-        status: allocatedRooms > 0 ? "ACTIVE" : "RELEASED",
-        updated_at: now,
-      }));
-      const { data, error } = await supabaseAdmin.from("hotel_group_room_blocks").upsert(rows, { onConflict: "organization_id,group_id,room_type,stay_date" }).select();
-      if (error) throw error;
-      const totalBlock = Math.max(0, ...rows.map((row) => Number(row.allocated_rooms || 0)));
-      await supabaseAdmin.from("hotel_groups").update({ room_block: totalBlock, updated_at: now }).eq("organization_id", access.organizationId).eq("id", group.id);
-      return NextResponse.json({ success: true, blocks: data || [], days: rows.length, physicalInventory: physicalCount });
+      const { data: blocks, error: blocksError } = await supabaseAdmin
+        .from("hotel_group_room_blocks")
+        .select("*")
+        .eq("organization_id", access.organizationId)
+        .eq("group_id", group.id)
+        .eq("room_type", roomType)
+        .gte("stay_date", from)
+        .lt("stay_date", to)
+        .order("stay_date");
+      if (blocksError) throw blocksError;
+
+      return NextResponse.json({
+        success: true,
+        blocks: blocks || [],
+        days: Number(guard?.days || blocks?.length || 0),
+        physicalInventory: Number(guard?.physicalInventory || 0),
+      });
     }
 
     if (action === "LINK_BOOKING") {
@@ -272,6 +253,7 @@ export async function POST(request) {
     return fail("Unsupported group action");
   } catch (error) {
     console.error("HOTEL_GROUP_ACTION_ERROR", error);
+    if (isInventoryConflict(error)) return fail(inventoryMessage(error), 409);
     return fail(error?.message || "Unable to update group", error?.status || 500);
   }
 }

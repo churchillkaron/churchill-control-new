@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { buildHotelChannelReadiness } from "@/lib/hotel/channels/HotelChannelReadiness";
 import { HOTEL_CHANNEL_PROVIDERS, getHotelChannelProvider } from "@/lib/hotel/channels/HotelChannelProviderRegistry";
+import { getHotelChannelTransport } from "@/lib/hotel/channels/HotelChannelTransportRegistry";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -81,15 +82,18 @@ export async function GET(request) {
       providers: HOTEL_CHANNEL_PROVIDERS.map((provider) => {
         const rawConnection = byProvider.get(provider.id) || null;
         const connection = sanitizeConnection(rawConnection);
+        const transport = getHotelChannelTransport(provider.id);
+        const transportImplemented = Boolean(transport?.implemented && transport?.adapter);
         const mappingCount = connection ? (evidence.mappingCounts.get(connection.id) || 0) : 0;
         const latestTransmission = connection ? (evidence.transmissions.get(connection.id) || null) : null;
         const latestReservationEvent = connection ? (evidence.reservations.get(connection.id) || null) : null;
         const latestReconciliation = connection ? (evidence.reconciliations.get(connection.id) || null) : null;
         return {
           ...provider,
+          transport: transport ? { implemented: transportImplemented, inboundAuth: transport.inboundAuth, outboundMode: transport.outboundMode } : { implemented: false },
           connection,
           evidence: { mappingCount, latestTransmission, latestReservationEvent, latestReconciliation },
-          readiness: buildHotelChannelReadiness({ connection, mappingCount, latestTransmission, latestReservationEvent, latestReconciliation }),
+          readiness: buildHotelChannelReadiness({ connection, mappingCount, transportImplemented, latestTransmission, latestReservationEvent, latestReconciliation }),
         };
       }),
     });
@@ -144,7 +148,7 @@ export async function POST(request) {
       success: true,
       connection: sanitizeConnection(data),
       onboarding: provider.onboarding,
-      governance: "Operator setup cannot self-certify credentials, provider approval, OTA acknowledgement, or reservation reconciliation.",
+      governance: "Operator setup cannot self-certify credentials, provider approval, transport implementation, OTA acknowledgement, or reservation reconciliation.",
     });
   } catch (error) {
     console.error("HOTEL_CHANNEL_SAVE_ERROR", error);

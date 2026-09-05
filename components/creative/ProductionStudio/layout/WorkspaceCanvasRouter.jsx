@@ -10,7 +10,7 @@ import ProductionWorkspace from "../workspaces/ProductionWorkspace";
 import MusicStudioWorkspace from "../workspaces/MusicStudioWorkspace";
 import AssetsWorkspace from "../workspaces/AssetsWorkspace";
 import TimelineWorkspace from "../workspaces/TimelineWorkspace";
-import ReviewWorkspace from "../workspaces/ReviewWorkspace";
+import ReviewWorkspace from "../workspaces/ReviewWorkspaceV2";
 import LearningWorkspace from "../workspaces/LearningWorkspace";
 import RenderWorkspace from "../workspaces/RenderWorkspace";
 import PublishingWorkspace from "../workspaces/PublishingWorkspace";

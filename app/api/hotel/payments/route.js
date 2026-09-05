@@ -40,14 +40,14 @@ async function getPaymentContext(organizationId, bookingId) {
   if (!booking.guest_id) return { error: "Booking has no guest profile.", status: 409 };
 
   const [{ data: property, error: propertyError }, { data: guest, error: guestError }] = await Promise.all([
-    supabaseAdmin.from("hotel_properties").select("id,name,finance_entity_id,settlement_bank_account_id").eq("organization_id", organizationId).eq("id", booking.property_id).maybeSingle(),
+    supabaseAdmin.from("hotel_properties").select("id,name,finance_entity_id,settlement_bank_account_id,customer_deposit_account_id").eq("organization_id", organizationId).eq("id", booking.property_id).maybeSingle(),
     supabaseAdmin.from("hotel_guests").select("id,full_name,email,party_id").eq("organization_id", organizationId).eq("id", booking.guest_id).maybeSingle(),
   ]);
   if (propertyError) throw propertyError;
   if (guestError) throw guestError;
   if (!property) return { error: "Hotel property not found", status: 409 };
-  if (!property.finance_entity_id || !property.settlement_bank_account_id) {
-    return { error: `${property.name || "Property"} is not Finance-ready. Assign its legal entity and settlement account in Hotel Setup.`, status: 409, blocker: "PROPERTY_FINANCE_SETUP" };
+  if (!property.finance_entity_id || !property.settlement_bank_account_id || !property.customer_deposit_account_id) {
+    return { error: `${property.name || "Property"} is not Finance-ready. Assign its legal entity, settlement account and customer deposit liability account in Hotel Setup.`, status: 409, blocker: "PROPERTY_FINANCE_SETUP" };
   }
   if (!guest?.party_id) return { error: "Guest is not linked to a Finance party. Repair the guest profile before payment.", status: 409, blocker: "GUEST_PARTY_LINK" };
 
@@ -146,7 +146,7 @@ export async function POST(request) {
         if (existing.provider_session_id) {
           const stripe = getStripe();
           const session = await stripe.checkout.sessions.retrieve(existing.provider_session_id);
-          return NextResponse.json({ success: true, transaction: existing, checkoutUrl: session.url, reused: true, financePostingStatus: existing.finance_payment_id ? "POSTED" : "PENDING_GOVERNED_MAPPING" });
+          return NextResponse.json({ success: true, transaction: existing, checkoutUrl: session.url, reused: true, financePostingStatus: existing.finance_payment_id ? "POSTED" : "PENDING_PROVIDER_CONFIRMATION" });
         }
       }
 
@@ -175,7 +175,7 @@ export async function POST(request) {
           idempotency_key: idempotencyKey,
           provider: "STRIPE",
           description,
-          metadata: { finance_posting_status: "PENDING_GOVERNED_MAPPING", raw_credentials_stored: false },
+          metadata: { finance_posting_status: "PENDING_PROVIDER_CONFIRMATION", raw_credentials_stored: false },
         }).select().single();
         if (error) throw error;
         transaction = data;
@@ -225,7 +225,7 @@ export async function POST(request) {
         .single();
       if (saveError) throw saveError;
 
-      return NextResponse.json({ success: true, transaction: saved, checkoutUrl: session.url, financePostingStatus: "PENDING_GOVERNED_MAPPING" });
+      return NextResponse.json({ success: true, transaction: saved, checkoutUrl: session.url, financePostingStatus: "PENDING_PROVIDER_CONFIRMATION" });
     }
 
     if (action === "REFUND") {
@@ -244,12 +244,13 @@ export async function POST(request) {
       if (parentError) throw parentError;
       if (!parent || parent.status !== "SETTLED" || !["PAYMENT", "DEPOSIT"].includes(parent.transaction_type)) return fail("Only a settled Hotel payment or deposit can be refunded", 409);
       if (parent.processor_mode !== "AVANTIQO_GATEWAY" || parent.provider !== "STRIPE" || !parent.provider_payment_id) return fail("This payment was not processed by the connected Hotel gateway", 409);
+      if (!parent.finance_payment_id) return fail("This payment has no posted Finance prepayment and cannot be refunded safely", 409);
       const refundable = Number(parent.amount || 0) - Number(parent.refunded_amount || 0);
       if (amount > refundable + 0.005) return fail(`Refund exceeds remaining refundable amount ${refundable.toFixed(2)} ${parent.currency_code}`, 409);
 
       const { data: existing, error: existingError } = await supabaseAdmin.from("hotel_payment_transactions").select("*").eq("organization_id", auth.organizationId).eq("idempotency_key", idempotencyKey).maybeSingle();
       if (existingError) throw existingError;
-      if (existing) return NextResponse.json({ success: true, transaction: existing, reused: true });
+      if (existing) return NextResponse.json({ success: true, transaction: existing, reused: true, financePostingStatus: existing.status === "SETTLED" ? "POSTED" : "PENDING_PROVIDER_CONFIRMATION" });
 
       const refundId = randomUUID();
       const { data: refundTx, error: refundTxError } = await supabaseAdmin.from("hotel_payment_transactions").insert({
@@ -275,7 +276,7 @@ export async function POST(request) {
         idempotency_key: idempotencyKey,
         provider: "STRIPE",
         description: clean(body.description) || `Hotel refund · ${parent.external_reference || parent.id}`,
-        metadata: { finance_posting_status: "PENDING_GOVERNED_MAPPING", raw_credentials_stored: false },
+        metadata: { finance_posting_status: "PENDING_PROVIDER_CONFIRMATION", raw_credentials_stored: false },
       }).select().single();
       if (refundTxError) throw refundTxError;
 
@@ -294,17 +295,16 @@ export async function POST(request) {
 
       await supabaseAdmin.from("hotel_payment_transactions").update({ provider_refund_id: stripeRefund.id, external_reference: stripeRefund.id, updated_at: new Date().toISOString() }).eq("id", refundTx.id).eq("organization_id", auth.organizationId);
       if (stripeRefund.status === "succeeded") {
-        const { data: reconciled, error: reconcileError } = await supabaseAdmin.rpc("hotel_finalize_gateway_transaction", {
+        const { data: reconciled, error: reconcileError } = await supabaseAdmin.rpc("hotel_finalize_gateway_refund_with_finance", {
           p_transaction_id: refundTx.id,
           p_provider_event_id: `refund-sync:${stripeRefund.id}`,
-          p_provider_payment_id: null,
           p_provider_refund_id: stripeRefund.id,
         });
         if (reconcileError) throw reconcileError;
-        return NextResponse.json({ success: true, transactionId: refundTx.id, refund: { id: stripeRefund.id, status: stripeRefund.status }, reconciliation: reconciled, financePostingStatus: "PENDING_GOVERNED_MAPPING" });
+        return NextResponse.json({ success: true, transactionId: refundTx.id, refund: { id: stripeRefund.id, status: stripeRefund.status }, reconciliation: reconciled, financePostingStatus: "POSTED" });
       }
 
-      return NextResponse.json({ success: true, transactionId: refundTx.id, refund: { id: stripeRefund.id, status: stripeRefund.status }, financePostingStatus: "PENDING_GOVERNED_MAPPING" });
+      return NextResponse.json({ success: true, transactionId: refundTx.id, refund: { id: stripeRefund.id, status: stripeRefund.status }, financePostingStatus: "PENDING_PROVIDER_CONFIRMATION" });
     }
 
     return fail("Unsupported Hotel payment action");

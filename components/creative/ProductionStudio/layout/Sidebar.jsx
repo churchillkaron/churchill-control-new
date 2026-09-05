@@ -10,6 +10,7 @@ import {
   Images,
   Lightbulb,
   LineChart,
+  MessageSquareText,
   Music2,
   PackageCheck,
   Rocket,
@@ -28,6 +29,7 @@ const WORKSPACE_META = {
   music: { label: "Music", group: "Production", icon: Music2 },
   assets: { label: "Assets", group: "Production", icon: Images },
   timeline: { label: "Edit", group: "Film flow", icon: ScrollText },
+  review: { label: "Review", group: "Film flow", icon: MessageSquareText },
   render: { label: "Mastering", group: "Film flow", icon: Boxes },
   publishing: { label: "Release", group: "Film flow", icon: Rocket },
   documents: { label: "Documents", group: "Evidence", icon: BookOpen },
@@ -68,6 +70,7 @@ const STAGE_BY_WORKSPACE = {
 const ORCHESTRATED_WORKSPACE_PHASE = {
   production: "production",
   timeline: "edit",
+  review: "review",
   render: "mastering",
   publishing: "release",
 };
@@ -194,7 +197,7 @@ export default function Sidebar({ runtime, editor }) {
             <span>{mission?.status || "draft"}</span>
             <span>
               {orchestration
-                ? `${orchestration.progress?.completed_count || 0}/${orchestration.progress?.total_count || 4} film phases`
+                ? `${orchestration.progress?.completed_count || 0}/${orchestration.progress?.total_count || 5} film phases`
                 : `${runtime.projectRuntime?.items?.length || 0} deliverables`}
             </span>
           </div>

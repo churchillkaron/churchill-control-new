@@ -15,6 +15,7 @@ import {
 import {
   BusinessContextProvider,
 } from "@/app/providers/BusinessContextProvider";
+import PlatformGlobalFailureObserver from "@/components/platform/self-healing/PlatformGlobalFailureObserver";
 
 import {
   normalizePlatformHostname,
@@ -93,6 +94,7 @@ export default async function RootLayout({
         ) : null}
 
         <BusinessContextProvider>
+          <PlatformGlobalFailureObserver />
           <WorkspaceRuntimeProvider>
             <OrganizationProvider>
               {children}

@@ -114,6 +114,7 @@ function sourceLabel(row) {
   if (source === "service_occurrence") return "Scheduled service";
   if (source === "service_follow_up") return "Service follow-up";
   if (source === "service_plan") return "Planned service";
+  if (source === "service_plan_occurrence") return "Scheduled service";
   return text(row?.source_type).replaceAll("-", " ") || "Operational work";
 }
 
@@ -134,16 +135,20 @@ function workContext(row = {}) {
     || staff.technician_name
     || null;
   const scheduledAt = row.scheduled_at
+    || row.scheduled_start
     || attributes.scheduled_at
     || service.scheduled_at
     || service.service_date
+    || service.occurrence_at
     || null;
   const arrivalStart = row.window_start
+    || row.scheduled_start
     || attributes.window_start
     || service.window_start
     || service.arrival_window_start
     || null;
   const arrivalEnd = row.window_end
+    || row.scheduled_end
     || attributes.window_end
     || service.window_end
     || service.arrival_window_end
@@ -160,6 +165,7 @@ function workContext(row = {}) {
     scheduledAt,
     arrivalStart,
     arrivalEnd,
+    occurrenceId: service.occurrence_id || row.source_id || null,
     area: monitoring?.area || service.area || null,
     placement: monitoring?.placement || null,
     pointCode: monitoring?.point_code || null,
@@ -415,6 +421,9 @@ export default function PestControlWorkControl({ organizationId }) {
   const lifecycle = ["draft", "assigned", "released", "in_progress", "completed"];
   const currentIndex = selected ? lifecycleIndex(selected.status) : 0;
   const primaryCommand = allowedCommands.find((command) => ["assign", "release", "start", "complete"].includes(command)) || allowedCommands[0] || null;
+  const technicianHref = selected
+    ? `${base}/field-service/technician?workOrderId=${encodeURIComponent(selected.id)}${selectedContext?.occurrenceId ? `&occurrenceId=${encodeURIComponent(selectedContext.occurrenceId)}` : ""}`
+    : `${base}/field-service/technician`;
 
   return (
     <main className="min-h-[calc(100vh-61px)] bg-[#F7F6F3] px-4 py-5 text-[#201E1B] md:px-7 lg:px-8">
@@ -530,7 +539,7 @@ export default function PestControlWorkControl({ organizationId }) {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedContext.followUp ? <Link href={`${base}/field-service/monitoring-points/scan`} className="rounded-xl border border-black/[0.08] bg-[#FBFAF8] px-3 py-2 text-[8px] font-medium text-[#6B645C]">Recheck point</Link> : null}
-                      <Link href={`${base}/field-service/technician`} className="inline-flex items-center gap-1.5 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] px-3 py-2 text-[8px] font-medium text-[#725434]">Technician workspace <ArrowRight size={9} /></Link>
+                      <Link href={technicianHref} className="inline-flex items-center gap-1.5 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] px-3 py-2 text-[8px] font-medium text-[#725434]">Technician workspace <ArrowRight size={9} /></Link>
                     </div>
                   </div>
 

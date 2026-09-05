@@ -57,8 +57,8 @@ test("claimed objective is immutable and owner decisions control future work onl
 
 test("owner can pause resume promote defer remove and restore queued objectives", () => {
   for (const action of ["PAUSE", "RESUME", "PROMOTE", "DEFER", "REMOVE", "RESTORE"]) {
-    assert.match(runtime, new RegExp(`\\"${action}\\"`));
-    assert.match(controlCapability, new RegExp(`\\"${action}\\"`));
+    assert.match(runtime, new RegExp(`"${action}"`));
+    assert.match(controlCapability, new RegExp(`"${action}"`));
   }
   assert.match(card, /Pause roadmap/);
   assert.match(card, /Resume roadmap/);

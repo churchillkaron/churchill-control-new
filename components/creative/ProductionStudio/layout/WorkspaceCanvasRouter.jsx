@@ -10,6 +10,7 @@ import ProductionWorkspace from "../workspaces/ProductionWorkspace";
 import MusicStudioWorkspace from "../workspaces/MusicStudioWorkspace";
 import AssetsWorkspace from "../workspaces/AssetsWorkspace";
 import TimelineWorkspace from "../workspaces/TimelineWorkspace";
+import ReviewWorkspace from "../workspaces/ReviewWorkspace";
 import LearningWorkspace from "../workspaces/LearningWorkspace";
 import RenderWorkspace from "../workspaces/RenderWorkspace";
 import PublishingWorkspace from "../workspaces/PublishingWorkspace";
@@ -26,6 +27,7 @@ const WORKSPACES = {
   music: MusicStudioWorkspace,
   assets: AssetsWorkspace,
   timeline: TimelineWorkspace,
+  review: ReviewWorkspace,
   learning: LearningWorkspace,
   render: RenderWorkspace,
   documents: DocumentsWorkspace,

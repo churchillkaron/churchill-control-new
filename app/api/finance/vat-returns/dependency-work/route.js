@@ -29,7 +29,7 @@ function upper(value) {
 
 function statusFor(message) {
   const value = String(message || "");
-  if (/permission denied|authentication|membership/i.test(value)) return 403;
+  if (/permission denied|authentication|membership|ownership/i.test(value)) return 403;
   if (/required|not found|scope|dependency|action|target|note|complete|resolve|close/i.test(value)) return 400;
   return 500;
 }
@@ -96,6 +96,7 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       return_id: vatReturnId,
+      current_user_id: access.user?.id || null,
       guidance,
       envelopes: mergeTruth(envelopes, guidance),
       resolution_authority: "LIVE_TAX_PREFLIGHT_ONLY",
@@ -157,7 +158,10 @@ export async function PATCH(request) {
     };
 
     if (action === "TAKE_OWNERSHIP") next.assigned_to = actorId;
-    if (action === "RELEASE_OWNERSHIP") next.assigned_to = null;
+    if (action === "RELEASE_OWNERSHIP") {
+      if (existing?.assigned_to && existing.assigned_to !== actorId) throw new Error("Only the current Tax dependency owner can release ownership");
+      next.assigned_to = null;
+    }
     if (action === "ACKNOWLEDGE") {
       next.acknowledged_at = now;
       next.acknowledged_by = actorId;
@@ -179,6 +183,7 @@ export async function PATCH(request) {
 
     return NextResponse.json({
       success: true,
+      current_user_id: actorId,
       envelope: { ...saved, truth_active: true, truth: dependency },
       resolution_authority: "LIVE_TAX_PREFLIGHT_ONLY",
     });

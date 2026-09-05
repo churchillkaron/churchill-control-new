@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+const HOTEL_BOOKING_COM_CONTRACT = 'BOOKING_COM_BXML_AVAILABILITY_V1_1_TOKEN_AUTH';
 const adapter = await readFile(new URL('../lib/hotel/channels/providers/BookingComTransport.js', import.meta.url), 'utf8');
 const registry = await readFile(new URL('../lib/hotel/channels/HotelChannelTransportRegistry.js', import.meta.url), 'utf8');
 const distribution = await readFile(new URL('../lib/hotel/channels/HotelChannelDistributionRuntime.js', import.meta.url), 'utf8');
@@ -9,6 +10,7 @@ const rateRoute = await readFile(new URL('../app/api/hotel/rates/route.js', impo
 const dispatchRoute = await readFile(new URL('../app/api/hotel/channels/distribution/route.js', import.meta.url), 'utf8');
 
 test('Booking.com uses current token authentication and B.XML v1.1 availability', () => {
+  assert.match(adapter, new RegExp(HOTEL_BOOKING_COM_CONTRACT));
   assert.match(adapter, /connectivity-authentication\.booking\.com\/token-based-authentication\/exchange/);
   assert.match(adapter, /supply-xml\.booking\.com\/hotels\/xml\/availability/);
   assert.match(adapter, /authorization: `Bearer \$\{token\}`/);

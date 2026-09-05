@@ -12,6 +12,7 @@ import {
   Gauge,
   Layers3,
   RefreshCw,
+  Server,
   ShieldAlert,
   Sparkles,
   TriangleAlert,
@@ -130,6 +131,29 @@ function moduleStateClasses(state) {
   return "bg-[#B18452]";
 }
 
+function serviceState(service) {
+  const health = normalized(service?.health);
+  const status = normalized(service?.status);
+
+  if (["critical", "degraded", "error", "failed", "unhealthy"].includes(health)) {
+    return "degraded";
+  }
+  if (["disabled", "inactive", "suspended", "archived"].includes(status)) {
+    return "inactive";
+  }
+  if (["healthy", "live", "ok", "operational", "ready"].includes(health)) {
+    return "healthy";
+  }
+  return "unknown";
+}
+
+function serviceStateClasses(state) {
+  if (state === "degraded") return "border-red-200 bg-red-50 text-red-800";
+  if (state === "inactive") return "border-slate-200 bg-slate-50 text-slate-700";
+  if (state === "healthy") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  return "border-amber-200 bg-amber-50 text-amber-800";
+}
+
 async function requestJson(path) {
   const response = await fetch(path, {
     cache: "no-store",
@@ -152,6 +176,21 @@ function signalDetail(signal) {
   return clean(signal?.description || signal?.message || signal?.incident_summary) || "Platform evidence requires review.";
 }
 
+function dispatchPartnerMessage(message) {
+  window.dispatchEvent(
+    new CustomEvent("avantiqo:home-command", {
+      detail: { message, source: "text" },
+    }),
+  );
+
+  window.requestAnimationFrame(() => {
+    document.querySelector('[data-avantiqo-home-intelligence="true"]')?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  });
+}
+
 export default function PlatformOwnerHome() {
   const [control, setControl] = useState(null);
   const [profit, setProfit] = useState(null);
@@ -164,9 +203,10 @@ export default function PlatformOwnerHome() {
     if (!quiet) setLoading(true);
     else setRefreshing(true);
 
+    const scope = encodeURIComponent(PLATFORM_ORGANIZATION_ID);
     const [controlResult, profitResult] = await Promise.allSettled([
-      requestJson("/api/platform/admin/control"),
-      requestJson("/api/platform/admin/profit"),
+      requestJson(`/api/platform/admin/control?organizationId=${scope}`),
+      requestJson(`/api/platform/admin/profit?organizationId=${scope}`),
     ]);
 
     let nextError = "";
@@ -210,6 +250,10 @@ export default function PlatformOwnerHome() {
   );
   const modules = useMemo(
     () => (Array.isArray(control?.modules) ? control.modules : []),
+    [control],
+  );
+  const services = useMemo(
+    () => (Array.isArray(control?.services) ? control.services : []),
     [control],
   );
 
@@ -285,19 +329,43 @@ export default function PlatformOwnerHome() {
     [modules],
   );
 
+  const serviceCounts = useMemo(() => {
+    const counts = { healthy: 0, degraded: 0, inactive: 0, unknown: 0 };
+    for (const service of services) counts[serviceState(service)] += 1;
+    return counts;
+  }, [services]);
+
+  const rankedServices = useMemo(
+    () => [...services].sort((left, right) => {
+      const weights = { degraded: 0, unknown: 1, inactive: 2, healthy: 3 };
+      const stateDelta = weights[serviceState(left)] - weights[serviceState(right)];
+      if (stateDelta !== 0) return stateDelta;
+      return clean(left?.service_id || left?.id).localeCompare(clean(right?.service_id || right?.id));
+    }),
+    [services],
+  );
+
   const platformState = criticalSignals.length
     ? { label: "Critical attention", tone: "critical", detail: `${criticalSignals.length} critical signal${criticalSignals.length === 1 ? "" : "s"}` }
-    : highSignals.length
-      ? { label: "Needs attention", tone: "attention", detail: `${highSignals.length} high-severity signal${highSignals.length === 1 ? "" : "s"}` }
+    : highSignals.length || serviceCounts.degraded
+      ? {
+          label: "Needs attention",
+          tone: "attention",
+          detail: highSignals.length
+            ? `${highSignals.length} high-severity signal${highSignals.length === 1 ? "" : "s"}`
+            : `${serviceCounts.degraded} degraded service${serviceCounts.degraded === 1 ? "" : "s"}`,
+        }
       : openSignals.length
         ? { label: "Review open", tone: "review", detail: `${openSignals.length} open signal${openSignals.length === 1 ? "" : "s"}` }
-        : { label: "Platform stable", tone: "stable", detail: "No unresolved control signals" };
+        : serviceCounts.unknown
+          ? { label: "Evidence incomplete", tone: "evidence", detail: `${serviceCounts.unknown} service health state${serviceCounts.unknown === 1 ? "" : "s"} unverified` }
+          : { label: "Platform stable", tone: "stable", detail: "No unresolved control signals" };
 
   const stateClasses = platformState.tone === "critical"
     ? "border-red-200 bg-red-50 text-red-800"
     : platformState.tone === "attention"
       ? "border-orange-200 bg-orange-50 text-orange-800"
-      : platformState.tone === "review"
+      : ["review", "evidence"].includes(platformState.tone)
         ? "border-amber-200 bg-amber-50 text-amber-800"
         : "border-emerald-200 bg-emerald-50 text-emerald-800";
 
@@ -316,10 +384,14 @@ export default function PlatformOwnerHome() {
       icon: ShieldAlert,
     },
     {
-      label: "Platform modules",
-      value: modules.length,
-      hint: moduleCounts.degraded ? `${moduleCounts.degraded} degraded` : `${moduleCounts.active} explicitly active`,
-      icon: Layers3,
+      label: "Service health",
+      value: services.length ? `${serviceCounts.healthy}/${services.length}` : "—",
+      hint: serviceCounts.unknown
+        ? `${serviceCounts.unknown} without proven health`
+        : serviceCounts.degraded
+          ? `${serviceCounts.degraded} degraded`
+          : "Persisted healthy evidence",
+      icon: Server,
     },
     {
       label: "Recorded profit",
@@ -339,20 +411,25 @@ export default function PlatformOwnerHome() {
       `Evidence: ${signalDetail(signal)}`,
       "Tell me the likely cause, business impact, safest next action, and whether Code or another Avantiqo capability should act. Do not claim a repair without verified evidence.",
     ].join(" ");
-
-    window.dispatchEvent(
-      new CustomEvent("avantiqo:home-command", {
-        detail: { message, source: "text" },
-      }),
-    );
-
-    window.requestAnimationFrame(() => {
-      document.querySelector('[data-avantiqo-home-intelligence="true"]')?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    });
+    dispatchPartnerMessage(message);
   }, [organizationNames]);
+
+  const askBusinessPartnerAboutService = useCallback((service) => {
+    const state = serviceState(service);
+    const message = [
+      "Review this Avantiqo Platform service using authoritative runtime and provider evidence.",
+      `Service: ${clean(service?.service_id) || "unknown"}.`,
+      `Persisted status: ${clean(service?.status) || "unknown"}.`,
+      `Persisted health: ${clean(service?.health) || "not recorded"}.`,
+      `Evidence classification: ${state}.`,
+      `Provider: ${clean(service?.default_provider_id) || "not assigned"}.`,
+      `Fallback enabled: ${service?.fallback_enabled === true ? "yes" : "no"}.`,
+      `Last execution: ${clean(service?.last_execution_at) || "no execution evidence"}.`,
+      `Recorded requests: ${numeric(service?.total_requests)}; failures: ${numeric(service?.total_failures)}.`,
+      "Determine whether the runtime is actually executable now, what evidence is missing, customer/platform impact, and the safest verification or repair path. Do not describe the service as healthy unless current evidence proves it.",
+    ].join(" ");
+    dispatchPartnerMessage(message);
+  }, []);
 
   if (loading && !control && !profit) {
     return (
@@ -386,7 +463,7 @@ export default function PlatformOwnerHome() {
               Platform control, without the noise.
             </h1>
             <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[#6F6A62]">
-              Customer health, incidents, economics, platform coverage and the Business Partner in one evidence-led owner cockpit.
+              Customer health, incidents, economics, service readiness, platform coverage and the Business Partner in one evidence-led owner cockpit.
             </p>
           </div>
 
@@ -599,6 +676,80 @@ export default function PlatformOwnerHome() {
               </section>
             </div>
 
+            <section className="overflow-hidden rounded-[22px] border border-black/[0.075] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-black/[0.06] px-5 py-4.5">
+                <div>
+                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-[#8D877E]">
+                    <Server size={13} />
+                    Service & infrastructure health
+                  </div>
+                  <h2 className="mt-1.5 text-[18px] font-medium tracking-[-0.03em] text-[#1B1A18]">
+                    Evidence before green
+                  </h2>
+                  <p className="mt-1 max-w-2xl text-[10px] leading-4 text-[#9A958D]">
+                    A registered or active service is not called healthy until persisted health evidence proves it.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-[8px] uppercase tracking-[0.09em] text-[#89837A]">
+                  <span>{serviceCounts.healthy} proven healthy</span>
+                  <span>·</span>
+                  <span className={serviceCounts.unknown ? "text-amber-700" : ""}>{serviceCounts.unknown} unknown</span>
+                  {serviceCounts.degraded ? <><span>·</span><span className="text-red-700">{serviceCounts.degraded} degraded</span></> : null}
+                </div>
+              </div>
+
+              {rankedServices.length === 0 ? (
+                <div className="px-5 py-6 text-[11px] text-[#8B867E]">
+                  No Avantiqo Platform service registry evidence is available.
+                </div>
+              ) : (
+                <div className="divide-y divide-black/[0.055]">
+                  {rankedServices.map((service, index) => {
+                    const state = serviceState(service);
+                    const provider = clean(service?.default_provider_id) || "Provider unassigned";
+                    const failures = numeric(service?.total_failures);
+                    return (
+                      <div key={service?.id || service?.service_id || index} className="px-5 py-3.5 transition hover:bg-[#FCFBF9]">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.1em] ${serviceStateClasses(state)}`}>
+                                {state}
+                              </span>
+                              <span className="truncate text-[11px] font-medium text-[#403B34]">
+                                {clean(service?.service_id) || "Platform service"}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-[#99938A]">
+                              <span>{provider}</span>
+                              <span>·</span>
+                              <span>{clean(service?.status) || "status unknown"}</span>
+                              <span>·</span>
+                              <span>{service?.last_execution_at ? `last execution ${relativeTime(service.last_execution_at)}` : "no execution evidence"}</span>
+                              {failures ? <><span>·</span><span className="text-red-700">{failures} failure{failures === 1 ? "" : "s"}</span></> : null}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => askBusinessPartnerAboutService(service)}
+                            className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-[#B98A57]/25 bg-[#FBF7F1] px-2.5 py-1.5 text-[9px] font-medium text-[#8A643C] transition hover:border-[#B98A57]/45 hover:bg-[#F8F0E6] sm:self-auto"
+                          >
+                            Verify with Partner
+                            <ArrowRight size={10} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="border-t border-black/[0.06] bg-[#FBFAF8] px-5 py-3 text-[9px] leading-4 text-[#8F8980]">
+                Source: {control?.serviceSource || "operator service registry unavailable"}. Missing health evidence is surfaced as unknown, never silently converted to healthy.
+              </div>
+            </section>
+
             <section className="rounded-[22px] border border-black/[0.075] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -684,7 +835,7 @@ export default function PlatformOwnerHome() {
                     Operate, diagnose, ship.
                   </div>
                   <div className="mt-1 text-[10px] leading-5 text-[#8B867E]">
-                    Ask about customers, incidents, economics or code. Evidence stays connected to the same governed operator.
+                    Ask about customers, incidents, economics, service health or code. Evidence stays connected to the same governed operator.
                   </div>
                 </div>
                 <span className="shrink-0 rounded-full border border-[#6F7E68]/20 bg-[#6F7E68]/[0.08] px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.11em] text-[#5E6D58]">

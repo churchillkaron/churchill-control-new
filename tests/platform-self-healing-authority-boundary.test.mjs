@@ -44,6 +44,27 @@ test("AUTO_COMPLETE requires an exact canonical ERP registry match with an expli
   assert.match(route, /browser_evidence_authoritative:\s*false/);
 });
 
+test("AUTO_REPAIR is only granted after canonical route authority is proven server-side", () => {
+  const route = source("app/api/platform/admin/self-healing/route.js");
+
+  assert.match(route, /category === "route_not_found"/);
+  assert.match(route, /return "AUTO_REPAIR_CANDIDATE"/);
+  assert.match(route, /function authoritativeRepairRegistryTarget/);
+  assert.match(route, /AUTO_REPAIR requires an exact browser-observed route/);
+  assert.match(route, /getWorkspaceItemByRoute\(routeHint\)/);
+  assert.match(route, /registered_route:\s*true/);
+  assert.match(route, /if \(AUTHORITATIVE_INCOMPLETE_STATUSES\.has\(status\)\)/);
+  assert.match(route, /cannot reclassify an unfinished product surface as AUTO_REPAIR/);
+  assert.match(route, /if \(classification === "AUTO_REPAIR_CANDIDATE"\)/);
+  assert.match(route, /classification:\s*"REPAIR_AUTHORITY_REQUIRED"/);
+  assert.match(route, /classification = "AUTO_REPAIR"/);
+  assert.match(route, /capability = registryProof\.evidence\.capability/);
+  assert.match(route, /workspace = registryProof\.evidence\.workspace_id/);
+  assert.match(route, /resolvedRoute = registryProof\.evidence\.route \|\| route/);
+  assert.match(route, /browser_reported_route:\s*route/);
+  assert.doesNotMatch(route, /category === "runtime_exception"[^]*return "AUTO_REPAIR"/);
+});
+
 test("global observer captures uncaught errors and promise rejections without intercepting fetch", () => {
   const observer = source(
     "components/platform/self-healing/PlatformGlobalFailureObserver.js",

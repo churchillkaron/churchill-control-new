@@ -5,11 +5,36 @@ import {
   loadCodeAILiveProgress,
   CODE_AI_LIVE_PROGRESS_CONTRACT,
 } from "@/lib/code/runtime/CodeAILiveProgressRuntime";
+import {
+  loadCodeAIEngineeringSkillVisibleReceipt,
+  CODE_AI_ENGINEERING_SKILL_VISIBLE_RECEIPT_CONTRACT,
+} from "@/lib/code/runtime/CodeAIEngineeringSkillVisibleReceiptRuntime";
 
 const REQUIRED_PERMISSION = "platform.code.ai.execute";
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function safeVisibleReceiptUnavailable(error) {
+  return {
+    contract: CODE_AI_ENGINEERING_SKILL_VISIBLE_RECEIPT_CONTRACT,
+    found: false,
+    observations: [],
+    observed_skill_count: 0,
+    revalidated_skill_count: 0,
+    contradicted_skill_count: 0,
+    architecture_drift_signal_count: 0,
+    verified_success_with_skill_revalidation_count: 0,
+    learning_summary_status: "VISIBLE_RECEIPT_UNAVAILABLE",
+    failure_reason: text(error?.message || error).slice(0, 500) || null,
+    contains_raw_reasoning: false,
+    contains_raw_source: false,
+    contains_raw_patch: false,
+    automatic_knowledge_promotion: false,
+    reusable_platform_knowledge_written: false,
+    authorization_effect: "NONE",
+  };
 }
 
 export async function GET(request) {
@@ -38,19 +63,55 @@ export async function GET(request) {
       );
     }
 
-    const loaded = await loadCodeAILiveProgress({
-      context: {
-        organizationId,
-        actor: { id: access.user?.id || access.userId },
-      },
-    });
+    const context = {
+      organizationId,
+      actor: { id: access.user?.id || access.userId },
+    };
+    const loaded = await loadCodeAILiveProgress({ context });
+    const progress = loaded.live_progress || null;
+    let engineeringIntelligence = {
+      contract: CODE_AI_ENGINEERING_SKILL_VISIBLE_RECEIPT_CONTRACT,
+      found: false,
+      observations: [],
+      observed_skill_count: 0,
+      revalidated_skill_count: 0,
+      contradicted_skill_count: 0,
+      architecture_drift_signal_count: 0,
+      verified_success_with_skill_revalidation_count: 0,
+      learning_summary_status: "NO_MISSION",
+      contains_raw_reasoning: false,
+      contains_raw_source: false,
+      contains_raw_patch: false,
+      automatic_knowledge_promotion: false,
+      reusable_platform_knowledge_written: false,
+      authorization_effect: "NONE",
+    };
+
+    if (progress?.mission_id) {
+      try {
+        engineeringIntelligence = await loadCodeAIEngineeringSkillVisibleReceipt({
+          context,
+          missionId: progress.mission_id,
+          repositoryUrl: progress.repository_url || null,
+          ref: progress.ref || null,
+        });
+      } catch (error) {
+        engineeringIntelligence = safeVisibleReceiptUnavailable(error);
+      }
+    }
 
     return Response.json({
       success: true,
       contract: CODE_AI_LIVE_PROGRESS_CONTRACT,
       found: loaded.found === true,
       updated_at: loaded.updated_at || null,
-      live_progress: loaded.live_progress || null,
+      live_progress: progress
+        ? {
+            ...progress,
+            engineering_intelligence: engineeringIntelligence,
+          }
+        : null,
+      engineering_intelligence: engineeringIntelligence,
       contains_source_content: false,
       contains_raw_reasoning: false,
       contains_secrets: false,

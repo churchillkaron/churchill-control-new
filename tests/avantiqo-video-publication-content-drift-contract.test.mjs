@@ -9,7 +9,7 @@ const binding = source("lib/creative/release/runtime/CreativePublicationContentB
 const command = source("lib/creative/release/runtime/CreativePublishCommandRuntime.js");
 const lifecycle = source("lib/creative/release/runtime/CreativePublicationLifecycleRuntime.js");
 const integrity = source("lib/creative/release/runtime/CreativePublicationContentIntegrityRuntime.js");
-const inspection = source("lib/creative/release/runtime/CreativePublishingInspectionRuntimeV3.js");
+const inspection = source("lib/creative/release/runtime/CreativePublishingInspectionRuntimeV4.js");
 const route = source("app/api/creative/release/content-integrity/route.js");
 const workspace = source("components/creative/ProductionStudio/workspaces/PublishingWorkspaceV3.jsx");
 const router = source("components/creative/ProductionStudio/layout/WorkspaceCanvasRouter.jsx");
@@ -49,13 +49,10 @@ assert.match(integrity, /AssetGraphRepository\.create\(evidence\)/);
 assert.match(integrity, /CreativePublicationLifecycleRuntime\.revalidate/);
 assert.match(integrity, /Historical publication evidence remains immutable/);
 
-assert.match(inspection, /CREATIVE_PUBLISHING_INSPECTION_V5/);
-assert.match(inspection, /PUBLISHED_CONTENT_DRIFT/);
+assert.match(inspection, /CREATIVE_PUBLISHING_INSPECTION_V6/);
 assert.match(inspection, /content_drift_count/);
-assert.match(inspection, /content_partial_count/);
-assert.match(inspection, /content_matched_count/);
-assert.match(inspection, /content_unverifiable_count/);
-assert.match(inspection, /can_recheck_content_integrity/);
+assert.match(inspection, /remote_media_mismatch_count/);
+assert.match(inspection, /can_recheck_remote_media_identity/);
 
 assert.match(route, /creative\.release\.publish/);
 assert.match(route, /action === "recheck"/);
@@ -70,6 +67,6 @@ assert.match(workspace, /Remote byte checksum/);
 assert.match(workspace, /Recheck content/);
 assert.match(workspace, /\/api\/creative\/release\/content-integrity/);
 assert.match(workspace, /action: "recheck"/);
-assert.match(router, /PublishingWorkspaceV3/);
+assert.match(router, /PublishingWorkspaceV4/);
 
 console.log("AVANTIQO_VIDEO_PUBLICATION_CONTENT_DRIFT_CONTRACT=PASS");

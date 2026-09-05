@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import PlatformAdminConsole from "@/components/platform/PlatformAdminConsole";
 import checkSystemHealth from "@/lib/health/checkSystemHealth";
+import { PROVIDER_REGISTRY } from "@/lib/platform/service-runtime/providers/ProviderRegistry";
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -40,6 +41,9 @@ async function loadPlatformAdminConsole() {
       modules: [],
       staff: [],
       recentUsage: [],
+      wallets: [],
+      walletTransactions: [],
+      providers: [],
       health: {
         status: "degraded",
         timestamp: new Date().toISOString(),
@@ -55,6 +59,8 @@ async function loadPlatformAdminConsole() {
     modulesResult,
     staffResult,
     usageResult,
+    walletsResult,
+    walletTransactionsResult,
     healthResult,
   ] = await Promise.allSettled([
     supabaseAdmin.from("organizations").select("*"),
@@ -74,6 +80,15 @@ async function loadPlatformAdminConsole() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(500),
+    supabaseAdmin
+      .from("organization_wallets")
+      .select("*")
+      .order("organization_id", { ascending: true }),
+    supabaseAdmin
+      .from("wallet_transactions")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1000),
     checkSystemHealth(),
   ]);
 
@@ -94,6 +109,18 @@ async function loadPlatformAdminConsole() {
     modules: rowsFrom(modulesResult),
     staff: rowsFrom(staffResult),
     recentUsage: rowsFrom(usageResult),
+    wallets: rowsFrom(walletsResult),
+    walletTransactions: rowsFrom(walletTransactionsResult),
+    providers: Object.values(PROVIDER_REGISTRY).map(provider => ({
+      id: provider.id,
+      name: provider.name,
+      category: provider.category,
+      connectionModel: provider.connectionModel || "managed",
+      capabilities: provider.capabilities || [],
+      runtime: provider.runtime || null,
+      runtimeAvailable: provider.runtimeAvailable === true,
+      active: provider.active !== false,
+    })),
     health,
   };
 }
@@ -142,6 +169,9 @@ export default async function PlatformPage() {
       modules={runtime.modules}
       staff={runtime.staff}
       recentUsage={runtime.recentUsage}
+      wallets={runtime.wallets}
+      walletTransactions={runtime.walletTransactions}
+      providers={runtime.providers}
       health={runtime.health}
     />
   );

@@ -10,6 +10,9 @@ import {
 import {
   CreativeDeliveryAudioQualityRuntime,
 } from "@/lib/creative/quality/runtime/CreativeDeliveryAudioQualityRuntime";
+import {
+  CreativeDeliveryMasterConformanceRuntime,
+} from "@/lib/creative/quality/runtime/CreativeDeliveryMasterConformanceRuntime";
 
 const ALLOWED_SCOPES = new Set([
   "PRODUCTION_DOSSIER",
@@ -69,10 +72,26 @@ export async function POST(request) {
     }
 
     if (scope === "FINAL_RENDER") {
-      const deliveryAudio = await CreativeDeliveryAudioQualityRuntime.inspect({
-        organization_id: organizationId,
-        render_asset_node_id: subjectAssetNodeId,
-      });
+      const [deliveryAudio, deliveryMaster] = await Promise.all([
+        CreativeDeliveryAudioQualityRuntime.inspect({
+          organization_id: organizationId,
+          render_asset_node_id: subjectAssetNodeId,
+        }),
+        CreativeDeliveryMasterConformanceRuntime.inspect({
+          organization_id: organizationId,
+          render_asset_node_id: subjectAssetNodeId,
+        }),
+      ]);
+      if (deliveryMaster.required && deliveryMaster.passed !== true) {
+        return Response.json(
+          {
+            success: false,
+            error: deliveryMaster.blocker || "DELIVERY_MASTER_CONFORMANCE_REQUIRED",
+            delivery_master: deliveryMaster,
+          },
+          { status: 409 },
+        );
+      }
       if (deliveryAudio.required && deliveryAudio.passed !== true) {
         return Response.json(
           {

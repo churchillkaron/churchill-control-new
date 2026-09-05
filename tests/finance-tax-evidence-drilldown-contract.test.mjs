@@ -166,7 +166,7 @@ test("Evidence drilldown is organization-scoped, read-only and cannot mutate Bus
   assert.doesNotMatch(route, /\.insert\(|\.update\(|\.delete\(/);
   assert.doesNotMatch(runtime, /\.insert\(|\.update\(|\.delete\(/);
   assert.match(rail, /never switches Business Context/);
-  assert.match(rail, /cannot post, recode, alter FX, update a VAT rule, complete work, or mutate Business Context/);
+  assert.match(rail, /cannot post, recode, alter FX, update a VAT rule, recalculate VAT, complete work, or mutate Business Context/);
 });
 
 test("Configuration and authority blockers remain inspectable without fabricating transaction records", () => {
@@ -191,7 +191,7 @@ test("Tax evidence inspector is filing-bound, paginated and isolated from coordi
   assert.match(rail, /Tax line/);
   assert.match(rail, /Governed VAT rule/);
   assert.match(rail, /Posting proof/);
-  assert.match(rail, /> Previous</);
+  assert.match(rail, /> Previous/);
   assert.match(rail, /Next <ChevronRight/);
   assert.match(rail, /body\.return_id !== selectedVatReturnId \|\| body\.entity_id !== entityId/);
   assert.match(rail, /body\.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY" \|\| body\.mutation_authority !== false \|\| body\.context_mutation_authority !== false/);

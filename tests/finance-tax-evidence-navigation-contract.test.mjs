@@ -42,5 +42,5 @@ test("Evidence remains read-only and filing scoped while navigating to source", 
   assert.match(route, /context_mutation_authority: false/);
   assert.doesNotMatch(route, /\.insert\(|\.update\(|\.delete\(/);
   assert.match(rail, /body\.return_id !== selectedVatReturnId \|\| body\.entity_id !== entityId/);
-  assert.match(rail, /cannot post, recode, alter FX, update a VAT rule, complete work, or mutate Business Context/);
+  assert.match(rail, /cannot post, recode, alter FX, update a VAT rule, recalculate VAT, complete work, or mutate Business Context/);
 });

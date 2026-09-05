@@ -11,10 +11,17 @@ import FinanceTaxCloseIntelligenceRail from "./FinanceTaxCloseIntelligenceRail";
 import FinanceTaxEvidenceDrilldownRail from "./FinanceTaxEvidenceDrilldownRail";
 import FinanceTaxDependencyWorkRail from "./FinanceTaxDependencyWorkRail";
 import FinanceTaxClientRequestBridgeRail from "./FinanceTaxClientRequestBridgeRail";
+import FinanceTaxWorkflowNavigator from "./FinanceTaxWorkflowNavigator";
 
 export default function FinanceTaxWorkCenter(props) {
   // One filing selection is authoritative for every entity-level Tax control below.
   const [selectedVatReturnId, setSelectedVatReturnId] = useState(null);
+  const [activeStage, setActiveStage] = useState("RETURN");
+
+  function selectFiling(nextId) {
+    setSelectedVatReturnId(nextId);
+    if (!nextId) setActiveStage("RETURN");
+  }
 
   return (
     <>
@@ -22,21 +29,37 @@ export default function FinanceTaxWorkCenter(props) {
         organizationId={props.organizationId}
         entityId={props.entityId}
         selectedVatReturnId={selectedVatReturnId}
-        onSelectedVatReturnIdChange={setSelectedVatReturnId}
+        onSelectedVatReturnIdChange={selectFiling}
       />
-      <FinanceTaxCalendarRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-      <FinanceTaxCloseGuidanceRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-      <FinanceTaxCloseIntelligenceRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-      <FinanceTaxEvidenceDrilldownRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-      <FinanceTaxDependencyWorkRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-      <FinanceTaxClientRequestBridgeRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-      <FinanceTaxAmendmentRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-      <FinanceTaxSettlementRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-      <FinanceTaxLegacyWorkCenter
-        {...props}
+
+      <FinanceTaxWorkflowNavigator
+        activeStage={activeStage}
+        onStageChange={setActiveStage}
         selectedVatReturnId={selectedVatReturnId}
-        onSelectedVatReturnIdChange={setSelectedVatReturnId}
       />
+
+      {activeStage === "RETURN" ? <>
+        <FinanceTaxCalendarRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+        <FinanceTaxLegacyWorkCenter
+          {...props}
+          selectedVatReturnId={selectedVatReturnId}
+          onSelectedVatReturnIdChange={selectFiling}
+        />
+      </> : null}
+
+      {activeStage === "FIX" ? <>
+        <FinanceTaxCloseGuidanceRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+        <FinanceTaxCloseIntelligenceRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+        <FinanceTaxDependencyWorkRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+        <FinanceTaxClientRequestBridgeRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+      </> : null}
+
+      {activeStage === "EVIDENCE" ? <FinanceTaxEvidenceDrilldownRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} /> : null}
+
+      {activeStage === "AFTER" ? <>
+        <FinanceTaxAmendmentRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+        <FinanceTaxSettlementRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
+      </> : null}
     </>
   );
 }

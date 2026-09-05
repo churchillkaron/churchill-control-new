@@ -12,7 +12,7 @@ import AssetsWorkspace from "../workspaces/AssetsWorkspace";
 import TimelineWorkspace from "../workspaces/TimelineWorkspace";
 import ReviewWorkspace from "../workspaces/ReviewWorkspaceV2";
 import LearningWorkspace from "../workspaces/LearningWorkspace";
-import RenderWorkspace from "../workspaces/RenderWorkspaceV4";
+import RenderWorkspace from "../workspaces/RenderWorkspaceV5";
 import PublishingWorkspace from "../workspaces/PublishingWorkspace";
 import DocumentsWorkspace from "../workspaces/DocumentsWorkspace";
 

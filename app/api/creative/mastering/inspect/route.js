@@ -13,6 +13,9 @@ import {
 import {
   CreativeDeliveryAudioQualityRuntime,
 } from "@/lib/creative/quality/runtime/CreativeDeliveryAudioQualityRuntime";
+import {
+  CreativeDeliveryMasterConformanceRuntime,
+} from "@/lib/creative/quality/runtime/CreativeDeliveryMasterConformanceRuntime";
 
 export async function POST(request) {
   try {
@@ -51,12 +54,18 @@ export async function POST(request) {
       }),
     ]);
 
-    const deliveryAudio = mastering?.render?.id
-      ? await CreativeDeliveryAudioQualityRuntime.inspect({
-          organization_id: organizationId,
-          render_asset_node_id: mastering.render.id,
-        })
-      : null;
+    const [deliveryAudio, deliveryMaster] = mastering?.render?.id
+      ? await Promise.all([
+          CreativeDeliveryAudioQualityRuntime.inspect({
+            organization_id: organizationId,
+            render_asset_node_id: mastering.render.id,
+          }),
+          CreativeDeliveryMasterConformanceRuntime.inspect({
+            organization_id: organizationId,
+            render_asset_node_id: mastering.render.id,
+          }),
+        ])
+      : [null, null];
 
     const canRunMastering = Boolean(
       mastering?.can_run_mastering &&
@@ -65,9 +74,13 @@ export async function POST(request) {
     const audioApprovalReady = Boolean(
       !deliveryAudio?.required || deliveryAudio?.passed === true,
     );
+    const deliveryMasterReady = Boolean(
+      !deliveryMaster?.required || deliveryMaster?.passed === true,
+    );
     const canApproveFinalRender = Boolean(
       mastering?.can_approve_final_render &&
-      audioApprovalReady,
+      audioApprovalReady &&
+      deliveryMasterReady,
     );
 
     return Response.json({
@@ -84,6 +97,7 @@ export async function POST(request) {
           approval_record_id: editReview?.edit_approval?.id || null,
         },
         delivery_audio: deliveryAudio,
+        delivery_master: deliveryMaster,
         can_run_mastering: canRunMastering,
         can_approve_final_render: canApproveFinalRender,
         mastering_blocker: canRunMastering
@@ -93,11 +107,13 @@ export async function POST(request) {
             : "EDIT_REVIEW_NOT_APPROVED",
         final_approval_blocker: canApproveFinalRender
           ? null
-          : deliveryAudio?.required && !audioApprovalReady
-            ? deliveryAudio.blocker || "DELIVERY_AUDIO_QC_REQUIRED"
-            : mastering?.can_approve_final_render
-              ? null
-              : "MASTER_NOT_READY_FOR_APPROVAL",
+          : deliveryMaster?.required && !deliveryMasterReady
+            ? deliveryMaster.blocker || "DELIVERY_MASTER_CONFORMANCE_REQUIRED"
+            : deliveryAudio?.required && !audioApprovalReady
+              ? deliveryAudio.blocker || "DELIVERY_AUDIO_QC_REQUIRED"
+              : mastering?.can_approve_final_render
+                ? null
+                : "MASTER_NOT_READY_FOR_APPROVAL",
       },
     });
   } catch (error) {

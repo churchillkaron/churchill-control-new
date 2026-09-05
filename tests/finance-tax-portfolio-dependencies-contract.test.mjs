@@ -111,14 +111,14 @@ test("Tax portfolio can claim unowned coordination across authorized entities wi
   assert.match(rail, /Switch entity first/);
 });
 
-test("Tax control tower starts with one live next task and filing-level deadline horizon", () => {
+test("Tax control tower starts with one live next task and filing-level deadline runway", () => {
   assert.match(rail, /const \[expanded, setExpanded\] = useState\(true\)/);
   assert.match(rail, /useEffect\(\(\) => \{ load\(\); \}, \[organizationId\]\)/);
   assert.match(rail, /const filingSummary = state\.body\?\.summary \|\| \{\}/);
   assert.match(rail, /const nextWork = workRows\[0\] \|\| null/);
   assert.match(rail, /Next tax work/);
   assert.match(rail, /One primary task first/);
-  assert.match(rail, /Practice horizon/);
+  assert.match(rail, /Statutory deadline runway/);
   assert.match(rail, /filingSummary\.overdue/);
   assert.match(rail, /filingSummary\.due_14_days/);
   assert.match(rail, /filingSummary\.amendments_open/);

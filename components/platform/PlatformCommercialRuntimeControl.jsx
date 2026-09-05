@@ -35,9 +35,9 @@ function money(value, currency = "THB") {
 
 function tone(value) {
   const state = t(value).toLowerCase();
-  if (/(failed|dead|error|blocked|cancelled|canceled)/.test(state)) return "border-red-700/15 bg-red-50 text-red-800";
+  if (/(failed|dead|error|blocked|cancelled|canceled|degraded)/.test(state)) return "border-red-700/15 bg-red-50 text-red-800";
   if (/(draft|pending|queued|scheduled|running|processing|unverified)/.test(state)) return "border-amber-700/15 bg-amber-50 text-amber-800";
-  if (/(active|completed|ready|healthy|success)/.test(state)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
+  if (/(active|completed|ready|healthy|success|idle)/.test(state)) return "border-emerald-700/15 bg-emerald-50 text-emerald-800";
   return "border-black/[0.08] bg-[#F6F4F0] text-[#746E66]";
 }
 
@@ -71,12 +71,28 @@ function modulesList(value) {
   return [];
 }
 
+function livenessSummary(queueHealth = {}) {
+  if (queueHealth.status === "healthy") {
+    return `${Number(queueHealth.fresh_workers || 0)} fresh worker${Number(queueHealth.fresh_workers || 0) === 1 ? "" : "s"}`;
+  }
+  if (queueHealth.status === "idle") {
+    return Number(queueHealth.fresh_workers || 0) > 0
+      ? `Idle · ${queueHealth.fresh_workers} fresh worker heartbeat`
+      : "Idle · no active queue demand";
+  }
+  if (queueHealth.status === "degraded") {
+    return `${Number(queueHealth.active_jobs || 0)} active job${Number(queueHealth.active_jobs || 0) === 1 ? "" : "s"} without fresh heartbeat`;
+  }
+  return "Runtime liveness unverified";
+}
+
 export default function PlatformCommercialRuntimeControl({
   subscriptions = [],
   queueJobs = [],
   deadLetterJobs = [],
   organizations = [],
   releaseState = {},
+  queueHealth = {},
 }) {
   const [query, setQuery] = useState("");
   const organizationsById = useMemo(() => new Map(organizations.map(org => [t(org.id), org])), [organizations]);
@@ -96,7 +112,7 @@ export default function PlatformCommercialRuntimeControl({
   }), [queueJobs, organizationsById, needle]);
 
   const failedJobs = queueJobs.filter(row => t(row.status).toLowerCase() === "failed");
-  const activeJobs = queueJobs.filter(row => /(queued|pending|running|processing|scheduled)/i.test(t(row.status)));
+  const activeJobs = queueJobs.filter(row => /(queued|pending|running|processing)/i.test(t(row.status)));
   const latestJobAt = queueJobs.reduce((latest, row) => {
     const value = new Date(row.created_at || 0).getTime();
     return Number.isFinite(value) && value > latest ? value : latest;
@@ -109,7 +125,7 @@ export default function PlatformCommercialRuntimeControl({
           <div>
             <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#8A633C]">Platform expansion</div>
             <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#27231F]">Commercial provisioning & queue control</h2>
-            <p className="mt-1 text-[9px] text-[#918B83]">Persisted subscription, module-selection and queue evidence. Current worker liveness remains separate from historical execution evidence.</p>
+            <p className="mt-1 text-[9px] text-[#918B83]">Persisted subscription, module-selection and queue evidence, now paired with demand-aware worker heartbeat verification.</p>
           </div>
           <div className="relative w-full lg:max-w-[420px]">
             <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9A948C]" />
@@ -139,13 +155,14 @@ export default function PlatformCommercialRuntimeControl({
             {!filteredSubscriptions.length ? <div className="px-5 py-10 text-center text-[10px] text-[#918B83]">No subscriptions in this view.</div> : null}
           </Panel>
 
-          <Panel eyebrow="Queue control" title="Execution evidence" description="Database-backed queue history with worker assignment, retry state and errors. Historical rows do not prove current worker heartbeat.">
-            <div className="grid border-b border-black/[0.05] bg-[#FBF8F3] sm:grid-cols-4">
+          <Panel eyebrow="Queue control" title="Execution & liveness evidence" description="Historical queue rows and current worker heartbeat evidence are evaluated separately, then combined by demand-aware health logic.">
+            <div className="grid border-b border-black/[0.05] bg-[#FBF8F3] sm:grid-cols-5">
               {[
                 ["Jobs", queueJobs.length],
                 ["Active now", activeJobs.length],
                 ["Failed", failedJobs.length],
                 ["Dead letter", deadLetterJobs.length],
+                ["Runtime", label(queueHealth.status || "unverified")],
               ].map(([name, value], index) => (
                 <div key={name} className={`px-4 py-3 ${index ? "sm:border-l sm:border-black/[0.05]" : ""}`}>
                   <div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#979087]">{name}</div>
@@ -168,7 +185,7 @@ export default function PlatformCommercialRuntimeControl({
             ))}
             {!filteredJobs.length ? <div className="px-5 py-10 text-center text-[10px] text-[#918B83]">No queue jobs in this view.</div> : null}
             <div className="border-t border-black/[0.05] bg-[#FBF8F3] px-5 py-3 text-[8px] leading-4 text-[#8B847B]">
-              Latest persisted queue job: <strong className="font-semibold text-[#4B4640]">{latestJobAt ? when(latestJobAt) : "No queue evidence"}</strong>. Current worker liveness: <strong className="font-semibold text-[#8A633C]">unverified</strong> until a heartbeat/runtime probe exists.
+              Latest persisted queue job: <strong className="font-semibold text-[#4B4640]">{latestJobAt ? when(latestJobAt) : "No queue evidence"}</strong>. Current runtime: <strong className="font-semibold text-[#4B4640]">{livenessSummary(queueHealth)}</strong>{queueHealth.latest_heartbeat_at ? <> · latest heartbeat {when(queueHealth.latest_heartbeat_at)}</> : null}.
             </div>
           </Panel>
         </div>

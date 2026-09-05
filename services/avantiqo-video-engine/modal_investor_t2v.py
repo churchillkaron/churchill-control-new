@@ -62,6 +62,13 @@ transport_image = (
     .add_local_python_source("modal_app")
 )
 
+# Functions defined in this module import constants/helpers from modal_app at
+# container hydration time. The base immutable LTX image intentionally contains
+# only the model runtime, so explicitly package the sibling Python module into
+# this function image as well. Without this, Modal can schedule a GPU worker but
+# the container crash-loops before inference with ModuleNotFoundError: modal_app.
+investor_ltx_worker_image = ltx_worker_image.add_local_python_source("modal_app")
+
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
@@ -141,7 +148,7 @@ def _prompt(instruction: str) -> str:
 
 
 @app.function(
-    image=ltx_worker_image,
+    image=investor_ltx_worker_image,
     gpu=LTX_GPU,
     volumes={"/models": model_volume},
     timeout=HARD_TIMEOUT_SECONDS,

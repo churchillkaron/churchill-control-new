@@ -1,6 +1,11 @@
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import {
+  getWorkspaceItemByRoute,
+  getWorkspaceItemByWorkspace,
+  normalizeRegistryItemId,
+} from "@/lib/platform/registry/erpRegistry";
+import {
   PLATFORM_USER_FAILURE_EVENT_TYPE,
 } from "@/lib/platform/self-healing/PlatformUserFailureCaptureRuntime";
 import {
@@ -14,6 +19,12 @@ export const maxDuration = 300;
 const SYSTEM_EVENT_BACKLOG_KEY = "system-event-backlog";
 const USER_FAILURE_PREFIX = "user-failure:";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const AUTHORITATIVE_INCOMPLETE_STATUSES = new Set([
+  "planned",
+  "incomplete",
+  "unfinished",
+  "unimplemented",
+]);
 
 function text(value, limit = 4000) {
   return String(value ?? "").trim().slice(0, limit);
@@ -49,6 +60,83 @@ function classifyCapturedFailure(payload = {}) {
     return "AUTO_REPAIR";
   }
   return "PRODUCT_DECISION_REQUIRED";
+}
+
+function normalizedRegistryValue(value) {
+  return normalizeRegistryItemId(text(value, 300));
+}
+
+function canonicalCapabilityIds(item = {}) {
+  return new Set([
+    item.id,
+    item.data?.capability,
+    item.create?.capability,
+  ].map(normalizedRegistryValue).filter(Boolean));
+}
+
+function authoritativeIncompleteRegistryTarget({ route, workspace, capability }) {
+  const routeHint = text(route, 600) || null;
+  const workspaceHint = normalizedRegistryValue(workspace);
+  const capabilityHint = normalizedRegistryValue(capability);
+  let item = routeHint ? getWorkspaceItemByRoute(routeHint) : null;
+  let matchSource = item ? "route" : null;
+
+  if (routeHint && !item) {
+    return {
+      proven: false,
+      reason: "The browser-reported route does not resolve to a canonical ERP_REGISTRY workspace item.",
+    };
+  }
+
+  if (!item && workspaceHint && capabilityHint) {
+    item = getWorkspaceItemByWorkspace(workspaceHint, capabilityHint);
+    matchSource = item ? "workspace_capability" : null;
+  }
+
+  if (!item) {
+    return {
+      proven: false,
+      reason: "AUTO_COMPLETE requires an exact canonical ERP_REGISTRY route or workspace+capability match.",
+    };
+  }
+
+  const canonicalWorkspace = normalizedRegistryValue(item.workspaceId);
+  if (workspaceHint && canonicalWorkspace !== workspaceHint) {
+    return {
+      proven: false,
+      reason: "The browser-reported workspace does not match the canonical ERP_REGISTRY workspace for this route.",
+    };
+  }
+
+  const canonicalCapabilities = canonicalCapabilityIds(item);
+  if (capabilityHint && !canonicalCapabilities.has(capabilityHint)) {
+    return {
+      proven: false,
+      reason: "The browser-reported capability does not match the canonical ERP_REGISTRY capability for this workspace item.",
+    };
+  }
+
+  const status = text(item.status, 80).toLowerCase();
+  if (!AUTHORITATIVE_INCOMPLETE_STATUSES.has(status)) {
+    return {
+      proven: false,
+      reason: "The canonical ERP_REGISTRY item is not explicitly marked incomplete or unimplemented.",
+    };
+  }
+
+  return {
+    proven: true,
+    item,
+    evidence: {
+      match_source: matchSource,
+      workspace_id: item.workspaceId || null,
+      item_id: item.id || null,
+      capability: item.data?.capability || item.create?.capability || item.id || null,
+      route: item.route || null,
+      status,
+      explicit_incomplete_status: true,
+    },
+  };
 }
 
 function capturedFailureExpectedOutcome(category) {
@@ -216,11 +304,31 @@ async function loadCapturedUserFailure(signalKey) {
     };
   }
 
-  const capability = text(stored.capability, 300) || null;
-  const workspace = text(stored.workspace, 300) || null;
+  const capabilityHint = text(stored.capability, 300) || null;
+  const workspaceHint = text(stored.workspace, 300) || null;
   const action = text(stored.action, 300) || "complete original user action";
   const route = text(stored.route, 600) || null;
   const errorMessage = text(stored.error_message, 1200) || null;
+  let registryProof = null;
+  let capability = capabilityHint;
+  let workspace = workspaceHint;
+
+  if (classification === "AUTO_COMPLETE") {
+    registryProof = authoritativeIncompleteRegistryTarget({
+      route,
+      workspace: workspaceHint,
+      capability: capabilityHint,
+    });
+    if (!registryProof.proven) {
+      return {
+        blocked: true,
+        classification: "REGISTRY_PROOF_REQUIRED",
+        reason: registryProof.reason,
+      };
+    }
+    capability = registryProof.evidence.capability;
+    workspace = registryProof.evidence.workspace_id;
+  }
 
   return {
     signalKey,
@@ -232,7 +340,7 @@ async function loadCapturedUserFailure(signalKey) {
       category,
       source: "system_events.platform_user_failure_capture",
       title: classification === "AUTO_COMPLETE"
-        ? `${workspace || capability || "Registered Avantiqo capability"} is incomplete`
+        ? `${registryProof?.item?.name || capability || workspace || "Registered Avantiqo capability"} is incomplete`
         : `${capability || workspace || route || "Avantiqo user action"} failed`,
       error_class: category.toUpperCase(),
       error_message: errorMessage,
@@ -249,6 +357,8 @@ async function loadCapturedUserFailure(signalKey) {
         error_digest: text(stored.error_digest, 200) || null,
         organization_scope: text(stored.organization_scope, 120) || null,
         browser_evidence_authoritative: false,
+        classification_candidate_ignored: text(stored.classification_candidate, 120) || null,
+        authoritative_registry_proof: registryProof?.evidence || null,
         raw_stack_stored: false,
         raw_request_body_stored: false,
       },

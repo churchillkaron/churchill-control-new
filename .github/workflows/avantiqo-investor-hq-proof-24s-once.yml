@@ -2,6 +2,7 @@ name: Avantiqo Investor HQ Visual Proof 24s Once
 
 # Dedicated native-4K DFR investor proof. It has an isolated concurrency group so
 # unrelated investor preview changes or main-branch work cannot cancel paid HQ inference.
+# one-shot trigger: 2026-09-05-hq-dfr-v1
 on:
   push:
     branches: [main]

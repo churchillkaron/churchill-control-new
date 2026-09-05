@@ -4,6 +4,10 @@ This proof exists to judge directing, realism, motion and story without blocking
 production-detail 4K generation. It launches four independent six-second shots
 concurrently and preserves exact provenance that the generated masters are
 1920x1088 distilled LTX-2.5 outputs. 4K delivery mastering happens separately.
+
+Cache ownership is intentionally outside this runner. The GitHub proof workflow
+verifies the exact immutable LTX-2.5 snapshot before invoking this file, so this
+runner must never synchronously re-seed the model cache and block shot spawning.
 """
 from __future__ import annotations
 
@@ -18,7 +22,6 @@ from investor_production_24s import SHOTS
 CONTRACT = "AVANTIQO_INVESTOR_FAST_MOTION_24S_MODAL_V1"
 APP_NAME = "avantiqo-video-owned"
 FUNCTION_NAME = "generate_investor_t2v_master"
-SEED_FUNCTION = "seed_investor_t2v_cache"
 REMOTE_ROOT = "investor-fast-motion-24s"
 DURATION_SECONDS = 6
 EXPECTED_PIPELINE = "DISTILLED_TWO_STAGE_T2V_BF16"
@@ -59,10 +62,9 @@ def main() -> None:
     report_path = Path(os.environ.get("AVANTIQO_FAST_24S_REPORT") or "fast-24s-generation.json")
     remote_root = f"{REMOTE_ROOT}/{commit}"
 
-    seed = modal.Function.from_name(APP_NAME, SEED_FUNCTION)
-    seed_result = seed.remote()
-    if not isinstance(seed_result, dict) or seed_result.get("success") is not True:
-        raise RuntimeError(f"{CONTRACT}_CACHE_NOT_READY:{seed_result}")
+    # The invoking workflow owns cache recovery + exact-file preflight. Keeping
+    # cache seeding out of this runner is what makes this boundary render-only.
+    print(f"{CONTRACT}_CACHE_PREFLIGHT_OWNED_BY_CALLER=PASS", flush=True)
 
     generator = modal.Function.from_name(APP_NAME, FUNCTION_NAME).with_options(
         max_containers=4,
@@ -102,6 +104,8 @@ def main() -> None:
         "shot_duration_seconds": DURATION_SECONDS,
         "timeline_duration_seconds": len(completed) * DURATION_SECONDS,
         "generation_parallelism_requested": 4,
+        "cache_preflight_owned_by_caller": True,
+        "cache_seed_called_by_runner": False,
         "source_visual_assets_used": 0,
         "screenshots_used": False,
         "external_video_provider_used": False,

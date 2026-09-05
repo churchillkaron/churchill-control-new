@@ -46,28 +46,54 @@ function DuplicateReview({ source }) {
   </div>;
 }
 
-function DeadlineReview({ evidence, onOpenCalendar }) {
+function DeadlineReview({ evidence, issue, onOpenCalendar }) {
   if (!evidence) return null;
+  const blocking = issue?.severity === "BLOCK";
+  const authorityControl = issue?.code === "TAX_CALENDAR_AUTHORITY";
   const verified = evidence.verification_status === "OFFICIAL_CALENDAR_VERIFIED";
-  const controlledOverride = Boolean(evidence.override);
-  const humanConfirmed = Boolean(evidence.human_confirmation);
-  const statusLabel = controlledOverride ? "Controlled authority override" : verified ? "Official authority calendar" : humanConfirmed ? "Human-confirmed authority evidence" : "Authority confirmation required";
+  const manualJurisdiction = evidence.verification_status === "MANUAL_JURISDICTION_REQUIRED";
+  const hasOverrideEvidence = Boolean(evidence.override);
+  const hasHumanEvidence = Boolean(evidence.human_confirmation);
+  const acceptedOverride = hasOverrideEvidence && !blocking;
+  const acceptedHumanEvidence = hasHumanEvidence && !blocking;
+  const recordedMatchesStatutory = Boolean(evidence.recorded_due_date && evidence.statutory_due_date && evidence.recorded_due_date === evidence.statutory_due_date);
+  const statusLabel = blocking
+    ? manualJurisdiction
+      ? "Authority evidence required"
+      : !evidence.recorded_due_date
+        ? "Governed deadline missing"
+        : evidence.statutory_due_date && !recordedMatchesStatutory
+          ? "Recorded date conflicts with policy"
+          : !verified
+            ? "Official confirmation required"
+            : "Filing authority unresolved"
+    : acceptedOverride
+      ? "Controlled authority override"
+      : verified
+        ? "Official authority calendar"
+        : acceptedHumanEvidence
+          ? "Human-confirmed authority evidence"
+          : authorityControl
+            ? "Authority confirmation required"
+            : "Governed calendar context";
   const authority = evidence.authority || null;
   const adjustment = evidence.adjustment || null;
 
-  return <div className="mt-3 overflow-hidden rounded-lg border border-[#A37849]/15 bg-[#FFF9F0]">
-    <div className="flex flex-col gap-2 border-b border-[#A37849]/12 px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between">
+  return <div className={`mt-3 overflow-hidden rounded-lg border ${blocking ? "border-red-700/15 bg-red-50/30" : "border-[#A37849]/15 bg-[#FFF9F0]"}`}>
+    <div className={`flex flex-col gap-2 border-b px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between ${blocking ? "border-red-700/12" : "border-[#A37849]/12"}`}>
       <div>
-        <div className="inline-flex items-center gap-1.5 text-[7px] font-semibold uppercase tracking-[0.09em] text-[#8A633E]"><CalendarClock size={9}/> Statutory deadline evidence</div>
+        <div className={`inline-flex items-center gap-1.5 text-[7px] font-semibold uppercase tracking-[0.09em] ${blocking ? "text-red-800" : "text-[#8A633E]"}`}><CalendarClock size={9}/> {authorityControl ? "Statutory authority control" : "Statutory deadline evidence"}</div>
         <div className="mt-1 text-[10px] font-semibold text-[#403B36]">Why this deadline</div>
-        <div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">This is the same governed calendar resolution used by live Tax preflight. Evidence review does not recalculate or acknowledge the deadline.</div>
+        <div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">{blocking ? "This is the same governed calendar resolution used by live Tax preflight. This control cannot be cleared in Evidence; filing stays blocked until live Tax preflight accepts the deadline authority." : "This is the same governed calendar resolution used by live Tax preflight. Evidence review does not recalculate or acknowledge the deadline."}</div>
       </div>
-      <span className={`shrink-0 rounded-md border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] ${controlledOverride || !verified ? "border-amber-700/15 bg-amber-50 text-amber-900" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>{statusLabel}</span>
+      <span className={`shrink-0 rounded-md border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.07em] ${blocking ? "border-red-700/15 bg-red-50 text-red-800" : acceptedOverride || !verified ? "border-amber-700/15 bg-amber-50 text-amber-900" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>{statusLabel}</span>
     </div>
+
+    {blocking ? <div className="border-b border-red-700/10 bg-red-50 px-3 py-2 text-[8px] leading-4 text-red-900"><b>Filing blocked:</b> {issue?.detail || "Live Tax preflight has not accepted the statutory deadline authority."}</div> : null}
 
     <div className="grid gap-px bg-[#A37849]/10 sm:grid-cols-3">
       <div className="bg-white/80 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Recorded filing date</div><div className="mt-1 text-[11px] font-semibold text-[#3F3A35]">{date(evidence.recorded_due_date)}</div><div className="mt-0.5 text-[7px] text-[#918B83]">Current filing record</div></div>
-      <div className="bg-white/80 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Governed statutory date</div><div className="mt-1 text-[11px] font-semibold text-[#3F3A35]">{date(evidence.statutory_due_date)}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.filing_channel_label || evidence.filing_channel || "Filing method"}</div></div>
+      <div className="bg-white/80 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Governed statutory date</div><div className="mt-1 text-[11px] font-semibold text-[#3F3A35]">{evidence.statutory_due_date ? date(evidence.statutory_due_date) : manualJurisdiction ? "Authority date required" : "—"}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.filing_channel_label || evidence.filing_channel || "Filing method"}</div></div>
       <div className="bg-white/80 p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Legal clock</div><div className={`mt-1 text-[11px] font-semibold ${evidence.overdue ? "text-red-800" : "text-[#3F3A35]"}`}>{date(evidence.legal_date)}</div><div className="mt-0.5 text-[7px] text-[#918B83]">{evidence.legal_time_zone || "Jurisdiction time"}{evidence.overdue ? " · overdue" : ""}</div></div>
     </div>
 
@@ -75,25 +101,25 @@ function DeadlineReview({ evidence, onOpenCalendar }) {
       <div className="rounded-lg border border-black/[0.05] bg-white/75 p-2.5">
         <div className="grid gap-2 sm:grid-cols-3">
           <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Base filing date</div><div className="mt-1 text-[9px] font-semibold">{date(evidence.base_due_date)}</div></div>
-          <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Authority-adjusted date</div><div className="mt-1 text-[9px] font-semibold">{date(evidence.statutory_due_date)}</div></div>
+          <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Authority-adjusted date</div><div className="mt-1 text-[9px] font-semibold">{evidence.statutory_due_date ? date(evidence.statutory_due_date) : manualJurisdiction ? "Manual authority evidence" : "—"}</div></div>
           <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Return period</div><div className="mt-1 text-[9px] font-semibold">to {date(evidence.period_end)}</div></div>
         </div>
-        <div className="mt-2 text-[8px] leading-4 text-[#817B73]">{evidence.form_label || evidence.form_code || "VAT return"} · {evidence.filing_channel_label || evidence.filing_channel || "filing method"}{adjustment?.applied ? ` · authority calendar moved the base date ${adjustment.days} day${adjustment.days === 1 ? "" : "s"} (${String(adjustment.reason || "").replaceAll("_", " ").toLowerCase()})` : " · no authority date adjustment"}.</div>
+        <div className="mt-2 text-[8px] leading-4 text-[#817B73]">{evidence.form_label || evidence.form_code || "VAT return"} · {evidence.filing_channel_label || evidence.filing_channel || "filing method"}{manualJurisdiction ? " · no automated statutory calendar for this jurisdiction" : adjustment?.applied ? ` · authority calendar moved the base date ${adjustment.days} day${adjustment.days === 1 ? "" : "s"} (${String(adjustment.reason || "").replaceAll("_", " ").toLowerCase()})` : " · no authority date adjustment"}.</div>
       </div>
 
       <div className="rounded-lg border border-black/[0.05] bg-white/75 p-2.5">
         <div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Authority lineage</div>
-        <div className="mt-1 text-[9px] font-semibold text-[#4E4943]">{authority?.authority || "Tax authority evidence"}</div>
-        <div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">{authority?.title || evidence.policy_version || "Governed statutory calendar"}{authority?.calendar_last_reviewed ? ` · reviewed ${date(authority.calendar_last_reviewed)}` : ""}</div>
+        <div className="mt-1 text-[9px] font-semibold text-[#4E4943]">{authority?.authority || (manualJurisdiction ? "Manual authority evidence required" : "Tax authority evidence")}</div>
+        <div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">{authority?.title || (manualJurisdiction ? `No automated ${evidence.jurisdiction_code || "jurisdiction"} statutory calendar` : evidence.policy_version || "Governed statutory calendar")}{authority?.calendar_last_reviewed ? ` · reviewed ${date(authority.calendar_last_reviewed)}` : ""}</div>
         {authority?.url ? <a href={authority.url} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[8px] font-semibold text-[#7D5B39] underline underline-offset-2">Revenue Department source <ExternalLink size={8}/></a> : null}
       </div>
     </div>
 
-    {controlledOverride ? <div className="mx-3 mb-3 rounded-lg border border-amber-700/12 bg-amber-50/70 px-2.5 py-2 text-[8px] leading-4 text-amber-900"><b>Controlled override:</b> {evidence.override.reason || "Reason recorded"} · evidence {evidence.override.evidence_reference || "required"}</div> : humanConfirmed ? <div className="mx-3 mb-3 rounded-lg border border-amber-700/12 bg-amber-50/70 px-2.5 py-2 text-[8px] leading-4 text-amber-900"><b>Authority confirmation:</b> {evidence.human_confirmation.reason || "Confirmation recorded"} · evidence {evidence.human_confirmation.evidence_reference || "required"}</div> : null}
+    {hasOverrideEvidence ? <div className="mx-3 mb-3 rounded-lg border border-amber-700/12 bg-amber-50/70 px-2.5 py-2 text-[8px] leading-4 text-amber-900"><b>{blocking ? "Recorded override evidence · not accepted by live preflight:" : "Controlled override:"}</b> {evidence.override.reason || "Reason recorded"} · evidence {evidence.override.evidence_reference || "required"}</div> : hasHumanEvidence ? <div className="mx-3 mb-3 rounded-lg border border-amber-700/12 bg-amber-50/70 px-2.5 py-2 text-[8px] leading-4 text-amber-900"><b>{blocking ? "Recorded authority evidence · not accepted by live preflight:" : "Authority confirmation:"}</b> {evidence.human_confirmation.reason || "Confirmation recorded"} · evidence {evidence.human_confirmation.evidence_reference || "required"}</div> : blocking && manualJurisdiction ? <div className="mx-3 mb-3 rounded-lg border border-red-700/12 bg-red-50 px-2.5 py-2 text-[8px] leading-4 text-red-900"><b>Required proof:</b> record the authority-confirmed filing date together with a reason and authority evidence reference in the governed filing calendar.</div> : null}
 
-    <div className="flex flex-col gap-2 border-t border-[#A37849]/12 bg-white/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-[8px] text-[#817B73]">Review only · live Tax truth decides whether this warning remains.</div>
-      {typeof onOpenCalendar === "function" ? <button type="button" onClick={onOpenCalendar} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">Review filing method & deadline <ArrowUpRight size={9}/></button> : null}
+    <div className={`flex flex-col gap-2 border-t bg-white/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between ${blocking ? "border-red-700/12" : "border-[#A37849]/12"}`}>
+      <div className={`text-[8px] ${blocking ? "font-semibold text-red-800" : "text-[#817B73]"}`}>{blocking ? "Blocking · filing remains unavailable until live Tax preflight accepts the authority evidence." : "Review only · live Tax truth decides whether this warning remains."}</div>
+      {typeof onOpenCalendar === "function" ? <button type="button" onClick={onOpenCalendar} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white">{blocking ? "Fix deadline authority" : "Review filing method & deadline"} <ArrowUpRight size={9}/></button> : null}
     </div>
   </div>;
 }
@@ -125,7 +151,7 @@ function EvidenceRecord({ issue, onOpenCalendar }) {
     </div>
 
     <DuplicateReview source={source}/>
-    <DeadlineReview evidence={calendarEvidence} onOpenCalendar={onOpenCalendar}/>
+    <DeadlineReview evidence={calendarEvidence} issue={issue} onOpenCalendar={onOpenCalendar}/>
 
     {!calendarEvidence ? <>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">

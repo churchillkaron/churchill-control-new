@@ -136,6 +136,27 @@ test("Evidence controls separate filing blockers from review-only work without w
   assert.doesNotMatch(rail, /Mark reviewed|Resolve warning|Dismiss warning/);
 });
 
+test("Tax calendar authority evidence cannot present a live filing blocker as review-only or accepted override evidence", () => {
+  assert.match(rail, /function DeadlineReview\(\{ evidence, issue, onOpenCalendar \}\)/);
+  assert.match(rail, /const blocking = issue\?\.severity === "BLOCK"/);
+  assert.match(rail, /const authorityControl = issue\?\.code === "TAX_CALENDAR_AUTHORITY"/);
+  assert.match(rail, /MANUAL_JURISDICTION_REQUIRED/);
+  assert.match(rail, /Recorded date conflicts with policy/);
+  assert.match(rail, /Official confirmation required/);
+  assert.match(rail, /Statutory authority control/);
+  assert.match(rail, /Filing blocked:/);
+  assert.match(rail, /This control cannot be cleared in Evidence; filing stays blocked until live Tax preflight accepts the deadline authority\./);
+  assert.match(rail, /Authority date required/);
+  assert.match(rail, /Manual authority evidence required/);
+  assert.match(rail, /Recorded override evidence · not accepted by live preflight:/);
+  assert.match(rail, /Recorded authority evidence · not accepted by live preflight:/);
+  assert.match(rail, /Required proof:/);
+  assert.match(rail, /Blocking · filing remains unavailable until live Tax preflight accepts the authority evidence\./);
+  assert.match(rail, /blocking \? "Fix deadline authority" : "Review filing method & deadline"/);
+  assert.match(rail, /<DeadlineReview evidence=\{calendarEvidence\} issue=\{issue\} onOpenCalendar=\{onOpenCalendar\}\/>/);
+  assert.doesNotMatch(rail, /Mark authority reviewed|Acknowledge authority|Resolve authority/);
+});
+
 test("Evidence drilldown is organization-scoped, read-only and cannot mutate Business Context", () => {
   assert.match(route, /requireOrganizationAccess/);
   assert.match(route, /requireFinanceWorkspacePermission\(\{ capabilityId: "vat_returns", operation: "read", access \}\)/);

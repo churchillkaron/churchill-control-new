@@ -1,0 +1,28 @@
+name: Avantiqo Video Remote Media Identity Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/creative/release/runtime/CreativePublicationRemoteMediaIdentityRuntime.js"
+      - "tests/avantiqo-video-remote-media-identity-executed-proof.mjs"
+      - ".github/workflows/avantiqo-video-remote-media-identity-proof.yml"
+  workflow_dispatch:
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Run remote media identity proof
+        run: node tests/avantiqo-video-remote-media-identity-executed-proof.mjs
+      - name: Upload proof artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-video-remote-media-identity-proof
+          path: artifacts/video-remote-media-identity-proof
+          if-no-files-found: error

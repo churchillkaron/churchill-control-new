@@ -83,3 +83,15 @@ test("VAT close sheet explains source coverage and calculation freshness before 
   assert.match(closeSheet, /Evidence changed since the last calculation\. Recalculate before filing\./);
   assert.match(closeSheet, /Stored calculation matches the current governed evidence population\./);
 });
+
+test("VAT close sheet separates non-blocking accountant review from live blockers", () => {
+  assert.match(closeSheet, /upper\(item\.status\) === "WARNING"/);
+  assert.match(closeSheet, /Review items · non-blocking/);
+  assert.match(closeSheet, /These items need accountant attention but do not become accounting truth by being acknowledged\./);
+  assert.match(closeSheet, /Inspect review evidence/);
+  assert.match(closeSheet, /Purchase VAT · duplicate review/);
+  assert.match(closeSheet, /Filing control · statutory deadline/);
+  assert.match(closeSheet, /Warning · review only/);
+  assert.doesNotMatch(closeSheet, /Mark reviewed/);
+  assert.doesNotMatch(closeSheet, /Resolve warning/);
+});

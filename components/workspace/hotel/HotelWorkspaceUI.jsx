@@ -9,7 +9,7 @@ export const HOTEL_WORKSPACE_NAV = Object.freeze([
   { id: "housekeeping", label: "Housekeeping", route: "housekeeping" },
   { id: "maintenance", label: "Maintenance", route: "maintenance" },
   { id: "concierge", label: "Guest Requests", route: "concierge" },
-  { id: "configuration", label: "Hotel Setup", route: "configuration" },
+  { id: "configuration", label: "Hotel Setup", route: "hotel-setup" },
 ]);
 
 function clean(value) {

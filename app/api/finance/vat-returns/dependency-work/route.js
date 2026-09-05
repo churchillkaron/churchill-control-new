@@ -29,7 +29,7 @@ function upper(value) {
 
 function statusFor(message) {
   const value = String(message || "");
-  if (/permission denied|authentication|membership|ownership/i.test(value)) return 403;
+  if (/permission denied|authentication|membership|ownership|current Tax dependency owner/i.test(value)) return 403;
   if (/required|not found|scope|dependency|action|target|note|complete|resolve|close/i.test(value)) return 400;
   return 500;
 }
@@ -139,6 +139,7 @@ export async function PATCH(request) {
       .maybeSingle();
     if (existingError) throw new Error(existingError.message);
 
+    const ownedByAnother = Boolean(existing?.assigned_to && existing.assigned_to !== actorId);
     const now = new Date().toISOString();
     const next = {
       organization_id: access.organizationId,
@@ -157,16 +158,21 @@ export async function PATCH(request) {
       updated_at: now,
     };
 
-    if (action === "TAKE_OWNERSHIP") next.assigned_to = actorId;
+    if (action === "TAKE_OWNERSHIP") {
+      if (ownedByAnother) throw new Error("This Tax dependency already has a current owner; refresh before changing ownership");
+      next.assigned_to = actorId;
+    }
     if (action === "RELEASE_OWNERSHIP") {
-      if (existing?.assigned_to && existing.assigned_to !== actorId) throw new Error("Only the current Tax dependency owner can release ownership");
+      if (ownedByAnother) throw new Error("Only the current Tax dependency owner can release ownership");
       next.assigned_to = null;
     }
     if (action === "ACKNOWLEDGE") {
-      next.acknowledged_at = now;
-      next.acknowledged_by = actorId;
+      if (ownedByAnother) throw new Error("Only the current Tax dependency owner can acknowledge assigned work");
+      next.acknowledged_at = existing?.acknowledged_at || now;
+      next.acknowledged_by = existing?.acknowledged_by || actorId;
     }
     if (action === "UPDATE_COORDINATION") {
+      if (ownedByAnother) throw new Error("Only the current Tax dependency owner can update assigned coordination work");
       const targetAt = clean(body.targetAt || body.target_at) || null;
       if (targetAt && Number.isNaN(new Date(targetAt).getTime())) throw new Error("target_at must be a valid date or timestamp");
       const note = clean(body.note) || null;

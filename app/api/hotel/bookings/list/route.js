@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+const ACTIVE_TURNOVER_STATUSES = Object.freeze(["PENDING", "IN_PROGRESS", "AWAITING_INSPECTION"]);
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -40,8 +42,29 @@ export async function GET(request) {
 
     if (error) throw error;
 
+    const roomIds = [...new Set((data || []).map((booking) => booking.room_id).filter(Boolean))];
+    const turnoverByRoomId = new Map();
+
+    if (roomIds.length) {
+      const { data: turnoverTasks, error: turnoverError } = await supabaseAdmin
+        .from("hotel_housekeeping_tasks")
+        .select("id,room_id,booking_id,task_type,task_status,scheduled_at,updated_at")
+        .eq("organization_id", access.organizationId)
+        .in("room_id", roomIds)
+        .in("task_status", ACTIVE_TURNOVER_STATUSES)
+        .order("updated_at", { ascending: false });
+
+      if (turnoverError) throw turnoverError;
+      for (const task of turnoverTasks || []) {
+        if (task.room_id && !turnoverByRoomId.has(task.room_id)) {
+          turnoverByRoomId.set(task.room_id, task);
+        }
+      }
+    }
+
     const bookings = (data || []).map((booking) => ({
       ...booking,
+      room_turnover: booking.room_id ? turnoverByRoomId.get(booking.room_id) || null : null,
       arrival_readiness: evaluateHotelArrivalReadiness(booking),
     }));
 

@@ -21,11 +21,7 @@ export async function GET(request) {
       return errorResponse("organizationId required", 400);
     }
 
-    const access = await requireOrganizationAccess({
-      organizationId,
-      request,
-    });
-
+    const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) {
       return errorResponse(access.error, access.status);
     }
@@ -43,16 +39,39 @@ export async function GET(request) {
     ];
 
     let roomById = new Map();
+    let arrivalByRoomId = new Map();
 
     if (roomIds.length > 0) {
-      const { data: rooms, error: roomsError } = await supabaseAdmin
-        .from("hotel_rooms")
-        .select("id,room_number,room_type,status")
-        .eq("organization_id", access.organizationId)
-        .in("id", roomIds);
+      const today = new Date().toISOString().slice(0, 10);
+      const [{ data: rooms, error: roomsError }, { data: arrivals, error: arrivalsError }] = await Promise.all([
+        supabaseAdmin
+          .from("hotel_rooms")
+          .select("id,room_number,room_type,status")
+          .eq("organization_id", access.organizationId)
+          .in("id", roomIds),
+        supabaseAdmin
+          .from("hotel_bookings")
+          .select("id,room_id,check_in_date,check_out_date,status")
+          .eq("organization_id", access.organizationId)
+          .eq("status", "RESERVED")
+          .in("room_id", roomIds)
+          .lte("check_in_date", today)
+          .order("check_in_date", { ascending: true }),
+      ]);
 
       if (roomsError) throw roomsError;
+      if (arrivalsError) throw arrivalsError;
+
       roomById = new Map((rooms || []).map((room) => [room.id, room]));
+      for (const arrival of arrivals || []) {
+        if (arrival.room_id && !arrivalByRoomId.has(arrival.room_id)) {
+          arrivalByRoomId.set(arrival.room_id, {
+            booking_id: arrival.id,
+            check_in_date: arrival.check_in_date,
+            check_out_date: arrival.check_out_date,
+          });
+        }
+      }
     }
 
     return NextResponse.json({
@@ -61,6 +80,7 @@ export async function GET(request) {
       tasks: (tasks || []).map((task) => ({
         ...task,
         hotel_rooms: task.room_id ? roomById.get(task.room_id) || null : null,
+        arrival_waiting: task.room_id ? arrivalByRoomId.get(task.room_id) || null : null,
       })),
     });
   } catch (error) {

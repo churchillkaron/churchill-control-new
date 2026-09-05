@@ -1,0 +1,216 @@
+name: Avantiqo Investor Worldclass Hero Proof Once
+
+# One uncompromised investor-film quality audition. This invokes the already
+# deployed owned Avantiqo LTX-2.5 DFR generator with placement alternatives so
+# GPU scarcity cannot silently turn into a fake quality failure.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-worldclass-hero-proof-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-worldclass-hero-proof-once
+  cancel-in-progress: true
+
+jobs:
+  hero-proof:
+    if: github.event.head_commit.message == 'Run Avantiqo worldclass investor hero proof once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      PROOF_DIR: local-audit-output/avantiqo-investor-worldclass-hero-proof
+      REMOTE_MASTER: investor-worldclass-proof/${{ github.sha }}/hero-master-3840x2176.mp4
+      SEED: '26090541'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install proof tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          mkdir -p "$PROOF_DIR"
+
+      - name: Generate one native-4K Avantiqo hero shot
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee "$PROOF_DIR/generation.json"
+          import json
+          import os
+          import modal
+
+          instruction = (
+              "A single continuous premium cinematic tracking shot at blue-hour dawn inside a sophisticated modern hospitality business in Phuket. "
+              "A calm operations leader in contemporary tailored workwear moves through a refined glass, warm stone and brushed-metal service environment as a guest need, a precise food-service preparation moment and a fresh delivery handoff unfold naturally in the same living business. "
+              "The camera glides beside the leader, then makes one restrained arc revealing front-of-house and service operations synchronizing with quiet confidence. "
+              "Express shared intelligence only through cause-and-effect choreography, coordinated human timing and extremely subtle warm bronze reflections moving through physical space; never show a software screen or a hologram. "
+              "Near-future enterprise realism, sophisticated Asian-European architecture, realistic Phuket morning atmosphere, natural skin texture, premium wardrobe, fine material detail, anamorphic depth, controlled shallow depth of field, physically plausible light, elegant composition, serious understated performances. "
+              "The feeling is a world-class global technology launch film grounded in real human work: calm, intelligent, expensive, believable and forward-looking."
+          )
+
+          base = modal.Function.from_name(
+              "avantiqo-video-owned",
+              "generate_investor_hq_master",
+          )
+          generator = base.with_options(
+              gpu=["B200", "H200"],
+              timeout=2700,
+              max_containers=1,
+              buffer_containers=0,
+              scaledown_window=5,
+          )
+          result = generator.remote(
+              os.environ["REMOTE_MASTER"],
+              instruction,
+              8,
+              int(os.environ["SEED"]),
+          )
+          if not isinstance(result, dict) or result.get("success") is not True:
+              raise RuntimeError(f"AVANTIQO_WORLDCLASS_HERO_GENERATION_FAILED:{result}")
+          proof = {
+              "success": True,
+              "contract": "AVANTIQO_INVESTOR_WORLDCLASS_HERO_PROOF_V1",
+              "source_commit": os.environ.get("GITHUB_SHA"),
+              "generator_app": "avantiqo-video-owned",
+              "generator_function": "generate_investor_hq_master",
+              "gpu_placement_candidates": ["B200", "H200"],
+              "quality_preserved_across_gpu_fallback": True,
+              "duration_seconds_requested": 8,
+              "seed": int(os.environ["SEED"]),
+              "instruction": instruction,
+              "existing_visual_assets_used": False,
+              "screenshot_or_browser_capture_used": False,
+              "external_video_provider_used": False,
+              "automatic_paid_retry": False,
+              "result": result,
+          }
+          print(json.dumps(proof, indent=2))
+          PY
+
+      - name: Retrieve and master the generated shot
+        shell: bash
+        run: |
+          set -euo pipefail
+          modal volume get avantiqo-video-models "$REMOTE_MASTER" "$PROOF_DIR/hero-master-3840x2176.mp4" --force
+          test -s "$PROOF_DIR/hero-master-3840x2176.mp4"
+          ffmpeg -hide_banner -loglevel error -y \
+            -i "$PROOF_DIR/hero-master-3840x2176.mp4" \
+            -vf 'crop=3840:2160:0:8' \
+            -c:v libx264 -preset slow -crf 14 -pix_fmt yuv420p -an -movflags +faststart \
+            "$PROOF_DIR/avantiqo-investor-worldclass-hero-4k.mp4"
+          ffmpeg -hide_banner -loglevel error -y \
+            -i "$PROOF_DIR/avantiqo-investor-worldclass-hero-4k.mp4" \
+            -vf 'scale=1920:1080:flags=lanczos' \
+            -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -an -movflags +faststart \
+            "$PROOF_DIR/avantiqo-investor-worldclass-hero-preview-1080p.mp4"
+
+      - name: Verify exact visual proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffprobe -v error -select_streams v:0 \
+            -show_entries stream=width,height,r_frame_rate,duration \
+            -show_entries format=duration,size \
+            -of json "$PROOF_DIR/hero-master-3840x2176.mp4" \
+            > "$PROOF_DIR/source-ffprobe.json"
+          ffprobe -v error -select_streams v:0 \
+            -show_entries stream=width,height,r_frame_rate,duration \
+            -show_entries format=duration,size \
+            -of json "$PROOF_DIR/avantiqo-investor-worldclass-hero-4k.mp4" \
+            > "$PROOF_DIR/delivery-ffprobe.json"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = process.env.PROOF_DIR;
+          const generation = JSON.parse(fs.readFileSync(path.join(dir, 'generation.json'), 'utf8'));
+          const source = JSON.parse(fs.readFileSync(path.join(dir, 'source-ffprobe.json'), 'utf8'));
+          const delivery = JSON.parse(fs.readFileSync(path.join(dir, 'delivery-ffprobe.json'), 'utf8'));
+          const s = source.streams?.[0] || {};
+          const d = delivery.streams?.[0] || {};
+          const duration = Number(delivery.format?.duration || d.duration || 0);
+          if (generation.success !== true) throw new Error('GENERATION_NOT_SUCCESSFUL');
+          if (generation.result?.pipeline !== 'LTX25_DFR_DETAIL_FIDELITY') throw new Error('DFR_PIPELINE_REQUIRED');
+          if (generation.result?.dfr_used !== true) throw new Error('DFR_REQUIRED');
+          if (generation.result?.detailing_ic_lora_used !== true) throw new Error('DETAILING_IC_LORA_REQUIRED');
+          if (generation.result?.native_master_generated !== true) throw new Error('NATIVE_MASTER_REQUIRED');
+          if (generation.result?.pixel_delivery_upscale_used !== false) throw new Error('PIXEL_UPSCALE_FORBIDDEN');
+          if (generation.result?.source_visual_asset_count !== 0) throw new Error('SOURCE_VISUAL_FORBIDDEN');
+          if (generation.result?.screenshot_or_browser_capture_used !== false) throw new Error('SCREENSHOT_FORBIDDEN');
+          if (Number(s.width) !== 3840 || Number(s.height) !== 2176) throw new Error(`SOURCE_RESOLUTION_INVALID:${s.width}x${s.height}`);
+          if (Number(d.width) !== 3840 || Number(d.height) !== 2160) throw new Error(`DELIVERY_RESOLUTION_INVALID:${d.width}x${d.height}`);
+          if (Math.abs(duration - 8) > 0.35) throw new Error(`DURATION_INVALID:${duration}`);
+          const report = {
+            success: true,
+            marker: 'AVANTIQO_INVESTOR_WORLDCLASS_HERO_PROOF=PASS',
+            contract: generation.contract,
+            source_commit: process.env.GITHUB_SHA,
+            model: generation.result.model,
+            foundation_model: generation.result.foundation_model,
+            foundation_revision: generation.result.foundation_revision,
+            pipeline: generation.result.pipeline,
+            gpu_placement_candidates: generation.gpu_placement_candidates,
+            native_generation_resolution: `${s.width}x${s.height}`,
+            delivery_resolution: `${d.width}x${d.height}`,
+            actual_duration_seconds: duration,
+            seed: generation.seed,
+            dfr_used: generation.result.dfr_used,
+            detailing_ic_lora_used: generation.result.detailing_ic_lora_used,
+            pure_text_to_video: generation.result.pure_text_to_video,
+            existing_visual_assets_used: generation.existing_visual_assets_used,
+            screenshot_or_browser_capture_used: generation.screenshot_or_browser_capture_used,
+            external_video_provider_used: generation.external_video_provider_used,
+            automatic_paid_retry: generation.automatic_paid_retry,
+            modal_function_seconds: generation.result.modal_function_seconds,
+            estimated_supplier_gpu_cost_usd: generation.result.estimated_supplier_gpu_cost_usd,
+          };
+          fs.writeFileSync(path.join(dir, 'proof-report.json'), JSON.stringify(report, null, 2) + '\n');
+          console.log('AVANTIQO_INVESTOR_WORLDCLASS_HERO_PROOF=PASS');
+          console.log(`MODEL=${report.model}`);
+          console.log(`PIPELINE=${report.pipeline}`);
+          console.log(`NATIVE=${report.native_generation_resolution}`);
+          console.log(`DELIVERY=${report.delivery_resolution}`);
+          console.log(`DURATION=${report.actual_duration_seconds}`);
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-worldclass-hero-proof
+          path: |
+            local-audit-output/avantiqo-investor-worldclass-hero-proof/avantiqo-investor-worldclass-hero-4k.mp4
+            local-audit-output/avantiqo-investor-worldclass-hero-proof/avantiqo-investor-worldclass-hero-preview-1080p.mp4
+            local-audit-output/avantiqo-investor-worldclass-hero-proof/proof-report.json
+            local-audit-output/avantiqo-investor-worldclass-hero-proof/source-ffprobe.json
+            local-audit-output/avantiqo-investor-worldclass-hero-proof/delivery-ffprobe.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'EXTERNAL_VIDEO_PROVIDER_USED=false'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+          echo 'FULL_INVESTOR_FILM_GENERATION_STARTED=false'

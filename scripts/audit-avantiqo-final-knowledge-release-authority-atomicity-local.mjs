@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import "./audit-avantiqo-final-knowledge-release-immutable-receipt-local.mjs";
 
 const authRuntime = fs.readFileSync(
   "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js",
@@ -93,5 +94,8 @@ assert.match(migration, /candidate_authenticity_mac/);
 assert.match(migration, /provisional_claim_memory_key/);
 assert.match(migration, /provisional_claim_digest/);
 assert.match(migration, /final_release_authorization_one_use_consumed/);
+assert.match(migration, /platform_learning_knowledge_release_receipts/);
+assert.match(migration, /AVANTIQO_FINAL_KNOWLEDGE_RELEASE_RECEIPT_ATOMIC_BINDING_V1/);
+assert.match(migration, /trg_avantiqo_final_knowledge_release_receipt_immutable/);
 
 console.log("AVANTIQO_FINAL_KNOWLEDGE_RELEASE_AUTHORITY_ATOMICITY_CERTIFIED");

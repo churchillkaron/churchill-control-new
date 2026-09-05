@@ -1,8 +1,8 @@
 name: Avantiqo Investor HQ Visual Proof 24s Once
 
-# Dedicated native-4K DFR investor proof. A repaired run cancels an older stuck
-# run in this same isolated group before touching the shared model volume.
-# one-shot trigger: 2026-09-05-hq-dfr-v4
+# Dedicated native-4K DFR investor proof. Adapter is pre-seeded and verified on
+# the canonical Modal volume before this one-shot paid render can begin.
+# one-shot trigger: 2026-09-05-hq-dfr-v5
 on:
   push:
     branches: [main]

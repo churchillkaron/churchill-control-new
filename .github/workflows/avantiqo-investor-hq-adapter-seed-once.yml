@@ -41,9 +41,9 @@ jobs:
         run: |
           set -euo pipefail
           cd services/avantiqo-video-engine
-          SEED_B64='aW1wb3J0IG9zCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aApmcm9tIGh1Z2dpbmdmYWNlX2h1YiBpbXBvcnQgaGZfaHViX2Rvd25sb2FkCmltcG9ydCBtb2RhbF9hcHAKcm9vdCA9IFBhdGgoJy9tb2RlbHMvYXZhbnRpcW8taW52ZXN0b3ItaHEtYXNzZXRzJykKcm9vdC5ta2RpcihwYXJlbnRzPVRydWUsIGV4aXN0X29rPVRydWUpCnAgPSBQYXRoKGhmX2h1Yl9kb3dubG9hZCgKICAgIHJlcG9faWQ9J0xpZ2h0cmlja3MvTFRYLTIuNS0yMmItSUMtTG9SQS1QaXhlbC1TcGF0aWFsLVVwc2NhbGVyJywKICAgIGZpbGVuYW1lPSdsdHgtMi41LTIyYi1pYy1sb3JhLXBpeGVsLXNwYXRpYWwtdXBzY2FsZXIteDItMS4wLnNhZmV0ZW5zb3JzJywKICAgIHRva2VuPW9zLmVudmlyb24uZ2V0KCdIRl9UT0tFTicpIG9yIE5vbmUsCiAgICBsb2NhbF9kaXI9c3RyKHJvb3QpLAogICAgZXRhZ190aW1lb3V0PTE1LAopKQphc3NlcnQgcC5pc19maWxlKCkgYW5kIHAuc3RhdCgpLnN0X3NpemUgPiAwLCBwCm1vZGFsX2FwcC5tb2RlbF92b2x1bWUuY29tbWl0KCkKcHJpbnQoJ0FWQU5USVFPX0lOVkVTVE9SX0hRX0FEQVBURVJfU0VFREVEPVBBU1MnLCBwLnN0YXQoKS5zdF9zaXplLCBmbHVzaD1UcnVlKQo='
-          timeout 180s modal shell modal_investor_hq.py::seed_investor_hq_cache --no-pty -c "python -c \"import base64; exec(base64.b64decode('${SEED_B64}'))\"" | tee /tmp/hq-adapter-seed.log
-          grep -F 'AVANTIQO_INVESTOR_HQ_ADAPTER_SEEDED=PASS' /tmp/hq-adapter-seed.log >/dev/null
+          python -m py_compile modal_investor_hq_adapter_seed.py
+          timeout 240s modal run modal_investor_hq_adapter_seed.py::seed_adapter | tee /tmp/hq-adapter-seed.log
+          grep -F 'AVANTIQO_INVESTOR_HQ_ADAPTER_SEED_V1=PASS' /tmp/hq-adapter-seed.log >/dev/null
 
       - name: Verify adapter persisted on Modal Volume
         run: |

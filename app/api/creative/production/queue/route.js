@@ -69,6 +69,45 @@ export async function GET(req) {
   }
 }
 
+export async function PATCH(req) {
+  try {
+    const body = await req.json();
+    const organizationId =
+      body.organization_id ||
+      body.organizationId;
+    const projectId = creativeProjectId(body);
+
+    const access = await requireOrganizationAccess({
+      organizationId,
+    });
+
+    if (!access.success) {
+      return NextResponse.json(access, {
+        status: access.status,
+      });
+    }
+
+    const result = await ProductionRuntime.pollProduction({
+      organization_id: organizationId,
+      creative_project_id: projectId,
+    });
+
+    return NextResponse.json({
+      success: true,
+      result,
+    });
+  } catch (error) {
+    return NextResponse.json({
+      success: false,
+      error: error.message,
+      readiness: error?.readiness || null,
+      coverage: error?.coverage || null,
+    }, {
+      status: errorStatus(error),
+    });
+  }
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();

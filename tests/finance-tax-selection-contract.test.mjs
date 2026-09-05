@@ -139,7 +139,7 @@ test("Tax close guidance separates client evidence from accountant work and prot
   assert.match(closeGuidancePolicy, /never sends client communication automatically/i);
   assert.match(closeGuidanceRail, /Client evidence · accountant validates/);
   assert.match(closeGuidanceRail, /Accounting team/);
-  assert.match(closeGuidanceRail, /this panel never sends a message automatically/i);
+  assert.match(closeGuidanceRail, /No message is sent automatically/i);
   assert.doesNotMatch(closeGuidanceRail, /fetch\([^\n]*(send|remind|message)/i);
 });
 
@@ -147,7 +147,8 @@ test("Tax close guidance is bound to the exact shared filing and surfaces resolu
   assert.match(wrapper, /FinanceTaxCloseGuidanceRail/);
   assert.match(wrapper, /selectedVatReturnId=\{selectedVatReturnId\}/);
   assert.match(closeGuidanceRail, /url\.searchParams\.set\("vatReturnId", selectedVatReturnId\)/);
-  assert.match(closeGuidanceRail, /preflight\.return\.id !== selectedVatReturnId/);
+  assert.match(closeGuidanceRail, /body\.return_id !== selectedVatReturnId/);
+  assert.match(closeGuidanceRail, /body\.resolution_authority !== "LIVE_TAX_PREFLIGHT_ONLY"/);
   assert.match(closeGuidanceRail, /Resolution proof/);
   assert.match(closeGuidanceRail, /Next safe action/);
   assert.match(closeGuidanceRail, /Statutory deadline/);
@@ -179,8 +180,10 @@ test("Tax dependency work writes revalidate live accounting truth and reject man
 test("Tax dependency ownership is durable, scoped and cannot be released by another user", () => {
   assert.match(dependencyWorkMigration, /unique \(organization_id, entity_id, vat_return_id, dependency_code\)/);
   assert.match(dependencyWorkRoute, /current_user_id: access\.user\?\.id \|\| null/);
-  assert.match(dependencyWorkRoute, /if \(action === "TAKE_OWNERSHIP"\) next\.assigned_to = actorId/);
-  assert.match(dependencyWorkRoute, /existing\?\.assigned_to && existing\.assigned_to !== actorId/);
+  assert.match(dependencyWorkRoute, /const ownedByAnother = Boolean\(existing\?\.assigned_to && existing\.assigned_to !== actorId\)/);
+  assert.match(dependencyWorkRoute, /if \(action === "TAKE_OWNERSHIP"\) \{/);
+  assert.match(dependencyWorkRoute, /This Tax dependency already has a current owner; refresh before changing ownership/);
+  assert.match(dependencyWorkRoute, /next\.assigned_to = actorId/);
   assert.match(dependencyWorkRoute, /Only the current Tax dependency owner can release ownership/);
 });
 

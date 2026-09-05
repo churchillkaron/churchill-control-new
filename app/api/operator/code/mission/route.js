@@ -272,6 +272,7 @@ export async function POST(request) {
       verified_engineering_memory: result?.verified_engineering_memory || null,
       engineering_memory_utility: result?.engineering_memory_utility || null,
       formed_engineering_skills: result?.formed_engineering_skills || null,
+      engineering_skill_lifecycle: result?.engineering_skill_lifecycle || null,
       fast_start: result?.fast_start || null,
       execution_transport: result?.execution_transport || null,
       preview_service_temporarily_enabled: true,

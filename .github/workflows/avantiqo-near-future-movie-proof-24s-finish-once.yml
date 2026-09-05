@@ -1,0 +1,93 @@
+name: Avantiqo Near-Future Movie Proof 24s Finish Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-near-future-movie-proof-24s-finish-once.yml
+
+permissions:
+  contents: read
+
+env:
+  MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+  PROOF_DIR: local-audit-output/avantiqo-near-future-movie-24s
+  SOURCE_SHA: cd34116eb68736704f9a1e85fcd5435ddfebd2c4
+
+jobs:
+  finish:
+    if: github.event.head_commit.message == 'Finish near-future Avantiqo movie proof once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install finish tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          npm ci --ignore-scripts
+          mkdir -p "$PROOF_DIR"
+      - name: Retrieve existing four movie masters
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="investor-avantiqo-near-future-movie-24s/${SOURCE_SHA}"
+          for ID in 01-signal 02-ripple 03-convergence 04-human-control; do
+            modal volume get avantiqo-video-models "$ROOT/${ID}-1920x1088.mp4" "$PROOF_DIR/${ID}-1920x1088.mp4" --force
+            test -s "$PROOF_DIR/${ID}-1920x1088.mp4"
+          done
+          echo 'AVANTIQO_NEAR_FUTURE_MOVIE_MASTERS_RECOVERED=PASS'
+      - name: Finish cinematic 24-second master
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/master-avantiqo-near-future-movie-24s.mjs
+          node scripts/master-avantiqo-near-future-movie-24s.mjs
+      - name: Verify proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$PROOF_DIR/avantiqo-near-future-movie-proof-24s-1080p.mp4"
+          test -s "$PROOF_DIR/proof-report.json"
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync(process.env.PROOF_DIR+'/proof-report.json','utf8'));
+          if(!r.success) throw new Error('PROOF_NOT_SUCCESS');
+          if(r.direction!=='NEAR_FUTURE_REAL_MOVIE') throw new Error('DIRECTION_INVALID');
+          if(r.screenshots_used!==false||r.product_ui_used!==false||r.full_frame_overlay_used!==false||r.science_fiction_styling!==false) throw new Error('VISUAL_LANGUAGE_INVALID');
+          if(r.paper_document_visual_language!==false) throw new Error('PAPER_VISUAL_LANGUAGE_FORBIDDEN');
+          console.log('AVANTIQO_NEAR_FUTURE_MOVIE_PROOF=PASS');
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-near-future-movie-proof-24s
+          path: |
+            local-audit-output/avantiqo-near-future-movie-24s/avantiqo-near-future-movie-proof-24s-1080p.mp4
+            local-audit-output/avantiqo-near-future-movie-24s/proof-report.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'EXTERNAL_VIDEO_PROVIDER_USED=false'

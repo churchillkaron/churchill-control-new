@@ -1,4 +1,4 @@
-# trigger: avantiqo-product-visual-proof-v1
+# trigger: avantiqo-product-visual-proof-v2-pro-effects
 name: Avantiqo Investor Product Visual Proof 24s Once
 
 on:
@@ -61,12 +61,16 @@ jobs:
             services/avantiqo-video-engine/modal_app.py \
             services/avantiqo-video-engine/modal_investor_t2v.py \
             services/avantiqo-video-engine/investor_avantiqo_product_visual_24s.py
-          node --check scripts/master-avantiqo-investor-product-visual-proof-24s.mjs
+          node --check scripts/master-avantiqo-investor-product-visual-proof-24s-pro.mjs
           grep -F 'theme: "LIGHT_BUSINESS_OS"' lib/creative/director/runtime/AvantiqoInvestorFilmProductVisualContract.js >/dev/null
           grep -F 'screenshot-or-browser-capture' lib/creative/director/runtime/AvantiqoInvestorFilmProductVisualContract.js >/dev/null
-          grep -F 'deterministic_product_ui_used: true' scripts/master-avantiqo-investor-product-visual-proof-24s.mjs >/dev/null
-          grep -F 'bronze_decision_thread_evidence_to_consequence_to_governed_action' scripts/master-avantiqo-investor-product-visual-proof-24s.mjs >/dev/null
-          echo 'AVANTIQO_PRODUCT_VISUAL_CONTRACT_PREFLIGHT=PASS'
+          grep -F 'product_ui_physically_integrated_into_display: true' scripts/master-avantiqo-investor-product-visual-proof-24s-pro.mjs >/dev/null
+          grep -F 'product_ui_screen_perspective_used: true' scripts/master-avantiqo-investor-product-visual-proof-24s-pro.mjs >/dev/null
+          grep -F 'product_ui_screen_glass_reflection_used: true' scripts/master-avantiqo-investor-product-visual-proof-24s-pro.mjs >/dev/null
+          grep -F 'product_ui_light_spill_used: true' scripts/master-avantiqo-investor-product-visual-proof-24s-pro.mjs >/dev/null
+          grep -F 'product_ui_full_frame_overlay_used: false' scripts/master-avantiqo-investor-product-visual-proof-24s-pro.mjs >/dev/null
+          grep -F 'bronze_decision_thread_evidence_to_consequence_to_governed_action' scripts/master-avantiqo-investor-product-visual-proof-24s-pro.mjs >/dev/null
+          echo 'AVANTIQO_PRODUCT_VISUAL_PRO_EFFECTS_PREFLIGHT=PASS'
 
       - name: Recover and verify fast owned-video cache
         shell: bash
@@ -109,11 +113,11 @@ jobs:
           modal volume get avantiqo-video-models "$ROOT/04-human-control-1920x1088.mp4" "$PROOF_DIR/04-human-control-1920x1088.mp4" --force
           for file in "$PROOF_DIR"/*-1920x1088.mp4; do test -s "$file"; done
 
-      - name: Apply Avantiqo Studio product visuals and finishing
+      - name: Apply Avantiqo Studio product visuals and professional effects
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/master-avantiqo-investor-product-visual-proof-24s.mjs
+          node scripts/master-avantiqo-investor-product-visual-proof-24s-pro.mjs
 
       - name: Verify exact Avantiqo visual proof
         shell: bash
@@ -133,12 +137,17 @@ jobs:
           if (r.deterministic_product_ui_used !== true) throw new Error('DETERMINISTIC_PRODUCT_UI_REQUIRED');
           if (r.product_ui_generated_from_screenshot !== false || r.product_ui_generated_from_browser_capture !== false) throw new Error('SCREEN_CAPTURE_POLICY_FAILED');
           if (r.product_ui_text_readable_and_authored !== true) throw new Error('AUTHORED_PRODUCT_TEXT_REQUIRED');
+          if (r.product_ui_physically_integrated_into_display !== true) throw new Error('PHYSICAL_DISPLAY_INTEGRATION_REQUIRED');
+          if (r.product_ui_screen_perspective_used !== true) throw new Error('SCREEN_PERSPECTIVE_REQUIRED');
+          if (r.product_ui_screen_glass_reflection_used !== true) throw new Error('SCREEN_GLASS_REQUIRED');
+          if (r.product_ui_light_spill_used !== true) throw new Error('SCREEN_LIGHT_SPILL_REQUIRED');
+          if (r.product_ui_full_frame_overlay_used !== false) throw new Error('FULL_FRAME_PRODUCT_OVERLAY_FORBIDDEN');
           if (r.signature_device !== 'bronze_decision_thread_evidence_to_consequence_to_governed_action') throw new Error('SIGNATURE_DEVICE_INVALID');
-          if (!Array.isArray(r.finishing_layers) || r.finishing_layers.length < 7) throw new Error('PROFESSIONAL_FINISHING_REQUIRED');
+          if (!Array.isArray(r.finishing_layers) || r.finishing_layers.length < 10) throw new Error('PROFESSIONAL_FINISHING_REQUIRED');
           if (r.master_resolution !== '1920x1080') throw new Error('MASTER_RESOLUTION_INVALID');
           if (Math.abs(Number(r.duration_seconds) - 24) > 0.12) throw new Error('MASTER_DURATION_INVALID');
           if (r.viewing_copy_is_delivery_upscale !== true) throw new Error('VIEWING_COPY_TRUTH_REQUIRED');
-          console.log('AVANTIQO_INVESTOR_PRODUCT_VISUAL_24S=PASS');
+          console.log('AVANTIQO_INVESTOR_PRODUCT_VISUAL_24S_PRO=PASS');
           console.log('AVANTIQO_VISUAL_LANGUAGE=' + r.avantiqo_visual_language);
           console.log('SIGNATURE_DEVICE=' + r.signature_device);
           console.log('FINISHING_LAYERS=' + r.finishing_layers.join(','));
@@ -146,7 +155,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: avantiqo-investor-product-visual-proof-24s
+          name: avantiqo-investor-product-visual-proof-24s-pro
           path: |
             local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-investor-product-visual-proof-24s-1080p.mp4
             local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-investor-product-visual-proof-24s-4k-viewing-upscale.mp4
@@ -155,6 +164,7 @@ jobs:
             local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-ui-stage-1.png
             local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-ui-stage-2.png
             local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-ui-stage-3.png
+            local-audit-output/avantiqo-investor-product-visual-24s/avantiqo-screen-glass.png
           if-no-files-found: error
           compression-level: 0
           retention-days: 7

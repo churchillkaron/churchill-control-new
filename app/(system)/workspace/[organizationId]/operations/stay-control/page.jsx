@@ -69,6 +69,8 @@ export default function StayControlPage() {
   const folio = selected ? (data.folios || []).find((item) => item.booking_id === selected.id) : null;
   const lines = folio ? (data.folioLines || []).filter((line) => line.folio_id === folio.id && !line.voided_at) : [];
   const folioTotal = lines.reduce((sum, line) => sum + Number(line.amount || 0) + Number(line.tax_amount || 0), 0);
+  const folioClosed = folio?.status === "CLOSED";
+  const folioBalanced = Math.abs(folioTotal) <= 0.005;
   const arrivals = (data.bookings || []).filter((booking) => booking.status === "RESERVED").length;
   const inHouse = (data.bookings || []).filter((booking) => booking.status === "CHECKED_IN").length;
   const preArrivalMissing = (data.bookings || []).filter((booking) => booking.status === "RESERVED" && booking.pre_arrival_status !== "COMPLETED").length;
@@ -104,7 +106,12 @@ export default function StayControlPage() {
   async function addLine() {
     const refType = lineType.includes("REFERENCE");
     const result = await stayAction("ADD_FOLIO_LINE", { lineType, amount: Number(lineAmount), description: lineDescription, sourceType: refType ? "PAYMENT_RUNTIME" : "HOTEL", sourceId: paymentReference || null });
-    if (result) { setSuccess("Folio updated. Payment data remains referenced, not stored as raw card data."); setLineAmount(""); setLineDescription(""); setPaymentReference(""); }
+    if (result) { setSuccess(`Folio updated. Current balance ${money(result.balance, folio?.currency_code || selected?.currency_code || "THB")}.`); setLineAmount(""); setLineDescription(""); setPaymentReference(""); }
+  }
+
+  async function closeFolio() {
+    const result = await stayAction("CLOSE_FOLIO");
+    if (result) setSuccess("Folio closed at zero balance. The stay is now clear for governed checkout.");
   }
 
   async function createArrival() {
@@ -171,13 +178,18 @@ export default function StayControlPage() {
             </HotelSection>
           </div>
 
-          <HotelSection eyebrow="Guest folio" title={folio ? `${folio.status} folio · ${money(folioTotal, folio.currency_code)}` : "Open on first charge"} detail="Charges live in Hotel. Deposits/payments/refunds are referenced to Finance or the payment runtime; no raw card data is stored here.">
+          <HotelSection eyebrow="Guest folio" title={folio ? `${folio.status} · Balance ${money(folioTotal, folio.currency_code)}` : "Open on first charge"} detail="Charges stay in Hotel. Enter payment/deposit amounts as positive values; Avantiqo posts them as governed credits against the folio. Raw card data is never stored here.">
             <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 md:p-5">
-              <HotelField label="Type"><select className={hotelInputClass} value={lineType} onChange={(e) => setLineType(e.target.value)}><option>CHARGE</option><option>ADJUSTMENT</option><option>DEPOSIT_REFERENCE</option><option>PAYMENT_REFERENCE</option><option>REFUND_REFERENCE</option></select></HotelField>
-              <HotelField label="Amount"><input inputMode="decimal" className={hotelInputClass} value={lineAmount} onChange={(e) => setLineAmount(e.target.value)} placeholder="2500" /></HotelField>
-              <HotelField label="Description"><input className={hotelInputClass} value={lineDescription} onChange={(e) => setLineDescription(e.target.value)} placeholder="Room charge / deposit" /></HotelField>
-              <HotelField label="Finance / payment reference"><input className={hotelInputClass} value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder={lineType.includes("REFERENCE") ? "Required" : "Optional"} /></HotelField>
-              <div className="sm:col-span-2 lg:col-span-4"><HotelPrimaryAction disabled={saving || !lineAmount || !lineDescription || (lineType.includes("REFERENCE") && !paymentReference)} onClick={addLine}>Add folio line</HotelPrimaryAction></div>
+              <HotelField label="Type"><select className={hotelInputClass} value={lineType} onChange={(e) => setLineType(e.target.value)} disabled={folioClosed}><option>CHARGE</option><option>ADJUSTMENT</option><option>DEPOSIT_REFERENCE</option><option>PAYMENT_REFERENCE</option><option>REFUND_REFERENCE</option></select></HotelField>
+              <HotelField label="Amount"><input inputMode="decimal" className={hotelInputClass} value={lineAmount} onChange={(e) => setLineAmount(e.target.value)} placeholder="2500" disabled={folioClosed} /></HotelField>
+              <HotelField label="Description"><input className={hotelInputClass} value={lineDescription} onChange={(e) => setLineDescription(e.target.value)} placeholder="Room charge / deposit" disabled={folioClosed} /></HotelField>
+              <HotelField label="Finance / payment reference"><input className={hotelInputClass} value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder={lineType.includes("REFERENCE") ? "Required" : "Optional"} disabled={folioClosed} /></HotelField>
+              <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center gap-2">
+                <HotelPrimaryAction disabled={saving || folioClosed || !lineAmount || !lineDescription || (lineType.includes("REFERENCE") && !paymentReference)} onClick={addLine}>Add folio line</HotelPrimaryAction>
+                {folio && !folioClosed ? <HotelSecondaryAction disabled={saving || !folioBalanced} onClick={closeFolio}>Close zero-balance folio</HotelSecondaryAction> : null}
+                {folio && !folioClosed && !folioBalanced ? <span className="text-[7px] text-[#8A6350]">Settle or adjust {money(folioTotal, folio.currency_code)} before closing. Checkout is blocked while this folio remains open.</span> : null}
+                {folioClosed ? <span className="text-[7px] font-medium text-[#5F725E]">Folio locked. No further lines can be posted.</span> : null}
+              </div>
             </div>
             {lines.length ? <div className="divide-y divide-black/[0.05] border-t border-black/[0.05]">{lines.map((line) => <div key={line.id} className="grid grid-cols-[1fr_auto] gap-3 px-4 py-2.5 md:px-5"><div><div className="text-[8px] font-semibold text-[#4A453F]">{line.description}</div><div className="mt-0.5 text-[7px] text-[#99928A]">{line.line_type} {line.source_id ? `· Ref ${line.source_id}` : ""}</div></div><div className="text-[9px] font-semibold tabular-nums">{money(Number(line.amount || 0) + Number(line.tax_amount || 0), folio?.currency_code || selected.currency_code || "THB")}</div></div>)}</div> : null}
           </HotelSection>

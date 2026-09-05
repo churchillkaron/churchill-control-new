@@ -3,11 +3,29 @@ import { NextResponse } from "next/server";
 import { calculateOrganizationProfit } from "@/lib/billing/profitEngine";
 import { optimizeSaaSBusiness } from "@/lib/billing/optimizationEngine";
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
+import { requirePlatformOperatorWorkspaceAccess } from "@/lib/platform/security/requirePlatformOperatorWorkspaceAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
-export async function GET() {
+function text(value) {
+  return String(value ?? "").trim();
+}
+
+async function resolveAccess(request) {
+  const url = new URL(request.url);
+  const organizationId = text(
+    url.searchParams.get("organization_id") || url.searchParams.get("organizationId"),
+  );
+
+  if (organizationId) {
+    return requirePlatformOperatorWorkspaceAccess({ organizationId });
+  }
+
+  return requirePlatformAdminAccess();
+}
+
+export async function GET(request) {
   try {
-    const access = await requirePlatformAdminAccess();
+    const access = await resolveAccess(request);
 
     if (!access.success) {
       return NextResponse.json(
@@ -52,6 +70,9 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      operatorOrganizationId: access.isPlatformOperatorWorkspace
+        ? access.organizationId
+        : null,
       summary: {
         totalRevenue,
         totalCost,

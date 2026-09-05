@@ -10,6 +10,14 @@ const studioRoute = await readFile(
   "app/api/operator/code/mission/route.js",
   "utf8",
 );
+const studioSurface = await readFile(
+  "components/creative/code/CreativeCodeStudio.jsx",
+  "utf8",
+);
+const homeSurface = await readFile(
+  "app/(system)/workspace/[organizationId]/page.jsx",
+  "utf8",
+);
 const businessPartnerPolicy = await readFile(
   "lib/operator/runtime/OperatorSelfEngineeringPolicy.js",
   "utf8",
@@ -40,6 +48,22 @@ test("Code Studio is bound to the same certified Avantiqo Code identity", () => 
   assert.match(studioRoute, /production_routing_activated:\s*false/);
   assert.match(studioRoute, /commit_performed:\s*false/);
   assert.match(studioRoute, /production_deploy_performed:\s*false/);
+});
+
+test("Code Studio follows shared governed Code missions and keeps Business Partner as the steering surface", () => {
+  assert.match(studioSurface, /\/api\/operator\/code\/progress/);
+  assert.match(studioSurface, /progressIsActive/);
+  assert.match(studioSurface, /data-avantiqo-shared-code-mission="true"/);
+  assert.match(studioSurface, /data-avantiqo-business-partner-link="true"/);
+  assert.match(studioSurface, /Steer in Business Partner/);
+  assert.match(studioSurface, /Following active mission/);
+  assert.match(studioSurface, /no commit · no deploy/);
+});
+
+test("Home Business Partner remains the primary operator surface", () => {
+  assert.match(homeSurface, /HomeAvantiqoIntelligenceDock/);
+  assert.match(homeSurface, /One operator\. Every capability\./);
+  assert.match(homeSurface, /The global command bar and this conversation are the same operator\./);
 });
 
 test("Business Partner code requests converge through Product Engineering into Code AI", () => {

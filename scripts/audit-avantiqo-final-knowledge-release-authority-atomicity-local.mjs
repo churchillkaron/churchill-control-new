@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { spawnSync } from "node:child_process";
 import "./audit-avantiqo-final-knowledge-release-immutable-receipt-local.mjs";
 
 const authRuntime = fs.readFileSync(
@@ -123,8 +124,32 @@ assert.doesNotMatch(
   /memory_scope", AVANTIQO_FINAL_KNOWLEDGE_RELEASE_RECEIPT_SCOPE\)[\s\S]{0,220}\.limit\(MAX_CANDIDATES\)/,
 );
 
+function runPostgresCertification() {
+  const script = "scripts/certify-avantiqo-final-knowledge-release-postgres-local.mjs";
+  let last = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    last = spawnSync(process.execPath, [script], {
+      encoding: "utf8",
+      env: process.env,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    if (last.status === 0) {
+      process.stdout.write(last.stdout || "");
+      process.stderr.write(last.stderr || "");
+      return;
+    }
+    const diagnostic = `${last.stdout || ""}\n${last.stderr || ""}`;
+    const initializationRace = /database "avantiqo_final_release_cert" does not exist/.test(diagnostic);
+    if (!initializationRace || attempt === 3) {
+      process.stdout.write(last.stdout || "");
+      process.stderr.write(last.stderr || "");
+      assert.fail(`PostgreSQL certification failed with exit ${last.status}`);
+    }
+  }
+}
+
 if (process.env.CI === "true") {
-  await import("./certify-avantiqo-final-knowledge-release-postgres-local.mjs");
+  runPostgresCertification();
 }
 
 console.log("AVANTIQO_FINAL_KNOWLEDGE_RELEASE_AUTHORITY_ATOMICITY_CERTIFIED");

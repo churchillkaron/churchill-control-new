@@ -1,0 +1,34 @@
+name: Hotel OTA Contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/api/hotel/channels/**'
+      - 'app/api/hotel/rates/**'
+      - 'lib/hotel/channels/**'
+      - 'supabase/migrations/*hotel_ota*'
+      - 'tests/hotel-*.test.mjs'
+      - '.github/workflows/hotel-ota-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hotel-ota-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Hotel OTA governance and Booking.com contracts
+        run: >-
+          node --test
+          tests/hotel-channel-readiness.test.mjs
+          tests/hotel-ota-governance-contract.test.mjs
+          tests/hotel-booking-com-transport-contract.test.mjs

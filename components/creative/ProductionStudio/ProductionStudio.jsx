@@ -1,6 +1,7 @@
 "use client";
 
 import { useCreativeEditor } from "./hooks/useCreativeEditor";
+import { useCreativeOrchestration } from "./hooks/useCreativeOrchestration";
 import {
   resolveCreativeCommands,
 } from "@/lib/creative/studio/commands/CreativeCommandResolver";
@@ -16,19 +17,26 @@ export default function ProductionStudio({
   runtime,
 }) {
   const editor = useCreativeEditor(runtime);
+  const orchestration = useCreativeOrchestration(runtime);
+
+  const refresh = async () => {
+    editor.refresh();
+    await orchestration.refresh({ quiet: true });
+  };
 
   const liveRuntime = {
     ...runtime,
+    orchestrationRuntime: orchestration,
     commands: resolveCreativeCommands({
       commands: runtime.commands || [],
       runtime: {
         ...runtime,
-        refresh: editor.refresh,
+        refresh,
       },
       editor,
     }),
-    refresh: editor.refresh,
-    refreshing: editor.refreshing,
+    refresh,
+    refreshing: editor.refreshing || orchestration.loading,
   };
 
   const activeWorkspace =

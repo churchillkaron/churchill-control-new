@@ -56,3 +56,12 @@ test("Tax truth and work rails share the exact filing but keep separate responsi
   assert.match(workRail, /Resolution authority: live Tax preflight only/);
   assert.doesNotMatch(workRail, />\s*(Mark complete|Resolve dependency|Complete dependency)\s*</i);
 });
+
+test("Colleague-owned Tax dependency coordination is visibly read-only", () => {
+  assert.match(workRail, /const readOnly = ownedByOther/);
+  assert.match(workRail, /Read-only while owned by colleague/);
+  assert.match(workRail, /disabled=\{busyCode === dependency\.code \|\| readOnly\}/);
+  assert.match(workRail, /type="date" value=\{draft\.target_at\} disabled=\{readOnly\}/);
+  assert.match(workRail, /value=\{draft\.note\} disabled=\{readOnly\}/);
+  assert.match(workRail, /only the current owner can change assigned work/i);
+});

@@ -4,6 +4,7 @@ import test from "node:test";
 
 const migration = fs.readFileSync("supabase/migrations/20260905210000_hotel_stay_extension_guard.sql", "utf8");
 const route = fs.readFileSync("app/api/hotel/bookings/extend/route.js", "utf8");
+const frontDesk = fs.readFileSync("app/(system)/workspace/[organizationId]/operations/front-desk/page.jsx", "utf8");
 
 test("stay extension is an atomic checked-in inventory decision", () => {
   assert.match(migration, /hotel_extend_checked_in_stay_guarded/);
@@ -37,4 +38,13 @@ test("extension API scopes from the authoritative booking and calls the guarded 
   assert.match(route, /p_organization_id: access\.organizationId/);
   assert.match(route, /Only a checked-in stay can be extended/);
   assert.match(route, /HOTEL_INVENTORY_CONFLICT/);
+});
+
+test("Front Desk resolves a due-out through an explicit governed extension", () => {
+  assert.match(frontDesk, /Extend stay/);
+  assert.match(frontDesk, /\/api\/hotel\/bookings\/extend/);
+  assert.match(frontDesk, /type="date"/);
+  assert.match(frontDesk, /min=\{nextDate\(booking\.check_out_date\)\}/);
+  assert.match(frontDesk, /Pricing and folio are not changed automatically/);
+  assert.match(frontDesk, /room-type capacity and protected group inventory/);
 });

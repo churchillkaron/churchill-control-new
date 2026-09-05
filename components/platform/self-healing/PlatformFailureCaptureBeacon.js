@@ -32,7 +32,6 @@ export default function PlatformFailureCaptureBeacon({
     if (sent.has(key)) return;
     sent.add(key);
 
-    const controller = new AbortController();
     fetch("/api/platform/self-healing/capture", {
       method: "POST",
       credentials: "same-origin",
@@ -48,12 +47,9 @@ export default function PlatformFailureCaptureBeacon({
         workspace: text(workspace, 240) || null,
         action: text(action, 240) || null,
       }),
-      signal: controller.signal,
     }).catch(() => {
       sent.delete(key);
     });
-
-    return () => controller.abort();
   }, [category, errorMessage, digest, statusCode, capability, workspace, action]);
 
   return null;

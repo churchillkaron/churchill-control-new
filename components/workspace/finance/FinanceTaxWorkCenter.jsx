@@ -4,8 +4,7 @@ import { useState } from "react";
 import FinanceTaxLegacyWorkCenter from "./FinanceTaxLegacyWorkCenter";
 import FinanceTaxReturnCloseSheet from "./FinanceTaxReturnCloseSheet";
 import FinanceTaxCalendarRail from "./FinanceTaxCalendarRail";
-import FinanceTaxAmendmentRail from "./FinanceTaxAmendmentRail";
-import FinanceTaxSettlementRail from "./FinanceTaxSettlementRail";
+import FinanceTaxPostFilingWorkspace from "./FinanceTaxPostFilingWorkspace";
 import FinanceTaxPortfolioRail from "./FinanceTaxPortfolioRail";
 import FinanceTaxCloseIntelligenceRail from "./FinanceTaxCloseIntelligenceRail";
 import FinanceTaxEvidenceDrilldownRail from "./FinanceTaxEvidenceDrilldownRail";
@@ -93,10 +92,13 @@ export default function FinanceTaxWorkCenter(props) {
 
       {activeStage === "EVIDENCE" ? <FinanceTaxEvidenceDrilldownRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} /> : null}
 
-      {activeStage === "AFTER" ? <>
-        <FinanceTaxAmendmentRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-        <FinanceTaxSettlementRail organizationId={props.organizationId} entityId={props.entityId} selectedVatReturnId={selectedVatReturnId} />
-      </> : null}
+      {/* AFTER delegates the governed FinanceTaxAmendmentRail and FinanceTaxSettlementRail controls to one post-filing workspace so they never compete as stacked primary surfaces. */}
+      {activeStage === "AFTER" ? <FinanceTaxPostFilingWorkspace
+        organizationId={props.organizationId}
+        entityId={props.entityId}
+        selectedVatReturnId={selectedVatReturnId}
+        onStageChange={setActiveStage}
+      /> : null}
     </>
   );
 }

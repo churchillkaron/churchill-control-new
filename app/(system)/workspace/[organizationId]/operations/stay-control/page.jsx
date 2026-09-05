@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 import {
   HotelEmptyState, HotelError, HotelField, HotelMetric, HotelPrimaryAction, HotelSecondaryAction,
@@ -21,7 +21,10 @@ function money(value, currency = "THB") {
 
 export default function StayControlPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const organizationId = String(params?.organizationId || "");
+  const requestedPropertyId = searchParams?.get("propertyId") || "";
+  const requestedBookingId = searchParams?.get("bookingId") || "";
   const [properties, setProperties] = useState([]);
   const [propertyId, setPropertyId] = useState("");
   const [data, setData] = useState({ bookings: [], guests: [], rooms: [], folios: [], folioLines: [], roomMoves: [], offers: [], bookingUpsells: [] });
@@ -44,10 +47,19 @@ export default function StayControlPage() {
   useEffect(() => {
     let active = true;
     api(`/api/hotel/properties/list?organizationId=${encodeURIComponent(organizationId)}`)
-      .then((payload) => { if (!active) return; const list = payload.properties || []; setProperties(list); setPropertyId(list[0]?.id || ""); })
+      .then((payload) => {
+        if (!active) return;
+        const list = payload.properties || [];
+        setProperties(list);
+        setPropertyId((current) => {
+          if (requestedPropertyId && list.some((item) => item.id === requestedPropertyId)) return requestedPropertyId;
+          if (current && list.some((item) => item.id === current)) return current;
+          return list[0]?.id || "";
+        });
+      })
       .catch((reason) => active && setError(reason.message));
     return () => { active = false; };
-  }, [organizationId]);
+  }, [organizationId, requestedPropertyId]);
 
   const load = useCallback(async () => {
     if (!propertyId) { setLoading(false); return; }
@@ -55,9 +67,13 @@ export default function StayControlPage() {
     try {
       const payload = await api(`/api/hotel/stays?organizationId=${encodeURIComponent(organizationId)}&propertyId=${encodeURIComponent(propertyId)}`);
       setData(payload);
-      setSelectedId((current) => current && payload.bookings?.some((booking) => booking.id === current) ? current : payload.bookings?.[0]?.id || "");
+      setSelectedId((current) => {
+        if (requestedBookingId && payload.bookings?.some((booking) => booking.id === requestedBookingId)) return requestedBookingId;
+        if (current && payload.bookings?.some((booking) => booking.id === current)) return current;
+        return payload.bookings?.[0]?.id || "";
+      });
     } catch (reason) { setError(reason.message); } finally { setLoading(false); }
-  }, [organizationId, propertyId]);
+  }, [organizationId, propertyId, requestedBookingId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -143,7 +159,7 @@ export default function StayControlPage() {
       </div>
 
       <HotelSection eyebrow="Property" title="Stay control scope">
-        <div className="p-4 md:max-w-sm md:p-5"><HotelField label="Property"><select className={hotelInputClass} value={propertyId} onChange={(e) => setPropertyId(e.target.value)}><option value="">Choose property</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select></HotelField></div>
+        <div className="p-4 md:max-w-sm md:p-5"><HotelField label="Property"><select className={hotelInputClass} value={propertyId} onChange={(e) => { setPropertyId(e.target.value); setSelectedId(""); }}><option value="">Choose property</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select></HotelField></div>
       </HotelSection>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(360px,0.72fr)_minmax(0,1.28fr)]">

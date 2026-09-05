@@ -40,6 +40,8 @@ export default function HotelPaymentsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const organizationId = String(params?.organizationId || "");
+  const requestedPropertyId = searchParams?.get("propertyId") || "";
+  const requestedBookingId = searchParams?.get("bookingId") || "";
   const [properties, setProperties] = useState([]);
   const [propertyId, setPropertyId] = useState("");
   const [stays, setStays] = useState({ bookings: [], guests: [] });
@@ -59,10 +61,14 @@ export default function HotelPaymentsPage() {
       .then((payload) => {
         const list = payload.properties || [];
         setProperties(list);
-        setPropertyId((current) => current || list[0]?.id || "");
+        setPropertyId((current) => {
+          if (requestedPropertyId && list.some((item) => item.id === requestedPropertyId)) return requestedPropertyId;
+          if (current && list.some((item) => item.id === current)) return current;
+          return list[0]?.id || "";
+        });
       })
       .catch((reason) => setError(reason.message));
-  }, [organizationId]);
+  }, [organizationId, requestedPropertyId]);
 
   const load = useCallback(async () => {
     if (!propertyId) { setLoading(false); return; }
@@ -75,9 +81,8 @@ export default function HotelPaymentsPage() {
       ]);
       setStays(stayPayload);
       setTransactions(paymentPayload.transactions || []);
-      const requestedBooking = searchParams?.get("bookingId") || "";
       setBookingId((current) => {
-        if (requestedBooking && stayPayload.bookings?.some((item) => item.id === requestedBooking)) return requestedBooking;
+        if (requestedBookingId && stayPayload.bookings?.some((item) => item.id === requestedBookingId)) return requestedBookingId;
         if (current && stayPayload.bookings?.some((item) => item.id === current)) return current;
         return stayPayload.bookings?.[0]?.id || "";
       });
@@ -86,7 +91,7 @@ export default function HotelPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [organizationId, propertyId, searchParams]);
+  }, [organizationId, propertyId, requestedBookingId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -116,15 +121,7 @@ export default function HotelPaymentsPage() {
       const payload = await api("/api/hotel/payments", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          organizationId,
-          bookingId: booking.id,
-          action: "CREATE_CHECKOUT",
-          transactionType,
-          amount: Number(amount),
-          description,
-          idempotencyKey: crypto.randomUUID(),
-        }),
+        body: JSON.stringify({ organizationId, bookingId: booking.id, action: "CREATE_CHECKOUT", transactionType, amount: Number(amount), description, idempotencyKey: crypto.randomUUID() }),
       });
       if (!payload.checkoutUrl) throw new Error("Payment provider did not return a hosted checkout URL");
       window.location.assign(payload.checkoutUrl);
@@ -143,14 +140,7 @@ export default function HotelPaymentsPage() {
       const payload = await api("/api/hotel/payments", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          organizationId,
-          bookingId: transaction.booking_id,
-          action: "REFUND",
-          transactionId: transaction.id,
-          amount: refundAmount,
-          idempotencyKey: crypto.randomUUID(),
-        }),
+        body: JSON.stringify({ organizationId, bookingId: transaction.booking_id, action: "REFUND", transactionId: transaction.id, amount: refundAmount, idempotencyKey: crypto.randomUUID() }),
       });
       setRefundAmounts((current) => ({ ...current, [transaction.id]: "" }));
       setSuccess(payload.refund?.status === "succeeded"

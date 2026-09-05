@@ -14,6 +14,12 @@ import {
   compactProductEngineeringPortfolio,
   AVANTIQO_PRODUCT_ENGINEERING_PORTFOLIO_CONTRACT,
 } from "@/lib/intelligence/runtime/AvantiqoProductEngineeringPortfolioRuntime";
+import {
+  attachOwnerControlToProductEngineeringPortfolioProjection,
+  governProductEngineeringPortfolioWithOwnerControl,
+  loadProductEngineeringPortfolioOwnerControl,
+  AVANTIQO_PRODUCT_ENGINEERING_PORTFOLIO_OWNER_CONTROL_CONTRACT,
+} from "@/lib/intelligence/runtime/AvantiqoProductEngineeringPortfolioOwnerControlRuntime";
 
 const REQUIRED_PERMISSION = "platform.code.ai.execute";
 
@@ -49,6 +55,7 @@ function safePortfolioUnavailable(error) {
     unavailable: true,
     failure_reason: text(error?.message || error).slice(0, 500) || null,
     roadmap: [],
+    owner_control: null,
     current_main_is_authoritative: true,
     queued_objectives_are_provisional: true,
     raw_source_persisted: false,
@@ -58,6 +65,31 @@ function safePortfolioUnavailable(error) {
     automatic_deploy_allowed: false,
     authorization_effect: "NONE",
   };
+}
+
+async function visiblePortfolio({ context, loaded }) {
+  if (loaded?.error) return safePortfolioUnavailable(loaded.error);
+  if (!loaded?.found || !loaded.portfolio) return null;
+  try {
+    const controlLoaded = await loadProductEngineeringPortfolioOwnerControl({
+      context,
+      portfolioId: loaded.portfolio.portfolio_id,
+    });
+    const governed = governProductEngineeringPortfolioWithOwnerControl(
+      loaded.portfolio,
+      controlLoaded.control,
+    );
+    return {
+      ...attachOwnerControlToProductEngineeringPortfolioProjection({
+        compactPortfolio: compactProductEngineeringPortfolio(governed),
+        governedPortfolio: governed,
+        control: controlLoaded.control,
+      }),
+      found: true,
+    };
+  } catch (error) {
+    return safePortfolioUnavailable(error);
+  }
 }
 
 export async function GET(request) {
@@ -99,14 +131,10 @@ export async function GET(request) {
       })),
     ]);
     const progress = loaded.live_progress || null;
-    const productEngineeringPortfolio = portfolioLoaded?.error
-      ? safePortfolioUnavailable(portfolioLoaded.error)
-      : portfolioLoaded?.found && portfolioLoaded.portfolio
-        ? {
-            ...compactProductEngineeringPortfolio(portfolioLoaded.portfolio),
-            found: true,
-          }
-        : null;
+    const productEngineeringPortfolio = await visiblePortfolio({
+      context,
+      loaded: portfolioLoaded,
+    });
 
     let engineeringIntelligence = {
       contract: CODE_AI_ENGINEERING_SKILL_VISIBLE_RECEIPT_CONTRACT,
@@ -172,8 +200,12 @@ export async function GET(request) {
       product_engineering_portfolio: productEngineeringPortfolio,
       product_engineering_portfolio_contract:
         AVANTIQO_PRODUCT_ENGINEERING_PORTFOLIO_CONTRACT,
+      product_engineering_portfolio_owner_control_contract:
+        AVANTIQO_PRODUCT_ENGINEERING_PORTFOLIO_OWNER_CONTROL_CONTRACT,
       portfolio_current_main_is_authoritative: true,
       portfolio_queued_objectives_are_provisional: true,
+      portfolio_current_objective_immutable_once_claimed: true,
+      portfolio_owner_controls_future_execution_order_only: true,
       portfolio_parallel_code_execution_allowed: false,
       portfolio_automatic_commit_allowed: false,
       portfolio_production_deployment_allowed: false,

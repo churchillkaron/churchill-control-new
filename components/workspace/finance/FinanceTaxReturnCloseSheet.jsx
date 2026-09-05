@@ -33,13 +33,23 @@ function date(value) {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(parsed);
 }
 
-function daysToDue(value) {
-  if (!value) return null;
-  const due = new Date(`${String(value).slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(due.getTime())) return null;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.ceil((due.getTime() - today.getTime()) / 86400000);
+function isoUtc(value) {
+  const match = String(value ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const valueUtc = Date.UTC(year, month - 1, day);
+  const parsed = new Date(valueUtc);
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return null;
+  return valueUtc;
+}
+
+function daysBetweenIso(fromDate, toDate) {
+  const from = isoUtc(fromDate);
+  const to = isoUtc(toDate);
+  if (from === null || to === null) return null;
+  return Math.round((to - from) / 86400000);
 }
 
 async function requestJson(url, options = {}) {
@@ -98,7 +108,7 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
   const currency = snapshot?.entity?.functional_currency || vatReturn?.currency_code || "THB";
   const state = upper(snapshot?.state || vatReturn?.status);
   const blockers = useMemo(() => (snapshot?.checks || []).filter(item => upper(item.status) === "BLOCK"), [snapshot?.checks]);
-  const dueDays = daysToDue(vatReturn?.filing_due_date);
+  const dueDays = daysBetweenIso(snapshot?.due?.legal_date, vatReturn?.filing_due_date);
   const payable = Number(snapshot?.current?.tax_payable || 0);
   const refund = Number(snapshot?.current?.tax_refund || 0);
   const previousAdjustment = Number(snapshot?.current?.previous_period_adjustment);
@@ -154,7 +164,6 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
   const submitted = upper(vatReturn?.status) === "SUBMITTED";
   const needsFix = !submitted && (blockers.length > 0 || !snapshot.ready_to_calculate);
   const canSubmit = !submitted && snapshot.ready_to_submit === true;
-  const needsCalculation = !submitted && !needsFix && !canSubmit;
   const primaryLabel = submitted
     ? "Continue to amendment & settlement"
     : needsFix
@@ -181,7 +190,10 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
             <div className="mt-1 flex flex-wrap items-center gap-2"><h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#26231F]">{vatReturn.jurisdiction_code || "VAT"} · {date(vatReturn.period_start)} — {date(vatReturn.period_end)}</h2><span className={`rounded-md border px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.08em] ${tone(state)}`}>{state.replaceAll("_", " ") || "DRAFT"}</span></div>
             <div className="mt-1 text-[9px] text-[#817B73]">One filing, one current accounting truth, one next action.</div>
           </div>
-          <button onClick={primaryAction} disabled={busy || loading} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{busy ? <RefreshCw size={12} className="animate-spin" /> : submitted ? <FileCheck2 size={12} /> : needsFix ? <AlertTriangle size={12} /> : <ArrowRight size={12} />}{busy ? "Working…" : primaryLabel}</button>
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <button onClick={() => onStageChange?.("EVIDENCE")} disabled={busy || loading} className="h-9 rounded-lg border border-black/[0.09] bg-white px-3 text-[10px] font-semibold text-[#4B4640] disabled:cursor-not-allowed disabled:opacity-40">Inspect evidence</button>
+            <button onClick={primaryAction} disabled={busy || loading} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#1F1E1B] px-3.5 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{busy ? <RefreshCw size={12} className="animate-spin" /> : submitted ? <FileCheck2 size={12} /> : needsFix ? <AlertTriangle size={12} /> : <ArrowRight size={12} />}{busy ? "Working…" : primaryLabel}</button>
+          </div>
         </div>
 
         <div className={`grid gap-px bg-black/[0.06] ${hasPreviousAdjustment ? "sm:grid-cols-3 xl:grid-cols-6" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
@@ -189,7 +201,7 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
           <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Input VAT</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{money(snapshot.current?.input_tax, currency)}</div></div>
           <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Net position</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{payable > 0 ? `${money(payable, currency)} payable` : refund > 0 ? `${money(refund, currency)} refund` : money(0, currency)}</div></div>
           {hasPreviousAdjustment ? <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Prior adjustment</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{money(previousAdjustment, currency)}</div></div> : null}
-          <div className="bg-[#FAF9F7] p-3"><div className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]"><CalendarClock size={10} /> Deadline</div><div className="mt-1 text-[13px] font-semibold text-[#2E2A26]">{date(vatReturn.filing_due_date)}</div><div className={`mt-0.5 text-[8px] ${dueDays !== null && dueDays < 0 ? "text-red-800" : "text-[#817B73]"}`}>{dueDays === null ? "Deadline evidence pending" : dueDays < 0 ? `${Math.abs(dueDays)} day${Math.abs(dueDays) === 1 ? "" : "s"} overdue` : dueDays === 0 ? "Due today" : `${dueDays} day${dueDays === 1 ? "" : "s"} remaining`}</div></div>
+          <div className="bg-[#FAF9F7] p-3"><div className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]"><CalendarClock size={10} /> Deadline</div><div className="mt-1 text-[13px] font-semibold text-[#2E2A26]">{date(vatReturn.filing_due_date)}</div><div className={`mt-0.5 text-[8px] ${dueDays !== null && dueDays < 0 ? "text-red-800" : "text-[#817B73]"}`}>{dueDays === null ? "Governed legal date unavailable" : dueDays < 0 ? `${Math.abs(dueDays)} day${Math.abs(dueDays) === 1 ? "" : "s"} overdue` : dueDays === 0 ? "Due today" : `${dueDays} day${dueDays === 1 ? "" : "s"} remaining`}{snapshot?.due?.legal_time_zone ? ` · ${snapshot.due.legal_time_zone}` : ""}</div></div>
           <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Readiness</div><div className={`mt-1 inline-flex items-center gap-1 text-[11px] font-semibold ${submitted || canSubmit ? "text-emerald-800" : needsFix ? "text-red-800" : "text-amber-900"}`}>{submitted || canSubmit ? <CheckCircle2 size={12} /> : needsFix ? <AlertTriangle size={12} /> : <RefreshCw size={12} />}{submitted ? "Filed" : canSubmit ? "Ready to file" : needsFix ? "Needs attention" : "Ready to calculate"}</div><div className="mt-0.5 text-[8px] text-[#817B73]">{blockers.length ? `${blockers.length} live blocker${blockers.length === 1 ? "" : "s"}` : snapshot.calculation_stale ? "Source evidence changed" : "Live preflight current"}</div></div>
         </div>
 

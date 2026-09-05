@@ -47,11 +47,24 @@ export default function FinanceTaxWorkCenter(props) {
           selectedVatReturnId={selectedVatReturnId}
           onStageChange={setActiveStage}
         />
-        <FinanceTaxLegacyWorkCenter
-          {...props}
-          selectedVatReturnId={selectedVatReturnId}
-          onSelectedVatReturnIdChange={setSelectedVatReturnId}
-        />
+        <details className="mx-auto mt-3 max-w-[1760px] overflow-hidden rounded-xl border border-black/[0.07] bg-white shadow-[0_6px_24px_rgba(35,31,27,0.025)]">
+          <summary className="cursor-pointer list-none px-4 py-3 outline-none marker:hidden">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#817B73]">Filing register & detailed source evidence</div>
+                <div className="mt-0.5 text-[10px] text-[#817B73]">Open only to create another filing, switch periods, or inspect the detailed source preview. The VAT close sheet remains the primary filing control.</div>
+              </div>
+              <span className="shrink-0 text-[9px] font-semibold text-[#8C6036]">Open filing register</span>
+            </div>
+          </summary>
+          <div className="border-t border-black/[0.07]">
+            <FinanceTaxLegacyWorkCenter
+              {...props}
+              selectedVatReturnId={selectedVatReturnId}
+              onSelectedVatReturnIdChange={setSelectedVatReturnId}
+            />
+          </div>
+        </details>
       </> : null}
 
       {activeStage === "FIX" ? <>

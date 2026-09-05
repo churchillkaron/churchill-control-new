@@ -10,6 +10,18 @@ const studioRoute = await readFile(
   "app/api/operator/code/mission/route.js",
   "utf8",
 );
+const interventionRoute = await readFile(
+  "app/api/operator/code/intervention/route.js",
+  "utf8",
+);
+const interventionRuntime = await readFile(
+  "lib/code/runtime/CodeAIOwnerInterventionRuntime.js",
+  "utf8",
+);
+const workPackageRuntime = await readFile(
+  "lib/code/runtime/CodeAIWorkPackageRuntime.js",
+  "utf8",
+);
 const studioSurface = await readFile(
   "components/creative/code/CreativeCodeStudio.jsx",
   "utf8",
@@ -86,6 +98,37 @@ test("Home Business Partner remains the primary operator surface and exposes Cod
   assert.match(businessPartnerCodeSurface, /RECENT_VISIBLE_MS/);
 });
 
+test("Business Partner can steer the same active Code mission at governed safe boundaries", () => {
+  assert.match(businessPartnerCodeSurface, /\/api\/operator\/code\/intervention/);
+  assert.match(businessPartnerCodeSurface, /data-avantiqo-code-steering="true"/);
+  assert.match(businessPartnerCodeSurface, /next safe engineering boundary/i);
+  assert.match(businessPartnerCodeSurface, /same mission/i);
+  assert.match(interventionRoute, /loadCodeAILiveProgress/);
+  assert.match(interventionRoute, /LIVE_MISSION_MISMATCH/);
+  assert.match(interventionRoute, /queued_for_safe_boundary/);
+  assert.match(workPackageRuntime, /claimPendingCodeAIOwnerIntervention/);
+  assert.match(workPackageRuntime, /LATEST OWNER STEERING/);
+  assert.match(workPackageRuntime, /owner_intervention_starts_second_mission:\s*false/);
+  assert.match(workPackageRuntime, /applied_at_safe_boundary/);
+});
+
+test("Business Partner exposes delta visibility and verified preview review without granting persistence authority", () => {
+  assert.match(businessPartnerCodeSurface, /steerBaseline/);
+  assert.match(businessPartnerCodeSurface, /Since then:/);
+  assert.match(businessPartnerCodeSurface, /data-avantiqo-code-review="true"/);
+  assert.match(businessPartnerCodeSurface, /Approve preview/);
+  assert.match(businessPartnerCodeSurface, /Request changes/);
+  assert.match(businessPartnerCodeSurface, /no commit or deploy authority/i);
+  assert.match(interventionRoute, /APPROVE_PATCH/);
+  assert.match(interventionRoute, /latest_verification_passed !== true/);
+  assert.match(interventionRoute, /persistent_source_changed:\s*false/);
+  assert.match(interventionRoute, /commit_performed:\s*false/);
+  assert.match(interventionRoute, /production_deploy_performed:\s*false/);
+  assert.match(interventionRuntime, /authorization_effect:\s*"NONE"/);
+  assert.match(interventionRuntime, /commit_authority:\s*false/);
+  assert.match(interventionRuntime, /production_deploy_authority:\s*false/);
+});
+
 test("Business Partner code requests converge through Product Engineering into Code AI", () => {
   assert.match(
     businessPartnerPolicy,
@@ -112,4 +155,6 @@ test("surface convergence does not grant production authority", () => {
   assert.match(studioRoute, /external_fallback_allowed:\s*false/);
   assert.match(productEngineering, /productionDeploymentAllowed:\s*false/);
   assert.match(productEngineering, /databaseMigrationExecutionAllowed:\s*false/);
+  assert.match(interventionRoute, /commit_authority:\s*false/);
+  assert.match(interventionRoute, /production_deploy_authority:\s*false/);
 });

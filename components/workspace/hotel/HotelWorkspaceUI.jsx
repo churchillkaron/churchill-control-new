@@ -8,6 +8,7 @@ export const HOTEL_WORKSPACE_NAV = Object.freeze([
   { id: "reservations", label: "Reservations", route: "reservations" },
   { id: "groups", label: "Groups", route: "group-reservations" },
   { id: "stays", label: "Guests & Stays", route: "stay-control" },
+  { id: "payments", label: "Payments", route: "hotel-payments" },
   { id: "offers", label: "Offers", route: "hotel-offers" },
   { id: "channels", label: "Channels & Rates", route: "channel-manager" },
   { id: "housekeeping", label: "Housekeeping", route: "housekeeping" },
@@ -136,11 +137,11 @@ export function HotelSection({ eyebrow, title, detail = null, action = null, chi
 export function HotelStatusPill({ value, tone = null }) {
   const normalized = clean(value).toUpperCase();
   const inferred = tone || (
-    ["COMPLETED", "CHECKED_IN", "AVAILABLE", "READY", "INSPECTED", "ACTIVE", "CLOSED", "CONFIRMED", "IN_HOUSE"].includes(normalized)
+    ["COMPLETED", "CHECKED_IN", "AVAILABLE", "READY", "INSPECTED", "ACTIVE", "CLOSED", "CONFIRMED", "IN_HOUSE", "SETTLED", "PAID"].includes(normalized)
       ? "good"
-      : ["PENDING", "DIRTY", "DUE", "RESERVED", "PENDING_SETUP", "AWAITING_CONNECTIVITY", "PROSPECT", "TENTATIVE"].includes(normalized)
+      : ["PENDING", "DIRTY", "DUE", "RESERVED", "PENDING_SETUP", "AWAITING_CONNECTIVITY", "PROSPECT", "TENTATIVE", "PARTIAL"].includes(normalized)
         ? "warning"
-        : ["OUT_OF_SERVICE", "BLOCKED", "CANCELLED", "OVERDUE", "FAILED", "RETRY_REQUIRED", "LOST"].includes(normalized)
+        : ["OUT_OF_SERVICE", "BLOCKED", "CANCELLED", "OVERDUE", "FAILED", "RETRY_REQUIRED", "LOST", "UNPAID"].includes(normalized)
           ? "critical"
           : "neutral"
   );

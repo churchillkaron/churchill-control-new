@@ -20,6 +20,7 @@ from modal_app import (
     LTX_SOURCE_REVISION,
     MODEL_SECRET_NAME,
     model_volume,
+    seed_image,
 )
 
 APP_NAME = "avantiqo-investor-hq-cache-v2"
@@ -39,15 +40,6 @@ BASE_REQUIRED = (
 )
 
 app = modal.App(APP_NAME)
-seed_image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .pip_install("huggingface_hub[hf_xet]>=0.34,<2")
-    .env({
-        "HF_XET_HIGH_PERFORMANCE": "1",
-        "HF_HUB_ETAG_TIMEOUT": "15",
-        "HF_HUB_DOWNLOAD_TIMEOUT": "120",
-    })
-)
 
 
 def _base_snapshot() -> Path:
@@ -60,8 +52,6 @@ def _base_snapshot() -> Path:
         if not (root / relative).is_file() or (root / relative).stat().st_size <= 0
     ]
     if missing:
-        # Deliberately fail instead of silently downloading tens of GB. The base
-        # belongs to the already-proven fast lane and must be repaired there.
         raise RuntimeError(f"{CONTRACT}_BASE_CACHE_INCOMPLETE:" + ",".join(missing))
     return root
 
@@ -70,14 +60,16 @@ def _base_snapshot() -> Path:
     image=seed_image,
     volumes={"/models": model_volume},
     secrets=[modal.Secret.from_name(MODEL_SECRET_NAME)],
-    timeout=8 * 60,
+    timeout=4 * 60,
     min_containers=0,
     max_containers=1,
     scaledown_window=5,
     retries=0,
 )
 def verify_and_seed_hq_adapter() -> dict[str, Any]:
-    """Verify cached base and fetch only the 327 MB HQ detailing adapter."""
+    """Verify cached base and fetch only the HQ detailing adapter."""
+    os.environ["HF_HUB_ETAG_TIMEOUT"] = "15"
+    os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "120"
     from huggingface_hub import hf_hub_download
 
     started = time.perf_counter()

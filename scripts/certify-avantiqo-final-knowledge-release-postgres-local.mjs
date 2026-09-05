@@ -385,6 +385,7 @@ function callSql(f, {
   mutateConsumption = null,
   mutateRelease = null,
   mutateReceipt = null,
+  setReceiptCommittedAt = true,
   role = "service_role",
 } = {}) {
   const consumption = structuredClone(f.consumptionRow);
@@ -393,6 +394,9 @@ function callSql(f, {
   mutateConsumption?.(consumption);
   mutateRelease?.(release);
   mutateReceipt?.(receipt);
+  const receiptExpression = setReceiptCommittedAt
+    ? `jsonb_set(${jsonLiteral(receipt)}, '{metadata,committed_at}', to_jsonb((select committed_at::text from p)), true)`
+    : jsonLiteral(receipt);
   return `
 set role ${role};
 with p as (select transaction_timestamp() as committed_at)
@@ -409,7 +413,7 @@ select public.avantiqo_commit_final_knowledge_release(
   ${jsonLiteral(release)},
   ${jsonLiteral(f.candidateFinalMetadata)},
   ${jsonLiteral(f.provisionalFinalMetadata)},
-  jsonb_set(${jsonLiteral(receipt)}, '{metadata,committed_at}', to_jsonb((select committed_at::text from p)), true),
+  ${receiptExpression},
   ${sqlText(f.transactionId)}::uuid,
   (select committed_at from p)
 );
@@ -463,11 +467,18 @@ async function main() {
   try {
     let ready = false;
     for (let attempt = 0; attempt < 60; attempt += 1) {
-      const probe = run("docker", ["exec", CONTAINER, "pg_isready", "-U", USER, "-d", DB], { allowFailure: true });
-      if (probe.status === 0) { ready = true; break; }
+      const probe = run("docker", [
+        "exec", CONTAINER,
+        "psql", "-U", USER, "-d", DB,
+        "-X", "-A", "-t", "-q", "-c", "select 1;",
+      ], { allowFailure: true });
+      if (probe.status === 0 && probe.stdout.trim() === "1") {
+        ready = true;
+        break;
+      }
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    assert.equal(ready, true, "PostgreSQL 17 certification container did not become ready");
+    assert.equal(ready, true, "PostgreSQL 17 certification target database did not become query-ready");
 
     const serverVersion = scalar("show server_version;");
     assert.match(serverVersion, /^17\.6(?:\.|$)/);
@@ -555,6 +566,34 @@ select jsonb_build_object(
       assertNoPartialRelease(f);
     }
 
+    const missingReceiptCommittedAt = fixture(13);
+    dockerPsql(seedSql(missingReceiptCommittedAt));
+    assertFailure(
+      dockerPsql(callSql(missingReceiptCommittedAt, { setReceiptCommittedAt: false }), { allowFailure: true }),
+      /AVANTIQO_FINAL_KNOWLEDGE_RELEASE_ATOMIC_IMMUTABLE_RECEIPT_INVALID/,
+    );
+    assertNoPartialRelease(missingReceiptCommittedAt);
+
+    const nonHexBindingDigest = fixture(14);
+    dockerPsql(seedSql(nonHexBindingDigest));
+    assertFailure(
+      dockerPsql(callSql(nonHexBindingDigest, {
+        mutateReceipt: (row) => { row.metadata.released_knowledge_binding_digest = "g".repeat(64); },
+      }), { allowFailure: true }),
+      /AVANTIQO_FINAL_KNOWLEDGE_RELEASE_ATOMIC_IMMUTABLE_RECEIPT_INVALID/,
+    );
+    assertNoPartialRelease(nonHexBindingDigest);
+
+    const uppercaseBindingDigest = fixture(15);
+    dockerPsql(seedSql(uppercaseBindingDigest));
+    assertFailure(
+      dockerPsql(callSql(uppercaseBindingDigest, {
+        mutateReceipt: (row) => { row.metadata.released_knowledge_binding_digest = "A".repeat(64); },
+      }), { allowFailure: true }),
+      /AVANTIQO_FINAL_KNOWLEDGE_RELEASE_ATOMIC_IMMUTABLE_RECEIPT_INVALID/,
+    );
+    assertNoPartialRelease(uppercaseBindingDigest);
+
     for (const [caseNo, scope] of [[10, "consumption"], [11, "release"], [12, "receipt"]]) {
       const f = fixture(caseNo);
       dockerPsql(seedSql(f, { preseedDuplicateScope: scope }));
@@ -623,8 +662,12 @@ select jsonb_build_object(
         exact_migration_executed_on_postgresql_17_6: true,
         production_rls_and_service_role_shape_reproduced: true,
         service_role_only_function_execution: true,
+        target_database_query_readiness_probe: true,
         happy_path_atomic_commit: true,
         immutable_receipt_update_delete_rejected: true,
+        missing_receipt_committed_at_rejected: true,
+        non_hex_release_binding_digest_rejected: true,
+        uppercase_release_binding_digest_rejected: true,
         replay_rejected: true,
         expired_authorization_rejected: true,
         stale_authorization_candidate_provisional_versions_rejected: true,

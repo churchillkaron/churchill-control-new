@@ -37,8 +37,31 @@ export async function POST(request) {
       const code = clean(body.code || name).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
       const price = Number(body.price || 0);
       if (!propertyId || !name || !code || !Number.isFinite(price) || price < 0) return fail("Property, offer name and valid price required");
-      const { data, error } = await supabaseAdmin.from("hotel_upsell_offers").upsert({ organization_id: access.organizationId, property_id: propertyId, code, name, description: clean(body.description) || null, price, currency_code: clean(body.currencyCode || "THB").toUpperCase(), active: true, updated_at: new Date().toISOString() }, { onConflict: "organization_id,property_id,code" }).select().single();
+      const { data: property, error: propertyError } = await supabaseAdmin.from("hotel_properties").select("id").eq("organization_id", access.organizationId).eq("id", propertyId).maybeSingle();
+      if (propertyError) throw propertyError;
+      if (!property) return fail("Property not found", 404);
+      const { data, error } = await supabaseAdmin.from("hotel_upsell_offers").upsert({
+        organization_id: access.organizationId,
+        property_id: propertyId,
+        code,
+        name,
+        description: clean(body.description) || null,
+        price,
+        currency_code: clean(body.currencyCode || "THB").toUpperCase(),
+        active: body.active === false ? false : true,
+        inventory_policy: typeof body.inventoryPolicy === "object" && body.inventoryPolicy ? body.inventoryPolicy : {},
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "organization_id,property_id,code" }).select().single();
       if (error) throw error;
+      return NextResponse.json({ success: true, offer: data });
+    }
+
+    if (action === "SET_ACTIVE") {
+      const offerId = clean(body.offerId);
+      if (!propertyId || !offerId) return fail("propertyId and offerId required");
+      const { data, error } = await supabaseAdmin.from("hotel_upsell_offers").update({ active: Boolean(body.active), updated_at: new Date().toISOString() }).eq("organization_id", access.organizationId).eq("property_id", propertyId).eq("id", offerId).select().maybeSingle();
+      if (error) throw error;
+      if (!data) return fail("Offer not found", 404);
       return NextResponse.json({ success: true, offer: data });
     }
 
@@ -46,16 +69,64 @@ export async function POST(request) {
       const bookingId = clean(body.bookingId);
       const offerId = clean(body.offerId);
       const quantity = Math.max(1, Number.parseInt(body.quantity || 1, 10));
+      if (!bookingId || !offerId) return fail("bookingId and offerId required");
+
       const [{ data: booking, error: bookingError }, { data: offer, error: offerError }] = await Promise.all([
-        supabaseAdmin.from("hotel_bookings").select("id,property_id,currency_code").eq("organization_id", access.organizationId).eq("id", bookingId).maybeSingle(),
+        supabaseAdmin.from("hotel_bookings").select("id,property_id,guest_id,currency_code,status").eq("organization_id", access.organizationId).eq("id", bookingId).maybeSingle(),
         supabaseAdmin.from("hotel_upsell_offers").select("*").eq("organization_id", access.organizationId).eq("id", offerId).eq("active", true).maybeSingle(),
       ]);
       if (bookingError) throw bookingError;
       if (offerError) throw offerError;
       if (!booking || !offer || booking.property_id !== offer.property_id) return fail("Booking and offer do not belong to the same property", 409);
-      const { data, error } = await supabaseAdmin.from("hotel_booking_upsells").upsert({ organization_id: access.organizationId, booking_id: booking.id, offer_id: offer.id, quantity, unit_price: offer.price, status: "ACCEPTED" }, { onConflict: "organization_id,booking_id,offer_id" }).select().single();
+      if (["CHECKED_OUT", "CANCELLED"].includes(String(booking.status || "").toUpperCase())) return fail("Closed or cancelled stays cannot accept new offers", 409);
+
+      const { data: existing, error: existingError } = await supabaseAdmin.from("hotel_booking_upsells").select("*").eq("organization_id", access.organizationId).eq("booking_id", booking.id).eq("offer_id", offer.id).maybeSingle();
+      if (existingError) throw existingError;
+      if (existing?.status === "ACCEPTED") return NextResponse.json({ success: true, bookingUpsell: existing, unchanged: true });
+
+      const { data: bookingUpsell, error } = await supabaseAdmin.from("hotel_booking_upsells").upsert({
+        organization_id: access.organizationId,
+        booking_id: booking.id,
+        offer_id: offer.id,
+        quantity,
+        unit_price: offer.price,
+        status: "ACCEPTED",
+      }, { onConflict: "organization_id,booking_id,offer_id" }).select().single();
       if (error) throw error;
-      return NextResponse.json({ success: true, bookingUpsell: data });
+
+      const { data: existingFolio, error: existingFolioError } = await supabaseAdmin.from("hotel_folios").select("*").eq("organization_id", access.organizationId).eq("booking_id", booking.id).maybeSingle();
+      if (existingFolioError) throw existingFolioError;
+      if (existingFolio?.status === "CLOSED") return fail("The guest folio is closed; reopen/reversal governance is required before adding an upsell", 409);
+
+      const { data: folio, error: folioError } = await supabaseAdmin.from("hotel_folios").upsert({
+        organization_id: access.organizationId,
+        property_id: booking.property_id,
+        booking_id: booking.id,
+        guest_id: booking.guest_id || null,
+        currency_code: booking.currency_code || offer.currency_code || "THB",
+        status: "OPEN",
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "organization_id,booking_id" }).select().single();
+      if (folioError) throw folioError;
+
+      const { data: existingLine, error: lineReadError } = await supabaseAdmin.from("hotel_folio_lines").select("id").eq("organization_id", access.organizationId).eq("folio_id", folio.id).eq("source_type", "HOTEL_UPSELL").eq("source_id", bookingUpsell.id).is("voided_at", null).maybeSingle();
+      if (lineReadError) throw lineReadError;
+      if (!existingLine) {
+        const { error: lineError } = await supabaseAdmin.from("hotel_folio_lines").insert({
+          organization_id: access.organizationId,
+          folio_id: folio.id,
+          line_type: "CHARGE",
+          description: `${offer.name} × ${quantity}`,
+          amount: Number(offer.price || 0) * quantity,
+          tax_amount: 0,
+          source_type: "HOTEL_UPSELL",
+          source_id: bookingUpsell.id,
+          metadata: { offer_id: offer.id, offer_code: offer.code, quantity, unit_price: offer.price },
+        });
+        if (lineError) throw lineError;
+      }
+
+      return NextResponse.json({ success: true, bookingUpsell, folioCharge: Number(offer.price || 0) * quantity });
     }
 
     return fail("Unsupported upsell action");

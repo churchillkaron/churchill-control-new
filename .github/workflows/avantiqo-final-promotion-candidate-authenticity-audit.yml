@@ -12,9 +12,14 @@ on:
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js"
+      - "app/api/intelligence/knowledge/final-release/authorize/route.js"
+      - "supabase/migrations/20260905065000_atomic_final_knowledge_release.sql"
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
       - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs"
+      - "scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs"
       - ".github/workflows/avantiqo-final-promotion-candidate-authenticity-audit.yml"
   pull_request:
     branches:
@@ -27,9 +32,14 @@ on:
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js"
       - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
       - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js"
+      - "app/api/intelligence/knowledge/final-release/authorize/route.js"
+      - "supabase/migrations/20260905065000_atomic_final_knowledge_release.sql"
       - "scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs"
       - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
       - "scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs"
+      - "scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs"
       - ".github/workflows/avantiqo-final-promotion-candidate-authenticity-audit.yml"
   workflow_dispatch:
 
@@ -70,9 +80,13 @@ jobs:
           node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js
           node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationIssuerRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js
+          node --check app/api/intelligence/knowledge/final-release/authorize/route.js
           node --check scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs
           node --check scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs
           node --check scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs
+          node --check scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs
 
       - name: Run final promotion authenticity adversarial audit
         run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-final-promotion-candidate-authenticity-local.mjs
@@ -82,3 +96,6 @@ jobs:
 
       - name: Run signed final release authorization adversarial audit
         run: node --loader ./scripts/next-alias-loader.mjs scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs
+
+      - name: Run authenticated authority and atomicity audit
+        run: node scripts/audit-avantiqo-final-knowledge-release-authority-atomicity-local.mjs

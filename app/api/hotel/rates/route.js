@@ -106,20 +106,53 @@ export async function POST(request) {
       .select();
     if (error) throw error;
 
+    const { data: activeConnections, error: connectionsError } = await supabaseAdmin
+      .from("hotel_channel_connections")
+      .select("id,provider,display_name")
+      .eq("organization_id", access.organizationId)
+      .eq("property_id", propertyId)
+      .eq("status", "ACTIVE");
+    if (connectionsError) throw connectionsError;
+
+    const connectionIds = (activeConnections || []).map((connection) => connection.id);
+    let mappedConnectionIds = [];
+    if (connectionIds.length) {
+      const { data: mappings, error: mappingsError } = await supabaseAdmin
+        .from("hotel_channel_mappings")
+        .select("connection_id")
+        .eq("organization_id", access.organizationId)
+        .eq("local_room_type", roomType)
+        .eq("local_rate_plan_id", ratePlanId)
+        .eq("active", true)
+        .in("connection_id", connectionIds);
+      if (mappingsError) throw mappingsError;
+      mappedConnectionIds = [...new Set((mappings || []).map((mapping) => mapping.connection_id))];
+    }
+
     const dates = rows.map((row) => row.stay_date).sort();
-    const { error: syncJobError } = await supabaseAdmin.from("hotel_channel_sync_jobs").insert({
+    const commonJob = {
       organization_id: access.organizationId,
       property_id: propertyId,
-      connection_id: null,
       sync_type: "RATE_INVENTORY_DISTRIBUTION",
-      status: "PENDING",
       date_from: dates[0],
       date_to: dates[dates.length - 1],
       change_summary: { rate_plan_id: ratePlanId, room_type: roomType, entries: rows.length },
-    });
+    };
+
+    const syncJobs = mappedConnectionIds.length
+      ? mappedConnectionIds.map((connectionId) => ({ ...commonJob, connection_id: connectionId, status: "PENDING" }))
+      : [{ ...commonJob, connection_id: null, status: "AWAITING_CONNECTIVITY" }];
+
+    const { error: syncJobError } = await supabaseAdmin.from("hotel_channel_sync_jobs").insert(syncJobs);
     if (syncJobError) throw syncJobError;
 
-    return NextResponse.json({ success: true, entries: data || [], distributionQueued: true });
+    return NextResponse.json({
+      success: true,
+      entries: data || [],
+      distributionQueued: mappedConnectionIds.length > 0,
+      distributionState: mappedConnectionIds.length > 0 ? "PENDING" : "AWAITING_CONNECTIVITY",
+      destinationCount: mappedConnectionIds.length,
+    });
   } catch (error) {
     console.error("HOTEL_RATE_SAVE_ERROR", error);
     return errorResponse(error?.message || "Unable to save hotel rates", 400);

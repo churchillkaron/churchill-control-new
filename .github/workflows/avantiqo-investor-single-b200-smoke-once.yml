@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   smoke:
-    if: github.event.head_commit.message == 'Run Avantiqo investor single-B200 smoke once'
+    if: github.event.head_commit.message == 'Run Avantiqo investor single-B200 smoke v2 once'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -24,7 +24,7 @@ jobs:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
       AVANTIQO_VIDEO_SMOKE_REAL_INFERENCE_APPROVED: "YES"
-      AVANTIQO_VIDEO_SMOKE_RUN_KEY: "investor-single-b200-smoke-v1"
+      AVANTIQO_VIDEO_SMOKE_RUN_KEY: "investor-single-b200-smoke-v2"
       AVANTIQO_VIDEO_SMOKE_MAX_WAIT_SECONDS: "1800"
 
     steps:
@@ -59,6 +59,26 @@ jobs:
           echo 'PAID_GPU_JOBS=1'
           echo 'AUTOMATIC_PAID_RETRY=false'
 
+      - name: Verify deployed JS compatibility and idle queue without GPU
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'NODE'
+          import * as modal from 'modal';
+          const text = (v) => String(v ?? '').trim();
+          const tokenId = text(process.env.MODAL_TOKEN_ID || process.env.AVANTIQO_MODAL_TOKEN_ID);
+          const tokenSecret = text(process.env.MODAL_TOKEN_SECRET || process.env.AVANTIQO_MODAL_TOKEN_SECRET);
+          if (!tokenId || !tokenSecret) throw new Error('MODAL_CREDENTIALS_REQUIRED');
+          const client = new modal.ModalClient({ tokenId, tokenSecret });
+          const fn = await client.functions.fromName('avantiqo-video-owned', 'generate_native_job');
+          const stats = await fn.getCurrentStats();
+          const backlog = Number(stats?.backlog || 0);
+          const running = Number(stats?.numRunningInputs ?? stats?.num_running_inputs ?? 0);
+          if (backlog !== 0 || running !== 0) throw new Error(`VIDEO_RUNTIME_NOT_IDLE:backlog=${backlog}:running=${running}`);
+          console.log('AVANTIQO_VIDEO_JS_DEPLOYED_LOOKUP=PASS');
+          console.log('AVANTIQO_VIDEO_DEPLOYED_IDLE_GATE=PASS');
+          console.log('GPU_INFERENCE_PERFORMED=false');
+          NODE
+
       - name: Generate one real 5-second 4K shot
         run: |
           set -euo pipefail
@@ -75,6 +95,7 @@ jobs:
           const fs = require('node:fs');
           const report = JSON.parse(fs.readFileSync('local-audit-output/avantiqo-investor-single-shot-smoke/avantiqo-investor-smoke-report.json', 'utf8'));
           if (report.success !== true) throw new Error('SMOKE_NOT_SUCCESSFUL');
+          if (report.run_key !== 'investor-single-b200-smoke-v2') throw new Error('RUN_KEY_INVALID');
           if (report.gpu_generation_calls !== 1) throw new Error('GPU_CALL_COUNT_INVALID');
           if (report.automatic_paid_retry !== false) throw new Error('AUTOMATIC_RETRY_INVALID');
           if (report.delivery_resolution !== '3840x2160') throw new Error('DELIVERY_RESOLUTION_INVALID');
@@ -87,7 +108,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: avantiqo-investor-single-b200-smoke-v1
+          name: avantiqo-investor-single-b200-smoke-v2
           path: local-audit-output/avantiqo-investor-single-shot-smoke/
           if-no-files-found: error
           compression-level: 0

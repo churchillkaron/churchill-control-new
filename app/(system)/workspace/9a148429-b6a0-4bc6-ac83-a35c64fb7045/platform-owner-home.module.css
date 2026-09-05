@@ -184,13 +184,120 @@
   color: #817b73 !important;
 }
 
+/* Keep the embedded governed operator as dense as Finance work panels. */
+.root :global([data-avantiqo-business-partner-code-mission="true"]),
+.root :global([data-avantiqo-code-intelligence-live-feed="true"]),
+.root :global([data-avantiqo-code-mission-history="true"]) {
+  padding: 14px 16px !important;
+}
+
+.root :global([data-avantiqo-business-partner-code-mission="true"] [class*="tracking-[0.15em]"]),
+.root :global([data-avantiqo-code-mission-history="true"] [class*="tracking-[0.15em]"]) {
+  font-size: 9px !important;
+  letter-spacing: 0.14em !important;
+}
+
+.root :global([data-avantiqo-business-partner-code-mission="true"] [class*="text-[12px]"]) {
+  font-size: 10px !important;
+  line-height: 18px !important;
+}
+
+.root :global([data-avantiqo-business-partner-code-mission="true"] button),
+.root :global([data-avantiqo-code-mission-history="true"] button) {
+  font-size: 9px !important;
+}
+
+.root :global([data-avantiqo-business-partner-code-mission="true"] input),
+.root :global([data-avantiqo-code-mission-history="true"] input) {
+  font-size: 10px !important;
+}
+
+.root :global([data-avantiqo-code-intelligence-live-feed="true"] > * + *) {
+  margin-top: 8px !important;
+}
+
+.root :global([data-avantiqo-code-mission-history="true"] > div:first-child > div:first-child > div:last-child) {
+  font-size: 9px !important;
+  line-height: 16px !important;
+}
+
+.root :global([data-avantiqo-code-mission-history="true"] [class*="text-[11px]"]) {
+  font-size: 10px !important;
+}
+
 .root :global([data-avantiqo-platform-home="true"] [data-avantiqo-home-intelligence="true"]) {
-  padding: 16px !important;
+  padding: 14px 16px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-home-intelligence="true"] > div:nth-child(2)) {
+  margin-top: 12px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-home-intelligence="true"] > div:nth-child(2) [class~="text-sm"]) {
+  font-size: 10px !important;
+  line-height: 18px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-home-intelligence="true"] > div:nth-child(2) [class~="text-xs"]) {
+  font-size: 9px !important;
+  line-height: 16px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-home-intelligence="true"] > div:nth-child(2) [class~="rounded-2xl"]) {
+  border-radius: 12px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-home-intelligence="true"] > div:last-child) {
+  margin-top: 12px !important;
+  padding-top: 12px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-home-input="true"]) {
+  min-height: 36px !important;
+  padding: 8px 10px !important;
+  font-size: 10px !important;
+  line-height: 16px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-home-input="true"] + button) {
+  height: 36px !important;
+  border-radius: 10px !important;
+  padding: 0 12px !important;
+  font-size: 9px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-home-input="true"]:parent) {
+  border-radius: 12px !important;
 }
 
 .root :global([data-avantiqo-platform-home="true"] [data-avantiqo-live-execution-panel="true"]) {
   margin: 8px 8px 0 !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
   box-shadow: none !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-live-execution-panel="true"] button) {
+  border-radius: 10px !important;
+  font-size: 9px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-developer-attachments="true"]) {
+  min-height: 28px !important;
+  gap: 6px !important;
+  margin-top: 8px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-developer-attachments="true"] button) {
+  border-color: rgb(0 0 0 / 0.08) !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #716b63 !important;
+  font-size: 9px !important;
+}
+
+.root :global([data-avantiqo-platform-home="true"] [data-avantiqo-developer-attachments="true"] span) {
+  font-size: 9px !important;
 }
 
 @media (min-width: 768px) {

@@ -49,3 +49,5 @@ jobs:
           git commit -m "feat(intelligence): make final knowledge release atomic"
           git pull --rebase origin main
           git push origin HEAD:main
+
+# Triggered after workflow registration; remove this temporary workflow after source lands.

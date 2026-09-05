@@ -1,9 +1,17 @@
 "use client";
 
-import { History, Loader2, RotateCcw, ShieldCheck } from "lucide-react";
+import {
+  CheckCircle2,
+  History,
+  Loader2,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 const MAX_RESUMES = 24;
+const SEARCH_DEBOUNCE_MS = 260;
 
 function text(value) {
   return String(value ?? "").trim();
@@ -26,33 +34,66 @@ export default function CodeMissionHistoryPanel({
 }) {
   const [sessions, setSessions] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [query, setQuery] = useState("");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [resuming, setResuming] = useState(false);
   const [error, setError] = useState(null);
 
-  async function loadSessions() {
+  async function loadSessions({
+    queryValue = query,
+    verifiedValue = verifiedOnly,
+    signal = null,
+  } = {}) {
     if (!organizationId) return;
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/operator/code/history?organizationId=${encodeURIComponent(organizationId)}&limit=${compact ? 5 : 20}`,
-        { cache: "no-store", credentials: "same-origin" },
-      );
+      const params = new URLSearchParams({
+        organizationId,
+        limit: String(compact ? (text(queryValue) ? 8 : 5) : 20),
+      });
+      if (text(queryValue)) params.set("q", text(queryValue));
+      if (verifiedValue) params.set("verifiedOnly", "1");
+      const response = await fetch(`/api/operator/code/history?${params.toString()}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+        ...(signal ? { signal } : {}),
+      });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body?.success !== true) {
         throw new Error(body?.error || "Could not load Code mission history");
       }
       setSessions(Array.isArray(body.sessions) ? body.sessions : []);
+      setSelected((current) => {
+        if (!current) return null;
+        return body.sessions?.some((session) => session.mission_id === current.mission_id)
+          ? current
+          : null;
+      });
+      setError(null);
     } catch (loadError) {
-      setError(loadError?.message || "Could not load Code mission history");
+      if (loadError?.name !== "AbortError") {
+        setError(loadError?.message || "Could not load Code mission history");
+      }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadSessions();
-  }, [organizationId]);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      loadSessions({
+        queryValue: query,
+        verifiedValue: verifiedOnly,
+        signal: controller.signal,
+      });
+    }, text(query) ? SEARCH_DEBOUNCE_MS : 0);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [organizationId, compact, query, verifiedOnly]);
 
   async function inspectMission(missionId) {
     if (!organizationId || !missionId) return;
@@ -121,6 +162,8 @@ export default function CodeMissionHistoryPanel({
     }
   }
 
+  const searchActive = Boolean(text(query));
+
   return (
     <section
       data-avantiqo-code-mission-history="true"
@@ -138,16 +181,44 @@ export default function CodeMissionHistoryPanel({
             Code mission history
           </div>
           <div className={compact ? "mt-1 text-[11px] text-[#77716A]" : "mt-1 text-sm text-white/55"}>
-            Reopen verified engineering context and continue the same attested mission.
+            Search past engineering, inspect verified evidence and continue the same attested mission.
           </div>
         </div>
         <span className={compact ? "text-[9px] text-[#9A958D]" : "text-[10px] text-white/30"}>
-          {sessions.length} saved
+          {sessions.length} {searchActive ? "matches" : "saved"}
         </span>
       </div>
 
+      <div data-avantiqo-code-mission-search="true" className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <label className={compact
+          ? "flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-black/[0.08] bg-[#FBFAF8] px-2.5 py-2"
+          : "flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2.5"}
+        >
+          <Search size={12} className={compact ? "text-[#9A958D]" : "text-white/30"} />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search objective, product area or file…"
+            className={compact
+              ? "min-w-0 flex-1 bg-transparent text-[10px] text-[#37332E] outline-none placeholder:text-[#AAA59D]"
+              : "min-w-0 flex-1 bg-transparent text-xs text-white/70 outline-none placeholder:text-white/25"}
+          />
+        </label>
+        <button
+          type="button"
+          aria-pressed={verifiedOnly}
+          onClick={() => setVerifiedOnly((current) => !current)}
+          className={compact
+            ? `inline-flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-[9px] font-medium ${verifiedOnly ? "border-emerald-700/15 bg-emerald-50 text-emerald-800" : "border-black/[0.08] bg-white text-[#77716A]"}`
+            : `inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-[10px] ${verifiedOnly ? "border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200/80" : "border-white/10 bg-black/20 text-white/40"}`}
+        >
+          <CheckCircle2 size={11} />
+          Verified only
+        </button>
+      </div>
+
       {loading ? (
-        <div className={compact ? "mt-3 text-[10px] text-[#9A958D]" : "mt-4 text-xs text-white/35"}>Loading history…</div>
+        <div className={compact ? "mt-3 text-[10px] text-[#9A958D]" : "mt-4 text-xs text-white/35"}>Searching history…</div>
       ) : sessions.length ? (
         <div className="mt-4 space-y-2">
           {sessions.map((session) => (
@@ -162,17 +233,21 @@ export default function CodeMissionHistoryPanel({
               <div className={compact ? "truncate text-[11px] font-medium text-[#37332E]" : "truncate text-sm text-white/70"}>
                 {session.objective || "Code mission"}
               </div>
-              <div className={compact ? "mt-1 flex gap-3 text-[9px] text-[#9A958D]" : "mt-1 flex flex-wrap gap-3 text-[10px] text-white/30"}>
+              <div className={compact ? "mt-1 flex flex-wrap gap-3 text-[9px] text-[#9A958D]" : "mt-1 flex flex-wrap gap-3 text-[10px] text-white/30"}>
                 <span>{humanStatus(session.status)}</span>
                 <span>{session.file_count || 0} files</span>
-                <span>{session.verification_passed ? "verified" : "not verified"}</span>
+                <span>{session.verified_complete ? "fully verified" : session.verification_passed ? "partially verified" : "not verified"}</span>
                 <span>{session.resumable ? "resumable" : "closed"}</span>
+                {searchActive ? <span>relevance {session.relevance_score || 0}</span> : null}
+                {session.repaired_verifier_count ? <span>{session.repaired_verifier_count} repaired verifier(s)</span> : null}
               </div>
             </button>
           ))}
         </div>
       ) : (
-        <div className={compact ? "mt-3 text-[10px] text-[#9A958D]" : "mt-4 text-xs text-white/35"}>No saved Code missions yet.</div>
+        <div className={compact ? "mt-3 text-[10px] text-[#9A958D]" : "mt-4 text-xs text-white/35"}>
+          {searchActive || verifiedOnly ? "No Code missions match this search." : "No saved Code missions yet."}
+        </div>
       )}
 
       {selected ? (
@@ -180,16 +255,31 @@ export default function CodeMissionHistoryPanel({
           ? "mt-4 rounded-lg border border-[#9A744B]/15 bg-[#FBFAF8] p-3"
           : "mt-5 rounded-xl border border-[#D6A66A]/20 bg-[#D6A66A]/[0.04] p-4"}
         >
-          <div className={compact ? "text-[10px] font-medium text-[#37332E]" : "text-sm text-white/75"}>{selected.objective}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className={compact ? "text-[10px] font-medium text-[#37332E]" : "text-sm text-white/75"}>{selected.objective}</div>
+            {selected.verified_complete ? (
+              <span data-avantiqo-verified-engineering-memory="true" className={compact
+                ? "inline-flex items-center gap-1 rounded-full border border-emerald-700/15 bg-emerald-50 px-2 py-0.5 text-[8px] text-emerald-800"
+                : "inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-300/[0.06] px-2 py-0.5 text-[9px] text-emerald-200/75"}
+              >
+                <CheckCircle2 size={9} /> verified memory eligible
+              </span>
+            ) : null}
+          </div>
           <div className={compact ? "mt-2 flex flex-wrap gap-3 text-[9px] text-[#8F8A82]" : "mt-2 flex flex-wrap gap-4 text-[10px] text-white/35"}>
             <span>{selected.file_count || 0} files</span>
             <span>{selected.test_count || 0} tests</span>
             <span>{selected.interventions?.length || 0} interventions</span>
-            <span>{selected.verification_passed ? "verified" : "verification incomplete"}</span>
+            <span>{selected.verified_complete ? "fully verified" : "verification incomplete"}</span>
           </div>
           {selected.files_changed?.length ? (
             <div className={compact ? "mt-2 font-mono text-[9px] text-[#77716A]" : "mt-3 font-mono text-[10px] text-white/40"}>
               {selected.files_changed.slice(0, 5).join(" · ")}
+            </div>
+          ) : null}
+          {selected.repaired_verifiers?.length ? (
+            <div className={compact ? "mt-2 text-[9px] leading-4 text-[#6F7E68]" : "mt-3 text-[10px] leading-5 text-emerald-200/55"}>
+              {selected.repaired_verifiers.length} deterministic verifier failure(s) were later repaired and passed in this mission.
             </div>
           ) : null}
           {selected.patch ? (
@@ -215,7 +305,7 @@ export default function CodeMissionHistoryPanel({
               {resuming ? "Resuming…" : "Continue mission"}
             </button>
             <span className={compact ? "inline-flex items-center gap-1 text-[8px] text-[#9A958D]" : "inline-flex items-center gap-1 text-[9px] text-white/28"}>
-              <ShieldCheck size={9} /> attested · no commit · no deploy
+              <ShieldCheck size={9} /> attested · current HEAD revalidated · no commit · no deploy
             </span>
           </div>
           {!selected.resumable && selected.resume_blocker ? (

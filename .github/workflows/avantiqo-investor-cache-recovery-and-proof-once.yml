@@ -1,0 +1,188 @@
+name: Avantiqo Investor Cache Recovery And Proof Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-cache-recovery-and-proof-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-investor-cache-recovery-and-proof-once
+  cancel-in-progress: true
+
+env:
+  MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+  PROOF_DIR: local-audit-output/avantiqo-investor-fast-motion-24s
+  AVANTIQO_FAST_24S_REPORT: local-audit-output/avantiqo-investor-fast-motion-24s/generation-report.json
+
+jobs:
+  recover-and-render:
+    if: github.event.head_commit.message == 'Run resumable investor cache recovery and proof once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          mkdir -p "$PROOF_DIR"
+
+      - name: Recover missing investor cache files one by one
+        shell: bash
+        run: |
+          set -euo pipefail
+          modal run services/avantiqo-video-engine/investor_cache_recovery_once.py
+
+      - name: Verify exact fast cache paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAPSHOT='huggingface-cache/hub/models--Lightricks--LTX-2.5/snapshots/e8dc69fd26150afbfa20351f6bc9ac384257f9fd'
+          for path in \
+            "$SNAPSHOT/diffusion_models/ltx-2.5-22b-distilled-transformer-bf16.safetensors" \
+            "$SNAPSHOT/text_encoders/gemma4-12b-with-proj-ltx-2.5-bf16.safetensors" \
+            "$SNAPSHOT/vae/ltx-2.5-video-vae-bf16.safetensors" \
+            "$SNAPSHOT/vae/ltx-2.5-audio-vae-bf16.safetensors" \
+            "$SNAPSHOT/latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors"
+          do
+            modal volume ls avantiqo-video-models "$path" | grep -F "$(basename "$path")"
+          done
+          echo 'AVANTIQO_INVESTOR_FAST_CACHE_PREFLIGHT=PASS'
+
+      - name: Deploy exact current Avantiqo Video surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal deploy modal_deploy.py
+
+      - name: Generate four fast cinematic shots concurrently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python services/avantiqo-video-engine/investor_fast_24s.py
+
+      - name: Retrieve four generated masters
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="investor-fast-motion-24s/${GITHUB_SHA}"
+          modal volume get avantiqo-video-models "$ROOT/01-awakening-1920x1088.mp4" "$PROOF_DIR/01-awakening-1920x1088.mp4" --force
+          modal volume get avantiqo-video-models "$ROOT/02-human-operations-1920x1088.mp4" "$PROOF_DIR/02-human-operations-1920x1088.mp4" --force
+          modal volume get avantiqo-video-models "$ROOT/03-one-business-reality-1920x1088.mp4" "$PROOF_DIR/03-one-business-reality-1920x1088.mp4" --force
+          modal volume get avantiqo-video-models "$ROOT/04-forward-1920x1088.mp4" "$PROOF_DIR/04-forward-1920x1088.mp4" --force
+          for file in "$PROOF_DIR"/*-1920x1088.mp4; do test -s "$file"; done
+
+      - name: Master exact 24 second proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 01-awakening 02-human-operations 03-one-business-reality 04-forward; do
+            ffmpeg -hide_banner -loglevel error -y \
+              -i "$PROOF_DIR/${id}-1920x1088.mp4" \
+              -vf 'crop=1920:1080:0:4,fps=24,setsar=1' \
+              -t 6 \
+              -c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p -an -movflags +faststart \
+              "$PROOF_DIR/${id}-1080p.mp4"
+          done
+          cat > "$PROOF_DIR/concat.txt" <<EOF
+          file '01-awakening-1080p.mp4'
+          file '02-human-operations-1080p.mp4'
+          file '03-one-business-reality-1080p.mp4'
+          file '04-forward-1080p.mp4'
+          EOF
+          ffmpeg -hide_banner -loglevel error -y \
+            -f concat -safe 0 -i "$PROOF_DIR/concat.txt" \
+            -c copy -movflags +faststart \
+            "$PROOF_DIR/avantiqo-investor-futuristic-fast-proof-24s-1080p.mp4"
+          ffmpeg -hide_banner -loglevel error -y \
+            -i "$PROOF_DIR/avantiqo-investor-futuristic-fast-proof-24s-1080p.mp4" \
+            -vf 'scale=3840:2160:flags=lanczos' \
+            -c:v libx264 -preset veryfast -crf 15 -pix_fmt yuv420p -an -movflags +faststart \
+            "$PROOF_DIR/avantiqo-investor-futuristic-fast-proof-24s-4k-delivery-upscale.mp4"
+
+      - name: Verify proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffprobe -v error -show_entries stream=codec_type,width,height,r_frame_rate -show_entries format=duration,size -of json \
+            "$PROOF_DIR/avantiqo-investor-futuristic-fast-proof-24s-1080p.mp4" > "$PROOF_DIR/final-1080p-ffprobe.json"
+          ffprobe -v error -show_entries stream=codec_type,width,height,r_frame_rate -show_entries format=duration,size -of json \
+            "$PROOF_DIR/avantiqo-investor-futuristic-fast-proof-24s-4k-delivery-upscale.mp4" > "$PROOF_DIR/final-4k-ffprobe.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          d = Path(os.environ['PROOF_DIR'])
+          generation = json.loads((d / 'generation-report.json').read_text())
+          p1080 = json.loads((d / 'final-1080p-ffprobe.json').read_text())
+          p4k = json.loads((d / 'final-4k-ffprobe.json').read_text())
+          v1080 = next((s for s in p1080.get('streams', []) if s.get('codec_type') == 'video'), {})
+          v4k = next((s for s in p4k.get('streams', []) if s.get('codec_type') == 'video'), {})
+          duration = float(p1080.get('format', {}).get('duration') or 0)
+          if generation.get('success') is not True or generation.get('shot_count') != 4:
+              raise RuntimeError('AVANTIQO_INVESTOR_FAST_24S_GENERATION_INVALID')
+          if (int(v1080.get('width') or 0), int(v1080.get('height') or 0)) != (1920, 1080):
+              raise RuntimeError(f'AVANTIQO_INVESTOR_FAST_24S_1080P_INVALID:{v1080}')
+          if (int(v4k.get('width') or 0), int(v4k.get('height') or 0)) != (3840, 2160):
+              raise RuntimeError(f'AVANTIQO_INVESTOR_FAST_24S_4K_INVALID:{v4k}')
+          if abs(duration - 24.0) > 0.35:
+              raise RuntimeError(f'AVANTIQO_INVESTOR_FAST_24S_DURATION_INVALID:{duration}')
+          report = {
+              'success': True,
+              'marker': 'AVANTIQO_INVESTOR_FAST_MOTION_24S=PASS',
+              'source_commit': os.environ.get('GITHUB_SHA'),
+              'generation_resolution': '1920x1088',
+              'proof_delivery_resolution': '1920x1080',
+              '4k_viewing_copy_resolution': '3840x2160',
+              '4k_viewing_copy_is_native_or_dfr': False,
+              '4k_viewing_copy_is_delivery_upscale': True,
+              'fps': 24,
+              'duration_seconds': duration,
+              'shot_count': 4,
+              'screenshots_used': False,
+              'external_video_provider_used': False,
+          }
+          (d / 'proof-report.json').write_text(json.dumps(report, indent=2) + '\n')
+          print('AVANTIQO_INVESTOR_FAST_MOTION_24S=PASS')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-futuristic-fast-motion-proof-24s-recovery
+          path: |
+            local-audit-output/avantiqo-investor-fast-motion-24s/avantiqo-investor-futuristic-fast-proof-24s-1080p.mp4
+            local-audit-output/avantiqo-investor-fast-motion-24s/avantiqo-investor-futuristic-fast-proof-24s-4k-delivery-upscale.mp4
+            local-audit-output/avantiqo-investor-fast-motion-24s/proof-report.json
+            local-audit-output/avantiqo-investor-fast-motion-24s/generation-report.json
+            local-audit-output/avantiqo-investor-fast-motion-24s/final-1080p-ffprobe.json
+            local-audit-output/avantiqo-investor-fast-motion-24s/final-4k-ffprobe.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'EXTERNAL_VIDEO_PROVIDER_USED=false'

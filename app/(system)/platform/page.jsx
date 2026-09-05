@@ -2,16 +2,57 @@ export const dynamic = "force-dynamic";
 
 import PlatformAdminConsole from "@/components/platform/PlatformAdminConsole";
 import PlatformCommercialRuntimeControl from "@/components/platform/PlatformCommercialRuntimeControl";
+import PlatformOperatorControlTower from "@/components/platform/PlatformOperatorControlTower";
 import checkSystemHealth from "@/lib/health/checkSystemHealth";
+import buildPlatformOperatorControl from "@/lib/platform/operator/buildPlatformOperatorControl";
 import loadVercelDeploymentHistory from "@/lib/platform/release/loadVercelDeploymentHistory";
 import { PROVIDER_REGISTRY } from "@/lib/platform/service-runtime/providers/ProviderRegistry";
 import { requirePlatformAdminAccess } from "@/lib/platform/security/requirePlatformAdminAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
+const FAILURE_FILTER = [
+  "status.eq.FAILED",
+  "status.eq.FAILURE",
+  "status.eq.ERROR",
+  "status.eq.BLOCKED",
+  "status.eq.REJECTED",
+  "status.eq.CANCELLED",
+  "status.eq.CANCELED",
+  "execution_status.eq.FAILED",
+  "execution_status.eq.FAILURE",
+  "execution_status.eq.ERROR",
+  "execution_status.eq.BLOCKED",
+  "execution_status.eq.REJECTED",
+  "execution_status.eq.CANCELLED",
+  "execution_status.eq.CANCELED",
+].join(",");
+
 function rowsFrom(result) {
   return result.status === "fulfilled" && !result.value.error
     ? result.value.data || []
     : [];
+}
+
+function countFrom(result) {
+  return result.status === "fulfilled" && !result.value.error
+    ? Number(result.value.count || 0)
+    : 0;
+}
+
+function sourceState(name, result, detail = null) {
+  if (result.status === "fulfilled" && !result.value.error) {
+    return { name, status: "verified", detail };
+  }
+
+  const error = result.status === "rejected"
+    ? result.reason?.message
+    : result.value?.error?.message;
+
+  return {
+    name,
+    status: "unverified",
+    detail: error || detail || "Read unavailable",
+  };
 }
 
 function releaseState() {
@@ -35,6 +76,27 @@ function unavailableReleaseHistory(source, error = null) {
   };
 }
 
+function normalizedEventRows(systemAlerts, securityIncidents) {
+  const alerts = (systemAlerts || []).map(row => ({
+    ...row,
+    event_type: row.alert_type || "system_alert",
+    title: row.title || row.alert_type || "System alert",
+    description: row.message || "Persisted system alert",
+  }));
+
+  const incidents = (securityIncidents || []).map(row => ({
+    ...row,
+    event_type: row.incident_type || "security_incident",
+    title: row.incident_type || "Security incident",
+    description: row.incident_summary || "Persisted security incident",
+    status: row.incident_status || "OPEN",
+  }));
+
+  return [...alerts, ...incidents].sort((left, right) =>
+    new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime(),
+  );
+}
+
 async function loadPlatformAdminConsole() {
   const access = await requirePlatformAdminAccess();
 
@@ -52,6 +114,12 @@ async function loadPlatformAdminConsole() {
       subscriptions: [],
       queueJobs: [],
       deadLetterJobs: [],
+      operatorControl: {
+        status: "review",
+        counts: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+        coverage: { verified: 0, total: 0, sources: [] },
+        signals: [],
+      },
       releaseState: releaseState(),
       releaseHistory: unavailableReleaseHistory("PLATFORM_ADMIN_ACCESS_REQUIRED"),
       health: {
@@ -64,12 +132,17 @@ async function loadPlatformAdminConsole() {
     };
   }
 
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
   const [
     organizationsResult,
-    eventsResult,
+    systemAlertsResult,
+    securityIncidentsResult,
+    systemEventsResult,
     modulesResult,
     staffResult,
     usageResult,
+    usageFailureCountResult,
     walletsResult,
     walletTransactionsResult,
     subscriptionsResult,
@@ -80,9 +153,22 @@ async function loadPlatformAdminConsole() {
   ] = await Promise.allSettled([
     supabaseAdmin.from("organizations").select("*"),
     supabaseAdmin
-      .from("organization_events")
-      .select("*")
+      .from("system_alerts")
+      .select("id,organization_id,alert_type,severity,title,message,status,created_at,resolved_at")
+      .is("resolved_at", null)
       .order("created_at", { ascending: false })
+      .limit(250),
+    supabaseAdmin
+      .from("enterprise_security_incidents")
+      .select("id,organization_id,incident_type,severity,incident_status,incident_summary,created_at,updated_at,resolved_at")
+      .is("resolved_at", null)
+      .order("created_at", { ascending: false })
+      .limit(250),
+    supabaseAdmin
+      .from("system_events")
+      .select("id,organization_id,type,payload,created_at,processed,processed_at,processing,processing_started_at,attempt_count,last_error,last_failed_at")
+      .eq("processed", false)
+      .order("created_at", { ascending: true })
       .limit(250),
     supabaseAdmin.from("platform_modules").select("*"),
     supabaseAdmin
@@ -95,6 +181,11 @@ async function loadPlatformAdminConsole() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(500),
+    supabaseAdmin
+      .from("platform_service_usage")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", since24h)
+      .or(FAILURE_FILTER),
     supabaseAdmin
       .from("organization_wallets")
       .select("*")
@@ -142,20 +233,61 @@ async function loadPlatformAdminConsole() {
           releaseHistoryResult.reason?.message || "Deployment history unavailable",
         );
 
+  const organizations = rowsFrom(organizationsResult);
+  const systemAlerts = rowsFrom(systemAlertsResult);
+  const securityIncidents = rowsFrom(securityIncidentsResult);
+  const systemEvents = rowsFrom(systemEventsResult);
+  const recentUsage = rowsFrom(usageResult);
+  const wallets = rowsFrom(walletsResult);
+
+  const coverage = [
+    sourceState("Organizations", organizationsResult, `${organizations.length} persisted organizations`),
+    sourceState("Service usage", usageResult, `${recentUsage.length} recent rows sampled`),
+    sourceState("24h failure count", usageFailureCountResult, `${countFrom(usageFailureCountResult)} exact failed executions`),
+    sourceState("Wallets", walletsResult, `${wallets.length} persisted wallets`),
+    sourceState("System alerts", systemAlertsResult, `${systemAlerts.length} unresolved rows`),
+    sourceState("Security incidents", securityIncidentsResult, `${securityIncidents.length} unresolved rows`),
+    sourceState("System event backlog", systemEventsResult, `${systemEvents.length} unprocessed rows`),
+    {
+      name: "Runtime health",
+      status: healthResult.status === "fulfilled" ? "verified" : "unverified",
+      detail: healthResult.status === "fulfilled" ? `state ${health.status}` : healthResult.reason?.message || "Health probe unavailable",
+    },
+    {
+      name: "Deployment history",
+      status: releaseHistory.status === "verified" ? "verified" : "unverified",
+      detail: releaseHistory.status === "verified" ? `${releaseHistory.deployments?.length || 0} production deployments` : releaseHistory.source,
+    },
+  ];
+
+  const operatorControl = buildPlatformOperatorControl({
+    organizations,
+    health,
+    recentUsage,
+    usageFailureCount24h: countFrom(usageFailureCountResult),
+    systemAlerts,
+    securityIncidents,
+    systemEvents,
+    wallets,
+    releaseHistory,
+    coverage,
+  });
+
   return {
     access,
-    organizations: rowsFrom(organizationsResult),
-    recentEvents: rowsFrom(eventsResult),
+    organizations,
+    recentEvents: normalizedEventRows(systemAlerts, securityIncidents),
     modules: rowsFrom(modulesResult),
     staff: rowsFrom(staffResult),
-    recentUsage: rowsFrom(usageResult),
-    wallets: rowsFrom(walletsResult),
+    recentUsage,
+    wallets,
     walletTransactions: rowsFrom(walletTransactionsResult),
     subscriptions: rowsFrom(subscriptionsResult),
     queueJobs: rowsFrom(queueJobsResult),
     deadLetterJobs: rowsFrom(deadLetterJobsResult),
     releaseState: releaseState(),
     releaseHistory,
+    operatorControl,
     providers: Object.values(PROVIDER_REGISTRY).map(provider => ({
       id: provider.id,
       name: provider.name,
@@ -209,6 +341,7 @@ export default async function PlatformPage() {
 
   return (
     <>
+      <PlatformOperatorControlTower control={runtime.operatorControl} />
       <PlatformAdminConsole
         organizations={runtime.organizations}
         recentEvents={runtime.recentEvents}

@@ -1,0 +1,12 @@
+.root :global([class~="p-4.5"]) {
+  padding: 1.125rem;
+}
+
+.root :global([class~="py-4.5"]) {
+  padding-top: 1.125rem;
+  padding-bottom: 1.125rem;
+}
+
+.root :global([class~="text-emerald-650"]) {
+  color: rgb(5 150 105);
+}

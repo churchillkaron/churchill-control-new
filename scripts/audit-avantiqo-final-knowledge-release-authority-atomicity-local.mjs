@@ -26,11 +26,9 @@ const route = fs.readFileSync(
   "utf8",
 );
 
-// Live intelligence_memories compatibility: authorization must use an existing governed memory type.
 assert.match(authRuntime, /memory_type: "decision"/);
 assert.doesNotMatch(authRuntime, /memory_type: "approval"/);
 
-// Issuer identity is derived from the authenticated session, never accepted from the request surface.
 assert.match(issuerRuntime, /getServerCurrentUser\(\)/);
 assert.match(issuerRuntime, /\.rpc\("can_manage_organization"/);
 assert.match(issuerRuntime, /target_organization_id: organizationId/);
@@ -46,17 +44,14 @@ assert.match(issuerRuntime, /createAvantiqoFinalPromotionCandidateAuthenticityVe
 assert.match(issuerRuntime, /verifyAvantiqoFinalPromotionCandidateClaimBinding/);
 assert.match(issuerRuntime, /authority_verified: true/);
 
-// API accepts the approval reason and candidate identity, but not an approver identity override.
 assert.match(route, /issueAvantiqoFinalKnowledgeReleaseAuthorization/);
 assert.match(route, /organization_id: body\?\.organization_id/);
 assert.match(route, /hypothesis_fingerprint: body\?\.hypothesis_fingerprint/);
 assert.match(route, /approval_reason: body\?\.approval_reason/);
 assert.doesNotMatch(route, /approver_id/);
 
-// App runtime delegates the core state transition to one database RPC. Audit-event persistence
-// remains deliberately outside this critical transaction and must not be confused with release persistence.
 const releaseFunctionStart = releaseRuntime.indexOf("export async function releaseAvantiqoFinalKnowledge");
-const releaseFunctionEnd = releaseRuntime.indexOf("\nexport async function revalidateAvantiqoReleasedKnowledge", releaseFunctionStart);
+const releaseFunctionEnd = releaseRuntime.indexOf("\nasync function loadReleasedKnowledge", releaseFunctionStart);
 assert.ok(releaseFunctionStart >= 0 && releaseFunctionEnd > releaseFunctionStart);
 const releaseFunction = releaseRuntime.slice(releaseFunctionStart, releaseFunctionEnd);
 assert.match(atomicRuntime, /\.rpc\("avantiqo_commit_final_knowledge_release"/);
@@ -72,8 +67,6 @@ assert.doesNotMatch(releaseFunction, /FINALIZATION_CONFLICT_RELEASE_QUARANTINED/
 assert.match(releaseRuntime, /async function writeEvent/);
 assert.match(releaseRuntime, /\.upsert\(row, \{ onConflict: "organization_id,memory_scope,memory_key" \}\)/);
 
-// SQL boundary is invoker-security, service-role only, locks all exact mutable state,
-// and raises on every optimistic conflict so Postgres rolls the whole function call back.
 assert.match(migration, /language plpgsql\s+security invoker/i);
 assert.doesNotMatch(migration, /security definer/i);
 assert.match(migration, /set search_path = public/i);
@@ -92,7 +85,6 @@ assert.match(migration, /insert into public\.intelligence_memories[\s\S]*v_consu
 assert.match(migration, /insert into public\.intelligence_memories[\s\S]*v_release_memory_key/);
 assert.match(migration, /'transaction_atomic', true/);
 
-// Receipt and released row bind back to the same authorization/candidate/claim lineage.
 assert.match(atomicRuntime, /candidate_authenticity_mac/);
 assert.match(atomicRuntime, /provisional_claim_digest/);
 assert.match(atomicRuntime, /approver_staff_account_id/);

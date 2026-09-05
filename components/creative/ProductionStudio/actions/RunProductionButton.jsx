@@ -10,6 +10,20 @@ function queueCounts(queue = {}) {
   return { running: count("running"), ready: count("ready"), waiting: count("waiting"), review: count("review"), failed: count("failed"), blocked: count("blocked") };
 }
 
+function hasProviderJob(task = {}) {
+  return Boolean(
+    task.output?.provider_job_id ||
+    task.output?.provider_submission?.provider_job_id ||
+    task.output?.provider_submission?.output?.provider_job_id ||
+    task.output?.provider_submission?.output?.output?.provider_job_id
+  );
+}
+
+function activeProviderWork(queue = {}, readiness = null) {
+  if (Number(readiness?.running_task_count || 0) > 0) return true;
+  return Array.isArray(queue?.running) && queue.running.some(hasProviderJob);
+}
+
 function productionMessage(summary) {
   if (!summary) return null;
   const counts = queueCounts(summary.queue);
@@ -35,9 +49,10 @@ function shouldContinue(summary) {
   return counts.ready > 0;
 }
 
-function readinessLabel(readiness, loading) {
+function readinessLabel(readiness, loading, providerWork) {
   if (loading) return "Checking Cinema…";
   if (activeProjectVideo(readiness)) return "Cinema producing";
+  if (providerWork) return "Production running";
   if (!readiness || readiness.required === false) return "Run production";
   if (readiness.ready) return "Run production";
   if (String(readiness.status).toUpperCase() === "BUSY") return "Cinema busy";
@@ -64,6 +79,7 @@ export default function RunProductionButton({ runtime }) {
   const [running, setRunning] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const [summary, setSummary] = useState(null);
+  const [queueState, setQueueState] = useState(null);
   const [error, setError] = useState(null);
   const [readiness, setReadiness] = useState(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
@@ -73,10 +89,12 @@ export default function RunProductionButton({ runtime }) {
   const organizationId = runtime.organizationId || null;
   const message = useMemo(() => productionMessage(summary), [summary]);
   const readinessState = useMemo(() => readinessMessage(readiness, readinessLoading), [readiness, readinessLoading]);
+  const providerWork = activeProviderWork(queueState, readiness);
 
   const inspectReadiness = useCallback(async ({ quiet = false } = {}) => {
     if (!organizationId || !projectId) {
       setReadiness(null);
+      setQueueState(null);
       return null;
     }
     if (!quiet) setReadinessLoading(true);
@@ -94,7 +112,11 @@ export default function RunProductionButton({ runtime }) {
         throw new Error(result.error || "Video runtime preflight failed.");
       }
       setReadiness(result.readiness || null);
-      return result.readiness || null;
+      setQueueState(result.queue || null);
+      return {
+        readiness: result.readiness || null,
+        queue: result.queue || null,
+      };
     } catch (readinessError) {
       const blocked = {
         required: true,
@@ -104,7 +126,7 @@ export default function RunProductionButton({ runtime }) {
         error: readinessError?.message || "Video runtime preflight failed.",
       };
       setReadiness(blocked);
-      return blocked;
+      return { readiness: blocked, queue: null };
     } finally {
       if (!quiet) setReadinessLoading(false);
     }
@@ -131,6 +153,7 @@ export default function RunProductionButton({ runtime }) {
       }
       const result = json.result || null;
       setSummary(result);
+      setQueueState(result?.queue || null);
       setReadiness(result?.video_readiness || null);
       setError(null);
       await runtime.refresh?.();
@@ -154,10 +177,11 @@ export default function RunProductionButton({ runtime }) {
       if (!response.ok || !json.success) throw new Error(json.error || "Production check failed.");
       const result = json.result || null;
       setSummary(result);
+      setQueueState(result?.queue || null);
       setReadiness(result?.video_readiness || null);
       setError(null);
 
-      if (!activeProjectVideo(result?.video_readiness)) {
+      if (!activeProviderWork(result?.queue, result?.video_readiness)) {
         await runtime.refresh?.();
         if (shouldContinue(result)) {
           await dispatchProduction({ automatic: true });
@@ -173,20 +197,20 @@ export default function RunProductionButton({ runtime }) {
   }, [organizationId, projectId, runtime, dispatchProduction]);
 
   useEffect(() => {
-    inspectReadiness();
+    void inspectReadiness();
   }, [inspectReadiness]);
 
   useEffect(() => {
-    if (!activeProjectVideo(readiness) || !organizationId || !projectId) return undefined;
+    if (!providerWork || !organizationId || !projectId) return undefined;
     const timer = window.setInterval(() => {
       void pollActiveProduction();
     }, ACTIVE_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [readiness, organizationId, projectId, pollActiveProduction]);
+  }, [providerWork, organizationId, projectId, pollActiveProduction]);
 
   async function run() {
     if (!organizationId || !projectId || running || continuing || readinessLoading) return;
-    if (activeProjectVideo(readiness)) {
+    if (providerWork) {
       await pollActiveProduction();
       return;
     }
@@ -194,12 +218,13 @@ export default function RunProductionButton({ runtime }) {
     setSummary(null);
     setError(null);
     try {
-      const currentReadiness = await inspectReadiness({ quiet: true });
-      const checkingActiveWork = activeProjectVideo(currentReadiness);
+      const current = await inspectReadiness({ quiet: true });
+      const checkingActiveWork = activeProviderWork(current?.queue, current?.readiness);
       if (checkingActiveWork) {
         await pollActiveProduction();
         return;
       }
+      const currentReadiness = current?.readiness || null;
       if (currentReadiness?.required && !currentReadiness?.ready) {
         throw new Error(
           String(currentReadiness.status).toUpperCase() === "BUSY"
@@ -217,10 +242,10 @@ export default function RunProductionButton({ runtime }) {
     }
   }
 
-  const checkingActiveWork = activeProjectVideo(readiness);
-  const blockedByReadiness = readiness?.required === true && readiness?.ready !== true && !checkingActiveWork;
+  const checkingActiveVideo = activeProjectVideo(readiness);
+  const blockedByReadiness = readiness?.required === true && readiness?.ready !== true && !checkingActiveVideo;
   const disabled = running || continuing || readinessLoading || !projectId || blockedByReadiness;
-  const label = continuing ? "Continuing production…" : running ? "Starting production…" : readinessLabel(readiness, readinessLoading);
+  const label = continuing ? "Continuing production…" : running ? "Starting production…" : readinessLabel(readiness, readinessLoading, providerWork);
   const toneClass = readinessState?.tone === "ready"
     ? "text-emerald-700"
     : readinessState?.tone === "busy"
@@ -237,7 +262,7 @@ export default function RunProductionButton({ runtime }) {
         disabled={disabled}
         className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white transition hover:bg-[#3A3631] disabled:cursor-not-allowed disabled:opacity-45"
       >
-        {running || continuing || readinessLoading ? <LoaderCircle size={9} className="animate-spin" /> : checkingActiveWork ? <RefreshCw size={9} className="animate-spin" /> : blockedByReadiness ? <CircleAlert size={9} /> : readiness?.required ? <ShieldCheck size={9} /> : <Play size={9} fill="currentColor" />}
+        {running || continuing || readinessLoading ? <LoaderCircle size={9} className="animate-spin" /> : providerWork ? <RefreshCw size={9} className="animate-spin" /> : blockedByReadiness ? <CircleAlert size={9} /> : readiness?.required ? <ShieldCheck size={9} /> : <Play size={9} fill="currentColor" />}
         {label}
       </button>
       {readinessState ? <div className={`max-w-[360px] text-right text-[7px] leading-3 ${toneClass}`}>{readinessState.text}</div> : null}

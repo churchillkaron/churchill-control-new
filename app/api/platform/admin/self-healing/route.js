@@ -55,9 +55,10 @@ function classifyCapturedFailure(payload = {}) {
   if (
     category === "organization_context_missing" ||
     category === "runtime_exception" ||
-    category === "request_failure"
+    category === "request_failure" ||
+    category === "route_not_found"
   ) {
-    return "AUTO_REPAIR";
+    return "AUTO_REPAIR_CANDIDATE";
   }
   return "PRODUCT_DECISION_REQUIRED";
 }
@@ -72,6 +73,29 @@ function canonicalCapabilityIds(item = {}) {
     item.data?.capability,
     item.create?.capability,
   ].map(normalizedRegistryValue).filter(Boolean));
+}
+
+function canonicalRegistryIdentityMatches(item, { workspace, capability }) {
+  const workspaceHint = normalizedRegistryValue(workspace);
+  const capabilityHint = normalizedRegistryValue(capability);
+  const canonicalWorkspace = normalizedRegistryValue(item?.workspaceId);
+
+  if (workspaceHint && canonicalWorkspace !== workspaceHint) {
+    return {
+      proven: false,
+      reason: "The browser-reported workspace does not match the canonical ERP_REGISTRY workspace for this route.",
+    };
+  }
+
+  const canonicalCapabilities = canonicalCapabilityIds(item);
+  if (capabilityHint && !canonicalCapabilities.has(capabilityHint)) {
+    return {
+      proven: false,
+      reason: "The browser-reported capability does not match the canonical ERP_REGISTRY capability for this workspace item.",
+    };
+  }
+
+  return { proven: true };
 }
 
 function authoritativeIncompleteRegistryTarget({ route, workspace, capability }) {
@@ -100,21 +124,8 @@ function authoritativeIncompleteRegistryTarget({ route, workspace, capability })
     };
   }
 
-  const canonicalWorkspace = normalizedRegistryValue(item.workspaceId);
-  if (workspaceHint && canonicalWorkspace !== workspaceHint) {
-    return {
-      proven: false,
-      reason: "The browser-reported workspace does not match the canonical ERP_REGISTRY workspace for this route.",
-    };
-  }
-
-  const canonicalCapabilities = canonicalCapabilityIds(item);
-  if (capabilityHint && !canonicalCapabilities.has(capabilityHint)) {
-    return {
-      proven: false,
-      reason: "The browser-reported capability does not match the canonical ERP_REGISTRY capability for this workspace item.",
-    };
-  }
+  const identityProof = canonicalRegistryIdentityMatches(item, { workspace, capability });
+  if (!identityProof.proven) return identityProof;
 
   const status = text(item.status, 80).toLowerCase();
   if (!AUTHORITATIVE_INCOMPLETE_STATUSES.has(status)) {
@@ -128,13 +139,60 @@ function authoritativeIncompleteRegistryTarget({ route, workspace, capability })
     proven: true,
     item,
     evidence: {
+      authority_purpose: "completion",
       match_source: matchSource,
       workspace_id: item.workspaceId || null,
       item_id: item.id || null,
       capability: item.data?.capability || item.create?.capability || item.id || null,
       route: item.route || null,
       status,
+      registered_route: Boolean(item.route),
       explicit_incomplete_status: true,
+    },
+  };
+}
+
+function authoritativeRepairRegistryTarget({ route, workspace, capability }) {
+  const routeHint = text(route, 600) || null;
+  if (!routeHint) {
+    return {
+      proven: false,
+      reason: "AUTO_REPAIR requires an exact browser-observed route that can be independently resolved in ERP_REGISTRY.",
+    };
+  }
+
+  const item = getWorkspaceItemByRoute(routeHint);
+  if (!item) {
+    return {
+      proven: false,
+      reason: "The browser-observed route is not a canonical ERP_REGISTRY route. Autonomous repair remains blocked until a server-owned route contract proves the intended product surface.",
+    };
+  }
+
+  const identityProof = canonicalRegistryIdentityMatches(item, { workspace, capability });
+  if (!identityProof.proven) return identityProof;
+
+  const status = text(item.status, 80).toLowerCase();
+  if (AUTHORITATIVE_INCOMPLETE_STATUSES.has(status)) {
+    return {
+      proven: false,
+      reason: "The canonical ERP_REGISTRY route is explicitly incomplete. Runtime evidence cannot reclassify an unfinished product surface as AUTO_REPAIR.",
+    };
+  }
+
+  return {
+    proven: true,
+    item,
+    evidence: {
+      authority_purpose: "repair",
+      match_source: "route",
+      workspace_id: item.workspaceId || null,
+      item_id: item.id || null,
+      capability: item.data?.capability || item.create?.capability || item.id || null,
+      route: item.route || null,
+      status: status || null,
+      registered_route: true,
+      explicit_incomplete_status: false,
     },
   };
 }
@@ -145,6 +203,9 @@ function capturedFailureExpectedOutcome(category) {
   }
   if (category === "workspace_unfinished" || category === "capability_unimplemented") {
     return "The registered Avantiqo workspace or capability completes the intended business action through its governed production path.";
+  }
+  if (category === "route_not_found") {
+    return "The canonically registered Avantiqo route resolves through its intended governed workspace instead of returning a dead route.";
   }
   return "The original Avantiqo user action completes through its intended governed capability without reproducing the captured failure.";
 }
@@ -278,7 +339,7 @@ async function loadCapturedUserFailure(signalKey) {
   if (!data) return null;
 
   const stored = data.payload && typeof data.payload === "object" ? data.payload : {};
-  const classification = classifyCapturedFailure(stored);
+  let classification = classifyCapturedFailure(stored);
   const category = text(stored.category, 80).toLowerCase() || "runtime_exception";
   const organizationId = text(data.organization_id, 200) || null;
 
@@ -312,6 +373,7 @@ async function loadCapturedUserFailure(signalKey) {
   let registryProof = null;
   let capability = capabilityHint;
   let workspace = workspaceHint;
+  let resolvedRoute = route;
 
   if (classification === "AUTO_COMPLETE") {
     registryProof = authoritativeIncompleteRegistryTarget({
@@ -328,6 +390,26 @@ async function loadCapturedUserFailure(signalKey) {
     }
     capability = registryProof.evidence.capability;
     workspace = registryProof.evidence.workspace_id;
+    resolvedRoute = registryProof.evidence.route || route;
+  }
+
+  if (classification === "AUTO_REPAIR_CANDIDATE") {
+    registryProof = authoritativeRepairRegistryTarget({
+      route,
+      workspace: workspaceHint,
+      capability: capabilityHint,
+    });
+    if (!registryProof.proven) {
+      return {
+        blocked: true,
+        classification: "REPAIR_AUTHORITY_REQUIRED",
+        reason: registryProof.reason,
+      };
+    }
+    classification = "AUTO_REPAIR";
+    capability = registryProof.evidence.capability;
+    workspace = registryProof.evidence.workspace_id;
+    resolvedRoute = registryProof.evidence.route || route;
   }
 
   return {
@@ -341,18 +423,18 @@ async function loadCapturedUserFailure(signalKey) {
       source: "system_events.platform_user_failure_capture",
       title: classification === "AUTO_COMPLETE"
         ? `${registryProof?.item?.name || capability || workspace || "Registered Avantiqo capability"} is incomplete`
-        : `${capability || workspace || route || "Avantiqo user action"} failed`,
+        : `${capability || workspace || resolvedRoute || "Avantiqo user action"} failed`,
       error_class: category.toUpperCase(),
       error_message: errorMessage,
       capability,
       workspace,
-      route,
+      route: resolvedRoute,
       action,
       classification,
       evidence: {
         event_id: eventId,
         captured_at: data.created_at || stored.occurred_at || null,
-        route,
+        browser_reported_route: route,
         status_code: stored.status_code ?? null,
         error_digest: text(stored.error_digest, 200) || null,
         organization_scope: text(stored.organization_scope, 120) || null,
@@ -363,7 +445,7 @@ async function loadCapturedUserFailure(signalKey) {
         raw_request_body_stored: false,
       },
       replay: {
-        route,
+        route: resolvedRoute,
         action,
         capability,
         workspace,

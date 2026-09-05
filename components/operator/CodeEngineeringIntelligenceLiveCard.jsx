@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import CodeEngineeringIntelligenceCard from "@/components/operator/CodeEngineeringIntelligenceCard";
+import CodeEngineeringPlanCard from "@/components/operator/CodeEngineeringPlanCard";
 
 const ACTIVE_POLL_MS = 2200;
 const IDLE_POLL_MS = 7000;
@@ -84,7 +85,12 @@ export default function CodeEngineeringIntelligenceLiveCard({
   if (!progress) return null;
 
   return (
-    <div className={className} data-avantiqo-code-intelligence-live-feed="true">
+    <div className={`space-y-3 ${className}`} data-avantiqo-code-intelligence-live-feed="true">
+      <CodeEngineeringPlanCard
+        plan={progress?.engineering_plan || null}
+        theme={theme}
+        compact={compact}
+      />
       <CodeEngineeringIntelligenceCard
         progress={progress}
         theme={theme}

@@ -193,8 +193,22 @@ export default function PestControlTechnicianCockpit({ organizationId }) {
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.success) throw new Error(json.error || "Technician service queue could not be loaded.");
       const rows = Array.isArray(json.rows) ? json.rows : [];
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const requestedOccurrenceId = params?.get("occurrenceId") || null;
+      const requestedWorkOrderId = params?.get("workOrderId") || null;
+      const requested = rows.find((row) => (
+        (requestedOccurrenceId && row.occurrence_id === requestedOccurrenceId)
+        || (requestedWorkOrderId && row.work_order_id === requestedWorkOrderId)
+      )) || null;
       setState({ loading: false, error: "", rows });
-      setSelectedId((current) => current || rows.find((row) => !isTerminal(row))?.occurrence_id || rows[0]?.occurrence_id || "");
+      if (requested) {
+        setFilter("all");
+        setSelectedId(requested.occurrence_id);
+      } else {
+        setSelectedId((current) => current && rows.some((row) => row.occurrence_id === current)
+          ? current
+          : rows.find((row) => !isTerminal(row))?.occurrence_id || rows[0]?.occurrence_id || "");
+      }
     } catch (error) {
       setState((current) => ({ ...current, loading: false, error: error?.message || "Technician service queue could not be loaded." }));
     }
@@ -206,6 +220,17 @@ export default function PestControlTechnicianCockpit({ organizationId }) {
     () => state.rows.find((row) => row.occurrence_id === selectedId) || null,
     [selectedId, state.rows],
   );
+
+  function selectVisit(row) {
+    if (!row?.occurrence_id) return;
+    setSelectedId(row.occurrence_id);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("occurrenceId", row.occurrence_id);
+    if (row.work_order_id) url.searchParams.set("workOrderId", row.work_order_id);
+    else url.searchParams.delete("workOrderId");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }
 
   const loadMonitoring = useCallback(async (row) => {
     if (!organizationId || !row?.occurrence_id || normalized(row.industry_key) !== "pest_control") {
@@ -301,6 +326,9 @@ export default function PestControlTechnicianCockpit({ organizationId }) {
   const evidenceHref = `/workspace/${encodeURIComponent(organizationId)}/operations/completion-evidence`;
   const reportsHref = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/service-reports`;
   const fieldServiceHref = `/workspace/${encodeURIComponent(organizationId)}/operations/field-service`;
+  const workControlHref = selected?.work_order_id
+    ? `/workspace/${encodeURIComponent(organizationId)}/operations/work-control?workOrderId=${encodeURIComponent(selected.work_order_id)}`
+    : `/workspace/${encodeURIComponent(organizationId)}/operations/work-control`;
   const monitoringHref = selected?.occurrence_id
     ? `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/monitoring-round/${encodeURIComponent(selected.occurrence_id)}`
     : `/workspace/${encodeURIComponent(organizationId)}/operations/field-service/monitoring-rounds`;
@@ -316,6 +344,7 @@ export default function PestControlTechnicianCockpit({ organizationId }) {
             <p className="mt-1 max-w-3xl text-[11px] leading-5 text-[#777169]">One controlled path from arrival to inspection, treatment, monitoring, proof and customer-safe completion.</p>
           </div>
           <div className="flex items-center gap-2">
+            {selected?.work_order_id ? <Link href={workControlHref} className="rounded-lg border border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] px-3 py-2 text-[9px] font-medium text-[#76583A]">Work order</Link> : null}
             <Link href={reportsHref} className="rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[9px] text-[#625D56]">Service reports</Link>
             <button type="button" onClick={() => { load(); if (selected) loadMonitoring(selected); }} className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#806143]" aria-label="Refresh technician queue">
               <RefreshCw size={11} className={state.loading || monitoring.loading ? "animate-spin" : ""} />
@@ -342,7 +371,7 @@ export default function PestControlTechnicianCockpit({ organizationId }) {
               </div>
               <div className="space-y-2">
                 {!state.loading && filteredRows.length === 0 ? <div className="rounded-xl bg-[#FBFAF8] px-4 py-6 text-center text-[9px] text-[#8D877F]">No visits in this view.</div> : null}
-                {filteredRows.map((row) => <QueueCard key={row.occurrence_id} row={row} selected={row.occurrence_id === selectedId} onSelect={() => setSelectedId(row.occurrence_id)} />)}
+                {filteredRows.map((row) => <QueueCard key={row.occurrence_id} row={row} selected={row.occurrence_id === selectedId} onSelect={() => selectVisit(row)} />)}
               </div>
             </div>
           </aside>

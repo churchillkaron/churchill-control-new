@@ -151,6 +151,7 @@ begin
      or coalesce(v_receipt_metadata->>'transaction_atomic', 'false') <> 'true'
      or coalesce(v_receipt_metadata->>'partial_release_state_allowed', 'true') <> 'false'
      or coalesce(v_receipt_metadata->>'transaction_id', '') <> p_transaction_id::text
+     or nullif(v_receipt_metadata->>'committed_at', '') is null
      or nullif(v_receipt_metadata->>'committed_at', '')::timestamptz <> p_committed_at
      or coalesce(v_receipt_metadata->>'authorization_id', '') <> v_authorization_id_text
      or coalesce(v_receipt_metadata->>'authorization_memory_key', '') <> v_authorization.memory_key
@@ -166,7 +167,7 @@ begin
      or coalesce(v_receipt_metadata->>'provisional_claim_digest', '') <> v_claim_digest
      or coalesce(v_receipt_metadata->>'release_memory_key', '') <> v_release_memory_key
      or coalesce(v_receipt_metadata->>'release_id', '') <> coalesce(v_release_metadata->>'release_id', '')
-     or length(coalesce(v_receipt_metadata->>'released_knowledge_binding_digest', '')) <> 64
+     or coalesce(v_receipt_metadata->>'released_knowledge_binding_digest', '') !~ '^[0-9a-f]{64}$'
      or coalesce(v_receipt_metadata->>'release_receipt_signature_contract', '') <> 'AVANTIQO_FINAL_KNOWLEDGE_RELEASE_RECEIPT_V1'
      or coalesce(v_receipt_metadata->>'release_receipt_signature_algorithm', '') <> 'Ed25519'
      or coalesce(v_receipt_metadata->>'release_receipt_signature_key_id', '') = ''

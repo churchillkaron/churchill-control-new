@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { isHotelChannelTransportImplemented } from "@/lib/hotel/channels/HotelChannelTransportRegistry";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
@@ -100,8 +101,9 @@ export async function POST(request) {
       .eq("enabled", true);
     if (connectionsError) throw connectionsError;
 
-    const eligibleConnections = (candidates || []).filter((connection) => Boolean(clean(connection.credential_secret_ref)));
-    const connectionIds = eligibleConnections.map((connection) => connection.id);
+    const credentialedConnections = (candidates || []).filter((connection) => Boolean(clean(connection.credential_secret_ref)));
+    const transportReadyConnections = credentialedConnections.filter((connection) => isHotelChannelTransportImplemented(connection.provider));
+    const connectionIds = transportReadyConnections.map((connection) => connection.id);
     let mappedConnectionIds = [];
     if (connectionIds.length) {
       const { data: mappings, error: mappingsError } = await supabaseAdmin.from("hotel_channel_mappings").select("connection_id").eq("organization_id", access.organizationId).eq("local_room_type", roomType).eq("local_rate_plan_id", ratePlanId).eq("active", true).in("connection_id", connectionIds);
@@ -128,8 +130,10 @@ export async function POST(request) {
       success: true,
       entries: data || [],
       distributionQueued: mappedConnectionIds.length > 0,
-      distributionState: mappedConnectionIds.length > 0 ? "INTERNAL_QUEUE_PENDING_PROVIDER_TRANSMISSION" : "AWAITING_CERTIFIED_CONNECTIVITY",
+      distributionState: mappedConnectionIds.length > 0 ? "INTERNAL_QUEUE_PENDING_PROVIDER_TRANSMISSION" : "AWAITING_CERTIFIED_TRANSPORT",
       destinationCount: mappedConnectionIds.length,
+      configuredDestinationCount: credentialedConnections.length,
+      transportReadyDestinationCount: transportReadyConnections.length,
       providerTransmissionClaimed: false,
     });
   } catch (error) {

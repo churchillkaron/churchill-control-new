@@ -18,6 +18,10 @@ const homeSurface = await readFile(
   "app/(system)/workspace/[organizationId]/page.jsx",
   "utf8",
 );
+const businessPartnerCodeSurface = await readFile(
+  "components/operator/BusinessPartnerCodeMissionPanel.jsx",
+  "utf8",
+);
 const businessPartnerPolicy = await readFile(
   "lib/operator/runtime/OperatorSelfEngineeringPolicy.js",
   "utf8",
@@ -60,10 +64,26 @@ test("Code Studio follows shared governed Code missions and keeps Business Partn
   assert.match(studioSurface, /no commit · no deploy/);
 });
 
-test("Home Business Partner remains the primary operator surface", () => {
-  assert.match(homeSurface, /HomeAvantiqoIntelligenceDock/);
+test("Home Business Partner remains the primary operator surface and exposes Code mission evidence", () => {
+  assert.match(homeSurface, /BusinessPartnerCodeMissionPanel/);
+  assert.match(homeSurface, /Business Partner/);
   assert.match(homeSurface, /One operator\. Every capability\./);
-  assert.match(homeSurface, /The global command bar and this conversation are the same operator\./);
+  assert.match(
+    homeSurface,
+    /Ask, steer and verify work here\. Code missions stay synchronized with Code Studio\./,
+  );
+  assert.match(businessPartnerCodeSurface, /\/api\/operator\/code\/progress/);
+  assert.match(
+    businessPartnerCodeSurface,
+    /data-avantiqo-business-partner-code-mission="true"/,
+  );
+  assert.match(
+    businessPartnerCodeSurface,
+    /data-avantiqo-open-code-studio="true"/,
+  );
+  assert.match(businessPartnerCodeSurface, /latest_verification_passed/);
+  assert.match(businessPartnerCodeSurface, /Open Code Studio/);
+  assert.match(businessPartnerCodeSurface, /RECENT_VISIBLE_MS/);
 });
 
 test("Business Partner code requests converge through Product Engineering into Code AI", () => {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { getServerCurrentUser } from "@/lib/auth/getServerCurrentUser";
+import {
+  assertAvantiqoFinalKnowledgeReleaseManagerAuthority,
+} from "@/lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseManagerAuthorityRuntime";
 import {
   getAvantiqoFinalKnowledgeReleaseActivationReadiness,
 } from "@/lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseActivationReadinessRuntime";
@@ -20,40 +20,9 @@ function uuid(value) {
     : null;
 }
 
-function createUserContextClient() {
-  const cookieStore = cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {},
-      },
-    },
-  );
-}
-
-async function assertManagerAuthority(organizationId) {
-  const user = await getServerCurrentUser();
-  if (!uuid(user?.id)) {
-    throw new Error("AVANTIQO_FINAL_KNOWLEDGE_RELEASE_READINESS_AUTHENTICATED_USER_REQUIRED");
-  }
-  const userClient = createUserContextClient();
-  const authority = await userClient.rpc("can_manage_organization", {
-    target_organization_id: organizationId,
-  });
-  if (authority.error) throw authority.error;
-  if (authority.data !== true) {
-    throw new Error("AVANTIQO_FINAL_KNOWLEDGE_RELEASE_READINESS_ORGANIZATION_MANAGER_AUTHORITY_REQUIRED");
-  }
-}
-
 function statusForError(message) {
   if (/AUTHENTICATED_USER_REQUIRED/.test(message)) return 401;
-  if (/ORGANIZATION_MANAGER_AUTHORITY_REQUIRED/.test(message)) return 403;
+  if (/ORGANIZATION_MANAGER_AUTHORITY_REQUIRED|AUTHORITY_EVIDENCE_MISMATCH/.test(message)) return 403;
   if (/ORGANIZATION_REQUIRED/.test(message)) return 400;
   return 422;
 }
@@ -64,9 +33,22 @@ export async function GET(request) {
     if (!organizationId) {
       throw new Error("AVANTIQO_FINAL_KNOWLEDGE_RELEASE_READINESS_ORGANIZATION_REQUIRED");
     }
-    await assertManagerAuthority(organizationId);
+    const actor = await assertAvantiqoFinalKnowledgeReleaseManagerAuthority(organizationId);
     const readiness = await getAvantiqoFinalKnowledgeReleaseActivationReadiness();
-    return NextResponse.json(readiness, {
+    return NextResponse.json({
+      ...readiness,
+      authority: {
+        contract: actor.contract,
+        staff_account_id: actor.staff_account_id,
+        role: actor.role,
+        authority_function: actor.authority_function,
+        authority_verified: actor.authority_verified,
+        staff_account_active_verified: actor.staff_account_active_verified,
+        organization_membership_active_verified: actor.organization_membership_active_verified,
+        manager_role_verified: actor.manager_role_verified,
+        caller_supplied_identity_allowed: false,
+      },
+    }, {
       status: readiness.ready === true ? 200 : 409,
       headers: { "cache-control": "no-store" },
     });

@@ -32,10 +32,12 @@ export default function OperationsReservationsPage() {
   const organizationId = params?.organizationId || businessContext.organization_id || organization?.id || null;
   const [properties, setProperties] = useState([]);
   const [availableRooms, setAvailableRooms] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [guests, setGuests] = useState([]);
   const [bookings, setBookings] = useState([]);
-  const [form, setForm] = useState({ propertyId: "", roomId: "", guestId: "", check_in_date: "", check_out_date: "" });
+  const [form, setForm] = useState({ propertyId: "", groupId: "", roomId: "", guestId: "", check_in_date: "", check_out_date: "" });
   const [loading, setLoading] = useState(true);
+  const [checkingGroups, setCheckingGroups] = useState(false);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -72,6 +74,23 @@ export default function OperationsReservationsPage() {
 
   useEffect(() => {
     let active = true;
+    setGroups([]);
+    if (!organizationId || !form.propertyId) return () => { active = false; };
+    setCheckingGroups(true);
+    fetch(`/api/hotel/groups?organizationId=${encodeURIComponent(organizationId)}&propertyId=${encodeURIComponent(form.propertyId)}`, { cache: "no-store", credentials: "include" })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok || result.success === false) throw new Error(result.error || "Unable to load group business");
+        if (!active) return;
+        setGroups((result.groups || []).filter((group) => ["PROSPECT", "TENTATIVE", "CONFIRMED", "IN_HOUSE"].includes(String(group.status || "").toUpperCase())));
+      })
+      .catch((reason) => active && setError(reason.message))
+      .finally(() => active && setCheckingGroups(false));
+    return () => { active = false; };
+  }, [organizationId, form.propertyId]);
+
+  useEffect(() => {
+    let active = true;
     const valid = form.propertyId && form.check_in_date && form.check_out_date && form.check_out_date > form.check_in_date;
     setForm((current) => current.roomId ? { ...current, roomId: "" } : current);
     setAvailableRooms([]);
@@ -89,6 +108,7 @@ export default function OperationsReservationsPage() {
           body: JSON.stringify({
             organizationId,
             propertyId: form.propertyId,
+            groupId: form.groupId || null,
             checkInDate: form.check_in_date,
             checkOutDate: form.check_out_date,
           }),
@@ -106,7 +126,7 @@ export default function OperationsReservationsPage() {
     }, 180);
 
     return () => { active = false; clearTimeout(timer); };
-  }, [organizationId, form.propertyId, form.check_in_date, form.check_out_date]);
+  }, [organizationId, form.propertyId, form.groupId, form.check_in_date, form.check_out_date]);
 
   const upcomingBookings = useMemo(() => bookings
     .filter((booking) => ["RESERVED", "CHECKED_IN"].includes(String(booking.status || "").toUpperCase()))
@@ -117,6 +137,19 @@ export default function OperationsReservationsPage() {
     for (const room of availableRooms) result.set(room.room_type || "Room", (result.get(room.room_type || "Room") || 0) + 1);
     return [...result.entries()];
   }, [availableRooms]);
+
+  const selectedGroup = groups.find((group) => group.id === form.groupId) || null;
+
+  function chooseGroup(groupId) {
+    const group = groups.find((item) => item.id === groupId);
+    setForm((current) => ({
+      ...current,
+      groupId,
+      roomId: "",
+      check_in_date: group?.arrival_date || current.check_in_date,
+      check_out_date: group?.departure_date || current.check_out_date,
+    }));
+  }
 
   async function createReservation() {
     if (!organizationId) return;
@@ -132,10 +165,11 @@ export default function OperationsReservationsPage() {
       });
       const result = await response.json();
       if (!response.ok || result.success === false) throw new Error(result.error || "Reservation failed");
-      setForm((current) => ({ propertyId: current.propertyId, roomId: "", guestId: "", check_in_date: "", check_out_date: "" }));
+      const groupName = selectedGroup?.name;
+      setForm((current) => ({ propertyId: current.propertyId, groupId: current.groupId, roomId: "", guestId: "", check_in_date: current.groupId ? current.check_in_date : "", check_out_date: current.groupId ? current.check_out_date : "" }));
       setAvailableRooms([]);
       setAvailabilityChecked(false);
-      setMessage("Reservation created against live governed availability and handed to Front Desk.");
+      setMessage(groupName ? `Group pickup created for ${groupName} against its governed allotment.` : "Reservation created against live governed availability and handed to Front Desk.");
       await loadWorkspace();
     } catch (saveError) {
       setError(saveError?.message || "Reservation failed");
@@ -147,7 +181,7 @@ export default function OperationsReservationsPage() {
       organizationId={organizationId}
       active="reservations"
       title="Reservations"
-      subtitle="Create stays against live room availability after existing reservations, out-of-service rooms and unpicked group allotments are protected."
+      subtitle="Create transient stays or group pickup against live room availability after existing reservations, out-of-service rooms and unpicked group allotments are protected."
       context={organization?.name || "Property"}
       actions={<>
         <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "front-desk")}>Open Front Desk</HotelPrimaryAction>
@@ -159,9 +193,11 @@ export default function OperationsReservationsPage() {
       <HotelSuccess>{message}</HotelSuccess>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(340px,0.48fr)_minmax(0,1.52fr)]">
-        <HotelSection eyebrow="New stay" title="Create reservation" detail="Property and stay dates come first. Avantiqo only offers rooms that remain sellable after governed inventory protection.">
+        <HotelSection eyebrow="New stay" title="Create reservation" detail="Property and stay dates come first. Select a group when this reservation should consume its held allotment.">
           <div className="grid gap-3 p-4">
-            <HotelField label="Property"><select value={form.propertyId} onChange={(event) => setForm((current) => ({ ...current, propertyId: event.target.value, roomId: "" }))} className={hotelInputClass}><option value="">Select property</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name || property.property_name}</option>)}</select></HotelField>
+            <HotelField label="Property"><select value={form.propertyId} onChange={(event) => setForm((current) => ({ ...current, propertyId: event.target.value, groupId: "", roomId: "" }))} className={hotelInputClass}><option value="">Select property</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name || property.property_name}</option>)}</select></HotelField>
+            <HotelField label="Group / allotment"><select value={form.groupId} onChange={(event) => chooseGroup(event.target.value)} className={hotelInputClass} disabled={!form.propertyId || checkingGroups}><option value="">Transient / no group</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name} · {group.status}</option>)}</select></HotelField>
+            {selectedGroup ? <div className="rounded-xl border border-[#A37849]/15 bg-[#FBF8F3] px-3 py-2 text-[8px] leading-4 text-[#756A5E]">Pickup against <strong>{selectedGroup.name}</strong>. Group dates prefill the stay; changing dates is still validated against the group’s remaining dated room block.</div> : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <HotelField label="Arrival"><input type="date" value={form.check_in_date} onChange={(event) => setForm((current) => ({ ...current, check_in_date: event.target.value, roomId: "" }))} className={hotelInputClass} /></HotelField>
               <HotelField label="Departure"><input type="date" value={form.check_out_date} onChange={(event) => setForm((current) => ({ ...current, check_out_date: event.target.value, roomId: "" }))} className={hotelInputClass} /></HotelField>
@@ -174,7 +210,7 @@ export default function OperationsReservationsPage() {
 
             <HotelField label="Available room"><select value={form.roomId} onChange={(event) => setForm((current) => ({ ...current, roomId: event.target.value }))} className={hotelInputClass} disabled={!availabilityChecked || checkingAvailability}><option value="">{checkingAvailability ? "Checking availability…" : "Select sellable room"}</option>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.room_number} · {room.room_type || "Room"}</option>)}</select></HotelField>
             <HotelField label="Guest"><select value={form.guestId} onChange={(event) => setForm((current) => ({ ...current, guestId: event.target.value }))} className={hotelInputClass}><option value="">Select guest</option>{guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.full_name || [guest.first_name, guest.last_name].filter(Boolean).join(" ") || "Guest"}</option>)}</select></HotelField>
-            <HotelPrimaryAction onClick={createReservation} disabled={saving || checkingAvailability || !availabilityChecked || !form.roomId}>{saving ? "Creating…" : "Create reservation"}</HotelPrimaryAction>
+            <HotelPrimaryAction onClick={createReservation} disabled={saving || checkingAvailability || !availabilityChecked || !form.roomId}>{saving ? "Creating…" : selectedGroup ? "Create group pickup" : "Create reservation"}</HotelPrimaryAction>
           </div>
         </HotelSection>
 

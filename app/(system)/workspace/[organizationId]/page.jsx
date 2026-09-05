@@ -13,6 +13,7 @@ import {
 
 import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
+import BusinessPartnerCodeMissionPanel from "@/components/operator/BusinessPartnerCodeMissionPanel";
 import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { listOperatorNavigationTargets } from "@/lib/operator/runtime/OperatorNavigationCatalog";
@@ -342,13 +343,13 @@ export default function OrganizationWorkspacePage() {
                 <div>
                   <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#9A744B]">
                     <Sparkles size={13} />
-                    Avantiqo Intelligence
+                    Business Partner
                   </div>
                   <div className="mt-1.5 text-[18px] font-medium tracking-[-0.025em] text-[#1B1A18]">
                     One operator. Every capability.
                   </div>
                   <div className="mt-1 text-[11px] leading-5 text-[#8B8881]">
-                    The global command bar and this conversation are the same operator.
+                    Ask, steer and verify work here. Code missions stay synchronized with Code Studio.
                   </div>
                 </div>
                 <span className="shrink-0 rounded-full border border-[#6F7E68]/20 bg-[#6F7E68]/[0.08] px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.12em] text-[#5E6D58]">
@@ -356,6 +357,7 @@ export default function OrganizationWorkspacePage() {
                 </span>
               </div>
 
+              <BusinessPartnerCodeMissionPanel organizationId={organizationId} />
               <HomeAvantiqoIntelligenceDock organizationId={organizationId} />
             </div>
           </aside>

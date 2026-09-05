@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock3, RefreshCw, UserCheck, Users } from "lucide-react";
+import { CheckCircle2, Clock3, LockKeyhole, RefreshCw, UserCheck, Users } from "lucide-react";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -117,6 +117,7 @@ export default function FinanceTaxDependencyWorkRail({ organizationId, entityId,
           const envelope = envelopeByCode.get(dependency.code) || null;
           const ownedByMe = Boolean(envelope?.assigned_to && envelope.assigned_to === currentUserId);
           const ownedByOther = Boolean(envelope?.assigned_to && envelope.assigned_to !== currentUserId);
+          const readOnly = ownedByOther;
           const draft = drafts[dependency.code] || blankDraft(envelope);
           return <div key={dependency.id} className="p-3.5">
             <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -125,6 +126,7 @@ export default function FinanceTaxDependencyWorkRail({ organizationId, entityId,
                   <span className={`rounded-md border px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.07em] ${dependency.blocking ? "border-red-700/15 bg-red-50 text-red-800" : "border-amber-700/15 bg-amber-50 text-amber-900"}`}>{dependency.blocking ? "Live blocker" : "Live warning"}</span>
                   <span className="inline-flex items-center gap-1 rounded-md border border-black/[0.07] bg-[#FAF9F7] px-2 py-1 text-[8px] font-semibold text-[#68625B]">{ownedByMe ? <UserCheck size={9} /> : <Users size={9} />}{ownedByMe ? "Owned by me" : ownedByOther ? "Owned by colleague" : "Unowned"}</span>
                   {envelope?.acknowledged_at ? <span className="inline-flex items-center gap-1 rounded-md border border-emerald-700/15 bg-emerald-50 px-2 py-1 text-[8px] font-semibold text-emerald-800"><CheckCircle2 size={9} /> Acknowledged</span> : null}
+                  {readOnly ? <span className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-[#F4F2EE] px-2 py-1 text-[8px] font-semibold text-[#716B63]"><LockKeyhole size={9} /> Read-only while owned by colleague</span> : null}
                 </div>
                 <div className="mt-2 text-[11px] font-semibold">{dependency.title}</div>
                 <div className="mt-1 text-[9px] leading-4 text-[#716B63]">{dependency.next_action}</div>
@@ -132,15 +134,17 @@ export default function FinanceTaxDependencyWorkRail({ organizationId, entityId,
               <div className="flex shrink-0 flex-wrap gap-1.5">
                 {!envelope?.assigned_to ? <button onClick={() => action(dependency.code, "TAKE_OWNERSHIP")} disabled={busyCode === dependency.code} className="h-8 rounded-lg bg-[#1F1E1B] px-2.5 text-[8px] font-semibold text-white disabled:opacity-40">Take ownership</button> : null}
                 {ownedByMe ? <button onClick={() => action(dependency.code, "RELEASE_OWNERSHIP")} disabled={busyCode === dependency.code} className="h-8 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[8px] font-semibold disabled:opacity-40">Release</button> : null}
-                {!envelope?.acknowledged_at ? <button onClick={() => action(dependency.code, "ACKNOWLEDGE")} disabled={busyCode === dependency.code} className="h-8 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[8px] font-semibold disabled:opacity-40">Acknowledge</button> : null}
+                {!envelope?.acknowledged_at ? <button onClick={() => action(dependency.code, "ACKNOWLEDGE")} disabled={busyCode === dependency.code || readOnly} className="h-8 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[8px] font-semibold disabled:cursor-not-allowed disabled:opacity-35">Acknowledge</button> : null}
               </div>
             </div>
 
             <div className="mt-3 grid gap-2 lg:grid-cols-[180px_minmax(280px,1fr)_auto] lg:items-end">
-              <label className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[#817B73]">Internal target<input type="date" value={draft.target_at} onChange={event => setDrafts(current => ({ ...current, [dependency.code]: { ...draft, target_at: event.target.value } }))} className="mt-1.5 h-9 w-full rounded-lg border border-black/[0.09] bg-white px-2 text-[9px] font-normal normal-case tracking-normal" /></label>
-              <label className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[#817B73]">Coordination note<input value={draft.note} onChange={event => setDrafts(current => ({ ...current, [dependency.code]: { ...draft, note: event.target.value } }))} placeholder="What the team needs to know; this does not resolve the blocker" className="mt-1.5 h-9 w-full rounded-lg border border-black/[0.09] bg-white px-2.5 text-[9px] font-normal normal-case tracking-normal" /></label>
-              <button onClick={() => action(dependency.code, "UPDATE_COORDINATION", { targetAt: draft.target_at || null, note: clean(draft.note) || null })} disabled={busyCode === dependency.code} className="h-9 rounded-lg border border-black/[0.09] bg-white px-3 text-[8px] font-semibold disabled:opacity-40">Save coordination</button>
+              <label className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[#817B73]">Internal target<input type="date" value={draft.target_at} disabled={readOnly} onChange={event => setDrafts(current => ({ ...current, [dependency.code]: { ...draft, target_at: event.target.value } }))} className="mt-1.5 h-9 w-full rounded-lg border border-black/[0.09] bg-white px-2 text-[9px] font-normal normal-case tracking-normal disabled:cursor-not-allowed disabled:bg-[#F3F1ED] disabled:text-[#8F8981]" /></label>
+              <label className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[#817B73]">Coordination note<input value={draft.note} disabled={readOnly} onChange={event => setDrafts(current => ({ ...current, [dependency.code]: { ...draft, note: event.target.value } }))} placeholder="What the team needs to know; this does not resolve the blocker" className="mt-1.5 h-9 w-full rounded-lg border border-black/[0.09] bg-white px-2.5 text-[9px] font-normal normal-case tracking-normal disabled:cursor-not-allowed disabled:bg-[#F3F1ED] disabled:text-[#8F8981]" /></label>
+              <button onClick={() => action(dependency.code, "UPDATE_COORDINATION", { targetAt: draft.target_at || null, note: clean(draft.note) || null })} disabled={busyCode === dependency.code || readOnly} className="h-9 rounded-lg border border-black/[0.09] bg-white px-3 text-[8px] font-semibold disabled:cursor-not-allowed disabled:opacity-35">Save coordination</button>
             </div>
+
+            {readOnly ? <div className="mt-2 rounded-lg border border-black/[0.06] bg-[#FAF9F7] px-2.5 py-2 text-[8px] leading-4 text-[#817B73]">A colleague currently owns this dependency. Their target, note and acknowledgment are visible for coordination, but only the current owner can change assigned work.</div> : null}
 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[8px] text-[#918B83]">
               <span className="inline-flex items-center gap-1"><Clock3 size={9} /> Statutory due {date(dependency.filing_due_date)}</span>

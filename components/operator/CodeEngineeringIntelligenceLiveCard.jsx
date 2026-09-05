@@ -101,6 +101,7 @@ export default function CodeEngineeringIntelligenceLiveCard({
     <div className={`space-y-3 ${className}`} data-avantiqo-code-intelligence-live-feed="true">
       <ProductEngineeringPortfolioCard
         portfolio={progress?.product_engineering_portfolio || null}
+        organizationId={organizationId}
         theme={theme}
         compact={compact}
       />

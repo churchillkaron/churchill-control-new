@@ -1,5 +1,6 @@
 name: Avantiqo Investor Visual Proof 24s Once
 
+# Registered one-shot investor workflow. Purpose-generated visuals only.
 on:
   push:
     branches: [main]
@@ -15,13 +16,16 @@ concurrency:
 
 jobs:
   proof:
-    if: github.event.head_commit.message == 'Run fast Studio-first Avantiqo investor proof once'
+    if: github.event.head_commit.message == 'Run new-only Avantiqo investor proof once'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 55
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      AVANTIQO_INVESTOR_PROOF_RUN_KEY: "visual-proof-24s-fast-${{ github.sha }}"
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+      AVANTIQO_INVESTOR_PROOF_RUN_KEY: "new-only-${{ github.sha }}"
+      AVANTIQO_INVESTOR_T2V_MAX_WAIT_SECONDS: "600"
 
     steps:
       - uses: actions/checkout@v4
@@ -29,79 +33,97 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
 
-      - name: Install Studio proof tooling
+      - name: Install proof tooling
         run: |
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
           npm ci --ignore-scripts
 
-      - name: Validate Studio-first proof contract
+      - name: Validate new-only generation boundary
         run: |
           set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
-          node --check scripts/run-avantiqo-investor-visual-proof-24s-fast.mjs
-          grep -F 'new_gpu_generation_calls: 0' scripts/run-avantiqo-investor-visual-proof-24s-fast.mjs >/dev/null
-          grep -F 'screenshot_or_browser_capture_used: false' scripts/run-avantiqo-investor-visual-proof-24s-fast.mjs >/dev/null
-          grep -F 'owned_avantiqo_generation_used: true' scripts/run-avantiqo-investor-visual-proof-24s-fast.mjs >/dev/null
-          grep -F '3840' scripts/run-avantiqo-investor-visual-proof-24s-fast.mjs >/dev/null
-          grep -F 'target_duration_seconds: 24' lib/creative/director/runtime/CreativeInvestorFilmMarketResearchRuntime.js >/dev/null
-          echo 'AVANTIQO_INVESTOR_FAST_PROOF_PREFLIGHT=PASS'
-          echo 'NEW_GPU_GENERATION_CALLS=0'
-          echo 'JOB_TIMEOUT_MINUTES=25'
+          python -m py_compile services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_investor_t2v.py
+          node --check scripts/run-avantiqo-investor-visual-proof-24s-new-only.mjs
+          grep -F 'EXISTING_VISUAL_INPUT_FORBIDDEN' services/avantiqo-video-engine/modal_investor_t2v.py >/dev/null
+          grep -F 'pure_text_to_video' services/avantiqo-video-engine/modal_investor_t2v.py >/dev/null
+          grep -F 'source_visual_asset_count: 0' scripts/run-avantiqo-investor-visual-proof-24s-new-only.mjs >/dev/null
+          grep -F 'existing_visual_assets_used: false' scripts/run-avantiqo-investor-visual-proof-24s-new-only.mjs >/dev/null
+          echo 'AVANTIQO_INVESTOR_NEW_ONLY_PREFLIGHT=PASS'
 
-      - name: Assemble 24-second Studio-first 4K investor visual proof
+      - name: Deploy pure T2V Modal investor lane
         run: |
           set -euo pipefail
-          node scripts/run-avantiqo-investor-visual-proof-24s-fast.mjs
+          cd services/avantiqo-video-engine
+          modal deploy modal_investor_t2v.py | tee /tmp/investor-t2v-deploy.log
+          grep -F 'generate_investor_t2v_job' /tmp/investor-t2v-deploy.log >/dev/null
+          grep -F 'generate_investor_t2v_master' /tmp/investor-t2v-deploy.log >/dev/null
+          echo 'AVANTIQO_INVESTOR_T2V_MODAL_DEPLOY=PASS'
 
-      - name: Verify final proof artifact
+      - name: Verify distilled assets without GPU
         run: |
           set -euo pipefail
-          REPORT='local-audit-output/avantiqo-investor-visual-proof-24s/avantiqo-investor-visual-proof-24s-report.json'
-          MP4='local-audit-output/avantiqo-investor-visual-proof-24s/avantiqo-investor-visual-proof-24s-4k.mp4'
+          cd services/avantiqo-video-engine
+          modal run modal_investor_t2v.py::seed_investor_t2v_cache | tee /tmp/investor-t2v-cache.log
+          echo 'AVANTIQO_INVESTOR_T2V_CACHE_GATE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Generate four new shots and assemble 24-second 4K proof
+        run: |
+          set -euo pipefail
+          node scripts/run-avantiqo-investor-visual-proof-24s-new-only.mjs
+
+      - name: Verify new-only proof artifact
+        run: |
+          set -euo pipefail
+          REPORT='local-audit-output/avantiqo-investor-visual-proof-24s-new-only/avantiqo-investor-visual-proof-24s-new-only-report.json'
+          MP4='local-audit-output/avantiqo-investor-visual-proof-24s-new-only/avantiqo-investor-visual-proof-24s-new-only-4k.mp4'
           test -s "$REPORT"
           test -s "$MP4"
           node - <<'NODE'
           const fs = require('node:fs');
-          const report = JSON.parse(fs.readFileSync('local-audit-output/avantiqo-investor-visual-proof-24s/avantiqo-investor-visual-proof-24s-report.json', 'utf8'));
-          const expectedRunKey = `visual-proof-24s-fast-${process.env.GITHUB_SHA}`;
-          if (report.success !== true) throw new Error('PROOF_NOT_SUCCESSFUL');
-          if (report.run_key !== expectedRunKey) throw new Error(`RUN_KEY_INVALID:${report.run_key}`);
-          if (report.proof_type !== 'STUDIO_FIRST_OWNED_GENERATION_PLUS_APPROVED_LIVE_ACTION') throw new Error('PROOF_TYPE_INVALID');
-          if (report.master_resolution !== '3840x2160') throw new Error(`MASTER_RESOLUTION_INVALID:${report.master_resolution}`);
-          if (Math.abs(Number(report.actual_duration_seconds) - 24) > 0.08) throw new Error(`MASTER_DURATION_INVALID:${report.actual_duration_seconds}`);
-          if (report.owned_avantiqo_generation_used !== true) throw new Error('OWNED_GENERATION_REQUIRED');
-          if (report.owned_avantiqo_generation_model !== 'avantiqo-ltx-2.5') throw new Error('OWNED_MODEL_INVALID');
-          if (Number(report.new_gpu_generation_calls) !== 0) throw new Error('NEW_GPU_CALLS_FORBIDDEN');
-          if (Number(report.gpu_generation_calls) !== 0) throw new Error('GPU_CALLS_FORBIDDEN');
-          if (report.screenshot_or_browser_capture_used !== false) throw new Error('CAPTURE_POLICY_INVALID');
-          if (report.image_generation_used !== false) throw new Error('IMAGE_GENERATION_POLICY_INVALID');
-          if (report.fake_browser_ui_used !== false) throw new Error('FAKE_UI_POLICY_INVALID');
-          if (report.external_provider_contacted_during_proof !== false) throw new Error('EXTERNAL_PROVIDER_POLICY_INVALID');
-          if (report.automatic_paid_retry !== false) throw new Error('PAID_RETRY_POLICY_INVALID');
-          if (report.studio_editorial_mastering_used !== true) throw new Error('STUDIO_MASTERING_REQUIRED');
-          if (!report.final_output?.storage_reference?.startsWith('storage://creative-assets/')) throw new Error('STORAGE_REFERENCE_INVALID');
-          if (!/^https:\/\//i.test(String(report.final_output?.signed_url || ''))) throw new Error('SIGNED_URL_INVALID');
-          console.log('AVANTIQO_INVESTOR_FAST_PROOF_ARTIFACT=PASS');
-          console.log('MASTER_RESOLUTION=3840x2160');
-          console.log('MASTER_DURATION_SECONDS=' + report.actual_duration_seconds);
-          console.log('OWNED_GENERATION_MODEL=' + report.owned_avantiqo_generation_model);
-          console.log('NEW_GPU_GENERATION_CALLS=0');
-          console.log('FINAL_STORAGE_REFERENCE=' + report.final_output.storage_reference);
-          console.log('FINAL_SIGNED_URL=' + report.final_output.signed_url);
+          const r = JSON.parse(fs.readFileSync('local-audit-output/avantiqo-investor-visual-proof-24s-new-only/avantiqo-investor-visual-proof-24s-new-only-report.json','utf8'));
+          if (r.success !== true) throw new Error('PROOF_NOT_SUCCESSFUL');
+          if (r.proof_type !== 'PURE_T2V_NEW_ASSETS_ONLY') throw new Error('PROOF_TYPE_INVALID');
+          if (r.existing_visual_assets_used !== false || Number(r.source_visual_asset_count) !== 0) throw new Error('EXISTING_ASSET_POLICY_FAILED');
+          if (r.source_images_used !== false || r.source_videos_used !== false) throw new Error('SOURCE_VISUAL_POLICY_FAILED');
+          if (r.screenshot_or_browser_capture_used !== false) throw new Error('SCREENSHOT_POLICY_FAILED');
+          if (r.pure_text_to_video !== true || r.modal_used !== true) throw new Error('MODAL_T2V_REQUIRED');
+          if (r.model !== 'avantiqo-ltx-2.5') throw new Error('MODEL_INVALID');
+          if (r.generated_shot_count !== 4 || r.gpu_generation_calls !== 4) throw new Error('SHOT_COUNT_INVALID');
+          if (r.master_resolution !== '3840x2160') throw new Error('MASTER_RESOLUTION_INVALID');
+          if (Math.abs(Number(r.actual_duration_seconds)-24) > 0.08) throw new Error('MASTER_DURATION_INVALID');
+          if (r.external_provider_used !== false || r.automatic_paid_retry !== false) throw new Error('PROVIDER_POLICY_FAILED');
+          for (const shot of r.shots || []) {
+            if (shot.result?.pure_text_to_video !== true) throw new Error('SHOT_NOT_PURE_T2V:' + shot.id);
+            if (Number(shot.result?.source_visual_asset_count) !== 0) throw new Error('SHOT_SOURCE_ASSET:' + shot.id);
+            if (shot.result?.modal_gpu !== 'B200') throw new Error('SHOT_GPU_INVALID:' + shot.id);
+          }
+          console.log('AVANTIQO_INVESTOR_NEW_ONLY_ARTIFACT=PASS');
+          console.log('MASTER_RESOLUTION=' + r.master_resolution);
+          console.log('MASTER_DURATION=' + r.actual_duration_seconds);
+          console.log('FINAL_STORAGE_REFERENCE=' + r.final_output.storage_reference);
+          console.log('FINAL_SIGNED_URL=' + r.final_output.signed_url);
           NODE
 
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: avantiqo-investor-visual-proof-24s-fast
-          path: local-audit-output/avantiqo-investor-visual-proof-24s/
+          name: avantiqo-investor-visual-proof-24s-new-only
+          path: local-audit-output/avantiqo-investor-visual-proof-24s-new-only/
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
@@ -113,5 +135,3 @@ jobs:
           echo 'VIDEO_PRICING_ACTIVATED=false'
           echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
           echo 'AUTOMATIC_PAID_RETRY=false'
-          echo 'NEW_GPU_GENERATION_CALLS=0'
-          echo 'JOB_TIMEOUT_MINUTES=25'

@@ -24,14 +24,14 @@ const WORKSPACE_META = {
   strategy: { label: "Strategy", group: "Direction", icon: LineChart },
   concept: { label: "Concept", group: "Direction", icon: Lightbulb },
   storyboard: { label: "Storyboard", group: "Production", icon: Frame },
-  production: { label: "Production", group: "Production", icon: Clapperboard },
+  production: { label: "Production", group: "Film flow", icon: Clapperboard },
   music: { label: "Music", group: "Production", icon: Music2 },
   assets: { label: "Assets", group: "Production", icon: Images },
-  timeline: { label: "Timeline", group: "Production", icon: ScrollText },
-  render: { label: "Render", group: "Release", icon: Boxes },
-  publishing: { label: "Publishing", group: "Release", icon: Rocket },
-  documents: { label: "Documents", group: "Release", icon: BookOpen },
-  learning: { label: "Learning", group: "Release", icon: PackageCheck },
+  timeline: { label: "Edit", group: "Film flow", icon: ScrollText },
+  render: { label: "Mastering", group: "Film flow", icon: Boxes },
+  publishing: { label: "Release", group: "Film flow", icon: Rocket },
+  documents: { label: "Documents", group: "Evidence", icon: BookOpen },
+  learning: { label: "Learning", group: "Evidence", icon: PackageCheck },
 };
 
 const STAGE_ORDER = [
@@ -61,30 +61,63 @@ const STAGE_BY_WORKSPACE = {
   strategy: "BUILDING_STRATEGY",
   concept: "BUILDING_CONCEPT",
   storyboard: "BUILDING_STORYBOARD",
-  production: "PLANNING_PRODUCTION",
   music: "PLANNING_PRODUCTION",
-  render: "RENDERING",
-  publishing: "PUBLISHING",
   learning: "LEARNING",
 };
 
-function groupItems(workspaces, currentStage, editor) {
+const ORCHESTRATED_WORKSPACE_PHASE = {
+  production: "production",
+  timeline: "edit",
+  render: "mastering",
+  publishing: "release",
+};
+
+function phaseCopy(phase) {
+  const status = String(phase?.status || "").toUpperCase();
+  if (status === "COMPLETE") return "Evidence complete";
+  if (status === "READY") return "Ready for action";
+  if (status === "WAITING_APPROVAL") return "Approval required";
+  if (status === "IN_PROGRESS") return "In progress";
+  if (status === "NEEDS_ATTENTION") return "Needs attention";
+  if (status === "BLOCKED") return "Blocked downstream";
+  if (status === "NOT_STARTED") return "Not started";
+  return phase?.detail || "Workspace";
+}
+
+function groupItems(workspaces, currentStage, editor, orchestration) {
   const currentIndex = STAGE_ORDER.indexOf(currentStage);
-  const grouped = { Direction: [], Production: [], Release: [] };
+  const groups = ["Direction", "Production", "Film flow", "Evidence"];
+  const grouped = Object.fromEntries(groups.map((group) => [group, []]));
+  const phaseById = new Map(
+    (orchestration?.phases || []).map((phase) => [phase.id, phase]),
+  );
 
   for (const workspace of workspaces) {
     const meta = WORKSPACE_META[workspace.id];
     if (!meta) continue;
 
+    const orchestratedPhaseId = ORCHESTRATED_WORKSPACE_PHASE[workspace.id];
+    const orchestratedPhase = orchestratedPhaseId
+      ? phaseById.get(orchestratedPhaseId) || null
+      : null;
     const workspaceStage = STAGE_BY_WORKSPACE[workspace.id];
     const stageIndex = STAGE_ORDER.indexOf(workspaceStage);
+    const oldStageActive = workspaceStage === currentStage;
+    const oldCompleted =
+      stageIndex >= 0 && currentIndex >= 0 && stageIndex < currentIndex;
+
     grouped[meta.group].push({
       ...workspace,
       ...meta,
       active: editor.activeWorkspace === workspace.id,
-      stageActive: workspaceStage === currentStage,
-      completed:
-        stageIndex >= 0 && currentIndex >= 0 && stageIndex < currentIndex,
+      stageActive: orchestratedPhase
+        ? orchestration?.current_phase === orchestratedPhase.id
+        : oldStageActive,
+      completed: orchestratedPhase
+        ? orchestratedPhase.status === "COMPLETE"
+        : oldCompleted,
+      phaseStatus: orchestratedPhase?.status || null,
+      phaseCopy: orchestratedPhase ? phaseCopy(orchestratedPhase) : null,
     });
   }
 
@@ -93,6 +126,9 @@ function groupItems(workspaces, currentStage, editor) {
 
 function NavItem({ item, onClick }) {
   const Icon = item.icon;
+  const needsAttention = item.phaseStatus === "NEEDS_ATTENTION";
+  const waitingApproval = item.phaseStatus === "WAITING_APPROVAL";
+
   return (
     <button
       type="button"
@@ -107,21 +143,27 @@ function NavItem({ item, onClick }) {
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
           item.active
             ? "border-[#d6b66f]/25 bg-[#d6b66f]/10"
-            : "border-white/8 bg-white/[0.025]"
+            : needsAttention
+              ? "border-red-300/15 bg-red-300/[0.04]"
+              : "border-white/8 bg-white/[0.025]"
         }`}
       >
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{item.label}</div>
-        <div className="mt-0.5 text-[10px] text-white/25">
-          {item.stageActive ? "Current stage" : item.completed ? "Evidence ready" : "Workspace"}
+        <div className={`mt-0.5 truncate text-[10px] ${needsAttention ? "text-red-200/55" : waitingApproval ? "text-amber-200/55" : "text-white/25"}`}>
+          {item.phaseCopy || (item.stageActive ? "Current stage" : item.completed ? "Evidence ready" : "Workspace")}
         </div>
       </div>
       {item.stageActive ? (
         <span className="h-1.5 w-1.5 rounded-full bg-[#d6b66f]" />
       ) : item.completed ? (
         <span className="text-[10px] text-emerald-300/65">✓</span>
+      ) : needsAttention ? (
+        <span className="h-1.5 w-1.5 rounded-full bg-red-300/70" />
+      ) : waitingApproval ? (
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-300/70" />
       ) : null}
     </button>
   );
@@ -129,7 +171,13 @@ function NavItem({ item, onClick }) {
 
 export default function Sidebar({ runtime, editor }) {
   const currentStage = runtime.stateRuntime?.current?.stage || "MISSION_CREATED";
-  const groups = groupItems(runtime.workspaces || [], currentStage, editor);
+  const orchestration = runtime.orchestrationRuntime?.current || null;
+  const groups = groupItems(
+    runtime.workspaces || [],
+    currentStage,
+    editor,
+    orchestration,
+  );
   const mission = runtime.missionRuntime?.current || null;
 
   return (
@@ -144,7 +192,11 @@ export default function Sidebar({ runtime, editor }) {
           </div>
           <div className="mt-3 flex items-center justify-between text-[10px] text-white/30">
             <span>{mission?.status || "draft"}</span>
-            <span>{runtime.projectRuntime?.items?.length || 0} deliverables</span>
+            <span>
+              {orchestration
+                ? `${orchestration.progress?.completed_count || 0}/${orchestration.progress?.total_count || 4} film phases`
+                : `${runtime.projectRuntime?.items?.length || 0} deliverables`}
+            </span>
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "scripts/patch-final-knowledge-release-authorization.py"
+      - "scripts/fix-final-release-authorization-consumption-wiring.py"
       - ".github/workflows/avantiqo-final-release-authorization-wiring.yml"
   workflow_dispatch:
 
@@ -28,13 +28,14 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Apply exact authorization patch
-        run: python3 scripts/patch-final-knowledge-release-authorization.py
+      - name: Apply exact authorization wiring fix
+        run: python3 scripts/fix-final-release-authorization-consumption-wiring.py
 
       - name: Syntax gate
         run: |
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js
           node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js
+          node --check scripts/audit-avantiqo-final-knowledge-release-authorization-local.mjs
 
       - name: Commit wired runtime
         run: |
@@ -45,6 +46,6 @@ jobs:
           git config user.name "avantiqo-ci"
           git config user.email "actions@users.noreply.github.com"
           git add lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js
-          git commit -m "feat(intelligence): enforce signed final release authorization"
+          git commit -m "fix(intelligence): bind release authorization consumption"
           git pull --rebase origin main
           git push origin HEAD:main

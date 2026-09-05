@@ -1,8 +1,8 @@
 name: Avantiqo Investor HQ Visual Proof 24s Once
 
-# Dedicated native-4K DFR investor proof. It has an isolated concurrency group so
-# unrelated investor preview changes or main-branch work cannot cancel paid HQ inference.
-# one-shot trigger: 2026-09-05-hq-dfr-v1
+# Dedicated native-4K DFR investor proof. A repaired run cancels an older stuck
+# run in this same isolated group before touching the shared model volume.
+# one-shot trigger: 2026-09-05-hq-dfr-v2
 on:
   push:
     branches: [main]
@@ -14,11 +14,11 @@ permissions:
 
 concurrency:
   group: avantiqo-investor-hq-proof-24s-once
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   proof:
-    if: github.event.head_commit.message == 'Run Avantiqo investor HQ proof 24s once'
+    if: github.event.head_commit.message == 'Run repaired Avantiqo investor HQ proof 24s once'
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -58,18 +58,20 @@ jobs:
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
-          python -m py_compile services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_investor_hq.py
+          python -m py_compile services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_investor_hq.py services/avantiqo-video-engine/modal_investor_hq_cache_v2.py
           node --check scripts/run-avantiqo-investor-visual-proof-24s-hq.mjs
           grep -F 'LTX25_DFR_DETAIL_FIDELITY' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
           grep -F 'WIDTH = 3840' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
           grep -F 'HEIGHT = 2176' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
           grep -F '"--spatial-upscalings", "2"' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
           grep -F 'EXISTING_VISUAL_INPUT_FORBIDDEN' services/avantiqo-video-engine/modal_investor_hq.py >/dev/null
+          grep -F 'base_checkpoint_downloaded' services/avantiqo-video-engine/modal_investor_hq_cache_v2.py >/dev/null
           grep -F 'pixel_delivery_upscale_used: false' scripts/run-avantiqo-investor-visual-proof-24s-hq.mjs >/dev/null
           grep -F 'simultaneous_gpu_jobs: 1' scripts/run-avantiqo-investor-visual-proof-24s-hq.mjs >/dev/null
           echo 'AVANTIQO_INVESTOR_HQ_PREFLIGHT=PASS'
           echo 'GENERATION=native-3840x2176-LTX25-DFR'
           echo 'STUDIO_DELIVERY=3840x2160-crop-only'
+          echo 'BASE_CHECKPOINT_DOWNLOAD_ALLOWED=false'
           echo 'SIMULTANEOUS_GPU_JOBS=1'
           echo 'AUTOMATIC_PAID_RETRY=false'
 
@@ -82,12 +84,15 @@ jobs:
           grep -F 'generate_investor_hq_master' /tmp/investor-hq-deploy.log >/dev/null
           echo 'AVANTIQO_INVESTOR_HQ_MODAL_DEPLOY=PASS'
 
-      - name: Verify HQ model assets without GPU
+      - name: Verify cached base and seed only HQ adapter without GPU
         run: |
           set -euo pipefail
           cd services/avantiqo-video-engine
-          modal run modal_investor_hq.py::seed_investor_hq_cache | tee /tmp/investor-hq-cache.log
+          modal run modal_investor_hq_cache_v2.py::verify_and_seed_hq_adapter | tee /tmp/investor-hq-cache-v2.log
+          grep -F 'AVANTIQO_INVESTOR_HQ_CACHE_GATE_V2_BASE_CACHE=PASS' /tmp/investor-hq-cache-v2.log >/dev/null
+          grep -F 'AVANTIQO_INVESTOR_HQ_CACHE_GATE_V2=PASS' /tmp/investor-hq-cache-v2.log >/dev/null
           echo 'AVANTIQO_INVESTOR_HQ_CACHE_GATE=PASS'
+          echo 'BASE_CHECKPOINT_DOWNLOAD_PERFORMED=false'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
       - name: Generate four native-4K DFR shots and assemble 24-second proof
@@ -156,4 +161,5 @@ jobs:
           echo 'EXTERNAL_VIDEO_PROVIDER_USED=false'
           echo 'AUTOMATIC_PAID_RETRY=false'
           echo 'SIMULTANEOUS_GPU_JOBS=1'
-          echo 'HQ_WORKFLOW_CANCEL_IN_PROGRESS=false'
+          echo 'BASE_CHECKPOINT_DOWNLOAD_ALLOWED=false'
+          echo 'HQ_WORKFLOW_CANCEL_IN_PROGRESS=true'

@@ -4,22 +4,10 @@ import Link from "next/link";
 import { Activity, ArrowLeft, GitBranch, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { useCodeProgressFeed } from "@/components/operator/CodeProgressFeedProvider";
+
 const DEFAULT_REPOSITORY = "https://github.com/churchillkaron/churchill-control-new";
 const MAX_RESUMES = 24;
-const ACTIVE_POLL_MS = 1800;
-const PASSIVE_POLL_MS = 5000;
-const ACTIVE_PROGRESS_STALE_MS = 30 * 60 * 1000;
-const ACTIVE_PROGRESS_STATES = new Set([
-  "active",
-  "executing",
-  "in_progress",
-  "pending",
-  "planner_pending",
-  "queued",
-  "running",
-  "verifying",
-  "working",
-]);
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -34,24 +22,6 @@ function statusCopy(progress, fallback = "Ready") {
   return latest?.description || latest?.phase || progress?.state_status || fallback;
 }
 
-function timestamp(value) {
-  const parsed = Date.parse(text(value));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function progressIsActive(progress) {
-  if (!progress) return false;
-  const updatedAt = Math.max(
-    timestamp(progress.updated_at),
-    timestamp(progress.latest_event?.at),
-  );
-  if (updatedAt && Date.now() - updatedAt > ACTIVE_PROGRESS_STALE_MS) return false;
-
-  const stateStatus = text(progress.state_status).toLowerCase();
-  const latestStatus = text(progress.latest_event?.status).toLowerCase();
-  return ACTIVE_PROGRESS_STATES.has(stateStatus) || ACTIVE_PROGRESS_STATES.has(latestStatus);
-}
-
 function humanStatus(value) {
   const normalized = text(value).replaceAll("_", " ").toLowerCase();
   if (!normalized) return "Working";
@@ -59,60 +29,31 @@ function humanStatus(value) {
 }
 
 export default function CreativeCodeStudio({ organizationId }) {
+  const {
+    progress,
+    active: liveProgressActive,
+    requestRefresh,
+  } = useCodeProgressFeed();
   const [repositoryUrl, setRepositoryUrl] = useState(DEFAULT_REPOSITORY);
   const [ref, setRef] = useState("main");
   const [objective, setObjective] = useState("");
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState("Ready");
-  const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const mounted = useRef(true);
-
-  useEffect(() => () => { mounted.current = false; }, []);
+  const mounted = useRef(false);
 
   useEffect(() => {
-    if (!organizationId) {
-      setProgress(null);
-      return undefined;
-    }
-
-    let cancelled = false;
-    let timer = null;
-
-    const poll = async () => {
-      let active = false;
-      try {
-        const response = await fetch(`/api/operator/code/progress?organizationId=${encodeURIComponent(organizationId)}`, {
-          cache: "no-store",
-          credentials: "same-origin",
-        });
-        const body = await response.json().catch(() => ({}));
-        if (!cancelled && body?.success) {
-          const nextProgress = body?.live_progress || null;
-          active = progressIsActive(nextProgress);
-          setProgress(nextProgress);
-          if (running || active) {
-            setStatus(statusCopy(nextProgress, running ? "Working" : "Following active mission"));
-          }
-        }
-      } catch {
-        // Mission execution remains authoritative if progress polling is unavailable.
-      }
-
-      if (!cancelled) {
-        timer = window.setTimeout(poll, running || active ? ACTIVE_POLL_MS : PASSIVE_POLL_MS);
-      }
-    };
-
-    poll();
+    mounted.current = true;
     return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
+      mounted.current = false;
     };
-  }, [organizationId, running]);
+  }, []);
 
-  const liveProgressActive = progressIsActive(progress);
+  useEffect(() => {
+    if (!running && !liveProgressActive) return;
+    setStatus(statusCopy(progress, running ? "Working" : "Following active mission"));
+  }, [liveProgressActive, progress, running]);
 
   async function runMission() {
     const trimmedObjective = objective.trim();
@@ -121,8 +62,8 @@ export default function CreativeCodeStudio({ organizationId }) {
     setRunning(true);
     setResult(null);
     setError(null);
-    setProgress(null);
     setStatus("Opening governed sandbox and inspecting the repository…");
+    requestRefresh();
 
     const executionKey = `code-studio:${crypto.randomUUID()}`;
     let resumeState = null;
@@ -152,6 +93,7 @@ export default function CreativeCodeStudio({ organizationId }) {
         setStatus(body.status === "planner_pending"
           ? "Reasoning job is still running — following the same job…"
           : body.status || "Working");
+        requestRefresh();
 
         if (body.resume_required === true && body.resume_state) {
           resumeState = body.resume_state;
@@ -166,6 +108,7 @@ export default function CreativeCodeStudio({ organizationId }) {
         } else {
           setStatus(body.reason || body.status || "Stopped");
         }
+        requestRefresh();
         return;
       }
       throw new Error("Code mission resume limit reached. The same mission can be resumed; no second mission was started.");
@@ -175,6 +118,7 @@ export default function CreativeCodeStudio({ organizationId }) {
       setStatus("Stopped");
     } finally {
       if (mounted.current) setRunning(false);
+      requestRefresh();
     }
   }
 
@@ -187,7 +131,10 @@ export default function CreativeCodeStudio({ organizationId }) {
   const businessPartnerHref = organizationId ? `/workspace/${organizationId}` : "#";
 
   return (
-    <main className="min-h-screen bg-[#080808] px-5 py-6 text-white md:px-8 md:py-8">
+    <main
+      className="min-h-screen bg-[#080808] px-5 py-6 text-white md:px-8 md:py-8"
+      data-avantiqo-code-progress-consumer="shared-provider"
+    >
       <div className="mx-auto max-w-[1500px] space-y-5">
         <header className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>

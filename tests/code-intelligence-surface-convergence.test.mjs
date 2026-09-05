@@ -26,6 +26,10 @@ const historyRuntime = await readFile(
   "lib/code/runtime/CodeAIMissionHistoryRuntime.js",
   "utf8",
 );
+const engineeringMemoryRuntime = await readFile(
+  "lib/code/runtime/CodeAIVerifiedEngineeringMemoryRuntime.js",
+  "utf8",
+);
 const workPackageRuntime = await readFile(
   "lib/code/runtime/CodeAIWorkPackageRuntime.js",
   "utf8",
@@ -129,6 +133,13 @@ test("Business Partner can steer the same active Code mission at governed safe b
   assert.match(workPackageRuntime, /applied_at_safe_boundary/);
 });
 
+test("owner intervention lookup infrastructure cannot take down ordinary Code execution", () => {
+  assert.match(workPackageRuntime, /safeClaimOwnerIntervention/);
+  assert.match(workPackageRuntime, /AVANTIQO_CODE_OWNER_INTERVENTION_LOOKUP_FAILED/);
+  assert.match(workPackageRuntime, /code_execution_blocked:\s*false/);
+  assert.match(workPackageRuntime, /owner_intervention_lookup_failure_blocks_code:\s*false/);
+});
+
 test("Business Partner exposes delta visibility and verified preview review without granting persistence authority", () => {
   assert.match(businessPartnerActiveCodeSurface, /steerBaseline/);
   assert.match(businessPartnerActiveCodeSurface, /Since then:/);
@@ -160,6 +171,21 @@ test("Code mission history is actor-scoped, attested and hides raw resume state 
   assert.match(historyRoute, /production_deploy_authority:\s*false/);
 });
 
+test("Code mission history is searchable and ranks objective, product-area and file evidence deterministically", () => {
+  assert.match(historyRoute, /searchParams\.get\("q"\)/);
+  assert.match(historyRoute, /searchParams\.get\("file"\)/);
+  assert.match(historyRoute, /verifiedOnly/);
+  assert.match(historyRuntime, /searchCodeAIMissionHistory/);
+  assert.match(historyRuntime, /DETERMINISTIC_OBJECTIVE_FILE_FAILURE_RELEVANCE/);
+  assert.match(historyRuntime, /relevance_score/);
+  assert.match(historyRuntime, /matched_fields/);
+  assert.match(historyRuntime, /repairedVerifiers/);
+  assert.match(missionHistorySurface, /data-avantiqo-code-mission-search="true"/);
+  assert.match(missionHistorySurface, /Search objective, product area or file/);
+  assert.match(missionHistorySurface, /Verified only/);
+  assert.match(missionHistorySurface, /relevance/);
+});
+
 test("Business Partner and Code Studio expose the same persistent resumable Code mission history", () => {
   assert.match(businessPartnerCodeSurface, /CodeMissionHistoryPanel/);
   assert.match(studioPage, /CodeMissionHistoryPanel/);
@@ -183,6 +209,38 @@ test("historical continuation restores the server-owned attested state and origi
   assert.match(historyRuntime, /integrity_verified:\s*true/);
   assert.match(historyRuntime, /commit_authority:\s*false/);
   assert.match(historyRuntime, /production_deploy_authority:\s*false/);
+});
+
+test("new Code missions reuse only attested fully verified same-repository engineering memory", () => {
+  assert.match(engineeringMemoryRuntime, /AVANTIQO_CODE_AI_VERIFIED_ENGINEERING_MEMORY_V1/);
+  assert.match(engineeringMemoryRuntime, /verifiedOnly:\s*true/);
+  assert.match(engineeringMemoryRuntime, /same_repository_required:\s*true/);
+  assert.match(engineeringMemoryRuntime, /attestation_required:\s*true/);
+  assert.match(engineeringMemoryRuntime, /verified_completion_required:\s*true/);
+  assert.match(engineeringMemoryRuntime, /current_head_revalidation_required:\s*true/);
+  assert.match(engineeringMemoryRuntime, /patch_replay_allowed:\s*false/);
+  assert.match(engineeringMemoryRuntime, /raw_patch_returned:\s*false/);
+  assert.match(engineeringMemoryRuntime, /raw_source_returned:\s*false/);
+  assert.match(engineeringMemoryRuntime, /raw_reasoning_returned:\s*false/);
+  assert.match(engineeringMemoryRuntime, /automatic_knowledge_promotion:\s*false/);
+  assert.match(engineeringMemoryRuntime, /Re-read every cited path from the current repository HEAD/);
+  assert.match(engineeringMemoryRuntime, /Never replay an old patch/);
+});
+
+test("verified engineering memory is bound once into the Code mission and remains advisory", () => {
+  assert.match(workPackageRuntime, /retrieveCodeAIVerifiedEngineeringMemory/);
+  assert.match(workPackageRuntime, /formatCodeAIVerifiedEngineeringMemoryForObjective/);
+  assert.match(workPackageRuntime, /verified_engineering_memory/);
+  assert.match(workPackageRuntime, /memoryAlreadyBound/);
+  assert.match(workPackageRuntime, /kind:\s*"verified_engineering_memory"/);
+  assert.match(workPackageRuntime, /current_head_revalidation_required:\s*true/);
+  assert.match(workPackageRuntime, /patch_replay_allowed:\s*false/);
+  assert.match(workPackageRuntime, /automatic_knowledge_promotion:\s*false/);
+  assert.match(workPackageRuntime, /authorization_effect:\s*"NONE"/);
+  assert.match(workPackageRuntime, /commit_authority:\s*false/);
+  assert.match(workPackageRuntime, /production_deploy_authority:\s*false/);
+  assert.match(missionHistorySurface, /data-avantiqo-verified-engineering-memory="true"/);
+  assert.match(missionHistorySurface, /current HEAD revalidated/);
 });
 
 test("Business Partner code requests converge through Product Engineering into Code AI", () => {
@@ -215,4 +273,6 @@ test("surface convergence does not grant production authority", () => {
   assert.match(interventionRoute, /production_deploy_authority:\s*false/);
   assert.match(historyRoute, /commit_authority:\s*false/);
   assert.match(historyRoute, /production_deploy_authority:\s*false/);
+  assert.match(engineeringMemoryRuntime, /commit_authority:\s*false/);
+  assert.match(engineeringMemoryRuntime, /production_deploy_authority:\s*false/);
 });

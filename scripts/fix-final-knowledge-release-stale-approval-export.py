@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# One-time exact-anchor repair for the removed global release approval switch.
 path = Path("lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js")
 source = path.read_text()
 stale = "  approval_env: RELEASE_APPROVAL_ENV,\n"

@@ -91,6 +91,7 @@ const draft = createAvantiqoFinalKnowledgeReleaseAuthorizationDraft({
   nonce: "release-auth-nonce-00000001",
 });
 assert.equal(draft.success, true);
+assert.equal(draft.row.memory_type, "decision");
 assert.equal(draft.row.metadata.contract, AVANTIQO_FINAL_KNOWLEDGE_RELEASE_AUTHORIZATION_CONTRACT);
 assert.equal(draft.row.metadata.one_use_required, true);
 assert.equal(draft.row.metadata.automatic_issuance_allowed, false);
@@ -178,6 +179,8 @@ assert.equal(retiredVerifier.verify(sealed.row), false);
 assert.equal(retiredVerifier.verify(rotatedSeal.row), true);
 
 const releaseSource = fs.readFileSync("lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js", "utf8");
+const atomicSource = fs.readFileSync("lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAtomicCommitRuntime.js", "utf8");
+const atomicMigration = fs.readFileSync("supabase/migrations/20260905065000_atomic_final_knowledge_release.sql", "utf8");
 assert.equal(releaseSource.includes("AVANTIQO_KNOWLEDGE_FINAL_RELEASE_APPROVED"), false);
 assert.match(releaseSource, /authorization_memory_key/);
 assert.match(releaseSource, /createAvantiqoFinalKnowledgeReleaseAuthorizationVerifier\(\)/);
@@ -185,10 +188,17 @@ assert.match(releaseSource, /authorizationVerifier\.verify\(authorization\)/);
 assert.match(releaseSource, /verifyAvantiqoFinalKnowledgeReleaseAuthorizationBinding/);
 assert.match(releaseSource, /SIGNED_RELEASE_AUTHORIZATION_INVALID_OR_EXPIRED/);
 assert.match(releaseSource, /SIGNED_RELEASE_AUTHORIZATION_BINDING_MISMATCH/);
-assert.match(releaseSource, /SIGNED_RELEASE_AUTHORIZATION_ALREADY_CONSUMED/);
-assert.match(releaseSource, /\.insert\(consumptionRow\)/);
+assert.match(releaseSource, /commitAvantiqoFinalKnowledgeReleaseAtomically/);
 assert.match(releaseSource, /final-knowledge-release-authorization-consumed:/);
 assert.match(releaseSource, /release_authorization_one_use_consumed: true/);
 assert.match(releaseSource, /global_release_approval_switch_sufficient: false/);
+assert.match(releaseSource, /final_release_transaction_atomic: true/);
+assert.doesNotMatch(releaseSource, /async function consumeFinalReleaseAuthorization/);
+assert.match(atomicSource, /\.rpc\("avantiqo_commit_final_knowledge_release"/);
+assert.match(atomicSource, /replay_allowed: false/);
+assert.match(atomicMigration, /security invoker/i);
+assert.match(atomicMigration, /grant execute on function public\.avantiqo_commit_final_knowledge_release[\s\S]*to service_role;/i);
+assert.match(atomicMigration, /for update;/i);
+assert.match(atomicMigration, /'transaction_atomic', true/);
 
 console.log("AVANTIQO_FINAL_KNOWLEDGE_RELEASE_AUTHORIZATION_CERTIFIED");

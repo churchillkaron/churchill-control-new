@@ -19,6 +19,7 @@ import modal
 
 from modal_app import (
     HF_CACHE_ROOT,
+    LTX_GEMMA_REALPATH_ENV,
     LTX_GPU,
     LTX_GPU_USD_PER_SECOND,
     LTX_PIPELINE_ROOT,
@@ -55,6 +56,59 @@ REQUIRED = (
     LTX_REQUIRED[3],
     DISTILLED_UPSAMPLER,
 )
+
+# Modal Volumes expose Hugging Face snapshot files as symlinks into a blob store.
+# LTX's Gemma loader validates the resolved filename suffix, so a valid
+# *.safetensors snapshot entry can be rejected after resolve() removes that
+# suffix. The native LTX lane already handles this exact storage behavior; keep
+# the same compatibility rule here but enter the distilled pipeline.
+DISTILLED_GEMMA_SUFFIX_COMPAT_ENTRYPOINT = r"""
+import os
+from pathlib import Path
+
+import ltx_core.text_encoders.gemma as gemma_package
+from ltx_core.text_encoders.gemma import gemma_assets
+from ltx_core.text_encoders.gemma.gemma_assets import GemmaAssets
+
+_expected = Path(os.environ["AVANTIQO_LTX25_GEMMA_REALPATH"]).resolve(strict=True)
+_original_load = GemmaAssets.load.__func__
+_original_resolve = gemma_assets.resolve_gemma_weight_paths
+
+def _avantiqo_exact_path(path):
+    candidate = Path(path)
+    try:
+        resolved = candidate.resolve(strict=True)
+    except FileNotFoundError:
+        return None
+    if resolved == _expected and resolved.is_file():
+        return resolved
+    return None
+
+def _avantiqo_exact_gemma_load(cls, path):
+    resolved = _avantiqo_exact_path(path)
+    if resolved is not None:
+        return cls.from_single_file(resolved)
+    return _original_load(cls, path)
+
+def _avantiqo_exact_gemma_weight_paths(path):
+    resolved = _avantiqo_exact_path(path)
+    if resolved is not None:
+        return (str(resolved),)
+    return _original_resolve(path)
+
+GemmaAssets.load = classmethod(_avantiqo_exact_gemma_load)
+gemma_assets.resolve_gemma_weight_paths = _avantiqo_exact_gemma_weight_paths
+gemma_package.resolve_gemma_weight_paths = _avantiqo_exact_gemma_weight_paths
+
+from ltx_core.text_encoders.gemma.encoders import encoder_configurator
+encoder_configurator.resolve_gemma_weight_paths = _avantiqo_exact_gemma_weight_paths
+
+from ltx_pipelines.utils import blocks
+blocks.resolve_gemma_weight_paths = _avantiqo_exact_gemma_weight_paths
+
+from ltx_pipelines.distilled import main
+main()
+"""
 
 transport_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -173,10 +227,15 @@ def generate_investor_t2v_master(
     output = Path("/models") / output_relative.lstrip("/")
     output.parent.mkdir(parents=True, exist_ok=True)
 
+    text_encoder = root / LTX_REQUIRED[1]
+    text_encoder_real = text_encoder.resolve(strict=True)
+    if not text_encoder_real.is_file() or text_encoder_real.stat().st_size <= 0:
+        raise RuntimeError(f"{CONTRACT}_GEMMA_REALPATH_INVALID")
+
     command = [
-        "python", "-m", "ltx_pipelines.distilled",
+        "python", "-c", DISTILLED_GEMMA_SUFFIX_COMPAT_ENTRYPOINT,
         "--transformer-path", str(root / DISTILLED_TRANSFORMER),
-        "--text-encoder-path", str(root / LTX_REQUIRED[1]),
+        "--text-encoder-path", str(text_encoder),
         "--video-vae-path", str(root / LTX_REQUIRED[2]),
         "--audio-vae-path", str(root / LTX_REQUIRED[3]),
         "--spatial-upsampler-path", str(root / DISTILLED_UPSAMPLER),
@@ -189,6 +248,7 @@ def generate_investor_t2v_master(
         "--prompt", _prompt(instruction),
     ]
     env = os.environ.copy()
+    env[LTX_GEMMA_REALPATH_ENV] = str(text_encoder_real)
     env["PYTHONPATH"] = ":".join([
         str(LTX_PIPELINE_ROOT / "packages/ltx-core/src"),
         str(LTX_PIPELINE_ROOT / "packages/ltx-pipelines/src"),

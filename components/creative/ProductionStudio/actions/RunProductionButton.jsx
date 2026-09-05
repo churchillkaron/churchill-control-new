@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleAlert, LoaderCircle, Play, RefreshCw, ShieldCheck } from "lucide-react";
+
+const ACTIVE_POLL_MS = 5000;
 
 function queueCounts(queue = {}) {
   const count = (key) => Array.isArray(queue?.[key]) ? queue[key].length : 0;
@@ -28,7 +30,7 @@ function activeProjectVideo(readiness) {
 
 function readinessLabel(readiness, loading) {
   if (loading) return "Checking Cinema…";
-  if (activeProjectVideo(readiness)) return "Check production";
+  if (activeProjectVideo(readiness)) return "Cinema producing";
   if (!readiness || readiness.required === false) return "Run production";
   if (readiness.ready) return "Run production";
   if (String(readiness.status).toUpperCase() === "BUSY") return "Cinema busy";
@@ -40,7 +42,7 @@ function readinessMessage(readiness, loading) {
   if (!readiness) return null;
   const provider = readiness.provider_readiness || {};
   if (activeProjectVideo(readiness)) {
-    return { tone: "busy", text: "Native Video is in flight · check updates without starting another generation" };
+    return { tone: "busy", text: "Native Video is in flight · Studio is checking progress automatically" };
   }
   if (readiness.required === false) return { tone: "neutral", text: "No native Video generation is waiting in this pass." };
   if (readiness.ready) return { tone: "ready", text: "Cinema ready · no generation started by preflight" };
@@ -57,6 +59,7 @@ export default function RunProductionButton({ runtime }) {
   const [error, setError] = useState(null);
   const [readiness, setReadiness] = useState(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
+  const pollingRef = useRef(false);
   const projectId = runtime.projectRuntime?.current?.id || null;
   const organizationId = runtime.organizationId || null;
   const message = useMemo(() => productionMessage(summary), [summary]);
@@ -98,19 +101,60 @@ export default function RunProductionButton({ runtime }) {
     }
   }, [organizationId, projectId]);
 
+  const pollActiveProduction = useCallback(async () => {
+    if (!organizationId || !projectId || pollingRef.current) return null;
+    pollingRef.current = true;
+    try {
+      const response = await fetch("/api/creative/production/queue", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: organizationId, creative_project_id: projectId }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) throw new Error(json.error || "Production check failed.");
+      const result = json.result || null;
+      setSummary(result);
+      setReadiness(result?.video_readiness || null);
+      setError(null);
+      if (!activeProjectVideo(result?.video_readiness)) await runtime.refresh?.();
+      return result;
+    } catch (pollError) {
+      setError(pollError?.message || "Production check failed.");
+      return null;
+    } finally {
+      pollingRef.current = false;
+    }
+  }, [organizationId, projectId, runtime]);
+
   useEffect(() => {
     inspectReadiness();
   }, [inspectReadiness]);
 
+  useEffect(() => {
+    if (!activeProjectVideo(readiness) || !organizationId || !projectId) return undefined;
+    const timer = window.setInterval(() => {
+      void pollActiveProduction();
+    }, ACTIVE_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [readiness, organizationId, projectId, pollActiveProduction]);
+
   async function run() {
     if (!organizationId || !projectId || running || readinessLoading) return;
+    if (activeProjectVideo(readiness)) {
+      await pollActiveProduction();
+      return;
+    }
     setRunning(true);
     setSummary(null);
     setError(null);
     try {
       const currentReadiness = await inspectReadiness({ quiet: true });
       const checkingActiveWork = activeProjectVideo(currentReadiness);
-      if (currentReadiness?.required && !currentReadiness?.ready && !checkingActiveWork) {
+      if (checkingActiveWork) {
+        await pollActiveProduction();
+        return;
+      }
+      if (currentReadiness?.required && !currentReadiness?.ready) {
         throw new Error(
           String(currentReadiness.status).toUpperCase() === "BUSY"
             ? "Avantiqo Cinema is occupied by other work. Nothing new was started."
@@ -146,7 +190,7 @@ export default function RunProductionButton({ runtime }) {
   const checkingActiveWork = activeProjectVideo(readiness);
   const blockedByReadiness = readiness?.required === true && readiness?.ready !== true && !checkingActiveWork;
   const disabled = running || readinessLoading || !projectId || blockedByReadiness;
-  const label = running ? (checkingActiveWork ? "Checking production…" : "Starting production…") : readinessLabel(readiness, readinessLoading);
+  const label = running ? "Starting production…" : readinessLabel(readiness, readinessLoading);
   const toneClass = readinessState?.tone === "ready"
     ? "text-emerald-700"
     : readinessState?.tone === "busy"
@@ -163,7 +207,7 @@ export default function RunProductionButton({ runtime }) {
         disabled={disabled}
         className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25231F] px-3 text-[8px] font-semibold text-white transition hover:bg-[#3A3631] disabled:cursor-not-allowed disabled:opacity-45"
       >
-        {running || readinessLoading ? <LoaderCircle size={9} className="animate-spin" /> : checkingActiveWork ? <RefreshCw size={9} /> : blockedByReadiness ? <CircleAlert size={9} /> : readiness?.required ? <ShieldCheck size={9} /> : <Play size={9} fill="currentColor" />}
+        {running || readinessLoading ? <LoaderCircle size={9} className="animate-spin" /> : checkingActiveWork ? <RefreshCw size={9} className="animate-spin" /> : blockedByReadiness ? <CircleAlert size={9} /> : readiness?.required ? <ShieldCheck size={9} /> : <Play size={9} fill="currentColor" />}
         {label}
       </button>
       {readinessState ? <div className={`max-w-[360px] text-right text-[7px] leading-3 ${toneClass}`}>{readinessState.text}</div> : null}

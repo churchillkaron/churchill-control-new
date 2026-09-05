@@ -253,14 +253,6 @@ export async function POST(request) {
       if (closeError) throw closeError;
       if (!closedFolio) return fail("Folio changed before close completed. Refresh and retry.", 409);
 
-      const paymentStatus = Number(booking.total_amount || 0) > 0 ? "PAID" : booking.payment_status;
-      const { error: bookingError } = await supabaseAdmin
-        .from("hotel_bookings")
-        .update({ payment_status: paymentStatus, paid_amount: Number(booking.total_amount || booking.paid_amount || 0), updated_at: closedAt })
-        .eq("organization_id", auth.organizationId)
-        .eq("id", booking.id);
-      if (bookingError) throw bookingError;
-
       return NextResponse.json({ success: true, folio: closedFolio, balance: 0 });
     }
 

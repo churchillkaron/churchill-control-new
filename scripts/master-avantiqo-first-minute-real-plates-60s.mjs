@@ -43,9 +43,17 @@ async function main() {
       : shot.id === "01-city-nyc"
       ? "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,setsar=1,eq=contrast=1.04:saturation=.98:brightness=.005:gamma=1.0,colorbalance=rs=.016:gs=.004:bs=-.010,vignette=PI/14,format=yuv420p"
       : "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,setsar=1,eq=contrast=1.035:saturation=.96:brightness=0:gamma=1.0,colorbalance=rs=.014:gs=.004:bs=-.010,vignette=PI/14,format=yuv420p";
-    const args=["-ss",String(shot.start),"-i",src,"-t",String(shot.duration),"-vf",grade];
-    // Replace source sound with controlled clean stereo bed later; preserve no stock dialogue/music.
-    args.push("-f","lavfi","-t",String(shot.duration),"-i","anullsrc=r=48000:cl=stereo","-map","0:v:0","-map","1:a:0","-c:v","libx264","-preset","fast","-crf","14","-pix_fmt","yuv420p","-c:a","aac","-b:a","192k","-ar","48000","-ac","2","-shortest",out);
+
+    // Input options must stay attached to their inputs. Output filters are applied only after both inputs exist.
+    const args=[
+      "-ss",String(shot.start),"-i",src,
+      "-f","lavfi","-i","anullsrc=r=48000:cl=stereo",
+      "-t",String(shot.duration),
+      "-map","0:v:0","-map","1:a:0",
+      "-vf",grade,
+      "-c:v","libx264","-preset","fast","-crf","14","-pix_fmt","yuv420p",
+      "-c:a","aac","-b:a","192k","-ar","48000","-ac","2","-shortest",out
+    ];
     run(args);
     finished.push(out);
   }

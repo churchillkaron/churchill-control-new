@@ -139,7 +139,7 @@ function runPostgresCertification() {
       return;
     }
     const diagnostic = `${last.stdout || ""}\n${last.stderr || ""}`;
-    const initializationRace = /database "avantiqo_final_release_cert" does not exist/.test(diagnostic);
+    const initializationRace = /database "avantiqo_final_release_cert" does not exist|database system is shutting down/.test(diagnostic);
     if (!initializationRace || attempt === 3) {
       process.stdout.write(last.stdout || "");
       process.stderr.write(last.stderr || "");

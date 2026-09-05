@@ -54,15 +54,9 @@ function configWorkspaceTarget(issue) {
   return null;
 }
 
-function exactSourceNavigation({ organizationId, entityId, vatReturnId, issue }) {
-  const target = issue?.workspace_target || null;
+function exactTargetNavigation({ organizationId, entityId, vatReturnId, target, exactEvidenceId }) {
   if (!target?.record_id || target?.context_mutation_allowed !== false) return null;
-
-  const exactEvidenceId = issue?.source_record?.id
-    || (target.workspace === "tax_rules" ? issue?.tax_rule?.id : null)
-    || (target.workspace === "journal_entries" ? issue?.posting_journal?.id : null);
   if (!exactEvidenceId || String(exactEvidenceId) !== String(target.record_id)) return null;
-
   return buildFinanceTaxSourceNavigation({
     organizationId,
     entityId,
@@ -70,6 +64,40 @@ function exactSourceNavigation({ organizationId, entityId, vatReturnId, issue })
     target,
     returnPath: `/workspace/${organizationId}/finance`,
   });
+}
+
+function exactSourceNavigation({ organizationId, entityId, vatReturnId, issue }) {
+  const target = issue?.workspace_target || null;
+  const exactEvidenceId = issue?.source_record?.id
+    || (target?.workspace === "tax_rules" ? issue?.tax_rule?.id : null)
+    || (target?.workspace === "journal_entries" ? issue?.posting_journal?.id : null);
+  return exactTargetNavigation({ organizationId, entityId, vatReturnId, target, exactEvidenceId });
+}
+
+function duplicateCandidateNavigation({ organizationId, entityId, vatReturnId, record }) {
+  if (!record?.id) return null;
+  return exactTargetNavigation({
+    organizationId,
+    entityId,
+    vatReturnId,
+    target: { workspace: "vendor_invoices", record_id: record.id, context_mutation_allowed: false },
+    exactEvidenceId: record.id,
+  });
+}
+
+function attachDuplicateCandidateNavigation({ organizationId, entityId, vatReturnId, item }) {
+  const records = item?.source_record?.duplicate_records;
+  if (!Array.isArray(records) || !records.length) return item;
+  return {
+    ...item,
+    source_record: {
+      ...item.source_record,
+      duplicate_records: records.map(record => ({
+        ...record,
+        source_navigation: duplicateCandidateNavigation({ organizationId, entityId, vatReturnId, record }),
+      })),
+    },
+  };
 }
 
 export async function GET(request) {
@@ -127,15 +155,23 @@ export async function GET(request) {
       source = "LIVE_PREFLIGHT_CONTEXT";
     }
 
-    issues = issues.map(item => ({
-      ...item,
-      source_navigation: exactSourceNavigation({
+    issues = issues.map(rawItem => {
+      const item = attachDuplicateCandidateNavigation({
         organizationId: access.organizationId,
         entityId,
         vatReturnId,
-        issue: item,
-      }),
-    }));
+        item: rawItem,
+      });
+      return {
+        ...item,
+        source_navigation: exactSourceNavigation({
+          organizationId: access.organizationId,
+          entityId,
+          vatReturnId,
+          issue: item,
+        }),
+      };
+    });
 
     return NextResponse.json({
       success: true,

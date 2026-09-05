@@ -27,6 +27,25 @@ function sourceLabel(value) {
   return String(value || "Evidence").replaceAll("_", " ").toLowerCase().replace(/^./, char => char.toUpperCase());
 }
 
+function DuplicateReview({ source }) {
+  const records = Array.isArray(source?.duplicate_records) ? source.duplicate_records : [];
+  if (records.length < 2) return null;
+  return <div className="mt-3 rounded-lg border border-amber-700/10 bg-[#FFF9F0] p-2.5">
+    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+      <div><div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-amber-900">Potential duplicate group</div><div className="mt-0.5 text-[9px] text-[#5F5952]">Compare all {records.length} VAT-bearing purchase documents before filing.</div></div>
+      <div className="text-[8px] text-[#918B83]">Review only · live accounting truth clears the warning</div>
+    </div>
+    <div className="mt-2 grid gap-2 xl:grid-cols-2">{records.map(record => {
+      const navigation = record.source_navigation || null;
+      const tax = money(record.tax_amount);
+      return <div key={record.id} className="rounded-lg border border-black/[0.06] bg-white p-2.5">
+        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-[9px] font-semibold">{record.reference || record.id}</div><div className="mt-0.5 text-[8px] text-[#817B73]">{date(record.date)} · {record.status || "—"}{record.approval_status ? ` · ${record.approval_status}` : ""}</div></div><div className="shrink-0 text-right text-[8px] text-[#817B73]">{tax ? <div className="font-semibold text-[#5F5952]">VAT {tax}</div> : null}<div>{record.vat_line_count || 0} VAT line{record.vat_line_count === 1 ? "" : "s"}</div></div></div>
+        <div className="mt-2 flex flex-col gap-2 rounded-md bg-[#FAF9F7] px-2 py-1.5 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 text-[7px] leading-3 text-[#817B73]"><span className="font-mono">{record.id}</span>{record.posting_journal ? <span className="ml-2">Journal {record.posting_journal.reference || record.posting_journal.id} · {record.posting_journal.status || "—"}{record.posting_journal.reversed ? " · reversed" : ""}</span> : <span className="ml-2">No linked posting journal</span>}</div>{navigation?.href ? <a href={navigation.href} className="inline-flex h-6 shrink-0 items-center justify-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 text-[7px] font-semibold text-[#4E4943]">Open this invoice <ArrowUpRight size={8}/></a> : <span className="text-[7px] font-semibold text-[#918B83]">No direct source route</span>}</div>
+      </div>;
+    })}</div>
+  </div>;
+}
+
 function EvidenceRecord({ issue }) {
   const source = issue.source_record || null;
   const line = issue.tax_line || null;
@@ -51,6 +70,8 @@ function EvidenceRecord({ issue }) {
         {money(issue.amount) ? <div className="font-semibold text-[#5F5952]">Tax amount {money(issue.amount)}</div> : null}
       </div>
     </div>
+
+    <DuplicateReview source={source}/>
 
     <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
       <div className="rounded-lg bg-[#FAF9F7] p-2.5"><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#968F87]">Source document</div><div className="mt-1 text-[8px] leading-4 text-[#4E4943]">{source ? <>{source.reference || source.id}<br/>Status {source.status || "—"}{source.approval_status ? ` · ${source.approval_status}` : ""}{source.currency_code ? <><br/>{source.currency_code} · rate {source.exchange_rate ?? "missing"}</> : null}</> : "Context evidence"}</div></div>

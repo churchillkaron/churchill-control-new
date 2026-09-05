@@ -76,6 +76,22 @@ test("Each transaction issue carries a compact accounting evidence chain and exa
   assert.match(runtime, /context_mutation_allowed: false/);
 });
 
+test("Duplicate warning evidence exposes every grouped vendor invoice with exact read-only source navigation", () => {
+  assert.match(runtime, /eligibleVatSummaryByInvoice/);
+  assert.match(runtime, /duplicate_records: duplicateRecords/);
+  assert.match(runtime, /tax_amount: summary\.tax_amount/);
+  assert.match(runtime, /vat_line_count: summary\.vat_line_count/);
+  assert.match(runtime, /posting_journal: journalRecord\(postingJournal\)/);
+  assert.match(route, /attachDuplicateCandidateNavigation/);
+  assert.match(route, /workspace: "vendor_invoices", record_id: record\.id, context_mutation_allowed: false/);
+  assert.match(route, /source_navigation: duplicateCandidateNavigation/);
+  assert.match(rail, /Potential duplicate group/);
+  assert.match(rail, /Compare all \{records\.length\} VAT-bearing purchase documents before filing\./);
+  assert.match(rail, /Review only · live accounting truth clears the warning/);
+  assert.match(rail, /Open this invoice/);
+  assert.doesNotMatch(rail, /Mark reviewed|Resolve duplicate|Dismiss warning/);
+});
+
 test("Evidence drilldown is organization-scoped, read-only and cannot mutate Business Context", () => {
   assert.match(route, /requireOrganizationAccess/);
   assert.match(route, /requireFinanceWorkspacePermission\(\{ capabilityId: "vat_returns", operation: "read", access \}\)/);

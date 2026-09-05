@@ -38,6 +38,7 @@ jobs:
 
       - name: Commit wired runtime
         run: |
+          # Registration trigger: keep this workflow deterministic and source-only.
           if git diff --quiet -- lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js; then
             echo "No source change produced"
             exit 1

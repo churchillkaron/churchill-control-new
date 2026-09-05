@@ -13,9 +13,6 @@ function when(value) {
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
-function money(value, currency = "THB") {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(numeric(value));
-}
 function severityTone(severity) {
   if (severity === "critical") return "border-red-700/15 bg-red-50 text-red-800";
   if (severity === "high") return "border-orange-700/15 bg-orange-50 text-orange-800";
@@ -49,6 +46,9 @@ function EvidenceCell({ name, value }) {
     </div>
   );
 }
+function canInvestigate(signal) {
+  return signal?.actionable === true || signal?.id === "system-event-backlog";
+}
 
 function InvestigationDrawer({ state, note, setNote, onClose, onAction }) {
   if (!state.open) return null;
@@ -60,6 +60,7 @@ function InvestigationDrawer({ state, note, setNote, onClose, onAction }) {
   const recent = Array.isArray(detail?.recent) ? detail.recent : [];
   const currentCase = payload?.case || { status: "OPEN" };
   const history = Array.isArray(payload?.history) ? payload.history : [];
+  const isEventBacklog = signal?.category === "event_processing";
   const maxTrend = Math.max(1, ...trend.map(row => numeric(row.failures)));
   const action = currentCase.status === "ACKNOWLEDGED" ? "RESOLVE" : currentCase.status === "RESOLVED" ? "REOPEN" : "ACKNOWLEDGE";
   const requiresNote = action === "RESOLVE" || action === "REOPEN";
@@ -88,38 +89,53 @@ function InvestigationDrawer({ state, note, setNote, onClose, onAction }) {
             </div>
 
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <EvidenceCell name="Occurrences / 24h" value={numeric(summary.occurrence_count).toLocaleString("en-US")} />
+              <EvidenceCell name={isEventBacklog ? "Queued events" : "Occurrences / 24h"} value={numeric(summary.occurrence_count).toLocaleString("en-US")} />
               <EvidenceCell name="First seen" value={when(summary.first_seen_at)} />
               <EvidenceCell name="Last seen" value={when(summary.last_seen_at)} />
-              <EvidenceCell name="Avg provider latency" value={summary.average_provider_latency_ms ? `${summary.average_provider_latency_ms} ms` : "—"} />
+              {isEventBacklog ? <EvidenceCell name="Diagnosis" value={label(summary.diagnosis)} /> : <EvidenceCell name="Avg provider latency" value={summary.average_provider_latency_ms ? `${summary.average_provider_latency_ms} ms` : "—"} />}
               <EvidenceCell name="Organization" value={signal.organization?.name || signal.organization?.legal_name || signal.organizationId || "Platform"} />
-              <EvidenceCell name="Provider" value={summary.provider} />
-              <EvidenceCell name="Capability" value={summary.capability} />
-              <EvidenceCell name="Customer charged" value={money(summary.charged_amount_total || 0)} />
+              {isEventBacklog ? <EvidenceCell name="Never attempted" value={numeric(summary.never_attempted_count)} /> : <EvidenceCell name="Provider" value={summary.provider} />}
+              {isEventBacklog ? <EvidenceCell name="Attempted" value={numeric(summary.attempted_count)} /> : <EvidenceCell name="Capability" value={summary.capability} />}
+              {isEventBacklog ? <EvidenceCell name="Oldest event" value={label(summary.oldest_event_type)} /> : <EvidenceCell name="Charged amount" value={numeric(summary.charged_amount_total || 0).toLocaleString("en-US", { maximumFractionDigits: 4 })} />}
             </div>
 
-            <div className="mt-4 rounded-xl border border-red-700/12 bg-red-50/70 px-4 py-3">
-              <div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-red-800/70">Failure fingerprint</div>
-              <div className="mt-1 break-words text-[9px] leading-4 text-red-900">{summary.error_message || "No persisted error message"}</div>
+            <div className={`mt-4 rounded-xl border px-4 py-3 ${isEventBacklog ? "border-amber-700/12 bg-amber-50/70" : "border-red-700/12 bg-red-50/70"}`}>
+              <div className={`text-[7px] font-semibold uppercase tracking-[0.1em] ${isEventBacklog ? "text-amber-800/70" : "text-red-800/70"}`}>{isEventBacklog ? "Backlog diagnosis" : "Failure fingerprint"}</div>
+              <div className={`mt-1 break-words text-[9px] leading-4 ${isEventBacklog ? "text-amber-900" : "text-red-900"}`}>
+                {isEventBacklog
+                  ? summary.diagnosis === "consumer_not_claiming"
+                    ? "These events have never been claimed by a consumer. This is a delivery/consumer gap, not a retry failure. Operator case actions do not mark source events processed."
+                    : summary.error_message || "The backlog contains attempted events and requires consumer/runtime investigation."
+                  : summary.error_message || "No persisted error message"}
+              </div>
             </div>
 
-            <div className="mt-5">
-              <div className="flex items-end justify-between gap-3">
-                <div><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Impact trend</div><div className="mt-0.5 text-[9px] text-[#827B73]">Hourly matching failures across the authoritative 24-hour window.</div></div>
-                <div className="text-[8px] text-[#9A938A]">Peak {maxTrend}/h</div>
+            {!isEventBacklog ? (
+              <div className="mt-5">
+                <div className="flex items-end justify-between gap-3">
+                  <div><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Impact trend</div><div className="mt-0.5 text-[9px] text-[#827B73]">Hourly matching failures across the authoritative 24-hour window.</div></div>
+                  <div className="text-[8px] text-[#9A938A]">Peak {maxTrend}/h</div>
+                </div>
+                <div className="mt-3 flex h-24 items-end gap-1 rounded-xl border border-black/[0.06] bg-[#FFFDF9] px-3 pb-3 pt-4">
+                  {trend.map((row, index) => {
+                    const height = Math.max(4, Math.round((numeric(row.failures) / maxTrend) * 68));
+                    return <div key={`${row.bucket}-${index}`} title={`${when(row.bucket)} · ${row.failures} failures`} className="min-w-[3px] flex-1 rounded-t bg-[#A56C45]/70" style={{ height }} />;
+                  })}
+                  {!trend.length ? <div className="m-auto text-[8px] text-[#A09990]">No trend buckets.</div> : null}
+                </div>
               </div>
-              <div className="mt-3 flex h-24 items-end gap-1 rounded-xl border border-black/[0.06] bg-[#FFFDF9] px-3 pb-3 pt-4">
-                {trend.map((row, index) => {
-                  const height = Math.max(4, Math.round((numeric(row.failures) / maxTrend) * 68));
-                  return <div key={`${row.bucket}-${index}`} title={`${when(row.bucket)} · ${row.failures} failures`} className="min-w-[3px] flex-1 rounded-t bg-[#A56C45]/70" style={{ height }} />;
-                })}
-                {!trend.length ? <div className="m-auto text-[8px] text-[#A09990]">No trend buckets.</div> : null}
-              </div>
-            </div>
+            ) : null}
 
             <div className="mt-5 overflow-hidden rounded-xl border border-black/[0.06] bg-[#FFFDF9]">
-              <div className="border-b border-black/[0.05] px-4 py-3"><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Recent matching executions</div></div>
-              {recent.slice(0, 12).map(row => (
+              <div className="border-b border-black/[0.05] px-4 py-3"><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">{isEventBacklog ? "Queued source events" : "Recent matching executions"}</div></div>
+              {recent.slice(0, 12).map(row => isEventBacklog ? (
+                <div key={row.id} className="grid gap-2 border-b border-black/[0.05] px-4 py-2.5 last:border-b-0 sm:grid-cols-[120px_1fr_90px_100px] sm:items-center">
+                  <div><div className="text-[8px] font-medium text-[#514B45]">{when(row.created_at)}</div><div className="mt-0.5 truncate text-[6.5px] text-[#AAA299]">{row.id}</div></div>
+                  <div><div className="truncate text-[8px] text-[#5E5750]">{label(row.event_type)}</div><div className="mt-0.5 text-[7px] text-[#9A938A]">{row.quotation_number || row.quotation_id || "No quotation reference"}</div></div>
+                  <div className="text-[8px] text-[#6F6860]">{numeric(row.attempt_count)} attempts</div>
+                  <div className="text-right text-[8px] text-[#6F6860]">{row.processing ? "processing" : "not claimed"}</div>
+                </div>
+              ) : (
                 <div key={row.id} className="grid gap-2 border-b border-black/[0.05] px-4 py-2.5 last:border-b-0 sm:grid-cols-[120px_1fr_80px_80px] sm:items-center">
                   <div><div className="text-[8px] font-medium text-[#514B45]">{when(row.created_at)}</div><div className="mt-0.5 truncate text-[6.5px] text-[#AAA299]">{row.id}</div></div>
                   <div className="truncate text-[8px] text-[#6F6860]">{row.provider_model || row.operation || "execution"}</div>
@@ -131,7 +147,7 @@ function InvestigationDrawer({ state, note, setNote, onClose, onAction }) {
 
             <div className="mt-5 rounded-xl border border-black/[0.06] bg-[#FFFDF9] p-4">
               <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8A633C]">Governed case action</div>
-              <div className="mt-1 text-[8px] leading-4 text-[#827B73]">Acknowledgement changes only human workflow state. It does not modify the failure evidence. Resolution requires an acknowledgement first and fresh evidence automatically reopens a resolved case.</div>
+              <div className="mt-1 text-[8px] leading-4 text-[#827B73]">Acknowledgement changes only human workflow state. It does not modify authoritative source evidence. Resolution requires acknowledgement first; fresh evidence after resolution automatically reopens the case.</div>
               {requiresNote ? (
                 <textarea value={note} onChange={event => setNote(event.target.value)} rows={3} placeholder={action === "RESOLVE" ? "What was fixed and how was it verified?" : "Why is this case being reopened?"} className="mt-3 w-full resize-none rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[9px] text-[#45403A] outline-none focus:border-[#A37849]/40" />
               ) : null}
@@ -168,7 +184,7 @@ export default function PlatformOperatorControlTower({ control = {} }) {
   const [note, setNote] = useState("");
 
   async function investigate(signal) {
-    if (!signal?.actionable) return;
+    if (!canInvestigate(signal)) return;
     setNote("");
     setDrawer({ open: true, loading: true, data: null, error: "", actionLoading: false, actionError: "" });
     try {
@@ -224,32 +240,35 @@ export default function PlatformOperatorControlTower({ control = {} }) {
 
           <div className="grid xl:grid-cols-[minmax(0,1fr)_315px]">
             <div className="divide-y divide-black/[0.05]">
-              {signals.slice(0, 12).map((signal, index) => (
-                <div key={signal.id || index} className={`${signal.workflowStatus === "RESOLVED" ? "bg-emerald-50/20" : ""} px-5 py-4`}>
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.09em] ${severityTone(signal.severity)}`}><IconFor category={signal.category} />{label(signal.severity)}</span>
-                        <span className={`rounded-md border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.08em] ${workflowTone(signal.workflowStatus)}`}>{signal.reopenedByEvidence ? "reopened by evidence" : label(signal.workflowStatus)}</span>
-                        <span className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#9A938A]">#{index + 1} · score {signal.score}</span>
-                        <span className="text-[7px] uppercase tracking-[0.08em] text-[#A49C93]">{label(signal.state)}</span>
+              {signals.slice(0, 12).map((signal, index) => {
+                const investigable = canInvestigate(signal);
+                return (
+                  <div key={signal.id || index} className={`${signal.workflowStatus === "RESOLVED" ? "bg-emerald-50/20" : ""} px-5 py-4`}>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.09em] ${severityTone(signal.severity)}`}><IconFor category={signal.category} />{label(signal.severity)}</span>
+                          <span className={`rounded-md border px-2 py-1 text-[7px] font-semibold uppercase tracking-[0.08em] ${workflowTone(signal.workflowStatus)}`}>{signal.reopenedByEvidence ? "reopened by evidence" : label(signal.workflowStatus)}</span>
+                          <span className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#9A938A]">#{index + 1} · score {signal.score}</span>
+                          <span className="text-[7px] uppercase tracking-[0.08em] text-[#A49C93]">{label(signal.state)}</span>
+                        </div>
+                        <div className="mt-2 text-[12px] font-semibold tracking-[-0.01em] text-[#322E2A]">{signal.title}</div>
+                        <div className="mt-1 max-w-5xl text-[8.5px] leading-4 text-[#777068]">{signal.summary}</div>
                       </div>
-                      <div className="mt-2 text-[12px] font-semibold tracking-[-0.01em] text-[#322E2A]">{signal.title}</div>
-                      <div className="mt-1 max-w-5xl text-[8.5px] leading-4 text-[#777068]">{signal.summary}</div>
+                      <div className="shrink-0 text-right">
+                        {investigable ? (
+                          <button type="button" onClick={() => investigate(signal)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#A37849]/18 bg-[#FBF8F3] px-3 text-[7.5px] font-semibold uppercase tracking-[0.08em] text-[#6F5034] hover:bg-[#F3EDE5]">Investigate <ArrowRight size={10} /></button>
+                        ) : (
+                          <><div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#9B948B]">Operator route</div><div className="mt-1 inline-flex items-center gap-1.5 text-[8px] font-semibold text-[#76583A]">Platform → {label(signal.target)} <ArrowRight size={10} /></div></>
+                        )}
+                        <div className="mt-1 text-[7.5px] text-[#A29A91]">{when(signal.occurredAt)}</div>
+                      </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      {signal.actionable ? (
-                        <button type="button" onClick={() => investigate(signal)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#A37849]/18 bg-[#FBF8F3] px-3 text-[7.5px] font-semibold uppercase tracking-[0.08em] text-[#6F5034] hover:bg-[#F3EDE5]">Investigate <ArrowRight size={10} /></button>
-                      ) : (
-                        <><div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#9B948B]">Operator route</div><div className="mt-1 inline-flex items-center gap-1.5 text-[8px] font-semibold text-[#76583A]">Platform → {label(signal.target)} <ArrowRight size={10} /></div></>
-                      )}
-                      <div className="mt-1 text-[7.5px] text-[#A29A91]">{when(signal.occurredAt)}</div>
-                    </div>
+                    {signal.evidence ? <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(signal.evidence).slice(0, 8).map(([name, value]) => <EvidenceCell key={name} name={label(name)} value={value} />)}</div> : null}
+                    <div className="mt-2 text-[6.5px] uppercase tracking-[0.09em] text-[#B0A89E]">Evidence source · {label(signal.source)}{investigable ? " · governed work queue" : " · read-only route"}</div>
                   </div>
-                  {signal.evidence ? <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(signal.evidence).slice(0, 8).map(([name, value]) => <EvidenceCell key={name} name={label(name)} value={value} />)}</div> : null}
-                  <div className="mt-2 text-[6.5px] uppercase tracking-[0.09em] text-[#B0A89E]">Evidence source · {label(signal.source)}{signal.actionable ? " · governed work queue" : " · read-only route"}</div>
-                </div>
-              ))}
+                );
+              })}
               {!signals.length ? <div className="flex items-center justify-center gap-2 px-5 py-12 text-[10px] text-emerald-800"><CheckCircle2 size={14} /> No ranked operator exceptions from the verified sources.</div> : null}
             </div>
 

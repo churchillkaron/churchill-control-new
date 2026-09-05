@@ -6,8 +6,11 @@ on:
     paths:
       - 'app/api/hotel/channels/**'
       - 'app/api/hotel/rates/**'
+      - 'app/(system)/workspace/**/operations/channel-reservations/**'
+      - 'components/workspace/hotel/**'
       - 'lib/hotel/channels/**'
       - 'supabase/migrations/*hotel_ota*'
+      - 'supabase/migrations/*hotel_channel*'
       - 'tests/hotel-*.test.mjs'
       - '.github/workflows/hotel-ota-contract.yml'
   workflow_dispatch:
@@ -32,3 +35,4 @@ jobs:
           tests/hotel-channel-readiness.test.mjs
           tests/hotel-ota-governance-contract.test.mjs
           tests/hotel-booking-com-transport-contract.test.mjs
+          tests/hotel-channel-reservation-control.test.mjs

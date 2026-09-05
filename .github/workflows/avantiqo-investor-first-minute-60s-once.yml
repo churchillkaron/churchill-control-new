@@ -1,0 +1,116 @@
+name: Avantiqo Investor First Minute 60s Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-first-minute-60s-once.yml
+
+permissions:
+  contents: read
+
+env:
+  MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+  PROOF_DIR: local-audit-output/avantiqo-investor-first-minute-60s
+  AVANTIQO_FIRST_MINUTE_GENERATION_REPORT: local-audit-output/avantiqo-investor-first-minute-60s/generation-report.json
+
+jobs:
+  proof:
+    if: github.event.head_commit.message == 'Run Avantiqo investor first-minute proof once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install proof tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          npm ci --ignore-scripts
+          mkdir -p "$PROOF_DIR"
+      - name: Validate cinematic direction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-engine/investor_avantiqo_first_minute_60s.py
+          node --check scripts/master-avantiqo-first-minute-60s.mjs
+          grep -F 'science_fiction_styling:false' scripts/master-avantiqo-first-minute-60s.mjs >/dev/null
+          grep -F 'creative_studio_proof_included:true' scripts/master-avantiqo-first-minute-60s.mjs >/dev/null
+          grep -F 'product_ui_used:false' scripts/master-avantiqo-first-minute-60s.mjs >/dev/null
+          echo 'AVANTIQO_FIRST_MINUTE_DIRECTION=PASS'
+      - name: Deploy exact current owned video surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal deploy modal_deploy.py
+      - name: Generate ten fresh first-minute shots concurrently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python services/avantiqo-video-engine/investor_avantiqo_first_minute_60s.py
+      - name: Retrieve generated masters
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="investor-avantiqo-first-minute-60s/${GITHUB_SHA}"
+          for ID in 01-city-dawn 02-descent-hotel 03-hotel-truth 04-field-service 05-construction 06-restaurant-rhythm 07-business-partner-decision 08-studio-food-campaign 09-studio-experience-campaign 10-real-result; do
+            modal volume get avantiqo-video-models "$ROOT/${ID}-1920x1088.mp4" "$PROOF_DIR/${ID}-1920x1088.mp4" --force
+            test -s "$PROOF_DIR/${ID}-1920x1088.mp4"
+          done
+          echo 'AVANTIQO_FIRST_MINUTE_MASTERS_RECOVERED=PASS'
+      - name: Finish cinematic 60-second master
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/master-avantiqo-first-minute-60s.mjs
+      - name: Verify proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$PROOF_DIR/avantiqo-investor-first-minute-proof-60s-1080p.mp4"
+          test -s "$PROOF_DIR/proof-report.json"
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync(process.env.PROOF_DIR+'/proof-report.json','utf8'));
+          if(!r.success) throw new Error('PROOF_NOT_SUCCESS');
+          if(r.direction!=='MULTI_INDUSTRY_REAL_CINEMA_WITH_STUDIO_PROOF') throw new Error('DIRECTION_INVALID');
+          if(r.duration_seconds < 59.85 || r.duration_seconds > 60.15) throw new Error('DURATION_INVALID');
+          if(r.screenshots_used!==false||r.product_ui_used!==false||r.full_frame_overlay_used!==false) throw new Error('PRODUCT_VISUAL_POLICY_INVALID');
+          if(r.paper_document_visual_language!==false||r.science_fiction_styling!==false||r.visible_speculative_technology!==false) throw new Error('REALISM_POLICY_INVALID');
+          if(r.creative_studio_proof_included!==true) throw new Error('STUDIO_PROOF_MISSING');
+          console.log('AVANTIQO_INVESTOR_FIRST_MINUTE_PROOF=PASS');
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-first-minute-proof-60s
+          path: |
+            local-audit-output/avantiqo-investor-first-minute-60s/avantiqo-investor-first-minute-proof-60s-1080p.mp4
+            local-audit-output/avantiqo-investor-first-minute-60s/proof-report.json
+            local-audit-output/avantiqo-investor-first-minute-60s/generation-report.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'VIDEO_PRICING_ACTIVATED=false'
+          echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
+          echo 'EXTERNAL_VIDEO_PROVIDER_USED=false'

@@ -1,74 +1,85 @@
-name: Avantiqo Video HQ4K Single Pod Cost Guard
+name: Avantiqo Video Distilled Runtime Deploy Once
 
 on:
   push:
     branches: [main]
     paths:
       - .github/workflows/avantiqo-video-hq4k-single-pod-cost-guard.yml
-  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+  deploy:
+    if: github.event.head_commit.message == 'Deploy cost-bounded distilled Avantiqo Video runtime v3 once'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
     steps:
-      - name: Checkout newest main
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.sha }}
+          fetch-depth: 1
 
-      - name: Remove separate preload GPU from HQ controller
-        shell: bash
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate distilled cost boundary
         run: |
           set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
+          python -m py_compile services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_distilled_job.py
+          grep -F 'DISTILLED_WIDTH = 1920' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          grep -F 'DISTILLED_HEIGHT = 1088' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          grep -F 'DISTILLED_HARD_TIMEOUT_SECONDS = 8 * 60' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          grep -A18 -B10 'def generate_distilled_master' services/avantiqo-video-engine/modal_distilled_job.py | grep -F 'max_containers=1' >/dev/null
+          echo 'AVANTIQO_VIDEO_DISTILLED_COST_BOUNDARY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
 
-          path = Path('scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs')
-          source = path.read_text()
-          marker = '''source = source.replaceAll("videoPodCandidateSnapshot()", "videoPodProductionSnapshot()");\n'''
-          if marker not in source:
-              raise SystemExit('AVANTIQO_VIDEO_HQ4K_SINGLE_POD_MARKER_MISSING')
-          if 'AVANTIQO_VIDEO_HQ4K_CACHE_GATE=WORKER_EXACT_FILE_CHECK' not in source:
-              patch = r'''
+      - name: Install Modal CLI
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
 
-const preloadBlock = `    const preload = await runPreload(await videoPodProductionSnapshot());
-    report.preload = {
-      success: true,
-      revision: preload.revision,
-      file_count: preload.files.length,
-      total_bytes: preload.files.reduce((sum, item) => sum + Number(item.size_bytes || 0), 0),
-    };`;
-const workerCacheGateBlock = `    report.preload = {
-      success: true,
-      revision: "WORKER_EXACT_FILE_GATE",
-      file_count: REQUIRED_MODEL_FILES.length,
-      total_bytes: null,
-      separate_preload_pod_used: false,
-    };
-    console.log("AVANTIQO_VIDEO_HQ4K_CACHE_GATE=WORKER_EXACT_FILE_CHECK");`;
-if (!source.includes(preloadBlock)) throw new Error("AVANTIQO_VIDEO_HQ4K_PRELOAD_BLOCK_TARGET_MISSING");
-source = source.replace(preloadBlock, workerCacheGateBlock);
-'''
-              source = source.replace(marker, marker + patch, 1)
-          path.write_text(source)
+      - name: Deploy distilled Modal lane
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          cd services/avantiqo-video-engine
+          modal deploy modal_distilled_job.py | tee /tmp/distilled-deploy.log
+          grep -F 'generate_distilled_job' /tmp/distilled-deploy.log >/dev/null
+          grep -F 'generate_distilled_master' /tmp/distilled-deploy.log >/dev/null
+          echo 'AVANTIQO_VIDEO_DISTILLED_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Seed or verify distilled weights without GPU
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_distilled_job.py::seed_ltx_distilled_cache | tee /tmp/distilled-cache.log
+          echo 'AVANTIQO_VIDEO_DISTILLED_CACHE_GATE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+
+      - name: Confirm idle deployed lane without GPU
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import modal
+          app='avantiqo-video-owned'
+          for name in ('generate_distilled_job','generate_distilled_master'):
+              fn=modal.Function.from_name(app,name)
+              s=fn.get_current_stats()
+              backlog=int(getattr(s,'backlog',0) or 0)
+              running=int(getattr(s,'num_running_inputs',0) or 0)
+              print(name, {'backlog':backlog,'num_running_inputs':running})
+              if backlog != 0 or running != 0:
+                  raise SystemExit(f'AVANTIQO_VIDEO_DISTILLED_NOT_IDLE:{name}:{backlog}:{running}')
+          print('AVANTIQO_VIDEO_DISTILLED_IDLE_GATE=PASS')
+          print('GPU_INFERENCE_PERFORMED=false')
           PY
-          node --check scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
-          grep -q 'AVANTIQO_VIDEO_HQ4K_CACHE_GATE=WORKER_EXACT_FILE_CHECK' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
-          grep -q 'separate_preload_pod_used: false' scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
-          git diff --check
-
-      - name: Commit controller cost guard
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "churchillkaron"
-          git config user.email "patric@pcsphuket.com"
-          git add scripts/run-avantiqo-video-ltx25-scene1-hq4k-ci.mjs
-          git diff --cached --quiet && exit 0
-          git commit -m "Make HQ4K Scene 1 single-pod only"
-          git push origin HEAD:main
-          echo 'AVANTIQO_VIDEO_HQ4K_SINGLE_POD_COST_GUARD=PASS'

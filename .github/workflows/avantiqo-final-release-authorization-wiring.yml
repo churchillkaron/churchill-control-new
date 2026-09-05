@@ -1,0 +1,49 @@
+name: Avantiqo Final Release Authorization Wiring
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/patch-final-knowledge-release-authorization.mjs"
+      - ".github/workflows/avantiqo-final-release-authorization-wiring.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    name: Wire candidate-specific final release authorization
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Apply exact authorization patch
+        run: node scripts/patch-final-knowledge-release-authorization.mjs
+
+      - name: Syntax gate
+        run: |
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseAuthorizationAuthenticityRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js
+
+      - name: Commit wired runtime
+        run: |
+          if git diff --quiet -- lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js; then
+            echo "No source change produced"
+            exit 1
+          fi
+          git config user.name "avantiqo-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js
+          git commit -m "feat(intelligence): enforce signed final release authorization"
+          git push origin HEAD:main

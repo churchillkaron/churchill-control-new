@@ -19,7 +19,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const organizationId = cleanValue(body.organizationId || body.organization_id);
-    const propertyId = cleanValue(body.propertyId || body.property_id);
+    const requestedPropertyId = cleanValue(body.propertyId || body.property_id);
     const groupId = cleanValue(body.groupId || body.group_id);
     const checkInDate = cleanValue(body.checkInDate || body.check_in_date);
     const checkOutDate = cleanValue(body.checkOutDate || body.check_out_date);
@@ -30,6 +30,23 @@ export async function POST(request) {
 
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return errorResponse(access.error, access.status);
+
+    let group = null;
+    if (groupId) {
+      const { data, error: groupError } = await supabaseAdmin
+        .from("hotel_groups")
+        .select("id,property_id,status")
+        .eq("organization_id", access.organizationId)
+        .eq("id", groupId)
+        .maybeSingle();
+      if (groupError) throw groupError;
+      group = data;
+      if (!group) return errorResponse("Group not found", 404);
+      if (requestedPropertyId && group.property_id !== requestedPropertyId) return errorResponse("Group belongs to another property", 409);
+      if (["CANCELLED", "LOST", "COMPLETED"].includes(String(group.status || "").toUpperCase())) return errorResponse("Group is not open for reservation pickup", 409);
+    }
+
+    const effectivePropertyId = group?.property_id || requestedPropertyId;
 
     let roomsQuery = supabaseAdmin
       .from("hotel_rooms")
@@ -45,9 +62,9 @@ export async function POST(request) {
       .in("status", ["RESERVED", "CHECKED_IN"])
       .lt("check_in_date", checkOutDate)
       .gt("check_out_date", checkInDate);
-    if (propertyId) {
-      roomsQuery = roomsQuery.eq("property_id", propertyId);
-      bookingsQuery = bookingsQuery.eq("property_id", propertyId);
+    if (effectivePropertyId) {
+      roomsQuery = roomsQuery.eq("property_id", effectivePropertyId);
+      bookingsQuery = bookingsQuery.eq("property_id", effectivePropertyId);
     }
 
     const [{ data: rooms, error: roomsError }, { data: bookings, error: bookingsError }] = await Promise.all([roomsQuery, bookingsQuery]);
@@ -57,19 +74,6 @@ export async function POST(request) {
     const unavailableRoomIds = new Set((bookings || []).map((booking) => booking.room_id).filter(Boolean));
     const freeRooms = (rooms || []).filter((room) => !unavailableRoomIds.has(room.id));
     const propertyIds = [...new Set(freeRooms.map((room) => room.property_id).filter(Boolean))];
-
-    if (groupId) {
-      const { data: group, error: groupError } = await supabaseAdmin
-        .from("hotel_groups")
-        .select("id,property_id,status")
-        .eq("organization_id", access.organizationId)
-        .eq("id", groupId)
-        .maybeSingle();
-      if (groupError) throw groupError;
-      if (!group) return errorResponse("Group not found", 404);
-      if (propertyId && group.property_id !== propertyId) return errorResponse("Group belongs to another property", 409);
-      if (["CANCELLED", "LOST", "COMPLETED"].includes(String(group.status || "").toUpperCase())) return errorResponse("Group is not open for reservation pickup", 409);
-    }
 
     const protectionEntries = await Promise.all(propertyIds.map(async (currentPropertyId) => [
       currentPropertyId,
@@ -102,9 +106,7 @@ export async function POST(request) {
             roomType,
             dates: protection?.dates || [],
           });
-          if (ownBlock.hasDeductBlock) {
-            exposeCount = ownBlock.complete ? Math.min(exposeCount, Math.max(0, ownBlock.minRemaining)) : 0;
-          }
+          if (ownBlock.hasDeductBlock) exposeCount = ownBlock.complete ? Math.min(exposeCount, Math.max(0, ownBlock.minRemaining)) : 0;
         }
 
         availableRooms.push(...candidates.slice(0, exposeCount));
@@ -114,7 +116,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       organizationId: access.organizationId,
-      propertyId: propertyId || null,
+      propertyId: effectivePropertyId || null,
       groupId: groupId || null,
       checkInDate,
       checkOutDate,

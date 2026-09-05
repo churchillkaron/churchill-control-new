@@ -41,7 +41,26 @@ test('reservation control API is organization-authorized and does not expose tra
   assert.doesNotMatch(api, /CardNumber/);
 });
 
-test('Hotel staff get an attention-first channel reservation workspace', () => {
+test('operator retry is limited to an already reconciled canonical stay and refetches provider truth', () => {
+  assert.match(ingest, /retryProviderHandoff/);
+  assert.match(ingest, /eventStatus !== 'RECONCILED'/);
+  assert.match(ingest, /!data\.booking_id/);
+  assert.match(ingest, /!\['PENDING', 'RETRY_REQUIRED'\]\.includes\(ackStatus\)/);
+  assert.match(ingest, /pullLatestExactReservation/);
+  assert.match(ingest, /status: 'SUPERSEDED'/);
+  assert.match(ingest, /return processReservation|const result = await processReservation/);
+  assert.match(ingest, /HOTEL_CHANNEL_RESERVATION_RETRY_NOT_ALLOWED/);
+});
+
+test('reservation control POST exposes only the governed provider-handoff retry', () => {
+  assert.match(api, /export async function POST/);
+  assert.match(api, /RETRY_PROVIDER_HANDOFF/);
+  assert.match(api, /HotelChannelReservationIngestRuntime\.retryProviderHandoff/);
+  assert.match(api, /requireOrganizationAccess/);
+  assert.match(api, /Unsupported Hotel channel reservation action/);
+});
+
+test('Hotel staff get an attention-first channel reservation workspace with safe handoff recovery', () => {
   assert.match(workspace, /id: "channel-reservations", label: "Channel Reservations"/);
   assert.match(page, /active="channel-reservations"/);
   assert.match(page, /Needs attention/);
@@ -49,7 +68,11 @@ test('Hotel staff get an attention-first channel reservation workspace', () => {
   assert.match(page, /Open stay/);
   assert.match(page, /Changes/);
   assert.match(page, /Cancellations/);
+  assert.match(page, /Retry OTA handoff/);
+  assert.match(page, /\["PROVIDER_RETRY", "AWAITING_ACK"\]\.includes\(item\.workState\)/);
+  assert.doesNotMatch(page, /CANONICAL_REVIEW[^\n]*Retry OTA handoff/);
   assert.match(page, /Automation stops before it can damage an in-house stay/);
+  assert.match(page, /refetches provider truth before acknowledgement/);
 });
 
 test('Booking.com live gate stays false until inbound transport is explicitly certified', () => {

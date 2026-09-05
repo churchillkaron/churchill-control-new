@@ -108,6 +108,7 @@ export default function FinanceTaxWorkCenter(props) {
         entityId={props.entityId}
         selectedVatReturnId={selectedVatReturnId}
         focusDependencyCode={evidenceFocusCode}
+        onStageChange={changeStage}
       /> : null}
 
       {/* AFTER delegates the governed FinanceTaxAmendmentRail and FinanceTaxSettlementRail controls to one post-filing workspace so they never compete as stacked primary surfaces. */}

@@ -92,6 +92,34 @@ test("Duplicate warning evidence exposes every grouped vendor invoice with exact
   assert.doesNotMatch(rail, /Mark reviewed|Resolve duplicate|Dismiss warning/);
 });
 
+test("Filing deadline warning exposes governed statutory authority lineage without fabricating a transaction", () => {
+  assert.match(route, /function buildCalendarEvidence\(current\)/);
+  assert.match(route, /taxCalendar\?\.resolution/);
+  assert.match(route, /recorded_due_date: taxCalendar\?\.recorded_due_date/);
+  assert.match(route, /statutory_due_date: resolution\?\.statutory_due_date/);
+  assert.match(route, /legal_time_zone: legalClock\?\.time_zone/);
+  assert.match(route, /authority: resolution\?\.authority/);
+  assert.match(route, /calendar_evidence: upper\(item\?\.source_type\) === "TAX_CALENDAR_CONTEXT" \? governedCalendarEvidence : null/);
+  assert.match(rail, /Statutory deadline evidence/);
+  assert.match(rail, /Why this deadline/);
+  assert.match(rail, /This is the same governed calendar resolution used by live Tax preflight/);
+  assert.match(rail, /Recorded filing date/);
+  assert.match(rail, /Governed statutory date/);
+  assert.match(rail, /Legal clock/);
+  assert.match(rail, /Authority lineage/);
+  assert.match(rail, /Revenue Department source/);
+  assert.match(rail, /Review filing method & deadline/);
+  assert.doesNotMatch(rail, /Mark deadline reviewed|Acknowledge deadline|Resolve deadline/);
+});
+
+test("Evidence deadline handoff returns to the selected filing calendar rather than constructing a raw transaction route", () => {
+  assert.match(wrapper, /onStageChange=\{changeStage\}/);
+  assert.match(rail, /onStageChange = null/);
+  assert.match(rail, /onStageChange\("RETURN"\)/);
+  assert.match(rail, /Review only · live Tax truth decides whether this warning remains\./);
+  assert.doesNotMatch(route, /calendar_evidence.*source_record/);
+});
+
 test("Evidence drilldown is organization-scoped, read-only and cannot mutate Business Context", () => {
   assert.match(route, /requireOrganizationAccess/);
   assert.match(route, /requireFinanceWorkspacePermission\(\{ capabilityId: "vat_returns", operation: "read", access \}\)/);

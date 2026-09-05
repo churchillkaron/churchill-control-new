@@ -100,6 +100,54 @@ function attachDuplicateCandidateNavigation({ organizationId, entityId, vatRetur
   };
 }
 
+function buildCalendarEvidence(current) {
+  const taxCalendar = current?.tax_calendar || null;
+  const resolution = taxCalendar?.resolution || null;
+  const metadata = taxCalendar?.metadata || null;
+  const legalClock = taxCalendar?.legal_clock || null;
+  if (!resolution && !taxCalendar?.recorded_due_date) return null;
+
+  return {
+    policy_version: resolution?.policy_version || null,
+    jurisdiction_code: resolution?.jurisdiction_code || current?.return?.jurisdiction_code || null,
+    form_code: resolution?.form_code || metadata?.form_code || null,
+    form_label: resolution?.form_label || null,
+    filing_channel: resolution?.filing_channel || metadata?.filing_channel || null,
+    filing_channel_label: resolution?.filing_channel_label || null,
+    period_end: resolution?.period_end || current?.return?.period_end || null,
+    base_due_date: resolution?.base_due_date || null,
+    statutory_due_date: resolution?.statutory_due_date || null,
+    recorded_due_date: taxCalendar?.recorded_due_date || current?.return?.filing_due_date || null,
+    verification_status: resolution?.verification_status || null,
+    legal_date: legalClock?.legal_date || current?.due?.legal_date || null,
+    legal_time_zone: legalClock?.time_zone || current?.due?.legal_time_zone || null,
+    overdue: current?.due?.overdue === true,
+    adjustment: resolution?.adjustment ? {
+      applied: resolution.adjustment.applied === true,
+      days: Number(resolution.adjustment.days || 0),
+      reason: resolution.adjustment.reason || null,
+    } : null,
+    authority: resolution?.authority ? {
+      authority: resolution.authority.authority || null,
+      title: resolution.authority.title || null,
+      url: resolution.authority.url || null,
+      calendar_verified: resolution.authority.calendar_verified === true,
+      calendar_last_reviewed: resolution.authority.calendar_last_reviewed || null,
+    } : null,
+    evidence_source: metadata?.source || null,
+    override: metadata?.override ? {
+      date: metadata.override.date || null,
+      reason: metadata.override.reason || null,
+      evidence_reference: metadata.override.evidence_reference || null,
+    } : null,
+    human_confirmation: metadata?.human_confirmation ? {
+      reason: metadata.human_confirmation.reason || null,
+      evidence_reference: metadata.human_confirmation.evidence_reference || null,
+      confirmed_at: metadata.human_confirmation.confirmed_at || null,
+    } : null,
+  };
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -155,6 +203,7 @@ export async function GET(request) {
       source = "LIVE_PREFLIGHT_CONTEXT";
     }
 
+    const governedCalendarEvidence = buildCalendarEvidence(current);
     issues = issues.map(rawItem => {
       const item = attachDuplicateCandidateNavigation({
         organizationId: access.organizationId,
@@ -164,6 +213,7 @@ export async function GET(request) {
       });
       return {
         ...item,
+        calendar_evidence: upper(item?.source_type) === "TAX_CALENDAR_CONTEXT" ? governedCalendarEvidence : null,
         source_navigation: exactSourceNavigation({
           organizationId: access.organizationId,
           entityId,

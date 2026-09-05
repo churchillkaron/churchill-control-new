@@ -1,4 +1,4 @@
-name: Avantiqo Investor Single-B200 Smoke Once
+name: Avantiqo Investor Native-4K B200 Smoke Once
 
 on:
   push:
@@ -15,17 +15,17 @@ concurrency:
 
 jobs:
   smoke:
-    if: github.event.head_commit.message == 'Run Avantiqo investor single-B200 smoke v2 once'
+    if: github.event.head_commit.message == 'Run native-4K investor B200 smoke v3 once'
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 20
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
       AVANTIQO_VIDEO_SMOKE_REAL_INFERENCE_APPROVED: "YES"
-      AVANTIQO_VIDEO_SMOKE_RUN_KEY: "investor-single-b200-smoke-v2"
-      AVANTIQO_VIDEO_SMOKE_MAX_WAIT_SECONDS: "1800"
+      AVANTIQO_VIDEO_SMOKE_RUN_KEY: "investor-native-4k-b200-smoke-v3"
+      AVANTIQO_VIDEO_SMOKE_MAX_WAIT_SECONDS: "720"
 
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
           sudo apt-get install -y -qq ffmpeg
           npm ci --ignore-scripts
 
-      - name: Validate single-B200 smoke boundary
+      - name: Validate true native-4K smoke boundary
         run: |
           set -euo pipefail
           test -n "${MODAL_TOKEN_ID:-}"
@@ -53,8 +53,20 @@ jobs:
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           node --check scripts/run-avantiqo-investor-single-shot-smoke.mjs
           grep -A14 -B10 'def generate_native_master' services/avantiqo-video-engine/modal_app.py | grep -F 'max_containers=1' >/dev/null
+          grep -F 'LTX_MASTER_WIDTH = 3840' services/avantiqo-video-engine/modal_app.py >/dev/null
+          grep -F 'LTX_MASTER_HEIGHT = 2176' services/avantiqo-video-engine/modal_app.py >/dev/null
+          grep -F 'LTX_NUM_INFERENCE_STEPS = 30' services/avantiqo-video-engine/modal_app.py >/dev/null
+          grep -F 'LTX_MAX_BATCH_SIZE = 4' services/avantiqo-video-engine/modal_app.py >/dev/null
+          grep -F 'pixel_upscale_used": False' services/avantiqo-video-engine/modal_app.py >/dev/null
+          grep -F 'learned_latent_upsampler_used": False' services/avantiqo-video-engine/modal_app.py >/dev/null
+          grep -F 'learned_spatial_upscaler_used": False' services/avantiqo-video-engine/modal_app.py >/dev/null
+          grep -F 'cancel({ terminateContainers: true })' scripts/run-avantiqo-investor-single-shot-smoke.mjs >/dev/null
           grep -F 'gpu_jobs: 1' scripts/run-avantiqo-investor-single-shot-smoke.mjs >/dev/null
-          echo 'AVANTIQO_INVESTOR_SINGLE_B200_SMOKE_PREFLIGHT=PASS'
+          echo 'AVANTIQO_INVESTOR_NATIVE_4K_SMOKE_PREFLIGHT=PASS'
+          echo 'MODEL_RENDER_RESOLUTION=3840x2176'
+          echo 'DELIVERY_RESOLUTION=3840x2160'
+          echo 'UPSCALE_USED=false'
+          echo 'INFERENCE_STEPS=30'
           echo 'B200_MAX_CONTAINERS=1'
           echo 'PAID_GPU_JOBS=1'
           echo 'AUTOMATIC_PAID_RETRY=false'
@@ -79,7 +91,7 @@ jobs:
           console.log('GPU_INFERENCE_PERFORMED=false');
           NODE
 
-      - name: Generate one real 5-second 4K shot
+      - name: Generate one real 5-second native-4K shot
         run: |
           set -euo pipefail
           node scripts/run-avantiqo-investor-single-shot-smoke.mjs
@@ -95,12 +107,12 @@ jobs:
           const fs = require('node:fs');
           const report = JSON.parse(fs.readFileSync('local-audit-output/avantiqo-investor-single-shot-smoke/avantiqo-investor-smoke-report.json', 'utf8'));
           if (report.success !== true) throw new Error('SMOKE_NOT_SUCCESSFUL');
-          if (report.run_key !== 'investor-single-b200-smoke-v2') throw new Error('RUN_KEY_INVALID');
+          if (report.run_key !== 'investor-native-4k-b200-smoke-v3') throw new Error('RUN_KEY_INVALID');
           if (report.gpu_generation_calls !== 1) throw new Error('GPU_CALL_COUNT_INVALID');
           if (report.automatic_paid_retry !== false) throw new Error('AUTOMATIC_RETRY_INVALID');
           if (report.delivery_resolution !== '3840x2160') throw new Error('DELIVERY_RESOLUTION_INVALID');
           if (Math.abs(Number(report.duration_seconds) - 5) > 0.08) throw new Error('DELIVERY_DURATION_INVALID');
-          console.log('AVANTIQO_INVESTOR_SINGLE_B200_SMOKE_ARTIFACT=PASS');
+          console.log('AVANTIQO_INVESTOR_NATIVE_4K_SMOKE_ARTIFACT=PASS');
           console.log('FINAL_SIGNED_URL=' + report.delivery.signed_url);
           console.log('FINAL_STORAGE_REFERENCE=' + report.delivery.storage_reference);
           NODE
@@ -108,7 +120,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: avantiqo-investor-single-b200-smoke-v2
+          name: avantiqo-investor-native-4k-b200-smoke-v3
           path: local-audit-output/avantiqo-investor-single-shot-smoke/
           if-no-files-found: error
           compression-level: 0

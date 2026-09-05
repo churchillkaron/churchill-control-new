@@ -1,6 +1,7 @@
 Production deployment trigger
 
-Requested: 2026-09-02
-Purpose: One deliberate production deployment of current main so the owner can test the new Finance accounting workspace and the latest concurrent main changes.
-Source baseline before trigger: c51520776f24b68205b228ca6598a3b813f2a84b
+Requested: 2026-09-05
+Purpose: One deliberate production deployment of current main after fixing the continuous-learning build blocker.
+Source baseline before trigger: 69d9c93612eea56ffc345fd9893cf876a3d49910
+Build blocker fixed by: 59096705ec09b41ade6133ba6210832d32a764b5
 Policy: Single production deployment requested by the owner. Do not retrigger automatically from this request.

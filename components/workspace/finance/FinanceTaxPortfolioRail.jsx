@@ -118,6 +118,11 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
     if (filter === "ACCOUNTANT") return !row.client_evidence;
     return false;
   }), [filter, workRows]);
+  const deadlineRunway = useMemo(() => filingRows
+    .filter(row => row.status !== "SUBMITTED" && row.filing_due_date)
+    .sort((left, right) => String(left.filing_due_date || "9999-12-31").localeCompare(String(right.filing_due_date || "9999-12-31"))
+      || String(left.entity_name || "").localeCompare(String(right.entity_name || "")))
+    .slice(0, 5), [filingRows]);
   const currentEntityRows = filingRows.filter(row => row.entity_id === entityId);
   const nextWork = workRows[0] || null;
   const urgentCount = Number(filingSummary.overdue || 0) + Number(filingSummary.due_14_days || 0);
@@ -177,7 +182,7 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
         </button>
 
         {expanded ? <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.07] bg-white">
-          <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.75fr)]">
+          <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] xl:grid-cols-[minmax(0,1.55fr)_minmax(390px,0.8fr)]">
             <div className="bg-white p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -220,14 +225,30 @@ export default function FinanceTaxPortfolioRail({ organizationId, entityId, sele
             </div>
 
             <div className="bg-[#FAF9F7] p-4">
-              <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#817B73]">Practice horizon</div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-black/[0.06] bg-white p-3"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Overdue filings</div><div className={`mt-1 text-[16px] font-semibold ${filingSummary.overdue ? "text-red-800" : "text-[#35312D]"}`}>{filingSummary.overdue ?? "—"}</div></div>
-                <div className="rounded-lg border border-black/[0.06] bg-white p-3"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Due in 14 days</div><div className={`mt-1 text-[16px] font-semibold ${filingSummary.due_14_days ? "text-amber-900" : "text-[#35312D]"}`}>{filingSummary.due_14_days ?? "—"}</div></div>
-                <div className="rounded-lg border border-black/[0.06] bg-white p-3"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Open amendments</div><div className="mt-1 text-[16px] font-semibold text-[#35312D]">{filingSummary.amendments_open ?? "—"}</div></div>
-                <div className="rounded-lg border border-black/[0.06] bg-white p-3"><div className="text-[7px] uppercase tracking-[0.08em] text-[#968F87]">Settlement attention</div><div className="mt-1 text-[16px] font-semibold text-[#35312D]">{filingSummary.settlement_attention ?? "—"}</div></div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#817B73]">Statutory deadline runway</div>
+                  <div className="mt-1 text-[9px] text-[#918B83]">Next unfiled VAT obligations across the authorized practice.</div>
+                </div>
+                <div className="shrink-0 text-right text-[7px] leading-3.5 text-[#817B73]"><div><b className={filingSummary.overdue ? "text-red-800" : "text-[#4B4640]"}>{filingSummary.overdue ?? "—"}</b> overdue</div><div><b className={filingSummary.due_14_days ? "text-amber-900" : "text-[#4B4640]"}>{filingSummary.due_14_days ?? "—"}</b> due ≤14d</div></div>
               </div>
-              <div className="mt-3 text-[8px] leading-4 text-[#817B73]">Filing risk is counted once per VAT return. Dependency counts stay in the work queue so several blockers on one return never inflate the statutory horizon.</div>
+
+              {deadlineRunway.length ? <div className="mt-3 overflow-hidden rounded-lg border border-black/[0.06] bg-white">
+                {deadlineRunway.map((row, index) => {
+                  const isCurrent = row.entity_id === entityId;
+                  return <div key={row.id} className="flex items-center gap-3 border-b border-black/[0.055] px-3 py-2.5 last:border-0">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[9px] font-semibold ${row.days_to_due < 0 ? "border-red-700/15 bg-red-50 text-red-800" : row.days_to_due <= 7 ? "border-amber-700/15 bg-amber-50 text-amber-900" : "border-black/[0.07] bg-[#FAF9F7] text-[#716B63]"}`}>{index + 1}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5"><span className="truncate text-[9px] font-semibold text-[#3D3934]">{row.entity_name}</span><span className={`rounded-md border px-1.5 py-0.5 text-[6px] font-semibold uppercase tracking-[0.06em] ${laneTone(row.lane)}`}>{row.lane.replaceAll("_", " ")}</span></div>
+                      <div className="mt-0.5 text-[7px] text-[#918B83]">{date(row.period_start)} — {date(row.period_end)}</div>
+                      <div className="mt-0.5 text-[8px] font-medium text-[#5E5952]">Due {date(row.filing_due_date)} · {row.days_to_due < 0 ? `${Math.abs(row.days_to_due)}d overdue` : row.days_to_due === 0 ? "today" : `${row.days_to_due}d left`}</div>
+                    </div>
+                    <button type="button" onClick={() => openFiling({ ...row, vat_return_id: row.id })} disabled={!isCurrent || Boolean(busyKey)} className="h-7 shrink-0 rounded-md border border-black/[0.09] bg-white px-2 text-[7px] font-semibold disabled:cursor-not-allowed disabled:opacity-35">{isCurrent ? "Open" : "Switch entity"}</button>
+                  </div>;
+                })}
+              </div> : !state.loading ? <div className="mt-3 rounded-lg border border-emerald-700/15 bg-emerald-50 px-3 py-3 text-[8px] text-emerald-800">No unfiled VAT deadline is waiting in the current practice scope.</div> : null}
+
+              <div className="mt-3 text-[8px] leading-4 text-[#817B73]">Ordered by governed filing date, not client chasing. {filingSummary.amendments_open ?? 0} amendment{Number(filingSummary.amendments_open || 0) === 1 ? "" : "s"} and {filingSummary.settlement_attention ?? 0} settlement item{Number(filingSummary.settlement_attention || 0) === 1 ? "" : "s"} stay in the lifecycle queue after filing.</div>
             </div>
           </div>
 

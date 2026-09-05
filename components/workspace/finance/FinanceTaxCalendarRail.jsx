@@ -94,16 +94,59 @@ export default function FinanceTaxCalendarRail({ organizationId, entityId, selec
       <div className="rounded-xl border border-[#A37849]/18 bg-[#FFF9F0] p-3.5 text-[#2A2723]">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#8A633E]"><CalendarClock size={12} /> Statutory filing calendar</span>{resolution ? <span className={`rounded-md border px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.07em] ${verified ? "border-emerald-700/15 bg-emerald-50 text-emerald-800" : "border-amber-700/15 bg-amber-50 text-amber-900"}`}>{metadata?.override ? "Human override" : verified ? "Official calendar verified" : "Authority review required"}</span> : null}</div>
-            {row ? <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-5"><div><div className="text-[8px] uppercase tracking-[0.08em] text-[#968B80]">Form</div><div className="mt-1 text-[11px] font-semibold">{resolution?.form_label || "VAT return"}</div></div><div><div className="text-[8px] uppercase tracking-[0.08em] text-[#968B80]">Filing channel</div><div className="mt-1 text-[11px] font-semibold">{resolution?.filing_channel_label || channel}</div></div><div><div className="text-[8px] uppercase tracking-[0.08em] text-[#968B80]">Base date</div><div className="mt-1 text-[11px] font-semibold">{formatDate(resolution?.base_due_date)}</div></div><div><div className="text-[8px] uppercase tracking-[0.08em] text-[#968B80]">Authority adjusted</div><div className="mt-1 text-[11px] font-semibold">{formatDate(resolution?.statutory_due_date)}</div></div><div><div className="text-[8px] uppercase tracking-[0.08em] text-[#968B80]">Recorded deadline</div><div className="mt-1 text-[11px] font-semibold">{formatDate(displayedDueDate)}</div></div></div> : <div className="mt-2 text-[10px] text-[#817B73]">Create a VAT filing obligation below; Avantiqo will resolve its statutory deadline automatically.</div>}
-            {resolution?.adjustment?.applied ? <div className="mt-2 text-[9px] text-[#76583A]">Deadline moved {resolution.adjustment.days} day{resolution.adjustment.days === 1 ? "" : "s"} · {String(resolution.adjustment.reason || "").replaceAll("_", " ")}</div> : null}
-            {metadata?.override ? <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-700/12 bg-white/70 px-2.5 py-2 text-[9px] text-amber-900"><ShieldAlert size={11} /><b>Controlled override:</b> {metadata.override.reason} · {metadata.override.evidence_reference}</div> : null}
-            {resolution?.authority?.url ? <a href={resolution.authority.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[9px] font-semibold text-[#7D5B39] underline underline-offset-2">Revenue Department source <ExternalLink size={9} /></a> : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#8A633E]"><CalendarClock size={12} /> Statutory filing calendar</span>
+              {resolution ? <span className={`rounded-md border px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.07em] ${verified ? "border-emerald-700/15 bg-emerald-50 text-emerald-800" : "border-amber-700/15 bg-amber-50 text-amber-900"}`}>{metadata?.override ? "Controlled human override" : verified ? "Official authority date" : "Authority evidence required"}</span> : null}
+            </div>
+
+            {row ? <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(250px,0.8fr)_minmax(0,1.2fr)]">
+              <div className="rounded-xl border border-[#A37849]/14 bg-white p-3.5">
+                <div className="text-[8px] font-semibold uppercase tracking-[0.1em] text-[#968B80]">File by</div>
+                <div className="mt-1 text-[22px] font-semibold tracking-[-0.025em] text-[#2F2B27]">{formatDate(displayedDueDate)}</div>
+                <div className="mt-1.5 text-[9px] leading-4 text-[#817B73]">{resolution?.form_label || "VAT return"} · {resolution?.filing_channel_label || channel}</div>
+              </div>
+              <div className="rounded-xl border border-black/[0.06] bg-white/65 p-3.5">
+                <div className="text-[10px] font-semibold text-[#403B36]">{metadata?.override ? "Deadline is controlled by recorded authority evidence." : verified ? "Deadline matches the governed Revenue Department calendar." : "Deadline needs authority confirmation before filing."}</div>
+                <div className="mt-1 text-[9px] leading-4 text-[#817B73]">The filing method determines the statutory date. Changing the legal date never happens silently and requires authority evidence.</div>
+                {resolution?.authority?.url ? <a href={resolution.authority.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[9px] font-semibold text-[#7D5B39] underline underline-offset-2">Revenue Department source <ExternalLink size={9} /></a> : null}
+              </div>
+            </div> : <div className="mt-2 text-[10px] text-[#817B73]">Create a VAT filing obligation below; Avantiqo will resolve its statutory deadline automatically.</div>}
+
+            {row && resolution ? <details className="mt-3 overflow-hidden rounded-lg border border-black/[0.06] bg-white/55">
+              <summary className="cursor-pointer list-none px-3 py-2.5 text-[9px] font-semibold text-[#6F665D] marker:hidden">Why this deadline</summary>
+              <div className="grid gap-2 border-t border-black/[0.06] px-3 py-3 sm:grid-cols-3">
+                <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968B80]">Base filing date</div><div className="mt-1 text-[10px] font-semibold">{formatDate(resolution.base_due_date)}</div></div>
+                <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968B80]">Authority-adjusted date</div><div className="mt-1 text-[10px] font-semibold">{formatDate(resolution.statutory_due_date)}</div></div>
+                <div><div className="text-[7px] uppercase tracking-[0.08em] text-[#968B80]">Recorded deadline</div><div className="mt-1 text-[10px] font-semibold">{formatDate(displayedDueDate)}</div></div>
+                {resolution.adjustment?.applied ? <div className="sm:col-span-3 text-[8px] text-[#76583A]">Authority calendar moved the base date {resolution.adjustment.days} day{resolution.adjustment.days === 1 ? "" : "s"} · {String(resolution.adjustment.reason || "").replaceAll("_", " ")}</div> : null}
+                {metadata?.override ? <div className="sm:col-span-3 inline-flex items-start gap-1.5 rounded-lg border border-amber-700/12 bg-amber-50/60 px-2.5 py-2 text-[8px] leading-4 text-amber-900"><ShieldAlert size={10} className="mt-0.5 shrink-0" /><span><b>Controlled override:</b> {metadata.override.reason} · {metadata.override.evidence_reference}</span></div> : null}
+              </div>
+            </details> : null}
           </div>
-          <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={load} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[9px] font-semibold"><RefreshCw size={10} className={state.loading ? "animate-spin" : ""} /> Refresh</button>{row && String(row.status || "").toUpperCase() !== "SUBMITTED" ? <button type="button" onClick={() => setEditing(value => !value)} className="h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-semibold text-white">{editing ? "Close deadline control" : "Review deadline"}</button> : null}</div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={load} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.09] bg-white px-2.5 text-[9px] font-semibold"><RefreshCw size={10} className={state.loading ? "animate-spin" : ""} /> Refresh</button>
+            {row && String(row.status || "").toUpperCase() !== "SUBMITTED" ? <button type="button" onClick={() => setEditing(value => !value)} className="h-8 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-semibold text-white">{editing ? "Close filing control" : "Review filing method"}</button> : null}
+          </div>
         </div>
+
         {state.error ? <div className="mt-3 rounded-lg border border-red-700/15 bg-red-50 p-2.5 text-[9px] text-red-800">{state.error}</div> : null}
-        {editing && row ? <div className="mt-3 grid gap-3 border-t border-[#A37849]/15 pt-3 lg:grid-cols-[220px_minmax(0,1fr)_auto]"><label className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#817B73]">Filing channel<select value={channel} onChange={event => { setChannel(event.target.value); setOverride(false); setReason(""); setEvidence(""); }} className="mt-1.5 h-9 w-full rounded-lg border border-black/[0.09] bg-white px-2 text-[10px] font-normal normal-case tracking-normal">{options.filing_channels.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label><div className="rounded-lg border border-black/[0.07] bg-white/65 p-2.5"><label className="flex items-center gap-2 text-[9px] font-semibold"><input type="checkbox" checked={override} onChange={event => setOverride(event.target.checked)} /> Override authority-adjusted date</label><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Channel changes recalculate automatically. Changing the legal date requires a reason and authority evidence.</div>{override || !preview?.supported || preview?.verification_status !== "OFFICIAL_CALENDAR_VERIFIED" ? <div className="mt-2 grid gap-2 md:grid-cols-3"><input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} className="h-8 rounded-lg border border-black/[0.09] bg-white px-2 text-[9px]" /><input value={reason} onChange={event => setReason(event.target.value)} placeholder="Reason / authority confirmation" className="h-8 rounded-lg border border-black/[0.09] bg-white px-2 text-[9px]" /><input value={evidence} onChange={event => setEvidence(event.target.value)} placeholder="Authority notice / case / URL" className="h-8 rounded-lg border border-black/[0.09] bg-white px-2 text-[9px]" /></div> : null}</div><button type="button" onClick={save} disabled={busy} className="self-end h-9 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-semibold text-white disabled:opacity-40">{busy ? "Applying…" : "Apply governed deadline"}</button></div> : null}
+
+        {editing && row ? <div className="mt-3 border-t border-[#A37849]/15 pt-3">
+          <div className="mb-2">
+            <div className="text-[9px] font-semibold text-[#403B36]">Filing method & controlled deadline</div>
+            <div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">Use the authority filing method first. Only override the legal date when you have specific authority evidence for this filing.</div>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto]">
+            <label className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#817B73]">Filing channel<select value={channel} onChange={event => { setChannel(event.target.value); setOverride(false); setReason(""); setEvidence(""); }} className="mt-1.5 h-9 w-full rounded-lg border border-black/[0.09] bg-white px-2 text-[10px] font-normal normal-case tracking-normal">{options.filing_channels.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
+            <div className="rounded-lg border border-black/[0.07] bg-white/65 p-2.5">
+              <label className="flex items-center gap-2 text-[9px] font-semibold"><input type="checkbox" checked={override} onChange={event => setOverride(event.target.checked)} /> Override authority-adjusted date</label>
+              <div className="mt-1 text-[8px] leading-4 text-[#817B73]">Channel changes recalculate automatically. Changing the legal date requires a reason and authority evidence.</div>
+              {override || !preview?.supported || preview?.verification_status !== "OFFICIAL_CALENDAR_VERIFIED" ? <div className="mt-2 grid gap-2 md:grid-cols-3"><input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} className="h-8 rounded-lg border border-black/[0.09] bg-white px-2 text-[9px]" /><input value={reason} onChange={event => setReason(event.target.value)} placeholder="Reason / authority confirmation" className="h-8 rounded-lg border border-black/[0.09] bg-white px-2 text-[9px]" /><input value={evidence} onChange={event => setEvidence(event.target.value)} placeholder="Authority notice / case / URL" className="h-8 rounded-lg border border-black/[0.09] bg-white px-2 text-[9px]" /></div> : null}
+            </div>
+            <button type="button" onClick={save} disabled={busy} className="self-end h-9 rounded-lg bg-[#1F1E1B] px-3 text-[9px] font-semibold text-white disabled:opacity-40">{busy ? "Applying…" : "Apply governed deadline"}</button>
+          </div>
+        </div> : null}
       </div>
     </section>
   );

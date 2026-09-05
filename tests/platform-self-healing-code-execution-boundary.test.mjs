@@ -20,11 +20,25 @@ test("self-healing execution accepts only researched and authoritatively classif
   assert.match(runtime, /RESEARCHED_CODE_MISSION_READY/);
   assert.match(runtime, /prepared\.code_execution_allowed !== true/);
   assert.match(runtime, /classification_authority_source/);
-  assert.match(runtime, /source !== "ERP_REGISTRY"/);
+  assert.match(runtime, /source === "ERP_REGISTRY"/);
   assert.match(runtime, /SELF_HEALING_AUTHORITATIVE_CLASSIFICATION_REQUIRED/);
   assert.match(runtime, /PLATFORM_SELF_HEALING_REPLAY_CONTRACT/);
   assert.match(runtime, /fixed_requires_original_failure_absent !== true/);
   assert.match(runtime, /fixed_requires_expected_outcome_observed !== true/);
+});
+
+test("non-ERP platform failures require exact server-owned source reread authority", () => {
+  const runtime = source(
+    "lib/platform/self-healing/PlatformSelfHealingCodeExecutionRuntime.js",
+  );
+
+  assert.match(runtime, /function serverOwnedNonRegistryAuthority/);
+  assert.match(runtime, /prepared\.authoritative_source_resolved !== true/);
+  assert.match(runtime, /signalKey === "system-event-backlog" && source === "system_events"/);
+  assert.match(runtime, /SYSTEM_EVENTS_BACKLOG_REREAD/);
+  assert.match(runtime, /signalKey\.startsWith\("usage:"\) && source === "platform_service_usage"/);
+  assert.match(runtime, /PLATFORM_USAGE_FAILURE_REREAD/);
+  assert.doesNotMatch(runtime, /system_events\.platform_user_failure_capture[^]*SYSTEM_EVENTS_BACKLOG_REREAD/);
 });
 
 test("self-healing execution uses the canonical Code Employee and retains zero promotion authority", () => {

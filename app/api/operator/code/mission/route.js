@@ -4,6 +4,7 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 import { createCodeAIAutonomousCapability } from "@/lib/platform/capabilities/createCodeAIAutonomousCapability";
 import { withCodeAIInteractivePreviewContext } from "@/lib/code/runtime/CodeAIInteractivePreviewContextRuntime";
+import { loadCodeAIMissionResumeSnapshot } from "@/lib/code/runtime/CodeAIMissionHistoryRuntime";
 import {
   AVANTIQO_CODE_CERTIFICATION_CONTRACT,
   AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
@@ -159,19 +160,21 @@ export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
     organizationId = text(body.organizationId || body.organization_id, 200);
-    const objective = text(body.objective, 4000);
-    const repositoryUrl = text(body.repository_url || body.repositoryUrl || DEFAULT_REPOSITORY, 1000);
-    const ref = text(body.ref || "main", 160) || "main";
-    const key = executionKey(body.execution_key || body.executionKey);
-    const resumeState = Object.keys(object(body.resume_state || body.resumeState)).length
+    const requestedObjective = text(body.objective, 4000);
+    const requestedRepositoryUrl = text(body.repository_url || body.repositoryUrl || DEFAULT_REPOSITORY, 1000);
+    const requestedRef = text(body.ref || "main", 160) || "main";
+    const requestedExecutionKey = text(body.execution_key || body.executionKey, 160);
+    const resumeMissionId = text(body.resume_mission_id || body.resumeMissionId, 240);
+    const suppliedResumeState = Object.keys(object(body.resume_state || body.resumeState)).length
       ? object(body.resume_state || body.resumeState)
       : null;
     const reasoningCallBudget = boundedInteger(body.reasoning_call_budget, 4, 1, 8);
     const maxEmployeePasses = boundedInteger(body.max_employee_passes, 8, 1, 16);
 
     if (!organizationId) return errorResponse(new Error("organization_id required"), 400);
-    if (!objective) return errorResponse(new Error("objective required"), 400);
-    if (!repositoryUrl) return errorResponse(new Error("repository_url required"), 400);
+    if (!requestedObjective && !resumeMissionId) {
+      return errorResponse(new Error("objective or resume_mission_id required"), 400);
+    }
 
     const access = await requireOrganizationAccess({
       organizationId,
@@ -198,6 +201,35 @@ export async function POST(request) {
         code_runtime_contract: AVANTIQO_CODE_CERTIFIED_RUNTIME_CONTRACT,
       },
     };
+
+    let objective = requestedObjective;
+    let repositoryUrl = requestedRepositoryUrl;
+    let ref = requestedRef;
+    let key = executionKey(requestedExecutionKey);
+    let resumeState = suppliedResumeState;
+    let resumedFromHistory = false;
+
+    if (resumeMissionId) {
+      if (suppliedResumeState) {
+        return errorResponse(new Error("CODE_STUDIO_HISTORY_RESUME_STATE_MUST_BE_SERVER_OWNED"), 400);
+      }
+      const snapshot = await loadCodeAIMissionResumeSnapshot({
+        context,
+        missionId: resumeMissionId,
+      });
+      if (!snapshot.found) {
+        return errorResponse(new Error("CODE_STUDIO_HISTORY_MISSION_NOT_FOUND"), 404);
+      }
+      objective = snapshot.objective;
+      repositoryUrl = snapshot.repository_url;
+      ref = snapshot.ref || "main";
+      key = executionKey(snapshot.execution_key);
+      resumeState = snapshot.resume_state;
+      resumedFromHistory = true;
+    }
+
+    if (!objective) return errorResponse(new Error("objective required"), 400);
+    if (!repositoryUrl) return errorResponse(new Error("repository_url required"), 400);
 
     const capability = createCodeAIAutonomousCapability();
     capability.authorize({ context });
@@ -230,6 +262,9 @@ export async function POST(request) {
       status: text(result?.status || result?.state?.status, 120) || "unknown",
       reason: text(result?.reason, 1000) || null,
       execution_key: key,
+      mission_id: text(result?.state?.mission_id, 240) || resumeMissionId || null,
+      resumed_from_history: resumedFromHistory,
+      resumed_mission_id: resumedFromHistory ? resumeMissionId : null,
       resume_required: text(result?.status, 120) === "planner_pending",
       resume_state: result?.state || null,
       customer_artifact: result?.customer_artifact || null,

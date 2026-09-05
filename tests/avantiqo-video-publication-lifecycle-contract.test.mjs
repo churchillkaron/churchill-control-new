@@ -6,7 +6,7 @@ function source(path) {
 }
 
 const lifecycle = source("lib/creative/release/runtime/CreativePublicationLifecycleRuntime.js");
-const inspection = source("lib/creative/release/runtime/CreativePublishingInspectionRuntimeV3.js");
+const inspection = source("lib/creative/release/runtime/CreativePublishingInspectionRuntimeV4.js");
 const route = source("app/api/creative/release/lifecycle/route.js");
 const workspace = source("components/creative/ProductionStudio/workspaces/PublishingWorkspaceV2.jsx");
 const router = source("components/creative/ProductionStudio/layout/WorkspaceCanvasRouter.jsx");
@@ -34,14 +34,9 @@ assert.match(lifecycle, /message_digest/);
 assert.match(lifecycle, /commentary_digest/);
 assert.match(lifecycle, /summary_digest/);
 
-assert.match(inspection, /CREATIVE_PUBLISHING_INSPECTION_V5/);
-assert.match(inspection, /was_published/);
-assert.match(inspection, /current_live/);
-assert.match(inspection, /current_truth/);
-assert.match(inspection, /live_now_count/);
-assert.match(inspection, /no_longer_live_count/);
-assert.match(inspection, /unverifiable_count/);
-assert.match(inspection, /can_revalidate_lifecycle/);
+assert.match(inspection, /CREATIVE_PUBLISHING_INSPECTION_V6/);
+assert.match(inspection, /remote_media_mismatch_count/);
+assert.match(inspection, /can_recheck_remote_media_identity/);
 
 assert.match(route, /creative\.release\.publish/);
 assert.match(route, /action === "revalidate"/);
@@ -57,6 +52,6 @@ assert.match(workspace, /Recheck remote/);
 assert.match(workspace, /\/api\/creative\/release\/lifecycle/);
 assert.match(workspace, /action: "revalidate"/);
 
-assert.match(router, /PublishingWorkspaceV3/);
+assert.match(router, /PublishingWorkspaceV4/);
 
 console.log("AVANTIQO_VIDEO_PUBLICATION_LIFECYCLE_CONTRACT=PASS");

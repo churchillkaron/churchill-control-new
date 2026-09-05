@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import {
-  CreativePostProductionRuntime,
-} from "@/lib/creative/post-production/runtime/CreativePostProductionRuntime";
+  CreativeGovernedVideoMasteringRuntime,
+} from "@/lib/creative/post-production/runtime/CreativeGovernedVideoMasteringRuntime";
 import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
@@ -21,7 +21,7 @@ export async function POST(request) {
       });
     }
 
-    const result = await CreativePostProductionRuntime.run({
+    const result = await CreativeGovernedVideoMasteringRuntime.run({
       organization_id: body.organization_id,
       creative_project_id: body.creative_project_id,
     });

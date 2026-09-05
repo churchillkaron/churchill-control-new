@@ -1,2 +1,0 @@
-trigger=2026-09-05T05:45:00Z
-purpose=apply deterministic released knowledge authenticity wiring on main

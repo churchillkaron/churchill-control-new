@@ -6,6 +6,7 @@ import WorkspaceCanvasRouter from "./WorkspaceCanvasRouter";
 const FILM_WORKSPACE_LABELS = {
   production: "Production",
   timeline: "Edit",
+  review: "Review",
   render: "Mastering",
   publishing: "Release",
 };

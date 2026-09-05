@@ -18,7 +18,7 @@ jobs:
   proof:
     if: github.event.head_commit.message == 'Run repaired Avantiqo investor visual proof 24s once'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 75
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://vfsjqabpkcbiuerhzugk.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -61,6 +61,7 @@ jobs:
           echo 'AVANTIQO_INVESTOR_VISUAL_PROOF_REPAIRED_PREFLIGHT=PASS'
           echo 'B200_MAX_CONTAINERS=1'
           echo 'GENERATION_FAIL_FAST_SECONDS=900'
+          echo 'JOB_TIMEOUT_MINUTES=75'
 
       - name: Generate and assemble 24-second 4K investor visual proof
         run: |
@@ -128,3 +129,4 @@ jobs:
           echo 'VIDEO_PRODUCTION_ROUTING_ACTIVATED=false'
           echo 'AUTOMATIC_PAID_RETRY=false'
           echo 'GENERATION_FAIL_FAST_SECONDS=900'
+          echo 'JOB_TIMEOUT_MINUTES=75'

@@ -33,6 +33,13 @@ function date(value) {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(parsed);
 }
 
+function dateTime(value) {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(parsed);
+}
+
 function isoUtc(value) {
   const match = String(value ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
@@ -107,12 +114,24 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
   const vatReturn = snapshot?.return || null;
   const currency = snapshot?.entity?.functional_currency || vatReturn?.currency_code || "THB";
   const state = upper(snapshot?.state || vatReturn?.status);
-  const blockers = useMemo(() => (snapshot?.checks || []).filter(item => upper(item.status) === "BLOCK"), [snapshot?.checks]);
+  const checks = useMemo(() => (Array.isArray(snapshot?.checks) ? snapshot.checks : []), [snapshot?.checks]);
+  const blockers = useMemo(() => checks.filter(item => upper(item.status) === "BLOCK"), [checks]);
+  const warnings = useMemo(() => checks.filter(item => upper(item.status) === "WARNING"), [checks]);
   const dueDays = daysBetweenIso(snapshot?.due?.legal_date, vatReturn?.filing_due_date);
   const payable = Number(snapshot?.current?.tax_payable || 0);
   const refund = Number(snapshot?.current?.tax_refund || 0);
   const previousAdjustment = Number(snapshot?.current?.previous_period_adjustment);
   const hasPreviousAdjustment = Number.isFinite(previousAdjustment) && previousAdjustment !== 0;
+  const outputIncluded = Number(snapshot?.current?.output_document_count || 0);
+  const inputIncluded = Number(snapshot?.current?.input_document_count || 0);
+  const creditNotes = Number(snapshot?.current?.customer_credit_note_count || 0);
+  const outputObserved = Number(snapshot?.evidence?.output_total ?? outputIncluded);
+  const inputObserved = Number(snapshot?.evidence?.input_total ?? inputIncluded);
+  const exceptionTotal = Number(snapshot?.evidence?.exception_total || 0);
+  const calculatedAt = snapshot?.calculated?.at || null;
+  const calculatedValues = snapshot?.calculated?.values && typeof snapshot.calculated.values === "object" ? snapshot.calculated.values : {};
+  const freshnessReasons = Array.isArray(snapshot?.calculated?.freshness_reasons) ? snapshot.calculated.freshness_reasons : [];
+  const hasCalculatedSnapshot = Boolean(calculatedAt || Object.keys(calculatedValues).length);
 
   async function calculate() {
     if (!vatReturn?.id || busy) return;
@@ -164,6 +183,15 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
   const submitted = upper(vatReturn?.status) === "SUBMITTED";
   const needsFix = !submitted && (blockers.length > 0 || !snapshot.ready_to_calculate);
   const canSubmit = !submitted && snapshot.ready_to_submit === true;
+  const calculationProofLabel = submitted
+    ? "Filed calculation locked"
+    : snapshot.calculation_stale
+      ? "Evidence changed · recalculate"
+      : hasCalculatedSnapshot
+        ? "Calculation matches live evidence"
+        : snapshot.ready_to_calculate
+          ? "Ready for governed calculation"
+          : "Blocked by live evidence";
   const primaryLabel = submitted
     ? "Continue to amendment & settlement"
     : needsFix
@@ -197,12 +225,42 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
         </div>
 
         <div className={`grid gap-px bg-black/[0.06] ${hasPreviousAdjustment ? "sm:grid-cols-3 xl:grid-cols-6" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
-          <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Output VAT</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{money(snapshot.current?.output_tax, currency)}</div></div>
-          <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Input VAT</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{money(snapshot.current?.input_tax, currency)}</div></div>
-          <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Net position</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{payable > 0 ? `${money(payable, currency)} payable` : refund > 0 ? `${money(refund, currency)} refund` : money(0, currency)}</div></div>
+          <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Output VAT</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{money(snapshot.current?.output_tax, currency)}</div><div className="mt-0.5 text-[8px] text-[#817B73]">{outputIncluded} included sales document{outputIncluded === 1 ? "" : "s"}</div></div>
+          <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Input VAT</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{money(snapshot.current?.input_tax, currency)}</div><div className="mt-0.5 text-[8px] text-[#817B73]">{inputIncluded} included purchase document{inputIncluded === 1 ? "" : "s"}</div></div>
+          <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Net position</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{payable > 0 ? `${money(payable, currency)} payable` : refund > 0 ? `${money(refund, currency)} refund` : money(0, currency)}</div><div className="mt-0.5 text-[8px] text-[#817B73]">Output VAT less input VAT</div></div>
           {hasPreviousAdjustment ? <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Prior adjustment</div><div className="mt-1 text-[13px] font-semibold tabular-nums text-[#2E2A26]">{money(previousAdjustment, currency)}</div></div> : null}
           <div className="bg-[#FAF9F7] p-3"><div className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]"><CalendarClock size={10} /> Deadline</div><div className="mt-1 text-[13px] font-semibold text-[#2E2A26]">{date(vatReturn.filing_due_date)}</div><div className={`mt-0.5 text-[8px] ${dueDays !== null && dueDays < 0 ? "text-red-800" : "text-[#817B73]"}`}>{dueDays === null ? "Governed legal date unavailable" : dueDays < 0 ? `${Math.abs(dueDays)} day${Math.abs(dueDays) === 1 ? "" : "s"} overdue` : dueDays === 0 ? "Due today" : `${dueDays} day${dueDays === 1 ? "" : "s"} remaining`}{snapshot?.due?.legal_time_zone ? ` · ${snapshot.due.legal_time_zone}` : ""}</div></div>
           <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Readiness</div><div className={`mt-1 inline-flex items-center gap-1 text-[11px] font-semibold ${submitted || canSubmit ? "text-emerald-800" : needsFix ? "text-red-800" : "text-amber-900"}`}>{submitted || canSubmit ? <CheckCircle2 size={12} /> : needsFix ? <AlertTriangle size={12} /> : <RefreshCw size={12} />}{submitted ? "Filed" : canSubmit ? "Ready to file" : needsFix ? "Needs attention" : "Ready to calculate"}</div><div className="mt-0.5 text-[8px] text-[#817B73]">{blockers.length ? `${blockers.length} live blocker${blockers.length === 1 ? "" : "s"}` : snapshot.calculation_stale ? "Source evidence changed" : "Live preflight current"}</div></div>
+        </div>
+
+        <div className="border-t border-black/[0.07] px-4 py-3.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="text-[8px] font-semibold uppercase tracking-[0.13em] text-[#9A7045]">Review before filing</div>
+              <div className="mt-1 text-[9px] text-[#817B73]">Reconcile the VAT result to the complete governed source population before recording the authority filing.</div>
+            </div>
+            <span className={`inline-flex w-fit items-center gap-1 rounded-md border px-2 py-1 text-[8px] font-semibold ${snapshot.calculation_stale || needsFix ? "border-red-700/15 bg-red-50 text-red-800" : submitted || hasCalculatedSnapshot ? "border-emerald-700/15 bg-emerald-50 text-emerald-800" : "border-amber-700/15 bg-amber-50 text-amber-900"}`}>{snapshot.calculation_stale || needsFix ? <AlertTriangle size={10} /> : submitted || hasCalculatedSnapshot ? <CheckCircle2 size={10} /> : <RefreshCw size={10} />}{calculationProofLabel}</span>
+          </div>
+
+          <div className="mt-3 grid overflow-hidden rounded-xl border border-black/[0.07] bg-black/[0.05] md:grid-cols-[1fr_auto_1fr_auto_1fr]">
+            <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Sales VAT included</div><div className="mt-1 text-[12px] font-semibold tabular-nums text-[#312E2A]">{money(snapshot.current?.output_tax, currency)}</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">{outputIncluded} of {outputObserved} VAT-bearing sales document{outputObserved === 1 ? "" : "s"} included{creditNotes ? ` · ${creditNotes} credit note${creditNotes === 1 ? "" : "s"}` : ""}.</div></div>
+            <div className="flex items-center justify-center bg-[#FAF9F7] px-3 py-2 text-[14px] font-semibold text-[#9B948C]">−</div>
+            <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Purchase VAT included</div><div className="mt-1 text-[12px] font-semibold tabular-nums text-[#312E2A]">{money(snapshot.current?.input_tax, currency)}</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">{inputIncluded} of {inputObserved} VAT-bearing purchase document{inputObserved === 1 ? "" : "s"} included.</div></div>
+            <div className="flex items-center justify-center bg-[#FAF9F7] px-3 py-2 text-[14px] font-semibold text-[#9B948C]">=</div>
+            <div className="bg-[#FFF9F0] p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#8A633E]">Current VAT result</div><div className="mt-1 text-[12px] font-semibold tabular-nums text-[#312E2A]">{payable > 0 ? `${money(payable, currency)} payable` : refund > 0 ? `${money(refund, currency)} refund` : money(0, currency)}</div><div className="mt-1 text-[8px] leading-4 text-[#76583A]">Built from the live preflight population, not from a manually entered return total.</div></div>
+          </div>
+
+          <div className="mt-2 grid gap-2 lg:grid-cols-2">
+            <div className="rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-3">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Source coverage</div>
+              <div className="mt-1 text-[9px] font-semibold text-[#3F3A35]">{exceptionTotal ? `${exceptionTotal} source exception${exceptionTotal === 1 ? "" : "s"} detected across the filing population.` : "Complete VAT source population has no recorded source exception."}</div>
+              <div className="mt-1 text-[8px] leading-4 text-[#817B73]">Included means the document passed the governed coding, approval, posting and exchange-rate rules required for this VAT calculation. {warnings.length ? `${warnings.length} warning${warnings.length === 1 ? "" : "s"} still require human review.` : "No non-blocking review warning is open."}</div>
+            </div>
+            <div className="rounded-lg border border-black/[0.07] bg-[#FAF9F7] p-3">
+              <div className="text-[7px] font-semibold uppercase tracking-[0.09em] text-[#928C84]">Calculation evidence</div>
+              {hasCalculatedSnapshot ? <><div className="mt-1 text-[9px] font-semibold text-[#3F3A35]">Last governed calculation · {dateTime(calculatedAt)}</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">{snapshot.calculation_stale ? "Evidence changed since the last calculation. Recalculate before filing." : "Stored calculation matches the current governed evidence population."}</div>{freshnessReasons.length ? <div className="mt-1 text-[8px] leading-4 text-red-800">Changed: {freshnessReasons.join(" · ")}</div> : null}</> : <><div className="mt-1 text-[9px] font-semibold text-[#3F3A35]">No governed calculation has been saved yet.</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">The figures above are the live evidence preview. Use Calculate from evidence to persist the filing calculation after all blocking checks pass.</div></>}
+            </div>
+          </div>
         </div>
 
         {needsFix ? <div className="flex items-start gap-2 border-t border-red-700/10 bg-red-50 px-4 py-3 text-[9px] leading-4 text-red-900"><AlertTriangle size={12} className="mt-0.5 shrink-0" /><div><div className="font-semibold">Do not calculate around a blocker.</div><div className="mt-0.5">Open Fix issues to correct the source accounting workflow. Ownership, client requests and AI advice cannot clear live accounting truth.</div></div></div> : null}

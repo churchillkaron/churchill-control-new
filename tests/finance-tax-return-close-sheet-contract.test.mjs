@@ -64,3 +64,22 @@ test("VAT close sheet reuses governed calculation and filing boundaries without 
   assert.doesNotMatch(closeSheet, /function Metric\s*\(/);
   assert.doesNotMatch(closeSheet, /<Metric\b/);
 });
+
+test("VAT close sheet explains source coverage and calculation freshness before filing", () => {
+  assert.match(closeSheet, /Review before filing/);
+  assert.match(closeSheet, /output_document_count/);
+  assert.match(closeSheet, /input_document_count/);
+  assert.match(closeSheet, /customer_credit_note_count/);
+  assert.match(closeSheet, /evidence\?\.output_total/);
+  assert.match(closeSheet, /evidence\?\.input_total/);
+  assert.match(closeSheet, /evidence\?\.exception_total/);
+  assert.match(closeSheet, /Sales VAT included/);
+  assert.match(closeSheet, /Purchase VAT included/);
+  assert.match(closeSheet, /Current VAT result/);
+  assert.match(closeSheet, /Built from the live preflight population, not from a manually entered return total\./);
+  assert.match(closeSheet, /Source coverage/);
+  assert.match(closeSheet, /Calculation evidence/);
+  assert.match(closeSheet, /freshness_reasons/);
+  assert.match(closeSheet, /Evidence changed since the last calculation\. Recalculate before filing\./);
+  assert.match(closeSheet, /Stored calculation matches the current governed evidence population\./);
+});

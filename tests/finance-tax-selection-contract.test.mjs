@@ -11,6 +11,8 @@ const cockpit = read("components/workspace/finance/FinanceTaxLegacyWorkCenter.js
 const calendar = read("components/workspace/finance/FinanceTaxCalendarRail.jsx");
 const calendarPolicy = read("lib/finance/tax/FinanceTaxCalendarPolicy.js");
 const vatPreflight = read("lib/finance/tax/FinanceVatReturnPreflight.js");
+const closeGuidancePolicy = read("lib/finance/tax/FinanceTaxCloseGuidancePolicy.js");
+const closeGuidanceRail = read("components/workspace/finance/FinanceTaxCloseGuidanceRail.jsx");
 const amendments = read("components/workspace/finance/FinanceTaxAmendmentRail.jsx");
 const settlement = read("components/workspace/finance/FinanceTaxSettlementRail.jsx");
 const settlementRoute = read("app/api/finance/vat-returns/settlement/route.js");
@@ -114,4 +116,36 @@ test("VAT cash settlement is retry-stable across browser, Tax metadata and journ
   assert.match(settlementRoute, /id: operationId,\s*operation_id: operationId/);
   assert.doesNotMatch(settlementRoute, /const eventId = randomUUID\(\)/);
   assert.match(journalPosting, /p_idempotency_key: resolvedIdempotencyKey/);
+});
+
+test("Tax close guidance derives dependencies from live accounting truth rather than manual completion", () => {
+  assert.match(closeGuidancePolicy, /deriveFinanceTaxCloseGuidance/);
+  assert.match(closeGuidancePolicy, /manual_complete_allowed: false/);
+  assert.match(closeGuidancePolicy, /Dependencies are derived from live Tax evidence/);
+  assert.match(closeGuidancePolicy, /A human cannot mark them complete while the underlying accounting or authority condition still fails/);
+  assert.match(closeGuidancePolicy, /INPUT_POSTING/);
+  assert.match(closeGuidancePolicy, /OUTPUT_POSTING/);
+  assert.match(closeGuidancePolicy, /CALCULATION_FRESHNESS/);
+  assert.match(closeGuidancePolicy, /TAX_CALENDAR_AUTHORITY/);
+});
+
+test("Tax close guidance separates client evidence from accountant work and protects communication control", () => {
+  assert.match(closeGuidancePolicy, /CLIENT_EVIDENCE_ACCOUNTANT_VALIDATION/);
+  assert.match(closeGuidancePolicy, /client_request_recommended: clientEvidence/);
+  assert.match(closeGuidancePolicy, /DRAFT_OR_GOVERNED_REQUEST_ONLY/);
+  assert.match(closeGuidancePolicy, /never sends client communication automatically/i);
+  assert.match(closeGuidanceRail, /Client evidence · accountant validates/);
+  assert.match(closeGuidanceRail, /Accounting team/);
+  assert.match(closeGuidanceRail, /this panel never sends a message automatically/i);
+  assert.doesNotMatch(closeGuidanceRail, /fetch\([^\n]*(send|remind|message)/i);
+});
+
+test("Tax close guidance is bound to the exact shared filing and surfaces resolution proof", () => {
+  assert.match(wrapper, /FinanceTaxCloseGuidanceRail/);
+  assert.match(wrapper, /selectedVatReturnId=\{selectedVatReturnId\}/);
+  assert.match(closeGuidanceRail, /url\.searchParams\.set\("vatReturnId", selectedVatReturnId\)/);
+  assert.match(closeGuidanceRail, /preflight\.return\.id !== selectedVatReturnId/);
+  assert.match(closeGuidanceRail, /Resolution proof/);
+  assert.match(closeGuidanceRail, /Next safe action/);
+  assert.match(closeGuidanceRail, /Statutory deadline/);
 });

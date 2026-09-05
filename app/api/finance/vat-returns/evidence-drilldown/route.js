@@ -15,6 +15,7 @@ import {
   buildFinanceTaxEvidenceIssuePage,
 } from "@/lib/finance/tax/FinanceTaxEvidenceDrilldownPolicy";
 import { loadFinanceTaxEvidencePopulation } from "@/lib/finance/tax/FinanceTaxEvidenceDrilldownRuntime";
+import { buildFinanceTaxSourceNavigation } from "@/lib/finance/tax/FinanceTaxSourceNavigationPolicy";
 
 const FULL_POPULATION_CODES = new Set([
   "OUTPUT_CODING",
@@ -51,6 +52,24 @@ function configWorkspaceTarget(issue) {
   if (type === "TAX_CALENDAR_CONTEXT") return { workspace: "vat_returns", record_id: issue.source_id || null, context_mutation_allowed: false };
   if (type === "VAT_CALCULATION_CONTEXT") return { workspace: "vat_returns", record_id: issue.source_id || null, context_mutation_allowed: false };
   return null;
+}
+
+function exactSourceNavigation({ organizationId, entityId, vatReturnId, issue }) {
+  const target = issue?.workspace_target || null;
+  if (!target?.record_id || target?.context_mutation_allowed !== false) return null;
+
+  const exactEvidenceId = issue?.source_record?.id
+    || (target.workspace === "tax_rules" ? issue?.tax_rule?.id : null)
+    || (target.workspace === "journal_entries" ? issue?.posting_journal?.id : null);
+  if (!exactEvidenceId || String(exactEvidenceId) !== String(target.record_id)) return null;
+
+  return buildFinanceTaxSourceNavigation({
+    organizationId,
+    entityId,
+    vatReturnId,
+    target,
+    returnPath: `/workspace/${organizationId}/finance`,
+  });
 }
 
 export async function GET(request) {
@@ -107,6 +126,16 @@ export async function GET(request) {
       };
       source = "LIVE_PREFLIGHT_CONTEXT";
     }
+
+    issues = issues.map(item => ({
+      ...item,
+      source_navigation: exactSourceNavigation({
+        organizationId: access.organizationId,
+        entityId,
+        vatReturnId,
+        issue: item,
+      }),
+    }));
 
     return NextResponse.json({
       success: true,

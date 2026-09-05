@@ -1,3 +1,4 @@
+# live-diagnostic-pass-3
 name: Avantiqo Investor Cache Recovery Probe Once
 
 on:
@@ -52,4 +53,8 @@ jobs:
           probe "$SNAPSHOT/vae"
           probe "$SNAPSHOT/latent_upscale_models"
           probe "$FAST_ROOT"
+          echo '===== MODAL_RUNNING_CONTAINERS ====='
+          modal container list --json || true
+          echo '===== AVANTIQO_VIDEO_RECENT_LOGS ====='
+          modal app logs avantiqo-video-owned --since 30m --tail 1000 --timestamps --show-function-id --show-function-call-id --show-container-id || true
           echo 'AVANTIQO_INVESTOR_CACHE_RECOVERY_PROBE=PASS'

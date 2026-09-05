@@ -31,11 +31,13 @@ export default function OperationsReservationsPage() {
   const organization = businessContext.organization || null;
   const organizationId = params?.organizationId || businessContext.organization_id || organization?.id || null;
   const [properties, setProperties] = useState([]);
-  const [rooms, setRooms] = useState([]);
+  const [availableRooms, setAvailableRooms] = useState([]);
   const [guests, setGuests] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [form, setForm] = useState({ propertyId: "", roomId: "", guestId: "", check_in_date: "", check_out_date: "" });
   const [loading, setLoading] = useState(true);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -48,7 +50,6 @@ export default function OperationsReservationsPage() {
       const query = `?organizationId=${encodeURIComponent(organizationId)}`;
       const responses = await Promise.all([
         fetch(`/api/hotel/properties/list${query}`, { cache: "no-store", credentials: "include" }),
-        fetch(`/api/hotel/rooms/list${query}`, { cache: "no-store", credentials: "include" }),
         fetch(`/api/hotel/guests/list${query}`, { cache: "no-store", credentials: "include" }),
         fetch(`/api/hotel/bookings/list${query}`, { cache: "no-store", credentials: "include" }),
       ]);
@@ -58,9 +59,8 @@ export default function OperationsReservationsPage() {
         return result;
       }));
       setProperties(results[0].properties || []);
-      setRooms(results[1].rooms || []);
-      setGuests(results[2].guests || []);
-      setBookings(results[3].bookings || []);
+      setGuests(results[1].guests || []);
+      setBookings(results[2].bookings || []);
     } catch (loadError) {
       setError(loadError?.message || "Unable to load reservations workspace");
     } finally {
@@ -70,15 +70,58 @@ export default function OperationsReservationsPage() {
 
   useEffect(() => { loadWorkspace(); }, [loadWorkspace]);
 
-  const availableRooms = useMemo(() => rooms.filter((room) => !form.propertyId || String(room.property_id || "") === String(form.propertyId)), [form.propertyId, rooms]);
+  useEffect(() => {
+    let active = true;
+    const valid = form.propertyId && form.check_in_date && form.check_out_date && form.check_out_date > form.check_in_date;
+    setForm((current) => current.roomId ? { ...current, roomId: "" } : current);
+    setAvailableRooms([]);
+    setAvailabilityChecked(false);
+    if (!valid || !organizationId) return () => { active = false; };
+
+    const timer = setTimeout(async () => {
+      setCheckingAvailability(true);
+      setError(null);
+      try {
+        const response = await fetch("/api/hotel/availability", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            organizationId,
+            propertyId: form.propertyId,
+            checkInDate: form.check_in_date,
+            checkOutDate: form.check_out_date,
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok || result.success === false) throw new Error(result.error || "Unable to check room availability");
+        if (!active) return;
+        setAvailableRooms(result.rooms || []);
+        setAvailabilityChecked(true);
+      } catch (availabilityError) {
+        if (active) setError(availabilityError?.message || "Unable to check room availability");
+      } finally {
+        if (active) setCheckingAvailability(false);
+      }
+    }, 180);
+
+    return () => { active = false; clearTimeout(timer); };
+  }, [organizationId, form.propertyId, form.check_in_date, form.check_out_date]);
+
   const upcomingBookings = useMemo(() => bookings
     .filter((booking) => ["RESERVED", "CHECKED_IN"].includes(String(booking.status || "").toUpperCase()))
     .sort((a, b) => dateValue(a.check_in_date).localeCompare(dateValue(b.check_in_date))), [bookings]);
 
+  const availableByType = useMemo(() => {
+    const result = new Map();
+    for (const room of availableRooms) result.set(room.room_type || "Room", (result.get(room.room_type || "Room") || 0) + 1);
+    return [...result.entries()];
+  }, [availableRooms]);
+
   async function createReservation() {
     if (!organizationId) return;
     if (!form.propertyId || !form.roomId || !form.guestId || !form.check_in_date || !form.check_out_date) {
-      setError("Property, room, guest and stay dates are required"); return;
+      setError("Property, dates, available room and guest are required"); return;
     }
     if (form.check_out_date <= form.check_in_date) { setError("Check-out must be after check-in"); return; }
     setSaving(true); setError(null); setMessage(null);
@@ -89,8 +132,10 @@ export default function OperationsReservationsPage() {
       });
       const result = await response.json();
       if (!response.ok || result.success === false) throw new Error(result.error || "Reservation failed");
-      setForm({ propertyId: "", roomId: "", guestId: "", check_in_date: "", check_out_date: "" });
-      setMessage("Reservation created and ready for the Front Desk flow.");
+      setForm((current) => ({ propertyId: current.propertyId, roomId: "", guestId: "", check_in_date: "", check_out_date: "" }));
+      setAvailableRooms([]);
+      setAvailabilityChecked(false);
+      setMessage("Reservation created against live governed availability and handed to Front Desk.");
       await loadWorkspace();
     } catch (saveError) {
       setError(saveError?.message || "Reservation failed");
@@ -102,27 +147,34 @@ export default function OperationsReservationsPage() {
       organizationId={organizationId}
       active="reservations"
       title="Reservations"
-      subtitle="Create and review stays without losing the operating context that Front Desk and room readiness depend on."
+      subtitle="Create stays against live room availability after existing reservations, out-of-service rooms and unpicked group allotments are protected."
       context={organization?.name || "Property"}
       actions={<>
         <HotelPrimaryAction href={hotelWorkspaceHref(organizationId, "front-desk")}>Open Front Desk</HotelPrimaryAction>
+        <HotelSecondaryAction href={hotelWorkspaceHref(organizationId, "group-reservations")}>Groups</HotelSecondaryAction>
         <HotelSecondaryAction onClick={loadWorkspace} disabled={loading}><RefreshCw size={9} className={loading ? "animate-spin" : ""} />Refresh</HotelSecondaryAction>
       </>}
     >
       <HotelError>{error}</HotelError>
       <HotelSuccess>{message}</HotelSuccess>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.45fr)_minmax(0,1.55fr)]">
-        <HotelSection eyebrow="New stay" title="Create reservation" detail="Choose the accountable property, room, guest and stay dates.">
+      <div className="grid gap-4 xl:grid-cols-[minmax(340px,0.48fr)_minmax(0,1.52fr)]">
+        <HotelSection eyebrow="New stay" title="Create reservation" detail="Property and stay dates come first. Avantiqo only offers rooms that remain sellable after governed inventory protection.">
           <div className="grid gap-3 p-4">
             <HotelField label="Property"><select value={form.propertyId} onChange={(event) => setForm((current) => ({ ...current, propertyId: event.target.value, roomId: "" }))} className={hotelInputClass}><option value="">Select property</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name || property.property_name}</option>)}</select></HotelField>
-            <HotelField label="Room"><select value={form.roomId} onChange={(event) => setForm((current) => ({ ...current, roomId: event.target.value }))} className={hotelInputClass}><option value="">Select room</option>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.room_number} · {room.room_type || "Room"}</option>)}</select></HotelField>
-            <HotelField label="Guest"><select value={form.guestId} onChange={(event) => setForm((current) => ({ ...current, guestId: event.target.value }))} className={hotelInputClass}><option value="">Select guest</option>{guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.full_name || [guest.first_name, guest.last_name].filter(Boolean).join(" ") || "Guest"}</option>)}</select></HotelField>
             <div className="grid gap-3 sm:grid-cols-2">
-              <HotelField label="Arrival"><input type="date" value={form.check_in_date} onChange={(event) => setForm((current) => ({ ...current, check_in_date: event.target.value }))} className={hotelInputClass} /></HotelField>
-              <HotelField label="Departure"><input type="date" value={form.check_out_date} onChange={(event) => setForm((current) => ({ ...current, check_out_date: event.target.value }))} className={hotelInputClass} /></HotelField>
+              <HotelField label="Arrival"><input type="date" value={form.check_in_date} onChange={(event) => setForm((current) => ({ ...current, check_in_date: event.target.value, roomId: "" }))} className={hotelInputClass} /></HotelField>
+              <HotelField label="Departure"><input type="date" value={form.check_out_date} onChange={(event) => setForm((current) => ({ ...current, check_out_date: event.target.value, roomId: "" }))} className={hotelInputClass} /></HotelField>
             </div>
-            <HotelPrimaryAction onClick={createReservation} disabled={saving}>{saving ? "Creating…" : "Create reservation"}</HotelPrimaryAction>
+
+            <div className="rounded-xl border border-black/[0.06] bg-[#FBFAF7] px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2"><span className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#8D877F]">Live availability</span>{checkingAvailability ? <span className="text-[7px] text-[#8D877F]">Checking…</span> : availabilityChecked ? <HotelStatusPill value={availableRooms.length ? "AVAILABLE" : "BLOCKED"} tone={availableRooms.length ? "good" : "critical"} /> : <HotelStatusPill value="DATES NEEDED" tone="neutral" />}</div>
+              {availabilityChecked ? <div className="mt-2 flex flex-wrap gap-1.5">{availableByType.length ? availableByType.map(([type, count]) => <span key={type} className="rounded-md border border-black/[0.06] bg-white px-2 py-1 text-[7px] font-medium text-[#6C655E]">{type} · {count}</span>) : <span className="text-[8px] text-[#9A533D]">No sellable rooms remain for the full stay.</span>}</div> : <div className="mt-1.5 text-[8px] leading-4 text-[#918B83]">Select a property and valid stay dates before choosing a room.</div>}
+            </div>
+
+            <HotelField label="Available room"><select value={form.roomId} onChange={(event) => setForm((current) => ({ ...current, roomId: event.target.value }))} className={hotelInputClass} disabled={!availabilityChecked || checkingAvailability}><option value="">{checkingAvailability ? "Checking availability…" : "Select sellable room"}</option>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.room_number} · {room.room_type || "Room"}</option>)}</select></HotelField>
+            <HotelField label="Guest"><select value={form.guestId} onChange={(event) => setForm((current) => ({ ...current, guestId: event.target.value }))} className={hotelInputClass}><option value="">Select guest</option>{guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.full_name || [guest.first_name, guest.last_name].filter(Boolean).join(" ") || "Guest"}</option>)}</select></HotelField>
+            <HotelPrimaryAction onClick={createReservation} disabled={saving || checkingAvailability || !availabilityChecked || !form.roomId}>{saving ? "Creating…" : "Create reservation"}</HotelPrimaryAction>
           </div>
         </HotelSection>
 

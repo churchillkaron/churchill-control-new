@@ -72,6 +72,12 @@ function tone(state) {
   return "border-amber-700/15 bg-amber-50 text-amber-900";
 }
 
+function warningControlLabel(code) {
+  if (code === "POTENTIAL_DUPLICATES") return "Purchase VAT · duplicate review";
+  if (code === "FILING_DEADLINE") return "Filing control · statutory deadline";
+  return "VAT filing review";
+}
+
 export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, selectedVatReturnId, onStageChange }) {
   const [snapshot, setSnapshot] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -261,6 +267,24 @@ export default function FinanceTaxReturnCloseSheet({ organizationId, entityId, s
               {hasCalculatedSnapshot ? <><div className="mt-1 text-[9px] font-semibold text-[#3F3A35]">Last governed calculation · {dateTime(calculatedAt)}</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">{snapshot.calculation_stale ? "Evidence changed since the last calculation. Recalculate before filing." : "Stored calculation matches the current governed evidence population."}</div>{freshnessReasons.length ? <div className="mt-1 text-[8px] leading-4 text-red-800">Changed: {freshnessReasons.join(" · ")}</div> : null}</> : <><div className="mt-1 text-[9px] font-semibold text-[#3F3A35]">No governed calculation has been saved yet.</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">The figures above are the live evidence preview. Use Calculate from evidence to persist the filing calculation after all blocking checks pass.</div></>}
             </div>
           </div>
+
+          {warnings.length ? <div className="mt-2 overflow-hidden rounded-xl border border-amber-800/15 bg-amber-50/40">
+            <div className="flex flex-col gap-2 border-b border-amber-800/10 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-amber-900">Review items · non-blocking</div><div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">These items need accountant attention but do not become accounting truth by being acknowledged. Trace the source evidence before filing.</div></div>
+              <button onClick={() => onStageChange?.("EVIDENCE")} className="h-8 shrink-0 rounded-lg border border-amber-900/15 bg-white px-3 text-[9px] font-semibold text-amber-950">Inspect review evidence</button>
+            </div>
+            <div className="divide-y divide-amber-900/10">
+              {warnings.map(item => {
+                const code = upper(item.code);
+                const count = Number(item.count || 0);
+                return <div key={code || item.label} className="grid gap-2 px-3 py-2.5 sm:grid-cols-[150px_1fr_auto] sm:items-start">
+                  <div><div className="text-[7px] font-semibold uppercase tracking-[0.08em] text-[#9A7045]">{warningControlLabel(code)}</div><div className="mt-0.5 text-[8px] text-[#928C84]">Warning · review only</div></div>
+                  <div><div className="text-[9px] font-semibold text-[#3F3A35]">{item.label || code.replaceAll("_", " ")}</div><div className="mt-0.5 text-[8px] leading-4 text-[#817B73]">{item.detail || "Inspect the governed source evidence before filing."}</div></div>
+                  <div className="text-left sm:text-right"><div className="text-[12px] font-semibold tabular-nums text-amber-950">{count}</div><div className="text-[7px] uppercase tracking-[0.08em] text-[#928C84]">item{count === 1 ? "" : "s"}</div></div>
+                </div>;
+              })}
+            </div>
+          </div> : null}
         </div>
 
         {needsFix ? <div className="flex items-start gap-2 border-t border-red-700/10 bg-red-50 px-4 py-3 text-[9px] leading-4 text-red-900"><AlertTriangle size={12} className="mt-0.5 shrink-0" /><div><div className="font-semibold">Do not calculate around a blocker.</div><div className="mt-0.5">Open Fix issues to correct the source accounting workflow. Ownership, client requests and AI advice cannot clear live accounting truth.</div></div></div> : null}

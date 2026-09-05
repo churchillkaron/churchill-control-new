@@ -1,0 +1,56 @@
+name: Avantiqo Released Knowledge Authenticity Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
+      - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
+      - ".github/workflows/avantiqo-released-knowledge-authenticity-audit.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js"
+      - "lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js"
+      - "scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs"
+      - ".github/workflows/avantiqo-released-knowledge-authenticity-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-released-knowledge-authenticity-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    name: Zero-cost released knowledge authenticity certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Syntax gate
+        run: |
+          node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeAuthenticityRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js
+          node --check lib/intelligence/runtime/AvantiqoReleasedKnowledgeLifecycleRuntime.js
+          node --check scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs
+
+      - name: Run released knowledge authenticity adversarial audit
+        run: node scripts/audit-avantiqo-released-knowledge-authenticity-local.mjs

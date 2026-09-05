@@ -36,13 +36,16 @@ test('Booking.com availability preserves canonical inventory, pricing and restri
   assert.match(adapter, /BOOKING_COM_ARI_MONTHLY_BATCH_LIMIT_EXCEEDED/);
 });
 
-test('Booking.com OTA parser is bounded, normalizes minor units and strips payment data', () => {
+test('Booking.com OTA parser is bounded, normalizes minor units exactly and strips payment data', () => {
   assert.match(otaParser, /MAX_XML_BYTES/);
   assert.match(otaParser, /MAX_XML_NODES/);
   assert.match(otaParser, /MAX_XML_DEPTH/);
   assert.match(otaParser, /BOOKING_COM_OTA_XML_DTD_FORBIDDEN/);
   assert.match(otaParser, /DecimalPlaces/);
-  assert.match(otaParser, /minorUnits \/ \(10 \*\* decimalPlaces\)/);
+  assert.match(otaParser, /Number\.isSafeInteger\(minorUnits\)/);
+  assert.match(otaParser, /BOOKING_COM_OTA_AMOUNT_UNSAFE_INTEGER/);
+  assert.match(otaParser, /amount\.toFixed\(decimalPlaces\) !== canonical/);
+  assert.match(otaParser, /BOOKING_COM_OTA_AMOUNT_PRECISION_LOSS/);
   assert.match(otaParser, /BOOKING_COM_OTA_AMOUNT_INVALID/);
   assert.match(otaParser, /payment_details_redacted: true/);
   assert.match(otaParser, /sensitive_payment_data_persisted: false/);

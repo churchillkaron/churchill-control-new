@@ -1,4 +1,4 @@
-name: Avantiqo Video Native 4K Optimization Once
+name: Prepare Safe Sequential Native-4K Investor Render Once
 
 on:
   push:
@@ -10,17 +10,14 @@ permissions:
   contents: write
 
 concurrency:
-  group: avantiqo-video-runtime-repair
+  group: avantiqo-investor-full-render-prepare
   cancel-in-progress: true
 
 jobs:
-  optimize:
-    if: github.event.head_commit.message == 'Lock native 4K only and deploy optimized runtime once'
+  prepare:
+    if: github.event.head_commit.message == 'Prepare safe sequential native-4K investor render once'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    env:
-      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
-      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -28,177 +25,63 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
 
-      - name: Remove rejected upscale lane and optimize true native 4K source
+      - name: Repair full 24-second runner without GPU
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          app = Path('services/avantiqo-video-engine/modal_app.py')
-          source = app.read_text()
+          path = Path('scripts/run-avantiqo-investor-visual-proof-24s.mjs')
+          source = path.read_text()
 
-          if 'LTX_MASTER_WIDTH = 3840' not in source or 'LTX_MASTER_HEIGHT = 2176' not in source:
-              raise SystemExit('AVANTIQO_VIDEO_NATIVE_4K_DIMENSIONS_NOT_LOCKED')
-          if 'LTX_NUM_INFERENCE_STEPS = 30' not in source:
-              raise SystemExit('AVANTIQO_VIDEO_NATIVE_4K_30_STEP_BASELINE_MISSING')
+          helper_marker = 'async function main() {'
+          helper = '''async function cancelGeneratedCall(client, functionCallId, reason) {\n  if (!functionCallId) return;\n  try {\n    const sameCall = await client.functionCalls.fromId(functionCallId);\n    await sameCall.cancel({ terminateContainers: true });\n    console.error(`AVANTIQO_INVESTOR_PROOF_FUNCTION_CALL_CANCELLED=${functionCallId}:reason=${reason}`);\n  } catch (error) {\n    console.error(`AVANTIQO_INVESTOR_PROOF_FUNCTION_CALL_CANCEL_FAILED=${functionCallId}:${text(error?.message)}`);\n  }\n}\n\nasync function generateOneShot(client, worker, item) {\n  let functionCallId = \"\";\n  const deadline = Date.now() + MAX_GENERATION_WAIT_SECONDS * 1000;\n  try {\n    const call = await worker.spawn([item.payload]);\n    functionCallId = text(call.functionCallId);\n    ensure(functionCallId, `FUNCTION_CALL_ID_REQUIRED:${item.index + 1}`);\n    console.log(`AVANTIQO_INVESTOR_PROOF_FUNCTION_CALL_${item.index + 1}=${functionCallId}`);\n    let polls = 0;\n    for (;;) {\n      polls += 1;\n      if (Date.now() >= deadline) {\n        throw new Error(`${CONTRACT}_GENERATION_DEADLINE_EXCEEDED:${item.index + 1}:${MAX_GENERATION_WAIT_SECONDS}s`);\n      }\n      const sameCall = await client.functionCalls.fromId(functionCallId);\n      try {\n        const result = await sameCall.get({ timeoutMs: 0 });\n        ensure(result?.success === true, `GENERATION_FAILED:${item.index + 1}`);\n        ensure(result?.gpu_generation_calls === 1, `GPU_CALL_COUNT_INVALID:${item.index + 1}`);\n        ensure(Number(result?.width) === WIDTH && Number(result?.height) === MODEL_HEIGHT, `MODEL_DIMENSIONS_INVALID:${item.index + 1}`);\n        return { ...item, functionCallId, polls, result };\n      } catch (error) {\n        if (error instanceof modal.FunctionTimeoutError && /Timeout exceeded:\\s*0ms/i.test(text(error?.message))) {\n          if (polls % 6 === 0) console.log(`AVANTIQO_INVESTOR_PROOF_PENDING_${item.index + 1}=${polls}`);\n          await sleep(10000);\n          continue;\n        }\n        throw error;\n      }\n    }\n  } catch (error) {\n    await cancelGeneratedCall(client, functionCallId, `shot-${item.index + 1}-failure`);\n    throw error;\n  }\n}\n\n'''
+          if 'async function generateOneShot(client, worker, item)' not in source:
+              if helper_marker not in source:
+                  raise SystemExit('AVANTIQO_INVESTOR_FULL_RUNNER_MAIN_MARKER_MISSING')
+              source = source.replace(helper_marker, helper + helper_marker, 1)
 
-          if 'LTX_MAX_BATCH_SIZE = 4' not in source:
-              source = source.replace(
-                  'LTX_NUM_INFERENCE_STEPS = 30\n',
-                  'LTX_NUM_INFERENCE_STEPS = 30\n'
-                  '# B200 native-4K optimization: batch the four guided passes together.\n'
-                  '# This changes execution efficiency only; resolution, model weights,\n'
-                  '# sampling step count and generated pixels remain native 3840x2176.\n'
-                  'LTX_MAX_BATCH_SIZE = 4\n',
-                  1,
-              )
-
-          old = '        "--max-batch-size", "1",\n'
-          new = '        "--max-batch-size", str(LTX_MAX_BATCH_SIZE),\n'
-          if old in source:
-              source = source.replace(old, new, 1)
-          elif new not in source:
-              raise SystemExit('AVANTIQO_VIDEO_NATIVE_4K_BATCH_TARGET_MISSING')
-
-          app.write_text(source)
-
-          smoke = Path('scripts/run-avantiqo-investor-single-shot-smoke.mjs')
-          js = smoke.read_text()
-          anchor = 'const INSTRUCTION = '
-          if anchor not in js:
-              raise SystemExit('AVANTIQO_VIDEO_SMOKE_INSTRUCTION_ANCHOR_MISSING')
-
-          globals_block = '''let ACTIVE_MODAL_CLIENT = null;\nlet ACTIVE_FUNCTION_CALL_ID = "";\nlet ACTIVE_FUNCTION_CALL = null;\nlet ACTIVE_CANCEL_STARTED = false;\n\nasync function cancelActiveFunctionCall(reason) {\n  if (!ACTIVE_MODAL_CLIENT || !ACTIVE_FUNCTION_CALL_ID || ACTIVE_CANCEL_STARTED) return;\n  ACTIVE_CANCEL_STARTED = true;\n  try {\n    const call = ACTIVE_FUNCTION_CALL || await ACTIVE_MODAL_CLIENT.functionCalls.fromId(ACTIVE_FUNCTION_CALL_ID);\n    await call.cancel({ terminateContainers: true });\n    console.error(`AVANTIQO_VIDEO_SMOKE_FUNCTION_CALL_CANCELLED=${ACTIVE_FUNCTION_CALL_ID}:reason=${reason}`);\n  } catch (error) {\n    console.error(`AVANTIQO_VIDEO_SMOKE_FUNCTION_CALL_CANCEL_FAILED=${ACTIVE_FUNCTION_CALL_ID}:${text(error?.message)}`);\n  } finally {\n    ACTIVE_FUNCTION_CALL = null;\n    ACTIVE_FUNCTION_CALL_ID = "";\n  }\n}\n\n'''
-          if 'async function cancelActiveFunctionCall(reason)' not in js:
-              function_anchor = 'function text(value) { return String(value ?? "").trim(); }\n'
-              if function_anchor not in js:
-                  raise SystemExit('AVANTIQO_VIDEO_SMOKE_TEXT_ANCHOR_MISSING')
-              js = js.replace(function_anchor, function_anchor + globals_block, 1)
-
-          client_old = '  const client = new modal.ModalClient({ tokenId, tokenSecret });\n'
-          client_new = client_old + '  ACTIVE_MODAL_CLIENT = client;\n'
-          if 'ACTIVE_MODAL_CLIENT = client;' not in js:
-              if client_old not in js:
-                  raise SystemExit('AVANTIQO_VIDEO_SMOKE_CLIENT_ANCHOR_MISSING')
-              js = js.replace(client_old, client_new, 1)
-
-          spawn_old = '''  const call = await worker.spawn([payload]);\n  const functionCallId = text(call.functionCallId);\n  ensure(functionCallId, "FUNCTION_CALL_ID_REQUIRED");\n  console.log(`AVANTIQO_VIDEO_SMOKE_FUNCTION_CALL_ID=${functionCallId}`);\n'''
-          spawn_new = '''  const call = await worker.spawn([payload]);\n  const functionCallId = text(call.functionCallId);\n  ensure(functionCallId, "FUNCTION_CALL_ID_REQUIRED");\n  ACTIVE_FUNCTION_CALL = call;\n  ACTIVE_FUNCTION_CALL_ID = functionCallId;\n  ACTIVE_CANCEL_STARTED = false;\n  console.log(`AVANTIQO_VIDEO_SMOKE_FUNCTION_CALL_ID=${functionCallId}`);\n'''
-          if 'ACTIVE_FUNCTION_CALL_ID = functionCallId;' not in js:
-              if spawn_old not in js:
-                  raise SystemExit('AVANTIQO_VIDEO_SMOKE_SPAWN_ANCHOR_MISSING')
-              js = js.replace(spawn_old, spawn_new, 1)
-
-          deadline_old = '    ensure(Date.now() < deadline, `GENERATION_DEADLINE_EXCEEDED:${MAX_WAIT_SECONDS}s`);\n'
-          deadline_new = '''    if (Date.now() >= deadline) {\n      await cancelActiveFunctionCall(`generation-deadline-${MAX_WAIT_SECONDS}s`);\n      throw new Error(`${CONTRACT}_GENERATION_DEADLINE_EXCEEDED:${MAX_WAIT_SECONDS}s`);\n    }\n'''
-          if 'generation-deadline-${MAX_WAIT_SECONDS}s' not in js:
-              if deadline_old not in js:
-                  raise SystemExit('AVANTIQO_VIDEO_SMOKE_DEADLINE_ANCHOR_MISSING')
-              js = js.replace(deadline_old, deadline_new, 1)
-
-          result_old = '''      result = await sameCall.get({ timeoutMs: 0 });\n      break;\n'''
-          result_new = '''      result = await sameCall.get({ timeoutMs: 0 });\n      ACTIVE_FUNCTION_CALL = null;\n      ACTIVE_FUNCTION_CALL_ID = "";\n      break;\n'''
-          if 'ACTIVE_FUNCTION_CALL_ID = "";\n      break;' not in js:
-              if result_old not in js:
-                  raise SystemExit('AVANTIQO_VIDEO_SMOKE_RESULT_ANCHOR_MISSING')
-              js = js.replace(result_old, result_new, 1)
-
-          catch_old = '''main().catch((error) => {\n  console.error(error?.stack || error?.message || String(error));\n  process.exitCode = 1;\n});\n'''
-          catch_new = '''main().catch(async (error) => {\n  await cancelActiveFunctionCall("runner-error");\n  console.error(error?.stack || error?.message || String(error));\n  process.exitCode = 1;\n});\n'''
-          if 'cancelActiveFunctionCall("runner-error")' not in js:
-              if catch_old not in js:
-                  raise SystemExit('AVANTIQO_VIDEO_SMOKE_CATCH_ANCHOR_MISSING')
-              js = js.replace(catch_old, catch_new, 1)
-
-          smoke.write_text(js)
+          start_marker = '  console.log(JSON.stringify({ event: "AVANTIQO_INVESTOR_VISUAL_PROOF_SPAWN"'
+          end_marker = '  const normalizedFiles = [];'
+          start = source.find(start_marker)
+          end = source.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('AVANTIQO_INVESTOR_FULL_RUNNER_GENERATION_BLOCK_MISSING')
+          replacement = '''  console.log(JSON.stringify({ event: "AVANTIQO_INVESTOR_VISUAL_PROOF_SEQUENTIAL_START", shot_count: prepared.length, total_duration_seconds: TARGET_DURATION, gpu_jobs: prepared.length, simultaneous_gpu_jobs: 1, automatic_paid_retry: false }));\n  const completed = [];\n  for (const item of prepared) {\n    console.log(`AVANTIQO_INVESTOR_PROOF_SHOT_START=${item.index + 1}:${item.shot.id}`);\n    const generated = await generateOneShot(client, worker, item);\n    completed.push(generated);\n    console.log(`AVANTIQO_INVESTOR_PROOF_SHOT_COMPLETE=${item.index + 1}:${item.shot.id}`);\n  }\n\n'''
+          source = source[:start] + replacement + source[end:]
+          path.write_text(source)
           PY
 
-          rm -f services/avantiqo-video-engine/modal_distilled_job.py
-          rm -f .github/workflows/avantiqo-video-distilled-modal-deploy-once.yml
-
-          python -m py_compile services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_native_job.py
-          node --check scripts/run-avantiqo-investor-single-shot-smoke.mjs
-
-          grep -F 'LTX_MASTER_WIDTH = 3840' services/avantiqo-video-engine/modal_app.py >/dev/null
-          grep -F 'LTX_MASTER_HEIGHT = 2176' services/avantiqo-video-engine/modal_app.py >/dev/null
-          grep -F 'LTX_NUM_INFERENCE_STEPS = 30' services/avantiqo-video-engine/modal_app.py >/dev/null
-          grep -F 'LTX_MAX_BATCH_SIZE = 4' services/avantiqo-video-engine/modal_app.py >/dev/null
-          grep -F '"--max-batch-size", str(LTX_MAX_BATCH_SIZE)' services/avantiqo-video-engine/modal_app.py >/dev/null
-          grep -F 'cancel({ terminateContainers: true })' scripts/run-avantiqo-investor-single-shot-smoke.mjs >/dev/null
-          grep -F 'pixel_upscale_used": False' services/avantiqo-video-engine/modal_app.py >/dev/null
-          grep -F 'learned_latent_upsampler_used": False' services/avantiqo-video-engine/modal_app.py >/dev/null
-          grep -F 'learned_spatial_upscaler_used": False' services/avantiqo-video-engine/modal_app.py >/dev/null
-          test ! -e services/avantiqo-video-engine/modal_distilled_job.py
-          echo 'AVANTIQO_VIDEO_TRUE_NATIVE_4K_SOURCE_GATE=PASS'
-          echo 'MODEL_GENERATION_RESOLUTION=3840x2176'
-          echo 'PIXEL_UPSCALE_USED=false'
-          echo 'LEARNED_SPATIAL_UPSCALE_USED=false'
-          echo 'INFERENCE_STEPS=30'
-          echo 'GUIDANCE_MAX_BATCH_SIZE=4'
+          node --check scripts/run-avantiqo-investor-visual-proof-24s.mjs
+          grep -F 'async function generateOneShot(client, worker, item)' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
+          grep -F 'cancel({ terminateContainers: true })' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
+          grep -F 'simultaneous_gpu_jobs: 1' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
+          grep -F 'const completed = [];' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null
+          if grep -F 'Promise.all(prepared.map' scripts/run-avantiqo-investor-visual-proof-24s.mjs >/dev/null; then
+            echo 'AVANTIQO_INVESTOR_PARALLEL_PAID_SPAWN_REMAINS' >&2
+            exit 1
+          fi
+          echo 'AVANTIQO_INVESTOR_FULL_RUNNER_SEQUENTIAL_GATE=PASS'
+          echo 'SIMULTANEOUS_B200_GENERATIONS=1'
+          echo 'AUTOMATIC_PAID_RETRY=false'
           echo 'GPU_INFERENCE_PERFORMED=false'
 
-      - name: Commit native 4K lock to main
+      - name: Commit safe runner to main
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'churchillkaron'
           git config user.email 'patric@pcsphuket.com'
-          git add services/avantiqo-video-engine/modal_app.py scripts/run-avantiqo-investor-single-shot-smoke.mjs
-          git add -u services/avantiqo-video-engine .github/workflows || true
+          git add scripts/run-avantiqo-investor-visual-proof-24s.mjs
           if git diff --cached --quiet; then
-            echo 'AVANTIQO_VIDEO_NATIVE_4K_SOURCE_ALREADY_LOCKED=true'
+            echo 'AVANTIQO_INVESTOR_FULL_RUNNER_ALREADY_SAFE=true'
           else
-            git commit -m 'Optimize true native 4K LTX runtime [skip ci]'
+            git commit -m 'Make investor 24s render sequential and cancellable [skip ci]'
             git push origin HEAD:main
           fi
-
-      - name: Install JS-compatible Modal CLI
-        run: |
-          set -euo pipefail
-          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
-          modal --version
-
-      - name: Deploy true native 4K runtime only
-        run: |
-          set -euo pipefail
-          test -n "${MODAL_TOKEN_ID:-}"
-          test -n "${MODAL_TOKEN_SECRET:-}"
-          cd services/avantiqo-video-engine
-          modal deploy modal_native_job.py | tee /tmp/native4k-deploy.log
-          grep -F 'generate_native_job' /tmp/native4k-deploy.log >/dev/null
-          grep -F 'generate_native_master' /tmp/native4k-deploy.log >/dev/null
-          if grep -F 'generate_distilled_job' /tmp/native4k-deploy.log >/dev/null; then
-            echo 'AVANTIQO_VIDEO_REJECTED_DISTILLED_LANE_DEPLOYED' >&2
-            exit 1
-          fi
-          echo 'AVANTIQO_VIDEO_NATIVE_4K_DEPLOY=PASS'
-          echo 'GPU_INFERENCE_PERFORMED=false'
           echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
-
-      - name: Confirm native 4K runtime idle without GPU
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import modal
-          app = 'avantiqo-video-owned'
-          for name in ('generate_native_job', 'generate_native_master'):
-              fn = modal.Function.from_name(app, name)
-              s = fn.get_current_stats()
-              backlog = int(getattr(s, 'backlog', 0) or 0)
-              running = int(getattr(s, 'num_running_inputs', 0) or 0)
-              print(name, {'backlog': backlog, 'num_running_inputs': running})
-              if backlog != 0 or running != 0:
-                  raise SystemExit(f'AVANTIQO_VIDEO_NATIVE_4K_NOT_IDLE:{name}:{backlog}:{running}')
-          print('AVANTIQO_VIDEO_NATIVE_4K_IDLE_GATE=PASS')
-          print('GPU_INFERENCE_PERFORMED=false')
-          print('PAID_VIDEO_GENERATION_SUBMITTED=false')
-          PY

@@ -1,0 +1,80 @@
+name: Avantiqo Investor First Minute Photoreal Keyframes Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avantiqo-investor-first-minute-keyframes-once.yml
+
+permissions:
+  contents: read
+
+env:
+  MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
+  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
+  OUT_DIR: local-audit-output/avantiqo-first-minute-keyframes
+  AVANTIQO_KEYFRAME_REPORT: local-audit-output/avantiqo-first-minute-keyframes/keyframe-report.json
+
+jobs:
+  keyframes:
+    if: github.event.head_commit.message == 'Run investor first-minute photoreal keyframe gate'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Modal tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODAL_TOKEN_ID:-}"
+          test -n "${MODAL_TOKEN_SECRET:-}"
+          python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          mkdir -p "$OUT_DIR"
+      - name: Validate keyframe gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-image-engine/modal_app.py
+          python -m py_compile services/avantiqo-image-engine/investor_first_minute_keyframes.py
+      - name: Deploy exact owned image surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-image-engine
+          modal deploy modal_app.py
+      - name: Generate nine photoreal keyframes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python services/avantiqo-image-engine/investor_first_minute_keyframes.py
+      - name: Retrieve keyframes
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="investor-first-minute-photoreal-keyframes/${GITHUB_SHA}"
+          for ID in 01-city-dawn 02-hotel-entry 03-hotel-housekeeping 04-field-service 05-construction 06-restaurant-kitchen 07-owner-decision 09-evening-experience 10-real-result; do
+            modal volume get avantiqo-image-models "$ROOT/${ID}.png" "$OUT_DIR/${ID}.png" --force
+            test -s "$OUT_DIR/${ID}.png"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avantiqo-investor-first-minute-photoreal-keyframes
+          path: local-audit-output/avantiqo-first-minute-keyframes
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Preserve release boundary
+        if: always()
+        shell: bash
+        run: |
+          echo 'VIDEO_ANIMATION_AUTHORIZED=false'
+          echo 'PRODUCTION_VERCEL_DEPLOY_TRIGGERED=false'
+          echo 'IMAGE_PRICING_ACTIVATED=false'
+          echo 'IMAGE_PRODUCTION_ROUTING_CHANGED=false'
+          echo 'EXTERNAL_PROVIDER_USED=false'

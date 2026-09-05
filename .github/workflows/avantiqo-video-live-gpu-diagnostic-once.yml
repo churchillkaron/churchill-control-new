@@ -1,4 +1,4 @@
-name: Avantiqo Video Live GPU Diagnostic Once
+name: Avantiqo Video Distilled Runtime Deploy Once
 
 on:
   push:
@@ -10,57 +10,76 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
-    if: github.event.head_commit.message == 'Inspect Avantiqo Video live GPU execution v2 once'
+  deploy:
+    if: github.event.head_commit.message == 'Deploy cost-bounded distilled Avantiqo Video runtime v2 once'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 30
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || secrets.AVANTIQO_MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || secrets.AVANTIQO_MODAL_TOKEN_SECRET }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Validate distilled cost boundary
+        run: |
+          set -euo pipefail
+          python -m py_compile services/avantiqo-video-engine/modal_app.py services/avantiqo-video-engine/modal_distilled_job.py
+          grep -F 'DISTILLED_WIDTH = 1920' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          grep -F 'DISTILLED_HEIGHT = 1088' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          grep -F 'DISTILLED_HARD_TIMEOUT_SECONDS = 8 * 60' services/avantiqo-video-engine/modal_distilled_job.py >/dev/null
+          grep -A18 -B10 'def generate_distilled_master' services/avantiqo-video-engine/modal_distilled_job.py | grep -F 'max_containers=1' >/dev/null
+          echo 'AVANTIQO_VIDEO_DISTILLED_COST_BOUNDARY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
 
       - name: Install Modal CLI
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-input 'modal==1.5.5'
+          modal --version
 
-      - name: Inspect existing Video containers and GPU utilization only
+      - name: Deploy distilled Modal lane
         run: |
           set -euo pipefail
           test -n "${MODAL_TOKEN_ID:-}"
           test -n "${MODAL_TOKEN_SECRET:-}"
-          modal container list --json | tee /tmp/modal-containers.json
-          python - <<'PY' >/tmp/container-ids.txt
-          import json,re
-          data=json.load(open('/tmp/modal-containers.json'))
-          text=json.dumps(data)
-          ids=[]
-          for x in re.findall(r'ta-[A-Za-z0-9_-]+', text):
-              if x not in ids:
-                  ids.append(x)
-          print('\n'.join(ids))
-          PY
-          echo '=== EXISTING CONTAINER GPU SNAPSHOTS ==='
-          while IFS= read -r cid; do
-            [ -n "$cid" ] || continue
-            echo "CONTAINER=$cid"
-            timeout 15s modal container exec --no-pty "$cid" -- sh -lc "nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,power.draw --format=csv,noheader,nounits || true" || true
-          done </tmp/container-ids.txt
-          echo '=== CURRENT DEPLOYED FUNCTION STATS ==='
+          cd services/avantiqo-video-engine
+          modal deploy modal_distilled_job.py | tee /tmp/distilled-deploy.log
+          grep -F 'generate_distilled_job' /tmp/distilled-deploy.log >/dev/null
+          grep -F 'generate_distilled_master' /tmp/distilled-deploy.log >/dev/null
+          echo 'AVANTIQO_VIDEO_DISTILLED_DEPLOY=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+
+      - name: Seed or verify distilled weights without GPU
+        run: |
+          set -euo pipefail
+          cd services/avantiqo-video-engine
+          modal run modal_distilled_job.py::seed_ltx_distilled_cache | tee /tmp/distilled-cache.log
+          echo 'AVANTIQO_VIDEO_DISTILLED_CACHE_GATE=PASS'
+          echo 'GPU_INFERENCE_PERFORMED=false'
+          echo 'PAID_VIDEO_GENERATION_SUBMITTED=false'
+          echo 'AUTOMATIC_PAID_RETRY=false'
+
+      - name: Confirm idle deployed lane without GPU
+        run: |
+          set -euo pipefail
           python - <<'PY'
           import modal
           app='avantiqo-video-owned'
-          for name in ('generate_native_job','generate_native_master','generate_native_controlled_master'):
+          for name in ('generate_distilled_job','generate_distilled_master'):
               fn=modal.Function.from_name(app,name)
               s=fn.get_current_stats()
-              print(name, {
-                  'backlog': int(getattr(s,'backlog',0) or 0),
-                  'num_total_runners': int(getattr(s,'num_total_runners',0) or 0),
-                  'num_running_inputs': int(getattr(s,'num_running_inputs',0) or 0),
-              })
+              backlog=int(getattr(s,'backlog',0) or 0)
+              running=int(getattr(s,'num_running_inputs',0) or 0)
+              print(name, {'backlog':backlog,'num_running_inputs':running})
+              if backlog != 0 or running != 0:
+                  raise SystemExit(f'AVANTIQO_VIDEO_DISTILLED_NOT_IDLE:{name}:{backlog}:{running}')
+          print('AVANTIQO_VIDEO_DISTILLED_IDLE_GATE=PASS')
+          print('GPU_INFERENCE_PERFORMED=false')
           PY
-          echo 'AVANTIQO_VIDEO_LIVE_DIAGNOSTIC_V2=PASS'
-          echo 'PAID_GENERATION_CALLS_STARTED_BY_DIAGNOSTIC=0'

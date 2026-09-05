@@ -41,10 +41,24 @@ function stageCopy(stage) {
   return copy[key] || titleCase(key);
 }
 
+function phaseTone(status = "") {
+  const value = String(status).toUpperCase();
+  if (value === "COMPLETE") return "border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-100/75";
+  if (value === "NEEDS_ATTENTION") return "border-red-300/20 bg-red-300/[0.06] text-red-100/75";
+  if (value === "WAITING_APPROVAL") return "border-amber-300/20 bg-amber-300/[0.06] text-amber-100/75";
+  if (["READY", "IN_PROGRESS"].includes(value)) return "border-[#d5b56d]/25 bg-[#d5b56d]/[0.07] text-[#ead39a]";
+  return "border-white/10 bg-white/[0.04] text-white/45";
+}
+
 export default function Header({ runtime, editor }) {
   const mission = runtime.missionRuntime?.current || null;
   const project = runtime.projectRuntime?.current || null;
   const stage = runtime.stateRuntime?.current?.stage || "MISSION_CREATED";
+  const orchestration = runtime.orchestrationRuntime?.current || null;
+  const currentPhase = orchestration?.phases?.find(
+    (phase) => phase.id === orchestration.current_phase,
+  ) || null;
+  const nextAction = orchestration?.next_action || null;
   const missionStatus = mission?.status || "draft";
   const objective =
     mission?.business_goal ||
@@ -85,16 +99,27 @@ export default function Header({ runtime, editor }) {
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-white/45">
                 {missionStatus}
               </span>
+              {currentPhase ? (
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${phaseTone(currentPhase.status)}`}>
+                  {currentPhase.label} · {titleCase(currentPhase.status)}
+                </span>
+              ) : null}
             </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/35">
               <span className="flex items-center gap-2">
                 <Activity className="h-3.5 w-3.5" />
-                {stageCopy(stage)}
+                {currentPhase?.detail || stageCopy(stage)}
               </span>
               <span>{project?.name || "No active production yet"}</span>
-              <span>{runtime.assetRuntime?.items?.length || 0} assets</span>
-              <span>{runtime.taskRuntime?.items?.length || 0} tasks</span>
+              {orchestration ? (
+                <span>{orchestration.progress?.percent || 0}% film flow complete</span>
+              ) : (
+                <>
+                  <span>{runtime.assetRuntime?.items?.length || 0} assets</span>
+                  <span>{runtime.taskRuntime?.items?.length || 0} tasks</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -118,6 +143,18 @@ export default function Header({ runtime, editor }) {
               Evidence
             </button>
 
+            {nextAction?.workspace && project ? (
+              <button
+                type="button"
+                onClick={() => editor.setActiveWorkspace(nextAction.workspace)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#d5b56d]/35 bg-[#d5b56d]/12 px-4 text-xs font-semibold text-[#ead39a] transition hover:bg-[#d5b56d]/20"
+                title={nextAction.reason || undefined}
+              >
+                {nextAction.label || "Continue film"}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+
             {canStart ? (
               <button
                 type="button"
@@ -132,11 +169,10 @@ export default function Header({ runtime, editor }) {
             <button
               type="button"
               onClick={() => editor.openMissionComposer?.()}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#d5b56d]/35 bg-[#d5b56d]/12 px-4 text-xs font-semibold text-[#ead39a] transition hover:bg-[#d5b56d]/20"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 text-xs font-medium text-white/55 transition hover:bg-white/[0.07] hover:text-white"
             >
               <Sparkles className="h-3.5 w-3.5" />
               New mission
-              <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>

@@ -139,6 +139,53 @@ function buildEditorialMaster(normalizedFiles, concatFile, joinedFile, finalFile
   });
 }
 
+async function cancelGeneratedCall(client, functionCallId, reason) {
+  if (!functionCallId) return;
+  try {
+    const sameCall = await client.functionCalls.fromId(functionCallId);
+    await sameCall.cancel({ terminateContainers: true });
+    console.error(`AVANTIQO_INVESTOR_PROOF_FUNCTION_CALL_CANCELLED=${functionCallId}:reason=${reason}`);
+  } catch (error) {
+    console.error(`AVANTIQO_INVESTOR_PROOF_FUNCTION_CALL_CANCEL_FAILED=${functionCallId}:${text(error?.message)}`);
+  }
+}
+
+async function generateOneShot(client, worker, item) {
+  let functionCallId = "";
+  const deadline = Date.now() + MAX_GENERATION_WAIT_SECONDS * 1000;
+  try {
+    const call = await worker.spawn([item.payload]);
+    functionCallId = text(call.functionCallId);
+    ensure(functionCallId, `FUNCTION_CALL_ID_REQUIRED:${item.index + 1}`);
+    console.log(`AVANTIQO_INVESTOR_PROOF_FUNCTION_CALL_${item.index + 1}=${functionCallId}`);
+    let polls = 0;
+    for (;;) {
+      polls += 1;
+      if (Date.now() >= deadline) {
+        throw new Error(`${CONTRACT}_GENERATION_DEADLINE_EXCEEDED:${item.index + 1}:${MAX_GENERATION_WAIT_SECONDS}s`);
+      }
+      const sameCall = await client.functionCalls.fromId(functionCallId);
+      try {
+        const result = await sameCall.get({ timeoutMs: 0 });
+        ensure(result?.success === true, `GENERATION_FAILED:${item.index + 1}`);
+        ensure(result?.gpu_generation_calls === 1, `GPU_CALL_COUNT_INVALID:${item.index + 1}`);
+        ensure(Number(result?.width) === WIDTH && Number(result?.height) === MODEL_HEIGHT, `MODEL_DIMENSIONS_INVALID:${item.index + 1}`);
+        return { ...item, functionCallId, polls, result };
+      } catch (error) {
+        if (error instanceof modal.FunctionTimeoutError && /Timeout exceeded:\s*0ms/i.test(text(error?.message))) {
+          if (polls % 6 === 0) console.log(`AVANTIQO_INVESTOR_PROOF_PENDING_${item.index + 1}=${polls}`);
+          await sleep(10000);
+          continue;
+        }
+        throw error;
+      }
+    }
+  } catch (error) {
+    await cancelGeneratedCall(client, functionCallId, `shot-${item.index + 1}-failure`);
+    throw error;
+  }
+}
+
 async function main() {
   ensure(approved(process.env.AVANTIQO_INVESTOR_PROOF_REAL_INFERENCE_APPROVED), "REAL_INFERENCE_APPROVAL_REQUIRED");
   const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
@@ -208,38 +255,14 @@ async function main() {
     prepared.push({ index, shot, shotId, sourcePath, referencePath, outputPath, payload });
   }
 
-  console.log(JSON.stringify({ event: "AVANTIQO_INVESTOR_VISUAL_PROOF_SPAWN", shot_count: prepared.length, total_duration_seconds: TARGET_DURATION, gpu_jobs: prepared.length, automatic_paid_retry: false }));
-  const calls = await Promise.all(prepared.map(async (item) => {
-    const call = await worker.spawn([item.payload]);
-    const functionCallId = text(call.functionCallId);
-    ensure(functionCallId, `FUNCTION_CALL_ID_REQUIRED:${item.index + 1}`);
-    console.log(`AVANTIQO_INVESTOR_PROOF_FUNCTION_CALL_${item.index + 1}=${functionCallId}`);
-    return { ...item, functionCallId };
-  }));
-
-  const generationDeadlineMs = Date.now() + MAX_GENERATION_WAIT_SECONDS * 1000;
-  const completed = await Promise.all(calls.map(async (item) => {
-    let polls = 0;
-    for (;;) {
-      polls += 1;
-      ensure(Date.now() < generationDeadlineMs, `GENERATION_DEADLINE_EXCEEDED:${item.index + 1}:${MAX_GENERATION_WAIT_SECONDS}s`);
-      const sameCall = await client.functionCalls.fromId(item.functionCallId);
-      try {
-        const result = await sameCall.get({ timeoutMs: 0 });
-        ensure(result?.success === true, `GENERATION_FAILED:${item.index + 1}`);
-        ensure(result?.gpu_generation_calls === 1, `GPU_CALL_COUNT_INVALID:${item.index + 1}`);
-        ensure(Number(result?.width) === WIDTH && Number(result?.height) === MODEL_HEIGHT, `MODEL_DIMENSIONS_INVALID:${item.index + 1}`);
-        return { ...item, polls, result };
-      } catch (error) {
-        if (error instanceof modal.FunctionTimeoutError && /Timeout exceeded:\s*0ms/i.test(text(error?.message))) {
-          if (polls % 6 === 0) console.log(`AVANTIQO_INVESTOR_PROOF_PENDING_${item.index + 1}=${polls}`);
-          await sleep(10000);
-          continue;
-        }
-        throw error;
-      }
-    }
-  }));
+  console.log(JSON.stringify({ event: "AVANTIQO_INVESTOR_VISUAL_PROOF_SEQUENTIAL_START", shot_count: prepared.length, total_duration_seconds: TARGET_DURATION, gpu_jobs: prepared.length, simultaneous_gpu_jobs: 1, automatic_paid_retry: false }));
+  const completed = [];
+  for (const item of prepared) {
+    console.log(`AVANTIQO_INVESTOR_PROOF_SHOT_START=${item.index + 1}:${item.shot.id}`);
+    const generated = await generateOneShot(client, worker, item);
+    completed.push(generated);
+    console.log(`AVANTIQO_INVESTOR_PROOF_SHOT_COMPLETE=${item.index + 1}:${item.shot.id}`);
+  }
 
   const normalizedFiles = [];
   const shotReports = [];

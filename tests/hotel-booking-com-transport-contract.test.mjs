@@ -12,6 +12,38 @@ const rateRoute = await readFile(new URL('../app/api/hotel/rates/route.js', impo
 const dispatchRoute = await readFile(new URL('../app/api/hotel/channels/distribution/route.js', import.meta.url), 'utf8');
 const ingestRoute = await readFile(new URL('../app/api/hotel/channels/reservations/route.js', import.meta.url), 'utf8');
 
+const executableOtaParser = otaParser.replace(
+  "import { hotelChannelEvidenceFingerprint } from '@/lib/hotel/channels/HotelChannelEvidenceRuntime';",
+  "const hotelChannelEvidenceFingerprint = (value) => Buffer.from(JSON.stringify(value)).toString('hex').padEnd(64, '0').slice(0, 64);",
+);
+const otaParserModule = await import(`data:text/javascript;base64,${Buffer.from(executableOtaParser).toString('base64')}`);
+
+function bookingFixture(amount = '13350', decimalPlaces = '2') {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<OTA_HotelResNotifRQ>
+  <HotelReservations>
+    <HotelReservation>
+      <RoomStays>
+        <RoomStay IndexNumber="1">
+          <RoomTypes><RoomType RoomTypeCode="DLX"/></RoomTypes>
+          <RoomRates><RoomRate RatePlanCode="BAR"/></RoomRates>
+          <GuestCounts><GuestCount AgeQualifyingCode="10" Count="2"/></GuestCounts>
+          <TimeSpan Start="2026-09-10" End="2026-09-12"/>
+          <Total AmountAfterTax="${amount}" DecimalPlaces="${decimalPlaces}" CurrencyCode="THB"/>
+        </RoomStay>
+      </RoomStays>
+      <ResGlobalInfo>
+        <Total AmountAfterTax="${amount}" DecimalPlaces="${decimalPlaces}" CurrencyCode="THB"/>
+        <HotelReservationIDs>
+          <HotelReservationID ResID_Value="123456789" ResID_Type="14" ResID_Date="2026-09-05T06:00:00"/>
+        </HotelReservationIDs>
+      </ResGlobalInfo>
+      <BasicPropertyInfo HotelCode="987654"/>
+    </HotelReservation>
+  </HotelReservations>
+</OTA_HotelResNotifRQ>`;
+}
+
 test('Booking.com uses current token authentication for B.XML and OTA reservations', () => {
   assert.match(adapter, new RegExp(HOTEL_BOOKING_COM_CONTRACT));
   assert.match(adapter, /connectivity-authentication\.booking\.com\/token-based-authentication\/exchange/);
@@ -50,6 +82,17 @@ test('Booking.com OTA parser is bounded, normalizes minor units exactly and stri
   assert.match(otaParser, /payment_details_redacted: true/);
   assert.match(otaParser, /sensitive_payment_data_persisted: false/);
   assert.doesNotMatch(otaParser, /CardNumber\s*:/);
+
+  const [reservation] = otaParserModule.parseBookingComOtaReservations(bookingFixture(), 'NEW');
+  assert.equal(reservation.total_amount, 133.5);
+  assert.equal(reservation.rooms[0].amount, 133.5);
+  assert.equal(reservation.currency_code, 'THB');
+  assert.equal(reservation.rooms[0].currency_code, 'THB');
+
+  assert.throws(
+    () => otaParserModule.parseBookingComOtaReservations(bookingFixture('9007199254740992', '2'), 'NEW'),
+    /BOOKING_COM_OTA_AMOUNT_UNSAFE_INTEGER/,
+  );
 });
 
 test('Booking.com inbound processing persists and reconciles before acknowledgement', () => {

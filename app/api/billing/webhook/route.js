@@ -38,10 +38,9 @@ async function reconcileHotelRefund(event, refund) {
   if (!transactionId) throw new Error("Hotel refund webhook is missing transaction metadata");
 
   if (refund.status === "succeeded") {
-    const { data, error } = await supabaseAdmin.rpc("hotel_finalize_gateway_transaction", {
+    const { data, error } = await supabaseAdmin.rpc("hotel_finalize_gateway_refund_with_finance", {
       p_transaction_id: transactionId,
       p_provider_event_id: event.id,
-      p_provider_payment_id: null,
       p_provider_refund_id: refund.id,
     });
     if (error) throw error;

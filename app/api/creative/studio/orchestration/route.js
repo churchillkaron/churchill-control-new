@@ -5,8 +5,8 @@ import {
   requireOrganizationAccess,
 } from "@/lib/platform/security/requireOrganizationAccess";
 import {
-  CreativeVideoStudioOrchestrationRuntime,
-} from "@/lib/creative/studio/runtime/CreativeVideoStudioOrchestrationRuntime";
+  CreativeVideoStudioReviewOrchestrationRuntime,
+} from "@/lib/creative/studio/runtime/CreativeVideoStudioReviewOrchestrationRuntime";
 
 export async function POST(request) {
   try {
@@ -33,7 +33,7 @@ export async function POST(request) {
       return Response.json(access, { status: access.status });
     }
 
-    const orchestration = await CreativeVideoStudioOrchestrationRuntime.inspect({
+    const orchestration = await CreativeVideoStudioReviewOrchestrationRuntime.inspect({
       organization_id: organizationId,
       creative_project_id: creativeProjectId,
     });

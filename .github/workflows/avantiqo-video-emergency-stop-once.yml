@@ -44,3 +44,4 @@ jobs:
           echo 'CONTAINERS_AFTER:'
           modal container list --json || true
           echo 'AVANTIQO_VIDEO_EMERGENCY_SPEND_STOP=PASS'
+          echo 'STOP_REASON=single_5s_4k_smoke_exceeded_cost_latency_budget'

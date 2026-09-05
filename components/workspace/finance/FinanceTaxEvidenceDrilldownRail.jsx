@@ -143,6 +143,33 @@ function EvidenceRecord({ issue, onOpenCalendar }) {
   </div>;
 }
 
+function EvidenceControlSelector({ dependencies, selectedCode, onSelect }) {
+  const blocking = dependencies.filter(item => item.blocking === true);
+  const reviewOnly = dependencies.filter(item => item.blocking !== true);
+  if (!dependencies.length) return null;
+
+  return <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
+    <div className="min-w-0 bg-[#FAF9F7] p-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-red-800">Blocking · {blocking.length}</div>
+        <div className="text-[7px] text-[#918B83]">Must clear before filing</div>
+      </div>
+      <div className="mt-1.5 flex gap-1.5 overflow-x-auto">
+        {blocking.length ? blocking.map((item, index) => <button key={item.code} type="button" onClick={() => onSelect(item.code)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[8px] font-semibold ${item.code === selectedCode ? "border-red-800/20 bg-red-50 text-red-800" : "border-black/[0.07] bg-white text-[#5F5952]"}`}>{index === 0 ? "Next required · " : ""}{item.title} · {item.evidence_count || 0}</button>) : <span className="rounded-lg border border-emerald-700/12 bg-emerald-50 px-2.5 py-1.5 text-[8px] font-semibold text-emerald-800">No live blockers</span>}
+      </div>
+    </div>
+    <div className="min-w-0 bg-white p-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-amber-900">Review only · {reviewOnly.length}</div>
+        <div className="text-[7px] text-[#918B83]">Does not block filing</div>
+      </div>
+      <div className="mt-1.5 flex gap-1.5 overflow-x-auto">
+        {reviewOnly.length ? reviewOnly.map(item => <button key={item.code} type="button" onClick={() => onSelect(item.code)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[8px] font-semibold ${item.code === selectedCode ? "border-[#A37849]/25 bg-[#FFF9F0] text-[#76583A]" : "border-black/[0.07] bg-white text-[#716B63]"}`}>{item.title} · {item.evidence_count || 0}</button>) : <span className="px-1 py-1.5 text-[8px] text-[#918B83]">No review-only controls</span>}
+      </div>
+    </div>
+  </div>;
+}
+
 export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entityId, selectedVatReturnId, focusDependencyCode = null, onStageChange = null }) {
   const [guidanceState, setGuidanceState] = useState({ loading: false, error: "", guidance: null });
   const [selectedCode, setSelectedCode] = useState(null);
@@ -165,7 +192,7 @@ export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entity
       setSelectedCode(current => {
         if (requestedFocus && dependencies.some(item => item.code === requestedFocus)) return requestedFocus;
         if (dependencies.some(item => item.code === current)) return current;
-        return dependencies[0]?.code || null;
+        return dependencies.find(item => item.blocking === true)?.code || dependencies[0]?.code || null;
       });
     } catch (error) {
       setGuidanceState({ loading: false, error: error?.message || "Tax evidence dependencies could not be loaded", guidance: null });
@@ -236,11 +263,11 @@ export default function FinanceTaxEvidenceDrilldownRail({ organizationId, entity
         <div className="bg-white p-3"><div className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#9A7045]">3 · Exact source</div><div className="mt-1 text-[10px] font-semibold">Open the governing evidence</div><div className="mt-1 text-[8px] leading-4 text-[#817B73]">Open the exact accounting record or return to the governed filing calendar without changing Business Context.</div></div>
       </div>
 
-      {dependencies.length ? <div className="flex gap-1.5 overflow-x-auto border-b border-black/[0.07] bg-[#FAF9F7] p-2.5">{dependencies.map((item, index) => <button key={item.code} type="button" onClick={() => setSelectedCode(item.code)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[8px] font-semibold ${item.code === selectedCode ? "border-[#A37849]/25 bg-[#FFF9F0] text-[#76583A]" : "border-black/[0.07] bg-white text-[#716B63]"}`}>{index === 0 ? "Next · " : ""}{item.title} · {item.evidence_count || 0}</button>)}</div> : null}
+      <EvidenceControlSelector dependencies={dependencies} selectedCode={selectedCode} onSelect={setSelectedCode}/>
 
       {selected ? <div className="grid gap-px border-b border-black/[0.07] bg-black/[0.05] lg:grid-cols-3">
-        <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">Selected VAT control</div><div className="mt-1 text-[10px] font-semibold">{selected.title}</div><div className="mt-0.5 text-[8px] text-[#918B83]">{selected.code}</div></div>
-        <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">Next safe action</div><div className="mt-1 text-[9px] leading-4 text-[#4E4943]">{selected.next_action}</div></div>
+        <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">Selected VAT control</div><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className="text-[10px] font-semibold">{selected.title}</span><span className={`rounded-md border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.06em] ${selected.blocking ? "border-red-700/15 bg-red-50 text-red-800" : "border-amber-700/15 bg-amber-50 text-amber-900"}`}>{selected.blocking ? "Blocking" : "Review only"}</span></div><div className="mt-0.5 text-[8px] text-[#918B83]">{selected.code}</div></div>
+        <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">{selected.blocking ? "Next required action" : "Review action"}</div><div className="mt-1 text-[9px] leading-4 text-[#4E4943]">{selected.next_action}</div></div>
         <div className="bg-[#FAF9F7] p-3"><div className="text-[8px] uppercase tracking-[0.08em] text-[#968F87]">Resolution proof</div><div className="mt-1 text-[9px] leading-4 text-[#4E4943]">{selected.resolution_rule}</div></div>
       </div> : null}
 

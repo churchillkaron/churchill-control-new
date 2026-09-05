@@ -120,6 +120,22 @@ test("Evidence deadline handoff returns to the selected filing calendar rather t
   assert.doesNotMatch(route, /calendar_evidence.*source_record/);
 });
 
+test("Evidence controls separate filing blockers from review-only work without weakening focused warning handoffs", () => {
+  assert.match(rail, /function EvidenceControlSelector/);
+  assert.match(rail, /dependencies\.filter\(item => item\.blocking === true\)/);
+  assert.match(rail, /dependencies\.filter\(item => item\.blocking !== true\)/);
+  assert.match(rail, /Blocking · \{blocking\.length\}/);
+  assert.match(rail, /Review only · \{reviewOnly\.length\}/);
+  assert.match(rail, /Must clear before filing/);
+  assert.match(rail, /Does not block filing/);
+  assert.match(rail, /Next required · /);
+  assert.match(rail, /dependencies\.find\(item => item\.blocking === true\)\?\.code \|\| dependencies\[0\]\?\.code \|\| null/);
+  assert.match(rail, /if \(requestedFocus && dependencies\.some\(item => item\.code === requestedFocus\)\) return requestedFocus/);
+  assert.match(rail, /selected\.blocking \? "Blocking" : "Review only"/);
+  assert.match(rail, /selected\.blocking \? "Next required action" : "Review action"/);
+  assert.doesNotMatch(rail, /Mark reviewed|Resolve warning|Dismiss warning/);
+});
+
 test("Evidence drilldown is organization-scoped, read-only and cannot mutate Business Context", () => {
   assert.match(route, /requireOrganizationAccess/);
   assert.match(route, /requireFinanceWorkspacePermission\(\{ capabilityId: "vat_returns", operation: "read", access \}\)/);

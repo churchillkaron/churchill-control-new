@@ -18,6 +18,10 @@ const releaseRuntime = fs.readFileSync(
   "lib/intelligence/runtime/AvantiqoFinalKnowledgeReleaseRuntime.js",
   "utf8",
 );
+const hybridRuntime = fs.readFileSync(
+  "lib/intelligence/runtime/AvantiqoHybridKnowledgeRetrievalRuntime.js",
+  "utf8",
+);
 const migration = fs.readFileSync(
   "supabase/migrations/20260905065000_atomic_final_knowledge_release.sql",
   "utf8",
@@ -91,6 +95,9 @@ assert.match(migration, /AVANTIQO_FINAL_KNOWLEDGE_RELEASE_ATOMIC_PROVISIONAL_FIN
 assert.match(migration, /insert into public\.intelligence_memories[\s\S]*v_consumption_memory_key/);
 assert.match(migration, /insert into public\.intelligence_memories[\s\S]*v_release_memory_key/);
 assert.match(migration, /'transaction_atomic', true/);
+assert.match(migration, /nullif\(v_receipt_metadata->>'committed_at', ''\) is null/);
+assert.match(migration, /released_knowledge_binding_digest', ''\) !~ '\^\[0-9a-f\]\{64\}\$'/);
+assert.doesNotMatch(migration, /length\(coalesce\(v_receipt_metadata->>'released_knowledge_binding_digest'/);
 
 assert.match(atomicRuntime, /candidate_authenticity_mac/);
 assert.match(atomicRuntime, /provisional_claim_digest/);
@@ -103,6 +110,18 @@ assert.match(migration, /final_release_authorization_one_use_consumed/);
 assert.match(migration, /platform_learning_knowledge_release_receipts/);
 assert.match(migration, /AVANTIQO_FINAL_KNOWLEDGE_RELEASE_RECEIPT_ATOMIC_BINDING_V1/);
 assert.match(migration, /trg_avantiqo_final_knowledge_release_receipt_immutable/);
+
+assert.match(hybridRuntime, /createAvantiqoFinalKnowledgeReleaseReceiptIdentity/);
+assert.match(hybridRuntime, /const RECEIPT_LOOKUP_BATCH_SIZE = 100/);
+assert.match(hybridRuntime, /function receiptMemoryKeysForReleaseRows/);
+assert.match(hybridRuntime, /async function loadExactReleaseReceipts/);
+assert.match(hybridRuntime, /\.in\("memory_key", batch\)/);
+assert.match(hybridRuntime, /receipt_history_global_limit_dependency_removed: true/);
+assert.match(hybridRuntime, /receipt_lookup_scales_with_candidate_releases_not_receipt_history: true/);
+assert.doesNotMatch(
+  hybridRuntime,
+  /memory_scope", AVANTIQO_FINAL_KNOWLEDGE_RELEASE_RECEIPT_SCOPE\)[\s\S]{0,220}\.limit\(MAX_CANDIDATES\)/,
+);
 
 if (process.env.CI === "true") {
   await import("./certify-avantiqo-final-knowledge-release-postgres-local.mjs");
